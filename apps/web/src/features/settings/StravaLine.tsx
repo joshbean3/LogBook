@@ -4,7 +4,7 @@ import { api } from '@/api/client';
 import { keys } from '@/api/queries';
 import { useToast } from '@/ui/Toast';
 
-/** "Strava synced 4 min ago · Refresh": one quiet line under the header. */
+/** "Synced 4 min ago · Refresh": one quiet line under the header for the linked account. No vendor name (brand §8). */
 export const StravaLine = ({ strava }: { strava: StravaStatus | null }) => {
   const qc = useQueryClient();
   const toast = useToast();
@@ -15,12 +15,12 @@ export const StravaLine = ({ strava }: { strava: StravaStatus | null }) => {
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
       await qc.invalidateQueries({ queryKey: keys.activities });
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Strava sync failed'),
+    onError: (e) => toast(e instanceof Error ? e.message : 'Sync didn’t finish. Try again.'),
   });
   if (!strava || !strava.connected) return null;
   const at = strava.lastSyncAt ? Date.now() - new Date(strava.lastSyncAt).getTime() : null;
   const m = at == null ? null : Math.round(at / 60e3);
-  const text = sync.isPending ? 'Checking Strava…' : m == null ? 'Strava connected' : `Strava synced ${m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`}`;
+  const text = sync.isPending ? 'Checking…' : m == null ? 'Connected' : `Synced ${m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`}`;
   return (
     <div className="row t-cap muted">
       <span className={`dot ${sync.isPending ? 'on' : ''}`} />

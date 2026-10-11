@@ -8,19 +8,21 @@
   background: var(--surface);
   border: var(--card-border);
   border-radius: var(--r-lg);
-  padding: 18px 18px 12px;
+  padding: 18px 18px 16px;
   min-height: 220px;
   margin-top: 16px;
   display: grid;
   align-content: start;
   color: var(--ink);
 }
+/* the stage light sits low and small: it lights the hairline and the 16px of padding under it, never the words.
+   The glow box is a fixed 220px anchored at the bottom, so a long quote that makes the card taller never grows the light into the chips. */
 .jq-glow {
   position: absolute;
-  inset: 0;
+  inset: auto 0 0;
+  height: 220px;
   z-index: -1;
-  background: var(--halo);
-  opacity: 0.85;
+  background: radial-gradient(70% 45% at 50% 118%, rgba(47, 59, 255, 0.9), rgba(47, 59, 255, 0) 70%);
   pointer-events: none;
 }
 .jq-top {
@@ -93,15 +95,15 @@
   line-height: 20px;
   color: var(--ink-3);
 }
-/* actions under the hero: one-verb chips, the star at the right */
+/* actions under the quote: one-verb chips, the star at the right; the row sits above the hairline, out of the glow */
 .jq-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .jq-actions .icon-btn {
   margin-left: auto;
@@ -119,7 +121,7 @@
 }
 @media (max-width: 359px) {
   .jq {
-    padding: 16px 14px 12px;
+    padding: 16px 14px 16px;
   }
   .quote-text {
     font-size: 22px;
@@ -146,6 +148,9 @@
 }
 
 /* ---------- the memory card: a past entry, serif at 22/28 ---------- */
+.jmem-group {
+  position: relative;
+}
 .jmem {
   padding: 16px;
   display: grid;
@@ -203,8 +208,8 @@
 .jentry {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 8px 8px 8px 16px;
+  gap: 4px;
+  padding: 4px 4px 4px 16px;
   background: var(--surface);
   transition: background var(--dur-fast);
 }
@@ -243,7 +248,6 @@
 }
 .jentry .star {
   flex: none;
-  margin-top: 4px;
 }
 .star {
   color: var(--ink-3);
@@ -306,6 +310,11 @@ textarea.jtext {
 .composer-foot .btn:only-child {
   margin-left: auto;
 }
+/* nothing to save yet: the word waits at ink-4 with no fill; it turns blue once there is text */
+.composer-foot .btn.quiet.idle {
+  color: var(--ink-4);
+  opacity: 1;
+}
 
 /* ---------- tabs and lists ---------- */
 .j-tabs .seg-btn {
@@ -321,12 +330,11 @@ textarea.jtext {
 }
 .day-group {
   display: grid;
-  gap: 8px;
 }
 .day-group + .day-group {
-  margin-top: 8px;
+  margin-top: 9px;
 }
-/* a day header: the date in caps, how long ago in caps at ink-3 */
+/* a day header: the date in caps, how long ago in caps at ink-3. A 44px hit area around a 14px line; 8px to the group below */
 .day-head {
   appearance: none;
   border: 0;
@@ -336,7 +344,8 @@ textarea.jtext {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 24px;
+  min-height: 44px;
+  margin-bottom: -7px;
   color: var(--ink-3);
 }
 .day-head .caps.date {
@@ -380,9 +389,9 @@ textarea.jtext {
 }
 .qrow {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: flex-start;
-  padding: 12px 8px 12px 16px;
+  padding: 12px 4px 12px 16px;
   background: var(--surface);
 }
 .q-main {
@@ -418,5 +427,5 @@ textarea.jtext {
   display: flex;
   align-items: center;
   flex: none;
-  margin-top: -4px;
+  margin: -10px 0;
 }

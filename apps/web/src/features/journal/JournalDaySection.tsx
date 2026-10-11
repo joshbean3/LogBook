@@ -86,12 +86,24 @@ export const EntryItem = ({ e }: { e: JournalEntry }) => {
         </span>
         <span className="jentry-text">{e.text}</span>
       </button>
-      <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} size="sm" className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
-        <Star size={15} fill={e.fav ? 'currentColor' : 'none'} />
+      <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
+        <Star size={16} fill={e.fav ? 'currentColor' : 'none'} />
       </IconButton>
     </div>
   );
 };
+
+/** The one blue on a composer, and only once there is something to save. Before that the word waits at ink-4 with no fill. */
+export const SaveButton = ({ ready, onClick, children = 'Save' }: { ready: boolean; onClick: () => void; children?: string }) =>
+  ready ? (
+    <Button variant="primary" onClick={onClick}>
+      {children}
+    </Button>
+  ) : (
+    <Button variant="quiet" className="idle" disabled>
+      {children}
+    </Button>
+  );
 
 const drafts: Record<string, string> = {};
 /** A bare textarea and a footer line: meant to be the last row of a Group. The keyboard hint only shows where there is a keyboard. `size="lg"` is the Journal page's writing voice at 22/28. */
@@ -129,9 +141,7 @@ export const Composer = ({ date, hint, today, rows = 3, size }: { date: string; 
       />
       <div className="composer-foot">
         <span className="caps">{hint && canHover ? hint : ''}</span>
-        <Button variant="primary" onClick={save} disabled={!text.trim()}>
-          Save
-        </Button>
+        <SaveButton ready={!!text.trim()} onClick={save} />
       </div>
     </div>
   );
