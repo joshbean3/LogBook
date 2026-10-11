@@ -46,6 +46,16 @@
 .ph-actions {
   flex: none;
 }
+/* narrow phones: the title steps down a size and the sub may wrap, so nothing is cut mid-word */
+@media (max-width: 359px) {
+  .ph-title {
+    font-size: 28px;
+    line-height: 34px;
+  }
+  .ph-sub {
+    white-space: normal;
+  }
+}
 /* a wayfinding link beside the sub line: "October 14 · Today" */
 .ph-sub-row {
   display: inline-flex;

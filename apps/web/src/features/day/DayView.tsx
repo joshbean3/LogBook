@@ -1,4 +1,4 @@
-import { parseISO, buildMorning, clockOfDay, dayStatus, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, relativeDay, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
+import { parseISO, buildMorning, clockOfDay, dayStatus, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, relativeDay, sessionStatus, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
 import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Pencil, Settings, X } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -43,7 +43,10 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     title = label(main);
     const rest = sessions.filter((s) => s !== main && s.kind !== 'rest');
     const meta = sessionMeta(main, st);
-    const extra = rest.length ? ` Then ${rest.map(label).join(' and ')}.` : '';
+    const withSt = rest.map((s) => [s, sessionStatus(log.snap, date, s)] as const);
+    const coming = withSt.filter(([, x]) => x === 'open' || x === 'upcoming').map(([s]) => label(s));
+    const finished = withSt.filter(([, x]) => x === 'done' || x === 'floor').map(([s]) => label(s));
+    const extra = (coming.length ? ` Then ${coming.join(' and ')}.` : '') + (finished.length ? ` ${finished.join(' and ')} done.` : '');
     const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
     if (st === 'done' || st === 'bonus') verdict = runs.length ? `Done, ${mi(runs.reduce((t, a) => t + a.miles, 0))} mi logged.${extra}` : `Done.${extra}`;
     else if (st === 'floor') verdict = `Floor held.${extra}`;

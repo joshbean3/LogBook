@@ -76,7 +76,7 @@ const MemoryCard = ({ today }: { today: string }) => {
               <ClampedText text={e.text} id={e.id} />
               <div className="jhero-actions">
                 <ChipButton onClick={() => another.mutate('memory')} disabled={another.isPending}>
-                  <Shuffle size={14} /> Another
+                  <Shuffle size={14} /> Shuffle
                 </ChipButton>
                 <ChipButton quiet onClick={() => nav(`/today/${e.date}`)}>
                   Open <ChevronRight size={14} />
@@ -118,7 +118,7 @@ const QuoteCard = () => {
               </div>
               <div className="jhero-actions">
                 <ChipButton onClick={() => another.mutate('quote')} disabled={another.isPending}>
-                  <Shuffle size={14} /> Another
+                  <Shuffle size={14} /> Shuffle
                 </ChipButton>
                 {!q.mine ? (
                   <ChipButton

@@ -104,8 +104,8 @@ export default function SettingsView() {
         </div>
       </Group>
 
-      <SectionHead title="Strava" />
-      <Group>
+      {features?.strava ? <SectionHead title="Strava" /> : null}
+      {features?.strava ? <Group>
         {!features?.strava ? (
           <Row title="Not connected" sub="Not available yet." />
         ) : strava?.connected ? (
@@ -132,12 +132,16 @@ export default function SettingsView() {
             }
           />
         )}
-      </Group>
+      </Group> : null}
 
-      <SectionHead title="Coach" />
-      <Group>
-        <Row title="Plan builder and coach’s read" sub={features?.claude ? 'Builds plans from a PDF, text or a description, and reads each run.' : 'Not available yet.'} right={features?.claude ? <Chip kind="done">On</Chip> : <Chip>Off</Chip>} />
-      </Group>
+      {features?.claude ? (
+        <>
+          <SectionHead title="Coach" />
+          <Group>
+            <Row title="Plan builder and coach’s read" sub="Builds plans from a PDF, text or a description, and reads each run." right={<Chip kind="done">On</Chip>} />
+          </Group>
+        </>
+      ) : null}
 
       <SectionHead title="Install" />
       <Group>

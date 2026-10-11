@@ -173,7 +173,7 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
                     ) : null,
                   )
                 : null}
-              {line.length > 1 ? <motion.path d={`M${line.map((q) => q.join(',')).join('L')}`} className="avg" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, ease: 'easeOut' }} /> : null}
+              {line.length > 1 ? <motion.path d={`M${line.map((q) => q.join(',')).join('L')}`} className="avg" initial={false} /> : null}
               {weeks.map((w, i) =>
                 (i - (PAST - 1)) % labelEvery === 0 ? (
                   <text key={w} x={xc(i)} y={H - 4} textAnchor="middle" className="ax">
@@ -280,15 +280,19 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
               No heart-rate zones yet. They arrive with your next Strava sync.
             </EmptyState>
           ) : (
-            <EmptyState
-              action={
-                <Button variant="soft" onClick={() => nav('/settings')}>
-                  Connect
-                </Button>
-              }
-            >
-              No heart-rate zones yet. Connect Strava.
-            </EmptyState>
+            log.features.strava ? (
+              <EmptyState
+                action={
+                  <Button variant="soft" onClick={() => nav('/settings')}>
+                    Connect
+                  </Button>
+                }
+              >
+                No heart-rate zones yet. Connect Strava.
+              </EmptyState>
+            ) : (
+              <EmptyState>No heart-rate zones yet. They arrive when Strava connects.</EmptyState>
+            )
           )
         ) : null}
         {rows.map((r) => (

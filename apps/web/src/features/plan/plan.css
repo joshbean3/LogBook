@@ -296,6 +296,13 @@
 }
 
 /* ---------- your plans: rows open a sheet; the sheet carries the actions ---------- */
+.plan-row .lrow-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 .plan-row .lrow-sub {
   white-space: normal;
 }
