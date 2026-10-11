@@ -930,17 +930,6 @@ textarea.in {
   background: var(--surface-2);
   color: var(--ink-2);
 }
-.hr-chip.z1,
-.hr-chip.z2 {
-  color: var(--t-easy);
-}
-.hr-chip.z3 {
-  color: var(--t-hard);
-}
-.hr-chip.z4,
-.hr-chip.z5 {
-  color: var(--t-fast);
-}
 .verdict {
   font-size: 12px;
   line-height: 16px;
