@@ -6,7 +6,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api, ApiError } from '@/api/client';
 import { keys, useBlockMutations } from '@/api/queries';
-import { Button, Chip, EmptyState, Field, Group, Note, Row, SectionHead, Segmented, Spinner, Stat, StatStrip } from '@/ui/primitives';
+import { Button, Chip, EmptyState, Field, Group, Note, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import type { Log } from '../log/useLog';
@@ -259,7 +259,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
           <AnimatePresence>
             {busy ? (
               <motion.span className="row t-sub muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Spinner /> Building the plan. 20–60 seconds…
+                Building the plan. 20–60 seconds…
               </motion.span>
             ) : (
               <span />
@@ -403,11 +403,12 @@ export const Upcoming = ({ log }: { log: Log }) => {
           <ul>
             {items.map(([d, s]) => (
               <li key={s.id}>
-                <button type="button" className="lrow tappable uprow" onClick={() => open(d, s)}>
-                  <span className="up-date">{d === t ? 'Today' : fmtDate('short', d)}</span>
-                  <Chip kind="tone" className={`t-${tone(s)}`}>
-                    {label(s)}
-                  </Chip>
+                <button type="button" className={`lrow tappable uprow t-${tone(s)}`} onClick={() => open(d, s)}>
+                  <span className="up-date caps">{d === t ? 'Today' : `${fmtDate('dow', d)} ${parseISO(d).getDate()}`}</span>
+                  <span className="up-sess">
+                    <i className="tone-dot" aria-hidden="true" />
+                    <span className="stamp up-stamp">{label(s)}</span>
+                  </span>
                   <span className="up-det">{s.details ?? ''}</span>
                 </button>
               </li>

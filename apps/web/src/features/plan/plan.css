@@ -26,10 +26,52 @@
   opacity: 0.4;
 }
 
-/* ---------- week ---------- */
-.wk-strip .meter {
-  margin-top: 6px;
-  max-width: 96px;
+/* ---------- week: the selected day as the aura card ---------- */
+.wk-aura {
+  min-height: 0;
+}
+.wk-aura .aura-title.display {
+  font-size: 44px;
+  line-height: 46px;
+}
+.wk-aura .aura-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* the day's sessions: the first stamped big, the rest as chips with their tone dot */
+.wk-sess {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 2px 0 4px;
+  min-width: 0;
+}
+.wk-stamp {
+  font-size: 28px;
+  line-height: 32px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.wk-aura .aura-verdict {
+  max-width: none;
+}
+/* the selected pill is lit, and keeps its tone dots (shared with Morning; belongs in ui.css) */
+.strip-lit .dcell.is-sel .dcell-pill {
+  box-shadow:
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 24px rgba(91, 102, 255, 0.75);
+}
+.strip-lit .dcell.is-sel.is-today .dcell-pill {
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent-bright),
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 24px rgba(91, 102, 255, 0.75);
+}
+.strip-lit .dcell.is-sel .sdot {
+  border-color: var(--tone);
+}
+.strip-lit .dcell.is-sel .sdot.on {
+  background: var(--tone);
 }
 /* the last row of the day's group is the way into the day: a plain row with a chevron, not a third head action */
 .wk-open .lrow-title {
@@ -84,21 +126,34 @@
 .mcell-num {
   font-size: 17px;
   line-height: 22px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 .mcell.out {
   opacity: 0.35;
 }
+/* today is ringed and lit; the selected day is the white pill with a black number */
 .mcell.is-today .mcell-pill {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent-bright),
+    0 0 16px rgba(91, 102, 255, 0.6);
 }
-.mcell.is-today .mcell-num {
-  font-weight: 600;
+.mcell.is-sel .mcell-pill {
+  background: var(--ink);
+}
+.mcell.is-sel .mcell-num {
+  color: var(--bg);
+}
+.mcell.is-sel .sdot {
+  border-color: var(--tone);
 }
 .plan-legend {
   margin-top: 16px;
   padding: 0 4px;
+  gap: 8px 14px;
+}
+.plan-legend .lg {
+  gap: 6px;
 }
 .legend .sdot {
   width: 6px;
@@ -327,17 +382,25 @@
   align-items: center;
 }
 .up-date {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--ink-3);
-  letter-spacing: 0;
   white-space: nowrap;
-}
-.uprow .chip {
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+}
+/* the session as a stamp with its 6px tone dot */
+.up-sess {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
+  max-width: 100%;
+}
+.up-stamp {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .up-det {
   font-size: 12px;

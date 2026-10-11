@@ -2,8 +2,10 @@ import { buildMorning, clock, clockOfDay, durationWords, fmtDate, mondayOf, mont
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMorningMutations } from '@/api/queries';
-import { Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip, Stepper } from '@/ui/primitives';
+import { Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stepper } from '@/ui/primitives';
 import { useLog } from '../log/useLog';
+// the aura card grammar lives with Today; Morning borrows it rather than redrawing it
+import '../day/day.css';
 import './morning.css';
 
 type L = ReturnType<typeof useLog>;
@@ -55,6 +57,7 @@ const WeekStrip = ({ date, today, log, go }: { date: string; today: string; log:
   const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
   return (
     <DayStrip
+      className="strip-lit"
       days={days}
       selected={date}
       today={today}
@@ -65,6 +68,51 @@ const WeekStrip = ({ date, today, log, go }: { date: string; today: string; log:
         return s ? <i className={`dcell-dot t-${tone(s)}`} /> : <i className="dcell-dot none" />;
       }}
     />
+  );
+};
+
+// ---------- hero: the head of the timeline as an aura card, the four times of the morning stamped on it ----------
+const MorningHero = ({ T, date, today }: { T: MorningTimeline; date: string; today: string }) => {
+  const door = T.blocks.find((b) => b.key === 'buffer')?.start ?? T.day.wake;
+  const rest = !T.day.own && T.day.plan.label === 'Rest day';
+  const word = T.day.mode === 'gym' ? 'Gym' : rest ? 'Rest' : 'Run';
+  const verdict = T.late
+    ? `Back ${short(T.back)}, ${T.late} min late for the shower.`
+    : rest
+      ? `Rest day. Wake ${short(T.day.wake)}, leave ${short(T.leave)}.`
+      : T.day.mode === 'gym'
+        ? `Out the door ${short(door)}, home ${short(T.back)}.`
+        : `Out the door ${short(door)}, back ${short(T.back)}.`;
+  const stats: Array<[string, number]> = [
+    ['Wake', T.day.wake],
+    ['Door', door],
+    ['Back', T.back],
+    ['Leave', T.leave],
+  ];
+  return (
+    <div className="aura m-aura">
+      <span className="aura-glow" aria-hidden="true" />
+      <div className="aura-top">
+        <span className="caps">{date === today ? 'Today’s morning' : fmtDate('short', date)}</span>
+        <span className="caps">{durationWords(T.leave - T.day.wake)}</span>
+      </div>
+      <h2 className="aura-title display">{word}</h2>
+      <p className="aura-verdict">{verdict}</p>
+      <div className="aura-stats">
+        {stats.map(([k, m]) => {
+          const { v, u } = timeParts(m);
+          return (
+            <span key={k} className="aura-stat">
+              <span className="caps">{k}</span>
+              <span className="stamp aura-num">
+                {v}
+                <small>{u}</small>
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 
@@ -110,14 +158,9 @@ const Controls = ({ date, T }: { date: string; T: MorningTimeline }) => {
       </div>
       {day.plan.label || day.own ? (
         <div className="lrow m-plan">
-          <span className="t-cap muted grow">
-            {day.plan.label ? (
-              <>
-                Training plan: <b>{day.plan.label}</b>
-              </>
-            ) : (
-              'Your own morning'
-            )}
+          <span className="m-plan-line grow">
+            <span className="caps">{day.plan.label ? 'Training plan' : 'Your own'}</span>
+            {day.plan.label ? <span className="stamp m-plan-stamp">{day.plan.label}</span> : <span className="stamp m-plan-stamp">Morning</span>}
           </span>
           {day.own ? (
             <button type="button" className="link sm" onClick={() => setDay.mutate({ date, day: null })}>
@@ -176,7 +219,7 @@ const Timeline = ({ T, isToday }: { T: MorningTimeline; isToday: boolean }) => {
     <div className="tl" style={{ height: total }}>
       <div className="tl-axis" aria-hidden="true">
         {ticks.map(({ t, y }) => (
-          <span key={t} className="tl-tick t-cap" style={{ top: y - 8 }}>
+          <span key={t} className="tl-tick caps" style={{ top: y - 7 }}>
             {tickLabel(t)}
           </span>
         ))}
@@ -187,24 +230,39 @@ const Timeline = ({ T, isToday }: { T: MorningTimeline; isToday: boolean }) => {
           const range = `${short(b.start)}–${short(b.end)}`;
           if (b.key === 'free')
             return (
-              <li key={i} className="tl-free" style={{ top, height: h }}>
-                <span className="t-sub muted">Free · {durationWords(b.mins)}</span>
-                <span className="t-cap muted">{range}</span>
+              <li key={i} className={`tl-free ${past ? 'past' : ''}`} style={{ top, height: h }}>
+                <span className="tl-label">Free · {durationWords(b.mins)}</span>
+                <span className="tl-range caps">{range}</span>
               </li>
             );
+          const main = b.key === 'run' || b.key === 'gym';
+          // the session block is the lit one: its own number stamped on it, the family as the 3px bar and a faint halo
+          const stamp = main ? (b.key === 'run' ? [num(T.day.miles), 'mi'] : [String(T.day.minutes), 'min']) : null;
+          const lbl = main ? (b.key === 'run' ? `${T.day.type} run` : b.label) : b.label;
           return (
-            <li key={i} className={`tl-block k-${b.key} ${b.tone ? `t-${b.tone}` : ''} ${past ? 'past' : ''} ${h >= 48 ? 'tall' : ''}`} style={{ top, height: h }}>
+            <li key={i} className={`tl-block k-${b.key} ${main ? 'lit' : ''} ${b.tone ? `t-${b.tone}` : ''} ${past ? 'past' : ''} ${h >= 48 ? 'tall' : ''}`} style={{ top, height: h }}>
+              <span className="tl-halo" aria-hidden="true" />
               <div className="tl-main">
-                <span className="tl-label">{b.label}</span>
-                {h >= 60 ? <span className="t-cap muted">{[durationWords(b.mins), b.sub].filter(Boolean).join(' · ')}</span> : null}
+                <span className="tl-label">{lbl}</span>
+                {h >= 60 && (b.key !== 'gym' || b.sub) ? <span className="caps">{[b.key === 'gym' ? '' : durationWords(b.mins), b.sub].filter(Boolean).join(' · ')}</span> : null}
               </div>
-              <span className="tl-range t-cap">{range}</span>
+              {stamp ? (
+                <span className="tl-side">
+                  <span className="stamp tl-stamp">
+                    {stamp[0]}
+                    <small>{stamp[1]}</small>
+                  </span>
+                  {h >= 48 ? <span className="tl-range caps">{range}</span> : null}
+                </span>
+              ) : (
+                <span className="tl-range caps">{range}</span>
+              )}
             </li>
           );
         })}
         <li className="tl-leave" style={{ top: end, height: LEAVE_H }}>
           <span className="tl-label">Leave for work</span>
-          <span className="tl-range t-cap">{short(T.leave)}</span>
+          <span className="stamp tl-stamp">{short(T.leave)}</span>
         </li>
       </ol>
       {showNow ? (
@@ -282,9 +340,9 @@ const Focus = ({ st }: { st: MorningSettings }) => {
           </EmptyState>
         ) : (
           <div className="group-pad m-focus">
-            {st.focus.word ? <div className="t-title m-word">{st.focus.word}</div> : null}
-            {st.focus.quote ? <blockquote className="serif t-body m-quote">“{st.focus.quote}”</blockquote> : null}
-            {st.focus.quote && st.focus.by ? <div className="t-cap muted">{st.focus.by}</div> : null}
+            {st.focus.word ? <div className="stamp m-word">{st.focus.word}</div> : null}
+            {st.focus.quote ? <blockquote className="display m-quote">“{st.focus.quote}”</blockquote> : null}
+            {st.focus.quote && st.focus.by ? <div className="caps">{st.focus.by}</div> : null}
           </div>
         )}
       </Group>
@@ -427,10 +485,6 @@ export default function MorningView() {
   const go = (d: string) => nav(d === t ? '/morning' : `/morning/${d}`);
   const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
   const T = useMemo(() => buildMorning(morningDayFor(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), st), [log.snap, date, st]);
-  const out = T.day.mode === 'run' ? T.blocks.find((b) => b.key === 'buffer') : T.blocks.find((b) => b.key === 'gym');
-  const alarm = timeParts(T.day.wake);
-  const door = out ? timeParts(out.start) : null;
-  const leave = timeParts(T.leave);
   return (
     <div className="page">
       <PageHeader
@@ -458,18 +512,14 @@ export default function MorningView() {
       ) : (
         <>
           <div className="section" style={{ marginTop: 16 }}>
+            <MorningHero T={T} date={date} today={t} />
             <WeekStrip date={date} today={t} log={log} go={go} />
-            <StatStrip>
-              <Stat label="Wake" value={alarm.v} unit={alarm.u} />
-              <Stat label={T.day.mode === 'run' ? 'Door' : 'Gym'} value={door ? door.v : '—'} unit={door?.u} />
-              <Stat label="Leave" value={leave.v} unit={leave.u} tone={T.late ? 'bad' : ''} />
-            </StatStrip>
           </div>
 
           <SectionHead title="Plan" />
           <Controls date={date} T={T} />
 
-          <SectionHead title="Timeline" meta={durationWords(T.leave - T.day.wake)} />
+          <SectionHead title="Timeline" />
           {T.late ? (
             <Note kind="warn">
               Back at {clockOfDay(T.back)}, {T.late} min past your {clockOfDay(T.settings.after.showerAt)} shower, so you leave at {clockOfDay(T.leave)} instead of {clockOfDay(T.onTime ?? T.leave)}. To stay on time: wake by {clockOfDay(T.fix!.latestWake)}
