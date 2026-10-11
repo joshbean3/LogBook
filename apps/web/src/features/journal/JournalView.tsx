@@ -4,11 +4,19 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useDaily, useJournalList, useJournalMutations, useQuotes } from '@/api/queries';
-import { Button, Chip, ChipButton, EmptyState, Group, IconButton, PageHeader, SectionHead, Segmented } from '@/ui/primitives';
+import { Button, ChipButton, EmptyState, Group, IconButton, PageHeader, Segmented } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
 import { Composer, EntryItem } from './JournalDaySection';
 import './journal.css';
+
+/** A caps eyebrow with a caps meta at the right: the section head of this screen. */
+const Sec = ({ title, meta, first }: { title: string; meta?: string; first?: boolean }) => (
+  <div className="j-sec" style={first ? { marginTop: 0 } : undefined}>
+    <span className="caps">{title}</span>
+    {meta ? <span className="caps meta">{meta}</span> : null}
+  </div>
+);
 
 const Byline = ({ q, big }: { q: Quote; big?: boolean }) =>
   q.author ? (
@@ -28,7 +36,7 @@ const useWaited = (waiting: boolean) => {
   return waited.current;
 };
 
-/** Serif body text clamped to ~8 lines, with a Read more that lets it out. */
+/** Serif body text clamped to ~6 lines, with a More that lets it out. */
 const ClampedText = ({ text, id }: { text: string; id: string }) => {
   const ref = useRef<HTMLParagraphElement>(null);
   const [open, setOpen] = useState(false);
@@ -40,15 +48,71 @@ const ClampedText = ({ text, id }: { text: string; id: string }) => {
   }, [id]);
   return (
     <>
-      <p ref={ref} className={`memory-text serif t-body ${open ? '' : 'clamp'}`}>
+      <p ref={ref} className={`memory-text ${open ? '' : 'clamp'}`}>
         {text}
       </p>
       {overflows ? (
-        <button type="button" className="link sm" style={{ justifySelf: 'start' }} onClick={() => setOpen((o) => !o)}>
+        <button type="button" className="link sm quiet" style={{ justifySelf: 'start' }} onClick={() => setOpen((o) => !o)}>
           {open ? 'Less' : 'More'}
         </button>
       ) : null}
     </>
+  );
+};
+
+/** The hero: today's quote on a black card, lit from below. */
+const QuoteHero = () => {
+  const daily = useDaily();
+  const { another, quotePrefs } = useJournalMutations();
+  const toast = useToast();
+  const q = daily.data?.quote ?? null;
+  const waiting = daily.isPending && !daily.data;
+  const waited = useWaited(waiting);
+  return (
+    <section className="jq" aria-label="Today’s quote">
+      <span className="jq-glow" aria-hidden="true" />
+      <div className="jq-top">
+        <span className="caps">Today’s quote</span>
+        {q?.theme ? <span className="caps">{q.theme}</span> : null}
+      </div>
+      {waiting ? (
+        <Wait kind="quote" />
+      ) : !q ? (
+        <div className="jq-body">
+          <p className="quote-text display">Nothing left to show.</p>
+          <p className="t-sub muted">Star a few in the library and they come back sooner.</p>
+        </div>
+      ) : (
+        <AnimatePresence mode="wait" initial={waited}>
+          <motion.div key={q.id} className="jq-body" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+            <blockquote className={`quote-text display ${q.text.length > 120 ? 'long' : ''}`}>“{q.text}”</blockquote>
+            <div className="quote-by">
+              <Byline q={q} big />
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      )}
+      <div className="jq-actions">
+        <ChipButton onClick={() => another.mutate('quote')} disabled={another.isPending || !q}>
+          <Shuffle size={14} /> Shuffle
+        </ChipButton>
+        {q && !q.mine ? (
+          <ChipButton
+            quiet
+            onClick={() => {
+              quotePrefs.mutate({ id: q.id, hidden: true });
+              another.mutate('quote');
+              toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
+            }}
+          >
+            Hide
+          </ChipButton>
+        ) : null}
+        <IconButton label={q?.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${q?.fav ? 'on' : ''}`} disabled={!q} onClick={() => q && quotePrefs.mutate({ id: q.id, fav: !q.fav })}>
+          <Star size={18} fill={q?.fav ? 'currentColor' : 'none'} />
+        </IconButton>
+      </div>
+    </section>
   );
 };
 
@@ -61,20 +125,20 @@ const MemoryCard = ({ today }: { today: string }) => {
   const waited = useWaited(waiting);
   return (
     <>
-      <SectionHead first title="From your journal" />
-      <Group className="jhero">
+      <Sec title="From your journal" meta={e ? ago(e.date, today) : undefined} />
+      <Group>
         {waiting ? (
           <Wait kind="memory" />
         ) : !e ? (
           <EmptyState>{daily.data?.pastCount ? 'Every past entry has been shown this month. New ones come back after 30 days.' : 'Entries you write come back here on a random day, never more than once a month. Write your first one below.'}</EmptyState>
         ) : (
           <AnimatePresence mode="wait" initial={waited}>
-            <motion.div key={e.id} className="jhero-body" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <span className="t-cap muted">
-                {fmtDate('long', e.date)} · {ago(e.date, today)}
+            <motion.div key={e.id} className="jmem" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+              <span className="jmem-date">
+                <span className="caps">{fmtDate('long', e.date)}</span>
               </span>
               <ClampedText text={e.text} id={e.id} />
-              <div className="jhero-actions">
+              <div className="jmem-actions">
                 <ChipButton onClick={() => another.mutate('memory')} disabled={another.isPending}>
                   <Shuffle size={14} /> Shuffle
                 </ChipButton>
@@ -83,57 +147,6 @@ const MemoryCard = ({ today }: { today: string }) => {
                 </ChipButton>
                 <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
                   <Star size={18} fill={e.fav ? 'currentColor' : 'none'} />
-                </IconButton>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        )}
-      </Group>
-    </>
-  );
-};
-
-const QuoteCard = () => {
-  const daily = useDaily();
-  const { another, quotePrefs } = useJournalMutations();
-  const toast = useToast();
-  const q = daily.data?.quote ?? null;
-  const waiting = daily.isPending && !daily.data;
-  const waited = useWaited(waiting);
-  return (
-    <>
-      <SectionHead title="Today’s quote" />
-      <Group className="jhero">
-        {waiting ? (
-          <Wait kind="quote" />
-        ) : !q ? (
-          <EmptyState>No quotes left to show. Star a few in the library and they come back sooner.</EmptyState>
-        ) : (
-          <AnimatePresence mode="wait" initial={waited}>
-            <motion.div key={q.id} className="jhero-body" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <blockquote className={`quote-text serif ${q.text.length > 160 ? 'long' : ''}`}>“{q.text}”</blockquote>
-              <div className="quote-by">
-                <Byline q={q} big />
-                <Chip>{q.theme}</Chip>
-              </div>
-              <div className="jhero-actions">
-                <ChipButton onClick={() => another.mutate('quote')} disabled={another.isPending}>
-                  <Shuffle size={14} /> Shuffle
-                </ChipButton>
-                {!q.mine ? (
-                  <ChipButton
-                    quiet
-                    onClick={() => {
-                      quotePrefs.mutate({ id: q.id, hidden: true });
-                      another.mutate('quote');
-                      toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
-                    }}
-                  >
-                    Hide
-                  </ChipButton>
-                ) : null}
-                <IconButton label={q.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${q.fav ? 'on' : ''}`} onClick={() => quotePrefs.mutate({ id: q.id, fav: !q.fav })}>
-                  <Star size={18} fill={q.fav ? 'currentColor' : 'none'} />
                 </IconButton>
               </div>
             </motion.div>
@@ -168,14 +181,14 @@ const EntriesList = ({ favOnly, today }: { favOnly: boolean; today: string }) =>
         </Group>
       ) : !entries.length ? (
         <Group>
-          <EmptyState>{q ? `No entries match “${q.trim()}”.` : favOnly ? 'Tap the star on an entry to keep it here.' : 'No entries yet. Write one above or from any day.'}</EmptyState>
+          <EmptyState>{q ? `No entries match “${q.trim()}”.` : favOnly ? 'No favorites yet. Tap the star on an entry to keep it here.' : 'No entries yet. Write one above or from any day.'}</EmptyState>
         </Group>
       ) : (
         groups.map((g) => (
           <div key={g.date} className="day-group">
             <button type="button" className="day-head" onClick={() => nav(`/today/${g.date}`)} aria-label={`Open ${fmtDate('long', g.date)}`}>
-              <span className="t-label">{fmtDate('long', g.date)}</span>
-              <span className="t-cap muted">{ago(g.date, today)}</span>
+              <span className="caps date">{fmtDate('long', g.date)}</span>
+              <span className="caps">{ago(g.date, today)}</span>
               <ChevronRight size={14} className="muted" />
             </button>
             <Group>
@@ -187,7 +200,7 @@ const EntriesList = ({ favOnly, today }: { favOnly: boolean; today: string }) =>
         ))
       )}
       {entries.length > limit ? (
-        <Button variant="ghost" block onClick={() => setLimit((l) => l + 40)} aria-label={`Show ${entries.length - limit} older entries`}>
+        <Button block onClick={() => setLimit((l) => l + 40)} aria-label={`Show ${entries.length - limit} older entries`}>
           More
         </Button>
       ) : null}
@@ -225,7 +238,7 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
             <textarea className="jtext serif" rows={2} maxLength={400} placeholder="e.g. You have to spend energy to make energy." aria-label="Quote" value={nt} onChange={(e) => setNt(e.target.value)} autoFocus />
             <input className="jtext" maxLength={80} placeholder="Who said it (optional)" aria-label="Author" value={na} onChange={(e) => setNa(e.target.value)} />
             <div className="composer-foot">
-              <Button variant="ghost" onClick={() => setAdding(false)}>
+              <Button variant="ghost" style={{ color: 'var(--ink-2)' }} onClick={() => setAdding(false)}>
                 Cancel
               </Button>
               <Button
@@ -244,9 +257,9 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
             </div>
           </Group>
         ) : (
-          <Button variant="ghost" style={{ justifySelf: 'start', marginLeft: -16 }} onClick={() => setAdding(true)}>
+          <ChipButton style={{ justifySelf: 'start' }} onClick={() => setAdding(true)}>
             Add
-          </Button>
+          </ChipButton>
         )
       ) : null}
       {page.isPending && !page.data ? (
@@ -256,19 +269,19 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
       ) : (
         <>
           {total ? (
-            <p className="t-cap muted jcount">
+            <p className="caps jcount">
               {total.toLocaleString()} {total === 1 ? 'quote' : 'quotes'}
             </p>
           ) : null}
           <Group>
-            {!page.data?.quotes.length ? <EmptyState>{favOnly ? 'Star a quote to keep it here. Favorites come back every 14 days instead of 30.' : 'No quotes match.'}</EmptyState> : null}
+            {!page.data?.quotes.length ? <EmptyState>{favOnly ? 'No favorites yet. Star a quote to keep it here; favorites come back every 14 days instead of 30.' : 'No quotes match.'}</EmptyState> : null}
             {page.data?.quotes.map((x) => (
               <div key={x.id} className="qrow">
                 <div className="q-main">
-                  <p className="serif">“{x.text}”</p>
-                  <span className="t-cap muted q-by">
+                  <p>“{x.text}”</p>
+                  <span className="q-by">
                     <Byline q={x} />
-                    <span className="q-theme">{x.theme}</span>
+                    <span className="caps q-theme">{x.theme}</span>
                   </span>
                 </div>
                 <div className="q-tools">
@@ -285,7 +298,7 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
             ))}
           </Group>
           {total > limit ? (
-            <Button variant="ghost" block onClick={() => setLimit((l) => l + 30)} aria-label="Show more quotes">
+            <Button block onClick={() => setLimit((l) => l + 30)} aria-label="Show more quotes">
               More
             </Button>
           ) : null}
@@ -307,13 +320,11 @@ export default function JournalView() {
   return (
     <div className="page">
       <PageHeader title="Journal" sub="Write, look back, and a quote to start the day." />
-      <div className="section" style={{ marginTop: 16 }}>
-        <MemoryCard today={t} />
-      </div>
-      <QuoteCard />
-      <SectionHead title="Write" meta={`Saved to ${fmtDate('short', t)}`} />
+      <QuoteHero />
+      <MemoryCard today={t} />
+      <Sec title="Write" meta={fmtDate('short', t)} />
       <Group>
-        <Composer date={t} today={t} hint="⌘/Ctrl + Enter saves" />
+        <Composer date={t} today={t} hint="⌘/Ctrl + Enter saves" size="lg" />
       </Group>
       <div className="section">
         <Segmented className="j-tabs" label="Journal tabs" options={[['entries', `Entries${n ? ` (${n})` : ''}`], ['favorites', 'Favorites'], ['quotes', 'Quote library']]} value={tab} onChange={(k) => nav(k === 'entries' ? '/journal' : `/journal/${k}`)} />
@@ -323,9 +334,9 @@ export default function JournalView() {
           <EntriesList favOnly={false} today={t} />
         ) : tab === 'favorites' ? (
           <>
-            <SectionHead first title="Entries" />
+            <Sec title="Entries" first />
             <EntriesList favOnly today={t} />
-            <SectionHead title="Quotes" />
+            <Sec title="Quotes" />
             <QuoteList favOnly />
           </>
         ) : (

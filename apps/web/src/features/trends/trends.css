@@ -1,47 +1,190 @@
-/* ---------- Trends: headline numbers, then one chart per section ---------- */
-.tr-strip {
-  margin-top: 0;
-  margin-bottom: 12px;
-  /* every stat starts on the same top line, whether or not it carries a delta */
-  align-items: start;
-}
-.tr-strip .stat {
+/* ---------- Trends: the mileage chart is the hero, lit from below; everything under it is list weight ---------- */
+
+/* the hero card: same grammar as Today's aura card (black surface, halo, caps over stamps) */
+.tr-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 14px;
+  margin-top: 16px;
+  display: grid;
+  gap: 6px;
   align-content: start;
-  /* label 16 + 2 + number 32 + 2 + the delta line 16: reserved even when empty, so the strip never grows */
-  min-height: 68px;
+  color: var(--ink);
 }
-.tr-strip .stat-delta {
+.tr-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.tr-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+}
+.tr-top .caps:first-child {
+  white-space: nowrap;
+}
+.tr-top .caps:last-child {
+  text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* three stamps above the chart: caps label, 28/32 number, a caps delta line under the first */
+.tr-stamps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+.tr-stamp {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+}
+.tr-stamp .caps {
+  color: rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.1em;
+  font-size: 10px;
+}
+.tr-num {
+  font-size: 28px;
+  line-height: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tr-num small {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 3px;
+  color: rgba(255, 255, 255, 0.7);
+}
+/* the delta line is reserved even when empty so the three stamps never shift */
+.tr-delta {
+  min-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 359px) {
+  .tr-hero {
+    padding: 16px 14px 12px;
+  }
+  .tr-stamps {
+    gap: 8px;
+  }
+  .tr-num {
+    font-size: 22px;
+    line-height: 24px;
+  }
+}
+.tr-chart {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* section headers: caps eyebrow with a caps meta at the right */
+.tr-sec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: var(--section) 0 8px;
+}
+.tr-sec .caps {
+  color: var(--ink-2);
+}
+.tr-sec .caps.meta {
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* a quiet strip of stamps under a section head, no frame */
+.tr-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin-bottom: 12px;
+  align-items: start;
+}
+.tr-strip > * + * {
+  border-left: 1px solid var(--line);
+  padding-left: 12px;
+}
+.tr-strip .tr-stamp {
+  min-height: 68px;
+}
+.tr-strip .tr-stamp .caps {
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
 .tr-key {
   margin: -4px 0 12px;
+  color: var(--ink-3);
 }
-.chart-group {
-  padding: 16px;
-  /* the tooltip sits above the bar it describes and may rise past the top edge */
-  overflow: visible;
-}
-.chart-group > * + * {
-  border-top: 0;
-}
-.chart-legend {
-  margin-top: 8px;
-  padding: 0 4px;
-}
+
 /* Data still arriving: a quiet sheet the size of the chart group, no spinner, no words. The page lays out once. */
 .tr-wait {
   height: 180px;
   background: var(--surface);
   border: var(--card-border);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
 }
 .tr-wait.in-group {
   border: 0;
   border-radius: 0;
-  box-shadow: none;
+}
+
+/* the consistency grid sits in its own black group */
+.chart-group {
+  padding: 16px;
+  overflow: visible;
+}
+.chart-group > * + * {
+  border-top: 0;
+}
+
+/* legend: caps, swatches only ever a status colour or ink */
+.tr-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 10px;
+  padding: 0 4px;
+}
+.tr-hero .tr-legend {
+  padding: 0;
+  margin-top: 8px;
+}
+.lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lg i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--ink-3);
+  flex: none;
 }
 
 /* ---------- svg marks ---------- */
@@ -55,39 +198,43 @@
   font-family: var(--sans);
 }
 .chart-wrap .grid {
-  stroke: var(--line);
+  stroke: rgba(255, 255, 255, 0.08);
   stroke-width: 1;
 }
 .chart-wrap .axis {
-  stroke: var(--line-strong);
+  stroke: rgba(255, 255, 255, 0.16);
   stroke-width: 1;
 }
+/* axis labels are caps labels */
 .chart-wrap .ax {
-  font-size: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   fill: var(--ink-3);
-  letter-spacing: 0;
 }
 .chart-wrap .ax.val {
+  font-family: var(--stamp);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   fill: var(--ink-2);
-  font-weight: 600;
 }
-/* The accent is the one chart colour; the plan and the average are ink. Session tones never fill a chart. */
+/* bars are white; this week is the one blue; the plan is an outline; the average is a thin white line */
 .chart-wrap .bar {
-  fill: var(--accent);
+  fill: rgba(255, 255, 255, 0.85);
 }
 .chart-wrap .bar.cur {
-  fill: color-mix(in srgb, var(--accent) 55%, transparent);
+  fill: var(--accent-bright);
 }
 .chart-wrap .plan-out {
   fill: none;
-  stroke: var(--ink-4);
-  stroke-width: 1.25;
-  stroke-dasharray: 3 3;
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 1;
 }
 .chart-wrap .avg {
   fill: none;
-  stroke: var(--ink-2);
-  stroke-width: 2;
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -105,6 +252,7 @@
   font-weight: 600;
   fill: var(--ink);
 }
+/* consistency cells: status colours only, on black */
 .chart-wrap .cell {
   fill: var(--surface-3);
   transition: fill var(--dur);
@@ -113,31 +261,31 @@
   fill: var(--ok);
 }
 .chart-wrap .cell.half {
-  fill: color-mix(in srgb, var(--ok) 45%, transparent);
+  fill: var(--warn);
 }
 .chart-wrap .cell.miss {
-  fill: color-mix(in srgb, var(--bad) 30%, transparent);
+  fill: color-mix(in srgb, var(--bad) 60%, transparent);
 }
 .chart-wrap .cell.none {
   fill: none;
-  stroke: var(--line-strong);
+  stroke: rgba(255, 255, 255, 0.16);
   stroke-dasharray: 2 2;
 }
 
-/* hover / tap tooltip */
+/* hover / tap tooltip: pins on tap, clears on tap-outside or after 3 s */
 .tip {
   position: absolute;
   z-index: 3;
   pointer-events: none;
-  background: var(--surface);
-  border: var(--card-border);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-md);
-  box-shadow: var(--shadow-2);
   padding: 6px 10px;
   font-size: 12px;
   line-height: 16px;
   letter-spacing: 0;
   white-space: nowrap;
+  color: var(--ink);
 }
 .tip-head,
 .tip-sub {
@@ -151,15 +299,23 @@
   gap: 2px;
 }
 .eff-nums {
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--ink-3);
-  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   white-space: nowrap;
 }
-.eff-nums b {
-  font-weight: 600;
+.eff-nums .stamp {
+  font-size: 17px;
+  line-height: 22px;
   color: var(--ink);
+}
+.eff-nums .stamp small {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.7);
 }
 .eff-grade {
   display: inline-flex;
@@ -171,7 +327,17 @@
 .lift-right {
   display: grid;
   justify-items: end;
+  gap: 2px;
   white-space: nowrap;
+}
+.lift-right .stamp {
+  font-size: 17px;
+  line-height: 22px;
+  color: var(--ink);
+}
+.lift-right .caps {
+  font-size: 10px;
+  letter-spacing: 0.1em;
 }
 .spark {
   flex: none;
@@ -185,11 +351,11 @@
 }
 .spk {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .spk-dot {
-  fill: var(--accent);
+  fill: var(--ink);
 }

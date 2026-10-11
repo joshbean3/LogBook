@@ -1,4 +1,4 @@
-/* Settings: Apple-style grouped lists. Labels regular weight, inputs right. */
+/* ---------- Settings: grouped dark lists on black. Labels regular weight, the one action at the right. ---------- */
 .s-set .lrow-title {
   font-weight: 400;
 }
@@ -8,6 +8,16 @@
 .s-set .lrow-title,
 .s-set .lrow-sub {
   white-space: normal;
+}
+/* section heads are caps labels */
+.s-sec {
+  margin: var(--section) 0 8px;
+}
+.s-sec .caps {
+  color: var(--ink-2);
+}
+.s-set .s-sec:first-of-type {
+  margin-top: 24px;
 }
 .s-step {
   display: flex;
@@ -38,6 +48,17 @@
   letter-spacing: -0.01em;
   padding-top: 2px;
 }
+/* the result of an import: a plain sentence, red only when it failed */
+.s-result {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--ink-2);
+  padding: 10px 0;
+}
+.s-result.bad {
+  color: var(--bad);
+}
+/* sign out is the one red word on the screen */
 .s-out .lrow-title {
   color: var(--bad);
 }

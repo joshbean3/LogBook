@@ -30,7 +30,7 @@ const EntrySheet = ({ e }: { e: JournalEntry }) => {
   };
   return (
     <>
-      <span className="t-cap muted">
+      <span className="caps">
         {timeOf(e.createdAt)}
         {e.editedAt ? ' · edited' : ''}
       </span>
@@ -80,11 +80,11 @@ export const EntryItem = ({ e }: { e: JournalEntry }) => {
   return (
     <div className={`jentry ${e.fav ? 'is-fav' : ''}`}>
       <button type="button" className="jentry-body" onClick={() => sheet.open({ title: fmtDate('short', e.date), body: <EntrySheet e={e} /> })} aria-label={`Edit entry from ${timeOf(e.createdAt)}`}>
-        <span className="t-cap muted jentry-meta">
+        <span className="caps jentry-meta">
           <span>{timeOf(e.createdAt)}</span>
           {e.editedAt ? <span>edited</span> : null}
         </span>
-        <span className="jentry-text serif t-body">{e.text}</span>
+        <span className="jentry-text">{e.text}</span>
       </button>
       <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} size="sm" className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
         <Star size={15} fill={e.fav ? 'currentColor' : 'none'} />
@@ -94,8 +94,8 @@ export const EntryItem = ({ e }: { e: JournalEntry }) => {
 };
 
 const drafts: Record<string, string> = {};
-/** A bare textarea and a footer line: meant to be the last row of a Group. The keyboard hint only shows where there is a keyboard. */
-export const Composer = ({ date, hint, today, rows = 3 }: { date: string; hint?: string; today: string; rows?: number }) => {
+/** A bare textarea and a footer line: meant to be the last row of a Group. The keyboard hint only shows where there is a keyboard. `size="lg"` is the Journal page's writing voice at 22/28. */
+export const Composer = ({ date, hint, today, rows = 3, size }: { date: string; hint?: string; today: string; rows?: number; size?: 'lg' }) => {
   const { add } = useJournalMutations();
   const toast = useToast();
   const [text, setText] = useState(drafts[date] ?? '');
@@ -108,7 +108,7 @@ export const Composer = ({ date, hint, today, rows = 3 }: { date: string; hint?:
     toast('Saved to your journal');
   };
   return (
-    <div className="composer">
+    <div className={`composer ${size === 'lg' ? 'big' : ''}`}>
       <textarea
         className="jtext serif"
         rows={rows}
@@ -128,7 +128,7 @@ export const Composer = ({ date, hint, today, rows = 3 }: { date: string; hint?:
         }}
       />
       <div className="composer-foot">
-        <span className="t-cap muted">{hint && canHover ? hint : ''}</span>
+        <span className="caps">{hint && canHover ? hint : ''}</span>
         <Button variant="primary" onClick={save} disabled={!text.trim()}>
           Save
         </Button>

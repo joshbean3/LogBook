@@ -4,8 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { api, ApiError } from '@/api/client';
 import { isNative } from '@/lib/native';
 import { keys, useBootstrap } from '@/api/queries';
-import { useTheme } from '@/lib/theme';
-import { Button, Chip, Group, PageHeader, Row, SectionHead, Segmented } from '@/ui/primitives';
+import { Button, Chip, Group, PageHeader, Row } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import './settings.css';
 
@@ -20,6 +19,13 @@ if (typeof window !== 'undefined')
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 
+/** A caps eyebrow: the section head of this screen. */
+const Sec = ({ title }: { title: string }) => (
+  <div className="s-sec">
+    <span className="caps">{title}</span>
+  </div>
+);
+
 const Steps = ({ steps }: { steps: string[] }) => (
   <ol>
     {steps.map((s, i) => (
@@ -33,7 +39,12 @@ const Steps = ({ steps }: { steps: string[] }) => (
 
 /** The Strava hand-off. In Safari it is a plain link; in the app it opens the system browser and the callback deep-links back. */
 const ConnectStrava = ({ className, children }: { className: string; children: React.ReactNode }) => {
-  if (!isNative) return <a className={className} href="/api/strava/connect">{children}</a>;
+  if (!isNative)
+    return (
+      <a className={className} href="/api/strava/connect">
+        {children}
+      </a>
+    );
   return (
     <button
       type="button"
@@ -58,7 +69,6 @@ export default function SettingsView() {
   const qc = useQueryClient();
   const nav = useNavigate();
   const toast = useToast();
-  const [theme, setTheme] = useTheme();
   const [sp, setSp] = useSearchParams();
   const [canInstall, setCanInstall] = useState(!!deferredInstall);
   useEffect(() => {
@@ -78,7 +88,7 @@ export default function SettingsView() {
       setTimeout(() => void qc.invalidateQueries({ queryKey: ['month'] }), 6000);
       setSp({}, { replace: true });
     } else if (s === 'error') {
-      toast(`Strava didn’t connect: ${sp.get('reason') ?? 'unknown error'}`);
+      toast('Strava didn’t connect. Try again.');
       setSp({}, { replace: true });
     }
   }, [sp, setSp, toast, qc]);
@@ -120,101 +130,93 @@ export default function SettingsView() {
     <div className="page s-set">
       <PageHeader title="Settings" sub={boot.data?.user.email} />
 
-      <SectionHead title="Appearance" />
-      <Group>
-        <div className="lrow">
-          <Segmented className="grow" label="Theme" options={[['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]} value={theme} onChange={setTheme} />
-        </div>
-      </Group>
-
-      {features?.strava ? <SectionHead title="Strava" /> : null}
-      {features?.strava ? <Group>
-        {!features?.strava ? (
-          <Row title="Not connected" sub="Not available yet." />
-        ) : strava?.connected ? (
-          <>
-            <Row title="Strava" sub={strava.athleteName ? `Connected as ${strava.athleteName}` : 'Runs, lifts and workouts flow in and mark sessions done.'} right={<Chip kind="done">Connected</Chip>} />
-            {strava.error ? <Row title="Last sync failed" sub={strava.error} /> : null}
-            <div className="lrow" style={{ justifyContent: 'flex-end', gap: 8, paddingBlock: 8 }}>
-              <Button variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
-                Disconnect
-              </Button>
-              <ConnectStrava className="btn">Reconnect</ConnectStrava>
-            </div>
-          </>
-        ) : (
-          <Row
-            title="Not connected"
-            sub="Every run marks its session done, with heart rate and splits graded against the plan."
-            right={
-              <ConnectStrava className="chip-btn">Connect</ConnectStrava>
-            }
-          />
-        )}
-      </Group> : null}
+      {features?.strava ? (
+        <>
+          <Sec title="Strava" />
+          <Group>
+            {strava?.connected ? (
+              <>
+                <Row title="Strava" sub={strava.athleteName ? `Connected as ${strava.athleteName}` : 'Runs, lifts and workouts flow in and mark sessions done.'} right={<Chip kind="done">Connected</Chip>} />
+                {strava.error ? <Row title="Last sync failed" sub="Reconnect to try again." /> : null}
+                <div className="lrow" style={{ justifyContent: 'flex-end', gap: 8, paddingBlock: 8 }}>
+                  <Button variant="ghost" style={{ color: 'var(--ink-2)' }} onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+                    Disconnect
+                  </Button>
+                  <ConnectStrava className="btn">Reconnect</ConnectStrava>
+                </div>
+              </>
+            ) : (
+              <Row title="Not connected" sub="Every run marks its session done, with heart rate and splits graded against the plan." right={<ConnectStrava className="chip-btn">Connect</ConnectStrava>} />
+            )}
+          </Group>
+        </>
+      ) : null}
 
       {features?.claude ? (
         <>
-          <SectionHead title="Coach" />
+          <Sec title="Coach" />
           <Group>
             <Row title="Plan builder and coach’s read" sub="Builds plans from a PDF, text or a description, and reads each run." right={<Chip kind="done">On</Chip>} />
           </Group>
         </>
       ) : null}
 
-      <SectionHead title="Install" />
-      <Group>
-        {isStandalone() ? (
-          <Row title="Installed" sub="You’re running the installed app." right={<Chip kind="done">On this phone</Chip>} />
-        ) : canInstall ? (
-          <Row
-            title="Add to home screen"
-            sub="Opens full-screen and works offline."
-            right={
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={async () => {
-                  if (!deferredInstall) return;
-                  await deferredInstall.prompt();
-                  const r = await deferredInstall.userChoice;
-                  if (r.outcome === 'accepted') setCanInstall(false);
-                  deferredInstall = null;
-                }}
-              >
-                Install
-              </Button>
-            }
-          />
-        ) : isIOS() ? (
-          <Steps steps={['Tap the Share button in Safari (the square with an arrow).', 'Scroll and tap “Add to Home Screen”.', 'Tap Add. Logbook opens full-screen from your home screen.']} />
-        ) : (
-          <Steps steps={['Open the browser menu (⋮).', 'Tap “Add to Home screen” or “Install app”.', 'Confirm. Logbook opens like any other app.']} />
-        )}
-      </Group>
+      {/* Add to Home Screen means nothing inside the app itself; the web keeps it */}
+      {!isNative ? (
+        <>
+          <Sec title="Install" />
+          <Group>
+            {isStandalone() ? (
+              <Row title="Installed" sub="You’re running the installed app." right={<Chip kind="done">On this phone</Chip>} />
+            ) : canInstall ? (
+              <Row
+                title="Add to home screen"
+                sub="Opens full-screen and works offline."
+                right={
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={async () => {
+                      if (!deferredInstall) return;
+                      await deferredInstall.prompt();
+                      const r = await deferredInstall.userChoice;
+                      if (r.outcome === 'accepted') setCanInstall(false);
+                      deferredInstall = null;
+                    }}
+                  >
+                    Install
+                  </Button>
+                }
+              />
+            ) : isIOS() ? (
+              <Steps steps={['Tap the Share button in Safari (the square with an arrow).', 'Scroll and tap “Add to Home Screen”.', 'Tap Add. Logbook opens full-screen from your home screen.']} />
+            ) : (
+              <Steps steps={['Open the browser menu (⋮).', 'Tap “Add to Home screen” or “Install app”.', 'Confirm. Logbook opens like any other app.']} />
+            )}
+          </Group>
+        </>
+      ) : null}
 
-      <SectionHead title="Import" />
+      <Sec title="Import" />
       <Group>
         <Row
           title="From the dashboard"
           sub="Habits, plan, logs, Strava history, morning settings, to-dos and favorites. Safe to run more than once."
           right={
-            <Button size="sm" variant="soft" disabled={importBundle.isPending} onClick={() => fileRef.current?.click()}>
-              {importBundle.isPending ? 'Importing…' : 'Import'}
+            <Button size="sm" disabled={importBundle.isPending} onClick={() => fileRef.current?.click()}>
+              Import
             </Button>
           }
         />
         <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => e.target.files?.[0] && importBundle.mutate(e.target.files[0])} />
         {importResult ? (
           <div className="lrow">
-            <span className="t-sub" style={{ color: importFailed ? 'var(--bad)' : 'var(--ok)' }}>
-              {importResult}
-            </span>
+            <span className={`s-result ${importFailed ? 'bad' : ''}`}>{importResult}</span>
           </div>
         ) : null}
       </Group>
 
-      <SectionHead title="Account" />
+      <Sec title="Account" />
       <Group>
         <Row className="s-out" title="Sign out" onClick={() => !logout.isPending && logout.mutate()} />
       </Group>
