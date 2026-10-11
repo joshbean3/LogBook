@@ -55,7 +55,7 @@
 .share-templates .chip-btn {
   flex: none;
   height: 44px;
-  padding: 0 12px;
+  padding: 0 10px;
   scroll-snap-align: start;
 }
 .share-templates .chip-btn::after {

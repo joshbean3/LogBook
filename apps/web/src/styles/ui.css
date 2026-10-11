@@ -864,8 +864,10 @@ textarea.in {
   color: color-mix(in srgb, var(--warn) 70%, var(--ink));
 }
 .note-line.bad {
-  background: var(--bad-soft);
-  color: color-mix(in srgb, var(--bad) 70%, var(--ink));
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+  color: var(--bad);
 }
 .note-line.ok {
   background: var(--ok-soft);

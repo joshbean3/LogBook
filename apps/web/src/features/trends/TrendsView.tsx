@@ -164,7 +164,7 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
         <span className="caps">Last {PAST} wk</span>
       </div>
       <div className="tr-stamps">
-        <Stamp label="This week" value={ready ? mi(cur.ran) : '—'} unit="mi" under={ready && delta != null ? `${signed(delta)} vs avg` : ''} />
+        <Stamp label="This week" value={ready ? mi(cur.ran) : '—'} unit="mi" under={ready && delta != null ? `${signed(delta)} mi vs avg` : ''} />
         <Stamp label="Planned" value={ready ? num(cur.planned) : '—'} unit="mi" />
         <Stamp label="Runs" value={ready ? cur.n : '—'} />
       </div>
@@ -405,7 +405,7 @@ const LiftSheet = ({ g }: { g: LiftGroup }) => {
                 <span className="stamp">
                   {s.weight} × {s.reps}
                 </span>
-                <span className="caps">e1RM {Math.round(e1rm(s.weight, s.reps))}</span>
+                <span className="caps">Est. 1RM {Math.round(e1rm(s.weight, s.reps))}</span>
               </div>
             }
           />
@@ -459,7 +459,7 @@ const Lifts = () => {
                       {last.weight} × {last.reps}
                     </span>
                     <span className="caps">
-                      e1RM {Math.round(e1rm(last.weight, last.reps))}
+                      Est. 1RM {Math.round(e1rm(last.weight, last.reps))}
                       {ch == null ? null : <span className="lift-ch"> · {signedPct(ch)}</span>}
                     </span>
                   </div>
