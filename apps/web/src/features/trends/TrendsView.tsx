@@ -1,9 +1,9 @@
 import { dayStatus, e1rm, fmtDate, grade, label, mi, mondayOf, monthsBetween, num, sessionStatus, shiftDays, zoneOf, type Activity } from '@logbook/shared';
 import { motion } from 'motion/react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAllLifts } from '@/api/queries';
-import { EmptyState, Group, Loading, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { Button, EmptyState, Group, Loading, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useLog, type Log } from '../log/useLog';
 import './trends.css';
 
@@ -38,7 +38,46 @@ const useRuns = (log: Log, from: string, to: string) =>
 // ---------- weekly mileage ----------
 const Mileage = ({ log, range }: { log: Log; range: Range }) => {
   const [ref, width] = useWidth<HTMLDivElement>();
+  // A mouse hovers; a finger taps to pin the tooltip, and a tap outside the chart or 3 s lets it go.
   const [hover, setHover] = useState<number | null>(null);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    if (!pinned || hover == null) return;
+    const clear = () => {
+      setHover(null);
+      setPinned(false);
+    };
+    const timer = setTimeout(clear, 3000);
+    const onDown = (ev: PointerEvent) => {
+      if (!ref.current?.contains(ev.target as Node)) clear();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('pointerdown', onDown, true);
+    };
+  }, [pinned, hover, ref]);
+  const onBarEnter = (i: number) => (ev: React.PointerEvent) => {
+    if (ev.pointerType === 'touch' || pinned) return;
+    setHover(i);
+  };
+  const onBarDown = (i: number) => (ev: React.PointerEvent) => {
+    if (ev.pointerType !== 'touch') {
+      setHover(i);
+      return;
+    }
+    const off = pinned && hover === i;
+    setHover(off ? null : i);
+    setPinned(!off);
+  };
+  const onLeave = (ev: React.PointerEvent) => {
+    if (ev.pointerType === 'touch' || pinned) return;
+    setHover(null);
+  };
+  const onCancel = () => {
+    setHover(null);
+    setPinned(false);
+  };
   const t = log.today;
   const thisMon = mondayOf(t);
   const PAST = WEEKS[range];
@@ -57,9 +96,10 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
     }
     return { w, planned, ran, n, future: w > thisMon, avg: null as number | null };
   });
+  const firstRun = pts.findIndex((p) => p.ran > 0);
   pts.forEach((p, i) => {
-    if (p.future) return;
-    const win = pts.slice(Math.max(0, i - 3), i + 1);
+    if (p.future || firstRun < 0 || i < firstRun) return;
+    const win = pts.slice(Math.max(firstRun, i - 3), i + 1);
     p.avg = win.reduce((x, q) => x + q.ran, 0) / win.length;
   });
   const cur = pts[PAST - 1]!;
@@ -87,14 +127,14 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
   const clipId = `mile-clip-${range}`;
   return (
     <>
-      <SectionHead title="Weekly mileage" meta={`Last ${PAST} weeks and the next ${FUT}`} />
+      <SectionHead title="Weekly mileage" meta={`Last ${PAST} weeks, next ${FUT}`} />
       <StatStrip className="tr-strip">
-        <Stat label="This week" value={mi(cur.ran)} unit="mi" delta={delta == null ? undefined : { text: `${signed(delta)} vs 4-wk avg`, dir: delta >= 0 ? 'up' : 'down' }} />
+        <Stat label="This week" value={mi(cur.ran)} unit="mi" delta={delta == null ? undefined : { text: `${signed(delta)} vs avg`, dir: delta >= 0 ? 'up' : 'down' }} />
         <Stat label="Planned" value={num(cur.planned)} unit="mi" small />
         <Stat label="Runs" value={cur.n} unit="this week" small />
       </StatStrip>
       <Group className="chart-group">
-        <div ref={ref} className="chart-wrap" onPointerLeave={() => setHover(null)}>
+        <div ref={ref} className="chart-wrap" onPointerLeave={onLeave}>
           {width ? (
             <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Miles run per week against the plan">
               <defs>
@@ -137,14 +177,14 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
               )}
               {hover != null ? <rect x={xc(hover) - bw / 2 - 3} y={8} width={bw + 6} height={y0 - 8} rx={5} className="hov" /> : null}
               {pts.map((p, i) => (
-                <rect key={`h-${p.w}`} x={left + band * i} y={0} width={band} height={y0} fill="transparent" onPointerEnter={() => setHover(i)} onPointerDown={() => setHover(i)} />
+                <rect key={`h-${p.w}`} x={left + band * i} y={0} width={band} height={y0} fill="transparent" onPointerEnter={onBarEnter(i)} onPointerDown={onBarDown(i)} onPointerCancel={onCancel} />
               ))}
             </svg>
           ) : (
             <div style={{ height: H }} />
           )}
           {hp ? (
-            <div className="tip" style={{ left: Math.max(0, Math.min(width - 170, (xc(hover!) / W) * width - 85)), top: Math.max(0, y(Math.max(hp.ran, hp.planned)) - 70) }}>
+            <div className="tip" style={{ left: Math.max(0, Math.min(width - 170, (xc(hover!) / W) * width - 85)), bottom: H - y(Math.max(hp.ran, hp.planned)) + 10 }}>
               <div className="tip-head">
                 Week of {fmtDate('md', hp.w)}
                 {hp.w === thisMon ? ' (so far)' : ''}
@@ -173,6 +213,7 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
 
 // ---------- effort ----------
 const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
+  const nav = useNavigate();
   const z = log.zones;
   const recent = runs.slice(0, 10);
   const rows = recent.map((a) => {
@@ -199,13 +240,19 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
             </p>
           ) : null}
         </>
-      ) : (
-        <div className="tr-headline">
-          <span className="t-title">Heart-rate zones needed</span>
-          <span className="t-cap muted">Zones come from Strava once it’s connected; grades start then</span>
-        </div>
-      )}
+      ) : null}
       <Group>
+        {!z ? (
+          <EmptyState
+            action={
+              <Button variant="soft" onClick={() => nav('/settings')}>
+                Connect
+              </Button>
+            }
+          >
+            No heart-rate zones yet. Connect Strava.
+          </EmptyState>
+        ) : null}
         {rows.map((r) => (
           <Row
             key={r.a.id}
@@ -232,7 +279,7 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
             }
           />
         ))}
-        {!rows.length ? log.loading ? <Loading text="Loading runs…" /> : <EmptyState>{log.strava?.connected ? 'Runs show up here as Strava sends them in.' : 'Connect Strava in Settings and every run lands here with its heart rate.'}</EmptyState> : null}
+        {!rows.length ? log.loading ? <Loading text="Loading runs…" /> : z ? <EmptyState>No runs yet. Your next Strava run lands here.</EmptyState> : null : null}
       </Group>
     </>
   );

@@ -8,16 +8,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.tr-headline {
-  display: grid;
-  gap: 2px;
-  margin-bottom: 12px;
-}
 .tr-key {
   margin: -4px 0 12px;
 }
 .chart-group {
   padding: 16px;
+  /* the tooltip sits above the bar it describes and may rise past the top edge */
+  overflow: visible;
 }
 .chart-group > * + * {
   border-top: 0;

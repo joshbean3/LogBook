@@ -1,40 +1,46 @@
-/* ---------- entries as grouped-list rows ---------- */
+/* ---------- entries as grouped-list rows ----------
+   The text is the tap target (it opens the editor sheet); the star is the one inline action. */
 .jentry {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px 6px 16px;
+  background: var(--surface);
+  transition: background var(--dur-fast);
+}
+.jentry:has(.jentry-body:active) {
+  background: var(--surface-2);
+}
+.jentry-body {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 6px 0;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
   display: grid;
   gap: 4px;
-  padding: 10px 16px 12px;
-  background: var(--surface);
-}
-.jentry-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 32px;
+  text-align: left;
+  color: var(--ink);
+  user-select: text;
+  -webkit-user-select: text;
 }
 .jentry-meta {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-}
-.jentry-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  margin-right: -8px;
+  line-height: 20px;
 }
 .jentry-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--ink);
 }
-.jentry.is-fav .jentry-text {
-  color: var(--ink);
-}
-.jedit {
-  display: grid;
-  gap: 8px;
-  padding-top: 4px;
+.jentry .star {
+  flex: none;
+  margin-top: 2px;
 }
 .star {
   color: var(--ink-3);
@@ -63,10 +69,12 @@ textarea.jtext {
 .jtext::placeholder {
   color: var(--ink-4);
 }
-.jedit .jtext {
-  padding: 8px 12px;
-  background: var(--surface-2);
-  border-radius: var(--r-md);
+/* the editor sheet: the sheet is the surface, so the text sits on a hairline with 8px of air */
+.jsheet-text {
+  padding: 8px 0;
+  min-height: 132px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
 }
 .composer {
   display: grid;
@@ -198,8 +206,10 @@ textarea.jtext {
 .day-head .t-label {
   color: var(--ink-2);
 }
-.day-head:hover .t-label {
-  color: var(--accent);
+@media (hover: hover) {
+  .day-head:hover .t-label {
+    color: var(--ink);
+  }
 }
 .day-head svg {
   margin-left: -2px;
