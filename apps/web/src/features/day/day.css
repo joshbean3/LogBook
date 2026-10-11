@@ -1,63 +1,28 @@
-.day-grid {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'train' 'todos' 'habits' 'journal';
-  align-items: start;
+.hero[role='button'] {
+  cursor: pointer;
 }
-.a-train {
-  grid-area: train;
-}
-.a-todos {
-  grid-area: todos;
-}
-.a-habits {
-  grid-area: habits;
-}
-.a-journal {
-  grid-area: journal;
-}
-@media (min-width: 1000px) {
-  .day-grid {
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    grid-template-areas: 'train todos' 'train habits' 'journal habits';
-  }
+.hero[role='button']:active {
+  background: var(--surface-2);
 }
 
-.habits {
-  display: grid;
-}
-.habit {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--line);
-}
-.habit:last-child {
-  border-bottom: 0;
-}
-.habit-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-.habit-name {
+/* habit rows */
+.hrow-name {
   appearance: none;
   border: 0;
   background: none;
-  padding: 3px 0;
+  padding: 0;
   text-align: left;
-  font-size: 15.5px;
-  overflow-wrap: anywhere;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
   color: var(--ink);
+  overflow-wrap: anywhere;
   transition: color var(--dur);
 }
-.habit.is-done .habit-name {
+.hrow.is-done .hrow-name,
+.trow.is-done .hrow-name {
   color: var(--ink-3);
-  text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
 }
 .note-in {
   border: 0;
@@ -68,76 +33,74 @@
   color: var(--ink-2);
   outline: none;
   width: 100%;
+  margin-bottom: 6px;
 }
 .note-in:focus {
   border-bottom-color: var(--accent);
   color: var(--ink);
 }
 .streak {
-  align-self: center;
-  font-size: 12.5px;
-  color: var(--ink-3);
-  font-weight: 600;
-}
-.habit.editing {
+  display: inline-flex;
   align-items: center;
-}
-.habit.editing .in {
-  flex: 1;
-}
-.faint {
-  color: var(--ink-4);
+  gap: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--warn);
+  letter-spacing: 0;
 }
 
-.todos {
-  display: grid;
+/* to-dos */
+.todo-wrap {
+  position: relative;
+  overflow: hidden;
 }
-.todo {
+.todo-under {
+  position: absolute;
+  inset: 0;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(90deg, var(--ok) 0 50%, var(--bad) 50% 100%);
 }
-.todo:last-child {
-  border-bottom: 0;
-}
-.todo-text {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 3px 0;
-  text-align: left;
-  flex: 1;
-  min-width: 0;
-  font-size: 15.5px;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-}
-.todo.is-done .todo-text {
-  color: var(--ink-3);
-  text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
+.trow {
+  position: relative;
+  background: var(--surface);
+  touch-action: pan-y;
 }
 .carried {
-  font-size: 11.5px;
+  font-size: 11px;
+  line-height: 16px;
   font-weight: 600;
   color: var(--warn);
   background: var(--warn-soft);
   border-radius: var(--r-pill);
-  padding: 1px 7px;
+  padding: 0 7px;
   white-space: nowrap;
+  letter-spacing: 0;
 }
-.todo.editing .in {
-  flex: 1;
+.done-foot {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  min-height: 40px;
+  cursor: pointer;
 }
-.run-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  align-items: baseline;
-  font-size: 13.5px;
-  padding: 7px 11px;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
+
+/* note affordance: hover on desktop, long-press on the name elsewhere */
+.hover-only {
+  display: none;
+}
+@media (hover: hover) {
+  .hrow:hover .hover-only {
+    display: inline-grid;
+  }
+}
+.hrow-name {
+  -webkit-touch-callout: none;
 }

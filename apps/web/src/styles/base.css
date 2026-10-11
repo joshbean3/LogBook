@@ -17,8 +17,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 15.5px/1.5 var(--body);
-  font-optical-sizing: auto;
+  font: 17px/22px var(--sans);
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -71,20 +71,71 @@ ol {
   background: var(--accent-soft);
 }
 
-.display {
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 60;
+/* ---------- type scale (Apple pairs) ---------- */
+.t-display {
+  font-size: 56px;
+  line-height: 60px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.t-stat {
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 600;
   letter-spacing: -0.01em;
 }
-.num {
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 40;
-  font-weight: 500;
+.t-large {
+  font-size: 34px;
+  line-height: 41px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.t-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.t-head {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
   letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums lining-nums;
+}
+.t-body {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 400;
+}
+.t-sub {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.t-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.t-cap {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.serif {
+  font-family: var(--serif);
+  font-variation-settings: 'SOFT' 100;
+  letter-spacing: 0;
 }
 .muted {
   color: var(--ink-3);
+}
+.ink2 {
+  color: var(--ink-2);
 }
 .sr-only {
   position: absolute;
@@ -98,31 +149,34 @@ ol {
   border: 0;
 }
 
-/* layout */
+/* ---------- page ---------- */
 .page {
-  padding: calc(14px + var(--safe-t)) var(--gutter) calc(var(--tabbar-h) + 28px + var(--safe-b));
+  padding: calc(8px + var(--safe-t)) var(--gutter) calc(var(--tabbar-h) + 32px + var(--safe-b));
   max-width: var(--maxw);
   margin-inline: auto;
   width: 100%;
-  display: grid;
-  gap: 18px;
-  align-content: start;
   min-width: 0;
 }
 @media (min-width: 900px) {
   .page {
-    padding: 36px 40px 56px;
-    gap: 22px;
+    padding: 32px 40px 64px;
+    max-width: 880px;
   }
+}
+.section {
+  margin-top: var(--section);
+}
+.section:first-of-type {
+  margin-top: 24px;
 }
 .stack {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 .row.wrap {
@@ -137,15 +191,12 @@ ol {
 }
 .two-col {
   display: grid;
-  gap: 18px;
+  gap: 24px;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 @media (min-width: 1000px) {
   .two-col {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  }
-  .two-col.even {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

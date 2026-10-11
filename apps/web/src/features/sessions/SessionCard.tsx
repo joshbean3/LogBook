@@ -1,13 +1,12 @@
 import { assess, clock, fmtDate, floorFor, isAutoStatus, label, METERS_PER_MILE, mi, num, sessionStatus, STATUS_WORD, tone, zoneOf, type Activity, type Session } from '@logbook/shared';
+import { monthOf } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { ChevronRight, Sparkles } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
 import type { MonthBundle } from '@/api/types';
-import { monthOf } from '@logbook/shared';
-import { Button, Chip, ChipButton, Mark } from '@/ui/primitives';
+import { Button, Chip, ChipButton, Mark, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import type { Log } from '../log/useLog';
@@ -16,7 +15,20 @@ import { MoveSheet } from './MoveSheet';
 import { SessionEditor } from './SessionEditor';
 import './sessions.css';
 
-const SessionActual = ({ date, sess, runs, log }: { date: string; sess: Session | null; runs: Activity[]; log: Log }) => {
+/** One line that says what the session is: "Easy · 6 mi · floor 20 min easy". */
+export const sessionMeta = (s: Session, st: string): string => {
+  const bits: string[] = [];
+  const lbl = label(s).toLowerCase();
+  if (s.type && !lbl.includes(s.type.toLowerCase())) bits.push(s.type);
+  if (s.kind === 'run' && s.miles && !lbl.includes(num(s.miles))) bits.push(`${num(s.miles)} mi`);
+  if (s.minutes) bits.push(`${s.minutes} min`);
+  if (s.details) bits.push(s.details);
+  if (!bits.length && st !== 'done' && st !== 'floor' && st !== 'rest' && st !== 'skipped' && floorFor(s)) bits.push(`Floor: ${floorFor(s)}`);
+  return bits.join(' · ');
+};
+
+/** What Strava says happened, graded against the plan. */
+export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: Session | null; runs: Activity[]; log: Log }) => {
   const a = assess(log.zones, sess, runs);
   const za = a.avgHr != null ? zoneOf(log.zones, a.avgHr) : null;
   const laps = runs.flatMap((r) => r.laps ?? []).filter((l) => l[0] > 160);
@@ -26,75 +38,69 @@ const SessionActual = ({ date, sess, runs, log }: { date: string; sess: Session 
   const toast = useToast();
   const coach = useMutation({
     mutationFn: () => api<{ date: string; key: string; text: string; createdAt: string }>('/coach/read', { method: 'POST', json: { date, sessionId: sess?.id ?? null } }),
-    onSuccess: (r) => {
-      qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === date && c.key === key)), r] } : b));
-    },
+    onSuccess: (r) => qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === date && c.key === key)), r] } : b)),
     onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t get the coach’s read.'),
   });
-  const [open, setOpen] = useState(false);
+  const fastest = laps.length ? Math.min(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
+  const slowest = laps.length ? Math.max(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   return (
     <div className="actual">
-      <div className="did">
-        <span className="did-label">Did</span>
-        <span className="did-big num">{mi(a.miles)} mi</span>
-        <span>{clock(a.movingSec)}</span>
-        {a.pace ? <span>{a.pace} /mi</span> : null}
-        {a.avgHr != null ? (
-          <span className="row" style={{ gap: 5 }}>
-            {a.avgHr} avg · {a.maxHr} max bpm {za ? <b className={`hr-chip z${za}`}>Z{za}</b> : null}
-          </span>
-        ) : runs.some((r) => !r.perfAt) ? (
-          <span className="muted" style={{ fontSize: 12.5 }}>
-            heart rate on its way…
-          </span>
-        ) : null}
-        {runs[0]?.cadence ? <span>{runs[0].cadence} spm</span> : null}
-      </div>
-      <div className="did-src">
+      <StatStrip>
+        <Stat label="Distance" value={mi(a.miles)} unit="mi" />
+        <Stat label="Pace" value={a.pace ?? '—'} unit={a.pace ? '/mi' : undefined} />
+        <Stat label="Time" value={clock(a.movingSec)} />
+      </StatStrip>
+      {a.avgHr != null || runs[0]?.cadence ? (
+        <StatStrip>
+          <Stat label="Avg HR" value={a.avgHr ?? '—'} unit={za ? <b className={`hr-chip z${za}`}>Z{za}</b> : 'bpm'} small />
+          <Stat label="Max HR" value={a.maxHr ?? '—'} unit="bpm" small />
+          <Stat label="Cadence" value={runs[0]?.cadence ?? '—'} unit="spm" small />
+        </StatStrip>
+      ) : runs.some((r) => !r.perfAt) ? (
+        <p className="fine">Heart rate and splits are on their way from Strava.</p>
+      ) : null}
+      <p className="fine">
         {runs.map((r) => r.name + (r.time ? ` · ${r.time}` : '')).join(' + ')}
         {runs.length > 1 ? ' (combined)' : ''}
-      </div>
+      </p>
       {laps.length > 1 ? (
         <div className="splits" aria-label="Mile splits">
           {laps.map((l, i) => {
             const part = l[0] < 0.9 * METERS_PER_MILE;
             const z = l[2] != null ? zoneOf(log.zones, l[2]) : null;
-            const pace = clock(l[1] / (l[0] / METERS_PER_MILE));
+            const p = l[1] / (l[0] / METERS_PER_MILE);
+            // the fastest mile gets the longest bar (as Strava draws them)
+            const w = slowest === fastest ? 1 : 0.35 + 0.65 * (1 - (p - fastest) / (slowest - fastest));
             return (
-              <span key={i} className={`split ${z ? `sz${z}` : ''} ${part ? 'part' : ''}`} title={`${part ? `${mi(l[0] / METERS_PER_MILE)} mi` : `Mile ${i + 1}`} · ${pace}/mi${l[2] != null ? ` · ${l[2]} bpm` : ''}`}>
-                <b>{part ? mi(l[0] / METERS_PER_MILE) : i + 1}</b>
-                <span>{pace}</span>
-                {l[2] != null ? <small>{l[2]}</small> : null}
-              </span>
+              <div key={i} className={`split ${z ? `sz${z}` : ''} ${part ? 'part' : ''}`}>
+                <span className="split-n">{part ? mi(l[0] / METERS_PER_MILE) : i + 1}</span>
+                <span className="split-bar">
+                  <i style={{ width: `${w * 100}%` }} />
+                </span>
+                <span className="split-pace">{clock(p)}</span>
+                <span className="split-hr">{l[2] != null ? l[2] : ''}</span>
+              </div>
             );
           })}
         </div>
       ) : null}
       {a.lines.length ? (
         <div className={`assess v-${a.verdict}`}>
-          <button type="button" className="assess-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-            <span>{a.head}</span>
-            {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-          </button>
-          <AnimatePresence initial={false}>
-            {open ? (
-              <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} style={{ overflow: 'hidden' }}>
-                {a.lines.map((x) => (
-                  <li key={x}>{x}</li>
-                ))}
-              </motion.ul>
-            ) : null}
-          </AnimatePresence>
+          <div className="assess-head">{a.head}</div>
+          <ul>
+            {a.lines.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
         </div>
       ) : null}
       {log.features.claude ? (
         saved ? (
           <div className="coach">
-            <div className="row" style={{ gap: 6 }}>
-              <Sparkles size={13} />
-              <span className="mini-label">Coach’s read</span>
-            </div>
-            <p>{saved}</p>
+            <span className="t-label muted row" style={{ gap: 6 }}>
+              <Sparkles size={12} /> Coach’s read
+            </span>
+            <p className="serif">{saved}</p>
             <button type="button" className="link sm" disabled={coach.isPending} onClick={() => coach.mutate()}>
               {coach.isPending ? 'Asking…' : 'Ask again'}
             </button>
@@ -110,106 +116,169 @@ const SessionActual = ({ date, sess, runs, log }: { date: string; sess: Session 
   );
 };
 
-export const UnplannedCard = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log }) => (
-  <article className="scard k-run s-done">
-    <Mark status="done" disabled label="Unplanned run, done" />
-    <div className="scard-body">
-      <div className="scard-head">
-        <span className="pill t-easy">Unplanned run</span>
-        <Chip kind="done">Bonus</Chip>
-      </div>
-      <SessionActual date={date} sess={null} runs={runs} log={log} />
-    </div>
-  </article>
-);
-
-export const SessionCard = ({ date, s, log, compact }: { date: string; s: Session; log: Log; compact?: boolean }) => {
-  const st = sessionStatus(log.snap, date, s);
-  const auto = isAutoStatus(log.snap, date, s);
-  const { mark, remove } = useSessionMutations();
+/** The full session in a sheet: evidence, lift log, and every action. */
+const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log }) => {
   const sheet = useSheet();
   const toast = useToast();
+  const { mark, remove, upsert } = useSessionMutations();
   const [liftOpen, setLiftOpen] = useState(false);
+  const s = log.snap.sessionsOn(date).find((x) => x.id === id);
+  useEffect(() => {
+    if (!s) sheet.close();
+  }, [s, sheet]);
+  if (!s) return null;
+  const st = sessionStatus(log.snap, date, s);
+  const auto = isAutoStatus(log.snap, date, s);
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const sets = log.snap.liftsOn(date);
   const others = log.snap.activitiesOn(date).filter((a) => a.kind !== 'run');
-  const lbl = label(s);
-  const plan = [s.type, s.miles ? `${num(s.miles)} mi` : null, s.details].filter(Boolean).join(' · ');
   const setMark = (m: Session['mark']) => mark.mutate({ session: s, mark: m });
+  const canLog = s.kind === 'lift' || (s.kind === 'cross' && /hyrox/i.test(s.type ?? ''));
   return (
-    <motion.article layout className={`scard k-${s.kind} s-${st}`} data-id={s.id}>
-      <Mark
-        status={st}
-        label={`${lbl}: ${STATUS_WORD[st] ?? st}`}
-        title={auto ? 'Matched from Strava' : st === 'done' ? 'Tap to clear' : 'Tap if you did it'}
-        disabled={s.kind === 'rest' || auto}
-        onClick={() => setMark(st === 'done' && s.mark === 'done' ? null : 'done')}
-      />
-      <div className="scard-body">
-        <div className="scard-head">
-          <span className={`pill t-${tone(s)}`}>{lbl}</span>
-          {s.type && s.title && !s.title.toLowerCase().includes(s.type.toLowerCase()) ? <span className="scard-type">{s.type}</span> : null}
-          {s.kind === 'run' && s.miles && s.title && !s.title.includes(num(s.miles)) ? <span className="scard-type">{num(s.miles)} mi</span> : null}
-          {s.minutes ? <span className="scard-type">{s.minutes} min</span> : null}
-          <Chip kind={st}>{STATUS_WORD[st]}</Chip>
-        </div>
-        {s.movedFrom ? <div className="scard-meta">Moved from {fmtDate('short', s.movedFrom)}</div> : null}
-        {runs.length ? plan ? <div className="scard-plan">Plan: {plan}</div> : null : s.details ? <div className="scard-details">{s.details}</div> : null}
-        {!(st === 'done' || st === 'floor') && st !== 'rest' && st !== 'skipped' && floorFor(s) ? <div className="scard-floor">Floor: {floorFor(s)}</div> : null}
-        {runs.length ? <SessionActual date={date} sess={s} runs={runs} log={log} /> : null}
-        {s.kind !== 'run' && s.kind === 'lift' && sets.length ? (
-          <div className="scard-meta">
-            {sets.length} {sets.length === 1 ? 'set' : 'sets'} logged: {sets.map((x) => `${x.exercise} ${x.weight}×${x.reps}`).join(', ')}
-          </div>
-        ) : null}
-        {s.kind !== 'run' ? others.map((a) => <div key={a.id} className="scard-meta">Strava: {a.name} · {Math.round(a.movingSec / 60)} min</div>) : null}
-        {s.mark === 'floor' && st === 'floor' ? <div className="scard-meta">Logged as floor</div> : null}
-        {!compact ? (
-          <div className="scard-actions">
-            {s.kind !== 'rest' && !auto && st !== 'done' ? (
-              st !== 'floor' ? (
-                <ChipButton onClick={() => setMark('floor')}>Did the floor</ChipButton>
-              ) : s.mark === 'floor' ? (
-                <ChipButton onClick={() => setMark(null)}>Clear floor</ChipButton>
-              ) : null
-            ) : null}
-            {s.kind === 'lift' || (s.kind === 'cross' && /hyrox/i.test(s.type ?? '')) ? <ChipButton onClick={() => setLiftOpen((o) => !o)}>{liftOpen ? 'Close lift log' : 'Log lift'}</ChipButton> : null}
-            <ChipButton onClick={() => sheet.open({ title: `Move ${lbl}`, body: <MoveSheet date={date} session={s} log={log} /> })}>Move</ChipButton>
-            <ChipButton onClick={() => sheet.open({ title: 'Edit session', body: <SessionEditor date={date} session={s} /> })}>Edit</ChipButton>
-            {st !== 'done' ? (
-              <ChipButton quiet onClick={() => setMark(s.mark === 'skip' ? null : 'skip')}>
-                {s.mark === 'skip' ? 'Unskip' : 'Skip'}
-              </ChipButton>
-            ) : null}
-            <ChipButton
-              quiet
-              onClick={() => {
-                remove.mutate(s);
-                toast('Session deleted', { label: 'Undo', fn: () => sheet.open({ title: 'Add session', body: <SessionEditor date={date} session={{ ...s }} restore /> }) });
-              }}
-              aria-label={`Delete ${lbl}`}
-            >
-              Delete
-            </ChipButton>
-          </div>
-        ) : null}
-        <AnimatePresence initial={false}>
-          {liftOpen ? (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.24 }} style={{ overflow: 'hidden' }}>
-              <LiftLog date={date} log={log} />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+    <div className="stack" style={{ gap: 16 }}>
+      <div className="row" style={{ gap: 10 }}>
+        <span className={`pill t-${tone(s)}`}>{label(s)}</span>
+        <Chip kind={st}>{STATUS_WORD[st]}</Chip>
+        <span className="t-sub muted">{fmtDate('short', date)}</span>
       </div>
-    </motion.article>
+      {sessionMeta(s, st) ? <p className="t-sub ink2">{sessionMeta(s, st)}</p> : null}
+      {s.movedFrom ? <p className="fine">Moved from {fmtDate('short', s.movedFrom)}</p> : null}
+      {runs.length ? <SessionActual date={date} sess={s} runs={runs} log={log} /> : null}
+      {s.kind === 'lift' && sets.length ? (
+        <p className="t-sub ink2">
+          {sets.length} {sets.length === 1 ? 'set' : 'sets'}: {sets.map((x) => `${x.exercise} ${x.weight}×${x.reps}`).join(', ')}
+        </p>
+      ) : null}
+      {s.kind !== 'run'
+        ? others.map((a) => (
+            <p key={a.id} className="t-sub ink2">
+              Strava: {a.name} · {Math.round(a.movingSec / 60)} min
+            </p>
+          ))
+        : null}
+      {canLog ? (
+        <>
+          <Button variant={liftOpen ? 'default' : 'soft'} onClick={() => setLiftOpen((o) => !o)} style={{ justifySelf: 'start' }}>
+            {liftOpen ? 'Close lift log' : 'Log a set'}
+          </Button>
+          {liftOpen ? <LiftLog date={date} log={log} /> : null}
+        </>
+      ) : null}
+      <div className="row wrap" style={{ gap: 8 }}>
+        {s.kind !== 'rest' && !auto ? (
+          st === 'done' ? (
+            <ChipButton onClick={() => setMark(null)}>Mark not done</ChipButton>
+          ) : (
+            <>
+              <ChipButton onClick={() => setMark('done')}>Did it</ChipButton>
+              {st !== 'floor' ? <ChipButton onClick={() => setMark('floor')}>Did the floor</ChipButton> : <ChipButton onClick={() => setMark(null)}>Clear floor</ChipButton>}
+            </>
+          )
+        ) : null}
+        {st !== 'done' ? (
+          <ChipButton quiet onClick={() => setMark(s.mark === 'skip' ? null : 'skip')}>
+            {s.mark === 'skip' ? 'Unskip' : 'Skip'}
+          </ChipButton>
+        ) : null}
+      </div>
+      <div className="sheet-foot">
+        <Button
+          variant="danger"
+          onClick={() => {
+            remove.mutate(s);
+            sheet.close();
+            toast('Session deleted', { label: 'Undo', fn: () => upsert.mutate({ date: s.date, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: s.miles, minutes: s.minutes }) });
+          }}
+        >
+          Delete
+        </Button>
+        <div className="foot-right">
+          <Button onClick={() => sheet.open({ title: `Move ${label(s)}`, body: <MoveSheet date={date} session={s} log={log} /> })}>Move</Button>
+          <Button onClick={() => sheet.open({ title: 'Edit session', body: <SessionEditor date={date} session={s} /> })}>Edit</Button>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export const AddSessionButton = ({ date, children }: { date: string; children?: React.ReactNode }) => {
+export const useOpenSession = (log: Log) => {
+  const sheet = useSheet();
+  return (date: string, s: Session) => sheet.open({ title: 'Session', body: <SessionSheet date={date} id={s.id} log={log} />, wide: true });
+};
+
+/** A 60px row: check, colour bar, title, meta, one stat, chevron. */
+export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Session; log: Log; as?: 'li' | 'div' }) => {
+  const st = sessionStatus(log.snap, date, s);
+  const auto = isAutoStatus(log.snap, date, s);
+  const { mark } = useSessionMutations();
+  const open = useOpenSession(log);
+  const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
+  const sets = log.snap.liftsOn(date);
+  const lbl = label(s);
+  let stat: ReactNode = null;
+  if (runs.length) {
+    const a = assess(log.zones, s, runs);
+    stat = (
+      <span className="srow-stat">
+        <b>{mi(a.miles)} mi</b>
+        <small>{a.pace ? `${a.pace}/mi` : clock(a.movingSec)}</small>
+      </span>
+    );
+  } else if (s.kind === 'lift' && sets.length) {
+    stat = (
+      <span className="srow-stat">
+        <b>{sets.length}</b>
+        <small>{sets.length === 1 ? 'set' : 'sets'}</small>
+      </span>
+    );
+  } else if (st !== 'done' && st !== 'floor') stat = <Chip kind={st}>{STATUS_WORD[st]}</Chip>;
+  const Tag = as;
+  return (
+    <Tag className={`srow t-${tone(s)} s-${st}`}>
+      <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched from Strava' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
+      <button type="button" className="srow-body" onClick={() => open(date, s)}>
+        <span className="srow-bar" aria-hidden="true" />
+        <span className="srow-main">
+          <span className="lrow-title">{lbl}</span>
+          <span className="lrow-sub">{sessionMeta(s, st) || STATUS_WORD[st]}</span>
+        </span>
+        {stat}
+        <ChevronRight size={18} className="srow-chev" />
+      </button>
+    </Tag>
+  );
+};
+
+export const UnplannedRow = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log }) => {
+  const sheet = useSheet();
+  const a = assess(log.zones, null, runs);
+  return (
+    <li className="srow t-easy s-done">
+      <Mark status="done" disabled label="Unplanned run, done" />
+      <button type="button" className="srow-body" onClick={() => sheet.open({ title: 'Unplanned run', body: <SessionActual date={date} sess={null} runs={runs} log={log} />, wide: true })}>
+        <span className="srow-bar" aria-hidden="true" />
+        <span className="srow-main">
+          <span className="lrow-title">Unplanned run</span>
+          <span className="lrow-sub">{runs.map((r) => r.name).join(' + ')}</span>
+        </span>
+        <span className="srow-stat">
+          <b>{mi(a.miles)} mi</b>
+          <small>{a.pace ? `${a.pace}/mi` : ''}</small>
+        </span>
+        <ChevronRight size={18} className="srow-chev" />
+      </button>
+    </li>
+  );
+};
+
+export const AddSessionButton = ({ date, children, variant = 'ghost' }: { date: string; children?: ReactNode; variant?: 'ghost' | 'soft' | 'primary' }) => {
   const sheet = useSheet();
   return (
-    <Button variant="ghost" size="sm" onClick={() => sheet.open({ title: 'Add session', body: <SessionEditor date={date} session={null} /> })}>
-      {children ?? '+ Add session'}
+    <Button variant={variant} size="sm" onClick={() => sheet.open({ title: 'Add session', body: <SessionEditor date={date} session={null} /> })}>
+      {children ?? 'Add'}
     </Button>
   );
 };
+
+/** @deprecated transitional alias for views not yet rewritten. */
+export const SessionCard = ({ date, s, log }: { date: string; s: Session; log: Log; compact?: boolean }) => <SessionRow date={date} s={s} log={log} as="div" />;

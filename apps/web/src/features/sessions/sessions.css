@@ -1,136 +1,119 @@
-.scards {
-  display: grid;
-  gap: 10px;
-}
-.scard {
+/* a session as a 60px list row */
+.srow {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 14px;
-  border: var(--card-border);
-  border-radius: var(--r-lg);
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 16px;
   background: var(--surface);
-  box-shadow: var(--shadow-1);
-  transition: background var(--dur);
+  min-height: 60px;
 }
-.scard.s-done {
-  background: color-mix(in srgb, var(--ok) 6%, var(--surface));
+.srow.s-skipped .srow-main,
+.srow.s-rest .srow-main {
+  opacity: 0.55;
 }
-.scard.s-skipped,
-.scard.s-rest {
-  opacity: 0.72;
-  box-shadow: none;
+.srow.s-skipped .lrow-title {
+  text-decoration: line-through;
 }
-.scard-body {
+.srow-body {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 10px 8px 10px 0;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  color: inherit;
+  min-height: 60px;
+}
+.srow-bar {
+  width: 4px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--tone);
+  flex: none;
+}
+.srow-main {
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 1px;
 }
-.scard-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  min-width: 0;
+.srow-stat {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+  flex: none;
 }
-.scard-head > * {
-  min-width: 0;
+.srow-stat b {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
 }
-.scard-head .chip {
-  margin-left: auto;
-}
-.scard-type {
-  font-size: 13px;
+.srow-stat small {
+  font-size: 12px;
+  line-height: 16px;
   color: var(--ink-3);
+  letter-spacing: 0;
 }
-.scard-details {
-  font-size: 14.5px;
-  color: var(--ink-2);
-  overflow-wrap: anywhere;
-  line-height: 1.45;
-}
-.scard-plan,
-.scard-floor,
-.scard-meta {
-  font-size: 13px;
-  color: var(--ink-3);
-  overflow-wrap: anywhere;
-}
-.scard-meta {
-  color: var(--ink-2);
-}
-.scard-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
+.srow-chev {
+  color: var(--ink-4);
+  flex: none;
 }
 
-/* what Strava says happened */
+/* evidence, in the sheet */
 .actual {
   display: grid;
-  gap: 9px;
-  padding: 11px 13px;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
+  gap: 14px;
   min-width: 0;
 }
-.did {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  font-size: 13.5px;
-  color: var(--ink-2);
-}
-.did-label,
-.mini-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-.did-big {
-  font-size: 22px;
-  color: var(--ink);
-  line-height: 1;
-}
-.did-src {
-  font-size: 12.5px;
-  color: var(--ink-3);
-  margin-top: -5px;
+.actual .strip {
+  margin-top: 0;
 }
 .splits {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 4px;
 }
 .split {
   --zc: var(--t-rest);
   display: grid;
-  grid-template-columns: auto auto;
-  column-gap: 5px;
-  align-items: baseline;
-  font-size: 12.5px;
-  padding: 3px 7px;
-  border-radius: 7px;
-  background: var(--surface);
-  border-bottom: 3px solid var(--zc);
+  grid-template-columns: 24px minmax(0, 1fr) 48px 32px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 16px;
 }
-.split b {
-  font-size: 11px;
+.split-n {
   color: var(--ink-3);
   font-weight: 600;
+  text-align: right;
 }
-.split small {
-  grid-column: 1 / -1;
-  font-size: 11px;
+.split-bar {
+  height: 14px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.split-bar i {
+  display: block;
+  height: 100%;
+  background: var(--zc);
+  border-radius: 4px;
+  opacity: 0.85;
+}
+.split-pace {
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.split-hr {
   color: var(--ink-3);
+  text-align: right;
 }
 .split.part {
-  opacity: 0.7;
+  opacity: 0.6;
 }
 .split.sz1,
 .split.sz2 {
@@ -146,19 +129,11 @@
 .assess {
   display: grid;
   gap: 4px;
-  font-size: 13.5px;
+  font-size: 15px;
+  line-height: 20px;
 }
 .assess-head {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
   font-weight: 600;
-  text-align: left;
-  color: var(--ink);
 }
 .assess.v-on .assess-head {
   color: var(--ok);
@@ -170,22 +145,19 @@
 .assess ul {
   padding-left: 18px;
   display: grid;
-  gap: 3px;
+  gap: 2px;
   color: var(--ink-2);
   list-style: disc;
 }
 .coach {
   display: grid;
-  gap: 4px;
-  padding-top: 8px;
+  gap: 6px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
 }
 .coach p {
-  font-size: 14.5px;
-  line-height: 1.5;
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 80;
-  font-weight: 400;
+  font-size: 17px;
+  line-height: 26px;
 }
 .coach .link {
   justify-self: start;
@@ -195,10 +167,9 @@
 .lift-log {
   display: grid;
   gap: 8px;
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--r-md);
   background: var(--surface-2);
-  margin-top: 6px;
 }
 .lift-row {
   display: flex;
@@ -220,7 +191,8 @@
   color: var(--ink-3);
 }
 .hint {
-  font-size: 12.5px;
+  font-size: 12px;
+  line-height: 16px;
   color: var(--ink-3);
   min-height: 1em;
 }
@@ -243,7 +215,7 @@
 /* move */
 .move-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 6px;
 }
 .move-chip {
@@ -257,7 +229,6 @@
   text-align: left;
   font-size: 13px;
   min-width: 0;
-  transition: border-color var(--dur-fast);
 }
 .move-chip span {
   color: var(--ink-3);
