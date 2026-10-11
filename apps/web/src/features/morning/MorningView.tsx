@@ -525,7 +525,7 @@ export default function MorningView() {
             `Today · ${fmtDate('md', date)}`
           ) : (
             <span className="ph-sub-row">
-              {`${date === shiftDays(t, 1) ? 'Tomorrow · ' : ''}${fmtDate('md', date)}`}
+              {`${date === shiftDays(t, 1) ? 'Tomorrow · ' : date === shiftDays(t, -1) ? 'Yesterday · ' : ''}${fmtDate('md', date)}`}
               <button type="button" className="link sm quiet" onClick={() => go(t)}>
                 Today
               </button>

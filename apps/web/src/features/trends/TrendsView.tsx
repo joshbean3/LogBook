@@ -411,7 +411,6 @@ const LiftSheet = ({ g }: { g: LiftGroup }) => {
           />
         ))}
       </Group>
-      <p className="fine">Estimated 1RM = weight × (1 + reps ÷ 30)</p>
     </>
   );
 };

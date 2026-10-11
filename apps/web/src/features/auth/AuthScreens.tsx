@@ -45,7 +45,7 @@ export const Login = () => {
       nav('/today', { replace: true });
       void qc.invalidateQueries();
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Couldn’t sign in. Check your connection.');
+      setErr(e2 instanceof ApiError ? (e2.status === 401 ? 'That didn’t match. Try again.' : e2.code === 'validation' ? (pw.length < 8 ? 'That password is too short.' : 'Check the email address.') : e2.message) : 'Couldn’t sign in. Check your connection.');
     } finally {
       setBusy(false);
     }
@@ -92,7 +92,7 @@ export const Setup = () => {
       nav('/today', { replace: true });
       void qc.invalidateQueries();
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? e2.message : 'Couldn’t create the account.');
+      setErr(e2 instanceof ApiError ? (e2.code === 'validation' ? (pw.length < 8 ? 'Use at least 8 characters.' : 'Check the email address.') : e2.message) : 'Couldn’t create the account.');
     } finally {
       setBusy(false);
     }

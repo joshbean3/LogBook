@@ -459,3 +459,24 @@
 .spk-dot {
   fill: var(--ink);
 }
+
+/* narrow phones: the words get the room; the percentages come back on a wider screen */
+@media (max-width: 359px) {
+  .crow,
+  .chits {
+    --rw: 0px;
+  }
+  .crate {
+    display: none;
+  }
+  .clbl {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    line-height: 14px;
+  }
+}
