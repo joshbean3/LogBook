@@ -6,9 +6,9 @@
 }
 .ph-top {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-start;
-  gap: 0 8px;
+  gap: 8px;
   min-height: 44px;
 }
 .ph-title {
@@ -22,6 +22,9 @@
   line-height: 20px;
   color: var(--ink-3);
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ph-actions {
   margin-left: auto;
@@ -30,7 +33,7 @@
   align-items: center;
   padding-top: 2px;
 }
-/* a title never breaks mid-word: when the tools don't fit beside it they drop under it, right-aligned */
+/* the tools never move: the title wraps on a word beside them, and the sub line ellipsises */
 .ph-text {
   display: grid;
   gap: 2px;
@@ -38,7 +41,10 @@
   min-width: 0;
 }
 .ph-title {
-  overflow-wrap: normal;
+  overflow-wrap: break-word;
+}
+.ph-actions {
+  flex: none;
 }
 /* a wayfinding link beside the sub line: "October 14 · Today" */
 .ph-sub-row {
@@ -64,6 +70,12 @@
 .sec-head .t-label {
   color: var(--ink-3);
   margin-right: auto;
+}
+.sec-head > .t-cap {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .sec-head .link {
   font-size: 15px;
@@ -400,7 +412,7 @@
 
 /* ---------- chips ---------- */
 .chip {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -424,15 +436,27 @@
   background: var(--bad-soft);
 }
 .chip.open {
-  color: var(--accent);
-  background: var(--accent-tint);
+  color: var(--ink-2);
+  background: var(--surface-2);
 }
 .chip.upcoming {
   color: var(--ink-3);
 }
+/* a session name as a chip: ink text, the family carried by a 6px dot */
 .chip.tone {
-  color: var(--tone);
-  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip.tone::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tone);
+  flex: none;
 }
 .chip-btn {
   appearance: none;
@@ -632,7 +656,7 @@ textarea.in {
   background: var(--surface-2);
   width: 44px;
   flex: none;
-  font-size: 20px;
+  font-size: 17px;
   color: var(--ink-2);
 }
 .step:disabled {
@@ -690,13 +714,6 @@ textarea.in {
 }
 .mark-hit:disabled .mark {
   cursor: default;
-}
-.mark-ring {
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  border: 2px solid var(--ok);
-  pointer-events: none;
 }
 
 /* ---------- sheet ---------- */
@@ -757,6 +774,10 @@ textarea.in {
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 4px;
+}
+/* beside a primary button, Cancel is ink, not a second accent */
+.sheet-foot .btn.ghost {
+  color: var(--ink-2);
 }
 .foot-right {
   display: flex;
@@ -901,7 +922,7 @@ textarea.in {
   background: var(--tone, var(--ink-3));
 }
 .hr-chip {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
   font-weight: 700;
   padding: 0 5px;
@@ -1046,16 +1067,6 @@ textarea.in {
   line-height: 20px;
   font-weight: 600;
   letter-spacing: -0.02em;
-}
-.dcell.ds-missed .dcell-num {
-  color: var(--bad);
-}
-.dcell.ds-done .dcell-num,
-.dcell.ds-bonus .dcell-num {
-  color: var(--ok);
-}
-.dcell.ds-floor .dcell-num {
-  color: var(--warn);
 }
 .dcell.is-today .dcell-pill {
   box-shadow: inset 0 0 0 1.5px var(--accent);

@@ -1,6 +1,6 @@
 import { parseISO, buildMorning, clockOfDay, dayStatus, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, relativeDay, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Pencil, Settings, X } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion, type PanInfo } from 'motion/react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Pencil, Settings, X } from 'lucide-react';
+import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useHabitMutations, useTodoMutations, useTodos } from '@/api/queries';
@@ -32,8 +32,8 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     const out = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
     return out ? { start: out.start, back: T.back, mode: T.day.mode } : null;
   }, [date, log.today, log.boot, sessions, log.snap]);
-  // the ring carries the day's status; the session's tone sits on the chevron edge bar, never on text
-  const ringColor = st === 'done' || st === 'bonus' ? 'var(--ok)' : st === 'floor' ? 'var(--warn)' : st === 'missed' ? 'var(--bad)' : 'var(--accent)';
+  // the ring counts habits, so it is always the accent; the chip and verdict carry the training status
+  const ringColor = 'var(--accent)';
   let title: React.ReactNode;
   let verdict: string;
   if (!main) {
@@ -236,20 +236,23 @@ const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: { 
   const reduce = useReducedMotion();
   const [gone, setGone] = useState<'left' | 'right' | null>(null);
   const armed = useRef<'left' | 'right' | null>(null);
+  const mx = useMotionValue(0);
+  // the row has to travel the width of the sign (56px): one tick the moment it would count
   const THRESHOLD = 56;
-  // one tick the moment the swipe would count, so the thumb knows before it lets go
-  const onDrag = (_: unknown, info: PanInfo) => {
-    const next = info.offset.x > THRESHOLD ? 'right' : info.offset.x < -THRESHOLD ? 'left' : null;
+  const onDrag = () => {
+    const v = mx.get();
+    const next = v >= THRESHOLD ? 'right' : v <= -THRESHOLD ? 'left' : null;
     if (next && next !== armed.current) haptic('tick');
     armed.current = next;
   };
-  const onDragEnd = (_: unknown, info: PanInfo) => {
+  const onDragEnd = () => {
+    const v = mx.get();
     armed.current = null;
-    if (info.offset.x > THRESHOLD) {
+    if (v >= THRESHOLD) {
       haptic('success');
       setGone('right');
       setTimeout(onToggle, 120);
-    } else if (info.offset.x < -THRESHOLD) {
+    } else if (v <= -THRESHOLD) {
       haptic('warn');
       setGone('left');
       setTimeout(onDelete, 120);
@@ -257,11 +260,15 @@ const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: { 
   };
   return (
     <motion.div className="todo-wrap" layout initial={false} animate={gone ? { height: 0, opacity: 0 } : { height: 'auto', opacity: 1 }} transition={{ duration: 0.18 }}>
-      <div className="todo-under">
-        <span className="todo-under-left">Done</span>
-        <span className="todo-under-right">Delete</span>
+      <div className="todo-under" aria-hidden="true">
+        <span className="todo-under-left">
+          <Check size={20} strokeWidth={2.5} />
+        </span>
+        <span className="todo-under-right">
+          <X size={20} strokeWidth={2.5} />
+        </span>
       </div>
-      <motion.div className={`lrow trow ${done ? 'is-done' : ''}`} drag={reduce || done ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDrag={onDrag} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
+      <motion.div className={`lrow trow ${done ? 'is-done' : ''}`} style={{ x: mx }} drag={reduce || done ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDrag={onDrag} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
         <Mark status={done ? 'done' : 'open'} square label={x.text} onClick={onToggle} />
         <div className="lrow-main">
           <button type="button" className="hrow-name" onClick={onEdit}>

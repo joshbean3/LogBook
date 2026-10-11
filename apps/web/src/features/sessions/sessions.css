@@ -85,7 +85,8 @@
   gap: 4px;
 }
 .split {
-  --zc: var(--t-long);
+  --zc: var(--accent);
+  --za: 0.7;
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) 48px 32px;
   align-items: center;
@@ -109,7 +110,7 @@
   height: 100%;
   background: var(--zc);
   border-radius: 4px;
-  opacity: 0.85;
+  opacity: var(--za);
 }
 .split-pace {
   font-weight: 600;
@@ -125,14 +126,14 @@
 }
 .split.sz1,
 .split.sz2 {
-  --zc: var(--t-easy);
+  --za: 0.45;
 }
 .split.sz3 {
-  --zc: var(--t-hard);
+  --za: 0.7;
 }
 .split.sz4,
 .split.sz5 {
-  --zc: var(--t-fast);
+  --za: 1;
 }
 .assess {
   display: grid;

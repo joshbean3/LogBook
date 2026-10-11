@@ -113,7 +113,7 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
             Cancel
           </Button>
           <Button variant="primary" type="submit" disabled={busy}>
-            {isNew ? 'Add session' : 'Save'}
+            {isNew ? 'Add' : 'Save'}
           </Button>
         </div>
       </div>

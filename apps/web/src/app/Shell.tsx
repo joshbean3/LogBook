@@ -1,6 +1,6 @@
 import { Activity, BookOpen, CalendarDays, Settings, Sun, Sunrise } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { startTransition, useEffect, useState, type ReactNode } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { outbox } from '@/api/outbox';
 import { useMedia } from '@/lib/useToday';
 import { LogoMark } from '@/ui/primitives';
@@ -48,8 +48,15 @@ const NetPill = () => {
  */
 export const Shell = ({ children }: { children?: ReactNode }) => {
   const loc = useLocation();
+  const nav = useNavigate();
   const wide = useMedia('(min-width: 900px)');
-  const section = loc.pathname.split('/')[1] ?? '';
+  // a tab tap navigates inside a transition: the page you are on stays put until the next one can paint
+  const go = (to: string) => (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    if (loc.pathname === to) return;
+    startTransition(() => nav(to));
+  };
   return (
     <div className="shell">
       {wide ? (
@@ -60,7 +67,7 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
           </NavLink>
           <nav aria-label="Views" className="rail-nav">
             {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} className={({ isActive }) => `rail-link ${isActive ? 'on' : ''}`}>
+              <NavLink key={n.to} to={n.to} onClick={go(n.to)} className={({ isActive }) => `rail-link ${isActive ? 'on' : ''}`}>
                 <n.icon size={18} strokeWidth={2} />
                 <span>{n.label}</span>
               </NavLink>
@@ -73,15 +80,13 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
         </aside>
       ) : null}
       <main className="content" id="main">
-        <div key={section} className="page-enter">
-          {children ?? <Outlet />}
-        </div>
+        {children ?? <Outlet />}
       </main>
       <NetPill />
       {!wide ? (
         <nav className="tabbar" aria-label="Views">
           {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
+            <NavLink key={n.to} to={n.to} onClick={go(n.to)} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
               {({ isActive }) => (
                 <>
                   <n.icon size={24} strokeWidth={isActive ? 2.4 : 1.8} fill={isActive ? 'currentColor' : 'none'} fillOpacity={isActive ? 0.18 : 0} />

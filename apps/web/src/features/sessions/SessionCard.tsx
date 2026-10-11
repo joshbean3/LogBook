@@ -84,7 +84,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
       ) : null}
       {a.lines.length ? (
         <div className={`assess v-${a.verdict}`}>
-          <div className="assess-head">{a.head}</div>
+          {sess ? <div className="assess-head">{a.head}</div> : null}
           <ul>
             {a.lines.map((x) => (
               <li key={x}>{x}</li>
@@ -164,7 +164,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
       {canLog ? (
         <>
           <Button variant={liftOpen ? 'default' : 'soft'} onClick={() => setLiftOpen((o) => !o)} style={{ justifySelf: 'start' }}>
-            {liftOpen ? 'Close' : 'Log a set'}
+            {liftOpen ? 'Close' : 'Log'}
           </Button>
           {liftOpen ? <LiftLog date={date} /> : null}
         </>
@@ -175,8 +175,8 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
             <ChipButton onClick={() => setMark(null)}>Undo</ChipButton>
           ) : (
             <>
-              <ChipButton onClick={() => setMark('done')}>Did it</ChipButton>
-              {st !== 'floor' ? <ChipButton onClick={() => setMark('floor')}>Did the floor</ChipButton> : <ChipButton onClick={() => setMark(null)}>Clear</ChipButton>}
+              <ChipButton onClick={() => setMark('done')}>Done</ChipButton>
+              {st !== 'floor' ? <ChipButton onClick={() => setMark('floor')}>Floor</ChipButton> : <ChipButton onClick={() => setMark(null)}>Clear</ChipButton>}
             </>
           )
         ) : null}
@@ -236,7 +236,7 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
         <small>{sets.length === 1 ? 'set' : 'sets'}</small>
       </span>
     );
-  } else if (st !== 'done' && st !== 'floor') stat = <Chip kind={st}>{STATUS_WORD[st]}</Chip>;
+  } else if (st !== 'done') stat = <Chip kind={st}>{STATUS_WORD[st]}</Chip>;
   const Tag = as;
   return (
     <Tag className={`srow t-${tone(s)} s-${st}`}>

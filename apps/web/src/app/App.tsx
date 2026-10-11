@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { onUnauthorized } from '@/api/client';
 import { outbox } from '@/api/outbox';
-import { useBootstrap } from '@/api/queries';
+import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Setup } from '@/features/auth/AuthScreens';
 import { Loading } from '@/ui/primitives';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
@@ -41,6 +41,17 @@ const Boot = () => (
 /** A view chunk still arriving: hold the paper, say nothing. The page fade covers the hand-off. */
 const Quiet = () => <div className="page" style={{ minHeight: '100dvh' }} aria-busy="true" />;
 
+/** The CSS page fade, keyed by section so a tab change fades in once. Lives inside Suspense so the old page stays up until the next one can paint. */
+const PageFade = ({ children }: { children: React.ReactNode }) => {
+  const loc = useLocation();
+  const section = loc.pathname.split('/')[1] ?? '';
+  return (
+    <div key={section} className="page-enter">
+      {children}
+    </div>
+  );
+};
+
 const Authed = () => {
   const boot = useBootstrap();
   const qc = useQueryClient();
@@ -48,6 +59,7 @@ const Authed = () => {
     if (boot.data) {
       void outbox.replay(qc);
       prefetchViews();
+      void prefetchAll(qc);
     }
   }, [boot.data, qc]);
   if (boot.isPending && !boot.data) return <Boot />;
@@ -64,6 +76,7 @@ const Authed = () => {
     <Shell>
       <ErrorBoundary>
         <Suspense fallback={<Quiet />}>
+          <PageFade>
           <Routes>
           <Route path="/today/:date?" element={<DayView />} />
           <Route path="/morning/:date?" element={<MorningView />} />
@@ -73,6 +86,7 @@ const Authed = () => {
           <Route path="/settings" element={<SettingsView />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>
+          </PageFade>
         </Suspense>
       </ErrorBoundary>
     </Shell>

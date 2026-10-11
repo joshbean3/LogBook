@@ -1,4 +1,4 @@
-import { addMonths, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type MorningDayOverride, type MorningSettings, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type MorningDayOverride, type MorningSettings, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo } from '@logbook/shared';
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { api } from './client';
@@ -50,6 +50,24 @@ export const useQuotes = (p: { theme?: string; q?: string; fav?: boolean; limit?
   const params: Record<string, string | number> = { theme: p.theme ?? 'All', q: p.q ?? '', fav: p.fav ? 1 : 0, limit: p.limit ?? 40, offset: p.offset ?? 0 };
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
   return useQuery({ queryKey: keys.quotes(params), queryFn: () => api<QuotePage>(`/quotes?${qs}`), staleTime: 5 * 60_000, placeholderData: (prev) => prev });
+};
+
+/** After bootstrap: pull what each tab asks for first, so a tab switch never waits on the network. */
+export const prefetchAll = (qc: QueryClient) => {
+  const t = today();
+  const from = shiftDays(mondayOf(t), -7 * 12);
+  const to = shiftDays(mondayOf(t), 7 * 4 + 6);
+  const quoteParams = { theme: 'All', q: '', fav: 0, limit: 40, offset: 0 };
+  const qs = new URLSearchParams(Object.entries(quoteParams).map(([k, v]) => [k, String(v)])).toString();
+  const jobs: Array<Promise<unknown>> = [
+    ...monthsBetween(from, to).map((m) => qc.prefetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })),
+    qc.prefetchQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 }),
+    qc.prefetchQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 }),
+    qc.prefetchQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 }),
+    qc.prefetchQuery({ queryKey: keys.journal('', false), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>('/journal?q=&fav=0&limit=200'), staleTime: 30_000 }),
+    qc.prefetchQuery({ queryKey: keys.quotes(quoteParams), queryFn: () => api<QuotePage>(`/quotes?${qs}`), staleTime: 5 * 60_000 }),
+  ];
+  return Promise.allSettled(jobs);
 };
 
 // ---------- cache helpers ----------

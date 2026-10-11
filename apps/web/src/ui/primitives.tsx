@@ -1,5 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { haptic } from '@/lib/haptics';
 import { spring } from '@/lib/motion';
@@ -74,27 +74,22 @@ export const EmptyState = ({ children, action }: { children: ReactNode; action?:
 export const Empty = ({ children }: { children: ReactNode }) => <EmptyState>{children}</EmptyState>;
 
 /** The check that says "did it": 44px hit target, circle for habits/sessions, square for to-dos. */
+/** The mark: the fill runs 160ms, then the check draws itself in 160ms. One haptic. Nothing else moves. */
 export const Mark = ({ status, onClick, disabled, label, title, square }: { status: 'done' | 'floor' | 'missed' | 'open' | 'upcoming' | 'rest' | 'skipped'; onClick?: () => void; disabled?: boolean; label: string; title?: string; square?: boolean }) => {
   const reduce = useReducedMotion();
-  const [ring, setRing] = useState(0);
   const prev = useRef(status);
   useEffect(() => {
-    if ((status === 'done' || status === 'floor') && prev.current !== status) {
-      setRing((n) => n + 1);
-      haptic(status === 'done' ? 'success' : 'tick');
-    }
+    if ((status === 'done' || status === 'floor') && prev.current !== status) haptic(status === 'done' ? 'success' : 'tick');
     prev.current = status;
   }, [status]);
   const on = status === 'done' || status === 'floor';
+  const size = square ? 14 : 16;
   return (
     <motion.button type="button" className="mark-hit" role="checkbox" aria-checked={on} aria-label={label} title={title} disabled={disabled} onClick={onClick} whileTap={disabled || reduce ? undefined : { scale: 0.9 }} transition={spring}>
       <span className={`mark m-${status} ${square ? 'square' : ''}`}>
-        <AnimatePresence>
-          {ring > 0 && !reduce && !square ? <motion.span key={ring} className="mark-ring" initial={{ opacity: 0.6, scale: 1 }} animate={{ opacity: 0, scale: 1.8 }} transition={{ duration: 0.5, ease: 'easeOut' }} onAnimationComplete={() => setRing(0)} /> : null}
-        </AnimatePresence>
-        <motion.span initial={false} animate={{ scale: on ? 1 : 0.4, opacity: on ? 1 : 0 }} transition={{ type: 'spring', stiffness: 500, damping: 30, delay: on ? 0.08 : 0 }} style={{ display: 'grid' }}>
-          <Check size={square ? 14 : 16} strokeWidth={3} />
-        </motion.span>
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block' }}>
+          <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : on ? { pathLength: { duration: 0.16, delay: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01, delay: 0.16 } } : { duration: 0.1 }} />
+        </svg>
       </span>
     </motion.button>
   );

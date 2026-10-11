@@ -53,6 +53,9 @@
   font-weight: 500;
   letter-spacing: 0;
 }
+.tab.on .tab-label {
+  font-weight: 600;
+}
 
 /* ---------- desktop: left rail ---------- */
 @media (min-width: 900px) {

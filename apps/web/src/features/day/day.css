@@ -67,10 +67,10 @@
   color: #fff;
   background: linear-gradient(90deg, var(--ok) 0 50%, var(--bad) 50% 100%);
 }
-/* each label lives in its own 80px zone so it is revealed whole, never clipped mid-word */
+/* each sign lives in its own 56px zone, the same distance the row has to travel to count */
 .todo-under-left,
 .todo-under-right {
-  width: 80px;
+  width: 56px;
   display: grid;
   place-items: center;
 }
@@ -80,7 +80,7 @@
   touch-action: pan-y;
 }
 .carried {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
   font-weight: 600;
   color: var(--ink-3);
