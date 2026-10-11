@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMorningMutations } from '@/api/queries';
 import { Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stepper } from '@/ui/primitives';
+import { useSheet } from '@/ui/Sheet';
 import { useLog } from '../log/useLog';
 // the aura card grammar lives with Today; Morning borrows it rather than redrawing it
 import './morning.css';
@@ -71,7 +72,7 @@ const WeekStrip = ({ date, today, log, go }: { date: string; today: string; log:
 };
 
 // ---------- hero: the head of the timeline as an aura card, the four times of the morning stamped on it ----------
-const MorningHero = ({ T, date, today }: { T: MorningTimeline; date: string; today: string }) => {
+const MorningHero = ({ T, date, today, onEdit }: { T: MorningTimeline; date: string; today: string; onEdit: () => void }) => {
   const door = T.blocks.find((b) => b.key === 'buffer')?.start ?? T.day.wake;
   const rest = !T.day.own && T.day.plan.label === 'Rest day';
   const word = T.day.mode === 'gym' ? 'Gym' : rest ? 'Rest' : 'Run';
@@ -93,7 +94,12 @@ const MorningHero = ({ T, date, today }: { T: MorningTimeline; date: string; tod
       <span className="aura-glow" aria-hidden="true" />
       <div className="aura-top">
         <span className="caps">{date === today ? 'Today’s morning' : fmtDate('short', date)}</span>
-        <span className="caps">{durationWords(T.leave - T.day.wake)}</span>
+        <span className="m-aura-tools">
+          <span className="caps">{durationWords(T.leave - T.day.wake)}</span>
+          <Button variant="quiet" size="sm" className="m-edit" onClick={onEdit}>
+            Edit
+          </Button>
+        </span>
       </div>
       <h2 className="aura-title display">{word}</h2>
       <p className="aura-verdict">{verdict}</p>
@@ -127,6 +133,7 @@ const Controls = ({ date, T }: { date: string; T: MorningTimeline }) => {
         <Segmented className="grow" label="Running or workout" options={[['run', 'Running'], ['gym', 'Workout']]} value={day.mode} onChange={(k) => set({ mode: k, type: k === day.plan.mode ? day.plan.type : k === 'run' ? 'Easy' : 'Strength' })} />
       </div>
       <Row
+        className="m-type"
         title={<span className="m-lbl">Type</span>}
         right={
           <select className="m-select" aria-label={day.mode === 'run' ? 'Type of run' : 'Type of workout'} value={day.type} onChange={(e) => set({ type: e.target.value })}>
@@ -169,6 +176,30 @@ const Controls = ({ date, T }: { date: string; T: MorningTimeline }) => {
         </div>
       ) : null}
     </Group>
+  );
+};
+
+/** The plan editor in a sheet. It subscribes on its own, so the steppers and the readout stay live while it is up. */
+const EditSheet = ({ date }: { date: string }) => {
+  const sheet = useSheet();
+  const log = useLog([monthOf(date)]);
+  const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
+  const T = useMemo(() => buildMorning(morningDayFor(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), st), [log.snap, date, st]);
+  const door = T.blocks.find((b) => b.key === 'buffer')?.start ?? T.day.wake;
+  return (
+    <>
+      <Controls date={date} T={T} />
+      <p className="t-sub ink2 m-readout">
+        Out the door {short(door)}, back {short(T.back)}, leave {short(T.leave)}.{T.late ? ` ${T.late} min late for the shower.` : ''}
+      </p>
+      <div className="sheet-foot">
+        <div className="foot-right">
+          <Button variant="primary" onClick={sheet.close}>
+            Done
+          </Button>
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -330,7 +361,7 @@ const Focus = ({ st }: { st: MorningSettings }) => {
         ) : !has ? (
           <EmptyState
             action={
-              <Button size="sm" variant="soft" onClick={open}>
+              <Button variant="soft" className="m-add" onClick={open}>
                 Add
               </Button>
             }
@@ -475,6 +506,7 @@ const SettingsPane = ({ st }: { st: MorningSettings }) => {
 export default function MorningView() {
   const params = useParams();
   const nav = useNavigate();
+  const sheet = useSheet();
   const [tab, setTab] = useState<'plan' | 'settings'>('plan');
   const base = useLog([]);
   const t = base.today;
@@ -511,12 +543,9 @@ export default function MorningView() {
       ) : (
         <>
           <div className="section" style={{ marginTop: 16 }}>
-            <MorningHero T={T} date={date} today={t} />
+            <MorningHero T={T} date={date} today={t} onEdit={() => sheet.open({ title: 'Edit morning', body: <EditSheet date={date} /> })} />
             <WeekStrip date={date} today={t} log={log} go={go} />
           </div>
-
-          <SectionHead title="Plan" />
-          <Controls date={date} T={T} />
 
           <SectionHead title="Timeline" />
           {T.late ? (

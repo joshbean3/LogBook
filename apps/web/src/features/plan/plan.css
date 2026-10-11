@@ -55,7 +55,20 @@
 .wk-aura .aura-verdict {
   max-width: none;
 }
-/* the selected pill is lit, and keeps its tone dots (shared with Morning; belongs in ui.css) */
+/* at 320 the three stamps keep their unit by stacking it under the number, never clipping it */
+@media (max-width: 359px) {
+  .wk-aura .aura-num,
+  .pl-aura .aura-num {
+    white-space: normal;
+    overflow: visible;
+  }
+  .wk-aura .aura-num small,
+  .pl-aura .aura-num small {
+    display: block;
+    margin-left: 0;
+    line-height: 16px;
+  }
+}
 /* the last row of the day's group is the way into the day: a plain row with a chevron, not a third head action */
 .wk-open .lrow-title {
   font-weight: 400;
@@ -68,7 +81,7 @@
 .mgrid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px 4px;
+  gap: 4px;
   margin-top: 24px;
 }
 .mdow {
@@ -78,57 +91,16 @@
   text-align: center;
   padding-bottom: 4px;
 }
+/* a month cell is a week-strip cell without the weekday caption: the same pill, the same lit selection */
 .mcell {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  border-radius: var(--r-lg);
   min-height: 44px;
-  padding: 2px 0;
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  min-width: 0;
-  transition: background var(--dur-fast);
-}
-.mcell:active {
-  background: var(--surface-2);
-}
-/* the same square pill as the day strip: number over dots, today ringed in accent */
-.mcell-pill {
-  width: 100%;
-  max-width: 44px;
-  aspect-ratio: 1;
-  border-radius: var(--r-pill);
-  display: grid;
-  place-items: center;
   align-content: center;
-  gap: 2px;
 }
-.mcell-num {
-  font-size: 17px;
-  line-height: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+.mcell .dcell-pill {
+  max-width: 44px;
 }
 .mcell.out {
   opacity: 0.35;
-}
-/* today is ringed and lit; the selected day is the white pill with a black number */
-.mcell.is-today .mcell-pill {
-  box-shadow:
-    inset 0 0 0 1.5px var(--accent-bright),
-    0 0 16px rgba(91, 102, 255, 0.6);
-}
-.mcell.is-sel .mcell-pill {
-  background: var(--ink);
-}
-.mcell.is-sel .mcell-num {
-  color: var(--bg);
-}
-.mcell.is-sel .sdot {
-  border-color: var(--tone);
 }
 .plan-legend {
   margin-top: 16px;
@@ -146,6 +118,40 @@
 }
 .legend .sdot.on {
   background: var(--tone);
+}
+
+/* ---------- plans: the plan you are on, lit ---------- */
+.pl-aura {
+  min-height: 0;
+}
+.pl-aura .aura-title.display {
+  font-size: 44px;
+  line-height: 46px;
+}
+.pl-aura .aura-verdict {
+  max-width: none;
+}
+.pl-aura .aura-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* the two caps never break mid-phrase: at 320 the range drops to its own line */
+.pl-aura .aura-top {
+  flex-wrap: wrap;
+}
+.pl-aura .aura-top .caps {
+  white-space: nowrap;
+}
+@media (max-width: 359px) {
+  .pl-aura .aura-title.display {
+    font-size: 28px;
+    line-height: 32px;
+  }
+}
+/* the section head's Add: a 44px hit area around a 15px word, like .link */
+.sec-head .btn.pl-add {
+  height: 44px;
+  margin: -12px -12px -12px 0;
+  padding: 0 12px;
 }
 
 /* ---------- builder: one group, each row 16px padded ---------- */

@@ -1,15 +1,17 @@
-import { addMonths, counts, dayStatus, daysBetween, fmtDate, label, mi, mondayOf, monthOf, monthStart, monthsBetween, num, parseISO, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, type Session } from '@logbook/shared';
+import { addMonths, counts, dayStatus, daysBetween, fmtDate, label, mi, mondayOf, monthOf, monthStart, monthsBetween, num, parseISO, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, type PlanBlock, type Session } from '@logbook/shared';
 import { motion } from 'motion/react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
 import { ChevronRight } from 'lucide-react';
-import { Chip, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { Button, Chip, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { useSheet } from '@/ui/Sheet';
 import { useLog, type Log } from '../log/useLog';
 import { AddSessionButton, sessionMeta, SessionRow, UnplannedRow } from '../sessions/SessionCard';
+import { SessionEditor } from '../sessions/SessionEditor';
 import { StravaLine } from '../settings/StravaLine';
 // the aura card grammar lives with Today; Plan borrows it rather than redrawing it
-import { PlanBuilder, PlansList, Upcoming } from './PlanBuilder';
+import { PlanBuilder, PlanSheet, PlansList, Upcoming } from './PlanBuilder';
 import './plan.css';
 
 const DOW1 = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -37,16 +39,33 @@ const describe = (log: Log, d: string): string => {
   return `${fmtDate('long', d)}${list.length ? `: ${list.map(label).join(', ')}` : ''}${STATUS_WORD[st] ? `, ${STATUS_WORD[st]}` : ''}`;
 };
 
-// ---------- week ----------
-const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
-  const nav = useNavigate();
-  const t = log.today;
-  const mon = mondayOf(anchor);
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => shiftDays(mon, i)), [mon]);
-  const fallback = mon === mondayOf(t) ? t : anchor;
-  const [pick, setPick] = useState<{ mon: string; d: string } | null>(null);
-  const sel = pick && pick.mon === mon ? pick.d : fallback;
+/** The section head's Add is the second action on the screen, so it is ink, not the accent. */
+const AddQuiet = ({ date }: { date: string }) => {
+  const sheet = useSheet();
+  return (
+    <Button variant="quiet" size="sm" className="pl-add" onClick={() => sheet.open({ title: 'Add session', body: <SessionEditor date={date} session={null} /> })}>
+      Add
+    </Button>
+  );
+};
 
+// ---------- the selected day: one aura card, the week's numbers under a hairline ----------
+const dayOf = (log: Log, sel: string) => {
+  const sessions = log.snap.sessionsOn(sel);
+  const acts = log.snap.activitiesOn(sel);
+  const hasRun = sessions.some((s) => s.kind === 'run');
+  const hasOther = sessions.some((s) => s.kind === 'lift' || s.kind === 'cross');
+  const unplannedRuns = hasRun ? [] : acts.filter((a) => a.kind === 'run');
+  const unmatched = hasOther ? [] : acts.filter((a) => a.kind !== 'run');
+  const showList = (s: Session) => s.kind !== 'rest' || sessions.length === 1;
+  const listed = sessions.filter(showList);
+  return { sessions, listed, unplannedRuns, unmatched };
+};
+
+const DayAura = ({ sel, log }: { sel: string; log: Log }) => {
+  const t = log.today;
+  const mon = mondayOf(sel);
+  const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
   const tot = weekTotals(log.snap, mon);
   let hab = 0;
   let habOf = 0;
@@ -58,27 +77,15 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
       if (log.snap.isHabitDone(d, h.id)) hab++;
     }
   }
-  const pct = tot.planned > 0 ? Math.min(1, tot.ran / tot.planned) : 0;
-
   const loaded = log.loaded(sel);
   const st = dayStatus(log.snap, sel);
-  const sessions = log.snap.sessionsOn(sel);
-  const acts = log.snap.activitiesOn(sel);
-  const hasRun = sessions.some((s) => s.kind === 'run');
-  const hasOther = sessions.some((s) => s.kind === 'lift' || s.kind === 'cross');
-  const unplannedRuns = hasRun ? [] : acts.filter((a) => a.kind === 'run');
-  const unmatched = hasOther ? [] : acts.filter((a) => a.kind !== 'run');
-  const showList = (s: Session) => s.kind !== 'rest' || sessions.length === 1;
-  const listed = sessions.filter(showList);
-  const openDay = () => nav(sel === t ? '/today' : `/today/${sel}`);
-
-  // the hero: the selected day, lit, its sessions stamped on it, the week's numbers under a hairline
+  const { sessions, listed, unplannedRuns } = dayOf(log, sel);
   const main = listed.find((s) => s.kind !== 'rest') ?? null;
   const others = listed.filter((s) => s !== main && s.kind !== 'rest');
   const restDay = !main && sessions.some((s) => s.kind === 'rest');
   const mainSt = main ? sessionStatus(log.snap, sel, main) : st;
   const verdict = !loaded
-    ? '\u2026'
+    ? '…'
     : main
       ? `${mainSt === 'floor' ? 'Floor held' : mainSt === 'done' || mainSt === 'bonus' ? 'Done' : mainSt === 'missed' ? 'Missed' : sessionMeta(main, mainSt) || STATUS_WORD[mainSt] || 'Planned'}.${others.length ? ` Then ${others.map(label).join(' and ')}.` : ''}`
       : unplannedRuns.length
@@ -88,50 +95,54 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
           : 'Nothing planned.';
   const stats: Array<[string, ReactNode, string?]> = [
     ['Miles', <AnimatedNumber key="mi" value={tot.ran} format={mi} />, tot.planned ? `of ${tenth(tot.planned)}` : 'run'],
-    ['Hit', tot.sessions ? <AnimatedNumber key="hit" value={tot.hit} /> : '\u2014', tot.sessions ? `of ${tot.sessions}` : undefined],
-    ['Habits', habOf ? <AnimatedNumber key="hab" value={Math.round((hab / habOf) * 100)} /> : '\u2014', habOf ? '%' : undefined],
+    ['Hit', tot.sessions ? <AnimatedNumber key="hit" value={tot.hit} /> : '—', tot.sessions ? `of ${tot.sessions}` : undefined],
+    ['Habits', habOf ? <AnimatedNumber key="hab" value={Math.round((hab / habOf) * 100)} /> : '—', habOf ? '%' : undefined],
   ];
+  return (
+    <div className={`aura wk-aura ${main ? `t-${tone(main)}` : ''}`}>
+      <span className="aura-glow" aria-hidden="true" />
+      <div className="aura-top">
+        <span className="caps">{sel === t ? `${fmtDate('md', sel)} · Today` : fmtDate('md', sel)}</span>
+        {loaded && STATUS_WORD[st] ? <Chip kind={st === 'bonus' ? 'done' : st}>{STATUS_WORD[st]}</Chip> : null}
+      </div>
+      <h2 className="aura-title display">{fmtDate('dowLong', sel)}</h2>
+      {main ? (
+        <div className="wk-sess">
+          <span className="stamp wk-stamp">{label(main)}</span>
+          {others.map((s) => (
+            <Chip key={s.id} kind="tone" className={`t-${tone(s)}`}>
+              {label(s)}
+            </Chip>
+          ))}
+        </div>
+      ) : null}
+      <p className="aura-verdict">{verdict}</p>
+      <div className="aura-stats">
+        {stats.map(([k, v, u]) => (
+          <span key={k} className="aura-stat">
+            <span className="caps">{k}</span>
+            <span className="stamp aura-num">
+              {v}
+              {u ? <small>{u}</small> : null}
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
 
+/** The selected day's sessions as rows, and the way into the day as the last row. */
+const DaySessions = ({ sel, log }: { sel: string; log: Log }) => {
+  const nav = useNavigate();
+  const t = log.today;
+  const loaded = log.loaded(sel);
+  const { listed, unplannedRuns, unmatched } = dayOf(log, sel);
+  const openDay = () => nav(sel === t ? '/today' : `/today/${sel}`);
   return (
     <>
-      <div className="section" style={{ marginTop: 16 }}>
-        <div className={`aura wk-aura ${main ? `t-${tone(main)}` : ''}`}>
-          <span className="aura-glow" aria-hidden="true" />
-          <div className="aura-top">
-            <span className="caps">{sel === t ? `${fmtDate('md', sel)} \u00b7 Today` : fmtDate('md', sel)}</span>
-            {loaded && STATUS_WORD[st] ? <Chip kind={st === 'bonus' ? 'done' : st}>{STATUS_WORD[st]}</Chip> : null}
-          </div>
-          <h2 className="aura-title display">{fmtDate('dowLong', sel)}</h2>
-          {main ? (
-            <div className="wk-sess">
-              <span className="stamp wk-stamp">{label(main)}</span>
-              {others.map((s) => (
-                <Chip key={s.id} kind="tone" className={`t-${tone(s)}`}>
-                  {label(s)}
-                </Chip>
-              ))}
-            </div>
-          ) : null}
-          <p className="aura-verdict">{verdict}</p>
-          <div className="aura-stats">
-            {stats.map(([k, v, u]) => (
-              <span key={k} className="aura-stat">
-                <span className="caps">{k}</span>
-                <span className="stamp aura-num">
-                  {v}
-                  {u ? <small>{u}</small> : null}
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-        <StravaLine strava={log.strava} />
-      </div>
-
-      <DayStrip className="strip-lit" days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
-
-      {/* one accent action for the day: the head's Add, or the empty state's Add, never both */}
-      <SectionHead title="Sessions" action={!loaded || listed.length || unplannedRuns.length ? <AddSessionButton date={sel}>Add</AddSessionButton> : undefined} />
+      {/* one accent action for the day at most: the empty state's Add; the head's Add is ink */}
+      <SectionHead title="Sessions" action={!loaded || listed.length || unplannedRuns.length ? <AddQuiet date={sel} /> : undefined} />
       <Group>
         {!loaded ? <Loading text={`Loading ${fmtDate('month', sel)}…`} /> : null}
         {loaded && (listed.length || unplannedRuns.length) ? (
@@ -158,9 +169,28 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
   );
 };
 
-// ---------- month ----------
-const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
-  const nav = useNavigate();
+// ---------- week ----------
+const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
+  const t = log.today;
+  const mon = mondayOf(anchor);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => shiftDays(mon, i)), [mon]);
+  const fallback = mon === mondayOf(t) ? t : anchor;
+  const [pick, setPick] = useState<{ mon: string; d: string } | null>(null);
+  const sel = pick && pick.mon === mon ? pick.d : fallback;
+  return (
+    <>
+      <div className="section" style={{ marginTop: 16 }}>
+        <DayAura sel={sel} log={log} />
+        <StravaLine strava={log.strava} />
+      </div>
+      <DayStrip className="strip-lit" days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
+      <DaySessions sel={sel} log={log} />
+    </>
+  );
+};
+
+// ---------- month: the grid selects in place; the selected day lights up under it ----------
+const Month = ({ anchor, log, select }: { anchor: string; log: Log; select: (d: string) => void }) => {
   const t = log.today;
   const sel = anchor;
   const first = monthStart(anchor);
@@ -203,10 +233,11 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
         {days.map((d) => {
           const inMonth = d >= first && d < next;
           const ds = dayStatus(log.snap, d);
+          // the same pill as the week strip, so a selected day looks the same in both views
           return (
-            <button key={d} type="button" className={`mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''} ${d === sel && inMonth ? 'is-sel' : ''}`} aria-pressed={d === sel && inMonth} aria-current={d === t ? 'date' : undefined} aria-label={describe(log, d)} onClick={() => nav(d === t ? '/today' : `/today/${d}`)}>
-              <span className="mcell-pill">
-                <span className="mcell-num">{parseISO(d).getDate()}</span>
+            <button key={d} type="button" className={`dcell mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''} ${d === sel ? 'is-sel' : ''}`} aria-pressed={d === sel} aria-current={d === t ? 'date' : undefined} aria-label={describe(log, d)} onClick={() => select(d)}>
+              <span className="dcell-pill">
+                <span className="dcell-num">{parseISO(d).getDate()}</span>
                 <Dots d={d} log={log} max={3} />
               </span>
             </button>
@@ -234,7 +265,77 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
           To do
         </span>
       </div>
+      <div className="section">
+        <DayAura sel={sel} log={log} />
+      </div>
+      <DaySessions sel={sel} log={log} />
     </>
+  );
+};
+
+// ---------- plans: the plan you are on, as the hero ----------
+const planWeeks = (b: PlanBlock) => Math.ceil((daysBetween(b.start, b.end) + 1) / 7);
+/** The plan to light up: the one running today, else the next one to start. */
+const heroPlan = (blocks: PlanBlock[], t: string): PlanBlock | null => blocks.find((b) => b.start <= t && t <= b.end) ?? [...blocks].filter((b) => b.start > t).sort((a, b) => (a.start < b.start ? -1 : 1))[0] ?? null;
+
+const PlanAura = ({ b, log }: { b: PlanBlock; log: Log }) => {
+  const sheet = useSheet();
+  const t = log.today;
+  const weeks = planWeeks(b);
+  const active = b.start <= t && t <= b.end;
+  const week = active ? Math.min(weeks, Math.floor(daysBetween(b.start, t) / 7) + 1) : 0;
+  let due = 0;
+  let done = 0;
+  let next: [string, Session] | null = null;
+  const through = t < b.end ? t : b.end;
+  for (let d = b.start; d <= through; d = shiftDays(d, 1)) {
+    for (const s of log.snap.sessionsOn(d)) {
+      const st = sessionStatus(log.snap, d, s);
+      if (st === 'rest' || st === 'skipped' || st === 'open' || st === 'upcoming') continue;
+      due++;
+      if (counts(st)) done++;
+    }
+  }
+  for (let d = t > b.start ? t : b.start; d <= b.end && !next; d = shiftDays(d, 1)) {
+    for (const s of log.snap.sessionsOn(d)) {
+      const st = sessionStatus(log.snap, d, s);
+      if (s.kind !== 'rest' && (st === 'open' || st === 'upcoming')) {
+        next = [d, s];
+        break;
+      }
+    }
+  }
+  const when = (d: string) => (d === t ? 'today' : d === shiftDays(t, 1) ? 'tomorrow' : fmtDate('dowLong', d));
+  const verdict = active ? (next ? `Next: ${label(next[1])}, ${when(next[0])}.` : t === b.end ? 'The last day.' : 'Nothing more planned.') : `Starts ${fmtDate('md', b.start)}, ${daysBetween(t, b.start)} days from now.`;
+  const stats: Array<[string, ReactNode, string?]> = [
+    ['Weeks', weeks],
+    ['Sessions', b.sessionCount ?? 0],
+    ['Done', due ? <AnimatedNumber key="done" value={done} /> : '—', due ? `of ${due}` : undefined],
+  ];
+  const open = () => sheet.open({ title: b.name, body: <PlanSheet b={b} t={t} /> });
+  return (
+    <motion.div className="aura pl-aura" role="button" tabIndex={0} aria-label={`${b.name}. Open plan`} onClick={open} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), open()) : undefined)} whileTap={{ scale: 0.985 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
+      <span className="aura-glow" aria-hidden="true" />
+      <div className="aura-top">
+        <span className="caps">{active ? `Active · Week ${week} of ${weeks}` : 'Upcoming'}</span>
+        <span className="caps pl-range">
+          {fmtDate('md', b.start)} – {fmtDate('md', b.end)}
+        </span>
+      </div>
+      <h2 className="aura-title display">{b.name}</h2>
+      <p className="aura-verdict">{verdict}</p>
+      <div className="aura-stats">
+        {stats.map(([k, v, u]) => (
+          <span key={k} className="aura-stat">
+            <span className="caps">{k}</span>
+            <span className="stamp aura-num">
+              {v}
+              {u ? <small>{u}</small> : null}
+            </span>
+          </span>
+        ))}
+      </div>
+    </motion.div>
   );
 };
 
@@ -247,18 +348,23 @@ export default function PlanView() {
   const t = base.today;
   const view: View = params.view === 'month' || params.view === 'plans' ? params.view : 'week';
   const anchor = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : t;
+  const hero = view === 'plans' ? heroPlan(base.boot?.blocks ?? [], t) : null;
   const months = useMemo(() => {
     if (view === 'week') {
       const mon = mondayOf(anchor);
       return monthsBetween(mon, shiftDays(mon, 6));
     }
     if (view === 'month') return monthsBetween(shiftDays(monthStart(anchor), -7), shiftDays(addMonths(anchor, 1), 7));
-    return monthsBetween(t, shiftDays(t, 13));
-  }, [view, anchor, t]);
+    // the plans tab counts the active plan's sessions from its first day
+    return monthsBetween(hero && hero.start < t ? hero.start : t, shiftDays(t, 13));
+  }, [view, anchor, t, hero]);
   const log = useLog(months);
-  const go = (v: View, d?: string) => nav(`/plan/${v}${d && d !== t ? `/${d}` : ''}`);
+  const path = (v: View, d?: string) => `/plan/${v}${d && d !== t ? `/${d}` : ''}`;
+  const go = (v: View, d?: string) => nav(path(v, d));
   const mon = mondayOf(anchor);
   const first = monthStart(anchor);
+  // a month opens on today when it is this month, else on the 1st
+  const landOn = (m: string) => (monthOf(m) === monthOf(t) ? t : monthStart(m));
   const title = view === 'week' ? (mon === mondayOf(t) ? 'This week' : `Week of ${fmtDate('md', mon)}`) : view === 'month' ? fmtDate('month', first) : 'Plans';
   const range = view === 'week' ? `${fmtDate('md', mon)} – ${fmtDate('md', shiftDays(mon, 6))}` : `${fmtDate('md', first)} – ${fmtDate('md', shiftDays(addMonths(first, 1), -1))}`;
   const offNow = (view === 'week' && mon !== mondayOf(t)) || (view === 'month' && monthOf(first) !== monthOf(t));
@@ -284,8 +390,8 @@ export default function PlanView() {
         actions={
           view !== 'plans' ? (
             <DateNav
-              onPrev={() => go(view, view === 'week' ? shiftDays(mon, -7) : addMonths(first, -1))}
-              onNext={() => go(view, view === 'week' ? shiftDays(mon, 7) : addMonths(first, 1))}
+              onPrev={() => go(view, view === 'week' ? shiftDays(mon, -7) : landOn(addMonths(first, -1)))}
+              onNext={() => go(view, view === 'week' ? shiftDays(mon, 7) : landOn(addMonths(first, 1)))}
               prevLabel={view === 'week' ? 'Previous week' : 'Previous month'}
               nextLabel={view === 'week' ? 'Next week' : 'Next month'}
             />
@@ -294,10 +400,19 @@ export default function PlanView() {
       >
         <Segmented className="plan-tabs" label="Calendar view" options={[['week', 'Week'], ['month', 'Month'], ['plans', 'Plans']]} value={view} onChange={(v) => go(v, anchor)} />
       </PageHeader>
-      {view === 'week' ? <Week anchor={anchor} log={log} /> : view === 'month' ? <Month anchor={anchor} log={log} /> : (
+      {view === 'week' ? (
+        <Week anchor={anchor} log={log} />
+      ) : view === 'month' ? (
+        <Month anchor={anchor} log={log} select={(d) => nav(path('month', d), { replace: true })} />
+      ) : (
         <>
+          {hero ? (
+            <div className="section" style={{ marginTop: 16 }}>
+              <PlanAura b={hero} log={log} />
+            </div>
+          ) : null}
           <PlanBuilder log={log} />
-          <PlansList log={log} />
+          <PlansList log={log} exclude={hero?.id} />
           <Upcoming log={log} />
         </>
       )}

@@ -11,10 +11,22 @@
   font-size: 44px;
   line-height: 46px;
 }
-/* the four stamps must sit in one row at 320: the meridiem steps out there */
+/* the duration and Edit share the top-right; the word has a 44px hit area inside a 20px row */
+.m-aura-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: -12px -14px -12px 0;
+}
+.m-aura .btn.m-edit {
+  height: 44px;
+  padding: 0 12px;
+}
+/* at 320 the four stamps go two by two rather than clip a number */
 @media (max-width: 359px) {
-  .m-aura .aura-num small {
-    display: none;
+  .m-aura .aura-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
   }
 }
 
@@ -24,6 +36,9 @@
 .m-lbl {
   font-weight: 400;
 }
+.m-type {
+  padding-block: 6px;
+}
 .m-select {
   appearance: none;
   -webkit-appearance: none;
@@ -31,15 +46,15 @@
   background: var(--surface-2);
   color: var(--ink);
   border-radius: var(--r-md);
-  height: 32px;
+  height: 44px;
   padding: 0 28px 0 12px;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
   background-position:
-    calc(100% - 15px) 14px,
-    calc(100% - 10px) 14px;
+    calc(100% - 15px) 20px,
+    calc(100% - 10px) 20px;
   background-size: 5px 5px;
   background-repeat: no-repeat;
   max-width: 180px;
@@ -53,6 +68,12 @@
 }
 .m-steppers .field {
   gap: 6px;
+}
+/* at 320 the two steppers stack so a time never clips between its buttons */
+@media (max-width: 359px) {
+  .m-steppers {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .m-steppers .stepper .in {
   font-size: 17px;
@@ -265,6 +286,9 @@
 .m-set .lrow-title {
   font-weight: 400;
 }
+.m-set .lrow {
+  padding-block: 4px;
+}
 .m-set .lrow.two {
   padding-block: 8px;
 }
@@ -279,7 +303,7 @@
 .m-num {
   width: 72px;
   padding: 6px 8px;
-  height: 36px;
+  height: 44px;
   font-size: 15px;
   line-height: 20px;
   text-align: right;
@@ -292,7 +316,12 @@
 }
 .m-set-reset {
   margin-top: 24px;
+  height: 44px;
 }
-.m-steppers .step {
-  width: 36px;
+/* a 44px hit area for the one action in an empty state */
+.btn.m-add {
+  height: 44px;
+}
+.m-readout {
+  margin-top: -2px;
 }

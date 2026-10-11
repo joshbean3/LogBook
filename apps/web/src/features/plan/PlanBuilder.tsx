@@ -277,7 +277,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
         </div>
       </Group>
       <p className="fine" style={{ marginTop: 8 }}>
-        Reads your source, your recent Strava weeks and heart-rate zones, then returns dated sessions you can check before saving.
+        Reads your source, your recent weeks of running and your heart-rate zones, then returns dated sessions you can check before saving.
       </p>
     </>
   );
@@ -288,7 +288,7 @@ const planState = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b
 const planMeta = (b: PlanBlock) => `${fmtDate('md', b.start)} – ${fmtDate('md', b.end)} · ${b.sessionCount ?? 0} sessions${b.source ? ` · from ${SRC_WORD[b.source] ?? b.source}` : ''}`;
 
 /** The plan's sheet: what it is, then the two things you can do with it. */
-const PlanSheet = ({ b, t }: { b: PlanBlock; t: string }) => {
+export const PlanSheet = ({ b, t }: { b: PlanBlock; t: string }) => {
   const sheet = useSheet();
   const nav = useNavigate();
   const toast = useToast();
@@ -350,13 +350,16 @@ const PlanSheet = ({ b, t }: { b: PlanBlock; t: string }) => {
   );
 };
 
-export const PlansList = ({ log }: { log: Log }) => {
-  const blocks = log.boot?.blocks ?? [];
+/** Every plan but the one the hero already shows. With a hero and nothing else, the section stays out of the way. */
+export const PlansList = ({ log, exclude }: { log: Log; exclude?: string }) => {
+  const all = log.boot?.blocks ?? [];
+  const blocks = exclude ? all.filter((b) => b.id !== exclude) : all;
   const sheet = useSheet();
   const t = log.today;
+  if (exclude && !blocks.length) return null;
   return (
     <>
-      <SectionHead title="Your plans" meta={blocks.length ? `${blocks.length} ${blocks.length === 1 ? 'plan' : 'plans'}` : undefined} />
+      <SectionHead title={exclude ? 'Other plans' : 'Your plans'} meta={blocks.length ? `${blocks.length} ${blocks.length === 1 ? 'plan' : 'plans'}` : undefined} />
       <Group>
         {!blocks.length ? (
           <EmptyState action={<AddSessionButton date={t} variant="soft" />}>{log.features.claude ? 'No plans yet. Build one above, or add a session.' : 'No plans yet. Add a session.'}</EmptyState>
