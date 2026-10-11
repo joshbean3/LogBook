@@ -3,7 +3,7 @@ import { Star } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useJournalMutations } from '@/api/queries';
-import { Button, Card, CardHead, IconButton } from '@/ui/primitives';
+import { Button, Group, IconButton, SectionHead } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import type { Log } from '../log/useLog';
 import './journal.css';
@@ -13,15 +13,16 @@ const timeOf = (at: string) => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 };
 
+/** One entry as a grouped-list row: time and tools on the first line, the text in serif under it. */
 export const EntryItem = ({ e, withDate }: { e: JournalEntry; withDate?: boolean }) => {
   const { patch, remove, restore } = useJournalMutations();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(e.text);
   return (
-    <li className={`entry ${e.fav ? 'is-fav' : ''}`}>
-      <div className="entry-head">
-        <div className="entry-meta">
+    <div className={`jentry ${e.fav ? 'is-fav' : ''}`}>
+      <div className="jentry-head">
+        <span className="t-cap muted jentry-meta">
           {withDate ? (
             <Link to={`/today/${e.date}`} className="link sm">
               {fmtDate('short', e.date)}
@@ -29,12 +30,9 @@ export const EntryItem = ({ e, withDate }: { e: JournalEntry; withDate?: boolean
           ) : null}
           <span>{timeOf(e.createdAt)}</span>
           {e.editedAt ? <span>edited</span> : null}
-        </div>
+        </span>
         {!editing ? (
-          <div className="entry-tools">
-            <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} size="sm" className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
-              <Star size={15} fill={e.fav ? 'currentColor' : 'none'} />
-            </IconButton>
+          <span className="jentry-tools">
             <button type="button" className="link sm" onClick={() => setEditing(true)}>
               Edit
             </button>
@@ -48,13 +46,19 @@ export const EntryItem = ({ e, withDate }: { e: JournalEntry; withDate?: boolean
             >
               Delete
             </button>
-          </div>
+            <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} size="sm" className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
+              <Star size={15} fill={e.fav ? 'currentColor' : 'none'} />
+            </IconButton>
+          </span>
         ) : null}
       </div>
       {editing ? (
-        <div className="stack" style={{ gap: 8 }}>
-          <textarea className="in" rows={4} maxLength={5000} value={text} onChange={(ev) => setText(ev.target.value)} autoFocus />
-          <div className="row">
+        <div className="jedit">
+          <textarea className="jtext serif" rows={4} maxLength={5000} value={text} aria-label="Edit entry" onChange={(ev) => setText(ev.target.value)} autoFocus />
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <Button size="sm" variant="ghost" onClick={() => (setText(e.text), setEditing(false))}>
+              Cancel
+            </Button>
             <Button
               size="sm"
               variant="primary"
@@ -66,20 +70,18 @@ export const EntryItem = ({ e, withDate }: { e: JournalEntry; withDate?: boolean
             >
               Save
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
           </div>
         </div>
       ) : (
-        <p className="entry-text">{e.text}</p>
+        <p className="jentry-text serif t-body">{e.text}</p>
       )}
-    </li>
+    </div>
   );
 };
 
 const drafts: Record<string, string> = {};
-export const Composer = ({ date, hint, today }: { date: string; hint?: string; today: string }) => {
+/** A bare textarea and a footer line: meant to be the last row of a Group. */
+export const Composer = ({ date, hint, today, rows = 3 }: { date: string; hint?: string; today: string; rows?: number }) => {
   const { add } = useJournalMutations();
   const toast = useToast();
   const [text, setText] = useState(drafts[date] ?? '');
@@ -92,10 +94,10 @@ export const Composer = ({ date, hint, today }: { date: string; hint?: string; t
     toast('Saved to your journal');
   };
   return (
-    <div className="stack" style={{ gap: 8 }}>
+    <div className="composer">
       <textarea
-        className="in composer"
-        rows={3}
+        className="jtext serif"
+        rows={rows}
         maxLength={5000}
         placeholder={date === today ? 'What’s on your mind today?' : `Add an entry for ${fmtDate('short', date)}`}
         aria-label="Journal entry"
@@ -111,8 +113,8 @@ export const Composer = ({ date, hint, today }: { date: string; hint?: string; t
           }
         }}
       />
-      <div className="row spread">
-        <span className="fine">{hint ?? ''}</span>
+      <div className="composer-foot">
+        <span className="t-cap muted">{hint ?? ''}</span>
         <Button size="sm" variant="primary" onClick={save} disabled={!text.trim()}>
           Save entry
         </Button>
@@ -121,23 +123,26 @@ export const Composer = ({ date, hint, today }: { date: string; hint?: string; t
   );
 };
 
+/** The journal section Today embeds: the day's entries and a composer, one group. */
 export const JournalDaySection = ({ date, log }: { date: string; log: Log }) => {
   const list = log.snap.journalOn(date);
   return (
-    <Card className="a-journal">
-      <CardHead title="Journal" meta={list.length ? `${list.length} ${list.length === 1 ? 'entry' : 'entries'}` : undefined}>
-        <Link to="/journal" className="link">
-          Open journal
-        </Link>
-      </CardHead>
-      {list.length ? (
-        <ul className="entries">
-          {list.map((e) => (
-            <EntryItem key={e.id} e={e} />
-          ))}
-        </ul>
-      ) : null}
-      <Composer date={date} today={log.today} />
-    </Card>
+    <>
+      <SectionHead
+        title="Journal"
+        meta={list.length ? `${list.length} ${list.length === 1 ? 'entry' : 'entries'}` : undefined}
+        action={
+          <Link to="/journal" className="link">
+            Open journal
+          </Link>
+        }
+      />
+      <Group>
+        {list.map((e) => (
+          <EntryItem key={e.id} e={e} />
+        ))}
+        <Composer date={date} today={log.today} rows={2} />
+      </Group>
+    </>
   );
 };
