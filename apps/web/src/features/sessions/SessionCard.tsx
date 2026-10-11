@@ -131,7 +131,7 @@ const auraForPlan = (date: string, s: Session, log: Log, status: string, sets: n
 };
 
 /** Everything a share card needs: the run, and the week around it. */
-const shareDataFor = (date: string, sess: Session | null, runs: Activity[], log: Log): ShareData => {
+export const shareDataFor = (date: string, sess: Session | null, runs: Activity[], log: Log): ShareData => {
   const a = assess(log.zones, sess, runs);
   const monday = mondayOf(date);
   const wt = weekTotals(log.snap, monday);
@@ -245,7 +245,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
 };
 
 /** The full session in a sheet: the hero, the evidence, the lift log, and every action. */
-const SessionSheet = ({ date, id }: { date: string; id: string }) => {
+const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHero?: boolean }) => {
   // the sheet body is captured once at open; subscribing here keeps marks, sets and deletes live while it is up
   const log = useLog([monthOf(date)]);
   const sheet = useSheet();
@@ -335,7 +335,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
 };
 
 /** A run with no session behind it: the same hero and evidence, and Share. */
-const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log }) => {
+export const UnplannedSheet = ({ date, runs, log, fromHero }: { date: string; runs: Activity[]; log: Log; fromHero?: boolean }) => {
   const share = useMemo(() => shareDataFor(date, null, runs, log), [date, runs, log]);
   return (
     <div className="stack" style={{ gap: 16 }}>
@@ -351,9 +351,10 @@ const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activity[]; l
 
 const sheetDate = (date: string) => <span className="caps sh-sheet-date">{fmtDate('long', date)}</span>;
 
+/** Open a session's sheet. `fromHero` means the hero card on the page already shows the big picture, so the sheet opens compact. */
 export const useOpenSession = (_log?: Log) => {
   const sheet = useSheet();
-  return (date: string, s: Session) => sheet.open({ title: sheetDate(date), body: <SessionSheet date={date} id={s.id} />, wide: true });
+  return (date: string, s: Session, opts: { fromHero?: boolean } = {}) => sheet.open({ title: sheetDate(date), body: <SessionSheet date={date} id={s.id} fromHero={opts.fromHero} />, wide: true });
 };
 
 /** A 60px row: check, colour bar, title, meta, one stat, chevron. */
