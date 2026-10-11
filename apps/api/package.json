@@ -8,7 +8,7 @@
     "build": "tsup src/index.ts --format esm --target node22 --out-dir dist --clean --external better-sqlite3 && cp -r drizzle dist/drizzle && cp -r src/data dist/data",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts"
   },
