@@ -1,12 +1,14 @@
-import { buildMorning, clock, clockOfDay, durationWords, fmtDate, minutesFromTimeInput, minutesToTimeInput, monthOf, MORNING_DEFAULTS, morningDayFor, num, parsePace, shiftDays, TYPES, type MorningSettings, type MorningTimeline } from '@logbook/shared';
+import { buildMorning, clock, clockOfDay, durationWords, fmtDate, minutesFromTimeInput, minutesToTimeInput, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, pad, parsePace, shiftDays, tone, TYPES, type MorningSettings, type MorningTimeline, type TimelineBlock } from '@logbook/shared';
 import { motion } from 'motion/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMorningMutations } from '@/api/queries';
 import { itemVariants, listVariants } from '@/lib/motion';
-import { Button, Card, CardHead, DateNav, Empty, Field, Kpi, Loading, Note, PageHeader, Segmented, Stepper } from '@/ui/primitives';
+import { Button, DateNav, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip, Stepper } from '@/ui/primitives';
 import { useLog } from '../log/useLog';
 import './morning.css';
+
+type L = ReturnType<typeof useLog>;
 
 const fmtMiles = (v: number) => num(v);
 const parseMiles = (s: string) => {
@@ -19,48 +21,103 @@ const parseInt10 = (s: string) => {
   return Number.isFinite(v) ? v : null;
 };
 const parseWake = (s: string) => minutesFromTimeInput(s);
+/** "7:20 AM" split so the number can be big and the meridiem small. */
+const timeParts = (m: number) => {
+  const [v = '', u = ''] = clockOfDay(m).split(' ');
+  return { v, u };
+};
+/** "7:20" without the meridiem, for tight spots. */
+const short = (m: number) => timeParts(m).v;
 
-const Controls = ({ date, T, log }: { date: string; T: MorningTimeline; log: ReturnType<typeof useLog> }) => {
+/** Minutes since midnight, refreshed every half minute. */
+const useNowMinutes = () => {
+  const read = () => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+  };
+  const [m, setM] = useState(read);
+  useEffect(() => {
+    const iv = setInterval(() => setM(read()), 30_000);
+    return () => clearInterval(iv);
+  }, []);
+  return m;
+};
+
+// ---------- 7-day strip: the week around the viewed day ----------
+const DayStrip = ({ date, today, log, go }: { date: string; today: string; log: L; go: (d: string) => void }) => {
+  const mon = mondayOf(date);
+  const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
+  return (
+    <div className="dstrip" role="tablist" aria-label="Pick a day">
+      {days.map((d) => {
+        const s = log.snap.sessionsOn(d).find((x) => x.kind !== 'rest');
+        const isToday = d === today;
+        const isSel = d === date;
+        return (
+          <button key={d} type="button" role="tab" aria-selected={isSel} className={`dcell ${isToday ? 'is-today' : ''} ${isSel ? 'is-sel' : ''}`} onClick={() => go(d)} aria-label={fmtDate('short', d)}>
+            <span className="dcell-dow">{fmtDate('dow', d).slice(0, 1)}</span>
+            <span className="dcell-pill">
+              <span className="dcell-num">{Number(d.slice(8))}</span>
+              {s ? <i className={`dcell-dot t-${tone(s)}`} /> : <i className="dcell-dot none" />}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+// ---------- controls: mode, type, wake and distance, all in one group ----------
+const Controls = ({ date, T }: { date: string; T: MorningTimeline }) => {
   const { setDay } = useMorningMutations();
   const day = T.day;
   const types = day.mode === 'run' ? TYPES.run.filter((x) => x !== 'Run') : TYPES.lift;
   const set = (patch: Partial<typeof day>) => setDay.mutate({ date, day: { mode: day.mode, type: day.type, miles: day.miles, minutes: day.minutes, wake: day.wake, ...patch } });
   return (
-    <Card>
-      <div className="row wrap">
-        <Segmented className="m-mode" label="Running or workout" options={[['run', 'Running'], ['gym', 'Workout']]} value={day.mode} onChange={(k) => set({ mode: k, type: k === day.plan.mode ? day.plan.type : k === 'run' ? 'Easy' : 'Strength' })} />
-        <select className="in m-type" aria-label={day.mode === 'run' ? 'Type of run' : 'Type of workout'} value={day.type} onChange={(e) => set({ type: e.target.value })}>
-          {(types.includes(day.type) ? types : [day.type, ...types]).map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
+    <Group>
+      <div className="lrow">
+        <Segmented className="grow" label="Running or workout" options={[['run', 'Running'], ['gym', 'Workout']]} value={day.mode} onChange={(k) => set({ mode: k, type: k === day.plan.mode ? day.plan.type : k === 'run' ? 'Easy' : 'Strength' })} />
       </div>
-      <div className="m-bigs">
+      <Row
+        title={<span className="m-lbl">Type</span>}
+        right={
+          <select className="m-select" aria-label={day.mode === 'run' ? 'Type of run' : 'Type of workout'} value={day.type} onChange={(e) => set({ type: e.target.value })}>
+            {(types.includes(day.type) ? types : [day.type, ...types]).map((x) => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
+          </select>
+        }
+      />
+      <div className="m-steppers">
         <div className="field">
-          <span className="field-label">Wake up</span>
+          <span className="t-label muted">Wake up</span>
           <Stepper value={day.wake} onChange={(v) => set({ wake: v })} step={5} min={240} max={720} format={minutesToTimeInput} parse={parseWake} label="Wake-up time" inputProps={{ type: 'time', step: 300 }} />
         </div>
         {day.mode === 'run' ? (
           <div className="field">
-            <span className="field-label">Miles</span>
+            <span className="t-label muted">Miles</span>
             <Stepper value={day.miles} onChange={(v) => set({ miles: v })} step={0.5} min={0.5} max={30} format={fmtMiles} parse={parseMiles} label="Miles" inputProps={{ inputMode: 'decimal' }} />
           </div>
         ) : (
           <div className="field">
-            <span className="field-label">Workout minutes</span>
+            <span className="t-label muted">Minutes</span>
             <Stepper value={day.minutes} onChange={(v) => set({ minutes: v })} step={5} min={5} max={240} format={fmtInt} parse={parseInt10} label="Workout minutes" inputProps={{ inputMode: 'numeric' }} />
           </div>
         )}
       </div>
       {day.plan.label || day.own ? (
-        <div className="m-plan">
-          {day.plan.label ? (
-            <span>
-              Training plan: <b>{day.plan.label}</b>
-            </span>
-          ) : null}
+        <div className="lrow m-plan">
+          <span className="t-cap muted grow">
+            {day.plan.label ? (
+              <>
+                Training plan: <b>{day.plan.label}</b>
+              </>
+            ) : (
+              'Your own morning'
+            )}
+          </span>
           {day.own ? (
             <button type="button" className="link sm" onClick={() => setDay.mutate({ date, day: null })}>
               Reset to plan
@@ -68,43 +125,97 @@ const Controls = ({ date, T, log }: { date: string; T: MorningTimeline; log: Ret
           ) : null}
         </div>
       ) : null}
-      {log.habits.length === 0 && !log.snap.sessionsOn(date).length ? null : null}
-    </Card>
+    </Group>
   );
 };
 
-const Timeline = ({ T }: { T: MorningTimeline }) => {
-  const PX = 2.3;
+// ---------- timeline: a 48px axis, blocks at 1.6px a minute ----------
+const PX = 1.6;
+const GAP = 4;
+const MIN_H = 32;
+const LEAVE_H = 32;
+interface Laid {
+  b: TimelineBlock;
+  top: number;
+  h: number;
+}
+const layoutBlocks = (blocks: TimelineBlock[]) => {
+  const items: Laid[] = [];
+  let y = 0;
+  for (const b of blocks) {
+    const h = Math.max(MIN_H, Math.round(b.mins * PX));
+    items.push({ b, top: y, h });
+    y += h + GAP;
+  }
+  return { items, end: y };
+};
+
+const Timeline = ({ T, isToday }: { T: MorningTimeline; isToday: boolean }) => {
+  const now = useNowMinutes();
+  const { items, end } = useMemo(() => layoutBlocks(T.blocks), [T.blocks]);
+  const total = end + LEAVE_H;
+  const yOf = (t: number) => {
+    const first = items[0];
+    if (!first || t <= first.b.start) return 0;
+    for (const it of items) if (t >= it.b.start && t <= it.b.end) return it.top + (it.b.mins ? ((t - it.b.start) / it.b.mins) * it.h : 0);
+    return end;
+  };
+  const ticks: Array<{ t: number; y: number }> = [];
+  for (let t = Math.ceil(T.day.wake / 30) * 30; t <= T.leave; t += 30) {
+    const y = yOf(t);
+    const prev = ticks[ticks.length - 1];
+    if (prev && y - prev.y < 20) continue;
+    if (total - y < 24) continue;
+    ticks.push({ t, y });
+  }
+  const showNow = isToday && now >= T.day.wake && now <= T.leave;
+  const nowY = showNow ? yOf(now) : 0;
+  const tickLabel = (t: number) => `${Math.floor(t / 60) % 12 || 12}:${pad(t % 60)}`;
   return (
-    <Card>
-      <CardHead title="Your morning" meta={`${durationWords(T.leave - T.day.wake)} from alarm to door`} />
-      {T.late ? (
-        <Note kind="warn">
-          Back at {clockOfDay(T.back)}, {T.late} min past your {clockOfDay(T.settings.after.showerAt)} shower, so you leave at {clockOfDay(T.leave)} instead of {clockOfDay(T.onTime ?? T.leave)}. To stay on time: wake by {clockOfDay(T.fix!.latestWake)}
-          {T.fix?.maxMiles != null ? `, or ${T.fix.maxMiles > 0 ? `run ${num(T.fix.maxMiles)} mi` : 'skip the run'}` : ''}.
-        </Note>
-      ) : null}
-      <motion.ol className="tl" variants={listVariants} initial="hidden" animate="show">
-        {T.blocks.map((b, i) => (
-          <motion.li key={i} variants={itemVariants} className={`tl-row k-${b.key} ${b.tone ? `tn-${b.tone}` : ''}`} style={{ minHeight: Math.max(36, Math.round(b.mins * PX)) }}>
-            <span className="tl-time">{clockOfDay(b.start)}</span>
-            <div className="tl-block">
-              <span className="tl-label">{b.label}</span>
-              <span className="tl-dur">{[durationWords(b.mins), b.sub].filter(Boolean).join(' · ')}</span>
-            </div>
-          </motion.li>
+    <motion.div className="tl" style={{ height: total }} variants={listVariants} initial="hidden" animate="show">
+      <div className="tl-axis" aria-hidden="true">
+        {ticks.map(({ t, y }) => (
+          <span key={t} className="tl-tick t-cap" style={{ top: y - 8 }}>
+            {tickLabel(t)}
+          </span>
         ))}
-        <motion.li variants={itemVariants} className="tl-row k-leave">
-          <span className="tl-time">{clockOfDay(T.leave)}</span>
-          <div className="tl-block">
-            <span className="tl-label">Leave for work</span>
-          </div>
+      </div>
+      <ol className="tl-blocks">
+        {items.map(({ b, top, h }, i) => {
+          const past = isToday && b.end <= now;
+          const range = `${short(b.start)}–${short(b.end)}`;
+          if (b.key === 'free')
+            return (
+              <motion.li key={i} variants={itemVariants} className="tl-free" style={{ top, height: h }}>
+                <span className="t-sub muted">Free · {durationWords(b.mins)}</span>
+                <span className="t-cap muted">{range}</span>
+              </motion.li>
+            );
+          return (
+            <motion.li key={i} variants={itemVariants} className={`tl-block k-${b.key} ${b.tone ? `tn-${b.tone}` : ''} ${past ? 'past' : ''} ${h >= 48 ? 'tall' : ''}`} style={{ top, height: h }}>
+              <div className="tl-main">
+                <span className="tl-label">{b.label}</span>
+                {h >= 60 ? <span className="t-cap muted">{[durationWords(b.mins), b.sub].filter(Boolean).join(' · ')}</span> : null}
+              </div>
+              <span className="tl-range t-cap">{range}</span>
+            </motion.li>
+          );
+        })}
+        <motion.li variants={itemVariants} className="tl-leave" style={{ top: end, height: LEAVE_H }}>
+          <span className="tl-label">Leave for work</span>
+          <span className="tl-range t-cap">{short(T.leave)}</span>
         </motion.li>
-      </motion.ol>
-    </Card>
+      </ol>
+      {showNow ? (
+        <div className="tl-now" style={{ top: nowY - 1 }} aria-label={`Now, ${clockOfDay(now)}`}>
+          <i />
+        </div>
+      ) : null}
+    </motion.div>
   );
 };
 
+// ---------- word and quote ----------
 const Focus = ({ st }: { st: MorningSettings }) => {
   const { settings } = useMorningMutations();
   const [edit, setEdit] = useState(false);
@@ -112,86 +223,128 @@ const Focus = ({ st }: { st: MorningSettings }) => {
   const [quote, setQuote] = useState(st.focus.quote);
   const [by, setBy] = useState(st.focus.by);
   const has = st.focus.word || st.focus.quote;
-  if (edit)
-    return (
-      <Card className="m-focus">
-        <CardHead title="Word and quote" meta="Stays until you change it" />
-        <Field label="Word of the day">
-          <input className="in" value={word} onChange={(e) => setWord(e.target.value)} maxLength={40} placeholder="One word, e.g. Steady" autoFocus />
-        </Field>
-        <Field label="Quote of the day">
-          <textarea className="in" rows={3} value={quote} onChange={(e) => setQuote(e.target.value)} maxLength={400} placeholder="A line to carry through the day" />
-        </Field>
-        <Field label="By">
-          <input className="in" value={by} onChange={(e) => setBy(e.target.value)} maxLength={80} placeholder="Who said it (optional)" />
-        </Field>
-        <div className="row">
-          <Button
-            variant="primary"
-            onClick={() => {
-              settings.mutate({ focus: { word: word.trim(), quote: quote.trim(), by: by.trim() } });
-              setEdit(false);
-            }}
-          >
-            Save
-          </Button>
-          <Button variant="ghost" onClick={() => setEdit(false)}>
-            Cancel
-          </Button>
-        </div>
-      </Card>
-    );
+  const open = () => {
+    setWord(st.focus.word);
+    setQuote(st.focus.quote);
+    setBy(st.focus.by);
+    setEdit(true);
+  };
   return (
-    <Card className="m-focus">
-      <CardHead title="Word and quote">
-        <button type="button" className="link" onClick={() => setEdit(true)}>
-          {has ? 'Change' : 'Add'}
-        </button>
-      </CardHead>
-      {!has ? <Empty>Pick a word and a line to start the day with. They stay here every morning until you change them.</Empty> : null}
-      {st.focus.word ? <div className="m-word">{st.focus.word}</div> : null}
-      {st.focus.quote ? <blockquote className="m-quote">“{st.focus.quote}”</blockquote> : null}
-      {st.focus.quote && st.focus.by ? <div className="m-by">{st.focus.by}</div> : null}
-    </Card>
+    <>
+      <SectionHead
+        title="Word & quote"
+        meta={has && !edit ? 'Stays until you change it' : undefined}
+        action={
+          !edit ? (
+            <button type="button" className="link" onClick={open}>
+              {has ? 'Change' : 'Add'}
+            </button>
+          ) : undefined
+        }
+      />
+      <Group>
+        {edit ? (
+          <div className="group-pad m-editor">
+            <Field label="Word of the day">
+              <input className="in" value={word} onChange={(e) => setWord(e.target.value)} maxLength={40} placeholder="One word, e.g. Steady" autoFocus />
+            </Field>
+            <Field label="Quote of the day">
+              <textarea className="in" rows={3} value={quote} onChange={(e) => setQuote(e.target.value)} maxLength={400} placeholder="A line to carry through the day" />
+            </Field>
+            <Field label="By">
+              <input className="in" value={by} onChange={(e) => setBy(e.target.value)} maxLength={80} placeholder="Who said it (optional)" />
+            </Field>
+            <div className="row">
+              <Button
+                variant="primary"
+                onClick={() => {
+                  settings.mutate({ focus: { word: word.trim(), quote: quote.trim(), by: by.trim() } });
+                  setEdit(false);
+                }}
+              >
+                Save
+              </Button>
+              <Button variant="ghost" onClick={() => setEdit(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : !has ? (
+          <EmptyState
+            action={
+              <Button size="sm" variant="soft" onClick={open}>
+                Add
+              </Button>
+            }
+          >
+            Pick a word and a line to start the day with. They stay here every morning until you change them.
+          </EmptyState>
+        ) : (
+          <div className="group-pad m-focus">
+            {st.focus.word ? <div className="t-title m-word">{st.focus.word}</div> : null}
+            {st.focus.quote ? <blockquote className="serif t-body m-quote">“{st.focus.quote}”</blockquote> : null}
+            {st.focus.quote && st.focus.by ? <div className="t-cap muted">{st.focus.by}</div> : null}
+          </div>
+        )}
+      </Group>
+    </>
   );
 };
 
+// ---------- settings tab: grouped lists, label left, input right ----------
+const Unit = ({ children, unit }: { children: ReactNode; unit: string }) => (
+  <span className="m-unit">
+    {children}
+    <span className="t-cap muted">{unit}</span>
+  </span>
+);
+
 const SettingsPane = ({ st }: { st: MorningSettings }) => {
   const { settings } = useMorningMutations();
-  const minutes = (grp: 'run' | 'gym' | 'after', key: string, label: string, hint?: string, max = 180) => {
+  const minutes = (grp: 'run' | 'gym' | 'after', key: string, label: string, sub?: string, max = 180) => {
     const value = (st[grp] as unknown as Record<string, number>)[key] ?? 0;
     return (
-      <Field key={key} label={label} hint={hint}>
-        <div className="unit-in">
-          <input
-            className="in"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={max}
-            step={1}
-            defaultValue={value}
-            onBlur={(e) => {
-              const v = Math.round(Number(e.target.value));
-              if (e.target.value !== '' && v >= 0 && v <= max && v !== value) settings.mutate({ [grp]: { [key]: v } });
-              else e.target.value = String(value);
-            }}
-          />
-          <span>min</span>
-        </div>
-      </Field>
+      <Row
+        key={key}
+        title={<span className="m-lbl">{label}</span>}
+        sub={sub}
+        right={
+          <Unit unit="min">
+            <input
+              key={value}
+              className="in m-num"
+              type="number"
+              inputMode="numeric"
+              aria-label={label}
+              min={0}
+              max={max}
+              step={1}
+              defaultValue={value}
+              onBlur={(e) => {
+                const v = Math.round(Number(e.target.value));
+                if (e.target.value !== '' && v >= 0 && v <= max && v !== value) settings.mutate({ [grp]: { [key]: v } });
+                else e.target.value = String(value);
+              }}
+            />
+          </Unit>
+        }
+      />
     );
   };
   return (
-    <div className="stack" style={{ gap: 16, maxWidth: 780 }}>
-      <Card>
-        <CardHead title="Running" />
-        <div className="grid2">
-          <Field label="Pace" hint="Sets how long the run takes">
-            <div className="unit-in">
+    <div className="m-set">
+      <SectionHead title="Running" />
+      <Group>
+        <Row
+          title={<span className="m-lbl">Pace</span>}
+          sub="Sets how long the run takes"
+          right={
+            <Unit unit="/mi">
               <input
-                className="in"
+                key={st.run.pace}
+                className="in m-num"
                 inputMode="numeric"
+                aria-label="Pace per mile"
                 defaultValue={clock(st.run.pace)}
                 placeholder="9:00"
                 onBlur={(e) => {
@@ -200,58 +353,64 @@ const SettingsPane = ({ st }: { st: MorningSettings }) => {
                   else e.target.value = clock(st.run.pace);
                 }}
               />
-              <span>/mi</span>
-            </div>
-          </Field>
-          {minutes('run', 'wakeup', 'Wake-up routine', 'From alarm to dressed')}
-          {minutes('run', 'buffer', 'Buffer before and after', 'Out the door, then cool down')}
+            </Unit>
+          }
+        />
+        {minutes('run', 'wakeup', 'Wake-up routine', 'From alarm to dressed')}
+        {minutes('run', 'buffer', 'Buffer', 'Out the door, then cool down')}
+      </Group>
+
+      <SectionHead title="Workout" />
+      <Group>
+        {minutes('gym', 'length', 'Usual length', 'Change it day by day on the Plan tab', 240)}
+        {minutes('gym', 'wakeup', 'Wake-up routine', 'From alarm to dressed')}
+        {minutes('gym', 'walk', 'Walk to the gym', 'Counted both ways')}
+      </Group>
+
+      <SectionHead title="After" />
+      <Group>
+        <div className="lrow">
+          <Segmented className="grow" label="When the shower starts" options={[['fixed', 'Shower at a set time'], ['after', 'As soon as I’m back']]} value={st.after.showerMode} onChange={(k) => settings.mutate({ after: { showerMode: k } })} />
         </div>
-      </Card>
-      <Card>
-        <CardHead title="Workout" />
-        <div className="grid2">
-          {minutes('gym', 'length', 'Usual workout length', 'Where each day starts; change it day by day on the Plan tab', 240)}
-          {minutes('gym', 'wakeup', 'Wake-up routine', 'From alarm to dressed')}
-          {minutes('gym', 'walk', 'Walk to the gym', 'Counted both ways')}
-        </div>
-      </Card>
-      <Card>
-        <CardHead title="After" />
-        <div className="field">
-          <span className="field-label">Shower starts</span>
-          <Segmented className="m-shower-mode" label="When the shower starts" options={[['fixed', 'At a set time'], ['after', 'As soon as I’m back']]} value={st.after.showerMode} onChange={(k) => settings.mutate({ after: { showerMode: k } })} />
-          {st.after.showerMode === 'fixed' ? (
-            <input
-              className="in"
-              type="time"
-              step={300}
-              style={{ maxWidth: 170 }}
-              defaultValue={minutesToTimeInput(st.after.showerAt)}
-              onBlur={(e) => {
-                const v = minutesFromTimeInput(e.target.value);
-                if (v != null && v !== st.after.showerAt) settings.mutate({ after: { showerAt: v } });
-              }}
-            />
-          ) : null}
-          <span className="field-hint">{st.after.showerMode === 'fixed' ? 'Gives you a fixed time to leave. If you get back late, you’ll see what to change.' : 'Leaving time moves with the run or workout.'}</span>
-        </div>
-        <div className="grid2">
-          {minutes('after', 'shower', 'Shower')}
-          {minutes('after', 'ready', 'Get ready')}
-          {minutes('after', 'smoothie', 'Blend smoothie', '0 to skip')}
-          {minutes('after', 'prep', 'Final prep')}
-        </div>
-      </Card>
-      <p className="fine">
-        Starting numbers come from the Morning Plans tab of the 2026 Workout Plan sheet.{' '}
-        <button type="button" className="link sm" onClick={() => settings.mutate({ run: MORNING_DEFAULTS.run, gym: MORNING_DEFAULTS.gym, after: MORNING_DEFAULTS.after })}>
-          Reset all to those
-        </button>
-      </p>
+        {st.after.showerMode === 'fixed' ? (
+          <Row
+            title={<span className="m-lbl">Shower starts</span>}
+            sub="A fixed time to leave. Get back late and you’ll see what to change."
+            right={
+              <input
+                key={st.after.showerAt}
+                className="in m-time"
+                type="time"
+                step={300}
+                aria-label="Shower start time"
+                defaultValue={minutesToTimeInput(st.after.showerAt)}
+                onBlur={(e) => {
+                  const v = minutesFromTimeInput(e.target.value);
+                  if (v != null && v !== st.after.showerAt) settings.mutate({ after: { showerAt: v } });
+                }}
+              />
+            }
+          />
+        ) : (
+          <div className="lrow">
+            <span className="t-sub muted">Leaving time moves with the run or workout.</span>
+          </div>
+        )}
+        {minutes('after', 'shower', 'Shower')}
+        {minutes('after', 'ready', 'Get ready')}
+        {minutes('after', 'smoothie', 'Blend smoothie', '0 to skip')}
+        {minutes('after', 'prep', 'Final prep')}
+      </Group>
+
+      <p className="t-cap muted m-set-foot">Starting numbers come from the Morning Plans tab of the 2026 Workout Plan sheet.</p>
+      <Button variant="ghost" block onClick={() => settings.mutate({ run: MORNING_DEFAULTS.run, gym: MORNING_DEFAULTS.gym, after: MORNING_DEFAULTS.after })}>
+        Reset all to those
+      </Button>
     </div>
   );
 };
 
+// ---------- the view ----------
 export default function MorningView() {
   const params = useParams();
   const nav = useNavigate();
@@ -259,24 +418,31 @@ export default function MorningView() {
   const base = useLog([]);
   const t = base.today;
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : t;
-  const log = useLog(useMemo(() => [monthOf(date)], [date]));
+  const months = useMemo(() => [monthOf(mondayOf(date)), monthOf(shiftDays(mondayOf(date), 6))], [date]);
+  const log = useLog(months);
   const go = (d: string) => nav(d === t ? '/morning' : `/morning/${d}`);
   const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
   const T = useMemo(() => buildMorning(morningDayFor(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), st), [log.snap, date, st]);
-  const out = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
+  const out = T.day.mode === 'run' ? T.blocks.find((b) => b.key === 'buffer') : T.blocks.find((b) => b.key === 'gym');
+  const alarm = timeParts(T.day.wake);
+  const door = out ? timeParts(out.start) : null;
+  const leave = timeParts(T.leave);
   return (
     <div className="page">
       <PageHeader
-        eyebrow="Alarm to door"
         title="Morning"
         sub={`${date === t ? 'Today · ' : date === shiftDays(t, 1) ? 'Tomorrow · ' : ''}${fmtDate('long', date)}`}
         actions={
-          <>
-            <DateNav onPrev={() => go(shiftDays(date, -1))} onNext={() => go(shiftDays(date, 1))} prevLabel="Previous day" nextLabel="Next day" />
-            <Button size="sm" variant="ghost" onClick={() => go(date !== t ? t : shiftDays(t, 1))}>
-              {date !== t ? 'Today' : 'Tomorrow'}
-            </Button>
-          </>
+          tab === 'plan' ? (
+            <>
+              {date !== t ? (
+                <Button size="sm" variant="ghost" onClick={() => go(t)}>
+                  Today
+                </Button>
+              ) : null}
+              <DateNav onPrev={() => go(shiftDays(date, -7))} onNext={() => go(shiftDays(date, 7))} prevLabel="Previous week" nextLabel="Next week" />
+            </>
+          ) : undefined
         }
       >
         <Segmented className="m-tabs" label="Morning tabs" options={[['plan', 'Plan'], ['settings', 'Settings']]} value={tab} onChange={setTab} />
@@ -286,21 +452,30 @@ export default function MorningView() {
       ) : tab === 'settings' ? (
         <SettingsPane st={st} />
       ) : (
-        <div className="m-grid">
-          <div className="stack" style={{ gap: 16 }}>
-            <Focus st={st} />
-            <Controls date={date} T={T} log={log} />
+        <>
+          <div className="section" style={{ marginTop: 16 }}>
+            <DayStrip date={date} today={t} log={log} go={go} />
+            <StatStrip>
+              <Stat label="Alarm" value={alarm.v} unit={alarm.u} />
+              <Stat label={T.day.mode === 'run' ? 'Out the door' : 'Workout'} value={door ? door.v : '—'} unit={door?.u} />
+              <Stat label="Leave" value={leave.v} unit={leave.u} tone={T.late ? 'bad' : ''} />
+            </StatStrip>
           </div>
-          <div className="stack" style={{ gap: 16 }}>
-            <div className="kpis">
-              <Kpi label="Alarm" value={clockOfDay(T.day.wake)} />
-              <Kpi label={T.day.mode === 'run' ? 'Run starts' : 'Workout starts'} value={out ? clockOfDay(out.start) : '—'} />
-              <Kpi label="Back" value={clockOfDay(T.back)} />
-              <Kpi label="Leave for work" value={clockOfDay(T.leave)} tone={T.late ? 'missed' : ''} />
-            </div>
-            <Timeline T={T} />
-          </div>
-        </div>
+
+          <SectionHead title="Plan" />
+          <Controls date={date} T={T} />
+
+          <SectionHead title="Timeline" meta={`${durationWords(T.leave - T.day.wake)} alarm to door`} />
+          {T.late ? (
+            <Note kind="warn">
+              Back at {clockOfDay(T.back)}, {T.late} min past your {clockOfDay(T.settings.after.showerAt)} shower, so you leave at {clockOfDay(T.leave)} instead of {clockOfDay(T.onTime ?? T.leave)}. To stay on time: wake by {clockOfDay(T.fix!.latestWake)}
+              {T.fix?.maxMiles != null ? `, or ${T.fix.maxMiles > 0 ? `run ${num(T.fix.maxMiles)} mi` : 'skip the run'}` : ''}.
+            </Note>
+          ) : null}
+          <Timeline T={T} isToday={date === t} />
+
+          <Focus st={st} />
+        </>
       )}
     </div>
   );
