@@ -14,8 +14,10 @@ export interface ShareDay {
 export interface ShareData {
   /** The run's name ("Morning Run"), or the plan's label when there is no single activity. */
   name: string;
-  /** The plan's label ("Easy 6"), for the caption; null when the run was unplanned. */
+  /** The plan's label ("Easy 6"); null when the run was unplanned. */
   label: string | null;
+  /** The day's verdict in the brand voice: "Floor held." / "Easy 6, done." / "6.0 mi, off the plan." The Bubble's default line. */
+  verdict: string;
   date: ISODate;
   /** `HH:MM` start, when the run carries one. */
   time: string | null;
@@ -44,7 +46,7 @@ const STAMP = '"Inter Tight", "Inter", -apple-system, sans-serif';
 const SANS = '"Inter", -apple-system, sans-serif';
 
 // ---------- fonts: the card waits for the bundled faces, never paints a fallback ----------
-const FACES = ['italic 400 80px "Instrument Serif"', '900 200px "Inter Tight"', '800 100px "Inter Tight"', '700 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
+const FACES = ['italic 400 80px "Instrument Serif"', 'italic 400 160px "Instrument Serif"', '900 200px "Inter Tight"', '800 100px "Inter Tight"', '700 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
 let fontsReady: Promise<void> | null = null;
 export const loadFonts = (): Promise<void> => {
   if (!fontsReady) {
@@ -62,24 +64,8 @@ const paceColon = (movingSec: number, miles: number): string => (miles > 0.1 && 
 const mi2 = (v: number) => (Math.round(v * 100) / 100).toFixed(2);
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
-/** 6.04 → "six miles", 6.5 → "six and a half miles", 13.1 → "13.1 miles", 0.8 → "a short run". */
-export const milesInWords = (miles: number): string => {
-  const v = Math.round(miles * 10) / 10;
-  if (v < 0.95) return 'a short run';
-  const whole = Math.round(v);
-  if (Math.abs(v - whole) <= 0.15 && whole <= 12) return `${WORDS[whole]} ${whole === 1 ? 'mile' : 'miles'}`;
-  const half = Math.floor(v);
-  if (Math.abs(v - half - 0.5) <= 0.15 && half <= 12) return `${WORDS[half]} and a half miles`;
-  return `${mi(v)} miles`;
-};
-/** "pov: easy 6 before work": the plan's label, or the distance in words when the run was unplanned, and the time of day when the run carries a start. */
-export const defaultCaption = (d: ShareData): string => {
-  const h = d.time ? Number(d.time.slice(0, 2)) : NaN;
-  const when = Number.isNaN(h) ? '' : h < 10 ? ' before work' : h < 14 ? ' at lunch' : h >= 17 ? ' after work' : '';
-  const what = d.label ? d.label.toLowerCase() : milesInWords(d.miles);
-  return `pov: ${what}${when}`;
-};
+/** The Bubble says what the day said: the verdict, in the brand voice. Falls back to the distance when there is none. */
+export const defaultCaption = (d: ShareData): string => d.verdict.trim() || `${mi(d.miles)} mi.`;
 
 // ---------- text with tracking ----------
 interface TextStyle {
@@ -182,40 +168,57 @@ const wordmark = (ctx: CanvasRenderingContext2D) => {
   ctx.restore();
   text(ctx, label, W - M, y, { ...st, align: 'right' });
 };
-/** Date in caps and the name in the italic serif at 112, up to two lines: the top-left of every single-run card. */
+/** Date in caps at 32 and the name in the italic serif, up to two lines: the top-left of every single-run card. */
 const HEAD_DATE_Y = 300;
 const HEAD_NAME = 112;
-const HEAD_LINE = 120;
-const heading = (ctx: CanvasRenderingContext2D, d: ShareData) => {
+/** On Stamp and Route the name is the hero. */
+const HERO_NAME = 160;
+const serifAt = (size: number) => `italic 400 ${size}px ${SERIF}`;
+/** Draws the heading; returns the baseline of the name's last line so what follows can clear a two-line name. */
+const heading = (ctx: CanvasRenderingContext2D, d: ShareData, size = HEAD_NAME): number => {
   caps(ctx, fmtDate('long', d.date), M, HEAD_DATE_Y, 32);
-  const font = `italic 400 ${HEAD_NAME}px ${SERIF}`;
   const max = W - M * 2;
+  // the name steps down a size at a time, to 96 at the smallest, until it fits two lines with no word wider than the card
+  const fits = (f: string) => {
+    ctx.font = f;
+    return d.name.split(/\s+/).every((w) => ctx.measureText(w).width <= max) && wrap(ctx, d.name, f, max).length <= 2;
+  };
+  let sz = size;
+  while (sz > 96 && !fits(serifAt(sz))) sz -= 8;
+  const font = serifAt(sz);
+  const lineH = Math.round(sz * 1.05);
   const all = wrap(ctx, d.name, font, max);
   const lines = all.slice(0, 2);
-  // a name that would need a third line ends the second with an ellipsis
+  // a name that still needs a third line at 96 ends the second with an ellipsis
   if (all.length > 2) {
     ctx.font = font;
     let l = lines[1]!;
     while (l.length > 1 && ctx.measureText(`${l}…`).width > max) l = l.slice(0, -1).trimEnd();
     lines[1] = `${l}…`;
   }
-  lines.forEach((l, i) => text(ctx, l, M, HEAD_DATE_Y + HEAD_NAME * 1.1 + i * HEAD_LINE, { font, color: WHITE }));
+  const y0 = HEAD_DATE_Y + sz;
+  lines.forEach((l, i) => text(ctx, l, M, y0 + i * lineH, { font, color: WHITE }));
+  return y0 + (lines.length - 1) * lineH;
 };
 
 // ---------- 1. STAMP: three numerals stacked, labels above ----------
 const drawStamp = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   ground(ctx);
-  heading(ctx, d);
+  const nameY = heading(ctx, d, HERO_NAME);
   const e = easeOut(p);
   const rows: Array<[string, string, string | null]> = [
     ['Distance', mi2(d.miles * e), 'mi'],
     ['Pace', paceStamp(d.movingSec * e, d.miles * e), null],
     ['Time', clock(d.movingSec * e), null],
   ];
+  // the first label clears the name's descenders; the last numeral lands at 1600, above the foot line at 1700
+  const size = 200;
+  const first = nameY + 150;
+  const step = (1600 - size - first) / (rows.length - 1);
   rows.forEach(([k, v, u], i) => {
-    const y = 660 + i * 340;
+    const y = Math.round(first + i * step);
     caps(ctx, k, M, y);
-    stamp(ctx, v, u, M, y + 232, 232);
+    stamp(ctx, v, u, M, y + size, size);
   });
   const foot: string[] = [];
   if (d.elevFt) foot.push(`${Math.round(d.elevFt)} ft elev`);
@@ -256,8 +259,11 @@ const drawRouteLine = (ctx: CanvasRenderingContext2D, pts: Array<[number, number
 };
 const drawRoute = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   ground(ctx);
-  heading(ctx, d);
-  if (d.polyline) drawRouteLine(ctx, routePoints(d.polyline, 840, 660), 120, 600, p);
+  const nameY = heading(ctx, d, HERO_NAME);
+  // the line takes whatever room is left between the name and the stats, so a two-line name never touches it
+  const top = nameY + 70;
+  const bottom = 1230;
+  if (d.polyline) drawRouteLine(ctx, routePoints(d.polyline, 840, bottom - top), 120, top, p);
   const cells: Array<[string, string, string | null]> = [
     ['Distance', mi2(d.miles), 'mi'],
     ['Pace', paceStamp(d.movingSec, d.miles), null],
@@ -276,14 +282,14 @@ const drawRoute = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
 // ---------- 3. MARKER: the sentence, highlighted in white; black type on white bars, the one card that inverts ----------
 const drawMarker = (ctx: CanvasRenderingContext2D, d: ShareData) => {
   ground(ctx, 0.7);
-  heading(ctx, d);
+  const nameY = heading(ctx, d);
   const lines = [`${mi2(d.miles)} miles,`, `${paceColon(d.movingSec, d.miles)}/mi,`, clock(d.movingSec)];
   const size = 128;
   const font = `700 ${size}px ${SANS}`;
   const barH = 168;
   const gap = 24;
   const total = lines.length * barH + (lines.length - 1) * gap;
-  let y = 1000 - total / 2;
+  let y = Math.max(1000 - total / 2, nameY + 110);
   for (const line of lines) {
     const w = measure(ctx, line, { font, color: '#000', tracking: -size * 0.02 });
     ctx.fillStyle = WHITE;
@@ -306,7 +312,7 @@ const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 };
 const drawBubble = (ctx: CanvasRenderingContext2D, d: ShareData, caption: string) => {
   ground(ctx, 0.8);
-  heading(ctx, d);
+  const nameY = heading(ctx, d);
   const size = 72;
   const font = `600 ${size}px ${SANS}`;
   const padX = 64;
@@ -319,7 +325,7 @@ const drawBubble = (ctx: CanvasRenderingContext2D, d: ShareData, caption: string
   const lh = size * 1.22;
   const bh = lines.length * lh + padY * 2;
   const bx = (W - bw) / 2;
-  const by = 900 - bh / 2;
+  const by = Math.max(900 - bh / 2, nameY + 110);
   ctx.fillStyle = BLUE;
   roundRect(ctx, bx, by, bw, bh, 56);
   ctx.fill();
@@ -352,7 +358,7 @@ const drawWeek = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   const e = easeOut(p);
   const monday = wk?.monday ?? mondayOf(d.date);
   caps(ctx, 'Week', M, HEAD_DATE_Y, 32);
-  text(ctx, weekTitle(monday), M, HEAD_DATE_Y + HEAD_NAME * 1.1, { font: `italic 400 ${HEAD_NAME}px ${SERIF}`, color: WHITE });
+  text(ctx, weekTitle(monday), M, HEAD_DATE_Y + HEAD_NAME * 1.1, { font: serifAt(HEAD_NAME), color: WHITE });
   const total = wk?.total ?? d.miles;
   caps(ctx, 'Miles', M, 600);
   const w = stamp(ctx, mi(total * e), 'mi', M, 832, 232);

@@ -42,7 +42,7 @@ const CardCanvas = ({ template, data, caption }: { template: Template; data: Sha
   return <canvas ref={ref} width={W} height={H} className="share-canvas" role="img" aria-label={`${TEMPLATE_NAME[template]} card`} />;
 };
 
-/** The share sheet: a 9:16 card, the templates beneath it, Share and Save. */
+/** The share sheet: a 9:16 card, the caption under it when the card takes one, the templates in one scrolling row, Share and Save. */
 export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Template }) => {
   const toast = useToast();
   const templates = useMemo(() => TEMPLATES.filter((t) => (t !== 'route' || !!data.polyline) && (t !== 'week' || !!data.week)), [data]);
@@ -63,21 +63,24 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
   };
   return (
     <div className="share">
-      <div className="share-stage">
-        <AnimatePresence initial={false}>
-          <motion.div key={t} className="share-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-            <CardCanvas template={t} data={data} caption={caption} />
-          </motion.div>
-        </AnimatePresence>
+      <div className="share-main">
+        <div className="share-stage">
+          <AnimatePresence initial={false}>
+            <motion.div key={t} className="share-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              <CardCanvas template={t} data={data} caption={caption} />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        {/* the caption sits right under the card it writes on, never under the footer */}
+        {t === 'bubble' ? <input className="in share-caption" value={caption} maxLength={80} aria-label="Caption" placeholder="Say something" onChange={(e) => setCaption(e.target.value)} /> : null}
+        <div className="share-templates" role="radiogroup" aria-label="Template">
+          {templates.map((k) => (
+            <ChipButton key={k} role="radio" aria-checked={t === k} on={t === k} onClick={() => setT(k)}>
+              {TEMPLATE_NAME[k]}
+            </ChipButton>
+          ))}
+        </div>
       </div>
-      <div className="share-templates" role="radiogroup" aria-label="Template">
-        {templates.map((k) => (
-          <ChipButton key={k} role="radio" aria-checked={t === k} on={t === k} onClick={() => setT(k)}>
-            {TEMPLATE_NAME[k]}
-          </ChipButton>
-        ))}
-      </div>
-      {t === 'bubble' ? <input className="in" value={caption} maxLength={80} aria-label="Caption" placeholder={defaultCaption(data)} onChange={(e) => setCaption(e.target.value)} /> : null}
       <div className="sheet-foot">
         <Button variant="ghost" disabled={!!busy} onClick={() => run('save')}>
           {busy === 'save' ? 'Saving…' : 'Save'}
