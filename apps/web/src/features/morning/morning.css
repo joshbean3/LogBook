@@ -3,6 +3,41 @@
   max-width: 240px;
 }
 
+/* ---------- hero: the aura card from Today, the morning's four times stamped on it ---------- */
+.m-aura {
+  min-height: 0;
+}
+.m-aura .aura-title.display {
+  font-size: 44px;
+  line-height: 46px;
+}
+/* the four stamps must sit in one row at 320: the meridiem steps out there */
+@media (max-width: 359px) {
+  .m-aura .aura-num small {
+    display: none;
+  }
+}
+
+/* ---------- day strip: the selected pill is lit, and keeps its tone dot ---------- */
+.strip-lit .dcell.is-sel .dcell-pill {
+  box-shadow:
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 24px rgba(91, 102, 255, 0.75);
+}
+.strip-lit .dcell.is-sel.is-today .dcell-pill {
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent-bright),
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 24px rgba(91, 102, 255, 0.75);
+}
+.strip-lit .dcell.is-sel .dcell-dot {
+  background: var(--tone, var(--bg));
+  opacity: 1;
+}
+.strip-lit .dcell.is-sel .dcell-dot.none {
+  background: transparent;
+}
+
 /* ---------- controls group ---------- */
 .m-lbl {
   font-weight: 400;
@@ -42,11 +77,21 @@
   padding: 0;
 }
 .m-plan {
-  min-height: 40px;
+  min-height: 48px;
 }
-.m-plan b {
-  color: var(--ink-2);
-  font-weight: 600;
+.m-plan-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.m-plan-stamp {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- timeline: a 48px axis, blocks scaled to minutes ---------- */
@@ -63,6 +108,7 @@
   right: 10px;
   color: var(--ink-3);
   white-space: nowrap;
+  letter-spacing: 0.06em;
 }
 .tl-blocks {
   position: relative;
@@ -80,10 +126,14 @@
   padding: 0 12px;
   min-width: 0;
 }
-/* every block is a sheet of surface-2 with a 3px left bar: ink-4 for routine, the session's tone for the run or lift */
+/* every block is a surface on the black with a 3px left bar: ink-4 for routine, the session's tone for the run or lift */
 .tl-block {
   --c: var(--ink-4);
-  background: var(--surface-2);
+  position: absolute;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+  border: var(--card-border);
   box-shadow: inset 3px 0 0 var(--c);
   transition: opacity var(--dur);
 }
@@ -91,9 +141,21 @@
 .tl-block.k-gym {
   --c: var(--tone, var(--ink-4));
 }
+/* the session block carries a faint halo of its own, under its number */
+.tl-halo {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(70% 90% at 50% 125%, rgba(47, 59, 255, 0.25), rgba(47, 59, 255, 0) 70%);
+}
+.tl-block.lit .tl-halo {
+  display: block;
+}
 .tl-block.tall {
   align-items: flex-start;
-  padding-top: 12px;
+  padding-top: 10px;
 }
 .tl-block.past {
   opacity: 0.6;
@@ -102,7 +164,7 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 1px;
+  gap: 2px;
 }
 .tl-label {
   font-size: 17px;
@@ -113,40 +175,71 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.tl-main .caps {
+  letter-spacing: 0.06em;
+}
 .tl-range {
   flex: none;
   color: var(--ink-3);
   white-space: nowrap;
+  letter-spacing: 0.06em;
 }
 .tl-block.tall .tl-range {
   line-height: 22px;
 }
-/* captions sit on surface-2 here, so they take ink-2 */
-.tl-block .tl-range,
-.tl-block .muted {
-  color: var(--ink-2);
+.tl-side {
+  flex: none;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.tl-side .tl-range {
+  line-height: 14px;
+}
+.tl-stamp {
+  font-size: 22px;
+  line-height: 24px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.tl-stamp small {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.7);
 }
 .tl-free {
   border: 1px dashed var(--line-strong);
   justify-content: space-between;
 }
-/* leaving is the hard edge of the morning: the same black pill grammar as a selected day */
+.tl-free .tl-label {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.tl-free.past {
+  opacity: 0.6;
+}
+/* leaving is the hard edge of the morning: the same white pill grammar as a selected day */
 .tl-leave {
   background: var(--ink);
   color: var(--bg);
   justify-content: space-between;
 }
-.tl-leave .tl-range {
+.tl-leave .tl-stamp {
+  font-size: 17px;
+  line-height: 22px;
   color: var(--bg);
-  opacity: 0.7;
 }
-/* now: a 2px accent line with a dot in the axis column */
+/* now: a 2px lit line with a dot in the axis column */
 .tl-now {
   position: absolute;
   left: 42px;
   right: 0;
   height: 2px;
-  background: var(--accent);
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px rgba(91, 102, 255, 0.9);
   z-index: 2;
   pointer-events: none;
 }
@@ -157,22 +250,28 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px rgba(91, 102, 255, 0.9);
 }
 
 /* ---------- word and quote ---------- */
 .m-focus {
   display: grid;
-  gap: 6px;
-  padding: 14px 16px 16px;
+  gap: 8px;
+  padding: 16px;
 }
 .m-word {
+  font-size: 22px;
+  line-height: 24px;
   overflow-wrap: anywhere;
 }
 .m-quote {
+  font-size: 22px;
+  line-height: 28px;
+  color: var(--ink);
   white-space: pre-line;
   overflow-wrap: anywhere;
-  color: var(--ink-2);
+  text-wrap: pretty;
 }
 .m-editor {
   display: grid;

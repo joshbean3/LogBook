@@ -1,13 +1,15 @@
 import { addMonths, counts, dayStatus, daysBetween, fmtDate, label, mi, mondayOf, monthOf, monthStart, monthsBetween, num, parseISO, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, type Session } from '@logbook/shared';
 import { motion } from 'motion/react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
 import { ChevronRight } from 'lucide-react';
-import { DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { Chip, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useLog, type Log } from '../log/useLog';
-import { AddSessionButton, SessionRow, UnplannedRow } from '../sessions/SessionCard';
+import { AddSessionButton, sessionMeta, SessionRow, UnplannedRow } from '../sessions/SessionCard';
 import { StravaLine } from '../settings/StravaLine';
+// the aura card grammar lives with Today; Plan borrows it rather than redrawing it
+import '../day/day.css';
 import { PlanBuilder, PlansList, Upcoming } from './PlanBuilder';
 import './plan.css';
 
@@ -69,26 +71,68 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
   const unmatched = hasOther ? [] : acts.filter((a) => a.kind !== 'run');
   const showList = (s: Session) => s.kind !== 'rest' || sessions.length === 1;
   const listed = sessions.filter(showList);
-  const word = STATUS_WORD[st] || 'Nothing planned';
   const openDay = () => nav(sel === t ? '/today' : `/today/${sel}`);
+
+  // the hero: the selected day, lit, its sessions stamped on it, the week's numbers under a hairline
+  const main = listed.find((s) => s.kind !== 'rest') ?? null;
+  const others = listed.filter((s) => s !== main && s.kind !== 'rest');
+  const restDay = !main && sessions.some((s) => s.kind === 'rest');
+  const mainSt = main ? sessionStatus(log.snap, sel, main) : st;
+  const verdict = !loaded
+    ? '\u2026'
+    : main
+      ? `${mainSt === 'floor' ? 'Floor held' : mainSt === 'done' || mainSt === 'bonus' ? 'Done' : mainSt === 'missed' ? 'Missed' : sessionMeta(main, mainSt) || STATUS_WORD[mainSt] || 'Planned'}.${others.length ? ` Then ${others.map(label).join(' and ')}.` : ''}`
+      : unplannedRuns.length
+        ? 'A run, unplanned.'
+        : restDay
+          ? 'Rest day.'
+          : 'Nothing planned.';
+  const stats: Array<[string, ReactNode, string?]> = [
+    ['Miles', <AnimatedNumber key="mi" value={tot.ran} format={mi} />, tot.planned ? `of ${tenth(tot.planned)}` : 'run'],
+    ['Hit', tot.sessions ? <AnimatedNumber key="hit" value={tot.hit} /> : '\u2014', tot.sessions ? `of ${tot.sessions}` : undefined],
+    ['Habits', habOf ? <AnimatedNumber key="hab" value={Math.round((hab / habOf) * 100)} /> : '\u2014', habOf ? '%' : undefined],
+  ];
 
   return (
     <>
-      <StatStrip className="wk-strip">
-        <Stat label="Miles" value={<AnimatedNumber value={tot.ran} format={mi} />} unit={tot.planned ? `of ${tenth(tot.planned)}` : 'run'}>
-          <span className="meter">
-            <motion.i initial={false} animate={{ width: `${pct * 100}%` }} transition={{ type: 'spring', stiffness: 90, damping: 20 }} />
-          </span>
-        </Stat>
-        <Stat label="Hit" value={tot.sessions ? <AnimatedNumber value={tot.hit} /> : '—'} unit={tot.sessions ? `of ${tot.sessions}` : undefined} />
-        <Stat label="Habits" value={habOf ? <AnimatedNumber value={Math.round((hab / habOf) * 100)} format={(v) => `${Math.round(v)}%`} /> : '—'} />
-      </StatStrip>
-      <StravaLine strava={log.strava} />
+      <div className="section" style={{ marginTop: 16 }}>
+        <div className={`aura wk-aura ${main ? `t-${tone(main)}` : ''}`}>
+          <span className="aura-glow" aria-hidden="true" />
+          <div className="aura-top">
+            <span className="caps">{sel === t ? `${fmtDate('md', sel)} \u00b7 Today` : fmtDate('md', sel)}</span>
+            {loaded && STATUS_WORD[st] ? <Chip kind={st === 'bonus' ? 'done' : st}>{STATUS_WORD[st]}</Chip> : null}
+          </div>
+          <h2 className="aura-title display">{fmtDate('dowLong', sel)}</h2>
+          {main ? (
+            <div className="wk-sess">
+              <span className="stamp wk-stamp">{label(main)}</span>
+              {others.map((s) => (
+                <Chip key={s.id} kind="tone" className={`t-${tone(s)}`}>
+                  {label(s)}
+                </Chip>
+              ))}
+            </div>
+          ) : null}
+          <p className="aura-verdict">{verdict}</p>
+          <div className="aura-stats">
+            {stats.map(([k, v, u]) => (
+              <span key={k} className="aura-stat">
+                <span className="caps">{k}</span>
+                <span className="stamp aura-num">
+                  {v}
+                  {u ? <small>{u}</small> : null}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <StravaLine strava={log.strava} />
+      </div>
 
-      <DayStrip days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
+      <DayStrip className="strip-lit" days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
 
       {/* one accent action for the day: the head's Add, or the empty state's Add, never both */}
-      <SectionHead title={`${fmtDate('dow', sel)} ${parseISO(sel).getDate()} · ${word}`} action={!loaded || listed.length || unplannedRuns.length ? <AddSessionButton date={sel}>Add</AddSessionButton> : undefined} />
+      <SectionHead title="Sessions" action={!loaded || listed.length || unplannedRuns.length ? <AddSessionButton date={sel}>Add</AddSessionButton> : undefined} />
       <Group>
         {!loaded ? <Loading text={`Loading ${fmtDate('month', sel)}…`} /> : null}
         {loaded && (listed.length || unplannedRuns.length) ? (
@@ -105,7 +149,7 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
           <div key={a.id} className="lrow">
             <div className="lrow-main">
               <div className="lrow-title">{a.name}</div>
-              <div className="lrow-sub">From Strava · {Math.round(a.movingSec / 60)} min</div>
+              <div className="lrow-sub">Recorded · {Math.round(a.movingSec / 60)} min</div>
             </div>
           </div>
         ))}
@@ -119,6 +163,7 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
 const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
   const nav = useNavigate();
   const t = log.today;
+  const sel = anchor;
   const first = monthStart(anchor);
   const next = addMonths(first, 1);
   const last = shiftDays(next, -1);
@@ -145,7 +190,7 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
   return (
     <>
       <StatStrip>
-        <Stat label="Miles" value={<AnimatedNumber value={ran} format={mi} />} />
+        <Stat label="Miles" value={<AnimatedNumber value={ran} format={mi} />} unit="run" />
         <Stat label="Planned" value={tenth(planned)} unit="mi" />
         <Stat label="Hit" value={of ? <AnimatedNumber value={hit} /> : '—'} unit={of ? `of ${of}` : undefined} />
       </StatStrip>
@@ -160,7 +205,7 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
           const inMonth = d >= first && d < next;
           const ds = dayStatus(log.snap, d);
           return (
-            <button key={d} type="button" className={`mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''}`} aria-label={describe(log, d)} onClick={() => nav(d === t ? '/today' : `/today/${d}`)}>
+            <button key={d} type="button" className={`mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''} ${d === sel && inMonth ? 'is-sel' : ''}`} aria-pressed={d === sel && inMonth} aria-current={d === t ? 'date' : undefined} aria-label={describe(log, d)} onClick={() => nav(d === t ? '/today' : `/today/${d}`)}>
               <span className="mcell-pill">
                 <span className="mcell-num">{parseISO(d).getDate()}</span>
                 <Dots d={d} log={log} max={3} />
@@ -169,7 +214,7 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
           );
         })}
       </div>
-      <div className="legend plan-legend">
+      <div className="legend plan-legend caps">
         {(
           [
             ['easy', 'Easy'],
@@ -187,7 +232,7 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
         ))}
         <span className="lg">
           <i className="sdot t-rest" style={{ borderColor: 'var(--ink-3)' }} />
-          Planned
+          To do
         </span>
       </div>
     </>
