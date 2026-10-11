@@ -1,22 +1,22 @@
-import { fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
+import { daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Sparkles } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api, ApiError } from '@/api/client';
 import { keys, useBlockMutations } from '@/api/queries';
-import { Button, Card, CardHead, Chip, Empty, Field, Kpi, Note, Segmented, Spinner } from '@/ui/primitives';
+import { Button, Chip, EmptyState, Field, Group, Note, SectionHead, Segmented, Spinner, Stat, StatStrip } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import type { Log } from '../log/useLog';
-import { useQuickOpen } from './PlanView';
+import { useOpenSession } from '../sessions/SessionCard';
 
 type Mode = 'file' | 'text' | 'describe' | 'revise';
 const MODES: Array<[Mode, string]> = [
-  ['file', 'PDF or photo'],
+  ['file', 'File'],
   ['text', 'Paste'],
   ['describe', 'Describe'],
-  ['revise', 'Change mine'],
+  ['revise', 'Revise'],
 ];
 const nextMonday = (t: string) => shiftDays(mondayOf(t), 7);
 
@@ -46,16 +46,25 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
   });
   const weeks: string[] = [];
   for (let mon = mondayOf(draft.start); mon <= draft.end; mon = shiftDays(mon, 7)) weeks.push(mon);
+  const nWeeks = Math.ceil((daysBetween(draft.start, draft.end) + 1) / 7);
   return (
-    <Card>
-      <CardHead title="Preview" meta="Nothing is saved until you apply it." />
-      <Field label="Plan name">
-        <input className="in" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
-      </Field>
-      {draft.summary ? <p className="lead">{draft.summary}</p> : null}
+    <>
+      <SectionHead title="Preview" meta="Nothing is saved until you apply it." />
+      <div className="pv-hero">
+        <input className="pv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Plan name" />
+        <span className="t-cap muted">
+          {fmtDate('md', draft.start)} – {fmtDate('md', draft.end)}
+        </span>
+        {draft.summary ? <p className="t-sub ink2">{draft.summary}</p> : null}
+        <StatStrip>
+          <Stat label="Weeks" value={nWeeks} />
+          <Stat label="Sessions" value={draft.sessions.length} />
+          <Stat label="Miles" value={mi(miles)} />
+        </StatStrip>
+      </div>
       {draft.notes.length ? (
         <div className="pv-notes">
-          <span className="mini-label">Claude flagged</span>
+          <span className="t-label">Claude flagged</span>
           <ul>
             {draft.notes.map((n) => (
               <li key={n}>{n}</li>
@@ -63,12 +72,8 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
           </ul>
         </div>
       ) : null}
-      <div className="kpis">
-        <Kpi label="Dates" value={<span className="kpi-val sm">{`${fmtDate('md', draft.start)} – ${fmtDate('md', draft.end)}`}</span>} />
-        <Kpi label="Sessions" value={String(draft.sessions.length)} />
-        <Kpi label="Planned miles" value={mi(miles)} />
-      </div>
-      <div className="pv-weeks">
+      <SectionHead title="Week by week" meta={`${weeks.length} ${weeks.length === 1 ? 'week' : 'weeks'}`} />
+      <Group>
         {weeks.map((mon) => {
           let wk = 0;
           const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
@@ -77,18 +82,19 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
             <div key={mon} className="pv-week">
               <div className="pv-wk">
                 <b>{fmtDate('md', mon)}</b>
-                <span>{wk ? `${mi(wk)} mi` : '—'}</span>
+                <span>{wk ? `${mi(wk)} mi` : 'No running'}</span>
               </div>
               <div className="pv-days">
                 {days.map((d) => {
                   const list = byDate.get(d) ?? [];
+                  if (!list.length) return null;
                   return (
-                    <div key={d} className={`pv-day ${d < draft.start || d > draft.end ? 'out' : ''} ${list.length ? '' : 'none'}`}>
+                    <div key={d} className={`pv-day ${d < draft.start || d > draft.end ? 'out' : ''}`}>
                       <span className="pv-dow">{`${fmtDate('dow', d)[0]} ${parseISO(d).getDate()}`}</span>
                       {list.map((s, i) => (
-                        <span key={i} className={`s-chip t-${tone(s)}`} title={s.details ?? ''}>
-                          <span className="s-text">{label(s)}</span>
-                        </span>
+                        <Chip key={i} kind="tone" className={`t-${tone(s)}`}>
+                          {label(s)}
+                        </Chip>
                       ))}
                     </div>
                   );
@@ -97,21 +103,21 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
             </div>
           );
         })}
-      </div>
-      <div className="row wrap">
+      </Group>
+      <div className="pv-actions">
         <Button variant="primary" disabled={apply.isPending} onClick={() => apply.mutate('replace')}>
-          {existing ? `Replace ${existing} planned session${existing === 1 ? '' : 's'} in these dates` : 'Add to my calendar'}
+          {existing ? `Replace ${existing} planned session${existing === 1 ? '' : 's'}` : 'Add to my calendar'}
         </Button>
         {existing && mode !== 'revise' ? (
           <Button disabled={apply.isPending} onClick={() => apply.mutate('add')}>
-            Add alongside what’s there
+            Add alongside
           </Button>
         ) : null}
         <Button variant="ghost" onClick={onDiscard}>
           Discard
         </Button>
       </div>
-    </Card>
+    </>
   );
 };
 
@@ -184,77 +190,94 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
       />
     );
   const off = !log.features.claude;
+  const busy = build.isPending;
   return (
-    <Card>
-      <CardHead title="Build or import a plan">
-        <span className="row" style={{ gap: 6, color: 'var(--ink-3)', fontSize: 13 }}>
-          <Sparkles size={14} /> with Claude
-        </span>
-      </CardHead>
-      <Segmented className="mode-tabs" label="Source" options={MODES} value={mode} onChange={(m) => (setMode(m), setError(null))} disabled={build.isPending} />
-      {mode === 'file' ? (
-        <label className={`drop ${file ? 'has' : ''}`}>
-          <input type="file" className="sr-only" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={build.isPending} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <FileText size={22} />
-          <span>{file ? file.name : 'Choose a PDF or a photo of your plan'}</span>
-          <small>{file ? `${Math.round(file.size / 1024)} KB · tap to change` : 'PDF, JPG or PNG'}</small>
-        </label>
-      ) : mode === 'text' ? (
-        <Field label="Plan">
-          <textarea className="in mono" rows={8} value={text} onChange={(e) => setText(e.target.value)} disabled={build.isPending} placeholder="Paste the plan: a coach’s email, a table copied from a spreadsheet, a forum post…" />
-        </Field>
-      ) : null}
-      <Field label={mode === 'revise' ? 'What should change?' : mode === 'describe' ? 'What do you want?' : 'Notes for Claude'}>
-        <textarea
-          className="in"
-          rows={mode === 'file' || mode === 'text' ? 2 : 4}
-          maxLength={4000}
-          value={instr}
-          disabled={build.isPending}
-          onChange={(e) => setInstr(e.target.value)}
-          placeholder={
-            mode === 'describe'
-              ? 'e.g. 12-week half marathon build to a 1:30 at the Brooklyn Half, 4 runs a week, long run Saturday, 2 lifts, nothing over 45 min on weekdays'
-              : mode === 'revise'
-                ? 'e.g. Move every long run to Sunday. Cut next week by 20%, I have a live deal. Add a Tuesday upper-body lift.'
-                : 'Optional: anything Claude should know, e.g. “skip the Week 6 race”, “my long run day is Sunday”'
-          }
-        />
-      </Field>
-      <div className="grid2">
-        <Field label={mode === 'revise' ? 'From' : 'Start date'} hint={mode === 'file' || mode === 'text' ? 'Week 1 of the source starts here' : undefined}>
-          <input className="in" type="date" value={start || defaultStart} onChange={(e) => setStart(e.target.value)} disabled={build.isPending} />
-        </Field>
-        {mode === 'file' || mode === 'text' ? null : (
-          <Field label={mode === 'revise' ? 'Through' : 'End by (optional)'}>
-            <input className="in" type="date" value={end} onChange={(e) => setEnd(e.target.value)} disabled={build.isPending} />
+    <>
+      <SectionHead title="Build or import" meta="With Claude" />
+      <Group className="builder">
+        <div className="brow">
+          <Segmented className="mode-tabs" label="Source" options={MODES} value={mode} onChange={(m) => (setMode(m), setError(null))} disabled={busy} />
+        </div>
+        {mode === 'file' ? (
+          <div className="brow">
+            <label className={`drop ${file ? 'has' : ''}`}>
+              <input type="file" className="sr-only" accept="application/pdf,image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <FileText size={22} />
+              <span className="t-sub">{file ? file.name : 'Choose a PDF or a photo of your plan'}</span>
+              <span className="t-cap muted">{file ? `${Math.round(file.size / 1024)} KB · tap to change` : 'PDF, JPG or PNG'}</span>
+            </label>
+          </div>
+        ) : mode === 'text' ? (
+          <div className="brow">
+            <Field label="Plan">
+              <textarea className="in bare mono" rows={7} value={text} onChange={(e) => setText(e.target.value)} disabled={busy} placeholder="Paste the plan: a coach’s email, a table copied from a spreadsheet, a forum post…" />
+            </Field>
+          </div>
+        ) : null}
+        <div className="brow">
+          <Field label={mode === 'revise' ? 'What should change?' : mode === 'describe' ? 'What do you want?' : 'Notes for Claude'}>
+            <textarea
+              className="in bare"
+              rows={mode === 'file' || mode === 'text' ? 2 : 4}
+              maxLength={4000}
+              value={instr}
+              disabled={busy}
+              onChange={(e) => setInstr(e.target.value)}
+              placeholder={
+                mode === 'describe'
+                  ? 'e.g. 12-week half marathon build to a 1:30 at the Brooklyn Half, 4 runs a week, long run Saturday, 2 lifts, nothing over 45 min on weekdays'
+                  : mode === 'revise'
+                    ? 'e.g. Move every long run to Sunday. Cut next week by 20%, I have a live deal. Add a Tuesday upper-body lift.'
+                    : 'Optional: anything Claude should know, e.g. “skip the Week 6 race”, “my long run day is Sunday”'
+              }
+            />
           </Field>
-        )}
-      </div>
-      {error ? <Note kind="bad">{error}</Note> : null}
-      {off ? <Note kind="warn">Building plans needs an Anthropic API key on the server. Add ANTHROPIC_API_KEY and restart.</Note> : null}
-      <div className="row spread">
-        <AnimatePresence>
-          {build.isPending ? (
-            <motion.div className="row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ color: 'var(--ink-2)', fontSize: 14 }}>
-              <Spinner /> Claude is building the plan. This usually takes 20–60 seconds…
-            </motion.div>
-          ) : (
-            <span />
+        </div>
+        <div className="brow grid2">
+          <Field label={mode === 'revise' ? 'From' : 'Start date'} hint={mode === 'file' || mode === 'text' ? 'Week 1 of the source starts here' : undefined}>
+            <input className="in bare" type="date" value={start || defaultStart} onChange={(e) => setStart(e.target.value)} disabled={busy} />
+          </Field>
+          {mode === 'file' || mode === 'text' ? null : (
+            <Field label={mode === 'revise' ? 'Through' : 'End by (optional)'}>
+              <input className="in bare" type="date" value={end} onChange={(e) => setEnd(e.target.value)} disabled={busy} />
+            </Field>
           )}
-        </AnimatePresence>
-        {build.isPending ? (
-          <Button variant="ghost" onClick={() => ctl.current?.abort()}>
-            Stop
-          </Button>
-        ) : (
-          <Button variant="primary" disabled={off} onClick={() => build.mutate()}>
-            {mode === 'revise' ? 'Draft the changes' : 'Build the plan'}
-          </Button>
-        )}
-      </div>
-      <p className="fine">Claude reads your source, your recent Strava weeks and heart-rate zones, then returns dated sessions you can check before saving.</p>
-    </Card>
+        </div>
+        {error ? (
+          <div className="brow">
+            <Note kind="bad">{error}</Note>
+          </div>
+        ) : null}
+        {off ? (
+          <div className="brow">
+            <Note kind="warn">Building plans needs an Anthropic API key on the server. Add ANTHROPIC_API_KEY and restart.</Note>
+          </div>
+        ) : null}
+        <div className="brow foot">
+          <AnimatePresence>
+            {busy ? (
+              <motion.span className="row t-sub muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Spinner /> Claude is building the plan. 20–60 seconds…
+              </motion.span>
+            ) : (
+              <span />
+            )}
+          </AnimatePresence>
+          {busy ? (
+            <Button variant="ghost" onClick={() => ctl.current?.abort()}>
+              Stop
+            </Button>
+          ) : (
+            <Button variant="primary" disabled={off} onClick={() => build.mutate()}>
+              {mode === 'revise' ? 'Draft the changes' : 'Build the plan'}
+            </Button>
+          )}
+        </div>
+      </Group>
+      <p className="fine" style={{ marginTop: 8 }}>
+        Claude reads your source, your recent Strava weeks and heart-rate zones, then returns dated sessions you can check before saving.
+      </p>
+    </>
   );
 };
 
@@ -267,79 +290,104 @@ export const PlansList = ({ log }: { log: Log }) => {
   const t = log.today;
   const srcWord: Record<string, string> = { file: 'a file', text: 'pasted text', describe: 'your description', revise: 'a revision', chat: 'chat' };
   return (
-    <Card>
-      <CardHead title="Your plans" />
-      {!blocks.length ? (
-        <Empty>No plans yet. Import one above, or add sessions from the Today and Week views.</Empty>
-      ) : (
-        <ul className="blocks">
-          {blocks.map((b) => {
-            const state = t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active';
-            return (
-              <li key={b.id} className="block">
-                <div className="block-main">
-                  <div className="block-name">
-                    {b.name}
-                    <Chip kind={state === 'Active' ? 'open' : state === 'Upcoming' ? 'upcoming' : ''}>{state}</Chip>
+    <>
+      <SectionHead title="Your plans" meta={blocks.length ? `${blocks.length}` : undefined} />
+      <Group>
+        {!blocks.length ? (
+          <EmptyState>No plans yet. Import one above, or add sessions from Today and the week.</EmptyState>
+        ) : (
+          <ul>
+            {blocks.map((b) => {
+              const state = t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active';
+              return (
+                <li key={b.id} className="plan-item">
+                  <div className="lrow two">
+                    <div className="lrow-main">
+                      <div className="lrow-title row" style={{ gap: 8 }}>
+                        <span className="grow" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {b.name}
+                        </span>
+                        <Chip kind={state === 'Active' ? 'open' : state === 'Upcoming' ? 'upcoming' : ''}>{state}</Chip>
+                      </div>
+                      <div className="lrow-sub">
+                        {fmtDate('md', b.start)} – {fmtDate('md', b.end)} · {b.sessionCount ?? 0} sessions{b.source ? ` · from ${srcWord[b.source] ?? b.source}` : ''}
+                      </div>
+                      {b.summary ? <p className="plan-sum">{b.summary}</p> : null}
+                    </div>
                   </div>
-                  <div className="block-meta">
-                    {fmtDate('md', b.start)} – {fmtDate('md', b.end)} · {b.sessionCount ?? 0} sessions{b.source ? ` · from ${srcWord[b.source] ?? b.source}` : ''}
-                  </div>
-                  {b.summary ? <div className="block-sum">{b.summary}</div> : null}
-                </div>
-                <div className="row wrap">
-                  <Button size="sm" onClick={() => nav(`/plan/week/${b.start < t && t <= b.end ? t : b.start}`)}>
-                    Open week
-                  </Button>
-                  {confirm === b.id ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => {
-                          remove.mutate(b);
-                          setConfirm(null);
-                          toast('Plan deleted');
-                        }}
-                      >
-                        Delete {b.sessionCount ?? 0} sessions
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setConfirm(null)}>
-                        Keep
-                      </Button>
-                    </>
-                  ) : (
-                    <Button size="sm" variant="ghost" onClick={() => setConfirm(b.id)}>
-                      Delete
+                  <div className="plan-acts">
+                    <Button size="sm" onClick={() => nav(`/plan/week/${b.start < t && t <= b.end ? t : b.start}`)}>
+                      Open week
                     </Button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
+                    {confirm === b.id ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => {
+                            remove.mutate(b);
+                            setConfirm(null);
+                            toast('Plan deleted');
+                          }}
+                        >
+                          Delete {b.sessionCount ?? 0} sessions
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirm(null)}>
+                          Keep
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="ghost" onClick={() => setConfirm(b.id)}>
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Group>
+    </>
   );
 };
 
 export const Upcoming = ({ log }: { log: Log }) => {
-  const open = useQuickOpen(log);
+  const open = useOpenSession(log);
+  const nav = useNavigate();
   const t = log.today;
   const items: Array<[string, ReturnType<Log['snap']['sessionsOn']>[number]]> = [];
   for (let d = t; d <= shiftDays(t, 13); d = shiftDays(d, 1)) for (const s of log.snap.sessionsOn(d)) if (s.kind !== 'rest') items.push([d, s]);
-  if (!items.length) return <Empty>Nothing planned in the next two weeks.</Empty>;
   return (
-    <ul className="upcoming">
-      {items.map(([d, s]) => (
-        <li key={s.id}>
-          <span className="up-date">{d === t ? 'Today' : fmtDate('short', d)}</span>
-          <button type="button" className={`s-chip t-${tone(s)}`} onClick={() => open(d, s)}>
-            <span className="s-text">{label(s)}</span>
+    <>
+      <SectionHead
+        title="Next two weeks"
+        meta={items.length ? `${items.length} sessions` : undefined}
+        action={
+          <button type="button" className="link" onClick={() => nav('/today')}>
+            Open today
           </button>
-          <span className="up-det">{s.details ?? ''}</span>
-        </li>
-      ))}
-    </ul>
+        }
+      />
+      <Group>
+        {!items.length ? (
+          <EmptyState>Nothing planned in the next two weeks.</EmptyState>
+        ) : (
+          <ul>
+            {items.map(([d, s]) => (
+              <li key={s.id}>
+                <button type="button" className="lrow tappable uprow" onClick={() => open(d, s)}>
+                  <span className="up-date">{d === t ? 'Today' : fmtDate('short', d)}</span>
+                  <Chip kind="tone" className={`t-${tone(s)}`}>
+                    {label(s)}
+                  </Chip>
+                  <span className="up-det">{s.details ?? ''}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Group>
+    </>
   );
 };
