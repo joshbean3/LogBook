@@ -1,180 +1,115 @@
-# Logbook brand package
+# Logbook brand package, v2: Night
 
-The one source for why Logbook looks the way it does. `docs/design-spec.md` stays in force for layout, type scale and components; this document decides colour, voice, shape, mark and motion, and every value here is meant to land in `apps/web/src/styles/tokens.css` (section 10). When a screen and this document disagree, this document wins.
+The one source for why Logbook looks the way it does. `docs/design-spec.md` stays in force for the 4pt grid, gutters, tap targets, grouped lists and the anti-patterns; this document decides colour, type, voice, shape, mark and motion, and every value here lands in `apps/web/src/styles/tokens.css`. When a screen and this document disagree, this document wins. Section 11 is the review checklist.
 
 ## Part 1. Reference study
 
-Method: web search plus fetch, October 2026. Most primary pages (Apple Newsroom, WHOOP's Locker, Instrument's Oura case study, MacStories, Blake Crosley's guides) did not resolve through our proxy, so these notes come from search summaries, WHOOP's brand PDF and third-party style references; secondhand values are flagged. This is evidence about patterns, not a hex audit.
+v1 of this document studied WHOOP, Oura, Strava, Apple Fitness, Calm, Things, Flighty, Linear and Bear and landed on warm paper. The owner rejected it: the result read as generic. The reference that replaced it is **Share Aura: Track & Create** (Aura Movement Technology), seen in its App Store screenshots:
 
-- **Aura (sleep/wellness).** Not reachable beyond store listings and user reviews. What the listings show: a near-black ambient ground, soft gradient artwork per track, one line of large sans type and one action per screen. The lesson the owner is pointing at is the quiet: one thing to look at, the rest of the screen dark. Unverified beyond listings.
-- **WHOOP.** The official guidelines give one teal (#00F19F) for actions and positive states, one blue (#0093E7) for Strain, and a green/yellow/red traffic light for Recovery; everything else is near-black and grey. The premium feel comes from a dark ground, white tabular numerals as the hero, and progressive disclosure (Bureau Oberhaeuser): complexity only when asked for.
-- **Oura.** Instrument's redesign introduced one semantic colour system and a ring-and-bar visualization grammar; third-party style files disagree on the palette (black and gold vs cream and indigo), which says the app reads as restraint rather than as a colour. Readiness is the only thing on the home screen.
-- **Strava.** One orange (#FC4C02 or #FC5200 depending on the source) on black-on-white; the orange is the route line, the button and nothing else. Lesson: a single signature colour owned so hard that competitors must avoid it.
-- **Apple Fitness.** Three rings, three fixed colours (red Move, green Exercise, blue Stand) that never change meaning. Depth comes from the ring geometry, not from gradients. Completion is the whole brand moment.
-- **Calm and Headspace.** Opposite answers to the same category: Calm owns deep blue and natural landscape; Headspace owns an orange (#F47D31 per a style study) plus rounded characters. Both prove a wellness brand can be a single hue plus a consistent tone of voice.
-- **Things 3.** Cool off-white canvas, the system font untouched, one blue for interactive states and the icon's check, yellow only for Today, red only for deadlines. Reviewers can't agree on the blue's hex (#3A82F7 to #5c9cf5), which shows how much the discipline, not the value, carries the feeling.
-- **Flighty.** Airport signage as the type model: big numerals, status by colour code, condensed into "15 smart states". Data density feels calm because every number has one job and one place.
-- **Gentler Streak.** Apple's 2024 citation praises an "upbeat, encouraging tone" and progress "in relation to your history, not others." Later redesign cut tabs from four to three. Lesson: fewer destinations, kinder copy.
-- **Streaks.** One card, six circles, seasonal themes that change hue but never layout. MacStories: ease of use is what won the ADA.
-- **Bear and Craft.** Bear: custom sans, one coral-red accent for links and headings, Markdown hidden as you type. Craft: paper-like surfaces and generous radii. Both make writing feel like a material, which is what our journal needs.
-- **Arc, Linear, Notion Calendar.** Linear: greyscale on dark, one indigo (#5e6ad2 / #7170ff) for interactive states, Inter at weight 510, borders as faint translucent white. Notion Calendar: white, faint 1px grid, soft event fills, a 5:1 jump between headline and body. Arc: chrome in a sidebar so content owns the screen.
+- **Ground.** True black, edge to edge. Not charcoal, not a dark grey card on a slightly darker grey: black.
+- **Light.** One electric blue, used as a halo rising from the bottom of a screen or card, like a stage light under the content. It is never a fill behind text and never a button colour in the shots; the blue is atmosphere and the one dot of state (a blue check beside "6.0 miles").
+- **Type.** Two voices. An italic editorial serif for the big words ("Share", "Copy", "Track", "Create", "Post") and a heavy, tight sans for numbers stamped onto photos ("6.04 MI", "8'06''", "49:02"). Labels above numbers are tiny caps with wide tracking ("DISTANCE", "PACE", "TIME", "ELEVATION").
+- **The photo and the line.** A run is a photo of the run with the route drawn over it as a white line, and the stats stamped in the corner. Where there is no photo, the route line alone on black carries it.
+- **Templates.** A grid of stat cards: highlighter-marker text, a chat bubble, a bold stamp, a map line. All share the black ground; the variety is in the type, never in the colour.
+- **Voice.** Verbs. One word. Then a plain clause.
 
-**Common threads.** (1) One chromatic accent, used for interactive state and one signature element; two to three semantic colours (good/caution/bad) that never double as decoration. (2) Neutrals do the work: 80 to 90 percent of any screen is ground, surface and ink. (3) Dark mode is derived, not redesigned: same hues, lighter accent, surfaces lifted rather than outlined. (4) Numbers are the hero and are set in the UI sans with tabular figures; words are set smaller and quieter; serif, when it appears at all (Calm, Oura's editorial), is for reading, not for metrics. (5) Naming is plain nouns in sentence case: Today, Readiness, Strain, Inbox, Upcoming. (6) Completion is the only animation anyone remembers.
+Secondary references still in force: Strava for the route line as signature; Apple Fitness for completion as the only celebration; Linear for greyscale-on-black with faint translucent-white borders; Things for one accent used with discipline.
 
 ## Part 2. The Logbook brand
 
 ### 1. Positioning
 
-Logbook is one athlete's private page for the day: the 5 a.m. run, the lift, the three habits and the evening's two sentences, in the order the day happens, with no feed, leaderboard or notification trying to win. It borrows the authority of a paper logbook (a record you keep because you respect the work) and the calm of the best consumer apps (one thing on the screen, in warm light). His day is loud, so the app is quiet.
+Logbook is one athlete's private night screen: the run drawn as a line, the morning as a timeline, the habits as lights, the two sentences at the end of the day. It borrows Aura's black-and-light stagecraft and Strava's route line, and keeps the paper logbook's honesty: what happened, in numbers, with nothing trying to win your attention.
 
-**Promise:** One quiet page for the whole day.
+**Promise:** Your day, lit.
 
 ### 2. Personality
 
-**Is:** calm, exact, warm, disciplined, honest.
+**Is:** cinematic, exact, confident, warm underneath, honest.
 
-**Never:** loud, gamified, cute, corporate, clinical.
+**Never:** grey, cluttered, cute, corporate, gamified with coins or badges.
 
 ### 3. Colour system
 
-**Base: warm paper.** The owner liked the dashboard's warmth and it is right for the product: a logbook is paper, not a dashboard. Light mode keeps the ground `#f5f3ee` and white surfaces. What changes is the ink: the current inks (`#15171a`, `#4e5259`) are blue-grey and fight the warm ground, so they move to warm near-blacks and greys and ink, paper and line become one material. Dark mode is the same paper at night, a warm near-black instead of a blue-black.
+Every colour has one job.
 
-**Signature accent: trail green `#2d6a4f`.** One accent, chosen for three reasons. Product: green is the colour of "done" and "go" at the same time, and Logbook is about closing the day (done) and starting the next one (go); no other hue carries both. Context: the owner's category is owned by Strava orange, WHOOP teal and blue, Apple Fitness red; a deep forest green is empty territory and reads as outdoors at dawn, which is when he trains. Material: a deep, slightly grey green sits inside warm paper the way moss sits on stone; a bright mint would float on top of it. The current `#2f7a5a` is close but too bright to carry white text with authority; `#2d6a4f` gives 6.4:1 on white.
+| Token | Value | Job |
+| --- | --- | --- |
+| `--bg` | `#000000` | The canvas. Always black. There is no light mode. |
+| `--surface` | `#111111` | A card on the canvas. The lift is 7%, enough to read as an object. |
+| `--surface-2` | `#1b1b1b` | A control resting on a card (segmented track, input, orb ring). |
+| `--surface-3` | `#262626` | The selected segment, a meter track. |
+| `--ink` / `-2` / `-3` / `-4` | white at 100 / 72 / 50 / 28% | Text and icons. Four steps, no fifth. |
+| `--line` / `--line-strong` | white at 8 / 16% | Hairlines and outlines. Never a solid grey border. |
+| `--accent` | `#2f3bff` | The electric blue. The one primary button, the active tab, the done state of a habit orb, the meter fill, links. |
+| `--accent-bright` | `#5b66ff` | The glow edge: box-shadows, the orb ring when lit. |
+| `--halo` | radial blue, bottom-anchored | The stage light. Under the hero card on every tab, under a selected day, under a finished session in its sheet. It sits behind content, never behind body text. |
+| `--ok` | `#4f7bff` | Done. A blue, not a green: on this canvas green reads as a traffic light. |
+| `--warn` | `#ffb020` | Floor met, not the goal. Amber. Streaks are never a threat. |
+| `--bad` | `#ff3b5c` | Missed, delete, sign out. Red only for loss. |
+| `--t-easy` `#35d07f`, `--t-long` `#3b82ff`, `--t-hard` `#ff8a1f`, `--t-fast` `#ff3d8a`, `--t-lift` `#a26bff`, `--t-cross` `#d1a15c`, `--t-rest` `#7a7a7a` | Session families | A 6px dot, a 3px bar at a row's edge, the tint of a day's glow in Morning. Never text, never a fill larger than a bar. |
 
-**Done is the accent.** `--ok` is set equal to `--accent`. A completed habit, a finished session and the active tab are one idea (this is done, this is where you are), so they are one colour. This removes the "two greens on one screen" problem the current palette has.
+Rules: 90% of any screen is black, surface and ink. Blue is one thing per screen plus the halo. Status colours never decorate. Gradients exist only as the halo and the orb glow; no gradient ever sits behind text.
 
-| Token | Light | Dark | Reason |
-|---|---|---|---|
-| `--bg` | `#f5f3ee` | `#111110` | Warm paper; night paper (not blue-black) |
-| `--surface` | `#ffffff` | `#1a1a18` | A sheet laid on the paper; lifted one step in dark |
-| `--surface-2` | `#ebe8e1` | `#242421` | Chips and inputs; second lift |
-| `--ink` | `#1a1917` | `#efece6` | Primary text and numbers; warm, never pure black or white |
-| `--ink-2` | `#56524b` | `#b5b1a9` | Secondary text, subheads |
-| `--ink-3` | `#74706a` | `#87837b` | Captions, placeholders, eyebrows |
-| `--line` | `rgba(26,25,23,.08)` | `rgba(239,236,230,.08)` | Hairline dividers derived from ink, so they warm with it |
-| `--accent` | `#2d6a4f` | `#6cc29a` | Trail green; lighter at night so it glows rather than sinks |
-| `--accent-soft` | `#dcebe2` | `#1d3a2d` | Accent tint for selected rows and "today" fills |
-| `--ok` | `#2d6a4f` | `#6cc29a` | Same as accent: done and go are one colour |
-| `--warn` | `#a37408` | `#e9a23b` | Floor met but not the goal; a dim amber, a lamp left on |
-| `--bad` | `#d0304c` | `#e85a5a` | Missed; a crimson leaning cool so it separates from amber for colour-blind users |
+### 4. Type
 
-**Session tones.** Seven categorical colours for the session type bar and calendar dot. They are a second class of colour, not accents: they never fill a button, never colour text, never appear larger than a 2px bar, 6px dot or 24px icon. Mnemonic: cool is distance, hot is effort, violet is iron.
+Three faces, each with one job, all bundled in `public/fonts` so the app owns them offline.
 
-| Tone | Light | Dark | Reason |
-|---|---|---|---|
-| easy | `#4f9a6b` | `#8fd0a6` | Breath and grass; a lighter cousin of the accent so an easy run looks like the default |
-| long | `#3b7bd1` | `#6aa6ff` | Distance is depth and water |
-| hard | `#d07a0a` | `#f0a93a` | Effort is heat |
-| fast | `#c4306a` | `#f06a9a` | The red line of the track, pushed toward magenta so it is not mistaken for "missed" |
-| lift | `#8a55cf` | `#b48cf5` | Iron: the one cool, heavy, indoor colour |
-| cross | `#8d6b45` | `#c9a06e` | Terrain and leather: bike, swim, row, hike |
-| rest | `#94908a` | `#6f6c66` | The absence of colour |
+| Face | Class | Job |
+| --- | --- | --- |
+| Instrument Serif, italic | `.display`, `.ph-title`, `.aura-title.display` | The big words: page titles (44/46), the name of a finished run, the day's word, a quote. Never below 22px, never for numbers. |
+| Inter Tight 800 | `.stamp`, `.stat-val`, `.aura-num` | Stamped numerals: 44/44 in the hero, 28/32 in a strip, 22/24 in a stat row. Uppercase letters allowed only in a stamp ("EASY 6"). Tracking -0.03em. Units in a 12px `small` at 70% white. |
+| Inter | body | Everything else. 17/22 body, 15/20 sub, 12/16 caption. |
+| Caps labels | `.caps`, `.t-label` | 11/14 or 10/14, weight 600, tracking 0.12em, uppercase, `--ink-3`. Above every stamped number and on section heads. |
 
-**Verification.** Checked with a script (WCAG 2.x relative luminance for contrast; Machado 2009 deuteranopia matrix at full severity, then CIE76 ΔE in Lab). Results: light mode ink on surface 17.6:1, ink-2 7.8:1, ink-3 4.9:1, accent 6.4:1, white on accent 6.4:1; dark mode ink 14.8:1, ink-2 8.2:1, ink-3 4.6:1, accent 8.2:1. All seven tones are at or above 3:1 on their surface in both modes (lowest: rest 3.2:1 light). Deuteranopia ΔE for the status trio: light ok/warn 51, ok/bad 26, warn/bad 26; dark 52, 27, 30 (ΔE above roughly 20 is a visible step). The trio also differs in lightness in each mode. Two tone pairs remain close under deuteranopia (long/lift, and easy/fast in light), which is inherent to seven hues, so a tone is never the only carrier: every session row shows its type in words and the calendar lists the day's sessions by name under the dots. One constraint on the inks: `--ink-3` on `--surface-2` is 4.0:1, so captions on chips use `--ink-2`.
+Scale: 10, 11, 12, 15, 17, 22, 28, 44. Nothing else.
 
-**Accent rules.** The accent may appear as: the active tab icon and label; the one primary button on a screen; the "today" marker (filled pill in the calendar strip, the now-line in the timeline); a completed mark and its chip; the ring fill. It must not appear as decoration (no accent eyebrows, borders, gradients or backgrounds behind sections), never as body or caption text colour, never on two competing elements at once (if a primary button is on screen, nothing else is accent except state that is already there). Session tones are not accents and do not count against this, but an accent and a tone never sit on the same element.
+### 5. Shape and depth
 
-### 4. Typography
-
-One sans for every word of interface and every number: SF Pro on iOS through `-apple-system`, Inter elsewhere, tabular numerals on. Numbers are set heavier and larger than their labels (the spec's 2.3x rule) because the number is the fact and the label is its caption; a 56px distance, a 28px pace and a 12px uppercase eyebrow is the whole typographic brand.
-
-Fraunces, the serif, is the voice of reflection. It appears in exactly three places: the daily quote, the journal body and the coach's read. Reason: data has one voice (the sans, exact, upright) and the athlete's own thinking has another (the serif, warm, with a slight irregularity that reads as handwriting without pretending to be). Never on a metric, never on a button, never in a title. Scale, weights and leading are exactly the spec's table; no new sizes.
-
-### 5. Shape and surface
-
-Radii: 12px for cards, groups and sheets; 8px for chips, tiles and inputs; pill for buttons, segmented controls and the today marker. Nothing else. Corners are the same at every size so a chip looks like a small group, not a different species.
-
-Dividers are 1px `--line`, full width inside a group, never inset from the left. No card inside a card; inner structure is a hairline or 8px of air. Shadows exist only in light mode (`--shadow-1` for cards that lift, `--shadow-2` for sheets) and are warm-tinted from ink, never grey-blue. Dark mode is derived, never redesigned: same hues, surfaces lifted in two steps (`#111110` → `#1a1a18` → `#242421`), card borders transparent, shadows off except under sheets. If a dark screen needs a border to read, the surface step is wrong, not the border.
+Cards: `--r-lg` 20px on black with a 6% white border, no shadow (the canvas is the shadow). Controls: 12px. Chips, orbs, pills: round. Sheets rise from the bottom with a 20px top radius and a black backdrop at 78%. Depth comes from the halo and from the 7% lift, never from drop shadows on the canvas.
 
 ### 6. The mark
 
-Current: a tilted page with a green check on a green radial. The tilt and the radial are the two things that make it look generated. The final mark keeps the meaning (the day, closed) and removes everything else.
+The ring that is open at the top-right, with the check inside: the day, the record, and what is still open. White on black, with the blue halo rising behind it on the icon. The same mark lights up in the app as the habit orb.
 
-**App icon (1024 grid, iOS masks the corners).** Background: flat trail green `#2d6a4f`, edge to edge, no gradient, no texture. Ring: a circle centred at (512,512), radius 300, stroke 88, round caps, colour paper `#f5f3ee`, drawn as an arc that starts at 12 o'clock and runs clockwise for 300 degrees, leaving a 60-degree gap at the top-right (between 12 and 2 o'clock). Check: a polyline from (380,520) to (482,622) to (662,420), stroke 88, round caps and joins, same paper colour. Meaning: the ring is the day; the check is the record; the gap is what is still open, which is why you open the app. Reads at 29px as a check in a ring, the most legible glyph in the category (Apple's rings, Things' check). Dark/tinted variant: background `#111110`, marks `#6cc29a`.
+### 7. Layout
 
-**In-app mark.** The same geometry at 24px with a 2px stroke (ring radius 9, check 7.5/10, 10/12.5, 15.5/7) in `--ink`, or `--accent` where it marks completion. It is also the empty-state glyph and the splash. No wordmark; "Logbook" is set in the sans at Title weight wherever the name appears.
+- One hero per tab, always a black card with the halo: Today's session or route, Morning's timeline head, Plan's selected day, Trends' mileage chart, Journal's quote.
+- Stat rows under a hero: four caps labels over four stamps, separated by a 12% white hairline above.
+- Grouped lists as in the spec: hairlines inside one surface, 44px rows, 60px session rows.
+- Habits are orbs in a row, not a list: 56px ring, initial in italic serif, lit blue when done, a thin meter beneath.
+- The route line is white, 2.5px, with a soft white drop shadow, drawn in over 1.1s the first time it appears, then still.
+- The tab bar is black with a 16% hairline; the active tab is blue with a 600 label.
 
-### 7. Iconography
+### 8. Voice
 
-Lucide line icons only, 2px stroke, round caps and joins, 24px in the tab bar and 20px inline, coloured with `--ink-2` at rest. Active tab: the same icon filled (lucide's filled variants, or the outline with `fill: currentColor` at 100 percent) in `--accent`, label in `--accent` at 10px 600. No glow, no pill behind the icon. Icons never appear as decoration beside a title. No emoji anywhere: not in copy, not in habit names by default, not in toasts.
-
-### 8. Voice and copy
-
-Sentence case everywhere, including tab labels, eyebrows (uppercase is applied by CSS, written as sentence case) and buttons. Buttons are one short verb: Add, Done, Move, Skip, Save, Undo. Titles are plain nouns: Today, Plan, Morning, Journal, Trends.
-
-The floor is spoken as a promise to yourself, not a penalty. "Floor: 20 min easy" names the minimum; when the floor is met but the goal is not, the chip says "Floor" in amber and the verdict says "Floor held", never "Only 20 minutes". When nothing is done the chip says "Missed", once, without comment.
-
-Empty states name the state and offer one action: "No sessions this week. Add one." "Nothing written today. Write two lines." They keep the section's height and never apologise.
-
-The coach's read is two to three sentences, present tense, in the serif, about this athlete's history ("Third week of rising long-run volume; sleep is flat"). It never compares him to anyone else.
-
-Never: exclamation marks, "awesome", "crushed it", "oops", "something went wrong", "you've got this", streak counts as a threat, any sentence that begins "Don't forget".
+Verbs, one word, on buttons: Add, Save, Done, Floor, Skip, Move, Edit, Delete, Undo, Shuffle, Connect, Open. Titles in the serif are a single word or a name ("Today", "Afternoon Run"). The verdict under a hero is one short sentence in plain words ("Out at 7:35, back by 8:30." "Floor held."). Never a vendor name, never a server, never an env var, never an exclamation mark.
 
 ### 9. Motion
 
-1. Nothing moves without a cause the athlete made (a tap, a pull, a page change). No ambient animation, no attention loops.
-2. Completion is the only celebration: mark fills 160ms, check draws 160ms, haptic once. Nothing confettis.
-3. Durations: 160ms for state changes, 220ms for reveals and sheets, 600ms for a ring fill on appear. Nothing longer.
-4. Springs for things you touch (press scale 0.98, sheet drag), ease-out (`--ease-out`) for things that reveal (fades, fills).
-5. `prefers-reduced-motion` turns every animation into an instant state change, including the ring.
+1. Nothing moves on load except the page fade (200ms) and, once, the route line drawing itself.
+2. Completion is the celebration: an orb fills (160ms) and its check draws (160ms, after the fill), the glow blooms (320ms ease-out), one haptic. Nothing else celebrates.
+3. Taps compress to 0.985 with a spring (stiffness 400, damping 30). Sheets spring up (stiffness 300, damping 30). Numbers tick to their value (AnimatedNumber).
+4. Nothing longer than 600ms except the one route draw (1.1s). No stagger lists. No ambient motion.
 
-### 10. Tokens to change
+### 10. Tokens
 
-Apply to `apps/web/src/styles/tokens.css`. Both dark blocks (`prefers-color-scheme` and `[data-theme='dark']`) take the same dark values. Unlisted tokens are unchanged.
-
-| Token | Light old → new | Dark old → new |
-|---|---|---|
-| `--bg` | unchanged | `#0d0f11` → `#111110` |
-| `--surface` | unchanged | `#17191c` → `#1a1a18` |
-| `--surface-2` | unchanged | `#212428` → `#242421` |
-| `--surface-3` | unchanged | `#2c3035` → `#2f2e2a` |
-| `--ink` | `#15171a` → `#1a1917` | `#f0efea` → `#efece6` |
-| `--ink-2` | `#4e5259` → `#56524b` | `#b3b6bb` → `#b5b1a9` |
-| `--ink-3` | `#80858d` → `#74706a` | `#7f848b` → `#87837b` |
-| `--ink-4` | `#b3b7bd` → `#b5b1a9` | `#4e535a` → `#55524c` |
-| `--line` | `rgba(21,23,26,.07)` → `rgba(26,25,23,.08)` | `rgba(240,239,234,.07)` → `rgba(239,236,230,.08)` |
-| `--line-strong` | `rgba(21,23,26,.14)` → `rgba(26,25,23,.14)` | `rgba(240,239,234,.14)` → `rgba(239,236,230,.14)` |
-| `--accent` | `#2f7a5a` → `#2d6a4f` | `#5fcf96` → `#6cc29a` |
-| `--accent-soft` | `#dcefe4` → `#dcebe2` | `#1d3b2c` → `#1d3a2d` |
-| `--accent-tint` | `rgba(47,122,90,.1)` → `rgba(45,106,79,.1)` | `rgba(95,207,150,.12)` → `rgba(108,194,154,.12)` |
-| `--ok` | `#2f9e6a` → `#2d6a4f` | `#4fc98a` → `#6cc29a` |
-| `--ok-soft` | `#dff3e8` → `#dcebe2` | `#173327` → `#1d3a2d` |
-| `--warn` | `#d4870d` → `#a37408` | `#f0a93a` → `#e9a23b` |
-| `--warn-soft` | `#fbedd0` → `#f6e7c6` | `#3a2d14` → `#3a2e14` |
-| `--bad` | `#d64b3a` → `#d0304c` | `#f0675a` → `#e85a5a` |
-| `--bad-soft` | `#fbe1dc` → `#f8dde1` | `#3d1f1b` → `#3b1d1d` |
-| `--star` | `#e3a71a` → `#a37408` | `#f0b63a` → `#e9a23b` |
-| `--t-easy` | `#2f9e6a` → `#4f9a6b` | `#4fc98a` → `#8fd0a6` |
-| `--t-long` | `#2d7be0` → `#3b7bd1` | unchanged |
-| `--t-hard` | `#e08a16` → `#d07a0a` | unchanged |
-| `--t-fast` | `#e0415f` → `#c4306a` | `#f26d86` → `#f06a9a` |
-| `--t-lift` | `#8a4fd6` → `#8a55cf` | `#b28cf5` → `#b48cf5` |
-| `--t-cross` | `#8f6a3f` → `#8d6b45` | unchanged |
-| `--t-rest` | `#9a9ea6` → `#94908a` | `#6b7078` → `#6f6c66` |
-| `--shadow-1` | rgba base `21,23,26` → `26,25,23` (same alphas) | unchanged (`none`) |
-| `--shadow-2` | rgba base `21,23,26` → `26,25,23` | unchanged |
-| `--shadow-sheet` | rgba base `21,23,26` → `26,25,23` | unchanged |
-| `--card-border` | `rgba(21,23,26,.06)` → `rgba(26,25,23,.06)` | unchanged (transparent) |
-| `--glass` | unchanged | `rgba(13,15,17,.86)` → `rgba(17,17,16,.86)` |
-| `--dur-fast` | `120ms` → `160ms` | same |
-| `--dur-ring` (new) | `600ms` | same |
-
-`--star` collapses into the warn amber so the app has one amber. The `.t-*` classes and `--tone` mechanism are unchanged.
+All of the above is `apps/web/src/styles/tokens.css`. There is one theme. The appearance setting and `data-theme` are gone.
 
 ### 11. Review checklist
 
-1. Is there exactly one accent-coloured element competing for attention (plus existing state such as the active tab)?
-2. Is every number in the sans with tabular figures, and is its label at most 1/2.3 of its size?
-3. Is Fraunces present only in the quote, the journal or the coach's read?
-4. Is the eyebrow 12px, 600, uppercase, `--ink-3`?
-5. Is any text set in accent, warn, bad or a tone colour other than a chip or a stat that is itself the status?
-6. Does any card sit inside a card, or any bordered surface inside another?
-7. Are all radii 12, 8 or pill?
-8. In dark mode, are there borders where a surface step should be?
-9. Does every status chip carry a word, so colour is never the only signal?
-10. Is the session type written out wherever its tone dot or bar appears?
-11. Does every empty state name the state and offer one verb?
-12. Is every button label a single verb in sentence case?
-13. Any exclamation marks, emoji, "awesome", "oops" or a comparison to other people?
-14. Does anything animate without a tap, and does completion animate exactly once?
-15. Caption text (`--ink-3`) on `--surface-2`? Swap to `--ink-2`.
+1. Black canvas, not grey. Surfaces at 7% lift. No drop shadows on the canvas.
+2. One blue primary element per screen plus the halo. Nothing else is accent.
+3. The halo sits behind a hero, never behind body text.
+4. Session tones only as a 6px dot or a 3px bar. Never text, never a chip fill.
+5. Status colours only for status: blue done, amber floor, red missed/delete.
+6. Titles in the italic serif at 44. Numbers in the stamp with caps labels above. Body in Inter. Sizes only from the scale.
+7. Every number has a unit or a label; units in small at 70%.
+8. 44px tap targets; 16px gutters; 4pt grid; grouped lists with hairlines; no card-in-card.
+9. Colour is never the only signal: a word or a check accompanies it.
+10. Completion animates as in 9.2; nothing else moves without a tap; no stagger; no spinner, ever.
+11. Empty states name the state and offer one verb.
+12. Buttons are one verb. No vendor, server or env-var copy anywhere.
+13. Every tab has one hero card with the halo and one thing to look at first.
+14. Dark system chrome: status bar light-on-black, keyboard dark, safe areas respected.
+15. It works at 320 and 390 with no horizontal overflow and no mid-word breaks.
