@@ -271,11 +271,10 @@
   line-height: 16px;
   color: var(--ink-3);
 }
-.stat-delta.up {
-  color: var(--ok);
-}
+/* a delta is information, not a verdict: the sign carries the direction, the colour stays ink */
+.stat-delta.up,
 .stat-delta.down {
-  color: var(--bad);
+  color: var(--ink-3);
 }
 
 /* ---------- buttons ---------- */
