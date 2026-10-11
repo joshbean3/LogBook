@@ -1,0 +1,1 @@
+ALTER TABLE `training_sessions` ADD `deleted_at` text;

@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
-import { Button, DateNav, EmptyState, Group, Loading, Note, PageHeader, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { Button, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useLog, type Log } from '../log/useLog';
 import { AddSessionButton, SessionRow, UnplannedRow } from '../sessions/SessionCard';
 import { StravaLine } from '../settings/StravaLine';
@@ -81,18 +81,7 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
       </StatStrip>
       <StravaLine strava={log.strava} />
 
-      <div className="dstrip" role="group" aria-label="Days of the week">
-        {days.map((d, i) => {
-          const ds = dayStatus(log.snap, d);
-          return (
-            <button key={d} type="button" className={`dcell ds-${ds} ${d === sel ? 'is-sel' : ''} ${d === t ? 'is-today' : ''}`} aria-pressed={d === sel} aria-label={describe(log, d)} onClick={() => setPick({ mon, d })}>
-              <span className="dcell-dow">{DOW1[i]}</span>
-              <span className="dcell-num">{parseISO(d).getDate()}</span>
-              <Dots d={d} log={log} />
-            </button>
-          );
-        })}
-      </div>
+      <DayStrip days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
 
       <SectionHead
         title={`${fmtDate('dow', sel)} ${parseISO(sel).getDate()} · ${word}`}

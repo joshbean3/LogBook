@@ -1,5 +1,5 @@
 import { parseISO, buildMorning, clockOfDay, dayStatus, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, relativeDay, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
-import { ArrowDown, ArrowUp, Flame, Pencil, Settings, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Pencil, Settings, X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -32,26 +32,34 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     const out = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
     return out ? { start: out.start, back: T.back, mode: T.day.mode } : null;
   }, [date, log.today, log.boot, sessions, log.snap]);
-  const ringColor = st === 'done' || st === 'bonus' ? 'var(--ok)' : st === 'floor' ? 'var(--ok)' : st === 'missed' ? 'var(--bad)' : 'var(--accent)';
+  // the ring carries the day's status; the session's tone sits on the chevron edge bar, never on text
+  const ringColor = st === 'done' || st === 'bonus' ? 'var(--ok)' : st === 'floor' ? 'var(--warn)' : st === 'missed' ? 'var(--bad)' : 'var(--accent)';
   let title: React.ReactNode;
   let verdict: string;
   if (!main) {
     title = runs.length ? 'Unplanned run' : date < log.today ? 'Nothing planned' : 'Rest';
     verdict = runs.length ? `${mi(runs.reduce((t, a) => t + a.miles, 0))} mi logged from Strava.` : sessions.some((s) => s.kind === 'rest') ? 'A rest day on the plan.' : 'No session on the plan. Add one or let the day breathe.';
   } else {
-    title = <span style={{ color: `var(--t-${tone(main)})` }}>{label(main)}</span>;
+    title = label(main);
     const rest = sessions.filter((s) => s !== main && s.kind !== 'rest');
     const meta = sessionMeta(main, st);
     const extra = rest.length ? ` Then ${rest.map(label).join(' and ')}.` : '';
     const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
     if (st === 'done' || st === 'bonus') verdict = runs.length ? `Done, ${mi(runs.reduce((t, a) => t + a.miles, 0))} mi logged.${extra}` : `Done.${extra}`;
-    else if (st === 'floor') verdict = `Floor hit. Enough to keep the streak.${extra}`;
+    else if (st === 'floor') verdict = `Floor held.${extra}`;
     else if (st === 'missed') verdict = `Missed.${extra}`;
     else if (morning) verdict = `${morning.mode === 'run' ? 'Out' : 'Gym'} at ${short(morning.start)}, back by ${short(morning.back)}.${extra}`;
     else verdict = `${meta || STATUS_WORD[st]}.${extra}`;
   }
   return (
-    <div className="hero" onClick={main ? () => open(date, main) : undefined} role={main ? 'button' : undefined} tabIndex={main ? 0 : undefined}>
+    <div
+      className={`hero ${main ? `t-${tone(main)}` : ''}`}
+      onClick={main ? () => open(date, main) : undefined}
+      onKeyDown={main ? (e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), open(date, main)) : undefined) : undefined}
+      role={main ? 'button' : undefined}
+      tabIndex={main ? 0 : undefined}
+      aria-label={main ? `${label(main)}. Open session` : undefined}
+    >
       <Ring value={hl.length ? hd / hl.length : 0} size={96} stroke={7} color={ringColor} label={`${hd} of ${hl.length} habits`}>
         <span className="t-stat">{hl.length ? hd : '—'}</span>
         <span className="t-cap muted">{hl.length ? `of ${hl.length}` : 'habits'}</span>
@@ -65,6 +73,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
           {sessions.length > 1 ? <Chip>{sessions.length} sessions</Chip> : null}
         </div>
       </div>
+      {main ? <ChevronRight className="hero-chev" size={20} aria-hidden="true" /> : null}
     </div>
   );
 };
@@ -186,9 +195,9 @@ const HabitsSection = ({ date, log }: { date: string; log: L }) => {
                 ) : null}
               </div>
               <div className="lrow-right">
-                {n >= 2 ? (
+                {n >= 3 ? (
                   <span className="streak" title={`${n}-day streak`}>
-                    <Flame size={13} /> {n}
+                    {n}d
                   </span>
                 ) : null}
                 {!noteOpen ? (
@@ -208,7 +217,7 @@ const HabitsSection = ({ date, log }: { date: string; log: L }) => {
             </div>
           );
         })}
-        {!list.length ? <EmptyState>Add the things you want to do every day. Each one becomes a box to tick.</EmptyState> : null}
+        {!list.length ? <EmptyState>{date < log.today ? 'No habits yet on this day.' : 'Add the things you want to do every day. Each one becomes a box to tick.'}</EmptyState> : null}
         <div className="lrow-add">
           <input className="in" placeholder="Add a habit" maxLength={80} aria-label="New habit" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addIt())} />
           {draft.trim() ? (
@@ -226,12 +235,21 @@ const HabitsSection = ({ date, log }: { date: string; log: L }) => {
 const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: { id: string; text: string; createdOn: string }; date: string; done: boolean; carried: boolean; onToggle: () => void; onDelete: () => void; onEdit: () => void }) => {
   const reduce = useReducedMotion();
   const [gone, setGone] = useState<'left' | 'right' | null>(null);
+  const armed = useRef<'left' | 'right' | null>(null);
+  const THRESHOLD = 56;
+  // one tick the moment the swipe would count, so the thumb knows before it lets go
+  const onDrag = (_: unknown, info: PanInfo) => {
+    const next = info.offset.x > THRESHOLD ? 'right' : info.offset.x < -THRESHOLD ? 'left' : null;
+    if (next && next !== armed.current) haptic('tick');
+    armed.current = next;
+  };
   const onDragEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.x > 80) {
+    armed.current = null;
+    if (info.offset.x > THRESHOLD) {
       haptic('success');
       setGone('right');
       setTimeout(onToggle, 120);
-    } else if (info.offset.x < -80) {
+    } else if (info.offset.x < -THRESHOLD) {
       haptic('warn');
       setGone('left');
       setTimeout(onDelete, 120);
@@ -243,7 +261,7 @@ const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: { 
         <span className="todo-under-left">Done</span>
         <span className="todo-under-right">Delete</span>
       </div>
-      <motion.div className={`lrow trow ${done ? 'is-done' : ''}`} drag={reduce || done ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.5} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
+      <motion.div className={`lrow trow ${done ? 'is-done' : ''}`} drag={reduce || done ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDrag={onDrag} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
         <Mark status={done ? 'done' : 'open'} square label={x.text} onClick={onToggle} />
         <div className="lrow-main">
           <button type="button" className="hrow-name" onClick={onEdit}>
@@ -314,8 +332,9 @@ const TodosSection = ({ date }: { date: string }) => {
         </div>
         {done.length ? (
           <button type="button" className="lrow done-foot" onClick={() => setShowDone((s) => !s)}>
-            <span className="t-sub muted">
-              Completed ({done.length}) {showDone ? '▾' : '▸'}
+            <span className="t-sub muted done-foot-label">
+              Completed ({done.length})
+              <ChevronDown size={16} className={`done-chev ${showDone ? 'open' : ''}`} aria-hidden="true" />
             </span>
           </button>
         ) : null}

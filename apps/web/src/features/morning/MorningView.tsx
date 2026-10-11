@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMorningMutations } from '@/api/queries';
 import { itemVariants, listVariants } from '@/lib/motion';
-import { Button, DateNav, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip, Stepper } from '@/ui/primitives';
+import { Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip, Stepper } from '@/ui/primitives';
 import { useLog } from '../log/useLog';
 import './morning.css';
 
@@ -43,27 +43,22 @@ const useNowMinutes = () => {
   return m;
 };
 
-// ---------- 7-day strip: the week around the viewed day ----------
-const DayStrip = ({ date, today, log, go }: { date: string; today: string; log: L; go: (d: string) => void }) => {
+// ---------- 7-day strip: the week around the viewed day, one tone dot per planned session ----------
+const WeekStrip = ({ date, today, log, go }: { date: string; today: string; log: L; go: (d: string) => void }) => {
   const mon = mondayOf(date);
   const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
   return (
-    <div className="dstrip" role="tablist" aria-label="Pick a day">
-      {days.map((d) => {
+    <DayStrip
+      days={days}
+      selected={date}
+      today={today}
+      onPick={go}
+      labelOf={(d) => fmtDate('short', d)}
+      extra={(d) => {
         const s = log.snap.sessionsOn(d).find((x) => x.kind !== 'rest');
-        const isToday = d === today;
-        const isSel = d === date;
-        return (
-          <button key={d} type="button" role="tab" aria-selected={isSel} className={`dcell ${isToday ? 'is-today' : ''} ${isSel ? 'is-sel' : ''}`} onClick={() => go(d)} aria-label={fmtDate('short', d)}>
-            <span className="dcell-dow">{fmtDate('dow', d).slice(0, 1)}</span>
-            <span className="dcell-pill">
-              <span className="dcell-num">{Number(d.slice(8))}</span>
-              {s ? <i className={`dcell-dot t-${tone(s)}`} /> : <i className="dcell-dot none" />}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+        return s ? <i className={`dcell-dot t-${tone(s)}`} /> : <i className="dcell-dot none" />;
+      }}
+    />
   );
 };
 
@@ -454,7 +449,7 @@ export default function MorningView() {
       ) : (
         <>
           <div className="section" style={{ marginTop: 16 }}>
-            <DayStrip date={date} today={t} log={log} go={go} />
+            <WeekStrip date={date} today={t} log={log} go={go} />
             <StatStrip>
               <Stat label="Alarm" value={alarm.v} unit={alarm.u} />
               <Stat label={T.day.mode === 'run' ? 'Out the door' : 'Workout'} value={door ? door.v : '—'} unit={door?.u} />

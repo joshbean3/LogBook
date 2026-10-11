@@ -10,7 +10,7 @@ const KIND_LABEL: Record<SessionKind, string> = { run: 'Run', lift: 'Lift', cros
 
 export const SessionEditor = ({ date, session, restore }: { date: string; session: Session | null; restore?: boolean }) => {
   const isNew = !session || restore;
-  const { upsert, remove } = useSessionMutations();
+  const { upsert, remove, restore: restoreSession } = useSessionMutations();
   const sheet = useSheet();
   const toast = useToast();
   const [d, setD] = useState(date);
@@ -82,7 +82,7 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
       </div>
       <div className="grid2">
         <Field label="Title">
-          <input className="in" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Easy 5, 6 × 800m, Upper body" maxLength={60} />
+          <input className="in" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Easy 5" maxLength={60} />
         </Field>
         {kind === 'run' ? (
           <Field label="Minutes">
@@ -100,7 +100,7 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
             onClick={() => {
               remove.mutate(session);
               sheet.close();
-              toast('Session deleted', { label: 'Undo', fn: () => upsert.mutate({ date: session.date, kind: session.kind, type: session.type, title: session.title, details: session.details, miles: session.miles, minutes: session.minutes }) });
+              toast('Session deleted', { label: 'Undo', fn: () => restoreSession.mutate(session) });
             }}
           >
             Delete

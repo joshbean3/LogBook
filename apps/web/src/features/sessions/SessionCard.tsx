@@ -15,7 +15,7 @@ import { MoveSheet } from './MoveSheet';
 import { SessionEditor } from './SessionEditor';
 import './sessions.css';
 
-/** One line that says what the session is: "Easy · 6 mi · floor 20 min easy". */
+/** One line that says what the session is: "Easy · 6 mi · 1.5 mi wu". The floor is explained in the sheet, never in the row. */
 export const sessionMeta = (s: Session, st: string): string => {
   const bits: string[] = [];
   const lbl = label(s).toLowerCase();
@@ -23,7 +23,6 @@ export const sessionMeta = (s: Session, st: string): string => {
   if (s.kind === 'run' && s.miles && !lbl.includes(num(s.miles))) bits.push(`${num(s.miles)} mi`);
   if (s.minutes) bits.push(`${s.minutes} min`);
   if (s.details) bits.push(s.details);
-  if (!bits.length && st !== 'done' && st !== 'floor' && st !== 'rest' && st !== 'skipped' && floorFor(s)) bits.push(`Floor: ${floorFor(s)}`);
   return bits.join(' · ');
 };
 
@@ -120,7 +119,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
 const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log }) => {
   const sheet = useSheet();
   const toast = useToast();
-  const { mark, remove, upsert } = useSessionMutations();
+  const { mark, remove, restore } = useSessionMutations();
   const [liftOpen, setLiftOpen] = useState(false);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
   useEffect(() => {
@@ -137,11 +136,16 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
   return (
     <div className="stack" style={{ gap: 16 }}>
       <div className="row" style={{ gap: 10 }}>
-        <span className={`pill t-${tone(s)}`}>{label(s)}</span>
+        <i className={`tone-dot t-${tone(s)}`} aria-hidden="true" />
         <Chip kind={st}>{STATUS_WORD[st]}</Chip>
         <span className="t-sub muted">{fmtDate('short', date)}</span>
       </div>
       {sessionMeta(s, st) ? <p className="t-sub ink2">{sessionMeta(s, st)}</p> : null}
+      {s.kind !== 'rest' && floorFor(s) ? (
+        <p className="t-sub ink2">
+          <span className="muted">Floor:</span> {floorFor(s)}
+        </p>
+      ) : null}
       {s.movedFrom ? <p className="fine">Moved from {fmtDate('short', s.movedFrom)}</p> : null}
       {runs.length ? <SessionActual date={date} sess={s} runs={runs} log={log} /> : null}
       {s.kind === 'lift' && sets.length ? (
@@ -159,7 +163,7 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
       {canLog ? (
         <>
           <Button variant={liftOpen ? 'default' : 'soft'} onClick={() => setLiftOpen((o) => !o)} style={{ justifySelf: 'start' }}>
-            {liftOpen ? 'Close lift log' : 'Log a set'}
+            {liftOpen ? 'Close' : 'Log a set'}
           </Button>
           {liftOpen ? <LiftLog date={date} log={log} /> : null}
         </>
@@ -167,11 +171,11 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
       <div className="row wrap" style={{ gap: 8 }}>
         {s.kind !== 'rest' && !auto ? (
           st === 'done' ? (
-            <ChipButton onClick={() => setMark(null)}>Mark not done</ChipButton>
+            <ChipButton onClick={() => setMark(null)}>Undo</ChipButton>
           ) : (
             <>
               <ChipButton onClick={() => setMark('done')}>Did it</ChipButton>
-              {st !== 'floor' ? <ChipButton onClick={() => setMark('floor')}>Did the floor</ChipButton> : <ChipButton onClick={() => setMark(null)}>Clear floor</ChipButton>}
+              {st !== 'floor' ? <ChipButton onClick={() => setMark('floor')}>Did the floor</ChipButton> : <ChipButton onClick={() => setMark(null)}>Clear</ChipButton>}
             </>
           )
         ) : null}
@@ -187,7 +191,7 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
           onClick={() => {
             remove.mutate(s);
             sheet.close();
-            toast('Session deleted', { label: 'Undo', fn: () => upsert.mutate({ date: s.date, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: s.miles, minutes: s.minutes }) });
+            toast('Session deleted', { label: 'Undo', fn: () => restore.mutate(s) });
           }}
         >
           Delete
@@ -203,7 +207,7 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
 
 export const useOpenSession = (log: Log) => {
   const sheet = useSheet();
-  return (date: string, s: Session) => sheet.open({ title: 'Session', body: <SessionSheet date={date} id={s.id} log={log} />, wide: true });
+  return (date: string, s: Session) => sheet.open({ title: label(s), body: <SessionSheet date={date} id={s.id} log={log} />, wide: true });
 };
 
 /** A 60px row: check, colour bar, title, meta, one stat, chevron. */

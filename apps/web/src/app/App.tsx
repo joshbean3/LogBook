@@ -9,24 +9,46 @@ import { Loading } from '@/ui/primitives';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { Shell } from './Shell';
 
-const DayView = lazy(lazyImport(() => import('@/features/day/DayView')));
-const MorningView = lazy(lazyImport(() => import('@/features/morning/MorningView')));
-const PlanView = lazy(lazyImport(() => import('@/features/plan/PlanView')));
-const TrendsView = lazy(lazyImport(() => import('@/features/trends/TrendsView')));
-const JournalView = lazy(lazyImport(() => import('@/features/journal/JournalView')));
-const SettingsView = lazy(lazyImport(() => import('@/features/settings/SettingsView')));
+const views = {
+  day: () => import('@/features/day/DayView'),
+  morning: () => import('@/features/morning/MorningView'),
+  plan: () => import('@/features/plan/PlanView'),
+  trends: () => import('@/features/trends/TrendsView'),
+  journal: () => import('@/features/journal/JournalView'),
+  settings: () => import('@/features/settings/SettingsView'),
+};
+const DayView = lazy(lazyImport(views.day));
+const MorningView = lazy(lazyImport(views.morning));
+const PlanView = lazy(lazyImport(views.plan));
+const TrendsView = lazy(lazyImport(views.trends));
+const JournalView = lazy(lazyImport(views.journal));
+const SettingsView = lazy(lazyImport(views.settings));
+
+/** Once the first screen is up, pull every other view in the idle gaps so a tab switch never waits on the network. */
+const prefetchViews = () => {
+  const run = () => {
+    for (const load of Object.values(views)) void load().catch(() => undefined);
+  };
+  if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
+  else setTimeout(run, 400);
+};
 
 const Boot = () => (
   <div className="page" style={{ minHeight: '60dvh', alignContent: 'center', justifyItems: 'center' }}>
     <Loading text="Opening your log…" />
   </div>
 );
+/** A view chunk still arriving: hold the paper, say nothing. The page fade covers the hand-off. */
+const Quiet = () => <div className="page" style={{ minHeight: '100dvh' }} aria-busy="true" />;
 
 const Authed = () => {
   const boot = useBootstrap();
   const qc = useQueryClient();
   useEffect(() => {
-    if (boot.data) void outbox.replay(qc);
+    if (boot.data) {
+      void outbox.replay(qc);
+      prefetchViews();
+    }
   }, [boot.data, qc]);
   if (boot.isPending && !boot.data) return <Boot />;
   if (boot.error && !boot.data) {
@@ -41,7 +63,7 @@ const Authed = () => {
   return (
     <Shell>
       <ErrorBoundary>
-        <Suspense fallback={<Boot />}>
+        <Suspense fallback={<Quiet />}>
           <Routes>
           <Route path="/today/:date?" element={<DayView />} />
           <Route path="/morning/:date?" element={<MorningView />} />

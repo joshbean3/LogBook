@@ -1,5 +1,5 @@
 import { eachDay, monthsBetween, shiftDays, today, zCoachRequest, zPlanApply, zPlanDraftRequest, zPlanMode, type Session } from '@logbook/shared';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AuthEnv } from '../auth.js';
@@ -71,7 +71,7 @@ export const aiRoutes = (db: DB) => {
   });
 
   const lastPlanned = (userId: string) => {
-    const row = db.select({ d: trainingSessions.date }).from(trainingSessions).where(eq(trainingSessions.userId, userId)).orderBy(trainingSessions.date).all().pop();
+    const row = db.select({ d: trainingSessions.date }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), isNull(trainingSessions.deletedAt))).orderBy(trainingSessions.date).all().pop();
     return row?.d ?? null;
   };
 

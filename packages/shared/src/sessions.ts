@@ -41,7 +41,7 @@ const FLOORS: Array<[RegExp, string]> = [
 /** The minimum that still counts on a bad day. */
 export const floorFor = (s: Pick<Session, 'kind' | 'type'> | null | undefined): string => {
   if (!s) return '';
-  if (s.kind === 'lift') return 'Top 2 lifts only, 20 min';
+  if (s.kind === 'lift') return '2 lifts, 20 min';
   if (s.kind === 'cross') return '20 min of anything';
   if (s.kind === 'rest') return '';
   const hit = FLOORS.find(([re]) => re.test(s.type ?? ''));
@@ -58,7 +58,7 @@ export const label = (s: Pick<Session, 'kind' | 'type' | 'title' | 'miles'> | nu
 
 export const STATUS_WORD: Record<string, string> = {
   done: 'Done',
-  floor: 'Floor hit',
+  floor: 'Floor',
   missed: 'Missed',
   open: 'To do',
   upcoming: 'Planned',

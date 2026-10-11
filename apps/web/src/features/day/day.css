@@ -29,7 +29,7 @@
   border-bottom: 1px dashed var(--line-strong);
   background: transparent;
   padding: 2px 0 3px;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-2);
   outline: none;
   width: 100%;
@@ -42,12 +42,12 @@
 .streak {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
   font-size: 12px;
   line-height: 16px;
   font-weight: 600;
-  color: var(--warn);
+  color: var(--ink-3);
   letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* to-dos */
@@ -61,11 +61,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: #fff;
   background: linear-gradient(90deg, var(--ok) 0 50%, var(--bad) 50% 100%);
+}
+/* each label lives in its own 80px zone so it is revealed whole, never clipped mid-word */
+.todo-under-left,
+.todo-under-right {
+  width: 80px;
+  display: grid;
+  place-items: center;
 }
 .trow {
   position: relative;
@@ -76,8 +83,8 @@
   font-size: 11px;
   line-height: 16px;
   font-weight: 600;
-  color: var(--warn);
-  background: var(--warn-soft);
+  color: var(--ink-3);
+  background: var(--surface-2);
   border-radius: var(--r-pill);
   padding: 0 7px;
   white-space: nowrap;
@@ -88,8 +95,19 @@
   border: 0;
   width: 100%;
   text-align: left;
-  min-height: 40px;
+  min-height: 44px;
   cursor: pointer;
+}
+.done-foot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.done-chev {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.done-chev.open {
+  transform: rotate(180deg);
 }
 
 /* note affordance: hover on desktop, long-press on the name elsewhere */

@@ -8,6 +8,13 @@
       "when": 1791731292250,
       "tag": "0000_opposite_kulan_gath",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791740727369,
+      "tag": "0001_sessions_soft_delete",
+      "breakpoints": true
     }
   ]
 }

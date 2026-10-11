@@ -88,6 +88,8 @@ export const trainingSessions = sqliteTable(
     blockId: text('block_id'),
     movedFrom: text('moved_from'),
     mark: text('mark'),
+    /** Soft delete so Undo on the phone restores the exact row, plan membership and all. */
+    deletedAt: text('deleted_at'),
     createdAt: createdAt(),
     updatedAt: text('updated_at').notNull(),
   },

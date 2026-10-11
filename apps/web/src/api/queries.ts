@@ -106,6 +106,14 @@ export const useSessionMutations = () => {
     },
     onError: (_e, s) => invalidateMonth(qc, monthOf(s.date)),
   });
+  const restore = useMutation({
+    mutationFn: async (s: Session) => {
+      patchMonth(qc, monthOf(s.date), (b) => ({ ...b, sessions: [...b.sessions.filter((x) => x.id !== s.id), s].sort((a, b2) => (a.date === b2.date ? a.position - b2.position : a.date < b2.date ? -1 : 1)) }));
+      const saved = await write<Session>(`/sessions/${s.id}/restore`, 'POST', {}, [keys.month(monthOf(s.date))]);
+      if (saved) patchMonth(qc, monthOf(s.date), (b) => ({ ...b, sessions: b.sessions.map((x) => (x.id === saved.id ? saved : x)) }));
+    },
+    onError: (_e, s) => invalidateMonth(qc, monthOf(s.date)),
+  });
   const move = useMutation({
     mutationFn: async ({ session, to }: { session: Session; to: string }) => {
       const from = session.date;
@@ -125,7 +133,7 @@ export const useSessionMutations = () => {
     },
     onError: (_e, v) => invalidateMonth(qc, monthOf(v.session.date)),
   });
-  return { upsert, remove, move, mark };
+  return { upsert, remove, restore, move, mark };
 };
 
 // ---------- habits ----------

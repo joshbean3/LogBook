@@ -154,7 +154,25 @@
   line-height: 32px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  overflow-wrap: anywhere;
+  color: var(--ink);
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+.hero[role='button'] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  cursor: pointer;
+}
+.hero-chev {
+  color: var(--ink-4);
+  margin-right: -4px;
+}
+.tone-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone, var(--ink-4));
+  flex: none;
 }
 .hero-verdict {
   font-size: 15px;
@@ -270,8 +288,10 @@
   border-color: transparent;
   color: var(--accent);
 }
-.btn.ghost:hover:not(:disabled) {
-  background: var(--accent-tint);
+@media (hover: hover) {
+  .btn.ghost:hover:not(:disabled) {
+    background: var(--accent-tint);
+  }
 }
 .btn.danger {
   color: var(--bad);
@@ -299,9 +319,11 @@
     background var(--dur-fast),
     transform 100ms var(--ease-out);
 }
-.icon-btn:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--ink);
+@media (hover: hover) {
+  .icon-btn:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
 }
 .icon-btn:active:not(:disabled) {
   transform: scale(0.92);
@@ -320,21 +342,39 @@
   appearance: none;
   border: 0;
   background: none;
-  padding: 0;
+  /* a 15px word with a 44px hit area: the padding and negative margin cancel out visually */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  margin: -11px -8px;
+  border-radius: var(--r-sm);
   color: var(--accent);
   font-weight: 500;
   font-size: 15px;
+  line-height: 20px;
   letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
 }
 .link.sm {
-  font-size: 13px;
+  font-size: 15px;
 }
 .link.quiet {
   color: var(--ink-3);
 }
-.link:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+/* section-head links are wayfinding, not the page's one action: ink, not accent */
+.sec-head .link {
+  color: var(--ink-2);
+}
+.link:active {
+  opacity: 0.6;
+}
+@media (hover: hover) {
+  .link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 
 /* ---------- chips ---------- */
@@ -355,8 +395,8 @@
   background: var(--ok-soft);
 }
 .chip.floor {
-  color: var(--ok);
-  background: var(--ok-soft);
+  color: var(--warn);
+  background: var(--warn-soft);
 }
 .chip.missed {
   color: var(--bad);
@@ -392,9 +432,11 @@
     background var(--dur-fast),
     color var(--dur-fast);
 }
-.chip-btn:hover:not(:disabled) {
-  color: var(--ink);
-  background: var(--surface-2);
+@media (hover: hover) {
+  .chip-btn:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--surface-2);
+  }
 }
 .chip-btn:active:not(:disabled) {
   transform: scale(0.97);
@@ -410,19 +452,6 @@
 }
 .chip-btn:disabled {
   opacity: 0.4;
-}
-/* a session's name in its family colour */
-.pill {
-  font-weight: 600;
-  font-size: 15px;
-  letter-spacing: -0.01em;
-  color: color-mix(in srgb, var(--tone) 80%, var(--ink));
-  background: color-mix(in srgb, var(--tone) 14%, transparent);
-  border-radius: 6px;
-  padding: 1px 7px;
-  overflow-wrap: anywhere;
-  min-width: 0;
-  max-width: 100%;
 }
 
 /* ---------- inputs ---------- */
@@ -533,6 +562,17 @@ textarea.in {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   z-index: 0;
 }
+/* dark: the selected segment must be the lighter one */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .seg-thumb {
+    background: var(--surface-3);
+    box-shadow: none;
+  }
+}
+:root[data-theme='dark'] .seg-thumb {
+  background: var(--surface-3);
+  box-shadow: none;
+}
 
 /* stepper */
 .stepper {
@@ -612,12 +652,12 @@ textarea.in {
 .mark.m-done {
   background: var(--ok);
   border-color: var(--ok);
-  color: #fff;
+  color: var(--accent-ink);
 }
 .mark.m-floor {
-  border-color: var(--ok);
-  color: var(--ok);
-  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-soft);
 }
 .mark.m-missed {
   border-color: var(--bad);
@@ -933,4 +973,102 @@ textarea.in {
   100% {
     background-position: -200% 0;
   }
+}
+
+/* ---------- day strip: the one 7-day picker (Morning, Plan week) ----------
+   dow caption above a pill. Selected = filled ink pill, today = accent outline.
+   Status may colour the number; tones only ever appear as dots inside the pill. */
+.dstrip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 24px;
+}
+.dcell {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--ink);
+}
+.dcell-dow {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+.dcell-pill {
+  width: 100%;
+  max-width: 48px;
+  aspect-ratio: 1;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  transition:
+    background var(--dur-fast),
+    box-shadow var(--dur-fast),
+    transform 100ms var(--ease-out);
+}
+.dcell:active .dcell-pill {
+  transform: scale(0.94);
+}
+.dcell-num {
+  font-size: 17px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.dcell.ds-missed .dcell-num {
+  color: var(--bad);
+}
+.dcell.ds-done .dcell-num,
+.dcell.ds-bonus .dcell-num {
+  color: var(--ok);
+}
+.dcell.ds-floor .dcell-num {
+  color: var(--warn);
+}
+.dcell.is-today .dcell-pill {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.dcell.is-today .dcell-dow {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.dcell.is-sel .dcell-pill {
+  background: var(--ink);
+  box-shadow: none;
+}
+.dcell.is-sel .dcell-num {
+  color: var(--bg);
+}
+.dcell.is-sel.is-today .dcell-pill {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.dcell-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tone, var(--ink-4));
+}
+.dcell-dot.none {
+  background: transparent;
+}
+.dcell.is-sel .dcell-dot {
+  background: var(--bg);
+  opacity: 0.85;
+}
+.dcell.is-sel .sdot {
+  border-color: var(--bg);
+}
+.dcell.is-sel .sdot.on {
+  background: var(--bg);
 }

@@ -226,3 +226,22 @@ export const LogoMark = ({ size = 24, color = 'currentColor' }: { size?: number;
     <polyline points="7.5,12 10,14.5 15.5,9" />
   </svg>
 );
+
+/** The one 7-day picker. Selected = filled ink pill, today = accent outline. `extra(d)` renders inside the pill under the number (tone dots). */
+export const DayStrip = ({ days, selected, today, onPick, labelOf, statusOf, extra, className = '', ariaLabel = 'Pick a day' }: { days: string[]; selected: string; today: string; onPick: (d: string) => void; labelOf: (d: string) => string; statusOf?: (d: string) => string | undefined; extra?: (d: string) => ReactNode; className?: string; ariaLabel?: string }) => (
+  <div className={`dstrip ${className}`} role="group" aria-label={ariaLabel}>
+    {days.map((d) => {
+      const st = statusOf?.(d);
+      return (
+        <button key={d} type="button" className={`dcell ${st ? `ds-${st}` : ''} ${d === selected ? 'is-sel' : ''} ${d === today ? 'is-today' : ''}`} aria-pressed={d === selected} aria-current={d === today ? 'date' : undefined} aria-label={labelOf(d)} onClick={() => onPick(d)}>
+          <span className="dcell-dow">{DOW_LETTER[new Date(`${d}T12:00:00`).getDay()]}</span>
+          <span className="dcell-pill">
+            <span className="dcell-num">{Number(d.slice(8))}</span>
+            {extra?.(d)}
+          </span>
+        </button>
+      );
+    })}
+  </div>
+);
+const DOW_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];

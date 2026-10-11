@@ -57,7 +57,7 @@ export const sessionsBetween = (db: DB, userId: string, from: string, to: string
   db
     .select()
     .from(trainingSessions)
-    .where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, from), lte(trainingSessions.date, to)))
+    .where(and(eq(trainingSessions.userId, userId), isNull(trainingSessions.deletedAt), gte(trainingSessions.date, from), lte(trainingSessions.date, to)))
     .orderBy(asc(trainingSessions.date), asc(trainingSessions.position), asc(trainingSessions.createdAt))
     .all()
     .map(toSession);
@@ -156,9 +156,9 @@ export const coreRoutes = (db: DB) => {
   });
 
   // ---------- sessions ----------
-  const sessionOr404 = (userId: string, id: string) => {
+  const sessionOr404 = (userId: string, id: string, { deleted = false } = {}) => {
     const row = db.select().from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.id, id))).get();
-    if (!row) throw new ApiError(404, 'Session not found');
+    if (!row || (!deleted && row.deletedAt)) throw new ApiError(404, 'Session not found');
     return row;
   };
   const nextPosition = (userId: string, date: string) => (db.select({ m: sql<number>`coalesce(max(${trainingSessions.position}), -1)` }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.date, date))).get()?.m ?? -1) + 1;
@@ -181,7 +181,7 @@ export const coreRoutes = (db: DB) => {
     if (existing) {
       const moved = existing.date !== body.date;
       db.update(trainingSessions)
-        .set({ ...values, date: body.date, position: moved ? nextPosition(userId, body.date) : existing.position })
+        .set({ ...values, date: body.date, deletedAt: null, position: moved ? nextPosition(userId, body.date) : existing.position })
         .where(eq(trainingSessions.id, id))
         .run();
     } else {
@@ -193,8 +193,16 @@ export const coreRoutes = (db: DB) => {
   r.delete('/sessions/:id', (c) => {
     const userId = uidOf(c);
     const row = sessionOr404(userId, c.req.param('id'));
-    db.delete(trainingSessions).where(eq(trainingSessions.id, row.id)).run();
+    db.update(trainingSessions).set({ deletedAt: nowISO(), updatedAt: nowISO() }).where(eq(trainingSessions.id, row.id)).run();
     return c.json({ ok: true, session: toSession(row) });
+  });
+
+  /** Undo for a delete: the same row comes back with its plan membership and mark intact. */
+  r.post('/sessions/:id/restore', (c) => {
+    const userId = uidOf(c);
+    const row = sessionOr404(userId, c.req.param('id'), { deleted: true });
+    if (row.deletedAt) db.update(trainingSessions).set({ deletedAt: null, updatedAt: nowISO() }).where(eq(trainingSessions.id, row.id)).run();
+    return c.json(toSession(sessionOr404(userId, row.id)));
   });
 
   r.post('/sessions/:id/move', async (c) => {
