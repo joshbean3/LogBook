@@ -1,0 +1,33 @@
+{
+  "name": "@logbook/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --target node22 --out-dir dist --clean --external better-sqlite3 && cp -r drizzle dist/drizzle && cp -r src/data dist/data",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@hono/node-server": "^1.19.0",
+    "@logbook/shared": "workspace:*",
+    "better-sqlite3": "^12.4.1",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.10.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.19.0",
+    "drizzle-kit": "^0.31.11",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

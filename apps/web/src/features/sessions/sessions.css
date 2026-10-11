@@ -1,0 +1,270 @@
+.scards {
+  display: grid;
+  gap: 10px;
+}
+.scard {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition: background var(--dur);
+}
+.scard.s-done {
+  background: color-mix(in srgb, var(--ok) 6%, var(--surface));
+}
+.scard.s-skipped,
+.scard.s-rest {
+  opacity: 0.72;
+  box-shadow: none;
+}
+.scard-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.scard-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.scard-head > * {
+  min-width: 0;
+}
+.scard-head .chip {
+  margin-left: auto;
+}
+.scard-type {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.scard-details {
+  font-size: 14.5px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.scard-plan,
+.scard-floor,
+.scard-meta {
+  font-size: 13px;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.scard-meta {
+  color: var(--ink-2);
+}
+.scard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* what Strava says happened */
+.actual {
+  display: grid;
+  gap: 9px;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.did {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.did-label,
+.mini-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.did-big {
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1;
+}
+.did-src {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: -5px;
+}
+.splits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.split {
+  --zc: var(--t-rest);
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 5px;
+  align-items: baseline;
+  font-size: 12.5px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: var(--surface);
+  border-bottom: 3px solid var(--zc);
+}
+.split b {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.split small {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.split.part {
+  opacity: 0.7;
+}
+.split.sz1,
+.split.sz2 {
+  --zc: var(--t-easy);
+}
+.split.sz3 {
+  --zc: var(--t-hard);
+}
+.split.sz4,
+.split.sz5 {
+  --zc: var(--t-fast);
+}
+.assess {
+  display: grid;
+  gap: 4px;
+  font-size: 13.5px;
+}
+.assess-head {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--ink);
+}
+.assess.v-on .assess-head {
+  color: var(--ok);
+}
+.assess.v-off .assess-head,
+.assess.v-short .assess-head {
+  color: var(--warn);
+}
+.assess ul {
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+  color: var(--ink-2);
+  list-style: disc;
+}
+.coach {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.coach p {
+  font-size: 14.5px;
+  line-height: 1.5;
+  font-family: var(--display);
+  font-variation-settings: 'SOFT' 80;
+  font-weight: 400;
+}
+.coach .link {
+  justify-self: start;
+}
+
+/* lift log */
+.lift-log {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  margin-top: 6px;
+}
+.lift-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.lift-row .in {
+  width: auto;
+  background: var(--surface);
+}
+.lift-row .ex {
+  flex: 1 1 9rem;
+}
+.lift-row .numin {
+  width: 5.2rem;
+}
+.times {
+  color: var(--ink-3);
+}
+.hint {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  min-height: 1em;
+}
+.sets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sets li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-pill);
+  padding: 0 2px 0 10px;
+}
+
+/* move */
+.move-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px;
+}
+.move-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  font-size: 13px;
+  min-width: 0;
+  transition: border-color var(--dur-fast);
+}
+.move-chip span {
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.move-chip:hover {
+  border-color: var(--accent);
+}

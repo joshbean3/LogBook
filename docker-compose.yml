@@ -1,0 +1,14 @@
+services:
+  logbook:
+    build: .
+    ports:
+      - '8787:8787'
+    env_file: .env
+    environment:
+      DATABASE_PATH: /data/logbook.db
+      NODE_ENV: production
+    volumes:
+      - logbook_data:/data
+    restart: unless-stopped
+volumes:
+  logbook_data:

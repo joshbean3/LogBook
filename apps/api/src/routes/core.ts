@@ -1,0 +1,379 @@
+import {
+  addMonths,
+  monthStart,
+  normalizeMorningSettings,
+  shiftDays,
+  today,
+  zDate,
+  zHabitCheck,
+  zHabitInput,
+  zHabitsReorder,
+  zLiftInput,
+  zMarkSession,
+  zMonth,
+  zMorningDay,
+  zMorningSettingsPatch,
+  zMoveSession,
+  zSessionInput,
+  zTodoInput,
+  zTodoPatch,
+  type HabitCheck,
+  type HrZone,
+  type MorningDayOverride,
+  type MorningSettings,
+} from '@logbook/shared';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { Hono } from 'hono';
+import type { AuthEnv } from '../auth.js';
+import type { DB } from '../db/index.js';
+import { activities, coachReads, habitChecks, habits, hrZones, journalEntries, liftSets, morningDays, planBlocks, stravaAccounts, todos, trainingSessions, userSettings } from '../db/schema.js';
+import { env } from '../env.js';
+import { toActivity, toBlock, toEntry, toHabit, toLift, toSession, toTodo } from '../lib/map.js';
+import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
+import { stravaStatus } from '../services/strava.js';
+import { z } from 'zod';
+
+const deepMerge = (a: any, b: any): any => {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
+  const out = { ...(a && typeof a === 'object' ? a : {}) };
+  for (const k of Object.keys(b)) out[k] = deepMerge(out[k], b[k]);
+  return out;
+};
+
+export const readSetting = <T>(db: DB, userId: string, key: string): T | null => {
+  const row = db.select().from(userSettings).where(and(eq(userSettings.userId, userId), eq(userSettings.key, key))).get();
+  return row ? (JSON.parse(row.json) as T) : null;
+};
+export const writeSetting = (db: DB, userId: string, key: string, value: unknown) => {
+  db.insert(userSettings)
+    .values({ userId, key, json: JSON.stringify(value), updatedAt: nowISO() })
+    .onConflictDoUpdate({ target: [userSettings.userId, userSettings.key], set: { json: JSON.stringify(value), updatedAt: nowISO() } })
+    .run();
+};
+
+export const morningSettingsOf = (db: DB, userId: string): MorningSettings => normalizeMorningSettings(readSetting(db, userId, 'morning'));
+
+export const sessionsBetween = (db: DB, userId: string, from: string, to: string) =>
+  db
+    .select()
+    .from(trainingSessions)
+    .where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, from), lte(trainingSessions.date, to)))
+    .orderBy(asc(trainingSessions.date), asc(trainingSessions.position), asc(trainingSessions.createdAt))
+    .all()
+    .map(toSession);
+
+export const activitiesBetween = (db: DB, userId: string, from: string, to: string) =>
+  db
+    .select()
+    .from(activities)
+    .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), gte(activities.date, from), lte(activities.date, to)))
+    .orderBy(asc(activities.date), asc(activities.time))
+    .all()
+    .map(toActivity);
+
+export const zonesOf = (db: DB, userId: string): HrZone[] | null => {
+  const row = db.select().from(hrZones).where(eq(hrZones.userId, userId)).get();
+  return row ? (JSON.parse(row.zonesJson) as HrZone[]) : null;
+};
+
+export const coreRoutes = (db: DB) => {
+  const r = new Hono<AuthEnv>();
+  const uidOf = (c: { get: (k: 'user') => { id: string } }) => c.get('user').id;
+
+  // ---------- everything the app needs on open ----------
+  r.get('/bootstrap', (c) => {
+    const userId = uidOf(c);
+    const hs = db.select().from(habits).where(eq(habits.userId, userId)).orderBy(asc(habits.position), asc(habits.createdOn)).all().map(toHabit);
+    const blocks = db.select().from(planBlocks).where(eq(planBlocks.userId, userId)).orderBy(asc(planBlocks.start)).all();
+    const counts = blocks.length
+      ? db
+          .select({ blockId: trainingSessions.blockId, n: sql<number>`count(*)` })
+          .from(trainingSessions)
+          .where(and(eq(trainingSessions.userId, userId), inArray(trainingSessions.blockId, blocks.map((b) => b.id))))
+          .groupBy(trainingSessions.blockId)
+          .all()
+      : [];
+    const countOf = new Map(counts.map((x) => [x.blockId, x.n]));
+    return c.json({
+      user: c.get('user'),
+      habits: hs,
+      blocks: blocks.map((b) => toBlock(b, countOf.get(b.id) ?? 0)),
+      morningSettings: morningSettingsOf(db, userId),
+      zones: zonesOf(db, userId),
+      strava: stravaStatus(db, userId),
+      features: { claude: env.claudeConfigured, strava: env.stravaConfigured },
+      serverTime: nowISO(),
+    });
+  });
+
+  // ---------- one month of everything dated ----------
+  r.get('/months/:month', (c) => {
+    const userId = uidOf(c);
+    const month = zMonth.parse(c.req.param('month'));
+    const from = monthStart(`${month}-01`);
+    const to = shiftDays(addMonths(from, 1), -1);
+    const checks: HabitCheck[] = db
+      .select()
+      .from(habitChecks)
+      .where(and(eq(habitChecks.userId, userId), gte(habitChecks.date, from), lte(habitChecks.date, to)))
+      .all()
+      .map((x) => ({ habitId: x.habitId, date: x.date, done: x.done, note: x.note }));
+    const lifts = db
+      .select()
+      .from(liftSets)
+      .where(and(eq(liftSets.userId, userId), isNull(liftSets.deletedAt), gte(liftSets.date, from), lte(liftSets.date, to)))
+      .orderBy(asc(liftSets.createdAt))
+      .all()
+      .map(toLift);
+    const mornings = db
+      .select()
+      .from(morningDays)
+      .where(and(eq(morningDays.userId, userId), gte(morningDays.date, from), lte(morningDays.date, to)))
+      .all();
+    const entries = db
+      .select()
+      .from(journalEntries)
+      .where(and(eq(journalEntries.userId, userId), isNull(journalEntries.deletedAt), gte(journalEntries.date, from), lte(journalEntries.date, to)))
+      .orderBy(asc(journalEntries.date), asc(journalEntries.createdAt))
+      .all()
+      .map(toEntry);
+    const coach = db
+      .select()
+      .from(coachReads)
+      .where(and(eq(coachReads.userId, userId), gte(coachReads.date, from), lte(coachReads.date, to)))
+      .all()
+      .map((x) => ({ date: x.date, key: x.key, text: x.text, createdAt: x.createdAt }));
+    return c.json({
+      month,
+      sessions: sessionsBetween(db, userId, from, to),
+      checks,
+      lifts,
+      activities: activitiesBetween(db, userId, from, to),
+      morningDays: Object.fromEntries(mornings.map((m) => [m.date, { mode: m.mode, type: m.type, miles: m.miles, minutes: m.minutes, wake: m.wake } as MorningDayOverride])),
+      journal: entries,
+      coach,
+    });
+  });
+
+  // ---------- sessions ----------
+  const sessionOr404 = (userId: string, id: string) => {
+    const row = db.select().from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.id, id))).get();
+    if (!row) throw new ApiError(404, 'Session not found');
+    return row;
+  };
+  const nextPosition = (userId: string, date: string) => (db.select({ m: sql<number>`coalesce(max(${trainingSessions.position}), -1)` }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.date, date))).get()?.m ?? -1) + 1;
+
+  r.post('/sessions', async (c) => {
+    const userId = uidOf(c);
+    const body = await parseBody(c.req.raw, zSessionInput);
+    const now = nowISO();
+    const id = body.id ?? uid('p');
+    const existing = body.id ? db.select().from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.id, id))).get() : undefined;
+    const values = {
+      kind: body.kind,
+      type: body.type ?? null,
+      title: body.title || null,
+      details: body.details || null,
+      miles: body.kind === 'run' && body.miles && body.miles > 0 ? Math.round(body.miles * 10) / 10 : null,
+      minutes: body.minutes && body.minutes > 0 ? Math.round(body.minutes) : null,
+      updatedAt: now,
+    };
+    if (existing) {
+      const moved = existing.date !== body.date;
+      db.update(trainingSessions)
+        .set({ ...values, date: body.date, position: moved ? nextPosition(userId, body.date) : existing.position })
+        .where(eq(trainingSessions.id, id))
+        .run();
+    } else {
+      db.insert(trainingSessions).values({ id, userId, date: body.date, position: nextPosition(userId, body.date), ...values, blockId: null, movedFrom: null, mark: null, createdAt: now }).run();
+    }
+    return c.json(toSession(sessionOr404(userId, id)), existing ? 200 : 201);
+  });
+
+  r.delete('/sessions/:id', (c) => {
+    const userId = uidOf(c);
+    const row = sessionOr404(userId, c.req.param('id'));
+    db.delete(trainingSessions).where(eq(trainingSessions.id, row.id)).run();
+    return c.json({ ok: true, session: toSession(row) });
+  });
+
+  r.post('/sessions/:id/move', async (c) => {
+    const userId = uidOf(c);
+    const row = sessionOr404(userId, c.req.param('id'));
+    const { to } = await parseBody(c.req.raw, zMoveSession);
+    if (to === row.date) return c.json(toSession(row));
+    const movedFrom = row.movedFrom === to ? null : row.movedFrom ?? row.date;
+    db.update(trainingSessions).set({ date: to, movedFrom, position: nextPosition(userId, to), updatedAt: nowISO() }).where(eq(trainingSessions.id, row.id)).run();
+    return c.json(toSession(sessionOr404(userId, row.id)));
+  });
+
+  r.post('/sessions/:id/mark', async (c) => {
+    const userId = uidOf(c);
+    const row = sessionOr404(userId, c.req.param('id'));
+    const { mark } = await parseBody(c.req.raw, zMarkSession);
+    db.update(trainingSessions).set({ mark, updatedAt: nowISO() }).where(eq(trainingSessions.id, row.id)).run();
+    return c.json(toSession(sessionOr404(userId, row.id)));
+  });
+
+  // ---------- plan blocks ----------
+  r.delete('/blocks/:id', (c) => {
+    const userId = uidOf(c);
+    const id = c.req.param('id');
+    const block = db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, id))).get();
+    if (!block) throw new ApiError(404, 'Plan not found');
+    const removed = db.delete(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, id))).run().changes;
+    db.delete(planBlocks).where(eq(planBlocks.id, id)).run();
+    return c.json({ ok: true, removed });
+  });
+
+  // ---------- habits ----------
+  const allHabits = (userId: string) => db.select().from(habits).where(eq(habits.userId, userId)).orderBy(asc(habits.position), asc(habits.createdOn)).all().map(toHabit);
+
+  r.get('/habits', (c) => c.json(allHabits(uidOf(c))));
+
+  r.post('/habits', async (c) => {
+    const userId = uidOf(c);
+    const { name } = await parseBody(c.req.raw, zHabitInput);
+    const pos = (db.select({ m: sql<number>`coalesce(max(${habits.position}), -1)` }).from(habits).where(eq(habits.userId, userId)).get()?.m ?? -1) + 1;
+    const id = uid('h');
+    db.insert(habits).values({ id, userId, name, position: pos, createdOn: today(), archivedOn: null }).run();
+    return c.json(allHabits(userId), 201);
+  });
+
+  r.patch('/habits/:id', async (c) => {
+    const userId = uidOf(c);
+    const body = await parseBody(c.req.raw, z.object({ name: zHabitInput.shape.name.optional(), archived: z.boolean().optional() }));
+    const set: Partial<typeof habits.$inferInsert> = {};
+    if (body.name) set.name = body.name;
+    if (body.archived !== undefined) set.archivedOn = body.archived ? today() : null;
+    const n = db.update(habits).set(set).where(and(eq(habits.userId, userId), eq(habits.id, c.req.param('id')))).run().changes;
+    if (!n) throw new ApiError(404, 'Habit not found');
+    return c.json(allHabits(userId));
+  });
+
+  r.put('/habits/order', async (c) => {
+    const userId = uidOf(c);
+    const { order } = await parseBody(c.req.raw, zHabitsReorder);
+    db.transaction((tx) => {
+      order.forEach((id, i) => tx.update(habits).set({ position: i }).where(and(eq(habits.userId, userId), eq(habits.id, id))).run());
+    });
+    return c.json(allHabits(userId));
+  });
+
+  r.put('/habits/:id/days/:date', async (c) => {
+    const userId = uidOf(c);
+    const habitId = c.req.param('id');
+    const date = zDate.parse(c.req.param('date'));
+    const body = await parseBody(c.req.raw, zHabitCheck);
+    const h = db.select().from(habits).where(and(eq(habits.userId, userId), eq(habits.id, habitId))).get();
+    if (!h) throw new ApiError(404, 'Habit not found');
+    const cur = db.select().from(habitChecks).where(and(eq(habitChecks.habitId, habitId), eq(habitChecks.date, date))).get();
+    const done = body.done ?? cur?.done ?? false;
+    const note = body.note === undefined ? cur?.note ?? null : body.note || null;
+    db.insert(habitChecks)
+      .values({ userId, habitId, date, done, note, updatedAt: nowISO() })
+      .onConflictDoUpdate({ target: [habitChecks.habitId, habitChecks.date], set: { done, note, updatedAt: nowISO() } })
+      .run();
+    const out: HabitCheck = { habitId, date, done, note };
+    return c.json(out);
+  });
+
+  // ---------- lifts ----------
+  r.get('/lifts', (c) => {
+    const userId = uidOf(c);
+    const q = parseQuery(c.req.query(), z.object({ exercise: z.string().optional() }));
+    const where = q.exercise ? and(eq(liftSets.userId, userId), isNull(liftSets.deletedAt), sql`lower(${liftSets.exercise}) = ${q.exercise.toLowerCase()}`) : and(eq(liftSets.userId, userId), isNull(liftSets.deletedAt));
+    return c.json(db.select().from(liftSets).where(where).orderBy(asc(liftSets.createdAt)).all().map(toLift));
+  });
+
+  r.post('/lifts', async (c) => {
+    const userId = uidOf(c);
+    const body = await parseBody(c.req.raw, zLiftInput);
+    const id = uid('s');
+    db.insert(liftSets).values({ id, userId, date: body.date, exercise: body.exercise, weight: body.weight, reps: body.reps, createdAt: nowISO(), deletedAt: null }).run();
+    const row = db.select().from(liftSets).where(eq(liftSets.id, id)).get()!;
+    return c.json(toLift(row), 201);
+  });
+
+  r.delete('/lifts/:id', (c) => {
+    const userId = uidOf(c);
+    const n = db.update(liftSets).set({ deletedAt: nowISO() }).where(and(eq(liftSets.userId, userId), eq(liftSets.id, c.req.param('id')))).run().changes;
+    if (!n) throw new ApiError(404, 'Set not found');
+    return c.json({ ok: true });
+  });
+
+  // ---------- todos ----------
+  const liveTodos = (userId: string) =>
+    db
+      .select()
+      .from(todos)
+      .where(and(eq(todos.userId, userId), sql`(${todos.deletedOn} is null or ${todos.deletedOn} >= ${shiftDays(today(), -120)})`))
+      .orderBy(asc(todos.createdOn), asc(todos.createdAt))
+      .all()
+      .map(toTodo);
+
+  r.get('/todos', (c) => c.json(liveTodos(uidOf(c))));
+
+  r.post('/todos', async (c) => {
+    const userId = uidOf(c);
+    const body = await parseBody(c.req.raw, zTodoInput);
+    const id = uid('t');
+    db.insert(todos).values({ id, userId, text: body.text, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() }).run();
+    return c.json(toTodo(db.select().from(todos).where(eq(todos.id, id)).get()!), 201);
+  });
+
+  r.patch('/todos/:id', async (c) => {
+    const userId = uidOf(c);
+    const body = await parseBody(c.req.raw, zTodoPatch);
+    const set: Partial<typeof todos.$inferInsert> = {};
+    if (body.text !== undefined) set.text = body.text;
+    if (body.doneOn !== undefined) set.doneOn = body.doneOn;
+    if (body.deletedOn !== undefined) set.deletedOn = body.deletedOn;
+    const n = db.update(todos).set(set).where(and(eq(todos.userId, userId), eq(todos.id, c.req.param('id')))).run().changes;
+    if (!n) throw new ApiError(404, 'To-do not found');
+    return c.json(toTodo(db.select().from(todos).where(eq(todos.id, c.req.param('id'))).get()!));
+  });
+
+  // ---------- morning ----------
+  r.get('/morning/settings', (c) => c.json(morningSettingsOf(db, uidOf(c))));
+
+  r.patch('/morning/settings', async (c) => {
+    const userId = uidOf(c);
+    const patch = await parseBody(c.req.raw, zMorningSettingsPatch);
+    const next = normalizeMorningSettings(deepMerge(readSetting(db, userId, 'morning') ?? {}, patch));
+    writeSetting(db, userId, 'morning', next);
+    return c.json(next);
+  });
+
+  r.put('/morning/days/:date', async (c) => {
+    const userId = uidOf(c);
+    const date = zDate.parse(c.req.param('date'));
+    const body = await parseBody(c.req.raw, zMorningDay);
+    db.insert(morningDays)
+      .values({ userId, date, ...body })
+      .onConflictDoUpdate({ target: [morningDays.userId, morningDays.date], set: body })
+      .run();
+    return c.json(body);
+  });
+
+  r.delete('/morning/days/:date', (c) => {
+    const userId = uidOf(c);
+    const date = zDate.parse(c.req.param('date'));
+    db.delete(morningDays).where(and(eq(morningDays.userId, userId), eq(morningDays.date, date))).run();
+    return c.json({ ok: true });
+  });
+
+  // ---------- recent activities (for trends) ----------
+  r.get('/activities', (c) => {
+    const userId = uidOf(c);
+    const q = parseQuery(c.req.query(), z.object({ from: zDate.optional(), to: zDate.optional() }));
+    const to = q.to ?? shiftDays(today(), 7);
+    const from = q.from ?? shiftDays(to, -120);
+    return c.json(activitiesBetween(db, userId, from, to));
+  });
+
+  // keep the import used for status typing
+  void stravaAccounts;
+  void desc;
+  return r;
+};

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="22%" cy="12%" r="110%">
+      <stop offset="0" stop-color="#5E8F74"/>
+      <stop offset="0.55" stop-color="#3F6B57"/>
+      <stop offset="1" stop-color="#27493B"/>
+    </radialGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF9F5"/>
+      <stop offset="1" stop-color="#EDE7DB"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <!-- a page, slightly tilted, with a tick drawn in -->
+  <g transform="rotate(-6 256 268)">
+    <rect x="146" y="118" width="220" height="292" rx="26" fill="url(#page)"/>
+    <rect x="146" y="118" width="220" height="292" rx="26" fill="none" stroke="#1E1C19" stroke-opacity="0.08" stroke-width="2"/>
+    <g stroke="#B4ADA0" stroke-width="7" stroke-linecap="round">
+      <line x1="186" y1="190" x2="326" y2="190"/>
+      <line x1="186" y1="232" x2="306" y2="232"/>
+      <line x1="186" y1="274" x2="326" y2="274"/>
+    </g>
+    <path d="M196 330 l34 34 l88 -92" fill="none" stroke="#3F6B57" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,0 +1,161 @@
+.chart-wrap {
+  position: relative;
+  min-width: 0;
+}
+.chart-wrap svg {
+  display: block;
+  overflow: visible;
+}
+.chart-wrap .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.chart-wrap .axis {
+  stroke: var(--line-strong);
+}
+.chart-wrap .ax {
+  font-size: 11px;
+  fill: var(--ink-3);
+  font-family: var(--body);
+}
+.chart-wrap .bar {
+  fill: var(--t-long);
+}
+.chart-wrap .bar.cur {
+  fill: color-mix(in srgb, var(--t-long) 55%, transparent);
+}
+.chart-wrap .plan-out {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1.25;
+  stroke-dasharray: 3 3;
+}
+.chart-wrap .avg {
+  fill: none;
+  stroke: var(--t-hard);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.chart-wrap .hov {
+  fill: none;
+  stroke: var(--ink);
+  stroke-opacity: 0.3;
+}
+.chart-wrap .lbl {
+  font-size: 12px;
+  fill: var(--ink);
+  font-family: var(--body);
+}
+.chart-wrap .lbl.strong {
+  font-weight: 600;
+}
+.chart-wrap .cell {
+  fill: var(--surface-3);
+  transition: fill var(--dur);
+}
+.chart-wrap .cell.on {
+  fill: var(--ok);
+}
+.chart-wrap .cell.half {
+  fill: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.chart-wrap .cell.miss {
+  fill: color-mix(in srgb, var(--bad) 30%, transparent);
+}
+.chart-wrap .cell.none {
+  fill: none;
+  stroke: var(--line);
+  stroke-dasharray: 2 2;
+}
+.tip {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  padding: 7px 11px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.tip-head,
+.tip-sub {
+  color: var(--ink-3);
+}
+.tbl-wrap {
+  overflow-x: auto;
+}
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.tbl th {
+  text-align: left;
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.tbl td {
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.tbl tr:last-child td {
+  border-bottom: 0;
+}
+.tbl .n {
+  text-align: right;
+}
+.big {
+  font-size: 30px;
+  line-height: 1;
+}
+.lifts {
+  display: grid;
+}
+.lifts li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.lifts li:last-child {
+  border-bottom: 0;
+}
+.lift-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.lift-main small,
+.lift-top small {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.lift-top {
+  display: grid;
+  justify-items: end;
+  white-space: nowrap;
+}
+.lift-top b {
+  font-size: 18px;
+}
+.spk {
+  fill: none;
+  stroke: var(--t-lift);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.spk-dot {
+  fill: var(--t-lift);
+}

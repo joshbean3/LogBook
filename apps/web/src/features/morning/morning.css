@@ -1,0 +1,157 @@
+.m-tabs {
+  max-width: 300px;
+}
+.m-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 960px) {
+  .m-grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: start;
+  }
+}
+.m-mode {
+  flex: 1 1 220px;
+}
+.m-type {
+  width: auto;
+  flex: 0 1 180px;
+}
+.m-bigs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 12px;
+}
+.m-plan {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 13.5px;
+  color: var(--ink-3);
+}
+.m-plan b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.m-shower-mode {
+  max-width: 420px;
+}
+.m-word {
+  font-family: var(--display);
+  font-variation-settings: 'SOFT' 100;
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.m-quote {
+  margin: 0;
+  font-family: var(--display);
+  font-variation-settings: 'SOFT' 90;
+  font-weight: 400;
+  font-size: 19px;
+  line-height: 1.4;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.m-by {
+  color: var(--ink-2);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* timeline: the workout runs cool, getting ready runs warm as the door nears */
+.tl {
+  display: grid;
+}
+.tl-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+}
+.tl-time {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  padding-top: 8px;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tl-block {
+  --c: var(--t-rest);
+  border-left: 4px solid var(--c);
+  background: color-mix(in srgb, var(--c) 11%, var(--surface));
+  border-radius: 0 10px 10px 0;
+  padding: 7px 11px;
+  margin-bottom: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2px 10px;
+  min-width: 0;
+}
+.tl-label {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.tl-dur {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.k-wake .tl-block {
+  --c: #7f9cc0;
+}
+.k-buffer .tl-block {
+  --c: #8aa4c4;
+}
+.k-run .tl-block {
+  --c: #2f8fd8;
+}
+.tn-long .tl-block {
+  --c: #2563c9;
+}
+.tn-hard .tl-block {
+  --c: #3f4fc4;
+}
+.tn-fast .tl-block {
+  --c: #5a46c2;
+}
+.k-gym .tl-block {
+  --c: #1f8fa6;
+}
+.k-shower .tl-block {
+  --c: #e0aa12;
+}
+.k-ready .tl-block {
+  --c: #ec8a1c;
+}
+.k-smoothie .tl-block {
+  --c: #ea6a24;
+}
+.k-prep .tl-block {
+  --c: #dc4b2b;
+}
+.k-free .tl-block {
+  --c: var(--t-rest);
+  background: none;
+  border-left-style: dashed;
+}
+.k-free .tl-label {
+  font-weight: 500;
+  color: var(--ink-3);
+}
+.k-leave .tl-block {
+  background: #c8312a;
+  color: #fff;
+  border-left-color: #c8312a;
+  border-radius: 10px;
+}
+.k-leave .tl-time {
+  color: var(--ink);
+  font-weight: 600;
+}

@@ -1,0 +1,201 @@
+.entries {
+  display: grid;
+  gap: 8px;
+}
+.entry {
+  border: var(--card-border);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  display: grid;
+  gap: 5px;
+  background: var(--surface-2);
+}
+.entry.is-fav {
+  border-color: color-mix(in srgb, var(--star) 45%, var(--line));
+}
+.entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.entry-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  align-items: center;
+}
+.entry-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.entry-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.composer {
+  min-height: 80px;
+}
+.star {
+  color: var(--ink-3);
+}
+.star.on {
+  color: var(--star);
+}
+
+/* journal view */
+.picks {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: stretch;
+}
+.pick-when {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.pick-text {
+  font-family: var(--display);
+  font-variation-settings: 'SOFT' 80;
+  font-size: 17px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 18em;
+  overflow: auto;
+}
+.quote-text {
+  font-family: var(--display);
+  font-variation-settings: 'SOFT' 100;
+  font-weight: 400;
+  font-size: clamp(21px, 2.8vw, 27px);
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  text-wrap: pretty;
+  white-space: pre-line;
+}
+.quote-text.long {
+  font-size: clamp(17px, 2vw, 21px);
+  line-height: 1.42;
+}
+.by {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  align-items: baseline;
+}
+.by-author {
+  font-weight: 600;
+  color: var(--ink);
+}
+.by cite {
+  font-family: var(--display);
+  font-style: italic;
+  color: var(--ink-2);
+}
+.quote-by {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.pick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.j-tabs .seg-btn {
+  flex: 1 1 100px;
+}
+.day-group {
+  display: grid;
+  gap: 6px;
+}
+.day-label {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--ink);
+}
+.day-label span {
+  font-weight: 400;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.day-label:hover {
+  color: var(--accent);
+}
+.theme-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quotes {
+  display: grid;
+}
+.qrow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.q-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.q-main p {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  font-family: var(--display);
+  font-variation-settings: 'SOFT' 80;
+  line-height: 1.5;
+}
+.q-by {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.q-by .by-author {
+  color: var(--ink-2);
+}
+.q-by .by cite {
+  color: var(--ink-3);
+}
+.q-theme {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+.q-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sub-title {
+  margin: 6px 0 0;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 16px;
+}
