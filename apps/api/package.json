@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts --format esm --target node22 --out-dir dist --clean --external better-sqlite3 && cp -r drizzle dist/drizzle && cp -r src/data dist/data",
+    "build": "tsup && rm -rf dist/drizzle dist/data && cp -r drizzle dist/drizzle && cp -r src/data dist/data",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
