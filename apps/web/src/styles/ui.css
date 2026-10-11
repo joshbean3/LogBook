@@ -189,8 +189,8 @@
 }
 .tone-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--tone, var(--ink-4));
   flex: none;
