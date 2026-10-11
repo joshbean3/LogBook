@@ -11,7 +11,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png', 'icons/*.svg'],
+      includeAssets: ['icons/*.png', 'icons/*.svg', 'fonts/*'],
       manifest: {
         name: 'Logbook',
         short_name: 'Logbook',
@@ -20,8 +20,8 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#f5f3ee',
-        theme_color: '#f5f3ee',
+        background_color: '#000000',
+        theme_color: '#000000',
         categories: ['health', 'fitness', 'lifestyle'],
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

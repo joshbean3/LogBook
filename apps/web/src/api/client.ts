@@ -17,7 +17,9 @@ export class NetworkError extends Error {
 
 export const onUnauthorized = new Set<() => void>();
 
-const BASE = '/api';
+import { apiOrigin, isNative } from '@/lib/native';
+
+const BASE = `${apiOrigin}/api`;
 
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...rest } = init;
@@ -25,7 +27,7 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   if (json !== undefined) headers.set('content-type', 'application/json');
   let res: Response;
   try {
-    res = await fetch(BASE + path, { ...rest, credentials: 'same-origin', headers, body: json !== undefined ? JSON.stringify(json) : rest.body });
+    res = await fetch(BASE + path, { ...rest, credentials: isNative ? 'include' : 'same-origin', headers, body: json !== undefined ? JSON.stringify(json) : rest.body });
   } catch {
     throw new NetworkError();
   }

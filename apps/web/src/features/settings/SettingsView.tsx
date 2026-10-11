@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { api, ApiError } from '@/api/client';
+import { isNative } from '@/lib/native';
 import { keys, useBootstrap } from '@/api/queries';
 import { useTheme } from '@/lib/theme';
 import { Button, Chip, Group, PageHeader, Row, SectionHead, Segmented } from '@/ui/primitives';
@@ -29,6 +30,28 @@ const Steps = ({ steps }: { steps: string[] }) => (
     ))}
   </ol>
 );
+
+/** The Strava hand-off. In Safari it is a plain link; in the app it opens the system browser and the callback deep-links back. */
+const ConnectStrava = ({ className, children }: { className: string; children: React.ReactNode }) => {
+  if (!isNative) return <a className={className} href="/api/strava/connect">{children}</a>;
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={async () => {
+        try {
+          const { url } = await api<{ url: string }>('/strava/connect-url');
+          const { Browser } = await import('@capacitor/browser');
+          await Browser.open({ url, presentationStyle: 'popover' });
+        } catch {
+          /* the toast from the status refetch covers it */
+        }
+      }}
+    >
+      {children}
+    </button>
+  );
+};
 
 export default function SettingsView() {
   const boot = useBootstrap();
@@ -116,9 +139,7 @@ export default function SettingsView() {
               <Button variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
                 Disconnect
               </Button>
-              <a className="btn" href="/api/strava/connect">
-                Reconnect
-              </a>
+              <ConnectStrava className="btn">Reconnect</ConnectStrava>
             </div>
           </>
         ) : (
@@ -126,9 +147,7 @@ export default function SettingsView() {
             title="Not connected"
             sub="Every run marks its session done, with heart rate and splits graded against the plan."
             right={
-              <a className="chip-btn" href="/api/strava/connect">
-                Connect
-              </a>
+              <ConnectStrava className="chip-btn">Connect</ConnectStrava>
             }
           />
         )}

@@ -1,6 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- Logbook mark: the ring is the day, the check is the record, the gap is what is still open. -->
-  <rect width="1024" height="1024" fill="#2d6a4f"/>
-  <path d="M 771.8 362.0 A 300 300 0 1 1 512.0 212.0" fill="none" stroke="#f5f3ee" stroke-width="88" stroke-linecap="round"/>
-  <polyline points="380,520 482,622 662,420" fill="none" stroke="#f5f3ee" stroke-width="88" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Logbook mark on the night canvas: the ring is the day, the check is the record, the gap is what is still open; the glow is the run. -->
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="112%" r="70%">
+      <stop offset="0" stop-color="#2f3bff" stop-opacity="1"/>
+      <stop offset="0.55" stop-color="#2f3bff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#2f3bff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#000"/>
+  <rect width="1024" height="1024" fill="url(#halo)"/>
+  <path d="M 771.8 362.0 A 300 300 0 1 1 512.0 212.0" fill="none" stroke="#fff" stroke-width="88" stroke-linecap="round"/>
+  <polyline points="380,520 482,622 662,420" fill="none" stroke="#fff" stroke-width="88" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

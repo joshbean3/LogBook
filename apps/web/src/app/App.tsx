@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { onUnauthorized } from '@/api/client';
+import { onDeepLink } from '@/lib/native';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Setup } from '@/features/auth/AuthScreens';
@@ -99,6 +100,9 @@ export const App = () => {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [loc.pathname]);
+  useEffect(() => {
+    void onDeepLink((p) => nav(p));
+  }, [nav]);
   // a 401 anywhere sends you to sign in, without reloading the page
   useEffect(() => {
     const fn = () => {

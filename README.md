@@ -113,6 +113,23 @@ pnpm db:generate   regenerate the SQLite migration after a schema change
 
 How a session gets its status, in one place: `packages/shared/src/status.ts`. A run with Strava miles is done; under 80% of planned miles is the floor; a skip mark wins over everything. The same function runs on the server and in the browser, so the two never disagree.
 
-## Native wrapper, later
+## The iPhone app
 
-The web app is built so a Capacitor shell can wrap it with no code changes: all state is on the server or in IndexedDB, cookies carry auth, and nothing depends on `window.location` tricks. When you want App Store distribution, `npx cap init` in `apps/web` and point it at the deployed URL.
+`apps/web/ios` is a native Xcode project (Capacitor) that bundles the web build and talks to your server. It needs a Mac with Xcode.
+
+First time:
+
+1. Open Terminal.
+2. Run `cd ~/LogBook && git pull && pnpm install` (~2 min).
+3. Run `pnpm --filter @logbook/web build && cd apps/web && npx cap sync ios` (bundles the app into the Xcode project).
+4. Run `npx cap open ios` (opens Xcode).
+5. In Xcode, click the "App" project at the top of the left sidebar, then the "App" target, then "Signing & Capabilities".
+6. Tick "Automatically manage signing" and pick your Apple ID under Team (add it via Xcode, Settings, Accounts if it is not there).
+7. Plug in your iPhone, pick it in the device menu at the top, press the Play button.
+8. On the phone, go to Settings, General, VPN & Device Management, and trust your developer certificate.
+
+Every update after that: `git pull`, step 3, then press Play again in Xcode.
+
+Note: with a free Apple ID the app must be reinstalled from Xcode every 7 days. A paid Apple Developer account ($99/yr) lifts that to a year and unlocks TestFlight, where it installs like any App Store app.
+
+The app signs in against `VITE_API_ORIGIN` (default `https://josh-logbook.fly.dev`). Change it with `VITE_API_ORIGIN=https://your-server pnpm --filter @logbook/web build`.

@@ -7,6 +7,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { registerSW } from 'virtual:pwa-register';
+import { bootNative, isNative } from '@/lib/native';
 import { App } from './app/App';
 import { onUnauthorized } from './api/client';
 import { outbox } from './api/outbox';
@@ -41,7 +42,8 @@ void outbox.load().then(() => outbox.replay(qc));
 window.addEventListener('online', () => void outbox.replay(qc));
 document.addEventListener('visibilitychange', () => !document.hidden && void outbox.replay(qc));
 
-registerSW({ immediate: true });
+if (!isNative) registerSW({ immediate: true });
+void bootNative();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
