@@ -1,5 +1,5 @@
 import { parseISO, buildMorning, clockOfDay, dayStatus, decodePolyline, floorFor, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, pad, relativeDay, routePath, sessionStatus, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Activity, type Habit, type Session } from '@logbook/shared';
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Pencil, Settings, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Pencil, Settings, Share, X } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -9,7 +9,9 @@ import { AnimatedNumber } from '@/ui/AnimatedNumber';
 import { Button, Chip, DateNav, EmptyState, Group, IconButton, Loading, Mark, PageHeader, Ring, SectionHead, Stat, StatStrip } from '@/ui/primitives';
 import { JournalDaySection } from '../journal/JournalDaySection';
 import { useLog } from '../log/useLog';
-import { AddSessionButton, sessionMeta, SessionRow, UnplannedRow, useOpenSession } from '../sessions/SessionCard';
+import { AddSessionButton, sessionMeta, SessionRow, shareDataFor, UnplannedRow, UnplannedSheet, useOpenSession } from '../sessions/SessionCard';
+import { ShareSheet } from '../share/ShareSheet';
+import { useSheet } from '@/ui/Sheet';
 import { StravaLine } from '../settings/StravaLine';
 import './day.css';
 
@@ -29,6 +31,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
   const sessions = log.snap.sessionsOn(date);
   const st = dayStatus(log.snap, date);
   const open = useOpenSession(log);
+  const sheet = useSheet();
   const main = sessions.find((s) => s.kind === 'run') ?? sessions.find((s) => s.kind !== 'rest') ?? sessions[0] ?? null;
   const runs = log.snap.runsOn(date);
   const run = runs[0] ?? null;
@@ -55,7 +58,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     eyebrow = main ? (date === log.today ? 'Today’s run' : 'The run') : 'Unplanned run';
     title = main ? label(main) : run.name;
     const total = runs.reduce((t, a) => t + a.miles, 0);
-    verdict = st === 'floor' ? 'Floor held.' : main ? `Done. ${run.name}.` : `${mi(total)} mi logged from Strava.`;
+    verdict = st === 'floor' ? 'Floor held.' : main ? `Done. ${run.name}.` : `${mi(total)} mi, off the plan.`;
     stats = [
       ['Distance', mi(total), 'mi'],
       ['Pace', paceOf(run), '/mi'],
@@ -81,25 +84,42 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
         const mm = /(\d+)\s*min/.exec(f);
         return mm ? (['Floor', mm[1]!, 'min'] as [string, string, string]) : (['Floor', f ? f.split(/[,\s]/)[0]! : '—'] as [string, string]);
       })(),
-      ...(morning ? ([['Out', short(morning.start)], ['Back', short(morning.back)]] as Array<[string, string]>) : ([['Status', STATUS_WORD[st] ?? '']] as Array<[string, string]>)),
+      ...(morning ? ([['Out', short(morning.start)], ['Back', short(morning.back)]] as Array<[string, string]>) : []),
     ];
   }
   const target = main ?? null;
+  // the card is the day: it opens the session, and on a run day it is also the share
+  const pressable = !!target || runs.length > 0;
+  const openIt = () => {
+    if (target) open(date, target, { fromHero: true });
+    else if (runs.length) sheet.open({ title: fmtDate('long', date), body: <UnplannedSheet date={date} runs={runs} log={log} fromHero />, wide: true });
+  };
+  const shareIt = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    sheet.open({ title: <span className="display sheet-title">Share</span>, body: <ShareSheet data={shareDataFor(date, target, runs, log)} /> });
+  };
   return (
     <motion.div
       className={`aura ${target ? `t-${tone(target)}` : ''} ${path ? 'has-route' : ''}`}
-      onClick={target ? () => open(date, target) : undefined}
-      onKeyDown={target ? (e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), open(date, target)) : undefined) : undefined}
-      role={target ? 'button' : undefined}
-      tabIndex={target ? 0 : undefined}
-      aria-label={target ? `${title}. Open session` : undefined}
-      whileTap={target ? { scale: 0.985 } : undefined}
+      onClick={pressable ? openIt : undefined}
+      onKeyDown={pressable ? (e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), openIt()) : undefined) : undefined}
+      role={pressable ? 'button' : undefined}
+      tabIndex={pressable ? 0 : undefined}
+      aria-label={pressable ? `${title}. Open session` : undefined}
+      whileTap={pressable ? { scale: 0.985 } : undefined}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
       <span className="aura-glow" aria-hidden="true" />
       <div className="aura-top">
         <span className="caps">{eyebrow}</span>
-        <Chip kind={st === 'bonus' ? 'done' : st}>{STATUS_WORD[st] || 'Open'}</Chip>
+        <span className="aura-tools">
+          {runs.length ? (
+            <button type="button" className="aura-share" onClick={shareIt} aria-label="Share this run">
+              <Share size={14} strokeWidth={2.25} /> Share
+            </button>
+          ) : null}
+          <Chip kind={st === 'bonus' ? 'done' : st}>{STATUS_WORD[st] || 'Open'}</Chip>
+        </span>
       </div>
       {path ? (
         <svg className="aura-route" viewBox="0 0 358 200" aria-hidden="true">
@@ -121,7 +141,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
           ))}
         </div>
       ) : null}
-      {target ? <ChevronRight className="aura-chev" size={20} aria-hidden="true" /> : null}
+      {pressable ? <ChevronRight className="aura-chev" size={20} aria-hidden="true" /> : null}
     </motion.div>
   );
 };
@@ -162,9 +182,9 @@ const Orbs = ({ date, log, list, toggle, noteFor, setNoteFor, timers, save }: { 
               onPointerLeave={() => clearTimeout(timers.current[`lp-${h.id}`])}
               onContextMenu={(e) => e.preventDefault()}
             >
-              <motion.span className="orb-ring" initial={false} animate={isDone ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.36, ease: 'easeOut' }}>
+              <motion.span className="orb-ring" initial={false} animate={isDone ? { scale: [1, 1.08, 1] } : { scale: 1 }} transition={{ duration: 0.32, delay: 0.32, ease: 'easeOut' }}>
                 <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: isDone ? 1 : 0, opacity: isDone ? 1 : 0 }} transition={reduce ? { duration: 0 } : isDone ? { pathLength: { duration: 0.18, delay: 0.12, ease: 'easeOut' }, opacity: { duration: 0.01, delay: 0.12 } } : { duration: 0.1 }} />
+                  <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: isDone ? 1 : 0, opacity: isDone ? 1 : 0 }} transition={reduce ? { duration: 0 } : isDone ? { pathLength: { duration: 0.16, delay: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01, delay: 0.16 } } : { duration: 0.1 }} />
                 </svg>
                 {!isDone ? <span className="orb-initial">{h.name.slice(0, 1)}</span> : null}
                 {note ? <i className="orb-note" aria-hidden="true" /> : null}
@@ -439,7 +459,7 @@ export default function DayView() {
           ) : (
             <span className="ph-sub-row">
               {date === shiftDays(t, -1) || date === shiftDays(t, 1) ? fmtDate('long', date) : MONTH_DAY.format(parseISO(date))}
-              <button type="button" className="link sm" onClick={() => go(t)}>
+              <button type="button" className="link sm quiet" onClick={() => go(t)}>
                 Today
               </button>
             </span>
@@ -464,7 +484,7 @@ export default function DayView() {
         <StravaLine strava={log.strava} />
       </div>
 
-      <SectionHead title="Training" action={<AddSessionButton date={date}>Add</AddSessionButton>} />
+      <SectionHead title="Training" action={<AddSessionButton date={date} variant="quiet">Add</AddSessionButton>} />
       <Group>
         {!loaded ? <Loading text={`Loading ${fmtDate('month', date)}…`} /> : null}
         {loaded && sessions.filter(showList).length ? (
@@ -485,7 +505,7 @@ export default function DayView() {
           <div key={a.id} className="lrow">
             <div className="lrow-main">
               <div className="lrow-title">{a.name}</div>
-              <div className="lrow-sub">From Strava · {Math.round(a.movingSec / 60)} min</div>
+              <div className="lrow-sub">Recorded · {Math.round(a.movingSec / 60)} min</div>
             </div>
           </div>
         ))}

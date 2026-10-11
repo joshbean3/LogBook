@@ -325,7 +325,6 @@
   background: var(--accent);
   border-color: var(--accent-bright);
   color: var(--accent-ink);
-  box-shadow: 0 0 24px rgba(47, 59, 255, 0.45);
 }
 .btn.soft {
   background: var(--accent-tint);
@@ -528,7 +527,8 @@
   border: 1px solid var(--line-strong);
   background: var(--surface);
   border-radius: var(--r-md);
-  padding: 10px 12px;
+  padding: 11px 12px;
+  min-height: 44px;
   font-size: 17px;
   line-height: 22px;
   transition:
@@ -600,7 +600,7 @@ textarea.in {
   background: var(--surface-2);
   padding: 2px;
   border-radius: var(--r-pill);
-  height: 32px;
+  height: 36px;
 }
 .seg-btn {
   position: relative;
@@ -705,8 +705,8 @@ textarea.in {
   border-radius: 5px;
 }
 .mark.m-done {
-  background: var(--ok);
-  border-color: var(--ok);
+  background: var(--accent);
+  border-color: var(--accent-bright);
   color: var(--accent-ink);
 }
 .mark.m-floor {
@@ -787,6 +787,13 @@ textarea.in {
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 4px;
+  /* the actions never scroll away */
+  position: sticky;
+  bottom: calc(-16px - var(--safe-b));
+  background: var(--bg);
+  padding: 12px 0 calc(8px + var(--safe-b));
+  margin-bottom: calc(-16px - var(--safe-b));
+  z-index: 2;
 }
 /* beside a primary button, Cancel is ink, not a second accent */
 .sheet-foot .btn.ghost {
@@ -1217,5 +1224,39 @@ textarea.in {
   right: 14px;
   color: var(--ink-4);
   display: none;
+}
+.aura-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+/* the share pill: ink on a hairline, 44px to the thumb, 28px to the eye */
+.aura-share {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  border-radius: var(--r-pill);
+  height: 28px;
+  padding: 0 10px 0 8px;
+  margin: -8px 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.aura-share::before {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
+}
+@media (max-width: 359px) {
+  .aura-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
 }
 

@@ -47,9 +47,6 @@
 .tab.on {
   color: var(--accent-bright);
 }
-.tab.on svg {
-  filter: drop-shadow(0 0 8px rgba(47, 59, 255, 0.8));
-}
 .tab-label {
   font-size: 10px;
   line-height: 12px;
@@ -83,7 +80,7 @@
     padding: 4px 10px 20px;
     color: var(--ink);
     font-weight: 700;
-    font-size: 20px;
+    font-size: 17px;
     letter-spacing: -0.02em;
   }
   .brand-mark {

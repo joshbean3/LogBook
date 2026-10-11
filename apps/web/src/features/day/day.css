@@ -164,11 +164,12 @@
   place-items: center;
   color: transparent;
   background: var(--surface-2);
+  /* fill (160) → the check draws (160) → the glow blooms (320) */
   transition:
-    background var(--dur-fast),
-    border-color var(--dur-fast),
-    box-shadow 320ms var(--ease-out),
-    color var(--dur-fast);
+    background 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    box-shadow 320ms var(--ease-out) 320ms;
 }
 .orb-ring svg {
   position: absolute;
@@ -176,7 +177,7 @@
 .orb-initial {
   font-family: var(--display);
   font-style: italic;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
   color: var(--ink-2);
 }
@@ -228,4 +229,14 @@
 }
 .orbs-note .note-in {
   margin: 0;
+}
+
+@media (max-width: 359px) {
+  .orb-ring {
+    width: 48px;
+    height: 48px;
+  }
+  .orbs {
+    grid-auto-columns: minmax(52px, 1fr);
+  }
 }

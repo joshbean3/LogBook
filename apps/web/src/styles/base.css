@@ -72,22 +72,10 @@ ol {
 }
 
 /* ---------- type scale (Apple pairs) ---------- */
-.t-display {
-  font-size: 56px;
-  line-height: 60px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
 .t-stat {
   font-size: 28px;
   line-height: 32px;
   font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.t-large {
-  font-size: 34px;
-  line-height: 41px;
-  font-weight: 700;
   letter-spacing: -0.01em;
 }
 .t-title {

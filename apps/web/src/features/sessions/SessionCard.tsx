@@ -422,7 +422,7 @@ export const UnplannedRow = ({ date, runs, log }: { date: string; runs: Activity
   );
 };
 
-export const AddSessionButton = ({ date, children, variant = 'ghost' }: { date: string; children?: ReactNode; variant?: 'ghost' | 'soft' | 'primary' }) => {
+export const AddSessionButton = ({ date, children, variant = 'quiet' }: { date: string; children?: ReactNode; variant?: 'ghost' | 'soft' | 'primary' | 'quiet' }) => {
   const sheet = useSheet();
   return (
     <Button variant={variant} size="sm" onClick={() => sheet.open({ title: 'Add session', body: <SessionEditor date={date} session={null} /> })}>
