@@ -66,7 +66,7 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
               </NavLink>
             ))}
           </nav>
-          <NavLink to="/settings" className={({ isActive }) => `rail-link foot ${isActive ? 'on' : ''}`}>
+          <NavLink to="/settings" className="rail-link foot">
             <Settings size={18} strokeWidth={2} />
             <span>Settings</span>
           </NavLink>

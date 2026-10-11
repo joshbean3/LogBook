@@ -3,10 +3,7 @@
   display: grid;
   place-items: center;
   padding: 24px 16px;
-  background:
-    radial-gradient(60% 50% at 20% 0%, var(--accent-tint), transparent 70%),
-    radial-gradient(50% 40% at 100% 100%, color-mix(in srgb, var(--t-long) 10%, transparent), transparent 70%),
-    var(--bg);
+  background: var(--bg);
 }
 .auth-card {
   width: 100%;

@@ -1,4 +1,4 @@
-/* a session as a 60px list row */
+/* a session as a 60px list row (72px when the details need a second line) */
 .srow {
   display: flex;
   align-items: center;
@@ -6,6 +6,14 @@
   padding: 0 4px 0 16px;
   background: var(--surface);
   min-height: 60px;
+}
+.srow .lrow-sub {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: clip;
 }
 .srow.s-skipped .srow-main,
 .srow.s-rest .srow-main {
@@ -82,7 +90,7 @@
   grid-template-columns: 24px minmax(0, 1fr) 48px 32px;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 16px;
 }
 .split-n {
@@ -163,13 +171,12 @@
   justify-self: start;
 }
 
-/* lift log */
+/* lift log: hairline and air, no inner box inside the sheet */
 .lift-log {
   display: grid;
   gap: 8px;
-  padding: 12px;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 .lift-row {
   display: flex;
@@ -179,7 +186,6 @@
 }
 .lift-row .in {
   width: auto;
-  background: var(--surface);
 }
 .lift-row .ex {
   flex: 1 1 9rem;
@@ -197,19 +203,23 @@
   min-height: 1em;
 }
 .sets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
 }
 .sets li {
   display: flex;
   align-items: center;
-  gap: 2px;
-  font-size: 13px;
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-pill);
-  padding: 0 2px 0 10px;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 15px;
+  line-height: 20px;
+  border-top: 1px solid var(--line);
+}
+.sets li:first-child {
+  border-top: 0;
+}
+.sets li .icon-btn {
+  margin-left: auto;
+  margin-right: -8px;
 }
 
 /* move */
@@ -221,21 +231,38 @@
 .move-chip {
   appearance: none;
   border: 1px solid var(--line);
-  background: var(--surface-2);
+  background: var(--surface);
   border-radius: var(--r-md);
-  padding: 8px 10px;
+  padding: 10px 12px;
+  min-height: 56px;
   display: grid;
-  gap: 1px;
+  align-content: start;
+  gap: 2px;
   text-align: left;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
   min-width: 0;
+  transition:
+    border-color var(--dur-fast),
+    transform 100ms var(--ease-out);
 }
 .move-chip span {
   color: var(--ink-3);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.move-chip:hover {
-  border-color: var(--accent);
+.move-chip:active {
+  transform: scale(0.98);
+}
+@media (hover: hover) {
+  .move-chip:hover {
+    border-color: var(--accent);
+  }
 }

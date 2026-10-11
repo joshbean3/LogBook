@@ -1,13 +1,14 @@
-import { fmtDate, label, mondayOf, parseISO, shiftDays, type Session } from '@logbook/shared';
+import { fmtDate, label, mondayOf, monthOf, parseISO, shiftDays, type Session } from '@logbook/shared';
 import { useState } from 'react';
 import { useSessionMutations } from '@/api/queries';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import type { Log } from '../log/useLog';
+import { useLog } from '../log/useLog';
 
 /** Pick a day in the next two weeks, or any date. */
-export const MoveSheet = ({ date, session, log }: { date: string; session: Session; log: Log }) => {
+export const MoveSheet = ({ date, session }: { date: string; session: Session }) => {
+  const log = useLog([monthOf(date), monthOf(shiftDays(date, 16))]);
   const { move } = useSessionMutations();
   const sheet = useSheet();
   const toast = useToast();
@@ -26,9 +27,7 @@ export const MoveSheet = ({ date, session, log }: { date: string; session: Sessi
   };
   return (
     <div className="stack" style={{ gap: 14 }}>
-      <p className="muted" style={{ fontSize: 14 }}>
-        From {fmtDate('short', date)}. Pick a day:
-      </p>
+      <p className="t-sub muted">From {fmtDate('short', date)}. Pick a day.</p>
       <div className="move-grid">
         {days.map((k) => {
           const list = log.snap.sessionsOn(k).filter((x) => x.kind !== 'rest');
@@ -42,7 +41,7 @@ export const MoveSheet = ({ date, session, log }: { date: string; session: Sessi
       </div>
       <div className="row">
         <input className="in" type="date" value={other} onChange={(e) => setOther(e.target.value)} aria-label="Another date" />
-        <Button onClick={() => /^\d{4}-\d{2}-\d{2}$/.test(other) && go(other)}>Move there</Button>
+        <Button onClick={() => /^\d{4}-\d{2}-\d{2}$/.test(other) && go(other)}>Move</Button>
       </div>
     </div>
   );

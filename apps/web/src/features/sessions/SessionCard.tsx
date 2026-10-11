@@ -1,5 +1,4 @@
-import { assess, clock, fmtDate, floorFor, isAutoStatus, label, METERS_PER_MILE, mi, num, sessionStatus, STATUS_WORD, tone, zoneOf, type Activity, type Session } from '@logbook/shared';
-import { monthOf } from '@logbook/shared';
+import { assess, clock, fmtDate, floorFor, isAutoStatus, label, METERS_PER_MILE, mi, monthOf, num, sessionStatus, STATUS_WORD, tone, zoneOf, type Activity, type Session } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Sparkles } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -9,7 +8,7 @@ import type { MonthBundle } from '@/api/types';
 import { Button, Chip, ChipButton, Mark, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import type { Log } from '../log/useLog';
+import { useLog, type Log } from '../log/useLog';
 import { LiftLog } from './LiftLog';
 import { MoveSheet } from './MoveSheet';
 import { SessionEditor } from './SessionEditor';
@@ -116,7 +115,9 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
 };
 
 /** The full session in a sheet: evidence, lift log, and every action. */
-const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log }) => {
+const SessionSheet = ({ date, id }: { date: string; id: string }) => {
+  // the sheet body is captured once at open; subscribing here keeps marks, sets and deletes live while it is up
+  const log = useLog([monthOf(date)]);
   const sheet = useSheet();
   const toast = useToast();
   const { mark, remove, restore } = useSessionMutations();
@@ -165,7 +166,7 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
           <Button variant={liftOpen ? 'default' : 'soft'} onClick={() => setLiftOpen((o) => !o)} style={{ justifySelf: 'start' }}>
             {liftOpen ? 'Close' : 'Log a set'}
           </Button>
-          {liftOpen ? <LiftLog date={date} log={log} /> : null}
+          {liftOpen ? <LiftLog date={date} /> : null}
         </>
       ) : null}
       <div className="row wrap" style={{ gap: 8 }}>
@@ -197,7 +198,7 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
           Delete
         </Button>
         <div className="foot-right">
-          <Button onClick={() => sheet.open({ title: `Move ${label(s)}`, body: <MoveSheet date={date} session={s} log={log} /> })}>Move</Button>
+          <Button onClick={() => sheet.open({ title: `Move ${label(s)}`, body: <MoveSheet date={date} session={s} /> })}>Move</Button>
           <Button onClick={() => sheet.open({ title: 'Edit session', body: <SessionEditor date={date} session={s} /> })}>Edit</Button>
         </div>
       </div>
@@ -205,9 +206,9 @@ const SessionSheet = ({ date, id, log }: { date: string; id: string; log: Log })
   );
 };
 
-export const useOpenSession = (log: Log) => {
+export const useOpenSession = (_log?: Log) => {
   const sheet = useSheet();
-  return (date: string, s: Session) => sheet.open({ title: label(s), body: <SessionSheet date={date} id={s.id} log={log} />, wide: true });
+  return (date: string, s: Session) => sheet.open({ title: label(s), body: <SessionSheet date={date} id={s.id} />, wide: true });
 };
 
 /** A 60px row: check, colour bar, title, meta, one stat, chevron. */

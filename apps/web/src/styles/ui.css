@@ -6,8 +6,9 @@
 }
 .ph-top {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 8px;
+  gap: 0 8px;
   min-height: 44px;
 }
 .ph-title {
@@ -28,6 +29,26 @@
   gap: 2px;
   align-items: center;
   padding-top: 2px;
+}
+/* a title never breaks mid-word: when the tools don't fit beside it they drop under it, right-aligned */
+.ph-text {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ph-title {
+  overflow-wrap: normal;
+}
+/* a wayfinding link beside the sub line: "October 14 · Today" */
+.ph-sub-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 20px;
+}
+.ph-sub-row .link {
+  font-weight: 600;
 }
 .ph-tools {
   margin-top: 12px;
@@ -297,9 +318,9 @@
   color: var(--bad);
 }
 .btn.sm {
-  height: 30px;
+  height: 32px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: 15px;
 }
 .btn.block {
   width: 100%;
@@ -420,7 +441,7 @@
   border-radius: var(--r-pill);
   height: 32px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink-2);
   display: inline-flex;
@@ -482,7 +503,7 @@ textarea.in {
 }
 .in.mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
+  font-size: 15px;
 }
 .in.bare {
   border-color: transparent;
@@ -542,8 +563,8 @@ textarea.in {
   background: none;
   padding: 0 12px;
   border-radius: var(--r-pill);
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 15px;
+  line-height: 20px;
   font-weight: 600;
   color: var(--ink-2);
   flex: 1 1 0;
@@ -957,7 +978,8 @@ textarea.in {
   letter-spacing: -0.02em;
 }
 .card-meta {
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 16px;
   color: var(--ink-3);
 }
 .skeleton {

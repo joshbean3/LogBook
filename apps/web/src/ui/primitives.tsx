@@ -188,7 +188,7 @@ export const DateNav = ({ onPrev, onNext, prevLabel, nextLabel, children }: { on
 export const PageHeader = ({ title, sub, actions, children }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode }) => (
   <header className="ph">
     <div className="ph-top">
-      <div style={{ display: 'grid', gap: 2, minWidth: 0, flex: 1 }}>
+      <div className="ph-text">
         <h1 className="ph-title">{title}</h1>
         {sub ? <span className="ph-sub">{sub}</span> : null}
       </div>

@@ -1,12 +1,13 @@
-import { fmtDate } from '@logbook/shared';
+import { fmtDate, monthOf } from '@logbook/shared';
 import { X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useAllLifts, useLiftMutations } from '@/api/queries';
 import { Button, IconButton } from '@/ui/primitives';
-import type { Log } from '../log/useLog';
+import { useLog } from '../log/useLog';
 
 /** Exercise, weight, reps. Fifteen seconds between sets. */
-export const LiftLog = ({ date, log }: { date: string; log: Log }) => {
+export const LiftLog = ({ date }: { date: string }) => {
+  const log = useLog([monthOf(date)]);
   const all = useAllLifts();
   const { add, remove } = useLiftMutations();
   const [ex, setEx] = useState('');
@@ -53,7 +54,7 @@ export const LiftLog = ({ date, log }: { date: string; log: Log }) => {
         <span className="times">×</span>
         <input ref={rRef} className="in numin" type="number" inputMode="numeric" placeholder="reps" min={1} step={1} aria-label="Reps" value={r} onChange={(e) => setR(e.target.value)} onKeyDown={onKey(null)} />
         <Button size="sm" onClick={submit}>
-          Add set
+          Add
         </Button>
       </div>
       <div className="hint">{last ? `Last time: ${last.weight} × ${last.reps} on ${fmtDate('md', last.date)}` : ''}</div>

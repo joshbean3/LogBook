@@ -370,14 +370,20 @@ export default function DayView() {
     <div className="page">
       <PageHeader
         title={date === t ? 'Today' : relativeDay(date, t)}
-        sub={date === t || date === shiftDays(t, -1) || date === shiftDays(t, 1) ? fmtDate('long', date) : MONTH_DAY.format(parseISO(date))}
+        sub={
+          date === t ? (
+            fmtDate('long', date)
+          ) : (
+            <span className="ph-sub-row">
+              {date === shiftDays(t, -1) || date === shiftDays(t, 1) ? fmtDate('long', date) : MONTH_DAY.format(parseISO(date))}
+              <button type="button" className="link sm" onClick={() => go(t)}>
+                Today
+              </button>
+            </span>
+          )
+        }
         actions={
           <>
-            {date !== t ? (
-              <Button size="sm" variant="ghost" onClick={() => go(t)}>
-                Today
-              </Button>
-            ) : null}
             <DateNav onPrev={() => go(shiftDays(date, -1))} onNext={() => go(shiftDays(date, 1))} prevLabel="Previous day" nextLabel="Next day" />
             <IconButton label="Settings" onClick={() => nav('/settings')}>
               <Settings size={20} />
