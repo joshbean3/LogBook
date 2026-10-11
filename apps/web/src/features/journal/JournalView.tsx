@@ -326,7 +326,7 @@ export default function JournalView() {
       <MemoryCard today={t} />
       <Sec title="Write" meta={fmtDate('short', t)} />
       <Group>
-        <Composer date={t} today={t} hint="⌘/Ctrl + Enter saves" size="lg" />
+        <Composer date={t} today={t} size="lg" />
       </Group>
       <div className="section">
         <Segmented className="j-tabs" label="Journal tabs" options={[['entries', `Entries${n ? ` (${n})` : ''}`], ['favorites', 'Favorites'], ['quotes', 'Quote library']]} value={tab} onChange={(k) => nav(k === 'entries' ? '/journal' : `/journal/${k}`)} />

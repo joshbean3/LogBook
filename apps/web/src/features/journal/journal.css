@@ -15,14 +15,16 @@
   align-content: start;
   color: var(--ink);
 }
-/* the stage light sits low and small: it lights the hairline and the 16px of padding under it, never the words.
-   The glow box is a fixed 220px anchored at the bottom, so a long quote that makes the card taller never grows the light into the chips. */
+/* the stage light: the shared halo, the same geometry as every other hero. It rises behind the Shuffle / Hide / star row;
+   the attribution sits above where the light is visible. The light's box never grows past 320px, so a long quote that
+   makes the card tall does not carry the light up into the words. */
 .jq-glow {
   position: absolute;
   inset: auto 0 0;
-  height: 220px;
+  height: min(100%, 320px);
   z-index: -1;
-  background: radial-gradient(70% 45% at 50% 118%, rgba(47, 59, 255, 0.9), rgba(47, 59, 255, 0) 70%);
+  background: var(--halo);
+  opacity: 0.6;
   pointer-events: none;
 }
 .jq-top {
@@ -95,15 +97,13 @@
   line-height: 20px;
   color: var(--ink-3);
 }
-/* actions under the quote: one-verb chips, the star at the right; the row sits above the hairline, out of the glow */
+/* actions under the quote: one-verb chips, the star at the right; the row stands in the light, with nothing drawn under it */
 .jq-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 20px;
 }
 .jq-actions .icon-btn {
   margin-left: auto;
@@ -118,6 +118,21 @@
   background: transparent;
   border-color: transparent;
   color: var(--ink-2);
+}
+/* a 32px chip to the eye, 44px to the thumb */
+.jq .chip-btn,
+.jmem-actions .chip-btn,
+.theme-scroll .chip-btn,
+.jlist > .chip-btn {
+  position: relative;
+}
+.jq .chip-btn::before,
+.jmem-actions .chip-btn::before,
+.theme-scroll .chip-btn::before,
+.jlist > .chip-btn::before {
+  content: '';
+  position: absolute;
+  inset: -6px -2px;
 }
 @media (max-width: 359px) {
   .jq {
@@ -366,8 +381,9 @@ textarea.jtext {
   gap: 6px;
   overflow-x: auto;
   flex-wrap: nowrap;
-  margin: 0 calc(-1 * var(--gutter));
-  padding: 2px var(--gutter);
+  /* 6px above and below so the chips' 44px hit areas are not clipped by the scroller */
+  margin: -6px calc(-1 * var(--gutter));
+  padding: 8px var(--gutter);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }

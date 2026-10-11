@@ -1,11 +1,14 @@
 import { dayStatus, e1rm, fmtDate, grade, label, mi, mondayOf, monthsBetween, num, sessionStatus, shiftDays, zoneOf, type Activity } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '@/api/client';
 import { keys, useAllLifts } from '@/api/queries';
+import { haptic } from '@/lib/haptics';
 import { Button, EmptyState, Group, PageHeader, Row, Segmented } from '@/ui/primitives';
+import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
 import './trends.css';
@@ -272,6 +275,8 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
   const graded = rows.filter((r) => r.g && /On target|Too/.test(r.g.verdict ?? ''));
   const ok = graded.filter((r) => r.g!.verdict === 'On target').length;
   const Z = (n: number) => z?.find((r) => r.zone === n);
+  // No zones, no linked account and no run that carries a heart rate: there is nothing to check yet, so the section waits offstage.
+  if (!z && !connected && (!ready || !withHr.length || !log.features.strava)) return null;
   return (
     <>
       <Sec title="Effort check" meta={ready && recent.length ? `Last ${recent.length} runs` : undefined} />
@@ -301,19 +306,17 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
                   </Button>
                 }
               >
-                No heart-rate zones yet. They arrive with the next sync.
+                No heart-rate zones yet. Sync and they come in with your runs.
               </EmptyState>
             ) : (
               <EmptyState
                 action={
-                  log.features.strava ? (
-                    <Button variant="quiet" onClick={() => nav('/settings')}>
-                      Connect
-                    </Button>
-                  ) : undefined
+                  <Button variant="quiet" onClick={() => nav('/settings')}>
+                    Connect
+                  </Button>
                 }
               >
-                No heart-rate zones yet.
+                No heart-rate zones yet. Connect your account to grade these runs.
               </EmptyState>
             )
           ) : null}
@@ -366,8 +369,56 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
 };
 
 // ---------- lifts ----------
+interface LiftDay {
+  date: string;
+  weight: number;
+  reps: number;
+}
+interface LiftGroup {
+  name: string;
+  days: LiftDay[];
+}
+const pctChange = (days: LiftDay[]) => {
+  const first = days[0]!;
+  const last = days[days.length - 1]!;
+  return days.length > 1 ? (e1rm(last.weight, last.reps) - e1rm(first.weight, first.reps)) / e1rm(first.weight, first.reps) : null;
+};
+const signedPct = (ch: number) => `${ch >= 0 ? '+' : '−'}${Math.abs(Math.round(ch * 100))}%`;
+
+/** Behind a tap on a lift row: the best set, the change, every session newest first, and the estimate explained once at the foot. */
+const LiftSheet = ({ g }: { g: LiftGroup }) => {
+  const best = g.days.reduce((b, s) => (e1rm(s.weight, s.reps) > e1rm(b.weight, b.reps) ? s : b), g.days[0]!);
+  const ch = pctChange(g.days);
+  return (
+    <>
+      <div className="tr-strip">
+        <Stamp label="Best e1RM" value={Math.round(e1rm(best.weight, best.reps))} under={`${best.weight} × ${best.reps} · ${fmtDate('md', best.date)}`} />
+        <Stamp label="Change" value={ch == null ? '—' : signedPct(ch)} under={ch == null ? 'First session' : `Since ${fmtDate('md', g.days[0]!.date)}`} />
+      </div>
+      <Group>
+        {[...g.days].reverse().map((s) => (
+          <Row
+            key={s.date}
+            title={fmtDate('short', s.date)}
+            right={
+              <div className="lift-right">
+                <span className="stamp">
+                  {s.weight} × {s.reps}
+                </span>
+                <span className="caps">e1RM {Math.round(e1rm(s.weight, s.reps))}</span>
+              </div>
+            }
+          />
+        ))}
+      </Group>
+      <p className="fine">Estimated 1RM = weight × (1 + reps ÷ 30)</p>
+    </>
+  );
+};
+
 const Lifts = () => {
   const all = useAllLifts();
+  const sheet = useSheet();
   const groups = useMemo(() => {
     const by = new Map<string, { name: string; days: Map<string, { date: string; weight: number; reps: number }> }>();
     for (const s of all.data ?? []) {
@@ -377,7 +428,7 @@ const Lifts = () => {
       const best = g.days.get(s.date);
       if (!best || e1rm(s.weight, s.reps) > e1rm(best.weight, best.reps)) g.days.set(s.date, s);
     }
-    return [...by.values()].map((g) => ({ name: g.name, days: [...g.days.values()].sort((a, b) => (a.date < b.date ? -1 : 1)) })).sort((a, b) => (a.days[a.days.length - 1]!.date < b.days[b.days.length - 1]!.date ? 1 : -1));
+    return [...by.values()].map((g): LiftGroup => ({ name: g.name, days: [...g.days.values()].sort((a, b) => (a.date < b.date ? -1 : 1)) })).sort((a, b) => (a.days[a.days.length - 1]!.date < b.days[b.days.length - 1]!.date ? 1 : -1));
   }, [all.data]);
   return (
     <>
@@ -385,8 +436,7 @@ const Lifts = () => {
       <Group>
         {groups.map((g) => {
           const last = g.days[g.days.length - 1]!;
-          const first = g.days[0]!;
-          const ch = g.days.length > 1 ? (e1rm(last.weight, last.reps) - e1rm(first.weight, first.reps)) / e1rm(first.weight, first.reps) : null;
+          const ch = pctChange(g.days);
           const vals = g.days.map((s) => e1rm(s.weight, s.reps));
           const lo = Math.min(...vals);
           const hi = Math.max(...vals);
@@ -396,6 +446,7 @@ const Lifts = () => {
               key={g.name}
               title={g.name}
               sub={`${g.days.length} ${g.days.length === 1 ? 'session' : 'sessions'} · ${fmtDate('md', last.date)}`}
+              onClick={() => sheet.open({ title: g.name, body: <LiftSheet g={g} /> })}
               right={
                 <>
                   {g.days.length > 1 ? (
@@ -410,9 +461,10 @@ const Lifts = () => {
                     </span>
                     <span className="caps">
                       e1RM {Math.round(e1rm(last.weight, last.reps))}
-                      {ch == null ? '' : ` · ${ch >= 0 ? '+' : '−'}${Math.abs(Math.round(ch * 100))}%`}
+                      {ch == null ? null : <span className="lift-ch"> · {signedPct(ch)}</span>}
                     </span>
                   </div>
+                  <ChevronRight size={16} className="lift-chev" aria-hidden="true" />
                 </>
               }
             />
@@ -420,7 +472,6 @@ const Lifts = () => {
         })}
         {!groups.length ? all.isPending ? <div className="tr-wait in-group" aria-busy="true" /> : <EmptyState>No lifts yet. On a lift day, open the session and log one: exercise, weight, reps.</EmptyState> : null}
       </Group>
-      {groups.length ? <p className="t-cap muted tr-legend">Estimated 1RM = weight × (1 + reps ÷ 30)</p> : null}
     </>
   );
 };
@@ -430,22 +481,15 @@ const Consistency = ({ log }: { log: Log }) => {
   const nav = useNavigate();
   const [ref, width] = useWidth<HTMLDivElement>();
   const t = log.today;
-  const W = Math.max(240, width || 600);
-  const N = W < 520 ? 14 : 30;
+  // 14 days on a phone, 30 where the row is wide enough for them
+  const N = width >= 520 ? 30 : 14;
   const days = Array.from({ length: N }, (_, i) => shiftDays(t, i - N + 1));
   const rows = [{ id: '__t', name: 'Training', train: true, createdOn: '' }, ...log.habits.map((h) => ({ id: h.id, name: h.name, train: false, createdOn: h.createdOn }))];
-  const lw = Math.min(Math.max(80, W * 0.3), 150);
-  const rateW = 40;
-  const gap = W < 480 ? 3 : 4;
-  const cell = Math.max(6, Math.min(18, Math.floor((W - lw - rateW - gap * (N - 1)) / N)));
-  const rowH = cell + gap + 6;
-  const H = rows.length * rowH + 6 + 24;
-  const x = (i: number) => lw + i * (cell + gap);
   const stats = rows.map((r) => {
     let hit = 0;
     let of = 0;
     const cells = days.map((d) => {
-      let cls = 'cell';
+      let cls = '';
       if (r.train) {
         const st = dayStatus(log.snap, d);
         cls += st === 'done' || st === 'bonus' ? ' on' : st === 'floor' ? ' half' : st === 'missed' ? ' miss' : st === 'open' ? '' : ' none';
@@ -470,6 +514,38 @@ const Consistency = ({ log }: { log: Log }) => {
   const habitOf = stats.slice(1).reduce((s, x) => s + x.of, 0);
   const pct = (hit: number, of: number) => (of ? `${Math.round((hit / of) * 100)}%` : '—');
   const ready = settled(log);
+  // The grid is one touch surface: press anywhere on it and the column under the finger lights up with its date;
+  // slide to another day; let go to open it. A finger never has to land on a 12px cell.
+  const hits = useRef<HTMLDivElement>(null);
+  const [press, setPress] = useState<number | null>(null);
+  const colAt = (clientX: number) => {
+    const cols = hits.current?.querySelectorAll<HTMLElement>('.chit');
+    const a = cols?.[0]?.getBoundingClientRect();
+    const b = cols?.[cols.length - 1]?.getBoundingClientRect();
+    if (!a || !b || b.right <= a.left) return null;
+    const f = (Math.min(Math.max(clientX, a.left), b.right - 0.01) - a.left) / (b.right - a.left);
+    return Math.min(N - 1, Math.max(0, Math.floor(f * N)));
+  };
+  const openDay = (d: string) => nav(d === t ? '/today' : `/today/${d}`);
+  const scrubTo = (clientX: number) => {
+    const i = colAt(clientX);
+    if (i != null && i !== press) haptic('tick');
+    setPress(i);
+  };
+  const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    scrubTo(e.clientX);
+  };
+  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (press != null) scrubTo(e.clientX);
+  };
+  const onUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const i = press == null ? null : colAt(e.clientX);
+    setPress(null);
+    const d = i == null ? null : days[i];
+    if (d) openDay(d);
+  };
   return (
     <>
       <Sec title="Consistency" meta={`Last ${N} days`} />
@@ -478,38 +554,39 @@ const Consistency = ({ log }: { log: Log }) => {
         <Stamp label="Habits" value={ready ? pct(habitHit, habitOf) : '—'} under={!ready ? '' : habitOf ? `of ${habitOf} checks` : 'no checks yet'} />
       </div>
       <Group className="chart-group">
-        <div ref={ref} className="chart-wrap">
-          {width && ready ? (
-            <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Training and habits, day by day">
-              {stats.map(({ r, hit, of, cells }, j) => {
-                const yy = j * rowH + (j ? 6 : 0);
-                const name = r.name.length > 16 ? `${r.name.slice(0, 15)}…` : r.name;
-                return (
-                  <g key={r.id}>
-                    <text x={0} y={yy + cell / 2} dy="0.32em" className={`lbl ${r.train ? 'strong' : ''}`}>
-                      {name}
-                    </text>
-                    {cells.map((c, i) => (
-                      <rect key={c.d} x={x(i)} y={yy} width={cell} height={cell} rx={Math.min(4, cell / 3.5)} className={c.cls} onClick={() => nav(c.d === t ? '/today' : `/today/${c.d}`)} style={{ cursor: 'pointer' }}>
-                        <title>{fmtDate('short', c.d)}</title>
-                      </rect>
-                    ))}
-                    <text x={W} y={yy + cell / 2} dy="0.32em" textAnchor="end" className="ax">
-                      {pct(hit, of)}
-                    </text>
-                  </g>
-                );
-              })}
-              {Array.from({ length: N }, (_, i) => i)
-                .filter((i) => (N - 1 - i) % 7 === 0)
-                .map((i) => (
-                  <text key={i} x={i === N - 1 ? x(i) + cell : x(i) + cell / 2} y={H - 4} textAnchor={i === N - 1 ? 'end' : 'middle'} className="ax">
-                    {i === N - 1 ? 'TODAY' : up(fmtDate('md', days[i]!))}
-                  </text>
+        {/* rows of status cells for the eye; over them, one column button per day for the thumb: the whole grid is pressable, every tap lands on a day */}
+        <div ref={ref} className="cgrid" style={{ '--n': N } as CSSProperties} aria-label="Training and habits, day by day">
+          {ready ? (
+            <>
+              {stats.map(({ r, hit, of, cells }) => (
+                <div key={r.id} className="crow">
+                  <span className={`clbl ${r.train ? 'strong' : ''}`}>{r.name}</span>
+                  {cells.map((c) => (
+                    <i key={c.d} className={`ccell${c.cls}`} />
+                  ))}
+                  <span className="crate caps">{pct(hit, of)}</span>
+                </div>
+              ))}
+              <div className="crow axis" aria-hidden="true">
+                <span />
+                {days.map((d, i) => (
+                  <span key={d} className={`cax caps ${i === N - 1 ? 'end' : ''} ${press === i ? 'on' : ''}`}>
+                    {press != null ? (press === i ? (d === t ? 'Today' : fmtDate('short', d)) : '') : (N - 1 - i) % 7 === 0 ? (i === N - 1 ? 'Today' : fmtDate('md', d)) : ''}
+                  </span>
                 ))}
-            </svg>
+                <span />
+              </div>
+              <div ref={hits} className="chits" role="group" aria-label="Open a day" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => setPress(null)}>
+                <span />
+                {days.map((d, i) => (
+                  // the pointer is handled by the surface above; the button is for the keyboard and the screen reader
+                  <button key={d} type="button" className={`chit ${press === i ? 'on' : ''}`} aria-label={`Open ${fmtDate('short', d)}`} onClick={(e) => e.detail === 0 && openDay(d)} />
+                ))}
+                <span />
+              </div>
+            </>
           ) : (
-            <div style={{ height: width ? H : 160 }} />
+            <div style={{ height: 160 }} />
           )}
         </div>
       </Group>
@@ -530,7 +607,6 @@ const Consistency = ({ log }: { log: Log }) => {
           <i style={{ background: 'none', border: '1px dashed rgba(255,255,255,0.16)' }} /> No record
         </span>
       </div>
-      <p className="t-cap muted tr-legend">Tap a day to open it</p>
     </>
   );
 };
