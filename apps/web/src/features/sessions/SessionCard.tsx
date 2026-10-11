@@ -279,6 +279,3 @@ export const AddSessionButton = ({ date, children, variant = 'ghost' }: { date: 
     </Button>
   );
 };
-
-/** @deprecated transitional alias for views not yet rewritten. */
-export const SessionCard = ({ date, s, log }: { date: string; s: Session; log: Log; compact?: boolean }) => <SessionRow date={date} s={s} log={log} as="div" />;

@@ -185,7 +185,7 @@ export const DateNav = ({ onPrev, onNext, prevLabel, nextLabel, children }: { on
   </div>
 );
 
-export const PageHeader = ({ title, sub, actions, children }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode; /** @deprecated ignored */ eyebrow?: ReactNode }) => (
+export const PageHeader = ({ title, sub, actions, children }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode }) => (
   <header className="ph">
     <div className="ph-top">
       <div style={{ display: 'grid', gap: 2, minWidth: 0, flex: 1 }}>
@@ -218,13 +218,6 @@ export const Row = ({ left, title, sub, right, onClick, two, className = '', as 
     </Tag>
   );
 };
-
-/** @deprecated transitional: old views still import Kpi; use Stat inside a StatStrip. */
-export const Kpi = ({ label, value, unit, tone, children }: { label: string; value: ReactNode; unit?: ReactNode; tone?: 'done' | 'missed' | 'open' | ''; wide?: boolean; children?: ReactNode }) => (
-  <Stat label={label} value={value} unit={unit} tone={tone === 'done' ? 'ok' : tone === 'missed' ? 'bad' : tone === 'open' ? 'accent' : ''}>
-    {children}
-  </Stat>
-);
 
 /** The Logbook mark: the ring is the day, the check is the record, the gap is what is still open. */
 export const LogoMark = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
