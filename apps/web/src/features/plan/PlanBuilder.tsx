@@ -166,7 +166,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
       } catch (e) {
         if (e instanceof ApiError) throw e;
         if ((e as Error).name === 'AbortError') throw new ApiError('Stopped.', 499, 'cancelled');
-        throw new ApiError('Couldn’t reach the server. Check your connection.', 0);
+        throw new ApiError('Couldn’t connect. Check your connection.', 0);
       }
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };

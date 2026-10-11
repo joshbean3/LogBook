@@ -69,7 +69,7 @@ const Authed = () => {
     if (status === 401) return <Navigate to="/login" replace />;
     return (
       <div className="page">
-        <p className="empty">Couldn’t reach the server. {boot.error.message}</p>
+        <p className="empty">Couldn’t connect. Check your connection.</p>
       </div>
     );
   }

@@ -237,6 +237,15 @@
     height: 48px;
   }
   .orbs {
-    grid-auto-columns: minmax(52px, 1fr);
+    grid-auto-columns: minmax(48px, 1fr);
+    gap: 4px;
+  }
+  .orbs-wrap {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .orbs {
+    margin: 0 -12px;
+    padding: 6px 12px 2px;
   }
 }

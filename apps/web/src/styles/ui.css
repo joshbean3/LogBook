@@ -446,7 +446,7 @@
   white-space: nowrap;
 }
 .chip.done {
-  color: var(--ok);
+  color: var(--accent-bright);
   background: var(--ok-soft);
 }
 .chip.floor {
@@ -1208,8 +1208,9 @@ textarea.in {
   font-size: 22px;
   line-height: 24px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.aura-num small {
+  white-space: nowrap;
 }
 .aura-num small {
   font-size: 12px;
@@ -1238,16 +1239,16 @@ textarea.in {
   border: 1px solid var(--line-strong);
   color: var(--ink);
   border-radius: var(--r-pill);
-  height: 28px;
-  padding: 0 10px 0 8px;
-  margin: -8px 0;
+  height: 36px;
+  padding: 0 14px 0 12px;
+  margin: -10px 0;
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 .aura-share::before {
   content: '';

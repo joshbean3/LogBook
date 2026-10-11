@@ -55,7 +55,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     verdict = sessions.some((s) => s.kind === 'rest') ? 'A rest day on the plan.' : 'Nothing on the plan. Add a session or let the day breathe.';
     stats = [];
   } else if (run) {
-    eyebrow = main ? (date === log.today ? 'Today’s run' : 'The run') : 'Unplanned run';
+    eyebrow = main ? (date === log.today ? 'Today’s run' : 'The run') : 'Unplanned';
     title = main ? label(main) : run.name;
     const total = runs.reduce((t, a) => t + a.miles, 0);
     verdict = st === 'floor' ? 'Floor held.' : main ? `Done. ${run.name}.` : `${mi(total)} mi, off the plan.`;
@@ -92,7 +92,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
   const pressable = !!target || runs.length > 0;
   const openIt = () => {
     if (target) open(date, target, { fromHero: true });
-    else if (runs.length) sheet.open({ title: fmtDate('long', date), body: <UnplannedSheet date={date} runs={runs} log={log} fromHero />, wide: true });
+    else if (runs.length) sheet.open({ title: <span className="caps">{fmtDate('long', date)}</span>, body: <UnplannedSheet date={date} runs={runs} log={log} fromHero />, wide: true });
   };
   const shareIt = (e: React.MouseEvent) => {
     e.stopPropagation();
