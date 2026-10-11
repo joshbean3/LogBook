@@ -236,9 +236,9 @@ const Focus = ({ st }: { st: MorningSettings }) => {
         title="Word & quote"
         meta={has && !edit ? 'Stays until you change it' : undefined}
         action={
-          !edit ? (
+          has && !edit ? (
             <button type="button" className="link" onClick={open}>
-              {has ? 'Change' : 'Add'}
+              Change
             </button>
           ) : undefined
         }
@@ -371,7 +371,7 @@ const SettingsPane = ({ st }: { st: MorningSettings }) => {
       <SectionHead title="After" />
       <Group>
         <div className="lrow">
-          <Segmented className="grow" label="When the shower starts" options={[['fixed', 'Set time'], ['after', 'When I’m back']]} value={st.after.showerMode} onChange={(k) => settings.mutate({ after: { showerMode: k } })} />
+          <Segmented className="grow" label="When the shower starts" options={[['fixed', 'Set time'], ['after', 'After']]} value={st.after.showerMode} onChange={(k) => settings.mutate({ after: { showerMode: k } })} />
         </div>
         {st.after.showerMode === 'fixed' ? (
           <Row
@@ -435,19 +435,19 @@ export default function MorningView() {
     <div className="page">
       <PageHeader
         title="Morning"
-        sub={`${date === t ? 'Today · ' : date === shiftDays(t, 1) ? 'Tomorrow · ' : ''}${fmtDate('long', date)}`}
-        actions={
-          tab === 'plan' ? (
-            <>
-              {date !== t ? (
-                <Button size="sm" variant="ghost" onClick={() => go(t)}>
-                  Today
-                </Button>
-              ) : null}
-              <DateNav onPrev={() => go(shiftDays(date, -7))} onNext={() => go(shiftDays(date, 7))} prevLabel="Previous week" nextLabel="Next week" />
-            </>
-          ) : undefined
+        sub={
+          date === t ? (
+            `Today · ${fmtDate('md', date)}`
+          ) : (
+            <span className="ph-sub-row">
+              {`${date === shiftDays(t, 1) ? 'Tomorrow · ' : ''}${fmtDate('md', date)}`}
+              <button type="button" className="link sm" onClick={() => go(t)}>
+                Today
+              </button>
+            </span>
+          )
         }
+        actions={tab === 'plan' ? <DateNav onPrev={() => go(shiftDays(date, -7))} onNext={() => go(shiftDays(date, 7))} prevLabel="Previous week" nextLabel="Next week" /> : undefined}
       >
         <Segmented className="m-tabs" label="Morning tabs" options={[['plan', 'Plan'], ['settings', 'Settings']]} value={tab} onChange={setTab} />
       </PageHeader>
@@ -469,7 +469,7 @@ export default function MorningView() {
           <SectionHead title="Plan" />
           <Controls date={date} T={T} />
 
-          <SectionHead title="Timeline" meta={`${durationWords(T.leave - T.day.wake)} wake to leave`} />
+          <SectionHead title="Timeline" meta={durationWords(T.leave - T.day.wake)} />
           {T.late ? (
             <Note kind="warn">
               Back at {clockOfDay(T.back)}, {T.late} min past your {clockOfDay(T.settings.after.showerAt)} shower, so you leave at {clockOfDay(T.leave)} instead of {clockOfDay(T.onTime ?? T.leave)}. To stay on time: wake by {clockOfDay(T.fix!.latestWake)}
