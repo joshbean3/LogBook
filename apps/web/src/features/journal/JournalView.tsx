@@ -35,7 +35,7 @@ const ClampedText = ({ text, id }: { text: string; id: string }) => {
       </p>
       {overflows ? (
         <button type="button" className="link sm" style={{ justifySelf: 'start' }} onClick={() => setOpen((o) => !o)}>
-          {open ? 'Show less' : 'Read more'}
+          {open ? 'Less' : 'More'}
         </button>
       ) : null}
     </>
@@ -67,7 +67,7 @@ const MemoryCard = ({ today }: { today: string }) => {
                   <Shuffle size={14} /> Another
                 </ChipButton>
                 <ChipButton quiet onClick={() => nav(`/today/${e.date}`)}>
-                  Open that day <ChevronRight size={14} />
+                  Open <ChevronRight size={14} />
                 </ChipButton>
                 <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
                   <Star size={18} fill={e.fav ? 'currentColor' : 'none'} />
@@ -115,7 +115,7 @@ const QuoteCard = () => {
                       toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
                     }}
                   >
-                    Don’t show again
+                    Hide
                   </ChipButton>
                 ) : null}
                 <IconButton label={q.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${q.fav ? 'on' : ''}`} onClick={() => quotePrefs.mutate({ id: q.id, fav: !q.fav })}>
@@ -173,8 +173,8 @@ const EntriesList = ({ favOnly, today }: { favOnly: boolean; today: string }) =>
         ))
       )}
       {entries.length > limit ? (
-        <Button variant="ghost" block onClick={() => setLimit((l) => l + 40)}>
-          Show more ({entries.length - limit} older)
+        <Button variant="ghost" block onClick={() => setLimit((l) => l + 40)} aria-label={`Show ${entries.length - limit} older entries`}>
+          More
         </Button>
       ) : null}
     </div>
@@ -211,11 +211,10 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
             <textarea className="jtext serif" rows={2} maxLength={400} placeholder="e.g. You have to spend energy to make energy." aria-label="Quote" value={nt} onChange={(e) => setNt(e.target.value)} autoFocus />
             <input className="jtext" maxLength={80} placeholder="Who said it (optional)" aria-label="Author" value={na} onChange={(e) => setNa(e.target.value)} />
             <div className="composer-foot">
-              <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
+              <Button variant="ghost" onClick={() => setAdding(false)}>
                 Cancel
               </Button>
               <Button
-                size="sm"
                 variant="primary"
                 disabled={nt.trim().length < 3}
                 onClick={() => {
@@ -226,13 +225,13 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
                   toast('Added to your quotes and favorites');
                 }}
               >
-                Add quote
+                Add
               </Button>
             </div>
           </Group>
         ) : (
           <Button variant="ghost" style={{ justifySelf: 'start', marginLeft: -16 }} onClick={() => setAdding(true)}>
-            Add your own quote
+            Add
           </Button>
         )
       ) : null}
@@ -242,9 +241,11 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
         </Group>
       ) : (
         <>
-          <p className="t-cap muted jcount">
-            {total.toLocaleString()} {total === 1 ? 'quote' : 'quotes'}
-          </p>
+          {total ? (
+            <p className="t-cap muted jcount">
+              {total.toLocaleString()} {total === 1 ? 'quote' : 'quotes'}
+            </p>
+          ) : null}
           <Group>
             {!page.data?.quotes.length ? <EmptyState>{favOnly ? 'Star a quote to keep it here. Favorites come back every 14 days instead of 30.' : 'No quotes match.'}</EmptyState> : null}
             {page.data?.quotes.map((x) => (
@@ -270,8 +271,8 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
             ))}
           </Group>
           {total > limit ? (
-            <Button variant="ghost" block onClick={() => setLimit((l) => l + 30)}>
-              Show more
+            <Button variant="ghost" block onClick={() => setLimit((l) => l + 30)} aria-label="Show more quotes">
+              More
             </Button>
           ) : null}
         </>
