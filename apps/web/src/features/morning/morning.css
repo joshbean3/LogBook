@@ -80,12 +80,16 @@
   padding: 0 12px;
   min-width: 0;
 }
-/* the workout runs cool; getting ready runs warm as the door nears */
+/* every block is a sheet of surface-2 with a 3px left bar: ink-4 for routine, the session's tone for the run or lift */
 .tl-block {
-  --c: var(--t-rest);
-  background: color-mix(in srgb, var(--c) 14%, transparent);
+  --c: var(--ink-4);
+  background: var(--surface-2);
   box-shadow: inset 3px 0 0 var(--c);
   transition: opacity var(--dur);
+}
+.tl-block.k-run,
+.tl-block.k-gym {
+  --c: var(--tone, var(--ink-4));
 }
 .tl-block.tall {
   align-items: flex-start;
@@ -117,51 +121,24 @@
 .tl-block.tall .tl-range {
   line-height: 22px;
 }
-.k-wake {
-  --c: #7f9cc0;
-}
-.k-buffer {
-  --c: #8aa4c4;
-}
-.k-run {
-  --c: #2f8fd8;
-}
-.k-run.tn-long {
-  --c: #2563c9;
-}
-.k-run.tn-hard {
-  --c: #3f4fc4;
-}
-.k-run.tn-fast {
-  --c: #5a46c2;
-}
-.k-gym {
-  --c: #1f8fa6;
-}
-.k-shower {
-  --c: #e0aa12;
-}
-.k-ready {
-  --c: #ec8a1c;
-}
-.k-smoothie {
-  --c: #ea6a24;
-}
-.k-prep {
-  --c: #dc4b2b;
+/* captions sit on surface-2 here, so they take ink-2 */
+.tl-block .tl-range,
+.tl-block .muted {
+  color: var(--ink-2);
 }
 .tl-free {
   border: 1px dashed var(--line-strong);
   justify-content: space-between;
 }
+/* leaving is the hard edge of the morning: the same black pill grammar as a selected day */
 .tl-leave {
-  background: var(--bad);
-  color: #fff;
+  background: var(--ink);
+  color: var(--bg);
   justify-content: space-between;
 }
 .tl-leave .tl-range {
-  color: #fff;
-  opacity: 0.85;
+  color: var(--bg);
+  opacity: 0.7;
 }
 /* now: a 2px accent line with a dot in the axis column */
 .tl-now {
@@ -218,8 +195,7 @@
   align-items: center;
   gap: 6px;
 }
-.m-num,
-.m-time {
+.m-num {
   width: 72px;
   padding: 6px 8px;
   height: 36px;
@@ -228,28 +204,14 @@
   text-align: right;
   -moz-appearance: textfield;
 }
-.m-time {
-  width: auto;
-  text-align: left;
-}
 .m-num::-webkit-inner-spin-button,
 .m-num::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-.m-set-foot {
-  margin: 24px 0 8px;
-  text-align: center;
-}
-.m-steppers .stepper .in::-webkit-calendar-picker-indicator {
-  display: none;
-}
-.m-steppers .stepper .in::-webkit-date-and-time-value {
-  text-align: center;
+.m-set-reset {
+  margin-top: 24px;
 }
 .m-steppers .step {
   width: 36px;
-}
-.m-steppers .stepper .in[type='time'] {
-  font-size: 15px;
 }

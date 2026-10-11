@@ -107,11 +107,11 @@ export default function SettingsView() {
       <SectionHead title="Strava" />
       <Group>
         {!features?.strava ? (
-          <Row title="Not set up on this server" sub="Add STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET from strava.com/settings/api, then restart." />
+          <Row title="Strava isn’t set up yet" sub="Needs server keys" />
         ) : strava?.connected ? (
           <>
             <Row title="Strava" sub={strava.athleteName ? `Connected as ${strava.athleteName}` : 'Runs, lifts and workouts flow in and mark sessions done.'} right={<Chip kind="done">Connected</Chip>} />
-            {strava.error ? <Row title={<span className="s-err">Last sync failed</span>} sub={strava.error} /> : null}
+            {strava.error ? <Row title="Last sync failed" sub={strava.error} /> : null}
             <div className="lrow" style={{ justifyContent: 'flex-end', gap: 8, paddingBlock: 8 }}>
               <Button variant="ghost" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
                 Disconnect
@@ -126,16 +126,16 @@ export default function SettingsView() {
             <Row title="Strava" sub="Every run marks its session done, with heart rate and splits graded against the plan." right={<Chip>Not connected</Chip>} />
             <div className="lrow" style={{ justifyContent: 'flex-end', paddingBlock: 8 }}>
               <a className="btn primary" href="/api/strava/connect">
-                Connect Strava
+                Connect
               </a>
             </div>
           </>
         )}
       </Group>
 
-      <SectionHead title="Claude" />
+      <SectionHead title="Coach" />
       <Group>
-        {features?.claude ? <Row title="Claude" sub="Plan building and the coach’s read are on." right={<Chip kind="done">On</Chip>} /> : <Row title="Claude" sub="Add ANTHROPIC_API_KEY on the server to build plans from a PDF, text or a description, and to get a coach’s read on each run." right={<Chip>Off</Chip>} />}
+        <Row title="Plan builder and coach’s read" sub={features?.claude ? 'Builds plans from a PDF, text or a description, and reads each run.' : 'Not turned on for this server.'} right={features?.claude ? <Chip kind="done">On</Chip> : <Chip>Off</Chip>} />
       </Group>
 
       <SectionHead title="Install" />
@@ -176,7 +176,7 @@ export default function SettingsView() {
           sub="Habits, plan, logs, Strava history, morning settings, to-dos and favorites. Safe to run more than once."
           right={
             <Button size="sm" variant="soft" disabled={importBundle.isPending} onClick={() => fileRef.current?.click()}>
-              {importBundle.isPending ? 'Importing…' : 'Choose file'}
+              {importBundle.isPending ? 'Importing…' : 'Import'}
             </Button>
           }
         />
