@@ -16,8 +16,8 @@ const Frame = ({ title, sub, children }: { title: string; sub: string; children:
         <span className="auth-mark" aria-hidden="true" />
         <span>Logbook</span>
       </div>
-      <h1 className="auth-title">{title}</h1>
-      <p className="auth-sub">{sub}</p>
+      <h1 className="auth-title t-large">{title}</h1>
+      <p className="auth-sub t-sub">{sub}</p>
       {children}
     </motion.div>
   </div>
@@ -49,7 +49,7 @@ export const Login = () => {
   };
   return (
     <Frame title="Welcome back." sub="Sign in to open your log.">
-      <form className="stack" style={{ gap: 14 }} onSubmit={submit}>
+      <form className="stack" onSubmit={submit}>
         <Field label="Email">
           <input className="in" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </Field>
@@ -96,7 +96,7 @@ export const Setup = () => {
   };
   return (
     <Frame title="Make it yours." sub="This is a private log. Create the one account that opens it.">
-      <form className="stack" style={{ gap: 14 }} onSubmit={submit}>
+      <form className="stack" onSubmit={submit}>
         <Field label="Email">
           <input className="in" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
         </Field>

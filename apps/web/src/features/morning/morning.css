@@ -1,157 +1,329 @@
+/* ---------- header tools ---------- */
 .m-tabs {
-  max-width: 300px;
+  max-width: 240px;
 }
-.m-grid {
+
+/* ---------- 7-day strip: dow caption over a 44px cell ---------- */
+.dstrip {
   display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  justify-items: center;
 }
-@media (min-width: 960px) {
-  .m-grid {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-    align-items: start;
-  }
-}
-.m-mode {
-  flex: 1 1 220px;
-}
-.m-type {
-  width: auto;
-  flex: 0 1 180px;
-}
-.m-bigs {
+.dcell {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  justify-items: center;
+  gap: 4px;
+  width: 44px;
+  color: var(--ink);
+}
+.dcell-dow {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+.dcell-pill {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 2px solid transparent;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    transform 100ms var(--ease-out);
+}
+.dcell:active .dcell-pill {
+  transform: scale(0.94);
+}
+.dcell-num {
+  font-size: 17px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.dcell-dot {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tone, var(--ink-4));
+}
+.dcell-dot.none {
+  background: transparent;
+}
+.dcell.is-sel .dcell-pill {
+  border-color: var(--accent);
+}
+.dcell.is-today .dcell-pill {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.dcell.is-today .dcell-dot {
+  background: var(--accent-ink);
+  opacity: 0.8;
+}
+.dcell.is-today .dcell-dow {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- controls group ---------- */
+.m-lbl {
+  font-weight: 400;
+}
+.m-select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: var(--surface-2);
+  color: var(--ink);
+  border-radius: var(--r-md);
+  height: 32px;
+  padding: 0 28px 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 14px,
+    calc(100% - 10px) 14px;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  max-width: 180px;
+}
+.m-steppers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  padding: 12px 16px 16px;
+  background: var(--surface);
+}
+.m-steppers .field {
+  gap: 6px;
+}
+.m-steppers .stepper .in {
+  font-size: 17px;
+  padding: 0;
 }
 .m-plan {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: baseline;
-  font-size: 13.5px;
-  color: var(--ink-3);
+  min-height: 40px;
 }
 .m-plan b {
   color: var(--ink-2);
   font-weight: 600;
 }
-.m-shower-mode {
-  max-width: 420px;
+
+/* ---------- timeline: a 48px axis, blocks scaled to minutes ---------- */
+.tl {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+.tl-axis {
+  position: relative;
+}
+.tl-tick {
+  position: absolute;
+  right: 10px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.tl-blocks {
+  position: relative;
+}
+.tl-block,
+.tl-free,
+.tl-leave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  min-width: 0;
+}
+/* the workout runs cool; getting ready runs warm as the door nears */
+.tl-block {
+  --c: var(--t-rest);
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--c);
+  transition: opacity var(--dur);
+}
+.tl-block.tall {
+  align-items: flex-start;
+  padding-top: 12px;
+}
+.tl-block.past {
+  opacity: 0.6;
+}
+.tl-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.tl-label {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tl-range {
+  flex: none;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.tl-block.tall .tl-range {
+  line-height: 22px;
+}
+.k-wake {
+  --c: #7f9cc0;
+}
+.k-buffer {
+  --c: #8aa4c4;
+}
+.k-run {
+  --c: #2f8fd8;
+}
+.k-run.tn-long {
+  --c: #2563c9;
+}
+.k-run.tn-hard {
+  --c: #3f4fc4;
+}
+.k-run.tn-fast {
+  --c: #5a46c2;
+}
+.k-gym {
+  --c: #1f8fa6;
+}
+.k-shower {
+  --c: #e0aa12;
+}
+.k-ready {
+  --c: #ec8a1c;
+}
+.k-smoothie {
+  --c: #ea6a24;
+}
+.k-prep {
+  --c: #dc4b2b;
+}
+.tl-free {
+  border: 1px dashed var(--line-strong);
+  justify-content: space-between;
+}
+.tl-leave {
+  background: var(--bad);
+  color: #fff;
+  justify-content: space-between;
+}
+.tl-leave .tl-range {
+  color: #fff;
+  opacity: 0.85;
+}
+/* now: a 2px accent line with a dot in the axis column */
+.tl-now {
+  position: absolute;
+  left: 42px;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  z-index: 2;
+  pointer-events: none;
+}
+.tl-now i {
+  position: absolute;
+  left: -6px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---------- word and quote ---------- */
+.m-focus {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px 16px;
 }
 .m-word {
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 100;
-  font-weight: 600;
-  font-size: 40px;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 .m-quote {
-  margin: 0;
-  font-family: var(--display);
-  font-variation-settings: 'SOFT' 90;
-  font-weight: 400;
-  font-size: 19px;
-  line-height: 1.4;
   white-space: pre-line;
   overflow-wrap: anywhere;
-}
-.m-by {
   color: var(--ink-2);
-  font-weight: 600;
-  font-size: 14px;
+}
+.m-editor {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
 }
 
-/* timeline: the workout runs cool, getting ready runs warm as the door nears */
-.tl {
-  display: grid;
+/* ---------- settings tab ---------- */
+.m-set .lrow-title {
+  font-weight: 400;
 }
-.tl-row {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 10px;
+.m-set .lrow.two {
+  padding-block: 8px;
 }
-.tl-time {
-  font-size: 12.5px;
-  color: var(--ink-3);
-  padding-top: 8px;
+.m-set .lrow-sub {
+  white-space: normal;
+}
+.m-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.m-num,
+.m-time {
+  width: 72px;
+  padding: 6px 8px;
+  height: 36px;
+  font-size: 15px;
+  line-height: 20px;
   text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
 }
-.tl-block {
-  --c: var(--t-rest);
-  border-left: 4px solid var(--c);
-  background: color-mix(in srgb, var(--c) 11%, var(--surface));
-  border-radius: 0 10px 10px 0;
-  padding: 7px 11px;
-  margin-bottom: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 2px 10px;
-  min-width: 0;
+.m-time {
+  width: auto;
+  text-align: left;
 }
-.tl-label {
-  font-weight: 600;
-  font-size: 14.5px;
+.m-num::-webkit-inner-spin-button,
+.m-num::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
-.tl-dur {
-  font-size: 12.5px;
-  color: var(--ink-3);
+.m-set-foot {
+  margin: 24px 0 8px;
+  text-align: center;
 }
-.k-wake .tl-block {
-  --c: #7f9cc0;
+.m-steppers .stepper .in::-webkit-calendar-picker-indicator {
+  display: none;
 }
-.k-buffer .tl-block {
-  --c: #8aa4c4;
+.m-steppers .stepper .in::-webkit-date-and-time-value {
+  text-align: center;
 }
-.k-run .tl-block {
-  --c: #2f8fd8;
+.m-steppers .step {
+  width: 36px;
 }
-.tn-long .tl-block {
-  --c: #2563c9;
-}
-.tn-hard .tl-block {
-  --c: #3f4fc4;
-}
-.tn-fast .tl-block {
-  --c: #5a46c2;
-}
-.k-gym .tl-block {
-  --c: #1f8fa6;
-}
-.k-shower .tl-block {
-  --c: #e0aa12;
-}
-.k-ready .tl-block {
-  --c: #ec8a1c;
-}
-.k-smoothie .tl-block {
-  --c: #ea6a24;
-}
-.k-prep .tl-block {
-  --c: #dc4b2b;
-}
-.k-free .tl-block {
-  --c: var(--t-rest);
-  background: none;
-  border-left-style: dashed;
-}
-.k-free .tl-label {
-  font-weight: 500;
-  color: var(--ink-3);
-}
-.k-leave .tl-block {
-  background: #c8312a;
-  color: #fff;
-  border-left-color: #c8312a;
-  border-radius: 10px;
-}
-.k-leave .tl-time {
-  color: var(--ink);
-  font-weight: 600;
+.m-steppers .stepper .in[type='time'] {
+  font-size: 15px;
 }
