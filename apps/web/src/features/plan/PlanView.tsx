@@ -1,83 +1,52 @@
 import { addMonths, counts, dayStatus, daysBetween, fmtDate, label, mi, mondayOf, monthOf, monthStart, monthsBetween, num, parseISO, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, type Session } from '@logbook/shared';
-import { Plus } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { itemVariants, listVariants } from '@/lib/motion';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
-import { Button, Card, CardHead, DateNav, Empty, IconButton, Kpi, Note, PageHeader, Ring, Segmented } from '@/ui/primitives';
-import { useSheet } from '@/ui/Sheet';
+import { Button, DateNav, EmptyState, Group, Loading, Note, PageHeader, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useLog, type Log } from '../log/useLog';
-import { SessionCard } from '../sessions/SessionCard';
-import { SessionEditor } from '../sessions/SessionEditor';
+import { AddSessionButton, SessionRow, UnplannedRow } from '../sessions/SessionCard';
 import { StravaLine } from '../settings/StravaLine';
 import { PlanBuilder, PlansList, Upcoming } from './PlanBuilder';
 import './plan.css';
 
-const glyph: Record<string, string> = { done: '✓', floor: '½', missed: '✕', skipped: '–' };
+const DOW1 = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-/** A session, tapped in the week or month: the full card in a sheet. */
-export const useQuickOpen = (log: Log) => {
-  const sheet = useSheet();
-  const nav = useNavigate();
-  return (d: string, s: Session) =>
-    sheet.open({
-      title: fmtDate('long', d),
-      body: (
-        <div className="stack" style={{ gap: 12 }}>
-          <SessionCard date={d} s={s} log={log} />
-          <Button
-            variant="ghost"
-            block
-            onClick={() => {
-              sheet.close();
-              nav(d === log.today ? '/today' : `/today/${d}`);
-            }}
-          >
-            Open {fmtDate('short', d)}
-          </Button>
-        </div>
-      ),
-      wide: true,
-    });
-};
-
-const chipLabel = (log: Log, d: string, s: Session) => {
-  if (s.kind !== 'run') return label(s);
-  const runs = log.snap.runsOn(d);
-  return runs.length ? `${label(s)} → ${mi(runs.reduce((t, a) => t + a.miles, 0))}` : label(s);
-};
-
-const SessionChip = ({ d, s, log, onOpen }: { d: string; s: Session; log: Log; onOpen: (d: string, s: Session) => void }) => {
-  const st = sessionStatus(log.snap, d, s);
+/** One 6px dot per non-rest session, in its tone; filled once it counts, a ring until then. */
+export const Dots = ({ d, log, max = 6 }: { d: string; log: Log; max?: number }) => {
+  const list = log.snap.sessionsOn(d).filter((s) => s.kind !== 'rest');
+  const bonus = !list.length && log.snap.runsOn(d).length > 0;
   return (
-    <button
-      type="button"
-      className={`s-chip t-${tone(s)} st-${st}`}
-      title={`${label(s)}${s.details ? ` — ${s.details}` : ''} · ${STATUS_WORD[st] ?? ''}`}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen(d, s);
-      }}
-    >
-      {glyph[st] ? <span className="s-glyph">{glyph[st]}</span> : null}
-      <span className="s-text">{chipLabel(log, d, s)}</span>
-    </button>
+    <span className="sdots" aria-hidden="true">
+      {bonus ? <i className="sdot on t-easy" /> : null}
+      {list.slice(0, max).map((s) => {
+        const st = sessionStatus(log.snap, d, s);
+        return <i key={s.id} className={`sdot t-${tone(s)} ${counts(st) ? 'on' : ''} ${st === 'skipped' ? 'skip' : ''}`} />;
+      })}
+    </span>
   );
+};
+
+const describe = (log: Log, d: string): string => {
+  const list = log.snap.sessionsOn(d).filter((s) => s.kind !== 'rest');
+  const st = dayStatus(log.snap, d);
+  return `${fmtDate('long', d)}${list.length ? `: ${list.map(label).join(', ')}` : ''}${STATUS_WORD[st] ? `, ${STATUS_WORD[st]}` : ''}`;
 };
 
 // ---------- week ----------
 const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
   const nav = useNavigate();
-  const sheet = useSheet();
-  const open = useQuickOpen(log);
   const t = log.today;
   const mon = mondayOf(anchor);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => shiftDays(mon, i)), [mon]);
+  const fallback = mon === mondayOf(t) ? t : anchor;
+  const [pick, setPick] = useState<{ mon: string; d: string } | null>(null);
+  const sel = pick && pick.mon === mon ? pick.d : fallback;
+
   const tot = weekTotals(log.snap, mon);
   let hab = 0;
   let habOf = 0;
-  for (let i = 0; i < 7; i++) {
-    const d = shiftDays(mon, i);
+  for (const d of days) {
     if (d > t) break;
     for (const h of log.habits) {
       if (d < h.createdOn) continue;
@@ -86,72 +55,78 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
     }
   }
   const pct = tot.planned > 0 ? Math.min(1, tot.ran / tot.planned) : 0;
+
+  const loaded = log.loaded(sel);
+  const st = dayStatus(log.snap, sel);
+  const sessions = log.snap.sessionsOn(sel);
+  const acts = log.snap.activitiesOn(sel);
+  const hasRun = sessions.some((s) => s.kind === 'run');
+  const hasOther = sessions.some((s) => s.kind === 'lift' || s.kind === 'cross');
+  const unplannedRuns = hasRun ? [] : acts.filter((a) => a.kind === 'run');
+  const unmatched = hasOther ? [] : acts.filter((a) => a.kind !== 'run');
+  const showList = (s: Session) => s.kind !== 'rest' || sessions.length === 1;
+  const listed = sessions.filter(showList);
+  const word = STATUS_WORD[st] || (sel > t ? 'Nothing planned' : 'Nothing planned');
+
   return (
     <>
-      <div className="kpis">
-        <Kpi label="Miles run vs planned" value={<AnimatedNumber value={tot.ran} format={mi} />} unit={`of ${num(tot.planned)}`} wide>
+      <StatStrip className="wk-strip">
+        <Stat label="Miles" value={<AnimatedNumber value={tot.ran} format={mi} />} unit={tot.planned ? `of ${num(tot.planned)}` : 'run'}>
           <span className="meter">
             <motion.i initial={false} animate={{ width: `${pct * 100}%` }} transition={{ type: 'spring', stiffness: 90, damping: 20 }} />
           </span>
-        </Kpi>
-        <Kpi label="Sessions hit" value={`${tot.hit} / ${tot.sessions}`} />
-        <Kpi label="Habits" value={habOf ? `${Math.round((hab / habOf) * 100)}%` : '—'} />
-      </div>
-      <motion.div className="week-grid" variants={listVariants} initial="hidden" animate="show" key={mon}>
-        {Array.from({ length: 7 }, (_, i) => shiftDays(mon, i)).map((d) => {
-          const st = dayStatus(log.snap, d);
-          const ran = log.snap.runsOn(d).reduce((s, a) => s + a.miles, 0);
-          const other = log.snap.activitiesOn(d).filter((a) => a.kind !== 'run');
-          const hs = log.habits.filter((h) => d >= h.createdOn);
-          const hd = hs.filter((h) => log.snap.isHabitDone(d, h.id)).length;
-          const sessions = log.snap.sessionsOn(d);
-          const empty = !sessions.length && !ran && !other.length && !hs.length;
+        </Stat>
+        <Stat label="Sessions hit" value={tot.sessions ? <AnimatedNumber value={tot.hit} /> : '—'} unit={tot.sessions ? `of ${tot.sessions}` : undefined} />
+        <Stat label="Habits" value={habOf ? <AnimatedNumber value={Math.round((hab / habOf) * 100)} format={(v) => `${Math.round(v)}%`} /> : '—'} />
+      </StatStrip>
+      <StravaLine strava={log.strava} />
+
+      <div className="dstrip" role="group" aria-label="Days of the week">
+        {days.map((d, i) => {
+          const ds = dayStatus(log.snap, d);
           return (
-            <motion.div
-              key={d}
-              variants={itemVariants}
-              className={`week-day ds-${st} ${d === t ? 'is-today' : ''} ${d < t ? 'is-past' : ''} ${empty ? 'is-empty' : ''}`}
-              role="button"
-              tabIndex={0}
-              aria-label={fmtDate('long', d)}
-              onClick={() => nav(d === t ? '/today' : `/today/${d}`)}
-              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), nav(`/today/${d}`))}
-            >
-              <div className="wd-head">
-                <span className="wd-dow">{fmtDate('dow', d)}</span>
-                <span className="wd-num num">{parseISO(d).getDate()}</span>
-                <span className="wd-status">{STATUS_WORD[st] ?? ''}</span>
-              </div>
-              <div className="wd-sessions">
-                {sessions.map((s) => (
-                  <SessionChip key={s.id} d={d} s={s} log={log} onOpen={open} />
-                ))}
-              </div>
-              <div className="wd-foot">
-                {ran > 0 ? <span className="ran">Ran {mi(ran)}</span> : null}
-                {other.length ? <span className="ran">{other.map((a) => a.sportType || 'Workout').join(', ')}</span> : null}
-                {hs.length ? (
-                  <Ring value={hd / hs.length} size={20} stroke={3} label={`${hd} of ${hs.length} habits`}>
-                    {''}
-                  </Ring>
-                ) : null}
-                {hs.length ? <span className="muted" style={{ fontSize: 12 }}>{`${hd}/${hs.length}`}</span> : null}
-                <IconButton
-                  label={`Add session on ${fmtDate('short', d)}`}
-                  size="sm"
-                  className="add-s faint"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    sheet.open({ title: 'Add session', body: <SessionEditor date={d} session={null} /> });
-                  }}
-                >
-                  <Plus size={15} />
-                </IconButton>
-              </div>
-            </motion.div>
+            <button key={d} type="button" className={`dcell ds-${ds} ${d === sel ? 'is-sel' : ''} ${d === t ? 'is-today' : ''}`} aria-pressed={d === sel} aria-label={describe(log, d)} onClick={() => setPick({ mon, d })}>
+              <span className="dcell-dow">{DOW1[i]}</span>
+              <span className="dcell-num">{parseISO(d).getDate()}</span>
+              <Dots d={d} log={log} />
+            </button>
           );
         })}
-      </motion.div>
+      </div>
+
+      <SectionHead
+        title={`${fmtDate('dow', sel)} ${parseISO(sel).getDate()} · ${word}`}
+        meta={sel === t ? 'Today' : undefined}
+        action={
+          <>
+            <button type="button" className="link" onClick={() => nav(sel === t ? '/today' : `/today/${sel}`)}>
+              Open day
+            </button>
+            <AddSessionButton date={sel}>Add</AddSessionButton>
+          </>
+        }
+      />
+      <Group>
+        {!loaded ? <Loading text={`Loading ${fmtDate('month', sel)}…`} /> : null}
+        {loaded && (listed.length || unplannedRuns.length) ? (
+          <ul>
+            {listed.map((s) => (
+              <SessionRow key={s.id} date={sel} s={s} log={log} />
+            ))}
+            {unplannedRuns.length ? <UnplannedRow date={sel} runs={unplannedRuns} log={log} /> : null}
+          </ul>
+        ) : loaded ? (
+          <EmptyState action={<AddSessionButton date={sel} variant="soft" />}>{sel < t ? 'Nothing was planned this day.' : 'Nothing planned. Add a session, or build a plan.'}</EmptyState>
+        ) : null}
+        {unmatched.map((a) => (
+          <div key={a.id} className="lrow">
+            <div className="lrow-main">
+              <div className="lrow-title">{a.name}</div>
+              <div className="lrow-sub">From Strava · {Math.round(a.movingSec / 60)} min</div>
+            </div>
+          </div>
+        ))}
+      </Group>
     </>
   );
 };
@@ -185,66 +160,48 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
   }
   return (
     <>
-      <div className="kpis">
-        <Kpi label="Miles run" value={<AnimatedNumber value={ran} format={mi} />} />
-        <Kpi label="Miles planned" value={num(planned)} />
-        <Kpi label="Sessions hit so far" value={of ? `${hit} / ${of}` : '—'} />
-      </div>
-      <div className="month-grid">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((x) => (
-          <div key={x} className="mg-dow">
+      <StatStrip>
+        <Stat label="Miles run" value={<AnimatedNumber value={ran} format={mi} />} />
+        <Stat label="Planned" value={num(planned)} unit="mi" />
+        <Stat label="Sessions hit" value={of ? <AnimatedNumber value={hit} /> : '—'} unit={of ? `of ${of}` : undefined} />
+      </StatStrip>
+      <StravaLine strava={log.strava} />
+      <div className="mgrid" role="grid" aria-label={fmtDate('month', first)}>
+        {DOW1.map((x, i) => (
+          <span key={i} className="mdow" aria-hidden="true">
             {x}
-          </div>
+          </span>
         ))}
         {days.map((d) => {
           const inMonth = d >= first && d < next;
-          const st = dayStatus(log.snap, d);
-          const sessions = log.snap.sessionsOn(d).filter((s) => s.kind !== 'rest');
-          const r = log.snap.runsOn(d).reduce((x, a) => x + a.miles, 0);
+          const ds = dayStatus(log.snap, d);
           return (
-            <button
-              key={d}
-              type="button"
-              className={`mg-day ds-${st} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''}`}
-              aria-label={`${fmtDate('long', d)}${sessions.length ? `: ${sessions.map(label).join(', ')}` : ''}${STATUS_WORD[st] ? `, ${STATUS_WORD[st]}` : ''}`}
-              onClick={() => nav(d === t ? '/today' : `/today/${d}`)}
-            >
-              <span className="mg-num num">{parseISO(d).getDate()}</span>
-              <span className="mg-items">
-                {sessions.slice(0, 3).map((s) => (
-                  <span key={s.id} className={`mg-s t-${tone(s)} st-${sessionStatus(log.snap, d, s)}`}>
-                    {chipLabel(log, d, s)}
-                  </span>
-                ))}
-              </span>
-              {r > 0 ? <span className="mg-ran">{mi(r)} mi</span> : null}
+            <button key={d} type="button" className={`mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''}`} aria-label={describe(log, d)} onClick={() => nav(d === t ? '/today' : `/today/${d}`)}>
+              <span className="mcell-num">{parseISO(d).getDate()}</span>
+              <Dots d={d} log={log} max={3} />
             </button>
           );
         })}
       </div>
-      <div className="legend">
+      <div className="legend plan-legend">
         {(
           [
             ['easy', 'Easy'],
             ['long', 'Long'],
-            ['hard', 'Threshold / tempo'],
+            ['hard', 'Threshold'],
             ['fast', 'Speed'],
             ['lift', 'Lift'],
             ['cross', 'Cross'],
           ] as const
         ).map(([k, n]) => (
           <span key={k} className="lg">
-            <i className={`t-${k}`} />
+            <i className={`sdot on t-${k}`} />
             {n}
           </span>
         ))}
         <span className="lg">
-          <i style={{ background: 'color-mix(in srgb, var(--ok) 70%, var(--surface))' }} />
-          Done
-        </span>
-        <span className="lg">
-          <i style={{ background: 'color-mix(in srgb, var(--bad) 45%, var(--surface))' }} />
-          Missed
+          <i className="sdot t-rest" style={{ borderColor: 'var(--ink-3)' }} />
+          Planned
         </span>
       </div>
     </>
@@ -272,51 +229,46 @@ export default function PlanView() {
   const go = (v: View, d?: string) => nav(`/plan/${v}${d && d !== t ? `/${d}` : ''}`);
   const mon = mondayOf(anchor);
   const first = monthStart(anchor);
-  const title = view === 'week' ? (mon === mondayOf(t) ? 'This week' : `Week of ${fmtDate('md', mon)}`) : view === 'month' ? fmtDate('month', first) : 'Plan';
-  const sub = view === 'week' ? `${fmtDate('md', mon)} – ${fmtDate('md', shiftDays(mon, 6))}` : view === 'month' ? undefined : 'Import a plan, describe one, or change the one you have.';
+  const title = view === 'week' ? (mon === mondayOf(t) ? 'This week' : `Week of ${fmtDate('md', mon)}`) : view === 'month' ? fmtDate('month', first) : 'Plans';
+  const sub = view === 'week' ? `${fmtDate('md', mon)} – ${fmtDate('md', shiftDays(mon, 6))}` : view === 'month' ? `${fmtDate('md', first)} – ${fmtDate('md', shiftDays(addMonths(first, 1), -1))}` : 'Import a plan, describe one, or change the one you have.';
+  const offNow = (view === 'week' && mon !== mondayOf(t)) || (view === 'month' && monthOf(first) !== monthOf(t));
   return (
     <div className="page">
       <PageHeader
-        eyebrow="Calendar"
         title={title}
         sub={sub}
         actions={
           view !== 'plans' ? (
             <>
+              {offNow ? (
+                <Button size="sm" variant="ghost" onClick={() => go(view)}>
+                  {view === 'week' ? 'This week' : 'This month'}
+                </Button>
+              ) : null}
               <DateNav
                 onPrev={() => go(view, view === 'week' ? shiftDays(mon, -7) : addMonths(first, -1))}
                 onNext={() => go(view, view === 'week' ? shiftDays(mon, 7) : addMonths(first, 1))}
                 prevLabel={view === 'week' ? 'Previous week' : 'Previous month'}
                 nextLabel={view === 'week' ? 'Next week' : 'Next month'}
               />
-              {(view === 'week' && mon !== mondayOf(t)) || (view === 'month' && monthOf(first) !== monthOf(t)) ? (
-                <Button size="sm" variant="ghost" onClick={() => go(view)}>
-                  {view === 'week' ? 'This week' : 'This month'}
-                </Button>
-              ) : null}
             </>
           ) : null
         }
       >
         <Segmented className="plan-tabs" label="Calendar view" options={[['week', 'Week'], ['month', 'Month'], ['plans', 'Plans']]} value={view} onChange={(v) => go(v, anchor)} />
-        <StravaLine strava={log.strava} />
       </PageHeader>
       {view === 'week' ? <Week anchor={anchor} log={log} /> : view === 'month' ? <Month anchor={anchor} log={log} /> : (
         <>
           <PlanBuilder log={log} />
           <PlansList log={log} />
-          <Card>
-            <CardHead title="Next two weeks">
-              <Button variant="ghost" size="sm" onClick={() => nav('/today')}>
-                Open today
-              </Button>
-            </CardHead>
-            <Upcoming log={log} />
-          </Card>
+          <Upcoming log={log} />
         </>
       )}
-      {log.strava?.error && view !== 'plans' ? <Note kind="warn">{log.strava.error}</Note> : null}
-      {!log.ready && view !== 'plans' ? <Empty>Loading…</Empty> : null}
+      {log.strava?.error && view !== 'plans' ? (
+        <div className="section">
+          <Note kind="warn">{log.strava.error}</Note>
+        </div>
+      ) : null}
     </div>
   );
 }
