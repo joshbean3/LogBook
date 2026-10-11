@@ -1,4 +1,4 @@
-import { clock, decodePolyline, fmtDate, mi, routePath, type ISODate } from '@logbook/shared';
+import { clock, decodePolyline, fmtDate, mi, mondayOf, routePath, shiftDays, today, type ISODate } from '@logbook/shared';
 
 /** A 1080×1920 story card drawn on black: the Aura idea, in Logbook's hand. */
 export type Template = 'stamp' | 'route' | 'marker' | 'bubble' | 'week';
@@ -14,10 +14,10 @@ export interface ShareDay {
 export interface ShareData {
   /** The run's name ("Morning Run"), or the plan's label when there is no single activity. */
   name: string;
-  /** The plan's label ("Easy 6"), for the caption. */
-  label: string;
+  /** The plan's label ("Easy 6"), for the caption; null when the run was unplanned. */
+  label: string | null;
   date: ISODate;
-  /** `HH:MM` start, when Strava knows it. */
+  /** `HH:MM` start, when the run carries one. */
   time: string | null;
   miles: number;
   movingSec: number;
@@ -39,7 +39,6 @@ const WHITE = '#ffffff';
 const INK2 = 'rgba(255,255,255,0.72)';
 const INK3 = 'rgba(255,255,255,0.5)';
 const BLUE = '#2f3bff';
-const MARKER = '#f6e64b';
 const SERIF = '"Instrument Serif", "Iowan Old Style", Georgia, serif';
 const STAMP = '"Inter Tight", "Inter", -apple-system, sans-serif';
 const SANS = '"Inter", -apple-system, sans-serif';
@@ -63,11 +62,23 @@ const paceColon = (movingSec: number, miles: number): string => (miles > 0.1 && 
 const mi2 = (v: number) => (Math.round(v * 100) / 100).toFixed(2);
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-/** "pov: easy six before work": the plan's label, and the time of day when Strava knows it. */
+const WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+/** 6.04 → "six miles", 6.5 → "six and a half miles", 13.1 → "13.1 miles", 0.8 → "a short run". */
+export const milesInWords = (miles: number): string => {
+  const v = Math.round(miles * 10) / 10;
+  if (v < 0.95) return 'a short run';
+  const whole = Math.round(v);
+  if (Math.abs(v - whole) <= 0.15 && whole <= 12) return `${WORDS[whole]} ${whole === 1 ? 'mile' : 'miles'}`;
+  const half = Math.floor(v);
+  if (Math.abs(v - half - 0.5) <= 0.15 && half <= 12) return `${WORDS[half]} and a half miles`;
+  return `${mi(v)} miles`;
+};
+/** "pov: easy 6 before work": the plan's label, or the distance in words when the run was unplanned, and the time of day when the run carries a start. */
 export const defaultCaption = (d: ShareData): string => {
   const h = d.time ? Number(d.time.slice(0, 2)) : NaN;
   const when = Number.isNaN(h) ? '' : h < 10 ? ' before work' : h < 14 ? ' at lunch' : h >= 17 ? ' after work' : '';
-  return `pov: ${d.label.toLowerCase()}${when}`;
+  const what = d.label ? d.label.toLowerCase() : milesInWords(d.miles);
+  return `pov: ${what}${when}`;
 };
 
 // ---------- text with tracking ----------
@@ -171,15 +182,24 @@ const wordmark = (ctx: CanvasRenderingContext2D) => {
   ctx.restore();
   text(ctx, label, W - M, y, { ...st, align: 'right' });
 };
-/** Date in caps and the name in the italic serif: the top-left of every single-run card. */
-const heading = (ctx: CanvasRenderingContext2D, d: ShareData, nameSize = 72) => {
-  caps(ctx, fmtDate('long', d.date), M, 300);
-  // a long name steps down a size before it would run off the card
-  const fits = (size: number) => measure(ctx, d.name, { font: `italic 400 ${size}px ${SERIF}`, color: WHITE }) <= W - M * 2;
-  const size = fits(nameSize) ? nameSize : fits(56) ? 56 : 44;
-  const font = `italic 400 ${size}px ${SERIF}`;
-  const line = fits(44) ? d.name : (wrap(ctx, d.name, font, W - M * 2)[0] ?? '');
-  text(ctx, line, M, 300 + nameSize * 1.15, { font, color: WHITE });
+/** Date in caps and the name in the italic serif at 112, up to two lines: the top-left of every single-run card. */
+const HEAD_DATE_Y = 300;
+const HEAD_NAME = 112;
+const HEAD_LINE = 120;
+const heading = (ctx: CanvasRenderingContext2D, d: ShareData) => {
+  caps(ctx, fmtDate('long', d.date), M, HEAD_DATE_Y, 32);
+  const font = `italic 400 ${HEAD_NAME}px ${SERIF}`;
+  const max = W - M * 2;
+  const all = wrap(ctx, d.name, font, max);
+  const lines = all.slice(0, 2);
+  // a name that would need a third line ends the second with an ellipsis
+  if (all.length > 2) {
+    ctx.font = font;
+    let l = lines[1]!;
+    while (l.length > 1 && ctx.measureText(`${l}…`).width > max) l = l.slice(0, -1).trimEnd();
+    lines[1] = `${l}…`;
+  }
+  lines.forEach((l, i) => text(ctx, l, M, HEAD_DATE_Y + HEAD_NAME * 1.1 + i * HEAD_LINE, { font, color: WHITE }));
 };
 
 // ---------- 1. STAMP: three numerals stacked, labels above ----------
@@ -193,7 +213,7 @@ const drawStamp = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
     ['Time', clock(d.movingSec * e), null],
   ];
   rows.forEach(([k, v, u], i) => {
-    const y = 580 + i * 350;
+    const y = 660 + i * 340;
     caps(ctx, k, M, y);
     stamp(ctx, v, u, M, y + 232, 232);
   });
@@ -237,7 +257,7 @@ const drawRouteLine = (ctx: CanvasRenderingContext2D, pts: Array<[number, number
 const drawRoute = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   ground(ctx);
   heading(ctx, d);
-  if (d.polyline) drawRouteLine(ctx, routePoints(d.polyline, 840, 800), 120, 450, p);
+  if (d.polyline) drawRouteLine(ctx, routePoints(d.polyline, 840, 660), 120, 600, p);
   const cells: Array<[string, string, string | null]> = [
     ['Distance', mi2(d.miles), 'mi'],
     ['Pace', paceStamp(d.movingSec, d.miles), null],
@@ -253,11 +273,11 @@ const drawRoute = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   wordmark(ctx);
 };
 
-// ---------- 3. MARKER: the sentence, highlighted ----------
+// ---------- 3. MARKER: the sentence, highlighted in white; black type on white bars, the one card that inverts ----------
 const drawMarker = (ctx: CanvasRenderingContext2D, d: ShareData) => {
   ground(ctx, 0.7);
   heading(ctx, d);
-  const lines = [`${mi2(d.miles)} miles,`, `${paceColon(d.movingSec, d.miles)}/mi,`, `${clock(d.movingSec)}.`];
+  const lines = [`${mi2(d.miles)} miles,`, `${paceColon(d.movingSec, d.miles)}/mi,`, clock(d.movingSec)];
   const size = 128;
   const font = `700 ${size}px ${SANS}`;
   const barH = 168;
@@ -266,7 +286,7 @@ const drawMarker = (ctx: CanvasRenderingContext2D, d: ShareData) => {
   let y = 1000 - total / 2;
   for (const line of lines) {
     const w = measure(ctx, line, { font, color: '#000', tracking: -size * 0.02 });
-    ctx.fillStyle = MARKER;
+    ctx.fillStyle = WHITE;
     ctx.fillRect(M - 8, y, w + 72, barH);
     text(ctx, line, M + 28, y + barH - 44, { font, color: '#000', tracking: -size * 0.02 });
     y += barH + gap;
@@ -319,13 +339,20 @@ const drawBubble = (ctx: CanvasRenderingContext2D, d: ShareData, caption: string
 };
 
 // ---------- 5. WEEK: seven small stamps and the total ----------
+/** "This week" only for the week we are in; any other week is its dates, "Sep 7 – 13" or "Sep 28 – Oct 4". */
+export const weekTitle = (monday: ISODate, now: ISODate = today()): string => {
+  if (monday === mondayOf(now)) return 'This week';
+  const sunday = shiftDays(monday, 6);
+  const sameMonth = monday.slice(0, 7) === sunday.slice(0, 7);
+  return `${fmtDate('md', monday)} – ${sameMonth ? Number(sunday.slice(8, 10)) : fmtDate('md', sunday)}`;
+};
 const drawWeek = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   ground(ctx);
   const wk = d.week;
   const e = easeOut(p);
-  const monday = wk?.monday ?? d.date;
-  caps(ctx, `Week of ${fmtDate('md', monday)}`, M, 300);
-  text(ctx, 'This week', M, 300 + 72 * 1.15, { font: `italic 400 72px ${SERIF}`, color: WHITE });
+  const monday = wk?.monday ?? mondayOf(d.date);
+  caps(ctx, 'Week', M, HEAD_DATE_Y, 32);
+  text(ctx, weekTitle(monday), M, HEAD_DATE_Y + HEAD_NAME * 1.1, { font: `italic 400 ${HEAD_NAME}px ${SERIF}`, color: WHITE });
   const total = wk?.total ?? d.miles;
   caps(ctx, 'Miles', M, 600);
   const w = stamp(ctx, mi(total * e), 'mi', M, 832, 232);

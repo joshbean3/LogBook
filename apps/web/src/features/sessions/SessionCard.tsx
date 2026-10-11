@@ -43,6 +43,17 @@ interface AuraSpec {
   stats: AuraStat[];
 }
 
+/** When the hero on the page already shows the big picture, the sheet opens with just the eyebrow, the status and the name. */
+const SheetHead = ({ a }: { a: AuraSpec }) => (
+  <div className={`sh-head t-${a.tone}`}>
+    <div className="sh-top">
+      <span className="caps">{a.eyebrow}</span>
+      <Chip kind={a.status === 'bonus' ? 'done' : a.status}>{STATUS_WORD[a.status] ?? a.status}</Chip>
+    </div>
+    <h3 className={`sh-title compact ${a.display ? 'display' : 'stamp'}`}>{a.title}</h3>
+  </div>
+);
+
 const SheetAura = ({ a }: { a: AuraSpec }) => (
   <div className={`sh-aura t-${a.tone} ${a.path ? 'has-route' : ''}`}>
     <span className="sh-glow" aria-hidden="true" />
@@ -141,7 +152,7 @@ export const shareDataFor = (date: string, sess: Session | null, runs: Activity[
   });
   return {
     name: runs.length === 1 ? runs[0]!.name : sess ? label(sess) : 'Run',
-    label: sess ? label(sess) : (runs[0]?.name ?? 'Run'),
+    label: sess ? label(sess) : null,
     date,
     time: runs[0]?.time ?? null,
     miles: a.miles,
@@ -156,13 +167,13 @@ export const shareDataFor = (date: string, sess: Session | null, runs: Activity[
 const ShareButton = ({ data }: { data: ShareData }) => {
   const sheet = useSheet();
   return (
-    <Button variant="primary" onClick={() => sheet.open({ title: <span className="display sh-sheet-title">Share</span>, body: <ShareSheet data={data} /> })}>
+    <Button variant="primary" onClick={() => sheet.open({ title: 'Share', body: <ShareSheet data={data} /> })}>
       Share
     </Button>
   );
 };
 
-/** What Strava says happened, graded against the plan: splits, the read, the coach. */
+/** What happened, graded against the plan: splits, the read, the coach. */
 export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: Session | null; runs: Activity[]; log: Log }) => {
   const a = assess(log.zones, sess, runs);
   const laps = runs.flatMap((r) => r.laps ?? []).filter((l) => l[0] > 160);
@@ -190,14 +201,14 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
   return (
     <div className="actual">
       <p className="fine">{line}</p>
-      {a.avgHr == null && runs.some((r) => !r.perfAt) ? <p className="fine">Heart rate and splits are on their way from Strava.</p> : null}
+      {a.avgHr == null && runs.some((r) => !r.perfAt) ? <p className="fine">Heart rate and splits are on their way.</p> : null}
       {laps.length > 1 ? (
         <div className="splits" aria-label="Mile splits">
           {laps.map((l, i) => {
             const part = l[0] < 0.9 * METERS_PER_MILE;
             const z = l[2] != null ? zoneOf(log.zones, l[2]) : null;
             const p = l[1] / (l[0] / METERS_PER_MILE);
-            // the fastest mile gets the longest bar (as Strava draws them)
+            // the fastest mile gets the longest bar
             const w = slowest === fastest ? 1 : 0.35 + 0.65 * (1 - (p - fastest) / (slowest - fastest));
             return (
               <div key={i} className={`split ${z ? `sz${z}` : ''} ${part ? 'part' : ''}`}>
@@ -267,10 +278,10 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
   const canLog = s.kind === 'lift' || (s.kind === 'cross' && /hyrox/i.test(s.type ?? ''));
   const aura = runs.length ? auraForRuns(s, runs, log, st) : auraForPlan(date, s, log, st, s.kind === 'lift' ? sets.length : 0);
   return (
-    <div className="stack" style={{ gap: 16 }}>
-      <SheetAura a={aura} />
+    <div className="sh-body">
+      {fromHero ? <SheetHead a={aura} /> : <SheetAura a={aura} />}
       {sessionMeta(s, st) ? <p className="t-sub ink2">{sessionMeta(s, st)}</p> : null}
-      {s.kind !== 'rest' && floorFor(s) && (runs.length || !aura.verdict.startsWith('Floor')) ? (
+      {s.kind !== 'rest' && floorFor(s) && (fromHero || runs.length || !aura.verdict.startsWith('Floor')) ? (
         <p className="t-sub ink2">
           <span className="muted">Floor:</span> {floorFor(s)}
         </p>
@@ -284,7 +295,7 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
       {s.kind !== 'run'
         ? others.map((a) => (
             <p key={a.id} className="t-sub ink2">
-              Strava: {a.name} · {Math.round(a.movingSec / 60)} min
+              {a.name} · {Math.round(a.movingSec / 60)} min
             </p>
           ))
         : null}
@@ -296,7 +307,7 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
           {liftOpen ? <LiftLog date={date} /> : null}
         </>
       ) : null}
-      <div className="row wrap" style={{ gap: 8 }}>
+      <div className="row wrap sh-marks">
         {s.kind !== 'rest' && !auto ? (
           st === 'done' ? (
             <ChipButton onClick={() => setMark(null)}>Undo</ChipButton>
@@ -325,8 +336,12 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
           Delete
         </Button>
         <div className="foot-right">
-          <Button onClick={() => sheet.open({ title: `Move ${label(s)}`, body: <MoveSheet date={date} session={s} /> })}>Move</Button>
-          <Button onClick={() => sheet.open({ title: 'Edit session', body: <SessionEditor date={date} session={s} /> })}>Edit</Button>
+          <Button variant="quiet" onClick={() => sheet.open({ title: `Move ${label(s)}`, body: <MoveSheet date={date} session={s} /> })}>
+            Move
+          </Button>
+          <Button variant="quiet" onClick={() => sheet.open({ title: 'Edit session', body: <SessionEditor date={date} session={s} /> })}>
+            Edit
+          </Button>
           {share && share.miles > 0 ? <ShareButton data={share} /> : null}
         </div>
       </div>
@@ -337,9 +352,10 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
 /** A run with no session behind it: the same hero and evidence, and Share. */
 export const UnplannedSheet = ({ date, runs, log, fromHero }: { date: string; runs: Activity[]; log: Log; fromHero?: boolean }) => {
   const share = useMemo(() => shareDataFor(date, null, runs, log), [date, runs, log]);
+  const aura = auraForRuns(null, runs, log, 'done');
   return (
-    <div className="stack" style={{ gap: 16 }}>
-      <SheetAura a={auraForRuns(null, runs, log, 'done')} />
+    <div className="sh-body">
+      {fromHero ? <SheetHead a={aura} /> : <SheetAura a={aura} />}
       <SessionActual date={date} sess={null} runs={runs} log={log} />
       <div className="sheet-foot">
         <span />
@@ -386,7 +402,7 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
   const Tag = as;
   return (
     <Tag className={`srow t-${tone(s)} s-${st}`}>
-      <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched from Strava' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
+      <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched to a logged run' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
       <button type="button" className="srow-body" onClick={() => open(date, s)}>
         <span className="srow-bar" aria-hidden="true" />
         <span className="srow-main">

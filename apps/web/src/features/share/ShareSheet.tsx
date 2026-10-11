@@ -78,7 +78,6 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
         ))}
       </div>
       {t === 'bubble' ? <input className="in" value={caption} maxLength={80} aria-label="Caption" placeholder={defaultCaption(data)} onChange={(e) => setCaption(e.target.value)} /> : null}
-      <p className="fine">Opens the share sheet; pick Instagram Stories.</p>
       <div className="sheet-foot">
         <Button variant="ghost" disabled={!!busy} onClick={() => run('save')}>
           {busy === 'save' ? 'Saving…' : 'Save'}

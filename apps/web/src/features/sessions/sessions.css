@@ -276,12 +276,46 @@
 
 /* ---------- the sheet's hero: the session as the day's aura card ----------
    mirrors .aura in day.css, under its own name so the sheet looks right from any tab */
+/* the sheet's date sits where a title would, as a caps label: Inter, never the serif under 22px */
 .sh-sheet-date {
   display: block;
+  font-family: var(--sans);
+  font-style: normal;
 }
-.sh-sheet-title {
-  font-size: 28px;
-  line-height: 32px;
+/* the sheet body: 16px between the head and each section, the footer last */
+.sh-body {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+/* opened from the hero the sheet does not restate it: eyebrow, status and the name, then the evidence */
+.sh-head {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+/* 32px chips and 36px buttons keep their size but take a 44px touch */
+.sh-body .chip-btn,
+.sh-body .btn,
+.share .chip-btn,
+.share .btn {
+  position: relative;
+}
+.sh-body .chip-btn::after,
+.sh-body .btn::after,
+.share .chip-btn::after,
+.share .btn::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  bottom: -6px;
+}
+.sh-body .btn::after,
+.share .btn::after {
+  top: -4px;
+  bottom: -4px;
 }
 .sh-aura {
   position: relative;
@@ -330,9 +364,14 @@
   margin-top: 2px;
 }
 .sh-title.display {
-  font-size: 40px;
-  line-height: 42px;
+  font-size: 44px;
+  line-height: 46px;
   text-transform: none;
+}
+.sh-title.compact {
+  font-size: 28px;
+  line-height: 32px;
+  margin-top: 0;
 }
 .sh-verdict {
   font-size: 15px;
