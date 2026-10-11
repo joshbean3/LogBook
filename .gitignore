@@ -5,9 +5,9 @@ dev-dist
 .env
 .env.*
 !.env.example
-data/*.db
-data/*.db-*
-data/uploads
+**/data/*.db
+**/data/*.db-*
+**/data/uploads
 .DS_Store
 coverage
 playwright-report
