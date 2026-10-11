@@ -31,6 +31,14 @@
   margin-top: 6px;
   max-width: 96px;
 }
+/* the last row of the day's group is the way into the day: a plain row with a chevron, not a third head action */
+.wk-open .lrow-title {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.wk-open .lrow-right {
+  color: var(--ink-4);
+}
 /* ---------- month ---------- */
 .mgrid {
   display: grid;
@@ -277,6 +285,9 @@
   gap: 8px;
   margin-top: 16px;
 }
+.pv-fine {
+  margin-top: 8px;
+}
 
 /* ---------- your plans ---------- */
 .plan-item .lrow.two {
@@ -285,6 +296,9 @@
 }
 .plan-item .lrow-title {
   display: flex;
+  white-space: normal;
+}
+.plan-item .lrow-sub {
   white-space: normal;
 }
 .plan-sum {

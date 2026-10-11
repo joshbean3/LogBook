@@ -3,7 +3,8 @@ import { motion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
-import { Button, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { ChevronRight } from 'lucide-react';
+import { Button, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useLog, type Log } from '../log/useLog';
 import { AddSessionButton, SessionRow, UnplannedRow } from '../sessions/SessionCard';
 import { StravaLine } from '../settings/StravaLine';
@@ -11,6 +12,8 @@ import { PlanBuilder, PlansList, Upcoming } from './PlanBuilder';
 import './plan.css';
 
 const DOW1 = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+/** Planned totals are sums of half-miles and quarter-miles; one decimal is all anyone reads. */
+const tenth = (v: number) => num(Math.round(v * 10) / 10);
 
 /** One 6px dot per non-rest session, in its tone; filled once it counts, a ring until then. */
 export const Dots = ({ d, log, max = 6 }: { d: string; log: Log; max?: number }) => {
@@ -66,35 +69,26 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
   const unmatched = hasOther ? [] : acts.filter((a) => a.kind !== 'run');
   const showList = (s: Session) => s.kind !== 'rest' || sessions.length === 1;
   const listed = sessions.filter(showList);
-  const word = STATUS_WORD[st] || (sel > t ? 'Nothing planned' : 'Nothing planned');
+  const word = STATUS_WORD[st] || 'Nothing planned';
+  const openDay = () => nav(sel === t ? '/today' : `/today/${sel}`);
 
   return (
     <>
       <StatStrip className="wk-strip">
-        <Stat label="Miles" value={<AnimatedNumber value={tot.ran} format={mi} />} unit={tot.planned ? `of ${num(tot.planned)}` : 'run'}>
+        <Stat label="Miles" value={<AnimatedNumber value={tot.ran} format={mi} />} unit={tot.planned ? `of ${tenth(tot.planned)}` : 'run'}>
           <span className="meter">
             <motion.i initial={false} animate={{ width: `${pct * 100}%` }} transition={{ type: 'spring', stiffness: 90, damping: 20 }} />
           </span>
         </Stat>
-        <Stat label="Sessions hit" value={tot.sessions ? <AnimatedNumber value={tot.hit} /> : '—'} unit={tot.sessions ? `of ${tot.sessions}` : undefined} />
+        <Stat label="Hit" value={tot.sessions ? <AnimatedNumber value={tot.hit} /> : '—'} unit={tot.sessions ? `of ${tot.sessions}` : undefined} />
         <Stat label="Habits" value={habOf ? <AnimatedNumber value={Math.round((hab / habOf) * 100)} format={(v) => `${Math.round(v)}%`} /> : '—'} />
       </StatStrip>
       <StravaLine strava={log.strava} />
 
       <DayStrip days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
 
-      <SectionHead
-        title={`${fmtDate('dow', sel)} ${parseISO(sel).getDate()} · ${word}`}
-        meta={sel === t ? 'Today' : undefined}
-        action={
-          <>
-            <button type="button" className="link" onClick={() => nav(sel === t ? '/today' : `/today/${sel}`)}>
-              Open day
-            </button>
-            <AddSessionButton date={sel}>Add</AddSessionButton>
-          </>
-        }
-      />
+      {/* one accent action for the day: the head's Add, or the empty state's Add, never both */}
+      <SectionHead title={`${fmtDate('dow', sel)} ${parseISO(sel).getDate()} · ${word}`} action={!loaded || listed.length || unplannedRuns.length ? <AddSessionButton date={sel}>Add</AddSessionButton> : undefined} />
       <Group>
         {!loaded ? <Loading text={`Loading ${fmtDate('month', sel)}…`} /> : null}
         {loaded && (listed.length || unplannedRuns.length) ? (
@@ -115,6 +109,7 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
             </div>
           </div>
         ))}
+        {loaded ? <Row className="wk-open" title={sel === t ? 'Open today' : 'Open day'} onClick={openDay} right={<ChevronRight size={18} />} /> : null}
       </Group>
     </>
   );
@@ -150,9 +145,9 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
   return (
     <>
       <StatStrip>
-        <Stat label="Miles run" value={<AnimatedNumber value={ran} format={mi} />} />
-        <Stat label="Planned" value={num(planned)} unit="mi" />
-        <Stat label="Sessions hit" value={of ? <AnimatedNumber value={hit} /> : '—'} unit={of ? `of ${of}` : undefined} />
+        <Stat label="Miles" value={<AnimatedNumber value={ran} format={mi} />} />
+        <Stat label="Planned" value={tenth(planned)} unit="mi" />
+        <Stat label="Hit" value={of ? <AnimatedNumber value={hit} /> : '—'} unit={of ? `of ${of}` : undefined} />
       </StatStrip>
       <StravaLine strava={log.strava} />
       <div className="mgrid" role="grid" aria-label={fmtDate('month', first)}>
@@ -231,7 +226,7 @@ export default function PlanView() {
             <>
               {offNow ? (
                 <Button size="sm" variant="ghost" onClick={() => go(view)}>
-                  {view === 'week' ? 'This week' : 'This month'}
+                  Today
                 </Button>
               ) : null}
               <DateNav

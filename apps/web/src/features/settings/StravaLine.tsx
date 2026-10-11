@@ -22,7 +22,7 @@ export const StravaLine = ({ strava }: { strava: StravaStatus | null }) => {
   const m = at == null ? null : Math.round(at / 60e3);
   const text = sync.isPending ? 'Checking Strava…' : m == null ? 'Strava connected' : `Strava synced ${m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`}`;
   return (
-    <div className="row" style={{ fontSize: 12.5, color: 'var(--ink-3)', gap: 8 }}>
+    <div className="row t-cap muted">
       <span className={`dot ${sync.isPending ? 'on' : ''}`} />
       <span>{text}</span>
       {!sync.isPending ? (

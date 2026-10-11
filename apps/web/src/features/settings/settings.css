@@ -5,6 +5,7 @@
 .s-set .lrow.two {
   padding-block: 8px;
 }
+.s-set .lrow-title,
 .s-set .lrow-sub {
   white-space: normal;
 }
@@ -39,7 +40,4 @@
 }
 .s-out .lrow-title {
   color: var(--bad);
-}
-.s-err {
-  color: var(--warn);
 }

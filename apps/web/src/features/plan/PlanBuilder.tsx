@@ -64,7 +64,7 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
       </div>
       {draft.notes.length ? (
         <div className="pv-notes">
-          <span className="t-label">Claude flagged</span>
+          <span className="t-label">Flagged</span>
           <ul>
             {draft.notes.map((n) => (
               <li key={n}>{n}</li>
@@ -106,17 +106,22 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
       </Group>
       <div className="pv-actions">
         <Button variant="primary" disabled={apply.isPending} onClick={() => apply.mutate('replace')}>
-          {existing ? `Replace ${existing} planned session${existing === 1 ? '' : 's'}` : 'Add to my calendar'}
+          {existing ? 'Replace' : 'Add'}
         </Button>
         {existing && mode !== 'revise' ? (
           <Button disabled={apply.isPending} onClick={() => apply.mutate('add')}>
-            Add alongside
+            Add
           </Button>
         ) : null}
         <Button variant="ghost" onClick={onDiscard}>
           Discard
         </Button>
       </div>
+      {existing ? (
+        <p className="fine pv-fine">
+          {existing} planned {existing === 1 ? 'session' : 'sessions'} already sit in these dates. Replace clears them{mode !== 'revise' ? '; Add keeps them' : ''}.
+        </p>
+      ) : null}
     </>
   );
 };
@@ -189,11 +194,19 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
         onDiscard={() => setDraft(null)}
       />
     );
-  const off = !log.features.claude;
   const busy = build.isPending;
+  if (!log.features.claude)
+    return (
+      <>
+        <SectionHead title="Plan builder" />
+        <Group>
+          <EmptyState>Plan building isn’t turned on.</EmptyState>
+        </Group>
+      </>
+    );
   return (
     <>
-      <SectionHead title="Build or import" meta="With Claude" />
+      <SectionHead title="Plan builder" />
       <Group className="builder">
         <div className="brow">
           <Segmented className="mode-tabs" label="Source" options={MODES} value={mode} onChange={(m) => (setMode(m), setError(null))} disabled={busy} />
@@ -215,7 +228,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
           </div>
         ) : null}
         <div className="brow">
-          <Field label={mode === 'revise' ? 'What should change?' : mode === 'describe' ? 'What do you want?' : 'Notes for Claude'}>
+          <Field label={mode === 'revise' ? 'What should change?' : mode === 'describe' ? 'What do you want?' : 'Notes'}>
             <textarea
               className="in bare"
               rows={mode === 'file' || mode === 'text' ? 2 : 4}
@@ -228,7 +241,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
                   ? 'e.g. 12-week half marathon build to a 1:30 at the Brooklyn Half, 4 runs a week, long run Saturday, 2 lifts, nothing over 45 min on weekdays'
                   : mode === 'revise'
                     ? 'e.g. Move every long run to Sunday. Cut next week by 20%, I have a live deal. Add a Tuesday upper-body lift.'
-                    : 'Optional: anything Claude should know, e.g. “skip the Week 6 race”, “my long run day is Sunday”'
+                    : 'Optional: anything worth knowing, e.g. “skip the Week 6 race”, “my long run day is Sunday”'
               }
             />
           </Field>
@@ -248,16 +261,11 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
             <Note kind="bad">{error}</Note>
           </div>
         ) : null}
-        {off ? (
-          <div className="brow">
-            <Note kind="warn">Building plans needs an Anthropic API key on the server. Add ANTHROPIC_API_KEY and restart.</Note>
-          </div>
-        ) : null}
         <div className="brow foot">
           <AnimatePresence>
             {busy ? (
               <motion.span className="row t-sub muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Spinner /> Claude is building the plan. 20–60 seconds…
+                <Spinner /> Building the plan. 20–60 seconds…
               </motion.span>
             ) : (
               <span />
@@ -268,14 +276,14 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
               Stop
             </Button>
           ) : (
-            <Button variant="primary" disabled={off} onClick={() => build.mutate()}>
-              {mode === 'revise' ? 'Draft the changes' : 'Build the plan'}
+            <Button variant="primary" onClick={() => build.mutate()}>
+              {mode === 'revise' ? 'Draft' : 'Build'}
             </Button>
           )}
         </div>
       </Group>
       <p className="fine" style={{ marginTop: 8 }}>
-        Claude reads your source, your recent Strava weeks and heart-rate zones, then returns dated sessions you can check before saving.
+        Reads your source, your recent Strava weeks and heart-rate zones, then returns dated sessions you can check before saving.
       </p>
     </>
   );
@@ -288,10 +296,10 @@ export const PlansList = ({ log }: { log: Log }) => {
   const nav = useNavigate();
   const [confirm, setConfirm] = useState<string | null>(null);
   const t = log.today;
-  const srcWord: Record<string, string> = { file: 'a file', text: 'pasted text', describe: 'your description', revise: 'a revision', chat: 'chat' };
+  const srcWord: Record<string, string> = { file: 'a file', text: 'pasted text', describe: 'your description', revise: 'a revision', chat: 'chat', sheet: 'your spreadsheet' };
   return (
     <>
-      <SectionHead title="Your plans" meta={blocks.length ? `${blocks.length}` : undefined} />
+      <SectionHead title="Your plans" meta={blocks.length ? `${blocks.length} ${blocks.length === 1 ? 'plan' : 'plans'}` : undefined} />
       <Group>
         {!blocks.length ? (
           <EmptyState>No plans yet. Import one above, or add sessions from Today and the week.</EmptyState>
@@ -317,7 +325,7 @@ export const PlansList = ({ log }: { log: Log }) => {
                   </div>
                   <div className="plan-acts">
                     <Button size="sm" onClick={() => nav(`/plan/week/${b.start < t && t <= b.end ? t : b.start}`)}>
-                      Open week
+                      Open
                     </Button>
                     {confirm === b.id ? (
                       <>
@@ -330,7 +338,7 @@ export const PlansList = ({ log }: { log: Log }) => {
                             toast('Plan deleted');
                           }}
                         >
-                          Delete {b.sessionCount ?? 0} sessions
+                          Delete
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setConfirm(null)}>
                           Keep
@@ -354,21 +362,12 @@ export const PlansList = ({ log }: { log: Log }) => {
 
 export const Upcoming = ({ log }: { log: Log }) => {
   const open = useOpenSession(log);
-  const nav = useNavigate();
   const t = log.today;
   const items: Array<[string, ReturnType<Log['snap']['sessionsOn']>[number]]> = [];
   for (let d = t; d <= shiftDays(t, 13); d = shiftDays(d, 1)) for (const s of log.snap.sessionsOn(d)) if (s.kind !== 'rest') items.push([d, s]);
   return (
     <>
-      <SectionHead
-        title="Next two weeks"
-        meta={items.length ? `${items.length} sessions` : undefined}
-        action={
-          <button type="button" className="link" onClick={() => nav('/today')}>
-            Open today
-          </button>
-        }
-      />
+      <SectionHead title="Next two weeks" meta={items.length ? `${items.length} ${items.length === 1 ? 'session' : 'sessions'}` : undefined} />
       <Group>
         {!items.length ? (
           <EmptyState>Nothing planned in the next two weeks.</EmptyState>
