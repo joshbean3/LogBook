@@ -599,7 +599,7 @@ textarea.in {
   display: flex;
   gap: 2px;
   background: var(--surface-2);
-  padding: 2px;
+  padding: 0;
   border-radius: var(--r-pill);
   height: 44px;
 }
