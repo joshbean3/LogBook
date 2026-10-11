@@ -13,3 +13,6 @@ coverage
 playwright-report
 test-results
 .turbo
+
+# screenshots that contain real personal data stay local
+docs/screens-real/
