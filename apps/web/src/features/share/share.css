@@ -7,7 +7,7 @@
 /* the card keeps 9:16; it takes about half the screen so the chips and the two buttons stay in view */
 .share-stage {
   position: relative;
-  height: min(54dvh, 560px);
+  height: min(50dvh, 560px);
   aspect-ratio: 9 / 16;
   max-width: 100%;
   margin: 0 auto;
@@ -25,21 +25,14 @@
   width: 100%;
   height: 100%;
 }
+/* the five templates wrap to a second row rather than scroll off the edge; each is a 44px touch */
 .share-templates {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin: 0 -16px;
-  padding: 0 16px;
-  -webkit-overflow-scrolling: touch;
-}
-.share-templates::-webkit-scrollbar {
-  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .share-templates .chip-btn {
   flex: none;
-}
-.share .fine {
-  text-align: center;
+  height: 44px;
+  padding: 0 16px;
 }
