@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { api, ApiError } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
-import { Button, Field, Loading, Note } from '@/ui/primitives';
+import { Button, Field, Loading, LogoMark, Note } from '@/ui/primitives';
 import './auth.css';
 
 export const useAuthStatus = () => useQuery({ queryKey: ['auth-status'], queryFn: () => api<AuthStatus>('/auth/status'), staleTime: 60_000 });
@@ -13,7 +13,7 @@ const Frame = ({ title, sub, children }: { title: string; sub: string; children:
   <div className="auth">
     <motion.div className="auth-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
       <div className="auth-brand">
-        <span className="auth-mark" aria-hidden="true" />
+        <LogoMark size={22} color="var(--accent)" />
         <span>Logbook</span>
       </div>
       <h1 className="auth-title t-large">{title}</h1>

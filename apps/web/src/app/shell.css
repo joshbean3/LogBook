@@ -83,10 +83,8 @@
     letter-spacing: -0.02em;
   }
   .brand-mark {
-    width: 24px;
-    height: 24px;
-    border-radius: 7px;
-    background: radial-gradient(120% 120% at 20% 10%, var(--accent-soft), var(--accent) 70%);
+    display: grid;
+    place-items: center;
   }
   .rail-nav {
     display: grid;

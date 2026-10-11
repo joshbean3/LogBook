@@ -17,7 +17,7 @@ const apply = (pref: ThemePref) => {
   if (pref === 'system') delete root.dataset.theme;
   else root.dataset.theme = pref;
   const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-  for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) m.content = dark ? '#121513' : '#F3EFE8';
+  for (const m of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) m.content = dark ? '#111110' : '#f5f3ee';
 };
 
 export const useTheme = () => {

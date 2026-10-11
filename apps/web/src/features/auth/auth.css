@@ -29,12 +29,6 @@
   color: var(--ink-2);
   margin-bottom: 8px;
 }
-.auth-mark {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  background: radial-gradient(120% 120% at 20% 10%, var(--accent-soft), var(--accent) 70%);
-}
 .auth-title {
   overflow-wrap: anywhere;
 }

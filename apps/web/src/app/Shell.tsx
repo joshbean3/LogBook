@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { outbox } from '@/api/outbox';
 import { useMedia } from '@/lib/useToday';
+import { LogoMark } from '@/ui/primitives';
 import './shell.css';
 
 const NAV = [
@@ -54,7 +55,7 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
       {wide ? (
         <aside className="rail">
           <NavLink to="/today" className="brand">
-            <span className="brand-mark" aria-hidden="true" />
+            <span className="brand-mark"><LogoMark size={22} color="var(--accent)" /></span>
             <span className="brand-word">Logbook</span>
           </NavLink>
           <nav aria-label="Views" className="rail-nav">

@@ -225,3 +225,11 @@ export const Kpi = ({ label, value, unit, tone, children }: { label: string; val
     {children}
   </Stat>
 );
+
+/** The Logbook mark: the ring is the day, the check is the record, the gap is what is still open. */
+export const LogoMark = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M 19.8 7.5 A 9 9 0 1 1 12 3" />
+    <polyline points="7.5,12 10,14.5 15.5,9" />
+  </svg>
+);

@@ -20,8 +20,8 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#F3EFE8',
-        theme_color: '#F3EFE8',
+        background_color: '#f5f3ee',
+        theme_color: '#f5f3ee',
         categories: ['health', 'fitness', 'lifestyle'],
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
