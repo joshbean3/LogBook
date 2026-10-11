@@ -1,9 +1,7 @@
 import { Activity, BookOpen, CalendarDays, Settings, Sun, Sunrise } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { outbox } from '@/api/outbox';
-import { pageVariants, spring } from '@/lib/motion';
 import { useMedia } from '@/lib/useToday';
 import './shell.css';
 
@@ -15,7 +13,7 @@ const NAV = [
   { to: '/journal', label: 'Journal', icon: BookOpen },
 ];
 
-const PendingDot = () => {
+const NetPill = () => {
   const [n, setN] = useState(0);
   useEffect(() => {
     const off = outbox.subscribe(setN);
@@ -36,13 +34,17 @@ const PendingDot = () => {
   }, []);
   if (online && !n) return null;
   return (
-    <div className="net-pill" role="status">
-      <span className={`dot ${online ? 'on' : ''}`} style={!online ? { background: 'var(--warn)' } : undefined} />
+    <div className="net-pill t-cap" role="status">
+      <span className="dot" style={!online ? { background: 'var(--warn)' } : undefined} />
       {!online ? 'Offline · changes saved here' : `Syncing ${n} change${n === 1 ? '' : 's'}…`}
     </div>
   );
 };
 
+/**
+ * The frame: a rail on wide screens, a tab bar on phones. Page changes fade in with CSS only,
+ * so a view that suspends while loading can never be left invisible.
+ */
 export const Shell = ({ children }: { children?: ReactNode }) => {
   const loc = useLocation();
   const wide = useMedia('(min-width: 900px)');
@@ -58,40 +60,30 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
           <nav aria-label="Views" className="rail-nav">
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} className={({ isActive }) => `rail-link ${isActive ? 'on' : ''}`}>
-                {({ isActive }) => (
-                  <>
-                    {isActive ? <motion.span layoutId="rail-pill" className="rail-pill" transition={spring} /> : null}
-                    <n.icon size={18} strokeWidth={1.9} />
-                    <span>{n.label}</span>
-                  </>
-                )}
+                <n.icon size={18} strokeWidth={2} />
+                <span>{n.label}</span>
               </NavLink>
             ))}
           </nav>
           <NavLink to="/settings" className={({ isActive }) => `rail-link foot ${isActive ? 'on' : ''}`}>
-            <Settings size={18} strokeWidth={1.9} />
+            <Settings size={18} strokeWidth={2} />
             <span>Settings</span>
           </NavLink>
         </aside>
       ) : null}
       <main className="content" id="main">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={section} className="page-anim" variants={pageVariants} initial="initial" animate="enter" exit="exit">
-            {children ?? <Outlet />}
-          </motion.div>
-        </AnimatePresence>
+        <div key={section} className="page-enter">
+          {children ?? <Outlet />}
+        </div>
       </main>
-      <PendingDot />
+      <NetPill />
       {!wide ? (
         <nav className="tabbar" aria-label="Views">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
               {({ isActive }) => (
                 <>
-                  <span className="tab-ic">
-                    {isActive ? <motion.span layoutId="tab-glow" className="tab-glow" transition={spring} /> : null}
-                    <n.icon size={21} strokeWidth={isActive ? 2.2 : 1.8} />
-                  </span>
+                  <n.icon size={24} strokeWidth={isActive ? 2.4 : 1.8} fill={isActive ? 'currentColor' : 'none'} fillOpacity={isActive ? 0.18 : 0} />
                   <span className="tab-label">{n.label}</span>
                 </>
               )}
