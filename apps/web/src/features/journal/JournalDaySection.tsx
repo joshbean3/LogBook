@@ -9,9 +9,6 @@ import { useToast } from '@/ui/Toast';
 import type { Log } from '../log/useLog';
 import './journal.css';
 
-/** True on a device with a pointer that can hover (a keyboard is near); false on a phone. Read once. */
-export const canHover = typeof matchMedia === 'function' && matchMedia('(hover: hover)').matches;
-
 const timeOf = (at: string) => {
   const d = new Date(at);
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -106,8 +103,8 @@ export const SaveButton = ({ ready, onClick, children = 'Save' }: { ready: boole
   );
 
 const drafts: Record<string, string> = {};
-/** A bare textarea and a footer line: meant to be the last row of a Group. The keyboard hint only shows where there is a keyboard. `size="lg"` is the Journal page's writing voice at 22/28. */
-export const Composer = ({ date, hint, today, rows = 3, size }: { date: string; hint?: string; today: string; rows?: number; size?: 'lg' }) => {
+/** A bare textarea and Save: meant to be the last row of a Group. Save is the one affordance; ⌘/Ctrl+Enter also saves, unannounced. `size="lg"` is the Journal page's writing voice at 22/28. */
+export const Composer = ({ date, today, rows = 3, size }: { date: string; today: string; rows?: number; size?: 'lg' }) => {
   const { add } = useJournalMutations();
   const toast = useToast();
   const [text, setText] = useState(drafts[date] ?? '');
@@ -140,7 +137,6 @@ export const Composer = ({ date, hint, today, rows = 3, size }: { date: string; 
         }}
       />
       <div className="composer-foot">
-        <span className="caps">{hint && canHover ? hint : ''}</span>
         <SaveButton ready={!!text.trim()} onClick={save} />
       </div>
     </div>

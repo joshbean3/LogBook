@@ -124,7 +124,7 @@ export default function SettingsView() {
           <Group>
             {strava?.connected ? (
               <>
-                <Row title="Strava" sub={strava.athleteName ? `Connected as ${strava.athleteName}` : 'Connected'} right={<Chip kind="done">Connected</Chip>} />
+                <Row title="Run sync" sub={strava.athleteName ? `Connected as ${strava.athleteName}` : 'Connected'} right={<Chip kind="done">Connected</Chip>} />
                 {strava.error ? <Row title="Last sync failed" sub="Reconnect to try again." /> : null}
                 <div className="lrow s-actions">
                   <Button variant="quiet" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
@@ -134,7 +134,7 @@ export default function SettingsView() {
                 </div>
               </>
             ) : (
-              <Row title="Strava" sub="Not connected" right={<ConnectStrava className="chip-btn">Connect</ConnectStrava>} />
+              <Row title="Run sync" sub="Not connected" right={<ConnectStrava className="btn">Connect</ConnectStrava>} />
             )}
           </Group>
         </>

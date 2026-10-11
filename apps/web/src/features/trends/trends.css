@@ -243,33 +243,126 @@
   stroke: var(--ink);
   stroke-opacity: 0.3;
 }
-.chart-wrap .lbl {
+/* ---------- consistency grid ----------
+   One CSS grid: a name column, N day columns, a rate column. Status colours only, on black.
+   The day columns are buttons laid over the rows: each is the column's full width and the grid's full height (44px at least),
+   they abut across the gaps, and a hairline shows the pressed column. */
+.cgrid {
+  --lw: clamp(72px, 28%, 140px);
+  --rw: 36px;
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-height: 44px;
+  min-width: 0;
+}
+.crow,
+.chits {
+  display: grid;
+  grid-template-columns: var(--lw) repeat(var(--n), minmax(0, 1fr)) var(--rw);
+  gap: 3px;
+  align-items: center;
+  min-width: 0;
+}
+/* the training row stands a little apart from the habits */
+.crow:first-child {
+  margin-bottom: 4px;
+}
+.clbl {
   font-size: 12px;
-  fill: var(--ink-2);
+  line-height: 16px;
+  color: var(--ink-2);
   letter-spacing: 0;
+  padding-right: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.chart-wrap .lbl.strong {
+.clbl.strong {
   font-weight: 600;
-  fill: var(--ink);
+  color: var(--ink);
 }
-/* consistency cells: status colours only, on black */
-.chart-wrap .cell {
-  fill: var(--surface-3);
-  transition: fill var(--dur);
+.ccell {
+  display: block;
+  width: 100%;
+  max-width: 18px;
+  aspect-ratio: 1;
+  justify-self: center;
+  border-radius: 3px;
+  background: var(--surface-3);
+  box-sizing: border-box;
 }
-.chart-wrap .cell.on {
-  fill: var(--ok);
+.ccell.on {
+  background: var(--ok);
 }
-.chart-wrap .cell.half {
-  fill: var(--warn);
+.ccell.half {
+  background: var(--warn);
 }
-.chart-wrap .cell.miss {
-  fill: color-mix(in srgb, var(--bad) 60%, transparent);
+.ccell.miss {
+  background: color-mix(in srgb, var(--bad) 60%, transparent);
 }
-.chart-wrap .cell.none {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.16);
-  stroke-dasharray: 2 2;
+.ccell.none {
+  background: none;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+}
+.crate {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  text-align: right;
+  white-space: nowrap;
+}
+/* the date axis: a caps label every seven days, centred on its column and free to overflow the empty columns beside it */
+.crow.axis {
+  margin-top: 2px;
+  min-height: 14px;
+}
+.cax {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  white-space: nowrap;
+  justify-self: center;
+}
+.cax.end {
+  justify-self: end;
+}
+/* the day under the finger reads in ink */
+.cax.on {
+  color: var(--ink);
+  justify-self: center;
+}
+.cax.on.end {
+  justify-self: end;
+}
+/* the touch surface over the rows: vertical swipes still scroll the page, sideways ones scrub the day */
+.chits {
+  position: absolute;
+  inset: -4px 0;
+  align-items: stretch;
+  touch-action: pan-y;
+  cursor: pointer;
+}
+.chit {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0 -1.5px;
+  min-height: 44px;
+  border-radius: 4px;
+  transition: background var(--dur-fast);
+}
+/* the pressed column: a hairline and a lift */
+.chit.on,
+.chit:active {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+@media (hover: hover) {
+  .chit:hover {
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
 }
 
 /* hover / tap tooltip: pins on tap, clears on tap-outside or after 3 s */
@@ -339,13 +432,20 @@
   font-size: 10px;
   letter-spacing: 0.1em;
 }
+/* the row opens a sheet; the chevron says so */
+.lift-chev {
+  color: var(--ink-4);
+  margin-right: -4px;
+  flex: none;
+}
 .spark {
   flex: none;
   overflow: visible;
 }
-/* at 320 the sparkline would push the exercise name into an ellipsis; the name wins */
+/* at 320 the sparkline and the change would push the exercise name into an ellipsis; the name wins, the sheet has both */
 @media (max-width: 359px) {
-  .spark {
+  .spark,
+  .lift-ch {
     display: none;
   }
 }

@@ -169,7 +169,7 @@ const Controls = ({ date, T }: { date: string; T: MorningTimeline }) => {
             {day.plan.label ? <span className="stamp m-plan-stamp">{day.plan.label}</span> : <span className="stamp m-plan-stamp">Morning</span>}
           </span>
           {day.own ? (
-            <button type="button" className="link sm" onClick={() => setDay.mutate({ date, day: null })}>
+            <button type="button" className="link sm quiet" onClick={() => setDay.mutate({ date, day: null })}>
               Reset
             </button>
           ) : null}
@@ -526,13 +526,13 @@ export default function MorningView() {
           ) : (
             <span className="ph-sub-row">
               {`${date === shiftDays(t, 1) ? 'Tomorrow · ' : ''}${fmtDate('md', date)}`}
-              <button type="button" className="link sm" onClick={() => go(t)}>
+              <button type="button" className="link sm quiet" onClick={() => go(t)}>
                 Today
               </button>
             </span>
           )
         }
-        actions={tab === 'plan' ? <DateNav onPrev={() => go(shiftDays(date, -7))} onNext={() => go(shiftDays(date, 7))} prevLabel="Previous week" nextLabel="Next week" /> : undefined}
+        actions={tab === 'plan' ? <DateNav onPrev={() => go(shiftDays(date, -1))} onNext={() => go(shiftDays(date, 1))} prevLabel="Previous day" nextLabel="Next day" /> : undefined}
       >
         <Segmented className="m-tabs" label="Morning tabs" options={[['plan', 'Plan'], ['settings', 'Settings']]} value={tab} onChange={setTab} />
       </PageHeader>
