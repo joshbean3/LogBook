@@ -77,7 +77,7 @@
   gap: 4px;
 }
 .split {
-  --zc: var(--t-rest);
+  --zc: var(--t-long);
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) 48px 32px;
   align-items: center;

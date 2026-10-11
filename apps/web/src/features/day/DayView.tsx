@@ -1,4 +1,4 @@
-import { buildMorning, clockOfDay, dayStatus, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, relativeDay, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
+import { parseISO, buildMorning, clockOfDay, dayStatus, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, relativeDay, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
 import { ArrowDown, ArrowUp, Flame, Pencil, Settings, X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,6 +14,7 @@ import { StravaLine } from '../settings/StravaLine';
 import './day.css';
 
 type L = ReturnType<typeof useLog>;
+const MONTH_DAY = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' });
 
 // ---------- hero: the day's training, in one glance ----------
 const Hero = ({ date, log }: { date: string; log: L }) => {
@@ -350,7 +351,7 @@ export default function DayView() {
     <div className="page">
       <PageHeader
         title={date === t ? 'Today' : relativeDay(date, t)}
-        sub={fmtDate('long', date)}
+        sub={date === t || date === shiftDays(t, -1) || date === shiftDays(t, 1) ? fmtDate('long', date) : MONTH_DAY.format(parseISO(date))}
         actions={
           <>
             {date !== t ? (
@@ -368,7 +369,7 @@ export default function DayView() {
       <div className="section" style={{ marginTop: 16 }}>
         {loaded ? <Hero date={date} log={log} /> : <div className="skeleton" style={{ height: 128 }} />}
         <StatStrip>
-          <Stat label="Week" value={<AnimatedNumber value={week.ran} format={mi} />} unit={`of ${num(week.planned)} mi`} />
+          <Stat label="Week" value={<AnimatedNumber value={week.ran} format={mi} />} unit={week.planned ? `of ${num(week.planned)} mi` : 'mi run'} />
           <Stat label="Streak" value={<AnimatedNumber value={streak} />} unit={streak === 1 ? 'day' : 'days'} />
           <Stat label="To-dos" value={todos.data ? <AnimatedNumber value={openTodos} /> : '…'} unit="open" />
         </StatStrip>
