@@ -1,9 +1,12 @@
 import { dayStatus, e1rm, fmtDate, grade, label, mi, mondayOf, monthsBetween, num, sessionStatus, shiftDays, zoneOf, type Activity } from '@logbook/shared';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useAllLifts } from '@/api/queries';
-import { Button, EmptyState, Group, Loading, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { api } from '@/api/client';
+import { keys, useAllLifts } from '@/api/queries';
+import { Button, EmptyState, Group, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
 import './trends.css';
 
@@ -26,6 +29,8 @@ const useWidth = <T extends HTMLElement>() => {
 };
 
 const signed = (v: number) => `${v >= 0 ? '+' : '−'}${mi(Math.abs(v))}`;
+/** Every month in range has arrived (or stopped trying). Numbers draw only then, so they never change under the eye. */
+const settled = (log: Log) => log.ready || !log.loading;
 
 /** Every run the loaded months know about, newest first. */
 const useRuns = (log: Log, from: string, to: string) =>
@@ -125,17 +130,18 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
   const labelEvery = PAST <= 4 ? 2 : band * 4 >= 52 ? 4 : 8;
   const direct = band >= 34;
   const clipId = `mile-clip-${range}`;
+  const ready = settled(log);
   return (
     <>
       <SectionHead title="Weekly mileage" meta={`Last ${PAST} weeks, next ${FUT}`} />
       <StatStrip className="tr-strip">
-        <Stat label="This week" value={mi(cur.ran)} unit="mi" delta={delta == null ? undefined : { text: `${signed(delta)} vs avg`, dir: delta >= 0 ? 'up' : 'down' }} />
-        <Stat label="Planned" value={num(cur.planned)} unit="mi" small />
-        <Stat label="Runs" value={cur.n} unit="this week" small />
+        <Stat label="This week" value={ready ? mi(cur.ran) : '—'} unit="mi" delta={!ready || delta == null ? undefined : { text: `${signed(delta)} vs avg`, dir: delta >= 0 ? 'up' : 'down' }} />
+        <Stat label="Planned" value={ready ? num(cur.planned) : '—'} unit="mi" small />
+        <Stat label="Runs" value={ready ? cur.n : '—'} unit="this week" small />
       </StatStrip>
       <Group className="chart-group">
         <div ref={ref} className="chart-wrap" onPointerLeave={onLeave}>
-          {width ? (
+          {width && ready ? (
             <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Miles run per week against the plan">
               <defs>
                 <clipPath id={clipId}>
@@ -198,13 +204,13 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
       </Group>
       <div className="legend chart-legend">
         <span className="lg">
-          <i style={{ background: 'var(--t-long)' }} /> Miles run
+          <i style={{ background: 'var(--accent)' }} /> Miles run
         </span>
         <span className="lg">
-          <i style={{ background: 'none', border: '1.25px dashed var(--ink-3)', width: 8, height: 8 }} /> Planned
+          <i style={{ background: 'none', border: '1.25px dashed var(--ink-4)', width: 8, height: 8 }} /> Planned
         </span>
         <span className="lg">
-          <i style={{ height: 2, background: 'var(--t-hard)', borderRadius: 1 }} /> 4-week average
+          <i style={{ height: 2, background: 'var(--ink-2)', borderRadius: 1 }} /> 4-week average
         </span>
       </div>
     </>
@@ -214,7 +220,20 @@ const Mileage = ({ log, range }: { log: Log; range: Range }) => {
 // ---------- effort ----------
 const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
   const nav = useNavigate();
+  const qc = useQueryClient();
+  const toast = useToast();
+  // Zones ride along with a Strava sync; this is the same call Settings makes.
+  const sync = useMutation({
+    mutationFn: () => api<{ changed?: number }>('/strava/sync', { method: 'POST' }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: keys.bootstrap });
+      await qc.invalidateQueries({ queryKey: ['month'] });
+    },
+    onError: (e) => toast(e instanceof Error ? e.message : 'Strava sync failed'),
+  });
+  const ready = settled(log);
   const z = log.zones;
+  const connected = !!log.strava?.connected;
   const recent = runs.slice(0, 10);
   const rows = recent.map((a) => {
     const sess = log.snap.sessionsOn(a.date).find((s) => s.kind === 'run') ?? null;
@@ -228,11 +247,15 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
   const Z = (n: number) => z?.find((r) => r.zone === n);
   return (
     <>
-      <SectionHead title="Effort check" meta={recent.length ? `Last ${recent.length} runs` : undefined} />
+      <SectionHead title="Effort check" meta={ready && recent.length ? `Last ${recent.length} runs` : undefined} />
       {z ? (
         <>
           <StatStrip className="tr-strip">
-            <Stat label="Easy enough" value={easy} unit={`of ${withHr.length} ${withHr.length === 1 ? 'run' : 'runs'}`} delta={graded.length ? { text: `${ok} of ${graded.length} planned on target`, dir: ok === graded.length ? 'up' : 'flat' } : { text: 'Grades start with your first planned run' }} />
+            {ready ? (
+              <Stat label="Easy enough" value={easy} unit={`of ${withHr.length} ${withHr.length === 1 ? 'run' : 'runs'}`} delta={graded.length ? { text: `${ok} of ${graded.length} planned on target`, dir: ok === graded.length ? 'up' : 'flat' } : { text: 'Grades start with your first planned run' }} />
+            ) : (
+              <Stat label="Easy enough" value="—" />
+            )}
           </StatStrip>
           {Z(2) && Z(3) && Z(4) ? (
             <p className="t-cap muted tr-key">
@@ -241,17 +264,32 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
           ) : null}
         </>
       ) : null}
+      {!ready ? (
+        <div className="tr-wait" aria-busy="true" />
+      ) : (
       <Group>
         {!z ? (
-          <EmptyState
-            action={
-              <Button variant="soft" onClick={() => nav('/settings')}>
-                Connect
-              </Button>
-            }
-          >
-            No heart-rate zones yet. Connect Strava.
-          </EmptyState>
+          connected ? (
+            <EmptyState
+              action={
+                <Button variant="soft" disabled={sync.isPending} onClick={() => sync.mutate()}>
+                  Sync
+                </Button>
+              }
+            >
+              No heart-rate zones yet. They arrive with your next Strava sync.
+            </EmptyState>
+          ) : (
+            <EmptyState
+              action={
+                <Button variant="soft" onClick={() => nav('/settings')}>
+                  Connect
+                </Button>
+              }
+            >
+              No heart-rate zones yet. Connect Strava.
+            </EmptyState>
+          )
         ) : null}
         {rows.map((r) => (
           <Row
@@ -279,8 +317,9 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
             }
           />
         ))}
-        {!rows.length ? log.loading ? <Loading text="Loading runs…" /> : z ? <EmptyState>No runs yet. Your next Strava run lands here.</EmptyState> : null : null}
+        {!rows.length && z ? <EmptyState>No runs yet. Your next Strava run lands here.</EmptyState> : null}
       </Group>
+      )}
     </>
   );
 };
@@ -338,7 +377,7 @@ const Lifts = () => {
             />
           );
         })}
-        {!groups.length ? all.isPending ? <Loading text="Loading lifts…" /> : <EmptyState>On a lift day, open the session and tap “Log lift”: exercise, weight, reps. Progress shows up here.</EmptyState> : null}
+        {!groups.length ? all.isPending ? <div className="tr-wait in-group" aria-busy="true" /> : <EmptyState>On a lift day, open the session and tap “Log lift”: exercise, weight, reps. Progress shows up here.</EmptyState> : null}
       </Group>
       {groups.length ? <p className="t-cap muted chart-legend">Estimated 1RM = weight × (1 + reps ÷ 30)</p> : null}
     </>
@@ -389,16 +428,17 @@ const Consistency = ({ log }: { log: Log }) => {
   const habitHit = stats.slice(1).reduce((s, x) => s + x.hit, 0);
   const habitOf = stats.slice(1).reduce((s, x) => s + x.of, 0);
   const pct = (hit: number, of: number) => (of ? `${Math.round((hit / of) * 100)}%` : '—');
+  const ready = settled(log);
   return (
     <>
       <SectionHead title="Consistency" meta={`Last ${N} days`} />
       <StatStrip className="tr-strip">
-        <Stat label="Training" value={pct(train.hit, train.of)} unit={train.of ? `of ${train.of} ${train.of === 1 ? 'day' : 'days'} hit` : 'no days yet'} />
-        <Stat label="Habits" value={pct(habitHit, habitOf)} unit={habitOf ? `of ${habitOf} checks` : 'no checks yet'} small />
+        <Stat label="Training" value={ready ? pct(train.hit, train.of) : '—'} unit={!ready ? undefined : train.of ? `of ${train.of} ${train.of === 1 ? 'day' : 'days'} hit` : 'no days yet'} />
+        <Stat label="Habits" value={ready ? pct(habitHit, habitOf) : '—'} unit={!ready ? undefined : habitOf ? `of ${habitOf} checks` : 'no checks yet'} small />
       </StatStrip>
       <Group className="chart-group">
         <div ref={ref} className="chart-wrap">
-          {width ? (
+          {width && ready ? (
             <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Training and habits, day by day">
               {stats.map(({ r, hit, of, cells }, j) => {
                 const yy = j * rowH + (j ? 6 : 0);
@@ -428,7 +468,7 @@ const Consistency = ({ log }: { log: Log }) => {
                 ))}
             </svg>
           ) : (
-            <div style={{ height: 160 }} />
+            <div style={{ height: width ? H : 160 }} />
           )}
         </div>
       </Group>
@@ -441,6 +481,9 @@ const Consistency = ({ log }: { log: Log }) => {
         </span>
         <span className="lg">
           <i style={{ background: 'color-mix(in srgb, var(--bad) 30%, transparent)' }} /> Missed
+        </span>
+        <span className="lg">
+          <i style={{ background: 'var(--surface-3)' }} /> Not done
         </span>
         <span>Tap a day to open it</span>
       </div>

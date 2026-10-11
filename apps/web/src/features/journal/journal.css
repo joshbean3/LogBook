@@ -95,6 +95,19 @@ textarea.jtext {
 .jhero {
   padding: 0;
 }
+/* data still arriving: the group holds the height its content will take, with nothing drawn inside */
+.jwait {
+  height: 180px;
+}
+.jwait.memory {
+  height: 178px;
+}
+.jwait.quote {
+  height: 194px;
+}
+.jwait.list {
+  height: 240px;
+}
 .jhero-body {
   display: grid;
   gap: 8px;

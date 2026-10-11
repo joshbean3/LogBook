@@ -2,6 +2,13 @@
 .tr-strip {
   margin-top: 0;
   margin-bottom: 12px;
+  /* every stat starts on the same top line, whether or not it carries a delta */
+  align-items: start;
+}
+.tr-strip .stat {
+  align-content: start;
+  /* label 16 + 2 + number 32 + 2 + the delta line 16: reserved even when empty, so the strip never grows */
+  min-height: 68px;
 }
 .tr-strip .stat-delta {
   white-space: nowrap;
@@ -22,6 +29,19 @@
 .chart-legend {
   margin-top: 8px;
   padding: 0 4px;
+}
+/* Data still arriving: a quiet sheet the size of the chart group, no spinner, no words. The page lays out once. */
+.tr-wait {
+  height: 180px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+.tr-wait.in-group {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* ---------- svg marks ---------- */
@@ -51,21 +71,22 @@
   fill: var(--ink-2);
   font-weight: 600;
 }
+/* The accent is the one chart colour; the plan and the average are ink. Session tones never fill a chart. */
 .chart-wrap .bar {
-  fill: var(--t-long);
+  fill: var(--accent);
 }
 .chart-wrap .bar.cur {
-  fill: color-mix(in srgb, var(--t-long) 55%, transparent);
+  fill: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 .chart-wrap .plan-out {
   fill: none;
-  stroke: var(--ink-3);
+  stroke: var(--ink-4);
   stroke-width: 1.25;
   stroke-dasharray: 3 3;
 }
 .chart-wrap .avg {
   fill: none;
-  stroke: var(--t-hard);
+  stroke: var(--ink-2);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -156,13 +177,19 @@
   flex: none;
   overflow: visible;
 }
+/* at 320 the sparkline would push the exercise name into an ellipsis; the name wins */
+@media (max-width: 359px) {
+  .spark {
+    display: none;
+  }
+}
 .spk {
   fill: none;
-  stroke: var(--t-lift);
+  stroke: var(--accent);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .spk-dot {
-  fill: var(--t-lift);
+  fill: var(--accent);
 }

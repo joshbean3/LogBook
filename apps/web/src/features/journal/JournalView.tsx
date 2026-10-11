@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useDaily, useJournalList, useJournalMutations, useQuotes } from '@/api/queries';
-import { Button, Chip, ChipButton, EmptyState, Group, IconButton, Loading, PageHeader, SectionHead, Segmented } from '@/ui/primitives';
+import { Button, Chip, ChipButton, EmptyState, Group, IconButton, PageHeader, SectionHead, Segmented } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
 import { Composer, EntryItem } from './JournalDaySection';
@@ -17,6 +17,16 @@ const Byline = ({ q, big }: { q: Quote; big?: boolean }) =>
       {q.work ? <cite className="serif">{q.work}</cite> : null}
     </span>
   ) : null;
+
+/** Data still arriving: a quiet block the height the content will take. No spinner, no words; the page lays out once. */
+const Wait = ({ kind }: { kind: 'memory' | 'quote' | 'list' }) => <div className={`jwait ${kind}`} aria-busy="true" />;
+
+/** True once this card has shown a placeholder, so the content that replaces it fades in; later swaps already animate on key. */
+const useWaited = (waiting: boolean) => {
+  const waited = useRef(false);
+  if (waiting) waited.current = true;
+  return waited.current;
+};
 
 /** Serif body text clamped to ~8 lines, with a Read more that lets it out. */
 const ClampedText = ({ text, id }: { text: string; id: string }) => {
@@ -47,16 +57,18 @@ const MemoryCard = ({ today }: { today: string }) => {
   const { another, patch } = useJournalMutations();
   const nav = useNavigate();
   const e = daily.data?.memory ?? null;
+  const waiting = daily.isPending && !daily.data;
+  const waited = useWaited(waiting);
   return (
     <>
       <SectionHead first title="From your journal" />
       <Group className="jhero">
-        {daily.isPending && !daily.data ? (
-          <Loading text="Loading your entries…" />
+        {waiting ? (
+          <Wait kind="memory" />
         ) : !e ? (
           <EmptyState>{daily.data?.pastCount ? 'Every past entry has been shown this month. New ones come back after 30 days.' : 'Entries you write come back here on a random day, never more than once a month. Write your first one below.'}</EmptyState>
         ) : (
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="wait" initial={waited}>
             <motion.div key={e.id} className="jhero-body" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
               <span className="t-cap muted">
                 {fmtDate('long', e.date)} · {ago(e.date, today)}
@@ -86,16 +98,18 @@ const QuoteCard = () => {
   const { another, quotePrefs } = useJournalMutations();
   const toast = useToast();
   const q = daily.data?.quote ?? null;
+  const waiting = daily.isPending && !daily.data;
+  const waited = useWaited(waiting);
   return (
     <>
       <SectionHead title="Today’s quote" />
       <Group className="jhero">
-        {daily.isPending && !daily.data ? (
-          <Loading text="Loading quotes…" />
+        {waiting ? (
+          <Wait kind="quote" />
         ) : !q ? (
           <EmptyState>No quotes left to show. Star a few in the library and they come back sooner.</EmptyState>
         ) : (
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="wait" initial={waited}>
             <motion.div key={q.id} className="jhero-body" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
               <blockquote className={`quote-text serif ${q.text.length > 160 ? 'long' : ''}`}>“{q.text}”</blockquote>
               <div className="quote-by">
@@ -150,7 +164,7 @@ const EntriesList = ({ favOnly, today }: { favOnly: boolean; today: string }) =>
       {!favOnly || entries.length > 5 ? <input className="in" type="search" placeholder="Search your entries" value={q} onChange={(e) => (setQ(e.target.value), setLimit(40))} aria-label="Search entries" /> : null}
       {list.isPending && !list.data ? (
         <Group>
-          <Loading />
+          <Wait kind="list" />
         </Group>
       ) : !entries.length ? (
         <Group>
@@ -237,7 +251,7 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
       ) : null}
       {page.isPending && !page.data ? (
         <Group>
-          <Loading text="Loading quotes…" />
+          <Wait kind="list" />
         </Group>
       ) : (
         <>
