@@ -34,7 +34,7 @@
   background: var(--glass);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   backdrop-filter: blur(20px) saturate(1.5);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-strong);
 }
 .tab {
   display: grid;
@@ -45,7 +45,10 @@
   transition: color var(--dur-fast);
 }
 .tab.on {
-  color: var(--accent);
+  color: var(--accent-bright);
+}
+.tab.on svg {
+  filter: drop-shadow(0 0 8px rgba(47, 59, 255, 0.8));
 }
 .tab-label {
   font-size: 10px;

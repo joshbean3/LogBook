@@ -320,8 +320,9 @@
 }
 .btn.primary {
   background: var(--accent);
-  border-color: var(--accent);
+  border-color: var(--accent-bright);
   color: var(--accent-ink);
+  box-shadow: 0 0 24px rgba(47, 59, 255, 0.45);
 }
 .btn.soft {
   background: var(--accent-tint);
@@ -749,8 +750,9 @@ textarea.in {
   max-width: 560px;
   max-height: calc(100dvh - 32px);
   overflow: auto;
-  border-radius: 16px 16px 0 0;
+  border-radius: 20px 20px 0 0;
   box-shadow: var(--shadow-sheet);
+  border-top: 1px solid var(--line-strong);
   padding: 6px 16px calc(16px + var(--safe-b));
   display: grid;
   gap: 12px;

@@ -13,13 +13,6 @@
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="/fonts/fonts.css" />
-    <script>
-      // apply the saved theme before first paint so there is no flash
-      try {
-        var t = localStorage.getItem('logbook.theme');
-        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-      } catch (e) {}
-    </script>
   </head>
   <body>
     <div id="root"></div>

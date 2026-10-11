@@ -15,21 +15,23 @@ Tokens: 4, 8, 12, 16, 20, 24, 32, 40, 48.
 
 ## 2. Type
 
-One sans for everything, numbers included: SF Pro on iOS via `-apple-system`, Inter elsewhere (`--sans`). Fraunces (`.serif`) only as an editorial accent: the daily quote, journal text, the coach's read. Never on a metric.
+Three faces, each with one job, bundled in `public/fonts` (see `docs/brand.md` §4). Inter for body and labels; Inter Tight 800 for every stamped number (`.stamp`, `.stat-val`); Instrument Serif italic for the big words (`.display`, `.ph-title`) and for reading (quotes, journal text, the coach's read). Numbers are never serif; titles are never sans.
 
-| Role | Size/leading | Weight | Class |
+| Role | Size/leading | Face / weight | Class |
 |---|---|---|---|
-| Display number | 56/60 | 700 | `.t-display` |
-| Stat number | 28/32 | 600 | `.t-stat`, `.stat-val` |
-| Large title | 34/41 | 700 | `.ph-title` |
-| Title | 22/28 | 600 | `.t-title`, `.sheet-title` |
-| Headline | 17/22 | 600 | `.t-head`, `.lrow-title` |
-| Body | 17/22 | 400 | `.t-body` |
-| Subhead | 15/20 | 400 | `.t-sub`, `.lrow-sub` |
-| Label | 12/16 | 600, +0.06em, uppercase | `.t-label` |
-| Caption | 12/16 | 400 | `.t-cap` |
+| Hero stamp | 44/44 | Inter Tight 800, uppercase | `.aura-title.stamp` |
+| Page title | 44/46 | Instrument Serif italic | `.ph-title`, `.display` |
+| Stat number | 28/32 | Inter Tight 800 | `.stat-val` |
+| Stamped stat | 22/24 | Inter Tight 800 | `.aura-num` |
+| Title | 22/28 | Inter 600 | `.t-title`, `.sheet-title` |
+| Headline | 17/22 | Inter 600 | `.t-head`, `.lrow-title` |
+| Body | 17/22 | Inter 400 | `.t-body` |
+| Subhead | 15/20 | Inter 400 | `.t-sub`, `.lrow-sub` |
+| Caption | 12/16 | Inter 400 | `.t-cap` |
+| Caps label | 11/14, +0.12em, uppercase | Inter 600 | `.caps`, `.t-label` |
+| Tab label | 10/12 | Inter 500 (600 active) | `.tab-label` |
 
-Never 11.5, 13.5 or 14.5px. Pair a number with its label at a 2.3x size ratio or more. Tabular numerals are on by default.
+Scale: 10, 11, 12, 15, 17, 22, 28, 44. Nothing else. Pair a number with its label at a 2x size ratio or more. Tabular numerals are on by default.
 
 ## 3. Layout recipes
 
@@ -56,11 +58,11 @@ Never 11.5, 13.5 or 14.5px. Pair a number with its label at a 2.3x size ratio or
 
 ## 5. Colour
 
-Light: warm off-white ground `--bg`, white `--surface`. Dark: near-black ground, `--surface` one step up, no borders (`--card-border` is transparent in dark). Accent green is for navigation state and primary actions only. Status: `--ok` green, `--warn` amber, `--bad` red. Session tones `--t-easy/long/hard/fast/lift/cross/rest` via `.t-*` classes setting `--tone`.
+One theme: black canvas `--bg`, `--surface` at a 7% lift, hairlines as translucent white. The electric blue `--accent` is for the one primary action, the active tab, the done state and links; `--halo` is the stage light behind a hero. Status: `--ok` blue, `--warn` amber, `--bad` red. Session tones `--t-easy/long/hard/fast/lift/cross/rest` via `.t-*` classes setting `--tone`, used only as dots and bars. Full reasoning and values in `docs/brand.md` §3.
 
 ## 6. Motion
 
-Ring fill 600ms ease-out on appear. Check: fill 160ms then mark draws. Haptic on every completion. Button press scales to 0.98. Page change: CSS fade only (no JS exit animations around lazy views). Respect `prefers-reduced-motion`.
+Orb or mark: fill 160ms, then the check draws 160ms, the glow blooms 320ms, one haptic. The route line draws once over 1.1s on first appearance. Taps compress to 0.985 on a spring. Page change: CSS fade only. Nothing else moves without a tap. Respect `prefers-reduced-motion`.
 
 ## 7. Anti-patterns to never reintroduce
 
