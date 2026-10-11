@@ -1170,9 +1170,14 @@ textarea.in {
 .aura-title {
   font-size: 44px;
   line-height: 44px;
-  overflow-wrap: break-word;
-  hyphens: auto;
+  overflow-wrap: anywhere;
   margin-top: 2px;
+}
+@media (max-width: 359px) {
+  .aura-title {
+    font-size: 28px;
+    line-height: 32px;
+  }
 }
 .aura-title.display {
   font-size: 44px;

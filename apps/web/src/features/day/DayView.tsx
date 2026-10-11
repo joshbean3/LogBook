@@ -126,7 +126,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
           <motion.path d={path} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: 'easeOut' }} />
         </svg>
       ) : null}
-      <h2 className={`aura-title ${path ? 'display' : 'stamp'}`}>{title}</h2>
+      <h2 className={`aura-title ${run && !main ? 'display' : 'stamp'}`}>{title}</h2>
       <p className="aura-verdict">{verdict}</p>
       {stats.length ? (
         <div className="aura-stats">
