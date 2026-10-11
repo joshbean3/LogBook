@@ -7,7 +7,7 @@ import { useDaily, useJournalList, useJournalMutations, useQuotes } from '@/api/
 import { Button, ChipButton, EmptyState, Group, IconButton, PageHeader, Segmented } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
-import { Composer, EntryItem } from './JournalDaySection';
+import { Composer, EntryItem, SaveButton } from './JournalDaySection';
 import './journal.css';
 
 /** A caps eyebrow with a caps meta at the right: the section head of this screen. */
@@ -25,6 +25,9 @@ const Byline = ({ q, big }: { q: Quote; big?: boolean }) =>
       {q.work ? <cite className="serif">{q.work}</cite> : null}
     </span>
   ) : null;
+
+/** Shuffle swaps the quote or the memory with a 200ms cross-fade: the old one fades out as the new one fades in. */
+const FADE = { duration: 0.2, ease: 'easeOut' as const };
 
 /** Data still arriving: a quiet block the height the content will take. No spinner, no words; the page lays out once. */
 const Wait = ({ kind }: { kind: 'memory' | 'quote' | 'list' }) => <div className={`jwait ${kind}`} aria-busy="true" />;
@@ -83,8 +86,8 @@ const QuoteHero = () => {
           <p className="t-sub muted">Star a few in the library and they come back sooner.</p>
         </div>
       ) : (
-        <AnimatePresence mode="wait" initial={waited}>
-          <motion.div key={q.id} className="jq-body" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+        <AnimatePresence mode="popLayout" initial={waited}>
+          <motion.div key={q.id} className="jq-body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={FADE}>
             <blockquote className={`quote-text display ${q.text.length > 120 ? 'long' : ''}`}>“{q.text}”</blockquote>
             <div className="quote-by">
               <Byline q={q} big />
@@ -126,14 +129,14 @@ const MemoryCard = ({ today }: { today: string }) => {
   return (
     <>
       <Sec title="From your journal" meta={e ? ago(e.date, today) : undefined} />
-      <Group>
+      <Group className="jmem-group">
         {waiting ? (
           <Wait kind="memory" />
         ) : !e ? (
           <EmptyState>{daily.data?.pastCount ? 'Every past entry has been shown this month. New ones come back after 30 days.' : 'Entries you write come back here on a random day, never more than once a month. Write your first one below.'}</EmptyState>
         ) : (
-          <AnimatePresence mode="wait" initial={waited}>
-            <motion.div key={e.id} className="jmem" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+          <AnimatePresence mode="popLayout" initial={waited}>
+            <motion.div key={e.id} className="jmem" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={FADE}>
               <span className="jmem-date">
                 <span className="caps">{fmtDate('long', e.date)}</span>
               </span>
@@ -241,9 +244,8 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
               <Button variant="ghost" style={{ color: 'var(--ink-2)' }} onClick={() => setAdding(false)}>
                 Cancel
               </Button>
-              <Button
-                variant="primary"
-                disabled={nt.trim().length < 3}
+              <SaveButton
+                ready={nt.trim().length >= 3}
                 onClick={() => {
                   addQuote.mutate({ text: nt.trim(), author: na.trim() });
                   setNt('');
@@ -253,7 +255,7 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
                 }}
               >
                 Add
-              </Button>
+              </SaveButton>
             </div>
           </Group>
         ) : (
@@ -285,12 +287,12 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
                   </span>
                 </div>
                 <div className="q-tools">
-                  <IconButton label={x.fav ? 'Remove from favorites' : 'Favorite'} size="sm" className={`star ${x.fav ? 'on' : ''}`} onClick={() => quotePrefs.mutate({ id: x.id, fav: !x.fav })}>
-                    <Star size={15} fill={x.fav ? 'currentColor' : 'none'} />
+                  <IconButton label={x.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${x.fav ? 'on' : ''}`} onClick={() => quotePrefs.mutate({ id: x.id, fav: !x.fav })}>
+                    <Star size={16} fill={x.fav ? 'currentColor' : 'none'} />
                   </IconButton>
                   {x.mine ? (
-                    <IconButton label="Delete quote" size="sm" onClick={() => removeQuote.mutate(x.id)}>
-                      <Trash2 size={15} />
+                    <IconButton label="Delete quote" onClick={() => removeQuote.mutate(x.id)}>
+                      <Trash2 size={16} />
                     </IconButton>
                   ) : null}
                 </div>

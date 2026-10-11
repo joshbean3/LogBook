@@ -19,34 +19,11 @@
 .s-set .s-sec:first-of-type {
   margin-top: 24px;
 }
-.s-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 10px 16px;
-  background: var(--surface);
-  min-height: 44px;
-}
-.s-step i {
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-style: normal;
-  font-size: 12px;
-  line-height: 22px;
-  font-weight: 600;
-  text-align: center;
-  margin-top: 1px;
-}
-.s-step span {
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--ink-2);
-  letter-spacing: -0.01em;
-  padding-top: 2px;
+/* the second row of the account group: two quiet verbs at the right, no fill */
+.s-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  padding-block: 4px;
 }
 /* the result of an import: a plain sentence, red only when it failed */
 .s-result {
@@ -58,7 +35,10 @@
 .s-result.bad {
   color: var(--bad);
 }
-/* sign out is the one red word on the screen */
+/* sign out is the one red word on the screen, in its own group under everything else */
+.s-out-group {
+  margin-top: var(--section);
+}
 .s-out .lrow-title {
   color: var(--bad);
 }

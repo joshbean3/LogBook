@@ -12,6 +12,7 @@ import './trends.css';
 
 type Range = '1M' | '3M' | '6M';
 const WEEKS: Record<Range, number> = { '1M': 4, '3M': 13, '6M': 26 };
+const WEEKS_WORD: Record<Range, string> = { '1M': 'Four', '3M': 'Thirteen', '6M': 'Twenty-six' };
 const FUT = 4;
 
 const useWidth = <T extends HTMLElement>() => {
@@ -248,7 +249,7 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
   const nav = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
-  // Zones ride along with a Strava sync; this is the same call Settings makes.
+  // Zones ride along with a sync of the linked account; this is the same call Settings makes.
   const sync = useMutation({
     mutationFn: () => api<{ changed?: number }>('/strava/sync', { method: 'POST' }),
     onSuccess: async () => {
@@ -290,29 +291,30 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
         <div className="tr-wait" aria-busy="true" />
       ) : (
         <Group>
+          {/* the chart's this-week bar is this page's blue, so the verb here is quiet */}
           {!z ? (
             connected ? (
               <EmptyState
                 action={
-                  <Button disabled={sync.isPending} onClick={() => sync.mutate()}>
+                  <Button variant="quiet" disabled={sync.isPending} onClick={() => sync.mutate()}>
                     Sync
                   </Button>
                 }
               >
                 No heart-rate zones yet. They arrive with the next sync.
               </EmptyState>
-            ) : log.features.strava ? (
+            ) : (
               <EmptyState
                 action={
-                  <Button onClick={() => nav('/settings')}>
-                    Connect
-                  </Button>
+                  log.features.strava ? (
+                    <Button variant="quiet" onClick={() => nav('/settings')}>
+                      Connect
+                    </Button>
+                  ) : undefined
                 }
               >
-                No heart-rate zones yet. Connect Strava to grade each run.
+                No heart-rate zones yet.
               </EmptyState>
-            ) : (
-              <EmptyState>No heart-rate zones yet. They arrive once Strava is connected.</EmptyState>
             )
           ) : null}
           {rows.map((r) => (
@@ -348,7 +350,7 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
             <EmptyState
               action={
                 connected ? (
-                  <Button disabled={sync.isPending} onClick={() => sync.mutate()}>
+                  <Button variant="quiet" disabled={sync.isPending} onClick={() => sync.mutate()}>
                     Sync
                   </Button>
                 ) : undefined
@@ -544,7 +546,7 @@ export default function TrendsView() {
   const runs = useRuns(log, from, t);
   return (
     <div className="page">
-      <PageHeader title="Trends" sub="Runs from Strava, plan from this app.">
+      <PageHeader title="Trends" sub={`${WEEKS_WORD[range]} weeks, run and planned.`}>
         <Segmented label="Range" options={[['1M', '1M'], ['3M', '3M'], ['6M', '6M']]} value={range} onChange={setRange} />
       </PageHeader>
       <Mileage log={log} range={range} />
