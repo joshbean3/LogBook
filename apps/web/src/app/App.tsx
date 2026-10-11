@@ -6,14 +6,15 @@ import { outbox } from '@/api/outbox';
 import { useBootstrap } from '@/api/queries';
 import { Login, Setup } from '@/features/auth/AuthScreens';
 import { Loading } from '@/ui/primitives';
+import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { Shell } from './Shell';
 
-const DayView = lazy(() => import('@/features/day/DayView'));
-const MorningView = lazy(() => import('@/features/morning/MorningView'));
-const PlanView = lazy(() => import('@/features/plan/PlanView'));
-const TrendsView = lazy(() => import('@/features/trends/TrendsView'));
-const JournalView = lazy(() => import('@/features/journal/JournalView'));
-const SettingsView = lazy(() => import('@/features/settings/SettingsView'));
+const DayView = lazy(lazyImport(() => import('@/features/day/DayView')));
+const MorningView = lazy(lazyImport(() => import('@/features/morning/MorningView')));
+const PlanView = lazy(lazyImport(() => import('@/features/plan/PlanView')));
+const TrendsView = lazy(lazyImport(() => import('@/features/trends/TrendsView')));
+const JournalView = lazy(lazyImport(() => import('@/features/journal/JournalView')));
+const SettingsView = lazy(lazyImport(() => import('@/features/settings/SettingsView')));
 
 const Boot = () => (
   <div className="page" style={{ minHeight: '60dvh', alignContent: 'center', justifyItems: 'center' }}>
@@ -39,8 +40,9 @@ const Authed = () => {
   }
   return (
     <Shell>
-      <Suspense fallback={<Boot />}>
-        <Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<Boot />}>
+          <Routes>
           <Route path="/today/:date?" element={<DayView />} />
           <Route path="/morning/:date?" element={<MorningView />} />
           <Route path="/plan/:view?/:date?" element={<PlanView />} />
@@ -48,8 +50,9 @@ const Authed = () => {
           <Route path="/journal/:tab?" element={<JournalView />} />
           <Route path="/settings" element={<SettingsView />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </Shell>
   );
 };

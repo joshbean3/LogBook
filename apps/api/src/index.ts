@@ -13,6 +13,7 @@ import { stravaAccounts } from './db/schema.js';
 import { seedQuotes } from './db/seed.js';
 import { env } from './env.js';
 import { aiRoutes } from './routes/ai.js';
+import { importRoutes } from './routes/import.js';
 import { authRoutes } from './routes/auth.js';
 import { coreRoutes } from './routes/core.js';
 import { journalRoutes } from './routes/journal.js';
@@ -33,6 +34,7 @@ export const buildApp = (db: DB) => {
   authed.route('/', coreRoutes(db));
   authed.route('/', journalRoutes(db));
   authed.route('/', aiRoutes(db));
+  authed.route('/', importRoutes(db));
   app.route('/api', authed);
 
   app.onError((err, c) => {

@@ -24,9 +24,14 @@ const qc = new QueryClient({
 });
 
 // everything the app has seen lives in IndexedDB, so it opens instantly and works on the subway
+const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
 const persister = createAsyncStoragePersister({
   key: 'logbook.cache.v1',
-  storage: { getItem: (k) => get(k), setItem: (k, v) => set(k, v), removeItem: (k) => del(k) },
+  storage: {
+    getItem: (k) => withTimeout(get<string>(k).catch(() => null), 2500, null).then((v) => v ?? null),
+    setItem: (k, v) => set(k, v).catch(() => undefined),
+    removeItem: (k) => del(k).catch(() => undefined),
+  },
   throttleTime: 800,
 });
 

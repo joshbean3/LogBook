@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { api } from '@/api/client';
+import { api, ApiError } from '@/api/client';
 import { keys, useBootstrap } from '@/api/queries';
 import { useTheme } from '@/lib/theme';
 import { Button, Card, CardHead, Note, PageHeader, Segmented } from '@/ui/primitives';
@@ -50,6 +50,26 @@ export default function SettingsView() {
   const disconnect = useMutation({
     mutationFn: () => api('/strava/disconnect', { method: 'POST' }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
+  });
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const importBundle = useMutation({
+    mutationFn: async (file: File) => {
+      const text = await file.text();
+      let json: unknown;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new ApiError('That file isn’t JSON.', 422);
+      }
+      return api<{ ok: boolean; imported: Record<string, number> }>('/import', { method: 'POST', json });
+    },
+    onSuccess: (r) => {
+      const parts = Object.entries(r.imported).map(([k, n]) => `${n} ${k}`);
+      setImportResult(parts.length ? `Imported ${parts.join(', ')}.` : 'Nothing new to import; it was already here.');
+      void qc.invalidateQueries();
+    },
+    onError: (e) => setImportResult(e instanceof Error ? e.message : 'Import failed.'),
   });
   const logout = useMutation({
     mutationFn: () => api('/auth/logout', { method: 'POST' }),
@@ -134,6 +154,16 @@ export default function SettingsView() {
             <li>Confirm. Logbook opens like any other app.</li>
           </ol>
         )}
+      </Card>
+
+      <Card>
+        <CardHead title="Import from the dashboard" />
+        <p className="lead">Bring over everything from the original Logbook dashboard: habits, plan, logs, Strava history, morning settings, to-dos and favorites. Safe to run more than once.</p>
+        <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => e.target.files?.[0] && importBundle.mutate(e.target.files[0])} />
+        <Button variant="primary" style={{ justifySelf: 'start' }} disabled={importBundle.isPending} onClick={() => fileRef.current?.click()}>
+          {importBundle.isPending ? 'Importing…' : 'Choose export file'}
+        </Button>
+        {importResult ? <Note kind={/failed|isn’t/i.test(importResult) ? 'bad' : 'ok'}>{importResult}</Note> : null}
       </Card>
 
       <Card>
