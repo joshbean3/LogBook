@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
 import { ChevronRight } from 'lucide-react';
-import { Button, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useLog, type Log } from '../log/useLog';
 import { AddSessionButton, SessionRow, UnplannedRow } from '../sessions/SessionCard';
 import { StravaLine } from '../settings/StravaLine';
@@ -99,7 +99,7 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
             {unplannedRuns.length ? <UnplannedRow date={sel} runs={unplannedRuns} log={log} /> : null}
           </ul>
         ) : loaded ? (
-          <EmptyState action={<AddSessionButton date={sel} variant="soft" />}>{sel < t ? 'Nothing was planned this day.' : 'Nothing planned. Add a session, or build a plan.'}</EmptyState>
+          <EmptyState action={<AddSessionButton date={sel} variant="soft" />}>{sel < t ? 'Nothing was planned this day.' : log.features.claude ? 'Nothing planned. Add a session, or build a plan.' : 'Nothing planned. Add a session.'}</EmptyState>
         ) : null}
         {unmatched.map((a) => (
           <div key={a.id} className="lrow">
@@ -109,7 +109,7 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
             </div>
           </div>
         ))}
-        {loaded ? <Row className="wk-open" title={sel === t ? 'Open today' : 'Open day'} onClick={openDay} right={<ChevronRight size={18} />} /> : null}
+        {loaded ? <Row className="wk-open" title="Open" onClick={openDay} right={<ChevronRight size={18} />} /> : null}
       </Group>
     </>
   );
@@ -161,8 +161,10 @@ const Month = ({ anchor, log }: { anchor: string; log: Log }) => {
           const ds = dayStatus(log.snap, d);
           return (
             <button key={d} type="button" className={`mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''}`} aria-label={describe(log, d)} onClick={() => nav(d === t ? '/today' : `/today/${d}`)}>
-              <span className="mcell-num">{parseISO(d).getDate()}</span>
-              <Dots d={d} log={log} max={3} />
+              <span className="mcell-pill">
+                <span className="mcell-num">{parseISO(d).getDate()}</span>
+                <Dots d={d} log={log} max={3} />
+              </span>
             </button>
           );
         })}
@@ -214,8 +216,22 @@ export default function PlanView() {
   const mon = mondayOf(anchor);
   const first = monthStart(anchor);
   const title = view === 'week' ? (mon === mondayOf(t) ? 'This week' : `Week of ${fmtDate('md', mon)}`) : view === 'month' ? fmtDate('month', first) : 'Plans';
-  const sub = view === 'week' ? `${fmtDate('md', mon)} – ${fmtDate('md', shiftDays(mon, 6))}` : view === 'month' ? `${fmtDate('md', first)} – ${fmtDate('md', shiftDays(addMonths(first, 1), -1))}` : 'Import a plan, describe one, or change the one you have.';
+  const range = view === 'week' ? `${fmtDate('md', mon)} – ${fmtDate('md', shiftDays(mon, 6))}` : `${fmtDate('md', first)} – ${fmtDate('md', shiftDays(addMonths(first, 1), -1))}`;
   const offNow = (view === 'week' && mon !== mondayOf(t)) || (view === 'month' && monthOf(first) !== monthOf(t));
+  // the way back to now sits on the date line, so the arrows never move
+  const sub =
+    view === 'plans' ? (
+      log.features.claude ? 'Import a plan, describe one, or change the one you have.' : 'Your plans and the next two weeks.'
+    ) : offNow ? (
+      <span className="ph-sub-row">
+        {range}
+        <button type="button" className="link sm" onClick={() => go(view)}>
+          Today
+        </button>
+      </span>
+    ) : (
+      range
+    );
   return (
     <div className="page">
       <PageHeader
@@ -223,19 +239,12 @@ export default function PlanView() {
         sub={sub}
         actions={
           view !== 'plans' ? (
-            <>
-              {offNow ? (
-                <Button size="sm" variant="ghost" onClick={() => go(view)}>
-                  Today
-                </Button>
-              ) : null}
-              <DateNav
-                onPrev={() => go(view, view === 'week' ? shiftDays(mon, -7) : addMonths(first, -1))}
-                onNext={() => go(view, view === 'week' ? shiftDays(mon, 7) : addMonths(first, 1))}
-                prevLabel={view === 'week' ? 'Previous week' : 'Previous month'}
-                nextLabel={view === 'week' ? 'Next week' : 'Next month'}
-              />
-            </>
+            <DateNav
+              onPrev={() => go(view, view === 'week' ? shiftDays(mon, -7) : addMonths(first, -1))}
+              onNext={() => go(view, view === 'week' ? shiftDays(mon, 7) : addMonths(first, 1))}
+              prevLabel={view === 'week' ? 'Previous week' : 'Previous month'}
+              nextLabel={view === 'week' ? 'Next week' : 'Next month'}
+            />
           ) : null
         }
       >

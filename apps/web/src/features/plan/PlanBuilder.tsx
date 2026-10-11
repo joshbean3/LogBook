@@ -1,15 +1,16 @@
 import { daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api, ApiError } from '@/api/client';
 import { keys, useBlockMutations } from '@/api/queries';
-import { Button, Chip, EmptyState, Field, Group, Note, SectionHead, Segmented, Spinner, Stat, StatStrip } from '@/ui/primitives';
+import { Button, Chip, EmptyState, Field, Group, Note, Row, SectionHead, Segmented, Spinner, Stat, StatStrip } from '@/ui/primitives';
+import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import type { Log } from '../log/useLog';
-import { useOpenSession } from '../sessions/SessionCard';
+import { AddSessionButton, useOpenSession } from '../sessions/SessionCard';
 
 type Mode = 'file' | 'text' | 'describe' | 'revise';
 const MODES: Array<[Mode, string]> = [
@@ -195,15 +196,8 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
       />
     );
   const busy = build.isPending;
-  if (!log.features.claude)
-    return (
-      <>
-        <SectionHead title="Plan builder" />
-        <Group>
-          <EmptyState>Plan building isn’t turned on.</EmptyState>
-        </Group>
-      </>
-    );
+  // nothing to build with: the page starts at "Your plans"
+  if (!log.features.claude) return null;
   return (
     <>
       <SectionHead title="Plan builder" />
@@ -289,68 +283,102 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
   );
 };
 
+const SRC_WORD: Record<string, string> = { file: 'a file', text: 'pasted text', describe: 'your description', revise: 'a revision', chat: 'chat', sheet: 'your spreadsheet' };
+const planState = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active');
+const planMeta = (b: PlanBlock) => `${fmtDate('md', b.start)} – ${fmtDate('md', b.end)} · ${b.sessionCount ?? 0} sessions${b.source ? ` · from ${SRC_WORD[b.source] ?? b.source}` : ''}`;
+
+/** The plan's sheet: what it is, then the two things you can do with it. */
+const PlanSheet = ({ b, t }: { b: PlanBlock; t: string }) => {
+  const sheet = useSheet();
+  const nav = useNavigate();
+  const toast = useToast();
+  const { remove } = useBlockMutations();
+  const [confirm, setConfirm] = useState(false);
+  const state = planState(b, t);
+  const weeks = Math.ceil((daysBetween(b.start, b.end) + 1) / 7);
+  return (
+    <>
+      <div className="plan-sheet">
+        <div className="row" style={{ gap: 8 }}>
+          <Chip kind={state === 'Active' ? 'open' : state === 'Upcoming' ? 'upcoming' : ''}>{state}</Chip>
+          <span className="t-sub muted">
+            {fmtDate('md', b.start)} – {fmtDate('md', b.end)}
+          </span>
+        </div>
+        <StatStrip>
+          <Stat label="Weeks" value={weeks} />
+          <Stat label="Sessions" value={b.sessionCount ?? 0} />
+        </StatStrip>
+        {b.summary ? <p className="t-body ink2">{b.summary}</p> : null}
+        {b.source ? <span className="t-cap muted">From {SRC_WORD[b.source] ?? b.source}</span> : null}
+      </div>
+      <div className="sheet-foot">
+        {confirm ? (
+          <>
+            <Button
+              variant="danger"
+              onClick={() => {
+                remove.mutate(b);
+                sheet.close();
+                toast('Plan deleted');
+              }}
+            >
+              Delete
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirm(false)}>
+              Keep
+            </Button>
+          </>
+        ) : (
+          <Button variant="danger" onClick={() => setConfirm(true)}>
+            Delete
+          </Button>
+        )}
+        <div className="foot-right">
+          <Button
+            variant="primary"
+            onClick={() => {
+              sheet.close();
+              nav(`/plan/week/${b.start < t && t <= b.end ? t : b.start}`);
+            }}
+          >
+            Open
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+};
+
 export const PlansList = ({ log }: { log: Log }) => {
   const blocks = log.boot?.blocks ?? [];
-  const { remove } = useBlockMutations();
-  const toast = useToast();
-  const nav = useNavigate();
-  const [confirm, setConfirm] = useState<string | null>(null);
+  const sheet = useSheet();
   const t = log.today;
-  const srcWord: Record<string, string> = { file: 'a file', text: 'pasted text', describe: 'your description', revise: 'a revision', chat: 'chat', sheet: 'your spreadsheet' };
   return (
     <>
       <SectionHead title="Your plans" meta={blocks.length ? `${blocks.length} ${blocks.length === 1 ? 'plan' : 'plans'}` : undefined} />
       <Group>
         {!blocks.length ? (
-          <EmptyState>No plans yet. Import one above, or add sessions from Today and the week.</EmptyState>
+          <EmptyState action={<AddSessionButton date={t} variant="soft" />}>{log.features.claude ? 'No plans yet. Build one above, or add a session.' : 'No plans yet. Add a session.'}</EmptyState>
         ) : (
           <ul>
             {blocks.map((b) => {
-              const state = t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active';
+              const state = planState(b, t);
               return (
-                <li key={b.id} className="plan-item">
-                  <div className="lrow two">
-                    <div className="lrow-main">
-                      <div className="lrow-title row" style={{ gap: 8 }}>
-                        <span className="grow" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {b.name}
-                        </span>
-                        <Chip kind={state === 'Active' ? 'open' : state === 'Upcoming' ? 'upcoming' : ''}>{state}</Chip>
-                      </div>
-                      <div className="lrow-sub">
-                        {fmtDate('md', b.start)} – {fmtDate('md', b.end)} · {b.sessionCount ?? 0} sessions{b.source ? ` · from ${srcWord[b.source] ?? b.source}` : ''}
-                      </div>
-                      {b.summary ? <p className="plan-sum">{b.summary}</p> : null}
-                    </div>
-                  </div>
-                  <div className="plan-acts">
-                    <Button size="sm" onClick={() => nav(`/plan/week/${b.start < t && t <= b.end ? t : b.start}`)}>
-                      Open
-                    </Button>
-                    {confirm === b.id ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => {
-                            remove.mutate(b);
-                            setConfirm(null);
-                            toast('Plan deleted');
-                          }}
-                        >
-                          Delete
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setConfirm(null)}>
-                          Keep
-                        </Button>
-                      </>
-                    ) : (
-                      <button type="button" className="link quiet" onClick={() => setConfirm(b.id)}>
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </li>
+                <Row
+                  key={b.id}
+                  as="li"
+                  className="plan-row"
+                  title={b.name}
+                  sub={planMeta(b)}
+                  right={
+                    <>
+                      <Chip kind={state === 'Active' ? 'open' : state === 'Upcoming' ? 'upcoming' : ''}>{state}</Chip>
+                      <ChevronRight size={18} />
+                    </>
+                  }
+                  onClick={() => sheet.open({ title: b.name, body: <PlanSheet b={b} t={t} /> })}
+                />
               );
             })}
           </ul>

@@ -100,14 +100,14 @@ export default function SettingsView() {
       <SectionHead title="Appearance" />
       <Group>
         <div className="lrow">
-          <Segmented className="grow" label="Theme" options={[['system', 'Match device'], ['light', 'Light'], ['dark', 'Dark']]} value={theme} onChange={setTheme} />
+          <Segmented className="grow" label="Theme" options={[['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]} value={theme} onChange={setTheme} />
         </div>
       </Group>
 
       <SectionHead title="Strava" />
       <Group>
         {!features?.strava ? (
-          <Row title="Strava isn’t set up yet" sub="Needs server keys" />
+          <Row title="Not connected" sub="Not available yet." />
         ) : strava?.connected ? (
           <>
             <Row title="Strava" sub={strava.athleteName ? `Connected as ${strava.athleteName}` : 'Runs, lifts and workouts flow in and mark sessions done.'} right={<Chip kind="done">Connected</Chip>} />
@@ -122,20 +122,21 @@ export default function SettingsView() {
             </div>
           </>
         ) : (
-          <>
-            <Row title="Strava" sub="Every run marks its session done, with heart rate and splits graded against the plan." right={<Chip>Not connected</Chip>} />
-            <div className="lrow" style={{ justifyContent: 'flex-end', paddingBlock: 8 }}>
-              <a className="btn primary" href="/api/strava/connect">
+          <Row
+            title="Not connected"
+            sub="Every run marks its session done, with heart rate and splits graded against the plan."
+            right={
+              <a className="chip-btn" href="/api/strava/connect">
                 Connect
               </a>
-            </div>
-          </>
+            }
+          />
         )}
       </Group>
 
       <SectionHead title="Coach" />
       <Group>
-        <Row title="Plan builder and coach’s read" sub={features?.claude ? 'Builds plans from a PDF, text or a description, and reads each run.' : 'Not turned on for this server.'} right={features?.claude ? <Chip kind="done">On</Chip> : <Chip>Off</Chip>} />
+        <Row title="Plan builder and coach’s read" sub={features?.claude ? 'Builds plans from a PDF, text or a description, and reads each run.' : 'Not available yet.'} right={features?.claude ? <Chip kind="done">On</Chip> : <Chip>Off</Chip>} />
       </Group>
 
       <SectionHead title="Install" />
