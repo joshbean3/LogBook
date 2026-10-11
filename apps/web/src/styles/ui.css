@@ -742,7 +742,7 @@ textarea.in {
 }
 .sheet {
   position: relative;
-  background: var(--surface);
+  background: var(--bg);
   width: 100%;
   max-width: 560px;
   max-height: calc(100dvh - 32px);
@@ -773,9 +773,11 @@ textarea.in {
   min-height: 44px;
 }
 .sheet-title {
-  font-size: 22px;
-  line-height: 28px;
-  font-weight: 600;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 32px;
   margin-right: auto;
   letter-spacing: -0.01em;
 }
