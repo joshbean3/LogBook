@@ -16,3 +16,4 @@ test-results
 
 # screenshots that contain real personal data stay local
 docs/screens-real/
+.claude/worktrees/
