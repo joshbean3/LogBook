@@ -1,14 +1,17 @@
-import { assess, clock, fmtDate, floorFor, isAutoStatus, label, METERS_PER_MILE, mi, monthOf, num, sessionStatus, STATUS_WORD, tone, zoneOf, type Activity, type Session } from '@logbook/shared';
+import { assess, buildMorning, clock, clockOfDay, decodePolyline, floorFor, fmtDate, isAutoStatus, KIND_WORD, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, routePath, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, zoneOf, type Activity, type Session } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Sparkles } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { motion } from 'motion/react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
 import type { MonthBundle } from '@/api/types';
-import { Button, Chip, ChipButton, Mark, Stat, StatStrip } from '@/ui/primitives';
+import { Button, Chip, ChipButton, Mark } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
+import type { ShareData } from '../share/cards';
+import { ShareSheet } from '../share/ShareSheet';
 import { LiftLog } from './LiftLog';
 import { MoveSheet } from './MoveSheet';
 import { SessionEditor } from './SessionEditor';
@@ -25,10 +28,143 @@ export const sessionMeta = (s: Session, st: string): string => {
   return bits.join(' · ');
 };
 
-/** What Strava says happened, graded against the plan. */
+const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
+
+// ---------- the sheet's hero: black, lit from below, the route drawn white, the numbers stamped ----------
+type AuraStat = [string, string, string?];
+interface AuraSpec {
+  tone: string;
+  eyebrow: string;
+  status: string;
+  path: string;
+  title: string;
+  display: boolean;
+  verdict: string;
+  stats: AuraStat[];
+}
+
+const SheetAura = ({ a }: { a: AuraSpec }) => (
+  <div className={`sh-aura t-${a.tone} ${a.path ? 'has-route' : ''}`}>
+    <span className="sh-glow" aria-hidden="true" />
+    <div className="sh-top">
+      <span className="caps">{a.eyebrow}</span>
+      <Chip kind={a.status === 'bonus' ? 'done' : a.status}>{STATUS_WORD[a.status] ?? a.status}</Chip>
+    </div>
+    {a.path ? (
+      <svg className="sh-route" viewBox="0 0 358 160" aria-hidden="true">
+        <motion.path d={a.path} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: 'easeOut' }} />
+      </svg>
+    ) : null}
+    <h3 className={`sh-title ${a.display ? 'display' : 'stamp'}`}>{a.title}</h3>
+    <p className="sh-verdict">{a.verdict}</p>
+    {a.stats.length ? (
+      <div className="sh-stats">
+        {a.stats.map(([k, v, u]) => (
+          <span key={k} className="sh-stat">
+            <span className="caps">{k}</span>
+            <span className="stamp sh-num">
+              {v}
+              {u ? <small>{u}</small> : null}
+            </span>
+          </span>
+        ))}
+      </div>
+    ) : null}
+  </div>
+);
+
+/** A finished run's hero: route, name, verdict, DISTANCE / PACE / TIME / AVG HR. */
+const auraForRuns = (sess: Session | null, runs: Activity[], log: Log, status: string): AuraSpec => {
+  const a = assess(log.zones, sess, runs);
+  const poly = runs.find((r) => r.polyline)?.polyline ?? null;
+  const path = poly ? routePath(decodePolyline(poly), 358, 160, 10) : '';
+  const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
+  const verdict = status === 'floor' ? 'Floor held.' : sess ? (a.head === 'Logged' ? 'Done.' : `${a.head}.`) : runs.length > 1 ? `${mi(a.miles)} mi across ${runs.length} runs.` : `${mi(a.miles)} mi, off the plan.`;
+  return {
+    tone: sess ? tone(sess) : 'easy',
+    eyebrow: sess ? label(sess) : 'Unplanned run',
+    status,
+    path,
+    title: name,
+    display: true,
+    verdict,
+    stats: [
+      ['Distance', mi(a.miles), 'mi'],
+      ['Pace', a.pace ?? '—', a.pace ? '/mi' : undefined],
+      ['Time', clock(a.movingSec)],
+      ['Avg HR', a.avgHr != null ? String(a.avgHr) : '—', a.avgHr != null ? 'bpm' : undefined],
+    ],
+  };
+};
+
+/** A planned session's hero: the name as a stamp, the floor line, PLAN / FLOOR / OUT / BACK when known. */
+const auraForPlan = (date: string, s: Session, log: Log, status: string, sets: number): AuraSpec => {
+  const floor = floorFor(s);
+  const mm = /(\d+)\s*min/.exec(floor);
+  const stats: AuraStat[] = [];
+  if (s.kind === 'run' && s.miles) stats.push(['Plan', num(s.miles), 'mi']);
+  else if (s.minutes) stats.push(['Plan', String(s.minutes), 'min']);
+  else if (s.type) stats.push(['Plan', s.type]);
+  if (floor) stats.push(mm ? ['Floor', mm[1]!, 'min'] : ['Floor', floor.split(/[,\s]/)[0]!]);
+  let morning: { start: number; back: number; mode: string } | null = null;
+  if (date === log.today && log.boot && s.kind !== 'rest') {
+    const sessions = log.snap.sessionsOn(date);
+    const main = sessions.find((x) => x.kind === 'run') ?? sessions.find((x) => x.kind !== 'rest');
+    if (main?.id === s.id) {
+      const st2 = log.boot.morningSettings ?? MORNING_DEFAULTS;
+      const T = buildMorning(morningDayFor(sessions, log.snap.morningOverride(date), st2), st2);
+      const out = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
+      if (out) morning = { start: out.start, back: T.back, mode: T.day.mode };
+    }
+  }
+  if (morning) stats.push(['Out', short(morning.start)], ['Back', short(morning.back)]);
+  if (sets) stats.push(['Sets', String(sets)]);
+  let verdict: string;
+  if (s.kind === 'rest') verdict = 'A rest day on the plan.';
+  else if (status === 'done') verdict = 'Done.';
+  else if (status === 'floor') verdict = 'Floor held.';
+  else if (status === 'missed') verdict = `Missed. The floor was ${floor}.`;
+  else if (status === 'skipped') verdict = 'Skipped.';
+  else if (morning) verdict = `${morning.mode === 'run' ? 'Out' : 'Gym'} at ${short(morning.start)}, back by ${short(morning.back)}.`;
+  else verdict = floor ? `Floor: ${floor}.` : 'On the plan.';
+  return { tone: tone(s), eyebrow: s.movedFrom ? `${KIND_WORD[s.kind]} · moved from ${fmtDate('md', s.movedFrom)}` : KIND_WORD[s.kind], status, path: '', title: s.kind === 'rest' ? 'Rest' : label(s), display: false, verdict, stats };
+};
+
+/** Everything a share card needs: the run, and the week around it. */
+const shareDataFor = (date: string, sess: Session | null, runs: Activity[], log: Log): ShareData => {
+  const a = assess(log.zones, sess, runs);
+  const monday = mondayOf(date);
+  const wt = weekTotals(log.snap, monday);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = shiftDays(monday, i);
+    return { date: d, miles: log.snap.activitiesOn(d).filter((x) => x.kind === 'run').reduce((t, x) => t + x.miles, 0) };
+  });
+  return {
+    name: runs.length === 1 ? runs[0]!.name : sess ? label(sess) : 'Run',
+    label: sess ? label(sess) : (runs[0]?.name ?? 'Run'),
+    date,
+    time: runs[0]?.time ?? null,
+    miles: a.miles,
+    movingSec: a.movingSec,
+    elevFt: runs.reduce((t, r) => t + r.elevFt, 0),
+    avgHr: a.avgHr,
+    polyline: runs.find((r) => r.polyline)?.polyline ?? null,
+    week: { monday, days, total: wt.ran, planned: wt.planned },
+  };
+};
+
+const ShareButton = ({ data }: { data: ShareData }) => {
+  const sheet = useSheet();
+  return (
+    <Button variant="primary" onClick={() => sheet.open({ title: <span className="display sh-sheet-title">Share</span>, body: <ShareSheet data={data} /> })}>
+      Share
+    </Button>
+  );
+};
+
+/** What Strava says happened, graded against the plan: splits, the read, the coach. */
 export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: Session | null; runs: Activity[]; log: Log }) => {
   const a = assess(log.zones, sess, runs);
-  const za = a.avgHr != null ? zoneOf(log.zones, a.avgHr) : null;
   const laps = runs.flatMap((r) => r.laps ?? []).filter((l) => l[0] > 160);
   const key = sess ? sess.id : 'run';
   const saved = log.snap.coachOn(date, key);
@@ -41,26 +177,20 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
   });
   const fastest = laps.length ? Math.min(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const slowest = laps.length ? Math.max(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
+  const za = a.avgHr != null ? zoneOf(log.zones, a.avgHr) : null;
+  const line = [
+    runs.map((r) => r.name + (r.time ? ` · ${r.time}` : '')).join(' + ') + (runs.length > 1 ? ' (combined)' : ''),
+    za ? `Z${za} average` : null,
+    a.maxHr != null ? `max ${a.maxHr} bpm` : null,
+    runs[0]?.cadence ? `${runs[0].cadence} spm` : null,
+    runs.some((r) => r.elevFt) ? `${runs.reduce((t, r) => t + r.elevFt, 0)} ft up` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <div className="actual">
-      <StatStrip>
-        <Stat label="Distance" value={mi(a.miles)} unit="mi" />
-        <Stat label="Pace" value={a.pace ?? '—'} unit={a.pace ? '/mi' : undefined} />
-        <Stat label="Time" value={clock(a.movingSec)} />
-      </StatStrip>
-      {a.avgHr != null || runs[0]?.cadence ? (
-        <StatStrip>
-          <Stat label="Avg HR" value={a.avgHr ?? '—'} unit={za ? <b className={`hr-chip z${za}`}>Z{za}</b> : 'bpm'} small />
-          <Stat label="Max HR" value={a.maxHr ?? '—'} unit="bpm" small />
-          <Stat label="Cadence" value={runs[0]?.cadence ?? '—'} unit="spm" small />
-        </StatStrip>
-      ) : runs.some((r) => !r.perfAt) ? (
-        <p className="fine">Heart rate and splits are on their way from Strava.</p>
-      ) : null}
-      <p className="fine">
-        {runs.map((r) => r.name + (r.time ? ` · ${r.time}` : '')).join(' + ')}
-        {runs.length > 1 ? ' (combined)' : ''}
-      </p>
+      <p className="fine">{line}</p>
+      {a.avgHr == null && runs.some((r) => !r.perfAt) ? <p className="fine">Heart rate and splits are on their way from Strava.</p> : null}
       {laps.length > 1 ? (
         <div className="splits" aria-label="Mile splits">
           {laps.map((l, i) => {
@@ -95,7 +225,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
       {log.features.claude ? (
         saved ? (
           <div className="coach">
-            <span className="t-label muted row" style={{ gap: 6 }}>
+            <span className="caps row" style={{ gap: 6 }}>
               <Sparkles size={12} /> Coach’s read
             </span>
             <p className="serif">{saved}</p>
@@ -106,7 +236,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
         ) : (
           <ChipButton onClick={() => coach.mutate()} disabled={coach.isPending}>
             <Sparkles size={14} />
-            {coach.isPending ? 'Claude is reading the run…' : 'Coach’s read'}
+            {coach.isPending ? 'Reading the run…' : 'Coach’s read'}
           </ChipButton>
         )
       ) : null}
@@ -114,7 +244,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
   );
 };
 
-/** The full session in a sheet: evidence, lift log, and every action. */
+/** The full session in a sheet: the hero, the evidence, the lift log, and every action. */
 const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the sheet body is captured once at open; subscribing here keeps marks, sets and deletes live while it is up
   const log = useLog([monthOf(date)]);
@@ -126,28 +256,25 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   useEffect(() => {
     if (!s) sheet.close();
   }, [s, sheet]);
+  const runs = s?.kind === 'run' ? log.snap.runsOn(date) : [];
+  const share = useMemo(() => (s && runs.length ? shareDataFor(date, s, runs, log) : null), [date, s, runs, log]);
   if (!s) return null;
   const st = sessionStatus(log.snap, date, s);
   const auto = isAutoStatus(log.snap, date, s);
-  const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const sets = log.snap.liftsOn(date);
   const others = log.snap.activitiesOn(date).filter((a) => a.kind !== 'run');
   const setMark = (m: Session['mark']) => mark.mutate({ session: s, mark: m });
   const canLog = s.kind === 'lift' || (s.kind === 'cross' && /hyrox/i.test(s.type ?? ''));
+  const aura = runs.length ? auraForRuns(s, runs, log, st) : auraForPlan(date, s, log, st, s.kind === 'lift' ? sets.length : 0);
   return (
     <div className="stack" style={{ gap: 16 }}>
-      <div className="row" style={{ gap: 10 }}>
-        <i className={`tone-dot t-${tone(s)}`} aria-hidden="true" />
-        <Chip kind={st}>{STATUS_WORD[st]}</Chip>
-        <span className="t-sub muted">{fmtDate('short', date)}</span>
-      </div>
+      <SheetAura a={aura} />
       {sessionMeta(s, st) ? <p className="t-sub ink2">{sessionMeta(s, st)}</p> : null}
-      {s.kind !== 'rest' && floorFor(s) ? (
+      {s.kind !== 'rest' && floorFor(s) && (runs.length || !aura.verdict.startsWith('Floor')) ? (
         <p className="t-sub ink2">
           <span className="muted">Floor:</span> {floorFor(s)}
         </p>
       ) : null}
-      {s.movedFrom ? <p className="fine">Moved from {fmtDate('short', s.movedFrom)}</p> : null}
       {runs.length ? <SessionActual date={date} sess={s} runs={runs} log={log} /> : null}
       {s.kind === 'lift' && sets.length ? (
         <p className="t-sub ink2">
@@ -200,15 +327,33 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         <div className="foot-right">
           <Button onClick={() => sheet.open({ title: `Move ${label(s)}`, body: <MoveSheet date={date} session={s} /> })}>Move</Button>
           <Button onClick={() => sheet.open({ title: 'Edit session', body: <SessionEditor date={date} session={s} /> })}>Edit</Button>
+          {share && share.miles > 0 ? <ShareButton data={share} /> : null}
         </div>
       </div>
     </div>
   );
 };
 
+/** A run with no session behind it: the same hero and evidence, and Share. */
+const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log }) => {
+  const share = useMemo(() => shareDataFor(date, null, runs, log), [date, runs, log]);
+  return (
+    <div className="stack" style={{ gap: 16 }}>
+      <SheetAura a={auraForRuns(null, runs, log, 'done')} />
+      <SessionActual date={date} sess={null} runs={runs} log={log} />
+      <div className="sheet-foot">
+        <span />
+        <div className="foot-right">{share.miles > 0 ? <ShareButton data={share} /> : null}</div>
+      </div>
+    </div>
+  );
+};
+
+const sheetDate = (date: string) => <span className="caps sh-sheet-date">{fmtDate('long', date)}</span>;
+
 export const useOpenSession = (_log?: Log) => {
   const sheet = useSheet();
-  return (date: string, s: Session) => sheet.open({ title: label(s), body: <SessionSheet date={date} id={s.id} />, wide: true });
+  return (date: string, s: Session) => sheet.open({ title: sheetDate(date), body: <SessionSheet date={date} id={s.id} />, wide: true });
 };
 
 /** A 60px row: check, colour bar, title, meta, one stat, chevron. */
@@ -260,7 +405,7 @@ export const UnplannedRow = ({ date, runs, log }: { date: string; runs: Activity
   return (
     <li className="srow t-easy s-done">
       <Mark status="done" disabled label="Unplanned run, done" />
-      <button type="button" className="srow-body" onClick={() => sheet.open({ title: 'Unplanned run', body: <SessionActual date={date} sess={null} runs={runs} log={log} />, wide: true })}>
+      <button type="button" className="srow-body" onClick={() => sheet.open({ title: sheetDate(date), body: <UnplannedSheet date={date} runs={runs} log={log} />, wide: true })}>
         <span className="srow-bar" aria-hidden="true" />
         <span className="srow-main">
           <span className="lrow-title">Unplanned run</span>
