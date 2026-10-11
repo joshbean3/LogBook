@@ -1,25 +1,28 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { api, ApiError } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
-import { Button, Field, Loading, LogoMark, Note } from '@/ui/primitives';
+import { Button, Field, LogoMark, Note } from '@/ui/primitives';
 import './auth.css';
 
 export const useAuthStatus = () => useQuery({ queryKey: ['auth-status'], queryFn: () => api<AuthStatus>('/auth/status'), staleTime: 60_000 });
 
-const Frame = ({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) => (
-  <div className="auth">
-    <motion.div className="auth-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
-      <div className="auth-brand">
-        <LogoMark size={22} color="var(--accent)" />
-        <span>Logbook</span>
+/** The black screen with the halo rising from the bottom. With no title it is the quiet stand-in while the status arrives: no spinner, nothing moves. */
+const Frame = ({ title, sub, children }: { title?: string; sub?: string; children?: React.ReactNode }) => (
+  <div className="auth" aria-busy={title ? undefined : true}>
+    <span className="auth-halo" aria-hidden="true" />
+    {title ? (
+      <div className="auth-body">
+        <div className="auth-brand">
+          <LogoMark size={24} color="#fff" />
+          <span className="caps">Logbook</span>
+        </div>
+        <h1 className="auth-title display">{title}</h1>
+        <p className="auth-sub">{sub}</p>
+        {children}
       </div>
-      <h1 className="auth-title t-large">{title}</h1>
-      <p className="auth-sub t-sub">{sub}</p>
-      {children}
-    </motion.div>
+    ) : null}
   </div>
 );
 
@@ -31,7 +34,7 @@ export const Login = () => {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  if (status.isPending) return <Loading />;
+  if (status.isPending) return <Frame />;
   if (status.data && !status.data.hasAccount && status.data.setupOpen) return <Navigate to="/setup" replace />;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +61,7 @@ export const Login = () => {
         </Field>
         {err ? <Note kind="bad">{err}</Note> : null}
         <Button variant="primary" block type="submit" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
+          Sign in
         </Button>
       </form>
     </Frame>
@@ -75,7 +78,7 @@ export const Setup = () => {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const created = useRef(false);
-  if (status.isPending) return <Loading />;
+  if (status.isPending) return <Frame />;
   if (status.data && !status.data.setupOpen && !created.current) return <Navigate to="/login" replace />;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,7 +111,7 @@ export const Setup = () => {
         </Field>
         {err ? <Note kind="bad">{err}</Note> : null}
         <Button variant="primary" block type="submit" disabled={busy}>
-          {busy ? 'Creating…' : 'Create my log'}
+          Create
         </Button>
       </form>
     </Frame>
