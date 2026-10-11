@@ -1,7 +1,6 @@
-import { assess, buildMorning, clock, clockOfDay, decodePolyline, floorFor, fmtDate, isAutoStatus, KIND_WORD, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, routePath, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, zoneOf, type Activity, type Session } from '@logbook/shared';
+import { assess, buildMorning, clock, clockOfDay, floorFor, fmtDate, isAutoStatus, KIND_WORD, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, zoneOf, type Activity, type Session } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Sparkles } from 'lucide-react';
-import { motion } from 'motion/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
@@ -30,48 +29,33 @@ export const sessionMeta = (s: Session, st: string): string => {
 
 const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
 
-// ---------- the sheet's hero: black, lit from below, the route drawn white, the numbers stamped ----------
+// ---------- the sheet's head: eyebrow and status, the name, and the four stamps on a hairline ----------
 type AuraStat = [string, string, string?];
 interface AuraSpec {
   tone: string;
   eyebrow: string;
   status: string;
-  path: string;
   title: string;
   display: boolean;
-  verdict: string;
   stats: AuraStat[];
 }
 
-/** When the hero on the page already shows the big picture, the sheet opens with just the eyebrow, the status and the name. */
+/**
+ * One head for every way in. The page's hero already drew the route and lit the day, so the sheet never restates it:
+ * the eyebrow and the status chip, the name in the display serif (a stamp for a number label like "Easy 6"),
+ * then the summary strip: DISTANCE / PACE / TIME / AVG HR for a run, PLAN / FLOOR / OUT / BACK for a plan.
+ */
 const SheetHead = ({ a }: { a: AuraSpec }) => (
   <div className={`sh-head t-${a.tone}`}>
     <div className="sh-top">
       <span className="caps">{a.eyebrow}</span>
       <Chip kind={a.status === 'bonus' ? 'done' : a.status}>{STATUS_WORD[a.status] ?? a.status}</Chip>
     </div>
-    <h3 className={`sh-title compact ${a.display ? 'display' : 'stamp'}`}>{a.title}</h3>
-  </div>
-);
-
-const SheetAura = ({ a }: { a: AuraSpec }) => (
-  <div className={`sh-aura t-${a.tone} ${a.path ? 'has-route' : ''}`}>
-    <span className="sh-glow" aria-hidden="true" />
-    <div className="sh-top">
-      <span className="caps">{a.eyebrow}</span>
-      <Chip kind={a.status === 'bonus' ? 'done' : a.status}>{STATUS_WORD[a.status] ?? a.status}</Chip>
-    </div>
-    {a.path ? (
-      <svg className="sh-route" viewBox="0 0 358 160" aria-hidden="true">
-        <motion.path d={a.path} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: 'easeOut' }} />
-      </svg>
-    ) : null}
     <h3 className={`sh-title ${a.display ? 'display' : 'stamp'}`}>{a.title}</h3>
-    <p className="sh-verdict">{a.verdict}</p>
     {a.stats.length ? (
-      <div className="sh-stats">
+      <div className="sh-stats" role="list" aria-label="Summary">
         {a.stats.map(([k, v, u]) => (
-          <span key={k} className="sh-stat">
+          <span key={k} className="sh-stat" role="listitem">
             <span className="caps">{k}</span>
             <span className="stamp sh-num">
               {v}
@@ -84,21 +68,23 @@ const SheetAura = ({ a }: { a: AuraSpec }) => (
   </div>
 );
 
-/** A finished run's hero: route, name, verdict, DISTANCE / PACE / TIME / AVG HR. */
+/** The day's verdict in the brand voice: "Floor held." / "Easy 6, done." / "6.0 mi, off the plan." */
+const runVerdict = (sess: Session | null, runs: Activity[], miles: number, status: string): string => {
+  if (status === 'floor') return 'Floor held.';
+  if (sess) return `${label(sess)}, done.`;
+  return runs.length > 1 ? `${mi(miles)} mi across ${runs.length} runs.` : `${mi(miles)} mi, off the plan.`;
+};
+
+/** A finished run's head: the name, DISTANCE / PACE / TIME / AVG HR. */
 const auraForRuns = (sess: Session | null, runs: Activity[], log: Log, status: string): AuraSpec => {
   const a = assess(log.zones, sess, runs);
-  const poly = runs.find((r) => r.polyline)?.polyline ?? null;
-  const path = poly ? routePath(decodePolyline(poly), 358, 160, 10) : '';
   const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
-  const verdict = status === 'floor' ? 'Floor held.' : sess ? (a.head === 'Logged' ? 'Done.' : `${a.head}.`) : runs.length > 1 ? `${mi(a.miles)} mi across ${runs.length} runs.` : `${mi(a.miles)} mi, off the plan.`;
   return {
     tone: sess ? tone(sess) : 'easy',
     eyebrow: sess ? label(sess) : 'Unplanned run',
     status,
-    path,
     title: name,
     display: true,
-    verdict,
     stats: [
       ['Distance', mi(a.miles), 'mi'],
       ['Pace', a.pace ?? '—', a.pace ? '/mi' : undefined],
@@ -108,7 +94,7 @@ const auraForRuns = (sess: Session | null, runs: Activity[], log: Log, status: s
   };
 };
 
-/** A planned session's hero: the name as a stamp, the floor line, PLAN / FLOOR / OUT / BACK when known. */
+/** A planned session's head: the name as a stamp, PLAN / FLOOR / OUT / BACK when known (SETS for a lift). */
 const auraForPlan = (date: string, s: Session, log: Log, status: string, sets: number): AuraSpec => {
   const floor = floorFor(s);
   const mm = /(\d+)\s*min/.exec(floor);
@@ -130,20 +116,13 @@ const auraForPlan = (date: string, s: Session, log: Log, status: string, sets: n
   }
   if (morning) stats.push(['Out', short(morning.start)], ['Back', short(morning.back)]);
   if (sets) stats.push(['Sets', String(sets)]);
-  let verdict: string;
-  if (s.kind === 'rest') verdict = 'A rest day on the plan.';
-  else if (status === 'done') verdict = 'Done.';
-  else if (status === 'floor') verdict = 'Floor held.';
-  else if (status === 'missed') verdict = `Missed. The floor was ${floor}.`;
-  else if (status === 'skipped') verdict = 'Skipped.';
-  else if (morning) verdict = `${morning.mode === 'run' ? 'Out' : 'Gym'} at ${short(morning.start)}, back by ${short(morning.back)}.`;
-  else verdict = floor ? `Floor: ${floor}.` : 'On the plan.';
-  return { tone: tone(s), eyebrow: s.movedFrom ? `${KIND_WORD[s.kind]} · moved from ${fmtDate('md', s.movedFrom)}` : KIND_WORD[s.kind], status, path: '', title: s.kind === 'rest' ? 'Rest' : label(s), display: false, verdict, stats };
+  return { tone: tone(s), eyebrow: s.movedFrom ? `${KIND_WORD[s.kind]} · moved from ${fmtDate('md', s.movedFrom)}` : KIND_WORD[s.kind], status, title: s.kind === 'rest' ? 'Rest' : label(s), display: false, stats };
 };
 
-/** Everything a share card needs: the run, and the week around it. */
+/** Everything a share card needs: the run, the day's verdict, and the week around it. */
 export const shareDataFor = (date: string, sess: Session | null, runs: Activity[], log: Log): ShareData => {
   const a = assess(log.zones, sess, runs);
+  const status = sess ? sessionStatus(log.snap, date, sess) : 'done';
   const monday = mondayOf(date);
   const wt = weekTotals(log.snap, monday);
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -153,6 +132,7 @@ export const shareDataFor = (date: string, sess: Session | null, runs: Activity[
   return {
     name: runs.length === 1 ? runs[0]!.name : sess ? label(sess) : 'Run',
     label: sess ? label(sess) : null,
+    verdict: runVerdict(sess, runs, a.miles, status),
     date,
     time: runs[0]?.time ?? null,
     miles: a.miles,
@@ -189,8 +169,11 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
   const fastest = laps.length ? Math.min(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const slowest = laps.length ? Math.max(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const za = a.avgHr != null ? zoneOf(log.zones, a.avgHr) : null;
+  // the name sits in the head just above, so the line starts at the clock
+  const starts = runs.map((r) => r.time).filter((t): t is string => !!t);
   const line = [
-    runs.map((r) => r.name + (r.time ? ` · ${r.time}` : '')).join(' + ') + (runs.length > 1 ? ' (combined)' : ''),
+    starts.length ? `Started ${starts.join(' and ')}` : null,
+    runs.length > 1 ? `${runs.length} runs combined` : null,
     za ? `Z${za} average` : null,
     a.maxHr != null ? `max ${a.maxHr} bpm` : null,
     runs[0]?.cadence ? `${runs[0].cadence} spm` : null,
@@ -255,8 +238,20 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
   );
 };
 
-/** The full session in a sheet: the hero, the evidence, the lift log, and every action. */
-const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHero?: boolean }) => {
+/** The sheet's title on every path: the date as a caps label. Inter, never the serif under 22px. */
+export const sessionSheetTitle = (date: string) => <span className="caps sh-sheet-date">{fmtDate('long', date)}</span>;
+const sheetDate = sessionSheetTitle;
+
+/** Whatever the caller passed, the title of a session sheet is the caps date. */
+const useCapsDateTitle = (date: string) => {
+  const sheet = useSheet();
+  useEffect(() => {
+    sheet.update({ title: sheetDate(date) });
+  }, [date, sheet]);
+};
+
+/** The full session in a sheet: the head, the evidence, the lift log, and every action. `fromHero` is accepted and makes no difference: one sheet, every way in. */
+const SessionSheet = ({ date, id }: { date: string; id: string; fromHero?: boolean }) => {
   // the sheet body is captured once at open; subscribing here keeps marks, sets and deletes live while it is up
   const log = useLog([monthOf(date)]);
   const sheet = useSheet();
@@ -264,6 +259,7 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
   const { mark, remove, restore } = useSessionMutations();
   const [liftOpen, setLiftOpen] = useState(false);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
+  useCapsDateTitle(date);
   useEffect(() => {
     if (!s) sheet.close();
   }, [s, sheet]);
@@ -279,9 +275,9 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
   const aura = runs.length ? auraForRuns(s, runs, log, st) : auraForPlan(date, s, log, st, s.kind === 'lift' ? sets.length : 0);
   return (
     <div className="sh-body">
-      {fromHero ? <SheetHead a={aura} /> : <SheetAura a={aura} />}
+      <SheetHead a={aura} />
       {sessionMeta(s, st) ? <p className="t-sub ink2">{sessionMeta(s, st)}</p> : null}
-      {s.kind !== 'rest' && floorFor(s) && (fromHero || runs.length || !aura.verdict.startsWith('Floor')) ? (
+      {s.kind !== 'rest' && floorFor(s) ? (
         <p className="t-sub ink2">
           <span className="muted">Floor:</span> {floorFor(s)}
         </p>
@@ -349,13 +345,14 @@ const SessionSheet = ({ date, id, fromHero }: { date: string; id: string; fromHe
   );
 };
 
-/** A run with no session behind it: the same hero and evidence, and Share. */
-export const UnplannedSheet = ({ date, runs, log, fromHero }: { date: string; runs: Activity[]; log: Log; fromHero?: boolean }) => {
+/** A run with no session behind it: the same head and evidence, and Share. `fromHero` is accepted and makes no difference. */
+export const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log; fromHero?: boolean }) => {
   const share = useMemo(() => shareDataFor(date, null, runs, log), [date, runs, log]);
   const aura = auraForRuns(null, runs, log, 'done');
+  useCapsDateTitle(date);
   return (
     <div className="sh-body">
-      {fromHero ? <SheetHead a={aura} /> : <SheetAura a={aura} />}
+      <SheetHead a={aura} />
       <SessionActual date={date} sess={null} runs={runs} log={log} />
       <div className="sheet-foot">
         <span />
@@ -365,15 +362,13 @@ export const UnplannedSheet = ({ date, runs, log, fromHero }: { date: string; ru
   );
 };
 
-const sheetDate = (date: string) => <span className="caps sh-sheet-date">{fmtDate('long', date)}</span>;
-
-/** Open a session's sheet. `fromHero` means the hero card on the page already shows the big picture, so the sheet opens compact. */
+/** Open a session's sheet. `fromHero` is accepted for the callers that pass it; the sheet is the same from the hero and from a row. */
 export const useOpenSession = (_log?: Log) => {
   const sheet = useSheet();
   return (date: string, s: Session, opts: { fromHero?: boolean } = {}) => sheet.open({ title: sheetDate(date), body: <SessionSheet date={date} id={s.id} fromHero={opts.fromHero} />, wide: true });
 };
 
-/** A 60px row: check, colour bar, title, meta, one stat, chevron. */
+/** A 60px row: check, colour bar, the run's name (or the plan's label), the plan as the sub line, one stat, chevron. */
 export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Session; log: Log; as?: 'li' | 'div' }) => {
   const st = sessionStatus(log.snap, date, s);
   const auto = isAutoStatus(log.snap, date, s);
@@ -382,6 +377,9 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const sets = log.snap.liftsOn(date);
   const lbl = label(s);
+  // a logged run leads with its own name, the way Aura sets it; the plan's label drops to the sub line
+  const title = runs.length ? runs.map((r) => r.name).join(' + ') : lbl;
+  const sub = runs.length ? [lbl, sessionMeta(s, st)].filter(Boolean).join(' · ') : sessionMeta(s, st) || STATUS_WORD[st];
   let stat: ReactNode = null;
   if (runs.length) {
     const a = assess(log.zones, s, runs);
@@ -406,8 +404,8 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
       <button type="button" className="srow-body" onClick={() => open(date, s)}>
         <span className="srow-bar" aria-hidden="true" />
         <span className="srow-main">
-          <span className="lrow-title">{lbl}</span>
-          <span className="lrow-sub">{sessionMeta(s, st) || STATUS_WORD[st]}</span>
+          <span className="lrow-title">{title}</span>
+          <span className="lrow-sub">{sub}</span>
         </span>
         {stat}
         <ChevronRight size={18} className="srow-chev" />
@@ -425,8 +423,8 @@ export const UnplannedRow = ({ date, runs, log }: { date: string; runs: Activity
       <button type="button" className="srow-body" onClick={() => sheet.open({ title: sheetDate(date), body: <UnplannedSheet date={date} runs={runs} log={log} />, wide: true })}>
         <span className="srow-bar" aria-hidden="true" />
         <span className="srow-main">
-          <span className="lrow-title">Unplanned run</span>
-          <span className="lrow-sub">{runs.map((r) => r.name).join(' + ')}</span>
+          <span className="lrow-title">{runs.map((r) => r.name).join(' + ')}</span>
+          <span className="lrow-sub">Unplanned</span>
         </span>
         <span className="srow-stat">
           <b>{mi(a.miles)} mi</b>

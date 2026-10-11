@@ -1,4 +1,4 @@
-/* a session as a 60px list row (72px when the details need a second line) */
+/* a session as a 60px list row (taller when the name or the details need a second line) */
 .srow {
   display: flex;
   align-items: center;
@@ -7,6 +7,8 @@
   background: var(--surface);
   min-height: 60px;
 }
+/* the run's own name leads at 17/600 and wraps to a second line rather than clip; the plan is the 15px sub */
+.srow .lrow-title,
 .srow .lrow-sub {
   white-space: normal;
   display: -webkit-box;
@@ -274,8 +276,8 @@
   background: var(--surface-3);
 }
 
-/* ---------- the sheet's hero: the session as the day's aura card ----------
-   mirrors .aura in day.css, under its own name so the sheet looks right from any tab */
+/* ---------- the sheet: one head from every way in ----------
+   the page's hero already drew the route and lit the day; the sheet names the session and stamps the numbers */
 /* the sheet's date sits where a title would, as a caps label: Inter, never the serif under 22px */
 .sh-sheet-date {
   display: block;
@@ -288,11 +290,12 @@
   gap: 16px;
   min-width: 0;
 }
-/* opened from the hero the sheet does not restate it: eyebrow, status and the name, then the evidence */
+/* eyebrow and status, the name, the strip */
 .sh-head {
   display: grid;
   gap: 8px;
   padding-top: 2px;
+  min-width: 0;
 }
 /* 32px chips and 36px buttons keep their size but take a 44px touch */
 .sh-body .chip-btn,
@@ -317,31 +320,6 @@
   top: -4px;
   bottom: -4px;
 }
-.sh-aura {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  padding: 16px 16px 16px;
-  min-height: 160px;
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  color: var(--ink);
-}
-.sh-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--halo);
-  opacity: 0.85;
-  pointer-events: none;
-}
-.sh-aura.has-route .sh-glow {
-  opacity: 1;
-}
 .sh-top {
   display: flex;
   align-items: center;
@@ -349,43 +327,29 @@
   gap: 8px;
   min-height: 20px;
 }
-.sh-route {
-  display: block;
-  width: 100%;
-  height: auto;
-  margin: 6px 0 2px;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+.sh-top .caps {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+/* the name: the display serif at 28/32 for a run ("Afternoon Run"), the stamp at 28 for a number label ("EASY 6") */
 .sh-title {
-  font-size: 44px;
-  line-height: 44px;
-  overflow-wrap: break-word;
-  hyphens: auto;
-  margin-top: 2px;
-}
-.sh-title.display {
-  font-size: 44px;
-  line-height: 46px;
-  text-transform: none;
-}
-.sh-title.compact {
   font-size: 28px;
   line-height: 32px;
-  margin-top: 0;
+  overflow-wrap: break-word;
+  color: var(--ink);
 }
-.sh-verdict {
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--ink-2);
-  letter-spacing: -0.01em;
-  max-width: 30ch;
+.sh-title.display {
+  text-transform: none;
 }
+/* the summary strip: four caps labels over four stamps on a 12% hairline */
 .sh-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 8px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 .sh-stat {
@@ -393,24 +357,21 @@
   gap: 4px;
   min-width: 0;
 }
-.sh-stat .caps {
-  color: rgba(255, 255, 255, 0.62);
-  letter-spacing: 0.1em;
-  font-size: 10px;
-}
 .sh-num {
-  font-size: 22px;
-  line-height: 24px;
+  font-size: 28px;
+  line-height: 32px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
 }
 .sh-num small {
   font-size: 12px;
+  line-height: 16px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
-  margin-left: 2px;
   color: rgba(255, 255, 255, 0.7);
 }
 /* at 320 the four stamps go two by two rather than clip */
@@ -418,13 +379,5 @@
   .sh-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 16px;
-  }
-  .sh-title {
-    font-size: 28px;
-    line-height: 32px;
-  }
-  .sh-title.display {
-    font-size: 28px;
-    line-height: 32px;
   }
 }
