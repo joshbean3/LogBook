@@ -1,4 +1,4 @@
-import { parseISO, buildMorning, clockOfDay, dayStatus, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, relativeDay, sessionStatus, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
+import { parseISO, buildMorning, clockOfDay, dayStatus, decodePolyline, floorFor, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, pad, relativeDay, routePath, sessionStatus, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Activity, type Habit, type Session } from '@logbook/shared';
 import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Pencil, Settings, X } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -16,15 +16,22 @@ import './day.css';
 type L = ReturnType<typeof useLog>;
 const MONTH_DAY = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' });
 
-// ---------- hero: the day's training, in one glance ----------
+// ---------- hero: the day as one card, lit from below ----------
+const fmtClock = (sec: number) => {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const x = sec % 60;
+  return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`;
+};
+const paceOf = (a: Activity) => (a.miles > 0 ? fmtClock(Math.round(a.movingSec / a.miles)) : '—');
+
 const Hero = ({ date, log }: { date: string; log: L }) => {
   const sessions = log.snap.sessionsOn(date);
   const st = dayStatus(log.snap, date);
-  const hl = log.habits.filter((h) => h.createdOn <= date);
-  const hd = hl.filter((h) => log.snap.isHabitDone(date, h.id)).length;
   const open = useOpenSession(log);
   const main = sessions.find((s) => s.kind === 'run') ?? sessions.find((s) => s.kind !== 'rest') ?? sessions[0] ?? null;
   const runs = log.snap.runsOn(date);
+  const run = runs[0] ?? null;
   const morning = useMemo(() => {
     if (date !== log.today || !log.boot) return null;
     const st2 = log.boot.morningSettings ?? MORNING_DEFAULTS;
@@ -32,51 +39,163 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     const out = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
     return out ? { start: out.start, back: T.back, mode: T.day.mode } : null;
   }, [date, log.today, log.boot, sessions, log.snap]);
-  // the ring counts habits, so it is always the accent; the chip and verdict carry the training status
-  const ringColor = 'var(--accent)';
-  let title: React.ReactNode;
+  const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
+  const path = useMemo(() => (run?.polyline ? routePath(decodePolyline(run.polyline), 358, 200, 12) : ''), [run?.polyline]);
+
+  let eyebrow: string;
+  let title: string;
   let verdict: string;
-  if (!main) {
-    title = runs.length ? 'Unplanned run' : date < log.today ? 'Nothing planned' : 'Rest';
-    verdict = runs.length ? `${mi(runs.reduce((t, a) => t + a.miles, 0))} mi logged from Strava.` : sessions.some((s) => s.kind === 'rest') ? 'A rest day on the plan.' : 'No session on the plan. Add one or let the day breathe.';
+  let stats: Array<[string, string, string?]>;
+  if (!main && !run) {
+    eyebrow = date < log.today ? 'That day' : 'Today';
+    title = sessions.some((s) => s.kind === 'rest') ? 'Rest' : 'Open';
+    verdict = sessions.some((s) => s.kind === 'rest') ? 'A rest day on the plan.' : 'Nothing on the plan. Add a session or let the day breathe.';
+    stats = [];
+  } else if (run) {
+    eyebrow = main ? (date === log.today ? 'Today’s run' : 'The run') : 'Unplanned run';
+    title = main ? label(main) : run.name;
+    const total = runs.reduce((t, a) => t + a.miles, 0);
+    verdict = st === 'floor' ? 'Floor held.' : main ? `Done. ${run.name}.` : `${mi(total)} mi logged from Strava.`;
+    stats = [
+      ['Distance', mi(total), 'mi'],
+      ['Pace', paceOf(run), '/mi'],
+      ['Time', fmtClock(run.movingSec)],
+      ['Elev', String(run.elevFt), 'ft'],
+    ];
   } else {
-    title = label(main);
-    const rest = sessions.filter((s) => s !== main && s.kind !== 'rest');
-    const meta = sessionMeta(main, st);
-    const withSt = rest.map((s) => [s, sessionStatus(log.snap, date, s)] as const);
-    const coming = withSt.filter(([, x]) => x === 'open' || x === 'upcoming').map(([s]) => label(s));
-    const finished = withSt.filter(([, x]) => x === 'done' || x === 'floor').map(([s]) => label(s));
-    const extra = (coming.length ? ` Then ${coming.join(' and ')}.` : '') + (finished.length ? ` ${finished.join(' and ')} done.` : '');
-    const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
-    if (st === 'done' || st === 'bonus') verdict = runs.length ? `Done, ${mi(runs.reduce((t, a) => t + a.miles, 0))} mi logged.${extra}` : `Done.${extra}`;
-    else if (st === 'floor') verdict = `Floor held.${extra}`;
+    const m = main!;
+    eyebrow = date === log.today ? 'Today’s training' : 'Training';
+    title = label(m);
+    const rest = sessions.filter((s) => s !== m && s.kind !== 'rest');
+    const coming = rest.filter((s) => ['open', 'upcoming'].includes(sessionStatus(log.snap, date, s))).map(label);
+    const extra = coming.length ? ` Then ${coming.join(' and ')}.` : '';
+    if (st === 'floor') verdict = `Floor held.${extra}`;
     else if (st === 'missed') verdict = `Missed.${extra}`;
+    else if (st === 'done') verdict = `Done.${extra}`;
     else if (morning) verdict = `${morning.mode === 'run' ? 'Out' : 'Gym'} at ${short(morning.start)}, back by ${short(morning.back)}.${extra}`;
-    else verdict = `${meta || STATUS_WORD[st]}.${extra}`;
+    else verdict = `${sessionMeta(m, st) || STATUS_WORD[st]}.${extra}`;
+    stats = [
+      m.kind === 'run' && m.miles ? ['Plan', num(m.miles), 'mi'] : ['Plan', m.type ?? STATUS_WORD[st] ?? ''],
+      (() => {
+        const f = floorFor(m);
+        const mm = /(\d+)\s*min/.exec(f);
+        return mm ? (['Floor', mm[1]!, 'min'] as [string, string, string]) : (['Floor', f ? f.split(/[,\s]/)[0]! : '—'] as [string, string]);
+      })(),
+      ...(morning ? ([['Out', short(morning.start)], ['Back', short(morning.back)]] as Array<[string, string]>) : ([['Status', STATUS_WORD[st] ?? '']] as Array<[string, string]>)),
+    ];
   }
+  const target = main ?? null;
   return (
-    <div
-      className={`hero ${main ? `t-${tone(main)}` : ''}`}
-      onClick={main ? () => open(date, main) : undefined}
-      onKeyDown={main ? (e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), open(date, main)) : undefined) : undefined}
-      role={main ? 'button' : undefined}
-      tabIndex={main ? 0 : undefined}
-      aria-label={main ? `${label(main)}. Open session` : undefined}
+    <motion.div
+      className={`aura ${target ? `t-${tone(target)}` : ''} ${path ? 'has-route' : ''}`}
+      onClick={target ? () => open(date, target) : undefined}
+      onKeyDown={target ? (e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), open(date, target)) : undefined) : undefined}
+      role={target ? 'button' : undefined}
+      tabIndex={target ? 0 : undefined}
+      aria-label={target ? `${title}. Open session` : undefined}
+      whileTap={target ? { scale: 0.985 } : undefined}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
-      <Ring value={hl.length ? hd / hl.length : 0} size={96} stroke={7} color={ringColor} label={`${hd} of ${hl.length} habits`}>
-        <span className="t-stat">{hl.length ? hd : '—'}</span>
-        <span className="t-cap muted">{hl.length ? `of ${hl.length}` : 'habits'}</span>
-      </Ring>
-      <div className="hero-main">
-        <span className="t-label muted">{date === log.today ? 'Today’s training' : 'Training'}</span>
-        <h2 className="hero-title">{title}</h2>
-        <p className="hero-verdict">{verdict}</p>
-        <div className="hero-foot">
-          <Chip kind={st === 'bonus' ? 'done' : st}>{STATUS_WORD[st] || 'Nothing planned'}</Chip>
-          {sessions.length > 1 ? <Chip>{sessions.length} sessions</Chip> : null}
-        </div>
+      <span className="aura-glow" aria-hidden="true" />
+      <div className="aura-top">
+        <span className="caps">{eyebrow}</span>
+        <Chip kind={st === 'bonus' ? 'done' : st}>{STATUS_WORD[st] || 'Open'}</Chip>
       </div>
-      {main ? <ChevronRight className="hero-chev" size={20} aria-hidden="true" /> : null}
+      {path ? (
+        <svg className="aura-route" viewBox="0 0 358 200" aria-hidden="true">
+          <motion.path d={path} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: 'easeOut' }} />
+        </svg>
+      ) : null}
+      <h2 className={`aura-title ${path ? 'display' : 'stamp'}`}>{title}</h2>
+      <p className="aura-verdict">{verdict}</p>
+      {stats.length ? (
+        <div className="aura-stats">
+          {stats.map(([k, v, u]) => (
+            <span key={k} className="aura-stat">
+              <span className="caps">{k}</span>
+              <span className="stamp aura-num">
+                {v}
+                {u ? <small>{u}</small> : null}
+              </span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {target ? <ChevronRight className="aura-chev" size={20} aria-hidden="true" /> : null}
+    </motion.div>
+  );
+};
+
+
+// ---------- habit orbs: a row of lights, each one you can switch on ----------
+const Orbs = ({ date, log, list, toggle, noteFor, setNoteFor, timers, save }: { date: string; log: L; list: Habit[]; toggle: (h: Habit) => void; noteFor: string | null; setNoteFor: (id: string | null) => void; timers: React.MutableRefObject<Record<string, ReturnType<typeof setTimeout>>>; save: (id: string, v: string) => void }) => {
+  const reduce = useReducedMotion();
+  const noted = noteFor ? list.find((h) => h.id === noteFor) : null;
+  const done = list.filter((h) => log.snap.isHabitDone(date, h.id)).length;
+  return (
+    <div className="orbs-wrap">
+      <div className="orbs" role="group" aria-label="Habits">
+        {list.map((h, i) => {
+          const isDone = log.snap.isHabitDone(date, h.id);
+          const note = log.snap.checkOf(date, h.id)?.note ?? '';
+          return (
+            <motion.button
+              key={h.id}
+              type="button"
+              className={`orb ${isDone ? 'on' : ''}`}
+              role="checkbox"
+              aria-checked={isDone}
+              aria-label={h.name}
+              title={i < 9 ? `Press ${i + 1}` : undefined}
+              whileTap={reduce ? undefined : { scale: 0.92 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 28 }}
+              onClick={() => toggle(h)}
+              onPointerDown={() => {
+                clearTimeout(timers.current[`lp-${h.id}`]);
+                timers.current[`lp-${h.id}`] = setTimeout(() => {
+                  haptic();
+                  setNoteFor(h.id);
+                  setTimeout(() => document.getElementById(`note-${h.id}`)?.focus());
+                }, 450);
+              }}
+              onPointerUp={() => clearTimeout(timers.current[`lp-${h.id}`])}
+              onPointerLeave={() => clearTimeout(timers.current[`lp-${h.id}`])}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <motion.span className="orb-ring" initial={false} animate={isDone ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.36, ease: 'easeOut' }}>
+                <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: isDone ? 1 : 0, opacity: isDone ? 1 : 0 }} transition={reduce ? { duration: 0 } : isDone ? { pathLength: { duration: 0.18, delay: 0.12, ease: 'easeOut' }, opacity: { duration: 0.01, delay: 0.12 } } : { duration: 0.1 }} />
+                </svg>
+                {!isDone ? <span className="orb-initial">{h.name.slice(0, 1)}</span> : null}
+                {note ? <i className="orb-note" aria-hidden="true" /> : null}
+              </motion.span>
+              <span className="orb-name">{h.name}</span>
+            </motion.button>
+          );
+        })}
+      </div>
+      <div className="orbs-meter" aria-hidden="true">
+        <motion.i initial={false} animate={{ width: `${list.length ? (done / list.length) * 100 : 0}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+      </div>
+      {noted ? (
+        <div className="orbs-note">
+          <input
+            className="note-in"
+            id={`note-${noted.id}`}
+            defaultValue={log.snap.checkOf(date, noted.id)?.note ?? ''}
+            placeholder={`A note on ${noted.name}`}
+            maxLength={280}
+            aria-label={`Note for ${noted.name}`}
+            onChange={(e) => {
+              clearTimeout(timers.current[noted.id]);
+              const v = e.target.value;
+              timers.current[noted.id] = setTimeout(() => save(noted.id, v), 600);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            onBlur={() => setNoteFor(null)}
+          />
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -137,9 +256,8 @@ const HabitsSection = ({ date, log }: { date: string; log: L }) => {
         }
       />
       <Group>
-        {(editing ? log.habits : list).map((h, i) => {
-          if (editing)
-            return (
+        {editing
+          ? log.habits.map((h, i) => (
               <div key={h.id} className="lrow">
                 <input className="in bare" defaultValue={h.name} aria-label="Habit name" maxLength={80} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== h.name && patch.mutate({ id: h.id, name: e.target.value.trim() })} />
                 <IconButton label="Move up" size="sm" disabled={i === 0} onClick={() => swap(i, i - 1)}>
@@ -152,74 +270,9 @@ const HabitsSection = ({ date, log }: { date: string; log: L }) => {
                   <X size={16} />
                 </IconButton>
               </div>
-            );
-          const isDone = log.snap.isHabitDone(date, h.id);
-          const note = log.snap.checkOf(date, h.id)?.note ?? '';
-          const n = streakOf(h);
-          const noteOpen = !!note || noteFor === h.id;
-          return (
-            <div key={h.id} className={`lrow hrow ${isDone ? 'is-done' : ''}`}>
-              <Mark status={isDone ? 'done' : 'open'} label={h.name} title={i < 9 ? `Press ${i + 1}` : undefined} onClick={() => toggle(h)} />
-              <div className="lrow-main">
-                <button
-                  type="button"
-                  className="hrow-name"
-                  onClick={() => toggle(h)}
-                  onPointerDown={() => {
-                    clearTimeout(timers.current[`lp-${h.id}`]);
-                    timers.current[`lp-${h.id}`] = setTimeout(() => {
-                      haptic();
-                      setNoteFor(h.id);
-                      setTimeout(() => document.getElementById(`note-${h.id}`)?.focus());
-                    }, 450);
-                  }}
-                  onPointerUp={() => clearTimeout(timers.current[`lp-${h.id}`])}
-                  onPointerLeave={() => clearTimeout(timers.current[`lp-${h.id}`])}
-                  onContextMenu={(e) => e.preventDefault()}
-                >
-                  {h.name}
-                </button>
-                {noteOpen ? (
-                  <input
-                    className="note-in"
-                    id={`note-${h.id}`}
-                    defaultValue={note}
-                    placeholder="Add a note"
-                    maxLength={280}
-                    aria-label={`Note for ${h.name}`}
-                    onChange={(e) => {
-                      clearTimeout(timers.current[h.id]);
-                      const v = e.target.value;
-                      timers.current[h.id] = setTimeout(() => check.mutate({ habitId: h.id, date, note: v }), 600);
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                    onBlur={(e) => !e.target.value && setNoteFor(null)}
-                  />
-                ) : null}
-              </div>
-              <div className="lrow-right">
-                {n >= 3 ? (
-                  <span className="streak" title={`${n}-day streak`}>
-                    {n}d
-                  </span>
-                ) : null}
-                {!noteOpen ? (
-                  <IconButton
-                    label="Add a note"
-                    size="sm"
-                    className="hover-only"
-                    onClick={() => {
-                      setNoteFor(h.id);
-                      setTimeout(() => document.getElementById(`note-${h.id}`)?.focus());
-                    }}
-                  >
-                    <Pencil size={14} />
-                  </IconButton>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
+            ))
+          : null}
+        {!editing && list.length ? <Orbs date={date} log={log} list={list} toggle={toggle} noteFor={noteFor} setNoteFor={setNoteFor} timers={timers} save={(id, v) => check.mutate({ habitId: id, date, note: v })} /> : null}
         {!list.length ? <EmptyState>{date < log.today ? 'No habits yet on this day.' : 'Add the things you want to do every day. Each one becomes a box to tick.'}</EmptyState> : null}
         <div className="lrow-add">
           <input className="in" placeholder="Add a habit" maxLength={80} aria-label="New habit" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addIt())} />

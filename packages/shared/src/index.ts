@@ -6,3 +6,4 @@ export * from './assess.js';
 export * from './morning.js';
 export * from './rotation.js';
 export * from './schemas.js';
+export * from './polyline.js';

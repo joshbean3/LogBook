@@ -114,10 +114,10 @@ ol {
   letter-spacing: -0.01em;
 }
 .t-label {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 16px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .t-cap {
@@ -128,8 +128,30 @@ ol {
 }
 .serif {
   font-family: var(--serif);
-  font-variation-settings: 'SOFT' 100;
   letter-spacing: 0;
+}
+/* the editorial voice: italic serif for titles and the day's word */
+.display {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+/* the stamp: heavy tight numerals, the way a stat sits on a photo */
+.stamp {
+  font-family: var(--stamp);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+.caps {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
 .muted {
   color: var(--ink-3);

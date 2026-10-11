@@ -247,6 +247,7 @@ export const activities = sqliteTable(
     lapsJson: text('laps_json'),
     perfAt: text('perf_at'),
     perfFailed: integer('perf_failed').notNull().default(0),
+    polyline: text('polyline'),
     deletedAt: text('deleted_at'),
     updatedAt: text('updated_at').notNull(),
   },

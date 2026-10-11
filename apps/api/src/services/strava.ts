@@ -105,6 +105,7 @@ interface SummaryActivity {
   max_heartrate?: number;
   average_cadence?: number;
   has_heartrate?: boolean;
+  map?: { summary_polyline?: string | null };
 }
 interface DetailedActivity extends SummaryActivity {
   laps?: Array<{ distance: number; moving_time: number; average_heartrate?: number }>;
@@ -145,6 +146,7 @@ export const syncActivities = async (db: DB, userId: string, opts: { detailLimit
           avgHr: a.has_heartrate === false ? null : a.average_heartrate != null ? Math.round(a.average_heartrate) : null,
           maxHr: a.has_heartrate === false ? null : a.max_heartrate != null ? Math.round(a.max_heartrate) : null,
           cadence: a.average_cadence ? Math.round(a.average_cadence * 2) : null,
+          polyline: a.map?.summary_polyline || null,
           deletedAt: null,
           updatedAt: nowISO(),
         };

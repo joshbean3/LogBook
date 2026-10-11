@@ -12,9 +12,11 @@
   min-height: 44px;
 }
 .ph-title {
-  font-size: 34px;
-  line-height: 41px;
-  font-weight: 700;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 46px;
   letter-spacing: -0.01em;
 }
 .ph-sub {
@@ -247,10 +249,11 @@
   min-width: 0;
 }
 .stat-val {
+  font-family: var(--stamp);
   font-size: 28px;
   line-height: 32px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   display: flex;
   align-items: baseline;
   gap: 4px;

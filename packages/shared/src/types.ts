@@ -57,6 +57,8 @@ export interface Activity {
   laps: Lap[] | null;
   /** When the per-activity detail (laps, HR) was last fetched. */
   perfAt: string | null;
+  /** Strava's encoded summary polyline of the route, when the activity has one. */
+  polyline: string | null;
 }
 
 export interface HrZone {

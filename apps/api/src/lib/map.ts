@@ -42,4 +42,5 @@ export const toActivity = (r: InferSelectModel<typeof activities>): Activity => 
   cadence: r.cadence,
   laps: r.lapsJson ? (JSON.parse(r.lapsJson) as Lap[]) : null,
   perfAt: r.perfAt,
+  polyline: r.polyline ?? null,
 });

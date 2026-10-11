@@ -1,49 +1,54 @@
-/* Logbook design tokens. 4pt grid, one sans for everything, serif only as an editorial accent. */
+/* Logbook design tokens. One black canvas; light comes from the data. 4pt grid. */
 :root {
-  color-scheme: light;
-  --bg: #f5f3ee;
-  --surface: #ffffff;
-  --surface-2: #ebe8e1;
-  --surface-3: #dfdbd2;
-  --ink: #1a1917;
-  --ink-2: #56524b;
-  --ink-3: #74706a;
-  --ink-4: #b5b1a9;
-  --line: rgba(26, 25, 23, 0.08);
-  --line-strong: rgba(26, 25, 23, 0.14);
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #111111;
+  --surface-2: #1b1b1b;
+  --surface-3: #262626;
+  --ink: #ffffff;
+  --ink-2: rgba(255, 255, 255, 0.72);
+  --ink-3: rgba(255, 255, 255, 0.5);
+  --ink-4: rgba(255, 255, 255, 0.28);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
 
-  --accent: #2d6a4f;
+  /* the electric blue: the one accent, and the halo behind anything that matters */
+  --accent: #2f3bff;
+  --accent-bright: #5b66ff;
   --accent-ink: #ffffff;
-  --accent-soft: #dcebe2;
-  --accent-tint: rgba(45, 106, 79, 0.1);
+  --accent-soft: #141a66;
+  --accent-tint: rgba(47, 59, 255, 0.18);
+  --halo: radial-gradient(60% 70% at 50% 110%, rgba(47, 59, 255, 0.9), rgba(47, 59, 255, 0) 70%);
 
-  --ok: #2d6a4f;
-  --ok-soft: #dcebe2;
-  --warn: #a37408;
-  --warn-soft: #f6e7c6;
-  --bad: #d0304c;
-  --bad-soft: #f8dde1;
-  --star: #a37408;
+  --ok: #4f7bff;
+  --ok-soft: #152055;
+  --warn: #ffb020;
+  --warn-soft: #3a2a08;
+  --bad: #ff3b5c;
+  --bad-soft: #3d1018;
+  --star: #ffb020;
 
-  --t-easy: #4f9a6b;
-  --t-long: #3b7bd1;
-  --t-hard: #d07a0a;
-  --t-fast: #c4306a;
-  --t-lift: #8a55cf;
-  --t-cross: #8d6b45;
-  --t-rest: #94908a;
+  --t-easy: #35d07f;
+  --t-long: #3b82ff;
+  --t-hard: #ff8a1f;
+  --t-fast: #ff3d8a;
+  --t-lift: #a26bff;
+  --t-cross: #d1a15c;
+  --t-rest: #7a7a7a;
 
-  --shadow-1: 0 1px 2px rgba(26, 25, 23, 0.06), 0 1px 6px rgba(26, 25, 23, 0.04);
-  --shadow-2: 0 4px 16px rgba(26, 25, 23, 0.1), 0 1px 3px rgba(26, 25, 23, 0.06);
-  --shadow-sheet: 0 -8px 40px rgba(26, 25, 23, 0.18);
-  --card-border: 1px solid rgba(26, 25, 23, 0.06);
-  --glass: rgba(245, 243, 238, 0.86);
+  --shadow-1: none;
+  --shadow-2: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.7);
+  --card-border: 1px solid rgba(255, 255, 255, 0.06);
+  --glass: rgba(0, 0, 0, 0.78);
 
-  --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-  --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --stamp: 'Inter Tight', 'Inter', -apple-system, sans-serif;
+  --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
 
-  --r-lg: 12px;
-  --r-md: 8px;
+  --r-lg: 20px;
+  --r-md: 12px;
   --r-pill: 999px;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -57,81 +62,6 @@
   --gutter: 16px;
   --section: 32px;
   --maxw: 720px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
-    --bg: #111110;
-    --surface: #1a1a18;
-    --surface-2: #242421;
-    --surface-3: #2f2e2a;
-    --ink: #efece6;
-    --ink-2: #b5b1a9;
-    --ink-3: #87837b;
-    --ink-4: #55524c;
-    --line: rgba(239, 236, 230, 0.08);
-    --line-strong: rgba(239, 236, 230, 0.14);
-    --accent: #6cc29a;
-    --accent-ink: #0b1a12;
-    --accent-soft: #1d3a2d;
-    --accent-tint: rgba(108, 194, 154, 0.12);
-    --ok: #6cc29a;
-    --ok-soft: #1d3a2d;
-    --warn: #e9a23b;
-    --warn-soft: #3a2e14;
-    --bad: #e85a5a;
-    --bad-soft: #3b1d1d;
-    --star: #e9a23b;
-    --t-easy: #8fd0a6;
-    --t-long: #6aa6ff;
-    --t-hard: #f0a93a;
-    --t-fast: #f06a9a;
-    --t-lift: #b48cf5;
-    --t-cross: #c9a06e;
-    --t-rest: #6f6c66;
-    --shadow-1: none;
-    --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.45);
-    --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.6);
-    --card-border: 1px solid transparent;
-    --glass: rgba(17, 17, 16, 0.86);
-  }
-}
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --bg: #111110;
-  --surface: #1a1a18;
-  --surface-2: #242421;
-  --surface-3: #2f2e2a;
-  --ink: #efece6;
-  --ink-2: #b5b1a9;
-  --ink-3: #87837b;
-  --ink-4: #55524c;
-  --line: rgba(239, 236, 230, 0.08);
-  --line-strong: rgba(239, 236, 230, 0.14);
-  --accent: #6cc29a;
-  --accent-ink: #0b1a12;
-  --accent-soft: #1d3a2d;
-  --accent-tint: rgba(108, 194, 154, 0.12);
-  --ok: #6cc29a;
-  --ok-soft: #1d3a2d;
-  --warn: #e9a23b;
-  --warn-soft: #3a2e14;
-  --bad: #e85a5a;
-  --bad-soft: #3b1d1d;
-  --star: #e9a23b;
-  --t-easy: #8fd0a6;
-  --t-long: #6aa6ff;
-  --t-hard: #f0a93a;
-  --t-fast: #f06a9a;
-  --t-lift: #b48cf5;
-  --t-cross: #c9a06e;
-  --t-rest: #6f6c66;
-  --shadow-1: none;
-  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.45);
-  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.6);
-  --card-border: 1px solid transparent;
-  --glass: rgba(17, 17, 16, 0.86);
 }
 
 .t-easy { --tone: var(--t-easy); }

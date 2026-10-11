@@ -33,6 +33,7 @@ const run = (date: string, miles: number, extra: Partial<Activity> = {}): Activi
   cadence: null,
   laps: null,
   perfAt: null,
+  polyline: null,
   ...extra,
 });
 const snap = (sessions: Session[], acts: Activity[], today = '2026-10-11', sets: Record<string, number> = {}): Snapshot => ({

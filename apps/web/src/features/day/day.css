@@ -122,3 +122,209 @@
 .hrow-name {
   -webkit-touch-callout: none;
 }
+
+/* ---------- the aura card: black, lit from below, the day's numbers stamped on it ---------- */
+.aura {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 16px;
+  min-height: 220px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  color: var(--ink);
+}
+.aura[role='button'] {
+  cursor: pointer;
+}
+.aura-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.aura.has-route .aura-glow {
+  opacity: 1;
+}
+.aura-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+}
+.aura-route {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 6px 0 2px;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+}
+.aura-title {
+  font-size: 44px;
+  line-height: 44px;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  margin-top: 2px;
+}
+.aura-title.display {
+  font-size: 40px;
+  line-height: 42px;
+  text-transform: none;
+}
+.aura-verdict {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--ink-2);
+  letter-spacing: -0.01em;
+  max-width: 30ch;
+}
+.aura-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.aura-stat {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.aura-stat .caps {
+  color: rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.1em;
+  font-size: 10px;
+}
+.aura-num {
+  font-size: 22px;
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aura-num small {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.aura-chev {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  color: var(--ink-4);
+  display: none;
+}
+
+/* ---------- habit orbs ---------- */
+.orbs-wrap {
+  padding: 16px 16px 14px;
+  display: grid;
+  gap: 14px;
+}
+.orbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 6px 16px 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.orbs::-webkit-scrollbar {
+  display: none;
+}
+.orb {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  flex: 0 0 64px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+}
+.orb-ring {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  color: transparent;
+  background: var(--surface-2);
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    box-shadow 320ms var(--ease-out),
+    color var(--dur-fast);
+}
+.orb-ring svg {
+  position: absolute;
+}
+.orb-initial {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--ink-2);
+}
+.orb.on .orb-ring {
+  background: var(--accent);
+  border-color: var(--accent-bright);
+  color: #fff;
+  box-shadow:
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 28px rgba(47, 59, 255, 0.75);
+}
+.orb-note {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.orb-name {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-3);
+  max-width: 64px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orb.on .orb-name {
+  color: var(--ink);
+}
+.orbs-meter {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.orbs-meter i {
+  display: block;
+  height: 100%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 12px rgba(47, 59, 255, 0.9);
+}
+.orbs-note .note-in {
+  margin: 0;
+}
