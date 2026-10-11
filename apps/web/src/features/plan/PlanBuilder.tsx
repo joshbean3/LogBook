@@ -345,9 +345,9 @@ export const PlansList = ({ log }: { log: Log }) => {
                         </Button>
                       </>
                     ) : (
-                      <Button size="sm" variant="ghost" onClick={() => setConfirm(b.id)}>
+                      <button type="button" className="link quiet" onClick={() => setConfirm(b.id)}>
                         Delete
-                      </Button>
+                      </button>
                     )}
                   </div>
                 </li>
