@@ -85,7 +85,7 @@
   gap: 4px;
 }
 .split {
-  --zc: var(--accent);
+  --zc: var(--ink);
   --za: 0.7;
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) 48px 32px;
@@ -165,8 +165,11 @@
   border-top: 1px solid var(--line);
 }
 .coach p {
-  font-size: 17px;
-  line-height: 26px;
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: 0;
+  color: var(--ink);
 }
 .coach .link {
   justify-self: start;
@@ -231,8 +234,8 @@
 }
 .move-chip {
   appearance: none;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  border: 1px solid transparent;
+  background: var(--surface-2);
   border-radius: var(--r-md);
   padding: 10px 12px;
   min-height: 56px;
@@ -264,6 +267,125 @@
 }
 @media (hover: hover) {
   .move-chip:hover {
-    border-color: var(--accent);
+    border-color: var(--line-strong);
+  }
+}
+.move-chip:active {
+  background: var(--surface-3);
+}
+
+/* ---------- the sheet's hero: the session as the day's aura card ----------
+   mirrors .aura in day.css, under its own name so the sheet looks right from any tab */
+.sh-sheet-date {
+  display: block;
+}
+.sh-sheet-title {
+  font-size: 28px;
+  line-height: 32px;
+}
+.sh-aura {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  padding: 16px 16px 16px;
+  min-height: 160px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  color: var(--ink);
+}
+.sh-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.sh-aura.has-route .sh-glow {
+  opacity: 1;
+}
+.sh-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+}
+.sh-route {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 6px 0 2px;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+}
+.sh-title {
+  font-size: 44px;
+  line-height: 44px;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  margin-top: 2px;
+}
+.sh-title.display {
+  font-size: 40px;
+  line-height: 42px;
+  text-transform: none;
+}
+.sh-verdict {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--ink-2);
+  letter-spacing: -0.01em;
+  max-width: 30ch;
+}
+.sh-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.sh-stat {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.sh-stat .caps {
+  color: rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.1em;
+  font-size: 10px;
+}
+.sh-num {
+  font-size: 22px;
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sh-num small {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.7);
+}
+/* at 320 the four stamps go two by two rather than clip */
+@media (max-width: 359px) {
+  .sh-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+  .sh-title {
+    font-size: 28px;
+    line-height: 32px;
+  }
+  .sh-title.display {
+    font-size: 28px;
+    line-height: 32px;
   }
 }
