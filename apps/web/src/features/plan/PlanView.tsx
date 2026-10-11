@@ -9,7 +9,6 @@ import { useLog, type Log } from '../log/useLog';
 import { AddSessionButton, sessionMeta, SessionRow, UnplannedRow } from '../sessions/SessionCard';
 import { StravaLine } from '../settings/StravaLine';
 // the aura card grammar lives with Today; Plan borrows it rather than redrawing it
-import '../day/day.css';
 import { PlanBuilder, PlansList, Upcoming } from './PlanBuilder';
 import './plan.css';
 

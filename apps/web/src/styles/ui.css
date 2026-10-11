@@ -1077,13 +1077,18 @@ textarea.in {
 }
 .dcell.is-sel .dcell-pill {
   background: var(--ink);
-  box-shadow: none;
+  box-shadow:
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 24px rgba(91, 102, 255, 0.75);
 }
 .dcell.is-sel .dcell-num {
   color: var(--bg);
 }
 .dcell.is-sel.is-today .dcell-pill {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent-bright),
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 24px rgba(91, 102, 255, 0.75);
 }
 .dcell-dot {
   display: block;
@@ -1096,8 +1101,11 @@ textarea.in {
   background: transparent;
 }
 .dcell.is-sel .dcell-dot {
-  background: var(--bg);
-  opacity: 0.85;
+  background: var(--tone, var(--bg));
+  opacity: 1;
+}
+.dcell.is-sel .dcell-dot.none {
+  background: transparent;
 }
 .dcell.is-sel .sdot {
   border-color: var(--bg);
@@ -1157,8 +1165,8 @@ textarea.in {
   margin-top: 2px;
 }
 .aura-title.display {
-  font-size: 40px;
-  line-height: 42px;
+  font-size: 44px;
+  line-height: 46px;
   text-transform: none;
 }
 .aura-verdict {

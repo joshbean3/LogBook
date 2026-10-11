@@ -5,7 +5,6 @@ import { useMorningMutations } from '@/api/queries';
 import { Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stepper } from '@/ui/primitives';
 import { useLog } from '../log/useLog';
 // the aura card grammar lives with Today; Morning borrows it rather than redrawing it
-import '../day/day.css';
 import './morning.css';
 
 type L = ReturnType<typeof useLog>;
