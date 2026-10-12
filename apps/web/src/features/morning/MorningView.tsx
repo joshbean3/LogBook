@@ -64,33 +64,43 @@ const WeekStrip = ({ date, today, log, go }: { date: string; today: string; log:
       onPick={go}
       labelOf={(d) => fmtDate('short', d)}
       extra={(d) => {
-        const s = log.snap.sessionsOn(d).find((x) => x.kind !== 'rest');
+        // a rest day carries the rest tone; so does a day the athlete turned into a rest morning
+        const on = log.snap.sessionsOn(d);
+        const s = on.find((x) => x.kind !== 'rest') ?? on.find((x) => x.kind === 'rest');
+        if (log.snap.morningOverride(d)?.mode === 'rest') return <i className="dcell-dot t-rest" />;
         return s ? <i className={`dcell-dot t-${tone(s)}`} /> : <i className="dcell-dot none" />;
       }}
     />
   );
 };
 
-// ---------- hero: the head of the timeline as an aura card, the four times of the morning stamped on it ----------
+// ---------- hero: the head of the timeline as an aura card, the times of the morning stamped on it (four, or three on a rest morning) ----------
 const MorningHero = ({ T, date, today, onEdit }: { T: MorningTimeline; date: string; today: string; onEdit: () => void }) => {
   const door = T.blocks.find((b) => b.key === 'buffer')?.start ?? T.day.wake;
-  const rest = !T.day.own && T.day.plan.label === 'Rest day';
+  const rest = T.day.mode === 'rest';
+  const shower = T.blocks.find((b) => b.key === 'shower')?.start ?? T.leave;
   const word = T.day.mode === 'gym' ? 'Gym' : rest ? 'Rest' : 'Run';
   const verdict = T.late
     ? `Back ${short(T.back)}, ${T.late} min late for the shower.`
     : rest
-      ? `Rest day. Wake ${short(T.day.wake)}, leave ${short(T.leave)}.`
+      ? `${T.day.wake > T.settings.wake ? 'Sleep in' : 'A rest morning'}. Leave at ${short(T.leave)}.`
       : T.day.mode === 'gym'
         ? `Out the door ${short(door)}, home ${short(T.back)}.`
         : `Out the door ${short(door)}, back ${short(T.back)}.`;
-  const stats: Array<[string, number]> = [
-    ['Wake', T.day.wake],
-    ['Door', door],
-    ['Back', T.back],
-    ['Leave', T.leave],
-  ];
+  const stats: Array<[string, number]> = rest
+    ? [
+        ['Wake', T.day.wake],
+        ['Shower', shower],
+        ['Leave', T.leave],
+      ]
+    : [
+        ['Wake', T.day.wake],
+        ['Door', door],
+        ['Back', T.back],
+        ['Leave', T.leave],
+      ];
   return (
-    <div className="aura m-aura">
+    <div className={`aura m-aura${rest ? ' m-rest' : ''}`}>
       <span className="aura-glow" aria-hidden="true" />
       <div className="aura-top">
         <span className="caps">{date === today ? 'Today’s morning' : fmtDate('short', date)}</span>
@@ -125,32 +135,37 @@ const MorningHero = ({ T, date, today, onEdit }: { T: MorningTimeline; date: str
 const Controls = ({ date, T }: { date: string; T: MorningTimeline }) => {
   const { setDay } = useMorningMutations();
   const day = T.day;
+  const rest = day.mode === 'rest';
   const types = day.mode === 'run' ? TYPES.run.filter((x) => x !== 'Run') : TYPES.lift;
   const set = (patch: Partial<typeof day>) => setDay.mutate({ date, day: { mode: day.mode, type: day.type, miles: day.miles, minutes: day.minutes, wake: day.wake, ...patch } });
+  // the type a mode starts with: the plan's own when it is the plan's mode, else the plain default
+  const typeFor = (k: typeof day.mode) => (k === day.plan.mode ? day.plan.type : k === 'run' ? 'Easy' : k === 'gym' ? 'Strength' : 'Rest');
   return (
     <Group>
       <div className="lrow">
-        <Segmented className="grow" label="Running or workout" options={[['run', 'Running'], ['gym', 'Workout']]} value={day.mode} onChange={(k) => set({ mode: k, type: k === day.plan.mode ? day.plan.type : k === 'run' ? 'Easy' : 'Strength' })} />
+        <Segmented className="grow" label="Running, workout or rest" options={[['run', 'Running'], ['gym', 'Workout'], ['rest', 'Rest']]} value={day.mode} onChange={(k) => set({ mode: k, type: typeFor(k) })} />
       </div>
-      <Row
-        className="m-type"
-        title={<span className="m-lbl">Type</span>}
-        right={
-          <select className="m-select" aria-label={day.mode === 'run' ? 'Type of run' : 'Type of workout'} value={day.type} onChange={(e) => set({ type: e.target.value })}>
-            {(types.includes(day.type) ? types : [day.type, ...types]).map((x) => (
-              <option key={x} value={x}>
-                {x}
-              </option>
-            ))}
-          </select>
-        }
-      />
+      {rest ? null : (
+        <Row
+          className="m-type"
+          title={<span className="m-lbl">Type</span>}
+          right={
+            <select className="m-select" aria-label={day.mode === 'run' ? 'Type of run' : 'Type of workout'} value={day.type} onChange={(e) => set({ type: e.target.value })}>
+              {(types.includes(day.type) ? types : [day.type, ...types]).map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+          }
+        />
+      )}
       <div className="m-steppers">
         <div className="field">
           <span className="t-label muted">Wake up</span>
           <Stepper value={day.wake} onChange={(v) => set({ wake: v })} step={5} min={240} max={720} format={short} parse={parseWake} label="Wake-up time" inputProps={{ inputMode: 'numeric', autoComplete: 'off' }} />
         </div>
-        {day.mode === 'run' ? (
+        {rest ? null : day.mode === 'run' ? (
           <div className="field">
             <span className="t-label muted">Miles</span>
             <Stepper value={day.miles} onChange={(v) => set({ miles: v })} step={0.5} min={0.5} max={30} format={fmtMiles} parse={parseMiles} label="Miles" inputProps={{ inputMode: 'decimal' }} />
@@ -190,7 +205,7 @@ const EditSheet = ({ date }: { date: string }) => {
     <>
       <Controls date={date} T={T} />
       <p className="t-sub ink2 m-readout">
-        Out the door {short(door)}, back {short(T.back)}, leave {short(T.leave)}.{T.late ? ` ${T.late} min late for the shower.` : ''}
+        {T.day.mode === 'rest' ? `No workout. Wake ${short(T.day.wake)}, leave ${short(T.leave)}.` : `Out the door ${short(door)}, back ${short(T.back)}, leave ${short(T.leave)}.${T.late ? ` ${T.late} min late for the shower.` : ''}`}
       </p>
       <div className="sheet-foot">
         <div className="foot-right">

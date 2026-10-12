@@ -75,7 +75,7 @@ export const zMorningSettingsPatch = z.object({
   focus: z.object({ word: z.string().max(40), quote: z.string().max(400), by: z.string().max(80) }).optional(),
 });
 export const zMorningDay = z.object({
-  mode: z.enum(['run', 'gym']),
+  mode: z.enum(['run', 'gym', 'rest']),
   type: z.string().trim().min(1).max(30),
   miles: z.number().min(0.5).max(40),
   minutes: z.number().int().min(5).max(240),
