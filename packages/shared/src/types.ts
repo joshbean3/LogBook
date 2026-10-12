@@ -95,6 +95,8 @@ export interface LiftSet {
 export interface Todo {
   id: string;
   text: string;
+  /** A small note under the name; null when there is none. */
+  note: string | null;
   createdOn: ISODate;
   doneOn: ISODate | null;
   deletedOn: ISODate | null;

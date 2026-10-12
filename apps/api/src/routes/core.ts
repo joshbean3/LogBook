@@ -330,7 +330,7 @@ export const coreRoutes = (db: DB) => {
     const userId = uidOf(c);
     const body = await parseBody(c.req.raw, zTodoInput);
     const id = uid('t');
-    db.insert(todos).values({ id, userId, text: body.text, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() }).run();
+    db.insert(todos).values({ id, userId, text: body.text, note: null, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() }).run();
     return c.json(toTodo(db.select().from(todos).where(eq(todos.id, id)).get()!), 201);
   });
 
@@ -339,6 +339,7 @@ export const coreRoutes = (db: DB) => {
     const body = await parseBody(c.req.raw, zTodoPatch);
     const set: Partial<typeof todos.$inferInsert> = {};
     if (body.text !== undefined) set.text = body.text;
+    if (body.note !== undefined) set.note = body.note || null;
     if (body.doneOn !== undefined) set.doneOn = body.doneOn;
     if (body.deletedOn !== undefined) set.deletedOn = body.deletedOn;
     const n = db.update(todos).set(set).where(and(eq(todos.userId, userId), eq(todos.id, c.req.param('id')))).run().changes;
