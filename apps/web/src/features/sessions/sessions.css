@@ -28,6 +28,10 @@
   appearance: none;
   border: 0;
   background: none;
+  /* a hold opens Move: no text selection or callout while the finger is down */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   padding: 10px 8px 10px 0;
   flex: 1;
   min-width: 0;
@@ -228,52 +232,134 @@
   margin-right: -8px;
 }
 
-/* move */
-.move-grid {
+/* ---------- move: a month in the day-strip grammar; tap a day and the session goes there ---------- */
+.mv {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-  gap: 6px;
-}
-.move-chip {
-  appearance: none;
-  border: 1px solid transparent;
-  background: var(--surface-2);
-  border-radius: var(--r-md);
-  padding: 10px 12px;
-  min-height: 56px;
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  text-align: left;
-  font-size: 15px;
-  line-height: 20px;
-  letter-spacing: -0.01em;
-  color: var(--ink);
+  gap: 12px;
   min-width: 0;
-  transition:
-    border-color var(--dur-fast),
-    transform 100ms var(--ease-out);
 }
-.move-chip span {
-  color: var(--ink-3);
+/* the sheet's title: caps MOVE over the name in the serif */
+.mv-title {
+  display: grid;
+  gap: 2px;
+}
+.mv-title .caps {
+  display: block;
+  font-family: var(--sans);
+  font-style: normal;
+}
+.mv-nav {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0 -8px 0 0;
+}
+.mv-month {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-right: auto;
+  min-width: 0;
+}
+.mv-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.mv-dow {
   font-size: 12px;
   line-height: 16px;
-  letter-spacing: 0;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+  color: var(--ink-3);
+  text-align: center;
+  padding-bottom: 4px;
 }
-.move-chip:active {
-  transform: scale(0.98);
+.mv-day {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-width: 0;
+  min-height: 44px;
+  color: var(--ink);
 }
-@media (hover: hover) {
-  .move-chip:hover {
-    border-color: var(--line-strong);
+/* past days and the spill of the next and last month sit back, and still take the tap */
+.mv-day.is-dim {
+  opacity: 0.4;
+}
+.mv-pill {
+  width: 100%;
+  max-width: 44px;
+  aspect-ratio: 1;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  transition:
+    background var(--dur-fast),
+    box-shadow var(--dur-fast),
+    transform 100ms var(--ease-out);
+}
+.mv-day:active .mv-pill {
+  transform: scale(0.94);
+}
+.mv-num {
+  font-size: 17px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+/* today is ringed in the one blue; the session's own day is filled white */
+.mv-day.is-today .mv-pill {
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+}
+.mv-day.is-here {
+  opacity: 1;
+}
+.mv-day.is-here .mv-pill {
+  background: var(--ink);
+}
+.mv-day.is-here .mv-num {
+  color: var(--bg);
+}
+.mv-dots {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  height: 6px;
+  min-width: 0;
+}
+.mv-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--tone);
+  background: transparent;
+}
+.mv-dot.on {
+  background: var(--tone);
+}
+.mv-dot.skip {
+  opacity: 0.4;
+}
+.mv-hint {
+  color: var(--ink-3);
+}
+@media (max-width: 359px) {
+  .mv-grid {
+    gap: 2px;
   }
 }
-.move-chip:active {
-  background: var(--surface-3);
+@media (hover: hover) {
+  .mv-day:not(.is-here):hover .mv-pill {
+    background: var(--surface-2);
+  }
 }
 
 /* ---------- the sheet: one head from every way in ----------
@@ -373,6 +459,14 @@
   letter-spacing: 0;
   text-transform: none;
   color: rgba(255, 255, 255, 0.7);
+}
+/* the plan under the actual: "of 6" in 12px at 70%, so the strip reads what happened first */
+.sh-note {
+  font-size: 12px;
+  line-height: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 /* at 320 the four stamps go two by two rather than clip */
 @media (max-width: 359px) {

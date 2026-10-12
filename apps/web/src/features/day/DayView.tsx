@@ -1,10 +1,11 @@
-import { parseISO, buildMorning, clockOfDay, dayStatus, decodePolyline, floorFor, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, pad, relativeDay, routePath, sessionStatus, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Activity, type Habit, type Session } from '@logbook/shared';
+import { parseISO, buildMorning, clockOfDay, dayStatus, decodePolyline, floorFor, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, pad, relativeDay, routePath, sessionStatus, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
 import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Pencil, Settings, Share, X } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useHabitMutations, useTodoMutations, useTodos } from '@/api/queries';
 import { haptic } from '@/lib/haptics';
+import { useMedia } from '@/lib/useToday';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
 import { Button, Chip, DateNav, EmptyState, Group, IconButton, Loading, Mark, PageHeader, Ring, SectionHead, Stat, StatStrip } from '@/ui/primitives';
 import { JournalDaySection } from '../journal/JournalDaySection';
@@ -25,7 +26,6 @@ const fmtClock = (sec: number) => {
   const x = sec % 60;
   return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`;
 };
-const paceOf = (a: Activity) => (a.miles > 0 ? fmtClock(Math.round(a.movingSec / a.miles)) : '—');
 
 const Hero = ({ date, log }: { date: string; log: L }) => {
   const sessions = log.snap.sessionsOn(date);
@@ -44,6 +44,8 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     return out ? { start: out.start, back: T.back, mode: T.day.mode, leave: T.leave } : T.day.mode === 'rest' ? { start: null, back: T.back, mode: T.day.mode, leave: T.leave } : null;
   }, [date, log.today, log.boot, sessions, log.snap]);
   const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
+  // at 320 the eyebrow shares its line with Share and the status chip, so the plan's label stands alone
+  const narrow = useMedia('(max-width: 359px)');
   const path = useMemo(() => (run?.polyline ? routePath(decodePolyline(run.polyline), 358, 200, 12) : ''), [run?.polyline]);
 
   let eyebrow: string;
@@ -56,16 +58,29 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     verdict = sessions.some((s) => s.kind === 'rest') ? 'A rest day on the plan.' : 'Nothing on the plan. Add a session or let the day breathe.';
     stats = [];
   } else if (run) {
-    eyebrow = main ? (date === log.today ? 'Today’s run' : 'The run') : 'Unplanned';
-    title = main ? label(main) : run.name;
+    // the run that happened leads: its name in the serif, the plan as the eyebrow, the actual against the plan in the verdict and the strip
+    const plan = main?.kind === 'run' ? main : null;
+    const planned = plan ? Number(plan.miles) || 0 : 0;
     const total = runs.reduce((t, a) => t + a.miles, 0);
-    verdict = st === 'floor' ? 'Floor held.' : main ? `Done. ${run.name}.` : `${mi(total)} mi, off the plan.`;
-    stats = [
-      ['Distance', mi(total), 'mi'],
-      ['Pace', paceOf(run), '/mi'],
-      ['Time', fmtClock(run.movingSec)],
-      ['Elev', String(run.elevFt), 'ft'],
-    ];
+    const sec = runs.reduce((t, a) => t + a.movingSec, 0);
+    const pace = total > 0 ? fmtClock(Math.round(sec / total)) : '—';
+    eyebrow = plan ? (narrow ? label(plan) : `${label(plan)} · Plan`) : main ? (date === log.today ? 'Today’s run' : 'The run') : 'Unplanned';
+    title = runs.length === 1 ? run.name : `${runs.length} runs`;
+    const word = st === 'floor' ? 'Floor held.' : 'Done.';
+    verdict = plan ? (planned ? `${mi(total)} of ${num(planned)} mi. ${word}` : `${mi(total)} mi. ${word}`) : `${mi(total)} mi, off the plan.`;
+    stats = plan
+      ? [
+          ['Distance', mi(total), 'mi'],
+          planned ? ['Plan', num(planned), 'mi'] : ['Plan', plan.type ?? 'Run'],
+          ['Pace', pace, '/mi'],
+          ['Time', fmtClock(sec)],
+        ]
+      : [
+          ['Distance', mi(total), 'mi'],
+          ['Pace', pace, '/mi'],
+          ['Time', fmtClock(sec)],
+          ['Elev', String(runs.reduce((t, a) => t + a.elevFt, 0)), 'ft'],
+        ];
   } else {
     const m = main!;
     eyebrow = date === log.today ? 'Today’s training' : 'Training';
@@ -128,7 +143,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
           <motion.path d={path} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: 'easeOut' }} />
         </svg>
       ) : null}
-      <h2 className={`aura-title ${run && !main ? 'display' : 'stamp'}`}>{title}</h2>
+      <h2 className={`aura-title ${run ? 'display' : 'stamp'}`}>{title}</h2>
       <p className="aura-verdict">{verdict}</p>
       {stats.length ? (
         <div className="aura-stats">
