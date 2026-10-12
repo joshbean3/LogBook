@@ -134,7 +134,7 @@ export interface Quote {
 export const QUOTE_THEMES = ['Living', 'The mind', 'Time', 'Acceptance', 'Self-respect', 'Love & people', 'Courage', 'Work', 'Solitude'] as const;
 
 // ---------- morning ----------
-export type MorningMode = 'run' | 'gym';
+export type MorningMode = 'run' | 'gym' | 'rest';
 export interface MorningSettings {
   /** minutes after midnight */
   wake: number;

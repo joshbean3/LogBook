@@ -40,7 +40,8 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     const st2 = log.boot.morningSettings ?? MORNING_DEFAULTS;
     const T = buildMorning(morningDayFor(sessions, log.snap.morningOverride(date), st2), st2);
     const out = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
-    return out ? { start: out.start, back: T.back, mode: T.day.mode } : null;
+    // a rest morning has no out block: only the door matters
+    return out ? { start: out.start, back: T.back, mode: T.day.mode, leave: T.leave } : T.day.mode === 'rest' ? { start: null, back: T.back, mode: T.day.mode, leave: T.leave } : null;
   }, [date, log.today, log.boot, sessions, log.snap]);
   const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
   const path = useMemo(() => (run?.polyline ? routePath(decodePolyline(run.polyline), 358, 200, 12) : ''), [run?.polyline]);
@@ -75,7 +76,8 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
     if (st === 'floor') verdict = `Floor held.${extra}`;
     else if (st === 'missed') verdict = `Missed.${extra}`;
     else if (st === 'done') verdict = `Done.${extra}`;
-    else if (morning) verdict = `${morning.mode === 'run' ? 'Out' : 'Gym'} at ${short(morning.start)}, back by ${short(morning.back)}.${extra}`;
+    else if (morning?.start != null) verdict = `${morning.mode === 'run' ? 'Out' : 'Gym'} at ${short(morning.start)}, back by ${short(morning.back)}.${extra}`;
+    else if (morning) verdict = `${m.kind === 'rest' ? 'Rest' : 'Rest morning'}. Leave at ${short(morning.leave)}.${extra}`;
     else verdict = `${sessionMeta(m, st) || STATUS_WORD[st]}.${extra}`;
     stats = [
       m.kind === 'run' && m.miles ? ['Plan', num(m.miles), 'mi'] : ['Plan', m.type ?? STATUS_WORD[st] ?? ''],
@@ -84,7 +86,7 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
         const mm = /(\d+)\s*min/.exec(f);
         return mm ? (['Floor', mm[1]!, 'min'] as [string, string, string]) : (['Floor', f ? f.split(/[,\s]/)[0]! : '—'] as [string, string]);
       })(),
-      ...(morning ? ([['Out', short(morning.start)], ['Back', short(morning.back)]] as Array<[string, string]>) : []),
+      ...(morning?.start != null ? ([['Out', short(morning.start)], ['Back', short(morning.back)]] as Array<[string, string]>) : []),
     ];
   }
   const target = main ?? null;

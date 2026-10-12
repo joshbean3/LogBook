@@ -137,6 +137,24 @@ describe('morning timeline', () => {
     expect(t.late).toBeGreaterThan(0);
     expect(t.fix?.maxMiles).toBeCloseTo(6.1, 1);
   });
+  it('a rest day has no workout: alarm, shower at its usual time, door at 9:30', () => {
+    const day = morningDayFor([sess({ date: '2026-10-14', kind: 'rest' })], null, MORNING_DEFAULTS);
+    const t = buildMorning(day, MORNING_DEFAULTS);
+    expect(day.mode).toBe('rest');
+    expect(t.blocks.some((b) => b.key === 'run' || b.key === 'gym')).toBe(false);
+    expect(t.blocks.map((b) => b.key)).toEqual(['wake', 'free', 'shower', 'ready', 'smoothie', 'prep']);
+    expect(t.back).toBe(440);
+    expect(t.late).toBe(0);
+    expect(t.leave).toBe(570);
+    // an empty day is a rest morning too, and a rest override wins over a planned run
+    expect(morningDayFor([], null, MORNING_DEFAULTS).mode).toBe('rest');
+    const over = morningDayFor([sess({ date: '2026-10-14', kind: 'run', type: 'Easy', miles: 5 })], { mode: 'rest', type: 'Rest', miles: 5, minutes: 40, wake: 540 }, MORNING_DEFAULTS);
+    const late = buildMorning(over, MORNING_DEFAULTS);
+    expect(over.mode).toBe('rest');
+    // 9:00 alarm on a rest day: the shower just starts after, nothing is "late"
+    expect(late.late).toBe(0);
+    expect(late.leave).toBe(540 + 15 + 15 + 15 + 5 + 15);
+  });
 });
 
 describe('rotation', () => {

@@ -65,9 +65,12 @@ export const morningPlanFor = (sessions: Session[]): MorningPlan => {
       label: label(lift) + (lift.minutes ? ` · ${lift.minutes} min` : ''),
     };
   }
+  // no run and no lift: a rest morning, whether the plan says rest, says nothing, or has only a cross session
   const rest = sessions.find((s) => s.kind === 'rest');
-  return { mode: 'run', type: 'Easy', miles: DEFAULT_RUN_MILES, minutes: null, label: rest ? 'Rest day' : sessions[0] ? label(sessions[0]) : '' };
+  return { mode: 'rest', type: 'Rest', miles: DEFAULT_RUN_MILES, minutes: null, label: rest ? 'Rest day' : sessions[0] ? label(sessions[0]) : '' };
 };
+
+const MODES: readonly MorningMode[] = ['run', 'gym', 'rest'];
 
 export interface MorningDay extends MorningDayOverride {
   plan: MorningPlan;
@@ -76,7 +79,7 @@ export interface MorningDay extends MorningDayOverride {
 
 export const morningDayFor = (sessions: Session[], override: Partial<MorningDayOverride> | null, settings: MorningSettings): MorningDay => {
   const plan = morningPlanFor(sessions);
-  const mode: MorningMode = override?.mode === 'run' || override?.mode === 'gym' ? override.mode : plan.mode;
+  const mode: MorningMode = override && MODES.includes(override.mode as MorningMode) ? (override.mode as MorningMode) : plan.mode;
   return {
     mode,
     type: override?.type || plan.type,
@@ -124,17 +127,22 @@ export const buildMorning = (day: MorningDay, st: MorningSettings): MorningTimel
     add('buffer', 'Out the door', st.run.buffer);
     add('run', `${day.type} run · ${num(day.miles)} mi`, runMin, { tone: tone({ kind: 'run', type: day.type }), sub: `${clock(st.run.pace)}/mi` });
     add('buffer', 'Cool down', st.run.buffer);
-  } else {
+  } else if (day.mode === 'gym') {
     add('wake', 'Wake up', st.gym.wakeup);
     add('buffer', 'Walk to the gym', st.gym.walk);
     add('gym', day.type, day.minutes, { tone: 'lift' });
     add('buffer', 'Walk home', st.gym.walk);
+  } else {
+    // rest: no workout, no cool-down; you are home the whole time, so `back` is the alarm and the shower waits for its usual time
+    add('wake', 'Wake up', st.run.wakeup);
   }
-  const back = t;
+  const rest = day.mode === 'rest';
+  const back = rest ? day.wake : t;
   const fixed = A.showerMode === 'fixed';
-  const showerAt = fixed ? Math.max(A.showerAt, back) : back;
-  const late = fixed ? Math.max(0, back - A.showerAt) : 0;
-  if (showerAt > back) add('free', 'Free', showerAt - back);
+  const showerAt = fixed ? Math.max(A.showerAt, t) : t;
+  // sleeping in on a rest day is not being late
+  const late = fixed && !rest ? Math.max(0, t - A.showerAt) : 0;
+  if (showerAt > t) add('free', 'Free', showerAt - t);
   add('shower', 'Shower', A.shower);
   add('ready', 'Get ready', A.ready);
   if (A.smoothie > 0) add('smoothie', 'Blend smoothie', A.smoothie);
