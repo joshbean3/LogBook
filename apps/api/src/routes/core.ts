@@ -31,6 +31,7 @@ import { env } from '../env.js';
 import { toActivity, toBlock, toEntry, toHabit, toLift, toSession, toTodo } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { stravaStatus } from '../services/strava.js';
+import { syncInBackground } from './strava.js';
 import { z } from 'zod';
 
 const deepMerge = (a: any, b: any): any => {
@@ -83,6 +84,9 @@ export const coreRoutes = (db: DB) => {
   // ---------- everything the app needs on open ----------
   r.get('/bootstrap', (c) => {
     const userId = uidOf(c);
+    // opening the app is the moment to pull in new runs: sync when the last one is older than 15 minutes
+    const st = stravaStatus(db, userId);
+    if (st.connected && !st.syncing && (!st.lastSyncAt || Date.now() - new Date(st.lastSyncAt).getTime() > 15 * 60_000)) syncInBackground(db, userId);
     const hs = db.select().from(habits).where(eq(habits.userId, userId)).orderBy(asc(habits.position), asc(habits.createdOn)).all().map(toHabit);
     const blocks = db.select().from(planBlocks).where(eq(planBlocks.userId, userId)).orderBy(asc(planBlocks.start)).all();
     const counts = blocks.length
@@ -100,7 +104,7 @@ export const coreRoutes = (db: DB) => {
       blocks: blocks.map((b) => toBlock(b, countOf.get(b.id) ?? 0)),
       morningSettings: morningSettingsOf(db, userId),
       zones: zonesOf(db, userId),
-      strava: stravaStatus(db, userId),
+      strava: st,
       features: { claude: env.claudeConfigured, strava: env.stravaConfigured },
       serverTime: nowISO(),
     });

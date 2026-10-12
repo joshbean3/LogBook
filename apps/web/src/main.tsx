@@ -40,7 +40,13 @@ onUnauthorized.add(() => qc.removeQueries({ queryKey: ['bootstrap'] }));
 
 void outbox.load().then(() => outbox.replay(qc));
 window.addEventListener('online', () => void outbox.replay(qc));
-document.addEventListener('visibilitychange', () => !document.hidden && void outbox.replay(qc));
+// coming back to the app: push what was written offline, ask the server for anything new (it syncs runs on bootstrap), then refresh the months once the sync has had a moment
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  void outbox.replay(qc);
+  void qc.invalidateQueries({ queryKey: ['bootstrap'] });
+  setTimeout(() => void qc.invalidateQueries({ queryKey: ['month'] }), 6000);
+});
 
 if (!isNative) registerSW({ immediate: true });
 void bootNative();
