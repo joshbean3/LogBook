@@ -9,6 +9,7 @@ primary_region = "ewr"
   PORT = "8787"
   DATABASE_PATH = "/data/logbook.db"
   NODE_ENV = "production"
+  APP_URL = "https://josh-logbook.fly.dev"
   ALLOW_SETUP = "1"
 
 [http_service]
