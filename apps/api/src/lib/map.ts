@@ -21,7 +21,7 @@ export const toHabit = (r: InferSelectModel<typeof habits>): Habit => ({ id: r.i
 
 export const toLift = (r: InferSelectModel<typeof liftSets>): LiftSet => ({ id: r.id, date: r.date, exercise: r.exercise, weight: r.weight, reps: r.reps, createdAt: r.createdAt });
 
-export const toTodo = (r: InferSelectModel<typeof todos>): Todo => ({ id: r.id, text: r.text, createdOn: r.createdOn, doneOn: r.doneOn, deletedOn: r.deletedOn, createdAt: r.createdAt });
+export const toTodo = (r: InferSelectModel<typeof todos>): Todo => ({ id: r.id, text: r.text, note: r.note, createdOn: r.createdOn, doneOn: r.doneOn, deletedOn: r.deletedOn, createdAt: r.createdAt });
 
 export const toBlock = (r: InferSelectModel<typeof planBlocks>, sessionCount?: number): PlanBlock => ({ id: r.id, name: r.name, start: r.start, end: r.end, source: r.source, summary: r.summary, createdAt: r.createdAt, sessionCount });
 

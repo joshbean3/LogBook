@@ -51,6 +51,8 @@ export const zLiftInput = z.object({
 export const zTodoInput = z.object({ text: z.string().trim().min(1).max(200), date: zDate });
 export const zTodoPatch = z.object({
   text: z.string().trim().min(1).max(200).optional(),
+  /** A small note under the name; empty or null clears it. */
+  note: z.string().trim().max(500).nullable().optional(),
   /** Date it was checked off, or null to uncheck. */
   doneOn: zDate.nullable().optional(),
   /** Date it was deleted from (history before stays), or null to restore. */

@@ -307,8 +307,64 @@ const HabitsSection = ({ date, log }: { date: string; log: L }) => {
   );
 };
 
-// ---------- to-dos: swipe right to complete, left to delete ----------
-const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: { id: string; text: string; createdOn: string }; date: string; done: boolean; carried: boolean; onToggle: () => void; onDelete: () => void; onEdit: () => void }) => {
+// ---------- to-dos: swipe right to complete, left to delete; tap the name for the sheet ----------
+type TodoLite = { id: string; text: string; note: string | null; createdOn: string };
+
+/** The editor behind a tap on a to-do: the name, a small note under it, Delete and Save. Save is the sheet's one blue. */
+const TodoSheet = ({ x, date }: { x: TodoLite; date: string }) => {
+  const { patch } = useTodoMutations();
+  const sheet = useSheet();
+  const [text, setText] = useState(x.text);
+  const [note, setNote] = useState(x.note ?? '');
+  const nextText = text.trim();
+  const nextNote = note.trim();
+  const changed = !!nextText && (nextText !== x.text || nextNote !== (x.note ?? ''));
+  const save = () => {
+    if (!changed) return;
+    const p: { text?: string; note?: string | null } = {};
+    if (nextText !== x.text) p.text = nextText;
+    if (nextNote !== (x.note ?? '')) p.note = nextNote || null;
+    patch.mutate({ id: x.id, ...p });
+    sheet.close();
+  };
+  const onKey = (ev: React.KeyboardEvent<HTMLElement>) => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey || ev.currentTarget.tagName === 'INPUT')) {
+      ev.preventDefault();
+      save();
+    }
+  };
+  return (
+    <>
+      <input className="tsheet-name" value={text} maxLength={200} aria-label="To-do" onChange={(ev) => setText(ev.target.value)} onKeyDown={onKey} />
+      <label className="tsheet-field">
+        <span className="caps">Note</span>
+        <textarea className="jtext serif tsheet-note" rows={3} maxLength={500} placeholder="Add a note" value={note} autoFocus={!x.note} onChange={(ev) => setNote(ev.target.value)} onKeyDown={onKey} />
+      </label>
+      <div className="sheet-foot">
+        <Button
+          variant="danger"
+          onClick={() => {
+            haptic('warn');
+            patch.mutate({ id: x.id, deletedOn: date });
+            sheet.close();
+          }}
+        >
+          Delete
+        </Button>
+        <div className="foot-right">
+          <Button variant="ghost" onClick={() => sheet.close()}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={save} disabled={!changed}>
+            Save
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+};
+
+const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: TodoLite; date: string; done: boolean; carried: boolean; onToggle: () => void; onDelete: () => void; onEdit: () => void }) => {
   const reduce = useReducedMotion();
   const [gone, setGone] = useState<'left' | 'right' | null>(null);
   const armed = useRef<'left' | 'right' | null>(null);
@@ -347,8 +403,9 @@ const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: { 
       <motion.div className={`lrow trow ${done ? 'is-done' : ''}`} style={{ x: mx }} drag={reduce || done ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDrag={onDrag} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
         <Mark status={done ? 'done' : 'open'} square label={x.text} onClick={onToggle} />
         <div className="lrow-main">
-          <button type="button" className="hrow-name" onClick={onEdit}>
-            {x.text}
+          <button type="button" className={`hrow-name trow-name ${x.note ? 'has-note' : ''}`} onClick={onEdit}>
+            <span>{x.text}</span>
+            {x.note ? <span className="trow-note">{x.note}</span> : null}
           </button>
         </div>
         <div className="lrow-right">
@@ -363,8 +420,8 @@ const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: { 
 const TodosSection = ({ date }: { date: string }) => {
   const todos = useTodos();
   const { add, patch } = useTodoMutations();
+  const sheet = useSheet();
   const [draft, setDraft] = useState('');
-  const [editing, setEditing] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const all = useMemo(() => (todos.data ?? []).filter((x) => x.createdOn <= date && (!x.doneOn || x.doneOn >= date) && (!x.deletedOn || x.deletedOn > date)).sort((a, b) => (a.createdOn === b.createdOn ? (a.createdAt < b.createdAt ? -1 : 1) : a.createdOn < b.createdOn ? -1 : 1)), [todos.data, date]);
   const open = all.filter((x) => x.doneOn !== date);
@@ -375,29 +432,18 @@ const TodosSection = ({ date }: { date: string }) => {
     add.mutate({ text: v, date });
     setDraft('');
   };
-  const item = (x: (typeof all)[number], isDone: boolean) =>
-    editing === x.id ? (
-      <div key={x.id} className="lrow">
-        <input
-          className="in bare"
-          defaultValue={x.text}
-          autoFocus
-          maxLength={200}
-          aria-label="Edit to-do"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-            if (e.key === 'Escape') setEditing(null);
-          }}
-          onBlur={(e) => {
-            const v = e.target.value.trim();
-            if (v && v !== x.text) patch.mutate({ id: x.id, text: v });
-            setEditing(null);
-          }}
-        />
-      </div>
-    ) : (
-      <TodoRow key={x.id} x={x} date={date} done={isDone} carried={x.createdOn < date && !isDone} onToggle={() => patch.mutate({ id: x.id, doneOn: isDone ? null : date })} onDelete={() => patch.mutate({ id: x.id, deletedOn: date })} onEdit={() => setEditing(x.id)} />
-    );
+  const item = (x: (typeof all)[number], isDone: boolean) => (
+    <TodoRow
+      key={x.id}
+      x={x}
+      date={date}
+      done={isDone}
+      carried={x.createdOn < date && !isDone}
+      onToggle={() => patch.mutate({ id: x.id, doneOn: isDone ? null : date })}
+      onDelete={() => patch.mutate({ id: x.id, deletedOn: date })}
+      onEdit={() => sheet.open({ title: <span className="caps tsheet-kicker">To-do</span>, body: <TodoSheet x={x} date={date} /> })}
+    />
+  );
   return (
     <>
       <SectionHead title="To-dos" meta={open.length ? `${open.length} open` : undefined} />

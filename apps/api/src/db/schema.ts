@@ -117,6 +117,7 @@ export const todos = sqliteTable(
     id: id(),
     userId: userId(),
     text: text('text').notNull(),
+    note: text('note'),
     createdOn: text('created_on').notNull(),
     doneOn: text('done_on'),
     deletedOn: text('deleted_on'),

@@ -239,7 +239,7 @@ export const useTodoMutations = () => {
   const setTodos = (fn: (t: Todo[]) => Todo[]) => qc.setQueryData<Todo[]>(keys.todos, (t) => fn(t ?? []));
   const add = useMutation({
     mutationFn: async ({ text, date }: { text: string; date: string }) => {
-      const tmp: Todo = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, text, createdOn: date, doneOn: null, deletedOn: null, createdAt: new Date().toISOString() };
+      const tmp: Todo = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, text, note: null, createdOn: date, doneOn: null, deletedOn: null, createdAt: new Date().toISOString() };
       setTodos((t) => [...t, tmp]);
       const saved = await write<Todo>('/todos', 'POST', { text, date }, [keys.todos]);
       if (saved) setTodos((t) => t.map((x) => (x.id === tmp.id ? saved : x)));
@@ -247,7 +247,7 @@ export const useTodoMutations = () => {
     onError: () => void qc.invalidateQueries({ queryKey: keys.todos }),
   });
   const patch = useMutation({
-    mutationFn: async ({ id, ...p }: { id: string; text?: string; doneOn?: string | null; deletedOn?: string | null }) => {
+    mutationFn: async ({ id, ...p }: { id: string; text?: string; note?: string | null; doneOn?: string | null; deletedOn?: string | null }) => {
       setTodos((t) => t.map((x) => (x.id === id ? { ...x, ...p } : x)));
       await write(`/todos/${id}`, 'PATCH', p, [keys.todos]);
     },

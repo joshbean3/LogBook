@@ -110,6 +110,72 @@
   transform: rotate(180deg);
 }
 
+/* the note under a to-do's name: 15px at ink-3, two lines at most */
+.trow-name {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  align-content: center;
+}
+.trow-name.has-note {
+  padding: 10px 0;
+}
+.trow-note {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink-3);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.trow.is-done .trow-note {
+  color: var(--ink-4);
+}
+
+/* the to-do sheet: the name on a hairline, the note in the serif under a caps label; Save is the one blue */
+.tsheet-kicker {
+  display: block;
+  font-family: var(--sans);
+  font-style: normal;
+}
+.tsheet-name {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  padding: 8px 0;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  outline: none;
+  border-radius: 0;
+}
+.tsheet-name:focus {
+  border-bottom-color: var(--line-strong);
+}
+.tsheet-field {
+  display: grid;
+  gap: 6px;
+}
+.tsheet-note {
+  padding: 8px 0;
+  min-height: 96px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+.tsheet-note:focus {
+  border-bottom-color: var(--line-strong);
+}
+
 /* note affordance: hover on desktop, long-press on the name elsewhere */
 .hover-only {
   display: none;
