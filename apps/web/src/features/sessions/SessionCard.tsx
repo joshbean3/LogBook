@@ -1,9 +1,10 @@
 import { assess, buildMorning, clock, clockOfDay, floorFor, fmtDate, isAutoStatus, KIND_WORD, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, zoneOf, type Activity, type Session } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
+import { haptic } from '@/lib/haptics';
 import type { MonthBundle } from '@/api/types';
 import { Button, Chip, ChipButton, Mark } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
@@ -12,7 +13,7 @@ import { useLog, type Log } from '../log/useLog';
 import type { ShareData } from '../share/cards';
 import { ShareSheet } from '../share/ShareSheet';
 import { LiftLog } from './LiftLog';
-import { MoveSheet } from './MoveSheet';
+import { openMoveSheet } from './MoveSheet';
 import { SessionEditor } from './SessionEditor';
 import './sessions.css';
 
@@ -30,7 +31,8 @@ export const sessionMeta = (s: Session, st: string): string => {
 const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
 
 // ---------- the sheet's head: eyebrow and status, the name, and the four stamps on a hairline ----------
-type AuraStat = [string, string, string?];
+/** caps label, the number, its unit, and an optional small line under it ("of 6") */
+type AuraStat = [string, string, string?, string?];
 interface AuraSpec {
   tone: string;
   eyebrow: string;
@@ -54,13 +56,14 @@ const SheetHead = ({ a }: { a: AuraSpec }) => (
     <h3 className={`sh-title ${a.display ? 'display' : 'stamp'}`}>{a.title}</h3>
     {a.stats.length ? (
       <div className="sh-stats" role="list" aria-label="Summary">
-        {a.stats.map(([k, v, u]) => (
+        {a.stats.map(([k, v, u, n]) => (
           <span key={k} className="sh-stat" role="listitem">
             <span className="caps">{k}</span>
             <span className="stamp sh-num">
               {v}
               {u ? <small>{u}</small> : null}
             </span>
+            {n ? <span className="sh-note">{n}</span> : null}
           </span>
         ))}
       </div>
@@ -75,18 +78,22 @@ const runVerdict = (sess: Session | null, runs: Activity[], miles: number, statu
   return runs.length > 1 ? `${mi(miles)} mi across ${runs.length} runs.` : `${mi(miles)} mi, off the plan.`;
 };
 
-/** A finished run's head: the name, DISTANCE / PACE / TIME / AVG HR. */
+/** The run miles the plan asked for on this day, 0 when it named none. */
+export const plannedMiles = (s: Session | null | undefined): number => (s?.kind === 'run' ? Number(s.miles) || 0 : 0);
+
+/** A finished run's head: the name, DISTANCE (what happened, "of 6" under it) / PACE / TIME / AVG HR. */
 const auraForRuns = (sess: Session | null, runs: Activity[], log: Log, status: string): AuraSpec => {
   const a = assess(log.zones, sess, runs);
   const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
+  const planned = plannedMiles(sess);
   return {
     tone: sess ? tone(sess) : 'easy',
-    eyebrow: sess ? label(sess) : 'Unplanned run',
+    eyebrow: sess ? `${label(sess)} · Plan` : 'Unplanned run',
     status,
     title: name,
     display: true,
     stats: [
-      ['Distance', mi(a.miles), 'mi'],
+      ['Distance', mi(a.miles), 'mi', planned ? `of ${num(planned)}` : undefined],
       ['Pace', a.pace ?? '—', a.pace ? '/mi' : undefined],
       ['Time', clock(a.movingSec)],
       ['Avg HR', a.avgHr != null ? String(a.avgHr) : '—', a.avgHr != null ? 'bpm' : undefined],
@@ -332,7 +339,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string; fromHero?: boole
           Delete
         </Button>
         <div className="foot-right">
-          <Button variant="quiet" onClick={() => sheet.open({ title: `Move ${label(s)}`, body: <MoveSheet date={date} session={s} /> })}>
+          <Button variant="quiet" onClick={() => openMoveSheet(sheet, date, s)}>
             Move
           </Button>
           <Button variant="quiet" onClick={() => sheet.open({ title: 'Edit session', body: <SessionEditor date={date} session={s} /> })}>
@@ -368,21 +375,58 @@ export const useOpenSession = (_log?: Log) => {
   return (date: string, s: Session, opts: { fromHero?: boolean } = {}) => sheet.open({ title: sheetDate(date), body: <SessionSheet date={date} id={s.id} fromHero={opts.fromHero} />, wide: true });
 };
 
-/** A 60px row: check, colour bar, the run's name (or the plan's label), the plan as the sub line, one stat, chevron. */
+/** Hold a row for 450ms (one haptic) to open Move without the full sheet; a plain tap still opens the sheet. */
+const LONG_PRESS_MS = 450;
+const useLongPress = (fire: () => void) => {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fired = useRef(false);
+  const clear = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      fired.current = false;
+      clear();
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        fired.current = true;
+        haptic();
+        fire();
+      }, LONG_PRESS_MS);
+    },
+    onPointerUp: clear,
+    onPointerLeave: clear,
+    onPointerCancel: clear,
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    /** true once, when the click that ends a long press should be swallowed */
+    consume: () => {
+      const f = fired.current;
+      fired.current = false;
+      return f;
+    },
+  };
+};
+
+/** A 60px row: check, colour bar, the run's name (or the plan's label), the plan and the actual as the sub line, one stat, chevron. */
 export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Session; log: Log; as?: 'li' | 'div' }) => {
   const st = sessionStatus(log.snap, date, s);
   const auto = isAutoStatus(log.snap, date, s);
   const { mark } = useSessionMutations();
   const open = useOpenSession(log);
+  const sheet = useSheet();
+  const press = useLongPress(() => openMoveSheet(sheet, date, s));
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const sets = log.snap.liftsOn(date);
   const lbl = label(s);
-  // a logged run leads with its own name, the way Aura sets it; the plan's label drops to the sub line
+  const a = runs.length ? assess(log.zones, s, runs) : null;
+  const planned = plannedMiles(s);
+  // a logged run leads with its own name, the way Aura sets it; the plan drops to the sub line with what happened against it: "Easy 6 · 3.0 of 6 mi"
   const title = runs.length ? runs.map((r) => r.name).join(' + ') : lbl;
-  const sub = runs.length ? [lbl, sessionMeta(s, st)].filter(Boolean).join(' · ') : sessionMeta(s, st) || STATUS_WORD[st];
+  const sub = a ? [lbl, planned ? `${mi(a.miles)} of ${num(planned)} mi` : null, s.details].filter(Boolean).join(' · ') : sessionMeta(s, st) || STATUS_WORD[st];
   let stat: ReactNode = null;
-  if (runs.length) {
-    const a = assess(log.zones, s, runs);
+  if (a) {
     stat = (
       <span className="srow-stat">
         <b>{mi(a.miles)} mi</b>
@@ -401,7 +445,17 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
   return (
     <Tag className={`srow t-${tone(s)} s-${st}`}>
       <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched to a logged run' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
-      <button type="button" className="srow-body" onClick={() => open(date, s)}>
+      <button
+        type="button"
+        className="srow-body"
+        aria-label={`${title}. ${sub}. Open; hold to move`}
+        onClick={() => (press.consume() ? undefined : open(date, s))}
+        onPointerDown={press.onPointerDown}
+        onPointerUp={press.onPointerUp}
+        onPointerLeave={press.onPointerLeave}
+        onPointerCancel={press.onPointerCancel}
+        onContextMenu={press.onContextMenu}
+      >
         <span className="srow-bar" aria-hidden="true" />
         <span className="srow-main">
           <span className="lrow-title">{title}</span>
