@@ -177,10 +177,13 @@
   -webkit-touch-callout: none;
   user-select: none;
 }
+/* the lift (brand §9): surface-2, a line-strong hairline, no shadow */
 .tl-block.is-lifted {
   z-index: 3;
   opacity: 1;
   cursor: grabbing;
+  background: var(--surface-2);
+  border-color: var(--line-strong);
 }
 .tl-block.k-wake:focus-visible,
 .tl-grip:focus-visible {
@@ -191,15 +194,16 @@
 .tl-live {
   color: var(--ink);
 }
-/* the session block's bottom edge is a handle: drag it to change the miles or the minutes */
+/* the session block's bottom edge is a handle: a 44px target inside the block, the bar at its edge */
 .tl-grip {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 22px;
+  height: 44px;
   display: grid;
-  place-items: center;
+  place-items: end center;
+  padding-bottom: 6px;
   touch-action: none;
   cursor: ns-resize;
   -webkit-touch-callout: none;
@@ -213,8 +217,8 @@
   border-radius: 2px;
   background: var(--ink-4);
 }
-.tl-block.is-lifted .tl-grip::after {
-  background: var(--ink-2);
+.tl-block.is-sizing .tl-grip::after {
+  background: var(--ink);
 }
 .tl-main {
   flex: 1;

@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 /**
  * Press-and-hold drags for the things that move: a habit orb, a session row, a block on the morning timeline.
  *
- * The grammar is the same everywhere (brand §9): the pointer rests for `holdMs`, the thing lifts (1.03, a 20% white
- * shadow, one haptic), it follows the finger, and on release it springs back (stiffness 400, damping 30).
+ * The grammar is the same everywhere (brand §9, the one exception to "nothing moves without a tap"): the pointer rests
+ * for `holdMs`, the thing lifts (scale 1.03, surface-2, a line-strong hairline, no shadow, one haptic), it follows the
+ * finger, and on release it springs back (stiffness 400, damping 30). Under reduced motion nothing scales: the lift is
+ * the surface and the hairline alone, and every move is instant.
  * Until the hold is up the page scrolls as usual; once it is up, touch scrolling is held off so the drag owns the finger.
  */
 
@@ -15,13 +17,11 @@ export const SLOP = 6;
 
 export const DROP_SPRING: Transition = { type: 'spring', stiffness: 400, damping: 30 };
 export const INSTANT: Transition = { duration: 0 };
-const LIFT_SHADOW = 'drop-shadow(0 6px 14px rgba(255, 255, 255, 0.2))';
-const NO_SHADOW = 'drop-shadow(0 0 0 rgba(255, 255, 255, 0))';
-/** The lift as a drop-shadow, so a ring, a bar or a row all cast the shape they have. */
-export const LIFT: TargetAndTransition = { scale: 1.03, filter: LIFT_SHADOW };
-export const REST: TargetAndTransition = { scale: 1, filter: NO_SHADOW };
-/** What to animate to for a lifted or a resting thing, with reduced motion as an instant state. */
-export const liftFx = (lifted: boolean, reduce: boolean | null): TargetAndTransition => (reduce ? { ...(lifted ? LIFT : REST), transition: INSTANT } : lifted ? { ...LIFT, transition: DROP_SPRING } : { ...REST, transition: DROP_SPRING });
+/** The lift is a scale; the surface and the hairline come from the `is-lifted` class in each feature's css. */
+export const LIFT: TargetAndTransition = { scale: 1.03 };
+export const REST: TargetAndTransition = { scale: 1 };
+/** What to animate to for a lifted or a resting thing. Reduced motion: no scale at all, and instant. */
+export const liftFx = (lifted: boolean, reduce: boolean | null): TargetAndTransition => (reduce ? { ...REST, transition: INSTANT } : lifted ? { ...LIFT, transition: DROP_SPRING } : { ...REST, transition: DROP_SPRING });
 
 export type DragPhase = 'idle' | 'pending' | 'armed' | 'dragging';
 export interface DragPoint {
@@ -295,6 +295,7 @@ export const setDragInfo = (d: DragInfo) => {
   current = d;
   for (const f of subs) f(d);
 };
+export const getDragInfo = () => current;
 export const useDragInfo = () => {
   const [d, setD] = useState<DragInfo>(current);
   useEffect(() => {

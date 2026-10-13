@@ -225,9 +225,14 @@
   -webkit-touch-callout: none;
   user-select: none;
 }
+/* the lift (brand §9): the ring already sits on surface-2 inside a line-strong hairline, so a lifted orb is the scale alone; no shadow */
 .orb.is-lifted {
   z-index: 2;
   cursor: grabbing;
+}
+.orb.is-lifted .orb-ring {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
 }
 
 /* the edit list: a grip drags a row; the row's sides may show past the group while it is lifted */
@@ -253,21 +258,28 @@
 .hlist > :first-child {
   border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
+/* the grip is a 44px target that overlaps the row's left padding, so the name keeps its width at 320 */
 .hrow-edit {
   position: relative;
   touch-action: auto !important;
-  padding-left: 8px;
+  padding-left: 0;
+  gap: 6px;
+  border-radius: var(--r-md);
 }
+/* the lift (brand §9): surface-2, a line-strong hairline, no shadow */
 .hrow-edit.is-lifted {
   z-index: 2;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
   border-top-color: transparent;
 }
 .hgrip {
   display: grid;
   place-items: center;
-  width: 32px;
+  width: 44px;
   height: 44px;
   flex: none;
+  margin-right: -2px;
   color: var(--ink-4);
   cursor: grab;
   touch-action: none;

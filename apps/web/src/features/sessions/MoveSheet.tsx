@@ -1,6 +1,6 @@
 import { addMonths, counts, fmtDate, label, mondayOf, monthsBetween, monthStart, parseISO, sessionStatus, shiftDays, tone, type Session } from '@logbook/shared';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSessionMutations } from '@/api/queries';
 import { Button, IconButton } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
@@ -41,8 +41,12 @@ export const MoveSheet = ({ date, session }: { date: string; session: Session })
   const toast = useToast();
   const t = log.today;
   const name = session.kind === 'rest' ? 'Rest' : label(session);
+  // the hold that opened this sheet ends with a release, and the click it makes must not land on a day: a day only
+  // takes a click that started with a press inside the sheet
+  const pressed = useRef(false);
 
   const go = (to: string) => {
+    if (!pressed.current) return;
     if (to === date) return;
     move.mutate({ session, to });
     sheet.close();
@@ -62,7 +66,7 @@ export const MoveSheet = ({ date, session }: { date: string; session: Session })
   };
 
   return (
-    <div className="mv">
+    <div className="mv" onPointerDownCapture={() => (pressed.current = true)}>
       <div className="mv-nav">
         <span className="mv-month">{fmtDate('month', first)}</span>
         <IconButton label="Previous month" onClick={() => setFirst(addMonths(first, -1))}>

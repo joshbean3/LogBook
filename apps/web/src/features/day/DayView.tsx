@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useHabitMutations, useTodoMutations, useTodos } from '@/api/queries';
 import { haptic } from '@/lib/haptics';
-import { DROP_SPRING, INSTANT, LIFT, liftFx, REST, useHoldDrag } from '@/lib/useDrag';
+import { DROP_SPRING, INSTANT, liftFx, useHoldDrag } from '@/lib/useDrag';
 import { useMedia } from '@/lib/useToday';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
 import { Button, Chip, DateNav, EmptyState, Group, IconButton, Loading, Mark, PageHeader, Ring, SectionHead, Stat, StatStrip } from '@/ui/primitives';
@@ -166,23 +166,21 @@ const Hero = ({ date, log }: { date: string; log: L }) => {
 
 
 // ---------- habit orbs: a row of lights, each one you can switch on; hold one and it lifts, then slide it along the row ----------
-const NOTE_HOLD_MS = 450;
 
-/** One orb. A tap switches it; a hold lifts it (300ms, one haptic) so it can be dragged along the row; a hold with no movement opens its note at 450ms. */
-const Orb = ({ h, i, isDone, note, toggle, openNote, onLifted, onSettled, reduce }: { h: Habit; i: number; isDone: boolean; note: string; toggle: () => void; openNote: () => void; onLifted: () => void; onSettled: () => void; reduce: boolean | null }) => {
+/**
+ * One orb, one honest gesture. A tap (under 300ms) switches it. A hold lifts it (300ms, one haptic): let go without moving and
+ * its note opens, never a toggle; move and it slides along the row, and the order is written when it lands. A cancelled drag
+ * puts the row back as it was.
+ */
+const Orb = ({ h, i, isDone, note, toggle, openNote, onLifted, onSettled, onCancelled, reduce }: { h: Habit; i: number; isDone: boolean; note: string; toggle: () => void; openNote: () => void; onLifted: () => void; onSettled: () => void; onCancelled: () => void; reduce: boolean | null }) => {
   const controls = useDragControls();
   const [lifted, setLifted] = useState(false);
   const [pressed, setPressed] = useState(false);
-  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const noted = useRef(false);
-  const clearNote = () => {
-    if (noteTimer.current) clearTimeout(noteTimer.current);
-    noteTimer.current = null;
-  };
-  const settle = () => {
+  /** the click after a lifted release is not a tap */
+  const swallow = useRef(false);
+  const rest = () => {
     setLifted(false);
     setPressed(false);
-    onSettled();
   };
   const drag = useHoldDrag<HTMLButtonElement>({
     onArm: (e) => {
@@ -191,9 +189,22 @@ const Orb = ({ h, i, isDone, note, toggle, openNote, onLifted, onSettled, reduce
       onLifted();
       controls.start(e);
     },
-    onStart: clearNote,
-    onDrop: settle,
-    onCancel: settle,
+    onDrop: () => {
+      rest();
+      onSettled();
+    },
+    onCancel: (phase) => {
+      rest();
+      if (phase === 'dragging') {
+        controls.cancel();
+        onCancelled();
+        return;
+      }
+      // lifted and let go where it was: the note, not a toggle
+      swallow.current = true;
+      onCancelled();
+      openNote();
+    },
   });
   const scale = reduce ? 1 : lifted ? 1.03 : pressed ? 0.92 : 1;
   return (
@@ -209,45 +220,35 @@ const Orb = ({ h, i, isDone, note, toggle, openNote, onLifted, onSettled, reduce
       aria-checked={isDone}
       aria-label={h.name}
       title={i < 9 ? `Press ${i + 1}` : undefined}
-      animate={{ scale, filter: lifted && !reduce ? LIFT.filter : REST.filter }}
+      animate={{ scale }}
       transition={reduce ? INSTANT : DROP_SPRING}
       onClick={() => {
-        if (drag.consumeClick() || noted.current) {
-          noted.current = false;
+        if (drag.consumeClick() || swallow.current) {
+          swallow.current = false;
+          // the click is the user's gesture: the note takes focus here, where the browser allows it
+          document.getElementById(`note-${h.id}`)?.focus();
           return;
         }
         toggle();
       }}
       onPointerDown={(e) => {
         drag.bind.onPointerDown(e);
-        if (e.button !== 0) return;
-        setPressed(true);
-        noted.current = false;
-        clearNote();
-        noteTimer.current = setTimeout(() => {
-          noteTimer.current = null;
-          noted.current = true;
-          controls.cancel();
-          drag.cancel();
-          haptic();
-          openNote();
-        }, NOTE_HOLD_MS);
+        if (e.button === 0) setPressed(true);
       }}
+      // the orb never takes focus from a press, so the note it opens keeps it (keyboard focus still arrives by Tab)
+      onMouseDown={(e) => e.preventDefault()}
       onPointerMove={drag.bind.onPointerMove}
       onPointerUp={() => {
         drag.bind.onPointerUp();
         setPressed(false);
-        clearNote();
       }}
       onPointerLeave={() => {
         drag.bind.onPointerLeave();
         setPressed(false);
-        clearNote();
       }}
       onPointerCancel={() => {
         drag.bind.onPointerCancel();
         setPressed(false);
-        clearNote();
       }}
       onContextMenu={drag.bind.onContextMenu}
     >
@@ -263,13 +264,17 @@ const Orb = ({ h, i, isDone, note, toggle, openNote, onLifted, onSettled, reduce
   );
 };
 
-/** The visible habits in a local order while one is in the air; the full order is written once it lands. */
+/** The visible habits in a local order while one is in the air; the full order is written once it lands, and put back if the drag is cancelled. */
 const useLiveOrder = (ids: string[], commit: (order: string[]) => void) => {
-  const [order, setOrder] = useState(ids);
+  const [order, setOrderState] = useState(ids);
   const latest = useRef(order);
-  latest.current = order;
+  const before = useRef(order);
   const busy = useRef(false);
   const key = ids.join(',');
+  const setOrder = (next: string[]) => {
+    latest.current = next;
+    setOrderState(next);
+  };
   useEffect(() => {
     if (!busy.current) setOrder(ids);
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -280,10 +285,15 @@ const useLiveOrder = (ids: string[], commit: (order: string[]) => void) => {
     setOrder,
     lift: () => {
       busy.current = true;
+      before.current = latest.current;
     },
     settle: () => {
       busy.current = false;
       commit(latest.current);
+    },
+    cancel: () => {
+      busy.current = false;
+      setOrder(before.current);
     },
   };
 };
@@ -313,10 +323,11 @@ const Orbs = ({ date, log, list, toggle, noteFor, setNoteFor, timers, save, comm
               toggle={() => toggle(h)}
               openNote={() => {
                 setNoteFor(h.id);
-                setTimeout(() => document.getElementById(`note-${h.id}`)?.focus());
+                requestAnimationFrame(() => document.getElementById(`note-${h.id}`)?.focus());
               }}
               onLifted={live.lift}
               onSettled={live.settle}
+              onCancelled={live.cancel}
               reduce={reduce}
             />
           );
@@ -330,6 +341,7 @@ const Orbs = ({ date, log, list, toggle, noteFor, setNoteFor, timers, save, comm
           <input
             className="note-in"
             id={`note-${noted.id}`}
+            autoFocus
             defaultValue={log.snap.checkOf(date, noted.id)?.note ?? ''}
             placeholder={`A note on ${noted.name}`}
             maxLength={280}
@@ -350,7 +362,7 @@ const Orbs = ({ date, log, list, toggle, noteFor, setNoteFor, timers, save, comm
 
 // ---------- habits ----------
 /** An Edit-mode row: the grip drags it up or down the list; the arrows do the same for a keyboard or VoiceOver. */
-const HabitEditRow = ({ h, i, n, patch, swap, onLifted, onSettled, reduce }: { h: Habit; i: number; n: number; patch: (p: { id: string; name?: string; archived?: boolean }) => void; swap: (i: number, j: number) => void; onLifted: () => void; onSettled: () => void; reduce: boolean | null }) => {
+const HabitEditRow = ({ h, i, n, patch, swap, onLifted, onSettled, onCancelled, reduce }: { h: Habit; i: number; n: number; patch: (p: { id: string; name?: string; archived?: boolean }) => void; swap: (i: number, j: number) => void; onLifted: () => void; onSettled: () => void; onCancelled: () => void; reduce: boolean | null }) => {
   const controls = useDragControls();
   const [lifted, setLifted] = useState(false);
   return (
@@ -366,9 +378,11 @@ const HabitEditRow = ({ h, i, n, patch, swap, onLifted, onSettled, reduce }: { h
         setLifted(true);
         onLifted();
       }}
-      onDragEnd={() => {
+      onDragEnd={(e) => {
         setLifted(false);
-        onSettled();
+        // a cancelled touch puts the list back; a release writes it
+        if ((e as Event).type === 'pointercancel') onCancelled();
+        else onSettled();
       }}
     >
       <span className="hgrip" aria-hidden="true" onPointerDown={(e) => controls.start(e)} onContextMenu={(e) => e.preventDefault()}>
@@ -401,7 +415,7 @@ const HabitEditList = ({ habits, patch, swap, commit }: { habits: Habit[]; patch
       <Reorder.Group as="div" axis="y" values={live.order} onReorder={live.setOrder} className="hlist">
         {live.order.map((id, i) => {
           const h = byId.get(id);
-          return h ? <HabitEditRow key={h.id} h={h} i={i} n={live.order.length} patch={patch} swap={swap} onLifted={live.lift} onSettled={live.settle} reduce={reduce} /> : null;
+          return h ? <HabitEditRow key={h.id} h={h} i={i} n={live.order.length} patch={patch} swap={swap} onLifted={live.lift} onSettled={live.settle} onCancelled={live.cancel} reduce={reduce} /> : null;
         })}
       </Reorder.Group>
     </div>

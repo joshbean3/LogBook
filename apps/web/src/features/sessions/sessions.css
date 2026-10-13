@@ -77,19 +77,55 @@
   flex: none;
 }
 
-/* ---------- a row in the air: the row itself dims, a copy follows the finger; a day cell lights where it can land ---------- */
+/* ---------- a row in the air: the row itself dims once the hold is up; a compact copy (dot and name) rides just above the finger;
+   a day cell lights where it can land ---------- */
 .srow.is-lifted {
   opacity: 0.35;
 }
 .srow-ghost {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 60;
   pointer-events: none;
-  border-radius: var(--r-md);
-  overflow: hidden;
-  background: var(--surface);
-  border: var(--card-border);
   will-change: transform;
+}
+/* the lift: surface-2, a line-strong hairline, no shadow (brand §9) */
+.srow-ghost-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  max-width: 240px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  opacity: 0.9;
+  white-space: nowrap;
+}
+.srow-ghost-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--tone);
+}
+.srow-ghost-title {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* in the week strip the session's own day sits back: the one light is the ring under the finger */
+.drop-strip .dcell:has(.dcell-origin) {
+  opacity: 0.4;
 }
 /* the target under a dragged session: the one accent-bright ring. It is drawn by a fixed overlay on the body (above the row in the air,
    so the copy under the finger never hides it); the cell itself only brightens its number */

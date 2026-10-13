@@ -274,11 +274,14 @@ const Timeline = ({ T, isToday, date }: { T: MorningTimeline; isToday: boolean; 
     const changed = (Object.keys(next) as Array<keyof Draft>).some((k) => cur[k] !== next[k]);
     if (!changed) return;
     haptic('tick');
+    // the ref leads the render, so a release right after the last step commits that step, not the one before
+    draftRef.current = next;
     setDraft(next);
   };
   const finish = (apply: boolean) => {
     const d = draftRef.current;
     setLive(null);
+    draftRef.current = null;
     setDraft(null);
     if (!apply || !d) return;
     const moved = (d.wake != null && d.wake !== T.day.wake) || (d.miles != null && d.miles !== T.day.miles) || (d.minutes != null && d.minutes !== T.day.minutes);
@@ -292,7 +295,11 @@ const Timeline = ({ T, isToday, date }: { T: MorningTimeline; isToday: boolean; 
       setDraft({ wake: T.day.wake });
     },
     onMove: (p) => tick({ wake: wakeOf(p.dy) }),
-    onDrop: () => finish(true),
+    // the release point is the last word: a final move can be coalesced away before the up
+    onDrop: (p) => {
+      tick({ wake: wakeOf(p.dy) });
+      finish(true);
+    },
     onCancel: () => finish(false),
   });
   const run = T.day.mode === 'run';
@@ -308,7 +315,10 @@ const Timeline = ({ T, isToday, date }: { T: MorningTimeline; isToday: boolean; 
       setDraft(run ? { miles: T.day.miles } : { minutes: T.day.minutes });
     },
     onMove: (p) => tick(sizeOf(p.dy)),
-    onDrop: () => finish(true),
+    onDrop: (p) => {
+      tick(sizeOf(p.dy));
+      finish(true);
+    },
     onCancel: () => finish(false),
   });
   const stepKey = (e: React.KeyboardEvent, apply: (dir: 1 | -1) => void) => {
@@ -362,12 +372,14 @@ const Timeline = ({ T, isToday, date }: { T: MorningTimeline; isToday: boolean; 
           // the session block is the lit one: its own number stamped on it, the family as the 3px bar and a faint halo
           const stamp = main ? (b.key === 'run' ? [num(TT.day.miles), 'mi'] : [String(TT.day.minutes), 'min']) : null;
           const lbl = main ? (b.key === 'run' ? `${TT.day.type} run` : b.label) : b.label;
-          const lifted = (wake && live === 'wake') || (main && live === 'size');
+          // the wake block lifts in hand; a block being resized stays at rest and only its edge brightens
+          const lifted = wake && live === 'wake';
+          const sizing = main && live === 'size';
           return (
             <motion.li
               key={i}
               ref={wake ? wakeDrag.ref : undefined}
-              className={`tl-block k-${b.key} ${main ? 'lit' : ''} ${b.tone ? `t-${b.tone}` : ''} ${past ? 'past' : ''} ${h >= 48 ? 'tall' : ''} ${lifted ? 'is-lifted' : ''}`}
+              className={`tl-block k-${b.key} ${main ? 'lit' : ''} ${b.tone ? `t-${b.tone}` : ''} ${past ? 'past' : ''} ${h >= 48 ? 'tall' : ''} ${lifted ? 'is-lifted' : ''} ${sizing ? 'is-sizing' : ''}`}
               style={{ top, height: h }}
               animate={liftFx(lifted, reduce)}
               {...(wake ? wakeDrag.bind : {})}
