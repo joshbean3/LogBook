@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 /**
  * Press-and-hold drags for the things that move: a habit orb, a session row, a block on the morning timeline.
  *
- * The grammar is the same everywhere (brand §9, the one exception to "nothing moves without a tap"): the pointer rests
- * for `holdMs`, the thing lifts (scale 1.03, surface-2, a line-strong hairline, no shadow, one haptic), it follows the
- * finger, and on release it springs back (stiffness 400, damping 30). Under reduced motion nothing scales: the lift is
- * the surface and the hairline alone, and every move is instant.
+ * The grammar is the same everywhere (brand §9.5; it keeps rules 1 and 4: nothing moves on load, nothing runs long or
+ * ambient): the pointer rests for `holdMs`, the thing lifts (scale 1.03, surface-2, a line-strong hairline, no shadow,
+ * one haptic), it follows the finger, and on release it springs back (stiffness 400, damping 30). Under reduced motion
+ * nothing scales: the lift is the surface and the hairline alone, and every move is instant.
  * Until the hold is up the page scrolls as usual; once it is up, touch scrolling is held off so the drag owns the finger.
  */
 
@@ -24,6 +24,7 @@ export const REST: TargetAndTransition = { scale: 1 };
 export const liftFx = (lifted: boolean, reduce: boolean | null): TargetAndTransition => (reduce ? { ...REST, transition: INSTANT } : lifted ? { ...LIFT, transition: DROP_SPRING } : { ...REST, transition: DROP_SPRING });
 
 export type DragPhase = 'idle' | 'pending' | 'armed' | 'dragging';
+export type CancelReason = 'up' | 'cancel';
 export interface DragPoint {
   x: number;
   y: number;
@@ -42,8 +43,11 @@ interface HoldDragOpts {
   onMove?: (p: DragPoint, e: PointerEvent) => void;
   /** the pointer lifted after a drag */
   onDrop?: (p: DragPoint, e: PointerEvent) => void;
-  /** armed, or dragging, and it came to nothing: a release without movement, a cancel, or an explicit cancel() */
-  onCancel?: (phase: DragPhase) => void;
+  /**
+   * armed, or dragging, and it came to nothing. `reason` says how: 'up' is the finger lifting without a drag (a deliberate
+   * release); 'cancel' is the browser taking the pointer away (a palm, a call) or an explicit cancel().
+   */
+  onCancel?: (phase: DragPhase, reason: CancelReason) => void;
   /** scroll the page when a drag nears the top or bottom edge */
   autoScroll?: boolean;
 }
@@ -92,7 +96,7 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
   const cancel = useCallback(() => {
     const was = s.current.phase;
     reset();
-    if (was === 'armed' || was === 'dragging') o.current.onCancel?.(was);
+    if (was === 'armed' || was === 'dragging') o.current.onCancel?.(was, 'cancel');
   }, [reset]);
 
   const arm = (e: PointerEvent) => {
@@ -119,13 +123,13 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
       const p = point(ev);
       reset();
       if (was === 'dragging') o.current.onDrop?.(p, ev);
-      else o.current.onCancel?.(was);
+      else o.current.onCancel?.(was, 'up');
     };
     const onCancel = (ev: PointerEvent) => {
       if (ev.pointerId !== st.id) return;
       const was = st.phase;
       reset();
-      o.current.onCancel?.(was);
+      o.current.onCancel?.(was, 'cancel');
     };
     const opt = { capture: true, passive: true } as const;
     window.addEventListener('pointermove', onMove, opt);

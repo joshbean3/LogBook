@@ -401,10 +401,10 @@ const useLongPress = (fire: () => void) => {
       fired.current = false;
       origin.current = { x: e.clientX, y: e.clientY };
       clear();
+      // no haptic here: the hold already ticked once at 300ms when it armed
       timer.current = setTimeout(() => {
         timer.current = null;
         ready.current = true;
-        haptic();
       }, LONG_PRESS_MS);
     },
     onPointerMove: (e: React.PointerEvent) => {
@@ -424,7 +424,11 @@ const useLongPress = (fire: () => void) => {
         setTimeout(fire, 0);
       };
       window.addEventListener('click', open, { capture: true, once: true });
-      timer = setTimeout(open, 350);
+      timer = setTimeout(() => {
+        // no click came: nothing to swallow next time
+        fired.current = false;
+        open();
+      }, 350);
     },
     onPointerLeave: clear,
     onPointerCancel: clear,

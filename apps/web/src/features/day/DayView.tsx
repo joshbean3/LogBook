@@ -193,16 +193,21 @@ const Orb = ({ h, i, isDone, note, toggle, openNote, onLifted, onSettled, onCanc
       rest();
       onSettled();
     },
-    onCancel: (phase) => {
+    onCancel: (phase, reason) => {
       rest();
+      onCancelled();
       if (phase === 'dragging') {
         controls.cancel();
-        onCancelled();
+        return;
+      }
+      // the pointer taken away mid-hold (a palm, a call) is nobody's intent: no note, no toggle
+      if (reason !== 'up') {
+        controls.cancel();
+        swallow.current = true;
         return;
       }
       // lifted and let go where it was: the note, not a toggle
       swallow.current = true;
-      onCancelled();
       openNote();
     },
   });

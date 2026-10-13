@@ -91,7 +91,7 @@ Verbs, one word, on buttons: Add, Save, Done, Floor, Skip, Move, Edit, Delete, U
 2. Completion is the celebration: an orb fills (160ms) and its check draws (160ms, after the fill), the glow blooms (320ms ease-out), one haptic. Nothing else celebrates.
 3. Taps compress to 0.985 with a spring (stiffness 400, damping 30). Sheets spring up (stiffness 300, damping 30). Numbers tick to their value (AnimatedNumber).
 4. Nothing longer than 600ms except the one route draw (1.1s). No stagger lists. No ambient motion.
-5. A held thing lifts: scale 1.03, surface-2, a line-strong hairline, no shadow. It is the one exception to "nothing moves without a tap", it springs back (stiffness 400, damping 30), and under reduced motion only the surface changes.
+5. A held thing lifts: scale 1.03, surface-2, a line-strong hairline, no shadow. It follows the finger and springs back (stiffness 400, damping 30), within rules 1 and 4: nothing lifts on load, nothing lifts for long, and under reduced motion only the surface changes.
 
 ### 10. Tokens
 
