@@ -1,12 +1,15 @@
 import { assess, buildMorning, clock, clockOfDay, floorFor, fmtDate, isAutoStatus, KIND_WORD, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, zoneOf, type Activity, type Session } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Sparkles } from 'lucide-react';
+import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
 import { haptic } from '@/lib/haptics';
+import { DROP_SPRING, getDragInfo, hitDropDay, INSTANT, LIFT, REST, setDragInfo, SLOP, useDragInfo, useDropDays, useDropOver, useHoldDrag } from '@/lib/useDrag';
 import type { MonthBundle } from '@/api/types';
-import { Button, Chip, ChipButton, Mark } from '@/ui/primitives';
+import { Button, Chip, ChipButton, DayStrip, Mark } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
@@ -375,31 +378,62 @@ export const useOpenSession = (_log?: Log) => {
   return (date: string, s: Session, opts: { fromHero?: boolean } = {}) => sheet.open({ title: sheetDate(date), body: <SessionSheet date={date} id={s.id} fromHero={opts.fromHero} />, wide: true });
 };
 
-/** Hold a row for 450ms (one haptic) to open Move without the full sheet; a plain tap still opens the sheet. */
+/**
+ * Hold a row still for 450ms (one haptic) and Move opens when the finger lifts, so the release never lands on the calendar
+ * that opened under it; a plain tap still opens the sheet. A finger that moves is a scroll or a drag, never a hold.
+ */
 const LONG_PRESS_MS = 450;
 const useLongPress = (fire: () => void) => {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** the press completed and is waiting for the release */
+  const ready = useRef(false);
+  /** true once, for the click that follows the release */
   const fired = useRef(false);
+  const origin = useRef({ x: 0, y: 0 });
   const clear = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
+    ready.current = false;
   };
   return {
     onPointerDown: (e: React.PointerEvent) => {
       if (e.button !== 0) return;
       fired.current = false;
+      origin.current = { x: e.clientX, y: e.clientY };
       clear();
+      // no haptic here: the hold already ticked once at 300ms when it armed
       timer.current = setTimeout(() => {
         timer.current = null;
-        fired.current = true;
-        haptic();
-        fire();
+        ready.current = true;
       }, LONG_PRESS_MS);
     },
-    onPointerUp: clear,
+    onPointerMove: (e: React.PointerEvent) => {
+      if ((timer.current || ready.current) && Math.hypot(e.clientX - origin.current.x, e.clientY - origin.current.y) >= SLOP) clear();
+    },
+    onPointerUp: () => {
+      const go = ready.current;
+      clear();
+      if (!go) return;
+      fired.current = true;
+      // the release still makes a click a few frames later, aimed at whatever is under the finger by then: let it land on
+      // this row (where it is swallowed) before the sheet exists, then open
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const open = () => {
+        window.removeEventListener('click', open, true);
+        if (timer) clearTimeout(timer);
+        setTimeout(fire, 0);
+      };
+      window.addEventListener('click', open, { capture: true, once: true });
+      timer = setTimeout(() => {
+        // no click came: nothing to swallow next time
+        fired.current = false;
+        open();
+      }, 350);
+    },
     onPointerLeave: clear,
     onPointerCancel: clear,
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    cancel: clear,
     /** true once, when the click that ends a long press should be swallowed */
     consume: () => {
       const f = fired.current;
@@ -409,14 +443,175 @@ const useLongPress = (fire: () => void) => {
   };
 };
 
-/** A 60px row: check, colour bar, the run's name (or the plan's label), the plan and the actual as the sub line, one stat, chevron. */
+type Ghost = { leaving: null | 'back' | 'gone' };
+/** The copy in the air sits this far above the finger, so the day under the finger stays readable. */
+const GHOST_RISE = 24;
+
+/**
+ * A row you can pick up: hold 300ms (one tick, the row dims), then move, and a compact copy (the tone dot and the name)
+ * lifts just above the finger. Any day cell on the page marked as a drop target lights under it; let go there and the
+ * session moves, with the usual toast and Undo. Let go anywhere else and the copy springs back. A hold with no movement
+ * still opens Move when the finger lifts, and a tap still opens the sheet.
+ */
+const useRowDrag = (date: string, s: Session, title: string, press: { cancel: () => void }) => {
+  const { move } = useSessionMutations();
+  const toast = useToast();
+  const reduce = useReducedMotion();
+  const over = useDropOver();
+  const [armed, setArmed] = useState(false);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
+  const gx = useMotionValue(0);
+  const gy = useMotionValue(0);
+  const origin = useRef({ x: 0, y: 0 });
+  const land = (leaving: 'back' | 'gone') => setGhost((g) => (g ? { ...g, leaving } : g));
+  const drag = useHoldDrag<HTMLButtonElement>({
+    disabled: s.kind === 'rest',
+    autoScroll: true,
+    onArm: () => {
+      haptic('tick');
+      setArmed(true);
+    },
+    onStart: (p) => {
+      press.cancel();
+      haptic();
+      origin.current = { x: p.x, y: p.y };
+      gx.set(p.x);
+      gy.set(p.y);
+      setGhost({ leaving: null });
+      setDragInfo({ kind: 'session', date, id: s.id });
+    },
+    onMove: (p) => {
+      gx.set(p.x);
+      gy.set(p.y);
+      const hit = hitDropDay(p.x, p.y);
+      if (over.set(hit && hit.day !== date ? hit : null)) haptic('tick');
+    },
+    onDrop: (p) => {
+      // the release point is the last word: a final move can be coalesced away before the up
+      const fresh = hitDropDay(p.x, p.y);
+      const hit = fresh && fresh.day !== date ? fresh : null;
+      over.clear();
+      setArmed(false);
+      setDragInfo(null);
+      if (!hit) return land('back');
+      const to = hit.day;
+      haptic('success');
+      move.mutate({ session: s, to });
+      toast(`Moved to ${fmtDate('short', to)}`, { label: 'Undo', fn: () => move.mutate({ session: { ...s, date: to }, to: date }) });
+      land('gone');
+    },
+    onCancel: (phase) => {
+      over.clear();
+      setArmed(false);
+      setDragInfo(null);
+      if (phase === 'dragging') land('back');
+    },
+  });
+  // a row that leaves the page mid-drag (the day changed, the session moved) must not leave the week strip open
+  useEffect(
+    () => () => {
+      if (getDragInfo()?.id === s.id) setDragInfo(null);
+    },
+    [s.id],
+  );
+  const portal = ghost
+    ? createPortal(
+        <motion.div
+          className={`srow-ghost t-${tone(s)}`}
+          aria-hidden="true"
+          style={{ x: gx, y: gy }}
+          initial={REST}
+          animate={ghost.leaving === 'back' ? { ...REST, x: origin.current.x, y: origin.current.y } : ghost.leaving === 'gone' ? { ...REST, opacity: 0 } : reduce ? REST : LIFT}
+          transition={reduce ? INSTANT : DROP_SPRING}
+          onAnimationComplete={() => ghost.leaving && setGhost(null)}
+        >
+          <span className="srow-ghost-pill" style={{ transform: `translate(-50%, calc(-100% - ${GHOST_RISE}px))` }}>
+            <i className="srow-ghost-dot" />
+            <span className="srow-ghost-title">{title}</span>
+          </span>
+        </motion.div>,
+        document.body,
+      )
+    : null;
+  return { drag, portal, lifted: armed || !!ghost };
+};
+
+/**
+ * The week as a drop target for a session dragged on Today: seven cells that slide in under the Training head while a row is
+ * in the air, and slide away when it lands. Mount it between the head and the list.
+ */
+export const DropWeekStrip = ({ date, log }: { date: string; log: Log }) => {
+  const info = useDragInfo();
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const mon = mondayOf(date);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => shiftDays(mon, i)), [mon]);
+  const on = info?.kind === 'session' && info.date === date;
+  useDropDays(ref, on ? days : []);
+  // the strip opens above the list, so the page scrolls by the same amount as the strip grows, before each paint: the row
+  // stays under the finger and the head slides up out of the way, instead of the week landing under a finger that has not
+  // moved. A ResizeObserver sees every change of the strip's height, animated or instant (reduced motion).
+  // `applied` is what the page really scrolled, so the strip's exit gives back exactly that.
+  const shown = useRef(0);
+  const applied = useRef(0);
+  const keep = (h: number) => {
+    const d = h - shown.current;
+    shown.current = h;
+    if (!d) return;
+    const before = window.scrollY;
+    window.scrollBy(0, d);
+    applied.current += window.scrollY - before;
+  };
+  useEffect(() => {
+    const el = ref.current;
+    if (!on || !el) return;
+    const ro = new ResizeObserver(() => keep(el.offsetHeight));
+    ro.observe(el);
+    keep(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [on]); // eslint-disable-line react-hooks/exhaustive-deps
+  const giveBack = () => {
+    if (applied.current) window.scrollBy(0, -applied.current);
+    applied.current = 0;
+    shown.current = 0;
+  };
+  return (
+    <AnimatePresence initial={false} onExitComplete={giveBack}>
+      {on ? (
+        <motion.div key="strip" ref={ref} className="drop-strip" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={reduce ? INSTANT : { duration: 0.2, ease: 'easeOut' }}>
+          <div className="drop-strip-in">
+            {/* no day is selected here: the one light is the ring under the finger; the session's own day sits back */}
+            <DayStrip
+              days={days}
+              selected=""
+              today={log.today}
+              onPick={() => undefined}
+              labelOf={(d) => (d === date ? `${fmtDate('long', d)}, where it is` : `${fmtDate('long', d)}. Drop here to move`)}
+              ariaLabel="Drop on a day"
+              extra={(d) => {
+                const main = log.snap.sessionsOn(d).find((x) => x.kind !== 'rest');
+                return <i className={`dcell-dot ${main ? `t-${tone(main)}` : 'none'} ${d === date ? 'dcell-origin' : ''}`} />;
+              }}
+            />
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+};
+
+/** A 60px row: check, colour bar, the run's name (or the plan's label), the plan and the actual as the sub line, one stat, chevron. Hold and move to drag it to another day. */
 export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Session; log: Log; as?: 'li' | 'div' }) => {
   const st = sessionStatus(log.snap, date, s);
   const auto = isAutoStatus(log.snap, date, s);
   const { mark } = useSessionMutations();
   const open = useOpenSession(log);
   const sheet = useSheet();
-  const press = useLongPress(() => openMoveSheet(sheet, date, s));
+  const cancelDrag = useRef<() => void>(() => undefined);
+  const press = useLongPress(() => {
+    cancelDrag.current();
+    openMoveSheet(sheet, date, s);
+  });
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const sets = log.snap.liftsOn(date);
   const lbl = label(s);
@@ -425,6 +620,8 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
   // a logged run leads with its own name, the way Aura sets it; the plan drops to the sub line with what happened against it: "Easy 6 · 3.0 of 6 mi"
   const title = runs.length ? runs.map((r) => r.name).join(' + ') : lbl;
   const sub = a ? [lbl, planned ? `${mi(a.miles)} of ${num(planned)} mi` : null, s.details].filter(Boolean).join(' · ') : sessionMeta(s, st) || STATUS_WORD[st];
+  const { drag, portal, lifted } = useRowDrag(date, s, title, press);
+  cancelDrag.current = drag.cancel;
   let stat: ReactNode = null;
   if (a) {
     stat = (
@@ -442,29 +639,52 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
     );
   } else if (st !== 'done') stat = <Chip kind={st}>{STATUS_WORD[st]}</Chip>;
   const Tag = as;
+  const setBody = (el: HTMLButtonElement | null) => {
+    drag.ref.current = el;
+  };
   return (
-    <Tag className={`srow t-${tone(s)} s-${st}`}>
-      <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched to a logged run' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
-      <button
-        type="button"
-        className="srow-body"
-        aria-label={`${title}. ${sub}. Open; hold to move`}
-        onClick={() => (press.consume() ? undefined : open(date, s))}
-        onPointerDown={press.onPointerDown}
-        onPointerUp={press.onPointerUp}
-        onPointerLeave={press.onPointerLeave}
-        onPointerCancel={press.onPointerCancel}
-        onContextMenu={press.onContextMenu}
-      >
-        <span className="srow-bar" aria-hidden="true" />
-        <span className="srow-main">
-          <span className="lrow-title">{title}</span>
-          <span className="lrow-sub">{sub}</span>
-        </span>
-        {stat}
-        <ChevronRight size={18} className="srow-chev" />
-      </button>
-    </Tag>
+    <>
+      <Tag className={`srow t-${tone(s)} s-${st} ${lifted ? 'is-lifted' : ''}`}>
+        <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched to a logged run' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
+        <button
+          ref={setBody}
+          type="button"
+          className="srow-body"
+          aria-label={`${title}. ${sub}. Open; hold to move`}
+          onClick={() => (drag.consumeClick() || press.consume() ? undefined : open(date, s))}
+          onPointerDown={(e) => {
+            press.onPointerDown(e);
+            drag.bind.onPointerDown(e);
+          }}
+          onPointerMove={(e) => {
+            press.onPointerMove(e);
+            drag.bind.onPointerMove(e);
+          }}
+          onPointerUp={() => {
+            press.onPointerUp();
+            drag.bind.onPointerUp();
+          }}
+          onPointerLeave={() => {
+            press.onPointerLeave();
+            drag.bind.onPointerLeave();
+          }}
+          onPointerCancel={() => {
+            press.onPointerCancel();
+            drag.bind.onPointerCancel();
+          }}
+          onContextMenu={press.onContextMenu}
+        >
+          <span className="srow-bar" aria-hidden="true" />
+          <span className="srow-main">
+            <span className="lrow-title">{title}</span>
+            <span className="lrow-sub">{sub}</span>
+          </span>
+          {stat}
+          <ChevronRight size={18} className="srow-chev" />
+        </button>
+      </Tag>
+      {portal}
+    </>
   );
 };
 

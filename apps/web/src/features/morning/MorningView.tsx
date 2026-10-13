@@ -1,8 +1,10 @@
-import { buildMorning, clock, clockOfDay, durationWords, fmtDate, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, pad, parsePace, shiftDays, tone, TYPES, type MorningSettings, type MorningTimeline, type TimelineBlock } from '@logbook/shared';
+import { buildMorning, clock, clockOfDay, durationWords, fmtDate, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, pad, parsePace, shiftDays, tone, TYPES, type MorningDayOverride, type MorningSettings, type MorningTimeline, type TimelineBlock } from '@logbook/shared';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMorningMutations } from '@/api/queries';
+import { haptic } from '@/lib/haptics';
+import { liftFx, useHoldDrag } from '@/lib/useDrag';
 import { AuraStat, Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stepper } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useLog } from '../log/useLog';
@@ -277,9 +279,93 @@ const layoutBlocks = (blocks: TimelineBlock[]) => {
   return { items, end: y };
 };
 
-const Timeline = ({ T, isToday }: { T: MorningTimeline; isToday: boolean }) => {
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const WAKE_MIN = 240;
+const WAKE_MAX = 720;
+const WAKE_STEP = 5;
+const MILES_STEP = 0.5;
+const MIN_STEP = 5;
+type Draft = Partial<Pick<MorningDayOverride, 'wake' | 'miles' | 'minutes'>>;
+
+/**
+ * The timeline you can take hold of. Hold the Wake block (300ms, one haptic) and drag it down for a later alarm, up for an
+ * earlier one, in 5-minute steps; every block below recomputes as it goes. Drag the bottom edge of the run or gym block to
+ * change what it holds: half-miles for a run, five minutes for the gym. The live value sits in the block; the day is written once the finger lifts.
+ * Both take the arrow keys too.
+ */
+const Timeline = ({ T, isToday, date }: { T: MorningTimeline; isToday: boolean; date: string }) => {
   const now = useNowMinutes();
-  const { items, end } = useMemo(() => layoutBlocks(T.blocks), [T.blocks]);
+  const reduce = useReducedMotion();
+  const { setDay } = useMorningMutations();
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [live, setLive] = useState<'wake' | 'size' | null>(null);
+  const draftRef = useRef<Draft | null>(null);
+  draftRef.current = draft;
+  const TT = useMemo(() => (draft ? buildMorning({ ...T.day, ...draft }, T.settings) : T), [T, draft]);
+  const commit = (patch: Draft) => {
+    const d = T.day;
+    setDay.mutate({ date, day: { mode: d.mode, type: d.type, miles: d.miles, minutes: d.minutes, wake: d.wake, ...patch } });
+  };
+  const tick = (next: Draft) => {
+    const cur = draftRef.current ?? {};
+    const changed = (Object.keys(next) as Array<keyof Draft>).some((k) => cur[k] !== next[k]);
+    if (!changed) return;
+    haptic('tick');
+    // the ref leads the render, so a release right after the last step commits that step, not the one before
+    draftRef.current = next;
+    setDraft(next);
+  };
+  const finish = (apply: boolean) => {
+    const d = draftRef.current;
+    setLive(null);
+    draftRef.current = null;
+    setDraft(null);
+    if (!apply || !d) return;
+    const moved = (d.wake != null && d.wake !== T.day.wake) || (d.miles != null && d.miles !== T.day.miles) || (d.minutes != null && d.minutes !== T.day.minutes);
+    if (moved) commit(d);
+  };
+  const wakeOf = (dy: number) => clamp(T.day.wake + Math.round(dy / PX / WAKE_STEP) * WAKE_STEP, WAKE_MIN, WAKE_MAX);
+  const wakeDrag = useHoldDrag<HTMLLIElement>({
+    onArm: () => {
+      haptic();
+      setLive('wake');
+      setDraft({ wake: T.day.wake });
+    },
+    onMove: (p) => tick({ wake: wakeOf(p.dy) }),
+    // the release point is the last word: a final move can be coalesced away before the up
+    onDrop: (p) => {
+      tick({ wake: wakeOf(p.dy) });
+      finish(true);
+    },
+    onCancel: () => finish(false),
+  });
+  const run = T.day.mode === 'run';
+  const sizeOf = (dy: number): Draft => {
+    const mins = dy / PX;
+    return run ? { miles: clamp(Math.round((T.day.miles + (mins * 60) / T.settings.run.pace) / MILES_STEP) * MILES_STEP, 0.5, 30) } : { minutes: clamp(Math.round((T.day.minutes + mins) / MIN_STEP) * MIN_STEP, 5, 240) };
+  };
+  const sizeDrag = useHoldDrag<HTMLSpanElement>({
+    holdMs: 0,
+    onStart: () => {
+      haptic();
+      setLive('size');
+      setDraft(run ? { miles: T.day.miles } : { minutes: T.day.minutes });
+    },
+    onMove: (p) => tick(sizeOf(p.dy)),
+    onDrop: (p) => {
+      tick(sizeOf(p.dy));
+      finish(true);
+    },
+    onCancel: () => finish(false),
+  });
+  const stepKey = (e: React.KeyboardEvent, apply: (dir: 1 | -1) => void) => {
+    const dir = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    haptic('tick');
+    apply(dir);
+  };
+  const { items, end } = useMemo(() => layoutBlocks(TT.blocks), [TT.blocks]);
   const total = end + LEAVE_H;
   const yOf = (t: number) => {
     const first = items[0];
@@ -288,18 +374,18 @@ const Timeline = ({ T, isToday }: { T: MorningTimeline; isToday: boolean }) => {
     return end;
   };
   const ticks: Array<{ t: number; y: number }> = [];
-  for (let t = Math.ceil(T.day.wake / 30) * 30; t <= T.leave; t += 30) {
+  for (let t = Math.ceil(TT.day.wake / 30) * 30; t <= TT.leave; t += 30) {
     const y = yOf(t);
     const prev = ticks[ticks.length - 1];
     if (prev && y - prev.y < 20) continue;
     if (total - y < 24) continue;
     ticks.push({ t, y });
   }
-  const showNow = isToday && now >= T.day.wake && now <= T.leave;
+  const showNow = isToday && now >= TT.day.wake && now <= TT.leave;
   const nowY = showNow ? yOf(now) : 0;
   const tickLabel = (t: number) => `${Math.floor(t / 60) % 12 || 12}:${pad(t % 60)}`;
   return (
-    <div className="tl" style={{ height: total }}>
+    <div className={`tl ${live ? 'is-live' : ''}`} style={{ height: total }}>
       <div className="tl-axis" aria-hidden="true">
         {ticks.map(({ t, y }) => (
           <span key={t} className="tl-tick caps" style={{ top: y - 7 }}>
@@ -319,11 +405,30 @@ const Timeline = ({ T, isToday }: { T: MorningTimeline; isToday: boolean }) => {
               </li>
             );
           const main = b.key === 'run' || b.key === 'gym';
+          const wake = b.key === 'wake';
           // the session block is the lit one: its own number stamped on it, the family as the 3px bar and a faint halo
-          const stamp = main ? (b.key === 'run' ? [num(T.day.miles), 'mi'] : [String(T.day.minutes), 'min']) : null;
-          const lbl = main ? (b.key === 'run' ? `${T.day.type} run` : b.label) : b.label;
+          const stamp = main ? (b.key === 'run' ? [num(TT.day.miles), 'mi'] : [String(TT.day.minutes), 'min']) : null;
+          const lbl = main ? (b.key === 'run' ? `${TT.day.type} run` : b.label) : b.label;
+          // the wake block lifts in hand; a block being resized stays at rest and only its edge brightens
+          const lifted = wake && live === 'wake';
+          const sizing = main && live === 'size';
           return (
-            <li key={i} className={`tl-block k-${b.key} ${main ? 'lit' : ''} ${b.tone ? `t-${b.tone}` : ''} ${past ? 'past' : ''} ${h >= 48 ? 'tall' : ''}`} style={{ top, height: h }}>
+            <motion.li
+              key={i}
+              ref={wake ? wakeDrag.ref : undefined}
+              className={`tl-block k-${b.key} ${main ? 'lit' : ''} ${b.tone ? `t-${b.tone}` : ''} ${past ? 'past' : ''} ${h >= 48 ? 'tall' : ''} ${lifted ? 'is-lifted' : ''} ${sizing ? 'is-sizing' : ''}`}
+              style={{ top, height: h }}
+              animate={liftFx(lifted, reduce)}
+              {...(wake ? wakeDrag.bind : {})}
+              tabIndex={wake ? 0 : undefined}
+              role={wake ? 'slider' : undefined}
+              aria-label={wake ? 'Wake-up time. Hold and drag, or use the arrow keys, to move it five minutes' : undefined}
+              aria-valuemin={wake ? WAKE_MIN : undefined}
+              aria-valuemax={wake ? WAKE_MAX : undefined}
+              aria-valuenow={wake ? TT.day.wake : undefined}
+              aria-valuetext={wake ? clockOfDay(TT.day.wake) : undefined}
+              onKeyDown={wake ? (e) => stepKey(e, (dir) => commit({ wake: clamp(T.day.wake + dir * WAKE_STEP, WAKE_MIN, WAKE_MAX) })) : undefined}
+            >
               <span className="tl-halo" aria-hidden="true" />
               <div className="tl-main">
                 <span className="tl-label">{lbl}</span>
@@ -337,15 +442,34 @@ const Timeline = ({ T, isToday }: { T: MorningTimeline; isToday: boolean }) => {
                   </span>
                   {h >= 48 ? <span className="tl-range caps">{range}</span> : null}
                 </span>
+              ) : wake && live === 'wake' ? (
+                <span className="stamp tl-stamp tl-live" aria-hidden="true">
+                  {short(TT.day.wake)}
+                </span>
               ) : (
                 <span className="tl-range caps">{range}</span>
               )}
-            </li>
+              {main ? (
+                <span
+                  ref={sizeDrag.ref}
+                  className="tl-grip"
+                  {...sizeDrag.bind}
+                  tabIndex={0}
+                  role="slider"
+                  aria-label={run ? 'Miles. Drag the edge, or use the arrow keys, to change it by half a mile' : 'Minutes. Drag the edge, or use the arrow keys, to change it by five'}
+                  aria-valuemin={run ? 0.5 : 5}
+                  aria-valuemax={run ? 30 : 240}
+                  aria-valuenow={run ? TT.day.miles : TT.day.minutes}
+                  aria-valuetext={run ? `${num(TT.day.miles)} mi` : `${TT.day.minutes} min`}
+                  onKeyDown={(e) => stepKey(e, (dir) => commit(run ? { miles: clamp(T.day.miles + dir * MILES_STEP, 0.5, 30) } : { minutes: clamp(T.day.minutes + dir * MIN_STEP, 5, 240) }))}
+                />
+              ) : null}
+            </motion.li>
           );
         })}
         <li className="tl-leave" style={{ top: end, height: LEAVE_H }}>
           <span className="tl-label">Leave for work</span>
-          <span className="stamp tl-stamp">{short(T.leave)}</span>
+          <span className="stamp tl-stamp">{short(TT.leave)}</span>
         </li>
       </ol>
       {showNow ? (
@@ -611,7 +735,7 @@ export default function MorningView() {
             </Note>
           ) : null}
           <TapToEdit onEdit={() => sheet.open({ title: 'Edit morning', body: <EditSheet date={date} /> })}>
-            <Timeline T={T} isToday={date === t} />
+            <Timeline T={T} isToday={date === t} date={date} />
           </TapToEdit>
 
           <Focus st={st} />

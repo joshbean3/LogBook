@@ -228,6 +228,55 @@
 .tl-block.past .tl-halo {
   opacity: 0.4;
 }
+/* the wake block takes a hold: no callout or selection while the finger rests, then it lifts and the morning follows it */
+.tl-block.k-wake {
+  cursor: grab;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+/* the lift (brand §9): surface-2, a line-strong hairline, no shadow */
+.tl-block.is-lifted {
+  z-index: 3;
+  opacity: 1;
+  cursor: grabbing;
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+.tl-block.k-wake:focus-visible,
+.tl-grip:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -2px;
+}
+/* the live value while a block is in hand: the stamp, as everywhere else */
+.tl-live {
+  color: var(--ink);
+}
+/* the session block's bottom edge is a handle: a 44px target inside the block, the bar at its edge */
+.tl-grip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 44px;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 6px;
+  touch-action: none;
+  cursor: ns-resize;
+  -webkit-touch-callout: none;
+  user-select: none;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+}
+.tl-grip::after {
+  content: '';
+  width: 28px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ink-4);
+}
+.tl-block.is-sizing .tl-grip::after {
+  background: var(--ink);
+}
 .tl-main {
   flex: 1;
   min-width: 0;

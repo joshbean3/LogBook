@@ -1,13 +1,14 @@
 import { addMonths, counts, dayStatus, daysBetween, fmtDate, label, mi, mondayOf, monthOf, monthStart, monthsBetween, num, parseISO, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, type PlanBlock, type Session } from '@logbook/shared';
 import { motion } from 'motion/react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
+import { useDropDays } from '@/lib/useDrag';
 import { ChevronRight } from 'lucide-react';
 import { Button, Chip, DateNav, DayStrip, EmptyState, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useLog, type Log } from '../log/useLog';
-import { AddSessionButton, sessionMeta, SessionRow, UnplannedRow } from '../sessions/SessionCard';
+import { AddSessionButton, sessionMeta, SessionRow, sessionSheetTitle, UnplannedRow, UnplannedSheet, useOpenSession } from '../sessions/SessionCard';
 import { SessionEditor } from '../sessions/SessionEditor';
 import { StravaLine } from '../settings/StravaLine';
 // the aura card grammar lives with Today; Plan borrows it rather than redrawing it
@@ -98,8 +99,25 @@ const DayAura = ({ sel, log }: { sel: string; log: Log }) => {
     ['Hit', tot.sessions ? <AnimatedNumber key="hit" value={tot.hit} /> : '—', tot.sessions ? `of ${tot.sessions}` : undefined],
     ['Habits', habOf ? <AnimatedNumber key="hab" value={Math.round((hab / habOf) * 100)} /> : '—', habOf ? '%' : undefined],
   ];
+  // the card is the day, as on Today: it opens the main session, or the unplanned run
+  const open = useOpenSession(log);
+  const sheet = useSheet();
+  const pressable = loaded && (!!main || unplannedRuns.length > 0);
+  const openIt = () => {
+    if (main) open(sel, main, { fromHero: true });
+    else if (unplannedRuns.length) sheet.open({ title: sessionSheetTitle(sel), body: <UnplannedSheet date={sel} runs={unplannedRuns} log={log} fromHero />, wide: true });
+  };
   return (
-    <div className={`aura wk-aura ${main ? `t-${tone(main)}` : ''}`}>
+    <motion.div
+      className={`aura wk-aura ${main ? `t-${tone(main)}` : ''}`}
+      onClick={pressable ? openIt : undefined}
+      onKeyDown={pressable ? (e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), openIt()) : undefined) : undefined}
+      role={pressable ? 'button' : undefined}
+      tabIndex={pressable ? 0 : undefined}
+      aria-label={pressable ? `${fmtDate('dowLong', sel)}, ${main ? label(main) : 'unplanned run'}. Open session` : undefined}
+      whileTap={pressable ? { scale: 0.985 } : undefined}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+    >
       <span className="aura-glow" aria-hidden="true" />
       <div className="aura-top">
         <span className="caps">{sel === t ? `${fmtDate('md', sel)} · Today` : fmtDate('md', sel)}</span>
@@ -128,7 +146,8 @@ const DayAura = ({ sel, log }: { sel: string; log: Log }) => {
           </span>
         ))}
       </div>
-    </div>
+      {pressable ? <ChevronRight className="aura-chev" size={20} aria-hidden="true" /> : null}
+    </motion.div>
   );
 };
 
@@ -177,13 +196,18 @@ const Week = ({ anchor, log }: { anchor: string; log: Log }) => {
   const fallback = mon === mondayOf(t) ? t : anchor;
   const [pick, setPick] = useState<{ mon: string; d: string } | null>(null);
   const sel = pick && pick.mon === mon ? pick.d : fallback;
+  // the strip's cells take a dragged session row
+  const stripRef = useRef<HTMLDivElement>(null);
+  useDropDays(stripRef, days);
   return (
     <>
       <div className="section" style={{ marginTop: 16 }}>
         <DayAura sel={sel} log={log} />
         <StravaLine strava={log.strava} />
       </div>
-      <DayStrip className="strip-lit" days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
+      <div ref={stripRef}>
+        <DayStrip className="strip-lit" days={days} selected={sel} today={t} onPick={(d) => setPick({ mon, d })} labelOf={(d) => describe(log, d)} statusOf={(d) => dayStatus(log.snap, d)} extra={(d) => <Dots d={d} log={log} />} ariaLabel="Days of the week" />
+      </div>
       <DaySessions sel={sel} log={log} />
     </>
   );
@@ -235,7 +259,7 @@ const Month = ({ anchor, log, select }: { anchor: string; log: Log; select: (d: 
           const ds = dayStatus(log.snap, d);
           // the same pill as the week strip, so a selected day looks the same in both views
           return (
-            <button key={d} type="button" className={`dcell mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''} ${d === sel ? 'is-sel' : ''}`} aria-pressed={d === sel} aria-current={d === t ? 'date' : undefined} aria-label={describe(log, d)} onClick={() => select(d)}>
+            <button key={d} type="button" className={`dcell mcell ds-${ds} ${inMonth ? '' : 'out'} ${d === t ? 'is-today' : ''} ${d === sel ? 'is-sel' : ''}`} data-drop-day={inMonth ? d : undefined} aria-pressed={d === sel} aria-current={d === t ? 'date' : undefined} aria-label={describe(log, d)} onClick={() => select(d)}>
               <span className="dcell-pill">
                 <span className="dcell-num">{parseISO(d).getDate()}</span>
                 <Dots d={d} log={log} max={3} />

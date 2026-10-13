@@ -953,6 +953,7 @@ textarea.in {
   align-items: center;
   box-shadow: var(--shadow-2);
   max-width: calc(100vw - 32px);
+  width: max-content;
 }
 @media (min-width: 900px) {
   .toast {

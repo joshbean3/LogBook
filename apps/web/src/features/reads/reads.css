@@ -342,3 +342,8 @@ textarea.rsheet-note {
   padding: 10px 0;
   min-height: 44px;
 }
+
+/* on Today the read row sits between sections, so it takes a section's gap */
+.group.rp-compact {
+  margin-top: 32px;
+}
