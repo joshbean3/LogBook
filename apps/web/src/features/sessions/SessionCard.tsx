@@ -1,12 +1,15 @@
 import { assess, buildMorning, clock, clockOfDay, floorFor, fmtDate, isAutoStatus, KIND_WORD, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, sessionStatus, shiftDays, STATUS_WORD, tone, weekTotals, zoneOf, type Activity, type Session } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Sparkles } from 'lucide-react';
+import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
 import { haptic } from '@/lib/haptics';
+import { DROP_SPRING, hitDropDay, INSTANT, LIFT, REST, setDragInfo, SLOP, useDragInfo, useDropDays, useDropOver, useHoldDrag } from '@/lib/useDrag';
 import type { MonthBundle } from '@/api/types';
-import { Button, Chip, ChipButton, Mark } from '@/ui/primitives';
+import { Button, Chip, ChipButton, DayStrip, Mark } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
@@ -375,11 +378,12 @@ export const useOpenSession = (_log?: Log) => {
   return (date: string, s: Session, opts: { fromHero?: boolean } = {}) => sheet.open({ title: sheetDate(date), body: <SessionSheet date={date} id={s.id} fromHero={opts.fromHero} />, wide: true });
 };
 
-/** Hold a row for 450ms (one haptic) to open Move without the full sheet; a plain tap still opens the sheet. */
+/** Hold a row still for 450ms (one haptic) to open Move without the full sheet; a plain tap still opens the sheet. A finger that moves is a scroll or a drag, never a hold. */
 const LONG_PRESS_MS = 450;
 const useLongPress = (fire: () => void) => {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
+  const origin = useRef({ x: 0, y: 0 });
   const clear = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
@@ -388,6 +392,7 @@ const useLongPress = (fire: () => void) => {
     onPointerDown: (e: React.PointerEvent) => {
       if (e.button !== 0) return;
       fired.current = false;
+      origin.current = { x: e.clientX, y: e.clientY };
       clear();
       timer.current = setTimeout(() => {
         timer.current = null;
@@ -396,10 +401,14 @@ const useLongPress = (fire: () => void) => {
         fire();
       }, LONG_PRESS_MS);
     },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (timer.current && Math.hypot(e.clientX - origin.current.x, e.clientY - origin.current.y) >= SLOP) clear();
+    },
     onPointerUp: clear,
     onPointerLeave: clear,
     onPointerCancel: clear,
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    cancel: clear,
     /** true once, when the click that ends a long press should be swallowed */
     consume: () => {
       const f = fired.current;
@@ -409,14 +418,139 @@ const useLongPress = (fire: () => void) => {
   };
 };
 
-/** A 60px row: check, colour bar, the run's name (or the plan's label), the plan and the actual as the sub line, one stat, chevron. */
+type Ghost = { rect: DOMRect; html: string; leaving: null | 'back' | 'gone' };
+
+/**
+ * A row you can pick up: hold 300ms, then move, and a copy of the row lifts under the finger (1.03, a 20% white shadow).
+ * Any day cell on the page marked as a drop target lights under it; let go there and the session moves, with the usual toast and Undo.
+ * Let go anywhere else and the copy springs back. The hold with no movement still opens Move after 450ms, and a tap still opens the sheet.
+ */
+const useRowDrag = (date: string, s: Session, rowRef: React.RefObject<HTMLElement | null>, press: { cancel: () => void }) => {
+  const { move } = useSessionMutations();
+  const toast = useToast();
+  const reduce = useReducedMotion();
+  const over = useDropOver();
+  const [ghost, setGhost] = useState<Ghost | null>(null);
+  const gx = useMotionValue(0);
+  const gy = useMotionValue(0);
+  const land = (leaving: 'back' | 'gone') => setGhost((g) => (g ? { ...g, leaving } : g));
+  const drag = useHoldDrag<HTMLButtonElement>({
+    disabled: s.kind === 'rest',
+    autoScroll: true,
+    onStart: (p) => {
+      const li = rowRef.current;
+      if (!li) return;
+      press.cancel();
+      haptic();
+      gx.set(p.dx);
+      gy.set(p.dy);
+      setGhost({ rect: li.getBoundingClientRect(), html: li.innerHTML, leaving: null });
+      setDragInfo({ kind: 'session', date, id: s.id });
+    },
+    onMove: (p) => {
+      gx.set(p.dx);
+      gy.set(p.dy);
+      const hit = hitDropDay(p.x, p.y);
+      if (over.set(hit && hit.day !== date ? hit : null)) haptic('tick');
+    },
+    onDrop: () => {
+      const hit = over.current();
+      over.clear();
+      setDragInfo(null);
+      if (!hit) return land('back');
+      const to = hit.day;
+      haptic('success');
+      move.mutate({ session: s, to });
+      toast(`Moved to ${fmtDate('short', to)}`, { label: 'Undo', fn: () => move.mutate({ session: { ...s, date: to }, to: date }) });
+      land('gone');
+    },
+    onCancel: (phase) => {
+      over.clear();
+      setDragInfo(null);
+      if (phase === 'dragging') land('back');
+    },
+  });
+  const portal = ghost
+    ? createPortal(
+        <motion.div
+          className={`srow srow-ghost t-${tone(s)}`}
+          aria-hidden="true"
+          style={{ left: ghost.rect.left, top: ghost.rect.top, width: ghost.rect.width, height: ghost.rect.height, x: gx, y: gy }}
+          initial={REST}
+          animate={ghost.leaving === 'back' ? { ...REST, x: 0, y: 0 } : ghost.leaving === 'gone' ? { ...REST, opacity: 0 } : LIFT}
+          transition={reduce ? INSTANT : DROP_SPRING}
+          onAnimationComplete={() => ghost.leaving && setGhost(null)}
+          dangerouslySetInnerHTML={{ __html: ghost.html }}
+        />,
+        document.body,
+      )
+    : null;
+  return { drag, portal, lifted: !!ghost };
+};
+
+/**
+ * The week as a drop target for a session dragged on Today: seven cells that slide in under the Training head while a row is
+ * in the air, and slide away when it lands. Mount it between the head and the list.
+ */
+export const DropWeekStrip = ({ date, log }: { date: string; log: Log }) => {
+  const info = useDragInfo();
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const mon = mondayOf(date);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => shiftDays(mon, i)), [mon]);
+  const on = info?.kind === 'session' && info.date === date;
+  useDropDays(ref, on ? days : []);
+  // the strip opens above the list, so the page scrolls by the same amount frame by frame: the row stays under the finger
+  // and the head slides up out of the way, instead of the week landing under a finger that has not moved
+  const shown = useRef(0);
+  const keep = (latest: { height?: string | number }) => {
+    const raw = latest.height;
+    let h = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
+    // the last frame reports "auto": measure it
+    if (!Number.isFinite(h)) h = ref.current ? ref.current.offsetHeight : shown.current;
+    const d = h - shown.current;
+    shown.current = h;
+    if (d) window.scrollBy(0, d);
+  };
+  return (
+    <AnimatePresence initial={false}>
+      {on ? (
+        <motion.div key="strip" ref={ref} className="drop-strip" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={reduce ? INSTANT : { duration: 0.2, ease: 'easeOut' }} onUpdate={keep}>
+          <div className="drop-strip-in">
+            <DayStrip
+              days={days}
+              selected={date}
+              today={log.today}
+              onPick={() => undefined}
+              labelOf={(d) => `${fmtDate('long', d)}. Drop here to move`}
+              ariaLabel="Drop on a day"
+              extra={(d) => {
+                const main = log.snap.sessionsOn(d).find((x) => x.kind !== 'rest');
+                return main ? <i className={`dcell-dot t-${tone(main)}`} /> : <i className="dcell-dot none" />;
+              }}
+            />
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+};
+
+/** A 60px row: check, colour bar, the run's name (or the plan's label), the plan and the actual as the sub line, one stat, chevron. Hold and move to drag it to another day. */
 export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Session; log: Log; as?: 'li' | 'div' }) => {
   const st = sessionStatus(log.snap, date, s);
   const auto = isAutoStatus(log.snap, date, s);
   const { mark } = useSessionMutations();
   const open = useOpenSession(log);
   const sheet = useSheet();
-  const press = useLongPress(() => openMoveSheet(sheet, date, s));
+  const rowRef = useRef<HTMLElement | null>(null);
+  const cancelDrag = useRef<() => void>(() => undefined);
+  const press = useLongPress(() => {
+    cancelDrag.current();
+    openMoveSheet(sheet, date, s);
+  });
+  const { drag, portal, lifted } = useRowDrag(date, s, rowRef, press);
+  cancelDrag.current = drag.cancel;
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const sets = log.snap.liftsOn(date);
   const lbl = label(s);
@@ -442,29 +576,55 @@ export const SessionRow = ({ date, s, log, as = 'li' }: { date: string; s: Sessi
     );
   } else if (st !== 'done') stat = <Chip kind={st}>{STATUS_WORD[st]}</Chip>;
   const Tag = as;
+  const setRow = (el: HTMLElement | null) => {
+    rowRef.current = el;
+  };
+  const setBody = (el: HTMLButtonElement | null) => {
+    drag.ref.current = el;
+  };
   return (
-    <Tag className={`srow t-${tone(s)} s-${st}`}>
-      <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched to a logged run' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
-      <button
-        type="button"
-        className="srow-body"
-        aria-label={`${title}. ${sub}. Open; hold to move`}
-        onClick={() => (press.consume() ? undefined : open(date, s))}
-        onPointerDown={press.onPointerDown}
-        onPointerUp={press.onPointerUp}
-        onPointerLeave={press.onPointerLeave}
-        onPointerCancel={press.onPointerCancel}
-        onContextMenu={press.onContextMenu}
-      >
-        <span className="srow-bar" aria-hidden="true" />
-        <span className="srow-main">
-          <span className="lrow-title">{title}</span>
-          <span className="lrow-sub">{sub}</span>
-        </span>
-        {stat}
-        <ChevronRight size={18} className="srow-chev" />
-      </button>
-    </Tag>
+    <>
+      <Tag ref={setRow} className={`srow t-${tone(s)} s-${st} ${lifted ? 'is-lifted' : ''}`}>
+        <Mark status={st} label={`${lbl}: ${STATUS_WORD[st] ?? st}`} title={auto ? 'Matched to a logged run' : undefined} disabled={s.kind === 'rest' || auto} onClick={() => mark.mutate({ session: s, mark: st === 'done' && s.mark === 'done' ? null : 'done' })} />
+        <button
+          ref={setBody}
+          type="button"
+          className="srow-body"
+          aria-label={`${title}. ${sub}. Open; hold to move, or hold and drag to a day`}
+          onClick={() => (drag.consumeClick() || press.consume() ? undefined : open(date, s))}
+          onPointerDown={(e) => {
+            press.onPointerDown(e);
+            drag.bind.onPointerDown(e);
+          }}
+          onPointerMove={(e) => {
+            press.onPointerMove(e);
+            drag.bind.onPointerMove(e);
+          }}
+          onPointerUp={() => {
+            press.onPointerUp();
+            drag.bind.onPointerUp();
+          }}
+          onPointerLeave={() => {
+            press.onPointerLeave();
+            drag.bind.onPointerLeave();
+          }}
+          onPointerCancel={() => {
+            press.onPointerCancel();
+            drag.bind.onPointerCancel();
+          }}
+          onContextMenu={press.onContextMenu}
+        >
+          <span className="srow-bar" aria-hidden="true" />
+          <span className="srow-main">
+            <span className="lrow-title">{title}</span>
+            <span className="lrow-sub">{sub}</span>
+          </span>
+          {stat}
+          <ChevronRight size={18} className="srow-chev" />
+        </button>
+      </Tag>
+      {portal}
+    </>
   );
 };
 

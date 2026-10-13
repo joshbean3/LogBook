@@ -202,8 +202,9 @@
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  margin: 0 -16px;
-  padding: 6px 16px 2px;
+  /* room inside the scroll box for a lifted orb's shadow, taken back by the margins so nothing moves */
+  margin: -2px -16px -16px;
+  padding: 8px 16px 16px;
   -webkit-overflow-scrolling: touch;
 }
 .orbs::-webkit-scrollbar {
@@ -219,6 +220,63 @@
   justify-items: center;
   gap: 8px;
   color: var(--ink-3);
+  /* the row scrolls until the hold is up; after that the drag holds the page still itself */
+  touch-action: auto !important;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.orb.is-lifted {
+  z-index: 2;
+  cursor: grabbing;
+}
+
+/* the edit list: a grip drags a row; the row's sides may show past the group while it is lifted */
+.hgroup-edit {
+  overflow: visible;
+}
+/* a scroll box that never scrolls: it keeps the drag from scrolling the page, and its padding leaves room for a lifted row's shadow */
+.hlist-wrap {
+  overflow: auto;
+  scrollbar-width: none;
+  padding: 16px 8px;
+  margin: -16px -8px;
+}
+.hlist-wrap::-webkit-scrollbar {
+  display: none;
+}
+.hlist {
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.hlist > * + * {
+  border-top: 1px solid var(--line);
+}
+.hlist > :first-child {
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.hrow-edit {
+  position: relative;
+  touch-action: auto !important;
+  padding-left: 8px;
+}
+.hrow-edit.is-lifted {
+  z-index: 2;
+  border-top-color: transparent;
+}
+.hgrip {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 44px;
+  flex: none;
+  color: var(--ink-4);
+  cursor: grab;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.hrow-edit.is-lifted .hgrip {
+  cursor: grabbing;
+  color: var(--ink-2);
 }
 .orb-ring {
   position: relative;

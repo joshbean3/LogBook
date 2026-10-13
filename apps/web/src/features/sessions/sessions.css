@@ -77,6 +77,52 @@
   flex: none;
 }
 
+/* ---------- a row in the air: the row itself dims, a copy follows the finger; a day cell lights where it can land ---------- */
+.srow.is-lifted {
+  opacity: 0.35;
+}
+.srow-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
+  border: var(--card-border);
+  will-change: transform;
+}
+/* the target under a dragged session: the one accent-bright ring. It is drawn by a fixed overlay on the body (above the row in the air,
+   so the copy under the finger never hides it); the cell itself only brightens its number */
+.drop-ring {
+  position: fixed;
+  z-index: 62;
+  pointer-events: none;
+  border-radius: var(--r-pill);
+  box-shadow:
+    inset 0 0 0 2px var(--accent-bright),
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 20px rgba(91, 102, 255, 0.6);
+}
+.dcell.is-drop .dcell-pill {
+  box-shadow: inset 0 0 0 2px var(--accent-bright);
+}
+.dcell.is-drop .dcell-num {
+  color: var(--ink);
+}
+.dcell.is-sel.is-drop .dcell-num {
+  color: var(--bg);
+}
+/* Today: the week slides in under the Training head while a row is in the air */
+.drop-strip {
+  overflow: hidden;
+}
+.drop-strip-in {
+  padding: 4px 0 12px;
+}
+.drop-strip .dstrip {
+  margin-top: 0;
+}
+
 /* evidence, in the sheet */
 .actual {
   display: grid;
