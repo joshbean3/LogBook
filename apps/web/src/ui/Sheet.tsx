@@ -52,6 +52,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
               <motion.div
                 role="dialog"
                 aria-modal="true"
+                aria-labelledby="sheet-title"
                 className={`sheet ${spec.wide ? 'wide' : ''}`}
                 initial={reduce ? { opacity: 0 } : { y: '100%', opacity: 1 }}
                 animate={reduce ? { opacity: 1 } : { y: 0 }}
@@ -64,7 +65,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
               >
                 <div className="sheet-grip" aria-hidden="true" />
                 <div className="sheet-head">
-                  <h2 className="sheet-title">{spec.title}</h2>
+                  <h2 className="sheet-title" id="sheet-title">{spec.title}</h2>
                   <CloseButton onClick={close} />
                 </div>
                 <div className="sheet-body stack" style={{ gap: 14 }}>

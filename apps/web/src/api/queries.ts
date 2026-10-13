@@ -1,7 +1,7 @@
 import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo } from '@logbook/shared';
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { api } from './client';
+import { api, ApiError } from './client';
 import { write } from './outbox';
 import type { Bootstrap, Daily, MonthBundle, QuotePage } from './types';
 
@@ -371,33 +371,41 @@ const fetchReads = () => api<{ links: Link[] }>('/reads').then((r) => r.links);
 /** Unread first, then newest first: the order the server keeps. */
 const readsOrder = (a: Link, b: Link) => (!!a.readAt === !!b.readAt ? (a.addedAt < b.addedAt ? 1 : -1) : a.readAt ? 1 : -1);
 export const useReads = () => useQuery({ queryKey: keys.reads, queryFn: fetchReads, staleTime: 30_000 });
-/** Today's pick. The first ask of the day makes it, which can take a while: the query waits, the screen does not. */
+/** Today's pick. The first ask of the day makes it, which can take a while: the query waits, the screen does not. Checked again whenever the app comes back to the front, so a verdict given elsewhere shows within minutes. */
 export const usePick = (date: string, enabled = true) =>
-  useQuery({ queryKey: keys.pick(date), queryFn: () => api<PickResult>(`/reads/pick?date=${date}`), enabled, staleTime: 60 * 60_000, retry: false });
+  useQuery({ queryKey: keys.pick(date), queryFn: () => api<PickResult>(`/reads/pick?date=${date}`), enabled, staleTime: 2 * 60_000, refetchOnWindowFocus: 'always', retry: false });
 
 export const useReadsMutations = () => {
   const qc = useQueryClient();
   const setReads = (fn: (l: Link[]) => Link[]) => qc.setQueryData<Link[]>(keys.reads, (l) => fn(l ?? []).sort(readsOrder));
   const setPick = (date: string, fn: (p: PickResult) => PickResult) => qc.setQueryData<PickResult>(keys.pick(date), (p) => (p ? fn(p) : p));
+  /** Save a link. Offline it queues and the row stands; the server's twin check makes the replay safe. Returns `{ link, existed }`. */
   const add = useMutation({
     mutationFn: async ({ url, note }: { url: string; note?: string }) => {
+      const full = /^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `https://${url}`;
       const host = (() => {
         try {
-          return new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(url) ? url : `https://${url}`).hostname.replace(/^www\./, '');
+          return new URL(full).hostname.replace(/^www\./, '');
         } catch {
           return url;
         }
       })();
-      const tmp: Link = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, url, title: host, siteName: host, description: null, imageUrl: null, note: note ?? null, tags: [], addedAt: new Date().toISOString(), readAt: null, source: 'me', pickReason: null, pickDate: null, verdict: null };
+      const before = qc.getQueryData<Link[]>(keys.reads) ?? [];
+      const tmp: Link = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, url: full, title: host, siteName: host, description: null, imageUrl: null, note: note ?? null, tags: [], addedAt: new Date().toISOString(), readAt: null, source: 'me', pickReason: null, pickDate: null, verdict: null };
       setReads((l) => [tmp, ...l]);
+      let saved: Link | null;
       try {
-        const saved = await api<Link>('/reads', { method: 'POST', json: { url, note } });
-        setReads((l) => [saved, ...l.filter((x) => x.id !== tmp.id && x.id !== saved.id)]);
-        return saved;
+        saved = await write<Link>('/reads', 'POST', { url, note }, [keys.reads]);
       } catch (e) {
         setReads((l) => l.filter((x) => x.id !== tmp.id));
         throw e;
       }
+      if (!saved) return { link: tmp, existed: false, queued: true };
+      const existed = before.some((x) => x.id === saved!.id);
+      setReads((l) => [saved!, ...l.filter((x) => x.id !== tmp.id && x.id !== saved!.id)]);
+      // the link was today's pick: the hero now knows it was kept
+      if (saved.source === 'pick' && saved.pickDate) setPick(saved.pickDate, (p) => (p.pick?.id === saved!.id ? { ...p, pick: saved! } : p));
+      return { link: saved, existed, queued: false };
     },
   });
   const patch = useMutation({
@@ -423,16 +431,18 @@ export const useReadsMutations = () => {
   });
   /** Save keeps the pick (it joins the list, unread); Skip remembers it as what not to bring back. */
   const feedback = useMutation({
-    mutationFn: async ({ pick, verdict, date }: { pick: Link; verdict: LinkVerdict; date: string }) => {
+    mutationFn: async ({ pick, verdict, date }: { pick: Link; verdict: LinkVerdict; date: string; onGone?: () => void }) => {
       const next = { ...pick, verdict };
       setPick(date, (p) => (p.pick?.id === pick.id ? { ...p, pick: next } : p));
       if (verdict === 'saved') setReads((l) => [next, ...l.filter((x) => x.id !== pick.id)]);
       else setReads((l) => l.filter((x) => x.id !== pick.id));
       await write(`/reads/pick/feedback`, 'POST', { id: pick.id, verdict }, [keys.reads, keys.pick(date)]);
     },
-    onError: (_e, v) => {
+    onError: (e, v) => {
       void qc.invalidateQueries({ queryKey: keys.reads });
       void qc.invalidateQueries({ queryKey: keys.pick(v.date) });
+      // the pick this screen knew is no longer there (given a verdict elsewhere, or a new day): the refetch above replaces it
+      if (e instanceof ApiError && e.status === 404) v.onGone?.();
     },
   });
   /** A manual refresh: the server allows a few a day. */

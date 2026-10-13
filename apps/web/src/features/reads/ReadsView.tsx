@@ -1,14 +1,13 @@
-import { ago, type Link } from '@logbook/shared';
-import { Check, RotateCcw, Trash2 } from 'lucide-react';
+import { ago, toISO, type Link, type PickResult } from '@logbook/shared';
+import { Check, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router';
 import { keys, useReads, useReadsMutations } from '@/api/queries';
-import type { PickResult } from '@logbook/shared';
 import { haptic } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
-import { Button, EmptyState, Group, PageHeader, Segmented } from '@/ui/primitives';
+import { Button, EmptyState, Group, IconButton, Mark, PageHeader, Segmented } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useOpenLink } from './openLink';
@@ -40,12 +39,15 @@ const QuickAdd = () => {
   const ready = !!linkIn(url.trim()) && !add.isPending;
   const submit = () => {
     const v = url.trim();
-    if (!v) return;
+    // only the link in the field is sent, never the words around it
+    const link = linkIn(v);
+    if (!link) return;
     setUrl('');
     add.mutate(
-      { url: v },
+      { url: link },
       {
-        onSuccess: () => {
+        onSuccess: (r) => {
+          if (r.existed) toast('Already saved.');
           // the first saved link is what a pick learns from: ask again if there was nothing to go on
           const pick = qc.getQueryData<PickResult>(keys.pick(date));
           if (pick?.reason === 'empty') void qc.invalidateQueries({ queryKey: keys.pick(date) });
@@ -107,7 +109,7 @@ const QuickAdd = () => {
   );
 };
 
-/** The editor behind a long press: a note, tags, Delete and Save. Save is the sheet's one blue. */
+/** The editor behind Edit: a note, tags, Delete and Save. Save is the sheet's one blue. */
 const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
   const { patch } = useReadsMutations();
   const sheet = useSheet();
@@ -131,7 +133,7 @@ const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
       </label>
       <label className="rsheet-field">
         <span className="caps">Tags</span>
-        <input className="jtext" maxLength={120} placeholder="running, sleep" value={tags} autoCapitalize="none" onChange={(e) => setTags(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())} />
+        <input className="jtext rsheet-tags" maxLength={120} placeholder="running, sleep" value={tags} autoCapitalize="none" onChange={(e) => setTags(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())} />
       </label>
       <div className="sheet-foot">
         <Button
@@ -156,14 +158,16 @@ const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
   );
 };
 
-/** One saved link: the title is the link; swipe right to mark read (or unread), left to delete; hold to edit. */
+/**
+ * One saved link. The mark at the left flips read / unread, the title opens the link, Edit opens the sheet.
+ * A swipe does the same without the buttons: right to flip, left to delete.
+ */
 const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; today: string; onFlip: () => void; onDelete: () => void; onEdit: () => void; onOpened: () => void }) => {
   const reduce = useReducedMotion();
   const open = useOpenLink();
   const [gone, setGone] = useState<'left' | 'right' | null>(null);
   const armed = useRef<'left' | 'right' | null>(null);
   const dragged = useRef(false);
-  const hold = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null>(null);
   const mx = useMotionValue(0);
   const THRESHOLD = 56;
   const onDrag = () => {
@@ -187,10 +191,6 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
       setTimeout(onDelete, 120);
     }
   };
-  const cancelHold = () => {
-    if (hold.current) clearTimeout(hold.current.timer);
-    if (!hold.current?.fired) hold.current = null;
-  };
   const read = !!x.readAt;
   const site = x.siteName || hostOf(x.url);
   return (
@@ -202,6 +202,7 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
         </span>
       </div>
       <motion.div className={`rrow ${read ? 'is-read' : ''}`} style={{ x: mx }} drag={reduce ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDrag={onDrag} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
+        <Mark status={read ? 'done' : 'open'} label={x.title} title={read ? 'Mark unread' : 'Mark read'} onClick={onFlip} />
         <a
           className="rrow-link"
           href={x.url}
@@ -209,29 +210,8 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
           rel="noopener noreferrer"
           draggable={false}
           aria-label={`${x.title}. ${site}. Opens in a new window`}
-          onPointerDown={(e) => {
-            cancelHold();
-            hold.current = {
-              x: e.clientX,
-              y: e.clientY,
-              fired: false,
-              timer: setTimeout(() => {
-                if (hold.current) hold.current.fired = true;
-                haptic('tick');
-                onEdit();
-              }, 480),
-            };
-          }}
-          onPointerMove={(e) => {
-            const h = hold.current;
-            if (h && !h.fired && Math.hypot(e.clientX - h.x, e.clientY - h.y) > 8) cancelHold();
-          }}
-          onPointerUp={cancelHold}
-          onPointerCancel={cancelHold}
-          onContextMenu={(e) => e.preventDefault()}
           onClick={(e) => {
-            if (dragged.current || hold.current?.fired) {
-              hold.current = null;
+            if (dragged.current) {
               e.preventDefault();
               return;
             }
@@ -240,10 +220,13 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
         >
           <span className="rrow-title">{x.title}</span>
           <span className="caps rrow-meta">
-            {site} · {ago(x.addedAt.slice(0, 10), today)}
+            {site} · {ago(toISO(new Date(x.addedAt)), today)}
           </span>
           {x.note ? <span className="rrow-note">{x.note}</span> : null}
         </a>
+        <IconButton label={`Edit ${x.title}`} className="rrow-edit" onClick={onEdit}>
+          <Pencil size={16} />
+        </IconButton>
       </motion.div>
     </motion.div>
   );
@@ -278,11 +261,11 @@ export default function ReadsView() {
       <div className="rlist">
         {reads.isPending && !reads.data ? (
           <Group>
-            <div className="rwait list" aria-busy="true" />
+            <div className="rwait list" role="status" aria-busy="true" aria-label="Loading your links" />
           </Group>
         ) : !list.length ? (
           <Group>
-            <EmptyState>{tab === 'read' ? 'Nothing read yet. Swipe a link right when you’ve finished it.' : all.length ? 'All read. Paste a link above to keep the next one.' : 'Nothing saved yet. Paste a link above to keep it here.'}</EmptyState>
+            <EmptyState>{tab === 'read' ? 'Nothing read yet. Tick a link when you’ve finished it.' : all.length ? 'All read. Paste a link above to keep the next one.' : 'Nothing saved yet. Paste a link above to keep it here.'}</EmptyState>
           </Group>
         ) : (
           <Group>

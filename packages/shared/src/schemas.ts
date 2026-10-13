@@ -154,7 +154,7 @@ export const zLinkInput = z.object({
 });
 export const zLinkPatch = z.object({
   /** ISO timestamp when read, or null to mark unread. */
-  readAt: z.string().max(40).nullable().optional(),
+  readAt: z.iso.datetime({ offset: true }).max(40).nullable().optional(),
   note: z.string().trim().max(500).nullable().optional(),
   tags: z.array(zTag).max(8).optional(),
   verdict: z.enum(['saved', 'dismissed']).nullable().optional(),

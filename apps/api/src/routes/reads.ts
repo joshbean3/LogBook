@@ -115,14 +115,18 @@ export const readsRoutes = (db: DB) => {
   });
 
   // ---------- today's pick ----------
+  /** Every pick made for the day, deleted ones included (they still count toward the cap), newest first. */
   const picksOn = (userId: string, date: string) =>
     db
       .select()
       .from(links)
-      .where(and(live(userId), eq(links.source, 'pick'), eq(links.pickDate, date)))
+      .where(and(eq(links.userId, userId), eq(links.source, 'pick'), eq(links.pickDate, date)))
       .orderBy(desc(links.addedAt))
-      .all()
-      .map(toLink);
+      .all();
+  /** Attempts per user and day, failures included, so a search that comes back empty still spends a refresh. */
+  const attempts = new Map<string, number>();
+  const usedToday = (userId: string, date: string, rows: number) => Math.max(rows, attempts.get(`${userId}:${date}`) ?? 0);
+  const leftAfter = (used: number) => Math.max(0, REFRESHES_PER_DAY - Math.max(0, used - 1));
 
   const generate = async (userId: string, date: string): Promise<Link | null> => {
     const picker = pickerFor();
@@ -169,27 +173,29 @@ export const readsRoutes = (db: DB) => {
     const force = q.force === '1' || q.force === 'true';
     const result = (pick: Link | null, reason: PickResult['reason'], refreshesLeft: number): PickResult => ({ date, pick, reason, refreshesLeft });
     if (!pickerFor()) return c.json(result(null, 'off', 0));
+    const key = `${userId}:${date}`;
     const todays = picksOn(userId, date);
-    const current = todays[0] ?? null;
-    const left = Math.max(0, REFRESHES_PER_DAY - Math.max(0, todays.length - 1));
+    const current = todays.find((x) => !x.deletedAt) ? toLink(todays.find((x) => !x.deletedAt)!) : null;
+    const left = leftAfter(usedToday(userId, date, todays.length));
     if (current && !force) return c.json(result(current, null, left));
-    if (force && current && left <= 0) return c.json(result(current, 'limit', 0));
+    // the day's one pick plus three refreshes, counting the ones that were deleted and the searches that found nothing
+    if (left <= 0 && (force || todays.length || attempts.has(key))) return c.json(result(current, 'limit', 0));
     // a pick is made for today (give or take a day for the phone's clock), never for the past or the future
     if (Math.abs(daysBetween(today(), date)) > 1) return c.json(result(current, current ? null : 'failed', left));
     if (!saved(userId).length) return c.json(result(null, 'empty', left));
-    const key = `${userId}:${date}`;
     let job = inFlight.get(key);
     if (!job) {
+      attempts.set(key, usedToday(userId, date, todays.length) + 1);
       job = generate(userId, date).finally(() => inFlight.delete(key));
       inFlight.set(key, job);
     }
     try {
       const pick = await job;
-      const after = picksOn(userId, date);
-      return c.json(result(pick ?? current, pick ? null : 'failed', Math.max(0, REFRESHES_PER_DAY - Math.max(0, after.length - 1))));
+      const after = leftAfter(usedToday(userId, date, picksOn(userId, date).length));
+      return c.json(result(pick ?? current, pick ? null : 'failed', after));
     } catch (e) {
       if (!(e instanceof ApiError)) console.error(e);
-      return c.json(result(current, 'failed', left));
+      return c.json(result(current, 'failed', leftAfter(usedToday(userId, date, picksOn(userId, date).length))));
     }
   });
 

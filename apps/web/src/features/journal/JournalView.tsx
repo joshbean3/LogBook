@@ -2,7 +2,7 @@ import { ago, fmtDate, QUOTE_THEMES, type JournalEntry, type Quote } from '@logb
 import { ChevronRight, Shuffle, Star, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useDaily, useJournalList, useJournalMutations, useQuotes } from '@/api/queries';
 import { Button, ChipButton, EmptyState, Group, IconButton, PageHeader, Segmented } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
@@ -11,10 +11,11 @@ import { Composer, EntryItem, SaveButton } from './JournalDaySection';
 import './journal.css';
 
 /** A caps eyebrow with a caps meta at the right: the section head of this screen. */
-const Sec = ({ title, meta, first }: { title: string; meta?: string; first?: boolean }) => (
+const Sec = ({ title, meta, first, action }: { title: string; meta?: string; first?: boolean; action?: React.ReactNode }) => (
   <div className="j-sec" style={first ? { marginTop: 0 } : undefined}>
     <span className="caps">{title}</span>
     {meta ? <span className="caps meta">{meta}</span> : null}
+    {action}
   </div>
 );
 
@@ -324,12 +325,20 @@ export default function JournalView() {
       <PageHeader title="Journal" sub="Write, look back, and a quote to start the day." />
       <QuoteHero />
       <MemoryCard today={t} />
-      <Sec title="Write" meta={fmtDate('short', t)} />
+      <Sec
+        title="Write"
+        meta={fmtDate('short', t)}
+        action={
+          <Link to="/reads" className="link quiet" style={{ marginLeft: 'auto' }}>
+            Reads
+          </Link>
+        }
+      />
       <Group>
         <Composer date={t} today={t} size="lg" />
       </Group>
       <div className="section">
-        <Segmented className="j-tabs" label="Journal tabs" options={[['entries', `Entries${n ? ` (${n})` : ''}`], ['favorites', 'Favorites'], ['quotes', 'Quote library'], ['reads', 'Reads']]} value={tab} onChange={(k) => nav(k === 'entries' ? '/journal' : k === 'reads' ? '/reads' : `/journal/${k}`)} />
+        <Segmented className="j-tabs" label="Journal tabs" options={[['entries', `Entries${n ? ` (${n})` : ''}`], ['favorites', 'Favorites'], ['quotes', 'Quote library']]} value={tab} onChange={(k) => nav(k === 'entries' ? '/journal' : `/journal/${k}`)} />
       </div>
       <div className="jtab">
         {tab === 'entries' ? (

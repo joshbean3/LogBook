@@ -13,7 +13,7 @@ const FADE = { duration: 0.2, ease: 'easeOut' as const };
 
 /** The pick is still being made (10–20 s the first time each day): the card holds its height with two quiet bars. */
 const Wait = ({ compact }: { compact?: boolean }) => (
-  <div className={`rwait ${compact ? 'compact' : ''}`} aria-busy="true" aria-label="Finding today’s pick">
+  <div className={`rwait ${compact ? 'compact' : ''}`} role="status" aria-busy="true" aria-label="Finding today’s pick">
     <span className="rwait-bar" />
     <span className="rwait-bar short" />
   </div>
@@ -26,6 +26,15 @@ const useWaited = (waiting: boolean) => {
   return waited.current;
 };
 
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+};
+const labelOf = (p: Link, site: string) => `${p.title}. ${site}. Opens in a new window`;
+
 /**
  * Today's pick: one article found on the web from what the athlete saves.
  * The hero on Reads (an aura card, lit from below) or, with `compact`, one row for the Today page.
@@ -37,9 +46,9 @@ export const TodaysPick = ({ compact }: { compact?: boolean }) => {
   const toast = useToast();
   const open = useOpenLink();
   const data = q.data ?? null;
+  const off = data?.reason === 'off';
   const waiting = (q.isPending && !data) || another.isPending;
   const waited = useWaited(waiting);
-  if (data?.reason === 'off') return null;
   const p: Link | null = data?.pick ?? null;
   const left = data?.refreshesLeft ?? 0;
   const site = p ? p.siteName || hostOf(p.url) : '';
@@ -49,12 +58,19 @@ export const TodaysPick = ({ compact }: { compact?: boolean }) => {
         if (r.reason === 'limit') toast('That’s all for today.');
         else if (r.reason === 'failed') toast('Nothing found this time.');
       },
-      onError: () => toast('Couldn’t reach the server.'),
+      onError: () => toast('Couldn’t fetch a pick.'),
     });
+  };
+  const verdict = (v: 'saved' | 'dismissed') => {
+    if (!p) return;
+    feedback.mutate(
+      { pick: p, verdict: v, date, onGone: () => toast('That pick is gone.') },
+      { onSuccess: () => v === 'saved' && toast('Saved.') },
+    );
   };
 
   if (compact) {
-    if (!waiting && (!p || p.verdict === 'dismissed')) return null;
+    if (off || (!waiting && (!p || p.verdict === 'dismissed'))) return null;
     return (
       <Group className="rp-compact">
         {waiting ? (
@@ -65,7 +81,7 @@ export const TodaysPick = ({ compact }: { compact?: boolean }) => {
             </div>
           </div>
         ) : p ? (
-          <a className="lrow two rp-crow" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} onClick={open(p.url)}>
+          <a className="lrow two rp-crow" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
             <div className="lrow-main">
               <span className="caps">Today’s read · {site}</span>
               <span className="lrow-title">{p.title}</span>
@@ -77,16 +93,22 @@ export const TodaysPick = ({ compact }: { compact?: boolean }) => {
     );
   }
 
-  const eyebrow = p && !waiting ? `Today’s pick · ${site}` : 'Today’s pick';
   return (
     <section className="rp" aria-label="Today’s pick">
       <span className="rp-glow" aria-hidden="true" />
       <div className="rp-top">
-        <span className="caps">{eyebrow}</span>
+        <span className="caps">
+          Today’s pick
+          {p && !waiting ? <span className="rp-site"> · {site}</span> : null}
+        </span>
         {p && !waiting && p.verdict ? <span className="caps rp-state">{p.verdict === 'saved' ? 'Saved' : 'Skipped'}</span> : null}
       </div>
       {waiting ? (
         <Wait />
+      ) : off ? (
+        <div className="rp-body">
+          <p className="rp-title display">Nothing picked today.</p>
+        </div>
       ) : !p ? (
         <div className="rp-body">
           <p className="rp-title display">{data?.reason === 'empty' ? 'Nothing to go on yet.' : 'Nothing found today.'}</p>
@@ -95,50 +117,34 @@ export const TodaysPick = ({ compact }: { compact?: boolean }) => {
       ) : (
         <AnimatePresence mode="popLayout" initial={waited}>
           <motion.div key={p.id} className={`rp-body ${p.verdict === 'dismissed' ? 'dim' : ''}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={FADE}>
-            <a className="rp-link" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} onClick={open(p.url)}>
+            <a className="rp-link" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
               <span className="rp-title display">{p.title}</span>
             </a>
             {p.pickReason ? <p className="rp-why">{p.pickReason}</p> : null}
+            <span className="caps rp-site-sm">{site}</span>
           </motion.div>
         </AnimatePresence>
       )}
-      <div className="rp-actions">
-        {!waiting && p && !p.verdict ? (
-          <>
-            <ChipButton
-              quiet
-              onClick={() => {
-                feedback.mutate({ pick: p, verdict: 'saved', date });
-                toast('Kept. It’s in your list.');
-              }}
-            >
-              Save
+      {!off ? (
+        <div className="rp-actions">
+          {!waiting && p && !p.verdict ? (
+            <>
+              <ChipButton quiet onClick={() => verdict('saved')}>
+                Save
+              </ChipButton>
+              <ChipButton quiet onClick={() => verdict('dismissed')}>
+                Skip
+              </ChipButton>
+            </>
+          ) : null}
+          {!waiting && (data?.reason === 'failed' || (p && p.verdict)) && left > 0 ? (
+            <ChipButton quiet onClick={refresh}>
+              {data?.reason === 'failed' ? 'Retry' : 'Next'}
             </ChipButton>
-            <ChipButton
-              quiet
-              onClick={() => {
-                feedback.mutate({ pick: p, verdict: 'dismissed', date });
-              }}
-            >
-              Skip
-            </ChipButton>
-          </>
-        ) : null}
-        {!waiting && (data?.reason === 'failed' || (p && p.verdict)) && left > 0 ? (
-          <ChipButton quiet onClick={refresh}>
-            {data?.reason === 'failed' ? 'Try again' : 'Another'}
-          </ChipButton>
-        ) : null}
-        {!waiting && p && p.verdict && left <= 0 ? <span className="t-cap muted rp-note">That’s all for today.</span> : null}
-      </div>
+          ) : null}
+          {!waiting && p && p.verdict && left <= 0 ? <span className="t-cap muted rp-note">That’s all for today.</span> : null}
+        </div>
+      ) : null}
     </section>
   );
-};
-
-const hostOf = (url: string) => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return '';
-  }
 };

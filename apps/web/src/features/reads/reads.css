@@ -53,8 +53,8 @@
   min-height: 104px;
   align-content: start;
 }
-.rp-body.dim {
-  opacity: 0.5;
+.rp-body.dim .rp-title {
+  color: var(--ink-2);
 }
 /* the title is the link; its hit area is the whole card (the chips sit above it) */
 .rp-link {
@@ -119,6 +119,10 @@
 .rp-note {
   padding-left: 4px;
 }
+/* the site lives in the eyebrow on a phone, and under the line on a narrow one, so a name never breaks mid-word */
+.rp-site-sm {
+  display: none;
+}
 @media (max-width: 359px) {
   .rp {
     padding: 16px 14px 16px;
@@ -126,6 +130,13 @@
   .rp-title {
     font-size: 22px;
     line-height: 28px;
+  }
+  .rp-site {
+    display: none;
+  }
+  .rp-site-sm {
+    display: block;
+    color: var(--ink-3);
   }
 }
 
@@ -235,12 +246,26 @@
   position: relative;
   background: var(--surface);
   touch-action: pan-y;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 16px;
+}
+.rrow .mark-hit {
+  align-self: center;
+}
+.rrow-edit {
+  flex: none;
+  color: var(--ink-3);
 }
 .rrow-link {
+  flex: 1;
+  min-width: 0;
   display: grid;
   gap: 2px;
   min-height: 60px;
-  padding: 10px 16px;
+  align-content: center;
+  padding: 10px 4px 10px 0;
   color: inherit;
   text-decoration: none;
   -webkit-touch-callout: none;
@@ -311,4 +336,9 @@
 }
 textarea.rsheet-note {
   min-height: 88px;
+}
+/* a 44px field: 24px of line and 10px above and below */
+.rsheet-tags {
+  padding: 10px 0;
+  min-height: 44px;
 }

@@ -11,6 +11,8 @@ describe('normalizeUrl', () => {
     expect(() => normalizeUrl('mailto:a@b.c')).toThrow();
     expect(() => normalizeUrl('javascript:alert(1)')).toThrow();
     expect(() => normalizeUrl('notalink')).toThrow();
+    for (const u of ['http://[::ffff:7f00:1]:8804/x', 'http://[64:ff9b::7f00:1]/x', 'http://[2002:7f00:1::]/x', 'http://169.254.169.254/latest', 'http://127.1/']) expect(() => normalizeUrl(u), u).toThrow(expect.objectContaining({ code: 'private_host' }));
+    expect(normalizeUrl('http://[2606:4700::1111]/x')).toBe('http://[2606:4700::1111]/x');
   });
 });
 
@@ -24,7 +26,11 @@ describe('sameResource', () => {
 describe('isPrivateAddress', () => {
   it('knows the private ranges', () => {
     for (const ip of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.1.1', '169.254.169.254', '0.0.0.0', '100.64.0.1', '::1', '::', 'fc00::1', 'fd12::1', 'fe80::1', '::ffff:10.0.0.1', '224.0.0.1']) expect(isPrivateAddress(ip), ip).toBe(true);
-    for (const ip of ['8.8.8.8', '172.32.0.1', '93.184.216.34', '2606:4700::1111']) expect(isPrivateAddress(ip), ip).toBe(false);
+    for (const ip of ['8.8.8.8', '172.32.0.1', '93.184.216.34', '2606:4700::1111', '::ffff:8.8.8.8', '::ffff:808:808', '64:ff9b::808:808', '2002:808:808::']) expect(isPrivateAddress(ip), ip).toBe(false);
+  });
+  it('sees a private v4 carried inside a v6 address in any spelling', () => {
+    for (const ip of ['::ffff:7f00:1', '0:0:0:0:0:ffff:a00:1', '::FFFF:C0A8:101', '64:ff9b::7f00:1', '2002:7f00:1::', '::7f00:1', '::ffff:7f00:1%eth0', '[::ffff:7f00:1]']) expect(isPrivateAddress(ip), ip).toBe(true);
+    expect(isPrivateAddress('not:an:address')).toBe(true);
   });
 });
 
@@ -82,7 +88,8 @@ describe('fetchPage against a local server', () => {
         return res.end('</body></html>');
       }
       if (u.pathname === '/slow') return void setTimeout(() => res.writeHead(200, { 'content-type': 'text/html' }).end('<title>late</title>'), 2000);
-      if (u.pathname === '/private') return res.writeHead(302, { location: 'http://127.0.0.1:1/' }).end();
+      if (u.pathname === '/private') return res.writeHead(302, { location: 'http://10.0.0.1:1/' }).end();
+      if (u.pathname === '/private6') return res.writeHead(302, { location: `http://[::ffff:7f00:1]:${(server.address() as { port: number }).port}/page` }).end();
       res.writeHead(404).end();
     });
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
@@ -97,6 +104,16 @@ describe('fetchPage against a local server', () => {
   });
   it('refuses private hosts unless told otherwise', async () => {
     await expect(fetchPage(`${base}/page`)).rejects.toMatchObject({ code: 'private_host' });
+    const port = (server.address() as { port: number }).port;
+    await expect(fetchPage(`http://[::ffff:7f00:1]:${port}/page`)).rejects.toMatchObject({ code: 'private_host' });
+    // a name that resolves to loopback is refused by the resolver the socket uses, not only by a literal check
+    await expect(fetchPage(`http://localtest.me:${port}/page`)).rejects.toMatchObject({ code: expect.stringMatching(/private_host|unknown_host/) });
+  });
+  it('refuses a redirect that lands on a private address, in v4 or mapped-v6 spelling', async () => {
+    // only the test server's own address is let through; the hop it redirects to is still checked
+    await expect(fetchPage(`${base}/page`, { allowPrivate: ['127.0.0.1'] })).resolves.toMatchObject({ finalUrl: `${base}/page` });
+    await expect(fetchPage(`${base}/private`, { allowPrivate: ['127.0.0.1'] })).rejects.toMatchObject({ code: 'private_host' });
+    await expect(fetchPage(`${base}/private6`, { allowPrivate: ['127.0.0.1'] })).rejects.toMatchObject({ code: 'private_host' });
   });
   it('refuses a redirect loop', async () => {
     await expect(fetchPage(`${base}/loop`, { allowPrivate: true })).rejects.toMatchObject({ code: 'bad_redirect' });
