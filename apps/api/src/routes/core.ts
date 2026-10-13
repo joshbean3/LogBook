@@ -362,10 +362,11 @@ export const coreRoutes = (db: DB) => {
     if (body.note !== undefined) set.note = body.note || null;
     if (body.priority !== undefined) set.priority = body.priority;
     if (body.bucket !== undefined) set.bucket = body.bucket;
-    // a date only lives on a Later item, and Later always has one: tomorrow unless said otherwise
+    // a date only lives on a Later item; a row moved to Later without one gets tomorrow; otherwise the date is left alone
     const bucket = body.bucket ?? row.bucket;
-    const due = body.due !== undefined ? body.due : row.due;
-    set.due = bucket === 'later' ? due ?? shiftDays(today(), 1) : null;
+    if (bucket !== 'later') set.due = null;
+    else if (body.due !== undefined) set.due = body.due ?? shiftDays(today(), 1);
+    else if (row.bucket !== 'later' && !row.due) set.due = shiftDays(today(), 1);
     if (body.position !== undefined) set.position = body.position;
     if (body.doneOn !== undefined) set.doneOn = body.doneOn;
     if (body.deletedOn !== undefined) set.deletedOn = body.deletedOn;

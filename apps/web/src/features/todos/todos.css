@@ -112,12 +112,14 @@
 }
 
 /* priority: white dots, one for medium, two for high; never a colour */
+/* on the first line of the name: 22px line, 6px dot, 8px down */
 .prio {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   flex: none;
-  align-self: center;
+  align-self: flex-start;
+  margin-top: 8px;
 }
 .prio i {
   display: block;
@@ -133,6 +135,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.seg-prio .prio {
+  align-self: center;
+  margin-top: 0;
 }
 .seg-prio .prio i {
   background: currentColor;
@@ -181,9 +187,15 @@
   transform: rotate(180deg);
 }
 
-/* the quick-add line: the field, what it understood ("High · Oct 17"), and Add at 44px like every control */
+/* the quick-add line: the field, what it understood ("High · Oct 17"), and Add at 44px like every control.
+   The field keeps 160px; when the hint would squeeze it (any phone) the hint takes its own line under the field. */
+.tadd {
+  container-type: inline-size;
+  flex-wrap: wrap;
+}
 .tadd .in {
   flex: 1 1 160px;
+  min-width: 160px;
 }
 .tadd-hint {
   color: var(--ink-3);
@@ -194,10 +206,7 @@
   height: 44px;
   flex: none;
 }
-@media (max-width: 359px) {
-  .tadd {
-    flex-wrap: wrap;
-  }
+@container (max-width: 439px) {
   .tadd-hint {
     order: 3;
     flex-basis: 100%;

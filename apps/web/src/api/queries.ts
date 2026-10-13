@@ -234,11 +234,9 @@ export const useLiftMutations = () => {
 };
 
 // ---------- todos ----------
-const isTmp = (id: string) => id.startsWith('tmp-');
-/** Optimistic rows that were dragged before the server named them: their order is re-sent once the real id arrives. */
-const movedTmp = new Set<string>();
-/** Edits made to a provisional row before the server named it, sent once it has a real id. */
-const pendingTmp = new Map<string, Record<string, unknown>>();
+/** Real id → the provisional id a row was born with, so its React key never changes and a drag survives the naming. */
+const keyAlias = new Map<string, string>();
+export const clientKey = (id: string) => keyAlias.get(id) ?? id;
 type TodoPatch = { text?: string; note?: string | null; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; position?: number; doneOn?: string | null; deletedOn?: string | null };
 /** The server's answer to an order change carries positions only: anything edited meanwhile keeps its edit. */
 const takePositions = (t: Todo[], list: Todo[]) => {
@@ -267,22 +265,11 @@ export const useTodoMutations = () => {
         createdAt: new Date().toISOString(),
       };
       setTodos((t) => [...t, tmp]);
-      const saved = await write<Todo>('/todos', 'POST', { text, date, priority: tmp.priority, due: tmp.due, bucket }, [keys.todos]);
+      // anything edited or moved while the row was provisional is queued behind this create and sent with its real id
+      const saved = await write<Todo>('/todos', 'POST', { text, date, priority: tmp.priority, due: tmp.due, bucket }, [keys.todos], { tmpId: tmp.id });
       if (!saved) return;
-      const moved = movedTmp.delete(tmp.id);
-      const pending = pendingTmp.get(tmp.id);
-      pendingTmp.delete(tmp.id);
-      // a row edited or dragged while it was still provisional keeps those changes; they are sent now that it has an id
-      setTodos((t) => t.map((x) => (x.id === tmp.id ? { ...saved, ...(pending ?? {}), position: moved ? x.position : saved.position } : x)));
-      if (pending) await write(`/todos/${saved.id}`, 'PATCH', pending, [keys.todos]);
-      if (moved) {
-        const order = (qc.getQueryData<Todo[]>(keys.todos) ?? [])
-          .filter((x) => !isTmp(x.id))
-          .sort((a, b) => a.position - b.position || (a.createdAt < b.createdAt ? -1 : 1))
-          .map((x) => x.id);
-        const list = await write<Todo[]>('/todos/order', 'PUT', { order }, [keys.todos]);
-        if (list) setTodos((t) => takePositions(t, list));
-      }
+      keyAlias.set(saved.id, tmp.id);
+      setTodos((t) => t.map((x) => (x.id === tmp.id ? { ...x, id: saved.id, createdAt: saved.createdAt } : x)));
     },
     onError: () => void qc.invalidateQueries({ queryKey: keys.todos }),
   });
@@ -291,11 +278,6 @@ export const useTodoMutations = () => {
       // a date only belongs to a Later item
       const fix: TodoPatch = p.bucket && p.bucket !== 'later' ? { ...p, due: null } : p;
       setTodos((t) => t.map((x) => (x.id === id ? { ...x, ...fix } : x)));
-      // the server has no row for a provisional id yet: the edit waits for the add to land
-      if (isTmp(id)) {
-        pendingTmp.set(id, { ...(pendingTmp.get(id) ?? {}), ...fix });
-        return;
-      }
       await write(`/todos/${id}`, 'PATCH', fix, [keys.todos]);
     },
     onError: () => void qc.invalidateQueries({ queryKey: keys.todos }),
@@ -305,12 +287,6 @@ export const useTodoMutations = () => {
     mutationFn: async (order: string[]) => {
       const pos = new Map(order.map((id, i) => [id, i]));
       setTodos((t) => t.map((x) => (pos.has(x.id) ? { ...x, position: pos.get(x.id)! } : x)));
-      // the server does not know a provisional id: keep the order here and send it once the add has landed
-      const tmp = order.filter(isTmp);
-      if (tmp.length) {
-        for (const id of tmp) movedTmp.add(id);
-        return;
-      }
       const list = await write<Todo[]>('/todos/order', 'PUT', { order }, [keys.todos]);
       if (list) setTodos((t) => takePositions(t, list));
     },

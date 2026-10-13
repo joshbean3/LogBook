@@ -2,7 +2,7 @@ import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
 import { Check, ChevronDown, X } from 'lucide-react';
 import { motion, useDragControls, useMotionValue, useReducedMotion, type Box } from 'motion/react';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useTodoMutations, useTodos } from '@/api/queries';
+import { clientKey, useTodoMutations, useTodos } from '@/api/queries';
 import { haptic } from '@/lib/haptics';
 import { Button, EmptyState, Group, Loading, Mark, SectionHead } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
@@ -34,6 +34,7 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
   const liftedRef = useRef(false);
   const liftEndAt = useRef(0);
   const pointerType = useRef('mouse');
+  const moved = useRef(false);
   const hold = useRef<{ t: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
   const armed = useRef<'left' | 'right' | null>(null);
   const el = useRef<HTMLDivElement>(null);
@@ -71,6 +72,7 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
    * and one that holds still and then moves up or down reorders; nothing wiggles on a scroll.
    */
   const onPointerDown = (e: React.PointerEvent) => {
+    moved.current = false;
     if (reduce || isDone || gone) return;
     controls.start(e);
     if (!canDrag || (e.target as HTMLElement).closest('.mark-hit')) return;
@@ -97,12 +99,16 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
     };
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (hold.current && Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > HOLD_SLOP) cancelHold();
+    if (hold.current && Math.hypot(e.clientX - hold.current.x, e.clientY - hold.current.y) > HOLD_SLOP) {
+      cancelHold();
+      moved.current = true;
+    }
   };
 
   // the row has to travel the width of the sign (56px): one tick the moment it would count
   const THRESHOLD = 56;
   const onSwipe = () => {
+    moved.current = true;
     const v = mx.get();
     const next = v >= THRESHOLD ? 'right' : v <= -THRESHOLD ? 'left' : null;
     if (next && next !== armed.current) haptic('tick');
@@ -170,8 +176,9 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
           <button
             type="button"
             className={`trow-name ${x.note ? 'has-note' : ''}`}
-            onClick={() => !liftedRef.current && Date.now() - liftEndAt.current > 400 && onEdit()}
+            onClick={() => !moved.current && !liftedRef.current && Date.now() - liftEndAt.current > 400 && onEdit()}
             onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') moved.current = false;
               if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !done) {
                 e.preventDefault();
                 onStep(e.key === 'ArrowUp' ? -1 : 1);
@@ -202,7 +209,9 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
  */
 const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { items: Todo[]; sort: (a: Todo, b: Todo) => number; tier: Tier; date: ISODate; done?: boolean; canDrag?: boolean; row: (x: Todo, isDone: boolean) => Omit<React.ComponentProps<typeof TodoRow>, 'x' | 'date' | 'done' | 'canDrag' | 'onLift' | 'onMove' | 'onMeasure' | 'onDrop' | 'onStep'> }) => {
   const { reorder, patch } = useTodoMutations();
-  const sortedIds = useMemo(() => items.map((x) => x.id), [items]);
+  // rows are keyed by the id they were born with, so a provisional row the server names mid-drag stays mounted
+  const keyOf = (x: Todo) => clientKey(x.id);
+  const sortedIds = useMemo(() => items.map(keyOf), [items]);
   const [order, setOrder] = useState(sortedIds);
   const orderRef = useRef(order);
   orderRef.current = order;
@@ -218,7 +227,7 @@ const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { ite
   useEffect(() => {
     swapping.current = false;
   });
-  const byId = useMemo(() => new Map(items.map((x) => [x.id, x])), [items]);
+  const byId = useMemo(() => new Map(items.map((x) => [keyOf(x), x])), [items]);
   const list = order.map((id) => byId.get(id)).filter((x): x is Todo => !!x);
   const move = (id: string, offset: number, velocity: number) => {
     if (!velocity || swapping.current) return;
@@ -244,18 +253,19 @@ const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { ite
     }
   };
   /** A new order for the group, from a drop or a step: the moved row adopts its new tier, then the order is kept. */
-  const commit = (ids: string[], movedId: string | null) => {
-    const merged = [...ids.filter((id) => byId.has(id)), ...sortedIds.filter((id) => !ids.includes(id))];
-    const fix = movedId ? settleInto(merged.map((id) => byId.get(id)!), movedId, tier) : null;
-    const pos = new Map(merged.map((id, i) => [id, i]));
+  const commit = (keys: string[], movedKey: string | null) => {
+    const merged = [...keys.filter((k) => byId.has(k)), ...sortedIds.filter((k) => !keys.includes(k))];
+    const rows = merged.map((k) => byId.get(k)!);
+    const movedRow = movedKey ? byId.get(movedKey) : undefined;
+    const fix = movedRow ? settleInto(rows, movedRow.id, tier) : null;
     setOrder(
-      merged
-        .map((id) => ({ ...byId.get(id)!, position: pos.get(id)!, ...(id === movedId && fix ? fix : {}) }))
+      rows
+        .map((x, i) => ({ ...x, position: i, ...(movedRow && x.id === movedRow.id && fix ? fix : {}) }))
         .sort(sort)
-        .map((x) => x.id),
+        .map(keyOf),
     );
-    if (merged.join('|') !== sig) reorder.mutate(merged);
-    if (movedId && fix) patch.mutate({ id: movedId, ...fix });
+    if (merged.join('|') !== sig) reorder.mutate(rows.map((x) => x.id));
+    if (movedRow && fix) patch.mutate({ id: movedRow.id, ...fix });
   };
   const onDrop = () => {
     const id = dragging.current;
@@ -263,29 +273,30 @@ const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { ite
     setLifting(false);
     commit(orderRef.current, id);
   };
-  const step = (id: string, dir: -1 | 1) => {
-    const r = stepWithin(list, id, dir, tier);
+  const step = (key: string, dir: -1 | 1) => {
+    const row = byId.get(key);
+    const r = row ? stepWithin(list, row.id, dir, tier) : null;
     if (!r) return;
     haptic();
-    commit(r.order, id);
+    commit(r.order.map(clientKey), key);
   };
   return (
     <div className={`tgroup ${lifting ? 'is-dragging' : ''}`}>
       {list.map((x) => (
         <TodoRow
-          key={x.id}
+          key={keyOf(x)}
           x={x}
           date={date}
           done={!!done}
           canDrag={canDrag && list.length > 1}
           onLift={() => {
-            dragging.current = x.id;
+            dragging.current = keyOf(x);
             setLifting(true);
           }}
-          onMove={(offset, velocity) => move(x.id, offset, velocity)}
-          onMeasure={(s) => spans.current.set(x.id, s)}
+          onMove={(offset, velocity) => move(keyOf(x), offset, velocity)}
+          onMeasure={(s) => spans.current.set(keyOf(x), s)}
           onDrop={onDrop}
-          onStep={(dir) => step(x.id, dir)}
+          onStep={(dir) => step(keyOf(x), dir)}
           {...row(x, !!done)}
         />
       ))}
@@ -321,7 +332,7 @@ export const TodosSection = ({ date }: { date: ISODate }) => {
   const parsed = parseQuickAdd(draft, date);
   const understood = [parsed.priority ? (parsed.priority === 2 ? 'High' : 'Medium') : null, parsed.bucket === 'later' ? (parsed.due ? fmtDate('md', parsed.due) : 'Later') : parsed.bucket === 'someday' ? 'Someday' : null].filter(Boolean).join(' · ');
   // what the line understood, or, on an empty focused field, the marks it would understand
-  const hint = parsed.text ? understood : typing ? '!! · Fri · Someday' : '';
+  const hint = parsed.text ? understood : typing ? '!! High · Fri · Someday' : '';
   const addIt = () => {
     if (!parsed.text) return;
     add.mutate({ text: parsed.text, date, priority: parsed.priority, bucket: parsed.bucket, due: parsed.due });
