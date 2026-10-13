@@ -17,7 +17,7 @@ const nextDow = (from: ISODate, dow: number): ISODate => {
 
 /**
  * Reads the small marks at the end of a quick-add line, so "Call the bank fri !!" lands as a high item for Friday.
- * `!` medium, `!!` high; "tomorrow", "today", a weekday, "later", "someday" set when. Anything else is the name.
+ * `!` medium, `!!` (or more) high; "tomorrow", "today", a weekday, "later", "someday" set when. Anything else is the name.
  */
 export const parseQuickAdd = (raw: string, date: ISODate): QuickAdd => {
   let text = raw.trim();
@@ -25,10 +25,11 @@ export const parseQuickAdd = (raw: string, date: ISODate): QuickAdd => {
   let bucket: TodoBucket = 'today';
   let due: ISODate | null = null;
   for (let i = 0; i < 3; i++) {
-    const bang = /^(.*\S)\s+(!{1,2})$/.exec(text) ?? /^(.*[^\s!])(!{1,2})$/.exec(text);
+    // the marks need a space before them, so "Ship it!" keeps its punctuation
+    const bang = /^(.*\S)\s+(!{1,3})$/.exec(text);
     if (bang) {
       text = bang[1]!.trim();
-      priority = bang[2]!.length === 2 ? 2 : 1;
+      priority = bang[2]!.length >= 2 ? 2 : 1;
       continue;
     }
     const word = /^(.*\S)\s+([a-z]+)$/i.exec(text);
@@ -44,7 +45,9 @@ export const parseQuickAdd = (raw: string, date: ISODate): QuickAdd => {
       bucket = 'someday';
       due = null;
     } else if (w === 'later') {
+      // Later means a day: tomorrow unless a day was named
       bucket = 'later';
+      due = due ?? shiftDays(date, 1);
     } else if (w in DAYS) {
       bucket = 'later';
       due = nextDow(date, DAYS[w]!);

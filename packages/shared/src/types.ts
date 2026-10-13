@@ -96,7 +96,6 @@ export interface LiftSet {
 export type TodoPriority = 0 | 1 | 2;
 /** When it is for: Today (the working list), Later (a date or just "not today"), Someday (parked). */
 export type TodoBucket = 'today' | 'later' | 'someday';
-export const TODO_BUCKETS: readonly TodoBucket[] = ['today', 'later', 'someday'];
 
 export interface Todo {
   id: string;

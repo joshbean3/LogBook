@@ -334,8 +334,10 @@ export const coreRoutes = (db: DB) => {
     // new items land at the bottom of their list
     const pos = (db.select({ m: sql<number>`coalesce(max(${todos.position}), -1)` }).from(todos).where(eq(todos.userId, userId)).get()?.m ?? -1) + 1;
     const bucket = body.bucket ?? (body.due && body.due > body.date ? 'later' : 'today');
+    // a date only lives on a Later item, and Later always has one: tomorrow unless said otherwise
+    const due = bucket === 'later' ? body.due ?? shiftDays(body.date, 1) : null;
     db.insert(todos)
-      .values({ id, userId, text: body.text, note: null, priority: body.priority ?? 0, due: bucket === 'later' ? body.due ?? null : null, bucket, position: pos, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() })
+      .values({ id, userId, text: body.text, note: null, priority: body.priority ?? 0, due, bucket, position: pos, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() })
       .run();
     return c.json(toTodo(db.select().from(todos).where(eq(todos.id, id)).get()!), 201);
   });
@@ -353,20 +355,22 @@ export const coreRoutes = (db: DB) => {
   r.patch('/todos/:id', async (c) => {
     const userId = uidOf(c);
     const body = await parseBody(c.req.raw, zTodoPatch);
+    const row = db.select().from(todos).where(and(eq(todos.userId, userId), eq(todos.id, c.req.param('id')))).get();
+    if (!row) throw new ApiError(404, 'To-do not found');
     const set: Partial<typeof todos.$inferInsert> = {};
     if (body.text !== undefined) set.text = body.text;
     if (body.note !== undefined) set.note = body.note || null;
     if (body.priority !== undefined) set.priority = body.priority;
     if (body.bucket !== undefined) set.bucket = body.bucket;
-    if (body.due !== undefined) set.due = body.due;
-    // a date only means something on a Later item
-    if (body.bucket !== undefined && body.bucket !== 'later') set.due = null;
+    // a date only lives on a Later item, and Later always has one: tomorrow unless said otherwise
+    const bucket = body.bucket ?? row.bucket;
+    const due = body.due !== undefined ? body.due : row.due;
+    set.due = bucket === 'later' ? due ?? shiftDays(today(), 1) : null;
     if (body.position !== undefined) set.position = body.position;
     if (body.doneOn !== undefined) set.doneOn = body.doneOn;
     if (body.deletedOn !== undefined) set.deletedOn = body.deletedOn;
-    const n = db.update(todos).set(set).where(and(eq(todos.userId, userId), eq(todos.id, c.req.param('id')))).run().changes;
-    if (!n) throw new ApiError(404, 'To-do not found');
-    return c.json(toTodo(db.select().from(todos).where(eq(todos.id, c.req.param('id'))).get()!));
+    db.update(todos).set(set).where(eq(todos.id, row.id)).run();
+    return c.json(toTodo(db.select().from(todos).where(eq(todos.id, row.id)).get()!));
   });
 
   // ---------- morning ----------

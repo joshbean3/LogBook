@@ -54,7 +54,8 @@
   box-shadow: 0 0 0 1px var(--line-strong);
   border-radius: var(--r-md);
 }
-.todo-wrap.is-lifted .todo-under {
+.todo-wrap.is-lifted .todo-under,
+.tgroup.is-dragging .todo-under {
   display: none;
 }
 
@@ -180,11 +181,28 @@
   transform: rotate(180deg);
 }
 
-/* what the quick-add line understood: "High · Oct 17" beside the field */
+/* the quick-add line: the field, what it understood ("High · Oct 17"), and Add at 44px like every control */
+.tadd .in {
+  flex: 1 1 160px;
+}
 .tadd-hint {
   color: var(--ink-3);
   white-space: nowrap;
   flex: none;
+}
+.tadd-btn {
+  height: 44px;
+  flex: none;
+}
+@media (max-width: 359px) {
+  .tadd {
+    flex-wrap: wrap;
+  }
+  .tadd-hint {
+    order: 3;
+    flex-basis: 100%;
+    padding: 0 0 8px;
+  }
 }
 
 /* the to-do sheet: the name on a hairline, the note in the serif under a caps label; Save is the one blue */
@@ -199,7 +217,8 @@
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
-  padding: 8px 0;
+  padding: 10px 0 11px;
+  min-height: 44px;
   font-size: 17px;
   line-height: 22px;
   font-weight: 500;
@@ -240,4 +259,14 @@
 }
 .tsheet-date::-webkit-date-and-time-value {
   text-align: left;
+}
+
+/* the Order row in the sheet: two 44px arrows and where the item sits */
+.tsheet-move {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tsheet-move .t-sub {
+  margin-left: 4px;
 }

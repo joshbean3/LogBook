@@ -57,7 +57,7 @@ export const zTodoInput = z.object({
   due: zDate.nullable().optional(),
   bucket: zTodoBucket.optional(),
 });
-export const zTodosReorder = z.object({ order: z.array(z.string()).min(1).max(500) });
+export const zTodosReorder = z.object({ order: z.array(z.string().min(1).max(64)).min(1).max(500) });
 export const zTodoPatch = z.object({
   text: z.string().trim().min(1).max(200).optional(),
   /** A small note under the name; empty or null clears it. */
