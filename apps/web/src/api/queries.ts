@@ -252,7 +252,8 @@ export const useTodoMutations = () => {
       const bucket: TodoBucket = input.bucket ?? (input.due && input.due > date ? 'later' : 'today');
       const cur = qc.getQueryData<Todo[]>(keys.todos) ?? [];
       const tmp: Todo = {
-        id: `tmp-${Math.random().toString(36).slice(2, 9)}`,
+        // a fixed-length id: the outbox matches it as a substring, so it must never be a prefix of another
+        id: `tmp-${Math.random().toString(36).slice(2, 9).padEnd(7, '0')}`,
         text,
         note: null,
         priority: input.priority ?? 0,

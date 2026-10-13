@@ -28,7 +28,10 @@ let items: OutboxItem[] = [];
 let loaded = false;
 let replaying = false;
 let client: QueryClient | null = null;
-/** Provisional id → real id, learnt as creates are answered. Memory only: a replay after a reload relearns it. */
+/**
+ * Provisional id → real id, learnt as creates are answered. Memory only, but the moment one is learnt the whole
+ * queue is rewritten and persisted with it, so a reload between a create and its dependents loses nothing.
+ */
 const aliases = new Map<string, string>();
 /** Provisional ids whose create is on the wire right now. */
 const inflight = new Set<string>();
@@ -104,7 +107,11 @@ export const outbox = {
         try {
           const res = await api(it.path, { method: it.method, json: it.json });
           const real = it.tmpId ? realIdOf(res) : null;
-          if (it.tmpId && real) aliases.set(it.tmpId, real);
+          if (it.tmpId && real) {
+            aliases.set(it.tmpId, real);
+            // what is still waiting is persisted under the real id now, so a reload before it goes out cannot lose it
+            items = items.map(rewrite);
+          }
           touched.push(...it.invalidate);
           items.shift();
           await persist();
@@ -134,8 +141,10 @@ export const outbox = {
  * queue it and resolve so the optimistic UI stands. A write that names a provisional id the server
  * has not answered for yet waits in the queue behind that create, online or not.
  */
-export async function write<T>(path: string, method: OutboxItem['method'], json: unknown, invalidate: ReadonlyArray<readonly unknown[]>, opts: { tmpId?: string } = {}): Promise<T | null> {
+export async function write<T>(rawPath: string, method: OutboxItem['method'], rawJson: unknown, invalidate: ReadonlyArray<readonly unknown[]>, opts: { tmpId?: string } = {}): Promise<T | null> {
   const { tmpId } = opts;
+  // a write that still names a provisional id the server has since answered goes out under the real one
+  const { path, json } = rewrite({ path: rawPath, json: rawJson });
   if (isOffline() || pendingIn(path, json)) {
     await outbox.enqueue({ path, method, json, invalidate, tmpId });
     return null;
