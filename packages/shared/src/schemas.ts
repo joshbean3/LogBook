@@ -48,11 +48,25 @@ export const zLiftInput = z.object({
 });
 
 // ---------- todos ----------
-export const zTodoInput = z.object({ text: z.string().trim().min(1).max(200), date: zDate });
+export const zTodoPriority = z.union([z.literal(0), z.literal(1), z.literal(2)]);
+export const zTodoBucket = z.enum(['today', 'later', 'someday']);
+export const zTodoInput = z.object({
+  text: z.string().trim().min(1).max(200),
+  date: zDate,
+  priority: zTodoPriority.optional(),
+  due: zDate.nullable().optional(),
+  bucket: zTodoBucket.optional(),
+});
+export const zTodosReorder = z.object({ order: z.array(z.string().min(1).max(64)).min(1).max(500) });
 export const zTodoPatch = z.object({
   text: z.string().trim().min(1).max(200).optional(),
   /** A small note under the name; empty or null clears it. */
   note: z.string().trim().max(500).nullable().optional(),
+  priority: zTodoPriority.optional(),
+  /** The day a Later item is for; null clears it. */
+  due: zDate.nullable().optional(),
+  bucket: zTodoBucket.optional(),
+  position: z.number().int().min(0).max(1_000_000).optional(),
   /** Date it was checked off, or null to uncheck. */
   doneOn: zDate.nullable().optional(),
   /** Date it was deleted from (history before stays), or null to restore. */

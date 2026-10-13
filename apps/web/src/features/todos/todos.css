@@ -1,0 +1,281 @@
+/* ---------- to-dos: rows that swipe, hold and drag; the sheet behind a tap ---------- */
+
+/* a group of rows: hairlines between them, like the grouped list around it */
+.tgroup {
+  display: block;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tgroup > * + * {
+  border-top: 1px solid var(--line);
+}
+
+.todo-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.todo-under {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  background: linear-gradient(90deg, var(--ok) 0 50%, var(--bad) 50% 100%);
+}
+/* each sign lives in its own 56px zone, the same distance the row has to travel to count */
+.todo-under-left,
+.todo-under-right {
+  width: 56px;
+  display: grid;
+  place-items: center;
+}
+.trow {
+  position: relative;
+  background: var(--surface);
+  touch-action: pan-y;
+  transition: background var(--dur-fast);
+}
+/* lifted by a hold: the row rises to the control surface with a hairline, no shadow on the canvas */
+.todo-wrap.is-lifted {
+  overflow: visible;
+  z-index: 1;
+}
+.todo-wrap.is-lifted .trow {
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  border-radius: var(--r-md);
+}
+.todo-wrap.is-lifted .todo-under,
+.tgroup.is-dragging .todo-under {
+  display: none;
+}
+
+/* the name, and the note under it at 15px, two lines at most */
+.trow-name {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  color: var(--ink);
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  align-content: center;
+  overflow-wrap: anywhere;
+  transition: color var(--dur);
+  -webkit-touch-callout: none;
+}
+.trow-name.has-note {
+  padding: 10px 0;
+}
+.trow-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.trow-title > span {
+  min-width: 0;
+}
+.trow.is-done .trow-name {
+  color: var(--ink-3);
+}
+.trow-note {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--ink-3);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.trow.is-done .trow-note {
+  color: var(--ink-4);
+}
+
+/* priority: white dots, one for medium, two for high; never a colour */
+/* on the first line of the name: 22px line, 6px dot, 8px down */
+.prio {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  align-self: flex-start;
+  margin-top: 8px;
+}
+.prio i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.trow.is-done .prio i {
+  background: var(--ink-4);
+}
+.seg-prio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.seg-prio .prio {
+  align-self: center;
+  margin-top: 0;
+}
+.seg-prio .prio i {
+  background: currentColor;
+}
+
+/* right side: the day a Later item is for, or where a carried item came from */
+.tdue {
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.carried {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  padding: 0 7px;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+/* a folded group: Later, Someday, Completed */
+.tfold {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+  cursor: pointer;
+  justify-content: space-between;
+}
+.tfold-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tfold-meta {
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.tfold-chev {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.tfold-chev.open {
+  transform: rotate(180deg);
+}
+
+/* the quick-add line: the field, what it understood ("High · Oct 17"), and Add at 44px like every control.
+   The field keeps 160px; when the hint would squeeze it (any phone) the hint takes its own line under the field. */
+.tadd {
+  container-type: inline-size;
+  flex-wrap: wrap;
+}
+.tadd .in {
+  flex: 1 1 160px;
+  min-width: 160px;
+}
+.tadd-hint {
+  color: var(--ink-3);
+  white-space: nowrap;
+  flex: none;
+}
+.tadd-btn {
+  height: 44px;
+  flex: none;
+}
+@container (max-width: 439px) {
+  .tadd-hint {
+    order: 3;
+    flex-basis: 100%;
+    padding: 0 0 8px;
+  }
+}
+
+/* the to-do sheet: the name on a hairline, the note in the serif under a caps label; Save is the one blue */
+.tsheet-kicker {
+  display: block;
+  font-family: var(--sans);
+  font-style: normal;
+}
+.tsheet-name {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  padding: 10px 0 11px;
+  min-height: 44px;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  outline: none;
+  border-radius: 0;
+}
+.tsheet-name:focus {
+  border-bottom-color: var(--line-strong);
+}
+.tsheet-field {
+  display: grid;
+  gap: 8px;
+}
+.tsheet-note {
+  padding: 8px 0;
+  min-height: 96px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+.tsheet-note:focus {
+  border-bottom-color: var(--line-strong);
+}
+.tsheet-when {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tsheet-when .chip-btn {
+  height: 44px;
+  padding: 0 16px;
+  flex: 1 1 0;
+  justify-content: center;
+}
+.tsheet-date {
+  color-scheme: dark;
+}
+.tsheet-date::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* the Order row in the sheet: two 44px arrows and where the item sits */
+.tsheet-move {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tsheet-move .t-sub {
+  margin-left: 4px;
+}

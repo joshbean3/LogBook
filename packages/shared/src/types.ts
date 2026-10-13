@@ -92,11 +92,22 @@ export interface LiftSet {
   createdAt: string;
 }
 
+/** 0 none, 1 medium (one dot), 2 high (two dots). Never a colour. */
+export type TodoPriority = 0 | 1 | 2;
+/** When it is for: Today (the working list), Later (a date or just "not today"), Someday (parked). */
+export type TodoBucket = 'today' | 'later' | 'someday';
+
 export interface Todo {
   id: string;
   text: string;
   /** A small note under the name; null when there is none. */
   note: string | null;
+  priority: TodoPriority;
+  /** The date a Later item is for; it surfaces into Today on that day. */
+  due: ISODate | null;
+  bucket: TodoBucket;
+  /** Manual order inside a bucket, set by dragging. */
+  position: number;
   createdOn: ISODate;
   doneOn: ISODate | null;
   deletedOn: ISODate | null;
