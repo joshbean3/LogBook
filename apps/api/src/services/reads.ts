@@ -5,6 +5,7 @@ import dns from 'node:dns';
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
+import zlib from 'node:zlib';
 import { env } from '../env.js';
 import { ApiError } from '../lib/util.js';
 
@@ -195,9 +196,13 @@ export const fetchPage = async (url: string, o: FetchOptions = {}): Promise<{ ht
         res.resume();
         throw new ApiError(422, 'That link isn’t a web page.', 'not_html');
       }
+      // a server that compresses unasked is unpacked first; the byte cap applies to what comes out
+      const enc = (res.headers['content-encoding'] ?? '').toLowerCase().trim();
+      const inflater = enc === 'gzip' || enc === 'x-gzip' ? zlib.createGunzip() : enc === 'br' ? zlib.createBrotliDecompress() : enc === 'deflate' ? zlib.createInflate() : null;
+      const body: AsyncIterable<Buffer> = inflater ? res.pipe(inflater) : res;
       const chunks: Buffer[] = [];
       let total = 0;
-      for await (const chunk of res as AsyncIterable<Buffer>) {
+      for await (const chunk of body) {
         const room = maxBytes - total;
         if (room <= 0) break;
         const slice = chunk.byteLength > room ? chunk.subarray(0, room) : chunk;

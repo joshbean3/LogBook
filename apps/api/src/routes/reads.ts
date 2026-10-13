@@ -125,7 +125,15 @@ export const readsRoutes = (db: DB) => {
       .all();
   /** Attempts per user and day, failures included, so a search that comes back empty still spends a refresh. */
   const attempts = new Map<string, number>();
-  const usedToday = (userId: string, date: string, rows: number) => Math.max(rows, attempts.get(`${userId}:${date}`) ?? 0);
+  /** Yesterday's counts are of no use: drop every key that is not for today whenever the map is read. */
+  const prune = () => {
+    const t = today();
+    for (const k of attempts.keys()) if (!k.endsWith(`:${t}`)) attempts.delete(k);
+  };
+  const usedToday = (userId: string, date: string, rows: number) => {
+    prune();
+    return Math.max(rows, attempts.get(`${userId}:${date}`) ?? 0);
+  };
   const leftAfter = (used: number) => Math.max(0, REFRESHES_PER_DAY - Math.max(0, used - 1));
 
   const generate = async (userId: string, date: string): Promise<Link | null> => {

@@ -1,4 +1,5 @@
 import http from 'node:http';
+import zlib from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { cleanPick, decodeEntities, extractMeta, fetchPage, isPrivateAddress, normalizeUrl, readPage, sameResource, tasteProfile } from './reads.js';
 
@@ -80,6 +81,11 @@ describe('fetchPage against a local server', () => {
       if (u.pathname === '/redirect') return res.writeHead(302, { location: '/page' }).end();
       if (u.pathname === '/loop') return res.writeHead(302, { location: '/loop' }).end();
       if (u.pathname === '/json') return res.writeHead(200, { 'content-type': 'application/json' }).end('{}');
+      if (u.pathname === '/gzip') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-encoding': 'gzip' }).end(zlib.gzipSync(FIXTURE));
+      if (u.pathname === '/gzip-big') {
+        res.writeHead(200, { 'content-type': 'text/html', 'content-encoding': 'gzip' });
+        return res.end(zlib.gzipSync('<html><head><title>Big gz</title></head><body>' + 'y'.repeat(600 * 1024) + '</body></html>'));
+      }
       if (u.pathname === '/big') {
         res.writeHead(200, { 'content-type': 'text/html' });
         res.write('<html><head><title>Big</title></head><body>');
@@ -117,6 +123,13 @@ describe('fetchPage against a local server', () => {
   });
   it('refuses a redirect loop', async () => {
     await expect(fetchPage(`${base}/loop`, { allowPrivate: true })).rejects.toMatchObject({ code: 'bad_redirect' });
+  });
+  it('unpacks a response the server compressed unasked, and caps the unpacked bytes', async () => {
+    const r = await fetchPage(`${base}/gzip`, { allowPrivate: true });
+    expect(extractMeta(r.html, r.finalUrl).title).toBe('The real title — with a dash');
+    const big = await fetchPage(`${base}/gzip-big`, { allowPrivate: true, maxBytes: 100_000 });
+    expect(big.html.length).toBeLessThanOrEqual(100_000);
+    expect(extractMeta(big.html, big.finalUrl).title).toBe('Big gz');
   });
   it('refuses non-HTML', async () => {
     await expect(fetchPage(`${base}/json`, { allowPrivate: true })).rejects.toMatchObject({ code: 'not_html' });

@@ -329,7 +329,7 @@ export default function JournalView() {
         title="Write"
         meta={fmtDate('short', t)}
         action={
-          <Link to="/reads" className="link quiet" style={{ marginLeft: 'auto' }}>
+          <Link to="/reads" className="link" style={{ marginLeft: 'auto', color: 'var(--ink-2)' }}>
             Reads
           </Link>
         }

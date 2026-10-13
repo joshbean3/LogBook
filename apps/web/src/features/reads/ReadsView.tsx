@@ -202,7 +202,7 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
         </span>
       </div>
       <motion.div className={`rrow ${read ? 'is-read' : ''}`} style={{ x: mx }} drag={reduce ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDrag={onDrag} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
-        <Mark status={read ? 'done' : 'open'} label={x.title} title={read ? 'Mark unread' : 'Mark read'} onClick={onFlip} />
+        <Mark status={read ? 'done' : 'open'} label={x.title} title={read ? 'Mark unread' : 'Mark read'} onClick={() => !dragged.current && onFlip()} />
         <a
           className="rrow-link"
           href={x.url}
