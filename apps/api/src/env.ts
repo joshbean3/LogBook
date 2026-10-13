@@ -14,6 +14,8 @@ const schema = z.object({
   STRAVA_CLIENT_SECRET: z.string().optional(),
   STRAVA_WEBHOOK_VERIFY_TOKEN: z.string().default('logbook-verify'),
   ATHLETE_CONTEXT: z.string().default(''),
+  /** Dev only: '1' returns a fixed daily pick instead of searching the web. */
+  READS_FAKE_PICK: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -29,6 +31,7 @@ export const env = {
   secureCookies: parsed.data.APP_URL.startsWith('https://'),
   stravaConfigured: !!(parsed.data.STRAVA_CLIENT_ID && parsed.data.STRAVA_CLIENT_SECRET),
   claudeConfigured: !!parsed.data.ANTHROPIC_API_KEY,
+  readsFakePick: parsed.data.READS_FAKE_PICK === '1' || parsed.data.READS_FAKE_PICK === 'true',
 };
 
 if (env.isProd && parsed.data.SESSION_SECRET === 'dev-only-secret-change-me-please-now') {

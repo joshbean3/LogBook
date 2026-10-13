@@ -17,6 +17,7 @@ import { importRoutes } from './routes/import.js';
 import { authRoutes } from './routes/auth.js';
 import { coreRoutes } from './routes/core.js';
 import { journalRoutes } from './routes/journal.js';
+import { readsRoutes } from './routes/reads.js';
 import { stravaRoutes, syncInBackground } from './routes/strava.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,7 @@ export const buildApp = (db: DB) => {
   authed.route('/', coreRoutes(db));
   authed.route('/', journalRoutes(db));
   authed.route('/', aiRoutes(db));
+  authed.route('/', readsRoutes(db));
   authed.route('/', importRoutes(db));
   app.route('/api', authed);
 

@@ -329,7 +329,7 @@ export default function JournalView() {
         <Composer date={t} today={t} size="lg" />
       </Group>
       <div className="section">
-        <Segmented className="j-tabs" label="Journal tabs" options={[['entries', `Entries${n ? ` (${n})` : ''}`], ['favorites', 'Favorites'], ['quotes', 'Quote library']]} value={tab} onChange={(k) => nav(k === 'entries' ? '/journal' : `/journal/${k}`)} />
+        <Segmented className="j-tabs" label="Journal tabs" options={[['entries', `Entries${n ? ` (${n})` : ''}`], ['favorites', 'Favorites'], ['quotes', 'Quote library'], ['reads', 'Reads']]} value={tab} onChange={(k) => nav(k === 'entries' ? '/journal' : k === 'reads' ? '/reads' : `/journal/${k}`)} />
       </div>
       <div className="jtab">
         {tab === 'entries' ? (

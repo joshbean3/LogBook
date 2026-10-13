@@ -160,3 +160,38 @@ export interface StravaStatus {
   error: string | null;
   configured: boolean;
 }
+
+// ---------- reads ----------
+/** Where a link came from: saved by the athlete, or offered as a daily pick. */
+export type LinkSource = 'me' | 'pick';
+/** What the athlete said about a pick. Null until they do. */
+export type LinkVerdict = 'saved' | 'dismissed';
+
+export interface Link {
+  id: string;
+  url: string;
+  title: string;
+  siteName: string;
+  description: string | null;
+  imageUrl: string | null;
+  note: string | null;
+  tags: string[];
+  addedAt: string;
+  /** When it was opened and read; null while it still waits. */
+  readAt: string | null;
+  source: LinkSource;
+  /** For a pick: the one sentence on why it fits. */
+  pickReason: string | null;
+  /** For a pick: the day it was offered. */
+  pickDate: ISODate | null;
+  verdict: LinkVerdict | null;
+}
+
+/** Today's pick, or why there is none: `off` when picks are not configured, `empty` before there is anything to learn from, `limit` when today's refreshes are used up, `failed` when the search came back empty. */
+export interface PickResult {
+  date: ISODate;
+  pick: Link | null;
+  reason: 'off' | 'empty' | 'limit' | 'failed' | null;
+  /** How many more manual refreshes are left today. */
+  refreshesLeft: number;
+}

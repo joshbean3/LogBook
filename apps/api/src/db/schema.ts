@@ -273,4 +273,30 @@ export const coachReads = sqliteTable(
   (t) => [primaryKey({ columns: [t.userId, t.date, t.key] })],
 );
 
+/** Links to come back to, and the daily picks offered from them. */
+export const links = sqliteTable(
+  'links',
+  {
+    id: id(),
+    userId: userId(),
+    url: text('url').notNull(),
+    title: text('title').notNull(),
+    siteName: text('site_name').notNull().default(''),
+    description: text('description'),
+    imageUrl: text('image_url'),
+    note: text('note'),
+    tagsJson: text('tags_json').notNull().default('[]'),
+    addedAt: text('added_at').notNull(),
+    readAt: text('read_at'),
+    source: text('source').notNull().default('me'),
+    pickReason: text('pick_reason'),
+    /** The day a pick was offered; null for a link the athlete saved. */
+    pickDate: text('pick_date'),
+    verdict: text('verdict'),
+    /** Soft delete so Undo restores the exact row. */
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('links_user').on(t.userId), index('links_user_pick').on(t.userId, t.pickDate)],
+);
+
 export const uniqueEmail = uniqueIndex;

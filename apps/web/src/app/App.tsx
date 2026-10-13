@@ -16,6 +16,7 @@ const views = {
   plan: () => import('@/features/plan/PlanView'),
   trends: () => import('@/features/trends/TrendsView'),
   journal: () => import('@/features/journal/JournalView'),
+  reads: () => import('@/features/reads/ReadsView'),
   settings: () => import('@/features/settings/SettingsView'),
 };
 const DayView = lazy(lazyImport(views.day));
@@ -23,6 +24,7 @@ const MorningView = lazy(lazyImport(views.morning));
 const PlanView = lazy(lazyImport(views.plan));
 const TrendsView = lazy(lazyImport(views.trends));
 const JournalView = lazy(lazyImport(views.journal));
+const ReadsView = lazy(lazyImport(views.reads));
 const SettingsView = lazy(lazyImport(views.settings));
 
 /** Once the first screen is up, pull every other view in the idle gaps so a tab switch never waits on the network. */
@@ -84,6 +86,7 @@ const Authed = () => {
           <Route path="/plan/:view?/:date?" element={<PlanView />} />
           <Route path="/trends" element={<TrendsView />} />
           <Route path="/journal/:tab?" element={<JournalView />} />
+          <Route path="/reads/:tab?" element={<ReadsView />} />
           <Route path="/settings" element={<SettingsView />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>

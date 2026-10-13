@@ -145,3 +145,26 @@ export const zClaudePlanOutput = z.object({
 });
 
 export const zCoachRequest = z.object({ date: zDate, sessionId: z.string().nullable().optional() });
+
+// ---------- reads ----------
+const zTag = z.string().trim().min(1).max(30);
+export const zLinkInput = z.object({
+  url: z.string().trim().min(4).max(2000),
+  note: z.string().trim().max(500).optional(),
+});
+export const zLinkPatch = z.object({
+  /** ISO timestamp when read, or null to mark unread. */
+  readAt: z.string().max(40).nullable().optional(),
+  note: z.string().trim().max(500).nullable().optional(),
+  tags: z.array(zTag).max(8).optional(),
+  verdict: z.enum(['saved', 'dismissed']).nullable().optional(),
+});
+export const zPickFeedback = z.object({ id: z.string().min(1).max(40), verdict: z.enum(['saved', 'dismissed']) });
+/** The shape the daily pick comes back in. Kept loose; cleaned server-side. */
+export const zReadsPickOutput = z.object({
+  url: z.string(),
+  title: z.string(),
+  why: z.string(),
+  tags: z.array(z.string()),
+});
+export type ReadsPickOutput = z.infer<typeof zReadsPickOutput>;

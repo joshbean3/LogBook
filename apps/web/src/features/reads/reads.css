@@ -1,0 +1,314 @@
+/* ---------- Reads: today's pick is the hero, lit from below; the rest is a grouped list of links ---------- */
+
+/* the hero card: the same grammar as Today's aura card and Journal's quote */
+.rp {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 16px;
+  min-height: 200px;
+  margin-top: 16px;
+  display: grid;
+  align-content: start;
+  color: var(--ink);
+}
+/* the stage light rises behind the Save / Skip row; its box never grows past 320px so a long title stays off the light */
+.rp-glow {
+  position: absolute;
+  inset: auto 0 0;
+  height: min(100%, 320px);
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.6;
+  pointer-events: none;
+}
+/* every row of the card shrinks with it: nothing in here is allowed to set the card's width */
+.rp > * {
+  min-width: 0;
+}
+.rp-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+}
+.rp-top .caps:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-state {
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+}
+.rp-body {
+  display: grid;
+  gap: 8px;
+  min-height: 104px;
+  align-content: start;
+}
+.rp-body.dim {
+  opacity: 0.5;
+}
+/* the title is the link; its hit area is the whole card (the chips sit above it) */
+.rp-link {
+  color: inherit;
+  text-decoration: none;
+  -webkit-touch-callout: none;
+}
+.rp-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.rp-title {
+  display: block;
+  font-size: 28px;
+  line-height: 32px;
+  color: var(--ink);
+  margin-top: 10px;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.rp-why {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--ink-2);
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+/* actions under the pick: one-verb quiet chips in the light, raised above the card's link */
+.rp-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  min-height: 32px;
+}
+.rp-actions:empty {
+  min-height: 0;
+  margin-top: 8px;
+}
+.rp .chip-btn {
+  position: relative;
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--ink);
+}
+.rp .chip-btn.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+}
+/* a 32px chip to the eye, 44px to the thumb */
+.rp .chip-btn::before {
+  content: '';
+  position: absolute;
+  inset: -6px -2px;
+}
+.rp-note {
+  padding-left: 4px;
+}
+@media (max-width: 359px) {
+  .rp {
+    padding: 16px 14px 16px;
+  }
+  .rp-title {
+    font-size: 22px;
+    line-height: 28px;
+  }
+}
+
+/* data still arriving: two quiet bars the height the title and its line will take. Nothing spins. */
+.rwait {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 104px;
+  padding-top: 14px;
+}
+.rwait-bar {
+  display: block;
+  height: 22px;
+  width: 82%;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.rwait-bar.short {
+  height: 14px;
+  width: 56%;
+}
+.rwait.compact {
+  min-height: 0;
+  padding: 4px 0 6px;
+  gap: 6px;
+}
+.rwait.compact .rwait-bar {
+  height: 16px;
+  width: 70%;
+}
+.rwait.compact .rwait-bar.short {
+  display: none;
+}
+.rwait.list {
+  min-height: 180px;
+  padding: 0;
+}
+
+/* the compact row for Today: caps over the title, a chevron at the right */
+.rp-crow {
+  color: inherit;
+  text-decoration: none;
+  padding: 10px 16px;
+  -webkit-touch-callout: none;
+}
+.rp-crow .lrow-main {
+  gap: 2px;
+}
+.rp-crow .lrow-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.rp-crow:active {
+  background: var(--surface-2);
+}
+
+/* ---------- quick add: the field and the one blue ---------- */
+.radd {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+}
+.radd .in {
+  flex: 1;
+}
+.radd .btn {
+  flex: none;
+}
+
+/* ---------- the list ---------- */
+.r-tabs .seg-btn {
+  flex: 1 1 0;
+  padding: 0 6px;
+}
+.rlist {
+  margin-top: 12px;
+}
+.rrow-wrap {
+  position: relative;
+  overflow: hidden;
+}
+/* what a swipe reveals: blue done at the left, red delete at the right */
+.rrow-under {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+  background: linear-gradient(90deg, var(--ok) 0 50%, var(--bad) 50% 100%);
+}
+.rrow-under.is-read {
+  background: linear-gradient(90deg, var(--surface-3) 0 50%, var(--bad) 50% 100%);
+}
+/* each sign lives in its own 56px zone, the same distance the row has to travel to count */
+.rrow-under-left,
+.rrow-under-right {
+  width: 56px;
+  display: grid;
+  place-items: center;
+}
+.rrow {
+  position: relative;
+  background: var(--surface);
+  touch-action: pan-y;
+}
+.rrow-link {
+  display: grid;
+  gap: 2px;
+  min-height: 60px;
+  padding: 10px 16px;
+  color: inherit;
+  text-decoration: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background var(--dur-fast);
+}
+.rrow-link:active {
+  background: var(--surface-2);
+}
+.rrow-title {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.rrow.is-read .rrow-title {
+  color: var(--ink-2);
+}
+.rrow-meta {
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the note under a link: the athlete's own words at 15, two lines at most */
+.rrow-note {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--ink-3);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- the edit sheet ---------- */
+.rsheet-kicker {
+  display: block;
+  font-family: var(--sans);
+  font-style: normal;
+}
+.rsheet-title {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  margin-bottom: 4px;
+}
+.rsheet-field {
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+}
+.rsheet-field .jtext {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+textarea.rsheet-note {
+  min-height: 88px;
+}
