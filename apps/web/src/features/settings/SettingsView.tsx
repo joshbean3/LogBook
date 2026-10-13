@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { api, ApiError } from '@/api/client';
 import { isNative } from '@/lib/native';
 import { keys, useBootstrap } from '@/api/queries';
+import { ChevronRight } from 'lucide-react';
 import { Button, Chip, Group, PageHeader, Row } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import './settings.css';
@@ -26,6 +27,15 @@ const Sec = ({ title }: { title: string }) => (
 );
 
 /** The account hand-off. In the browser it is a plain link; in the app it opens the system browser and the callback deep-links back. */
+const connectNative = async () => {
+  try {
+    const { url } = await api<{ url: string }>('/strava/connect-url');
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url, presentationStyle: 'popover' });
+  } catch {
+    /* the toast from the status refetch covers it */
+  }
+};
 const ConnectStrava = ({ className, children }: { className: string; children: React.ReactNode }) => {
   if (!isNative)
     return (
@@ -34,23 +44,18 @@ const ConnectStrava = ({ className, children }: { className: string; children: R
       </a>
     );
   return (
-    <button
-      type="button"
-      className={className}
-      onClick={async () => {
-        try {
-          const { url } = await api<{ url: string }>('/strava/connect-url');
-          const { Browser } = await import('@capacitor/browser');
-          await Browser.open({ url, presentationStyle: 'popover' });
-        } catch {
-          /* the toast from the status refetch covers it */
-        }
-      }}
-    >
+    <button type="button" className={className} onClick={connectNative}>
       {children}
     </button>
   );
 };
+/** The verb at the right of a whole-row action, with the chevron that says the row goes somewhere. */
+const Verb = ({ children }: { children: React.ReactNode }) => (
+  <>
+    <span className="lrow-verb">{children}</span>
+    <ChevronRight size={16} className="lrow-chev" aria-hidden="true" />
+  </>
+);
 
 export default function SettingsView() {
   const boot = useBootstrap();
@@ -134,7 +139,11 @@ export default function SettingsView() {
                 </div>
               </>
             ) : (
-              <Row title="Run sync" sub="Not connected" right={<ConnectStrava className="btn">Connect</ConnectStrava>} />
+              isNative ? (
+                <Row title="Run sync" sub="Not connected" onClick={() => void connectNative()} label="Run sync, not connected. Connect" right={<Verb>Connect</Verb>} />
+              ) : (
+                <Row title="Run sync" sub="Not connected" href="/api/strava/connect" label="Run sync, not connected. Connect" right={<Verb>Connect</Verb>} />
+              )
             )}
           </Group>
         </>
@@ -151,15 +160,7 @@ export default function SettingsView() {
 
       <Sec title="Data" />
       <Group>
-        <Row
-          title="Import"
-          sub="From your old log"
-          right={
-            <Button disabled={importBundle.isPending} onClick={() => fileRef.current?.click()}>
-              Import
-            </Button>
-          }
-        />
+        <Row title="Import" sub="From your old log" onClick={() => !importBundle.isPending && fileRef.current?.click()} label="Import from your old log. Choose a file" right={importBundle.isPending ? <Verb>Importing…</Verb> : <ChevronRight size={16} className="lrow-chev" aria-hidden="true" />} />
         <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => e.target.files?.[0] && importBundle.mutate(e.target.files[0])} />
         {importResult ? (
           <div className="lrow">
@@ -179,19 +180,15 @@ export default function SettingsView() {
               <Row
                 title="Add to Home Screen"
                 sub="Opens full-screen and works offline."
-                right={
-                  <Button
-                    onClick={async () => {
-                      if (!deferredInstall) return;
-                      await deferredInstall.prompt();
-                      const r = await deferredInstall.userChoice;
-                      if (r.outcome === 'accepted') setCanInstall(false);
-                      deferredInstall = null;
-                    }}
-                  >
-                    Install
-                  </Button>
-                }
+                label="Add to Home Screen. Install"
+                onClick={async () => {
+                  if (!deferredInstall) return;
+                  await deferredInstall.prompt();
+                  const r = await deferredInstall.userChoice;
+                  if (r.outcome === 'accepted') setCanInstall(false);
+                  deferredInstall = null;
+                }}
+                right={<Verb>Install</Verb>}
               />
             ) : (
               <Row title="Add to Home Screen" sub="From the browser’s share menu." />

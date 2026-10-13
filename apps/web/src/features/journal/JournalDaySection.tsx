@@ -83,7 +83,14 @@ export const EntryItem = ({ e }: { e: JournalEntry }) => {
         </span>
         <span className="jentry-text">{e.text}</span>
       </button>
-      <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
+      <IconButton
+        label={e.fav ? 'Remove from favorites' : 'Favorite'}
+        className={`star ${e.fav ? 'on' : ''}`}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          patch.mutate({ entry: e, fav: !e.fav });
+        }}
+      >
         <Star size={16} fill={e.fav ? 'currentColor' : 'none'} />
       </IconButton>
     </div>

@@ -7,6 +7,7 @@ import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Setup } from '@/features/auth/AuthScreens';
 import { Loading } from '@/ui/primitives';
+import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { Shell } from './Shell';
 
@@ -97,6 +98,8 @@ const Authed = () => {
 export const App = () => {
   const loc = useLocation();
   const nav = useNavigate();
+  // the type scale follows the iOS text size: the root font size is set once here and re-read when the app comes back
+  useEffect(() => watchDynamicType(), []);
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [loc.pathname]);

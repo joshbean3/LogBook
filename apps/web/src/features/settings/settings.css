@@ -19,6 +19,10 @@
 .s-set .s-sec:first-of-type {
   margin-top: 24px;
 }
+/* a whole-row action: the row is the button, the verb at the right says what it does */
+.s-set .lrow.tappable:not(.s-out) .lrow-title {
+  color: var(--ink);
+}
 /* the second row of the account group: two quiet verbs at the right, no fill */
 .s-actions {
   justify-content: flex-end;
@@ -27,8 +31,8 @@
 }
 /* the result of an import: a plain sentence, red only when it failed */
 .s-result {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-2);
   padding: 10px 0;
 }

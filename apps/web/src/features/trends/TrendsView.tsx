@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router';
 import { api } from '@/api/client';
 import { keys, useAllLifts } from '@/api/queries';
 import { haptic } from '@/lib/haptics';
-import { Button, EmptyState, Group, PageHeader, Row, Segmented } from '@/ui/primitives';
+import { Button, EmptyState, Group, PageHeader, readStat, Row, Segmented } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
@@ -53,17 +53,27 @@ const Sec = ({ title, meta }: { title: string; meta?: string }) => (
   </div>
 );
 
-/** A caps label over a stamped number, with an optional caps line under it. */
-const Stamp = ({ label: l, value, unit, under }: { label: string; value: ReactNode; unit?: string; under?: ReactNode }) => (
-  <span className="tr-stamp">
-    <span className="caps">{l}</span>
-    <span className="stamp tr-num">
-      {value}
-      {unit ? <small>{unit}</small> : null}
+/** A caps label over a stamped number, with an optional caps line under it. VoiceOver reads it as one line: "This week 12.5 miles, +2.0 miles vs avg". */
+const Stamp = ({ label: l, value, unit, under }: { label: string; value: ReactNode; unit?: string; under?: ReactNode }) => {
+  const line = readStat(l, value, unit, under);
+  const hide = line ? true : undefined;
+  return (
+    <span className="tr-stamp" role={line ? 'img' : undefined} aria-label={line ?? undefined}>
+      <span className="caps" aria-hidden={hide}>
+        {l}
+      </span>
+      <span className="stamp tr-num" aria-hidden={hide}>
+        {value}
+        {unit ? <small>{unit}</small> : null}
+      </span>
+      {under !== undefined ? (
+        <span className="caps tr-delta" aria-hidden={hide}>
+          {under}
+        </span>
+      ) : null}
     </span>
-    {under !== undefined ? <span className="caps tr-delta">{under}</span> : null}
-  </span>
-);
+  );
+};
 
 // ---------- weekly mileage: the hero ----------
 const Mileage = ({ log, range }: { log: Log; range: Range }) => {
@@ -325,7 +335,10 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
               key={r.a.id}
               title={fmtDate('short', r.a.date)}
               sub={r.sess ? label(r.sess) : 'Unplanned'}
+              onClick={() => nav(r.a.date === log.today ? '/today' : `/today/${r.a.date}`)}
+              label={`${fmtDate('short', r.a.date)}, ${r.sess ? label(r.sess) : 'unplanned'}, ${mi(r.a.miles)} miles${r.hr ? `, ${r.hr.avg} beats per minute` : ''}${r.g?.verdict ? `, ${r.g.verdict}` : ''}. Open day`}
               right={
+                <>
                 <div className="eff-right">
                   <span className="eff-nums">
                     <span className="stamp">
@@ -346,6 +359,8 @@ const Effort = ({ log, runs }: { log: Log; runs: Activity[] }) => {
                     </span>
                   ) : null}
                 </div>
+                <ChevronRight size={16} className="lift-chev" aria-hidden="true" />
+                </>
               }
             />
           ))}

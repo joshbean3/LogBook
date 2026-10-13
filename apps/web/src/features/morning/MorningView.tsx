@@ -1,8 +1,9 @@
 import { buildMorning, clock, clockOfDay, durationWords, fmtDate, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, pad, parsePace, shiftDays, tone, TYPES, type MorningSettings, type MorningTimeline, type TimelineBlock } from '@logbook/shared';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useMorningMutations } from '@/api/queries';
-import { Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stepper } from '@/ui/primitives';
+import { AuraStat, Button, DateNav, DayStrip, EmptyState, Field, Group, Loading, Note, PageHeader, Row, SectionHead, Segmented, Stepper } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useLog } from '../log/useLog';
 // the aura card grammar lives with Today; Morning borrows it rather than redrawing it
@@ -74,8 +75,9 @@ const WeekStrip = ({ date, today, log, go }: { date: string; today: string; log:
   );
 };
 
-// ---------- hero: the head of the timeline as an aura card, the times of the morning stamped on it (four, or three on a rest morning) ----------
+// ---------- hero: the head of the timeline as an aura card, the times of the morning stamped on it (four, or three on a rest morning). The whole card opens the editor. ----------
 const MorningHero = ({ T, date, today, onEdit }: { T: MorningTimeline; date: string; today: string; onEdit: () => void }) => {
+  const reduce = useReducedMotion();
   const door = T.blocks.find((b) => b.key === 'buffer')?.start ?? T.day.wake;
   const rest = T.day.mode === 'rest';
   const shower = T.blocks.find((b) => b.key === 'shower')?.start ?? T.leave;
@@ -100,33 +102,61 @@ const MorningHero = ({ T, date, today, onEdit }: { T: MorningTimeline; date: str
         ['Leave', T.leave],
       ];
   return (
-    <div className={`aura m-aura${rest ? ' m-rest' : ''}`}>
+    <motion.div
+      className={`aura m-aura${rest ? ' m-rest' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`${word} morning. ${verdict} Edit`}
+      onClick={onEdit}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), onEdit()) : undefined)}
+      whileTap={reduce ? undefined : { scale: 0.985 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+    >
       <span className="aura-glow" aria-hidden="true" />
-      <div className="aura-top">
+      <div className="aura-top" aria-hidden="true">
         <span className="caps">{date === today ? 'Today’s morning' : fmtDate('short', date)}</span>
         <span className="m-aura-tools">
           <span className="caps">{durationWords(T.leave - T.day.wake)}</span>
-          <Button variant="quiet" size="sm" className="m-edit" onClick={onEdit}>
-            Edit
-          </Button>
+          <span className="aura-pill m-edit">Edit</span>
         </span>
       </div>
-      <h2 className="aura-title display">{word}</h2>
-      <p className="aura-verdict">{verdict}</p>
-      <div className="aura-stats">
+      <h2 className="aura-title display" aria-hidden="true">
+        {word}
+      </h2>
+      <p className="aura-verdict" aria-hidden="true">
+        {verdict}
+      </p>
+      <div className="aura-stats" aria-hidden="true">
         {stats.map(([k, m]) => {
           const { v, u } = timeParts(m);
-          return (
-            <span key={k} className="aura-stat">
-              <span className="caps">{k}</span>
-              <span className="stamp aura-num">
-                {v}
-                <small>{u}</small>
-              </span>
-            </span>
-          );
+          return <AuraStat key={k} label={k} value={v} unit={u} />;
         })}
       </div>
+    </motion.div>
+  );
+};
+
+/**
+ * The timeline is one surface: a tap on any block opens the editor, the way the hero does. The blocks themselves belong to
+ * the Timeline component; this wrapper only listens, and a tap that travelled (a drag) is not a tap.
+ */
+const TapToEdit = ({ onEdit, children }: { onEdit: () => void; children: ReactNode }) => {
+  const down = useRef<{ x: number; y: number } | null>(null);
+  return (
+    <div
+      className="tl-tap"
+      onPointerDown={(e) => (down.current = { x: e.clientX, y: e.clientY })}
+      onClick={(e) => {
+        const d = down.current;
+        down.current = null;
+        if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
+        const t = e.target as HTMLElement;
+        if (t.closest('button, a, input, select, textarea')) return;
+        if (!t.closest('.tl-block, .tl-free, .tl-leave')) return;
+        onEdit();
+      }}
+    >
+      {children}
     </div>
   );
 };
@@ -147,6 +177,7 @@ const Controls = ({ date, T }: { date: string; T: MorningTimeline }) => {
       </div>
       {rest ? null : (
         <Row
+          as="label"
           className="m-type"
           title={<span className="m-lbl">Type</span>}
           right={
@@ -410,6 +441,7 @@ const SettingsPane = ({ st }: { st: MorningSettings }) => {
     return (
       <Row
         key={key}
+        as="label"
         title={<span className="m-lbl">{label}</span>}
         sub={sub}
         right={
@@ -440,6 +472,7 @@ const SettingsPane = ({ st }: { st: MorningSettings }) => {
       <SectionHead title="Running" />
       <Group>
         <Row
+          as="label"
           title={<span className="m-lbl">Pace</span>}
           sub="Sets how long the run takes"
           right={
@@ -478,6 +511,7 @@ const SettingsPane = ({ st }: { st: MorningSettings }) => {
         </div>
         {st.after.showerMode === 'fixed' ? (
           <Row
+            as="label"
             title={<span className="m-lbl">Shower starts</span>}
             sub="Get back late and the plan shows what to change."
             right={
@@ -569,7 +603,9 @@ export default function MorningView() {
               {T.fix?.maxMiles != null ? `, or ${T.fix.maxMiles > 0 ? `run ${num(T.fix.maxMiles)} mi` : 'skip the run'}` : ''}.
             </Note>
           ) : null}
-          <Timeline T={T} isToday={date === t} />
+          <TapToEdit onEdit={() => sheet.open({ title: 'Edit morning', body: <EditSheet date={date} /> })}>
+            <Timeline T={T} isToday={date === t} />
+          </TapToEdit>
 
           <Focus st={st} />
         </>

@@ -38,14 +38,14 @@
   color: var(--ink-2);
 }
 .auth-title {
-  font-size: 44px;
-  line-height: 46px;
+  font-size: 2.75rem;
+  line-height: 2.875rem;
   color: var(--ink);
   overflow-wrap: break-word;
 }
 .auth-sub {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-3);
   letter-spacing: -0.01em;
   margin-bottom: 16px;
@@ -56,8 +56,8 @@
 }
 /* dark fields: a 7% surface with a faint outline, caps labels above */
 .auth .field-label {
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -80,14 +80,24 @@
 .auth .btn.primary {
   height: 48px;
   margin-top: 4px;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 @media (max-width: 359px) {
   .auth {
     padding-top: calc(32px + var(--safe-t));
   }
   .auth-title {
-    font-size: 28px;
-    line-height: 34px;
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+}
+/* the same step-down at a larger text size: the screen is a size container in rem */
+.auth {
+  container: page / inline-size;
+}
+@container page (max-width: 19rem) {
+  .auth-title {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
   }
 }

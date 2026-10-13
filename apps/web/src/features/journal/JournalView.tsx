@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useDaily, useJournalList, useJournalMutations, useQuotes } from '@/api/queries';
-import { Button, ChipButton, EmptyState, Group, IconButton, PageHeader, Segmented } from '@/ui/primitives';
+import { Button, ChipButton, EmptyState, Group, IconButton, onOwnControl, PageHeader, Segmented } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
 import { Composer, EntryItem, SaveButton } from './JournalDaySection';
@@ -277,27 +277,46 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
           ) : null}
           <Group>
             {!page.data?.quotes.length ? <EmptyState>{favOnly ? 'No favorites yet. Star a quote to keep it here; favorites come back every 14 days instead of 30.' : 'No quotes match.'}</EmptyState> : null}
-            {page.data?.quotes.map((x) => (
-              <div key={x.id} className="qrow">
-                <div className="q-main">
-                  <p>“{x.text}”</p>
-                  <span className="q-by">
-                    <Byline q={x} />
-                    <span className="caps q-theme">{x.theme}</span>
-                  </span>
+            {/* the whole row is the star: tap anywhere to keep a quote or let it go. Delete keeps its own 44px at the edge. */}
+            {page.data?.quotes.map((x) => {
+              const toggle = () => quotePrefs.mutate({ id: x.id, fav: !x.fav });
+              return (
+                <div
+                  key={x.id}
+                  className={`qrow ${x.fav ? 'is-fav' : ''}`}
+                  role="checkbox"
+                  aria-checked={x.fav}
+                  tabIndex={0}
+                  aria-label={`Favorite: ${x.text}${x.author ? `, ${x.author}` : ''}`}
+                  onClick={(e) => !onOwnControl(e) && toggle()}
+                  onKeyDown={(e) => e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), toggle())}
+                >
+                  <div className="q-main" aria-hidden="true">
+                    <p>“{x.text}”</p>
+                    <span className="q-by">
+                      <Byline q={x} />
+                      <span className="caps q-theme">{x.theme}</span>
+                    </span>
+                  </div>
+                  <div className="q-tools">
+                    <span className={`icon-btn star ${x.fav ? 'on' : ''}`} aria-hidden="true">
+                      <Star size={16} fill={x.fav ? 'currentColor' : 'none'} />
+                    </span>
+                    {x.mine ? (
+                      <IconButton
+                        label="Delete quote"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeQuote.mutate(x.id);
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="q-tools">
-                  <IconButton label={x.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${x.fav ? 'on' : ''}`} onClick={() => quotePrefs.mutate({ id: x.id, fav: !x.fav })}>
-                    <Star size={16} fill={x.fav ? 'currentColor' : 'none'} />
-                  </IconButton>
-                  {x.mine ? (
-                    <IconButton label="Delete quote" onClick={() => removeQuote.mutate(x.id)}>
-                      <Trash2 size={16} />
-                    </IconButton>
-                  ) : null}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </Group>
           {total > limit ? (
             <Button block onClick={() => setLimit((l) => l + 30)} aria-label="Show more quotes">
