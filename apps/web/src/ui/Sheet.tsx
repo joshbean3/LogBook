@@ -28,14 +28,13 @@ let inertHolders = 0;
 const focusables = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest('[aria-hidden="true"]') && el.offsetParent !== null);
 
 /** The dialog's chrome: the title is what the dialog is called, focus stays inside while it is up and goes back where it came from on close. */
-const Panel = ({ spec, close, children }: { spec: SheetSpec; close: () => void; children: ReactNode }) => {
+const Panel = ({ spec, close, opener, children }: { spec: SheetSpec; close: () => void; opener: React.RefObject<HTMLElement | null>; children: ReactNode }) => {
   const reduce = useReducedMotion();
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const panel = ref.current;
     if (!panel) return;
-    const opener = document.activeElement as HTMLElement | null;
     // the rest of the app is off limits to focus and to the screen reader while the sheet is up
     const root = document.getElementById('root');
     inertHolders++;
@@ -70,8 +69,10 @@ const Panel = ({ spec, close, children }: { spec: SheetSpec; close: () => void; 
       panel.removeEventListener('keydown', onKey);
       inertHolders = Math.max(0, inertHolders - 1);
       if (!inertHolders) root?.removeAttribute('inert');
-      // back to the control that opened the sheet, if it is still on the page
-      if (opener && opener.isConnected && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+      // back to the control that opened the sheet (captured at open(), before any autoFocus field took focus), if it is still on the page
+      const o = opener.current;
+      opener.current = null;
+      if (o && o.isConnected && typeof o.focus === 'function') o.focus({ preventScroll: true });
     };
   }, []);
   const onDragEnd = (_: unknown, info: PanInfo) => {
@@ -109,8 +110,25 @@ const Panel = ({ spec, close, children }: { spec: SheetSpec; close: () => void; 
 export const SheetProvider = ({ children }: { children: ReactNode }) => {
   const [spec, setSpec] = useState<SheetSpec | null>(null);
   const reduce = useReducedMotion();
-  const close = useCallback(() => setSpec(null), []);
-  const api = useMemo<SheetApi>(() => ({ open: (s) => setSpec(s), close, update: (p) => setSpec((s) => (s ? { ...s, ...p } : s)) }), [close]);
+  const isOpen = useRef(false);
+  const opener = useRef<HTMLElement | null>(null);
+  const close = useCallback(() => {
+    isOpen.current = false;
+    setSpec(null);
+  }, []);
+  const api = useMemo<SheetApi>(
+    () => ({
+      open: (s) => {
+        // the control under focus now is where focus goes back to; a sheet opened from a sheet keeps the first one's
+        if (!isOpen.current) opener.current = (document.activeElement as HTMLElement | null) ?? null;
+        isOpen.current = true;
+        setSpec(s);
+      },
+      close,
+      update: (p) => setSpec((s) => (s ? { ...s, ...p } : s)),
+    }),
+    [close],
+  );
   useEffect(() => {
     if (!spec) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
@@ -130,7 +148,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
           {spec ? (
             <div className="sheet-wrap">
               <motion.div className="sheet-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0.08 : 0.2 }} onClick={() => !spec.sticky && close()} />
-              <Panel spec={spec} close={close}>
+              <Panel spec={spec} close={close} opener={opener}>
                 <div className="sheet-body stack" style={{ gap: 14 }}>
                   {spec.body}
                 </div>

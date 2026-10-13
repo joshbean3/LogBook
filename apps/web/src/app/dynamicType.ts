@@ -1,3 +1,5 @@
+import { isNative } from '@/lib/native';
+
 /**
  * Dynamic Type. iOS exposes the text size it is set to through the `-apple-system-body` font keyword: at the default
  * setting it is 17px, and it grows and shrinks with Settings > Display & Text Size. The app's type scale is in rem off a
@@ -7,6 +9,15 @@
 const BASE = 17;
 let probe: HTMLSpanElement | null = null;
 let applied = '';
+
+/** iOS and iPadOS only: macOS Safari also knows the keyword (at 13pt) and would shrink the app. */
+const isIOS = () => {
+  if (isNative) return true;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua)) return true;
+  // an iPad that asks for the desktop site reports itself as a Mac with a touch screen
+  return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+};
 
 const measure = () => {
   if (!probe) {
@@ -38,6 +49,7 @@ export const applyDynamicType = () => {
 
 /** Apply now, and again whenever the text size could have changed: a return to the app, a layout change. Returns the stop function. */
 export const watchDynamicType = () => {
+  if (!isIOS()) return () => undefined;
   applyDynamicType();
   const onVisible = () => !document.hidden && applyDynamicType();
   document.addEventListener('visibilitychange', onVisible);

@@ -458,6 +458,7 @@ const Lifts = () => {
           return (
             <Row
               key={g.name}
+              className="tr-lift"
               title={g.name}
               sub={`${g.days.length} ${g.days.length === 1 ? 'session' : 'sessions'} · ${fmtDate('md', last.date)}`}
               onClick={() => sheet.open({ title: g.name, body: <LiftSheet g={g} /> })}

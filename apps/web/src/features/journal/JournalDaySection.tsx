@@ -15,7 +15,7 @@ const timeOf = (at: string) => {
 };
 
 /** The editor behind a tap on an entry: the text, Save / Cancel, and Delete with an undo. */
-const EntrySheet = ({ e }: { e: JournalEntry }) => {
+export const EntrySheet = ({ e }: { e: JournalEntry }) => {
   const { patch, remove, restore } = useJournalMutations();
   const sheet = useSheet();
   const toast = useToast();

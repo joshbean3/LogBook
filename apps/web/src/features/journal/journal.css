@@ -162,6 +162,32 @@
   text-overflow: ellipsis;
 }
 
+/* the words on the quote hero open the quote: a bare button, the words themselves */
+.jq-open {
+  appearance: none;
+  border: 0;
+  background: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.jq-open:active .quote-text {
+  color: var(--ink-2);
+}
+.jq-open .quote-by {
+  display: grid;
+}
+
 /* ---------- the memory card: a past entry, serif at 22/28 ---------- */
 .jmem-group {
   position: relative;
@@ -177,7 +203,29 @@
   align-items: baseline;
   flex-wrap: wrap;
 }
+/* the words on the memory card open the entry */
+.jmem-open {
+  appearance: none;
+  border: 0;
+  background: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.jmem-open:active .memory-text {
+  color: var(--ink-2);
+}
 .memory-text {
+  display: block;
   font-family: var(--serif);
   letter-spacing: 0;
   font-size: 1.375rem;
@@ -405,22 +453,46 @@ textarea.jtext {
 .jcount {
   margin: -4px 0 -4px 4px;
 }
-/* a quote row is the star: the whole row toggles, the star at the right shows the state */
+/* a quote row: the words open the quote in a sheet; the star and Delete keep their own 44px at the edge */
 .qrow {
   display: flex;
   gap: 4px;
   align-items: flex-start;
-  padding: 12px 4px 12px 16px;
+  padding: 8px 4px 8px 0;
   background: var(--surface);
-  cursor: pointer;
-  -webkit-touch-callout: none;
   transition: background var(--dur-fast);
 }
-.qrow:active {
+.qrow:has(.q-open:active) {
   background: var(--surface-2);
 }
-.qrow:focus-visible {
-  outline-offset: -2px;
+.q-open {
+  appearance: none;
+  border: 0;
+  background: none;
+  margin: 0;
+  padding: 4px 0 4px 16px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.q-tools {
+  padding-top: 4px;
+}
+/* the quote sheet: the quote at 22/28, the attribution, the theme, Star and Delete in the foot */
+.qsheet {
+  display: grid;
+  gap: 10px;
+}
+.qsheet .quote-text {
+  margin-top: 0;
+}
+.qsheet .sheet-foot .btn svg {
+  margin-right: 2px;
 }
 .q-main {
   flex: 1;
@@ -455,5 +527,4 @@ textarea.jtext {
   display: flex;
   align-items: center;
   flex: none;
-  margin: -10px 0;
 }

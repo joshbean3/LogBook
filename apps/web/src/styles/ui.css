@@ -196,6 +196,10 @@ label.lrow {
 }
 label.lrow {
   cursor: pointer;
+  transition: background var(--dur-fast);
+}
+label.lrow:active {
+  background: var(--surface-2);
 }
 /* the verb at the right of a whole-row action ("Connect", "Import"): a word, not a second button */
 .lrow-verb {
@@ -293,15 +297,17 @@ label.lrow {
   border-left: 1px solid var(--line);
   padding-left: 12px;
 }
+/* a narrow page in rem (a larger text size): the three columns stay, the number steps to 22 and the unit may drop under it */
 @container page (max-width: 17.9rem) {
-  .strip {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 0;
+  .strip > * + * {
+    padding-left: 8px;
   }
-  .strip > :nth-child(odd) {
-    border-left: 0;
-    padding-left: 0;
+  .strip .stat-val {
+    font-size: 1.375rem;
+    line-height: 1.75rem;
+    flex-wrap: wrap;
+    white-space: normal;
+    row-gap: 0;
   }
 }
 .stat {
@@ -707,6 +713,19 @@ textarea.in {
 .seg-btn[aria-checked='true'] {
   color: var(--ink);
 }
+/* a very narrow page (320 at a larger text size): the segments may take two lines rather than run past the edge */
+@container page (max-width: 15rem) {
+  .seg {
+    height: auto;
+    min-height: 44px;
+  }
+  .seg-btn {
+    white-space: normal;
+    padding: 6px 4px;
+    font-size: 0.875rem;
+    line-height: 1.1;
+  }
+}
 .seg-thumb {
   position: absolute;
   inset: 0;
@@ -892,9 +911,9 @@ textarea.in {
   padding: 0 22px;
   font-size: 1.0625rem;
 }
-/* the session sheet's four stamps go two by two when the sheet is narrow in rem */
+/* the session sheet's four stamps go two by two when the sheet is narrow in rem (.sheet .sh-stats outranks the base rule in sessions.css) */
 @container sheet (max-width: 19rem) {
-  .sh-stats {
+  .sheet .sh-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 16px;
   }
@@ -1347,6 +1366,16 @@ textarea.in {
   margin-left: 2px;
   color: rgba(255, 255, 255, 0.7);
 }
+/* the small line under a stamp ("of 6"): 12px at 70% */
+.aura-note {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
 .aura-chev {
   position: absolute;
   top: 16px;
@@ -1398,10 +1427,16 @@ textarea.in {
     row-gap: 12px;
   }
 }
-@container card (max-width: 19rem) {
+@container card (max-width: 18rem) {
   .aura-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 12px;
+  }
+}
+/* on a very narrow card (320 at a larger text size) the eyebrow and the tools may take two lines */
+@container card (max-width: 14rem) {
+  .aura-top {
+    flex-wrap: wrap;
   }
 }
 

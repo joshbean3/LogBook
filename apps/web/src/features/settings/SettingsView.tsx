@@ -160,8 +160,8 @@ export default function SettingsView() {
 
       <Sec title="Data" />
       <Group>
-        <Row title="Import" sub="From your old log" onClick={() => !importBundle.isPending && fileRef.current?.click()} label="Import from your old log. Choose a file" right={importBundle.isPending ? <Verb>Importing…</Verb> : <ChevronRight size={16} className="lrow-chev" aria-hidden="true" />} />
-        <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => e.target.files?.[0] && importBundle.mutate(e.target.files[0])} />
+        <Row title="Import" sub="From your old log" onClick={() => !importBundle.isPending && fileRef.current?.click()} label="Import from your old log. Choose a file" right={<Verb>{importBundle.isPending ? 'Importing…' : 'Import'}</Verb>} />
+        <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => e.target.files?.[0] && importBundle.mutate(e.target.files[0])} />
         {importResult ? (
           <div className="lrow">
             <span className={`s-result ${importFailed ? 'bad' : ''}`}>{importResult}</span>

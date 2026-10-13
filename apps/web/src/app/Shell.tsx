@@ -58,7 +58,10 @@ const refetchAll = (qc: QueryClient) =>
 
 const R = 10;
 const C = 2 * Math.PI * R;
-const THRESHOLD = 72;
+/* the ring is full and the fetch is armed after about 90px of travel: (90 - 6) * 0.8 = 67 */
+const THRESHOLD = 64;
+const SLACK = 6;
+const GAIN = 0.8;
 const MAX_PULL = 100;
 
 /**
@@ -74,6 +77,7 @@ const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
   useEffect(() => {
     if (!enabled) return;
     let y0: number | null = null;
+    let x0 = 0;
     let pulling = false;
     let armed = false;
     let busy = false;
@@ -81,8 +85,8 @@ const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
       const el = ring.current;
       if (!el) return;
       const prog = Math.min(1, p / THRESHOLD);
-      el.style.transform = `translateY(${Math.round(p * 0.7) - 40}px)`;
-      el.style.opacity = String(Math.min(1, p / 24));
+      el.style.transform = `translateY(${Math.round(Math.min(p, THRESHOLD) * 0.75) - 40}px)`;
+      el.style.opacity = String(Math.min(1, p / 16));
       if (arc.current) arc.current.style.strokeDashoffset = String(C * (1 - prog));
     };
     const reset = () => {
@@ -101,22 +105,30 @@ const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
         return;
       }
       y0 = e.touches[0]!.clientY;
+      x0 = e.touches[0]!.clientX;
       pulling = false;
     };
     const onMove = (e: TouchEvent) => {
       if (y0 == null || busy) return;
-      const dy = e.touches[0]!.clientY - y0;
+      const t = e.touches[0]!;
+      const dy = t.clientY - y0;
+      const dx = t.clientX - x0;
       if (!pulling) {
-        if (dy < 0 || window.scrollY > 0) {
+        // only a downward, mostly vertical move from the very top is a pull: a sideways swipe (a to-do) or a scroll up is not
+        if (dy <= 0 || Math.abs(dx) >= dy || window.scrollY > 0) {
           y0 = null;
           return;
         }
-        if (dy < 10) return;
         pulling = true;
         setState('pulling');
+      } else if (dy <= 0) {
+        reset();
+        setState('idle');
+        return;
       }
+      // from the first pulled move: ours, not the platform's rubber band
       if (e.cancelable) e.preventDefault();
-      const p = Math.min(MAX_PULL, (dy - 10) * 0.55);
+      const p = Math.min(MAX_PULL, Math.max(0, (dy - SLACK) * GAIN));
       const over = p >= THRESHOLD;
       if (over && !armed) haptic('tick');
       armed = over;
@@ -211,7 +223,8 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
       <PullToRefresh enabled={refreshable && !wide} />
       <NetPill />
       {!wide ? (
-        <nav className="tabbar" aria-label="Views" role="tablist">
+        <nav className="tabbar" aria-label="Views">
+          <div className="tabs" role="tablist">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} onClick={go(n.to)} role="tab" aria-selected={loc.pathname === n.to || loc.pathname.startsWith(`${n.to}/`)} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
               {({ isActive }) => (
@@ -222,6 +235,7 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
               )}
             </NavLink>
           ))}
+          </div>
         </nav>
       ) : null}
     </div>

@@ -33,14 +33,18 @@
   right: 0;
   bottom: 0;
   z-index: 30;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
   height: calc(var(--tabbar-h) + var(--safe-b));
   padding: 0 4px var(--safe-b);
   background: var(--glass);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   backdrop-filter: blur(20px) saturate(1.5);
   border-top: 1px solid var(--line-strong);
+}
+/* the nav is the landmark; the tablist inside it holds the five tabs */
+.tabbar .tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: var(--tabbar-h);
 }
 .tab {
   display: grid;
@@ -128,7 +132,7 @@
   position: fixed;
   top: calc(8px + var(--safe-t));
   left: 50%;
-  z-index: 34;
+  z-index: 36;
   width: 32px;
   height: 32px;
   margin-left: -16px;
@@ -164,21 +168,11 @@
 .ptr circle.track {
   stroke: var(--line-strong);
 }
+/* while the data arrives the ring sits full and still: no spinner */
 .ptr circle.fill {
   stroke: var(--accent-bright);
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
-}
-.ptr.busy circle.fill {
-  animation: ptr-breathe 900ms ease-in-out infinite alternate;
-}
-@keyframes ptr-breathe {
-  from {
-    opacity: 0.55;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 .net-pill {

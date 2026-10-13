@@ -106,27 +106,22 @@ const MorningHero = ({ T, date, today, onEdit }: { T: MorningTimeline; date: str
       className={`aura m-aura${rest ? ' m-rest' : ''}`}
       role="button"
       tabIndex={0}
-      aria-label={`${word} morning. ${verdict} Edit`}
       onClick={onEdit}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), onEdit()) : undefined)}
       whileTap={reduce ? undefined : { scale: 0.985 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
       <span className="aura-glow" aria-hidden="true" />
-      <div className="aura-top" aria-hidden="true">
+      <div className="aura-top">
         <span className="caps">{date === today ? 'Today’s morning' : fmtDate('short', date)}</span>
         <span className="m-aura-tools">
           <span className="caps">{durationWords(T.leave - T.day.wake)}</span>
           <span className="aura-pill m-edit">Edit</span>
         </span>
       </div>
-      <h2 className="aura-title display" aria-hidden="true">
-        {word}
-      </h2>
-      <p className="aura-verdict" aria-hidden="true">
-        {verdict}
-      </p>
-      <div className="aura-stats" aria-hidden="true">
+      <h2 className="aura-title display">{word}</h2>
+      <p className="aura-verdict">{verdict}</p>
+      <div className="aura-stats">
         {stats.map(([k, m]) => {
           const { v, u } = timeParts(m);
           return <AuraStat key={k} label={k} value={v} unit={u} />;
@@ -142,14 +137,26 @@ const MorningHero = ({ T, date, today, onEdit }: { T: MorningTimeline; date: str
  */
 const TapToEdit = ({ onEdit, children }: { onEdit: () => void; children: ReactNode }) => {
   const down = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(0);
+  const track = (e: React.PointerEvent) => {
+    const d = down.current;
+    if (d) moved.current = Math.max(moved.current, Math.hypot(e.clientX - d.x, e.clientY - d.y));
+  };
   return (
     <div
       className="tl-tap"
-      onPointerDown={(e) => (down.current = { x: e.clientX, y: e.clientY })}
+      onPointerDown={(e) => {
+        down.current = { x: e.clientX, y: e.clientY };
+        moved.current = 0;
+      }}
+      onPointerMove={track}
+      onPointerUp={track}
+      onPointerCancel={() => (moved.current = 99)}
       onClick={(e) => {
-        const d = down.current;
+        const travelled = moved.current;
         down.current = null;
-        if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return;
+        moved.current = 0;
+        if (travelled > 8) return;
         const t = e.target as HTMLElement;
         if (t.closest('button, a, input, select, textarea')) return;
         if (!t.closest('.tl-block, .tl-free, .tl-leave')) return;

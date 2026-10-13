@@ -93,7 +93,7 @@
   }
 }
 /* the same step-down when the card is narrow in rem: a larger text size on a 390 phone */
-@container card (max-width: 19rem) {
+@container card (max-width: 18rem) {
   .tr-stamps {
     gap: 8px;
   }
@@ -102,28 +102,7 @@
     line-height: 1.5rem;
   }
 }
-/* the strip under a section head: two or three stamps; when it is narrow in rem the number steps down */
-@container page (max-width: 17.9rem) {
-  .tr-strip .tr-num {
-    font-size: 1.375rem;
-    line-height: 1.5rem;
-  }
-  /* the words get the room, as at 320: no sparkline, no change figure, the habit names on two lines */
-  .spark,
-  .lift-ch {
-    display: none;
-  }
-  .clbl {
-    white-space: normal;
-    overflow: hidden;
-    text-overflow: clip;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-height: 0.875rem;
-  }
-}
-@container card (max-width: 19rem) {
+@container card (max-width: 18rem) {
   .tr-delta {
     white-space: normal;
     overflow: visible;
@@ -470,6 +449,10 @@
   font-size: 0.625rem;
   letter-spacing: 0.1em;
 }
+/* a lift row's second line wraps rather than cut the date */
+.tr-lift .lrow-sub {
+  white-space: normal;
+}
 /* the row opens a sheet; the chevron says so */
 .lift-chev {
   color: var(--ink-3);
@@ -515,6 +498,28 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
+    line-height: 0.875rem;
+  }
+}
+
+/* ---------- narrow in rem (a larger text size): placed last so it outranks the base rules above ---------- */
+@container page (max-width: 17.9rem) {
+  .tr-strip .tr-num {
+    font-size: 1.375rem;
+    line-height: 1.5rem;
+  }
+  /* the words get the room, as at 320: no sparkline, no change figure, the habit names on two lines */
+  .spark,
+  .lift-ch {
+    display: none;
+  }
+  .clbl {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: clip;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     line-height: 0.875rem;
   }
 }
