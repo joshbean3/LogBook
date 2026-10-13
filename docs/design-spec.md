@@ -37,7 +37,7 @@ Scale: 10, 11, 12, 15, 17, 22, 28, 44. Nothing else. Pair a number with its labe
 
 - **Dashboard (Today):** large title with the date under it; one hero (`.hero`: 96px ring + 28px title + one-line verdict + chips); a 3-up unframed `StatStrip`; then grouped lists under `SectionHead` eyebrows. One hero per screen; everything below is list weight.
 - **Detail (session sheet, journal day):** summary stat strip on top, then sections 32px apart. Splits/sets are a bar list: label left, bar proportional, number right.
-- **Timeline (Morning):** 7-day strip on top (44px cells, today filled), a 48px left time axis with hour labels in Caption, blocks whose height is duration × 1px per minute (minimum 32px), 4px gap between blocks, free time left empty, a 2px accent "now" line with an 8px dot in the axis, past blocks at 60% opacity.
+- **Timeline (Morning):** 7-day strip on top (44px cells, today filled), a 48px left time axis with hour labels in Caption, blocks whose height is duration × 1px per minute (minimum 32px), 4px gap between blocks, free time left empty, a 2px accent "now" line with an 8px dot in the axis, past blocks sitting back (bar, border and halo faded, words at `--ink-3`, never text under 4.5:1).
 - **Calendar (Plan week/month):** 7 columns, 44px day cells, one 6px dot or 2px bar per session in its tone colour, selected day a filled pill, today outlined. The selected day's sessions list under the strip as `SessionRow`s.
 - **Trends:** segmented range control (1M / 3M / 6M) at top, one chart per section 160–200px tall, a single headline number plus delta above each chart, dynamic axis for volume.
 

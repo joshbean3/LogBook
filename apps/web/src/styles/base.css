@@ -8,7 +8,9 @@ body,
 #root {
   height: 100%;
 }
+/* the root is 16px at the default text size; lib/dynamicType.ts scales it with the iOS text size, and every type size is in rem so the app follows */
 html {
+  font-size: 100%;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
@@ -17,7 +19,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 17px/22px var(--sans);
+  font: 1.0625rem/1.375rem var(--sans);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
@@ -41,7 +43,7 @@ button:disabled {
   cursor: default;
 }
 a {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
 }
 :focus-visible {
@@ -73,44 +75,44 @@ ol {
 
 /* ---------- type scale (Apple pairs) ---------- */
 .t-stat {
-  font-size: 28px;
-  line-height: 32px;
+  font-size: 1.75rem;
+  line-height: 2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 .t-title {
-  font-size: 22px;
-  line-height: 28px;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
   font-weight: 600;
   letter-spacing: 0;
 }
 .t-head {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 .t-body {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
   font-weight: 400;
 }
 .t-sub {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   font-weight: 400;
   letter-spacing: -0.01em;
 }
 .t-label {
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .t-cap {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 400;
   letter-spacing: 0;
 }
@@ -134,8 +136,8 @@ ol {
   text-transform: uppercase;
 }
 .caps {
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -161,6 +163,8 @@ ol {
 
 /* ---------- page ---------- */
 .page {
+  /* a size container, so stat strips and titles can respond to the room they have in rem: at a larger text size the same screen is narrower */
+  container: page / inline-size;
   padding: calc(8px + var(--safe-t)) var(--gutter) calc(var(--tabbar-h) + 32px + var(--safe-b));
   max-width: var(--maxw);
   margin-inline: auto;
@@ -211,11 +215,13 @@ ol {
   }
 }
 
+/* reduced motion: nothing draws, blooms or springs. The page fade stays (shell.css); motion/react follows the same setting through MotionConfig. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

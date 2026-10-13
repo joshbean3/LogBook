@@ -49,8 +49,8 @@
 }
 /* the quote: italic serif at 28/32, white; a long one steps to 22/28 so it still fits the card */
 .quote-text {
-  font-size: 28px;
-  line-height: 32px;
+  font-size: 1.75rem;
+  line-height: 2rem;
   color: var(--ink);
   margin-top: 10px;
   text-wrap: pretty;
@@ -58,8 +58,8 @@
   overflow-wrap: anywhere;
 }
 .quote-text.long {
-  font-size: 22px;
-  line-height: 28px;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
 }
 .quote-by {
   display: grid;
@@ -86,15 +86,15 @@
   gap: 0;
 }
 .by.big .by-author {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   font-weight: 600;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
 .by.big cite {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-3);
 }
 /* actions under the quote: one-verb chips, the star at the right; the row stands in the light, with nothing drawn under it */
@@ -139,8 +139,8 @@
     padding: 16px 14px 16px;
   }
   .quote-text {
-    font-size: 22px;
-    line-height: 28px;
+    font-size: 1.375rem;
+    line-height: 1.75rem;
   }
 }
 
@@ -162,6 +162,32 @@
   text-overflow: ellipsis;
 }
 
+/* the words on the quote hero open the quote: a bare button, the words themselves */
+.jq-open {
+  appearance: none;
+  border: 0;
+  background: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.jq-open:active .quote-text {
+  color: var(--ink-2);
+}
+.jq-open .quote-by {
+  display: grid;
+}
+
 /* ---------- the memory card: a past entry, serif at 22/28 ---------- */
 .jmem-group {
   position: relative;
@@ -177,11 +203,33 @@
   align-items: baseline;
   flex-wrap: wrap;
 }
+/* the words on the memory card open the entry */
+.jmem-open {
+  appearance: none;
+  border: 0;
+  background: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  cursor: pointer;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.jmem-open:active .memory-text {
+  color: var(--ink-2);
+}
 .memory-text {
+  display: block;
   font-family: var(--serif);
   letter-spacing: 0;
-  font-size: 22px;
-  line-height: 28px;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
   color: var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -224,7 +272,7 @@
   display: flex;
   align-items: flex-start;
   gap: 4px;
-  padding: 4px 4px 4px 16px;
+  padding: 4px 4px 4px 0;
   background: var(--surface);
   transition: background var(--dur-fast);
 }
@@ -235,7 +283,9 @@
   appearance: none;
   border: 0;
   background: none;
-  padding: 4px 0;
+  /* the body carries the row's left gutter, so the tap starts at the edge of the group */
+  padding: 4px 0 4px 16px;
+  cursor: pointer;
   margin: 0;
   flex: 1;
   min-width: 0;
@@ -255,8 +305,8 @@
 .jentry-text {
   font-family: var(--serif);
   letter-spacing: 0;
-  font-size: 17px;
-  line-height: 24px;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--ink);
@@ -279,8 +329,8 @@
   border: 0;
   background: transparent;
   padding: 12px 16px;
-  font-size: 17px;
-  line-height: 24px;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   resize: none;
   outline: none;
   color: var(--ink);
@@ -293,12 +343,12 @@ textarea.jtext {
   min-height: 66px;
 }
 .jtext::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 /* the Journal page's composer: the writing voice at 22/28 */
 .composer.big .jtext {
-  font-size: 22px;
-  line-height: 28px;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
   padding: 14px 16px 8px;
 }
 .composer.big textarea.jtext {
@@ -403,12 +453,46 @@ textarea.jtext {
 .jcount {
   margin: -4px 0 -4px 4px;
 }
+/* a quote row: the words open the quote in a sheet; the star and Delete keep their own 44px at the edge */
 .qrow {
   display: flex;
   gap: 4px;
   align-items: flex-start;
-  padding: 12px 4px 12px 16px;
+  padding: 8px 4px 8px 0;
   background: var(--surface);
+  transition: background var(--dur-fast);
+}
+.qrow:has(.q-open:active) {
+  background: var(--surface-2);
+}
+.q-open {
+  appearance: none;
+  border: 0;
+  background: none;
+  margin: 0;
+  padding: 4px 0 4px 16px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  min-height: 44px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.q-tools {
+  padding-top: 4px;
+}
+/* the quote sheet: the quote at 22/28, the attribution, the theme, Star and Delete in the foot */
+.qsheet {
+  display: grid;
+  gap: 10px;
+}
+.qsheet .quote-text {
+  margin-top: 0;
+}
+.qsheet .sheet-foot .btn svg {
+  margin-right: 2px;
 }
 .q-main {
   flex: 1;
@@ -419,8 +503,8 @@ textarea.jtext {
 .q-main p {
   font-family: var(--serif);
   letter-spacing: 0;
-  font-size: 17px;
-  line-height: 24px;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
   color: var(--ink);
   overflow-wrap: anywhere;
   white-space: pre-line;
@@ -430,18 +514,17 @@ textarea.jtext {
   flex-wrap: wrap;
   gap: 2px 10px;
   align-items: baseline;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--ink-3);
   letter-spacing: 0;
 }
 .q-theme {
-  font-size: 10px;
-  line-height: 16px;
+  font-size: 0.625rem;
+  line-height: 1rem;
 }
 .q-tools {
   display: flex;
   align-items: center;
   flex: none;
-  margin: -10px 0;
 }

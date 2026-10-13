@@ -5,9 +5,10 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useDaily, useJournalList, useJournalMutations, useQuotes } from '@/api/queries';
 import { Button, ChipButton, EmptyState, Group, IconButton, PageHeader, Segmented } from '@/ui/primitives';
+import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
-import { Composer, EntryItem, SaveButton } from './JournalDaySection';
+import { Composer, EntryItem, EntrySheet, SaveButton } from './JournalDaySection';
 import './journal.css';
 
 /** A caps eyebrow with a caps meta at the right: the section head of this screen. */
@@ -27,6 +28,54 @@ const Byline = ({ q, big }: { q: Quote; big?: boolean }) =>
     </span>
   ) : null;
 
+/** Behind a tap on a quote: the whole of it in the serif, who said it, the theme, Star and, for one of your own, Delete. */
+const QuoteSheet = ({ q }: { q: Quote }) => {
+  const { quotePrefs, removeQuote } = useJournalMutations();
+  const sheet = useSheet();
+  const [fav, setFav] = useState(q.fav);
+  return (
+    <div className="qsheet">
+      <blockquote className="quote-text display long">“{q.text}”</blockquote>
+      <div className="quote-by">
+        <Byline q={q} big />
+      </div>
+      {q.theme ? <span className="caps">{q.theme}</span> : null}
+      <div className="sheet-foot">
+        {q.mine ? (
+          <Button
+            variant="danger"
+            onClick={() => {
+              removeQuote.mutate(q.id);
+              sheet.close();
+            }}
+          >
+            Delete
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="foot-right">
+          <Button
+            variant={fav ? 'default' : 'primary'}
+            aria-pressed={fav}
+            onClick={() => {
+              quotePrefs.mutate({ id: q.id, fav: !fav });
+              setFav(!fav);
+            }}
+          >
+            <Star size={16} fill={fav ? 'currentColor' : 'none'} aria-hidden="true" />
+            {fav ? 'Unstar' : 'Star'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+const useOpenQuote = () => {
+  const sheet = useSheet();
+  return (q: Quote) => sheet.open({ title: q.author || 'Quote', body: <QuoteSheet q={q} /> });
+};
+
 /** Shuffle swaps the quote or the memory with a 200ms cross-fade: the old one fades out as the new one fades in. */
 const FADE = { duration: 0.2, ease: 'easeOut' as const };
 
@@ -40,9 +89,9 @@ const useWaited = (waiting: boolean) => {
   return waited.current;
 };
 
-/** Serif body text clamped to ~6 lines, with a More that lets it out. */
-const ClampedText = ({ text, id }: { text: string; id: string }) => {
-  const ref = useRef<HTMLParagraphElement>(null);
+/** Serif body text clamped to ~6 lines, with a More that lets it out. The words are a button: a tap opens the entry. */
+const ClampedText = ({ text, id, onOpen }: { text: string; id: string; onOpen: () => void }) => {
+  const ref = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const [overflows, setOverflows] = useState(false);
   useLayoutEffect(() => {
@@ -52,9 +101,11 @@ const ClampedText = ({ text, id }: { text: string; id: string }) => {
   }, [id]);
   return (
     <>
-      <p ref={ref} className={`memory-text ${open ? '' : 'clamp'}`}>
-        {text}
-      </p>
+      <button type="button" className="jmem-open" onClick={onOpen}>
+        <span ref={ref} className={`memory-text ${open ? '' : 'clamp'}`}>
+          {text}
+        </span>
+      </button>
       {overflows ? (
         <button type="button" className="link sm quiet" style={{ justifySelf: 'start' }} onClick={() => setOpen((o) => !o)}>
           {open ? 'Less' : 'More'}
@@ -69,6 +120,7 @@ const QuoteHero = () => {
   const daily = useDaily();
   const { another, quotePrefs } = useJournalMutations();
   const toast = useToast();
+  const openQuote = useOpenQuote();
   const q = daily.data?.quote ?? null;
   const waiting = daily.isPending && !daily.data;
   const waited = useWaited(waiting);
@@ -89,10 +141,12 @@ const QuoteHero = () => {
       ) : (
         <AnimatePresence mode="popLayout" initial={waited}>
           <motion.div key={q.id} className="jq-body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={FADE}>
-            <blockquote className={`quote-text display ${q.text.length > 120 ? 'long' : ''}`}>“{q.text}”</blockquote>
-            <div className="quote-by">
-              <Byline q={q} big />
-            </div>
+            <button type="button" className="jq-open" onClick={() => openQuote(q)}>
+              <blockquote className={`quote-text display ${q.text.length > 120 ? 'long' : ''}`}>“{q.text}”</blockquote>
+              <span className="quote-by">
+                <Byline q={q} big />
+              </span>
+            </button>
           </motion.div>
         </AnimatePresence>
       )}
@@ -124,6 +178,7 @@ const MemoryCard = ({ today }: { today: string }) => {
   const daily = useDaily();
   const { another, patch } = useJournalMutations();
   const nav = useNavigate();
+  const sheet = useSheet();
   const e = daily.data?.memory ?? null;
   const waiting = daily.isPending && !daily.data;
   const waited = useWaited(waiting);
@@ -141,7 +196,7 @@ const MemoryCard = ({ today }: { today: string }) => {
               <span className="jmem-date">
                 <span className="caps">{fmtDate('long', e.date)}</span>
               </span>
-              <ClampedText text={e.text} id={e.id} />
+              <ClampedText text={e.text} id={e.id} onOpen={() => sheet.open({ title: fmtDate('short', e.date), body: <EntrySheet e={e} /> })} />
               <div className="jmem-actions">
                 <ChipButton onClick={() => another.mutate('memory')} disabled={another.isPending}>
                   <Shuffle size={14} /> Shuffle
@@ -213,6 +268,7 @@ const EntriesList = ({ favOnly, today }: { favOnly: boolean; today: string }) =>
 };
 
 const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
+  const openQuote = useOpenQuote();
   const [theme, setTheme] = useState('All');
   const [q, setQ] = useState('');
   const [limit, setLimit] = useState(30);
@@ -278,15 +334,16 @@ const QuoteList = ({ favOnly }: { favOnly: boolean }) => {
           ) : null}
           <Group>
             {!page.data?.quotes.length ? <EmptyState>{favOnly ? 'No favorites yet. Star a quote to keep it here; favorites come back every 14 days instead of 30.' : 'No quotes match.'}</EmptyState> : null}
+            {/* the words open the quote; the star and Delete are their own 44px controls at the edge */}
             {page.data?.quotes.map((x) => (
-              <div key={x.id} className="qrow">
-                <div className="q-main">
+              <div key={x.id} className={`qrow ${x.fav ? 'is-fav' : ''}`}>
+                <button type="button" className="q-main q-open" onClick={() => openQuote(x)}>
                   <p>“{x.text}”</p>
                   <span className="q-by">
                     <Byline q={x} />
                     <span className="caps q-theme">{x.theme}</span>
                   </span>
-                </div>
+                </button>
                 <div className="q-tools">
                   <IconButton label={x.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${x.fav ? 'on' : ''}`} onClick={() => quotePrefs.mutate({ id: x.id, fav: !x.fav })}>
                     <Star size={16} fill={x.fav ? 'currentColor' : 'none'} />

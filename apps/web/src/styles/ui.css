@@ -15,13 +15,13 @@
   font-family: var(--display);
   font-style: italic;
   font-weight: 400;
-  font-size: 44px;
-  line-height: 46px;
+  font-size: 2.75rem;
+  line-height: 2.875rem;
   letter-spacing: -0.01em;
 }
 .ph-sub {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-3);
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -48,11 +48,20 @@
 .ph-actions {
   flex: none;
 }
-/* narrow phones: the title steps down a size and the sub may wrap, so nothing is cut mid-word */
+/* narrow phones, or a larger text size: the title steps down a size and the sub may wrap, so nothing is cut mid-word */
 @media (max-width: 359px) {
   .ph-title {
-    font-size: 28px;
-    line-height: 34px;
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+  .ph-sub {
+    white-space: normal;
+  }
+}
+@container page (max-width: 19rem) {
+  .ph-title {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
   }
   .ph-sub {
     white-space: normal;
@@ -83,8 +92,8 @@
 .sec-head .t-label {
   color: var(--ink-3);
   margin-right: auto;
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 0.6875rem;
+  line-height: 1rem;
   letter-spacing: 0.12em;
 }
 .sec-head > .t-cap {
@@ -94,7 +103,7 @@
   min-width: 0;
 }
 .sec-head .link {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .group {
   background: var(--surface);
@@ -127,8 +136,8 @@
   gap: 1px;
 }
 .lrow-title {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   overflow: hidden;
@@ -136,8 +145,8 @@
   white-space: nowrap;
 }
 .lrow-sub {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-3);
   letter-spacing: -0.01em;
   overflow: hidden;
@@ -152,17 +161,58 @@
   color: var(--ink-3);
 }
 .lrow-stat {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
   font-weight: 600;
   color: var(--ink);
 }
 .lrow.tappable {
   cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  color: inherit;
+  text-decoration: none;
   transition: background var(--dur-fast);
 }
 .lrow.tappable:active {
   background: var(--surface-2);
+}
+@media (hover: hover) {
+  .lrow.tappable:hover {
+    background: var(--surface-2);
+  }
+}
+/* a row that is a button or a label: block, full width, the row's own text styles */
+button.lrow,
+a.lrow,
+label.lrow {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  letter-spacing: inherit;
+}
+label.lrow {
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+label.lrow:active {
+  background: var(--surface-2);
+}
+/* the verb at the right of a whole-row action ("Connect", "Import"): a word, not a second button */
+.lrow-verb {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.lrow-chev {
+  color: var(--ink-3);
+  margin-right: -4px;
+  flex: none;
 }
 .lrow-add {
   display: flex;
@@ -175,7 +225,7 @@
   border: 0;
   background: transparent;
   padding: 8px 0;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .lrow-add .in:focus {
   box-shadow: none;
@@ -199,8 +249,8 @@
   min-width: 0;
 }
 .hero-title {
-  font-size: 28px;
-  line-height: 32px;
+  font-size: 1.75rem;
+  line-height: 2rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -212,7 +262,7 @@
   cursor: pointer;
 }
 .hero-chev {
-  color: var(--ink-4);
+  color: var(--ink-3);
   margin-right: -4px;
 }
 .tone-dot {
@@ -224,8 +274,8 @@
   flex: none;
 }
 .hero-verdict {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-2);
   letter-spacing: -0.01em;
 }
@@ -247,6 +297,19 @@
   border-left: 1px solid var(--line);
   padding-left: 12px;
 }
+/* a narrow page in rem (a larger text size): the three columns stay, the number steps to 22 and the unit may drop under it */
+@container page (max-width: 17.9rem) {
+  .strip > * + * {
+    padding-left: 8px;
+  }
+  .strip .stat-val {
+    font-size: 1.375rem;
+    line-height: 1.75rem;
+    flex-wrap: wrap;
+    white-space: normal;
+    row-gap: 0;
+  }
+}
 .stat {
   display: grid;
   gap: 2px;
@@ -254,8 +317,8 @@
 }
 .stat-val {
   font-family: var(--stamp);
-  font-size: 28px;
-  line-height: 32px;
+  font-size: 1.75rem;
+  line-height: 2rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   display: flex;
@@ -264,28 +327,28 @@
   white-space: nowrap;
 }
 .stat-val small {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 500;
   color: var(--ink-3);
   letter-spacing: 0;
 }
 .stat-val.sm {
-  font-size: 22px;
-  line-height: 28px;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
 }
 .stat-val.ok {
-  color: var(--ok);
+  color: var(--accent-text);
 }
 .stat-val.bad {
   color: var(--bad);
 }
 .stat-val.accent {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .stat-delta {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--ink-3);
 }
 /* a delta is information, not a verdict: the sign carries the direction, the colour stays ink */
@@ -304,7 +367,7 @@
   height: 44px;
   padding: 0 18px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 0.9375rem;
   letter-spacing: -0.01em;
   display: inline-flex;
   align-items: center;
@@ -330,12 +393,12 @@
 .btn.soft {
   background: var(--accent-tint);
   border-color: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .btn.ghost {
   background: transparent;
   border-color: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 @media (hover: hover) {
   .btn.ghost:hover:not(:disabled) {
@@ -354,7 +417,17 @@
 .btn.sm {
   height: 36px;
   padding: 0 14px;
-  font-size: 15px;
+  font-size: 0.9375rem;
+  /* 36px to the eye, 44px to the thumb */
+  position: relative;
+}
+.btn.sm::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
 }
 .btn.block {
   width: 100%;
@@ -389,9 +462,15 @@
 .icon-btn.sm {
   width: 32px;
   height: 32px;
+  position: relative;
+}
+.icon-btn.sm::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 .icon-btn.accent {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .link {
   appearance: none;
@@ -401,19 +480,21 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
   padding: 0 8px;
   margin: -11px -8px;
   border-radius: var(--r-sm);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 500;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   letter-spacing: -0.01em;
   text-decoration: none;
   white-space: nowrap;
 }
 .link.sm {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .link.quiet {
   color: var(--ink-3);
@@ -434,8 +515,8 @@
 
 /* ---------- chips ---------- */
 .chip {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -446,7 +527,7 @@
   white-space: nowrap;
 }
 .chip.done {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   background: var(--ok-soft);
 }
 .chip.floor {
@@ -482,12 +563,13 @@
 }
 .chip-btn {
   appearance: none;
+  position: relative;
   border: 1px solid var(--line-strong);
   background: var(--surface);
   border-radius: var(--r-pill);
   height: 32px;
   padding: 0 12px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--ink-2);
   display: inline-flex;
@@ -507,6 +589,15 @@
 }
 .chip-btn:active:not(:disabled) {
   transform: scale(0.97);
+}
+/* a 32px chip to the eye, 44px to the thumb */
+.chip-btn::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  bottom: -6px;
 }
 .chip-btn.quiet {
   border-color: transparent;
@@ -530,8 +621,8 @@
   border-radius: var(--r-md);
   padding: 11px 12px;
   min-height: 44px;
-  font-size: 17px;
-  line-height: 22px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
   transition:
     border-color var(--dur-fast),
     box-shadow var(--dur-fast);
@@ -542,15 +633,15 @@
   box-shadow: 0 0 0 3px var(--accent-tint);
 }
 .in::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 textarea.in {
   resize: vertical;
-  line-height: 24px;
+  line-height: 1.5rem;
 }
 .in.mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .in.bare {
   border-color: transparent;
@@ -562,16 +653,16 @@ textarea.in {
   min-width: 0;
 }
 .field-label {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
 .field-hint {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--ink-3);
   letter-spacing: 0;
 }
@@ -590,7 +681,7 @@ textarea.in {
 }
 .unit-in span {
   color: var(--ink-3);
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 /* segmented control */
@@ -610,8 +701,8 @@ textarea.in {
   background: none;
   padding: 0 12px;
   border-radius: var(--r-pill);
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   font-weight: 600;
   color: var(--ink-2);
   flex: 1 1 0;
@@ -621,6 +712,19 @@ textarea.in {
 }
 .seg-btn[aria-checked='true'] {
   color: var(--ink);
+}
+/* a very narrow page (320 at a larger text size): the segments may take two lines rather than run past the edge */
+@container page (max-width: 15rem) {
+  .seg {
+    height: auto;
+    min-height: 44px;
+  }
+  .seg-btn {
+    white-space: normal;
+    padding: 6px 4px;
+    font-size: 0.875rem;
+    line-height: 1.1;
+  }
 }
 .seg-thumb {
   position: absolute;
@@ -645,7 +749,7 @@ textarea.in {
   border-radius: 0;
   background: transparent;
   text-align: center;
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 600;
   padding: 0 2px;
   flex: 1;
@@ -667,7 +771,7 @@ textarea.in {
   background: var(--surface-2);
   width: 44px;
   flex: none;
-  font-size: 17px;
+  font-size: 1.0625rem;
   color: var(--ink-2);
 }
 .step:disabled {
@@ -756,6 +860,7 @@ textarea.in {
   gap: 12px;
   align-content: start;
   touch-action: pan-y;
+  container: sheet / inline-size;
 }
 .sheet.wide {
   max-width: 760px;
@@ -777,8 +882,8 @@ textarea.in {
   font-family: var(--display);
   font-style: italic;
   font-weight: 400;
-  font-size: 28px;
-  line-height: 32px;
+  font-size: 1.75rem;
+  line-height: 2rem;
   margin-right: auto;
   letter-spacing: -0.01em;
 }
@@ -799,6 +904,19 @@ textarea.in {
 /* beside a primary button, Cancel is ink, not a second accent */
 .sheet-foot .btn.ghost {
   color: var(--ink-2);
+}
+/* the one blue on a sheet is where the thumb lands: 48px tall */
+.sheet-foot .btn.primary {
+  height: 48px;
+  padding: 0 22px;
+  font-size: 1.0625rem;
+}
+/* the session sheet's four stamps go two by two when the sheet is narrow in rem (.sheet .sh-stats outranks the base rule in sessions.css) */
+@container sheet (max-width: 19rem) {
+  .sheet .sh-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
 }
 .foot-right {
   display: flex;
@@ -829,7 +947,7 @@ textarea.in {
   color: var(--bg);
   padding: 10px 16px;
   border-radius: var(--r-pill);
-  font-size: 15px;
+  font-size: 0.9375rem;
   display: flex;
   gap: 14px;
   align-items: center;
@@ -849,13 +967,16 @@ textarea.in {
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
-  padding: 0;
+  padding: 0 8px;
+  margin: -12px -8px;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* ---------- notes, empty, misc ---------- */
 .note-line {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   padding: 10px 12px;
   border-radius: var(--r-md);
 }
@@ -871,21 +992,21 @@ textarea.in {
 }
 .note-line.ok {
   background: var(--ok-soft);
-  color: color-mix(in srgb, var(--ok) 70%, var(--ink));
+  color: var(--accent-text);
 }
 .note-line.info {
   background: var(--surface-2);
   color: var(--ink-2);
 }
 .fine {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--ink-3);
   letter-spacing: 0;
 }
 .lead {
-  font-size: 17px;
-  line-height: 24px;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
 }
 .empty-state {
   display: flex;
@@ -896,8 +1017,8 @@ textarea.in {
   min-height: 60px;
 }
 .empty-state p {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-2);
   text-wrap: pretty;
 }
@@ -921,14 +1042,14 @@ textarea.in {
   gap: 10px;
   color: var(--ink-3);
   padding: 12px 16px;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .legend {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--ink-3);
   letter-spacing: 0;
 }
@@ -945,8 +1066,8 @@ textarea.in {
   background: var(--tone, var(--ink-3));
 }
 .hr-chip {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 700;
   padding: 0 5px;
   border-radius: 4px;
@@ -954,13 +1075,13 @@ textarea.in {
   color: var(--ink-2);
 }
 .verdict {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 600;
   letter-spacing: 0;
 }
 .verdict.ok {
-  color: var(--ok);
+  color: var(--accent-text);
 }
 .verdict.off {
   color: var(--warn);
@@ -1004,15 +1125,15 @@ textarea.in {
   flex-wrap: wrap;
 }
 .card-title {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
   font-weight: 600;
   margin-right: auto;
   letter-spacing: -0.02em;
 }
 .card-meta {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--ink-3);
 }
 .skeleton {
@@ -1051,8 +1172,8 @@ textarea.in {
   color: var(--ink);
 }
 .dcell-dow {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 400;
   color: var(--ink-3);
   letter-spacing: 0;
@@ -1075,8 +1196,8 @@ textarea.in {
   transform: scale(0.94);
 }
 .dcell-num {
-  font-size: 17px;
-  line-height: 20px;
+  font-size: 1.0625rem;
+  line-height: 1.25rem;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -1125,6 +1246,17 @@ textarea.in {
 .dcell.is-sel .sdot.on {
   background: var(--bg);
 }
+/* a day outside the month in view (Plan's month grid) sits back without fading its number past 4.5:1: ink-3 for the number, the dots at half */
+.dcell.out:not(.is-sel) {
+  opacity: 1;
+}
+.dcell.out:not(.is-sel) .dcell-num {
+  color: var(--ink-3);
+}
+.dcell.out:not(.is-sel) .dcell-dot,
+.dcell.out:not(.is-sel) .sdot {
+  opacity: 0.5;
+}
 
 /* ---------- the aura card: black, lit from below, the day's numbers stamped on it ---------- */
 .aura {
@@ -1140,9 +1272,16 @@ textarea.in {
   gap: 6px;
   align-content: start;
   color: var(--ink);
+  container: card / inline-size;
 }
 .aura[role='button'] {
   cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.aura[role='button']:active {
+  background: var(--surface-2);
 }
 .aura-glow {
   position: absolute;
@@ -1170,25 +1309,25 @@ textarea.in {
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
 }
 .aura-title {
-  font-size: 44px;
-  line-height: 44px;
+  font-size: 2.75rem;
+  line-height: 2.75rem;
   overflow-wrap: anywhere;
   margin-top: 2px;
 }
 @media (max-width: 359px) {
   .aura-title {
-    font-size: 28px;
-    line-height: 32px;
+    font-size: 1.75rem;
+    line-height: 2rem;
   }
 }
 .aura-title.display {
-  font-size: 44px;
-  line-height: 46px;
+  font-size: 2.75rem;
+  line-height: 2.875rem;
   text-transform: none;
 }
 .aura-verdict {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
   color: var(--ink-2);
   letter-spacing: -0.01em;
   max-width: 30ch;
@@ -1209,29 +1348,39 @@ textarea.in {
 .aura-stat .caps {
   color: rgba(255, 255, 255, 0.62);
   letter-spacing: 0.1em;
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 .aura-num {
-  font-size: 22px;
-  line-height: 24px;
+  font-size: 1.375rem;
+  line-height: 1.5rem;
   white-space: nowrap;
 }
 .aura-num small {
   white-space: nowrap;
 }
 .aura-num small {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
   margin-left: 2px;
   color: rgba(255, 255, 255, 0.7);
 }
+/* the small line under a stamp ("of 6"): 12px at 70% */
+.aura-note {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
 .aura-chev {
   position: absolute;
   top: 16px;
   right: 14px;
-  color: var(--ink-4);
+  color: var(--ink-3);
   display: none;
 }
 .aura-tools {
@@ -1239,33 +1388,69 @@ textarea.in {
   align-items: center;
   gap: 8px;
 }
-/* the share pill: ink on a hairline, 44px to the thumb, 28px to the eye */
+/* the pill on a hero (Share, Edit): ink on a hairline, 44px tall where the thumb lands, overhanging the 20px eyebrow row */
+.aura-pill,
 .aura-share {
   appearance: none;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line-strong);
   color: var(--ink);
   border-radius: var(--r-pill);
-  height: 36px;
-  padding: 0 14px 0 12px;
-  margin: -10px 0;
+  height: 44px;
+  padding: 0 16px 0 14px;
+  margin: -12px 0;
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.01em;
+  transition:
+    background var(--dur-fast),
+    transform 100ms var(--ease-out);
 }
+.aura-share:active,
+.aura[role='button']:active .aura-pill {
+  background: rgba(255, 255, 255, 0.12);
+}
+.aura-pill::before,
 .aura-share::before {
   content: '';
   position: absolute;
-  inset: -8px -4px;
+  inset: 0 -4px;
 }
+/* four stamps go two by two when the card is narrow: a 320 phone, or 390 at a larger text size */
 @media (max-width: 359px) {
   .aura-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 12px;
+  }
+}
+@container card (max-width: 18rem) {
+  .aura-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+}
+/* on a very narrow card (320 at a larger text size) the eyebrow and the tools may take two lines */
+@container card (max-width: 14rem) {
+  .aura-top {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- reduced motion: the route stays drawn, the orb lights without a bloom, nothing springs ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .aura-route path {
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .orb-ring,
+  .mark,
+  .dcell-pill,
+  .orbs-meter i {
+    transition: none !important;
   }
 }
 

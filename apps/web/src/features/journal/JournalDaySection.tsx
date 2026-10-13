@@ -15,7 +15,7 @@ const timeOf = (at: string) => {
 };
 
 /** The editor behind a tap on an entry: the text, Save / Cancel, and Delete with an undo. */
-const EntrySheet = ({ e }: { e: JournalEntry }) => {
+export const EntrySheet = ({ e }: { e: JournalEntry }) => {
   const { patch, remove, restore } = useJournalMutations();
   const sheet = useSheet();
   const toast = useToast();
@@ -83,7 +83,14 @@ export const EntryItem = ({ e }: { e: JournalEntry }) => {
         </span>
         <span className="jentry-text">{e.text}</span>
       </button>
-      <IconButton label={e.fav ? 'Remove from favorites' : 'Favorite'} className={`star ${e.fav ? 'on' : ''}`} onClick={() => patch.mutate({ entry: e, fav: !e.fav })}>
+      <IconButton
+        label={e.fav ? 'Remove from favorites' : 'Favorite'}
+        className={`star ${e.fav ? 'on' : ''}`}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          patch.mutate({ entry: e, fav: !e.fav });
+        }}
+      >
         <Star size={16} fill={e.fav ? 'currentColor' : 'none'} />
       </IconButton>
     </div>

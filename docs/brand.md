@@ -43,8 +43,9 @@ Every colour has one job.
 | `--line` / `--line-strong` | white at 8 / 16% | Hairlines and outlines. Never a solid grey border. |
 | `--accent` | `#2f3bff` | The electric blue. The one primary button, the active tab, the done state of a habit orb, the meter fill, links. |
 | `--accent-bright` | `#5b66ff` | The glow edge: box-shadows, the orb ring when lit. |
+| `--accent-text` | `#7a84ff` | The blue as a word: links, ghost and soft verbs, the done chip, text on the tint. Never a fill. Lighter than `--accent` so it reads at 4.5:1 on black and on a card. |
 | `--halo` | radial blue, bottom-anchored | The stage light. Under the hero card on every tab, under a selected day, under a finished session in its sheet. It sits behind content, never behind body text. |
-| `--ok` | `#4f7bff` | Done. A blue, not a green: on this canvas green reads as a traffic light. |
+| `--ok` | `#2f3bff` | Done. A blue, not a green: on this canvas green reads as a traffic light. |
 | `--warn` | `#ffb020` | Floor met, not the goal. Amber. Streaks are never a threat. |
 | `--bad` | `#ff3b5c` | Missed, delete, sign out. Red only for loss. |
 | `--t-easy` `#35d07f`, `--t-long` `#3b82ff`, `--t-hard` `#ff8a1f`, `--t-fast` `#ff3d8a`, `--t-lift` `#a26bff`, `--t-cross` `#d1a15c`, `--t-rest` `#7a7a7a` | Session families | A 6px dot, a 3px bar at a row's edge, the tint of a day's glow in Morning. Never text, never a fill larger than a bar. |

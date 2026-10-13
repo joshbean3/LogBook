@@ -153,18 +153,69 @@ export const Stepper = ({ value, onChange, step, min, max, format, parse, label,
   );
 };
 
-/** One unframed stat: label above, number with unit, optional delta or sparkline below. */
-export const Stat = ({ label, value, unit, tone, delta, small, children }: { label: string; value: ReactNode; unit?: ReactNode; tone?: 'ok' | 'bad' | 'accent' | ''; delta?: { text: string; dir?: 'up' | 'down' | 'flat' }; small?: boolean; children?: ReactNode }) => (
-  <div className="stat">
-    <span className="t-label muted">{label}</span>
-    <span className={`stat-val ${small ? 'sm' : ''} ${tone ?? ''}`}>
-      {value}
-      {unit ? <small>{unit}</small> : null}
+/** A unit the way VoiceOver should say it: "mi" is miles, "/mi" is per mile, "bpm" is beats per minute. */
+export const unitWords = (u: string) =>
+  u
+    .replace(/\/mi\b/g, ' per mile')
+    .replace(/\bmi\b/g, 'miles')
+    .replace(/\bmin\b/g, 'minutes')
+    .replace(/\bft\b/g, 'feet')
+    .replace(/\bbpm\b/g, 'beats per minute')
+    .replace(/\bwk\b/g, 'weeks')
+    .replace(/\bspm\b/g, 'steps per minute')
+    .replace(/%/g, ' percent')
+    .replace(/\s+/g, ' ')
+    .trim();
+/** "Distance 6.0 miles": one line for a stamped stat, read as a whole. */
+export const readStat = (label: string, value: ReactNode, unit?: ReactNode, note?: ReactNode) => {
+  const v = typeof value === 'string' || typeof value === 'number' ? String(value) : null;
+  if (v == null) return null;
+  const u = typeof unit === 'string' || typeof unit === 'number' ? unitWords(String(unit)) : '';
+  const n = typeof note === 'string' || typeof note === 'number' ? unitWords(String(note)) : '';
+  return `${label} ${v}${u ? ` ${u}` : ''}${n ? `, ${n}` : ''}`;
+};
+
+/** One unframed stat: label above, number with unit, optional delta or sparkline below. VoiceOver reads it as one line ("Week 6.0 of 26 miles"); pass `read` when the value is a node. */
+export const Stat = ({ label, value, unit, tone, delta, small, read, children }: { label: string; value: ReactNode; unit?: ReactNode; tone?: 'ok' | 'bad' | 'accent' | ''; delta?: { text: string; dir?: 'up' | 'down' | 'flat' }; small?: boolean; read?: string; children?: ReactNode }) => {
+  const line = read ?? readStat(label, value, unit, delta?.text);
+  return (
+    <div className="stat" role={line ? 'img' : undefined} aria-label={line ?? undefined}>
+      <span className="t-label muted" aria-hidden={line ? true : undefined}>
+        {label}
+      </span>
+      <span className={`stat-val ${small ? 'sm' : ''} ${tone ?? ''}`} aria-hidden={line ? true : undefined}>
+        {value}
+        {unit ? <small>{unit}</small> : null}
+      </span>
+      {delta ? (
+        <span className={`stat-delta ${delta.dir ?? ''}`} aria-hidden={line ? true : undefined}>
+          {delta.text}
+        </span>
+      ) : null}
+      {children}
+    </div>
+  );
+};
+/** A stamped stat on a hero or a sheet head: caps label over the number, the unit small. Reads as "Distance 6.0 miles". */
+export const AuraStat = ({ label, value, unit, note, className = '' }: { label: string; value: ReactNode; unit?: ReactNode; note?: ReactNode; className?: string }) => {
+  const line = readStat(label, value, unit, note);
+  return (
+    <span className={`aura-stat ${className}`} role={line ? 'img' : undefined} aria-label={line ?? undefined}>
+      <span className="caps" aria-hidden={line ? true : undefined}>
+        {label}
+      </span>
+      <span className="stamp aura-num" aria-hidden={line ? true : undefined}>
+        {value}
+        {unit ? <small>{unit}</small> : null}
+      </span>
+      {note ? (
+        <span className="aura-note" aria-hidden={line ? true : undefined}>
+          {note}
+        </span>
+      ) : null}
     </span>
-    {delta ? <span className={`stat-delta ${delta.dir ?? ''}`}>{delta.text}</span> : null}
-    {children}
-  </div>
-);
+  );
+};
 /** Three stats in a row, divided by hairlines. */
 export const StatStrip = ({ children, className = '' }: { children: ReactNode; className?: string }) => <div className={`strip ${className}`}>{children}</div>;
 
@@ -199,17 +250,47 @@ export const CloseButton = ({ onClick }: { onClick: () => void }) => (
   </IconButton>
 );
 
-/** A 44px list row. */
-export const Row = ({ left, title, sub, right, onClick, two, className = '', as = 'div' }: { left?: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode; onClick?: () => void; two?: boolean; className?: string; as?: 'div' | 'li' }) => {
-  const Tag = as;
+/** True when a tap landed on a control of its own inside a row (a star, a delete, an input), so the row's action stays out of the way. */
+export const onOwnControl = (e: { target: EventTarget | null; currentTarget: EventTarget | null }) => {
+  const t = e.target as HTMLElement | null;
+  if (!t || t === e.currentTarget) return false;
+  const own = t.closest('button, a[href], input, select, textarea, [role="button"], [role="checkbox"], [role="radio"], [role="switch"]');
+  return !!own && own !== e.currentTarget;
+};
+
+/**
+ * A 44px list row. With `onClick` the whole row is the button (role, keyboard, press state); with `href` it is a link;
+ * with `as="label"` a tap anywhere focuses the control it holds. Controls inside `right` keep their own tap: the row's action
+ * does not fire for a tap that landed on one of them.
+ */
+export const Row = ({ left, title, sub, right, onClick, href, two, className = '', as = 'div', label, ...rest }: { left?: ReactNode; title: ReactNode; sub?: ReactNode; right?: ReactNode; onClick?: () => void; href?: string; two?: boolean; className?: string; as?: 'div' | 'li' | 'label'; label?: string } & Omit<React.HTMLAttributes<HTMLElement>, 'title' | 'onClick' | 'className'>) => {
+  const Tag = (href ? 'a' : as) as 'div';
+  const Inner = as === 'label' ? 'span' : 'div';
+  const tappable = !!onClick || !!href;
+  const press = onClick
+    ? (e: React.MouseEvent) => {
+        if (onOwnControl(e)) return;
+        onClick();
+      }
+    : undefined;
+  const key = onClick
+    ? (e: React.KeyboardEvent) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }
+    : undefined;
+  const linkProps = href ? { href } : {};
   return (
-    <Tag className={`lrow ${two || sub ? 'two' : ''} ${onClick ? 'tappable' : ''} ${className}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onClick()) : undefined}>
+    <Tag className={`lrow ${two || sub ? 'two' : ''} ${tappable ? 'tappable' : ''} ${className}`} onClick={press} role={onClick && !href ? 'button' : undefined} tabIndex={onClick && !href ? 0 : undefined} onKeyDown={key} aria-label={label} {...linkProps} {...rest}>
       {left}
-      <div className="lrow-main">
-        <div className="lrow-title">{title}</div>
-        {sub ? <div className="lrow-sub">{sub}</div> : null}
-      </div>
-      {right ? <div className="lrow-right">{right}</div> : null}
+      <Inner className="lrow-main">
+        <Inner className="lrow-title">{title}</Inner>
+        {sub ? <Inner className="lrow-sub">{sub}</Inner> : null}
+      </Inner>
+      {right ? <Inner className="lrow-right">{right}</Inner> : null}
     </Tag>
   );
 };
