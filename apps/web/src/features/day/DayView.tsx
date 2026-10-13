@@ -1,19 +1,20 @@
 import { parseISO, buildMorning, clockOfDay, dayStatus, decodePolyline, floorFor, fmtDate, habitStreak, label, mi, mondayOf, MORNING_DEFAULTS, morningDayFor, monthOf, num, pad, relativeDay, routePath, sessionStatus, shiftDays, STATUS_WORD, tone, trainingStreak, weekTotals, type Habit, type Session } from '@logbook/shared';
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Pencil, Settings, Share, X } from 'lucide-react';
-import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { ArrowDown, ArrowUp, ChevronRight, Pencil, Settings, Share, X } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { useHabitMutations, useTodoMutations, useTodos } from '@/api/queries';
+import { useHabitMutations, useTodos } from '@/api/queries';
 import { haptic } from '@/lib/haptics';
 import { useMedia } from '@/lib/useToday';
 import { AnimatedNumber } from '@/ui/AnimatedNumber';
-import { Button, Chip, DateNav, EmptyState, Group, IconButton, Loading, Mark, PageHeader, Ring, SectionHead, Stat, StatStrip } from '@/ui/primitives';
+import { Button, Chip, DateNav, EmptyState, Group, IconButton, Loading, PageHeader, Ring, SectionHead, Stat, StatStrip } from '@/ui/primitives';
 import { JournalDaySection } from '../journal/JournalDaySection';
 import { useLog } from '../log/useLog';
 import { AddSessionButton, sessionMeta, SessionRow, shareDataFor, UnplannedRow, UnplannedSheet, useOpenSession } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { useSheet } from '@/ui/Sheet';
 import { StravaLine } from '../settings/StravaLine';
+import { todayOpenOn, TodosSection } from '../todos/TodoList';
 import './day.css';
 
 type L = ReturnType<typeof useLog>;
@@ -324,172 +325,6 @@ const HabitsSection = ({ date, log }: { date: string; log: L }) => {
   );
 };
 
-// ---------- to-dos: swipe right to complete, left to delete; tap the name for the sheet ----------
-type TodoLite = { id: string; text: string; note: string | null; createdOn: string };
-
-/** The editor behind a tap on a to-do: the name, a small note under it, Delete and Save. Save is the sheet's one blue. */
-const TodoSheet = ({ x, date }: { x: TodoLite; date: string }) => {
-  const { patch } = useTodoMutations();
-  const sheet = useSheet();
-  const [text, setText] = useState(x.text);
-  const [note, setNote] = useState(x.note ?? '');
-  const nextText = text.trim();
-  const nextNote = note.trim();
-  const changed = !!nextText && (nextText !== x.text || nextNote !== (x.note ?? ''));
-  const save = () => {
-    if (!changed) return;
-    const p: { text?: string; note?: string | null } = {};
-    if (nextText !== x.text) p.text = nextText;
-    if (nextNote !== (x.note ?? '')) p.note = nextNote || null;
-    patch.mutate({ id: x.id, ...p });
-    sheet.close();
-  };
-  const onKey = (ev: React.KeyboardEvent<HTMLElement>) => {
-    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey || ev.currentTarget.tagName === 'INPUT')) {
-      ev.preventDefault();
-      save();
-    }
-  };
-  return (
-    <>
-      <input className="tsheet-name" value={text} maxLength={200} aria-label="To-do" onChange={(ev) => setText(ev.target.value)} onKeyDown={onKey} />
-      <label className="tsheet-field">
-        <span className="caps">Note</span>
-        <textarea className="jtext serif tsheet-note" rows={3} maxLength={500} placeholder="Add a note" value={note} autoFocus={!x.note} onChange={(ev) => setNote(ev.target.value)} onKeyDown={onKey} />
-      </label>
-      <div className="sheet-foot">
-        <Button
-          variant="danger"
-          onClick={() => {
-            haptic('warn');
-            patch.mutate({ id: x.id, deletedOn: date });
-            sheet.close();
-          }}
-        >
-          Delete
-        </Button>
-        <div className="foot-right">
-          <Button variant="ghost" onClick={() => sheet.close()}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={save} disabled={!changed}>
-            Save
-          </Button>
-        </div>
-      </div>
-    </>
-  );
-};
-
-const TodoRow = ({ x, date, done, carried, onToggle, onDelete, onEdit }: { x: TodoLite; date: string; done: boolean; carried: boolean; onToggle: () => void; onDelete: () => void; onEdit: () => void }) => {
-  const reduce = useReducedMotion();
-  const [gone, setGone] = useState<'left' | 'right' | null>(null);
-  const armed = useRef<'left' | 'right' | null>(null);
-  const mx = useMotionValue(0);
-  // the row has to travel the width of the sign (56px): one tick the moment it would count
-  const THRESHOLD = 56;
-  const onDrag = () => {
-    const v = mx.get();
-    const next = v >= THRESHOLD ? 'right' : v <= -THRESHOLD ? 'left' : null;
-    if (next && next !== armed.current) haptic('tick');
-    armed.current = next;
-  };
-  const onDragEnd = () => {
-    const v = mx.get();
-    armed.current = null;
-    if (v >= THRESHOLD) {
-      haptic('success');
-      setGone('right');
-      setTimeout(onToggle, 120);
-    } else if (v <= -THRESHOLD) {
-      haptic('warn');
-      setGone('left');
-      setTimeout(onDelete, 120);
-    }
-  };
-  return (
-    <motion.div className="todo-wrap" layout initial={false} animate={gone ? { height: 0, opacity: 0 } : { height: 'auto', opacity: 1 }} transition={{ duration: 0.18 }}>
-      <div className="todo-under" aria-hidden="true">
-        <span className="todo-under-left">
-          <Check size={20} strokeWidth={2.5} />
-        </span>
-        <span className="todo-under-right">
-          <X size={20} strokeWidth={2.5} />
-        </span>
-      </div>
-      <motion.div className={`lrow trow ${done ? 'is-done' : ''}`} style={{ x: mx }} drag={reduce || done ? false : 'x'} dragConstraints={{ left: 0, right: 0 }} dragElastic={0.7} onDrag={onDrag} onDragEnd={onDragEnd} animate={gone === 'right' ? { x: 120 } : gone === 'left' ? { x: -120 } : { x: 0 }}>
-        <Mark status={done ? 'done' : 'open'} square label={x.text} onClick={onToggle} />
-        <div className="lrow-main">
-          <button type="button" className={`hrow-name trow-name ${x.note ? 'has-note' : ''}`} onClick={onEdit}>
-            <span>{x.text}</span>
-            {x.note ? <span className="trow-note">{x.note}</span> : null}
-          </button>
-        </div>
-        <div className="lrow-right">
-          {carried ? <span className="carried">{fmtDate('md', x.createdOn)}</span> : null}
-          {void date}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-const TodosSection = ({ date }: { date: string }) => {
-  const todos = useTodos();
-  const { add, patch } = useTodoMutations();
-  const sheet = useSheet();
-  const [draft, setDraft] = useState('');
-  const [showDone, setShowDone] = useState(false);
-  const all = useMemo(() => (todos.data ?? []).filter((x) => x.createdOn <= date && (!x.doneOn || x.doneOn >= date) && (!x.deletedOn || x.deletedOn > date)).sort((a, b) => (a.createdOn === b.createdOn ? (a.createdAt < b.createdAt ? -1 : 1) : a.createdOn < b.createdOn ? -1 : 1)), [todos.data, date]);
-  const open = all.filter((x) => x.doneOn !== date);
-  const done = all.filter((x) => x.doneOn === date);
-  const addIt = () => {
-    const v = draft.trim();
-    if (!v) return;
-    add.mutate({ text: v, date });
-    setDraft('');
-  };
-  const item = (x: (typeof all)[number], isDone: boolean) => (
-    <TodoRow
-      key={x.id}
-      x={x}
-      date={date}
-      done={isDone}
-      carried={x.createdOn < date && !isDone}
-      onToggle={() => patch.mutate({ id: x.id, doneOn: isDone ? null : date })}
-      onDelete={() => patch.mutate({ id: x.id, deletedOn: date })}
-      onEdit={() => sheet.open({ title: <span className="caps tsheet-kicker">To-do</span>, body: <TodoSheet x={x} date={date} /> })}
-    />
-  );
-  return (
-    <>
-      <SectionHead title="To-dos" meta={open.length ? `${open.length} open` : undefined} />
-      <Group>
-        {todos.isPending && !todos.data ? <Loading text="Loading to-dos…" /> : null}
-        <AnimatePresence initial={false}>{open.map((x) => item(x, false))}</AnimatePresence>
-        {!open.length && todos.data ? <EmptyState>{done.length ? 'All clear for today.' : 'Nothing on the list. What you don’t finish rolls to tomorrow.'}</EmptyState> : null}
-        <div className="lrow-add">
-          <input className="in" placeholder="Add a to-do" maxLength={200} aria-label="New to-do" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addIt())} />
-          {draft.trim() ? (
-            <Button size="sm" variant="soft" onClick={addIt}>
-              Add
-            </Button>
-          ) : null}
-        </div>
-        {done.length ? (
-          <button type="button" className="lrow done-foot" onClick={() => setShowDone((s) => !s)}>
-            <span className="t-sub muted done-foot-label">
-              Completed ({done.length})
-              <ChevronDown size={16} className={`done-chev ${showDone ? 'open' : ''}`} aria-hidden="true" />
-            </span>
-          </button>
-        ) : null}
-        {showDone ? done.map((x) => item(x, true)) : null}
-      </Group>
-    </>
-  );
-};
-
 // ---------- the view ----------
 export default function DayView() {
   const params = useParams();
@@ -510,7 +345,7 @@ export default function DayView() {
   const streak = trainingStreak(log.snap);
   const week = weekTotals(log.snap, mondayOf(date));
   const todos = useTodos();
-  const openTodos = (todos.data ?? []).filter((x) => x.createdOn <= date && (!x.doneOn || x.doneOn > date) && (!x.deletedOn || x.deletedOn > date)).length;
+  const openTodos = todayOpenOn(todos.data, date).length;
   const showList = (s: Session) => s.kind !== 'rest' || sessions.length === 1;
   return (
     <div className="page">

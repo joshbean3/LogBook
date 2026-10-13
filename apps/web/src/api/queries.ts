@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type MorningDayOverride, type MorningSettings, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type MorningDayOverride, type MorningSettings, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoPriority } from '@logbook/shared';
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { api } from './client';
@@ -238,22 +238,49 @@ export const useTodoMutations = () => {
   const qc = useQueryClient();
   const setTodos = (fn: (t: Todo[]) => Todo[]) => qc.setQueryData<Todo[]>(keys.todos, (t) => fn(t ?? []));
   const add = useMutation({
-    mutationFn: async ({ text, date }: { text: string; date: string }) => {
-      const tmp: Todo = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, text, note: null, createdOn: date, doneOn: null, deletedOn: null, createdAt: new Date().toISOString() };
+    mutationFn: async (input: { text: string; date: string; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket }) => {
+      const { text, date } = input;
+      const bucket: TodoBucket = input.bucket ?? (input.due && input.due > date ? 'later' : 'today');
+      const cur = qc.getQueryData<Todo[]>(keys.todos) ?? [];
+      const tmp: Todo = {
+        id: `tmp-${Math.random().toString(36).slice(2, 9)}`,
+        text,
+        note: null,
+        priority: input.priority ?? 0,
+        due: bucket === 'later' ? input.due ?? null : null,
+        bucket,
+        position: cur.reduce((m, x) => Math.max(m, x.position), -1) + 1,
+        createdOn: date,
+        doneOn: null,
+        deletedOn: null,
+        createdAt: new Date().toISOString(),
+      };
       setTodos((t) => [...t, tmp]);
-      const saved = await write<Todo>('/todos', 'POST', { text, date }, [keys.todos]);
+      const saved = await write<Todo>('/todos', 'POST', { text, date, priority: tmp.priority, due: tmp.due, bucket }, [keys.todos]);
       if (saved) setTodos((t) => t.map((x) => (x.id === tmp.id ? saved : x)));
     },
     onError: () => void qc.invalidateQueries({ queryKey: keys.todos }),
   });
   const patch = useMutation({
-    mutationFn: async ({ id, ...p }: { id: string; text?: string; note?: string | null; doneOn?: string | null; deletedOn?: string | null }) => {
-      setTodos((t) => t.map((x) => (x.id === id ? { ...x, ...p } : x)));
-      await write(`/todos/${id}`, 'PATCH', p, [keys.todos]);
+    mutationFn: async ({ id, ...p }: { id: string; text?: string; note?: string | null; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; position?: number; doneOn?: string | null; deletedOn?: string | null }) => {
+      // a date only belongs to a Later item
+      const fix = p.bucket && p.bucket !== 'later' ? { ...p, due: null } : p;
+      setTodos((t) => t.map((x) => (x.id === id ? { ...x, ...fix } : x)));
+      await write(`/todos/${id}`, 'PATCH', fix, [keys.todos]);
     },
     onError: () => void qc.invalidateQueries({ queryKey: keys.todos }),
   });
-  return { add, patch };
+  /** After a drag: these ids, in this order, take positions 0..n. */
+  const reorder = useMutation({
+    mutationFn: async (order: string[]) => {
+      const pos = new Map(order.map((id, i) => [id, i]));
+      setTodos((t) => t.map((x) => (pos.has(x.id) ? { ...x, position: pos.get(x.id)! } : x)));
+      const list = await write<Todo[]>('/todos/order', 'PUT', { order }, [keys.todos]);
+      if (list) setTodos(() => list);
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: keys.todos }),
+  });
+  return { add, patch, reorder };
 };
 
 // ---------- morning ----------

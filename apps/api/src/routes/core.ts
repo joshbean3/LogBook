@@ -17,6 +17,7 @@ import {
   zSessionInput,
   zTodoInput,
   zTodoPatch,
+  zTodosReorder,
   type HabitCheck,
   type HrZone,
   type MorningDayOverride,
@@ -320,7 +321,7 @@ export const coreRoutes = (db: DB) => {
       .select()
       .from(todos)
       .where(and(eq(todos.userId, userId), sql`(${todos.deletedOn} is null or ${todos.deletedOn} >= ${shiftDays(today(), -120)})`))
-      .orderBy(asc(todos.createdOn), asc(todos.createdAt))
+      .orderBy(asc(todos.position), asc(todos.createdOn), asc(todos.createdAt))
       .all()
       .map(toTodo);
 
@@ -330,8 +331,23 @@ export const coreRoutes = (db: DB) => {
     const userId = uidOf(c);
     const body = await parseBody(c.req.raw, zTodoInput);
     const id = uid('t');
-    db.insert(todos).values({ id, userId, text: body.text, note: null, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() }).run();
+    // new items land at the bottom of their list
+    const pos = (db.select({ m: sql<number>`coalesce(max(${todos.position}), -1)` }).from(todos).where(eq(todos.userId, userId)).get()?.m ?? -1) + 1;
+    const bucket = body.bucket ?? (body.due && body.due > body.date ? 'later' : 'today');
+    db.insert(todos)
+      .values({ id, userId, text: body.text, note: null, priority: body.priority ?? 0, due: bucket === 'later' ? body.due ?? null : null, bucket, position: pos, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() })
+      .run();
     return c.json(toTodo(db.select().from(todos).where(eq(todos.id, id)).get()!), 201);
+  });
+
+  /** Manual order after a drag: the ids in their new order take positions 0..n. Ids left out keep theirs. */
+  r.put('/todos/order', async (c) => {
+    const userId = uidOf(c);
+    const { order } = await parseBody(c.req.raw, zTodosReorder);
+    db.transaction((tx) => {
+      order.forEach((id, i) => tx.update(todos).set({ position: i }).where(and(eq(todos.userId, userId), eq(todos.id, id))).run());
+    });
+    return c.json(liveTodos(userId));
   });
 
   r.patch('/todos/:id', async (c) => {
@@ -340,6 +356,12 @@ export const coreRoutes = (db: DB) => {
     const set: Partial<typeof todos.$inferInsert> = {};
     if (body.text !== undefined) set.text = body.text;
     if (body.note !== undefined) set.note = body.note || null;
+    if (body.priority !== undefined) set.priority = body.priority;
+    if (body.bucket !== undefined) set.bucket = body.bucket;
+    if (body.due !== undefined) set.due = body.due;
+    // a date only means something on a Later item
+    if (body.bucket !== undefined && body.bucket !== 'later') set.due = null;
+    if (body.position !== undefined) set.position = body.position;
     if (body.doneOn !== undefined) set.doneOn = body.doneOn;
     if (body.deletedOn !== undefined) set.deletedOn = body.deletedOn;
     const n = db.update(todos).set(set).where(and(eq(todos.userId, userId), eq(todos.id, c.req.param('id')))).run().changes;

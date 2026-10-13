@@ -1,4 +1,4 @@
-import { METERS_PER_MILE, type Activity, type Habit, type JournalEntry, type Lap, type LiftSet, type PlanBlock, type Session, type SessionKind, type SessionMark, type Todo } from '@logbook/shared';
+import { METERS_PER_MILE, type Activity, type Habit, type JournalEntry, type Lap, type LiftSet, type PlanBlock, type Session, type SessionKind, type SessionMark, type Todo, type TodoBucket, type TodoPriority } from '@logbook/shared';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { activities, habits, journalEntries, liftSets, planBlocks, todos, trainingSessions } from '../db/schema.js';
 
@@ -21,7 +21,19 @@ export const toHabit = (r: InferSelectModel<typeof habits>): Habit => ({ id: r.i
 
 export const toLift = (r: InferSelectModel<typeof liftSets>): LiftSet => ({ id: r.id, date: r.date, exercise: r.exercise, weight: r.weight, reps: r.reps, createdAt: r.createdAt });
 
-export const toTodo = (r: InferSelectModel<typeof todos>): Todo => ({ id: r.id, text: r.text, note: r.note, createdOn: r.createdOn, doneOn: r.doneOn, deletedOn: r.deletedOn, createdAt: r.createdAt });
+export const toTodo = (r: InferSelectModel<typeof todos>): Todo => ({
+  id: r.id,
+  text: r.text,
+  note: r.note,
+  priority: (r.priority === 1 || r.priority === 2 ? r.priority : 0) as TodoPriority,
+  due: r.due,
+  bucket: (r.bucket === 'later' || r.bucket === 'someday' ? r.bucket : 'today') as TodoBucket,
+  position: r.position,
+  createdOn: r.createdOn,
+  doneOn: r.doneOn,
+  deletedOn: r.deletedOn,
+  createdAt: r.createdAt,
+});
 
 export const toBlock = (r: InferSelectModel<typeof planBlocks>, sessionCount?: number): PlanBlock => ({ id: r.id, name: r.name, start: r.start, end: r.end, source: r.source, summary: r.summary, createdAt: r.createdAt, sessionCount });
 
