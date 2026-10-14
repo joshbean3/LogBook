@@ -1,0 +1,728 @@
+/* ---------- Progress: a verdict, one chart you can play with, then the drill-downs ---------- */
+
+/* the verdict: serif 28, two short sentences, then the week in plain words */
+.pg-verdict {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.75rem;
+  line-height: 2rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-top: 8px;
+  text-wrap: pretty;
+}
+.pg-sub {
+  margin-top: 8px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* the range chips sit over the chart and steer every section */
+.pg-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--sp-secondary);
+}
+.pg-chips .chip-btn.on,
+.pg-chips .chip-btn.on:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+.pg-chips .chip-btn {
+  min-width: 48px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* the hero: the chart card, lit from below */
+.pg-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px 10px;
+  margin-top: 12px;
+  container: pghero / inline-size;
+}
+.pg-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.pg-ctx-row {
+  display: flex;
+  align-items: center;
+  min-height: 16px;
+}
+.pg-ctx {
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the headline numbers: three stamps that rewrite under the finger */
+.pg-readout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+.pg-slot {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pg-slot .caps {
+  font-size: 0.625rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.pg-slot-num {
+  font-size: 1.75rem;
+  line-height: 2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  font-variant-numeric: tabular-nums;
+}
+.pg-slot-num small,
+.pg-row-num small,
+.pg-stamp-num small {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 3px;
+  color: rgba(255, 255, 255, 0.7);
+}
+@container pghero (max-width: 17rem) {
+  .pg-readout {
+    gap: 8px;
+  }
+  .pg-slot-num {
+    font-size: 1.375rem;
+    line-height: 1.75rem;
+  }
+}
+
+/* ---------- the chart ---------- */
+.pg-chart {
+  position: relative;
+  margin-top: 6px;
+}
+.pg-plot {
+  position: relative;
+  outline: none;
+  border-radius: var(--r-md);
+}
+.pg-plot:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-bright);
+}
+/* vertical swipes scroll the page until a scrub begins; pinch belongs to the chart */
+.pg-touch {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
+}
+.pg-chart svg,
+.pg-line svg {
+  display: block;
+  overflow: visible;
+  font-family: var(--sans);
+}
+.pg-grid {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+}
+.pg-base {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1;
+}
+.pg-ax {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  fill: var(--ink-3);
+}
+.pg-ax.now {
+  fill: var(--accent-text);
+}
+/* run bars white, this week the one blue, plan an outline (dashed ahead), the average a thin line */
+.pg-bar {
+  fill: rgba(255, 255, 255, 0.86);
+}
+.pg-bar.cur {
+  fill: var(--accent-bright);
+}
+.pg-plan {
+  fill: rgba(255, 255, 255, 0.03);
+  stroke: rgba(255, 255, 255, 0.34);
+  stroke-width: 1;
+}
+.pg-plan.ahead {
+  stroke-dasharray: 3 3;
+  stroke: rgba(255, 255, 255, 0.3);
+}
+.pg-avg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.62);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-now-dot {
+  fill: var(--accent-bright);
+}
+/* the column under the finger */
+.pg-col {
+  fill: rgba(255, 255, 255, 0.07);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+/* series named on the chart: caps, outlined in black so they read over a bar */
+.pg-lbl {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  fill: var(--ink-2);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  transition: opacity var(--dur-out);
+}
+.pg-lbl-plan {
+  fill: var(--ink-3);
+}
+.pg-chart.is-ghost .pg-plot {
+  cursor: default;
+}
+
+/* ---------- drill-downs: an edge-to-edge list, a sparkline and one number per row ---------- */
+.pg-drills {
+  margin-top: var(--sp-primary);
+}
+.pg-row {
+  appearance: none;
+  border: 0;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding-block: 10px;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.pg-row:active {
+  background: var(--surface);
+}
+@media (hover: hover) {
+  .pg-row:hover {
+    background: var(--surface);
+  }
+}
+.pg-row:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -2px;
+}
+.pg-row-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.pg-row-title {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pg-row-sub {
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.pg-row-num {
+  font-size: 1.375rem;
+  line-height: 1.5rem;
+  white-space: nowrap;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.pg-chev {
+  color: var(--ink-3);
+  flex: none;
+  margin-right: -4px;
+}
+.pg-spark {
+  flex: none;
+  overflow: visible;
+}
+.pg-spark-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.78);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-spark-dot {
+  fill: var(--accent-bright);
+}
+.pg-spark-none {
+  display: inline-block;
+}
+/* at 320 the title and its number win; the sparkline lives in the sheet */
+@container page (max-width: 21rem) {
+  .pg-row .pg-spark {
+    display: none;
+  }
+}
+
+/* ---------- empty: the chart as it will look, one sentence, one verb ---------- */
+.pg-empty {
+  margin-top: 12px;
+}
+.pg-empty .empty-ghost {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.pg-empty .empty-line {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.75rem;
+  line-height: 2rem;
+  color: var(--ink);
+}
+
+/* ---------- skeleton: the page's own shape ---------- */
+.pg-skel {
+  gap: 10px;
+}
+.pg-skel-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.pg-skel-rows {
+  display: grid;
+  margin-top: 40px;
+}
+.pg-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+}
+.pg-skel-row > span:first-child {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+}
+.pg-skel-row + .pg-skel-row {
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- sheets ---------- */
+.pg-sheet {
+  --page-pad: 16px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .pg-sheet {
+    --page-pad: 20px;
+  }
+}
+.pg-stamps {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.pg-stamps > * + * {
+  border-left: 1px solid var(--line);
+  padding-left: 12px;
+}
+.pg-stamp {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  align-content: start;
+}
+.pg-stamp .caps {
+  font-size: 0.625rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pg-stamp-num {
+  font-size: 1.75rem;
+  line-height: 2rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pg-stamps.three .pg-stamp-num {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+}
+.pg-stamp-note {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pg-note {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+.pg-list {
+  margin-top: 4px;
+}
+.pg-srow {
+  appearance: none;
+  border: 0;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding-block: 8px;
+}
+button.pg-srow {
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+button.pg-srow:active {
+  background: var(--surface);
+}
+@media (hover: hover) {
+  button.pg-srow:hover {
+    background: var(--surface);
+  }
+}
+.pg-srow-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.pg-srow-title {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pg-srow.quiet .pg-srow-title {
+  font-weight: 500;
+}
+.pg-srow-sub {
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pg-srow-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.ink3 {
+  color: var(--ink-3);
+}
+.pg-num-col {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+.pg-num-col .caps {
+  font-size: 0.625rem;
+  color: var(--ink-3);
+}
+/* a day in the week sheet: caps weekday over the date */
+.pg-day {
+  width: 36px;
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  color: var(--ink-3);
+}
+.pg-day .caps {
+  font-size: 0.625rem;
+}
+.pg-day-n {
+  font-family: var(--stamp);
+  font-weight: 800;
+  font-size: 1.0625rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
+  letter-spacing: -0.02em;
+}
+.pg-day.is-today .pg-day-n,
+.pg-day.is-today .caps {
+  color: var(--accent-text);
+}
+/* the one status word: the same vocabulary as Today and Plan, colour plus the word */
+.pg-st {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.pg-st.ok {
+  color: var(--ink-2);
+}
+.pg-st.warn {
+  color: var(--warn);
+}
+.pg-st.bad {
+  color: color-mix(in srgb, var(--bad) 85%, white);
+}
+.pg-st.today {
+  color: var(--ink);
+}
+.pg-week-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pg-week-words {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.pg-week-line {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+.pg-week-words .pg-stamp-num {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+}
+/* adherence: a thin meter of kept against planned */
+.pg-meter {
+  display: block;
+  width: 56px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.pg-meter i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  border-radius: 2px;
+}
+
+/* the sheets' line chart */
+.pg-line {
+  display: grid;
+  gap: 8px;
+}
+.pg-line-readout {
+  min-height: 72px;
+}
+.pg-line-plot {
+  position: relative;
+  outline: none;
+  border-radius: var(--r-md);
+}
+.pg-line-plot:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-bright);
+}
+.pg-line-path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.82);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-line-dot {
+  fill: var(--ink);
+  stroke: var(--bg);
+  stroke-width: 1.5;
+  transition: opacity var(--dur-out);
+}
+.pg-line-dot.on {
+  fill: var(--accent-bright);
+}
+.pg-line-dot.dim {
+  opacity: 0.45;
+}
+.pg-cursor {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+/* ---------- the consistency grid: a row per habit, its name above its days ---------- */
+.pg-grid-wrap {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.pg-grid-axis {
+  position: relative;
+  height: 14px;
+}
+.pg-grid-axis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.625rem;
+  color: var(--ink-3);
+}
+.pg-grid-axis span.on {
+  color: var(--ink);
+}
+.pg-grid {
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+.pg-grow {
+  display: grid;
+  gap: 4px;
+}
+.pg-grow.train {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.pg-grow-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pg-grow-name {
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  color: var(--ink-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-grow.train .pg-grow-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pg-grow-rate {
+  font-family: var(--stamp);
+  font-weight: 800;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.pg-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 3px;
+}
+.pg-cell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 14px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  box-sizing: border-box;
+}
+.pg-cell.on {
+  background: var(--ok);
+}
+.pg-cell.half {
+  background: var(--warn);
+}
+.pg-cell.miss {
+  background: color-mix(in srgb, var(--bad) 60%, transparent);
+}
+.pg-cell.none {
+  background: none;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+}
+.pg-cell.open {
+  background: none;
+  border: 1px solid var(--line-strong);
+}
+.pg-cell.col {
+  outline: 1px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 1px;
+}
+/* the touch surface over the rows: one column per day, at least 44px tall */
+.pg-hits {
+  position: absolute;
+  inset: -4px 0;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  cursor: pointer;
+}
+.pg-hit {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 44px;
+  border-radius: 3px;
+}
+.pg-hit.on {
+  background: rgba(255, 255, 255, 0.06);
+}
+.pg-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.625rem;
+  color: var(--ink-3);
+}
+.pg-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pg-key .pg-cell {
+  width: 10px;
+  height: 10px;
+}
