@@ -8,19 +8,24 @@ Server for the walk: port 8832, seed DB (restored to the seed after the walk). 3
 
 ## Contracts
 
-- **Contract 5 (`sessionMiles`)** is not in this worktree yet. `features/day/miles.ts` is the local adapter with the
-  documented signature `sessionMiles(snapshot, date, session) → { miles, source: 'activity' | 'planned' | 'floor' | 'none' }`
-  and the documented rules (done with no run = planned miles; floor = floor minutes at an easy pace, capped at the plan).
-  When Fix A lands it, replace the adapter's body with `export { sessionMiles, type MilesSource } from '@logbook/shared';`.
-  `dayMiles` / `weekMiles` there build on it (the close-the-day MI stamp, the done hero's week line, the share card's week).
-- **Contract 7 (generic morning defaults)**: the client no longer assumes anybody's routine (see B9). The server defaults
-  are Fix A's; until they land a new account still gets the old numbers from the server (shown with generic names).
+Fix A's branch (`claude/hopeful-einstein-eunarl`) is merged in; no conflicts, every team's block in `api/queries.ts` kept.
+
+- **Contract 5**: Today uses the real `sessionMiles` / `dayMiles` from `@logbook/shared` (the local adapter written before
+  the merge is gone; `features/day/miles.ts` now only re-exports them and adds `weekMiles`, the week's seven `dayMiles`).
+  Uses: the done hero ("4 mi. Done.", "4 of 24 mi this week."), the close-the-day MI stamp, the share card's miles and week.
+- **Contract 7**: `NEW_ACCOUNT_MORNING` is the pre-load fallback and the routine editor's Reset; every routine block name
+  goes through `afterLabel` (wrapped by `routineName`, which only turns the unnamed `smoothie` slot into "Breakfast").
+  The double "Out the door" Fix A flagged is fixed in `blockLabel`: the run's departure buffer keeps "Out the door" (the hero's
+  DOOR, the sheet's OUT THE DOOR); a routine block whose name would clash on that morning shows the routine's default name
+  ("Final prep"). On a rest morning, where there is no departure buffer, the block keeps "Out the door". Verified with fresh
+  sign-ups on 8832: run morning "Out the door 6:55–7:00 · Easy run · Cool down · Get ready · Final prep" (`b9_fresh_run_morning`),
+  rest morning "Get ready · Out the door" (`b9_fresh_morning`). The rest-morning hero line reads "Alarm · Ready · Out · Leave".
 
 ## Item → change → verification → screenshot
 
 | # | Item | Change | Verified | Shots (after; before) |
 |---|---|---|---|---|
-| B3 | Done hero | `Hero.tsx` `DoneFace`: a session done with no Strava run reads "EASY 4" stamp, then a blue check that pops in on `springs.complete` + serif "4 mi. Done." (miles tick up on `springs.number` once a day via `Ticker`), "4 of 24 mi this week.", a **Share** pill and a quiet "Ran a different distance?" that opens a one-row 0.5-mi `Stepper` + Save (writes the session's miles, toast "4.5 mi logged"). No DONE chip anywhere on a done hero. The halo blooms (`halo-boost`), the ring fires `haptics.success()` once. Miles via `sessionMiles` (adapter). The share card for a hand-logged run opens on the Bubble ("4.5 mi. Done.") and carries the logged miles and week. | `ix_done.mjs`: haptics = `success` only; text "EASY 4 · 4 mi. Done. · 4 of 24 mi this week. · Share · Ran a different distance?"; after +0.5: "EASY 4.5 · 4.5 mi. Done.", haptics `select,toggle`; menu Open · Not done · Share · Morning · Add a session; evening stamps "MI 4.5". 320 fits. | `b3_hold_250`, `b3_after_80` (number ticking), `b3_after_250`, `b3_after_1500`, `b3_after_1500_320`, `b3_distance_open`, `b3_distance_saved`, `b3_share`, `b10_evening_after_done`; before `critic/shots/h2_after_1500.png`, `ev_fresh_done.png` |
+| B3 | Done hero | `Hero.tsx` `DoneFace`: a session done with no Strava run reads "EASY 4" stamp, then a blue check that pops in on `springs.complete` + serif "4 mi. Done." (miles tick up on `springs.number` once a day via `Ticker`), "4 of 24 mi this week.", a **Share** pill and a quiet "Ran a different distance?" that opens a one-row 0.5-mi `Stepper` + Save (writes the session's miles, toast "4.5 mi logged"). No DONE chip anywhere on a done hero. The halo blooms (`halo-boost`), the ring fires `haptics.success()` once. Miles via the shared `sessionMiles` (contract 5). The share card for a hand-logged run opens on the Bubble ("4.5 mi. Done.") and carries the logged miles and week. | `ix_done.mjs`: haptics = `success` only; text "EASY 4 · 4 mi. Done. · 4 of 24 mi this week. · Share · Ran a different distance?"; after +0.5: "EASY 4.5 · 4.5 mi. Done.", haptics `select,toggle`; menu Open · Not done · Share · Morning · Add a session; evening stamps "MI 4.5". 320 fits. | `b3_hold_250`, `b3_after_80` (number ticking), `b3_after_250`, `b3_after_1500`, `b3_after_1500_320`, `b3_distance_open`, `b3_distance_saved`, `b3_share`, `b10_evening_after_done`; before `critic/shots/h2_after_1500.png`, `ev_fresh_done.png` |
 | B10 | Evening card | `CloseDay.tsx` `dayStamps`: stamps are numbers only (MI from `dayMiles`, HABITS "3 of 5" / "5 lit", TO-DOS "2 done"); a stamp that would be none / not yet / zero is dropped; with none left, one ink-2 sentence from the day ("Easy 4 still open. 5 habits to light.", "Rest day. 5 habits to light."). Placeholder: the day prompt with "Two sentences, then sleep." replaced by "How did today go?" so it never repeats the title. | `states.mjs` 19:30 run day / rest day / Oct 11 / Sep 8 texts | `today_run_1930`, `today_run_1930_320`, `today_rest_1930`, `today_past_1011-full`, `today_bonus_0908-full`; before same names in `before/` |
 | P8 | Rest-day 6:30 hero | `Hero.tsx` `restMorning`: on today's rest morning before leave: "REST DAY / Rest. It counts. / Alarm in 45 min" (then "Leave in 2 h") plus the mini timeline Alarm · first routine block · last routine block · Leave (3 stops when the routine has one block). Tap the line or the card → Morning; pull down on the hero → Morning; tomorrow's session joins the countdown line ("· Tomorrow: Easy 4"). | `states.mjs` today_rest_0630 | `today_rest_0630`; before `before/today_rest_0630.png` |
 | P10 | After saving the entry | `CloseDay.tsx` `AddToIt`: under "Day, closed." the empty composer folds into a 44px "Add to it" row (pen icon, ink-3) that opens the composer focused; it folds again after a save. Entries no longer bleed full-width on black: a hairline above, transparent rows (surface only while a swipe is revealing Delete). | `addto.mjs`: row 44px, composer focused | `today_past_1011-full`, `p10_add_to_it_open`; before `before/today_past_1011-full.png`, `critic/shots/fx_saved.png` |
@@ -40,7 +45,7 @@ Server for the walk: port 8832, seed DB (restored to the seed after the walk). 3
 | D-M3 + P6 | "Drag the alarm" | `.tl-hint`: one line, left of the wake grip on the block's top edge; hidden under 360px. | 390: visible, overlaps neither alarm time nor grip; 320: hidden | `dm3_lesson_390`, `dm3_lesson_320`, `morning_run_0630_320`; before `critic/shots/w320_morning.png` |
 | P5 | Pull to Morning enters from the hero | The hero's pull navigates with `state.enter = 'pull'`; Morning drops in on y (`springs.page`, 120ms fade) and holds the frame's sideways push still for the entrance (`html[data-morning-enter]` in morning.css). Tap / menu → the normal push. Reduced motion: normal. | frames at 60/160/320/900ms | `p5_pull_armed`, `p5_enter_60`, `p5_enter_160`; before `critic/shots/strip2_pull.png` |
 | P7 | Rest-morning free time | A rest morning's free block over 45 min is drawn at most 120px with an axis break (two slashes) and no ticks inside; the card keeps "1 h 10 min to yourself before the routine." Positions stay clock-true elsewhere (a piecewise `y(t)`). | rest morning full page | `morning_rest_0630-full`; before `before/morning_rest_0630-full.png` |
-| B9 | No owner routine in the UI | `model.ts`: `AFTER_LABEL` generic ("Breakfast" for the `smoothie` slot, icon a cup), `blockLabel()` used by the timeline, menus and MiniLine; `ROUTINE_DEFAULTS` (Get ready 30, last block 10, others off) for every pre-load fallback and the routine editor's Reset. | a new account: "Shower · Get ready · Breakfast · Final prep" (server numbers until contract 7) | `b9_fresh_morning`, `b9_fresh_routine`; before `critic/shots/fr_morning_at_06_00.png` |
+| B9 | No owner routine in the UI | `model.ts`: `routineName` (over `afterLabel`; the unnamed `smoothie` slot reads "Breakfast", icon a cup) and `blockLabel` (no clash with the run's "Out the door") used by the timeline, menus, MiniLine and the routine editor; `ROUTINE_DEFAULTS` = `NEW_ACCOUNT_MORNING` for pre-load fallbacks and Reset. | fresh sign-up: run morning "Out the door · Easy run · Cool down · Get ready · Final prep", rest morning "Get ready · Out the door" | `b9_fresh_run_morning`, `b9_fresh_morning`, `b9_fresh_routine`; before `critic/shots/fr_morning_at_06_00.png` |
 | Keep | Excellent things | Untouched or re-verified: morning states, hero swipe (from the body and now from the ring), pull to Morning, orb tap (`orb`), to-do swipe right (Undo toast), hero tap → sheet, Morning grips and routine editor. | `keep.mjs`, `ix_more.mjs` | `keep_hero_tap_sheet`, `today_run_0630`, `morning_run_0630` |
 
 No horizontal overflow on any state (390 and 320); console clean on every route walked.
@@ -61,9 +66,7 @@ No horizontal overflow on any state (390 and 320); console clean on every route 
 
 ## Requests for other teams
 
-- **Fix A**: `sessionMiles` (contract 5) in shared, then swap `features/day/miles.ts` to the re-export. Contract 7: please keep the
-  `prep` block's label distinct from the run's "Out the door" buffer block (we show "Final prep"); naming both "Out the door"
-  would put two identical names on a run morning.
+- **Fix A**: none open (contracts 5 and 7 consumed; the name clash is resolved on the client in `blockLabel`).
 - **Share (B4)**: a hand-logged run's card still draws "—'—'' · 0:00" in PACE/TIME rows (`b3_share.png`); drop rows with a zero or a dash.
   Today opens the share sheet on the Bubble for such runs meanwhile.
 - **Foundation**: (1) `PushedPage` could take an `enter: 'push' | 'drop'` (or read `location.state.enter`) so Morning's pull entrance

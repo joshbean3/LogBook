@@ -98,7 +98,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }
   const isToday = date === log.today;
   const pick = usePick(log.today, isToday && !still);
   const runs = log.snap.runsOn(date);
-  const miles = dayMiles(log.snap, date);
+  const miles = dayMiles(log.snap, date).miles;
   const habits = log.habits.filter((h) => h.createdOn <= date);
   const lit = habits.filter((h) => log.snap.isHabitDone(date, h.id)).length;
   const groups = groupsOn(todos.data, date);

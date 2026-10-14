@@ -1,4 +1,4 @@
-import { clock, dayPhase, decodePolyline, durationWords, fmtDate, floorFor, label, mi, mondayOf, num, relativeDay, routePath, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
+import { clock, dayPhase, decodePolyline, durationWords, fmtDate, floorFor, label, mi, mondayOf, num, relativeDay, routePath, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type MorningAfterKey, type MorningSettings, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
 import { CalendarPlus, Check, ChevronRight, ChevronsDown, HeartPulse, MoveRight, Share, SkipForward, Sunrise, Undo2 } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -8,7 +8,7 @@ import { haptics } from '@/lib/haptics';
 import { rowPresence, springs } from '@/lib/motion';
 import { Button, shared, Stepper, Ticker, useFirstToday, useSheet, useToast, WeekRing, type ContextMenuItem } from '@/ui';
 import type { Log } from '../log/useLog';
-import { morningOf } from '../morning/model';
+import { isAfterKey, morningOf, routineName } from '../morning/model';
 import { useOpenWeek } from '../progress/sheets';
 import { useSessionActions } from '../sessions/actions';
 import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
@@ -61,19 +61,25 @@ const tenth = (v: number) => String(Math.round(v * 10) / 10);
 
 /** Short names for the routine's blocks on the hero's line, where four stops share 300px. */
 const STOP_WORD: Record<string, string> = { shower: 'Shower', ready: 'Ready', smoothie: 'Eat', prep: 'Prep' };
+/** The block's own name when it is one short word ("Shower"), else the short word; "Out the door" reads "Out". */
+const stopWord = (st: MorningSettings, k: MorningAfterKey) => {
+  const name = routineName(st, k);
+  if (/^out the door$/i.test(name)) return 'Out';
+  return /^\S{1,7}$/.test(name) ? name : STOP_WORD[k]!;
+};
 
 /** A rest morning on the hero's line: alarm, the routine's first and last block, leave. Null without a timeline. */
 const restStops = (log: Log, date: ISODate): Stop[] | null => {
   const st = log.boot?.morningSettings;
   if (!st) return null;
   const T = morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st);
-  const routine = T.blocks.filter((b) => b.key in STOP_WORD);
+  const routine = T.blocks.filter((b) => isAfterKey(b.key));
   const first = routine[0];
   const last = routine.length > 1 ? routine[routine.length - 1] : undefined;
   return [
     { key: 'wake', label: 'Alarm', at: T.day.wake },
-    ...(first ? [{ key: 'first', label: STOP_WORD[first.key]!, at: first.start }] : []),
-    ...(last ? [{ key: 'last', label: STOP_WORD[last.key]!, at: last.start }] : []),
+    ...(first ? [{ key: 'first', label: stopWord(st, first.key as MorningAfterKey), at: first.start }] : []),
+    ...(last ? [{ key: 'last', label: stopWord(st, last.key as MorningAfterKey), at: last.start }] : []),
     { key: 'leave', label: 'Leave', at: T.leave },
   ];
 };

@@ -1,4 +1,4 @@
-import { AFTER_LABELS, AFTER_ORDER, buildMorning, MORNING_DEFAULTS, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
+import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, NEW_ACCOUNT_MORNING, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
 import { useEffect, useState } from 'react';
 
 /**
@@ -23,23 +23,31 @@ export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.ma
  */
 export type AfterKey = MorningAfterKey;
 export const AFTER_KEYS = AFTER_ORDER;
-/**
- * The routine's names as the page says them: generic, nobody's own morning. The server's `smoothie` slot is a meal anyone
- * might have ("Breakfast"); the rest keep the shared names. (Contract 7: new accounts start with "Get ready 30" and the last
- * block 10, the others off.)
- */
-export const AFTER_LABEL: Record<AfterKey, string> = { ...AFTER_LABELS, smoothie: 'Breakfast' };
-/** A timeline block's name on this page: the routine's generic names, everything else as `buildMorning` wrote it. */
-export const blockLabel = (b: { key: string; label: string }) => ((AFTER_ORDER as readonly string[]).includes(b.key) ? AFTER_LABEL[b.key as AfterKey] : b.label);
+export const isAfterKey = (k: string): k is AfterKey => (AFTER_ORDER as readonly string[]).includes(k);
 
 /**
- * The routine a new account starts from (contract 7), used wherever the page needs defaults before the account's own
- * settings arrive, and for the editor's Reset: get ready 30, the last block 10, shower and breakfast off.
+ * A routine block's name: the athlete's own (`afterLabel`), and generic where the shared default is somebody's own habit:
+ * the `smoothie` slot with no name of its own is "Breakfast", a meal anyone might have.
  */
-export const ROUTINE_DEFAULTS: MorningSettings = {
-  ...MORNING_DEFAULTS,
-  after: { ...MORNING_DEFAULTS.after, shower: 0, ready: 30, smoothie: 0, prep: 10, order: [...AFTER_ORDER] },
+export const routineName = (st: Pick<MorningSettings, 'after'> | null | undefined, k: AfterKey): string => {
+  const name = afterLabel(st, k);
+  return k === 'smoothie' && name === AFTER_LABELS.smoothie ? 'Breakfast' : name;
 };
+
+/**
+ * A timeline block's name on this page. Routine blocks use `routineName`; the run's departure buffer keeps "Out the door"
+ * (the hero's DOOR, the session sheet's OUT THE DOOR), so a routine block that would wear the same name on a morning with
+ * a departure (a new account's last block is named "Out the door") goes by the routine's default name instead.
+ */
+export const blockLabel = (T: Pick<MorningTimeline, 'settings' | 'blocks'>, b: { key: string; label: string }): string => {
+  if (!isAfterKey(b.key)) return b.label;
+  const name = routineName(T.settings, b.key);
+  const clash = T.blocks.some((x) => x.key === 'buffer' && x.label.toLowerCase() === name.toLowerCase());
+  return clash ? AFTER_LABELS[b.key] : name;
+};
+
+/** The routine a new account starts from (contract 7), for any pre-load fallback and the routine editor's Reset. */
+export const ROUTINE_DEFAULTS: MorningSettings = NEW_ACCOUNT_MORNING;
 
 /** An order an earlier build kept on this device (`logbook.morning.order`): read once and forgotten, so it can go to the server. */
 export const takeLegacyOrder = (): AfterKey[] | null => {

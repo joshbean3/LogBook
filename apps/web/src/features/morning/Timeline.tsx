@@ -189,16 +189,16 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
     if (!actions) return [];
     const main = b.key === 'run' || b.key === 'gym';
     const day = b.key === 'wake' || main;
-    const items: ContextMenuItem[] = [{ label: day ? 'Edit' : `Edit ${blockLabel(b).toLowerCase()}`, icon: <Pencil size={18} />, onSelect: day ? actions.editDay : () => actions.editRoutine(b.key === 'buffer' ? 'buffer' : b.key) }];
+    const items: ContextMenuItem[] = [{ label: day ? 'Edit' : `Edit ${blockLabel(TT, b).toLowerCase()}`, icon: <Pencil size={18} />, onSelect: day ? actions.editDay : () => actions.editRoutine(b.key === 'buffer' ? 'buffer' : b.key) }];
     // a neighbour too short to hold on its own lends its Edit to this block's menu
-    for (const n of tinyNeighbours(b)) items.push({ label: `Edit ${blockLabel(n).toLowerCase()}`, icon: <Pencil size={18} />, onSelect: () => actions.editRoutine(n.key === 'buffer' ? 'buffer' : n.key) });
+    for (const n of tinyNeighbours(b)) items.push({ label: `Edit ${blockLabel(TT, n).toLowerCase()}`, icon: <Pencil size={18} />, onSelect: () => actions.editRoutine(n.key === 'buffer' ? 'buffer' : n.key) });
     if (actions.skipLabel) items.push({ label: `Skip ${actions.skipLabel}`, icon: <SkipForward size={18} />, onSelect: actions.skip });
     if (TT.day.mode !== 'rest') items.push({ label: 'Make this a rest day', icon: <Moon size={18} />, onSelect: actions.rest });
     else if (actions.backLabel) items.push({ label: `Back to ${actions.backLabel}`, icon: <Undo2 size={18} />, onSelect: actions.backToPlan });
     items.push({ label: 'Edit routine', icon: <SlidersHorizontal size={18} />, onSelect: () => actions.editRoutine() });
     return items;
   };
-  const nameOf = (b: TimelineBlock) => (b.key === 'run' ? `${TT.day.type} run` : b.key === 'gym' ? TT.day.type : blockLabel(b));
+  const nameOf = (b: TimelineBlock) => (b.key === 'run' ? `${TT.day.type} run` : b.key === 'gym' ? TT.day.type : blockLabel(TT, b));
   const openMenu = (el: HTMLElement, b: TimelineBlock, haptic = true) => menu.open({ items: itemsFor(b), anchor: el, label: `${nameOf(b)} actions`, haptic });
   const tap = (b: TimelineBlock) => {
     if (!actions) return;

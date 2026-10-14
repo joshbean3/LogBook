@@ -44,7 +44,7 @@ export const MiniLine = ({ T, now, bar, className = '' }: { T: MorningTimeline; 
                   initial={false}
                   animate={{ left: `${((b.start - T.day.wake) / span) * 100}%`, width: `${(b.mins / span) * 100}%` }}
                   transition={reduce ? { duration: 0 } : springs.settle}
-                  title={`${blockLabel(b)}, ${durationWords(b.mins)}`}
+                  title={`${blockLabel(T, b)}, ${durationWords(b.mins)}`}
                 />
               ),
             )
