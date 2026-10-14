@@ -127,7 +127,7 @@ First time:
 6. Plug in your iPhone, pick it in the device menu at the top, press the Play button.
 7. On the phone, go to Settings, General, VPN & Device Management, and trust your developer certificate.
 
-Every update after that: `fly deploy` first (the app talks to the server, so new features need the new server), then `git pull && pnpm install && pnpm ios`, then press Play in Xcode.
+Every update after that: `git pull && pnpm install && fly deploy && pnpm ios`, then press Play in Xcode. Deploy before you run the app: it talks to the server, so new features need the new server.
 
 Note: with a free Apple ID the app must be reinstalled from Xcode every 7 days. A paid Apple Developer account ($99/yr) lifts that to a year and unlocks TestFlight, where it installs like any App Store app.
 
