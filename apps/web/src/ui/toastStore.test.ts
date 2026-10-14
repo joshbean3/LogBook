@@ -21,6 +21,15 @@ describe('toast (D-F1)', () => {
     expect(store.get()).toBeNull();
   });
 
+  it('an action can ask for a longer stay (the 8s Undo after replacing a plan)', () => {
+    const store = createToastStore();
+    store.show('Base is on your calendar. 51 sessions replaced.', { label: 'Undo', fn: () => {}, duration: 8000 });
+    vi.advanceTimersByTime(TOAST_ACTION_MS + 500);
+    expect(store.get()?.action?.label).toBe('Undo');
+    vi.advanceTimersByTime(8000 - TOAST_ACTION_MS - 400);
+    expect(store.get()).toBeNull();
+  });
+
   it('an action that shows nothing clears its toast', () => {
     const store = createToastStore();
     const fn = vi.fn();

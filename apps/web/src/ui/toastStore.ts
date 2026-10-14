@@ -1,6 +1,6 @@
 /**
  * The toast's state, outside React so it can be tested without a DOM. One toast at a time: `show` replaces whatever is
- * up and starts its timer (2.8s, 6.5s with an action); `act(id)` runs the action of the toast with that id.
+ * up and starts its timer (2.8s, 6.5s with an action, or the action's own `duration`); `act(id)` runs the action of the toast with that id.
  *
  * D-F1: an action that shows a follow-up toast ("Ease them" → "Eased. Undo") used to lose it, because the old code ran
  * the action and then cleared the toast, wiping the one the action had just shown. `act` clears only the toast that was
@@ -9,6 +9,8 @@
 export interface ToastAction {
   label: string;
   fn: () => void;
+  /** How long the toast stays up, in ms (default 6.5s). For an Undo whose consequence is large, e.g. replacing a plan. */
+  duration?: number;
 }
 export interface ToastSpec {
   id: number;
@@ -43,7 +45,7 @@ export const createToastStore = (timers: { set: (fn: () => void, ms: number) => 
       timers.clear(timer);
       const id = ++seq;
       current = { id, text, action };
-      timer = timers.set(() => dismiss(id), action ? TOAST_ACTION_MS : TOAST_MS);
+      timer = timers.set(() => dismiss(id), action ? (action.duration ?? TOAST_ACTION_MS) : TOAST_MS);
       emit();
       return id;
     },

@@ -437,7 +437,7 @@ const replaceable = (log: Log, from: string, to: string, overlap: PlanBlock[]) =
   return n;
 };
 
-/** How long the Undo after a replace stays up (the Toast honours `duration` once foundation adds it; 6.5s until then). */
+/** How long the Undo after a replace stays up. */
 const REPLACE_UNDO_MS = 8000;
 /**
  * The toast after "Use this plan". A replace always carries Undo (contract 1's `POST /plans/template/undo`), when the
