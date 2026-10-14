@@ -24,11 +24,21 @@ export const useBootstrap = () => useQuery({ queryKey: keys.bootstrap, queryFn: 
 export const fetchMonth = (m: string) => api<MonthBundle>(`/months/${m}`);
 export const useMonth = (m: string) => useQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 });
 
+const versions = new WeakMap<object, number>();
+let nextVersion = 1;
+/** A stable number per data object, so a change is seen even when two updates share a timestamp. */
+const dataVersion = (d: unknown) => {
+  if (!d || typeof d !== 'object') return 0;
+  let v = versions.get(d);
+  if (!v) versions.set(d, (v = nextVersion++));
+  return v;
+};
+
 /** Several months at once; the result map only has the ones that have loaded. */
 export const useMonths = (months: string[]) => {
   const results = useQueries({ queries: months.map((m) => ({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })) });
   // identity only changes when a month's data actually changes, so downstream memos stay cheap
-  const sig = results.map((r) => r.dataUpdatedAt).join('|') + '#' + months.join(',');
+  const sig = results.map((r) => `${r.dataUpdatedAt}:${dataVersion(r.data)}`).join('|') + '#' + months.join(',');
   const bundles = useMemo(() => {
     const out: Record<string, MonthBundle> = {};
     results.forEach((r, i) => {

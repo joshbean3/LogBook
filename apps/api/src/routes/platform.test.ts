@@ -351,3 +351,25 @@ describe('PATCH /morning/settings after.order', () => {
     expect((await call('PATCH', '/api/morning/settings', { after: { order: ['prep', 'prep', 'ready', 'smoothie'] } }, cookie)).status).toBe(422);
   });
 });
+
+describe('POST /plans/apply with replace', () => {
+  it('soft-deletes only what was planned; marked sessions are history and stay', async () => {
+    const { cookie } = await signUp('apply@example.com', 'password123', '/api/auth/setup');
+    const day = shiftDays(today(), 2);
+    const add = async (extra: Record<string, unknown> = {}) => (await call('POST', '/api/sessions', { date: day, kind: 'run', type: 'Easy', miles: 4, ...extra }, cookie)).body.id as string;
+    const planned = await add();
+    const done = await add({ type: 'Long', miles: 8 });
+    await call('POST', `/api/sessions/${done}/mark`, { mark: 'done' }, cookie);
+    const draft = { name: 'Next block', summary: '', notes: [], start: day, end: day, sessions: [{ date: day, kind: 'run', type: 'Tempo', title: 'Tempo 5', details: '', miles: 5, minutes: null }] };
+    const r = await call('POST', '/api/plans/apply', { draft, mode: 'replace' }, cookie);
+    expect(r.status).toBe(201);
+    const rows = sqlite.prepare('select id, type, mark, deleted_at, position from training_sessions where date = ? order by position').all(day) as Array<{ id: string; type: string; mark: string | null; deleted_at: string | null; position: number }>;
+    expect(rows.find((x) => x.id === planned)?.deleted_at).not.toBeNull();
+    const kept = rows.find((x) => x.id === done)!;
+    expect(kept.deleted_at).toBeNull();
+    expect(kept.mark).toBe('done');
+    const added = rows.find((x) => x.type === 'Tempo')!;
+    expect(added.deleted_at).toBeNull();
+    expect(added.position).toBeGreaterThan(kept.position);
+  });
+});
