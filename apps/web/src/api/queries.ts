@@ -337,44 +337,88 @@ const deepMerge = (a: any, b: any): any => {
   return out;
 };
 
+// ── journal ──
+// The Journal team's block: journal entries, quotes, reads and today's pick. Other teams import, never edit.
+
 // ---------- journal & quotes ----------
+type JournalList = { entries: JournalEntry[]; more: boolean };
+/** Newest day first, newest entry first within a day: the order the server keeps. */
+const journalOrder = (a: JournalEntry, b: JournalEntry) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1);
+/** Every cached entry list (`['journal', q, fav]`), patched in place so the timeline answers before the server does. */
+const patchJournalLists = (qc: QueryClient, fn: (entries: JournalEntry[], q: string, fav: boolean) => JournalEntry[]) => {
+  for (const [key, data] of qc.getQueriesData<JournalList>({ queryKey: ['journal'] })) {
+    if (!data) continue;
+    const [, q = '', fav = false] = key as unknown as [string, string, boolean];
+    qc.setQueryData<JournalList>(key, { ...data, entries: fn(data.entries, q, fav).sort(journalOrder) });
+  }
+};
+const matchesList = (e: JournalEntry, q: string, fav: boolean) => (!fav || e.fav) && (!q || e.text.toLowerCase().includes(q.toLowerCase()));
+
 export const useJournalMutations = () => {
   const qc = useQueryClient();
   const bump = () => {
     void qc.invalidateQueries({ queryKey: ['journal'] });
     void qc.invalidateQueries({ queryKey: keys.daily });
   };
+  /** Save an entry. The month and every list show it at once (a provisional id), then swap in the server's. Resolves to the entry. */
   const add = useMutation({
     mutationFn: async ({ date, text }: { date: string; text: string }) => {
       const month = monthOf(date);
       const tmp: JournalEntry = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, date, text, createdAt: new Date().toISOString(), editedAt: null, fav: false };
       ensureMonth(qc, month);
       patchMonth(qc, month, (b) => ({ ...b, journal: [...b.journal, tmp] }));
-      const saved = await write<JournalEntry>('/journal', 'POST', { date, text }, [keys.month(month), ['journal']]);
-      if (saved) patchMonth(qc, month, (b) => ({ ...b, journal: b.journal.map((x) => (x.id === tmp.id ? saved : x)) }));
+      void qc.cancelQueries({ queryKey: ['journal'] });
+      patchJournalLists(qc, (l, q, fav) => (matchesList(tmp, q, fav) ? [tmp, ...l] : l));
+      const saved = await write<JournalEntry>('/journal', 'POST', { date, text }, [keys.month(month), ['journal']], { tmpId: tmp.id });
+      if (saved) {
+        patchMonth(qc, month, (b) => ({ ...b, journal: b.journal.map((x) => (x.id === tmp.id ? saved : x)) }));
+        patchJournalLists(qc, (l) => l.map((x) => (x.id === tmp.id ? saved : x)));
+      }
       bump();
+      return saved ?? tmp;
     },
-    onError: (_e, v) => invalidateMonth(qc, monthOf(v.date)),
+    onError: (_e, v) => {
+      invalidateMonth(qc, monthOf(v.date));
+      void qc.invalidateQueries({ queryKey: ['journal'] });
+    },
   });
   const patch = useMutation({
     mutationFn: async ({ entry, text, fav }: { entry: JournalEntry; text?: string; fav?: boolean }) => {
-      patchMonth(qc, monthOf(entry.date), (b) => ({ ...b, journal: b.journal.map((x) => (x.id === entry.id ? { ...x, text: text ?? x.text, fav: fav ?? x.fav, editedAt: text ? new Date().toISOString() : x.editedAt } : x)) }));
+      const next = (x: JournalEntry): JournalEntry => ({ ...x, text: text ?? x.text, fav: fav ?? x.fav, editedAt: text ? new Date().toISOString() : x.editedAt });
+      patchMonth(qc, monthOf(entry.date), (b) => ({ ...b, journal: b.journal.map((x) => (x.id === entry.id ? next(x) : x)) }));
+      void qc.cancelQueries({ queryKey: ['journal'] });
+      patchJournalLists(qc, (l, q, onlyFav) => {
+        const n = next(l.find((x) => x.id === entry.id) ?? entry);
+        if (!matchesList(n, q, onlyFav)) return l.filter((x) => x.id !== entry.id);
+        return l.some((x) => x.id === entry.id) ? l.map((x) => (x.id === entry.id ? n : x)) : [n, ...l];
+      });
+      qc.setQueryData<Daily>(keys.daily, (d) => (d && d.memory?.id === entry.id ? { ...d, memory: next(d.memory) } : d));
       await write(`/journal/${entry.id}`, 'PATCH', { text, fav }, [keys.month(monthOf(entry.date)), ['journal']]);
       bump();
     },
-    onError: (_e, v) => invalidateMonth(qc, monthOf(v.entry.date)),
+    onError: (_e, v) => {
+      invalidateMonth(qc, monthOf(v.entry.date));
+      void qc.invalidateQueries({ queryKey: ['journal'] });
+    },
   });
   const remove = useMutation({
     mutationFn: async (entry: JournalEntry) => {
       patchMonth(qc, monthOf(entry.date), (b) => ({ ...b, journal: b.journal.filter((x) => x.id !== entry.id) }));
+      void qc.cancelQueries({ queryKey: ['journal'] });
+      patchJournalLists(qc, (l) => l.filter((x) => x.id !== entry.id));
       await write(`/journal/${entry.id}`, 'DELETE', undefined, [keys.month(monthOf(entry.date)), ['journal']]);
       bump();
     },
-    onError: (_e, v) => invalidateMonth(qc, monthOf(v.date)),
+    onError: (_e, v) => {
+      invalidateMonth(qc, monthOf(v.date));
+      void qc.invalidateQueries({ queryKey: ['journal'] });
+    },
   });
   const restore = useMutation({
     mutationFn: async (entry: JournalEntry) => {
-      patchMonth(qc, monthOf(entry.date), (b) => ({ ...b, journal: [...b.journal, entry] }));
+      patchMonth(qc, monthOf(entry.date), (b) => ({ ...b, journal: [...b.journal.filter((x) => x.id !== entry.id), entry] }));
+      void qc.cancelQueries({ queryKey: ['journal'] });
+      patchJournalLists(qc, (l, q, fav) => (matchesList(entry, q, fav) ? [entry, ...l.filter((x) => x.id !== entry.id)] : l));
       await write(`/journal/${entry.id}/restore`, 'POST', undefined, [keys.month(monthOf(entry.date)), ['journal']]);
       bump();
     },
@@ -383,6 +427,7 @@ export const useJournalMutations = () => {
     mutationFn: async (kind: 'memory' | 'quote') => {
       const r = await api<{ kind: string; item: JournalEntry | Quote | null }>('/journal/daily/another', { method: 'POST', json: { kind } });
       qc.setQueryData<Daily>(keys.daily, (d) => (d ? { ...d, [kind]: r.item } : d));
+      return r.item;
     },
   });
   const quotePrefs = useMutation({
@@ -390,6 +435,8 @@ export const useJournalMutations = () => {
       qc.setQueryData<Daily>(keys.daily, (d) => (d && d.quote?.id === id && fav !== undefined ? { ...d, quote: { ...d.quote, fav } } : d));
       qc.setQueriesData<QuotePage>({ queryKey: ['quotes'] }, (p) => (p ? { ...p, quotes: p.quotes.map((q) => (q.id === id ? { ...q, fav: fav ?? q.fav } : q)).filter((q) => !(hidden && q.id === id)) } : p));
       await write(`/quotes/${id}/prefs`, 'PUT', { fav, hidden }, [['quotes'], keys.daily]);
+      // a favourite joins (or leaves) the favourites list, which the server filters; an unhidden quote comes back
+      if (fav !== undefined || hidden === false) void qc.invalidateQueries({ queryKey: ['quotes'] });
     },
     onError: () => void qc.invalidateQueries({ queryKey: ['quotes'] }),
   });
@@ -402,7 +449,7 @@ export const useJournalMutations = () => {
   });
   const removeQuote = useMutation({
     mutationFn: async (id: string) => {
-      qc.setQueriesData<QuotePage>({ queryKey: ['quotes'] }, (p) => (p ? { ...p, quotes: p.quotes.filter((q) => q.id !== id), total: p.total - 1 } : p));
+      qc.setQueriesData<QuotePage>({ queryKey: ['quotes'] }, (p) => (p ? { ...p, quotes: p.quotes.filter((q) => q.id !== id), total: Math.max(0, p.total - 1) } : p));
       await write(`/quotes/${id}`, 'DELETE', undefined, [['quotes']]);
     },
   });
@@ -498,6 +545,8 @@ export const useReadsMutations = () => {
   });
   return { add, patch, remove, restore, feedback, another };
 };
+
+// ── /journal ──
 
 // ---------- blocks ----------
 export const useBlockMutations = () => {
