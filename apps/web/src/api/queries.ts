@@ -3,7 +3,7 @@ import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } f
 import { useMemo } from 'react';
 import { api, ApiError } from './client';
 import { write } from './outbox';
-import type { Bootstrap, Daily, MonthBundle, QuotePage } from './types';
+import type { Bootstrap, Daily, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
 
 export const keys = {
   bootstrap: ['bootstrap'] as const,
@@ -509,3 +509,36 @@ export const useBlockMutations = () => {
   });
   return { remove };
 };
+
+// ── growth ──
+/** First run in one call (docs/platform.md §5): morning settings, starter habits, the first block, `onboardedAt`. */
+export const useOnboard = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (answers: OnboardingAnswers) => api<OnboardingResult>('/me/onboarding', { method: 'POST', json: answers }),
+    onSuccess: (r) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, ...r.user }, morningSettings: r.morningSettings, habits: r.habits, blocks: [...b.blocks.filter((x) => x.id !== r.block.id), r.block] } : b));
+      for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+      void qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/** `POST /plans/template` with `replace`: rebuild the plan from a start date, keeping everything already done. */
+export const useRebuildPlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<OnboardingAnswers, 'wake' | 'leave' | 'pace' | 'habits' | 'start' | 'today'> & { startDate: string; replace?: boolean }) =>
+      api<TemplateApplied>('/plans/template', { method: 'POST', json: { replace: true, ...input } }),
+    onSuccess: (r) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, blocks: [...b.blocks.filter((x) => x.id !== r.block.id), r.block] } : b));
+      for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+      void qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/** `DELETE /me`: the account and everything it owns. 403 `bad_password` when the password is wrong. */
+export const useDeleteAccount = () =>
+  useMutation({ mutationFn: (password: string) => api<{ ok: true; removed: Record<string, number> }>('/me', { method: 'DELETE', json: { password } }) });
+// ── end growth ──

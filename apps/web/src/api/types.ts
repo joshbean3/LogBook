@@ -1,7 +1,8 @@
 import type { CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, Quote, Session, StravaStatus, Activity } from '@logbook/shared';
 
 export interface Bootstrap {
-  user: { id: string; email: string };
+  /** `onboardedAt` null = a new account that has not been through /welcome yet (absent in caches from before it existed). */
+  user: { id: string; email: string; onboardedAt?: string | null };
   habits: Habit[];
   blocks: PlanBlock[];
   morningSettings: MorningSettings;
@@ -38,4 +39,35 @@ export interface QuotePage {
 export interface AuthStatus {
   hasAccount: boolean;
   setupOpen: boolean;
+  /** This visitor can create an account now (first account with setup on, or any with ALLOW_SIGNUP). */
+  signupOpen?: boolean;
+}
+
+/** `POST /me/onboarding`: the first-run answers (docs/platform.md §5). Times in minutes after midnight. */
+export interface OnboardingAnswers {
+  goal: 'base' | '5k' | '10k' | 'half' | 'marathon';
+  raceDate?: string | null;
+  runDays: Array<'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'>;
+  longRunDay: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+  weeklyMiles: number;
+  wake: number;
+  leave: number;
+  pace?: number | null;
+  habits: string[];
+  start?: 'monday' | 'tomorrow';
+  today?: string;
+}
+export interface OnboardingResult {
+  user: { id: string; email: string; onboardedAt: string | null };
+  morningSettings: MorningSettings;
+  habits: Habit[];
+  block: PlanBlock;
+  months: string[];
+  firstDay: string | null;
+}
+/** `POST /plans/template`: the block written, the months it touches, and how many future planned sessions it replaced. */
+export interface TemplateApplied {
+  block: PlanBlock;
+  months: string[];
+  removed: number;
 }
