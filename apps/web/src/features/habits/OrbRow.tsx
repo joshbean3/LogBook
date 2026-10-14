@@ -263,7 +263,8 @@ const AddHabit = ({ existing, onDone }: { existing: string[]; onDone: () => void
  * row, 40ms apart, the caption reads "All lit." and `haptics.success()` plays instead. Hold to reorder or for the menu.
  * A trailing "+" adds a habit, with starter chips.
  */
-export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log; editable?: boolean }) => {
+/** `quiet`: another surface (the evening card) already counts what is left, so the caption only speaks for "All lit." */
+export const OrbRow = ({ date, log, editable = true, quiet = false }: { date: ISODate; log: Log; editable?: boolean; quiet?: boolean }) => {
   const { reorder, check } = useHabitMutations();
   const sheet = useSheet();
   const openHabit = useOpenHabit();
@@ -382,7 +383,7 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
       </div>
       <p className={`orbs-cap ${all ? 'all' : ''}`} aria-live="polite">
         {/* a past day has nothing left to light: it says what happened */}
-        {!list.length ? 'Habits light up here as you do them.' : all ? 'All lit.' : done ? `${done} of ${list.length} lit` : date < log.today ? 'None lit that day.' : `${list.length} to light`}
+        {!list.length ? 'Habits light up here as you do them.' : all ? 'All lit.' : quiet ? null : done ? `${done} of ${list.length} lit` : date < log.today ? 'None lit that day.' : `${list.length} to light`}
       </p>
       <AnimatePresence initial={false}>{adding ? <AddHabit key="add" existing={log.habits.map((h) => h.name)} onDone={() => setAdding(false)} /> : null}</AnimatePresence>
     </section>

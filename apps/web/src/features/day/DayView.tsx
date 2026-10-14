@@ -88,7 +88,7 @@ export default function DayView() {
       )}
       {/* after first run (and until Later): "See your runs land here", under the hero; the setup card has its own Strava step */}
       {loaded && isToday && !setup && primer.show ? <StravaPrimer className="today-primer" onLater={primer.later} /> : null}
-      {loaded && showHabits && !(setup && !log.habits.length) ? <OrbRow date={date} log={log} /> : null}
+      {loaded && showHabits && !(setup && !log.habits.length) ? <OrbRow date={date} log={log} quiet={isToday && minutes >= EVENING_START} /> : null}
       {loaded && isToday ? <TodayTodos date={date} /> : null}
       {closeAtEnd ? (
         <div className="sec-primary">
