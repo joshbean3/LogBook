@@ -1,10 +1,10 @@
 import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
-import { Check, ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown, Clock, X } from 'lucide-react';
 import { motion, useDragControls, useMotionValue, useReducedMotion, type Box } from 'motion/react';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clientKey, useTodoMutations, useTodos } from '@/api/queries';
-import { haptic } from '@/lib/haptics';
-import { Button, EmptyState, Group, Loading, Mark, SectionHead } from '@/ui/primitives';
+import { haptics } from '@/lib/haptics';
+import { Button, Mark, SkeletonRows } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { groupsOn, inToday, liveOn, settleInto, stepWithin, todayOpenOn, type Tier, type TodoGroupSpec } from './groups';
@@ -24,8 +24,8 @@ const HOLD_SLOP = 6;
 /** The words at the right of a row: the day a Later item is for. Nothing on its own day. */
 const dueLabelOf = (x: Todo, date: ISODate) => (x.bucket === 'later' && x.due ? (x.due === date ? null : x.due < date ? `Due ${fmtDate('md', x.due)}` : x.due === shiftDays(date, 1) ? 'Tomorrow' : fmtDate('md', x.due)) : null);
 
-// ---------- one row: swipe right to complete, left to delete; hold to lift and reorder; tap the name for the sheet ----------
-const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, onLift, onMove, onMeasure, onDrop, onStep }: { x: Todo; date: ISODate; done: boolean; carried: boolean; canDrag: boolean; onToggle: () => void; onDelete: () => void; onEdit: () => void; onLift: () => void; onMove: (offset: number, velocity: number) => void; onMeasure: (span: Span) => void; onDrop: () => void; onStep: (dir: -1 | 1) => void }) => {
+// ---------- one row: swipe right to complete, left for Later (or delete, outside Today); hold to lift and reorder; tap the name for the sheet ----------
+const TodoRow = ({ x, date, done, carried, canDrag, leftKind, onToggle, onLeft, onEdit, onLift, onMove, onMeasure, onDrop, onStep }: { x: Todo; date: ISODate; done: boolean; carried: boolean; canDrag: boolean; leftKind: 'later' | 'delete'; onToggle: () => void; onLeft: () => void; onEdit: () => void; onLift: () => void; onMove: (offset: number, velocity: number) => void; onMeasure: (span: Span) => void; onDrop: () => void; onStep: (dir: -1 | 1) => void }) => {
   const reduce = useReducedMotion();
   const controls = useDragControls();
   const [gone, setGone] = useState<'left' | 'right' | null>(null);
@@ -84,7 +84,7 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
         hold.current = null;
         liftedRef.current = true;
         setLifted(true);
-        haptic();
+        haptics.lift();
         onLift();
         // a lift with no move never reaches onDragEnd, so the release settles it; the click that follows must see the lift
         const settle = () => {
@@ -111,20 +111,20 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
     moved.current = true;
     const v = mx.get();
     const next = v >= THRESHOLD ? 'right' : v <= -THRESHOLD ? 'left' : null;
-    if (next && next !== armed.current) haptic('tick');
+    if (next !== armed.current) haptics.threshold();
     armed.current = next;
   };
   const onSwipeEnd = () => {
     const v = mx.get();
     armed.current = null;
     if (v >= THRESHOLD) {
-      haptic('success');
+      haptics.toggle();
       setGone('right');
       setTimeout(onToggle, 180);
     } else if (v <= -THRESHOLD) {
-      haptic('warn');
+      if (leftKind === 'delete') haptics.delete();
       setGone('left');
-      setTimeout(onDelete, 180);
+      setTimeout(onLeft, 180);
     }
   };
   // the mark is the celebration: fill, check, glow, then the row folds away
@@ -143,8 +143,8 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
         <span className="todo-under-left">
           <Check size={20} strokeWidth={2.5} />
         </span>
-        <span className="todo-under-right">
-          <X size={20} strokeWidth={2.5} />
+        <span className={`todo-under-right ${leftKind === 'later' ? 'later' : ''}`}>
+          {leftKind === 'later' ? <Clock size={20} strokeWidth={2.5} /> : <X size={20} strokeWidth={2.5} />}
         </span>
       </div>
       {/* the one moving element: it swipes along x, and once lifted it is the dragged row along y; `layout` slides the others out of its way */}
@@ -207,7 +207,7 @@ const TodoRow = ({ x, date, done, carried, canDrag, onToggle, onDelete, onEdit, 
  * which sent the page running. The rule is the same one Reorder uses: the lifted row swaps with its neighbour
  * once its edge passes the neighbour's centre. On the drop the row adopts the tier it landed in (see `settleInto`).
  */
-const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { items: Todo[]; sort: (a: Todo, b: Todo) => number; tier: Tier; date: ISODate; done?: boolean; canDrag?: boolean; row: (x: Todo, isDone: boolean) => Omit<React.ComponentProps<typeof TodoRow>, 'x' | 'date' | 'done' | 'canDrag' | 'onLift' | 'onMove' | 'onMeasure' | 'onDrop' | 'onStep'> }) => {
+const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { items: Todo[]; sort: (a: Todo, b: Todo) => number; tier: Tier; date: ISODate; done?: boolean; canDrag?: boolean; row: (x: Todo, isDone: boolean) => Omit<React.ComponentProps<typeof TodoRow>, 'x' | 'date' | 'done' | 'canDrag' | 'leftKind' | 'onLift' | 'onMove' | 'onMeasure' | 'onDrop' | 'onStep'> }) => {
   const { reorder, patch } = useTodoMutations();
   // rows are keyed by the id they were born with, so a provisional row the server names mid-drag stays mounted
   const keyOf = (x: Todo) => clientKey(x.id);
@@ -277,7 +277,7 @@ const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { ite
     const row = byId.get(key);
     const r = row ? stepWithin(list, row.id, dir, tier) : null;
     if (!r) return;
-    haptic();
+    haptics.drop();
     commit(r.order.map(clientKey), key);
   };
   return (
@@ -289,6 +289,7 @@ const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { ite
           date={date}
           done={!!done}
           canDrag={canDrag && list.length > 1}
+          leftKind={tier === 'priority' && !done && inToday(x, date) ? 'later' : 'delete'}
           onLift={() => {
             dragging.current = keyOf(x);
             setLifting(true);
@@ -315,20 +316,13 @@ const Fold = ({ label, count, meta, open, onToggle }: { label: string; count: nu
   </button>
 );
 
-// ---------- the section ----------
-export const TodosSection = ({ date }: { date: ISODate }) => {
-  const todos = useTodos();
-  const { add, patch } = useTodoMutations();
-  const sheet = useSheet();
-  const toast = useToast();
+// ---------- the quick-add line, shared by Today and the full list ----------
+/** "Call the bank fri !!": the line reads its marks and says what it understood, in caps, as you type. */
+export const QuickAddField = ({ date, placeholder = 'Add a to-do' }: { date: ISODate; placeholder?: string }) => {
+  const { add } = useTodoMutations();
   const hintId = useId();
   const [draft, setDraft] = useState('');
   const [typing, setTyping] = useState(false);
-  const [showLater, setShowLater] = useState(false);
-  const [showSomeday, setShowSomeday] = useState(false);
-  const [showDone, setShowDone] = useState(false);
-  const groups = useMemo(() => groupsOn(todos.data, date), [todos.data, date]);
-  const [today, later, someday, done] = groups as [TodoGroupSpec, TodoGroupSpec, TodoGroupSpec, TodoGroupSpec];
   const parsed = parseQuickAdd(draft, date);
   const understood = [parsed.priority ? (parsed.priority === 2 ? 'High' : 'Medium') : null, parsed.bucket === 'later' ? (parsed.due ? fmtDate('md', parsed.due) : 'Later') : parsed.bucket === 'someday' ? 'Someday' : null].filter(Boolean).join(' · ');
   // what the line understood, or, on an empty focused field, the marks it would understand
@@ -336,65 +330,97 @@ export const TodosSection = ({ date }: { date: ISODate }) => {
   const addIt = () => {
     if (!parsed.text) return;
     add.mutate({ text: parsed.text, date, priority: parsed.priority, bucket: parsed.bucket, due: parsed.due });
+    haptics.toggle();
     setDraft('');
   };
-  const remove = (x: Todo) => {
-    patch.mutate({ id: x.id, deletedOn: date });
-    toast('Deleted', { label: 'Undo', fn: () => patch.mutate({ id: x.id, deletedOn: null }) });
+  return (
+    <div className="lrow-add tadd">
+      <input className="in" placeholder={placeholder} maxLength={200} aria-label="New to-do" aria-describedby={hint ? hintId : undefined} value={draft} onChange={(e) => setDraft(e.target.value)} onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addIt())} />
+      {hint ? (
+        <span id={hintId} className="tadd-hint caps" role="status">
+          {hint}
+        </span>
+      ) : null}
+      {parsed.text ? (
+        <Button variant="soft" className="tadd-btn" onClick={addIt}>
+          Add
+        </Button>
+      ) : null}
+    </div>
+  );
+};
+
+/** Later means a day: tomorrow, unless the item already had one ahead. */
+export const laterPatch = (x: Todo, date: ISODate) => ({ bucket: 'later' as const, due: x.due && x.due > date ? x.due : shiftDays(date, 1) });
+
+/** Every to-do action with its Undo, from any surface (the Today rows, the full list). */
+export const useTodoActions = (date: ISODate) => {
+  const { patch } = useTodoMutations();
+  const toast = useToast();
+  return {
+    done: (x: Todo, undoable = true) => {
+      patch.mutate({ id: x.id, doneOn: date });
+      if (undoable) toast('Done', { label: 'Undo', fn: () => patch.mutate({ id: x.id, doneOn: null }) });
+    },
+    reopen: (x: Todo) => patch.mutate({ id: x.id, doneOn: null }),
+    later: (x: Todo) => {
+      const was = { bucket: x.bucket, due: x.due };
+      const next = laterPatch(x, date);
+      patch.mutate({ id: x.id, ...next });
+      toast(next.due === shiftDays(date, 1) ? 'Moved to tomorrow' : `Moved to ${fmtDate('md', next.due)}`, { label: 'Undo', fn: () => patch.mutate({ id: x.id, ...was }) });
+    },
+    someday: (x: Todo) => {
+      const was = { bucket: x.bucket, due: x.due };
+      patch.mutate({ id: x.id, bucket: 'someday' });
+      toast('Moved to Someday', { label: 'Undo', fn: () => patch.mutate({ id: x.id, ...was }) });
+    },
+    today: (x: Todo) => patch.mutate({ id: x.id, bucket: 'today' }),
+    priority: (x: Todo, p: Todo['priority']) => {
+      haptics.toggle();
+      patch.mutate({ id: x.id, priority: p });
+    },
+    remove: (x: Todo) => {
+      haptics.delete();
+      patch.mutate({ id: x.id, deletedOn: date });
+      toast('Deleted', { label: 'Undo', fn: () => patch.mutate({ id: x.id, deletedOn: null }) });
+    },
   };
+};
+
+/**
+ * The full to-do list, in a sheet: Today's rows (hold to reorder, swipe right for Done, left for Later), the quick-add line,
+ * then the Later, Someday and Completed folds. A row's name pushes its editor inside the same sheet.
+ */
+export const TodoListSheet = ({ date, open: initial }: { date: ISODate; open?: 'later' | 'someday' }) => {
+  const todos = useTodos();
+  const sheet = useSheet();
+  const act = useTodoActions(date);
+  const [showLater, setShowLater] = useState(initial === 'later');
+  const [showSomeday, setShowSomeday] = useState(initial === 'someday');
+  const [showDone, setShowDone] = useState(false);
+  const groups = useMemo(() => groupsOn(todos.data, date), [todos.data, date]);
+  const [today, later, someday, done] = groups as [TodoGroupSpec, TodoGroupSpec, TodoGroupSpec, TodoGroupSpec];
   const row = (x: Todo, isDone: boolean) => ({
     carried: x.bucket === 'today' && x.createdOn < date && !isDone,
-    onToggle: () => patch.mutate({ id: x.id, doneOn: isDone ? null : date }),
-    onDelete: () => remove(x),
-    onEdit: () => sheet.open({ title: <span className="caps tsheet-kicker">To-do</span>, body: <TodoSheet x={x} date={date} /> }),
+    onToggle: () => (isDone ? act.reopen(x) : act.done(x, false)),
+    onLeft: () => (inToday(x, date) && !isDone ? act.later(x) : act.remove(x)),
+    onEdit: () => sheet.push({ eyebrow: 'To-do', title: x.text, body: <TodoSheet x={x} date={date} /> }),
   });
   const nextDues = [...new Set(later.items.map((x) => x.due).filter((d): d is string => !!d))]
     .slice(0, 2)
     .map((d) => fmtDate('md', d))
     .join(' · ');
-  const elsewhere = later.items.length + someday.items.length;
   return (
-    <>
-      <SectionHead title="To-dos" meta={today.items.length ? `${today.items.length} open` : undefined} />
-      <Group>
-        {todos.isPending && !todos.data ? <Loading text="Loading to-dos…" /> : null}
-        {today.items.length ? <TodoGroup items={today.items} sort={today.sort} tier={today.tier} date={date} row={row} /> : null}
-        {!today.items.length && todos.data ? (
-          elsewhere ? (
-            <EmptyState
-              action={
-                <Button size="sm" variant="soft" onClick={() => (later.items.length ? setShowLater(true) : setShowSomeday(true))}>
-                  Open
-                </Button>
-              }
-            >
-              Nothing for today.
-            </EmptyState>
-          ) : (
-            <EmptyState>{done.items.length ? 'All clear for today.' : 'Nothing on the list. What you don’t finish rolls to tomorrow.'}</EmptyState>
-          )
-        ) : null}
-        <div className="lrow-add tadd">
-          <input className="in" placeholder="Add a to-do" maxLength={200} aria-label="New to-do" aria-describedby={hint ? hintId : undefined} value={draft} onChange={(e) => setDraft(e.target.value)} onFocus={() => setTyping(true)} onBlur={() => setTyping(false)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addIt())} />
-          {hint ? (
-            <span id={hintId} className="tadd-hint caps" role="status">
-              {hint}
-            </span>
-          ) : null}
-          {parsed.text ? (
-            <Button variant="soft" className="tadd-btn" onClick={addIt}>
-              Add
-            </Button>
-          ) : null}
-        </div>
-        {later.items.length ? <Fold label="Later" count={later.items.length} meta={nextDues || undefined} open={showLater} onToggle={() => setShowLater((s) => !s)} /> : null}
-        {showLater && later.items.length ? <TodoGroup items={later.items} sort={later.sort} tier={later.tier} date={date} row={row} /> : null}
-        {someday.items.length ? <Fold label="Someday" count={someday.items.length} open={showSomeday} onToggle={() => setShowSomeday((s) => !s)} /> : null}
-        {showSomeday && someday.items.length ? <TodoGroup items={someday.items} sort={someday.sort} tier={someday.tier} date={date} row={row} /> : null}
-        {done.items.length ? <Fold label="Completed" count={done.items.length} open={showDone} onToggle={() => setShowDone((s) => !s)} /> : null}
-        {showDone && done.items.length ? <TodoGroup items={done.items} sort={done.sort} tier={done.tier} date={date} done canDrag={false} row={row} /> : null}
-      </Group>
-    </>
+    <div className="tlist">
+      {todos.isPending && !todos.data ? <SkeletonRows rows={3} label="Loading to-dos" /> : null}
+      {today.items.length ? <TodoGroup items={today.items} sort={today.sort} tier={today.tier} date={date} row={row} /> : todos.data ? <p className="tlist-clear">{done.items.length ? 'All clear for today.' : 'Nothing for today yet.'}</p> : null}
+      <QuickAddField date={date} />
+      {later.items.length ? <Fold label="Later" count={later.items.length} meta={nextDues || undefined} open={showLater} onToggle={() => setShowLater((s) => !s)} /> : null}
+      {showLater && later.items.length ? <TodoGroup items={later.items} sort={later.sort} tier={later.tier} date={date} row={row} /> : null}
+      {someday.items.length ? <Fold label="Someday" count={someday.items.length} open={showSomeday} onToggle={() => setShowSomeday((s) => !s)} /> : null}
+      {showSomeday && someday.items.length ? <TodoGroup items={someday.items} sort={someday.sort} tier={someday.tier} date={date} row={row} /> : null}
+      {done.items.length ? <Fold label="Completed" count={done.items.length} open={showDone} onToggle={() => setShowDone((s) => !s)} /> : null}
+      {showDone && done.items.length ? <TodoGroup items={done.items} sort={done.sort} tier={done.tier} date={date} done canDrag={false} row={row} /> : null}
+    </div>
   );
 };
-

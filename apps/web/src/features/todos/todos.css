@@ -279,3 +279,106 @@
 .tsheet-move .t-sub {
   margin-left: 4px;
 }
+
+/* Later, not delete: the left sign is amber */
+.todo-under:has(.later) {
+  background: linear-gradient(90deg, var(--ok) 0 50%, var(--warn) 50% 100%);
+}
+
+/* ---------- Today's top three: an edge-to-edge list of swipe rows ---------- */
+.tt-list > .tt-item {
+  padding-inline: 0;
+  overflow: hidden;
+}
+.tt-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+}
+.tt-row .mark-hit {
+  margin-left: -12px;
+}
+.tt-name {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  padding: 8px 0;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  letter-spacing: -0.02em;
+}
+.tt-text {
+  overflow-wrap: anywhere;
+}
+.tt-row.is-done .tt-name {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+  transition: color var(--dur-color) var(--ease-out);
+}
+.tt-aside {
+  color: var(--ink-3);
+  flex: none;
+}
+.tt-more {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  width: 100%;
+  text-align: left;
+  color: var(--accent-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.tt-more:active {
+  background: var(--surface);
+}
+.tt-clear {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 4px;
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+}
+.tt .tadd {
+  margin-inline: calc(-1 * var(--page-pad));
+  padding-inline: var(--page-pad) 12px;
+  background: transparent;
+  border-top: 1px solid var(--line);
+}
+
+/* the full list in its sheet */
+.tlist {
+  display: grid;
+  margin: 0 -20px;
+}
+.tlist .lrow,
+.tlist .lrow-add,
+.tlist .todo-wrap,
+.tlist .trow {
+  background: transparent;
+}
+.tlist .tgroup > * + *,
+.tlist .tfold,
+.tlist .tadd {
+  border-top: 1px solid var(--line);
+}
+.tlist .trow {
+  background: var(--bg-sheet, var(--surface));
+}
+.tlist-clear {
+  margin: 0;
+  padding: 12px 20px;
+  color: var(--ink-2);
+}

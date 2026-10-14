@@ -2,9 +2,9 @@ import { shiftDays, type ISODate, type Todo, type TodoBucket, type TodoPriority 
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTodoMutations, useTodos } from '@/api/queries';
-import { haptic } from '@/lib/haptics';
+import { haptics } from '@/lib/haptics';
 import { Button, ChipButton, IconButton, Segmented } from '@/ui/primitives';
-import { useSheet } from '@/ui/Sheet';
+import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { groupsOn, stepWithin } from './groups';
 import { PriorityDots } from './PriorityDots';
@@ -17,6 +17,9 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   const { patch, reorder } = useTodoMutations();
   const todos = useTodos();
   const sheet = useSheet();
+  const depth = useSheetDepth();
+  /** Pushed from the full list, the editor goes back to it; opened on its own, it closes. */
+  const done = () => (depth > 1 ? sheet.pop() : sheet.close());
   const toast = useToast();
   // the row as it is now: a Move or a settle can change it while the sheet is open
   const cur = todos.data?.find((t) => t.id === x.id) ?? x;
@@ -43,7 +46,8 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
       p.bucket = bucket;
     }
     patch.mutate(p);
-    sheet.close();
+    haptics.toggle();
+    done();
   };
   const onKey = (ev: React.KeyboardEvent<HTMLElement>) => {
     if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey || ev.currentTarget.tagName === 'INPUT')) {
@@ -53,7 +57,7 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   };
   // Later means a day: tomorrow unless said otherwise, and the date field takes the focus
   const pick = (b: TodoBucket) => {
-    haptic();
+    haptics.select();
     setBucket(b);
     if (b === 'later' && !due) setDue(tomorrow);
   };
@@ -69,7 +73,7 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
     if (!group) return;
     const r = stepWithin(group.items, x.id, dir, group.tier);
     if (!r) return;
-    haptic();
+    haptics.drop();
     reorder.mutate(r.order);
     if (r.fix) {
       patch.mutate({ id: x.id, ...r.fix });
@@ -90,7 +94,6 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
           label="Priority"
           value={String(priority) as '0' | '1' | '2'}
           onChange={(v) => {
-            haptic();
             setPriority(Number(v) as TodoPriority);
           }}
           options={[
@@ -147,16 +150,16 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
         <Button
           variant="danger"
           onClick={() => {
-            haptic('warn');
+            haptics.delete();
             patch.mutate({ id: x.id, deletedOn: date });
-            sheet.close();
+            done();
             toast('Deleted', { label: 'Undo', fn: () => patch.mutate({ id: x.id, deletedOn: null }) });
           }}
         >
           Delete
         </Button>
         <div className="foot-right">
-          <Button variant="ghost" onClick={() => sheet.close()}>
+          <Button variant="ghost" onClick={done}>
             Cancel
           </Button>
           <Button variant="primary" onClick={save} disabled={!changed}>
