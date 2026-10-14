@@ -114,6 +114,11 @@
   margin-top: 16px;
   min-height: 44px;
 }
+/* Save, Skip and Next are full 44px targets (QA D-X1): the pill stays small, the hit area does not */
+.rp-actions .btn {
+  min-height: 44px;
+  min-width: 44px;
+}
 .rp .btn {
   background: rgba(0, 0, 0, 0.35);
   border-color: rgba(255, 255, 255, 0.16);
@@ -240,6 +245,10 @@
 /* ---------- the lists ---------- */
 .r-lists {
   margin-top: var(--sp-primary);
+}
+/* nothing saved: one sentence and Paste a link, under the header */
+.r-empty {
+  margin-top: var(--sp-secondary);
 }
 .r-tabs .seg-btn {
   flex: 1 1 0;

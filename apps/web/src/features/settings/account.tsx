@@ -1,23 +1,36 @@
 import { addMonths, monthsBetween, today } from '@logbook/shared';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api, ApiError, NetworkError } from '@/api/client';
-import { fetchMonth, useBootstrap, useDeleteAccount } from '@/api/queries';
-import type { Bootstrap, MonthBundle } from '@/api/types';
+import { fetchExport, fetchMonth, useBootstrap, useDeleteAccount } from '@/api/queries';
+import type { Bootstrap, ExportBundle, MonthBundle } from '@/api/types';
 import { takeLegacyProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
+import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 
 // ---------- export ----------
+const save = (data: unknown, name: string) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+};
+
 /**
- * Everything this account has, as one JSON file, gathered from the endpoints the app already reads: the bootstrap, every
- * month from the first thing logged to the end of the plan, to-dos, lifts, the journal and saved links.
+ * Before `GET /export` exists on a server (contract 3 is newer than some deployments): the same data gathered from the
+ * endpoints the app already reads. The journal is read at the server's page limit (500), never past it (QA D-S3).
  */
-export const exportAll = async (onProgress: (done: number, total: number) => void) => {
+const gatherLegacy = async (onProgress: (done: number, total: number) => void) => {
   const boot = await api<Bootstrap>('/bootstrap');
   const t = today();
   const starts = [...boot.blocks.map((b) => b.start), ...boot.habits.map((h) => h.createdOn)].filter(Boolean).sort();
@@ -31,23 +44,18 @@ export const exportAll = async (onProgress: (done: number, total: number) => voi
   const worker = async () => {
     for (let m = queue.shift(); m; m = queue.shift()) {
       const b = await fetchMonth(m);
-      // an empty month is noise in the file
       if (b.sessions.length || b.checks.length || b.lifts.length || b.activities.length || b.journal.length || Object.keys(b.morningDays).length) bundles[m] = b;
       onProgress(++done, months.length);
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
   const [todos, lifts, journal, reads] = await Promise.all([
-    api<unknown[]>('/todos').catch(() => []),
-    api<unknown[]>('/lifts').catch(() => []),
-    api<{ entries: unknown[] }>('/journal?q=&fav=0&limit=100000')
-      .then((r) => r.entries)
-      .catch(() => []),
-    api<{ links: unknown[] }>('/reads')
-      .then((r) => r.links)
-      .catch(() => []),
+    api<unknown[]>('/todos'),
+    api<unknown[]>('/lifts'),
+    api<{ entries: unknown[] }>('/journal?q=&fav=0&limit=500').then((r) => r.entries),
+    api<{ links: unknown[] }>('/reads').then((r) => r.links),
   ]);
-  const data = {
+  return {
     app: 'Logbook',
     exportedAt: new Date().toISOString(),
     account: boot.user,
@@ -55,51 +63,90 @@ export const exportAll = async (onProgress: (done: number, total: number) => voi
     blocks: boot.blocks,
     morningSettings: boot.morningSettings,
     zones: boot.zones,
-    months: Object.fromEntries(Object.entries(bundles).sort(([a], [b]) => (a < b ? -1 : 1))),
+    months: Object.fromEntries(Object.entries(bundles).sort(([x], [y]) => (x < y ? -1 : 1))),
     todos,
     lifts,
     journal,
     reads,
   };
-  const name = `logbook-${t}.json`;
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-  return { name, months: Object.keys(bundles).length };
+};
+type Legacy = Awaited<ReturnType<typeof gatherLegacy>>;
+const isMissing = (e: unknown) => e instanceof ApiError && (e.status === 404 || e.status === 405);
+
+/** The account's data: `GET /export` (contract 3), or the legacy gather on a server without it. */
+export const readAll = async (onProgress: (done: number, total: number) => void = () => undefined): Promise<{ kind: 'v2'; data: ExportBundle } | { kind: 'legacy'; data: Legacy }> => {
+  try {
+    onProgress(0, 1);
+    const data = await fetchExport();
+    onProgress(1, 1);
+    return { kind: 'v2', data };
+  } catch (e) {
+    if (!isMissing(e)) throw e;
+    return { kind: 'legacy', data: await gatherLegacy(onProgress) };
+  }
+};
+
+/** Export: `GET /export`, saved as `logbook-YYYY-MM-DD.json`, the file Import reads back. */
+export const exportAll = async (onProgress: (done: number, total: number) => void) => {
+  const r = await readAll(onProgress);
+  const name = `logbook-${today()}.json`;
+  save(r.data, name);
+  return { name, kind: r.kind };
 };
 
 // ---------- delete account: a two-step sheet ----------
-/** What the account holds, counted from what this device has seen, for the first step's sentence. */
-const countsFrom = (qc: QueryClient, boot: Bootstrap | undefined) => {
-  let sessions = 0;
-  let entries = 0;
-  for (const [, b] of qc.getQueriesData<MonthBundle>({ queryKey: ['month'] })) {
-    if (!b) continue;
-    sessions += b.sessions.length;
-    entries += b.journal.length;
+export interface AccountCounts {
+  sessions: number;
+  habits: number;
+  entries: number;
+  todos: number;
+  links: number;
+}
+const len = (x: unknown) => (Array.isArray(x) ? x.length : 0);
+/** What the account holds, counted exactly from the export (QA D-S4), not from what this device happens to have cached. */
+export const countAll = (r: Awaited<ReturnType<typeof readAll>>): AccountCounts => {
+  if (r.kind === 'v2') {
+    const d = r.data;
+    return {
+      sessions: (d.sessions ?? []).filter((x) => !x.deletedAt).length,
+      habits: (d.habits ?? []).filter((h) => !(h as { archivedOn?: string | null }).archivedOn).length,
+      entries: len(d.journal),
+      todos: len(d.todos),
+      links: len(d.links),
+    };
   }
-  return { sessions, entries, habits: boot?.habits.filter((h) => !h.archivedOn).length ?? 0 };
+  const d = r.data;
+  const months = Object.values(d.months);
+  return {
+    sessions: months.reduce((n, m) => n + m.sessions.length, 0),
+    habits: d.habits.filter((h) => !h.archivedOn).length,
+    entries: d.journal.length,
+    todos: d.todos.length,
+    links: d.reads.length,
+  };
 };
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const useAccountCounts = () => useQuery({ queryKey: ['account-counts'], queryFn: async () => countAll(await readAll()), staleTime: 0, gcTime: 0, retry: false });
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
-/** Step one: what goes, and a way out (export first). Continue pushes the password step. */
+/** Step one: what goes, counted exactly, and a way out (export first). Continue pushes the password step. */
 export const DeleteStepOne = ({ onExport }: { onExport: () => void }) => {
   const sheet = useSheet();
-  const qc = useQueryClient();
-  const boot = useBootstrap();
-  const c = countsFrom(qc, boot.data);
-  const parts = [c.sessions ? plural(c.sessions, 'session') : null, c.habits ? plural(c.habits, 'habit') : null, c.entries ? plural(c.entries, 'journal entry', 'journal entries') : null].filter(Boolean);
+  const counts = useAccountCounts();
+  const c = counts.data;
+  const parts = c ? [c.sessions ? plural(c.sessions, 'session') : null, c.habits ? plural(c.habits, 'habit') : null, c.entries ? plural(c.entries, 'journal entry', 'journal entries') : null, c.todos ? plural(c.todos, 'to-do') : null, c.links ? plural(c.links, 'saved link') : null].filter(Boolean) : [];
   return (
     <div className="s-del">
-      <p className="s-del-lede">
-        This removes your account and everything in it{parts.length ? `: ${parts.join(', ')}, every to-do, lift and run` : ''}. It can’t be undone, here or on any other device.
-      </p>
+      {counts.isPending ? (
+        <SkeletonGroup label="Counting what your account holds" className="s-del-skel">
+          <Skeleton h={18} w="92%" r="line" />
+          <Skeleton h={18} w="70%" r="line" />
+          <Skeleton h={18} w="48%" r="line" />
+        </SkeletonGroup>
+      ) : (
+        <p className="s-del-lede">
+          This removes your account and everything in it{parts.length ? `: ${parts.join(', ')}, and every lift and run` : ''}. It can’t be undone, here or on any other device.
+        </p>
+      )}
       <div className="s-del-actions">
         <Button variant="danger" block className="s-del-continue" onClick={() => sheet.push({ title: 'Your password', eyebrow: 'Delete account', body: <DeleteStepTwo />, sticky: true })}>
           Continue

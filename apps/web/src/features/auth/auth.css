@@ -186,3 +186,74 @@
     animation: none;
   }
 }
+
+/* the promise's quiet way in for someone who already has an account: a full 44px target */
+.start-signin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-decoration: none;
+  border-radius: var(--r-pill, 999px);
+}
+.start-signin:active {
+  color: var(--ink);
+}
+.start-signin:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+/* ---------- /start, the promise (critic B7): before the account, value before the ask ---------- */
+.start {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  overflow-x: hidden;
+}
+.start-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.start-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+  padding: calc(48px + var(--safe-t)) var(--gutter) calc(16px + var(--safe-b));
+}
+.start-mark {
+  width: 56px;
+  height: 56px;
+}
+.start-title {
+  margin-top: 24px;
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+}
+.start-sub {
+  margin-top: 8px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
+  max-width: 34ch;
+}
+.start-foot {
+  margin-top: 40px;
+}
+.start-cta.btn {
+  height: 56px;
+  font-size: 1.0625rem;
+}

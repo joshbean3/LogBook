@@ -1,26 +1,28 @@
-import { fmtDate, shiftDays, today as todayISO, type Goal, type ISODate, type Weekday } from '@logbook/shared';
-import { Check, ChevronLeft } from 'lucide-react';
+import { fmtDate, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
+import { Check, ChevronLeft, Clock } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
-import { useBootstrap, useOnboard } from '@/api/queries';
+import { useBootstrap, useMorningMutations, useOnboard } from '@/api/queries';
 import type { OnboardingAnswers } from '@/api/types';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, springs } from '@/lib/motion';
 import { LogoMark } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, type TrainingProfile } from './model';
+import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { StravaPrimer } from './StravaPrimer';
 import './onboarding.css';
 
 /**
  * First run, /welcome/* (experience §5.8, research §6): about sixty seconds, value before asks.
  *
- *   /welcome          the promise: black, the mark, the halo rising once, "Your day, lit.", Start
- *   /welcome/goal     what are you training for (chips, a race-day wheel)          not skippable
+ *   /start            the promise (features/auth/Start.tsx): it comes before the account now (critic B7), so
+ *   /welcome          goes straight to the first question
+ *   /welcome/goal     what are you training for (chips, a race-day wheel)          not skippable, no way back
  *   /welcome/days     which days (tap letters, hold for the long run) and weekly miles
- *   /welcome/morning  when you wake and leave (two markers on a timeline)
+ *   /welcome/morning  when you wake and leave (two markers on a timeline), what you do before you leave (chips),
+ *                     and when it is tight, a one-tap earlier alarm
  *   /welcome/habits   starter habits (chips that become orbs)
  *   /welcome/ready    the payoff: POST /me/onboarding, the first week, "Tomorrow: Easy 4. Out the door 6:50."
  *   /welcome/strava   the primer, only when this server can connect Strava and the account is not connected
@@ -46,6 +48,8 @@ interface Draft {
   leave: number;
   habits: string[];
   custom: string[];
+  /** The morning step's chips (Shower, Breakfast, Pack bag, Coffee): what happens between the run and the door. */
+  routine?: string[];
   /** The answers last sent, and what came back, so a reload on the payoff never sends them twice. */
   sent?: string;
   firstDay?: string | null;
@@ -130,14 +134,14 @@ function Flow({ uid }: { uid: string }) {
   const go = (s: Step, replace = false) => nav(s ? `/welcome/${s}` : '/welcome', { replace });
   const back = () => {
     const i = ORDER.indexOf(step);
-    if (i <= 0 || step === 'ready' || step === 'strava') return;
+    if (i <= ORDER.indexOf('goal') || step === 'ready' || step === 'strava') return;
     go(ORDER[i - 1]!, true);
   };
 
   // the edge swipe: a touch from the left 24px drags the step (1:1), and past 35% of the width or a fling goes back.
   // Document listeners, like PushedPage, so a horizontal move can be claimed before the browser pans.
   const x = useMotionValue(0);
-  const canBack = idx > 0 && step !== 'ready' && step !== 'strava';
+  const canBack = idx > ORDER.indexOf('goal') && step !== 'ready' && step !== 'strava';
   const backRef = useRef(back);
   backRef.current = back;
   const canRef = useRef(canBack);
@@ -188,7 +192,7 @@ function Flow({ uid }: { uid: string }) {
   }, [x, reduce]);
 
   // guards: questions need the promise first only in spirit; later steps need a goal
-  if (!ORDER.includes(step)) return <Navigate to="/welcome" replace />;
+  if (!ORDER.includes(step) || step === '') return <Navigate to="/welcome/goal" replace />;
   if (idx > ORDER.indexOf('goal') && !d.goal) return <Navigate to="/welcome/goal" replace />;
 
   const qIndex = QUESTIONS.indexOf(step);
@@ -196,9 +200,6 @@ function Flow({ uid }: { uid: string }) {
 
   let body: React.ReactNode;
   switch (step) {
-    case '':
-      body = <PromiseScreen onStart={() => go('goal')} />;
-      break;
     case 'goal':
       body = (
         <Question title="What are you training for?" sub="Pick one. A race gets a taper; just running gets a steady build." onNext={next} nextDisabled={!d.goal}>
@@ -232,13 +233,57 @@ function Flow({ uid }: { uid: string }) {
       );
       break;
     case 'morning': {
-      const pv = previewMorning(d.wake, d.leave);
+      const chips = d.routine ?? [];
+      const st = routineSettings(chips);
+      const pv = previewMorning(d.wake, d.leave, undefined, st);
+      // tight: the alarm that fits (5-minute steps), or, before 4:00, a later leave
+      const earlier = pv.late > 0 ? Math.floor((d.wake - pv.late) / 5) * 5 : null;
+      const fix = earlier == null ? null : earlier >= TRACK_FROM ? { wake: earlier, leave: d.leave, text: `Wake ${hm(earlier)}?` } : { wake: d.wake, leave: snap5(d.leave + pv.late + 2), text: `Leave ${hm(snap5(d.leave + pv.late + 2))}?` };
       body = (
         <Question title="When do you wake, and leave for work?" sub="Drag the two markers. Logbook plans the run in between." onNext={next}>
-          <MorningTrack wake={d.wake} leave={d.leave} onChange={(wake, leave) => set({ wake, leave })} />
+          <MorningTrack wake={d.wake} leave={d.leave} settings={st} onChange={(wake, leave) => set({ wake, leave })} />
+          <p className="ob-q-label ob-routine-label">
+            Before you leave <span className="ob-q-value">{routineTotal(routineFrom(chips))} min</span>
+          </p>
+          <div className="ob-chips ob-routine" role="group" aria-label="Before you leave">
+            {ROUTINE_CHIPS.map((c) => {
+              const on = chips.includes(c.id);
+              return (
+                <Pressable
+                  key={c.id}
+                  className={`ob-chip ${on ? 'on' : ''}`}
+                  aria-pressed={on}
+                  label={`${c.label}, ${c.mins} minutes`}
+                  onPress={() => {
+                    haptics.select();
+                    set({ routine: on ? chips.filter((x) => x !== c.id) : [...chips, c.id] });
+                  }}
+                >
+                  {on ? <Check size={16} strokeWidth={2.6} aria-hidden="true" /> : null}
+                  {c.label}
+                </Pressable>
+              );
+            })}
+          </div>
           <div className="ob-verdict" aria-live="polite">
             <p className="ob-verdict-big display">Out the door {hm(pv.door)}.</p>
-            <p className="ob-verdict-sub">{pv.late > 0 ? `Tight: an easy 4 runs ${pv.late} min into getting ready. Wake earlier or leave later.` : `An easy 4 has you back by ${hm(pv.back)}${pv.spare >= 5 ? `, with ${pv.spare} min to spare` : ''}.`}</p>
+            <p className="ob-verdict-sub">{pv.late > 0 ? `Tight: an easy 4 runs ${pv.late} min into getting ready.` : `An easy 4 has you back by ${hm(pv.back)}${pv.spare >= 5 ? `, with ${pv.spare} min to spare` : ''}.`}</p>
+            <AnimatePresence initial={false}>
+              {fix ? (
+                <motion.div key="fix" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={reduce ? fadeIn : springs.settle}>
+                  <Pressable
+                    className="ob-chip ob-fix"
+                    onPress={() => {
+                      haptics.select();
+                      set({ wake: fix.wake, leave: fix.leave });
+                    }}
+                  >
+                    <Clock size={16} strokeWidth={2.4} aria-hidden="true" />
+                    {fix.text}
+                  </Pressable>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         </Question>
       );
@@ -274,12 +319,16 @@ function Flow({ uid }: { uid: string }) {
 
   return (
     <main className="ob">
-      <span className={`ob-halo ${step === '' ? 'rise' : step === 'ready' ? 'bloom' : ''}`} aria-hidden="true" />
+      <span className={`ob-halo ${step === 'ready' ? 'bloom' : ''}`} aria-hidden="true" />
       {qIndex >= 0 ? (
         <header className="ob-top">
-          <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={back}>
-            <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
-          </button>
+          {canBack ? (
+            <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={back}>
+              <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="ob-skip-space" />
+          )}
           <div className="ob-dots" role="progressbar" aria-label="Setup" aria-valuemin={1} aria-valuemax={QUESTIONS.length} aria-valuenow={qIndex + 1} aria-valuetext={`Step ${qIndex + 1} of ${QUESTIONS.length}`}>
             {QUESTIONS.map((q, i) => (
               <span key={q} className={`ob-dot ${i === qIndex ? 'on' : i < qIndex ? 'done' : ''}`} />
@@ -313,29 +362,6 @@ function Flow({ uid }: { uid: string }) {
   );
 }
 
-// ---------- the promise ----------
-function PromiseScreen({ onStart }: { onStart: () => void }) {
-  const reduce = useReducedMotion();
-  return (
-    <div className="ob-step ob-promise">
-      <motion.div className="ob-mark" initial={reduce ? false : { opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={reduce ? fadeIn : { ...springs.page, delay: 0.15 }}>
-        <LogoMark size={56} color="#fff" />
-      </motion.div>
-      <motion.h1 className="ob-promise-title display" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : { ...springs.page, delay: 0.45 }}>
-        Your day, lit.
-      </motion.h1>
-      <motion.p className="ob-promise-sub" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12, delay: reduce ? 0 : 0.7 }}>
-        Three questions, then your first week.
-      </motion.p>
-      <div className="ob-foot">
-        <Pressable className="btn primary block ob-cta" onPress={onStart} autoFocus>
-          Start
-        </Pressable>
-      </div>
-    </div>
-  );
-}
-
 // ---------- a question ----------
 function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next' }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string }) {
   return (
@@ -360,9 +386,12 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
   const heroRef = useRef<HTMLDivElement>(null);
   const [leaving, setLeaving] = useState<number | null>(null);
   const [waiting, setWaiting] = useState(false);
-  const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave), [profile, start, today, draft.wake, draft.leave]);
+  const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [profile, start, today, draft.wake, draft.leave, draft.routine]);
 
+  const routine = routineFrom(draft.routine ?? []);
+  const morning = useMorningMutations();
   const answers: OnboardingAnswers = {
+    routine,
     goal: profile.goal,
     raceDate: profile.raceDate,
     runDays: profile.runDays,
@@ -381,6 +410,8 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
     onboard.mutate(answers, {
       onSuccess: (r) => {
         haptics.success();
+        // the routine the chips made (the server takes wake and leave; the blocks between are the morning's own setting)
+        morning.settings.mutate({ after: { ...routine, showerMode: 'fixed', showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } });
         // the answers are on the account now (POST /me/onboarding stores them as the training profile)
         set({ sent: key, firstDay: r.firstDay });
       },
@@ -440,14 +471,18 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
         {week.days.map((day) => {
           const s = day.session;
           const bar = s ? Math.max(0.12, Math.min(1, (s.miles ?? 0) / Math.max(1, ...week.days.map((x) => x.session?.miles ?? 0)))) : 0;
+          const long = !!s && (/long/i.test(s.type) || weekdayOf(day.date) === profile.longRunDay);
           return (
-            <li key={day.date} className={`ob-wrow ${s ? `t-${day.tone}` : 'rest'}`}>
+            <li key={day.date} className={`ob-wrow ${s ? `t-${day.tone}` : 'rest'} ${long ? 'is-long' : ''}`}>
               <span className="ob-wday">
                 <span className="caps">{fmtDate('dow', day.date)}</span>
                 <span className="ob-wdate">{Number(day.date.slice(8))}</span>
               </span>
               <span className="ob-wtone" aria-hidden="true" />
-              <span className="ob-wname">{s ? <span className="stamp">{day.label}</span> : <span className="ob-wrest">Rest</span>}</span>
+              <span className="ob-wname">
+                {s ? <span className="stamp">{day.label}</span> : <span className="ob-wrest">Rest</span>}
+                {long && !/^long/i.test(day.label) ? <span className="caps ob-wlong">Long</span> : null}
+              </span>
               {s ? (
                 <span className="ob-wbar" aria-hidden="true">
                   <motion.span className="ob-wbar-fill" initial={reduce ? false : { scaleX: 0 }} animate={{ scaleX: bar }} transition={reduce ? { duration: 0 } : { ...springs.number, delay: 0.45 }} />

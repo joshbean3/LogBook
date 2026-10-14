@@ -8,6 +8,7 @@ import type { AuthStatus } from '@/api/types';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, springs } from '@/lib/motion';
 import { LogoMark } from '@/ui/primitives';
+import { hasAccountHere, markHasAccount } from './flag';
 import './auth.css';
 
 export const useAuthStatus = () => useQuery({ queryKey: ['auth-status'], queryFn: () => api<AuthStatus>('/auth/status'), staleTime: 60_000 });
@@ -94,6 +95,7 @@ export const Login = () => {
   const [busy, setBusy] = useState(false);
   const pwRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const [returning] = useState(hasAccountHere);
   if (status.isPending) return <Frame />;
   if (status.data && !status.data.hasAccount && canSignUp(status.data)) return <Navigate to="/signup" replace />;
   const submit = async (e: React.FormEvent) => {
@@ -107,6 +109,7 @@ export const Login = () => {
     setBusy(true);
     try {
       await api('/auth/login', { method: 'POST', json: { email: email.trim(), password: pw } });
+      markHasAccount();
       // a different account may have signed in on this device: nothing of the last one stays in the cache
       qc.clear();
       nav('/today', { replace: true });
@@ -122,8 +125,9 @@ export const Login = () => {
   };
   return (
     <Frame
-      title="Welcome back."
-      sub="Sign in to open your log."
+      // "Welcome back" only on a device that has signed in before: a new person never reads it (critic B7)
+      title={returning ? 'Welcome back.' : 'Sign in.'}
+      sub="Open your log."
       foot={
         canSignUp(status.data) ? (
           <p className="auth-switch">
@@ -181,8 +185,10 @@ export const Signup = () => {
     try {
       await api('/auth/signup', { method: 'POST', json: { email: email.trim(), password: pw } });
       created.current = true;
+      markHasAccount();
       qc.clear();
-      nav('/welcome', { replace: true });
+      // the promise came before the account (/start): straight on to the first question
+      nav('/welcome/goal', { replace: true });
     } catch (e2) {
       haptics.error();
       if (e2 instanceof ApiError && e2.status === 409) {
@@ -199,7 +205,7 @@ export const Signup = () => {
   return (
     <Frame
       title="Make it yours."
-      sub="An account keeps your plan. Then three quick questions."
+      sub="So your plan is here tomorrow."
       foot={
         <p className="auth-switch">
           Have an account?{' '}
