@@ -17,15 +17,18 @@ export const counts = (st: SessionStatus | DayStatus): boolean => st === 'done' 
 /** Ran at least 80% of the day's planned run miles: full. Less than that but something: floor. */
 export const RUN_FLOOR_RATIO = 0.8;
 
+/** Skipped by choice (`skip`) or for illness (`sick`). Both read Skipped; only `sick` keeps the week. */
+export const isSkipMark = (m: Session['mark']): boolean => m === 'skip' || m === 'sick';
+
 export const sessionStatus = (snap: Snapshot, d: ISODate, s: Session): SessionStatus => {
-  if (s.mark === 'skip') return 'skipped';
+  if (isSkipMark(s.mark)) return 'skipped';
   if (s.kind === 'rest') return 'rest';
   const acts = snap.activitiesOn(d);
   let auto: 'done' | 'floor' | null = null;
   if (s.kind === 'run') {
     const planned = snap
       .sessionsOn(d)
-      .filter((x) => x.kind === 'run' && x.mark !== 'skip')
+      .filter((x) => x.kind === 'run' && !isSkipMark(x.mark))
       .reduce((t, x) => t + (Number(x.miles) || 0), 0);
     const ran = acts.filter((a) => a.kind === 'run').reduce((t, a) => t + a.miles, 0);
     if (ran > 0) auto = planned > 0 && ran < planned * RUN_FLOOR_RATIO ? 'floor' : 'done';
@@ -109,3 +112,70 @@ export const habitStreak = (isDone: (date: ISODate) => boolean, todayDate: ISODa
   }
   return n;
 };
+
+// ---------- one status vocabulary ----------
+
+/**
+ * The eight words the app shows for a status, and their stable keys (for CSS classes and chip colours).
+ * Planned: a future session. Today: today's session, not yet done. Done / Floor: kept (full / minimum).
+ * Missed: a past session with nothing recorded. Skipped: marked skip (or sick). Rest: a rest session or a day with
+ * nothing planned. Bonus: a run or workout that happened with nothing planned for it.
+ */
+export type StatusKey = 'planned' | 'today' | 'done' | 'floor' | 'missed' | 'skipped' | 'rest' | 'bonus';
+export type StatusWord = 'Planned' | 'Today' | 'Done' | 'Floor' | 'Missed' | 'Skipped' | 'Rest' | 'Bonus';
+
+export const STATUS_WORDS: Record<StatusKey, StatusWord> = {
+  planned: 'Planned',
+  today: 'Today',
+  done: 'Done',
+  floor: 'Floor',
+  missed: 'Missed',
+  skipped: 'Skipped',
+  rest: 'Rest',
+  bonus: 'Bonus',
+};
+
+/** Raw status (session or day) to its display key: open is Today, upcoming is Planned, an empty day is Rest. */
+export const statusKey = (st: SessionStatus | DayStatus): StatusKey => {
+  switch (st) {
+    case 'open':
+      return 'today';
+    case 'upcoming':
+      return 'planned';
+    case 'empty':
+      return 'rest';
+    default:
+      return st;
+  }
+};
+
+/**
+ * The display key for one session on one day, or for "no session" (`null`): an unplanned run or logged sets on the
+ * day read Bonus, otherwise the day is Rest. Every surface that shows a word next to a session's name (the Today
+ * hero, a Training/Plan row, the session sheet, the unplanned-run sheet) calls this with the session it shows.
+ */
+export const sessionKey = (snap: Snapshot, d: ISODate, s: Session | null | undefined): StatusKey => {
+  if (s) return statusKey(sessionStatus(snap, d, s));
+  return snap.activitiesOn(d).length || snap.liftSetCountOn(d) > 0 ? 'bonus' : 'rest';
+};
+
+/** The one word for a session on a day (see `sessionKey`). The hero and every row call this, never `dayStatus`. */
+export const sessionWord = (snap: Snapshot, d: ISODate, s: Session | null | undefined): StatusWord => STATUS_WORDS[sessionKey(snap, d, s)];
+
+/**
+ * The word for a whole day, for surfaces that show a day rather than a session: a week ring segment, a calendar cell.
+ * Never put this under one session's name: a day with a missed run and a done lift is a Floor day, while its run is Missed.
+ */
+export const dayKey = (snap: Snapshot, d: ISODate): StatusKey => statusKey(dayStatus(snap, d));
+export const dayWord = (snap: Snapshot, d: ISODate): StatusWord => STATUS_WORDS[dayKey(snap, d)];
+
+/**
+ * The session a day's hero leads with: the first run that is not skipped, else the first other training session
+ * that is not skipped, else the first run, else the first session; null on a day with nothing planned.
+ */
+export const heroSession = (sessions: Session[]): Session | null =>
+  sessions.find((s) => s.kind === 'run' && !isSkipMark(s.mark)) ??
+  sessions.find((s) => s.kind !== 'rest' && !isSkipMark(s.mark)) ??
+  sessions.find((s) => s.kind === 'run') ??
+  sessions[0] ??
+  null;

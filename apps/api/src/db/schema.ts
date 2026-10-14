@@ -9,6 +9,8 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   createdAt: createdAt(),
+  /** When first-run onboarding finished; null sends the app to /welcome. Accounts that predate onboarding were set by migration 0006. */
+  onboardedAt: text('onboarded_at'),
 });
 
 export const authSessions = sqliteTable('auth_sessions', {

@@ -56,11 +56,16 @@ export const label = (s: Pick<Session, 'kind' | 'type' | 'title' | 'miles'> | nu
   return s.kind === 'run' && s.miles ? `${base} ${num(s.miles)}` : base;
 };
 
+/**
+ * Legacy lookup from a raw status to its word. New code calls `sessionWord` / `dayWord` (status.ts), which also
+ * settle the cases this table cannot (an empty day reads Rest, an unplanned run reads Bonus).
+ * `open` reads "Today" so the old callers already speak the one vocabulary.
+ */
 export const STATUS_WORD: Record<string, string> = {
   done: 'Done',
   floor: 'Floor',
   missed: 'Missed',
-  open: 'To do',
+  open: 'Today',
   upcoming: 'Planned',
   rest: 'Rest',
   skipped: 'Skipped',

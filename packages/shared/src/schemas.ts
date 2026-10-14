@@ -5,7 +5,7 @@ import { KINDS } from './sessions.js';
 export const zDate = z.string().refine(isISODate, 'Expected YYYY-MM-DD');
 export const zMonth = z.string().regex(/^\d{4}-\d{2}$/, 'Expected YYYY-MM');
 export const zKind = z.enum(['run', 'lift', 'cross', 'rest']);
-export const zMark = z.enum(['done', 'floor', 'skip']);
+export const zMark = z.enum(['done', 'floor', 'skip', 'sick']);
 
 export const zRange = z.object({ from: zDate, to: zDate }).refine((r) => r.from <= r.to, 'from must be on or before to');
 
@@ -182,3 +182,71 @@ export const zReadsPickOutput = z.object({
   tags: z.array(z.string()),
 });
 export type ReadsPickOutput = z.infer<typeof zReadsPickOutput>;
+
+// ---------- plan templates ----------
+export const zWeekday = z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+export type Weekday = z.infer<typeof zWeekday>;
+export const zGoal = z.enum(['base', '5k', '10k', 'half', 'marathon']);
+export type Goal = z.infer<typeof zGoal>;
+/** Longest block a template builds, in full weeks. */
+export const TEMPLATE_MAX_WEEKS = 30;
+export const zTemplateInput = z
+  .object({
+    goal: zGoal,
+    /** Full Monday-to-Sunday weeks. Optional: defaults by goal; ignored when `raceDate` is given (the race sets the length). */
+    weeks: z.number().int().min(1).max(TEMPLATE_MAX_WEEKS).optional(),
+    startDate: zDate,
+    runDays: z.array(zWeekday).min(1).max(7),
+    longRunDay: zWeekday,
+    /** The athlete's current weekly miles: week 1's volume. */
+    weeklyMiles: z.number().min(3).max(150),
+    raceDate: zDate.nullable().optional(),
+  })
+  .refine((t) => !t.raceDate || t.raceDate > t.startDate, { message: 'raceDate must be after startDate', path: ['raceDate'] });
+export type TemplateInput = z.input<typeof zTemplateInput>;
+/** `POST /plans/template`: a template, and whether to clear future planned (not done) sessions in its window first. */
+export const zTemplateRequest = zTemplateInput.and(z.object({ replace: z.boolean().optional() }));
+
+// ---------- onboarding and account ----------
+/** A clock time as minutes after midnight, or `HH:MM`. */
+export const zClockMinutes = z.union([z.number().int().min(0).max(1439), z.string().regex(/^\d{1,2}:\d{2}$/, 'Expected HH:MM')]).transform((v, ctx) => {
+  if (typeof v === 'number') return v;
+  const [h, m] = v.split(':').map(Number) as [number, number];
+  if (h > 23 || m > 59) {
+    ctx.addIssue({ code: 'custom', message: 'Expected a time of day' });
+    return z.NEVER;
+  }
+  return h * 60 + m;
+});
+/** Run pace in seconds per mile (240..1200), or `m:ss`. */
+export const zPace = z.union([z.number().int().min(240).max(1200), z.string().regex(/^\d{1,2}:\d{2}$/, 'Expected m:ss')]).transform((v, ctx) => {
+  if (typeof v === 'number') return v;
+  const [m, s] = v.split(':').map(Number) as [number, number];
+  const sec = m * 60 + s;
+  if (s > 59 || sec < 240 || sec > 1200) {
+    ctx.addIssue({ code: 'custom', message: 'Pace must be between 4:00 and 20:00 per mile' });
+    return z.NEVER;
+  }
+  return sec;
+});
+export const zOnboarding = z
+  .object({
+    goal: zGoal,
+    raceDate: zDate.nullable().optional(),
+    runDays: z.array(zWeekday).min(1).max(7),
+    longRunDay: zWeekday,
+    weeklyMiles: z.number().min(3).max(150),
+    /** Alarm. */
+    wake: zClockMinutes,
+    /** When they leave for work: the end of the morning timeline. */
+    leave: zClockMinutes,
+    pace: zPace.nullable().optional(),
+    habits: z.array(z.string().trim().min(1).max(80)).max(12).default([]),
+    /** When the first block starts: the coming Monday (default) or tomorrow. */
+    start: z.enum(['monday', 'tomorrow']).default('monday'),
+    /** The client's local date, so "tomorrow" and "next Monday" are the athlete's, not the server's. Defaults to the server's date. */
+    today: zDate.optional(),
+  })
+  .refine((o) => o.leave > o.wake, { message: 'leave must be after wake', path: ['leave'] });
+export type OnboardingInput = z.infer<typeof zOnboarding>;
+export const zDeleteAccount = z.object({ password: z.string().min(1).max(200) });

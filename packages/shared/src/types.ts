@@ -2,7 +2,8 @@ import type { ISODate } from './dates.js';
 
 // ---------- training plan ----------
 export type SessionKind = 'run' | 'lift' | 'cross' | 'rest';
-export type SessionMark = 'done' | 'floor' | 'skip';
+/** `sick` is a skip for illness ("Not feeling 100%"): it reads as Skipped but keeps the week (see `weekStreak`). */
+export type SessionMark = 'done' | 'floor' | 'skip' | 'sick';
 export type Tone = 'easy' | 'long' | 'hard' | 'fast' | 'lift' | 'cross' | 'rest';
 
 export interface Session {

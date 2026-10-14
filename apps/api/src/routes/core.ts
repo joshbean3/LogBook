@@ -35,7 +35,7 @@ import { stravaStatus } from '../services/strava.js';
 import { syncInBackground } from './strava.js';
 import { z } from 'zod';
 
-const deepMerge = (a: any, b: any): any => {
+export const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
   const out = { ...(a && typeof a === 'object' ? a : {}) };
   for (const k of Object.keys(b)) out[k] = deepMerge(out[k], b[k]);

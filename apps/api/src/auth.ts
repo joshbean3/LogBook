@@ -46,6 +46,8 @@ export const purgeExpiredSessions = (db: DB) => db.delete(authSessions).where(lt
 export interface AuthedUser {
   id: string;
   email: string;
+  /** When onboarding finished; null until then (the app shows /welcome). */
+  onboardedAt: string | null;
 }
 
 export type AuthEnv = { Variables: { user: AuthedUser; db: DB } };
@@ -54,7 +56,7 @@ export const requireAuth = (db: DB): MiddlewareHandler<AuthEnv> => async (c, nex
   const id = getCookie(c, COOKIE);
   if (!id) throw new ApiError(401, 'Sign in to continue', 'unauthenticated');
   const row = db
-    .select({ id: users.id, email: users.email, expiresAt: authSessions.expiresAt })
+    .select({ id: users.id, email: users.email, onboardedAt: users.onboardedAt, expiresAt: authSessions.expiresAt })
     .from(authSessions)
     .innerJoin(users, eq(users.id, authSessions.userId))
     .where(eq(authSessions.id, id))
@@ -70,7 +72,7 @@ export const requireAuth = (db: DB): MiddlewareHandler<AuthEnv> => async (c, nex
     db.update(authSessions).set({ expiresAt: expires.toISOString() }).where(eq(authSessions.id, id)).run();
     setCookie(c, COOKIE, id, { httpOnly: true, sameSite: 'Lax', secure: env.secureCookies, path: '/', expires });
   }
-  c.set('user', { id: row.id, email: row.email });
+  c.set('user', { id: row.id, email: row.email, onboardedAt: row.onboardedAt });
   c.set('db', db);
   await next();
 };

@@ -7,6 +7,11 @@ const schema = z.object({
   SESSION_SECRET: z.string().min(16).default('dev-only-secret-change-me-please-now'),
   DATABASE_PATH: z.string().default('./data/logbook.db'),
   ALLOW_SETUP: z.string().optional(),
+  /** '1' / 'true' lets anyone create an account (not just the first). Off unless set; turn it on for local dev. */
+  ALLOW_SIGNUP: z
+    .string()
+    .default('0')
+    .transform((v) => /^(1|true|yes|on)$/i.test(v.trim())),
   WEB_DIST: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default('claude-opus-5-5'),
@@ -28,6 +33,7 @@ export const env = {
   ...parsed.data,
   isProd: parsed.data.NODE_ENV === 'production',
   allowSetup: parsed.data.ALLOW_SETUP === undefined ? parsed.data.NODE_ENV !== 'production' : parsed.data.ALLOW_SETUP === '1' || parsed.data.ALLOW_SETUP === 'true',
+  allowSignup: parsed.data.ALLOW_SIGNUP,
   secureCookies: parsed.data.APP_URL.startsWith('https://'),
   stravaConfigured: !!(parsed.data.STRAVA_CLIENT_ID && parsed.data.STRAVA_CLIENT_SECRET),
   claudeConfigured: !!parsed.data.ANTHROPIC_API_KEY,

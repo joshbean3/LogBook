@@ -7,3 +7,6 @@ export * from './morning.js';
 export * from './rotation.js';
 export * from './schemas.js';
 export * from './polyline.js';
+export * from './week.js';
+export * from './phase.js';
+export * from './templates.js';

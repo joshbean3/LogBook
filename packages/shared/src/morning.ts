@@ -42,8 +42,9 @@ export interface MorningPlan {
   label: string;
 }
 
-/** What the training plan implies for the morning. */
-export const morningPlanFor = (sessions: Session[]): MorningPlan => {
+/** What the training plan implies for the morning. A skipped session (skip or sick) is not on the morning. */
+export const morningPlanFor = (all: Session[]): MorningPlan => {
+  const sessions = all.filter((s) => s.mark !== 'skip' && s.mark !== 'sick');
   const run = sessions.find((s) => s.kind === 'run');
   const lift = sessions.find((s) => s.kind === 'lift');
   if (run) {
@@ -67,7 +68,7 @@ export const morningPlanFor = (sessions: Session[]): MorningPlan => {
   }
   // no run and no lift: a rest morning, whether the plan says rest, says nothing, or has only a cross session
   const rest = sessions.find((s) => s.kind === 'rest');
-  return { mode: 'rest', type: 'Rest', miles: DEFAULT_RUN_MILES, minutes: null, label: rest ? 'Rest day' : sessions[0] ? label(sessions[0]) : '' };
+  return { mode: 'rest', type: 'Rest', miles: DEFAULT_RUN_MILES, minutes: null, label: rest ? 'Rest day' : sessions[0] ? label(sessions[0]) : all[0] ? `${label(all[0])} skipped` : '' };
 };
 
 const MODES: readonly MorningMode[] = ['run', 'gym', 'rest'];
