@@ -701,7 +701,6 @@
   min-height: 60px;
 }
 .rt-name {
-  font-variant-numeric: normal;
   flex: 1;
   min-width: 0;
   display: grid;
@@ -717,6 +716,12 @@
 }
 .rt-name.static {
   cursor: default;
+}
+/* words, not numbers: proportional figures, so "Wake-up" keeps a tight hyphen */
+.rt-label,
+.rt-sub,
+.m-ed-note {
+  font-variant-numeric: normal;
 }
 .rt-label {
   font-size: 1.0625rem;
