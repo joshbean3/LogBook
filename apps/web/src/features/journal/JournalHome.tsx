@@ -63,6 +63,7 @@ const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => v
   if (!q) return null;
   const used = text.includes(q.text.slice(0, 60));
   const hide = () => {
+    haptics.delete();
     quotePrefs.mutate({ id: q.id, hidden: true });
     another.mutate('quote');
     toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
