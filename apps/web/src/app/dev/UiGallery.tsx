@@ -18,6 +18,7 @@ import { Ticker } from '@/ui/Ticker';
 import { useToast } from '@/ui/Toast';
 import { resetSeenToday, useFirstToday } from '@/ui/useFirstToday';
 import { WeekRing, type WeekDayStatus } from '@/ui/WeekRing';
+import { GhostBars, GhostRows } from '@/ui/Ghost';
 import './gallery.css';
 
 /**
@@ -286,17 +287,19 @@ export default function UiGallery() {
         </div>
       </Section>
 
-      <Section title="Week ring">
-        <div className="row wrap" style={{ gap: 16 }} key={ringKey}>
+      <Section title="Week ring" meta="A calendar of the week, never a spinner">
+        <div className="row wrap gal-rings" style={{ gap: 16 }} key={ringKey}>
           <WeekRing days={week} today={todayIdx} onceADay="gallery-ring-40" />
-          <WeekRing days={week} size={64} today={todayIdx} onceADay="gallery-ring-64">
-            3
-          </WeekRing>
-          <WeekRing days={['done', 'done', 'done', 'rest', 'done', 'floor', 'done']} size={64} onPress={() => toast('Week sheet would open')} onceADay={null}>
+          <WeekRing days={week} size={64} today={todayIdx} onceADay="gallery-ring-64" />
+          <WeekRing days={['done', 'done', 'skipped', 'rest', 'done', 'floor', 'done']} size={64} onPress={() => toast('Week sheet would open')} onceADay={null}>
             <Check size={20} strokeWidth={3} />
           </WeekRing>
-          <WeekRing days={['future', 'future', 'future', 'future', 'future', 'future', 'future']} onceADay={null} />
+          <WeekRing days={['future', 'rest', 'future', 'rest', 'future', 'rest', 'future']} onceADay={null} />
+          <WeekRing days={['missed', 'rest', 'missed', 'rest', 'done', 'rest', 'open']} today={6} onceADay={null} />
         </div>
+        <p className="t-cap muted" style={{ marginTop: 8 }}>
+          Track always there; an arc only on a day with a session: done blue, floor amber, missed a red outline, skipped grey, to come faint. Rest is the bare track. The middle is the days kept.
+        </p>
       </Section>
 
       <Section title="Skeletons" meta="No shimmer, no spinner">
@@ -323,14 +326,12 @@ export default function UiGallery() {
               <EmptyState action={<Button variant="soft">Add</Button>}>Nothing planned. Add a session.</EmptyState>
             </div>
           </Demo>
-          <Demo title="v2: ghost + verb + starters">
+          <Demo title="v2: ghost + verb + starters" note="ghosts are shapes, never content">
             <EmptyState
               ghost={
                 <div className="row" style={{ gap: 10 }}>
-                  {['S', 'R', 'P', 'N'].map((l) => (
-                    <span key={l} className="gal-orb">
-                      {l}
-                    </span>
+                  {[0, 1, 2, 3].map((i) => (
+                    <span key={i} className="gal-orb" />
                   ))}
                 </div>
               }
@@ -339,6 +340,21 @@ export default function UiGallery() {
               verb={{ label: 'Add a habit', onPress: () => toast('Add a habit') }}
             >
               Habits light up here as you do them.
+            </EmptyState>
+          </Demo>
+          <Demo title="GhostBars" note="Progress: bars only, no axis, no numbers">
+            <EmptyState ghost={<GhostBars />} verb={{ label: 'Log a run', onPress: () => toast('Log a run') }}>
+              Each run you log lands here.
+            </EmptyState>
+          </Demo>
+          <Demo title="GhostRows" note="Journal, Library: two grey bars a row, no dates, no words">
+            <EmptyState ghost={<GhostRows rows={3} lead="dot" />} verb={{ label: 'Write the first one', onPress: () => toast('Write') }}>
+              Two sentences a day add up.
+            </EmptyState>
+          </Demo>
+          <Demo title="GhostLines (shorthand ghost=&quot;lines&quot;)" note="a quote, a paragraph">
+            <EmptyState ghost="lines" verb={{ label: 'Add a quote', onPress: () => toast('Add a quote') }}>
+              Lines you want to keep live here.
             </EmptyState>
           </Demo>
         </div>

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { purgeExpiredSessions, requireAuth, type AuthEnv } from './auth.js';
 import { openDatabase, type DB } from './db/index.js';
 import { stravaAccounts } from './db/schema.js';
+import { idempotency } from './lib/requests.js';
 import { seedQuotes } from './db/seed.js';
 import { env } from './env.js';
 import { aiRoutes } from './routes/ai.js';
@@ -34,6 +35,8 @@ export const buildApp = (db: DB) => {
   app.route('/api/strava', stravaRoutes(db));
   const authed = new Hono<AuthEnv>();
   authed.use(requireAuth(db));
+  // contract 4: a write sent twice with the same Idempotency-Key (the outbox's replays) lands once
+  authed.use(idempotency(db));
   authed.route('/', coreRoutes(db));
   authed.route('/', journalRoutes(db));
   authed.route('/', aiRoutes(db));

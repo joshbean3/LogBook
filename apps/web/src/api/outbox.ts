@@ -11,6 +11,7 @@ import { api, isOffline, NetworkError } from './client';
  * with the real id when it is sent. That holds whether the POST is queued (offline) or on the wire (online).
  */
 export interface OutboxItem {
+  /** Also the item's `Idempotency-Key` (contract 4): every send of this write, first try or replay, carries it, so the server applies it once. */
   id: string;
   path: string;
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -20,9 +21,18 @@ export interface OutboxItem {
   createdAt: string;
   /** The provisional id of the row this POST creates; the reply's `id` is its real name. */
   tmpId?: string;
+  /**
+   * Set (and persisted) just before the item goes on the wire. If the page dies before the answer is handled, the next
+   * load still sends it, with the same key, and the server answers with what it did the first time instead of doing it
+   * again: no duplicate to-do after "offline, add, back online, reload".
+   */
+  sentAt?: string;
 }
 
 const KEY = 'logbook.outbox.v1';
+/** A fresh idempotency key: random and long enough never to meet another. */
+export const newKey = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 const listeners = new Set<(n: number) => void>();
 let items: OutboxItem[] = [];
 let loaded = false;
@@ -81,8 +91,9 @@ export const outbox = {
     fn(items.length);
     return () => listeners.delete(fn);
   },
-  async enqueue(item: Omit<OutboxItem, 'id' | 'createdAt'>) {
-    const it: OutboxItem = { ...item, id: Math.random().toString(36).slice(2), createdAt: new Date().toISOString() };
+  /** Queue a write. Pass `id` when it was already tried on the wire under that key, so its replay is recognised. */
+  async enqueue(item: Omit<OutboxItem, 'id' | 'createdAt'> & { id?: string }) {
+    const it: OutboxItem = { ...item, id: item.id ?? newKey(), createdAt: new Date().toISOString() };
     // a create that fell off the wire goes in ahead of anything already waiting on its id
     const at = it.tmpId ? items.findIndex((x) => mentions(x.path, x.json, it.tmpId!)) : -1;
     if (at >= 0) items.splice(at, 0, it);
@@ -103,9 +114,12 @@ export const outbox = {
     const touched: Array<readonly unknown[]> = [];
     try {
       while (items.length) {
+        // in flight: persisted before it leaves, so a reload mid-request replays it under the same key (the server dedupes)
+        items[0] = { ...items[0]!, sentAt: new Date().toISOString() };
+        await persist();
         const it = rewrite(items[0]!);
         try {
-          const res = await api(it.path, { method: it.method, json: it.json });
+          const res = await api(it.path, { method: it.method, json: it.json, idempotencyKey: it.id });
           const real = it.tmpId ? realIdOf(res) : null;
           if (it.tmpId && real) {
             aliases.set(it.tmpId, real);
@@ -116,7 +130,10 @@ export const outbox = {
           items.shift();
           await persist();
         } catch (e) {
-          if (e instanceof NetworkError) break;
+          if (e instanceof NetworkError) {
+            // it may or may not have reached the server; the next replay sends it with the same key either way
+            break;
+          }
           // the server said no (validation, gone): nothing more we can do with it
           items.shift();
           touched.push(...it.invalidate);
@@ -143,15 +160,17 @@ export const outbox = {
  */
 export async function write<T>(rawPath: string, method: OutboxItem['method'], rawJson: unknown, invalidate: ReadonlyArray<readonly unknown[]>, opts: { tmpId?: string } = {}): Promise<T | null> {
   const { tmpId } = opts;
+  // one key for this write, whether it goes now or from the queue later (contract 4)
+  const key = newKey();
   // a write that still names a provisional id the server has since answered goes out under the real one
   const { path, json } = rewrite({ path: rawPath, json: rawJson });
   if (isOffline() || pendingIn(path, json)) {
-    await outbox.enqueue({ path, method, json, invalidate, tmpId });
+    await outbox.enqueue({ id: key, path, method, json, invalidate, tmpId });
     return null;
   }
   if (tmpId) inflight.add(tmpId);
   try {
-    const res = await api<T>(path, { method, json });
+    const res = await api<T>(path, { method, json, idempotencyKey: key });
     if (tmpId) {
       const real = realIdOf(res);
       if (real) outbox.resolve(tmpId, real);
@@ -161,7 +180,8 @@ export async function write<T>(rawPath: string, method: OutboxItem['method'], ra
   } catch (e) {
     if (tmpId) inflight.delete(tmpId);
     if (e instanceof NetworkError) {
-      await outbox.enqueue({ path, method, json, invalidate, tmpId });
+      // the request may have landed before the connection dropped: the queued copy keeps its key, so it cannot land twice
+      await outbox.enqueue({ id: key, path, method, json, invalidate, tmpId, sentAt: new Date().toISOString() });
       return null;
     }
     throw e;

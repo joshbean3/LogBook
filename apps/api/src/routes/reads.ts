@@ -1,4 +1,4 @@
-import { daysBetween, today, zDate, zLinkInput, zLinkPatch, zPickFeedback, type Link, type LinkSource, type LinkVerdict, type PickResult } from '@logbook/shared';
+import { daysBetween, shiftDays, today, zDate, zLinkInput, zLinkPatch, zPickFeedback, type Link, type LinkSource, type LinkVerdict, type PickResult } from '@logbook/shared';
 import { and, desc, eq, isNull, or } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -127,8 +127,10 @@ export const readsRoutes = (db: DB) => {
   const attempts = new Map<string, number>();
   /** Yesterday's counts are of no use: drop every key that is not for today whenever the map is read. */
   const prune = () => {
+    // a phone a day ahead of (or behind) the server counts its own day, so keep the days either side too
     const t = today();
-    for (const k of attempts.keys()) if (!k.endsWith(`:${t}`)) attempts.delete(k);
+    const keep = [shiftDays(t, -1), t, shiftDays(t, 1)].map((d) => `:${d}`);
+    for (const k of attempts.keys()) if (!keep.some((d) => k.endsWith(d))) attempts.delete(k);
   };
   const usedToday = (userId: string, date: string, rows: number) => {
     prune();
@@ -177,7 +179,7 @@ export const readsRoutes = (db: DB) => {
   r.get('/reads/pick', async (c) => {
     const userId = uidOf(c);
     const q = parseQuery(c.req.query(), z.object({ date: zDate.optional(), force: z.string().optional() }));
-    const date = q.date ?? today();
+    const date = q.date ?? c.get('today');
     const force = q.force === '1' || q.force === 'true';
     const result = (pick: Link | null, reason: PickResult['reason'], refreshesLeft: number): PickResult => ({ date, pick, reason, refreshesLeft });
     if (!pickerFor()) return c.json(result(null, 'off', 0));

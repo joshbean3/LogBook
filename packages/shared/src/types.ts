@@ -158,7 +158,17 @@ export interface MorningSettings {
    * Back home: the routine starts at `showerAt` (fixed) or straight after the workout, and runs its four blocks in `order`
    * (each key once; default shower, get ready, smoothie, final prep). The leave time is the end of the last block either way.
    */
-  after: { showerMode: 'fixed' | 'after'; showerAt: number; shower: number; ready: number; smoothie: number; prep: number; order: MorningAfterKey[] };
+  after: {
+    showerMode: 'fixed' | 'after';
+    showerAt: number;
+    shower: number;
+    ready: number;
+    smoothie: number;
+    prep: number;
+    order: MorningAfterKey[];
+    /** The athlete's own names for the blocks (new accounts: prep is "Out the door"); `afterLabel` falls back to AFTER_LABELS. */
+    names?: Partial<Record<MorningAfterKey, string>>;
+  };
   focus: { word: string; quote: string; by: string };
 }
 export interface MorningDayOverride {
@@ -212,4 +222,64 @@ export interface PickResult {
   reason: 'off' | 'empty' | 'limit' | 'failed' | null;
   /** How many more manual refreshes are left today. */
   refreshesLeft: number;
+}
+
+// ---------- fix round contracts: plan writes with Undo, export v2 ----------
+
+/** A block `POST /plans/template` ended the day before the new one (`prevEnd` was its end) or deleted (it had not started). */
+export type EndedBlockRef = { id: string; prevEnd: ISODate } | { id: string; deleted: true };
+
+/** `POST /plans/template` (201). `removed` is `replacedIds.length`. Keep the whole answer for Undo (`POST /plans/template/undo`). */
+export interface TemplateAppliedV2 {
+  block: PlanBlock;
+  months: string[];
+  removed: number;
+  /** The planned, not-done sessions it soft-deleted (Undo restores exactly these). */
+  replacedIds: string[];
+  /** The active block it overlapped, if any: ended at startDate − 1, or deleted when it had not started. */
+  endedBlock?: EndedBlockRef;
+  /** Every block it ended or deleted (usually zero or one; `endedBlock` is the first). */
+  endedBlocks: EndedBlockRef[];
+}
+
+/** One activity in an export: the stored row, lossless (meters, elapsed time, laps, route). */
+export interface ExportActivity {
+  id: string;
+  date: ISODate;
+  time: string | null;
+  name: string;
+  sportType: string;
+  kind: ActivityKind;
+  distanceM: number;
+  movingSec: number;
+  elapsedSec: number;
+  elevM: number;
+  avgHr: number | null;
+  maxHr: number | null;
+  cadence: number | null;
+  laps: Lap[] | null;
+  perfAt: string | null;
+  polyline: string | null;
+}
+
+/** `GET /export` (version 2): the whole account. `POST /import` takes it back (idempotent by id). */
+export interface ExportV2 {
+  version: 2;
+  exportedAt: string;
+  user: { id: string; email: string; name: string | null; createdAt: string; onboardedAt: string | null };
+  /** Every `user_settings` document by key (`morning`, …). */
+  settings: Record<string, unknown>;
+  trainingProfile: unknown | null;
+  habits: Habit[];
+  checks: HabitCheck[];
+  blocks: PlanBlock[];
+  sessions: Session[];
+  activities: ExportActivity[];
+  lifts: LiftSet[];
+  todos: Todo[];
+  journal: JournalEntry[];
+  quotes: { own: Array<{ id: string; text: string; author: string; createdAt: string }>; prefs: Array<{ quoteId: string; fav: boolean; hidden: boolean }> };
+  links: Link[];
+  morningDays: Record<ISODate, MorningDayOverride>;
+  coach: CoachRead[];
 }

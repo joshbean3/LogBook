@@ -7,13 +7,27 @@
  * date pager) lights up its ring under the finger. Only `:focus-visible` should ring, and only for keyboard users.
  */
 let modality: 'pointer' | 'keyboard' = 'pointer';
+/**
+ * The last input is also on <html> as data-input="pointer" | "keyboard": foundation.css drops every focus ring while it
+ * says pointer (polish 15), so a ring the browser chose to show (after Escape closed a sheet, say) goes the moment the
+ * athlete touches the screen again, and comes back with the next key press.
+ */
+const mark = (m: 'pointer' | 'keyboard') => {
+  modality = m;
+  const root = document.documentElement;
+  if (root.dataset.input !== m) root.dataset.input = m;
+};
 if (typeof document !== 'undefined') {
-  document.addEventListener('pointerdown', () => (modality = 'pointer'), true);
+  mark('pointer');
+  document.addEventListener('pointerdown', () => mark('pointer'), true);
+  // a touch that never becomes a pointer event (some WebViews) still counts
+  document.addEventListener('touchstart', () => mark('pointer'), { capture: true, passive: true });
   document.addEventListener(
     'keydown',
     (e) => {
-      // a shortcut chord is not keyboard navigation
-      if (!e.metaKey && !e.ctrlKey && !e.altKey) modality = 'keyboard';
+      // a shortcut chord or a lone modifier is not keyboard navigation
+      if (e.metaKey || e.ctrlKey || e.altKey || ['Shift', 'Meta', 'Control', 'Alt', 'CapsLock'].includes(e.key)) return;
+      mark('keyboard');
     },
     true,
   );

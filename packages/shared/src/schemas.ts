@@ -92,6 +92,8 @@ export const zMorningSettingsPatch = z.object({
         .length(4)
         .refine((a) => new Set(a).size === a.length, { message: 'each block once' })
         .optional(),
+      /** The athlete's own names for the blocks ("Out the door"); an empty string goes back to the default name. */
+      names: z.object({ shower: z.string().trim().max(30), ready: z.string().trim().max(30), smoothie: z.string().trim().max(30), prep: z.string().trim().max(30) }).partial().optional(),
     })
     .optional(),
   focus: z.object({ word: z.string().max(40), quote: z.string().max(400), by: z.string().max(80) }).optional(),
@@ -270,3 +272,22 @@ export type SavedTrainingProfile = TrainingProfile & { updatedAt: string };
 /** `PATCH /me/training`: any of the answers; the rest keep their stored values. */
 export const zTrainingPatch = zTrainingProfile.partial().refine((o) => Object.keys(o).length > 0, { message: 'Nothing to change' });
 export const zDeleteAccount = z.object({ password: z.string().min(1).max(200) });
+
+// ---------- fix round contracts (docs/platform.md §7–§11) ----------
+
+/** `PATCH /me`: the account's name ("Josh"); an empty string or null clears it. */
+export const zMePatch = z.object({ name: z.string().trim().max(60).nullable() });
+
+/** What `POST /plans/template` did to a block the new one overlapped: ended it the day before (`prevEnd` was its end), or deleted it (it had not started). */
+export const zEndedBlock = z.union([z.object({ id: z.string().min(1).max(64), prevEnd: zDate }), z.object({ id: z.string().min(1).max(64), deleted: z.literal(true) })]);
+export type EndedBlock = z.infer<typeof zEndedBlock>;
+
+/** `POST /plans/template/undo`: send back what `POST /plans/template` answered. */
+export const zTemplateUndo = z.object({
+  blockId: z.string().min(1).max(64),
+  replacedIds: z.array(z.string().min(1).max(64)).max(5000).default([]),
+  endedBlock: zEndedBlock.nullable().optional(),
+  /** Every block it ended (`endedBlock` is the first of these); either works. */
+  endedBlocks: z.array(zEndedBlock).max(100).optional(),
+});
+export type TemplateUndoInput = z.infer<typeof zTemplateUndo>;

@@ -7,6 +7,7 @@ import { Avatar } from './Avatar';
 import { BackButton } from './headers';
 import { useRouteInfo } from './nav';
 import { usePushedFrame } from './PushedPage';
+import { ghostOf, type GhostKind } from './Ghost';
 import { Skeleton, SkeletonGroup } from './Skeleton';
 
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'primary' | 'soft' | 'ghost' | 'quiet' | 'danger'; size?: 'md' | 'sm'; block?: boolean };
@@ -101,8 +102,12 @@ export interface EmptyStateProps {
   action?: ReactNode;
   /** The one verb that fills the state: a button under the sentence. */
   verb?: { label: string; onPress: () => void; haptic?: HapticEvent; primary?: boolean };
-  /** The filled state, drawn at 30% and untouchable, so the empty state shows what it will look like. */
-  ghost?: ReactNode;
+  /**
+   * The shape of the filled state, drawn at 30% and untouchable. Shapes only (critic B1): a `GhostBars`, `GhostLines` or
+   * `GhostRows`, or the shorthand `'bars' | 'rows' | 'lines'`. Never sample content: no numbers, words, dates or domains
+   * (dev builds warn when a ghost has any text in it).
+   */
+  ghost?: ReactNode | GhostKind;
   /** One-tap starters ("Sleep 7 h", "Stretch"): each is a chip that calls `onStarter` and then shows as added. */
   starters?: string[];
   onStarter?: (starter: string) => void | Promise<unknown>;
@@ -116,10 +121,17 @@ export interface EmptyStateProps {
  * optional starter chips that add with one tap. With only `children` and `action` it renders the v1 compact row, so old
  * call sites keep their look. Never a grey sentence alone where a verb or a starter could fill the state.
  */
-export const EmptyState = ({ children, text, action, verb, ghost, starters, onStarter, startersLabel = 'Starters', className = '' }: EmptyStateProps) => {
+export const EmptyState = ({ children, text, action, verb, ghost: ghostIn, starters, onStarter, startersLabel = 'Starters', className = '' }: EmptyStateProps) => {
   const [added, setAdded] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const sentence = text ?? children;
+  const ghost = typeof ghostIn === 'string' && (ghostIn === 'bars' || ghostIn === 'rows' || ghostIn === 'lines') ? ghostOf(ghostIn) : (ghostIn as ReactNode);
+  const ghostRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // a ghost is shapes, never content: made-up words, numbers or dates read as someone else's data (critic B1)
+    const words = ghostRef.current?.textContent?.trim();
+    if (import.meta.env.DEV && words) console.warn(`EmptyState: the ghost shows text ("${words.slice(0, 40)}"). Use GhostBars, GhostLines or GhostRows (docs/foundation.md).`);
+  });
   if (!verb && !ghost && !starters?.length)
     return (
       <div className={`empty-state ${className}`}>
@@ -141,7 +153,7 @@ export const EmptyState = ({ children, text, action, verb, ghost, starters, onSt
   return (
     <div className={`empty-v2 ${className}`}>
       {ghost ? (
-        <div className="empty-ghost" aria-hidden="true" inert>
+        <div ref={ghostRef} className="empty-ghost" aria-hidden="true" inert>
           {ghost}
         </div>
       ) : null}

@@ -949,7 +949,8 @@ textarea.in {
 /* ---------- toast ---------- */
 /* placed by .toast-host (foundation.css): centred above the tab bar, as wide as its words */
 .toast {
-  pointer-events: auto;
+  /* the words let taps through to what is under them; only the action takes one (D-F3) */
+  pointer-events: none;
   min-height: 44px;
   background: var(--ink);
   color: var(--bg);
@@ -969,6 +970,7 @@ textarea.in {
   overflow-wrap: break-word;
 }
 .toast-act {
+  pointer-events: auto;
   appearance: none;
   border: 0;
   background: none;

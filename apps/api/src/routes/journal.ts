@@ -176,7 +176,7 @@ export const journalRoutes = (db: DB) => {
 
   r.get('/journal/daily', (c) => {
     const userId = uidOf(c);
-    const date = today();
+    const date = c.get('today');
     const memory = pick(userId, 'memory', date, false);
     const quote = pick(userId, 'quote', date, false);
     const pastCount = memoryPool(userId, date).length;
@@ -186,7 +186,7 @@ export const journalRoutes = (db: DB) => {
   r.post('/journal/daily/another', async (c) => {
     const userId = uidOf(c);
     const { kind } = await parseBody(c.req.raw, z.object({ kind: zPickKind }));
-    const item = pick(userId, kind, today(), true);
+    const item = pick(userId, kind, c.get('today'), true);
     return c.json({ kind, item });
   });
 

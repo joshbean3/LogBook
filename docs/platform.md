@@ -12,6 +12,14 @@ Owner: platform. Spec: `docs/experience.md` §4. Everything below is in `package
 | Plan template preview (client) / write (server) | `buildTemplate(input)` / `POST /api/plans/template` | [4](#4-plan-templates) |
 | Sign-up, first run | `POST /api/auth/signup`, `POST /api/me/onboarding`, `GET /api/me` | [5](#5-sign-up-and-onboarding) |
 | Delete account | `DELETE /api/me` | [6](#6-delete-account) |
+| Replace a plan with Undo | `POST /api/plans/template` (`replace`) → `POST /api/plans/template/undo` | [7](#7-plan-template-replace-and-undo-contract-1) |
+| Delete a plan that survives a reload | `DELETE /api/blocks/:id` → `POST /api/blocks/:id/restore` | [8](#8-plan-delete-and-restore-contract-2) |
+| Export / import the whole account | `GET /api/export`, `POST /api/import` | [9](#9-export-and-import-contract-3) |
+| Writes that land once | `Idempotency-Key` header | [10](#10-idempotent-writes-contract-4) |
+| Miles without Strava | `sessionMiles`, `dayMiles`, `ranMiles` | [11](#11-miles-without-strava-contract-5) |
+| The account's name | `PATCH /api/me { name }` | [12](#12-the-account-name-contract-6) |
+| A new account's morning, the first week | `NEW_ACCOUNT_MORNING`, `buildTemplate` | [13](#13-generic-defaults-for-new-accounts-contract-7) |
+| "Today" on the server | `X-Local-Date` | [14](#14-the-athletes-date-on-the-server) |
 
 All times of day are **minutes after local midnight** (`7:35 AM` = `455`); format them with `clockOfDay(m)`. Dates are `YYYY-MM-DD` strings in the athlete's zone (`ISODate`).
 
@@ -153,6 +161,9 @@ A week is **kept** when either:
 weekStreak(snap, '2026-10-14')  // { weeks: 3, ofLast: { kept: 7, total: 8 } }
 ```
 
+`weekCheck` also returns `loggedMiles`: the part of `ranMiles` that came from runs marked Done/Floor with no activity
+(§11). `ranMiles` (and `weekSummary.doneMiles`, `weekTotals.ran`) include it.
+
 ### `weekSummary(snap, weekStart) → WeekSummary`
 
 Everything the 7-segment `WeekRing` and the week sheet need, plus all of `weekCheck`:
@@ -167,13 +178,13 @@ Everything the 7-segment `WeekRing` and the week sheet need, plus all of `weekCh
 }
 ```
 
-| `ring` | Day status | Spec colour |
+| `ring` | Day status | How `WeekRing` draws it (fix round, critic B2) |
 |---|---|---|
-| `done` | done, bonus | blue |
-| `floor` | floor | amber |
-| `missed` | missed | `ink-4` |
-| `rest` | rest, empty, skipped | `ink-4` dashed |
-| `future` | open (today), upcoming | `surface-3` |
+| `done` | done, bonus | solid `--accent` arc |
+| `floor` | floor | solid `--warn` arc |
+| `missed` | missed | 1.5px `--bad` outline at 60% |
+| `rest` | rest, empty, skipped | no arc (the track); a `skipped` day passed as `skipped` is a grey arc |
+| `future` | open (today), upcoming | faint solid arc (`--ink-4`) |
 
 `trainingStreak` (days) is unchanged and still exported; the redesign shows weeks.
 
@@ -213,7 +224,9 @@ Validate untrusted input with `zTemplateInput` (`zWeekday`, `zGoal` are exported
 | Quality | race goals: one a week (from 12 mi/week and 2 run days), ~20% of the week, 4 mi to the goal's cap (5K 6, 10K 7, half 8, marathon 10), on the run day farthest from the long run (Wed, Tue, Thu first on ties). Rotation: 5K intervals → hills → speed → tempo; 10K intervals → tempo → threshold → hills; half tempo → threshold → intervals → threshold; marathon marathon pace → threshold → marathon pace → tempo. Down weeks: a Fartlek instead. Base: strides on that day from week 3 |
 | Easy | the other run days share the rest, at least 3 mi each; days the volume can't fill are dropped, nearest the long/quality day first; rounding lands on the last easy run so the week adds up to its target |
 | Taper (with `raceDate`) | 5K/10K 1 week (55%), half 2 (75%, 45%), marathon 3 (80%, 60%, 35%) of the last build week; race week has no long run, strides on the quality day, a 3 mi shakeout the day before, then the `Race` session on `raceDate` (3.1 / 6.2 / 13.1 / 26.2 mi) |
-| Mid-week start | a lead-in (`week: 0`) from `startDate` to Sunday: easy runs only, at week-1 volume for those days; full weeks start the next Monday |
+| Mid-week start | a lead-in (`week: 0`) from `startDate` to Sunday at week-1 volume for those days: easy runs, plus the long run on its day when the lead-in reaches it (and has 2+ run days); full weeks start the next Monday |
+| Easy variety | the easy runs of a week share their total in half miles so they differ by 0.5–1 mi (never all the same): the longer ones farthest from the long run and the quality day, the day before the long run the shortest; never under 3 mi, never as long as the long run |
+| Long run | strictly the longest run of its week: lifted 0.5 mi past the next longest when the shares would tie (paid for by the easy runs, then the quality day) |
 | Floors | not stored: the app derives a floor from the session type (`floorFor`). Every run's type has one, and `floorMin` carries its minutes: 20 for easy and quality, 30 for long, null for the race ("Show up and run it easy"). Every run is longer than its floor even at 12:00/mi |
 | Names | the app's own style: `type` + miles, no title, so `label()` reads "Easy 5", "Tempo 6", "Long 12", "Race 13.1"; quality details use the plan sheet's shorthand ("1.5 mi wu, 6 × 800 m at 5K effort, 400 m jog, 1.5 mi cd") |
 
@@ -221,14 +234,14 @@ Validate untrusted input with `zTemplateInput` (`zWeekday`, `zGoal` are exported
 buildTemplate({ goal: 'half', startDate: '2026-10-19', runDays: ['tue','thu','sat','sun'], longRunDay: 'sun', weeklyMiles: 20, raceDate: '2027-01-17' })
 // name 'Half marathon · Jan 17', start '2026-10-19', end '2027-01-17', 13 weeks
 // summary '20 to 32 mi a week, a down week every 4th, long run up to 9.5 mi, one quality session a week, 2-week taper to race day.'
-// week 1: Tue Easy 5 · Thu Tempo 4 (1 mi wu, 2 mi at tempo, 1 mi cd) · Sat Easy 5 · Sun Long 6
-// week 4 (down): Easy 4 · Fartlek 4 (Easy with 6 × 1 min pickups) · Easy 4 · Long 5.5
+// week 1: Tue Easy 5.5 · Thu Tempo 4 (1 mi wu, 2 mi at tempo, 1 mi cd) · Sat Easy 4.5 · Sun Long 6
+// week 4 (down): Easy 4.5 · Fartlek 4 (Easy with 6 × 1 min pickups) · Easy 3.5 · Long 5.5
 // week 13 (race): Easy 5 · Easy 5 (Easy with 4 × 20 s strides) · Easy 3 (Shakeout with 4 × 20 s strides) · Race 13.1
 ```
 
 ### `POST /api/plans/template`
 
-Body: `zTemplateRequest` = the template input plus `replace?: boolean`. Builds the template and writes, in one transaction, a `plan_blocks` row (`source: 'template'`, `summary` from the template) and one `training_sessions` row per session (`blockId` set, positioned after whatever already sits on that day). With `replace: true` it first **deletes** the sessions in `[max(start, today), end]` whose status is not Done or Floor (planned, open, missed-today, skipped, rest). Past days and kept sessions are never touched. Without `replace` nothing is removed.
+Body: `zTemplateRequest` = the template input plus `replace?: boolean`. Builds the template and writes, in one transaction, a `plan_blocks` row (`source: 'template'`, `summary` from the template) and one `training_sessions` row per session (`blockId` set, positioned after whatever already sits on that day). With `replace: true` it first **soft-deletes** the sessions in `[max(start, today), end]` whose status is not Done or Floor, and ends or deletes any overlapping block: see [§7](#7-plan-template-replace-and-undo-contract-1) for the full answer and Undo. Past days and kept sessions are never touched. Without `replace` nothing is removed. "today" is the athlete's (`X-Local-Date`, §14).
 
 ```http
 POST /api/plans/template
@@ -240,7 +253,7 @@ POST /api/plans/template
       "months": ["2027-01", "2027-02"], "removed": 0 }
 ```
 
-Same shape as `POST /api/plans/apply` (`{ block, months }`) plus `removed`; invalidate those months and bootstrap. Errors: 422 `validation` (bad body), 422 `bad_template` (race too far or too close), 401.
+Same shape as `POST /api/plans/apply` (`{ block, months }`) plus `removed`, `replacedIds`, `endedBlock?`, `endedBlocks` (§7); invalidate those months and bootstrap. Errors: 422 `validation` (bad body), 422 `bad_template` (race too far or too close), 401.
 
 ---
 
@@ -264,7 +277,7 @@ Body `{ email, password }` (`zCredentials`: email lower-cased and trimmed, passw
 
 ### `GET /api/me`
 
-`200 { id, email, onboardedAt, trainingProfile }`. The same `onboardedAt` is on `GET /api/auth/me` and on `GET /api/bootstrap` as `user.onboardedAt`; `trainingProfile` is on the bootstrap as `user.trainingProfile`.
+`200 { id, email, name, onboardedAt, trainingProfile }` (`name` §12). The same `onboardedAt` is on `GET /api/auth/me` and on `GET /api/bootstrap` as `user.onboardedAt`; `trainingProfile` is on the bootstrap as `user.trainingProfile`.
 
 ### The training profile (`users.training_profile`, migration `0007_training_profile.sql`, journal idx 7)
 
@@ -290,7 +303,7 @@ zOnboarding = {
 In one transaction:
 
 0. **Training profile**: the answers (goal, raceDate, runDays, longRunDay, weeklyMiles) are stored on the account (see below).
-1. **Morning settings**: `wake` → `settings.wake`; `pace` → `settings.run.pace`; `leave` → a fixed shower at `leave − (shower + ready + smoothie + prep)` (not before `wake`), so the timeline's Leave lands on `leave` with the existing after-run blocks (default 50 min: leave 8:30 → shower 7:40).
+1. **Morning settings**: `wake` → `settings.wake`; `pace` → `settings.run.pace`; `leave` → the routine starts (fixed) at `leave − (shower + ready + smoothie + prep)` (not before `wake`), so the timeline's Leave lands on `leave`. A new account builds on `NEW_ACCOUNT_MORNING` (§13: get ready 30 + out the door 10 = 40 min, so leave 8:30 → starts 7:50).
 2. **Habits**: created in order after existing ones; matched by name, case-insensitive; an archived habit of the same name is un-archived instead of duplicated.
 3. **Plan**: `buildTemplate` from the answers (`weeks` by goal, or up to `raceDate`), starting next Monday or tomorrow, written with `source: 'onboarding'` and `replace: true`. A block written by an earlier onboarding call is retired first (its future unkept sessions removed), so a repeat never doubles the plan.
 4. **`onboarded_at`**: set on the first call and kept after.
@@ -332,6 +345,126 @@ Wrong password: **403** `bad_password` (deliberately not 401, which the client t
 
 ---
 
+## 7. Plan template replace and Undo (contract 1)
+
+`POST /api/plans/template` with `replace: true`:
+
+1. **soft-deletes** (`deleted_at`) the planned, not-done sessions in `[max(startDate, today), end]` (any source, a hand-added
+   lift too). Done, Floor and kept-by-evidence sessions and every past day stay.
+2. every live block that overlaps `[startDate, end]` is **ended at `startDate − 1`** (`{ id, prevEnd }`, `prevEnd` = its old
+   end), or **soft-deleted** when it had not started by then (`{ id, deleted: true }`). Its planned, not-done sessions from
+   `startDate` on go too, even past the new block's end, so nothing of it floats past its end.
+
+```http
+201 { "block": { "id": "bNew", … }, "months": ["2026-11", "2026-12"],
+      "removed": 31,                          // = replacedIds.length
+      "replacedIds": ["p…", …],               // every session it soft-deleted
+      "endedBlock": { "id": "bOld", "prevEnd": "2027-01-10" },   // or { "id": "bOld", "deleted": true }; absent when none
+      "endedBlocks": [ { "id": "bOld", "prevEnd": "2027-01-10" } ] }
+```
+
+`POST /api/plans/template/undo` with `{ blockId, replacedIds, endedBlock? }` (or `endedBlocks`), i.e. the answer sent back:
+the new block and its sessions are deleted, the replaced sessions come back (`deleted_at` cleared), each ended block gets
+`prevEnd` back (or is undeleted). Only the caller's rows are touched. `200 { ok: true, removed, restored, blocks: string[],
+months: string[] }`: refetch `months` (plus the ones from the template answer) and the bootstrap. 422 on a bad body.
+Types: `zTemplateUndo`, `zEndedBlock`, `TemplateAppliedV2`, `EndedBlockRef` in shared. Test: `routes/fixround.test.ts`
+("Undo restores exactly": the live sessions and blocks after Undo equal the ones before the replace, row for row).
+
+## 8. Plan delete and restore (contract 2)
+
+`DELETE /api/blocks/:id` soft-deletes the block (`plan_blocks.deleted_at`, migration 0008) and only its sessions from today
+on that hold nothing (no mark, not kept by evidence). History stays visible: done, floor, sick and skipped sessions and
+every past day keep their rows **and their `blockId`** (the block is just not in the bootstrap any more). Every row it
+touches gets the same timestamp. `200 { ok: true, removed, kept, months, deletedAt }`; 404 for an unknown or already deleted
+block. `POST /api/blocks/:id/restore` brings back the block and exactly those sessions (a session deleted on its own
+earlier stays deleted): `200 { block, restored, months }`. Both survive a reload (no client timer needed). The bootstrap's
+`blocks` and `sessionCount` leave deleted rows out.
+
+## 9. Export and import (contract 3)
+
+`GET /api/export` (with `Content-Disposition: attachment; filename="logbook-export-<date>.json"`) answers the whole
+account, type `ExportV2`:
+
+```ts
+{ version: 2, exportedAt, user: { id, email, name, createdAt, onboardedAt },
+  settings: { morning: {…}, … },        // every user_settings document by key
+  trainingProfile,                        // or null
+  habits, checks, blocks, sessions,       // live rows (soft-deleted ones are not exported)
+  activities,                             // ExportActivity: lossless rows (distanceM, elapsedSec, laps, polyline)
+  lifts, todos /* with deletedOn */, journal,
+  quotes: { own: [{ id, text, author, createdAt }], prefs: [{ quoteId, fav, hidden }] },
+  links, morningDays: { [date]: override }, coach: [{ date, key, text, createdAt }] }
+```
+
+`POST /api/import` takes that file back (`version: 2`, validated by `zExportV2` in `services/exporter.ts`; 422 `bad_bundle`
+when it isn't one) into this account or a fresh one, in one transaction, **idempotent by id**: a row whose id the account
+already has is skipped. An id that belongs to another account (a fresh account on the same server) is renamed
+deterministically (`<id>-<8 hex of the account>`), and every reference follows (a session's block, a check's habit, a
+favourite on your own quote, a coach read's session). Settings, the name and the training profile are filled only where the
+account has none. Anything without `version: 2` is read as the original artifact bundle, as before.
+`200 { ok: true, version: 2 | 1, imported: { habits: 3, sessions: 64, … } }` (an empty object on a re-import).
+
+## 10. Idempotent writes (contract 4)
+
+Any authed POST/PUT/PATCH/DELETE may carry `Idempotency-Key: <string ≤ 200>`. The first answer under 500 (status and body)
+is stored per user and key (`idempotency_keys`, migration 0008, purged after 24 h). A later request with the same key, method
+and path within 24 h gets that answer back with `Idempotent-Replay: true` and does nothing; a twin that arrives while the
+first is still being answered waits for it. No key, no change. The web client (`api/outbox.ts`) sends one key per write
+from its first try to its last replay: the queued item's `id`. It also persists an item as in flight (`sentAt`) before
+sending it, so a reload mid-request replays it under the same key (QA D-F2: no duplicate to-dos).
+
+## 11. Miles without Strava (contract 5)
+
+`packages/shared/src/miles.ts`:
+
+```ts
+sessionMiles(snap, date, session, opts?: { pace?: number }) → { miles: number, source: 'activity' | 'planned' | 'floor' | 'none' }
+dayMiles(snap, date, opts?) → { miles, tracked, logged }        // tracked = activities, logged = marked runs with none
+ranMiles(snap, from, to = from, opts?) → number
+```
+
+- `activity`: the run activities matched to the session (in order: the first live run of the day takes the first
+  activity by start time, the last run takes any extras).
+- `planned`: no activity, marked **Done**: its planned miles (or planned minutes at the easy pace).
+- `floor`: no activity, marked **Floor**: the floor's minutes (20 easy/quality, 30 long; 20 when the words have none) at the
+  easy pace, capped at the planned miles.
+- `none`: not a run, skipped/sick, unmarked with no activity, or no session.
+
+The easy pace is `opts.pace`, else `snapshot.easyPace` (new optional `Snapshot` field, seconds per mile: pass
+`bootstrap.morningSettings.run.pace`), else 9:00/mi (`DEFAULT_EASY_PACE`). `weekCheck`/`weekSummary` (`ranMiles`,
+`doneMiles`, new `loggedMiles`) and `weekTotals.ran` count logged runs, so the miles rule and every week number agree.
+Today (close the day MI), Share and Progress use `sessionMiles`/`dayMiles` instead of summing activities; draw `logged`
+as "logged, not tracked" where that matters.
+
+## 12. The account name (contract 6)
+
+`users.name` (migration 0008, null until given). `PATCH /api/me { name }` (trimmed, ≤ 60; `""` or `null` clears it) answers
+like `GET /api/me`: `{ id, email, name, onboardedAt, trainingProfile }`. `GET /api/me`, `GET /api/auth/me`, the bootstrap's
+`user`, and the sign-in / sign-up answers carry `name`. Schema `zMePatch`.
+
+## 13. Generic defaults for new accounts (contract 7)
+
+- **Morning**: `NEW_ACCOUNT_MORNING` (shared) is what an account that never saved its morning gets from `GET
+  /morning/settings`, the bootstrap, `PATCH /morning/settings` (it builds on it) and onboarding: the back-home routine is
+  **Get ready 30 · Out the door 10** (shower 0, smoothie 0, `after.names.prep = 'Out the door'`), leave 9:30. No "Blend
+  smoothie". `MorningSettings.after.names` (optional) holds the athlete's own block names; `afterLabel(settings, key)` reads
+  a block's name (falls back to `AFTER_LABELS`); `buildMorning` uses it and skips any back-home block of 0 minutes.
+  Accounts with a stored routine (the owner) are unchanged.
+- **First week**: `buildTemplate` varies the easy days by 0.5–1 mi and puts the long run on the chosen long-run day,
+  strictly the longest run, including in a lead-in week that reaches that day (§4 table).
+
+## 14. The athlete's date on the server
+
+The web client sends `X-Local-Date: YYYY-MM-DD` (its local date) on every request (`api/client.ts`). `requireAuth` puts
+`c.get('today')` on the context: that date when it is within 2 days of the server's, else the server's (`clientToday` in
+`apps/api/src/lib/requests.ts`). Every server default that means "today" uses it: a habit's `createdOn` and `archivedOn`,
+a to-do moved to Later without a date (tomorrow = the athlete's tomorrow), the to-do list window, the plan template's
+replace window (the athlete's yesterday is never replaced), onboarding without `today`, the journal's daily pick and the
+Reads pick. Dated writes (sessions, checks, journal, lifts, to-dos, morning days) already carry the client's date and are
+never rejected for being a day ahead. Tests: "the athlete's date" in `routes/fixround.test.ts`.
+
+---
+
 ## Files
 
 - `packages/shared/src/status.ts`: `sessionWord`, `sessionKey`, `dayWord`, `dayKey`, `statusKey`, `heroSession`, `STATUS_WORDS`, `isSkipMark`
@@ -340,4 +473,7 @@ Wrong password: **403** `bad_password` (deliberately not 401, which the client t
 - `packages/shared/src/templates.ts`: `buildTemplate`, `TemplateError`, `GOAL_SPECS`, `TEMPLATE_RULES`, `weekdayOf`, `floorMinutes`
 - `packages/shared/src/schemas.ts`: `zTemplateInput`, `zTemplateRequest`, `zOnboarding`, `zDeleteAccount`, `zWeekday`, `zGoal`, `zClockMinutes`, `zPace`; `zMark` gains `sick`
 - `apps/api/src/routes/me.ts` (`/me`, `/me/onboarding`), `routes/plans.ts` (`/plans/template`), `routes/auth.ts` (`/signup`, status), `services/plans.ts`, `services/account.ts`, `drizzle/0006_onboarding.sql`
-- Tests: `packages/shared/src/{words,phase,week,templates}.test.ts`, `apps/api/src/routes/platform.test.ts`
+- `packages/shared/src/miles.ts`: `sessionMiles`, `dayMiles`, `ranMiles`, `DEFAULT_EASY_PACE`
+- `packages/shared/src/morning.ts`: `NEW_ACCOUNT_MORNING`, `afterLabel`
+- `apps/api/src/routes/plans.ts` (`/plans/template`, `/plans/template/undo`), `routes/core.ts` (`/blocks/:id`, `/blocks/:id/restore`), `routes/import.ts` (`/export`, `/import`), `services/exporter.ts`, `lib/requests.ts` (`Idempotency-Key`, `X-Local-Date`), `drizzle/0008_fix_round.sql`
+- Tests: `packages/shared/src/{words,phase,week,templates,miles}.test.ts`, `apps/api/src/routes/{platform,fixround}.test.ts`, `apps/web/src/api/outbox.test.ts`

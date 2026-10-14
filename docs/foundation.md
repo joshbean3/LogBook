@@ -318,15 +318,33 @@ and draws one neutral grey block; replace it with your page's skeleton. `Spinner
 |---|---|---|
 | `children` / `text` | `ReactNode` | One sentence, said forward. |
 | `verb` | `{ label, onPress, haptic?, primary? }` | The one verb button (soft blue; `primary` for the screen's one blue). |
-| `ghost` | `ReactNode` | The filled state at 30%, aria-hidden and inert, fading out at the bottom. |
+| `ghost` | `ReactNode \| 'bars' \| 'rows' \| 'lines'` | The *shape* of the filled state at 30%, aria-hidden and inert, fading out at the bottom. Use a ghost primitive (below), never sample content. |
 | `starters` | `string[]` | One-tap chips; each calls `onStarter(s)` (may return a promise), then shows as added with `haptics.toggle()`. |
 | `onStarter` | `(s: string) => void \| Promise` | |
 | `startersLabel` | `string` | VoiceOver group name. Default "Starters". |
 | `action` | `ReactNode` | v1: any node at the right. With only `children` + `action` the v1 compact row is drawn, so old call sites keep their look. |
 
+**Ghosts are shapes, never content (critic B1).** A new athlete must never see made-up personal data: no numbers, words,
+dates, domains or entries, not even at 30%. In a private log they read as a bug or as someone else's account. Use one of
+the three ghost primitives (`import { GhostBars, GhostLines, GhostRows } from '@/ui'`), or the shorthand string:
+
+| Ghost | Props | For |
+|---|---|---|
+| `GhostBars` / `ghost="bars"` | `count?` (8), `height?` (120) | Progress: bars rising and dipping, a baseline, no axis, no numbers, no "PLAN" label |
+| `GhostRows` / `ghost="rows"` | `rows?` (3), `lead?: 'dot' \| 'square' \| 'none'`, `rowHeight?` (60) | Journal entries, Library, Reads: rows of two grey text bars (≈60% and 35%), hairlines between |
+| `GhostLines` / `ghost="lines"` | `widths?` ([60, 35]), `h?` (12) | a quote, a paragraph, one entry |
+
+Shapes of real controls (empty orbs, an empty ring) are fine as long as they carry no text. Dev builds log a console
+warning when a ghost renders any text. Reads: no ghost rows at all (the slim "Save links…" card is the empty state).
+
+```tsx
+<EmptyState ghost={<GhostBars />} verb={{ label: 'Log a run', onPress: logRun }}>Each run you log lands here.</EmptyState>
+<EmptyState ghost={<GhostRows rows={3} lead="dot" />} verb={{ label: 'Write the first one', onPress: write }}>Two sentences a day add up.</EmptyState>
+```
+
 ```tsx
 <EmptyState
-  ghost={<OrbRow habits={SAMPLE_HABITS} />}
+  ghost={<OrbRow empty count={4} />}
   starters={['Sleep 7 h', 'Stretch', 'Read', 'Protein', 'No phone in bed']}
   onStarter={(name) => addHabit.mutateAsync({ name })}
   verb={{ label: 'Add a habit', onPress: openAddHabit }}
@@ -343,20 +361,22 @@ and draws one neutral grey block; replace it with your page's skeleton. `Spinner
 
 | Prop | Type | |
 |---|---|---|
-| `days` | `WeekDayStatus[]` | Seven, Monday first. Done blue, floor amber, missed/skipped ink-4, rest ink-4 dashed, open/future surface-3. |
+| `days` | `WeekDayStatus[]` | Seven, Monday first. A continuous `--surface-3` track; an arc only on a day with a session: done solid `--accent`, floor solid `--warn`, missed a 1.5px `--bad` outline at 60%, skipped (and sick) grey, open/future a faint arc. Rest (and a day with nothing planned) has no arc. No dashes. |
 | `size` | `40 \| 64` | 40 in a hero, 64 in a sheet. |
 | `today` | `number` | 0–6: a small tick outside today's arc. |
 | `label` | `string` | Default spells the week: "Week: 3 done, 1 floor, 1 rest, 2 to go". |
 | `onceADay` | `string \| null` | Fill key (default `'week-ring'`); the fill (≤ 900ms, `springs.number`) runs once a day. `null`: never. |
 | `layoutId` | `string` | `week-<isoWeek>` for a ring that travels. |
 | `onPress` | `() => void` | Makes it a 44px button (tap → week sheet). |
-| `children` | `ReactNode` | In the middle: a count, a check. |
+| `children` | `ReactNode` | The middle. Left out: the days kept (done + floor) in the stamp face (Inter Tight 800, 13 at 40), nothing while 0. Pass a node to replace it (a check), `null`/`''` for nothing. |
 
 ```tsx
 <WeekRing days={weekStatuses} today={todayIndex} onPress={openWeekSheet} />
 ```
 
-Reduced motion: drawn complete. Do: pair it with words in the sheet it opens. Don't: use colour alone to say "missed".
+It should read as a calendar of the week at a glance, never as a spinner (critic B2). `weekRingKept(days)` gives the
+middle number. Reduced motion: drawn complete. Do: pair it with words in the sheet it opens. Don't: use colour alone to say
+"missed"; don't pass `rest` for a day that has a session.
 
 ### DatePager
 
@@ -402,7 +422,9 @@ One header for every sheet: optional caps `eyebrow`, the serif `title` (28), an 
 Close: the session sheet's ⋯ opens a `useContextMenu()` menu from it), Close. `detent: 'large'` takes the screen less a 32px
 peek (editors). `sticky` ignores scrim taps. Drag the header down 90px (or fling) to dismiss; Escape closes; focus is trapped
 and returns to the opener, with a ring only when the keyboard closed the sheet (`restoreFocus` in `ui/focus.ts`; the
-ContextMenu does the same). Reduced motion: every move is a 150ms fade.
+ContextMenu does the same). Reduced motion: every move is a 150ms fade. The shared title waits for the header: it sits
+where the opener was until the sheet's title row has risen onto the screen, then flies (polish 3), so it never floats alone
+over the page.
 
 ```tsx
 const sheet = useSheet();
@@ -419,6 +441,11 @@ Do: use `push` for Edit and Move (they used to replace the sheet). Don't: put a 
 
 `import { useToast } from '@/ui'` · `toast(text, action?)`. One line (or two) of feedback, as wide as its words, above the
 tab bar; the action (Undo) is a 44px target; 2.8s, 6.5s with an action.
+
+- An action may show a follow-up toast ("Ease them" → "Eased. Undo"): acting clears only the toast that was acted on,
+  before the action runs, so the follow-up stays for its full time (QA D-F1; `ui/toastStore.ts`, tested).
+- While a sheet is open the toast sits just above the sheet's top edge (pinned to the top of the screen when a tall sheet
+  leaves no room), never over its actions (QA D-F3). Only the action button takes taps; the words let taps through.
 
 ```tsx
 haptics.delete();
@@ -549,6 +576,7 @@ Classes in `styles/foundation.css`; tokens in `tokens.css` (`--sp-primary` 48, `
 | `.sec-primary` / `.sec-secondary` | 48px / 24px above a section. |
 | `.sec-group` | 12px between things inside a group. |
 | `.list-edge` | Edge-to-edge list: no card, rows bleed to the screen edges with a 16px gutter, hairlines start at the gutter. Rows (or SwipeRows, or ContextMenu-wrapped rows, or a wrapper of your own around a SwipeRow) are its direct children; give them their own min-height (44, 52 or 60). A SwipeRow keeps its pane edge to edge with the gutter on its content however it is wrapped; one column the list's width, so long content ellipsizes. |
+| `:root[data-input]` | `pointer` or `keyboard`, the last input (`ui/focus.ts`). Focus rings show for the keyboard only, everywhere: while it says `pointer`, every `:focus-visible` outline and shadow ring is off (polish 15). Draw rings with `:focus-visible` as usual; nothing else to do. |
 | `.tnum` | Tabular figures, for numbers that tick or line up. `.stamp`, `Ticker`, `<time>` and number inputs have them already. The body does not: Inter's tabular set widens the hyphen ("Wake - up"). |
 | `.carousel` | Horizontal snap carousel bleeding to the edges; items `78%` wide (`--carousel-item` to change). |
 | `.halo` + `.halo-done` / `.halo-floor` / `.halo-missed` / `.halo-upcoming` / `.halo-rest` | State-driven light: full bloom, amber edge, dim and cool, 60%, soft. 200ms crossfade between states. On an `.aura` card the existing `.aura-glow` layer answers the same classes. Add `.halo-boost` for the day's first completion (20% brighter for 600ms). |
@@ -584,3 +612,6 @@ Breaking or visible changes a page team must know:
 7. **Haptics**: `haptic()` is deprecated; Segmented, Stepper, tab changes and pull-to-refresh now fire named events.
 8. **Motion**: `pageVariants` lost its y offset and `listVariants` its stagger.
 9. **Toast** is placed by a host element; the pill becomes a rounded card when its words take two lines.
+10. **Fix round**: ghosts are `GhostBars`/`GhostLines`/`GhostRows` (swap any ghost that shows sample text); the WeekRing
+    shows the kept count by itself (pass `children={null}` to hide it); toasts move above an open sheet; focus rings are
+    keyboard-only via `data-input`.

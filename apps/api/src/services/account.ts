@@ -9,6 +9,7 @@ import {
   habitChecks,
   habits,
   hrZones,
+  idempotencyKeys,
   journalEntries,
   liftSets,
   links,
@@ -48,6 +49,7 @@ export const USER_TABLES: Array<{ table: SQLiteTable; userId: SQLiteColumn }> = 
   { table: hrZones, userId: hrZones.userId },
   { table: coachReads, userId: coachReads.userId },
   { table: links, userId: links.userId },
+  { table: idempotencyKeys, userId: idempotencyKeys.userId },
 ];
 
 export const userTableNames = (): string[] => USER_TABLES.map((t) => getTableName(t.table));
