@@ -8,6 +8,7 @@ import { useLog } from '../log/useLog';
 import { useOpenSession } from '../sessions/SessionCard';
 import { TodayTodos } from '../todos/TodayTodos';
 import { CloseDay } from './CloseDay';
+import { FocusStrip } from './FocusStrip';
 import { dayTitleWord } from './dayWords';
 import { Hero, phaseOf } from './Hero';
 import { SetupCard } from './SetupCard';
@@ -65,6 +66,8 @@ export default function DayView() {
 
   return (
     <div className="page today">
+      {/* the word and sentence you chose: always first, until you change it */}
+      <FocusStrip />
       <TabHeader
         title={loaded && !setup ? dayTitleWord(ph, runs) : 'Today'}
         date={dateLine(date)}
