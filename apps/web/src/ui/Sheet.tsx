@@ -1,47 +1,152 @@
-import { AnimatePresence, motion, useReducedMotion, type PanInfo } from 'motion/react';
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChevronLeft, X } from 'lucide-react';
+import { animate, AnimatePresence, motion, useDragControls, useMotionValue, usePresence, useReducedMotion, useTransform, type PanInfo } from 'motion/react';
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { CloseButton } from './primitives';
+import { fadeIn, fadeOut, reducedFade, springs } from '@/lib/motion';
+import { focusables, holdInert } from './inert';
 
-/** One bottom sheet at a time, opened from anywhere. Drag down to dismiss on a phone. */
-interface SheetSpec {
+/**
+ * One bottom sheet at a time, opened from anywhere, with a stack inside it.
+ *
+ * `sheet.open(spec)` shows a sheet (replacing whatever was up); `sheet.push(spec)` slides a new panel in from the right
+ * inside the same sheet, with a back chevron in the header; `sheet.pop()` goes back; `sheet.close()` closes it all.
+ * Every sheet has one header: an optional caps eyebrow, the serif title (28), and Close.
+ */
+export interface SheetSpec {
+  /** The serif title (28). Short: "Edit session", "Move", the session name. */
   title: ReactNode;
   body: ReactNode;
+  /** A caps line above the title: a date, "TO-DO". */
+  eyebrow?: ReactNode;
+  /** 'auto' (default) is as tall as the content; 'large' takes the screen less a 32px peek, for editors. */
+  detent?: 'auto' | 'large';
+  /**
+   * Shared element: the opener's title (marked with `{...shared(id)}`, i.e. `data-shared="session-12"`) travels into this
+   * sheet's title on `springs.page` while the sheet rises, and back to it on close. Ids follow docs/foundation.md:
+   * `session-<id>`, `habit-<id>`, `entry-<date>`, `week-<isoWeek>`.
+   */
+  layoutId?: string;
+  /** Wider on a desktop (760 instead of 560). */
   wide?: boolean;
+  /** A tap on the scrim does not close it (an editor with unsaved input). Escape and Close still do. */
   sticky?: boolean;
 }
-interface SheetApi {
+export interface SheetApi {
+  /** Show a sheet, replacing the whole stack. */
   open: (spec: SheetSpec) => void;
+  /** Slide a panel in from the right inside the open sheet (opens one if none is up). */
+  push: (spec: SheetSpec) => void;
+  /** Back one panel; closes the sheet from the first. */
+  pop: () => void;
   close: () => void;
+  /** Change the top panel in place (its title after a save, say). */
   update: (spec: Partial<SheetSpec>) => void;
 }
 const Ctx = createContext<SheetApi | null>(null);
+/** The sheet API: `const sheet = useSheet(); sheet.open({ title, body })`. */
 export const useSheet = () => {
   const c = useContext(Ctx);
   if (!c) throw new Error('useSheet outside SheetProvider');
   return c;
 };
+/**
+ * Mark the element a sheet's title travels from: `<span {...shared(`session-${s.id}`)}>Easy 6</span>`, then open the sheet
+ * with `layoutId: `session-${s.id}``. Only one element on the page should carry an id at a time.
+ */
+export const shared = (id: string) => ({ 'data-shared': id });
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-/* how many panels hold the app inert; the attribute comes off when the last one goes */
-let inertHolders = 0;
-const focusables = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest('[aria-hidden="true"]') && el.offsetParent !== null);
+const DepthCtx = createContext(0);
+/** How deep the panel this component renders in sits (1 for the first). */
+export const useSheetDepth = () => useContext(DepthCtx);
 
-/** The dialog's chrome: the title is what the dialog is called, focus stays inside while it is up and goes back where it came from on close. */
-const Panel = ({ spec, close, opener, children }: { spec: SheetSpec; close: () => void; opener: React.RefObject<HTMLElement | null>; children: ReactNode }) => {
+const slide = {
+  enter: (dir: number) => ({ x: dir > 0 ? '100%' : dir < 0 ? '-30%' : 0, opacity: dir < 0 ? 0 : 1 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? '-30%' : '100%', opacity: dir > 0 ? 0 : 1 }),
+};
+const fade = { enter: { opacity: 0 }, center: { opacity: 1 }, exit: { opacity: 0 } };
+
+/** The sheet's chrome: one header, focus kept inside while it is up and given back to the opener on close. */
+const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: number; close: () => void; pop: () => void; opener: React.RefObject<HTMLElement | null> }) => {
   const reduce = useReducedMotion();
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
+  const drag = useDragControls();
+  const depth = stack.length;
+  const top = stack[depth - 1]!;
+
+  /*
+   * The shared title. The opener sits in the scrolled page and the title in a fixed, clipped sheet, so this is a hand-made
+   * FLIP with a flyer (a fixed copy of the title above the sheet) rather than motion's layoutId: `fly` runs 1 → 0 on
+   * springs.page while the sheet's `sheetY` runs on springs.sheet; the flyer's offset blends the two, so it leaves exactly
+   * from the opener and lands exactly on the title, which shows again when it lands. Closing runs it backwards.
+   */
+  const sheetY = useMotionValue(reduce ? 0 : window.innerHeight);
+  const fly = useMotionValue(0);
+  const flight = useRef({ dx: 0, dy: 0, s: 1, left: 0, top: 0, width: 0, src: null as HTMLElement | null });
+  const [flying, setFlying] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const flyX = useTransform(fly, (f) => f * flight.current.dx);
+  const flyY = useTransform([fly, sheetY], ([f, y]: number[]) => f! * flight.current.dy + (1 - f!) * y!);
+  const flyScale = useTransform(fly, (f) => 1 + f * (flight.current.s - 1));
+  const sharedId = stack[0]?.layoutId;
+  /** Where the title rests (its box less the sheet's offset), and the way from there to the opener. */
+  const aim = () => {
+    const el = titleRef.current;
+    const src = flight.current.src;
+    if (!el || !src) return false;
+    const a = src.getBoundingClientRect();
+    const b = el.getBoundingClientRect();
+    const f = flight.current;
+    f.left = b.left;
+    f.top = b.top - sheetY.get();
+    f.width = b.width;
+    f.dx = a.left - f.left;
+    f.dy = a.top - f.top;
+    f.s = Math.min(2, Math.max(0.5, a.height / (el.offsetHeight || 1)));
+    return true;
+  };
+  useLayoutEffect(() => {
+    if (reduce || !sharedId) return;
+    const src = document.querySelector<HTMLElement>(`[data-shared="${CSS.escape(sharedId)}"]`);
+    if (!src) return;
+    flight.current.src = src;
+    if (!aim()) return;
+    fly.jump(1);
+    src.style.visibility = 'hidden';
+    setFlying(true);
+    const c = animate(fly, 0, springs.page);
+    void c.then(() => setFlying(false));
+    return () => c.stop();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // closing: the title flies home while the sheet falls, and the opener reappears when it lands
+  const [present, safeToRemove] = usePresence();
+  useEffect(() => {
+    if (present) return;
+    const src = flight.current.src;
+    const done = () => {
+      if (src) src.style.visibility = '';
+      flight.current.src = null;
+      safeToRemove?.();
+    };
+    if (!src || reduce || depth !== 1 || !src.isConnected || !aim()) return done();
+    setFlying(true);
+    void animate(fly, 1, springs.page).then(done);
+  }, [present]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(
+    () => () => {
+      if (flight.current.src) flight.current.src.style.visibility = '';
+    },
+    [],
+  );
   useEffect(() => {
     const panel = ref.current;
     if (!panel) return;
     // the rest of the app is off limits to focus and to the screen reader while the sheet is up
-    const root = document.getElementById('root');
-    inertHolders++;
-    root?.setAttribute('inert', '');
+    const release = holdInert();
     const first = focusables(panel).find((el) => !el.classList.contains('icon-btn')) ?? focusables(panel)[0] ?? panel;
     const timer = setTimeout(() => {
-      // an autoFocus field inside the body wins; otherwise the first control, never the Close
+      // an autoFocus field inside the body wins; otherwise the first control, never Close
       if (!panel.contains(document.activeElement)) first.focus({ preventScroll: true });
     }, 30);
     const onKey = (e: KeyboardEvent) => {
@@ -67,71 +172,145 @@ const Panel = ({ spec, close, opener, children }: { spec: SheetSpec; close: () =
     return () => {
       clearTimeout(timer);
       panel.removeEventListener('keydown', onKey);
-      inertHolders = Math.max(0, inertHolders - 1);
-      if (!inertHolders) root?.removeAttribute('inert');
+      release();
       // back to the control that opened the sheet (captured at open(), before any autoFocus field took focus), if it is still on the page
       const o = opener.current;
       opener.current = null;
       if (o && o.isConnected && typeof o.focus === 'function') o.focus({ preventScroll: true });
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // a push or a pop: the new panel starts at the top, and focus moves into it
+  const firstDepth = useRef(depth);
+  useEffect(() => {
+    const panel = ref.current;
+    if (!panel || depth === firstDepth.current) return;
+    firstDepth.current = -1;
+    panel.scrollTop = 0;
+    const t = setTimeout(() => {
+      const body = panel.querySelector<HTMLElement>(`[data-depth="${depth}"]`);
+      const f = body ? focusables(body)[0] : null;
+      (f ?? panel.querySelector<HTMLElement>('.sheet-title') ?? panel).focus({ preventScroll: true });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [depth]);
   const onDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 90 || info.velocity.y > 600) close();
   };
+  const v = reduce ? fade : slide;
+  const t = reduce ? reducedFade : springs.page;
+  const titleId = `${id}-title-${depth}`;
   return (
-    <motion.div
-      ref={ref}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={`${id}-title`}
-      tabIndex={-1}
-      className={`sheet ${spec.wide ? 'wide' : ''}`}
-      initial={reduce ? { opacity: 0 } : { y: '100%', opacity: 1 }}
-      animate={reduce ? { opacity: 1 } : { y: 0 }}
-      exit={reduce ? { opacity: 0, transition: { duration: 0.08 } } : { y: '100%', transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }}
-      transition={reduce ? { duration: 0.08 } : { type: 'spring', stiffness: 380, damping: 36 }}
-      drag={reduce ? false : 'y'}
-      dragConstraints={{ top: 0, bottom: 0 }}
-      dragElastic={{ top: 0, bottom: 0.6 }}
-      onDragEnd={onDragEnd}
-    >
-      <div className="sheet-grip" aria-hidden="true" />
-      <div className="sheet-head">
-        <h2 className="sheet-title" id={`${id}-title`}>
-          {spec.title}
-        </h2>
-        <CloseButton onClick={close} />
-      </div>
-      {children}
-    </motion.div>
+    <>
+      <motion.div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={`sheet ${top.wide ? 'wide' : ''} ${top.detent === 'large' ? 'large' : ''}`}
+        style={{ y: sheetY }}
+        initial={reduce ? { opacity: 0 } : { y: window.innerHeight, opacity: 1 }}
+        animate={reduce ? { opacity: 1 } : { y: 0 }}
+        exit={reduce ? { opacity: 0, transition: fadeOut } : { y: window.innerHeight, transition: { ...springs.sheet, restDelta: 2 } }}
+        transition={reduce ? reducedFade : springs.sheet}
+        drag="y"
+        dragControls={drag}
+        dragListener={false}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.6 }}
+        onDragEnd={onDragEnd}
+      >
+        <div className="sheet-grab" onPointerDown={(e) => !(e.target as HTMLElement).closest('button') && drag.start(e)}>
+          <div className="sheet-grip" aria-hidden="true" />
+          <div className="sheet-head">
+            {depth > 1 ? (
+              <button type="button" className="icon-btn sheet-back" aria-label="Back" title="Back" onClick={pop}>
+                <ChevronLeft size={24} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            ) : null}
+            <div className="sheet-titles">
+              <AnimatePresence custom={dir} mode="popLayout">
+                <motion.div key={depth} className="sheet-titles-in" custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
+                  {top.eyebrow ? <span className="caps sheet-eyebrow">{top.eyebrow}</span> : null}
+                  <motion.h2 ref={depth === 1 ? titleRef : undefined} className="sheet-title" id={titleId} tabIndex={-1} style={depth === 1 && flying ? { visibility: 'hidden' } : undefined}>
+                    {top.title}
+                  </motion.h2>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={close}>
+              <X size={20} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+        <div className="sheet-stack">
+          <AnimatePresence custom={dir} mode="popLayout">
+            <motion.div key={depth} data-depth={depth} className="sheet-body stack" style={{ gap: 14 }} custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
+              <DepthCtx.Provider value={depth}>{top.body}</DepthCtx.Provider>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </motion.div>
+      {flying && depth === 1 ? (
+        <motion.div
+          className="sheet-title sheet-flyer"
+          aria-hidden="true"
+          style={{ left: flight.current.left, top: flight.current.top, width: flight.current.width, x: flyX, y: flyY, scale: flyScale }}
+        >
+          {stack[0]!.title}
+        </motion.div>
+      ) : null}
+    </>
   );
 };
 
+/**
+ * Sheet v2. Opens on `springs.sheet` from the bottom over a 78% black scrim (a centred card on a desktop); drag the header
+ * down (90px or a fling) to dismiss; Escape closes; focus is trapped inside and returns to the opener. `push` and `pop` move
+ * through a stack inside one sheet on `springs.page`. `detent: 'large'` for editors. A `layoutId` on the spec makes the
+ * title a shared element: mark the opener's title with `{...shared(id)}` and it travels into the header as the sheet rises,
+ * and home again on close. Reduced motion: every move is a 150ms fade, and nothing travels.
+ */
 export const SheetProvider = ({ children }: { children: ReactNode }) => {
-  const [spec, setSpec] = useState<SheetSpec | null>(null);
-  const reduce = useReducedMotion();
+  const [state, setState] = useState<{ stack: SheetSpec[]; dir: number }>({ stack: [], dir: 0 });
   const isOpen = useRef(false);
   const opener = useRef<HTMLElement | null>(null);
   const close = useCallback(() => {
     isOpen.current = false;
-    setSpec(null);
+    setState({ stack: [], dir: 0 });
   }, []);
-  const api = useMemo<SheetApi>(
-    () => ({
+  const api = useMemo<SheetApi>(() => {
+    const capture = () => {
+      // the control under focus now is where focus goes back to; a sheet opened from a sheet keeps the first one's
+      if (!isOpen.current) opener.current = (document.activeElement as HTMLElement | null) ?? null;
+      isOpen.current = true;
+    };
+    return {
       open: (s) => {
-        // the control under focus now is where focus goes back to; a sheet opened from a sheet keeps the first one's
-        if (!isOpen.current) opener.current = (document.activeElement as HTMLElement | null) ?? null;
-        isOpen.current = true;
-        setSpec(s);
+        capture();
+        setState({ stack: [s], dir: 0 });
       },
+      push: (s) => {
+        capture();
+        setState((cur) => ({ stack: [...cur.stack, s], dir: cur.stack.length ? 1 : 0 }));
+      },
+      pop: () =>
+        setState((cur) => {
+          if (cur.stack.length <= 1) {
+            isOpen.current = false;
+            return { stack: [], dir: 0 };
+          }
+          return { stack: cur.stack.slice(0, -1), dir: -1 };
+        }),
       close,
-      update: (p) => setSpec((s) => (s ? { ...s, ...p } : s)),
-    }),
-    [close],
-  );
+      update: (p) => setState((cur) => (cur.stack.length ? { ...cur, stack: [...cur.stack.slice(0, -1), { ...cur.stack[cur.stack.length - 1]!, ...p }] } : cur)),
+    };
+  }, [close]);
+  const open = state.stack.length > 0;
+  const top = state.stack[state.stack.length - 1];
   useEffect(() => {
-    if (!spec) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.cm-layer') && close();
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -139,21 +318,24 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [spec, close]);
+  }, [open, close]);
   return (
     <Ctx.Provider value={api}>
       {children}
       {createPortal(
         <AnimatePresence>
-          {spec ? (
-            <div className="sheet-wrap">
-              <motion.div className="sheet-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0.08 : 0.2 }} onClick={() => !spec.sticky && close()} />
-              <Panel spec={spec} close={close} opener={opener}>
-                <div className="sheet-body stack" style={{ gap: 14 }}>
-                  {spec.body}
-                </div>
-              </Panel>
-            </div>
+          {open && top ? (
+            <motion.div className="sheet-wrap">
+              <motion.div
+                className="sheet-scrim"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: fadeOut }}
+                transition={fadeIn}
+                onClick={() => !top.sticky && close()}
+              />
+              <Panel stack={state.stack} dir={state.dir} close={close} pop={api.pop} opener={opener} />
+            </motion.div>
           ) : null}
         </AnimatePresence>,
         document.body,

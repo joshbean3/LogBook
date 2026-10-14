@@ -88,11 +88,15 @@ Verbs, one word, on buttons: Add, Save, Done, Floor, Skip, Move, Edit, Delete, U
 
 ### 9. Motion
 
-1. Nothing moves on load except the page fade (200ms) and, once, the route line drawing itself.
-2. Completion is the celebration: an orb fills (160ms) and its check draws (160ms, after the fill), the glow blooms (320ms ease-out), one haptic. Nothing else celebrates.
-3. Taps compress to 0.985 with a spring (stiffness 400, damping 30). Sheets spring up (stiffness 300, damping 30). Numbers tick to their value (AnimatedNumber).
-4. Nothing longer than 600ms except the one route draw (1.1s). No stagger lists. No ambient motion.
-5. A held thing lifts: scale 1.03, surface-2, a line-strong hairline, no shadow. It follows the finger and springs back (stiffness 400, damping 30), within rules 1 and 4: nothing lifts on load, nothing lifts for long, and under reduced motion only the surface changes.
+Motion is physics, interruptible and rare. The values live in `apps/web/src/lib/motion.ts` (`springs`) and are explained in `docs/foundation.md`; `docs/experience.md` §3.2 is the source.
+
+1. Nothing moves on load except the page arriving (a 120ms fade on a tab switch, a `page` spring slide for a pushed page) and, once a day, the route line drawing itself (1.1s) and the week ring filling (≤ 900ms).
+2. Completion is the celebration: an orb or check pops once on `springs.complete` (to 1.12), the glow blooms, one haptic. Nothing else overshoots.
+3. Taps compress to 0.97 on `springs.press` (600 / 35 / 0.6). Sheets rise on `springs.sheet` (380 / 38). Pushed pages, the date pager, sheet push/pop and shared elements move on `springs.page` (300 / 32). Numbers spring to their value on `springs.number` (170 / 26), only on change, never from 0 on a revisit.
+4. A held thing lifts: scale 1.03 on `springs.lift` (500 / 30 / 0.8), surface-2, a line-strong hairline, no shadow; it drops on `springs.settle` (450 / 34). Swipes follow the finger 1:1 and spring home on `settle`.
+5. Tweens only for what does not move: opacity 120ms in, 100ms out; colour and the halo 200ms on `ease` (0.22, 1, 0.36, 1). Never ease-in.
+6. Never: motion on scroll, ambient loops (the one exception: Morning's "now" dot, 2s at 4%), staggers over 6 items or 30ms, slides on a tab switch.
+7. Reduced motion: every spring becomes a 150ms opacity fade; the ring and the route appear complete; drags still work, with no scale.
 
 ### 10. Tokens
 

@@ -1,21 +1,15 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { Activity, BookOpen, CalendarDays, Settings, Sun, Sunrise } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 import { startTransition, useEffect, useRef, useState, type ReactNode } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { outbox } from '@/api/outbox';
 import { keys } from '@/api/queries';
-import { haptic } from '@/lib/haptics';
+import { haptics } from '@/lib/haptics';
 import { useMedia } from '@/lib/useToday';
+import { useInitial } from '@/ui/Avatar';
+import { routeInfo, TAB_RESELECT, TABS, type TabDef, type TabReselectDetail } from '@/ui/nav';
 import { LogoMark } from '@/ui/primitives';
 import './shell.css';
-
-const NAV = [
-  { to: '/today', label: 'Today', icon: Sun },
-  { to: '/morning', label: 'Morning', icon: Sunrise },
-  { to: '/plan', label: 'Plan', icon: CalendarDays },
-  { to: '/trends', label: 'Trends', icon: Activity },
-  { to: '/journal', label: 'Journal', icon: BookOpen },
-];
 
 const NetPill = () => {
   const [n, setN] = useState(0);
@@ -45,7 +39,7 @@ const NetPill = () => {
   );
 };
 
-/** Everything the three data tabs draw from: the months, the bootstrap (habits, settings, zones), to-dos and lifts. Half a second at least, so the ring is seen. */
+/** Everything the data tabs draw from: the months, the bootstrap (habits, settings, zones), to-dos and lifts. Half a second at least, so the ring is seen. */
 const refetchAll = (qc: QueryClient) =>
   Promise.all([
     qc.invalidateQueries({ queryKey: ['month'] }),
@@ -65,7 +59,7 @@ const GAIN = 0.8;
 const MAX_PULL = 100;
 
 /**
- * Pull to refresh on Today, Plan and Trends: from the top of the page, a small overscroll pulls a 24px ring down under the
+ * Pull to refresh on Today, Plan and Progress: from the top of the page, a small overscroll pulls a 24px ring down under the
  * status bar and fills it; past the threshold (one tick) letting go fetches the months again. No spinner, no words: the ring
  * sits full while the data arrives, then fades.
  */
@@ -130,7 +124,7 @@ const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
       if (e.cancelable) e.preventDefault();
       const p = Math.min(MAX_PULL, Math.max(0, (dy - SLACK) * GAIN));
       const over = p >= THRESHOLD;
-      if (over && !armed) haptic('tick');
+      if (over && !armed) haptics.threshold();
       armed = over;
       draw(p);
     };
@@ -178,43 +172,65 @@ const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
 };
 
 /**
- * The frame: a rail on wide screens, a tab bar on phones. Page changes fade in with CSS only,
- * so a view that suspends while loading can never be left invisible.
+ * The frame: four tabs (Today · Plan · Progress · Journal) as a bottom bar on phones and a rail on wide screens. A pushed
+ * page (Morning, Reads, Settings) keeps its owning tab lit. A tap on another tab is an instant cut (the page fades in over
+ * 120ms, see App.tsx) with `haptics.select()`; a tap on the lit tab scrolls to the top, and from the top goes to the tab's
+ * root (today, this week), then tells the page with a `logbook:tab-reselect` event.
  */
 export const Shell = ({ children }: { children?: ReactNode }) => {
   const loc = useLocation();
   const nav = useNavigate();
+  const reduce = useReducedMotion();
   const wide = useMedia('(min-width: 900px)');
+  const info = routeInfo(loc.pathname);
+  const initial = useInitial();
   // a tab tap navigates inside a transition: the page you are on stays put until the next one can paint
-  const go = (to: string) => (e: React.MouseEvent) => {
+  const onTab = (t: TabDef) => (e: React.MouseEvent) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
-    if (loc.pathname === to) return;
-    startTransition(() => nav(to));
+    if (info.tab !== t.id) {
+      haptics.select();
+      startTransition(() => nav(t.to));
+      return;
+    }
+    // the lit tab again: a pushed page goes back to the tab; a tab page goes to the top, then to its root
+    if (info.pushed) {
+      startTransition(() => nav(t.to));
+      return;
+    }
+    const atTop = window.scrollY <= 2;
+    if (!atTop) window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    else if (loc.pathname !== t.to) startTransition(() => nav(t.to));
+    window.dispatchEvent(new CustomEvent<TabReselectDetail>(TAB_RESELECT, { detail: { tab: t.id, atTop } }));
   };
-  const refreshable = /^\/(today|plan|trends)(\/|$)/.test(loc.pathname);
+  const refreshable = /^\/(today|plan|progress)(\/|$)/.test(loc.pathname);
   return (
     <div className="shell">
       {wide ? (
         <aside className="rail">
-          <NavLink to="/today" className="brand">
+          <Link to="/today" className="brand">
             <span className="brand-mark">
               <LogoMark size={22} color="var(--accent)" />
             </span>
             <span className="brand-word">Logbook</span>
-          </NavLink>
+          </Link>
           <nav aria-label="Views" className="rail-nav">
-            {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} onClick={go(n.to)} className={({ isActive }) => `rail-link ${isActive ? 'on' : ''}`}>
-                <n.icon size={18} strokeWidth={2} aria-hidden="true" />
-                <span>{n.label}</span>
-              </NavLink>
-            ))}
+            {TABS.map((t) => {
+              const on = info.tab === t.id;
+              return (
+                <Link key={t.id} to={t.to} onClick={onTab(t)} aria-current={on ? 'page' : undefined} className={`rail-link ${on ? 'on' : ''}`}>
+                  <t.icon size={18} strokeWidth={2} aria-hidden="true" />
+                  <span>{t.label}</span>
+                </Link>
+              );
+            })}
           </nav>
-          <NavLink to="/settings" className="rail-link foot">
-            <Settings size={18} strokeWidth={2} aria-hidden="true" />
+          <Link to="/settings" className={`rail-link foot ${info.section === 'settings' ? 'on' : ''}`} aria-current={info.section === 'settings' ? 'page' : undefined}>
+            <span className="avatar-disc sm" aria-hidden="true">
+              {initial}
+            </span>
             <span>Settings</span>
-          </NavLink>
+          </Link>
         </aside>
       ) : null}
       <main className="content" id="main">
@@ -225,16 +241,15 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
       {!wide ? (
         <nav className="tabbar" aria-label="Views">
           <div className="tabs" role="tablist">
-          {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} onClick={go(n.to)} role="tab" aria-selected={loc.pathname === n.to || loc.pathname.startsWith(`${n.to}/`)} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
-              {({ isActive }) => (
-                <>
-                  <n.icon size={24} strokeWidth={isActive ? 2.4 : 1.8} fill={isActive ? 'currentColor' : 'none'} fillOpacity={isActive ? 0.18 : 0} aria-hidden="true" />
-                  <span className="tab-label">{n.label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
+            {TABS.map((t) => {
+              const on = info.tab === t.id;
+              return (
+                <Link key={t.id} to={t.to} onClick={onTab(t)} role="tab" aria-selected={on} className={`tab ${on ? 'on' : ''}`}>
+                  <t.icon size={24} strokeWidth={on ? 2.4 : 1.8} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} aria-hidden="true" />
+                  <span className="tab-label">{t.label}</span>
+                </Link>
+              );
+            })}
           </div>
         </nav>
       ) : null}
