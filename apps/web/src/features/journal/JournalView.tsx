@@ -7,7 +7,7 @@ import { useToday } from '@/lib/useToday';
 import { Segmented, TAB_RESELECT, TabHeader, type TabReselectDetail } from '@/ui';
 import { addToDraft } from './JournalDaySection';
 import { asPrompt, JournalHome } from './JournalHome';
-import { Library, useOpenQuote } from './Library';
+import { Library, LibrarySearchButton, useOpenQuote } from './Library';
 import './journal.css';
 
 type Seg = 'journal' | 'library';
@@ -69,7 +69,7 @@ export default function JournalView() {
   };
   return (
     <div className="page journal-page">
-      <TabHeader title="Journal">
+      <TabHeader title="Journal" accessory={seg === 'library' ? <LibrarySearchButton onWrite={writeAbout} /> : null}>
         <Segmented
           className="j-seg"
           label="Journal or library"

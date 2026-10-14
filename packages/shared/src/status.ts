@@ -1,4 +1,5 @@
 import { shiftDays, type ISODate } from './dates.js';
+import { dayMiles } from './miles.js';
 import type { Activity, DayStatus, Session, SessionStatus } from './types.js';
 
 /**
@@ -10,6 +11,11 @@ export interface Snapshot {
   sessionsOn(date: ISODate): Session[];
   activitiesOn(date: ISODate): Activity[];
   liftSetCountOn(date: ISODate): number;
+  /**
+   * The athlete's easy pace in seconds per mile (bootstrap.morningSettings.run.pace), for `sessionMiles`: a run marked
+   * Floor with no activity counts its floor minutes at this pace. Optional; 9:00/mi when absent.
+   */
+  easyPace?: number | null;
 }
 
 export const counts = (st: SessionStatus | DayStatus): boolean => st === 'done' || st === 'floor';
@@ -81,6 +87,7 @@ export const trainingStreak = (snap: Snapshot, limit = 180): number => {
 
 export interface WeekTotals {
   planned: number;
+  /** Miles run, logged runs included (`dayMiles`: activities, plus runs marked Done/Floor with no activity). */
   ran: number;
   sessions: number;
   hit: number;
@@ -97,8 +104,9 @@ export const weekTotals = (snap: Snapshot, monday: ISODate): WeekTotals => {
       t.sessions++;
       if (counts(st)) t.hit++;
     }
-    t.ran += snap.activitiesOn(d).filter((a) => a.kind === 'run').reduce((x, a) => x + a.miles, 0);
+    t.ran += dayMiles(snap, d).miles;
   }
+  t.ran = Math.round(t.ran * 100) / 100;
   return t;
 };
 

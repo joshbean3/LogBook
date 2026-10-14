@@ -44,7 +44,7 @@ export const authRoutes = (db: DB) => {
     const id = uid('u');
     db.insert(users).values({ id, email, passwordHash: await hashPassword(password), createdAt: nowISO(), onboardedAt: null }).run();
     createSession(db, c, id);
-    return c.json({ id, email, onboardedAt: null }, 201);
+    return c.json({ id, email, name: null, onboardedAt: null }, 201);
   };
   r.post('/setup', create);
   r.post('/signup', create);
@@ -60,7 +60,7 @@ export const authRoutes = (db: DB) => {
     }
     clearThrottle(ip);
     createSession(db, c, row.id);
-    return c.json({ id: row.id, email: row.email, onboardedAt: row.onboardedAt });
+    return c.json({ id: row.id, email: row.email, name: row.name ?? null, onboardedAt: row.onboardedAt });
   });
 
   r.post('/logout', (c) => {

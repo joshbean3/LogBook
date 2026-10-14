@@ -10,7 +10,8 @@ export const useLog = (months: string[]) => {
   const boot = useBootstrap();
   const list = useMemo(() => [...new Set([...months, monthOf(t)])].sort(), [months.join(','), t]); // eslint-disable-line react-hooks/exhaustive-deps
   const { bundles, ready, loading } = useMonths(list);
-  const snap = useSnapshot(bundles, t);
+  const pace = boot.data?.morningSettings?.run?.pace ?? null;
+  const snap = useSnapshot(bundles, t, pace);
   return {
     today: t,
     boot: boot.data ?? null,

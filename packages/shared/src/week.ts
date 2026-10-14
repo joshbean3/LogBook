@@ -1,5 +1,6 @@
 import { mondayOf, shiftDays, type ISODate } from './dates.js';
 import { counts, dayStatus, isSkipMark, RUN_FLOOR_RATIO, sessionStatus, STATUS_WORDS, statusKey, weekTotals, type Snapshot, type StatusKey, type StatusWord } from './status.js';
+import { dayMiles } from './miles.js';
 import type { DayStatus } from './types.js';
 
 /** A week is kept with this many sessions kept (fewer when fewer were planned). */
@@ -32,7 +33,10 @@ export interface WeekCheck {
   target: number;
   /** Planned run miles that the miles rule measures against (sick-skipped runs are excused). */
   plannedMiles: number;
+  /** Miles run: run activities plus runs marked Done or Floor that no activity covers (`dayMiles`). */
   ranMiles: number;
+  /** The part of `ranMiles` that was logged by a mark rather than tracked by an activity ("logged, not tracked"). */
+  loggedMiles: number;
 }
 
 export interface WeekSummary extends WeekCheck {
@@ -40,7 +44,7 @@ export interface WeekSummary extends WeekCheck {
   days: WeekDay[];
   /** Planned run miles, skipped runs left out (same as `weekTotals.planned`). */
   plannedMiles: number;
-  /** Miles actually run this week, planned or not. */
+  /** Miles actually run this week, planned or not, logged runs included (same as `ranMiles`). */
   doneMiles: number;
   /** Run sessions planned and not skipped. */
   runsPlanned: number;
@@ -88,6 +92,7 @@ export const weekCheck = (snap: Snapshot, weekStart: ISODate): WeekCheck => {
   let kept = 0;
   let planned = 0;
   let ran = 0;
+  let logged = 0;
   for (const d of days7(start)) {
     const all = snap.sessionsOn(d);
     if (all.some((s) => s.kind === 'rest')) hasRest = true;
@@ -103,11 +108,13 @@ export const weekCheck = (snap: Snapshot, weekStart: ISODate): WeekCheck => {
     }
     if (!trainingToday && (snap.activitiesOn(d).length || snap.liftSetCountOn(d) > 0)) keptToday = Math.max(keptToday, 1);
     kept += keptToday;
-    ran += snap.activitiesOn(d).filter((a) => a.kind === 'run').reduce((t, a) => t + a.miles, 0);
+    const dm = dayMiles(snap, d);
+    ran += dm.miles;
+    logged += dm.logged;
   }
   const target = training ? Math.min(WEEK_KEPT_SESSIONS, training) : hasRest ? 0 : WEEK_KEPT_SESSIONS;
   const byMiles = planned > 0 && ran >= planned * WEEK_KEPT_MILES_RATIO - 1e-9;
-  return { kept: kept >= target || byMiles, keptSessions: kept, target, plannedMiles: Math.round(planned * 100) / 100, ranMiles: Math.round(ran * 100) / 100 };
+  return { kept: kept >= target || byMiles, keptSessions: kept, target, plannedMiles: Math.round(planned * 100) / 100, ranMiles: Math.round(ran * 100) / 100, loggedMiles: Math.round(logged * 100) / 100 };
 };
 
 /** Everything the 7-segment week ring and the week sheet show for the week starting `weekStart` (any day of it works). */

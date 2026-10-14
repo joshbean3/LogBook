@@ -67,3 +67,6 @@ export const Switch = ({ on, onChange, label }: { on: boolean; onChange: (on: bo
     </button>
   );
 };
+
+/** The account's initial for the avatar: the name's first letter (contract 6), else the email's. */
+export const initialOf = (u: { name?: string | null; email?: string } | undefined) => ((u?.name ?? '').trim() || (u?.email ?? '')).charAt(0).toUpperCase() || undefined;

@@ -720,7 +720,7 @@
 .ob-wrow {
   position: relative;
   display: grid;
-  grid-template-columns: 44px 3px minmax(0, 1fr) 28%;
+  grid-template-columns: 62px 3px minmax(0, 1fr) 28%;
   align-items: center;
   gap: 12px;
   min-height: 48px;
@@ -735,15 +735,18 @@
   height: 1px;
   background: var(--line);
 }
+/* a tabular weekday column: three letters in their own track, the date right-aligned in the next (no "MON19") */
 .ob-wday {
-  display: flex;
+  display: grid;
+  grid-template-columns: 34px 22px;
   align-items: baseline;
   gap: 6px;
 }
 .ob-wday .caps {
-  width: 26px;
+  white-space: nowrap;
 }
 .ob-wdate {
+  text-align: right;
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--ink-2);
@@ -763,6 +766,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* the long-run day: marked, and its bar in full light */
+.ob-wlong {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  vertical-align: 2px;
+}
+.ob-wrow.is-long .ob-wday .caps {
+  color: var(--ink);
 }
 .ob-wname .stamp {
   font-size: 1.0625rem;
@@ -869,4 +884,18 @@
   .ob-halo.rise {
     animation: none;
   }
+}
+
+/* the morning step: what happens before you leave, and the one-tap fix when it is tight */
+.ob-routine-label {
+  margin-top: 28px;
+}
+.ob-routine {
+  margin-top: 12px;
+}
+.ob-fix.ob-chip {
+  margin-top: 12px;
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-soft, var(--surface));
 }

@@ -82,11 +82,16 @@ export const aiRoutes = (db: DB) => {
     const blockId = uid('b');
     const now = nowISO();
     db.transaction((tx) => {
-      if (mode === 'replace') tx.delete(trainingSessions).where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end))).run();
+      // replace clears what was only planned; anything already marked (done, floor, skipped, sick) is history and stays
+      if (mode === 'replace')
+        tx.update(trainingSessions)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end), isNull(trainingSessions.mark), isNull(trainingSessions.deletedAt)))
+          .run();
       const pos = new Map<string, number>();
-      if (mode === 'add') {
+      if (mode === 'add' || mode === 'replace') {
         for (const d of eachDay(draft.start, draft.end)) pos.set(d, 0);
-        for (const s of tx.select({ date: trainingSessions.date, position: trainingSessions.position }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end))).all()) pos.set(s.date, Math.max(pos.get(s.date) ?? 0, s.position + 1));
+        for (const s of tx.select({ date: trainingSessions.date, position: trainingSessions.position }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end), isNull(trainingSessions.deletedAt))).all()) pos.set(s.date, Math.max(pos.get(s.date) ?? 0, s.position + 1));
       }
       for (const s of draft.sessions) {
         const p = pos.get(s.date) ?? 0;

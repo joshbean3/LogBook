@@ -13,6 +13,8 @@ export const users = sqliteTable('users', {
   onboardedAt: text('onboarded_at'),
   /** The training answers as JSON (`SavedTrainingProfile`): onboarding writes them, PATCH /me/training changes them. Migration 0007. */
   trainingProfile: text('training_profile'),
+  /** The athlete's name ("Josh"): the avatar's initial and Settings → You. Null until given. Migration 0008. */
+  name: text('name'),
 });
 
 export const authSessions = sqliteTable('auth_sessions', {
@@ -72,6 +74,8 @@ export const planBlocks = sqliteTable(
     source: text('source'),
     summary: text('summary'),
     createdAt: createdAt(),
+    /** Soft delete (migration 0008): DELETE /blocks/:id and a replacing template keep the row so Undo restores it exactly. */
+    deletedAt: text('deleted_at'),
   },
   (t) => [index('plan_blocks_user').on(t.userId)],
 );
@@ -305,6 +309,24 @@ export const links = sqliteTable(
     deletedAt: text('deleted_at'),
   },
   (t) => [index('links_user').on(t.userId), index('links_user_pick').on(t.userId, t.pickDate)],
+);
+
+/**
+ * Idempotent writes (contract 4): the first answer to each `Idempotency-Key` a user sent, replayed for 24 hours to any
+ * request that carries the same key, so a write the outbox sends twice lands once. Migration 0008.
+ */
+export const idempotencyKeys = sqliteTable(
+  'idempotency_keys',
+  {
+    userId: userId(),
+    key: text('key').notNull(),
+    method: text('method').notNull(),
+    path: text('path').notNull(),
+    status: integer('status').notNull(),
+    body: text('body').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] }), index('idempotency_keys_created').on(t.createdAt)],
 );
 
 export const uniqueEmail = uniqueIndex;

@@ -121,9 +121,37 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
     fly.jump(1);
     src.style.visibility = 'hidden';
     setFlying(true);
-    const c = animate(fly, 0, springs.page);
-    void c.then(() => setFlying(false));
-    return () => c.stop();
+    /*
+     * Polish 3: the flight waits for the header. Until the sheet's title row has risen onto the screen the flyer sits
+     * exactly where the opener was (fly = 1), so it never floats alone over the page; then it flies, and lands on the
+     * title as the sheet settles (its offset keeps blending in sheetY). A fallback starts it if the sheet never moves.
+     */
+    let c: ReturnType<typeof animate> | null = null;
+    const go = () => {
+      if (c) return;
+      c = animate(fly, 0, springs.page);
+      void c.then(() => setFlying(false));
+    };
+    const headerIn = (y: number) => flight.current.top + y + (titleRef.current?.offsetHeight ?? 34) <= window.innerHeight - 8;
+    let off: (() => void) | null = null;
+    let fallback: ReturnType<typeof setTimeout> | undefined;
+    if (headerIn(sheetY.get())) go();
+    else {
+      off = sheetY.on('change', (y) => {
+        if (!headerIn(y)) return;
+        off?.();
+        go();
+      });
+      fallback = setTimeout(() => {
+        off?.();
+        go();
+      }, 450);
+    }
+    return () => {
+      off?.();
+      clearTimeout(fallback);
+      c?.stop();
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // closing: the title flies home while the sheet falls, and the opener reappears when it lands
   const [present, safeToRemove] = usePresence();

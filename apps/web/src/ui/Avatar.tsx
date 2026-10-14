@@ -15,7 +15,8 @@ export interface AvatarProps {
 /** The account's initial: the first letter of its email, upper case. */
 export const useInitial = (override?: string) => {
   const boot = useBootstrap();
-  return (override ?? boot.data?.user.email ?? '').trim().charAt(0).toUpperCase() || '·';
+  const u = boot.data?.user;
+  return (override || u?.name?.trim() || u?.email || '').trim().charAt(0).toUpperCase() || '·';
 };
 
 export const Avatar = ({ initial, className = '' }: AvatarProps) => {
