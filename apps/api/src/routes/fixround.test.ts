@@ -295,10 +295,12 @@ describe('contract 6: the account name', () => {
 });
 
 describe('contract 7: a new account’s morning', () => {
-  it('is "Get ready 30 · Out the door 10" with no smoothie; the owner’s stored routine is untouched', async () => {
+  it('is "Get ready 30 · Final prep 10" with no smoothie; the owner’s stored routine is untouched', async () => {
     const { cookie } = await signUp('a@example.com');
     const st = (await call('GET', '/api/morning/settings', undefined, cookie)).body;
-    expect(st.after).toMatchObject({ shower: 0, ready: 30, smoothie: 0, prep: 10, names: { prep: 'Out the door' } });
+    expect(st.after).toMatchObject({ shower: 0, ready: 30, smoothie: 0, prep: 10 });
+    // no routine block is named after the door or the leave: a morning has one of each
+    expect(st.after.names).toBeUndefined();
     expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.morningSettings.after.smoothie).toBe(0);
     // a patch builds on it, not on the old defaults
     const p = (await call('PATCH', '/api/morning/settings', { wake: 400 }, cookie)).body;

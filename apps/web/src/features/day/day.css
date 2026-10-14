@@ -222,6 +222,13 @@
 .hero-restmorning .mini-tl {
   margin-top: 4px;
 }
+/* the run day ahead leads a rest or open day: "Tomorrow: Easy 4.5." over its door, in the serif, as onboarding promised */
+.hero-door {
+  font-size: 1.375rem;
+  line-height: 1.625rem;
+  color: var(--ink-2);
+  margin: 0;
+}
 
 /* the open session: the stamp and its plan on the left, the hold ring on the right */
 .hero-open {

@@ -1,7 +1,7 @@
 import { zCredentials } from '@logbook/shared';
 import { eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
-import { createSession, destroySession, hashPassword, requireAuth, userCount, verifyPassword, type AuthEnv } from '../auth.js';
+import { createSession, destroySession, hashPassword, hasLiveSession, requireAuth, userCount, verifyPassword, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { env } from '../env.js';
@@ -31,9 +31,10 @@ export const authRoutes = (db: DB) => {
   /** Can this visitor make an account? The first one when setup is open; any more only with ALLOW_SIGNUP. */
   const canCreate = (n: number) => (n === 0 && (env.allowSetup || env.allowSignup)) || (n > 0 && env.allowSignup);
 
+  /** `signedIn`: this visitor has a live session (the app asks before it requests anything that needs one). */
   r.get('/status', (c) => {
     const n = userCount(db);
-    return c.json({ hasAccount: n > 0, setupOpen: canCreate(n), signupOpen: canCreate(n) });
+    return c.json({ hasAccount: n > 0, setupOpen: canCreate(n), signupOpen: canCreate(n), signedIn: hasLiveSession(db, c) });
   });
 
   /** Create an account and sign it in. The new account has `onboardedAt: null`, so the app sends it to /welcome. */

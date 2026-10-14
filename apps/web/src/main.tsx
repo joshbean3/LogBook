@@ -54,7 +54,7 @@ void bootNative();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PersistQueryClientProvider client={qc} persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 14, buster: 'v1', dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && !['auth-status'].includes(String(q.queryKey[0])) } }}>
+    <PersistQueryClientProvider client={qc} persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 14, buster: 'v1', dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && !['auth-status', 'auth-session'].includes(String(q.queryKey[0])) } }}>
       <MotionConfig reducedMotion="user">
         <BrowserRouter>
           {/* one LayoutGroup for the app: motion layoutIds in different subtrees (a row, a header) animate together */}

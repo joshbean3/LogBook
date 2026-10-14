@@ -10,7 +10,7 @@ import { fadeIn, springs } from '@/lib/motion';
 import { LogoMark } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { StravaPrimer } from './StravaPrimer';
 import './onboarding.css';
 
@@ -411,7 +411,7 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
       onSuccess: (r) => {
         haptics.success();
         // the routine the chips made (the server takes wake and leave; the blocks between are the morning's own setting)
-        morning.settings.mutate({ after: { ...routine, showerMode: 'fixed', showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } });
+        morning.settings.mutate({ after: { ...routine, names: routineNames(draft.routine ?? []), showerMode: 'fixed', showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } });
         // the answers are on the account now (POST /me/onboarding stores them as the training profile)
         set({ sent: key, firstDay: r.firstDay });
       },

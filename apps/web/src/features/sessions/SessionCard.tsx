@@ -1,4 +1,4 @@
-import { assess, clock, clockOfDay, counts, decodePolyline, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, routePath, sessionKey, sessionStatus, sessionWord, shiftDays, tone, weekTotals, zoneOf, type Activity, type Session, type StatusKey } from '@logbook/shared';
+import { assess, clock, clockOfDay, counts, decodePolyline, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, routePath, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Session, type StatusKey } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronRight, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
@@ -104,7 +104,8 @@ const planStats = (date: string, s: Session, log: Log, sets: number): SheetStat[
     if (main?.id === s.id) {
       const T = morningOf(sessions, log.snap.morningOverride(date), log.boot.morningSettings ?? MORNING_DEFAULTS);
       const door = doorOf(T);
-      if (door != null) stats.push(['Out the door', short(door)], ['Back', short(T.back)]);
+      // "Out at": four caps labels share one baseline at 320 ("Out the door" wrapped to two lines); the sentence elsewhere keeps "Out the door"
+      if (door != null) stats.push(['Out at', short(door)], ['Back', short(T.back)]);
     }
   }
   if (sets) stats.push(['Sets', String(sets)]);
@@ -139,7 +140,10 @@ export const shareDataFor = (date: string, sess: Session | null, runs: Activity[
   const hs = log.habits.filter((h) => h.createdOn <= date);
   const habits = hs.length ? { lit: hs.filter((h) => snap.isHabitDone(date, h.id)).length, of: hs.length } : null;
   const plannedSomething = training.some((x) => sessionStatus(snap, date, x) !== 'skipped');
-  const dayType: ShareDayType = miles > 0 ? 'run' : lifted ? 'lift' : !plannedSomething ? 'rest' : 'journal';
+  // a day whose sessions were all skipped is a skipped day, never "Rest": it says so in the shared status word
+  const skippedAll = training.length > 0 && !plannedSomething;
+  const skippedSess = skippedAll ? (sess && training.some((x) => x.id === sess.id) ? sess : training[0]!) : null;
+  const dayType: ShareDayType = miles > 0 ? 'run' : lifted ? 'lift' : !plannedSomething && !skippedAll ? 'rest' : 'journal';
   let top: string | null = null;
   if (sets.length) {
     const best = sets.reduce((b, x) => (e1rm(x.weight, x.reps) > e1rm(b.weight, b.reps) ? x : b));
@@ -159,7 +163,9 @@ export const shareDataFor = (date: string, sess: Session | null, runs: Activity[
         ? liftSess?.type || 'Strength'
         : dayType === 'rest'
           ? 'Rest'
-          : weekdayLong(date);
+          : skippedSess
+            ? `${label(skippedSess)} · ${STATUS_WORDS.skipped}`
+            : weekdayLong(date);
   const verdict =
     dayType === 'run'
       ? runs.length
@@ -171,7 +177,11 @@ export const shareDataFor = (date: string, sess: Session | null, runs: Activity[
           : 'Lifted. Logged.'
         : dayType === 'rest'
           ? 'Rest. It counts.'
-          : `${weekdayLong(date)}, written down.`;
+          : skippedSess
+            ? skippedSess.mark === 'sick'
+              ? 'Rested to recover. It counts for the week.'
+              : 'The week still counts.'
+            : `${weekdayLong(date)}, written down.`;
   return {
     name,
     label: sess ? label(sess) : null,

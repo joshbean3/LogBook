@@ -63,7 +63,7 @@ describe('extractMeta', () => {
   });
   it('names the page after its address when there is no title at all', () => {
     const m = extractMeta('<html></html>', 'https://www.example.com/long/path');
-    expect(m.title).toBe('example.com/long/path');
+    expect(m.title).toBe('example.com · path');
     expect(m.siteName).toBe('example.com');
   });
   it('ignores non-web images', () => {
@@ -145,7 +145,7 @@ describe('fetchPage against a local server', () => {
   it('readPage never throws: an unreadable page is named after its address', async () => {
     const r = await readPage(`${base}/missing`, { allowPrivate: true });
     expect(r.fetched).toBe(false);
-    expect(r.meta.title).toBe(`127.0.0.1/missing`);
+    expect(r.meta.title).toBe(`127.0.0.1 · missing`);
   });
 });
 

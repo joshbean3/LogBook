@@ -24,17 +24,27 @@ export const MORNING_DEFAULTS: MorningSettings = {
 export const DEFAULT_RUN_MILES = 5;
 
 /**
- * What a new account starts with (contract 7): nobody else's routine, just "Get ready" 30 min and "Out the door" 10 min
+ * What a new account starts with (contract 7): nobody else's routine, just "Get ready" 30 min and "Final prep" 10 min
  * before leaving at 9:30 (the shower and the smoothie are 0, so they are not on the timeline). `GET /morning/settings`
- * and the bootstrap answer this for an account that has never saved its morning; onboarding builds on it.
+ * and the bootstrap answer this for an account that has never saved its morning; onboarding builds on it. A morning has one
+ * door (the run's "Out the door") and one Leave, so no routine block is named after either.
  */
 export const NEW_ACCOUNT_MORNING: MorningSettings = {
   ...MORNING_DEFAULTS,
-  after: { showerMode: 'fixed', showerAt: 530, shower: 0, ready: 30, smoothie: 0, prep: 10, order: [...AFTER_ORDER], names: { prep: 'Out the door' } },
+  after: { showerMode: 'fixed', showerAt: 530, shower: 0, ready: 30, smoothie: 0, prep: 10, order: [...AFTER_ORDER] },
 };
 
+/**
+ * The name an earlier build gave a new account's last block. It read as a second door before Leave ("OUT 8:20 · LEAVE
+ * 8:30"), so a stored copy of it reads as the block's default name ("Final prep").
+ */
+const RETIRED_NAMES: Partial<Record<MorningAfterKey, string>> = { prep: 'out the door' };
+
 /** A back-home block's name on the timeline: the athlete's own (`after.names`), else the default (AFTER_LABELS). */
-export const afterLabel = (s: Pick<MorningSettings, 'after'> | null | undefined, k: MorningAfterKey): string => s?.after.names?.[k]?.trim() || AFTER_LABELS[k];
+export const afterLabel = (s: Pick<MorningSettings, 'after'> | null | undefined, k: MorningAfterKey): string => {
+  const own = s?.after.names?.[k]?.trim();
+  return own && own.toLowerCase() !== RETIRED_NAMES[k] ? own : AFTER_LABELS[k];
+};
 
 const namesOf = (raw: unknown): Partial<Record<MorningAfterKey, string>> | undefined => {
   if (!raw || typeof raw !== 'object') return undefined;

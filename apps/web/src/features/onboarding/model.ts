@@ -223,10 +223,20 @@ export const routineFrom = (chips: readonly string[]): RoutineMinutes => {
   return r;
 };
 export const routineTotal = (r: RoutineMinutes) => r.shower + r.ready + r.smoothie + r.prep;
+/**
+ * The routine's block names from the chips, said explicitly so no default stands in for them: the smoothie slot is the meal
+ * the athlete picked ("Breakfast", or "Coffee" when that is all), and every other block keeps its own default name. An
+ * empty string clears a stored name (an earlier build named the last block "Out the door", a second door before Leave).
+ */
+export const routineNames = (chips: readonly string[]): Record<'smoothie' | 'prep', string> => ({
+  smoothie: chips.includes('breakfast') ? 'Breakfast' : chips.includes('coffee') ? 'Coffee' : '',
+  prep: '',
+});
 /** Morning settings carrying this routine, for the live verdict and the timeline on the morning step. */
 export const routineSettings = (chips: readonly string[]): MorningSettings => {
   const s = normalizeMorningSettings({});
-  return { ...s, after: { ...s.after, ...routineFrom(chips) } };
+  const names = Object.fromEntries(Object.entries(routineNames(chips)).filter(([, v]) => v));
+  return { ...s, after: { ...s.after, ...routineFrom(chips), ...(Object.keys(names).length ? { names } : {}) } };
 };
 
 // ---------- answers an earlier build kept on this device ----------

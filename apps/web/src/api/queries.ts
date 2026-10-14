@@ -19,7 +19,8 @@ export const keys = {
 };
 
 // ---------- reads ----------
-export const useBootstrap = () => useQuery({ queryKey: keys.bootstrap, queryFn: () => api<Bootstrap>('/bootstrap'), staleTime: 60_000 });
+/** `enabled: false` holds the request (the app shell waits for GET /auth/status on a cold open with nothing cached). */
+export const useBootstrap = (opts: { enabled?: boolean } = {}) => useQuery({ queryKey: keys.bootstrap, queryFn: () => api<Bootstrap>('/bootstrap'), staleTime: 60_000, enabled: opts.enabled ?? true });
 
 export const fetchMonth = (m: string) => api<MonthBundle>(`/months/${m}`);
 export const useMonth = (m: string) => useQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 });

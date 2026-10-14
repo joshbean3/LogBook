@@ -166,7 +166,7 @@ export interface MorningSettings {
     smoothie: number;
     prep: number;
     order: MorningAfterKey[];
-    /** The athlete's own names for the blocks (new accounts: prep is "Out the door"); `afterLabel` falls back to AFTER_LABELS. */
+    /** The athlete's own names for the blocks (onboarding names the smoothie slot "Breakfast" or "Coffee" from its chips); `afterLabel` falls back to AFTER_LABELS. */
     names?: Partial<Record<MorningAfterKey, string>>;
   };
   focus: { word: string; quote: string; by: string };

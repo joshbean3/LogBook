@@ -16,9 +16,21 @@ import './plan.css';
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
 const planWeeks = (b: PlanBlock) => Math.ceil((daysBetween(b.start, b.end) + 1) / 7);
 const stateOf = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active');
-/** The plan to show: the one running today, else the next one to start, else the last one. */
-export const heroBlock = (blocks: PlanBlock[], t: string): PlanBlock | null =>
-  blocks.find((b) => b.start <= t && t <= b.end) ?? [...blocks].filter((b) => b.start > t).sort((a, b) => (a.start < b.start ? -1 : 1))[0] ?? [...blocks].sort((a, b) => (a.end < b.end ? 1 : -1))[0] ?? null;
+/**
+ * The plan to show: the one running today, else the next one to start, else the last one. A block that a newer one has
+ * replaced is never it: Rebuild (or a new block over the old one) ends the old block the day before the new one starts, so
+ * its leftover days ("Oct 15 – Oct 18") still cover today, but the plan is the new block now.
+ */
+export const heroBlock = (blocks: PlanBlock[], t: string): PlanBlock | null => {
+  const replaced = (b: PlanBlock) => blocks.some((n) => n.id !== b.id && n.createdAt > b.createdAt && n.start > b.end && n.end >= t);
+  const live = blocks.filter((b) => b.end >= t && !replaced(b));
+  return (
+    live.find((b) => b.start <= t) ??
+    [...live].sort((a, b) => (a.start < b.start ? -1 : 1))[0] ??
+    [...blocks].sort((a, b) => (a.end < b.end ? 1 : -1))[0] ??
+    null
+  );
+};
 
 /** Planned and run miles per week of a block, for its arc. */
 const arcOf = (log: Log, b: PlanBlock) => {

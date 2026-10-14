@@ -218,16 +218,35 @@ textarea.jtext {
 .ribbon-wrap {
   margin-top: var(--sp-secondary);
 }
-/* the ribbon reaches the screen edges so each day's column (the whole column is its button) is as wide as it can be,
-   and nothing between the page and the dots clips the hit area (QA D-X1) */
+/* the ribbon reaches the screen edges and scrolls sideways: each day's column (the whole column is its button) is at
+   least 44px wide, so 14 of them run past a phone's width; it snaps to days and opens on today, at the right edge */
 .ribbon {
   display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(44px, 1fr);
   margin-inline: calc(-1 * var(--page-pad));
   padding-inline: calc(var(--page-pad) - 12px);
-  touch-action: pan-y;
+  scroll-padding-inline: calc(var(--page-pad) - 12px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.ribbon::-webkit-scrollbar {
+  display: none;
+}
+/* earlier days wait off the left edge: the edge fades, so the ribbon reads as one that scrolls */
+.ribbon.has-more {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px);
+  mask-image: linear-gradient(to right, transparent 0, #000 28px);
+}
+/* a scrub holds the ribbon still under the finger */
+.ribbon.scrubbing {
+  scroll-snap-type: none;
 }
 .rday {
   appearance: none;
@@ -236,7 +255,7 @@ textarea.jtext {
   padding: 0;
   margin: 0;
   width: 100%;
-  min-width: 0;
+  min-width: 44px;
   height: 56px;
   display: grid;
   grid-template-rows: 36px 14px;
@@ -244,7 +263,9 @@ textarea.jtext {
   align-items: center;
   color: var(--ink-4);
   cursor: pointer;
+  scroll-snap-align: end;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 .rdot {
   display: block;

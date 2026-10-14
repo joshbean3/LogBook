@@ -381,7 +381,8 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
         ) : null}
       </div>
       <p className={`orbs-cap ${all ? 'all' : ''}`} aria-live="polite">
-        {!list.length ? 'Habits light up here as you do them.' : all ? 'All lit.' : done ? `${done} of ${list.length} lit` : `${list.length} to light`}
+        {/* a past day has nothing left to light: it says what happened */}
+        {!list.length ? 'Habits light up here as you do them.' : all ? 'All lit.' : done ? `${done} of ${list.length} lit` : date < log.today ? 'None lit that day.' : `${list.length} to light`}
       </p>
       <AnimatePresence initial={false}>{adding ? <AddHabit key="add" existing={log.habits.map((h) => h.name)} onDone={() => setAdding(false)} /> : null}</AnimatePresence>
     </section>

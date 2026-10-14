@@ -23,8 +23,9 @@ const EVENING_TITLE = 'Two sentences, then sleep.';
  * as the hero. The evening prompt's own close ("Two sentences, then sleep.") is the card's title, so here it asks instead.
  * No toast: the entry lands in this card.
  */
-const DayComposer = ({ date, today, autoFocus, onSaved }: { date: ISODate; today: ISODate; autoFocus?: boolean; onSaved?: () => void }) => {
-  const prompt = useDayPrompt(date).replace(EVENING_TITLE, 'How did today go?');
+const DayComposer = ({ date, today, autoFocus, onSaved, ask }: { date: ISODate; today: ISODate; autoFocus?: boolean; onSaved?: () => void; ask?: string | null }) => {
+  const dayAsk = useDayPrompt(date).replace(EVENING_TITLE, 'How did today go?');
+  const prompt = ask ?? dayAsk;
   return (
     <div className="cd-composer">
       <Composer date={date} today={today} rows={2} placeholder={prompt} toast={false} autoFocus={autoFocus} onSaved={onSaved} />
@@ -33,13 +34,13 @@ const DayComposer = ({ date, today, autoFocus, onSaved }: { date: ISODate; today
 };
 
 /** After the day's entry: a second empty composer is noise. One quiet row opens it again. */
-const AddToIt = ({ date, today }: { date: ISODate; today: ISODate }) => {
+const AddToIt = ({ date, today, ask }: { date: ISODate; today: ISODate; ask?: string | null }) => {
   const [open, setOpen] = useState(false);
   return (
     <AnimatePresence initial={false} mode="popLayout">
       {open ? (
         <motion.div key="compose" {...rowPresence}>
-          <DayComposer date={date} today={today} autoFocus onSaved={() => setOpen(false)} />
+          <DayComposer date={date} today={today} autoFocus onSaved={() => setOpen(false)} ask={ask} />
         </motion.div>
       ) : (
         <motion.button key="row" type="button" className="cd-addto" onClick={() => setOpen(true)} {...rowPresence}>
@@ -72,19 +73,35 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * The day in numbers, only the ones that happened: MI (a run marked done by hand counts its planned miles), HABITS "3 of 5",
  * TO-DOS "2 done". A stamp that would read none, not yet or zero is left out; when none is left, one plain sentence from the
  * day takes the row ("Easy 4 still open. 5 habits to light.").
+ *
+ * Nothing is said twice on the card: when the open session's own row (its stamp and hold ring) is shown under the sentence
+ * (`openShown`), the sentence leaves the session out ("5 habits to light."), and says nothing at all when that was all it had.
+ * A past day has nothing left to light or tick off: it gets no instruction, only what it was (a rest day), or no sentence.
  */
-export const dayStamps = ({ miles, lit, habits, doneTodos, openTodos, open, restDay }: { miles: number; lit: number; habits: number; doneTodos: number; openTodos: number; open: string[]; restDay: boolean }) => {
+export const dayStamps = ({ miles, lit, habits, doneTodos, openTodos, open, restDay, openShown = false, past = false }: { miles: number; lit: number; habits: number; doneTodos: number; openTodos: number; open: string[]; restDay: boolean; openShown?: boolean; past?: boolean }) => {
   const stamps: StampRow[] = [];
   if (miles > 0) stamps.push({ k: 'Mi', v: mi(miles), said: `${mi(miles)} miles` });
   if (lit > 0) stamps.push({ k: 'Habits', v: String(lit), u: lit < habits ? `of ${habits}` : 'lit', said: lit < habits ? `${lit} of ${habits} habits` : `all ${habits} habits lit` });
   if (doneTodos > 0) stamps.push({ k: 'To-dos', v: String(doneTodos), u: 'done', said: `${doneTodos} to-dos done` });
   if (stamps.length) return { stamps, line: null };
+  if (past) return { stamps, line: restDay ? 'Rest day.' : null };
   const bits: string[] = [];
-  if (open.length) bits.push(`${open.join(' and ')} still open.`);
-  else if (restDay) bits.push('Rest day.');
+  if (open.length) {
+    if (!openShown) bits.push(`${open.join(' and ')} still open.`);
+  } else if (restDay) bits.push('Rest day.');
   if (habits > lit) bits.push(`${plural(habits - lit, 'habit', 'habits')} to light.`);
   else if (openTodos) bits.push(`${plural(openTodos, 'to-do', 'to-dos')} left.`);
-  return { stamps, line: bits.length ? bits.join(' ') : 'A quiet day.' };
+  return { stamps, line: bits.length ? bits.join(' ') : openShown ? null : 'A quiet day.' };
+};
+
+/**
+ * The composer's question when the card already says the day's first sentence: the open session's row is on the card ("How
+ * did today go?"), or the sentence says "Rest day." ("What did you do with the day?"). Null: the day's own prompt.
+ */
+export const composerAsk = ({ openShown, line }: { openShown: boolean; line: string | null }): string | null => {
+  if (openShown) return 'How did today go?';
+  if (line?.startsWith('Rest day.')) return 'What did you do with the day?';
+  return null;
 };
 
 /**
@@ -108,7 +125,9 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }
   const open = (ph?.training ?? []).filter((p) => p.key === 'today');
   const primary = ph?.training[0] ?? ph?.primary ?? null;
   const restDay = !ph?.training.length;
-  const { stamps, line } = dayStamps({ miles, lit, habits: habits.length, doneTodos, openTodos, open: open.map((p) => label(p.session)), restDay });
+  const openShown = !still && isToday && open.length > 0;
+  const { stamps, line } = dayStamps({ miles, lit, habits: habits.length, doneTodos, openTodos, open: open.map((p) => label(p.session)), restDay, openShown, past: date < log.today });
+  const ask = composerAsk({ openShown, line });
   const share = () => {
     const base = shareDataFor(date, primary?.session ?? null, runs, log);
     const days = weekMiles(log.snap, date);
@@ -138,10 +157,10 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }
             </span>
           ))}
         </div>
-      ) : (
+      ) : line ? (
         <p className="cd-line">{line}</p>
-      )}
-      {!still && isToday ? open.map((p) => <OpenLine key={p.session.id} p={p} onOpen={() => onOpenSession(p)} />) : null}
+      ) : null}
+      {openShown ? open.map((p) => <OpenLine key={p.session.id} p={p} onOpen={() => onOpenSession(p)} />) : null}
       {entries.length ? (
         <div className="cd-entries">
           {entries.map((e) => (
@@ -149,7 +168,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }
           ))}
         </div>
       ) : null}
-      {still ? null : entries.length ? <AddToIt date={date} today={log.today} /> : <DayComposer date={date} today={log.today} />}
+      {still ? null : entries.length ? <AddToIt date={date} today={log.today} ask={ask} /> : <DayComposer date={date} today={log.today} ask={ask} />}
       {entries.length && !still ? (
         <button type="button" className="aura-share cd-share" onClick={share}>
           <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share the day

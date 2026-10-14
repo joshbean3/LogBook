@@ -761,3 +761,19 @@ button.pg-srow:active {
   width: 10px;
   height: 10px;
 }
+
+/* the week sheet's one way into Plan: the day list lives there */
+.pg-srow-icon {
+  flex: none;
+  color: var(--accent-text);
+}
+
+/* an empty slot while scrubbing says a word ("No plan"), never a dash; it sits on the numerals' baseline */
+.pg-slot-word {
+  font-family: var(--sans, inherit);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}

@@ -26,13 +26,11 @@ export const AFTER_KEYS = AFTER_ORDER;
 export const isAfterKey = (k: string): k is AfterKey => (AFTER_ORDER as readonly string[]).includes(k);
 
 /**
- * A routine block's name: the athlete's own (`afterLabel`), and generic where the shared default is somebody's own habit:
- * the `smoothie` slot with no name of its own is "Breakfast", a meal anyone might have.
+ * A routine block's name: the athlete's own (`afterLabel`), else the block's default. An account whose stored routine has a
+ * smoothie block of its own (the owner's) reads "Blend smoothie" as it always did; a new account's smoothie slot is 0 (not
+ * on the timeline) unless onboarding's Breakfast or Coffee chip filled it, and onboarding names it after that chip.
  */
-export const routineName = (st: Pick<MorningSettings, 'after'> | null | undefined, k: AfterKey): string => {
-  const name = afterLabel(st, k);
-  return k === 'smoothie' && name === AFTER_LABELS.smoothie ? 'Breakfast' : name;
-};
+export const routineName = (st: Pick<MorningSettings, 'after'> | null | undefined, k: AfterKey): string => afterLabel(st, k);
 
 /**
  * A timeline block's name on this page. Routine blocks use `routineName`; the run's departure buffer keeps "Out the door"

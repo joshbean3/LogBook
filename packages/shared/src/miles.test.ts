@@ -86,14 +86,15 @@ describe('sessionMiles (contract 5: miles without Strava)', () => {
 });
 
 describe('new-account morning (contract 7)', () => {
-  it('is "Get ready 30 · Out the door 10", no smoothie, no shower, leaving 9:30', () => {
+  it('is "Get ready 30 · Final prep 10", no smoothie, no shower, leaving 9:30: one door (the run\'s), one Leave', () => {
     const st = normalizeMorningSettings(NEW_ACCOUNT_MORNING);
-    expect(st.after).toMatchObject({ shower: 0, ready: 30, smoothie: 0, prep: 10, names: { prep: 'Out the door' } });
+    expect(st.after).toMatchObject({ shower: 0, ready: 30, smoothie: 0, prep: 10 });
+    expect(st.after.names).toBeUndefined();
     const t = buildMorning(morningDayFor([], null, st), st);
     const after = t.blocks.filter((b) => ['shower', 'ready', 'smoothie', 'prep'].includes(b.key));
     expect(after.map((b) => [b.label, b.mins])).toEqual([
       ['Get ready', 30],
-      ['Out the door', 10],
+      ['Final prep', 10],
     ]);
     expect(t.leave).toBe(570);
     expect(t.blocks.some((b) => /smoothie/i.test(b.label))).toBe(false);
@@ -105,5 +106,13 @@ describe('new-account morning (contract 7)', () => {
     const st = normalizeMorningSettings({ after: { names: { ready: '  Dress  ', prep: '', bogus: 'x' } } });
     expect(st.after.names).toEqual({ ready: 'Dress' });
     expect(normalizeMorningSettings({}).after.names).toBeUndefined();
+  });
+
+  it('a stored "Out the door" on the last block (an earlier new-account default) reads as "Final prep"; other names stay', () => {
+    expect(afterLabel(normalizeMorningSettings({ after: { names: { prep: 'Out the door' } } }), 'prep')).toBe('Final prep');
+    expect(afterLabel(normalizeMorningSettings({ after: { names: { prep: 'Pack up' } } }), 'prep')).toBe('Pack up');
+    // the owner's stored routine with an unnamed smoothie block keeps "Blend smoothie"; onboarding names it when a chip was picked
+    expect(afterLabel(normalizeMorningSettings({ after: { smoothie: 5 } }), 'smoothie')).toBe('Blend smoothie');
+    expect(afterLabel(normalizeMorningSettings({ after: { smoothie: 15, names: { smoothie: 'Breakfast' } } }), 'smoothie')).toBe('Breakfast');
   });
 });

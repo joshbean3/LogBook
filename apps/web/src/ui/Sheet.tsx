@@ -83,9 +83,10 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
 
   /*
    * The shared title. The opener sits in the scrolled page and the title in a fixed, clipped sheet, so this is a hand-made
-   * FLIP with a flyer (a fixed copy of the title above the sheet) rather than motion's layoutId: `fly` runs 1 → 0 on
-   * springs.page while the sheet's `sheetY` runs on springs.sheet; the flyer's offset blends the two, so it leaves exactly
-   * from the opener and lands exactly on the title, which shows again when it lands. Closing runs it backwards.
+   * FLIP with a flyer (a fixed copy of the title above the sheet) rather than motion's layoutId: `fly` runs 1 → 0 with
+   * the sheet's own `sheetY` (springs.sheet), once the title row is on screen, so the flyer leaves exactly from the opener
+   * and lands exactly on the title on the frame the sheet settles, and the title shows again. Closing flies it home on
+   * springs.page while the sheet falls.
    */
   const sheetY = useMotionValue(reduce ? 0 : window.innerHeight);
   const fly = useMotionValue(0);
@@ -93,7 +94,10 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
   const [flying, setFlying] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const flyX = useTransform(fly, (f) => f * flight.current.dx);
-  const flyY = useTransform([fly, sheetY], ([f, y]: number[]) => f! * flight.current.dy + (1 - f!) * y!);
+  // the flyer travels straight from the opener to the title's resting place as the sheet rises (fly is the sheet's own
+  // progress, see below), so it never runs ahead of the slot nor dips to meet it; past rest (a spring's last pixel above
+  // it) it moves with the sheet, so it lands exactly on the title
+  const flyY = useTransform([fly, sheetY], ([f, y]: number[]) => f! * flight.current.dy + Math.min(0, y!));
   const flyScale = useTransform(fly, (f) => 1 + f * (flight.current.s - 1));
   const sharedId = stack[0]?.layoutId;
   /** Where the title rests (its box less the sheet's offset), and the way from there to the opener. */
@@ -122,35 +126,37 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
     src.style.visibility = 'hidden';
     setFlying(true);
     /*
-     * Polish 3: the flight waits for the header. Until the sheet's title row has risen onto the screen the flyer sits
-     * exactly where the opener was (fly = 1), so it never floats alone over the page; then it flies, and lands on the
-     * title as the sheet settles (its offset keeps blending in sheetY). A fallback starts it if the sheet never moves.
+     * The flight rides the sheet's own spring, so the two arrive together. Until the sheet's title row has risen onto the
+     * screen the flyer sits exactly where the opener was (fly = 1), so it never floats alone over the page. From then on its
+     * progress is the sheet's: fly = what is left of the rise (sheetY) over what was left when the row came on screen, so the
+     * flyer reaches the title's slot on the very frame the sheet settles, never ahead of it (critic N5). A fallback ends it
+     * if the sheet never moves.
      */
-    let c: ReturnType<typeof animate> | null = null;
-    const go = () => {
-      if (c) return;
-      c = animate(fly, 0, springs.page);
-      void c.then(() => setFlying(false));
+    let from = 0;
+    let done = false;
+    const offs: Array<() => void> = [];
+    const land = () => {
+      if (done) return;
+      done = true;
+      // landed: the sheet's later moves (a drag, the close) are its own, the close runs its own flight home
+      offs.forEach((f) => f());
+      fly.set(0);
+      setFlying(false);
     };
     const headerIn = (y: number) => flight.current.top + y + (titleRef.current?.offsetHeight ?? 34) <= window.innerHeight - 8;
-    let off: (() => void) | null = null;
-    let fallback: ReturnType<typeof setTimeout> | undefined;
-    if (headerIn(sheetY.get())) go();
-    else {
-      off = sheetY.on('change', (y) => {
+    const follow = (y: number) => {
+      if (!from) {
         if (!headerIn(y)) return;
-        off?.();
-        go();
-      });
-      fallback = setTimeout(() => {
-        off?.();
-        go();
-      }, 450);
-    }
+        from = Math.max(1, y);
+      }
+      fly.set(Math.min(1, Math.max(0, y / from)));
+    };
+    follow(sheetY.get());
+    offs.push(sheetY.on('change', follow), sheetY.on('animationComplete', land));
+    const fallback = setTimeout(land, 1200);
     return () => {
-      off?.();
+      offs.forEach((f) => f());
       clearTimeout(fallback);
-      c?.stop();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // closing: the title flies home while the sheet falls, and the opener reappears when it lands

@@ -1,5 +1,4 @@
 import { addMonths, fmtDate, heroSession, label, mondayOf, monthStart, num, parseISO, sessionKey, sessionStatus, shiftDays, tone, weekSummary, type Session } from '@logbook/shared';
-import { Info } from 'lucide-react';
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
@@ -146,6 +145,34 @@ export const MonthGrid = ({ anchor, log, onWeek, onStep, focusWeek }: { anchor: 
   };
   return (
     <div ref={ref} className="mg" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={() => (g.current.id = -1, void animate(x, 0, springs.settle))}>
+      {/* the month's header: how to use it, and the colours' legend behind a small text link (no floating control) */}
+      <div className="mg-keyrow">
+        <p className="mg-key fine">Tap a week to open it</p>
+        <button type="button" className="mg-legend-link" aria-expanded={legend} aria-controls="mg-legend" onClick={() => setLegend((v) => !v)}>
+          {legend ? 'Hide legend' : 'Legend'}
+        </button>
+      </div>
+      <AnimatePresence initial={false}>
+        {legend ? (
+          <motion.ul key="legend" id="mg-legend" className="mg-legend" aria-label="What the colours mean" {...rowPresence}>
+            <li>
+              <i className="mg-sw ran" /> Run. Brighter is longer
+            </li>
+            <li>
+              <i className="mg-sw floor" /> Floor kept
+            </li>
+            <li>
+              <i className="mg-sw missed" /> Missed
+            </li>
+            <li>
+              <i className="mg-sw today" /> Today
+            </li>
+            <li>
+              <span className="mg-sw-num">4</span> Planned, still ahead
+            </li>
+          </motion.ul>
+        ) : null}
+      </AnimatePresence>
       <div className="mg-head" aria-hidden="true">
         {DOW.map((d, i) => (
           <span key={i}>{d}</span>
@@ -180,33 +207,6 @@ export const MonthGrid = ({ anchor, log, onWeek, onStep, focusWeek }: { anchor: 
           );
         })}
       </motion.div>
-      <div className="mg-keyrow">
-        <p className="mg-key fine">Tap a week to open it</p>
-        <button type="button" className="mg-info" aria-expanded={legend} aria-controls="mg-legend" aria-label={legend ? 'Hide what the colours mean' : 'What the colours mean'} onClick={() => setLegend((v) => !v)}>
-          <Info size={18} aria-hidden="true" />
-        </button>
-      </div>
-      <AnimatePresence initial={false}>
-        {legend ? (
-          <motion.ul key="legend" id="mg-legend" className="mg-legend" aria-label="What the colours mean" {...rowPresence}>
-            <li>
-              <i className="mg-sw ran" /> Run. Brighter is longer
-            </li>
-            <li>
-              <i className="mg-sw floor" /> Floor kept
-            </li>
-            <li>
-              <i className="mg-sw missed" /> Missed
-            </li>
-            <li>
-              <i className="mg-sw today" /> Today
-            </li>
-            <li>
-              <span className="mg-sw-num">4</span> Planned, still ahead
-            </li>
-          </motion.ul>
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 };

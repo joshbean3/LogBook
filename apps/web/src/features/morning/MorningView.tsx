@@ -16,14 +16,17 @@ import { Timeline, type BlockActions } from './Timeline';
 import './morning.css';
 
 /** Pixels a minute: the usual morning fills the screen between the header and the tab bar; never so small a 5-minute block can't be read. */
-const usePx = (span: number) => {
+const usePx = (span: number, T: MorningTimeline) => {
   const [vh, setVh] = useState(() => (typeof window === 'undefined' ? 844 : window.innerHeight));
   useEffect(() => {
     const f = () => setVh(window.innerHeight);
     window.addEventListener('resize', f);
     return () => window.removeEventListener('resize', f);
   }, []);
-  return clamp((vh - 256) / Math.max(120, span), 3.6, 6);
+  const fit = (room: number) => clamp((vh - 256 - room) / Math.max(120, span), 3.6, 6);
+  // a block shorter than a thumb gets up to 44px of room on the timeline (Timeline): keep that room inside the screen too
+  const roomAt = (px: number) => T.blocks.reduce((n, b) => n + (b.key !== 'free' && b.mins * px < 46 ? 46 - b.mins * px : 0), 0);
+  return fit(roomAt(fit(roomAt(fit(0)))));
 };
 
 /** The planned session a morning is built from, when there is one left to skip. */
@@ -156,7 +159,7 @@ export default function MorningView() {
     };
   }, [enterPull]);
   const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
-  const px = usePx(T.leave - Math.min(st.wake, T.day.wake));
+  const px = usePx(T.leave - Math.min(st.wake, T.day.wake), T);
   const ready = !!log.boot && log.loaded(date);
   // a back-home order this device kept before the server had `after.order` goes up once, unless the account already has one
   const serverOrder = log.boot?.morningSettings.after.order;

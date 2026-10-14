@@ -45,12 +45,14 @@ beforeEach(() => {
 
 describe('sign-up', () => {
   it('the first account comes through setup; more need ALLOW_SIGNUP', async () => {
-    expect((await call('GET', '/api/auth/status')).body).toEqual({ hasAccount: false, setupOpen: true, signupOpen: true });
+    expect((await call('GET', '/api/auth/status')).body).toEqual({ hasAccount: false, setupOpen: true, signupOpen: true, signedIn: false });
     const owner = await signUp('owner@example.com', 'password123', '/api/auth/setup');
     expect(owner.status).toBe(201);
     expect(owner.body).toMatchObject({ email: 'owner@example.com', onboardedAt: null });
 
-    expect((await call('GET', '/api/auth/status')).body).toEqual({ hasAccount: true, setupOpen: false, signupOpen: false });
+    expect((await call('GET', '/api/auth/status')).body).toEqual({ hasAccount: true, setupOpen: false, signupOpen: false, signedIn: false });
+    // asked with the new session's cookie: signed in, and still a 200 (a signed-out open logs no 401)
+    expect((await call('GET', '/api/auth/status', undefined, owner.cookie)).body).toMatchObject({ hasAccount: true, signedIn: true });
     expect((await signUp('second@example.com')).status).toBe(403);
     expect((await signUp('second@example.com', 'password123', '/api/auth/setup')).status).toBe(403);
 
@@ -85,8 +87,8 @@ describe('POST /me/onboarding', () => {
     const r = await call('POST', '/api/me/onboarding', ONBOARD, cookie);
     expect(r.status).toBe(200);
     expect(r.body.user.onboardedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    // a new account's routine (contract 7): wake 6:30; leave 8:30 minus get ready 30 and out the door 10 = starts 7:50; pace 8:30
-    expect(r.body.morningSettings).toMatchObject({ wake: 390, run: { pace: 510 }, after: { showerMode: 'fixed', showerAt: 470, shower: 0, ready: 30, smoothie: 0, prep: 10, names: { prep: 'Out the door' } } });
+    // a new account's routine (contract 7): wake 6:30; leave 8:30 minus get ready 30 and final prep 10 = starts 7:50; pace 8:30
+    expect(r.body.morningSettings).toMatchObject({ wake: 390, run: { pace: 510 }, after: { showerMode: 'fixed', showerAt: 470, shower: 0, ready: 30, smoothie: 0, prep: 10 } });
     expect(r.body.habits.map((h: Habit) => h.name)).toEqual(['Stretch', 'Read 15 min']);
     expect(r.body.block).toMatchObject({ name: 'Half marathon · 12 weeks', start: '2026-10-19', source: 'onboarding' });
     expect(r.body.firstDay).toBe('2026-10-20');

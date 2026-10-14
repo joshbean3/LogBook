@@ -644,7 +644,7 @@
   color: var(--accent-text);
 }
 .mg-keyrow {
-  margin-top: 6px;
+  margin-bottom: 2px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -653,21 +653,30 @@
 .mg-key {
   margin: 0;
 }
-.mg-info {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-right: -10px;
-  border-radius: 50%;
-  color: var(--ink-3);
+/* "Legend": a small text link in the month's header, a 44px target */
+.mg-legend-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0 0 12px;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.mg-info[aria-expanded='true'] {
-  color: var(--ink);
+.mg-legend-link:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
 }
 .mg-legend {
   margin: 0;
-  padding: 0 0 4px;
+  padding: 0 0 10px;
   list-style: none;
   display: flex;
   flex-wrap: wrap;

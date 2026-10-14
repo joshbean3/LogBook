@@ -1,7 +1,7 @@
 import { ago, eachDay, fmtDate, parseISO, shiftDays, type JournalEntry, type Quote } from '@logbook/shared';
 import { BookOpen, CalendarDays, EyeOff, PenLine, Search, Share, Shuffle, Star, Trash2, X } from 'lucide-react';
 import { animate, AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -127,10 +127,13 @@ const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => v
 };
 
 /**
- * The last 14 days as a ribbon of dots: filled where something was written, today ringed. Tap a dot for that day (its entry,
- * or a composer for it). Press and slide along the ribbon to scrub: each day steps with `haptics.select()` and the line
- * under it previews the day; let go to open it. Arrow keys move between days.
+ * The last 14 days as a ribbon of dots: filled where something was written, today ringed. Each day is a 44px column, so the
+ * ribbon scrolls sideways (snapping to days) and opens with today at its right edge. Tap a dot for that day (its entry, or a
+ * composer for it). Hold a day and slide to scrub: each day steps with `haptics.select()`, the ribbon follows the finger to
+ * its edges, and the line under it previews the day; let go to open it. A plain swipe just scrolls. With a mouse, press and
+ * drag scrubs at once. Arrow keys move between days.
  */
+const HOLD_MS = 220;
 const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string, JournalEntry[]>; onToday: () => void }) => {
   const days = useMemo(() => eachDay(shiftDays(today, -13), today), [today]);
   const openDay = useOpenDay();
@@ -138,21 +141,65 @@ const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string,
   const ref = useRef<HTMLDivElement>(null);
   const dots = useRef<Array<HTMLButtonElement | null>>([]);
   const [active, setActive] = useState<number | null>(null);
-  const scrub = useRef({ id: -1, x0: 0, y0: 0, on: false, i: -1 });
+  const scrub = useRef({ id: -1, x0: 0, y0: 0, on: false, i: -1, timer: 0 as ReturnType<typeof setTimeout> | 0 });
   const written = days.filter((d) => byDate.has(d)).length;
+  // today sits at the right edge when the ribbon first shows (and when the day turns over)
+  const [more, setMore] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollLeft = el.scrollWidth;
+    setMore(el.scrollLeft > 2);
+  }, [today]);
   const open = (i: number) => {
     const d = days[i]!;
     if (d === today && !byDate.has(d)) return onToday();
     const stamp = log.loaded(d) ? runStamp(log.snap, d) : null;
     openDay(d, byDate.get(d) ?? [], { from: dots.current[i]?.querySelector('.rdot'), stamp });
   };
+  /** The day under the finger, by the columns' own boxes (the ribbon may be scrolled); past either end, that end. */
   const indexAt = (clientX: number) => {
-    const r = ref.current!.getBoundingClientRect();
-    return Math.max(0, Math.min(13, Math.floor(((clientX - r.left) / r.width) * 14)));
+    let best = 0;
+    for (let i = 0; i < days.length; i++) {
+      const r = dots.current[i]?.getBoundingClientRect();
+      if (!r) continue;
+      if (clientX >= r.left) best = i;
+    }
+    return best;
+  };
+  const step = (clientX: number) => {
+    const s = scrub.current;
+    const i = indexAt(clientX);
+    if (i === s.i) return;
+    s.i = i;
+    haptics.select();
+    setActive(i);
+    // the ribbon follows the finger: a day half under the edge slides into view
+    dots.current[i]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  };
+  const arm = (clientX: number) => {
+    const s = scrub.current;
+    s.on = true;
+    s.i = -1;
+    step(clientX);
+  };
+  const stopTimer = () => {
+    const s = scrub.current;
+    if (s.timer) clearTimeout(s.timer);
+    s.timer = 0;
   };
   const onPointerDown = (e: React.PointerEvent) => {
     if (!e.isPrimary) return;
-    scrub.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, i: -1 };
+    stopTimer();
+    scrub.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, on: false, i: -1, timer: 0 };
+    // a finger scrubs after a short hold (a swipe scrolls the ribbon); a mouse scrubs as soon as it drags
+    if (e.pointerType !== 'mouse') {
+      const x = e.clientX;
+      scrub.current.timer = setTimeout(() => {
+        scrub.current.timer = 0;
+        if (scrub.current.id === e.pointerId) arm(x);
+      }, HOLD_MS);
+    }
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const s = scrub.current;
@@ -160,6 +207,14 @@ const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string,
     if (!s.on) {
       const dx = Math.abs(e.clientX - s.x0);
       const dy = Math.abs(e.clientY - s.y0);
+      if (e.pointerType !== 'mouse') {
+        // moved before the hold: it is a scroll, not a scrub
+        if (dx > 8 || dy > 8) {
+          stopTimer();
+          s.id = -1;
+        }
+        return;
+      }
       if (dy > 10 && dy > dx) return void (s.id = -1);
       if (dx < 8) return;
       s.on = true;
@@ -169,19 +224,33 @@ const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string,
         /* gone */
       }
     }
-    const i = indexAt(e.clientX);
-    if (i !== s.i) {
-      s.i = i;
-      haptics.select();
-      setActive(i);
-    }
+    step(e.clientX);
   };
   const onPointerUp = () => {
     const s = scrub.current;
+    stopTimer();
     s.id = -1;
-    if (s.on && s.i >= 0) open(s.i);
+    const i = s.i;
+    // once: a touch scrub can end through both pointerup and touchend
+    s.i = -1;
+    if (s.on && i >= 0) open(i);
     setActive(null);
   };
+  // while a finger scrubs, the ribbon must not scroll under it (a non-passive touchmove, so the browser asks first)
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const block = (e: TouchEvent) => {
+      if (scrub.current.on && e.cancelable) e.preventDefault();
+    };
+    const move = (e: TouchEvent) => {
+      const s = scrub.current;
+      if (s.on && e.touches[0]) step(e.touches[0].clientX);
+      block(e);
+    };
+    el.addEventListener('touchmove', move, { passive: false });
+    return () => el.removeEventListener('touchmove', move);
+  });
   const reduce = useReduced();
   const shown = active != null ? days[active]! : null;
   const preview = shown ? byDate.get(shown)?.[0] : null;
@@ -189,13 +258,24 @@ const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string,
     <section className="ribbon-wrap" aria-label="The last 14 days">
       <div
         ref={ref}
-        className={`ribbon ${active != null ? 'scrubbing' : ''}`}
+        className={`ribbon ${active != null ? 'scrubbing' : ''} ${more ? 'has-more' : ''}`}
+        onScroll={(e) => setMore(e.currentTarget.scrollLeft > 2)}
         role="group"
         aria-label={`${written} of the last 14 days written`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={() => ((scrub.current.id = -1), setActive(null))}
+        onPointerCancel={() => {
+          // the browser took the touch for a scroll: unless a scrub is under way, let it
+          if (scrub.current.on) return;
+          stopTimer();
+          scrub.current.id = -1;
+          setActive(null);
+        }}
+        onTouchEnd={() => {
+          // a scrub that kept the touch (pointer events were cancelled by the scroll check) ends with the finger
+          if (scrub.current.on) onPointerUp();
+        }}
         onClickCapture={(e) => {
           if (scrub.current.on) {
             scrub.current.on = false;
@@ -217,11 +297,12 @@ const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string,
               tabIndex={isToday ? 0 : -1}
               onClick={() => open(i)}
               onKeyDown={(e) => {
-                const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-                if (!step) return;
+                const by = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                if (!by) return;
                 e.preventDefault();
-                const j = Math.max(0, Math.min(13, i + step));
+                const j = Math.max(0, Math.min(13, i + by));
                 dots.current[j]?.focus();
+                dots.current[j]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
               }}
               onFocus={(e) => {
                 // a roving tab stop: the focused day is the one Tab returns to

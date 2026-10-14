@@ -1,4 +1,4 @@
-import { fmtDate, type JournalEntry, type Quote } from '@logbook/shared';
+import { fmtDate, type JournalEntry, type Quote, linkTitle } from '@logbook/shared';
 import { ChevronRight, EyeOff, PenLine, Plus, Search, Share, Star, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -134,9 +134,9 @@ const ReadsRow = () => {
   const pick = usePick(today, false);
   const unread = (reads.data ?? []).filter((x) => !x.readAt).length;
   const p = pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? pick.data.pick : null;
-  const sub = [unread ? `${unread} unread` : null, p ? `Today: ${p.title}` : null].filter(Boolean).join(' · ') || 'Save links to come back to';
+  const sub = [unread ? `${unread} unread` : null, p ? `Today: ${linkTitle(p.title, p.url)}` : null].filter(Boolean).join(' · ') || 'Save links to come back to';
   return (
-    <Pressable className="reads-row" onPress={() => nav('/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${p.title}` : ''}`}>
+    <Pressable className="reads-row" onPress={() => nav('/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${linkTitle(p.title, p.url)}` : ''}`}>
       <span className="reads-row-main">
         <span className="reads-row-title">Reads</span>
         <span className="reads-row-sub">{sub}</span>

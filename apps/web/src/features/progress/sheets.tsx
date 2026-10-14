@@ -1,5 +1,5 @@
-import { dayStatus, daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, num, sessionKey, sessionWord, shiftDays, weekSummary, type Activity, type Session } from '@logbook/shared';
-import { ChevronRight } from 'lucide-react';
+import { dayStatus, daysBetween, fmtDate, mi, mondayOf, monthsBetween, num, shiftDays, weekSummary, type Activity, type Session } from '@logbook/shared';
+import { CalendarDays, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { haptics } from '@/lib/haptics';
@@ -63,11 +63,10 @@ const useOpenRun = (log: Log) => {
 };
 
 // ---------- the week ----------
-const STATUS_CLASS: Record<string, string> = { done: 'ok', bonus: 'ok', floor: 'warn', missed: 'bad', skipped: 'quiet', rest: 'quiet', planned: 'quiet', today: 'today' };
-
 /**
  * The week: the app's one week sheet, behind a mileage bar here and the week ring on Today. The ring, miles and runs against
- * the plan, the streak in weeks ("7 of the last 8 weeks.") on this week, and every session, each opening its own sheet.
+ * the plan, the streak in weeks ("7 of the last 8 weeks.") on this week, and one row that opens the week in Plan (the day
+ * list lives there, so the sheet never repeats it).
  */
 export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGone?: () => void }) => {
   const gone = useRef(onGone);
@@ -78,9 +77,6 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
   const log = useLog(months);
   const nav = useNavigate();
   const sheet = useSheet();
-  // a session opened from here slides in on top of the week, with Back to it
-  const openSession = usePushSession(log);
-  const openRun = useOpenRun(log);
   const sum = weekSummary(log.snap, w);
   // miles run count a run marked Done without Strava at its planned miles (contract 5)
   const ran = weekMiles(log.snap, w, today);
@@ -117,60 +113,11 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
       : current
         ? `${Words(Math.max(0, sum.target - sum.keptSessions))} more ${plural(sum.target - sum.keptSessions, 'session keeps', 'sessions keep')} it.`
         : `${Words(sum.keptSessions)} of ${sum.target} kept.`;
-  const rows: ReactNode[] = [];
-  for (const d of sum.days) {
-    const ss = log.snap.sessionsOn(d.date).filter((s) => s.kind !== 'rest');
-    const dayRuns = log.snap.runsOn(d.date);
-    let first = true;
-    // the day is named once; a second session that day sits under it
-    const dayLead = () => {
-      const show = first;
-      first = false;
-      return show ? lead : <span className="pg-day" aria-hidden="true" />;
-    };
-    const lead = (
-      <span className={`pg-day ${d.date === today ? 'is-today' : ''}`}>
-        <span className="caps">{fmtDate('dow', d.date)}</span>
-        <span className="pg-day-n">{Number(d.date.slice(8))}</span>
-      </span>
-    );
-    if (!ss.length && !dayRuns.length) {
-      rows.push(<SheetRow key={d.date} lead={lead} title={<span className="ink3">{sessionWord(log.snap, d.date, null)}</span>} />);
-      continue;
-    }
-    for (const s of ss) {
-      const k = sessionKey(log.snap, d.date, s);
-      const sm = s.kind === 'run' && d.date <= today ? sessionMiles(log.snap, d.date, s) : null;
-      const did = sm && sm.miles > 0 ? sm : null;
-      const sub = s.kind === 'run' ? (did ? `${mi(did.miles)} mi ${did.source === 'activity' ? 'run' : 'logged'}${s.miles && did.source === 'activity' ? ` of ${num(s.miles)}` : ''}` : s.miles ? `${num(s.miles)} mi planned` : null) : s.details;
-      rows.push(
-        <SheetRow
-          key={s.id}
-          lead={dayLead()}
-          title={label(s)}
-          sub={sub}
-          right={<span className={`pg-st ${STATUS_CLASS[k] ?? ''}`}>{sessionWord(log.snap, d.date, s)}</span>}
-          onPress={() => openSession(d.date, s)}
-          label={`${fmtDate('long', d.date)}, ${label(s)}, ${sessionWord(log.snap, d.date, s)}. Open`}
-        />,
-      );
-    }
-    if (!ss.some((s) => s.kind === 'run'))
-      for (const a of dayRuns) {
-        const p = paceOfRun(a);
-        rows.push(
-          <SheetRow
-            key={a.id}
-            lead={dayLead()}
-            title={a.name}
-            sub={`${mi(a.miles)} mi${p ? ` · ${paceText(p)} /mi` : ''}`}
-            right={<span className="pg-st ok">Bonus</span>}
-            onPress={() => openRun(a)}
-            label={`${fmtDate('long', d.date)}, ${a.name}, ${mi(a.miles)} miles. Open`}
-          />,
-        );
-      }
-  }
+  // the seven days live in Plan (the same list, with drag and swipe): one row takes you there instead of repeating it
+  const openInPlan = () => {
+    sheet.close();
+    nav(`/plan/week/${w}`);
+  };
   return (
     <div className="pg-sheet">
       <div className="pg-week-top">
@@ -195,7 +142,9 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
           </div>
         </div>
       </div>
-      <div className="list-edge pg-list">{rows}</div>
+      <div className="list-edge pg-list">
+        <SheetRow lead={<CalendarDays size={18} className="pg-srow-icon" aria-hidden="true" />} title="Open this week in Plan" onPress={openInPlan} label="Open this week in Plan" />
+      </div>
     </div>
   );
 };

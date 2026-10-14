@@ -205,10 +205,12 @@ export default function ProgressView() {
   const shown = scrub ?? opened;
   const sp = shown != null ? pts[shown] : null;
   const ctx = sp ? `${weekTitle(sp.w, t)}${sp.current ? ' · so far' : sp.future ? ' · planned' : ''}` : m.since ? `Since ${md(m.since)}` : rangeLabel(range);
-  const slots: Array<{ label: string; value: number | null; format: (v: number) => string; unit?: string }> = sp
+  // a slot never shows a dash: while scrubbing (three slots that must hold still) an empty one says a word; at rest a stat with
+  // no value yet (no finished week to average) is left out
+  const slots: Array<{ label: string; value: number | null; word?: string; format: (v: number) => string; unit?: string }> = sp
     ? [
-        { label: 'Miles', value: sp.future ? null : sp.ran, format: mi, unit: 'mi' },
-        { label: 'Planned', value: sp.planned || null, format: num, unit: 'mi' },
+        { label: 'Miles', value: sp.future ? null : sp.ran, word: 'To run', format: mi, unit: 'mi' },
+        { label: 'Planned', value: sp.planned || null, word: 'No plan', format: num, unit: 'mi' },
         { label: 'Runs', value: sp.future ? sp.plannedRuns : sp.runs, format: (v) => String(Math.round(v)) },
       ]
     : [
@@ -267,15 +269,17 @@ export default function ProgressView() {
           </span>
         </div>
         <div className="pg-readout" role="status" aria-label={readWords}>
-          {slots.map((s, i) => (
+          {slots.map((s, i) =>
+            s.value == null && !s.word ? null : (
             <span className="pg-slot" key={i} aria-hidden="true">
               <span className="caps">{s.label}</span>
               <span className="stamp pg-slot-num">
-                {s.value == null ? '—' : scrub != null ? <span className="tnum">{s.format(s.value)}</span> : <Ticker key={released} value={s.value} format={s.format} from={released ? (lastShown.current[i] ?? undefined) : undefined} />}
+                {s.value == null ? <span className="pg-slot-word">{s.word}</span> : scrub != null ? <span className="tnum">{s.format(s.value)}</span> : <Ticker key={released} value={s.value} format={s.format} from={released ? (lastShown.current[i] ?? undefined) : undefined} />}
                 {s.unit && s.value != null ? <small>{s.unit}</small> : null}
               </span>
             </span>
-          ))}
+            ),
+          )}
         </div>
         <MileageChart pts={pts} range={m.range} today={t} onScrub={setScrub} onOpen={openAt} onPinch={pinch} />
       </section>

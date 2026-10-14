@@ -211,13 +211,54 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
   // A rest morning's long stretch of free time is drawn at most REST_CAP tall, with a break on the axis: the clock still
   // places every block, the empty hour just stops pushing the routine off the screen.
   const squeeze = TT.day.mode === 'rest' ? TT.blocks.filter((b) => b.key === 'free' && b.mins > REST_SQUEEZE_MIN && b.mins * px > REST_CAP).map((b) => ({ s: b.start, e: b.end, saved: b.mins * px - REST_CAP })) : [];
-  const y = (t: number) => {
+  /** The clock's own y, before any room is made for a short block. */
+  const y0 = (t: number) => {
     let v = TOP + (t - origin) * px;
     for (const c of squeeze) {
       if (t >= c.e) v -= c.saved;
       else if (t > c.s) v -= ((t - c.s) / (c.e - c.s)) * c.saved;
     }
     return v;
+  };
+  // Short blocks (Out the door, Cool down, a 5-minute routine block) keep their true height but get a 44px target: an
+  // invisible hit area above and below that only ever covers empty space. Half of a free stretch next to it is empty space;
+  // where a full block sits right against it, a little room is let into the timeline at that edge (the axis follows, so
+  // the clock still reads true). Below the run or gym block nothing is taken: its bottom edge is the grip's (22px tall, a
+  // 44px target), so the short block under it starts below the grip's reach and grows downwards instead.
+  const GRIP_REACH = 22;
+  const trueH = TT.blocks.map((b) => Math.max(2, y0(b.end) - y0(b.start) - 2));
+  const shortAt = (j: number) => !!TT.blocks[j] && TT.blocks[j]!.key !== 'free' && trueH[j]! < TARGET;
+  const room = TT.blocks.map((b, i) => {
+    const r = { insUp: 0, insDown: 0, hitUp: 0, hitDown: 0 };
+    if (!shortAt(i)) return r;
+    // +2: the hairline gap between blocks belongs to nobody
+    const need = TARGET + 2 - trueH[i]!;
+    const prev = TT.blocks[i - 1];
+    const next = TT.blocks[i + 1];
+    const underGrip = !!prev && (prev.key === 'run' || prev.key === 'gym');
+    // two short blocks back to back each take their own half of the room let in between them, so their areas never meet
+    const up = underGrip ? 0 : need / 2;
+    const down = need - up;
+    const free = (side: number, n: TimelineBlock | undefined, nh: number | undefined) => (n?.key === 'free' ? Math.min(side, (nh ?? 0) / 2) : 0);
+    r.insUp = (underGrip ? GRIP_REACH : 0) + up - free(up, prev, trueH[i - 1]);
+    r.insDown = down - free(down, next, trueH[i + 1]);
+    r.hitUp = up;
+    r.hitDown = down;
+    return r;
+  });
+  /** How far each block sits below the clock's y: the room let in above it (and above every block before it). */
+  const shift: number[] = [];
+  TT.blocks.reduce((acc, _b, i) => {
+    shift[i] = acc + room[i]!.insUp;
+    return shift[i]! + room[i]!.insDown;
+  }, 0);
+  /** The y of a moment on this timeline: the clock's, plus the room let in for short blocks before it. */
+  const y = (t: number) => {
+    let i = -1;
+    for (let j = 0; j < TT.blocks.length; j++) if (TT.blocks[j]!.start <= t) i = j;
+    if (i < 0) return y0(t);
+    if (t >= TT.blocks[i]!.end) return y0(t) + shift[i]! + room[i]!.insDown;
+    return y0(t) + shift[i]!;
   };
   const inSqueeze = (t: number) => squeeze.some((c) => t > c.s && t < c.e);
   const height = y(TT.leave) + BOTTOM;
@@ -231,33 +272,9 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
     ticks.push(t);
   }
 
-  // Short blocks (Out the door, Cool down, a 5-minute routine block) keep their true height but get a 44px target: an
-  // invisible slop above and below, taken from free time or from a neighbour's spare height (never from a grip's edge).
-  const geo = TT.blocks.map((b) => ({ b, h: Math.max(2, y(b.end) - y(b.start) - 2) }));
-  const tiny = (j: number) => !!geo[j] && geo[j]!.b.key !== 'free' && geo[j]!.h < TARGET;
-  const spare = (i: number, side: -1 | 1) => {
-    const j = i + side;
-    const n = geo[j];
-    if (!n) return 0;
-    if (n.b.key === 'free') return n.h / 2;
-    if (n.h < TARGET) return 0;
-    // the run/gym block's grip sits on its bottom edge, the wake's on its top: those edges are not lent
-    if (side < 0 && (n.b.key === 'run' || n.b.key === 'gym')) return 0;
-    // a neighbour keeps 44px itself, and splits what is left when a short block sits on its other side too
-    return (n.h - TARGET) / (tiny(j + side) ? 2 : 1);
-  };
-  const slop = geo.map(({ h }, i) => {
-    // +2: the hairline gap between blocks belongs to nobody
-    const need = h < TARGET ? TARGET + 2 - h : 0;
-    if (!need) return { up: 0, down: 0, h };
-    const a = spare(i, -1);
-    const z = spare(i, 1);
-    let up = Math.min(a, need / 2);
-    const down = Math.min(z, need - up);
-    up = Math.min(a, need - down);
-    return { up, down, h: h + up + down };
-  });
-  /** The neighbours of `b` that are still under 44px with their slop: their Edit joins `b`'s menu. */
+  const geo = TT.blocks.map((b, i) => ({ b, h: trueH[i]! }));
+  const slop = room.map((r, i) => ({ up: r.hitUp, down: r.hitDown, h: trueH[i]! + r.hitUp + r.hitDown }));
+  /** The neighbours of `b` still under 44px with their hit area: their Edit joins `b`'s menu (none, now that each gets room). */
   function tinyNeighbours(b: TimelineBlock): TimelineBlock[] {
     const i = TT.blocks.indexOf(b);
     return [i - 1, i + 1].filter((j) => j >= 0 && j < geo.length && geo[j]!.b.key !== 'free' && geo[j]!.b.key !== 'wake' && slop[j]!.h < TARGET).map((j) => geo[j]!.b);

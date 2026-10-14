@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { fmtDate, shiftDays, zReadsPickOutput, type ISODate, type Link, type ReadsPickOutput } from '@logbook/shared';
+import { fmtDate, linkTitleFromUrl, shiftDays, zReadsPickOutput, type ISODate, type Link, type ReadsPickOutput } from '@logbook/shared';
 import dns from 'node:dns';
 import http from 'node:http';
 import https from 'node:https';
@@ -282,7 +282,8 @@ export const extractMeta = (html: string, url: string): PageMeta => {
   }
   const titleTag = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(head)?.[1];
   const site = siteOf(url);
-  const title = clean(meta['og:title'] ?? meta['twitter:title'] ?? titleTag ?? meta['dc.title'], 200) || clean(`${site}${new URL(url).pathname === '/' ? '' : new URL(url).pathname}`, 200) || url;
+  // a page with no title of its own goes by its domain and the path's last readable segment, never its raw address
+  const title = clean(meta['og:title'] ?? meta['twitter:title'] ?? titleTag ?? meta['dc.title'], 200) || linkTitleFromUrl(url).slice(0, 200);
   const description = clean(meta['og:description'] ?? meta['twitter:description'] ?? meta['description'], 500) || null;
   const rawImg = meta['og:image'] ?? meta['og:image:url'] ?? meta['og:image:secure_url'] ?? meta['twitter:image'] ?? meta['twitter:image:src'];
   let imageUrl: string | null = null;
@@ -306,13 +307,7 @@ export const readPage = async (url: string, o: FetchOptions = {}): Promise<{ met
   } catch (e) {
     if (e instanceof ApiError && e.code === 'private_host') throw e;
     const site = siteOf(url);
-    let path = '';
-    try {
-      path = new URL(url).pathname.replace(/\/+$/, '');
-    } catch {
-      /* keep empty */
-    }
-    return { meta: { title: `${site}${path}`.slice(0, 200) || url, siteName: site, description: null, imageUrl: null }, finalUrl: url, fetched: false };
+    return { meta: { title: linkTitleFromUrl(url).slice(0, 200), siteName: site, description: null, imageUrl: null }, finalUrl: url, fetched: false };
   }
 };
 

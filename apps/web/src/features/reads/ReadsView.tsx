@@ -1,4 +1,4 @@
-import { ago, toISO, type Link, type PickResult } from '@logbook/shared';
+import { ago, isAddressTitle, linkTitle, toISO, type Link, type PickResult } from '@logbook/shared';
 import { ArrowUpRight, Check, Copy, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -138,8 +138,8 @@ const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
   };
   return (
     <>
-      <p className="rsheet-title">{x.title}</p>
-      <span className="caps">{x.siteName || hostOf(x.url)}</span>
+      <p className="rsheet-title">{linkTitle(x.title, x.url)}</p>
+      {isAddressTitle(x.title, x.url) ? null : <span className="caps">{x.siteName || hostOf(x.url)}</span>}
       <label className="rsheet-field">
         <span className="caps">Note</span>
         <textarea className="jtext serif rsheet-note" rows={3} maxLength={500} placeholder="Why you kept it" value={note} autoFocus={!x.note} onChange={(e) => setNote(e.target.value)} />
@@ -181,9 +181,12 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
   const read = !!x.readAt;
   const shown = ticked ? !read : read;
   const site = x.siteName || hostOf(x.url);
+  // a page that never said its name goes by "nytimes.com · the-quiet-mile", and its meta line then leaves the site out
+  const bare = isAddressTitle(x.title, x.url);
+  const title = linkTitle(x.title, x.url);
   return (
     <SwipeRow
-      label={x.title}
+      label={title}
       right={{ label: read ? 'Unread' : 'Read', icon: read ? <RotateCcw size={20} /> : <Check size={20} />, tone: read ? 'neutral' : 'ok', onCommit: () => onFlip('swipe') }}
       left={{ label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: onDelete }}
       menuItems={[
@@ -195,7 +198,7 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
       <div className={`rrow ${shown ? 'is-read' : ''}`}>
         <Mark
           status={shown ? 'done' : 'open'}
-          label={x.title}
+          label={title}
           title={read ? 'Mark unread' : 'Mark read'}
           haptic={false}
           onClick={() => {
@@ -206,14 +209,15 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
             setTimeout(() => onFlip('tap'), 420);
           }}
         />
-        <a className="rrow-link" href={x.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={`${x.title}. ${site}. Opens in a new window`} onClick={open(x.url, read ? undefined : onOpened)}>
-          <span className="rrow-title">{x.title}</span>
+        <a className="rrow-link" href={x.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={`${title}.${bare ? '' : ` ${site}.`} Opens in a new window`} onClick={open(x.url, read ? undefined : onOpened)}>
+          <span className="rrow-title">{title}</span>
           <span className="caps rrow-meta">
-            {site} · {ago(toISO(new Date(x.addedAt)), today)}
+            {bare ? null : `${site} · `}
+            {ago(toISO(new Date(x.addedAt)), today)}
           </span>
           {x.note ? <span className="rrow-note">{x.note}</span> : null}
         </a>
-        <IconButton label={`Edit ${x.title}`} className="rrow-edit" onClick={onEdit}>
+        <IconButton label={`Edit ${title}`} className="rrow-edit" onClick={onEdit}>
           <Pencil size={16} />
         </IconButton>
       </div>

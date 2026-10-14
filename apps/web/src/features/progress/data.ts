@@ -200,6 +200,9 @@ export const verdict = (snap: AppSnapshot, today: ISODate, pts: WeekPoint[], str
   const di = (parseISO(today).getDay() + 6) % 7;
   const prevMon = shiftDays(cur.w, -7);
   const sameDayLast = ranThrough(snap, prevMon, di);
+  // "ahead of last week" needs a last week: one with a plan or a run in it (a first week compares with nothing)
+  const prevPt = pts[ci - 1];
+  const lastHad = !!prevPt && (prevPt.ran > 0.05 || prevPt.planned > 0 || prevPt.plannedRuns > 0);
   const next = nextRun(snap, today, cur.w);
   // a run planned earlier this week (and not skipped) means today's isn't the first: say "Next", as Plan's header does
   const earlier = days7(cur.w).some((d) => d < today && snap.sessionsOn(d).some((x) => x.kind === 'run' && !isSkipMark(x.mark)));
@@ -211,7 +214,8 @@ export const verdict = (snap: AppSnapshot, today: ISODate, pts: WeekPoint[], str
     else if (di <= 1 && next && !earlier) now = `This one starts ${relDay(next.date, today)}.`;
     else if (sameDayLast > 0 || next) now = 'This one is light so far.';
     else now = 'This one is still open.';
-  } else if (sameDayLast <= 0.05 || cur.ran >= sameDayLast * 1.1) now = 'This one is ahead of last week.';
+  } else if (!lastHad) now = '';
+  else if (sameDayLast <= 0.05 || cur.ran >= sameDayLast * 1.1) now = 'This one is ahead of last week.';
   else if (cur.ran <= sameDayLast * 0.75) now = 'This one is light so far.';
   else now = 'This one is level with last week.';
 
@@ -224,7 +228,7 @@ export const verdict = (snap: AppSnapshot, today: ISODate, pts: WeekPoint[], str
     else sub = `${round1(cur.planned)} mi planned.${next ? ` Next: ${label(next.s)}, ${relDay(next.date, today)}.` : ''}`;
   } else if (cur.ran > 0.05) sub = `${mi(cur.ran)} mi so far. ${runsIn}`;
   else sub = next ? `Next: ${label(next.s)}, ${relDay(next.date, today)}.` : 'No runs planned this week. Runs you log land here.';
-  return { line: `${trend} ${now}`, sub: sub.trim() };
+  return { line: `${trend} ${now}`.trim(), sub: sub.trim() };
 };
 
 const round1 = (v: number) => String(Math.round(v * 10) / 10);

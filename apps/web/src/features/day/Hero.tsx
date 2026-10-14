@@ -61,10 +61,9 @@ const tenth = (v: number) => String(Math.round(v * 10) / 10);
 
 /** Short names for the routine's blocks on the hero's line, where four stops share 300px. */
 const STOP_WORD: Record<string, string> = { shower: 'Shower', ready: 'Ready', smoothie: 'Eat', prep: 'Prep' };
-/** The block's own name when it is one short word ("Shower"), else the short word; "Out the door" reads "Out". */
+/** The block's own name when it is one short word ("Shower"), else the short word ("Final prep" reads "Prep"). */
 const stopWord = (st: MorningSettings, k: MorningAfterKey) => {
   const name = routineName(st, k);
-  if (/^out the door$/i.test(name)) return 'Out';
   return /^\S{1,7}$/.test(name) ? name : STOP_WORD[k]!;
 };
 
@@ -393,33 +392,35 @@ const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: numb
     const next = nextSession(log, date);
     const up = upNext(log, date);
     const rm = lead ? restMorning(log, date, ph) : null;
-    if (rm) {
-      // a rest morning before work: the countdown and the way into Morning stay
-      const before = ph.now < rm.wake;
-      return (
-        <div className="hero-face hero-restmorning">
-          <span className="caps hero-eyebrow">Rest day</span>
-          <h2 className="hero-line display">Rest. It counts.</h2>
-          <p className="hero-plan">
-            {before ? `Alarm in ${durationWords(Math.ceil(rm.wake - ph.now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - ph.now))}`}
-            {up ? ` · ${up.when}: ${label(up.s)}` : ''}
-          </p>
-          <MiniTimeline stops={rm.stops} now={ph.now} onPress={c.onMorning} label={`Rest morning: alarm ${shortClock(rm.wake)}, leave ${shortClock(rm.leave)}. Open Morning`} />
-        </div>
-      );
-    }
+    const countdown = rm ? (ph.now < rm.wake ? `Alarm in ${durationWords(Math.ceil(rm.wake - ph.now))}.` : `Leave in ${durationWords(Math.ceil(rm.leave - ph.now))}.`) : null;
     if (up) {
-      // what comes next leads: "Tomorrow: Easy 4." and its door time from that morning's timeline
+      // What comes next leads, as the onboarding payoff promised: "Tomorrow: Easy 4." over that morning's door ("Out the
+      // door 6:45.", the run's door from the same timeline Morning draws). "Rest. It counts." is a sub-line only mid-plan;
+      // before the plan's first run there is nothing to rest from. On a rest morning before work, the morning's own line
+      // (alarm, routine, leave) stays under it, so the way into Morning is still there.
       const nph = phaseOf(log, up.d, ph.now);
       const block = up.s.blockId ? log.boot?.blocks.find((b) => b.id === up.s.blockId) : null;
+      const sub = [up.fresh ? null : 'Rest. It counts.', countdown].filter(Boolean).join(' ');
       return (
-        <div className="hero-face hero-next">
+        <div className={`hero-face hero-next ${rm ? 'hero-restmorning' : ''}`}>
           <span className="caps hero-eyebrow">{up.fresh ? (block?.name ?? 'Your plan') : 'Rest day'}</span>
           <h2 className="hero-line display">
             {up.when}: {label(up.s)}.
           </h2>
-          {up.fresh ? null : <p className="hero-plan hero-rest-line">Rest. It counts.</p>}
-          {nph.doorAt != null ? <p className="hero-sub">Out the door {shortClock(nph.doorAt)}.</p> : null}
+          {nph.doorAt != null ? <p className="hero-door display">Out the door {shortClock(nph.doorAt)}.</p> : null}
+          {sub ? <p className="hero-plan hero-rest-line">{sub}</p> : null}
+          {rm ? <MiniTimeline stops={rm.stops} now={ph.now} onPress={c.onMorning} label={`This morning: alarm ${shortClock(rm.wake)}, leave ${shortClock(rm.leave)}. Open Morning`} /> : null}
+        </div>
+      );
+    }
+    if (rm) {
+      // a rest morning before work: the countdown and the way into Morning stay
+      return (
+        <div className="hero-face hero-restmorning">
+          <span className="caps hero-eyebrow">Rest day</span>
+          <h2 className="hero-line display">Rest. It counts.</h2>
+          <p className="hero-plan">{countdown?.replace(/\.$/, '')}</p>
+          <MiniTimeline stops={rm.stops} now={ph.now} onPress={c.onMorning} label={`Rest morning: alarm ${shortClock(rm.wake)}, leave ${shortClock(rm.leave)}. Open Morning`} />
         </div>
       );
     }
@@ -629,8 +630,8 @@ export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; mi
   };
 
   const halo = haloOf(cur, runs.length > 0);
-  // a rest day led by tomorrow's session: the card opens that session
-  const up = !cur && !runs.length && !rm ? upNext(log, date) : null;
+  // a rest day led by tomorrow's session: the card opens that session (the morning line under it opens Morning)
+  const up = !cur && !runs.length ? upNext(log, date) : null;
   const pressable = !!cur || runs.length > 0 || !!up || !!rm;
   const name = cur ? `${label(cur.session)}, ${cur.word}` : runs.length ? 'Bonus run' : up ? `${up.when}: ${label(up.s)}` : 'Rest day';
   const hm = useHoldMenu(items, evening ? 'Close the day' : name, { disabled: !live });
@@ -650,7 +651,7 @@ export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; mi
       </div>
     );
 
-  const openHero = () => (rm ? nav(morningPath) : up ? openSession(up.d, up.s) : open(cur));
+  const openHero = () => (up ? openSession(up.d, up.s) : rm ? nav(morningPath) : open(cur));
   return (
     <div className="hero-slot">
       <motion.div
@@ -662,7 +663,7 @@ export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; mi
         className={`aura today-hero halo-${halo} ${boost ? 'halo-boost' : ''} ${pressable ? 'is-pressable' : ''} ${!isToday ? 'is-other' : ''}`}
         role={pressable ? 'button' : 'group'}
         tabIndex={pressable && live ? 0 : undefined}
-        aria-label={pressable ? `${name}. ${rm ? 'Open Morning' : 'Open'}` : name}
+        aria-label={pressable ? `${name}. ${rm && !up ? 'Open Morning' : 'Open'}` : name}
         {...hm.bind}
         onClick={(e) => {
           if (!pressable || !live || Date.now() < quietUntil.current || (e.target as HTMLElement).closest('button, a, textarea, input')) return;

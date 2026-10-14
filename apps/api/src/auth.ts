@@ -57,6 +57,17 @@ export interface AuthedUser {
 /** `today`: the athlete's date for this request (`X-Local-Date`, see lib/requests.ts), never the server's when they differ. */
 export type AuthEnv = { Variables: { user: AuthedUser; db: DB; today: ISODate } };
 
+/**
+ * Whether this request carries a live session, asked quietly: no 401, no side effects. `GET /auth/status` answers it so a
+ * signed-out cold open can go to /start or /login without a failed request in the console.
+ */
+export const hasLiveSession = (db: DB, c: Context): boolean => {
+  const id = getCookie(c, COOKIE);
+  if (!id) return false;
+  const row = db.select({ expiresAt: authSessions.expiresAt }).from(authSessions).where(eq(authSessions.id, id)).get();
+  return !!row && row.expiresAt >= nowISO();
+};
+
 export const requireAuth = (db: DB): MiddlewareHandler<AuthEnv> => async (c, next) => {
   const id = getCookie(c, COOKIE);
   if (!id) throw new ApiError(401, 'Sign in to continue', 'unauthenticated');

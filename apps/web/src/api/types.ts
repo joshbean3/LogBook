@@ -42,6 +42,8 @@ export interface AuthStatus {
   setupOpen: boolean;
   /** This visitor can create an account now (first account with setup on, or any with ALLOW_SIGNUP). */
   signupOpen?: boolean;
+  /** This visitor has a live session (asked quietly before the bootstrap, so a signed-out open logs no 401). */
+  signedIn?: boolean;
 }
 
 /** `POST /me/onboarding`: the first-run answers (docs/platform.md §5). Times in minutes after midnight. */

@@ -1,4 +1,4 @@
-import type { Link } from '@logbook/shared';
+import { linkTitle, type Link } from '@logbook/shared';
 import { ArrowUpRight, Bookmark, ChevronRight, Copy, RotateCw, Sparkles, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef } from 'react';
@@ -32,7 +32,7 @@ export const hostOf = (url: string) => {
     return '';
   }
 };
-const labelOf = (p: Link, site: string) => `${p.title}. ${site}. Opens in a new window`;
+const labelOf = (p: Link, site: string) => `${linkTitle(p.title, p.url)}. ${site}. Opens in a new window`;
 
 /** A slim card for when there is no pick to show: one sentence, and a verb only when there is something to do. */
 const Slim = ({ children, verb, busy }: { children: React.ReactNode; verb?: React.ReactNode; busy?: boolean }) => (
@@ -92,7 +92,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
           <a className="lrow two rp-crow" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
             <div className="lrow-main">
               <span className="caps">Today’s read · {site}</span>
-              <span className="lrow-title">{p.title}</span>
+              <span className="lrow-title">{linkTitle(p.title, p.url)}</span>
             </div>
             <ChevronRight size={18} className="muted" aria-hidden="true" />
           </a>
@@ -152,7 +152,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div key={p.id} className={`rp-body ${p.verdict === 'dismissed' ? 'dim' : ''}`} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: fadeIn }} exit={{ opacity: 0, transition: fadeOut }}>
             <a className="rp-link" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
-              <span className="rp-title display">{p.title}</span>
+              <span className="rp-title display">{linkTitle(p.title, p.url)}</span>
             </a>
             {p.pickReason ? <p className="rp-why">{p.pickReason}</p> : null}
             <span className="caps rp-site-sm">{site}</span>

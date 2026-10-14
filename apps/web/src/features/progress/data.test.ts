@@ -66,6 +66,13 @@ describe('progress verdict', () => {
     expect(v.sub).toBe('9.0 mi so far. One run in.');
   });
 
+  it('a first week on the board compares with nothing: no "ahead of last week" when last week had no plan and no runs', () => {
+    const snap = snapOf('2026-10-14', [run('2026-10-13', 4)], [sess('2026-10-13', 4), sess('2026-10-16', 5, { id: 'x' })]);
+    const v = verdict(snap, '2026-10-14', weekSeries(snap, '2026-10-14', '3M'), 0);
+    expect(v.line).toBe('A first week on the board.');
+    expect(v.line).not.toMatch(/last week/);
+  });
+
   it('sums the range for the resting headline', () => {
     const snap = snapOf('2026-10-14', weeks(['2026-09-28', '2026-10-05'], [4, 6]));
     const s = rangeSummary(weekSeries(snap, '2026-10-14', '3M'));
