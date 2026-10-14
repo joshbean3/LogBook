@@ -9,7 +9,8 @@ import { fadeIn, rowPresence, springs, useReduced } from '@/lib/motion';
 import { Button, ContextMenu, EmptyState, IconButton, Section, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
 import { Composer, EntryEditor, monthsOf, timeOf, useEntryActions, useOpenDay, useOpenEntry } from './JournalDaySection';
-import { bumpHint, readHint, slideVariants, useCardSwipe } from './gestures';
+import { bumpHint, readHint, useCardSwipe, useSlideSwap } from './gestures';
+import { GhostLines } from './Ghost';
 import { runStamp, useDayPrompt } from './prompt';
 
 /** "“…” (Seneca)": how a quote goes into an entry when it is used as a prompt. */
@@ -30,23 +31,48 @@ const QuotePreview = ({ q }: { q: Quote }) => (
 
 /**
  * The quote of the day as an optional prompt line inside the composer (serif 17, ink-3). Tap: it goes into the entry as a
- * prompt. Swipe sideways: another quote. Hold: Favourite, Hide, Open in library (and the tap and swipe again, as fallbacks).
- * Taught once: the line nudges left and back and says so under itself, for the first three visits.
+ * prompt. Swipe sideways: another quote; the line keeps going the way it was swiped and the next one slides in from the
+ * other side once it has gone (a pager, never a cross-dissolve). Hold: Favourite, Hide, Open in library (and the tap and
+ * swipe again, as fallbacks). Taught once: the line nudges left and back and says so under itself, for the first visits.
  */
 const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => void; text: string; onOpenInLibrary: (q: Quote) => void }) => {
   const daily = useDaily();
   const { another, quotePrefs } = useJournalMutations();
   const toast = useToast();
   const reduce = useReduced();
-  const q = daily.data?.quote ?? null;
-  const [dir, setDir] = useState(1);
+  const live = daily.data?.quote ?? null;
+  const latest = useRef(live);
+  latest.current = live;
+  // what the line shows: the day's quote, except while one is leaving and the next is on its way
+  const [q, setQ] = useState(live);
+  const sliding = useRef(false);
+  useEffect(() => {
+    if (!sliding.current) setQ(live);
+  }, [live]);
   const [hint] = useState(() => readHint('quote-line'));
-  const shuffle = (d: -1 | 1) => {
-    setDir(d);
+  const btn = useRef<HTMLButtonElement>(null);
+  const shuffleRef = useRef<(d: -1 | 1) => void>(() => undefined);
+  const swipe = useCardSwipe((d) => shuffleRef.current(d), !!q);
+  const slide = useSlideSwap(swipe.x, btn);
+  const shuffle = async (d: -1 | 1) => {
+    if (sliding.current) return;
+    sliding.current = true;
     bumpHint('quote-line', 9);
-    another.mutate('quote');
+    const gone = slide.out(d);
+    try {
+      await another.mutateAsync('quote');
+      await gone;
+      setQ(latest.current);
+      slide.in(d);
+    } catch {
+      await gone;
+      slide.back();
+      toast('Couldn’t find another quote.');
+    } finally {
+      sliding.current = false;
+    }
   };
-  const swipe = useCardSwipe(shuffle, !!q);
+  shuffleRef.current = (d) => void shuffle(d);
   // the one-time nudge: 24px left and home, so the line reads as something that moves
   useEffect(() => {
     if (!hint || reduce || !q) return;
@@ -65,7 +91,7 @@ const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => v
   const hide = () => {
     haptics.delete();
     quotePrefs.mutate({ id: q.id, hidden: true });
-    another.mutate('quote');
+    void shuffle(1);
     toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
   };
   return (
@@ -77,22 +103,20 @@ const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => v
             preview={<QuotePreview q={q} />}
             items={[
               { label: 'Use as a prompt', icon: <PenLine size={18} />, onSelect: () => insert(asPrompt(q)) },
-              { label: 'Another quote', icon: <Shuffle size={18} />, onSelect: () => (haptics.select(), shuffle(1)) },
+              { label: 'Another quote', icon: <Shuffle size={18} />, onSelect: () => (haptics.select(), void shuffle(1)) },
               { label: q.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => (haptics.toggle(), quotePrefs.mutate({ id: q.id, fav: !q.fav })) },
               { label: 'Open in library', icon: <BookOpen size={18} />, onSelect: () => onOpenInLibrary(q) },
               ...(q.mine ? [] : [{ label: 'Hide', icon: <EyeOff size={18} />, onSelect: hide }]),
             ]}
           >
-            <motion.button type="button" className={`qline ${another.isPending ? 'busy' : ''}`} aria-label={`Today’s quote: ${q.text}${q.author ? `, ${q.author}` : ''}. Use as a prompt`} onClick={() => insert(asPrompt(q))} onClickCapture={swipe.onClickCapture} {...swipe.props}>
-              <AnimatePresence mode="popLayout" initial={false} custom={dir}>
-                <motion.span key={q.id} className="qline-in" custom={dir} variants={slideVariants(reduce)} initial="enter" animate="center" exit="exit" transition={reduce ? { duration: 0.15 } : springs.page}>
-                  <span className="qline-text">“{q.text}”</span>
-                  <span className="qline-by">
-                    {q.fav ? <Star size={11} fill="currentColor" className="jfav" aria-hidden="true" /> : null}
-                    {q.author || 'Unknown'}
-                  </span>
-                </motion.span>
-              </AnimatePresence>
+            <motion.button ref={btn} type="button" className={`qline ${another.isPending ? 'busy' : ''}`} aria-label={`Today’s quote: ${q.text}${q.author ? `, ${q.author}` : ''}. Use as a prompt`} onClick={() => insert(asPrompt(q))} onClickCapture={swipe.onClickCapture} {...swipe.props}>
+              <motion.span key={q.id} className="qline-in" initial={reduce ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
+                <span className="qline-text">“{q.text}”</span>
+                <span className="qline-by">
+                  {q.fav ? <Star size={11} fill="currentColor" className="jfav" aria-hidden="true" /> : null}
+                  {q.author || 'Unknown'}
+                </span>
+              </motion.span>
             </motion.button>
           </ContextMenu>
           {hint ? <p className="qline-hint">Tap to write from it. Swipe for another.</p> : null}
@@ -238,23 +262,69 @@ const yearsAgo = (d: string, today: string) => {
   return n === 1 ? 'A year ago' : `${n} years ago`;
 };
 
-/** "On this day" (an entry from this date in an earlier year) or "From your journal" (the daily memory), as one card. */
+/**
+ * A memory must be at least this old, and not one of the newest entries the timeline already shows (critic B11: "not
+ * among the first 5"). Five is not enough when entries are one line each: at 390×844 the sixth row then sits on the same
+ * screen as the card, so the card skips the newest eight (about a screen of one-line rows below it).
+ */
+export const MEMORY_MIN_DAYS = 14;
+export const MEMORY_SKIP_NEWEST = 8;
+/** A small stable number for a string: the day's pick among the entries that qualify. */
+const seedOf = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+/**
+ * The entries the memory card may show: written at least two weeks ago and not among the first five of the timeline,
+ * so the card never repeats a row that sits under it. Oldest first.
+ */
+export const memoryPool = (all: JournalEntry[], today: string) => {
+  const newest = new Set(all.slice(0, MEMORY_SKIP_NEWEST).map((e) => e.id));
+  const cutoff = shiftDays(today, -MEMORY_MIN_DAYS);
+  return all.filter((e) => e.date <= cutoff && !newest.has(e.id)).reverse();
+};
+
+/**
+ * "On this day" (an entry from this date in an earlier year) or "From your journal" (the daily memory), as one card, only
+ * when there is an entry old enough to be a memory (see `memoryPool`); otherwise nothing at all. The server's daily memory
+ * is used when it qualifies; else the day's pick among the entries that do. Swipe sideways (or "Another memory"): the card
+ * leaves the way it was swiped and the next comes in from the other side.
+ */
 const MemoryCard = ({ today, all }: { today: string; all: JournalEntry[] }) => {
   const daily = useDaily();
-  const { another } = useJournalMutations();
   const act = useEntryActions();
   const openEntry = useOpenEntry();
   const nav = useNavigate();
   const reduce = useReduced();
-  const [dir, setDir] = useState(1);
-  const onThisDay = useMemo(() => all.find((e) => e.date < today && e.date.slice(5) === today.slice(5)) ?? null, [all, today]);
-  const e = onThisDay ?? daily.data?.memory ?? null;
-  const log = useLog(e ? monthsOf([e.date]) : []);
-  const shuffle = (d: -1 | 1) => {
-    setDir(d);
-    another.mutate('memory');
+  const pool = useMemo(() => memoryPool(all, today), [all, today]);
+  const ok = useMemo(() => new Set(pool.map((e) => e.id)), [pool]);
+  const onThisDay = useMemo(() => pool.find((e) => e.date < today && e.date.slice(5) === today.slice(5)) ?? null, [pool, today]);
+  const server = daily.data?.memory && ok.has(daily.data.memory.id) ? daily.data.memory : null;
+  // how many times it has been shuffled today: 0 shows the server's (or the day's) pick, then the pool in turn
+  const [turn, setTurn] = useState(0);
+  const pick = (n: number) => {
+    if (!pool.length) return null;
+    if (n === 0 && server) return server;
+    const start = server ? pool.findIndex((e) => e.id === server.id) : seedOf(today) % pool.length;
+    return pool[(start + n + pool.length) % pool.length]!;
   };
-  const swipe = useCardSwipe(shuffle, !onThisDay && (daily.data?.pastCount ?? 0) > 1);
+  const e = onThisDay ?? pick(turn);
+  const log = useLog(e ? monthsOf([e.date]) : []);
+  const card = useRef<HTMLElement>(null);
+  const busy = useRef(false);
+  const shuffleRef = useRef<(d: -1 | 1) => void>(() => undefined);
+  const swipe = useCardSwipe((d) => shuffleRef.current(d), !onThisDay && pool.length > 1);
+  const slide = useSlideSwap(swipe.x, card);
+  shuffleRef.current = (d) => {
+    if (busy.current) return;
+    busy.current = true;
+    void slide.out(d).then(() => {
+      setTurn((t) => t + d);
+      slide.in(d);
+      busy.current = false;
+    });
+  };
   if (!e) return null;
   const stamp = log.loaded(e.date) ? runStamp(log.snap, e.date) : null;
   const kicker = onThisDay ? `On this day · ${parseISO(e.date).getFullYear()}` : 'From your journal';
@@ -262,28 +332,25 @@ const MemoryCard = ({ today, all }: { today: string; all: JournalEntry[] }) => {
     <ContextMenu
       label="Memory"
       items={[
-        ...(onThisDay ? [] : [{ label: 'Another memory', icon: <Shuffle size={18} />, onSelect: () => (haptics.select(), shuffle(1)) }]),
+        ...(onThisDay || pool.length < 2 ? [] : [{ label: 'Another memory', icon: <Shuffle size={18} />, onSelect: () => (haptics.select(), shuffleRef.current(1)) }]),
         { label: e.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => act.fav(e) },
         { label: 'Open the day', icon: <CalendarDays size={18} />, onSelect: () => nav(`/today/${e.date}`) },
         { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
       ]}
     >
-      <motion.section className="jmem-card" aria-label={kicker} onClickCapture={swipe.onClickCapture} {...swipe.props}>
-        <div className="jmem-top">
-          <span className="caps">{kicker}</span>
-          <span className="caps jmem-ago">{onThisDay ? yearsAgo(e.date, today) : ago(e.date, today)}</span>
-        </div>
-        <AnimatePresence mode="popLayout" initial={false} custom={dir}>
+      <div className="jmem-clip">
+        <motion.section ref={card} className="jmem-card" aria-label={kicker} onClickCapture={swipe.onClickCapture} {...swipe.props}>
+          <div className="jmem-top">
+            <span className="caps">{kicker}</span>
+            <span className="caps jmem-ago">{onThisDay ? yearsAgo(e.date, today) : ago(e.date, today)}</span>
+          </div>
           <motion.button
             key={e.id}
             type="button"
             className="jmem-open"
-            custom={dir}
-            variants={slideVariants(reduce)}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={reduce ? { duration: 0.15 } : springs.page}
+            initial={reduce ? { opacity: 0 } : false}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.15 }}
             onClick={(ev) => openEntry(e, { from: ev.currentTarget.querySelector('.jmem-date'), stamp })}
           >
             <span className="memory-text clamp">{e.text}</span>
@@ -293,8 +360,8 @@ const MemoryCard = ({ today, all }: { today: string; all: JournalEntry[] }) => {
               {e.fav ? <Star size={12} fill="currentColor" className="jfav" aria-label="Favourite" /> : null}
             </span>
           </motion.button>
-        </AnimatePresence>
-      </motion.section>
+        </motion.section>
+      </div>
     </ContextMenu>
   );
 };
@@ -314,13 +381,6 @@ const useStableKeys = (entries: JournalEntry[]) => {
 };
 
 const PAGE = 30;
-/** Ghost rows for the empty timeline: what it will look like, at 30%. */
-const GHOST: Array<[string, string, string]> = [
-  ['14', 'Wed', 'Easy 5 felt slow, then didn’t. Bed by ten.'],
-  ['13', 'Tue', 'Speed day. The last rep was the best one.'],
-  ['12', 'Mon', 'Rest. Long walk with no phone.'],
-];
-
 /**
  * Every entry, newest first, edge to edge. The date stands at the left of a day's first entry; a day with a run wears the
  * run's name as a stamp. Tap: the entry. Swipe left: Delete (with Undo). Hold: Edit, Favourite, Share, Delete.
@@ -381,21 +441,7 @@ const Timeline = ({ today, all, loading, onWrite }: { today: string; all: Journa
         </SkeletonGroup>
       ) : !all.length ? (
         <EmptyState
-          ghost={
-            <div className="jtl">
-              {GHOST.map(([d, w, t]) => (
-                <div key={d} className="jtl-row ghost">
-                  <span className="jtl-date">
-                    <span className="jtl-day">{d}</span>
-                    <span className="caps">{w}</span>
-                  </span>
-                  <span className="jtl-body">
-                    <span className="jtl-text">{t}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          }
+          ghost={<GhostLines rows={3} lead />}
           verb={{ label: 'Write today’s', onPress: onWrite }}
         >
           Two sentences a day. Every one lands here, newest first.

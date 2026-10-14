@@ -8,6 +8,7 @@ import { connectStrava } from '@/features/onboarding/StravaPrimer';
 import { DAY_NAME, DAY_SHORT, goalLine, goalLong, hm, isTemplateBlock, paceText, sortDays, weeksUntil } from '@/features/onboarding/model';
 import { haptics, useHapticsEnabled } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
+import { Avatar } from '@/ui/Avatar';
 import { PushedHeader } from '@/ui/headers';
 import { Button, Section } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
@@ -16,7 +17,7 @@ import { useToast } from '@/ui/Toast';
 import { DeleteStepOne, exportAll } from './account';
 import { HabitsPage } from './HabitsPage';
 import { HrZonesRow } from './HrZones';
-import { SRow, Switch } from './parts';
+import { initialOf, SRow, Switch } from './parts';
 import { StravaLine } from './StravaLine';
 import { TrainingPage, YouPage } from './TrainingPages';
 import { useTrainingProfile } from './useProfile';
@@ -32,6 +33,8 @@ if (typeof window !== 'undefined')
     deferredInstall = e as BIP;
   });
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
+/** Safari on an iPhone or iPad: the one browser where Add to Home Screen is a manual step worth explaining. */
+const isIosSafari = () => /iP(hone|ad|od)/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 
 /**
  * Settings (experience §5.7), pushed from the avatar. The root is a tree of grouped edge-to-edge lists; You, Training and
@@ -84,7 +87,7 @@ function SettingsRoot() {
   const sheet = useSheet();
   const [sp, setSp] = useSearchParams();
   const [hapticsOn, setHapticsOn] = useHapticsEnabled();
-  const { profile, block, loaded, stored: hasStored } = useTrainingProfile();
+  const { profile, block, loaded, stored: hasStored, source } = useTrainingProfile();
   const [canInstall, setCanInstall] = useState(!!deferredInstall);
   useEffect(() => {
     const fn = (e: Event) => {
@@ -123,12 +126,16 @@ function SettingsRoot() {
       } catch {
         throw new ApiError('That file isn’t a Logbook export or an old log.', 422);
       }
-      return api<{ ok: boolean; imported: Record<string, number> }>('/import', { method: 'POST', json });
+      return api<{ ok?: boolean; imported?: Record<string, number> }>('/import', { method: 'POST', json });
     },
     onSuccess: (r) => {
-      const parts = Object.entries(r.imported)
+      const WORDS: Record<string, [string, string]> = { journal: ['journal entry', 'journal entries'], todos: ['to-do', 'to-dos'], links: ['saved link', 'saved links'], reads: ['saved link', 'saved links'], checks: ['habit check', 'habit checks'], quotes: ['quote', 'quotes'], quotePrefs: ['quote preference', 'quote preferences'], morningDays: ['morning', 'mornings'] };
+      const parts = Object.entries(r.imported ?? {})
         .filter(([, n]) => n)
-        .map(([k, n]) => `${n} ${k}`);
+        .map(([k, n]) => {
+          const w = WORDS[k];
+          return w ? `${n.toLocaleString()} ${n === 1 ? w[0] : w[1]}` : `${n.toLocaleString()} ${n === 1 ? k.replace(/s$/, '') : k}`;
+        });
       haptics.success();
       setImportResult({ text: parts.length ? `Imported ${parts.join(', ')}.` : 'Nothing new: it was all here already.', bad: false });
       void qc.invalidateQueries();
@@ -143,7 +150,7 @@ function SettingsRoot() {
     if (exporting) return;
     setExporting('Gathering your log…');
     try {
-      const r = await exportAll((d, t) => setExporting(`Gathering ${d} of ${t} months…`));
+      const r = await exportAll((d, t) => setExporting(t > 1 ? `Gathering ${d} of ${t} months…` : 'Gathering your log…'));
       haptics.success();
       toast(`Saved ${r.name}`);
     } catch {
@@ -174,11 +181,11 @@ function SettingsRoot() {
 
   return (
     <div className="page s-set">
-      <PushedHeader title="Settings" />
+      <PushedHeader title="Settings" right={<Avatar initial={initialOf(data?.user)} />} />
 
       {/* the one hero: who you are and what you are training for; tap for You */}
-      <button type="button" className="s-me halo halo-upcoming" onClick={() => nav('/settings/you')} aria-label={`You: ${data?.user.email ?? ''}. ${goalLine(profile)}. Open`}>
-        <span className="caps s-me-eyebrow">{data?.user.email ?? ' '}</span>
+      <button type="button" className="s-me halo halo-upcoming" onClick={() => nav('/settings/you')} aria-label={`You: ${data?.user.name || data?.user.email || ''}. ${goalLine(profile)}. Open`}>
+        <span className="caps s-me-eyebrow">{data?.user.name || data?.user.email || ' '}</span>
         {loaded ? (
           <>
             <span className="s-me-goal display">{named ? block!.name : profile.goal === 'base' ? 'Just running.' : `Training for a ${goalLong(profile.goal).replace(/^H/, 'h').replace(/^M/, 'm')}.`}</span>
@@ -194,11 +201,18 @@ function SettingsRoot() {
         )}
       </button>
 
-      <Section title="Training" level="primary">
+      {/* where the rows come from (critic B6): the answers you gave, or the plan as it stands this week; never a default */}
+      <Section title={source === 'block' ? 'Your current block' : 'Training'} level="primary">
         <div className="list-edge s-list">
-          <SRow to="/settings/training" title="Weekly miles" value={loaded ? `${profile.weeklyMiles} mi` : '–'} />
-          <SRow to="/settings/training" title="Run days" value={loaded ? (profile.runDays.length > 4 ? `${profile.runDays.length} days a week` : sortDays(profile.runDays).map((d) => DAY_SHORT[d]).join(' · ')) : '–'} />
-          <SRow to="/settings/training" title="Long run" value={loaded ? DAY_NAME[profile.longRunDay] : '–'} />
+          {source === 'none' && loaded ? (
+            <SRow to="/settings/training" title="Build a plan" sub="Pick your days and miles. Logbook writes the weeks." />
+          ) : (
+            <>
+              <SRow to="/settings/training" title={source === 'block' ? 'This week' : 'Starting miles'} value={loaded ? `${profile.weeklyMiles} mi` : '–'} />
+              <SRow to="/settings/training" title="Run days" value={loaded ? (profile.runDays.length > 5 ? `${profile.runDays.length} days a week` : sortDays(profile.runDays).map((d) => DAY_SHORT[d]).join(' ')) : '–'} />
+              <SRow to="/settings/training" title="Long run" value={loaded ? DAY_NAME[profile.longRunDay] : '–'} />
+            </>
+          )}
           <SRow to="/settings/training" title="Easy pace" value={ms ? `${paceText(ms.run.pace)} /mi` : '–'} />
         </div>
       </Section>
@@ -266,9 +280,9 @@ function SettingsRoot() {
                   deferredInstall = null;
                 }}
               />
-            ) : (
+            ) : isIosSafari() ? (
               <SRow title="Add to Home Screen" sub="In Safari: Share, then Add to Home Screen." />
-            )
+            ) : null
           ) : null}
         </div>
       </Section>

@@ -218,9 +218,13 @@ textarea.jtext {
 .ribbon-wrap {
   margin-top: var(--sp-secondary);
 }
+/* the ribbon reaches the screen edges so each day's column (the whole column is its button) is as wide as it can be,
+   and nothing between the page and the dots clips the hit area (QA D-X1) */
 .ribbon {
   display: grid;
   grid-template-columns: repeat(14, minmax(0, 1fr));
+  margin-inline: calc(-1 * var(--page-pad));
+  padding-inline: calc(var(--page-pad) - 12px);
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -231,6 +235,8 @@ textarea.jtext {
   background: none;
   padding: 0;
   margin: 0;
+  width: 100%;
+  min-width: 0;
   height: 56px;
   display: grid;
   grid-template-rows: 36px 14px;
@@ -785,29 +791,78 @@ textarea.jsheet-text {
   border-top: 1px solid var(--line);
   min-height: 44px;
 }
-.lib-search {
-  margin: 8px 0 4px;
-}
 .anchor {
   display: block;
   position: relative;
   top: -80px;
 }
-/* theme chips: one row that scrolls sideways */
-.theme-scroll {
+/* the themes: a 2-column grid of cards, each its theme's name, its count, and the day's line from it */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.theme-grid.odd > :last-child {
+  grid-column: 1 / -1;
+}
+.theme-card {
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  margin: 0 calc(-1 * var(--page-pad));
-  padding: 6px var(--page-pad);
-  scrollbar-width: none;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 128px;
+  padding: 14px 14px 16px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.theme-scroll::-webkit-scrollbar {
-  display: none;
+.theme-card:active {
+  background: var(--surface-2);
 }
-.theme-scroll .chip-btn {
+.theme-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.theme-name {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.5rem;
+  line-height: 1.75rem;
+  color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.theme-count {
   flex: none;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.theme-sample {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.theme-more {
+  margin-top: 12px;
+  min-height: 48px;
+}
+.qsearch {
+  display: grid;
+  gap: 12px;
 }
 /* the quote sheet: the quote at 22/28, the work, Favourite as the verb */
 .qsheet {
@@ -844,4 +899,41 @@ textarea.jsheet-text {
 .qrow,
 .dsheet-row {
   padding-inline: 0;
+}
+
+/* ---------- ghost previews: shapes only, never words, dates or sites (critic B1) ---------- */
+.jghost {
+  display: grid;
+}
+.jghost-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.jghost-lead {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--ink-4);
+}
+.jghost-lines {
+  display: grid;
+  gap: 10px;
+  flex: 1 1 auto;
+}
+.jghost-bar {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--ink-4);
+}
+.jghost-bar.short {
+  height: 10px;
+  opacity: 0.7;
+}
+.jghost-card {
+  cursor: default;
 }

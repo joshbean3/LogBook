@@ -3,7 +3,7 @@ import type { CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, Morni
 export interface Bootstrap {
   /** `onboardedAt` null = a new account that has not been through /welcome yet (absent in caches from before it existed). */
   /** `trainingProfile`: the training answers kept on the account (null before any; absent in caches from before it existed). */
-  user: { id: string; email: string; onboardedAt?: string | null; trainingProfile?: SavedTrainingProfile | null };
+  user: { id: string; email: string; onboardedAt?: string | null; trainingProfile?: SavedTrainingProfile | null; /** Contract 6: the account's name (null or absent before one is given). */ name?: string | null };
   habits: Habit[];
   blocks: PlanBlock[];
   morningSettings: MorningSettings;
@@ -57,6 +57,8 @@ export interface OnboardingAnswers {
   habits: string[];
   start?: 'monday' | 'tomorrow';
   today?: string;
+  /** The morning step's chips as minutes per routine block (B9). Sent for the record; the client also writes it to the morning settings. */
+  routine?: { shower: number; ready: number; smoothie: number; prep: number };
 }
 export interface OnboardingResult {
   user: { id: string; email: string; onboardedAt: string | null; trainingProfile?: SavedTrainingProfile | null };
@@ -71,4 +73,27 @@ export interface TemplateApplied {
   block: PlanBlock;
   months: string[];
   removed: number;
+  /** Contract 1 (replace): the planned sessions it soft-deleted, for Undo. */
+  replacedIds?: string[];
+  /** Contract 1 (replace): the overlapping block it ended at startDate − 1 (`prevEnd` = its old end), or soft-deleted. */
+  endedBlock?: { id: string; prevEnd: string } | { id: string; deleted: true };
+}
+
+/** Contract 3: `GET /export`, everything the account holds; `POST /import` takes it back (idempotent by id). */
+export interface ExportBundle {
+  version: 2;
+  exportedAt: string;
+  user: { id: string; email: string; name?: string | null };
+  settings?: unknown;
+  habits?: unknown[];
+  checks?: unknown[];
+  sessions?: Array<{ id: string; deletedAt?: string | null }>;
+  activities?: unknown[];
+  lifts?: unknown[];
+  todos?: unknown[];
+  journal?: unknown[];
+  quotes?: unknown;
+  links?: unknown[];
+  blocks?: unknown[];
+  trainingProfile?: unknown;
 }

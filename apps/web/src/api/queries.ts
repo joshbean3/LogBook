@@ -1,9 +1,9 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoPriority, type TemplateInput, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoPriority, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { api, ApiError } from './client';
 import { write } from './outbox';
-import type { Bootstrap, Daily, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
+import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
 
 export const keys = {
   bootstrap: ['bootstrap'] as const,
@@ -434,6 +434,8 @@ export const useJournalMutations = () => {
     mutationFn: async ({ id, fav, hidden }: { id: string; fav?: boolean; hidden?: boolean }) => {
       qc.setQueryData<Daily>(keys.daily, (d) => (d && d.quote?.id === id && fav !== undefined ? { ...d, quote: { ...d.quote, fav } } : d));
       qc.setQueriesData<QuotePage>({ queryKey: ['quotes'] }, (p) => (p ? { ...p, quotes: p.quotes.map((q) => (q.id === id ? { ...q, fav: fav ?? q.fav } : q)).filter((q) => !(hidden && q.id === id)) } : p));
+      // a theme's list (the library's themes) answers too
+      qc.setQueriesData<Quote[]>({ queryKey: ['quote-theme'] }, (l) => (l ? l.map((q) => (q.id === id ? { ...q, fav: fav ?? q.fav } : q)).filter((q) => !(hidden && q.id === id)) : l));
       await write(`/quotes/${id}/prefs`, 'PUT', { fav, hidden }, [['quotes'], keys.daily]);
       // a favourite joins (or leaves) the favourites list, which the server filters; an unhidden quote comes back
       if (fav !== undefined || hidden === false) void qc.invalidateQueries({ queryKey: ['quotes'] });
@@ -455,6 +457,50 @@ export const useJournalMutations = () => {
   });
   return { add, patch, remove, restore, another, quotePrefs, addQuote, removeQuote };
 };
+
+// ---------- the quote library: themes, not a list (critic B5) ----------
+/** One theme card: how many quotes it holds (hidden ones left out) and one line from it, a different one each day. */
+export interface QuoteTheme {
+  theme: string;
+  count: number;
+  sample: Quote | null;
+}
+const quotePage = (theme: string, limit: number, offset: number, q = '') => api<QuotePage>(`/quotes?${new URLSearchParams({ theme, q, fav: '0', limit: String(limit), offset: String(offset) }).toString()}`);
+/** A small stable number for a string (the day's sample line, the day's shuffle). */
+export const seedOf = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+/** Every theme's count and the day's sample line, in one query (two small reads per theme), cached for the day. */
+export const useQuoteThemes = (date: string) =>
+  useQuery({
+    queryKey: ['quote-themes', date],
+    queryFn: () =>
+      Promise.all(
+        QUOTE_THEMES.map(async (theme): Promise<QuoteTheme> => {
+          const head = await quotePage(theme, 1, 0);
+          if (!head.total) return { theme, count: 0, sample: null };
+          const at = seedOf(`${date}:${theme}`) % head.total;
+          const sample = at ? ((await quotePage(theme, 1, at)).quotes[0] ?? head.quotes[0] ?? null) : (head.quotes[0] ?? null);
+          return { theme, count: head.total, sample };
+        }),
+      ),
+    staleTime: 30 * 60_000,
+  });
+/** Every quote in a theme (read in pages of 200), for the theme's list to shuffle and page through on the client. */
+export const useThemeQuotes = (theme: string | null) =>
+  useQuery({
+    queryKey: ['quote-theme', theme],
+    enabled: !!theme,
+    queryFn: async () => {
+      const first = await quotePage(theme!, 200, 0);
+      const rest: Quote[] = [];
+      for (let off = 200; off < first.total; off += 200) rest.push(...(await quotePage(theme!, 200, off)).quotes);
+      return [...first.quotes, ...rest].filter((q) => !q.mine);
+    },
+    staleTime: 10 * 60_000,
+  });
 
 // ---------- reads ----------
 const fetchReads = () => api<{ links: Link[] }>('/reads').then((r) => r.links);
@@ -597,19 +643,67 @@ export const useOnboard = () => {
   });
 };
 
-/** `POST /plans/template` with `replace`: rebuild the plan from a start date, keeping everything already done. */
+/**
+ * `POST /plans/template` with `replace` (contract 1): rebuild the plan from a start date. Runs already done stay; the
+ * planned ones it replaces are soft-deleted and the overlapping block is ended at startDate − 1 (or removed if it had not
+ * started), so there are never two blocks over the same weeks. The bootstrap answers at once: the new block in, the old
+ * one ended. The result carries what `useUndoRebuild` needs.
+ */
 export const useRebuildPlan = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Omit<OnboardingAnswers, 'wake' | 'leave' | 'pace' | 'habits' | 'start' | 'today'> & { startDate: string; replace?: boolean }) =>
       api<TemplateApplied>('/plans/template', { method: 'POST', json: { replace: true, ...input } }),
-    onSuccess: (r) => {
-      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, blocks: [...b.blocks.filter((x) => x.id !== r.block.id), r.block] } : b));
+    onSuccess: (r, v) => {
+      const ended = r.endedBlock;
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) =>
+        b
+          ? {
+              ...b,
+              blocks: [
+                ...b.blocks
+                  .filter((x) => x.id !== r.block.id && !(ended && 'deleted' in ended && x.id === ended.id))
+                  .map((x) => (ended && 'prevEnd' in ended && x.id === ended.id ? { ...x, end: shiftDays(v.startDate, -1) } : x)),
+                r.block,
+              ],
+            }
+          : b,
+      );
       for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
       void qc.invalidateQueries({ queryKey: keys.bootstrap });
     },
   });
 };
+
+/** `POST /plans/template/undo` (contract 1): the rebuilt block and its sessions go, the replaced sessions and the old block come back. */
+export const useUndoRebuild = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (r: TemplateApplied) => api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], endedBlock: r.endedBlock } }),
+    onSuccess: (_x, r) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, blocks: b.blocks.filter((x) => x.id !== r.block.id).map((x) => (r.endedBlock && 'prevEnd' in r.endedBlock && x.id === r.endedBlock.id ? { ...x, end: r.endedBlock.prevEnd } : x)) } : b));
+      void qc.invalidateQueries({ queryKey: ['month'] });
+      void qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/** `PATCH /me { name }` (contract 6): the account's name, which the avatar's initial follows. Optimistic. */
+export const useSetName = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api<{ name?: string | null }>('/me', { method: 'PATCH', json: { name } }),
+    onMutate: (name) => {
+      const was = qc.getQueryData<Bootstrap>(keys.bootstrap)?.user.name ?? null;
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, name: name || null } } : b));
+      return { was };
+    },
+    onError: (_e, _n, ctx) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, name: ctx?.was ?? null } } : b)),
+  });
+};
+
+/** `GET /export` (contract 3): everything the account holds, as the file Settings saves and Import reads back. */
+export const fetchExport = () => api<ExportBundle>('/export');
 
 /** `DELETE /me`: the account and everything it owns. 403 `bad_password` when the password is wrong. */
 export const useDeleteAccount = () =>

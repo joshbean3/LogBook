@@ -176,7 +176,7 @@ export interface FirstWeek {
   morning: MorningPreview | null;
 }
 /** The seven days from `start`, as the payoff shows them, and the first run's morning. */
-export const firstWeek = (p: TrainingProfile, start: ISODate, today: ISODate, wake: number, leave: number): FirstWeek => {
+export const firstWeek = (p: TrainingProfile, start: ISODate, today: ISODate, wake: number, leave: number, base?: MorningSettings | null): FirstWeek => {
   const template = safeTemplate(p, start);
   const days: WeekPreviewDay[] = [];
   for (let i = 0; i < 7; i++) {
@@ -193,8 +193,40 @@ export const firstWeek = (p: TrainingProfile, start: ISODate, today: ISODate, wa
     runs: days.filter((d) => d.session).length,
     first,
     firstWhen,
-    morning: first ? previewMorning(wake, leave, { type: first.type, miles: first.miles }) : null,
+    morning: first ? previewMorning(wake, leave, { type: first.type, miles: first.miles }, base) : null,
   };
+};
+
+// ---------- the morning routine, from chips (critic B9) ----------
+/**
+ * What happens between the run and the front door, asked as chips on the morning step. Nothing is picked for you: with
+ * none, the routine is the generic "Get ready" and the last few minutes out the door (contract 7's defaults). Each chip adds
+ * its minutes to one of the routine's four blocks (`after.shower`, `ready`, `smoothie`, `prep`).
+ */
+export const ROUTINE_CHIPS = [
+  { id: 'shower', label: 'Shower', mins: 15, key: 'shower' },
+  { id: 'breakfast', label: 'Breakfast', mins: 15, key: 'smoothie' },
+  { id: 'bag', label: 'Pack bag', mins: 5, key: 'prep' },
+  { id: 'coffee', label: 'Coffee', mins: 5, key: 'smoothie' },
+] as const;
+export type RoutineChip = (typeof ROUTINE_CHIPS)[number]['id'];
+export interface RoutineMinutes {
+  shower: number;
+  ready: number;
+  smoothie: number;
+  prep: number;
+}
+/** Get ready 25 and out the door 10, plus whatever the chips add. */
+export const routineFrom = (chips: readonly string[]): RoutineMinutes => {
+  const r: RoutineMinutes = { shower: 0, ready: 25, smoothie: 0, prep: 10 };
+  for (const c of ROUTINE_CHIPS) if (chips.includes(c.id)) r[c.key] += c.mins;
+  return r;
+};
+export const routineTotal = (r: RoutineMinutes) => r.shower + r.ready + r.smoothie + r.prep;
+/** Morning settings carrying this routine, for the live verdict and the timeline on the morning step. */
+export const routineSettings = (chips: readonly string[]): MorningSettings => {
+  const s = normalizeMorningSettings({});
+  return { ...s, after: { ...s.after, ...routineFrom(chips) } };
 };
 
 // ---------- answers an earlier build kept on this device ----------
@@ -255,7 +287,31 @@ export const deriveProfile = (block: PlanBlock | null, sessions: Session[]): Tra
   return { goal, raceDate, runDays: runDays.length ? runDays : DEFAULT_PROFILE.runDays, longRunDay, weeklyMiles: week1.length ? weeklyMiles : DEFAULT_MILES[goal] };
 };
 
-export const sameProfile = (a: TrainingProfile, b: TrainingProfile) =>
+/**
+ * The block as it stands this week (critic B6): this week's planned miles, the weekdays it runs on, and its long-run day
+ * (a session named Long, else the week's longest run, the later day on a tie). Before the block has started, its first
+ * week. Goal and race day are read from the block as in `deriveProfile`. Never a default the plan doesn't show: with no
+ * runs to read, null.
+ */
+export const deriveThisWeek = (block: PlanBlock | null, sessions: Session[], today: ISODate): (TrainingProfile & { week: ISODate }) | null => {
+  if (!block) return null;
+  const base = deriveProfile(block, sessions);
+  const mine = sessions.filter((s) => s.blockId === block.id && s.kind === 'run');
+  const weekOf = (m: ISODate) => mine.filter((s) => s.date >= m && s.date <= shiftDays(m, 6));
+  let m = mondayOf(today < block.start ? block.start : today);
+  let week = weekOf(m);
+  // a week with nothing planned (between weeks of the block, or a lead-in): the next week that has runs
+  for (let i = 0; !week.length && i < 8 && shiftDays(m, 7) <= block.end; i++) week = weekOf((m = shiftDays(m, 7)));
+  if (!week.length) return null;
+  const runDays = sortDays([...new Set(week.map((s) => weekdayOf(s.date)))]);
+  const named = week.find((s) => /long/i.test(s.type ?? ''));
+  const longest = [...week].sort((a, b) => (b.miles ?? 0) - (a.miles ?? 0) || (a.date < b.date ? 1 : -1))[0]!;
+  const longRunDay = weekdayOf((named ?? longest).date);
+  const weeklyMiles = Math.max(MILES_MIN, Math.round(week.reduce((n, s) => n + (s.miles ?? 0), 0)));
+  return { goal: base.goal, raceDate: base.raceDate, runDays, longRunDay, weeklyMiles, week: m };
+};
+
+export const sameProfile =(a: TrainingProfile, b: TrainingProfile) =>
   a.goal === b.goal && (a.goal === 'base' || a.raceDate === b.raceDate) && a.longRunDay === b.longRunDay && a.weeklyMiles === b.weeklyMiles && sortDays(a.runDays).join() === sortDays(b.runDays).join();
 
 /** "10K on Sun, Dec 27" / "Half marathon, no date yet" / "Just running". */

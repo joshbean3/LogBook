@@ -1,7 +1,7 @@
-import { useMotionValue, type PanInfo } from 'motion/react';
-import { useRef } from 'react';
+import { animate, useMotionValue, type MotionValue, type PanInfo } from 'motion/react';
+import { useRef, type RefObject } from 'react';
 import { haptics } from '@/lib/haptics';
-import { useReduced } from '@/lib/motion';
+import { springs, useReduced } from '@/lib/motion';
 
 /** How far (px) or how fast (px/s) a card must travel sideways for a swipe to count. */
 export const SHUFFLE_DISTANCE = 56;
@@ -47,6 +47,29 @@ export const useCardSwipe = (onCommit: (dir: -1 | 1) => void, enabled = true) =>
     e.stopPropagation();
   };
   return { x, props, onClickCapture };
+};
+
+/**
+ * The shuffle's slide, as a pager: the card that was swiped keeps going and leaves in the swipe's direction (from wherever
+ * the finger let go), and only once it is gone does the next one come in from the other side. The two never overlap and
+ * nothing cross-dissolves. `x` is the card's drag value (from `useCardSwipe`), `ref` the card (for its width).
+ * Reduced motion: no travel; the caller fades the new content in.
+ */
+export const useSlideSwap = (x: MotionValue<number>, ref: RefObject<HTMLElement | null>) => {
+  const reduce = useReduced();
+  const width = () => (ref.current?.getBoundingClientRect().width ?? 320) + 32;
+  return {
+    /** Send the current card off the side it was swiped to (`dir` 1 = it leaves to the left). Resolves when it is gone. */
+    out: (dir: -1 | 1): Promise<void> => (reduce ? Promise.resolve() : new Promise<void>((done) => void animate(x, -dir * width(), { ...springs.settle, restDelta: 2, onComplete: done }))),
+    /** Bring the next card in from the other side. */
+    in: (dir: -1 | 1) => {
+      if (reduce) return x.jump(0);
+      x.jump(dir * width());
+      void animate(x, 0, springs.page);
+    },
+    /** Nothing new came: the card comes home. */
+    back: () => void animate(x, 0, reduce ? { duration: 0 } : springs.settle),
+  };
 };
 
 /** Content that slides in from the side a swipe sent it (`custom` = direction), opacity only under reduced motion. */

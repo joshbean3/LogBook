@@ -2,7 +2,8 @@ import { fmtDate, today } from '@logbook/shared';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
-import { useBootstrap, useMorningMutations, useRebuildPlan } from '@/api/queries';
+import { useBootstrap, useMorningMutations, useRebuildPlan, useSetName, useUndoRebuild } from '@/api/queries';
+import type { TemplateApplied } from '@/api/types';
 import { DayLetters, Dial, GoalChips, MilesDial, RaceStrip } from '@/features/onboarding/controls';
 import { defaultRaceDay, fixLongRun, MILES_MAX, MILES_MIN, nextMondayAfter, paceText, safeTemplate, sameProfile, type TrainingProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
@@ -11,7 +12,8 @@ import { PushedHeader } from '@/ui/headers';
 import { Section } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
-import { SRow } from './parts';
+import { Avatar } from '@/ui/Avatar';
+import { initialOf, SRow } from './parts';
 import { useTrainingProfile } from './useProfile';
 
 /** A page's own copy of the answers: edits stay here until "Rebuild my plan from next week". */
@@ -26,10 +28,24 @@ const useDraftProfile = () => {
  * The offer that follows any change to the plan's answers: a card pinned above the tab bar with what the new block will be,
  * Rebuild (POST /plans/template with replace, from next Monday; done runs and the past stay), and Undo changes.
  */
-const RebuildBar = ({ show, profile, onDone, onReset }: { show: boolean; profile: TrainingProfile; onDone: (p: TrainingProfile) => void; onReset: () => void }) => {
+const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: boolean; profile: TrainingProfile; before: TrainingProfile; onDone: (p: TrainingProfile) => void; onReset: () => void; save: (p: TrainingProfile) => void }) => {
   const reduce = useReducedMotion();
   const toast = useToast();
   const rebuild = useRebuildPlan();
+  const undo = useUndoRebuild();
+  /** Undo (contract 1): the new block goes, the replaced sessions and the old block come back, and so do the answers. */
+  const takeBack = (r: TemplateApplied) =>
+    undo.mutate(r, {
+      onSuccess: () => {
+        haptics.delete();
+        save(before);
+        toast('Plan restored.');
+      },
+      onError: () => {
+        haptics.error();
+        toast('Couldn’t undo. The new plan stays.');
+      },
+    });
   const [err, setErr] = useState<string | null>(null);
   const start = nextMondayAfter(today());
   const tpl = useMemo(() => (show ? safeTemplate(profile, start) : null), [show, profile, start]);
@@ -42,7 +58,7 @@ const RebuildBar = ({ show, profile, onDone, onReset }: { show: boolean; profile
         onSuccess: (r) => {
           haptics.success();
           onDone(p);
-          toast(r.block.sessionCount ? `Plan rebuilt from ${fmtDate('short', start)}: ${r.block.sessionCount} runs.` : `Plan rebuilt from ${fmtDate('short', start)}.`);
+          toast(r.block.sessionCount ? `${r.block.name}: ${r.block.sessionCount} runs from ${fmtDate('short', start)}.` : `${r.block.name}, from ${fmtDate('short', start)}.`, { label: 'Undo', fn: () => takeBack(r) });
         },
         onError: (e) => {
           haptics.error();
@@ -90,15 +106,62 @@ const Shape = () => (
   </SkeletonGroup>
 );
 
-/** /settings/you: the account, what you are training for, units. */
+/**
+ * The name (contract 6), typed in place: it saves on Return or when the field lets go (PATCH /me), and the avatar's
+ * initial follows it everywhere. Cleared, the email's initial comes back.
+ */
+const NameRow = () => {
+  const boot = useBootstrap();
+  const setName = useSetName();
+  const toast = useToast();
+  const saved = boot.data?.user.name ?? '';
+  const [v, setV] = useState(saved);
+  useEffect(() => setV(saved), [saved]);
+  const commit = () => {
+    const next = v.trim().slice(0, 60);
+    if (next === saved) return;
+    setName.mutate(next, {
+      onSuccess: () => haptics.toggle(),
+      onError: () => {
+        haptics.error();
+        toast('Couldn’t save your name. Try again.');
+      },
+    });
+  };
+  return (
+    <label className="s-row">
+      <span className="s-row-main">
+        <span className="s-row-title">Name</span>
+      </span>
+      <input
+        className="s-name-in"
+        name="name"
+        autoComplete="name"
+        autoCapitalize="words"
+        enterKeyHint="done"
+        maxLength={60}
+        placeholder="Add your name"
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+        }}
+      />
+    </label>
+  );
+};
+
+/** /settings/you: the account (name, email), what you are training for, units. */
 export const YouPage = () => {
   const boot = useBootstrap();
   const d = useDraftProfile();
   const start = nextMondayAfter(today());
   return (
     <div className="page s-set s-sub">
-      <PushedHeader title="You" backLabel="Back to Settings" />
+      <PushedHeader title="You" backLabel="Back to Settings" right={<Avatar initial={initialOf(boot.data?.user)} />} />
       <div className="list-edge s-list">
+        <NameRow />
         <SRow title="Email" value={<span className="s-email">{boot.data?.user.email}</span>} />
         <SRow title="Units" sub="Kilometres are on the way." value="Miles" />
       </div>
@@ -119,7 +182,7 @@ export const YouPage = () => {
           </>
         )}
       </Section>
-      <RebuildBar show={d.dirty} profile={d.p} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
+      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );
 };
@@ -152,7 +215,13 @@ export const TrainingPage = () => {
         <>
           <Section title="Weekly miles" level="secondary">
             <MilesDial value={d.p.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => d.edit({ weeklyMiles: v })} />
-            <p className="s-note">Where week one starts. The plan builds about 10% a week, with a lighter week every fourth.</p>
+            <p className="s-note">
+              {d.source === 'block'
+                ? 'This week of your current block. Change it and Logbook rebuilds from next week, building about 10% a week.'
+                : d.source === 'none'
+                  ? 'Where a new plan starts. It builds about 10% a week, with a lighter week every fourth.'
+                  : 'Where your plan started. Change it and Logbook rebuilds from next week, building about 10% a week.'}
+            </p>
           </Section>
           <Section title="Run days" level="primary">
             <DayLetters runDays={d.p.runDays} longRunDay={fixLongRun(d.p.runDays, d.p.longRunDay)} onChange={(runDays, longRunDay) => d.edit({ runDays, longRunDay })} />
@@ -163,7 +232,7 @@ export const TrainingPage = () => {
         <Dial value={pace} onChange={changePace} min={240} max={1200} step={5} format={paceText} unit="per mile" valueText={(v) => `${Math.floor(v / 60)} minutes ${v % 60} seconds per mile`} label="Easy pace" scrubPx={8} />
         <p className="s-note">Morning times each run at this pace. It saves as you change it.</p>
       </Section>
-      <RebuildBar show={d.dirty} profile={d.p} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
+      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );
 };

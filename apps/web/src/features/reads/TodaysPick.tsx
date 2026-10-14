@@ -48,7 +48,7 @@ const Slim = ({ children, verb, busy }: { children: React.ReactNode; verb?: Reac
  * On Reads: the hero (an aura card, lit from below) only when a pick exists, else a slim card ("Save links and Logbook finds
  * you one a day"). With `compact`, one row for the Today page, and nothing at all when there is no pick.
  */
-export const TodaysPick = ({ compact }: { compact?: boolean }) => {
+export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?: boolean }) => {
   const date = useToday();
   const q = usePick(date);
   const { feedback, another } = useReadsMutations();
@@ -101,7 +101,8 @@ export const TodaysPick = ({ compact }: { compact?: boolean }) => {
     );
   }
 
-  // no pick to show: a slim card, never a big empty hero
+  // no pick to show: a slim card, never a big empty hero (and on an empty Reads page, nothing: the page's one sentence says it)
+  if ((!p || waiting) && heroOnly) return null;
   if (!p || waiting) {
     if (waiting && (waited || !data))
       return (
