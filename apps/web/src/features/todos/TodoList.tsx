@@ -271,6 +271,8 @@ const TodoGroup = ({ items, sort, tier, date, done, canDrag = true, row }: { ite
     const id = dragging.current;
     dragging.current = null;
     setLifting(false);
+    // the row lands in a new slot: one drop, on the frame it settles
+    if (orderRef.current.join('|') !== sig) haptics.drop();
     commit(orderRef.current, id);
   };
   const step = (key: string, dir: -1 | 1) => {

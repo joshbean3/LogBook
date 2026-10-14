@@ -1,12 +1,12 @@
 import { buildMorning, clockOfDay, durationWords, num, clock, pad, type MorningTimeline, type TimelineBlock } from '@logbook/shared';
-import { AlarmClock, Backpack, CupSoda, DoorOpen, Dumbbell, Footprints, GripHorizontal, Moon, Pencil, ShowerHead, Shirt, SkipForward, SlidersHorizontal, Undo2 } from 'lucide-react';
+import { AlarmClock, Backpack, Coffee, DoorOpen, Dumbbell, Footprints, GripHorizontal, Moon, Pencil, ShowerHead, Shirt, SkipForward, SlidersHorizontal, Undo2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { useHoldDrag } from '@/lib/useDrag';
 import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui';
-import { clamp, markTaught, short, wasTaught, type DayPatch } from './model';
+import { blockLabel, clamp, markTaught, short, wasTaught, type DayPatch } from './model';
 
 /** What the page lets a block do (the long-press menu, a tap). Built by MorningView, which owns the sheets and toasts. */
 export interface BlockActions {
@@ -33,8 +33,13 @@ const MIN_STEP = 5;
 /** Room above the first block for the wake grip, which straddles its top edge. */
 const TOP = 18;
 const BOTTOM = 6;
+/** The smallest thing a thumb should have to hit. */
+const TARGET = 44;
+/** A rest morning's free stretch longer than this is drawn no taller than REST_CAP, with an axis break. */
+const REST_SQUEEZE_MIN = 45;
+const REST_CAP = 120;
 
-const ICON: Partial<Record<TimelineBlock['key'], typeof AlarmClock>> = { wake: AlarmClock, run: Footprints, gym: Dumbbell, shower: ShowerHead, ready: Shirt, smoothie: CupSoda, prep: Backpack };
+const ICON: Partial<Record<TimelineBlock['key'], typeof AlarmClock>> = { wake: AlarmClock, run: Footprints, gym: Dumbbell, shower: ShowerHead, ready: Shirt, smoothie: Coffee, prep: Backpack };
 const tickLabel = (t: number) => `${Math.floor(t / 60) % 12 || 12}:${pad(t % 60)}`;
 const sizeClass = (h: number) => (h < 26 ? 'xs' : h < 44 ? 'sm' : h < 66 ? 'md' : 'lg');
 
@@ -184,14 +189,16 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
     if (!actions) return [];
     const main = b.key === 'run' || b.key === 'gym';
     const day = b.key === 'wake' || main;
-    const items: ContextMenuItem[] = [{ label: day ? 'Edit' : `Edit ${b.label.toLowerCase()}`, icon: <Pencil size={18} />, onSelect: day ? actions.editDay : () => actions.editRoutine(b.key === 'buffer' ? 'buffer' : b.key) }];
+    const items: ContextMenuItem[] = [{ label: day ? 'Edit' : `Edit ${blockLabel(b).toLowerCase()}`, icon: <Pencil size={18} />, onSelect: day ? actions.editDay : () => actions.editRoutine(b.key === 'buffer' ? 'buffer' : b.key) }];
+    // a neighbour too short to hold on its own lends its Edit to this block's menu
+    for (const n of tinyNeighbours(b)) items.push({ label: `Edit ${blockLabel(n).toLowerCase()}`, icon: <Pencil size={18} />, onSelect: () => actions.editRoutine(n.key === 'buffer' ? 'buffer' : n.key) });
     if (actions.skipLabel) items.push({ label: `Skip ${actions.skipLabel}`, icon: <SkipForward size={18} />, onSelect: actions.skip });
     if (TT.day.mode !== 'rest') items.push({ label: 'Make this a rest day', icon: <Moon size={18} />, onSelect: actions.rest });
     else if (actions.backLabel) items.push({ label: `Back to ${actions.backLabel}`, icon: <Undo2 size={18} />, onSelect: actions.backToPlan });
     items.push({ label: 'Edit routine', icon: <SlidersHorizontal size={18} />, onSelect: () => actions.editRoutine() });
     return items;
   };
-  const nameOf = (b: TimelineBlock) => (b.key === 'run' ? `${TT.day.type} run` : b.key === 'gym' ? TT.day.type : b.label);
+  const nameOf = (b: TimelineBlock) => (b.key === 'run' ? `${TT.day.type} run` : b.key === 'gym' ? TT.day.type : blockLabel(b));
   const openMenu = (el: HTMLElement, b: TimelineBlock, haptic = true) => menu.open({ items: itemsFor(b), anchor: el, label: `${nameOf(b)} actions`, haptic });
   const tap = (b: TimelineBlock) => {
     if (!actions) return;
@@ -201,7 +208,18 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
 
   // ---------- layout: by the clock ----------
   const origin = Math.min(T.settings.wake, T.day.wake);
-  const y = (t: number) => TOP + (t - origin) * px;
+  // A rest morning's long stretch of free time is drawn at most REST_CAP tall, with a break on the axis: the clock still
+  // places every block, the empty hour just stops pushing the routine off the screen.
+  const squeeze = TT.day.mode === 'rest' ? TT.blocks.filter((b) => b.key === 'free' && b.mins > REST_SQUEEZE_MIN && b.mins * px > REST_CAP).map((b) => ({ s: b.start, e: b.end, saved: b.mins * px - REST_CAP })) : [];
+  const y = (t: number) => {
+    let v = TOP + (t - origin) * px;
+    for (const c of squeeze) {
+      if (t >= c.e) v -= c.saved;
+      else if (t > c.s) v -= ((t - c.s) / (c.e - c.s)) * c.saved;
+    }
+    return v;
+  };
+  const inSqueeze = (t: number) => squeeze.some((c) => t > c.s && t < c.e);
   const height = y(TT.leave) + BOTTOM;
   const wakeY = y(TT.day.wake);
   const showNow = isToday && now >= TT.day.wake && now <= TT.leave;
@@ -209,29 +227,63 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
   const ticks: number[] = [];
   for (let t = Math.ceil(origin / 30) * 30; t < TT.leave; t += 30) {
     const ty = y(t);
-    if (Math.abs(ty - wakeY) < 24 || (nowY != null && Math.abs(ty - nowY) < 16) || height - ty < 20) continue;
+    if (inSqueeze(t) || Math.abs(ty - wakeY) < 24 || (nowY != null && Math.abs(ty - nowY) < 16) || height - ty < 20) continue;
     ticks.push(t);
+  }
+
+  // Short blocks (Out the door, Cool down, a 5-minute routine block) keep their true height but get a 44px target: an
+  // invisible slop above and below, taken from free time or from a neighbour's spare height (never from a grip's edge).
+  const geo = TT.blocks.map((b) => ({ b, h: Math.max(2, y(b.end) - y(b.start) - 2) }));
+  const tiny = (j: number) => !!geo[j] && geo[j]!.b.key !== 'free' && geo[j]!.h < TARGET;
+  const spare = (i: number, side: -1 | 1) => {
+    const j = i + side;
+    const n = geo[j];
+    if (!n) return 0;
+    if (n.b.key === 'free') return n.h / 2;
+    if (n.h < TARGET) return 0;
+    // the run/gym block's grip sits on its bottom edge, the wake's on its top: those edges are not lent
+    if (side < 0 && (n.b.key === 'run' || n.b.key === 'gym')) return 0;
+    // a neighbour keeps 44px itself, and splits what is left when a short block sits on its other side too
+    return (n.h - TARGET) / (tiny(j + side) ? 2 : 1);
+  };
+  const slop = geo.map(({ h }, i) => {
+    // +2: the hairline gap between blocks belongs to nobody
+    const need = h < TARGET ? TARGET + 2 - h : 0;
+    if (!need) return { up: 0, down: 0, h };
+    const a = spare(i, -1);
+    const z = spare(i, 1);
+    let up = Math.min(a, need / 2);
+    const down = Math.min(z, need - up);
+    up = Math.min(a, need - down);
+    return { up, down, h: h + up + down };
+  });
+  /** The neighbours of `b` that are still under 44px with their slop: their Edit joins `b`'s menu. */
+  function tinyNeighbours(b: TimelineBlock): TimelineBlock[] {
+    const i = TT.blocks.indexOf(b);
+    return [i - 1, i + 1].filter((j) => j >= 0 && j < geo.length && geo[j]!.b.key !== 'free' && geo[j]!.b.key !== 'wake' && slop[j]!.h < TARGET).map((j) => geo[j]!.b);
   }
   const slept = TT.day.wake - origin;
   const tr = reduce ? { duration: 0 } : springs.settle;
 
   const blocks: ReactNode[] = TT.blocks.map((b, i) => {
     const top = y(b.start) + 1;
-    const h = Math.max(2, (b.end - b.start) * px - 2);
+    const h = geo[i]!.h;
+    const sl = slop[i]!;
     const past = isToday && b.end <= now && !live;
     const sz = sizeClass(h);
     const range = `${short(b.start)}–${short(b.end)}`;
     const key = `${b.key}-${b.key === 'buffer' ? i : ''}`;
     if (b.key === 'free') {
-      const restMorning = TT.day.mode === 'rest' && h >= 120;
+      const squeezed = squeeze.some((c) => c.s === b.start);
+      const restMorning = TT.day.mode === 'rest' && (squeezed || h >= 120);
       return (
-        <motion.div key={key} className={`tl-free ${restMorning ? 'is-rest' : ''} ${past ? 'past' : ''}`} initial={false} animate={{ y: top, height: h }} transition={tr} aria-label={`${durationWords(b.mins)} free, ${clockOfDay(b.start)} to ${clockOfDay(b.end)}`} role="note">
+        <motion.div key={key} className={`tl-free ${restMorning ? 'is-rest' : ''} ${squeezed ? 'is-squeezed' : ''} ${past ? 'past' : ''}`} initial={false} animate={{ y: top, height: h }} transition={tr} aria-label={`${durationWords(b.mins)} free, ${clockOfDay(b.start)} to ${clockOfDay(b.end)}`} role="note">
           {restMorning ? (
             <div className="tl-rest">
               <span className="tl-rest-glow" aria-hidden="true" />
               <span className="display tl-rest-word">Rest.</span>
               <span className="tl-rest-line">
-                {durationWords(b.mins)} to yourself before the routine.{interactive && !(isToday && now > TT.day.wake) ? ' Sleep in: drag the alarm down.' : ''}
+                {durationWords(b.mins)} to yourself before the routine.{!squeezed && interactive && !(isToday && now > TT.day.wake) ? ' Sleep in: drag the alarm down.' : ''}
               </span>
             </div>
           ) : h >= 16 ? (
@@ -338,7 +390,7 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
               <span className="caps">{TT.day.wake === T.day.wake ? 'alarm' : `${TT.day.wake > T.day.wake ? '+' : '−'}${Math.abs(TT.day.wake - T.day.wake)} min`}</span>
             </span>
           ) : teach ? (
-            <span className="tl-bubble top hint" aria-hidden="true">
+            <span className="tl-hint" aria-hidden="true">
               Drag the alarm
             </span>
           ) : null}
@@ -352,7 +404,7 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
     return (
       <ContextMenu key={key} items={itemsFor(b)} label={name}>
         <motion.div
-          className={cls}
+          className={`${cls} ${sl.up || sl.down ? 'has-slop' : ''}`}
           initial={false}
           animate={{ y: top, height: h }}
           transition={tr}
@@ -362,6 +414,7 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
           onClick={() => tap(b)}
           onKeyDown={main ? undefined : (e) => (e.key === 'Enter' || e.key === ' ' ? (e.preventDefault(), tap(b)) : undefined)}
         >
+          {sl.up || sl.down ? <span className="tl-hit" aria-hidden="true" style={{ top: -sl.up, bottom: -sl.down }} /> : null}
           {body}
           {main ? (
             <span
@@ -407,6 +460,9 @@ export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: 
           <motion.span key={t} className="tl-tick caps" initial={false} animate={{ y: y(t) - 7 }} transition={tr}>
             {tickLabel(t)}
           </motion.span>
+        ))}
+        {squeeze.map((c) => (
+          <motion.span key={`break-${c.s}`} className="tl-break" initial={false} animate={{ y: y((c.s + c.e) / 2) - 6 }} transition={tr} />
         ))}
         <motion.span className="tl-tick tl-tick-wake" initial={false} animate={{ y: wakeY - 8 }} transition={tr}>
           {short(TT.day.wake)}

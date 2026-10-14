@@ -1,4 +1,4 @@
-import { buildMorning, clock, durationWords, MORNING_DEFAULTS, normalizeMorningSettings, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
+import { buildMorning, clock, durationWords, normalizeMorningSettings, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
 import { GripVertical } from 'lucide-react';
 import { AnimatePresence, motion, Reorder, useDragControls, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +9,7 @@ import { Button, ChipButton, Stepper, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { parseWake } from './DayEditor';
 import { MiniLine } from './MiniLine';
-import { AFTER_LABEL, short, type AfterKey } from './model';
+import { AFTER_LABEL, ROUTINE_DEFAULTS, short, type AfterKey } from './model';
 
 /** One editable number of the routine: how it reads, how it steps, and the common values a tap on its chip cycles through. */
 interface Field {
@@ -264,7 +264,7 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
           variant="ghost"
           onClick={() => {
             haptics.select();
-            setS((c) => ({ ...MORNING_DEFAULTS, wake: c.wake, focus: c.focus }));
+            setS((c) => ({ ...ROUTINE_DEFAULTS, wake: c.wake, focus: c.focus }));
           }}
         >
           Defaults

@@ -1,7 +1,7 @@
 import { durationWords, type MorningTimeline } from '@logbook/shared';
 import { motion, useReducedMotion } from 'motion/react';
 import { springs } from '@/lib/motion';
-import { stopsOf, timeParts } from './model';
+import { blockLabel, stopsOf, timeParts } from './model';
 import './mini.css';
 
 /**
@@ -44,7 +44,7 @@ export const MiniLine = ({ T, now, bar, className = '' }: { T: MorningTimeline; 
                   initial={false}
                   animate={{ left: `${((b.start - T.day.wake) / span) * 100}%`, width: `${(b.mins / span) * 100}%` }}
                   transition={reduce ? { duration: 0 } : springs.settle}
-                  title={`${b.label}, ${durationWords(b.mins)}`}
+                  title={`${blockLabel(b)}, ${durationWords(b.mins)}`}
                 />
               ),
             )

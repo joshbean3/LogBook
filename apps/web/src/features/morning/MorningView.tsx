@@ -1,14 +1,16 @@
-import { AFTER_ORDER, durationWords, fmtDate, label, MORNING_DEFAULTS, monthOf, num, relativeDay, shiftDays, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
+import { AFTER_ORDER, durationWords, fmtDate, label, monthOf, num, relativeDay, shiftDays, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
 import { Briefcase, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
+import { springs } from '@/lib/motion';
 import { ChipButton, DatePager, IconButton, PushedHeader, Skeleton, SkeletonGroup, dateLine, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useLog, type Log } from '../log/useLog';
 import { DayEditor } from './DayEditor';
-import { clamp, morningOf, short, takeLegacyOrder, timeParts, useNowMinutes, type DayPatch } from './model';
+import { clamp, morningOf, ROUTINE_DEFAULTS, short, takeLegacyOrder, timeParts, useNowMinutes, type DayPatch } from './model';
 import { RoutineEditor } from './RoutineEditor';
 import { Timeline, type BlockActions } from './Timeline';
 import './morning.css';
@@ -132,11 +134,27 @@ export default function MorningView() {
   const months = useMemo(() => [...new Set([monthOf(shiftDays(date, -1)), monthOf(date), monthOf(shiftDays(date, 1))])], [date]);
   const log = useLog(months);
   const now = useNowMinutes();
-  const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
+  const st = log.boot?.morningSettings ?? ROUTINE_DEFAULTS;
   const { setDay, settings } = useMorningMutations();
   const { mark } = useSessionMutations();
   // the dev clock (?at=) rides along when the day changes
-  const go = (d: string) => nav(`${d === t ? '/morning' : `/morning/${d}`}${loc.search}`);
+  // a day step replaces the entry, so Back always returns to where Morning was opened from (Today), never through the days
+  const go = (d: string) => nav(`${d === t ? '/morning' : `/morning/${d}`}${loc.search}`, { replace: true });
+
+  // Opened by pulling the Today hero down: Morning drops in from the hero (y, springs.page) instead of the sideways push.
+  // The pushed frame's slide is held still by a class on <html> (morning.css) for the length of the entrance.
+  const reduce = useReducedMotion();
+  const enterPull = useRef((loc.state as { enter?: string } | null)?.enter === 'pull' && !reduce).current;
+  useLayoutEffect(() => {
+    if (!enterPull) return;
+    const root = document.documentElement;
+    root.dataset.morningEnter = 'pull';
+    const done = setTimeout(() => delete root.dataset.morningEnter, 900);
+    return () => {
+      clearTimeout(done);
+      delete root.dataset.morningEnter;
+    };
+  }, [enterPull]);
   const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
   const px = usePx(T.leave - Math.min(st.wake, T.day.wake));
   const ready = !!log.boot && log.loaded(date);
@@ -217,7 +235,7 @@ export default function MorningView() {
       dateLine(date)
     );
   return (
-    <div className="page m-page">
+    <motion.div className="page m-page" initial={enterPull ? { y: -Math.round(window.innerHeight * 0.4), opacity: 0 } : false} animate={{ y: 0, opacity: 1 }} transition={{ y: springs.page, opacity: { duration: 0.12 } }}>
       <PushedHeader
         title="Morning"
         eyebrow={eyebrow}
@@ -247,6 +265,6 @@ export default function MorningView() {
           render={(d) => <DayPage key={d} date={d} log={log} st={st} px={px} now={now} interactive={d === date} actions={d === date ? actionsFor(d) : undefined} />}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

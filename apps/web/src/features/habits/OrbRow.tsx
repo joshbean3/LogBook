@@ -5,8 +5,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useHabitMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { rowPresence, springs } from '@/lib/motion';
-import { DROP_SPRING, INSTANT, useHoldDrag } from '@/lib/useDrag';
-import { ChipButton, dateLine, shared, useContextMenu, useSheet, type ContextMenuItem } from '@/ui';
+import { DROP_SPRING, HOLD_MS, INSTANT, useHoldDrag } from '@/lib/useDrag';
+import { ChipButton, dateLine, LONG_PRESS_MS, shared, useContextMenu, useSheet, type ContextMenuItem } from '@/ui';
 import type { Log } from '../log/useLog';
 import { HabitNoteSheet, useArchiveHabit, useOpenHabit } from './HabitSheet';
 import './habits.css';
@@ -20,8 +20,9 @@ type OrbHandle = { pop: (v?: number, delay?: number) => void };
 
 /**
  * One orb, one honest gesture each. A tap lights it (or puts it out). A hold lifts it (300ms, `haptics.lift()`): slide and it
- * moves along the row, written when it lands; let go where it was and its menu opens (Note, Details, Move, Archive), the
- * fallback for every gesture. A cancelled drag puts the row back as it was.
+ * moves along the row, written when it lands; keep still and its menu opens at 450ms like every long-press (Note, Details,
+ * Move, Archive), the fallback for every gesture; moving on from the menu closes it and drags. A cancelled drag puts the
+ * row back as it was.
  */
 const Orb = forwardRef<OrbHandle, { h: Habit; i: number; n: number; isDone: boolean; note: string; onToggle: () => void; menuItems: () => ContextMenuItem[]; onLifted: () => void; onSettled: () => void; onCancelled: () => void; onStep: (dir: -1 | 1) => void }>(function Orb({ h, i, n, isDone, note, onToggle, menuItems, onLifted, onSettled, onCancelled, onStep }, ref) {
   const reduce = useReducedMotion();
@@ -38,6 +39,10 @@ const Orb = forwardRef<OrbHandle, { h: Habit; i: number; n: number; isDone: bool
       animate(pop, 1, { ...springs.complete, velocity: v, delay: delay / 1000 });
     },
   }));
+  /** the menu came up while the finger was still down (at 450ms, like every long-press in the app) */
+  const menuUp = useRef(false);
+  const menuTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(menuTimer.current), []);
   const openMenu = () => {
     const node = el.current;
     if (!node) return;
@@ -53,12 +58,29 @@ const Orb = forwardRef<OrbHandle, { h: Habit; i: number; n: number; isDone: bool
       setLifted(true);
       onLifted();
       controls.start(e);
+      // still held, unmoved, at the app's long-press mark: the menu opens under the finger (the lift already played).
+      // Moving on from there closes it and carries on as a drag, as on iOS.
+      menuUp.current = false;
+      clearTimeout(menuTimer.current);
+      menuTimer.current = setTimeout(() => {
+        menuUp.current = true;
+        openMenu();
+      }, LONG_PRESS_MS - HOLD_MS);
+    },
+    onStart: () => {
+      clearTimeout(menuTimer.current);
+      if (menuUp.current) {
+        menuUp.current = false;
+        menu.close();
+      }
     },
     onDrop: () => {
+      clearTimeout(menuTimer.current);
       rest();
       onSettled();
     },
     onCancel: (phase, reason) => {
+      clearTimeout(menuTimer.current);
       rest();
       onCancelled();
       if (phase === 'dragging') {
@@ -67,8 +89,10 @@ const Orb = forwardRef<OrbHandle, { h: Habit; i: number; n: number; isDone: bool
       }
       controls.cancel();
       swallow.current = true;
-      // lifted and let go where it was: the menu, never a toggle. A pointer taken away mid-hold is nobody's intent.
-      if (reason === 'up') openMenu();
+      // lifted and let go where it was: the menu (if it is not up already), never a toggle. A pointer taken away
+      // mid-hold is nobody's intent.
+      if (reason === 'up' && !menuUp.current) openMenu();
+      menuUp.current = false;
     },
   });
   const scale = reduce ? 1 : lifted ? 1.03 : pressed ? 0.92 : 1;

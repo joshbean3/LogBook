@@ -1,4 +1,4 @@
-import { AFTER_LABELS, AFTER_ORDER, buildMorning, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
+import { AFTER_LABELS, AFTER_ORDER, buildMorning, MORNING_DEFAULTS, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
 import { useEffect, useState } from 'react';
 
 /**
@@ -23,7 +23,23 @@ export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.ma
  */
 export type AfterKey = MorningAfterKey;
 export const AFTER_KEYS = AFTER_ORDER;
-export const AFTER_LABEL = AFTER_LABELS;
+/**
+ * The routine's names as the page says them: generic, nobody's own morning. The server's `smoothie` slot is a meal anyone
+ * might have ("Breakfast"); the rest keep the shared names. (Contract 7: new accounts start with "Get ready 30" and the last
+ * block 10, the others off.)
+ */
+export const AFTER_LABEL: Record<AfterKey, string> = { ...AFTER_LABELS, smoothie: 'Breakfast' };
+/** A timeline block's name on this page: the routine's generic names, everything else as `buildMorning` wrote it. */
+export const blockLabel = (b: { key: string; label: string }) => ((AFTER_ORDER as readonly string[]).includes(b.key) ? AFTER_LABEL[b.key as AfterKey] : b.label);
+
+/**
+ * The routine a new account starts from (contract 7), used wherever the page needs defaults before the account's own
+ * settings arrive, and for the editor's Reset: get ready 30, the last block 10, shower and breakfast off.
+ */
+export const ROUTINE_DEFAULTS: MorningSettings = {
+  ...MORNING_DEFAULTS,
+  after: { ...MORNING_DEFAULTS.after, shower: 0, ready: 30, smoothie: 0, prep: 10, order: [...AFTER_ORDER] },
+};
 
 /** An order an earlier build kept on this device (`logbook.morning.order`): read once and forgotten, so it can go to the server. */
 export const takeLegacyOrder = (): AfterKey[] | null => {

@@ -23,7 +23,8 @@ export const stopProgress = (stops: Stop[], now: number) => {
 
 /**
  * The morning as four stops on one line (wake → door → back → leave), evenly spaced so the four clock times never collide
- * at 320, with a blue "now" dot travelling along it. It is a button: a tap pushes the full Morning timeline.
+ * at 320, with a blue "now" dot travelling along it. It is a button: a tap pushes the full Morning timeline. Its press is not
+ * stopped here, so a hold on it is the hero's hold (the hero menu) and a swipe on it pages the day.
  */
 export const MiniTimeline = ({ stops, now, onPress, label }: { stops: Stop[]; now: number; onPress: () => void; label: string }) => {
   const reduce = useReducedMotion();
@@ -38,7 +39,6 @@ export const MiniTimeline = ({ stops, now, onPress, label }: { stops: Stop[]; no
         e.stopPropagation();
         onPress();
       }}
-      onPointerDown={(e) => e.stopPropagation()}
     >
       <span className="mini-tl-line" aria-hidden="true">
         <span className="mini-tl-done" style={{ width: `${p * 100}%` }} />
@@ -47,7 +47,7 @@ export const MiniTimeline = ({ stops, now, onPress, label }: { stops: Stop[]; no
         ))}
         <motion.span className="mini-tl-now" initial={false} animate={{ left: `${p * 100}%` }} transition={reduce ? { duration: 0 } : springs.settle} />
       </span>
-      <span className="mini-tl-times" aria-hidden="true">
+      <span className="mini-tl-times" data-n={stops.length} aria-hidden="true">
         {stops.map((s) => (
           <span key={s.key} className="mini-tl-time">
             <span className="caps">{s.label}</span>

@@ -1,4 +1,4 @@
-import { MORNING_DEFAULTS, monthOf, num, TYPES, type MorningMode } from '@logbook/shared';
+import { monthOf, num, TYPES, type MorningMode } from '@logbook/shared';
 import { useMemo } from 'react';
 import { useMorningMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -6,7 +6,7 @@ import { Button, ChipButton, Segmented, Stepper } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useLog } from '../log/useLog';
 import { MiniLine } from './MiniLine';
-import { morningOf, short, type DayPatch } from './model';
+import { morningOf, ROUTINE_DEFAULTS, short, type DayPatch } from './model';
 import { WAKE_MAX, WAKE_MIN } from './Timeline';
 
 const parseMiles = (s: string) => {
@@ -36,7 +36,7 @@ const fmtInt = (v: number) => String(v);
 export const DayEditor = ({ date }: { date: string }) => {
   const sheet = useSheet();
   const log = useLog([monthOf(date)]);
-  const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
+  const st = log.boot?.morningSettings ?? ROUTINE_DEFAULTS;
   const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
   const { setDay } = useMorningMutations();
   const day = T.day;

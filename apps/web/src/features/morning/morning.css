@@ -787,3 +787,79 @@
   cursor: grab;
   touch-action: none;
 }
+
+/* ---------- fix round: targets, the lesson, the rest morning, the pull entrance ---------- */
+/* free time is space, not a control: touches go to the short blocks' slop beside it */
+.tl-free {
+  pointer-events: none;
+}
+/* a block shorter than a thumb keeps its true height and gets a 44px target (Timeline works out the slop) */
+.tl-block.has-slop {
+  z-index: 3;
+}
+.tl.is-live .tl-block.has-slop {
+  z-index: auto;
+}
+.tl-hit {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+/* the first-visit lesson: one line, left of the wake grip, on the block's edge, never over the alarm time */
+.tl-hint {
+  position: absolute;
+  top: -13px;
+  right: calc(50% + 30px);
+  z-index: 4;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (max-width: 359px) {
+  .tl-hint {
+    display: none;
+  }
+}
+/* a rest morning's long free stretch, capped: the break on the axis says time was folded */
+.tl-break {
+  position: absolute;
+  top: 0;
+  left: 36px;
+  width: 14px;
+  height: 12px;
+  background: var(--bg);
+}
+.tl-break::before,
+.tl-break::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: var(--ink-3);
+  transform: rotate(-24deg);
+}
+.tl-break::before {
+  top: 3px;
+}
+.tl-break::after {
+  top: 8px;
+}
+.tl-free.is-squeezed .tl-rest {
+  padding: 12px 14px;
+  gap: 2px;
+}
+.tl-free.is-squeezed .tl-rest-word {
+  font-size: 2.25rem;
+  line-height: 2.375rem;
+}
+/* opened by pulling the Today hero down: the frame's sideways slide is held still while the page drops in */
+html[data-morning-enter='pull'] .pushed-page {
+  transform: none !important;
+}
