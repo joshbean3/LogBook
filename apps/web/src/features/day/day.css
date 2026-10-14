@@ -1,260 +1,746 @@
-.hero[role='button'] {
-  cursor: pointer;
-}
-.hero[role='button']:active {
-  background: var(--surface-2);
+/* ---------- Today (docs/experience.md §5.1) ---------- */
+
+.today .tabh {
+  margin-bottom: 16px;
 }
 
-/* habit rows */
-.hrow-name {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  text-align: left;
-  font-size: 17px;
-  line-height: 22px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-  transition: color var(--dur);
-}
-.hrow.is-done .hrow-name {
-  color: var(--ink-3);
-}
-.note-in {
-  border: 0;
-  border-bottom: 1px dashed var(--line-strong);
-  background: transparent;
-  padding: 2px 0 3px;
-  font-size: 15px;
-  color: var(--ink-2);
+/* the hero sits in the date pager; the pager's pages keep the card's own radius */
+.hero-pager {
   outline: none;
-  width: 100%;
-  margin-bottom: 6px;
 }
-.note-in:focus {
-  border-bottom-color: var(--accent);
-  color: var(--ink);
+.hero-pager:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-text);
+  border-radius: var(--r-lg);
 }
-.streak {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
-  color: var(--ink-3);
-  letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-/* note affordance: hover on desktop, long-press on the name elsewhere */
-.hover-only {
-  display: none;
-}
-@media (hover: hover) {
-  .hrow:hover .hover-only {
-    display: inline-grid;
-  }
-}
-.hrow-name {
-  -webkit-touch-callout: none;
-}
-
-/* ---------- habit orbs ---------- */
-.orbs-wrap {
-  padding: 16px 16px 14px;
+.hero-slot {
   display: grid;
-  gap: 14px;
 }
-.orbs {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(60px, 1fr);
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  /* room inside the scroll box for a lifted orb's shadow, taken back by the margins so nothing moves */
-  margin: -2px -16px -16px;
-  padding: 8px 16px 16px;
-  -webkit-overflow-scrolling: touch;
-}
-.orbs::-webkit-scrollbar {
-  display: none;
-}
-.orb {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  min-width: 0;
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  color: var(--ink-3);
-  /* the row scrolls until the hold is up; after that the drag holds the page still itself */
-  touch-action: auto !important;
+.today-hero {
+  min-height: 196px;
+  padding: 18px 18px 18px;
+  gap: 0;
   -webkit-touch-callout: none;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
 }
-/* the lift (brand §9): the ring already sits on surface-2 inside a line-strong hairline, so a lifted orb is the scale alone; no shadow */
-.orb.is-lifted {
+.today-hero.is-pressable {
+  cursor: pointer;
+}
+.today-hero.is-pressable:active {
+  background: var(--surface);
+}
+/* the week ring in the corner: 40px to the eye, a 44px button */
+.hero-corner,
+.hero-corner-in {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   z-index: 2;
-  cursor: grabbing;
 }
-.orb.is-lifted .orb-ring {
-  background: var(--surface-3);
-  border-color: var(--line-strong);
+.hero-corner-in {
+  top: 8px;
+  right: 8px;
+}
+.hero-face {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+  padding-right: 0;
+}
+/* the first line of every face clears the ring */
+.hero-face > :first-child {
+  margin-right: 52px;
+  min-height: 24px;
+}
+.hero-stamp {
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  justify-self: start;
+}
+.hero-stamp.big {
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+  letter-spacing: -0.03em;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.hero-eyebrow {
+  color: var(--ink-3);
+}
+.hero-labelrow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.hero-word {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.hero-word.k-done,
+.hero-word.k-bonus {
+  color: var(--accent-text);
+}
+.hero-word.k-floor {
+  color: var(--warn);
+}
+.hero-word.k-missed {
+  color: var(--bad);
+}
+/* the serif sentence of the hero: "Out the door in 22 min", "Back by 8:22", "5.0 mi at 8:14. Logged." */
+.hero-line {
+  font-size: 1.75rem;
+  line-height: 2rem;
+  letter-spacing: -0.01em;
+  margin: 2px 0 0;
+  text-wrap: balance;
+}
+.hero-line.big {
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+}
+@media (max-width: 359px) {
+  .hero-line.big,
+  .hero-stamp.big {
+    font-size: 2rem;
+    line-height: 2.25rem;
+  }
+}
+.hero-plan {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 34ch;
+}
+.hero-sub {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  margin: 0;
+}
+.hero-quiet .hero-stamp.big {
+  color: var(--ink-2);
+}
+.hero-route {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 150px;
+  margin: 2px 0 0;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+}
+.hero-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 6px;
+  padding-top: 12px;
+}
+@media (max-width: 359px) {
+  .hero-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.hero-share {
+  justify-self: start;
+  margin: 8px 0 0;
 }
 
-/* the edit list: a grip drags a row; the row's sides may show past the group while it is lifted */
-.hgroup-edit {
-  overflow: visible;
+/* the open session: the stamp and its plan on the left, the hold ring on the right */
+.hero-open {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: 12px;
 }
-/* a scroll box that never scrolls: it keeps the drag from scrolling the page, and its padding leaves room for a lifted row's shadow */
-.hlist-wrap {
-  overflow: auto;
-  scrollbar-width: none;
-  padding: 16px 8px;
-  margin: -16px -8px;
+.hero-open > :first-child {
+  margin-right: 0;
 }
-.hlist-wrap::-webkit-scrollbar {
-  display: none;
-}
-.hlist {
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-}
-.hlist > * + * {
-  border-top: 1px solid var(--line);
-}
-.hlist > :first-child {
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-}
-/* the grip is a 44px target that overlaps the row's left padding, so the name keeps its width at 320 */
-.hrow-edit {
-  position: relative;
-  touch-action: auto !important;
-  padding-left: 0;
+.hero-open-text {
+  display: grid;
   gap: 6px;
-  border-radius: var(--r-md);
+  min-width: 0;
 }
-/* the lift (brand §9): surface-2, a line-strong hairline, no shadow */
-.hrow-edit.is-lifted {
-  z-index: 2;
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  border-top-color: transparent;
+.hero-open-text > :first-child {
+  margin-right: 52px;
 }
-.hgrip {
+
+/* ---------- hold to complete ---------- */
+.hold-ring {
+  position: relative;
+  appearance: none;
+  border: 0;
+  padding: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  color: var(--ink-2);
   flex: none;
-  margin-right: -2px;
-  color: var(--ink-4);
-  cursor: grab;
   touch-action: none;
   -webkit-touch-callout: none;
   user-select: none;
 }
-.hrow-edit.is-lifted .hgrip {
-  cursor: grabbing;
-  color: var(--ink-2);
-}
-.orb-ring {
-  position: relative;
+.hold-ring svg {
+  position: absolute;
+  inset: 4px;
   width: 56px;
   height: 56px;
-  border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
-  display: grid;
-  place-items: center;
-  color: transparent;
-  background: var(--surface-2);
-  /* fill (160) → the check draws (160) → the glow blooms (320) */
-  transition:
-    background 160ms var(--ease-out),
-    border-color 160ms var(--ease-out),
-    color 160ms var(--ease-out),
-    box-shadow 320ms var(--ease-out) 320ms;
 }
-.orb-ring svg {
-  position: absolute;
+.hold-track {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 3;
 }
-.orb-initial {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--ink-2);
+.hold-fill {
+  fill: none;
+  stroke: var(--accent-bright);
+  stroke-width: 3;
+  stroke-linecap: round;
 }
-.orb.on .orb-ring {
+.hold-ring.is-done {
   background: var(--accent);
-  border-color: var(--accent-bright);
   color: #fff;
-  box-shadow:
-    0 0 0 4px rgba(47, 59, 255, 0.18),
-    0 0 28px rgba(47, 59, 255, 0.75);
+  box-shadow: 0 0 28px rgba(47, 59, 255, 0.75);
+  transition: box-shadow 320ms var(--ease-out);
 }
-.orb-note {
+.hold-wrap {
+  align-self: end;
+  margin-top: 52px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.hold-cap {
+  font-size: 0.625rem;
+  color: var(--ink-3);
+}
+.hold-check {
+  color: var(--ink-3);
+  transition: color var(--dur-color) var(--ease-out);
+}
+.hold-ring.is-done .hold-check {
+  color: #fff;
+}
+.hold-ring.ghost {
+  display: block;
+  border: 3px solid var(--line-strong);
+  width: 56px;
+  height: 56px;
+  background: none;
+}
+.hold-ring:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+/* ---------- the mini timeline: four stops, a now dot ---------- */
+.mini-tl {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  padding: 14px 0 2px;
+  margin: 2px 0 0;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  min-height: 44px;
+  cursor: pointer;
+}
+.mini-tl-line {
+  position: relative;
+  display: block;
+  height: 2px;
+  margin: 0 6px;
+  background: var(--line-strong);
+  border-radius: 1px;
+}
+.mini-tl-done {
   position: absolute;
-  right: 3px;
-  top: 3px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 1px;
+}
+.mini-tl-stop {
+  position: absolute;
+  top: 50%;
   width: 8px;
   height: 8px;
+  margin: -4px 0 0 -4px;
   border-radius: 50%;
-  background: var(--warn);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
 }
-.orb-name {
-  font-size: 11px;
-  line-height: 14px;
-  font-weight: 500;
-  letter-spacing: 0;
+.mini-tl-stop.past {
+  background: var(--ink-2);
+  box-shadow: none;
+}
+.mini-tl-now {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 0 4px rgba(47, 59, 255, 0.25), 0 0 14px rgba(91, 102, 255, 0.9);
+}
+.mini-tl-times {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.mini-tl-time {
+  display: grid;
+  gap: 2px;
+}
+.mini-tl-time:nth-child(2) {
+  justify-items: center;
+  transform: translateX(-17%);
+}
+.mini-tl-time:nth-child(3) {
+  justify-items: center;
+  transform: translateX(17%);
+}
+.mini-tl-time:last-child {
+  justify-items: end;
+}
+.mini-tl-time .caps {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.62);
+}
+.mini-tl-time .stamp {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+}
+.out-line {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+.out-line-ends {
+  display: flex;
+  justify-content: space-between;
+}
+.out-line-ends .stamp {
+  font-size: 1.0625rem;
+}
+
+/* ---------- two sessions: the hero pages between them ---------- */
+.hero-pages {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  margin: 0 -18px;
+  padding: 0 18px;
+  scroll-padding: 0 18px;
+  column-gap: 36px;
+}
+.hero-pages::-webkit-scrollbar {
+  display: none;
+}
+.hero-page {
+  scroll-snap-align: start;
+  min-width: 0;
+}
+.hero-dots {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 -12px;
+}
+.hero-dot {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.hero-dot i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  transition: background var(--dur-color) var(--ease-out);
+}
+.hero-dot.on i {
+  background: var(--ink);
+}
+
+/* ---------- the week sheet ---------- */
+.wk {
+  display: grid;
+  gap: 16px;
+}
+.wk-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.wk-nums {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.wk-miles {
+  font-size: 1.75rem;
+  line-height: 2rem;
+}
+.wk-miles small {
+  font-size: 0.75rem;
+  font-weight: 700;
   color: var(--ink-3);
-  max-width: 100%;
-  text-align: center;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow-wrap: anywhere;
+  letter-spacing: 0;
+  text-transform: none;
 }
-.orb.on .orb-name {
-  color: var(--ink);
-}
-.orbs-meter {
+.wk-bar {
+  display: block;
   height: 3px;
   border-radius: 2px;
   background: var(--surface-3);
   overflow: hidden;
+  margin-top: 4px;
 }
-.orbs-meter i {
+.wk-bar i {
   display: block;
   height: 100%;
   background: var(--accent-bright);
-  box-shadow: 0 0 12px rgba(47, 59, 255, 0.9);
 }
-.orbs-note .note-in {
+.serif-line {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
   margin: 0;
 }
+.wk-days {
+  --page-pad: 20px;
+}
+.wk-day {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto 44px;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  width: 100%;
+  text-align: left;
+}
+.wk-day.is-today .wk-dnum {
+  color: var(--accent-text);
+}
+.wk-dow {
+  display: grid;
+  line-height: 1;
+}
+.wk-dnum {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.wk-what {
+  font-size: 0.9375rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wk-word,
+.k-word {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.wk-word.k-done,
+.wk-word.k-bonus {
+  color: var(--accent-text);
+}
+.wk-word.k-floor {
+  color: var(--warn);
+}
+.wk-word.k-missed {
+  color: var(--bad);
+}
+.wk-mi {
+  font-size: 1.0625rem;
+  text-align: right;
+}
 
+/* ---------- the calendar sheet ---------- */
+.cal {
+  display: grid;
+  gap: 8px;
+}
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cal-month {
+  font-weight: 600;
+  font-size: 1.0625rem;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 2px;
+}
+.cal-dow {
+  text-align: center;
+  color: var(--ink-3);
+  padding: 4px 0;
+}
+.cal-day {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  border-radius: var(--r-md);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+.cal-day.out {
+  color: var(--ink-4);
+}
+.cal-day.is-today span {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.cal-day.is-on {
+  background: var(--surface-3);
+}
+.cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+.cal-dot.k-done,
+.cal-dot.k-bonus {
+  background: var(--ok);
+}
+.cal-dot.k-floor {
+  background: var(--warn);
+}
+.cal-dot.k-missed {
+  background: var(--ink-4);
+}
+.cal-dot.k-today,
+.cal-dot.k-planned {
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px var(--ink-3);
+}
+
+/* ---------- close the day ---------- */
+.cd {
+  min-height: 0;
+  padding: 18px;
+  gap: 12px;
+}
+.cd-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+  margin-right: 44px;
+}
+.cd:not(.cd-hero) .cd-top {
+  margin-right: 0;
+}
+.cd-title {
+  font-size: 1.75rem;
+  line-height: 2rem;
+  margin: 0;
+}
+.cd-stamps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.cd-stamp {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.cd-stamp .caps {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.62);
+}
+.cd-num {
+  font-size: 1.375rem;
+  line-height: 1.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@container card (max-width: 18rem) {
+  .cd-num {
+    font-size: 1.0625rem;
+  }
+}
+.cd-num small {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.7);
+}
+.cd-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.cd-open-main {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  align-content: center;
+}
+.cd-open-stamp {
+  font-size: 1.375rem;
+  line-height: 1.5rem;
+  text-transform: uppercase;
+}
+.cd-open-sub {
+  font-size: 0.9375rem;
+  color: var(--ink-3);
+}
+.cd-entries {
+  display: grid;
+  margin: 0 -18px;
+  border-top: 1px solid var(--line);
+}
+.cd-entries .jentry {
+  background: transparent;
+}
+.cd-composer .composer {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.cd-share {
+  justify-self: start;
+  margin: 0;
+}
+.cd-pick .group {
+  background: transparent;
+  border: 0;
+  margin: 0 -18px;
+}
+
+/* ---------- the first day ---------- */
+.setup {
+  min-height: 0;
+  gap: 10px;
+  padding: 20px 18px 12px;
+}
+.setup-title {
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+  margin: 0 0 6px;
+}
 @media (max-width: 359px) {
-  .orb-ring {
-    width: 48px;
-    height: 48px;
+  .setup-title {
+    font-size: 1.75rem;
+    line-height: 2rem;
   }
-  .orbs {
-    grid-auto-columns: minmax(48px, 1fr);
-    gap: 4px;
-  }
-  .orbs-wrap {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-  .orbs {
-    margin: 0 -12px;
-    padding: 6px 12px 2px;
+}
+.setup-steps {
+  display: grid;
+  margin: 0 -18px;
+}
+.setup-step {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  min-height: 64px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  width: 100%;
+}
+.setup-ic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.setup-step.is-done .setup-ic {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(47, 59, 255, 0.6);
+}
+.setup-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.setup-step-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.setup-step.is-done .setup-step-title {
+  color: var(--ink-3);
+}
+.setup-sub {
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+}
+.setup-chev {
+  color: var(--ink-3);
+}
+
+.orbs-skel {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hold-ring.is-done {
+    transition: none;
   }
 }

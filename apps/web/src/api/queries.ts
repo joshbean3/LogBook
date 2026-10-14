@@ -512,3 +512,24 @@ export const useBlockMutations = () => {
   });
   return { remove };
 };
+
+// ── today ──
+/**
+ * Today's pull to refresh is "check Strava now": ask the server to pull new activities, and when anything changed, refetch
+ * the months and activities so the hero can draw the run. The bootstrap (which carries `strava.lastSyncAt`) is patched from
+ * the answer rather than refetched, so a check never sets off another one.
+ */
+export const useStravaCheck = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<{ changed?: number; skipped?: boolean; status?: Bootstrap['strava'] }>('/strava/sync', { method: 'POST' }),
+    onSuccess: async (r) => {
+      if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
+      if (r.changed) {
+        await qc.invalidateQueries({ queryKey: ['month'] });
+        void qc.invalidateQueries({ queryKey: keys.activities });
+      }
+    },
+  });
+};
+// ── /today ──

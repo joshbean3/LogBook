@@ -1,0 +1,268 @@
+/* ---------- habit orbs: a row of lights under the hero ---------- */
+.orbs-wrap {
+  margin-top: var(--sp-secondary);
+  display: grid;
+  gap: 4px;
+  container-type: inline-size;
+}
+.orbs-scroll {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  margin: -8px calc(-1 * var(--page-pad)) 0;
+  padding: 8px var(--page-pad) 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.orbs-scroll::-webkit-scrollbar {
+  display: none;
+}
+.orbs-scroll.many {
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--page-pad);
+}
+.orbs {
+  display: flex;
+  gap: 4px;
+  flex: 1 0 auto;
+  justify-content: flex-start;
+}
+.orb {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  width: 64px;
+  min-width: 64px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  color: var(--ink-3);
+  /* the row scrolls until the hold is up; after that the drag holds the page still itself */
+  touch-action: auto !important;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  scroll-snap-align: start;
+}
+.orbs-scroll:not(.many) .orbs {
+  gap: 0;
+  flex: 0 0 auto;
+}
+/* up to six (the "+" included) share the width; more scroll, 64px each, snapping */
+.orbs-scroll:not(.many) .orb {
+  width: min(76px, calc(100cqi / var(--n, 6)));
+  min-width: 0;
+}
+.orb.is-lifted {
+  z-index: 2;
+  cursor: grabbing;
+}
+.orb.is-lifted .orb-ring {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+}
+.orb-ring {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  color: transparent;
+  background: var(--surface-2);
+  transition:
+    background 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    box-shadow 320ms var(--ease-out);
+}
+.orb-ring svg {
+  position: absolute;
+}
+.orb-initial {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-2);
+}
+/* lit: the fill, the check, the glow blooms */
+.orb.on .orb-ring {
+  background: var(--accent);
+  border-color: var(--accent-bright);
+  color: #fff;
+  box-shadow:
+    0 0 0 4px rgba(47, 59, 255, 0.18),
+    0 0 28px rgba(47, 59, 255, 0.75);
+}
+.orb-note {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.orb-name {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--ink-3);
+  max-width: 100%;
+  padding-inline: 2px;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.orb.on .orb-name {
+  color: var(--ink);
+}
+.orb-plus .orb-ring {
+  background: none;
+  border-style: dashed;
+  color: var(--ink-3);
+}
+.orb-plus.on-add .orb-ring {
+  border-style: solid;
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.orb:focus-visible {
+  outline: none;
+}
+.orb:focus-visible .orb-ring {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+.orbs-cap {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.orbs-cap.all {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.0625rem;
+  color: var(--ink);
+}
+.orb-add {
+  overflow: hidden;
+}
+.orb-add-in {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.orb-add-in .in {
+  flex: 1;
+  min-width: 0;
+}
+.orb-add-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 4px;
+}
+
+@media (max-width: 359px) {
+  .orb {
+    width: 54px;
+    min-width: 54px;
+  }
+  .orb-ring {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* ---------- the habit sheet ---------- */
+.hs {
+  display: grid;
+  gap: 18px;
+}
+.hs-stamps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.hs-stamp {
+  display: grid;
+  gap: 4px;
+}
+.hs-num {
+  font-size: 1.75rem;
+  line-height: 2rem;
+}
+.hs-num small {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.hs-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.hs-cell {
+  appearance: none;
+  border: 0;
+  aspect-ratio: 1;
+  min-height: 44px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  position: relative;
+}
+.hs-cell.on {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(47, 59, 255, 0.55);
+}
+.hs-cell.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+}
+.hs-cell.on.is-today {
+  box-shadow: inset 0 0 0 1.5px #fff, 0 0 10px rgba(47, 59, 255, 0.55);
+}
+.hs-cell.before {
+  opacity: 0.35;
+}
+.hs-notes {
+  display: grid;
+  gap: 8px;
+}
+.hs-note {
+  display: grid;
+  gap: 2px;
+  padding-block: 10px;
+}
+.hs-note-text {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.0625rem;
+}
+.hs-field {
+  display: grid;
+  gap: 6px;
+}
+.hs-notein {
+  width: 100%;
+}
