@@ -10,7 +10,7 @@ import { fadeIn, springs } from '@/lib/motion';
 import { LogoMark } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, saveProfile, type TrainingProfile } from './model';
+import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, type TrainingProfile } from './model';
 import { StravaPrimer } from './StravaPrimer';
 import './onboarding.css';
 
@@ -381,7 +381,7 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
     onboard.mutate(answers, {
       onSuccess: (r) => {
         haptics.success();
-        saveProfile(uid, profile);
+        // the answers are on the account now (POST /me/onboarding stores them as the training profile)
         set({ sent: key, firstDay: r.firstDay });
       },
       onError: () => haptics.error(),

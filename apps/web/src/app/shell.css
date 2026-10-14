@@ -214,8 +214,3 @@
   flex: none;
 }
 
-/* Transitional, remove when Today adopts TabHeader: the avatar in every header is now the way to Settings, so the old
-   gear on Today's v1 header steps aside. */
-.ph-actions .icon-btn[aria-label='Settings'] {
-  display: none;
-}

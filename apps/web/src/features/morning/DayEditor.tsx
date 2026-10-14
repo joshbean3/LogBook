@@ -6,7 +6,7 @@ import { Button, ChipButton, Segmented, Stepper } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useLog } from '../log/useLog';
 import { MiniLine } from './MiniLine';
-import { morningOf, short, useRoutineOrder, type DayPatch } from './model';
+import { morningOf, short, type DayPatch } from './model';
 import { WAKE_MAX, WAKE_MIN } from './Timeline';
 
 const parseMiles = (s: string) => {
@@ -36,9 +36,8 @@ const fmtInt = (v: number) => String(v);
 export const DayEditor = ({ date }: { date: string }) => {
   const sheet = useSheet();
   const log = useLog([monthOf(date)]);
-  const order = useRoutineOrder();
   const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
-  const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st, order), [log.snap, date, st, order]);
+  const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
   const { setDay } = useMorningMutations();
   const day = T.day;
   const rest = day.mode === 'rest';

@@ -201,6 +201,7 @@
   gap: 4px;
 }
 .hs-num {
+  font-variant-numeric: tabular-nums;
   font-size: 1.75rem;
   line-height: 2rem;
 }

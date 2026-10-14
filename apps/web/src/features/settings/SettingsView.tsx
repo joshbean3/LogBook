@@ -15,6 +15,7 @@ import { Skeleton } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 import { DeleteStepOne, exportAll } from './account';
 import { HabitsPage } from './HabitsPage';
+import { HrZonesRow } from './HrZones';
 import { SRow, Switch } from './parts';
 import { StravaLine } from './StravaLine';
 import { TrainingPage, YouPage } from './TrainingPages';
@@ -204,7 +205,7 @@ function SettingsRoot() {
 
       <Section title="Morning routine" level="secondary">
         <div className="list-edge s-list">
-          <SRow to="/morning" title="Wake, run, shower, out the door" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : undefined} />
+          <SRow to="/morning?routine=1" title="Wake, run, shower, out the door" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : undefined} />
         </div>
       </Section>
 
@@ -228,6 +229,7 @@ function SettingsRoot() {
             ) : (
               <SRow title="Strava" sub="See your runs land on Today." value="Connect" onPress={() => void connectStrava()} />
             )}
+            <HrZonesRow zones={data.zones} connected={!!strava?.connected} />
           </div>
         </Section>
       ) : null}

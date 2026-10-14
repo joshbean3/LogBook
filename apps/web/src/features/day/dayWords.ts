@@ -1,4 +1,4 @@
-import { clock, KIND_WORD, mi, num, shiftDays, weekStreak, type Activity, type DayPhase, type ISODate, type PhaseSession, type Snapshot, type WeekSummary } from '@logbook/shared';
+import { clock, KIND_WORD, mi, num, weekStreak, type Activity, type DayPhase, type ISODate, type PhaseSession, type Snapshot, type WeekSummary } from '@logbook/shared';
 import type { WeekDayStatus } from '@/ui';
 
 /** "7:35" without the AM: the hero is a morning, the clock face is enough. */
@@ -50,19 +50,6 @@ export const ringDays = (sum: WeekSummary, today: ISODate): WeekDayStatus[] =>
     if (d.ring === 'future') return d.date === today ? 'open' : 'future';
     return d.ring;
   });
-
-/** The week in one line, forward-looking, never a zero headline. */
-export const weekHeadline = (sum: WeekSummary, today: ISODate): string => {
-  const inWeek = today >= sum.weekStart && today <= shiftDays(sum.weekStart, 6);
-  const planned = sum.plannedMiles;
-  if (sum.doneMiles > 0) return planned ? `${mi(sum.doneMiles)} of ${num(planned)} mi.` : `${mi(sum.doneMiles)} mi run.`;
-  if (!planned) return sum.runsPlanned ? `${sum.runsPlanned} runs planned.` : 'A week to fill.';
-  if (inWeek) {
-    const next = sum.days.find((d) => d.date >= today && d.ring === 'future');
-    return next?.date === today ? `${num(planned)} mi planned. First run today.` : `${num(planned)} mi planned.`;
-  }
-  return sum.weekStart > today ? `${num(planned)} mi planned.` : `${num(planned)} mi were planned.`;
-};
 
 /** "7 of the last 8 weeks." / "3 weeks in a row." Null when there is nothing kind and true to say yet. */
 export const streakLine = (snap: Snapshot, today: ISODate): string | null => {

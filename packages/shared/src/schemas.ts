@@ -86,6 +86,12 @@ export const zMorningSettingsPatch = z.object({
       ready: z.number().int().min(0).max(180).optional(),
       smoothie: z.number().int().min(0).max(180).optional(),
       prep: z.number().int().min(0).max(180).optional(),
+      /** The back-home blocks in order: all four keys, each once. */
+      order: z
+        .array(z.enum(['shower', 'ready', 'smoothie', 'prep']))
+        .length(4)
+        .refine((a) => new Set(a).size === a.length, { message: 'each block once' })
+        .optional(),
     })
     .optional(),
   focus: z.object({ word: z.string().max(40), quote: z.string().max(400), by: z.string().max(80) }).optional(),
@@ -249,4 +255,18 @@ export const zOnboarding = z
   })
   .refine((o) => o.leave > o.wake, { message: 'leave must be after wake', path: ['leave'] });
 export type OnboardingInput = z.infer<typeof zOnboarding>;
+
+/** The training answers kept on the account (goal, race day, run days, long-run day, weekly miles). No race day with `base`. */
+export const zTrainingProfile = z.object({
+  goal: zGoal,
+  raceDate: zDate.nullable(),
+  runDays: z.array(zWeekday).min(1).max(7),
+  longRunDay: zWeekday,
+  weeklyMiles: z.number().min(3).max(150),
+});
+export type TrainingProfile = z.infer<typeof zTrainingProfile>;
+/** What `GET /me` and the bootstrap carry: the answers and when they were last saved (a newer plan block speaks for itself). */
+export type SavedTrainingProfile = TrainingProfile & { updatedAt: string };
+/** `PATCH /me/training`: any of the answers; the rest keep their stored values. */
+export const zTrainingPatch = zTrainingProfile.partial().refine((o) => Object.keys(o).length > 0, { message: 'Nothing to change' });
 export const zDeleteAccount = z.object({ password: z.string().min(1).max(200) });

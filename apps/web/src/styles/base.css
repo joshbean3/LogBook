@@ -21,7 +21,6 @@ body {
   color: var(--ink);
   font: 1.0625rem/1.375rem var(--sans);
   letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -126,6 +125,15 @@ ol {
   font-style: italic;
   font-weight: 400;
   letter-spacing: -0.01em;
+}
+/*
+ * Tabular figures only where numbers tick or line up (stamps, tickers, clocks, counts, steppers). Not on the body: Inter's
+ * tabular set also sets the hyphen and the colon on the figure width, so words read "Wake - up" and "To - dos".
+ */
+.tnum,
+time,
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
 }
 /* the stamp: heavy tight numerals, the way a stat sits on a photo */
 .stamp {

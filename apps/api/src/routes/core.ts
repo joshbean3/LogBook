@@ -34,6 +34,7 @@ import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { stravaStatus } from '../services/strava.js';
 import { syncInBackground } from './strava.js';
 import { z } from 'zod';
+import { readTrainingProfile } from '../services/training.js';
 
 export const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
@@ -100,7 +101,7 @@ export const coreRoutes = (db: DB) => {
       : [];
     const countOf = new Map(counts.map((x) => [x.blockId, x.n]));
     return c.json({
-      user: c.get('user'),
+      user: { ...c.get('user'), trainingProfile: readTrainingProfile(db, userId) },
       habits: hs,
       blocks: blocks.map((b) => toBlock(b, countOf.get(b.id) ?? 0)),
       morningSettings: morningSettingsOf(db, userId),

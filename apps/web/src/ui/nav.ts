@@ -63,3 +63,9 @@ export interface TabReselectDetail {
   /** True when the page was already at the top, so this tap means "back to today / this week". */
   atTop: boolean;
 }
+
+/**
+ * Fired on `window` when a pull to refresh commits (Today, Plan, Progress), before the Shell refetches the months and the
+ * bootstrap. A page that has more to fetch than the cache listens: Today asks Strava for new runs.
+ */
+export const REFRESH = 'logbook:refresh';

@@ -344,10 +344,6 @@
   padding-left: 0;
 }
 
-/* the ContextMenu's hidden "actions" button sits 1px at a row's corner; keep it invisible until it is focused */
-.reads-page .cm-sr:not(:focus-visible) {
-  opacity: 0;
-}
 
 /* ---------- the edit sheet ---------- */
 .btn.danger-quiet {

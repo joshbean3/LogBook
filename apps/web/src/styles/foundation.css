@@ -44,6 +44,8 @@
 /* an edge-to-edge list: no card, rows run to the screen edges with a 16px gutter, hairlines start at the gutter */
 .list-edge {
   display: grid;
+  /* one column the list's width: a row's long content (an email, a title) ellipsizes instead of widening the page */
+  grid-template-columns: minmax(0, 1fr);
   margin-inline: calc(-1 * var(--page-pad));
 }
 .list-edge > :not(.cm-target),
@@ -68,8 +70,14 @@
 .list-edge > .cm-target:first-child > :first-child::after {
   display: none;
 }
-/* a swipe row keeps its pane edge to edge; the gutter goes on its content */
-.list-edge .swipe-row {
+/*
+ * A swipe row keeps its pane edge to edge; the gutter goes on its content. That holds wherever the row sits: straight in
+ * the list, inside its ContextMenu wrapper (which would otherwise take the row rule above and pad it twice), or inside a
+ * wrapper of the page's own (a motion row).
+ */
+.list-edge .swipe-row,
+.list-edge > .cm-target > .swipe-row,
+.list-edge > :not(.cm-target):has(> .swipe-row, > .cm-target > .swipe-row) {
   padding-inline: 0;
 }
 .list-edge .swipe-content {
@@ -202,6 +210,11 @@
 }
 
 /* ---------- ContextMenu ---------- */
+/* focus handed back after a sheet or menu was closed by a pointer: no ring (ui/focus.ts; a key press brings it back) */
+[data-quiet-focus]:focus-visible {
+  outline: none;
+}
+
 .cm-target {
   display: contents;
 }
@@ -210,7 +223,10 @@
   -webkit-user-select: none;
   user-select: none;
 }
-/* the hidden "Actions" button: VoiceOver finds it; a keyboard focus shows it as a pill above the tab bar */
+/*
+ * The hidden "Actions" button: VoiceOver finds it; a keyboard focus shows it as a pill above the tab bar. Until then it is
+ * fully transparent and clipped twice over: a 1px clip alone still lets WebKit paint a coloured pixel at the row's corner.
+ */
 .cm-sr,
 .dpager-sr {
   position: absolute;
@@ -220,10 +236,17 @@
   margin: -1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  opacity: 0;
   white-space: nowrap;
   border: 0;
   background: none;
   color: inherit;
+}
+.cm-sr:focus-visible,
+.dpager-sr:focus-visible {
+  clip-path: none;
+  opacity: 1;
 }
 .cm-sr:focus-visible {
   position: fixed;
@@ -726,6 +749,12 @@ button.tabh-date::after,
   position: relative;
   z-index: 1;
   background: var(--bg);
+}
+/* the header's one action (SheetSpec.action), just before Close */
+.sheet-action {
+  flex: none;
+  display: inline-flex;
+  margin-right: -4px;
 }
 .sheet-stack {
   position: relative;

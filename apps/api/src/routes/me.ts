@@ -1,4 +1,4 @@
-import { buildTemplate, mondayOf, normalizeMorningSettings, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, normalizeMorningSettings, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
@@ -9,6 +9,7 @@ import { toHabit } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { deleteAccount } from '../services/account.js';
 import { retireBlock, writeTemplate } from '../services/plans.js';
+import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
 import { checkThrottle, clearThrottle, failThrottle, ipOf } from './auth.js';
 import { deepMerge, readSetting, writeSetting } from './core.js';
 
@@ -36,10 +37,24 @@ export const meRoutes = (db: DB) => {
   const meOf = (id: string) => {
     const u = db.select({ id: users.id, email: users.email, onboardedAt: users.onboardedAt }).from(users).where(eq(users.id, id)).get();
     if (!u) throw new ApiError(404, 'Account not found');
-    return u;
+    return { ...u, trainingProfile: readTrainingProfile(db, id) };
   };
 
+  /** The account: id, email, `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
   r.get('/me', (c) => c.json(meOf(c.get('user').id)));
+
+  /**
+   * Change the training answers (any of goal, raceDate, runDays, longRunDay, weeklyMiles; the rest keep their values). It
+   * rewrites no plan: Settings rebuilds the plan with POST /plans/template and saves the answers here.
+   */
+  r.patch('/me/training', async (c) => {
+    const userId = c.get('user').id;
+    const patch = await parseBody(c.req.raw, zTrainingPatch);
+    const cur = readTrainingProfile(db, userId);
+    const next = zTrainingProfile.safeParse({ ...(cur ? { goal: cur.goal, raceDate: cur.raceDate, runDays: cur.runDays, longRunDay: cur.longRunDay, weeklyMiles: cur.weeklyMiles } : { raceDate: null }), ...patch });
+    if (!next.success) throw new ApiError(422, `No training answers yet: send ${next.error.issues.map((i) => i.path.join('.')).join(', ')}`, 'validation');
+    return c.json({ trainingProfile: writeTrainingProfile(db, userId, next.data) });
+  });
 
   /**
    * First run, in one call: morning settings, starter habits, a training block, and `onboardedAt`.
@@ -79,6 +94,8 @@ export const meRoutes = (db: DB) => {
       const applied = writeTemplate(db, userId, template, { replace: true, source: ONBOARDING_SOURCE, today });
 
       db.update(users).set({ onboardedAt: sql`coalesce(${users.onboardedAt}, ${nowISO()})` }).where(eq(users.id, userId)).run();
+      // the answers themselves, so Settings shows what was said (not what can be read back out of the plan)
+      writeTrainingProfile(db, userId, { goal: body.goal, raceDate: body.raceDate ?? null, runDays: body.runDays, longRunDay: body.longRunDay, weeklyMiles: body.weeklyMiles });
       return applied;
     });
 

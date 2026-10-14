@@ -196,6 +196,8 @@
 .s-race {
   margin-top: 24px;
   display: grid;
+  /* the race strip scrolls inside the page; as a grid item it would otherwise grow to every Sunday it holds */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .s-note {
@@ -481,4 +483,21 @@
 .s-strava {
   display: grid;
   gap: 12px;
+}
+
+/* heart-rate zones beside Strava: the zones in ink, the explanation quiet, Sync at the right */
+.s-zones {
+  align-items: flex-start;
+  padding-block: 12px;
+}
+.s-zones .s-row-main {
+  gap: 4px;
+}
+.s-zones-line {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.s-zones-sync {
+  flex: none;
+  margin-top: 6px;
 }

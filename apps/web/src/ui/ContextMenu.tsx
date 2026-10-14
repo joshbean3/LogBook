@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal } from 'react-dom';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, fadeOut, LIFT_SCALE, reducedFade, springs } from '@/lib/motion';
+import { restoreFocus } from './focus';
 import { holdInert } from './inert';
 import { useLongPress } from './useLongPress';
 
@@ -38,7 +39,7 @@ const Ctx = createContext<ContextMenuApi | null>(null);
 /** Imperative access to the one context menu: `const menu = useContextMenu(); menu.open({ items, anchor: el })`. */
 export const useContextMenu = (): ContextMenuApi => {
   const c = useContext(Ctx);
-  if (!c) throw new Error('useContextMenu outside ContextMenuProvider (it is mounted in App.tsx)');
+  if (!c) throw new Error('useContextMenu outside ContextMenuProvider (it is mounted in main.tsx, above the SheetProvider)');
   return c;
 };
 
@@ -195,8 +196,8 @@ const Layer = ({ spec, onClose }: { spec: OpenContextMenu & { rect: DOMRect }; o
     showOriginal.current();
     const f = spec.returnFocus;
     if (!f?.isConnected) return;
-    f.focus({ preventScroll: true });
-    if (document.activeElement !== f) setTimeout(() => f.isConnected && f.focus({ preventScroll: true }), 50);
+    restoreFocus(f);
+    if (document.activeElement !== f) setTimeout(() => f.isConnected && restoreFocus(f), 50);
   }, [present]); // eslint-disable-line react-hooks/exhaustive-deps
   // keys are heard on the document: after a touch hold the focus may not be in the menu yet
   const onKey = (e: KeyboardEvent) => {
@@ -313,7 +314,7 @@ const Layer = ({ spec, onClose }: { spec: OpenContextMenu & { rect: DOMRect }; o
   );
 };
 
-/** Hosts the one context menu. Mounted once in App.tsx; `ContextMenu` and `useContextMenu` talk to it. */
+/** Hosts the one context menu. Mounted once in main.tsx, above the SheetProvider (so sheets can open it); `ContextMenu` and `useContextMenu` talk to it. */
 export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
   const [spec, setSpec] = useState<(OpenContextMenu & { rect: DOMRect; key: number }) | null>(null);
   const close = useCallback(() => setSpec(null), []);

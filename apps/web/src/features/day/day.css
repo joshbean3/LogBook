@@ -302,6 +302,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .mini-tl-time {
+  font-variant-numeric: tabular-nums;
   display: grid;
   gap: 2px;
 }
@@ -382,107 +383,6 @@
 }
 .hero-dot.on i {
   background: var(--ink);
-}
-
-/* ---------- the week sheet ---------- */
-.wk {
-  display: grid;
-  gap: 16px;
-}
-.wk-top {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.wk-nums {
-  display: grid;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-}
-.wk-miles {
-  font-size: 1.75rem;
-  line-height: 2rem;
-}
-.wk-miles small {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--ink-3);
-  letter-spacing: 0;
-  text-transform: none;
-}
-.wk-bar {
-  display: block;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--surface-3);
-  overflow: hidden;
-  margin-top: 4px;
-}
-.wk-bar i {
-  display: block;
-  height: 100%;
-  background: var(--accent-bright);
-}
-.serif-line {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  margin: 0;
-}
-.wk-days {
-  --page-pad: 20px;
-}
-.wk-day {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto 44px;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  width: 100%;
-  text-align: left;
-}
-.wk-day.is-today .wk-dnum {
-  color: var(--accent-text);
-}
-.wk-dow {
-  display: grid;
-  line-height: 1;
-}
-.wk-dnum {
-  font-size: 1.0625rem;
-  font-weight: 600;
-  margin-top: 2px;
-}
-.wk-what {
-  font-size: 0.9375rem;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wk-word,
-.k-word {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-.wk-word.k-done,
-.wk-word.k-bonus {
-  color: var(--accent-text);
-}
-.wk-word.k-floor {
-  color: var(--warn);
-}
-.wk-word.k-missed {
-  color: var(--bad);
-}
-.wk-mi {
-  font-size: 1.0625rem;
-  text-align: right;
 }
 
 /* ---------- the calendar sheet ---------- */
@@ -743,4 +643,9 @@
   .hold-ring.is-done {
     transition: none;
   }
+}
+
+/* the Strava primer, under the hero after first run */
+.today-primer {
+  margin-top: var(--sp-secondary);
 }

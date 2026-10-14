@@ -58,9 +58,27 @@ export const useHapticsEnabled = () => {
 };
 
 // ---------- the motors ----------
+/*
+ * The browser only lets a page vibrate after the person has touched it (sticky user activation); a call before that is
+ * refused with a console warning ("Blocked call to navigator.vibrate…"). So the motor waits for the first pointer or key.
+ */
+let touched = false;
+if (typeof document !== 'undefined') {
+  const mark = () => {
+    touched = true;
+    document.removeEventListener('pointerdown', mark, true);
+    document.removeEventListener('keydown', mark, true);
+  };
+  document.addEventListener('pointerdown', mark, true);
+  document.addEventListener('keydown', mark, true);
+}
+const activated = () => {
+  const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+  return ua ? ua.hasBeenActive : touched;
+};
 const vibrate = (p: number | number[]) => {
   try {
-    if ('vibrate' in navigator) navigator.vibrate(p);
+    if ('vibrate' in navigator && activated()) navigator.vibrate(p);
   } catch {
     /* unsupported */
   }

@@ -147,12 +147,18 @@ export const QUOTE_THEMES = ['Living', 'The mind', 'Time', 'Acceptance', 'Self-r
 
 // ---------- morning ----------
 export type MorningMode = 'run' | 'gym' | 'rest';
+/** The four back-home blocks of the morning routine, which the athlete can put in any order. */
+export type MorningAfterKey = 'shower' | 'ready' | 'smoothie' | 'prep';
 export interface MorningSettings {
   /** minutes after midnight */
   wake: number;
   run: { pace: number; wakeup: number; buffer: number };
   gym: { length: number; walk: number; wakeup: number };
-  after: { showerMode: 'fixed' | 'after'; showerAt: number; shower: number; ready: number; smoothie: number; prep: number };
+  /**
+   * Back home: the routine starts at `showerAt` (fixed) or straight after the workout, and runs its four blocks in `order`
+   * (each key once; default shower, get ready, smoothie, final prep). The leave time is the end of the last block either way.
+   */
+  after: { showerMode: 'fixed' | 'after'; showerAt: number; shower: number; ready: number; smoothie: number; prep: number; order: MorningAfterKey[] };
   focus: { word: string; quote: string; by: string };
 }
 export interface MorningDayOverride {

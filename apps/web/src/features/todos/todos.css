@@ -287,7 +287,6 @@
 
 /* ---------- Today's top three: an edge-to-edge list of swipe rows ---------- */
 .tt-list > .tt-item {
-  padding-inline: 0;
   overflow: hidden;
 }
 .tt-row {

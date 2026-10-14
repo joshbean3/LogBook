@@ -55,7 +55,8 @@ Behaviour the Shell gives every page for free:
   follows the finger; commits at 35% of the width or a 500px/s fling, else springs home), and gives `back()` to the
   chevron. Back pops history when there is in-app history, else goes to the owning tab's root (a cold start on a deep link).
 - **Pull to refresh** (Today, Plan, Progress) with `haptics.threshold()` when armed; the net pill and offline behaviour are
-  unchanged.
+  unchanged. When a pull commits, the Shell fires `window` event `logbook:refresh` (`REFRESH` from `@/ui`), then refetches the
+  months and the bootstrap. Listen if a pull should do more on your page (Today asks Strava for new runs).
 - To push a page, navigate normally: `nav('/morning')` or `<Link to="/reads">`. No haptic (navigation only).
 
 Don't: add a fifth tab, add a gear, or put prev/next arrows in a header. Don't put a pushed page's own back button in the
@@ -130,8 +131,7 @@ keep the title one or two words. Don't: render it outside a pushed route (it wor
 the avatar. Replace it when you rebuild your page:
 
 1. Tab pages: `PageHeader title="Plan" sub=… actions={<DateNav …/>}` → `TabHeader title="Plan"` plus a `DatePager` (or
-   `onDateStep`) for dates. Delete `DateNav` and any gear (`shell.css` hides Today's old gear in the meantime; remove that
-   rule when Today adopts `TabHeader`).
+   `onDateStep`) for dates. Delete `DateNav` and any gear.
 2. Pushed pages: `PageHeader` → `PushedHeader`. Nothing else: the frame, the edge swipe and back are already there.
 
 ---
@@ -183,7 +183,8 @@ child to scale 1.03 on `springs.lift` (the original hides underneath), dims the 
 menu card (surface-2, 14px radius) below the object, or above it when there is no room, or pinned to the bottom with the
 object nudged up. Tap outside, Escape or a swipe down closes it. Arrow keys, Home and End move between items; focus returns
 to where it was. Picking an item closes the menu first, then calls `onSelect` (so a sheet opened there captures the right
-opener). It renders through a portal; mount nothing yourself (the provider is in App.tsx).
+opener). It renders through a portal; mount nothing yourself (the provider is in main.tsx, above the `SheetProvider`, so
+anything inside a sheet can open a menu too).
 
 ```tsx
 <ContextMenu
@@ -386,7 +387,7 @@ horizontally.
 
 `import { useSheet, shared, useSheetDepth, type SheetSpec } from '@/ui'`
 
-`SheetSpec = { title, body, eyebrow?, detent?: 'auto' | 'large', layoutId?, wide?, sticky? }`
+`SheetSpec = { title, body, eyebrow?, detent?: 'auto' | 'large', layoutId?, wide?, sticky?, action? }`
 
 | API | |
 |---|---|
@@ -397,9 +398,11 @@ horizontally.
 | `sheet.update(partial)` | Change the top panel in place. |
 | `useSheetDepth()` | 1 for the first panel, 2 for a pushed one. |
 
-One header for every sheet: optional caps `eyebrow`, the serif `title` (28), Close. `detent: 'large'` takes the screen less
-a 32px peek (editors). `sticky` ignores scrim taps. Drag the header down 90px (or fling) to dismiss; Escape closes; focus is
-trapped and returns to the opener. Reduced motion: every move is a 150ms fade.
+One header for every sheet: optional caps `eyebrow`, the serif `title` (28), an optional `action` (one icon button before
+Close: the session sheet's ⋯ opens a `useContextMenu()` menu from it), Close. `detent: 'large'` takes the screen less a 32px
+peek (editors). `sticky` ignores scrim taps. Drag the header down 90px (or fling) to dismiss; Escape closes; focus is trapped
+and returns to the opener, with a ring only when the keyboard closed the sheet (`restoreFocus` in `ui/focus.ts`; the
+ContextMenu does the same). Reduced motion: every move is a 150ms fade.
 
 ```tsx
 const sheet = useSheet();
@@ -545,7 +548,8 @@ Classes in `styles/foundation.css`; tokens in `tokens.css` (`--sp-primary` 48, `
 | `.section-title` | Inter 17/600, sentence case. Use instead of a caps eyebrow unless it is a metric label. `.section-head` lays out title + `.section-meta` + action. |
 | `.sec-primary` / `.sec-secondary` | 48px / 24px above a section. |
 | `.sec-group` | 12px between things inside a group. |
-| `.list-edge` | Edge-to-edge list: no card, rows bleed to the screen edges with a 16px gutter, hairlines start at the gutter. Rows (or SwipeRows, or ContextMenu-wrapped rows) are its direct children; give them their own min-height (44, 52 or 60). |
+| `.list-edge` | Edge-to-edge list: no card, rows bleed to the screen edges with a 16px gutter, hairlines start at the gutter. Rows (or SwipeRows, or ContextMenu-wrapped rows, or a wrapper of your own around a SwipeRow) are its direct children; give them their own min-height (44, 52 or 60). A SwipeRow keeps its pane edge to edge with the gutter on its content however it is wrapped; one column the list's width, so long content ellipsizes. |
+| `.tnum` | Tabular figures, for numbers that tick or line up. `.stamp`, `Ticker`, `<time>` and number inputs have them already. The body does not: Inter's tabular set widens the hyphen ("Wake - up"). |
 | `.carousel` | Horizontal snap carousel bleeding to the edges; items `78%` wide (`--carousel-item` to change). |
 | `.halo` + `.halo-done` / `.halo-floor` / `.halo-missed` / `.halo-upcoming` / `.halo-rest` | State-driven light: full bloom, amber edge, dim and cool, 60%, soft. 200ms crossfade between states. On an `.aura` card the existing `.aura-glow` layer answers the same classes. Add `.halo-boost` for the day's first completion (20% brighter for 600ms). |
 
@@ -571,7 +575,7 @@ Breaking or visible changes a page team must know:
 1. **Tabs**: Morning is no longer a tab. Nothing in Today links to `/morning` yet: the Today team must add the entry (tap the
    mini timeline / pull down on the hero → `nav('/morning')`). Until then it is reachable by URL and from /dev/ui.
 2. **`/trends` → `/progress`** (redirect). Link to `/progress`.
-3. **Settings** is pushed from the avatar in every header; Today's gear is hidden by a transitional rule in `shell.css`.
+3. **Settings** is pushed from the avatar in every header. (The transitional `shell.css` rule that hid Today's old gear is gone.)
 4. **Loading**: `Loading` draws a neutral grey block (no spinner, no words on screen); `Spinner` and the `.spinner` and
    `.loading` classes are deleted. `.skeleton` no longer shimmers.
 5. **Sheets**: the scrim is 78% black (brand §5) and only the header drags the sheet down. `open()` behaves as before;

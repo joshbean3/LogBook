@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoPriority, type TemplateInput } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoPriority, type TemplateInput, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { api, ApiError } from './client';
@@ -658,3 +658,23 @@ export const useDeferredBlockDelete = () => {
   return { hide };
 };
 // ── plan ──
+
+// ── integration ──
+/**
+ * `PATCH /me/training`: save the training answers on the account (Settings → You and Training, after a rebuild). The
+ * bootstrap's copy changes at once; the server's answer (with its `updatedAt`) replaces it.
+ */
+export const useSaveTraining = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: TrainingProfile) => api<{ trainingProfile: SavedTrainingProfile }>('/me/training', { method: 'PATCH', json: p }),
+    onMutate: (p) => {
+      const was = qc.getQueryData<Bootstrap>(keys.bootstrap)?.user.trainingProfile ?? null;
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, trainingProfile: { ...p, raceDate: p.goal === 'base' ? null : p.raceDate, updatedAt: new Date().toISOString() } } } : b));
+      return { was };
+    },
+    onSuccess: (r) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, trainingProfile: r.trainingProfile } } : b)),
+    onError: (_e, _p, ctx) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, trainingProfile: ctx?.was ?? null } } : b)),
+  });
+};
+// ── end integration ──

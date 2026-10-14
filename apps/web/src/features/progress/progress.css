@@ -25,11 +25,6 @@
   gap: 8px;
   margin-top: var(--sp-secondary);
 }
-.pg-chips .chip-btn.on,
-.pg-chips .chip-btn.on:hover {
-  background: var(--ink);
-  color: var(--bg);
-}
 .pg-chips .chip-btn {
   min-width: 48px;
   justify-content: center;
@@ -534,6 +529,15 @@ button.pg-srow:active {
   font-size: 1.0625rem;
   line-height: 1.375rem;
   font-weight: 600;
+}
+/* the streak in weeks, in the brand's serif voice: "7 of the last 8 weeks." */
+.pg-week-streak {
+  margin: -4px 0 0;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.25rem;
+  line-height: 1.5rem;
+  color: var(--ink-2);
 }
 .pg-week-words .pg-stamp-num {
   font-size: 1.375rem;

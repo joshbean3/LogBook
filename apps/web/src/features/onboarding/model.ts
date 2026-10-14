@@ -19,8 +19,12 @@ import {
   type Session,
   type Template,
   type TemplateSession,
+  type TrainingProfile,
   type Weekday,
 } from '@logbook/shared';
+
+/** The training answers: one shape for onboarding, Settings and the server (`zTrainingProfile`, kept on the account). */
+export type { TrainingProfile };
 
 /**
  * The first-run answers and the training profile, shared by onboarding and Settings → Training.
@@ -45,14 +49,6 @@ export const DAY_LETTER: Record<Weekday, string> = { mon: 'M', tue: 'T', wed: 'W
 export const DAY_NAME: Record<Weekday, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
 export const DAY_SHORT: Record<Weekday, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
 export const sortDays = (d: Weekday[]) => WEEKDAYS.filter((w) => d.includes(w));
-
-export interface TrainingProfile {
-  goal: Goal;
-  raceDate: ISODate | null;
-  runDays: Weekday[];
-  longRunDay: Weekday;
-  weeklyMiles: number;
-}
 
 export const DEFAULT_PROFILE: TrainingProfile = { goal: 'base', raceDate: null, runDays: ['tue', 'thu', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: DEFAULT_MILES.base };
 
@@ -201,32 +197,23 @@ export const firstWeek = (p: TrainingProfile, start: ISODate, today: ISODate, wa
   };
 };
 
-// ---------- the profile, kept per account on this device ----------
+// ---------- answers an earlier build kept on this device ----------
 /**
- * The server keeps the plan the answers built, not the answers themselves (see REVIEW.md: a request for a stored profile).
- * So Settings reads them from here, written by onboarding and by every rebuild, and falls back to reading the plan.
+ * Before the account kept the answers (`users.training_profile`), onboarding and Settings kept them per account in
+ * localStorage. Settings hands such a copy to the server once (when the account has none) and forgets it.
  */
-const KEY = (userId: string) => `logbook.training.${userId}`;
-export type StoredProfile = TrainingProfile & { savedAt?: string };
-export const loadProfile = (userId: string | undefined): StoredProfile | null => {
+const LEGACY_KEY = (userId: string) => `logbook.training.${userId}`;
+export const takeLegacyProfile = (userId: string | undefined): (TrainingProfile & { savedAt?: string }) | null => {
   if (!userId) return null;
   try {
-    const raw = localStorage.getItem(KEY(userId));
+    const raw = localStorage.getItem(LEGACY_KEY(userId));
     if (!raw) return null;
-    const p = JSON.parse(raw) as StoredProfile;
+    localStorage.removeItem(LEGACY_KEY(userId));
+    const p = JSON.parse(raw) as TrainingProfile & { savedAt?: string };
     if (!p || !GOALS.some((g) => g.id === p.goal) || !Array.isArray(p.runDays) || !p.runDays.length) return null;
     return p;
   } catch {
     return null;
-  }
-};
-export const saveProfile = (userId: string | undefined, p: TrainingProfile) => {
-  if (!userId) return;
-  try {
-    const { goal, raceDate, runDays, longRunDay, weeklyMiles } = p;
-    localStorage.setItem(KEY(userId), JSON.stringify({ goal, raceDate, runDays, longRunDay, weeklyMiles, savedAt: new Date().toISOString() } satisfies StoredProfile));
-  } catch {
-    /* private mode: Settings reads the plan instead */
   }
 };
 
@@ -274,15 +261,6 @@ export const sameProfile = (a: TrainingProfile, b: TrainingProfile) =>
 /** "10K on Sun, Dec 27" / "Half marathon, no date yet" / "Just running". */
 export const goalLine = (p: TrainingProfile) => (p.goal === 'base' ? 'Just running' : p.raceDate ? `${goalLong(p.goal)} on ${fmtDate('short', p.raceDate)}` : `${goalLong(p.goal)}, no date yet`);
 
-/** Forget the profile (the account is gone). */
-export const forgetProfile = (userId: string | undefined) => {
-  if (!userId) return;
-  try {
-    localStorage.removeItem(KEY(userId));
-  } catch {
-    /* nothing kept */
-  }
-};
 /** The first Monday after `d` (a week out on a Monday): where a rebuilt plan starts. */
 export const nextMondayAfter = (d: ISODate): ISODate => (weekdayOf(d) === 'mon' ? shiftDays(d, 7) : shiftDays(mondayOf(d), 7));
 

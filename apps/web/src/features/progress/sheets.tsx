@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { useNavigate } from 'react-router';
 import { haptics } from '@/lib/haptics';
 import { EmptyState, Pressable, Ticker, useSheet, WeekRing } from '@/ui';
+import { ringDays, streakLine } from '../day/dayWords';
 import { useLog, type Log } from '../log/useLog';
 import { sessionSheetTitle, UnplannedSheet, useOpenSession } from '../sessions/SessionCard';
 import { LineChart, Spark, useWidth } from './charts';
@@ -64,16 +65,21 @@ const useOpenRun = (log: Log) => {
 const runs0 = (log: Log, w: string) => Array.from({ length: 7 }, (_, i) => log.snap.runsOn(shiftDays(w, i)).length).reduce((a, b) => a + b, 0);
 const STATUS_CLASS: Record<string, string> = { done: 'ok', bonus: 'ok', floor: 'warn', missed: 'bad', skipped: 'quiet', rest: 'quiet', planned: 'quiet', today: 'today' };
 
-/** The week behind a bar: the ring, miles against the plan, and every day; a session opens its sheet. */
+/**
+ * The week: the app's one week sheet, behind a mileage bar here and the week ring on Today. The ring, miles and runs against
+ * the plan, the streak in weeks ("7 of the last 8 weeks.") on this week, and every session, each opening its own sheet.
+ */
 export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGone?: () => void }) => {
   const gone = useRef(onGone);
   useEffect(() => () => gone.current?.(), []);
-  const months = useMemo(() => monthsBetween(w, shiftDays(w, 6)), [w]);
+  const current = w === mondayOf(today);
+  // this week's streak looks back eight weeks: load those months too
+  const months = useMemo(() => monthsBetween(current ? shiftDays(w, -7 * 8) : w, shiftDays(w, 6)), [w, current]);
   const log = useLog(months);
   const openSession = useOpenSession(log);
   const openRun = useOpenRun(log);
   const sum = weekSummary(log.snap, w);
-  const current = w === mondayOf(today);
+  const streak = current ? streakLine(log.snap, today) : null;
   const future = w > mondayOf(today);
   // a week with nothing run yet leads with its plan, never with a zero
   const ahead = future || (current && sum.doneMiles === 0 && runs0(log, w) === 0 && sum.plannedMiles > 0);
@@ -142,11 +148,12 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
   return (
     <div className="pg-sheet">
       <div className="pg-week-top">
-        <WeekRing days={sum.days.map((d) => d.ring)} size={64} today={ti != null && ti >= 0 ? ti : undefined} onceADay={null}>
+        <WeekRing days={ringDays(sum, today)} size={64} today={ti != null && ti >= 0 ? ti : undefined} onceADay={null}>
           {runs.length || ''}
         </WeekRing>
         <div className="pg-week-words">
           <p className="pg-week-line">{keptLine}</p>
+          {streak ? <p className="pg-week-streak">{streak}</p> : null}
           <div className="pg-stamps two">
             {ahead ? (
               <>

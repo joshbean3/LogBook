@@ -7,7 +7,7 @@ import { keys } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useMedia } from '@/lib/useToday';
 import { useInitial } from '@/ui/Avatar';
-import { routeInfo, TAB_RESELECT, TABS, type TabDef, type TabReselectDetail } from '@/ui/nav';
+import { REFRESH, routeInfo, TAB_RESELECT, TABS, type TabDef, type TabReselectDetail } from '@/ui/nav';
 import { LogoMark } from '@/ui/primitives';
 import './shell.css';
 
@@ -60,8 +60,8 @@ const MAX_PULL = 100;
 
 /**
  * Pull to refresh on Today, Plan and Progress: from the top of the page, a small overscroll pulls a 24px ring down under the
- * status bar and fills it; past the threshold (one tick) letting go fetches the months again. No spinner, no words: the ring
- * sits full while the data arrives, then fades.
+ * status bar and fills it; past the threshold (one tick) letting go fires `logbook:refresh` (REFRESH) and fetches the months
+ * again. No spinner, no words: the ring sits full while the data arrives, then fades.
  */
 const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
   const qc = useQueryClient();
@@ -142,6 +142,7 @@ const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
       busy = true;
       setState('busy');
       if (arc.current) arc.current.style.strokeDashoffset = '0';
+      window.dispatchEvent(new Event(REFRESH));
       void refetchAll(qc).finally(() => {
         busy = false;
         setState('done');

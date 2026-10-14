@@ -264,7 +264,13 @@ Body `{ email, password }` (`zCredentials`: email lower-cased and trimmed, passw
 
 ### `GET /api/me`
 
-`200 { id, email, onboardedAt }`. The same `onboardedAt` is on `GET /api/auth/me` and on `GET /api/bootstrap` as `user.onboardedAt`.
+`200 { id, email, onboardedAt, trainingProfile }`. The same `onboardedAt` is on `GET /api/auth/me` and on `GET /api/bootstrap` as `user.onboardedAt`; `trainingProfile` is on the bootstrap as `user.trainingProfile`.
+
+### The training profile (`users.training_profile`, migration `0007_training_profile.sql`, journal idx 7)
+
+The answers themselves, so Settings shows what was said rather than reading it back out of the plan: `SavedTrainingProfile = { goal, raceDate, runDays, longRunDay, weeklyMiles, updatedAt }` (`zTrainingProfile` in shared), stored as JSON; null for accounts that never answered (Settings then derives the answers from the current block). `POST /me/onboarding` writes it. A block created after `updatedAt` (a new block from Plan) speaks for itself in Settings.
+
+`PATCH /api/me/training` takes any of the five answers (`zTrainingPatch`; at least one) and keeps the rest; the first save needs all five (422 otherwise). `goal: 'base'` clears `raceDate`; a `longRunDay` off the run days joins them. It rewrites no plan: Settings rebuilds with `POST /plans/template`, then saves the answers here. `200 { trainingProfile }`.
 
 ### `POST /api/me/onboarding`
 
@@ -283,6 +289,7 @@ zOnboarding = {
 
 In one transaction:
 
+0. **Training profile**: the answers (goal, raceDate, runDays, longRunDay, weeklyMiles) are stored on the account (see below).
 1. **Morning settings**: `wake` → `settings.wake`; `pace` → `settings.run.pace`; `leave` → a fixed shower at `leave − (shower + ready + smoothie + prep)` (not before `wake`), so the timeline's Leave lands on `leave` with the existing after-run blocks (default 50 min: leave 8:30 → shower 7:40).
 2. **Habits**: created in order after existing ones; matched by name, case-insensitive; an archived habit of the same name is un-archived instead of duplicated.
 3. **Plan**: `buildTemplate` from the answers (`weeks` by goal, or up to `raceDate`), starting next Monday or tomorrow, written with `source: 'onboarding'` and `replace: true`. A block written by an earlier onboarding call is retired first (its future unkept sessions removed), so a repeat never doubles the plan.
@@ -304,6 +311,10 @@ POST /api/me/onboarding
 `firstDay` is the first planned run, for the payoff screen ("Tomorrow: Easy 4."). Invalidate bootstrap and `months`. 422 for bad answers (nothing is written).
 
 ---
+
+## 5b. The morning routine's order (`after.order`)
+
+`MorningSettings.after.order: MorningAfterKey[]`, the four back-home blocks (`'shower' | 'ready' | 'smoothie' | 'prep'`) in the athlete's order; default `AFTER_ORDER` (shower, get ready, smoothie, final prep). `buildMorning` lays them out in that order from the routine's start (`showerAt` when fixed, else straight after the workout), so the leave time never moves; a smoothie of 0 is skipped wherever it sits. `normalizeMorningSettings` / `normalizeAfterOrder` make any stored order whole (known keys once each, missing ones appended). `PATCH /api/morning/settings { after: { order } }` takes all four keys once each (`zMorningSettingsPatch`); the stored settings are a JSON setting, and the array replaces the old one.
 
 ## 6. Delete account
 

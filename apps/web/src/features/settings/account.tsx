@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router';
 import { api, ApiError, NetworkError } from '@/api/client';
 import { fetchMonth, useBootstrap, useDeleteAccount } from '@/api/queries';
 import type { Bootstrap, MonthBundle } from '@/api/types';
-import { forgetProfile } from '@/features/onboarding/model';
+import { takeLegacyProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
@@ -144,7 +144,8 @@ const DeleteStepTwo = () => {
       onSuccess: () => {
         haptics.delete();
         sheet.close();
-        forgetProfile(uid);
+        // an old device copy of the training answers goes too (the account's copy went with the account)
+        takeLegacyProfile(uid);
         try {
           for (const k of Object.keys(sessionStorage)) if (k.startsWith('logbook.onboarding')) sessionStorage.removeItem(k);
         } catch {

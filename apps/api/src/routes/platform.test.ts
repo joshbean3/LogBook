@@ -249,7 +249,7 @@ describe('migration 0006', () => {
       // the migrations as they were before 0006
       fs.mkdirSync(path.join(tmp, 'meta'));
       const journal = JSON.parse(fs.readFileSync(path.join(MIGRATIONS, 'meta', '_journal.json'), 'utf8'));
-      const last = journal.entries[journal.entries.length - 1];
+      const last = journal.entries.find((e: { idx: number }) => e.idx === 6);
       expect(last).toMatchObject({ idx: 6, tag: '0006_onboarding' });
       expect(last.when).toBeGreaterThan(journal.entries[5].when);
       journal.entries = journal.entries.filter((e: { idx: number }) => e.idx <= 5);
@@ -269,5 +269,82 @@ describe('migration 0006', () => {
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
+  });
+});
+
+describe('migration 0007', () => {
+  it('adds users.training_profile after 0006, null for every account that exists', () => {
+    const journal = JSON.parse(fs.readFileSync(path.join(MIGRATIONS, 'meta', '_journal.json'), 'utf8'));
+    const e6 = journal.entries.find((e: { idx: number }) => e.idx === 6);
+    const e7 = journal.entries.find((e: { idx: number }) => e.idx === 7);
+    expect(e7).toMatchObject({ idx: 7, tag: '0007_training_profile' });
+    expect(e7.when).toBeGreaterThan(e6.when);
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'logbook-mig7-'));
+    try {
+      fs.mkdirSync(path.join(tmp, 'meta'));
+      const before = { ...journal, entries: journal.entries.filter((e: { idx: number }) => e.idx <= 6) };
+      fs.writeFileSync(path.join(tmp, 'meta', '_journal.json'), JSON.stringify(before));
+      for (const e of before.entries) fs.copyFileSync(path.join(MIGRATIONS, `${e.tag}.sql`), path.join(tmp, `${e.tag}.sql`));
+      const raw = new Database(':memory:');
+      const old = drizzle(raw);
+      migrate(old, { migrationsFolder: tmp });
+      raw.prepare("insert into users (id, email, password_hash, created_at) values ('u1', 'josh@example.com', 'x', '2026-01-01T00:00:00Z')").run();
+      migrate(old, { migrationsFolder: MIGRATIONS });
+      expect(raw.prepare("select training_profile from users where id = 'u1'").get()).toEqual({ training_profile: null });
+      raw.close();
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('the training profile', () => {
+  it('onboarding stores the answers; GET /me and the bootstrap carry them', async () => {
+    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    expect((await call('GET', '/api/me', undefined, cookie)).body.trainingProfile).toBeNull();
+    expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.user.trainingProfile).toBeNull();
+    await call('POST', '/api/me/onboarding', { ...ONBOARD, raceDate: '2027-01-17' }, cookie);
+    const me = (await call('GET', '/api/me', undefined, cookie)).body;
+    expect(me.trainingProfile).toMatchObject({ goal: 'half', raceDate: '2027-01-17', runDays: ['tue', 'thu', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: 18 });
+    expect(me.trainingProfile.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.user.trainingProfile).toEqual(me.trainingProfile);
+  });
+
+  it('PATCH /me/training changes some answers and keeps the rest', async () => {
+    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    await call('POST', '/api/me/onboarding', ONBOARD, cookie);
+    const r = await call('PATCH', '/api/me/training', { weeklyMiles: 24, runDays: ['mon', 'wed', 'sat'], longRunDay: 'sat' }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body.trainingProfile).toMatchObject({ goal: 'half', raceDate: null, runDays: ['mon', 'wed', 'sat'], longRunDay: 'sat', weeklyMiles: 24 });
+    // a long-run day off the run days joins them; "just running" has no race day
+    const g = await call('PATCH', '/api/me/training', { goal: 'base', raceDate: '2027-03-01', longRunDay: 'sun' }, cookie);
+    expect(g.body.trainingProfile).toMatchObject({ goal: 'base', raceDate: null, runDays: ['mon', 'wed', 'sat', 'sun'], longRunDay: 'sun' });
+    expect((await call('GET', '/api/me', undefined, cookie)).body.trainingProfile).toMatchObject({ goal: 'base', weeklyMiles: 24 });
+  });
+
+  it('validates, needs all five answers the first time, and needs a session', async () => {
+    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    expect((await call('PATCH', '/api/me/training', { weeklyMiles: 20 }, cookie)).status).toBe(422);
+    expect((await call('PATCH', '/api/me/training', {}, cookie)).status).toBe(422);
+    expect((await call('PATCH', '/api/me/training', { goal: 'ultra' }, cookie)).status).toBe(422);
+    const full = { goal: '10k', raceDate: null, runDays: ['tue', 'sat'], longRunDay: 'sat', weeklyMiles: 15 };
+    expect((await call('PATCH', '/api/me/training', full, cookie)).status).toBe(200);
+    expect((await call('PATCH', '/api/me/training', { weeklyMiles: 15 })).status).toBe(401);
+  });
+});
+
+describe('PATCH /morning/settings after.order', () => {
+  it('stores the back-home order and the timeline follows it', async () => {
+    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    expect((await call('GET', '/api/morning/settings', undefined, cookie)).body.after.order).toEqual(['shower', 'ready', 'smoothie', 'prep']);
+    const r = await call('PATCH', '/api/morning/settings', { after: { order: ['prep', 'shower', 'ready', 'smoothie'] } }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body.after).toMatchObject({ order: ['prep', 'shower', 'ready', 'smoothie'], shower: 15 });
+    // a later patch of another field keeps it; the array is replaced, never merged
+    await call('PATCH', '/api/morning/settings', { after: { shower: 20 } }, cookie);
+    expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.morningSettings.after).toMatchObject({ shower: 20, order: ['prep', 'shower', 'ready', 'smoothie'] });
+    await call('PATCH', '/api/morning/settings', { after: { order: ['smoothie', 'ready', 'shower', 'prep'] } }, cookie);
+    expect((await call('GET', '/api/morning/settings', undefined, cookie)).body.after.order).toEqual(['smoothie', 'ready', 'shower', 'prep']);
+    expect((await call('PATCH', '/api/morning/settings', { after: { order: ['prep', 'prep', 'ready', 'smoothie'] } }, cookie)).status).toBe(422);
   });
 });

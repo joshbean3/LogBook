@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ChipButton, DatePager, dateLine, Skeleton, SkeletonGroup, TabHeader, useSheet } from '@/ui';
 import { OrbRow } from '../habits/OrbRow';
+import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { useLog } from '../log/useLog';
 import { useOpenSession } from '../sessions/SessionCard';
 import { TodayTodos } from '../todos/TodayTodos';
@@ -12,7 +13,7 @@ import { Hero, phaseOf } from './Hero';
 import { SetupCard } from './SetupCard';
 import { useNowMinutes } from './useNow';
 import { useStravaPull } from './useStravaPull';
-import { CalendarSheet } from './WeekSheet';
+import { CalendarSheet } from './Calendar';
 import './day.css';
 
 /** The shape of Today while the months load: the header's word, the hero, the orbs, two rows. */
@@ -44,6 +45,7 @@ export default function DayView() {
   const minutes = useNowMinutes();
   const openSession = useOpenSession(log);
   useStravaPull(!!log.strava?.connected);
+  const primer = useStravaPrimer();
   const go = (d: ISODate) => nav(d === t ? '/today' : `/today/${d}`);
   const loaded = log.loaded(date) && !!log.boot;
   const ph = useMemo(() => (loaded ? phaseOf(log, date, minutes) : null), [loaded, log, date, minutes]);
@@ -82,8 +84,10 @@ export default function DayView() {
       ) : setup ? (
         <SetupCard log={log} hasPlan={hasPlan} />
       ) : (
-        <DatePager className="hero-pager" date={date} onChange={go} disabled={multi} label="Day" prevLabel="Previous day" nextLabel="Next day" render={(d) => <Hero date={d} log={log} minutes={minutes} live={d === date} onPick={go} />} />
+        <DatePager className="hero-pager" date={date} onChange={go} disabled={multi} label="Day" prevLabel="Previous day" nextLabel="Next day" render={(d) => <Hero date={d} log={log} minutes={minutes} live={d === date} />} />
       )}
+      {/* after first run (and until Later): "See your runs land here", under the hero; the setup card has its own Strava step */}
+      {loaded && isToday && !setup && primer.show ? <StravaPrimer className="today-primer" onLater={primer.later} /> : null}
       {loaded && showHabits && !(setup && !log.habits.length) ? <OrbRow date={date} log={log} /> : null}
       {loaded && isToday ? <TodayTodos date={date} /> : null}
       {closeAtEnd ? (

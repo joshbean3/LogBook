@@ -11,6 +11,7 @@ import { bootNative, isNative } from '@/lib/native';
 import { App } from './app/App';
 import { onUnauthorized } from './api/client';
 import { outbox } from './api/outbox';
+import { ContextMenuProvider } from './ui/ContextMenu';
 import { SheetProvider } from './ui/Sheet';
 import { ToastProvider } from './ui/Toast';
 import './styles/tokens.css';
@@ -59,9 +60,12 @@ createRoot(document.getElementById('root')!).render(
           {/* one LayoutGroup for the app: motion layoutIds in different subtrees (a row, a header) animate together */}
           <LayoutGroup>
             <ToastProvider>
-              <SheetProvider>
-                <App />
-              </SheetProvider>
+              {/* above the sheets, so a sheet's content (a header ⋯, a row) can open the context menu */}
+              <ContextMenuProvider>
+                <SheetProvider>
+                  <App />
+                </SheetProvider>
+              </ContextMenuProvider>
             </ToastProvider>
           </LayoutGroup>
         </BrowserRouter>

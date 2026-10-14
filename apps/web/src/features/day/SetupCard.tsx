@@ -4,6 +4,7 @@ import { useHabitMutations } from '@/api/queries';
 import { EmptyState, Pressable, useSheet } from '@/ui';
 import { HABIT_STARTERS } from '../habits/OrbRow';
 import type { Log } from '../log/useLog';
+import { openTemplate } from '../plan/Blocks';
 
 const AddHabitsSheet = () => {
   const { add } = useHabitMutations();
@@ -13,14 +14,15 @@ const AddHabitsSheet = () => {
 
 /**
  * The first day: one card instead of five grey sentences. Three starter actions, each ticking itself off when it is done:
- * Add habits (a sheet of starter chips), Plan a week (Plan), Connect Strava (Settings).
+ * Add habits (a sheet of starter chips), Plan a week (the Plan team's New block sheet: a template from your days and miles),
+ * Connect Strava (Settings).
  */
 export const SetupCard = ({ log, hasPlan }: { log: Log; hasPlan: boolean }) => {
   const nav = useNavigate();
   const sheet = useSheet();
   const steps = [
     { key: 'habits', icon: <Sparkles size={20} />, title: 'Add habits', sub: 'Sleep, stretch, read: the small daily lights.', done: log.habits.length > 0, go: () => sheet.open({ title: 'Add habits', body: <AddHabitsSheet /> }) },
-    { key: 'plan', icon: <CalendarDays size={20} />, title: 'Plan a week', sub: 'Pick your run days; Logbook writes the week.', done: hasPlan, go: () => nav('/plan') },
+    { key: 'plan', icon: <CalendarDays size={20} />, title: 'Plan a week', sub: 'Pick your run days; Logbook writes the week.', done: hasPlan, go: () => openTemplate(sheet, log) },
     ...(log.features.strava ? [{ key: 'strava', icon: <Activity size={20} />, title: 'Connect Strava', sub: 'Runs land here and mark themselves done.', done: !!log.strava?.connected, go: () => nav('/settings') }] : []),
   ];
   const left = steps.filter((s) => !s.done).length;

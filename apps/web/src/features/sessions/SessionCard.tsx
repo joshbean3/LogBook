@@ -2,15 +2,15 @@ import { assess, buildMorning, clock, clockOfDay, decodePolyline, isAutoStatus, 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronRight, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
-import { ease, springs } from '@/lib/motion';
+import { ease } from '@/lib/motion';
 import { DROP_SPRING, getDragInfo, hitDropDay, INSTANT, LIFT, REST, setDragInfo, SLOP, useDragInfo, useDropDays, useDropOver, useHoldDrag } from '@/lib/useDrag';
 import type { MonthBundle } from '@/api/types';
-import type { ContextMenuItem } from '@/ui/ContextMenu';
+import { useContextMenu } from '@/ui/ContextMenu';
 import { Button, Chip, ChipButton, DayStrip, Mark } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -236,101 +236,45 @@ export const RouteMap = ({ polyline, drawKey }: { polyline: string; drawKey: str
 };
 
 /**
- * The sheet header's overflow (⋯): Sheet v2 has one header and no action slot yet, so this places its button there, before
- * Close, while the panel is up (REVIEW.md asks the foundation for a `SheetSpec.action`). The sheet sits above the
- * ContextMenu provider in the tree, so the menu is a small card of its own, styled like the context menu: arrow keys move,
- * Escape and a tap outside close it, destructive items last and red.
+ * The session sheet's ⋯, in the sheet header's action slot (`SheetSpec.action`): Share, "Not feeling 100%" and Delete as a
+ * context menu under the button (the same menu, destructive last and red, that a long-press opens elsewhere). It reads
+ * the session live, like the sheet's body, so a mark made in the sheet changes what it offers.
  */
-const SheetMore = ({ items, label: name }: { items: ContextMenuItem[]; label: string }) => {
-  const mark = useRef<HTMLSpanElement>(null);
-  const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const [open, setOpen] = useState(false);
+const SessionMore = ({ date, id }: { date: string; id: string }) => {
+  const log = useLog([monthOf(date)]);
+  const act = useSessionActions(log);
+  const menu = useContextMenu();
   const btn = useRef<HTMLButtonElement>(null);
-  const card = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const head = mark.current?.closest('.sheet')?.querySelector('.sheet-head');
-    if (!head) return;
-    const el = document.createElement('span');
-    el.className = 'sheet-more';
-    head.insertBefore(el, head.lastElementChild);
-    setSlot(el);
-    return () => el.remove();
-  }, []);
-  useEffect(() => {
-    if (!open) return;
-    const first = card.current?.querySelector<HTMLElement>('button:not(:disabled)');
-    first?.focus({ preventScroll: true });
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // the menu, not the sheet
-        e.stopPropagation();
-        setOpen(false);
-        btn.current?.focus({ preventScroll: true });
-      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        const list = Array.from(card.current?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? []);
-        const at = list.indexOf(document.activeElement as HTMLElement);
-        list[(at + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length]?.focus();
-        e.preventDefault();
-      }
-    };
-    const onDown = (e: PointerEvent) => {
-      if (!card.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false);
-    };
-    window.addEventListener('keydown', onKey, true);
-    window.addEventListener('pointerdown', onDown, true);
-    return () => {
-      window.removeEventListener('keydown', onKey, true);
-      window.removeEventListener('pointerdown', onDown, true);
-    };
-  }, [open]);
-  const sorted = [...items.filter((i) => !i.destructive), ...items.filter((i) => i.destructive)];
+  const s = log.snap.sessionsOn(date).find((x) => x.id === id);
+  if (!s) return null;
+  const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
+  const share = runs.length ? shareDataFor(date, s, runs, log) : null;
+  const name = s.kind === 'rest' ? 'Rest' : label(s);
+  const items = act.menuItems(date, s, { share, push: true }).filter((i) => i.label === 'Not feeling 100%' || i.label === 'Share' || i.destructive);
+  if (!items.length) return null;
   return (
-    <>
-      <span ref={mark} hidden />
-      {slot
-        ? createPortal(
-            <span className="sx-more">
-              <button ref={btn} type="button" className="icon-btn" aria-label={`More for ${name}`} title="More" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-                <MoreHorizontal size={22} aria-hidden="true" />
-              </button>
-              <AnimatePresence>
-                {open ? (
-                  <motion.div ref={card} className="sx-menu" role="menu" aria-label={`${name} actions`} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.1 } }} transition={springs.lift}>
-                    {sorted.map((it, n) => (
-                      <button
-                        key={it.label}
-                        type="button"
-                        role="menuitem"
-                        className={`cm-item ${it.destructive ? 'destructive' : ''} ${it.destructive && n > 0 && !sorted[n - 1]!.destructive ? 'sep' : ''}`}
-                        disabled={it.disabled}
-                        onClick={() => {
-                          setOpen(false);
-                          requestAnimationFrame(() => it.onSelect());
-                        }}
-                      >
-                        <span className="cm-label">{it.label}</span>
-                        {it.icon ? (
-                          <span className="cm-icon" aria-hidden="true">
-                            {it.icon}
-                          </span>
-                        ) : null}
-                      </button>
-                    ))}
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </span>,
-            slot,
-          )
-        : null}
-    </>
+    <button
+      ref={btn}
+      type="button"
+      className="icon-btn"
+      aria-label={`More for ${name}`}
+      title="More"
+      aria-haspopup="menu"
+      onClick={() => {
+        const el = btn.current;
+        // a tap opens a menu: no haptic, nothing lifts; focus comes back to the button
+        if (el) menu.open({ items, anchor: el.getBoundingClientRect(), label: `${name} actions`, returnFocus: el, haptic: false });
+      }}
+    >
+      <MoreHorizontal size={22} aria-hidden="true" />
+    </button>
   );
 };
 
 /**
  * The session, in full. Its name is the sheet's title (it flew in from the row or the hero), the route sits at the top when
  * there is one, then the two verbs that matter: Done (the one blue) and Floor, 48px. Skip, Move and Edit sit under them;
- * Move and Edit push inside the sheet. Delete and "Not feeling 100%" live in the header's ⋯. The evidence (splits, the
+ * Move and Edit push inside the sheet. Delete and "Not feeling 100%" live in the header's ⋯ (`SessionMore`). The evidence (splits, the
  * read, started · HR · cadence · elevation) follows.
  */
 const SessionSheet = ({ date, id }: { date: string; id: string }) => {
@@ -357,13 +301,9 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const stats = runs.length ? runStats(s, runs, log) : planStats(date, s, log, s.kind === 'lift' ? sets.length : 0);
   const poly = runs.find((r) => r.polyline)?.polyline;
   const meta = sessionMeta(s);
-  const name = s.kind === 'rest' ? 'Rest' : label(s);
-  const items = act.menuItems(date, s, { share, push: true });
-  const overflow = items.filter((i) => i.label === 'Not feeling 100%' || i.label === 'Share' || i.destructive);
   const floorText = floorFor(s);
   return (
     <div className={`ss t-${tone(s)}`}>
-      <SheetMore items={overflow} label={name} />
       {poly ? <RouteMap polyline={poly} drawKey={s.id} /> : null}
       <div className="ss-status">
         <Chip kind={chipKind(key)}>{word}</Chip>
@@ -487,6 +427,7 @@ export const sessionSheetSpec = (date: string, s: Session, opts: OpenSessionOpts
   eyebrow: fmtDate('long', date),
   title: s.kind === 'rest' ? 'Rest' : label(s),
   layoutId: opts.sharedId,
+  action: <SessionMore date={date} id={s.id} />,
   body: <SessionSheet date={date} id={s.id} />,
   wide: true,
 });

@@ -1,4 +1,4 @@
-import { buildMorning, clock, durationWords, MORNING_DEFAULTS, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
+import { buildMorning, clock, durationWords, MORNING_DEFAULTS, normalizeMorningSettings, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
 import { GripVertical } from 'lucide-react';
 import { AnimatePresence, motion, Reorder, useDragControls, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +9,7 @@ import { Button, ChipButton, Stepper, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { parseWake } from './DayEditor';
 import { MiniLine } from './MiniLine';
-import { AFTER_KEYS, AFTER_LABEL, applyOrder, getRoutineOrder, setRoutineOrder, short, type AfterKey } from './model';
+import { AFTER_LABEL, short, type AfterKey } from './model';
 
 /** One editable number of the routine: how it reads, how it steps, and the common values a tap on its chip cycles through. */
 interface Field {
@@ -125,17 +125,17 @@ const AfterItem = ({ k, children, onKey }: { k: AfterKey; children: (grip: React
 
 /**
  * The routine (spec §5.2): the morning as blocks with duration chips, previewed to scale at the top as it changes. Nothing
- * is written until Save, which sends the existing settings shape (`wake`, `run`, `gym`, `after`) in one PATCH and keeps the
- * back-home order on this device. It replaces the old Settings mode's eleven number inputs.
+ * is written until Save, which sends the settings (`wake`, `run`, `gym`, `after` with the back-home `order`) in one PATCH. It replaces the old Settings mode's eleven number inputs.
  */
 export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningDay; settings: MorningSettings; focus?: string }) => {
   const sheet = useSheet();
   const toast = useToast();
   const { settings } = useMorningMutations();
-  const [saved] = useState(initial);
-  const [savedOrder] = useState(getRoutineOrder);
-  const [s, setS] = useState<MorningSettings>(initial);
-  const [order, setOrder] = useState<AfterKey[]>(savedOrder);
+  // a bootstrap cached before `after.order` existed is made whole here, so the order list always has its four blocks
+  const [saved] = useState(() => normalizeMorningSettings(initial));
+  const [s, setS] = useState<MorningSettings>(saved);
+  const order = s.after.order;
+  const setOrder = (o: AfterKey[]) => setS((c) => ({ ...c, after: { ...c.after, order: o } }));
   const [preview, setPreview] = useState<MorningMode>(day.mode);
   const focused = !focus ? null : day.mode === 'gym' && (focus === 'wake' || focus === 'buffer') ? (focus === 'wake' ? 'gym.wakeup' : 'gym.walk') : (FOCUS[focus] ?? focus);
   const [open, setOpen] = useState<string | null>(focused);
@@ -147,13 +147,13 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
     el?.scrollIntoView({ block: 'center' });
   }, [focused]);
 
-  const dirty = JSON.stringify(s) !== JSON.stringify(saved) || order.join() !== savedOrder.join();
+  const dirty = JSON.stringify(s) !== JSON.stringify(saved);
   useEffect(() => sheet.update({ sticky: dirty }), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const T = useMemo(() => {
     const d: MorningDay = { ...day, mode: preview, wake: s.wake, type: preview === day.mode ? day.type : preview === 'run' ? 'Easy' : preview === 'gym' ? 'Strength' : 'Rest', minutes: preview === 'gym' && day.mode !== 'gym' ? s.gym.length : day.minutes };
-    return applyOrder(buildMorning(d, s), order);
-  }, [day, preview, s, order]);
+    return buildMorning(d, s);
+  }, [day, preview, s]);
 
   const row = (id: string, grip?: React.ReactNode) => {
     const f = FIELDS[id]!;
@@ -169,8 +169,8 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
     setOrder(next);
   };
   const save = () => {
+    // one PATCH, the back-home order (`after.order`) included
     settings.mutate({ wake: s.wake, run: s.run, gym: s.gym, after: s.after });
-    setRoutineOrder(order);
     haptics.success();
     sheet.close();
     toast('Routine saved');
@@ -265,7 +265,6 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
           onClick={() => {
             haptics.select();
             setS((c) => ({ ...MORNING_DEFAULTS, wake: c.wake, focus: c.focus }));
-            setOrder([...AFTER_KEYS]);
           }}
         >
           Defaults

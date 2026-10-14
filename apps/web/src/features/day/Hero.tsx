@@ -1,4 +1,4 @@
-import { clock, dayPhase, decodePolyline, durationWords, floorFor, label, mi, relativeDay, routePath, shiftDays, type Activity, type DayPhase, type ISODate, type PhaseSession, type SessionMark } from '@logbook/shared';
+import { clock, dayPhase, decodePolyline, durationWords, fmtDate, floorFor, label, mi, mondayOf, relativeDay, routePath, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type PhaseSession, type SessionMark } from '@logbook/shared';
 import { CalendarPlus, Check, ChevronsDown, ExternalLink, HeartPulse, MoveRight, Share, SkipForward, Sunrise } from 'lucide-react';
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -6,17 +6,17 @@ import { useNavigate } from 'react-router';
 import { useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
-import { ContextMenu, shared, Ticker, useFirstToday, useSheet, useToast, type ContextMenuItem } from '@/ui';
+import { ContextMenu, shared, Ticker, useFirstToday, useSheet, useToast, WeekRing, type ContextMenuItem } from '@/ui';
 import type { Log } from '../log/useLog';
 import { openMoveSheet } from '../sessions/MoveSheet';
-import { sessionSheetTitle, shareDataFor, UnplannedSheet, useOpenSession } from '../sessions/SessionCard';
+import { useOpenWeek } from '../progress/sheets';
+import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { SessionEditor } from '../sessions/SessionEditor';
 import { ShareSheet } from '../share/ShareSheet';
 import { CloseDay } from './CloseDay';
-import { doneVerdict, planLine, runTotals, shortClock } from './dayWords';
+import { doneVerdict, planLine, ringDays, runTotals, shortClock } from './dayWords';
 import { HoldRing } from './HoldRing';
 import { MiniTimeline, OutLine } from './MiniTimeline';
-import { HeroWeekRing } from './WeekSheet';
 
 export type HeroState = 'morning' | 'out' | 'done' | 'open' | 'rest' | 'evening' | 'past' | 'future';
 type Halo = 'done' | 'floor' | 'missed' | 'upcoming' | 'rest';
@@ -41,6 +41,17 @@ const haloOf = (p: PhaseSession | null, hasRuns: boolean): Halo => {
     default:
       return 'upcoming';
   }
+};
+
+/**
+ * The ring in the hero's corner: the week around the shown day. Tap → the week sheet (the Progress team's, the app's one:
+ * the ring large, miles and runs against the plan, the streak, and every session, each opening its own sheet).
+ */
+const HeroWeekRing = ({ date, log, still }: { date: ISODate; log: Log; still?: boolean }) => {
+  const openWeek = useOpenWeek(log.today);
+  const sum = useMemo(() => weekSummary(log.snap, mondayOf(date)), [log.snap, date]);
+  const ti = sum.days.findIndex((d) => d.date === log.today);
+  return <WeekRing days={ringDays(sum, log.today)} size={40} today={ti >= 0 ? ti : undefined} onceADay={still ? null : 'today-week-ring'} onPress={still ? undefined : () => openWeek(sum.weekStart)} />;
 };
 
 /** The session's name as the hero's label: a stamp, and the shared element that flies into the session sheet. */
@@ -92,6 +103,27 @@ const RunStamps = ({ runs, tickKey }: { runs: Activity[]; tickKey: string | null
       </span>
     </div>
   );
+};
+
+/** The next session that is not rest or skipped, within a week after `date`. */
+const nextSession = (log: Log, date: ISODate) =>
+  Array.from({ length: 7 }, (_, i) => shiftDays(date, i + 1))
+    .map((d) => ({ d, s: log.snap.sessionsOn(d).find((s) => s.kind !== 'rest' && s.mark !== 'skip' && s.mark !== 'sick') }))
+    .find((x): x is { d: ISODate; s: NonNullable<typeof x.s> } => !!x.s) ?? null;
+
+/**
+ * What leads the hero on a day with no session today: tomorrow's session ("Tomorrow: Easy 4."), or, on a plan that has
+ * not started yet (the first day after onboarding: nothing planned or run in the week behind today), the first one. Null
+ * when the day should just say rest.
+ */
+const upNext = (log: Log, date: ISODate) => {
+  if (date !== log.today) return null;
+  const next = nextSession(log, date);
+  if (!next) return null;
+  const fresh = !Array.from({ length: 7 }, (_, i) => shiftDays(date, -1 - i)).some((d) => log.snap.sessionsOn(d).length || log.snap.activitiesOn(d).length);
+  const tomorrow = next.d === shiftDays(date, 1);
+  if (!tomorrow && !fresh) return null;
+  return { ...next, fresh, when: tomorrow ? 'Tomorrow' : fmtDate('dowLong', next.d) };
 };
 
 interface FaceCtx {
@@ -180,9 +212,23 @@ const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: numb
   }
   if (!p) {
     // nothing planned: rest, said as a fact that counts
-    const next = Array.from({ length: 7 }, (_, i) => shiftDays(date, i + 1))
-      .map((d) => ({ d, s: log.snap.sessionsOn(d).find((s) => s.kind !== 'rest') }))
-      .find((x) => x.s);
+    const next = nextSession(log, date);
+    const up = upNext(log, date);
+    if (up) {
+      // what comes next leads: "Tomorrow: Easy 4." and its door time from that morning's timeline
+      const nph = phaseOf(log, up.d, ph.now);
+      const block = up.s.blockId ? log.boot?.blocks.find((b) => b.id === up.s.blockId) : null;
+      return (
+        <div className="hero-face hero-next">
+          <span className="caps hero-eyebrow">{up.fresh ? (block?.name ?? 'Your plan') : 'Rest day'}</span>
+          <h2 className="hero-line display">
+            {up.when}: {label(up.s)}.
+          </h2>
+          {up.fresh ? null : <p className="hero-plan hero-rest-line">Rest. It counts.</p>}
+          {nph.doorAt != null ? <p className="hero-sub">Out the door {shortClock(nph.doorAt)}.</p> : null}
+        </div>
+      );
+    }
     return (
       <div className="hero-face">
         <span className="caps hero-eyebrow">{isToday ? 'Rest day' : date < log.today ? relativeDay(date, log.today) : `${relativeDay(date, log.today)} · Rest`}</span>
@@ -290,12 +336,13 @@ const usePullToMorning = (enabled: boolean, onCommit: () => void) => {
  * on other days. Two sessions page inside it, with dots. The week ring sits in its corner. `live` is false for the
  * neighbouring days drawn beside it while the date pager moves: those are still and claim no shared ids or daily moments.
  */
-export const Hero = ({ date, log, minutes, live, onPick }: { date: ISODate; log: Log; minutes: number; live: boolean; onPick: (d: ISODate) => void }) => {
+export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; minutes: number; live: boolean }) => {
   const ph = useMemo(() => phaseOf(log, date, minutes), [log, date, minutes]);
   const nav = useNavigate();
   const sheet = useSheet();
   const toast = useToast();
   const openSession = useOpenSession(log);
+  const openUnplanned = useOpenUnplanned();
   const { mark } = useSessionMutations();
   const [page, setPage] = useState(0);
   const [boost, setBoost] = useState(false);
@@ -323,10 +370,9 @@ export const Hero = ({ date, log, minutes, live, onPick }: { date: ISODate; log:
 
   const morningPath = isToday ? '/morning' : `/morning/${date}`;
   const open = (p: PhaseSession | null) => {
-    if (p) {
-      // @ts-expect-error until sessions adds sharedId (the Plan team's opener takes a fourth `{ sharedId }` option)
-      openSession(date, p.session, { fromHero: true }, { sharedId: `session-${p.session.id}` });
-    } else if (runs.length) sheet.open({ title: sessionSheetTitle(date), body: <UnplannedSheet date={date} runs={runs} log={log} fromHero />, wide: true });
+    // the stamp carries `session-<id>` (see Stamp): the hero's title flies into the sheet's
+    if (p) openSession(date, p.session, { fromHero: true, sharedId: `session-${p.session.id}` });
+    else if (runs.length) openUnplanned(date, runs, log);
   };
   const share = () => sheet.open({ title: 'Share', body: <ShareSheet data={shareDataFor(date, cur?.session ?? null, runs, log)} /> });
   const setMark = (p: PhaseSession, m: SessionMark | null, word?: string) => {
@@ -365,7 +411,7 @@ export const Hero = ({ date, log, minutes, live, onPick }: { date: ISODate; log:
   if (isToday) items.push({ label: 'Morning', icon: <Sunrise size={18} />, onSelect: () => nav(morningPath) });
   items.push({ label: 'Add a session', icon: <CalendarPlus size={18} />, onSelect: () => sheet.open({ title: 'Add session', body: <SessionEditor date={date} session={null} /> }) });
 
-  const corner = <HeroWeekRing date={date} log={log} onPick={onPick} still={!live} />;
+  const corner = <HeroWeekRing date={date} log={log} still={!live} />;
   if (evening)
     return (
       <div className="hero-slot">
@@ -374,8 +420,11 @@ export const Hero = ({ date, log, minutes, live, onPick }: { date: ISODate; log:
     );
 
   const halo = haloOf(cur, runs.length > 0);
-  const pressable = !!cur || runs.length > 0;
-  const name = cur ? `${label(cur.session)}, ${cur.word}` : runs.length ? 'Bonus run' : 'Rest day';
+  // a rest day led by tomorrow's session: the card opens that session
+  const up = !cur && !runs.length ? upNext(log, date) : null;
+  const pressable = !!cur || runs.length > 0 || !!up;
+  const name = cur ? `${label(cur.session)}, ${cur.word}` : runs.length ? 'Bonus run' : up ? `${up.when}: ${label(up.s)}` : 'Rest day';
+  const openHero = () => (up ? openSession(up.d, up.s) : open(cur));
   return (
     <div className="hero-slot">
       <ContextMenu items={items} label={name} disabled={!live}>
@@ -388,13 +437,13 @@ export const Hero = ({ date, log, minutes, live, onPick }: { date: ISODate; log:
           aria-label={pressable ? `${name}. Open` : name}
           onClick={(e) => {
             if (!pressable || !live || Date.now() < quietUntil.current || (e.target as HTMLElement).closest('button, a, textarea, input')) return;
-            open(cur);
+            openHero();
           }}
           onKeyDown={(e) => {
             if (!pressable || e.target !== e.currentTarget) return;
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              open(cur);
+              openHero();
             }
           }}
           whileTap={pressable && live ? { scale: 0.985 } : undefined}

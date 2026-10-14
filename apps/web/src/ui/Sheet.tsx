@@ -3,6 +3,7 @@ import { animate, AnimatePresence, motion, useDragControls, useMotionValue, useP
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { fadeIn, fadeOut, reducedFade, springs } from '@/lib/motion';
+import { restoreFocus } from './focus';
 import { focusables, holdInert } from './inert';
 
 /**
@@ -10,7 +11,7 @@ import { focusables, holdInert } from './inert';
  *
  * `sheet.open(spec)` shows a sheet (replacing whatever was up); `sheet.push(spec)` slides a new panel in from the right
  * inside the same sheet, with a back chevron in the header; `sheet.pop()` goes back; `sheet.close()` closes it all.
- * Every sheet has one header: an optional caps eyebrow, the serif title (28), and Close.
+ * Every sheet has one header: an optional caps eyebrow, the serif title (28), an optional action (`action`), and Close.
  */
 export interface SheetSpec {
   /** The serif title (28). Short: "Edit session", "Move", the session name. */
@@ -30,6 +31,11 @@ export interface SheetSpec {
   wide?: boolean;
   /** A tap on the scrim does not close it (an editor with unsaved input). Escape and Close still do. */
   sticky?: boolean;
+  /**
+   * One header action, before Close: an `IconButton` (a session's ⋯, which opens a ContextMenu with `useContextMenu`). It
+   * belongs to its panel: a pushed panel shows its own (or none).
+   */
+  action?: ReactNode;
 }
 export interface SheetApi {
   /** Show a sheet, replacing the whole stack. */
@@ -176,7 +182,7 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
       // back to the control that opened the sheet (captured at open(), before any autoFocus field took focus), if it is still on the page
       const o = opener.current;
       opener.current = null;
-      if (o && o.isConnected && typeof o.focus === 'function') o.focus({ preventScroll: true });
+      if (o && o.isConnected && typeof o.focus === 'function') restoreFocus(o);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // a push or a pop: the new panel starts at the top, and focus moves into it
@@ -238,6 +244,11 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
                 </motion.div>
               </AnimatePresence>
             </div>
+            {top.action ? (
+              <span key={depth} className="sheet-action">
+                {top.action}
+              </span>
+            ) : null}
             <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={close}>
               <X size={20} aria-hidden="true" />
             </button>

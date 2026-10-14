@@ -1,9 +1,9 @@
-import { buildMorning, clockOfDay, morningDayFor, type MorningDayOverride, type MorningSettings, type MorningTimeline, type Session, type TimelineBlock } from '@logbook/shared';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { AFTER_LABELS, AFTER_ORDER, buildMorning, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
+import { useEffect, useState } from 'react';
 
 /**
- * The Morning page's pure model: the timeline for a day (with the routine's block order applied), the clock (with a dev
- * override), and the two per-device preferences the page keeps (the routine order and the one-time grip lesson).
+ * The Morning page's pure model: the timeline for a day (the routine's block order is a setting `buildMorning` honours), the
+ * clock (with a dev override), and the one per-device preference the page keeps (the one-time grip lesson).
  */
 
 // ---------- time words ----------
@@ -17,69 +17,33 @@ export const short = (m: number) => timeParts(m).v;
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 // ---------- the routine order: the back-home blocks, in the athlete's order ----------
-export type AfterKey = 'shower' | 'ready' | 'smoothie' | 'prep';
-export const AFTER_KEYS: readonly AfterKey[] = ['shower', 'ready', 'smoothie', 'prep'];
-export const AFTER_LABEL: Record<AfterKey, string> = { shower: 'Shower', ready: 'Get ready', smoothie: 'Blend smoothie', prep: 'Final prep' };
-
 /*
- * The settings API has no field for the order (its schema strips unknown keys), so the order lives on this device until the
- * platform adds `after.order` (requested in REVIEW.md). The durations, which decide every time on the page, are on the server.
+ * The order is a morning setting on the server (`after.order`), and `buildMorning` lays the blocks out in it, so every
+ * timeline (this page, Today's mini timeline, the routine editor's preview) follows it with nothing to apply here.
  */
-const ORDER_KEY = 'logbook.morning.order';
-const orderSubs = new Set<() => void>();
-let orderCache: AfterKey[] | null = null;
-const validOrder = (raw: unknown): AfterKey[] => {
-  const list = Array.isArray(raw) ? raw.filter((k): k is AfterKey => AFTER_KEYS.includes(k as AfterKey)) : [];
-  const seen = [...new Set(list)];
-  return [...seen, ...AFTER_KEYS.filter((k) => !seen.includes(k))];
-};
-export const getRoutineOrder = (): AfterKey[] => {
-  if (orderCache) return orderCache;
-  try {
-    orderCache = validOrder(JSON.parse(localStorage.getItem(ORDER_KEY) ?? '[]'));
-  } catch {
-    orderCache = [...AFTER_KEYS];
-  }
-  return orderCache;
-};
-export const setRoutineOrder = (order: AfterKey[]) => {
-  orderCache = validOrder(order);
-  try {
-    localStorage.setItem(ORDER_KEY, JSON.stringify(orderCache));
-  } catch {
-    /* private mode: it lasts for this visit */
-  }
-  for (const f of orderSubs) f();
-};
-const subscribeOrder = (f: () => void) => {
-  orderSubs.add(f);
-  return () => void orderSubs.delete(f);
-};
-export const useRoutineOrder = () => useSyncExternalStore(subscribeOrder, getRoutineOrder, getRoutineOrder);
+export type AfterKey = MorningAfterKey;
+export const AFTER_KEYS = AFTER_ORDER;
+export const AFTER_LABEL = AFTER_LABELS;
 
-/** The back-home blocks re-timed in `order`. They are contiguous at the end of the morning, so the leave time never moves. */
-export const applyOrder = (T: MorningTimeline, order: readonly AfterKey[]): MorningTimeline => {
-  const first = T.blocks.findIndex((b) => (AFTER_KEYS as readonly string[]).includes(b.key));
-  if (first < 0) return T;
-  const after = T.blocks.slice(first);
-  const rank = (b: TimelineBlock) => order.indexOf(b.key as AfterKey);
-  const sorted = [...after].sort((a, b) => rank(a) - rank(b));
-  if (sorted.every((b, i) => b === after[i])) return T;
-  let t = after[0]!.start;
-  const timed = sorted.map((b) => {
-    const nb = { ...b, start: t, end: t + b.mins };
-    t += b.mins;
-    return nb;
-  });
-  return { ...T, blocks: [...T.blocks.slice(0, first), ...timed] };
+/** An order an earlier build kept on this device (`logbook.morning.order`): read once and forgotten, so it can go to the server. */
+export const takeLegacyOrder = (): AfterKey[] | null => {
+  try {
+    const raw = localStorage.getItem('logbook.morning.order');
+    if (raw == null) return null;
+    localStorage.removeItem('logbook.morning.order');
+    const list = JSON.parse(raw) as unknown;
+    return Array.isArray(list) ? normalizeAfterOrder(list) : null;
+  } catch {
+    return null;
+  }
 };
 
 export type DayPatch = Partial<Pick<MorningDayOverride, 'wake' | 'miles' | 'minutes' | 'mode' | 'type'>>;
 
 /** The morning for a date: the plan, the day's override and the routine, with `patch` (a drag in progress) laid over the day. */
-export const morningOf = (sessions: Session[], override: Partial<MorningDayOverride> | null, st: MorningSettings, order: readonly AfterKey[], patch?: DayPatch | null): MorningTimeline => {
+export const morningOf = (sessions: Session[], override: Partial<MorningDayOverride> | null, st: MorningSettings, patch?: DayPatch | null): MorningTimeline => {
   const day = morningDayFor(sessions, override, st);
-  return applyOrder(buildMorning(patch ? { ...day, ...patch } : day, st), order);
+  return buildMorning(patch ? { ...day, ...patch } : day, st);
 };
 
 /** Out the door: the start of the first buffer block (null on a rest morning). */

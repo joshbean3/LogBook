@@ -6,7 +6,6 @@ import { onDeepLink } from '@/lib/native';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Signup } from '@/features/auth/AuthScreens';
-import { ContextMenuProvider } from '@/ui/ContextMenu';
 import { routeInfo } from '@/ui/nav';
 import { PushedPage } from '@/ui/PushedPage';
 import { SkeletonPage } from '@/ui/Skeleton';
@@ -192,13 +191,11 @@ export const App = () => {
     };
   }, [nav]);
   return (
-    <ContextMenuProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/setup" element={<Navigate to="/signup" replace />} />
-        <Route path="*" element={<Authed />} />
-      </Routes>
-    </ContextMenuProvider>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/setup" element={<Navigate to="/signup" replace />} />
+      <Route path="*" element={<Authed />} />
+    </Routes>
   );
 };

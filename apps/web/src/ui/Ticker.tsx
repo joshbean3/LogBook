@@ -56,7 +56,7 @@ export const Ticker = ({ value, format = (v) => String(Math.round(v)), from, onc
   });
 
   return (
-    <span className={className}>
+    <span className={className ? `tnum ${className}` : 'tnum'}>
       <span ref={out} aria-hidden="true">
         {initialText}
       </span>

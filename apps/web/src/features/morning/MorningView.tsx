@@ -1,14 +1,14 @@
-import { durationWords, fmtDate, label, MORNING_DEFAULTS, monthOf, num, relativeDay, shiftDays, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
+import { AFTER_ORDER, durationWords, fmtDate, label, MORNING_DEFAULTS, monthOf, num, relativeDay, shiftDays, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
 import { Briefcase, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { ChipButton, DatePager, IconButton, PushedHeader, Skeleton, SkeletonGroup, dateLine, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useLog, type Log } from '../log/useLog';
 import { DayEditor } from './DayEditor';
-import { clamp, morningOf, short, timeParts, useNowMinutes, useRoutineOrder, type AfterKey, type DayPatch } from './model';
+import { clamp, morningOf, short, takeLegacyOrder, timeParts, useNowMinutes, type DayPatch } from './model';
 import { RoutineEditor } from './RoutineEditor';
 import { Timeline, type BlockActions } from './Timeline';
 import './morning.css';
@@ -87,8 +87,8 @@ const LeaveBar = ({ T, isToday, now, onPress }: { T: MorningTimeline; isToday: b
 };
 
 /** One day's page inside the pager: the late note, the timeline, the leave bar. Neighbours render it inert. */
-const DayPage = ({ date, log, st, order, px, now, interactive, actions }: { date: string; log: Log; st: MorningSettings; order: AfterKey[]; px: number; now: number; interactive: boolean; actions?: (T: MorningTimeline) => BlockActions }) => {
-  const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st, order), [log.snap, date, st, order]);
+const DayPage = ({ date, log, st, px, now, interactive, actions }: { date: string; log: Log; st: MorningSettings; px: number; now: number; interactive: boolean; actions?: (T: MorningTimeline) => BlockActions }) => {
+  const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
   const isToday = date === log.today;
   const a = interactive ? actions?.(T) : undefined;
   const before = isToday && now < T.day.wake;
@@ -101,7 +101,7 @@ const DayPage = ({ date, log, st, order, px, now, interactive, actions }: { date
           Alarm in {durationWords(Math.ceil(T.day.wake - now))}
         </p>
       ) : null}
-      <Timeline T={T} order={order} px={px} isToday={isToday} now={now} interactive={interactive} actions={a} footer={(TT) => <LeaveBar T={TT} isToday={isToday} now={now} onPress={a ? () => a.editRoutine('start') : undefined} />} />
+      <Timeline T={T} px={px} isToday={isToday} now={now} interactive={interactive} actions={a} footer={(TT) => <LeaveBar T={TT} isToday={isToday} now={now} onPress={a ? () => a.editRoutine('start') : undefined} />} />
     </div>
   );
 };
@@ -131,16 +131,22 @@ export default function MorningView() {
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : t;
   const months = useMemo(() => [...new Set([monthOf(shiftDays(date, -1)), monthOf(date), monthOf(shiftDays(date, 1))])], [date]);
   const log = useLog(months);
-  const order = useRoutineOrder();
   const now = useNowMinutes();
   const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
-  const { setDay } = useMorningMutations();
+  const { setDay, settings } = useMorningMutations();
   const { mark } = useSessionMutations();
   // the dev clock (?at=) rides along when the day changes
   const go = (d: string) => nav(`${d === t ? '/morning' : `/morning/${d}`}${loc.search}`);
-  const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st, order), [log.snap, date, st, order]);
+  const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
   const px = usePx(T.leave - Math.min(st.wake, T.day.wake));
   const ready = !!log.boot && log.loaded(date);
+  // a back-home order this device kept before the server had `after.order` goes up once, unless the account already has one
+  const serverOrder = log.boot?.morningSettings.after.order;
+  useEffect(() => {
+    if (!log.boot) return;
+    const legacy = takeLegacyOrder();
+    if (legacy && (!serverOrder || serverOrder.join() === AFTER_ORDER.join()) && legacy.join() !== AFTER_ORDER.join()) settings.mutate({ after: { order: legacy } });
+  }, [!!log.boot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const actionsFor =
     (d: string) =>
@@ -187,6 +193,19 @@ export default function MorningView() {
       };
     };
 
+  // the routine editor's deep link (Settings → Morning routine): /morning?routine=1 (or /morning/routine) opens Morning with
+  // the editor up; the address then drops the flag, so Back and a reload land on the page itself
+  const [sp] = useSearchParams();
+  const wantsRoutine = sp.get('routine') === '1' || params.date === 'routine';
+  useEffect(() => {
+    if (!ready || !wantsRoutine) return;
+    actionsFor(date)(T).editRoutine();
+    const rest = new URLSearchParams(sp);
+    rest.delete('routine');
+    const q = rest.toString();
+    nav(`/morning${q ? `?${q}` : ''}`, { replace: true });
+  }, [ready, wantsRoutine]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const rel = relativeDay(date, t);
   const eyebrow =
     rel === 'Today' || rel === 'Tomorrow' || rel === 'Yesterday' ? (
@@ -225,7 +244,7 @@ export default function MorningView() {
           label="Morning"
           prevLabel="Previous morning"
           nextLabel="Next morning"
-          render={(d) => <DayPage key={d} date={d} log={log} st={st} order={order} px={px} now={now} interactive={d === date} actions={d === date ? actionsFor(d) : undefined} />}
+          render={(d) => <DayPage key={d} date={d} log={log} st={st} px={px} now={now} interactive={d === date} actions={d === date ? actionsFor(d) : undefined} />}
         />
       )}
     </div>

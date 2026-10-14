@@ -11,6 +11,8 @@ export const users = sqliteTable('users', {
   createdAt: createdAt(),
   /** When first-run onboarding finished; null sends the app to /welcome. Accounts that predate onboarding were set by migration 0006. */
   onboardedAt: text('onboarded_at'),
+  /** The training answers as JSON (`SavedTrainingProfile`): onboarding writes them, PATCH /me/training changes them. Migration 0007. */
+  trainingProfile: text('training_profile'),
 });
 
 export const authSessions = sqliteTable('auth_sessions', {

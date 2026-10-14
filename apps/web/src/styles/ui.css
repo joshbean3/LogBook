@@ -582,7 +582,8 @@ label.lrow:active {
     color var(--dur-fast);
 }
 @media (hover: hover) {
-  .chip-btn:hover:not(:disabled) {
+  /* a selected chip keeps its fill under the pointer */
+  .chip-btn:hover:not(:disabled):not(.on) {
     color: var(--ink);
     background: var(--surface-2);
   }
@@ -1173,6 +1174,7 @@ textarea.in {
   transform: scale(0.94);
 }
 .dcell-num {
+  font-variant-numeric: tabular-nums;
   font-size: 1.0625rem;
   line-height: 1.25rem;
   font-weight: 600;
@@ -1328,6 +1330,7 @@ textarea.in {
   font-size: 0.625rem;
 }
 .aura-num {
+  font-variant-numeric: tabular-nums;
   font-size: 1.375rem;
   line-height: 1.5rem;
   white-space: nowrap;

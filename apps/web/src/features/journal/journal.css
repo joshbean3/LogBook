@@ -717,12 +717,7 @@ textarea.jsheet-text {
 }
 /* quote lists, edge to edge */
 .lib-list > .lib-item {
-  padding-inline: 0;
   overflow: hidden;
-}
-.list-edge.lib-list > .cm-target > .swipe-row,
-.list-edge.lib-list > .lib-item .swipe-row {
-  padding-inline: 0;
 }
 .qrow {
   appearance: none;
@@ -849,9 +844,4 @@ textarea.jsheet-text {
 .qrow,
 .dsheet-row {
   padding-inline: 0;
-}
-/* the ContextMenu's hidden "actions" button sits 1px at a row's corner; keep it invisible until it is focused */
-.journal-page .cm-sr:not(:focus-visible),
-.dsheet .cm-sr:not(:focus-visible) {
-  opacity: 0;
 }

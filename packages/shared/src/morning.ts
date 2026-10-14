@@ -1,13 +1,24 @@
 import { clock, num, type ISODate } from './dates.js';
 import { label, tone, TYPES } from './sessions.js';
-import type { MorningDayOverride, MorningMode, MorningSettings, Session, Tone } from './types.js';
+import type { MorningAfterKey, MorningDayOverride, MorningMode, MorningSettings, Session, Tone } from './types.js';
+
+/** The back-home blocks in their default order, and their names on the timeline. */
+export const AFTER_ORDER: readonly MorningAfterKey[] = ['shower', 'ready', 'smoothie', 'prep'];
+export const AFTER_LABELS: Record<MorningAfterKey, string> = { shower: 'Shower', ready: 'Get ready', smoothie: 'Blend smoothie', prep: 'Final prep' };
+
+/** Any stored order made whole: known keys once each, in the order given, then whatever is missing in the default order. */
+export const normalizeAfterOrder = (raw: unknown): MorningAfterKey[] => {
+  const given = Array.isArray(raw) ? raw.filter((k): k is MorningAfterKey => AFTER_ORDER.includes(k as MorningAfterKey)) : [];
+  const seen = [...new Set(given)];
+  return [...seen, ...AFTER_ORDER.filter((k) => !seen.includes(k))];
+};
 
 /** The sheet's numbers: alarm 7:20, run at 7:40 at 9:00/mi, gym after a 10-minute walk, shower 8:40, door 9:30. */
 export const MORNING_DEFAULTS: MorningSettings = {
   wake: 440,
   run: { pace: 540, wakeup: 15, buffer: 5 },
   gym: { length: 40, walk: 10, wakeup: 15 },
-  after: { showerMode: 'fixed', showerAt: 520, shower: 15, ready: 15, smoothie: 5, prep: 15 },
+  after: { showerMode: 'fixed', showerAt: 520, shower: 15, ready: 15, smoothie: 5, prep: 15, order: [...AFTER_ORDER] },
   focus: { word: '', quote: '', by: '' },
 };
 export const DEFAULT_RUN_MILES = 5;
@@ -29,6 +40,7 @@ export const normalizeMorningSettings = (raw: unknown): MorningSettings => {
       ready: n(s.after?.ready, D.after.ready),
       smoothie: n(s.after?.smoothie, D.after.smoothie),
       prep: n(s.after?.prep, D.after.prep),
+      order: normalizeAfterOrder(s.after?.order),
     },
     focus: { word: String(s.focus?.word ?? ''), quote: String(s.focus?.quote ?? ''), by: String(s.focus?.by ?? '') },
   };
@@ -144,10 +156,11 @@ export const buildMorning = (day: MorningDay, st: MorningSettings): MorningTimel
   // sleeping in on a rest day is not being late
   const late = fixed && !rest ? Math.max(0, t - A.showerAt) : 0;
   if (showerAt > t) add('free', 'Free', showerAt - t);
-  add('shower', 'Shower', A.shower);
-  add('ready', 'Get ready', A.ready);
-  if (A.smoothie > 0) add('smoothie', 'Blend smoothie', A.smoothie);
-  add('prep', 'Final prep', A.prep);
+  // the back-home routine, in the athlete's order (a smoothie set to 0 is skipped)
+  for (const k of normalizeAfterOrder(A.order)) {
+    if (k === 'smoothie' && !(A.smoothie > 0)) continue;
+    add(k, AFTER_LABELS[k], A[k]);
+  }
   const leave = t;
   let fix: MorningTimeline['fix'] = null;
   if (late) {

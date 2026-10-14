@@ -6,7 +6,7 @@ import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { useHoldDrag } from '@/lib/useDrag';
 import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui';
-import { applyOrder, clamp, markTaught, short, wasTaught, type AfterKey, type DayPatch } from './model';
+import { clamp, markTaught, short, wasTaught, type DayPatch } from './model';
 
 /** What the page lets a block do (the long-press menu, a tap). Built by MorningView, which owns the sheets and toasts. */
 export interface BlockActions {
@@ -52,7 +52,7 @@ const sizeClass = (h: number) => (h < 26 ? 'xs' : h < 44 ? 'sm' : h < 66 ? 'md' 
  *
  * `interactive=false` draws the same thing inert (the date pager's neighbours).
  */
-export const Timeline = ({ T, order, px, isToday, now, interactive, actions, footer }: { T: MorningTimeline; order: readonly AfterKey[]; px: number; isToday: boolean; now: number; interactive: boolean; actions?: BlockActions; footer?: (live: MorningTimeline) => ReactNode }) => {
+export const Timeline = ({ T, px, isToday, now, interactive, actions, footer }: { T: MorningTimeline; px: number; isToday: boolean; now: number; interactive: boolean; actions?: BlockActions; footer?: (live: MorningTimeline) => ReactNode }) => {
   const reduce = useReducedMotion();
   const menu = useContextMenu();
   const [draft, setDraft] = useState<DayPatch | null>(null);
@@ -63,7 +63,7 @@ export const Timeline = ({ T, order, px, isToday, now, interactive, actions, foo
   const armedRef = useRef(false);
   const wakeEl = useRef<HTMLDivElement | null>(null);
   const patch = draft ?? held;
-  const TT = useMemo(() => (patch ? applyOrder(buildMorning({ ...T.day, ...patch }, T.settings), order) : T), [T, patch, order]);
+  const TT = useMemo(() => (patch ? buildMorning({ ...T.day, ...patch }, T.settings) : T), [T, patch]);
 
   useEffect(() => {
     if (!held) return;

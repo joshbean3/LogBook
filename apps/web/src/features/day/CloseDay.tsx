@@ -1,9 +1,10 @@
 import { floorFor, label, mi, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
 import { Share } from 'lucide-react';
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { usePick, useSessionMutations, useTodos } from '@/api/queries';
 import { useSheet } from '@/ui';
 import { Composer, EntryItem } from '../journal/JournalDaySection';
+import { useDayPrompt } from '../journal/prompt';
 import type { Log } from '../log/useLog';
 import { TodaysPick } from '../reads/TodaysPick';
 import { shareDataFor } from '../sessions/SessionCard';
@@ -12,29 +13,15 @@ import { groupsOn } from '../todos/groups';
 import { runTotals } from './dayWords';
 import { HoldRing } from './HoldRing';
 
-/** "Speed 5 done. How did it feel?": the composer's prompt, built from the day. */
-export const journalPrompt = (ph: DayPhase | null, miles: number, isToday: boolean): string => {
-  const p = ph?.training[0] ?? null;
-  if (p && (p.key === 'done' || p.key === 'floor')) return `${label(p.session)} ${p.key === 'floor' ? 'at the floor' : 'done'}${miles > 0 ? `, ${mi(miles)} mi` : ''}. How did it feel?`;
-  if (!p && miles > 0) return `${mi(miles)} mi off the plan. How did it feel?`;
-  if (p && p.key === 'today') return `${label(p.session)} still open. What got in the way?`;
-  if (p && p.key === 'missed') return `${label(p.session)} slipped. What got in the way?`;
-  return isToday ? 'A rest day. What filled it?' : 'Two sentences on the day.';
-};
-
-/** The composer the Journal team owns, with the day's prompt as its placeholder (set on the field itself: the export takes no placeholder yet). */
-const DayComposer = ({ date, today, prompt }: { date: ISODate; today: ISODate; prompt: string }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const ta = ref.current?.querySelector('textarea');
-    if (ta && ta.placeholder !== prompt) ta.placeholder = prompt;
-  });
-  return (
-    <div ref={ref} className="cd-composer">
-      <Composer date={date} today={today} rows={2} />
-    </div>
-  );
-};
+/**
+ * The Journal's composer with the day's own prompt ("Speed 5 done, 5.02 mi. How did it feel?"), from the same status source
+ * as the hero. No toast: the entry lands in this card.
+ */
+const DayComposer = ({ date, today }: { date: ISODate; today: ISODate }) => (
+  <div className="cd-composer">
+    <Composer date={date} today={today} rows={2} placeholder={useDayPrompt(date)} toast={false} />
+  </div>
+);
 
 /** A session still open in the evening: its stamp, the floor, and the hold ring, so the day can still be closed honestly. */
 const OpenLine = ({ p, onOpen }: { p: PhaseSession; onOpen: () => void }) => {
@@ -111,7 +98,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }
           ))}
         </div>
       ) : null}
-      {!still ? <DayComposer date={date} today={log.today} prompt={journalPrompt(ph, t.miles, isToday)} /> : null}
+      {!still ? <DayComposer date={date} today={log.today} /> : null}
       {entries.length && !still ? (
         <button type="button" className="aura-share cd-share" onClick={share}>
           <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share the day
