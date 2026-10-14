@@ -1,8 +1,8 @@
-import { MORNING_DEFAULTS, monthOf } from '@logbook/shared';
+import { monthOf } from '@logbook/shared';
 import { useMemo } from 'react';
 import { useLog } from '../log/useLog';
 import { MiniLine } from './MiniLine';
-import { morningOf, useNowMinutes } from './model';
+import { morningOf, ROUTINE_DEFAULTS, useNowMinutes } from './model';
 
 /**
  * The morning as one line, for anyone who wants it (Today's hero, a widget): wake → door → back → leave as four stops with
@@ -22,7 +22,7 @@ import { morningOf, useNowMinutes } from './model';
 export const MorningMini = ({ date }: { date: string }) => {
   const log = useLog([monthOf(date)]);
   const now = useNowMinutes();
-  const st = log.boot?.morningSettings ?? MORNING_DEFAULTS;
+  const st = log.boot?.morningSettings ?? ROUTINE_DEFAULTS;
   const ready = !!log.boot && log.loaded(date);
   const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
   if (!ready) return null;

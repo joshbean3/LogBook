@@ -15,7 +15,12 @@ const C = 2 * Math.PI * R;
  * Hold-to-complete: the deliberate way to mark a session done by hand (Streaks' grammar). The ring fills while the thumb rests
  * on it (400ms); full, it pops on `springs.complete`, fires `haptics.success()` and calls `onComplete`. Let go early and it
  * drains back; a quick tap is `onTap` (the session sheet). Keyboard and VoiceOver: Enter or Space completes at once.
- * Its pointer events stop at the ring, so the hero's date pager and context menu never see a hold that starts here.
+ *
+ * - The press is not stopped at the ring: a swipe that starts on it still pages the day (the date pager takes the pointer
+ *   once the finger travels; the ring has let go by then). The hero's long-press ignores presses that start on `.hold-ring`,
+ *   so a hold here is only ever a completion.
+ * - A quick tap opens the sheet on the click, not on pointerup: the click a touch makes after pointerup would otherwise land
+ *   on the sheet's new scrim and close it again. If no click follows (a browser that drops it), a short timer opens it.
  */
 export const HoldRing = ({ label, onComplete, onTap }: { label: string; onComplete: () => void; onTap: () => void }) => {
   const reduce = useReducedMotion();
@@ -23,7 +28,15 @@ export const HoldRing = ({ label, onComplete, onTap }: { label: string; onComple
   const dash = useTransform(p, (v) => C * (1 - v));
   const [done, setDone] = useState(false);
   const g = useRef<{ id: number; x: number; y: number; t: number; anim: ReturnType<typeof animate> | null } | null>(null);
-  useEffect(() => () => g.current?.anim?.stop(), []);
+  const tapAt = useRef(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(
+    () => () => {
+      g.current?.anim?.stop();
+      clearTimeout(tapTimer.current);
+    },
+    [],
+  );
 
   const finish = () => {
     g.current = null;
@@ -41,6 +54,11 @@ export const HoldRing = ({ label, onComplete, onTap }: { label: string; onComple
     g.current = null;
     drain();
   };
+  const tap = () => {
+    clearTimeout(tapTimer.current);
+    tapAt.current = 0;
+    onTap();
+  };
 
   return (
     <motion.button
@@ -50,7 +68,6 @@ export const HoldRing = ({ label, onComplete, onTap }: { label: string; onComple
       animate={done && !reduce ? { scale: [1, COMPLETE_SCALE, 1] } : { scale: 1 }}
       transition={springs.complete}
       onPointerDown={(e) => {
-        e.stopPropagation();
         if (done || (e.pointerType === 'mouse' && e.button !== 0)) return;
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -64,23 +81,29 @@ export const HoldRing = ({ label, onComplete, onTap }: { label: string; onComple
         const s = g.current;
         if (s && e.pointerId === s.id && Math.hypot(e.clientX - s.x, e.clientY - s.y) > SLOP) cancel();
       }}
-      onPointerUp={(e) => {
-        e.stopPropagation();
+      onPointerUp={() => {
         const s = g.current;
         if (!s) return;
         const quick = performance.now() - s.t < TAP_MS;
         cancel();
-        if (quick) onTap();
+        if (!quick) return;
+        // wait for the click (see above); open anyway if none comes
+        tapAt.current = performance.now();
+        clearTimeout(tapTimer.current);
+        tapTimer.current = setTimeout(() => tapAt.current && tap(), 350);
       }}
       onPointerCancel={cancel}
+      onLostPointerCapture={cancel}
       onContextMenu={(e) => e.preventDefault()}
       onClick={(e) => {
         e.stopPropagation();
-        // a pointer's click is handled above; this is Enter / Space (detail 0)
+        // Enter / Space (detail 0) completes at once
         if (e.detail === 0 && !done) {
           p.set(1);
           finish();
+          return;
         }
+        if (tapAt.current && performance.now() - tapAt.current < 600) tap();
       }}
     >
       <svg viewBox="0 0 56 56" aria-hidden="true">

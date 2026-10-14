@@ -193,12 +193,24 @@
 }
 .hs-stamps {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 .hs-stamp {
   display: grid;
   gap: 4px;
+  min-width: 0;
+}
+.hs-stamp .caps {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hs-start {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
 }
 .hs-num {
   font-variant-numeric: tabular-nums;

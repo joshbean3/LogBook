@@ -1,22 +1,24 @@
-import { clock, dayPhase, decodePolyline, durationWords, fmtDate, floorFor, label, mi, mondayOf, relativeDay, routePath, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type PhaseSession, type SessionMark } from '@logbook/shared';
-import { CalendarPlus, Check, ChevronsDown, ExternalLink, HeartPulse, MoveRight, Share, SkipForward, Sunrise } from 'lucide-react';
-import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { clock, dayPhase, decodePolyline, durationWords, fmtDate, floorFor, label, mi, mondayOf, num, relativeDay, routePath, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type MorningAfterKey, type MorningSettings, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
+import { CalendarPlus, Check, ChevronRight, ChevronsDown, HeartPulse, MoveRight, Share, SkipForward, Sunrise, Undo2 } from 'lucide-react';
+import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
-import { springs } from '@/lib/motion';
-import { ContextMenu, shared, Ticker, useFirstToday, useSheet, useToast, WeekRing, type ContextMenuItem } from '@/ui';
+import { rowPresence, springs } from '@/lib/motion';
+import { Button, shared, Stepper, Ticker, useFirstToday, useSheet, useToast, WeekRing, type ContextMenuItem } from '@/ui';
 import type { Log } from '../log/useLog';
-import { openMoveSheet } from '../sessions/MoveSheet';
+import { isAfterKey, morningOf, routineName } from '../morning/model';
 import { useOpenWeek } from '../progress/sheets';
+import { useSessionActions } from '../sessions/actions';
 import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
-import { SessionEditor } from '../sessions/SessionEditor';
 import { ShareSheet } from '../share/ShareSheet';
 import { CloseDay } from './CloseDay';
 import { doneVerdict, planLine, ringDays, runTotals, shortClock } from './dayWords';
 import { HoldRing } from './HoldRing';
-import { MiniTimeline, OutLine } from './MiniTimeline';
+import { sessionMiles, weekMiles } from './miles';
+import { MiniTimeline, OutLine, type Stop } from './MiniTimeline';
+import { useHoldMenu } from './useHoldMenu';
 
 export type HeroState = 'morning' | 'out' | 'done' | 'open' | 'rest' | 'evening' | 'past' | 'future';
 type Halo = 'done' | 'floor' | 'missed' | 'upcoming' | 'rest';
@@ -41,6 +43,45 @@ const haloOf = (p: PhaseSession | null, hasRuns: boolean): Halo => {
     default:
       return 'upcoming';
   }
+};
+
+/** "Morning" / "Afternoon" / "Evening" / "Night" from a run's `HH:MM` start: the bonus run's eyebrow. */
+export const timeOfDay = (time: string | null | undefined): string => {
+  const h = Number(/^(\d{1,2}):/.exec(time ?? '')?.[1] ?? NaN);
+  if (!Number.isFinite(h)) return 'Off the plan';
+  if (h < 5) return 'Night';
+  if (h < 12) return 'Morning';
+  if (h < 17) return 'Afternoon';
+  if (h < 21) return 'Evening';
+  return 'Night';
+};
+
+/** Miles as the hero says them while they tick and at rest: "3.8", "4", "4.5". */
+const tenth = (v: number) => String(Math.round(v * 10) / 10);
+
+/** Short names for the routine's blocks on the hero's line, where four stops share 300px. */
+const STOP_WORD: Record<string, string> = { shower: 'Shower', ready: 'Ready', smoothie: 'Eat', prep: 'Prep' };
+/** The block's own name when it is one short word ("Shower"), else the short word; "Out the door" reads "Out". */
+const stopWord = (st: MorningSettings, k: MorningAfterKey) => {
+  const name = routineName(st, k);
+  if (/^out the door$/i.test(name)) return 'Out';
+  return /^\S{1,7}$/.test(name) ? name : STOP_WORD[k]!;
+};
+
+/** A rest morning on the hero's line: alarm, the routine's first and last block, leave. Null without a timeline. */
+const restStops = (log: Log, date: ISODate): Stop[] | null => {
+  const st = log.boot?.morningSettings;
+  if (!st) return null;
+  const T = morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st);
+  const routine = T.blocks.filter((b) => isAfterKey(b.key));
+  const first = routine[0];
+  const last = routine.length > 1 ? routine[routine.length - 1] : undefined;
+  return [
+    { key: 'wake', label: 'Alarm', at: T.day.wake },
+    ...(first ? [{ key: 'first', label: stopWord(st, first.key as MorningAfterKey), at: first.start }] : []),
+    ...(last ? [{ key: 'last', label: stopWord(st, last.key as MorningAfterKey), at: last.start }] : []),
+    { key: 'leave', label: 'Leave', at: T.leave },
+  ];
 };
 
 /**
@@ -75,32 +116,60 @@ const Route = ({ runs, drawKey }: { runs: Activity[]; drawKey: string | null }) 
   );
 };
 
-/** DISTANCE · PACE · TIME, ticking up once on the day's first view of this run. */
-const RunStamps = ({ runs, tickKey }: { runs: Activity[]; tickKey: string | null }) => {
+/** One stamp of the hero's row: caps label over a number that ticks up on the day's first view of this run. */
+const HeroStat = ({ k, children }: { k: string; children: ReactNode }) => (
+  <span className="aura-stat">
+    <span className="caps">{k}</span>
+    <span className="stamp aura-num">{children}</span>
+  </span>
+);
+
+/**
+ * The stamps under a run. A planned run: DISTANCE · PACE · TIME. A bonus run's verdict already says the miles and the pace,
+ * so its stamps are TIME and HR (or the climb when there was no heart rate), never a dash or a zero.
+ */
+const RunStamps = ({ runs, tickKey, bonus }: { runs: Activity[]; tickKey: string | null; bonus?: boolean }) => {
   const t = runTotals(runs);
   const paceSec = t.miles > 0.1 ? t.sec / t.miles : 0;
+  const hrs = runs.filter((r) => r.avgHr);
+  const hr = hrs.length ? Math.round(hrs.reduce((a, r) => a + (r.avgHr ?? 0) * r.movingSec, 0) / Math.max(1, hrs.reduce((a, r) => a + r.movingSec, 0))) : 0;
+  const elev = Math.round(runs.reduce((a, r) => a + r.elevFt, 0));
+  const once = (k: string) => (tickKey ? `${tickKey}-${k}` : undefined);
+  const time = t.sec > 0 ? (
+    <HeroStat k="Time">
+      <Ticker value={t.sec} format={(v) => clock(v)} from={0} onceADay={once('time')} />
+    </HeroStat>
+  ) : null;
+  if (bonus)
+    return (
+      <div className="aura-stats hero-stats hero-stats-2">
+        {time}
+        {hr ? (
+          <HeroStat k="Avg HR">
+            <Ticker value={hr} from={Math.round(hr * 0.8)} onceADay={once('hr')} />
+            <small>bpm</small>
+          </HeroStat>
+        ) : elev > 0 ? (
+          <HeroStat k="Climb">
+            <Ticker value={elev} from={0} onceADay={once('elev')} />
+            <small>ft</small>
+          </HeroStat>
+        ) : null}
+      </div>
+    );
   return (
     <div className="aura-stats hero-stats">
-      <span className="aura-stat">
-        <span className="caps">Distance</span>
-        <span className="stamp aura-num">
-          <Ticker value={t.miles} format={mi} from={0} onceADay={tickKey ? `${tickKey}-mi` : undefined} />
-          <small>mi</small>
-        </span>
-      </span>
-      <span className="aura-stat">
-        <span className="caps">Pace</span>
-        <span className="stamp aura-num">
-          {paceSec ? <Ticker value={paceSec} format={(v) => clock(v)} from={paceSec * 1.25} onceADay={tickKey ? `${tickKey}-pace` : undefined} /> : '—'}
-          {paceSec ? <small>/mi</small> : null}
-        </span>
-      </span>
-      <span className="aura-stat">
-        <span className="caps">Time</span>
-        <span className="stamp aura-num">
-          <Ticker value={t.sec} format={(v) => clock(v)} from={0} onceADay={tickKey ? `${tickKey}-time` : undefined} />
-        </span>
-      </span>
+      <HeroStat k="Distance">
+        <Ticker value={t.miles} format={mi} from={0} onceADay={once('mi')} />
+        <small>mi</small>
+      </HeroStat>
+      {paceSec ? (
+        <HeroStat k="Pace">
+          <Ticker value={paceSec} format={(v) => clock(v)} from={paceSec * 1.25} onceADay={once('pace')} />
+          <small>/mi</small>
+        </HeroStat>
+      ) : null}
+      {time}
     </div>
   );
 };
@@ -126,16 +195,125 @@ const upNext = (log: Log, date: ISODate) => {
   return { ...next, fresh, when: tomorrow ? 'Tomorrow' : fmtDate('dowLong', next.d) };
 };
 
+/** A rest morning before work: still a countdown and the way into Morning. Null once you have left (or with no timeline). */
+const restMorning = (log: Log, date: ISODate, ph: DayPhase) => {
+  if (date !== log.today || ph.phase !== 'rest' || ph.training.length) return null;
+  const stops = restStops(log, date);
+  if (!stops) return null;
+  const wake = stops[0]!.at;
+  const leave = stops[stops.length - 1]!.at;
+  if (ph.now >= leave) return null;
+  return { stops, wake, leave };
+};
+
 interface FaceCtx {
   date: ISODate;
   log: Log;
   ph: DayPhase;
   live: boolean;
+  /** the session was completed while this hero was on screen: the done face makes its entrance */
+  fresh: boolean;
   onShare: () => void;
   onMorning: () => void;
   onOpen: (p: PhaseSession | null) => void;
   onComplete: (p: PhaseSession) => void;
 }
+
+/** The Share pill on a hero: its own tap, never the card's. */
+const SharePill = ({ onShare }: { onShare: () => void }) => (
+  <button
+    type="button"
+    className="aura-share hero-share"
+    onClick={(e) => {
+      e.stopPropagation();
+      onShare();
+    }}
+  >
+    <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share
+  </button>
+);
+
+/** "Ran a different distance?": a one-row stepper in half miles that writes what was run onto the session. */
+const DistanceRow = ({ s, onClose }: { s: Session; onClose: () => void }) => {
+  const { upsert } = useSessionMutations();
+  const toast = useToast();
+  const [v, setV] = useState(Number(s.miles) || 1);
+  const save = () => {
+    if (v !== s.miles) {
+      upsert.mutate({ id: s.id, date: s.date, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: v, minutes: s.minutes });
+      haptics.toggle();
+      toast(`${num(v)} mi logged`);
+    }
+    onClose();
+  };
+  return (
+    <motion.div className="hero-dist" {...rowPresence} onClick={(e) => e.stopPropagation()}>
+      <div className="hero-dist-in">
+        <Stepper value={v} onChange={setV} step={0.5} min={0.5} max={60} format={(x) => `${num(x)} mi`} parse={(t) => (Number.isFinite(parseFloat(t)) ? Math.round(parseFloat(t) * 2) / 2 : null)} label="Miles run" inputProps={{ inputMode: 'decimal', autoComplete: 'off' }} />
+        <Button variant="primary" onClick={save}>
+          Save
+        </Button>
+      </div>
+    </motion.div>
+  );
+};
+
+/**
+ * A session done with nothing from Strava: "4 mi. Done." with a check that pops in, the miles ticking up the first time the
+ * day sees it, the Share pill, and a quiet way to say the run was longer or shorter than the plan.
+ */
+const DoneFace = ({ c, p }: { c: FaceCtx; p: PhaseSession }) => {
+  const reduce = useReducedMotion();
+  const [adjust, setAdjust] = useState(false);
+  const run = p.session.kind === 'run';
+  const m = sessionMiles(c.log.snap, c.date, p.session);
+  const pop = c.fresh && !reduce;
+  const line = run && m.miles > 0 ? null : p.session.kind === 'lift' ? 'Lifted.' : `${label(p.session)}.`;
+  // where the run leaves the week, counted the same way (logged by hand or tracked)
+  const week = useMemo(() => {
+    const ran = weekMiles(c.log.snap, c.date).reduce((t, d) => t + d.miles, 0);
+    const plan = weekSummary(c.log.snap, mondayOf(c.date)).plannedMiles;
+    return run && plan > 0 ? `${tenth(ran)} of ${tenth(plan)} mi this week.` : null;
+  }, [c.log.snap, c.date, run]);
+  return (
+    <div className="hero-face hero-done">
+      <Stamp p={p} live={c.live} />
+      <h2 className="hero-line display hero-done-line">
+        <motion.span className="hero-check" aria-hidden="true" initial={pop ? { scale: 0.4, opacity: 0 } : false} animate={{ scale: 1, opacity: 1 }} transition={springs.complete}>
+          <Check size={18} strokeWidth={3} />
+        </motion.span>
+        <span>
+          {line ?? (
+            <>
+              <Ticker value={m.miles} format={tenth} from={0} onceADay={c.live ? `done-${p.session.id}` : undefined} /> mi.
+            </>
+          )}{' '}
+          Done.
+        </span>
+      </h2>
+      {week ? <p className="hero-plan">{week}</p> : null}
+      {c.live ? (
+        <div className="hero-done-tools">
+          <SharePill onShare={c.onShare} />
+          {run && m.source === 'planned' ? (
+            <button
+              type="button"
+              className="hero-dist-ask"
+              aria-expanded={adjust}
+              onClick={(e) => {
+                e.stopPropagation();
+                setAdjust((a) => !a);
+              }}
+            >
+              Ran a different distance?
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <AnimatePresence initial={false}>{adjust && c.live ? <DistanceRow key="dist" s={p.session} onClose={() => setAdjust(false)} /> : null}</AnimatePresence>
+    </div>
+  );
+};
 
 /** One page of the hero: what this session (or this day) needs you to see now. */
 const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: number }) => {
@@ -180,33 +358,33 @@ const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: numb
       </div>
     );
   }
-  // done or at the floor, or a run off the plan
-  if ((p && (p.key === 'done' || p.key === 'floor')) || (!p && runs.length)) {
-    const drawKey = live && myRuns[0] ? `route-${myRuns[0].id}` : null;
+  // a run off the plan: when it happened, the BONUS chip, the verdict with miles and pace, then TIME and HR
+  if (!p && runs.length) {
+    const drawKey = live ? `route-${runs[0]!.id}` : null;
     return (
       <div className="hero-face">
         <div className="hero-labelrow">
-          <Stamp p={p} live={live}>
-            {p ? undefined : 'Bonus run'}
-          </Stamp>
-          <span className={`hero-word k-${p?.key ?? 'bonus'}`}>{p?.word ?? 'Bonus'}</span>
+          <span className="caps hero-eyebrow">{timeOfDay(runs[0]!.time)}</span>
+          <span className="hero-word k-bonus">Bonus</span>
         </div>
+        <Route runs={runs} drawKey={drawKey} />
+        <h2 className="hero-line display">{doneVerdict(null, runs)}</h2>
+        <RunStamps runs={runs} tickKey={drawKey} bonus />
+        {live ? <SharePill onShare={c.onShare} /> : null}
+      </div>
+    );
+  }
+  // done or at the floor
+  if (p && (p.key === 'done' || p.key === 'floor')) {
+    if (p.key === 'done' && !myRuns.length) return <DoneFace c={c} p={p} />;
+    const drawKey = live && myRuns[0] ? `route-${myRuns[0].id}` : null;
+    return (
+      <div className="hero-face">
+        <Stamp p={p} live={live} />
         <Route runs={myRuns} drawKey={drawKey} />
         <h2 className="hero-line display">{doneVerdict(p, myRuns)}</h2>
-        {myRuns.length ? <RunStamps runs={myRuns} tickKey={drawKey} /> : p ? <p className="hero-plan">{planLine(p.session, '') || label(p.session)}</p> : null}
-        {myRuns.length && live ? (
-          <button
-            type="button"
-            className="aura-share hero-share"
-            onClick={(e) => {
-              e.stopPropagation();
-              c.onShare();
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share
-          </button>
-        ) : null}
+        {myRuns.length ? <RunStamps runs={myRuns} tickKey={drawKey} /> : <p className="hero-plan">{planLine(p.session, '') || label(p.session)}</p>}
+        {myRuns.length && live ? <SharePill onShare={c.onShare} /> : null}
       </div>
     );
   }
@@ -214,6 +392,22 @@ const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: numb
     // nothing planned: rest, said as a fact that counts
     const next = nextSession(log, date);
     const up = upNext(log, date);
+    const rm = lead ? restMorning(log, date, ph) : null;
+    if (rm) {
+      // a rest morning before work: the countdown and the way into Morning stay
+      const before = ph.now < rm.wake;
+      return (
+        <div className="hero-face hero-restmorning">
+          <span className="caps hero-eyebrow">Rest day</span>
+          <h2 className="hero-line display">Rest. It counts.</h2>
+          <p className="hero-plan">
+            {before ? `Alarm in ${durationWords(Math.ceil(rm.wake - ph.now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - ph.now))}`}
+            {up ? ` · ${up.when}: ${label(up.s)}` : ''}
+          </p>
+          <MiniTimeline stops={rm.stops} now={ph.now} onPress={c.onMorning} label={`Rest morning: alarm ${shortClock(rm.wake)}, leave ${shortClock(rm.leave)}. Open Morning`} />
+        </div>
+      );
+    }
     if (up) {
       // what comes next leads: "Tomorrow: Easy 4." and its door time from that morning's timeline
       const nph = phaseOf(log, up.d, ph.now);
@@ -264,7 +458,7 @@ const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: numb
       </div>
       <Stamp p={p} big live={live} />
       <p className="hero-plan">
-        {future ? planLine(p.session, floor) : p.key === 'missed' ? 'Missed. The week still counts.' : p.key === 'skipped' ? (p.session.mark === 'sick' ? 'Skipped to recover. It counts for the week.' : 'Skipped.') : p.word}
+        {p.key === 'skipped' ? (p.session.mark === 'sick' ? 'Skipped to recover. It counts for the week.' : 'Skipped.') : future ? planLine(p.session, floor) : p.key === 'missed' ? 'Missed. The week still counts.' : p.word}
       </p>
       {future && lead && ph.doorAt != null ? <p className="hero-sub">Out the door {shortClock(ph.doorAt)}.</p> : null}
     </div>
@@ -277,7 +471,7 @@ const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: numb
  * not run underneath it.
  */
 const usePullToMorning = (enabled: boolean, onCommit: () => void) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
   const y = useMotionValue(0);
   const fire = useRef(onCommit);
   fire.current = onCommit;
@@ -329,23 +523,37 @@ const usePullToMorning = (enabled: boolean, onCommit: () => void) => {
   return { ref, y };
 };
 
+/** The share card's data for a day whose miles are logged by hand: the session's miles, and the week counted the same way. */
+const shareFor = (date: ISODate, s: Session | null, runs: Activity[], log: Log) => {
+  const data = shareDataFor(date, s, runs, log);
+  if (runs.length || !s) return data;
+  const m = sessionMiles(log.snap, date, s).miles;
+  const days = weekMiles(log.snap, date);
+  const total = days.reduce((t, d) => t + d.miles, 0);
+  return { ...data, miles: m, verdict: m > 0 ? `${num(m)} mi. Done.` : data.verdict, week: data.week ? { ...data.week, days, total } : data.week };
+};
+
 /**
  * The time-aware hero (docs/experience.md §5.1). One card, lit from below, whose content follows `dayPhase`: the countdown
- * and mini timeline before the door, "Back by" while out, the route and stamps once the run lands, the hold-to-complete
- * ring for a session still open, rest as a fact that counts, Close the day in the evening, and a quieter look back or ahead
- * on other days. Two sessions page inside it, with dots. The week ring sits in its corner. `live` is false for the
+ * and mini timeline before the door (and on a rest morning before work), "Back by" while out, the route and stamps once the
+ * run lands, "4 mi. Done." for a run marked done by hand, the hold-to-complete ring for a session still open, rest as a fact
+ * that counts, Close the day in the evening, and a quieter look back or ahead on other days. Two sessions page inside it,
+ * with dots. The week ring sits in its corner. Hold the card (anywhere but the ring) for its menu. `live` is false for the
  * neighbouring days drawn beside it while the date pager moves: those are still and claim no shared ids or daily moments.
  */
 export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; minutes: number; live: boolean }) => {
   const ph = useMemo(() => phaseOf(log, date, minutes), [log, date, minutes]);
+  const reduce = useReducedMotion();
   const nav = useNavigate();
   const sheet = useSheet();
   const toast = useToast();
   const openSession = useOpenSession(log);
   const openUnplanned = useOpenUnplanned();
+  const act = useSessionActions(log);
   const { mark } = useSessionMutations();
   const [page, setPage] = useState(0);
   const [boost, setBoost] = useState(false);
+  const [fresh, setFresh] = useState(false);
   const isToday = date === log.today;
   const runs = log.snap.runsOn(date);
   const pages: Array<PhaseSession | null> = ph.training.length ? ph.training : [ph.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null];
@@ -374,7 +582,7 @@ export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; mi
     if (p) openSession(date, p.session, { fromHero: true, sharedId: `session-${p.session.id}` });
     else if (runs.length) openUnplanned(date, runs, log);
   };
-  const share = () => sheet.open({ title: 'Share', body: <ShareSheet data={shareDataFor(date, cur?.session ?? null, runs, log)} /> });
+  const share = () => sheet.open({ title: 'Share', body: <ShareSheet data={shareFor(date, cur?.session ?? null, runs, log)} initial={runs.some((r) => r.polyline) ? 'route' : runs.length ? undefined : 'bubble'} /> });
   const setMark = (p: PhaseSession, m: SessionMark | null, word?: string) => {
     const was = p.session.mark;
     mark.mutate({ session: p.session, mark: m });
@@ -383,121 +591,142 @@ export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; mi
   /** the click that ends a completing hold lands on the new face: it is not a tap */
   const quietUntil = useRef(0);
   const complete = (p: PhaseSession) => {
-    // the ring fired Success at its peak; the halo brightens for the day's first completion
+    // the ring fired Success at its peak; the halo blooms (the day's first completion), the check pops, the miles tick
     quietUntil.current = Date.now() + 700;
     setMark(p, 'done');
     setBoost(true);
+    setFresh(true);
   };
-  const c: FaceCtx = { date, log, ph, live, onShare: share, onMorning: () => nav(morningPath), onOpen: open, onComplete: complete };
+  const c: FaceCtx = { date, log, ph, live, fresh, onShare: share, onMorning: () => nav(morningPath), onOpen: open, onComplete: complete };
 
   const evening = isToday && ph.phase === 'evening';
-  const pull = usePullToMorning(live && isToday && (ph.phase === 'morning' || ph.phase === 'out'), () => nav(morningPath));
+  const rm = !cur && !runs.length ? restMorning(log, date, ph) : null;
+  const pull = usePullToMorning(live && isToday && (ph.phase === 'morning' || ph.phase === 'out' || !!rm), () => nav(morningPath, { state: { enter: 'pull' } }));
 
-  const items: ContextMenuItem[] = [];
-  if (cur) {
-    items.push({ label: 'Open', icon: <ExternalLink size={18} />, onSelect: () => open(cur) });
-    if (cur.key === 'today' || cur.key === 'missed' || cur.key === 'skipped')
-      items.push(
-        { label: 'Done', icon: <Check size={18} />, onSelect: () => (haptics.success(), complete(cur)) },
-        { label: 'Floor', icon: <ChevronsDown size={18} />, onSelect: () => (haptics.toggle(), setMark(cur, 'floor')) },
-      );
-    if (cur.key === 'today' || cur.key === 'planned') {
-      items.push({ label: 'Skip', icon: <SkipForward size={18} />, onSelect: () => setMark(cur, 'skip', 'Skipped') });
-      items.push({ label: 'Not feeling 100%', icon: <HeartPulse size={18} />, onSelect: () => setMark(cur, 'sick', 'Skipped to recover. The week still counts.') });
-      items.push({ label: 'Move', icon: <MoveRight size={18} />, onSelect: () => openMoveSheet(sheet, date, cur.session) });
-    }
-  }
-  if (runs.length) items.push({ label: 'Share', icon: <Share size={18} />, onSelect: share });
-  if (isToday) items.push({ label: 'Morning', icon: <Sunrise size={18} />, onSelect: () => nav(morningPath) });
-  items.push({ label: 'Add a session', icon: <CalendarPlus size={18} />, onSelect: () => sheet.open({ title: 'Add session', body: <SessionEditor date={date} session={null} /> }) });
+  /** The long-press menu: every gesture's action, in the order a runner reaches for them. */
+  const items = (): ContextMenuItem[] => {
+    const list: ContextMenuItem[] = [];
+    if (cur) {
+      const s = cur.session;
+      const manualDone = cur.key === 'done' && s.mark === 'done';
+      if (!evening) list.push({ label: 'Open', icon: <ChevronRight size={18} />, onSelect: () => open(cur) });
+      if (cur.key === 'today' || cur.key === 'missed' || cur.key === 'skipped')
+        list.push(
+          { label: 'Done', icon: <Check size={18} />, onSelect: () => (haptics.success(), complete(cur)) },
+          { label: 'Floor', icon: <ChevronsDown size={18} />, onSelect: () => (haptics.toggle(), setMark(cur, 'floor', `Floor met. ${floorFor(s) || '20 min'} is a day kept.`)) },
+        );
+      if (manualDone) list.push({ label: 'Not done', icon: <Undo2 size={18} />, onSelect: () => (haptics.toggle(), setMark(cur, null)) });
+      if (cur.key === 'today' || cur.key === 'planned') {
+        list.push({ label: 'Skip', icon: <SkipForward size={18} />, onSelect: () => (haptics.toggle(), setMark(cur, 'skip', `${label(s)} skipped`)) });
+        list.push({ label: 'Move', icon: <MoveRight size={18} />, onSelect: () => act.move(date, s) });
+        list.push({ label: 'Not feeling 100%', icon: <HeartPulse size={18} />, onSelect: () => act.sick(date, s) });
+      }
+    } else if (runs.length) list.push({ label: 'Open', icon: <ChevronRight size={18} />, onSelect: () => open(null) });
+    if (runs.length || (cur?.key === 'done' && cur.session.kind === 'run')) list.push({ label: 'Share', icon: <Share size={18} />, onSelect: share });
+    if (isToday && !evening) list.push({ label: 'Morning', icon: <Sunrise size={18} />, onSelect: () => nav(morningPath) });
+    list.push({ label: 'Add a session', icon: <CalendarPlus size={18} />, onSelect: () => act.add(date) });
+    return list;
+  };
+
+  const halo = haloOf(cur, runs.length > 0);
+  // a rest day led by tomorrow's session: the card opens that session
+  const up = !cur && !runs.length && !rm ? upNext(log, date) : null;
+  const pressable = !!cur || runs.length > 0 || !!up || !!rm;
+  const name = cur ? `${label(cur.session)}, ${cur.word}` : runs.length ? 'Bonus run' : up ? `${up.when}: ${label(up.s)}` : 'Rest day';
+  const hm = useHoldMenu(items, evening ? 'Close the day' : name, { disabled: !live });
 
   const corner = <HeroWeekRing date={date} log={log} still={!live} />;
   if (evening)
     return (
-      <div className="hero-slot">
+      <div
+        className="hero-slot"
+        ref={(n) => {
+          hm.ref.current = n;
+        }}
+        {...hm.bind}
+      >
         <CloseDay date={date} log={log} ph={ph} onOpenSession={open} still={!live} corner={<span className="hero-corner-in">{corner}</span>} asHero />
+        {hm.sr}
       </div>
     );
 
-  const halo = haloOf(cur, runs.length > 0);
-  // a rest day led by tomorrow's session: the card opens that session
-  const up = !cur && !runs.length ? upNext(log, date) : null;
-  const pressable = !!cur || runs.length > 0 || !!up;
-  const name = cur ? `${label(cur.session)}, ${cur.word}` : runs.length ? 'Bonus run' : up ? `${up.when}: ${label(up.s)}` : 'Rest day';
-  const openHero = () => (up ? openSession(up.d, up.s) : open(cur));
+  const openHero = () => (rm ? nav(morningPath) : up ? openSession(up.d, up.s) : open(cur));
   return (
     <div className="hero-slot">
-      <ContextMenu items={items} label={name} disabled={!live}>
-        <motion.div
-          ref={pull.ref}
-          style={{ y: pull.y }}
-          className={`aura today-hero halo-${halo} ${boost ? 'halo-boost' : ''} ${pressable ? 'is-pressable' : ''} ${!isToday ? 'is-other' : ''}`}
-          role={pressable ? 'button' : 'group'}
-          tabIndex={pressable && live ? 0 : undefined}
-          aria-label={pressable ? `${name}. Open` : name}
-          onClick={(e) => {
-            if (!pressable || !live || Date.now() < quietUntil.current || (e.target as HTMLElement).closest('button, a, textarea, input')) return;
+      <motion.div
+        ref={(n: HTMLDivElement | null) => {
+          pull.ref.current = n;
+          hm.ref.current = n;
+        }}
+        style={{ y: pull.y }}
+        className={`aura today-hero halo-${halo} ${boost ? 'halo-boost' : ''} ${pressable ? 'is-pressable' : ''} ${!isToday ? 'is-other' : ''}`}
+        role={pressable ? 'button' : 'group'}
+        tabIndex={pressable && live ? 0 : undefined}
+        aria-label={pressable ? `${name}. ${rm ? 'Open Morning' : 'Open'}` : name}
+        {...hm.bind}
+        onClick={(e) => {
+          if (!pressable || !live || Date.now() < quietUntil.current || (e.target as HTMLElement).closest('button, a, textarea, input')) return;
+          openHero();
+        }}
+        onKeyDown={(e) => {
+          hm.bind.onKeyDown(e);
+          if (!pressable || e.target !== e.currentTarget) return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
             openHero();
-          }}
-          onKeyDown={(e) => {
-            if (!pressable || e.target !== e.currentTarget) return;
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              openHero();
-            }
-          }}
-          whileTap={pressable && live ? { scale: 0.985 } : undefined}
-          transition={springs.press}
-        >
-          <span className="aura-glow" aria-hidden="true" />
-          <span className="hero-corner" onPointerDown={(e) => e.stopPropagation()}>
-            {corner}
-          </span>
-          {pages.length > 1 ? (
-            <>
-              <div
-                className="hero-pages"
-                onPointerDown={(e) => e.stopPropagation()}
-                onScroll={(e) => {
-                  const el = e.currentTarget;
-                  const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
-                  if (i !== page) {
-                    setPage(i);
-                    haptics.select();
-                  }
-                }}
-              >
-                {pages.map((p, i) => (
-                  <div key={p?.session.id ?? i} className="hero-page" aria-hidden={i !== page || undefined}>
-                    <Face c={{ ...c, live: live && i === page }} p={p} index={i} />
-                  </div>
-                ))}
-              </div>
-              <div className="hero-dots" role="tablist" aria-label="Sessions">
-                {pages.map((p, i) => (
-                  <button
-                    key={p?.session.id ?? i}
-                    type="button"
-                    role="tab"
-                    aria-selected={i === page}
-                    aria-label={p ? label(p.session) : 'Day'}
-                    className={`hero-dot ${i === page ? 'on' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const el = (e.currentTarget.parentElement?.previousElementSibling as HTMLElement | null) ?? null;
-                      el?.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-                    }}
-                  >
-                    <i />
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <Face c={c} p={cur} index={0} />
-          )}
-        </motion.div>
-      </ContextMenu>
+          }
+        }}
+        whileTap={pressable && live && !reduce ? { scale: 0.985 } : undefined}
+        transition={springs.press}
+      >
+        <span className="aura-glow" aria-hidden="true" />
+        <span className="hero-corner" onPointerDown={(e) => e.stopPropagation()}>
+          {corner}
+        </span>
+        {pages.length > 1 ? (
+          <>
+            <div
+              className="hero-pages"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+                if (i !== page) {
+                  setPage(i);
+                  haptics.select();
+                }
+              }}
+            >
+              {pages.map((p, i) => (
+                <div key={p?.session.id ?? i} className="hero-page" aria-hidden={i !== page || undefined}>
+                  <Face c={{ ...c, live: live && i === page }} p={p} index={i} />
+                </div>
+              ))}
+            </div>
+            <div className="hero-dots" role="tablist" aria-label="Sessions">
+              {pages.map((p, i) => (
+                <button
+                  key={p?.session.id ?? i}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === page}
+                  aria-label={p ? label(p.session) : 'Day'}
+                  className={`hero-dot ${i === page ? 'on' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const el = (e.currentTarget.parentElement?.previousElementSibling as HTMLElement | null) ?? null;
+                    el?.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                  }}
+                >
+                  <i />
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <Face c={c} p={cur} index={0} />
+        )}
+      </motion.div>
+      {hm.sr}
     </div>
   );
 };

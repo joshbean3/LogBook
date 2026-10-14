@@ -1,4 +1,4 @@
-import { buildMorning, clock, durationWords, MORNING_DEFAULTS, normalizeMorningSettings, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
+import { AFTER_LABELS, buildMorning, clock, durationWords, normalizeMorningSettings, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
 import { GripVertical } from 'lucide-react';
 import { AnimatePresence, motion, Reorder, useDragControls, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +9,7 @@ import { Button, ChipButton, Stepper, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { parseWake } from './DayEditor';
 import { MiniLine } from './MiniLine';
-import { AFTER_LABEL, short, type AfterKey } from './model';
+import { isAfterKey, ROUTINE_DEFAULTS, routineName, short, type AfterKey } from './model';
 
 /** One editable number of the routine: how it reads, how it steps, and the common values a tap on its chip cycles through. */
 interface Field {
@@ -46,10 +46,10 @@ const FIELDS: Record<string, Field> = {
   'gym.walk': { id: 'gym.walk', label: 'Walk to the gym', sub: 'Each way', ...at('gym', 'walk'), step: 1, min: 0, max: 180, cycle: [0, 5, 10, 15, 20], fmt: mins, parse: int },
   'gym.wakeup': { id: 'gym.wakeup', label: 'Wake-up routine', sub: 'Alarm to dressed', ...at('gym', 'wakeup'), step: 1, min: 0, max: 180, cycle: WAKEUP, fmt: mins, parse: int },
   showerAt: { id: 'showerAt', label: 'Starts at', sub: 'Back late and the morning shows it', ...at('after', 'showerAt'), step: 5, min: 240, max: 720, fmt: short, parse: parseWake },
-  shower: { id: 'shower', label: AFTER_LABEL.shower, ...at('after', 'shower'), step: 1, min: 0, max: 180, cycle: [5, 10, 15, 20, 25, 30], fmt: mins, parse: int },
-  ready: { id: 'ready', label: AFTER_LABEL.ready, ...at('after', 'ready'), step: 1, min: 0, max: 180, cycle: [5, 10, 15, 20, 30, 45], fmt: mins, parse: int },
-  smoothie: { id: 'smoothie', label: AFTER_LABEL.smoothie, sub: 'Off skips it', ...at('after', 'smoothie'), step: 1, min: 0, max: 180, cycle: [0, 5, 10], fmt: mins, parse: int },
-  prep: { id: 'prep', label: AFTER_LABEL.prep, ...at('after', 'prep'), step: 1, min: 0, max: 180, cycle: [5, 10, 15, 20, 30], fmt: mins, parse: int },
+  shower: { id: 'shower', label: AFTER_LABELS.shower, ...at('after', 'shower'), step: 1, min: 0, max: 180, cycle: [5, 10, 15, 20, 25, 30], fmt: mins, parse: int },
+  ready: { id: 'ready', label: AFTER_LABELS.ready, ...at('after', 'ready'), step: 1, min: 0, max: 180, cycle: [5, 10, 15, 20, 30, 45], fmt: mins, parse: int },
+  smoothie: { id: 'smoothie', label: AFTER_LABELS.smoothie, sub: 'Off skips it', ...at('after', 'smoothie'), step: 1, min: 0, max: 180, cycle: [0, 5, 10], fmt: mins, parse: int },
+  prep: { id: 'prep', label: AFTER_LABELS.prep, ...at('after', 'prep'), step: 1, min: 0, max: 180, cycle: [5, 10, 15, 20, 30], fmt: mins, parse: int },
 };
 /** A timeline block's key → the field its Edit opens on. */
 const FOCUS: Record<string, string> = { wake: 'run.wakeup', buffer: 'run.buffer', shower: 'shower', ready: 'ready', smoothie: 'smoothie', prep: 'prep', start: 'showerAt', gym: 'gym.length', run: 'pace' };
@@ -59,19 +59,20 @@ const nextIn = (cycle: number[], v: number) => cycle.find((c) => c > v) ?? cycle
 /** A row: the name opens a stepper for exact values; the chip cycles the common ones. */
 const FieldRow = ({ f, s, onChange, open, onToggle, grip, highlight }: { f: Field; s: MorningSettings; onChange: (v: number) => void; open: boolean; onToggle: () => void; grip?: React.ReactNode; highlight?: boolean }) => {
   const v = f.get(s);
+  const name = isAfterKey(f.id) ? routineName(s, f.id) : f.label;
   const reduce = useReducedMotion();
   return (
     <div className={`rt-row ${open ? 'is-open' : ''} ${highlight ? 'is-focus' : ''}`} data-field={f.id}>
       <div className="rt-line">
         {grip}
         <button type="button" className="rt-name" aria-expanded={open} onClick={onToggle}>
-          <span className="rt-label">{f.label}</span>
+          <span className="rt-label">{name}</span>
           {f.sub ? <span className="rt-sub">{f.sub}</span> : null}
         </button>
         <button
           type="button"
           className={`rt-chip ${v === 0 ? 'off' : ''}`}
-          aria-label={`${f.label}: ${f.fmt(v)}. ${f.cycle ? 'Tap for the next common length' : 'Tap to change'}`}
+          aria-label={`${name}: ${f.fmt(v)}. ${f.cycle ? 'Tap for the next common length' : 'Tap to change'}`}
           onClick={() => {
             if (!f.cycle) return onToggle();
             haptics.select();
@@ -86,7 +87,7 @@ const FieldRow = ({ f, s, onChange, open, onToggle, grip, highlight }: { f: Fiel
       <AnimatePresence initial={false}>
         {open ? (
           <motion.div className="rt-fine" {...rowPresence}>
-            <Stepper value={v} onChange={onChange} step={f.step} min={f.min} max={f.max} format={f.fmt} parse={f.parse} label={f.label} inputProps={{ inputMode: 'numeric', autoComplete: 'off' }} />
+            <Stepper value={v} onChange={onChange} step={f.step} min={f.min} max={f.max} format={f.fmt} parse={f.parse} label={name} inputProps={{ inputMode: 'numeric', autoComplete: 'off' }} />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -95,7 +96,7 @@ const FieldRow = ({ f, s, onChange, open, onToggle, grip, highlight }: { f: Fiel
 };
 
 /** A back-home block you can drag by its grip (or move with the arrow keys on the grip). */
-const AfterItem = ({ k, children, onKey }: { k: AfterKey; children: (grip: React.ReactNode) => React.ReactNode; onKey: (dir: -1 | 1) => void }) => {
+const AfterItem = ({ k, name, children, onKey }: { k: AfterKey; name: string; children: (grip: React.ReactNode) => React.ReactNode; onKey: (dir: -1 | 1) => void }) => {
   const controls = useDragControls();
   const reduce = useReducedMotion();
   return (
@@ -104,7 +105,7 @@ const AfterItem = ({ k, children, onKey }: { k: AfterKey; children: (grip: React
         <button
           type="button"
           className="rt-grip"
-          aria-label={`Move ${AFTER_LABEL[k]}. Arrow keys move it up or down`}
+          aria-label={`Move ${name}. Arrow keys move it up or down`}
           onPointerDown={(e) => {
             e.preventDefault();
             controls.start(e);
@@ -251,7 +252,7 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
           {fixed ? row('showerAt') : null}
           <Reorder.Group axis="y" values={order} onReorder={(o: AfterKey[]) => (haptics.select(), setOrder(o))} as="ul" className="rt-order">
             {order.map((k) => (
-              <AfterItem key={k} k={k} onKey={(dir) => move(k, dir)}>
+              <AfterItem key={k} k={k} name={routineName(s, k)} onKey={(dir) => move(k, dir)}>
                 {(grip) => row(k, grip)}
               </AfterItem>
             ))}
@@ -264,7 +265,7 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
           variant="ghost"
           onClick={() => {
             haptics.select();
-            setS((c) => ({ ...MORNING_DEFAULTS, wake: c.wake, focus: c.focus }));
+            setS((c) => ({ ...ROUTINE_DEFAULTS, wake: c.wake, focus: c.focus }));
           }}
         >
           Defaults

@@ -153,6 +153,75 @@
   justify-self: start;
   margin: 8px 0 0;
 }
+/* a bonus run stamps two numbers (TIME, HR): two columns, not three with a hole */
+.hero-stats.hero-stats-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ---------- done by hand: "4 mi. Done." with a check that pops in ---------- */
+.hero-done {
+  gap: 10px;
+}
+.hero-done-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hero-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 22px rgba(47, 59, 255, 0.7);
+}
+.hero-done-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+.hero-done-tools .hero-share {
+  margin: 0;
+}
+/* the quiet question: text, ink-3, a 44px target */
+.hero-dist-ask {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  min-height: 44px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.hero-dist-ask[aria-expanded='true'] {
+  color: var(--ink-2);
+}
+.hero-dist {
+  overflow: hidden;
+}
+.hero-dist-in {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+.hero-dist-in .stepper {
+  flex: 1;
+  min-width: 0;
+}
+
+/* a rest morning before work: the countdown and the line into Morning stay */
+.hero-restmorning .mini-tl {
+  margin-top: 4px;
+}
 
 /* the open session: the stamp and its plan on the left, the hold ring on the right */
 .hero-open {
@@ -316,6 +385,15 @@
 }
 .mini-tl-time:last-child {
   justify-items: end;
+}
+.mini-tl-times[data-n='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.mini-tl-times[data-n='3'] .mini-tl-time:nth-child(2) {
+  transform: none;
+}
+.mini-tl-times[data-n='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .mini-tl-time .caps {
   font-size: 0.625rem;
@@ -541,13 +619,51 @@
   font-size: 0.9375rem;
   color: var(--ink-3);
 }
+/* nothing to stamp yet: one plain sentence from the day in the stamps' place */
+.cd-line {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
+}
+/* the day's entries sit on the card behind one hairline: no band, no bleed */
 .cd-entries {
   display: grid;
-  margin: 0 -18px;
   border-top: 1px solid var(--line);
 }
 .cd-entries .jentry {
   background: transparent;
+}
+.cd-entries .jentry-body {
+  padding-inline: 0;
+}
+.cd-entries .swipe-content {
+  --swipe-bg: transparent;
+}
+.cd-entries .swipe-row:has(.swipe-pane.from-left, .swipe-pane.from-right) .swipe-content {
+  --swipe-bg: var(--surface);
+}
+/* after the entry: a quiet way back into the composer */
+.cd-addto {
+  appearance: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 0.9375rem;
+  min-height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.cd-addto:active {
+  color: var(--ink-2);
 }
 .cd-composer .composer {
   background: rgba(255, 255, 255, 0.04);

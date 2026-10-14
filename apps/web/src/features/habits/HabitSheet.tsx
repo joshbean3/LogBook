@@ -42,9 +42,21 @@ export const HabitSheet = ({ id }: { id: string }) => {
   if (!h) return null;
   const days = Array.from({ length: DAYS }, (_, i) => shiftDays(from, i));
   const isDone = (d: ISODate) => log.snap.isHabitDone(d, h.id);
-  const lit = days.filter(isDone).length;
+  // "N of 30" counts only the days the habit existed
+  const since = days.filter((d) => d >= h.createdOn);
+  const lit = since.filter(isDone).length;
   const streak = habitStreak(isDone, t);
-  const week = days.slice(-7).filter(isDone).length;
+  // the longest run of lit days in the window, for the stamp when today's streak is short
+  let best = 0;
+  let run = 0;
+  for (const d of since) {
+    run = isDone(d) ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  const stamps: Array<{ k: string; v: number; u: string }> = [];
+  if (streak > 0) stamps.push({ k: 'Streak', v: streak, u: streak === 1 ? 'day' : 'days' });
+  if (best > streak && best >= 2) stamps.push({ k: 'Best', v: best, u: 'days' });
+  if (lit > 0) stamps.push({ k: since.length < DAYS ? `Since ${fmtDate('md', h.createdOn)}` : 'Last 30 days', v: lit, u: `of ${since.length}` });
   const notes = days
     .map((d) => ({ d, note: log.snap.checkOf(d, h.id)?.note ?? '' }))
     .filter((x) => x.note)
@@ -59,32 +71,21 @@ export const HabitSheet = ({ id }: { id: string }) => {
   };
   return (
     <div className="hs">
-      <div className="hs-stamps">
-        <span className="hs-stamp">
-          <span className="caps">Last 30 days</span>
-          <span className="stamp hs-num">
-            {lit ? lit : 'None'}
-            {lit ? <small> of {DAYS}</small> : null}
-          </span>
-        </span>
-        {streak >= 2 ? (
-          <span className="hs-stamp">
-            <span className="caps">Streak</span>
-            <span className="stamp hs-num">
-              {streak}
-              <small> days</small>
+      {stamps.length ? (
+        <div className="hs-stamps">
+          {stamps.map((s) => (
+            <span key={s.k} className="hs-stamp">
+              <span className="caps">{s.k}</span>
+              <span className="stamp hs-num">
+                {s.v}
+                <small> {s.u}</small>
+              </span>
             </span>
-          </span>
-        ) : (
-          <span className="hs-stamp">
-            <span className="caps">Last 7 days</span>
-            <span className="stamp hs-num">
-              {week ? week : 'None'}
-              {week ? <small> of 7</small> : null}
-            </span>
-          </span>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="hs-start">Light it today and the streak starts here.</p>
+      )}
       <div className="hs-grid" role="group" aria-label="Last 30 days">
         {days.map((d) => {
           const on = isDone(d);
