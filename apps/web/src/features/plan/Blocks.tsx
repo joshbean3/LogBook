@@ -125,7 +125,7 @@ const PlansPanel = ({ log }: { log: Log }) => {
                 <span className="pl-plan-main">
                   <span className="pl-plan-name">{planName(b, blocks, t)}</span>
                   <span className="pl-sub">
-                    {fmtDate('md', b.start)} – {fmtDate('md', b.end)} · {planWeeks(b)} weeks
+                    {fmtDate('md', b.start)} – {fmtDate('md', b.end)} · {planWeeks(b)} {planWeeks(b) === 1 ? 'week' : 'weeks'}
                   </span>
                 </span>
                 <span className={`chip ${st === 'Active' ? 'open' : st === 'Upcoming' ? 'upcoming' : ''}`}>{st}</span>
@@ -207,7 +207,7 @@ const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
     <div className="pl-detail">
       <Arc weeks={arc} today={t} tall />
       <p className="t-sub ink2">
-        {planWeeks(b)} weeks · {b.sessionCount ?? 0} sessions{due ? ` · ${done} of ${due} kept so far` : ''}
+        {planWeeks(b)} {planWeeks(b) === 1 ? 'week' : 'weeks'} · {b.sessionCount ?? 0} sessions{due ? ` · ${done} of ${due} kept so far` : ''}
       </p>
       {b.summary ? <p className="t-body">{b.summary}</p> : null}
       <div className="sheet-foot">

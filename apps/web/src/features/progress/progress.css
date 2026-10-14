@@ -256,6 +256,15 @@
   min-width: 88px;
   text-align: right;
 }
+/* narrow: the sparklines step aside, so the empty number slot gives its room back to the words */
+@media (max-width: 359px) {
+  .pg-row-val {
+    min-width: 0;
+  }
+  .pg-row-val.is-empty {
+    display: none;
+  }
+}
 .pg-row-main {
   flex: 1;
   min-width: 0;

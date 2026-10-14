@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
-import { defaultCaption, DRAW_MS, drawCard, H, loadFonts, renderCard, TEMPLATE_NAME, templatesFor, W, type ShareData, type Template } from './cards';
+import { dayTypeOf, defaultCaption, DRAW_MS, drawCard, H, loadFonts, renderCard, TEMPLATE_NAME, templatesFor, W, type ShareData, type Template } from './cards';
 import { shareImage } from './shareOut';
 import './share.css';
 
@@ -54,9 +54,10 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
   const toast = useToast();
   const reduce = useReducedMotion();
   // the cards follow the kind of day (a run, a lift, rest, a day of words); the lead card comes first. A caller's `initial`
-  // is honoured when the day has that card, except a Bubble asked for only because there was no run to stamp
+  // is honoured when the day has that card; on a day that isn't a run the Day card leads (a Bubble asked for because there
+  // were no Strava miles would hide "Rest" and the habits behind a chat bubble)
   const templates = useMemo(() => templatesFor(data), [data]);
-  const start = Math.max(0, initial && !(initial === 'bubble' && templates[0] !== 'bubble') ? templates.indexOf(initial) : 0);
+  const start = Math.max(0, initial && !(initial === 'bubble' && dayTypeOf(data) !== 'run') ? templates.indexOf(initial) : 0);
   const [i, setI] = useState(start);
   const t = templates[i] ?? 'stamp';
   const [caption, setCaption] = useState(() => defaultCaption(data));
