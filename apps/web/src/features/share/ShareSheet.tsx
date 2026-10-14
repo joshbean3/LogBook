@@ -1,16 +1,20 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, ChipButton } from '@/ui/primitives';
+import { haptics } from '@/lib/haptics';
+import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { defaultCaption, DRAW_MS, drawCard, H, loadFonts, renderCard, TEMPLATE_NAME, TEMPLATES, W, type ShareData, type Template } from './cards';
 import { shareImage } from './shareOut';
 import './share.css';
 
-/** One template, live. Draws once the fonts are in; the first show animates (route draws, numerals tick), after that it is still. */
-const CardCanvas = ({ template, data, caption }: { template: Template; data: ShareData; caption: string }) => {
+/**
+ * One template, live. Draws once the fonts are in, still; the first time its card is the one in view, it plays its
+ * entrance (the route draws, the numerals tick). After that it stays still, so swiping back and forth never replays it.
+ */
+const CardCanvas = ({ template, data, caption, active }: { template: Template; data: ShareData; caption: string; active: boolean }) => {
   const ref = useRef<HTMLCanvasElement>(null);
   const reduce = useReducedMotion();
-  const settled = useRef(false);
+  const played = useRef(false);
   useEffect(() => {
     const c = ref.current;
     const ctx = c?.getContext('2d');
@@ -20,12 +24,11 @@ const CardCanvas = ({ template, data, caption }: { template: Template; data: Sha
     void loadFonts().then(() => {
       if (!alive) return;
       const dur = reduce ? 0 : DRAW_MS[template];
-      if (settled.current || !dur) {
-        settled.current = true;
+      if (!active || played.current || !dur) {
         drawCard(ctx, template, data, { progress: 1, caption });
         return;
       }
-      settled.current = true;
+      played.current = true;
       const t0 = performance.now();
       const tick = (now: number) => {
         const p = Math.min(1, (now - t0) / dur);
@@ -38,24 +41,67 @@ const CardCanvas = ({ template, data, caption }: { template: Template; data: Sha
       alive = false;
       cancelAnimationFrame(raf);
     };
-  }, [template, data, caption, reduce]);
-  return <canvas ref={ref} width={W} height={H} className="share-canvas" role="img" aria-label={`${TEMPLATE_NAME[template]} card`} />;
+  }, [template, data, caption, reduce, active]);
+  return <canvas ref={ref} width={W} height={H} className="share-canvas" />;
 };
 
-/** The share sheet: a 9:16 card, the caption under it when the card takes one, the templates in one scrolling row, Share and Save. */
+/**
+ * The share sheet: every template as a live 9:16 card in a carousel you swipe (it snaps card by card), the page dots under
+ * it, the caption field when the card takes one, and Share as the one blue verb (Save beside it in ink). Tapping a dot or a
+ * card that peeks in brings it to the middle.
+ */
 export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Template }) => {
   const toast = useToast();
+  const reduce = useReducedMotion();
   const templates = useMemo(() => TEMPLATES.filter((t) => (t !== 'route' || !!data.polyline) && (t !== 'week' || !!data.week)), [data]);
-  const [t, setT] = useState<Template>(initial && templates.includes(initial) ? initial : (templates[0] ?? 'stamp'));
+  const start = Math.max(0, initial ? templates.indexOf(initial) : 0);
+  const [i, setI] = useState(start);
+  const t = templates[i] ?? 'stamp';
   const [caption, setCaption] = useState(() => defaultCaption(data));
   const [busy, setBusy] = useState<'share' | 'save' | null>(null);
+  const track = useRef<HTMLDivElement>(null);
+  const cur = useRef(start);
+
+  // the card nearest the middle is the one in view; a step is one select tick
+  const onScroll = () => {
+    const el = track.current;
+    if (!el) return;
+    const kids = Array.from(el.children) as HTMLElement[];
+    const mid = el.scrollLeft + el.clientWidth / 2;
+    let best = 0;
+    let dist = Infinity;
+    kids.forEach((k, n) => {
+      const dd = Math.abs(k.offsetLeft + k.offsetWidth / 2 - mid);
+      if (dd < dist) {
+        dist = dd;
+        best = n;
+      }
+    });
+    if (best !== cur.current) {
+      cur.current = best;
+      haptics.select();
+      setI(best);
+    }
+  };
+  const go = (n: number) => {
+    const el = track.current;
+    const k = el?.children[n] as HTMLElement | undefined;
+    if (!el || !k) return;
+    el.scrollTo({ left: k.offsetLeft - (el.clientWidth - k.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
+  };
+  useEffect(() => {
+    if (start) requestAnimationFrame(() => go(start));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const run = async (mode: 'share' | 'save') => {
     setBusy(mode);
     try {
       const blob = await renderCard(t, data, caption);
       const r = await shareImage(blob, `logbook-${data.date}.png`, mode);
+      if (r !== 'cancelled') haptics.success();
       if (r === 'saved') toast('Saved');
     } catch {
+      haptics.error();
       toast('Couldn’t make the image. Try again.');
     } finally {
       setBusy(null);
@@ -64,30 +110,43 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
   return (
     <div className="share">
       <div className="share-main">
-        <div className="share-stage">
-          <AnimatePresence initial={false}>
-            <motion.div key={t} className="share-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <CardCanvas template={t} data={data} caption={caption} />
-            </motion.div>
-          </AnimatePresence>
+        <div ref={track} className="share-track" role="group" aria-roledescription="carousel" aria-label="Card templates" onScroll={onScroll}>
+          {templates.map((k, n) => (
+            <button
+              key={k}
+              type="button"
+              className={`share-slide ${n === i ? 'is-cur' : ''}`}
+              aria-roledescription="slide"
+              aria-label={`${TEMPLATE_NAME[k]} card, ${n + 1} of ${templates.length}${n === i ? ', in view' : ''}`}
+              aria-current={n === i}
+              onClick={() => (n === i ? undefined : go(n))}
+            >
+              <span className="share-card">
+                <CardCanvas template={k} data={data} caption={caption} active={n === i} />
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="share-pager">
+          <span className="share-name">{TEMPLATE_NAME[t]}</span>
+          <span className="share-dots" role="tablist" aria-label="Templates">
+            {templates.map((k, n) => (
+              <button key={k} type="button" role="tab" aria-selected={n === i} aria-label={TEMPLATE_NAME[k]} className={`share-dot ${n === i ? 'on' : ''}`} onClick={() => go(n)}>
+                <i />
+              </button>
+            ))}
+          </span>
         </div>
         {/* the caption sits right under the card it writes on, never under the footer */}
         {t === 'bubble' ? <input className="in share-caption" value={caption} maxLength={80} aria-label="Caption" placeholder="Say something" onChange={(e) => setCaption(e.target.value)} /> : null}
-        <div className="share-templates" role="radiogroup" aria-label="Template">
-          {templates.map((k) => (
-            <ChipButton key={k} role="radio" aria-checked={t === k} on={t === k} onClick={() => setT(k)}>
-              {TEMPLATE_NAME[k]}
-            </ChipButton>
-          ))}
-        </div>
       </div>
       <div className="sheet-foot">
-        <Button variant="ghost" disabled={!!busy} onClick={() => run('save')}>
-          {busy === 'save' ? 'Saving…' : 'Save'}
+        <Button variant="quiet" disabled={!!busy} onClick={() => run('save')}>
+          {busy === 'save' ? 'Saving' : 'Save'}
         </Button>
         <div className="foot-right">
           <Button variant="primary" disabled={!!busy} onClick={() => run('share')}>
-            {busy === 'share' ? 'Sharing…' : 'Share'}
+            {busy === 'share' ? 'Sharing' : 'Share'}
           </Button>
         </div>
       </div>
