@@ -1,48 +1,484 @@
-/* ---------- Settings: grouped dark lists on black. Labels regular weight, the one action at the right. ---------- */
-.s-set .lrow-title {
-  font-weight: 400;
+/* ---------- Settings: one hero, then grouped edge-to-edge lists on black. The row is the target. ---------- */
+.s-set {
+  --swipe-bg: var(--bg);
 }
-.s-set .lrow.two {
-  padding-block: 8px;
-}
-.s-set .lrow-title,
-.s-set .lrow-sub {
-  white-space: normal;
-}
-/* section heads are caps labels */
-.s-sec {
-  margin: var(--section) 0 8px;
-}
-.s-sec .caps {
-  color: var(--ink-2);
-}
-.s-set .s-sec:first-of-type {
-  margin-top: 24px;
-}
-/* a whole-row action: the row is the button, the verb at the right says what it does */
-.s-set .lrow.tappable:not(.s-out) .lrow-title {
+
+/* the hero: who you are, what you are training for */
+.s-me {
+  appearance: none;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 20px 20px 24px;
+  border-radius: var(--r-lg);
+  border: var(--card-border);
+  background: var(--surface);
   color: var(--ink);
+  text-align: left;
+  font: inherit;
+  overflow: hidden;
+  min-height: 132px;
+  transition: transform 100ms var(--ease-out);
 }
-/* the second row of the account group: two quiet verbs at the right, no fill */
-.s-actions {
-  justify-content: flex-end;
-  gap: 8px;
-  padding-block: 4px;
+.s-me:active {
+  transform: scale(0.985);
 }
-/* the result of an import: a plain sentence, red only when it failed */
-.s-result {
+.s-me-eyebrow {
+  color: var(--ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s-me-goal {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  overflow-wrap: break-word;
+}
+.s-me-sub {
   font-size: 0.9375rem;
   line-height: 1.25rem;
   color: var(--ink-2);
-  padding: 10px 0;
 }
-.s-result.bad {
+
+/* a list on black: no card; hairlines from the gutter */
+.s-list {
+  margin-top: 4px;
+}
+.s-row {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding-block: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.s-row.two {
+  min-height: 64px;
+}
+.s-row.tap {
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.s-row.tap:active {
+  background: var(--surface);
+}
+@media (hover: hover) {
+  .s-row.tap:hover {
+    background: var(--surface);
+  }
+}
+.s-row-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.s-row-title {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.s-row-title.bad {
   color: var(--bad);
 }
-/* sign out is the one red word on the screen, in its own group under everything else */
-.s-out-group {
-  margin-top: var(--section);
+.s-row-title.muted {
+  color: var(--ink-3);
 }
-.s-out .lrow-title {
+.s-row-sub {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+}
+.s-row-value {
+  flex: none;
+  max-width: 55%;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s-row-chev {
+  flex: none;
+  color: var(--ink-4);
+  margin-right: -4px;
+}
+.s-broken .s-row-value {
   color: var(--bad);
+  font-weight: 600;
+}
+.s-bad {
+  color: var(--bad);
+}
+.s-email {
+  font-size: 0.9375rem;
+}
+
+/* the switch: 51 × 31, the knob springs across, the track lights blue (the screen's one blue when it is on) */
+.s-switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border-radius: 16px;
+  border: 0;
+  padding: 0;
+  background: var(--surface-3);
+  transition: background var(--dur-color) var(--ease-out);
+}
+.s-switch::after {
+  content: '';
+  position: absolute;
+  inset: -7px -2px;
+}
+.s-switch.on {
+  background: var(--accent);
+}
+.s-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+}
+.s-switch:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+.s-colophon {
+  margin-top: 48px;
+  text-align: center;
+}
+.s-colophon .caps {
+  color: var(--ink-4);
+}
+
+/* ---------- sub-pages ---------- */
+.s-sub .s-list:first-of-type {
+  margin-top: 16px;
+}
+.s-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.s-label-value {
+  color: var(--ink);
+}
+.s-race {
+  margin-top: 24px;
+  display: grid;
+  gap: 12px;
+}
+.s-note {
+  margin-top: 12px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+}
+.s-lede {
+  margin-top: 16px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+}
+
+/* the rebuild offer: pinned above the tab bar while there are changes */
+.s-sub {
+  padding-bottom: calc(var(--tabbar-h) + 200px + var(--safe-b));
+}
+.s-rebuild {
+  position: fixed;
+  left: max(var(--gutter), calc(50% - 344px));
+  right: max(var(--gutter), calc(50% - 344px));
+  bottom: calc(var(--tabbar-h) + 12px + var(--safe-b));
+  z-index: 20;
+  display: grid;
+  gap: 4px;
+  padding: 16px 16px 12px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.s-rebuild-title {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+}
+.s-rebuild-sub {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
+}
+.s-rebuild-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.s-rebuild-go {
+  min-width: 112px;
+}
+@media (min-width: 900px) {
+  .s-rebuild {
+    bottom: 24px;
+  }
+}
+
+/* ---------- habits ---------- */
+.s-hlist {
+  position: relative;
+  margin: 16px calc(-1 * var(--page-pad)) 0;
+}
+.s-hrow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 60px;
+  padding-inline: var(--page-pad) 4px;
+  background: var(--bg);
+  touch-action: auto;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.s-hrow + .s-hrow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--page-pad);
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.s-hrow.is-lifted {
+  background: var(--surface-2);
+  border-radius: 14px;
+  outline: 1px solid var(--line-strong);
+  cursor: grabbing;
+}
+.s-hrow.is-lifted::before,
+.s-hrow.is-lifted + .s-hrow::before {
+  opacity: 0;
+}
+.s-hrow-main {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+.s-horb {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.0625rem;
+  color: var(--ink-2);
+}
+.s-horb.big {
+  width: 56px;
+  height: 56px;
+  font-size: 1.375rem;
+}
+.s-hname-text {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s-hgrip {
+  appearance: none;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: var(--ink-4);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.s-hgrip:active {
+  color: var(--ink-2);
+}
+.s-ghost-orbs {
+  display: flex;
+  gap: 12px;
+}
+.s-add {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+}
+.s-add-in.in {
+  flex: 1;
+  height: 48px;
+  border-radius: var(--r-pill);
+  padding: 0 18px;
+  font-size: 1.0625rem;
+}
+.s-add-btn {
+  appearance: none;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.s-add-btn:disabled {
+  opacity: 0.35;
+}
+.s-starters {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.s-starter {
+  appearance: none;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.s-starter:active {
+  background: var(--surface);
+}
+.s-restore.btn.sm {
+  flex: none;
+}
+
+/* the habit sheet */
+.s-hsheet {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.s-hname.in {
+  height: 52px;
+  font-size: 1.0625rem;
+  padding: 0 14px;
+}
+.s-archive.btn {
+  margin-top: 12px;
+  color: var(--ink-2);
+}
+
+/* ---------- delete account ---------- */
+.s-del {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+.s-del-lede {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
+}
+.s-del-actions {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+}
+.s-del-continue.btn {
+  border-color: rgba(255, 59, 92, 0.4);
+  background: var(--bad-soft);
+  height: 52px;
+}
+.s-del-final.btn {
+  height: 52px;
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #fff;
+  font-size: 1.0625rem;
+}
+.s-pw {
+  position: relative;
+}
+.s-pw-in.in {
+  height: 52px;
+  padding: 0 52px 0 14px;
+  font-size: 1.0625rem;
+}
+.s-pw.bad .s-pw-in.in {
+  border-color: var(--bad);
+}
+.s-pw-eye {
+  appearance: none;
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.s-pw-err {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--bad);
+}
+.s-strava {
+  display: grid;
+  gap: 12px;
 }

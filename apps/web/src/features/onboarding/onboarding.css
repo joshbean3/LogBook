@@ -1,0 +1,872 @@
+/* ---------- First run: full screen, black, lit from the bottom. No tab bar, no cards. ---------- */
+.ob {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  overflow-x: hidden;
+  container: page / inline-size;
+  --page-pad: var(--gutter);
+}
+.ob-halo {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity var(--dur-color) var(--ease-out);
+}
+/* the promise: the light rises once, then holds still */
+.ob-halo.rise {
+  opacity: 0.9;
+  animation: ob-rise 1.1s var(--ease-out) both;
+}
+/* the payoff: full bloom */
+.ob-halo.bloom {
+  opacity: 1;
+}
+@keyframes ob-rise {
+  from {
+    opacity: 0;
+    transform: translateY(35%);
+  }
+  to {
+    opacity: 0.9;
+    transform: none;
+  }
+}
+
+/* ---------- top bar: back, progress dots, skip ---------- */
+.ob-top {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  align-items: center;
+  padding: calc(4px + var(--safe-t)) 4px 0;
+  height: calc(52px + var(--safe-t));
+}
+.ob-back {
+  color: var(--ink);
+}
+.ob-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+.ob-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ink-4);
+  transition:
+    width 220ms var(--ease-out),
+    background var(--dur-color) var(--ease-out);
+}
+.ob-dot.done {
+  background: var(--ink-2);
+}
+.ob-dot.on {
+  width: 20px;
+  background: var(--ink);
+}
+.ob-skip {
+  appearance: none;
+  border: 0;
+  background: none;
+  height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  justify-self: end;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  border-radius: var(--r-pill);
+}
+.ob-skip:active {
+  color: var(--ink);
+}
+
+/* ---------- a step ---------- */
+.ob-swipe {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+}
+.ob-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ob-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+  padding: 16px var(--gutter) calc(16px + var(--safe-b));
+  min-width: 0;
+}
+.ob-title {
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+.ob-sub {
+  margin-top: 8px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  max-width: 34ch;
+}
+.ob-body {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ob-foot {
+  margin-top: auto;
+  padding-top: 24px;
+  position: sticky;
+  bottom: 0;
+  padding-bottom: 4px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 24px);
+}
+.ob-cta.btn {
+  height: 56px;
+  font-size: 1.0625rem;
+}
+.ob-q-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ob-q-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ob-hint {
+  margin-top: 16px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  text-align: center;
+}
+
+/* ---------- the promise ---------- */
+.ob-promise {
+  justify-content: flex-end;
+  padding-top: calc(48px + var(--safe-t));
+}
+.ob-mark {
+  width: 56px;
+  height: 56px;
+}
+.ob-promise-title {
+  margin-top: 24px;
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+}
+.ob-promise-sub {
+  margin-top: 8px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
+}
+.ob-promise .ob-foot {
+  margin-top: 40px;
+  background: none;
+}
+
+/* ---------- goal chips: one selection look, a white thumb that slides ---------- */
+.ob-goals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.ob-goal {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  position: relative;
+  isolation: isolate;
+  height: 56px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: color var(--dur-color) var(--ease-out);
+}
+.ob-goal.wide {
+  grid-column: 1 / -1;
+}
+.ob-goal.on {
+  color: var(--bg);
+}
+.ob-goal-thumb {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--ink);
+}
+.ob-goal-text {
+  position: relative;
+}
+
+/* ---------- race day wheel ---------- */
+.ob-race-block {
+  overflow: hidden;
+  margin-top: 32px;
+}
+.ob-race-block > .ob-q-label {
+  margin-bottom: 12px;
+}
+.ob-race {
+  position: relative;
+  margin-inline: calc(-1 * var(--page-pad));
+  height: 96px;
+}
+.ob-race-ring {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 76px;
+  height: 88px;
+  transform: translateX(-50%);
+  border-radius: 18px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  pointer-events: none;
+}
+.ob-race-strip {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  height: 96px;
+  padding: 4px calc(50% - 38px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+  outline: none;
+}
+.ob-race-strip::-webkit-scrollbar {
+  display: none;
+}
+.ob-race-strip:focus-visible + .ob-race-ring,
+.ob-race:focus-within .ob-race-ring {
+  border-color: var(--ink-3);
+}
+.ob-race-day {
+  appearance: none;
+  flex: none;
+  width: 76px;
+  height: 88px;
+  scroll-snap-align: center;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  transition: color var(--dur-color) var(--ease-out);
+}
+.ob-race-day .caps {
+  color: inherit;
+}
+.ob-race-day.on {
+  color: var(--ink);
+}
+.ob-race-num {
+  font-size: 1.75rem;
+  line-height: 2rem;
+}
+.ob-race-none {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.375rem;
+  line-height: 2rem;
+}
+.ob-race-wk {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--ink-3);
+}
+
+/* ---------- run days: seven letters edge to edge, so each is at least 44px even at 320 ---------- */
+.ob-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-inline: calc(-1 * var(--page-pad) + 4px);
+}
+.ob-day {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 4px 0 0;
+  min-height: 72px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  font: inherit;
+  color: var(--ink-2);
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ob-day-disc {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  transition:
+    background 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    box-shadow 320ms var(--ease-out);
+}
+.ob-day.on .ob-day-disc {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.ob-day.long .ob-day-disc {
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 5px var(--accent-bright),
+    0 0 24px rgba(47, 59, 255, 0.7);
+}
+.ob-day-cap {
+  height: 14px;
+  font-size: 0.625rem;
+  line-height: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.ob-long {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 8px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+}
+.ob-long-btn {
+  appearance: none;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+}
+.ob-long-btn:active {
+  background: var(--surface-2);
+}
+
+/* ---------- weekly miles: the big stepper ---------- */
+.ob-miles-label {
+  margin-top: 40px;
+}
+.ob-miles {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  align-items: center;
+  gap: 12px;
+}
+.ob-miles-btn {
+  appearance: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.ob-miles-btn:disabled {
+  opacity: 0.35;
+}
+.ob-miles-num {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  touch-action: pan-y;
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: var(--r-md);
+  padding: 4px 0;
+}
+.ob-miles-num:focus-visible {
+  outline: 2px solid var(--accent-bright);
+}
+.ob-miles-val {
+  font-size: 2.75rem;
+  line-height: 2.75rem;
+}
+.ob-miles-unit {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+}
+
+/* ---------- the morning: two markers on a line ---------- */
+.ob-track-wrap {
+  position: relative;
+  margin-top: 8px;
+  padding-inline: 14px;
+}
+.ob-track-labels {
+  position: relative;
+  height: 48px;
+}
+.ob-track-labels.below {
+  height: 48px;
+}
+.ob-track-label {
+  position: absolute;
+  top: 0;
+  width: 64px;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  transition: color var(--dur-color) var(--ease-out);
+}
+.ob-track-label .stamp {
+  font-size: 1.375rem;
+  line-height: 1.5rem;
+}
+.ob-track-label.on .caps {
+  color: var(--accent-text);
+}
+.ob-track-labels:not(.below) .ob-track-label {
+  flex-direction: column;
+}
+.ob-track-labels.below .ob-track-label {
+  top: 4px;
+}
+.ob-track {
+  position: relative;
+  height: 48px;
+  touch-action: none;
+  cursor: pointer;
+}
+.ob-track-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 2px);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+.ob-seg {
+  position: absolute;
+  top: calc(50% - 4px);
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  transition:
+    left 120ms var(--ease-out),
+    width 120ms var(--ease-out);
+}
+.ob-seg.run {
+  background: var(--tone);
+}
+.ob-seg.buffer {
+  background: var(--ink-4);
+}
+.ob-marker {
+  position: absolute;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 3px solid var(--bg);
+  box-shadow: 0 0 0 1.5px var(--ink-2);
+  transition:
+    transform 120ms var(--ease-out),
+    box-shadow var(--dur-color) var(--ease-out);
+  touch-action: none;
+  outline: none;
+}
+.ob-marker::after {
+  content: '';
+  position: absolute;
+  inset: -11px;
+  border-radius: 50%;
+}
+.ob-marker.on {
+  transform: scale(1.15);
+  box-shadow:
+    0 0 0 1.5px var(--accent-bright),
+    0 0 20px rgba(47, 59, 255, 0.8);
+}
+.ob-marker:focus-visible {
+  box-shadow:
+    0 0 0 1.5px var(--ink),
+    0 0 0 5px var(--accent-bright);
+}
+.ob-hours {
+  position: relative;
+  height: 20px;
+  margin-top: 4px;
+}
+.ob-hours span {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.ob-verdict {
+  margin-top: 32px;
+}
+.ob-verdict-big {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+}
+.ob-verdict-sub {
+  margin-top: 4px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+}
+
+/* ---------- habits: chips that become orbs ---------- */
+.ob-orbs {
+  display: flex;
+  gap: 12px;
+  min-height: 88px;
+  align-items: flex-start;
+  overflow: hidden;
+}
+.ob-orbs-ghost {
+  display: flex;
+  gap: 12px;
+}
+.ob-orb {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 60px;
+  flex: none;
+}
+.ob-orb-ring {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+}
+.ob-orb-ring.ghost {
+  border-style: dashed;
+  background: transparent;
+  opacity: 0.6;
+}
+.ob-orb-initial {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.375rem;
+  line-height: 1;
+  color: var(--ink-2);
+}
+.ob-orb-name {
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  color: var(--ink-3);
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ob-orb-more {
+  align-self: center;
+  margin-top: -20px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.ob-chips {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ob-chip {
+  appearance: none;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  max-width: 100%;
+  transition:
+    background 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+.ob-chip.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.ob-chip.add {
+  border-style: dashed;
+  color: var(--ink-3);
+}
+.ob-chip:disabled {
+  opacity: 0.35;
+}
+.ob-chip-form {
+  display: contents;
+}
+.ob-chip-in {
+  height: 44px;
+  width: 200px;
+  max-width: 100%;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--ink-3);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.0625rem;
+  outline: none;
+}
+
+/* ---------- the payoff ---------- */
+.ob-payoff {
+  padding-top: calc(40px + var(--safe-t));
+}
+.ob-pay-eyebrow {
+  color: var(--ink-2);
+}
+.ob-pay-title {
+  margin-top: 12px;
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+  text-wrap: balance;
+}
+.ob-pay-door {
+  margin-top: 4px;
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  color: var(--ink-2);
+}
+.ob-week {
+  list-style: none;
+  margin: 32px calc(-1 * var(--page-pad)) 0;
+  padding: 0;
+  display: grid;
+}
+.ob-wrow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 3px minmax(0, 1fr) 28%;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding-inline: var(--page-pad);
+}
+.ob-wrow + .ob-wrow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--page-pad);
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.ob-wday {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ob-wday .caps {
+  width: 26px;
+}
+.ob-wdate {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.ob-wtone {
+  width: 3px;
+  height: 24px;
+  border-radius: 2px;
+  background: var(--tone, transparent);
+}
+.ob-wrow.rest .ob-wtone {
+  background: transparent;
+}
+.ob-wname {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ob-wname .stamp {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+}
+.ob-wrest {
+  font-size: 0.9375rem;
+  color: var(--ink-4);
+}
+.ob-wbar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.ob-wbar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--tone);
+  transform-origin: left center;
+}
+.ob-pay-foot {
+  margin-top: auto;
+  padding-top: 24px;
+  display: grid;
+  gap: 12px;
+}
+.ob-pay-sum {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
+}
+.ob-ok {
+  color: var(--accent-text);
+  flex: none;
+}
+.ob-err {
+  color: var(--bad);
+}
+.ob-pay-note {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--ink-3);
+  text-align: center;
+}
+
+/* ---------- strava ---------- */
+.ob-strava {
+  padding-top: calc(40px + var(--safe-t));
+}
+
+/* ---------- small screens: the titles step down, the space tightens ---------- */
+@media (max-width: 359px) {
+  .ob-title,
+  .ob-promise-title,
+  .ob-pay-title {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+  .ob-body {
+    margin-top: 24px;
+  }
+  .ob-goals {
+    gap: 10px;
+  }
+  .ob-miles-label {
+    margin-top: 24px;
+  }
+  .ob-week {
+    margin-top: 20px;
+  }
+  .ob-wrow {
+    min-height: 44px;
+  }
+  .ob-verdict {
+    margin-top: 20px;
+  }
+}
+@container page (max-width: 21rem) {
+  .ob-title,
+  .ob-pay-title {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+}
+/* the payoff's verb stays in reach on a short screen */
+.ob-payoff .ob-pay-foot {
+  position: sticky;
+  bottom: 0;
+  padding-bottom: 4px;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6) 24px);
+}
+@media (max-width: 359px) {
+  .ob-day-disc {
+    width: 38px;
+    height: 38px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ob-halo.rise {
+    animation: none;
+  }
+}

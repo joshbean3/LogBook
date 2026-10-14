@@ -5,7 +5,7 @@ import { onUnauthorized } from '@/api/client';
 import { onDeepLink } from '@/lib/native';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
-import { Login, Setup } from '@/features/auth/AuthScreens';
+import { Login, Signup } from '@/features/auth/AuthScreens';
 import { ContextMenuProvider } from '@/ui/ContextMenu';
 import { routeInfo } from '@/ui/nav';
 import { PushedPage } from '@/ui/PushedPage';
@@ -97,9 +97,18 @@ const Framed = () => (
               }
             />
             <Route
-              path="/settings/:section?"
+              path="/settings"
               element={
-                <PushedPage>
+                <PushedPage key="settings">
+                  <SettingsView />
+                </PushedPage>
+              }
+            />
+            {/* a sub-section is its own pushed page (it slides in over Settings, and Back lands on Settings) */}
+            <Route
+              path="/settings/:section"
+              element={
+                <PushedPage key="settings-section" backTo="/settings">
                   <SettingsView />
                 </PushedPage>
               }
@@ -123,6 +132,7 @@ const Framed = () => (
 const Authed = () => {
   const boot = useBootstrap();
   const qc = useQueryClient();
+  const loc = useLocation();
   useEffect(() => {
     if (boot.data) {
       void outbox.replay(qc);
@@ -140,6 +150,8 @@ const Authed = () => {
       </div>
     );
   }
+  // a new account goes through first run before anything else (the owner's onboardedAt is set, so it never does)
+  if (boot.data?.user.onboardedAt === null && !loc.pathname.startsWith('/welcome')) return <Navigate to="/welcome" replace />;
   return (
     <Routes>
       {/* first run is full screen: no tab bar */}
@@ -172,7 +184,7 @@ export const App = () => {
   // a 401 anywhere sends you to sign in, without reloading the page
   useEffect(() => {
     const fn = () => {
-      if (!/^\/(login|setup)/.test(location.pathname)) nav('/login', { replace: true });
+      if (!/^\/(login|setup|signup)/.test(location.pathname)) nav('/login', { replace: true });
     };
     onUnauthorized.add(fn);
     return () => {
@@ -183,7 +195,8 @@ export const App = () => {
     <ContextMenuProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/setup" element={<Setup />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/setup" element={<Navigate to="/signup" replace />} />
         <Route path="*" element={<Authed />} />
       </Routes>
     </ContextMenuProvider>

@@ -1,119 +1,284 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router';
-import { api, ApiError } from '@/api/client';
+import { Eye, EyeOff } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useId, useRef, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router';
+import { api, ApiError, NetworkError } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
-import { Button, Field, LogoMark, Note } from '@/ui/primitives';
+import { haptics } from '@/lib/haptics';
+import { fadeIn, springs } from '@/lib/motion';
+import { LogoMark } from '@/ui/primitives';
 import './auth.css';
 
 export const useAuthStatus = () => useQuery({ queryKey: ['auth-status'], queryFn: () => api<AuthStatus>('/auth/status'), staleTime: 60_000 });
+/** Can this visitor make an account? `signupOpen` from the API, or the older `setupOpen`. */
+const canSignUp = (s: AuthStatus | undefined) => !!s && (s.signupOpen ?? s.setupOpen);
 
-/** The black screen with the halo rising from the bottom. With no title it is the quiet stand-in while the status arrives: no spinner, nothing moves. */
-const Frame = ({ title, sub, children }: { title?: string; sub?: string; children?: React.ReactNode }) => (
-  <div className="auth" aria-busy={title ? undefined : true}>
-    <span className="auth-halo" aria-hidden="true" />
-    {title ? (
-      <div className="auth-body">
-        <div className="auth-brand">
-          <LogoMark size={24} color="#fff" />
-          <span className="caps">Logbook</span>
-        </div>
-        <h1 className="auth-title display">{title}</h1>
-        <p className="auth-sub">{sub}</p>
-        {children}
+/**
+ * The black screen with the halo rising from the bottom (once, as the screen arrives). With no title it is the quiet
+ * stand-in while the status arrives: no spinner, nothing moves.
+ */
+const Frame = ({ title, sub, children, foot }: { title?: string; sub?: string; children?: React.ReactNode; foot?: React.ReactNode }) => {
+  const reduce = useReducedMotion();
+  return (
+    <div className="auth" aria-busy={title ? undefined : true}>
+      <span className={`auth-halo ${title ? 'rise' : ''}`} aria-hidden="true" />
+      {title ? (
+        <motion.div className="auth-body" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
+          <div className="auth-brand">
+            <LogoMark size={24} color="#fff" />
+            <span className="caps">Logbook</span>
+          </div>
+          <h1 className="auth-title display">{title}</h1>
+          <p className="auth-sub">{sub}</p>
+          {children}
+          {foot ? <div className="auth-foot">{foot}</div> : null}
+        </motion.div>
+      ) : null}
+    </div>
+  );
+};
+
+/** A dark field with its caps label, an inline error in plain words under it, and (for passwords) a Show button. */
+const AuthField = ({
+  label,
+  error,
+  hint,
+  type = 'text',
+  reveal,
+  inputRef,
+  ...input
+}: { label: string; error?: string | null; hint?: string; reveal?: boolean; inputRef?: React.Ref<HTMLInputElement> } & React.InputHTMLAttributes<HTMLInputElement>) => {
+  const id = useId();
+  const [shown, setShown] = useState(false);
+  const msg = error || hint;
+  return (
+    <div className={`auth-field ${error ? 'bad' : ''}`}>
+      <label className="auth-label caps" htmlFor={id}>
+        {label}
+      </label>
+      <div className="auth-in-wrap">
+        <input ref={inputRef} id={id} className="in auth-in" type={reveal && shown ? 'text' : type} aria-invalid={error ? true : undefined} aria-describedby={msg ? `${id}-msg` : undefined} {...input} />
+        {reveal ? (
+          <button type="button" className="auth-eye" aria-label={shown ? 'Hide password' : 'Show password'} aria-pressed={shown} onClick={() => setShown((v) => !v)}>
+            {shown ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+          </button>
+        ) : null}
       </div>
-    ) : null}
-  </div>
-);
+      {msg ? (
+        <p id={`${id}-msg`} className={error ? 'auth-err' : 'auth-hint'} role={error ? 'alert' : undefined}>
+          {msg}
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailProblem = (v: string) => (!v.trim() ? 'Enter your email address.' : !EMAIL.test(v.trim()) ? 'That doesn’t look like an email address.' : null);
+/** Any failure in plain words, never a status code. */
+const plain = (e: unknown, fallback: string) =>
+  e instanceof NetworkError ? 'Couldn’t reach Logbook. Check your connection and try again.' : e instanceof ApiError && e.status === 429 ? 'Too many tries. Wait a minute, then try again.' : e instanceof ApiError && e.status >= 500 ? 'Something went wrong on our side. Try again in a moment.' : fallback;
+
+type Errors = { email?: string | null; password?: string | null; confirm?: string | null; form?: string | null };
 
 export const Login = () => {
   const status = useAuthStatus();
   const qc = useQueryClient();
   const nav = useNavigate();
-  const [email, setEmail] = useState('');
+  // from sign-up's "Sign in with that email": the address comes along
+  const handed = (useLocation().state as { email?: string } | null)?.email ?? '';
+  const [email, setEmail] = useState(handed);
   const [pw, setPw] = useState('');
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  const pwRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   if (status.isPending) return <Frame />;
-  if (status.data && !status.data.hasAccount && status.data.setupOpen) return <Navigate to="/setup" replace />;
+  if (status.data && !status.data.hasAccount && canSignUp(status.data)) return <Navigate to="/signup" replace />;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const next: Errors = { email: emailProblem(email), password: pw ? null : 'Enter your password.' };
+    setErr(next);
+    if (next.email || next.password) {
+      (next.email ? emailRef : pwRef).current?.focus();
+      return;
+    }
     setBusy(true);
-    setErr(null);
     try {
-      await api('/auth/login', { method: 'POST', json: { email, password: pw } });
+      await api('/auth/login', { method: 'POST', json: { email: email.trim(), password: pw } });
+      // a different account may have signed in on this device: nothing of the last one stays in the cache
+      qc.clear();
       nav('/today', { replace: true });
-      void qc.invalidateQueries();
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? (e2.status === 401 ? 'That didn’t match. Try again.' : e2.code === 'validation' ? (pw.length < 8 ? 'That password is too short.' : 'Check the email address.') : e2.message) : 'Couldn’t sign in. Check your connection.');
+      haptics.error();
+      if (e2 instanceof ApiError && e2.status === 401) {
+        setErr({ password: 'That email and password don’t match. Try again.' });
+        pwRef.current?.select();
+      } else setErr({ form: plain(e2, 'Couldn’t sign in. Try again.') });
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Frame title="Welcome back." sub="Sign in to open your log.">
-      <form className="stack" onSubmit={submit}>
-        <Field label="Email">
-          <input className="in" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-        </Field>
-        <Field label="Password">
-          <input className="in" type="password" autoComplete="current-password" required value={pw} onChange={(e) => setPw(e.target.value)} />
-        </Field>
-        {err ? <Note kind="bad">{err}</Note> : null}
-        <Button variant="primary" block type="submit" disabled={busy}>
-          Sign in
-        </Button>
+    <Frame
+      title="Welcome back."
+      sub="Sign in to open your log."
+      foot={
+        canSignUp(status.data) ? (
+          <p className="auth-switch">
+            New to Logbook?{' '}
+            <Link to="/signup" replace className="auth-link">
+              Create an account
+            </Link>
+          </p>
+        ) : null
+      }
+    >
+      <form className="auth-form" onSubmit={submit} noValidate>
+        <AuthField inputRef={emailRef} label="Email" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" autoFocus={!handed} value={email} onChange={(e) => setEmail(e.target.value)} error={err.email} />
+        <AuthField inputRef={pwRef} label="Password" type="password" name="password" autoComplete="current-password" enterKeyHint="go" reveal autoFocus={!!handed} value={pw} onChange={(e) => setPw(e.target.value)} error={err.password} />
+        {err.form ? (
+          <p className="auth-err form" role="alert">
+            {err.form}
+          </p>
+        ) : null}
+        <button type="submit" className="btn primary block auth-submit" disabled={busy}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
       </form>
     </Frame>
   );
 };
 
-export const Setup = () => {
+export const Signup = () => {
   const status = useAuthStatus();
   const qc = useQueryClient();
   const nav = useNavigate();
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<Errors>({});
+  const [taken, setTaken] = useState(false);
   const [busy, setBusy] = useState(false);
   const created = useRef(false);
+  const refs = { email: useRef<HTMLInputElement>(null), password: useRef<HTMLInputElement>(null), confirm: useRef<HTMLInputElement>(null) };
   if (status.isPending) return <Frame />;
-  if (status.data && !status.data.setupOpen && !created.current) return <Navigate to="/login" replace />;
+  if (status.data && !canSignUp(status.data) && !created.current) return <Navigate to="/login" replace />;
+  const pwProblem = (v: string) => (!v ? 'Choose a password.' : v.length < 8 ? 'Use at least 8 characters.' : null);
+  const confirmProblem = (a: string, b: string) => (!b ? 'Type the password again.' : a !== b ? 'The two passwords don’t match.' : null);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw !== pw2) return setErr('The two passwords don’t match.');
-    if (pw.length < 8) return setErr('Use at least 8 characters.');
+    const next: Errors = { email: emailProblem(email), password: pwProblem(pw), confirm: confirmProblem(pw, pw2) };
+    setErr(next);
+    setTaken(false);
+    const first = (['email', 'password', 'confirm'] as const).find((k) => next[k]);
+    if (first) {
+      refs[first].current?.focus();
+      return;
+    }
     setBusy(true);
-    setErr(null);
     try {
-      await api('/auth/setup', { method: 'POST', json: { email, password: pw } });
+      await api('/auth/signup', { method: 'POST', json: { email: email.trim(), password: pw } });
       created.current = true;
-      nav('/today', { replace: true });
-      void qc.invalidateQueries();
+      qc.clear();
+      nav('/welcome', { replace: true });
     } catch (e2) {
-      setErr(e2 instanceof ApiError ? (e2.code === 'validation' ? (pw.length < 8 ? 'Use at least 8 characters.' : 'Check the email address.') : e2.message) : 'Couldn’t create the account.');
+      haptics.error();
+      if (e2 instanceof ApiError && e2.status === 409) {
+        setTaken(true);
+        setErr({ email: 'There’s already an account with that email.' });
+        refs.email.current?.focus();
+      } else if (e2 instanceof ApiError && e2.status === 403) setErr({ form: 'New accounts are closed here. Sign in instead.' });
+      else if (e2 instanceof ApiError && e2.status === 422) setErr({ form: 'Check the email address and try again.' });
+      else setErr({ form: plain(e2, 'Couldn’t create the account. Try again.') });
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Frame title="Make it yours." sub="This is a private log. Create the one account that opens it.">
-      <form className="stack" onSubmit={submit}>
-        <Field label="Email">
-          <input className="in" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-        </Field>
-        <Field label="Password" hint="At least 8 characters. There is no reset, so keep it somewhere safe.">
-          <input className="in" type="password" autoComplete="new-password" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} />
-        </Field>
-        <Field label="Again">
-          <input className="in" type="password" autoComplete="new-password" required value={pw2} onChange={(e) => setPw2(e.target.value)} />
-        </Field>
-        {err ? <Note kind="bad">{err}</Note> : null}
-        <Button variant="primary" block type="submit" disabled={busy}>
-          Create
-        </Button>
+    <Frame
+      title="Make it yours."
+      sub="An account keeps your plan. Then three quick questions."
+      foot={
+        <p className="auth-switch">
+          Have an account?{' '}
+          <Link to="/login" replace className="auth-link">
+            Sign in
+          </Link>
+        </p>
+      }
+    >
+      <form className="auth-form" onSubmit={submit} noValidate>
+        <AuthField
+          inputRef={refs.email}
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="username"
+          inputMode="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          enterKeyHint="next"
+          autoFocus
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (err.email) setErr((x) => ({ ...x, email: null }));
+          }}
+          onBlur={() => email && setErr((x) => ({ ...x, email: emailProblem(email) }))}
+          error={err.email}
+        />
+        {taken ? (
+          <Link to="/login" replace state={{ email: email.trim() }} className="btn soft block auth-taken">
+            Sign in with that email
+          </Link>
+        ) : null}
+        <AuthField
+          inputRef={refs.password}
+          label="Password"
+          type="password"
+          name="new-password"
+          autoComplete="new-password"
+          enterKeyHint="next"
+          reveal
+          value={pw}
+          onChange={(e) => {
+            setPw(e.target.value);
+            if (err.password) setErr((x) => ({ ...x, password: null }));
+          }}
+          onBlur={() => pw && setErr((x) => ({ ...x, password: pwProblem(pw) }))}
+          error={err.password}
+          hint="At least 8 characters."
+        />
+        <AuthField
+          inputRef={refs.confirm}
+          label="Confirm password"
+          type="password"
+          name="confirm-password"
+          autoComplete="new-password"
+          enterKeyHint="go"
+          reveal
+          value={pw2}
+          onChange={(e) => {
+            setPw2(e.target.value);
+            if (err.confirm) setErr((x) => ({ ...x, confirm: null }));
+          }}
+          onBlur={() => pw2 && setErr((x) => ({ ...x, confirm: confirmProblem(pw, pw2) }))}
+          error={err.confirm}
+        />
+        {err.form ? (
+          <p className="auth-err form" role="alert">
+            {err.form}
+          </p>
+        ) : null}
+        <button type="submit" className="btn primary block auth-submit" disabled={busy}>
+          {busy ? 'Creating your account…' : 'Create account'}
+        </button>
       </form>
     </Frame>
   );
 };
+
+/** v1 name: /setup is sign-up now. */
+export const Setup = Signup;

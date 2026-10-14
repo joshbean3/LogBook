@@ -1,4 +1,4 @@
-/* ---------- Login and Setup: a black screen lit from the bottom, no card ---------- */
+/* ---------- Sign in and sign up: a black screen lit from the bottom, no card ---------- */
 .auth {
   position: relative;
   isolation: isolate;
@@ -10,8 +10,9 @@
   background: var(--bg);
   color: var(--ink);
   overflow: hidden;
+  container: page / inline-size;
 }
-/* the halo rises from the bottom of the viewport, under the form, never under the words */
+/* the halo rises from the bottom of the viewport, under the form, never under the words; once, as the screen arrives */
 .auth-halo {
   position: fixed;
   inset: 0;
@@ -19,6 +20,19 @@
   background: var(--halo);
   opacity: 0.9;
   pointer-events: none;
+}
+.auth-halo.rise {
+  animation: auth-rise 1.1s var(--ease-out) both;
+}
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30%);
+  }
+  to {
+    opacity: 0.9;
+    transform: none;
+  }
 }
 .auth-body {
   width: 100%;
@@ -51,36 +65,99 @@
   margin-bottom: 16px;
   max-width: 32ch;
 }
-.auth form {
-  gap: 12px;
+.auth-form {
+  display: grid;
+  gap: 16px;
 }
-/* dark fields: a 7% surface with a faint outline, caps labels above */
-.auth .field-label {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.auth-field {
+  display: grid;
+  gap: 6px;
+}
+.auth-label {
   color: var(--ink-3);
 }
-.auth .field-hint {
-  color: var(--ink-3);
+.auth-field.bad .auth-label {
+  color: var(--bad);
 }
-.auth .in {
+.auth-in-wrap {
+  position: relative;
+}
+.auth .in.auth-in {
   background: var(--surface);
   border-color: var(--line-strong);
-  height: 48px;
+  height: 52px;
   padding: 0 14px;
   color: var(--ink);
+  font-size: 1.0625rem;
 }
-.auth .in:focus {
+.auth-in-wrap:has(.auth-eye) .in.auth-in {
+  padding-right: 52px;
+}
+.auth .in.auth-in:focus {
   border-color: var(--ink-3);
   box-shadow: none;
 }
-.auth .btn.primary {
-  height: 48px;
+.auth-field.bad .in.auth-in {
+  border-color: var(--bad);
+}
+.auth-eye {
+  appearance: none;
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  color: var(--ink-3);
+  display: grid;
+  place-items: center;
+}
+.auth-eye[aria-pressed='true'] {
+  color: var(--ink);
+}
+.auth-err {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--bad);
+}
+.auth-err.form {
+  margin-top: -4px;
+}
+.auth-hint {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--ink-3);
+}
+.auth-submit.btn {
+  height: 52px;
   margin-top: 4px;
   font-size: 1.0625rem;
+}
+.auth-taken.btn {
+  margin-top: -6px;
+}
+.auth-foot {
+  margin-top: 24px;
+}
+.auth-switch {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  text-align: center;
+}
+/* the other door: a 44px target around a short phrase */
+.auth-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--ink-4);
+  text-underline-offset: 4px;
 }
 @media (max-width: 359px) {
   .auth {
@@ -90,14 +167,22 @@
     font-size: 1.75rem;
     line-height: 2.125rem;
   }
+  .auth-brand {
+    margin-bottom: 16px;
+  }
+  .auth-form {
+    gap: 12px;
+  }
 }
 /* the same step-down at a larger text size: the screen is a size container in rem */
-.auth {
-  container: page / inline-size;
-}
 @container page (max-width: 19rem) {
   .auth-title {
     font-size: 1.75rem;
     line-height: 2.125rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-halo.rise {
+    animation: none;
   }
 }
