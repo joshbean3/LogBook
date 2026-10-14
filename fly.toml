@@ -1,5 +1,5 @@
 # fly launch --no-deploy, then: fly volumes create logbook_data --size 1 ; fly secrets set ... ; fly deploy
-app = "logbook"
+app = "josh-logbook"
 primary_region = "ewr"
 
 [build]
