@@ -314,136 +314,6 @@
   margin-right: -8px;
 }
 
-/* ---------- move: a month in the day-strip grammar; tap a day and the session goes there ---------- */
-.mv {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-/* the sheet's title: caps MOVE over the name in the serif */
-.mv-title {
-  display: grid;
-  gap: 2px;
-}
-.mv-title .caps {
-  display: block;
-  font-family: var(--sans);
-  font-style: normal;
-}
-.mv-nav {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin: 0 -8px 0 0;
-}
-.mv-month {
-  font-size: 17px;
-  line-height: 22px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-right: auto;
-  min-width: 0;
-}
-.mv-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
-}
-.mv-dow {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--ink-3);
-  text-align: center;
-  padding-bottom: 4px;
-}
-.mv-day {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  min-width: 0;
-  min-height: 44px;
-  color: var(--ink);
-}
-/* past days and the spill of the next and last month sit back, and still take the tap */
-.mv-day.is-dim {
-  opacity: 0.4;
-}
-.mv-pill {
-  width: 100%;
-  max-width: 44px;
-  aspect-ratio: 1;
-  border-radius: var(--r-pill);
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 2px;
-  transition:
-    background var(--dur-fast),
-    box-shadow var(--dur-fast),
-    transform 100ms var(--ease-out);
-}
-.mv-day:active .mv-pill {
-  transform: scale(0.94);
-}
-.mv-num {
-  font-size: 17px;
-  line-height: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-/* today is ringed in the one blue; the session's own day is filled white */
-.mv-day.is-today .mv-pill {
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
-}
-.mv-day.is-here {
-  opacity: 1;
-}
-.mv-day.is-here .mv-pill {
-  background: var(--ink);
-}
-.mv-day.is-here .mv-num {
-  color: var(--bg);
-}
-.mv-dots {
-  display: flex;
-  justify-content: center;
-  gap: 3px;
-  height: 6px;
-  min-width: 0;
-}
-.mv-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 50%;
-  border: 2px solid var(--tone);
-  background: transparent;
-}
-.mv-dot.on {
-  background: var(--tone);
-}
-.mv-dot.skip {
-  opacity: 0.4;
-}
-.mv-hint {
-  color: var(--ink-3);
-}
-@media (max-width: 359px) {
-  .mv-grid {
-    gap: 2px;
-  }
-}
-@media (hover: hover) {
-  .mv-day:not(.is-here):hover .mv-pill {
-    background: var(--surface-2);
-  }
-}
-
 /* ---------- the sheet: one head from every way in ----------
    the page's hero already drew the route and lit the day; the sheet names the session and stamps the numbers */
 /* the sheet's date sits where a title would, as a caps label: Inter, never the serif under 22px */
@@ -556,4 +426,382 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 16px;
   }
+}
+
+/* ---------- a chip you can tap: 44px, one selection look (filled white when on) ---------- */
+.pl-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out),
+    transform 100ms var(--ease-out);
+}
+.pl-chip:active {
+  transform: scale(0.97);
+}
+.pl-chip.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.pl-chip.sm {
+  padding: 0 12px;
+}
+
+/* ---------- the session sheet (Sheet v2: the name is the sheet's title, the date its eyebrow) ---------- */
+.ss {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.sheet-more {
+  display: contents;
+}
+/* the route on black, at the top, when there is one */
+.ss-map {
+  margin-inline: -16px;
+  height: 168px;
+  background: radial-gradient(70% 90% at 50% 110%, rgba(47, 59, 255, 0.28), rgba(47, 59, 255, 0) 70%), #000;
+  border-block: 1px solid var(--line);
+}
+.ss-map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ss-map path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ss-map-glow {
+  stroke: rgba(91, 102, 255, 0.35);
+  stroke-width: 8;
+  filter: blur(4px);
+}
+.ss-map-line {
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+.ss-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 20px;
+}
+.ss-meta {
+  margin-top: -8px;
+}
+.ss .sh-stats {
+  margin-top: 0;
+}
+/* the two verbs that matter: Done (the one blue) and Floor, 48px, side by side */
+.ss-verbs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ss-big {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  border-radius: var(--r-pill);
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out),
+    transform 120ms var(--ease-out);
+}
+.ss-big:active {
+  transform: scale(0.97);
+}
+.ss-big.done {
+  background: var(--accent);
+  border: 1px solid var(--accent-bright);
+  color: #fff;
+}
+.ss-big.done.is-on {
+  background: var(--ok-soft);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+.ss-big.floor {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--warn);
+}
+.ss-big.floor.is-on {
+  background: var(--warn-soft);
+  border-color: transparent;
+}
+.ss-floor-glyph {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px currentColor;
+  background: linear-gradient(to top, currentColor 50%, transparent 50%);
+}
+.ss-auto {
+  margin: 0;
+}
+/* Skip / Share, Move ›, Edit ›: ink pills under the verbs */
+.ss-second {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ss-pill {
+  appearance: none;
+  flex: 1 1 0;
+  min-width: 88px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.ss-pill:active {
+  background: var(--surface);
+}
+.ss-pill[aria-pressed='true'] {
+  background: var(--surface-2);
+}
+.ss-pill-chev {
+  color: var(--ink-3);
+  margin-right: -4px;
+}
+.ss-floor-line {
+  margin: 0;
+}
+.cm-floor {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--warn);
+  background: linear-gradient(to top, var(--warn) 50%, transparent 50%);
+}
+
+/* ---------- the editor: shaped by the kind ---------- */
+.ed {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.ed-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+.ed-preview i {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--tone);
+}
+.ed-preview .stamp {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+}
+.ed-preview-day {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--ink-3);
+}
+.ed-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.ed-label {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ed-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ed-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+.pl-chip.on .ed-dot {
+  box-shadow: 0 0 0 1.5px var(--bg);
+}
+.ed-repeat {
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent-text);
+  border-color: transparent;
+  background: var(--accent-tint);
+}
+.ed-add {
+  display: flex;
+  gap: 8px;
+}
+.ed-add .in {
+  flex: 1;
+  min-width: 0;
+}
+.ed .in {
+  min-height: 44px;
+}
+
+/* ---------- the day picker: a week of days, one swipe per week ---------- */
+.dp {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.dp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dp-nav {
+  display: flex;
+  margin-right: -10px;
+}
+.dp-pager {
+  margin-inline: -16px;
+  border-radius: 0;
+}
+.dp-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.dp-day {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  min-height: 72px;
+}
+.dp-dow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+.dp-pill {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  width: 40px;
+  height: 48px;
+  border-radius: 14px;
+  transition: background-color var(--dur-color) var(--ease-out);
+}
+.dp-num {
+  font-family: var(--stamp);
+  font-weight: 800;
+  font-size: 1.0625rem;
+  line-height: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.dp-bar {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tone);
+}
+.dp-bar.none {
+  background: transparent;
+}
+.dp-day.is-today .dp-pill {
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+}
+.dp-day.is-origin .dp-pill {
+  opacity: 0.45;
+}
+.dp-day.is-sel .dp-pill {
+  background: var(--ink);
+  color: var(--bg);
+  opacity: 1;
+}
+.dp-day:active .dp-pill {
+  background: var(--surface-2);
+}
+
+/* ---------- move: quick picks, then the week ---------- */
+.mv2 {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.mv2 > p {
+  margin: 0;
+}
+.mv2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* the header's ⋯ and its card (styled as the context menu) */
+.sx-more {
+  position: relative;
+  display: inline-flex;
+  margin-right: -4px;
+}
+.sx-menu {
+  position: absolute;
+  top: 46px;
+  right: -40px;
+  z-index: 10;
+  width: min(250px, calc(100vw - 24px));
+  display: grid;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-menu);
+  overflow: hidden;
+  transform-origin: 85% 0;
+  box-shadow: var(--shadow-2);
+}
+.ed-group > .pl-chip {
+  justify-self: start;
 }

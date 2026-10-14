@@ -509,3 +509,47 @@ export const useBlockMutations = () => {
   });
   return { remove };
 };
+
+// ── plan ──
+import type { TemplateInput } from '@logbook/shared';
+
+/** `POST /plans/template`: write a block built by `buildTemplate`, then refetch its months and the bootstrap (blocks). */
+export const useTemplatePlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: TemplateInput & { replace?: boolean }) => api<{ block: PlanBlock; months: string[]; removed: number }>('/plans/template', { method: 'POST', json: body }),
+    onSuccess: async (r) => {
+      for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+      await qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/**
+ * Delete a plan with an Undo, though the API has no restore for blocks: the plan and its sessions leave the cache at once,
+ * and the DELETE is sent only once the Undo window (the toast's 6.5s) has passed. The returned function is the Undo.
+ */
+export const useDeferredBlockDelete = () => {
+  const qc = useQueryClient();
+  const monthsOf = (b: PlanBlock) => monthsBetween(shiftDays(b.start, -14), shiftDays(b.end, 14));
+  const hide = (b: PlanBlock, windowMs = 6800) => {
+    const before = { boot: qc.getQueryData<Bootstrap>(keys.bootstrap), months: monthsOf(b).map((m) => [m, qc.getQueryData<MonthBundle>(keys.month(m))] as const) };
+    qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
+    for (const m of monthsOf(b)) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter((s) => s.blockId !== b.id) }));
+    const timer = setTimeout(() => {
+      void api(`/blocks/${b.id}`, { method: 'DELETE' })
+        .catch(() => undefined)
+        .finally(() => {
+          for (const m of monthsOf(b)) void qc.invalidateQueries({ queryKey: keys.month(m) });
+          void qc.invalidateQueries({ queryKey: keys.bootstrap });
+        });
+    }, windowMs);
+    return () => {
+      clearTimeout(timer);
+      if (before.boot) qc.setQueryData(keys.bootstrap, before.boot);
+      for (const [m, bd] of before.months) if (bd) qc.setQueryData(keys.month(m), bd);
+    };
+  };
+  return { hide };
+};
+// ── plan ──

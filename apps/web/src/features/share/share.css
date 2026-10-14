@@ -1,28 +1,64 @@
-/* ---------- share cards: a story-sized card on the sheet, templates under it ---------- */
+/* ---------- share: live cards in a carousel, the page dots, Share ---------- */
 .share {
   display: grid;
   gap: 14px;
   min-width: 0;
 }
-/* everything but the footer. The card is sized so that the caption, the chips and the footer all fit the sheet
-   without scrolling at 320×640 and 390×844: the footer is sticky, so the only way nothing ever sits under it is to fit. */
 .share-main {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
 }
-/* the card keeps 9:16; it takes under half the screen so the caption, the chips and the two buttons stay in view */
-.share-stage {
-  position: relative;
-  height: min(46dvh, 560px);
-  aspect-ratio: 9 / 16;
-  max-width: 100%;
-  margin: 0 auto;
+/* the cards bleed to the sheet's edges and snap one by one; the one in view sits in the middle with its neighbours peeking */
+.share-track {
+  --card-h: min(48dvh, 560px);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc(var(--card-h) * 9 / 16);
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  margin-inline: -16px;
+  padding: 4px calc(50% - var(--card-h) * 9 / 32);
+  -webkit-overflow-scrolling: touch;
+}
+.share-track::-webkit-scrollbar {
+  display: none;
+}
+.share-slide {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  color: inherit;
+  scroll-snap-align: center;
+  height: var(--card-h);
+  display: block;
+  transition:
+    opacity var(--dur-color) var(--ease-out),
+    transform 260ms var(--ease-out);
+  opacity: 0.45;
+  transform: scale(0.94);
+}
+.share-slide.is-cur {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .share-slide {
+    transition: opacity 150ms linear;
+    transform: none;
+  }
 }
 .share-card {
-  position: absolute;
-  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: var(--r-lg);
   overflow: hidden;
   background: #000;
@@ -33,31 +69,47 @@
   width: 100%;
   height: 100%;
 }
-/* the five templates in one row that scrolls, snapping chip by chip, fading out at the right edge */
-.share-templates {
+/* the template's name and the dots, centred under the card */
+.share-pager {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+}
+.share-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  line-height: 1.25rem;
+}
+.share-dots {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  /* room for the 44px touch halo above and below the chips */
-  padding: 6px 16px 6px 0;
-  margin: -6px 0;
-  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+  justify-content: center;
 }
-.share-templates::-webkit-scrollbar {
-  display: none;
-}
-.share-templates .chip-btn {
-  flex: none;
+.share-dot {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 44px;
   height: 44px;
-  padding: 0 10px;
-  scroll-snap-align: start;
+  margin-inline: -8px;
+  display: grid;
+  place-items: center;
+  padding: 0;
 }
-.share-templates .chip-btn::after {
-  display: none;
+.share-dot i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  transition:
+    background var(--dur-color) var(--ease-out),
+    width var(--dur-color) var(--ease-out);
+}
+.share-dot.on i {
+  background: var(--ink);
+  width: 18px;
+  border-radius: 4px;
+}
+.share-caption {
+  text-align: center;
 }

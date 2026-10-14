@@ -1,16 +1,16 @@
 import { daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api, ApiError } from '@/api/client';
-import { keys, useBlockMutations } from '@/api/queries';
-import { Button, Chip, EmptyState, Field, Group, Note, Row, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { keys } from '@/api/queries';
+import { haptics } from '@/lib/haptics';
+import { Button, Chip, Field, Group, Note, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import type { Log } from '../log/useLog';
-import { AddSessionButton, useOpenSession } from '../sessions/SessionCard';
 
 type Mode = 'file' | 'text' | 'describe' | 'revise';
 const MODES: Array<[Mode, string]> = [
@@ -25,6 +25,7 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
   const qc = useQueryClient();
   const nav = useNavigate();
   const toast = useToast();
+  const sheet = useSheet();
   const [name, setName] = useState(draft.name);
   const existing = (() => {
     let n = 0;
@@ -39,8 +40,10 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
     onSuccess: async (r) => {
       for (const m of monthsBetween(shiftDays(draft.start, -14), shiftDays(draft.end, 14))) void qc.invalidateQueries({ queryKey: keys.month(m) });
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
+      haptics.success();
       toast(`${draft.sessions.length} sessions added to your calendar`);
       onDone();
+      sheet.close();
       nav(`/plan/week/${r.block.start}`);
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the plan.'),
@@ -200,7 +203,6 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
   if (!log.features.claude) return null;
   return (
     <>
-      <SectionHead title="Plan builder" />
       <Group className="builder">
         <div className="brow">
           <Segmented className="mode-tabs" label="Source" options={MODES} value={mode} onChange={(m) => (setMode(m), setError(null))} disabled={busy} />
@@ -279,146 +281,6 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
       <p className="fine" style={{ marginTop: 8 }}>
         Reads your source, your recent weeks of running and your heart-rate zones, then returns dated sessions you can check before saving.
       </p>
-    </>
-  );
-};
-
-const SRC_WORD: Record<string, string> = { file: 'a file', text: 'pasted text', describe: 'your description', revise: 'a revision', chat: 'chat', sheet: 'your spreadsheet' };
-const planState = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active');
-const planMeta = (b: PlanBlock) => `${fmtDate('md', b.start)} – ${fmtDate('md', b.end)} · ${b.sessionCount ?? 0} sessions${b.source ? ` · from ${SRC_WORD[b.source] ?? b.source}` : ''}`;
-
-/** The plan's sheet: what it is, then the two things you can do with it. */
-export const PlanSheet = ({ b, t }: { b: PlanBlock; t: string }) => {
-  const sheet = useSheet();
-  const nav = useNavigate();
-  const toast = useToast();
-  const { remove } = useBlockMutations();
-  const [confirm, setConfirm] = useState(false);
-  const state = planState(b, t);
-  const weeks = Math.ceil((daysBetween(b.start, b.end) + 1) / 7);
-  return (
-    <>
-      <div className="plan-sheet">
-        <div className="row" style={{ gap: 8 }}>
-          <Chip kind={state === 'Active' ? 'open' : state === 'Upcoming' ? 'upcoming' : ''}>{state}</Chip>
-          <span className="t-sub muted">
-            {fmtDate('md', b.start)} – {fmtDate('md', b.end)}
-          </span>
-        </div>
-        <StatStrip>
-          <Stat label="Weeks" value={weeks} />
-          <Stat label="Sessions" value={b.sessionCount ?? 0} />
-        </StatStrip>
-        {b.summary ? <p className="t-body ink2">{b.summary}</p> : null}
-        {b.source ? <span className="t-cap muted">From {SRC_WORD[b.source] ?? b.source}</span> : null}
-      </div>
-      <div className="sheet-foot">
-        {confirm ? (
-          <>
-            <Button
-              variant="danger"
-              onClick={() => {
-                remove.mutate(b);
-                sheet.close();
-                toast('Plan deleted');
-              }}
-            >
-              Delete
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirm(false)}>
-              Keep
-            </Button>
-          </>
-        ) : (
-          <Button variant="danger" onClick={() => setConfirm(true)}>
-            Delete
-          </Button>
-        )}
-        <div className="foot-right">
-          <Button
-            variant="primary"
-            onClick={() => {
-              sheet.close();
-              nav(`/plan/week/${b.start < t && t <= b.end ? t : b.start}`);
-            }}
-          >
-            Open
-          </Button>
-        </div>
-      </div>
-    </>
-  );
-};
-
-/** Every plan but the one the hero already shows. With a hero and nothing else, the section stays out of the way. */
-export const PlansList = ({ log, exclude }: { log: Log; exclude?: string }) => {
-  const all = log.boot?.blocks ?? [];
-  const blocks = exclude ? all.filter((b) => b.id !== exclude) : all;
-  const sheet = useSheet();
-  const t = log.today;
-  if (exclude && !blocks.length) return null;
-  return (
-    <>
-      <SectionHead title={exclude ? 'Other plans' : 'Your plans'} meta={blocks.length ? `${blocks.length} ${blocks.length === 1 ? 'plan' : 'plans'}` : undefined} />
-      <Group>
-        {!blocks.length ? (
-          <EmptyState action={<AddSessionButton date={t} variant="soft" />}>{log.features.claude ? 'No plans yet. Build one above, or add a session.' : 'No plans yet. Add a session.'}</EmptyState>
-        ) : (
-          <ul>
-            {blocks.map((b) => {
-              const state = planState(b, t);
-              return (
-                <Row
-                  key={b.id}
-                  as="li"
-                  className="plan-row"
-                  title={b.name}
-                  sub={planMeta(b)}
-                  right={
-                    <>
-                      <Chip kind={state === 'Active' ? 'open' : state === 'Upcoming' ? 'upcoming' : ''}>{state}</Chip>
-                      <ChevronRight size={18} />
-                    </>
-                  }
-                  onClick={() => sheet.open({ title: b.name, body: <PlanSheet b={b} t={t} /> })}
-                />
-              );
-            })}
-          </ul>
-        )}
-      </Group>
-    </>
-  );
-};
-
-export const Upcoming = ({ log }: { log: Log }) => {
-  const open = useOpenSession(log);
-  const t = log.today;
-  const items: Array<[string, ReturnType<Log['snap']['sessionsOn']>[number]]> = [];
-  for (let d = t; d <= shiftDays(t, 13); d = shiftDays(d, 1)) for (const s of log.snap.sessionsOn(d)) if (s.kind !== 'rest') items.push([d, s]);
-  return (
-    <>
-      <SectionHead title="Next two weeks" meta={items.length ? `${items.length} ${items.length === 1 ? 'session' : 'sessions'}` : undefined} />
-      <Group>
-        {!items.length ? (
-          <EmptyState>Nothing planned in the next two weeks.</EmptyState>
-        ) : (
-          <ul>
-            {items.map(([d, s]) => (
-              <li key={s.id}>
-                <button type="button" className={`lrow tappable uprow t-${tone(s)}`} onClick={() => open(d, s)}>
-                  <span className="up-date caps">{d === t ? 'Today' : `${fmtDate('dow', d)} ${parseISO(d).getDate()}`}</span>
-                  <span className="up-sess">
-                    <i className="tone-dot" aria-hidden="true" />
-                    <span className="stamp up-stamp">{label(s)}</span>
-                  </span>
-                  <span className="up-det">{s.details ?? ''}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Group>
     </>
   );
 };

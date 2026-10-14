@@ -1,125 +1,77 @@
-import { addMonths, counts, fmtDate, label, mondayOf, monthsBetween, monthStart, parseISO, sessionStatus, shiftDays, tone, type Session } from '@logbook/shared';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useSessionMutations } from '@/api/queries';
-import { Button, IconButton } from '@/ui/primitives';
-import { useSheet } from '@/ui/Sheet';
+import { fmtDate, label, shiftDays, type Session } from '@logbook/shared';
+import { haptics } from '@/lib/haptics';
+import { useSheet, type SheetApi } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
+import { DayPicker } from './DayPicker';
+import { useReshape } from './reshape';
 
-const DOW1 = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
 
-/** The sheet's title: a caps MOVE over the session's name in the serif. */
-export const MoveTitle = ({ session }: { session: Session }) => (
-  <span className="mv-title">
-    <span className="caps">Move</span>
-    <span className="display">{session.kind === 'rest' ? 'Rest' : label(session)}</span>
-  </span>
-);
+/** The Move sheet's title: just "Move"; the session rides in the eyebrow. Kept for callers that import it. */
+export const MoveTitle = ({ session }: { session: Session }) => <span>Move {nameOf(session)}</span>;
 
-/** Open the Move calendar for a session, from the sheet footer or a long press on a row. */
-export const openMoveSheet = (sheet: ReturnType<typeof useSheet>, date: string, session: Session) => sheet.open({ title: <MoveTitle session={session} />, body: <MoveSheet date={date} session={session} /> });
+const spec = (date: string, session: Session) => ({ eyebrow: nameOf(session), title: 'Move', body: <MovePanel date={date} session={session} /> });
+
+/** Open Move on its own (a row's left swipe, a context menu). */
+export const openMoveSheet = (sheet: SheetApi, date: string, session: Session) => sheet.open(spec(date, session));
+/** Push Move inside an open session sheet, with a back chevron. */
+export const pushMoveSheet = (sheet: SheetApi, date: string, session: Session) => sheet.push(spec(date, session));
+
+/** Toast words and haptic for a reshape; one haptic, the warning when two hard days now touch. */
+export const announceReshape = (toast: ReturnType<typeof useToast>, r: { conflict: string[] | null; said: string; undo: () => void }) => {
+  if (r.conflict) {
+    haptics.warning();
+    toast('Two hard days in a row. Keep it?', { label: 'Undo', fn: r.undo });
+  } else {
+    haptics.drop();
+    toast(r.said, { label: 'Undo', fn: r.undo });
+  }
+};
 
 /**
- * A month calendar in the day-strip grammar: tap a day and the session moves there. Today is ringed in the accent,
- * the session's own day is filled white, days with sessions carry their 6px tone dots, past days sit at 40% and still take a tap.
- * Under the grid: Skip, and Delete.
+ * Move one session, usually a day or two: Tomorrow and the next free day as one-tap chips, then the week as a strip of
+ * days (swipe or the chevrons for other weeks). A day that already has a session swaps with it, as a drop does in Plan.
  */
-export const MoveSheet = ({ date, session }: { date: string; session: Session }) => {
-  const [first, setFirst] = useState(monthStart(date));
-  const next = addMonths(first, 1);
-  const gridStart = mondayOf(first);
-  // the grid runs in whole weeks from the Monday before the 1st to the Sunday after the last day
-  const days = useMemo(() => {
-    const out: string[] = [];
-    for (let d = gridStart, i = 0; (d < next || parseISO(d).getDay() !== 1) && i < 42; d = shiftDays(d, 1), i++) out.push(d);
-    return out;
-  }, [gridStart, next]);
-  const log = useLog(monthsBetween(gridStart, days[days.length - 1] ?? first));
-  const { move, mark, remove, restore } = useSessionMutations();
+export const MovePanel = ({ date, session }: { date: string; session: Session }) => {
+  const log = useLog([date.slice(0, 7), shiftDays(date, 21).slice(0, 7)]);
   const sheet = useSheet();
   const toast = useToast();
+  const { reshape } = useReshape();
   const t = log.today;
-  const name = session.kind === 'rest' ? 'Rest' : label(session);
-
   const go = (to: string) => {
     if (to === date) return;
-    move.mutate({ session, to });
+    const r = reshape(log, session, date, to);
     sheet.close();
-    toast(`Moved to ${fmtDate('short', to)}`, { label: 'Undo', fn: () => move.mutate({ session: { ...session, date: to }, to: date }) });
+    if (r) announceReshape(toast, r);
   };
-  const skip = () => {
-    const was = session.mark;
-    const skipping = was !== 'skip';
-    mark.mutate({ session, mark: skipping ? 'skip' : null });
-    sheet.close();
-    toast(skipping ? `${name} skipped` : `${name} back on`, { label: 'Undo', fn: () => mark.mutate({ session, mark: was }) });
-  };
-  const del = () => {
-    remove.mutate(session);
-    sheet.close();
-    toast('Session deleted', { label: 'Undo', fn: () => restore.mutate(session) });
-  };
-
+  const tomorrow = shiftDays(date, 1);
+  let free: string | null = null;
+  for (let i = 1; i <= 21 && !free; i++) {
+    const d = shiftDays(date, i);
+    if (d < t) continue;
+    if (!log.snap.sessionsOn(d).some((x) => x.kind !== 'rest' && x.id !== session.id)) free = d;
+  }
+  const chips: Array<[string, string]> = [];
+  if (date !== t && t > shiftDays(date, -30)) chips.push(['Today', t]);
+  if (tomorrow !== t) chips.push(['Tomorrow', tomorrow]);
+  if (free && free !== tomorrow && free !== t) chips.push([`Next free day · ${fmtDate('dow', free)}`, free]);
   return (
-    <div className="mv">
-      <div className="mv-nav">
-        <span className="mv-month">{fmtDate('month', first)}</span>
-        <IconButton label="Previous month" onClick={() => setFirst(addMonths(first, -1))}>
-          <ChevronLeft size={22} />
-        </IconButton>
-        <IconButton label="Next month" onClick={() => setFirst(next)}>
-          <ChevronRight size={22} />
-        </IconButton>
-      </div>
-      <div className="mv-grid" role="grid" aria-label={`Pick a day in ${fmtDate('month', first)}`}>
-        {DOW1.map((x, i) => (
-          <span key={i} className="mv-dow" aria-hidden="true">
-            {x}
-          </span>
+    <div className="mv2">
+      <p className="t-sub ink2">
+        {nameOf(session)} is on {date === t ? 'today' : fmtDate('long', date)}. A day with something on it swaps.
+      </p>
+      <div className="mv2-chips" role="group" aria-label="Quick picks">
+        {chips.map(([k, d]) => (
+          <button key={k} type="button" className="pl-chip" onClick={() => go(d)}>
+            {k}
+          </button>
         ))}
-        {days.map((d) => {
-          const inMonth = d >= first && d < next;
-          const here = d === date;
-          const list = log.snap.sessionsOn(d).filter((s) => s.kind !== 'rest' && s.id !== session.id);
-          const bonus = !here && !list.length && log.snap.runsOn(d).length > 0;
-          const what = here ? `${name} is here` : list.length ? list.map(label).join(', ') : 'free';
-          return (
-            <button
-              key={d}
-              type="button"
-              className={`mv-day ${here ? 'is-here' : ''} ${d === t ? 'is-today' : ''} ${d < t || !inMonth ? 'is-dim' : ''}`}
-              aria-current={d === t ? 'date' : undefined}
-              aria-pressed={here}
-              aria-label={`${fmtDate('long', d)}, ${what}${here ? '' : `. Move ${name} here`}`}
-              onClick={() => go(d)}
-            >
-              <span className="mv-pill">
-                <span className="mv-num">{parseISO(d).getDate()}</span>
-                <span className="mv-dots" aria-hidden="true">
-                  {here ? <i className={`mv-dot t-${tone(session)} on`} /> : null}
-                  {bonus ? <i className="mv-dot t-easy on" /> : null}
-                  {list.slice(0, here ? 2 : 3).map((s) => {
-                    const st = sessionStatus(log.snap, d, s);
-                    return <i key={s.id} className={`mv-dot t-${tone(s)} ${counts(st) ? 'on' : ''} ${st === 'skipped' ? 'skip' : ''}`} />;
-                  })}
-                </span>
-              </span>
-            </button>
-          );
-        })}
       </div>
-      <p className="fine mv-hint">From {date === t ? 'today' : fmtDate('short', date)}. Tap a day.</p>
-      <div className="sheet-foot">
-        <Button variant="quiet" onClick={skip}>
-          {session.mark === 'skip' ? 'Unskip' : 'Skip'}
-        </Button>
-        <div className="foot-right">
-          <Button variant="danger" onClick={del}>
-            Delete
-          </Button>
-        </div>
-      </div>
+      <DayPicker value={date} origin={date} skipId={session.id} onPick={go} labelFor={(d, what) => (d === date ? `${fmtDate('long', d)}, where it is` : `${fmtDate('long', d)}, ${what}. Move here`)} />
     </div>
   );
 };
+
+/** Kept for compatibility: the old name of the Move body. */
+export const MoveSheet = MovePanel;
