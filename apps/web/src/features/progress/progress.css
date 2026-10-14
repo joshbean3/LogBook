@@ -201,6 +201,34 @@
 .pg-chart.is-ghost .pg-plot {
   cursor: default;
 }
+/* a week (partly) logged by hand: the same solid bar, with a 1px inner hairline that says "logged, not tracked" */
+.pg-logged {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 1;
+}
+
+/* the empty state's ghost: shapes only, no numbers, no labels */
+.pg-ghost-read {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 20px;
+}
+.pg-ghost-slot {
+  display: grid;
+  gap: 8px;
+}
+.pg-ghost-bars {
+  display: block;
+}
+.pg-ghost-bars rect {
+  fill: var(--ink-4);
+}
+.pg-ghost-bars line {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
 
 /* ---------- drill-downs: an edge-to-edge list, a sparkline and one number per row ---------- */
 .pg-drills {
@@ -233,6 +261,10 @@
 .pg-row:focus-visible {
   outline: 2px solid var(--accent-bright);
   outline-offset: -2px;
+}
+.pg-row-val {
+  min-width: 88px;
+  text-align: right;
 }
 .pg-row-main {
   flex: 1;

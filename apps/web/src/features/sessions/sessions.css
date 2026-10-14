@@ -395,6 +395,13 @@
   display: grid;
   gap: 4px;
   min-width: 0;
+  /* label · number · note share rows across the stats, so a label that wraps ("Out the door") never drops its number */
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  row-gap: 4px;
+}
+.sh-stat > .caps {
+  align-self: end;
 }
 .sh-num {
   font-variant-numeric: tabular-nums;

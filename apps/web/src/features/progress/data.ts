@@ -4,6 +4,7 @@
  */
 import { counts, e1rm, fmtDate, isSkipMark, label, mi, mondayOf, parseISO, sessionStatus, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet, type PlanBlock, type Session } from '@logbook/shared';
 import type { AppSnapshot } from '@/api/snapshot';
+import { dayMiles } from '../sessions/miles';
 
 // ---------- range ----------
 export type Range = '3M' | '6M' | '1Y';
@@ -70,7 +71,9 @@ export interface WeekPoint {
   planned: number;
   /** Planned runs, skips left out. */
   plannedRuns: number;
-  /** The longest run that week. */
+  /** Of `ran`, the miles logged by hand: runs marked Done with no activity (contract 5), drawn with a hairline. */
+  logged: number;
+  /** The longest run that week (an activity, or a run logged by hand). */
   long: number;
   longRun: Activity | null;
   current: boolean;
@@ -86,6 +89,8 @@ export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range): WeekPoi
     const w = shiftDays(mon, (i - n + 1) * 7);
     let ran = 0;
     let runs = 0;
+    let logged = 0;
+    let long = 0;
     let planned = 0;
     let plannedRuns = 0;
     let longRun: Activity | null = null;
@@ -96,13 +101,25 @@ export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range): WeekPoi
           plannedRuns++;
         }
       if (d > today) continue;
-      for (const a of snap.runsOn(d)) {
+      const acts = snap.runsOn(d);
+      for (const a of acts) {
         ran += a.miles;
         runs++;
         if (!longRun || a.miles > longRun.miles) longRun = a;
+        long = Math.max(long, a.miles);
+      }
+      // a run marked Done (or Floor) with no activity counts its miles (contract 5)
+      if (!acts.length) {
+        const dm = dayMiles(snap, d);
+        if (dm.logged) {
+          ran += dm.miles;
+          runs += dm.runs;
+          logged += dm.miles;
+          long = Math.max(long, dm.miles / Math.max(1, dm.runs));
+        }
       }
     }
-    return { w, ran, runs, planned, plannedRuns, long: longRun?.miles ?? 0, longRun, current: w === mon, future: w > mon, avg: null };
+    return { w, ran, runs, logged, planned, plannedRuns, long, longRun, current: w === mon, future: w > mon, avg: null };
   });
   const first = pts.findIndex((p) => p.ran > 0);
   pts.forEach((p, i) => {
@@ -134,7 +151,7 @@ export const rangeSummary = (pts: WeekPoint[]) => {
 
 // ---------- the verdict ----------
 /** Miles run Monday through `upTo`'s weekday, in the week starting `mon`. */
-const ranThrough = (snap: AppSnapshot, mon: ISODate, dayIndex: number) => sum(days7(mon).slice(0, dayIndex + 1).flatMap((d) => snap.runsOn(d).map((a) => a.miles)));
+const ranThrough = (snap: AppSnapshot, mon: ISODate, dayIndex: number) => sum(days7(mon).slice(0, dayIndex + 1).map((d) => dayMiles(snap, d).miles));
 
 export interface Verdict {
   /** Serif 28: two short sentences, the trend then this week. */
@@ -185,12 +202,14 @@ export const verdict = (snap: AppSnapshot, today: ISODate, pts: WeekPoint[], str
   const prevMon = shiftDays(cur.w, -7);
   const sameDayLast = ranThrough(snap, prevMon, di);
   const next = nextRun(snap, today, cur.w);
+  // a run planned earlier this week (and not skipped) means today's isn't the first: say "Next", as Plan's header does
+  const earlier = days7(cur.w).some((d) => d < today && snap.sessionsOn(d).some((x) => x.kind === 'run' && !isSkipMark(x.mark)));
   let now = '';
   if (cur.planned > 0 && cur.ran >= cur.planned - 0.05) now = 'This one is done.';
   else if (cur.ran <= 0.05) {
-    if (next?.date === today && di <= 1) now = 'This one starts today.';
+    if (next?.date === today && di <= 1 && !earlier) now = 'This one starts today.';
     else if (next?.date === today) now = 'This one is light so far.';
-    else if (di <= 1 && next) now = `This one starts ${relDay(next.date, today)}.`;
+    else if (di <= 1 && next && !earlier) now = `This one starts ${relDay(next.date, today)}.`;
     else if (sameDayLast > 0 || next) now = 'This one is light so far.';
     else now = 'This one is still open.';
   } else if (sameDayLast <= 0.05 || cur.ran >= sameDayLast * 1.1) now = 'This one is ahead of last week.';
@@ -202,7 +221,7 @@ export const verdict = (snap: AppSnapshot, today: ISODate, pts: WeekPoint[], str
   const runsIn = cur.runs ? `${Words(cur.runs)} ${plural(cur.runs, 'run')} in.` : '';
   if (cur.planned > 0) {
     if (cur.ran > 0.05) sub = `${mi(cur.ran)} of ${round1(cur.planned)} mi planned. ${runsIn}`;
-    else if (next?.date === today) sub = `${round1(cur.planned)} mi planned. First run today: ${label(next.s)}.`;
+    else if (next?.date === today && !earlier) sub = `${round1(cur.planned)} mi planned. First run today: ${label(next.s)}.`;
     else sub = `${round1(cur.planned)} mi planned.${next ? ` Next: ${label(next.s)}, ${relDay(next.date, today)}.` : ''}`;
   } else if (cur.ran > 0.05) sub = `${mi(cur.ran)} mi so far. ${runsIn}`;
   else sub = next ? `Next: ${label(next.s)}, ${relDay(next.date, today)}.` : 'No runs planned this week. Runs you log land here.';
@@ -287,6 +306,8 @@ export interface LongRun {
   early: number;
   earlyMonth: string | null;
   peak: Activity | null;
+  /** The longest week's long run in range, activity or logged, and its month ("Aug"). */
+  best: { miles: number; w: ISODate; month: string } | null;
 }
 export const longRuns = (pts: WeekPoint[]): LongRun => {
   const past = pts.filter((p) => !p.future);
@@ -298,7 +319,9 @@ export const longRuns = (pts: WeekPoint[]): LongRun => {
   const earlyWin = points.length > 6 ? points.slice(0, 4) : [];
   const earlyBest = earlyWin.reduce<(typeof points)[number] | null>((b, p) => (!b || p.miles > b.miles ? p : b), null);
   const peak = points.reduce<Activity | null>((b, p) => (p.run && (!b || p.run.miles > b.miles) ? p.run : b), null);
+  const top = points.reduce<(typeof points)[number] | null>((b, p) => (p.miles > 0 && (!b || p.miles > b.miles) ? p : b), null);
   return {
+    best: top ? { miles: top.miles, w: top.w, month: new Intl.DateTimeFormat('en-US', { month: 'short' }).format(parseISO(top.run?.date ?? top.w)) } : null,
     points,
     recent: recentBest?.miles ?? 0,
     recentRun: recentBest?.run ?? null,
@@ -473,7 +496,9 @@ export const consistency = (snap: AppSnapshot, today: ISODate, from: ISODate, ha
     }
     habitWeeks.push({ w, v: hOf ? hHit / hOf : null });
     if (anything) started = true;
-    if (started) {
+    // this week is still being run: it counts once it is kept, never against you while it is open
+    const open = w === mondayOf(today);
+    if (started && (!open || weekKept(w))) {
       weeks++;
       if (weekKept(w)) keptWeeks++;
     }

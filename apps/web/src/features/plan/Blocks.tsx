@@ -1,15 +1,15 @@
-import { buildTemplate, counts, daysBetween, fmtDate, GOAL_SPECS, mondayOf, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
+import { buildTemplate, counts, daysBetween, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
 import { ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ApiError } from '@/api/client';
-import { useDeferredBlockDelete, useTemplatePlan } from '@/api/queries';
+import { usePlanDelete, useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button, EmptyState, Note, Stepper } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import type { Log } from '../log/useLog';
+import { useLog, type Log } from '../log/useLog';
 import { PlanBuilder } from './PlanBuilder';
 import './plan.css';
 
@@ -158,7 +158,7 @@ const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
   const sheet = useSheet();
   const nav = useNavigate();
   const toast = useToast();
-  const { hide } = useDeferredBlockDelete();
+  const { remove, restore } = usePlanDelete();
   const t = log.today;
   const arc = arcOf(log, b);
   let done = 0;
@@ -175,11 +175,27 @@ const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
     sheet.close();
     nav(`/plan/week/${b.start <= t && t <= b.end ? t : b.start}`);
   };
+  // the server deletes at once (a reload inside the Undo window shows it gone); Undo restores it once the delete has landed
   const del = () => {
-    const undo = hide(b);
     sheet.close();
     haptics.delete();
-    toast('Plan deleted', { label: 'Undo', fn: undo });
+    const gone = remove.mutateAsync(b);
+    gone.catch((e: unknown) => {
+      haptics.error();
+      toast(e instanceof ApiError && e.status !== 404 ? `Couldn’t delete the plan. ${e.message}` : 'Couldn’t delete the plan. It’s still on your calendar.');
+    });
+    toast('Plan deleted', {
+      label: 'Undo',
+      fn: () =>
+        void gone.then(
+          () =>
+            restore.mutate(b, {
+              onSuccess: () => haptics.toggle(),
+              onError: () => (haptics.error(), toast('Couldn’t bring the plan back. Try again from Plans.')),
+            }),
+          () => undefined,
+        ),
+    });
   };
   return (
     <div className="pl-detail">
@@ -244,6 +260,7 @@ const TemplatePanel = ({ log }: { log: Log }) => {
   const nav = useNavigate();
   const toast = useToast();
   const write = useTemplatePlan();
+  const undo = useTemplateUndo();
   const t = log.today;
   const start0 = useMemo(() => habitsOf(log), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [goal, setGoal] = useState<Goal>('base');
@@ -289,21 +306,24 @@ const TemplatePanel = ({ log }: { log: Log }) => {
     }
   }, [goal, weeks, startDate, runDays.join(','), longDay, miles, raceDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const tpl = built.tpl;
-  // what a replace would clear: planned, not kept, from the block's first day (never before today)
-  let existing = 0;
-  if (tpl)
-    for (let d = tpl.start > t ? tpl.start : t; d <= tpl.end; d = shiftDays(d, 1))
-      for (const s of log.snap.sessionsOn(d)) if (!counts(sessionStatus(log.snap, d, s))) existing++;
+  // what a replace would clear: planned, not kept, from the block's first day (never before today), counted from the
+  // months it spans (fetched here, so a block reaching past the prefetched weeks still counts every session it replaces)
+  const span = useLog(useMemo(() => (tpl ? monthsBetween(tpl.start > t ? tpl.start : t, tpl.end) : []), [tpl?.start, tpl?.end, t])); // eslint-disable-line react-hooks/exhaustive-deps
+  const from = tpl ? (tpl.start > t ? tpl.start : t) : t;
+  const existing = tpl ? replaceable(span, from, tpl.end) : 0;
+  const counting = !!tpl && !span.ready;
   const use = () => {
-    if (!tpl) return;
+    if (!tpl || counting) return;
+    const replacing = existing > 0;
+    if (replacing) haptics.delete();
     write.mutate(
-      { ...input, replace: existing > 0 },
+      { ...input, replace: replacing },
       {
         onSuccess: (r) => {
           haptics.success();
           sheet.close();
           nav(`/plan/week/${r.block.start}`);
-          toast(`${r.block.name} is on your calendar.`);
+          announceApplied(toast, r, replacing, () => undo.mutate(r, { onSuccess: () => (haptics.toggle(), toast('Put back as it was.')), onError: () => (haptics.error(), toast('Couldn’t undo. The new block is still there.')) }));
         },
         onError: (e) => {
           haptics.error();
@@ -372,16 +392,43 @@ const TemplatePanel = ({ log }: { log: Log }) => {
       </div>
       {built.error ? <Note kind="bad">{built.error}</Note> : null}
       {tpl ? <TemplatePreview tpl={tpl} /> : null}
+      {existing ? (
+        <p className="tp-replace" role="note">
+          This takes the place of {existing} planned {existing === 1 ? 'session' : 'sessions'} from {fmtDate('md', from)}. Anything you’ve done stays, and Undo puts it all back.
+        </p>
+      ) : null}
       <div className="sheet-foot tp-foot">
-        <span className="tp-note">{existing ? `Replaces ${existing} planned ${existing === 1 ? 'session' : 'sessions'} from ${fmtDate('md', tpl!.start > t ? tpl!.start : t)}.` : tpl ? `Starts ${fmtDate('short', tpl.start)}.` : ''}</span>
+        <span className="tp-note">{tpl && !existing ? `Starts ${fmtDate('short', tpl.start)}.` : ''}</span>
         <div className="foot-right">
-          <Button variant="primary" disabled={!tpl || write.isPending} onClick={use}>
-            {write.isPending ? 'Writing it' : 'Use this plan'}
+          <Button variant="primary" disabled={!tpl || counting || write.isPending} onClick={use}>
+            {write.isPending ? 'Writing it' : existing ? `Replace ${existing} ${existing === 1 ? 'session' : 'sessions'}` : 'Use this plan'}
           </Button>
         </div>
       </div>
     </div>
   );
+};
+
+/** Sessions a replace from `from` would take away: planned and not kept (Done or Floor), up to the block's end. */
+const replaceable = (log: Log, from: string, to: string) => {
+  let n = 0;
+  for (let d = from; d <= to; d = shiftDays(d, 1)) for (const s of log.snap.sessionsOn(d)) if (!counts(sessionStatus(log.snap, d, s))) n++;
+  return n;
+};
+
+/** How long the Undo after a replace stays up (the Toast honours `duration` once foundation adds it; 6.5s until then). */
+const REPLACE_UNDO_MS = 8000;
+/**
+ * The toast after "Use this plan". A replace always carries Undo (contract 1's `POST /plans/template/undo`), when the
+ * server said what it replaced; a plain new block just says it is on the calendar.
+ */
+const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResult, replacing: boolean, undo: () => void) => {
+  if (!replacing) return toast(`${r.block.name} is on your calendar.`);
+  const n = r.replacedIds?.length ?? r.removed;
+  const text = `${r.block.name} is on your calendar. ${n} ${n === 1 ? 'session' : 'sessions'} replaced.`;
+  if (!r.replacedIds) return toast(text);
+  const action = { label: 'Undo', fn: undo, duration: REPLACE_UNDO_MS };
+  toast(text, action);
 };
 
 /** The block as ghosted weeks: each week's seven days (miles in their colour), its kind and its total. Nothing is saved yet. */

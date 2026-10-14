@@ -1,4 +1,4 @@
-import { dayStatus, fmtDate, mi, mondayOf, monthsBetween, num, shiftDays, weekCheck, weekStreak, type LiftSet } from '@logbook/shared';
+import { dayStatus, fmtDate, mi, monthsBetween, num, shiftDays, weekCheck, weekStreak, type LiftSet } from '@logbook/shared';
 import { ChevronRight } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
@@ -89,29 +89,38 @@ const DrillRow = ({ title, sub, spark, value, unit, onPress, label }: { title: s
       <span className="pg-row-sub">{sub}</span>
     </span>
     {spark}
-    {value != null ? (
-      <span className="stamp pg-row-num">
-        {value}
-        {unit ? <small>{unit}</small> : null}
-      </span>
-    ) : null}
+    {/* the number's slot is always there, so every row's sparkline sits in the same column */}
+    <span className={`stamp pg-row-num pg-row-val ${value == null ? 'is-empty' : ''}`} aria-hidden={value == null ? true : undefined}>
+      {value}
+      {value != null && unit ? <small>{unit}</small> : null}
+    </span>
     <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
   </Pressable>
 );
 
-/** A believable quarter for the empty state's ghost: build weeks, a down week, this week under way. */
-const sampleWeeks = (today: string): WeekPoint[] => {
-  const ran = [12, 14, 15, 11, 16, 18, 19, 14, 20, 21, 23, 17, 9];
-  const mon = mondayOf(today);
-  const pts = [...ran, 0, 0].map((r, i): WeekPoint => {
-    const future = i >= ran.length;
-    return { w: shiftDays(mon, (i - ran.length + 1) * 7), ran: future ? 0 : r, runs: 4, planned: future ? 22 + i - ran.length : Math.round(r * 1.08), plannedRuns: 4, long: 0, longRun: null, current: i === ran.length - 1, future, avg: null };
-  });
-  pts.forEach((p, i) => {
-    if (i >= 3 && !p.current && !p.future) p.avg = (pts[i]!.ran + pts[i - 1]!.ran + pts[i - 2]!.ran + pts[i - 3]!.ran) / 4;
-  });
-  return pts;
-};
+/**
+ * The empty state's ghost: the chart's shape, abstract. Plain bars of no particular height pattern, a baseline and three
+ * grey bars where the headline numbers will be; no numbers, no axis, no labels, nothing that reads as someone's data.
+ */
+const GHOST_BARS = [0.42, 0.5, 0.46, 0.58, 0.54, 0.66, 0.62, 0.48, 0.7, 0.74, 0.68, 0.8, 0.6];
+const ProgressGhost = () => (
+  <section className="pg-hero pg-ghost" aria-hidden="true">
+    <div className="pg-ghost-read">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="pg-ghost-slot">
+          <Skeleton w={44} h={9} r="line" />
+          <Skeleton w={64} h={26} r="control" />
+        </span>
+      ))}
+    </div>
+    <svg className="pg-ghost-bars" viewBox="0 0 300 160" preserveAspectRatio="none" width="100%" height={160}>
+      {GHOST_BARS.map((h, i) => (
+        <rect key={i} x={6 + i * 22.6} width={12} y={150 - h * 140} height={h * 140} rx={3} />
+      ))}
+      <line x1={0} x2={300} y1={150.5} y2={150.5} />
+    </svg>
+  </section>
+);
 
 /** Grey blocks in the page's own shape: the verdict, the chips, the chart card, five rows. */
 const ProgressSkeleton = () => (
@@ -150,8 +159,16 @@ export default function ProgressView() {
   const log = useLog(months);
   const lifts = useAllLifts();
   const openWeek = useOpenWeek(t);
-  const [scrub, setScrub] = useState<number | null>(null);
+  const [scrub, setScrubState] = useState<number | null>(null);
   const [opened, setOpened] = useState<number | null>(null);
+  // while the finger is down the numbers are written as they are (no Ticker chasing them); on release each one springs
+  // from the week it showed back to the range (a fresh Ticker, `from` the last value)
+  const lastShown = useRef<Array<number | null>>([]);
+  const [released, setReleased] = useState(0);
+  const setScrub = (i: number | null) => {
+    if (i == null && scrub != null) setReleased((n) => n + 1);
+    setScrubState(i);
+  };
 
   // Everything on the page comes from one model, built once every month in view has arrived. While a longer range
   // loads, the last model stays up (the chips already show the new range), so numbers never shuffle under the eye.
@@ -205,6 +222,7 @@ export default function ProgressView() {
         { label: 'Best week', value: m.sum.best?.ran ?? null, format: mi, unit: 'mi' },
         { label: 'Total', value: m.sum.total, format: (v) => String(Math.round(v)), unit: 'mi' },
       ];
+  if (scrub != null) lastShown.current = slots.map((x) => x.value);
   const readWords = sp ? `${ctx}: ${sp.future ? '' : `${mi(sp.ran)} miles, `}${sp.planned ? `${num(sp.planned)} planned, ` : ''}${sp.future ? sp.plannedRuns : sp.runs} runs` : `${ctx}: ${m.sum.avg != null ? `${mi(m.sum.avg)} miles a week on average, ` : ''}${m.sum.best ? `best week ${mi(m.sum.best.ran)}, ` : ''}${Math.round(m.sum.total)} miles in all`;
 
   const chips = (
@@ -225,23 +243,7 @@ export default function ProgressView() {
         {header}
         <EmptyState
           className="pg-empty"
-          ghost={
-            <section className="pg-hero" aria-hidden="true">
-              <span className="pg-glow" />
-              <div className="pg-readout">
-                {['Avg week', 'Best week', 'Total'].map((l, i) => (
-                  <span className="pg-slot" key={l}>
-                    <span className="caps">{l}</span>
-                    <span className="stamp pg-slot-num">
-                      {['16.4', '23.0', '213'][i]}
-                      <small>mi</small>
-                    </span>
-                  </span>
-                ))}
-              </div>
-              <MileageChart pts={sampleWeeks(t)} range="3M" today={t} onScrub={() => undefined} onOpen={() => undefined} ghost />
-            </section>
-          }
+          ghost={<ProgressGhost />}
           verb={
             m.planned
               ? strava
@@ -275,7 +277,7 @@ export default function ProgressView() {
             <span className="pg-slot" key={i} aria-hidden="true">
               <span className="caps">{s.label}</span>
               <span className="stamp pg-slot-num">
-                {s.value == null ? '—' : <Ticker value={s.value} format={s.format} />}
+                {s.value == null ? '—' : scrub != null ? <span className="tnum">{s.format(s.value)}</span> : <Ticker key={released} value={s.value} format={s.format} from={released ? (lastShown.current[i] ?? undefined) : undefined} />}
                 {s.unit && s.value != null ? <small>{s.unit}</small> : null}
               </span>
             </span>
@@ -291,11 +293,17 @@ export default function ProgressView() {
 /** The edge-to-edge list under the chart: each row a sparkline and one number, each opening its sheet. */
 const Drills = ({ m, t, range, log, sheet }: { m: Model; t: string; range: Range; log: Log; sheet: ReturnType<typeof useSheet> }) => {
   const { ad, lr, ep, lg, c } = m;
-  const adP = pct(ad.kept, ad.planned);
-  const lrDelta = lr.early ? (Math.abs(lr.recent - lr.early) < 0.3 ? `Level with ${lr.earlyMonth}` : lr.recent > lr.early ? `Up from ${mi(lr.early)} in ${lr.earlyMonth}` : `Down from ${mi(lr.early)} in ${lr.earlyMonth}`) : lr.peak ? `Longest ${rangePhrase(range)}: ${mi(lr.peak.miles)}` : 'No runs yet';
+  // "1 of 6 kept · 5 to go": counts, never a percentage grade
+  const toGo = ad.weeks.reduce((s, w) => s + w.ahead, 0);
+  const adSub = ad.weeks.length ? [ad.planned ? `${ad.kept} of ${ad.planned} kept` : 'Nothing due yet', toGo ? `${toGo} to go` : null].filter(Boolean).join(' · ') : 'No plan in this range';
+  // "5.3 mi lately · best 8.0 in Aug"
+  const lrDelta = lr.recent > 0 ? `${mi(lr.recent)} mi lately${lr.best && lr.best.miles > lr.recent + 0.05 ? ` · best ${mi(lr.best.miles)} in ${lr.best.month}` : ' · your longest yet'}` : lr.best ? `Best ${mi(lr.best.miles)} in ${lr.best.month}` : 'No runs yet';
   const ch = paceChange(ep.now, ep.then);
   const epSub = [ch ? (ch === 'level' ? `Level with ${ep.thenMonth}` : `${ch} than ${ep.thenMonth}`) : `${ep.runs.length} easy ${plural(ep.runs.length, 'run')}`, ep.nowHr != null ? `${Math.round(ep.nowHr)}\u00a0bpm` : null].filter(Boolean).join(' · ');
   const top = lg[0];
+  // "Squat 225 × 5 · est. max 263": the set itself, then the estimate, in words
+  const topLast = top ? top.days[top.days.length - 1]! : null;
+  const liftSub = top && topLast ? `${top.name} ${topLast.weight} × ${topLast.reps} · est. max ${Math.round(topLast.e1rm)}` : `None ${rangePhrase(range)}`;
   const tp = pct(c.rows[0]!.hit, c.rows[0]!.of);
   const hp = pct(c.habitHit, c.habitOf);
   const eyebrow = rangeLabel(range);
@@ -304,12 +312,10 @@ const Drills = ({ m, t, range, log, sheet }: { m: Model; t: string; range: Range
       {m.ran || ad.weeks.length ? (
         <DrillRow
           title="Plan adherence"
-          sub={ad.weeks.length ? `${ad.block ? 'This block' : 'Planned sessions'}: ${adP ?? 0}% kept${ad.weeks.some((w) => w.ahead) ? `, ${ad.weeks.reduce((s, w) => s + w.ahead, 0)} ahead` : ''}` : 'No plan in this range'}
+          sub={adSub}
           spark={<Spark values={ad.weeks.map((w) => (w.planned ? w.kept / w.planned : null))} />}
-          value={ad.weeks.length ? ad.kept : undefined}
-          unit={ad.weeks.length ? `of ${ad.planned}` : undefined}
           onPress={() => sheet.open({ title: 'Plan adherence', eyebrow: ad.block?.name ?? eyebrow, body: <AdherenceSheet ad={ad} today={t} range={range} log={log} />, wide: true })}
-          label={`Plan adherence: ${ad.weeks.length ? `${ad.kept} of ${ad.planned} sessions kept` : 'no plan in this range'}. Open`}
+          label={`Plan adherence: ${adSub}. Open`}
         />
       ) : null}
       {m.ran ? (
@@ -317,10 +323,8 @@ const Drills = ({ m, t, range, log, sheet }: { m: Model; t: string; range: Range
           title="Long run"
           sub={lrDelta}
           spark={<Spark values={lr.points.map((p) => (p.miles > 0 ? p.miles : null))} />}
-          value={mi(lr.recent)}
-          unit="mi"
           onPress={() => sheet.open({ title: 'Long run', eyebrow, body: <LongRunSheet lr={lr} log={log} today={t} />, wide: true })}
-          label={`Long run: ${mi(lr.recent)} miles, the longest of the last 4 weeks. ${lrDelta}. Open`}
+          label={`Long run: ${lrDelta}. Open`}
         />
       ) : null}
       {ep.runs.length ? (
@@ -336,12 +340,11 @@ const Drills = ({ m, t, range, log, sheet }: { m: Model; t: string; range: Range
       ) : null}
       <DrillRow
         title="Lifts"
-        sub={top ? `${top.name}${top.change != null ? ` ${signedPct(top.change)} since ${md(top.days[0]!.date)}` : `, ${top.days[0]!.weight} × ${top.days[0]!.reps}`}${lg.length > 1 ? ` · ${lg.length} lifts` : ''}` : `None ${rangePhrase(range)}`}
+        sub={liftSub}
         spark={top ? <Spark values={top.days.map((d) => d.e1rm)} /> : undefined}
-        value={top ? Math.round(top.days[top.days.length - 1]!.e1rm) : undefined}
-        unit={top ? 'e1RM' : undefined}
+        value={top && top.change != null ? signedPct(top.change) : undefined}
         onPress={() => sheet.open({ title: 'Lifts', eyebrow, body: <LiftsSheet groups={lg} range={range} />, wide: true })}
-        label={`Lifts: ${top ? `${top.name}, estimated one-rep max ${Math.round(top.days[top.days.length - 1]!.e1rm)}` : `none ${rangePhrase(range)}`}. Open`}
+        label={`Lifts: ${top ? `${liftSub}${top.change != null ? `, ${signedPct(top.change)} since ${md(top.days[0]!.date)}` : ''}` : `none ${rangePhrase(range)}`}. Open`}
       />
       <DrillRow
         title="Consistency"
@@ -350,7 +353,7 @@ const Drills = ({ m, t, range, log, sheet }: { m: Model; t: string; range: Range
         value={c.weeks ? c.keptWeeks : undefined}
         unit={c.weeks ? `of ${c.weeks} wks` : undefined}
         onPress={() => sheet.open({ title: 'Consistency', eyebrow, detent: 'large', body: <ConsistencySheet c={c} log={log} today={t} range={range} streak={m.streak} />, wide: true })}
-        label={`Consistency: ${c.keptWeeks} of ${c.weeks} weeks kept${hp != null ? `, habits ${hp}%` : ''}. Open`}
+        label={`Consistency: ${c.weeks ? `${c.keptWeeks} of ${c.weeks} weeks kept` : 'your first week is under way'}${hp != null ? `, habits ${hp}%` : ''}. Open`}
       />
     </div>
   );

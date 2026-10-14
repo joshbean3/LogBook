@@ -43,6 +43,21 @@ describe('progress verdict', () => {
     expect(v.sub).toBe('10 mi planned. First run today: Easy 4.');
   });
 
+  it('never says "first run today" when earlier runs this week were planned and missed (Plan says "Next")', () => {
+    const snap = snapOf('2026-10-14', weeks(['2026-09-28', '2026-10-05'], [5, 5]), [sess('2026-10-12', 5), sess('2026-10-13', 5), sess('2026-10-14', 5)]);
+    const v = verdict(snap, '2026-10-14', weekSeries(snap, '2026-10-14', '3M'), 0);
+    expect(v.sub).toBe('15 mi planned. Next: Easy 5, today.');
+    expect(v.line).not.toMatch(/starts today/);
+  });
+
+  it('counts a run marked Done without Strava at its planned miles (contract 5), and a floor at its minutes', () => {
+    const snap = snapOf('2026-10-14', weeks(['2026-09-28'], [5]), [sess('2026-10-12', 5, { mark: 'done' }), sess('2026-10-13', 6, { mark: 'floor' })]);
+    const cur = weekSeries(snap, '2026-10-14', '3M').find((p) => p.current)!;
+    expect(cur.runs).toBe(2);
+    expect(cur.ran).toBeCloseTo(5 + (20 * 60) / 540, 1);
+    expect(cur.logged).toBeCloseTo(cur.ran);
+  });
+
   it('names quiet weeks in words and an ahead week against last week', () => {
     const mons = ['2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28'];
     const snap = snapOf('2026-10-08', [...weeks(mons, [6, 6, 6, 0.5, 0.5]), run('2026-10-06', 9)]);

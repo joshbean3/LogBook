@@ -1,4 +1,4 @@
-import { assess, buildMorning, clock, clockOfDay, decodePolyline, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, morningDayFor, num, routePath, sessionKey, sessionStatus, sessionWord, shiftDays, tone, weekTotals, zoneOf, type Activity, type Session, type StatusKey } from '@logbook/shared';
+import { assess, clock, clockOfDay, counts, decodePolyline, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, routePath, sessionKey, sessionStatus, sessionWord, shiftDays, tone, weekTotals, zoneOf, type Activity, type Session, type StatusKey } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronRight, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
@@ -16,11 +16,14 @@ import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useFirstToday } from '@/ui/useFirstToday';
 import { useLog, type Log } from '../log/useLog';
-import type { ShareData } from '../share/cards';
+import { doorOf, morningOf } from '../morning/model';
+import type { ShareData, ShareDayType } from '../share/cards';
 import { sessionCan, useSessionActions } from './actions';
 import { LiftLog } from './LiftLog';
 import { openMoveSheet } from './MoveSheet';
+import { dayMiles, sessionMiles } from './miles';
 import { SessionEditor } from './SessionEditor';
+import { voiceHead, voiceLine } from './voice';
 import './sessions.css';
 
 /** One line that says what the session is: "Easy · 6 mi · 1.5 mi wu". The floor is explained in the sheet, never in the row. */
@@ -94,43 +97,105 @@ const planStats = (date: string, s: Session, log: Log, sets: number): SheetStat[
   if (s.kind === 'run' && s.miles) stats.push(['Plan', num(s.miles), 'mi']);
   else if (s.minutes) stats.push(['Plan', String(s.minutes), 'min']);
   if (floor) stats.push(mm ? ['Floor', mm[1]!, 'min'] : ['Floor', floor.split(/[,\s]/)[0]!]);
-  if (date === log.today && log.boot) {
+  // the door time is the morning timeline's own (Today's hero and Morning read the same `doorOf`), never worked out here
+  if (date >= log.today && log.boot) {
     const sessions = log.snap.sessionsOn(date);
     const main = sessions.find((x) => x.kind === 'run') ?? sessions.find((x) => x.kind !== 'rest');
     if (main?.id === s.id) {
-      const st2 = log.boot.morningSettings ?? MORNING_DEFAULTS;
-      const T = buildMorning(morningDayFor(sessions, log.snap.morningOverride(date), st2), st2);
-      const out = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
-      if (out) stats.push(['Out', short(out.start)], ['Back', short(T.back)]);
+      const T = morningOf(sessions, log.snap.morningOverride(date), log.boot.morningSettings ?? MORNING_DEFAULTS);
+      const door = doorOf(T);
+      if (door != null) stats.push(['Out the door', short(door)], ['Back', short(T.back)]);
     }
   }
   if (sets) stats.push(['Sets', String(sets)]);
   return stats;
 };
 
-/** Everything a share card needs: the run, the day's verdict, and the week around it. */
+const weekdayLong = (d: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(`${d}T12:00:00`));
+
+/**
+ * Everything a share card needs: the kind of day (it picks the cards), its title, the run when there was one (an activity,
+ * or a run marked Done by hand at its planned miles: contract 5's `sessionMiles`), the sets, the habits lit, the day's words,
+ * and the week around it, counted the same way.
+ */
 export const shareDataFor = (date: string, sess: Session | null, runs: Activity[], log: Log): ShareData => {
   const a = assess(log.zones, sess, runs);
-  const status = sess ? sessionStatus(log.snap, date, sess) : 'done';
+  const snap = log.snap;
+  const status = sess ? sessionStatus(snap, date, sess) : 'done';
   const monday = mondayOf(date);
-  const wt = weekTotals(log.snap, monday);
+  const wt = weekTotals(snap, monday);
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = shiftDays(monday, i);
-    return { date: d, miles: log.snap.activitiesOn(d).filter((x) => x.kind === 'run').reduce((t, x) => t + x.miles, 0) };
+    return { date: d, miles: d <= log.today ? dayMiles(snap, d).miles : 0 };
   });
+  // the miles: the activities when there are any, else this session's (or the day's) logged miles
+  const miles = runs.length ? a.miles : sess?.kind === 'run' ? sessionMiles(snap, date, sess).miles : sess ? 0 : dayMiles(snap, date).miles;
+  const training = snap.sessionsOn(date).filter((x) => x.kind !== 'rest');
+  const sets = snap.liftsOn(date);
+  const lifted = sets.length > 0 || training.some((x) => x.kind !== 'run' && counts(sessionStatus(snap, date, x)));
+  const entries = snap.journalOn(date);
+  const words = entries[0]?.text.replace(/\s+/g, ' ').trim() ?? '';
+  const journal = words ? (words.length > 120 ? `${words.slice(0, 119).replace(/\s+\S*$/, '')}…` : words) : null;
+  const hs = log.habits.filter((h) => h.createdOn <= date);
+  const habits = hs.length ? { lit: hs.filter((h) => snap.isHabitDone(date, h.id)).length, of: hs.length } : null;
+  const plannedSomething = training.some((x) => sessionStatus(snap, date, x) !== 'skipped');
+  const dayType: ShareDayType = miles > 0 ? 'run' : lifted ? 'lift' : !plannedSomething ? 'rest' : 'journal';
+  let top: string | null = null;
+  if (sets.length) {
+    const best = sets.reduce((b, x) => (e1rm(x.weight, x.reps) > e1rm(b.weight, b.reps) ? x : b));
+    top = `${best.exercise} ${best.weight} × ${best.reps}`;
+  }
+  const liftSess = training.find((x) => x.kind === 'lift') ?? (sess && sess.kind !== 'run' ? sess : null);
+  const name =
+    dayType === 'run'
+      ? runs.length === 1
+        ? runs[0]!.name
+        : sess?.kind === 'run'
+          ? label(sess)
+          : runs.length
+            ? `${runs.length} runs`
+            : label(training.find((x) => x.kind === 'run') ?? null) || 'Run'
+      : dayType === 'lift'
+        ? liftSess?.type || 'Strength'
+        : dayType === 'rest'
+          ? 'Rest'
+          : weekdayLong(date);
+  const verdict =
+    dayType === 'run'
+      ? runs.length
+        ? runVerdict(sess, runs, a.miles, status)
+        : `${mi(miles)} mi. ${status === 'floor' ? 'Floor held.' : 'Done.'}`
+      : dayType === 'lift'
+        ? sets.length
+          ? `${sets.length} ${sets.length === 1 ? 'set' : 'sets'}. Lifted.`
+          : 'Lifted. Logged.'
+        : dayType === 'rest'
+          ? 'Rest. It counts.'
+          : `${weekdayLong(date)}, written down.`;
   return {
-    name: runs.length === 1 ? runs[0]!.name : sess ? label(sess) : 'Run',
+    name,
     label: sess ? label(sess) : null,
-    verdict: runVerdict(sess, runs, a.miles, status),
+    verdict,
     date,
     time: runs[0]?.time ?? null,
-    miles: a.miles,
-    movingSec: a.movingSec,
+    miles,
+    movingSec: runs.length ? a.movingSec : 0,
     elevFt: runs.reduce((t, r) => t + r.elevFt, 0),
-    avgHr: a.avgHr,
+    avgHr: runs.length ? a.avgHr : null,
     polyline: runs.find((r) => r.polyline)?.polyline ?? null,
-    week: { monday, days, total: wt.ran, planned: wt.planned },
+    week: { monday, days, total: days.reduce((t, d) => t + d.miles, 0), planned: wt.planned },
+    dayType,
+    habits,
+    journal,
+    lift: dayType === 'lift' ? { sets: sets.length, top } : null,
   };
+};
+
+/** The share data for a run session when there is something to share (an activity, or a run marked Done by hand), else null. */
+export const shareFor = (date: string, s: Session, log: Log): ShareData | null => {
+  if (s.kind !== 'run') return null;
+  const runs = log.snap.runsOn(date);
+  return runs.length || sessionMiles(log.snap, date, s).miles > 0 ? shareDataFor(date, s, runs, log) : null;
 };
 
 /** What happened, graded against the plan: who ran it and when, splits, the read, the coach. */
@@ -189,10 +254,10 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
       ) : null}
       {a.lines.length ? (
         <div className={`assess v-${a.verdict}`}>
-          {sess ? <div className="assess-head">{a.head}</div> : null}
+          {sess ? <div className="assess-head">{voiceHead(a.head)}</div> : null}
           <ul>
             {a.lines.map((x) => (
-              <li key={x}>{x}</li>
+              <li key={x}>{voiceLine(x)}</li>
             ))}
           </ul>
         </div>
@@ -247,8 +312,7 @@ const SessionMore = ({ date, id }: { date: string; id: string }) => {
   const btn = useRef<HTMLButtonElement>(null);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
   if (!s) return null;
-  const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
-  const share = runs.length ? shareDataFor(date, s, runs, log) : null;
+  const share = shareFor(date, s, log);
   const name = s.kind === 'rest' ? 'Rest' : label(s);
   const items = act.menuItems(date, s, { share, push: true }).filter((i) => i.label === 'Not feeling 100%' || i.label === 'Share' || i.destructive);
   if (!items.length) return null;
@@ -288,8 +352,14 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   useEffect(() => {
     if (gone) sheet.close();
   }, [gone, sheet]);
+  // the title is the session's name as it is now: an Edit (4 → 4.5 mi) renames the sheet when it pops back here
+  const title = s ? (s.kind === 'rest' ? 'Rest' : label(s)) : null;
+  useEffect(() => {
+    if (title) sheet.update({ title });
+  }, [title]); // eslint-disable-line react-hooks/exhaustive-deps
   const runs = s?.kind === 'run' ? log.snap.runsOn(date) : [];
-  const share = useMemo(() => (s && runs.length ? shareDataFor(date, s, runs, log) : null), [date, s, runs, log]);
+  // a run with an activity, or one marked Done by hand (its planned miles, contract 5), can be shared
+  const share = useMemo(() => (s && s.kind === 'run' && (runs.length || sessionMiles(log.snap, date, s).miles > 0) ? shareDataFor(date, s, runs, log) : null), [date, s, runs, log]);
   if (!s) return null;
   const c = sessionCan(log, date, s);
   const st = c.st;
@@ -432,11 +502,21 @@ export const sessionSheetSpec = (date: string, s: Session, opts: OpenSessionOpts
   wide: true,
 });
 
-/** Open a session's sheet: `open(date, session, { sharedId })`. */
-export const useOpenSession = (_log?: Log) => {
+/**
+ * Open a session's sheet: `open(date, session, { sharedId })`. With `{ push: true }` (from inside another sheet, like
+ * Progress's week sheet) it slides in on top of that sheet, with Back to it, instead of replacing it.
+ */
+export const useOpenSession = (_log?: Log, how: { push?: boolean } = {}) => {
   const sheet = useSheet();
-  return (date: string, s: Session, opts: OpenSessionOpts = {}) => sheet.open(sessionSheetSpec(date, s, opts));
+  return (date: string, s: Session, opts: OpenSessionOpts = {}) => {
+    const spec = sessionSheetSpec(date, s, opts);
+    if (how.push) sheet.push({ ...spec, layoutId: undefined });
+    else sheet.open(spec);
+  };
 };
+
+/** `useOpenSession(log, { push: true })`: a session pushed inside the sheet that is up, with Back to it. */
+export const usePushSession = (log?: Log) => useOpenSession(log, { push: true });
 
 /** Open an unplanned run's sheet: the run's name as the title, the date as the eyebrow. */
 export const useOpenUnplanned = () => {

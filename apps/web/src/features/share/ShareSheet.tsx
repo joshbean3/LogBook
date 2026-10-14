@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
-import { defaultCaption, DRAW_MS, drawCard, H, loadFonts, renderCard, TEMPLATE_NAME, TEMPLATES, W, type ShareData, type Template } from './cards';
+import { defaultCaption, DRAW_MS, drawCard, H, loadFonts, renderCard, TEMPLATE_NAME, templatesFor, W, type ShareData, type Template } from './cards';
 import { shareImage } from './shareOut';
 import './share.css';
 
@@ -53,8 +53,10 @@ const CardCanvas = ({ template, data, caption, active }: { template: Template; d
 export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Template }) => {
   const toast = useToast();
   const reduce = useReducedMotion();
-  const templates = useMemo(() => TEMPLATES.filter((t) => (t !== 'route' || !!data.polyline) && (t !== 'week' || !!data.week)), [data]);
-  const start = Math.max(0, initial ? templates.indexOf(initial) : 0);
+  // the cards follow the kind of day (a run, a lift, rest, a day of words); the lead card comes first. A caller's `initial`
+  // is honoured when the day has that card, except a Bubble asked for only because there was no run to stamp
+  const templates = useMemo(() => templatesFor(data), [data]);
+  const start = Math.max(0, initial && !(initial === 'bubble' && templates[0] !== 'bubble') ? templates.indexOf(initial) : 0);
   const [i, setI] = useState(start);
   const t = templates[i] ?? 'stamp';
   const [caption, setCaption] = useState(() => defaultCaption(data));

@@ -618,44 +618,99 @@ export const useDeleteAccount = () =>
 
 // ── plan ──
 
+/** `POST /plans/template`'s answer. With `replace`, contract 1 adds what it soft-deleted so `undoTemplate` can put it back. */
+export interface PlanTemplateResult {
+  block: PlanBlock;
+  months: string[];
+  removed: number;
+  /** The planned, not-done sessions the new block replaced (soft-deleted). Absent on a server before contract 1. */
+  replacedIds?: string[];
+  /** An overlapping block that was ended the day before the new one starts, or soft-deleted when it hadn't started. */
+  endedBlock?: { id: string; prevEnd: string } | { id: string; deleted: true };
+}
+
 /** `POST /plans/template`: write a block built by `buildTemplate`, then refetch its months and the bootstrap (blocks). */
 export const useTemplatePlan = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: TemplateInput & { replace?: boolean }) => api<{ block: PlanBlock; months: string[]; removed: number }>('/plans/template', { method: 'POST', json: body }),
+    mutationFn: (body: TemplateInput & { replace?: boolean }) => api<PlanTemplateResult>('/plans/template', { method: 'POST', json: body }),
     onSuccess: async (r) => {
-      for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+      // a replace can reach months past the new block (the old block's tail): refetch every month in the cache
+      if (r.replacedIds?.length || r.endedBlock) void qc.invalidateQueries({ queryKey: ['month'] });
+      else for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
     },
   });
 };
 
 /**
- * Delete a plan with an Undo, though the API has no restore for blocks: the plan and its sessions leave the cache at once,
- * and the DELETE is sent only once the Undo window (the toast's 6.5s) has passed. The returned function is the Undo.
+ * `POST /plans/template/undo` (contract 1): delete the block just written with its sessions, restore the sessions it
+ * replaced and the block it ended. The new block leaves the cache at once; everything is refetched after.
  */
-export const useDeferredBlockDelete = () => {
+export const useTemplateUndo = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (r: PlanTemplateResult) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== r.block.id) } : bs));
+      for (const m of r.months) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter((s) => s.blockId !== r.block.id) }));
+      await api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], ...(r.endedBlock ? { endedBlock: r.endedBlock } : {}) } });
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['month'] });
+      void qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/**
+ * Delete a plan, server first (contract 2): `DELETE /blocks/:id` soft-deletes the block and its not-done future sessions
+ * at once, so a reload inside the Undo window shows the plan gone; `restore` (`POST /blocks/:id/restore`) is the Undo. Both
+ * change the cache optimistically (history stays: past and kept sessions are never hidden) and refetch when the server
+ * answers. A failure puts the cache back and rejects, so the caller can say so.
+ */
+export const usePlanDelete = () => {
   const qc = useQueryClient();
   const monthsOf = (b: PlanBlock) => monthsBetween(shiftDays(b.start, -14), shiftDays(b.end, 14));
-  const hide = (b: PlanBlock, windowMs = 6800) => {
-    const before = { boot: qc.getQueryData<Bootstrap>(keys.bootstrap), months: monthsOf(b).map((m) => [m, qc.getQueryData<MonthBundle>(keys.month(m))] as const) };
-    qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
-    for (const m of monthsOf(b)) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter((s) => s.blockId !== b.id) }));
-    const timer = setTimeout(() => {
-      void api(`/blocks/${b.id}`, { method: 'DELETE' })
-        .catch(() => undefined)
-        .finally(() => {
-          for (const m of monthsOf(b)) void qc.invalidateQueries({ queryKey: keys.month(m) });
-          void qc.invalidateQueries({ queryKey: keys.bootstrap });
-        });
-    }, windowMs);
-    return () => {
-      clearTimeout(timer);
-      if (before.boot) qc.setQueryData(keys.bootstrap, before.boot);
-      for (const [m, bd] of before.months) if (bd) qc.setQueryData(keys.month(m), bd);
+  const refresh = (b: PlanBlock) => {
+    for (const m of monthsOf(b)) void qc.invalidateQueries({ queryKey: keys.month(m) });
+    void qc.invalidateQueries({ queryKey: keys.bootstrap });
+  };
+  const keep = (b: PlanBlock) => {
+    const t = today();
+    return (bd: MonthBundle) => (s: Session) => {
+      if (s.blockId !== b.id || s.date < t) return true;
+      if (s.mark === 'done' || s.mark === 'floor') return true;
+      // a run with an activity that day is kept by Strava: history, so it stays
+      return s.kind === 'run' && bd.activities.some((a) => a.date === s.date && a.kind === 'run');
     };
   };
-  return { hide };
+  const snapshot = (b: PlanBlock) => ({ boot: qc.getQueryData<Bootstrap>(keys.bootstrap), months: monthsOf(b).map((m) => [m, qc.getQueryData<MonthBundle>(keys.month(m))] as const) });
+  const putBack = (snap: ReturnType<typeof snapshot>) => {
+    if (snap.boot) qc.setQueryData(keys.bootstrap, snap.boot);
+    for (const [m, bd] of snap.months) if (bd) qc.setQueryData(keys.month(m), bd);
+  };
+  const remove = useMutation({
+    mutationFn: async (b: PlanBlock) => {
+      const before = snapshot(b);
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
+      for (const m of monthsOf(b)) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter(keep(b)(bd)) }));
+      try {
+        return await api<{ ok: true; removed?: number }>(`/blocks/${b.id}`, { method: 'DELETE' });
+      } catch (e) {
+        putBack(before);
+        throw e;
+      }
+    },
+    onSettled: (_r, _e, b) => refresh(b),
+  });
+  const restore = useMutation({
+    mutationFn: async (b: PlanBlock) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: [...bs.blocks.filter((x) => x.id !== b.id), b] } : bs));
+      return api<unknown>(`/blocks/${b.id}/restore`, { method: 'POST' });
+    },
+    onSettled: (_r, _e, b) => refresh(b),
+  });
+  return { remove, restore };
 };
 // ── plan ──
 

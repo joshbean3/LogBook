@@ -1,5 +1,5 @@
 import { addMonths, fmtDate, mondayOf, monthOf, monthStart, monthsBetween, shiftDays } from '@logbook/shared';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { haptics } from '@/lib/haptics';
@@ -11,7 +11,7 @@ import { useSheet } from '@/ui/Sheet';
 import { useLog, type Log } from '../log/useLog';
 import { BlockCard, heroBlock, openPlans } from './Blocks';
 import { MonthGrid } from './Month';
-import { Agenda, isoWeek, WeekHeader, type Conflict } from './Week';
+import { Agenda, isoWeek, PullHint, WeekHeader, type Conflict } from './Week';
 import './plan.css';
 
 type View = 'week' | 'month';
@@ -19,11 +19,11 @@ type View = 'week' | 'month';
 const firstWeekOf = (first: string) => (shiftDays(mondayOf(first), 3) >= first ? mondayOf(first) : shiftDays(mondayOf(first), 7));
 
 /** One week, as the pager shows it: the header, then the seven days. The plate is the shared surface of a zoom. */
-const WeekPage = ({ mon, log, focus, conflict, setConflict, onZoomOut, onThisWeek }: { mon: string; log: Log; focus: boolean; conflict: Conflict | null; setConflict: (c: Conflict | null) => void; onZoomOut: () => void; onThisWeek: () => void }) => {
+const WeekPage = ({ mon, log, focus, conflict, setConflict, onZoomOut, onThisWeek, pull }: { mon: string; log: Log; focus: boolean; conflict: Conflict | null; setConflict: (c: Conflict | null) => void; onZoomOut: () => void; onThisWeek: () => void; pull: MotionValue<number> }) => {
   const reduce = useReducedMotion();
   return (
     <div className="pl-week">
-      <WeekHeader log={log} mon={mon} onZoomOut={onZoomOut} offWeek={mon !== mondayOf(log.today)} onThisWeek={onThisWeek} />
+      <WeekHeader log={log} mon={mon} onZoomOut={onZoomOut} offWeek={mon !== mondayOf(log.today)} onThisWeek={onThisWeek} pull={pull} />
       <div className="pl-agenda-wrap">
         {focus ? <motion.span className="pl-plate" layoutId={`week-${isoWeek(mon)}`} initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ layout: reduce ? { duration: 0 } : springs.page, opacity: { delay: 0.32, duration: 0.24 } }} aria-hidden="true" /> : null}
         <motion.div initial={focus && !reduce ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: focus ? 0.12 : 0 }}>
@@ -57,6 +57,8 @@ export default function PlanView() {
   }, [view, mon, first, block]);
   const log = useLog(months);
   const [focusWeek, setFocusWeek] = useState<string | null>(null);
+  // the pull to the month: the week, its days and the block card travel down together, uncovering the hint's own slot
+  const pull = useMotionValue(0);
   const [conflict, setConflict] = useState<Conflict | null>(null);
   useEffect(() => setConflict(null), [mon, view]);
   useEffect(() => {
@@ -156,7 +158,9 @@ export default function PlanView() {
         }
       />
       {view === 'week' ? (
-        <>
+        <div className="pl-pullwrap">
+          <PullHint pull={pull} />
+          <motion.div style={{ y: pull }}>
           <DatePager
             className="pl-pager"
             date={mon}
@@ -165,10 +169,11 @@ export default function PlanView() {
             label="Week"
             prevLabel="Previous week"
             nextLabel="Next week"
-            render={(m) => <WeekPage mon={m} log={log} focus={focusWeek === m && m === mon} conflict={m === mon ? conflict : null} setConflict={setConflict} onZoomOut={() => zoomOut(m)} onThisWeek={() => goWeek(thisMon)} />}
+            render={(m) => <WeekPage mon={m} log={log} focus={focusWeek === m && m === mon} conflict={m === mon ? conflict : null} setConflict={setConflict} onZoomOut={() => zoomOut(m)} onThisWeek={() => goWeek(thisMon)} pull={pull} />}
           />
           <BlockCard log={log} />
-        </>
+          </motion.div>
+        </div>
       ) : (
         <>
           <MonthGrid anchor={anchor} log={log} onWeek={zoomIn} onStep={(d) => goMonth(addMonths(first, d))} focusWeek={focusWeek} />

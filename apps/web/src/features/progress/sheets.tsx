@@ -6,7 +6,8 @@ import { haptics } from '@/lib/haptics';
 import { EmptyState, Pressable, Ticker, useSheet, WeekRing } from '@/ui';
 import { ringDays, streakLine } from '../day/dayWords';
 import { useLog, type Log } from '../log/useLog';
-import { sessionSheetTitle, UnplannedSheet, useOpenSession } from '../sessions/SessionCard';
+import { sessionMiles, weekMiles } from '../sessions/miles';
+import { sessionSheetTitle, UnplannedSheet, usePushSession } from '../sessions/SessionCard';
 import { LineChart, Spark, useWidth } from './charts';
 import { paceOfRun, paceText, pct, plural, signedPct, weekId, weekTitle, Words, type Adherence, type Consistency, type EasyPace, type LiftGroup, type LongRun, type Range, rangePhrase, rangeLabel } from './data';
 
@@ -53,7 +54,7 @@ const SheetRow = ({ lead, title, sub, right, onPress, label: l }: { lead?: React
 /** Open whatever a run belongs to: its planned session's sheet, or the run on its own, pushed inside this sheet. */
 const useOpenRun = (log: Log) => {
   const sheet = useSheet();
-  const openSession = useOpenSession(log);
+  const openSession = usePushSession(log);
   return (a: Pick<Activity, 'date'>) => {
     const s = log.snap.sessionsOn(a.date).find((x) => x.kind === 'run');
     if (s) openSession(a.date, s);
@@ -62,7 +63,6 @@ const useOpenRun = (log: Log) => {
 };
 
 // ---------- the week ----------
-const runs0 = (log: Log, w: string) => Array.from({ length: 7 }, (_, i) => log.snap.runsOn(shiftDays(w, i)).length).reduce((a, b) => a + b, 0);
 const STATUS_CLASS: Record<string, string> = { done: 'ok', bonus: 'ok', floor: 'warn', missed: 'bad', skipped: 'quiet', rest: 'quiet', planned: 'quiet', today: 'today' };
 
 /**
@@ -76,17 +76,42 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
   // this week's streak looks back eight weeks: load those months too
   const months = useMemo(() => monthsBetween(current ? shiftDays(w, -7 * 8) : w, shiftDays(w, 6)), [w, current]);
   const log = useLog(months);
-  const openSession = useOpenSession(log);
+  const nav = useNavigate();
+  const sheet = useSheet();
+  // a session opened from here slides in on top of the week, with Back to it
+  const openSession = usePushSession(log);
   const openRun = useOpenRun(log);
   const sum = weekSummary(log.snap, w);
+  // miles run count a run marked Done without Strava at its planned miles (contract 5)
+  const ran = weekMiles(log.snap, w, today);
   const streak = current ? streakLine(log.snap, today) : null;
   const future = w > mondayOf(today);
+  const training = sum.days.reduce((n, d) => n + log.snap.sessionsOn(d.date).filter((s) => s.kind !== 'rest').length, 0);
+  // a week ahead with nothing in it is an invitation, never "0 runs planned / 0 mi"
+  if ((future || current) && !training && ran.runs === 0)
+    return (
+      <div className="pg-sheet">
+        <EmptyState
+          verb={{
+            label: 'Plan a week',
+            primary: true,
+            onPress: () => {
+              sheet.close();
+              nav(`/plan/week/${w}`);
+            },
+          }}
+        >
+          Nothing planned yet. Lay out the runs and this week fills in as you do them.
+        </EmptyState>
+      </div>
+    );
   // a week with nothing run yet leads with its plan, never with a zero
-  const ahead = future || (current && sum.doneMiles === 0 && runs0(log, w) === 0 && sum.plannedMiles > 0);
+  const ahead = future || (current && ran.miles === 0 && ran.runs === 0 && sum.plannedMiles > 0);
   const ti = current ? sum.days.findIndex((d) => d.date === today) : undefined;
-  const runs = sum.days.flatMap((d) => log.snap.runsOn(d.date));
   const keptLine = future
-    ? `${sum.runsPlanned} ${plural(sum.runsPlanned, 'run')} planned.`
+    ? sum.runsPlanned
+      ? `${sum.runsPlanned} ${plural(sum.runsPlanned, 'run')} planned.`
+      : `${training} ${plural(training, 'session')} planned.`
     : sum.kept
       ? 'Week kept.'
       : current
@@ -115,8 +140,9 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
     }
     for (const s of ss) {
       const k = sessionKey(log.snap, d.date, s);
-      const ran = s.kind === 'run' ? dayRuns.reduce((t, a) => t + a.miles, 0) : 0;
-      const sub = s.kind === 'run' ? (ran ? `${mi(ran)} mi run${s.miles ? ` of ${num(s.miles)}` : ''}` : s.miles ? `${num(s.miles)} mi planned` : null) : s.details;
+      const sm = s.kind === 'run' && d.date <= today ? sessionMiles(log.snap, d.date, s) : null;
+      const did = sm && sm.miles > 0 ? sm : null;
+      const sub = s.kind === 'run' ? (did ? `${mi(did.miles)} mi ${did.source === 'activity' ? 'run' : 'logged'}${s.miles && did.source === 'activity' ? ` of ${num(s.miles)}` : ''}` : s.miles ? `${num(s.miles)} mi planned` : null) : s.details;
       rows.push(
         <SheetRow
           key={s.id}
@@ -149,7 +175,7 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
     <div className="pg-sheet">
       <div className="pg-week-top">
         <WeekRing days={ringDays(sum, today)} size={64} today={ti != null && ti >= 0 ? ti : undefined} onceADay={null}>
-          {runs.length || ''}
+          {ran.runs || ''}
         </WeekRing>
         <div className="pg-week-words">
           <p className="pg-week-line">{keptLine}</p>
@@ -157,15 +183,15 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
           <div className="pg-stamps two">
             {ahead ? (
               <>
-                <Stamp label="Planned" value={num(sum.plannedMiles)} unit="mi" note={current ? 'None run yet' : undefined} />
-                <Stamp label="Runs" value={sum.runsPlanned} note={current ? 'Planned' : undefined} />
+                {sum.plannedMiles ? <Stamp label="Planned" value={num(sum.plannedMiles)} unit="mi" note={current ? 'None run yet' : undefined} /> : null}
+                {sum.runsPlanned ? <Stamp label="Runs" value={sum.runsPlanned} note={current ? 'Planned' : undefined} /> : null}
               </>
-            ) : (
+            ) : ran.miles > 0 || ran.runs ? (
               <>
-                <Stamp label="Miles" value={mi(sum.doneMiles)} unit="mi" note={sum.plannedMiles ? `of ${num(sum.plannedMiles)} planned` : undefined} />
-                <Stamp label="Runs" value={runs.length} note={sum.runsPlanned ? `${sum.runsDone} of ${sum.runsPlanned} planned` : undefined} />
+                <Stamp label="Miles" value={mi(ran.miles)} unit="mi" note={sum.plannedMiles ? `of ${num(sum.plannedMiles)} planned` : ran.logged ? 'Logged by hand' : undefined} />
+                <Stamp label="Runs" value={ran.runs} note={sum.runsPlanned ? `${sum.runsDone} of ${sum.runsPlanned} planned` : undefined} />
               </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -542,9 +568,9 @@ export const ConsistencySheet = ({ c, log, today, range, streak }: { c: Consiste
   return (
     <div className="pg-sheet">
       <div className="pg-stamps three">
-        <Stamp label="Weeks kept" value={c.keptWeeks} unit={`of ${c.weeks}`} note={rangeLabel(range)} />
+        {c.weeks ? <Stamp label="Weeks kept" value={c.keptWeeks} unit={`of ${c.weeks}`} note={rangeLabel(range)} /> : <Stamp label="Week" value={1} unit="so far" note="Counts once it’s kept" />}
         <Stamp label="Training" value={tp ?? '—'} unit={tp != null ? '%' : undefined} note={tr.of ? `of ${tr.of} ${plural(tr.of, 'day')}` : 'No days yet'} />
-        <Stamp label="Habits" value={hp ?? '—'} unit={hp != null ? '%' : undefined} note={c.habitOf ? `of ${c.habitOf} checks` : 'No habits yet'} />
+        <Stamp label="Habits" value={hp ?? '—'} unit={hp != null ? '%' : undefined} note={c.habitOf ? `of ${c.habitOf} ${plural(c.habitOf, 'check')}` : 'No habits yet'} />
       </div>
       {streak.ofLast.total ? <p className="pg-note">{`${streak.ofLast.kept} of the last ${streak.ofLast.total} ${plural(streak.ofLast.total, 'week')} kept${streak.weeks >= 2 ? `, ${streak.weeks} in a row` : ''}.`}</p> : null}
       <div ref={ref} className="pg-grid-wrap" style={{ '--n': N } as CSSProperties}>

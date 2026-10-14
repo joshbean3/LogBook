@@ -15,7 +15,7 @@ const monthOfWeek = (w: string) => up(monthShort.format(new Date(`${w}T12:00:00`
 export const weekWords = (p: WeekPoint, today: string) => {
   const t = weekTitle(p.w, today);
   if (p.future) return `${t}: ${num(p.planned)} miles planned`;
-  const ran = `${mi(p.ran)} miles in ${p.runs} ${p.runs === 1 ? 'run' : 'runs'}`;
+  const ran = `${mi(p.ran)} miles in ${p.runs} ${p.runs === 1 ? 'run' : 'runs'}${p.logged > 0.05 ? `, ${mi(p.logged)} logged by hand` : ''}`;
   return `${t}${p.current ? ' so far' : ''}: ${ran}${p.planned ? `, ${num(p.planned)} planned` : ''}`;
 };
 
@@ -213,6 +213,15 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
                           rx={Math.min(3, bw / 2)}
                           initial={enter}
                           animate={{ attrX: xc(i) - bw / 2, width: bw, attrY: y(p.ran), height: y0 - y(p.ran) + 6, opacity: 1 }}
+                          transition={settle}
+                        />
+                      ) : null}
+                      {p.logged > 0.05 ? (
+                        <motion.rect
+                          className="pg-logged"
+                          rx={Math.min(2.5, bw / 2)}
+                          initial={false}
+                          animate={{ attrX: xc(i) - bw / 2 + 1, width: Math.max(0, bw - 2), attrY: y(p.ran) + 1, height: Math.max(0, y(p.ran - p.logged) - y(p.ran) - 1) }}
                           transition={settle}
                         />
                       ) : null}

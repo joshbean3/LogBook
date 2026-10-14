@@ -33,12 +33,19 @@
   position: relative;
   padding: 8px 0 4px;
 }
+/* the pull's own 24px slot: the week layer comes down and uncovers it, so the words never sit on anything */
+.pl-pullwrap {
+  position: relative;
+}
 .pl-pullhint {
   position: absolute;
   left: 0;
   right: 0;
-  top: -6px;
+  top: 0;
+  height: 24px;
+  line-height: 24px;
   text-align: center;
+  white-space: nowrap;
   pointer-events: none;
 }
 .pl-pullhint.on {
@@ -148,6 +155,15 @@
 }
 .pl-slot {
   min-width: 0;
+}
+/* swiped left for Move: the tone bar and the name hold still while the row slides; distance and status fade */
+.pl-slot .pl-line .pl-tone,
+.pl-slot .pl-line .pl-main {
+  transform: translateX(var(--swipe-pin, 0px));
+}
+.pl-slot .pl-line .pl-dist,
+.pl-slot .pl-line .pl-glyph {
+  opacity: var(--swipe-fade, 1);
 }
 /* today, lit: a stage light from the left edge, screen-blended over the row so it only ever adds light */
 .pl-day.is-today::before {
@@ -627,24 +643,71 @@
 .mg-tot.kept b {
   color: var(--accent-text);
 }
+.mg-keyrow {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .mg-key {
-  margin-top: 14px;
+  margin: 0;
+}
+.mg-info {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  border-radius: 50%;
+  color: var(--ink-3);
+}
+.mg-info[aria-expanded='true'] {
+  color: var(--ink);
+}
+.mg-legend {
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
   display: flex;
   flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--ink-2);
+  overflow: hidden;
+}
+.mg-legend li {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
-.mg-key i {
+.mg-sw {
   display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
 }
-.mg-key-ran {
-  background: rgba(47, 59, 255, 0.6);
+.mg-sw.ran {
+  background: rgba(47, 59, 255, 0.7);
 }
-.mg-key-plan {
-  box-shadow: inset 0 0 0 1px var(--ink-3);
+.mg-sw.floor {
+  background: rgba(255, 176, 32, 0.5);
+}
+.mg-sw.missed {
+  box-shadow: inset 0 0 0 1px rgba(255, 59, 92, 0.6);
+}
+.mg-sw.today {
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+}
+.mg-sw-num {
+  font-family: var(--stamp);
+  font-weight: 800;
+  font-size: 0.8125rem;
+  color: var(--ink-3);
+  width: 14px;
+  text-align: center;
 }
 @media (max-width: 359px) {
   .mg {
@@ -872,6 +935,13 @@
   font-size: 0.8125rem;
   line-height: 1.125rem;
   color: var(--ink-3);
+}
+/* a replace says so above the button, in ink-2, before the one tap */
+.tp-replace {
+  margin: 4px 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
 }
 
 /* ---------- the AI builder (Write my next block), pushed inside the plans sheet ---------- */

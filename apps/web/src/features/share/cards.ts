@@ -1,11 +1,17 @@
 import { clock, decodePolyline, fmtDate, mi, mondayOf, routePath, shiftDays, today, type ISODate } from '@logbook/shared';
 
 /** A 1080×1920 story card drawn on black: the Aura idea, in Logbook's hand. */
-export type Template = 'stamp' | 'route' | 'marker' | 'bubble' | 'week';
-export const TEMPLATES: readonly Template[] = ['stamp', 'route', 'marker', 'bubble', 'week'];
-export const TEMPLATE_NAME: Record<Template, string> = { stamp: 'Stamp', route: 'Route', marker: 'Marker', bubble: 'Bubble', week: 'Week' };
+export type Template = 'stamp' | 'route' | 'marker' | 'day' | 'bubble' | 'week';
+export const TEMPLATES: readonly Template[] = ['stamp', 'route', 'marker', 'day', 'bubble', 'week'];
+export const TEMPLATE_NAME: Record<Template, string> = { stamp: 'Stamp', route: 'Route', marker: 'Marker', day: 'Day', bubble: 'Bubble', week: 'Week' };
 /** How long the card takes to settle the first time it shows (0 = still). */
-export const DRAW_MS: Record<Template, number> = { stamp: 600, route: 1100, marker: 0, bubble: 0, week: 600 };
+export const DRAW_MS: Record<Template, number> = { stamp: 600, route: 1100, marker: 0, day: 0, bubble: 0, week: 600 };
+
+/**
+ * What kind of day is being shared, which picks the cards: a run (its numbers), a lift (sets), a rest day, or a day with
+ * words and no training. A card never prints a zero or a dash: a row with nothing to say is left out.
+ */
+export type ShareDayType = 'run' | 'lift' | 'rest' | 'journal';
 
 export interface ShareDay {
   date: ISODate;
@@ -27,7 +33,30 @@ export interface ShareData {
   avgHr: number | null;
   polyline: string | null;
   week: { monday: ISODate; days: ShareDay[]; total: number; planned: number } | null;
+  /** The kind of day (default: a run when it has miles, else rest). */
+  dayType?: ShareDayType;
+  /** Habits lit that day, when there are habits. */
+  habits?: { lit: number; of: number } | null;
+  /** The day's own words: its latest journal entry, cut to fit. */
+  journal?: string | null;
+  /** A lift day: how many sets, and the best one ("Squat 225 × 5"). */
+  lift?: { sets: number; top: string | null } | null;
 }
+
+/** The day type, read from the data (old callers set none). */
+export const dayTypeOf = (d: ShareData): ShareDayType => d.dayType ?? (d.miles > 0 ? 'run' : 'rest');
+
+/**
+ * The cards a day gets, its lead card first: a run gets its numbers (Stamp, Route when there is a line, Marker); any other
+ * day gets the Day card. The Bubble says the day's line; the Week card only comes when the week has miles in it.
+ */
+export const templatesFor = (d: ShareData): Template[] => {
+  const type = dayTypeOf(d);
+  const out: Template[] = type === 'run' && d.miles > 0 ? ['stamp', ...(d.polyline ? (['route'] as const) : []), 'marker'] : ['day'];
+  out.push('bubble');
+  if (d.week && d.week.total > 0) out.push('week');
+  return out;
+};
 export interface DrawOpts {
   /** 0..1: how far the first-show animation has come. Export at 1. */
   progress: number;
@@ -65,7 +94,7 @@ const mi2 = (v: number) => (Math.round(v * 100) / 100).toFixed(2);
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 /** The Bubble says what the day said: the verdict, in the brand voice. Falls back to the distance when there is none. */
-export const defaultCaption = (d: ShareData): string => d.verdict.trim() || `${mi(d.miles)} mi.`;
+export const defaultCaption = (d: ShareData): string => d.verdict.trim() || (d.miles > 0 ? `${mi(d.miles)} mi.` : 'Rest. It counts.');
 
 // ---------- text with tracking ----------
 interface TextStyle {
@@ -206,21 +235,29 @@ const drawStamp = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   ground(ctx);
   const nameY = heading(ctx, d, HERO_NAME);
   const e = easeOut(p);
+  // a run logged by hand has no clock: its pace and time rows are left out, never stamped as zeros
+  const timed = d.movingSec > 0 && d.miles > 0.1;
   const rows: Array<[string, string, string | null]> = [
     ['Distance', mi2(d.miles * e), 'mi'],
-    ['Pace', paceStamp(d.movingSec * e, d.miles * e), null],
-    ['Time', clock(d.movingSec * e), null],
+    ...(timed
+      ? ([
+          ['Pace', paceStamp(d.movingSec * e, d.miles * e), null],
+          ['Time', clock(d.movingSec * e), null],
+        ] as Array<[string, string, string | null]>)
+      : []),
   ];
   // the first label clears the name's descenders; the last numeral lands at 1600, above the foot line at 1700
-  const size = 200;
-  const first = nameY + 150;
-  const step = (1600 - size - first) / (rows.length - 1);
+  const size = rows.length > 1 ? 200 : 280;
+  // one row (a run logged by hand) stands in the middle of the card, not stranded under the name
+  const first = rows.length > 1 ? nameY + 150 : Math.max(nameY + 150, 820);
+  const step = rows.length > 1 ? (1600 - size - first) / (rows.length - 1) : 0;
   rows.forEach(([k, v, u], i) => {
     const y = Math.round(first + i * step);
     caps(ctx, k, M, y);
     stamp(ctx, v, u, M, y + size, size);
   });
   const foot: string[] = [];
+  if (!timed) foot.push('Logged');
   if (d.elevFt) foot.push(`${Math.round(d.elevFt)} ft elev`);
   if (d.avgHr != null) foot.push(`${d.avgHr} bpm avg`);
   if (foot.length) caps(ctx, foot.join('   ·   '), M, 1700);
@@ -264,11 +301,16 @@ const drawRoute = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   const top = nameY + 70;
   const bottom = 1230;
   if (d.polyline) drawRouteLine(ctx, routePoints(d.polyline, 840, bottom - top), 120, top, p);
+  const timed = d.movingSec > 0 && d.miles > 0.1;
   const cells: Array<[string, string, string | null]> = [
     ['Distance', mi2(d.miles), 'mi'],
-    ['Pace', paceStamp(d.movingSec, d.miles), null],
-    ['Time', clock(d.movingSec), null],
-    d.avgHr != null ? ['Avg HR', String(d.avgHr), 'bpm'] : ['Elev', String(Math.round(d.elevFt)), 'ft'],
+    ...(timed
+      ? ([
+          ['Pace', paceStamp(d.movingSec, d.miles), null],
+          ['Time', clock(d.movingSec), null],
+        ] as Array<[string, string, string | null]>)
+      : []),
+    ...(d.avgHr != null ? ([['Avg HR', String(d.avgHr), 'bpm']] as Array<[string, string, string | null]>) : d.elevFt > 0 ? ([['Elev', String(Math.round(d.elevFt)), 'ft']] as Array<[string, string, string | null]>) : []),
   ];
   cells.forEach(([k, v, u], i) => {
     const x = M + (i % 2) * 440;
@@ -283,7 +325,9 @@ const drawRoute = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
 const drawMarker = (ctx: CanvasRenderingContext2D, d: ShareData) => {
   ground(ctx, 0.7);
   const nameY = heading(ctx, d);
-  const lines = [`${mi2(d.miles)} miles,`, `${paceColon(d.movingSec, d.miles)}/mi,`, clock(d.movingSec)];
+  const timed = d.movingSec > 0 && d.miles > 0.1;
+  const parts = [`${mi2(d.miles)} miles`, ...(timed ? [`${paceColon(d.movingSec, d.miles)}/mi`, clock(d.movingSec)] : [])];
+  const lines = parts.map((l, i) => (i < parts.length - 1 ? `${l},` : l));
   const size = 128;
   const font = `700 ${size}px ${SANS}`;
   const barH = 168;
@@ -337,10 +381,50 @@ const drawBubble = (ctx: CanvasRenderingContext2D, d: ShareData, caption: string
   ctx.closePath();
   ctx.fill();
   lines.forEach((l, i) => text(ctx, l, W / 2, by + padY + size * 0.95 + i * lh, { font, color: WHITE, align: 'center', tracking: -size * 0.015 }));
+  // the numbers under the bubble: only the ones the day has (a rest day has none, a logged run only its miles)
   const sy = by + bh + 150;
-  const row = `${mi2(d.miles)} MI  ·  ${paceStamp(d.movingSec, d.miles)}  ·  ${clock(d.movingSec)}`;
-  text(ctx, row, W / 2, sy, { font: `800 56px ${STAMP}`, color: WHITE, align: 'center', tracking: -56 * 0.03 });
-  caps(ctx, 'distance  ·  pace  ·  time', W / 2, sy + 48, 24, INK3, 'center');
+  const cells: Array<[string, string]> = [];
+  if (d.miles > 0) cells.push([`${mi2(d.miles)} MI`, 'distance']);
+  if (d.miles > 0.1 && d.movingSec > 0) cells.push([paceStamp(d.movingSec, d.miles), 'pace'], [clock(d.movingSec), 'time']);
+  if (!cells.length && d.lift?.sets) cells.push([`${d.lift.sets} SETS`, 'lifted']);
+  if (!cells.length && d.habits?.lit) cells.push([`${d.habits.lit} OF ${d.habits.of}`, 'habits lit']);
+  if (cells.length) {
+    text(ctx, cells.map((c) => c[0]).join('  ·  '), W / 2, sy, { font: `800 56px ${STAMP}`, color: WHITE, align: 'center', tracking: -56 * 0.03 });
+    caps(ctx, cells.map((c) => c[1]).join('  ·  '), W / 2, sy + 48, 24, INK3, 'center');
+  }
+  wordmark(ctx);
+};
+
+// ---------- 4b. DAY: a day that isn't a run, said in what it had (sets, habits lit, its words) ----------
+const drawDay = (ctx: CanvasRenderingContext2D, d: ShareData) => {
+  ground(ctx, 0.8);
+  const nameY = heading(ctx, d, HERO_NAME);
+  let y = nameY + 170;
+  // the stamped facts first, each a caps label over a numeral; only the ones the day has
+  const facts: Array<[string, string, string | null, string | null]> = [];
+  if (d.lift?.sets) facts.push(['Lifted', String(d.lift.sets), d.lift.sets === 1 ? 'set' : 'sets', d.lift.top]);
+  if (d.habits && d.habits.lit > 0) facts.push(['Habits', d.habits.lit === d.habits.of ? 'All' : `${d.habits.lit}`, d.habits.lit === d.habits.of ? 'lit' : `of ${d.habits.of} lit`, null]);
+  for (const [k, v, u, note] of facts) {
+    caps(ctx, k, M, y);
+    stamp(ctx, v, u, M, y + 176, 176);
+    y += 176 + 40;
+    if (note) {
+      text(ctx, note, M, y + 20, { font: `600 44px ${SANS}`, color: INK2 });
+      y += 70;
+    }
+    y += 70;
+  }
+  // then the day's line, in the serif: its own words, or the verdict ("Rest. It counts.")
+  const line = (d.journal?.trim() || d.verdict.trim() || '').slice(0, 160);
+  if (line) {
+    const size = facts.length ? 72 : 96;
+    const font = serifAt(size);
+    const maxLines = Math.max(1, Math.floor((1600 - y) / (size * 1.18)));
+    const all = wrap(ctx, d.journal ? `“${line}”` : line, font, W - M * 2);
+    const lines = all.slice(0, Math.min(maxLines, 6));
+    if (all.length > lines.length) lines[lines.length - 1] = `${lines[lines.length - 1]!.replace(/[,.;:”]?$/, '')}…`;
+    lines.forEach((l, i) => text(ctx, l, M, y + size + i * size * 1.18, { font, color: facts.length ? INK2 : WHITE }));
+  }
   wordmark(ctx);
 };
 
@@ -376,7 +460,8 @@ const drawWeek = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
     const bw = 56;
     roundRect(ctx, cx - bw / 2, barBottom - Math.max(6, h), bw, Math.max(6, h), 6);
     ctx.fill();
-    text(ctx, day.miles ? mi(day.miles) : '—', cx, barBottom + 74, { font: `800 52px ${STAMP}`, color: day.miles ? WHITE : INK3, align: 'center', tracking: -52 * 0.03 });
+    // a day with no miles keeps its stub of a bar and says nothing: never a dash or a zero
+    if (day.miles) text(ctx, mi(day.miles), cx, barBottom + 74, { font: `800 52px ${STAMP}`, color: WHITE, align: 'center', tracking: -52 * 0.03 });
     caps(ctx, DOW[i] ?? '', cx, barBottom + 128, 26, INK3, 'center');
   });
   wordmark(ctx);
@@ -388,6 +473,7 @@ export const drawCard = (ctx: CanvasRenderingContext2D, t: Template, d: ShareDat
   if (t === 'stamp') drawStamp(ctx, d, o.progress);
   else if (t === 'route') drawRoute(ctx, d, o.progress);
   else if (t === 'marker') drawMarker(ctx, d);
+  else if (t === 'day') drawDay(ctx, d);
   else if (t === 'bubble') drawBubble(ctx, d, o.caption);
   else drawWeek(ctx, d, o.progress);
 };

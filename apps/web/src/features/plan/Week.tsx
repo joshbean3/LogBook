@@ -1,6 +1,6 @@
-import { assess, fmtDate, heroSession, label, mi, mondayOf, num, pad, parseISO, sessionKey, sessionWord, shiftDays, tone, weekSummary, type Activity, type Session, type StatusKey } from '@logbook/shared';
+import { assess, fmtDate, heroSession, isSkipMark, label, mi, mondayOf, num, pad, parseISO, sessionKey, sessionWord, shiftDays, tone, weekSummary, type Activity, type Session, type StatusKey } from '@logbook/shared';
 import { ArrowRightLeft, Check, Plus } from 'lucide-react';
-import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
+import { AnimatePresence, animate, motion, useMotionValueEvent, useReducedMotion, useTransform, type MotionValue } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { rowPresence, springs } from '@/lib/motion';
@@ -14,7 +14,8 @@ import type { Log } from '../log/useLog';
 import { sessionCan, useSessionActions } from '../sessions/actions';
 import { announceReshape } from '../sessions/MoveSheet';
 import { useReshape, type ReshapeResult } from '../sessions/reshape';
-import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
+import { weekMiles } from '../sessions/miles';
+import { shareFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { PLAN_DAY, useDayDrag } from './useDayDrag';
 
 /** "2026-W42": the shared-element id of a week (docs/foundation.md). */
@@ -33,8 +34,10 @@ const isTraining = (s: Session) => s.kind !== 'rest';
 
 /** The week's line ("26 mi planned · 5 runs") and the sentence under it, said forward: what is next, never a zero. */
 export const weekWords = (log: Log, mon: string) => {
-  const w = weekSummary(log.snap, mon);
   const t = log.today;
+  // miles run count a run marked Done without Strava at its planned miles (contract 5), as Progress and Share do
+  const w0 = weekSummary(log.snap, mon);
+  const w = { ...w0, doneMiles: weekMiles(log.snap, mon, t).miles };
   const sun = shiftDays(mon, 6);
   const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
   const training = days.flatMap((d) => log.snap.sessionsOn(d).filter(isTraining).map((s) => [d, s] as const));
@@ -62,7 +65,8 @@ export const weekWords = (log: Log, mon: string) => {
     sub = 'Tap a day to add a session, or start a block below.';
   } else if (w.doneMiles === 0 && !w.keptSessions) {
     // early in the week: say what's next, never "0 of 26"
-    sub = next ? (next[0] === t && next[1].kind === 'run' && !training.some(([d, s]) => d < t && s.kind === 'run') ? 'First run today.' : `Next: ${nameOf(next[1])}, ${when(next[0])}.`) : 'Nothing left this week.';
+    // "First run today" only when no run was planned before today (Progress's verdict says the same)
+    sub = next ? (next[0] === t && next[1].kind === 'run' && !training.some(([d, s]) => d < t && s.kind === 'run' && !isSkipMark(s.mark)) ? 'First run today.' : `Next: ${nameOf(next[1])}, ${when(next[0])}.`) : 'Nothing left this week.';
   } else {
     const done = w.plannedMiles > 0 ? `${tenth(w.doneMiles)} of ${tenth(w.plannedMiles)} mi` : w.doneMiles > 0 ? `${tenth(w.doneMiles)} mi run` : `${w.keptSessions} kept`;
     sub = next ? `${done}. Next: ${nameOf(next[1])}, ${when(next[0])}.` : w.kept ? `${done}. Week kept.` : `${done}.`;
@@ -79,19 +83,34 @@ export const StatusGlyph = ({ k, word }: { k: StatusKey; word: string }) => (
   </span>
 );
 
+/** How far (px of travel) the week has to come down before letting go opens the month. */
+export const PULL_ARM = 56;
+
 /**
- * The week's header: the line, a thin bar of miles done, the sentence. Pull it down to zoom out to the month (it follows
- * the finger; a tick when it would let go into the month). Its touches are its own: the page's pull to refresh starts
- * anywhere else.
+ * The pull's words, in their own 24px slot above the week: the week, its days and the block card come down as one layer
+ * and uncover it, so nothing ever sits on top of anything mid-pull. It only shows once the slot is open.
  */
-export const WeekHeader = ({ log, mon, onZoomOut, offWeek, onThisWeek }: { log: Log; mon: string; onZoomOut: () => void; offWeek: boolean; onThisWeek: () => void }) => {
+export const PullHint = ({ pull }: { pull: MotionValue<number> }) => {
+  const [armed, setArmed] = useState(false);
+  const opacity = useTransform(pull, [16, 40], [0, 1]);
+  useMotionValueEvent(pull, 'change', (v) => setArmed((a) => (a === v >= PULL_ARM ? a : v >= PULL_ARM)));
+  return (
+    <motion.span className={`pl-pullhint caps ${armed ? 'on' : ''}`} style={{ opacity }} aria-hidden="true">
+      {armed ? 'Let go for the month' : 'Pull for the month'}
+    </motion.span>
+  );
+};
+
+/**
+ * The week's header: the line, a thin bar of miles done, the sentence. Pull it down to zoom out to the month: `pull` (the
+ * page's) carries the week and everything under it down with the finger, and a tick marks the point where letting go
+ * opens the month. Its touches are its own: the page's pull to refresh starts anywhere else.
+ */
+export const WeekHeader = ({ log, mon, onZoomOut, offWeek, onThisWeek, pull }: { log: Log; mon: string; onZoomOut: () => void; offWeek: boolean; onThisWeek: () => void; pull: MotionValue<number> }) => {
   const words = weekWords(log, mon);
   const reduce = useReducedMotion();
   const fill = useFirstToday(mon === mondayOf(log.today) ? 'plan-week-bar' : null);
   const ref = useRef<HTMLDivElement>(null);
-  const pull = useMotionValue(0);
-  const hint = useTransform(pull, [0, 70], [0, 1]);
-  const [armed, setArmed] = useState(false);
   const zoom = useRef(onZoomOut);
   zoom.current = onZoomOut;
   useEffect(() => {
@@ -121,20 +140,19 @@ export const WeekHeader = ({ log, mon, onZoomOut, offWeek, onThisWeek }: { log: 
       }
       if (e.cancelable) e.preventDefault();
       pull.set(Math.max(0, Math.min(110, dy * 0.5)));
-      const over = dy * 0.5 >= 56;
+      const over = dy * 0.5 >= PULL_ARM;
       if (over !== arm) {
         arm = over;
-        setArmed(over);
         haptics.threshold();
       }
     };
     const end = () => {
       if (on && arm) zoom.current();
+      const was = on;
       y0 = null;
       on = false;
       arm = false;
-      setArmed(false);
-      void animate(pull, 0, reduce ? { duration: 0 } : springs.settle);
+      if (was) void animate(pull, 0, reduce ? { duration: 0 } : springs.settle);
     };
     el.addEventListener('touchstart', start, { passive: true });
     el.addEventListener('touchmove', move, { passive: false });
@@ -149,10 +167,7 @@ export const WeekHeader = ({ log, mon, onZoomOut, offWeek, onThisWeek }: { log: 
   }, [pull, reduce]);
   return (
     <div ref={ref} className="pl-wh">
-      <motion.span className={`pl-pullhint caps ${armed ? 'on' : ''}`} style={{ opacity: hint }} aria-hidden="true">
-        {armed ? 'Let go for the month' : 'Pull for the month'}
-      </motion.span>
-      <motion.div style={{ y: pull }}>
+      <div>
         <div className="pl-wh-top">
           <h2 className="pl-wh-head">{words.head}</h2>
           {offWeek ? (
@@ -167,7 +182,7 @@ export const WeekHeader = ({ log, mon, onZoomOut, offWeek, onThisWeek }: { log: 
           </div>
         ) : null}
         <p className="pl-wh-sub">{words.sub}</p>
-      </motion.div>
+      </div>
     </div>
   );
 };
@@ -176,6 +191,32 @@ export interface Conflict {
   days: string[];
   undo: () => void;
 }
+
+/**
+ * While a row is swiped left (Move), its tone bar and name hold still and the distance and status fade, so the session
+ * you are moving stays named next to the Move pane. Past the commit point the name gives way. The SwipeRow's offset is read
+ * off its content layer (no prop for it), written as `--swipe-pin` / `--swipe-fade` on the slot.
+ */
+const useSwipeKeepsName = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const slot = ref.current;
+    const content = slot?.querySelector<HTMLElement>('.swipe-content');
+    if (!slot || !content) return;
+    const read = () => {
+      const m = /translateX\((-?[\d.]+)px\)/.exec(content.style.transform);
+      const x = m ? Number(m[1]) : 0;
+      const pin = x < 0 ? Math.min(-x, content.offsetWidth * 0.4) : 0;
+      slot.style.setProperty('--swipe-pin', `${pin}px`);
+      slot.style.setProperty('--swipe-fade', String(x < 0 ? Math.max(0, 1 + x / 48) : 1));
+    };
+    const mo = new MutationObserver(read);
+    mo.observe(content, { attributes: true, attributeFilter: ['style'] });
+    read();
+    return () => mo.disconnect();
+  }, []);
+  return ref;
+};
 
 /** One session on a day: tap it open, swipe right for Done and left for Move, hold it to lift and drag, or for its menu. */
 const SessionLine = ({ date, s, log, lead, onReshaped }: { date: string; s: Session; log: Log; lead: boolean; onReshaped: (r: ReshapeResult, s: Session, to: string) => void }) => {
@@ -188,7 +229,7 @@ const SessionLine = ({ date, s, log, lead, onReshaped }: { date: string; s: Sess
   const word = sessionWord(log.snap, date, s);
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const a = runs.length ? assess(log.zones, s, runs) : null;
-  const share = runs.length ? shareDataFor(date, s, runs, log) : null;
+  const share = shareFor(date, s, log);
   const name = nameOf(s);
   const items: ContextMenuItem[] = act.menuItems(date, s, { share });
   const drag = useDayDrag({
@@ -206,8 +247,9 @@ const SessionLine = ({ date, s, log, lead, onReshaped }: { date: string; s: Sess
   const sub = a && runs.length === 1 ? runs[0]!.name : typeWord;
   const swipeRight = c.mark && k !== 'done' ? { label: 'Done', icon: <Check size={22} />, tone: 'ok' as const, onCommit: () => act.done(s) } : undefined;
   const swipeLeft = { label: 'Move', icon: <ArrowRightLeft size={22} />, tone: 'neutral' as const, onCommit: () => act.move(date, s) };
+  const slot = useSwipeKeepsName();
   return (
-    <div className="pl-slot" onPointerDown={(e) => e.stopPropagation()}>
+    <div ref={slot} className="pl-slot" onPointerDown={(e) => e.stopPropagation()}>
       <SwipeRow right={swipeRight} left={swipeLeft} menu={false} label={name}>
         <button
           ref={drag.ref as React.RefObject<HTMLButtonElement>}
