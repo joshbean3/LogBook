@@ -219,16 +219,6 @@
   display: grid;
   gap: 8px;
 }
-.pg-ghost-bars {
-  display: block;
-}
-.pg-ghost-bars rect {
-  fill: var(--ink-4);
-}
-.pg-ghost-bars line {
-  stroke: var(--line-strong);
-  stroke-width: 1;
-}
 
 /* ---------- drill-downs: an edge-to-edge list, a sparkline and one number per row ---------- */
 .pg-drills {

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { useAllLifts } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
-import { ChipButton, EmptyState, Pressable, shared, Skeleton, SkeletonGroup, TabHeader, Ticker, useSheet } from '@/ui';
+import { ChipButton, EmptyState, GhostBars, Pressable, shared, Skeleton, SkeletonGroup, TabHeader, Ticker, useSheet } from '@/ui';
 import { useLog, type Log } from '../log/useLog';
 import { Spark } from './charts';
 import { adherence, consistency, easyPace, FUTURE_WEEKS, liftGroups, longRuns, paceText, pct, plural, RANGE_WEEKS, RANGES, rangeBounds, rangeLabel, rangePhrase, rangeSummary, signedPct, verdict, weekId, weekSeries, weekTitle, type Range, type WeekPoint } from './data';
@@ -102,7 +102,6 @@ const DrillRow = ({ title, sub, spark, value, unit, onPress, label }: { title: s
  * The empty state's ghost: the chart's shape, abstract. Plain bars of no particular height pattern, a baseline and three
  * grey bars where the headline numbers will be; no numbers, no axis, no labels, nothing that reads as someone's data.
  */
-const GHOST_BARS = [0.42, 0.5, 0.46, 0.58, 0.54, 0.66, 0.62, 0.48, 0.7, 0.74, 0.68, 0.8, 0.6];
 const ProgressGhost = () => (
   <section className="pg-hero pg-ghost" aria-hidden="true">
     <div className="pg-ghost-read">
@@ -113,12 +112,7 @@ const ProgressGhost = () => (
         </span>
       ))}
     </div>
-    <svg className="pg-ghost-bars" viewBox="0 0 300 160" preserveAspectRatio="none" width="100%" height={160}>
-      {GHOST_BARS.map((h, i) => (
-        <rect key={i} x={6 + i * 22.6} width={12} y={150 - h * 140} height={h * 140} rx={3} />
-      ))}
-      <line x1={0} x2={300} y1={150.5} y2={150.5} />
-    </svg>
+    <GhostBars count={13} height={160} />
   </section>
 );
 

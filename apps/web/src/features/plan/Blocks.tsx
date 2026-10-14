@@ -103,6 +103,12 @@ export const openTemplate = (sheet: SheetApi, log: Log, push = false) => {
   else sheet.open(spec);
 };
 
+/**
+ * A plan's name in the list. A rebuild ends the old block and starts one with the same name; the ended one says so with
+ * its last day ("Half marathon · ended Oct 18"), so the two are never two identical rows.
+ */
+export const planName = (b: PlanBlock, all: PlanBlock[], t: string) => (all.some((x) => x.id !== b.id && x.name === b.name && x.start > b.end) ? `${b.name} · ${b.end < t ? 'ended' : 'ends'} ${fmtDate('md', b.end)}` : b.name);
+
 /** Your plans, newest first, each one a row; New block (the one blue) and, with the AI on, "Write my next block". */
 const PlansPanel = ({ log }: { log: Log }) => {
   const sheet = useSheet();
@@ -115,9 +121,9 @@ const PlansPanel = ({ log }: { log: Log }) => {
           {blocks.map((b) => {
             const st = stateOf(b, t);
             return (
-              <button key={b.id} type="button" className="pl-plan-row" onClick={() => sheet.push({ eyebrow: `${st} · ${fmtDate('md', b.start)} – ${fmtDate('md', b.end)}`, title: b.name, body: <PlanDetail b={b} log={log} /> })}>
+              <button key={b.id} type="button" className="pl-plan-row" onClick={() => sheet.push({ eyebrow: `${st} · ${fmtDate('md', b.start)} – ${fmtDate('md', b.end)}`, title: planName(b, blocks, t), body: <PlanDetail b={b} log={log} /> })}>
                 <span className="pl-plan-main">
-                  <span className="pl-plan-name">{b.name}</span>
+                  <span className="pl-plan-name">{planName(b, blocks, t)}</span>
                   <span className="pl-sub">
                     {fmtDate('md', b.start)} – {fmtDate('md', b.end)} · {planWeeks(b)} weeks
                   </span>
@@ -189,10 +195,10 @@ const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
       fn: () =>
         void gone.then(
           () =>
-            restore.mutate(b, {
-              onSuccess: () => haptics.toggle(),
-              onError: () => (haptics.error(), toast('Couldn’t bring the plan back. Try again from Plans.')),
-            }),
+            restore.mutateAsync(b).then(
+              () => (haptics.toggle(), toast(`${b.name} is back.`)),
+              () => (haptics.error(), toast('Couldn’t bring the plan back. Try again from Plans.')),
+            ),
           () => undefined,
         ),
     });
@@ -308,9 +314,12 @@ const TemplatePanel = ({ log }: { log: Log }) => {
   const tpl = built.tpl;
   // what a replace would clear: planned, not kept, from the block's first day (never before today), counted from the
   // months it spans (fetched here, so a block reaching past the prefetched weeks still counts every session it replaces)
-  const span = useLog(useMemo(() => (tpl ? monthsBetween(tpl.start > t ? tpl.start : t, tpl.end) : []), [tpl?.start, tpl?.end, t])); // eslint-disable-line react-hooks/exhaustive-deps
+  // (and, like the server, the rest of any block it overlaps: that block ends the day before this one starts)
+  const overlap = (log.boot?.blocks ?? []).filter((b) => tpl && b.start <= tpl.end && b.end >= tpl.start);
+  const last = overlap.reduce((e, b) => (b.end > e ? b.end : e), tpl?.end ?? t);
+  const span = useLog(useMemo(() => (tpl ? monthsBetween(tpl.start > t ? tpl.start : t, last) : []), [tpl?.start, last, t])); // eslint-disable-line react-hooks/exhaustive-deps
   const from = tpl ? (tpl.start > t ? tpl.start : t) : t;
-  const existing = tpl ? replaceable(span, from, tpl.end) : 0;
+  const existing = tpl ? replaceable(span, from, tpl.end, overlap) : 0;
   const counting = !!tpl && !span.ready;
   const use = () => {
     if (!tpl || counting) return;
@@ -323,7 +332,13 @@ const TemplatePanel = ({ log }: { log: Log }) => {
           haptics.success();
           sheet.close();
           nav(`/plan/week/${r.block.start}`);
-          announceApplied(toast, r, replacing, () => undo.mutate(r, { onSuccess: () => (haptics.toggle(), toast('Put back as it was.')), onError: () => (haptics.error(), toast('Couldn’t undo. The new block is still there.')) }));
+          // the sheet (and this component) is gone by the time Undo is tapped: follow the promise, not mutate's callbacks
+          announceApplied(toast, r, replacing, () =>
+            undo.mutateAsync(r).then(
+              () => (haptics.toggle(), toast('Put back as it was.')),
+              () => (haptics.error(), toast('Couldn’t undo. The new block is still there.')),
+            ),
+          );
         },
         onError: (e) => {
           haptics.error();
@@ -409,10 +424,16 @@ const TemplatePanel = ({ log }: { log: Log }) => {
   );
 };
 
-/** Sessions a replace from `from` would take away: planned and not kept (Done or Floor), up to the block's end. */
-const replaceable = (log: Log, from: string, to: string) => {
+/**
+ * Sessions a replace from `from` would take away, by the server's rule (contract 1): every planned session not kept (Done
+ * or Floor) from `from` to the new block's end, plus what is left of each block it overlaps, to that block's end.
+ */
+const replaceable = (log: Log, from: string, to: string, overlap: PlanBlock[]) => {
   let n = 0;
   for (let d = from; d <= to; d = shiftDays(d, 1)) for (const s of log.snap.sessionsOn(d)) if (!counts(sessionStatus(log.snap, d, s))) n++;
+  const end = overlap.reduce((e, b) => (b.end > e ? b.end : e), to);
+  for (let d = shiftDays(to, 1); d <= end; d = shiftDays(d, 1))
+    for (const s of log.snap.sessionsOn(d)) if (s.blockId && overlap.some((b) => b.id === s.blockId && d <= b.end) && !counts(sessionStatus(log.snap, d, s))) n++;
   return n;
 };
 

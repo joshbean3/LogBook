@@ -108,15 +108,14 @@ export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range): WeekPoi
         if (!longRun || a.miles > longRun.miles) longRun = a;
         long = Math.max(long, a.miles);
       }
-      // a run marked Done (or Floor) with no activity counts its miles (contract 5)
-      if (!acts.length) {
-        const dm = dayMiles(snap, d);
-        if (dm.logged) {
-          ran += dm.miles;
-          runs += dm.runs;
-          logged += dm.miles;
-          long = Math.max(long, dm.miles / Math.max(1, dm.runs));
-        }
+      // a run marked Done (or Floor) that no activity covers counts its miles (contract 5)
+      const dm = dayMiles(snap, d);
+      if (dm.logged > 0) {
+        const n = dm.runs - acts.length;
+        ran += dm.logged;
+        runs += n;
+        logged += dm.logged;
+        long = Math.max(long, dm.logged / Math.max(1, n));
       }
     }
     return { w, ran, runs, logged, planned, plannedRuns, long, longRun, current: w === mon, future: w > mon, avg: null };

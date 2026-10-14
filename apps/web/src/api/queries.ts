@@ -731,6 +731,8 @@ export interface PlanTemplateResult {
   replacedIds?: string[];
   /** An overlapping block that was ended the day before the new one starts, or soft-deleted when it hadn't started. */
   endedBlock?: { id: string; prevEnd: string } | { id: string; deleted: true };
+  /** Every block the new one ended or removed (a replace can overlap more than one). */
+  endedBlocks?: Array<{ id: string; prevEnd: string } | { id: string; deleted: true }>;
 }
 
 /** `POST /plans/template`: write a block built by `buildTemplate`, then refetch its months and the bootstrap (blocks). */
@@ -740,7 +742,7 @@ export const useTemplatePlan = () => {
     mutationFn: (body: TemplateInput & { replace?: boolean }) => api<PlanTemplateResult>('/plans/template', { method: 'POST', json: body }),
     onSuccess: async (r) => {
       // a replace can reach months past the new block (the old block's tail): refetch every month in the cache
-      if (r.replacedIds?.length || r.endedBlock) void qc.invalidateQueries({ queryKey: ['month'] });
+      if (r.replacedIds?.length || r.endedBlock || r.endedBlocks?.length) void qc.invalidateQueries({ queryKey: ['month'] });
       else for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
     },
@@ -757,7 +759,7 @@ export const useTemplateUndo = () => {
     mutationFn: async (r: PlanTemplateResult) => {
       qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== r.block.id) } : bs));
       for (const m of r.months) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter((s) => s.blockId !== r.block.id) }));
-      await api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], ...(r.endedBlock ? { endedBlock: r.endedBlock } : {}) } });
+      await api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], ...(r.endedBlock ? { endedBlock: r.endedBlock } : {}), ...(r.endedBlocks?.length ? { endedBlocks: r.endedBlocks } : {}) } });
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ['month'] });
@@ -775,8 +777,9 @@ export const useTemplateUndo = () => {
 export const usePlanDelete = () => {
   const qc = useQueryClient();
   const monthsOf = (b: PlanBlock) => monthsBetween(shiftDays(b.start, -14), shiftDays(b.end, 14));
-  const refresh = (b: PlanBlock) => {
-    for (const m of monthsOf(b)) void qc.invalidateQueries({ queryKey: keys.month(m) });
+  // a block's sessions can sit outside its dates (moved), so every cached month is refetched
+  const refresh = (_b: PlanBlock) => {
+    void qc.invalidateQueries({ queryKey: ['month'] });
     void qc.invalidateQueries({ queryKey: keys.bootstrap });
   };
   const keep = (b: PlanBlock) => {
@@ -799,8 +802,10 @@ export const usePlanDelete = () => {
       qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
       for (const m of monthsOf(b)) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter(keep(b)(bd)) }));
       try {
-        return await api<{ ok: true; removed?: number }>(`/blocks/${b.id}`, { method: 'DELETE' });
+        return await api<{ ok: true; removed?: number; kept?: number; months?: string[] }>(`/blocks/${b.id}`, { method: 'DELETE' });
       } catch (e) {
+        // already deleted (another tab, a replay): the plan is gone either way
+        if (e instanceof ApiError && e.status === 404) return { ok: true as const };
         putBack(before);
         throw e;
       }
