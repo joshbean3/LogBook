@@ -214,6 +214,16 @@
 [data-quiet-focus]:focus-visible {
   outline: none;
 }
+/*
+ * Focus rings are for the keyboard only, everywhere (polish 15). ui/focus.ts sets data-input on <html> from the last
+ * input: a touch or a click turns every ring off (even one the browser decided to show, like the week ring after a sheet
+ * closed by Escape and then a swipe), and the next key press turns them back on.
+ */
+:root[data-input='pointer'] :focus-visible {
+  outline: none !important;
+  /* the hero pager and the Progress plots draw their ring as a shadow */
+  box-shadow: none !important;
+}
 
 .cm-target {
   display: contents;
@@ -474,6 +484,61 @@
   gap: 4px;
 }
 
+/* ---------- Ghosts (EmptyState previews: shapes, never content) ---------- */
+.ghost {
+  --ghost-ink: var(--ink-3);
+}
+.ghost-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--ghost-ink);
+}
+.ghost-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 4px 4px 1px 1px;
+  background: var(--ghost-ink);
+}
+.ghost-lines {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.ghost-line {
+  display: block;
+  border-radius: 6px;
+  background: var(--ghost-ink);
+}
+.ghost-rows {
+  display: grid;
+}
+.ghost-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ghost-row + .ghost-row {
+  border-top: 1px solid var(--line-strong);
+}
+.ghost-lead {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  background: var(--ghost-ink);
+}
+.ghost-lead-dot {
+  border-radius: 50%;
+}
+.ghost-lead-square {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+
 /* ---------- WeekRing ---------- */
 .wring {
   position: relative;
@@ -486,12 +551,14 @@
 .wring > .wring-in {
   grid-area: 1 / 1;
 }
+/* the days kept, in the middle, in the stamp face (Inter Tight 800, 13 in a hero) */
 .wring-in {
   font-family: var(--stamp);
   font-weight: 800;
   letter-spacing: -0.03em;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 .wring-64 .wring-in {
   font-size: 1.375rem;

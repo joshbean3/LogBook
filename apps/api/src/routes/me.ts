@@ -1,5 +1,5 @@
-import { buildTemplate, mondayOf, normalizeMorningSettings, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
 import { COOKIE, verifyPassword, type AuthEnv } from '../auth.js';
@@ -35,13 +35,21 @@ export const meRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
 
   const meOf = (id: string) => {
-    const u = db.select({ id: users.id, email: users.email, onboardedAt: users.onboardedAt }).from(users).where(eq(users.id, id)).get();
+    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt }).from(users).where(eq(users.id, id)).get();
     if (!u) throw new ApiError(404, 'Account not found');
-    return { ...u, trainingProfile: readTrainingProfile(db, id) };
+    return { ...u, name: u.name ?? null, trainingProfile: readTrainingProfile(db, id) };
   };
 
-  /** The account: id, email, `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
+  /** The account: id, email, `name` (null until given), `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
   r.get('/me', (c) => c.json(meOf(c.get('user').id)));
+
+  /** Contract 6: `{ name }` sets the account's name (trimmed, up to 60); "" or null clears it. Answers like `GET /me`. */
+  r.patch('/me', async (c) => {
+    const userId = c.get('user').id;
+    const { name } = await parseBody(c.req.raw, zMePatch);
+    db.update(users).set({ name: name ? name : null }).where(eq(users.id, userId)).run();
+    return c.json(meOf(userId));
+  });
 
   /**
    * Change the training answers (any of goal, raceDate, runDays, longRunDay, weeklyMiles; the rest keep their values). It
@@ -64,12 +72,13 @@ export const meRoutes = (db: DB) => {
   r.post('/me/onboarding', async (c) => {
     const userId = c.get('user').id;
     const body = await parseBody(c.req.raw, zOnboarding);
-    const today = body.today ?? serverToday();
+    const today = body.today ?? c.get('today') ?? serverToday();
     const startDate = body.start === 'tomorrow' ? shiftDays(today, 1) : nextMonday(today);
     const template = templateOr422({ goal: body.goal, startDate, runDays: body.runDays, longRunDay: body.longRunDay, weeklyMiles: body.weeklyMiles, raceDate: body.raceDate ?? null });
 
     // wake is the alarm; leave is the end of the timeline, so the shower is set to leave minus everything after it
-    const current = readSetting<Record<string, unknown>>(db, userId, 'morning') ?? {};
+    // a new account builds on the generic routine (contract 7), never on someone else's
+    const current = readSetting<Record<string, unknown>>(db, userId, 'morning') ?? (NEW_ACCOUNT_MORNING as unknown as Record<string, unknown>);
     const A = normalizeMorningSettings(current).after;
     const afterShower = A.shower + A.ready + (A.smoothie || 0) + A.prep;
     const showerAt = Math.max(body.wake, body.leave - afterShower);
@@ -90,7 +99,7 @@ export const meRoutes = (db: DB) => {
         else db.insert(habits).values({ id: uid('h'), userId, name, position: pos++, createdOn: today, archivedOn: null }).run();
       }
 
-      for (const b of db.select({ id: planBlocks.id }).from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.source, ONBOARDING_SOURCE))).all()) retireBlock(db, userId, b.id, today);
+      for (const b of db.select({ id: planBlocks.id }).from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.source, ONBOARDING_SOURCE), isNull(planBlocks.deletedAt))).all()) retireBlock(db, userId, b.id, today);
       const applied = writeTemplate(db, userId, template, { replace: true, source: ONBOARDING_SOURCE, today });
 
       db.update(users).set({ onboardedAt: sql`coalesce(${users.onboardedAt}, ${nowISO()})` }).where(eq(users.id, userId)).run();

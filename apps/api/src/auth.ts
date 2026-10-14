@@ -6,6 +6,8 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { DB } from './db/index.js';
 import { authSessions, users } from './db/schema.js';
 import { env } from './env.js';
+import type { ISODate } from '@logbook/shared';
+import { clientToday, LOCAL_DATE_HEADER } from './lib/requests.js';
 import { ApiError, nowISO, uid } from './lib/util.js';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, opts: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
@@ -46,17 +48,20 @@ export const purgeExpiredSessions = (db: DB) => db.delete(authSessions).where(lt
 export interface AuthedUser {
   id: string;
   email: string;
+  /** The athlete's name (contract 6); null until given in Settings → You. */
+  name: string | null;
   /** When onboarding finished; null until then (the app shows /welcome). */
   onboardedAt: string | null;
 }
 
-export type AuthEnv = { Variables: { user: AuthedUser; db: DB } };
+/** `today`: the athlete's date for this request (`X-Local-Date`, see lib/requests.ts), never the server's when they differ. */
+export type AuthEnv = { Variables: { user: AuthedUser; db: DB; today: ISODate } };
 
 export const requireAuth = (db: DB): MiddlewareHandler<AuthEnv> => async (c, next) => {
   const id = getCookie(c, COOKIE);
   if (!id) throw new ApiError(401, 'Sign in to continue', 'unauthenticated');
   const row = db
-    .select({ id: users.id, email: users.email, onboardedAt: users.onboardedAt, expiresAt: authSessions.expiresAt })
+    .select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt, expiresAt: authSessions.expiresAt })
     .from(authSessions)
     .innerJoin(users, eq(users.id, authSessions.userId))
     .where(eq(authSessions.id, id))
@@ -72,8 +77,9 @@ export const requireAuth = (db: DB): MiddlewareHandler<AuthEnv> => async (c, nex
     db.update(authSessions).set({ expiresAt: expires.toISOString() }).where(eq(authSessions.id, id)).run();
     setCookie(c, COOKIE, id, { httpOnly: true, sameSite: 'Lax', secure: env.secureCookies, path: '/', expires });
   }
-  c.set('user', { id: row.id, email: row.email, onboardedAt: row.onboardedAt });
+  c.set('user', { id: row.id, email: row.email, name: row.name ?? null, onboardedAt: row.onboardedAt });
   c.set('db', db);
+  c.set('today', clientToday(c.req.header(LOCAL_DATE_HEADER)));
   await next();
 };
 

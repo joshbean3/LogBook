@@ -1,13 +1,14 @@
-import { fmtDate, QUOTE_THEMES, type JournalEntry, type Quote } from '@logbook/shared';
-import { ChevronRight, EyeOff, PenLine, Plus, Share, Star, Trash2 } from 'lucide-react';
+import { fmtDate, type JournalEntry, type Quote } from '@logbook/shared';
+import { ChevronRight, EyeOff, PenLine, Plus, Search, Share, Star, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { usePick, useJournalList, useJournalMutations, useQuotes, useReads } from '@/api/queries';
+import { seedOf, usePick, useJournalList, useJournalMutations, useQuotes, useQuoteThemes, useReads, useThemeQuotes, type QuoteTheme } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { rowPresence } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, ChipButton, ContextMenu, EmptyState, Group, Pressable, Section, Skeleton, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
+import { Button, ContextMenu, EmptyState, Group, IconButton, Pressable, Section, Skeleton, SkeletonGroup, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
+import { GhostCards } from './Ghost';
 import { SaveButton, useEntryActions, useOpenEntry } from './JournalDaySection';
 
 const Byline = ({ q }: { q: Quote }) =>
@@ -95,9 +96,13 @@ const QuoteSheet = ({ q: opened, onWrite }: { q: Quote; onWrite: (q: Quote) => v
     </div>
   );
 };
-export const useOpenQuote = (onWrite: (q: Quote) => void) => {
+export const useOpenQuote = (onWrite: (q: Quote) => void, push = false) => {
   const sheet = useSheet();
-  return (q: Quote) => sheet.open({ eyebrow: q.mine ? 'Yours' : q.theme || undefined, title: q.author || 'Quote', body: <QuoteSheet q={q} onWrite={onWrite} /> });
+  return (q: Quote) => {
+    const spec = { eyebrow: q.mine ? 'Yours' : q.theme || undefined, title: q.author || 'Quote', body: <QuoteSheet q={q} onWrite={onWrite} /> };
+    if (push) sheet.push(spec);
+    else sheet.open(spec);
+  };
 };
 
 /** One quote as an edge-to-edge row. Tap: the sheet. Swipe right: Favourite. Swipe left: Hide (or Delete, your own). Hold: all of it. */
@@ -159,18 +164,8 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
         </div>
       ) : !items.length ? (
         <EmptyState
-          ghost={
-            <div className="carousel fav-carousel">
-              <div className="fav-card">
-                <span className="fav-text">“The obstacle is the way.”</span>
-                <span className="fav-by">Marcus Aurelius</span>
-              </div>
-              <div className="fav-card">
-                <span className="fav-text">Legs were heavy, then they weren’t.</span>
-              </div>
-            </div>
-          }
-          verb={{ label: 'Browse quotes', onPress: () => document.getElementById('lib-quotes')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+          ghost={<GhostCards />}
+          verb={{ label: 'Browse themes', onPress: () => document.getElementById('lib-themes')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
         >
           Swipe a quote right, or hold an entry, and it stays here.
         </EmptyState>
@@ -286,64 +281,138 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
   );
 };
 
-const THEMES = ['All', ...QUOTE_THEMES] as const;
-/** The library: themes as chips, a search, the quotes edge to edge. */
-const QuoteLibrary = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: Quote) => void }) => {
-  const [theme, setTheme] = useState<string>('All');
-  const [q, setQ] = useState('');
-  const [limit, setLimit] = useState(30);
-  const page = useQuotes({ theme, q: q.trim(), limit });
-  // your own quotes ride along at the head of "All" on the server; they have their own section here
-  const total = Math.max(0, (page.data?.total ?? 0) - (page.data?.quotes ?? []).filter((x) => x.mine).length);
-  const list = (page.data?.quotes ?? []).filter((x) => !x.mine);
+/** The day's order for a theme: the same all day, different tomorrow (a seeded Fisher–Yates). */
+const shuffled = <T,>(list: T[], seed: number) => {
+  const out = [...list];
+  let h = seed || 1;
+  for (let i = out.length - 1; i > 0; i--) {
+    h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0;
+    const j = h % (i + 1);
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+};
+const PAGE = 20;
+
+/** Behind a theme card: the theme's quotes in the day's order, 20 at a time, edge to edge. */
+const ThemeList = ({ theme, onWrite }: { theme: string; onWrite: (q: Quote) => void }) => {
+  const today = useToday();
+  const all = useThemeQuotes(theme);
+  const open = useOpenQuote(onWrite, true);
+  const [shown, setShown] = useState(PAGE);
+  const list = useMemo(() => shuffled(all.data ?? [], seedOf(`${today}:${theme}`)), [all.data, today, theme]);
+  if (all.isPending && !all.data) return <SkeletonRows rows={6} label={`Loading ${theme}`} />;
+  if (!list.length) return <EmptyState>Every quote in {theme} is hidden. Hidden quotes stay hidden.</EmptyState>;
   return (
-    <Section title="Quotes" meta={total ? total.toLocaleString() : undefined} level="primary" className="lib-quotes">
-      <span id="lib-quotes" className="anchor" />
-      <div className="theme-scroll" role="radiogroup" aria-label="Themes">
-        {THEMES.map((t) => (
-          <ChipButton
-            key={t}
-            role="radio"
-            aria-checked={theme === t}
-            on={theme === t}
-            onClick={() => {
-              if (theme === t) return;
-              haptics.select();
-              setTheme(t);
-              setLimit(30);
-            }}
-          >
-            {t}
-          </ChipButton>
+    <div className="theme-list">
+      <div className="list-edge lib-list">
+        {list.slice(0, shown).map((x) => (
+          <QuoteRow key={x.id} q={x} open={open} onWrite={onWrite} />
         ))}
       </div>
-      <input className="in lib-search" type="search" placeholder="Search quotes, authors or books" value={q} onChange={(e) => (setQ(e.target.value), setLimit(30))} aria-label="Search quotes" />
-      {page.isPending && !page.data ? (
-        <SkeletonRows rows={4} label="Loading quotes" />
+      {list.length > shown ? (
+        <Button variant="quiet" block className="theme-more" onClick={() => (haptics.select(), setShown((n) => n + PAGE))}>
+          More
+        </Button>
+      ) : null}
+    </div>
+  );
+};
+
+/** Search, in its own sheet: words, an author or a book, across every quote (yours too). */
+const QuoteSearch = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
+  const [q, setQ] = useState('');
+  const [limit, setLimit] = useState(PAGE);
+  const needle = q.trim();
+  const page = useQuotes({ theme: 'All', q: needle, limit });
+  const open = useOpenQuote(onWrite, true);
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => field.current?.focus(), 380);
+    return () => clearTimeout(t);
+  }, []);
+  const list = needle.length >= 2 ? (page.data?.quotes ?? []) : [];
+  return (
+    <div className="qsearch">
+      <input ref={field} className="in" type="search" enterKeyHint="search" placeholder="Words, an author or a book" aria-label="Search quotes" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} />
+      {needle.length < 2 ? null : page.isPending && !page.data ? (
+        <SkeletonRows rows={3} label="Searching" />
       ) : !list.length ? (
-        <EmptyState verb={{ label: 'Show every quote', onPress: () => (setQ(''), setTheme('All')) }}>Nothing matches “{q.trim() || theme}”.</EmptyState>
+        <EmptyState verb={{ label: 'Clear', onPress: () => (setQ(''), field.current?.focus()) }}>Nothing says “{needle}”.</EmptyState>
       ) : (
-        <div className="list-edge lib-list">
-          {list.map((x) => (
-            <QuoteRow key={x.id} q={x} open={open} onWrite={onWrite} />
+        <>
+          <div className="list-edge lib-list">
+            {list.map((x) => (
+              <QuoteRow key={x.id} q={x} open={open} onWrite={onWrite} />
+            ))}
+          </div>
+          {(page.data?.total ?? 0) > limit ? (
+            <Button variant="quiet" block className="theme-more" onClick={() => setLimit((l) => l + PAGE)}>
+              More
+            </Button>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+};
+/** The magnifier that opens the search sheet (the Library's header accessory). */
+export const useQuoteSearch = (onWrite: (q: Quote) => void) => {
+  const sheet = useSheet();
+  return () => sheet.open({ eyebrow: 'Library', title: 'Search quotes', detent: 'large', body: <QuoteSearch onWrite={onWrite} /> });
+};
+export const LibrarySearchButton = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
+  const search = useQuoteSearch(onWrite);
+  return (
+    <IconButton label="Search quotes" className="lib-search-btn" onClick={search}>
+      <Search size={20} />
+    </IconButton>
+  );
+};
+
+/** One theme as a card: the serif name, how many quotes it holds, and one line from it (a different one each day). */
+const ThemeCard = ({ t, onPress }: { t: QuoteTheme; onPress: () => void }) => (
+  <Pressable className="theme-card" onPress={onPress} label={`${t.theme}, ${t.count} quotes`}>
+    <span className="theme-card-top">
+      <span className="theme-name">{t.theme}</span>
+      <span className="theme-count tnum">{t.count.toLocaleString()}</span>
+    </span>
+    {t.sample ? <span className="theme-sample">“{t.sample.text}”</span> : null}
+  </Pressable>
+);
+
+/** The quote library as themes: a 2-column grid of cards; each pushes its quotes, shuffled for the day. */
+const Themes = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
+  const today = useToday();
+  const themes = useQuoteThemes(today);
+  const sheet = useSheet();
+  const list = (themes.data ?? []).filter((t) => t.count > 0);
+  return (
+    <Section title="Themes" level="primary" className="lib-themes">
+      <span id="lib-themes" className="anchor" />
+      {themes.isPending && !themes.data ? (
+        <SkeletonGroup label="Loading themes" className="theme-grid">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} h={128} r="card" />
+          ))}
+        </SkeletonGroup>
+      ) : (
+        <div className={`theme-grid ${list.length % 2 ? 'odd' : ''}`}>
+          {list.map((t) => (
+            <ThemeCard key={t.theme} t={t} onPress={() => sheet.open({ eyebrow: `${t.count.toLocaleString()} quotes`, title: t.theme, detent: 'large', body: <ThemeList theme={t.theme} onWrite={onWrite} /> })} />
           ))}
         </div>
       )}
-      {total > limit ? (
-        <Button variant="quiet" block className="tl-more" onClick={() => setLimit((l) => l + 30)}>
-          Show more
-        </Button>
-      ) : null}
     </Section>
   );
 };
 
-/** The Library segment: the way to Reads, then favourites, your quotes, and the quote library. */
+/** The Library segment: the way to Reads, then favourites, your own quotes, and the themes. */
 export const Library = ({ focus, onWrite }: { focus?: 'favorites' | 'quotes' | null; onWrite: (q: Quote) => void }) => {
   const open = useOpenQuote(onWrite);
   useEffect(() => {
     if (!focus) return;
-    const el = document.querySelector(focus === 'favorites' ? '.lib-favs' : '#lib-quotes');
+    const el = document.querySelector(focus === 'favorites' ? '.lib-favs' : '#lib-themes');
     requestAnimationFrame(() => el?.scrollIntoView({ block: 'start' }));
   }, [focus]);
   return (
@@ -351,7 +420,7 @@ export const Library = ({ focus, onWrite }: { focus?: 'favorites' | 'quotes' | n
       <ReadsRow />
       <Favourites open={open} onWrite={onWrite} />
       <YourQuotes open={open} onWrite={onWrite} />
-      <QuoteLibrary open={open} onWrite={onWrite} />
+      <Themes onWrite={onWrite} />
     </div>
   );
 };

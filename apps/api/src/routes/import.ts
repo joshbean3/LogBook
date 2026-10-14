@@ -6,6 +6,7 @@ import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { activities, coachReads, dailyPicks, habitChecks, habits, journalEntries, liftSets, morningDays, planBlocks, quotePrefs, shownItems, todos, trainingSessions, userQuotes } from '../db/schema.js';
 import { ApiError, nowISO } from '../lib/util.js';
+import { exportAccount, importV2, zExportV2 } from '../services/exporter.js';
 import { readSetting, writeSetting } from './core.js';
 
 /**
@@ -46,9 +47,25 @@ const str = (v: unknown, max = 600): string | null => (typeof v === 'string' && 
 export const importRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
 
+  /** Contract 3: the whole account as one JSON document (version 2). Settings → Export saves this as a file. */
+  r.get('/export', (c) => {
+    const userId = c.get('user').id;
+    c.header('content-disposition', `attachment; filename="logbook-export-${c.get('today')}.json"`);
+    return c.json(exportAccount(db, userId));
+  });
+
+  /**
+   * Bring data in. A version 2 export (`GET /export`) goes back in whole, into this account or a fresh one, idempotently
+   * by id (see `importV2`); anything else is read as the original artifact's bundle (below). Answers `{ ok, version, imported }`.
+   */
   r.post('/import', async (c) => {
     const userId = c.get('user').id;
     const raw = await c.req.json().catch(() => null);
+    if (raw && typeof raw === 'object' && (raw as { version?: unknown }).version === 2) {
+      const v2 = zExportV2.safeParse(raw);
+      if (!v2.success) throw new ApiError(422, `That file isn’t a Logbook export (${v2.error.issues.slice(0, 3).map((i) => `${i.path.join('.') || 'file'}: ${i.message}`).join('; ')}).`, 'bad_bundle');
+      return c.json({ ok: true, version: 2, imported: importV2(db, userId, v2.data) });
+    }
     const parsed = zBundle.safeParse(raw);
     if (!parsed.success) throw new ApiError(422, 'That file isn’t a Logbook export.', 'bad_bundle');
     const b = parsed.data;
@@ -255,7 +272,7 @@ export const importRoutes = (db: DB) => {
     });
 
     void eq;
-    return c.json({ ok: true, imported: counts });
+    return c.json({ ok: true, version: 1, imported: counts });
   });
 
   return r;

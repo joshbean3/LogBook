@@ -197,11 +197,52 @@ const allocate = (p: WeekPlan, goal: Goal): TemplateSession[] => {
   }
   const out: TemplateSession[] = [];
   const easies = easyDates.map((d) => ({ d, mi: Math.max(R.easyMin, r05(per)) }));
+  // the long run is strictly the longest run of its week: lift it 0.5 past the next longest, paid for by the easy runs
+  // (longest first, never under the minimum), else by the quality day
+  if (long) {
+    const top = Math.max(quality, ...easies.map((e) => e.mi));
+    let need = top >= long ? r05(top + 0.5 - long) : 0;
+    if (need > 0 && long + need <= spec.longCap) {
+      long += need;
+      for (const e of [...easies].sort((a, b) => b.mi - a.mi)) {
+        const give = Math.min(need, Math.max(0, e.mi - R.easyMin));
+        e.mi -= give;
+        need -= give;
+        if (!need) break;
+      }
+      if (need > 0 && quality) {
+        const give = Math.min(need, Math.max(0, quality - R.qualityMin));
+        quality -= give;
+        need -= give;
+      }
+      if (need > 0) long -= need;
+    }
+  }
   // the rounding lands on the last easy run so the week adds up to its target
   if (easies.length) {
     const sum = easies.reduce((t, e) => t + e.mi, 0) + long + quality;
     const last = easies[easies.length - 1]!;
     last.mi = Math.max(R.easyMin, r05(last.mi + (vol - sum)));
+  }
+  // easy days are never all the same: their total is shared out in half miles so they differ by 0.5–1 mi, the longer
+  // ones farthest from the long run and quality day (the day before the long run is the shortest). The total holds, no
+  // easy run drops under the minimum or reaches the long run; when that can't be done they stay as they were.
+  if (easies.length >= 2) {
+    const k = easies.length;
+    const halves = Math.round(easies.reduce((t, e) => t + e.mi, 0) * 2);
+    const q = Math.floor(halves / k);
+    const r = halves - q * k;
+    // r runs get q+1 halves, the rest q: already 0.5 apart unless r is 0, then one goes up a half mile and one down
+    const units = Array.from({ length: k }, (_, i) => (i < r ? q + 1 : q));
+    if (r === 0) {
+      units[0]! += 1;
+      units[k - 1]! -= 1;
+    }
+    const ok = units.every((u) => u / 2 >= R.easyMin && (!long || u / 2 < long));
+    if (ok) {
+      const byRoom = [...easies].sort((x, y) => nearBusy(y.d) - nearBusy(x.d) || (x.d < y.d ? -1 : 1));
+      byRoom.forEach((e, i) => (e.mi = units[i]! / 2));
+    }
   }
   for (const d of p.dates) {
     if (d === p.longDate && long) out.push(run(d, p.week, 'Long', long));
@@ -229,7 +270,9 @@ const allocate = (p: WeekPlan, goal: Goal): TemplateSession[] => {
  * - With `raceDate`: the block ends on race day, the last 1 (5K, 10K), 2 (half) or 3 (marathon) weeks taper,
  *   race week keeps short easy runs (strides on the quality day, a 3 mi shakeout the day before), no long run, and the
  *   race itself is a `Race` session.
- * - A block that starts mid-week gets a lead-in week from `startDate` to Sunday: easy runs only, at week-1 volume for those days.
+ * - A block that starts mid-week gets a lead-in week from `startDate` to Sunday at week-1 volume for those days: easy
+ *   runs, plus the long run when the lead-in reaches the long-run day.
+ * - Easy days vary: the one farthest from the long run is 0.5 mi longer, the one nearest it 0.5 mi shorter (in pairs).
  * Every run gets a floor via its type (`floorFor`): 20 min for easy/quality, 30 min for long.
  * Names follow the app: type + miles, no title ("Easy 6", "Tempo 7", "Long 12", "Race 13.1").
  */
@@ -276,8 +319,9 @@ export const buildTemplate = (input: TemplateInput): Template => {
   if (start < firstMonday) {
     const dates = weekDates(mondayOf(start), start, shiftDays(firstMonday, -1));
     const frac = dates.length / runIdx.length;
-    // a few easy days to ease in: no long run, no quality
-    plansOut.push({ week: 0, kind: 'lead-in', target: startVol * frac, dates, longDate: null, qualityDate: null, qualityKind: null, strides: false });
+    // a few days to ease in: no quality, but the long run on its day when the lead-in reaches it (and has another run day)
+    const leadLong = dates.length >= 2 ? (dates.find((d) => weekdayIndex(weekdayOf(d)) === longIdx) ?? null) : null;
+    plansOut.push({ week: 0, kind: 'lead-in', target: startVol * frac, dates, longDate: leadLong, qualityDate: null, qualityKind: null, strides: false });
   }
   let q = 0;
   for (const p of plans) {

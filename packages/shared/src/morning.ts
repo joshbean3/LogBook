@@ -23,6 +23,29 @@ export const MORNING_DEFAULTS: MorningSettings = {
 };
 export const DEFAULT_RUN_MILES = 5;
 
+/**
+ * What a new account starts with (contract 7): nobody else's routine, just "Get ready" 30 min and "Out the door" 10 min
+ * before leaving at 9:30 (the shower and the smoothie are 0, so they are not on the timeline). `GET /morning/settings`
+ * and the bootstrap answer this for an account that has never saved its morning; onboarding builds on it.
+ */
+export const NEW_ACCOUNT_MORNING: MorningSettings = {
+  ...MORNING_DEFAULTS,
+  after: { showerMode: 'fixed', showerAt: 530, shower: 0, ready: 30, smoothie: 0, prep: 10, order: [...AFTER_ORDER], names: { prep: 'Out the door' } },
+};
+
+/** A back-home block's name on the timeline: the athlete's own (`after.names`), else the default (AFTER_LABELS). */
+export const afterLabel = (s: Pick<MorningSettings, 'after'> | null | undefined, k: MorningAfterKey): string => s?.after.names?.[k]?.trim() || AFTER_LABELS[k];
+
+const namesOf = (raw: unknown): Partial<Record<MorningAfterKey, string>> | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: Partial<Record<MorningAfterKey, string>> = {};
+  for (const k of AFTER_ORDER) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (typeof v === 'string' && v.trim()) out[k] = v.trim().slice(0, 30);
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
 const n = (v: unknown, d: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
 /** Fill a partial, possibly stale settings object out to a full one. */
@@ -41,6 +64,7 @@ export const normalizeMorningSettings = (raw: unknown): MorningSettings => {
       smoothie: n(s.after?.smoothie, D.after.smoothie),
       prep: n(s.after?.prep, D.after.prep),
       order: normalizeAfterOrder(s.after?.order),
+      ...(namesOf(s.after?.names) ? { names: namesOf(s.after?.names) } : {}),
     },
     focus: { word: String(s.focus?.word ?? ''), quote: String(s.focus?.quote ?? ''), by: String(s.focus?.by ?? '') },
   };
@@ -156,10 +180,10 @@ export const buildMorning = (day: MorningDay, st: MorningSettings): MorningTimel
   // sleeping in on a rest day is not being late
   const late = fixed && !rest ? Math.max(0, t - A.showerAt) : 0;
   if (showerAt > t) add('free', 'Free', showerAt - t);
-  // the back-home routine, in the athlete's order (a smoothie set to 0 is skipped)
+  // the back-home routine, in the athlete's order (a block set to 0, like a new account's shower and smoothie, is skipped)
   for (const k of normalizeAfterOrder(A.order)) {
-    if (k === 'smoothie' && !(A.smoothie > 0)) continue;
-    add(k, AFTER_LABELS[k], A[k]);
+    if (!(A[k] > 0)) continue;
+    add(k, afterLabel(st, k), A[k]);
   }
   const leave = t;
   let fix: MorningTimeline['fix'] = null;

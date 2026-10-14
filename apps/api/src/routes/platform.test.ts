@@ -85,8 +85,8 @@ describe('POST /me/onboarding', () => {
     const r = await call('POST', '/api/me/onboarding', ONBOARD, cookie);
     expect(r.status).toBe(200);
     expect(r.body.user.onboardedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    // wake 6:30; leave 8:30 minus shower 15, ready 15, smoothie 5, prep 15 = shower at 7:40; pace 8:30
-    expect(r.body.morningSettings).toMatchObject({ wake: 390, run: { pace: 510 }, after: { showerMode: 'fixed', showerAt: 460 } });
+    // a new account's routine (contract 7): wake 6:30; leave 8:30 minus get ready 30 and out the door 10 = starts 7:50; pace 8:30
+    expect(r.body.morningSettings).toMatchObject({ wake: 390, run: { pace: 510 }, after: { showerMode: 'fixed', showerAt: 470, shower: 0, ready: 30, smoothie: 0, prep: 10, names: { prep: 'Out the door' } } });
     expect(r.body.habits.map((h: Habit) => h.name)).toEqual(['Stretch', 'Read 15 min']);
     expect(r.body.block).toMatchObject({ name: 'Half marathon · 12 weeks', start: '2026-10-19', source: 'onboarding' });
     expect(r.body.firstDay).toBe('2026-10-20');
@@ -161,7 +161,10 @@ describe('POST /plans/template', () => {
     const past = await add(shiftDays(today(), -3));
     const r = await call('POST', '/api/plans/template', { ...input, replace: true }, cookie);
     expect(r.body.removed).toBe(1);
-    const ids = (sqlite.prepare('select id from training_sessions').all() as Array<{ id: string }>).map((x) => x.id);
+    expect(r.body.replacedIds).toEqual([planned]);
+    // soft-deleted (contract 1), so Undo can bring it back
+    expect(sqlite.prepare('select deleted_at from training_sessions where id = ?').get(planned)).toEqual({ deleted_at: expect.any(String) });
+    const ids = (sqlite.prepare('select id from training_sessions where deleted_at is null').all() as Array<{ id: string }>).map((x) => x.id);
     expect(ids).not.toContain(planned);
     expect(ids).toEqual(expect.arrayContaining([done, outside, past]));
     // without replace nothing goes: the template lands next to what is there
@@ -339,12 +342,34 @@ describe('PATCH /morning/settings after.order', () => {
     expect((await call('GET', '/api/morning/settings', undefined, cookie)).body.after.order).toEqual(['shower', 'ready', 'smoothie', 'prep']);
     const r = await call('PATCH', '/api/morning/settings', { after: { order: ['prep', 'shower', 'ready', 'smoothie'] } }, cookie);
     expect(r.status).toBe(200);
-    expect(r.body.after).toMatchObject({ order: ['prep', 'shower', 'ready', 'smoothie'], shower: 15 });
+    expect(r.body.after).toMatchObject({ order: ['prep', 'shower', 'ready', 'smoothie'], shower: 0, ready: 30 });
     // a later patch of another field keeps it; the array is replaced, never merged
     await call('PATCH', '/api/morning/settings', { after: { shower: 20 } }, cookie);
     expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.morningSettings.after).toMatchObject({ shower: 20, order: ['prep', 'shower', 'ready', 'smoothie'] });
     await call('PATCH', '/api/morning/settings', { after: { order: ['smoothie', 'ready', 'shower', 'prep'] } }, cookie);
     expect((await call('GET', '/api/morning/settings', undefined, cookie)).body.after.order).toEqual(['smoothie', 'ready', 'shower', 'prep']);
     expect((await call('PATCH', '/api/morning/settings', { after: { order: ['prep', 'prep', 'ready', 'smoothie'] } }, cookie)).status).toBe(422);
+  });
+});
+
+describe('POST /plans/apply with replace', () => {
+  it('soft-deletes only what was planned; marked sessions are history and stay', async () => {
+    const { cookie } = await signUp('apply@example.com', 'password123', '/api/auth/setup');
+    const day = shiftDays(today(), 2);
+    const add = async (extra: Record<string, unknown> = {}) => (await call('POST', '/api/sessions', { date: day, kind: 'run', type: 'Easy', miles: 4, ...extra }, cookie)).body.id as string;
+    const planned = await add();
+    const done = await add({ type: 'Long', miles: 8 });
+    await call('POST', `/api/sessions/${done}/mark`, { mark: 'done' }, cookie);
+    const draft = { name: 'Next block', summary: '', notes: [], start: day, end: day, sessions: [{ date: day, kind: 'run', type: 'Tempo', title: 'Tempo 5', details: '', miles: 5, minutes: null }] };
+    const r = await call('POST', '/api/plans/apply', { draft, mode: 'replace' }, cookie);
+    expect(r.status).toBe(201);
+    const rows = sqlite.prepare('select id, type, mark, deleted_at, position from training_sessions where date = ? order by position').all(day) as Array<{ id: string; type: string; mark: string | null; deleted_at: string | null; position: number }>;
+    expect(rows.find((x) => x.id === planned)?.deleted_at).not.toBeNull();
+    const kept = rows.find((x) => x.id === done)!;
+    expect(kept.deleted_at).toBeNull();
+    expect(kept.mark).toBe('done');
+    const added = rows.find((x) => x.type === 'Tempo')!;
+    expect(added.deleted_at).toBeNull();
+    expect(added.position).toBeGreaterThan(kept.position);
   });
 });

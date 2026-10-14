@@ -15,7 +15,7 @@ export interface AppSnapshot extends Snapshot {
   runsOn(date: string): Activity[];
 }
 
-export const buildSnapshot = (bundles: Record<string, MonthBundle>, t = today()): AppSnapshot => {
+export const buildSnapshot = (bundles: Record<string, MonthBundle>, t = today(), easyPace: number | null = null): AppSnapshot => {
   const byDate = <T>(pick: (b: MonthBundle) => T[], dateOf: (x: T) => string) => {
     const cache = new Map<string, T[]>();
     return (d: string): T[] => {
@@ -34,6 +34,7 @@ export const buildSnapshot = (bundles: Record<string, MonthBundle>, t = today())
   const journalOn = byDate((b) => b.journal, (j: JournalEntry) => j.date);
   return {
     today: t,
+    easyPace,
     sessionsOn: (d) => [...sessionsOn(d)].sort((a, b) => a.position - b.position),
     activitiesOn,
     liftSetCountOn: (d) => liftsOn(d).length,
@@ -49,4 +50,5 @@ export const buildSnapshot = (bundles: Record<string, MonthBundle>, t = today())
   };
 };
 
-export const useSnapshot = (bundles: Record<string, MonthBundle>, t: string) => useMemo(() => buildSnapshot(bundles, t), [bundles, t]);
+/** `easyPace` (sec/mi) lets a run logged without Strava count its floor minutes as miles at your own pace. */
+export const useSnapshot = (bundles: Record<string, MonthBundle>, t: string, easyPace: number | null = null) => useMemo(() => buildSnapshot(bundles, t, easyPace), [bundles, t, easyPace]);

@@ -1,6 +1,7 @@
 import {
   addMonths,
   monthStart,
+  NEW_ACCOUNT_MORNING,
   normalizeMorningSettings,
   shiftDays,
   today,
@@ -35,6 +36,7 @@ import { stravaStatus } from '../services/strava.js';
 import { syncInBackground } from './strava.js';
 import { z } from 'zod';
 import { readTrainingProfile } from '../services/training.js';
+import { deleteBlock, restoreBlock } from '../services/plans.js';
 
 export const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
@@ -54,7 +56,8 @@ export const writeSetting = (db: DB, userId: string, key: string, value: unknown
     .run();
 };
 
-export const morningSettingsOf = (db: DB, userId: string): MorningSettings => normalizeMorningSettings(readSetting(db, userId, 'morning'));
+/** The stored morning, or for an account that never saved one the new-account routine (contract 7: no smoothie). */
+export const morningSettingsOf = (db: DB, userId: string): MorningSettings => normalizeMorningSettings(readSetting(db, userId, 'morning') ?? NEW_ACCOUNT_MORNING);
 
 export const sessionsBetween = (db: DB, userId: string, from: string, to: string) =>
   db
@@ -90,12 +93,12 @@ export const coreRoutes = (db: DB) => {
     const st = stravaStatus(db, userId);
     if (st.connected && !st.syncing && (!st.lastSyncAt || Date.now() - new Date(st.lastSyncAt).getTime() > 15 * 60_000)) syncInBackground(db, userId);
     const hs = db.select().from(habits).where(eq(habits.userId, userId)).orderBy(asc(habits.position), asc(habits.createdOn)).all().map(toHabit);
-    const blocks = db.select().from(planBlocks).where(eq(planBlocks.userId, userId)).orderBy(asc(planBlocks.start)).all();
+    const blocks = db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), isNull(planBlocks.deletedAt))).orderBy(asc(planBlocks.start)).all();
     const counts = blocks.length
       ? db
           .select({ blockId: trainingSessions.blockId, n: sql<number>`count(*)` })
           .from(trainingSessions)
-          .where(and(eq(trainingSessions.userId, userId), inArray(trainingSessions.blockId, blocks.map((b) => b.id))))
+          .where(and(eq(trainingSessions.userId, userId), isNull(trainingSessions.deletedAt), inArray(trainingSessions.blockId, blocks.map((b) => b.id))))
           .groupBy(trainingSessions.blockId)
           .all()
       : [];
@@ -230,14 +233,22 @@ export const coreRoutes = (db: DB) => {
   });
 
   // ---------- plan blocks ----------
+  /**
+   * Contract 2. Soft-deletes the block and only its sessions from today on that hold nothing yet; done, floor, sick and
+   * skipped sessions and every past day stay (visible, still carrying the block's id). Survives a reload: Undo is
+   * `POST /blocks/:id/restore`. Answers `{ ok, removed, kept, months, deletedAt }`.
+   */
   r.delete('/blocks/:id', (c) => {
-    const userId = uidOf(c);
-    const id = c.req.param('id');
-    const block = db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, id))).get();
-    if (!block) throw new ApiError(404, 'Plan not found');
-    const removed = db.delete(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, id))).run().changes;
-    db.delete(planBlocks).where(eq(planBlocks.id, id)).run();
-    return c.json({ ok: true, removed });
+    const out = db.transaction(() => deleteBlock(db, uidOf(c), c.req.param('id'), c.get('today')));
+    if (!out) throw new ApiError(404, 'Plan not found');
+    return c.json(out);
+  });
+
+  /** Undo `DELETE /blocks/:id`: the block and exactly the sessions that delete removed. Answers `{ block, restored, months }`. */
+  r.post('/blocks/:id/restore', (c) => {
+    const out = db.transaction(() => restoreBlock(db, uidOf(c), c.req.param('id')));
+    if (!out) throw new ApiError(404, 'Plan not found');
+    return c.json(out);
   });
 
   // ---------- habits ----------
@@ -250,7 +261,7 @@ export const coreRoutes = (db: DB) => {
     const { name } = await parseBody(c.req.raw, zHabitInput);
     const pos = (db.select({ m: sql<number>`coalesce(max(${habits.position}), -1)` }).from(habits).where(eq(habits.userId, userId)).get()?.m ?? -1) + 1;
     const id = uid('h');
-    db.insert(habits).values({ id, userId, name, position: pos, createdOn: today(), archivedOn: null }).run();
+    db.insert(habits).values({ id, userId, name, position: pos, createdOn: c.get('today'), archivedOn: null }).run();
     return c.json(allHabits(userId), 201);
   });
 
@@ -259,7 +270,7 @@ export const coreRoutes = (db: DB) => {
     const body = await parseBody(c.req.raw, z.object({ name: zHabitInput.shape.name.optional(), archived: z.boolean().optional() }));
     const set: Partial<typeof habits.$inferInsert> = {};
     if (body.name) set.name = body.name;
-    if (body.archived !== undefined) set.archivedOn = body.archived ? today() : null;
+    if (body.archived !== undefined) set.archivedOn = body.archived ? c.get('today') : null;
     const n = db.update(habits).set(set).where(and(eq(habits.userId, userId), eq(habits.id, c.req.param('id')))).run().changes;
     if (!n) throw new ApiError(404, 'Habit not found');
     return c.json(allHabits(userId));
@@ -317,16 +328,16 @@ export const coreRoutes = (db: DB) => {
   });
 
   // ---------- todos ----------
-  const liveTodos = (userId: string) =>
+  const liveTodos = (userId: string, t: string = today()) =>
     db
       .select()
       .from(todos)
-      .where(and(eq(todos.userId, userId), sql`(${todos.deletedOn} is null or ${todos.deletedOn} >= ${shiftDays(today(), -120)})`))
+      .where(and(eq(todos.userId, userId), sql`(${todos.deletedOn} is null or ${todos.deletedOn} >= ${shiftDays(t, -120)})`))
       .orderBy(asc(todos.position), asc(todos.createdOn), asc(todos.createdAt))
       .all()
       .map(toTodo);
 
-  r.get('/todos', (c) => c.json(liveTodos(uidOf(c))));
+  r.get('/todos', (c) => c.json(liveTodos(uidOf(c), c.get('today'))));
 
   r.post('/todos', async (c) => {
     const userId = uidOf(c);
@@ -350,7 +361,7 @@ export const coreRoutes = (db: DB) => {
     db.transaction((tx) => {
       order.forEach((id, i) => tx.update(todos).set({ position: i }).where(and(eq(todos.userId, userId), eq(todos.id, id))).run());
     });
-    return c.json(liveTodos(userId));
+    return c.json(liveTodos(userId, c.get('today')));
   });
 
   r.patch('/todos/:id', async (c) => {
@@ -366,8 +377,8 @@ export const coreRoutes = (db: DB) => {
     // a date only lives on a Later item; a row moved to Later without one gets tomorrow; otherwise the date is left alone
     const bucket = body.bucket ?? row.bucket;
     if (bucket !== 'later') set.due = null;
-    else if (body.due !== undefined) set.due = body.due ?? shiftDays(today(), 1);
-    else if (row.bucket !== 'later' && !row.due) set.due = shiftDays(today(), 1);
+    else if (body.due !== undefined) set.due = body.due ?? shiftDays(c.get('today'), 1);
+    else if (row.bucket !== 'later' && !row.due) set.due = shiftDays(c.get('today'), 1);
     if (body.position !== undefined) set.position = body.position;
     if (body.doneOn !== undefined) set.doneOn = body.doneOn;
     if (body.deletedOn !== undefined) set.deletedOn = body.deletedOn;
@@ -381,7 +392,7 @@ export const coreRoutes = (db: DB) => {
   r.patch('/morning/settings', async (c) => {
     const userId = uidOf(c);
     const patch = await parseBody(c.req.raw, zMorningSettingsPatch);
-    const next = normalizeMorningSettings(deepMerge(readSetting(db, userId, 'morning') ?? {}, patch));
+    const next = normalizeMorningSettings(deepMerge(readSetting(db, userId, 'morning') ?? NEW_ACCOUNT_MORNING, patch));
     writeSetting(db, userId, 'morning', next);
     return c.json(next);
   });
@@ -408,7 +419,7 @@ export const coreRoutes = (db: DB) => {
   r.get('/activities', (c) => {
     const userId = uidOf(c);
     const q = parseQuery(c.req.query(), z.object({ from: zDate.optional(), to: zDate.optional() }));
-    const to = q.to ?? shiftDays(today(), 7);
+    const to = q.to ?? shiftDays(c.get('today'), 7);
     const from = q.from ?? shiftDays(to, -120);
     return c.json(activitiesBetween(db, userId, from, to));
   });

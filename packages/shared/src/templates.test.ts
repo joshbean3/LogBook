@@ -166,12 +166,13 @@ describe('buildTemplate', () => {
     for (const s of t.sessions) expect(s.miles).toBeGreaterThanOrEqual(3);
   });
 
-  it('a mid-week start gets a lead-in of easy runs, then full weeks from Monday', () => {
+  it('a mid-week start gets a lead-in (easy runs, and the long run on its day), then full weeks from Monday', () => {
     const t = buildTemplate({ ...base, startDate: '2026-10-15', weeks: 4 }); // a Thursday
     expect(t.weeks[0]).toMatchObject({ week: 0, kind: 'lead-in' });
     const lead = ofWeek(t, 0);
     expect(lead.map((s) => s.date)).toEqual(['2026-10-15', '2026-10-17', '2026-10-18']);
-    expect(lead.every((s) => s.type === 'Easy')).toBe(true);
+    expect(lead.map((s) => s.type)).toEqual(['Easy', 'Easy', 'Long']);
+    expect(lead.some((s) => /Tempo|Threshold|Intervals|Hills|Speed/.test(s.type))).toBe(false);
     expect(full(t)).toHaveLength(4);
     expect(t.end).toBe('2026-11-15');
   });
@@ -198,5 +199,47 @@ describe('buildTemplate', () => {
     expect(zTemplateInput.safeParse({ ...base, runDays: ['monday'] }).success).toBe(false);
     expect(zTemplateInput.safeParse({ ...base, raceDate: '2026-10-01' }).success).toBe(false);
     expect(zTemplateInput.safeParse({ ...base, weeks: 31 }).success).toBe(false);
+  });
+
+  describe('the first week a new athlete sees (contract 7)', () => {
+    const easyOf = (t: Template, w: number) => ofWeek(t, w).filter((x) => x.type === 'Easy').map((x) => x.miles);
+    const longOf = (t: Template, w: number) => ofWeek(t, w).find((x) => x.type === 'Long');
+    const cases: TemplateInput[] = [
+      { goal: 'base', startDate: '2026-10-19', runDays: ['mon', 'tue', 'thu', 'sat'], longRunDay: 'sun', weeklyMiles: 22 },
+      { goal: 'half', startDate: '2026-10-19', runDays: ['tue', 'wed', 'fri', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: 25 },
+      { goal: '10k', startDate: '2026-10-19', runDays: ['mon', 'wed', 'fri', 'sun'], longRunDay: 'sun', weeklyMiles: 15 },
+      { goal: 'marathon', startDate: '2026-10-19', runDays: ['mon', 'tue', 'wed', 'thu', 'sat', 'sun'], longRunDay: 'sat', weeklyMiles: 35 },
+    ];
+    it('varies the easy days by 0.5–1 mi and keeps the week on its target', () => {
+      for (const c of cases) {
+        const t = buildTemplate(c);
+        const easy = easyOf(t, 1);
+        expect(easy.length, c.goal).toBeGreaterThanOrEqual(2);
+        expect(new Set(easy).size, `${c.goal} ${easy}`).toBeGreaterThan(1);
+        for (let i = 0; i < easy.length; i++)
+          for (let j = i + 1; j < easy.length; j++) {
+            const d = Math.abs(easy[i]! - easy[j]!);
+            if (d) expect(d, `${c.goal} ${easy}`).toBeGreaterThanOrEqual(0.5);
+            expect(d, `${c.goal} ${easy}`).toBeLessThanOrEqual(1);
+          }
+        expect(Math.abs(sum(ofWeek(t, 1)) - t.weeks.find((w) => w.week === 1)!.target)).toBeLessThanOrEqual(0.5);
+      }
+    });
+    it('puts the long run on the chosen long-run day, longer than any other run that week', () => {
+      for (const c of cases) {
+        const t = buildTemplate(c);
+        const long = longOf(t, 1)!;
+        expect(weekdayOf(long.date)).toBe(c.longRunDay);
+        for (const s of ofWeek(t, 1)) if (s !== long) expect(s.miles, `${c.goal} ${s.type}`).toBeLessThan(long.miles);
+      }
+    });
+    it('a block starting tomorrow (onboarding "start tomorrow") reaches the long-run day in its lead-in', () => {
+      // Thursday start, runs Tue/Thu/Sat with the long run Sunday: Thu, Sat easy (not the same), Sun long
+      const t = buildTemplate({ goal: 'base', startDate: '2026-10-15', runDays: ['tue', 'thu', 'sat'], longRunDay: 'sun', weeklyMiles: 22 });
+      const lead = ofWeek(t, 0);
+      expect(lead.map((s) => [weekdayOf(s.date), s.type])).toEqual([['thu', 'Easy'], ['sat', 'Easy'], ['sun', 'Long']]);
+      expect(lead[0]!.miles).not.toBe(lead[1]!.miles);
+      expect(lead[2]!.miles).toBeGreaterThan(Math.max(lead[0]!.miles, lead[1]!.miles));
+    });
   });
 });

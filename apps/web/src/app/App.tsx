@@ -6,6 +6,8 @@ import { onDeepLink } from '@/lib/native';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Signup } from '@/features/auth/AuthScreens';
+import { markHasAccount, signedOutHome } from '@/features/auth/flag';
+import { Start } from '@/features/auth/Start';
 import { routeInfo } from '@/ui/nav';
 import { PushedPage } from '@/ui/PushedPage';
 import { SkeletonPage } from '@/ui/Skeleton';
@@ -134,6 +136,7 @@ const Authed = () => {
   const loc = useLocation();
   useEffect(() => {
     if (boot.data) {
+      markHasAccount();
       void outbox.replay(qc);
       prefetchViews();
       void prefetchAll(qc);
@@ -142,7 +145,7 @@ const Authed = () => {
   if (boot.isPending && !boot.data) return <Boot />;
   if (boot.error && !boot.data) {
     const status = (boot.error as { status?: number }).status;
-    if (status === 401) return <Navigate to="/login" replace />;
+    if (status === 401) return <Navigate to={signedOutHome()} replace />;
     return (
       <div className="page">
         <p className="empty">Couldn’t connect. Check your connection.</p>
@@ -183,7 +186,7 @@ export const App = () => {
   // a 401 anywhere sends you to sign in, without reloading the page
   useEffect(() => {
     const fn = () => {
-      if (!/^\/(login|setup|signup)/.test(location.pathname)) nav('/login', { replace: true });
+      if (!/^\/(login|setup|signup|start)/.test(location.pathname)) nav(signedOutHome(), { replace: true });
     };
     onUnauthorized.add(fn);
     return () => {
@@ -192,6 +195,7 @@ export const App = () => {
   }, [nav]);
   return (
     <Routes>
+      <Route path="/start" element={<Start />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/setup" element={<Navigate to="/signup" replace />} />
