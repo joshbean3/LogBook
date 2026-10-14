@@ -299,7 +299,9 @@ export const useTodoMutations = () => {
   return { add, patch, reorder };
 };
 
-// ---------- morning ----------
+// ── morning ──
+// The Morning team's block. Settings PATCH (the routine editor's one save) and the per-day override (drags, the day
+// editor, rest mornings), both optimistic.
 export const useMorningMutations = () => {
   const qc = useQueryClient();
   const settings = useMutation({
@@ -327,6 +329,7 @@ export const useMorningMutations = () => {
   });
   return { settings, setDay };
 };
+// ── /morning ──
 const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
   const out = { ...(a && typeof a === 'object' ? a : {}) };
