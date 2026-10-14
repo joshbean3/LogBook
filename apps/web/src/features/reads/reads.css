@@ -1,6 +1,24 @@
-/* ---------- Reads: today's pick is the hero, lit from below; the rest is a grouped list of links ---------- */
+/* ---------- Reads (docs/experience.md §5.6): quick add on top, the pick when there is one, the links edge to edge ---------- */
 
-/* the hero card: the same grammar as Today's aura card and Journal's quote */
+/* ---------- quick add, on top: the field and the one blue ---------- */
+.radd {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.radd .in {
+  flex: 1;
+}
+.radd .btn {
+  flex: none;
+}
+.radd .btn.quiet.idle {
+  color: var(--ink-4);
+  opacity: 1;
+}
+
+/* ---------- the pick: an aura card, lit from below; only when a pick exists ---------- */
 .rp {
   position: relative;
   overflow: hidden;
@@ -9,11 +27,12 @@
   border: var(--card-border);
   border-radius: var(--r-lg);
   padding: 18px 18px 16px;
-  min-height: 200px;
-  margin-top: 16px;
+  min-height: 180px;
+  margin-top: var(--sp-secondary);
   display: grid;
   align-content: start;
   color: var(--ink);
+  -webkit-touch-callout: none;
 }
 /* the stage light rises behind the Save / Skip row; its box never grows past 320px so a long title stays off the light */
 .rp-glow {
@@ -50,13 +69,13 @@
 .rp-body {
   display: grid;
   gap: 8px;
-  min-height: 104px;
+  min-height: 88px;
   align-content: start;
 }
 .rp-body.dim .rp-title {
   color: var(--ink-2);
 }
-/* the title is the link; its hit area is the whole card (the chips sit above it) */
+/* the title is the link; its hit area is the whole card (the buttons sit above it) */
 .rp-link {
   color: inherit;
   text-decoration: none;
@@ -84,7 +103,7 @@
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
-/* actions under the pick: one-verb quiet chips in the light, raised above the card's link */
+/* actions under the pick: one-verb pills in the light, raised above the card's link */
 .rp-actions {
   position: relative;
   z-index: 1;
@@ -92,29 +111,18 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 20px;
-  min-height: 32px;
+  margin-top: 16px;
+  min-height: 44px;
 }
-.rp-actions:empty {
-  min-height: 0;
-  margin-top: 8px;
-}
-.rp .chip-btn {
-  position: relative;
+.rp .btn {
   background: rgba(0, 0, 0, 0.35);
   border-color: rgba(255, 255, 255, 0.16);
   color: var(--ink);
 }
-.rp .chip-btn.quiet {
+.rp .btn.quiet {
   background: transparent;
   border-color: transparent;
   color: var(--ink-2);
-}
-/* a 32px chip to the eye, 44px to the thumb */
-.rp .chip-btn::before {
-  content: '';
-  position: absolute;
-  inset: -6px -2px;
 }
 .rp-note {
   padding-left: 4px;
@@ -140,12 +148,45 @@
   }
 }
 
-/* data still arriving: two quiet bars the height the title and its line will take. Nothing spins. */
+/* ---------- no pick to show: a slim card, one sentence ---------- */
+.rp-slim {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  margin-top: var(--sp-secondary);
+  padding: 10px 12px 10px 16px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
+}
+.rp-slim-icon {
+  flex: none;
+  color: var(--accent-text);
+}
+.rp-slim-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.rp-slim .rwait.compact {
+  padding: 2px 0 0;
+}
+.rp-slim-verb {
+  flex: none;
+}
+
+/* data still arriving: quiet bars the height the title and its line will take. Nothing spins. */
 .rwait {
   display: grid;
   gap: 10px;
   align-content: start;
-  min-height: 104px;
+  min-height: 88px;
   padding-top: 14px;
 }
 .rwait-bar {
@@ -171,10 +212,6 @@
 .rwait.compact .rwait-bar.short {
   display: none;
 }
-.rwait.list {
-  min-height: 180px;
-  padding: 0;
-}
 
 /* the compact row for Today: caps over the title, a chevron at the right */
 .rp-crow {
@@ -195,61 +232,51 @@
 .rp-crow:active {
   background: var(--surface-2);
 }
-
-/* ---------- quick add: the field and the one blue ---------- */
-.radd {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 16px;
-}
-.radd .in {
-  flex: 1;
-}
-.radd .btn {
-  flex: none;
+/* on Today the read row sits between sections, so it takes a section's gap */
+.group.rp-compact {
+  margin-top: 32px;
 }
 
-/* ---------- the list ---------- */
+/* ---------- the lists ---------- */
+.r-lists {
+  margin-top: var(--sp-primary);
+}
 .r-tabs .seg-btn {
   flex: 1 1 0;
   padding: 0 6px;
 }
-.rlist {
+.r-stage {
+  position: relative;
+  overflow-x: clip;
+  margin-inline: calc(-1 * var(--page-pad));
+  padding-inline: var(--page-pad);
   margin-top: 12px;
 }
-.rrow-wrap {
+/* links edge to edge, hairlines from the text */
+.rlist {
+  display: grid;
+  margin-inline: calc(-1 * var(--page-pad));
+}
+.rlist-item {
   position: relative;
   overflow: hidden;
 }
-/* what a swipe reveals: blue done at the left, red delete at the right */
-.rrow-under {
+.rlist-item + .rlist-item::before {
+  content: '';
   position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #fff;
-  background: linear-gradient(90deg, var(--ok) 0 50%, var(--bad) 50% 100%);
-}
-.rrow-under.is-read {
-  background: linear-gradient(90deg, var(--surface-3) 0 50%, var(--bad) 50% 100%);
-}
-/* each sign lives in its own 56px zone, the same distance the row has to travel to count */
-.rrow-under-left,
-.rrow-under-right {
-  width: 56px;
-  display: grid;
-  place-items: center;
+  top: 0;
+  left: calc(var(--page-pad) + 40px);
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  z-index: 2;
 }
 .rrow {
   position: relative;
-  background: var(--surface);
-  touch-action: pan-y;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 4px 0 16px;
+  padding: 0 4px 0 var(--page-pad);
 }
 .rrow .mark-hit {
   align-self: center;
@@ -263,7 +290,7 @@
   min-width: 0;
   display: grid;
   gap: 2px;
-  min-height: 60px;
+  min-height: 64px;
   align-content: center;
   padding: 10px 4px 10px 0;
   color: inherit;
@@ -271,10 +298,9 @@
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  transition: background var(--dur-fast);
 }
-.rrow-link:active {
-  background: var(--surface-2);
+.rrow-link:active .rrow-title {
+  color: var(--ink-2);
 }
 .rrow-title {
   font-size: 17px;
@@ -289,7 +315,7 @@
   overflow-wrap: anywhere;
 }
 .rrow.is-read .rrow-title {
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .rrow-meta {
   color: var(--ink-3);
@@ -310,12 +336,22 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* the empty list's ghost rows */
+.rlist-ghost {
+  display: grid;
+}
+.rlist-ghost .rrow {
+  padding-left: 0;
+}
+
+/* the ContextMenu's hidden "actions" button sits 1px at a row's corner; keep it invisible until it is focused */
+.reads-page .cm-sr:not(:focus-visible) {
+  opacity: 0;
+}
 
 /* ---------- the edit sheet ---------- */
-.rsheet-kicker {
-  display: block;
-  font-family: var(--sans);
-  font-style: normal;
+.btn.danger-quiet {
+  color: var(--bad);
 }
 .rsheet-title {
   font-size: 17px;
@@ -331,8 +367,21 @@
   margin-top: 16px;
 }
 .rsheet-field .jtext {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  resize: none;
+  outline: none;
+  color: var(--ink);
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
+}
+.rsheet-field .jtext.serif {
+  font-family: var(--serif);
+  letter-spacing: 0;
 }
 textarea.rsheet-note {
   min-height: 88px;
@@ -341,9 +390,4 @@ textarea.rsheet-note {
 .rsheet-tags {
   padding: 10px 0;
   min-height: 44px;
-}
-
-/* on Today the read row sits between sections, so it takes a section's gap */
-.group.rp-compact {
-  margin-top: 32px;
 }
