@@ -1,0 +1,774 @@
+/*
+ * The foundation's styles (docs/foundation.md): primitives, headers, and the type-and-rhythm utilities of
+ * docs/experience.md §3.4. Loaded once by App.tsx. Values come from tokens.css.
+ */
+
+/* ---------- type and rhythm ---------- */
+/* a section names itself in sentence case: Inter 17/600, not a caps eyebrow (caps stay for metric labels) */
+.section-title {
+  font-family: var(--sans);
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-transform: none;
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.section-head .section-title {
+  margin-right: auto;
+}
+.section-head .section-meta {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+/* 48px before a primary section, 24px before a secondary one, 12px between things inside a group */
+.sec-primary {
+  margin-top: var(--sp-primary);
+}
+.sec-secondary {
+  margin-top: var(--sp-secondary);
+}
+.sec-group {
+  display: grid;
+  gap: var(--sp-group);
+}
+
+/* an edge-to-edge list: no card, rows run to the screen edges with a 16px gutter, hairlines start at the gutter */
+.list-edge {
+  display: grid;
+  margin-inline: calc(-1 * var(--page-pad));
+}
+.list-edge > :not(.cm-target),
+.list-edge > .cm-target > :first-child {
+  position: relative;
+  min-height: 44px;
+  padding-inline: var(--page-pad);
+}
+.list-edge > :not(.cm-target)::after,
+.list-edge > .cm-target > :first-child::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--page-pad);
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+  z-index: 2;
+}
+.list-edge > :not(.cm-target):first-child::after,
+.list-edge > .cm-target:first-child > :first-child::after {
+  display: none;
+}
+/* a swipe row keeps its pane edge to edge; the gutter goes on its content */
+.list-edge .swipe-row {
+  padding-inline: 0;
+}
+.list-edge .swipe-content {
+  padding-inline: var(--page-pad);
+}
+
+/* a horizontal carousel: snaps item by item, bleeds to the screen edges, starts at the gutter */
+.carousel {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--carousel-item, 78%);
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--page-pad);
+  margin-inline: calc(-1 * var(--page-pad));
+  padding-inline: var(--page-pad);
+  scrollbar-width: none;
+}
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+.carousel > * {
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+/* ---------- the halo, driven by state: blue light, an amber layer for floor; 200ms crossfade between states ---------- */
+.halo {
+  position: relative;
+  isolation: isolate;
+}
+.halo::before,
+.halo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  transition:
+    opacity var(--dur-color) var(--ease-out),
+    filter var(--dur-color) var(--ease-out);
+}
+.halo::before {
+  background: var(--halo);
+  opacity: var(--halo-blue, 0.85);
+  filter: var(--halo-filter, none);
+}
+.halo::after {
+  background: var(--halo-amber);
+  opacity: var(--halo-amber-o, 0);
+}
+/* done: full bloom. floor: an amber-tinted edge. missed or open past: dim and cool. upcoming: 60%. rest: soft. */
+.halo-done {
+  --halo-blue: 1;
+  --halo-amber-o: 0;
+  --halo-filter: none;
+}
+.halo-floor {
+  --halo-blue: 0.5;
+  --halo-amber-o: 0.6;
+  --halo-filter: none;
+}
+.halo-missed {
+  --halo-blue: 0.4;
+  --halo-amber-o: 0;
+  --halo-filter: saturate(0.5);
+}
+.halo-upcoming {
+  --halo-blue: 0.6;
+  --halo-amber-o: 0;
+  --halo-filter: none;
+}
+.halo-rest {
+  --halo-blue: 0.3;
+  --halo-amber-o: 0;
+  --halo-filter: blur(6px);
+}
+/* the aura card's own glow layer answers the same classes */
+.aura.aura[class*='halo-'] .aura-glow {
+  opacity: var(--halo-blue);
+  filter: var(--halo-filter, none);
+  transition:
+    opacity var(--dur-color) var(--ease-out),
+    filter var(--dur-color) var(--ease-out);
+}
+.aura.aura[class*='halo-']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo-amber);
+  opacity: var(--halo-amber-o, 0);
+  pointer-events: none;
+  transition: opacity var(--dur-color) var(--ease-out);
+}
+/* the day's first completion: 20% brighter for 600ms */
+.halo-boost::before,
+.halo-boost .aura-glow {
+  animation: halo-boost 600ms var(--ease-out);
+}
+@keyframes halo-boost {
+  30% {
+    filter: brightness(1.2);
+  }
+}
+
+/* ---------- Pressable ---------- */
+.pressable {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  min-height: 44px;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.pressable:disabled,
+.pressable[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- ContextMenu ---------- */
+.cm-target {
+  display: contents;
+}
+.cm-target > :first-child {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* the hidden "Actions" button: VoiceOver finds it; a keyboard focus shows it as a pill above the tab bar */
+.cm-sr,
+.dpager-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+.cm-sr:focus-visible {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 16px);
+  transform: translateX(-50%);
+  width: auto;
+  height: 44px;
+  margin: 0;
+  padding: 0 18px;
+  clip: auto;
+  overflow: visible;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.cm-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  touch-action: none;
+}
+.cm-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim-menu);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.cm-lift {
+  position: fixed;
+  z-index: 1;
+  transform-origin: 50% 50%;
+}
+.cm-lift.has-preview {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-menu);
+  overflow: hidden;
+  padding: 16px;
+}
+.cm-menu {
+  position: fixed;
+  z-index: 2;
+  display: grid;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-menu);
+  overflow: hidden;
+}
+.cm-item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 11px 16px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  text-align: left;
+}
+.cm-item + .cm-item {
+  border-top: 1px solid var(--line);
+}
+/* destructive actions come last, after a heavier rule */
+.cm-item.sep {
+  border-top: 6px solid rgba(0, 0, 0, 0.45);
+}
+.cm-item.destructive {
+  color: var(--bad);
+}
+.cm-item:active:not(:disabled),
+.cm-item:focus-visible {
+  background: var(--surface-3);
+  outline: none;
+  border-radius: 0;
+}
+.cm-item:disabled {
+  color: var(--ink-4);
+  cursor: default;
+}
+.cm-label {
+  flex: 1;
+  min-width: 0;
+}
+.cm-icon {
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  flex: none;
+}
+.cm-item.destructive .cm-icon {
+  color: var(--bad);
+}
+
+/* ---------- SwipeRow ---------- */
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.swipe-pane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
+}
+.swipe-pane:not(.from-left):not(.from-right) {
+  visibility: hidden;
+}
+.swipe-pane.from-right {
+  justify-content: flex-start;
+}
+.swipe-pane.from-left {
+  justify-content: flex-end;
+}
+.is-armed .swipe-pane.tone-ok {
+  background: var(--ok);
+  color: #fff;
+}
+.is-armed .swipe-pane.tone-warn {
+  background: var(--warn);
+  color: #000;
+}
+.is-armed .swipe-pane.tone-bad {
+  background: var(--bad);
+  color: #fff;
+}
+.is-armed .swipe-pane.tone-neutral {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+.swipe-act {
+  display: inline-grid;
+  justify-items: center;
+  gap: 2px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.swipe-content {
+  position: relative;
+  z-index: 1;
+  background: var(--swipe-bg, var(--bg));
+}
+.card .swipe-content,
+.group .swipe-content {
+  --swipe-bg: var(--surface);
+}
+
+/* ---------- Skeleton: grey blocks, no shimmer ---------- */
+.skel {
+  display: block;
+  background: var(--skel-bg, var(--surface));
+  flex: none;
+}
+.card .skel,
+.aura .skel,
+.group .skel {
+  --skel-bg: var(--surface-2);
+}
+.skel-group {
+  display: grid;
+  gap: 8px;
+}
+.skel-rows {
+  display: grid;
+}
+.skel-row {
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  min-height: 60px;
+}
+.skel-row + .skel-row {
+  border-top: 1px solid var(--line);
+}
+.skel-page {
+  gap: 0;
+}
+
+/* ---------- EmptyState v2 ---------- */
+.empty-v2 {
+  display: grid;
+  gap: 16px;
+}
+.empty-ghost {
+  opacity: 0.3;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent);
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+.empty-copy {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.empty-line {
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.empty-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.empty-starters .chip-btn {
+  gap: 4px;
+}
+
+/* ---------- WeekRing ---------- */
+.wring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--ink);
+}
+.wring > svg,
+.wring > .wring-in {
+  grid-area: 1 / 1;
+}
+.wring-in {
+  font-family: var(--stamp);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.wring-64 .wring-in {
+  font-size: 1.375rem;
+}
+.wring.is-btn {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  -webkit-touch-callout: none;
+}
+
+/* ---------- Avatar ---------- */
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  color: var(--ink);
+}
+.avatar-disc {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0;
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.avatar-disc.sm {
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+}
+.avatar:active .avatar-disc {
+  transform: scale(0.97);
+}
+.avatar.on .avatar-disc {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 3.5px var(--accent-bright);
+}
+
+/* ---------- TabHeader ---------- */
+.tabh {
+  display: grid;
+  padding-top: 8px;
+}
+.tabh-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 44px;
+}
+.tabh-text {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 6px;
+}
+.tabh-date {
+  justify-self: start;
+  position: relative;
+  min-height: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* a 16px line to the eye, 44px to the thumb */
+button.tabh-date::after,
+.tabh-date.swipes::after {
+  content: '';
+  position: absolute;
+  inset: -14px -8px;
+}
+.tabh-title {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+}
+.tabh-title.wraps {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+}
+@media (max-width: 359px) {
+  .tabh-title {
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+  }
+}
+.tabh-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-right: -6px;
+}
+.tabh-tools {
+  margin-top: 12px;
+}
+
+/* ---------- PushedHeader: pinned while the page scrolls ---------- */
+.pushed-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: calc(-8px - var(--safe-t)) calc(-1 * var(--page-pad)) 0;
+  padding: calc(4px + var(--safe-t)) var(--page-pad) 4px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+}
+.pushed-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+}
+.back-btn {
+  margin-left: -12px;
+  flex: none;
+}
+.pushed-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pushed-eyebrow {
+  line-height: 0.875rem;
+}
+.pushed-title {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+}
+.pushed-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.pushed-tools {
+  padding: 4px 0 8px;
+}
+/* the v1 PageHeader on a pushed page leads with the chevron */
+.ph.is-pushed .ph-top {
+  align-items: center;
+}
+.ph.is-pushed .back-btn {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+/* ---------- DatePager ---------- */
+.dpager {
+  position: relative;
+  overflow-x: clip;
+  overflow-y: visible;
+  border-radius: var(--r-lg);
+}
+.dpager:focus-visible {
+  outline-offset: 4px;
+}
+.dpager-track {
+  position: relative;
+  touch-action: pan-y;
+}
+.dpager-page {
+  min-width: 0;
+}
+.dpager-page.prev,
+.dpager-page.next {
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+.dpager-page.prev {
+  right: calc(100% + var(--dpager-gap));
+}
+.dpager-page.next {
+  left: calc(100% + var(--dpager-gap));
+}
+.dpager-sr:focus-visible {
+  top: 50%;
+  width: auto;
+  height: 44px;
+  margin: -22px 0 0;
+  padding: 0 14px;
+  clip: auto;
+  overflow: visible;
+  z-index: 3;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+}
+.dpager-sr:nth-of-type(1):focus-visible {
+  left: 8px;
+}
+.dpager-sr:nth-of-type(2):focus-visible {
+  right: 8px;
+}
+
+/* ---------- Sheet v2 header ---------- */
+.sheet-grab {
+  touch-action: none;
+  position: sticky;
+  top: -6px;
+  z-index: 3;
+  background: var(--bg);
+  margin: -6px -16px 0;
+  padding: 6px 16px 0;
+}
+.sheet-titles {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+}
+.sheet-titles-in {
+  display: grid;
+  min-width: 0;
+}
+.sheet-eyebrow {
+  line-height: 0.875rem;
+}
+.sheet-back {
+  margin-left: -10px;
+  flex: none;
+  /* over the outgoing title as it slides under it */
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
+}
+.sheet-stack {
+  position: relative;
+  min-width: 0;
+}
+.sheet .sheet-title:focus {
+  outline: none;
+}
+/* the shared title in flight: a fixed copy above the sheet, so the sheet's clipping never cuts it */
+.sheet-flyer {
+  position: fixed;
+  z-index: 5;
+  margin: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+@media (min-width: 700px) {
+  .sheet-grab {
+    margin: -12px -20px 0;
+    padding: 12px 20px 0;
+    top: -12px;
+  }
+}
+
+/* ---------- Toast host: centred above the tab bar, as wide as its words ---------- */
+.toast-host {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--tabbar-h) + 12px + var(--safe-b));
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+@media (min-width: 900px) {
+  .toast-host {
+    bottom: 28px;
+  }
+}
+
+/* ---------- the loading block a v1 Loading draws ---------- */
+.loading-block {
+  padding: 4px 0;
+}

@@ -1,8 +1,13 @@
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { haptic } from '@/lib/haptics';
-import { spring } from '@/lib/motion';
+import { fireHaptic, haptics, type HapticEvent } from '@/lib/haptics';
+import { springs } from '@/lib/motion';
+import { Avatar } from './Avatar';
+import { BackButton } from './headers';
+import { useRouteInfo } from './nav';
+import { usePushedFrame } from './PushedPage';
+import { Skeleton, SkeletonGroup } from './Skeleton';
 
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'primary' | 'soft' | 'ghost' | 'quiet' | 'danger'; size?: 'md' | 'sm'; block?: boolean };
 export const Button = ({ variant = 'default', size = 'md', block, className = '', type = 'button', ...rest }: BtnProps) => (
@@ -29,7 +34,28 @@ export const Field = ({ label, hint, children, htmlFor }: { label: string; hint?
   </label>
 );
 
-/** Section eyebrow with an optional right-side action. 32px above, 8px below. */
+/**
+ * A section that names itself in sentence case (Inter 17/600, `.section-title`), with an optional quiet meta (a count) and
+ * one action at the right. `level` sets the space above it: 48px for a primary section, 24px for a secondary one.
+ * Use it instead of a caps eyebrow unless the section is a metric label.
+ */
+export const Section = ({ title, meta, action, level = 'primary', children, className = '' }: { title: ReactNode; meta?: ReactNode; action?: ReactNode; level?: 'primary' | 'secondary' | 'none'; children?: ReactNode; className?: string }) => {
+  const id = useId();
+  return (
+    <section className={`${level === 'none' ? '' : `sec-${level}`} ${className}`} aria-labelledby={id}>
+      <div className="section-head">
+        <h2 className="section-title" id={id}>
+          {title}
+        </h2>
+        {meta != null ? <span className="section-meta">{meta}</span> : null}
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+};
+
+/** v1 section eyebrow (caps) with an optional right-side action. 32px above, 8px below. Prefer `Section` for new work. */
 export const SectionHead = ({ title, meta, action, first }: { title: ReactNode; meta?: ReactNode; action?: ReactNode; first?: boolean }) => (
   <div className={`sec-head ${first ? '' : 'section'}`}>
     <span className="t-label">{title}</span>
@@ -56,36 +82,117 @@ export const CardHead = ({ title, meta, children }: { title: ReactNode; meta?: R
 
 export const Note = ({ kind = 'info', children }: { kind?: 'info' | 'warn' | 'bad' | 'ok'; children: ReactNode }) => <p className={`note-line ${kind}`}>{children}</p>;
 
-export const Spinner = () => <span className="spinner" aria-hidden="true" />;
-export const Loading = ({ text = 'Loading…' }: { text?: string }) => (
-  <div className="loading" role="status">
-    <Spinner />
-    <span>{text}</span>
-  </div>
+/**
+ * @deprecated render a skeleton shaped like the page instead (`Skeleton`, `SkeletonRows`). Kept so old imports compile:
+ * it draws a neutral grey block (never a spinner) and announces `text` to VoiceOver.
+ */
+export const Loading = ({ text = 'Loading', height = 96 }: { text?: string; height?: number }) => (
+  <SkeletonGroup label={text.replace(/…$/, '')} className="loading-block">
+    <Skeleton h={height} r="card" />
+  </SkeletonGroup>
 );
 
-/** Keeps the section's shape and offers the one action that changes the state. */
-export const EmptyState = ({ children, action }: { children: ReactNode; action?: ReactNode }) => (
-  <div className="empty-state">
-    <p>{children}</p>
-    {action}
-  </div>
-);
+export interface EmptyStateProps {
+  /** The one sentence: what this will hold, said forward ("Your runs land here."). */
+  children?: ReactNode;
+  /** The same sentence as a prop, if you prefer. */
+  text?: ReactNode;
+  /** v1: any node at the right (a button). Prefer `verb`. */
+  action?: ReactNode;
+  /** The one verb that fills the state: a button under the sentence. */
+  verb?: { label: string; onPress: () => void; haptic?: HapticEvent; primary?: boolean };
+  /** The filled state, drawn at 30% and untouchable, so the empty state shows what it will look like. */
+  ghost?: ReactNode;
+  /** One-tap starters ("Sleep 7 h", "Stretch"): each is a chip that calls `onStarter` and then shows as added. */
+  starters?: string[];
+  onStarter?: (starter: string) => void | Promise<unknown>;
+  /** The chips' group name for VoiceOver. Default "Starters". */
+  startersLabel?: string;
+  className?: string;
+}
+
+/**
+ * Empty state v2: one sentence, one verb, an optional ghost preview of the filled state (30%, aria-hidden, inert) and
+ * optional starter chips that add with one tap. With only `children` and `action` it renders the v1 compact row, so old
+ * call sites keep their look. Never a grey sentence alone where a verb or a starter could fill the state.
+ */
+export const EmptyState = ({ children, text, action, verb, ghost, starters, onStarter, startersLabel = 'Starters', className = '' }: EmptyStateProps) => {
+  const [added, setAdded] = useState<string[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const sentence = text ?? children;
+  if (!verb && !ghost && !starters?.length)
+    return (
+      <div className={`empty-state ${className}`}>
+        <p>{sentence}</p>
+        {action}
+      </div>
+    );
+  const add = async (st: string) => {
+    if (!onStarter || added.includes(st) || busy) return;
+    setBusy(st);
+    try {
+      await onStarter(st);
+      haptics.toggle();
+      setAdded((a) => [...a, st]);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className={`empty-v2 ${className}`}>
+      {ghost ? (
+        <div className="empty-ghost" aria-hidden="true" inert>
+          {ghost}
+        </div>
+      ) : null}
+      <div className="empty-copy">
+        <p className="empty-line">{sentence}</p>
+        {starters?.length ? (
+          <div className="empty-starters" role="group" aria-label={startersLabel}>
+            {starters.map((st) => {
+              const on = added.includes(st);
+              return (
+                <ChipButton key={st} on={on} disabled={on || busy === st} onClick={() => void add(st)} aria-label={on ? `${st}, added` : `Add ${st}`}>
+                  {on ? <Check size={14} strokeWidth={2.6} aria-hidden="true" /> : <Plus size={14} strokeWidth={2.6} aria-hidden="true" />}
+                  {st}
+                </ChipButton>
+              );
+            })}
+          </div>
+        ) : null}
+        {verb ? (
+          <Button
+            variant={verb.primary ? 'primary' : 'soft'}
+            onClick={() => {
+              fireHaptic(verb.haptic);
+              verb.onPress();
+            }}
+          >
+            {verb.label}
+          </Button>
+        ) : (
+          action
+        )}
+      </div>
+    </div>
+  );
+};
 export const Empty = ({ children }: { children: ReactNode }) => <EmptyState>{children}</EmptyState>;
 
 /** The check that says "did it": 44px hit target, circle for habits/sessions, square for to-dos. */
 /** The mark: the fill runs 160ms, then the check draws itself in 160ms. One haptic. Nothing else moves. */
-export const Mark = ({ status, onClick, disabled, label, title, square }: { status: 'done' | 'floor' | 'missed' | 'open' | 'upcoming' | 'rest' | 'skipped'; onClick?: () => void; disabled?: boolean; label: string; title?: string; square?: boolean }) => {
+/** `haptic` overrides the event fired when the mark turns on: default `toggle` for a square (to-do) and for floor, `success` for a done session. Pass `false` for none. */
+export const Mark = ({ status, onClick, disabled, label, title, square, haptic }: { status: 'done' | 'floor' | 'missed' | 'open' | 'upcoming' | 'rest' | 'skipped'; onClick?: () => void; disabled?: boolean; label: string; title?: string; square?: boolean; haptic?: HapticEvent | false }) => {
   const reduce = useReducedMotion();
   const prev = useRef(status);
   useEffect(() => {
-    if ((status === 'done' || status === 'floor') && prev.current !== status) haptic(status === 'done' ? 'success' : 'tick');
+    if ((status === 'done' || status === 'floor') && prev.current !== status) fireHaptic(haptic ?? (square || status === 'floor' ? 'toggle' : 'success'));
     prev.current = status;
-  }, [status]);
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
   const on = status === 'done' || status === 'floor';
   const size = square ? 14 : 16;
   return (
-    <motion.button type="button" className="mark-hit" role="checkbox" aria-checked={on} aria-label={label} title={title} disabled={disabled} onClick={onClick} whileTap={disabled || reduce ? undefined : { scale: 0.9 }} transition={spring}>
+    <motion.button type="button" className="mark-hit" role="checkbox" aria-checked={on} aria-label={label} title={title} disabled={disabled} onClick={onClick} whileTap={disabled || reduce ? undefined : { scale: 0.9 }} transition={springs.press}>
       <span className={`mark m-${status} ${square ? 'square' : ''}`}>
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block' }}>
           <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : on ? { pathLength: { duration: 0.16, delay: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01, delay: 0.16 } } : { duration: 0.1 }} />
@@ -116,8 +223,20 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
   return (
     <div className={`seg ${className}`} role="radiogroup" aria-label={label}>
       {options.map(([k, text]) => (
-        <button key={k} type="button" role="radio" aria-checked={value === k} className="seg-btn" disabled={disabled} onClick={() => value !== k && onChange(k)}>
-          {value === k ? <motion.span layoutId={`thumb-${id}`} className="seg-thumb" transition={spring} /> : null}
+        <button
+          key={k}
+          type="button"
+          role="radio"
+          aria-checked={value === k}
+          className="seg-btn"
+          disabled={disabled}
+          onClick={() => {
+            if (value === k) return;
+            haptics.select();
+            onChange(k);
+          }}
+        >
+          {value === k ? <motion.span layoutId={`thumb-${id}`} className="seg-thumb" transition={springs.settle} /> : null}
           <span style={{ position: 'relative', zIndex: 1 }}>{text}</span>
         </button>
       ))}
@@ -136,7 +255,7 @@ export const Stepper = ({ value, onChange, step, min, max, format, parse, label,
   const bump = (d: number) => {
     const v = Math.min(max, Math.max(min, Math.round((value + d) / step) * step));
     if (v !== value) {
-      haptic();
+      haptics.select();
       onChange(v);
     }
   };
@@ -231,18 +350,31 @@ export const DateNav = ({ onPrev, onNext, prevLabel, nextLabel, children }: { on
   </div>
 );
 
-export const PageHeader = ({ title, sub, actions, children }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode }) => (
-  <header className="ph">
-    <div className="ph-top">
-      <div className="ph-text">
-        <h1 className="ph-title">{title}</h1>
-        {sub ? <span className="ph-sub">{sub}</span> : null}
+/**
+ * @deprecated v1 header, kept until each page moves to `TabHeader` (tabs) or `PushedHeader` (pushed pages). It now knows
+ * where it is: on a pushed page it leads with the back chevron; on a tab it ends with the Avatar (the way to Settings).
+ */
+export const PageHeader = ({ title, sub, actions, children }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode }) => {
+  const pushed = !!usePushedFrame();
+  // Settings lights no tab; the avatar, ringed, says where you are
+  const onSettings = useRouteInfo().section === 'settings';
+  return (
+    <header className={`ph ${pushed ? 'is-pushed' : ''}`}>
+      <div className="ph-top">
+        {pushed ? <BackButton /> : null}
+        <div className="ph-text">
+          <h1 className="ph-title">{title}</h1>
+          {sub ? <span className="ph-sub">{sub}</span> : null}
+        </div>
+        <div className="ph-actions">
+          {actions}
+          {pushed && !onSettings ? null : <Avatar />}
+        </div>
       </div>
-      {actions ? <div className="ph-actions">{actions}</div> : null}
-    </div>
-    {children ? <div className="ph-tools">{children}</div> : null}
-  </header>
-);
+      {children ? <div className="ph-tools">{children}</div> : null}
+    </header>
+  );
+};
 
 export const CloseButton = ({ onClick }: { onClick: () => void }) => (
   <IconButton label="Close" onClick={onClick}>
