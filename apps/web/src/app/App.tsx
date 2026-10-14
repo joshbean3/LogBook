@@ -6,10 +6,14 @@ import { onDeepLink } from '@/lib/native';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Setup } from '@/features/auth/AuthScreens';
-import { Loading } from '@/ui/primitives';
+import { ContextMenuProvider } from '@/ui/ContextMenu';
+import { routeInfo } from '@/ui/nav';
+import { PushedPage } from '@/ui/PushedPage';
+import { SkeletonPage } from '@/ui/Skeleton';
 import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { Shell } from './Shell';
+import '@/styles/foundation.css';
 
 const views = {
   day: () => import('@/features/day/DayView'),
@@ -19,6 +23,7 @@ const views = {
   journal: () => import('@/features/journal/JournalView'),
   reads: () => import('@/features/reads/ReadsView'),
   settings: () => import('@/features/settings/SettingsView'),
+  welcome: () => import('@/features/onboarding/Welcome'),
 };
 const DayView = lazy(lazyImport(views.day));
 const MorningView = lazy(lazyImport(views.morning));
@@ -27,6 +32,9 @@ const TrendsView = lazy(lazyImport(views.trends));
 const JournalView = lazy(lazyImport(views.journal));
 const ReadsView = lazy(lazyImport(views.reads));
 const SettingsView = lazy(lazyImport(views.settings));
+const Welcome = lazy(lazyImport(views.welcome));
+// the living gallery of the foundation: not in the tab bar, not prefetched
+const UiGallery = lazy(lazyImport(() => import('./dev/UiGallery')));
 
 /** Once the first screen is up, pull every other view in the idle gaps so a tab switch never waits on the network. */
 const prefetchViews = () => {
@@ -37,24 +45,80 @@ const prefetchViews = () => {
   else setTimeout(run, 400);
 };
 
+/** The log is opening: the shape of a tab page in grey blocks, no spinner, no words on screen. */
 const Boot = () => (
-  <div className="page" style={{ minHeight: '60dvh', alignContent: 'center', justifyItems: 'center' }}>
-    <Loading text="Opening your log…" />
+  <div className="page">
+    <SkeletonPage label="Opening your log" />
   </div>
 );
-/** A view chunk still arriving: hold the paper, say nothing. The page fade covers the hand-off. */
+/** A view chunk still arriving: hold the canvas, say nothing. The page fade covers the hand-off. */
 const Quiet = () => <div className="page" style={{ minHeight: '100dvh' }} aria-busy="true" />;
 
-/** The CSS page fade, keyed by section so a tab change fades in once. Lives inside Suspense so the old page stays up until the next one can paint. */
+/**
+ * How a page arrives, keyed by section so it happens once per section change. A tab page is an instant cut with a 120ms
+ * opacity fade (CSS only, so a view that suspends can never be left invisible). A pushed page slides in on its own
+ * (PushedPage), so it gets no fade. Lives inside Suspense: the old page stays up until the next one can paint.
+ */
 const PageFade = ({ children }: { children: React.ReactNode }) => {
   const loc = useLocation();
-  const section = loc.pathname.split('/')[1] ?? '';
+  const info = routeInfo(loc.pathname);
   return (
-    <div key={section} className="page-enter">
+    <div key={info.section} className={info.pushed ? 'page-pushed' : 'page-enter'}>
       {children}
     </div>
   );
 };
+
+const Framed = () => (
+  <Shell>
+    <ErrorBoundary>
+      <Suspense fallback={<Quiet />}>
+        <PageFade>
+          <Routes>
+            <Route path="/today/:date?" element={<DayView />} />
+            <Route path="/plan/:view?/:date?" element={<PlanView />} />
+            <Route path="/progress" element={<TrendsView />} />
+            <Route path="/trends" element={<Navigate to="/progress" replace />} />
+            <Route path="/journal/:tab?" element={<JournalView />} />
+            <Route
+              path="/morning/:date?"
+              element={
+                <PushedPage>
+                  <MorningView />
+                </PushedPage>
+              }
+            />
+            <Route
+              path="/reads/:tab?"
+              element={
+                <PushedPage>
+                  <ReadsView />
+                </PushedPage>
+              }
+            />
+            <Route
+              path="/settings/:section?"
+              element={
+                <PushedPage>
+                  <SettingsView />
+                </PushedPage>
+              }
+            />
+            <Route
+              path="/dev/ui"
+              element={
+                <PushedPage>
+                  <UiGallery />
+                </PushedPage>
+              }
+            />
+            <Route path="*" element={<Navigate to="/today" replace />} />
+          </Routes>
+        </PageFade>
+      </Suspense>
+    </ErrorBoundary>
+  </Shell>
+);
 
 const Authed = () => {
   const boot = useBootstrap();
@@ -77,24 +141,20 @@ const Authed = () => {
     );
   }
   return (
-    <Shell>
-      <ErrorBoundary>
-        <Suspense fallback={<Quiet />}>
-          <PageFade>
-          <Routes>
-          <Route path="/today/:date?" element={<DayView />} />
-          <Route path="/morning/:date?" element={<MorningView />} />
-          <Route path="/plan/:view?/:date?" element={<PlanView />} />
-          <Route path="/trends" element={<TrendsView />} />
-          <Route path="/journal/:tab?" element={<JournalView />} />
-          <Route path="/reads/:tab?" element={<ReadsView />} />
-          <Route path="/settings" element={<SettingsView />} />
-          <Route path="*" element={<Navigate to="/today" replace />} />
-          </Routes>
-          </PageFade>
-        </Suspense>
-      </ErrorBoundary>
-    </Shell>
+    <Routes>
+      {/* first run is full screen: no tab bar */}
+      <Route
+        path="/welcome/*"
+        element={
+          <ErrorBoundary>
+            <Suspense fallback={<Quiet />}>
+              <Welcome />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
+      <Route path="*" element={<Framed />} />
+    </Routes>
   );
 };
 
@@ -120,10 +180,12 @@ export const App = () => {
     };
   }, [nav]);
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/setup" element={<Setup />} />
-      <Route path="*" element={<Authed />} />
-    </Routes>
+    <ContextMenuProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/setup" element={<Setup />} />
+        <Route path="*" element={<Authed />} />
+      </Routes>
+    </ContextMenuProvider>
   );
 };

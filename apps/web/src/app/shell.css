@@ -7,15 +7,26 @@
   min-width: 0;
   position: relative;
 }
+/* a tab switch is an instant cut with a 120ms fade on the incoming page: no slide, no stagger (experience §2) */
 .page-enter {
   min-height: 100dvh;
-  animation: page-in 200ms var(--ease-out) both;
+  animation: page-in var(--dur-in) var(--ease-out) both;
 }
-/* the one motion that stays under reduced motion: a 200ms fade is how a page arrives, not an animation */
+/* the one motion that stays under reduced motion: a short fade is how a page arrives, not an animation */
 @media (prefers-reduced-motion: reduce) {
   .page-enter {
-    animation-duration: 200ms !important;
+    animation-duration: var(--dur-in) !important;
   }
+}
+/* a pushed page slides in on its own (PushedPage); the frame under it is the canvas */
+.page-pushed {
+  min-height: 100dvh;
+}
+.pushed-page {
+  min-height: 100dvh;
+  background: var(--bg);
+  /* the leading edge reads as a page edge while it is swiped; off screen at rest */
+  box-shadow: -1px 0 0 var(--line-strong);
 }
 @keyframes page-in {
   from {
@@ -40,13 +51,14 @@
   backdrop-filter: blur(20px) saturate(1.5);
   border-top: 1px solid var(--line-strong);
 }
-/* the nav is the landmark; the tablist inside it holds the five tabs */
+/* the nav is the landmark; the tablist inside it holds the four tabs */
 .tabbar .tabs {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   height: var(--tabbar-h);
 }
 .tab {
+  min-height: 44px;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -125,6 +137,9 @@
   .rail-link.foot {
     margin-top: auto;
   }
+  .rail-link.foot.on .avatar-disc {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--accent-bright);
+  }
 }
 
 /* ---------- pull to refresh: a 24px ring under the status bar that fills as you pull; full, it fetches ---------- */
@@ -197,4 +212,10 @@
   border-radius: 50%;
   background: var(--ok);
   flex: none;
+}
+
+/* Transitional, remove when Today adopts TabHeader: the avatar in every header is now the way to Settings, so the old
+   gear on Today's v1 header steps aside. */
+.ph-actions .icon-btn[aria-label='Settings'] {
+  display: none;
 }
