@@ -1,11 +1,11 @@
-import { Activity, BookOpen, CalendarDays, Sun, type LucideIcon } from 'lucide-react';
+import { Activity, AlarmClock, BookOpen, CalendarDays, Sun, type LucideIcon } from 'lucide-react';
 import { useLocation } from 'react-router';
 
 /**
- * The navigation model (docs/experience.md §2): four tabs, and pushed pages that keep their owning tab lit.
+ * The navigation model (docs/experience.md §2): five tabs, and pushed pages that keep their owning tab lit.
  * Shell, TabHeader, PushedHeader and the edge-swipe all read from here, so a route's place in the app is decided once.
  */
-export type TabId = 'today' | 'plan' | 'progress' | 'journal';
+export type TabId = 'today' | 'morning' | 'plan' | 'progress' | 'journal';
 export interface TabDef {
   id: TabId;
   /** The tab root: where a re-tap at the top of the page goes. */
@@ -15,6 +15,7 @@ export interface TabDef {
 }
 export const TABS: readonly TabDef[] = [
   { id: 'today', to: '/today', label: 'Today', icon: Sun },
+  { id: 'morning', to: '/morning', label: 'Morning', icon: AlarmClock },
   { id: 'plan', to: '/plan', label: 'Plan', icon: CalendarDays },
   { id: 'progress', to: '/progress', label: 'Progress', icon: Activity },
   { id: 'journal', to: '/journal', label: 'Journal', icon: BookOpen },
@@ -22,11 +23,10 @@ export const TABS: readonly TabDef[] = [
 
 /** Pushed pages: no tab of their own; `owner` is the tab that stays lit and the fallback for Back. */
 export const PUSHED: Record<string, { owner: TabId | null; title: string }> = {
-  morning: { owner: 'today', title: 'Morning' },
   reads: { owner: 'journal', title: 'Reads' },
   settings: { owner: null, title: 'Settings' },
 };
-const TAB_SECTIONS: Record<string, TabId> = { today: 'today', plan: 'plan', progress: 'progress', trends: 'progress', journal: 'journal' };
+const TAB_SECTIONS: Record<string, TabId> = { today: 'today', morning: 'morning', plan: 'plan', progress: 'progress', trends: 'progress', journal: 'journal' };
 
 export interface RouteInfo {
   /** The first path segment: "today", "morning", "settings", "dev". */

@@ -19,16 +19,16 @@ Contents: [Navigation](#navigation) · [Headers](#headers) · [Primitives](#prim
 
 ## Navigation
 
-Four tabs: **Today · Plan · Progress · Journal** (bottom bar on a phone, rail at 900px and up). The model lives in
+Five tabs: **Today · Morning · Plan · Progress · Journal** (bottom bar on a phone, rail at 900px and up). The model lives in
 `@/ui/nav` (`TABS`, `PUSHED`, `routeInfo(pathname)`, `useRouteInfo()`).
 
 | Route | Kind | Lit tab |
 |---|---|---|
 | `/today/:date?` | tab | Today |
+| `/morning/:date?` | tab | Morning |
 | `/plan/:view?/:date?` | tab | Plan |
 | `/progress` (`/trends` redirects here) | tab | Progress (renders `TrendsView` until the Progress team replaces it) |
 | `/journal/:tab?` | tab | Journal |
-| `/morning/:date?` | pushed | Today |
 | `/reads/:tab?` | pushed | Journal |
 | `/settings/:section?` | pushed | none (the avatar wears the accent ring) |
 | `/welcome/*` | full screen, no tab bar | none (placeholder: `features/onboarding/Welcome.tsx`) |
@@ -57,7 +57,7 @@ Behaviour the Shell gives every page for free:
 - **Pull to refresh** (Today, Plan, Progress) with `haptics.threshold()` when armed; the net pill and offline behaviour are
   unchanged. When a pull commits, the Shell fires `window` event `logbook:refresh` (`REFRESH` from `@/ui`), then refetches the
   months and the bootstrap. Listen if a pull should do more on your page (Today asks Strava for new runs).
-- To push a page, navigate normally: `nav('/morning')` or `<Link to="/reads">`. No haptic (navigation only).
+- To push a page, navigate normally: `nav('/reads')` or `<Link to="/reads">`. No haptic (navigation only).
 
 Don't: add a fifth tab, add a gear, or put prev/next arrows in a header. Don't put a pushed page's own back button in the
 body; use `PushedHeader`.

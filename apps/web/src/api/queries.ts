@@ -316,6 +316,10 @@ export const useTodoMutations = () => {
 export const useMorningMutations = () => {
   const qc = useQueryClient();
   const settings = useMutation({
+    // the page answers at once (a dropped step stays where it landed); the server's copy replaces this when it comes back
+    onMutate: (patch: Record<string, unknown>) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, morningSettings: deepMerge(b.morningSettings, patch) as MorningSettings } : b));
+    },
     mutationFn: async (patch: Record<string, unknown>) => {
       const saved = await write<MorningSettings>('/morning/settings', 'PATCH', patch, [keys.bootstrap]);
       if (saved) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, morningSettings: saved } : b));

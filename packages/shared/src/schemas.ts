@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isISODate } from './dates.js';
 import { KINDS } from './sessions.js';
+import { MAX_STEPS, STEP_MINS_MAX, STEP_NAME_MAX } from './morning.js';
 
 export const zDate = z.string().refine(isISODate, 'Expected YYYY-MM-DD');
 export const zMonth = z.string().regex(/^\d{4}-\d{2}$/, 'Expected YYYY-MM');
@@ -86,11 +87,18 @@ export const zMorningSettingsPatch = z.object({
       ready: z.number().int().min(0).max(180).optional(),
       smoothie: z.number().int().min(0).max(180).optional(),
       prep: z.number().int().min(0).max(180).optional(),
-      /** The back-home blocks in order: all four keys, each once. */
+      /** The back-home blocks in order: the four built-in keys and the athlete's own step ids, each once. */
       order: z
-        .array(z.enum(['shower', 'ready', 'smoothie', 'prep']))
-        .length(4)
+        .array(z.union([z.enum(['shower', 'ready', 'smoothie', 'prep']), z.string().regex(/^s_[a-z0-9]{4,16}$/)]))
+        .min(4)
+        .max(4 + MAX_STEPS)
         .refine((a) => new Set(a).size === a.length, { message: 'each block once' })
+        .optional(),
+      /** Steps of the athlete's own, the whole list (it replaces the stored one). */
+      steps: z
+        .array(z.object({ id: z.string().regex(/^s_[a-z0-9]{4,16}$/), name: z.string().trim().min(1).max(STEP_NAME_MAX), mins: z.number().int().min(1).max(STEP_MINS_MAX) }))
+        .max(MAX_STEPS)
+        .refine((a) => new Set(a.map((x) => x.id)).size === a.length, { message: 'each step once' })
         .optional(),
       /** The athlete's own names for the blocks ("Out the door"); an empty string goes back to the default name. */
       names: z.object({ shower: z.string().trim().max(30), ready: z.string().trim().max(30), smoothie: z.string().trim().max(30), prep: z.string().trim().max(30) }).partial().optional(),

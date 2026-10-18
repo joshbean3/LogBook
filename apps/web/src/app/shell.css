@@ -51,10 +51,11 @@
   backdrop-filter: blur(20px) saturate(1.5);
   border-top: 1px solid var(--line-strong);
 }
-/* the nav is the landmark; the tablist inside it holds the four tabs */
+/* the nav is the landmark; the tablist inside it holds the five tabs */
 .tabbar .tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   height: var(--tabbar-h);
 }
 .tab {

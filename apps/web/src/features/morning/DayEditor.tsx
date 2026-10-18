@@ -6,8 +6,7 @@ import { Button, ChipButton, Segmented, Stepper } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useLog } from '../log/useLog';
 import { MiniLine } from './MiniLine';
-import { morningOf, ROUTINE_DEFAULTS, short, type DayPatch } from './model';
-import { WAKE_MAX, WAKE_MIN } from './Timeline';
+import { morningOf, ROUTINE_DEFAULTS, short, WAKE_MAX, WAKE_MIN, type DayPatch } from './model';
 
 const parseMiles = (s: string) => {
   const v = Number(s);
@@ -30,7 +29,7 @@ const fmtInt = (v: number) => String(v);
 
 /**
  * One day's morning in a sheet: run, gym or rest; the kind of run or workout; the alarm; the miles or minutes. Every change
- * writes at once (as the drags on the timeline do), and the line at the top redraws to scale as it goes. It subscribes on its
+ * writes at once, and the line at the top redraws to scale as it goes. It subscribes on its
  * own so it stays live while it is up.
  */
 export const DayEditor = ({ date }: { date: string }) => {

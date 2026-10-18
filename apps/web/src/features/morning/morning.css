@@ -1,16 +1,20 @@
-/* Morning (spec §5.2): the page is the timeline. Structured's grammar (an axis, blocks to scale, handles on their edges)
-   in the Night brand (black, one blue for now, tones as bars, the halo under the endpoint). */
+/* Morning (spec §5.2), a tab: the stops at a glance, then the schedule from the alarm to the door. The fixed part is a
+   tap to edit; the routine below it is a list you hold and drag into order. Night brand: black, one blue for now, the
+   session's tone as a bar, the halo under the endpoint. */
 
-.m-page .pushed-right .chip-btn.m-today {
-  margin-right: 2px;
-}
+
 .m-pager .dpager-page {
   white-space: normal;
 }
 .m-pager {
-  /* the grips on the first block reach above it; the pager must not clip them */
+  /* the pager spans the screen and each day keeps the gutter inside it, so the schedule's edge-to-edge rows (and a
+     lifted step, a little larger) are never clipped by the pager's side edges */
   overflow-y: visible;
   border-radius: 0;
+  margin-inline: calc(-1 * var(--page-pad));
+}
+.m-pager .dpager-page {
+  padding-inline: var(--page-pad);
 }
 .m-day {
   display: grid;
@@ -23,7 +27,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 -4px 37px;
+  margin: 0 0 -4px;
   font-size: 0.9375rem;
   line-height: 1.25rem;
   font-weight: 600;
@@ -69,454 +73,17 @@
   margin-top: 12px;
 }
 
-/* ---------- the timeline ---------- */
-.tl {
-  position: relative;
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  -webkit-touch-callout: none;
-}
-/* the axis line the morning hangs from */
-.tl::before {
-  content: '';
-  position: absolute;
-  left: 43px;
-  top: 18px;
-  bottom: 6px;
-  width: 1px;
-  background: var(--line-strong);
-}
-.tl-axis {
-  position: relative;
-}
-.tl-tick {
-  font-variant-numeric: tabular-nums;
-  position: absolute;
-  top: 0;
-  right: 12px;
-  font-size: 0.625rem;
-  line-height: 0.875rem;
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-/* the alarm, stamped where the morning starts */
-.tl-tick.tl-tick-wake {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.tl-tick.tl-tick-now {
-  font-weight: 700;
-  color: var(--accent-text);
-}
-.tl-blocks {
-  position: relative;
-  min-width: 0;
-}
-
-/* a block: a surface with a 3px bar, positioned by the clock (motion sets y and height) */
-.tl-block,
-.tl-free,
-.tl-sleep {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-}
-.tl-block {
-  --c: var(--ink-4);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 0 12px;
-  border-radius: var(--r-md);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: inset 3px 0 0 var(--c);
-  isolation: isolate;
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    border-color var(--dur-color) var(--ease-out);
-  -webkit-user-select: none;
-  user-select: none;
-}
-.tl-block.k-buffer {
-  background: transparent;
-  border: 1px solid var(--line);
-  box-shadow: none;
-}
-.tl-block.k-buffer .tl-label {
-  font-weight: 500;
-  color: var(--ink-2);
-}
-.tl-block.k-run,
-.tl-block.k-gym {
-  --c: var(--tone, var(--ink-4));
-  z-index: 1;
-  border-color: var(--line-strong);
-}
-.tl-block.k-wake {
-  z-index: 1;
-  cursor: grab;
-}
-.tl-block:focus-visible,
-.tl-grip:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
-}
-.tl-icon {
-  flex: none;
-  color: var(--ink-3);
-}
-.tl-block.lit .tl-icon {
-  color: var(--tone, var(--ink-3));
-}
-.tl-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-.tl-label {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tl-sub {
-  letter-spacing: 0.06em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tl-range {
-  flex: none;
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  color: var(--ink-3);
-  white-space: nowrap;
-  letter-spacing: 0.06em;
-}
-.tl-side {
-  flex: none;
-  display: grid;
-  justify-items: end;
-  gap: 2px;
-}
-.tl-stamp {
-  font-variant-numeric: tabular-nums;
-  font-size: 1.375rem;
-  line-height: 1.5rem;
-  color: var(--ink);
-  white-space: nowrap;
-}
-.tl-stamp small {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  margin-left: 2px;
-  color: rgba(255, 255, 255, 0.7);
-}
-.tl-stamp.tl-alarm {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-}
-/* sizes follow the minutes, so the words follow the size */
-.tl-block.sz-xs {
-  gap: 8px;
-  padding: 0 10px;
-  border-radius: var(--r-sm);
-}
-.tl-block.sz-xs .tl-label {
-  font-size: 0.75rem;
-  line-height: 0.875rem;
-  letter-spacing: 0;
-}
-.tl-block.sz-xs .tl-range {
-  font-size: 0.625rem;
-  line-height: 0.75rem;
-}
-.tl-block.sz-sm .tl-label {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-}
-.tl-block.sz-lg {
-  align-items: flex-start;
-  padding-top: 10px;
-}
-.tl-block.sz-lg .tl-icon {
-  margin-top: 2px;
-}
-.tl-block.sz-lg.lit .tl-stamp {
-  font-size: 1.75rem;
-  line-height: 2rem;
-}
-/* the session is the lit block: its tone rises under it as a faint glow (the day's tint), the number stamped on it */
-.tl-halo {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  background: radial-gradient(80% 110% at 30% 130%, color-mix(in srgb, var(--tone, var(--accent)) 30%, transparent), transparent 70%);
-}
-
-/* past: the bar and the border step back; the words stay readable (ink-2 on black is AA) */
-.tl-block.past {
-  background: transparent;
-  border-color: var(--line);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--c) 40%, transparent);
-}
-.tl-block.past .tl-label,
-.tl-block.past .tl-stamp {
-  color: var(--ink-2);
-}
-.tl-block.past .tl-icon {
-  color: var(--ink-4);
-}
-.tl-block.past .tl-halo {
-  opacity: 0.3;
-}
-
-/* in hand: the lift (brand §9.4: surface-2, a line-strong hairline, no shadow) */
-.tl-block.is-lifted {
-  z-index: 3;
-  cursor: grabbing;
-  background: var(--surface-2);
-  border-color: var(--line-strong);
-}
-.tl-block.is-live,
-.tl-block.is-sizing {
-  border-color: var(--line-strong);
-}
-
-/* ---------- the handles: a tab on the wake block's top edge, one on the session's bottom edge ---------- */
-.tl-grip {
-  position: absolute;
-  left: 50%;
-  width: 48px;
-  height: 22px;
-  margin-left: -24px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-pill);
-  background: var(--surface-3);
-  border: 1px solid var(--line-strong);
-  color: var(--ink-2);
-  z-index: 2;
-  cursor: ns-resize;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  user-select: none;
-}
-/* 22px to the eye, 44px to the thumb */
-.tl-grip::after {
-  content: '';
-  position: absolute;
-  inset: -11px -4px;
-}
-.tl-grip.top {
-  top: -11px;
-}
-.tl-grip.bottom {
-  bottom: -11px;
-}
-.tl-block.is-live .tl-grip,
-.tl-block.is-sizing .tl-grip {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--bg);
-}
-.tl-block.past .tl-grip {
-  color: var(--ink-3);
-}
-/* the live value beside the handle while it moves, and the one-time lesson */
-.tl-bubble {
-  position: absolute;
-  left: calc(50% + 32px);
-  z-index: 4;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--r-pill);
-  background: var(--ink);
-  color: var(--bg);
-  white-space: nowrap;
-  pointer-events: none;
-}
-.tl-bubble.top {
-  top: -16px;
-}
-.tl-bubble.bottom {
-  bottom: -16px;
-}
-.tl-bubble .stamp {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  color: var(--bg);
-}
-.tl-bubble .stamp small {
-  font-size: 0.75rem;
-  margin-left: 2px;
-}
-.tl-bubble .caps {
-  color: rgba(0, 0, 0, 0.62);
-}
-.tl-bubble.hint {
-  align-items: center;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 0.75rem;
-  line-height: 1.125rem;
-  font-weight: 600;
-}
-/* narrow: the bubble keeps to the half beside the grip; the number stays, the words go */
 @media (max-width: 359px) {
-  .tl-bubble .caps {
-    display: none;
-  }
-  .tl-bubble.hint {
-    white-space: normal;
-    max-width: calc(50% - 36px);
-  }
   .m-rel {
     display: none;
   }
 }
-.m-page .pushed-eyebrow {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-/* ---------- free time: left empty, its length written in it ---------- */
-.tl-free {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-}
-.tl-free-label {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.tl-free::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  border-top: 1px dashed var(--line);
-  z-index: -1;
-}
-.tl-free-label {
-  background: var(--bg);
-  padding-right: 8px;
-}
-.tl-free.is-rest::before {
-  display: none;
-}
-/* a rest morning's open stretch is its own card: the word, the halo, one line */
-.tl-rest {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  align-content: end;
-  gap: 4px;
-  padding: 16px;
-  border-radius: var(--r-lg);
-  border: var(--card-border);
-  overflow: hidden;
-  isolation: isolate;
-}
-.tl-rest-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--halo);
-  opacity: 0.45;
-}
-.tl-rest-word {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-}
-.tl-rest-line {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-2);
-  max-width: 30ch;
-}
-.tl-free.past .tl-rest-glow {
-  opacity: 0.2;
-}
-/* sleeping in past the usual alarm: the extra time, quiet, at the top */
-.tl-sleep {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  border-radius: var(--r-md);
-  background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255, 255, 255, 0.03) 6px 12px);
-  color: var(--ink-3);
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 600;
-}
-.tl-sleep span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* ---------- now: the blue line, its dot pulsing on the axis ---------- */
-.tl-now {
-  position: absolute;
-  top: 0;
-  left: 37px;
-  right: 0;
-  height: 12px;
-  z-index: 3;
-  pointer-events: none;
-}
-.tl-now::before {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 0;
-  top: 5px;
-  height: 2px;
-  background: var(--accent-bright);
-  box-shadow: 0 0 10px rgba(91, 102, 255, 0.8);
-}
-.tl-now i {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow:
-    0 0 0 3px rgba(47, 59, 255, 0.25),
-    0 0 12px rgba(91, 102, 255, 0.9);
-}
-
-/* ---------- leave: the endpoint, pinned above the tab bar until the timeline reaches it ---------- */
+/* ---------- leave: the endpoint, where the schedule ends ---------- */
 .m-leave {
-  position: sticky;
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 8px);
-  z-index: 5;
+  position: relative;
   isolation: isolate;
+  margin-top: 8px;
   overflow: hidden;
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) auto;
@@ -526,9 +93,7 @@
   padding: 10px 16px 10px 0;
   border-radius: var(--r-lg);
   border: 1px solid var(--line-strong);
-  background: rgba(0, 0, 0, 0.88);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  background: var(--bg);
   color: var(--ink);
   text-align: left;
   font: inherit;
@@ -603,13 +168,6 @@
   outline-offset: 2px;
 }
 
-/* ---------- skeleton: the timeline's shape ---------- */
-.m-skel {
-  display: grid;
-  gap: 3px;
-  padding: 22px 0 0 48px;
-}
-
 /* ---------- the day editor ---------- */
 .m-ed {
   display: grid;
@@ -677,17 +235,6 @@
 }
 .rt-list {
   display: grid;
-}
-.rt-order {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-}
-.rt-item {
-  position: relative;
-  background: var(--bg);
-  list-style: none;
 }
 .rt-row {
   border-bottom: 1px solid var(--line);
@@ -763,7 +310,6 @@
   color: var(--ink-3);
 }
 .rt-chip:focus-visible,
-.rt-grip:focus-visible,
 .rt-name:focus-visible {
   outline: 2px solid var(--accent-bright);
   outline-offset: 2px;
@@ -774,92 +320,404 @@
 .rt-fine .stepper {
   margin-bottom: 14px;
 }
-.rt-grip {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  margin-left: -12px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  background: none;
-  color: var(--ink-3);
-  cursor: grab;
-  touch-action: none;
+
+/* ---------- the stops at a glance, over the schedule ---------- */
+.m-sum {
+  margin-bottom: 4px;
 }
 
-/* ---------- fix round: targets, the lesson, the rest morning, the pull entrance ---------- */
-/* free time is space, not a control: touches go to the short blocks' slop beside it */
-.tl-free {
-  pointer-events: none;
+/* ---------- the schedule: one row a block, the time it starts on the left, its length on the right ---------- */
+.sch {
+  display: grid;
 }
-/* a block shorter than a thumb keeps its true height and gets a 44px target (Timeline works out the slop) */
-.tl-block.has-slop {
-  z-index: 3;
+.sch-list {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 calc(-1 * var(--page-pad));
+  padding: 0;
+  list-style: none;
 }
-.tl.is-live .tl-block.has-slop {
-  z-index: auto;
+.sch-list > li {
+  position: relative;
 }
-.tl-hit {
-  position: absolute;
-  left: 0;
-  right: 0;
-}
-/* the first-visit lesson: one line, left of the wake grip, on the block's edge, never over the alarm time */
-.tl-hint {
-  position: absolute;
-  top: -13px;
-  right: calc(50% + 30px);
-  z-index: 4;
-  padding: 4px 10px;
-  border-radius: var(--r-pill);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 0.75rem;
-  line-height: 1.125rem;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-}
-@media (max-width: 359px) {
-  .tl-hint {
-    display: none;
-  }
-}
-/* a rest morning's long free stretch, capped: the break on the axis says time was folded */
-.tl-break {
-  position: absolute;
-  top: 0;
-  left: 36px;
-  width: 14px;
-  height: 12px;
+.sch-row {
+  --c: var(--ink-4);
+  position: relative;
+  display: flex;
+  align-items: stretch;
   background: var(--bg);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
-.tl-break::before,
-.tl-break::after {
+/* a hairline between rows, from the name column on */
+.sch-row::before {
   content: '';
   position: absolute;
-  left: 0;
+  top: 0;
+  left: calc(var(--page-pad) + 84px);
   right: 0;
-  height: 1.5px;
-  background: var(--ink-3);
-  transform: rotate(-24deg);
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
 }
-.tl-break::before {
-  top: 3px;
+.sch-list > li:first-child > .sch-row::before,
+.sch-list > .sch-row:first-child::before {
+  display: none;
 }
-.tl-break::after {
-  top: 8px;
+.sch-hit {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 48px 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 8px 12px 8px var(--page-pad);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
-.tl-free.is-squeezed .tl-rest {
+.sch-hit:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.sch-hit:active:not(:disabled) {
+  background: var(--surface);
+}
+.sch-hit:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -2px;
+  border-radius: var(--r-sm);
+}
+.sch-time {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.sch-ico {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.sch-main {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+.sch-name {
+  overflow: hidden;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sch-sub {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sch-len {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* the way out and back: quieter and shorter, so the alarm, the workout and the routine read first */
+.sch-row.k-buffer .sch-hit {
+  min-height: 44px;
+}
+.sch-row.k-buffer .sch-name {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.sch-row.k-buffer .sch-ico {
+  background: none;
+  color: var(--ink-3);
+}
+.sch-row.k-buffer .sch-len {
+  background: none;
+  padding-inline: 0;
+  color: var(--ink-3);
+}
+/* the alarm: its time is the morning's first word */
+.sch-row.k-wake .sch-time {
+  color: var(--ink);
+}
+.sch-row.k-wake .sch-ico {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+/* the workout is the lit row: its tone as a bar and in the icon */
+.sch-row.lit {
+  --c: var(--tone, var(--ink-4));
+}
+.sch-row.lit .sch-hit {
+  min-height: 64px;
+  box-shadow: inset 3px 0 0 var(--c);
+}
+.sch-row.lit .sch-ico {
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: var(--c);
+}
+.sch-row.lit .sch-name {
+  font-size: 1.1875rem;
+  line-height: 1.5rem;
+}
+/* free time: space, said quietly */
+.sch-free .sch-ico {
+  background: none;
+  color: var(--ink-4);
+}
+.sch-free .sch-name {
+  font-family: var(--serif);
+  font-size: 1.1875rem;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+
+/* on today: what is behind you steps back; what is under way fills as it goes */
+.sch-row.past .sch-time,
+.sch-row.past .sch-name,
+.sch-row.past .sch-len {
+  color: var(--ink-3);
+}
+.sch-row.past .sch-ico {
+  opacity: 0.5;
+}
+.sch-row.is-now .sch-time {
+  color: var(--accent-text);
+}
+.sch-progress {
+  position: absolute;
+  left: calc(var(--page-pad) + 84px);
+  right: var(--page-pad);
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.sch-progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent-bright);
+  transform-origin: left center;
+  transition: transform 1s linear;
+}
+
+/* ---------- the routine: hold and drag ---------- */
+.sch-head {
+  margin-top: 20px;
+}
+.sch-start {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.sch-start:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+.sch-step .sch-hit {
+  padding-right: 4px;
+}
+.sch-grip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  margin-right: calc(var(--page-pad) - 12px);
+  border: 0;
+  background: none;
+  color: var(--ink-4);
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.sch-grip:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -6px;
+  border-radius: var(--r-sm);
+  color: var(--ink);
+}
+/* in hand (brand §9.4): surface-2, a line-strong hairline, rounded, no shadow; the list behind it stays put */
+.sch-step.is-lifted {
+  z-index: 3;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  cursor: grabbing;
+}
+.sch-step.is-lifted::before,
+.sch-step.is-lifted + .sch-step::before,
+.sch-step.is-settling + .sch-step::before {
+  display: none;
+}
+.sch-step.is-lifted .sch-grip {
+  color: var(--ink);
+}
+.sch-step.is-lifted .sch-hit:active {
+  background: none;
+}
+.sch-routine.is-dragging .sch-hit {
+  pointer-events: none;
+}
+
+.sch-add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  margin: 0 calc(-1 * var(--page-pad));
+  padding: 0 var(--page-pad) 0 calc(var(--page-pad) + 56px);
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.sch-add:active {
+  background: var(--surface);
+}
+.sch-add:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -2px;
+}
+.sch-add-ico {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: -40px;
+  border-radius: 50%;
+  border: 1px dashed var(--accent-text);
+}
+.sch-empty,
+.sch-hint {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+}
+.sch-empty {
+  padding: 8px 0 12px 84px;
+}
+.sch-hint {
+  margin: 6px 0 4px 84px;
+}
+@media (max-width: 359px) {
+  .sch-hit {
+    grid-template-columns: 42px 24px minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .sch-ico {
+    width: 24px;
+    height: 24px;
+  }
+  .sch-row::before,
+  .sch-progress {
+    left: calc(var(--page-pad) + 72px);
+  }
+  .sch-hint,
+  .sch-empty {
+    margin-left: 72px;
+  }
+}
+
+/* ---------- skeleton: the schedule's shape ---------- */
+.m-skel {
+  display: grid;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+/* ---------- the schedule's editors ---------- */
+.se {
+  display: grid;
+  gap: 20px;
+}
+.se-field {
+  display: grid;
+  gap: 8px;
+}
+.se-name {
+  font-size: 1.1875rem;
+  font-weight: 600;
+}
+.se-length {
+  display: grid;
+  gap: 10px;
+}
+.se-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.se-ideas {
+  margin-top: -8px;
+}
+.se-hint,
+.se-note {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+}
+.se-note {
+  color: var(--warn);
+}
+.se-leave {
   padding: 12px 14px;
-  gap: 2px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
 }
-.tl-free.is-squeezed .tl-rest-word {
-  font-size: 2.25rem;
-  line-height: 2.375rem;
+.se-leave .stamp {
+  color: var(--ink);
+  font-size: 1.0625rem;
 }
-/* opened by pulling the Today hero down: the frame's sideways slide is held still while the page drops in */
-html[data-morning-enter='pull'] .pushed-page {
-  transform: none !important;
+.se-leave .later {
+  color: var(--warn);
+}
+.se-leave .sooner {
+  color: var(--accent-text);
 }

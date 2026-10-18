@@ -39,7 +39,7 @@ export const MiniLine = ({ T, now, bar, className = '' }: { T: MorningTimeline; 
           ? T.blocks.map((b, i) =>
               b.key === 'free' ? null : (
                 <motion.i
-                  key={`${b.key}-${b.key === 'buffer' ? i : ''}`}
+                  key={b.id ?? `${b.key}-${b.key === 'buffer' ? i : ''}`}
                   className={`mini-seg k-${b.key} ${b.tone ? `t-${b.tone}` : ''}`}
                   initial={false}
                   animate={{ left: `${((b.start - T.day.wake) / span) * 100}%`, width: `${(b.mins / span) * 100}%` }}

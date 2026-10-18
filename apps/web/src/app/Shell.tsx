@@ -173,8 +173,8 @@ const PullToRefresh = ({ enabled }: { enabled: boolean }) => {
 };
 
 /**
- * The frame: four tabs (Today · Plan · Progress · Journal) as a bottom bar on phones and a rail on wide screens. A pushed
- * page (Morning, Reads, Settings) keeps its owning tab lit. A tap on another tab is an instant cut (the page fades in over
+ * The frame: five tabs (Today · Morning · Plan · Progress · Journal) as a bottom bar on phones and a rail on wide screens. A
+ * pushed page (Reads, Settings) keeps its owning tab lit. A tap on another tab is an instant cut (the page fades in over
  * 120ms, see App.tsx) with `haptics.select()`; a tap on the lit tab scrolls to the top, and from the top goes to the tab's
  * root (today, this week), then tells the page with a `logbook:tab-reselect` event.
  */

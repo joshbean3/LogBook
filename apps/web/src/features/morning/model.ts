@@ -1,9 +1,9 @@
-import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, NEW_ACCOUNT_MORNING, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
+import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, NEW_ACCOUNT_MORNING, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type Session } from '@logbook/shared';
 import { useEffect, useState } from 'react';
 
 /**
  * The Morning page's pure model: the timeline for a day (the routine's block order is a setting `buildMorning` honours), the
- * clock (with a dev override), and the one per-device preference the page keeps (the one-time grip lesson).
+ * clock (with a dev override), and the one per-device preference the page keeps (the reorder lesson).
  */
 
 // ---------- time words ----------
@@ -15,6 +15,11 @@ export const timeParts = (m: number) => {
 /** "7:20" without the meridiem (a morning is all AM; the axis and the stamps say so once). */
 export const short = (m: number) => timeParts(m).v;
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/** The alarm's range, and the step every alarm control moves in. */
+export const WAKE_MIN = 240;
+export const WAKE_MAX = 720;
+export const WAKE_STEP = 5;
 
 // ---------- the routine order: the back-home blocks, in the athlete's order ----------
 /*
@@ -48,7 +53,7 @@ export const blockLabel = (T: Pick<MorningTimeline, 'settings' | 'blocks'>, b: {
 export const ROUTINE_DEFAULTS: MorningSettings = NEW_ACCOUNT_MORNING;
 
 /** An order an earlier build kept on this device (`logbook.morning.order`): read once and forgotten, so it can go to the server. */
-export const takeLegacyOrder = (): AfterKey[] | null => {
+export const takeLegacyOrder = (): RoutineKey[] | null => {
   try {
     const raw = localStorage.getItem('logbook.morning.order');
     if (raw == null) return null;
@@ -114,8 +119,8 @@ export const useNowMinutes = () => {
   return m;
 };
 
-// ---------- the one-time lesson: the wake grip nudges on the first visit ----------
-const TAUGHT_KEY = 'logbook.morning.taught';
+// ---------- the lesson: "Hold a step to move it" shows under the routine until the first step is moved ----------
+const TAUGHT_KEY = 'logbook.morning.moved';
 export const wasTaught = () => {
   try {
     return localStorage.getItem(TAUGHT_KEY) === '1';
@@ -127,6 +132,6 @@ export const markTaught = () => {
   try {
     localStorage.setItem(TAUGHT_KEY, '1');
   } catch {
-    /* fine: the nudge may come once more */
+    /* fine: the line may show once more */
   }
 };

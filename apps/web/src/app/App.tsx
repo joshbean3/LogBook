@@ -118,14 +118,7 @@ const Framed = () => (
             <Route path="/progress" element={<TrendsView />} />
             <Route path="/trends" element={<Navigate to="/progress" replace />} />
             <Route path="/journal/:tab?" element={<JournalView />} />
-            <Route
-              path="/morning/:date?"
-              element={
-                <PushedPage>
-                  <MorningView />
-                </PushedPage>
-              }
-            />
+            <Route path="/morning/:date?" element={<MorningView />} />
             <Route
               path="/reads/:tab?"
               element={

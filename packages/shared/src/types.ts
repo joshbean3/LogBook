@@ -149,6 +149,16 @@ export const QUOTE_THEMES = ['Living', 'The mind', 'Time', 'Acceptance', 'Self-r
 export type MorningMode = 'run' | 'gym' | 'rest';
 /** The four back-home blocks of the morning routine, which the athlete can put in any order. */
 export type MorningAfterKey = 'shower' | 'ready' | 'smoothie' | 'prep';
+/** A step the athlete added to the back-home routine ("Walk the dog"): its id starts `s_`. */
+export type MorningStepId = `s_${string}`;
+/** A slot in the back-home order: one of the four built-in blocks, or a step of the athlete's own. */
+export type RoutineKey = MorningAfterKey | MorningStepId;
+export interface MorningStep {
+  id: MorningStepId;
+  name: string;
+  /** minutes, 1 to 180 */
+  mins: number;
+}
 export interface MorningSettings {
   /** minutes after midnight */
   wake: number;
@@ -156,7 +166,8 @@ export interface MorningSettings {
   gym: { length: number; walk: number; wakeup: number };
   /**
    * Back home: the routine starts at `showerAt` (fixed) or straight after the workout, and runs its four blocks in `order`
-   * (each key once; default shower, get ready, smoothie, final prep). The leave time is the end of the last block either way.
+   * (each key once; default shower, get ready, smoothie, final prep), with the athlete's own `steps` slotted in among them.
+   * The leave time is the end of the last block either way.
    */
   after: {
     showerMode: 'fixed' | 'after';
@@ -165,7 +176,9 @@ export interface MorningSettings {
     ready: number;
     smoothie: number;
     prep: number;
-    order: MorningAfterKey[];
+    order: RoutineKey[];
+    /** Steps of the athlete's own, placed by their id in `order` (at most MAX_STEPS). */
+    steps?: MorningStep[];
     /** The athlete's own names for the blocks (onboarding names the smoothie slot "Breakfast" or "Coffee" from its chips); `afterLabel` falls back to AFTER_LABELS. */
     names?: Partial<Record<MorningAfterKey, string>>;
   };

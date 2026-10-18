@@ -25,12 +25,12 @@ The bar: someone opens Logbook at 6:30am and at 9pm and in under two seconds see
 
 ## 2. Navigation
 
-**Tab bar: Today · Plan · Progress · Journal.** Four tabs. Icons: Sun, CalendarDays, Activity, BookOpen.
+**Tab bar: Today · Morning · Plan · Progress · Journal.** Five tabs. Icons: Sun, AlarmClock, CalendarDays, Activity, BookOpen.
 
 | Route | What | Reached from |
 |---|---|---|
 | `/today/:date?` | Today (time-aware) | Tab |
-| `/morning/:date?` | Morning timeline, full screen, **pushed** (back chevron), no tab | Today hero, pull down on hero |
+| `/morning/:date?` | Morning: the schedule from the alarm to the door. The routine's steps hold-and-drag into order, tap to edit, add your own | Tab; Today hero, pull down on hero |
 | `/plan/:view?/:date?` | Plan: week agenda; `month` zoom; `plans` | Tab |
 | `/progress` | Progress (was Trends). `/trends` redirects here | Tab |
 | `/journal/:tab?` | Journal. `tab` = `library` (quotes + reads) | Tab |

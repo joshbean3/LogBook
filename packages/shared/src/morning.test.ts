@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AFTER_ORDER, buildMorning, MORNING_DEFAULTS, morningDayFor, normalizeAfterOrder, normalizeMorningSettings } from './morning.js';
+import { AFTER_ORDER, buildMorning, isStepId, MORNING_DEFAULTS, morningDayFor, newStepId, normalizeAfterOrder, normalizeMorningSettings, normalizeSteps, routineOf } from './morning.js';
 import { zMorningSettingsPatch, zTrainingPatch, zTrainingProfile } from './schemas.js';
 import type { MorningSettings } from './types.js';
 
@@ -48,6 +48,55 @@ describe('the back-home order (after.order)', () => {
     expect(zMorningSettingsPatch.safeParse({ after: { order: ['prep', 'prep', 'shower', 'smoothie'] } }).success).toBe(false);
     expect(zMorningSettingsPatch.safeParse({ after: { order: ['prep', 'shower', 'smoothie'] } }).success).toBe(false);
     expect(zMorningSettingsPatch.safeParse({ after: { order: ['prep', 'nap', 'shower', 'smoothie'] } }).success).toBe(false);
+  });
+});
+
+describe('steps of your own (after.steps)', () => {
+  const base = normalizeMorningSettings(MORNING_DEFAULTS);
+  const dog = { id: 's_dog001', name: 'Walk the dog', mins: 10 } as const;
+  const withDog = (order: string[]) => normalizeMorningSettings({ ...base, after: { ...base.after, steps: [dog], order } });
+  const rest = morningDayFor([], { mode: 'rest', type: 'Rest' }, base);
+
+  it('a step sits where its id is in the order, and the leave time grows by its length', () => {
+    const before = buildMorning(rest, base);
+    const T = buildMorning(rest, withDog(['shower', 's_dog001', 'ready', 'smoothie', 'prep']));
+    const keys = T.blocks.filter((b) => b.key !== 'wake' && b.key !== 'free').map((b) => b.id);
+    expect(keys).toEqual(['shower', 's_dog001', 'ready', 'smoothie', 'prep']);
+    expect(T.blocks.find((b) => b.id === 's_dog001')).toMatchObject({ key: 'step', label: 'Walk the dog', mins: 10 });
+    expect(T.leave - before.leave).toBe(10);
+    expect(T.onTime! - before.onTime!).toBe(10);
+  });
+
+  it('a step missing from the order goes last; an id with no step behind it is dropped', () => {
+    expect(withDog(['prep', 'ready', 'shower', 'smoothie']).after.order).toEqual(['prep', 'ready', 'shower', 'smoothie', 's_dog001']);
+    expect(normalizeAfterOrder(['s_ghost1', 'ready'], [])).toEqual(['ready', 'shower', 'smoothie', 'prep']);
+  });
+
+  it('routineOf lists what is on the timeline: a built-in block at 0 minutes is off', () => {
+    const st = withDog(['s_dog001', 'shower', 'ready', 'smoothie', 'prep']);
+    const off = { ...st, after: { ...st.after, smoothie: 0 } };
+    expect(routineOf(off).map((r) => [r.key, r.builtin])).toEqual([
+      ['s_dog001', false],
+      ['shower', true],
+      ['ready', true],
+      ['prep', true],
+    ]);
+  });
+
+  it('stored steps are cleaned: bad ids, empty names, zero minutes and repeats go; minutes are capped', () => {
+    expect(normalizeSteps([dog, dog, { id: 'nope', name: 'x', mins: 5 }, { id: 's_empty1', name: ' ', mins: 5 }, { id: 's_zero01', name: 'Z', mins: 0 }, { id: 's_long01', name: 'Long', mins: 999 }])).toEqual([dog, { id: 's_long01', name: 'Long', mins: 180 }]);
+    expect(normalizeMorningSettings(base).after.steps).toBeUndefined();
+  });
+
+  it('the settings patch takes steps and an order that places them', () => {
+    expect(zMorningSettingsPatch.safeParse({ after: { steps: [dog], order: ['shower', 's_dog001', 'ready', 'smoothie', 'prep'] } }).success).toBe(true);
+    expect(zMorningSettingsPatch.safeParse({ after: { steps: [{ ...dog, mins: 0 }] } }).success).toBe(false);
+    expect(zMorningSettingsPatch.safeParse({ after: { steps: [dog, dog] } }).success).toBe(false);
+    expect(zMorningSettingsPatch.safeParse({ after: { order: ['shower', 'S_DOG', 'ready', 'smoothie', 'prep'] } }).success).toBe(false);
+  });
+
+  it('a new step id is well formed', () => {
+    expect(isStepId(newStepId())).toBe(true);
   });
 });
 

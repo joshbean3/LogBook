@@ -511,7 +511,7 @@ export default function UiGallery() {
             ['/progress', 'Progress (tab)'],
             ['/trends', '/trends redirects to Progress'],
             ['/journal', 'Journal (tab)'],
-            ['/morning', 'Morning (pushed, Today stays lit)'],
+            ['/morning', 'Morning (a tab)'],
             ['/reads', 'Reads (pushed, Journal stays lit)'],
             ['/settings', 'Settings (pushed, avatar ring)'],
             ['/welcome', 'Welcome (first run, full screen)'],

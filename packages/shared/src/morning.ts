@@ -1,16 +1,47 @@
 import { clock, num, type ISODate } from './dates.js';
 import { label, tone, TYPES } from './sessions.js';
-import type { MorningAfterKey, MorningDayOverride, MorningMode, MorningSettings, Session, Tone } from './types.js';
+import type { MorningAfterKey, MorningDayOverride, MorningMode, MorningSettings, MorningStep, MorningStepId, RoutineKey, Session, Tone } from './types.js';
 
 /** The back-home blocks in their default order, and their names on the timeline. */
 export const AFTER_ORDER: readonly MorningAfterKey[] = ['shower', 'ready', 'smoothie', 'prep'];
 export const AFTER_LABELS: Record<MorningAfterKey, string> = { shower: 'Shower', ready: 'Get ready', smoothie: 'Blend smoothie', prep: 'Final prep' };
 
-/** Any stored order made whole: known keys once each, in the order given, then whatever is missing in the default order. */
-export const normalizeAfterOrder = (raw: unknown): MorningAfterKey[] => {
-  const given = Array.isArray(raw) ? raw.filter((k): k is MorningAfterKey => AFTER_ORDER.includes(k as MorningAfterKey)) : [];
+/** The most steps of their own an athlete can add, and the bounds on each. */
+export const MAX_STEPS = 12;
+export const STEP_NAME_MAX = 30;
+export const STEP_MINS_MAX = 180;
+const STEP_ID = /^s_[a-z0-9]{4,16}$/;
+export const isStepId = (k: unknown): k is MorningStepId => typeof k === 'string' && STEP_ID.test(k);
+export const isAfterKey = (k: unknown): k is MorningAfterKey => AFTER_ORDER.includes(k as MorningAfterKey);
+/** A fresh id for a step of the athlete's own. */
+export const newStepId = (): MorningStepId => `s_${Math.random().toString(36).slice(2, 10).padEnd(6, '0')}`;
+
+/** Stored steps made safe: well-formed ids once each, a name, whole minutes in range, at most MAX_STEPS. */
+export const normalizeSteps = (raw: unknown): MorningStep[] => {
+  if (!Array.isArray(raw)) return [];
+  const out: MorningStep[] = [];
+  for (const x of raw) {
+    if (!x || typeof x !== 'object') continue;
+    const { id, name, mins } = x as Record<string, unknown>;
+    const nm = typeof name === 'string' ? name.trim().slice(0, STEP_NAME_MAX) : '';
+    if (!isStepId(id) || !nm || out.some((s) => s.id === id)) continue;
+    const m = typeof mins === 'number' && Number.isFinite(mins) ? Math.round(mins) : 0;
+    if (m < 1) continue;
+    out.push({ id, name: nm, mins: Math.min(STEP_MINS_MAX, m) });
+    if (out.length >= MAX_STEPS) break;
+  }
+  return out;
+};
+
+/**
+ * Any stored order made whole: known keys once each, in the order given, then whatever is missing (the built-in blocks in
+ * the default order, then the athlete's steps in the order they were added). A step id with no step behind it is dropped.
+ */
+export const normalizeAfterOrder = (raw: unknown, steps: readonly MorningStep[] = []): RoutineKey[] => {
+  const ids = new Set<string>(steps.map((s) => s.id));
+  const given = Array.isArray(raw) ? raw.filter((k): k is RoutineKey => isAfterKey(k) || (isStepId(k) && ids.has(k))) : [];
   const seen = [...new Set(given)];
-  return [...seen, ...AFTER_ORDER.filter((k) => !seen.includes(k))];
+  return [...seen, ...AFTER_ORDER.filter((k) => !seen.includes(k)), ...steps.map((s) => s.id).filter((k) => !seen.includes(k))];
 };
 
 /** The sheet's numbers: alarm 7:20, run at 7:40 at 9:00/mi, gym after a 10-minute walk, shower 8:40, door 9:30. */
@@ -62,6 +93,7 @@ const n = (v: unknown, d: number): number => (typeof v === 'number' && Number.is
 export const normalizeMorningSettings = (raw: unknown): MorningSettings => {
   const s = (raw && typeof raw === 'object' ? raw : {}) as Record<string, any>;
   const D = MORNING_DEFAULTS;
+  const steps = normalizeSteps(s.after?.steps);
   return {
     wake: n(s.wake, D.wake),
     run: { pace: n(s.run?.pace, D.run.pace), wakeup: n(s.run?.wakeup, D.run.wakeup), buffer: n(s.run?.buffer, D.run.buffer) },
@@ -73,8 +105,9 @@ export const normalizeMorningSettings = (raw: unknown): MorningSettings => {
       ready: n(s.after?.ready, D.after.ready),
       smoothie: n(s.after?.smoothie, D.after.smoothie),
       prep: n(s.after?.prep, D.after.prep),
-      order: normalizeAfterOrder(s.after?.order),
+      order: normalizeAfterOrder(s.after?.order, steps),
       ...(namesOf(s.after?.names) ? { names: namesOf(s.after?.names) } : {}),
+      ...(steps.length ? { steps } : {}),
     },
     focus: { word: String(s.focus?.word ?? ''), quote: String(s.focus?.quote ?? ''), by: String(s.focus?.by ?? '') },
   };
@@ -138,9 +171,11 @@ export const morningDayFor = (sessions: Session[], override: Partial<MorningDayO
   };
 };
 
-export type BlockKey = 'wake' | 'buffer' | 'run' | 'gym' | 'free' | 'shower' | 'ready' | 'smoothie' | 'prep';
+export type BlockKey = 'wake' | 'buffer' | 'run' | 'gym' | 'free' | 'shower' | 'ready' | 'smoothie' | 'prep' | 'step';
 export interface TimelineBlock {
   key: BlockKey;
+  /** A back-home block's slot in `after.order`: the built-in key, or the id of the athlete's own step. */
+  id?: RoutineKey;
   label: string;
   start: number;
   end: number;
@@ -158,6 +193,30 @@ export interface MorningTimeline {
   onTime: number | null;
   fix: { latestWake: number; maxMiles: number | null } | null;
 }
+
+/** One step of the back-home routine as the schedule shows it. */
+export interface RoutineStep {
+  key: RoutineKey;
+  name: string;
+  mins: number;
+  /** One of the four built-in blocks (removing it sets it to 0 minutes) rather than a step of the athlete's own. */
+  builtin: boolean;
+}
+/** The back-home routine in order: the blocks on the timeline (a built-in block at 0 minutes is off, so not here). */
+export const routineOf = (st: MorningSettings): RoutineStep[] => {
+  const A = st.after;
+  const steps = A.steps ?? [];
+  const out: RoutineStep[] = [];
+  for (const k of normalizeAfterOrder(A.order, steps)) {
+    if (isAfterKey(k)) {
+      if (A[k] > 0) out.push({ key: k, name: afterLabel(st, k), mins: A[k], builtin: true });
+    } else {
+      const s = steps.find((x) => x.id === k);
+      if (s) out.push({ key: k, name: s.name, mins: s.mins, builtin: false });
+    }
+  }
+  return out;
+};
 
 /** The whole morning, from the alarm to the front door, as timed blocks. */
 export const buildMorning = (day: MorningDay, st: MorningSettings): MorningTimeline => {
@@ -191,10 +250,7 @@ export const buildMorning = (day: MorningDay, st: MorningSettings): MorningTimel
   const late = fixed && !rest ? Math.max(0, t - A.showerAt) : 0;
   if (showerAt > t) add('free', 'Free', showerAt - t);
   // the back-home routine, in the athlete's order (a block set to 0, like a new account's shower and smoothie, is skipped)
-  for (const k of normalizeAfterOrder(A.order)) {
-    if (!(A[k] > 0)) continue;
-    add(k, afterLabel(st, k), A[k]);
-  }
+  for (const r of routineOf(st)) add(r.builtin ? (r.key as MorningAfterKey) : 'step', r.name, r.mins, { id: r.key });
   const leave = t;
   let fix: MorningTimeline['fix'] = null;
   if (late) {
@@ -206,7 +262,7 @@ export const buildMorning = (day: MorningDay, st: MorningSettings): MorningTimel
     }
     fix = { latestWake: A.showerAt - before, maxMiles };
   }
-  return { day, settings: st, blocks, back, leave, late, fix, onTime: fixed ? A.showerAt + A.shower + A.ready + (A.smoothie || 0) + A.prep : null };
+  return { day, settings: st, blocks, back, leave, late, fix, onTime: fixed ? A.showerAt + routineOf(st).reduce((m, r) => m + r.mins, 0) : null };
 };
 
 export const parsePace = (v: string): number | null => {

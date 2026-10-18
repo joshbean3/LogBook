@@ -354,6 +354,24 @@ describe('PATCH /morning/settings after.order', () => {
   });
 });
 
+describe('PATCH /morning/settings after.steps', () => {
+  it('keeps steps of your own in the order; removing one drops its slot', async () => {
+    const { cookie } = await signUp('steps@example.com', 'password123', '/api/auth/setup');
+    const dog = { id: 's_dog001', name: 'Walk the dog', mins: 15 };
+    const r = await call('PATCH', '/api/morning/settings', { after: { steps: [dog], order: ['shower', 's_dog001', 'ready', 'smoothie', 'prep'] } }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body.after).toMatchObject({ steps: [dog], order: ['shower', 's_dog001', 'ready', 'smoothie', 'prep'] });
+    // a patch of another field keeps both
+    await call('PATCH', '/api/morning/settings', { after: { ready: 20 } }, cookie);
+    expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.morningSettings.after).toMatchObject({ ready: 20, steps: [dog] });
+    // the step goes; an order still naming it is cleaned on the way in
+    const gone = await call('PATCH', '/api/morning/settings', { after: { steps: [] } }, cookie);
+    expect(gone.body.after.order).toEqual(['shower', 'ready', 'smoothie', 'prep']);
+    expect(gone.body.after.steps).toBeUndefined();
+    expect((await call('PATCH', '/api/morning/settings', { after: { steps: [{ ...dog, mins: 0 }] } }, cookie)).status).toBe(422);
+  });
+});
+
 describe('POST /plans/apply with replace', () => {
   it('soft-deletes only what was planned; marked sessions are history and stay', async () => {
     const { cookie } = await signUp('apply@example.com', 'password123', '/api/auth/setup');
