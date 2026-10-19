@@ -1,5 +1,5 @@
 import { eachDay, monthsBetween, shiftDays, today, zCoachRequest, zPlanApply, zPlanDraftRequest, zPlanMode, type Session } from '@logbook/shared';
-import { and, eq, gte, isNull, lte } from 'drizzle-orm';
+import { and, eq, gt, gte, isNull, lte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AuthEnv } from '../auth.js';
@@ -78,10 +78,21 @@ export const aiRoutes = (db: DB) => {
   /** Write a draft into the calendar. `replace` clears the date range first; `add` keeps what is there. */
   r.post('/plans/apply', async (c) => {
     const userId = uidOf(c);
-    const { draft, mode, source } = await parseBody(c.req.raw, zPlanApply);
+    const { draft, mode, source, only } = await parseBody(c.req.raw, zPlanApply);
     const blockId = uid('b');
     const now = nowISO();
     db.transaction((tx) => {
+      // a plan that stops at its end: nothing planned after it, and no other block running over it
+      if (only) {
+        tx.update(trainingSessions)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(and(eq(trainingSessions.userId, userId), gt(trainingSessions.date, draft.end), isNull(trainingSessions.mark), isNull(trainingSessions.deletedAt)))
+          .run();
+        for (const b of tx.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), isNull(planBlocks.deletedAt), gte(planBlocks.end, draft.start))).all()) {
+          if (b.start < draft.start) tx.update(planBlocks).set({ end: shiftDays(draft.start, -1) }).where(eq(planBlocks.id, b.id)).run();
+          else tx.update(planBlocks).set({ deletedAt: now }).where(eq(planBlocks.id, b.id)).run();
+        }
+      }
       // replace clears what was only planned; anything already marked (done, floor, skipped, sick) is history and stays
       if (mode === 'replace')
         tx.update(trainingSessions)

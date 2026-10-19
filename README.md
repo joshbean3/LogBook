@@ -129,6 +129,12 @@ First time:
 
 Every update after that: `git pull && pnpm install && fly deploy && pnpm ios`, then press Play in Xcode. Deploy before you run the app: it talks to the server, so new features need the new server.
 
+### Load a plan from a file
+
+`pnpm plan:load` puts `plans/2026-10-banking-plan.json` (Oct 19 to Nov 8) on your calendar. It asks for your Logbook email and password, replaces what was only planned on those dates, and stops on the plan's last day: anything planned after it is cleared, and an older block ends the day before. Runs you already marked are never touched. Another file: `pnpm plan:load plans/<file>.json`. Another server: `LOGBOOK_URL=https://… pnpm plan:load`.
+
+When a plan runs out, Today says so (from three days before its end) with a Next block button.
+
 Note: with a free Apple ID the app must be reinstalled from Xcode every 7 days. A paid Apple Developer account ($99/yr) lifts that to a year and unlocks TestFlight, where it installs like any App Store app.
 
 The app signs in against `VITE_API_ORIGIN` (default `https://josh-logbook.fly.dev`). Change it with `VITE_API_ORIGIN=https://your-server pnpm --filter @logbook/web build`.

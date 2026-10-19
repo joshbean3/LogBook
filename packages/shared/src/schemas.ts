@@ -152,6 +152,11 @@ export const zPlanApply = z.object({
   draft: zPlanDraft,
   mode: z.enum(['replace', 'add']),
   source: zPlanMode.or(z.literal('chat')).optional(),
+  /**
+   * The plan stops at its last day: anything only planned after it is cleared, and a block still running past its start
+   * ends the day before (one that starts inside it or later goes). Marked sessions are history and always stay.
+   */
+  only: z.boolean().optional(),
 });
 
 /** The shape Claude is asked to produce. Kept loose; cleaned server-side. */

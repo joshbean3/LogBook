@@ -392,4 +392,21 @@ describe('POST /plans/apply with replace', () => {
     expect(added.deleted_at).toBeNull();
     expect(added.position).toBeGreaterThan(kept.position);
   });
+
+  it('with only, the plan stops at its end: later planned sessions go, an older block ends the day before', async () => {
+    const { cookie } = await signUp('only@example.com', 'password123', '/api/auth/setup');
+    const t = today();
+    const old = { name: 'Old block', summary: '', notes: [], start: shiftDays(t, -10), end: shiftDays(t, 40), sessions: [shiftDays(t, -3), shiftDays(t, 5), shiftDays(t, 30)].map((date) => ({ date, kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null })) };
+    const prior = (await call('POST', '/api/plans/apply', { draft: old, mode: 'add' }, cookie)).body.block.id as string;
+    const later = sqlite.prepare('select id from training_sessions where date = ?').get(shiftDays(t, 30)) as { id: string };
+    const draft = { name: 'Banking', summary: '', notes: [], start: t, end: shiftDays(t, 20), sessions: [{ date: shiftDays(t, 1), kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null }] };
+    expect((await call('POST', '/api/plans/apply', { draft, mode: 'replace', only: true }, cookie)).status).toBe(201);
+    const live = (d: string) => sqlite.prepare('select count(*) n from training_sessions where date = ? and deleted_at is null').get(d) as { n: number };
+    expect(live(shiftDays(t, -3)).n).toBe(1);
+    expect(live(shiftDays(t, 5)).n).toBe(0);
+    expect(live(shiftDays(t, 30)).n).toBe(0);
+    expect((sqlite.prepare('select deleted_at from training_sessions where id = ?').get(later.id) as { deleted_at: string | null }).deleted_at).not.toBeNull();
+    const b = sqlite.prepare('select "end", deleted_at from plan_blocks where id = ?').get(prior) as { end: string; deleted_at: string | null };
+    expect(b).toEqual({ end: shiftDays(t, -1), deleted_at: null });
+  });
 });

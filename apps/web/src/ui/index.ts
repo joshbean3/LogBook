@@ -16,6 +16,7 @@ export { TabHeader, PushedHeader, BackButton, dateLine, usePushedBack, type TabH
 export { PushedPage, usePushedFrame, EDGE_SWIPE_COMMIT, EDGE_SWIPE_PX, EDGE_SWIPE_VELOCITY } from './PushedPage';
 export { Avatar, useInitial, type AvatarProps } from './Avatar';
 export { DatePager, type DatePagerProps } from './DatePager';
+export { DayStepper, dayCaption } from './DayStepper';
 export { SheetProvider, shared, useSheet, useSheetDepth, type SheetApi, type SheetSpec } from './Sheet';
 export { ToastProvider, useToast } from './Toast';
 export { useLongPress, LONG_PRESS_MS, LONG_PRESS_SLOP, type LongPressInfo } from './useLongPress';

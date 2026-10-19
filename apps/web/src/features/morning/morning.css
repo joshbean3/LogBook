@@ -73,11 +73,6 @@
   margin-top: 12px;
 }
 
-@media (max-width: 359px) {
-  .m-rel {
-    display: none;
-  }
-}
 
 /* ---------- leave: the endpoint, where the schedule ends ---------- */
 .m-leave {
@@ -720,4 +715,24 @@
 }
 .se-leave .sooner {
   color: var(--accent-text);
+}
+
+/* the timings every morning shares: a quiet link at the foot of the page */
+.m-timings {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+.m-timings:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
 }

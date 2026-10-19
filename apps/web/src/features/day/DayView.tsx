@@ -1,7 +1,7 @@
 import { EVENING_START, fmtDate, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ChipButton, DatePager, dateLine, Skeleton, SkeletonGroup, TabHeader, useSheet } from '@/ui';
+import { DatePager, DayStepper, dayCaption, Skeleton, SkeletonGroup, TabHeader, useSheet } from '@/ui';
 import { OrbRow } from '../habits/OrbRow';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { useLog } from '../log/useLog';
@@ -11,6 +11,7 @@ import { CloseDay } from './CloseDay';
 import { FocusStrip } from './FocusStrip';
 import { dayTitleWord } from './dayWords';
 import { Hero, phaseOf } from './Hero';
+import { PlanEnd } from './PlanEnd';
 import { SetupCard } from './SetupCard';
 import { useNowMinutes } from './useNow';
 import { useStravaPull } from './useStravaPull';
@@ -70,17 +71,11 @@ export default function DayView() {
       <FocusStrip />
       <TabHeader
         title={loaded && !setup ? dayTitleWord(ph, runs) : 'Today'}
-        date={dateLine(date)}
+        date={dayCaption(date, t)}
         onDatePress={openCalendar}
         onDateStep={(d) => go(shiftDays(date, d))}
         dateLabel={`${fmtDate('long', date)}. Pick a day`}
-        accessory={
-          !isToday ? (
-            <ChipButton quiet className="today-chip" onClick={() => go(t)}>
-              Today
-            </ChipButton>
-          ) : null
-        }
+        accessory={<DayStepper date={date} today={t} onGo={go} />}
       />
       {!loaded ? (
         <TodaySkeleton />
@@ -89,6 +84,7 @@ export default function DayView() {
       ) : (
         <DatePager className="hero-pager" date={date} onChange={go} disabled={multi} label="Day" prevLabel="Previous day" nextLabel="Next day" render={(d) => <Hero date={d} log={log} minutes={minutes} live={d === date} />} />
       )}
+      {loaded && !setup ? <PlanEnd log={log} date={date} today={t} /> : null}
       {/* after first run (and until Later): "See your runs land here", under the hero; the setup card has its own Strava step */}
       {loaded && isToday && !setup && primer.show ? <StravaPrimer className="today-primer" onLater={primer.later} /> : null}
       {loaded && showHabits && !(setup && !log.habits.length) ? <OrbRow date={date} log={log} quiet={isToday && minutes >= EVENING_START} /> : null}

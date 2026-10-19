@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Logbook: a personal training, habits and journal app. PWA + API.",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "pnpm -r --parallel --filter ./apps/* dev",
     "build": "pnpm --filter @logbook/shared build && pnpm --filter @logbook/web build && pnpm --filter @logbook/api build",
@@ -13,6 +15,7 @@
     "start": "node apps/api/dist/index.js",
     "db:migrate": "pnpm --filter @logbook/api db:migrate",
     "db:generate": "pnpm --filter @logbook/api db:generate",
-    "ios": "pnpm --filter @logbook/shared build && pnpm --filter @logbook/web build && cd apps/web && npx cap sync ios && npx cap open ios"
+    "ios": "pnpm --filter @logbook/shared build && pnpm --filter @logbook/web build && cd apps/web && npx cap sync ios && npx cap open ios",
+    "plan:load": "node scripts/load-plan.mjs"
   }
 }

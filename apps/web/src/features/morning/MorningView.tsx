@@ -1,4 +1,4 @@
-import { AFTER_ORDER, durationWords, fmtDate, label, monthOf, num, relativeDay, routineOf, shiftDays, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
+import { AFTER_ORDER, durationWords, fmtDate, label, monthOf, num, routineOf, shiftDays, type MorningSettings, type MorningTimeline, type Session } from '@logbook/shared';
 import { Briefcase, SlidersHorizontal } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -6,7 +6,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
-import { ChipButton, DatePager, IconButton, Skeleton, SkeletonGroup, TabHeader, dateLine, useToast } from '@/ui';
+import { ChipButton, DatePager, DayStepper, dayCaption, Skeleton, SkeletonGroup, TabHeader, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useLog, type Log } from '../log/useLog';
 import { DayEditor } from './DayEditor';
@@ -115,8 +115,8 @@ const MorningSkeleton = () => (
 /**
  * Morning, a tab of its own: the schedule from the alarm to the door. The fixed part (the alarm, the way out, the workout,
  * the way back) opens this morning's editors; the routine after it is yours to arrange: hold a step and drag it, tap it to
- * change it, add your own. Swipe the page, or the date line, for another day; the sliders button holds the timings every
- * morning shares (the pace, the gym's walk, the wake-up routine for each kind of morning).
+ * change it, add your own. The arrows in the corner (or a swipe) step through the days ahead; the Timings link at the
+ * foot holds what every morning shares (the pace, the gym's walk, the wake-up routine for each kind of morning).
  */
 export default function MorningView() {
   const params = useParams();
@@ -226,37 +226,9 @@ export default function MorningView() {
     nav(`/morning${q ? `?${q}` : ''}`, { replace: true });
   }, [ready, wantsRoutine]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const rel = relativeDay(date, t);
-  const line =
-    rel === 'Today' || rel === 'Tomorrow' || rel === 'Yesterday' ? (
-      <>
-        <span className={rel === 'Today' ? '' : 'm-rel'}>{rel} · </span>
-        {dateLine(date)}
-      </>
-    ) : (
-      dateLine(date)
-    );
   return (
     <motion.div className="page m-page" initial={enterPull ? { y: -Math.round(window.innerHeight * 0.3), opacity: 0 } : false} animate={{ y: 0, opacity: 1 }} transition={{ y: springs.page, opacity: { duration: 0.12 } }}>
-      <TabHeader
-        title="Morning"
-        date={line}
-        onDateStep={(dir) => go(shiftDays(date, dir))}
-        onDatePress={date !== t ? () => go(t) : undefined}
-        dateLabel={date !== t ? `${fmtDate('long', date)}. Back to today` : undefined}
-        accessory={
-          <>
-            {date !== t ? (
-              <ChipButton quiet className="today-chip" onClick={() => go(t)}>
-                Today
-              </ChipButton>
-            ) : null}
-            <IconButton label="Timings for every morning" onClick={() => editTimings(T)}>
-              <SlidersHorizontal size={20} aria-hidden="true" />
-            </IconButton>
-          </>
-        }
-      />
+      <TabHeader title="Morning" date={dayCaption(date, t)} onDateStep={(dir) => go(shiftDays(date, dir))} accessory={<DayStepper date={date} today={t} onGo={go} />} />
       {!ready ? (
         <MorningSkeleton />
       ) : (
@@ -270,6 +242,12 @@ export default function MorningView() {
           render={(d) => <DayPage key={d} date={d} log={log} st={st} now={now} interactive={d === date} actions={d === date ? actionsFor(d) : undefined} />}
         />
       )}
+      {ready ? (
+        <button type="button" className="m-timings" onClick={() => editTimings(T)}>
+          <SlidersHorizontal size={16} aria-hidden="true" />
+          Timings for every morning
+        </button>
+      ) : null}
     </motion.div>
   );
 }
