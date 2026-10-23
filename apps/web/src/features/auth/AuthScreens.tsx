@@ -81,7 +81,13 @@ const emailProblem = (v: string) => (!v.trim() ? 'Enter your email address.' : !
 const plain = (e: unknown, fallback: string) =>
   e instanceof NetworkError ? 'Couldn’t reach Logbook. Check your connection and try again.' : e instanceof ApiError && e.status === 429 ? 'Too many tries. Wait a minute, then try again.' : e instanceof ApiError && e.status >= 500 ? 'Something went wrong on our side. Try again in a moment.' : fallback;
 
-type Errors = { email?: string | null; password?: string | null; confirm?: string | null; form?: string | null };
+type Errors = { email?: string | null; password?: string | null; form?: string | null };
+/** The keyboard's "next" on a field: move to the next one (never the form's implicit submission, flows 1.1). */
+const nextOn = (next: React.RefObject<HTMLInputElement | null>) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  next.current?.focus();
+};
 
 export const Login = () => {
   const status = useAuthStatus();
@@ -140,7 +146,7 @@ export const Login = () => {
       }
     >
       <form className="auth-form" onSubmit={submit} noValidate>
-        <AuthField inputRef={emailRef} label="Email" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" autoFocus={!handed} value={email} onChange={(e) => setEmail(e.target.value)} error={err.email} />
+        <AuthField inputRef={emailRef} label="Email" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" autoFocus={!handed} value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={nextOn(pwRef)} error={err.email} />
         <AuthField inputRef={pwRef} label="Password" type="password" name="password" autoComplete="current-password" enterKeyHint="go" reveal autoFocus={!!handed} value={pw} onChange={(e) => setPw(e.target.value)} error={err.password} />
         {err.form ? (
           <p className="auth-err form" role="alert">
@@ -161,22 +167,21 @@ export const Signup = () => {
   const nav = useNavigate();
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
   const [err, setErr] = useState<Errors>({});
   const [taken, setTaken] = useState(false);
   const [busy, setBusy] = useState(false);
   const created = useRef(false);
-  const refs = { email: useRef<HTMLInputElement>(null), password: useRef<HTMLInputElement>(null), confirm: useRef<HTMLInputElement>(null) };
+  const refs = { email: useRef<HTMLInputElement>(null), password: useRef<HTMLInputElement>(null) };
   if (status.isPending) return <Frame />;
   if (status.data && !canSignUp(status.data) && !created.current) return <Navigate to="/login" replace />;
   const pwProblem = (v: string) => (!v ? 'Choose a password.' : v.length < 8 ? 'Use at least 8 characters.' : null);
-  const confirmProblem = (a: string, b: string) => (!b ? 'Type the password again.' : a !== b ? 'The two passwords don’t match.' : null);
+  // two fields, Show instead of a confirm field (the iOS convention), checked only here, on the final Go (flows 1.1)
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const next: Errors = { email: emailProblem(email), password: pwProblem(pw), confirm: confirmProblem(pw, pw2) };
+    const next: Errors = { email: emailProblem(email), password: pwProblem(pw) };
     setErr(next);
     setTaken(false);
-    const first = (['email', 'password', 'confirm'] as const).find((k) => next[k]);
+    const first = (['email', 'password'] as const).find((k) => next[k]);
     if (first) {
       refs[first].current?.focus();
       return;
@@ -232,7 +237,7 @@ export const Signup = () => {
             setEmail(e.target.value);
             if (err.email) setErr((x) => ({ ...x, email: null }));
           }}
-          onBlur={() => email && setErr((x) => ({ ...x, email: emailProblem(email) }))}
+          onKeyDown={nextOn(refs.password)}
           error={err.email}
         />
         {taken ? (
@@ -246,32 +251,15 @@ export const Signup = () => {
           type="password"
           name="new-password"
           autoComplete="new-password"
-          enterKeyHint="next"
+          enterKeyHint="go"
           reveal
           value={pw}
           onChange={(e) => {
             setPw(e.target.value);
             if (err.password) setErr((x) => ({ ...x, password: null }));
           }}
-          onBlur={() => pw && setErr((x) => ({ ...x, password: pwProblem(pw) }))}
           error={err.password}
           hint="At least 8 characters."
-        />
-        <AuthField
-          inputRef={refs.confirm}
-          label="Confirm password"
-          type="password"
-          name="confirm-password"
-          autoComplete="new-password"
-          enterKeyHint="go"
-          reveal
-          value={pw2}
-          onChange={(e) => {
-            setPw2(e.target.value);
-            if (err.confirm) setErr((x) => ({ ...x, confirm: null }));
-          }}
-          onBlur={() => pw2 && setErr((x) => ({ ...x, confirm: confirmProblem(pw, pw2) }))}
-          error={err.confirm}
         />
         {err.form ? (
           <p className="auth-err form" role="alert">
