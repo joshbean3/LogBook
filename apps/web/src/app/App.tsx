@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsRestoring, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, onUnauthorized } from '@/api/client';
@@ -8,7 +8,8 @@ import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Signup } from '@/features/auth/AuthScreens';
-import { markHasAccount, signedOutHome } from '@/features/auth/flag';
+import DayView from '@/features/day/DayView';
+import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
 import { routeInfo } from '@/ui/nav';
 import { PushedPage } from '@/ui/PushedPage';
@@ -18,8 +19,9 @@ import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { Shell } from './Shell';
 import '@/styles/foundation.css';
 
+// Today is in the entry bundle (imported above), not a chunk: the first screen never waits on a module request and never shows
+// the Quiet fallback (perf report §1). The other views arrive as chunks, prefetched once the first screen is up.
 const views = {
-  day: () => import('@/features/day/DayView'),
   morning: () => import('@/features/morning/MorningView'),
   plan: () => import('@/features/plan/PlanView'),
   trends: () => import('@/features/progress/ProgressView'),
@@ -56,7 +58,6 @@ const view = <P extends object>(load: () => Promise<{ default: React.ComponentTy
   };
   return Object.assign(View, { preload });
 };
-const DayView = view(views.day);
 const MorningView = view(views.morning);
 const PlanView = view(views.plan);
 const TrendsView = view(views.trends);
@@ -78,7 +79,7 @@ const prefetchViews = () => {
   // after the frame that paints the first screen
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [DayView, PlanView, TrendsView, JournalView, Welcome]) void v.preload().catch(() => undefined);
+    for (const v of [PlanView, TrendsView, JournalView, Welcome]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
@@ -96,13 +97,17 @@ const Quiet = () => <div className="page" style={{ minHeight: '100dvh' }} aria-b
 /**
  * How a page arrives, keyed by section so it happens once per section change. A tab page is an instant cut with a 120ms
  * opacity fade (CSS only, so a view that suspends can never be left invisible). A pushed page slides in on its own
- * (PushedPage), so it gets no fade. Lives inside Suspense: the old page stays up until the next one can paint.
+ * (PushedPage), so it gets no fade. The first page of the session has nothing to fade from: it is simply there, so the
+ * open is black → Today with no half-painted frame (perf report §1). Lives inside Suspense: the old page stays up until
+ * the next one can paint.
  */
 const PageFade = ({ children }: { children: React.ReactNode }) => {
   const loc = useLocation();
   const info = routeInfo(loc.pathname);
+  const first = useRef<string | null>(info.section);
+  if (first.current !== null && first.current !== info.section) first.current = null;
   return (
-    <div key={info.section} className={info.pushed ? 'page-pushed' : 'page-enter'}>
+    <div key={info.section} className={info.pushed ? 'page-pushed' : first.current === info.section ? 'page-first' : 'page-enter'}>
       {children}
     </div>
   );
@@ -170,11 +175,15 @@ const useSession = () => useQuery({ queryKey: ['auth-session'], queryFn: () => a
 
 const Authed = () => {
   const qc = useQueryClient();
+  const restoring = useIsRestoring();
   const session = useSession();
   // offline (or an older server that does not say): carry on as before, the bootstrap answers
   const signedOut = session.data?.signedIn === false;
   const known = session.isError || (!!session.data && !signedOut);
-  const boot = useBootstrap({ enabled: known });
+  // a device that has signed in here goes straight to the bootstrap (and paints from the cache meanwhile); the session is
+  // verified in the background, and a 401 or a signed-out answer sends you to sign in. Only a first visit waits for the status.
+  const [hadAccount] = useState(hasAccountHere);
+  const boot = useBootstrap({ enabled: known || hadAccount });
   const loc = useLocation();
   useEffect(() => {
     // a session that ended while the app was away: what the cache remembers is someone else's now
@@ -195,7 +204,11 @@ const Authed = () => {
     requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
   }, [hasBoot, qc]);
   if (signedOut) return <Navigate to={signedOutHome()} replace />;
-  if (!boot.data && (!known || boot.isPending)) return <Boot />;
+  // the persisted cache is being read (a few ms): hold the black canvas rather than paint a skeleton the cache then replaces
+  if (restoring) return null;
+  // a first visit: the promise, now, without waiting on the status (Start sends a visitor who turns out to be signed in on)
+  if (!boot.data && !hadAccount && !known) return <Navigate to="/start" replace />;
+  if (!boot.data && boot.isPending) return <Boot />;
   if (boot.error && !boot.data) {
     const status = (boot.error as { status?: number }).status;
     if (status === 401) return <Navigate to={signedOutHome()} replace />;

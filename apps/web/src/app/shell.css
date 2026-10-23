@@ -12,6 +12,10 @@
   min-height: 100dvh;
   animation: page-in var(--dur-in) var(--ease-out) both;
 }
+/* the first page of the session: nothing to fade from, so it is simply there on its first frame */
+.page-first {
+  min-height: 100dvh;
+}
 /* the one motion that stays under reduced motion: a short fade is how a page arrives, not an animation */
 @media (prefers-reduced-motion: reduce) {
   .page-enter {

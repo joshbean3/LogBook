@@ -1,9 +1,11 @@
 import { motion, useReducedMotion } from 'motion/react';
+import { useEffect } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { fadeIn, springs } from '@/lib/motion';
 import { LogoMark } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useAuthStatus } from './AuthScreens';
+import { markHasAccount } from './flag';
 import './auth.css';
 
 /**
@@ -15,8 +17,15 @@ export const Start = () => {
   const reduce = useReducedMotion();
   const nav = useNavigate();
   const status = useAuthStatus();
+  // sent here before the status answered (a device without the account flag): a live session goes on to Today
+  const signedIn = !!status.data?.signedIn;
+  useEffect(() => {
+    if (!signedIn) return;
+    markHasAccount();
+    nav('/today', { replace: true });
+  }, [signedIn, nav]);
   // a server that takes no new accounts: there is nothing to start, only to sign in
-  if (status.data && !(status.data.signupOpen ?? status.data.setupOpen)) return <Navigate to="/login" replace />;
+  if (status.data && !signedIn && !(status.data.signupOpen ?? status.data.setupOpen)) return <Navigate to="/login" replace />;
   return (
     <main className="start">
       <span className="auth-halo rise" aria-hidden="true" />
