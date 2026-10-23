@@ -29,9 +29,11 @@ export interface SwipeRowProps {
   disabled?: boolean;
   className?: string;
   as?: 'div' | 'li';
+  /** The reveal detent opened or closed. (SwipeRow v2, WP1's next step.) */
+  onReveal?: (side: 'left' | 'right' | null) => void;
 }
 
-/** Direction lock, the commit point, and where the rubber band starts, as fractions of the row width (lock in px). */
+/** @deprecated the thresholds live in lib/gesture.ts (SWIPE_REVEAL_PX, SWIPE_FULL_FRAC, SWIPE_FULL_V); kept for SwipeRow v1. */
 export const SWIPE_LOCK = 10;
 export const SWIPE_COMMIT = 0.4;
 export const SWIPE_RUBBER = 0.6;

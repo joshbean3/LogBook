@@ -1,6 +1,7 @@
 import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoPriority, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
-import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { api, ApiError } from './client';
 import { write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
@@ -66,15 +67,19 @@ export const useMonths = (months: string[]) => {
 
 export const monthsAround = (date: string, before = 1, after = 1) => monthsBetween(addMonths(date, -before), addMonths(date, after));
 
-/** After bootstrap: pull what each tab asks for first, so a tab switch never waits on the network. */
+/**
+ * After bootstrap, once per session: pull what each tab asks for first, so a tab switch never waits on the network. The
+ * months cover the shown month ± 1, Plan's weeks around today and Progress's 7-month range (critic C11).
+ */
 export const prefetchAll = (qc: QueryClient) => {
   const t = today();
   const from = shiftDays(mondayOf(t), -7 * 12);
   const to = shiftDays(mondayOf(t), 7 * 4 + 6);
+  const months = [...new Set([...monthsBetween(from, to), ...monthsBetween(addMonths(t, -7), addMonths(t, 1))])];
   const quoteParams = { theme: 'All', q: '', fav: 0, limit: 40, offset: 0 };
   const qs = new URLSearchParams(Object.entries(quoteParams).map(([k, v]) => [k, String(v)])).toString();
   const jobs: Array<Promise<unknown>> = [
-    ...monthsBetween(from, to).map((m) => qc.prefetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })),
+    ...months.map((m) => qc.prefetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })),
     qc.prefetchQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 }),
     qc.prefetchQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 }),
@@ -111,8 +116,13 @@ export const clientKey = (id: string) => keyAlias.get(id) ?? id;
  * always the real one): the months and activities are refetched only when something arrived. Called on a pull on Today
  * (useStravaCheck) and once on every return to the foreground with Strava connected (main.tsx), decisions.md 7.
  */
-export const syncStrava = async (qc: QueryClient) => {
-  const r = await api<{ changed?: number; joined?: boolean; status?: Bootstrap['strava'] }>('/strava/sync', { method: 'POST' });
+export interface StravaSyncAnswer {
+  changed?: number;
+  joined?: boolean;
+  status?: Bootstrap['strava'];
+}
+export const syncStrava = async (qc: QueryClient): Promise<StravaSyncAnswer> => {
+  const r = await api<StravaSyncAnswer>('/strava/sync', { method: 'POST' });
   if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
   if (r.changed) {
     await qc.invalidateQueries({ queryKey: ['month'] });
@@ -120,9 +130,29 @@ export const syncStrava = async (qc: QueryClient) => {
   }
   return r;
 };
-export const useStravaCheck = () => {
+export const STRAVA_SYNC_KEY = ['strava-sync'] as const;
+let lastSync: { at: number; promise: Promise<StravaSyncAnswer> } | null = null;
+/**
+ * The same request through the mutation cache under STRAVA_SYNC_KEY, registered synchronously so useIsMutating sees it on
+ * the calling frame (the open face's status line). At most once per STRAVA_GAP_MS: a call inside the gap returns the running
+ * or last promise, unless `force` (the landing's one +8 s repeat, pull to refresh). `quiet` marks the mutation's meta so the
+ * status line ignores it.
+ */
+export const stravaSyncNow = (qc: QueryClient, opts: { force?: boolean; quiet?: boolean } = {}): Promise<StravaSyncAnswer> => {
+  const now = Date.now();
+  if (!opts.force && lastSync && now - lastSync.at < STRAVA_GAP_MS) return lastSync.promise;
+  const m = qc.getMutationCache().build(qc, { mutationKey: STRAVA_SYNC_KEY, mutationFn: () => syncStrava(qc), meta: opts.quiet ? { quiet: true } : undefined });
+  const promise = m.execute(undefined);
+  lastSync = { at: now, promise };
+  promise.catch(() => undefined);
+  return promise;
+};
+/** The open face's status line: a non-quiet sync is in flight. */
+export const useStravaChecking = (): boolean => useIsMutating({ mutationKey: STRAVA_SYNC_KEY, predicate: (m) => !m.meta?.quiet }) > 0;
+/** Pull to refresh's old path, kept: the same request and key. */
+export const useStravaCheck = (): UseMutationResult<StravaSyncAnswer, Error, void> => {
   const qc = useQueryClient();
-  return useMutation({ mutationKey: ['strava-sync'], mutationFn: () => syncStrava(qc) });
+  return useMutation({ mutationKey: STRAVA_SYNC_KEY, mutationFn: () => syncStrava(qc) });
 };
 // ── end WP1 ──
 

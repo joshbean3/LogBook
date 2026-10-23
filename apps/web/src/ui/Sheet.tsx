@@ -13,16 +13,22 @@ import { focusables, holdInert } from './inert';
  * inside the same sheet, with a back chevron in the header; `sheet.pop()` goes back; `sheet.close()` closes it all.
  * Every sheet has one header: an optional caps eyebrow, the serif title (28), an optional action (`action`), and Close.
  */
+export type Detent = 'medium' | 'large';
 export interface SheetSpec {
   /** The serif title (28). Short: "Edit session", "Move", the session name. */
   title: ReactNode;
   body: ReactNode;
   /** A caps line above the title: a date, "TO-DO". */
   eyebrow?: ReactNode;
-  /** 'auto' (default) is as tall as the content; 'large' takes the screen less a 32px peek, for editors. */
-  detent?: 'auto' | 'large';
+  /** 'auto' (default) = content height ≤ large; 'medium' = half the shell; 'large' = the shell less safeTop + 10. */
+  detent?: 'auto' | Detent;
+  /** Detents the grabber tap cycles and a release snaps to. (Sheet v3, WP1's next step.) */
+  detents?: Detent[];
+  /** Sticky under the grabber, fixed height: the builder's ghost preview. (Sheet v3, WP1's next step.) */
+  header?: ReactNode;
+  onClose?: () => void;
   /**
-   * Shared element: the opener's title (marked with `{...shared(id)}`, i.e. `data-shared="session-12"`) travels into this
+   * @deprecated accepted and ignored by Sheet v3 (contracts rule 5). Shared element: the opener's title (marked with `{...shared(id)}`, i.e. `data-shared="session-12"`) travels into this
    * sheet's title on `springs.page` while the sheet rises, and back to it on close. Ids follow docs/foundation.md:
    * `session-<id>`, `habit-<id>`, `entry-<date>`, `week-<isoWeek>`.
    */
@@ -47,6 +53,7 @@ export interface SheetApi {
   close: () => void;
   /** Change the top panel in place (its title after a save, say). */
   update: (spec: Partial<SheetSpec>) => void;
+  isOpen: () => boolean;
 }
 const Ctx = createContext<SheetApi | null>(null);
 /** The sheet API: `const sheet = useSheet(); sheet.open({ title, body })`. */
@@ -59,7 +66,9 @@ export const useSheet = () => {
  * Mark the element a sheet's title travels from: `<span {...shared(`session-${s.id}`)}>Easy 6</span>`, then open the sheet
  * with `layoutId: `session-${s.id}``. Only one element on the page should carry an id at a time.
  */
+/** @deprecated returns `{}` in Sheet v3 (contracts rule 5); the title flyer goes with WP1's next step. */
 export const shared = (id: string) => ({ 'data-shared': id });
+export { useSheetMotion, type SheetMotion } from './sheetMotion';
 
 const DepthCtx = createContext(0);
 /** How deep the panel this component renders in sits (1 for the first). */
@@ -248,6 +257,7 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
         aria-labelledby={titleId}
         tabIndex={-1}
         className={`sheet ${top.wide ? 'wide' : ''} ${top.detent === 'large' ? 'large' : ''}`}
+        data-detent={top.detent ?? 'auto'}
         style={{ y: sheetY }}
         initial={reduce ? { opacity: 0 } : { y: window.innerHeight, opacity: 1 }}
         animate={reduce ? { opacity: 1 } : { y: 0 }}
@@ -349,6 +359,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
         }),
       close,
       update: (p) => setState((cur) => (cur.stack.length ? { ...cur, stack: [...cur.stack.slice(0, -1), { ...cur.stack[cur.stack.length - 1]!, ...p }] } : cur)),
+      isOpen: () => isOpen.current,
     };
   }, [close]);
   const open = state.stack.length > 0;

@@ -191,17 +191,17 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
     e.preventDefault();
     if (info.tab !== t.id) {
       haptics.select();
-      startTransition(() => nav(t.to));
+      startTransition(() => nav(t.root));
       return;
     }
     // the lit tab again: a pushed page goes back to the tab; a tab page goes to the top, then to its root
     if (info.pushed) {
-      startTransition(() => nav(t.to));
+      startTransition(() => nav(t.root));
       return;
     }
     const atTop = window.scrollY <= 2;
     if (!atTop) window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
-    else if (loc.pathname !== t.to) startTransition(() => nav(t.to));
+    else if (loc.pathname !== t.root) startTransition(() => nav(t.root));
     window.dispatchEvent(new CustomEvent<TabReselectDetail>(TAB_RESELECT, { detail: { tab: t.id, atTop } }));
   };
   const refreshable = /^\/(today|plan|progress)(\/|$)/.test(loc.pathname);
@@ -219,7 +219,7 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
             {TABS.map((t) => {
               const on = info.tab === t.id;
               return (
-                <Link key={t.id} to={t.to} onClick={onTab(t)} aria-current={on ? 'page' : undefined} className={`rail-link ${on ? 'on' : ''}`}>
+                <Link key={t.id} to={t.root} onClick={onTab(t)} aria-current={on ? 'page' : undefined} className={`rail-link ${on ? 'on' : ''}`}>
                   <t.icon size={18} strokeWidth={2} aria-hidden="true" />
                   <span>{t.label}</span>
                 </Link>
@@ -245,7 +245,7 @@ export const Shell = ({ children }: { children?: ReactNode }) => {
             {TABS.map((t) => {
               const on = info.tab === t.id;
               return (
-                <Link key={t.id} to={t.to} onClick={onTab(t)} role="tab" aria-selected={on} className={`tab ${on ? 'on' : ''}`}>
+                <Link key={t.id} to={t.root} onClick={onTab(t)} role="tab" aria-selected={on} className={`tab ${on ? 'on' : ''}`}>
                   <t.icon size={24} strokeWidth={on ? 2.4 : 1.8} fill={on ? 'currentColor' : 'none'} fillOpacity={on ? 0.18 : 0} aria-hidden="true" />
                   <span className="tab-label">{t.label}</span>
                 </Link>

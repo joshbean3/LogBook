@@ -95,15 +95,3 @@ export const DayStepper = ({ date, today, onGo }: { date: ISODate; today: ISODat
     </div>
   );
 };
-
-/**
- * The caps line over a dated page: "Today · Mon, Oct 19"; off today the date leads and how far it is follows ("Tue, Oct 20
- * · Tomorrow", "Thu, Oct 22 · In 3 days"), so on a narrow screen the line ends early rather than losing the date.
- */
-export const dayCaption = (date: ISODate, today: ISODate): string => {
-  const line = new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  const n = Math.round((Date.parse(`${date}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000);
-  if (n === 0) return `Today · ${line}`;
-  const rel = n === 1 ? 'Tomorrow' : n === -1 ? 'Yesterday' : n > 0 ? `In ${n} days` : `${-n} days ago`;
-  return `${line} · ${rel}`;
-};

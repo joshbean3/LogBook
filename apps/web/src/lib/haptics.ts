@@ -1,4 +1,6 @@
+import type { MotionValue } from 'motion/react';
 import { useSyncExternalStore } from 'react';
+import { FILL_MS, SELECT_THROTTLE_MS } from './gesture';
 import { isNative } from './native';
 
 /**
@@ -96,10 +98,9 @@ const notify = (type: 'Success' | 'Warning' | 'Error', fallback: number[]) => {
 let selActive = false;
 let selEnd: ReturnType<typeof setTimeout> | undefined;
 let lastSelect = 0;
-const SELECT_THROTTLE = 40;
 const selection = (): void | false => {
   const now = performance.now();
-  if (now - lastSelect < SELECT_THROTTLE) return false;
+  if (now - lastSelect < SELECT_THROTTLE_MS) return false;
   lastSelect = now;
   if (cap) {
     const H = cap.Haptics;
@@ -133,19 +134,19 @@ const fire = (name: HapticEvent, fn: () => void | false) => () => {
 };
 
 export const haptics: Record<HapticEvent, () => void> = {
-  /** Day/week step, segmented change, tab change, scrub step, a drag crossing a slot. Throttled to one per 40ms. */
+  /** The strip disc crossing a cell (a strip-origin drag), an alarm step, a reorder or Plan drag crossing a slot, a stepper step, the Progress scrub. Never a tab, a page commit or a segmented change. Throttled (SELECT_THROTTLE_MS). */
   select: fire('select', selection),
-  /** A to-do checked, a star, a small toggle. */
+  /** A to-do's mark, a favourite's star: only through `hapticAtPeak`, on the check's peak frame. */
   toggle: fire('toggle', () => impact('Light', 8)),
-  /** A habit orb lit. (Soft when a native plugin exists; Light today.) */
+  /** A habit orb lit: only through `hapticAtPeak`, on the pop's peak frame. */
   orb: fire('orb', () => impact('Light', 8)),
   /** A long-press lifts an object (ContextMenu, drag pick-up). */
   lift: fire('lift', () => impact('Medium', 14)),
   /** A drop into a slot. (Rigid when available; Light today.) */
   drop: fire('drop', () => impact('Light', 8)),
-  /** A swipe crossing its commit threshold, pull-to-refresh armed. */
+  /** A swipe row arming, pull to refresh arming: once, never on disarming. */
   threshold: fire('threshold', () => impact('Light', 8)),
-  /** Session done, a Strava run lands, all habits lit, a multi-step save. */
+  /** Exactly two a day: Close the day's Save and the run landing's settle frame. */
   success: fire('success', () => notify('Success', [10, 30, 14])),
   /** Week ring closes, plan block completes: Heavy, then Success 120ms later. At most once a week. */
   celebrate: fire('celebrate', () => {
@@ -174,4 +175,43 @@ const LEGACY: Record<LegacyKind, HapticEvent> = { tick: 'toggle', success: 'succ
 export const haptic = (kind: LegacyKind | HapticEvent = 'tick') => {
   const e = (LEGACY as Record<string, HapticEvent | undefined>)[kind] ?? (kind as HapticEvent);
   haptics[e]?.();
+};
+
+/**
+ * Completion haptics land on the frame of the visual peak (spec M34, §11.4; contracts §D.3). Subscribes to `scale` (the
+ * `complete` animation's MotionValue) and fires `e` once, on the first frame whose value is below the previous frame's after
+ * the value has risen above its start (the apex; the first frame does not rise, so "stops rising" alone would fire at once).
+ * With reduced motion (no pop) the caller passes the fill's progress value instead and it fires on the frame that reaches 1.
+ * A FILL_MS fallback fires it if neither frame comes. Returns an unsubscribe. The only way `orb` and `toggle` are fired.
+ */
+export const hapticAtPeak = (scale: MotionValue<number>, e: 'orb' | 'toggle') => {
+  const start = scale.get();
+  let prev = start;
+  let rose = false;
+  let done = false;
+  const fireOnce = () => {
+    if (done) return;
+    done = true;
+    off();
+    clearTimeout(timer);
+    haptics[e]();
+  };
+  // a value that starts at 0 is a 0 → 1 fill progress (reduced motion: no pop); anything else is a scale with an apex
+  const progress = start <= 0;
+  const off = scale.on('change', (v) => {
+    if (done) return;
+    if (progress) {
+      if (v >= 1) fireOnce();
+      return;
+    }
+    if (v > start) rose = true;
+    if (rose && v < prev) fireOnce();
+    prev = v;
+  });
+  const timer = setTimeout(fireOnce, FILL_MS);
+  return () => {
+    done = true;
+    off();
+    clearTimeout(timer);
+  };
 };

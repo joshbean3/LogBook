@@ -11,6 +11,8 @@ export interface WeekRingProps {
   size?: 40 | 64;
   /** Index (0–6) of today: a small dot just outside its arc. */
   today?: number;
+  /** 0–6: the shown day; its segment is ringed 1.5 px --ink (spec §3.1, M22). (Drawn in WP1's next step.) */
+  marked?: number;
   /** The accessible name. Default: "Week: 3 done, 1 floor, 1 rest, 2 to go". */
   label?: string;
   /** A `useFirstToday` key for the once-a-day fill. Default 'week-ring'; null to never animate. */
@@ -128,7 +130,7 @@ export const WeekRing = ({ days, size = 40, today, label, onceADay = 'week-ring'
         aria-label={name}
         onClick={onPress}
         whileTap={reduce ? undefined : { scale: 0.97 }}
-        transition={springs.press}
+        transition={springs.settle}
       >
         {inner}
       </motion.button>

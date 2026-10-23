@@ -45,3 +45,60 @@ describe('haptics on the web', () => {
     expect(vibrate).toHaveBeenCalledWith(14);
   });
 });
+
+describe('hapticAtPeak', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  const setup = async () => {
+    vi.resetModules();
+    const events: string[] = [];
+    vi.stubGlobal('navigator', {});
+    vi.stubGlobal('document', { addEventListener: () => undefined, removeEventListener: () => undefined });
+    vi.stubGlobal('window', { dispatchEvent: (e: { detail: string }) => events.push(e.detail), addEventListener: () => undefined, removeEventListener: () => undefined });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined });
+    vi.stubGlobal('CustomEvent', class {
+      detail: string;
+      constructor(_t: string, o: { detail: string }) {
+        this.detail = o.detail;
+      }
+    });
+    const { motionValue } = await import('motion/react');
+    const { hapticAtPeak } = await import('./haptics');
+    return { events, motionValue, hapticAtPeak };
+  };
+
+  it('fires once, on the first falling frame after a rise (the apex), not on the first frame', async () => {
+    const { events, motionValue, hapticAtPeak } = await setup();
+    const s = motionValue(1);
+    hapticAtPeak(s, 'orb');
+    s.set(1);
+    expect(events).toEqual([]);
+    for (const v of [1.04, 1.09, 1.12, 1.11]) s.set(v);
+    expect(events).toEqual(['orb']);
+    for (const v of [1.05, 1.0, 1.01]) s.set(v);
+    vi.advanceTimersByTime(1000);
+    expect(events).toEqual(['orb']);
+  });
+
+  it('reduced motion: a 0 → 1 fill fires on the frame it completes', async () => {
+    const { events, motionValue, hapticAtPeak } = await setup();
+    const p = motionValue(0);
+    hapticAtPeak(p, 'toggle');
+    for (const v of [0.3, 0.7]) p.set(v);
+    expect(events).toEqual([]);
+    p.set(1);
+    expect(events).toEqual(['toggle']);
+  });
+
+  it('falls back after FILL_MS when no frame comes', async () => {
+    const { events, motionValue, hapticAtPeak } = await setup();
+    hapticAtPeak(motionValue(1), 'orb');
+    vi.advanceTimersByTime(399);
+    expect(events).toEqual([]);
+    vi.advanceTimersByTime(2);
+    expect(events).toEqual(['orb']);
+  });
+});

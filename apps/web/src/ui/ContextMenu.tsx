@@ -33,6 +33,7 @@ export interface OpenContextMenu {
 export interface ContextMenuApi {
   open: (o: OpenContextMenu) => void;
   close: () => void;
+  isOpen: () => boolean;
 }
 
 const Ctx = createContext<ContextMenuApi | null>(null);
@@ -317,6 +318,8 @@ const Layer = ({ spec, onClose }: { spec: OpenContextMenu & { rect: DOMRect }; o
 /** Hosts the one context menu. Mounted once in main.tsx, above the SheetProvider (so sheets can open it); `ContextMenu` and `useContextMenu` talk to it. */
 export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
   const [spec, setSpec] = useState<(OpenContextMenu & { rect: DOMRect; key: number }) | null>(null);
+  const openRef = useRef(false);
+  openRef.current = !!spec;
   const close = useCallback(() => setSpec(null), []);
   const api = useMemo<ContextMenuApi>(
     () => ({
@@ -330,6 +333,7 @@ export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
         setSpec({ ...o, returnFocus, rect, key: Date.now() });
       },
       close,
+      isOpen: () => openRef.current,
     }),
     [close],
   );
