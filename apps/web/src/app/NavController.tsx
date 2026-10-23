@@ -458,7 +458,8 @@ export class Controller {
       const stack = [...keep, ...added];
       flushSync(() => {
         this.set({ ...this.state, active: tab, tabs: { ...this.state.tabs, [tab]: { path: rootPath, stack } } });
-        if (rootChanged) this.deliver(tab, rootPath, true);
+        // every request that names the root's params reaches the mounted root, once (it sets its state in this flush)
+        if (impliesRoot(m)) this.deliver(tab, rootPath, true);
       });
       const final = (stack.at(-1)?.path ?? rootPath) + search;
       if (opts.fromPop) this.write('replace', final);
@@ -469,10 +470,8 @@ export class Controller {
     }
 
     // the active tab: the root's own motion, layers popped or pushed on their springs
-    if (rootChanged) {
-      this.setTab(tab, { path: rootPath });
-      this.deliver(tab, rootPath, false);
-    }
+    if (rootChanged) this.setTab(tab, { path: rootPath });
+    if (impliesRoot(m)) this.deliver(tab, rootPath, false);
     if (removed.length && !added.length) {
       // pop down to the depth the URL implies (the pop spring), with no traversal: the final write below says where we are
       if (keep.some((e, i) => e !== t.stack[i])) this.setTab(tab, { stack: [...keep, ...removed] });
