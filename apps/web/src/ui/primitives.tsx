@@ -1,6 +1,6 @@
 import { Check, Plus, X } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { fireHaptic, haptics, type HapticEvent } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { ghostOf, type GhostKind } from './Ghost';
@@ -229,10 +229,48 @@ export const Ring = ({ value, size = 44, stroke = 4, color = 'var(--ok)', childr
   );
 };
 
+/**
+ * Two to four segments with one thumb (`--surface-3`) that slides to the chosen one on `springs.settle` (a transform; no
+ * layoutId, no haptic: §11.4, contracts §C.6). In the bar's 96 px trailing slot pass `className="in-bar"` (96 × 32, radius 9,
+ * 13/600 labels, each half a 44 px hit).
+ */
 export function Segmented<T extends string>({ options, value, onChange, label, className = '', disabled }: { options: Array<[T, ReactNode]>; value: T; onChange: (v: T) => void; label: string; className?: string; disabled?: boolean }) {
-  const id = useId();
+  const root = useRef<HTMLDivElement>(null);
+  const thumb = useRef<HTMLSpanElement>(null);
+  const x = useMotionValue(0);
+  const placed = useRef(false);
+  const reduce = useReducedMotion();
+  useLayoutEffect(() => {
+    const el = root.current;
+    const th = thumb.current;
+    if (!el || !th) return;
+    let anim: { stop: () => void } | undefined;
+    const place = (animateIt: boolean) => {
+      const on = el.querySelector<HTMLElement>('.seg-btn[aria-checked="true"]');
+      if (!on) return;
+      th.style.width = `${on.offsetWidth}px`;
+      anim?.stop();
+      if (animateIt && placed.current && !reduce) anim = animate(x, on.offsetLeft, springs.settle);
+      else x.jump(on.offsetLeft);
+      placed.current = true;
+    };
+    place(true);
+    // a resize re-places the thumb at once (the observer's first call, on observe, is not a resize)
+    let w = el.offsetWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.offsetWidth === w) return;
+      w = el.offsetWidth;
+      place(false);
+    });
+    ro.observe(el);
+    return () => {
+      anim?.stop();
+      ro.disconnect();
+    };
+  }, [value, reduce, x]);
   return (
-    <div className={`seg ${className}`} role="radiogroup" aria-label={label}>
+    <div ref={root} className={`seg ${className}`.trim()} role="radiogroup" aria-label={label}>
+      <motion.span ref={thumb} className="seg-thumb" style={{ x }} aria-hidden="true" />
       {options.map(([k, text]) => (
         <button
           key={k}
@@ -246,8 +284,7 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
             if (value !== k) onChange(k);
           }}
         >
-          {value === k ? <motion.span layoutId={`thumb-${id}`} className="seg-thumb" transition={springs.settle} /> : null}
-          <span style={{ position: 'relative', zIndex: 1 }}>{text}</span>
+          <span className="seg-label">{text}</span>
         </button>
       ))}
     </div>

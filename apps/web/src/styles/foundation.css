@@ -1351,6 +1351,44 @@ button.tabh-date::after,
   min-height: 0;
 }
 
+/* ---------- Segmented (§2.4, contracts §C.6): one thumb on springs.settle ---------- */
+.seg .seg-thumb {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: auto;
+  inset-inline-end: auto;
+  will-change: transform;
+}
+.seg-label {
+  position: relative;
+  z-index: 1;
+}
+.seg.in-bar {
+  width: 96px;
+  height: 32px;
+  margin: 6px 0;
+  gap: 0;
+  border-radius: 9px;
+}
+.seg.in-bar .seg-btn {
+  padding: 0;
+  border-radius: 9px;
+  font: 600 13px/16px var(--sans);
+}
+.seg.in-bar .seg-btn::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.seg.in-bar .seg-thumb {
+  border-radius: 9px;
+}
+
+/* ---------- WeekRing: the shown day marked, a missed day a quiet gap ---------- */
+.wring-gap {
+  stroke: var(--ink-4);
+}
 /* the DatePager adapter's old hosts (deleted with it): their pager carried the gutter as padding; it moves onto each page so
    an always-mounted neighbour never shows in the gutter */
 .dp.pl-pager,

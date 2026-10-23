@@ -12,14 +12,12 @@ export interface WeekRingProps {
   size?: 40 | 64;
   /** Index (0–6) of today: a small dot just outside its arc. */
   today?: number;
-  /** 0–6: the shown day; its segment is ringed 1.5 px --ink (spec §3.1, M22). (Drawn in WP1's next step.) */
+  /** 0–6: the shown day; its segment is ringed 1.5 px --ink (spec §3.1 row 6, M22). */
   marked?: number;
   /** The accessible name. Default: "Week: 3 done, 1 floor, 1 rest, 2 to go". */
   label?: string;
   /** A `useFirstToday` key for the once-a-day fill. Default 'week-ring'; null to never animate. */
   onceADay?: string | null;
-  /** Shared-element id (`week-<isoWeek>`) for a ring that travels into the week sheet. */
-  layoutId?: string;
   /** Makes the ring a button (tap → week sheet). */
   onPress?: () => void;
   /**
@@ -44,7 +42,7 @@ const arc = (cx: number, cy: number, r: number, a0: number, a1: number) => {
   const [x1, y1] = polar(cx, cy, r, a1);
   return `M ${f2(x0)} ${f2(y0)} A ${r} ${r} 0 0 1 ${f2(x1)} ${f2(y1)}`;
 };
-/** The outline of a ring segment (an annular sector) from `a0` to `a1`, `w` wide: how a missed day is drawn. */
+/** The outline of a ring segment (an annular sector) from `a0` to `a1`, `w` wide: how the shown day is marked. */
 const sector = (cx: number, cy: number, r: number, w: number, a0: number, a1: number) => {
   const ro = r + w / 2;
   const ri = r - w / 2;
@@ -54,7 +52,7 @@ const sector = (cx: number, cy: number, r: number, w: number, a0: number, a1: nu
   const [ix0, iy0] = polar(cx, cy, ri, a0);
   return `M ${f2(ox0)} ${f2(oy0)} A ${ro} ${ro} 0 0 1 ${f2(ox1)} ${f2(oy1)} L ${f2(ix1)} ${f2(iy1)} A ${ri} ${ri} 0 0 0 ${f2(ix0)} ${f2(iy0)} Z`;
 };
-/** The solid arcs. Missed is an outline (below); rest has no arc. */
+/** The solid arcs. Missed and rest have none (a missed day's stretch of track is --ink-4, a quiet gap; never red). */
 const COLOR: Partial<Record<WeekDayStatus, string>> = {
   done: 'var(--accent)',
   floor: 'var(--warn)',
@@ -76,13 +74,14 @@ export const weekRingKept = (days: WeekDayStatus[]) => days.filter((d) => d === 
 
 /**
  * The week as a calendar you read at a glance (critic B2). A continuous low-contrast track (`--surface-3`) and on it one
- * arc per day that has a session, Monday at the top, clockwise: done solid blue, floor solid amber, a missed day a thin red
- * outline, a skipped (or sick) day grey, a day still to come a faint solid arc. A rest day has no arc, only the track. No
- * dashes, nothing that spins. The days kept sit in the middle in the stamp face. The arcs fill on `springs.number` on the
+ * arc per day that has a session, Monday at the top, clockwise: done solid blue, floor solid amber, a skipped (or sick) day
+ * grey, a day still to come a faint solid arc. A missed day draws no arc: its stretch of track turns `--ink-4`, a quiet gap
+ * (never red). A rest day has no arc, only the track. `marked` rings the shown day's segment 1.5 px `--ink`. No dashes,
+ * nothing that spins, no haptic (the week closing is the Week card's `celebrate`). The days kept sit in the middle in the stamp face. The arcs fill on `springs.number` on the
  * first view of the day and are still on every other view; reduced motion shows them complete. Colour is never the only
  * signal: the accessible name spells the week out, and the week sheet it opens says it in words.
  */
-export const WeekRing = ({ days, size = 40, today, label, onceADay = 'week-ring', layoutId, onPress, children }: WeekRingProps) => {
+export const WeekRing = ({ days, size = 40, today, marked, label, onceADay = 'week-ring', onPress, children }: WeekRingProps) => {
   const reduce = useReducedMotion();
   const press = usePress();
   const first = useFirstToday(onceADay);
@@ -103,13 +102,15 @@ export const WeekRing = ({ days, size = 40, today, label, onceADay = 'week-ring'
         if (st === 'rest') return null;
         const a0 = i * SEG + gapDeg / 2;
         const a1 = (i + 1) * SEG - gapDeg / 2;
-        if (st === 'missed')
-          return <path key={i} className="wring-day wring-missed" d={sector(c, c, r, stroke, a0, a1)} fill="none" stroke="var(--bad)" strokeOpacity={0.6} strokeWidth={1.5} strokeLinejoin="round" />;
         const d = arc(c, c, r, a0, a1);
+        if (st === 'missed') return <path key={i} className="wring-gap" data-day={i} d={d} fill="none" stroke="var(--ink-4)" strokeWidth={stroke} />;
         if (animateFill && (st === 'done' || st === 'floor'))
           return <motion.path key={i} className={`wring-day wring-${st}`} d={d} fill="none" stroke={COLOR[st]} strokeWidth={stroke} initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={springs.number} />;
         return <path key={i} className={`wring-day wring-${st}`} d={d} fill="none" stroke={COLOR[st]} strokeWidth={stroke} />;
       })}
+      {marked != null && marked >= 0 && marked < 7 ? (
+        <path className="wring-mark" data-day={marked} d={sector(c, c, r, stroke, marked * SEG + gapDeg / 2, (marked + 1) * SEG - gapDeg / 2)} fill="none" stroke="var(--ink)" strokeWidth={1.5} strokeLinejoin="round" />
+      ) : null}
       {dot ? <circle className="wring-today" cx={dot[0]} cy={dot[1]} r={1.1} fill="var(--ink-2)" /> : null}
     </svg>
   );
@@ -125,9 +126,8 @@ export const WeekRing = ({ days, size = 40, today, label, onceADay = 'week-ring'
   );
   if (onPress)
     return (
-      <motion.button
+      <button
         type="button"
-        layoutId={layoutId}
         className={`wring wring-${size} is-btn`}
         aria-label={name}
         onClick={onPress}
@@ -135,11 +135,11 @@ export const WeekRing = ({ days, size = 40, today, label, onceADay = 'week-ring'
         {...press.handlers}
       >
         {inner}
-      </motion.button>
+      </button>
     );
   return (
-    <motion.span layoutId={layoutId} className={`wring wring-${size}`} role="img" aria-label={name}>
+    <span className={`wring wring-${size}`} role="img" aria-label={name}>
       {inner}
-    </motion.span>
+    </span>
   );
 };
