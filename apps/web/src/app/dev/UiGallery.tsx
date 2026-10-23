@@ -8,8 +8,8 @@ import { springs, type SpringName } from '@/lib/motion';
 import type { DragPoint } from '@/ui/useHold';
 import { Avatar } from '@/ui/Avatar';
 import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
-import { DatePager } from '@/ui/DatePager';
-import { dateLine, PushedHeader, TabHeader } from '@/ui/headers';
+import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
+import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, PushedBar, TodayPill, weekCaption, type StripStatus } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
 import { Button, ChipButton, EmptyState, Loading, Section, Segmented } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
@@ -20,6 +20,7 @@ import { useToast } from '@/ui/Toast';
 import { resetSeenToday, useFirstToday } from '@/ui/useFirstToday';
 import { WeekRing, type WeekDayStatus } from '@/ui/WeekRing';
 import { GhostBars, GhostRows } from '@/ui/Ghost';
+import { PagerLab } from './PagerLab';
 import './gallery.css';
 
 /**
@@ -221,7 +222,139 @@ const SheetBody = ({ level }: { level: number }) => {
 
 const AURA_STATES = ['done', 'floor', 'missed', 'upcoming', 'rest'] as const;
 
+const LAB_KEY = 'logbook.gallery.lab';
+const readLab = () => {
+  try {
+    return sessionStorage.getItem(LAB_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const writeLab = (on: boolean) => {
+  try {
+    if (on) sessionStorage.setItem(LAB_KEY, '1');
+    else sessionStorage.removeItem(LAB_KEY);
+  } catch {
+    /* private mode */
+  }
+};
+
+/** The bar on its own: every trailing slot, the word, and the labels bound to a fake progress slider. */
+const NavBarDemos = () => {
+  const t = today();
+  const handle = useDayPagerHandle();
+  const [p, setP] = useState(0);
+  const [seg, setSeg] = useState<'week' | 'month'>('week');
+  const status: StripStatus[] = ['done', 'floor', 'rest', 'missed', 'planned', 'planned', 'bonus'];
+  const prev = shiftDays(t, -1);
+  const next = shiftDays(t, 1);
+  return (
+    <>
+      <div className="gal-frame gal-bar-frame">
+        <NavBar
+          word={capsWord('Steady')}
+          caps={{ prev: dayCaption(prev), cur: dayCaption(t), next: dayCaption(next) }}
+          title={{ prev: dayTitle(prev, t), cur: dayTitle(t, t), next: dayTitle(next, t) }}
+          progress={handle.progress}
+          trailing={<Avatar />}
+          titleMenu={[{ label: 'Change the word', onSelect: () => undefined }, { label: 'Clear the word', onSelect: () => undefined }, { label: 'Go to a day…', onSelect: () => undefined }]}
+          gap={16}
+        >
+          <DateStrip shown={t} today={t} handle={handle} statusOf={(d) => status[(new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7] ?? null} onPick={() => undefined} />
+        </NavBar>
+      </div>
+      <label className="gal-slider t-cap muted">
+        Fake progress {p.toFixed(2)}
+        <input
+          type="range"
+          min={-1}
+          max={1}
+          step={0.01}
+          value={p}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setP(v);
+            handle.progress.set(v);
+          }}
+        />
+      </label>
+      <div className="gal-frame gal-bar-frame">
+        <NavBar caps={{ cur: dayCaption(shiftDays(t, 5)) }} title={{ cur: dayTitle(shiftDays(t, 5), t) }} trailing={<TodayPill onPress={() => undefined} />} />
+      </div>
+      <div className="gal-frame gal-bar-frame">
+        <NavBar caps={{ cur: weekCaption(shiftDays(t, 7), t) }} title={{ cur: 'Plan' }} wideTrailing trailing={<Segmented className="in-bar" label="Week or month" value={seg} onChange={setSeg} options={[['week', 'Week'], ['month', 'Month']]} />} />
+      </div>
+      <div className="gal-frame gal-bar-frame">
+        <NavBar caps={{ cur: dayCaption(t) }} title={{ cur: 'Progress' }} />
+      </div>
+    </>
+  );
+};
+
+/** A DayPager with three coloured pages (by date), a card with a tap and a hold menu on each. */
+const PagerDemo = ({ items }: { items: (name: string) => ContextMenuItem[] }) => {
+  const t = today();
+  const handle = useDayPagerHandle();
+  const [date, setDate] = useState(t);
+  return (
+    <>
+      <DayPager
+        className="dp-intrinsic gal-pager"
+        date={date}
+        step="day"
+        handle={handle}
+        onCommit={setDate}
+        max={shiftDays(t, 14)}
+        render={(d) => (
+          <div className="aura gal-pager-card" style={{ background: `hsl(${(((Math.round((Date.parse(d) - Date.parse(t)) / 86_400_000) * 67) % 360) + 360) % 360} 40% 20%)` }}>
+            <span className="caps">{d === t ? 'Today' : dayCaption(d)}</span>
+            <span className="display gal-pager-word">{['Easy', 'Speed', 'Rest', 'Long', 'Easy', 'Tempo', 'Lift'][new Date(`${d}T12:00:00`).getDay()]}</span>
+            <span className="t-sub muted">Drag, fling, catch it mid-slide, or focus and use the arrow keys.</span>
+            <Pressable as="div" className="gal-press gal-p-pager" holdMenu={() => items('Pager card')} menuLabel="Pager card actions" onPress={() => galLog('pager-tap')}>
+              Hold, then swipe: the menu goes, the page pages
+            </Pressable>
+          </div>
+        )}
+      />
+      <div className="gal-chips" style={{ marginTop: 12 }}>
+        <Button variant="quiet" size="sm" onClick={() => handle.goTo(shiftDays(date, 1))}>
+          Next
+        </Button>
+        <Button variant="quiet" size="sm" onClick={() => handle.goTo(shiftDays(date, 5))}>
+          +5
+        </Button>
+        {date !== t ? (
+          <Button variant="quiet" size="sm" onClick={() => handle.goTo(t)}>
+            Back to today
+          </Button>
+        ) : null}
+      </div>
+    </>
+  );
+};
+
 export default function UiGallery() {
+  const [lab, setLab] = useState(readLab);
+  if (lab)
+    return (
+      <PagerLab
+        onClose={() => {
+          writeLab(false);
+          setLab(false);
+        }}
+      />
+    );
+  return (
+    <Gallery
+      onLab={() => {
+        writeLab(true);
+        setLab(true);
+      }}
+    />
+  );
+}
+
+function Gallery({ onLab }: { onLab: () => void }) {
   const sheet = useSheet();
   const toast = useToast();
   const menu = useContextMenu();
@@ -231,7 +364,6 @@ export default function UiGallery() {
   const [todos, setTodos] = useState(START_TODOS);
   const [n, setN] = useState(26.2);
   const [seg, setSeg] = useState<'week' | 'month'>('week');
-  const [date, setDate] = useState(today());
   const [halo, setHalo] = useState<(typeof AURA_STATES)[number]>('done');
   const [ringKey, setRingKey] = useState(0);
   const firstToday = useFirstToday('gallery-demo');
@@ -249,8 +381,11 @@ export default function UiGallery() {
 
   return (
     <div className="page gal">
-      <PushedHeader title="UI" eyebrow="Foundation · dev only" right={<Avatar />} />
+      <PushedBar title="UI" eyebrow="Foundation · dev only" trailing={<Avatar />} />
       <p className="ink2 gal-lead">Every primitive in every state. The pill at the bottom names each haptic as it fires.</p>
+      <Button variant="soft" className="gal-open-lab" onClick={onLab}>
+        Open the pager lab (a stub Today)
+      </Button>
 
       <Section title="Haptics" meta={hOn ? 'On' : 'Off'}>
         <div className="sec-group">
@@ -403,6 +538,9 @@ export default function UiGallery() {
           </WeekRing>
           <WeekRing days={['future', 'rest', 'future', 'rest', 'future', 'rest', 'future']} onceADay={null} />
           <WeekRing days={['missed', 'rest', 'missed', 'rest', 'done', 'rest', 'open']} today={6} onceADay={null} />
+          <span className="gal-ring-marked">
+            <WeekRing days={['done', 'floor', 'missed', 'rest', 'done', 'open', 'future']} size={64} marked={2} today={5} onceADay={null} label="Marked Wednesday, missed Wednesday" />
+          </span>
         </div>
         <p className="t-cap muted" style={{ marginTop: 8 }}>
           Track always there; an arc only on a day with a session: done blue, floor amber, missed a red outline, skipped grey, to come faint. Rest is the bare track. The middle is the days kept.
@@ -467,49 +605,18 @@ export default function UiGallery() {
         </div>
       </Section>
 
-      <Section title="Tab header">
+      <Section title="Nav bar" meta="Fragments: sticky bar, large title, strip">
+        <NavBarDemos />
+      </Section>
+
+      <Section title="Pushed bar" meta="This page uses one">
         <div className="gal-frame">
-          <TabHeader
-            title="Speed"
-            onDatePress={() => toast('Calendar sheet')}
-            onDateStep={(d) => toast(d > 0 ? 'Next day' : 'Previous day')}
-            dateLabel="Wednesday. Pick a day"
-            accessory={<ChipButton quiet>Today</ChipButton>}
-          />
-        </div>
-        <div className="gal-frame">
-          <TabHeader title="Progress, with a title long enough to wrap" />
+          <PushedBar title="This morning" eyebrow={dayCaption(today())} trailing={<ChipButton quiet>Edit</ChipButton>} />
         </div>
       </Section>
 
-      <Section title="Pushed header" meta="This page uses one">
-        <div className="gal-frame">
-          <PushedHeader title="Morning" eyebrow={dateLine()} onBack={() => toast('Back')} right={<ChipButton quiet>Edit</ChipButton>} />
-        </div>
-      </Section>
-
-      <Section title="Date pager" meta={dateLine(date)}>
-        <DatePager
-          date={date}
-          onChange={setDate}
-          max={shiftDays(t, 14)}
-          render={(d) => (
-            <div className="aura gal-pager-card">
-              <div className="aura-glow" />
-              <span className="caps">{d === t ? 'Today' : dateLine(d)}</span>
-              <span className="display gal-pager-word">{['Easy', 'Speed', 'Rest', 'Long', 'Easy', 'Tempo', 'Lift'][new Date(`${d}T12:00:00`).getDay()]}</span>
-              <span className="t-sub muted">Drag, fling, or focus and use the arrow keys.</span>
-              <Pressable as="div" className="gal-press gal-p-pager" holdMenu={() => items('Pager card')} menuLabel="Pager card actions" onPress={() => galLog('pager-tap')}>
-                Hold, then swipe: the menu goes, the page pages
-              </Pressable>
-            </div>
-          )}
-        />
-        {date !== t ? (
-          <Button variant="quiet" size="sm" onClick={() => setDate(t)}>
-            Back to today
-          </Button>
-        ) : null}
+      <Section title="Day pager" meta="DayPager v2">
+        <PagerDemo items={items} />
       </Section>
 
       <Section title="Sheets" meta="sheetY owns it; the tab recedes to 0.92">
@@ -518,7 +625,7 @@ export default function UiGallery() {
             <Button variant="soft" className="gal-sheet-auto" onClick={() => sheet.open({ title: 'Easy 6', eyebrow: 'Auto · scrolls', body: <FieldSheetBody /> })}>
               Auto + field
             </Button>
-            <Button variant="soft" className="gal-sheet-stack" onClick={() => sheet.open({ title: 'Easy 6', eyebrow: dateLine(), body: <SheetBody level={1} /> })}>
+            <Button variant="soft" className="gal-sheet-stack" onClick={() => sheet.open({ title: 'Easy 6', eyebrow: dayCaption(today()), body: <SheetBody level={1} /> })}>
               Open + push
             </Button>
             <Button variant="soft" className="gal-sheet-detents" onClick={() => sheet.open({ title: 'Routine', detent: 'medium', detents: ['medium', 'large'], body: <SheetBody level={2} /> })}>

@@ -255,3 +255,104 @@
   background: var(--surface);
   color: var(--ink-3);
 }
+
+/* ---------- the bar demos: static frames (the real bar sticks in the tab scroller) ---------- */
+.gal-bar-frame {
+  position: relative;
+  padding: 0;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.gal-bar-frame .nb-bar,
+.gal-bar-frame .nb-strip {
+  position: relative;
+  top: auto;
+}
+.gal-bar-frame .nb-gap {
+  height: 8px;
+}
+.gal-slider {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 16px;
+}
+.gal-slider input {
+  width: 100%;
+}
+.gal-pager {
+  margin-inline: calc(-1 * var(--gutter));
+}
+.gal-pager .gal-pager-card {
+  margin-inline: var(--gutter);
+}
+.gal-open-lab {
+  margin: 8px 0 0;
+}
+
+/* ---------- the pager lab: a stub Today in the gallery's own scroller ---------- */
+.gal-lab {
+  min-height: 100%;
+  background: var(--bg);
+}
+.lab-page {
+  box-sizing: border-box;
+  padding: 16px var(--gutter);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+.lab-page > * {
+  flex: none;
+}
+.lab-page-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-2);
+}
+.lab-card {
+  display: grid;
+  place-items: center;
+  min-height: 88px;
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font-weight: 600;
+}
+.lab-orbs {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.lab-orb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+.lab-input {
+  min-height: 44px;
+}
+.lab-row {
+  min-height: 108px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 8px;
+  color: var(--ink-3);
+}
+.lab-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lab-go {
+  min-height: 44px;
+  min-width: 56px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+}
