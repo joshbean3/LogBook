@@ -92,7 +92,9 @@ export default function PlanView() {
     nav(weekPath(m));
   };
 
-  // pinch: two fingers closing zoom out to the month; opening on the month zooms into the week under them
+  // pinch: two fingers closing zoom out to the month; opening on the month zooms into the week under them. The non-passive
+  // touchmove listener exists only between a two-finger touchstart and its end (critic C10): a one-finger scroll on Plan
+  // never waits on the main thread for it.
   const root = useRef<HTMLDivElement>(null);
   const live = useRef({ view, zoomOut, zoomIn });
   live.current = { view, zoomOut, zoomIn };
@@ -104,13 +106,6 @@ export default function PlanView() {
     let cx = 0;
     let cy = 0;
     const dist = (e: TouchEvent) => Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY);
-    const start = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
-      d0 = dist(e);
-      fired = false;
-      cx = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
-      cy = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
-    };
     const move = (e: TouchEvent) => {
       if (e.touches.length !== 2 || !d0) return;
       if (e.cancelable) e.preventDefault();
@@ -126,13 +121,22 @@ export default function PlanView() {
         v.zoomIn(wk ?? mondayOf(t));
       }
     };
+    const start = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      d0 = dist(e);
+      fired = false;
+      cx = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
+      cy = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
+      el.addEventListener('touchmove', move, { passive: false });
+    };
     const end = (e: TouchEvent) => {
-      if (e.touches.length < 2) d0 = 0;
+      if (e.touches.length >= 2) return;
+      d0 = 0;
+      el.removeEventListener('touchmove', move);
     };
     el.addEventListener('touchstart', start, { passive: true });
-    el.addEventListener('touchmove', move, { passive: false });
-    el.addEventListener('touchend', end);
-    el.addEventListener('touchcancel', end);
+    el.addEventListener('touchend', end, { passive: true });
+    el.addEventListener('touchcancel', end, { passive: true });
     return () => {
       el.removeEventListener('touchstart', start);
       el.removeEventListener('touchmove', move);
