@@ -50,9 +50,8 @@
   z-index: 30;
   height: calc(var(--tabbar-h) + var(--safe-b));
   padding: 0 4px var(--safe-b);
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  backdrop-filter: blur(20px) saturate(1.5);
+  /* opaque: a 20px blur over a black canvas was invisible and re-rasterised on every scrolled frame (shell F15, webview P10) */
+  background: var(--surface);
   border-top: 1px solid var(--line-strong);
 }
 /* the nav is the landmark; the tablist inside it holds the five tabs */

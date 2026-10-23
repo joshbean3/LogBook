@@ -282,12 +282,11 @@
   z-index: 70;
   touch-action: none;
 }
+/* opacity only (ContextMenu animates it): a blur under a fading scrim was re-sampled on every frame of the menu's arrival */
 .cm-scrim {
   position: absolute;
   inset: 0;
   background: var(--scrim-menu);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
 }
 .cm-lift {
   position: fixed;
@@ -692,9 +691,9 @@ button.tabh-date::after,
   z-index: 20;
   margin: calc(-8px - var(--safe-t)) calc(-1 * var(--page-pad)) 0;
   padding: calc(4px + var(--safe-t)) var(--page-pad) 4px;
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  backdrop-filter: blur(20px) saturate(1.5);
+  /* opaque, with a hairline: no blur to re-rasterise while the page scrolls under it */
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--line-strong);
 }
 .pushed-top {
   display: flex;
