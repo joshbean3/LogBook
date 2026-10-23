@@ -280,29 +280,24 @@
   position: fixed;
   inset: 0;
   z-index: 70;
-  touch-action: none;
+  /* the hole catches nothing: taps outside are a capture-phase listener (ContextMenu.tsx) */
+  pointer-events: none;
 }
-/* opacity only (ContextMenu animates it): a blur under a fading scrim was re-sampled on every frame of the menu's arrival */
-.cm-scrim {
-  position: absolute;
-  inset: 0;
-  background: var(--scrim-menu);
-}
-.cm-lift {
+/*
+ * The cut-out scrim (§11.2): a box at the lifted element's rest rect whose spread shadow dims everything else, the bar and
+ * the tab bar included; the real element shows through it undimmed, with no z-index. Its scale rides the element's lift.
+ * Opacity only (no backdrop-filter).
+ */
+.cm-hole {
   position: fixed;
-  z-index: 1;
+  pointer-events: none;
   transform-origin: 50% 50%;
-}
-.cm-lift.has-preview {
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-menu);
-  overflow: hidden;
-  padding: 16px;
+  box-shadow: 0 0 0 200vmax var(--scrim-menu);
 }
 .cm-menu {
   position: fixed;
   z-index: 2;
+  pointer-events: auto;
   display: grid;
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
@@ -333,7 +328,7 @@
 .cm-item.destructive {
   color: var(--bad);
 }
-.cm-item:active:not(:disabled),
+.cm-item[data-pressed]:not(:disabled),
 .cm-item:focus-visible {
   background: var(--surface-3);
   outline: none;
@@ -604,8 +599,9 @@
   height: 24px;
   font-size: 0.75rem;
 }
-.avatar:active .avatar-disc {
+.avatar[data-pressed] .avatar-disc {
   transform: scale(0.97);
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .avatar.on .avatar-disc {
   box-shadow:
@@ -910,9 +906,10 @@ button.tabh-date::after,
   position: absolute;
   inset: -4px -2px;
 }
-.daystep-arrow:active {
+.daystep-arrow[data-pressed] {
   background: var(--surface-3);
-  transform: scale(0.92);
+  transform: scale(0.97);
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .daystep-arrow + .daystep-arrow::before {
   content: '';
@@ -979,4 +976,13 @@ button.tabh-date::after,
 }
 [data-pressed][data-press='dim'] {
   opacity: 0.55;
+}
+/* the hold (§11.2): the pre-grow at 300 ms (visual only), then the lift in place (ui/lift.ts writes the element's scale) */
+[data-preholding],
+[data-preholding][data-press] {
+  transform: scale(1.02);
+  transition: transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-lifting] {
+  transition: none !important;
 }

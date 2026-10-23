@@ -183,7 +183,7 @@
   text-decoration: none;
   transition: background var(--dur-fast);
 }
-.lrow.tappable:active {
+.lrow.tappable[data-pressed] {
   background: var(--surface-2);
 }
 @media (hover: hover) {
@@ -206,7 +206,7 @@ label.lrow {
   cursor: pointer;
   transition: background var(--dur-fast);
 }
-label.lrow:active {
+label.lrow[data-pressed] {
   background: var(--surface-2);
 }
 /* the verb at the right of a whole-row action ("Connect", "Import"): a word, not a second button */
@@ -383,12 +383,17 @@ label.lrow:active {
   gap: 6px;
   white-space: nowrap;
   transition:
-    transform 100ms var(--ease-out),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
     background var(--dur-fast),
     opacity var(--dur-fast);
 }
-.btn:active:not(:disabled) {
-  transform: scale(0.98);
+/* the one press (§11.1): data-pressed on pointerdown (ui/usePress.ts delegates it to plain buttons), 0.97 in 120 ms */
+.btn[data-pressed]:not(:disabled) {
+  transform: scale(0.97);
+  transition:
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+    background var(--dur-fast),
+    opacity var(--dur-fast);
 }
 .btn:disabled {
   opacity: 0.4;
@@ -453,7 +458,7 @@ label.lrow:active {
   flex: none;
   transition:
     background var(--dur-fast),
-    transform 100ms var(--ease-out);
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 @media (hover: hover) {
   .icon-btn:hover:not(:disabled) {
@@ -461,8 +466,11 @@ label.lrow:active {
     color: var(--ink);
   }
 }
-.icon-btn:active:not(:disabled) {
-  transform: scale(0.92);
+.icon-btn[data-pressed]:not(:disabled) {
+  transform: scale(0.97);
+  transition:
+    background var(--dur-fast),
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .icon-btn:disabled {
   opacity: 0.3;
@@ -511,8 +519,8 @@ label.lrow:active {
 .sec-head .link {
   color: var(--ink-2);
 }
-.link:active {
-  opacity: 0.6;
+.link[data-pressed] {
+  opacity: 0.55;
 }
 @media (hover: hover) {
   .link:hover {
@@ -585,7 +593,7 @@ label.lrow:active {
   gap: 6px;
   white-space: nowrap;
   transition:
-    transform 100ms var(--ease-out),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
     background var(--dur-fast),
     color var(--dur-fast);
 }
@@ -596,8 +604,12 @@ label.lrow:active {
     background: var(--surface-2);
   }
 }
-.chip-btn:active:not(:disabled) {
+.chip-btn[data-pressed]:not(:disabled) {
   transform: scale(0.97);
+  transition:
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+    background var(--dur-fast),
+    color var(--dur-fast);
 }
 /* a 32px chip to the eye, 44px to the thumb */
 .chip-btn::after {
@@ -1178,10 +1190,14 @@ textarea.in {
   transition:
     background var(--dur-fast),
     box-shadow var(--dur-fast),
-    transform 100ms var(--ease-out);
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.dcell:active .dcell-pill {
-  transform: scale(0.94);
+.dcell[data-pressed] .dcell-pill {
+  transform: scale(0.97);
+  transition:
+    background var(--dur-fast),
+    box-shadow var(--dur-fast),
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .dcell-num {
   font-variant-numeric: tabular-nums;
@@ -1269,7 +1285,7 @@ textarea.in {
   user-select: none;
   -webkit-user-select: none;
 }
-.aura[role='button']:active {
+.aura[role='button'][data-pressed] {
   background: var(--surface-2);
 }
 .aura-glow {
@@ -1398,10 +1414,10 @@ textarea.in {
   letter-spacing: -0.01em;
   transition:
     background var(--dur-fast),
-    transform 100ms var(--ease-out);
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.aura-share:active,
-.aura[role='button']:active .aura-pill {
+.aura-share[data-pressed],
+.aura[role='button'][data-pressed] .aura-pill {
   background: rgba(255, 255, 255, 0.12);
 }
 .aura-pill::before,

@@ -74,6 +74,12 @@ export const PREHOLD_SCALE = 1.02;
 export const LIFT_SCALE = 1.03;
 export const COMPLETE_SCALE = 1.12;
 
+/**
+ * A spring for a unitless value (a scale): the same stiffness and damping, with rest thresholds in scale units. The px
+ * thresholds of `springFor` (|Δ| ≤ 1, |v| ≤ 30) would end a 1.00 → 1.03 lift on its first frame.
+ */
+export const forScale = (t: Transition): Transition => ({ ...t, restDelta: 0.0005, restSpeed: 0.01 });
+
 /** The transition for a spring, given the reduced-motion setting. */
 export const motionFor = (name: SpringName, reduce: boolean | null | undefined): Transition => (reduce ? reducedFade : named[name]);
 /** `motionFor` as a hook: reads the user's reduced-motion setting. */

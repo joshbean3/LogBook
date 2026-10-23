@@ -1,5 +1,6 @@
 import type { TargetAndTransition, Transition } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useHold } from '@/ui/useHold';
 import { HOLD_MS as ONE_HOLD } from './gesture';
 import { deprecated, LIFT_SCALE, springs } from './motion';
 
@@ -7,7 +8,8 @@ import { deprecated, LIFT_SCALE, springs } from './motion';
  * Press-and-hold drags for the things that move: a habit orb, a session row, a block on the morning timeline.
  *
  * The grammar is the same everywhere (brand §9.5; it keeps rules 1 and 4: nothing moves on load, nothing runs long or
- * ambient): the pointer rests for `holdMs`, the thing lifts (scale 1.03, surface-2, a line-strong hairline, no shadow,
+ * ambient): the pointer rests for the one hold clock (`useHold`, HOLD_MS 450; `holdMs: 0` arms a dedicated handle on the
+ * first touch), the thing lifts (scale 1.03, surface-2, a line-strong hairline, no shadow,
  * one haptic), it follows the finger, and on release it springs back (stiffness 400, damping 30). Under reduced motion
  * nothing scales: the lift is the surface and the hairline alone, and every move is instant.
  * Until the hold is up the page scrolls as usual; once it is up, touch scrolling is held off so the drag owns the finger.
@@ -15,7 +17,7 @@ import { deprecated, LIFT_SCALE, springs } from './motion';
 
 /** @deprecated the one hold clock lives in lib/gesture.ts (450 ms); re-exported here (contracts rule 5). */
 export const HOLD_MS = ONE_HOLD;
-/** How far the pointer may wander during the hold before it counts as a scroll, and how far it must travel after it to count as a drag. */
+/** How far a dedicated handle (`holdMs: 0`) must travel to count as a drag (a held drag uses the hold's DRAG_START_PX). */
 export const SLOP = 6;
 
 /** @deprecated use `springs.settle` (contracts rule 5). */
@@ -76,9 +78,9 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
     y0: 0,
     x: 0,
     y: 0,
-    timer: null as ReturnType<typeof setTimeout> | null,
     raf: 0,
     dragged: false,
+    down: null as PointerEvent | null,
     off: null as null | (() => void),
   });
 
@@ -86,12 +88,9 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
     s.current.phase = p;
     setPhase(p);
   };
-  const point = (e: PointerEvent): DragPoint => ({ x: e.clientX, y: e.clientY, dx: e.clientX - s.current.x0, dy: e.clientY - s.current.y0 });
 
   const reset = useCallback(() => {
     const st = s.current;
-    if (st.timer) clearTimeout(st.timer);
-    st.timer = null;
     if (st.raf) cancelAnimationFrame(st.raf);
     st.raf = 0;
     st.off?.();
@@ -100,17 +99,79 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
     if (st.phase !== 'idle') go('idle');
   }, []);
 
+  /** Nudge the page while the finger sits near an edge, and keep the drop target honest while it moves. */
+  const scrollLoop = (last: PointerEvent) => {
+    const st = s.current;
+    // the page scrolls inside its own scroller (a tab, a pushed page, a sheet), never the document
+    const scroller = ref.current?.closest<HTMLElement>('.sheet-body, .pushed, .tab-scroll') ?? null;
+    const tick = () => {
+      if (st.phase !== 'dragging') return;
+      const box = scroller?.getBoundingClientRect();
+      const top = box?.top ?? 0;
+      const bottom = box?.bottom ?? window.innerHeight;
+      let dy = 0;
+      if (st.y < top + EDGE) dy = -Math.ceil(((top + EDGE - st.y) / EDGE) * MAX_STEP);
+      else if (st.y > bottom - EDGE) dy = Math.ceil(((st.y - (bottom - EDGE)) / EDGE) * MAX_STEP);
+      if (dy && scroller) {
+        const before = scroller.scrollTop;
+        scroller.scrollTop += dy;
+        if (scroller.scrollTop !== before) o.current.onMove?.({ x: st.x, y: st.y, dx: st.x - st.x0, dy: st.y - st.y0 }, last);
+      }
+      st.raf = requestAnimationFrame(tick);
+    };
+    st.raf = requestAnimationFrame(tick);
+  };
+
+  // the hold half is the one clock (ui/useHold: HOLD_MS, the slop, the drag start, the touchmove held off for the drag only)
+  const hold = useHold({
+    visual: false,
+    disabled: opts.disabled,
+    onHold: () => {
+      const st = s.current;
+      go('armed');
+      if (st.down) o.current.onArm?.(st.down);
+    },
+    onDragStart: (p, e) => {
+      const st = s.current;
+      st.dragged = true;
+      st.x = e.clientX;
+      st.y = e.clientY;
+      go('dragging');
+      o.current.onStart?.(p, e);
+      if (o.current.autoScroll) scrollLoop(e);
+    },
+    onDragMove: (p, e) => {
+      const st = s.current;
+      st.x = e.clientX;
+      st.y = e.clientY;
+      o.current.onMove?.(p, e);
+    },
+    onDragEnd: (p, e, cancelled) => {
+      const was = s.current.phase;
+      reset();
+      if (cancelled) o.current.onCancel?.(was, 'cancel');
+      else o.current.onDrop?.(p, e);
+    },
+    onHoldEnd: (cancelled) => {
+      const was = s.current.phase;
+      reset();
+      o.current.onCancel?.(was === 'idle' ? 'armed' : was, cancelled ? 'cancel' : 'up');
+    },
+  });
+
   /** Drop whatever is in flight: used when something else claims the press, like a long-press sheet. */
   const cancel = useCallback(() => {
     const was = s.current.phase;
+    hold.cancel();
     reset();
     if (was === 'armed' || was === 'dragging') o.current.onCancel?.(was, 'cancel');
-  }, [reset]);
+  }, [reset, hold]);
 
-  const arm = (e: PointerEvent) => {
+  /** holdMs 0 (a dedicated handle, the alarm's): armed on the first touch, no clock. */
+  const armNow = (e: PointerEvent) => {
     const st = s.current;
-    st.timer = null;
     go('armed');
+    const point = (ev: PointerEvent): DragPoint => ({ x: ev.clientX, y: ev.clientY, dx: ev.clientX - st.x0, dy: ev.clientY - st.y0 });
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== st.id) return;
       st.x = ev.clientX;
@@ -139,52 +200,24 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
       reset();
       o.current.onCancel?.(was, 'cancel');
     };
+    // the handle owns the finger from the first touch: the scroll is held off on the handle itself, for this drag only
+    const el = ref.current;
+    const tm = (ev: TouchEvent) => {
+      if (ev.cancelable) ev.preventDefault();
+    };
+    el?.addEventListener('touchmove', tm, { passive: false });
     const opt = { capture: true, passive: true } as const;
     window.addEventListener('pointermove', onMove, opt);
     window.addEventListener('pointerup', onUp, opt);
     window.addEventListener('pointercancel', onCancel, opt);
     st.off = () => {
+      el?.removeEventListener('touchmove', tm);
       window.removeEventListener('pointermove', onMove, opt);
       window.removeEventListener('pointerup', onUp, opt);
       window.removeEventListener('pointercancel', onCancel, opt);
     };
     o.current.onArm?.(e);
   };
-
-  /** Nudge the page while the finger sits near an edge, and keep the drop target honest while it moves. */
-  const scrollLoop = (last: PointerEvent) => {
-    const st = s.current;
-    // the page scrolls inside its own scroller (a tab, a pushed page, a sheet), never the document
-    const scroller = ref.current?.closest<HTMLElement>('.sheet-body, .pushed, .tab-scroll') ?? null;
-    const tick = () => {
-      if (st.phase !== 'dragging') return;
-      const box = scroller?.getBoundingClientRect();
-      const top = box?.top ?? 0;
-      const bottom = box?.bottom ?? window.innerHeight;
-      let dy = 0;
-      if (st.y < top + EDGE) dy = -Math.ceil(((top + EDGE - st.y) / EDGE) * MAX_STEP);
-      else if (st.y > bottom - EDGE) dy = Math.ceil(((st.y - (bottom - EDGE)) / EDGE) * MAX_STEP);
-      if (dy && scroller) {
-        const before = scroller.scrollTop;
-        scroller.scrollTop += dy;
-        if (scroller.scrollTop !== before) o.current.onMove?.({ x: st.x, y: st.y, dx: st.x - st.x0, dy: st.y - st.y0 }, last);
-      }
-      st.raf = requestAnimationFrame(tick);
-    };
-    st.raf = requestAnimationFrame(tick);
-  };
-
-  // once the hold is up, the first touch move would start a scroll: hold it off so the drag keeps the finger
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const onTouchMove = (e: TouchEvent) => {
-      const p = s.current.phase;
-      if ((p === 'armed' || p === 'dragging') && e.cancelable) e.preventDefault();
-    };
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => el.removeEventListener('touchmove', onTouchMove);
-  });
   useEffect(() => reset, [reset]);
 
   const bind = {
@@ -196,27 +229,23 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
       st.x0 = st.x = e.clientX;
       st.y0 = st.y = e.clientY;
       st.dragged = false;
-      const hold = o.current.holdMs ?? HOLD_MS;
-      const native = e.nativeEvent;
-      if (hold <= 0) arm(native);
-      else {
-        go('pending');
-        st.timer = setTimeout(() => arm(native), hold);
-      }
+      st.down = e.nativeEvent;
+      if ((o.current.holdMs ?? HOLD_MS) <= 0) return armNow(e.nativeEvent);
+      go('pending');
+      hold.handlers.onPointerDown(e as React.PointerEvent<HTMLElement>);
     },
     onPointerMove: (e: React.PointerEvent) => {
       const st = s.current;
       if (st.phase !== 'pending' || e.pointerId !== st.id) return;
-      if (dist(e.clientX, e.clientY, st.x0, st.y0) >= SLOP) reset();
+      // the hold let go of it (moved past the slop): the scroll has it
+      if (hold.state.current === 'idle') go('idle');
     },
     onPointerUp: () => {
-      if (s.current.phase === 'pending') reset();
+      if (s.current.phase === 'pending') go('idle');
     },
-    onPointerLeave: () => {
-      if (s.current.phase === 'pending') reset();
-    },
+    onPointerLeave: () => undefined,
     onPointerCancel: () => {
-      if (s.current.phase === 'pending') reset();
+      if (s.current.phase === 'pending') go('idle');
     },
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   };

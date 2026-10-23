@@ -204,7 +204,7 @@
   min-height: 52px;
   color: var(--ink);
 }
-.gal-edge-row:active {
+.gal-edge-row[data-pressed] {
   background: var(--surface);
 }
 .gal-halo-card {

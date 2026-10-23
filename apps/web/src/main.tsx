@@ -7,6 +7,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { startKeyboard } from '@/lib/keyboard';
+import { startPressDelegate } from '@/ui/usePress';
 import { bootNative } from '@/lib/native';
 import { startServiceWorker } from '@/lib/sw';
 import { App } from './app/App';
@@ -72,6 +73,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 startKeyboard();
+startPressDelegate();
 // the service worker waits for the first screen (lib/sw.ts, called from App); a signed-out open gets it after a while
 setTimeout(startServiceWorker, 8000);
 void bootNative();
