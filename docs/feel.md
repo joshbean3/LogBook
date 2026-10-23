@@ -165,7 +165,7 @@ Unselected: stroke 1.8, no fill. Labels 10/12 500, 600 when lit. The Morning tab
 
 ```ts
 // ui/nav.ts
-export interface PushedEntry { key: string; path: string; title: string; depth: 1 | 2; idx: number /* history.state.idx when pushed */ }
+export interface PushedEntry { key: string; path: string; title: string; depth: 1 | 2; idx: number /* history.state.idx when pushed */; shared?: string /* the data-shared id the flyer travels between (This morning: 'morning-line-<date>') */ }
 export interface TabState { path: string; stack: PushedEntry[] }   // scrollTop lives in the DOM: the scroller stays mounted
 export interface NavState { active: TabId; tabs: Record<TabId, TabState>; overlays: number }
 ```
@@ -210,7 +210,7 @@ Presentations over the active tab: the session sheet, the calendar, the To-dos s
 |---|---|
 | This morning | the hero's four-stop line (any face that draws it); the `This morning` row under the hero (always) |
 | Settings | Today's avatar (only) |
-| Plans (block list) | Settings › Training › Plans (`/settings/plans`) |
+| Plans (block list) | the `Plans ›` row in the Training group of the Settings root (`/settings/plans`, depth 2, a sibling of `/settings/training`; the stack never exceeds two layers) |
 | The builder (template sheet, large) | Plan's block card `New block ›`; Today's plan-end card `Next block` (prefilled, over Today, no tab change); Plans page `New block` |
 | Routine editor (large sheet) | Settings › Morning routine; This morning's trailing icon |
 | Session sheet | hero tap; Plan row tap; the Close card's run row; This morning's run row |
@@ -486,10 +486,10 @@ The Close card (and every clock-driven face) appears on the next open or foregro
 
 | t | What | Numbers |
 |---|---|---|
-| foreground (`visibilitychange` visible or cold open), Strava connected, an unmatched run session today, now ≥ door | `POST /strava/sync` once (the 30 s throttle in `useStravaPull.ts`); no blind invalidation (landed in WP5) | |
+| foreground (`visibilitychange` visible) or cold open, Strava connected | one `POST /strava/sync` through `stravaSyncNow(qc)` (`api/queries.ts`, WP1's block): a mutation under `mutationKey: ['strava-sync']` around WP5's `syncStrava`, at most once per 30 s, the months and activities invalidated only on `changed ≥ 1` (the server joins a sync already running; `653193b`). `main.tsx` calls it on the foreground return (WP5's call, re-routed through the mutation cache so it is observable); the Today tab calls it once on a cold open after the first bootstrap. The status line reads it with `useIsMutating({ mutationKey: ['strava-sync'] })`; `useStravaPull.ts` stays the pull-to-refresh path | |
 | +0 | the open face's status line `Checking Strava…` fades in 120 ms; stays ≥ 600 ms; capped at 3 s | |
 | answer `changed: 0` and now > the session's back time | one repeat at +8 s, then the line fades out 100 ms; the face stays open | |
-| answer `changed ≥ 1` → `invalidateQueries(['month', monthOf(today)])` → the refetch puts the run in the snapshot | **stage 1** 0–300 ms: the ring fills from its current value to full (`stroke-dashoffset`, linear) | |
+| answer `changed ≥ 1` → `syncStrava` invalidates `['month']` and `activities` → the refetch puts the run in the snapshot | **stage 1** 0–300 ms: the ring fills from its current value to full (`stroke-dashoffset`, linear) | |
 | +300 | **stage 2** 300–500: the ring's stroke crossfades into the check inside the same circle (two `<path>`s in the same node; opacity swap 200 ms; the check scales 0.8 → 1 on `settle`) | same node: `[data-layout-exception]` is not needed here |
 | +500 | **stage 3** 500–850: the card grows 184 → 304 by the one allowed layout FLIP (`layout` on `settle`, tagged `data-layout-exception`); everything below translates down 120 px on the same spring; on rest the layout commits in one frame | |
 | +850 (the FLIP's `animationComplete`) | **one** `haptics.success()`; `.halo-boost` 600 ms | the haptic lands when the shape stops changing |
@@ -545,7 +545,7 @@ Today's plan-end card `Next block` → `sheet.open({ detent: 'large', title: 'Ne
 | Journal | Reads at `/journal/reads`, pushed over the mounted Journal; rows on `SwipeRow` v2 (72 reveal, 55 % / 600 px/s full) | navlive M1 |
 | Progress | builds from the months that are loaded; a missing month is a quiet gap, never the page skeleton (`ProgressView.tsx:169-181`); its 7-month range joins `prefetchAll` | critic C11, shell F11 |
 | Progress | verdict 20/25 600 `--sans` (one serif per screen: the title); range chips = `Segmented`; value column `auto` | visual F18 |
-| Settings | pushed from Today's avatar only; `You · Training · Habits · Morning routine · Connections · App · Data · Account` as inset groups; each row pushes `/settings/<section>` at depth 2 over the mounted Settings; `Morning routine` opens the RoutineEditor sheet; `Training → Plans ›` pushes `/settings/plans` (the old `PlansPanel` as a page with `New block` in its bar); no row leaves the stack; the ringed avatar on Settings and the avatar on every other bar are deleted | nav F10/F17, critic D5 |
+| Settings | pushed from Today's avatar only; `You · Training · Habits · Morning routine · Connections · App · Data · Account` as inset groups; each row pushes `/settings/<section>` at depth 2 over the mounted Settings; `Morning routine` opens the RoutineEditor sheet; the Training group's `Plans ›` row (on the Settings root, not inside `/settings/training`) pushes `/settings/plans` at depth 2 (the old `PlansPanel` as a page with `New block` in its bar); no row leaves the stack; the ringed avatar on Settings and the avatar on every other bar are deleted | nav F10/F17, critic D5 |
 | Onboarding | `/start` renders without waiting on `/auth/status` (landed in WP5); the payoff screen renders `FirstRunHero` (the same component as Today's first-run face) so `Open Today` is a state change under the mounting shell: the hero moves ≤ 2 px, the week rows fall away (translateY 40 + fade 200 ms), bar/strip/tab bar fade in 200 ms; `Welcome.tsx:427-437`'s leave animation and the route cut go | newuser 1.10 |
 | Toasts | only for actions with Undo and for errors; 4 s plain / 6 s with Undo; scoped to the tab that raised them (a tab change dismisses with `fadeOut`); swipe-dismiss at `v > 110 px/s`; placement subscribes to the sheet's `sheetY` (no per-frame `querySelector`, `Toast.tsx:34-59`) | critic C8, newuser 3.3 |
 
@@ -812,7 +812,7 @@ Every haptic still dispatches `logbook:haptic` for tests. Haptics stay on under 
 
 ## 12. The shell and cold start
 
-Most of this landed in WP5 (branch `worktree-wf_ad40b2ff-09a-1`, nine commits on `0c403c9`, `REVIEW.md`): compressed assets, preloaded fonts with `font-display: block` on native and metric-matched fallbacks on the web, the service worker after the first screen, `LogbookViewController: CAPBridgeViewController` with `bounces = true`, `alwaysBounceVertical = true`, `contentInsetAdjustmentBehavior = .never`, `allowsLinkPreview = false`, `html { overscroll-behavior-y: contain }`, `body { touch-action: manipulation; -webkit-touch-callout: none; user-select: none }` with text re-enabled in fields and entries, a black launch storyboard, one request on a foreground return (`serverTime` out of the cached object, `prefetchAll` once per session, `refetchOnWindowFocus: false`, no blind invalidation), Today painted from the cache before any network with `DayView` in the entry bundle, opaque tab bar / pushed header / menu scrim, the auth keyboard fixes, and the Plan pinch's listener scoped to a two-finger touch.
+Most of this landed in WP5, merged into the base branch `claude/hopeful-einstein-eunarl` at `653193b` (`REVIEW.md`, `scratchpad/feel/wp5-review.md`); every package builds on that commit and none undoes it: compressed assets, preloaded fonts with `font-display: block` on native and metric-matched fallbacks on the web, the service worker after the first screen, `LogbookViewController: CAPBridgeViewController` with `bounces = true`, `alwaysBounceVertical = true`, `contentInsetAdjustmentBehavior = .never`, `allowsLinkPreview = false`, `html { overscroll-behavior-y: contain }`, `body { touch-action: manipulation; -webkit-touch-callout: none; user-select: none }` with text re-enabled in fields and entries, a black launch storyboard, one request on a foreground return (`serverTime` out of the cached object, `prefetchAll` once per session, `refetchOnWindowFocus: false`, no blind invalidation), Today painted from the cache before any network with `DayView` in the entry bundle, opaque tab bar / pushed header / menu scrim, the auth keyboard fixes, the Plan pinch's listener scoped to a two-finger touch, and a foreground `POST /strava/sync` from `main.tsx` (`syncStrava` / `useStravaCheck` with `mutationKey: ['strava-sync']` in `api/queries.ts`; the server joins a sync already running).
 
 What this spec adds, and who builds it (WP1 unless stated):
 
@@ -825,7 +825,7 @@ What this spec adds, and who builds it (WP1 unless stated):
 | Listeners | no `touchmove` listener on `document` at any time: the pager, the edge pop, the sheet drag, the alarm handle and the swipe rows use pointer events on their own elements with `touch-action`; `useHoldDrag`'s element-scoped non-passive `touchmove` attaches only while a drag is armed |
 | Prefetch range | Progress's 7-month range joins `prefetchAll` (critic C11; WP1 in `api/queries.ts`) |
 | Fonts preloaded | `document.fonts.check('italic 34px "Instrument Serif"')` true at the first content frame (WP5) |
-| Return to foreground | one request (WP5); with Strava connected and a run due, `POST /strava/sync` (§6, WP2) |
+| Return to foreground | one request (WP5); with Strava connected, `POST /strava/sync` (WP5's call in `main.tsx`, routed through `stravaSyncNow` by WP1 so the status line can see it; WP2 draws the line and the landing, §6) |
 
 CSS shell (final):
 
@@ -985,4 +985,4 @@ Harness: the rAF recorder of computed transforms from `scratchpad/feel/perf/lib.
 12. **The owner asked for the arrows** (task #19). The strip is their successor; the nudge exists; tell him.
 13. **`history` as a mirror.** The `popstate`-as-request rule means a stale URL can briefly show in the address bar on the web before `replaceState`; acceptable, never visible in the native shell.
 14. **Playwright's CDP touch at ~27 Hz** cannot assert 60 Hz tracking; tracking tests compare per frame against the last dispatched point; the dead-stop test uses relative displacement.
-15. **WP5's files overlap WP1's** (`App.tsx`, `main.tsx`, `shell.css`, `base.css`, `foundation.css`, `tokens.css`, `capacitor.config.ts`, `queries.ts`, `PlanView.tsx`). WP5 merges first; every other package branches from the merged main (`scratchpad/feel/build-plan.md` §0).
+15. **WP5's files overlap WP1's** (`App.tsx`, `main.tsx`, `shell.css`, `base.css`, `foundation.css`, `tokens.css`, `capacitor.config.ts`, `queries.ts`, `PlanView.tsx`). WP5 is merged (`653193b`); every other package branches from that commit and must not undo it (`scratchpad/feel/build-plan.md` §0).
