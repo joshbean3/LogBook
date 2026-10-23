@@ -1,14 +1,42 @@
 import react from '@vitejs/plugin-react';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+/** The three latin files Today paints with: Inter (one variable file covers 400/500/600), Inter Tight 800, Instrument Serif italic. */
+const PRELOAD = ['Inter-latin.woff2', 'InterTight-latin.woff2', 'InstrumentSerif-italic-latin.woff2'];
+/**
+ * Fonts in the shell, not behind a request: public/fonts/fonts.css is inlined into index.html and the above-the-fold files
+ * are preloaded, so the first frame has its faces. The native build (VITE_NATIVE=1, `pnpm ios`) reads the files from disk,
+ * so there `font-display: block` holds the text for a few ms and nothing ever re-renders; the web keeps `swap` with the
+ * metric-matched fallbacks fonts.css declares.
+ */
+const fonts = (): Plugin => ({
+  name: 'logbook:fonts',
+  transformIndexHtml: {
+    order: 'pre',
+    handler(html) {
+      let css = fs.readFileSync(path.join(here, 'public', 'fonts', 'fonts.css'), 'utf8');
+      css = css
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s*([{}:;,])\s*/g, '$1')
+        .trim();
+      if (process.env.VITE_NATIVE === '1') css = css.replaceAll('font-display:swap', 'font-display:block');
+      const links = PRELOAD.map((f) => `<link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/${f}" />`).join('\n    ');
+      return html.replace('<link rel="stylesheet" href="/fonts/fonts.css" />', `${links}\n    <style>${css}</style>`);
+    },
+  },
+});
+
 export default defineConfig({
   plugins: [
     react(),
+    fonts(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'icons/*.svg', 'fonts/*'],

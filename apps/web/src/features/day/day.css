@@ -828,13 +828,13 @@
   gap: 6px;
 }
 .focus-word-in {
-  font-family: 'Inter Tight', var(--font-sans, system-ui);
+  font-family: var(--stamp);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 .focus-quote-in {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--serif);
   font-style: italic;
   font-size: 1.1875rem;
   line-height: 1.35;
