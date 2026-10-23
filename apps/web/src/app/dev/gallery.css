@@ -219,3 +219,39 @@
 .gal .row > * {
   overflow-wrap: anywhere;
 }
+
+/* ---------- the hold demos ---------- */
+.gal-verb {
+  color: var(--accent-text);
+  font-weight: 600;
+  padding: 0 8px;
+}
+.gal-slots {
+  display: grid;
+  gap: 0;
+  border-radius: 12px;
+  overflow: visible;
+}
+.gal-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+.gal-slot[data-dragging] {
+  position: relative;
+  z-index: 2;
+  background: var(--surface-2);
+}
+.gal-ghost {
+  height: 120px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink-3);
+}
