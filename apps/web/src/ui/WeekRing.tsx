@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { springs } from '@/lib/motion';
 import { useFirstToday } from './useFirstToday';
+import { usePress } from './usePress';
 
 export type WeekDayStatus = 'done' | 'floor' | 'missed' | 'skipped' | 'rest' | 'open' | 'future';
 export interface WeekRingProps {
@@ -83,6 +84,7 @@ export const weekRingKept = (days: WeekDayStatus[]) => days.filter((d) => d === 
  */
 export const WeekRing = ({ days, size = 40, today, label, onceADay = 'week-ring', layoutId, onPress, children }: WeekRingProps) => {
   const reduce = useReducedMotion();
+  const press = usePress();
   const first = useFirstToday(onceADay);
   const animateFill = first && !reduce;
   const stroke = STROKE[size];
@@ -129,8 +131,8 @@ export const WeekRing = ({ days, size = 40, today, label, onceADay = 'week-ring'
         className={`wring wring-${size} is-btn`}
         aria-label={name}
         onClick={onPress}
-        whileTap={reduce ? undefined : { scale: 0.97 }}
-        transition={springs.settle}
+        data-press="scale"
+        {...press.handlers}
       >
         {inner}
       </motion.button>

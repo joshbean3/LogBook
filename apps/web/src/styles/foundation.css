@@ -974,7 +974,9 @@ button.tabh-date::after,
 }
 
 /* ---------- the one press (docs/feel.md §11.1, M33): data-pressed is set synchronously on pointerdown ---------- */
-.pressable[data-press='scale'] {
+.pressable[data-press='scale'],
+.mark-hit[data-press='scale'],
+.wring.is-btn[data-press='scale'] {
   transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 [data-pressed][data-press='scale'] {
