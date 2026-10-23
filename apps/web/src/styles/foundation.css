@@ -352,7 +352,7 @@
   color: var(--bad);
 }
 
-/* ---------- SwipeRow ---------- */
+/* ---------- SwipeRow v2 (§11.3): the pane behind, the action a 72 px button at the revealed edge ---------- */
 .swipe-row {
   position: relative;
   overflow: hidden;
@@ -362,8 +362,7 @@
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  padding: 0 20px;
+  align-items: stretch;
   background: var(--surface-2);
   color: var(--ink-2);
   transition:
@@ -379,21 +378,38 @@
 .swipe-pane.from-left {
   justify-content: flex-end;
 }
-.is-armed .swipe-pane.tone-ok {
+.is-armed .swipe-pane.tone-ok,
+.swipe-row[data-revealed] .swipe-pane.tone-ok {
   background: var(--ok);
   color: #fff;
 }
-.is-armed .swipe-pane.tone-warn {
+.is-armed .swipe-pane.tone-warn,
+.swipe-row[data-revealed] .swipe-pane.tone-warn {
   background: var(--warn);
   color: #000;
 }
-.is-armed .swipe-pane.tone-bad {
+.is-armed .swipe-pane.tone-bad,
+.swipe-row[data-revealed] .swipe-pane.tone-bad {
   background: var(--bad);
   color: #fff;
 }
-.is-armed .swipe-pane.tone-neutral {
+.is-armed .swipe-pane.tone-neutral,
+.swipe-row[data-revealed] .swipe-pane.tone-neutral {
   background: var(--surface-3);
   color: var(--ink);
+}
+.swipe-action {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 72px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .swipe-act {
   display: inline-grid;

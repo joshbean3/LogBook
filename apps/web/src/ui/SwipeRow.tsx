@@ -1,181 +1,324 @@
-import { animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform } from 'motion/react';
+import { animate, motion, useMotionValue } from 'motion/react';
+import type * as React from 'react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
+import { LOCK_PX, lockAxis, PROJECT_S, SWIPE_FULL_FRAC, SWIPE_FULL_V, SWIPE_REVEAL_PX } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
-import { springs } from '@/lib/motion';
-import { ContextMenu, type ContextMenuItem } from './ContextMenu';
+import { springs, useReduced } from '@/lib/motion';
+import { useContextMenu, type ContextMenuItem } from './ContextMenu';
+import { useHold } from './useHold';
 
 export interface SwipeAction {
-  /** One verb: "Done", "Later", "Move". Also the context-menu item. */
+  /** One verb: "Done", "Later", "Archive". Also the hold menu's item. */
   label: string;
   icon?: ReactNode;
-  /** The colour of the pane behind the row once armed: blue done, amber floor/later, red delete, grey neutral. */
+  /** The pane's colour once armed: blue done, amber later, red delete, grey neutral. */
   tone?: 'ok' | 'warn' | 'bad' | 'neutral';
   onCommit: () => void;
-  /** Mark the context-menu item destructive (red, last). Default: tone === 'bad'. */
+  /** Mark the menu item destructive (red, last). Default: tone === 'bad'. */
   destructive?: boolean;
 }
 export interface SwipeRowProps {
-  /** Swiping the row to the right (→) reveals this action on the left edge. To-dos: Done. */
+  /** swipe → reveals on the left edge */
   right?: SwipeAction;
-  /** Swiping the row to the left (←) reveals this action on the right edge. To-dos: Later. */
+  /** swipe ← reveals on the right edge */
   left?: SwipeAction;
   children: ReactNode;
-  /** Extra actions for the long-press menu, after the swipe actions. */
+  /** Extra actions for the hold menu, after the swipe actions. */
   menuItems?: ContextMenuItem[];
   /** The object's name, for the menu's accessible name ("Buy milk actions"). */
   label?: string;
-  /** Wrap in a ContextMenu listing every action. Default true (every gesture has a visible fallback). */
+  /** Default true: the hold menu lists every action (the keyboard and VoiceOver path). */
   menu?: boolean;
   disabled?: boolean;
   className?: string;
   as?: 'div' | 'li';
-  /** The reveal detent opened or closed. (SwipeRow v2, WP1's next step.) */
+  /** The reveal detent opened (the side whose action shows) or closed. */
   onReveal?: (side: 'left' | 'right' | null) => void;
 }
 
-/** @deprecated the thresholds live in lib/gesture.ts (SWIPE_REVEAL_PX, SWIPE_FULL_FRAC, SWIPE_FULL_V); kept for SwipeRow v1. */
-export const SWIPE_LOCK = 10;
-export const SWIPE_COMMIT = 0.4;
-export const SWIPE_RUBBER = 0.6;
-const rubber = (dx: number, w: number) => {
-  const lim = w * SWIPE_RUBBER;
-  const a = Math.abs(dx);
-  if (a <= lim) return dx;
-  return Math.sign(dx) * (lim + (a - lim) * 0.25);
+/** @deprecated the thresholds live in lib/gesture.ts (SWIPE_REVEAL_PX, SWIPE_FULL_FRAC, SWIPE_FULL_V; LOCK_PX). */
+export const SWIPE_LOCK = LOCK_PX;
+/** @deprecated `SWIPE_FULL_FRAC`. */
+export const SWIPE_COMMIT = SWIPE_FULL_FRAC;
+/** @deprecated the pane follows 1:1 now. */
+export const SWIPE_RUBBER = 1;
+
+/** The list item a row is (a wrapper with only the row in it counts as the row). */
+const itemOf = (row: HTMLElement) => {
+  let item = row;
+  while (item.parentElement && item.parentElement.childElementCount === 1 && !/^(UL|OL)$/.test(item.parentElement.tagName)) item = item.parentElement;
+  return item;
 };
 
 /**
- * A row you triage with a horizontal swipe. It follows the finger 1:1 and rubber-bands past 60% of its width; the action's
- * icon grows as it nears the commit point (40%), `haptics.threshold()` fires once each time that line is crossed, and a
- * release past it commits (the row slides out, `onCommit` runs, the row comes back unless the page removes it); otherwise it
- * springs back on `springs.settle`. The first 10px decide the direction, so a vertical scroll always wins. Every action is
- * also in the row's long-press ContextMenu (plus `menuItems`), which is the keyboard and VoiceOver path.
+ * SwipeRow v2 (docs/feel.md §11.3, contracts §C.5; sheets, Library and Reads only, never inside a DayPager). The first
+ * 10 px inside a 40° cone decide the direction, so a vertical scroll always wins; then the content follows the finger 1:1
+ * (a side with no action does not move). Released past 72 px (projected 350 ms) it rests open at the **reveal detent**:
+ * the action is a 44 px button there, until a tap elsewhere or a scroll closes it. Past 0.55 W, or flicked at ≥ 600 px/s,
+ * it is **full**: the content slides out with the release velocity on `springs.settle`, `onCommit` runs on its completion,
+ * and when the page removes the row it leaves by a 100 ms fade while the rows below FLIP up on `settle`. `threshold` fires
+ * once when it arms, never when it disarms. A hold (the one clock) lifts the row and opens a menu with every action.
  */
-export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = true, disabled, className = '', as = 'div' }: SwipeRowProps) => {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLDivElement>(null);
+export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = true, disabled, className = '', as = 'div', onReveal }: SwipeRowProps): React.JSX.Element => {
+  const reduce = useReduced();
+  const ref = useRef<HTMLElement>(null);
   const x = useMotionValue(0);
+  const cm = useContextMenu();
   const [side, setSide] = useState<'left' | 'right' | null>(null);
   const [armed, setArmed] = useState(false);
-  const g = useRef({ id: -1, x0: 0, y0: 0, lock: null as null | 'x' | 'y', w: 1, armed: false, swallow: false });
+  const [revealed, setRevealed] = useState<'left' | 'right' | null>(null);
+  const g = useRef({ id: -1, x0: 0, y0: 0, from: 0, lock: null as null | 'x' | 'y', w: 1, armed: false, fired: false, swallow: false, busy: false });
+  const rev = useRef<'left' | 'right' | null>(null);
+  const o = useRef({ onReveal });
+  o.current.onReveal = onReveal;
 
-  // the action icon grows from 0.6 to 1 on the way to the commit point, and a touch past it once armed
-  const progress = useTransform(x, (v) => Math.min(1, Math.abs(v) / Math.max(1, g.current.w * SWIPE_COMMIT)));
-  const iconScale = useTransform(progress, (p) => (reduce ? 1 : 0.6 + 0.4 * p));
-  useMotionValueEvent(x, 'change', (v) => {
-    const s = v > 0 ? 'right' : v < 0 ? 'left' : null;
-    setSide((cur) => (cur === s ? cur : s));
-  });
+  useEffect(
+    () =>
+      x.on('change', (v) => {
+        const s = v > 0.5 ? 'right' : v < -0.5 ? 'left' : null;
+        setSide((c) => (c === s ? c : s));
+      }),
+    [x],
+  );
+  useEffect(() => () => x.stop(), [x]);
 
-  const action = side === 'right' ? right : side === 'left' ? left : undefined;
-  const settle = (to: number, after?: () => void) => {
-    const c = animate(x, to, reduce ? { duration: 0 } : springs.settle);
-    if (after) void c.then(after);
+  const actionFor = (v: number) => (v > 0 ? right : v < 0 ? left : undefined);
+  const setRev = (s: 'left' | 'right' | null) => {
+    if (rev.current === s) return;
+    rev.current = s;
+    setRevealed(s);
+    o.current.onReveal?.(s);
+  };
+  const to = (target: number, v = 0, after?: () => void) =>
+    animate(x, target, reduce ? { duration: 0, onComplete: after } : { ...springs.settle, velocity: v, onComplete: after });
+  const home = (v = 0) => {
+    setRev(null);
+    to(0, v);
   };
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (disabled || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  // open at the detent: a tap elsewhere (capture, so it is seen before anything handles it) or a scroll closes it
+  useEffect(() => {
+    if (!revealed) return;
+    const onDown = (e: PointerEvent) => {
+      const row = ref.current;
+      const t = e.target as Element | null;
+      if (t?.closest?.('.swipe-action') && row?.contains(t)) return;
+      // a tap on the open row itself only closes it
+      if (row && t && row.contains(t)) g.current.swallow = true;
+      home();
+    };
+    const onScroll = () => home();
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [revealed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Full: out with the velocity; onCommit on completion; if the page removes the row, it fades and the rows below FLIP up. */
+  const commit = (act: SwipeAction, dir: number, v: number) => {
+    const row = ref.current;
     const st = g.current;
+    st.busy = true;
+    setRev(null);
+    setArmed(true);
+    const w = row?.offsetWidth ?? window.innerWidth;
+    to(dir * w, v, () => {
+      if (!row) return act.onCommit();
+      const item = itemOf(row);
+      const r = item.getBoundingClientRect();
+      const sibs: HTMLElement[] = [];
+      for (let n = item.nextElementSibling; n; n = n.nextElementSibling) sibs.push(n as HTMLElement);
+      const before = sibs.map((s) => s.getBoundingClientRect().top);
+      // what is left on screen is the armed pane: its look, for the 100 ms fade after the row is gone
+      const pane = row.querySelector<HTMLElement>('.swipe-pane');
+      const ghost = (pane?.cloneNode(true) as HTMLElement | undefined) ?? document.createElement('div');
+      if (pane) {
+        const cs = getComputedStyle(pane);
+        ghost.style.background = cs.backgroundColor;
+        ghost.style.color = cs.color;
+      }
+      ghost.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:45;pointer-events:none;border-radius:${getComputedStyle(row).borderRadius}`;
+      ghost.setAttribute('aria-hidden', 'true');
+      let gone = false;
+      const scope = item.parentElement?.parentElement ?? document.body;
+      const onGone = () => {
+        gone = true;
+        document.body.appendChild(ghost);
+        const a = animate(ghost, { opacity: 0 }, { duration: reduce ? 0 : 0.1, ease: 'easeOut' });
+        void a.then(() => ghost.remove());
+        sibs.forEach((s, i) => {
+          if (!s.isConnected) return;
+          const d = before[i]! - s.getBoundingClientRect().top;
+          if (Math.abs(d) < 0.5 || reduce) return;
+          void animate(s, { y: [d, 0] }, springs.settle);
+        });
+      };
+      // the row leaves when the page re-renders without it (often a tick later): the inverse transforms land before that paint
+      const mo = new MutationObserver(() => {
+        if (gone || item.isConnected) return;
+        mo.disconnect();
+        onGone();
+      });
+      mo.observe(scope, { childList: true, subtree: true });
+      flushSync(() => act.onCommit());
+      if (!item.isConnected && !gone) {
+        mo.disconnect();
+        onGone();
+        return;
+      }
+      // the page kept the row (a "Later" that only moved it): it comes home
+      setTimeout(() => {
+        mo.disconnect();
+        if (gone || !row.isConnected) return;
+        st.busy = false;
+        setArmed(false);
+        to(0);
+      }, 400);
+    });
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    hold.handlers.onPointerDown(e);
+    const st = g.current;
+    if (disabled || st.busy || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if ((e.target as Element).closest('.swipe-action, .cm-sr')) return;
+    x.stop();
     st.id = e.pointerId;
     st.x0 = e.clientX;
     st.y0 = e.clientY;
+    st.from = x.get();
     st.lock = null;
-    st.armed = false;
-    st.swallow = false;
+    st.armed = Math.abs(st.from) >= (ref.current?.offsetWidth ?? 1) * SWIPE_FULL_FRAC;
+    st.fired = false;
     st.w = ref.current?.offsetWidth ?? 1;
-    x.stop();
   };
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const st = g.current;
     if (e.pointerId !== st.id) return;
     const dx = e.clientX - st.x0;
     const dy = e.clientY - st.y0;
     if (!st.lock) {
-      if (Math.abs(dx) < SWIPE_LOCK && Math.abs(dy) < SWIPE_LOCK) return;
-      st.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-      if (st.lock === 'y') return;
+      if (Math.hypot(dx, dy) < LOCK_PX) return;
+      const ax = lockAxis(dx, dy);
+      if (ax !== 'x') {
+        st.lock = 'y';
+        st.id = -1;
+        return;
+      }
+      st.lock = 'x';
       st.swallow = true;
       try {
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
-        /* already gone */
+        /* gone */
       }
     }
-    if (st.lock !== 'x') return;
-    // a side with no action barely moves
-    const has = dx > 0 ? !!right : !!left;
-    const v = has ? rubber(dx, st.w) : Math.sign(dx) * Math.min(24, Math.abs(dx) * 0.15);
+    // 1:1; a side with no action does not move; never past the row's width
+    let v = st.from + dx;
+    if (v > 0 && !right) v = 0;
+    if (v < 0 && !left) v = 0;
+    v = Math.max(-st.w, Math.min(st.w, v));
     x.set(v);
-    const over = has && Math.abs(v) >= st.w * SWIPE_COMMIT;
+    const over = Math.abs(v) >= st.w * SWIPE_FULL_FRAC;
     if (over !== st.armed) {
       st.armed = over;
       setArmed(over);
-      haptics.threshold();
+      // once on arming, never on disarming
+      if (over && !st.fired) {
+        st.fired = true;
+        haptics.threshold();
+      }
     }
   };
-  const end = (commit: boolean) => {
+  const onPointerEnd = (e: React.PointerEvent<HTMLElement>, cancelled: boolean) => {
     const st = g.current;
+    if (e.pointerId !== st.id) return;
     st.id = -1;
     if (st.lock !== 'x') return;
-    const v = x.get();
-    const act = v > 0 ? right : left;
+    const cur = x.get();
+    const v = cancelled ? 0 : x.getVelocity();
+    const act = actionFor(cur);
+    const dir = Math.sign(cur);
     st.armed = false;
+    if (act && !cancelled && (Math.abs(cur) >= st.w * SWIPE_FULL_FRAC || (Math.abs(v) >= SWIPE_FULL_V && Math.sign(v) === dir))) return commit(act, dir, v);
     setArmed(false);
-    if (commit && act && Math.abs(v) >= st.w * SWIPE_COMMIT) {
-      settle(Math.sign(v) * st.w, () => {
-        act.onCommit();
-        // if the page keeps the row (Later moved it, say), it comes home after a beat
-        setTimeout(() => {
-          if (ref.current?.isConnected) settle(0);
-        }, 280);
-      });
-    } else settle(0);
+    const proj = cur + v * PROJECT_S;
+    if (act && Math.sign(proj) === dir && Math.abs(proj) >= SWIPE_REVEAL_PX) {
+      setRev(dir > 0 ? 'right' : 'left');
+      to(dir * SWIPE_REVEAL_PX, v);
+      return;
+    }
+    home(v);
   };
-  // the click after a swipe is not a tap
-  const onClickCapture = (e: React.MouseEvent) => {
+  // the click after a swipe (or the tap that closed the open row) is not a tap
+  const onClickCapture = (e: React.MouseEvent<HTMLElement>) => {
+    hold.handlers.onClickCapture(e);
     if (g.current.swallow) {
       g.current.swallow = false;
       e.preventDefault();
       e.stopPropagation();
     }
   };
-  useEffect(() => () => x.stop(), [x]);
 
   const items: ContextMenuItem[] = [
     ...(right ? [{ label: right.label, icon: right.icon, onSelect: right.onCommit, destructive: right.destructive ?? right.tone === 'bad' }] : []),
     ...(left ? [{ label: left.label, icon: left.icon, onSelect: left.onCommit, destructive: left.destructive ?? left.tone === 'bad' }] : []),
     ...menuItems,
   ];
-  const wrapped = menu && items.length > 0;
-  // with a menu, the ContextMenu wrapper is the <li> (display: contents) and the row inside it a div
-  const Tag = as === 'li' && !wrapped ? motion.li : motion.div;
-  const row = (
+  const withMenu = menu && items.length > 0;
+  const openMenu = (focus?: HTMLElement | null) => {
+    const row = ref.current;
+    if (!row || disabled) return;
+    cm.open({ items, anchor: row, lift: row, label: label ? `${label} actions` : undefined, returnFocus: focus ?? undefined, haptic: false });
+  };
+  const hold = useHold({ disabled: disabled || !withMenu, onHold: () => openMenu() });
+
+  const shown = side === 'right' ? right : side === 'left' ? left : undefined;
+  const Tag = as as 'div';
+  return (
     <Tag
-      ref={ref as never}
-      className={`swipe-row ${armed ? 'is-armed' : ''} ${className}`}
+      ref={ref as React.RefObject<HTMLDivElement>}
+      className={`swipe-row ${armed ? 'is-armed' : ''} ${className}`.trim()}
+      data-revealed={revealed ?? undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={() => end(true)}
-      onPointerCancel={() => end(false)}
+      onPointerUp={(e) => onPointerEnd(e, false)}
+      onPointerCancel={(e) => onPointerEnd(e, true)}
+      onContextMenu={hold.handlers.onContextMenu}
+      onKeyDown={hold.handlers.onKeyDown}
       onClickCapture={onClickCapture}
     >
-      <div className={`swipe-pane tone-${action?.tone ?? 'neutral'} ${side ? `from-${side}` : ''}`} aria-hidden="true">
-        {action ? (
-          <motion.span className="swipe-act" style={{ scale: iconScale }}>
-            {action.icon}
-            <span className="swipe-label">{action.label}</span>
-          </motion.span>
+      <div className={`swipe-pane tone-${shown?.tone ?? 'neutral'} ${side ? `from-${side}` : ''}`} aria-hidden={revealed ? undefined : true}>
+        {shown ? (
+          <button
+            type="button"
+            className="swipe-action"
+            data-side={side ?? undefined}
+            tabIndex={revealed ? 0 : -1}
+            onClick={(e) => {
+              e.stopPropagation();
+              const s = side === 'right' ? 1 : -1;
+              commit(shown, s, 0);
+            }}
+          >
+            <span className="swipe-act">
+              {shown.icon}
+              <span className="swipe-label">{shown.label}</span>
+            </span>
+          </button>
         ) : null}
       </div>
       <motion.div className="swipe-content" style={{ x }}>
         {children}
       </motion.div>
+      {withMenu && !disabled ? (
+        <button type="button" className="cm-sr" aria-haspopup="menu" onClick={(e) => openMenu(e.currentTarget)}>
+          {label ? `${label} actions` : 'Actions'}
+        </button>
+      ) : null}
     </Tag>
-  );
-  if (!wrapped) return row;
-  return (
-    <ContextMenu items={items} label={label} disabled={disabled} as={as}>
-      {row}
-    </ContextMenu>
   );
 };
