@@ -998,3 +998,61 @@ button.tabh-date::after,
 [data-lifting] {
   transition: none !important;
 }
+
+/* ---------- DayPager v2 (§9.2, §3.5) ----------
+ * (the attribute keeps the contract's .dp ahead of features/sessions/sessions.css, whose day picker also uses .dp) */
+.dp,
+.dp[aria-roledescription='pager'] {
+  display: block;
+  gap: 0;
+  position: relative;
+  overflow-x: clip;
+  touch-action: pan-y;
+  outline: none;
+}
+.dp:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.dp-track {
+  position: relative;
+  touch-action: pan-y;
+  will-change: transform;
+}
+.dp-page {
+  min-width: 0;
+}
+.dp-page[data-role='cur'] {
+  position: relative;
+  min-height: calc(var(--scroller-h) - var(--chrome-h));
+}
+.dp-page[data-role='prev'],
+.dp-page[data-role='next'] {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.dp-page[data-role='prev'] {
+  left: -100%;
+}
+.dp-page[data-role='next'] {
+  left: 100%;
+}
+/* a pager that is a block inside a page (the DatePager adapter: the old hero, Morning, Plan, the day picker) keeps its own height */
+.dp-intrinsic > .dp-track > .dp-page[data-role='cur'] {
+  min-height: 0;
+}
+
+/* the DatePager adapter's old hosts (deleted with it): their pager carried the gutter as padding; it moves onto each page so
+   an always-mounted neighbour never shows in the gutter */
+.dp.pl-pager,
+.dp.m-pager {
+  padding-inline: 0;
+}
+.dp.pl-pager > .dp-track > .dp-page,
+.dp.m-pager > .dp-track > .dp-page {
+  padding-inline: var(--page-pad);
+  white-space: normal;
+}
