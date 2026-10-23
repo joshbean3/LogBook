@@ -340,7 +340,7 @@ export default function UiGallery() {
                 onCommit: () => (galLog(`done-${td.id}`), setTodos((l) => l.map((x) => (x.id === td.id ? { ...x, done: !x.done } : x)))),
               }}
               left={
-                td.id === 4
+                td.id === 2
                   ? {
                       label: 'Delete',
                       icon: <Trash2 size={20} />,

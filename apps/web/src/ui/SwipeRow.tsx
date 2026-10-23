@@ -1,4 +1,4 @@
-import { animate, motion, useMotionValue } from 'motion/react';
+import { animate, motionValue, useMotionValue } from 'motion/react';
 import type * as React from 'react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
@@ -73,9 +73,13 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
   const o = useRef({ onReveal });
   o.current.onReveal = onReveal;
 
+  // the pane is written from x's change, synchronously (a drag's frame shows the finger's own position, never a frame
+  // behind); `translateX(…px)` is the format Plan's row reads
+  const content = useRef<HTMLDivElement>(null);
   useEffect(
     () =>
       x.on('change', (v) => {
+        if (content.current) content.current.style.transform = `translateX(${v}px)`;
         const s = v > 0.5 ? 'right' : v < -0.5 ? 'left' : null;
         setSide((c) => (c === s ? c : s));
       }),
@@ -97,23 +101,34 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
     to(0, v);
   };
 
-  // open at the detent: a tap elsewhere (capture, so it is seen before anything handles it) or a scroll closes it
+  // open at the detent: a tap elsewhere (capture, so it is seen before anything handles it) or a scroll closes it; the
+  // closing tap is consumed (its click reaches nothing), as iOS does
   useEffect(() => {
     if (!revealed) return;
+    let swallowUntil = 0;
+    const swallow = (e: Event) => {
+      if (performance.now() > swallowUntil) return;
+      e.stopPropagation();
+      e.preventDefault();
+      swallowUntil = 0;
+    };
     const onDown = (e: PointerEvent) => {
       const row = ref.current;
       const t = e.target as Element | null;
       if (t?.closest?.('.swipe-action') && row?.contains(t)) return;
-      // a tap on the open row itself only closes it
-      if (row && t && row.contains(t)) g.current.swallow = true;
+      swallowUntil = performance.now() + 800;
       home();
     };
     const onScroll = () => home();
     window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('click', swallow, true);
     window.addEventListener('scroll', onScroll, true);
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('scroll', onScroll, true);
+      const left = swallowUntil - performance.now();
+      if (left > 0) setTimeout(() => window.removeEventListener('click', swallow, true), left);
+      else window.removeEventListener('click', swallow, true);
     };
   }, [revealed]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -129,8 +144,10 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
       if (!row) return act.onCommit();
       const item = itemOf(row);
       const r = item.getBoundingClientRect();
+      // everything below the row in its scroller: the rows after it, then what follows each ancestor up to the scroller
       const sibs: HTMLElement[] = [];
-      for (let n = item.nextElementSibling; n; n = n.nextElementSibling) sibs.push(n as HTMLElement);
+      const scroller = item.closest('.sheet-body, .pushed, .tab-scroll');
+      for (let a: Element | null = item; a && a !== scroller; a = a.parentElement) for (let n = a.nextElementSibling; n; n = n.nextElementSibling) sibs.push(n as HTMLElement);
       const before = sibs.map((s) => s.getBoundingClientRect().top);
       // what is left on screen is the armed pane: its look, for the 100 ms fade after the row is gone
       const pane = row.querySelector<HTMLElement>('.swipe-pane');
@@ -149,12 +166,25 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
         document.body.appendChild(ghost);
         const a = animate(ghost, { opacity: 0 }, { duration: reduce ? 0 : 0.1, ease: 'easeOut' });
         void a.then(() => ghost.remove());
-        sibs.forEach((s, i) => {
-          if (!s.isConnected) return;
-          const d = before[i]! - s.getBoundingClientRect().top;
-          if (Math.abs(d) < 0.5 || reduce) return;
-          void animate(s, { y: [d, 0] }, springs.settle);
-        });
+        // the inverse transforms land in this task (before the frame that would show the rows jumped), then settle to 0
+        const moves = sibs.map((s, i) => [s, s.isConnected ? before[i]! - s.getBoundingClientRect().top : 0] as const);
+        for (const [s, d] of moves) {
+          if (Math.abs(d) < 0.5 || reduce) continue;
+          const y = motionValue(d);
+          // a CSS transition on transform (a .btn's press) would ease the inverse in instead of applying it
+          const tr = s.style.transition;
+          s.style.transition = 'none';
+          s.style.transform = `translateY(${d}px)`;
+          const off = y.on('change', (v) => (s.style.transform = v ? `translateY(${v}px)` : ''));
+          animate(y, 0, {
+            ...springs.settle,
+            onComplete: () => {
+              off();
+              s.style.transform = '';
+              s.style.transition = tr;
+            },
+          });
+        }
       };
       // the row leaves when the page re-renders without it (often a tick later): the inverse transforms land before that paint
       const mo = new MutationObserver(() => {
@@ -169,14 +199,14 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
         onGone();
         return;
       }
-      // the page kept the row (a "Later" that only moved it): it comes home
+      // the page kept the row (a "Later" that only moved it): it comes home (a removal that comes a tick later is caught first)
       setTimeout(() => {
         mo.disconnect();
         if (gone || !row.isConnected) return;
         st.busy = false;
         setArmed(false);
         to(0);
-      }, 400);
+      }, 120);
     });
   };
 
@@ -311,9 +341,9 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
           </button>
         ) : null}
       </div>
-      <motion.div className="swipe-content" style={{ x }}>
+      <div ref={content} className="swipe-content">
         {children}
-      </motion.div>
+      </div>
       {withMenu && !disabled ? (
         <button type="button" className="cm-sr" aria-haspopup="menu" onClick={(e) => openMenu(e.currentTarget)}>
           {label ? `${label} actions` : 'Actions'}
