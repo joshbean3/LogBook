@@ -10,7 +10,7 @@ export interface Bootstrap {
   zones: HrZone[] | null;
   strava: StravaStatus;
   features: { claude: boolean; strava: boolean };
-  serverTime: string;
+  /** The server also sends `serverTime`; `fetchBootstrap` drops it so the cached object only changes when the data does. */
 }
 
 export interface MonthBundle {

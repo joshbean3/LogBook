@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
@@ -180,16 +180,20 @@ const Authed = () => {
     // a session that ended while the app was away: what the cache remembers is someone else's now
     if (signedOut) qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth-session' });
   }, [signedOut, qc]);
+  // once per session, on the first bootstrap (keyed on whether there is one, never on its identity: a refetch must not start
+  // this over, critic C1)
+  const started = useRef(false);
+  const hasBoot = !!boot.data;
   useEffect(() => {
-    if (boot.data) {
-      markHasAccount();
-      void outbox.replay(qc);
-      prefetchViews();
-      void prefetchAll(qc);
-      // after the frame that paints the first screen
-      requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
-    }
-  }, [boot.data, qc]);
+    if (!hasBoot || started.current) return;
+    started.current = true;
+    markHasAccount();
+    void outbox.replay(qc);
+    prefetchViews();
+    void prefetchAll(qc);
+    // after the frame that paints the first screen
+    requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
+  }, [hasBoot, qc]);
   if (signedOut) return <Navigate to={signedOutHome()} replace />;
   if (!boot.data && (!known || boot.isPending)) return <Boot />;
   if (boot.error && !boot.data) {

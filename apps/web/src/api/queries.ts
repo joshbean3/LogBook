@@ -19,8 +19,16 @@ export const keys = {
 };
 
 // ---------- reads ----------
-/** `enabled: false` holds the request (the app shell waits for GET /auth/status on a cold open with nothing cached). */
-export const useBootstrap = (opts: { enabled?: boolean } = {}) => useQuery({ queryKey: keys.bootstrap, queryFn: () => api<Bootstrap>('/bootstrap'), staleTime: 60_000, enabled: opts.enabled ?? true });
+/**
+ * The server stamps the bootstrap with `serverTime`; it is dropped before caching, so a refetch that brings nothing new keeps
+ * the cached object's identity (TanStack's structural sharing) and nothing downstream re-renders or re-runs (critic C1).
+ * `enabled: false` holds the request (a cold open with nothing cached and no account on this device waits for GET /auth/status).
+ */
+export const fetchBootstrap = async (): Promise<Bootstrap> => {
+  const { serverTime: _serverTime, ...b } = await api<Bootstrap & { serverTime?: string }>('/bootstrap');
+  return b;
+};
+export const useBootstrap = (opts: { enabled?: boolean } = {}) => useQuery({ queryKey: keys.bootstrap, queryFn: fetchBootstrap, staleTime: 60_000, enabled: opts.enabled ?? true });
 
 export const fetchMonth = (m: string) => api<MonthBundle>(`/months/${m}`);
 export const useMonth = (m: string) => useQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 });
@@ -38,8 +46,9 @@ const dataVersion = (d: unknown) => {
 /** Several months at once; the result map only has the ones that have loaded. */
 export const useMonths = (months: string[]) => {
   const results = useQueries({ queries: months.map((m) => ({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })) });
-  // identity only changes when a month's data actually changes, so downstream memos stay cheap
-  const sig = results.map((r) => `${r.dataUpdatedAt}:${dataVersion(r.data)}`).join('|') + '#' + months.join(',');
+  // identity only changes when a month's data actually changes (a refetch that brings the same data keeps the object, so
+  // its version is unchanged), so downstream memos stay cheap
+  const sig = results.map((r) => dataVersion(r.data)).join('|') + '#' + months.join(',');
   const bundles = useMemo(() => {
     const out: Record<string, MonthBundle> = {};
     results.forEach((r, i) => {
@@ -522,9 +531,9 @@ const fetchReads = () => api<{ links: Link[] }>('/reads').then((r) => r.links);
 /** Unread first, then newest first: the order the server keeps. */
 const readsOrder = (a: Link, b: Link) => (!!a.readAt === !!b.readAt ? (a.addedAt < b.addedAt ? 1 : -1) : a.readAt ? 1 : -1);
 export const useReads = () => useQuery({ queryKey: keys.reads, queryFn: fetchReads, staleTime: 30_000 });
-/** Today's pick. The first ask of the day makes it, which can take a while: the query waits, the screen does not. Checked again whenever the app comes back to the front, so a verdict given elsewhere shows within minutes. */
+/** Today's pick. The first ask of the day makes it, which can take a while: the query waits, the screen does not. Refreshed with the other dated data when the app comes back to the front (main.tsx: after five minutes, or when the bootstrap changed), so a verdict given elsewhere shows within minutes. */
 export const usePick = (date: string, enabled = true) =>
-  useQuery({ queryKey: keys.pick(date), queryFn: () => api<PickResult>(`/reads/pick?date=${date}`), enabled, staleTime: 2 * 60_000, refetchOnWindowFocus: 'always', retry: false });
+  useQuery({ queryKey: keys.pick(date), queryFn: () => api<PickResult>(`/reads/pick?date=${date}`), enabled, staleTime: 2 * 60_000, retry: false });
 
 export const useReadsMutations = () => {
   const qc = useQueryClient();

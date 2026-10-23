@@ -20,7 +20,8 @@ import './styles/ui.css';
 
 const qc = new QueryClient({
   defaultOptions: {
-    queries: { gcTime: 1000 * 60 * 60 * 24 * 14, staleTime: 30_000, retry: (n, e) => n < 2 && !(e instanceof Error && 'status' in e && (e as { status: number }).status === 401), refetchOnWindowFocus: true, networkMode: 'offlineFirst' },
+    // refetchOnWindowFocus is off: coming back to the app is handled once, below, with one request
+    queries: { gcTime: 1000 * 60 * 60 * 24 * 14, staleTime: 30_000, retry: (n, e) => n < 2 && !(e instanceof Error && 'status' in e && (e as { status: number }).status === 401), refetchOnWindowFocus: false, networkMode: 'offlineFirst' },
     mutations: { networkMode: 'offlineFirst' },
   },
 });
@@ -41,12 +42,22 @@ onUnauthorized.add(() => qc.removeQueries({ queryKey: ['bootstrap'] }));
 
 void outbox.load().then(() => outbox.replay(qc));
 window.addEventListener('online', () => void outbox.replay(qc));
-// coming back to the app: push what was written offline, ask the server for anything new (it syncs runs on bootstrap), then refresh the months once the sync has had a moment
+/**
+ * Coming back to the app (critic C1): push what was written offline, then one request, the bootstrap. The dated data (months,
+ * to-dos, the daily pair, journal, reads and the pick) is refetched only when that answer differs from what was cached (the
+ * cached object keeps its identity when nothing changed) or when it has gone unrefreshed for five minutes. No blind second
+ * wave: the Strava sync the bootstrap starts reports through Today's own check (useStravaPull), which refetches on its answer.
+ */
+const FRESH_MS = 5 * 60_000;
+const DATED = new Set(['month', 'todos', 'daily', 'journal', 'reads', 'reads-pick', 'activities']);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   void outbox.replay(qc);
-  void qc.invalidateQueries({ queryKey: ['bootstrap'] });
-  setTimeout(() => void qc.invalidateQueries({ queryKey: ['month'] }), 6000);
+  const before = qc.getQueryData(['bootstrap']);
+  void qc.invalidateQueries({ queryKey: ['bootstrap'] }).then(() => {
+    const changed = before !== undefined && qc.getQueryData(['bootstrap']) !== before;
+    void qc.invalidateQueries({ predicate: (q) => DATED.has(String(q.queryKey[0])) && (changed || Date.now() - q.state.dataUpdatedAt > FRESH_MS), refetchType: 'active' });
+  });
 });
 
 // the service worker waits for the first screen (lib/sw.ts, called from App); a signed-out open gets it after a while
