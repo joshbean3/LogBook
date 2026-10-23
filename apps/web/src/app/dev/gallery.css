@@ -258,6 +258,8 @@
 
 /* ---------- the bar demos: static frames (the real bar sticks in the tab scroller) ---------- */
 .gal-bar-frame {
+  /* the gallery scrolls: the demos show the bar at rest, not collapsed by the gallery's own --hdr */
+  --hdr: 0;
   position: relative;
   padding: 0;
   margin-bottom: 12px;
