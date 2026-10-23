@@ -27,11 +27,23 @@ body {
   inset: 0;
   overflow: hidden;
   transform-origin: 50% 0;
-}
-/* inactive tabs keep their scrollTop: never display: none (WebKit drops it) */
-.tab:not([data-active]) {
+  /* inactive tabs keep their scrollTop: never display: none (WebKit drops it) */
   visibility: hidden;
   pointer-events: none;
+}
+/*
+ * The tab just left keeps painting, under the active one, for the cut's frame only ([data-leaving], cleared in the task
+ * after it); the tab under a pressing finger is prepared under it ([data-preparing]; see Shell). Positive selectors only: an attribute inside :not() makes Blink restyle the element's whole subtree
+ * when it changes, and visibility/pointer-events are inherited, so the leaving tab's swap here changes nothing below it.
+ */
+.tab[data-active],
+.tab[data-leaving],
+.tab[data-preparing] {
+  visibility: visible;
+  pointer-events: auto;
+}
+.tab[data-active] {
+  z-index: 1;
 }
 .tab-scroll {
   position: absolute;

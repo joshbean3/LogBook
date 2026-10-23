@@ -1094,9 +1094,12 @@ button.tabh-date::after,
 .nb-title.pressable {
   position: relative;
   display: block;
-  margin: 4px 16px 0;
-  height: 40px;
-  min-height: 40px;
+  /* the row is 44 (§2.1: 4 above a 34/40 line); the 4 is padding, not margin, so the title's target is 44 tall (§2.3) */
+  box-sizing: border-box;
+  margin: 0 16px;
+  padding-top: 4px;
+  height: 44px;
+  min-height: 44px;
   font: italic 400 34px/40px var(--display);
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -1122,6 +1125,10 @@ button.tabh-date::after,
 .nb-date > .nb-sl-abs {
   top: 50%;
   transform: translateY(-50%);
+}
+.nb-title > .nb-sl-abs {
+  top: 4px; /* under the title's 4 px top padding, on the cur label's line */
+  left: 0;
 }
 .nb-inline > .nb-sl-abs {
   left: 50%;
@@ -1270,6 +1277,8 @@ button.tabh-date::after,
 }
 .pushed-bar .back-btn {
   justify-self: start;
+  /* the old header's -12px pull would put 12 px of the 44 px target off the screen's edge */
+  margin-left: 0;
 }
 .pb-text {
   display: grid;

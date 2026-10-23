@@ -37,10 +37,11 @@ const Probe = () => {
     </div>
   );
 };
-const ProbeAction = () => {
+const ProbeAction = ({ className = 'stub-action' }: { className?: string }) => {
   const tab = useTab();
   useToast();
-  return <span className="stub-action" data-tab={tab} />;
+  useNav().getState();
+  return <span className={className} data-tab={tab} />;
 };
 
 const Filler = ({ n = 40 }: { n?: number }) => (
@@ -81,7 +82,7 @@ export const StubRoot = ({ tab }: { tab: TabId }) => {
         <button type="button" className="stub-push-shared" style={{ minHeight: 44 }} onClick={() => nav.push('/dev/ui', { shared: 'stub-line' })}>
           Push shared
         </button>
-        <button type="button" className="stub-open-sheet" style={{ minHeight: 44 }} onClick={() => sheet.open({ title: `Sheet on ${tab}`, body: <Probe />, action: <ProbeAction /> })}>
+        <button type="button" className="stub-open-sheet" style={{ minHeight: 44 }} onClick={() => sheet.open({ title: `Sheet on ${tab}`, body: <Probe />, action: <ProbeAction />, header: <ProbeAction className="stub-header" /> })}>
           Open sheet
         </button>
         <button type="button" className="stub-rr-settings" style={{ minHeight: 44 }} onClick={() => navigate('/settings')}>

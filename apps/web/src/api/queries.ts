@@ -10,6 +10,8 @@ import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, On
 // `keys` is shared: a package adds its own keys inside its block with Object.assign(keys, { … }), never edits another's.
 
 // ── WP1 ──
+// (an import inside the block, so the shared header above stays untouched)
+import { useSyncExternalStore } from 'react';
 export const keys = {
   bootstrap: ['bootstrap'] as const,
   month: (m: string) => ['month', m] as const,
@@ -145,10 +147,35 @@ export const stravaSyncNow = (qc: QueryClient, opts: { force?: boolean; quiet?: 
   const promise = m.execute(undefined);
   lastSync = { at: now, promise };
   promise.catch(() => undefined);
+  if (!opts.quiet) {
+    setChecking(1);
+    const done = () => setChecking(-1);
+    promise.then(done, done);
+  }
   return promise;
 };
+/*
+ * The status line must show on the first frame after the call (spec 53): the mutation cache notifies React a task later
+ * (notifyManager batches on setTimeout 0), so non-quiet syncs started here are also counted in a store React reads with
+ * useSyncExternalStore, whose updates render before the next frame.
+ */
+let checking = 0;
+const checkingSubs = new Set<() => void>();
+const setChecking = (d: number) => {
+  checking += d;
+  for (const f of checkingSubs) f();
+};
+const subscribeChecking = (f: () => void) => {
+  checkingSubs.add(f);
+  return () => void checkingSubs.delete(f);
+};
+const getChecking = () => checking > 0;
 /** The open face's status line: a non-quiet sync is in flight. */
-export const useStravaChecking = (): boolean => useIsMutating({ mutationKey: STRAVA_SYNC_KEY, predicate: (m) => !m.meta?.quiet }) > 0;
+export const useStravaChecking = (): boolean => {
+  const started = useSyncExternalStore(subscribeChecking, getChecking, () => false);
+  const mutating = useIsMutating({ mutationKey: STRAVA_SYNC_KEY, predicate: (m) => !m.meta?.quiet }) > 0;
+  return started || mutating;
+};
 /** Pull to refresh's old path, kept: the same request and key. */
 export const useStravaCheck = (): UseMutationResult<StravaSyncAnswer, Error, void> => {
   const qc = useQueryClient();

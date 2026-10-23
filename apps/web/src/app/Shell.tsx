@@ -2,7 +2,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { Fragment, memo, Suspense, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Route, Routes } from 'react-router';
+import { NavigationType, parsePath, Route, Routes, UNSAFE_LocationContext as LocationContext } from 'react-router';
 import { outbox } from '@/api/outbox';
 import { keys } from '@/api/queries';
 import { PTR_ARM_PX, PTR_QUIET_MS } from '@/lib/gesture';
@@ -43,11 +43,32 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
       else clearTimeout(idle);
     };
   }, []);
+  // The tab being left stays painted (under the new one, which is on top while active) for the cut's frame and takes
+  // visibility: hidden + inert in the task after that frame: both are inherited, so each costs a style recalc of the whole
+  // subtree, and the cut's frame then pays only for the tab it shows (§9.1 budget; nothing on screen differs).
+  const prevActive = useRef(st.active);
+  const [leaving, setLeaving] = useState<TabId | null>(null);
+  if (prevActive.current !== st.active) {
+    setLeaving(prevActive.current);
+    prevActive.current = st.active;
+  }
+  useEffect(() => {
+    if (!leaving) return;
+    let to = 0;
+    const raf = requestAnimationFrame(() => (to = window.setTimeout(() => {
+      tabEl(st.active)?.removeAttribute('data-preparing');
+      setLeaving(null);
+    }, 0)));
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(to);
+    };
+  }, [leaving, st.active]);
   return (
     <div className="shell">
       <div className="tabs-host">
         {TABS.map((t) => (
-          <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={st.active === t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />
+          <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={st.active === t.id} leaving={leaving === t.id && st.active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />
         ))}
       </div>
       <TabBar ctl={ctl} active={st.active} />
@@ -64,8 +85,22 @@ const ROOT_ROUTES: Record<TabId, string[]> = {
   journal: ['/journal/:tab?'],
 };
 
+/**
+ * Interim (until RouterBridge goes): the old pages read their own route through react-router. `<Routes location>` would
+ * still subscribe to the window's location (useRoutes reads useLocation() before it applies the override), so every URL
+ * change, a tab tap included, re-rendered every tab's old page. The location here is pinned to the tab's (or the layer's)
+ * own path and memoised on it: a URL change elsewhere re-renders nothing below.
+ */
+const RouteAt = ({ path, children }: { path: string; children: ReactNode }) => {
+  const value = useMemo(() => {
+    const p = parsePath(path);
+    return { location: { pathname: p.pathname ?? '/', search: p.search ?? '', hash: p.hash ?? '', state: null, key: path }, navigationType: NavigationType.Pop };
+  }, [path]);
+  return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
+};
+
 /** Memoised: a tab change re-renders the two sections whose `active` flips, and never their pages (the 0 ms cut). */
-const TabSection = memo(function TabSection({ ctl, tab, state, active, mounted, page, pushed }: { ctl: Controller; tab: TabId; state: TabState; active: boolean; mounted: boolean; page: ReactNode; pushed: (entry: PushedEntry) => ReactNode }) {
+const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, mounted, page, pushed }: { ctl: Controller; tab: TabId; state: TabState; active: boolean; leaving: boolean; mounted: boolean; page: ReactNode; pushed: (entry: PushedEntry) => ReactNode }) {
   const scroller = ctl.scrollers[tab];
   const layer1 = useRef<HTMLDivElement | null>(null);
   const sm = useMemo<StackMotion>(() => ({ tab, offsets: [motionValue(0), motionValue(0)], scrims: [motionValue(0), motionValue(0)], layer1 }), [tab]);
@@ -78,12 +113,14 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, mounted, 
       mounted ? (
         <ErrorBoundary>
           <Suspense fallback={null}>
-            <Routes location={state.path}>
-              {ROOT_ROUTES[tab].map((p) => (
-                <Route key={p} path={p} element={page} />
-              ))}
-              <Route path="*" element={page} />
-            </Routes>
+            <RouteAt path={state.path}>
+              <Routes>
+                {ROOT_ROUTES[tab].map((p) => (
+                  <Route key={p} path={p} element={page} />
+                ))}
+                <Route path="*" element={page} />
+              </Routes>
+            </RouteAt>
           </Suspense>
         </ErrorBoundary>
       ) : null,
@@ -91,7 +128,7 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, mounted, 
   );
   return (
     <TabScope tab={tab}>
-      <section className="tab" data-tab={tab} data-active={active || undefined} inert={!active || undefined} aria-hidden={!active || undefined}>
+      <section className="tab" data-tab={tab} data-active={active || undefined} data-leaving={leaving || undefined} inert={(!active && !leaving) || undefined} aria-hidden={!active || undefined}>
         <motion.div className="tab-scroll" ref={scroller} style={{ x: sm.offsets[0] }}>
           {root}
         </motion.div>
@@ -105,10 +142,7 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, mounted, 
                   <PushedEntryScope entry={e}>
                     <ErrorBoundary>
                       <Suspense fallback={null}>
-                        <Routes location={e.path}>
-                          <Route path={matchRoute(e.path).route?.pattern ?? '*'} element={pushed(e)} />
-                          <Route path="*" element={pushed(e)} />
-                        </Routes>
+                        <LayerRoutes entry={e} pushed={pushed} />
                       </Suspense>
                     </ErrorBoundary>
                   </PushedEntryScope>
@@ -119,6 +153,19 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, mounted, 
         </StackCtx.Provider>
       </section>
     </TabScope>
+  );
+});
+
+/** A pushed layer's page, memoised on its entry: a tab change (or a push above it) does not re-render it. */
+const LayerRoutes = memo(function LayerRoutes({ entry, pushed }: { entry: PushedEntry; pushed: (entry: PushedEntry) => ReactNode }) {
+  const page = pushed(entry);
+  return (
+    <RouteAt path={entry.path}>
+      <Routes>
+        <Route path={matchRoute(entry.path).route?.pattern ?? '*'} element={page} />
+        <Route path="*" element={page} />
+      </Routes>
+    </RouteAt>
   );
 });
 
@@ -151,12 +198,46 @@ const useScrollerVars = (ref: RefObject<HTMLDivElement | null>) => {
 };
 
 // ---------- the tab bar ----------
-const TabItem = ({ t, on, onPress }: { t: TabDef; on: boolean; onPress: () => void }) => {
+/*
+ * Preparing the tab under the finger (§9.1 budget). Showing a tab costs a style recalc of its whole subtree (visibility and
+ * inert are inherited) and a paint: on pointerdown, in the task after the pressed frame, the target tab is made visible and
+ * not inert UNDER the active one (which is opaque and on top: z-index), so that work happens while the finger is down and
+ * pointerup only moves the z-index. Nothing on screen changes; a press that does not switch (drag-off, cancel) puts it back.
+ */
+const tabEl = (tab: TabId) => document.querySelector<HTMLElement>(`.tab[data-tab="${tab}"]`);
+let preparing: { tab: TabId; raf: number; to: number } | null = null;
+const prepareTab = (tab: TabId) => {
+  unprepareTab();
+  const p = { tab, raf: 0, to: 0 };
+  preparing = p;
+  p.raf = requestAnimationFrame(() => {
+    p.to = window.setTimeout(() => {
+      const el = tabEl(tab);
+      if (preparing !== p || !el || el.hasAttribute('data-active')) return;
+      el.setAttribute('data-preparing', '');
+      el.inert = false;
+    }, 0);
+  });
+};
+/** Undo a preparation that did not become the active tab (an activated tab keeps its state: React owns it from there). */
+function unprepareTab() {
+  const p = preparing;
+  if (!p) return;
+  preparing = null;
+  cancelAnimationFrame(p.raf);
+  clearTimeout(p.to);
+  const el = tabEl(p.tab);
+  if (!el || !el.hasAttribute('data-preparing')) return;
+  el.removeAttribute('data-preparing');
+  if (!el.hasAttribute('data-active')) el.inert = true;
+}
+const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; ctl: Controller }) {
+  const onPress = () => (ctl.getState().active === t.id ? ctl.reselect(t.id) : ctl.activate(t.id));
   const press = usePress();
   const fromPointer = useRef(false);
   const Icon = t.icon;
-  // selected: Sun and the book filled, the calendar filled, Activity at stroke 2.5 (§1.1); unselected: stroke 1.8, no fill
-  const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', stroke: 'none' } : t.id === 'progress' ? { strokeWidth: 2.5 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
+  // selected: Sun (its disc filled, its rays kept: with no stroke it is a bare dot) and the book filled, the calendar filled, Activity at stroke 2.5 (§1.1); unselected: stroke 1.8, no fill
+  const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', strokeWidth: 2 } : t.id === 'progress' ? { strokeWidth: 2.5 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
   return (
     <button
       type="button"
@@ -169,6 +250,7 @@ const TabItem = ({ t, on, onPress }: { t: TabDef; on: boolean; onPress: () => vo
       onPointerDown={(e) => {
         fromPointer.current = false;
         press.handlers.onPointerDown?.(e);
+        if (e.isPrimary && ctl.getState().active !== t.id) prepareTab(t.id);
       }}
       onPointerUp={(e) => {
         const wasPressed = e.currentTarget.hasAttribute('data-pressed');
@@ -178,6 +260,11 @@ const TabItem = ({ t, on, onPress }: { t: TabDef; on: boolean; onPress: () => vo
           fromPointer.current = true;
           onPress();
         }
+        unprepareTab();
+      }}
+      onPointerCancel={(e) => {
+        press.handlers.onPointerCancel?.(e);
+        unprepareTab();
       }}
       onClick={() => {
         if (fromPointer.current) return void (fromPointer.current = false);
@@ -188,12 +275,12 @@ const TabItem = ({ t, on, onPress }: { t: TabDef; on: boolean; onPress: () => vo
       <span className="tab-label">{t.label}</span>
     </button>
   );
-};
+});
 const TabBar = ({ ctl, active }: { ctl: Controller; active: TabId }) => (
   <nav className="tabbar" aria-label="Views">
     <div className="tabs" role="tablist">
       {TABS.map((t) => (
-        <TabItem key={t.id} t={t} on={active === t.id} onPress={() => (active === t.id ? ctl.reselect(t.id) : ctl.activate(t.id))} />
+        <TabItem key={t.id} t={t} on={active === t.id} ctl={ctl} />
       ))}
     </div>
   </nav>

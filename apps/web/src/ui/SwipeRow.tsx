@@ -176,14 +176,18 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
           s.style.transition = 'none';
           s.style.transform = `translateY(${d}px)`;
           const off = y.on('change', (v) => (s.style.transform = v ? `translateY(${v}px)` : ''));
-          animate(y, 0, {
-            ...springs.settle,
-            onComplete: () => {
-              off();
-              s.style.transform = '';
-              s.style.transition = tr;
-            },
-          });
+          // the spring's clock starts on the frame that paints the inverse: a long frame after the removal (the page's
+          // re-render, the toast) must not be counted as elapsed time, or the rows jump most of the way in one step
+          requestAnimationFrame(() =>
+            animate(y, 0, {
+              ...springs.settle,
+              onComplete: () => {
+                off();
+                s.style.transform = '';
+                s.style.transition = tr;
+              },
+            }),
+          );
         }
       };
       // the row leaves when the page re-renders without it (often a tick later): the inverse transforms land before that paint

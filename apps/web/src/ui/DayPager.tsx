@@ -192,6 +192,8 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
     let run: null | { to: number; p: SpringP; pos: number; vel: number; t: number; raf: number; onRest: () => void } = null;
     let swallow = false;
     let swallowTimer: ReturnType<typeof setTimeout> | undefined;
+    /** A pointerdown that completed a spring (the 1 px rule) hit the page while it was still an inert neighbour: its click is sent on to what is under the point now. */
+    let retarget = 0;
     const st = {
       /** The commit in flight: the date the host is asked to show and where x jumps to in that commit. */
       committing: null as null | { date: string; x: number },
@@ -393,11 +395,15 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
       const t = e.target as Element | null;
       if (t?.closest?.(P.current.ignore)) return;
       swallow = false;
+      retarget = 0;
       g = { ...idle, id: e.pointerId, sx: e.clientX, sy: e.clientY };
       if (run) {
         const w = W();
         const xv = x.get();
-        if (Math.abs(xv - run.to) <= 1) finishRun();
+        if (Math.abs(xv - run.to) <= 1) {
+          finishRun();
+          retarget = performance.now();
+        }
         else {
           stopRun();
           g.caught = true;
@@ -419,6 +425,20 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
       window.addEventListener('pointercancel', end);
     };
     const onClickCapture = (e: MouseEvent) => {
+      if (retarget && !swallow) {
+        const fresh = performance.now() - retarget < 1000;
+        retarget = 0;
+        // the browser aims the click at the common ancestor of the pointer's down and up targets (the pager): the page
+        // that landed under the finger gets it, as a tap at rest would
+        const under = fresh ? document.elementFromPoint(e.clientX, e.clientY) : null;
+        const host = e.currentTarget as HTMLElement;
+        if (under && under !== e.target && host.contains(under) && !(under as Element).contains(e.target as Node)) {
+          e.preventDefault();
+          e.stopPropagation();
+          under.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, detail: e.detail }));
+        }
+        return;
+      }
       if (!swallow) return;
       swallow = false;
       e.preventDefault();

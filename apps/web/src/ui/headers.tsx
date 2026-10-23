@@ -119,6 +119,15 @@ export const PushedHeader = ({ title, eyebrow, right, onBack, backLabel, titleLa
   // Settings: the avatar, ringed, says where you are
   const onSettings = !!usePushedEntry()?.path.startsWith('/settings');
   if (onSettings && right === undefined) right = <Avatar />;
+  // contracts rule 5: the adapter renders PushedBar (§2.6: the chevron, a 17/22 title centred, one trailing action; no large
+  // title on a pushed page). Only a page that overrides Back (none does today) keeps the old body, which takes onBack.
+  if (!onBack && !titleLayoutId)
+    return (
+      <>
+        <PushedBar title={typeof title === 'string' ? title : String(title ?? '')} eyebrow={eyebrow} trailing={right} backLabel={backLabel} />
+        {children ? <div className="pushed-tools">{children}</div> : null}
+      </>
+    );
   return (
     <header className="pushed-head">
       <div className="pushed-top">

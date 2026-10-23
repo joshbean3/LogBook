@@ -2,9 +2,9 @@ import { shiftDays, today } from '@logbook/shared';
 import { ArrowRightLeft, Check, Clock, Copy, GripVertical, Pencil, Share, Trash2 } from 'lucide-react';
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
-import { HAPTIC_EVENT, haptics, useHapticsEnabled, type HapticEvent } from '@/lib/haptics';
-import { springs, type SpringName } from '@/lib/motion';
+import { useNav } from '@/app/NavController';
+import { HAPTIC_EVENT, hapticAtPeak, haptics, useHapticsEnabled, type HapticEvent } from '@/lib/haptics';
+import { COMPLETE_SCALE, forScale, reducedFade, springs, type SpringName } from '@/lib/motion';
 import type { DragPoint } from '@/ui/useHold';
 import { Avatar } from '@/ui/Avatar';
 import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
@@ -333,6 +333,77 @@ const PagerDemo = ({ items }: { items: (name: string) => ContextMenuItem[] }) =>
   );
 };
 
+/**
+ * The completion beat (§11.4, contracts §D.3): an orb lights with one `complete` pop to 1.12 and `orb` fires through
+ * hapticAtPeak on the pop's apex frame. Reduced motion: no pop; the fill fades in 150 ms and `orb` fires on the frame it
+ * completes. Un-lighting is silent.
+ */
+const OrbDemo = () => {
+  const reduce = useReducedMotion();
+  const scale = useMotionValue(1);
+  const fill = useMotionValue(0);
+  const [lit, setLit] = useState(false);
+  // test hook: the two values, so a script can log their per-frame changes against the haptic
+  (window as Window & { __orb?: { scale: typeof scale; fill: typeof fill } }).__orb = { scale, fill };
+  const light = () => {
+    const next = !lit;
+    setLit(next);
+    galLog(next ? 'orb-lit' : 'orb-unlit');
+    if (!next) {
+      fill.set(0);
+      return;
+    }
+    if (reduce) {
+      fill.set(0);
+      hapticAtPeak(fill, 'orb');
+      animate(fill, 1, reducedFade);
+      return;
+    }
+    fill.set(1);
+    hapticAtPeak(scale, 'orb');
+    animate(scale, COMPLETE_SCALE, { ...forScale(springs.complete), onComplete: () => void animate(scale, 1, forScale(springs.settle)) });
+  };
+  return (
+    <div className="row" style={{ gap: 16 }}>
+      <Pressable className="gal-orb-hit" onPress={light} aria-pressed={lit} aria-label="Stretch">
+        <motion.span className="gal-orb gal-orb-pop" style={{ scale }}>
+          <motion.span className="gal-orb-fill" style={{ opacity: fill }} />
+          <span className="gal-orb-glyph">S</span>
+        </motion.span>
+      </Pressable>
+      <span className="t-cap muted">{lit ? 'Lit: orb fired on the apex frame' : 'Tap to light (hapticAtPeak)'}</span>
+    </div>
+  );
+};
+
+/** The routes of §1.2 and two redirects, each through nav.go (no react-router inside the frame, contracts rule 2). */
+const NavRows = () => {
+  const nav = useNav();
+  const t = today();
+  return (
+    <div className="list-edge">
+      {[
+        ['/today', 'Today (tab)'],
+        [`/today/${t}/morning`, 'This morning (pushed on Today)'],
+        ['/settings', 'Settings (pushed, Today stays lit)'],
+        ['/settings/training', 'Training (depth 2)'],
+        ['/settings/plans', 'Plans (depth 2)'],
+        ['/plan', 'Plan (tab)'],
+        ['/progress', 'Progress (tab)'],
+        ['/journal', 'Journal (tab)'],
+        ['/journal/reads', 'Reads (pushed, Journal stays lit)'],
+        ['/trends', '/trends redirects to Progress'],
+        ['/morning', '/morning redirects to Today'],
+      ].map(([to, label]) => (
+        <Pressable key={to} as="div" press="surface" className="gal-edge-row" onPress={() => nav.go(to!)}>
+          <span>{label}</span>
+          <span className="t-cap muted">{to}</span>
+        </Pressable>
+      ))}
+    </div>
+  );
+};
+
 export default function UiGallery() {
   const [lab, setLab] = useState(readLab);
   if (lab)
@@ -462,6 +533,10 @@ function Gallery({ onLab }: { onLab: () => void }) {
         </div>
       </Section>
 
+      <Section title="Orb" meta="One complete pop, orb on its apex">
+        <OrbDemo />
+      </Section>
+
       <Section title="Swipe rows" meta="→ Done · ← Later">
         <div className="list-edge" data-testid="swipe-list">
           {todos.map((td) => (
@@ -543,7 +618,7 @@ function Gallery({ onLab }: { onLab: () => void }) {
           </span>
         </div>
         <p className="t-cap muted" style={{ marginTop: 8 }}>
-          Track always there; an arc only on a day with a session: done blue, floor amber, missed a red outline, skipped grey, to come faint. Rest is the bare track. The middle is the days kept.
+          Track always there; an arc only on a day with a session: done blue, floor amber, missed a grey gap with no arc, skipped grey, to come faint. Rest is the bare track. The middle is the days kept.
         </p>
       </Section>
 
@@ -704,25 +779,8 @@ function Gallery({ onLab }: { onLab: () => void }) {
         </Section>
       </Section>
 
-      <Section title="Navigation">
-        <div className="list-edge">
-          {[
-            ['/today', 'Today (tab)'],
-            ['/plan', 'Plan (tab)'],
-            ['/progress', 'Progress (tab)'],
-            ['/trends', '/trends redirects to Progress'],
-            ['/journal', 'Journal (tab)'],
-            ['/morning', 'Morning (a tab)'],
-            ['/reads', 'Reads (pushed, Journal stays lit)'],
-            ['/settings', 'Settings (pushed, avatar ring)'],
-            ['/welcome', 'Welcome (first run, full screen)'],
-          ].map(([to, label]) => (
-            <Link key={to} to={to!} className="gal-edge-row">
-              <span>{label}</span>
-              <span className="t-cap muted">{to}</span>
-            </Link>
-          ))}
-        </div>
+      <Section title="Navigation" meta="nav.go: a cut, a push, or a redirect">
+        <NavRows />
       </Section>
 
       <HapticLog />

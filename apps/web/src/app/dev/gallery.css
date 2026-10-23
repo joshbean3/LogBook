@@ -189,6 +189,27 @@
   font-style: italic;
   font-size: 1.375rem;
 }
+.gal-orb-hit {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+.gal-orb-pop {
+  position: relative;
+  overflow: hidden;
+}
+.gal-orb-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--accent-bright);
+  border-radius: 50%;
+}
+.gal-orb-glyph {
+  position: relative;
+}
 .gal-pager-card {
   min-height: 180px;
 }
@@ -269,6 +290,8 @@
 .gal-bar-frame .nb-strip {
   position: relative;
   top: auto;
+  /* a demo is content: it scrolls under the gallery's own sticky bar, never over it (both would be z 20, the demo later) */
+  z-index: auto;
 }
 .gal-bar-frame .nb-gap {
   height: 8px;
