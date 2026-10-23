@@ -82,6 +82,10 @@ body {
   pointer-events: none;
   will-change: transform, opacity;
 }
+/* while the flyer travels, the destination waits hidden (from its first paint) */
+.pushed[data-flying] [data-shared] {
+  visibility: hidden;
+}
 /* the shared-element flyer is a child of body (pushed layers and the receding tab are containing blocks for fixed) */
 .flyer {
   position: fixed;

@@ -88,16 +88,18 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     el.style.cssText = `position:fixed;left:${r.left - off}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;transform-origin:0 0;pointer-events:none;z-index:40;`;
     document.body.appendChild(el);
     src.style.visibility = 'hidden';
+    // the destination is hidden from its first paint until rest (it may mount after the push starts)
+    ref.current?.setAttribute('data-flying', '');
     flight.current = { el, src, from: { left: r.left - off, top: r.top, width: r.width, height: r.height }, dst: null };
   };
   const moveFly = (p: number) => {
     const f = flight.current;
     if (!f || !sel) return;
     f.dst ??= ref.current?.querySelector<HTMLElement>(sel) ?? null;
-    if (!f.dst) return;
-    f.dst.style.visibility = 'hidden';
+    if (!f.dst || !ref.current) return;
+    // the destination's rest rect: its offset inside the layer (both read from the same rendered frame)
     const d = f.dst.getBoundingClientRect();
-    const left = d.left - shownX.get();
+    const left = d.left - ref.current.getBoundingClientRect().left;
     const sx = 1 + (d.width / (f.from.width || 1) - 1) * p;
     const sy = 1 + (d.height / (f.from.height || 1) - 1) * p;
     f.el.style.transform = `translate(${(left - f.from.left) * p}px, ${(d.top - f.from.top) * p}px) scale(${sx}, ${sy})`;
@@ -108,7 +110,7 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     flight.current = null;
     f.el.remove();
     f.src.style.visibility = '';
-    if (f.dst) f.dst.style.visibility = '';
+    ref.current?.removeAttribute('data-flying');
   };
 
   // ---------- the bindings ----------
