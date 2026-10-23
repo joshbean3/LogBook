@@ -11,6 +11,8 @@ import { startServiceWorker } from '@/lib/sw';
 import { App } from './app/App';
 import { onUnauthorized } from './api/client';
 import { outbox } from './api/outbox';
+import { syncStrava } from './api/queries';
+import type { Bootstrap } from './api/types';
 import { ContextMenuProvider } from './ui/ContextMenu';
 import { SheetProvider } from './ui/Sheet';
 import { ToastProvider } from './ui/Toast';
@@ -46,17 +48,25 @@ window.addEventListener('online', () => void outbox.replay(qc));
  * Coming back to the app (critic C1): push what was written offline, then one request, the bootstrap. The dated data (months,
  * to-dos, the daily pair, journal, reads and the pick) is refetched only when that answer differs from what was cached (the
  * cached object keeps its identity when nothing changed) or when it has gone unrefreshed for five minutes. No blind second
- * wave: the Strava sync the bootstrap starts reports through Today's own check (useStravaPull), which refetches on its answer.
+ * wave. With Strava connected there is one more ask, `/strava/sync` (decisions.md 7): the server joins the sync the
+ * bootstrap may have started and answers when it is done, and the months are refetched only when a run arrived.
  */
 const FRESH_MS = 5 * 60_000;
+const SYNC_GAP_MS = 30_000;
 const DATED = new Set(['month', 'todos', 'daily', 'journal', 'reads', 'reads-pick', 'activities']);
+let lastSync = 0;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   void outbox.replay(qc);
   const before = qc.getQueryData(['bootstrap']);
   void qc.invalidateQueries({ queryKey: ['bootstrap'] }).then(() => {
-    const changed = before !== undefined && qc.getQueryData(['bootstrap']) !== before;
+    const boot = qc.getQueryData<Bootstrap>(['bootstrap']);
+    const changed = before !== undefined && boot !== before;
     void qc.invalidateQueries({ predicate: (q) => DATED.has(String(q.queryKey[0])) && (changed || Date.now() - q.state.dataUpdatedAt > FRESH_MS), refetchType: 'active' });
+    if (boot?.strava?.connected && Date.now() - lastSync > SYNC_GAP_MS) {
+      lastSync = Date.now();
+      void syncStrava(qc).catch(() => undefined);
+    }
   });
 });
 

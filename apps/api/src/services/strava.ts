@@ -111,16 +111,31 @@ interface DetailedActivity extends SummaryActivity {
   laps?: Array<{ distance: number; moving_time: number; average_heartrate?: number }>;
 }
 
-const syncing = new Set<string>();
-export const isSyncing = (userId: string) => syncing.has(userId);
+/** One sync per athlete at a time: the promise of the one running, so a second ask joins it instead of racing it. */
+const inflight = new Map<string, Promise<{ changed: number }>>();
+export const isSyncing = (userId: string) => inflight.has(userId);
 
 /**
  * Pull the last 120 days of activities, upsert summaries, then fetch laps + heart rate for runs that
  * haven't been detailed yet. Activities that vanished from Strava are soft-deleted.
+ *
+ * A sync already running for this athlete (the one the bootstrap kicked off in the background, say) is joined: the second
+ * caller gets that sync's answer when it lands, marked `joined`, so the app's own ask on foreground always learns whether
+ * anything arrived (decisions.md 7: the run lands on the answer, never on a timer).
  */
-export const syncActivities = async (db: DB, userId: string, opts: { detailLimit?: number } = {}) => {
-  if (syncing.has(userId)) return { skipped: true };
-  syncing.add(userId);
+export const syncActivities = async (db: DB, userId: string, opts: { detailLimit?: number } = {}): Promise<{ changed: number; joined?: true }> => {
+  const running = inflight.get(userId);
+  if (running) return running.then((r) => ({ ...r, joined: true }));
+  const run = syncActivitiesNow(db, userId, opts);
+  inflight.set(userId, run);
+  try {
+    return await run;
+  } finally {
+    inflight.delete(userId);
+  }
+};
+
+const syncActivitiesNow = async (db: DB, userId: string, opts: { detailLimit?: number }) => {
   try {
     const token = await accessToken(db, userId);
     const after = Math.floor((Date.now() - SYNC_WINDOW_DAYS * 864e5) / 1000);
@@ -205,8 +220,6 @@ export const syncActivities = async (db: DB, userId: string, opts: { detailLimit
     const msg = e instanceof Error ? e.message : String(e);
     db.update(stravaAccounts).set({ lastError: msg }).where(eq(stravaAccounts.userId, userId)).run();
     throw e;
-  } finally {
-    syncing.delete(userId);
   }
 };
 
@@ -227,7 +240,7 @@ export const stravaStatus = (db: DB, userId: string): StravaStatus => {
     connected: !!acct,
     athleteName: acct?.athleteName ?? null,
     lastSyncAt: acct?.lastSyncAt ?? null,
-    syncing: syncing.has(userId),
+    syncing: inflight.has(userId),
     error: acct?.lastError ?? null,
   };
 };

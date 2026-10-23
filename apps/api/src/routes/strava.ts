@@ -83,7 +83,8 @@ export const stravaRoutes = (db: DB) => {
     const userId = c.get('user').id;
     try {
       const out = await syncActivities(db, userId);
-      if (!('skipped' in out)) await syncZones(db, userId).catch(() => null);
+      // a joined sync is the background one the bootstrap started: it syncs the zones itself
+      if (!out.joined) await syncZones(db, userId).catch(() => null);
       return c.json({ ...out, status: stravaStatus(db, userId) });
     } catch (e) {
       return toApiError(e);

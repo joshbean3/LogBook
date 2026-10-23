@@ -638,18 +638,23 @@ export const useBlockMutations = () => {
  * the months and activities so the hero can draw the run. The bootstrap (which carries `strava.lastSyncAt`) is patched from
  * the answer rather than refetched, so a check never sets off another one.
  */
+/**
+ * Ask the server to sync Strava now and wait for the answer (the server joins a sync already running, so the answer is
+ * always the real one): the months and activities are refetched only when something arrived. Called on a pull on Today
+ * (useStravaCheck) and once on every return to the foreground with Strava connected (main.tsx), decisions.md 7.
+ */
+export const syncStrava = async (qc: QueryClient) => {
+  const r = await api<{ changed?: number; joined?: boolean; status?: Bootstrap['strava'] }>('/strava/sync', { method: 'POST' });
+  if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
+  if (r.changed) {
+    await qc.invalidateQueries({ queryKey: ['month'] });
+    void qc.invalidateQueries({ queryKey: keys.activities });
+  }
+  return r;
+};
 export const useStravaCheck = () => {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => api<{ changed?: number; skipped?: boolean; status?: Bootstrap['strava'] }>('/strava/sync', { method: 'POST' }),
-    onSuccess: async (r) => {
-      if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
-      if (r.changed) {
-        await qc.invalidateQueries({ queryKey: ['month'] });
-        void qc.invalidateQueries({ queryKey: keys.activities });
-      }
-    },
-  });
+  return useMutation({ mutationKey: ['strava-sync'], mutationFn: () => syncStrava(qc) });
 };
 // ── /today ──
 
