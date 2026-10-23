@@ -6,8 +6,8 @@ import { LayoutGroup, MotionConfig } from 'motion/react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
-import { registerSW } from 'virtual:pwa-register';
-import { bootNative, isNative } from '@/lib/native';
+import { bootNative } from '@/lib/native';
+import { startServiceWorker } from '@/lib/sw';
 import { App } from './app/App';
 import { onUnauthorized } from './api/client';
 import { outbox } from './api/outbox';
@@ -49,7 +49,8 @@ document.addEventListener('visibilitychange', () => {
   setTimeout(() => void qc.invalidateQueries({ queryKey: ['month'] }), 6000);
 });
 
-if (!isNative) registerSW({ immediate: true });
+// the service worker waits for the first screen (lib/sw.ts, called from App); a signed-out open gets it after a while
+setTimeout(startServiceWorker, 8000);
 void bootNative();
 
 createRoot(document.getElementById('root')!).render(

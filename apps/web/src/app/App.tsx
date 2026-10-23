@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { api, ApiError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
 import { onDeepLink } from '@/lib/native';
+import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, useBootstrap } from '@/api/queries';
 import { Login, Signup } from '@/features/auth/AuthScreens';
@@ -185,6 +186,8 @@ const Authed = () => {
       void outbox.replay(qc);
       prefetchViews();
       void prefetchAll(qc);
+      // after the frame that paints the first screen
+      requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
     }
   }, [boot.data, qc]);
   if (signedOut) return <Navigate to={signedOutHome()} replace />;
