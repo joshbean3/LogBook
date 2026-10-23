@@ -5,6 +5,10 @@ import { api, ApiError } from './client';
 import { write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
 
+// The blocks below are cut once (docs/feel.md build plan §0, contracts §E): each package edits only its own block.
+// `keys` is shared: a package adds its own keys inside its block with Object.assign(keys, { … }), never edits another's.
+
+// ── WP1 ──
 export const keys = {
   bootstrap: ['bootstrap'] as const,
   month: (m: string) => ['month', m] as const,
@@ -62,18 +66,6 @@ export const useMonths = (months: string[]) => {
 
 export const monthsAround = (date: string, before = 1, after = 1) => monthsBetween(addMonths(date, -before), addMonths(date, after));
 
-export const useTodos = () => useQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 });
-export const useDaily = () => useQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 });
-export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 });
-export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
-export const useJournalList = (q: string, fav: boolean) =>
-  useQuery({ queryKey: keys.journal(q, fav), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>(`/journal?q=${encodeURIComponent(q)}&fav=${fav ? 1 : 0}&limit=200`), staleTime: 30_000 });
-export const useQuotes = (p: { theme?: string; q?: string; fav?: boolean; limit?: number; offset?: number }) => {
-  const params: Record<string, string | number> = { theme: p.theme ?? 'All', q: p.q ?? '', fav: p.fav ? 1 : 0, limit: p.limit ?? 40, offset: p.offset ?? 0 };
-  const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
-  return useQuery({ queryKey: keys.quotes(params), queryFn: () => api<QuotePage>(`/quotes?${qs}`), staleTime: 5 * 60_000, placeholderData: (prev) => prev });
-};
-
 /** After bootstrap: pull what each tab asks for first, so a tab switch never waits on the network. */
 export const prefetchAll = (qc: QueryClient) => {
   const t = today();
@@ -104,6 +96,41 @@ const ensureMonth = (qc: QueryClient, month: string) => {
 const invalidateMonth = (qc: QueryClient, ...months: string[]) => {
   for (const m of new Set(months)) void qc.invalidateQueries({ queryKey: keys.month(m) });
 };
+
+/** Real id → the provisional id a row was born with, so its React key never changes and a drag survives the naming. */
+const keyAlias = new Map<string, string>();
+export const clientKey = (id: string) => keyAlias.get(id) ?? id;
+
+/**
+ * Today's pull to refresh is "check Strava now": ask the server to pull new activities, and when anything changed, refetch
+ * the months and activities so the hero can draw the run. The bootstrap (which carries `strava.lastSyncAt`) is patched from
+ * the answer rather than refetched, so a check never sets off another one.
+ */
+/**
+ * Ask the server to sync Strava now and wait for the answer (the server joins a sync already running, so the answer is
+ * always the real one): the months and activities are refetched only when something arrived. Called on a pull on Today
+ * (useStravaCheck) and once on every return to the foreground with Strava connected (main.tsx), decisions.md 7.
+ */
+export const syncStrava = async (qc: QueryClient) => {
+  const r = await api<{ changed?: number; joined?: boolean; status?: Bootstrap['strava'] }>('/strava/sync', { method: 'POST' });
+  if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
+  if (r.changed) {
+    await qc.invalidateQueries({ queryKey: ['month'] });
+    void qc.invalidateQueries({ queryKey: keys.activities });
+  }
+  return r;
+};
+export const useStravaCheck = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationKey: ['strava-sync'], mutationFn: () => syncStrava(qc) });
+};
+// ── end WP1 ──
+
+// ── WP2 ──
+export const useTodos = () => useQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 });
+export const useDaily = () => useQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 });
+export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 });
+export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
 
 // ---------- sessions ----------
 export const useSessionMutations = () => {
@@ -257,9 +284,6 @@ export const useLiftMutations = () => {
 };
 
 // ---------- todos ----------
-/** Real id → the provisional id a row was born with, so its React key never changes and a drag survives the naming. */
-const keyAlias = new Map<string, string>();
-export const clientKey = (id: string) => keyAlias.get(id) ?? id;
 type TodoPatch = { text?: string; note?: string | null; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; position?: number; doneOn?: string | null; deletedOn?: string | null };
 /** The server's answer to an order change carries positions only: anything edited meanwhile keeps its edit. */
 const takePositions = (t: Todo[], list: Todo[]) => {
@@ -318,8 +342,9 @@ export const useTodoMutations = () => {
   });
   return { add, patch, reorder };
 };
+// ── end WP2 ──
 
-// ── morning ──
+// ── WP3 ──
 // The Morning team's block. Settings PATCH (the routine editor's one save) and the per-day override (drags, the day
 // editor, rest mornings), both optimistic.
 export const useMorningMutations = () => {
@@ -353,16 +378,185 @@ export const useMorningMutations = () => {
   });
   return { settings, setDay };
 };
-// ── /morning ──
 const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
   const out = { ...(a && typeof a === 'object' ? a : {}) };
   for (const k of Object.keys(b)) out[k] = deepMerge(out[k], b[k]);
   return out;
 };
+// ── end WP3 ──
 
-// ── journal ──
+// ── WP4 ──
+// ---------- blocks ----------
+export const useBlockMutations = () => {
+  const qc = useQueryClient();
+  const remove = useMutation({
+    mutationFn: async (b: PlanBlock) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
+      await api(`/blocks/${b.id}`, { method: 'DELETE' });
+      for (const m of monthsBetween(shiftDays(b.start, -14), shiftDays(b.end, 14))) void qc.invalidateQueries({ queryKey: keys.month(m) });
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
+  });
+  return { remove };
+};
+
+/**
+ * `POST /plans/template` with `replace` (contract 1): rebuild the plan from a start date. Runs already done stay; the
+ * planned ones it replaces are soft-deleted and the overlapping block is ended at startDate − 1 (or removed if it had not
+ * started), so there are never two blocks over the same weeks. The bootstrap answers at once: the new block in, the old
+ * one ended. The result carries what `useUndoRebuild` needs.
+ */
+export const useRebuildPlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<OnboardingAnswers, 'wake' | 'leave' | 'pace' | 'habits' | 'start' | 'today'> & { startDate: string; replace?: boolean }) =>
+      api<TemplateApplied>('/plans/template', { method: 'POST', json: { replace: true, ...input } }),
+    onSuccess: (r, v) => {
+      const ended = r.endedBlock;
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) =>
+        b
+          ? {
+              ...b,
+              blocks: [
+                ...b.blocks
+                  .filter((x) => x.id !== r.block.id && !(ended && 'deleted' in ended && x.id === ended.id))
+                  .map((x) => (ended && 'prevEnd' in ended && x.id === ended.id ? { ...x, end: shiftDays(v.startDate, -1) } : x)),
+                r.block,
+              ],
+            }
+          : b,
+      );
+      for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+      void qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/** `POST /plans/template/undo` (contract 1): the rebuilt block and its sessions go, the replaced sessions and the old block come back. */
+export const useUndoRebuild = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (r: TemplateApplied) => api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], endedBlock: r.endedBlock } }),
+    onSuccess: (_x, r) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, blocks: b.blocks.filter((x) => x.id !== r.block.id).map((x) => (r.endedBlock && 'prevEnd' in r.endedBlock && x.id === r.endedBlock.id ? { ...x, end: r.endedBlock.prevEnd } : x)) } : b));
+      void qc.invalidateQueries({ queryKey: ['month'] });
+      void qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/** `POST /plans/template`'s answer. With `replace`, contract 1 adds what it soft-deleted so `undoTemplate` can put it back. */
+export interface PlanTemplateResult {
+  block: PlanBlock;
+  months: string[];
+  removed: number;
+  /** The planned, not-done sessions the new block replaced (soft-deleted). Absent on a server before contract 1. */
+  replacedIds?: string[];
+  /** An overlapping block that was ended the day before the new one starts, or soft-deleted when it hadn't started. */
+  endedBlock?: { id: string; prevEnd: string } | { id: string; deleted: true };
+  /** Every block the new one ended or removed (a replace can overlap more than one). */
+  endedBlocks?: Array<{ id: string; prevEnd: string } | { id: string; deleted: true }>;
+}
+
+/** `POST /plans/template`: write a block built by `buildTemplate`, then refetch its months and the bootstrap (blocks). */
+export const useTemplatePlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: TemplateInput & { replace?: boolean }) => api<PlanTemplateResult>('/plans/template', { method: 'POST', json: body }),
+    onSuccess: async (r) => {
+      // a replace can reach months past the new block (the old block's tail): refetch every month in the cache
+      if (r.replacedIds?.length || r.endedBlock || r.endedBlocks?.length) void qc.invalidateQueries({ queryKey: ['month'] });
+      else for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+      await qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/**
+ * `POST /plans/template/undo` (contract 1): delete the block just written with its sessions, restore the sessions it
+ * replaced and the block it ended. The new block leaves the cache at once; everything is refetched after.
+ */
+export const useTemplateUndo = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (r: PlanTemplateResult) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== r.block.id) } : bs));
+      for (const m of r.months) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter((s) => s.blockId !== r.block.id) }));
+      await api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], ...(r.endedBlock ? { endedBlock: r.endedBlock } : {}), ...(r.endedBlocks?.length ? { endedBlocks: r.endedBlocks } : {}) } });
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['month'] });
+      void qc.invalidateQueries({ queryKey: keys.bootstrap });
+    },
+  });
+};
+
+/**
+ * Delete a plan, server first (contract 2): `DELETE /blocks/:id` soft-deletes the block and its not-done future sessions
+ * at once, so a reload inside the Undo window shows the plan gone; `restore` (`POST /blocks/:id/restore`) is the Undo. Both
+ * change the cache optimistically (history stays: past and kept sessions are never hidden) and refetch when the server
+ * answers. A failure puts the cache back and rejects, so the caller can say so.
+ */
+export const usePlanDelete = () => {
+  const qc = useQueryClient();
+  const monthsOf = (b: PlanBlock) => monthsBetween(shiftDays(b.start, -14), shiftDays(b.end, 14));
+  // a block's sessions can sit outside its dates (moved), so every cached month is refetched
+  const refresh = (_b: PlanBlock) => {
+    void qc.invalidateQueries({ queryKey: ['month'] });
+    void qc.invalidateQueries({ queryKey: keys.bootstrap });
+  };
+  const keep = (b: PlanBlock) => {
+    const t = today();
+    return (bd: MonthBundle) => (s: Session) => {
+      if (s.blockId !== b.id || s.date < t) return true;
+      if (s.mark === 'done' || s.mark === 'floor') return true;
+      // a run with an activity that day is kept by Strava: history, so it stays
+      return s.kind === 'run' && bd.activities.some((a) => a.date === s.date && a.kind === 'run');
+    };
+  };
+  const snapshot = (b: PlanBlock) => ({ boot: qc.getQueryData<Bootstrap>(keys.bootstrap), months: monthsOf(b).map((m) => [m, qc.getQueryData<MonthBundle>(keys.month(m))] as const) });
+  const putBack = (snap: ReturnType<typeof snapshot>) => {
+    if (snap.boot) qc.setQueryData(keys.bootstrap, snap.boot);
+    for (const [m, bd] of snap.months) if (bd) qc.setQueryData(keys.month(m), bd);
+  };
+  const remove = useMutation({
+    mutationFn: async (b: PlanBlock) => {
+      const before = snapshot(b);
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
+      for (const m of monthsOf(b)) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter(keep(b)(bd)) }));
+      try {
+        return await api<{ ok: true; removed?: number; kept?: number; months?: string[] }>(`/blocks/${b.id}`, { method: 'DELETE' });
+      } catch (e) {
+        // already deleted (another tab, a replay): the plan is gone either way
+        if (e instanceof ApiError && e.status === 404) return { ok: true as const };
+        putBack(before);
+        throw e;
+      }
+    },
+    onSettled: (_r, _e, b) => refresh(b),
+  });
+  const restore = useMutation({
+    mutationFn: async (b: PlanBlock) => {
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: [...bs.blocks.filter((x) => x.id !== b.id), b] } : bs));
+      return api<unknown>(`/blocks/${b.id}/restore`, { method: 'POST' });
+    },
+    onSettled: (_r, _e, b) => refresh(b),
+  });
+  return { remove, restore };
+};
+// ── end WP4 ──
+
+// ── WP6 ──
 // The Journal team's block: journal entries, quotes, reads and today's pick. Other teams import, never edit.
+
+export const useJournalList = (q: string, fav: boolean) =>
+  useQuery({ queryKey: keys.journal(q, fav), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>(`/journal?q=${encodeURIComponent(q)}&fav=${fav ? 1 : 0}&limit=200`), staleTime: 30_000 });
+export const useQuotes = (p: { theme?: string; q?: string; fav?: boolean; limit?: number; offset?: number }) => {
+  const params: Record<string, string | number> = { theme: p.theme ?? 'All', q: p.q ?? '', fav: p.fav ? 1 : 0, limit: p.limit ?? 40, offset: p.offset ?? 0 };
+  const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
+  return useQuery({ queryKey: keys.quotes(params), queryFn: () => api<QuotePage>(`/quotes?${qs}`), staleTime: 5 * 60_000, placeholderData: (prev) => prev });
+};
 
 // ---------- journal & quotes ----------
 type JournalList = { entries: JournalEntry[]; more: boolean };
@@ -616,49 +810,6 @@ export const useReadsMutations = () => {
   return { add, patch, remove, restore, feedback, another };
 };
 
-// ── /journal ──
-
-// ---------- blocks ----------
-export const useBlockMutations = () => {
-  const qc = useQueryClient();
-  const remove = useMutation({
-    mutationFn: async (b: PlanBlock) => {
-      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
-      await api(`/blocks/${b.id}`, { method: 'DELETE' });
-      for (const m of monthsBetween(shiftDays(b.start, -14), shiftDays(b.end, 14))) void qc.invalidateQueries({ queryKey: keys.month(m) });
-    },
-    onError: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
-  });
-  return { remove };
-};
-
-// ── today ──
-/**
- * Today's pull to refresh is "check Strava now": ask the server to pull new activities, and when anything changed, refetch
- * the months and activities so the hero can draw the run. The bootstrap (which carries `strava.lastSyncAt`) is patched from
- * the answer rather than refetched, so a check never sets off another one.
- */
-/**
- * Ask the server to sync Strava now and wait for the answer (the server joins a sync already running, so the answer is
- * always the real one): the months and activities are refetched only when something arrived. Called on a pull on Today
- * (useStravaCheck) and once on every return to the foreground with Strava connected (main.tsx), decisions.md 7.
- */
-export const syncStrava = async (qc: QueryClient) => {
-  const r = await api<{ changed?: number; joined?: boolean; status?: Bootstrap['strava'] }>('/strava/sync', { method: 'POST' });
-  if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
-  if (r.changed) {
-    await qc.invalidateQueries({ queryKey: ['month'] });
-    void qc.invalidateQueries({ queryKey: keys.activities });
-  }
-  return r;
-};
-export const useStravaCheck = () => {
-  const qc = useQueryClient();
-  return useMutation({ mutationKey: ['strava-sync'], mutationFn: () => syncStrava(qc) });
-};
-// ── /today ──
-
-// ── growth ──
 /** First run in one call (docs/platform.md §5): morning settings, starter habits, the first block, `onboardedAt`. */
 export const useOnboard = () => {
   const qc = useQueryClient();
@@ -667,51 +818,6 @@ export const useOnboard = () => {
     onSuccess: (r) => {
       qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, ...r.user }, morningSettings: r.morningSettings, habits: r.habits, blocks: [...b.blocks.filter((x) => x.id !== r.block.id), r.block] } : b));
       for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
-      void qc.invalidateQueries({ queryKey: keys.bootstrap });
-    },
-  });
-};
-
-/**
- * `POST /plans/template` with `replace` (contract 1): rebuild the plan from a start date. Runs already done stay; the
- * planned ones it replaces are soft-deleted and the overlapping block is ended at startDate − 1 (or removed if it had not
- * started), so there are never two blocks over the same weeks. The bootstrap answers at once: the new block in, the old
- * one ended. The result carries what `useUndoRebuild` needs.
- */
-export const useRebuildPlan = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: Omit<OnboardingAnswers, 'wake' | 'leave' | 'pace' | 'habits' | 'start' | 'today'> & { startDate: string; replace?: boolean }) =>
-      api<TemplateApplied>('/plans/template', { method: 'POST', json: { replace: true, ...input } }),
-    onSuccess: (r, v) => {
-      const ended = r.endedBlock;
-      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) =>
-        b
-          ? {
-              ...b,
-              blocks: [
-                ...b.blocks
-                  .filter((x) => x.id !== r.block.id && !(ended && 'deleted' in ended && x.id === ended.id))
-                  .map((x) => (ended && 'prevEnd' in ended && x.id === ended.id ? { ...x, end: shiftDays(v.startDate, -1) } : x)),
-                r.block,
-              ],
-            }
-          : b,
-      );
-      for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
-      void qc.invalidateQueries({ queryKey: keys.bootstrap });
-    },
-  });
-};
-
-/** `POST /plans/template/undo` (contract 1): the rebuilt block and its sessions go, the replaced sessions and the old block come back. */
-export const useUndoRebuild = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (r: TemplateApplied) => api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], endedBlock: r.endedBlock } }),
-    onSuccess: (_x, r) => {
-      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, blocks: b.blocks.filter((x) => x.id !== r.block.id).map((x) => (r.endedBlock && 'prevEnd' in r.endedBlock && x.id === r.endedBlock.id ? { ...x, end: r.endedBlock.prevEnd } : x)) } : b));
-      void qc.invalidateQueries({ queryKey: ['month'] });
       void qc.invalidateQueries({ queryKey: keys.bootstrap });
     },
   });
@@ -737,112 +843,7 @@ export const fetchExport = () => api<ExportBundle>('/export');
 /** `DELETE /me`: the account and everything it owns. 403 `bad_password` when the password is wrong. */
 export const useDeleteAccount = () =>
   useMutation({ mutationFn: (password: string) => api<{ ok: true; removed: Record<string, number> }>('/me', { method: 'DELETE', json: { password } }) });
-// ── end growth ──
 
-// ── plan ──
-
-/** `POST /plans/template`'s answer. With `replace`, contract 1 adds what it soft-deleted so `undoTemplate` can put it back. */
-export interface PlanTemplateResult {
-  block: PlanBlock;
-  months: string[];
-  removed: number;
-  /** The planned, not-done sessions the new block replaced (soft-deleted). Absent on a server before contract 1. */
-  replacedIds?: string[];
-  /** An overlapping block that was ended the day before the new one starts, or soft-deleted when it hadn't started. */
-  endedBlock?: { id: string; prevEnd: string } | { id: string; deleted: true };
-  /** Every block the new one ended or removed (a replace can overlap more than one). */
-  endedBlocks?: Array<{ id: string; prevEnd: string } | { id: string; deleted: true }>;
-}
-
-/** `POST /plans/template`: write a block built by `buildTemplate`, then refetch its months and the bootstrap (blocks). */
-export const useTemplatePlan = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: TemplateInput & { replace?: boolean }) => api<PlanTemplateResult>('/plans/template', { method: 'POST', json: body }),
-    onSuccess: async (r) => {
-      // a replace can reach months past the new block (the old block's tail): refetch every month in the cache
-      if (r.replacedIds?.length || r.endedBlock || r.endedBlocks?.length) void qc.invalidateQueries({ queryKey: ['month'] });
-      else for (const m of r.months) void qc.invalidateQueries({ queryKey: keys.month(m) });
-      await qc.invalidateQueries({ queryKey: keys.bootstrap });
-    },
-  });
-};
-
-/**
- * `POST /plans/template/undo` (contract 1): delete the block just written with its sessions, restore the sessions it
- * replaced and the block it ended. The new block leaves the cache at once; everything is refetched after.
- */
-export const useTemplateUndo = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (r: PlanTemplateResult) => {
-      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== r.block.id) } : bs));
-      for (const m of r.months) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter((s) => s.blockId !== r.block.id) }));
-      await api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], ...(r.endedBlock ? { endedBlock: r.endedBlock } : {}), ...(r.endedBlocks?.length ? { endedBlocks: r.endedBlocks } : {}) } });
-    },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: ['month'] });
-      void qc.invalidateQueries({ queryKey: keys.bootstrap });
-    },
-  });
-};
-
-/**
- * Delete a plan, server first (contract 2): `DELETE /blocks/:id` soft-deletes the block and its not-done future sessions
- * at once, so a reload inside the Undo window shows the plan gone; `restore` (`POST /blocks/:id/restore`) is the Undo. Both
- * change the cache optimistically (history stays: past and kept sessions are never hidden) and refetch when the server
- * answers. A failure puts the cache back and rejects, so the caller can say so.
- */
-export const usePlanDelete = () => {
-  const qc = useQueryClient();
-  const monthsOf = (b: PlanBlock) => monthsBetween(shiftDays(b.start, -14), shiftDays(b.end, 14));
-  // a block's sessions can sit outside its dates (moved), so every cached month is refetched
-  const refresh = (_b: PlanBlock) => {
-    void qc.invalidateQueries({ queryKey: ['month'] });
-    void qc.invalidateQueries({ queryKey: keys.bootstrap });
-  };
-  const keep = (b: PlanBlock) => {
-    const t = today();
-    return (bd: MonthBundle) => (s: Session) => {
-      if (s.blockId !== b.id || s.date < t) return true;
-      if (s.mark === 'done' || s.mark === 'floor') return true;
-      // a run with an activity that day is kept by Strava: history, so it stays
-      return s.kind === 'run' && bd.activities.some((a) => a.date === s.date && a.kind === 'run');
-    };
-  };
-  const snapshot = (b: PlanBlock) => ({ boot: qc.getQueryData<Bootstrap>(keys.bootstrap), months: monthsOf(b).map((m) => [m, qc.getQueryData<MonthBundle>(keys.month(m))] as const) });
-  const putBack = (snap: ReturnType<typeof snapshot>) => {
-    if (snap.boot) qc.setQueryData(keys.bootstrap, snap.boot);
-    for (const [m, bd] of snap.months) if (bd) qc.setQueryData(keys.month(m), bd);
-  };
-  const remove = useMutation({
-    mutationFn: async (b: PlanBlock) => {
-      const before = snapshot(b);
-      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== b.id) } : bs));
-      for (const m of monthsOf(b)) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter(keep(b)(bd)) }));
-      try {
-        return await api<{ ok: true; removed?: number; kept?: number; months?: string[] }>(`/blocks/${b.id}`, { method: 'DELETE' });
-      } catch (e) {
-        // already deleted (another tab, a replay): the plan is gone either way
-        if (e instanceof ApiError && e.status === 404) return { ok: true as const };
-        putBack(before);
-        throw e;
-      }
-    },
-    onSettled: (_r, _e, b) => refresh(b),
-  });
-  const restore = useMutation({
-    mutationFn: async (b: PlanBlock) => {
-      qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: [...bs.blocks.filter((x) => x.id !== b.id), b] } : bs));
-      return api<unknown>(`/blocks/${b.id}/restore`, { method: 'POST' });
-    },
-    onSettled: (_r, _e, b) => refresh(b),
-  });
-  return { remove, restore };
-};
-// ── plan ──
-
-// ── integration ──
 /**
  * `PATCH /me/training`: save the training answers on the account (Settings → You and Training, after a rebuild). The
  * bootstrap's copy changes at once; the server's answer (with its `updatedAt`) replaces it.
@@ -860,4 +861,4 @@ export const useSaveTraining = () => {
     onError: (_e, _p, ctx) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, trainingProfile: ctx?.was ?? null } } : b)),
   });
 };
-// ── end integration ──
+// ── end WP6 ──
