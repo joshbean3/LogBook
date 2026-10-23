@@ -14,12 +14,14 @@ type Handlers = Pick<HTMLAttributes<HTMLElement>, 'onPointerDown' | 'onPointerUp
  */
 export const usePress = (opts: { disabled?: boolean } = {}): { handlers: Handlers; pressed: boolean } => {
   const [pressed, setPressed] = useState(false);
+  // a caller that never reads `pressed` (the attribute is the press) never re-renders for it
+  const read = useRef(false);
   const s = useRef<{ id: number; el: HTMLElement | null }>({ id: -1, el: null });
   const set = (el: HTMLElement | null, on: boolean) => {
     if (!el) return;
     if (on) el.setAttribute('data-pressed', '');
     else el.removeAttribute('data-pressed');
-    setPressed(on);
+    if (read.current) setPressed(on);
   };
   const end = (e: React.PointerEvent<HTMLElement>) => {
     if (e.pointerId !== s.current.id) return;
@@ -46,5 +48,11 @@ export const usePress = (opts: { disabled?: boolean } = {}): { handlers: Handler
       if (e.pointerType === 'mouse') end(e);
     },
   };
-  return { handlers, pressed };
+  return {
+    handlers,
+    get pressed() {
+      read.current = true;
+      return pressed;
+    },
+  };
 };

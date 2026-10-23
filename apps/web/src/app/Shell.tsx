@@ -1,7 +1,7 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
-import { Fragment, Suspense, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Fragment, memo, Suspense, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Route, Routes } from 'react-router';
 import { outbox } from '@/api/outbox';
 import { keys } from '@/api/queries';
@@ -64,29 +64,36 @@ const ROOT_ROUTES: Record<TabId, string[]> = {
   journal: ['/journal/:tab?'],
 };
 
-const TabSection = ({ ctl, tab, state, active, mounted, page, pushed }: { ctl: Controller; tab: TabId; state: TabState; active: boolean; mounted: boolean; page: ReactNode; pushed: (entry: PushedEntry) => ReactNode }) => {
+/** Memoised: a tab change re-renders the two sections whose `active` flips, and never their pages (the 0 ms cut). */
+const TabSection = memo(function TabSection({ ctl, tab, state, active, mounted, page, pushed }: { ctl: Controller; tab: TabId; state: TabState; active: boolean; mounted: boolean; page: ReactNode; pushed: (entry: PushedEntry) => ReactNode }) {
   const scroller = ctl.scrollers[tab];
   const layer1 = useRef<HTMLDivElement | null>(null);
   const sm = useMemo<StackMotion>(() => ({ tab, offsets: [motionValue(0), motionValue(0)], scrims: [motionValue(0), motionValue(0)], layer1 }), [tab]);
   useScrollerVars(scroller);
   usePullToRefresh(scroller, tab === 'today' && active);
   const stack = state.stack;
+  // the root's subtree depends on its path only: toggling `active` re-renders nothing below the section
+  const root = useMemo(
+    () =>
+      mounted ? (
+        <ErrorBoundary>
+          <Suspense fallback={null}>
+            <Routes location={state.path}>
+              {ROOT_ROUTES[tab].map((p) => (
+                <Route key={p} path={p} element={page} />
+              ))}
+              <Route path="*" element={page} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      ) : null,
+    [mounted, state.path, tab, page],
+  );
   return (
     <TabScope tab={tab}>
       <section className="tab" data-tab={tab} data-active={active || undefined} inert={!active || undefined} aria-hidden={!active || undefined}>
         <motion.div className="tab-scroll" ref={scroller} style={{ x: sm.offsets[0] }}>
-          {mounted ? (
-            <ErrorBoundary>
-              <Suspense fallback={null}>
-                <Routes location={state.path}>
-                  {ROOT_ROUTES[tab].map((p) => (
-                    <Route key={p} path={p} element={page} />
-                  ))}
-                  <Route path="*" element={page} />
-                </Routes>
-              </Suspense>
-            </ErrorBoundary>
-          ) : null}
+          {root}
         </motion.div>
         <Scrim depth={1} value={sm.scrims[0]} />
         <StackCtx.Provider value={sm}>
@@ -113,7 +120,7 @@ const TabSection = ({ ctl, tab, state, active, mounted, page, pushed }: { ctl: C
       </section>
     </TabScope>
   );
-};
+});
 
 const Scrim = ({ depth, value }: { depth: 1 | 2; value: MotionValue<number> }) => <motion.div className="tab-scrim" data-depth={depth} aria-hidden="true" style={{ opacity: value }} />;
 
@@ -146,11 +153,37 @@ const useScrollerVars = (ref: RefObject<HTMLDivElement | null>) => {
 // ---------- the tab bar ----------
 const TabItem = ({ t, on, onPress }: { t: TabDef; on: boolean; onPress: () => void }) => {
   const press = usePress();
+  const fromPointer = useRef(false);
   const Icon = t.icon;
   // selected: Sun and the book filled, the calendar filled, Activity at stroke 2.5 (§1.1); unselected: stroke 1.8, no fill
   const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', stroke: 'none' } : t.id === 'progress' ? { strokeWidth: 2.5 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
   return (
-    <button type="button" role="tab" aria-selected={on} className="tab-item pressable" data-tab={t.id} data-press="scale" {...press.handlers} onClick={onPress}>
+    <button
+      type="button"
+      role="tab"
+      aria-selected={on}
+      className="tab-item pressable"
+      data-tab={t.id}
+      data-press="scale"
+      {...press.handlers}
+      onPointerDown={(e) => {
+        fromPointer.current = false;
+        press.handlers.onPointerDown?.(e);
+      }}
+      onPointerUp={(e) => {
+        const wasPressed = e.currentTarget.hasAttribute('data-pressed');
+        press.handlers.onPointerUp?.(e);
+        // the switch runs on pointerup (§9.1), not on the click that follows it; the keyboard's click still works
+        if (wasPressed && e.isPrimary) {
+          fromPointer.current = true;
+          onPress();
+        }
+      }}
+      onClick={() => {
+        if (fromPointer.current) return void (fromPointer.current = false);
+        onPress();
+      }}
+    >
       <Icon size={24} aria-hidden="true" {...iconProps} />
       <span className="tab-label">{t.label}</span>
     </button>

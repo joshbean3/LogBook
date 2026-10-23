@@ -965,3 +965,18 @@ button.tabh-date::after,
     display: none;
   }
 }
+
+/* ---------- the one press (docs/feel.md §11.1, M33): data-pressed is set synchronously on pointerdown ---------- */
+.pressable[data-press='scale'] {
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-pressed][data-press='scale'] {
+  transform: scale(0.97);
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-pressed][data-press='surface'] {
+  background: var(--surface-2);
+}
+[data-pressed][data-press='dim'] {
+  opacity: 0.55;
+}

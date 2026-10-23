@@ -102,12 +102,29 @@ const InterimPlans = () => {
   );
 };
 
-const pages = {
-  today: <DayView />,
-  plan: <PlanView />,
-  progress: <ProgressView />,
-  journal: <JournalView />,
-};
+/**
+ * Test builds only (VITE_FAKE_CLOCK): `?stubs=1` on the first load swaps the four roots and /dev/ui for the stubs the WP1
+ * acceptance scripts drive. Statically false in a normal build, so the stubs never ship.
+ */
+const STUBS = (() => {
+  if (!import.meta.env.VITE_FAKE_CLOCK) return false;
+  try {
+    if (new URLSearchParams(location.search).has('stubs')) sessionStorage.setItem('logbook.stubs', '1');
+    return sessionStorage.getItem('logbook.stubs') === '1';
+  } catch {
+    return false;
+  }
+})();
+const StubRoot = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot })));
+const StubPushed = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed })));
+const pages = STUBS
+  ? { today: <StubRoot tab="today" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
+  : {
+      today: <DayView />,
+      plan: <PlanView />,
+      progress: <ProgressView />,
+      journal: <JournalView />,
+    };
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
 const pushedFor = (e: PushedEntry) => {
   const pattern = matchRoute(e.path).route?.pattern;
@@ -115,7 +132,7 @@ const pushedFor = (e: PushedEntry) => {
   if (pattern === '/settings/:section' && e.params.section === 'plans') return <InterimPlans />;
   if (pattern === '/settings' || pattern === '/settings/:section') return <SettingsView />;
   if (pattern === '/journal/reads/:tab?') return <ReadsView />;
-  if (pattern === '/dev/ui') return <UiGallery />;
+  if (pattern === '/dev/ui') return STUBS ? <StubPushed /> : <UiGallery />;
   return null;
 };
 
