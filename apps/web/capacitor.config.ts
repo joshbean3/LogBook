@@ -11,6 +11,8 @@ const config: CapacitorConfig = {
     backgroundColor: '#000000',
     preferredContentMode: 'mobile',
     scrollEnabled: true,
+    // a long press on a link is the app's menu, never a WebKit preview card (ios/App/App/LogbookViewController.swift sets it too)
+    allowsLinkPreview: false,
   },
   plugins: {
     // native HTTP: requests leave from the device, cookies live in the native jar, no CORS

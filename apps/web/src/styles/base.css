@@ -13,8 +13,10 @@ html {
   font-size: 100%;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
+  /* contain, not none: the page keeps its own rubber band (the shell turns bounces back on) and never pulls the browser chrome */
+  overscroll-behavior-y: contain;
 }
+/* the shell is an app surface: no callout, no selection handles, no double-tap zoom; text is selectable only where it is meant to be read */
 body {
   margin: 0;
   background: var(--bg);
@@ -23,6 +25,20 @@ body {
   letter-spacing: -0.02em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+input,
+textarea,
+[contenteditable='true'],
+.esheet-text,
+.dsheet-text,
+.quote-text {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
 }
 button,
 input,
