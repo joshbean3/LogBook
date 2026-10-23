@@ -13,8 +13,12 @@ export interface SheetMotion {
   open: boolean;
 }
 
-const H = () => (typeof window === 'undefined' ? 844 : window.innerHeight);
-let current: SheetMotion = { sheetY: motionValue(H()), height: motionValue(0), open: false };
+/** H: the `.shell` height (innerHeight): the sheet is portalled to body and covers the tab bar. */
+export const sheetH = () => (typeof window === 'undefined' ? 844 : window.innerHeight);
+
+let current: SheetMotion = { sheetY: motionValue(sheetH()), height: motionValue(0), open: false };
+// test hook (dev and fake-clock builds), like window.__nav
+if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK)) (window as unknown as { __sheetMotion?: () => SheetMotion }).__sheetMotion = () => current;
 const subs = new Set<() => void>();
 
 /** SheetProvider only: mark the sheet up or down (the motion values stay the same objects). */
@@ -32,3 +36,16 @@ const subscribe = (f: () => void) => {
 };
 /** Reads the module store; works anywhere, provider or not. */
 export const useSheetMotion = (): SheetMotion => useSyncExternalStore(subscribe, sheetMotion, sheetMotion);
+
+/** The top safe-area inset in px (a custom property is not resolved by getComputedStyle, so a probe measures it). */
+let probe: HTMLDivElement | null = null;
+export const safeTopPx = () => {
+  if (typeof document === 'undefined') return 0;
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:var(--safe-t, 0px);visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+  }
+  return probe.offsetHeight;
+};

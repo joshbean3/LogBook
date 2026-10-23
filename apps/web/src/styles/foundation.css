@@ -785,15 +785,20 @@ button.tabh-date::after,
   right: 8px;
 }
 
-/* ---------- Sheet v2 header ---------- */
+/* ---------- Sheet v3 header: the grabber row (24) and the title row; a drag may start anywhere here ---------- */
 .sheet-grab {
+  flex: none;
   touch-action: none;
-  position: sticky;
-  top: -6px;
-  z-index: 3;
   background: var(--bg);
-  margin: -6px -16px 0;
-  padding: 6px 16px 0;
+  padding: 0 16px 8px;
+}
+.sheet-grab-bar {
+  height: 24px;
+  display: grid;
+  place-items: center;
+}
+.sheet-grab-bar .sheet-grip {
+  margin: 0;
 }
 .sheet-titles {
   position: relative;
@@ -829,20 +834,9 @@ button.tabh-date::after,
 .sheet .sheet-title:focus {
   outline: none;
 }
-/* the shared title in flight: a fixed copy above the sheet, so the sheet's clipping never cuts it */
-.sheet-flyer {
-  position: fixed;
-  z-index: 5;
-  margin: 0;
-  transform-origin: 0 0;
-  pointer-events: none;
-  white-space: nowrap;
-}
 @media (min-width: 700px) {
   .sheet-grab {
-    margin: -12px -20px 0;
-    padding: 12px 20px 0;
-    top: -12px;
+    padding: 0 20px 8px;
   }
 }
 
