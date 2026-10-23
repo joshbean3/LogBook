@@ -1,5 +1,7 @@
 import type { TargetAndTransition, Transition } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { HOLD_MS as ONE_HOLD } from './gesture';
+import { deprecated, LIFT_SCALE, springs } from './motion';
 
 /**
  * Press-and-hold drags for the things that move: a habit orb, a session row, a block on the morning timeline.
@@ -11,17 +13,23 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
  * Until the hold is up the page scrolls as usual; once it is up, touch scrolling is held off so the drag owns the finger.
  */
 
-export const HOLD_MS = 300;
+/** @deprecated the one hold clock lives in lib/gesture.ts (450 ms); re-exported here (contracts rule 5). */
+export const HOLD_MS = ONE_HOLD;
 /** How far the pointer may wander during the hold before it counts as a scroll, and how far it must travel after it to count as a drag. */
 export const SLOP = 6;
 
-export const DROP_SPRING: Transition = { type: 'spring', stiffness: 400, damping: 30 };
+/** @deprecated use `springs.settle` (contracts rule 5). */
+export const DROP_SPRING: Transition = springs.settle;
 export const INSTANT: Transition = { duration: 0 };
-/** The lift is a scale; the surface and the hairline come from the `is-lifted` class in each feature's css. */
-export const LIFT: TargetAndTransition = { scale: 1.03 };
+/** @deprecated the lift is `LIFT_SCALE` on `springs.lift`. */
+export const LIFT: TargetAndTransition = { scale: LIFT_SCALE };
+/** @deprecated the rest is scale 1 on `springs.settle`. */
 export const REST: TargetAndTransition = { scale: 1 };
-/** What to animate to for a lifted or a resting thing. Reduced motion: no scale at all, and instant. */
-export const liftFx = (lifted: boolean, reduce: boolean | null): TargetAndTransition => (reduce ? { ...REST, transition: INSTANT } : lifted ? { ...LIFT, transition: DROP_SPRING } : { ...REST, transition: DROP_SPRING });
+/** @deprecated what to animate to for a lifted or a resting thing: the lift on `springs.lift`, the drop on `springs.settle`; reduced motion instant. */
+export const liftFx = (lifted: boolean, reduce: boolean | null): TargetAndTransition => {
+  deprecated('liftFx');
+  return reduce ? { scale: 1, transition: INSTANT } : lifted ? { scale: LIFT_SCALE, transition: springs.lift } : { scale: 1, transition: springs.settle };
+};
 
 export type DragPhase = 'idle' | 'pending' | 'armed' | 'dragging';
 export type CancelReason = 'up' | 'cancel';
@@ -146,16 +154,20 @@ export const useHoldDrag = <E extends HTMLElement = HTMLElement>(opts: HoldDragO
   /** Nudge the page while the finger sits near an edge, and keep the drop target honest while it moves. */
   const scrollLoop = (last: PointerEvent) => {
     const st = s.current;
+    // the page scrolls inside its own scroller (a tab, a pushed page, a sheet), never the document
+    const scroller = ref.current?.closest<HTMLElement>('.sheet-body, .pushed, .tab-scroll') ?? null;
     const tick = () => {
       if (st.phase !== 'dragging') return;
-      const h = window.innerHeight;
+      const box = scroller?.getBoundingClientRect();
+      const top = box?.top ?? 0;
+      const bottom = box?.bottom ?? window.innerHeight;
       let dy = 0;
-      if (st.y < EDGE) dy = -Math.ceil(((EDGE - st.y) / EDGE) * MAX_STEP);
-      else if (st.y > h - EDGE) dy = Math.ceil(((st.y - (h - EDGE)) / EDGE) * MAX_STEP);
-      if (dy) {
-        const before = window.scrollY;
-        window.scrollBy(0, dy);
-        if (window.scrollY !== before) o.current.onMove?.({ x: st.x, y: st.y, dx: st.x - st.x0, dy: st.y - st.y0 }, last);
+      if (st.y < top + EDGE) dy = -Math.ceil(((top + EDGE - st.y) / EDGE) * MAX_STEP);
+      else if (st.y > bottom - EDGE) dy = Math.ceil(((st.y - (bottom - EDGE)) / EDGE) * MAX_STEP);
+      if (dy && scroller) {
+        const before = scroller.scrollTop;
+        scroller.scrollTop += dy;
+        if (scroller.scrollTop !== before) o.current.onMove?.({ x: st.x, y: st.y, dx: st.x - st.x0, dy: st.y - st.y0 }, last);
       }
       st.raf = requestAnimationFrame(tick);
     };
