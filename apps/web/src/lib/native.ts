@@ -36,7 +36,10 @@ export const hideSplash = () => {
   if (splashHidden) return;
   splashHidden = true;
   try {
-    (window as Window & { __splashHides?: number }).__splashHides = ((window as Window & { __splashHides?: number }).__splashHides ?? 0) + 1;
+    // test hooks: how many times, and when (the splash is native; on the web this is all there is to see)
+    const w = window as Window & { __splashHides?: number; __splashAt?: number };
+    w.__splashHides = (w.__splashHides ?? 0) + 1;
+    w.__splashAt = performance.now();
   } catch {
     /* no window */
   }

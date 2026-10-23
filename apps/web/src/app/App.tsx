@@ -1,5 +1,5 @@
 import { useIsRestoring, useQuery, useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
@@ -138,9 +138,9 @@ const pushedFor = (e: PushedEntry) => {
 
 /** The framed app: the controller-driven Shell, and (until WP6 lands) the bridge from old pages' react-router calls. */
 const Framed = () => {
-  // the splash goes on the frame after the first content paint (WP2's DayPage takes this over)
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => requestAnimationFrame(hideSplash));
+  // the splash goes in the rAF of the frame that paints the first content (WP2's DayPage takes this over)
+  useLayoutEffect(() => {
+    const raf = requestAnimationFrame(hideSplash);
     return () => cancelAnimationFrame(raf);
   }, []);
   return (
