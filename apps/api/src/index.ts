@@ -7,6 +7,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 import { purgeExpiredSessions, requireAuth, type AuthEnv } from './auth.js';
 import { openDatabase, type DB } from './db/index.js';
 import { stravaAccounts } from './db/schema.js';
@@ -64,17 +65,33 @@ export const buildApp = (db: DB) => {
       '/*',
       serveStatic({
         root,
+        // the web build writes a .br and a .gz next to every script, stylesheet and svg (apps/web/scripts/precompress.mjs):
+        // sent as they are, with Content-Encoding and Vary, so the 640 KB entry travels as 170 KB
+        precompressed: true,
         onFound: (p, c) => {
-          if (/\/assets\//.test(p) || /\.(woff2?|png|svg|ico|webp)$/.test(p)) c.header('cache-control', 'public, max-age=31536000, immutable');
+          if (/\/assets\//.test(p) || /\.(woff2?|png|svg|ico|webp)(\.(br|gz))?$/.test(p)) c.header('cache-control', 'public, max-age=31536000, immutable');
           else c.header('cache-control', 'no-cache');
         },
       }),
     );
-    const index = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+    // the app shell for every other path, compressed once here (it is a few KB, but it is the first byte of every open)
+    const index = fs.readFileSync(path.join(dist, 'index.html'));
+    const encoded = {
+      br: zlib.brotliCompressSync(index, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: index.length } }),
+      gzip: zlib.gzipSync(index, { level: 9 }),
+    };
     app.get('*', (c) => {
       if (c.req.path.startsWith('/api/')) return c.json({ error: 'Not found', code: 'not_found' }, 404);
       c.header('cache-control', 'no-cache');
-      return c.html(index);
+      c.header('content-type', 'text/html; charset=utf-8');
+      c.header('vary', 'Accept-Encoding');
+      const accepts = new Set((c.req.header('accept-encoding') ?? '').split(',').map((e) => e.trim().split(';')[0]));
+      const enc = accepts.has('br') ? 'br' : accepts.has('gzip') ? 'gzip' : null;
+      if (enc) {
+        c.header('content-encoding', enc);
+        return c.body(new Uint8Array(encoded[enc]));
+      }
+      return c.body(new Uint8Array(index));
     });
     console.log(`Serving web app from ${dist}`);
   } else {
