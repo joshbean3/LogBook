@@ -206,7 +206,11 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const f = () => el.style.setProperty('--hdr', String(Math.min(1, Math.max(0, el.scrollTop / 44))));
+    const f = () => {
+      const hdr = Math.min(1, Math.max(0, el.scrollTop / 44));
+      el.style.setProperty('--hdr', String(hdr));
+      el.querySelector(':scope > * > .pushed-bar, :scope > .pushed-bar')?.classList.toggle('is-collapsed', hdr >= 0.99);
+    };
     el.addEventListener('scroll', f, { passive: true });
     return () => el.removeEventListener('scroll', f);
   }, []);

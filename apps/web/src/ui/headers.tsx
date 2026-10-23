@@ -1,11 +1,11 @@
 import { ChevronLeft } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { today } from '@logbook/shared';
+import type { ReactNode } from 'react';
 import { usePushedEntry } from '@/app/NavController';
-import { haptics } from '@/lib/haptics';
 import { deprecated } from '@/lib/motion';
 import { Avatar } from './Avatar';
-import { BackButton as Chevron } from './NavBar';
+import { BackButton as Chevron, dayCaption, NavBar, PushedBar } from './NavBar';
 import { usePop } from './PushedLayer';
 
 /*
@@ -14,109 +14,66 @@ import { usePop } from './PushedLayer';
  * Back here is the pushed layer's own pop (usePop).
  */
 
-/** @deprecated use `dayCaption`. "Wed, Oct 14": the date line's words (shown in caps). */
+/** @deprecated use `dayCaption`: the date line's words ('FRI, OCT 23'). */
 export const dateLine = (d: Date | string = new Date()) => {
-  const date = typeof d === 'string' ? new Date(`${d}T12:00:00`) : d;
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-};
-
-/** A serif page title that steps down from 44 to 28 when it would wrap (and always under 360px, in CSS). */
-const useStepDown = (deps: unknown) => {
-  const ref = useRef<HTMLHeadingElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const check = () => {
-      el.classList.remove('wraps');
-      const lh = parseFloat(getComputedStyle(el).lineHeight) || 46;
-      if (el.scrollHeight > lh * 1.5) el.classList.add('wraps');
-    };
-    check();
-    const ro = new ResizeObserver(check);
-    if (el.parentElement) ro.observe(el.parentElement);
-    return () => ro.disconnect();
-  }, [deps]);
-  return ref;
-};
-
-/** A horizontal swipe on an element calls `onStep(+1)` for a swipe left (the next day) and `-1` for a swipe right. */
-const useStepSwipe = (onStep?: (dir: -1 | 1) => void) => {
-  const s = useRef<{ x: number; y: number; id: number; done: boolean } | null>(null);
-  if (!onStep) return {};
-  return {
-    onPointerDown: (e: React.PointerEvent) => {
-      s.current = { x: e.clientX, y: e.clientY, id: e.pointerId, done: false };
-    },
-    onPointerMove: (e: React.PointerEvent) => {
-      const st = s.current;
-      if (!st || st.done || e.pointerId !== st.id) return;
-      const dx = e.clientX - st.x;
-      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(e.clientY - st.y) * 1.5) {
-        st.done = true;
-        haptics.select();
-        onStep(dx < 0 ? 1 : -1);
-      }
-    },
-    onPointerUp: () => (s.current = null),
-    onPointerCancel: () => (s.current = null),
-  };
+  deprecated('dateLine');
+  const date = typeof d === 'string' ? d : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return dayCaption(date, today());
 };
 
 export interface TabHeaderProps {
-  /** The serif word: "Plan", "Progress", or the day's word on Today ("Speed"). */
+  /** The title: "Plan", "Progress", or the day's word on Today ("Speed"). */
   title: ReactNode;
-  /** The caps line above the title. Default: today ("Wed, Oct 14"); pass a node for another date, or `false` for none. */
+  /** The caps line above the title. Default: today ("FRI, OCT 23"); pass a node for another date, or `false` for none. */
   date?: ReactNode | false;
-  /** Tap the date line (Today, Morning: opens the calendar sheet). The line becomes a button. */
+  /** Tap the title block (the date line and the titles): the old pages open their calendar here. */
   onDatePress?: () => void;
-  /** Swipe the date line: +1 for the next day/week, -1 for the previous. `haptics.select()` fires on the step. */
+  /** @deprecated ignored: the pager under the bar pages (the date line no longer swipes). */
   onDateStep?: (dir: -1 | 1) => void;
-  /** Accessible name for the date button, e.g. "Wednesday, October 14. Pick a day". */
+  /** Accessible name for the title block, e.g. "Wednesday, October 14. Pick a day". */
   dateLabel?: string;
-  /** Sits before the avatar: a "Today" chip when off today, a "Month" button. Keep it to one small thing. */
+  /** Sits before the avatar in the trailing slot: one small thing (a "Month" button, the library search). */
   accessory?: ReactNode;
-  /** Shared-element id for the title (rare: a title that travels into a sheet). */
+  /** @deprecated ignored (layoutId is gone). */
   titleLayoutId?: string;
-  /** Under the header: a week header, a segmented Journal · Library switch. */
+  /** Under the bar and title: a segmented Journal · Library switch. */
   children?: ReactNode;
 }
 
 /**
- * The header of every tab page: a small caps date line on the left above the serif title (44, stepping to 28 when it would
- * wrap or under 360px), and on the right an optional accessory and the Avatar (the way to Settings). No gear and no
- * prev/next arrows: date navigation is a swipe on the date line (`onDateStep`) or the hero, or a tap on it (`onDatePress`).
+ * @deprecated use `NavBar` (ui/NavBar.tsx). The old tab header's API rendered on the new bar: on a tab root it is `NavBar`
+ * (a fragment: the sticky bar, the large title, `children` in the strip slot, the gap) with the accessory and the avatar in
+ * the trailing slot and `onDatePress` as the title block's tap; inside a pushed layer (the old Morning page) it is
+ * `PushedBar` with the date as its eyebrow. Each package replaces it with `NavBar` / `PushedBar` when it lands.
  */
-export const TabHeader = ({ title, date, onDatePress, onDateStep, dateLabel, accessory, titleLayoutId, children }: TabHeaderProps) => {
+export const TabHeader = ({ title, date, onDatePress, dateLabel, accessory, children }: TabHeaderProps) => {
   deprecated('TabHeader');
-  const ref = useStepDown(title);
-  const swipe = useStepSwipe(onDateStep);
-  const line = date === false ? null : (date ?? dateLine());
+  const pushed = !!usePushedEntry();
+  const line = date === false ? null : (date ?? dayCaption(today()));
+  const tools = children ? <div className="tabh-tools">{children}</div> : null;
+  if (pushed)
+    return (
+      <>
+        <PushedBar title={typeof title === 'string' ? title : ''} eyebrow={line} trailing={accessory} />
+        {tools}
+      </>
+    );
   return (
-    <header className="tabh">
-      <div className="tabh-top">
-        <div className="tabh-text">
-          {line != null ? (
-            onDatePress ? (
-              <button type="button" className="tabh-date caps" onClick={onDatePress} aria-label={dateLabel} {...swipe}>
-                {line}
-              </button>
-            ) : (
-              <span className={`tabh-date caps ${onDateStep ? 'swipes' : ''}`} {...swipe}>
-                {line}
-              </span>
-            )
-          ) : null}
-          <motion.h1 ref={ref} className="tabh-title" layoutId={titleLayoutId} layout={titleLayoutId ? 'position' : undefined}>
-            {title}
-          </motion.h1>
-        </div>
-        <div className="tabh-right">
+    <NavBar
+      caps={{ cur: (line ?? '') as string }}
+      title={{ cur: title as string }}
+      trailing={
+        <span key="acc" className="nb-acc">
           {accessory}
           <Avatar />
-        </div>
-      </div>
-      {children ? <div className="tabh-tools">{children}</div> : null}
-    </header>
+        </span>
+      }
+      onTitlePress={onDatePress}
+      titleLabel={dateLabel}
+      gap={24}
+    >
+      {tools}
+    </NavBar>
   );
 };
 
