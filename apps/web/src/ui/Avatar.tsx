@@ -1,6 +1,5 @@
-import { useNavigate } from 'react-router';
+import { useNavInternal, usePushedEntry } from '@/app/NavController';
 import { useBootstrap } from '@/api/queries';
-import { useRouteInfo } from './nav';
 
 export interface AvatarProps {
   /** Override the letter (the gallery; a future display name). Default: the first letter of the account's email. */
@@ -20,9 +19,8 @@ export const useInitial = (override?: string) => {
 };
 
 export const Avatar = ({ initial, className = '' }: AvatarProps) => {
-  const nav = useNavigate();
-  const { section } = useRouteInfo();
-  const here = section === 'settings';
+  const nav = useNavInternal();
+  const here = !!usePushedEntry()?.path.startsWith('/settings');
   const letter = useInitial(initial);
   return (
     <a
@@ -33,7 +31,10 @@ export const Avatar = ({ initial, className = '' }: AvatarProps) => {
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
         e.preventDefault();
-        if (!here) nav('/settings');
+        if (here) return;
+        // Today's avatar pushes Settings; an old header on another tab still shows one until its package lands: a jump
+        if (nav.getState().active === 'today') nav.push('/settings');
+        else nav.go('/settings');
       }}
     >
       <span className="avatar-disc" aria-hidden="true">

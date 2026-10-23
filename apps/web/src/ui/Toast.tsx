@@ -1,13 +1,23 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavInternal, useTabOrNull } from '@/app/NavController';
 import { fadeOut, reducedFade, springs } from '@/lib/motion';
+import type { TabId } from './nav';
 import { createToastStore, type ToastAction } from './toastStore';
 
 type ToastFn = (text: string, action?: ToastAction) => void;
-const Ctx = createContext<ToastFn>(() => {});
-/** `const toast = useToast(); toast('Deleted', { label: 'Undo', fn: restore })`. */
-export const useToast = () => useContext(Ctx);
+type ScopedFn = (tab: TabId | null, text: string, action?: ToastAction) => void;
+const Ctx = createContext<ScopedFn>(() => {});
+/**
+ * `const toast = useToast(); toast('Deleted', { label: 'Undo', fn: restore })`. Scoped to the caller's tab (a sheet body has
+ * the tab that opened the sheet): switching tabs dismisses it.
+ */
+export const useToast = (): ToastFn => {
+  const show = useContext(Ctx);
+  const tab = useTabOrNull();
+  return useMemo<ToastFn>(() => (text, action) => show(tab, text, action), [show, tab]);
+};
 
 /** Room kept between a toast and the top of an open sheet, and from the top of the screen. */
 const GAP = 12;
@@ -72,7 +82,19 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const store = useMemo(() => createToastStore(), []);
   const t = useSyncExternalStore(store.subscribe, store.get, store.get);
   useEffect(() => () => store.dismiss(), [store]);
-  const value = useMemo<ToastFn>(() => (text, action) => void store.show(text, action), [store]);
+  const scope = useRef(new Map<number, TabId | null>());
+  const value = useMemo<ScopedFn>(() => (tab, text, action) => void scope.current.set(store.show(text, action), tab), [store]);
+  // a tab change dismisses a toast raised on another tab
+  const ctl = useNavInternal();
+  useEffect(
+    () =>
+      ctl.subscribe(() => {
+        const cur = store.get();
+        const tab = cur ? scope.current.get(cur.id) : null;
+        if (cur && tab && tab !== ctl.getState().active) store.dismiss(cur.id);
+      }),
+    [ctl, store],
+  );
   const pill = useRef<HTMLDivElement>(null);
   const place = useSheetAwarePlace(!!t, pill);
   return (

@@ -1,12 +1,8 @@
-import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { fireHaptic, haptics, type HapticEvent } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
-import { Avatar } from './Avatar';
-import { BackButton } from './headers';
-import { useRouteInfo } from './nav';
-import { usePushedFrame } from './PushedPage';
 import { ghostOf, type GhostKind } from './Ghost';
 import { Skeleton, SkeletonGroup } from './Skeleton';
 
@@ -349,44 +345,6 @@ export const AuraStat = ({ label, value, unit, note, className = '' }: { label: 
 };
 /** Three stats in a row, divided by hairlines. */
 export const StatStrip = ({ children, className = '' }: { children: ReactNode; className?: string }) => <div className={`strip ${className}`}>{children}</div>;
-
-export const DateNav = ({ onPrev, onNext, prevLabel, nextLabel, children }: { onPrev: () => void; onNext: () => void; prevLabel: string; nextLabel: string; children?: ReactNode }) => (
-  <div className="row" style={{ gap: 0 }}>
-    <IconButton label={prevLabel} onClick={onPrev}>
-      <ChevronLeft size={22} />
-    </IconButton>
-    <IconButton label={nextLabel} onClick={onNext}>
-      <ChevronRight size={22} />
-    </IconButton>
-    {children}
-  </div>
-);
-
-/**
- * @deprecated v1 header, kept until each page moves to `TabHeader` (tabs) or `PushedHeader` (pushed pages). It now knows
- * where it is: on a pushed page it leads with the back chevron; on a tab it ends with the Avatar (the way to Settings).
- */
-export const PageHeader = ({ title, sub, actions, children }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode }) => {
-  const pushed = !!usePushedFrame();
-  // Settings lights no tab; the avatar, ringed, says where you are
-  const onSettings = useRouteInfo().section === 'settings';
-  return (
-    <header className={`ph ${pushed ? 'is-pushed' : ''}`}>
-      <div className="ph-top">
-        {pushed ? <BackButton /> : null}
-        <div className="ph-text">
-          <h1 className="ph-title">{title}</h1>
-          {sub ? <span className="ph-sub">{sub}</span> : null}
-        </div>
-        <div className="ph-actions">
-          {actions}
-          {pushed && !onSettings ? null : <Avatar />}
-        </div>
-      </div>
-      {children ? <div className="ph-tools">{children}</div> : null}
-    </header>
-  );
-};
 
 export const CloseButton = ({ onClick }: { onClick: () => void }) => (
   <IconButton label="Close" onClick={onClick}>

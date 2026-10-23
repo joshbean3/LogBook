@@ -261,29 +261,3 @@ export interface TabReselectDetail {
   atTop: boolean;
 }
 
-// ---------- step-1 interim: the old route helpers, until the Shell swap that follows in this package ----------
-import { useLocation } from 'react-router';
-/** @deprecated interim (WP1 step 1): the old pushed-page table. */
-export const PUSHED: Record<string, { owner: TabId | null; title: string }> = { reads: { owner: 'journal', title: 'Reads' }, settings: { owner: null, title: 'Settings' } };
-const TAB_SECTIONS: Record<string, TabId> = { today: 'today', plan: 'plan', progress: 'progress', trends: 'progress', journal: 'journal' };
-/** @deprecated interim (WP1 step 1). */
-export interface RouteInfo {
-  section: string;
-  tab: TabId | null;
-  pushed: boolean;
-  backTo: string;
-}
-/** @deprecated interim (WP1 step 1). */
-export const routeInfo = (pathname: string): RouteInfo => {
-  const section = pathname.split('/')[1] ?? '';
-  const p = PUSHED[section];
-  if (p) return { section, tab: p.owner, pushed: true, backTo: p.owner ? tabDef(p.owner).root : '/today' };
-  return { section, tab: TAB_SECTIONS[section] ?? null, pushed: false, backTo: '/today' };
-};
-/** @deprecated interim (WP1 step 1). */
-export const useRouteInfo = () => routeInfo(useLocation().pathname);
-/** @deprecated interim (WP1 step 1). */
-export const canPopHistory = () => {
-  const idx = (window.history.state as { idx?: number } | null)?.idx;
-  return typeof idx === 'number' && idx > 0;
-};

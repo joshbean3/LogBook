@@ -41,7 +41,7 @@ export type PressableProps = Base &
 
 /**
  * The one way to make a thing pressable. A `motion.button` (or, with `as="div"`, a `div` with role="button", tabIndex and
- * Enter/Space) that scales to 0.97 on `springs.press` while held, fires an optional named `haptic` with `onPress`, and offers
+ * Enter/Space) that scales to 0.97 while held, fires an optional named `haptic` with `onPress`, and offers
  * `onLongPress` (450ms, cancelled by 8px of travel or a scroll; also right-click and Shift+F10). It replaces ad-hoc `whileTap`.
  * Under reduced motion it does not scale; the `:active` styles of its class still show the press. The hit area is the
  * element: give it at least 44px (the `.pressable` class sets a 44px minimum height).

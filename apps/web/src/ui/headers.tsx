@@ -1,13 +1,20 @@
 import { ChevronLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { usePushedEntry } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
+import { deprecated } from '@/lib/motion';
 import { Avatar } from './Avatar';
-import { canPopHistory, PUSHED, tabDef, useRouteInfo } from './nav';
-import { usePushedFrame } from './PushedPage';
+import { BackButton as Chevron } from './NavBar';
+import { usePop } from './PushedLayer';
 
-/** "Wed, Oct 14": the date line's words (shown in caps). */
+/*
+ * @deprecated module (contracts rule 5): the old headers, kept working while a feature file imports them. `TabHeader` gives
+ * way to `NavBar` and `PushedHeader` to `PushedBar` (ui/NavBar.tsx) as each package lands; WP1 deletes this file after WP6.
+ * Back here is the pushed layer's own pop (usePop).
+ */
+
+/** @deprecated use `dayCaption`. "Wed, Oct 14": the date line's words (shown in caps). */
 export const dateLine = (d: Date | string = new Date()) => {
   const date = typeof d === 'string' ? new Date(`${d}T12:00:00`) : d;
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -80,6 +87,7 @@ export interface TabHeaderProps {
  * prev/next arrows: date navigation is a swipe on the date line (`onDateStep`) or the hero, or a tap on it (`onDatePress`).
  */
 export const TabHeader = ({ title, date, onDatePress, onDateStep, dateLabel, accessory, titleLayoutId, children }: TabHeaderProps) => {
+  deprecated('TabHeader');
   const ref = useStepDown(title);
   const swipe = useStepSwipe(onDateStep);
   const line = date === false ? null : (date ?? dateLine());
@@ -112,28 +120,17 @@ export const TabHeader = ({ title, date, onDatePress, onDateStep, dateLabel, acc
   );
 };
 
-/** Back for a pushed page: the frame's (slide out, pop or go to the owning tab), else history, else Today. */
+/** @deprecated use `usePop()`. Back for a pushed page: the layer's own pop, unless the page overrides it. */
 export const usePushedBack = (onBack?: () => void) => {
-  const frame = usePushedFrame();
-  const nav = useNavigate();
-  const info = useRouteInfo();
-  if (onBack) return onBack;
-  if (frame) return frame.back;
-  return () => (canPopHistory() ? nav(-1) : nav(info.backTo, { replace: true }));
-};
-/** "Back to Today" for VoiceOver: the owning tab's name, or just "Back". */
-export const useBackLabel = () => {
-  const info = useRouteInfo();
-  const owner = PUSHED[info.section]?.owner;
-  return owner ? `Back to ${tabDef(owner).label}` : 'Back';
+  const pop = usePop();
+  return onBack ?? pop;
 };
 
-/** The 44px back chevron of a pushed page. */
+/** @deprecated use `BackButton` from ui/NavBar. The 44px back chevron of a pushed page. */
 export const BackButton = ({ onBack, label }: { onBack?: () => void; label?: string }) => {
-  const back = usePushedBack(onBack);
-  const auto = useBackLabel();
+  if (!onBack) return <Chevron label={label} />;
   return (
-    <button type="button" className="icon-btn back-btn" aria-label={label ?? auto} title={label ?? auto} onClick={back}>
+    <button type="button" className="icon-btn back-btn" aria-label={label ?? 'Back'} title={label ?? 'Back'} onClick={onBack}>
       <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
     </button>
   );
@@ -161,8 +158,9 @@ export interface PushedHeaderProps {
  * route (App.tsx wraps every pushed route in `PushedPage`), and this chevron calls the same back(): slide out, then pop.
  */
 export const PushedHeader = ({ title, eyebrow, right, onBack, backLabel, titleLayoutId, children }: PushedHeaderProps) => {
-  // Settings lights no tab; the avatar, ringed, says where you are
-  const onSettings = useRouteInfo().section === 'settings';
+  deprecated('PushedHeader');
+  // Settings: the avatar, ringed, says where you are
+  const onSettings = !!usePushedEntry()?.path.startsWith('/settings');
   if (onSettings && right === undefined) right = <Avatar />;
   return (
     <header className="pushed-head">

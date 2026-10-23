@@ -2,7 +2,10 @@ import { ChevronLeft, X } from 'lucide-react';
 import { animate, AnimatePresence, motion, useDragControls, useMotionValue, usePresence, useReducedMotion, useTransform, type PanInfo } from 'motion/react';
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { TabScope, useNavInternal } from '@/app/NavController';
 import { fadeIn, fadeOut, reducedFade, springs } from '@/lib/motion';
+import type { TabId } from './nav';
+import { setSheetOpen } from './sheetMotion';
 import { restoreFocus } from './focus';
 import { focusables, holdInert } from './inert';
 
@@ -327,41 +330,57 @@ const Panel = ({ stack, dir, close, pop, opener }: { stack: SheetSpec[]; dir: nu
  * and home again on close. Reduced motion: every move is a 150ms fade, and nothing travels.
  */
 export const SheetProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<{ stack: SheetSpec[]; dir: number }>({ stack: [], dir: 0 });
+  const ctl = useNavInternal();
+  const [state, setState] = useState<{ stack: SheetSpec[]; dir: number; tab: TabId }>({ stack: [], dir: 0, tab: 'today' });
   const isOpen = useRef(false);
   const opener = useRef<HTMLElement | null>(null);
-  const close = useCallback(() => {
+  /** The sheet's one overlay history entry: Back closes the sheet first (an inner push adds none). */
+  const release = useRef<(() => void) | null>(null);
+  const closeNow = useCallback(() => {
     isOpen.current = false;
-    setState({ stack: [], dir: 0 });
+    setState((cur) => ({ stack: [], dir: 0, tab: cur.tab }));
   }, []);
+  const close = useCallback(() => {
+    const r = release.current;
+    release.current = null;
+    closeNow();
+    r?.();
+  }, [closeNow]);
   const api = useMemo<SheetApi>(() => {
     const capture = () => {
       // the control under focus now is where focus goes back to; a sheet opened from a sheet keeps the first one's
-      if (!isOpen.current) opener.current = (document.activeElement as HTMLElement | null) ?? null;
+      if (!isOpen.current) {
+        opener.current = (document.activeElement as HTMLElement | null) ?? null;
+        release.current = ctl.openOverlay(() => {
+          release.current = null;
+          closeNow();
+        });
+      }
       isOpen.current = true;
+      // the whole panel renders in the scope of the tab active now
+      return ctl.getState().active;
     };
     return {
       open: (s) => {
-        capture();
-        setState({ stack: [s], dir: 0 });
+        const tab = capture();
+        setState({ stack: [s], dir: 0, tab });
       },
       push: (s) => {
-        capture();
-        setState((cur) => ({ stack: [...cur.stack, s], dir: cur.stack.length ? 1 : 0 }));
+        const tab = capture();
+        setState((cur) => ({ stack: [...cur.stack, s], dir: cur.stack.length ? 1 : 0, tab: cur.stack.length ? cur.tab : tab }));
       },
-      pop: () =>
-        setState((cur) => {
-          if (cur.stack.length <= 1) {
-            isOpen.current = false;
-            return { stack: [], dir: 0 };
-          }
-          return { stack: cur.stack.slice(0, -1), dir: -1 };
-        }),
+      pop: () => {
+        if (state0.current.stack.length <= 1) return close();
+        setState((cur) => (cur.stack.length <= 1 ? cur : { ...cur, stack: cur.stack.slice(0, -1), dir: -1 }));
+      },
       close,
       update: (p) => setState((cur) => (cur.stack.length ? { ...cur, stack: [...cur.stack.slice(0, -1), { ...cur.stack[cur.stack.length - 1]!, ...p }] } : cur)),
       isOpen: () => isOpen.current,
     };
-  }, [close]);
+  }, [close, closeNow, ctl]);
+  const state0 = useRef(state);
+  state0.current = state;
+  useEffect(() => setSheetOpen(state.stack.length > 0), [state.stack.length]);
   const open = state.stack.length > 0;
   const top = state.stack[state.stack.length - 1];
   useEffect(() => {
@@ -390,7 +409,9 @@ export const SheetProvider = ({ children }: { children: ReactNode }) => {
                 transition={fadeIn}
                 onClick={() => !top.sticky && close()}
               />
-              <Panel stack={state.stack} dir={state.dir} close={close} pop={api.pop} opener={opener} />
+              <TabScope tab={state.tab}>
+                <Panel stack={state.stack} dir={state.dir} close={close} pop={api.pop} opener={opener} />
+              </TabScope>
             </motion.div>
           ) : null}
         </AnimatePresence>,

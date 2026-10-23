@@ -1,10 +1,12 @@
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { TabScope, useNavInternal } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, fadeOut, LIFT_SCALE, reducedFade, springs } from '@/lib/motion';
 import { restoreFocus } from './focus';
 import { holdInert } from './inert';
+import type { TabId } from './nav';
 import { useLongPress } from './useLongPress';
 
 export interface ContextMenuItem {
@@ -317,10 +319,18 @@ const Layer = ({ spec, onClose }: { spec: OpenContextMenu & { rect: DOMRect }; o
 
 /** Hosts the one context menu. Mounted once in main.tsx, above the SheetProvider (so sheets can open it); `ContextMenu` and `useContextMenu` talk to it. */
 export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
-  const [spec, setSpec] = useState<(OpenContextMenu & { rect: DOMRect; key: number }) | null>(null);
+  const ctl = useNavInternal();
+  const [spec, setSpec] = useState<(OpenContextMenu & { rect: DOMRect; key: number; tab: TabId }) | null>(null);
   const openRef = useRef(false);
   openRef.current = !!spec;
-  const close = useCallback(() => setSpec(null), []);
+  /** The menu's one overlay history entry: Back closes the menu first. */
+  const release = useRef<(() => void) | null>(null);
+  const close = useCallback(() => {
+    const r = release.current;
+    release.current = null;
+    setSpec(null);
+    r?.();
+  }, []);
   const api = useMemo<ContextMenuApi>(
     () => ({
       open: (o) => {
@@ -330,17 +340,32 @@ export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
         const active = document.activeElement as HTMLElement | null;
         const returnFocus = o.returnFocus ?? (active && active !== document.body ? active : (liftEl?.querySelector<HTMLElement>('button, [tabindex], a[href]') ?? liftEl));
         if (o.haptic !== false) haptics.lift();
-        setSpec({ ...o, returnFocus, rect, key: Date.now() });
+        if (!release.current)
+          release.current = ctl.openOverlay(() => {
+            release.current = null;
+            setSpec(null);
+          });
+        // the menu layer renders in the scope of the tab active now (an item's useToast / useNav belong to it)
+        setSpec({ ...o, returnFocus, rect, key: Date.now(), tab: ctl.getState().active });
       },
       close,
       isOpen: () => openRef.current,
     }),
-    [close],
+    [close, ctl],
   );
   return (
     <Ctx.Provider value={api}>
       {children}
-      {createPortal(<AnimatePresence>{spec ? <Layer key={spec.key} spec={spec} onClose={close} /> : null}</AnimatePresence>, document.body)}
+      {createPortal(
+        <AnimatePresence>
+          {spec ? (
+            <TabScope key={spec.key} tab={spec.tab}>
+              <Layer spec={spec} onClose={close} />
+            </TabScope>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
     </Ctx.Provider>
   );
 };

@@ -33,9 +33,11 @@ body {
 input,
 textarea,
 [contenteditable='true'],
+.jentry-body,
 .esheet-text,
 .dsheet-text,
-.quote-text {
+.quote-text,
+.reads-body {
   -webkit-touch-callout: default;
   -webkit-user-select: text;
   user-select: text;
@@ -47,6 +49,12 @@ textarea {
   font: inherit;
   color: inherit;
   letter-spacing: inherit;
+}
+/* Safari zooms into a field under 16 px: never */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
 }
 button {
   cursor: pointer;
@@ -189,7 +197,8 @@ input[type='number'] {
 .page {
   /* a size container, so stat strips and titles can respond to the room they have in rem: at a larger text size the same screen is narrower */
   container: page / inline-size;
-  padding: calc(8px + var(--safe-t)) var(--gutter) calc(var(--tabbar-h) + 32px + var(--safe-b));
+  /* the scroller already ends at the tab bar's top (a grid row); only the keyboard's overhang is added (spec §3.1, rev 4.1) */
+  padding: calc(8px + var(--safe-t)) var(--gutter) calc(24px + max(0px, var(--kb) - var(--tabbar-h) - var(--safe-b)));
   max-width: var(--maxw);
   margin-inline: auto;
   width: 100%;

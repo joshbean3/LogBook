@@ -66,6 +66,7 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   const zero = useMotionValue(0);
   const childOffset = depth === 1 ? sm.offsets[1] : zero;
   const shownX = useTransform(() => x.get() + childOffset.get());
+  const shadow = useMotionValue(0);
   const width = () => ref.current?.parentElement?.clientWidth || window.innerWidth;
   const running = useRef<Running | null>(null);
   const seq = useRef(0);
@@ -117,7 +118,7 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     const p = Math.min(px, fade.get());
     sm.offsets[depth - 1]!.set(-0.3 * w * px);
     sm.scrims[depth - 1]!.set(0.12 * p);
-    ref.current?.style.setProperty('--shadow-o', String(0.6 * p));
+    shadow.set(0.6 * p);
     moveFly(px);
   };
   const setParentInert = (on: boolean) => {
@@ -296,6 +297,8 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   );
 
   return (
+    <>
+    <motion.div className="pushed-shadow" aria-hidden="true" style={{ x: shownX, opacity: shadow }} />
     <motion.div
       ref={(el: HTMLDivElement | null) => {
         ref.current = el;
@@ -313,5 +316,6 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     >
       <LayerCtx.Provider value={layerApi}>{children}</LayerCtx.Provider>
     </motion.div>
+    </>
   );
 };

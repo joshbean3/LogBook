@@ -1,76 +1,125 @@
+/*
+ * The frame (docs/feel.md §9.1, §12; contracts §A.3). The document never scrolls: each tab is its own scroller, stacked in
+ * one grid row over the tab bar's row. DOM order is paint order (no z-index): a scrim sits above the page it dims and below
+ * the layer that covers it.
+ */
+html,
+body,
+#root,
 .shell {
-  min-height: 100dvh;
+  height: 100%;
+}
+html,
+body {
+  overflow: hidden;
+}
+.shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
 }
-.content {
-  min-width: 0;
+.tabs-host {
   position: relative;
+  min-height: 0;
 }
-/* a tab switch is an instant cut with a 120ms fade on the incoming page: no slide, no stagger (experience §2) */
-.page-enter {
-  min-height: 100dvh;
-  animation: page-in var(--dur-in) var(--ease-out) both;
+.tab {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transform-origin: 50% 0;
 }
-/* the first page of the session: nothing to fade from, so it is simply there on its first frame */
-.page-first {
-  min-height: 100dvh;
+/* inactive tabs keep their scrollTop: never display: none (WebKit drops it) */
+.tab:not([data-active]) {
+  visibility: hidden;
+  pointer-events: none;
 }
-/* the one motion that stays under reduced motion: a short fade is how a page arrives, not an animation */
-@media (prefers-reduced-motion: reduce) {
-  .page-enter {
-    animation-duration: var(--dur-in) !important;
-  }
-}
-/* a pushed page slides in on its own (PushedPage); the frame under it is the canvas */
-.page-pushed {
-  min-height: 100dvh;
-}
-.pushed-page {
-  min-height: 100dvh;
+.tab-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   background: var(--bg);
-  /* the leading edge reads as a page edge while it is swiped; off screen at rest */
-  box-shadow: -1px 0 0 var(--line-strong);
+  --hdr: 0;
 }
-@keyframes page-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.tab-scrim {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+  opacity: 0;
+}
+.stack-host {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+}
+.stack-host[data-empty] {
+  pointer-events: none;
+}
+/* a pushed page: opaque, its own scroller, the edge pop claims pointers within 24 px of its left edge (pan-y keeps scrolling) */
+.pushed {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  will-change: transform;
+  --hdr: 0;
+  --shadow-o: 0;
+}
+/* the left shadow: a sibling under the layer that rides its x (a scroller clips its own ::before) */
+.pushed-shadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -24px;
+  width: 24px;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.6), transparent);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+/* the shared-element flyer is a child of body (pushed layers and the receding tab are containing blocks for fixed) */
+.flyer {
+  position: fixed;
+  pointer-events: none;
+  z-index: 40;
 }
 
-/* ---------- phone: bottom tabs ---------- */
+/* ---------- the tab bar: grid row 2, opaque, no blur (WP5) ---------- */
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
   z-index: 30;
   height: calc(var(--tabbar-h) + var(--safe-b));
   padding: 0 4px var(--safe-b);
-  /* opaque: a 20px blur over a black canvas was invisible and re-rasterised on every scrolled frame (shell F15, webview P10) */
   background: var(--surface);
   border-top: 1px solid var(--line-strong);
 }
-/* the nav is the landmark; the tablist inside it holds the five tabs */
+html.kb-open .tabbar {
+  visibility: hidden;
+}
 .tabbar .tabs {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
   height: var(--tabbar-h);
 }
-.tab {
+.tab-item {
   min-height: 44px;
   display: grid;
   justify-items: center;
   align-content: center;
   gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--ink-3);
-  transition: color var(--dur-fast);
+  -webkit-tap-highlight-color: transparent;
 }
-.tab.on {
+.tab-item[aria-selected='true'] {
   color: var(--accent-bright);
 }
 .tab-label {
@@ -79,74 +128,11 @@
   font-weight: 500;
   letter-spacing: 0;
 }
-.tab.on .tab-label {
+.tab-item[aria-selected='true'] .tab-label {
   font-weight: 600;
 }
 
-/* ---------- desktop: left rail ---------- */
-@media (min-width: 900px) {
-  .shell {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-  .rail {
-    position: sticky;
-    top: 0;
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 24px 12px 16px;
-    border-right: 1px solid var(--line);
-    background: var(--surface);
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 10px 20px;
-    color: var(--ink);
-    font-weight: 700;
-    font-size: 1.0625rem;
-    letter-spacing: -0.02em;
-  }
-  .brand-mark {
-    display: grid;
-    place-items: center;
-  }
-  .rail-nav {
-    display: grid;
-    gap: 2px;
-  }
-  .rail-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 10px;
-    border-radius: var(--r-md);
-    color: var(--ink-2);
-    font-size: 0.9375rem;
-    font-weight: 500;
-    transition:
-      color var(--dur-fast),
-      background var(--dur-fast);
-  }
-  .rail-link:hover {
-    color: var(--ink);
-    background: var(--surface-2);
-  }
-  .rail-link.on {
-    color: var(--accent-text);
-    background: var(--accent-tint);
-  }
-  .rail-link.foot {
-    margin-top: auto;
-  }
-  .rail-link.foot.on .avatar-disc {
-    box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--accent-bright);
-  }
-}
-
-/* ---------- pull to refresh: a 24px ring under the status bar that fills as you pull; full, it fetches ---------- */
+/* ---------- pull to refresh: a 24px ring under the status bar (Today only) ---------- */
 .ptr {
   position: fixed;
   top: calc(8px + var(--safe-t));
@@ -166,19 +152,9 @@
   transform: translateY(-48px);
   will-change: transform, opacity;
 }
-.ptr.pulling {
+.ptr.busy {
   opacity: 1;
-}
-.ptr.busy,
-.ptr.done {
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    transform 200ms var(--ease-out),
-    opacity 200ms var(--ease-out);
-}
-.ptr.done {
-  opacity: 0;
+  transform: translateY(24px);
 }
 .ptr svg {
   width: 24px;
@@ -187,7 +163,6 @@
 .ptr circle.track {
   stroke: var(--line-strong);
 }
-/* while the data arrives the ring sits full and still: no spinner */
 .ptr circle.fill {
   stroke: var(--accent-bright);
   transform: rotate(-90deg);
@@ -217,4 +192,3 @@
   background: var(--ok);
   flex: none;
 }
-

@@ -1,6 +1,7 @@
 import type * as React from 'react';
 import { createContext, createRef, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
+import { today as todayISO } from '@logbook/shared';
 import { useLocation } from 'react-router';
 import { entryFor, impliesRoot, matchRoute, NAV_EVENT, resolveRoute, tabDef, TABS, type NavEventDetail, type NavState, type PushedEntry, type RouteMatch, type TabId, type TabState } from '@/ui/nav';
 
@@ -47,7 +48,7 @@ interface Overlay {
   onBack: () => void;
   closed: boolean;
 }
-type Op = { kind: 'push' | 'replace'; path: string; idx: number; overlay?: boolean } | { kind: 'traverse'; n: number };
+type Op = { kind: 'push' | 'replace'; path: string; idx: number; overlay?: boolean } | { kind: 'traverse'; n: number } | { kind: 'foreign'; push: boolean; data: unknown; url?: string | URL | null };
 
 const ROOTS: Record<TabId, string> = { today: '/today', plan: '/plan', progress: '/progress', journal: '/journal' };
 const STACKS_KEY = 'logbook.stacks';
@@ -67,6 +68,9 @@ const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(pre
 const dev = import.meta.env.DEV;
 
 export class Controller {
+  constructor() {
+    this.hookHistory();
+  }
   state: NavState = { active: 'today', tabs: emptyTabs(), overlays: 0 };
   dormant = true;
   /** The nav.idx of the entry last written or landed on (predicted while a traversal is pending). */
@@ -108,6 +112,39 @@ export class Controller {
   }
 
   // ---------- the write queue ----------
+  private native: { push: History['pushState']; replace: History['replaceState'] } | null = null;
+  private writing = false;
+  /**
+   * react-router (the old pages, until WP6 lands) writes history itself. A write it makes while one of our traversals is
+   * pending would be overtaken by that traversal (history.back() is only queued), so it waits in the same queue and runs, in
+   * order, after the popstate; the bridge's adopt that follows it is queued behind it.
+   */
+  private hookHistory() {
+    if (typeof window === 'undefined' || this.native) return;
+    const h = window.history;
+    const native = { push: h.pushState.bind(h), replace: h.replaceState.bind(h) };
+    this.native = native;
+    const foreign = (push: boolean, data: unknown, unused: string, url?: string | URL | null) => {
+      if (this.writing || this.dormant) return push ? native.push(data, unused, url) : native.replace(data, unused, url);
+      this.queue.push({ kind: 'foreign', push, data, url });
+      this.flush();
+    };
+    h.pushState = (data: unknown, unused: string, url?: string | URL | null) => foreign(true, data, unused, url);
+    h.replaceState = (data: unknown, unused: string, url?: string | URL | null) => foreign(false, data, unused, url);
+  }
+  /** Set by RouterBridge while old pages still call react-router: how a foreign write is adopted (nav.go with `adopt`). */
+  private adopter: ((path: string, how: 'push' | 'replace') => void) | null = null;
+  setAdopter(fn: ((path: string, how: 'push' | 'replace') => void) | null) {
+    this.adopter = fn;
+  }
+  private run(fn: () => void) {
+    this.writing = true;
+    try {
+      fn();
+    } finally {
+      this.writing = false;
+    }
+  }
   /** Enqueue a history write; `cur` moves at once (the prediction), the write itself waits behind a pending traversal. */
   private write(kind: 'push' | 'replace', path: string, opts: { overlay?: boolean; idx?: number } = {}) {
     if (kind === 'push') this.cur += 1;
@@ -125,12 +162,25 @@ export class Controller {
       const op = this.queue.shift()!;
       if (op.kind === 'traverse') {
         this.pending = { timer: setTimeout(() => this.settleTraversal(), TRAVERSE_CAP_MS) };
-        window.history.go(-op.n);
+        this.run(() => window.history.go(-op.n));
         return;
       }
+      if (op.kind === 'foreign') {
+        this.run(() => (op.push ? window.history.pushState(op.data, '', op.url) : window.history.replaceState(op.data, '', op.url)));
+        // the entry react-router just wrote is adopted (re-stamped), in a microtask: go uses flushSync
+        const adopt = this.adopter;
+        if (adopt && op.url != null) {
+          const u = new URL(String(op.url), window.location.href);
+          const how = op.push ? 'push' : 'replace';
+          queueMicrotask(() => adopt(u.pathname + u.search, how));
+        }
+        continue;
+      }
       const nav = { idx: op.idx, ...(op.overlay ? { overlay: true } : {}) };
-      if (op.kind === 'push') window.history.pushState({ nav }, '', op.path);
-      else window.history.replaceState({ ...(window.history.state ?? {}), nav }, '', op.path);
+      this.run(() => {
+        if (op.kind === 'push') window.history.pushState({ nav }, '', op.path);
+        else window.history.replaceState({ ...(window.history.state ?? {}), nav }, '', op.path);
+      });
     }
   }
   /** The popstate that answers our own traversal (or the 300 ms cap): consumed, never a request. */
@@ -138,15 +188,10 @@ export class Controller {
     if (!this.pending) return;
     clearTimeout(this.pending.timer);
     this.pending = null;
+    // nothing queued: land on what the browser says (a traversal past the first entry does nothing)
     const idx = navOf()?.idx;
-    if (typeof idx === 'number') this.cur = idx + this.queuedDelta();
+    if (typeof idx === 'number' && !this.queue.length) this.cur = idx;
     this.flush();
-  }
-  /** How far the queued (not yet run) writes will move `cur`. */
-  private queuedDelta() {
-    let d = 0;
-    for (const op of this.queue) d += op.kind === 'push' ? 1 : op.kind === 'traverse' ? -op.n : 0;
-    return d;
   }
 
   // ---------- cold start, sleep and wake ----------
@@ -191,7 +236,7 @@ export class Controller {
     const idx = navOf()?.idx;
     this.cur = typeof idx === 'number' ? idx : 0;
     this.set({ active: tab, tabs, overlays: 0 });
-    window.history.replaceState({ ...(window.history.state ?? {}), nav: { idx: this.cur } }, '', path + (path === window.location.pathname ? window.location.search : ''));
+    this.run(() => window.history.replaceState({ ...(window.history.state ?? {}), nav: { idx: this.cur } }, '', path + (path === window.location.pathname ? window.location.search : '')));
   }
 
   // ---------- registries (Shell, PushedLayer, roots) ----------
@@ -392,7 +437,9 @@ export class Controller {
     if (!opts.fromPop) this.closeOverlays();
     const tab = m.tab!;
     const t = this.state.tabs[tab];
-    const rootPath = impliesRoot(m) ? m.root : t.path;
+    let rootPath = impliesRoot(m) ? m.root : t.path;
+    // '/today/<today>' is the same page as '/today': This morning of today keeps the root as it is
+    if (tab === 'today' && t.path === '/today' && rootPath === `/today/${todayISO()}`) rootPath = '/today';
     const implied = m.stack;
     const keep: PushedEntry[] = [];
     for (let i = 0; i < implied.length; i++) {
