@@ -271,6 +271,9 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   };
 
   useLayoutEffect(() => {
+    // a layer that mounts at rest never changes x, so `shownX` must be right from here (code review 2 #2): a depth-2 layer
+    // removed in this same commit reset offsets[1] after `shownX` was first computed (its cleanup runs before this effect)
+    shownX.set(x.get() + childOffset.get());
     const offX = x.on('change', apply);
     const offF = fade.on('change', apply);
     const offC = childOffset.on('change', () => moveFly(Math.max(0, Math.min(1, 1 - x.get() / width()))));
@@ -309,7 +312,7 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const c: LayerControl = { leave: (done, opts) => leave(0, done, opts), cover };
+    const c: LayerControl = { leave: (done, opts) => leave(0, done, opts), cover, leaving: () => !gone.current && running.current?.target === width() };
     return ctl.registerLayer(entry.key, c);
   }); // re-registered each render so `leave` sees the current reduce flag
 
@@ -329,12 +332,19 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   // ---------- the edge pop ----------
   const g = useRef<{ id: number; sx: number; sy: number; x0: number; lock: null | 'x' | 'no'; caught: boolean } | null>(null);
   const swallow = useRef(false);
-  const popSelf = () => leave(0, () => ctl.finishPop(sm.tab, entry.key));
+  // a leave that a catch brought home answers `false`: nothing is popped (code review 2 #1)
+  const popSelf = () => leave(0, (left) => left && ctl.finishPop(sm.tab, entry.key));
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     swallow.current = false;
     if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0) || gone.current) return;
     // the band is measured from the edge as it is shown (a depth-1 layer under a moving depth-2 one is offset)
-    if (e.clientX - shownX.get() > EDGE_PX) return;
+    if (e.clientX - shownX.get() > EDGE_PX) {
+      // a tap on a page still sliding in or out opens nothing (feel review 2 N1: UIKit takes no touch on the content during
+      // a transition): a double tap on the opener pushes once
+      const r = running.current;
+      if (r && Math.abs(x.get() - r.target) > 1) swallow.current = true;
+      return;
+    }
     let caught = false;
     const r = running.current;
     if (r) {
@@ -366,7 +376,9 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
       const dx = e.clientX - st.sx;
       const dy = e.clientY - st.sy;
       if (Math.hypot(dx, dy) < LOCK_PX) return;
-      if (lockAxis(dx, dy) === 'x' && dx > 0) {
+      // a fresh edge drag locks only rightward (the layer at 0 cannot go further left); a caught layer follows the finger
+      // either way, back toward home too (code review 2 #3: the catch stops it and re-bases; every gesture tracks 1:1)
+      if (lockAxis(dx, dy) === 'x' && (dx > 0 || st.caught)) {
         // §9.3: x0 stays where the pointer went down (no re-base at the lock): the layer then sits exactly under the finger
         st.lock = 'x';
         try {
@@ -392,7 +404,7 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
       swallow.current = true;
       const v = e.type === 'pointercancel' ? 0 : x.getVelocity();
       const commit = v >= 0 && (x.get() > POP_COMMIT_FRAC * width() || v > POP_COMMIT_V);
-      if (commit) leave(v, () => ctl.finishPop(sm.tab, entry.key));
+      if (commit) leave(v, (left) => left && ctl.finishPop(sm.tab, entry.key));
       else home(v);
       return;
     }

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { capsWord, dayCaption, dayTitle, monthCaption, shorten, weekCaption } from './captions';
+import { describe, expect, it, vi } from 'vitest';
+import { capsWord, dayCaption, dayTitle, fmt, monthCaption, shorten, weekCaption } from './captions';
 
 /** docs/feel.md §2.2–2.3 (contracts §B.2): the bar's words, from the date alone. Every date is relative to Fri 2026-10-23. */
 const T = '2026-10-23';
@@ -50,4 +50,38 @@ describe('the title, fixed from the route', () => {
     ['2026-11-02', 'Mon, Nov 2'],
     ['2025-10-11', 'Sat, Oct 11, 2025'],
   ])('%s → %s', (d, want) => expect(dayTitle(d, T)).toBe(want));
+});
+
+describe('the formatters (consumer review 2 #3)', () => {
+  it('builds one Intl.DateTimeFormat per option set and never calls toLocaleDateString', () => {
+    const Orig = Intl.DateTimeFormat;
+    let built = 0;
+    const counting = function (this: unknown, ...a: ConstructorParameters<typeof Intl.DateTimeFormat>) {
+      built++;
+      return new Orig(...a);
+    } as unknown as typeof Intl.DateTimeFormat;
+    const toLocale = vi.spyOn(Date.prototype, 'toLocaleDateString');
+    let toLocaleCalls = -1;
+    Intl.DateTimeFormat = counting;
+    try {
+      for (let i = 0; i < 200; i++) {
+        const d = `2026-${String(1 + (i % 12)).padStart(2, '0')}-${String(1 + (i % 28)).padStart(2, '0')}`;
+        dayCaption(d, T);
+        dayCaption(d, T, 'short');
+        dayTitle(d, T);
+        weekCaption('2026-10-19', T);
+        monthCaption(d);
+        fmt(d, { weekday: 'narrow' });
+        fmt(d, { weekday: 'long', month: 'long', day: 'numeric' });
+      }
+      toLocaleCalls = toLocale.mock.calls.length;
+    } finally {
+      Intl.DateTimeFormat = Orig;
+      toLocale.mockRestore();
+    }
+    expect(toLocaleCalls).toBe(0);
+    // weekday short, month short, month long + year, weekday narrow, the cell label: at most one each
+    expect(built).toBeLessThanOrEqual(5);
+    expect(fmt('2026-10-23', { weekday: 'short' })).toBe('Fri');
+  });
 });

@@ -6,7 +6,17 @@ import { WORD_MAX } from '@/lib/gesture';
  */
 export const D = (s: string) => new Date(`${s}T12:00:00Z`);
 const daysBetween = (a: string, b: string) => Math.round((D(b).getTime() - D(a).getTime()) / 86_400_000);
-export const fmt = (s: string, o: Intl.DateTimeFormatOptions) => D(s).toLocaleDateString('en-US', { timeZone: 'UTC', ...o });
+/*
+ * One Intl.DateTimeFormat per option set, kept: toLocaleDateString builds a new formatter on every call, and a Today root's
+ * render makes ~20 of these calls (its bar and the strip's cells), the top JS item of a tab cut at 4× (consumer review 2 #3).
+ */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+export const fmt = (s: string, o: Intl.DateTimeFormatOptions): string => {
+  const key = JSON.stringify(o);
+  let f = formatters.get(key);
+  if (!f) formatters.set(key, (f = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...o })));
+  return f.format(D(s));
+};
 const MON = (s: string) => fmt(s, { month: 'short' }).toUpperCase();
 export const DAYN = (s: string) => String(D(s).getUTCDate());
 export const iso = (t: number) => new Date(t).toISOString().slice(0, 10);

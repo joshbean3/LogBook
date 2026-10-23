@@ -8,6 +8,8 @@ S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scrat
 
 - Build and serve: `bash S/wp1/build.sh && bash S/wp1/serve.sh` (the server reads `index.html` once: restart after every build).
 - The battery: `node S/wp1/qa/run.mjs` runs every script of `S/wp1/qa/` at 1× and 4× (`CPU=<rate>` per run) and prints the table below (also written to `S/wp1/qa/results/TABLE.md`, with each run's log in `results/<script>.cpu<rate>.log`). `ONLY=t02-cut,t13-pager node run.mjs` runs a subset, `RATES=4` one rate, `--table` rebuilds the table from the result files.
+- Late in the real day (after 18:00 New York), add `SHIFT_MIN=-300`. The interim Today shows its evening face then, with no hero; `qa/lib.mjs` shifts only the page's `Date`.
+- Round 2's before/after states: `node S/wp1/qa/shots-r2.mjs <390|320> <before|after>`. Before = the pre-fix archive, served by `S/wp1/r2pre/serve.sh`.
 - Screenshots: `node S/wp1/qa/shots.mjs <390|320> <after|before>` (before = the base build, served from the temporary worktree `S/wp1/before-wt`, removed after use; rebuild it with `git worktree add --detach … claude/hopeful-einstein-eunarl` and `VITE_FAKE_CLOCK=1 npx vite build`).
 
 ## What WP1 built (commits, oldest first)
@@ -22,6 +24,7 @@ S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scrat
 | `2526960`, `4fec564`, `15e7b38`, `69d8427`, `a134ed6` | DayPager v2, NavBar v2 (bar, word, fading date, strip, disc), WeekRing (marked, missed gap), Segmented in-bar, the gallery and its pager lab |
 | QA step (`7bf3a60`) | see "Fixed in the QA step" |
 | review round 1 | see "Review round 1" (every finding of the three reviews, fixed or rejected, with its check) |
+| review round 2 | see "Review round 2" |
 
 ### Fixed in the QA step (every failure of the battery was treated as a defect)
 
@@ -103,16 +106,51 @@ Flakes seen this round:
 - `t14 14a` failed once in 10 runs. Once it was the tab item's first-frame press (not reproduced in 9 reruns). Once it was `.gal-p-scale`'s clear, which landed in a 26.9 ms frame (frame cadence).
 - `#2·interim` at 4× reads 51.6–94.9 ms on the new build and 54.8–103.1 ms on the pre-fix build, both measured today.
 
+## Review round 2 (three reviews of `5219e4e`: code, consumer, feel)
+
+The reviews are `S/wp1/review-code-2.md` (C2-#), `S/wp1/review-consumer-2.md` (U2-#) and `S/wp1/review-feel-2.md` (N#). The full record is `S/wp1/fix-2.md`: each finding, then what was done, then the proof.
+
+How each finding of severity 3 or more was proved:
+- it has a check in `S/wp1/qa/r2-layer.mjs`, `r2-sheet.mjs`, `r2-misc.mjs` or `r2-captions.mjs` (battery section `R2`), or a unit test;
+- the check failed first on the unfixed code: a `git archive` of `5219e4e` plus this round's two gallery hooks, served by `S/wp1/r2pre/serve.sh`, with logs in `S/wp1/qa/results-r2-before/`;
+- it passes after the fix, at 1× and 4× (`S/wp1/qa/results/r2-*.cpu{1,4}.log`).
+
+Before → after, all R2 checks: `r2-layer` 7/20 → 20/20, `r2-sheet` 3/13 → 13/13, `r2-misc` 4/5 (1×) and 3/5 (4×) → 5/5, `r2-captions` 0/1 → 1/1, at each rate.
+
+| Finding | Status | Fix | Check: before → after |
+|---|---|---|---|
+| C2-1 [4] an edge pop caught short of halfway is popped anyway (a cut, history back) | Fixed | The layer's own waiters (`popSelf`, the edge commit) honour `left` (`ui/PushedLayer.tsx`) | `/today`, `pop` emitted → `/settings`, layer at 0, no pop |
+| C2-2 [3] a depth-1 layer mounted at rest as a depth-2 layer goes is drawn at −117 | Fixed | `shownX` is resynced in the layer's layout effect, after the depth-2 cleanup reset `offsets[1]` | left −117, a hit test finds bare `SECTION.tab` → left 0, the layer takes the touch (cut and Back paths) |
+| C2-3 [3] a caught layer freezes when dragged back toward home | Fixed | A caught gesture locks x in either direction; a fresh edge drag still only rightward | layer frozen over a 120 px finger move, then popped → offset spread ≤ 2 px, rests at 0 |
+| N1 [3] a second tap during a push opens the page sliding in | Fixed | A pointerdown on the layer outside the edge band while its spring is > 1 px from its target swallows its click (UIKit: no content touches during a transition) | `/settings/you` at layer x 218…3 → `/settings` only; a tap at rest still opens the section |
+| U2-1 [3] `sheet.push`/`pop` on an `auto` sheet jumps the box (715 px in one frame) | Fixed | FLIP (§10.1): the box keeps max(old, new); a transform-only `shift` (not sheetY: scrim and recede stay) travels the top on `springs.page`, clocked from the frame that paints the new panel; at rest the box takes the new height in the same frame | 1 step of 715 / 180 px → 32 / 26 frames, largest step 11 % of the travel, ends where it opened |
+| U2-2 / N3 [3] a medium sheet dragged up shows an empty band | Fixed | `--sheet-inset` drops to 0 on the first upward move above the detent (once, at the gesture's start); a rest at the smaller detent restores it | body ends at 644, three empty hits → 1056, all hit the body; Save still reachable at medium |
+| N2 [3] sheet open at 4×: the first painted frame already 27–52 % up | Fixed | The open is clocked from the frame that paints the sheet: one frame in on that frame, two on the next, then the tween's own clock (as `startPush`) | writes 31–44 % up right after the painting frame (allowed 18.8 %) → no write ahead of the frame-anchored curve, 3/3 opens per rate |
+| U2-3 [3] captions build an `Intl.DateTimeFormat` per call (the top JS item of a 4× tab cut) | Fixed | One cached formatter per option set (`ui/captions.ts`); unit test | a Today render's ≈ 24 calls 6.9 ms → 0.1 ms at 4×, median (1.4 → 0.1 at 1×) |
+| C2-4 [2] a pop-all's completion writes over a push made during its spring | Fixed | It writes and emits nothing when the stack is no longer empty | `/today` + stray `pop` → `/dev/ui`, no pop |
+| C2-5 [2] a pop finishing after a tab tap leaves its entry; Back rebuilds the closed page | Fixed | `activate` runs the leaving tab's pop history rule first (`settleLeaving`; `LayerControl.leaving()`, `removeLayers` keys) | Back → `/settings` rebuilt → `/today`, no layer |
+| C2-6 [2] a multi-detent sheet focuses its grabber on open | Fixed | `.sheet-grab-bar` excluded from the first-field search | "Expand sheet" → "Push" |
+| C2-7 [1] pull to refresh has no keyboard / VoiceOver path | Rejected (spec gap), request | §9.5 defines only the pull; the title menu is WP2's | — |
+| U2-4 [2] `sticky` on an inner panel is ignored | Fixed | The scrim honours `sticky` from any panel in the stack | closes → stays open |
+| U2-5 [2] contract text lags; `springs.complete` as written is a one-frame flash | Fixed in the module; text is a request | `springs.complete` carries scale rest thresholds (every listed use is a scale); `lib/motion.test.ts` with motion's own generator | 2/3 tests fail → 3/3 (> 10 frames, peak > 1.125) |
+| U2-6 [1] a non-quiet sync during a quiet one sends a second request | Fixed | It rides the running quiet request and raises the status line until it settles | 2 requests → 1, status line shown and cleared |
+| N4 [2] This morning push at 4× starts 107–247 ms after the tap | Rejected (WP3's) | WP1's part (start on the first painted frame) holds (`r1-push f4`); the delay is the interim MorningView's mount | — |
+| N5 [2] Escape at 4× pays a 55–89 ms long task | Fixed | **Cause:** `data-input` on `<html>` read by `:root[data-input='pointer'] :focus-visible` restyled the whole document on every keyboard/pointer switch. **Fix:** `ui/focus.ts` marks only the focused element `data-quiet-focus` (pointerdown, touchstart, focusin under a pointer; a key clears it); the root rule is gone | long tasks 56/81/55 ms → none; ring shown after Escape, hidden after a touch |
+| N6 [2] tab cut at 4× 46–80 ms | Partly fixed (U2-3), rest open | the captions' JS is gone; the rest is the interim pages' restyle (#2·interim) | see #2 below |
+| N7 [1] keyboard raise at 4× costs one long frame | Rejected for now (device check) | `--kb` on the root is the contract every package codes against (§9.4); a once-per-focus event | — |
+
+Harness note: the final battery started at 18:40 New York time, when the interim Today shows its "Close the day" face (no hero), which fails every hero-based check on any build (the pre-fix build too). `qa/lib.mjs` takes `SHIFT_MIN` (shifts the page's `Date` only; motion, rAF and `performance.now` untouched); the battery ran with `SHIFT_MIN=-300` (13:40 New York, same date).
+
 ## The acceptance battery (build plan §2.5, every numbered test)
 
-Final run after review round 1 (`node qa/run.mjs` over every script at `CPU=1` and `CPU=4`; the `R1` rows are the review-round-1 checks, `qa/r1-*.mjs`; then `r1-push`, `r1-press` and `t09-push` rerun after their checks were corrected, see "Review round 1"). Per test:
+Final run after review round 2 (`SHIFT_MIN=-300 node qa/run.mjs` over every script at `CPU=1` and `CPU=4`; the `R1` rows are round 1's checks, the `R2` rows this round's, `qa/r2-*.mjs`). Per test:
 
 | §2.5 | checks | 1× pass | 4× pass |
 |---|---|---|---|
 | E2E | 22 | 22/22 | 22/22 |
 | 1 | 6 | 6/6 | 6/6 |
 | 2 | 18 | 18/18 | 18/18 |
-| 2·interim | 14 | 14/14 | 12/14 |
+| 2·interim | 14 | 14/14 | 13/14 |
 | 3 | 6 | 6/6 | 6/6 |
 | 4 | 8 | 8/8 | 8/8 |
 | 5 | 2 | 2/2 | 2/2 |
@@ -124,7 +162,7 @@ Final run after review round 1 (`node qa/run.mjs` over every script at `CPU=1` a
 | 11 | 5 | 5/5 | 5/5 |
 | 12 | 21 | 21/21 | 20/21 |
 | 13 | 41 | 41/41 | 41/41 |
-| 14 | 46 | 46/46 | 46/46 |
+| 14 | 46 | 45/46 | 46/46 |
 | 15 | 8 | 8/8 | 8/8 |
 | 16 | 10 | 10/10 | 10/10 |
 | 17 | 22 | 22/22 | 22/22 |
@@ -138,13 +176,20 @@ Final run after review round 1 (`node qa/run.mjs` over every script at `CPU=1` a
 | 25 | 5 | 5/5 | 5/5 |
 | item 9 | 10 | 10/10 | 10/10 |
 | R1 | 70 | 70/70 | 69/70 |
-| **all (excl. 2·interim)** | 477 | 476 | 451/453 |
+| R2 | 39 | 39/39 | 39/39 |
+| **all (excl. 2·interim)** | 516 | 514 | 490/492 |
 
-At 1× every check passes (476/476 run). At 4× all pass but two, both the time to the first frame of a sheet's opening:
-- **#12a**: +74.4 ms against ≤ 70. This is the 40-paragraph stress sheet, open since the QA step.
-- **R1 f5**: +98.5 ms. This is the Plan session sheet, which is feel review 1 #5, partly fixed.
+**1×.** Every check passes but one: `#14 14a`, the tab item's first-frame press. It is round 1's known flake (1 in 10 then). Its two measured values were inside their bounds (+15.5 and +16.1 ms against 16.8 ms frames). Three reruns of `t14-hold` at 1× right after: 25/25, 25/25, 25/25 (`qa/dbg/t14-rerun{1,2,3}.log`). `#10` has one check that only runs at 4×.
 
-See the notes. `2·interim` is not counted (see the note). `#10` has one check that only runs at 4×: the catch of a push needs the slower frame to land the touch in the moving band.
+**4×.** Every check passes but the same two that failed in round 1's final run, both the time to a sheet's first frame:
+- **#12a** +74.4 ms against ≤ 70 (round 1: +74.4). This is the 40-paragraph stress sheet.
+- **R1 f5** +91.9 ms (round 1: +98.5). This is the Plan session sheet, feel review 1 #5.
+
+Both first frames now show the sheet one frame into its rise (ty 777 of 844, N2). What remains is the body's render and layout before that frame.
+
+`2·interim` reads 14/14 at 1× and 13/14 at 4× (round 1: 12/14). The one failure is the old pages' 60 ms tap at +56.2 ms.
+
+Compared with round 1 (476/476 run at 1×, 451/453 at 4×), nothing that passed fails. The 4× failures are the same two checks. The 1× flake passes on every rerun.
 
 Every check with its measured numbers. A check's name carries the 1× bound where the rates differ. The 4× column was judged against the 4× bound:
 - ≤ 34 / 68 ms for #1;
@@ -155,7 +200,7 @@ Every check with its measured numbers. A check's name carries the 1× bound wher
 
 Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is SwipeRow v2 (build plan §2.2 item 9); its `sw2` arm/disarm count is #15.
 
-<details><summary>The full table (477 checks + 14 interim, 1× and 4×)</summary>
+<details><summary>The full table (516 checks + 14 interim, 1× and 4×)</summary>
 
 | §2.5 | script | check | 1× | 4× |
 |---|---|---|---|---|
@@ -181,42 +226,42 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | E2E | smoke | Escape closes it | PASS  | PASS  |
 | E2E | smoke | /dev/ui loads as a pushed page over Today | PASS /dev/ui | PASS /dev/ui |
 | E2E | smoke | console clean | PASS [] | PASS [] |
-| 1 | t01-press | 1 data-pressed in the first sampled frame (≤ 17 ms) | PASS 13.6 ms, pressed=true | PASS 16.6 ms, pressed=true |
-| 1 | t01-press | 1 scale below 1 by the second frame (≤ 34 ms) | PASS 30.3 ms, scale 0.9843 | PASS 28.1 ms, scale 0.9843 |
-| 1 | t01-press | 1 scale reaches 0.97 ± 0.002 by 140 ms | PASS 63.6 ms (scale at 140: 0.9700) | PASS 61.9 ms (scale at 140: 0.9700) |
-| 1 | t01-press | 1 touchend clears data-pressed within 16 ms (1 frame at 1x; 4x: the switch budget, 50) | PASS 15.9 ms | PASS 25.9 ms |
+| 1 | t01-press | 1 data-pressed in the first sampled frame (≤ 17 ms) | PASS 15.3 ms, pressed=true | PASS 13.4 ms, pressed=true |
+| 1 | t01-press | 1 scale below 1 by the second frame (≤ 34 ms) | PASS 31.8 ms, scale 0.9843 | PASS 30.9 ms, scale 0.9842 |
+| 1 | t01-press | 1 scale reaches 0.97 ± 0.002 by 140 ms | PASS 65.0 ms (scale at 140: 0.9700) | PASS 63.6 ms (scale at 140: 0.9700) |
+| 1 | t01-press | 1 touchend clears data-pressed within 16 ms (1 frame at 1x; 4x: the switch budget, 50) | PASS 16.0 ms | PASS 25.6 ms |
 | 1 | t01-press | 1 no haptic on a tab tap | PASS [] | PASS [] |
 | 1 | t01-press | 1 console clean | PASS [] | PASS [] |
-| 2 | t02-cut | 2 [stub roots] the first frame that shows Plan begins within 17 ms of touchend (rAF frame start) | PASS +16.4 ms | PASS +31.3 ms |
-| 2 | t02-cut | 2 [stub roots] presented frames (screencast; informational): the cut and a trivial change through the same pipeline | PASS cut presented at +24.5 ms, a one-element change at +19.3 ms (Δ 5.2 ms) | PASS cut presented at +39.8 ms, a one-element change at +13.9 ms (Δ 25.9 ms) |
+| 2 | t02-cut | 2 [stub roots] the first frame that shows Plan begins within 17 ms of touchend (rAF frame start) | PASS +15.9 ms | PASS +29.1 ms |
+| 2 | t02-cut | 2 [stub roots] presented frames (screencast; informational): the cut and a trivial change through the same pipeline | PASS cut presented at +22.7 ms, a one-element change at +18.8 ms (Δ 3.8 ms) | PASS cut presented at +37.3 ms, a one-element change at +15.0 ms (Δ 22.3 ms) |
 | 2 | t02-cut | 2 [stub roots] no ancestor of the active page below opacity 1 on any frame | PASS min 1 | PASS min 1 |
 | 2 | t02-cut | 2 [stub roots] no opacity animation on a .tab | PASS max 0 | PASS max 0 |
-| 2 | t02-cut | 2 [stub roots] zero black frames in the 600 ms after | PASS 0 of 14 frames (max black share 0.58) | PASS 0 of 14 frames (max black share 0.58) |
+| 2 | t02-cut | 2 [stub roots] zero black frames in the 600 ms after | PASS 0 of 14 frames (max black share 0.58) | PASS 0 of 16 frames (max black share 0.58) |
 | 2 | t02-cut | 2 [stub roots] pathname /plan | PASS /plan | PASS /plan |
 | 2 | t02-cut | 2 [stub roots] console clean | PASS [] | PASS [] |
-| 2 | t02b-black | 2 push (avatar → Settings): zero black frames in the 600 ms after | PASS 0 of 35 frames (max black share 0.71) | PASS 0 of 39 frames (max black share 0.71) |
-| 2 | t02b-black | 2 push (avatar → Settings): the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 62 frames | PASS min opacity 1, tab opacity animations 0 over 90 frames |
-| 2 | t02b-black | 2 pop (the chevron): zero black frames in the 600 ms after | PASS 0 of 33 frames (max black share 0.71) | PASS 0 of 36 frames (max black share 0.71) |
-| 2 | t02b-black | 2 pop (the chevron): the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 60 frames | PASS min opacity 1, tab opacity animations 0 over 88 frames |
-| 2 | t02b-black | 2 day swipe (stub pages): zero black frames in the 600 ms after | PASS 0 of 54 frames (max black share 0.12) | PASS 0 of 55 frames (max black share 0.12) |
-| 2 | t02b-black | 2 day swipe (stub pages): the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 90 frames | PASS min opacity 1, tab opacity animations 0 over 127 frames |
-| 2 | t02b-black | 2 sheet open: zero black frames in the 600 ms after | PASS 0 of 34 frames (max black share 0.69) | PASS 0 of 36 frames (max black share 0.68) |
-| 2 | t02b-black | 2 sheet open: the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 60 frames | PASS min opacity 1, tab opacity animations 0 over 81 frames |
-| 2 | t02b-black | 2 sheet close: zero black frames in the 600 ms after | PASS 0 of 31 frames (max black share 0.69) | PASS 0 of 28 frames (max black share 0.68) |
-| 2 | t02b-black | 2 sheet close: the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 53 frames | PASS min opacity 1, tab opacity animations 0 over 136 frames |
+| 2 | t02b-black | 2 push (avatar → Settings): zero black frames in the 600 ms after | PASS 0 of 34 frames (max black share 0.71) | PASS 0 of 39 frames (max black share 0.71) |
+| 2 | t02b-black | 2 push (avatar → Settings): the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 58 frames | PASS min opacity 1, tab opacity animations 0 over 81 frames |
+| 2 | t02b-black | 2 pop (the chevron): zero black frames in the 600 ms after | PASS 0 of 33 frames (max black share 0.71) | PASS 0 of 35 frames (max black share 0.71) |
+| 2 | t02b-black | 2 pop (the chevron): the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 58 frames | PASS min opacity 1, tab opacity animations 0 over 83 frames |
+| 2 | t02b-black | 2 day swipe (stub pages): zero black frames in the 600 ms after | PASS 0 of 54 frames (max black share 0.12) | PASS 0 of 52 frames (max black share 0.12) |
+| 2 | t02b-black | 2 day swipe (stub pages): the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 89 frames | PASS min opacity 1, tab opacity animations 0 over 121 frames |
+| 2 | t02b-black | 2 sheet open: zero black frames in the 600 ms after | PASS 0 of 34 frames (max black share 0.68) | PASS 0 of 39 frames (max black share 0.69) |
+| 2 | t02b-black | 2 sheet open: the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 58 frames | PASS min opacity 1, tab opacity animations 0 over 81 frames |
+| 2 | t02b-black | 2 sheet close: zero black frames in the 600 ms after | PASS 0 of 31 frames (max black share 0.68) | PASS 0 of 32 frames (max black share 0.69) |
+| 2 | t02b-black | 2 sheet close: the active page's ancestors stay at opacity 1, no opacity animation on a .tab | PASS min opacity 1, tab opacity animations 0 over 102 frames | PASS min opacity 1, tab opacity animations 0 over 67 frames |
 | 2 | t02b-black | 2 console clean | PASS [] | PASS [] |
-| 2·interim | t02-cut | 2 [old pages, 60 ms tap] the first frame that shows Plan begins within 17 ms of touchend (rAF frame start) | PASS +13.6 ms | FAIL +68.4 ms |
-| 2·interim | t02-cut | 2 [old pages, 60 ms tap] presented frames (screencast; informational): the cut and a trivial change through the same pipeline | PASS cut presented at +23.8 ms, a one-element change at +20.4 ms (Δ 3.4 ms) | PASS cut presented at +85.2 ms, a one-element change at +23.4 ms (Δ 61.8 ms) |
+| 2·interim | t02-cut | 2 [old pages, 60 ms tap] the first frame that shows Plan begins within 17 ms of touchend (rAF frame start) | PASS +15.4 ms | FAIL +56.2 ms |
+| 2·interim | t02-cut | 2 [old pages, 60 ms tap] presented frames (screencast; informational): the cut and a trivial change through the same pipeline | PASS cut presented at +25.7 ms, a one-element change at +15.7 ms (Δ 10.0 ms) | PASS cut presented at +68.5 ms, a one-element change at +16.9 ms (Δ 51.6 ms) |
 | 2·interim | t02-cut | 2 [old pages, 60 ms tap] no ancestor of the active page below opacity 1 on any frame | PASS min 1 | PASS min 1 |
 | 2·interim | t02-cut | 2 [old pages, 60 ms tap] no opacity animation on a .tab | PASS max 0 | PASS max 0 |
-| 2·interim | t02-cut | 2 [old pages, 60 ms tap] zero black frames in the 600 ms after | PASS 0 of 14 frames (max black share 0.77) | PASS 0 of 12 frames (max black share 0.77) |
+| 2·interim | t02-cut | 2 [old pages, 60 ms tap] zero black frames in the 600 ms after | PASS 0 of 14 frames (max black share 0.77) | PASS 0 of 16 frames (max black share 0.77) |
 | 2·interim | t02-cut | 2 [old pages, 60 ms tap] pathname /plan | PASS /plan | PASS /plan |
 | 2·interim | t02-cut | 2 [old pages, 60 ms tap] console clean | PASS [] | PASS [] |
-| 2·interim | t02-cut | 2 [old pages, 120 ms tap] the first frame that shows Plan begins within 17 ms of touchend (rAF frame start) | PASS +11.8 ms | FAIL +71.6 ms |
-| 2·interim | t02-cut | 2 [old pages, 120 ms tap] presented frames (screencast; informational): the cut and a trivial change through the same pipeline | PASS cut presented at +2.1 ms, a one-element change at +8.4 ms (Δ -6.3 ms) | PASS cut presented at +84.6 ms, a one-element change at +30.6 ms (Δ 53.9 ms) |
+| 2·interim | t02-cut | 2 [old pages, 120 ms tap] the first frame that shows Plan begins within 17 ms of touchend (rAF frame start) | PASS +15.2 ms | PASS +28.8 ms |
+| 2·interim | t02-cut | 2 [old pages, 120 ms tap] presented frames (screencast; informational): the cut and a trivial change through the same pipeline | PASS cut presented at +22.1 ms, a one-element change at +7.9 ms (Δ 14.3 ms) | PASS cut presented at +36.8 ms, a one-element change at +21.1 ms (Δ 15.7 ms) |
 | 2·interim | t02-cut | 2 [old pages, 120 ms tap] no ancestor of the active page below opacity 1 on any frame | PASS min 1 | PASS min 1 |
 | 2·interim | t02-cut | 2 [old pages, 120 ms tap] no opacity animation on a .tab | PASS max 0 | PASS max 0 |
-| 2·interim | t02-cut | 2 [old pages, 120 ms tap] zero black frames in the 600 ms after | PASS 0 of 19 frames (max black share 0.77) | PASS 0 of 16 frames (max black share 0.77) |
+| 2·interim | t02-cut | 2 [old pages, 120 ms tap] zero black frames in the 600 ms after | PASS 0 of 19 frames (max black share 0.77) | PASS 0 of 23 frames (max black share 0.77) |
 | 2·interim | t02-cut | 2 [old pages, 120 ms tap] pathname /plan | PASS /plan | PASS /plan |
 | 2·interim | t02-cut | 2 [old pages, 120 ms tap] console clean | PASS [] | PASS [] |
 | 3 | t03-scroll | 3 Plan keeps scrollTop 300 across Today | PASS 300 | PASS 300 |
@@ -225,7 +270,7 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 3 | t03-scroll | 3 Journal → Reads → Today → Journal: Reads still on top | PASS {"path":"/journal/reads","pushed":1} | PASS {"path":"/journal/reads","pushed":1} |
 | 3 | t03-scroll | 3 no remount: the Plan root is the same node | PASS  | PASS  |
 | 3 | t03-scroll | 3 console clean | PASS [] | PASS [] |
-| 4 | t04-reselect | 4 both layers unmount on the rest frame of one spring | PASS 30 moving frames; gone at +597 ms | PASS 30 moving frames; gone at +652 ms |
+| 4 | t04-reselect | 4 both layers unmount on the rest frame of one spring | PASS 30 moving frames; gone at +611 ms | PASS 30 moving frames; gone at +626 ms |
 | 4 | t04-reselect | 4 pathname /today | PASS /today | PASS /today |
 | 4 | t04-reselect | 4 the pop path changed on the unmount frame | PASS /today | PASS /today |
 | 4 | t04-reselect | 4 a cold-start stack pops with replaceState (history.length unchanged) | PASS 3 → 3 | PASS 3 → 3 |
@@ -249,7 +294,7 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 6 | t06-listeners | 6 during a day swipe (stub pages): no touchmove on document or window | PASS {"doc":[],"win":[]} | PASS {"doc":[],"win":[]} |
 | 6 | t06-listeners | 6 after the day swipe: none on document | PASS [] | PASS [] |
 | 6 | t06-listeners | 6 console clean | PASS [] | PASS [] |
-| 7 | t07-keyboard | 7 --kb reads 336px within 100 ms | PASS 336px after 8 ms | PASS 336px after 40 ms |
+| 7 | t07-keyboard | 7 --kb reads 336px within 100 ms | PASS 336px after 7 ms | PASS 336px after 25 ms |
 | 7 | t07-keyboard | 7 html.kb-open set | PASS true | PASS true |
 | 7 | t07-keyboard | 7 tab bar visibility hidden | PASS hidden | PASS hidden |
 | 7 | t07-keyboard | 7 nothing above the field changes its rect | PASS 0 moved; field top 214 → 214 | PASS 0 moved; field top 214 → 214 |
@@ -259,7 +304,7 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 7 | t07-keyboard | 7 console clean | PASS [] | PASS [] |
 | 8 | t08-history | 8 avatar pushes Settings | PASS {"path":"/settings","len":3,"idx":1,"active":"today","todayStack":["/settings"]} | PASS {"path":"/settings","len":3,"idx":1,"active":"today","todayStack":["/settings"]} |
 | 8 | t08-history | 8 back on Today, Settings still stacked | PASS {"path":"/settings","len":5,"idx":3,"active":"today","todayStack":["/settings"]} | PASS {"path":"/settings","len":5,"idx":3,"active":"today","todayStack":["/settings"]} |
-| 8 | t08-history | 8 the chevron's pop: /today on the pop's rest frame | PASS unmount frame 36: /today | PASS unmount frame 37: /today |
+| 8 | t08-history | 8 the chevron's pop: /today on the pop's rest frame | PASS unmount frame 36: /today | PASS unmount frame 38: /today |
 | 8 | t08-history | 8 history.length unchanged by the pop (the replaceState branch: its entry is not on top) | PASS 5 → 5 | PASS 5 → 5 |
 | 8 | t08-history | 8 Back then lands on /plan with Plan shown and Today’s stack empty | PASS {"path":"/plan","len":5,"idx":2,"active":"plan","todayStack":[]} | PASS {"path":"/plan","len":5,"idx":2,"active":"plan","todayStack":[]} |
 | 8 | t08-history | 8 cold start: Settings and Training stacked, each idx −1, nav.idx kept | PASS {"path":"/settings/training","len":5,"idx":0,"active":"today","todayStack":["/settings","/settings/training"]} | PASS {"path":"/settings/training","len":5,"idx":0,"active":"today","todayStack":["/settings","/settings/training"]} |
@@ -279,13 +324,13 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 9 | t09b-depth2 | 9 depth 2: paint order pushed(1) · scrim(2) · pushed(2) (each with its shadow under it), no z-index, pointer-events none | PASS {"kids":["pushed1","scrim2","pushed2"],"z":["auto","auto","auto"],"pe":"none","s1":"scrim1 between the scroller and .stack-host"} | PASS {"kids":["pushed1","scrim2","pushed2"],"z":["auto","auto","auto"],"pe":"none","s1":"scrim1 between the scroller and .stack-host"} |
 | 9 | t09b-depth2 | 9 depth 2 held at x ≈ 195: the scrim dims the depth-1 page (left) and not the depth-2 page (right) | PASS {"held":"190.0","leftOn":"5.80","leftOff":"6.23","rightOn":"62.75","rightOff":"62.75"} | PASS {"held":"190.0","leftOn":"5.80","leftOff":"6.23","rightOn":"62.75","rightOff":"62.75"} |
 | 9 | t09b-depth2 | 9/14 console clean | PASS [] | PASS [] |
-| 10 | t09-push | 10 edge drag: parent = −0.3 × (390 − x) ± 2 on every frame | PASS max error 0.00 over 77 frames; max x 108 | PASS max error 0.00 over 79 frames; max x 108 |
-| 10 | t09-push | 10 released slow under 0.35 W → back to 0, still pushed | PASS {"n":1,"lx":0,"px":-117,"scrim":0.12,"bar":794,"vis":"visible","inert":true,"sw":390,"sh":844,"ih":844,"path":"/dev/ui","t":1688.1999999999998} | PASS {"n":1,"lx":0,"px":-117,"scrim":0.12,"bar":794,"vis":"visible","inert":true,"sw":390,"sh":844,"ih":844,"path":"/dev/ui","t":1740.7000000014905} |
+| 10 | t09-push | 10 edge drag: parent = −0.3 × (390 − x) ± 2 on every frame | PASS max error 0.00 over 78 frames; max x 108 | PASS max error 0.00 over 83 frames; max x 108 |
+| 10 | t09-push | 10 released slow under 0.35 W → back to 0, still pushed | PASS {"n":1,"lx":0,"px":-117,"scrim":0.12,"bar":794,"vis":"visible","inert":true,"sw":390,"sh":844,"ih":844,"path":"/dev/ui","t":1705.69999999851} | PASS {"n":1,"lx":0,"px":-117,"scrim":0.12,"bar":794,"vis":"visible","inert":true,"sw":390,"sh":844,"ih":844,"path":"/dev/ui","t":1809.59999999702} |
 | 10 | t09-push | 10 parent visible while dragged | PASS  | PASS  |
-| 10 | t09-push | 10 a fast edge swipe pops; unmount and pathname change on the same frame | PASS unmount frame 48, path frame 48 | PASS unmount frame 49, path frame 49 |
+| 10 | t09-push | 10 a fast edge swipe pops; unmount and pathname change on the same frame | PASS unmount frame 47, path frame 47 | PASS unmount frame 48, path frame 48 |
 | 10 | t09-push | 10 the pop of an own entry uses history.back (length unchanged) | PASS 3 → 3 | PASS 3 → 3 |
-| 10 | t09-push | 10 a touch 10.7 px inside the moving edge stops the push within a frame | PASS x at touch 97.1; next frames 94.5, 94.5, 94.5 | PASS x at touch 78.5; next frames 64.9, 64.9, 64.9 |
-| 10 | t09-push | 10 then x follows the finger 1:1 after the 10 px lock (≤ 1 px from clientX − x0, x0 at pointerdown) | PASS x 154.6 vs 154.5 | PASS x 124.9 vs 124.9 |
+| 10 | t09-push | 10 a touch 12.1 px inside the moving edge stops the push within a frame | PASS x at touch 97.1; next frames 93.3, 93.3, 93.3 | PASS x at touch 63.1; next frames 57.3, 57.3, 57.3 |
+| 10 | t09-push | 10 then x follows the finger 1:1 after the 10 px lock (≤ 1 px from clientX − x0, x0 at pointerdown) | PASS x 153.3 vs 153.3 | PASS x 117.3 vs 117.3 |
 | 10 | t09-push | 10 the released layer rests at 0 or W, never between | PASS none | PASS 0 |
 | 10 | t09-push | 10 a tap on the chevron at x 20 (moved 4 px) pops | — | PASS /today |
 | 11 | t11-flyer | 11 frame 1 of the push: source hidden and one .flyer under body | PASS {"srcVis":"hidden","flyers":1} | PASS {"srcVis":"hidden","flyers":1} |
@@ -293,24 +338,24 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 11 | t11-flyer | 11 at rest: no .flyer, the destination visible | PASS {"x":0,"flyers":0,"dstVis":"visible"} | PASS {"x":0,"flyers":0,"dstVis":"visible"} |
 | 11 | t11-flyer | 11 the destination stays hidden until rest | PASS  | PASS  |
 | 11 | t11-flyer | 11 console clean | PASS [] | PASS [] |
-| 12 | t12-sheet | 12a .sheet's transform changes in the first frame after touchend (≤ 17 ms) | PASS first frame after touchend +18.3 ms (previous frame -2.2 ms) has the sheet at ty 777.3 (H 844); first moved frame +18.3 ms | FAIL first frame after touchend +74.4 ms (previous frame -7.8 ms) has the sheet at ty 777.3 (H 844); first moved frame +74.4 ms |
-| 12 | t12-sheet | 12a every frame: scrim = 0.78 × (1 − sheetY/H) ± 0.02 | PASS 55 frames, max error 0.0000 | PASS 52 frames, max error 0.0001 |
+| 12 | t12-sheet | 12a .sheet's transform changes in the first frame after touchend (≤ 17 ms) | PASS first frame after touchend +17.3 ms (previous frame -2.0 ms) has the sheet at ty 777.3 (H 844); first moved frame +17.3 ms | FAIL first frame after touchend +74.4 ms (previous frame -6.6 ms) has the sheet at ty 777.3 (H 844); first moved frame +74.4 ms |
+| 12 | t12-sheet | 12a every frame: scrim = 0.78 × (1 − sheetY/H) ± 0.02 | PASS 55 frames, max error 0.0001 | PASS 54 frames, max error 0.0001 |
 | 12 | t12-sheet | 12a every frame: the active .tab's scale = 0.92 + 0.08 × sheetY/H ± 0.01 | PASS max error 0.0000 | PASS max error 0.0000 |
 | 12 | t12-sheet | 12a at rest the scale is 0.92 ± 0.005 | PASS scale 0.9200, ty 0.00 | PASS scale 0.9200, ty 0.00 |
-| 12 | t12-sheet | 12a activeElement is the opener until the open animation completes, the first field within 1 frame after | PASS rest at frame 30 (+515 ms), opener held on 30 frames: true; field focused at frame 30; actives seen: btn soft gal-sheet-auto / field gal-field | PASS rest at frame 27 (+586 ms), opener held on 27 frames: true; field focused at frame 27; actives seen: btn soft gal-sheet-auto / field gal-field |
+| 12 | t12-sheet | 12a activeElement is the opener until the open animation completes, the first field within 1 frame after | PASS rest at frame 30 (+515 ms), opener held on 30 frames: true; field focused at frame 31; actives seen: btn soft gal-sheet-auto / field gal-field | PASS rest at frame 31 (+619 ms), opener held on 31 frames: true; field focused at frame 31; actives seen: btn soft gal-sheet-auto / field gal-field |
 | 12 | t12-sheet | 12b a 120 px drag on .sheet-body at scrollTop 0 moves the sheet 120 ± 1 | PASS sheet translateY 120.00 after the finger moved 120 | PASS sheet translateY 120.00 after the finger moved 120 |
 | 12 | t12-sheet | 12b the drag tracks 1:1 (per-frame against the last dispatched point) | PASS 13 frames, max /Δ/ 0.00 px | PASS 13 frames, max /Δ/ 0.00 px |
-| 12 | t12-sheet | 12b release at ~500 px/s dismisses | PASS finger speed 481 px/s; sheet gone | PASS finger speed 481 px/s; sheet gone |
+| 12 | t12-sheet | 12b release at ~500 px/s dismisses | PASS finger speed 481 px/s; sheet gone | PASS finger speed 482 px/s; sheet gone |
 | 12 | t12-sheet | 12c the same drag at scrollTop 40 scrolls the body; the sheet does not move | PASS sheet max translateY 0.00, body scrollTop 40 → 0 | PASS sheet max translateY 0.00, body scrollTop 40 → 0 |
-| 12 | t12-sheet | 12d a pointerdown during the rise stops it within 1 frame | PASS ty at the frames after the page's pointerdown: 85.8, 85.8, 85.8, 85.8, 85.8 | PASS ty at the frames after the page's pointerdown: 34.0, 34.0, 34.0, 34.0, 34.0 |
+| 12 | t12-sheet | 12d a pointerdown during the rise stops it within 1 frame | PASS ty at the frames after the page's pointerdown: 98.8, 98.8, 98.8, 98.8, 98.8 | PASS ty at the frames after the page's pointerdown: 60.3, 60.3, 60.3, 60.3, 60.3 |
 | 12 | t12-sheet | 12d released without a drag, it settles at its detent | PASS top 10 | PASS top 10 |
 | 12 | t12-sheet | 12e an inner sheet.push adds no history entry | PASS length 4 → open 4 → push 4, depth 2 | PASS length 4 → open 4 → push 4, depth 2 |
 | 12 | t12-sheet | 12e history.back() closes the sheet; pathname and stack unchanged | PASS sheet false, /dev/ui → /dev/ui, stack ["/dev/ui"] → ["/dev/ui"] | PASS sheet false, /dev/ui → /dev/ui, stack ["/dev/ui"] → ["/dev/ui"] |
 | 12 | t12-sheet | 12f grabber tap cycles data-detent medium → large → medium | PASS medium (top 422.0) → large (top 10.0) → medium (top 422.0) | PASS medium (top 422.0) → large (top 10.0) → medium (top 422.0) |
 | 12 | t12-sheet | 12f the large detent's top is safeTop + 10 (10 on the web) | PASS top 10.00 | PASS top 10.00 |
 | 12 | t12-sheet | 12g a hero tap on Today opens the session sheet | PASS hero aura today-hero halo-upcoming is-pressable is-other; sheet title "Threshold 6" | PASS hero aura today-hero halo-upcoming is-pressable is-other; sheet title "Threshold 6" |
-| 12 | t12-sheet | 12g .sheet's transform changes in the first frame after touchend (≤ 17 ms) | PASS first frame after touchend +15.2 ms (previous frame -1.7 ms) has the sheet at ty 777.3 (H 844); first moved frame +15.2 ms | PASS first frame after touchend +50.3 ms (previous frame -13.1 ms) has the sheet at ty 777.3 (H 844); first moved frame +50.3 ms |
-| 12 | t12-sheet | 12g every frame: scrim = 0.78 × (1 − sheetY/H) ± 0.02 | PASS 54 frames, max error 0.0000 | PASS 55 frames, max error 0.0001 |
+| 12 | t12-sheet | 12g .sheet's transform changes in the first frame after touchend (≤ 17 ms) | PASS first frame after touchend +15.6 ms (previous frame -1.4 ms) has the sheet at ty 777.3 (H 844); first moved frame +15.6 ms | PASS first frame after touchend +63.7 ms (previous frame -5.7 ms) has the sheet at ty 777.3 (H 844); first moved frame +63.7 ms |
+| 12 | t12-sheet | 12g every frame: scrim = 0.78 × (1 − sheetY/H) ± 0.02 | PASS 54 frames, max error 0.0001 | PASS 56 frames, max error 0.0001 |
 | 12 | t12-sheet | 12g every frame: the active .tab's scale = 0.92 + 0.08 × sheetY/H ± 0.01 | PASS max error 0.0000 | PASS max error 0.0000 |
 | 12 | t12-sheet | 12g at rest the scale is 0.92 ± 0.005 | PASS scale 0.9200, ty 0.00 | PASS scale 0.9200, ty 0.00 |
 | 12 | t12-sheet | 12 console clean | PASS [] | PASS [] |
@@ -322,19 +367,19 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 13 | t13-pager | 10 a swipe on the orb row (data-no-page) does not change the date | PASS {"date":"2026-10-23"} | PASS {"date":"2026-10-23"} |
 | 13 | t13-pager | 10 a swipe on the field does not change the date | PASS {"date":"2026-10-23"} | PASS {"date":"2026-10-23"} |
 | 13 | t13-pager | 11 at x = −195: disc = cellX + 27.86 ± 1, Today 0.5, Tomorrow 0.5 | PASS {"x":-195,"disc":250.71,"expected":250.71,"today":0.5,"tomorrow":0.5,"labels":["Today","Tomorrow"]} | PASS {"x":-195,"disc":250.71,"expected":250.71,"today":0.5,"tomorrow":0.5,"labels":["Today","Tomorrow"]} |
-| 13 | t13-pager | 12 flick ≥ 1500 px/s: every frame in the 100 ms after release within 3 px of the pageFlick trajectory; rest ≤ 450 ms | PASS {"sameRelease":true,"releaseLagMs":0.2,"releaseV":-1667,"releaseX":-100,"framesIn100ms":6,"maxErrPx":0.426,"restMs":423.3,"firstFrameMs":15.6,"fi | PASS {"sameRelease":true,"releaseLagMs":1,"releaseV":-1667,"releaseX":-100,"framesIn100ms":6,"maxErrPx":1.826,"restMs":466.3,"firstFrameMs":15.3,"firs |
-| 13 | t13-pager | 13 catch mid-slide: today's left edge the same ±1 on the frames either side of touchstart | PASS {"before":-355.91,"after":-355.91,"xAtCatch":-355.9,"caughtPastHalf":true} | PASS {"before":-355.3,"after":-355.3,"xAtCatch":-355.3,"caughtPastHalf":true} |
-| 13 | t13-pager | 13 catch mid-slide: at touchend today's left edge = its edge at the touch + 120 ± 2 | PASS {"movedX":120,"framesAtTouch":-355.91,"framesAtEnd":-235.91} | PASS {"movedX":120,"framesAtTouch":-355.3,"framesAtEnd":-235.3} |
-| 13 | t13-pager | 13 catch mid-slide: springs back to today; commits in pairs (0 or 2); no content jump | PASS {"date":"2026-10-23","commits":["2026-10-24","2026-10-23"],"maxJump":0,"frames":130,"fr0":75} | PASS {"date":"2026-10-23","commits":["2026-10-24","2026-10-23"],"maxJump":0,"frames":134,"fr0":80} |
+| 13 | t13-pager | 12 flick ≥ 1500 px/s: every frame in the 100 ms after release within 3 px of the pageFlick trajectory; rest ≤ 450 ms | PASS {"sameRelease":true,"releaseLagMs":0.1,"releaseV":-1667,"releaseX":-100,"framesIn100ms":6,"maxErrPx":0.229,"restMs":419.1,"firstFrameMs":16,"firs | PASS {"sameRelease":true,"releaseLagMs":1.1,"releaseV":-1667,"releaseX":-100,"framesIn100ms":6,"maxErrPx":1.5,"restMs":427.8,"firstFrameMs":16.5,"firs |
+| 13 | t13-pager | 13 catch mid-slide: today's left edge the same ±1 on the frames either side of touchstart | PASS {"before":-356.04,"after":-356.04,"xAtCatch":-356,"caughtPastHalf":true} | PASS {"before":-355.42,"after":-355.42,"xAtCatch":-355.4,"caughtPastHalf":true} |
+| 13 | t13-pager | 13 catch mid-slide: at touchend today's left edge = its edge at the touch + 120 ± 2 | PASS {"movedX":120,"framesAtTouch":-356.04,"framesAtEnd":-236.04} | PASS {"movedX":120,"framesAtTouch":-355.42,"framesAtEnd":-228.87} |
+| 13 | t13-pager | 13 catch mid-slide: springs back to today; commits in pairs (0 or 2); no content jump | PASS {"date":"2026-10-23","commits":["2026-10-24","2026-10-23"],"maxJump":0,"frames":127,"fr0":72} | PASS {"date":"2026-10-23","commits":["2026-10-24","2026-10-23"],"maxJump":0,"frames":133,"fr0":79} |
 | 13 | t13-pager | 14 flick, flick back: today, title Today, history unchanged, commits even | PASS {"date":"2026-10-23","title":"Today","commits":2,"history":"3→3","releaseV":[-1333,1111]} | PASS {"date":"2026-10-23","title":"Today","commits":2,"history":"3→3","releaseV":[-1333,1111]} |
 | 13 | t13-pager | 15 clamp: a 450 px drag moves the track ≤ W + 12 and commits one page | PASS {"maxTx":399,"limit":402,"commits":1} | PASS {"maxTx":399,"limit":402,"commits":1} |
 | 13 | t13-pager | 15a four 270 px swipes 150 ms apart: +4, exactly 4 page-commits, title dayTitle(+4), no jump > 1 px at a catch | PASS {"date":"2026-10-27","plus":4,"commits":4,"title":"Tue 27","catchJumpMax":0,"xAtCatches":[0,-381,-386,-387]} | PASS {"date":"2026-10-27","plus":4,"commits":4,"title":"Tue 27","catchJumpMax":0,"xAtCatches":[0,-381,-386,-387]} |
-| 13 | t13-pager | 15b tap at x ≈ −200 (past halfway): rests on a page within 450 ms, the next day, no tap fires, no sheet | PASS {"xAtTap":-233,"date":"2026-10-24","commits":1,"restMs":347.6,"taps":[]} | PASS {"xAtTap":-242,"date":"2026-10-24","commits":1,"restMs":365.4,"taps":[]} |
-| 13 | t13-pager | 15b tap at x ≈ −120 (short of halfway): rests on a page within 450 ms, today, 0 commits, no tap fires, no sheet | PASS {"xAtTap":-121.8,"date":"2026-10-23","commits":0,"restMs":330,"taps":[]} | PASS {"xAtTap":-179.7,"date":"2026-10-23","commits":0,"restMs":329,"taps":[]} |
-| 13 | t13-pager | 15c four left 60 px flicks: /today/+4, page-commits = 4 | PASS {"date":"2026-10-27","commits":4,"downs":[0,-287,-261,-253],"rels":[[-40,-667],[43,-667],[69,-667],[77,-667]]} | PASS {"date":"2026-10-27","commits":4,"downs":[0,-281,-237,-241],"rels":[[-40,-667],[49,-667],[93,-667],[89,-667]]} |
-| 13 | t13-pager | 15c three left and one right: /today/+2, page-commits = 4 (3 on, 1 back) | PASS {"date":"2026-10-25","commits":4,"downs":[0,-287,-261,-253],"rels":[[-40,-667],[43,-667],[69,-667],[197,667]]} | PASS {"date":"2026-10-25","commits":4,"downs":[0,-283,-234,-242],"rels":[[-40,-667],[47,-667],[96,-667],[208,667]]} |
+| 13 | t13-pager | 15b tap at x ≈ −200 (past halfway): rests on a page within 450 ms, the next day, no tap fires, no sheet | PASS {"xAtTap":-231.8,"date":"2026-10-24","commits":1,"restMs":331.4,"taps":[]} | PASS {"xAtTap":-268.5,"date":"2026-10-24","commits":1,"restMs":361.2,"taps":[]} |
+| 13 | t13-pager | 15b tap at x ≈ −120 (short of halfway): rests on a page within 450 ms, today, 0 commits, no tap fires, no sheet | PASS {"xAtTap":-118,"date":"2026-10-23","commits":0,"restMs":331.5,"taps":[]} | PASS {"xAtTap":-171.8,"date":"2026-10-23","commits":0,"restMs":341.4,"taps":[]} |
+| 13 | t13-pager | 15c four left 60 px flicks: /today/+4, page-commits = 4 | PASS {"date":"2026-10-27","commits":4,"downs":[0,-287,-261,-252],"rels":[[-40,-667],[43,-667],[69,-667],[78,-667]]} | PASS {"date":"2026-10-27","commits":4,"downs":[0,-275,-254,-248],"rels":[[-40,-667],[55,-667],[76,-667],[82,-667]]} |
+| 13 | t13-pager | 15c three left and one right: /today/+2, page-commits = 4 (3 on, 1 back) | PASS {"date":"2026-10-25","commits":4,"downs":[0,-287,-261,-253],"rels":[[-40,-667],[43,-667],[69,-667],[197,667]]} | PASS {"date":"2026-10-25","commits":4,"downs":[0,-285,-259,-250],"rels":[[-40,-667],[45,-667],[71,-667],[200,667]]} |
 | 13 | t13-pager | 16 zero React renders while the track springs; data-date unchanged until the rest frame | PASS {"springFrames":23,"distinctRenderCounts":1,"flipFrame":23} | PASS {"springFrames":16,"distinctRenderCounts":1,"flipFrame":16} |
-| 13 | t13-pager | 16 on the rest frame data-date, the disc and the resting labels change together; content ≤ 1 px | PASS {"at":{"tx":0,"cur":"2026-10-24","disc":278.57,"title":"Tomorrow"},"contentBefore":-0.9,"contentAt":0} | PASS {"at":{"tx":0,"cur":"2026-10-24","disc":278.57,"title":"Tomorrow"},"contentBefore":-0.33,"contentAt":0} |
+| 13 | t13-pager | 16 on the rest frame data-date, the disc and the resting labels change together; content ≤ 1 px | PASS {"at":{"tx":0,"cur":"2026-10-24","disc":278.57,"title":"Tomorrow"},"contentBefore":-0.9,"contentAt":0} | PASS {"at":{"tx":0,"cur":"2026-10-24","disc":278.57,"title":"Tomorrow"},"contentBefore":-0.32,"contentAt":0} |
 | 13 | t13-pager | 13-keyed a commit keeps the two staying pages' nodes and mounts exactly one | PASS {"sameToday":true,"sameNext":true,"added":1,"roles":["prev:2026-10-23","cur:2026-10-24","next:2026-10-25"]} | PASS {"sameToday":true,"sameNext":true,"added":1,"roles":["prev:2026-10-23","cur:2026-10-24","next:2026-10-25"]} |
 | 13 | t13-pager | 17 at rest prev and next exist, text > 20, inert | PASS {"prev":[75,true,900],"next":[95,true,1400]} | PASS {"prev":[75,true,900],"next":[95,true,1400]} |
 | 13 | t13-pager | 17 scrollHeight = cur offsetHeight + chrome with a 1400 px neighbour mounted; the 600 stub fills the scroller (min-height = --scroller-h − - | PASS {"day":-1,"prev":[75,true,900],"next":[95,true,1400],"curH":637,"minH":637,"chrome":157,"scH":794,"scrollHeight":794,"clientHeight":794,"dpTop":1 | PASS {"day":-1,"prev":[75,true,900],"next":[95,true,1400],"curH":637,"minH":637,"chrome":157,"scH":794,"scrollHeight":794,"clientHeight":794,"dpTop":1 |
@@ -342,59 +387,59 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 13 | t13-pager | 3.5 scrolled to the bottom of the 1400 page, a catch past halfway onto the (previous) 600 page does not commit mid-gesture (no vertical jump | PASS {"scrollTop":[763,763],"commits":[0,0,1],"date":"2026-10-19","xAtCatch":256} | PASS {"scrollTop":[763,763],"commits":[0,0,1],"date":"2026-10-19","xAtCatch":254} |
 | 13 | t13-pager | 19 a drag from the strip that commits one page: exactly 1 select; from the card: 0 | PASS {"strip":1,"body":0} | PASS {"strip":1,"body":0} |
 | 13 | t13-pager | 19 ten day steps add 0 history entries | PASS {"history":"3→3","date":"2026-11-02"} | PASS {"history":"3→3","date":"2026-11-02"} |
-| 13 | t13-pager | goTo goTo(+1) commits within 500 ms | PASS {"ms":490.6} | PASS {"ms":514.3} |
-| 13 | t13-pager | goTo goTo(+5) sets target and span before its first frame, travels exactly W once, and both reset on commit | PASS {"target":"2026-10-24","span":5,"beforeFirstFrame":5.5,"maxTx":389.1} | PASS {"target":"2026-10-24","span":5,"beforeFirstFrame":35.8,"maxTx":389.2} |
-| 13 | t13-pager | goTo goTo(+5): the label in the direction of travel shows the destination; the disc travels 5 cells | PASS {"nextLabel":"Tomorrow","want":"Tomorrow","lastDisc":277.9,"lastTx":-389.1} | PASS {"nextLabel":"Tomorrow","want":"Tomorrow","lastDisc":278,"lastTx":-389.2} |
+| 13 | t13-pager | goTo goTo(+1) commits within 500 ms | PASS {"ms":481.3} | PASS {"ms":494.7} |
+| 13 | t13-pager | goTo goTo(+5) sets target and span before its first frame, travels exactly W once, and both reset on commit | PASS {"target":"2026-10-24","span":5,"beforeFirstFrame":15.7,"maxTx":389.1} | PASS {"target":"2026-10-24","span":5,"beforeFirstFrame":15.7,"maxTx":389.1} |
+| 13 | t13-pager | goTo goTo(+5): the label in the direction of travel shows the destination; the disc travels 5 cells | PASS {"nextLabel":"Tomorrow","want":"Tomorrow","lastDisc":277.9,"lastTx":-389.1} | PASS {"nextLabel":"Tomorrow","want":"Tomorrow","lastDisc":277.9,"lastTx":-389.1} |
 | 13 | t13-pager | goTo goTo(+12): no transform animation on the track; a 150 ms opacity change on the cur slot | PASS {"anyTx":false,"anims":[{"d":150,"k":["opacity"]}],"minOpacity":0} | PASS {"anyTx":false,"anims":[{"d":150,"k":["opacity"]}],"minOpacity":0} |
 | 13 | t13-pager | goTo goTo(+1, { mode: 'crossfade' }): no transform animation on the track; a 150 ms opacity change on the cur slot | PASS {"anyTx":false,"anims":[{"d":150,"k":["opacity"]}],"minOpacity":0} | PASS {"anyTx":false,"anims":[{"d":150,"k":["opacity"]}],"minOpacity":0} |
-| 13 | t13-pager | goTo a date set by the host mid-slide stops the slide and shows it at x = 0, no animation, 0 page-commits | PASS {"xAfter":0,"x":0,"commits":0,"log":[-82.51444106673232,-125.11209357897592,0]} | PASS {"xAfter":0,"x":0,"commits":0,"log":[-94.03461162193184,-134.74479798894126,0]} |
-| 13 | t13-pager | 20 the Today pill from +5: one slide (the track travels exactly W), today, avatar back ≤ 150 ms after rest; slot 80 wide and the caps line's | PASS {"maxTx":389,"commits":1,"avatarBackMs":72.6,"trailW":80,"haptics":[]} | PASS {"maxTx":389.1,"commits":1,"avatarBackMs":102.8,"trailW":80,"haptics":[]} |
+| 13 | t13-pager | goTo a date set by the host mid-slide stops the slide and shows it at x = 0, no animation, 0 page-commits | PASS {"xAfter":0,"x":0,"commits":0,"log":[-79.97211921840717,-122.56120231376515,0]} | PASS {"xAfter":0,"x":0,"commits":0,"log":[-85.8307695057773,-128.92678383779509,0]} |
+| 13 | t13-pager | 20 the Today pill from +5: one slide (the track travels exactly W), today, avatar back ≤ 150 ms after rest; slot 80 wide and the caps line's | PASS {"maxTx":389.1,"commits":1,"avatarBackMs":76.4,"trailW":80,"haptics":[]} | PASS {"maxTx":389.1,"commits":1,"avatarBackMs":105.5,"trailW":80,"haptics":[]} |
 | 13 | t13-pager | 35 3 body swipes, 2 strip taps, the pill and a far goTo: 0 haptics | PASS {"haptics":[],"commits":7} | PASS {"haptics":[],"commits":7} |
 | 13 | t13-pager | console clean | PASS [] | PASS [] |
-| 13 | t13b-onepx | 13 1 px rule: a released spring was caught within 1 px of its target while still moving | PASS attempt 0: x -389.15 vs target -390.00 (Δ 0.85 px), release v -1500 px/s | PASS attempt 0: x -389.89 vs target -390.00 (Δ 0.11 px), release v -1500 px/s |
+| 13 | t13b-onepx | 13 1 px rule: a released spring was caught within 1 px of its target while still moving | PASS attempt 0: x -389.07 vs target -390.00 (Δ 0.93 px), release v -1500 px/s | PASS attempt 0: x -390.03 vs target -390.00 (Δ 0.03 px), release v -1500 px/s |
 | 13 | t13b-onepx | 13 1 px rule: the pointerdown completes the spring (one commit, no catch) | PASS {"afterDown":{"x":0,"moving":true,"commits":1,"date":"2026-10-24"},"afterUp":{"moving":false,"x":0},"totalCommits":1} | PASS {"afterDown":{"x":0,"moving":true,"commits":1,"date":"2026-10-24"},"afterUp":{"moving":false,"x":0},"totalCommits":1} |
 | 13 | t13b-onepx | 13 1 px rule: the pointer's click fires normally (the card's tap, not swallowed) | PASS {"taps":["tap 2026-10-24"],"el":"dp","card":"2026-10-24"} | PASS {"taps":["tap 2026-10-24"],"el":"dp","card":"2026-10-24"} |
 | 13 | t13b-onepx | 13 1 px rule: console clean | PASS [] | PASS [] |
 | 14 | t09b-depth2 | 14 a hold-menu item on a stub Plan raises its toast through useToast(): the toast is Plan's (gone on Today) | PASS {"onPlan":"menu toast from plan","onToday":null} | PASS {"onPlan":"menu toast from plan","onToday":null} |
-| 14 | t14-hold | 14a .gal-p-scale: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | PASS set on the first frame after pointerdown, +14.7 ms (frame interval 16.6); cleared (pressed=false) on the first frame after pointerup, +16.5 ms (f | PASS set on the first frame after pointerdown, +67.6 ms (frame interval 73.3); cleared (pressed=false) on the first frame after pointerup, +60.7 ms (f |
-| 14 | t14-hold | 14a .gal-p-scale: the scale look by 140 ms | PASS scale 0.9700 | PASS scale 0.9702 |
-| 14 | t14-hold | 14a .gal-p-surface: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | PASS set on the first frame after pointerdown, +15.0 ms (frame interval 16.8); cleared (pressed=false) on the first frame after pointerup, +16.0 ms (f | PASS set on the first frame after pointerdown, +9.9 ms (frame interval 16.5); cleared (pressed=false) on the first frame after pointerup, +64.7 ms (fr |
+| 14 | t14-hold | 14a .gal-p-scale: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | PASS set on the first frame after pointerdown, +13.8 ms (frame interval 16.8); cleared (pressed=false) on the first frame after pointerup, +16.1 ms (f | PASS set on the first frame after pointerdown, +14.6 ms (frame interval 20.8); cleared (pressed=false) on the first frame after pointerup, +52.6 ms (f |
+| 14 | t14-hold | 14a .gal-p-scale: the scale look by 140 ms | PASS scale 0.9700 | PASS scale 0.9700 |
+| 14 | t14-hold | 14a .gal-p-surface: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | PASS set on the first frame after pointerdown, +15.3 ms (frame interval 16.8); cleared (pressed=false) on the first frame after pointerup, +15.9 ms (f | PASS set on the first frame after pointerdown, +11.3 ms (frame interval 17.1); cleared (pressed=false) on the first frame after pointerup, +45.5 ms (f |
 | 14 | t14-hold | 14a .gal-p-surface: the surface look by 140 ms | PASS rgba(0, 0, 0, 0) → rgb(17, 17, 17) | PASS rgba(0, 0, 0, 0) → rgb(17, 17, 17) |
-| 14 | t14-hold | 14a .gal-p-dim: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | PASS set on the first frame after pointerdown, +14.7 ms (frame interval 16.9); cleared (pressed=false) on the first frame after pointerup, +15.7 ms (f | PASS set on the first frame after pointerdown, +11.9 ms (frame interval 16.3); cleared (pressed=false) on the first frame after pointerup, +85.9 ms (f |
+| 14 | t14-hold | 14a .gal-p-dim: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | PASS set on the first frame after pointerdown, +15.0 ms (frame interval 16.7); cleared (pressed=false) on the first frame after pointerup, +16.2 ms (f | PASS set on the first frame after pointerdown, +11.4 ms (frame interval 16.7); cleared (pressed=false) on the first frame after pointerup, +52.2 ms (f |
 | 14 | t14-hold | 14a .gal-p-dim: the dim look by 140 ms | PASS opacity 0.55 | PASS opacity 0.55 |
-| 14 | t14-hold | 14a .tab-item[data-tab=plan]: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | PASS set on the first frame after pointerdown, +15.8 ms (frame interval 17.0); cleared (pressed=false) on the first frame after pointerup, +15.9 ms (f | PASS set on the first frame after pointerdown, +12.4 ms (frame interval 17.2); cleared (pressed=false) on the first frame after pointerup, +34.4 ms (f |
+| 14 | t14-hold | 14a .tab-item[data-tab=plan]: data-pressed on the first frame after touchstart, cleared on the first frame after touchend | FAIL set on the first frame after pointerdown, +15.5 ms (frame interval 16.8); cleared (pressed=false) on the first frame after pointerup, +16.1 ms (f | PASS set on the first frame after pointerdown, +11.0 ms (frame interval 16.3); cleared (pressed=false) on the first frame after pointerup, +30.7 ms (f |
 | 14 | t14-hold | 14a .tab-item[data-tab=plan]: the scale look by 140 ms | PASS scale 0.9700 | PASS scale 0.9700 |
-| 14 | t14-hold | 14b a 378 ms press fires onPress and 0 menus, 0 haptics | PASS {"log":["hold-tap"],"menu":false,"h":[],"held":378.19999999925494} | PASS {"log":["hold-tap"],"menu":false,"h":[],"held":388.80000000074506} |
+| 14 | t14-hold | 14b a 375 ms press fires onPress and 0 menus, 0 haptics | PASS {"log":["hold-tap"],"menu":false,"h":[],"held":375.29999999701977} | PASS {"log":["hold-tap"],"menu":false,"h":[],"held":396.20000000298023} |
 | 14 | t14-hold | 14c 470 ms unmoved: the menu opens, exactly 1 lift, no onPress | PASS {"haptics":["lift"],"log":[]} | PASS {"haptics":["lift"],"log":[]} |
-| 14 | t14-hold | 14c no menu at 440 ms, in the DOM by 460 ms | PASS menu in the DOM at +456.9 ms after pointerdown | PASS menu in the DOM at +482.8 ms after pointerdown |
-| 14 | t14-hold | 14c menu opacity ≥ 0.9 by 600 ms | PASS opacity 1 at +600 | PASS opacity 1 at +612 |
+| 14 | t14-hold | 14c no menu at 440 ms, in the DOM by 460 ms | PASS menu in the DOM at +456.5 ms after pointerdown | PASS menu in the DOM at +475.7 ms after pointerdown |
+| 14 | t14-hold | 14c menu opacity ≥ 0.9 by 600 ms | PASS opacity 1 at +599 | PASS opacity 1 at +613 |
 | 14 | t14-hold | 14c data-pressed is cleared on the frame data-lifting is set (pre-grow before it) | PASS lifting from frame 29; the frame before: pressed true, preholding true; frames with both: 0 | PASS lifting from frame 29; the frame before: pressed true, preholding true; frames with both: 0 |
 | 14 | t14-hold | 14c .cm-hole's rect equals the lifted element's rect ± 1 on every frame of the lift | PASS 26 frames, max error 0.02 px | PASS 28 frames, max error 0.02 px |
 | 14 | t14-hold | 14c the scrim has no backdrop-filter; no .cm-lift; ≤ 4 items | PASS backdrop-filter none, .cm-lift 0, items 4 | PASS backdrop-filter none, .cm-lift 0, items 4 |
 | 14 | t14-hold | 14c a tap on the lifted element closes the menu without its onPress | PASS {"menu":false,"log":[],"sheet":false} | PASS {"menu":false,"log":[],"sheet":false} |
-| 14 | t14-hold | 14d moving 10 px after 470 closes the menu within 100 ms and sets data-dragging | PASS menu up true; its 100 ms exit reached opacity 0 63 ms after the page's pointermove; dragging true; drag-start | PASS menu up true; its 100 ms exit reached opacity 0 51 ms after the page's pointermove; dragging true; drag-start |
+| 14 | t14-hold | 14d moving 10 px after 470 closes the menu within 100 ms and sets data-dragging | PASS menu up true; its 100 ms exit reached opacity 0 64 ms after the page's pointermove; dragging true; drag-start | PASS menu up true; its 100 ms exit reached opacity 0 51 ms after the page's pointermove; dragging true; drag-start |
 | 14 | t14-hold | 14f a 300 ms press that moves 12 px: no menu, no lift | PASS {"menu":0,"h":[],"l":false,"log":["hold-tap"]} | PASS {"menu":0,"h":[],"l":false,"log":["hold-tap"]} |
 | 14 | t14-hold | 14g ignore=".inner": a 600 ms hold on .inner: no data-pressed, no lift, no menu | PASS {"pressed":false,"menu":0,"h":[],"l":false} | PASS {"pressed":false,"menu":0,"h":[],"l":false} |
 | 14 | t14-hold | 14g ignore=".inner": a tap on .inner does not fire the outer onPress | PASS ["inner"] | PASS ["inner"] |
-| 14 | t14-hold | 14h a hold that reaches 450 then moves 150 px left: the menu is gone within 100 ms of the 10 px mark | PASS menu up at 470: true; gone 65 ms after the 10 px mark | PASS menu up at 470: true; gone 58 ms after the 10 px mark |
+| 14 | t14-hold | 14h a hold that reaches 450 then moves 150 px left: the menu is gone within 100 ms of the 10 px mark | PASS menu up at 470: true; gone 64 ms after the 10 px mark | PASS menu up at 470: true; gone 56 ms after the 10 px mark |
 | 14 | t14-hold | 14h ... the track followed the finger (≤ 1 px against the last dispatched point, after the 10 px re-base) and exactly 1 page-commit | PASS track vs the last dispatched point: offset spread 0.00 px over 15 frames (the constant offset is the lock re-base); Today → SAT, OCT 24; page-com | PASS track vs the last dispatched point: offset spread 0.00 px over 20 frames (the constant offset is the lock re-base); Today → SAT, OCT 24; page-com |
 | 14 | t14-hold | 14 console clean | PASS [] | PASS [] |
-| 14 | t34-menu | 34 gallery .gal-p-hold: the menu is up (≤ 4 items here: 4); the hole is a cut-out (no backdrop-filter, no clone) | PASS {"menu":true,"items":4,"hit":true,"hitName":"stamp gal-session-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":521.1} | PASS {"menu":true,"items":4,"hit":true,"hitName":"stamp gal-session-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":562.2} |
+| 14 | t34-menu | 34 gallery .gal-p-hold: the menu is up (≤ 4 items here: 4); the hole is a cut-out (no backdrop-filter, no clone) | PASS {"menu":true,"items":4,"hit":true,"hitName":"stamp gal-session-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":507.3} | PASS {"menu":true,"items":4,"hit":true,"hitName":"stamp gal-session-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":580.7} |
 | 14 | t34-menu | 34 gallery .gal-p-hold: elementFromPoint at the lifted element's centre returns it or a descendant | PASS stamp gal-session-name | PASS stamp gal-session-name |
 | 14 | t34-menu | 34 gallery .gal-p-hold: the centre pixel with the menu up equals the pixel before the lift ± 3 (not dimmed) | PASS pixel 17,17,17 → 17,17,17; 5×5 mean 17,17,17 → 17,17,17 (dimmed by the scrim it would be ×0.3) | PASS pixel 17,17,17 → 17,17,17; 5×5 mean 17,17,17 → 17,17,17 (dimmed by the scrim it would be ×0.3) |
 | 14 | t34-menu | 34 gallery .gal-p-hold: a tab-bar pixel is darker by the scrim | PASS 90,101,253 → 27,30,76 | PASS 90,101,253 → 27,30,76 |
 | 14 | t34-menu | 34 gallery .gal-p-hold: tapping the lifted element closes the menu and opens nothing | PASS {"menu":false,"log":[],"sheet":false} | PASS {"menu":false,"log":[],"sheet":false} |
-| 14 | t34-menu | 34 gallery .gal-pager .dp-page[data-role=cur] .gal-p-pager: the menu is up (≤ 4 items here: 4); the hole is a cut-out (no backdrop-filter, n | PASS {"menu":true,"items":4,"hit":true,"hitName":"pressable gal-press gal-p-pager","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":509.4} | PASS {"menu":true,"items":4,"hit":true,"hitName":"pressable gal-press gal-p-pager","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":584.8} |
+| 14 | t34-menu | 34 gallery .gal-pager .dp-page[data-role=cur] .gal-p-pager: the menu is up (≤ 4 items here: 4); the hole is a cut-out (no backdrop-filter, n | PASS {"menu":true,"items":4,"hit":true,"hitName":"pressable gal-press gal-p-pager","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":500.9} | PASS {"menu":true,"items":4,"hit":true,"hitName":"pressable gal-press gal-p-pager","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":565.4} |
 | 14 | t34-menu | 34 gallery .gal-pager .dp-page[data-role=cur] .gal-p-pager: elementFromPoint at the lifted element's centre returns it or a descendant | PASS pressable gal-press gal-p-pager | PASS pressable gal-press gal-p-pager |
 | 14 | t34-menu | 34 gallery .gal-pager .dp-page[data-role=cur] .gal-p-pager: the centre pixel with the menu up equals the pixel before the lift ± 3 (not dimm | PASS pixel 27,27,27 → 27,27,27; 5×5 mean 27,27,27 → 27,27,27 (dimmed by the scrim it would be ×0.3) | PASS pixel 27,27,27 → 27,27,27; 5×5 mean 27,27,27 → 27,27,27 (dimmed by the scrim it would be ×0.3) |
 | 14 | t34-menu | 34 gallery .gal-pager .dp-page[data-role=cur] .gal-p-pager: a tab-bar pixel is darker by the scrim | PASS 90,101,253 → 27,30,76 | PASS 90,101,253 → 27,30,76 |
 | 14 | t34-menu | 34 gallery .gal-pager .dp-page[data-role=cur] .gal-p-pager: tapping the lifted element closes the menu and opens nothing | PASS {"menu":false,"log":[],"sheet":false} | PASS {"menu":false,"log":[],"sheet":false} |
-| 14 | t34-menu | 34 Today's hero: the menu is up (≤ 4 items here: 5); the hole is a cut-out (no backdrop-filter, no clone) | PASS {"menu":true,"items":5,"hit":true,"hitName":"hero-plan","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":504.6} | PASS {"menu":true,"items":5,"hit":true,"hitName":"hero-plan","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":558.4} |
+| 14 | t34-menu | 34 Today's hero: the menu is up (≤ 4 items here: 5); the hole is a cut-out (no backdrop-filter, no clone) | PASS {"menu":true,"items":5,"hit":true,"hitName":"hero-plan","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":509.6} | PASS {"menu":true,"items":5,"hit":true,"hitName":"hero-plan","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":557.5} |
 | 14 | t34-menu | 34 Today's hero: elementFromPoint at the lifted element's centre returns it or a descendant | PASS hero-plan | PASS hero-plan |
 | 14 | t34-menu | 34 Today's hero: the centre pixel with the menu up equals the pixel before the lift ± 3 (not dimmed) | PASS pixel 135,135,135 → 135,135,135; 5×5 mean 70,70,70 → 70,70,70 (dimmed by the scrim it would be ×0.3) | PASS pixel 135,135,135 → 135,135,135; 5×5 mean 70,70,70 → 70,70,70 (dimmed by the scrim it would be ×0.3) |
 | 14 | t34-menu | 34 Today's hero: a tab-bar pixel is darker by the scrim | PASS 90,101,253 → 27,30,76 | PASS 90,101,253 → 27,30,76 |
 | 14 | t34-menu | 34 Today's hero: tapping the lifted hero closes the menu and opens no sheet | PASS {"menu":false,"sheet":false} | PASS {"menu":false,"sheet":false} |
-| 14 | t34-menu | 34 a Plan row (Threshold 6): the menu is up (≤ 4 items here: 5); the hole is a cut-out (no backdrop-filter, no clone) | PASS {"menu":true,"items":5,"hit":true,"hitName":"stamp pl-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":478.2} | PASS {"menu":true,"items":5,"hit":true,"hitName":"stamp pl-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":538.2} |
+| 14 | t34-menu | 34 a Plan row (Threshold 6): the menu is up (≤ 4 items here: 5); the hole is a cut-out (no backdrop-filter, no clone) | PASS {"menu":true,"items":5,"hit":true,"hitName":"stamp pl-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":478.3} | PASS {"menu":true,"items":5,"hit":true,"hitName":"stamp pl-name","lifting":true,"hole":true,"bf":"none","clone":0,"heldMs":549.5} |
 | 14 | t34-menu | 34 a Plan row (Threshold 6): elementFromPoint at the lifted element's centre returns it or a descendant | PASS stamp pl-name | PASS stamp pl-name |
 | 14 | t34-menu | 34 a Plan row (Threshold 6): the centre pixel with the menu up equals the pixel before the lift ± 3 (not dimmed) | PASS pixel 0,0,0 → 0,0,0; 5×5 mean 0,0,0 → 0,0,0 (dimmed by the scrim it would be ×0.3) | PASS pixel 0,0,0 → 0,0,0; 5×5 mean 0,0,0 → 0,0,0 (dimmed by the scrim it would be ×0.3) |
 | 14 | t34-menu | 34 a Plan row (Threshold 6): a tab-bar pixel is darker by the scrim | PASS 136,136,136 → 40,40,40 | PASS 136,136,136 → 40,40,40 |
@@ -410,15 +455,15 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 15 | t15-16 | 15 4 tab taps, 3 sheet opens and closes, 2 segmented changes: 0 haptics | PASS haptics [] (segmented options found: 4) | PASS haptics [] (segmented options found: 4) |
 | 15 | t15-16 | 15-16 console clean | PASS [] | PASS [] |
 | 16 | t15-16 | 16 a sheet open: no animation keyframes touch height/width/top/left/padding/margin | PASS [] | PASS [] |
-| 16 | t15-16 | 16 a sheet open: no element's offset box changes on 2+ consecutive frames | PASS 49 frames; none | PASS 31 frames; none |
+| 16 | t15-16 | 16 a sheet open: no element's offset box changes on 2+ consecutive frames | PASS 48 frames; none | PASS 30 frames; none |
 | 16 | t15-16 | 16 a swipe row swipe: no animation keyframes touch height/width/top/left/padding/margin | PASS [] | PASS [] |
-| 16 | t15-16 | 16 a swipe row swipe: no element's offset box changes on 2+ consecutive frames | PASS 71 frames; none | PASS 61 frames; none |
+| 16 | t15-16 | 16 a swipe row swipe: no element's offset box changes on 2+ consecutive frames | PASS 69 frames; none | PASS 70 frames; none |
 | 16 | t15-16 | 16 a day swipe (DayPager v2): no animation keyframes touch height/width/top/left/padding/margin | PASS [] | PASS [] |
-| 16 | t15-16 | 16 a day swipe (DayPager v2): no element's offset box changes on 2+ consecutive frames | PASS 77 frames; none | PASS 63 frames; none |
+| 16 | t15-16 | 16 a day swipe (DayPager v2): no element's offset box changes on 2+ consecutive frames | PASS 76 frames; none | PASS 69 frames; none |
 | 16 | t15-16 | 16 a tab tap: no animation keyframes touch height/width/top/left/padding/margin | PASS [] | PASS [] |
-| 16 | t15-16 | 16 a tab tap: no element's offset box changes on 2+ consecutive frames | PASS 47 frames; none | PASS 48 frames; none |
+| 16 | t15-16 | 16 a tab tap: no element's offset box changes on 2+ consecutive frames | PASS 49 frames; none | PASS 50 frames; none |
 | 16 | t15-16 | 16 a push (the avatar): no animation keyframes touch height/width/top/left/padding/margin | PASS [] | PASS [] |
-| 16 | t15-16 | 16 a push (the avatar): no element's offset box changes on 2+ consecutive frames | PASS 49 frames; none | PASS 49 frames; none |
+| 16 | t15-16 | 16 a push (the avatar): no element's offset box changes on 2+ consecutive frames | PASS 49 frames; none | PASS 43 frames; none |
 | 17 | t17-navbar | 17.@390 .nb-bar, .nb-title, .nb-strip and .nb-gap share one parent (the page element) | PASS [true,true,true,true] | PASS [true,true,true,true] |
 | 17 | t17-navbar | 17.@390 pinned chrome = 97 + safe-t (bar 44, strip 53 with its hairline) | PASS {"bar":44,"strip":53} | PASS {"bar":44,"strip":53} |
 | 17 | t17-navbar | 39.@390 RELENTLESSLY on +10: .nb-cap fits (scrollWidth ≤ clientWidth) and the date part is dayCaption(full) | PASS {"scrollWidth":278,"clientWidth":278,"date":"MON, NOV 2","word":"RELENTLESSLY · "} | PASS {"scrollWidth":278,"clientWidth":278,"date":"MON, NOV 2","word":"RELENTLESSLY · "} |
@@ -441,15 +486,15 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 17 | t17-navbar | 17.@320 .nb-title: a tap calls onTitlePress once; a 450 ms hold opens the title menu (and no press) | PASS {"presses":1,"afterHold":0,"items":["Change the word","Clear the word","Go to a day…"]} | PASS {"presses":1,"afterHold":0,"items":["Change the word","Clear the word","Go to a day…"]} |
 | 17 | t17-navbar | 17.@320 .nb-inline: a tap calls onTitlePress once; a 450 ms hold opens the title menu (and no press) | PASS {"presses":1,"afterHold":0,"items":["Change the word","Clear the word","Go to a day…"]} | PASS {"presses":1,"afterHold":0,"items":["Change the word","Clear the word","Go to a day…"]} |
 | 17 | t17-navbar | console.@320 clean | PASS [] | PASS [] |
-| 18 | t18-open | 18 warm open at 4× / Slow 4G: black, then the page (2 distinct layouts) | PASS black > content over 3 frames | PASS black > content over 3 frames |
+| 18 | t18-open | 18 warm open at 4× / Slow 4G: black, then the page (2 distinct layouts) | PASS black > content over 3 frames | PASS black > content over 4 frames |
 | 18 | t18-open | 18 only the active tab root is mounted on the first content frame | PASS 1 | PASS 1 |
 | 18 | t18-open | 18 fonts.check('italic 34px "Instrument Serif"') on the first content frame | PASS true | PASS true |
 | 18 | t18-open | 18 no skeleton in the active page with the month cached | PASS false | PASS false |
-| 18 | t18-open | 18 the splash hides exactly once, within a frame or two of the first content paint | PASS 1 call(s), 1.4 ms after the first content frame | PASS 1 call(s), 2.6 ms after the first content frame |
+| 18 | t18-open | 18 the splash hides exactly once, within a frame or two of the first content paint | PASS 1 call(s), 2.1 ms after the first content frame | PASS 1 call(s), 1.8 ms after the first content frame |
 | 18 | t18-open | 18 console clean (warm open) | PASS [] | PASS [] |
 | 18 | t18-open | 18 foreground: ≤ 2 requests in 10 s (bootstrap + /strava/sync) | PASS ["/api/bootstrap","/api/strava/sync"] | PASS ["/api/bootstrap","/api/strava/sync"] |
-| 18 | t18-open | 18 /strava/sync requested ≤ 100 ms after visibilitychange, before the bootstrap answers (held 2 s) | PASS +-1 ms | PASS +0 ms |
-| 18 | t18-open | 18 useStravaChecking() true on the first frame after visibilitychange | PASS {"syncing":"true","dt":7.300000000745058} | PASS {"syncing":"true","dt":23.5} |
+| 18 | t18-open | 18 /strava/sync requested ≤ 100 ms after visibilitychange, before the bootstrap answers (held 2 s) | PASS +0 ms | PASS +-1 ms |
+| 18 | t18-open | 18 useStravaChecking() true on the first frame after visibilitychange | PASS {"syncing":"true","dt":5.399999998509884} | PASS {"syncing":"true","dt":24.600000001490116} |
 | 18 | t18-open | 18 stravaSyncNow(qc, { force: true, quiet: true }) inside the gap sends a request | PASS ["/api/strava/sync"] | PASS ["/api/strava/sync"] |
 | 18 | t18-open | 18 … and leaves data-syncing false | PASS ["false"] | PASS ["false"] |
 | 18 | t18-open | 18 console clean (foreground) | PASS [] | PASS [] |
@@ -477,13 +522,13 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 20 | t15-haptics | 15 (reduced motion) 4 tab taps, 3 body swipes, 2 strip taps, the pill, 2 segmented, 3 sheet opens, a far goTo: 0 haptics | PASS 0 haptics [] over 16 actions | PASS 0 haptics [] over 16 actions |
 | 20 | t15-haptics | 15 (reduced motion) console clean | PASS [] | PASS [] |
 | 20 | t20-reduced | 20 push under reduced motion: no transform motion on .pushed | PASS [0] | PASS [0] |
-| 20 | t20-reduced | 20 push: one opacity change ≤ 150 ms (± 1 frame) | PASS 8 frames, 117 ms | PASS 8 frames, 133 ms |
+| 20 | t20-reduced | 20 push: one opacity change ≤ 150 ms (± 1 frame) | PASS 8 frames, 117 ms | PASS 10 frames, 150 ms |
 | 20 | t20-reduced | 20 no flyer under reduced motion | PASS  | PASS  |
 | 20 | t20-reduced | 20 edge swipe still tracks the finger | PASS x 80.0 after 80 px of finger | PASS x 80.0 after 80 px of finger |
 | 20 | t20-reduced | 20 pop under reduced motion: no transform motion, an opacity change ≤ 150 ms | PASS {"xs":[0],"fadeFrames":7} | PASS {"xs":[0],"fadeFrames":6} |
 | 20 | t20-reduced | 20 console clean | PASS [] | PASS [] |
 | 20 | t20b-reduced | 20b sheet open: no transform motion (translateY 0 on every frame) | PASS ty values 0.0 | PASS ty values 0.0 |
-| 20 | t20b-reduced | 20b sheet open: one opacity change ≤ 150 ms (± 1 frame) | PASS 9 fading frames over 149 ms | PASS 6 fading frames over 105 ms |
+| 20 | t20b-reduced | 20b sheet open: one opacity change ≤ 150 ms (± 1 frame) | PASS 9 fading frames over 150 ms | PASS 8 fading frames over 122 ms |
 | 20 | t20b-reduced | 20b no recede (the tab stays at scale 1) | PASS scales 1.000 | PASS scales 1.000 |
 | 20 | t20b-reduced | 20b the scrim still dims (0.78 at rest) | PASS 0.78 | PASS 0.78 |
 | 20 | t20b-reduced | 20b the sheet drag still tracks 1:1 | PASS translateY 60 after 60 px | PASS translateY 60 after 60 px |
@@ -521,14 +566,14 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 21 | t21-gates | 21 no deprecated ui names in app/ and ui/ outside their adapters (DatePager, DayStepper, TabHeader, PushedHeader, dateLine) | PASS grep over ui/ app/ lib/ main.tsx | static (rate-independent) |
 | 21 | t21-gates | 21 no useLongPress / LONG_PRESS_MS / pressScale / onLongPress / TAB_RESELECT / liftFx used in ui/ app/ lib/ outside their adapters | PASS grep over ui/ app/ lib/ main.tsx | static (rate-independent) |
 | 21 | t21-gates | 21 no react-router in ui/ or lib/, nor in app/ beyond the shell, the controller and the bridge's test stub | PASS grep over ui/ app/ lib/ main.tsx | static (rate-independent) |
-| 21 | t21-gates | 21 ui/nav.test.ts + ui/captions.test.ts (routes, redirects, idx −1, captions) | PASS 47 passed | static (rate-independent) |
-| 22 | t22-jumps | 22a go to another tab: useRootRequest once, { mon }, how.cut, before the first frame | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":1560.9000000022352}] | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":2401.39999999851}] |
+| 21 | t21-gates | 21 ui/nav.test.ts + ui/captions.test.ts (routes, redirects, idx −1, captions) | PASS 48 passed | static (rate-independent) |
+| 22 | t22-jumps | 22a go to another tab: useRootRequest once, { mon }, how.cut, before the first frame | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":1517.6000000014901}] | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":2470.5}] |
 | 22 | t22-jumps | 22a the first frame showing Plan is already at the request (no pager animation) | PASS {"mon":"2026-10-26"} | PASS {"mon":"2026-10-26"} |
-| 22 | t22-jumps | 22a history.length + 1, NAV_EVENT jump, /plan/week/2026-10-26 | PASS {"reqs":[{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":1560.9000000022352}],"shown":"visible","params":"{\"mon\":\"2026-10-26\"}"," | PASS {"reqs":[{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":2401.39999999851}],"shown":"visible","params":"{\"mon\":\"2026-10-26\"}","le |
-| 22 | t22-jumps | 22b the same go while Plan is active: how.cut false | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":false,"at":1571.800000000745}] | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":false,"at":2447.699999999255}] |
+| 22 | t22-jumps | 22a history.length + 1, NAV_EVENT jump, /plan/week/2026-10-26 | PASS {"reqs":[{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":1517.6000000014901}],"shown":"visible","params":"{\"mon\":\"2026-10-26\"}"," | PASS {"reqs":[{"tab":"plan","params":{"mon":"2026-10-26"},"cut":true,"at":2470.5}],"shown":"visible","params":"{\"mon\":\"2026-10-26\"}","lenDelta":1, |
+| 22 | t22-jumps | 22b the same go while Plan is active: how.cut false | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":false,"at":1529.8000000044703}] | PASS [{"tab":"plan","params":{"mon":"2026-10-26"},"cut":false,"at":2502.39999999851}] |
 | 22 | t22-jumps | 22c go(/settings/training) on Plan: Today, two layers at rest from the first frame | PASS {"c1":[-117,0],"stack":["/settings","/settings/training"]} | PASS {"c1":[-117,0],"stack":["/settings","/settings/training"]} |
 | 22 | t22-jumps | 22l nav.replace(/today/2026-10-24) from Today while Plan is active | PASS {"err":null,"today":"/today/2026-10-24","url":"/plan/week/2026-10-26"} | PASS {"err":null,"today":"/today/2026-10-24","url":"/plan/week/2026-10-26"} |
-| 22 | t22-jumps | 22d Back onto /today/2026-10-20 from Plan: the Today stub receives { date }, no entry added | PASS {"reqs":[{"tab":"today","params":{"date":"2026-10-20"},"cut":true,"at":1069.0999999977648}],"path":"/today/2026-10-20","len":7,"active":"today"," | PASS {"reqs":[{"tab":"today","params":{"date":"2026-10-20"},"cut":true,"at":1438.2000000029802}],"path":"/today/2026-10-20","len":7,"active":"today"," |
+| 22 | t22-jumps | 22d Back onto /today/2026-10-20 from Plan: the Today stub receives { date }, no entry added | PASS {"reqs":[{"tab":"today","params":{"date":"2026-10-20"},"cut":true,"at":1118.6999999955297}],"path":"/today/2026-10-20","len":7,"active":"today"," | PASS {"reqs":[{"tab":"today","params":{"date":"2026-10-20"},"cut":true,"at":1399}],"path":"/today/2026-10-20","len":7,"active":"today","params":"{\"da |
 | 22 | t22-jumps | 22e popstate onto /journal/reads with an empty stack rebuilds Reads | PASS {"before":{"path":"/journal","stack":[]},"after":{"path":"/journal","stack":["/journal/reads"]}} | PASS {"before":{"path":"/journal","stack":[]},"after":{"path":"/journal","stack":["/journal/reads"]}} |
 | 22 | t22-jumps | 22f a pushed entry holds only { nav } with nav.idx | PASS {"keys":["nav"],"idx":4} | PASS {"keys":["nav"],"idx":4} |
 | 22 | t22-jumps | 22h pop-all of two layers pushed this session: history.go(−2) (length unchanged) | PASS {"before":11,"after":11,"path":"/today/2026-10-20","idx":3} | PASS {"before":11,"after":11,"path":"/today/2026-10-20","idx":3} |
@@ -556,13 +601,13 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | 23 | t23-bridge | 23 the old Today's next-day control shows tomorrow | PASS {"path":"/today/2026-10-24","root":"/today/2026-10-24"} | PASS {"path":"/today/2026-10-24","root":"/today/2026-10-24"} |
 | 23 | t23-bridge | 23 console clean (old pages) | PASS [] | PASS [] |
 | 24 | t24-peak | 24 one orb pop: exactly 1 orb haptic, nothing else | PASS ["orb"] | PASS ["orb"] |
-| 24 | t24-peak | 24 the orb fires within 1 frame of the maximum scale | PASS max 1.1255 on frame 12 of 41 (+199 ms); the haptic on frame 13 (value 1.1253, the first below the apex) | PASS max 1.1255 on frame 12 of 41 (+192 ms); the haptic on frame 13 (value 1.1252, the first below the apex) |
+| 24 | t24-peak | 24 the orb fires within 1 frame of the maximum scale | PASS max 1.1255 on frame 12 of 41 (+199 ms); the haptic on frame 13 (value 1.1253, the first below the apex) | PASS max 1.1255 on frame 12 of 41 (+194 ms); the haptic on frame 13 (value 1.1253, the first below the apex) |
 | 24 | t24-peak | 24 the pop reaches 1.12 (one overshoot) and returns to 1 | PASS max 1.1255, last 1.0000 | PASS max 1.1255, last 1.0000 |
 | 24 | t24-peak | 24 un-lighting fires nothing | PASS [] | PASS [] |
 | 24 | t24-peak | 24 console clean | PASS [] | PASS [] |
 | 24 | t24-peak | 24reduced reduced motion: no pop (the scale never moves) | PASS 0 scale changes | PASS 0 scale changes |
 | 24 | t24-peak | 24reduced reduced motion: exactly 1 orb haptic | PASS ["orb"] | PASS ["orb"] |
-| 24 | t24-peak | 24reduced reduced motion: it fires on the frame the fill completes | PASS fill reaches 1 on frame 9 of 10 (+149 ms); the haptic on frame 9 | PASS fill reaches 1 on frame 10 of 11 (+145 ms); the haptic on frame 10 |
+| 24 | t24-peak | 24reduced reduced motion: it fires on the frame the fill completes | PASS fill reaches 1 on frame 9 of 10 (+150 ms); the haptic on frame 9 | PASS fill reaches 1 on frame 10 of 11 (+146 ms); the haptic on frame 10 |
 | 24 | t24-peak | 24reduced un-lighting fires nothing | PASS [] | PASS [] |
 | 24 | t24-peak | 24reduced console clean | PASS [] | PASS [] |
 | 25 | t25-ring | 25 marked={2} draws the 1.5 px --ink ring on Wednesday | PASS {"markDay":"2","markStroke":"rgb(255, 255, 255)","markW":"1.5px","ink":"rgb(255, 255, 255)","gapDay":"2","gapStroke":"rgba(255, 255, 255, 0.28)", | PASS {"markDay":"2","markStroke":"rgb(255, 255, 255)","markW":"1.5px","ink":"rgb(255, 255, 255)","gapDay":"2","gapStroke":"rgba(255, 255, 255, 0.28)", |
@@ -573,11 +618,11 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | item 9 | tsw-swipe | sw1 the pane follows the finger 1:1 | PASS 37 frames, max /Δ/ 0.00 px | PASS 36 frames, max /Δ/ 0.00 px |
 | item 9 | tsw-swipe | sw1 a slow 100 px release rests at the 72 px reveal detent; the action is a ≥ 44 px button; no haptic | PASS {"x":-72,"rev":"left","btn":[72,68],"log":["reveal-left"],"h":[]} | PASS {"x":-72,"rev":"left","btn":[72,68],"log":["reveal-left"],"h":[]} |
 | item 9 | tsw-swipe | sw1 a tap elsewhere closes the open row and reaches nothing (here: no menu) | PASS {"rev":null,"log":["reveal-left","reveal-none"],"menu":false} | PASS {"rev":null,"log":["reveal-left","reveal-none"],"menu":false} |
-| item 9 | tsw-swipe | sw3 a 120 px flick at ≥ 600 px/s commits (full): the content leaves to W with its velocity, onCommit on completion | PASS x max 390; at onCommit x 390.0; frames between release and commit 19; haptics [] | PASS x max 390; at onCommit x 390.0; frames between release and commit 19; haptics [] |
+| item 9 | tsw-swipe | sw3 a 120 px flick at ≥ 600 px/s commits (full): the content leaves to W with its velocity, onCommit on completion | PASS x max 390; at onCommit x 390.0; frames between release and commit 18; haptics [] | PASS x max 390; at onCommit x 390.0; frames between release and commit 17; haptics [] |
 | item 9 | tsw-swipe | sw3 the row the page keeps comes home | PASS x 0, checked true | PASS x 0, checked true |
-| item 9 | tsw-swipe | sw4 a full delete: the row leaves by a ≈ 100 ms fade (a copy of its pane) | PASS removed at frame 28; the fading copy on 6 frames over 82 ms (opacity 1.00 0.55 0.34 0.18 0.06 0.00) | PASS removed at frame 30; the fading copy on 7 frames over 95 ms (opacity 1.00 0.83 0.59 0.38 0.21 0.08 0.01) |
-| item 9 | tsw-swipe | sw4 ... while the rows below FLIP up on a spring (no one-frame jump) | PASS row 3 moved up 52 px over 14 frames; largest step 7.1 px | PASS row 3 moved up 52 px over 15 frames; largest step 7.3 px |
-| item 9 | tsw-swipe | sw4 ... and what follows the list (the Reset button) moves with them | PASS moved 52 px over 14 frames; largest step 7.1 px | PASS moved 52 px over 15 frames; largest step 7.7 px |
+| item 9 | tsw-swipe | sw4 a full delete: the row leaves by a ≈ 100 ms fade (a copy of its pane) | PASS removed at frame 29; the fading copy on 6 frames over 82 ms (opacity 1.00 0.54 0.34 0.17 0.06 0.00) | PASS removed at frame 30; the fading copy on 7 frames over 97 ms (opacity 1.00 0.79 0.56 0.35 0.19 0.06 0.00) |
+| item 9 | tsw-swipe | sw4 ... while the rows below FLIP up on a spring (no one-frame jump) | PASS row 3 moved up 52 px over 14 frames; largest step 7.2 px | PASS row 3 moved up 52 px over 14 frames; largest step 7.7 px |
+| item 9 | tsw-swipe | sw4 ... and what follows the list (the Reset button) moves with them | PASS moved 52 px over 14 frames; largest step 7.2 px | PASS moved 52 px over 15 frames; largest step 7.2 px |
 | item 9 | tsw-swipe | sw4 the delete's toast carries Undo | PASS DeletedUndo | PASS DeletedUndo |
 | item 9 | tsw-swipe | sw console clean | PASS [] | PASS [] |
 | R1 | r1-popall | c1-chevron after an interrupted pop-all: the stack, the layers on screen and the URL agree; the root takes touches when the stack is empty | PASS {"path":"/today","stack":[],"layers":[],"hit":["root","root","root"]} | PASS {"path":"/today","stack":[],"layers":[],"hit":["root","root","root"]} |
@@ -598,7 +643,7 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | R1 | r1-pager | c3 a strip drag that pages: no element is left pressed | PASS [] | PASS [] |
 | R1 | r1-pager | c3 a day swipe that starts on a card: the card is not left pressed | PASS [] | PASS [] |
 | R1 | r1-pager | c3 a swipe from the large title: nothing left pressed | PASS [] | PASS [] |
-| R1 | r1-pager | c7 a tap on a data-no-page orb inside the 400 ms after a day drag springs home gets its click | PASS {"clicks":1,"date":"2026-10-23","tapAfterReleaseMs":256} | PASS {"clicks":1,"date":"2026-10-23","tapAfterReleaseMs":252} |
+| R1 | r1-pager | c7 a tap on a data-no-page orb inside the 400 ms after a day drag springs home gets its click | PASS {"clicks":1,"date":"2026-10-23","tapAfterReleaseMs":257} | PASS {"clicks":1,"date":"2026-10-23","tapAfterReleaseMs":252} |
 | R1 | r1-pager | u1 a hold then a 150 px drag left on a draggable row in a pager page: the object drags, the pager stays (0 track movement, 0 commits) | PASS {"drags":["start 2026-10-23","end ok"],"moves":10,"commits":0,"xmax":0,"date":"2026-10-23"} | PASS {"drags":["start 2026-10-23","end ok"],"moves":10,"commits":0,"xmax":0,"date":"2026-10-23"} |
 | R1 | r1-pager | u1 a hold then a move on a card with no drag still pages (exactly 1 commit, menu gone) | PASS {"commits":1,"menu":false} | PASS {"commits":1,"menu":false} |
 | R1 | r1-pager | c6 --chrome-h measured under the recede equals the layout offset; a 600 px day still fills the scroller exactly | PASS {"before":{"chromeH":157,"layout":157,"scrollH":794,"clientH":794},"after":{"chromeH":157,"layout":157,"scrollH":794,"clientH":794}} | PASS {"before":{"chromeH":157,"layout":157,"scrollH":794,"clientH":794},"after":{"chromeH":157,"layout":157,"scrollH":794,"clientH":794}} |
@@ -619,17 +664,17 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | R1 | r1-sheet | u2 the foot's Save is hit-testable at medium | PASS true | PASS true |
 | R1 | r1-sheet | f6 a tap on the grabber row away from its buttons (the title line) cycles the detent | PASS large | PASS large |
 | R1 | r1-sheet | c13 the grabber is a button with a name, and Enter cycles the detent (large → medium) | PASS {"tag":"BUTTON","label":"Collapse sheet","hidden":null,"h":24,"after":"medium"} | PASS {"tag":"BUTTON","label":"Collapse sheet","hidden":null,"h":24,"after":"medium"} |
-| R1 | r1-sheet | f2 a tall sheet when the keyboard comes: its top stays put on every frame (shrinks, never drops) | PASS top range 10.0–10.0 over 43 frames | PASS top range 10.0–10.0 over 39 frames |
+| R1 | r1-sheet | f2 a tall sheet when the keyboard comes: its top stays put on every frame (shrinks, never drops) | PASS top range 10.0–10.0 over 43 frames | PASS top range 10.0–10.0 over 41 frames |
 | R1 | r1-sheet | f2 the focused field never jumps down and ends above the keyboard | PASS {"maxDownStep":0,"fieldBottom":119,"visible":508} | PASS {"maxDownStep":0,"fieldBottom":119,"visible":508} |
-| R1 | r1-sheet | f1 gallery sheet flick-dismiss: the first frame after release moves (≤ 20 ms), no gap > 34 ms in the first 260 ms | PASS {"first":16.399999998509884,"maxGap":16.899999998509884,"writes":[[16,91.65],[33,135.14],[50,187.96],[66,250.7],[83,315.81],[100,376.36],[116,437 | PASS {"first":16.5,"maxGap":18,"writes":[[17,91.65],[33,135.14],[49,187.96],[67,250.7],[83,315.81],[100,380.07],[116,437.84],[133,495.02]],"closed":tr |
+| R1 | r1-sheet | f1 gallery sheet flick-dismiss: the first frame after release moves (≤ 20 ms), no gap > 34 ms in the first 260 ms | PASS {"first":16.400000005960464,"maxGap":16.799999997019768,"writes":[[16,91.65],[33,135.14],[50,191.51],[66,250.7],[83,315.81],[100,380.07],[116,437 | PASS {"first":16,"maxGap":17.600000001490116,"writes":[[16,89.66],[33,132.16],[50,187.96],[66,246.91],[83,311.98],[100,376.36],[116,434.33],[132,491.7 |
 | R1 | r1-sheet | sheet console clean | PASS [] | PASS [] |
-| R1 | r1-sheet | f5 a Plan session row (Easy 5): the sheet moves in the first frame after touchend (≤ 17 ms) | PASS first moved frame +16.8 ms (first frame after touchend +16.8, ty 777) | FAIL first moved frame +98.5 ms (first frame after touchend +98.5, ty 777) |
-| R1 | r1-sheet | f1 Plan session sheet flick-dismiss: the first frame after release moves (≤ 20 ms), no gap > 34 ms in the first 260 ms | PASS {"first":16.300000000745058,"maxGap":16.800000000745058,"writes":[[16,91.65],[33,135.14],[50,187.96],[66,250.7],[83,315.81],[100,376.36],[116,437 | PASS {"first":15.399999998509884,"maxGap":17.900000002235174,"writes":[[15,87.74],[33,132.16],[50,184.43],[66,243.13],[82,308.15],[100,376.36],[116,43 |
+| R1 | r1-sheet | f5 a Plan session row (Easy 5): the sheet moves in the first frame after touchend (≤ 17 ms) | PASS first moved frame +17.4 ms (first frame after touchend +17.4, ty 777) | FAIL first moved frame +91.9 ms (first frame after touchend +91.9, ty 777) |
+| R1 | r1-sheet | f1 Plan session sheet flick-dismiss: the first frame after release moves (≤ 20 ms), no gap > 34 ms in the first 260 ms | PASS {"first":16.600000001490116,"maxGap":16.899999998509884,"writes":[[17,91.65],[33,135.14],[50,187.96],[66,250.7],[83,315.81],[100,376.36],[116,437 | PASS {"first":16.799999997019768,"maxGap":17.399999998509884,"writes":[[17,89.66],[33,129.22],[49,184.43],[66,246.91],[82,308.15],[99,372.64],[116,434 |
 | R1 | r1-press | u8 an element "pressable today-hero" gets .today-hero's own padding (18px), not the reset's 0 | PASS 18px | PASS 18px |
 | R1 | r1-press | u3 the first tap on a revealed action commits it | PASS {"revealed":"left","log":["reveal-left","reveal-none","later-3"]} | PASS {"revealed":"left","log":["reveal-left","reveal-none","later-3"]} |
-| R1 | r1-press | u4 Ticker +3.1 on springs.number: counts through intermediate values (≥ 8), no frame steps more than 0.5 and the last (the rest snap) ≤ 0.2 | PASS from 26.2: 20 distinct values, largest one-frame step 0.30, last 0.10 (26.2 26.3 26.5 26.7 27 27.2 27.5 27.7 27.9 28.1 28.3 28.4…) | PASS from 26.2: 20 distinct values, largest one-frame step 0.30, last 0.10 (26.2 26.5 26.7 26.8 27.1 27.3 27.6 27.8 28 28.2 28.3 28.5…) |
-| R1 | r1-press | u4 WeekRing once-a-day fill on springs.number draws over several frames (≥ 6 distinct dash states) | PASS 44 distinct: 1 1 / 0 1 / 0.007855174270349874 1 / 0.040134536115290276 1 / 0.09744317214078524 1 / 0.17198776149725226 1 | PASS 45 distinct: 1 1 / 0 1 / 0.009423127397810815 1 / 0.02883665370585009 1 / 0.08942224597573745 1 / 0.14462037665383143 1 |
-| R1 | r1-press | u9 a segment shows its press 60 ms into a touch (data-pressed, dimmed) | PASS {"pressed":true,"opacity":"0.632553","at":{"x":333,"y":397}} | PASS {"pressed":true,"opacity":"0.559494","at":{"x":333,"y":397}} |
+| R1 | r1-press | u4 Ticker +3.1 on springs.number: counts through intermediate values (≥ 8), no frame steps more than 0.5 and the last (the rest snap) ≤ 0.2 | PASS from 26.2: 20 distinct values, largest one-frame step 0.30, last 0.10 (26.2 26.3 26.5 26.7 27 27.3 27.5 27.7 27.9 28.1 28.3 28.4…) | PASS from 26.2: 22 distinct values, largest one-frame step 0.30, last 0.10 (26.2 26.4 26.5 26.6 26.7 27 27.2 27.5 27.7 27.9 28.1 28.2…) |
+| R1 | r1-press | u4 WeekRing once-a-day fill on springs.number draws over several frames (≥ 6 distinct dash states) | PASS 44 distinct: 1 1 / 0 1 / 0.0051149415001952026 1 / 0.04318065622726186 1 / 0.1015271669238671 1 / 0.17662925913187277 1 | PASS 43 distinct: 1 1 / 0 1 / 0.08942224597573745 1 / 0.16276800682919035 1 / 0.24309189265430342 1 / 0.30559891008614637 1 |
+| R1 | r1-press | u9 a segment shows its press 60 ms into a touch (data-pressed, dimmed) | PASS {"pressed":true,"opacity":"0.579581","at":{"x":333,"y":397}} | PASS {"pressed":true,"opacity":"0.579496","at":{"x":333,"y":397}} |
 | R1 | r1-press | press console clean | PASS [] | PASS [] |
 | R1 | r1-a11y | c8 every tab root has a level-1 heading (its title) | PASS {"today":{"h1":["Easy"],"dead":[]},"plan":{"h1":["Plan"],"dead":[]},"progress":{"h1":["Progress"],"dead":[]},"journal":{"h1":["Journal"],"dead":[ | PASS {"today":{"h1":["Easy"],"dead":[]},"plan":{"h1":["Plan"],"dead":[]},"progress":{"h1":["Progress"],"dead":[]},"journal":{"h1":["Journal"],"dead":[ |
 | R1 | r1-a11y | c10 no title-block part is a button that does nothing (Plan, Progress, Journal) | PASS {"today":{"h1":["Easy"],"dead":[]},"plan":{"h1":["Plan"],"dead":[]},"progress":{"h1":["Progress"],"dead":[]},"journal":{"h1":["Journal"],"dead":[ | PASS {"today":{"h1":["Easy"],"dead":[]},"plan":{"h1":["Plan"],"dead":[]},"progress":{"h1":["Progress"],"dead":[]},"journal":{"h1":["Journal"],"dead":[ |
@@ -641,15 +686,54 @@ Each 4× log in `qa/results/<script>.cpu4.log` prints its own bound. `item 9` is
 | R1 | r1-a11y | c10 collapsed (inline title shown) it takes the tap | PASS {"opacity":1,"hitsInline":true} | PASS {"opacity":1,"hitsInline":true} |
 | R1 | r1-a11y | a11y console clean | PASS [] | PASS [] |
 | R1 | r1-push | c5 reduced motion: the parent never moves during a push or a pop (the layer only fades) | PASS max /parent x/ 0.0 px; push fade frames 7 | PASS max /parent x/ 0.0 px; push fade frames 4 |
-| R1 | r1-push | f4 push settings: the first frame that shows the layer has ≤ 10 % of the slide gone, and the slide then plays (no held frame) | PASS first painted x 375.7 (4 % gone); next steps 33 42 41 42 38 31 28 | PASS first painted x 375.7 (4 % gone); next steps 33 55 46 38 36 31 26 |
+| R1 | r1-push | f4 push settings: the first frame that shows the layer has ≤ 10 % of the slide gone, and the slide then plays (no held frame) | PASS first painted x 375.7 (4 % gone); next steps 33 42 41 42 38 31 28 | PASS first painted x 375.7 (4 % gone); next steps 33 52 41 41 35 32 27 |
 | R1 | r1-push | f10 the pushed bar's trailing avatar keeps the root bar's 16 px gutter (same right edge ± 2) | PASS {"right":374,"rootRight":374} | PASS {"right":374,"rootRight":374} |
 | R1 | r1-push | f11 an edge drag from x 12 to 132: the layer sits at clientX − x0 = 120 (x0 at pointerdown, no re-base at the lock) | PASS {"layerLeft":120,"expected":120} | PASS {"layerLeft":120,"expected":120} |
 | R1 | r1-push | push-settings console clean | PASS [] | PASS [] |
-| R1 | r1-push | f4 push morning: the first frame that shows the layer has ≤ 10 % of the slide gone, and the slide then plays (no held frame) | PASS first painted x 375.7 (4 % gone); next steps 33 9 43 41 41 37 32 | PASS first painted x 375.7 (4 % gone); next steps 33 22 20 44 39 40 33 |
+| R1 | r1-push | f4 push morning: the first frame that shows the layer has ≤ 10 % of the slide gone, and the slide then plays (no held frame) | PASS first painted x 375.7 (4 % gone); next steps 33 37 41 42 38 32 29 | PASS first painted x 375.7 (4 % gone); next steps 33 42 28 42 39 34 30 |
 | R1 | r1-push | push-morning console clean | PASS [] | PASS [] |
 | R1 | r1-misc | u10 a sync that failed is retried by the next non-forced call (not handed back for 30 s) | PASS {"requests":2,"syncs":["err","ok"]} | PASS {"requests":2,"syncs":["err","ok"]} |
 | R1 | r1-misc | u10 after a quiet forced sync, a non-quiet call inside the gap still sends and shows the status line | PASS {"requests":2,"statusLine":true} | PASS {"requests":2,"statusLine":true} |
-| R1 | r1-misc | f8 frame-paced input (one move per 16 ms): the release velocity reads the finger's 1500 px/s (± 35 %) in most flicks | PASS release v: -1455, -1437, -1429, -1472 px/s | PASS release v: -1818, -1283, -1558, -1437 px/s |
+| R1 | r1-misc | f8 frame-paced input (one move per 16 ms): the release velocity reads the finger's 1500 px/s (± 35 %) in most flicks | PASS release v: -1446, -1446, -1529, -1446 px/s | PASS release v: -1739, -1270, -1371, -1395 px/s |
+| R2 | r2-layer | c2-1-tap an edge pop caught at x < W/2 and let go (tap) comes home: the page stays, at 0, the URL unchanged, no pop | PASS {"caughtAt":165.6,"atRelease":168.2,"after":{"active":"today","path":"/settings","stack":["/settings"],"layers":[0],"nav":[]}} | PASS {"caughtAt":161.9,"atRelease":168.2,"after":{"active":"today","path":"/settings","stack":["/settings"],"layers":[0],"nav":[]}} |
+| R2 | r2-layer | c2-1-tap console clean | PASS [] | PASS [] |
+| R2 | r2-layer | c2-1-drag-left an edge pop caught at x < W/2 and let go (drag-left) comes home: the page stays, at 0, the URL unchanged, no pop | PASS {"caughtAt":170.9,"atRelease":72.3,"after":{"active":"today","path":"/settings","stack":["/settings"],"layers":[0],"nav":[]}} | PASS {"caughtAt":160.7,"atRelease":66.9,"after":{"active":"today","path":"/settings","stack":["/settings"],"layers":[0],"nav":[]}} |
+| R2 | r2-layer | c2-1-drag-left console clean | PASS [] | PASS [] |
+| R2 | r2-layer | c2-3 a push caught at 264.8 then dragged 120 px left: the layer follows the finger 1:1 (±2 px) on every frame | PASS {"maxErr":0,"track":[{"finger":259.8,"layer":207.8},{"finger":244.8,"layer":192.8},{"finger":229.8,"layer":177.8},{"finger":214.8,"layer":162.8}, | PASS {"maxErr":0,"track":[{"finger":272.6,"layer":212.6},{"finger":257.6,"layer":197.6},{"finger":242.6,"layer":182.6},{"finger":227.6,"layer":167.6}, |
+| R2 | r2-layer | c2-3 then released: the page rests at 0 and stays | PASS {"active":"today","path":"/settings","stack":["/settings"],"layers":[0],"nav":["push:/settings"]} | PASS {"active":"today","path":"/settings","stack":["/settings"],"layers":[0],"nav":["push:/settings"]} |
+| R2 | r2-layer | c2-2-cut This morning mounted at rest as Settings › Training goes (cut): the layer is at x 0 and takes the touch at (330, 400) | PASS {"path":"/today/2026-10-20/morning","left":0,"tf":"none","hit":"pushed","depth2":false} | PASS {"path":"/today/2026-10-20/morning","left":0,"tf":"none","hit":"pushed","depth2":false} |
+| R2 | r2-layer | c2-2-cut console clean | PASS [] | PASS [] |
+| R2 | r2-layer | c2-2-back This morning mounted at rest as Settings › Training goes (back): the layer is at x 0 and takes the touch at (330, 400) | PASS {"path":"/today/2026-10-20/morning","left":0,"tf":"none","hit":"pushed","depth2":false} | PASS {"path":"/today/2026-10-20/morning","left":0,"tf":"none","hit":"pushed","depth2":false} |
+| R2 | r2-layer | c2-2-back console clean | PASS [] | PASS [] |
+| R2 | r2-layer | n1-60 a second tap 60 ms after the avatar (layer at 218 px at its pointerdown) opens nothing on the page sliding in | PASS {"xAtDown":218.0748291015625,"stack":["/settings"],"path":"/settings"} | PASS {"xAtDown":166.20596313476562,"stack":["/settings"],"path":"/settings"} |
+| R2 | r2-layer | n1-150 a second tap 150 ms after the avatar (layer at 78 px at its pointerdown) opens nothing on the page sliding in | PASS {"xAtDown":78.48662567138672,"stack":["/settings"],"path":"/settings"} | PASS {"xAtDown":56.52702713012695,"stack":["/settings"],"path":"/settings"} |
+| R2 | r2-layer | n1-250 a second tap 250 ms after the avatar (layer at 19 px at its pointerdown) opens nothing on the page sliding in | PASS {"xAtDown":18.907411575317383,"stack":["/settings"],"path":"/settings"} | PASS {"xAtDown":11.881108283996582,"stack":["/settings"],"path":"/settings"} |
+| R2 | r2-layer | n1-350 a second tap 350 ms after the avatar (layer at 4 px at its pointerdown) opens nothing on the page sliding in | PASS {"xAtDown":4.115598678588867,"stack":["/settings"],"path":"/settings"} | PASS {"xAtDown":2.30389142036438,"stack":["/settings"],"path":"/settings"} |
+| R2 | r2-layer | n1-rest at rest the same tap on Settings opens its section (depth 2) | PASS ["/settings","/settings/you"] | PASS ["/settings","/settings/you"] |
+| R2 | r2-layer | n1 console clean | PASS [] | PASS [] |
+| R2 | r2-layer | c2-4-1 a lit-tab pop-all from /settings, then a push 120 ms in: the URL names the pushed page and no pop follows the jump | PASS {"active":"today","path":"/dev/ui","stack":["/dev/ui"],"layers":[0],"nav":["jump:/dev/ui"]} | PASS {"active":"today","path":"/dev/ui","stack":["/dev/ui"],"layers":[0],"nav":["jump:/dev/ui"]} |
+| R2 | r2-layer | c2-4-2 a lit-tab pop-all from /settings/training, then a push 120 ms in: the URL names the pushed page and no pop follows the jump | PASS {"active":"today","path":"/dev/ui","stack":["/dev/ui"],"layers":[0],"nav":["jump:/dev/ui"]} | PASS {"active":"today","path":"/dev/ui","stack":["/dev/ui"],"layers":[0],"nav":["jump:/dev/ui"]} |
+| R2 | r2-layer | c2-5 chevron pop, Plan 80 ms later, then Back: Today's root with no layer (the closed page stays closed) | PASS {"active":"today","path":"/today","stack":[],"layers":[],"nav":["push:/settings","tab:/plan","pop:/today","jump:/today"]} | PASS {"active":"today","path":"/today","stack":[],"layers":[],"nav":["push:/settings","tab:/plan","pop:/today","jump:/today"]} |
+| R2 | r2-layer | c2-5 console clean | PASS [] | PASS [] |
+| R2 | r2-sheet | n2-auto open: no write of the rise is more than two frames ahead of the curve clocked from the frame after the sheet's first paint | PASS {"seq":[{"ms":-20,"gone":0.079,"allowed":0.188},{"ms":1,"gone":0.168,"allowed":0.191},{"ms":17,"gone":0.272,"allowed":0.292},{"ms":33,"gone":0.38 | PASS {"seq":[{"ms":-24,"gone":0.079,"allowed":0.188},{"ms":2,"gone":0.168,"allowed":0.201},{"ms":10,"gone":0.221,"allowed":0.244},{"ms":26,"gone":0.32 |
+| R2 | r2-sheet | n2-stack open: no write of the rise is more than two frames ahead of the curve clocked from the frame after the sheet's first paint | PASS {"seq":[{"ms":-23,"gone":0.079,"allowed":0.188},{"ms":0,"gone":0.168,"allowed":0.19},{"ms":17,"gone":0.272,"allowed":0.292},{"ms":33,"gone":0.388 | PASS {"seq":[{"ms":-18,"gone":0.079,"allowed":0.188},{"ms":2,"gone":0.168,"allowed":0.197},{"ms":12,"gone":0.233,"allowed":0.26},{"ms":28,"gone":0.349 |
+| R2 | r2-sheet | n2-auto open: no write of the rise is more than two frames ahead of the curve clocked from the frame after the sheet's first paint | PASS {"seq":[{"ms":-20,"gone":0.079,"allowed":0.188},{"ms":0,"gone":0.168,"allowed":0.19},{"ms":17,"gone":0.272,"allowed":0.291},{"ms":34,"gone":0.388 | PASS {"seq":[{"ms":-25,"gone":0.079,"allowed":0.188},{"ms":2,"gone":0.168,"allowed":0.2},{"ms":13,"gone":0.24,"allowed":0.264},{"ms":27,"gone":0.335," |
+| R2 | r2-sheet | u1-push tall → short the sheet's top travels to the new panel's height with no one-frame jump (largest step ≤ max(60 px, 15 % of the travel) | PASS {"from":10,"to":725,"maxStep":80,"frames":31,"rest":{"bottom":844,"top":725,"body":true,"styleH":""}} | PASS {"from":10,"to":725,"maxStep":87.4,"frames":32,"rest":{"bottom":844,"top":725,"body":true,"styleH":""}} |
+| R2 | r2-sheet | u1-pop tall → short the pop back travels the same way (largest step ≤ max(60 px, 15 % of the travel)) and ends where the sheet opened | PASS {"from":725,"to":10,"maxStep":76.8,"frames":31} | PASS {"from":725,"to":10,"maxStep":81.4,"frames":31} |
+| R2 | r2-sheet | u1-push short → taller the sheet's top travels to the new panel's height with no one-frame jump (largest step ≤ max(60 px, 15 % of the trave | PASS {"from":645,"to":465,"maxStep":19.4,"frames":26,"rest":{"bottom":844,"top":465,"body":true,"styleH":""}} | PASS {"from":645,"to":465,"maxStep":20.1,"frames":26,"rest":{"bottom":844,"top":465,"body":true,"styleH":""}} |
+| R2 | r2-sheet | u1-pop short → taller the pop back travels the same way (largest step ≤ max(60 px, 15 % of the travel)) and ends where the sheet opened | PASS {"from":465,"to":645,"maxStep":19.3,"frames":26} | PASS {"from":465,"to":645,"maxStep":20,"frames":27} |
+| R2 | r2-sheet | u2-n3 a medium sheet held 200 px up: its body reaches the screen's bottom (no empty band) | PASS {"top":222,"bodyBottom":1056,"hits":["body","body","body"]} | PASS {"top":222,"bodyBottom":1056,"hits":["body","body","body"]} |
+| R2 | r2-sheet | u2-n3 released short: back at medium, the body's end and Save are still on screen and hit-testable (U2 kept) | PASS {"detent":"medium","save":[788,836],"hit":true} | PASS {"detent":"medium","save":[788,836],"hit":true} |
+| R2 | r2-sheet | c2-6 large opened by Enter: focus is on the first field ("Push"), not the grabber | PASS {"cls":"btn soft ","text":"Push"} | PASS {"cls":"btn soft ","text":"Push"} |
+| R2 | r2-sheet | c2-6 detents opened by Enter: focus is on the first field ("Push"), not the grabber | PASS {"cls":"btn soft ","text":"Push"} | PASS {"cls":"btn soft ","text":"Push"} |
+| R2 | r2-sheet | u4 an inner panel's update({ sticky: true }): a scrim tap leaves the sheet open | PASS {"open":true,"title":"Unsaved 2"} | PASS {"open":true,"title":"Unsaved 2"} |
+| R2 | r2-sheet | r2-sheet console clean | PASS [] | PASS [] |
+| R2 | r2-misc | u6 a non-quiet sync 120 ms into a quiet one rides it: 1 request, the status line shows, then clears | PASS {"requests":1,"statusLine":true,"syncs":["ok"],"idle":"false"} | PASS {"requests":1,"statusLine":true,"syncs":["ok"],"idle":"false"} |
+| R2 | r2-misc | u6 console clean | PASS [] | PASS [] |
+| R2 | r2-misc | n5 Escape closes a sheet with no long task ≥ 50 ms starting in its first 40 ms (3 runs) | PASS {"longTasks":[[],[],[]]} | PASS {"longTasks":[[],[],[]]} |
+| R2 | r2-misc | n5 the ring rules hold: after Escape the opener has focus and no quiet mark; a touch marks it quiet (no ring) | PASS {"afterEscape":{"opener":true,"quiet":false,"ring":"solid"},"afterTouch":{"quiet":true,"ring":"none","active":true}} | PASS {"afterEscape":{"opener":true,"quiet":false,"ring":"solid"},"afterTouch":{"quiet":true,"ring":"none","active":true}} |
+| R2 | r2-misc | n5 console clean | PASS [] | PASS [] |
+| R2 | r2-captions | u3 the captions of one Today root render (≈ 24 calls) take < 1 ms (median of 15) | PASS {"median":0.1,"max":0.2,"runs":[0,0,0,0,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.2,0.2,0.2]} | PASS {"median":0.1,"max":1,"runs":[0,0,0,0,0,0.1,0.1,0.1,0.1,0.1,0.1,0.2,0.2,0.8,1]} |
 
 </details>
 
@@ -674,16 +758,16 @@ Notes on the rows:
 - **#21** greps run over `ui/`, `app/`, `lib/` and `main.tsx` (WP1's half); the integrated-branch half runs after WP6 lands. Two gates were added: no other deprecated name used outside its adapter, and no `react-router` import in `ui/`, `lib/` or `app/` beyond the shell, the controller and the bridge's test stub.
 - Rest = the completion frame (`restDelta 1`, `restSpeed 30`), as §10 defines it.
 
-## Gates (rerun after review round 1)
+## Gates (rerun after review round 2)
 
 | Gate | Result |
 |---|---|
 | `pnpm -r --filter @logbook/shared --filter @logbook/api --filter @logbook/web exec tsc --noEmit -p .` | exit 0 |
 | `pnpm --filter @logbook/shared test` | 88 passed |
 | `pnpm --filter @logbook/api test` | 59 passed |
-| `pnpm --filter @logbook/web test` | 75 passed (incl. `ui/nav.test.ts` 33, `ui/captions.test.ts` 14, `lib/haptics.test.ts`) |
-| `pnpm --filter @logbook/web build` | ok; largest entry chunk 924,990 B raw / 304,010 B gzip (QA step: 918,950 raw) |
-| `qa/t21-gates.sh` (#21, WP1's half) | 23 grep gates pass + the route/caption unit tests (47) |
+| `pnpm --filter @logbook/web test` | 79 passed, 8 files. Round 1 had 75; this round adds the formatter test in `ui/captions.test.ts` and the three tests of `lib/motion.test.ts` |
+| `pnpm --filter @logbook/web build` | ok. Largest entry chunk 927.44 kB raw / 304.73 kB gzip (round 1: 924.99 kB) |
+| `qa/t21-gates.sh` (#21, WP1's half) | 23 grep gates pass, plus the route and caption unit tests (48) |
 | smoke (log in; four tabs; avatar → Settings → Training → back; This morning; Reads from Journal; `/settings/plans`; a sheet; a hold menu; `/dev/ui`) | 22/22 at 1× and 4×, console clean |
 
 ## Hand-verifiable steps (on the branch's build, a phone-sized window, touch emulation)
@@ -701,6 +785,10 @@ Notes on the rows:
 11. /dev/ui → "Open the pager lab": swipe the card left: the whole page pages, the bar's date and title cross-fade with the finger, the strip's disc slides; flick and touch the page mid-slide: it stops under the finger; scroll down 60 px: the bar collapses to "STEADY ·" + a centred "Today", the strip stays pinned.
 12. Turn on reduced motion (OS setting) and repeat 4, 6 and 11. Expected: pushes and pages fade in 150 ms; the finger still drags pages 1:1.
 13. Back button of the browser on a pushed page: it pops (history length unchanged); on a sheet: it closes the sheet only.
+14. (Round 2) Today: tap the avatar twice quickly. Expected: Settings slides in once; the second tap opens nothing.
+15. (Round 2) On Settings, drag from the left edge past a third and let go, then touch the page as it slides away and let go before the middle. Expected: it comes back and stays; dragging it back left follows the finger.
+16. (Round 2) /dev/ui → "Auto + field" → "Push a short panel", then the chevron. Expected: the sheet glides down to the short panel and back up; it never jumps.
+17. (Round 2) /dev/ui → "Medium ⇄ large": drag the grabber up and hold. Expected: the body runs to the screen's bottom; no empty band.
 
 ## Audit findings WP1 was to close
 
@@ -751,6 +839,14 @@ From the ranked top ten of `S/audit/critic.md` §4 (the "Closes" list of each it
 Findings in the same audits that belong to other packages (not WP1's to close): the hero pull to Morning (nav F11, touch F11: WP2), the midnight rollover (C3: WP2), the two-session day (nav F13, touch F12: WP2), Plan's row swipe and pinch (nav F14, C10 removal: WP4), Morning's schedule (motion #3, F21: WP3), copy and page rhythm (visual F3–F6, F10–F12, F15–F19: WP2/WP6).
 
 ## Requests for other packages
+- **Review round 2.**
+  - **Contracts (repeated from round 1, still not in `contracts.md`).**
+    - §D.1: `forScale` / `forRange`. `springs.complete` is now scale-native, so the §D.3 orb works as written.
+    - §A.2: `segment`.
+    - §A.3: `.page-root`.
+  - **Spec §9.5 / WP2.** Pull to refresh has no keyboard or VoiceOver path (code review 2 #7). Add a "Refresh" item in Today's title menu that dispatches `REFRESH`.
+  - **WP3.** The interim This morning page mounts synchronously in 83–206 ms at 4×, so its push starts 107–247 ms after the tap (feel review 2 N4). WP1's push already starts on the first painted frame.
+  - **Spec §9.3.** UIKit's rule is now WP1's: a tap on a page that is still sliding opens nothing. The edge band still catches it (feel review 2 N1). Add it to §9.3's table.
 - **Review round 1.**
   - **WP2.** The session sheet's body (the session card) takes about 47 ms to render and 11–15 ms to lay out at 4× on the open. That decides feel review 1 #5 and §14 #27's 70 ms. Mount less on the open, for example the stamps and the big Done first.
   - **Contracts §D.1.** Add `forScale(t)` and `forRange(t, span)` (`lib/motion.ts`) for unitless values (scale, pathLength, Tickers). The contract's px rest thresholds end such springs on frame one (consumer review 1 #4).
@@ -768,6 +864,12 @@ Findings in the same audits that belong to other packages (not WP1's to close): 
 - **Spec (`docs/feel.md`, requests only)**: §2.7's literal `.nb-title { margin: 4px 16px 0; height: 40px }` contradicts §2.3's "44 tall" target; WP1 keeps §2.1's geometry with the 4 px as padding. §9.1 says pointerup gives the old tab `visibility: hidden` + `inert`; WP1 does it in the task after the cut's frame (and prepares the new tab during the press) for the §9.1 budget; nothing visible differs.
 
 ## Contract notes (behaviour as contracted, mechanism different)
+
+- **Review round 2.**
+  - `LayerControl` (internal) also has `leaving()`. `activate` uses it to settle a leaving page's history before it writes the new tab's entry.
+  - An `auto` sheet's inner push or pop moves its box by a transform-only shift (§10.1 FLIP), not by sheetY. The scrim, the recede and the toasts' `sheetY` are untouched.
+  - `springs.complete` carries scale rest thresholds.
+  - Focus rings: the root no longer carries `data-input`. The focused element gets `data-quiet-focus` instead.
 
 - **Review round 1.**
   - `LayerControl` is internal. `leave(done(left))` answers every caller, and a two-layer pop is one slide with the middle page covered.
@@ -799,6 +901,8 @@ Findings in the same audits that belong to other packages (not WP1's to close): 
 
 ## Device day-one checks (not doable here)
 
+Added in review round 2: the keyboard's raise, which restyles the document through the root `--kb`. It measures 67–115 ms at 4× here (feel review 2 N7).
+
 Added in review round 1:
 - the pager's release velocity with real touch input (feel review 1 #8);
 - the stacked labels mid-drag (#9);
@@ -808,6 +912,15 @@ Added in review round 1:
 `Keyboard.resize = 'none'` + `--kb` on an iPhone build; the splash on the first content frame; the edge swipe in the standalone PWA and a Safari tab; inner-scroller `scrollTop` during the rubber band; the strip drag's direction (risk 16); routine-step reorder through hold → move (risk 9); the stacked labels in WebKit; the sheet's `bottom: var(--kb)` with a field focused; the tab preparation on a real press (iOS's tap timing).
 
 ## Screenshots (looked at, each one)
+
+Review round 2, before (pre-fix archive) and after, at 390 and 320:
+- Files: `S/wp1/qa/shots/r2-{before,after}-{390,320}-{morning-after-cut,medium-held-up-200,push-short-mid,push-short-rest}.png`.
+- Side by side: `S/wp1/qa/shots/cmp-fix2-{390,320}-*.png`.
+- What they show:
+  - This morning after a cut was shifted 117 px left with a black band; it is now at 0 with its chevron.
+  - A medium sheet held 200 px up ended at Save with an empty band below; its body now runs to the bottom.
+  - Mid-push of a short panel, the box was already short; the top now travels with the outgoing panel inside.
+  - At rest the two builds are identical.
 
 Review round 1:
 - `S/wp1/qa/shots/after-<390|320>-*.png` is this build.

@@ -32,8 +32,12 @@ const named = {
   sheetFlick: springFor(0.5, 0.1),
   /** 0.48 s / 0 → 171 · 26.2: Ticker, the week ring fill. */
   number: springFor(0.48, 0),
-  /** 0.30 s / 0.30 → 439 · 29.3: the one overshoot, an orb or a check to 1.12. */
-  complete: springFor(0.3, 0.3),
+  /**
+   * 0.30 s / 0.30 → 439 · 29.3: the one overshoot, an orb or a check to 1.12. Every use is a scale, so it carries scale rest
+   * thresholds itself (`forScale`'s): animated as contracts §D.3 writes it, `animate(scale, 1.12, springs.complete)`, it
+   * plays its overshoot instead of ending on its first frame (consumer review 2 #5). `forScale(springs.complete)` is the same.
+   */
+  complete: { ...springFor(0.3, 0.3), restDelta: 0.0005, restSpeed: 0.01 },
 };
 
 /**

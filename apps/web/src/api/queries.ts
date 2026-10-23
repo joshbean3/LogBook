@@ -133,7 +133,7 @@ export const syncStrava = async (qc: QueryClient): Promise<StravaSyncAnswer> => 
   return r;
 };
 export const STRAVA_SYNC_KEY = ['strava-sync'] as const;
-let lastSync: { at: number; promise: Promise<StravaSyncAnswer>; quiet: boolean } | null = null;
+let lastSync: { at: number; promise: Promise<StravaSyncAnswer>; quiet: boolean; settled: boolean } | null = null;
 /**
  * The same request through the mutation cache under STRAVA_SYNC_KEY, registered synchronously so useIsMutating sees it on
  * the calling frame (the open face's status line). At most once per STRAVA_GAP_MS: a call inside the gap returns the running
@@ -143,15 +143,31 @@ let lastSync: { at: number; promise: Promise<StravaSyncAnswer>; quiet: boolean }
 export const stravaSyncNow = (qc: QueryClient, opts: { force?: boolean; quiet?: boolean } = {}): Promise<StravaSyncAnswer> => {
   const now = Date.now();
   // inside the gap the last sync answers, unless it was quiet and this one is not (the status line must see this one)
-  if (!opts.force && lastSync && now - lastSync.at < STRAVA_GAP_MS && (opts.quiet || !lastSync.quiet)) return lastSync.promise;
+  if (!opts.force && lastSync && now - lastSync.at < STRAVA_GAP_MS) {
+    if (opts.quiet || !lastSync.quiet) return lastSync.promise;
+    // a quiet sync still in flight: this call rides its request and raises the status line until it settles, rather than
+    // sending a second, concurrent one (consumer review 2 #6)
+    if (!lastSync.settled) {
+      const ride = lastSync;
+      ride.quiet = false;
+      setChecking(1);
+      const done = () => setChecking(-1);
+      ride.promise.then(done, done);
+      return ride.promise;
+    }
+  }
   const m = qc.getMutationCache().build(qc, { mutationKey: STRAVA_SYNC_KEY, mutationFn: () => syncStrava(qc), meta: opts.quiet ? { quiet: true } : undefined });
   const promise = m.execute(undefined);
-  const rec = { at: now, promise, quiet: !!opts.quiet };
+  const rec = { at: now, promise, quiet: !!opts.quiet, settled: false };
   lastSync = rec;
-  // a sync that failed is not handed to the next caller: it tries again (consumer review 1 #10)
-  promise.catch(() => {
-    if (lastSync === rec) lastSync = null;
-  });
+  promise.then(
+    () => void (rec.settled = true),
+    () => {
+      rec.settled = true;
+      // a sync that failed is not handed to the next caller: it tries again (consumer review 1 #10)
+      if (lastSync === rec) lastSync = null;
+    },
+  );
   if (!opts.quiet) {
     setChecking(1);
     const done = () => setChecking(-1);

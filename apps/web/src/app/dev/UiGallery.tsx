@@ -177,11 +177,16 @@ const DragSlots = () => {
 /** A sheet body whose first field takes focus when the sheet has risen (never on a timer). */
 const FieldSheetBody = () => {
   const toast = useToast();
+  const sheet = useSheet();
   return (
     <>
       <input className="field gal-field" placeholder="The first field" aria-label="The first field" />
       <Button variant="soft" className="gal-sheet-toast" onClick={() => toast('Deleted', { label: 'Undo', fn: () => galLog('undo') })}>
         Toast over the sheet
+      </Button>
+      {/* a short inner panel on this tall auto sheet: the box changes height on the push and the pop (consumer review 2 #1) */}
+      <Button variant="soft" className="gal-sheet-push-short" onClick={() => sheet.push({ title: 'Short', eyebrow: 'Level 2', body: <p className="ink2 gal-short-body">A short inner panel.</p> })}>
+        Push a short panel
       </Button>
       {Array.from({ length: 40 }, (_, i) => (
         <p key={i} className="fine gal-sheet-line">
@@ -207,6 +212,10 @@ const SheetBody = ({ level }: { level: number }) => {
         </Button>
         <Button variant="quiet" onClick={() => sheet.update({ title: `Renamed ${depth}` })}>
           Rename
+        </Button>
+        {/* unsaved input in this panel: a scrim tap must not close the sheet (consumer review 2 #4) */}
+        <Button variant="quiet" className="gal-sheet-keep" onClick={() => sheet.update({ sticky: true, title: `Unsaved ${depth}` })}>
+          Keep
         </Button>
       </div>
       {level > 1

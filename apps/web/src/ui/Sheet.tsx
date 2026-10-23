@@ -1,5 +1,5 @@
 import { ChevronLeft, X } from 'lucide-react';
-import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { animate, AnimatePresence, frame, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,6 +11,7 @@ import { restoreFocus } from './focus';
 import { focusables, holdInert } from './inert';
 import type { TabId } from './nav';
 import { safeTopPx, setSheetOpen, sheetH, sheetMotion } from './sheetMotion';
+import { springAdvance, springParams } from './springSim';
 import { pointerClaimed } from './useHold';
 
 /**
@@ -89,16 +90,17 @@ const slide = {
 const fade = { enter: { opacity: 0 }, center: { opacity: 1 }, exit: { opacity: 0 } };
 const SCRIM = 0.78;
 const FRAME_S = 1 / 60;
+const PAGE = springParams(springs.page);
 
 /**
- * `sheetOpen` already one frame in: the first frame that shows the sheet shows it moving (§9.4: first motion frame ≤ 1
- * frame after the tap). The curve is split exactly (De Casteljau) at the point one frame of its 500 ms has passed, so the
- * rest is the same cubic-bezier(.32,.72,0,1), renormalised. Returns the progress already made and the rest's transition.
+ * `sheetOpen` already `frames` frames in: the first frame that shows the sheet shows it moving (§9.4: first motion frame ≤ 1
+ * frame after the tap). The curve is split exactly (De Casteljau) at the point `frames` frames of its 500 ms have passed, so
+ * the rest is the same cubic-bezier(.32,.72,0,1), renormalised. Returns the progress already made and the rest's transition.
  */
-const sheetOpenFrom = (): { done: number; rest: { duration: number; ease: [number, number, number, number] } } => {
+const sheetOpenFrom = (frames = 1): { done: number; rest: { duration: number; ease: [number, number, number, number] } } => {
   const dur = (sheetOpen as { duration: number }).duration;
   const [x1, y1, x2, y2] = (sheetOpen as { ease: [number, number, number, number] }).ease;
-  const u = FRAME_S / dur;
+  const u = (frames * FRAME_S) / dur;
   const bx = (t: number) => 3 * (1 - t) ** 2 * t * x1 + 3 * (1 - t) * t ** 2 * x2 + t ** 3;
   let lo = 0;
   let hi = 1;
@@ -152,6 +154,16 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
   const [detent, setDetent] = useState<AnyDetent>(() => (first.detent && ds.includes(first.detent) ? first.detent : ds[ds.length - 1]!));
   const cur = useRef(detent);
   const base = useMotionValue(0);
+  /**
+   * The FLIP of an `auto` box whose panel changes (an inner push or pop, consumer review 2 #1; §10.1): px added to the
+   * transform while the box keeps the larger of the two heights, so the visible top travels on `springs.page` and the box
+   * takes the new content height only at rest. Not part of sheetY: the scrim and the recede do not move with it.
+   */
+  const shift = useMotionValue(0);
+  const resizing = useRef<Pick<Anim, 'stop'> | null>(null);
+  const boxB = useRef(0);
+  /** The auto box's visible height (box − shift), as it was before the commit being laid out. */
+  const visH = useRef(0);
   const opacity = useMotionValue(reduce ? 0 : 1);
   const scrimRef = useRef<HTMLDivElement>(null);
 
@@ -166,7 +178,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     const off = (d: AnyDetent) => Math.max(0, box - vis(d));
     return { H, st, vis, off };
   };
-  const anim = useRef<Anim | null>(null);
+  const anim = useRef<Pick<Anim, 'stop'> | null>(null);
   const closing = useRef(false);
   /**
    * At a smaller detent than the box (medium of [medium, large]) the box reaches below the screen by `off(d)`: the body's
@@ -205,7 +217,8 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     if (!panel) return;
     releaseInert.current = holdInert();
     const want = wanted.current?.isConnected ? wanted.current : null;
-    const firstField = focusables(panel).find((el) => !el.classList.contains('icon-btn')) ?? focusables(panel)[0] ?? panel;
+    // the header's icon buttons and the grabber (a button with two detents, code review 2 #6) are not the first field
+    const firstField = focusables(panel).find((el) => !el.classList.contains('icon-btn') && !el.classList.contains('sheet-grab-bar')) ?? focusables(panel)[0] ?? panel;
     (want ?? firstField).focus({ preventScroll: true });
   };
 
@@ -257,7 +270,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
       const p = clamp01(1 - d / g.H);
       const el = ref.current;
       if (el) {
-        el.style.transform = `translateY(${yv.toFixed(2)}px)`;
+        el.style.transform = `translateY(${(yv + shift.get()).toFixed(2)}px)`;
         el.style.opacity = String(opacity.get());
       }
       if (scrimRef.current) scrimRef.current.style.opacity = (SCRIM * p * opacity.get()).toFixed(4);
@@ -266,7 +279,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
       tabEl.style.transform = `translateY(${((g.st + 10) * p).toFixed(2)}px) scale(${(0.92 + 0.08 * (1 - p)).toFixed(4)})`;
       tabEl.style.borderRadius = `${(12 * p).toFixed(2)}px`;
     };
-    const offs = [sheetY.on('change', apply), base.on('change', apply), opacity.on('change', apply)];
+    const offs = [sheetY.on('change', apply), base.on('change', apply), opacity.on('change', apply), shift.on('change', apply)];
     apply();
     return () => {
       offs.forEach((f) => f());
@@ -298,16 +311,36 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     setInset(g.off(d));
     markTall();
     setSheetOpen(true);
+    if (boxKind === 'auto') visH.current = g.vis(d);
     if (reduce) {
       sheetY.jump(0);
       anim.current = animate(opacity, 1, { ...reducedFade, onComplete: onOpened });
     } else {
-      const { done, rest } = sheetOpenFrom();
-      sheetY.jump(g.H * (1 - done));
-      anim.current = animate(sheetY, 0, { ...rest, onComplete: onOpened });
+      /*
+       * The rise is clocked from the frame that first paints the sheet, never from the tap (feel review 2 N2, as the push's
+       * startPush): that frame shows the curve one frame in (written now), the next one two frames in, and the tween runs on
+       * its own clock from there. The body's first render, style and paint are not counted as elapsed time, so a heavy body
+       * at 4× never skips a third of the rise.
+       */
+      sheetY.jump(g.H * (1 - sheetOpenFrom(1).done));
+      let live = true;
+      const pending = { stop: () => void (live = false) };
+      anim.current = pending;
+      const second = () => {
+        if (!live || anim.current !== pending) return;
+        const { done, rest } = sheetOpenFrom(2);
+        sheetY.set(g.H * (1 - done));
+        anim.current = animate(sheetY, 0, { ...rest, onComplete: onOpened });
+      };
+      // in motion's frame step: this one is the frame that paints the sheet; `second` runs in the frame after it
+      frame.update(() => live && anim.current === pending && frame.update(second));
     }
     const ro = new ResizeObserver(() => {
-      if (boxKind === 'auto') height.set(ref.current?.offsetHeight ?? 0);
+      if (boxKind === 'auto' && !resizing.current) {
+        const h = ref.current?.offsetHeight ?? 0;
+        height.set(h);
+        visH.current = h;
+      }
       markTall();
     });
     ro.observe(panel);
@@ -328,9 +361,56 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
       register(null);
       ro.disconnect();
       stop();
+      resizing.current?.stop();
       releaseInert.current();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // an inner push or pop on an `auto` box: the box keeps max(old, new) height and the visible top travels on springs.page
+  // by a transform (§10.1, the FLIP rule); at rest the box takes the new content height in the same frame the shift ends
+  const shownDepth = useRef(depth);
+  useLayoutEffect(() => {
+    if (shownDepth.current === depth) return;
+    shownDepth.current = depth;
+    const el = ref.current;
+    if (!el || boxKind !== 'auto' || closing.current) return;
+    const vis0 = resizing.current ? boxB.current - shift.get() : visH.current;
+    resizing.current?.stop();
+    resizing.current = null;
+    el.style.height = '';
+    // the new panel's natural height (the outgoing one is out of flow: AnimatePresence's popLayout); one forced layout
+    const nat = el.offsetHeight;
+    height.set(nat);
+    const done = () => {
+      resizing.current = null;
+      el.style.height = '';
+      shift.jump(0);
+      visH.current = nat;
+      markTall();
+    };
+    if (reduce || Math.abs(nat - vis0) < 1) return done();
+    const B = Math.max(vis0, nat);
+    const from = B - vis0;
+    const to = B - nat;
+    boxB.current = B;
+    el.style.height = `${B}px`;
+    shift.jump(from);
+    // clocked from the frame that paints the new panel (as the push and the open): one spring frame in on that frame, two
+    // on the next, then the spring on its own clock; the new panel's render and layout are not counted as elapsed
+    let live = true;
+    const pending = { stop: () => void (live = false) };
+    resizing.current = pending;
+    frame.update(() => {
+      if (!live || resizing.current !== pending) return;
+      shift.set(springAdvance(PAGE, from, 0, to, FRAME_S)[0]);
+      frame.update(() => {
+        if (!live || resizing.current !== pending) return;
+        const [p2, v2] = springAdvance(PAGE, from, 0, to, 2 * FRAME_S);
+        shift.set(p2);
+        resizing.current = animate(shift, to, { ...springs.page, velocity: v2, onComplete: done });
+      });
+    });
+  }, [depth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the keys come up over a medium detent: the sheet goes to large (UIKit's rule), so the focused field has room
   const kb = useKeyboardOpen();
@@ -463,6 +543,10 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
       }
       if (Math.abs(dy) > 3) st.moved = true;
       sheetY.set(follow(ev.clientY - st.y0));
+      // pulled up from a detent smaller than the box: the body runs on below the screen while the finger moves, so no empty
+      // band shows under it (consumer review 2 #2, feel review 2 N3); a layout change at the gesture's start, never per
+      // frame, and the inset is put back when it rests at the smaller detent
+      if (inset.current > 0 && sheetY.get() < 0) setInset(0);
     };
     const end = (ev: PointerEvent) => {
       if (ev.pointerId !== st.id) return;
@@ -497,7 +581,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
   const boxStyle: React.CSSProperties = boxKind === 'medium' ? { height: geo().vis('medium') } : {};
   return (
     <>
-      <div ref={scrimRef} className="sheet-scrim" aria-hidden="true" onClick={() => !first.sticky && requestClose({ kind: 'tween' })} />
+      <div ref={scrimRef} className="sheet-scrim" aria-hidden="true" onClick={() => !stack.some((p) => p.sticky) && requestClose({ kind: 'tween' })} />
       <div
         ref={ref}
         role="dialog"

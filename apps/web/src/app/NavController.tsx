@@ -46,6 +46,8 @@ interface HomeControl {
 export interface LayerControl {
   leave: (done: (left: boolean) => void, opts?: { all?: boolean }) => void;
   cover: (on: boolean) => void;
+  /** Its pop spring is running (heading off screen): a chevron, an edge release, a pop-all's top layer. */
+  leaving: () => boolean;
 }
 interface Overlay {
   id: number;
@@ -95,6 +97,8 @@ export class Controller {
   private popping = new Set<TabId>();
   /** A root's replace asked for while an overlay is up: written onto the entry under it once the overlays are gone. */
   private deferredReplace: TabId | null = null;
+  /** Layers a removeLayers is taking off (the top one and the covered ones under it), until it answers. */
+  private going = new Set<string>();
   /** Keys of layers that slide in (a push); every other layer mounts at rest. */
   private slideIn = new Set<string>();
 
@@ -325,10 +329,26 @@ export class Controller {
     if (this.dormant) return;
     this.closeOverlays();
     if (tab === this.state.active) return this.reselect(tab);
+    this.settleLeaving(this.state.active);
     flushSync(() => this.set({ ...this.state, active: tab }));
     this.write('push', topPath(this.state.tabs[tab]));
     this.emit('tab', topPath(this.state.tabs[tab]), tab);
   };
+
+  /**
+   * The tab being left has pages on their pop spring: their history rule runs now, before the new tab's entry is written
+   * (the pop then finishes on a hidden tab, which writes nothing). Otherwise the closed page's entry stays under the new
+   * tab's, and Back from it would rebuild the page the user closed (code review 2 #5).
+   */
+  private settleLeaving(tab: TabId) {
+    const t = this.state.tabs[tab];
+    const k = t.stack.findIndex((e) => this.going.has(e.key) || !!this.layers.get(e.key)?.leaving());
+    if (k < 0) return;
+    const gone = t.stack.slice(k);
+    const consecutive = gone.every((e, j) => e.idx !== -1 && e.idx === gone[0]!.idx + j) && gone.at(-1)!.idx === this.cur;
+    if (consecutive) this.traverse(gone.length);
+    else this.write('replace', t.stack[k - 1]?.path ?? t.path);
+  }
 
   reselect = (tab: TabId): void => {
     if (this.dormant) return;
@@ -404,8 +424,10 @@ export class Controller {
       .map((e) => this.layers.get(e.key))
       .filter((u): u is LayerControl => !!u);
     for (const u of under) u.cover(true);
+    for (const e of removed) this.going.add(e.key);
     c.leave(
       (left) => {
+        for (const e of removed) this.going.delete(e.key);
         if (left) drop();
         else for (const u of under) u.cover(false);
         then(left);
@@ -442,6 +464,9 @@ export class Controller {
       // a catch brought the top page back: nothing was written, the stack is as it was
       if (!left) return;
       const cur = this.state.tabs[tab];
+      // a push or a jump during the spring replaced the stack (its layers were unmounted, which answers `true`): that
+      // action wrote the history, and this pop-all writes nothing over it (code review 2 #4)
+      if (cur.stack.length) return;
       if (opts.history !== false && tab === this.state.active) {
         const n = stack.length;
         const consecutive = stack.every((e, k) => e.idx !== -1 && e.idx === stack[0]!.idx + k) && top.idx === this.cur;

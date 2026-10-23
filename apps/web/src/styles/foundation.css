@@ -212,16 +212,14 @@
 }
 
 /* ---------- ContextMenu ---------- */
-/* focus handed back after a sheet or menu was closed by a pointer: no ring (ui/focus.ts; a key press brings it back) */
-[data-quiet-focus]:focus-visible {
-  outline: none;
-}
 /*
- * Focus rings are for the keyboard only, everywhere (polish 15). ui/focus.ts sets data-input on <html> from the last
- * input: a touch or a click turns every ring off (even one the browser decided to show, like the week ring after a sheet
- * closed by Escape and then a swipe), and the next key press turns them back on.
+ * Focus rings are for the keyboard only, everywhere (polish 15). ui/focus.ts marks the focused element with
+ * data-quiet-focus while the last input is a pointer (and on focus handed back after a sheet or menu was closed by one):
+ * a touch or a click turns its ring off (even one the browser decided to show, like the week ring after a sheet closed by
+ * Escape and then a swipe), and the next key press turns it back on. One element's attribute, never <html>'s: a rule keyed
+ * on the root restyled the whole document on every switch (feel review 2 N5).
  */
-:root[data-input='pointer'] :focus-visible {
+[data-quiet-focus]:focus-visible {
   outline: none !important;
   /* the hero pager and the Progress plots draw their ring as a shadow */
   box-shadow: none !important;
