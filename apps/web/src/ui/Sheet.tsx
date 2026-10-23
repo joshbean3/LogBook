@@ -210,6 +210,10 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     // the receding tab shows black around it (iOS's card stack), only while a sheet is up
     const host = reduce ? null : (tabEl?.parentElement ?? null);
     if (host) host.style.background = '#000';
+    // under a pushed page, the layers it covers are hidden while the sheet is up: scaled, the top page's edge would let
+    // a fraction of a pixel of them through (they are inert behind the sheet either way)
+    const covered = pushed.length ? [scroller, ...pushed.slice(0, -1)].filter((el): el is HTMLElement => !!el) : [];
+    for (const el of covered) el.style.visibility = 'hidden';
     /*
      * One writer, synchronous: the sheet's transform, the scrim and the recede are written from sheetY's change (in motion's
      * frame step during an animation, in the pointer handler during a drag, at once on a jump), so the three can never be a
@@ -241,6 +245,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
         tabEl.style.borderRadius = '';
       }
       for (const el of scrollers) el.style.overflowY = '';
+      for (const el of covered) el.style.visibility = '';
       if (host) host.style.background = '';
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
