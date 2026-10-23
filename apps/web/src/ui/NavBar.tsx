@@ -1,8 +1,8 @@
 import { ChevronLeft } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
-import { isValidElement, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { usePushedEntry, useNavState } from '@/app/NavController';
+import { isValidElement, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useNavInternal, usePushedEntry } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, fadeOut } from '@/lib/motion';
 import type { ContextMenuItem } from './ContextMenu';
@@ -137,31 +137,54 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
     };
     apply(progress.get());
     return progress.on('change', apply);
-  });
+    // re-bound only when the labels' nodes or the binding change (code review 1 #12)
+  }, [progress, reduce, stacked, capsKey, title.prev, title.cur, title.next, form]);
 
+  // the title block acts only when it has something to do: otherwise it is text (no dead buttons, code review 1 #10)
   const pressable = !!onTitlePress || !!titleMenu;
   const tp = {
     onPress: onTitlePress ? () => onTitlePress() : undefined,
     holdMenu: titleMenu,
     menuLabel: 'Title actions',
-    press: pressable ? ('dim' as const) : ('none' as const),
+    press: 'dim' as const,
+  };
+  const capInner = (
+    <>
+      {word ? (
+        <span ref={wordRef} className="nb-word">
+          {word}&nbsp;·&nbsp;
+        </span>
+      ) : null}
+      <span className="nb-date">
+        <Stacked l={caps} form={form} stacked={stacked} />
+      </span>
+    </>
+  );
+  const titleRefCb = (el: HTMLElement | null) => {
+    titleEl.current = el;
+    setRef(titleRef, el);
   };
   return (
     <>
       <div ref={barRef} className={`nb-bar ${wideTrailing ? 'has-seg' : ''}`.trim()}>
-        <Pressable ref={capRef} className="nb-cap" label={titleLabel} {...tp}>
-          {word ? (
-            <span ref={wordRef} className="nb-word">
-              {word}&nbsp;·&nbsp;
-            </span>
-          ) : null}
-          <span className="nb-date">
-            <Stacked l={caps} form={form} stacked={stacked} />
-          </span>
-        </Pressable>
-        <Pressable as="div" className="nb-inline" tabIndex={-1} aria-hidden="true" {...tp}>
-          <Stacked l={title} stacked={stacked} />
-        </Pressable>
+        {pressable ? (
+          <Pressable ref={capRef} className="nb-cap" label={titleLabel} {...tp}>
+            {capInner}
+          </Pressable>
+        ) : (
+          <div ref={capRef as React.Ref<HTMLDivElement>} className="nb-cap">
+            {capInner}
+          </div>
+        )}
+        {pressable ? (
+          <Pressable as="div" className="nb-inline" tabIndex={-1} aria-hidden="true" {...tp}>
+            <Stacked l={title} stacked={stacked} />
+          </Pressable>
+        ) : (
+          <div className="nb-inline" aria-hidden="true">
+            <Stacked l={title} stacked={stacked} />
+          </div>
+        )}
         <div className="nb-trail">
           <AnimatePresence initial={false}>
             <motion.div key={keyOf(trailing)} className="nb-trail-item" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: fadeIn }} exit={{ opacity: 0, transition: fadeOut }}>
@@ -170,18 +193,16 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
           </AnimatePresence>
         </div>
       </div>
-      <Pressable
-        as="div"
-        ref={(el: HTMLElement | null) => {
-          titleEl.current = el;
-          setRef(titleRef, el);
-        }}
-        className="nb-title"
-        label={titleLabel ?? title.cur}
-        {...tp}
-      >
-        <Stacked l={title} stacked={stacked} />
-      </Pressable>
+      {/* the page's level-1 heading (code review 1 #8); its tap and hold are the caps line's too, which is the button VoiceOver reads */}
+      {pressable ? (
+        <Pressable as="div" ref={titleRefCb} className="nb-title" role="heading" aria-level={1} tabIndex={-1} {...tp}>
+          <Stacked l={title} stacked={stacked} />
+        </Pressable>
+      ) : (
+        <h1 ref={titleRefCb} className="nb-title">
+          <Stacked l={title} stacked={stacked} />
+        </h1>
+      )}
       {children}
       <div className={`nb-gap ${gap === 24 ? 'lg' : ''}`.trim()} />
     </>
@@ -303,15 +324,20 @@ export const TodayPill = ({ onPress }: { onPress: () => void }): React.JSX.Eleme
 /** The parent's title for a pushed entry: the tab's name at depth 1, the depth-1 page's title at depth 2. */
 const useParentTitle = () => {
   const entry = usePushedEntry();
-  const st = useNavState();
-  if (!entry) return null;
-  for (const t of Object.keys(st.tabs) as Array<keyof typeof st.tabs>) {
-    const stack = st.tabs[t].stack;
-    const i = stack.findIndex((e) => e.key === entry.key);
-    if (i < 0) continue;
-    return i === 0 ? tabDef(t).label : stack[i - 1]!.title;
-  }
-  return null;
+  const ctl = useNavInternal();
+  // a selector: the chevron re-renders when its parent's title changes, not on every NavState change
+  const get = () => {
+    if (!entry) return null;
+    const st = ctl.state;
+    for (const t of Object.keys(st.tabs) as Array<keyof typeof st.tabs>) {
+      const stack = st.tabs[t].stack;
+      const i = stack.findIndex((e) => e.key === entry.key);
+      if (i < 0) continue;
+      return i === 0 ? tabDef(t).label : stack[i - 1]!.title;
+    }
+    return null;
+  };
+  return useSyncExternalStore(ctl.subscribe, get, get);
 };
 
 /** The 44 × 44 chevron of a pushed page: pops the layer it is in. Labelled with the parent's title. */
@@ -339,7 +365,9 @@ export const PushedBar = ({ title, eyebrow, trailing, backLabel }: PushedBarProp
   <header className="pushed-bar">
     <BackButton label={backLabel} />
     <div className="pb-text">
-      <span className="pb-title">{title}</span>
+      <h1 className="pb-title" tabIndex={-1}>
+        {title}
+      </h1>
       {eyebrow ? <span className="pb-eyebrow caps">{eyebrow}</span> : null}
     </div>
     <div className="pb-trail">{trailing}</div>

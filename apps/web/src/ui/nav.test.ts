@@ -25,6 +25,12 @@ describe('the route table', () => {
     expect(m.stack).toEqual([]);
   });
 
+  it("Journal's two roots carry different params (the segment is page state, consumer review 1 #7)", () => {
+    expect(matchRoute('/journal').params).toEqual({});
+    expect(matchRoute('/journal/library').params).toEqual({ segment: 'library' });
+    expect(resolveRoute('/journal/quotes').params).toEqual({ segment: 'library' });
+  });
+
   it('pushed pages imply their stacks, every implied entry with idx −1', () => {
     const morning = matchRoute('/today/2026-10-23/morning');
     expect(morning).toMatchObject({ kind: 'pushed', tab: 'today', root: '/today/2026-10-23' });

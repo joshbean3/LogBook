@@ -2,13 +2,14 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { Fragment, memo, Suspense, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { NavigationType, parsePath, Route, Routes, UNSAFE_LocationContext as LocationContext } from 'react-router';
+import { NavigationType, parsePath, Route, Routes, UNSAFE_LocationContext as LocationContext, UNSAFE_RouteContext as RouteContext } from 'react-router';
 import { outbox } from '@/api/outbox';
 import { keys } from '@/api/queries';
 import { PTR_ARM_PX, PTR_QUIET_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { matchRoute, REFRESH, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
 import { PushedLayer, StackCtx, type StackMotion } from '@/ui/PushedLayer';
+import { pointerClaimed } from '@/ui/useHold';
 import { usePress } from '@/ui/usePress';
 import { ErrorBoundary } from './ErrorBoundary';
 import { PushedEntryScope, TabScope, useNavInternal, useNavState, type Controller } from './NavController';
@@ -91,12 +92,23 @@ const ROOT_ROUTES: Record<TabId, string[]> = {
  * change, a tab tap included, re-rendered every tab's old page. The location here is pinned to the tab's (or the layer's)
  * own path and memoised on it: a URL change elsewhere re-renders nothing below.
  */
+/**
+ * The route context is reset too: the `<Routes>` around the framed app makes a new matches object on every location change
+ * (a popstate, the overlay release's back traversal included), and every nested `<Routes>` reading it re-rendered its old
+ * page with it, 100 ms at 4× on the old Plan, inside the frame a sheet's flick needed (feel review 1 #1). The roots' and the
+ * layers' patterns are absolute, so they match from an empty parent the same.
+ */
+const ROOT_ROUTE_CTX = { outlet: null, matches: [], isDataRoute: false };
 const RouteAt = ({ path, children }: { path: string; children: ReactNode }) => {
   const value = useMemo(() => {
     const p = parsePath(path);
     return { location: { pathname: p.pathname ?? '/', search: p.search ?? '', hash: p.hash ?? '', state: null, key: path }, navigationType: NavigationType.Pop };
   }, [path]);
-  return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
+  return (
+    <RouteContext.Provider value={ROOT_ROUTE_CTX}>
+      <LocationContext.Provider value={value}>{children}</LocationContext.Provider>
+    </RouteContext.Provider>
+  );
 };
 
 /** Memoised: a tab change re-renders the two sections whose `active` flips, and never their pages (the 0 ms cut). */
@@ -357,7 +369,8 @@ const usePullToRefresh = (ref: RefObject<HTMLDivElement | null>, enabled: boolea
         if (!decided) {
           if (Math.hypot(dx, dy) < 2) return;
           decided = true;
-          if (dy <= 0 || Math.abs(dx) >= dy || el.scrollTop > 0) {
+          // a hold that became a drag (an object follows the finger) is never a pull (consumer review 1 #5)
+          if (dy <= 0 || Math.abs(dx) >= dy || el.scrollTop > 0 || pointerClaimed()) {
             detach();
             return;
           }

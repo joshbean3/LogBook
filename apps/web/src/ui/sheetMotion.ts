@@ -13,8 +13,20 @@ export interface SheetMotion {
   open: boolean;
 }
 
+/*
+ * H and the top safe inset change only with the window (a rotation, a resize): they are read once and kept until a `resize`.
+ * Read live, each forced the layout of a sheet being mounted inside the open's first frame (25 ms of 70 at 4×, feel review 1
+ * #5); with Keyboard.resize 'none' the keyboard never changes them.
+ */
+let cachedH: number | null = null;
+let cachedSafeT: number | null = null;
+if (typeof window !== 'undefined')
+  window.addEventListener('resize', () => {
+    cachedH = null;
+    cachedSafeT = null;
+  });
 /** H: the `.shell` height (innerHeight): the sheet is portalled to body and covers the tab bar. */
-export const sheetH = () => (typeof window === 'undefined' ? 844 : window.innerHeight);
+export const sheetH = () => (typeof window === 'undefined' ? 844 : (cachedH ??= window.innerHeight));
 
 let current: SheetMotion = { sheetY: motionValue(sheetH()), height: motionValue(0), open: false };
 // test hook (dev and fake-clock builds), like window.__nav
@@ -47,5 +59,5 @@ export const safeTopPx = () => {
     probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:var(--safe-t, 0px);visibility:hidden;pointer-events:none';
     document.body.appendChild(probe);
   }
-  return probe.offsetHeight;
+  return (cachedSafeT ??= probe.offsetHeight);
 };

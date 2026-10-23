@@ -200,7 +200,8 @@ export const matchRoute = (pathname: string): RouteMatch => {
     }
     if (route.kind === 'full') return { kind: 'full', tab: null, root: path, stack: [], params, route };
     const tab = route.owner!;
-    if (route.kind === 'root') return { kind: 'root', tab, root: path, stack: [], params, route };
+    // Journal's segment is page state like a date (§1.2): /journal/library names it, so a root request can tell the two apart
+    if (route.kind === 'root') return { kind: 'root', tab, root: path, stack: [], params: route.pattern === '/journal/library' ? { ...params, segment: 'library' } : params, route };
     // pushed: the root under it and the layers it implies
     if (route.pattern === '/today/:date/morning') {
       const root = `/today/${params.date}`;

@@ -5,11 +5,13 @@ import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffe
 import { createPortal } from 'react-dom';
 import { TabScope, useNavInternal } from '@/app/NavController';
 import { LOCK_PX, lockAxis, PROJECT_S, SHEET_DISMISS_FRAC, SHEET_DISMISS_V, SHEET_SCROLL_LOCK_MS } from '@/lib/gesture';
+import { useKeyboardOpen } from '@/lib/keyboard';
 import { deprecated, reducedFade, sheetOpen, springs } from '@/lib/motion';
 import { restoreFocus } from './focus';
 import { focusables, holdInert } from './inert';
 import type { TabId } from './nav';
 import { safeTopPx, setSheetOpen, sheetH, sheetMotion } from './sheetMotion';
+import { pointerClaimed } from './useHold';
 
 /**
  * Sheet v3 (docs/feel.md §9.4, contracts §C.1). One sheet at a time, opened from anywhere, with a stack of panels inside it.
@@ -166,6 +168,28 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
   };
   const anim = useRef<Anim | null>(null);
   const closing = useRef(false);
+  /**
+   * At a smaller detent than the box (medium of [medium, large]) the box reaches below the screen by `off(d)`: the body's
+   * scroller ends that much higher (`--sheet-inset` pads `.sheet-stack`), so its last line and a sticky foot are reachable
+   * (consumer review 1 #2). A layout change on a snap, never animated: set at once when the sheet grows, on rest when it shrinks.
+   */
+  const inset = useRef(0);
+  const setInset = (px: number) => {
+    const v = Math.max(0, Math.round(px));
+    if (v === inset.current) return;
+    inset.current = v;
+    ref.current?.style.setProperty('--sheet-inset', `${v}px`);
+  };
+  /** A sheet taller than 80 % of the screen does not lift for the keyboard: it keeps its top, its body ends above the keys (§9.4). */
+  const markTall = () => {
+    const el = ref.current;
+    if (!el) return;
+    const H = sheetH();
+    const box = boxKind === 'large' ? H - (safeTopPx() + 10) : boxKind === 'medium' ? Math.round(0.5 * H) : el.offsetHeight;
+    el.toggleAttribute('data-tall', box > 0.8 * H);
+    // an auto sheet keeps the height it has while the keys are up (its stack's padding must not grow it)
+    if (boxKind === 'auto' && !document.documentElement.classList.contains('kb-open')) el.style.setProperty('--sheet-box-h', `${box}px`);
+  };
   const stop = () => {
     anim.current?.stop();
     anim.current = null;
@@ -195,8 +219,14 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     sheetY.jump(visual - g.off(d));
     height.set(g.vis(d));
     stop();
-    anim.current = animate(sheetY, 0, reduce ? { duration: 0 } : { ...springs.sheet, velocity: v, onComplete: onOpened });
-    if (reduce) onOpened();
+    const to = g.off(d);
+    if (to < inset.current) setInset(to);
+    const rested = () => {
+      setInset(to);
+      onOpened();
+    };
+    anim.current = animate(sheetY, 0, reduce ? { duration: 0 } : { ...springs.sheet, velocity: v, onComplete: rested });
+    if (reduce) rested();
   };
 
   // the scrim and the recede of the tab behind ride sheetY (and the reduced-motion fade)
@@ -265,6 +295,8 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     const d = cur.current;
     base.jump(g.off(d));
     height.set(g.vis(d));
+    setInset(g.off(d));
+    markTall();
     setSheetOpen(true);
     if (reduce) {
       sheetY.jump(0);
@@ -276,6 +308,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     }
     const ro = new ResizeObserver(() => {
       if (boxKind === 'auto') height.set(ref.current?.offsetHeight ?? 0);
+      markTall();
     });
     ro.observe(panel);
     register({
@@ -298,6 +331,12 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
       releaseInert.current();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the keys come up over a medium detent: the sheet goes to large (UIKit's rule), so the focused field has room
+  const kb = useKeyboardOpen();
+  useEffect(() => {
+    if (kb && !closing.current && cur.current === 'medium' && ds.includes('large')) snapTo('large', 0);
+  }, [kb]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // keep focus inside the panel
   useEffect(() => {
@@ -387,7 +426,8 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     st.y0 = e.clientY - sheetY.get();
     st.claimed = false;
     st.moved = false;
-    st.grab = !!t.closest('.sheet-grab-bar');
+    // the grabber row is the grabber's target (≥ 44 tall), its buttons excepted (feel review 1 #6)
+    st.grab = !!t.closest('.sheet-grab') && !t.closest('button:not(.sheet-grab-bar), a, input, textarea, select, [role="button"]');
     st.body = body;
     st.zone = head ? 'head' : body && body.scrollTop <= 0 && performance.now() - lastTop.current >= SHEET_SCROLL_LOCK_MS ? 'body' : null;
     const offs: Array<() => void> = [];
@@ -405,6 +445,11 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
       if (ev.pointerId !== st.id) return;
       const dx = ev.clientX - st.x0;
       const dy = ev.clientY - st.sy;
+      // a hold that became a drag inside the sheet (a step reordered) owns the pointer: the sheet stays
+      if (!st.claimed && pointerClaimed(ev.pointerId)) {
+        st.zone = null;
+        return;
+      }
       if (!st.claimed) {
         if (st.zone === 'head') st.claimed = true;
         else if (st.zone === 'body') {
@@ -467,9 +512,25 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
         onScrollCapture={onBodyScroll}
       >
         <div className="sheet-grab">
-          <div className="sheet-grab-bar" aria-hidden="true">
-            <div className="sheet-grip" />
-          </div>
+          {ds.length > 1 ? (
+            // the keyboard and VoiceOver path to the detents (code review 1 #13); a pointer's tap is handled on its release above
+            <button
+              type="button"
+              className="sheet-grab-bar"
+              aria-label={detent === 'large' ? 'Collapse sheet' : 'Expand sheet'}
+              onClick={(e) => {
+                if (e.detail !== 0) return;
+                const i = ds.indexOf(cur.current);
+                snapTo(ds[(i + 1) % ds.length]!, 0);
+              }}
+            >
+              <span className="sheet-grip" />
+            </button>
+          ) : (
+            <div className="sheet-grab-bar" aria-hidden="true">
+              <div className="sheet-grip" />
+            </div>
+          )}
           <div className="sheet-head">
             {depth > 1 ? (
               <button type="button" className="icon-btn sheet-back" aria-label="Back" title="Back" onClick={pop}>
@@ -523,11 +584,23 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
   const opener = useRef<HTMLElement | null>(null);
   /** The sheet's one overlay history entry. */
   const release = useRef<(() => void) | null>(null);
+  /**
+   * A closing sheet lets go of its history entry when it is gone, not when the close starts: the back traversal it asks for answers with
+   * a popstate that re-renders the app's router, and that work must not sit between the release and the dismiss's first
+   * frames (feel review 1 #1). Back, a tab tap or a jump during the close still find the overlay and close nothing twice.
+   */
+  const pendingRelease = useRef<(() => void) | null>(null);
+  const letGo = () => {
+    const r = pendingRelease.current;
+    pendingRelease.current = null;
+    r?.();
+  };
   const panel = useRef<PanelHandle | null>(null);
   const restore = useRef(false);
   const gone = useCallback((key: number) => {
     // a closing panel that a new open() replaced is not the sheet any more
     if (key !== st.current.key || phase.current === 'open') return;
+    letGo();
     phase.current = 'closed';
     restore.current = true;
     setState((s) => ({ ...s, stack: [] }));
@@ -539,7 +612,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
       phase.current = 'closing';
       const r = release.current;
       release.current = null;
-      if (!viaBack) r?.();
+      if (!viaBack) pendingRelease.current = r;
       for (const s of st.current.stack) s.onClose?.();
       if (panel.current) panel.current.close(how);
       else gone(st.current.key);
@@ -551,6 +624,8 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
     const capture = () => {
       const fresh = phase.current !== 'open';
       if (fresh) {
+        // a sheet still closing gives its entry back first, so the new one's entry is written on top of the page's
+        letGo();
         opener.current = (document.activeElement as HTMLElement | null) ?? null;
         release.current = ctl.openOverlay(() => beginClose({ kind: 'tween' }, true));
       }
@@ -577,6 +652,16 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
       isOpen: () => phase.current === 'open',
     };
   }, [beginClose, ctl]);
+  // H and the safe inset are read once, while nothing is happening, so the first open does not force a layout to learn them
+  useEffect(() => {
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    const warm = () => {
+      sheetH();
+      safeTopPx();
+    };
+    if (ric) ric(warm);
+    else setTimeout(warm, 500);
+  }, []);
   const up = state.stack.length > 0;
   // closed: focus goes back to the control that opened the sheet (after the panel let go of the page's inert)
   useEffect(() => {

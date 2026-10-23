@@ -6,6 +6,8 @@ import { flushSync } from 'react-dom';
 import { FLICK_V, LOCK_PX, PAGE_COMMIT_FRAC, PROJECT_S, RUBBER, lockAxis } from '@/lib/gesture';
 import { crossfade, reducedFade, springs } from '@/lib/motion';
 import { PAGE_COMMIT, type PageCommitDetail } from './nav';
+import { springAdvance, springParams, type SpringP } from './springSim';
+import { pointerClaimed } from './useHold';
 
 /**
  * DayPager v2 (docs/feel.md §9.2, §3.5; contracts §B.1): the day (week, month) pager under the bar.
@@ -113,36 +115,9 @@ const pagesBetween = (a: string, b: string, step: DayPagerProps['step']) => {
   return step === 'week' ? Math.round(days / 7) : days;
 };
 
-// ---------- the spring (mass 1), integrated in 1 ms RK4 steps ----------
-interface SpringP {
-  k: number;
-  c: number;
-  rd: number;
-  rs: number;
-}
-const sp = (t: Transition): SpringP => {
-  const s = t as { stiffness: number; damping: number; restDelta?: number; restSpeed?: number };
-  return { k: s.stiffness, c: s.damping, rd: s.restDelta ?? 1, rs: s.restSpeed ?? 30 };
-};
-const advance = (p: SpringP, pos: number, vel: number, to: number, dt: number) => {
-  const a = (x: number, v: number) => -p.k * (x - to) - p.c * v;
-  let left = dt;
-  while (left > 1e-9) {
-    const h = Math.min(0.001, left);
-    left -= h;
-    const k1x = vel;
-    const k1v = a(pos, vel);
-    const k2x = vel + (k1v * h) / 2;
-    const k2v = a(pos + (k1x * h) / 2, vel + (k1v * h) / 2);
-    const k3x = vel + (k2v * h) / 2;
-    const k3v = a(pos + (k2x * h) / 2, vel + (k2v * h) / 2);
-    const k4x = vel + k3v * h;
-    const k4v = a(pos + k3x * h, vel + k3v * h);
-    pos += (h / 6) * (k1x + 2 * k2x + 2 * k3x + k4x);
-    vel += (h / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
-  }
-  return [pos, vel] as const;
-};
+// ---------- the spring (mass 1), integrated in 1 ms RK4 steps (ui/springSim.ts) ----------
+const sp = springParams;
+const advance = springAdvance;
 const V_MAX = 4000;
 /** Test builds expose the last release (`window.__dpRun`: its start time, x, v, target and spring) to the acceptance scripts. */
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
@@ -164,6 +139,8 @@ interface Props {
   reduce: boolean;
   prev: string;
   next: string;
+  /** A 2–7 page goTo put its destination in a neighbour slot (cleared with the goTo: commit, home, a host date). */
+  ovr: boolean;
   onCommit: (d: string) => void;
 }
 type Ovr = { base: string; side: 1 | -1; date: string };
@@ -176,7 +153,7 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
   const prev = o?.side === -1 ? o.date : stepOf(date, step, -1);
   const next = o?.side === 1 ? o.date : stepOf(date, step, 1);
   const P = useRef<Props>(null as unknown as Props);
-  P.current = { date, step, min, max, ignore, reduce, prev, next, onCommit };
+  P.current = { date, step, min, max, ignore, reduce, prev, next, ovr: !!ovr, onCommit };
   const dpRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const setOvrRef = useRef(setOvr);
@@ -253,10 +230,15 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
       if (g.id === -1) moving.set(false);
       r.onRest();
     };
+    /** The goTo's destination leaves the neighbour slot with the goTo (code review 1 #2): never reapplied on a later visit. */
+    const clearOvr = () => {
+      if (P.current.ovr) setOvrRef.current(null);
+    };
     const atRest = () => {
       if (g.id === -1) moving.set(false);
       target.set(null);
       span.set(1);
+      clearOvr();
     };
     const fadeCur = (t: Transition) => {
       const cur = dpRef.current?.querySelector<HTMLElement>(':scope > .dp-track > .dp-page[data-role="cur"]');
@@ -276,6 +258,7 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
         P.current.onCommit(d);
         target.set(null);
         span.set(1);
+        clearOvr();
       });
       if (st.committing) {
         // the host kept its date: show it at rest
@@ -339,8 +322,21 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
     };
 
     // ---------- pointers ----------
+    /** A hold that became a drag owns the pointer (an object follows the finger): the pager lets it go. */
+    const abandon = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      const was = g;
+      g = { ...idle };
+      if (was.lock === 'x') release(0, was.caughtCommit);
+      else if (was.caught) {
+        if (!run) settleNearest();
+      } else if (!run) moving.set(false);
+    };
     const onMove = (e: PointerEvent) => {
       if (e.pointerId !== g.id) return;
+      if (pointerClaimed(e.pointerId)) return abandon();
       const dx = e.clientX - g.sx;
       const dy = e.clientY - g.sy;
       if (!g.lock) {
@@ -392,10 +388,11 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
     };
     const onDown = (e: PointerEvent) => {
       if (g.id !== -1 || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      const t = e.target as Element | null;
-      if (t?.closest?.(P.current.ignore)) return;
+      // every new pointer ends the swallow of the last one's click, ignored targets included (code review 1 #7)
       swallow = false;
       retarget = 0;
+      const t = e.target as Element | null;
+      if (t?.closest?.(P.current.ignore)) return;
       g = { ...idle, id: e.pointerId, sx: e.clientX, sy: e.clientY };
       if (run) {
         const w = W();
@@ -539,10 +536,27 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
     h._engine.current = { goTo: E.goTo, rebind: E.bind };
     E.bind();
     const sc = dp.closest<HTMLElement>(SCROLLER);
+    /**
+     * The pager's layout offset in its scroller, from the offsetTop chain: layout values, so a transform on an ancestor (the
+     * tab receding under a sheet, scale 0.92) cannot shrink it (code review 1 #6). A rect difference, unscaled, is the fallback.
+     */
+    const offsetIn = () => {
+      if (!sc) return 0;
+      let top = 0;
+      let e: HTMLElement | null = dp;
+      while (e && e !== sc) {
+        top += e.offsetTop;
+        const next = e.offsetParent as HTMLElement | null;
+        if (next && next !== sc && !sc.contains(next)) break;
+        e = next;
+      }
+      if (e === sc) return top;
+      const scale = sc.offsetHeight ? sc.getBoundingClientRect().height / sc.offsetHeight : 1;
+      return (dp.getBoundingClientRect().top - sc.getBoundingClientRect().top) / (scale || 1) + sc.scrollTop;
+    };
     const measure = () => {
       h._w.current = dp.clientWidth;
-      const top = sc ? dp.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop : 0;
-      dp.style.setProperty('--chrome-h', `${Math.round(top)}px`);
+      dp.style.setProperty('--chrome-h', `${Math.round(offsetIn())}px`);
     };
     measure();
     const ro = new ResizeObserver(measure);

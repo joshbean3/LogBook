@@ -133,7 +133,7 @@ export const syncStrava = async (qc: QueryClient): Promise<StravaSyncAnswer> => 
   return r;
 };
 export const STRAVA_SYNC_KEY = ['strava-sync'] as const;
-let lastSync: { at: number; promise: Promise<StravaSyncAnswer> } | null = null;
+let lastSync: { at: number; promise: Promise<StravaSyncAnswer>; quiet: boolean } | null = null;
 /**
  * The same request through the mutation cache under STRAVA_SYNC_KEY, registered synchronously so useIsMutating sees it on
  * the calling frame (the open face's status line). At most once per STRAVA_GAP_MS: a call inside the gap returns the running
@@ -142,11 +142,16 @@ let lastSync: { at: number; promise: Promise<StravaSyncAnswer> } | null = null;
  */
 export const stravaSyncNow = (qc: QueryClient, opts: { force?: boolean; quiet?: boolean } = {}): Promise<StravaSyncAnswer> => {
   const now = Date.now();
-  if (!opts.force && lastSync && now - lastSync.at < STRAVA_GAP_MS) return lastSync.promise;
+  // inside the gap the last sync answers, unless it was quiet and this one is not (the status line must see this one)
+  if (!opts.force && lastSync && now - lastSync.at < STRAVA_GAP_MS && (opts.quiet || !lastSync.quiet)) return lastSync.promise;
   const m = qc.getMutationCache().build(qc, { mutationKey: STRAVA_SYNC_KEY, mutationFn: () => syncStrava(qc), meta: opts.quiet ? { quiet: true } : undefined });
   const promise = m.execute(undefined);
-  lastSync = { at: now, promise };
-  promise.catch(() => undefined);
+  const rec = { at: now, promise, quiet: !!opts.quiet };
+  lastSync = rec;
+  // a sync that failed is not handed to the next caller: it tries again (consumer review 1 #10)
+  promise.catch(() => {
+    if (lastSync === rec) lastSync = null;
+  });
   if (!opts.quiet) {
     setChecking(1);
     const done = () => setChecking(-1);

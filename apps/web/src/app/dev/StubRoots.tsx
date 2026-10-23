@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useStravaChecking } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,17 +8,27 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import type { TabId } from '@/ui/nav';
-import { useHomeControl, useNav, useRootRequest, useRouteParams, useTab } from '../NavController';
+import { useHomeControl, useIsActiveTab, useNav, useRootRequest, useRouteParams, useTab, useTabScroller } from '../NavController';
 
 /**
  * Test-only stub tab roots and a stub pushed page (built only with VITE_FAKE_CLOCK, loaded only with `?stubs=1`): they let
  * the WP1 acceptance scripts drive jumps, root requests, tab scopes, sheets, menus, toasts and the router bridge without
  * depending on the pages other packages are rebuilding.
  */
-type Win = Window & { __rootRequests?: unknown[]; __navOf?: Partial<Record<TabId, ReturnType<typeof useNav>>> };
+type Win = Window & { __rootRequests?: unknown[]; __navOf?: Partial<Record<TabId, ReturnType<typeof useNav>>>; __activeRenders?: Partial<Record<TabId, number>>; __drags?: string[]; __syncs?: string[] };
 const w = window as Win;
 w.__rootRequests ??= [];
 w.__navOf ??= {};
+w.__activeRenders ??= {};
+w.__drags ??= [];
+w.__syncs ??= [];
+
+/** Counts its renders: a memoised component that only reads useIsActiveTab() (WP2's RunLanding / WeekCard do). */
+const ActiveProbe = memo(function ActiveProbe({ tab }: { tab: TabId }) {
+  const on = useIsActiveTab();
+  w.__activeRenders![tab] = (w.__activeRenders![tab] ?? 0) + 1;
+  return <span className="stub-active" data-on={on ? 'true' : 'false'} hidden />;
+});
 
 const Probe = () => {
   // the sheet body: its tab, its nav and its toast must all work (contracts §C.1)
@@ -97,6 +107,9 @@ export const StubRoot = ({ tab }: { tab: TabId }) => {
         <button type="button" className="stub-sync-quiet" style={{ minHeight: 44 }} onClick={() => void stravaSyncNow(qc, { force: true, quiet: true })}>
           quiet sync
         </button>
+        <button type="button" className="stub-sync" style={{ minHeight: 44 }} onClick={() => void stravaSyncNow(qc).then(() => w.__syncs!.push('ok'), () => w.__syncs!.push('err'))}>
+          sync
+        </button>
         <input className="stub-input" placeholder="Type here" style={{ minHeight: 44, width: '100%' }} />
       </div>
       <div data-shared="stub-line" className="stub-line" style={{ margin: '12px 16px', height: 44, background: 'var(--accent)', borderRadius: 12, width: 200 }} />
@@ -112,16 +125,35 @@ export const StubRoot = ({ tab }: { tab: TabId }) => {
       >
         Hold me
       </Pressable>
+      <ActiveProbe tab={tab} />
+      <Pressable
+        as="div"
+        className="stub-drag"
+        style={{ minHeight: 60, margin: '8px 16px', background: 'var(--surface-2)', borderRadius: 12, display: 'grid', placeItems: 'center' }}
+        holdMenu={[{ label: 'Nothing', onSelect: () => undefined }]}
+        onDragStart={() => w.__drags!.push(`start ${tab}`)}
+        onDragMove={(p) => w.__drags!.push(`move ${Math.round(p.dx)},${Math.round(p.dy)}`)}
+        onDragEnd={(_p, _e, cancelled) => w.__drags!.push(`end ${cancelled ? 'cancelled' : 'ok'}`)}
+      >
+        Hold, then drag me
+      </Pressable>
       <Filler />
     </div>
   );
 };
 
-/** A stub pushed page (the flyer's destination). */
-export const StubPushed = () => (
-  <div className="page" style={{ background: 'rgb(20, 40, 60)', minHeight: '100%' }}>
+/** A stub pushed page (the flyer's destination). It reports which scroller useTabScroller() gives it (data-scroller). */
+export const StubPushed = () => {
+  const sc = useTabScroller();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.dataset.scroller = sc.current ? String(sc.current.className).split(' ')[0]! : 'none';
+  });
+  return (
+  <div ref={ref} className="page stub-pushed" style={{ background: 'rgb(20, 40, 60)', minHeight: '100%' }}>
     <PushedBar title="Stub" />
     <div data-shared="stub-line" className="stub-line" style={{ margin: '40px 16px', height: 88, background: 'var(--accent)', borderRadius: 12, width: 300 }} />
     <Filler n={10} />
   </div>
-);
+  );
+};

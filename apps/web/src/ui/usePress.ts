@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from 'react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** How far the pointer may leave the element's rect before the press lets go (re-armed on return). */
 const LEAVE_SLOP = 12;
@@ -16,34 +16,72 @@ export const usePress = (opts: { disabled?: boolean; /** WP1-internal: Pressable
   const [pressed, setPressed] = useState(false);
   // a caller that never reads `pressed` (the attribute is the press) never re-renders for it
   const read = useRef(false);
-  const s = useRef<{ id: number; el: HTMLElement | null }>({ id: -1, el: null });
+  const s = useRef<{ id: number; el: HTMLElement | null; off: (() => void) | null }>({ id: -1, el: null, off: null });
   const set = (el: HTMLElement | null, on: boolean) => {
     if (!el) return;
     if (on) el.setAttribute('data-pressed', '');
     else el.removeAttribute('data-pressed');
     if (read.current) setPressed(on);
   };
+  const release = () => {
+    const st = s.current;
+    st.off?.();
+    set(st.el, false);
+    s.current = { id: -1, el: null, off: null };
+  };
+  useEffect(() => () => s.current.off?.(), []);
   const end = (e: React.PointerEvent<HTMLElement>) => {
-    if (e.pointerId !== s.current.id) return;
-    set(s.current.el, false);
-    s.current = { id: -1, el: null };
+    if (e.pointerId === s.current.id) release();
   };
   const handlers: Handlers = {
     onPointerDown: (e) => {
       if (opts.disabled || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
       if (opts.ignore && e.target instanceof Element && e.target.closest(opts.ignore)) return;
-      s.current = { id: e.pointerId, el: e.currentTarget };
-      set(e.currentTarget, true);
+      release();
+      const el = e.currentTarget;
+      const id = e.pointerId;
+      set(el, true);
+      /*
+       * The pointer is followed from window listeners, not the element's own: a pager, the edge pop or a swipe row that
+       * captures the pointer mid-press takes its up and its moves away from this element (code review 1 #3). Taken by
+       * another element's capture, the press ends at once (the page is moving now, not this control).
+       */
+      const move = (ev: PointerEvent) => {
+        if (ev.pointerId !== id) return;
+        // the hold took over at 450 ms (data-pressed went as data-lifting came): the press does not come back
+        if (el.hasAttribute('data-lifting')) return;
+        const r = el.getBoundingClientRect();
+        const inside = ev.clientX >= r.left - LEAVE_SLOP && ev.clientX <= r.right + LEAVE_SLOP && ev.clientY >= r.top - LEAVE_SLOP && ev.clientY <= r.bottom + LEAVE_SLOP;
+        if (inside !== el.hasAttribute('data-pressed')) set(el, inside);
+      };
+      const up = (ev: PointerEvent) => {
+        if (ev.pointerId === id) release();
+      };
+      const got = (ev: PointerEvent) => {
+        if (ev.pointerId !== id) return;
+        const t = ev.target as Node | null;
+        if (t && t !== el && !el.contains(t)) release();
+      };
+      const cap = { capture: true, passive: true } as const;
+      // up and cancel in the bubble phase: after the element's own handlers (a tab item reads data-pressed in its pointerup)
+      const bub = { capture: false } as const;
+      window.addEventListener('pointermove', move, cap);
+      window.addEventListener('gotpointercapture', got, cap);
+      window.addEventListener('pointerup', up, bub);
+      window.addEventListener('pointercancel', up, bub);
+      s.current = {
+        id,
+        el,
+        off: () => {
+          window.removeEventListener('pointermove', move, cap);
+          window.removeEventListener('gotpointercapture', got, cap);
+          window.removeEventListener('pointerup', up, bub);
+          window.removeEventListener('pointercancel', up, bub);
+        },
+      };
     },
-    onPointerMove: (e) => {
-      const st = s.current;
-      if (e.pointerId !== st.id || !st.el) return;
-      // the hold took over at 450 ms (data-pressed went as data-lifting came): the press does not come back
-      if (st.el.hasAttribute('data-lifting')) return;
-      const r = st.el.getBoundingClientRect();
-      const inside = e.clientX >= r.left - LEAVE_SLOP && e.clientX <= r.right + LEAVE_SLOP && e.clientY >= r.top - LEAVE_SLOP && e.clientY <= r.bottom + LEAVE_SLOP;
-      if (inside !== st.el.hasAttribute('data-pressed')) set(st.el, inside);
-    },
+    // the window listeners own the pointer once it is down; the element's own events end the press first when they come
+    onPointerMove: () => undefined,
     onPointerUp: end,
     onPointerCancel: end,
     onPointerLeave: (e) => {
@@ -66,7 +104,7 @@ export const usePress = (opts: { disabled?: boolean; /** WP1-internal: Pressable
  * the same rules (cleared on up / cancel / 12 px outside, re-armed on return), so every `:active` scale rule could go
  * (§11.1). The move/up listeners exist only while a pointer is pressing.
  */
-const DELEGATED = '.btn, .icon-btn, .chip-btn, .dcell, .avatar, .daystep-arrow, .daystep-today, .link, .lrow.tappable, label.lrow, .aura[role="button"], .aura-share, .cm-item, .gal-edge-row';
+const DELEGATED = '.btn, .icon-btn, .chip-btn, .seg-btn, .dcell, .avatar, .daystep-arrow, .daystep-today, .link, .lrow.tappable, label.lrow, .aura[role="button"], .aura-share, .cm-item, .gal-edge-row';
 let delegating = false;
 export const startPressDelegate = () => {
   if (delegating || typeof window === 'undefined') return;
@@ -94,10 +132,17 @@ export const startPressDelegate = () => {
         window.removeEventListener('pointermove', move, opt);
         window.removeEventListener('pointerup', end, opt);
         window.removeEventListener('pointercancel', end, opt);
+        window.removeEventListener('gotpointercapture', got, opt);
+      };
+      // another element captured the pointer (the pager, a swipe row): the press ends
+      const got = (ev: PointerEvent) => {
+        const t = ev.target as Node | null;
+        if (ev.pointerId === id && t && t !== el && !el.contains(t)) end(ev);
       };
       window.addEventListener('pointermove', move, opt);
       window.addEventListener('pointerup', end, opt);
       window.addEventListener('pointercancel', end, opt);
+      window.addEventListener('gotpointercapture', got, opt);
     },
     opt,
   );

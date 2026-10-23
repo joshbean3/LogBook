@@ -215,6 +215,9 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    // a new pointer: the last swipe's swallowed click is over (a moved touch makes no click; the next tap, on the revealed
+    // action included, is a tap: consumer review 1 #3)
+    g.current.swallow = false;
     hold.handlers.onPointerDown(e);
     const st = g.current;
     if (disabled || st.busy || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;

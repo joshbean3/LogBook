@@ -1,6 +1,6 @@
 import { animate, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { springs } from '@/lib/motion';
+import { forRange, springs } from '@/lib/motion';
 import { useFirstToday } from './useFirstToday';
 
 export interface TickerProps {
@@ -47,7 +47,8 @@ export const Ticker = ({ value, format = (v) => String(Math.round(v)), from, onc
       return;
     }
     if (mv.get() === value) return;
-    const c = animate(mv, value, springs.number);
+    // rest thresholds in the number's own units: px thresholds would end a 6.2-mile count a whole mile early
+    const c = animate(mv, value, forRange(springs.number, value - mv.get()));
     return () => c.stop();
   }, [value, reduce, mv]);
   // a format change (units) rewrites the shown value

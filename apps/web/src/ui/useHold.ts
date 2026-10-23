@@ -68,6 +68,15 @@ export interface HoldHandlers {
   onClickCapture: (e: React.MouseEvent<HTMLElement>) => void;
 }
 
+/**
+ * Pointers a hold has claimed: a hold whose element can be dragged (`onDragStart`) owns its pointer from the 450 ms lift
+ * until it is released, so the pager, the edge pop, the sheet's drag and pull to refresh let it go (consumer review 1 #1,
+ * #5). A hold with nothing to drag (the hero) claims nothing: a move after it pages, as §11.2 says. WP1-internal.
+ */
+const claims = new Set<number>();
+/** True when `id` (or, with no id, any pointer) is held for a drag. */
+export const pointerClaimed = (id?: number) => (id === undefined ? claims.size > 0 : claims.has(id));
+
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const sourceOf = (t: string): HoldInfo['source'] => (t === 'pen' ? 'pen' : t === 'mouse' ? 'mouse' : 'touch');
 
@@ -101,6 +110,7 @@ export const useHold = (opts: HoldOpts): { handlers: HoldHandlers; cancel: () =>
     clearTimers();
     st.off?.();
     st.off = null;
+    claims.delete(st.id);
     st.id = -1;
     st.el?.removeAttribute('data-preholding');
     if (st.lifted) {
@@ -127,6 +137,7 @@ export const useHold = (opts: HoldOpts): { handlers: HoldHandlers; cancel: () =>
     if (pointer) {
       st.swallow = true;
       state.current = 'held';
+      if (o.current.onDragStart) claims.add(st.id);
     }
     const el = targetEl(info.target);
     // a keyboard or right-click hold has no pointer to end a lift: the menu it opens lifts the element itself

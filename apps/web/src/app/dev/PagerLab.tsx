@@ -22,6 +22,7 @@ const STATUS: StripStatus[] = ['done', 'floor', 'rest', 'missed', 'planned', 'pl
 type LabWin = Window & {
   __lab?: { date: () => string; setDate: (d: string) => void; renders: number; taps: string[]; today: string; setWord: (w: string | null) => void; titlePresses: number };
   __pager?: ReturnType<typeof useDayPagerHandle>;
+  __drags?: string[];
 };
 const w = window as LabWin;
 
@@ -55,6 +56,18 @@ const StubPage = ({ date, live, today, tools }: { date: string; live: boolean; t
       </div>
       {tools}
       <input className="lab-input" placeholder="A field (never pages)" aria-label="Lab field" />
+      {live ? (
+        <Pressable
+          as="div"
+          className="lab-drag"
+          holdMenu={[{ label: 'Nothing', onSelect: () => undefined }]}
+          onDragStart={() => (w.__drags ??= []).push(`start ${date}`)}
+          onDragMove={(p) => (w.__drags ??= []).push(`move ${Math.round(p.dx)},${Math.round(p.dy)}`)}
+          onDragEnd={(_p, _e, cancelled) => (w.__drags ??= []).push(`end ${cancelled ? 'cancelled' : 'ok'}`)}
+        >
+          Hold, then drag (a Plan row)
+        </Pressable>
+      ) : null}
       {Array.from({ length: Math.floor((heightOf(date) - 300) / 120) }, (_, i) => (
         <div key={i} className="lab-row">
           Row {i + 1}

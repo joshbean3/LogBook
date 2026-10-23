@@ -79,6 +79,15 @@ export const COMPLETE_SCALE = 1.12;
  * thresholds of `springFor` (|Δ| ≤ 1, |v| ≤ 30) would end a 1.00 → 1.03 lift on its first frame.
  */
 export const forScale = (t: Transition): Transition => ({ ...t, restDelta: 0.0005, restSpeed: 0.01 });
+/**
+ * A spring for a value that travels `span` units (a Ticker's 6.2 miles, a ring's pathLength 0 → 1): the same stiffness and
+ * damping, with the rest thresholds scaled to the travel (1/1000 of it, like motion's 0–1000 progress for a FLIP), so the
+ * last frame snaps by a thousandth of the change, never by a whole unit (consumer review 1 #4).
+ */
+export const forRange = (t: Transition, span: number): Transition => {
+  const u = Math.max(1e-6, Math.abs(span)) / 1000;
+  return { ...t, restDelta: u, restSpeed: 30 * u };
+};
 
 /** The transition for a spring, given the reduced-motion setting. */
 export const motionFor = (name: SpringName, reduce: boolean | null | undefined): Transition => (reduce ? reducedFade : named[name]);

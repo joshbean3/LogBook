@@ -66,9 +66,11 @@ body {
   position: absolute;
   inset: 0;
   overflow: clip;
-}
-.stack-host[data-empty] {
+  /* only its layers take touches: a layer that is gone (or covered) can never swallow one meant for the root */
   pointer-events: none;
+}
+.stack-host > .pushed {
+  pointer-events: auto;
 }
 /* a pushed page: opaque, its own scroller, the edge pop claims pointers within 24 px of its left edge (pan-y keeps scrolling) */
 .pushed {

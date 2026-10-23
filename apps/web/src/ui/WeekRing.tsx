@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'motion/react';
 import type { ReactNode } from 'react';
-import { springs } from '@/lib/motion';
+import { forRange, springs } from '@/lib/motion';
 import { useFirstToday } from './useFirstToday';
 import { usePress } from './usePress';
 
@@ -32,6 +32,8 @@ const GAP_PX = { 40: 3, 64: 4 } as const;
 /** Track and arc width. */
 const STROKE = { 40: 3, 64: 5 } as const;
 const SEG = 360 / 7;
+/** The once-a-day fill: pathLength 0 → 1 on springs.number, rest thresholds in pathLength units (px ones end it on frame one). */
+const RING_FILL = forRange(springs.number, 1);
 const polar = (cx: number, cy: number, r: number, deg: number) => {
   const a = ((deg - 90) * Math.PI) / 180;
   return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as const;
@@ -105,7 +107,7 @@ export const WeekRing = ({ days, size = 40, today, marked, label, onceADay = 'we
         const d = arc(c, c, r, a0, a1);
         if (st === 'missed') return <path key={i} className="wring-gap" data-day={i} d={d} fill="none" stroke="var(--ink-4)" strokeWidth={stroke} />;
         if (animateFill && (st === 'done' || st === 'floor'))
-          return <motion.path key={i} className={`wring-day wring-${st}`} d={d} fill="none" stroke={COLOR[st]} strokeWidth={stroke} initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={springs.number} />;
+          return <motion.path key={i} className={`wring-day wring-${st}`} d={d} fill="none" stroke={COLOR[st]} strokeWidth={stroke} initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={RING_FILL} />;
         return <path key={i} className={`wring-day wring-${st}`} d={d} fill="none" stroke={COLOR[st]} strokeWidth={stroke} />;
       })}
       {marked != null && marked >= 0 && marked < 7 ? (

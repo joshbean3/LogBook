@@ -1,16 +1,24 @@
-import { animate, motion, useMotionValue, useReducedMotion, useTransform, type AnimationPlaybackControls, type MotionValue } from 'motion/react';
+import { animate, cancelFrame, frame, motion, useMotionValue, useReducedMotion, useTransform, type AnimationPlaybackControls, type FrameData, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { useNavInternal, type LayerControl } from '@/app/NavController';
+import { PushedScrollerScope, useNavInternal, type LayerControl } from '@/app/NavController';
 import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis, POP_COMMIT_FRAC, POP_COMMIT_V } from '@/lib/gesture';
 import { springs } from '@/lib/motion';
+import { restoreFocus } from './focus';
 import type { PushedEntry, TabId } from './nav';
+import { springAdvance, springParams } from './springSim';
+import { pointerClaimed } from './useHold';
 
 /**
  * A pushed page (docs/feel.md §9.3, contracts §A.4). One MotionValue `x` per layer (0 at rest, W off screen right); the layer
  * under it rides `x` through three bindings: its translate (−0.3 × (W − x)), the scrim of this depth (0.12 × (1 − x/W)) and
  * this layer's left shadow (0.6 × (1 − x/W)). The edge pop is pointer events on the layer itself, claimed within 24 px of
  * its CURRENT left edge, so a push in flight can be caught. Rendered by the Shell only.
+ *
+ * Leaving is a promise kept to every caller: each `leave(done)` is remembered until the layer has left (`done(true)`) or a
+ * catch brought it home (`done(false)`), so a pop-all, a chevron pop and an edge pop that overlap all finish together. In a
+ * pop-all of two layers the depth-1 page is covered (hidden under the top one) and the root rides the top layer's x, so only
+ * the top page slides off while the root comes from −30 % (UIKit's pop to root never shows the middle page).
  */
 
 /** The motion values a tab's stack shares (the Shell owns them). */
@@ -41,7 +49,7 @@ export interface PushedLayerProps {
 }
 
 interface Running {
-  controls: AnimationPlaybackControls;
+  controls: Pick<AnimationPlaybackControls, 'stop'>;
   target: number;
   onDone: () => void;
   token: number;
@@ -54,13 +62,20 @@ interface Flight {
   dst: HTMLElement | null;
 }
 
+/** One frame of a 60 Hz display: the push's first painted frame shows the spring this far in. */
+const FRAME_S = 1 / 60;
+const PAGE = springParams(springs.page);
+
 export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps): React.JSX.Element => {
   const ctl = useNavInternal();
   const sm = useContext(StackCtx);
   if (!sm) throw new Error('PushedLayer outside the Shell');
   const reduce = !!useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
+  const shadowRef = useRef<HTMLDivElement>(null);
   const [slide] = useState(() => ctl.takeSlideIn(entry.key));
+  // the control that opened this page gets focus back when it pops (a push only; a cold-start layer has no opener)
+  const [opener] = useState(() => (slide && typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null));
   const x = useMotionValue(slide && !reduce ? (typeof window === 'undefined' ? 390 : window.innerWidth) : 0);
   const fade = useMotionValue(slide && reduce ? 0 : 1);
   const zero = useMotionValue(0);
@@ -72,11 +87,22 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   const seq = useRef(0);
   const gone = useRef(false);
   const flight = useRef<Flight | null>(null);
+  /** Everyone waiting for this layer to leave (a pop, a pop-all, a jump), answered together. */
+  const waiters = useRef<Array<(left: boolean) => void>>([]);
+  /** A pop-all of two layers: this (top) layer drives the root's bindings instead of the depth-1 layer's. */
+  const allMode = useRef(false);
+  /** A pop-all of two layers: this (depth-1) layer is hidden under the top one and writes nothing. */
+  const covered = useRef(false);
+  const settleWaiters = (left: boolean) => {
+    const w = waiters.current;
+    waiters.current = [];
+    for (const f of w) f(left);
+  };
 
   // ---------- the flyer (entry.shared): a fixed copy, portalled to body, rect to rect with p = 1 − x/W ----------
   const sel = entry.shared ? `[data-shared="${CSS.escape(entry.shared)}"]` : null;
   const startFly = () => {
-    if (!sel || reduce || flight.current) return;
+    if (!sel || reduce || flight.current || allMode.current || covered.current) return;
     const src = parent.current?.querySelector<HTMLElement>(sel);
     if (!src) return;
     const r = src.getBoundingClientRect();
@@ -115,11 +141,21 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
 
   // ---------- the bindings ----------
   const apply = () => {
+    if (covered.current) return;
     const w = width();
     const px = Math.max(0, Math.min(1, 1 - x.get() / w));
     const p = Math.min(px, fade.get());
-    sm.offsets[depth - 1]!.set(-0.3 * w * px);
-    sm.scrims[depth - 1]!.set(0.12 * p);
+    // reduced motion: x/y moves become fades (§10.2), so the page under never slides; only its scrim follows the fade
+    const off = reduce ? 0 : -0.3 * w * px;
+    if (allMode.current && depth === 2) {
+      // the depth-1 page is covered: the root is what shows beside this layer
+      sm.offsets[0].set(off);
+      sm.scrims[0].set(0.12 * p);
+      sm.scrims[1].set(0);
+    } else {
+      sm.offsets[depth - 1]!.set(off);
+      sm.scrims[depth - 1]!.set(0.12 * p);
+    }
     shadow.set(0.6 * p);
     moveFly(px);
   };
@@ -147,25 +183,91 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     running.current = null;
     r?.controls.stop();
   };
+  /** Back to rest at 0 (a catch let go short of the pop): every pending leave is answered `false`. */
   const home = (v: number) => {
     stop();
+    if (allMode.current) {
+      allMode.current = false;
+      apply();
+    }
+    settleWaiters(false);
     if (reduce) {
       x.jump(0);
       return atRest();
     }
     run(animate(x, 0, { ...springs.page, velocity: v }), 0, atRest);
   };
-  const leave = (v: number, done: () => void) => {
-    if (gone.current) return;
+  const leave = (v: number, done?: (left: boolean) => void, opts: { all?: boolean } = {}) => {
+    if (done) waiters.current.push(done);
+    if (gone.current) return settleWaiters(true);
+    if (opts.all && depth === 2 && !allMode.current) {
+      allMode.current = true;
+      endFly();
+      apply();
+    }
+    const W = width();
+    // already on its way out: the new waiter rides along
+    if (running.current && running.current.target === W) return;
     stop();
     setParentInert(false);
     startFly();
     const finish = () => {
       gone.current = true;
-      done();
+      settleWaiters(true);
     };
-    if (reduce) return run(animate(fade, 0, { duration: 0.12, ease: 'linear' }), width(), finish);
-    run(animate(x, width(), { ...(Math.abs(v) >= FLICK_V ? springs.pageFlick : springs.page), velocity: v }), width(), finish);
+    if (reduce) return run(animate(fade, 0, { duration: 0.12, ease: 'linear' }), W, finish);
+    run(animate(x, W, { ...(Math.abs(v) >= FLICK_V ? springs.pageFlick : springs.page), velocity: v }), W, finish);
+  };
+  /** Pop-all of two layers: the depth-1 layer hides under the top one (it leaves with it), or comes back. */
+  const cover = (on: boolean) => {
+    if (covered.current === on) return;
+    covered.current = on;
+    for (const el of [ref.current, shadowRef.current]) if (el) el.style.visibility = on ? 'hidden' : '';
+    if (on) {
+      stop();
+      endFly();
+      setParentInert(false);
+    } else {
+      apply();
+      if (!running.current) setParentInert(true);
+    }
+  };
+
+  /**
+   * The push starts on the frame that first paints the layer, never earlier: the first painted frame shows the spring one
+   * frame in, and from the next frame on the spring runs on its own clock from two frames in. A heavy page's first render
+   * and first paint (the mount, its style and layout) are not counted as elapsed time, so the slide is never skipped.
+   */
+  const startPush = () => {
+    const W = width();
+    x.jump(W);
+    startFly();
+    apply();
+    // in motion's own frame step (not a separate rAF), so the layer's transform, which motion renders, and the bindings
+    // written from x's change (the parent, the scrim, the flyer) land on the same frame
+    let step: ((d: FrameData) => void) | null = null;
+    const token = ++seq.current;
+    running.current = { controls: { stop: () => step && cancelFrame(step) }, target: 0, onDone: atRest, token };
+    step = () => {
+      if (running.current?.token !== token) return;
+      x.set(springAdvance(PAGE, W, 0, 0, FRAME_S)[0]);
+      step = () => {
+        if (running.current?.token !== token) return;
+        step = null;
+        const [p2, v2] = springAdvance(PAGE, W, 0, 0, 2 * FRAME_S);
+        x.set(p2);
+        run(animate(x, 0, { ...springs.page, velocity: v2 }), 0, pushRest);
+      };
+      frame.update(step);
+    };
+    frame.update(step);
+  };
+  /** A push at rest: the parent goes inert and focus moves into the new page (its title), for VoiceOver and the keyboard. */
+  const pushRest = () => {
+    atRest();
+    const t = ref.current?.querySelector<HTMLElement>('.pushed-bar .pb-title');
+    const a = document.activeElement;
+    if (t && (!a || a === document.body || !ref.current?.contains(a))) t.focus({ preventScroll: true });
   };
 
   useLayoutEffect(() => {
@@ -173,13 +275,8 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     const offF = fade.on('change', apply);
     const offC = childOffset.on('change', () => moveFly(Math.max(0, Math.min(1, 1 - x.get() / width()))));
     if (slide) {
-      if (reduce) run(animate(fade, 1, { duration: 0.12, ease: 'linear' }), 0, atRest);
-      else {
-        x.jump(width());
-        startFly();
-        apply();
-        run(animate(x, 0, springs.page), 0, atRest);
-      }
+      if (reduce) run(animate(fade, 1, { duration: 0.12, ease: 'linear' }), 0, pushRest);
+      else startPush();
     } else atRest();
     apply();
     const offsets = sm.offsets;
@@ -191,14 +288,28 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
       offC();
       stop();
       endFly();
-      offsets[depth - 1]!.set(0);
-      scrims[depth - 1]!.set(0);
+      if (!covered.current) {
+        offsets[depth - 1]!.set(0);
+        scrims[depth - 1]!.set(0);
+      }
+      if (allMode.current) {
+        offsets[0].set(0);
+        scrims[0].set(0);
+      }
       if (parentEl) parentEl.inert = false;
+      // removed some other way: whoever waited for it to leave is answered (after this commit)
+      if (waiters.current.length) queueMicrotask(() => settleWaiters(true));
+      // a pop: focus goes back to the control that opened the page, if it would otherwise be lost
+      if (opener)
+        queueMicrotask(() => {
+          const a = document.activeElement;
+          if (opener.isConnected && (!a || a === document.body) && !opener.closest('[inert]')) restoreFocus(opener);
+        });
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const c: LayerControl = { leave: (done) => leave(0, done) };
+    const c: LayerControl = { leave: (done, opts) => leave(0, done, opts), cover };
     return ctl.registerLayer(entry.key, c);
   }); // re-registered each render so `leave` sees the current reduce flag
 
@@ -222,7 +333,8 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     swallow.current = false;
     if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0) || gone.current) return;
-    if (e.clientX - x.get() > EDGE_PX) return;
+    // the band is measured from the edge as it is shown (a depth-1 layer under a moving depth-2 one is offset)
+    if (e.clientX - shownX.get() > EDGE_PX) return;
     let caught = false;
     const r = running.current;
     if (r) {
@@ -244,13 +356,19 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const st = g.current;
     if (!st || e.pointerId !== st.id) return;
+    // a hold that became a drag owns this pointer (an object follows the finger)
+    if (!st.lock && pointerClaimed(e.pointerId)) {
+      g.current = null;
+      if (st.caught) home(0);
+      return;
+    }
     if (!st.lock) {
       const dx = e.clientX - st.sx;
       const dy = e.clientY - st.sy;
       if (Math.hypot(dx, dy) < LOCK_PX) return;
       if (lockAxis(dx, dy) === 'x' && dx > 0) {
+        // §9.3: x0 stays where the pointer went down (no re-base at the lock): the layer then sits exactly under the finger
         st.lock = 'x';
-        st.x0 = e.clientX - x.get();
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
         } catch {
@@ -304,24 +422,26 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
 
   return (
     <>
-    <motion.div className="pushed-shadow" aria-hidden="true" style={{ x: shownX, opacity: shadow }} />
-    <motion.div
-      ref={(el: HTMLDivElement | null) => {
-        ref.current = el;
-        if (depth === 1) sm.layer1.current = el;
-      }}
-      className="pushed"
-      data-depth={depth}
-      data-key={entry.key}
-      style={{ x: shownX, opacity: fade }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerEnd}
-      onPointerCancel={onPointerEnd}
-      onClickCapture={onClickCapture}
-    >
-      <LayerCtx.Provider value={layerApi}>{children}</LayerCtx.Provider>
-    </motion.div>
+      <motion.div ref={shadowRef} className="pushed-shadow" aria-hidden="true" style={{ x: shownX, opacity: shadow }} />
+      <motion.div
+        ref={(el: HTMLDivElement | null) => {
+          ref.current = el;
+          if (depth === 1) sm.layer1.current = el;
+        }}
+        className="pushed"
+        data-depth={depth}
+        data-key={entry.key}
+        style={{ x: shownX, opacity: fade }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onClickCapture={onClickCapture}
+      >
+        <PushedScrollerScope scroller={ref}>
+          <LayerCtx.Provider value={layerApi}>{children}</LayerCtx.Provider>
+        </PushedScrollerScope>
+      </motion.div>
     </>
   );
 };

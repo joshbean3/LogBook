@@ -187,8 +187,10 @@
   }
 }
 
-/* ---------- Pressable ---------- */
-.pressable {
+/* ---------- Pressable ----------
+ * The reset has no specificity (:where), so a component's own single-class style (a card's padding, a row's background)
+ * always wins over it, whatever order the stylesheets load in (consumer review 1 #8). */
+:where(.pressable) {
   appearance: none;
   background: none;
   border: 0;
@@ -813,6 +815,37 @@ button.tabh-date::after,
   display: grid;
   place-items: center;
 }
+button.sheet-grab-bar {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  border-radius: var(--r-md);
+}
+button.sheet-grab-bar .sheet-grip {
+  display: block;
+}
+/* a smaller detent than the box: the body's scroller ends at the screen's bottom (Sheet.tsx writes --sheet-inset on a snap) */
+.sheet-stack {
+  padding-bottom: var(--sheet-inset, 0px);
+}
+/* a sheet taller than 80 % of the screen keeps its top when the keys come: no lift, its body ends above them (§9.4) */
+.sheet[data-tall] {
+  bottom: 0;
+  transition: none;
+}
+.sheet[data-tall]:not([data-box='large']) {
+  max-height: calc(100% - var(--safe-t) - 10px);
+}
+html.kb-open .sheet[data-tall][data-box='auto'] {
+  height: var(--sheet-box-h, auto);
+}
+.sheet[data-tall] .sheet-stack {
+  padding-bottom: calc(var(--sheet-inset, 0px) + var(--kb, 0px));
+}
 .sheet-grab-bar .sheet-grip {
   margin: 0;
 }
@@ -1061,6 +1094,20 @@ button.tabh-date::after,
   font: 600 17px/22px var(--sans);
   color: var(--ink);
 }
+/* the dim press, relative to the fade the scroll gives each (the plain rule would lose to their opacity) */
+.nb-title[data-pressed][data-press='dim'] {
+  opacity: calc(0.55 * (1 - var(--hdr, 0)));
+}
+.nb-bar .nb-inline[data-pressed][data-press='dim'] {
+  opacity: calc(0.55 * var(--hdr, 0));
+}
+/* the inline title takes taps only once it shows (collapsed): at rest it is invisible over the caps line */
+.nb-bar .nb-inline {
+  pointer-events: none;
+}
+.nb-bar.is-collapsed .nb-inline {
+  pointer-events: auto;
+}
 .nb-bar .nb-inline[data-preholding] {
   transform: translateX(-50%) scale(1.02);
 }
@@ -1091,7 +1138,7 @@ button.tabh-date::after,
   gap: 4px;
   height: 44px;
 }
-.nb-title.pressable {
+.nb-title {
   position: relative;
   display: block;
   /* the row is 44 (§2.1: 4 above a 34/40 line); the 4 is padding, not margin, so the title's target is 44 tall (§2.3) */
@@ -1232,12 +1279,23 @@ button.tabh-date::after,
 .nb-gap.lg {
   height: 24px;
 }
+/*
+ * A paged tab root's page element (contracts §A.3): full-bleed, no gutter and no bottom padding of its own (the cur page
+ * carries the padding, so its min-height includes it). `.page` is for unpaged roots (consumer review 1 #11).
+ */
+.page-root {
+  position: relative;
+  display: block;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
 /* a NavBar inside an old padded .page (the TabHeader adapter): the bar and the strip break out of the gutter */
 .page > .nb-bar,
 .page > .nb-strip {
   margin-inline: calc(-1 * var(--gutter));
 }
-.page > .nb-title.pressable {
+.page > .nb-title {
   margin-inline: calc(16px - var(--gutter));
 }
 .page:has(> .nb-bar:first-child) {
@@ -1270,7 +1328,9 @@ button.tabh-date::after,
   height: calc(44px + var(--safe-t));
   padding-top: var(--safe-t);
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  /* the trailing 44 keeps the root bar's 16 px gutter (the avatar does not move on a push); the leading column matches it so
+     the title stays centred, the chevron at the edge (feel review 1 #10) */
+  grid-template-columns: 60px minmax(0, 1fr) 60px;
   align-items: center;
   background: var(--bg);
   box-sizing: border-box;
@@ -1286,6 +1346,7 @@ button.tabh-date::after,
   min-width: 0;
 }
 .pb-title {
+  margin: 0;
   max-width: 100%;
   font: 600 17px/22px var(--sans);
   color: var(--ink);
@@ -1303,6 +1364,11 @@ button.tabh-date::after,
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  padding-right: 16px;
+}
+/* focus lands on the title when a page is pushed (for VoiceOver and the keyboard), without a ring on a heading */
+.pb-title:focus {
+  outline: none;
 }
 .pushed-bar.is-collapsed {
   box-shadow: 0 1px 0 var(--line);
@@ -1372,6 +1438,14 @@ button.tabh-date::after,
 .seg-label {
   position: relative;
   z-index: 1;
+}
+/* the press on touch-down (§11.1): a segment's label dims; the thumb answers the change itself (consumer review 1 #9) */
+.seg-label {
+  transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.seg-btn[data-pressed]:not(:disabled) .seg-label {
+  opacity: 0.55;
+  transition-duration: 120ms;
 }
 .seg.in-bar {
   width: 96px;

@@ -38,9 +38,14 @@ interface HomeControl {
   atHome: boolean;
   goHome: () => void;
 }
-/** What a mounted PushedLayer gives the controller: its exit, on the pop spring (or a crossfade), then `done`. */
+/**
+ * What a mounted PushedLayer gives the controller. `leave`: its exit on the pop spring (or a crossfade); every caller's `done`
+ * is kept until the layer has left (`done(true)`) or a catch brought it home (`done(false)`). With `all`, the top layer of a
+ * two-layer pop drives the root's bindings. `cover`: the layer under it hides for that pop (or shows again).
+ */
 export interface LayerControl {
-  leave: (done: () => void) => void;
+  leave: (done: (left: boolean) => void, opts?: { all?: boolean }) => void;
+  cover: (on: boolean) => void;
 }
 interface Overlay {
   id: number;
@@ -86,6 +91,10 @@ export class Controller {
   /** Each tab's `.tab-scroll` (the Shell attaches them). */
   readonly scrollers: Record<TabId, RefObject<HTMLDivElement | null>> = { today: createRef(), plan: createRef(), progress: createRef(), journal: createRef() };
   private layers = new Map<string, LayerControl>();
+  /** Tabs whose pop-all is running (a second lit-tab tap rides along instead of writing history twice). */
+  private popping = new Set<TabId>();
+  /** A root's replace asked for while an overlay is up: written onto the entry under it once the overlays are gone. */
+  private deferredReplace: TabId | null = null;
   /** Keys of layers that slide in (a push); every other layer mounts at rest. */
   private slideIn = new Set<string>();
 
@@ -278,8 +287,16 @@ export class Controller {
       // on top: walk back off its entry (consumed); else the entry is dead and nothing is written
       if (this.cur === o.idx) this.traverse(1);
       else this.dead.add(o.idx);
+      this.flushDeferredReplace();
     };
   };
+  /** The overlays are gone: a root replace made under them lands on the page's own entry now (queued behind the traversal). */
+  private flushDeferredReplace() {
+    const tab = this.deferredReplace;
+    if (!tab || this.overlays.length) return;
+    this.deferredReplace = null;
+    if (tab === this.state.active) this.write('replace', topPath(this.state.tabs[tab]));
+  }
   private dropOverlay(o: Overlay) {
     o.closed = true;
     this.overlays = this.overlays.filter((x) => x !== o);
@@ -300,6 +317,7 @@ export class Controller {
       o.onBack();
     }
     if (n) this.traverse(n);
+    this.flushDeferredReplace();
   }
 
   // ---------- actions ----------
@@ -360,9 +378,41 @@ export class Controller {
     const top = this.state.tabs[tab].stack.at(-1);
     if (!top) return;
     const c = this.layers.get(top.key);
-    if (c) c.leave(() => this.finishPop(tab, top.key));
+    if (c) c.leave((left) => left && this.finishPop(tab, top.key));
     else this.finishPop(tab, top.key);
   };
+
+  /**
+   * Take `removed` (a suffix of the tab's stack) off on the pop spring. One layer leaves on its own; two leave as one: the
+   * top slides off while the layer under it is covered and the root rides the top (feel review 1 #3). The layers are taken
+   * out of the stack the moment they have left; `then(true)` follows. A catch that brings the top back answers `then(false)`
+   * and uncovers the layer under it: nothing is left half gone (code review 1 #1).
+   */
+  private removeLayers(tab: TabId, removed: PushedEntry[], then: (left: boolean) => void) {
+    const gone = new Set(removed.map((e) => e.key));
+    const drop = () => {
+      if (this.state.tabs[tab].stack.some((e) => gone.has(e.key))) flushSync(() => this.setTab(tab, { stack: this.state.tabs[tab].stack.filter((e) => !gone.has(e.key)) }));
+    };
+    const top = removed.at(-1);
+    const c = top && this.layers.get(top.key);
+    if (!c) {
+      drop();
+      return then(true);
+    }
+    const under = removed
+      .slice(0, -1)
+      .map((e) => this.layers.get(e.key))
+      .filter((u): u is LayerControl => !!u);
+    for (const u of under) u.cover(true);
+    c.leave(
+      (left) => {
+        if (left) drop();
+        else for (const u of under) u.cover(false);
+        then(left);
+      },
+      { all: removed.length > 1 },
+    );
+  }
 
   /** The pop's last frame: unmount the layer, then the history rule (§1.3), same frame. Also the edge swipe's end. */
   finishPop = (tab: TabId, key: string, opts: { history?: boolean } = {}) => {
@@ -384,13 +434,14 @@ export class Controller {
     if (this.dormant) return;
     const tab = this.state.active;
     const stack = this.state.tabs[tab].stack;
-    if (!stack.length) return;
+    if (!stack.length || this.popping.has(tab)) return;
+    this.popping.add(tab);
     const top = stack.at(-1)!;
-    let left = stack.length;
-    const done = () => {
-      if (--left > 0) return;
+    this.removeLayers(tab, stack, (left) => {
+      this.popping.delete(tab);
+      // a catch brought the top page back: nothing was written, the stack is as it was
+      if (!left) return;
       const cur = this.state.tabs[tab];
-      flushSync(() => this.setTab(tab, { stack: [] }));
       if (opts.history !== false && tab === this.state.active) {
         const n = stack.length;
         const consecutive = stack.every((e, k) => e.idx !== -1 && e.idx === stack[0]!.idx + k) && top.idx === this.cur;
@@ -398,12 +449,7 @@ export class Controller {
         else this.write('replace', cur.path);
       }
       this.emit('pop', cur.path, tab);
-    };
-    for (const e of stack) {
-      const c = this.layers.get(e.key);
-      if (c) c.leave(done);
-      else done();
-    }
+    });
   };
 
   replace = (path: string, tab: TabId = this.state.active) => {
@@ -414,10 +460,15 @@ export class Controller {
       return;
     }
     const t = this.state.tabs[tab];
+    // under an open sheet or menu the top history entry is the overlay's: the write waits until it is released (code review 1 #4)
+    const writeOrDefer = (path: string) => {
+      if (this.overlays.length) this.deferredReplace = tab;
+      else this.write('replace', path);
+    };
     if (m.kind === 'root') {
       if (t.path === m.path) return;
       this.setTab(tab, { path: m.path });
-      if (tab === this.state.active && !t.stack.length) this.write('replace', m.path);
+      if (tab === this.state.active && !t.stack.length) writeOrDefer(m.path);
       this.emit('replace', m.path, tab);
       return;
     }
@@ -425,7 +476,7 @@ export class Controller {
     const top = t.stack.at(-1);
     if (m.kind === 'pushed' && top && sameRoute(top, m.stack.at(-1)!)) {
       this.setTab(tab, { stack: [...t.stack.slice(0, -1), { ...top, path: m.path, params: { ...m.params } }] });
-      if (tab === this.state.active) this.write('replace', m.path);
+      if (tab === this.state.active) writeOrDefer(m.path);
       this.emit('replace', m.path, tab);
     }
   };
@@ -475,17 +526,10 @@ export class Controller {
     if (removed.length && !added.length) {
       // pop down to the depth the URL implies (the pop spring), with no traversal: the final write below says where we are
       if (keep.some((e, i) => e !== t.stack[i])) this.setTab(tab, { stack: [...keep, ...removed] });
-      const gone = new Set(removed.map((e) => e.key));
-      let left = removed.length;
-      const done = () => {
-        if (--left > 0) return;
-        flushSync(() => this.setTab(tab, { stack: this.state.tabs[tab].stack.filter((e) => !gone.has(e.key)) }));
-      };
-      for (const e of removed) {
-        const c = this.layers.get(e.key);
-        if (c) c.leave(done);
-        else done();
-      }
+      // a catch that keeps the top page: the URL is put back to what is shown
+      this.removeLayers(tab, removed, (left) => {
+        if (!left && tab === this.state.active) this.write('replace', topPath(this.state.tabs[tab]));
+      });
     } else {
       // added layers slide in; anything replaced goes at once
       if (opts.adopt) added.forEach((e) => (e.idx = added.length === 1 ? adoptIdx : -1));
@@ -515,6 +559,7 @@ export class Controller {
       this.dropOverlay(top);
       this.cur = landed ?? this.cur - 1;
       top.onBack();
+      this.flushDeferredReplace();
       return;
     }
     if (landed !== null) this.cur = landed;
@@ -537,18 +582,12 @@ export class Controller {
   private popDownTo(tab: TabId, i: number) {
     const t = this.state.tabs[tab];
     const removed = t.stack.slice(i + 1);
-    let left = removed.length;
-    const done = () => {
-      if (--left > 0) return;
-      flushSync(() => this.setTab(tab, { stack: this.state.tabs[tab].stack.slice(0, i + 1) }));
-      this.emit('pop', t.stack[i]!.path, tab);
-    };
-    for (const e of removed) {
-      const c = this.layers.get(e.key);
-      if (c) c.leave(done);
-      else done();
-    }
-    this.write('replace', t.stack[i]!.path);
+    const to = t.stack[i]!.path;
+    this.removeLayers(tab, removed, (left) => {
+      if (left) this.emit('pop', to, tab);
+      else if (tab === this.state.active) this.write('replace', topPath(this.state.tabs[tab]));
+    });
+    this.write('replace', to);
   }
 
   /** True when a popstate lands on an overlay entry released while not on top. */
@@ -561,6 +600,7 @@ export class Controller {
 const Ctx = createContext<Controller | null>(null);
 const TabCtx = createContext<TabId | null>(null);
 const EntryCtx = createContext<PushedEntry | null>(null);
+const LayerScrollerCtx = createContext<RefObject<HTMLDivElement | null> | null>(null);
 
 /** Reads react-router's useLocation() only to sleep on and wake from kind 'full' routes; window.location for everything else. */
 export const NavController = ({ children }: { children: ReactNode }): React.JSX.Element => {
@@ -625,15 +665,21 @@ export const useTab = (): TabId => {
   }
   return t;
 };
+/** True while the caller's tab is the active one. Re-renders only when that flips (a selector, not the whole NavState). */
 export const useIsActiveTab = (): boolean => {
+  const ctl = useNavInternal();
   const tab = useTab();
-  return useNavState().active === tab;
+  const get = () => ctl.state.active === tab;
+  return useSyncExternalStore(ctl.subscribe, get, get);
 };
-/** The CALLER's tab's `.tab-scroll` element. */
+/** The caller's scroller: its pushed layer's `.pushed` inside a pushed page, else its tab's `.tab-scroll`. */
 export const useTabScroller = (): RefObject<HTMLDivElement | null> => {
   const ctl = useNavInternal();
-  return ctl.scrollers[useTab()];
+  const tab = useTab();
+  return useContext(LayerScrollerCtx) ?? ctl.scrollers[tab];
 };
+/** Provided by PushedLayer around its page: the layer's own scroller, for useTabScroller(). */
+export const PushedScrollerScope = ({ scroller, children }: { scroller: RefObject<HTMLDivElement | null>; children: ReactNode }): React.JSX.Element => <LayerScrollerCtx.Provider value={scroller}>{children}</LayerScrollerCtx.Provider>;
 /** The PushedEntry the caller is inside, or null on a root. */
 export const usePushedEntry = (): PushedEntry | null => useContext(EntryCtx);
 /** Provided by the Shell around each pushed layer's content. */

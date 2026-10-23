@@ -220,6 +220,26 @@ const SheetBody = ({ level }: { level: number }) => {
   );
 };
 
+/** Medium ⇄ large: a body longer than the medium detent with a sticky foot, so both ends must be reachable at medium. */
+const DetentBody = () => {
+  const sheet = useSheet();
+  return (
+    <>
+      <SheetBody level={2} />
+      {Array.from({ length: 14 }, (_, i) => (
+        <p key={i} className="fine gal-detent-line">
+          Filler {i + 1}: the medium detent shows the top half; the body still scrolls to its last line.
+        </p>
+      ))}
+      <div className="sheet-foot">
+        <Button variant="primary" className="gal-detent-save" onClick={() => (galLog('detent-save'), sheet.close())}>
+          Save
+        </Button>
+      </div>
+    </>
+  );
+};
+
 const AURA_STATES = ['done', 'floor', 'missed', 'upcoming', 'rest'] as const;
 
 const LAB_KEY = 'logbook.gallery.lab';
@@ -703,7 +723,7 @@ function Gallery({ onLab }: { onLab: () => void }) {
             <Button variant="soft" className="gal-sheet-stack" onClick={() => sheet.open({ title: 'Easy 6', eyebrow: dayCaption(today()), body: <SheetBody level={1} /> })}>
               Open + push
             </Button>
-            <Button variant="soft" className="gal-sheet-detents" onClick={() => sheet.open({ title: 'Routine', detent: 'medium', detents: ['medium', 'large'], body: <SheetBody level={2} /> })}>
+            <Button variant="soft" className="gal-sheet-detents" onClick={() => sheet.open({ title: 'Routine', detent: 'medium', detents: ['medium', 'large'], body: <DetentBody /> })}>
               Medium ⇄ large
             </Button>
             <Button variant="soft" className="gal-sheet-large" onClick={() => sheet.open({ title: 'Builder', detent: 'large', header: <div className="gal-ghost">The fixed header slot (the builder&rsquo;s ghost)</div>, body: <SheetBody level={2} /> })}>
