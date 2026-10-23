@@ -239,9 +239,8 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
           className="seg-btn"
           disabled={disabled}
           onClick={() => {
-            if (value === k) return;
-            haptics.select();
-            onChange(k);
+            // no haptic on a segmented change (§11.4, contracts §C.6)
+            if (value !== k) onChange(k);
           }}
         >
           {value === k ? <motion.span layoutId={`thumb-${id}`} className="seg-thumb" transition={springs.settle} /> : null}
