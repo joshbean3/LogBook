@@ -2,7 +2,12 @@
 .ob {
   position: relative;
   isolation: isolate;
-  min-height: 100dvh;
+  /* a full-screen route is its own scroller (the document never scrolls, §12): no 100dvh */
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  /* the edge swipe owns horizontal moves; vertical ones scroll */
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -86,9 +91,6 @@
   font-weight: 600;
   color: var(--ink-2);
   border-radius: var(--r-pill);
-}
-.ob-skip:active {
-  color: var(--ink);
 }
 
 /* ---------- a step ---------- */
@@ -398,9 +400,6 @@
   font: inherit;
   font-weight: 600;
 }
-.ob-long-btn:active {
-  background: var(--surface-2);
-}
 
 /* ---------- weekly miles: the big stepper ---------- */
 .ob-miles-label {
@@ -693,27 +692,59 @@
 }
 
 /* ---------- the payoff ---------- */
+/* the payoff: the headline fills exactly the room Today's bar, title and strip take (157 + safe-t at 390 × 844), so the
+   first-run face below it sits on Today's hero slot and does not move on the hand-off (§8, contracts §A.5) */
 .ob-payoff {
-  padding-top: calc(40px + var(--safe-t));
+  padding-top: 0;
+}
+.ob-pay-head {
+  box-sizing: border-box;
+  height: calc(157px + var(--safe-t));
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 16px;
+  min-width: 0;
+}
+.ob-pay-hero {
+  flex: none;
+  height: 184px;
+}
+.ob-pay-hero .first-run-hero {
+  margin: 0 auto;
+}
+/* the hand-off layer: a still copy of the payoff over everything while Today mounts under it */
+.ob-handoff {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  pointer-events: none;
+}
+.ob-handoff > .ob {
+  overflow: hidden;
 }
 .ob-pay-eyebrow {
   color: var(--ink-2);
 }
 .ob-pay-title {
-  margin-top: 12px;
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-  text-wrap: balance;
+  margin-top: 6px;
+  font-size: 2.125rem;
+  line-height: 2.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ob-pay-door {
-  margin-top: 4px;
-  font-size: 1.75rem;
-  line-height: 2.125rem;
+  margin-top: 2px;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
   color: var(--ink-2);
 }
 .ob-week {
   list-style: none;
-  margin: 32px calc(-1 * var(--page-pad)) 0;
+  margin: 16px calc(-1 * var(--page-pad)) 0;
   padding: 0;
   display: grid;
 }
@@ -723,7 +754,7 @@
   grid-template-columns: 62px 3px minmax(0, 1fr) 28%;
   align-items: center;
   gap: 12px;
-  min-height: 48px;
+  min-height: 44px;
   padding-inline: var(--page-pad);
 }
 .ob-wrow + .ob-wrow::before {
@@ -820,17 +851,6 @@
 }
 .ob-err {
   color: var(--bad);
-}
-.ob-pay-note {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-3);
-  text-align: center;
-}
-
-/* ---------- strava ---------- */
-.ob-strava {
-  padding-top: calc(40px + var(--safe-t));
 }
 
 /* ---------- small screens: the titles step down, the space tightens ---------- */

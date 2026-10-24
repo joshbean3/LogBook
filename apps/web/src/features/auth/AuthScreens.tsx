@@ -21,11 +21,13 @@ const canSignUp = (s: AuthStatus | undefined) => !!s && (s.signupOpen ?? s.setup
  */
 const Frame = ({ title, sub, children, foot }: { title?: string; sub?: string; children?: React.ReactNode; foot?: React.ReactNode }) => {
   const reduce = useReducedMotion();
+  // from the promise (/start): the same lit surface, so the halo holds still and only the form rises
+  const fromStart = (useLocation().state as { from?: string } | null)?.from === 'start';
   return (
     <div className="auth" aria-busy={title ? undefined : true}>
-      <span className={`auth-halo ${title ? 'rise' : ''}`} aria-hidden="true" />
+      <span className={`auth-halo ${title && !fromStart ? 'rise' : ''}`} aria-hidden="true" />
       {title ? (
-        <motion.div className="auth-body" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
+        <motion.div className="auth-body" initial={reduce ? { opacity: 0 } : { opacity: 0, y: fromStart ? 40 : 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
           <div className="auth-brand">
             <LogoMark size={24} color="#fff" />
             <span className="caps">Logbook</span>
