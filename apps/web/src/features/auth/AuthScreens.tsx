@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useId, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, NetworkError } from '@/api/client';
+import { fetchBootstrap, keys } from '@/api/queries';
 import type { AuthStatus } from '@/api/types';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, springs } from '@/lib/motion';
@@ -174,7 +175,8 @@ export const Signup = () => {
   const [busy, setBusy] = useState(false);
   const created = useRef(false);
   const refs = { email: useRef<HTMLInputElement>(null), password: useRef<HTMLInputElement>(null) };
-  if (status.isPending) return <Frame />;
+  // after Create account the cache is cleared under the form (its status query goes pending): the form stays until it leaves
+  if (status.isPending && !created.current) return <Frame />;
   if (status.data && !canSignUp(status.data) && !created.current) return <Navigate to="/login" replace />;
   const pwProblem = (v: string) => (!v ? 'Choose a password.' : v.length < 8 ? 'Use at least 8 characters.' : null);
   // two fields, Show instead of a confirm field (the iOS convention), checked only here, on the final Go (flows 1.1)
@@ -193,8 +195,16 @@ export const Signup = () => {
       await api('/auth/signup', { method: 'POST', json: { email: email.trim(), password: pw } });
       created.current = true;
       markHasAccount();
+      // The form stays (busy) until the first question can replace it in one commit (flows 1.2): the new account's
+      // bootstrap and the first-run module are fetched first. Clearing the cache before that unmounted the form into an
+      // empty frame (this screen's status query went pending) and left `Authed` black until the bootstrap answered and
+      // the chunk arrived (317 ms at 1×, 433 at 4×).
+      const [boot] = await Promise.all([fetchBootstrap().catch(() => null), import('@/features/onboarding/Welcome').catch(() => null)]);
+      // the previous account's cache goes and the new bootstrap goes in on the same tick as the navigation
       qc.clear();
-      // the promise came before the account (/start): straight on to the first question
+      if (boot) qc.setQueryData(keys.bootstrap, boot);
+      // the promise came before the account (/start): straight on to the first question (App.tsx's welcome route still
+      // shows its empty fallback for a few frames, its lazy view suspending once with the module here: WP1 request 15)
       nav('/welcome/goal', { replace: true });
     } catch (e2) {
       haptics.error();
