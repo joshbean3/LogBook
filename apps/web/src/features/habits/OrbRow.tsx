@@ -24,6 +24,8 @@ export const HABIT_STARTERS = ['Sleep 7 h', 'Stretch', 'Read', 'Protein', 'No ph
  * to ≈ 1.12 and back, in one motion (a damped spring from rest: peak = v · e^(−ζω·t*) · sin(ω_d·t*) / ω_d ≈ 0.0219 v).
  */
 const POP_V = 5.5;
+/** The check's write, after the pop has settled (`springs.complete` rests in ≈ 300 ms). */
+const WRITE_AFTER_MS = 350;
 /** The orb's cell (64 hit, 56 ring) plus the 4 px between cells: the 12 px between rings. */
 const PITCH = 68;
 
@@ -68,9 +70,26 @@ const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragSt
    * the 1–9 keys) lights it from the click. A press that travelled was a scroll: not a tap (§14 32).
    */
   const travel = useRef<{ x: number; y: number; moved: boolean; held: boolean; lit: boolean } | null>(null);
+  // the write waits for the pop: a month write re-renders every mounted day page, which must not land in the release's frame
+  // or under the pop's peak (4×: 65 ms). A second tap before it is sent takes the change back and sends nothing.
+  const write = useRef<{ on: boolean; t: ReturnType<typeof setTimeout> } | null>(null);
+  const send = useRef(() => {});
+  send.current = () => {
+    const w = write.current;
+    if (!w) return;
+    clearTimeout(w.t);
+    write.current = null;
+    onLight(h, w.on);
+  };
+  useEffect(() => () => send.current(), []);
   const light = () => {
     const next = !on;
     setAhead(next);
+    const pending = write.current;
+    if (pending) {
+      clearTimeout(pending.t);
+      write.current = null;
+    } else write.current = { on: next, t: setTimeout(() => send.current(), WRITE_AFTER_MS) };
     if (next) {
       unpeak.current();
       if (reduce) {
@@ -83,7 +102,6 @@ const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragSt
         animate(pop, 1, { ...springs.complete, velocity: POP_V });
       }
     }
-    onLight(h, next);
   };
   return (
     <Pressable
