@@ -300,9 +300,10 @@
 .start.is-going .start-stage {
   opacity: 0;
 }
+/* reduced motion (§10.2): the entrance is a 150 ms fade, no rise; base.css's 0.01 ms blanket is overridden here on purpose */
 @media (prefers-reduced-motion: reduce) {
   .start-in {
     animation-name: start-fade;
-    animation-duration: 150ms;
+    animation-duration: 150ms !important;
   }
 }
