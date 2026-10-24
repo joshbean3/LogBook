@@ -658,17 +658,27 @@
   gap: 20px;
   min-width: 0;
 }
+/* Seven letters on a 44 px pitch. Inside the 16 px gutters that needs 6 × 44 + a letter ≈ 304 px, more than a 320 screen's
+ * 288, so below 380 px the row takes 8 px of each gutter (it never touches the screen edge): 40 px letters, 4 px gaps.
+ * Each letter's hit area (::after) covers half of each gap beside it, so the areas tile at exactly the pitch (44 here). */
 .tp-days {
+  --tp-gap: 4px;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
-  margin-inline: -16px;
+  gap: var(--tp-gap);
+  margin-inline: -8px;
 }
 @media (min-width: 380px) {
   .tp-days {
-    gap: 6px;
+    --tp-gap: 6px;
     margin-inline: 0;
   }
+}
+.tp-day::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(var(--tp-gap) / -2);
 }
 .tp-day {
   position: relative;

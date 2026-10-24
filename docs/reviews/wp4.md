@@ -4,14 +4,234 @@ Branch `feel/wp4`, on `feel/pages-base` (WP1 merged, the seams' §F exports). Sp
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`.
 
-This review covers two steps. **Step 2** (first below): the block card, the builder with its ghost header, `PlansPage`, `MoveSheet` and `DayPicker`, Plan's haptics. **Step 1** (the sections after it): PlanView, the Week rows and the drag, the Month grid.
+This review covers three steps, newest first:
+
+- **The QA step** (first below): the whole acceptance battery at 1× and 4×, WP1's battery against this build, before/after screenshots of every state the package owns, one fix, and the consolidated findings, requests and hand-verifiable steps.
+- **Step 2**: the block card, the builder with its ghost header, `PlansPage`, `MoveSheet` and `DayPicker`, Plan's haptics.
+- **Step 1**: PlanView, the Week rows and the drag, the Month grid.
 
 ## How to rerun
 
 - Build and serve: `bash S/wp4/build.sh && bash S/wp4/serve.sh` (port 8830, a fresh copy of the seed each time; kills only its own PID).
 - The battery: `node S/wp4/qa/run.mjs` runs every script at 1× and 4× (each against a freshly served seed) and prints the table below (also `S/wp4/qa/results/TABLE.md`, logs in `results/<script>.cpu<rate>.log`). `ONLY=p2-drag,p3-swap`, `RATES=4`, `--table` as in WP1's runner.
-- Screenshots: `node S/wp4/qa/shots.mjs <tag>` (the page step's states) and `node S/wp4/qa/shots2.mjs <tag>` (the block card, the builder, Move, the day picker, Plans), at 390 and 320; reduced motion once each.
+- Screenshots: `node S/wp4/qa/shots-all.mjs after` takes every state the package owns at 390 and 320, and reduced motion once. `SERVE=../serve-before.sh BASE=http://localhost:8831 node S/wp4/qa/shots-all.mjs before` takes the same states on the seams base. That needs the base built first:
+  1. `git -C <worktree> worktree add --detach S/wp4/before-wt feel/pages-base`;
+  2. `pnpm install --offline`;
+  3. a `VITE_FAKE_CLOCK=1` build;
+  4. remove the worktree afterwards.
+
+  The older `shots.mjs`/`shots2.mjs` are the builder steps' scripts.
+- WP1's battery against this build: `cd S/wp4/wp1qa && SHIFT_MIN=auto RES=$PWD/results-wp4 node run.mjs` (a copy of WP1's harness with `BASE`, `WT` and `RES` from the environment; defaults 8830 and this worktree). For the base, add `BASE=http://localhost:8831 WT=S/wp4/before-wt`.
 - The Plan scripts put the page's `Date` at Fri Oct 23 2026 06:30 New York with a Date-only override (`qa/plib.mjs`), not Playwright's `clock.install`: the installed clock also fakes `requestAnimationFrame` and `performance.now`, which bunches frames at 4× (a drop's 18-frame settle read as 3 frames under it). The smoke and the seams' e2e use WP1's `SHIFT_MIN=auto`.
+
+# QA step: the whole battery, WP1's battery, screenshots
+
+QA commit (after `7e218ce`): one fix in `features/plan/plan.css` (the builder's run-day letters at 320), the battery completed under `S/wp4/qa/`, and this section. Everything below was measured on the final tree.
+
+## What changed in this step
+
+| File | What and why |
+|---|---|
+| `features/plan/plan.css` | The builder's run-day letters (`.tp-days`). Below 380 px the row used `margin-inline: -16px`, so the seven letters ran from x 0 to 320: the M chip and the long-run ring touched the screen edges (seen in `after-320-builder.png`; the seams base did the same). Seven letters on a 44 px pitch need 6 × 44 + a letter ≈ 304 px, more than the 288 between the 16 px gutters, so the row now takes 8 px of each gutter (40 px letters, 4 px gaps, 8 px from each edge). Each letter's hit area (`::after`, half of each gap beside it) tiles at exactly the 44 px pitch. At ≥ 380 px the row looks as before (inside the gutters, 46 px letters, 6 px gaps); its hit areas tile the same way, at the 52 px pitch. |
+
+No other app file changed. `api/queries.ts` and `api/types.ts`: untouched.
+
+## The battery (build plan §5.4, spec §0.2, §14 #25, #49, 9a), measured
+
+`node S/wp4/qa/run.mjs`: 390 × 844, DPR 2, `isMobile`, `hasTouch`, CDP touch. Every script runs at 1× and 4× CPU, each against a freshly served copy of the seed. Final tree: **203/203 at 1× and 203/203 at 4×**. Per check, with every measured value: `S/wp4/qa/results/TABLE.md`; logs in `results/<script>.cpu<rate>.log`.
+
+| Section | Script | Checks | 1× | 4× |
+|---|---|---|---|---|
+| E2E | smoke (WP1's 22) + e2e (the seams' 28) | 50 | 50/50 | 50/50 |
+| §5.4 #1 [49] | p1-swipe | 8 | 8/8 | 8/8 |
+| §5.4 #2 [49] | p2-drag | 12 | 12/12 | 12/12 |
+| §5.4 #3 | p3-swap | 9 | 9/9 | 9/9 |
+| §5.4 #4 | p4-segment | 8 | 8/8 | 8/8 |
+| §5.4 #5 | p5-month-pager | 3 | 3/3 | 3/3 |
+| §5.4 #6 | p6-title | 13 | 13/13 | 13/13 |
+| §5.4 #6 (Create) | p7-builder, p8-plans | 3 | 3/3 | 3/3 |
+| §5.4 #7 | p7-builder | 18 | 18/18 | 18/18 |
+| §5.4 #8 [25] | p8-plans | 9 | 9/9 | 9/9 |
+| §5.4 #9 [7] | p9-listeners | 4 | 4/4 | 4/4 |
+| §5.4 #10 | p10-rows | 10 | 10/10 | 10/10 |
+| §5.4 #11 | p9-listeners (greps) | 10 | 10/10 | 10/10 |
+| §5.2 #6–7 Move, picker | p13-move | 9 | 9/9 | 9/9 |
+| reduced motion | p12-reduced | 4 | 4/4 | 4/4 |
+| spec §0.2, Sunday night and looking ahead (new) | p14-sunday | 19 | 19/19 | 19/19 |
+| spec 9a, Plan's half (new) | p15-jumps | 9 | 9/9 | 9/9 |
+| WP1's t34 restated on the real Plan (new) | p16-wp1-restated | 5 | 5/5 | 5/5 |
+
+The numbers the new scripts measured (1× / 4×):
+
+- **§0.2, Sunday night** (`p14`; the page's Date at Sun Oct 25 20:30 New York):
+  - The bar reads `THIS WEEK · OCT 19–25` with `Week | Month`.
+  - A swipe on the rows: the track equals the finger at release (−260 / −260) and the release spring starts there (x0 −260, v −867 px/s). It lands on `NEXT WEEK · OCT 26–NOV 1` with no sheet and 0 haptics.
+  - The This week pill brings this week back.
+  - Hold `Speed 5`: `Done · Skip · Move · Delete`, haptics `lift`. A move: the menu closes, the pill lags 0 px, Thursday lights.
+  - Release: the pill shrinks over 19 / 19 frames on a 433 ms WAAPI flight whose easing is the settle spring as `linear()`; no row jumps. Toast `Moved to Thu · Undo`; haptics exactly `lift, select, drop`.
+  - `Month`: the panes' WAAPI fade is 200 ms (visually done 150 ms after the first partly-faded frame); the thumb slides over 15 / 9 frames in 233 / 150 ms; 0 haptics.
+- **§0.2, looking ahead on Plan** (`p14`):
+  - Four swipes, each started 90 / 120 ms after the last let go. The track was still sliding at each next touch (−338, −322, −314 / −367, −359, −363). The result is four commits to `/plan/week/2026-11-16` (`NOV 16–22`) with 0 haptics and no sheet.
+  - A fifth swipe caught by a tap 40 ms after release (track at −287 / −299): no sheet; the track settles at 0 on Nov 23.
+  - The pill comes home in one slide of 389.2 / 389.0 px (W 390, the spring rests within 1 px).
+  - At rest: 0 DOM mutations in Plan's tab over 1.5 s.
+- **9a, Plan's half** (`p15`, driven by `nav.go`, which is what Progress's `Open in Plan` calls):
+  - From Progress to `/plan/week/2026-10-26`: on the first frame Plan shows `NEXT WEEK · OCT 26–NOV 1` with the Oct 26 week on the page, the track at 0, the pane at opacity 1, 0 pane animations, and `history.length` + 1. One Back returns to Progress.
+  - From Today to `/plan/month/2026-11-01` while Plan was on a week: the first frame is the month pane at `NOVEMBER 2026`, with no crossfade and no slide.
+  - A row's `Skip` toast is Plan's: Today dismisses it and it does not come back.
+  - `Move` from a row's menu: the sheet is up 600 ms later, `history.length` + 1 vs before the hold, and the menu is gone. A pick's toast (here the conflict's) is Plan's too.
+- **t34 restated** (`p16`): the lifted row's centre goes 17,17,17 (`--surface`) → 27,27,27 (`--surface-2`, the lift surface; under the 0.7 scrim it would be ≈ 8). A tab-bar pixel goes 136 → 40. The hole is a cut-out (no clone, no backdrop-filter).
+- **The run-day letters at 320** (`p7`, new check): letters 40 px wide from x 8 to 312. Each letter owns 44 whole pixels of hit area (an `elementFromPoint` sweep).
+
+### Tests that cannot be measured as written, and what was measured instead
+
+- **§5.4 #1 "Clock installed at 2026-10-23T06:30"** (and build plan §0's harness). Playwright's `clock.install` also fakes `requestAnimationFrame` and `performance.now`, which bunches frames at 4×: a drop's 18-frame settle read as 3 frames. The Plan scripts move only the page's `Date` (`qa/plib.mjs`), so the date is fixed and the frames are the browser's own.
+- **§14 #49 "the track's position on the first frame after release equals the finger's last position ± 1"**. For a release with velocity, the first frame is already about 6 ms along the spring. `p1` and `p14` check that the spring starts at the finger and that the first frame lies on that spring (± 1 px). That is the "no kick" the test is after.
+- **§5.4 #2 "release on Wednesday"** and **§0.2 "hold Tuesday's Speed 5 … release on Wednesday"**. The seed has nothing on Tuesday and Speed 5 on Wednesday. `p14` makes the same one-day move from Wednesday to Thursday; `p2` drags Saturday's second session to Thursday (two rows crossed).
+- **§5.4 #7 "`Next block` on Today's plan-end card"**. The card is WP2's, and on this branch its interim `Next block` still routes to Settings › Plans (request below). `p8` drives the builder by the direct path WP2's final card will use; `p7`/`p8` measure the sheet (160 px header, verb).
+- **§5.4 #8 and §14 #25 "via the `Plans ›` row"**. The row is WP6's. `p8` and the screenshots push `/settings/plans` with `nav.go`, which is what the row does.
+- **§14 9a**. The links are WP6's (Progress) and WP2's (Today). `p15` drives `nav.go` and measures Plan's side.
+
+## WP1's battery against this build
+
+WP1's harness was copied to `S/wp4/wp1qa/` and pointed at this build and port (`BASE`, `WT` and `RES` env, defaulting to 8830 and this worktree). WP1's own files are untouched. It was run with `SHIFT_MIN=auto`, the same way WP1 runs it.
+
+- WP4 (`results-wp4/`): **612/616 at 1×, 578/592 at 4×**; `2·interim` 13/14 and 12/14.
+- WP1's own final run, for reference: 614/617 and 586/593.
+
+Every failing script was then rerun as a control: twice more on the **seams base**, built in a detached temporary worktree (`S/wp4/before-wt`, served on 8831 by `S/wp4/serve-before.sh`), and once more on WP4 (`results-base1/`, `results-base2/`, `results-wp4b/`).
+
+| Check | WP4 runs (2) | Seams base (2) | Verdict |
+|---|---|---|---|
+| t12 12a (1× and 4×), 12g 4×: sheet's first moved frame | fail / fail | fail / fail | timing on this container (WP1's known list) |
+| t12 12b 4× (≈ 500 px/s release dismisses) | pass / fail | pass / pass | noise: a 464 px/s finger in the failing run |
+| t13 #12 4× flick trajectory, #13 catch, 15c four flicks | fail / fail (different checks each run) | pass / fail (12, 15c) | inside the base's 4× spread |
+| t14 14a (press on the first frame), 14c 4× (menu by 460 ms) | fail / fail | fail / fail | timing on this container |
+| r1 f5: a Plan row → its sheet's first moved frame | fail / fail | fail / fail | timing on this container (WP1's known list) |
+| r2-layer c2-1 4×, r2-sheet u1 4×, r4-sheet k4-1 4× | fail / fail | fail / fail | inside the base's spread |
+| r4-nav c4-2a / c4-2b 4×: Today visible on every sliding frame | one of the two fails in 5 of 5 runs | one of the two fails in 4 of 5 runs | the same one-frame race, see below |
+| t02 `2·interim` (now the real Plan): first frame within 17 / 50 ms of touchend | 1×: +26.0, +22.1 (60 ms tap), +13.0 (120 ms); 4×: +62.2, +117.5, +54.0, +66.3 | 1×: +28.4, +23.3, +14.8; 4×: +97.5, +82.4, +76.9, +51.1 | no worse than the base (WP1 reported this row as varying +17.9 to +95.7 at 4×) |
+| t34 a Plan row: the lifted centre equals before ± 3 | fail (17 → 27) / fail | pass | **restated**: the check targeted the interim Plan, see below |
+
+- **r4-nav c4-2, looked at closely.** Over five 4× samples each, the base fails c4-2a in 4 of 5 runs and WP4 fails c4-2a or c4-2b in every run.
+  - What the test reads: Today's root visibility on each frame of a pushed-layer slide; one frame was still hidden.
+  - Plan subscribes to nothing that changes on Today's navigation: no `useNavState`; `useRouteParams` reads once; `useRootRequest`/`useHomeControl` are refs.
+  - The main-thread cost of c4-2b's pop, three samples each (`qa/dbg/popcost.mjs`, CDP metrics):
+    - task time: base 480 / 574 / 610 ms, WP4 534 / 622 / 638;
+    - style recalc: base 73 / 115 / 101 ms, WP4 94 / 97 / 112.
+  - Plan has 883 DOM nodes against the old 433, but only 407 *rendered* (433 before): the idle month pane sits under `<Activity mode="hidden">`.
+  - So this is WP1's one-frame race (it fails on the base too), not work done by Plan. It is listed under Requests.
+- **t34, restated** as `p16`. The real Plan row lifts onto `--surface-2` (the raised cell of §11.2's "lifts in place"), so "equal to before" cannot hold. That is also not what the check is for, which is "not dimmed". `p16` checks the lifted centre is the lift surface ± 3 and never darker than before (5/5 at both rates; numbers above).
+- **t02's `2·interim` rows** already tap from Today onto WP4's real Plan, so the restated test is the same measurement. It is no worse than the base at either rate. What is left is the shown tab's own style and paint at 4×: WP1's N2, the open item already listed in WP1's review.
+
+## Gates (final tree)
+
+`tsc --noEmit` shared, api, web: exit 0. Tests: shared 88, api 59, web 90 passed. `pnpm --filter @logbook/web build`: ok, entry chunk 936.81 kB (step 2: 936.8). Log: `S/wp4/gates-qa2.log`.
+
+## Hand-verifiable steps (the whole package)
+
+1. Log in, tap Plan. Expected:
+   - the bar `THIS WEEK · OCT 19–25` with `Week | Month` at the right;
+   - `20 mi · 4 runs` and `Next: …`;
+   - seven 60 px rows in one rounded group, today's number in a blue disc;
+   - missed runs struck through with a grey `Missed`, nothing red.
+2. Swipe left anywhere on the rows. Expected: the week follows the finger and lands on next week; no sheet opens and nothing buzzes; a `This week` pill fades in. Swipe four times quickly, each swipe before the last one settles. Expected: four weeks ahead (`NOV 16–22`).
+3. Tap the pill (or the title, the caps line, or the lit Plan tab). Expected: one slide back to this week.
+4. Hold a session row. Expected: it lifts at 450 ms with one tick, and `Done · Skip · Move · Delete` appears with the row bright and the rest dimmed. Keep holding and move. Expected:
+   - the menu goes;
+   - a pill rides above your finger;
+   - the day under it lights;
+   - one tick per day crossed.
+   Let go on another day. Expected: the pill shrinks into that row, the rows that move slide, one tick, and `Moved to Thu · Undo`.
+5. Drop a hard run next to another hard one. Expected: a warning buzz, and `Two hard days in a row. Keep it?` inside the group with Keep it / Undo.
+6. Tap `Month`. Expected:
+   - a 200 ms fade, the thumb slides;
+   - run miles white, planned grey;
+   - this week's row highlighted.
+   Swipe the grid sideways: it pages 1:1. Tap a week: back to Week on that week.
+7. Hold the title. Expected: `Go to a week…`, which opens the calendar in week mode.
+8. Scroll to the foot of the week and tap `New block`. Expected: a tall sheet with a fixed preview (`8 WEEKS · 26 RUNS · PEAK 16 MI`, a grid of cells) and no buzz.
+   - Tap `Half`: the preview crossfades and does not change height.
+   - The verb reads `Replace 45 planned sessions from Oct 26`.
+   - On a 320 px screen (iPhone SE 1st gen, or a narrow browser window), the run-day letters sit about 8 px in from the screen edges and each one is easy to hit.
+9. Tap the verb. Expected: one buzz, the sheet closes, Plan slides to the new block's first week, and a toast with Undo appears.
+10. Today's avatar → Settings → Plans. Expected: a `Plans` page with `+`, and the plans as rows in one rounded group; the Today tab stays lit. `+` opens the same builder; its verb leaves you on Plans.
+11. Hold a row → Move. Expected: chips and a week of days that swipe 1:1. A pick closes the sheet with no buzz and shows a toast with Undo.
+12. From Progress (once WP6 lands), `Open in Plan` for next week. Expected: Plan shows next week at once, with no slide and no fade. Back returns to Progress.
+13. With Reduce Motion on: swipes and drops fade instead of sliding; the drag still follows the finger; the builder's goal change is still a short fade.
+
+## Findings this package was to close (all of them, both steps and this one)
+
+| Finding | Status | Evidence |
+|---|---|---|
+| nav F14, touch F1 (Plan's half), flows 6.2, critic top-ten #9: a swipe on a Plan row opens Move instead of paging; `SwipeRow`, `pl-slot`'s `stopPropagation` | Fixed | p1, p14 (a swipe on Tuesday's or Wednesday's row pages); p9 greps |
+| critic C10, nav F15, top-ten #4 (`PlanView.tsx:132-135`): the pinch's non-passive `touchmove`, the header pull, `PullHint` | Fixed | p9: no `touchmove` at rest on Plan's scroller, `document` or `window`; greps |
+| motion #15: the month follows at 0.6×, commits at 70 px, jumps in from 0.6 widths | Fixed | p5: lag 0 px on 13 moves, `step='month'` pager |
+| §13.1: `.pl-plate`, `.pl-zoom`, the `layoutId` plate travel | Fixed | p9 greps |
+| visual F16: the TODAY radial glow, red MISSED | Fixed | p10 (no colour within 25° of `--bad`), screenshots |
+| visual F17: the week header's 5th weight, an empty progress bar, a sentence | Fixed | `WeekLine` 22/28 600, the bar only once a mile is run (p10: none this week, scaleX 0.218 on Oct 5) |
+| visual F22 (Plan's part): eight-item menus | Fixed | p2, p14: exactly `Done · Skip · Move · Delete` |
+| touch F7/F13 in Plan: `RestLine`'s timer, `useHoldDrag`'s 300 ms | Fixed | rows are `Pressable`s on `useHold` (450 ms); p2 |
+| nav F5, flows 7.3 (Plan's half): paging and history | Fixed (kept replace) | p1: `history.length` unchanged over a page; p6: the calendar pick lands on the same entry |
+| flows 6.1, nav F12, top-ten #3: `Next block` opens a list of old plans across a tab change; `openPlans` | Fixed (WP4's half) | `openPlans` deleted; the card's one door is the builder; Plans is a page at `/settings/plans` (p8). Today's card opening the builder directly is WP2's (request) |
+| flows 6.3: the preview under the fold | Fixed | the ghost is the sheet's fixed 160 header (p7: 160 on every frame of a goal change) |
+| flows 6.4 (Keep): drag with the swap rule and the inline conflict, Move's chips, the future-week copy | Kept | p3, p13; `Opens with Run 4, Saturday.` in the next-week shot |
+| live-synthesis: New block ignored the onboarding answers | Fixed | prefill → `trainingProfile` → last four weeks (step 2) |
+| §7.4 the honest verb | Fixed | p7: `Replace 45 planned sessions from Oct 26` = the server's 45 |
+| §11.4 haptics in Plan's files (builder, picker, Move, navigation) | Fixed | p9 grep; p1/p4/p5/p6/p14 count 0 on navigation; p7/p8/p13 haptic logs |
+| WP1 N6: Plan's mount and 4× weight | Partly | memoised pages, the hidden pane under `Activity`, one block log for six pages, row hooks once per group; the rest is other tabs re-rendering on a month change (request, unchanged) |
+| WP1's requests to WP4 (review §Requests): DayPager week with memoised pages, `Segmented in-bar` in 96, the 4-item menu on `Pressable onDragStart`, MISSED not red, `PlansPage`, `.dp` collision | Fixed | p1, p2, p6, p8, p10, p13 |
+| WP1 "Delete at integration" names in WP4's files (`DatePager`, `TabHeader`, `useLongPress`, `pressScale`, `onLongPress`, `shared()`, `layoutId`, the motion aliases …) | Fixed | grep over `features/plan`, `MoveSheet.tsx`, `DayPicker.tsx`, `daypicker.css`: none (p9 and this step's grep) |
+| QA: the builder's run-day letters touch the screen edges at 320 | Fixed (this step) | p7's new check: 8 → 312, 44 px of hit per letter; `after-320-builder*.png` |
+| shell F11: the first visit to Plan waits on the network | Rejected for WP4 | the prefetch range is WP1's (`prefetchAll`, contracts §E); Plan's pages read the months the shell prefetches |
+
+## Requests (consolidated; the step sections below carry the detail)
+
+- **WP1 (`app/NavController.tsx` / `ui/PushedLayer.tsx`)**: r4-nav c4-2a/c4-2b at 4× fail on the seams base too (4 of 5 runs). Today's root is still `visibility: hidden` on the first frame a covering layer slides. Revealing the root on the frame the slide is scheduled, rather than in the effect after it, would close the race.
+- **WP1 (`ui/NavBar.tsx`)**: a way to keep a constant title still while the caps are stacked. Shim: `plan.css` pins `.plan-root .nb-title [data-sl]`.
+- **WP1 (`app/Shell.tsx`) / WP2 / WP6**: inactive tabs re-render on a month query change (a Plan drop at 4×: Progress ≈ 70 ms, Today ≈ 40, Journal ≈ 20).
+- **WP1 (`ui/primitives.tsx` `Segmented`)**: read the buttons' geometry once (mount, resize), not in a layout effect on every change.
+- **WP2 (`features/day/PlanEnd.tsx`)**: `Next block` → `useOpenBuilder()(fromEndingBlock(last, profile))` over Today, not `/plan/plans` through react-router.
+- **WP2 (`features/sessions/actions.tsx`, `SessionEditor.tsx`, `sessions.css`)**:
+  - `done()`'s `success` and `skip()`'s `toggle` haptics;
+  - the editor's pick `select`;
+  - the dead `.dp-*` and `.pl-chip` rules.
+- **WP6 (Settings root)**: the `Plans ›` row in the Training group pushes `/settings/plans`.
+- **Spec (requests only)**:
+  - §7.2's `layout="position"` → the §10.1 FLIP on the compositor;
+  - §14 #49's "first frame equals the finger" → "the release spring starts at the finger";
+  - §0.2's Tuesday `Speed 5` does not match the seed (Wednesday).
+
+## Observations looked at and kept
+
+- **A drop's toast and the conflict row at once.** After a drop and then a conflicting drop, the first drop's `Moved to Thu · Undo` toast can still be up while the inline `Keep it? · Undo` row appears (`after-*-conflict.png`). The two Undos undo two different actions, and the toast times out on its own. The base behaves the same. Kept: the toast belongs to the earlier action, and dismissing it early would drop that action's Undo.
+
+## Screenshots (looked at, each one)
+
+Made by `node S/wp4/qa/shots-all.mjs <tag>`, at 390 and 320 (reduced motion once, at 390):
+
+- **Before:** the seams base (`feel/pages-base` at `400f8f5`), built in the detached worktree `S/wp4/before-wt` (removed afterwards) and served on 8831.
+- **After:** this branch on 8830.
+
+Files: `S/wp4/qa/shots/{before,after}-{390,320}-{week,next-week,past-week,month,month-next,title-menu,hold-menu,drag,dropped,conflict,block-card,builder,builder-half,builder-foot,move,daypicker,plans-page,plans-detail,builder-over-today}.png` and `{before,after}-390-reduced-{week,builder}.png`.
+
+Side by side (before 390 · after 390 · before 320 · after 320): `S/wp4/qa/shots/cmp/<state>.png`.
+
+What they show:
+
+- **Before:**
+  - the zoom word and the avatar in Plan's bar;
+  - the TODAY glow;
+  - red MISSED, red-outlined month cells and a legend;
+  - `THRESHOL…` truncated and the week line wrapped at 320;
+  - the conflict as an amber full-bleed band;
+  - the builder's preview under the fold;
+  - the day picker's `19` and `25` cut at 320.
+- **After:** none of those.
+  - The base has no title hold menu.
+  - The builder's run-day letters touched the screen edges at 320; fixed in this step, and the after shots are of the fix.
+  - No horizontal overflow (`documentElement.scrollWidth` 390 and 320).
+  - Console clean in every run.
 
 # Step 2: the block card, the builder, Plans, Move and the day picker
 
