@@ -28,7 +28,7 @@
   border-radius: var(--r-lg);
   padding: 18px 18px 16px;
   min-height: 180px;
-  margin-top: var(--sp-secondary);
+  margin-top: 24px;
   display: grid;
   align-content: start;
   color: var(--ink);
@@ -159,7 +159,7 @@
   align-items: center;
   gap: 12px;
   min-height: 60px;
-  margin-top: var(--sp-secondary);
+  margin-top: 24px;
   padding: 10px 12px 10px 16px;
   background: var(--surface);
   border: var(--card-border);
@@ -244,27 +244,20 @@
 
 /* ---------- the lists ---------- */
 .r-lists {
-  margin-top: var(--sp-primary);
+  margin-top: 24px;
 }
 /* nothing saved: one sentence and Paste a link, under the header */
 .r-empty {
-  margin-top: var(--sp-secondary);
-}
-.r-tabs .seg-btn {
-  flex: 1 1 0;
-  padding: 0 6px;
+  margin-top: 24px;
 }
 .r-stage {
   position: relative;
-  overflow-x: clip;
-  margin-inline: calc(-1 * var(--page-pad));
-  padding-inline: var(--page-pad);
   margin-top: 12px;
 }
 /* links edge to edge, hairlines from the text */
 .rlist {
   display: grid;
-  margin-inline: calc(-1 * var(--page-pad));
+  margin-inline: calc(-1 * var(--gutter));
 }
 .rlist-item {
   position: relative;
@@ -274,7 +267,7 @@
   content: '';
   position: absolute;
   top: 0;
-  left: calc(var(--page-pad) + 40px);
+  left: calc(var(--gutter) + 40px);
   right: 0;
   height: 1px;
   background: var(--line);
@@ -285,7 +278,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 4px 0 var(--page-pad);
+  padding: 0 4px 0 var(--gutter);
 }
 .rrow .mark-hit {
   align-self: center;

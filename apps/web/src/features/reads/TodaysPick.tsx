@@ -3,7 +3,6 @@ import { ArrowUpRight, Bookmark, ChevronRight, Copy, RotateCw, Sparkles, X } fro
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef } from 'react';
 import { usePick, useReadsMutations } from '@/api/queries';
-import { haptics } from '@/lib/haptics';
 import { fadeIn, fadeOut, springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, ContextMenu, Group, useToast } from '@/ui';
@@ -73,8 +72,8 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
   };
   const verdict = (v: 'saved' | 'dismissed') => {
     if (!p) return;
-    if (v === 'saved') haptics.toggle();
-    feedback.mutate({ pick: p, verdict: v, date, onGone: () => toast('That pick is gone.') }, { onSuccess: () => v === 'saved' && toast('Saved to your reads.') });
+    // the pick moving into the list is the answer: no plain toast, no haptic (§8, §11.4)
+    feedback.mutate({ pick: p, verdict: v, date, onGone: () => toast('That pick is gone.') });
   };
 
   if (compact) {
@@ -137,7 +136,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
         ]
       : []),
     ...(p.verdict && left > 0 ? [{ label: 'Next pick', icon: <RotateCw size={18} />, onSelect: refresh }] : []),
-    { label: 'Copy link', icon: <Copy size={18} />, onSelect: () => void navigator.clipboard?.writeText(p.url).then(() => toast('Copied')) },
+    { label: 'Copy link', icon: <Copy size={18} />, onSelect: () => void navigator.clipboard?.writeText(p.url).catch(() => toast('Couldn’t copy the link.')) },
   ];
   return (
     <ContextMenu label="Today’s pick" items={menu}>
