@@ -9,35 +9,6 @@
   padding: 6px var(--gutter);
   background: var(--bg);
 }
-.seg.j-seg,
-.seg.r-tabs,
-.seg.pg-range {
-  height: 32px;
-  gap: 0;
-  border-radius: 9px;
-}
-.seg.j-seg .seg-btn,
-.seg.r-tabs .seg-btn,
-.seg.pg-range .seg-btn {
-  flex: 1 1 0;
-  padding: 0 6px;
-  border-radius: 9px;
-  font: 600 13px/16px var(--sans);
-}
-/* each segment is a 44 px target inside the 32 px control */
-.seg.j-seg .seg-btn::after,
-.seg.r-tabs .seg-btn::after,
-.seg.pg-range .seg-btn::after {
-  content: '';
-  position: absolute;
-  inset: -6px 0;
-}
-.seg.j-seg .seg-thumb,
-.seg.r-tabs .seg-thumb,
-.seg.pg-range .seg-thumb {
-  border-radius: 9px;
-}
-
 /* two mounted panes (M28): the shown one in flow; the leaving one absolute, held still by a transform while it fades; the
    other hidden. The stack clips vertically so a hidden pane never adds scroll room */
 .j-panes {

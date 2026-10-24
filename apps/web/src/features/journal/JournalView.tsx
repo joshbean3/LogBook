@@ -9,6 +9,7 @@ import { addToDraft } from './JournalDaySection';
 import { asPrompt, JournalHome } from './JournalHome';
 import { Library } from './Library';
 import './journal.css';
+import './seg.css';
 
 type Seg = 'journal' | 'library';
 // a switch re-renders the view, never the panes (their props are stable): at 4× the two trees cost ~200 ms to render

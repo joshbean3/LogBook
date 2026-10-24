@@ -1,7 +1,7 @@
 import { dayStatus, daysBetween, fmtDate, mi, mondayOf, monthsBetween, num, shiftDays, weekSummary, type Activity, type Session } from '@logbook/shared';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { EmptyState, Pressable, Ticker, useSheet, WeekRing } from '@/ui';
 import { ringDays, streakLine } from '../day/dayWords';
@@ -9,7 +9,7 @@ import { useLog, type Log } from '../log/useLog';
 import { sessionMiles, weekMiles } from '../sessions/miles';
 import { sessionSheetTitle, UnplannedSheet, usePushSession } from '../sessions/SessionCard';
 import { LineChart, Spark, useWidth } from './charts';
-import { paceOfRun, paceText, pct, plural, signedPct, weekId, weekTitle, Words, type Adherence, type Consistency, type EasyPace, type LiftGroup, type LongRun, type Range, rangePhrase, rangeLabel } from './data';
+import { paceOfRun, paceText, pct, plural, signedPct, weekTitle, Words, type Adherence, type Consistency, type EasyPace, type LiftGroup, type LongRun, type Range, rangePhrase, rangeLabel } from './data';
 
 const up = (s: string) => s.toUpperCase();
 /** Mon–Sun weeks a block touches, and which of them today is in (1-based). */
@@ -75,7 +75,7 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
   // this week's streak looks back eight weeks: load those months too
   const months = useMemo(() => monthsBetween(current ? shiftDays(w, -7 * 8) : w, shiftDays(w, 6)), [w, current]);
   const log = useLog(months);
-  const nav = useNavigate();
+  const nav = useNav();
   const sheet = useSheet();
   const sum = weekSummary(log.snap, w);
   // miles run count a run marked Done without Strava at its planned miles (contract 5)
@@ -91,10 +91,8 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
           verb={{
             label: 'Plan a week',
             primary: true,
-            onPress: () => {
-              sheet.close();
-              nav(`/plan/week/${w}`);
-            },
+            // a jump closes the sheet itself (nav.go closes overlays first) and cuts to Plan at that week
+            onPress: () => nav.go(`/plan/week/${w}`),
           }}
         >
           Nothing planned yet. Lay out the runs and this week fills in as you do them.
@@ -114,10 +112,8 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
         ? `${Words(Math.max(0, sum.target - sum.keptSessions))} more ${plural(sum.target - sum.keptSessions, 'session keeps', 'sessions keep')} it.`
         : `${Words(sum.keptSessions)} of ${sum.target} kept.`;
   // the seven days live in Plan (the same list, with drag and swipe): one row takes you there instead of repeating it
-  const openInPlan = () => {
-    sheet.close();
-    nav(`/plan/week/${w}`);
-  };
+  // §1.3: a 0 ms cut to Plan already at that week; one Back returns to Progress with the sheet closed
+  const openInPlan = () => nav.go(`/plan/week/${w}`);
   return (
     <div className="pg-sheet">
       <div className="pg-week-top">
@@ -153,13 +149,13 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
 export const useOpenWeek = (today: string) => {
   const sheet = useSheet();
   return (w: string, how: 'open' | 'push' = 'open', onGone?: () => void) =>
-    sheet[how]({ title: weekTitle(w, today), eyebrow: `${up(md(w))} – ${up(md(shiftDays(w, 6)))}`, layoutId: how === 'open' ? weekId(w) : undefined, body: <WeekSheet w={w} today={today} onGone={onGone} />, wide: true });
+    sheet[how]({ title: weekTitle(w, today), eyebrow: `${up(md(w))} – ${up(md(shiftDays(w, 6)))}`, body: <WeekSheet w={w} today={today} onGone={onGone} />, wide: true });
 };
 
 // ---------- plan adherence ----------
 export const AdherenceSheet = ({ ad, today, range, log }: { ad: Adherence; today: string; range: Range; log: Log }) => {
   const openWeek = useOpenWeek(today);
-  const nav = useNavigate();
+  const nav = useNav();
   const sheet = useSheet();
   if (!ad.weeks.length)
     return (
@@ -168,10 +164,7 @@ export const AdherenceSheet = ({ ad, today, range, log }: { ad: Adherence; today
           ghost={<AdherenceGhost />}
           verb={{
             label: 'Make a plan',
-            onPress: () => {
-              sheet.close();
-              nav('/plan/plans');
-            },
+            onPress: () => nav.go('/plan'),
           }}
         >
           Plan a block and this shows how much of it you keep, week by week.
@@ -417,7 +410,7 @@ export const LiftSheet = ({ g }: { g: LiftGroup }) => {
 
 export const LiftsSheet = ({ groups, range }: { groups: LiftGroup[]; range: Range }) => {
   const sheet = useSheet();
-  const nav = useNavigate();
+  const nav = useNav();
   if (!groups.length)
     return (
       <div className="pg-sheet">
@@ -425,10 +418,7 @@ export const LiftsSheet = ({ groups, range }: { groups: LiftGroup[]; range: Rang
           ghost={<LiftGhost />}
           verb={{
             label: 'Open today',
-            onPress: () => {
-              sheet.close();
-              nav('/today');
-            },
+            onPress: () => nav.go('/today'),
           }}
         >
           {`No lifts ${rangePhrase(range)}. Log a set from a lift session and its line starts here.`}
@@ -479,7 +469,7 @@ const LiftGhost = () => (
  * and VoiceOver get one button per day.
  */
 export const ConsistencySheet = ({ c, log, today, range, streak }: { c: Consistency; log: Log; today: string; range: Range; streak: { weeks: number; ofLast: { kept: number; total: number } } }) => {
-  const nav = useNavigate();
+  const nav = useNav();
   const sheet = useSheet();
   const [ref, width] = useWidth<HTMLDivElement>();
   const N = width && width < 330 ? 21 : 28;
@@ -493,10 +483,8 @@ export const ConsistencySheet = ({ c, log, today, range, streak }: { c: Consiste
     const f = (Math.min(Math.max(clientX, r.left), r.right - 0.01) - r.left) / r.width;
     return Math.min(N - 1, Math.max(0, Math.floor(f * N)));
   };
-  const openDay = (d: string) => {
-    sheet.close();
-    nav(d === today ? '/today' : `/today/${d}`);
-  };
+  // §1.3: a 0 ms cut to Today already at that day
+  const openDay = (d: string) => nav.go(d === today ? '/today' : `/today/${d}`);
   const scrubTo = (clientX: number) => {
     const i = colAt(clientX);
     if (i != null && i !== press) haptics.select();

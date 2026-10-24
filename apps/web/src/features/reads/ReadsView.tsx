@@ -12,6 +12,7 @@ import { measureBelow, popFav, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
 import { TodaysPick } from './TodaysPick';
 import './reads.css';
+import '../journal/seg.css';
 
 const URL_RE = /https?:\/\/[^\s<>"')\]]+|(?:^|\s)(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?/i;
 /** The first link in a block of text, if there is one. */

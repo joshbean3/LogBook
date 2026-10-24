@@ -1,14 +1,11 @@
 /* ---------- Progress: a verdict, one chart you can play with, then the drill-downs ---------- */
 
-/* the verdict: serif 28, two short sentences, then the week in plain words */
+/* the verdict: 20/25 600 in the sans (one serif per screen: the title, §8), then the week in plain words */
 .pg-verdict {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.75rem;
-  line-height: 2rem;
+  font: 600 20px/25px var(--sans);
   letter-spacing: -0.01em;
   color: var(--ink);
-  margin-top: 8px;
+  margin-top: 0;
   text-wrap: pretty;
 }
 .pg-sub {
@@ -19,16 +16,17 @@
   text-wrap: pretty;
 }
 
-/* the range chips sit over the chart and steer every section */
-.pg-chips {
-  display: flex;
-  gap: 8px;
-  margin-top: var(--sp-secondary);
-}
-.pg-chips .chip-btn {
-  min-width: 48px;
-  justify-content: center;
+/* the range, a Segmented over the chart that steers every section (32 tall, 44 hit; styled with .j-seg in journal.css) */
+.seg.pg-range {
+  margin-top: 24px;
+  margin-bottom: 12px;
   font-variant-numeric: tabular-nums;
+}
+/* a week whose month has not loaded: a quiet gap, a faint dash on the baseline */
+.pg-gap-line {
+  stroke: var(--ink-4);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
 }
 
 /* the hero: the chart card, lit from below */
@@ -222,7 +220,7 @@
 
 /* ---------- drill-downs: an edge-to-edge list, a sparkline and one number per row ---------- */
 .pg-drills {
-  margin-top: var(--sp-primary);
+  margin-top: 24px;
 }
 .pg-row {
   appearance: none;
@@ -240,8 +238,8 @@
   cursor: pointer;
   transition: background var(--dur-fast);
 }
-.pg-row:active {
-  background: var(--surface);
+.pg-row[data-pressed] {
+  background: var(--surface-2);
 }
 @media (hover: hover) {
   .pg-row:hover {
@@ -343,34 +341,6 @@
   color: var(--ink);
 }
 
-/* ---------- skeleton: the page's own shape ---------- */
-.pg-skel {
-  gap: 10px;
-}
-.pg-skel-chips {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-}
-.pg-skel-rows {
-  display: grid;
-  margin-top: 40px;
-}
-.pg-skel-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 64px;
-}
-.pg-skel-row > span:first-child {
-  flex: 1;
-  display: grid;
-  gap: 6px;
-}
-.pg-skel-row + .pg-skel-row {
-  border-top: 1px solid var(--line);
-}
-
 /* ---------- sheets ---------- */
 .pg-sheet {
   --page-pad: 16px;
@@ -450,8 +420,8 @@ button.pg-srow {
   cursor: pointer;
   transition: background var(--dur-fast);
 }
-button.pg-srow:active {
-  background: var(--surface);
+button.pg-srow[data-pressed] {
+  background: var(--surface-2);
 }
 @media (hover: hover) {
   button.pg-srow:hover {

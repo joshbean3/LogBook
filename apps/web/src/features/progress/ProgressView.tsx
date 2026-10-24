@@ -1,17 +1,18 @@
 import { dayStatus, fmtDate, mi, monthsBetween, num, shiftDays, weekCheck, weekStreak, type LiftSet } from '@logbook/shared';
 import { ChevronRight } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useNav } from '@/app/NavController';
 import { useAllLifts } from '@/api/queries';
-import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
-import { ChipButton, EmptyState, GhostBars, Pressable, shared, Skeleton, SkeletonGroup, TabHeader, Ticker, useSheet } from '@/ui';
+import { dayCaption, EmptyState, GhostBars, NavBar, Pressable, Segmented, Skeleton, Ticker, useSheet } from '@/ui';
 import { useLog, type Log } from '../log/useLog';
+import { StravaPrimer } from '../onboarding/StravaPrimer';
 import { Spark } from './charts';
 import { adherence, consistency, easyPace, FUTURE_WEEKS, liftGroups, longRuns, paceText, pct, plural, RANGE_WEEKS, RANGES, rangeBounds, rangeLabel, rangePhrase, rangeSummary, signedPct, verdict, weekId, weekSeries, weekTitle, type Range, type WeekPoint } from './data';
 import { MileageChart } from './MileageChart';
 import { AdherenceSheet, ConsistencySheet, EasyPaceSheet, LiftsSheet, LongRunSheet, paceChange, useOpenWeek } from './sheets';
 import './progress.css';
+import '../journal/seg.css';
 
 // ---------- the range: a per-viewer convenience, remembered on this device ----------
 const RANGE_KEY = 'logbook.progress.range';
@@ -45,9 +46,9 @@ const useAsOf = (real: string) => {
 
 const md = (d: string) => fmtDate('md', d);
 
-/** Every number on the page, from one pass over the log. */
+/** Every number on the page, from one pass over the log: the months that are loaded; a missing one is a quiet gap. */
 const buildModel = (log: Log, sets: LiftSet[], t: string, range: Range, from: string) => {
-  const all = weekSeries(log.snap, t, range);
+  const all = weekSeries(log.snap, t, range, (m) => log.snap.loaded(m));
   // A longer range than the log is old never draws a field of empty weeks: it starts where the log does (never under
   // thirteen weeks), and the label says so.
   const firstData = all.findIndex((p) => p.ran > 0 || p.planned > 0);
@@ -83,7 +84,7 @@ type Model = ReturnType<typeof buildModel>;
 
 /** A drill-down: the whole row opens its sheet; a sparkline and one number on the right. */
 const DrillRow = ({ title, sub, spark, value, unit, onPress, label }: { title: string; sub: ReactNode; spark?: ReactNode; value?: ReactNode; unit?: string; onPress: () => void; label: string }) => (
-  <Pressable className="pg-row" pressScale={1} onPress={onPress} label={label}>
+  <Pressable className="pg-row" press="surface" onPress={onPress} label={label}>
     <span className="pg-row-main">
       <span className="pg-row-title">{title}</span>
       <span className="pg-row-sub">{sub}</span>
@@ -116,35 +117,15 @@ const ProgressGhost = () => (
   </section>
 );
 
-/** Grey blocks in the page's own shape: the verdict, the chips, the chart card, five rows. */
-const ProgressSkeleton = () => (
-  <SkeletonGroup label="Loading progress" className="pg-skel">
-    <Skeleton w="86%" h={28} r="control" style={{ marginTop: 8 }} />
-    <Skeleton w="58%" h={28} r="control" />
-    <Skeleton w="70%" h={15} style={{ marginTop: 4 }} />
-    <div className="pg-skel-chips">
-      {[0, 1, 2].map((i) => (
-        <Skeleton key={i} w={44} h={32} r="pill" />
-      ))}
-    </div>
-    <Skeleton h={328} r="card" />
-    <div className="pg-skel-rows">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div className="pg-skel-row" key={i}>
-          <span>
-            <Skeleton w={`${44 + ((i * 11) % 22)}%`} h={15} />
-            <Skeleton w={`${60 - ((i * 7) % 18)}%`} h={13} />
-          </span>
-          <Skeleton w={56} h={24} />
-          <Skeleton w={44} h={22} />
-        </div>
-      ))}
-    </div>
-  </SkeletonGroup>
-);
-
+/**
+ * Progress (docs/feel.md §8): the NavBar (caps the date, title `Progress`, nothing trailing), the verdict in the sans, the
+ * range as a Segmented, the chart and the drill-downs. The page builds from the months that are loaded: a month still on
+ * its way (or never answering) is a quiet gap in the chart and is left out of the numbers, never the page skeleton. Links
+ * into other tabs go through `nav.go` (a day row → Today at that day; `Open in Plan` → that week); `Connect Strava` opens
+ * the primer card as a sheet over Progress (Settings keeps its one door).
+ */
 export default function ProgressView() {
-  const nav = useNavigate();
+  const nav = useNav();
   const sheet = useSheet();
   const [range, setRange] = useRange();
   const t = useAsOf(useToday());
@@ -164,29 +145,24 @@ export default function ProgressView() {
     setScrubState(i);
   };
 
-  // Everything on the page comes from one model, built once every month in view has arrived. While a longer range
-  // loads, the last model stays up (the chips already show the new range), so numbers never shuffle under the eye.
-  const ready = log.ready;
-  // habits and zones come from boot; the snapshot only changes when a month does, so a scrub never rebuilds this
-  const model = useMemo(() => (ready ? buildModel(log, lifts.data ?? [], t, range, from) : null), [ready, log.snap, log.boot, lifts.data, t, range, from]); // eslint-disable-line react-hooks/exhaustive-deps
-  const last = useRef(model);
-  if (model) last.current = model;
-  const m = model ?? last.current;
+  // one model from what is loaded; the snapshot only changes when a month does, so a scrub never rebuilds this
+  const anyLoaded = months.some((m) => log.snap.loaded(m));
+  const model = useMemo(() => (anyLoaded && log.boot ? buildModel(log, lifts.data ?? [], t, range, from) : null), [anyLoaded, log.snap, log.boot, lifts.data, t, range, from]); // eslint-disable-line react-hooks/exhaustive-deps
+  const m = model;
 
-  const header = <TabHeader title="Progress" />;
+  const header = <NavBar caps={{ cur: dayCaption(t, t) }} title={{ cur: 'Progress' }} gap={24} />;
+  // nothing at all on this device yet: the bar alone, quietly, until the first month lands (no skeleton, no empty state)
   if (!m)
     return (
-      <div className="page pg-page">
+      <div className="page pg-page" aria-busy="true">
         {header}
-        <ProgressSkeleton />
       </div>
     );
 
   const pts = m.pts;
+  // the range is a Segmented: no haptic on a change (§11.4)
   const pick = (r: Range) => {
-    if (r === range) return;
-    haptics.select();
-    setRange(r);
+    if (r !== range) setRange(r);
   };
   const pinch = (dir: -1 | 1) => {
     const i = RANGES.indexOf(range) + dir;
@@ -196,10 +172,11 @@ export default function ProgressView() {
   const openAt = (i: number) => {
     const p = pts[i];
     if (!p) return;
-    // the readout names this week while its sheet is up, so the title travels from it and home again
+    // the readout names this week while its sheet is up
     setOpened(i);
     openWeek(p.w, 'open', () => setOpened(null));
   };
+  const connect = () => sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
 
   // ---------- the headline numbers: the range at rest, the week under the finger while scrubbing ----------
   const shown = scrub ?? opened;
@@ -208,11 +185,17 @@ export default function ProgressView() {
   // a slot never shows a dash: while scrubbing (three slots that must hold still) an empty one says a word; at rest a stat with
   // no value yet (no finished week to average) is left out
   const slots: Array<{ label: string; value: number | null; word?: string; format: (v: number) => string; unit?: string }> = sp
-    ? [
-        { label: 'Miles', value: sp.future ? null : sp.ran, word: 'To run', format: mi, unit: 'mi' },
-        { label: 'Planned', value: sp.planned || null, word: 'No plan', format: num, unit: 'mi' },
-        { label: 'Runs', value: sp.future ? sp.plannedRuns : sp.runs, format: (v) => String(Math.round(v)) },
-      ]
+    ? sp.missing
+      ? [
+          { label: 'Miles', value: null, word: 'Loading', format: mi },
+          { label: 'Planned', value: null, word: '', format: num },
+          { label: 'Runs', value: null, word: '', format: (v) => String(Math.round(v)) },
+        ]
+      : [
+          { label: 'Miles', value: sp.future ? null : sp.ran, word: 'To run', format: mi, unit: 'mi' },
+          { label: 'Planned', value: sp.planned || null, word: 'No plan', format: num, unit: 'mi' },
+          { label: 'Runs', value: sp.future ? sp.plannedRuns : sp.runs, format: (v) => String(Math.round(v)) },
+        ]
     : [
         { label: 'Avg week', value: m.sum.avg, format: mi, unit: 'mi' },
         { label: 'Best week', value: m.sum.best?.ran ?? null, format: mi, unit: 'mi' },
@@ -222,17 +205,18 @@ export default function ProgressView() {
   const readWords = sp ? `${ctx}: ${sp.future ? '' : `${mi(sp.ran)} miles, `}${sp.planned ? `${num(sp.planned)} planned, ` : ''}${sp.future ? sp.plannedRuns : sp.runs} runs` : `${ctx}: ${m.sum.avg != null ? `${mi(m.sum.avg)} miles a week on average, ` : ''}${m.sum.best ? `best week ${mi(m.sum.best.ran)}, ` : ''}${Math.round(m.sum.total)} miles in all`;
 
   const chips = (
-    <div className="pg-chips" role="group" aria-label="Range">
-      {RANGES.map((r) => (
-        <ChipButton key={r} on={r === range} onClick={() => pick(r)} aria-label={rangeLabel(r)}>
-          {r}
-        </ChipButton>
-      ))}
-    </div>
+    <Segmented
+      className="pg-range"
+      label="Range"
+      value={range}
+      onChange={pick}
+      options={RANGES.map((r) => [r, <span key={r} aria-label={rangeLabel(r)}>{r}</span>] as [Range, ReactNode])}
+    />
   );
+  const gaps = pts.some((p) => p.missing);
 
   // ---------- new account: the chart as it will look, one sentence, one verb ----------
-  if (!m.ran) {
+  if (!m.ran && !gaps) {
     const strava = log.features.strava && !log.strava?.connected;
     return (
       <div className="page pg-page">
@@ -240,17 +224,11 @@ export default function ProgressView() {
         <EmptyState
           className="pg-empty"
           ghost={<ProgressGhost />}
-          verb={
-            m.planned
-              ? strava
-                ? { label: 'Connect Strava', onPress: () => nav('/settings') }
-                : { label: 'See the plan', onPress: () => nav('/plan') }
-              : { label: 'Plan a week', onPress: () => nav('/plan/plans'), primary: true }
-          }
+          verb={m.planned ? (strava ? { label: 'Connect Strava', onPress: connect } : { label: 'See the plan', onPress: () => nav.go('/plan') }) : { label: 'Plan a week', onPress: () => nav.go('/plan'), primary: true }}
         >
           {m.planned ? 'Your plan is set. Each run you log lands here.' : 'Plan a week and run it. This page draws the rest.'}
         </EmptyState>
-        {m.c.habitOf ? <Drills m={m} t={t} range={range} log={log} sheet={sheet} /> : null}
+        {m.c.habitOf ? <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} /> : null}
       </div>
     );
   }
@@ -258,38 +236,40 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
-      <p className="pg-verdict">{m.v!.line}</p>
-      <p className="pg-sub">{m.v!.sub}</p>
+      {m.v ? (
+        <>
+          <p className="pg-verdict">{m.v.line}</p>
+          <p className="pg-sub">{m.v.sub}</p>
+        </>
+      ) : null}
       {chips}
       <section className="pg-hero" aria-label="Weekly miles">
         <span className="pg-glow" aria-hidden="true" />
         <div className="pg-ctx-row">
-          <span className="caps pg-ctx" {...(sp ? shared(weekId(sp.w)) : {})}>
-            {ctx}
-          </span>
+          <span className="caps pg-ctx">{ctx}</span>
         </div>
         <div className="pg-readout" role="status" aria-label={readWords}>
           {slots.map((s, i) =>
             s.value == null && !s.word ? null : (
-            <span className="pg-slot" key={i} aria-hidden="true">
-              <span className="caps">{s.label}</span>
-              <span className="stamp pg-slot-num">
-                {s.value == null ? <span className="pg-slot-word">{s.word}</span> : scrub != null ? <span className="tnum">{s.format(s.value)}</span> : <Ticker key={released} value={s.value} format={s.format} from={released ? (lastShown.current[i] ?? undefined) : undefined} />}
-                {s.unit && s.value != null ? <small>{s.unit}</small> : null}
+              <span className="pg-slot" key={i} aria-hidden="true">
+                <span className="caps">{s.label}</span>
+                <span className="stamp pg-slot-num">
+                  {s.value == null ? <span className="pg-slot-word">{s.word}</span> : scrub != null ? <span className="tnum">{s.format(s.value)}</span> : <Ticker key={released} value={s.value} format={s.format} from={released ? (lastShown.current[i] ?? undefined) : undefined} />}
+                  {s.unit && s.value != null ? <small>{s.unit}</small> : null}
+                </span>
               </span>
-            </span>
             ),
           )}
         </div>
         <MileageChart pts={pts} range={m.range} today={t} onScrub={setScrub} onOpen={openAt} onPinch={pinch} />
       </section>
-      <Drills m={m} t={t} range={range} log={log} sheet={sheet} />
+      <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} />
     </div>
   );
 }
 
 /** The edge-to-edge list under the chart: each row a sparkline and one number, each opening its sheet. */
-const Drills = ({ m, t, range, log, sheet }: { m: Model; t: string; range: Range; log: Log; sheet: ReturnType<typeof useSheet> }) => {
+const Drills = ({ m, t, range, log, sheet, onConnect }: { m: Model; t: string; range: Range; log: Log; sheet: ReturnType<typeof useSheet>; onConnect: () => void }) => {
   const { ad, lr, ep, lg, c } = m;
   // "1 of 6 kept · 5 to go": counts, never a percentage grade
   const toGo = ad.weeks.reduce((s, w) => s + w.ahead, 0);
@@ -353,6 +333,10 @@ const Drills = ({ m, t, range, log, sheet }: { m: Model; t: string; range: Range
         onPress={() => sheet.open({ title: 'Consistency', eyebrow, detent: 'large', body: <ConsistencySheet c={c} log={log} today={t} range={range} streak={m.streak} />, wide: true })}
         label={`Consistency: ${c.weeks ? `${c.keptWeeks} of ${c.weeks} weeks kept` : 'your first week is under way'}${hp != null ? `, habits ${hp}%` : ''}. Open`}
       />
+      {log.features.strava && !log.strava?.connected ? (
+        // Strava's door on Progress: the primer card as a sheet over Progress (no navigation; Settings keeps its own door, §1.3)
+        <DrillRow title="Connect Strava" sub="Runs land here on their own" onPress={onConnect} label="Connect Strava. Opens a card about it" />
+      ) : null}
     </div>
   );
 };

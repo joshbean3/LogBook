@@ -14,6 +14,7 @@ const monthOfWeek = (w: string) => up(monthShort.format(new Date(`${w}T12:00:00`
 /** Words for one week, for VoiceOver and the week buttons. */
 export const weekWords = (p: WeekPoint, today: string) => {
   const t = weekTitle(p.w, today);
+  if (p.missing) return `${t}: not loaded yet`;
   if (p.future) return `${t}: ${num(p.planned)} miles planned`;
   const ran = `${mi(p.ran)} miles in ${p.runs} ${p.runs === 1 ? 'run' : 'runs'}${p.logged > 0.05 ? `, ${mi(p.logged)} logged by hand` : ''}`;
   return `${t}${p.current ? ' so far' : ''}: ${ran}${p.planned ? `, ${num(p.planned)} planned` : ''}`;
@@ -85,6 +86,17 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
 
   // the average: finished weeks only
   const avgPts = pts.map((p, i) => (p.avg == null ? null : ([xc(i), y(p.avg)] as const))).filter((q): q is readonly [number, number] => !!q);
+  // the line breaks where a month has not loaded: it never bridges a gap with a value it does not have
+  const avgPath = (() => {
+    let d = '';
+    let prev = -2;
+    pts.forEach((p, i) => {
+      if (p.avg == null) return;
+      d += `${i === prev + 1 ? 'L' : 'M'}${xc(i).toFixed(1)},${y(p.avg).toFixed(1)}`;
+      prev = i;
+    });
+    return d;
+  })();
   const lastAvg = [...pts].reverse().find((p) => p.avg != null)?.avg ?? null;
 
   // y grid: three quiet lines
@@ -196,6 +208,13 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
                 {pts.map((p, i) => {
                   const dim = a != null && a !== i;
                   const enter = firstPaint ? false : { attrX: xc(i) - bw / 2, attrY: y0, height: 0, width: bw, opacity: 0 };
+                  // a week whose month has not loaded is a quiet gap: no bar, only a faint dash on the baseline (§8)
+                  if (p.missing)
+                    return (
+                      <motion.g key={p.w} className="pg-gap" data-week={p.w} initial={false} animate={{ opacity: 1 }}>
+                        <line x1={xc(i) - bw / 2} x2={xc(i) + bw / 2} y1={y0 - 1} y2={y0 - 1} className="pg-gap-line" />
+                      </motion.g>
+                    );
                   return (
                     <motion.g key={p.w} initial={false} animate={{ opacity: dim ? 0.32 : 1 }} exit={{ opacity: 0 }} transition={{ opacity: fadeIn }}>
                       {p.planned > 0 ? (
@@ -231,7 +250,7 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
               </AnimatePresence>
             </g>
             {avgPts.length > 1 ? (
-              <motion.path key={range} d={`M${avgPts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}`} className="pg-avg" initial={firstPaint || reduce ? false : { opacity: 0 }} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: firstPaint ? 0 : 0.18 }} />
+              <motion.path key={range} d={avgPath} className="pg-avg" initial={firstPaint || reduce ? false : { opacity: 0 }} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: firstPaint ? 0 : 0.18 }} />
             ) : null}
             {ci >= 0 && pts[ci]!.ran <= 0 && !pts[ci]!.planned ? <circle cx={xc(ci)} cy={y0} r={2.5} className="pg-now-dot" /> : null}
           </g>

@@ -99,3 +99,23 @@ describe('isoWeek', () => {
     expect(isoWeek('2027-01-01')).toBe('2026-W53');
   });
 });
+
+describe('progress builds from the months that are loaded (§8, critic C11)', () => {
+  it('marks the weeks of a missing month as a gap and leaves them out of the summary', () => {
+    const mons = ['2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05'];
+    const snap = snapOf('2026-10-14', weeks(mons, [4, 4, 4, 4, 4, 4]));
+    // September never answered: its weeks are a gap, August and October still draw
+    const loaded = (m: string) => m !== '2026-09';
+    const pts = weekSeries(snap, '2026-10-14', '3M', loaded);
+    const gap = pts.filter((p) => p.missing).map((p) => p.w);
+    expect(gap).toContain('2026-09-14');
+    expect(gap).toContain('2026-08-31'); // Aug 31 – Sep 6 touches September
+    expect(pts.find((p) => p.w === '2026-10-05')!.missing).toBe(false);
+    expect(pts.filter((p) => p.missing).every((p) => p.avg == null)).toBe(true);
+    const all = rangeSummary(weekSeries(snap, '2026-10-14', '3M'));
+    const some = rangeSummary(pts);
+    expect(some.total).toBeLessThan(all.total);
+    // without a loaded() the series is as before: nothing missing
+    expect(weekSeries(snap, '2026-10-14', '3M').some((p) => p.missing)).toBe(false);
+  });
+});
