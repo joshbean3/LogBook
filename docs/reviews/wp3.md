@@ -205,3 +205,158 @@ Notes on the harness:
 `s2-after-390-reduced.png`. The before shots show the old Morning page: an unlabelled stops line, rows with lengths on the
 right, a grip column, `Your routine` as a second list, the hint copy. The after shots show the page above. `scrollWidth`
 equals the viewport on all 26 after shots, and the console is clean.
+
+## QA step: the whole §4.4 battery, WP1's battery on this build, before/after screenshots
+
+Code commit `17cb4aa` (on top of `3a96be7`). Runner `S/wp3/qa/run.mjs` (one runner: every browser script at 1× and 4× CPU,
+the API, grep and gate scripts once, one table). Full table with every number: `S/wp3/qa/results/TABLE-qa-final.md`.
+**414 pass, 0 fail, 0 missing.** WP1's battery, repointed at this build and port: `S/wp3/wp1qa/` (results below).
+
+### What QA found and fixed (files changed, and why)
+
+| File | Change | Found by |
+|---|---|---|
+| `morning.css` | **The Leave row was never sticky**: `.sch > li { position: relative }` (0,1,1) outranked `.leave-row { position: sticky }` (0,1,0). Now `.sch > li.leave-row`. On a long morning (the late note at 320) the row pins at the scroller's bottom, 794, above the tab bar; before it sat half under the tab bar | T10, screenshot `late` at 320 |
+| `morning.css` | **Chips under 44 px**: ui.css's `.chip-btn::after` band is 6 px past the padding box, so 42 with the 1 px border; the `5` chip was 35 wide; the band sat under the following block (stacking). The late note's, the sheets' length and idea chips and the routine sheet's mode chips: min-width 44, band 7 px, rows 14 apart, `z-index: 1`; the mode chips 6 px lower, clear of the sheet's grab zone. At ≤ 359 px the length chips are 40 to the eye with a 3 px side band (44 to the thumb) so all six fit one line | T3, T7 |
+| `Schedule.tsx`, `morning.css` | The late note's chips take the whole row under the note (from the time column): one line at 390 (was two), two at 320 (was three, a 190 px row) | screenshot `late` 320/390 |
+| `LeaveRow.tsx`, `morning.css` | **The Leave stamp rolls** (§4.5, §0.2 row 4): the alarm stamp's two stacked labels, 120 ms opacity in/out, in one box. Before, Leave changed by a cut | 4o, 4p (new) |
+| `morning.css` | The late Leave sub `18 min later than your routine` wraps instead of ending `your…` (the news is `routine`); the row pads 8 px top and bottom so a two-line sub is not flush with the hairline | screenshot `late` 390 |
+| `Schedule.tsx`, `morning.css` | 320: the run row's sub keeps `4 mi · back 8:13` (the pace is a part that drops at ≤ 359 px); it was `4 mi · 8:20/mi · bac…` | screenshots at 320 |
+| `morning.css` | The alarm sheet's two choices are `minmax(0, 1fr)` halves: `Just tomorrow` widened the sheet's content past a 320 screen (16 elements past the edge, the stepper's `+` cut) | `alarm-sheet-tomorrow` 320 |
+| `MorningView.tsx` | `today` from `useToday()`: a second `useLog([])` built a second snapshot of the month inside the push's commit | 22a/22b profiling |
+| `RoutineEditor.tsx` | `useOpenRoutineEditor` subscribes to the bootstrap and the months and builds its snapshot when the sheet opens, not on every render of the page (This morning's push included). Signature unchanged | same |
+
+### The battery (build plan §4.4, spec §0.2 rows 3–6, §14 tests 26, 47, 48), measured on `17cb4aa`
+
+| Test | Script | Checks | 1× | 4× | Key numbers (1× / 4×) |
+|---|---|---|---|---|---|
+| E2E (WP1's smoke) | `smoke` | 22 | 22/22 | 22/22 | four tabs, Settings depth 2, This morning push and back, Reads, a sheet, a hold menu, console clean |
+| §0.2 rows 3 and 6; WP1 #9/#10 restated on the real page (new) | `t00-day` | 11 | 11/11 | 11/11 | 95 % of the slide at +248 / +256 ms, rest +448 / +438 ms from the first moving frame; Today at −0.3 × (390 − x) ± 0.00 px over 61 / 56 frames; scrim error 0.0000; tab bar 794 every frame; edge swipe 120 px at 400 px/s: rest 432 / 472 ms after release, unmount and pathname on the same frame (57 / 60); 0 black frames in 56 screencast frames |
+| #1 [47] the alarm drag | `t47-drag` | 24 | 24/24 | 24/24 | Leave bottom 687 ≤ tab top 794 at 06:30, 07:50, 08:45; one four-stop line; 42 px → 7:15 → 7:30, 3 `select`; stamp, run, Free and Now card change on frames 15/26/37 (1×) and 18/29/39 (4×); one `PUT {"wake":450}`; flash 0.4 s on opacity; 0.25× band (−42 px → −10.5 px); keyboard one write |
+| #1 [47] the alarm sheet | `t47-wake` | 9 | 9/9 | 9/9 | `Just today` → one `PUT {"wake":440}`; rows +5 to the cool-down, routine fixed; `Every morning` → `PATCH {"wake":430}` |
+| #2 [48] | `t48-session` | 11 | 11/11 | 11/11 | session sheet in 3 / 30 ms; one `POST /sessions` miles 3, 0 morning writes; hero `Easy 3` 2 / 4 ms after the pop rested (532 / 586 ms); 0 month refetches; `morningDays` unchanged |
+| #3 reorder | `t03-reorder` | 11 | 11/11 | 11/11 | `Edit · Remove` + 1 lift; lag 0.00 px over 106 / 119 frames; `lift select select drop`; one PATCH; 380 ms press → editor |
+| #4 run menu, Skip, Leave | `t04-menu` | 16 | 16/16 | 16/16 | exact 3-item menu; exit 100 ms opacity, gone 117 / 117 ms; FLIP WAAPI 242 ms, 30 keyframes, translateY(60px) → 0, 17 / 15 frames sampled; heights 60; toast above Leave, 6.3–6.8 s; Undo; rest day 2 marks / `Back to` 2 un-marks; **4o** routine "when I'm back": Skip moves Leave 9:03 → 8:20; **4p** the stamp rolls (ah-in/ah-out, 120 ms, opacity only) |
+| #5 Now card, past, future | `t05-now` | 11 | 11/11 | 11/11 | the five lines; past `Woke 7:15 · Left 9:30`, ink-2, no controls, nothing written; future drag writes Sat |
+| #6, #7 [26] flyer and pops | `t06-pop` | 9 | 9/9 | 9/9 | flyer lerp error 0.01 px over 28 frames; rest frame clean; chevron pop spring 36–38 frames; edge swipe at 333 px/s pops; lit tab pops; **22a/22b** below |
+| #8 routine sheet | `t08-routine` | 4 | 4/4 | 4/4 | trailing icon 44 × 44 → large sheet; leave field focused on the rest frame +0 / +1; Leave +5 → 9:35 one PATCH |
+| #9 late note | `t09-late` | 12 | 12/12 | 12/12 | `Wake 7:40` → `{"wake":460}`; `Run 1.5 mi` → upsert miles 1.5; `Skip the run` → mark skip; no override body with a workout field |
+| §4.3 quiet drop | `t43-legacy` | 8 | 8/8 | 8/8 | stored legacy row read as `{ wake }`; the session's Easy 4 with the override's 7:30 |
+| Targets, overflow, reduced motion (new) | `t20-sweep` | 42 | 42/42 | 42/42 | 390 and 320: 12 page controls, the late chips and the alarm, step, start, routine and add sheets all hit-test 44 × 44; scrollWidth = viewport, nothing past the edge; T10 Leave sticky (bottom 749 / 794 at 390 / 320, tab top 794); reduced: drag 3 `select` + one write, no transform animation on any row through a drag, a Skip (Shower 387 → 327 at once) or a drop; haptics stay |
+| #10 shared/API live | `t10-export` | 8 | 8/8 | n/a | fillers, legacy PUT, second PUT, month `{ wake }`, export round trip, five-field file, 422 without wake |
+| #11 greps | `t11-grep` | 20 | 20/20 | n/a | no DayEditor, MiniLine, m-leave-glow, sch-grip, now-pulse, react-router, own hold clock, height/top/padding motion in `features/morning` |
+| Gates | `gates` | 6 | 6/6 | n/a | tsc shared/api/web exit 0; shared 93, api 62, web 86 passed; web build 426 KB gzip; WP1's grep gates 23/23 + 48 unit tests |
+
+### Tests restated (unmeasurable or unfair as written), and why
+
+- **22a (WP1's N4)**. As written: the tap → first moved frame at 4× under "the interim page's best (107 ms)", a median
+  set against another page's single best sample on a shared four-core container (other teams' batteries running). The
+  4× tap path is mostly the shell's and Today's (the interim hero's press and click: the click lands +30–48 ms after
+  pointerup for the avatar and the stops line alike), and only this push carries the four-stop line's flight (WP1's
+  flyer, ~30 ms at 4× measured by long-animation-frame entries). Restated: **22a** the same tap path against Settings
+  (the avatar), interleaved, five each: 1× This morning 38 ms vs Settings 38 (≤ 50 and ≤ Settings + 1 frame); 4× 133 vs
+  97 (≤ Settings + 3 frames). **22b** the page's own mount (`nav.push` → first moved frame): 1× 5 / 2 / 2 ms, 4× 74 /
+  49 / 59 ms (This morning / Settings / Training), within one frame of the slower. The spec's `≤ 16 ms` (§0.2 row 3) is
+  met by no pushed page here (Settings 37–38 ms at 1×): it is the shell's floor, WP1's test 22.
+- **4c/4d at 4× under load**. In one full run (WP2's battery running beside it) the rAF sampler saw 1 fade frame and 2
+  spring frames: the Skip's month patch held the main thread ~400 ms, while the fade (motion's WAAPI opacity, 100 ms)
+  and the FLIP (WAAPI, 242 ms) ran on the compositor. The checks now also read the animation objects (duration,
+  keyframes, from/to) and pass on either the sampled frames or the objects; the final run passes on both.
+- **4p**: the old label leaves the DOM on its `animationend`, which waits for that same main thread; the visible fade
+  is the 120 ms opacity animation. 1×: both labels for ≤ 300 ms of frames (167 measured), 4×: ≤ 1 s.
+- **Spec "the Leave stamp changes" on Skip (§4.4 #4)** holds only when the routine starts when you are back. 4f keeps
+  the owner's fixed 8:40 routine (Leave stays 9:30); 4o sets the routine to "when I'm back" and sees Leave move.
+- **The Now card is 122, not 96**: on this base WP2's MiniTimeline is 68 tall; with its 44 px line at integration the
+  card is 96 (step 2's note stands).
+- Harness: a screenshot taken while a screencast runs shows up in it as one fully black frame (t00 D10's first runs):
+  the pixel check now runs between two screencasts. A crashed script left its last run's JSON counted: the runner now
+  deletes it first. `sheetAtRest` waits for a sheet to stop before tapping in it (a tap on a rising sheet is the
+  rise's, WP1's rule; t48 at 4× tapped `Edit` mid-rise).
+
+### WP1's battery on this build (port 8820, `SHIFT_MIN=auto`)
+
+Full run (`S/wp3/wp1qa/results-wp3-final1/TABLE.md`): 1× 610/619, 4× 582/593 (WP1's own final: 614/617, 586/593).
+Every failing check is on WP1's stubs, the `/dev/ui` gallery or Plan, none on This morning; each failing script was
+rerun against the seams base in a detached worktree (`S/wp3/wp1qa-control/`, port 8821) and fails there too, or
+passes on a rerun here:
+
+| Check | This build | Base (control) | Verdict |
+|---|---|---|---|
+| t02-cut 2 [stub roots] first frame ≤ 17 / 50 ms | +21.1 / +68.3 ms | 1× pass, 4× fail | timing noise (container load), WP1's |
+| t12-sheet 12a, 12g (≤ 17 ms) | fail both rates | fail both rates (also in WP1's own final) | WP1's |
+| t13-pager 15c (4×) | fail | fail | WP1's |
+| t14-hold 14a/14c | 1× fail | 1×/4× fail | WP1's, timing |
+| r1-sheet f5, r1-push c5 (4×), r1-misc f8 (4×), r2-sheet u1 | fail | fail (c5, f8 also in WP1's own final) | WP1's |
+| r1-press u4 (4×) | fail once, 6/6 on rerun | pass | flaky |
+| r3-sheet u3-5 (`open()` over a tall sheet, largest step) | 98–131 px | 72–86 px; 87–171 px with the profiler on | noise: the CPU profiles of the open() on both builds match function for function (`dbg/u35.mjs`) |
+| r4-nav c4-2a/b | fail | fail | WP1's |
+| r2-layer c2-1/c2-3 (4×, Settings) | "never in range" | c2-3 the same | harness misses on Settings, flaky |
+
+On the final build the scripts that touch This morning, `smoke`, `t09-push`, `t11-flyer`, `t19-320`, `r1-push`,
+`r2-layer`: smoke 22/22 both rates, t09 19/19 + 20/20, t11 5/5 both, t19-320 16/16 both, r1-push 7/7 + 6/7 (c5,
+WP1's known), r2-layer 20/20 + 18/20 (c2-1-tap and c2-3 on Settings, the misses above). `r2-layer c2-2` (This morning
+mounted at rest as Settings › Training goes, cut and back) passes at both rates. No WP1 test targeted the interim This
+morning beyond `r1-push f4 push morning` and `c2-2`, which pass on the real page; t00-day restates #9/#10 on it.
+
+### Hand-verifiable steps (this step's)
+
+1. At 320 wide, set Friday's alarm to 8:00 and open This morning at 08:40. Expected: the late note reads `Back 8:58, 18
+   min past the routine` with `Wake 7:40 · Run 1.5 mi` on one line and `Skip the run` under them; the Leave row reads
+   `18 min later than your routine` in amber on two lines, and sits above the tab bar, not under it.
+2. On a long morning (step 1), scroll the page. Expected: the Leave row stays pinned above the tab bar until the end
+   of the group scrolls into view.
+3. Timings → Leave → "When I'm back", then hold Easy run → Skip Easy 4. Expected: the run row fades, the rows below
+   slide up, and the Leave stamp's time crossfades (about a tenth of a second) to the earlier time.
+4. Tap any chip (the late note's, `5 / 10 / 15 …` in a step or the alarm sheet, `Run day / Gym day / Rest day`) a few
+   pixels above or below its pill. Expected: it takes the tap.
+5. At 320 wide, open tomorrow's morning and tap the alarm. Expected: the sheet ends in `Every morning · Just tomorrow`,
+   both inside the screen; the six length chips sit on one line. The run row reads `4 mi · back 8:13`.
+
+### Findings this package was to close (all steps)
+
+| Finding | Status | How / why |
+|---|---|---|
+| nav F1 (Morning is a second Today, sev 5), critic §4 #3, flows S1 | Fixed | pushed page at `/today/:date/morning`, no tab, no day pager (greps 11o/11p, smoke) |
+| nav F5, touch F17, flows 7.3 (Morning replaces history on a day step) | Fixed | no day stepping on This morning; each morning is its own pushed entry |
+| flows 2.1 (lands on another tab with no way back) | Fixed | chevron, edge swipe, lit tab (6a–6c, D7–D8) |
+| flows 2.2 (the alarm is a stepper two screens away) | Fixed | the drag on the stamp (47c–47t) |
+| flows 2.3, critic §4 #3, M16 (two editors for the run) | Fixed | one editor: the session (48, 9e–9k, 10a–10h, L1–L7) |
+| flows 2.6 (three clocks) | Fixed | `useNowMinutes` from Today's clock; the page's own 30 s clock deleted |
+| visual F8 (row heights 50/64/50/56/56, three right-hand treatments) | Fixed | one row type, 60, nothing on the right (4e) |
+| visual F21 (Morning repeats Today's mini timeline) | Fixed | the Now card is the flyer's landing: one line on the page (47b, 26a–c) |
+| visual F12 (the save toasts) | Fixed | no toast but Undo (47m, 8c) |
+| touch F1 (a swipe anywhere on Morning changes the day) | Fixed | no pager; a horizontal drag on the stamp changes nothing (47o) |
+| touch F7, motion #9 (Schedule's own 380 ms hold) | Fixed | `useHold` 450 via `Pressable` (11r, 3a) |
+| touch F13 (the grip column, a 44 px dead strip) | Fixed | no grip; hold then move (3a–3j) |
+| motion #3 (Morning's day swipe snaps to the top mid-slide) | Fixed | no day swipe on This morning |
+| motion #16 (`now-pulse`, things that move on their own) | Fixed | deleted (11o); the progress line is the one clock-driven motion kept |
+| `m-leave-glow` | Fixed | `--warn` copy, no glow (11o) |
+| WP1 N4 (interim This morning delays the push 107–247 ms at 4×) | Fixed (restated) | 22a/22b above: the page mounts within a frame of Settings' and Training's |
+| WP1's ask: PushedBar with the date eyebrow; the flyer's real end | Fixed | 5a, 26a–c |
+| nav F11, touch F11, motion #10 (the hero's pull to Morning) | Rejected for WP3 | the hero is WP2's |
+
+### Requests (new in this step; step 1's and step 2's stand)
+
+- **WP1 (`styles/ui.css`)**: `.chip-btn::after` (`top/bottom: -6px`) gives a 42 px band, not 44: the inset is from the
+  padding box, inside the 1 px border. `-7px` makes it 44. This package overrides it for its own chips.
+- **WP1 (reduced motion, repeated)**: Today's caps row and avatar still paint over a pushed page at rest under
+  `prefers-reduced-motion` (`S/wp3/qa/shots/qa-after-{390,320}-reduced.png`).
+- **WP1 (the flight's cost)**: the shared-element push runs ~30 ms longer at 4× than the same push without
+  `{ shared }` (long-animation-frame entries); measure the destination rect after the first frame if that is possible.
+- **WP2**: memoise the day pages (repeated): a Skip's month patch holds the main thread ~400 ms at 4× under This
+  morning; the compositor carries this page's motion through it, but the old Leave label and the exiting row leave the
+  DOM late.
+
+### Screenshots (looked at, every one)
+
+`S/wp3/qa/shots/qa-{before,after}-{390,320}-<state>.png`, states: `morning-0630`, `morning-0750`, `morning-0845`,
+`morning-1000`, `late`, `past`, `future`, `run-menu`, `step-menu`, `alarm-drag-mid`, `alarm-drag-released`,
+`reorder-mid`, `alarm-sheet`, `session-sheet`, `step-sheet`, `start-sheet`, `add-sheet`, `routine-sheet`,
+`routine-leave`, `skipped-toast`, `rest-morning`, `wake-menu`, `alarm-sheet-tomorrow`, `reduced` (48 after; the base
+has no alarm drag, Free row, routine sheet from the page or Leave row, so those 10 are after only). Contact sheets:
+`S/wp3/qa/shots/sheets/`. Per-shot scrollWidth, overflow and console: `S/wp3/qa/results/shots-qa-{before,after}.txt`
+(after: scrollWidth = viewport and 0 elements past the edge on all 48, console clean; before: 139–143 elements of the
+interim pager's neighbour days mounted off the sides). Before shows the interim Morning: no bar title or eyebrow,
+`Your routine` as a second list with grips and lengths on the right, the hint copy, `Timings for every morning` foot
+link, the late note as a card, the old Run/Gym/Rest DayEditor behind the run row. After shows the page above with this
+step's fixes (the late row, the sticky Leave row, 320's run row and sheets).
