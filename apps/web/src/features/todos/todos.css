@@ -128,6 +128,12 @@
   user-select: text;
   -webkit-user-select: text;
 }
+/* the row is the field: the caret is the focus (no ring inside the inset row) */
+.tt-input:focus,
+.tt-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .tt-input::placeholder {
   color: var(--ink-3);
 }
@@ -396,7 +402,8 @@
 .tlist {
   display: grid;
   margin: 0 -20px;
-  --swipe-bg: var(--bg-sheet, var(--surface));
+  /* the rows are the sheet's own colour (the pane shows only under a moving row) */
+  --swipe-bg: var(--bg);
 }
 .tgroup > * + * {
   border-top: 1px solid var(--line);
