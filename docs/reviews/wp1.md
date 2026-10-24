@@ -1,6 +1,6 @@
 # WP1 review: shell and navigation foundation
 
-Branch `feel/wp1`, on `claude/hopeful-einstein-eunarl` (WP5 merged there; nothing of it undone). Spec `docs/feel.md` v4.2 §1, §2, §9–§14; build plan §2; contracts §A–§E, §G. This file replaces WP5's review (that one lives on at `scratchpad/feel/wp5-review.md`).
+Branch `feel/wp1`, on `claude/hopeful-einstein-eunarl` (WP5 merged there; nothing of it undone). Spec `docs/feel.md` v4.2 §1, §2, §9–§14; build plan §2; contracts §A–§E, §G. WP5's review is `docs/reviews/wp5.md`.
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`. Everything below was measured on this worktree's `VITE_FAKE_CLOCK=1` build served by `apps/api` on port 8791 (seed copy `S/wp1/test.db`), Playwright 390 × 844, DPR 2, `isMobile`, `hasTouch`, CDP touch, at 1× and 4× CPU (`Emulation.setCPUThrottlingRate`).
 
