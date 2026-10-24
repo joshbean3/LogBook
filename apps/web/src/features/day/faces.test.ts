@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import type { Log } from '../log/useLog';
-import { faceOf, milesText, otherEyebrow, phaseOf, planWords } from './faces';
+import { dayStamps } from './CloseDay';
+import { coachSentence, faceOf, milesText, otherEyebrow, phaseOf, planWords, preLandingFace } from './faces';
 import { morningRowWords } from './MorningRow';
 import { isoWeek } from './WeekCard';
 
@@ -91,5 +92,33 @@ describe('the words around the hero', () => {
     expect(planWords(run(FRI))).toBe('4 mi · floor 20 min easy');
     expect(milesText(5.02)).toBe('5.02');
     expect(milesText(4)).toBe('4');
+  });
+});
+
+describe('the run landing and the Close card (docs/feel.md §5, §6)', () => {
+  const act: Activity = { id: 'a1', date: FRI, time: '12:05', name: 'Run', sportType: 'Run', kind: 'run', miles: 4.2, movingSec: 2100, elevFt: 0, avgHr: null, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: 'gp~wFrqmbMsAqBiAuBu@sBc@sBKmBLgBb@{A|@oA' } as unknown as Activity;
+  it('a matched run lands on the 304 face; before it, the day showed the open face with its ring', () => {
+    const log = logOf(bundle([run(FRI)], [act]));
+    const f = faceOf(log, FRI, phaseOf(log, FRI, 13 * 60));
+    expect(f.kind).toBe('landed');
+    expect(f.tall).toBe(true);
+    const pre = preLandingFace(log, FRI, 13 * 60);
+    expect(pre.kind).toBe('open');
+    expect(pre.ring).toBe('open');
+    expect(pre.lead?.session.id).toBe(f.lead?.session.id);
+  });
+  it("the coach's read as the hero says it: its first sentence", () => {
+    expect(coachSentence('Even splits, well judged. Hold the last mile next time.')).toBe('Even splits, well judged.');
+    expect(coachSentence('  One line without a stop ')).toBe('One line without a stop');
+    expect(coachSentence(null)).toBeNull();
+  });
+  it('the Close card stamps: only what happened, at most three; the miles tick from the plan, never from 0', () => {
+    const r = dayStamps({ miles: 4.2, planned: 4, lit: 3, habits: 5, doneTodos: 2, openTodos: 1, restDay: false, runShown: true });
+    expect(r.stamps.map((s) => s.k)).toEqual(['Mi', 'Habits', 'To-dos']);
+    expect(r.stamps[0]!.from).toBe(4);
+    expect(r.line).toBeNull();
+    const q = dayStamps({ miles: 0, planned: 0, lit: 0, habits: 5, doneTodos: 0, openTodos: 2, restDay: true, runShown: false });
+    expect(q.stamps).toEqual([]);
+    expect(q.line).toBe('Rest day. 2 to-dos left.');
   });
 });
