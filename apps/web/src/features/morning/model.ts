@@ -1,9 +1,8 @@
-import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, NEW_ACCOUNT_MORNING, normalizeAfterOrder, clockOfDay, morningDayFor, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type Session } from '@logbook/shared';
-import { useEffect, useState } from 'react';
+import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, clockOfDay, durationWords, morningDayFor, NEW_ACCOUNT_MORNING, normalizeAfterOrder, num, routineOf, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type RoutineStep, type Session } from '@logbook/shared';
 
 /**
- * The Morning page's pure model: the timeline for a day (the routine's block order is a setting `buildMorning` honours), the
- * clock (with a dev override), and the one per-device preference the page keeps (the reorder lesson).
+ * This morning's pure model: the timeline for a day (the routine's block order is a setting `buildMorning` honours), the
+ * schedule's rows (one row type, spec §4.1) and the Now card's line. The clock is Today's (`useNowMinutes`, features/day).
  */
 
 // ---------- time words ----------
@@ -108,47 +107,82 @@ export const stopsOf = (T: MorningTimeline): Array<{ key: 'wake' | 'door' | 'bac
   ];
 };
 
-// ---------- the clock ----------
+
+// ---------- the schedule's rows (spec §4.1): one row type, time · icon · name · sub, nothing on the right ----------
+export type RowKind = 'wake' | 'work' | 'late' | 'free' | 'step';
+export interface SchedRow {
+  /** Stable across renders (the FLIP and the reorder key on it): 'wake', 'work', 'late', 'free', or the step's routine key. */
+  id: string;
+  kind: RowKind;
+  /** The time column. */
+  at: number;
+  /** The stretch the row covers (the progress line under the row that is under way). */
+  start: number;
+  end: number;
+  name: string;
+  sub: string;
+  /** The block key the icon is chosen from ('run', 'gym', 'shower', 'step', …). */
+  icon: string;
+  tone?: string;
+  step?: RoutineStep;
+}
+
+/** 'today' / 'tomorrow' / 'this morning': the word the Wake row's `Just …` uses. */
+export const justWord = (date: string, today: string, tomorrow: string) => (date === today ? 'today' : date === tomorrow ? 'tomorrow' : 'this morning');
+
 /**
- * `?at=HH:MM` fakes the clock so every phase of the morning can be checked. It works in a dev build, and on localhost so the
- * production build the QA server runs can be driven too. Nowhere else.
+ * The rows of a morning, top to bottom: Wake · the workout (its door and cool-down, or its walks, folded into its sub) · Free ·
+ * the routine's steps. The Leave row is drawn by LeaveRow. `patched`: an alarm drag is laying its own wake over the day.
  */
-const fakeNow = (): number | null => {
-  if (typeof location === 'undefined') return null;
-  const local = import.meta.env.DEV || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  if (!local) return null;
-  const x = /^(\d{1,2}):(\d{2})$/.exec(new URLSearchParams(location.search).get('at') ?? '');
-  return x ? Number(x[1]) * 60 + Number(x[2]) : null;
-};
-const readNow = () => {
-  const f = fakeNow();
-  if (f != null) return f;
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-};
-/** Minutes since midnight, refreshed every 30 seconds. */
-export const useNowMinutes = () => {
-  const [m, setM] = useState(readNow);
-  useEffect(() => {
-    const iv = setInterval(() => setM(readNow()), 30_000);
-    return () => clearInterval(iv);
-  }, []);
-  return m;
+export const rowsOf = (T: MorningTimeline, just: string, patched = false): SchedRow[] => {
+  const out: SchedRow[] = [];
+  const wake = T.blocks.find((b) => b.key === 'wake');
+  const door = doorOf(T);
+  const own = T.day.own || patched;
+  out.push({ id: 'wake', kind: 'wake', at: T.day.wake, start: T.day.wake, end: wake?.end ?? T.day.wake, name: 'Wake up', sub: own ? `Just ${just}` : T.day.mode === 'rest' ? 'Rest morning' : 'Every morning', icon: 'wake' });
+  const work = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
+  if (work && door != null) {
+    const sub = work.key === 'run' ? `${num(T.day.miles)} mi · ${clock(T.settings.run.pace)}/mi · back ${short(T.back)}` : `${durationWords(T.day.minutes)} · back ${short(T.back)}`;
+    out.push({ id: 'work', kind: 'work', at: door, start: door, end: T.back, name: work.key === 'run' ? `${T.day.type} run` : T.day.type, sub, icon: work.key, tone: work.tone });
+  }
+  if (T.late && T.fix) out.push({ id: 'late', kind: 'late', at: T.back, start: T.back, end: T.back, name: '', sub: '', icon: 'late' });
+  const free = T.blocks.find((b) => b.key === 'free');
+  if (free) out.push({ id: 'free', kind: 'free', at: free.start, start: free.start, end: free.end, name: 'Free', sub: `${durationWords(free.mins)} · routine at ${short(free.end)}`, icon: 'free' });
+  const steps = new Map(routineOf(T.settings).map((r) => [r.key, r]));
+  for (const b of T.blocks) {
+    if (b.id == null) continue;
+    const step = steps.get(b.id);
+    if (!step) continue;
+    out.push({ id: b.id, kind: 'step', at: b.start, start: b.start, end: b.end, name: blockLabel(T, b), sub: durationWords(b.mins), icon: step.builtin ? b.key : 'step', step });
+  }
+  return out;
 };
 
-// ---------- the lesson: "Hold a step to move it" shows under the routine until the first step is moved ----------
-const TAUGHT_KEY = 'logbook.morning.moved';
-export const wasTaught = () => {
-  try {
-    return localStorage.getItem(TAUGHT_KEY) === '1';
-  } catch {
-    return true;
-  }
+/** Where a stretch sits against the clock on today: behind, under way (and how far along, 0..1), or still to come. */
+export const timeState = (isToday: boolean, now: number, start: number, end: number): { cls: '' | 'past' | 'is-now'; p: number } => {
+  if (!isToday) return { cls: '', p: 0 };
+  if (end <= now) return { cls: 'past', p: 1 };
+  if (start <= now) return { cls: 'is-now', p: Math.max(0, Math.min(1, (now - start) / Math.max(1, end - start))) };
+  return { cls: '', p: 0 };
 };
-export const markTaught = () => {
-  try {
-    localStorage.setItem(TAUGHT_KEY, '1');
-  } catch {
-    /* fine: the line may show once more */
-  }
+
+/**
+ * The Now card's one line (spec §4.1). Today, by phase: `Alarm in 43 min` · `Out the door in 22 min` · `Back by 8:13` ·
+ * `Shower now · Leave in 45 min` · `Left 9:30`. A past morning: `Woke 7:15 · Left 9:30`. A future one: `Alarm 7:15 · Leave 9:30`.
+ */
+export const nowLine = (T: MorningTimeline, now: number, rel: 'past' | 'today' | 'future'): string => {
+  const wake = T.day.wake;
+  if (rel === 'past') return `Woke ${short(wake)} · Left ${short(T.leave)}`;
+  if (rel === 'future') return `Alarm ${short(wake)} · Leave ${short(T.leave)}`;
+  const inW = (m: number) => durationWords(Math.max(1, Math.ceil(m - now)));
+  if (now < wake) return `Alarm in ${inW(wake)}`;
+  const door = doorOf(T);
+  if (door != null && now < door) return `Out the door in ${inW(door)}`;
+  if (door != null && now < T.back) return `Back by ${short(T.back)}`;
+  if (now >= T.leave) return `Left ${short(T.leave)}`;
+  const leave = `Leave in ${inW(T.leave)}`;
+  const b = T.blocks.find((x) => x.start <= now && now < x.end);
+  if (b?.key === 'free') return `Free until ${short(b.end)} · ${leave}`;
+  if (b && b.id != null) return `${blockLabel(T, b)} now · ${leave}`;
+  return leave;
 };

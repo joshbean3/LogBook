@@ -126,10 +126,9 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
 
   const save = () => {
     if (!patch || !dirty) return;
+    // the row answering on the page is the confirmation (only Undo and errors raise toasts, §8)
     settings.mutate({ after: patch });
-    haptics.success();
     sheet.close();
-    toast(adding ? `${trimmed} added` : 'Saved');
   };
   const remove = () => {
     if (!stepKey || !current) return;
@@ -196,100 +195,56 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
 };
 
 /**
- * The alarm: when it goes off, for this morning or every morning, and how long from the alarm to out of the door (the
- * wake-up routine, which a run morning and a gym morning keep separately). `preselect` (contracts §F) opens on that choice
- * (`today` = just this date, `every` = every morning); `today` on tomorrow's date reads `Just tomorrow` (the Close card's
- * alarm row). Without it the choice follows the day, as before.
+ * The alarm (the drag's fallback, spec §4.2): when it goes off and how long from the alarm to out of the door (the wake-up
+ * routine, which a run morning and a gym morning keep separately). The sheet ends in its two choices, `Just today` and
+ * `Every morning` (no segmented switch to set first): each saves. `Just today` writes this date's `{ wake }`; `Every
+ * morning` the routine's alarm (a morning with an alarm of its own keeps it, moved to the new time). `preselect` (contracts
+ * §F) makes that choice the filled one: `today` on tomorrow's date reads `Just tomorrow` (the Close card's alarm row).
+ * No toast: the page answering is the confirmation.
  */
 export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { settings: MorningSettings; day: MorningDay; date: string; dayName: string; preselect?: 'today' | 'every' }) => {
   const sheet = useSheet();
   const today = useToday();
-  const justName = preselect === 'today' && date === shiftDays(today, 1) ? 'tomorrow' : dayName;
-  const toast = useToast();
+  const justName = date === today ? 'today' : date === shiftDays(today, 1) ? 'tomorrow' : dayName;
   const { settings, setDay } = useMorningMutations();
   const g = day.mode === 'gym' ? 'gym' : 'run';
   const [wake, setWake] = useState(day.wake);
   const [wakeup, setWakeup] = useState(st[g].wakeup);
-  const [scope, setScope] = useState<'day' | 'usual'>(preselect === 'today' ? 'day' : preselect === 'every' ? 'usual' : day.own && day.wake !== st.wake ? 'day' : 'usual');
-  const dirty = wake !== day.wake || wakeup !== st[g].wakeup || (scope === 'usual' && wake !== st.wake);
-  useSticky(dirty);
+  const lead: 'day' | 'usual' = preselect === 'every' ? 'usual' : 'day';
+  const wakeupDirty = wakeup !== st[g].wakeup;
+  const dayDirty = wake !== day.wake || wakeupDirty;
+  const usualDirty = wake !== st.wake || (day.own && wake !== day.wake) || wakeupDirty;
+  useSticky(dayDirty);
   const preview = useMemo(() => ({ ...st, [g]: { ...st[g], wakeup } }) as MorningSettings, [st, g, wakeup]);
-  const save = () => {
+  const save = (scope: 'day' | 'usual') => {
     const patch: Record<string, unknown> = {};
-    if (wakeup !== st[g].wakeup) patch[g] = { wakeup };
+    if (wakeupDirty) patch[g] = { wakeup };
     if (scope === 'usual' && wake !== st.wake) patch.wake = wake;
     if (Object.keys(patch).length) settings.mutate(patch);
     // a morning of its own keeps its own alarm; "every morning" brings it along so the page shows what was chosen
     if (wake !== day.wake && (scope === 'day' || day.own)) setDay.mutate({ date, day: { wake } });
-    haptics.success();
     sheet.close();
-    toast(scope === 'usual' ? `Alarm ${short(wake)} every morning` : `Alarm ${short(wake)} on ${justName}`);
   };
+  const choice = (scope: 'day' | 'usual') => (
+    <Button key={scope} variant={scope === lead ? 'primary' : 'ghost'} onClick={() => save(scope)} disabled={scope === 'day' ? !dayDirty : !usualDirty}>
+      {scope === 'day' ? `Just ${justName}` : 'Every morning'}
+    </Button>
+  );
   return (
     <div className="se">
       <div className="se-field">
         <span className="caps">Alarm</span>
         <Stepper value={wake} onChange={setWake} step={WAKE_STEP} min={WAKE_MIN} max={WAKE_MAX} format={short} parse={parseWake} label="Alarm" inputProps={{ inputMode: 'numeric', autoComplete: 'off' }} />
       </div>
-      <Segmented
-        className="se-scope"
-        label="Which mornings"
-        options={[
-          ['usual', 'Every morning'],
-          ['day', `Just ${justName}`],
-        ]}
-        value={scope}
-        onChange={(v) => (haptics.select(), setScope(v))}
-      />
       <div className="se-field">
         <span className="caps">Alarm to out the door</span>
         <Length value={wakeup} onChange={setWakeup} label="Wake-up time" min={0} max={180} chips={[5, 10, 15, 20, 30, 45]} />
         <span className="se-hint">{g === 'gym' ? 'On gym mornings' : 'On run and rest mornings'}</span>
       </div>
       <LeaveLine day={day} dayAfter={{ ...day, wake }} before={st} after={preview} />
-      <div className="sheet-foot">
-        <span />
-        <div className="foot-right">
-          <Button variant="primary" onClick={save} disabled={!dirty}>
-            Save
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/** The stretch each side of the workout: out the door and the cool-down on a run morning, the walk on a gym morning. */
-export const GapEditor = ({ settings: st, day }: { settings: MorningSettings; day: MorningDay }) => {
-  const sheet = useSheet();
-  const toast = useToast();
-  const { settings } = useMorningMutations();
-  const gym = day.mode === 'gym';
-  const now = gym ? st.gym.walk : st.run.buffer;
-  const [v, setV] = useState(now);
-  useSticky(v !== now);
-  const preview = useMemo(() => (gym ? { ...st, gym: { ...st.gym, walk: v } } : { ...st, run: { ...st.run, buffer: v } }), [st, gym, v]);
-  const save = () => {
-    settings.mutate(gym ? { gym: { walk: v } } : { run: { buffer: v } });
-    haptics.success();
-    sheet.close();
-    toast('Saved');
-  };
-  return (
-    <div className="se">
-      <div className="se-field">
-        <span className="caps">{gym ? 'Each way' : 'Before and after the run'}</span>
-        <Length value={v} onChange={setV} label={gym ? 'Walk' : 'Door and cool-down'} min={0} max={180} chips={gym ? [0, 5, 10, 15, 20] : [0, 5, 10, 15]} />
-        <span className="se-hint">{gym ? 'The walk there and the walk home.' : 'Shoes on and out, then catching your breath after.'}</span>
-      </div>
-      <LeaveLine day={day} before={st} after={preview} />
-      <div className="sheet-foot">
-        <span />
-        <div className="foot-right">
-          <Button variant="primary" onClick={save} disabled={v === now}>
-            Save
-          </Button>
-        </div>
+      <div className="sheet-foot se-choices">
+        {choice('usual')}
+        {choice('day')}
       </div>
     </div>
   );
@@ -298,7 +253,6 @@ export const GapEditor = ({ settings: st, day }: { settings: MorningSettings; da
 /** When the back-home routine starts: as soon as you are back, or at a set time (so a long run shows as late). */
 export const StartEditor = ({ settings: st, day }: { settings: MorningSettings; day: MorningDay }) => {
   const sheet = useSheet();
-  const toast = useToast();
   const { settings } = useMorningMutations();
   const [mode, setMode] = useState(st.after.showerMode);
   const [at, setAt] = useState(st.after.showerAt);
@@ -307,9 +261,7 @@ export const StartEditor = ({ settings: st, day }: { settings: MorningSettings; 
   const preview = useMemo(() => ({ ...st, after: { ...st.after, showerMode: mode, showerAt: at } }), [st, mode, at]);
   const save = () => {
     settings.mutate({ after: { showerMode: mode, showerAt: at } });
-    haptics.success();
     sheet.close();
-    toast(mode === 'fixed' ? `Routine starts at ${short(at)}` : 'Routine starts when you’re back');
   };
   return (
     <div className="se">
@@ -321,7 +273,7 @@ export const StartEditor = ({ settings: st, day }: { settings: MorningSettings; 
           ['fixed', 'At a set time'],
         ]}
         value={mode}
-        onChange={(v) => (haptics.select(), setMode(v))}
+        onChange={setMode}
       />
       {mode === 'fixed' ? (
         <div className="se-field">

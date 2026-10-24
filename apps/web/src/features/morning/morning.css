@@ -1,195 +1,348 @@
-/* Morning (spec §5.2), a tab: the stops at a glance, then the schedule from the alarm to the door. The fixed part is a
-   tap to edit; the routine below it is a list you hold and drag into order. Night brand: black, one blue for now, the
-   session's tone as a bar, the halo under the endpoint. */
+/* This morning (docs/feel.md §4): pushed over Today. The bar, the Now card where the hero's four-stop line lands, then the
+   morning as one inset group of 60 px rows (time 48 · icon 32 · name and sub, nothing on the right) ending in the sticky
+   Leave row, and `+ Add a step`. Only transform and opacity animate (the stamps' colour flash is the one colour tween). */
 
+.m-page {
+  display: block;
+}
+.m-page > .now-card {
+  margin-top: 16px;
+}
 
-.m-pager .dpager-page {
-  white-space: normal;
-}
-.m-pager {
-  /* the pager spans the screen and each day keeps the gutter inside it, so the schedule's edge-to-edge rows (and a
-     lifted step, a little larger) are never clipped by the pager's side edges */
-  overflow-y: visible;
-  border-radius: 0;
-  margin-inline: calc(-1 * var(--page-pad));
-}
-.m-pager .dpager-page {
-  padding-inline: var(--page-pad);
-}
-.m-day {
+/* ---------- the Now card: the four stops and one live line (96 tall, card 20/16, no halo) ---------- */
+.now-card {
   display: grid;
-  gap: 12px;
-  padding-top: 4px;
-}
-
-/* ---------- before the alarm, on today: a lit line that counts down ---------- */
-.m-pre {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 -4px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  color: var(--accent-text);
-}
-.now-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex: none;
-  background: var(--accent-bright);
-  box-shadow:
-    0 0 0 3px rgba(47, 59, 255, 0.25),
-    0 0 12px rgba(91, 102, 255, 0.9);
-}
-
-/* ---------- late: the sentence, then the two fixes as chips ---------- */
-.m-late {
-  border-radius: var(--r-md);
-  border: 1px solid rgba(255, 176, 32, 0.4);
+  align-content: center;
+  gap: 4px;
+  min-height: 96px;
+  box-sizing: border-box;
+  padding: 6px 16px 12px;
+  border-radius: var(--r-card);
+  border: var(--card-border);
   background: var(--surface);
-  padding: 12px 14px 14px;
 }
-.m-late p {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+.now-card .mini-tl {
+  margin: 0;
+  padding-top: 8px;
+}
+.now-line {
+  margin: 0;
+  font: 600 17px/22px var(--sans);
   color: var(--ink);
-}
-.m-late p::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--warn);
-  margin-right: 8px;
-  vertical-align: 1px;
-}
-.m-late-fixes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-
-/* ---------- leave: the endpoint, where the schedule ends ---------- */
-.m-leave {
-  position: relative;
-  isolation: isolate;
-  margin-top: 8px;
+  white-space: nowrap;
   overflow: hidden;
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  align-items: center;
-  width: 100%;
-  min-height: 64px;
-  padding: 10px 16px 10px 0;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--line-strong);
-  background: var(--bg);
-  color: var(--ink);
-  text-align: left;
-  font: inherit;
-  appearance: none;
+  text-overflow: ellipsis;
 }
-.m-leave:active:not(:disabled) {
-  background: var(--surface);
-}
-.m-leave:disabled {
-  opacity: 1;
-  cursor: default;
-}
-.m-leave-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--halo);
-  opacity: 0.55;
-  pointer-events: none;
-  transition: opacity var(--dur-color) var(--ease-out);
-}
-.m-leave.past .m-leave-glow {
-  opacity: 0.15;
-}
-.m-leave.late .m-leave-glow {
-  background: var(--halo-amber);
-  opacity: 0.4;
-}
-.m-leave-axis {
-  justify-self: center;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--bg);
-}
-.m-leave-text {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-.m-leave-label {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-.m-leave-sub {
-  font-size: 0.75rem;
-  line-height: 1rem;
+.now-card.is-past .now-line,
+.now-card.is-future .now-line {
   color: var(--ink-2);
 }
-.m-leave.late .m-leave-sub {
-  color: var(--warn);
+
+/* ---------- the schedule: one group, one row type ---------- */
+.sch {
+  position: relative;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+  border: var(--card-border);
+  border-radius: var(--r-group);
+  background: var(--surface);
+  /* no overflow clip: a lifted step (1.03) and the alarm row while dragged (1.02) grow past the group's edges */
 }
-.m-leave-time {
+.sch > li {
+  position: relative;
+  list-style: none;
+  background: var(--surface);
+}
+.sch > li:first-child {
+  border-radius: var(--r-group) var(--r-group) 0 0;
+}
+/* the hairline between rows, inset to the name (iOS), drawn by the lower row so a moving row carries its own */
+.sch > li + li::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 108px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.sch-hit {
+  display: grid;
+  grid-template-columns: 48px 32px minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 60px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: inherit;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+.sch-time {
+  position: relative;
+  font: 600 15px/20px var(--sans);
   font-variant-numeric: tabular-nums;
-  font-size: 1.75rem;
-  line-height: 2rem;
+  color: var(--ink);
   white-space: nowrap;
 }
-.m-leave-time small {
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin-left: 3px;
-  color: rgba(255, 255, 255, 0.7);
+/* the alarm drag's flash (§4.2): a moved stamp is lit (its accent copy over it) while the alarm moves; on release the copy
+   fades out over 400 ms, by opacity on its own layer, so the stamp reads accent → ink even while the main thread is busy */
+.sch-flash {
+  position: absolute;
+  inset: 0;
+  color: var(--accent-text);
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+  transition: opacity 400ms ease-in-out;
 }
-.m-leave:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
+.sch-flash::after {
+  content: attr(data-t);
+}
+.is-moved > .sch-flash,
+.alarm-handle.is-moved .sch-flash {
+  opacity: 1;
+  transition: none;
+}
+.sch-time.is-moved,
+.alarm-handle.is-moved .ah-d,
+.leave-stamp.is-moved {
+  color: transparent;
+}
+.sch-ico {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+.sch-main {
+  display: grid;
+  min-width: 0;
+}
+.sch-name {
+  font: 400 17px/22px var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sch-sub {
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sch-row.k-work .sch-ico {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+/* behind you on today: quiet; under way: the time in the accent and the 2 px line filling under the row */
+.sch-row.past .sch-time,
+.sch-row.past .sch-name {
+  color: var(--ink-3);
+}
+.sch-row.is-now .sch-time {
+  color: var(--accent-text);
+}
+.sch-progress {
+  position: absolute;
+  z-index: 2;
+  left: 108px;
+  right: 16px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--line-strong);
+  overflow: hidden;
+  pointer-events: none;
+}
+.sch-progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent-bright);
+  transform-origin: 0 50%;
+  transition: transform 1s linear;
+}
+/* a past morning is read-only and quiet */
+.m-page.is-past .sch-time,
+.m-page.is-past .sch-name,
+.m-page.is-past .leave-stamp {
+  color: var(--ink-2);
 }
 
-/* ---------- the day editor ---------- */
-.m-ed {
-  display: grid;
-  gap: 20px;
+/* ---------- the alarm handle: the Wake row's stamp, 48 × 60, the only element with touch-action: none (§4.2) ---------- */
+.alarm-handle {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  width: 48px;
+  height: 60px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  touch-action: none;
+  cursor: ns-resize;
+  -webkit-tap-highlight-color: transparent;
 }
-.m-ed-types {
+.alarm-handle[aria-disabled] {
+  cursor: default;
+  pointer-events: none;
+}
+.alarm-handle .ah-stamp {
+  position: relative;
+  display: inline-grid;
+  will-change: transform;
+}
+.alarm-handle[data-pressed] .ah-stamp {
+  opacity: 0.55;
+}
+.alarm-handle:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: -2px;
+  border-radius: var(--r-control);
+}
+/* the two stacked labels: the new time fades in over the old one, 120 ms */
+.ah-d {
+  grid-area: 1 / 1;
+}
+.ah-d.in {
+  animation: ah-in 120ms var(--ease-out) both;
+}
+.ah-d.out {
+  animation: ah-out 120ms var(--ease-out) both;
+}
+@keyframes ah-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ah-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* the Wake row while its alarm is dragged: --surface-2 and 1.02 (160 ms) */
+.sch > li.k-wake {
+  transition: scale 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.sch.is-alarm-drag > li.k-wake {
+  z-index: 3;
+  scale: 1.02;
+  border-radius: var(--r-group);
+}
+.sch.is-alarm-drag > li.k-wake .sch-hit {
+  background: var(--surface-2);
+  transition: background 160ms var(--ease-out);
+}
+
+/* ---------- the late note: one row under the run, the fixes as chips ---------- */
+.late-hit {
+  align-items: start;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.late-hit .sch-ico {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.late-text {
+  font: 600 15px/20px var(--sans);
+  color: var(--warn);
+  white-space: normal;
+}
+.late-fixes {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 8px;
 }
-.m-ed-steps {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+
+/* ---------- a step lifted by the hold and dragged ---------- */
+.sch > li.is-lifted {
+  z-index: 4;
 }
-@container sheet (max-width: 19rem) {
-  .m-ed-steps {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.sch > li.is-lifted::before,
+.sch > li.is-lifted + li::before {
+  opacity: 0;
 }
-.m-ed-note {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+.sch-hit[data-lifting] {
+  background: var(--surface-2);
+  border-radius: var(--r-group);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+
+/* ---------- the Leave row: the endpoint, sticky to the page's bottom inside the group (§4.4) ---------- */
+.leave-row {
+  position: sticky;
+  z-index: 3;
+  bottom: 0;
+  border-radius: 0 0 var(--r-group) var(--r-group);
+}
+.sch > li.leave-row::before {
+  left: 0;
+  background: var(--line-strong);
+}
+.leave-row .sch-hit {
+  grid-template-columns: 48px 32px minmax(0, 1fr) auto;
+}
+.leave-stamp {
+  position: relative;
+  font: 600 22px/28px var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.leave-row .sch-sub.is-late {
+  color: var(--warn);
+}
+.leave-row.past .leave-stamp {
   color: var(--ink-2);
 }
-.m-ed-note.warn {
-  color: var(--warn);
+
+/* ---------- + Add a step ---------- */
+.m-add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  margin: 8px 0 0;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 400 17px/22px var(--sans);
+  text-align: left;
+}
+
+/* ---------- skeleton: the page's shape ---------- */
+.m-skel {
+  display: grid;
+  gap: 4px;
+  padding-top: 16px;
 }
 
 /* ---------- the routine editor ---------- */
@@ -233,7 +386,6 @@
 }
 .rt-row {
   border-bottom: 1px solid var(--line);
-  transition: box-shadow var(--dur-color) var(--ease-out);
 }
 .rt-row.is-focus {
   box-shadow: inset 3px 0 0 var(--accent-bright);
@@ -288,7 +440,6 @@
   line-height: 1.25rem;
   white-space: nowrap;
   overflow: hidden;
-  transition: transform 100ms var(--ease-out);
 }
 .rt-chip > span {
   display: inline-block;
@@ -297,9 +448,6 @@
   content: '';
   position: absolute;
   inset: -4px 0;
-}
-.rt-chip:active {
-  transform: scale(0.97);
 }
 .rt-chip.off {
   color: var(--ink-3);
@@ -310,358 +458,10 @@
   outline-offset: 2px;
 }
 .rt-fine {
-  overflow: hidden;
+  padding-bottom: 2px;
 }
 .rt-fine .stepper {
   margin-bottom: 14px;
-}
-
-/* ---------- the stops at a glance, over the schedule ---------- */
-.m-sum {
-  margin-bottom: 4px;
-}
-
-/* ---------- the schedule: one row a block, the time it starts on the left, its length on the right ---------- */
-.sch {
-  display: grid;
-}
-.sch-list {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin: 0 calc(-1 * var(--page-pad));
-  padding: 0;
-  list-style: none;
-}
-.sch-list > li {
-  position: relative;
-}
-.sch-row {
-  --c: var(--ink-4);
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  background: var(--bg);
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-/* a hairline between rows, from the name column on */
-.sch-row::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: calc(var(--page-pad) + 84px);
-  right: 0;
-  height: 1px;
-  background: var(--line);
-  pointer-events: none;
-}
-.sch-list > li:first-child > .sch-row::before,
-.sch-list > .sch-row:first-child::before {
-  display: none;
-}
-.sch-hit {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 48px 28px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 56px;
-  padding: 8px 12px 8px var(--page-pad);
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  appearance: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.sch-hit:disabled {
-  cursor: default;
-  opacity: 1;
-}
-.sch-hit:active:not(:disabled) {
-  background: var(--surface);
-}
-.sch-hit:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: -2px;
-  border-radius: var(--r-sm);
-}
-.sch-time {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  font-weight: 700;
-  color: var(--ink-2);
-}
-.sch-ico {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--surface-2);
-  color: var(--ink-2);
-}
-.sch-main {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-}
-.sch-name {
-  overflow: hidden;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.sch-sub {
-  overflow: hidden;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.sch-len {
-  padding: 3px 9px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-/* the way out and back: quieter and shorter, so the alarm, the workout and the routine read first */
-.sch-row.k-buffer .sch-hit {
-  min-height: 44px;
-}
-.sch-row.k-buffer .sch-name {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--ink-2);
-}
-.sch-row.k-buffer .sch-ico {
-  background: none;
-  color: var(--ink-3);
-}
-.sch-row.k-buffer .sch-len {
-  background: none;
-  padding-inline: 0;
-  color: var(--ink-3);
-}
-/* the alarm: its time is the morning's first word */
-.sch-row.k-wake .sch-time {
-  color: var(--ink);
-}
-.sch-row.k-wake .sch-ico {
-  background: var(--accent-tint);
-  color: var(--accent-text);
-}
-/* the workout is the lit row: its tone as a bar and in the icon */
-.sch-row.lit {
-  --c: var(--tone, var(--ink-4));
-}
-.sch-row.lit .sch-hit {
-  min-height: 64px;
-  box-shadow: inset 3px 0 0 var(--c);
-}
-.sch-row.lit .sch-ico {
-  background: color-mix(in srgb, var(--c) 18%, transparent);
-  color: var(--c);
-}
-.sch-row.lit .sch-name {
-  font-size: 1.1875rem;
-  line-height: 1.5rem;
-}
-/* free time: space, said quietly */
-.sch-free .sch-ico {
-  background: none;
-  color: var(--ink-4);
-}
-.sch-free .sch-name {
-  font-family: var(--serif);
-  font-size: 1.1875rem;
-  font-weight: 400;
-  font-style: italic;
-  letter-spacing: 0;
-  color: var(--ink-2);
-}
-
-/* on today: what is behind you steps back; what is under way fills as it goes */
-.sch-row.past .sch-time,
-.sch-row.past .sch-name,
-.sch-row.past .sch-len {
-  color: var(--ink-3);
-}
-.sch-row.past .sch-ico {
-  opacity: 0.5;
-}
-.sch-row.is-now .sch-time {
-  color: var(--accent-text);
-}
-.sch-progress {
-  position: absolute;
-  left: calc(var(--page-pad) + 84px);
-  right: var(--page-pad);
-  bottom: 0;
-  height: 2px;
-  overflow: hidden;
-  border-radius: 1px;
-  background: var(--line);
-  pointer-events: none;
-}
-.sch-progress i {
-  display: block;
-  height: 100%;
-  background: var(--accent-bright);
-  transform-origin: left center;
-  transition: transform 1s linear;
-}
-
-/* ---------- the routine: hold and drag ---------- */
-.sch-head {
-  margin-top: 20px;
-}
-.sch-start {
-  min-height: 44px;
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.sch-start:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
-  border-radius: var(--r-sm);
-}
-.sch-step .sch-hit {
-  padding-right: 4px;
-}
-.sch-grip {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  margin-right: calc(var(--page-pad) - 12px);
-  border: 0;
-  background: none;
-  color: var(--ink-4);
-  cursor: grab;
-  touch-action: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.sch-grip:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: -6px;
-  border-radius: var(--r-sm);
-  color: var(--ink);
-}
-/* in hand (brand §9.4): surface-2, a line-strong hairline, rounded, no shadow; the list behind it stays put */
-.sch-step.is-lifted {
-  z-index: 3;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  box-shadow: 0 0 0 1px var(--line-strong);
-  cursor: grabbing;
-}
-.sch-step.is-lifted::before,
-.sch-step.is-lifted + .sch-step::before,
-.sch-step.is-settling + .sch-step::before {
-  display: none;
-}
-.sch-step.is-lifted .sch-grip {
-  color: var(--ink);
-}
-.sch-step.is-lifted .sch-hit:active {
-  background: none;
-}
-.sch-routine.is-dragging .sch-hit {
-  pointer-events: none;
-}
-
-.sch-add {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  margin: 0 calc(-1 * var(--page-pad));
-  padding: 0 var(--page-pad) 0 calc(var(--page-pad) + 56px);
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: none;
-  color: var(--accent-text);
-  font: inherit;
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  text-align: left;
-  -webkit-tap-highlight-color: transparent;
-}
-.sch-add:active {
-  background: var(--surface);
-}
-.sch-add:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: -2px;
-}
-.sch-add-ico {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  margin-left: -40px;
-  border-radius: 50%;
-  border: 1px dashed var(--accent-text);
-}
-.sch-empty,
-.sch-hint {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
-}
-.sch-empty {
-  padding: 8px 0 12px 84px;
-}
-.sch-hint {
-  margin: 6px 0 4px 84px;
-}
-@media (max-width: 359px) {
-  .sch-hit {
-    grid-template-columns: 42px 24px minmax(0, 1fr) auto;
-    gap: 6px;
-  }
-  .sch-ico {
-    width: 24px;
-    height: 24px;
-  }
-  .sch-row::before,
-  .sch-progress {
-    left: calc(var(--page-pad) + 72px);
-  }
-  .sch-hint,
-  .sch-empty {
-    margin-left: 72px;
-  }
-}
-
-/* ---------- skeleton: the schedule's shape ---------- */
-.m-skel {
-  display: grid;
-  gap: 4px;
-  padding-top: 4px;
 }
 
 /* ---------- the schedule's editors ---------- */
@@ -717,22 +517,17 @@
   color: var(--accent-text);
 }
 
-/* the timings every morning shares: a quiet link at the foot of the page */
-.m-timings {
-  display: inline-flex;
-  align-items: center;
+
+/* the alarm sheet's two choices: each saves */
+.se-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  min-height: 44px;
-  margin-top: 12px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-3);
-  font: inherit;
-  font-size: 0.9375rem;
 }
-.m-timings:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
-  border-radius: var(--r-sm);
+
+/* 320: the Leave row's empty time column gives its room to the name, so `Leave for work` never truncates */
+@media (max-width: 359px) {
+  .leave-row .sch-hit {
+    grid-template-columns: 0 32px minmax(0, 1fr) auto;
+  }
 }
