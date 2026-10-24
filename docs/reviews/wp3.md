@@ -66,3 +66,142 @@ Not yet covered (later WP3 steps): the alarm drag itself (#1's 42 px / 3 `select
 ### Screenshots (looked at)
 
 `S/wp3/qa/shots/{before,after}-{390,320}-{morning-legacy,today-legacy,run-row-tap,late-note}.png`. Before: a legacy rest override turns Friday's planned Easy 4 into a rest morning, and the run row opens the DayEditor (Run/Gym/Rest, Alarm, Miles). After: the same legacy row gives the session's Easy run 4 mi from 7:50 with the override's Wake 7:30, the Today hero agrees (`EASY 4`, Wake 7:30), and the run row opens the session sheet (`Threshold 6`: Plan, Floor, Out at, Back; Done, Floor, Skip, Move, Edit). The late note looks the same before and after; only its writes changed. `scrollWidth` is 390 / 320 on every shot, and the console is clean.
+
+## Step 2: the page (spec §4.1, §4.2, §4.4–§4.6, §11.2; build plan §4.2 items 1–5, 7–9)
+
+This morning is now the pushed page the spec describes. The owner asked for a schedule that is "very accessible and
+satisfying, something you can drag and drop, but also click into to edit". Every row taps into its own editor. The
+alarm drags by its stamp, and every time below follows on the same frame. A routine step held 450 ms lifts and can be
+dropped into place. Each gesture has a keyboard and VoiceOver path.
+
+Commits: `44d833e` (the page), `23cc874` (Now card geometry, the stamp's column after a drag, past Leave copy, reduced motion).
+
+### Files changed, and why
+
+| File | Change |
+|---|---|
+| `features/morning/MorningView.tsx` | The pushed page: `PushedBar` (title `This morning`, or `Tomorrow morning` / `Yesterday morning` / `<Weekday> morning` on other days, with the date as the eyebrow; trailing `SlidersHorizontal` 44 × 44 opens the routine editor). Then the Now card, the schedule, `+ Add a step`. The date comes from `useRouteParams()` and the clock is Today's `useNowMinutes`. No react-router, DatePager, TabHeader, DayStepper, MiniLine, `now-pulse`, `.m-timings`, `enterPull` or `?routine=1`. The alarm drag lives here: the dragged wake is laid over the day (`morningOf(…, { wake })`), and the stamps it moved are tracked against where the drag began. The day keeps the dragged alarm until the optimistic cache has it, so nothing flickers back. The one write is sent after the release frame has painted. Skip, rest and back raise their Undo toast once the morning has been re-laid. None of them fires a haptic (§11.4) |
+| `features/morning/NowCard.tsx` (new) | `MiniTimeline shared="morning-line-<date>"` (the flyer's landing) and one line: `Alarm in 43 min` · `Out the door in 22 min` · `Back by 8:13` · `<Step> now · Leave in 45 min` (`Free until 8:40 · …` in the free stretch) · `Left 9:30`. On past days it reads `Woke 7:15 · Left 9:30` and on future days `Alarm 7:15 · Leave 9:30`. Only today's line is a live region. Padding 13/16, so the card is 96 tall with the 44 px line |
+| `features/morning/AlarmHandle.tsx` (new) | The Wake stamp, 48 × 60, the only element with `touch-action: none`. It locks after 10 px inside the 40° vertical cone, and a horizontal lock lets go. Each `trunc(dy / 14)` step from the pointerdown point is 5 minutes, with one `haptics.select()` per step and the page re-laid on the same frame (`flushSync`). Past `WAKE_MIN`/`WAKE_MAX` the stamp rubber-bands at 0.25×. Release sends one write. The digits are two stacked labels crossfading over 120 ms. It is a slider for the keyboard and VoiceOver (`aria-valuenow`, `aria-valuetext`): ArrowUp/Down move 5 min, with one write when the keys stop. A tap, Enter or a release before the lock opens the alarm sheet. A handle that captures the pointer ignores its child's implicit-capture loss |
+| `features/morning/Schedule.tsx` | One row type (time 48 · icon 32 · name · sub, nothing on the right) in one inset group: Wake · the workout (door and cool-down folded into `4 mi · 8:20/mi · back 8:13`) · the late note · Free (`27 min · routine at 8:40`) · the steps · Leave. The row under way has the accent time and the 2 px `scaleX` line (1 s linear). Rows are `Pressable`s: a tap opens the editor; a 450 ms hold opens `Edit · Remove` on a step and `Skip Easy 4 · Make this a rest day · Edit` on the run. A move after the hold drags the step 1:1 (inline transform, no spring under the finger), with a `select` per slot crossed and the others sliding by FLIP. Release gives one `drop` and one `saveOrder`. Alt+Arrow and hidden `Move … up/down` buttons are the keyboard and VoiceOver path. Rows that leave fade 100 ms (`AnimatePresence popLayout`) and the rows below spring on `settle` |
+| `features/morning/flip.ts` (new) | The FLIP (§10.1) on the compositor: `springs.settle` sampled with WP1's integrator into a WAAPI `translateY` animation. A Skip's or a drop's write re-renders every page that reads the month (Today's three, under this one), which blocks the main thread for about 400 ms at 4×. A motion-value spring froze through that and jumped (measured, 4×: 0 frames translated). This one keeps playing |
+| `features/morning/LeaveRow.tsx` (new) | `Leave for work`, sub `In 45 min` (late: `12 min later than your routine` in `--warn`), stamp 22/28 on the right, `position: sticky; bottom: 0` with a hairline above. It writes `--toast-lift` on `.pushed` from its resting position (on every render, scroll and resize), so toasts sit above it. A tap opens the routine editor on its leave field. `m-leave-glow` is gone |
+| `features/morning/model.ts` | `rowsOf`, `timeState`, `nowLine`, `justWord`. Its own 30 s `useNowMinutes` and the reorder "lesson" are deleted |
+| `features/morning/StepSheets.tsx` | `WakeEditor` ends in its two choices, `Every morning · Just today` (`Just tomorrow` for tomorrow), each saving on its own tap. The filled one follows `preselect` and there is no segmented. No toast and no `success` haptic on any editor's save; `Remove` keeps its Undo. `GapEditor` is deleted (the buffers fold into the run row; the routine editor keeps the field). The segmented in `StartEditor` fires no haptic |
+| `features/morning/RoutineEditor.tsx` | A `Leave` field leads the sheet: the time you leave on this morning, which sets when the routine starts (fixed). `useOpenRoutineEditor('leave')` opens on it, and the input takes focus when the open animation completes. The preview is `MiniTimeline`. No height animation (the fine stepper fades in), no `:active` scale, no toast, no `success` |
+| `features/morning/morning.css` | Rewritten for the page. The stamps' flash is an accent copy faded by opacity (compositor), not a colour tween |
+| `MiniLine.tsx`, `MorningMini.tsx`, `mini.css` | Deleted |
+
+### Acceptance (build plan §4.4), measured
+
+Runner: `S/wp3/qa/run.mjs`. Every browser script runs at 1× and 4× CPU. The full table, every check with its measured
+numbers, is `S/wp3/qa/results/TABLE.md`: **301 pass, 1 fail, 0 missing**. That covers this step's 6 new scripts, step 1's 6
+(updated for the new DOM), WP1's smoke, the export and grep scripts, and the gates: tsc for shared, api and web exit 0;
+shared 93, api 62, web 86 tests; web build ok; WP1's grep gates 23/23. The one fail is 22a at 4× (below). The key checks,
+condensed:
+
+| Test | Check | 1× | 4× |
+|---|---|---|---|
+| t47-drag 47a | 06:30: the Leave row's bottom ≤ the tab bar's top without scrolling | PASS {"leaveBottom":687,"tabTop":794,"lines":1,"scrollTop":0,"sw":390} | PASS {"leaveBottom":687,"tabTop":794,"lines":1,"scrollTop":0,"sw":390} |
+| t47-drag 47c | the handle is 48 × 60 with touch-action none (on it only) | PASS 48×60 ["none","auto"] | PASS 48×60 ["none","auto"] |
+| t47-drag 47d | 42 px down: the alarm 7:15 → 7:30 (+15 min) | PASS stamp 7:15 → 7:30 | PASS stamp 7:15 → 7:30 |
+| t47-drag 47e | exactly 3 select events (none for start/end), no other haptic | PASS ["select","select","select"] | PASS ["select","select","select"] |
+| t47-drag 47f | while dragged: the Wake row at 1.02 on --surface-2, the moved stamps lit, nothing written  | PASS {"dragging":true,"scale":"1.02","bg":"rgb(27, 27, 27)","moved":3,"writes":0,"writesMid":0} | PASS {"dragging":true,"scale":"1.02","bg":"rgb(27, 27, 27)","moved":3,"writes":0,"writesMid":0} |
+| t47-drag 47g | every row's time (and the Now card's stops) updates within 1 frame of the stamp's frame | PASS {"stamp":[15,27,37],"run":[15,27,37],"free":[15,27,37],"nowCard":[15,27,37],"frames":101} | PASS {"stamp":[16,27,38],"run":[16,27,38],"free":[16,27,38],"nowCard":[16,27,38],"frames":96} |
+| t47-drag 47h | the routine (8:40) and the Leave stamp (9:30) stay | PASS 8:40 9:30 | PASS 8:40 9:30 |
+| t47-drag 47i | one PUT on release, body exactly { wake } | PASS ["PUT /morning/days/2026-10-24 {\"wake\":450}"] | PASS ["PUT /morning/days/2026-10-24 {\"wake\":450}"] |
+| t47-drag 47j | the moved stamps are lit while dragged and fade (opacity, compositor) accent → ink over 40 | PASS lit during drag true; transition starts +100 ms after release, ends with elapsedTime 0.4 s; 18 sampled frames  | PASS lit during drag true; transition starts +77 ms after release, ends with elapsedTime 0.4 s; 8 sampled frames mi |
+| t47-drag 47k | the Wake row's sub reads Just today | PASS Just today | PASS Just today |
+| t47-drag 47n | a release before the lock opens the alarm sheet | PASS 6 ms | PASS 46 ms |
+| t47-drag 47o | a horizontal drag on the stamp changes nothing | PASS {"w":"7:30","sheet":false,"pushed":1} | PASS {"w":"7:30","sheet":false,"pushed":1} |
+| t47-drag 47p | past WAKE_MIN the stamp moves ≤ 0.25× past it (and springs home) | PASS overshoot -42 px → stamp -10.5 px; rests at "" on 4:00 | PASS overshoot -42 px → stamp -10.5 px; rests at "" on 4:00 |
+| t47-drag 47q | the clamped release writes { wake: 240 } | PASS ["{\"wake\":240}"] | PASS ["{\"wake\":240}"] |
+| t47-drag 47r | keyboard: role=slider, ArrowUp ×3 → 7:30, aria-valuenow 450, one PUT { wake } after the ke | PASS {"role":"slider","now":"450","text":"7:30 AM","w":"7:30","writesBefore":0,"writes":["{\"wake\":450}"]} | PASS {"role":"slider","now":"450","text":"7:30 AM","w":"7:30","writesBefore":0,"writes":["{\"wake\":450}"]} |
+| t47-drag 47t | after the drag the stamp keeps its column: left edge and height as the other rows' times,  | PASS {"stamp":[33,20],"run":[33,20],"centreDy":0} | PASS {"stamp":[33,20],"run":[33,20],"centreDy":0} |
+| t03-reorder 3a | hold 450 ms on a step: Edit · Remove (2 items), 1 lift, the row lifted in place | PASS ["Edit","Remove"] haptics ["lift"] lifted true | PASS ["Edit","Remove"] haptics ["lift"] lifted true |
+| t03-reorder 3b | the menu is up at the hold and fades out when the move begins (gone 180 ms in) | PASS menu at hold true; opacity over the drag 1.00 0.53 0.18 0.06 0.01 0.00 0.00 0.00 0.00 0.00 0.00 0.00 … | PASS menu at hold true; opacity over the drag 1.00 0.59 0.21 0.06 0.02 0.00 0.00 0.00 0.00 0.00 0.00 0.00 … |
+| t03-reorder 3c | the lifted row follows the finger with lag ≤ 1 px | PASS max lag 0.00 px over 109 frames | PASS max lag 0.00 px over 119 frames |
+| t03-reorder 3d | the row it passes slides out of the way by transform over several frames (settle) | PASS 16 frames with Smoothie translated | PASS 16 frames with Smoothie translated |
+| t03-reorder 3e | two slots crossed: exactly 2 select, then 1 drop on release | PASS ["lift","select","select","drop"] (order mid-drag ["shower","smoothie","prep","ready"]) | PASS ["lift","select","select","drop"] (order mid-drag ["shower","smoothie","prep","ready"]) |
+| t03-reorder 3f | one PATCH /morning/settings with the new order, nothing else | PASS ["{\"after\":{\"order\":[\"shower\",\"smoothie\",\"prep\",\"ready\"]}}"] | PASS ["{\"after\":{\"order\":[\"shower\",\"smoothie\",\"prep\",\"ready\"]}}"] |
+| t03-reorder 3g | the page keeps the dropped order and the times follow it | PASS ["shower","smoothie","prep","ready"] 8:40 8:55 9:00 9:15 | PASS ["shower","smoothie","prep","ready"] 8:40 8:55 9:00 9:15 |
+| t03-reorder 3i | a 380 ms press opens the step's editor (no lift) | PASS Shower in 6 ms | PASS Shower in 33 ms |
+| t03-reorder 3j | keyboard: Alt+ArrowUp moves the step one slot (one PATCH); VoiceOver has Move up / Move do | PASS ["shower","smoothie","ready","prep"] writes 1; shower's hidden buttons ["Move Shower down"] | PASS ["shower","smoothie","ready","prep"] writes 1; shower's hidden buttons ["Move Shower down"] |
+| t04-menu 4a | the run row's hold menu is exactly Skip Easy 4 · Make this a rest day · Edit | PASS ["Skip Easy 4","Make this a rest day","Edit"] | PASS ["Skip Easy 4","Make this a rest day","Edit"] |
+| t04-menu 4b | Skip → the session marked 'skip': one write, no morning day, no haptic | PASS ["POST /sessions/bp20261024r/mark {\"mark\":\"skip\"}"] | PASS ["POST /sessions/bp20261024r/mark {\"mark\":\"skip\"}"] |
+| t04-menu 4c | the run row fades out in ~100 ms, then leaves the DOM | PASS 5 mid-fade frames (0.93 0.46 0.27 0.12 0.03), gone 117 ms after the fade began | PASS 3 mid-fade frames (0.79 0.19 0.06), gone 133 ms after the fade began |
+| t04-menu 4d | the rows below translate up on a spring (transform, on the compositor), landing 60 px high | PASS 16 frames translated; Shower 387 → 327 (387 387 387 384 361 342 332 329 327 327 327 327 327 327 327 327 327 32 | PASS 12 frames translated; Shower 387 → 327 (387 387 387 387 387 387 369 342 331 327 327 327 327 327) |
+| t04-menu 4e | no height animation: every row 60 tall on every frame, no height/top/padding keyframes | PASS heights [60]; height keyframes 0 | PASS heights [60]; height keyframes 0 |
+| t04-menu 4f | the morning is a rest morning; the Leave stamp is the recomputed one | PASS ["wake","free","shower","ready","smoothie","prep","leave"]; Leave 9:30 → 9:30 (the routine is fixed at 8:40, s | PASS ["wake","free","shower","ready","smoothie","prep","leave"]; Leave 9:30 → 9:30 (the routine is fixed at 8:40, s |
+| t04-menu 4g | toast "Easy 4 skipped · Undo", its bottom above the Leave row's top | PASS "Easy 4 skippedUndo" toast bottom 555 ≤ leave top 567 | PASS "Easy 4 skippedUndo" toast bottom 555 ≤ leave top 567 |
+| t04-menu 4h | the toast stays 6 s | PASS 6318 ms | PASS 6800 ms |
+| t04-menu 4i | Undo puts the mark back; the run row returns | PASS POST /sessions/bp20261024r/mark {"mark":null} ["wake","work","free","shower","ready","smoothie","prep","leave" | PASS POST /sessions/bp20261024r/mark {"mark":null} ["wake","work","free","shower","ready","smoothie","prep","leave" |
+| t04-menu 4j | Make this a rest day → both of the day's sessions marked 'skip', no morning day | PASS ["POST /sessions/bp20261024r/mark {\"mark\":\"skip\"}","POST /sessions/bp20261024l/mark {\"mark\":\"skip\"}"] | PASS ["POST /sessions/bp20261024r/mark {\"mark\":\"skip\"}","POST /sessions/bp20261024l/mark {\"mark\":\"skip\"}"] |
+| t04-menu 4l | "Back to Threshold 6" un-skips both, no morning day | PASS ["Back to Threshold 6"]; POST /sessions/bp20261024r/mark {"mark":null},POST /sessions/bp20261024l/mark {"mark" | PASS ["Back to Threshold 6"]; POST /sessions/bp20261024r/mark {"mark":null},POST /sessions/bp20261024l/mark {"mark" |
+| t05-now 5a | 06:30: "Alarm in 45 min" | PASS {"line":"Left 9:30","live":"polite","h":122,"title":"This morning","eyebrow":"FRI, OCT 23"} | PASS {"line":"Left 9:30","live":"polite","h":122,"title":"This morning","eyebrow":"FRI, OCT 23"} |
+| t05-now 5b | past (Thu Oct 22): Woke … · Left …, not a live region; rows in --ink-2 | PASS {"line":"Woke 7:15 · Left 9:30","live":null,"title":"Yesterday morning","handle":"true","pressables":0,"add":f | PASS {"line":"Woke 7:15 · Left 9:30","live":null,"title":"Yesterday morning","handle":"true","pressables":0,"add":f |
+| t05-now 5c | past: the alarm handle disabled, no row is a control, no + Add a step | PASS {"line":"Woke 7:15 · Left 9:30","live":null,"title":"Yesterday morning","handle":"true","pressables":0,"add":f | PASS {"line":"Woke 7:15 · Left 9:30","live":null,"title":"Yesterday morning","handle":"true","pressables":0,"add":f |
+| t05-now 5d | past: a tap opens nothing, a drag on the stamp changes nothing, nothing written | PASS writes 0 | PASS writes 0 |
+| t05-now 5e | future (Sat Oct 24): Alarm … · Leave …, editable | PASS {"line":"Alarm 7:15 · Leave 9:30","title":"Tomorrow morning","handle":null,"add":true} | PASS {"line":"Alarm 7:15 · Leave 9:30","title":"Tomorrow morning","handle":null,"add":true} |
+| t05-now 5f | future: a 14 px drag writes { wake } for that date | PASS ["PUT /morning/days/2026-10-24 {\"wake\":440}"] | PASS ["PUT /morning/days/2026-10-24 {\"wake\":440}"] |
+| t06-pop 26a | first frame of the push: the hero's line hidden, one .flyer, a child of document.body | PASS {"n":1,"parentBody":true,"x":375.664,"W":390,"srcVis":"hidden","dstVis":"hidden","dst":{"left":408.66418457031 | PASS {"n":1,"parentBody":true,"x":390,"W":390,"srcVis":"hidden","dstVis":"hidden","dst":{"left":423,"top":74,"width |
+| t06-pop 26b | every sampled frame: the flyer's rect = lerp(source, destination, 1 − x/W) ± 4 px | PASS 28 frames, max error 0.01 px (source {"left":37.39027133683157,"top":268.2498934035904,"width":315.18699893019 | PASS 27 frames, max error 0.01 px (source {"left":37.390625,"top":268.25,"width":315.1875,"height":66.96875} before |
+| t06-pop 26c | the destination hidden until rest; on the rest frame (x 0) the Now card's line visible, th | PASS {"restFrameMs":"589","n":0,"parentBody":true,"x":0,"W":390,"srcVis":"visible","dstVis":"visible","dst":{"left" | PASS {"restFrameMs":"845","n":0,"parentBody":true,"x":0,"W":390,"srcVis":"visible","dstVis":"visible","dst":{"left" |
+| t06-pop 6a | chevron → the pop spring (x 0 → W over ≥ 8 frames, monotonic), then /today | PASS /today/2026-10-24/morning → /today; 36 frames 0 0 6 112 229 303 347 369 380 385 388 390 | PASS /today/2026-10-24/morning → /today; 38 frames 0 0 0 0 159 246 312 354 372 381 386 388 390 |
+| t06-pop 6b | an edge swipe from x 12 (100 px at ~333 px/s, under 35 %) pops This morning | PASS /today in 481 ms | PASS /today in 508 ms |
+| t06-pop 6c | the lit Today tab pops This morning | PASS 532 ms, /today | PASS 515 ms, /today |
+| t06-pop 22a | WP1's N4: the push's first moved frame after the tap (median of 3): ≤ 50 ms at 1×, under t | PASS median 38 ms (17, 38, 47) | **FAIL** median 129 ms (220, 107, 129) |
+| t08-routine 8a | the trailing icon (44 × 44) opens the routine editor as the large sheet | PASS {"detent":"large","title":"Timings","leave":true,"icon":{"label":"Timings for every morning","w":44,"h":44},"m | PASS {"detent":"large","title":"Timings","leave":true,"icon":{"label":"Timings for every morning","w":44,"h":44},"m |
+| t08-routine 8b | Leave row → the large routine sheet; the leave input focused within 1 frame after the rest | PASS rest frame 30 (+595 ms), focus frame 30; 48 frames | PASS rest frame 23 (+737 ms), focus frame 24; 44 frames |
+| t08-routine 8c | the leave field moves the routine: one PATCH (after.showerMode fixed, showerAt +5), Leave  | PASS {"showerMode":"fixed","showerAt":525} stamp 9:35 toast null | PASS {"showerMode":"fixed","showerAt":525} stamp 9:35 toast null |
+
+Notes on the harness:
+- Scripts that open menus or sheets (t03, t04, t06, t08, and the drag in t47) run on the real clock, on today's morning made
+  Friday's Easy 4 (`asFriday`). The others install Playwright's clock at Fri Oct 23.
+- 22a is the one fail. A tapped push's first moved frame comes 17–56 ms after `pointerup` at 1×, and 107–220 ms at 4×
+  (median 129, on the interim Today, through its hero's press and click). The mount alone, timed with `nav.push` directly,
+  is 45–160 ms at 4×. WP1 measured the interim page at 107–247. The profile at 4× splits it into React's render of the page
+  (about 85 ms) and the page's one layout, which WP1's `PushedLayer` forces when it reads `clientWidth` at the push's
+  start (40–60 ms self). This step removed the page's own two forced layouts from that commit. Left: rendering below-the-fold
+  rows a frame later, or a cached W in the push.
+
+
+### Hand-verifiable steps
+
+1. Log in, open Today at 6:30, tap the hero's four-stop line. Expected: This morning slides in. The bar reads `This morning` over `FRI, OCT 23`, with the sliders icon on the right. The Now card reads `Alarm in 45 min`. The rows are Wake up 7:15 · Easy run 7:30 (`4 mi · 8:20/mi · back 8:13`) · Free 8:13 (`27 min · routine at 8:40`) · Shower · Get ready · Blend smoothie · Final prep · Leave for work 9:30, the last above the tab bar.
+2. Press the `7:15` stamp and drag down slowly about three finger-widths of 14 px. Expected: a tick each 5 minutes; 7:20, 7:25, 7:30. The run's and Free's times and the Now card's stops move with each tick, lit in blue, with the Wake row slightly raised on a lighter surface. Lift: the blue fades to white over about 0.4 s, the Wake row's sub reads `Just today`, and the network shows one `PUT /api/morning/days/<date>` with body `{"wake":450}`.
+3. Tap the stamp without moving. Expected: the Alarm sheet with `Every morning` and `Just today` at its foot. Either button saves and closes it; no toast.
+4. Hold `Get ready` for half a second. Expected: it lifts with `Edit · Remove`. Without lifting, move down past Blend smoothie and Final prep. Expected: the menu fades, the row follows the finger exactly, the others slide up, one tick per row passed. Let go: it lands with a tick, and the times read 8:40 · 8:55 · 9:00 · 9:15. One `PATCH /api/morning/settings`.
+5. Hold `Easy run`. Expected: `Skip Easy 4 · Make this a rest day · Edit`. Tap Skip. Expected: the run row fades and the rows below slide up. The toast `Easy 4 skipped · Undo` sits above the Leave row for 6 s. Undo brings the run back.
+6. Tap `Leave for work`. Expected: the Timings sheet (large), on its Leave field, with the keyboard focus in the time once the sheet has risen. `+` then Save moves the routine start, and Leave reads 9:35.
+7. Open `/today/<yesterday>/morning`. Expected: `Yesterday morning`, `Woke 7:15 · Left 9:30`, grey rows, no `+ Add a step`; nothing opens or drags. Open tomorrow: `Tomorrow morning`, and the alarm drag writes tomorrow's date.
+8. With VoiceOver (or the keyboard): focus the stamp. Expected: it is announced as the Alarm slider at 7:15 AM; swipe up or ArrowUp moves 5 min, with one write when you stop. On a step, Alt+ArrowUp moves it, and the hidden `Move Shower down` button does the same.
+
+### Findings this step closes
+
+| Finding | Status | How |
+|---|---|---|
+| nav F1/F11/F12, visual F21, perf #13, motion #16: Morning as a second Today (TabHeader, DayStepper, DatePager, MiniLine, `now-pulse`, `.m-timings`, `?routine=1`, `enterPull`) | Fixed | the pushed page; greps 11o/11p |
+| touch F7/F13: the 380 ms schedule hold clock and the grip column | Fixed | `Pressable` + `useHold` (450), no grip; grep 11r |
+| visual F12: the save toasts (`Alarm 7:30 on today`, `Saved`, `Timings saved`, …) | Fixed | no toast but Undo; 47m, 8c |
+| `m-leave-glow` | Fixed | LeaveRow, `--warn` copy |
+| WP1 feel review 2 N4: the interim This morning delayed the push 107–247 ms at 4× | Partly | 22a: 1×: first moved frame 17–56 ms after the tap's pointerup. 4×: 107–220 ms, improved but not under the interim's best; left (22a) |
+| WP1's ask: `PushedBar` with the date eyebrow; the flyer's real end | Fixed | 5a, 26a–c |
+
+### Requests (this step)
+
+- **WP1 (reduced motion)**: with `prefers-reduced-motion: reduce`, a pushed page at rest (This morning, Settings alike) has Today's caps row and avatar painted over its top. Hit-testing says the pushed page is on top. Screenshots: `S/wp3/qa/shots/s2-after-390-reduced.png`, `S/wp3/qa/shots/dbg-reduced-settings.png`. The likely cause is that the layer is not composited when it has no transform (reduced motion) while the sticky bar under it is.
+- **WP1 (harness/velocity)**: the edge pop reads velocity 0 when CDP moves land closer together than a frame (a 120 px swipe at 600 px/s springs back; the same at 50 ms spacing commits). This is the open F8 note; 6b uses 50 ms spacing.
+- **WP1 (harness)**: Playwright's installed clock stalls motion's exits (the menu's fade, `AnimatePresence` exits, the sheet's close). A second Escape then pops the page, and a hold can land on a still-open menu's item. Scripts that open menus or sheets run here on the real clock, on today's morning made Friday's Easy 4 (`asFriday`).
+- **WP2 (performance)**: a write that patches a month (the alarm, a Skip, a drop) re-renders Today's three mounted pages under This morning: about 400 ms of main thread at 4× on the interim DayView. This page now keeps its motion on the compositor and sends its writes after the release frame. Please memoise the day pages so a change to date D re-renders only D's page.
+- **WP2**: the hero should ignore presses that start on `[data-shared]`. The interim hero scales to 0.97 under the tap, so the flyer starts from the pressed rect (26b measures from where the push found it).
+- **Spec (§4.4 #4)**: "the Leave stamp changes" on Skip only holds when the routine starts when you are back. With the owner's fixed 8:40 routine, Leave stays at 9:30, and 4f asserts the recomputed value.
+- **Spec (§4.1)**: the bar's title on other days reads `Tomorrow morning` / `Yesterday morning` / `<Weekday> morning`, with the date in the eyebrow; today's is `This morning`. The Wake row's sub reads `Every morning` when the alarm is the routine's (the spec names only `Just today`).
+
+### Screenshots (looked at)
+
+`S/wp3/qa/shots/s2-{before,after}-{390,320}-{morning-0630,morning-0750,morning-0845,late,past}.png`, `s2-before-*-run-menu.png`,
+`s2-after-*-{run-menu,step-menu,alarm-drag-mid,alarm-drag-released,reorder-mid,alarm-sheet,routine-leave,skipped-toast}.png`,
+`s2-after-390-reduced.png`. The before shots show the old Morning page: an unlabelled stops line, rows with lengths on the
+right, a grip column, `Your routine` as a second list, the hint copy. The after shots show the page above. `scrollWidth`
+equals the viewport on all 26 after shots, and the console is clean.
