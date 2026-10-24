@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { ago, eachDay, fmtDate, parseISO, shiftDays, type JournalEntry, type Quote } from '@logbook/shared';
 import { BookOpen, CalendarDays, EyeOff, PenLine, Search, Share, Shuffle, Star, Trash2, X } from 'lucide-react';
 import { animate, AnimatePresence, motion } from 'motion/react';
@@ -6,7 +7,7 @@ import { useNavigate } from 'react-router';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, rowPresence, springs, useReduced } from '@/lib/motion';
-import { Button, ContextMenu, EmptyState, IconButton, Section, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
+import { Button, ContextMenu, EmptyState, IconButton, Pressable, Section, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
 import { Composer, EntryEditor, monthsOf, timeOf, useEntryActions, useOpenDay, useOpenEntry } from './JournalDaySection';
 import { bumpHint, readHint, useCardSwipe, useSlideSwap } from './gestures';
@@ -30,12 +31,49 @@ const QuotePreview = ({ q }: { q: Quote }) => (
 );
 
 /**
+ * The quote line (contracts §F, docs/feel.md §5 row 3 and §8): the day's quote as one quiet serif line, 44 tall. Tap: the
+ * quote goes to `onInsert` as a prompt (`“…” (Author)`). Hold 450 ms: `Favourite · Hide` (Hide has Undo). No swipe. The
+ * Close card's composer uses it as its prompt; Journal's own composer still shows the older swiping line below until WP6
+ * replaces it with this one. `date` is the day the line sits on (the quote is the day's quote from `/daily`).
+ */
+export const QuoteLine = ({ date, onInsert }: { date: string; onInsert: (text: string) => void }): React.JSX.Element | null => {
+  const daily = useDaily();
+  const { quotePrefs } = useJournalMutations();
+  const toast = useToast();
+  const q = daily.data?.quote ?? null;
+  if (!q) return null;
+  const items = [
+    { label: q.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => quotePrefs.mutate({ id: q.id, fav: !q.fav }) },
+    ...(q.mine
+      ? []
+      : [
+          {
+            label: 'Hide',
+            icon: <EyeOff size={18} />,
+            destructive: true,
+            onSelect: () => {
+              quotePrefs.mutate({ id: q.id, hidden: true });
+              toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
+            },
+          },
+        ]),
+  ];
+  return (
+    <Pressable className="qline quote-line" press="dim" data-date={date} onPress={() => onInsert(asPrompt(q))} holdMenu={items} menuLabel="Today’s quote" label={`Today’s quote: ${q.text}${q.author ? `, ${q.author}` : ''}. Use as a prompt`}>
+      <span className="qline-in">
+        <span className="qline-text">“{q.text}”</span>
+      </span>
+    </Pressable>
+  );
+};
+
+/**
  * The quote of the day as an optional prompt line inside the composer (serif 17, ink-3). Tap: it goes into the entry as a
  * prompt. Swipe sideways: another quote; the line keeps going the way it was swiped and the next one slides in from the
  * other side once it has gone (a pager, never a cross-dissolve). Hold: Favourite, Hide, Open in library (and the tap and
  * swipe again, as fallbacks). Taught once: the line nudges left and back and says so under itself, for the first visits.
  */
-const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => void; text: string; onOpenInLibrary: (q: Quote) => void }) => {
+const PromptQuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => void; text: string; onOpenInLibrary: (q: Quote) => void }) => {
   const daily = useDaily();
   const { another, quotePrefs } = useJournalMutations();
   const toast = useToast();
@@ -625,7 +663,7 @@ export const JournalHome = ({ today, onOpenQuote, focusOnMount }: { today: strin
   return (
     <div className="jhome">
       <section ref={card} className="jcompose" aria-label="Write today’s entry">
-        <Composer date={today} today={today} size="lg" rows={3} toast={false} placeholder={placeholder} inputRef={input} label={`Today’s entry. ${placeholder}`} prompt={(insert, text) => <QuoteLine insert={insert} text={text} onOpenInLibrary={onOpenQuote} />} />
+        <Composer date={today} today={today} size="lg" rows={3} toast={false} placeholder={placeholder} inputRef={input} label={`Today’s entry. ${placeholder}`} prompt={(insert, text) => <PromptQuoteLine insert={insert} text={text} onOpenInLibrary={onOpenQuote} />} />
       </section>
       <Ribbon today={today} byDate={byDate} onToday={write} />
       <MemoryCard today={today} all={all} />

@@ -958,3 +958,19 @@ textarea.jsheet-text {
 .jghost-card {
   cursor: default;
 }
+
+/* contracts §F: the exported QuoteLine, one serif line 44 tall (15/20 --ink-3, docs/feel.md §5 row 3) */
+.qline.quote-line {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-top: 0;
+  overflow: hidden;
+}
+.qline.quote-line .qline-text {
+  font-size: 15px;
+  line-height: 20px;
+  -webkit-line-clamp: 1;
+}

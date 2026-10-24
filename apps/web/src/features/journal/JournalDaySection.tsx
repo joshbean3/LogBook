@@ -8,6 +8,7 @@ import { fadeIn, fadeOut } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, Group, Section, SwipeRow, useSheet, useToast } from '@/ui';
 import type { Log } from '../log/useLog';
+import { getDraft, setDraft, subscribeDrafts } from './drafts';
 import { runStamp, useDayPrompt } from './prompt';
 import './journal.css';
 
@@ -275,11 +276,10 @@ export interface ComposerProps {
   label?: string;
 }
 
-const drafts: Record<string, string> = {};
-/** Put words on top of a day's unsaved draft (a quote to write from); the composer picks them up when it mounts. */
+/** Put words on top of a day's unsaved draft (a quote to write from); every composer on that day picks them up (drafts.ts). */
 export const addToDraft = (date: string, s: string) => {
-  const cur = drafts[date] ?? '';
-  drafts[date] = cur.trim() ? `${s}\n\n${cur}` : `${s}\n\n`;
+  const cur = getDraft(date);
+  setDraft(date, cur.trim() ? `${s}\n\n${cur}` : `${s}\n\n`);
 };
 /**
  * A bare textarea and Save: meant to sit in a card (or as the last row of a Group). Save is the one affordance; ⌘/Ctrl+Enter
@@ -291,9 +291,16 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
   const toast = useToast();
   const own = useRef<HTMLTextAreaElement>(null);
   const ref = inputRef ?? own;
-  const [text, setText] = useState(drafts[date] ?? '');
+  const [text, setText] = useState(() => getDraft(date));
   const [saved, setSaved] = useState(false);
-  useEffect(() => setText(drafts[date] ?? ''), [date]);
+  // one store (drafts.ts): the day's draft, also when another composer on the same day (Journal, the Close card) changes it
+  useEffect(() => {
+    setText(getDraft(date));
+    return subscribeDrafts(() => {
+      const v = getDraft(date);
+      setText((cur) => (cur === v ? cur : v));
+    });
+  }, [date]);
   // the field grows with the words, never scrolls inside itself
   useLayoutEffect(() => {
     const el = ref.current;
@@ -308,7 +315,7 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
   }, [saved]);
   const set = (v: string) => {
     setText(v);
-    drafts[date] = v;
+    setDraft(date, v);
   };
   const save = () => {
     const v = text.trim();
