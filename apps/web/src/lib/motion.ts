@@ -1,4 +1,4 @@
-import { useReducedMotion, type Transition, type Variants } from 'motion/react';
+import { spring as motionSpring, useReducedMotion, type GeneratorFactory, type Transition, type ValueAnimationOptions, type Variants } from 'motion/react';
 
 /**
  * The motion vocabulary (docs/feel.md §10, contracts §D.1). Eight springs, one sheet curve, one press tween, nothing else.
@@ -9,13 +9,31 @@ import { useReducedMotion, type Transition, type Variants } from 'motion/react';
  * Only `transform` and `opacity` animate; tweens are for opacity and colour only.
  */
 export const springFor = (duration: number, bounce: number): Transition => ({
-  type: 'spring',
+  type: unitAware,
   stiffness: (2 * Math.PI / duration) ** 2,
   damping: (4 * Math.PI * (1 - bounce)) / duration,
   mass: 1,
-  restDelta: 1,
-  restSpeed: 30,
+  restDelta: PX_DELTA,
+  restSpeed: PX_SPEED,
 });
+const PX_DELTA = 1;
+const PX_SPEED = 30;
+/**
+ * motion's own spring, with one difference: the px rest thresholds (|Δ| ≤ 1, |v| ≤ 30) apply to px. A spring that travels
+ * less than 5 units from where it starts is a unitless value (a scale, an opacity, a 0–1 fill): there they would end it on
+ * its first frame, so it rests on scale thresholds instead (`forScale`'s), as motion's own default does for a span under 5.
+ * So every use contracts §D.1 lists works as written: `animate(scale, LIFT_SCALE, springs.lift)`, a check 0 → 1 on
+ * `springs.settle`, a ring fill on `springs.number` (consumer review 3 #3). Thresholds a caller sets itself (`forScale`,
+ * `forRange`, a `restDelta` of its own) are kept as given; every px move runs exactly as before, frame for frame.
+ */
+const unitAware: GeneratorFactory = (o: ValueAnimationOptions) => {
+  const k = o.keyframes as unknown[];
+  const span = Math.abs(Number(k[k.length - 1]) - Number(k[0]));
+  const px = o.restDelta === PX_DELTA && o.restSpeed === PX_SPEED;
+  return motionSpring(px && span < 5 ? { ...o, restDelta: 0.0005, restSpeed: 0.01 } : o);
+};
+// the WAAPI path (an element's opacity or transform): motion turns the spring into a linear() easing over 0–100, as for its own
+unitAware.applyToOptions = (motionSpring as GeneratorFactory).applyToOptions;
 
 const named = {
   /** 0.35 s / 0 → 322 · 35.9: pager release and goTo, push, pop, the flyer, sheet push/pop inside a sheet. */

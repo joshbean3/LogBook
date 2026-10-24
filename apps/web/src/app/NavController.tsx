@@ -99,6 +99,20 @@ export class Controller {
   private deferredReplace: TabId | null = null;
   /** Layers a removeLayers is taking off (the top one and the covered ones under it), until it answers. */
   private going = new Set<string>();
+  /**
+   * Of those, the ones whose history rule still runs at the end of their spring (a pop-all's), as a chevron, an edge
+   * release or a pop owes its own. A `go` or a `popstate` that removes layers has already written where it lands, so a tab
+   * tap or an overlay in its spring must not run that rule for it a second time (code review 3 #3).
+   */
+  private owed = new Set<string>();
+  /** Popping layers whose history rule already ran early (`settleLeaving`): their completion writes no traversal. */
+  private settled = new Set<string>();
+  /**
+   * History entries left under a newer entry by a page that was closing (an adopted react-router write during its pop
+   * spring, code review 3 #4): `nav.idx` → the page that entry now shows (the closed page's parent). A Back onto one
+   * resolves to that page; a push at or below that index truncates it.
+   */
+  private redirect = new Map<number, string>();
   /** Keys of layers that slide in (a push); every other layer mounts at rest. */
   private slideIn = new Set<string>();
 
@@ -162,6 +176,8 @@ export class Controller {
   private write(kind: 'push' | 'replace', path: string, opts: { overlay?: boolean; idx?: number } = {}) {
     if (kind === 'push') this.cur += 1;
     else if (opts.idx !== undefined) this.cur = opts.idx;
+    // this entry and everything after it are new: a redirect recorded for them is gone with the entries it described
+    for (const k of this.redirect.keys()) if (k >= this.cur) this.redirect.delete(k);
     this.queue.push({ kind, path, idx: this.cur, overlay: opts.overlay });
     this.flush();
   }
@@ -280,11 +296,15 @@ export class Controller {
   // ---------- overlays ----------
   openOverlay = (onBack: () => void) => {
     if (this.dormant) return () => {};
-    this.write('push', topPath(this.state.tabs[this.state.active]), { overlay: true });
+    // a page on its pop spring under the new sheet: its history rule runs first, so the overlay entry sits on the entry of
+    // the page that stays, and closing the sheet lands there, not on the closed page's (feel review 3 R2)
+    this.settleLeaving(this.state.active);
+    const path = this.shownPath(this.state.active);
+    this.write('push', path, { overlay: true });
     const o: Overlay = { id: ++this.overlaySeq, idx: this.cur, onBack, closed: false };
     this.overlays.push(o);
     this.set({ ...this.state, overlays: this.state.overlays + 1 });
-    this.emit('overlay', topPath(this.state.tabs[this.state.active]), this.state.active);
+    this.emit('overlay', path, this.state.active);
     return () => {
       if (o.closed) return;
       this.dropOverlay(o);
@@ -331,8 +351,23 @@ export class Controller {
     if (tab === this.state.active) return this.reselect(tab);
     this.settleLeaving(this.state.active);
     flushSync(() => this.set({ ...this.state, active: tab }));
-    this.write('push', topPath(this.state.tabs[tab]));
-    this.emit('tab', topPath(this.state.tabs[tab]), tab);
+    this.write('push', this.shownPath(tab));
+    this.emit('tab', this.shownPath(tab), tab);
+  };
+
+  /** The page a tab shows once the layers on their way out have gone: its URL while they finish their springs. */
+  shownPath(tab: TabId) {
+    const t = this.state.tabs[tab];
+    return t.stack.filter((e) => !this.going.has(e.key) && !this.settled.has(e.key)).at(-1)?.path ?? t.path;
+  }
+  /** A layer on its way out of its tab (a pop, a pop-all, a jump's pop): a sheet opened now does not count it as shown. */
+  isLeaving(key: string) {
+    return this.going.has(key) || this.settled.has(key) || !!this.layers.get(key)?.leaving();
+  }
+  /** A layer whose leave was answered: gone (its pop sequence), or brought home by a catch (the URL is put back if it moved). */
+  answered = (tab: TabId, key: string, left: boolean) => {
+    if (left) return this.finishPop(tab, key);
+    if (this.settled.delete(key) && tab === this.state.active && !this.overlays.length) this.write('replace', topPath(this.state.tabs[tab]));
   };
 
   /**
@@ -340,14 +375,25 @@ export class Controller {
    * (the pop then finishes on a hidden tab, which writes nothing). Otherwise the closed page's entry stays under the new
    * tab's, and Back from it would rebuild the page the user closed (code review 2 #5).
    */
-  private settleLeaving(tab: TabId) {
+  private settleLeaving(tab: TabId, opts: { under?: number } = {}) {
     const t = this.state.tabs[tab];
-    const k = t.stack.findIndex((e) => this.going.has(e.key) || !!this.layers.get(e.key)?.leaving());
+    // only a pop whose history rule is still owed: a chevron / edge pop (leaving on its own), a pop-all's layers; never
+    // the layers a go or a popstate removes (they wrote where they land) nor ones settled already
+    const owes = (e: PushedEntry) => !this.settled.has(e.key) && (this.owed.has(e.key) || (!this.going.has(e.key) && !!this.layers.get(e.key)?.leaving()));
+    const k = t.stack.findIndex(owes);
     if (k < 0) return;
     const gone = t.stack.slice(k);
+    for (const e of gone) this.settled.add(e.key);
+    const parentPath = t.stack[k - 1]?.path ?? t.path;
+    if (opts.under !== undefined) {
+      // a write already sits above them (react-router's, adopted): their entries can only be marked, and a Back onto one
+      // shows the page that stays
+      for (const e of gone) if (e.idx !== -1 && e.idx < opts.under) this.redirect.set(e.idx, parentPath);
+      return;
+    }
     const consecutive = gone.every((e, j) => e.idx !== -1 && e.idx === gone[0]!.idx + j) && gone.at(-1)!.idx === this.cur;
     if (consecutive) this.traverse(gone.length);
-    else this.write('replace', t.stack[k - 1]?.path ?? t.path);
+    else this.write('replace', parentPath);
   }
 
   reselect = (tab: TabId): void => {
@@ -398,7 +444,7 @@ export class Controller {
     const top = this.state.tabs[tab].stack.at(-1);
     if (!top) return;
     const c = this.layers.get(top.key);
-    if (c) c.leave((left) => left && this.finishPop(tab, top.key));
+    if (c) c.leave((left) => this.answered(tab, top.key, left));
     else this.finishPop(tab, top.key);
   };
 
@@ -408,7 +454,7 @@ export class Controller {
    * out of the stack the moment they have left; `then(true)` follows. A catch that brings the top back answers `then(false)`
    * and uncovers the layer under it: nothing is left half gone (code review 1 #1).
    */
-  private removeLayers(tab: TabId, removed: PushedEntry[], then: (left: boolean) => void) {
+  private removeLayers(tab: TabId, removed: PushedEntry[], then: (left: boolean) => void, owed = false) {
     const gone = new Set(removed.map((e) => e.key));
     const drop = () => {
       if (this.state.tabs[tab].stack.some((e) => gone.has(e.key))) flushSync(() => this.setTab(tab, { stack: this.state.tabs[tab].stack.filter((e) => !gone.has(e.key)) }));
@@ -424,10 +470,16 @@ export class Controller {
       .map((e) => this.layers.get(e.key))
       .filter((u): u is LayerControl => !!u);
     for (const u of under) u.cover(true);
-    for (const e of removed) this.going.add(e.key);
+    for (const e of removed) {
+      this.going.add(e.key);
+      if (owed) this.owed.add(e.key);
+    }
     c.leave(
       (left) => {
-        for (const e of removed) this.going.delete(e.key);
+        for (const e of removed) {
+          this.going.delete(e.key);
+          this.owed.delete(e.key);
+        }
         if (left) drop();
         else for (const u of under) u.cover(false);
         then(left);
@@ -445,8 +497,13 @@ export class Controller {
     const stack = t.stack.slice(0, i);
     flushSync(() => this.setTab(tab, { stack }));
     const parentPath = stack.at(-1)?.path ?? t.path;
+    // its history rule ran early (a tab tap, a jump or a sheet in its spring): never a traversal now (cur may equal its idx
+    // again by then, on another entry); the URL is put on the parent unless an overlay's entry is on top
+    const early = this.settled.delete(key);
     if (opts.history !== false && tab === this.state.active) {
-      if (entry.idx !== -1 && this.cur === entry.idx && i === t.stack.length - 1) this.traverse(1);
+      if (early) {
+        if (!this.overlays.length) this.write('replace', parentPath);
+      } else if (entry.idx !== -1 && this.cur === entry.idx && i === t.stack.length - 1) this.traverse(1);
       else this.write('replace', parentPath);
     }
     this.emit('pop', parentPath, tab);
@@ -459,23 +516,49 @@ export class Controller {
     if (!stack.length || this.popping.has(tab)) return;
     this.popping.add(tab);
     const top = stack.at(-1)!;
-    this.removeLayers(tab, stack, (left) => {
-      this.popping.delete(tab);
-      // a catch brought the top page back: nothing was written, the stack is as it was
-      if (!left) return;
-      const cur = this.state.tabs[tab];
-      // a push or a jump during the spring replaced the stack (its layers were unmounted, which answers `true`): that
-      // action wrote the history, and this pop-all writes nothing over it (code review 2 #4)
-      if (cur.stack.length) return;
-      if (opts.history !== false && tab === this.state.active) {
-        const n = stack.length;
-        const consecutive = stack.every((e, k) => e.idx !== -1 && e.idx === stack[0]!.idx + k) && top.idx === this.cur;
-        if (consecutive) this.traverse(n);
-        else this.write('replace', cur.path);
-      }
-      this.emit('pop', cur.path, tab);
-    });
+    const history = opts.history !== false;
+    this.removeLayers(
+      tab,
+      stack,
+      (left) => {
+        this.popping.delete(tab);
+        const early = stack.some((e) => this.settled.has(e.key));
+        for (const e of stack) this.settled.delete(e.key);
+        if (!left) {
+          // a catch brought the top page back. A popstate pop-all (Back onto the root) already put the URL on the root:
+          // it goes back to the page shown (code review 3 #5); a lit-tab pop-all wrote nothing yet, unless it was settled
+          if (tab === this.state.active && (!history || early)) this.restoreTop(tab);
+          return;
+        }
+        const cur = this.state.tabs[tab];
+        // a push or a jump during the spring replaced the stack (its layers were unmounted, which answers `true`): that
+        // action wrote the history, and this pop-all writes nothing over it (code review 2 #4)
+        if (cur.stack.length) return;
+        if (history && tab === this.state.active) {
+          const n = stack.length;
+          const consecutive = stack.every((e, k) => e.idx !== -1 && e.idx === stack[0]!.idx + k) && top.idx === this.cur;
+          if (early) {
+            if (!this.overlays.length) this.write('replace', cur.path);
+          } else if (consecutive) this.traverse(n);
+          else this.write('replace', cur.path);
+        }
+        this.emit('pop', cur.path, tab);
+      },
+      history,
+    );
   };
+
+  /**
+   * The URL back on the page a catch kept. When Back had already left that page's own entry (it is the next one, nothing
+   * was written since), history steps forward onto it, so the next Back pops it again; otherwise the current entry is
+   * replaced with it.
+   */
+  private restoreTop(tab: TabId) {
+    const t = this.state.tabs[tab];
+    const top = t.stack.at(-1);
+    if (top && top.idx !== -1 && top.idx === this.cur + 1 && !this.overlays.length && !this.pending && !this.queue.length) this.traverse(-1);
+    else this.write('replace', topPath(t));
+  }
 
   replace = (path: string, tab: TabId = this.state.active) => {
     if (this.dormant) return;
@@ -531,6 +614,9 @@ export class Controller {
     const adoptIdx = opts.adopt === 'push' ? this.cur + 1 : this.cur;
 
     if (cut) {
+      // the tab being left has a page on its pop spring: its history rule runs before this jump writes (code review 3 #4),
+      // as for a tab tap; under an adopted write (react-router's entry is already above it) its entry is only marked
+      if (!opts.fromPop) this.settleLeaving(this.state.active, opts.adopt ? { under: adoptIdx } : {});
       const stack = [...keep, ...added];
       flushSync(() => {
         this.set({ ...this.state, active: tab, tabs: { ...this.state.tabs, [tab]: { path: rootPath, stack } } });
@@ -588,7 +674,9 @@ export class Controller {
       return;
     }
     if (landed !== null) this.cur = landed;
-    const m = resolveRoute(window.location.pathname);
+    // an entry a closing page left under a newer one shows that page's parent (code review 3 #4)
+    const redirected = landed !== null ? this.redirect.get(landed) : undefined;
+    const m = resolveRoute(redirected ?? window.location.pathname);
     if (m.kind === 'full') return;
     const tab = this.state.active;
     const t = this.state.tabs[tab];
@@ -610,7 +698,7 @@ export class Controller {
     const to = t.stack[i]!.path;
     this.removeLayers(tab, removed, (left) => {
       if (left) this.emit('pop', to, tab);
-      else if (tab === this.state.active) this.write('replace', topPath(this.state.tabs[tab]));
+      else if (tab === this.state.active) this.restoreTop(tab);
     });
     this.write('replace', to);
   }

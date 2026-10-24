@@ -82,10 +82,11 @@ interface PanelHandle {
   close: (how: CloseHow) => void;
 }
 
+// an inner push slides in from the right (+1), a pop from the left (−1); open() over an open sheet (0) crossfades
 const slide = {
-  enter: (dir: number) => ({ x: dir > 0 ? '100%' : dir < 0 ? '-30%' : 0, opacity: dir < 0 ? 0 : 1 }),
+  enter: (dir: number) => ({ x: dir > 0 ? '100%' : dir < 0 ? '-30%' : 0, opacity: dir > 0 ? 1 : 0 }),
   center: { x: 0, opacity: 1 },
-  exit: (dir: number) => ({ x: dir > 0 ? '-30%' : '100%', opacity: dir > 0 ? 0 : 1 }),
+  exit: (dir: number) => ({ x: dir > 0 ? '-30%' : dir < 0 ? '100%' : 0, opacity: dir < 0 ? 1 : 0 }),
 };
 const fade = { enter: { opacity: 0 }, center: { opacity: 1 }, exit: { opacity: 0 } };
 const SCRIM = 0.78;
@@ -128,6 +129,8 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 interface PanelProps {
   stack: SheetSpec[];
+  /** Bumped by open() over an open sheet: a new first panel in the same sheet (it FLIPs and crossfades like a push). */
+  gen: number;
   dir: number;
   tab: TabId;
   opener: RefObject<HTMLElement | null>;
@@ -137,12 +140,15 @@ interface PanelProps {
   pop: () => void;
 }
 
-const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }: PanelProps) => {
+const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, pop }: PanelProps) => {
   const reduce = !!useReducedMotion();
+  const ctl = useNavInternal();
   const id = useId();
   const ref = useRef<HTMLDivElement>(null);
   const { sheetY, height } = sheetMotion();
   const depth = stack.length;
+  /** Which panel is shown: an inner push or pop, or open() over the open sheet, changes it. */
+  const panelKey = `${gen}:${depth}`;
   const first = stack[0]!;
   const top = stack[depth - 1]!;
   // the detents, lowest (smallest) first
@@ -161,6 +167,10 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
    */
   const shift = useMotionValue(0);
   const resizing = useRef<Pick<Anim, 'stop'> | null>(null);
+  /** The FLIP in progress: where the shift rests, the new content height, and its end (box to `nat`, shift to 0). */
+  const flip = useRef<{ to: number; nat: number; done: () => void } | null>(null);
+  /** A finger came down during the FLIP: the shift is held where it was, under the finger (code review 3 #7). */
+  const held = useRef(false);
   const boxB = useRef(0);
   /** The auto box's visible height (box − shift), as it was before the commit being laid out. */
   const visH = useRef(0);
@@ -173,7 +183,8 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     const st = safeTopPx();
     const large = H - (st + 10);
     const medium = Math.round(0.5 * H);
-    const box = boxKind === 'large' ? large : boxKind === 'medium' ? medium : (ref.current?.offsetHeight ?? 0);
+    // during an inner push's FLIP the box is held at max(old, new): the auto detent is the new content's height
+    const box = boxKind === 'large' ? large : boxKind === 'medium' ? medium : (flip.current?.nat ?? ref.current?.offsetHeight ?? 0);
     const vis = (d: AnyDetent) => (d === 'large' ? large : d === 'medium' ? medium : box);
     const off = (d: AnyDetent) => Math.max(0, box - vis(d));
     return { H, st, vis, off };
@@ -186,11 +197,31 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
    * (consumer review 1 #2). A layout change on a snap, never animated: set at once when the sheet grows, on rest when it shrinks.
    */
   const inset = useRef(0);
+  /**
+   * The inset an upward drag dropped (the body runs on below the screen, so no empty band shows under it), and the sticky
+   * feet it would carry off the screen with it: while dropped they are translated back up, so Save stays where it was on
+   * the screen's bottom (consumer review 3 #1, feel review 3 R3); 0 when nothing is dropped.
+   */
+  const dropped = useRef(0);
+  const feet = useRef<HTMLElement[]>([]);
+  const pinFeet = (yv: number) => {
+    if (!dropped.current) return;
+    const ty = -Math.min(dropped.current, Math.max(0, yv));
+    for (const f of feet.current) f.style.transform = ty ? `translateY(${ty.toFixed(2)}px)` : '';
+  };
   const setInset = (px: number) => {
     const v = Math.max(0, Math.round(px));
-    if (v === inset.current) return;
-    inset.current = v;
-    ref.current?.style.setProperty('--sheet-inset', `${v}px`);
+    if (v !== inset.current) {
+      inset.current = v;
+      ref.current?.style.setProperty('--sheet-inset', `${v}px`);
+    }
+    // the inset is back (or never comes back: at large there is none): the feet sit on the scroller's bottom again, in
+    // the same frame, so nothing moves
+    if (dropped.current && (v > 0 || base.get() + sheetY.get() <= 0)) {
+      dropped.current = 0;
+      for (const f of feet.current) f.style.transform = '';
+      feet.current = [];
+    }
   };
   /** A sheet taller than 80 % of the screen does not lift for the keyboard: it keeps its top, its body ends above the keys (§9.4). */
   const markTall = () => {
@@ -202,9 +233,14 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     // an auto sheet keeps the height it has while the keys are up (its stack's padding must not grow it)
     if (boxKind === 'auto' && !document.documentElement.classList.contains('kb-open')) el.style.setProperty('--sheet-box-h', `${box}px`);
   };
+  /** Stop what runs on sheetY where it is drawn (motion's stop() samples the clock once more: a few px past the last frame). */
   const stop = () => {
-    anim.current?.stop();
+    const a = anim.current;
     anim.current = null;
+    if (!a) return;
+    const y = sheetY.get();
+    a.stop();
+    if (sheetY.get() !== y) sheetY.jump(y);
   };
   /** Focus, inert behind: on the open animation's completion (or the first rest after it was caught), never on a timer. */
   const opened = useRef(false);
@@ -236,6 +272,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     if (to < inset.current) setInset(to);
     const rested = () => {
       setInset(to);
+      flip.current?.done();
       onOpened();
     };
     anim.current = animate(sheetY, 0, reduce ? { duration: 0 } : { ...springs.sheet, velocity: v, onComplete: rested });
@@ -253,10 +290,22 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     // the receding tab shows black around it (iOS's card stack), only while a sheet is up
     const host = reduce ? null : (tabEl?.parentElement ?? null);
     if (host) host.style.background = '#000';
-    // under a pushed page, the layers it covers are hidden while the sheet is up: scaled, the top page's edge would let
-    // a fraction of a pixel of them through (they are inert behind the sheet either way)
-    const covered = pushed.length ? [scroller, ...pushed.slice(0, -1)].filter((el): el is HTMLElement => !!el) : [];
-    for (const el of covered) el.style.visibility = 'hidden';
+    /*
+     * Under a pushed page, the layers it covers are hidden while the sheet is up: scaled, the top page's edge would let a
+     * fraction of a pixel of them through (they are inert behind the sheet either way). A page on its way out covers
+     * nothing: a sheet opened while it pops shows the page that stays (feel review 3 R1: the root was hidden, then the
+     * popping page unmounted, and the sheet sat over black). Kept current while the sheet is up.
+     */
+    let covered: HTMLElement[] = [];
+    const hideCovered = () => {
+      const shown = tabEl ? [...tabEl.querySelectorAll<HTMLElement>('.pushed')].filter((el) => !ctl.isLeaving(el.dataset.key ?? '')) : [];
+      const next = shown.length ? [scroller, ...shown.slice(0, -1)].filter((el): el is HTMLElement => !!el) : [];
+      for (const el of covered) if (!next.includes(el)) el.style.visibility = '';
+      for (const el of next) el.style.visibility = 'hidden';
+      covered = next;
+    };
+    hideCovered();
+    const offNav = ctl.subscribe(hideCovered);
     /*
      * One writer, synchronous: the sheet's transform, the scrim and the recede are written from sheetY's change (in motion's
      * frame step during an animation, in the pointer handler during a drag, at once on a jump), so the three can never be a
@@ -273,6 +322,9 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
         el.style.transform = `translateY(${(yv + shift.get()).toFixed(2)}px)`;
         el.style.opacity = String(opacity.get());
       }
+      pinFeet(yv);
+      // the visible height while an auto box FLIPs (box − shift): toasts place themselves on it (consumer review 3 #4)
+      if (flip.current) height.set(boxB.current - shift.get());
       if (scrimRef.current) scrimRef.current.style.opacity = (SCRIM * p * opacity.get()).toFixed(4);
       if (!tabEl) return;
       if (reduce) return;
@@ -283,6 +335,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     apply();
     return () => {
       offs.forEach((f) => f());
+      offNav();
       if (tabEl) {
         tabEl.style.transform = '';
         tabEl.style.borderRadius = '';
@@ -368,31 +421,45 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
 
   // an inner push or pop on an `auto` box: the box keeps max(old, new) height and the visible top travels on springs.page
   // by a transform (§10.1, the FLIP rule); at rest the box takes the new content height in the same frame the shift ends
-  const shownDepth = useRef(depth);
+  // open() over the open sheet (a new `gen`) is the same panel change, with a crossfade (consumer review 3 #5)
+  const shownPanel = useRef(panelKey);
   useLayoutEffect(() => {
-    if (shownDepth.current === depth) return;
-    shownDepth.current = depth;
+    if (shownPanel.current === panelKey) return;
+    shownPanel.current = panelKey;
     const el = ref.current;
     if (!el || boxKind !== 'auto' || closing.current) return;
     const vis0 = resizing.current ? boxB.current - shift.get() : visH.current;
+    // a FLIP retargeted mid-flight keeps its speed (consumer review 3 #8); a held one starts from rest
+    const v0 = resizing.current && !held.current ? shift.getVelocity() : 0;
+    held.current = false;
     resizing.current?.stop();
     resizing.current = null;
+    flip.current = null;
     el.style.height = '';
     // the new panel's natural height (the outgoing one is out of flow: AnimatePresence's popLayout); one forced layout
     const nat = el.offsetHeight;
-    height.set(nat);
     const done = () => {
+      if (flip.current !== f) return;
       resizing.current = null;
+      flip.current = null;
+      held.current = false;
       el.style.height = '';
       shift.jump(0);
+      height.set(nat);
       visH.current = nat;
       markTall();
     };
-    if (reduce || Math.abs(nat - vis0) < 1) return done();
+    const f = { to: 0, nat, done };
+    if (reduce || Math.abs(nat - vis0) < 1) {
+      flip.current = f;
+      return done();
+    }
     const B = Math.max(vis0, nat);
     const from = B - vis0;
     const to = B - nat;
+    f.to = to;
     boxB.current = B;
+    flip.current = f;
     el.style.height = `${B}px`;
     shift.jump(from);
     // clocked from the frame that paints the new panel (as the push and the open): one spring frame in on that frame, two
@@ -402,15 +469,15 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     resizing.current = pending;
     frame.update(() => {
       if (!live || resizing.current !== pending) return;
-      shift.set(springAdvance(PAGE, from, 0, to, FRAME_S)[0]);
+      shift.set(springAdvance(PAGE, from, v0, to, FRAME_S)[0]);
       frame.update(() => {
         if (!live || resizing.current !== pending) return;
-        const [p2, v2] = springAdvance(PAGE, from, 0, to, 2 * FRAME_S);
+        const [p2, v2] = springAdvance(PAGE, from, v0, to, 2 * FRAME_S);
         shift.set(p2);
         resizing.current = animate(shift, to, { ...springs.page, velocity: v2, onComplete: done });
       });
     });
-  }, [depth]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [panelKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the keys come up over a medium detent: the sheet goes to large (UIKit's rule), so the focused field has room
   const kb = useKeyboardOpen();
@@ -444,19 +511,19 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     panel.addEventListener('keydown', onKey);
     return () => panel.removeEventListener('keydown', onKey);
   }, []);
-  // a push or a pop: focus moves into the new panel once it is in (a frame, not a timer)
-  const firstDepth = useRef(depth);
+  // a push or a pop (or open() over the sheet): focus moves into the new panel once it is in (a frame, not a timer)
+  const firstPanel = useRef<string | null>(panelKey);
   useEffect(() => {
     const panel = ref.current;
-    if (!panel || depth === firstDepth.current) return;
-    firstDepth.current = -1;
+    if (!panel || panelKey === firstPanel.current) return;
+    firstPanel.current = null;
     const raf = requestAnimationFrame(() => {
-      const body = panel.querySelector<HTMLElement>(`.sheet-body[data-depth="${depth}"]`);
+      const body = panel.querySelector<HTMLElement>(`.sheet-body[data-panel="${panelKey}"]`);
       const f = body ? focusables(body)[0] : null;
       (f ?? panel.querySelector<HTMLElement>('.sheet-title') ?? panel).focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(raf);
-  }, [depth]);
+  }, [panelKey]);
 
   // ---------- the drag (§9.4): pointer events on the sheet; the body's scroll held off only for a claimed drag ----------
   const g0 = useRef({ id: -1, zone: null as 'head' | 'body' | null, x0: 0, sy: 0, y0: 0, claimed: false, moved: false, grab: false, body: null as HTMLElement | null, off: null as null | (() => void) });
@@ -497,9 +564,17 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
     const t = e.target as Element;
     const head = t.closest('.sheet-grab, .sheet-header');
     const body = t.closest<HTMLElement>('.sheet-body');
-    // one owner: a pointerdown stops whatever runs (the rise, a snap) where it is
+    // one owner: a pointerdown stops whatever runs (the rise, a snap, an inner push's FLIP) where it is (consumer review 3
+    // #2, code review 3 #7, feel review 3 R6: the FLIP's shift kept springing under a still finger)
     const wasMoving = !!anim.current;
     stop();
+    if (flip.current && resizing.current && !held.current) {
+      const at = shift.get();
+      resizing.current.stop();
+      if (shift.get() !== at) shift.jump(at);
+      resizing.current = { stop: () => undefined };
+      held.current = true;
+    }
     st.id = e.pointerId;
     st.x0 = e.clientX;
     st.sy = e.clientY;
@@ -542,17 +617,39 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
         } else return;
       }
       if (Math.abs(dy) > 3) st.moved = true;
-      sheetY.set(follow(ev.clientY - st.y0));
       // pulled up from a detent smaller than the box: the body runs on below the screen while the finger moves, so no empty
       // band shows under it (consumer review 2 #2, feel review 2 N3); a layout change at the gesture's start, never per
-      // frame, and the inset is put back when it rests at the smaller detent
-      if (inset.current > 0 && sheetY.get() < 0) setInset(0);
+      // frame, and the inset is put back when it rests at the smaller detent. The sticky feet are held on the screen's
+      // bottom meanwhile (pinFeet), written before the move that would carry them off
+      const y = follow(ev.clientY - st.y0);
+      if (inset.current > 0 && y < 0) {
+        feet.current = [...(ref.current?.querySelectorAll<HTMLElement>('.sheet-body .sheet-foot') ?? [])];
+        dropped.current = inset.current;
+        pinFeet(base.get() + sheetY.get());
+        setInset(0);
+      }
+      sheetY.set(y);
+    };
+    /** A FLIP held by this finger: a drag folds it into sheetY (the sheet stays where it is drawn); a tap lets it go on. */
+    const releaseFlip = (drag: boolean) => {
+      const f = flip.current;
+      if (!held.current || !f) return;
+      held.current = false;
+      if (drag) {
+        sheetY.jump(sheetY.get() + shift.get() - f.to);
+        shift.jump(f.to);
+        resizing.current = { stop: () => undefined };
+        return;
+      }
+      if (Math.abs(shift.get() - f.to) < 0.5) return f.done();
+      resizing.current = animate(shift, f.to, { ...springs.page, onComplete: f.done });
     };
     const end = (ev: PointerEvent) => {
       if (ev.pointerId !== st.id) return;
       offs.forEach((f) => f());
       st.id = -1;
       const v = sheetY.getVelocity();
+      releaseFlip(st.claimed && st.moved);
       if (st.claimed && st.moved) return settle(v);
       // a tap on the grabber row cycles the detents
       if (st.grab && !st.moved && ds.length > 1) {
@@ -575,13 +672,28 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
   };
   useEffect(() => () => g0.current.off?.(), []);
 
+  /**
+   * A scrim tap during the rise (or a snap, or an inner push) closes nothing: the second tap of a double tap on the opener
+   * lands here (feel review 3 R4). UIKit takes no touch on the dimming view during a presentation.
+   */
+  const scrimBusy = useRef(false);
+  const onScrimDown = () => {
+    scrimBusy.current = !closing.current && (Math.abs(sheetY.get()) > 1 || opacity.get() < 0.99 || !!flip.current);
+  };
+  const onScrimClick = () => {
+    if (scrimBusy.current) {
+      scrimBusy.current = false;
+      return;
+    }
+    if (!stack.some((p) => p.sticky)) requestClose({ kind: 'tween' });
+  };
   const v = reduce ? fade : slide;
   const t = reduce ? reducedFade : springs.page;
   const titleId = `${id}-title-${depth}`;
   const boxStyle: React.CSSProperties = boxKind === 'medium' ? { height: geo().vis('medium') } : {};
   return (
     <>
-      <div ref={scrimRef} className="sheet-scrim" aria-hidden="true" onClick={() => !stack.some((p) => p.sticky) && requestClose({ kind: 'tween' })} />
+      <div ref={scrimRef} className="sheet-scrim" aria-hidden="true" onPointerDown={onScrimDown} onClick={onScrimClick} />
       <div
         ref={ref}
         role="dialog"
@@ -623,7 +735,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
             ) : null}
             <div className="sheet-titles">
               <AnimatePresence custom={dir} mode="popLayout" initial={false}>
-                <motion.div key={depth} className="sheet-titles-in" custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
+                <motion.div key={panelKey} className="sheet-titles-in" custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
                   {top.eyebrow ? <span className="caps sheet-eyebrow">{top.eyebrow}</span> : null}
                   <h2 className="sheet-title" id={titleId} tabIndex={-1}>
                     {top.title}
@@ -632,7 +744,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
               </AnimatePresence>
             </div>
             {top.action ? (
-              <span key={depth} className="sheet-action">
+              <span key={panelKey} className="sheet-action">
                 {top.action}
               </span>
             ) : null}
@@ -644,7 +756,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
         {top.header ? <div className="sheet-header">{top.header}</div> : null}
         <div className="sheet-stack">
           <AnimatePresence custom={dir} mode="popLayout" initial={false}>
-            <motion.div key={depth} data-depth={depth} className="sheet-body" custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
+            <motion.div key={panelKey} data-depth={depth} data-panel={panelKey} className="sheet-body" custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
               <DepthCtx.Provider value={depth}>{top.body}</DepthCtx.Provider>
             </motion.div>
           </AnimatePresence>
@@ -661,7 +773,7 @@ const Panel = ({ stack, dir, tab, opener, register, requestClose, onGone, pop }:
  */
 export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.Element => {
   const ctl = useNavInternal();
-  const [state, setState] = useState<{ stack: SheetSpec[]; dir: number; tab: TabId; key: number }>({ stack: [], dir: 0, tab: 'today', key: 0 });
+  const [state, setState] = useState<{ stack: SheetSpec[]; gen: number; dir: number; tab: TabId; key: number }>({ stack: [], gen: 0, dir: 0, tab: 'today', key: 0 });
   const st = useRef(state);
   st.current = state;
   const phase = useRef<'closed' | 'open' | 'closing'>('closed');
@@ -720,12 +832,13 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
       open: (s) => {
         const fresh = capture();
         const tab = ctl.getState().active;
-        setState((cur) => ({ stack: [s], dir: 0, tab: fresh ? tab : cur.tab, key: fresh ? cur.key + 1 : cur.key }));
+        // over an open sheet: the same sheet with a new first panel (its box FLIPs, the content crossfades)
+        setState((cur) => ({ stack: [s], gen: fresh ? 0 : cur.gen + 1, dir: 0, tab: fresh ? tab : cur.tab, key: fresh ? cur.key + 1 : cur.key }));
       },
       push: (s) => {
         const fresh = capture();
         const tab = ctl.getState().active;
-        setState((cur) => (fresh ? { stack: [s], dir: 0, tab, key: cur.key + 1 } : { ...cur, stack: [...cur.stack, s], dir: 1 }));
+        setState((cur) => (fresh ? { stack: [s], gen: 0, dir: 0, tab, key: cur.key + 1 } : { ...cur, stack: [...cur.stack, s], dir: 1 }));
       },
       pop: () => {
         if (st.current.stack.length <= 1) return beginClose({ kind: 'tween' });
@@ -772,7 +885,7 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
         up ? (
           <div className="sheet-wrap" key={key}>
             <TabScope tab={state.tab}>
-              <Panel stack={state.stack} dir={state.dir} tab={state.tab} opener={opener} register={register} requestClose={beginClose} onGone={() => gone(key)} pop={api.pop} />
+              <Panel stack={state.stack} gen={state.gen} dir={state.dir} tab={state.tab} opener={opener} register={register} requestClose={beginClose} onGone={() => gone(key)} pop={api.pop} />
             </TabScope>
           </div>
         ) : null,

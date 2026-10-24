@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import { LOCK_PX, lockAxis, PROJECT_S, SWIPE_FULL_FRAC, SWIPE_FULL_V, SWIPE_REVEAL_PX } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
+import { swallowClickOf } from './clickSwallow';
 import { useContextMenu, type ContextMenuItem } from './ContextMenu';
 import { useHold } from './useHold';
 
@@ -68,7 +69,7 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
   const [side, setSide] = useState<'left' | 'right' | null>(null);
   const [armed, setArmed] = useState(false);
   const [revealed, setRevealed] = useState<'left' | 'right' | null>(null);
-  const g = useRef({ id: -1, x0: 0, y0: 0, from: 0, lock: null as null | 'x' | 'y', w: 1, armed: false, fired: false, swallow: false, busy: false });
+  const g = useRef({ id: -1, x0: 0, y0: 0, from: 0, lock: null as null | 'x' | 'y', w: 1, armed: false, fired: false, busy: false });
   const rev = useRef<'left' | 'right' | null>(null);
   const o = useRef({ onReveal });
   o.current.onReveal = onReveal;
@@ -105,30 +106,20 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
   // closing tap is consumed (its click reaches nothing), as iOS does
   useEffect(() => {
     if (!revealed) return;
-    let swallowUntil = 0;
-    const swallow = (e: Event) => {
-      if (performance.now() > swallowUntil) return;
-      e.stopPropagation();
-      e.preventDefault();
-      swallowUntil = 0;
-    };
     const onDown = (e: PointerEvent) => {
       const row = ref.current;
       const t = e.target as Element | null;
       if (t?.closest?.('.swipe-action') && row?.contains(t)) return;
-      swallowUntil = performance.now() + 800;
+      // that pointer's click only (code review 3 #6): a closing touch that scrolls leaves nothing armed
+      swallowClickOf(e.pointerId);
       home();
     };
     const onScroll = () => home();
     window.addEventListener('pointerdown', onDown, true);
-    window.addEventListener('click', swallow, true);
     window.addEventListener('scroll', onScroll, true);
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('scroll', onScroll, true);
-      const left = swallowUntil - performance.now();
-      if (left > 0) setTimeout(() => window.removeEventListener('click', swallow, true), left);
-      else window.removeEventListener('click', swallow, true);
     };
   }, [revealed]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -215,9 +206,6 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLElement>) => {
-    // a new pointer: the last swipe's swallowed click is over (a moved touch makes no click; the next tap, on the revealed
-    // action included, is a tap: consumer review 1 #3)
-    g.current.swallow = false;
     hold.handlers.onPointerDown(e);
     const st = g.current;
     if (disabled || st.busy || !e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
@@ -246,7 +234,9 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
         return;
       }
       st.lock = 'x';
-      st.swallow = true;
+      // the click a swipe makes (a mouse) is not a tap; bound to this pointer, so a swipe that makes no click leaves nothing
+      // armed for the next keyboard or assistive activation (code review 3 #6)
+      swallowClickOf(e.pointerId);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
@@ -290,15 +280,7 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
     }
     home(v);
   };
-  // the click after a swipe (or the tap that closed the open row) is not a tap
-  const onClickCapture = (e: React.MouseEvent<HTMLElement>) => {
-    hold.handlers.onClickCapture(e);
-    if (g.current.swallow) {
-      g.current.swallow = false;
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
+  const onClickCapture = (e: React.MouseEvent<HTMLElement>) => hold.handlers.onClickCapture(e);
 
   const items: ContextMenuItem[] = [
     ...(right ? [{ label: right.label, icon: right.icon, onSelect: right.onCommit, destructive: right.destructive ?? right.tone === 'bad' }] : []),

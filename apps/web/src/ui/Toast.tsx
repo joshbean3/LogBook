@@ -9,6 +9,9 @@ import type { TabId } from './nav';
 import { safeTopPx, useSheetMotion } from './sheetMotion';
 import { createToastStore, type ToastAction } from './toastStore';
 
+// contracts §C.7 names ui/Toast.tsx as ToastAction's module (consumer review 3 #7)
+export type { ToastAction } from './toastStore';
+
 type ToastFn = (text: string, action?: ToastAction) => void;
 type ScopedFn = (tab: TabId | null, text: string, action?: ToastAction) => void;
 const Ctx = createContext<ScopedFn>(() => {});

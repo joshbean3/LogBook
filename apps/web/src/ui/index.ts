@@ -20,7 +20,8 @@ export { PushedLayer, usePop, type PushedLayerProps } from './PushedLayer';
 export { Avatar, useInitial, type AvatarProps } from './Avatar';
 export { SheetProvider, shared, useSheet, useSheetDepth, type SheetApi, type SheetSpec, type Detent } from './Sheet';
 export { useSheetMotion, type SheetMotion } from './sheetMotion';
-export { ToastProvider, useToast } from './Toast';
+export { ToastProvider, useToast, type ToastAction } from './Toast';
+export { createToastStore } from './toastStore';
 export { TABS, ROUTES, REFRESH, PAGE_COMMIT, NAV_EVENT, TAB_RESELECT, matchRoute, tabDef, type TabId, type TabDef, type RouteDef, type RouteKind, type RouteMatch, type PushedEntry, type TabState, type NavState, type PageCommitDetail, type NavEventDetail, type TabReselectDetail } from './nav';
 // ---------- deprecated adapters (contracts rule 5): kept while a feature file imports them; WP1 deletes them after WP6 lands ----------
 export { TabHeader, PushedHeader, dateLine, usePushedBack, type TabHeaderProps, type PushedHeaderProps } from './headers';

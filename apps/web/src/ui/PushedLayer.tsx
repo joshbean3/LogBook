@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { PushedScrollerScope, useNavInternal, type LayerControl } from '@/app/NavController';
 import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis, POP_COMMIT_FRAC, POP_COMMIT_V } from '@/lib/gesture';
 import { springs } from '@/lib/motion';
+import { swallowClickOf, swallowNextClickOf } from './clickSwallow';
 import { restoreFocus } from './focus';
 import type { PushedEntry, TabId } from './nav';
 import { springAdvance, springParams } from './springSim';
@@ -178,10 +179,25 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
       onDone();
     });
   };
+  /** Stop the running animation where it is drawn (motion's stop() samples the clock once more, a few px past the frame). */
   const stop = () => {
     const r = running.current;
     running.current = null;
-    r?.controls.stop();
+    if (!r) return;
+    const at = x.get();
+    const f = fade.get();
+    r.controls.stop();
+    if (x.get() !== at) x.jump(at);
+    if (fade.get() !== f) fade.jump(f);
+  };
+  /**
+   * A push or a pop is moving: more than 1 px from its target, or (reduced motion) its crossfade is running. While it is,
+   * a tap on the page itself or on the page under it does nothing (UIKit takes no touch during a transition).
+   */
+  const transitioning = () => {
+    const r = running.current;
+    if (!r || gone.current) return false;
+    return reduce || Math.abs(x.get() - r.target) > 1;
   };
   /** Back to rest at 0 (a catch let go short of the pop): every pending leave is answered `false`. */
   const home = (v: number) => {
@@ -192,6 +208,8 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     }
     settleWaiters(false);
     if (reduce) {
+      // a stopped crossfade is never left part way (code review 3 #1): the page at rest is opaque
+      fade.jump(1);
       x.jump(0);
       return atRest();
     }
@@ -331,34 +349,38 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
 
   // ---------- the edge pop ----------
   const g = useRef<{ id: number; sx: number; sy: number; x0: number; lock: null | 'x' | 'no'; caught: boolean } | null>(null);
-  const swallow = useRef(false);
   // a leave that a catch brought home answers `false`: nothing is popped (code review 2 #1)
-  const popSelf = () => leave(0, (left) => left && ctl.finishPop(sm.tab, entry.key));
+  const popSelf = () => leave(0, (left) => ctl.answered(sm.tab, entry.key, left));
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    swallow.current = false;
     if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0) || gone.current) return;
     // the band is measured from the edge as it is shown (a depth-1 layer under a moving depth-2 one is offset)
     if (e.clientX - shownX.get() > EDGE_PX) {
-      // a tap on a page still sliding in or out opens nothing (feel review 2 N1: UIKit takes no touch on the content during
-      // a transition): a double tap on the opener pushes once
-      const r = running.current;
-      if (r && Math.abs(x.get() - r.target) > 1) swallow.current = true;
+      // a tap on a page still sliding in or out (or fading, under reduced motion: code review 3 #2) opens nothing (feel
+      // review 2 N1: UIKit takes no touch on the content during a transition): a double tap on the opener pushes once
+      if (transitioning()) swallowClickOf(e.pointerId);
       return;
     }
     let caught = false;
     const r = running.current;
     if (r) {
-      if (Math.abs(x.get() - r.target) <= 1) {
-        // within 1 px of its target: not a catch; the animation completes on this event
+      if (reduce || Math.abs(x.get() - r.target) <= 1) {
+        // within 1 px of its target: not a catch; the animation completes on this event. Under reduced motion x never
+        // moves (push and pop are crossfades) and a crossfade is not caught: it completes, opaque or gone, and the touch
+        // that met it does nothing else (code review 3 #1: a stopped fade left the page at a third, over an inert root)
         running.current = null;
         r.controls.stop();
-        x.jump(r.target);
+        if (reduce) {
+          fade.jump(r.target === 0 ? 1 : 0);
+          swallowClickOf(e.pointerId);
+        } else x.jump(r.target);
         r.onDone();
         if (gone.current) return;
       } else {
         stop();
         caught = true;
         setParentInert(false);
+        // a tap that stops a push or a pop does nothing else, the chevron included
+        swallowClickOf(e.pointerId);
       }
     }
     g.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x0: e.clientX - x.get(), lock: null, caught };
@@ -401,26 +423,43 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     if (!st || e.pointerId !== st.id) return;
     g.current = null;
     if (st.lock === 'x') {
-      swallow.current = true;
+      // a drag makes no click; a click that follows it anyway (a mouse) does nothing
+      swallowNextClickOf(e.pointerId);
       const v = e.type === 'pointercancel' ? 0 : x.getVelocity();
       const commit = v >= 0 && (x.get() > POP_COMMIT_FRAC * width() || v > POP_COMMIT_V);
-      if (commit) leave(v, (left) => left && ctl.finishPop(sm.tab, entry.key));
+      if (commit) leave(v, (left) => ctl.answered(sm.tab, entry.key, left));
       else home(v);
       return;
     }
     if (st.caught) {
-      // a tap that stopped a push or a pop: the nearest rest, and the click it makes is swallowed
-      swallow.current = true;
+      // a tap that stopped a push or a pop: the nearest rest (its click was swallowed at the pointerdown)
       if (x.get() > width() / 2) popSelf();
       else home(0);
     }
   };
-  const onClickCapture = (e: React.MouseEvent) => {
-    if (!swallow.current) return;
-    swallow.current = false;
-    e.preventDefault();
-    e.stopPropagation();
-  };
+
+  /*
+   * The page under a moving push or pop takes no tap (feel review 3 R5; UIKit disables the whole navigation controller
+   * during a transition): a pointerdown on it while this layer moves goes no further, and its click is swallowed. The
+   * second tap of a double tap on the chevron no longer lands on the page being uncovered, nor a tap on the strip a push has
+   * not covered yet. The layer's own edge band stays live (it is on the layer, not under it). In a two-layer pop-all the
+   * root rides the top layer, so the top layer guards the root too.
+   */
+  useEffect(() => {
+    const guard = (el: HTMLElement | null | undefined, live: () => boolean) => {
+      if (!el) return () => undefined;
+      const down = (e: PointerEvent) => {
+        if (!live()) return;
+        e.stopPropagation();
+        swallowClickOf(e.pointerId);
+      };
+      el.addEventListener('pointerdown', down, { capture: true });
+      return () => el.removeEventListener('pointerdown', down, { capture: true });
+    };
+    const offs = [guard(parent.current, () => !covered.current && transitioning())];
+    if (depth === 2) offs.push(guard(ctl.scrollers[sm.tab].current, () => allMode.current && transitioning()));
+    return () => offs.forEach((f) => f());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const layerApi = useMemo(
     () => ({
@@ -448,7 +487,6 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
-        onClickCapture={onClickCapture}
       >
         <PushedScrollerScope scroller={ref}>
           <LayerCtx.Provider value={layerApi}>{children}</LayerCtx.Provider>
