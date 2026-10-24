@@ -4,14 +4,97 @@ Branch `feel/wp4`, on `feel/pages-base` (WP1 merged, the seams' §F exports). Sp
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`.
 
-This review covers the **page step**: PlanView, the Week rows and the drag, the Month grid. The block card's 128 spec, `PlansPage`'s rows, the builder (§7.4) and `MoveSheet`/`DayPicker` are the next steps (see "Left").
+This review covers two steps. **Step 2** (first below): the block card, the builder with its ghost header, `PlansPage`, `MoveSheet` and `DayPicker`, Plan's haptics. **Step 1** (the sections after it): PlanView, the Week rows and the drag, the Month grid.
 
 ## How to rerun
 
 - Build and serve: `bash S/wp4/build.sh && bash S/wp4/serve.sh` (port 8830, a fresh copy of the seed each time; kills only its own PID).
 - The battery: `node S/wp4/qa/run.mjs` runs every script at 1× and 4× (each against a freshly served seed) and prints the table below (also `S/wp4/qa/results/TABLE.md`, logs in `results/<script>.cpu<rate>.log`). `ONLY=p2-drag,p3-swap`, `RATES=4`, `--table` as in WP1's runner.
-- Screenshots: `node S/wp4/qa/shots.mjs <tag>` (390 and 320, and reduced motion once).
+- Screenshots: `node S/wp4/qa/shots.mjs <tag>` (the page step's states) and `node S/wp4/qa/shots2.mjs <tag>` (the block card, the builder, Move, the day picker, Plans), at 390 and 320; reduced motion once each.
 - The Plan scripts put the page's `Date` at Fri Oct 23 2026 06:30 New York with a Date-only override (`qa/plib.mjs`), not Playwright's `clock.install`: the installed clock also fakes `requestAnimationFrame` and `performance.now`, which bunches frames at 4× (a drop's 18-frame settle read as 3 frames under it). The smoke and the seams' e2e use WP1's `SHIFT_MIN=auto`.
+
+# Step 2: the block card, the builder, Plans, Move and the day picker
+
+Commit `35d3661` (code), then this review. Spec §7.2 (the block card), §7.4 (Next block), §1.6 (the doors), §11.4 (haptics); build plan §5.2 #4–#7; contracts §C.1 (`header`), §F.
+
+## Files (step 2)
+
+| File | What and why |
+|---|---|
+| `features/plan/Blocks.tsx` | The block card to §7.2: 128 tall (card radius 20, 16 gutter), `WEEK 3 OF 11` caps, the name 22/28 600, the arc 24, and one 44 px row, `New block ›` (a `Pressable`, `press="surface"`), which opens the builder. The card itself is no longer a button: `openPlans` and the deprecated `pressScale` are gone (the plans list lives in Settings › Plans). The template picker moved to `Builder.tsx`; `openTemplate(sheet, log, push?, prefill?)` stays as the builder's door for callers that hold a log (WP2's `SetupCard`), now on the same spec as `useOpenBuilder`. `PlansPanel`: the plans as one inset group of 60 px `Pressable` rows (name 17/22 600, dates 13/18, the state in ink-3, Active in accent); the detail and `Write my next block` open as sheets (the panel is a page now, not a sheet). Plan detail's delete keeps its `delete`; the `toggle`/`error` haptics on Undo and failures are gone (§11.4). |
+| `features/plan/Builder.tsx` (new) | The builder (§7.4). `builderSpec(log, prefill)` = a large sheet whose `header` (contracts §C.1) is `GhostHeader`: 148 px of content + the slot's 12 px foot = 160, holding the block's caps (`12 WEEKS · 41 RUNS · PEAK 22.1 MI`), its name, its dates and a grid of weeks (one column per week, Monday at the top, each run in its tone, brighter the longer). The header and the body are siblings in the sheet, so the body publishes `{ tpl, error, goal }` through a small store made per open, written in a layout effect (the header re-renders before paint). A goal change keys the face: an `AnimatePresence` opacity crossfade on `crossfade` (150 ms; `reducedFade` under reduced motion), both faces absolutely stacked in the fixed box, so nothing resizes; miles and days change the cells in place. The body: goal chips, run-day letters (tap; hold for the long run, `onHold`, no `onLongPress`), the long-run row, the two steppers, `Start tomorrow`, `Race on the last Sunday` (all `Pressable`s, silent), the week-by-week list (behind `useDeferredValue`, so the header's fade gets the frames), and the foot: one line of what happens, then the verb across the sheet: `Replace N planned sessions from <date>` (the server's rule, counted over the months it spans), `Use this plan`, or `Checking your calendar…` while that count loads. Seeded from the prefill, else the account's training answers (live-synthesis: New block ignored the answers given at onboarding), else the last four weeks. Create: `delete` only when it replaces (a destructive commit with Undo); the sheet closes; `nav.go('/plan/week/<first Monday>')` only when the builder was opened on Plan (`useTab()`), so over Today the tab stays; the toast carries Undo for every new block (`POST /plans/template/undo`), so it is an Undo toast, never a notice. No `success`, `toggle` or `error` (§11.4). |
+| `features/plan/builderModel.ts` + `.test.ts` (new) | `BuilderPrefill`, `fromEndingBlock` (contracts §F, unchanged signature: goal, days, long run and miles from the training answers, `startDate = block.end + 1`) and `builderVerb`, pure, with 4 unit tests (month and year ends, singular, nothing replaced). |
+| `features/plan/PlanBuilder.tsx` | `useOpenBuilder()` opens `builderSpec` (it no longer imports `Blocks.tsx`: the cycle is gone); re-exports `fromEndingBlock`/`BuilderPrefill`; the AI preview's `success` haptic removed. |
+| `features/plan/PlansPage.tsx` | Docs only (the page was already a `PushedBar` page; its rows are the new `PlansPanel`). |
+| `features/plan/plan.css` | The block card (grid rows 14/28/24 + the 44 row in 128), the plans list, the ghost header (`.bh`, `.bh-face`, `.bh-grid`, `.bh-wk`, `.bh-cell`; the header slot gets a 1 px hairline via `:has(> .bh)`), the foot (`.sheet-foot.tp-foot` as one `minmax(0,1fr)` column, so a long verb wraps instead of widening the body), the totals column 68 px (`DOWN WEEK` no longer runs into the gutter). Deleted: `.pl-block-top`, `.pl-block-sub`, `.tp-head`, `.tp-name`, `.tp-replace`, and every `:active` rule left in the file (`.pl-block-new`, `.pl-plan-row`, `.pl-ai-row`). |
+| `features/sessions/DayPicker.tsx` | On `DayPager` v2 (`step: 'week'`, its own handle; `dp-intrinsic` keeps its height): a swipe tracks 1:1, the chevrons call `handle.goTo` (a slide), a pick from outside (a chip) brings its week in with `goTo`. Off `DatePager` (WP1's "Delete at integration" list). The cells are `Pressable`s (0.97 on touch-down). No haptic on a page or a pick (the chevrons' `select` went). Classes `.dpk-*` (WP1's request: the old `.dp` collided with the pager's). |
+| `features/sessions/daypicker.css` (new) | The picker's styles under `.dpk-*`, imported by `DayPicker.tsx` only (so the entry chunk does not pull `plan.css`). No transitions (the selected fill changes at once; the press is Pressable's). |
+| `features/sessions/MoveSheet.tsx` | The quick-pick chips are `Pressable`s. `announceReshape`: a pick is silent (a pick is not a drop, §11.4), a conflict is the one `warning`; the toasts keep Undo. |
+
+Nothing outside WP4's files changed (`api/queries.ts`: `useRebuildPlan`/`useUndoRebuild` were already in the WP4 block; `api/types.ts` untouched).
+
+## Acceptance (step 2), measured
+
+`node S/wp4/qa/run.mjs`, 390 × 844, DPR 2, `isMobile`, `hasTouch`, CDP touch, a fresh seed per script and rate: **169/169 at 1× and 169/169 at 4×** (step 1's 128 + 41 new; `S/wp4/qa/results/TABLE.md`). After the final CSS change p7 and p8 were rerun at both rates: 18/18 and 11/11 each.
+
+| §5.4 | What | 1× | 4× |
+|---|---|---|---|
+| 7 | The block card: 128.0 tall, radius 20, `Week 3 of 11`, the name 22px/28px, the arc 24, exactly one button (`New block`, 44 tall, chevron); a tap on the name opens nothing | pass | pass |
+| 7 | `New block ›` → `.sheet[data-detent=large]` "New block", `.sheet-header` 160.0 tall holding the ghost grid (8 weeks), the body's top = the header's bottom; 0 haptics on open | pass | pass |
+| 7 | Goal → Half: the header 160 on every frame (49 / 47 frames); both faces in the DOM and partly visible on 5 / 3 frames (e.g. 0.55/0.45 → 0.28/0.72 → 0.13/0.87); visually settled 100 ms after the fade's first frame at 1× (frame gaps 16.6–16.8), 166 ms at 4× (one 117 ms main-thread gap after the first frame: the fade is a WAAPI opacity animation, `document.getAnimations()` shows both faces' `opacity` animations running, so it runs on the compositor through it); the old face leaves the DOM at +167 / +316 ms | pass | pass |
+| 7 | The verb: `Replace 45 planned sessions from Oct 26`; `Start tomorrow` → `Replace 48 planned sessions from Oct 24`; chips and switches 0 haptics | pass | pass |
+| 6 | Create from Plan: one `POST /plans/template` (replace, half, 2026-10-26), exactly `["delete"]`; the sheet gone, Plan shown at `/plan/week/2026-10-26`, caps `NEXT WEEK · OCT 26–NOV 1`, the rows the Half block's (Easy 3, Easy 3, Long 4); the toast `… 45 sessions replaced.` + Undo, 45 = the verb's N; Undo: one `POST /plans/template/undo`, no haptic | pass | pass |
+| 7 | 320: the builder body scrollWidth 320 = clientWidth, the verb 16–304 (wraps to two lines inside the sheet), header 160; reduced motion: the goal change is an opacity crossfade (two faces on 11 frames, no transform), header 160 | pass | pass |
+| 8 [25] | Settings → `/settings/plans` (driven by `nav.go`, as WP6's `Plans ›` row will): `active` today and the lit item today on every one of 62 frames, at most 2 `.pushed` | pass | pass |
+| 8 | PlansPage: two layers, `PushedBar` "Plans", `New block` trailing 44 × 44 with its label; the plan a 60 px row in an inset group; no horizontal overflow; a row opens its detail sheet (the arc) | pass | pass |
+| 6 | Create over Today (Plans' `New block`, a replace): the sheet closes, Today stays active and lit, the page stays `/settings/plans`, the new block is in the list; haptics exactly `["delete"]` | pass | pass |
+| 8 | Cold start `/settings/plans`: Settings + Plans stacked, Today active and lit; `/plan/plans` redirects to `/settings/plans` | pass | pass |
+| 6 | Today's plan-end card (on `/today/2026-12-22`): its `Next block` (WP2's interim card still goes through `/plan/plans` → Settings › Plans; the script also takes the direct path WP2's final card opens) → the builder → Create: Today active and lit, no sheet | pass | pass |
+| 5.2 #6 | Move from a row's menu: the picker is a `DayPager` (`aria-roledescription="pager"`) with 7 `Pressable` `.dpk-day` cells and no `.dp-day`/`.dp-week` left; the chips are Pressables | pass | pass |
+| 5.2 #6 | A cell takes `data-pressed` on touch-down, cleared when the finger turns into a swipe; the swipe tracks 1:1 after the lock (the offset from the 22 px lock move constant over 8 moves: spread 0 px); a 220 px swipe pages to Oct 26 – Nov 1 with 0 haptics and no write; the chevron slides back over 28 frames | pass | pass |
+| 5.2 #6–7 | A pick (Thu): the sheet closes, Easy 4 on Thursday, one `POST /sessions/:id/move`, toast with Undo, 0 haptics; a conflicting pick (Speed 5 next to Threshold 6): exactly `["warning"]`, `Two hard days in a row. Keep it?` + Undo; at 320 the cells are 45.7 wide | pass | pass |
+| 11 (extended) | Grep over every file in `features/plan` plus `MoveSheet.tsx`, `DayPicker.tsx`, `daypicker.css`: haptics only `select` (useDayDrag), `drop`, `warning`, `delete` (Move: `warning` only; the picker none); no `layout`/`layoutId`/height animation; none of WP1's "Delete at integration" names nor `pressScale`, `onLongPress`, `openPlans`; no react-router; no `:active` | pass | pass |
+
+Unit: `builderModel.test.ts` 4/4. Gates on the final tree: `tsc --noEmit` shared, api, web exit 0; shared 88, api 59, web 90 tests; `pnpm --filter @logbook/web build` ok (entry chunk 936.8 kB, step 1 935.5).
+
+Run-to-run note: in the first full run p1 at 1× missed by 0.08 px (the first frame after release 1.08 px off the predicted spring, tolerance 1) and p4 at 4× saw the segmented thumb on 2 frames instead of ≥ 4 ; neither the code they measure nor the scripts changed in this step, and three reruns of p1 and p4 at both rates and the final full run passed. (A one-off debugging browser of mine overlapped part of the final run; it passed regardless.)
+
+## Hand-verifiable steps (step 2)
+
+1. Plan, scroll to the foot of the week. Expected: one card, `WEEK 3 OF 11`, `2026.10 Banking Plan`, a row of small bars, and `New block ›`. Tapping the name does nothing.
+2. Tap `New block`. Expected: a tall sheet; under its title a fixed preview: `8 WEEKS · 26 RUNS · PEAK 16 MI`, the block's name and dates, and a grid of coloured cells (a column per week). No buzz.
+3. Tap `Half`. Expected: the preview cross-fades to the half-marathon block (12 columns, the race cell orange in the last one); the preview's height does not change; the controls below do not jump.
+4. Change the miles or a run day. Expected: the cells change in place; the verb at the bottom reads `Replace 45 planned sessions from Oct 26` (or `Use this plan` with nothing to replace). Toggle `Start tomorrow`: the date in the verb becomes Oct 24.
+5. Tap the verb. Expected: one buzz (a replace), the sheet closes, Plan slides to the block's first week, a toast `… 45 sessions replaced. Undo`. Undo puts it back, silently.
+6. Today's avatar → Settings; go to Plans (`/settings/plans`). Expected: a `Plans` page with `+` at the right and the plans as rows in one rounded group; the Today tab stays lit. `+` → the same builder; its verb → the sheet closes and you stay on Plans, with the new block in the list.
+7. Hold a Plan row → Move. Expected: the chips and a week of days; swipe the days sideways: they follow the finger and land on the next week; the chevrons slide. Tap a day: the sheet closes, the session moves, no buzz, a toast with Undo. Move a hard session next to another hard one: one warning buzz and `Two hard days in a row. Keep it?`.
+8. With Reduce Motion on: the builder's goal change is still a short fade; the day picker's page change is a fade.
+
+## Findings closed in step 2
+
+| Finding | Status | Evidence |
+|---|---|---|
+| flows 6.3: the template sheet is a long form with the preview under the fold | Fixed | the ghost is the sheet's fixed 160 header (p7) |
+| flows 6.1 / nav F12: `openPlans`; Next block opens a list of old plans | Fixed (WP4's half) | the card's only door is the builder; `openPlans` deleted; Plans is a page at `/settings/plans` (p8). Today's `Next block` opening the builder directly is WP2's `PlanEnd` (request below) |
+| live-synthesis (New block ignores the onboarding answers: `Just running`, Tue/Thu/Sat/Sun for an account that said 10K, Tue/Wed/Thu/Sat/Sun) | Fixed | the builder seeds from the prefill, else `user.trainingProfile`, else the last four weeks (`startOf`) |
+| §7.4 the honest verb | Fixed | p7: `Replace 45 planned sessions from Oct 26`, and the server replaced exactly 45 |
+| §11.4 haptics in the builder (`toggle` on switches, `success` on Create, `error`, `toggle` on Undo), the picker's chevron `select`, Move's `drop` on a pick | Fixed | p7, p8, p13 haptic logs; p9 grep |
+| WP1 request: `.dp` collision (`sessions.css`'s day picker) | Fixed on WP4's side | the picker is `.dpk-*` in `daypicker.css`; the dead `.dp-*` rules in `sessions.css` are WP2's to delete (request) |
+| WP1 "Delete at integration": `DatePager` in the day picker; `pressScale` on the block card; `onLongPress` in the picker | Fixed | p9 grep |
+| `:active` scale/surface rules (§11.1) in `plan.css` | Fixed | p9 grep |
+
+## Requests (step 2)
+
+- **WP2 (`features/day/PlanEnd.tsx`)**: `Next block` should call `useOpenBuilder()(fromEndingBlock(last, profile))` over Today (spec §7.4, flows 6.1); today it does `haptics.select()` and `nav('/plan/plans')` through react-router. `SetupCard` already imports `openTemplate` from `Blocks.tsx` statically, so `Blocks.tsx` and `Builder.tsx` are in the entry chunk today and a static `useOpenBuilder` import adds nothing new.
+- **WP2 (`features/sessions/SessionEditor.tsx`)**: the editor's day pick fires `haptics.select()` (`DayPicker onPick={(x) => (haptics.select(), setD(x))}`); §11.4 has no haptic on a pick.
+- **WP2 (`features/sessions/sessions.css`)**: the `.dp`, `.dp-head`, `.dp-nav`, `.dp-pager`, `.dp-week`, `.dp-day`, `.dp-dow`, `.dp-pill`, `.dp-num`, `.dp-bar` rules (the old day picker) are dead now and can go; `foundation.css`'s comment on the collision (WP1) can then go too.
+- **WP6 (Settings root)**: the `Plans ›` row in the Training group pushes `/settings/plans` (p8 drives it with `nav.go`, which is what the row does).
+
+## Screenshots (step 2, looked at)
+
+Before (`e9f4d1c`): `S/wp4/qa/shots/before-{390,320}-{block-card,builder,builder-half,builder-foot,move,daypicker,plans-page}.png`: the card a button with a chevron and a separate New block button, the preview under the fold of the form, the verb `Replace 45 sessions`, the plans page's single row floating without a group. After: `S/wp4/qa/shots/after-{390,320}-{block-card,builder,builder-half,builder-foot,move,daypicker,plans-page}.png` and `after-390-reduced-builder.png`. No horizontal overflow at 320; console clean.
+
+# Step 1: the page
 
 ## Files
 
@@ -93,8 +176,5 @@ Before (`S/wp4/qa/shots/before-{390,320}-{week,next-week,month,past-week}.png`, 
 
 ## Left (next steps of this package)
 
-- The block card to spec (128: `WEEK 2 OF 11`, name 22/28, the arc 24, `New block ›` only; `openPlans` from the card goes) — `Blocks.tsx`.
-- `PlansPage` rows to spec (inset group, 60 rows); `PlanDetail`'s `This week` now goes through `nav.go`.
-- The builder (§7.4): the ghost preview as the sheet's fixed 160 px `header` with the goal crossfade, `Replace N planned sessions from <date>`, `fromEndingBlock` prefill check, the builder's own haptics (`toggle` on its switches, `success` on Create); §5.4 #6's `Create` lands on `/plan/week/<start>` from Plan and leaves Today shown from the plan-end card; #7, #8.
-- `MoveSheet.tsx`, `DayPicker.tsx`: `springs` imports, `DayPicker` off `DatePager`, `Pressable` cells, no haptic on a pick.
-- `pressScale={0.985}` on the block card's `Pressable` (a deprecated prop, pre-existing) goes with the block card step.
+- Nothing of build plan §5.2 is unbuilt. What remains sits with other packages (the requests above) and the integration: Today's `Next block` straight into the builder (WP2), the `Plans ›` row (WP6), deleting the old `.dp-*` rules (WP2), and the deprecated adapters (WP1, after WP6).
+- Device day one: the builder's crossfade and the picker's swipe in WebKit; the ghost header's `:has()` hairline (Safari 15.4+).
