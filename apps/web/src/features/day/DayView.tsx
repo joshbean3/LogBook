@@ -3,7 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useHomeControl, useNav, useRootRequest, useRouteParams } from '@/app/NavController';
+import { flushSync } from 'react-dom';
+import { useHomeControl, useIsActiveTab, useNav, useRootRequest, useRouteParams } from '@/app/NavController';
+import { useToday, TodayHold } from '@/lib/useToday';
+import { hasDraft, subscribeDrafts } from '../journal/drafts';
 import { stravaSyncNow, useMorningMutations } from '@/api/queries';
 import { Avatar } from '@/ui/Avatar';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
@@ -15,6 +18,7 @@ import { useOpenCalendar } from './Calendar';
 import { DayPage } from './DayPage';
 import { setLiveDate } from './live';
 import { morningLineId, morningPath } from './Hero';
+import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { useStravaPull } from './useStravaPull';
 import { useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
@@ -41,6 +45,24 @@ const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: '
  *   of travel shows the destination (`handle.target`: one render at the start of the slide).
  */
 export default function DayView(): React.JSX.Element {
+  // the day the tab treats as today: held past midnight until the rollover may apply (§5.4, useDeferred)
+  const live = useToday();
+  const [held, setHeld] = useState(live);
+  const roll = useRef<(to: ISODate) => void>(setHeld);
+  useEffect(() => {
+    if (held === live) return;
+    return deferChange({ kind: 'day', ready: () => !hasDraft(held), apply: () => roll.current(live) });
+  }, [held, live]);
+  // the rule is re-asked when a draft is written or cleared (it still needs its idle minute, a tab change or a return)
+  useEffect(() => subscribeDrafts(recheckDeferred), []);
+  return (
+    <TodayHold value={held}>
+      <TodayRoot roll={roll} setHeld={setHeld} />
+    </TodayHold>
+  );
+}
+
+function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => void>; setHeld: (d: ISODate) => void }): React.JSX.Element {
   const params = useRouteParams();
   const nav = useNav();
   const qc = useQueryClient();
@@ -94,6 +116,17 @@ export default function DayView(): React.JSX.Element {
     else handle.goTo(d);
   });
   useHomeControl({ atHome: date === today, goHome });
+  // the rollover (§5.4): the held day becomes the new today; a page that showed the held today crossfades to the new one
+  roll.current = (to: ISODate) => {
+    const wasToday = dateRef.current === todayRef.current;
+    flushSync(() => setHeld(to));
+    if (wasToday) {
+      handle.goTo(to, { mode: 'crossfade' });
+      nav.replace('/today');
+    }
+  };
+  const active = useIsActiveTab();
+  useEffect(() => setTodayActive(active), [active]);
 
   const openCalendar = useOpenCalendar({ mode: 'day', value: date, onPick: (d) => handle.goTo(d) });
   const titleMenu = (): ContextMenuItem[] => [

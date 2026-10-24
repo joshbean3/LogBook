@@ -19,7 +19,7 @@ import { faceOf, milesText, phaseOf, secondOf, type Face } from './faces';
 import { HoldRing } from './HoldRing';
 import { sessionMiles, weekMiles } from './miles';
 import { MiniTimeline, OutLine } from './MiniTimeline';
-import { useNowMinutes } from './useNow';
+import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
 /** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
 export const morningLineId = (date: ISODate) => `morning-line-${date}`;
@@ -282,9 +282,29 @@ const EveningFace = ({ date, log, ph, onOpen }: { date: ISODate; log: Log; ph: R
  * slot is the Close card (its own height).
  */
 export const Hero = memo(function Hero({ date, log }: { date: ISODate; log: Log }) {
-  const minutes = useNowMinutes();
+  // the clock's face changes wait for an interaction or idle (§5.3, useDeferred); a minute that keeps the face ticks at once
+  const clock = useFaceMinutes();
+  const keyOf = (m: number) => {
+    const f = faceOf(log, date, phaseOf(log, date, m));
+    return `${f.kind}|${f.key}|${f.halo}|${f.tall}`;
+  };
+  const minutes = useDeferredMinutes(clock, keyOf);
   const ph = useMemo(() => phaseOf(log, date, minutes), [log, date, minutes]);
   const face = useMemo(() => faceOf(log, date, ph), [log, date, ph]);
+  const evening = face.kind === 'evening';
+  const openSession = useOpenSession(log);
+  // the Close card is the one face that is not the 184 card: the two crossfade (150 ms) in the hero's slot
+  return (
+    <AnimatePresence initial={false} mode="popLayout">
+      <motion.div key={evening ? 'close' : 'day'} className="hero-swap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+        {evening ? <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} /> : <DayHero date={date} log={log} ph={ph} face={face} />}
+      </motion.div>
+    </AnimatePresence>
+  );
+});
+
+/** The 184 card (304 landed): every face but the evening's. */
+const DayHero = ({ date, log, ph, face }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face }) => {
   const nav = useNav();
   const sheet = useSheet();
   const toast = useToast();
@@ -343,8 +363,6 @@ export const Hero = memo(function Hero({ date, log }: { date: ISODate; log: Log 
     return list.slice(0, 4);
   };
 
-  if (face.kind === 'evening') return <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} />;
-
   const c: DeckCtx = {
     date,
     log,
@@ -382,7 +400,7 @@ export const Hero = memo(function Hero({ date, log }: { date: ISODate; log: Log 
       ) : null}
     </Pressable>
   );
-});
+};
 
 /**
  * The second session of a two-session day (§3.4, §3.1 row 3): a compact card, 60 tall: the stamp (17), the plan and its word
