@@ -58,6 +58,8 @@ const named = {
   complete: { ...springFor(0.3, 0.3), restDelta: 0.0005, restSpeed: 0.01 },
 };
 
+const pressLegacy: Transition = { ...named.settle, type: 'spring' };
+
 /**
  * The eight springs. `press` is a deprecated alias of `settle` (contracts rule 5): it stays only while a feature file still
  * reads it, and is not one of the names (`SpringName`).
@@ -69,7 +71,9 @@ export const springs: typeof named & {
   ...named,
   get press() {
     deprecated('springs.press');
-    return named.settle;
+    // behaviour unchanged while it is deprecated (contracts rule 5): the settle spring as it was before `unitAware`, so the
+    // old feature presses that read it (a whileTap scale to 0.985) keep what they did; the new press is CSS
+    return pressLegacy;
   },
 };
 export type SpringName = keyof typeof named;

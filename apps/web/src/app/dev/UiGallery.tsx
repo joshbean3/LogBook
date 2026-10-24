@@ -188,15 +188,16 @@ const FieldSheetBody = () => {
       <Button variant="soft" className="gal-sheet-push-short" onClick={() => sheet.push({ title: 'Short', eyebrow: 'Level 2', body: <p className="ink2 gal-short-body">A short inner panel.</p> })}>
         Push a short panel
       </Button>
-      {/* open() over this open sheet with a short one: the box changes height without a cut (consumer review 3 #5) */}
-      <Button variant="soft" className="gal-sheet-open-another" onClick={() => sheet.open({ title: 'Another', eyebrow: 'Replaced', body: <p className="ink2 gal-another-body">A short sheet opened over the tall one.</p> })}>
-        Open another
-      </Button>
       {Array.from({ length: 40 }, (_, i) => (
         <p key={i} className="fine gal-sheet-line">
           Line {i + 1}: a long body so the sheet scrolls; a drag from here moves the sheet only at scrollTop 0, downward.
         </p>
       ))}
+      {/* open() over this open sheet with a short one: the box changes height without a cut (consumer review 3 #5). After
+          the lines, so the sheet's first screen is as before (a touch that stops the rise lands on a line, not on it) */}
+      <Button variant="soft" className="gal-sheet-open-another" onClick={() => sheet.open({ title: 'Another', eyebrow: 'Replaced', body: <p className="ink2 gal-another-body">A short sheet opened over the tall one.</p> })}>
+        Open another
+      </Button>
     </>
   );
 };

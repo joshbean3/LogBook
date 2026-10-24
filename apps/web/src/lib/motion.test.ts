@@ -57,3 +57,11 @@ describe('the px springs on a unitless value, exactly as contracts §D.1 lists t
     expect(run({ ...springs.settle, restDelta: 2 }, 0, 300).length).toBeLessThan(run(springs.settle, 0, 300).length + 1);
   });
 });
+
+describe('the deprecated springs.press keeps its behaviour (contracts rule 5)', () => {
+  it('is the settle spring as motion ran it before the unit-aware generator: the same frames as a plain px spring', () => {
+    const { stiffness, damping } = springs.settle as { stiffness: number; damping: number };
+    expect(springs.press).toMatchObject({ type: 'spring', stiffness, damping, restDelta: 1, restSpeed: 30 });
+    expect(run(springs.press, 1, 0.985)).toEqual(run({ ...springs.settle, type: undefined }, 1, 0.985));
+  });
+});

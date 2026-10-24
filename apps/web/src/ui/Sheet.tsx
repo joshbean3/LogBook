@@ -166,9 +166,36 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
    * takes the new content height only at rest. Not part of sheetY: the scrim and the recede do not move with it.
    */
   const shift = useMotionValue(0);
+  /**
+   * The shift's speed from its last two frames, without motion's 30 ms cap (`getVelocity()` reads 0 when frames are further
+   * apart, as at 4× on a slow device, and a retargeted FLIP would then reverse on its first frame: consumer review 3 #8).
+   */
+  const shiftV = useRef({ x0: 0, t0: 0, x1: 0, t1: 0 });
+  useEffect(
+    () =>
+      shift.on('change', (x) => {
+        const s = shiftV.current;
+        const now = performance.now();
+        if (now - s.t1 > 1) {
+          s.x0 = s.x1;
+          s.t0 = s.t1;
+        }
+        s.x1 = x;
+        s.t1 = now;
+      }),
+    [shift],
+  );
+  const shiftVelocity = () => {
+    const s = shiftV.current;
+    const dt = s.t1 - s.t0;
+    return dt > 0 && performance.now() - s.t1 < 120 ? ((s.x1 - s.x0) / dt) * 1000 : 0;
+  };
   const resizing = useRef<Pick<Anim, 'stop'> | null>(null);
-  /** The FLIP in progress: where the shift rests, the new content height, and its end (box to `nat`, shift to 0). */
-  const flip = useRef<{ to: number; nat: number; done: () => void } | null>(null);
+  /**
+   * The FLIP in progress: where the shift rests, the new content height, and its end (box to `nat`, shift to 0). `folded`:
+   * a drag took it over (the shift is at its rest, folded into sheetY), so it ends on that drag's rest, not on its spring.
+   */
+  const flip = useRef<{ to: number; nat: number; done: () => void; folded: boolean } | null>(null);
   /** A finger came down during the FLIP: the shift is held where it was, under the finger (code review 3 #7). */
   const held = useRef(false);
   const boxB = useRef(0);
@@ -272,7 +299,9 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
     if (to < inset.current) setInset(to);
     const rested = () => {
       setInset(to);
-      flip.current?.done();
+      // only a FLIP a drag folded into sheetY ends on this rest; one still on its own spring (a tap's settle on a sheet at
+      // rest, then the tap's click pushes) runs to its own end, or the push would cut the box in one frame
+      if (flip.current?.folded) flip.current.done();
       onOpened();
     };
     anim.current = animate(sheetY, 0, reduce ? { duration: 0 } : { ...springs.sheet, velocity: v, onComplete: rested });
@@ -430,7 +459,7 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
     if (!el || boxKind !== 'auto' || closing.current) return;
     const vis0 = resizing.current ? boxB.current - shift.get() : visH.current;
     // a FLIP retargeted mid-flight keeps its speed (consumer review 3 #8); a held one starts from rest
-    const v0 = resizing.current && !held.current ? shift.getVelocity() : 0;
+    const v0 = resizing.current && !held.current ? shiftVelocity() : 0;
     held.current = false;
     resizing.current?.stop();
     resizing.current = null;
@@ -449,7 +478,7 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
       visH.current = nat;
       markTall();
     };
-    const f = { to: 0, nat, done };
+    const f = { to: 0, nat, done, folded: false };
     if (reduce || Math.abs(nat - vis0) < 1) {
       flip.current = f;
       return done();
@@ -636,6 +665,7 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
       if (!held.current || !f) return;
       held.current = false;
       if (drag) {
+        f.folded = true;
         sheetY.jump(sheetY.get() + shift.get() - f.to);
         shift.jump(f.to);
         resizing.current = { stop: () => undefined };
