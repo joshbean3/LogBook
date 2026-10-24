@@ -1,14 +1,17 @@
-import { buildMorning, clock, durationWords, normalizeMorningSettings, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
+import { buildMorning, clock, durationWords, monthOf, normalizeMorningSettings, parsePace, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMorningMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { rowPresence, springs } from '@/lib/motion';
 import { Button, ChipButton, Stepper, useToast } from '@/ui';
+import { useRouteParams } from '@/app/NavController';
+import { useToday } from '@/lib/useToday';
 import { useSheet } from '@/ui/Sheet';
+import { useLog } from '../log/useLog';
 import { parseWake } from './DayEditor';
 import { MiniLine } from './MiniLine';
-import { ROUTINE_DEFAULTS, short } from './model';
+import { morningOf, ROUTINE_DEFAULTS, short } from './model';
 
 /** One editable number of the routine: how it reads, how it steps, and the common values a tap on its chip cycles through. */
 interface Field {
@@ -194,4 +197,22 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
       </div>
     </div>
   );
+};
+
+/**
+ * Opens the routine editor as a large sheet (contracts §F, spec M23): Settings › Morning routine and This morning's trailing
+ * icon. The morning it previews is the pushed page's date when called inside This morning (`useRouteParams().date`), else
+ * today. `focus: 'leave'` (the Leave row) is passed through to the editor; WP3 gives it a field to land on.
+ */
+export const useOpenRoutineEditor = (): ((focus?: 'leave') => void) => {
+  const sheet = useSheet();
+  const today = useToday();
+  const rp = useRouteParams();
+  const date = rp.date && /^\d{4}-\d{2}-\d{2}$/.test(rp.date) ? rp.date : today;
+  const log = useLog(useMemo(() => [monthOf(date)], [date]));
+  return (focus) => {
+    const st = log.boot?.morningSettings ?? ROUTINE_DEFAULTS;
+    const T = morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st);
+    sheet.open({ eyebrow: 'Every morning', title: 'Timings', detent: 'large', body: <RoutineEditor day={T.day} settings={T.settings} focus={focus} /> });
+  };
 };

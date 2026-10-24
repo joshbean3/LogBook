@@ -1,7 +1,8 @@
-import { AFTER_LABELS, AFTER_ORDER, buildMorning, durationWords, isAfterKey, MAX_STEPS, newStepId, normalizeAfterOrder, routineOf, STEP_MINS_MAX, STEP_NAME_MAX, type MorningDay, type MorningSettings, type MorningStep, type RoutineKey } from '@logbook/shared';
+import { AFTER_LABELS, AFTER_ORDER, buildMorning, shiftDays, durationWords, isAfterKey, MAX_STEPS, newStepId, normalizeAfterOrder, routineOf, STEP_MINS_MAX, STEP_NAME_MAX, type MorningDay, type MorningSettings, type MorningStep, type RoutineKey } from '@logbook/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { useMorningMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
+import { useToday } from '@/lib/useToday';
 import { Button, ChipButton, Segmented, Stepper, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { parseWake } from './DayEditor';
@@ -197,16 +198,20 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
 
 /**
  * The alarm: when it goes off, for this morning or every morning, and how long from the alarm to out of the door (the
- * wake-up routine, which a run morning and a gym morning keep separately).
+ * wake-up routine, which a run morning and a gym morning keep separately). `preselect` (contracts §F) opens on that choice
+ * (`today` = just this date, `every` = every morning); `today` on tomorrow's date reads `Just tomorrow` (the Close card's
+ * alarm row). Without it the choice follows the day, as before.
  */
-export const WakeEditor = ({ settings: st, day, date, dayName }: { settings: MorningSettings; day: MorningDay; date: string; dayName: string }) => {
+export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { settings: MorningSettings; day: MorningDay; date: string; dayName: string; preselect?: 'today' | 'every' }) => {
   const sheet = useSheet();
+  const today = useToday();
+  const justName = preselect === 'today' && date === shiftDays(today, 1) ? 'tomorrow' : dayName;
   const toast = useToast();
   const { settings, setDay } = useMorningMutations();
   const g = day.mode === 'gym' ? 'gym' : 'run';
   const [wake, setWake] = useState(day.wake);
   const [wakeup, setWakeup] = useState(st[g].wakeup);
-  const [scope, setScope] = useState<'day' | 'usual'>(day.own && day.wake !== st.wake ? 'day' : 'usual');
+  const [scope, setScope] = useState<'day' | 'usual'>(preselect === 'today' ? 'day' : preselect === 'every' ? 'usual' : day.own && day.wake !== st.wake ? 'day' : 'usual');
   const dirty = wake !== day.wake || wakeup !== st[g].wakeup || (scope === 'usual' && wake !== st.wake);
   useSticky(dirty);
   const preview = useMemo(() => ({ ...st, [g]: { ...st[g], wakeup } }) as MorningSettings, [st, g, wakeup]);
@@ -219,7 +224,7 @@ export const WakeEditor = ({ settings: st, day, date, dayName }: { settings: Mor
     if (wake !== day.wake && (scope === 'day' || day.own)) setDay.mutate({ date, day: { mode: day.mode, type: day.type, miles: day.miles, minutes: day.minutes, wake } });
     haptics.success();
     sheet.close();
-    toast(scope === 'usual' ? `Alarm ${short(wake)} every morning` : `Alarm ${short(wake)} on ${dayName}`);
+    toast(scope === 'usual' ? `Alarm ${short(wake)} every morning` : `Alarm ${short(wake)} on ${justName}`);
   };
   return (
     <div className="se">
@@ -232,7 +237,7 @@ export const WakeEditor = ({ settings: st, day, date, dayName }: { settings: Mor
         label="Which mornings"
         options={[
           ['usual', 'Every morning'],
-          ['day', `Just ${dayName}`],
+          ['day', `Just ${justName}`],
         ]}
         value={scope}
         onChange={(v) => (haptics.select(), setScope(v))}

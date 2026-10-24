@@ -2,7 +2,8 @@ import { AFTER_ORDER, durationWords, fmtDate, label, monthOf, num, routineOf, sh
 import { Briefcase, SlidersHorizontal } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useMemo, useRef } from 'react';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useRouteParams } from '@/app/NavController';
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
@@ -119,7 +120,8 @@ const MorningSkeleton = () => (
  * foot holds what every morning shares (the pace, the gym's walk, the wake-up routine for each kind of morning).
  */
 export default function MorningView() {
-  const params = useParams();
+  // the pushed entry's params (contracts §F): `/today/:date/morning`
+  const params = useRouteParams();
   const nav = useNavigate();
   const loc = useLocation();
   const sheet = useSheet();
