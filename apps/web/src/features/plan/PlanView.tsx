@@ -1,15 +1,16 @@
 import { addMonths, mondayOf, monthOf, monthStart, shiftDays } from '@logbook/shared';
 import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
-import { Activity, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Activity, startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { useHomeControl, useNav, useRootRequest, useRouteParams } from '@/app/NavController';
+import { useHomeControl, useNav, useRootRequest, useRouteParams, useTabScroller } from '@/app/NavController';
 import { crossfadeSlow, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { monthCaption, NavBar, weekCaption } from '@/ui/NavBar';
 import { Note, Segmented } from '@/ui/primitives';
+import { Skeleton } from '@/ui/Skeleton';
 import { useOpenCalendar } from '../day/Calendar';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
@@ -49,6 +50,23 @@ const fromParams = (p: Readonly<Record<string, string>>, today: string): Omit<St
   return { view: 'week', mon, first: monthOfWeek(mon) };
 };
 
+/** A neighbour page before it mounts (one transition after a commit): the week's skeleton, nothing that can be tapped. */
+const SKEL = Array.from({ length: 7 }, (_, i) => i);
+const ColdWeek = () => (
+  <div className="pl-wpage" aria-hidden="true">
+    <div className="pl-wl" />
+    <div className="pl-group pl-skel">
+      {SKEL.map((i) => (
+        <div key={i} className="pl-skel-row">
+          <Skeleton w={28} h={32} r={8} />
+          <Skeleton w="55%" h={18} r="line" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+const ColdMonth = () => <div className="pl-mpage" aria-hidden="true" />;
+
 export default function PlanView(): React.JSX.Element {
   const params = useRouteParams();
   const nav = useNav();
@@ -77,35 +95,77 @@ export default function PlanView(): React.JSX.Element {
   const monthPath = (f: string) => `/plan/month/${f}`;
 
   // ---------- commits (inside the pager's flushSync) ----------
+  // A pager still sliding while its pane fades out commits under the other view (code review 1 #4): it moves only its own
+  // anchor, never the shown view's, and the URL stays the shown view's.
   const commitWeek = useCallback(
     (m: string) => {
-      setSt((s) => ({ ...s, mon: m, first: monthOfWeek(m) }));
-      nav.replace(m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
+      const shown = live.current.st.view === 'week';
+      setSt((s) => (s.view === 'week' ? { ...s, mon: m, first: monthOfWeek(m) } : { ...s, mon: m }));
+      if (shown) nav.replace(m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
+      refocus();
     },
-    [nav],
+    [nav], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const commitMonth = useCallback(
     (f: string) => {
-      setSt((s) => ({ ...s, first: f }));
-      nav.replace(`/plan/month/${f}`);
+      const shown = live.current.st.view === 'month';
+      setSt((s) => (s.view === 'month' ? { ...s, first: f } : s));
+      if (shown) nav.replace(`/plan/month/${f}`);
+      refocus();
     },
-    [nav],
+    [nav], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // ---------- Week ⇄ Month: a 200 ms crossfade of the two mounted panes ----------
   const noFade = useRef(false);
+  const scroller = useTabScroller();
+  /** The tab's scrollTop when a switch was asked for: the leaving pane is held where it was on screen (review-feel-1 #1). */
+  const preScroll = useRef<number | null>(null);
+  /** Focus was in the page when a switch or a page change was asked for: it follows to the shown pager (code review 1 #8). */
+  const hadFocus = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const noteFocus = () => {
+    const a = document.activeElement;
+    hadFocus.current = !!a && a !== document.body && !!rootRef.current?.contains(a);
+  };
+  const refocus = () => {
+    if (!hadFocus.current) return;
+    // after the commit's DOM is in: a focus left inside an inert page or pane (or dropped to body) moves to the shown pager
+    queueMicrotask(() => {
+      const a = document.activeElement;
+      const pane = (live.current.st.view === 'week' ? weekPane : monthPane).current;
+      if (a && a !== document.body && !a.closest('[inert]') && pane?.contains(a)) return void (hadFocus.current = false);
+      const dp = pane?.querySelector<HTMLElement>('.dp');
+      if (dp) {
+        dp.focus({ preventScroll: true });
+        hadFocus.current = false;
+      }
+    });
+  };
   const show = (v: View, anchor?: { mon?: string; first?: string }) => {
     const s = live.current.st;
-    const m = anchor?.mon ?? (v === 'week' ? (monthOf(s.first) === monthOf(today) ? live.current.thisMon : firstWeekOf(s.first)) : s.mon);
-    const f = anchor?.first ?? (v === 'month' ? monthOfWeek(s.mon) : s.first);
+    // a week goTo still running is going to its target: the month is the target's (code review 1 #1)
+    const wk = weekH.target.get() ?? s.mon;
+    const m = anchor?.mon ?? (v === 'week' ? (monthOf(s.first) === monthOf(today) ? live.current.thisMon : firstWeekOf(s.first)) : wk);
+    const f = anchor?.first ?? (v === 'month' ? monthOfWeek(wk) : s.first);
     if (v === 'month') setMonthOn(true);
+    if (v !== s.view) preScroll.current = scroller.current?.scrollTop ?? null;
+    noteFocus();
     setSt({ view: v, mon: m, first: v === 'week' ? monthOfWeek(m) : f, leaving: v === s.view ? s.leaving : s.view });
     nav.replace(v === 'week' ? weekPath(m) : monthPath(f));
   };
   const weekPane = useRef<HTMLElement>(null);
   const monthPane = useRef<HTMLElement>(null);
   const fades = useRef<Animation[]>([]);
+  const fadeGen = useRef(0);
   const shownView = useRef(view);
+  const releasePane = (el: HTMLElement | null) => {
+    if (!el) return;
+    el.style.transform = '';
+    el.style.height = '';
+    el.style.overflow = '';
+  };
+  const opacityOf = (el: HTMLElement | null) => (el && getComputedStyle(el).visibility !== 'hidden' ? +getComputedStyle(el).opacity : 0);
   // every render: a cut's no-fade belongs to the render it was asked for, whether or not that render switched the view
   useLayoutEffect(() => {
     if (shownView.current === view) {
@@ -113,23 +173,62 @@ export default function PlanView(): React.JSX.Element {
       return;
     }
     shownView.current = view;
+    const gen = ++fadeGen.current;
+    const inc = (view === 'week' ? weekPane : monthPane).current;
+    const out = (view === 'week' ? monthPane : weekPane).current;
+    // a switch inside a running crossfade starts from where the panes are now (code review 1 #6)
+    const running = fades.current.some((a) => a.playState === 'running');
+    const from = running ? { inc: opacityOf(inc), out: opacityOf(out) } : { inc: 0, out: 1 };
     for (const a of fades.current) a.cancel();
     fades.current = [];
+    // the shown pane alone sets the height now (the leaving one is absolute): hold the leaving one where it was on screen
+    const pre = preScroll.current;
+    preScroll.current = null;
+    const sc = scroller.current;
+    // a pane shown again inside its own fade-out was held by a translate: give that offset back to the scroll, so it stays put
+    const held = inc ? parseFloat(/translateY\((-?[\d.]+)px\)/.exec(inc.style.transform)?.[1] ?? '0') : 0;
+    releasePane(inc);
+    if (out && sc) {
+      // out of flow and 0 tall for one read: the scroll range is now the shown pane's alone (the browser clamps it here,
+      // before the first frame, instead of when the fade ends)
+      out.style.height = '0px';
+      out.style.overflow = 'hidden';
+      out.style.transform = '';
+      if (held) sc.scrollTop -= held;
+      const dy = pre != null ? sc.scrollTop - pre : 0;
+      // then as tall as the screen below its (held) top, so it neither adds scroll range nor shows a cut edge
+      const top = out.getBoundingClientRect().top + dy;
+      out.style.height = `${Math.max(0, Math.floor(sc.getBoundingClientRect().bottom - top))}px`;
+      out.style.transform = dy ? `translateY(${dy}px)` : '';
+    }
+    refocus();
     if (noFade.current || !st.leaving) {
       noFade.current = false;
+      releasePane(out);
       if (st.leaving) setSt((s) => ({ ...s, leaving: null }));
       return;
     }
-    const inc = (view === 'week' ? weekPane : monthPane).current;
-    const out = (view === 'week' ? monthPane : weekPane).current;
     const ms = ((crossfadeSlow as { duration?: number }).duration ?? 0.2) * 1000;
     const easing = `cubic-bezier(${ease.join(', ')})`;
-    const aIn = inc?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing });
-    const aOut = out?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing, fill: 'forwards' });
+    const aIn = inc?.animate([{ opacity: from.inc }, { opacity: 1 }], { duration: Math.max(1, ms * (1 - from.inc)), easing });
+    const aOut = out?.animate([{ opacity: from.out }, { opacity: 0 }], { duration: Math.max(1, ms * from.out), easing, fill: 'forwards' });
     fades.current = [aIn, aOut].filter((a): a is Animation => !!a);
+    const leavingH = view === 'week' ? monthH : weekH;
     const done = () => {
+      if (fadeGen.current !== gen) return;
+      // a slide still running in the leaving pane finishes (and commits) first: hiding it now would freeze it mid-slide
+      // (code review 1 #1); it is invisible and inert meanwhile
+      if (leavingH.moving.get()) {
+        const off = leavingH.moving.on('change', (m) => {
+          if (m) return;
+          off();
+          queueMicrotask(done);
+        });
+        return;
+      }
       // the leaving pane goes off (hidden) on the same frame its fill is dropped
       flushSync(() => setSt((s) => (s.view === view ? { ...s, leaving: null } : s)));
+      releasePane(out);
       aOut?.cancel();
     };
     if (aOut) aOut.onfinish = done;
@@ -139,6 +238,7 @@ export default function PlanView(): React.JSX.Element {
   // ---------- home, requests, the title ----------
   const goHome = useCallback(() => {
     const s = live.current.st;
+    noteFocus();
     if (s.view === 'week') weekH.goTo(live.current.thisMon);
     else monthH.goTo(live.current.thisFirst);
   }, [weekH, monthH]);
@@ -190,11 +290,31 @@ export default function PlanView(): React.JSX.Element {
           return { prev: monthCaption(prev), cur: monthCaption(first), next: monthCaption(next) };
         })();
 
-  const onThisWeek = useCallback(() => weekH.goTo(live.current.thisMon), [weekH]);
+  const onThisWeek = useCallback(() => {
+    noteFocus();
+    weekH.goTo(live.current.thisMon);
+  }, [weekH]); // eslint-disable-line react-hooks/exhaustive-deps
   const onWeek = useCallback((m: string) => show('week', { mon: m }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const block = usePlanBlock();
-  const renderWeek = useCallback((m: string) => <WeekPage mon={m} onThisWeek={onThisWeek} block={block} />, [onThisWeek, block]);
-  const renderMonth = useCallback((f: string) => <MonthPage first={f} onWeek={onWeek} block={block} />, [onWeek, block]);
+  /**
+   * A page that has just come into a pager's neighbour slot mounts after the commit, in a transition (React yields every
+   * few ms), not inside the commit's flushSync: the commit frame re-renders the three pages it already has instead of
+   * building a fourth (review-feel-1 #6; spec §15 risk 1's fallback). Until then the slot holds the page's skeleton; the
+   * shown page and a goTo's destination are always whole.
+   */
+  const [warm, setWarm] = useState<ReadonlySet<string>>(() => new Set([mon, first]));
+  const warmNow = useRef(warm);
+  warmNow.current = warm;
+  useEffect(() => {
+    const want = new Set([mon, shiftDays(mon, -7), shiftDays(mon, 7), first, addMonths(first, -1), addMonths(first, 1)]);
+    const have = warmNow.current;
+    if ([...want].every((d) => have.has(d)) && have.size === want.size) return;
+    // the shown pages are whole already (they were live); the newcomers mount in a transition
+    startTransition(() => setWarm(want));
+  }, [mon, first]);
+  const isWarm = (d: string, live: boolean, h: typeof weekH) => live || warmNow.current.has(d) || h.target.get() === d;
+  const renderWeek = useCallback((m: string, live: boolean) => (isWarm(m, live, weekH) ? <WeekPage mon={m} onThisWeek={onThisWeek} block={block} /> : <ColdWeek />), [onThisWeek, block, warm]); // eslint-disable-line react-hooks/exhaustive-deps
+  const renderMonth = useCallback((f: string, live: boolean) => (isWarm(f, live, monthH) ? <MonthPage first={f} onWeek={onWeek} block={block} /> : <ColdMonth />), [onWeek, block, warm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const strava = useLog([]).strava;
   const paneCls = (v: View) => (view === v ? 'is-on' : st.leaving === v ? 'is-leaving' : 'is-off');
@@ -202,7 +322,7 @@ export default function PlanView(): React.JSX.Element {
   // the pane that is neither shown nor fading out defers its updates (a drop re-renders the shown pages only)
   const mode = (v: View) => (view === v || st.leaving === v ? 'visible' : 'hidden');
   return (
-    <div className={`page-root plan-root plan-${view}`}>
+    <div ref={rootRef} className={`page-root plan-root plan-${view}`}>
       <NavBar
         caps={caps}
         title={{ cur: 'Plan' }}

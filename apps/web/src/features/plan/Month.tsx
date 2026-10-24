@@ -64,8 +64,9 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block }: { fir
           const now = mon === mondayOf(t);
           const past = shiftDays(mon, 6) < t;
           // never a zero as the week's number: a week with nothing run shows what it planned, muted
-          const total = done > 0 ? tenth(done) : w.plannedMiles ? tenth(w.plannedMiles) : '';
-          const of = done > 0 ? (w.plannedMiles ? `of ${tenth(w.plannedMiles)}` : '') : w.plannedMiles && !past ? 'planned' : '';
+          // a past week with nothing run reads as such (`0 of 26`), never its plan as if it were run (review-feel-1 #12)
+          const total = done > 0 ? tenth(done) : w.plannedMiles ? (past ? '0' : tenth(w.plannedMiles)) : '';
+          const of = w.plannedMiles ? (done > 0 || past ? `of ${tenth(w.plannedMiles)}` : 'planned') : '';
           return (
             <Pressable
               key={mon}
@@ -88,7 +89,7 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block }: { fir
           );
         })}
       </div>
-      <BlockCardView data={block.data} getLog={block.getLog} />
+      <BlockCardView data={block.data} getLog={block.getLog} page={{ from: first, to: shiftDays(next, -1) }} />
     </div>
   );
 });

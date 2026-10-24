@@ -30,6 +30,8 @@ export const DayPicker = ({ value, onPick, origin, skipId, labelFor }: { value: 
     if (mon !== week) handle.goTo(mon);
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   const t = log.today;
+  // a chevron tapped while a slide runs steps on from where that slide is going, not from the committed week (code review 1 #5)
+  const from = () => handle.target.get() ?? week;
   const render = (mon: string) => (
     <div className="dpk-week" role="group" aria-label={`Week of ${fmtDate('md', mon)}`}>
       {Array.from({ length: 7 }, (_, i) => {
@@ -63,10 +65,10 @@ export const DayPicker = ({ value, onPick, origin, skipId, labelFor }: { value: 
           {fmtDate('md', week)} – {fmtDate('md', shiftDays(week, 6))}
         </span>
         <span className="dpk-nav">
-          <IconButton label="Previous week" onClick={() => handle.goTo(shiftDays(week, -7))}>
+          <IconButton label="Previous week" onClick={() => handle.goTo(shiftDays(from(), -7))}>
             <ChevronLeft size={20} />
           </IconButton>
-          <IconButton label="Next week" onClick={() => handle.goTo(shiftDays(week, 7))}>
+          <IconButton label="Next week" onClick={() => handle.goTo(shiftDays(from(), 7))}>
             <ChevronRight size={20} />
           </IconButton>
         </span>

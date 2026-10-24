@@ -87,9 +87,28 @@ export const blockCardOf = (log: Log): BlockCardData => {
  * arc of its weeks (24), and one 44 row, `New block ›`, the builder's door (a large sheet). The card itself is not a button:
  * the plans list lives in Settings › Plans. With no plan: the ghost of an arc and the one verb, New block.
  */
-export const BlockCardView = ({ data, getLog }: { data: BlockCardData; getLog: () => Log }) => {
+/**
+ * The card's caption for the page it sits under (`page`: that page's first and last day): inside the block, that page's
+ * place in it (`WEEK 3 OF 11`; a month, its weeks); before it, when it starts; after it, when it ended (review-feel-1 #10).
+ * With no page, today's place.
+ */
+const whereFor = (d: BlockCardData, page?: { from: string; to: string }) => {
+  const { b, st, weeks, wk, t } = d;
+  if (!b) return '';
+  const today = st === 'Active' ? `Week ${wk} of ${weeks}` : st === 'Upcoming' ? `Starts ${fmtDate('md', b.start)}` : `Finished ${fmtDate('md', b.end)}`;
+  if (!page) return today;
+  if (page.to < b.start) return `Starts ${fmtDate('md', b.start)}`;
+  if (page.from > b.end) return `${b.end < t ? 'Ended' : 'Ends'} ${fmtDate('md', b.end)}`;
+  const n = (d0: string) => Math.min(weeks, Math.max(1, Math.floor(daysBetween(b.start, d0) / 7) + 1));
+  if (page.from <= t && t <= page.to && st === 'Active') return today;
+  const a = n(page.from > b.start ? page.from : b.start);
+  const z = n(page.to < b.end ? page.to : b.end);
+  return a === z ? `Week ${a} of ${weeks}` : `Weeks ${a}–${z} of ${weeks}`;
+};
+
+export const BlockCardView = ({ data, getLog, page }: { data: BlockCardData; getLog: () => Log; page?: { from: string; to: string } }) => {
   const sheet = useSheet();
-  const { t, b, st, weeks, wk, arc, peak } = data;
+  const { t, b, arc, peak } = data;
   // the builder's door (useOpenBuilder's spec, with the card's log at the tap)
   const openNew = () => openTemplate(sheet, getLog());
   if (!data.boot) return null;
@@ -101,7 +120,7 @@ export const BlockCardView = ({ data, getLog }: { data: BlockCardData; getLog: (
         </EmptyState>
       </div>
     );
-  const where = st === 'Active' ? `Week ${wk} of ${weeks}` : st === 'Upcoming' ? `Starts ${fmtDate('md', b.start)}` : `Finished ${fmtDate('md', b.end)}`;
+  const where = whereFor(data, page);
   return (
     <section className="pl-block sec-primary" aria-label={`Your block: ${b.name}. ${where}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}${peak ? `, peaks at ${tenth(peak)} miles` : ''}`}>
       <div className="pl-block-main">
@@ -241,8 +260,9 @@ const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
       fn: () =>
         void gone.then(
           () =>
+            // the plan back in the list is the answer; only a failure says something (spec §8)
             restore.mutateAsync(b).then(
-              () => toast(`${b.name} is back.`),
+              () => undefined,
               () => toast('Couldn’t bring the plan back. Try again from Plans.'),
             ),
           () => undefined,

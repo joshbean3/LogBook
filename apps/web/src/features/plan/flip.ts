@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
+import type { Transition } from 'motion/react';
 import { springs } from '@/lib/motion';
 import { springAdvance, springParams } from '@/ui/springSim';
 
@@ -11,8 +12,17 @@ import { springAdvance, springParams } from '@/ui/springSim';
  * (a remount) is matched by its session id. Only the shown week captures, so the neighbours do no work.
  */
 
-/** `springs.settle` sampled as a WAAPI `linear()` easing (progress 0 → 1, overshoot included) and its duration to rest. */
-export const settleEasing = (() => {
+/**
+ * `springs.settle` as a WAAPI `linear()` easing (progress 0 → 1, overshoot included) for a move of `travel` px, ending on
+ * the contract's rest frame (contracts §D.1, `springFor`'s thresholds: within 1 px and under 30 px/s of the target, in px
+ * of this travel), so a 60–300 px move completes in ≈ 230–280 ms, not on a sub-pixel tail (code review 1 #3). Sampled at
+ * 120 Hz from the same spring the pager integrates (ui/springSim.ts); cached per whole px.
+ */
+const settleCache = new Map<number, { easing: string; duration: number }>();
+export const settleFor = (travel: number) => {
+  const px = Math.max(1, Math.round(Math.abs(travel)));
+  const hit = settleCache.get(px);
+  if (hit) return hit;
   const p = springParams(springs.settle);
   const pts: number[] = [];
   let x = 1;
@@ -20,20 +30,35 @@ export const settleEasing = (() => {
   const STEP = 1 / 120;
   for (let i = 0; i < 240; i++) {
     pts.push(1 - x);
-    if (i > 2 && Math.abs(x) < 0.001 && Math.abs(v) < 0.01) break;
+    if (i > 0 && Math.abs(x) * px <= p.rd && Math.abs(v) * px <= p.rs) break;
     [x, v] = springAdvance(p, x, v, 0, STEP);
   }
   pts[pts.length - 1] = 1;
-  return { easing: `linear(${pts.map((n) => +n.toFixed(4)).join(', ')})`, duration: Math.round((pts.length - 1) * STEP * 1000) };
-})();
+  const out = { easing: `linear(${pts.map((n) => +n.toFixed(4)).join(', ')})`, duration: Math.max(1, Math.round((pts.length - 1) * STEP * 1000)) };
+  settleCache.set(px, out);
+  return out;
+};
 
-const keyOf = (el: HTMLElement) => (el.dataset.sessionId ? `s:${el.dataset.sessionId}` : el.dataset.planDay ? `d:${el.dataset.planDay}` : null);
+/** A tween of lib/motion (`fadeIn`, `crossfade`, `reducedFade`, …) as WAAPI timing: the numbers stay in lib/motion.ts. */
+export const waapiOf = (t: Transition): { duration: number; easing: string } => {
+  const tt = t as { duration?: number; ease?: string | readonly number[] };
+  const e = tt.ease;
+  return { duration: (tt.duration ?? 0.15) * 1000, easing: Array.isArray(e) ? `cubic-bezier(${e.join(', ')})` : typeof e === 'string' && e !== 'easeOut' ? e : 'linear' };
+};
 
-export const useFlip = (root: RefObject<HTMLElement | null>) => {
+const keyOf = (el: HTMLElement) => (el.dataset.sessionId ? `s:${el.dataset.sessionId}` : el.dataset.planDay ? `d:${el.dataset.planDay}` : el.dataset.flipKey ? `x:${el.dataset.flipKey}` : null);
+
+/** `extra`: elements outside the root that move with it (the block card under the week group), keyed by their order. */
+export const useFlip = (root: RefObject<HTMLElement | null>, extra?: () => HTMLElement[]) => {
   /** The rows' tops (relative to the group, so a scroll in between moves nothing) as last laid out, and until when to watch. */
   const st = useRef<{ until: number; tops: Map<string, number> } | null>(null);
   const running = useRef(new Map<HTMLElement, Animation>());
-  const items = () => Array.from(root.current?.querySelectorAll<HTMLElement>('[data-plan-day], [data-session-id]') ?? []);
+  const items = () => {
+    const own = Array.from(root.current?.querySelectorAll<HTMLElement>('[data-plan-day], [data-session-id]') ?? []);
+    const more = extra?.() ?? [];
+    more.forEach((el, i) => (el.dataset.flipKey = String(i)));
+    return own.concat(more);
+  };
   const top0 = () => root.current?.getBoundingClientRect().top ?? 0;
 
   // every render inside the window: one change can land in several renders (the conflict row now, the moved data a task
@@ -68,7 +93,7 @@ export const useFlip = (root: RefObject<HTMLElement | null>) => {
       const rel = dy - (day ? (dyOf.get(day) ?? 0) : 0);
       // the dropped session lands under the pill (useDayDrag), not by sliding from where it was
       if (Math.abs(rel) <= 0.5 || el.hasAttribute('data-landing')) continue;
-      const a = el.animate([{ transform: `translateY(${rel}px)` }, { transform: 'translateY(0px)' }], settleEasing);
+      const a = el.animate([{ transform: `translateY(${rel}px)` }, { transform: 'translateY(0px)' }], settleFor(rel));
       running.current.set(el, a);
       a.onfinish = () => running.current.delete(el);
     }

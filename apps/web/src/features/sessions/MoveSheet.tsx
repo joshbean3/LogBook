@@ -1,4 +1,4 @@
-import { fmtDate, label, shiftDays, type Session } from '@logbook/shared';
+import { fmtDate, label, mondayOf, shiftDays, type Session } from '@logbook/shared';
 import { haptics } from '@/lib/haptics';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet, type SheetApi } from '@/ui/Sheet';
@@ -47,17 +47,17 @@ export const MovePanel = ({ date, session }: { date: string; session: Session })
     sheet.close();
     if (r) announceReshape(toast, r);
   };
-  const tomorrow = shiftDays(date, 1);
+  // the quick picks say days as the owner reads them: Today and Tomorrow are today's, not the session's (review-feel-1 #4)
+  const tomorrow = shiftDays(t, 1);
+  const freeOn = (d: string) => d >= t && !log.snap.sessionsOn(d).some((x) => x.kind !== 'rest' && x.id !== session.id);
+  // the nearest free day to where the session is, either side (never before today); after it on a tie
   let free: string | null = null;
-  for (let i = 1; i <= 21 && !free; i++) {
-    const d = shiftDays(date, i);
-    if (d < t) continue;
-    if (!log.snap.sessionsOn(d).some((x) => x.kind !== 'rest' && x.id !== session.id)) free = d;
-  }
+  for (let i = 1; i <= 21 && !free; i++) free = [shiftDays(date, i), shiftDays(date, -i)].find((d) => d !== tomorrow && d !== t && freeOn(d)) ?? null;
+  const sameWeek = (d: string) => mondayOf(d) === mondayOf(date);
   const chips: Array<[string, string]> = [];
   if (date !== t && t > shiftDays(date, -30)) chips.push(['Today', t]);
-  if (tomorrow !== t) chips.push(['Tomorrow', tomorrow]);
-  if (free && free !== tomorrow && free !== t) chips.push([`Next free day · ${fmtDate('dow', free)}`, free]);
+  if (tomorrow !== date) chips.push(['Tomorrow', tomorrow]);
+  if (free) chips.push([`${free > date ? 'Next' : 'Nearest'} free day · ${sameWeek(free) ? fmtDate('dow', free) : `${fmtDate('dow', free)}, ${fmtDate('md', free)}`}`, free]);
   return (
     <div className="mv2">
       <p className="t-sub ink2">

@@ -1,6 +1,6 @@
 import { buildTemplate, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
 import { AnimatePresence, motion } from 'motion/react';
-import { useDeferredValue, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
@@ -35,8 +35,8 @@ interface GhostStore {
   set: (s: GhostState) => void;
   subscribe: (f: () => void) => () => void;
 }
-const ghostStore = (): GhostStore => {
-  let v: GhostState = { tpl: null, error: null, goal: 'base' };
+const ghostStore = (initial: GhostState): GhostStore => {
+  let v = initial;
   const subs = new Set<() => void>();
   return {
     get: () => v,
@@ -183,7 +183,31 @@ const replaceable = (log: Log, from: string, to: string, overlap: PlanBlock[]) =
 /** How long the Undo after a new block stays up. */
 const BLOCK_UNDO_MS = 8000;
 
-const BuilderBody = ({ log, prefill, store }: { log: Log; prefill?: BuilderPrefill; store: GhostStore }) => {
+/** The builder's input from its controls (the same rule for the first render and every change). */
+const inputOf = (t: string, c: { goal: Goal; weeks: number; runDays: Weekday[]; longDay: Weekday; miles: number; soon: boolean; race: boolean; preStart: string | null }) => {
+  const nextMon = shiftDays(mondayOf(t), 7);
+  const startDate = c.preStart ?? (c.soon ? shiftDays(t, 1) : nextMon);
+  const firstMon = parseISO(startDate).getDay() === 1 ? startDate : shiftDays(mondayOf(startDate), 7);
+  const raceDate = c.goal !== 'base' && c.race ? shiftDays(firstMon, c.weeks * 7 - 1) : null;
+  return { goal: c.goal, weeks: c.weeks, startDate, runDays: c.runDays, longRunDay: c.longDay, weeklyMiles: c.miles, raceDate };
+};
+const build = (input: ReturnType<typeof inputOf>): { tpl: Template | null; error: string | null } => {
+  try {
+    return { tpl: buildTemplate(input), error: null };
+  } catch (e) {
+    return { tpl: null, error: e instanceof TemplateError ? e.message : 'That block doesn’t work. Change the weeks or the days.' };
+  }
+};
+/** The controls' first values: the prefill, the training answers, the last four weeks (startOf); built once per open. */
+const seedOf = (log: Log, prefill?: BuilderPrefill) => {
+  const start0 = startOf(log, prefill);
+  const t = log.today;
+  const c = { goal: start0.goal, weeks: GOAL_SPECS[start0.goal].defaultWeeks, runDays: start0.runDays, longDay: start0.longDay, miles: start0.weeklyMiles, soon: false, race: true, preStart: prefill?.startDate && prefill.startDate > t ? prefill.startDate : null };
+  return { c, built: build(inputOf(t, c)) };
+};
+type Seed = ReturnType<typeof seedOf>;
+
+const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: Seed }) => {
   const sheet = useSheet();
   const nav = useNav();
   const tab = useTab();
@@ -191,21 +215,25 @@ const BuilderBody = ({ log, prefill, store }: { log: Log; prefill?: BuilderPrefi
   const write = useTemplatePlan();
   const undo = useTemplateUndo();
   const t = log.today;
-  const start0 = useMemo(() => startOf(log, prefill), []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [goal, setGoal] = useState<Goal>(start0.goal);
-  const [weeks, setWeeks] = useState(GOAL_SPECS[start0.goal].defaultWeeks);
-  const [runDays, setRunDays] = useState<Weekday[]>(start0.runDays);
-  const [longDay, setLongDay] = useState<Weekday>(start0.longDay);
-  const [miles, setMiles] = useState(start0.weeklyMiles);
-  const [soon, setSoon] = useState(false);
-  const [race, setRace] = useState(true);
+  const s0 = seed.c;
+  const [goal, setGoal] = useState<Goal>(s0.goal);
+  const [weeks, setWeeks] = useState(s0.weeks);
+  const [runDays, setRunDays] = useState<Weekday[]>(s0.runDays);
+  const [longDay, setLongDay] = useState<Weekday>(s0.longDay);
+  const [miles, setMiles] = useState(s0.miles);
+  const [soon, setSoon] = useState(s0.soon);
+  const [race, setRace] = useState(s0.race);
   // a prefilled start (the day after the ending block) holds until "Start tomorrow" is toggled; never today or earlier
-  const [preStart, setPreStart] = useState(() => (prefill?.startDate && prefill.startDate > t ? prefill.startDate : null));
-  const nextMon = shiftDays(mondayOf(t), 7);
-  const startDate = preStart ?? (soon ? shiftDays(t, 1) : nextMon);
-  const firstMon = parseISO(startDate).getDay() === 1 ? startDate : shiftDays(mondayOf(startDate), 7);
+  const [preStart, setPreStart] = useState(s0.preStart);
   const isRace = goal !== 'base';
-  const raceDate = isRace && race ? shiftDays(firstMon, weeks * 7 - 1) : null;
+  // the body outlives nothing: a write that lands after the sheet was dismissed still says what it did (code review 1 #2)
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
   const pickGoal = (g: Goal) => {
     setGoal(g);
     setWeeks(GOAL_SPECS[g].defaultWeeks);
@@ -225,17 +253,19 @@ const BuilderBody = ({ log, prefill, store }: { log: Log; prefill?: BuilderPrefi
     setLongDay(d);
     setRunDays((xs) => (xs.includes(d) ? xs : WEEKDAYS.filter((x) => xs.includes(x) || x === d)));
   };
-  const input = { goal, weeks, startDate, runDays, longRunDay: longDay, weeklyMiles: miles, raceDate };
-  const built = useMemo((): { tpl: Template | null; error: string | null } => {
-    try {
-      return { tpl: buildTemplate(input), error: null };
-    } catch (e) {
-      return { tpl: null, error: e instanceof TemplateError ? e.message : 'That block doesn’t work. Change the weeks or the days.' };
-    }
+  const input = inputOf(t, { goal, weeks, runDays, longDay, miles, soon, race, preStart });
+  const { startDate, raceDate } = input;
+  // the first render reuses the seed the header was made with (the same input, built once)
+  const first = useRef<Seed['built'] | null>(seed.built);
+  const built = useMemo(() => {
+    const f = first.current;
+    first.current = null;
+    return f ?? build(input);
   }, [goal, weeks, startDate, runDays.join(','), longDay, miles, raceDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const tpl = built.tpl;
-  // the week-by-week list (84 cells) renders after the header's fade has its frames
-  const listTpl = useDeferredValue(tpl);
+  // the week-by-week list (84 cells) renders after the open: null on the first render, the template in a deferred one
+  // (code review 1 #9: without an initial value it rendered in the open's commit)
+  const listTpl = useDeferredValue(tpl, null);
   // the header shows what the controls build, on the same frame (a layout effect re-renders the header before paint)
   useLayoutEffect(() => store.set({ tpl, error: built.error, goal }), [built, goal, store, tpl]);
   // what a replace would clear: planned, not kept, from the block's first day (never before today), counted from the
@@ -248,31 +278,69 @@ const BuilderBody = ({ log, prefill, store }: { log: Log; prefill?: BuilderPrefi
   const existing = tpl ? replaceable(span, from, tpl.end, overlap) : 0;
   const counting = !!tpl && !span.ready;
   const use = () => {
-    if (!tpl || counting) return;
+    if (!tpl || counting || write.isPending) return;
     const replacing = existing > 0;
-    // a destructive commit with Undo (spec §11.4); a plain new block is silent
-    if (replacing) haptics.delete();
-    write.mutate(
-      { ...input, replace: replacing },
-      {
-        onSuccess: (r) => {
-          sheet.close();
-          // the new block's first week, only when the builder was opened on Plan; over Today the tab stays (spec §1.3)
-          if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
-          // the sheet (and this component) is gone by the time Undo is tapped: follow the promise, not mutate's callbacks
-          announceApplied(toast, r, () =>
-            undo.mutateAsync(r).then(
-              () => toast('Put back as it was.'),
-              () => toast('Couldn’t undo. The new block is still there.'),
-            ),
-          );
-        },
-        onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the block. Try again.'),
+    // the promise settles whether or not the sheet is still open (mutate's own callbacks need a mounted observer): a write
+    // that lands after a dismiss still raises its Undo, and a failure still says so (code review 1 #2)
+    write.mutateAsync({ ...input, replace: replacing }).then(
+      (r) => {
+        // a destructive commit with Undo (spec §11.4), when it commits; a plain new block is silent
+        if (replacing) haptics.delete();
+        if (alive.current) sheet.close();
+        // the new block's first week, only when the builder was opened on Plan; over Today the tab stays (spec §1.3)
+        if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
+        // the sheet (and this component) is gone by the time Undo is tapped: follow the promise, not mutate's callbacks.
+        // The restored rows are the answer to an Undo; only a failure says something (spec §8: toasts for Undo and errors)
+        announceApplied(toast, r, () =>
+          undo.mutateAsync(r).then(
+            () => undefined,
+            () => toast('Couldn’t undo. The new block is still there.'),
+          ),
+        );
       },
+      (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the block. Try again.'),
     );
   };
+  // a number field the owner types in sits above the foot and the keyboard (review-feel-1 #7; spec §0.2, risk 6)
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    let cur: HTMLElement | null = null;
+    const fit = () => {
+      if (!cur || document.activeElement !== cur) return;
+      const sc = cur.closest<HTMLElement>('.sheet-body');
+      if (!sc) return;
+      const vv = window.visualViewport;
+      const kbLine = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const foot = el.querySelector<HTMLElement>('.tp-foot');
+      const limit = Math.min(kbLine, foot ? foot.getBoundingClientRect().top : Infinity) - 12;
+      const top = sc.getBoundingClientRect().top + 12;
+      const r = cur.getBoundingClientRect();
+      if (r.bottom > limit) sc.scrollTop += r.bottom - limit;
+      else if (r.top < top) sc.scrollTop -= top - r.top;
+    };
+    const onIn = (e: FocusEvent) => {
+      const f = e.target as HTMLElement;
+      if (!f.matches('input, textarea')) return;
+      cur = f;
+      requestAnimationFrame(fit);
+    };
+    const onOut = () => (cur = null);
+    const onType = () => requestAnimationFrame(fit);
+    el.addEventListener('focusin', onIn);
+    el.addEventListener('focusout', onOut);
+    el.addEventListener('input', onType);
+    window.visualViewport?.addEventListener('resize', fit);
+    return () => {
+      el.removeEventListener('focusin', onIn);
+      el.removeEventListener('focusout', onOut);
+      el.removeEventListener('input', onType);
+      window.visualViewport?.removeEventListener('resize', fit);
+    };
+  }, []);
   return (
-    <div className="tp">
+    <div ref={root} className="tp">
       <div className="ed-group">
         <span className="ed-label" id="tp-goal">
           Training for
@@ -383,11 +451,14 @@ const WeekByWeek = ({ tpl }: { tpl: Template }) => {
 
 /** The builder as a sheet spec: large, the ghost preview as its fixed header (contracts §C.1 `header`). */
 export const builderSpec = (log: Log, prefill?: BuilderPrefill): SheetSpec => {
-  const store = ghostStore();
+  // the header's first face is the block the controls start on: no empty face crossfading to it during the open
+  // (code review 1 #9)
+  const seed = seedOf(log, prefill);
+  const store = ghostStore({ tpl: seed.built.tpl, error: seed.built.error, goal: seed.c.goal });
   return {
     title: prefill ? 'Next block' : 'New block',
     detent: 'large',
     header: <GhostHeader store={store} />,
-    body: <BuilderBody log={log} prefill={prefill} store={store} />,
+    body: <BuilderBody log={log} store={store} seed={seed} />,
   };
 };

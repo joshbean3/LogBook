@@ -73,3 +73,11 @@
   color: var(--bg);
   opacity: 1;
 }
+/* The picker is full-bleed (its cells are W/7, ≥ 44 at 320), so in a sheet its edge cells reach into the body's gutters,
+   where the gutter-wide sticky foot does not cover them (review-feel-1 #8). Until the foot is full-bleed itself (a request
+   in docs/reviews/wp4.md), a sheet that holds a picker paints the foot's background into the gutters too. */
+.sheet:has(.dpk) .sheet-foot {
+  box-shadow:
+    -16px 0 0 var(--bg),
+    16px 0 0 var(--bg);
+}

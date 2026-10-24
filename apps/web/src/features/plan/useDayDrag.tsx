@@ -3,8 +3,8 @@ import { motionValue } from 'motion/react';
 import { useRef, type RefObject } from 'react';
 import { useTabScroller } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
-import { LIFT_SCALE } from '@/lib/motion';
-import { settleEasing } from './flip';
+import { fadeIn, fadeOut as fadeOutT, LIFT_SCALE, reducedFade } from '@/lib/motion';
+import { settleFor, waapiOf } from './flip';
 import type { DragPoint } from '@/ui/useHold';
 
 /**
@@ -17,10 +17,12 @@ import type { DragPoint } from '@/ui/useHold';
  * - **move**: the day under the finger is lit (`.is-target`: the 2 px accent ring and `--accent-tint`), one `select` per
  *   row crossed; near the scroller's top or bottom edge the page scrolls under the drag;
  * - **end**: on another day the pill shrinks into the day's slot on `springs.settle` (a compositor animation: transform
- *   only, its easing the spring itself, so a busy main thread cannot stall it) while the row it left stays dimmed; on the
- *   landing frame `onDrop(to)` runs (the caller reshapes, fires `drop` or `warning`, raises the toast), the new row renders
- *   under the pill with its content held back (`data-landing`), and the two cross over in 120 ms while the displaced rows
- *   FLIP (flip.ts). On its own day, off any day, or cancelled, the pill springs back to where it came from.
+ *   only, its easing the spring itself ending on the contract's 1 px rest, so a busy main thread cannot stall it), its name
+ *   landing on the row's name. The write happens at the release (`onDrop(to, landed)`; an empty day's `Rest`/`+` fades
+ *   100 ms first): the displaced rows FLIP (flip.ts) during the flight, together with the pill, and the new row is already
+ *   there under it with its content held back (`data-landing`). On the frame the pill comes to rest `landed` resolves (the
+ *   caller fires `drop` or `warning` and raises the toast) and the two cross over in 120 ms (review-feel-1 #2, code review
+ *   1 #3). On its own day, off any day, or cancelled, the pill springs back to where it came from.
  *
  * Every day that takes a drop carries `data-plan-day="YYYY-MM-DD"`; every session row `data-session-id`.
  */
@@ -60,7 +62,11 @@ interface Flight {
 /** The pill's top-left for a finger at (fx, fy). */
 const anchor = (f: Pick<Flight, 'w' | 'h'>, fx: number, fy: number) => ({ x: fx - f.w / 2, y: fy - RISE - f.h / 2 });
 
-export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { date: string; session: Session; title: string; row: RefObject<HTMLElement | null>; onDrop: (to: string) => void; disabled?: boolean }) => {
+/**
+ * `onDrop(to, landed)` writes the drop at the release and says whether it wrote; `landed` resolves on the frame the pill
+ * rests in the slot (the haptic and the toast belong there).
+ */
+export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { date: string; session: Session; title: string; row: RefObject<HTMLElement | null>; onDrop: (to: string, landed: Promise<void>) => boolean; disabled?: boolean }) => {
   const scroller = useTabScroller();
   const fl = useRef<Flight | null>(null);
   const o = useRef({ date, onDrop });
@@ -120,7 +126,7 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
     const offs = [f.x.on('change', () => write(f)), f.y.on('change', () => write(f)), f.s.on('change', () => write(f))];
     f.off = () => offs.forEach((x) => x());
     write(f);
-    pill.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+    pill.animate([{ opacity: 0 }, { opacity: 1 }], waapiOf(fadeIn));
     fl.current = f;
     f.raf = requestAnimationFrame(() => edgeScroll(f));
   };
@@ -134,25 +140,41 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
     f.y.set(a.y);
     light(f, dayAt(p.x, p.y));
   };
-  /** The pill's transform for its centre-left on a slot's name (the slot's left + 16, its centre line), at `scale`. */
-  const onto = (f: Flight, r: DOMRect, scale: number) => {
-    const tx = r.left + 16 + (f.w * scale) / 2 - f.w / 2;
-    const ty = r.top + r.height / 2 - f.h / 2;
-    return `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0) scale(${scale})`;
+  /**
+   * Where the pill goes for a row `line` of the slot: its name's left edge on the row name's left edge and its centre on
+   * the name's centre line (the source row's own name offset, in layout px: the row may be scaled), at `scale` about the
+   * pill's centre. Returns the transform and the distance it travels.
+   */
+  const onto = (f: Flight, line: HTMLElement, scale: number) => {
+    const r = line.getBoundingClientRect();
+    const src = row.current;
+    const nm = src?.querySelector<HTMLElement>('.pl-name');
+    const sr = src?.getBoundingClientRect();
+    const k = src && sr && src.offsetWidth ? sr.width / src.offsetWidth : 1;
+    const nr = nm?.getBoundingClientRect();
+    const dx = nr && sr ? (nr.left - sr.left) / k : 16;
+    const dy = nr && sr ? (nr.top + nr.height / 2 - sr.top) / k : r.height / 2;
+    const pn = f.pill.querySelector<HTMLElement>('.drag-pill-name');
+    const nameX = pn ? pn.offsetLeft : 0;
+    const tx = r.left + dx - f.w / 2 - (nameX - f.w / 2) * scale;
+    const ty = r.top + dy - f.h / 2;
+    return { tf: `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0) scale(${scale})`, travel: Math.hypot(tx - f.x.get(), ty - f.y.get()) };
   };
-  /** Fly the pill onto `r` on springs.settle (WAAPI, transform only); resolves on the landing frame. */
-  const fly = (f: Flight, r: DOMRect | null, scale: number) => {
+  /**
+   * Fly the pill onto `line` on springs.settle (WAAPI, transform only): `done` resolves on the rest frame, `ready` once the
+   * flight runs on the compositor (so main-thread work after it cannot delay its start).
+   */
+  const fly = (f: Flight, line: HTMLElement | null, scale: number) => {
     f.off();
     // reduced motion: no travel; the pill fades where it is (§10.2)
-    if (!r || reduced()) return Promise.resolve();
-    const a = f.pill.animate([{ transform: f.pill.style.transform }, { transform: onto(f, r, scale) }], { ...settleEasing, fill: 'forwards' });
-    return a.finished.then(
-      () => undefined,
-      () => undefined,
-    );
+    if (!line || reduced()) return { done: Promise.resolve(), ready: Promise.resolve() };
+    const to = onto(f, line, scale);
+    const a = f.pill.animate([{ transform: f.pill.style.transform }, { transform: to.tf }], { ...settleFor(to.travel), fill: 'forwards' });
+    const ok = () => undefined;
+    return { done: a.finished.then(ok, ok), ready: a.ready.then(ok, ok) };
   };
   const fadeOut = (f: Flight) => {
-    const a = f.pill.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reduced() ? 150 : 120, easing: 'linear', fill: 'forwards' });
+    const a = f.pill.animate([{ opacity: 1 }, { opacity: 0 }], { ...waapiOf(reduced() ? reducedFade : fadeIn), fill: 'forwards' });
     void a.finished.finally(() => f.pill.remove()).catch(() => undefined);
   };
   const end = (p: DragPoint, cancelled: boolean) => {
@@ -162,7 +184,7 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
     cancelAnimationFrame(f.raf);
     f.over?.classList.remove('is-target');
     const src = row.current;
-    const back = () => void fly(f, src?.getBoundingClientRect() ?? null, 1).then(() => fadeOut(f));
+    const back = () => void fly(f, src ?? null, 1).done.then(() => fadeOut(f));
     if (cancelled) return back();
     // the release point is the last word: a final move can be coalesced away before the up
     const el = dayAt(p.x, p.y);
@@ -174,10 +196,33 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
     src?.classList.add('is-moving');
     // the row it left keeps its placeholder look until the data moves it (or, if the write never lands, for 1.5 s)
     setTimeout(() => src?.classList.remove('is-moving'), 1500);
-    void fly(f, slotEl?.getBoundingClientRect() ?? null, 0.9).then(() => {
+    let land = () => undefined as void;
+    const landed = new Promise<void>((r) => (land = r));
+    // the write at the release: the rows reflow under the flight; an empty day's `Rest` / `+` fades out first (100 ms)
+    const write = () => {
       landing = { id, at: performance.now() };
-      o.current.onDrop(to);
-      // the new row renders under the pill (its content held back); then they cross over
+      if (!o.current.onDrop(to, landed)) {
+        landing = null;
+        for (const a of hush) a.cancel();
+        return false;
+      }
+      return true;
+    };
+    const empty = !el?.querySelector('[data-session-id]');
+    const hush = empty && slotEl && !reduced() ? Array.from(slotEl.children).map((c) => c.animate([{ opacity: getComputedStyle(c).opacity }, { opacity: 0 }], { ...waapiOf(fadeOutT), fill: 'forwards' })) : [];
+    const flight = fly(f, slotEl ?? null, 0.9);
+    // the flight (and the hush) start on the compositor first, and the write comes one `fadeOut` (100 ms) into the flight:
+    // the pill's first frames leave the finger on an idle main thread, and the write's render cannot hold them back
+    let wrote = true;
+    void flight.ready.then(() => {
+      if (hush.length) void hush[0]!.finished.then(() => (wrote = write()), () => undefined);
+      else if (reduced()) wrote = write();
+      else setTimeout(() => (wrote = write()), waapiOf(fadeOutT).duration);
+    });
+    void flight.done.then(() => {
+      if (!wrote) return back();
+      land();
+      // the new row is under the pill (its content held back): they cross over
       const t0 = performance.now();
       const wait = () => {
         const there = document.querySelector(`[${PLAN_DAY}="${to}"] [data-session-id="${CSS.escape(id)}"]`);
@@ -185,7 +230,7 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
         endLanding(id);
         fadeOut(f);
       };
-      requestAnimationFrame(wait);
+      wait();
     });
   };
 

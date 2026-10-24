@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { api, ApiError } from '@/api/client';
-import { keys } from '@/api/queries';
+import { keys, usePlanDelete } from '@/api/queries';
+import { haptics } from '@/lib/haptics';
 import { Button, Chip, Field, Group, Note, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -37,12 +38,21 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
   const miles = draft.sessions.reduce((t, s) => t + (s.kind === 'run' ? s.miles ?? 0 : 0), 0);
   const byDate = new Map<string, PlanDraft['sessions']>();
   for (const s of draft.sessions) byDate.set(s.date, [...(byDate.get(s.date) ?? []), s]);
+  const { remove: removeBlock } = usePlanDelete();
   const apply = useMutation({
     mutationFn: (applyMode: 'replace' | 'add') => api<{ block: PlanBlock; months: string[] }>('/plans/apply', { method: 'POST', json: { draft: { ...draft, name: name.trim() || draft.name }, mode: applyMode, source: mode } }),
-    onSuccess: async (r) => {
+    onSuccess: async (r, applyMode) => {
       for (const m of monthsBetween(shiftDays(draft.start, -14), shiftDays(draft.end, 14))) void qc.invalidateQueries({ queryKey: keys.month(m) });
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
-      toast(`${draft.sessions.length} sessions added to your calendar`);
+      // spec §8: a toast only with an Undo (or for an error). An Add is undone by deleting the new block; a Replace cannot
+      // be put back from here (the apply route returns no replaced ids: a request in docs/reviews/wp4.md), so it says
+      // nothing: the new block on the calendar (and in Plans) is the answer, and it buzzes as the destructive commit it is
+      if (applyMode === 'replace' && existing) haptics.delete();
+      else
+        toast(`${r.block.name} is on your calendar`, {
+          label: 'Undo',
+          fn: () => void removeBlock.mutateAsync(r.block).catch(() => toast('Couldn’t undo. The new plan is still there.')),
+        });
       onDone();
       sheet.close();
       if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
