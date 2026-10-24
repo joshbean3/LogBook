@@ -1,355 +1,207 @@
-import { assess, fmtDate, heroSession, isSkipMark, label, mi, mondayOf, num, pad, parseISO, sessionKey, sessionWord, shiftDays, tone, weekSummary, type Activity, type Session, type StatusKey } from '@logbook/shared';
-import { ArrowRightLeft, Check, Plus } from 'lucide-react';
-import { AnimatePresence, animate, motion, useMotionValueEvent, useReducedMotion, useTransform, type MotionValue } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { assess, fmtDate, heroSession, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey } from '@logbook/shared';
+import { ArrowRightLeft, Check, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
+import { createContext, Fragment, memo, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
-import { rowPresence, springs } from '@/lib/motion';
-import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
-import { shared } from '@/ui/Sheet';
-import { SkeletonGroup, Skeleton } from '@/ui/Skeleton';
-import { SwipeRow } from '@/ui/SwipeRow';
+import type { ContextMenuItem } from '@/ui/ContextMenu';
+import { PAGE_COMMIT, type PageCommitDetail } from '@/ui/nav';
+import { Pressable } from '@/ui/Pressable';
+import { Skeleton } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
-import { useFirstToday } from '@/ui/useFirstToday';
-import type { Log } from '../log/useLog';
+import { useLog, type Log } from '../log/useLog';
 import { sessionCan, useSessionActions } from '../sessions/actions';
-import { announceReshape } from '../sessions/MoveSheet';
 import { useReshape, type ReshapeResult } from '../sessions/reshape';
-import { weekMiles } from '../sessions/miles';
-import { shareFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
-import { PLAN_DAY, useDayDrag } from './useDayDrag';
+import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
+import { BlockCardView, type PlanBlockProps } from './Blocks';
+import { useFlip } from './flip';
+import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
+import { WeekLine } from './WeekLine';
 
-/** "2026-W42": the shared-element id of a week (docs/foundation.md). */
-export const isoWeek = (d: string) => {
-  const dt = parseISO(d);
-  const th = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() - ((dt.getDay() + 6) % 7) + 3);
-  const jan4 = new Date(th.getFullYear(), 0, 4);
-  const wk = 1 + Math.round(((th.getTime() - jan4.getTime()) / 864e5 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
-  return `${th.getFullYear()}-W${pad(wk)}`;
-};
+/**
+ * One week of Plan (docs/feel.md §7.2): the week line, the seven days as 60 px rows in one inset group, and the block card.
+ * It is what the week pager renders for prev, cur and next, memoised by its Monday, with its own log, so a page commit
+ * re-renders none of the three.
+ *
+ * A session row: tap opens the session sheet; hold 450 lifts it in place with the menu `Done · Skip · Move · Delete`; a
+ * move after the hold drags it (`useDayDrag`): the pill follows the finger, the day under it is lit, a drop moves (or swaps
+ * with the day's lead session), the pill shrinks into its new slot and the displaced row slides on `settle`; a drop that
+ * makes two hard days in a row fires `warning` and shows the inline `Two hard days in a row. Keep it?` row in the group
+ * (the rows below move by transform). An empty day: tap adds. Done is a check, missed is the word `Missed` in ink-3 with a
+ * 1 px strike on the name: never red. No swipe rows (the pager is the only horizontal gesture on the page).
+ */
 
-const tenth = (v: number) => num(Math.round(v * 10) / 10);
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
 const isTraining = (s: Session) => s.kind !== 'rest';
-
-/** The week's line ("26 mi planned · 5 runs") and the sentence under it, said forward: what is next, never a zero. */
-export const weekWords = (log: Log, mon: string) => {
-  const t = log.today;
-  // miles run count a run marked Done without Strava at its planned miles (contract 5), as Progress and Share do
-  const w0 = weekSummary(log.snap, mon);
-  const w = { ...w0, doneMiles: weekMiles(log.snap, mon, t).miles };
-  const sun = shiftDays(mon, 6);
-  const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
-  const training = days.flatMap((d) => log.snap.sessionsOn(d).filter(isTraining).map((s) => [d, s] as const));
-  const live = training.filter(([d, s]) => {
-    const k = sessionKey(log.snap, d, s);
-    return k === 'today' || k === 'planned';
-  });
-  const next = live.find(([d]) => d >= t) ?? null;
-  const when = (d: string) => (d === t ? 'today' : d === shiftDays(t, 1) ? 'tomorrow' : fmtDate('dowLong', d));
-  const runsWord = plural(w.runsPlanned, 'run');
-  let head: string;
-  if (w.plannedMiles > 0) head = `${tenth(w.plannedMiles)} mi planned · ${runsWord}`;
-  else if (training.length) head = `${plural(training.length, 'session')} planned`;
-  else if (w.doneMiles > 0) head = `${tenth(w.doneMiles)} mi run`;
-  else head = sun < t ? 'A quiet week' : 'An open week';
-  let sub: string;
-  if (sun < t) {
-    // a past week: what happened, against what was planned
-    sub = w.plannedMiles > 0 && w.doneMiles === 0 ? `${w.keptSessions ? `${w.keptSessions} of ${plural(training.length, 'session')} kept` : 'None of it run'}.${w.kept ? ' Kept.' : ''}` : w.plannedMiles > 0 ? `${tenth(w.doneMiles)} of ${tenth(w.plannedMiles)} mi run${w.runsPlanned ? ` · ${w.runsDone} of ${runsWord}` : ''}.${w.kept ? ' Kept.' : ''}` : w.kept ? 'Kept.' : training.length ? `${w.keptSessions} of ${plural(training.length, 'session')} kept.` : 'Nothing was planned.';
-  } else if (mon > t) {
-    const first = live[0];
-    const long = training.filter(([, s]) => tone(s) === 'long').sort((a, b) => (Number(b[1].miles) || 0) - (Number(a[1].miles) || 0))[0];
-    sub = first ? `Opens with ${nameOf(first[1])}, ${fmtDate('dowLong', first[0])}.${long && long !== first ? ` Long run ${fmtDate('dowLong', long[0])}.` : ''}` : 'Tap a day to add a session, or start a block below.';
-  } else if (!training.length && w.doneMiles === 0) {
-    sub = 'Tap a day to add a session, or start a block below.';
-  } else if (w.doneMiles === 0 && !w.keptSessions) {
-    // early in the week: say what's next, never "0 of 26"
-    // "First run today" only when no run was planned before today (Progress's verdict says the same)
-    sub = next ? (next[0] === t && next[1].kind === 'run' && !training.some(([d, s]) => d < t && s.kind === 'run' && !isSkipMark(s.mark)) ? 'First run today.' : `Next: ${nameOf(next[1])}, ${when(next[0])}.`) : 'Nothing left this week.';
-  } else {
-    const done = w.plannedMiles > 0 ? `${tenth(w.doneMiles)} of ${tenth(w.plannedMiles)} mi` : w.doneMiles > 0 ? `${tenth(w.doneMiles)} mi run` : `${w.keptSessions} kept`;
-    sub = next ? `${done}. Next: ${nameOf(next[1])}, ${when(next[0])}.` : w.kept ? `${done}. Week kept.` : `${done}.`;
-  }
-  const progress = w.plannedMiles > 0 ? Math.min(1, w.doneMiles / w.plannedMiles) : 0;
-  return { head, sub, progress, hasBar: w.plannedMiles > 0, summary: w };
-};
-
-/** The status mark at a row's right edge: the one word, drawn. Colour never carries it alone (the word is its name). */
-export const StatusGlyph = ({ k, word }: { k: StatusKey; word: string }) => (
-  <span className={`pl-glyph g-${k}`} role="img" aria-label={word}>
-    {k === 'done' || k === 'bonus' ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}
-    {k === 'missed' || k === 'skipped' ? <span className="pl-glyph-word">{word}</span> : null}
-  </span>
-);
-
-/** How far (px of travel) the week has to come down before letting go opens the month. */
-export const PULL_ARM = 56;
-
 /**
- * The pull's words, in their own 24px slot above the week: the week, its days and the block card come down as one layer
- * and uncover it, so nothing ever sits on top of anything mid-pull. It only shows once the slot is open.
+ * What every row of a group does, made once per group (a row would otherwise hold some twenty mutation observers of its own):
+ * open a session, add, move, mark, delete and restore, reshape, toast, and `flip` (the FLIP capture, flip.ts: called right
+ * before a change that moves rows).
  */
-export const PullHint = ({ pull }: { pull: MotionValue<number> }) => {
-  const [armed, setArmed] = useState(false);
-  const opacity = useTransform(pull, [16, 40], [0, 1]);
-  useMotionValueEvent(pull, 'change', (v) => setArmed((a) => (a === v >= PULL_ARM ? a : v >= PULL_ARM)));
-  return (
-    <motion.span className={`pl-pullhint caps ${armed ? 'on' : ''}`} style={{ opacity }} aria-hidden="true">
-      {armed ? 'Let go for the month' : 'Pull for the month'}
-    </motion.span>
-  );
+const useKit = (log: Log, flip: () => void, onReshaped: (r: ReshapeResult, to: string) => void) => {
+  const open = useOpenSession(log);
+  const openUnplanned = useOpenUnplanned();
+  const act = useSessionActions(log);
+  const toast = useToast();
+  const { mark, remove, restore } = useSessionMutations();
+  const { reshape } = useReshape();
+  return { log, open, openUnplanned, add: act.add, move: act.move, toast, mark, remove, restore, reshape, flip, onReshaped };
 };
-
-/**
- * The week's header: the line, a thin bar of miles done, the sentence. Pull it down to zoom out to the month: `pull` (the
- * page's) carries the week and everything under it down with the finger, and a tick marks the point where letting go
- * opens the month. Its touches are its own: the page's pull to refresh starts anywhere else.
- */
-export const WeekHeader = ({ log, mon, onZoomOut, offWeek, onThisWeek, pull }: { log: Log; mon: string; onZoomOut: () => void; offWeek: boolean; onThisWeek: () => void; pull: MotionValue<number> }) => {
-  const words = weekWords(log, mon);
-  const reduce = useReducedMotion();
-  const fill = useFirstToday(mon === mondayOf(log.today) ? 'plan-week-bar' : null);
-  const ref = useRef<HTMLDivElement>(null);
-  const zoom = useRef(onZoomOut);
-  zoom.current = onZoomOut;
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let y0: number | null = null;
-    let x0 = 0;
-    let on = false;
-    let arm = false;
-    const start = (e: TouchEvent) => {
-      // the header's own touch: the Shell's pull to refresh must not take it
-      e.stopPropagation();
-      if (e.touches.length !== 1 || window.scrollY > 0) return (y0 = null);
-      y0 = e.touches[0]!.clientY;
-      x0 = e.touches[0]!.clientX;
-      on = false;
-      arm = false;
-    };
-    const move = (e: TouchEvent) => {
-      if (y0 == null) return;
-      const dy = e.touches[0]!.clientY - y0;
-      const dx = e.touches[0]!.clientX - x0;
-      if (!on) {
-        if (Math.abs(dy) < 10 && Math.abs(dx) < 10) return;
-        if (dy <= 0 || Math.abs(dx) * 1.5 > dy) return (y0 = null);
-        on = true;
-      }
-      if (e.cancelable) e.preventDefault();
-      pull.set(Math.max(0, Math.min(110, dy * 0.5)));
-      const over = dy * 0.5 >= PULL_ARM;
-      if (over !== arm) {
-        arm = over;
-        haptics.threshold();
-      }
-    };
-    const end = () => {
-      if (on && arm) zoom.current();
-      const was = on;
-      y0 = null;
-      on = false;
-      arm = false;
-      if (was) void animate(pull, 0, reduce ? { duration: 0 } : springs.settle);
-    };
-    el.addEventListener('touchstart', start, { passive: true });
-    el.addEventListener('touchmove', move, { passive: false });
-    el.addEventListener('touchend', end);
-    el.addEventListener('touchcancel', end);
-    return () => {
-      el.removeEventListener('touchstart', start);
-      el.removeEventListener('touchmove', move);
-      el.removeEventListener('touchend', end);
-      el.removeEventListener('touchcancel', end);
-    };
-  }, [pull, reduce]);
-  return (
-    <div ref={ref} className="pl-wh">
-      <div>
-        <div className="pl-wh-top">
-          <h2 className="pl-wh-head">{words.head}</h2>
-          {offWeek ? (
-            <button type="button" className="pl-chip pl-now" onClick={onThisWeek}>
-              This week
-            </button>
-          ) : null}
-        </div>
-        {words.hasBar ? (
-          <div className="pl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(words.progress * 100)} aria-label={`${tenth(words.summary.doneMiles)} of ${tenth(words.summary.plannedMiles)} miles run`}>
-            <motion.i initial={fill && !reduce ? { scaleX: 0 } : false} animate={{ scaleX: words.progress }} transition={reduce ? { duration: 0 } : springs.number} />
-          </div>
-        ) : null}
-        <p className="pl-wh-sub">{words.sub}</p>
-      </div>
-    </div>
-  );
-};
+type KitT = ReturnType<typeof useKit>;
+const Kit = createContext<KitT | null>(null);
+const useRowKit = () => useContext(Kit)!;
 
 export interface Conflict {
   days: string[];
   undo: () => void;
 }
 
-/**
- * While a row is swiped left (Move), its tone bar and name hold still and the distance and status fade, so the session
- * you are moving stays named next to the Move pane. Past the commit point the name gives way. The SwipeRow's offset is read
- * off its content layer (no prop for it), written as `--swipe-pin` / `--swipe-fade` on the slot.
- */
-const useSwipeKeepsName = () => {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const slot = ref.current;
-    const content = slot?.querySelector<HTMLElement>('.swipe-content');
-    if (!slot || !content) return;
-    const read = () => {
-      const m = /translateX\((-?[\d.]+)px\)/.exec(content.style.transform);
-      const x = m ? Number(m[1]) : 0;
-      const pin = x < 0 ? Math.min(-x, content.offsetWidth * 0.4) : 0;
-      slot.style.setProperty('--swipe-pin', `${pin}px`);
-      slot.style.setProperty('--swipe-fade', String(x < 0 ? Math.max(0, 1 + x / 48) : 1));
-    };
-    const mo = new MutationObserver(read);
-    mo.observe(content, { attributes: true, attributeFilter: ['style'] });
-    read();
-    return () => mo.disconnect();
-  }, []);
-  return ref;
+/** The status at a row's right edge: done (and a run off the plan) a 14 px check; missed and skipped a word in ink-3; floor in amber. */
+const Status = ({ k, word }: { k: StatusKey; word: string }) => {
+  if (k === 'done' || k === 'bonus')
+    return (
+      <span className="pl-st is-check" role="img" aria-label={word}>
+        <Check size={14} strokeWidth={3} aria-hidden="true" />
+      </span>
+    );
+  if (k === 'missed' || k === 'skipped' || k === 'floor') return <span className={`pl-st is-word k-${k}`}>{word}</span>;
+  return null;
 };
 
-/** One session on a day: tap it open, swipe right for Done and left for Move, hold it to lift and drag, or for its menu. */
-const SessionLine = ({ date, s, log, lead, onReshaped }: { date: string; s: Session; log: Log; lead: boolean; onReshaped: (r: ReshapeResult, s: Session, to: string) => void }) => {
-  const act = useSessionActions(log);
-  const open = useOpenSession(log);
-  const menu = useContextMenu();
-  const { reshape } = useReshape();
-  const c = sessionCan(log, date, s);
+/** One session on a day: a 60 px row in the group. */
+const SessionRow = ({ date, s }: { date: string; s: Session }) => {
+  const row = useRef<HTMLElement>(null);
+  const { log, open, move, toast, mark, remove, restore, reshape, flip, onReshaped } = useRowKit();
   const k = sessionKey(log.snap, date, s);
   const word = sessionWord(log.snap, date, s);
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
   const a = runs.length ? assess(log.zones, s, runs) : null;
-  const share = shareFor(date, s, log);
   const name = nameOf(s);
-  const items: ContextMenuItem[] = act.menuItems(date, s, { share });
+  const dist = a ? `${mi(a.miles)} mi` : s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : '';
+  const typeWord = s.type && !name.toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
+  const sub = a && runs.length === 1 ? runs[0]!.name : typeWord;
   const drag = useDayDrag({
     date,
     session: s,
     title: name,
+    row,
     onDrop: (to) => {
+      flip();
       const r = reshape(log, s, date, to);
-      if (r) onReshaped(r, s, to);
+      if (r) onReshaped(r, to);
     },
-    onHoldRelease: (el) => menu.open({ items, anchor: el, label: `${name} actions`, haptic: false }),
   });
-  const dist = a ? `${mi(a.miles)} mi` : s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : '';
-  const typeWord = s.type && !name.toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
-  const sub = a && runs.length === 1 ? runs[0]!.name : typeWord;
-  const swipeRight = c.mark && k !== 'done' ? { label: 'Done', icon: <Check size={22} />, tone: 'ok' as const, onCommit: () => act.done(s) } : undefined;
-  const swipeLeft = { label: 'Move', icon: <ArrowRightLeft size={22} />, tone: 'neutral' as const, onCommit: () => act.move(date, s) };
-  const slot = useSwipeKeepsName();
+  // Done · Skip · Move · Delete (§11.2), read when the hold fires so it says the state of that moment
+  const menu = (): ContextMenuItem[] => {
+    const c = sessionCan(log, date, s);
+    const done = c.st === 'done' && s.mark === 'done';
+    const skipped = s.mark === 'skip' || s.mark === 'sick';
+    return [
+      done
+        ? { label: 'Not done', icon: <Undo2 size={18} />, onSelect: () => mark.mutate({ session: s, mark: null }) }
+        : { label: 'Done', icon: <Check size={18} />, disabled: !c.mark, onSelect: () => mark.mutate({ session: s, mark: 'done' }) },
+      {
+        label: skipped ? 'Put it back' : 'Skip',
+        icon: <SkipForward size={18} />,
+        disabled: !skipped && !c.skip,
+        onSelect: () => {
+          const was = s.mark;
+          mark.mutate({ session: s, mark: skipped ? null : 'skip' });
+          toast(skipped ? `${name} back on` : `${name} skipped`, { label: 'Undo', fn: () => mark.mutate({ session: s, mark: was }) });
+        },
+      },
+      { label: 'Move', icon: <ArrowRightLeft size={18} />, onSelect: () => move(date, s) },
+      {
+        label: 'Delete',
+        icon: <Trash2 size={18} />,
+        destructive: true,
+        onSelect: () => {
+          flip();
+          remove.mutate(s);
+          haptics.delete();
+          toast(`${name} deleted`, { label: 'Undo', fn: () => (flip(), restore.mutate(s)) });
+        },
+      },
+    ];
+  };
+  const landingNow = isLanding(s.id);
   return (
-    <div ref={slot} className="pl-slot" onPointerDown={(e) => e.stopPropagation()}>
-      <SwipeRow right={swipeRight} left={swipeLeft} menu={false} label={name}>
-        <button
-          ref={drag.ref as React.RefObject<HTMLButtonElement>}
-          type="button"
-          className={`pl-line t-${tone(s)} k-${k} ${drag.lifted ? 'is-lifted' : ''} ${lead ? 'is-lead' : 'is-extra'}`}
-          aria-label={`${name}${dist ? `, ${dist}` : ''}, ${word}. Open; hold to move or for actions`}
-          onClick={() => (drag.consumeClick() ? undefined : open(date, s, { sharedId: `session-${s.id}` }))}
-          onKeyDown={(e) => {
-            if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
-              e.preventDefault();
-              menu.open({ items, anchor: e.currentTarget, label: `${name} actions` });
-            }
-          }}
-          {...drag.bind}
-        >
-          <span className="pl-tone" aria-hidden="true" />
-          <span className="pl-main">
-            <span className="stamp pl-name" {...shared(`session-${s.id}`)}>
-              {name}
-            </span>
-            {sub ? <span className="pl-sub">{sub}</span> : null}
-          </span>
-          <span className="pl-dist">{dist}</span>
-          <StatusGlyph k={k} word={word} />
-        </button>
-      </SwipeRow>
-      <button type="button" className="cm-sr" aria-haspopup="menu" onClick={(e) => menu.open({ items, anchor: e.currentTarget.previousElementSibling as HTMLElement, label: `${name} actions`, returnFocus: e.currentTarget })}>
-        {name} actions
-      </button>
-      {drag.portal}
+    <div className="pl-slot" data-session-id={s.id} data-landing={landingNow ? '' : undefined}>
+      <Pressable
+        ref={row}
+        as="div"
+        press="surface"
+        className={`pl-line t-${tone(s)} k-${k}`}
+        label={`${fmtDate('dowLong', date)}: ${name}${dist ? `, ${dist}` : ''}, ${word}. Open; hold for actions or to move`}
+        onPress={() => open(date, s)}
+        holdMenu={menu}
+        menuLabel={`${name} actions`}
+        {...drag}
+      >
+        <span className="pl-tone" aria-hidden="true" />
+        <span className="pl-main">
+          <span className="stamp pl-name">{name}</span>
+          {sub ? <span className="pl-sub">{sub}</span> : null}
+        </span>
+        {dist ? <span className="pl-dist tnum">{dist}</span> : null}
+        <Status k={k} word={word} />
+      </Pressable>
     </div>
   );
 };
 
-/** A run that happened with nothing planned for it: Bonus. Tap opens it. */
-const BonusLine = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log }) => {
-  const openUnplanned = useOpenUnplanned();
+/** A run that happened with nothing planned for it. Tap opens it. */
+const BonusRow = ({ date, runs }: { date: string; runs: Activity[] }) => {
+  const { log, openUnplanned } = useRowKit();
   const a = assess(log.zones, null, runs);
   const word = sessionWord(log.snap, date, null);
+  const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
   return (
-    <button type="button" className="pl-line t-easy k-bonus is-lead" onClick={() => openUnplanned(date, runs, log, { sharedId: `run-${date}` })} aria-label={`${runs.map((r) => r.name).join(' and ')}, ${mi(a.miles)} miles, ${word}. Open`}>
+    <Pressable as="div" press="surface" className="pl-line t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(a.miles)} miles, ${word}. Open`}>
       <span className="pl-tone" aria-hidden="true" />
       <span className="pl-main">
-        <span className="stamp pl-name" {...shared(`run-${date}`)}>
-          {runs.length === 1 ? runs[0]!.name : `${runs.length} runs`}
-        </span>
+        <span className="stamp pl-name">{name}</span>
         <span className="pl-sub">Off the plan</span>
       </span>
-      <span className="pl-dist">{mi(a.miles)} mi</span>
-      <StatusGlyph k="bonus" word={word} />
-    </button>
+      <span className="pl-dist tnum">{mi(a.miles)} mi</span>
+      <Status k="bonus" word={word} />
+    </Pressable>
   );
 };
 
-/** A quiet day: "Rest". Tap to add a session there; hold for the menu (add, or take the rest day off the plan). */
-const RestLine = ({ date, log, rest }: { date: string; log: Log; rest: Session | null }) => {
-  const act = useSessionActions(log);
-  const menu = useContextMenu();
-  const items: ContextMenuItem[] = [{ label: 'Add a session', icon: <Plus size={18} />, onSelect: () => act.add(date) }, ...(rest ? [{ label: 'Move rest day', icon: <ArrowRightLeft size={18} />, onSelect: () => act.move(date, rest) }, { label: 'Delete rest day', destructive: true, onSelect: () => act.del(rest) }] : [])];
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const held = useRef(false);
-  const pos = useRef({ x: 0, y: 0 });
+/** A quiet day: `Rest`. Tap adds a session; a planned rest day also has a hold menu (add, move it, delete it). */
+const EmptyRow = ({ date, rest }: { date: string; rest: Session | null }) => {
+  const { log, add, move, toast, remove, restore, flip } = useRowKit();
+  const items: ContextMenuItem[] | undefined = rest
+    ? [
+        { label: 'Add a session', icon: <Plus size={18} />, onSelect: () => add(date) },
+        { label: 'Move rest day', icon: <ArrowRightLeft size={18} />, onSelect: () => move(date, rest) },
+        {
+          label: 'Delete rest day',
+          destructive: true,
+          icon: <Trash2 size={18} />,
+          onSelect: () => {
+            flip();
+            remove.mutate(rest);
+            haptics.delete();
+            toast('Rest day deleted', { label: 'Undo', fn: () => (flip(), restore.mutate(rest)) });
+          },
+        },
+      ]
+    : undefined;
   return (
-    <button
-      type="button"
-      className="pl-line is-rest is-lead"
-      aria-label={`${fmtDate('long', date)}, rest. Add a session`}
-      onClick={() => (held.current ? (held.current = false) : act.add(date))}
-      onPointerDown={(e) => {
-        pos.current = { x: e.clientX, y: e.clientY };
-        const el = e.currentTarget;
-        timer.current = setTimeout(() => {
-          held.current = true;
-          menu.open({ items, anchor: el, label: 'Rest day actions' });
-        }, 450);
-      }}
-      onPointerMove={(e) => {
-        if (timer.current && Math.hypot(e.clientX - pos.current.x, e.clientY - pos.current.y) > 8) {
-          clearTimeout(timer.current);
-          timer.current = null;
-        }
-      }}
-      onPointerUp={() => timer.current && clearTimeout(timer.current)}
-      onPointerCancel={() => timer.current && clearTimeout(timer.current)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        if ((e.nativeEvent as PointerEvent).pointerType === 'mouse') menu.open({ items, anchor: e.currentTarget, label: 'Rest day actions' });
-      }}
-    >
+    <Pressable as="div" press="surface" className="pl-line is-rest" label={`${fmtDate('dowLong', date)}: rest. Add a session`} onPress={() => add(date)} holdMenu={items} menuLabel="Rest day actions">
       <span className="pl-tone" aria-hidden="true" />
       <span className="pl-main">
         <span className="pl-rest">Rest</span>
       </span>
       {date >= log.today ? <Plus size={18} className="pl-plus" aria-hidden="true" /> : null}
-    </button>
+    </Pressable>
   );
 };
 
-/** One day: its weekday and date on the left, its sessions as lines on the right. Today is lit. The whole row takes a drop. */
-const DayRow = ({ date, log, onReshaped, conflict, onKeep }: { date: string; log: Log; onReshaped: (r: ReshapeResult, s: Session, to: string) => void; conflict: Conflict | null; onKeep: () => void }) => {
+/** One day: the date column (weekday, the number; today's in the accent disc) and its rows. The whole day takes a drop. */
+const DayRow = ({ date }: { date: string }) => {
+  const { log } = useRowKit();
   const t = log.today;
   const sessions = log.snap.sessionsOn(date);
   const training = sessions.filter(isTraining);
@@ -358,81 +210,121 @@ const DayRow = ({ date, log, onReshaped, conflict, onKeep }: { date: string; log
   const runs = log.snap.runsOn(date);
   const bonus = !training.some((s) => s.kind === 'run') && runs.length > 0;
   const rest = sessions.find((s) => s.kind === 'rest') ?? null;
-  const dayK = lead ? sessionKey(log.snap, date, lead) : bonus ? 'bonus' : 'rest';
   const isToday = date === t;
-  const showConflict = conflict && conflict.days[1] === date;
   return (
-    <>
-      <div className={`pl-day ${isToday ? `is-today pl-lit-${dayK}` : ''} ${date < t ? 'is-past' : ''} ${!ordered.length && !bonus ? 'is-quiet' : ''} ${conflict?.days.includes(date) ? 'is-conflict' : ''}`} {...{ [PLAN_DAY]: date }}>
-        <div className="pl-date" aria-hidden="true">
-          <span className="pl-dow">{isToday ? 'Today' : fmtDate('dow', date)}</span>
-          <span className="pl-num">{parseISO(date).getDate()}</span>
-        </div>
-        <div className="pl-lines">
-          {ordered.map((s, i) => (
-            <SessionLine key={s.id} date={date} s={s} log={log} lead={i === 0} onReshaped={onReshaped} />
-          ))}
-          {bonus ? <BonusLine date={date} runs={runs} log={log} /> : null}
-          {!ordered.length && !bonus ? <RestLine date={date} log={log} rest={rest} /> : null}
-        </div>
+    <div className={`pl-day ${isToday ? 'is-today' : ''} ${date < t ? 'is-past' : ''}`.trim()} role="listitem" {...{ [PLAN_DAY]: date }}>
+      <div className="pl-date" aria-hidden="true">
+        <span className="pl-dow">{fmtDate('dow', date)}</span>
+        <span className="pl-num tnum">{parseISO(date).getDate()}</span>
       </div>
-      <AnimatePresence initial={false}>
-        {showConflict ? (
-          <motion.div key="conflict" className="pl-conflict" role="alert" {...rowPresence}>
-            <p>Two hard days in a row. Keep it?</p>
-            <div className="pl-conflict-acts">
-              <button type="button" className="pl-chip" onClick={onKeep}>
-                Keep it
-              </button>
-              <button type="button" className="pl-chip on" onClick={conflict!.undo}>
-                Undo
-              </button>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </>
-  );
-};
-
-/**
- * The week as seven rows, edge to edge. Drops land here: a move, or a swap onto a day that has a session, with the drop
- * haptic and an Undo toast; two hard days back to back get the warning haptic and the question inline, under the pair.
- */
-export const Agenda = ({ mon, log, conflict, setConflict }: { mon: string; log: Log; conflict: Conflict | null; setConflict: (c: Conflict | null) => void }) => {
-  const toast = useToast();
-  const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
-  if (!log.loaded(mon) || !log.loaded(shiftDays(mon, 6)))
-    return (
-      <SkeletonGroup label="Loading the week">
-        <div className="pl-skel">
-          {days.map((d) => (
-            <div key={d} className="pl-skel-row">
-              <Skeleton w={28} h={32} r={8} />
-              <Skeleton w="55%" h={18} r="line" />
-            </div>
-          ))}
-        </div>
-      </SkeletonGroup>
-    );
-  const onReshaped = (r: ReshapeResult) => {
-    if (r.conflict) {
-      haptics.warning();
-      const undo = () => {
-        r.undo();
-        setConflict(null);
-      };
-      setConflict({ days: r.conflict, undo });
-    } else {
-      setConflict(null);
-      announceReshape(toast, r);
-    }
-  };
-  return (
-    <div className="pl-agenda list-edge" role="list" aria-label={`Week of ${fmtDate('md', mon)}`}>
-      {days.map((d) => (
-        <DayRow key={d} date={d} log={log} onReshaped={onReshaped} conflict={conflict} onKeep={() => (haptics.toggle(), setConflict(null))} />
-      ))}
+      <div className="pl-lines">
+        {ordered.map((s) => (
+          <SessionRow key={s.id} date={date} s={s} />
+        ))}
+        {bonus ? <BonusRow date={date} runs={runs} /> : null}
+        {!ordered.length && !bonus ? <EmptyRow date={date} rest={rest} /> : null}
+      </div>
     </div>
   );
 };
+
+/** The inline question under a hard pair, inside the group: it fades in (150 ms); the rows below move by transform (flip.ts). */
+const ConflictRow = ({ c, onKeep }: { c: Conflict; onKeep: () => void }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+  }, []);
+  return (
+    <div ref={ref} className="pl-conflict" role="alert">
+      <p>Two hard days in a row. Keep it?</p>
+      <div className="pl-conflict-acts">
+        <Pressable className="pl-ask" onPress={onKeep}>
+          Keep it
+        </Pressable>
+        <Pressable className="pl-ask is-on" onPress={c.undo}>
+          Undo
+        </Pressable>
+      </div>
+    </div>
+  );
+};
+
+/** The seven days of `mon` in one inset group (the drop target of every drag). */
+const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log; conflict: Conflict | null; setConflict: (c: Conflict | null) => void }) => {
+  const group = useRef<HTMLDivElement>(null);
+  const flip = useFlip(group);
+  const kit = useKit(log, flip, (r, to) => onReshaped(r, to));
+  const { toast } = kit;
+  const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
+  if (!log.loaded(mon) || !log.loaded(shiftDays(mon, 6)))
+    return (
+      <div className="pl-group pl-skel" aria-label="Loading the week" aria-busy="true">
+        {days.map((d) => (
+          <div key={d} className="pl-skel-row">
+            <Skeleton w={28} h={32} r={8} />
+            <Skeleton w="55%" h={18} r="line" />
+          </div>
+        ))}
+      </div>
+    );
+  const onReshaped = (r: ReshapeResult, to: string) => {
+    if (r.conflict) {
+      haptics.warning();
+      setConflict({
+        days: r.conflict,
+        undo: () => {
+          flip();
+          r.undo();
+          setConflict(null);
+        },
+      });
+      return;
+    }
+    setConflict(null);
+    haptics.drop();
+    toast(r.swapped ? r.said : `Moved to ${fmtDate('dow', to)}`, { label: 'Undo', fn: () => (flip(), r.undo()) });
+  };
+  return (
+    <Kit.Provider value={kit}>
+      <div ref={group} className="pl-group" role="list" aria-label={`Week of ${fmtDate('md', mon)}`}>
+        {days.map((d) => (
+          <Fragment key={d}>
+            <DayRow date={d} />
+            {conflict && conflict.days[1] === d ? (
+              <ConflictRow
+                c={conflict}
+                onKeep={() => {
+                  flip();
+                  setConflict(null);
+                }}
+              />
+            ) : null}
+          </Fragment>
+        ))}
+      </div>
+    </Kit.Provider>
+  );
+};
+
+/** One week page: the week line, the group, the block card. Memoised by its Monday (the pager re-renders none on a commit). */
+export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block }: { mon: string; onThisWeek: () => void; block: PlanBlockProps }) {
+  const months = useMemo(() => [...new Set([monthOf(mon), monthOf(shiftDays(mon, 6))])], [mon]);
+  const log = useLog(months);
+  const [conflict, setConflict] = useState<Conflict | null>(null);
+  // the question belongs to the week it was asked on: leaving the week answers it (the move stays)
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<PageCommitDetail>).detail;
+      if (d.step === 'week' && d.from === mon) setConflict(null);
+    };
+    window.addEventListener(PAGE_COMMIT, on);
+    return () => window.removeEventListener(PAGE_COMMIT, on);
+  }, [mon]);
+  return (
+    <div className="pl-wpage">
+      {log.loaded(mon) ? <WeekLine log={log} mon={mon} onThisWeek={onThisWeek} /> : <div className="pl-wl" aria-hidden="true" />}
+      <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />
+      <BlockCardView data={block.data} getLog={block.getLog} />
+    </div>
+  );
+});

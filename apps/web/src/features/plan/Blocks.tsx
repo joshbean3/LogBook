@@ -1,7 +1,7 @@
 import { buildTemplate, counts, daysBetween, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
 import { ChevronRight, Plus, Sparkles } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useMemo, useRef, useState } from 'react';
+import { useNav, useTab } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { usePlanDelete, useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -64,13 +64,32 @@ const GHOST_ARC = [14, 16, 17.5, 13, 19, 21, 23, 17, 24, 26, 15, 9].map((p, i) =
  * The block you are on, as one card under the week: where you are in it, its arc, and New block. Tap it for your plans.
  * With no plan: the ghost of an arc and the one verb, New block. It never promises more than the template sheet gives.
  */
-export const BlockCard = ({ log }: { log: Log }) => {
-  const sheet = useSheet();
+/** What the block card shows, computed once per data change (PlanView passes it to every week and month page). */
+export interface BlockCardData {
+  t: string;
+  boot: boolean;
+  b: PlanBlock | null;
+  st: 'Upcoming' | 'Finished' | 'Active';
+  weeks: number;
+  wk: number;
+  arc: Array<{ mon: string; planned: number; ran: number }>;
+  peak: number;
+}
+export const blockCardOf = (log: Log): BlockCardData => {
   const t = log.today;
-  const blocks = log.boot?.blocks ?? [];
-  const b = heroBlock(blocks, t);
-  const openNew = () => openTemplate(sheet, log);
-  if (!log.boot) return null;
+  const b = heroBlock(log.boot?.blocks ?? [], t);
+  const weeks = b ? planWeeks(b) : 0;
+  const st = b ? stateOf(b, t) : 'Active';
+  const arc = b ? arcOf(log, b) : [];
+  return { t, boot: !!log.boot, b, st, weeks, wk: b && st === 'Active' ? Math.min(weeks, Math.floor(daysBetween(b.start, t) / 7) + 1) : 0, arc, peak: Math.max(0, ...arc.map((w) => w.planned)) };
+};
+
+/** The block card from its data; `getLog` gives the sheets it opens the latest log at the tap. */
+export const BlockCardView = ({ data, getLog }: { data: BlockCardData; getLog: () => Log }) => {
+  const sheet = useSheet();
+  const { t, b, st, weeks, wk, arc, peak } = data;
+  const openNew = () => openTemplate(sheet, getLog());
+  if (!data.boot) return null;
   if (!b)
     return (
       <div className="pl-block-empty sec-primary">
@@ -79,14 +98,9 @@ export const BlockCard = ({ log }: { log: Log }) => {
         </EmptyState>
       </div>
     );
-  const weeks = planWeeks(b);
-  const st = stateOf(b, t);
-  const wk = st === 'Active' ? Math.min(weeks, Math.floor(daysBetween(b.start, t) / 7) + 1) : 0;
-  const arc = arcOf(log, b);
-  const peak = Math.max(0, ...arc.map((w) => w.planned));
   return (
     <section className="pl-block sec-primary" aria-label="Your block">
-      <Pressable className="pl-block-main" pressScale={0.985} onPress={() => openPlans(sheet, log)} label={`${b.name}. ${st === 'Active' ? `Week ${wk} of ${weeks}` : st}. Your plans`}>
+      <Pressable className="pl-block-main" pressScale={0.985} onPress={() => openPlans(sheet, getLog())} label={`${b.name}. ${st === 'Active' ? `Week ${wk} of ${weeks}` : st}. Your plans`}>
         <span className="pl-block-top">
           <span className="caps">{st === 'Active' ? `Week ${wk} of ${weeks}` : st === 'Upcoming' ? `Starts ${fmtDate('md', b.start)}` : `Finished ${fmtDate('md', b.end)}`}</span>
           <ChevronRight size={18} aria-hidden="true" />
@@ -104,6 +118,27 @@ export const BlockCard = ({ log }: { log: Log }) => {
       </button>
     </section>
   );
+};
+export const BlockCard = ({ log }: { log: Log }) => <BlockCardView data={blockCardOf(log)} getLog={() => log} />;
+
+export interface PlanBlockProps {
+  data: BlockCardData;
+  getLog: () => Log;
+}
+/**
+ * The block card's data for Plan's pages (docs/feel.md §7.2: the week body is the week line, the seven rows and the block
+ * card): one log over the block's months (the arc reads every week of it), computed once per data change and handed to
+ * every week and month page, so the pager's six pages render one card's data, not six logs.
+ */
+export const usePlanBlock = (): PlanBlockProps => {
+  const base = useLog([]);
+  const b = heroBlock(base.boot?.blocks ?? [], base.today);
+  const months = useMemo(() => (b ? monthsBetween(b.start, b.end).slice(0, 8) : []), [b?.start, b?.end]); // eslint-disable-line react-hooks/exhaustive-deps
+  const log = useLog(months);
+  const ref = useRef(log);
+  ref.current = log;
+  const data = useMemo(() => blockCardOf(log), [log.snap, log.boot, log.today]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => ({ data, getLog: () => ref.current }), [data]);
 };
 
 // ---------- the plans sheet ----------
@@ -179,7 +214,7 @@ export const PlansPanel = ({ log, foot = true }: { log: Log; foot?: boolean }) =
 /** One plan: its arc, what it is, the way to its week, and Delete (with Undo, like everything else). */
 const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
   const sheet = useSheet();
-  const nav = useNavigate();
+  const nav = useNav();
   const toast = useToast();
   const { remove, restore } = usePlanDelete();
   const t = log.today;
@@ -196,7 +231,7 @@ const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
     }
   const go = () => {
     sheet.close();
-    nav(`/plan/week/${b.start <= t && t <= b.end ? t : b.start}`);
+    nav.go(`/plan/week/${mondayOf(b.start <= t && t <= b.end ? t : b.start)}`);
   };
   // the server deletes at once (a reload inside the Undo window shows it gone); Undo restores it once the delete has landed
   const del = () => {
@@ -280,7 +315,8 @@ const habitsOf = (log: Log) => {
  */
 const TemplatePanel = ({ log, prefill }: { log: Log; prefill?: BuilderPrefill }) => {
   const sheet = useSheet();
-  const nav = useNavigate();
+  const nav = useNav();
+  const tab = useTab();
   const toast = useToast();
   const write = useTemplatePlan();
   const undo = useTemplateUndo();
@@ -357,7 +393,8 @@ const TemplatePanel = ({ log, prefill }: { log: Log; prefill?: BuilderPrefill })
         onSuccess: (r) => {
           haptics.success();
           sheet.close();
-          nav(`/plan/week/${r.block.start}`);
+          // the new block's first week, only when the builder was opened on Plan; over Today the tab stays (spec §1.3)
+          if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
           // the sheet (and this component) is gone by the time Undo is tapped: follow the promise, not mutate's callbacks
           announceApplied(toast, r, replacing, () =>
             undo.mutateAsync(r).then(

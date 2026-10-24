@@ -1,73 +1,83 @@
-/* ---------- Plan: the week you reshape by touching it (docs/experience.md §5.3) ---------- */
+/* ---------- Plan: the week you reshape by touching it, and the month (docs/feel.md §7) ---------- */
 
-/* the header's one accessory: Month / Week, a word with a 44px hit */
-.pl-zoom {
-  appearance: none;
-  border: 0;
-  background: none;
-  height: 44px;
-  padding: 0 10px;
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--accent-text);
-  border-radius: var(--r-pill);
-}
-.pl-zoom:active {
-  background: var(--surface);
+/*
+ * The title is `Plan` on every page: the NavBar binds every stacked label to the pager's progress, and Plan's title has no
+ * neighbour to fade to, so it is held at full opacity here (a local shim; request in docs/reviews/wp4.md).
+ */
+.plan-root .nb-title [data-sl],
+.plan-root .nb-inline [data-sl] {
+  opacity: 1 !important;
 }
 
-/* the week pager bleeds to the screen edges so the edge-to-edge rows inside it are not clipped */
-.pl-pager {
-  margin-inline: calc(-1 * var(--page-pad));
-  padding-inline: var(--page-pad);
-  border-radius: 0;
-  margin-top: 4px;
-}
-.pl-week {
-  min-width: 0;
-}
-
-/* ---------- the week header ---------- */
-.pl-wh {
-  position: relative;
-  padding: 8px 0 4px;
-}
-/* the pull's own 24px slot: the week layer comes down and uncovers it, so the words never sit on anything */
-.pl-pullwrap {
+/* ---------- the two panes: Week ⇄ Month is a 200 ms crossfade of both, mounted (PlanView) ---------- */
+.pl-panes {
   position: relative;
 }
-.pl-pullhint {
+.pl-pane.is-leaving,
+.pl-pane.is-off {
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
-  top: 0;
-  height: 24px;
-  line-height: 24px;
-  text-align: center;
-  white-space: nowrap;
   pointer-events: none;
 }
-.pl-pullhint.on {
-  color: var(--ink);
+.pl-pane.is-off {
+  visibility: hidden;
+  content-visibility: hidden;
 }
-.pl-wh-top {
+/* each page carries the gutter and the page's bottom padding (inside the cur page, so its min-height includes it) */
+.pl-wpage,
+.pl-mpage {
+  padding: 0 16px calc(24px + max(0px, var(--kb) - var(--tabbar-h) - var(--safe-b)));
+  min-width: 0;
+}
+.pl-note {
+  padding: 0 16px 24px;
+}
+
+/* ---------- the week line (§7.1): 22/28 600, the This week pill, the bar once a mile is run, the sentence ---------- */
+.pl-wl {
+  min-height: 52px;
+}
+.pl-wl-top {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 44px;
+  min-height: 32px;
 }
-.pl-wh-head {
-  margin: 0;
-  margin-right: auto;
-  font-family: var(--sans);
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  font-weight: 650;
-  letter-spacing: -0.025em;
+.pl-wl-head {
+  margin: 0 auto 0 0;
+  min-width: 0;
+  font: 600 22px/28px var(--sans);
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-  min-width: 0;
+}
+.pl-now.pressable {
+  position: relative;
+  flex: none;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  font: 600 13px/16px var(--sans);
+  white-space: nowrap;
+  opacity: 0;
+  /* on the live page only: it fades in over 120 ms on the frame its page commits */
+  transition:
+    opacity 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.pl-now::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.dp-page[data-role='cur'] .pl-now {
+  opacity: 1;
 }
 .pl-bar {
   height: 4px;
@@ -84,311 +94,281 @@
   border-radius: 2px;
   transform-origin: 0 50%;
 }
-.pl-wh-sub {
-  margin: 10px 0 0;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+.pl-wl-sub {
+  margin: 4px 0 0;
+  font: 400 15px/20px var(--sans);
   color: var(--ink-2);
 }
+.pl-bar + .pl-wl-sub {
+  margin-top: 8px;
+}
 
-/* ---------- the seven days ---------- */
-.pl-agenda-wrap {
+/* ---------- the seven days: 60 px rows in one inset group (§7.2) ---------- */
+.pl-group {
   position: relative;
-  margin-top: 20px;
-}
-/* the shared surface of a zoom: it travels from the month's week row to here, then fades */
-.pl-plate {
-  position: absolute;
-  inset: 0 calc(-1 * var(--page-pad));
-  background: var(--surface-2);
-  border-radius: 16px;
-  pointer-events: none;
-  z-index: 0;
-}
-.pl-agenda {
-  position: relative;
-}
-.pl-agenda > .pl-day {
-  padding-right: 0;
+  margin-top: 16px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-group);
+  overflow: hidden;
 }
 .pl-day {
   position: relative;
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
-  align-items: stretch;
-  min-height: 60px;
-  isolation: isolate;
-  transition: background-color var(--dur-color) var(--ease-out);
+  padding-left: 16px;
+  background: var(--surface);
+}
+/* hairlines inset 16 */
+.pl-day + .pl-day::before,
+.pl-conflict + .pl-day::before,
+.pl-day + .pl-conflict::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
 }
 .pl-date {
   display: grid;
-  align-content: center;
+  grid-template-rows: 13px 28px;
+  align-content: start;
   justify-items: start;
-  gap: 1px;
-  padding-block: 10px;
-  user-select: none;
-  -webkit-user-select: none;
+  gap: 2px;
+  padding-top: 8px;
+  height: 60px;
 }
 .pl-dow {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
 .pl-num {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 1.25rem;
-  line-height: 1.5rem;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border-radius: 50%;
+  font: 600 15px/20px var(--sans);
+  color: var(--ink);
 }
 .pl-day.is-past .pl-num {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
-.pl-lines {
-  display: grid;
-  min-width: 0;
+.pl-day.is-today .pl-dow {
+  color: var(--ink);
 }
-.pl-slot {
-  min-width: 0;
-}
-/* swiped left for Move: the tone bar and the name hold still while the row slides; distance and status fade */
-.pl-slot .pl-line .pl-tone,
-.pl-slot .pl-line .pl-main {
-  transform: translateX(var(--swipe-pin, 0px));
-}
-.pl-slot .pl-line .pl-dist,
-.pl-slot .pl-line .pl-glyph {
-  opacity: var(--swipe-fade, 1);
-}
-/* today, lit: a stage light from the left edge, screen-blended over the row so it only ever adds light */
-.pl-day.is-today::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  background: radial-gradient(80% 140% at 0% 50%, rgba(47, 59, 255, var(--lit, 0.42)), rgba(47, 59, 255, 0) 70%);
-  filter: var(--lit-filter, none);
-}
-.pl-day.is-today .pl-dow,
 .pl-day.is-today .pl-num {
-  color: var(--ink);
-}
-.pl-lit-done {
-  --lit: 0.62;
-}
-.pl-day.is-today.pl-lit-floor::before {
-  background: radial-gradient(80% 140% at 0% 50%, rgba(255, 176, 32, 0.32), rgba(255, 176, 32, 0) 70%);
-}
-.pl-lit-missed {
-  --lit: 0.2;
-  --lit-filter: saturate(0.5);
-}
-.pl-lit-rest,
-.pl-lit-skipped {
-  --lit: 0.24;
-}
-
-/* one session: tone bar, its name as a stamp, the distance, the status mark */
-.pl-line {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: 100%;
-  display: grid;
-  grid-template-columns: 3px minmax(0, 1fr) auto auto;
-  align-items: center;
-  column-gap: 12px;
-  min-height: 60px;
-  padding: 8px var(--page-pad) 8px 0;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: pan-y;
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-.pl-line:active:not(.is-lifted) {
-  background: var(--surface);
-}
-.pl-line.is-extra {
-  min-height: 48px;
-  padding-top: 0;
-}
-.pl-line.is-lifted {
-  background: var(--surface-2);
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-.pl-tone {
-  width: 3px;
-  align-self: stretch;
-  margin-block: 6px;
-  border-radius: 2px;
-  background: var(--tone, var(--t-rest));
-}
-.pl-line.is-extra .pl-tone {
-  margin-block: 4px 10px;
-}
-.pl-main {
-  display: grid;
-  min-width: 0;
-}
-.pl-name {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pl-line.is-extra .pl-name {
-  font-size: 0.9375rem;
-  color: var(--ink-2);
-}
-.pl-sub {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pl-dist {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.pl-line.k-skipped .pl-name {
-  text-decoration: line-through;
-  color: var(--ink-3);
-}
-.pl-line.k-skipped .pl-tone,
-.pl-line.k-missed .pl-tone {
-  opacity: 0.4;
-}
-.pl-line.k-missed .pl-name {
-  color: var(--ink-2);
-}
-.pl-line.is-rest {
-  grid-template-columns: 3px minmax(0, 1fr) auto;
-  min-height: 52px;
-}
-.pl-line.is-rest .pl-tone {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--ink-4);
-}
-.pl-rest {
-  font-size: 0.9375rem;
-  color: var(--ink-3);
-}
-.pl-plus {
-  color: var(--ink-4);
-}
-
-/* the status mark */
-.pl-glyph {
-  display: inline-grid;
-  place-items: center;
-  min-width: 22px;
-  height: 22px;
-  border-radius: var(--r-pill);
-  flex: none;
-}
-.pl-glyph.g-done,
-.pl-glyph.g-bonus {
   background: var(--accent);
   color: #fff;
 }
-.pl-glyph.g-floor {
-  width: 22px;
-  box-shadow: inset 0 0 0 2px var(--warn);
-  background: linear-gradient(to top, var(--warn) 50%, transparent 50%);
-}
-.pl-glyph.g-today {
-  width: 22px;
-  box-shadow: inset 0 0 0 2px var(--accent-bright);
-}
-.pl-glyph.g-planned {
-  width: 22px;
-  box-shadow: inset 0 0 0 1.5px var(--ink-4);
-}
-.pl-glyph.g-rest {
-  width: 0;
+.pl-lines {
   min-width: 0;
 }
-.pl-glyph-word {
-  font-size: 0.6875rem;
-  line-height: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.pl-slot + .pl-slot > .pl-line,
+.pl-slot + .pl-line {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+/* a session: tone bar 3, its name as a 17 px stamp, the distance 15 ink-3, the status */
+.pl-line.pressable {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 60px;
+  min-height: 60px;
+  padding: 0 16px 0 0;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pl-line[data-pressed][data-press='surface'] {
+  background: var(--surface-2);
+}
+/* lifted in place for the menu (ui/lift.ts scales it to 1.03; the menu's cut-out shows it at full brightness) */
+.pl-line[data-lifting] {
+  border-radius: var(--r-group);
+  background: var(--surface-2);
+}
+/* in the air: the pill carries it; the row stays as its placeholder (and while the pill lands) */
+.pl-line.is-moving > *,
+.pl-line[data-dragging] > * {
+  opacity: 0.35;
+}
+/* the dropped session's new row waits for the pill to land in it */
+.pl-slot[data-landing] .pl-line > * {
+  opacity: 0;
+}
+.pl-slot .pl-line > * {
+  transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pl-tone {
+  flex: none;
+  width: 3px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--tone, var(--t-rest));
+}
+.pl-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pl-name {
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 22px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pl-sub {
+  overflow: hidden;
+  font: 400 13px/18px var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pl-dist {
+  flex: none;
+  font: 400 15px/20px var(--sans);
   color: var(--ink-3);
 }
-.pl-glyph.g-missed .pl-glyph-word {
-  color: var(--bad);
+.pl-st {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 14px;
 }
-
-/* a day lit under a dragged session */
-.pl-day.is-drop::before {
-  content: '';
-  position: absolute;
-  inset: 3px 3px 3px calc(var(--page-pad) - 6px);
-  z-index: 4;
-  pointer-events: none;
-  border-radius: 14px;
-  box-shadow:
-    inset 0 0 0 2px var(--accent-bright),
-    0 0 18px rgba(91, 102, 255, 0.45);
-  background: rgba(47, 59, 255, 0.16);
-  mix-blend-mode: screen;
-  filter: none;
+.pl-st.is-check {
+  color: var(--accent-text);
 }
-.pl-day.is-conflict .pl-num {
+.pl-st.is-word {
+  font: 500 13px/18px var(--sans);
+  color: var(--ink-3);
+}
+.pl-st.is-word.k-floor {
   color: var(--warn);
 }
-.pl-agenda > .pl-conflict {
-  display: grid;
-  gap: 8px;
-  padding-block: 12px;
-  background: var(--warn-soft);
-  overflow: hidden;
+/* missed: the word in ink-3 and a 1 px strike on the name; never red */
+.pl-line.k-missed .pl-name {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--ink-3);
+  color: var(--ink-2);
+}
+.pl-line.k-missed .pl-tone,
+.pl-line.k-skipped .pl-tone {
+  opacity: 0.4;
+}
+.pl-line.k-skipped .pl-name {
+  color: var(--ink-3);
+}
+.pl-line.is-rest .pl-tone {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.pl-rest {
+  font: 400 17px/22px var(--sans);
+  color: var(--ink-3);
+}
+.pl-plus {
+  flex: none;
+  color: var(--ink-3);
+}
+/* a day lit under a dragged session: the 2 px accent ring inside, --accent-tint */
+.pl-day.is-target {
+  background: var(--accent-tint);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.pl-day.is-target .pl-line.pressable {
+  background: transparent;
+}
+/* the inline question under a hard pair */
+.pl-conflict {
+  position: relative;
+  padding: 12px 16px;
+  background: var(--surface);
 }
 .pl-conflict p {
   margin: 0;
-  color: var(--warn);
-  font-weight: 600;
-  font-size: 0.9375rem;
+  font: 500 15px/20px var(--sans);
+  color: var(--ink);
 }
 .pl-conflict-acts {
   display: flex;
   gap: 8px;
+  margin-top: 8px;
 }
-
+.pl-ask.pressable {
+  position: relative;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 600 13px/16px var(--sans);
+}
+.pl-ask.is-on {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+.pl-ask::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+/* the pill in the air (portalled to body; its transform is written from the finger) */
+.drag-pill {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-2);
+  color: var(--ink);
+  pointer-events: none;
+  white-space: nowrap;
+  will-change: transform;
+  transform-origin: 50% 50%;
+}
+.drag-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone, var(--accent));
+}
+.drag-pill-name {
+  font: 800 15px/20px var(--stamp);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
 /* skeleton: the seven rows' shape */
 .pl-skel {
-  display: grid;
+  padding: 0;
 }
 .pl-skel-row {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   height: 60px;
-  border-top: 1px solid var(--line);
-}
-.pl-skel-row:first-child {
-  border-top: 0;
+  padding: 0 16px;
 }
 
 /* ---------- the block card ---------- */
@@ -482,253 +462,121 @@
 }
 
 /* ---------- the month, zoomed out ---------- */
+/* ---------- the month (§7.3): 7 × ≤ 6 rows of 56 px cells, a Wk column, this week on --surface ---------- */
 .mg {
-  margin-top: 12px;
-  touch-action: pan-y;
-  --tot-w: 52px;
-  --cell-gap: 3px;
+  display: grid;
+  gap: 0;
 }
 .mg-head,
 .mg-week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr)) var(--tot-w);
-  gap: var(--cell-gap);
+  grid-template-columns: repeat(7, minmax(0, 1fr)) 52px;
 }
 .mg-head {
-  padding-bottom: 6px;
+  height: 24px;
+  align-items: center;
 }
 .mg-head span {
   text-align: center;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
   color: var(--ink-3);
 }
-.mg-head .mg-tot-h {
+.mg-head .mg-wk-h {
   text-align: right;
-  padding-right: 6px;
+  padding-right: 8px;
 }
-.mg-weeks {
-  display: grid;
-  gap: 4px;
-}
-.mg-week {
-  appearance: none;
+.mg-week.pressable {
   position: relative;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  padding: 3px 0;
-  border-radius: 12px;
-  text-align: center;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
+  height: 56px;
+  min-height: 56px;
+  border-radius: var(--r-group);
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .mg-week.is-now {
   background: var(--surface);
 }
-.mg-week:active {
+.mg-week[data-pressed][data-press='surface'] {
   background: var(--surface-2);
-}
-.mg-plate {
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  background: var(--surface-2);
-  z-index: 0;
-  pointer-events: none;
 }
 .mg-cell {
   position: relative;
-  z-index: 1;
   display: grid;
+  grid-template-rows: 18px 13px;
   align-content: start;
   justify-items: center;
   gap: 2px;
-  min-height: 50px;
-  padding-top: 6px;
-  border-radius: 9px;
-  background: rgba(47, 59, 255, var(--heat, 0));
-  touch-action: pan-y;
-}
-.mg-cell.k-floor {
-  background: rgba(255, 176, 32, calc(var(--heat, 0) * 0.7));
-}
-.mg-cell.k-missed {
-  box-shadow: inset 0 0 0 1px rgba(255, 59, 92, 0.4);
-}
-.mg-cell.out {
-  opacity: 0.3;
+  padding-top: 8px;
+  min-width: 0;
 }
 .mg-num {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-.mg-cell.is-today {
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 18px;
+  border-radius: 9px;
+  font: 500 13px/18px var(--sans);
+  color: var(--ink);
 }
 .mg-cell.is-today .mg-num {
-  color: var(--ink);
-  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.mg-cell.is-out .mg-num,
+.mg-cell.is-out .mg-mi {
+  color: var(--ink-4);
 }
 .mg-mi {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.8125rem;
-  line-height: 1rem;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-}
-.mg-mi.ran {
-  color: var(--ink);
-}
-.mg-mi.plan {
+  font: 500 11px/13px var(--sans);
   color: var(--ink-3);
 }
-.mg-dot {
-  width: 5px;
-  height: 5px;
-  margin-top: 5px;
-  border-radius: 50%;
-  background: var(--tone, var(--ink-4));
+.mg-mi.is-ran {
+  color: var(--ink);
 }
-.mg-bar {
+.mg-tone {
   position: absolute;
-  left: 28%;
-  right: 28%;
-  bottom: 5px;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--tone, var(--ink-4));
+  bottom: 8px;
+  left: 50%;
+  width: 16px;
+  height: 3px;
+  margin-left: -8px;
+  border-radius: 2px;
+  background: var(--tone, var(--t-rest));
 }
-.mg-cell.is-drop {
-  box-shadow:
-    inset 0 0 0 2px var(--accent-bright),
-    0 0 14px rgba(91, 102, 255, 0.5);
+.mg-cell.k-missed .mg-tone,
+.mg-cell.k-skipped .mg-tone {
+  background: var(--ink-4);
 }
-.mg-cell.is-lifted {
-  background: var(--surface-3);
+.mg-cell.k-planned .mg-tone,
+.mg-cell.k-today .mg-tone {
+  opacity: 0.55;
 }
-.mg-tot {
-  position: relative;
-  z-index: 1;
+.mg-cell.is-out .mg-tone {
+  opacity: 0.3;
+}
+.mg-wk {
   display: grid;
   align-content: center;
   justify-items: end;
-  padding-right: 6px;
-  border-radius: 9px;
-  background: linear-gradient(to top, rgba(47, 59, 255, 0.24) calc(var(--ratio, 0) * 100%), transparent 0);
+  padding-right: 8px;
+  min-width: 0;
 }
-.mg-tot b {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.9375rem;
-  line-height: 1.125rem;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
+.mg-wk b {
+  font: 600 15px/20px var(--sans);
+  color: var(--ink);
 }
-.mg-tot small {
-  font-size: 0.625rem;
-  line-height: 0.75rem;
+.mg-wk small {
+  font: 400 11px/13px var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
 }
-.mg-tot.is-plan b {
+.mg-wk.is-plan b {
   color: var(--ink-3);
 }
-.mg-tot.kept b {
-  color: var(--accent-text);
-}
-.mg-keyrow {
-  margin-bottom: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.mg-key {
-  margin: 0;
-}
-/* "Legend": a small text link in the month's header, a 44px target */
-.mg-legend-link {
-  appearance: none;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  font-weight: 600;
-  color: var(--accent-text);
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 0 0 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.mg-legend-link:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
-  border-radius: var(--r-sm);
-}
-.mg-legend {
-  margin: 0;
-  padding: 0 0 10px;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-2);
-  overflow: hidden;
-}
-.mg-legend li {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-.mg-sw {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-}
-.mg-sw.ran {
-  background: rgba(47, 59, 255, 0.7);
-}
-.mg-sw.floor {
-  background: rgba(255, 176, 32, 0.5);
-}
-.mg-sw.missed {
-  box-shadow: inset 0 0 0 1px rgba(255, 59, 92, 0.6);
-}
-.mg-sw.today {
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
-}
-.mg-sw-num {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.8125rem;
-  color: var(--ink-3);
-  width: 14px;
-  text-align: center;
-}
-@media (max-width: 359px) {
-  .mg {
-    --tot-w: 40px;
-    --cell-gap: 2px;
-  }
-  .mg-mi {
-    font-size: 0.75rem;
-  }
-  .mg-tot small {
-    display: none;
-  }
+/* the block card under the grid keeps the page's rhythm */
+.pl-mpage .mg + * {
+  margin-top: 24px;
 }
 
 /* ---------- plans sheet ---------- */
@@ -1136,4 +984,12 @@
 }
 .pv-fine {
   margin-top: 8px;
+}
+
+/* the block card under the week's group and the month's grid: 24 between sections (§3) */
+.pl-wpage > .pl-block,
+.pl-wpage > .pl-block-empty,
+.pl-mpage > .pl-block,
+.pl-mpage > .pl-block-empty {
+  margin-top: 24px;
 }

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNav, useTab } from '@/app/NavController';
 import { api, ApiError } from '@/api/client';
 import { keys } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -24,7 +24,8 @@ const nextMonday = (t: string) => shiftDays(mondayOf(t), 7);
 
 const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mode: Mode; onDone: () => void; onDiscard: () => void; log: Log }) => {
   const qc = useQueryClient();
-  const nav = useNavigate();
+  const nav = useNav();
+  const tab = useTab();
   const toast = useToast();
   const sheet = useSheet();
   const [name, setName] = useState(draft.name);
@@ -45,7 +46,7 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
       toast(`${draft.sessions.length} sessions added to your calendar`);
       onDone();
       sheet.close();
-      nav(`/plan/week/${r.block.start}`);
+      if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the plan.'),
   });

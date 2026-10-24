@@ -1,192 +1,236 @@
-import { addMonths, fmtDate, mondayOf, monthOf, monthStart, monthsBetween, shiftDays } from '@logbook/shared';
-import { motion, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
-import { haptics } from '@/lib/haptics';
-import { springs } from '@/lib/motion';
-import { DatePager } from '@/ui/DatePager';
-import { TabHeader } from '@/ui/headers';
-import { Note } from '@/ui/primitives';
-import { useSheet } from '@/ui/Sheet';
-import { useLog, type Log } from '../log/useLog';
-import { BlockCard, heroBlock, openPlans } from './Blocks';
-import { MonthGrid } from './Month';
-import { Agenda, isoWeek, PullHint, WeekHeader, type Conflict } from './Week';
+import { addMonths, mondayOf, monthOf, monthStart, shiftDays } from '@logbook/shared';
+import { useMotionValueEvent } from 'motion/react';
+import type * as React from 'react';
+import { Activity, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { useHomeControl, useNav, useRootRequest, useRouteParams } from '@/app/NavController';
+import { crossfadeSlow, ease } from '@/lib/motion';
+import { useToday } from '@/lib/useToday';
+import type { ContextMenuItem } from '@/ui/ContextMenu';
+import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
+import { monthCaption, NavBar, weekCaption } from '@/ui/NavBar';
+import { Note, Segmented } from '@/ui/primitives';
+import { useOpenCalendar } from '../day/Calendar';
+import { useLog } from '../log/useLog';
+import { usePlanBlock } from './Blocks';
+import { MonthPage } from './Month';
+import { WeekPage } from './Week';
 import './plan.css';
 
+/**
+ * Plan (docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps `THIS WEEK · OCT 19–25` / `OCTOBER 2026` as stacked
+ * labels bound to the shown pager's progress; title `Plan`, tap → this week / this month, hold → `Go to a week…`; the
+ * `Week | Month` segmented in the 96 px slot), then two mounted panes: the week pager (`DayPager step='week'`, full-bleed,
+ * each page the week line, seven rows and the block card) and the month pager (`step='month'`). Switching is a 200 ms
+ * crossfade of the two panes (both in the DOM during it); the segmented's thumb rides `settle`. No haptic on any of it.
+ *
+ * `view` and the anchor (the Monday, the first of the month) are page state: read once from the route, mirrored into the
+ * URL with `nav.replace` on every commit, changed from outside only through `useRootRequest` (a cut sets them before the
+ * first frame; on an active Plan the pager slides, or the panes crossfade when the view changes). The lit tab re-tapped off
+ * this week (month) slides home (`useHomeControl`).
+ */
 type View = 'week' | 'month';
+interface St {
+  view: View;
+  mon: string;
+  first: string;
+  /** The pane fading out (both are in the DOM; this one is absolute over the top of the incoming one). */
+  leaving: View | null;
+}
+
+/** The month a week belongs to: its Thursday's (ISO weeks). */
+const monthOfWeek = (mon: string) => monthStart(shiftDays(mon, 3));
 /** The first week that belongs to a month: the one whose Thursday falls in it. */
 const firstWeekOf = (first: string) => (shiftDays(mondayOf(first), 3) >= first ? mondayOf(first) : shiftDays(mondayOf(first), 7));
 
-/** One week, as the pager shows it: the header, then the seven days. The plate is the shared surface of a zoom. */
-const WeekPage = ({ mon, log, focus, conflict, setConflict, onZoomOut, onThisWeek, pull }: { mon: string; log: Log; focus: boolean; conflict: Conflict | null; setConflict: (c: Conflict | null) => void; onZoomOut: () => void; onThisWeek: () => void; pull: MotionValue<number> }) => {
-  const reduce = useReducedMotion();
-  return (
-    <div className="pl-week">
-      <WeekHeader log={log} mon={mon} onZoomOut={onZoomOut} offWeek={mon !== mondayOf(log.today)} onThisWeek={onThisWeek} pull={pull} />
-      <div className="pl-agenda-wrap">
-        {focus ? <motion.span className="pl-plate" layoutId={`week-${isoWeek(mon)}`} initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ layout: reduce ? { duration: 0 } : springs.page, opacity: { delay: 0.32, duration: 0.24 } }} aria-hidden="true" /> : null}
-        <motion.div initial={focus && !reduce ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: focus ? 0.12 : 0 }}>
-          <Agenda mon={mon} log={log} conflict={conflict} setConflict={setConflict} />
-        </motion.div>
-      </div>
-    </div>
-  );
+const fromParams = (p: Readonly<Record<string, string>>, today: string): Omit<St, 'leaving'> => {
+  if (p.month) return { view: 'month', first: p.month, mon: monthOf(p.month) === monthOf(today) ? mondayOf(today) : firstWeekOf(p.month) };
+  const mon = p.mon ?? mondayOf(today);
+  return { view: 'week', mon, first: monthOfWeek(mon) };
 };
 
-/**
- * Plan: this week as seven rows you reshape by touching them, the block you are on under it, and the month a pinch away.
- * Routes: `/plan` (this week), `/plan/week/:date`, `/plan/month/:date`, and `/plan/plans` (this week with your plans open).
- */
-export default function PlanView() {
-  const params = useParams();
-  const nav = useNavigate();
-  const sheet = useSheet();
-  const base = useLog([]);
-  const t = base.today;
-  const view: View = params.view === 'month' ? 'month' : 'week';
-  const anchor = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : t;
-  const mon = mondayOf(anchor);
-  const first = monthStart(anchor);
-  const block = heroBlock(base.boot?.blocks ?? [], t);
-  const months = useMemo(() => {
-    const around = view === 'week' ? monthsBetween(shiftDays(mon, -7), shiftDays(mon, 13)) : monthsBetween(shiftDays(first, -7), shiftDays(addMonths(first, 1), 7));
-    // the block's arc reads every week of it (at most eight months)
-    const arc = block ? monthsBetween(block.start, block.end).slice(0, 8) : [];
-    return [...new Set([...around, ...arc])];
-  }, [view, mon, first, block]);
-  const log = useLog(months);
-  const [focusWeek, setFocusWeek] = useState<string | null>(null);
-  // the pull to the month: the week, its days and the block card travel down together, uncovering the hint's own slot
-  const pull = useMotionValue(0);
-  const [conflict, setConflict] = useState<Conflict | null>(null);
-  useEffect(() => setConflict(null), [mon, view]);
-  useEffect(() => {
-    if (!focusWeek) return;
-    const id = setTimeout(() => setFocusWeek(null), 900);
-    return () => clearTimeout(id);
-  }, [focusWeek]);
+export default function PlanView(): React.JSX.Element {
+  const params = useRouteParams();
+  const nav = useNav();
+  const today = useToday();
+  const thisMon = mondayOf(today);
+  const thisFirst = monthStart(today);
+  const [st, setSt] = useState<St>(() => ({ ...fromParams(params, today), leaving: null }));
+  const { view, mon, first } = st;
+  const live = useRef({ st, thisMon, thisFirst });
+  live.current = { st, thisMon, thisFirst };
+  const weekH = useDayPagerHandle();
+  const monthH = useDayPagerHandle();
+  const handle = view === 'week' ? weekH : monthH;
 
-  // /plan/plans: the plans sheet over this week (the old Plans tab's address)
-  const opened = useRef(false);
+  // the month pane mounts with the first switch, or in idle after the first paint; then it stays
+  const [monthOn, setMonthOn] = useState(view === 'month');
   useEffect(() => {
-    if (params.view !== 'plans' || opened.current || !log.boot) return;
-    opened.current = true;
-    nav('/plan', { replace: true });
-    openPlans(sheet, log);
-  }, [params.view, log, nav, sheet]);
+    if (monthOn) return;
+    const ric = window.requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 1200));
+    const cic = window.cancelIdleCallback ?? window.clearTimeout;
+    const id = ric(() => setMonthOn(true), { timeout: 3000 });
+    return () => cic(id);
+  }, [monthOn]);
 
-  const weekPath = (m: string) => (m === mondayOf(t) ? '/plan' : `/plan/week/${m}`);
-  const goWeek = (m: string) => nav(weekPath(m), { replace: true });
-  const goMonth = (d: string) => nav(`/plan/month/${monthOf(d) === monthOf(t) ? t : monthStart(d)}`, { replace: true });
-  const zoomOut = (m = mon) => {
-    haptics.select();
-    setFocusWeek(m);
-    // the month a week belongs to is its Thursday's (ISO weeks)
-    const th = shiftDays(m, 3);
-    nav(`/plan/month/${monthOf(th) === monthOf(t) ? t : monthStart(th)}`);
+  const weekPath = (m: string) => (m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
+  const monthPath = (f: string) => `/plan/month/${f}`;
+
+  // ---------- commits (inside the pager's flushSync) ----------
+  const commitWeek = useCallback(
+    (m: string) => {
+      setSt((s) => ({ ...s, mon: m, first: monthOfWeek(m) }));
+      nav.replace(m === live.current.thisMon ? '/plan' : `/plan/week/${m}`);
+    },
+    [nav],
+  );
+  const commitMonth = useCallback(
+    (f: string) => {
+      setSt((s) => ({ ...s, first: f }));
+      nav.replace(`/plan/month/${f}`);
+    },
+    [nav],
+  );
+
+  // ---------- Week ⇄ Month: a 200 ms crossfade of the two mounted panes ----------
+  const noFade = useRef(false);
+  const show = (v: View, anchor?: { mon?: string; first?: string }) => {
+    const s = live.current.st;
+    const m = anchor?.mon ?? (v === 'week' ? (monthOf(s.first) === monthOf(today) ? live.current.thisMon : firstWeekOf(s.first)) : s.mon);
+    const f = anchor?.first ?? (v === 'month' ? monthOfWeek(s.mon) : s.first);
+    if (v === 'month') setMonthOn(true);
+    setSt({ view: v, mon: m, first: v === 'week' ? monthOfWeek(m) : f, leaving: v === s.view ? s.leaving : s.view });
+    nav.replace(v === 'week' ? weekPath(m) : monthPath(f));
   };
-  const zoomIn = (m: string) => {
-    haptics.select();
-    setFocusWeek(m);
-    nav(weekPath(m));
+  const weekPane = useRef<HTMLElement>(null);
+  const monthPane = useRef<HTMLElement>(null);
+  const fades = useRef<Animation[]>([]);
+  const shownView = useRef(view);
+  useLayoutEffect(() => {
+    if (shownView.current === view) return;
+    shownView.current = view;
+    for (const a of fades.current) a.cancel();
+    fades.current = [];
+    if (noFade.current || !st.leaving) {
+      noFade.current = false;
+      if (st.leaving) setSt((s) => ({ ...s, leaving: null }));
+      return;
+    }
+    const inc = (view === 'week' ? weekPane : monthPane).current;
+    const out = (view === 'week' ? monthPane : weekPane).current;
+    const ms = ((crossfadeSlow as { duration?: number }).duration ?? 0.2) * 1000;
+    const easing = `cubic-bezier(${ease.join(', ')})`;
+    const aIn = inc?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing });
+    const aOut = out?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing, fill: 'forwards' });
+    fades.current = [aIn, aOut].filter((a): a is Animation => !!a);
+    const done = () => {
+      // the leaving pane goes off (hidden) on the same frame its fill is dropped
+      flushSync(() => setSt((s) => (s.view === view ? { ...s, leaving: null } : s)));
+      aOut?.cancel();
+    };
+    if (aOut) aOut.onfinish = done;
+    else done();
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- home, requests, the title ----------
+  const goHome = useCallback(() => {
+    const s = live.current.st;
+    if (s.view === 'week') weekH.goTo(live.current.thisMon);
+    else monthH.goTo(live.current.thisFirst);
+  }, [weekH, monthH]);
+  const atHome = view === 'week' ? mon === thisMon : first === thisFirst;
+  useHomeControl({ atHome, goHome });
+  useRootRequest((p, how) => {
+    const want = fromParams(p, today);
+    const s = live.current.st;
+    if (how.cut) {
+      // the first frame that shows Plan is already at the request: no pager motion, no crossfade
+      noFade.current = true;
+      if (want.view === 'month') setMonthOn(true);
+      setSt({ ...want, leaving: null });
+      return;
+    }
+    if (want.view !== s.view) return show(want.view, want);
+    if (want.view === 'week') weekH.goTo(want.mon);
+    else monthH.goTo(want.first);
+  });
+  const pickWeek = (d: string) => {
+    const m = mondayOf(d);
+    if (live.current.st.view === 'month') show('week', { mon: m });
+    else weekH.goTo(m);
   };
+  const openCalendar = useOpenCalendar({ mode: 'week', value: view === 'week' ? mon : first, onPick: pickWeek });
+  const titleMenu = (): ContextMenuItem[] => [{ label: 'Go to a week…', onSelect: openCalendar }];
 
-  // pinch: two fingers closing zoom out to the month; opening on the month zooms into the week under them. The non-passive
-  // touchmove listener exists only between a two-finger touchstart and its end (critic C10): a one-finger scroll on Plan
-  // never waits on the main thread for it.
-  const root = useRef<HTMLDivElement>(null);
-  const live = useRef({ view, zoomOut, zoomIn });
-  live.current = { view, zoomOut, zoomIn };
+  // the large title row pages the shown view too (no dead band between the bar and the page)
+  const titleRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    let d0 = 0;
-    let fired = false;
-    let cx = 0;
-    let cy = 0;
-    const dist = (e: TouchEvent) => Math.hypot(e.touches[0]!.clientX - e.touches[1]!.clientX, e.touches[0]!.clientY - e.touches[1]!.clientY);
-    const move = (e: TouchEvent) => {
-      if (e.touches.length !== 2 || !d0) return;
-      if (e.cancelable) e.preventDefault();
-      if (fired) return;
-      const r = dist(e) / d0;
-      const v = live.current;
-      if (v.view === 'week' && r < 0.75) {
-        fired = true;
-        v.zoomOut();
-      } else if (v.view === 'month' && r > 1.3) {
-        fired = true;
-        const wk = document.elementFromPoint(cx, cy)?.closest<HTMLElement>('[data-week]')?.dataset.week;
-        v.zoomIn(wk ?? mondayOf(t));
-      }
-    };
-    const start = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
-      d0 = dist(e);
-      fired = false;
-      cx = (e.touches[0]!.clientX + e.touches[1]!.clientX) / 2;
-      cy = (e.touches[0]!.clientY + e.touches[1]!.clientY) / 2;
-      el.addEventListener('touchmove', move, { passive: false });
-    };
-    const end = (e: TouchEvent) => {
-      if (e.touches.length >= 2) return;
-      d0 = 0;
-      el.removeEventListener('touchmove', move);
-    };
-    el.addEventListener('touchstart', start, { passive: true });
-    el.addEventListener('touchend', end, { passive: true });
-    el.addEventListener('touchcancel', end, { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', start);
-      el.removeEventListener('touchmove', move);
-      el.removeEventListener('touchend', end);
-      el.removeEventListener('touchcancel', end);
-    };
-  }, [t]);
+    handle.attach([titleRef.current]);
+    (handle === weekH ? monthH : weekH).attach([]);
+  }, [handle, weekH, monthH]);
 
-  const thisMon = mondayOf(t);
-  const range = `${fmtDate('md', mon)} – ${monthOf(mon) === monthOf(shiftDays(mon, 6)) ? shiftDays(mon, 6).slice(8).replace(/^0/, '') : fmtDate('md', shiftDays(mon, 6))}`;
-  const rel = mon === thisMon ? 'This week' : mon === shiftDays(thisMon, 7) ? 'Next week' : mon === shiftDays(thisMon, -7) ? 'Last week' : '';
-  const dateText = view === 'week' ? (rel ? `${rel} · ${range}` : range) : fmtDate('month', first);
+  // the destination of a 2–7 page goTo shows in the label in its direction (one render at its start, one at its end)
+  const [tgt, setTgt] = useState<string | null>(null);
+  useMotionValueEvent(weekH.target, 'change', (v) => live.current.st.view === 'week' && setTgt(v));
+  useMotionValueEvent(monthH.target, 'change', (v) => live.current.st.view === 'month' && setTgt(v));
+  const caps =
+    view === 'week'
+      ? (() => {
+          const prev = tgt && tgt < mon ? tgt : shiftDays(mon, -7);
+          const next = tgt && tgt > mon ? tgt : shiftDays(mon, 7);
+          return { prev: weekCaption(prev, today), cur: weekCaption(mon, today), next: weekCaption(next, today) };
+        })()
+      : (() => {
+          const prev = tgt && tgt < first ? tgt : addMonths(first, -1);
+          const next = tgt && tgt > first ? tgt : addMonths(first, 1);
+          return { prev: monthCaption(prev), cur: monthCaption(first), next: monthCaption(next) };
+        })();
+
+  const onThisWeek = useCallback(() => weekH.goTo(live.current.thisMon), [weekH]);
+  const onWeek = useCallback((m: string) => show('week', { mon: m }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const block = usePlanBlock();
+  const renderWeek = useCallback((m: string) => <WeekPage mon={m} onThisWeek={onThisWeek} block={block} />, [onThisWeek, block]);
+  const renderMonth = useCallback((f: string) => <MonthPage first={f} onWeek={onWeek} block={block} />, [onWeek, block]);
+
+  const strava = useLog([]).strava;
+  const paneCls = (v: View) => (view === v ? 'is-on' : st.leaving === v ? 'is-leaving' : 'is-off');
+  const hidden = (v: View) => view !== v || undefined;
+  // the pane that is neither shown nor fading out defers its updates (a drop re-renders the shown pages only)
+  const mode = (v: View) => (view === v || st.leaving === v ? 'visible' : 'hidden');
   return (
-    <div ref={root} className={`page plan plan-${view}`}>
-      <TabHeader
-        title="Plan"
-        date={dateText}
-        onDateStep={(d) => (view === 'week' ? goWeek(shiftDays(mon, 7 * d)) : goMonth(addMonths(first, d)))}
-        accessory={
-          <button type="button" className="pl-zoom" onClick={() => (view === 'week' ? zoomOut() : zoomIn(monthOf(t) === monthOf(first) ? thisMon : firstWeekOf(first)))} aria-label={view === 'week' ? 'Zoom out to the month' : 'Back to the week'}>
-            {view === 'week' ? 'Month' : 'Week'}
-          </button>
-        }
+    <div className={`page-root plan-root plan-${view}`}>
+      <NavBar
+        caps={caps}
+        title={{ cur: 'Plan' }}
+        progress={handle.progress}
+        wideTrailing
+        trailing={<Segmented key="seg" className="in-bar" label="Week or month" value={view} onChange={(v: View) => v !== live.current.st.view && show(v)} options={[['week', 'Week'], ['month', 'Month']]} />}
+        onTitlePress={() => {
+          const s = live.current.st;
+          if (s.view === 'week' ? s.mon !== live.current.thisMon : s.first !== live.current.thisFirst) goHome();
+        }}
+        titleMenu={titleMenu}
+        titleLabel={atHome ? 'Plan' : view === 'week' ? 'Plan. Go to this week' : 'Plan. Go to this month'}
+        titleRef={titleRef}
+        gap={24}
       />
-      {view === 'week' ? (
-        <div className="pl-pullwrap">
-          <PullHint pull={pull} />
-          <motion.div style={{ y: pull }}>
-          <DatePager
-            className="pl-pager"
-            date={mon}
-            step="week"
-            onChange={goWeek}
-            label="Week"
-            prevLabel="Previous week"
-            nextLabel="Next week"
-            render={(m) => <WeekPage mon={m} log={log} focus={focusWeek === m && m === mon} conflict={m === mon ? conflict : null} setConflict={setConflict} onZoomOut={() => zoomOut(m)} onThisWeek={() => goWeek(thisMon)} pull={pull} />}
-          />
-          <BlockCard log={log} />
-          </motion.div>
-        </div>
-      ) : (
-        <>
-          <MonthGrid anchor={anchor} log={log} onWeek={zoomIn} onStep={(d) => goMonth(addMonths(first, d))} focusWeek={focusWeek} />
-          <BlockCard log={log} />
-        </>
-      )}
-      {log.strava?.error ? (
-        <div className="sec-secondary">
-          <Note kind="warn">{log.strava.error}</Note>
+      <div className="pl-panes">
+        <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
+          <Activity mode={mode('week')}>
+            <DayPager className="pl-wpager" date={mon} step="week" handle={weekH} onCommit={commitWeek} render={renderWeek} label="Week" prevLabel="Previous week" nextLabel="Next week" />
+          </Activity>
+        </section>
+        {monthOn ? (
+          <section ref={monthPane} className={`pl-pane pl-month-pane ${paneCls('month')}`} inert={hidden('month')} aria-hidden={hidden('month')} aria-label="Month">
+            <Activity mode={mode('month')}>
+              <DayPager className="pl-mpager" date={first} step="month" handle={monthH} onCommit={commitMonth} render={renderMonth} label="Month" prevLabel="Previous month" nextLabel="Next month" />
+            </Activity>
+          </section>
+        ) : null}
+      </div>
+      {strava?.error ? (
+        <div className="pl-note">
+          <Note kind="warn">{strava.error}</Note>
         </div>
       ) : null}
     </div>
