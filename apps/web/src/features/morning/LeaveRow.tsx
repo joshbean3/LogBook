@@ -8,7 +8,7 @@ import { short } from './model';
 /** What the Leave row's sub says: the countdown today, the lateness when the run eats into the routine. */
 const subOf = (T: MorningTimeline, rel: 'past' | 'today' | 'future', now: number) => {
   if (T.late) return `${T.late} min later than your routine`;
-  if (rel !== 'today') return `${durationWords(T.leave - T.day.wake)} after the alarm`;
+  if (rel !== 'today') return `${durationWords(T.leave - T.day.wake)} after waking`;
   if (now >= T.leave) return 'Out for the day';
   return `In ${durationWords(Math.max(1, Math.ceil(T.leave - now)))}`;
 };

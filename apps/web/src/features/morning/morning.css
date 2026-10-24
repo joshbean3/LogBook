@@ -10,20 +10,20 @@
 }
 
 /* ---------- the Now card: the four stops and one live line (96 tall, card 20/16, no halo) ---------- */
+/* 13 + the 44 px line (MiniTimeline, WP2's geometry) + 4 + the 22 px line + 13 = 96 */
 .now-card {
   display: grid;
   align-content: center;
   gap: 4px;
   min-height: 96px;
   box-sizing: border-box;
-  padding: 6px 16px 12px;
+  padding: 13px 16px;
   border-radius: var(--r-card);
   border: var(--card-border);
   background: var(--surface);
 }
 .now-card .mini-tl {
   margin: 0;
-  padding-top: 8px;
 }
 .now-line {
   margin: 0;
@@ -223,10 +223,10 @@
 .ah-d {
   grid-area: 1 / 1;
 }
-.ah-d.in {
+.ah-d.is-in {
   animation: ah-in 120ms var(--ease-out) both;
 }
-.ah-d.out {
+.ah-d.is-out {
   animation: ah-out 120ms var(--ease-out) both;
 }
 @keyframes ah-in {
@@ -529,5 +529,12 @@
 @media (max-width: 359px) {
   .leave-row .sch-hit {
     grid-template-columns: 0 32px minmax(0, 1fr) auto;
+  }
+}
+
+/* reduced motion (§10.2): no scale on the dragged Wake row (its surface still answers); fades and the finger's tracking stay */
+@media (prefers-reduced-motion: reduce) {
+  .sch.is-alarm-drag > li.k-wake {
+    scale: none;
   }
 }

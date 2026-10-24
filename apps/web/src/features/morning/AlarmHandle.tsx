@@ -216,12 +216,12 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
       }}
     >
       <span ref={stamp} className="ah-stamp sch-time">
-        <span key={`c${labels.n}`} className={`ah-d ${labels.n ? 'in' : ''}`}>
+        <span key={`c${labels.n}`} className={`ah-d ${labels.n ? 'is-in' : ''}`}>
           {labels.cur}
         </span>
         <span className="sch-flash" aria-hidden="true" data-t={labels.cur} />
         {labels.prev != null ? (
-          <span key={`p${labels.n}`} className="ah-d out" aria-hidden="true" onAnimationEnd={() => setLabels((l) => (l.n === labels.n ? { ...l, prev: null } : l))}>
+          <span key={`p${labels.n}`} className="ah-d is-out" aria-hidden="true" onAnimationEnd={() => setLabels((l) => (l.n === labels.n ? { ...l, prev: null } : l))}>
             {labels.prev}
           </span>
         ) : null}
