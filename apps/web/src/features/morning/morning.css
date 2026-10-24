@@ -275,10 +275,29 @@
   white-space: normal;
 }
 .late-fixes {
+  grid-column: 1 / -1;
+  grid-row: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 14px 8px;
+  margin-top: 12px;
+}
+/* every chip on this page and in its sheets is 44 to the thumb: ui.css gives the height (its ::after reaches above and
+   below the 32 px pill); the width, the rows' spacing (14, so two rows' bands never overlap) and the stacking
+   are set here, so the band is not under the block that follows the chips */
+.late-fixes .chip-btn,
+.se-chips .chip-btn,
+.rt-modes .chip-btn {
+  min-width: 44px;
+  justify-content: center;
+  z-index: 1;
+}
+/* ui.css's band is 6 px past the padding box, 1 px inside the border: 42 in all. 7 makes it 44 */
+.late-fixes .chip-btn::after,
+.se-chips .chip-btn::after,
+.rt-modes .chip-btn::after {
+  top: -7px;
+  bottom: -7px;
 }
 
 /* ---------- a step lifted by the hold and dragged ---------- */
@@ -296,7 +315,8 @@
 }
 
 /* ---------- the Leave row: the endpoint, sticky to the page's bottom inside the group (§4.4) ---------- */
-.leave-row {
+/* `.sch > li` (position: relative) outranks a bare `.leave-row`: the selector carries the same weight so the row sticks */
+.sch > li.leave-row {
   position: sticky;
   z-index: 3;
   bottom: 0;
@@ -308,15 +328,22 @@
 }
 .leave-row .sch-hit {
   grid-template-columns: 48px 32px minmax(0, 1fr) auto;
+  /* 60 tall as every row; 8 above and below when the late sub takes a second line */
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 .leave-stamp {
   position: relative;
+  /* the two stacked labels of its roll share one box */
+  display: inline-grid;
   font: 600 22px/28px var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .leave-row .sch-sub.is-late {
   color: var(--warn);
+  /* `18 min later than your routine` whole (it is the row's news): it wraps rather than losing `routine` */
+  white-space: normal;
 }
 .leave-row.past .leave-stamp {
   color: var(--ink-2);
@@ -357,7 +384,8 @@
   display: grid;
   gap: 12px;
   margin: -6px -16px 0;
-  padding: 6px 16px 14px;
+  /* 12 above the mode chips: their 44 px band clears the sheet's grab zone */
+  padding: 12px 16px 14px;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
@@ -484,7 +512,7 @@
 .se-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 14px 8px;
 }
 .se-ideas {
   margin-top: -8px;
@@ -521,14 +549,35 @@
 /* the alarm sheet's two choices: each saves */
 .se-choices {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* two equal halves whatever the labels: `Just tomorrow` must not widen the sheet past a 320 screen */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+.se-choices > .btn {
+  min-width: 0;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 /* 320: the Leave row's empty time column gives its room to the name, so `Leave for work` never truncates */
 @media (max-width: 359px) {
   .leave-row .sch-hit {
     grid-template-columns: 0 32px minmax(0, 1fr) auto;
+  }
+  /* the run row keeps `4 mi · back 8:13` whole: the pace goes */
+  .sch-sub .sub-pace {
+    display: none;
+  }
+  /* six length chips on one line: 40 to the eye (padding 10), 44 to the thumb (the band reaches 3 px past the padding
+     box, 2 past the border, each side) */
+  .se-chips .chip-btn {
+    min-width: 40px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .se-chips .chip-btn::after {
+    left: -3px;
+    right: -3px;
   }
 }
 

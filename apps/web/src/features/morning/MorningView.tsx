@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouteParams } from '@/app/NavController';
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
+import { useToday } from '@/lib/useToday';
 import { dayCaption, Pressable, PushedBar, Skeleton, SkeletonGroup, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useNowMinutes } from '../day/useNow';
@@ -57,8 +58,8 @@ export default function MorningView() {
   const params = useRouteParams();
   const sheet = useSheet();
   const toast = useToast();
-  const base = useLog([]);
-  const today = base.today;
+  // today's date straight from its clock: a second useLog here built a second snapshot of the month on the push's commit
+  const today = useToday();
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today;
   const months = useMemo(() => [monthOf(date)], [date]);
   const log = useLog(months);

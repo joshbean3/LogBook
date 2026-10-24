@@ -77,6 +77,20 @@ const Progress = ({ p }: { p: number }) => (
  */
 export const Flash = ({ t }: { t: string }) => <span className="sch-flash" aria-hidden="true" data-t={t} />;
 
+/** The run row's sub with its pace as a part a narrow screen drops (`4 mi · back 8:13` at 320: the time back is the news). */
+const subOf = (r: SchedRow): ReactNode => {
+  const m = r.kind === 'work' ? /^(.+? mi)( · [^·]+\/mi)( · back .+)$/.exec(r.sub) : null;
+  return m ? (
+    <>
+      {m[1]}
+      <span className="sub-pace">{m[2]}</span>
+      {m[3]}
+    </>
+  ) : (
+    r.sub
+  );
+};
+
 /** One row type: time 48 · icon disc 32 · name and sub. Nothing on the right. */
 const RowBody = ({ r, time, moved }: { r: SchedRow; time: ReactNode; moved?: boolean }) => {
   const Icon = iconOf(r);
@@ -95,7 +109,7 @@ const RowBody = ({ r, time, moved }: { r: SchedRow; time: ReactNode; moved?: boo
       </span>
       <span className="sch-main">
         <span className="sch-name">{r.name}</span>
-        {r.sub ? <span className="sch-sub">{r.sub}</span> : null}
+        {r.sub ? <span className="sch-sub">{subOf(r)}</span> : null}
       </span>
     </>
   );
@@ -116,14 +130,15 @@ const LateBody = ({ T, fix, interactive }: { T: MorningTimeline; fix?: LateFixes
         <span className="sch-name late-text">
           Back {short(T.back)}, {T.late} min past the routine
         </span>
-        {interactive && fix ? (
-          <span className="late-fixes">
-            <ChipButton onClick={() => fix.wake(wake)}>Wake {short(wake)}</ChipButton>
-            {miles != null && miles >= 0.5 && fix.miles ? <ChipButton onClick={() => fix.miles!(miles)}>Run {num(miles)} mi</ChipButton> : null}
-            {fix.skipRun ? <ChipButton onClick={fix.skipRun}>Skip the run</ChipButton> : null}
-          </span>
-        ) : null}
       </span>
+      {interactive && fix ? (
+        // the fixes take the row's whole width under the note (from the time column), so three chips fit one line at 390
+        <span className="late-fixes">
+          <ChipButton onClick={() => fix.wake(wake)}>Wake {short(wake)}</ChipButton>
+          {miles != null && miles >= 0.5 && fix.miles ? <ChipButton onClick={() => fix.miles!(miles)}>Run {num(miles)} mi</ChipButton> : null}
+          {fix.skipRun ? <ChipButton onClick={fix.skipRun}>Skip the run</ChipButton> : null}
+        </span>
+      ) : null}
     </div>
   );
 };

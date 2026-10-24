@@ -1,7 +1,8 @@
 import { buildMorning, clock, durationWords, monthOf, normalizeMorningSettings, parsePace, routineOf, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMorningMutations } from '@/api/queries';
+import { useBootstrap, useMonths, useMorningMutations } from '@/api/queries';
+import { buildSnapshot } from '@/api/snapshot';
 import { useRouteParams } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, useReduced } from '@/lib/motion';
@@ -9,7 +10,6 @@ import { useToday } from '@/lib/useToday';
 import { Button, ChipButton, Stepper, usePress } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { MiniTimeline } from '../day/MiniTimeline';
-import { useLog } from '../log/useLog';
 import { morningOf, parseWake, ROUTINE_DEFAULTS, short, stopsOf, WAKE_MIN } from './model';
 
 /** The latest a morning's leave field goes (6 pm). */
@@ -228,10 +228,14 @@ export const useOpenRoutineEditor = (): ((focus?: 'leave') => void) => {
   const today = useToday();
   const rp = useRouteParams();
   const date = rp.date && /^\d{4}-\d{2}-\d{2}$/.test(rp.date) ? rp.date : today;
-  const log = useLog(useMemo(() => [monthOf(date)], [date]));
+  const boot = useBootstrap();
+  const { bundles } = useMonths(useMemo(() => [...new Set([monthOf(date), monthOf(today)])].sort(), [date, today]));
   return (focus) => {
-    const st = log.boot?.morningSettings ?? ROUTINE_DEFAULTS;
-    const T = morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st);
+    // the day is read when the sheet opens: building a snapshot on every render of the page holding the hook (This
+    // morning's push commit among them) was work nobody looked at
+    const snap = buildSnapshot(bundles, today, boot.data?.morningSettings?.run?.pace ?? null);
+    const st = boot.data?.morningSettings ?? ROUTINE_DEFAULTS;
+    const T = morningOf(snap.sessionsOn(date), snap.morningOverride(date), st);
     sheet.open({ eyebrow: 'Every morning', title: 'Timings', detent: 'large', body: <RoutineEditor day={T.day} settings={T.settings} focus={focus} /> });
   };
 };

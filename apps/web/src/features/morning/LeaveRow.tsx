@@ -1,7 +1,7 @@
 import { clockOfDay, durationWords, type MorningTimeline } from '@logbook/shared';
 import { Briefcase } from 'lucide-react';
 import type * as React from 'react';
-import { forwardRef, useLayoutEffect, useRef } from 'react';
+import { forwardRef, useLayoutEffect, useRef, useState } from 'react';
 import { Pressable } from '@/ui';
 import { drawnY } from './flip';
 import { short } from './model';
@@ -25,6 +25,11 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
   const ref = useRef<HTMLLIElement | null>(null);
   const sub = subOf(T, rel, now);
   const gone = rel === 'past' || (rel === 'today' && now >= T.leave);
+  // the stamp rolls (§4.5, §0.2): a new time fades in over the old one in the same box, 120 ms (the alarm stamp's two
+  // stacked labels), so a Skip or a routine change reads as the Leave time changing, not as a cut
+  const text = short(T.leave);
+  const [labels, setLabels] = useState({ cur: text, prev: null as string | null, n: 0 });
+  if (labels.cur !== text) setLabels({ cur: text, prev: labels.cur, n: labels.n + 1 });
 
   // --toast-lift: from the scroller's bottom up to where this row rests (a FLIP still running is left out), kept current on
   // every render, scroll and resize, so a toast raised after a change sits above the row's new place
@@ -84,8 +89,15 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
         <span className={`sch-sub ${T.late ? 'is-late' : ''}`}>{sub}</span>
       </span>
       <span className={`leave-stamp ${moved ? 'is-moved' : ''}`}>
-        {short(T.leave)}
-        <span className="sch-flash" aria-hidden="true" data-t={short(T.leave)} />
+        <span key={`c${labels.n}`} className={`ah-d ${labels.n ? 'is-in' : ''}`}>
+          {labels.cur}
+        </span>
+        <span className="sch-flash" aria-hidden="true" data-t={labels.cur} />
+        {labels.prev != null ? (
+          <span key={`p${labels.n}`} className="ah-d is-out" aria-hidden="true" onAnimationEnd={() => setLabels((l) => (l.n === labels.n ? { ...l, prev: null } : l))}>
+            {labels.prev}
+          </span>
+        ) : null}
       </span>
     </>
   );
