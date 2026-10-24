@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createToastStore, TOAST_ACTION_MS, TOAST_MS } from './toastStore';
+import { TOAST_MS, TOAST_UNDO_MS as TOAST_ACTION_MS } from '@/lib/gesture';
+import { createToastStore } from './toastStore';
 
 describe('toast (D-F1)', () => {
   beforeEach(() => vi.useFakeTimers());

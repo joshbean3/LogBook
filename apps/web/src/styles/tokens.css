@@ -54,6 +54,20 @@
   --serif: 'Instrument Serif', 'Instrument Serif Fallback', 'Iowan Old Style', Georgia, serif;
   --display: 'Instrument Serif', 'Instrument Serif Fallback', 'Iowan Old Style', Georgia, serif;
 
+  /* the four radii (spec §0.1): card 20, inset group 12, control 9, pill */
+  --r-card: 20px;
+  --r-group: 12px;
+  --r-control: 9px;
+  /* the nine type sizes (spec §3): size/line */
+  --fs-title: 2.125rem; --lh-title: 2.5rem;
+  --fs-stamp: 1.75rem; --lh-stamp: 2.125rem;
+  --fs-sentence: 1.375rem; --lh-sentence: 1.75rem;
+  --fs-head: 1.25rem; --lh-head: 1.5625rem;
+  --fs-row: 1.0625rem; --lh-row: 1.375rem;
+  --fs-sub: 0.9375rem; --lh-sub: 1.25rem;
+  --fs-foot: 0.8125rem; --lh-foot: 1.125rem;
+  --fs-orb: 0.75rem; --lh-orb: 1rem;
+  --fs-caps: 0.6875rem; --lh-caps: 0.8125rem;
   --r-lg: 20px;
   --r-md: 12px;
   --r-pill: 999px;
@@ -71,12 +85,14 @@
   --dur-color: 200ms;
 
   --tabbar-h: 50px;
+  /* the keyboard's height (lib/keyboard.ts writes it; 0 while it is down) */
+  --kb: 0px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   --gutter: 16px;
   --section: 32px;
   --maxw: 720px;
-  /* experience §3.4 rhythm: 48 before a primary section, 24 before a secondary one, 12 inside a group */
+  /* @deprecated (spec §3: deleted) — kept while journal, progress and reads css read it; delete at integration */
   --sp-primary: 48px;
   --sp-secondary: 24px;
   --sp-group: 12px;

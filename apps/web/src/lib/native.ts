@@ -26,18 +26,42 @@ export const onDeepLink = async (go: (path: string) => void) => {
   }
 };
 
-/** One-time native setup: status bar over the canvas, splash held until first paint. */
+let splashHidden = false;
+/**
+ * Hide the splash with a 200 ms fade. Idempotent: the first call wins. Called in a rAF after the first content paint (WP2's
+ * DayPage; until it lands, App after the framed app's first paint); `bootNative` keeps the 1500 ms hard cap, and
+ * `hideSplashBy(900)` is the cap while only the first-run face is up.
+ */
+export const hideSplash = () => {
+  if (splashHidden) return;
+  splashHidden = true;
+  try {
+    // test hooks: how many times, and when (the splash is native; on the web this is all there is to see)
+    const w = window as Window & { __splashHides?: number; __splashAt?: number };
+    w.__splashHides = (w.__splashHides ?? 0) + 1;
+    w.__splashAt = performance.now();
+  } catch {
+    /* no window */
+  }
+  if (!isNative) return;
+  void import('@capacitor/splash-screen')
+    .then(({ SplashScreen }) => SplashScreen.hide({ fadeOutDuration: 200 }))
+    .catch(() => undefined);
+};
+/** A cap: hide the splash after `ms` if nothing hid it first. */
+export const hideSplashBy = (ms: number) => void setTimeout(hideSplash, ms);
+
+/** One-time native setup: status bar over the canvas, no keyboard accessory, the splash's 1500 ms hard cap. */
 export const bootNative = async () => {
   if (!isNative) return;
   try {
-    const [{ StatusBar, Style }, { SplashScreen }, { Keyboard }] = await Promise.all([import('@capacitor/status-bar'), import('@capacitor/splash-screen'), import('@capacitor/keyboard')]);
+    const [{ StatusBar, Style }, { Keyboard }] = await Promise.all([import('@capacitor/status-bar'), import('@capacitor/keyboard')]);
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setOverlaysWebView({ overlay: true });
     Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => undefined);
-    requestAnimationFrame(() => {
-      setTimeout(() => void SplashScreen.hide({ fadeOutDuration: 240 }), 120);
-    });
   } catch {
     /* plugin missing on this platform */
+  } finally {
+    hideSplashBy(1500);
   }
 };

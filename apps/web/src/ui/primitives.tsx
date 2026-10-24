@@ -1,14 +1,11 @@
-import { Check, ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Check, Plus, X } from 'lucide-react';
+import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { fireHaptic, haptics, type HapticEvent } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
-import { Avatar } from './Avatar';
-import { BackButton } from './headers';
-import { useRouteInfo } from './nav';
-import { usePushedFrame } from './PushedPage';
 import { ghostOf, type GhostKind } from './Ghost';
 import { Skeleton, SkeletonGroup } from './Skeleton';
+import { usePress } from './usePress';
 
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'primary' | 'soft' | 'ghost' | 'quiet' | 'danger'; size?: 'md' | 'sm'; block?: boolean };
 export const Button = ({ variant = 'default', size = 'md', block, className = '', type = 'button', ...rest }: BtnProps) => (
@@ -203,14 +200,16 @@ export const Mark = ({ status, onClick, disabled, label, title, square, haptic }
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
   const on = status === 'done' || status === 'floor';
   const size = square ? 14 : 16;
+  // the one press (§11.1): data-pressed on pointerdown, the CSS 0.97 (it was a 0.9 motion tap)
+  const press = usePress({ disabled });
   return (
-    <motion.button type="button" className="mark-hit" role="checkbox" aria-checked={on} aria-label={label} title={title} disabled={disabled} onClick={onClick} whileTap={disabled || reduce ? undefined : { scale: 0.9 }} transition={springs.press}>
+    <button type="button" className="mark-hit" data-press="scale" role="checkbox" aria-checked={on} aria-label={label} title={title} disabled={disabled} onClick={onClick} {...press.handlers}>
       <span className={`mark m-${status} ${square ? 'square' : ''}`}>
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block' }}>
           <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : on ? { pathLength: { duration: 0.16, delay: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01, delay: 0.16 } } : { duration: 0.1 }} />
         </svg>
       </span>
-    </motion.button>
+    </button>
   );
 };
 
@@ -230,10 +229,48 @@ export const Ring = ({ value, size = 44, stroke = 4, color = 'var(--ok)', childr
   );
 };
 
+/**
+ * Two to four segments with one thumb (`--surface-3`) that slides to the chosen one on `springs.settle` (a transform; no
+ * layoutId, no haptic: §11.4, contracts §C.6). In the bar's 96 px trailing slot pass `className="in-bar"` (96 × 32, radius 9,
+ * 13/600 labels, each half a 44 px hit).
+ */
 export function Segmented<T extends string>({ options, value, onChange, label, className = '', disabled }: { options: Array<[T, ReactNode]>; value: T; onChange: (v: T) => void; label: string; className?: string; disabled?: boolean }) {
-  const id = useId();
+  const root = useRef<HTMLDivElement>(null);
+  const thumb = useRef<HTMLSpanElement>(null);
+  const x = useMotionValue(0);
+  const placed = useRef(false);
+  const reduce = useReducedMotion();
+  useLayoutEffect(() => {
+    const el = root.current;
+    const th = thumb.current;
+    if (!el || !th) return;
+    let anim: { stop: () => void } | undefined;
+    const place = (animateIt: boolean) => {
+      const on = el.querySelector<HTMLElement>('.seg-btn[aria-checked="true"]');
+      if (!on) return;
+      th.style.width = `${on.offsetWidth}px`;
+      anim?.stop();
+      if (animateIt && placed.current && !reduce) anim = animate(x, on.offsetLeft, springs.settle);
+      else x.jump(on.offsetLeft);
+      placed.current = true;
+    };
+    place(true);
+    // a resize re-places the thumb at once (the observer's first call, on observe, is not a resize)
+    let w = el.offsetWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.offsetWidth === w) return;
+      w = el.offsetWidth;
+      place(false);
+    });
+    ro.observe(el);
+    return () => {
+      anim?.stop();
+      ro.disconnect();
+    };
+  }, [value, reduce, x]);
   return (
-    <div className={`seg ${className}`} role="radiogroup" aria-label={label}>
+    <div ref={root} className={`seg ${className}`.trim()} role="radiogroup" aria-label={label}>
+      <motion.span ref={thumb} className="seg-thumb" style={{ x }} aria-hidden="true" />
       {options.map(([k, text]) => (
         <button
           key={k}
@@ -243,13 +280,11 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
           className="seg-btn"
           disabled={disabled}
           onClick={() => {
-            if (value === k) return;
-            haptics.select();
-            onChange(k);
+            // no haptic on a segmented change (§11.4, contracts §C.6)
+            if (value !== k) onChange(k);
           }}
         >
-          {value === k ? <motion.span layoutId={`thumb-${id}`} className="seg-thumb" transition={springs.settle} /> : null}
-          <span style={{ position: 'relative', zIndex: 1 }}>{text}</span>
+          <span className="seg-label">{text}</span>
         </button>
       ))}
     </div>
@@ -349,44 +384,6 @@ export const AuraStat = ({ label, value, unit, note, className = '' }: { label: 
 };
 /** Three stats in a row, divided by hairlines. */
 export const StatStrip = ({ children, className = '' }: { children: ReactNode; className?: string }) => <div className={`strip ${className}`}>{children}</div>;
-
-export const DateNav = ({ onPrev, onNext, prevLabel, nextLabel, children }: { onPrev: () => void; onNext: () => void; prevLabel: string; nextLabel: string; children?: ReactNode }) => (
-  <div className="row" style={{ gap: 0 }}>
-    <IconButton label={prevLabel} onClick={onPrev}>
-      <ChevronLeft size={22} />
-    </IconButton>
-    <IconButton label={nextLabel} onClick={onNext}>
-      <ChevronRight size={22} />
-    </IconButton>
-    {children}
-  </div>
-);
-
-/**
- * @deprecated v1 header, kept until each page moves to `TabHeader` (tabs) or `PushedHeader` (pushed pages). It now knows
- * where it is: on a pushed page it leads with the back chevron; on a tab it ends with the Avatar (the way to Settings).
- */
-export const PageHeader = ({ title, sub, actions, children }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode }) => {
-  const pushed = !!usePushedFrame();
-  // Settings lights no tab; the avatar, ringed, says where you are
-  const onSettings = useRouteInfo().section === 'settings';
-  return (
-    <header className={`ph ${pushed ? 'is-pushed' : ''}`}>
-      <div className="ph-top">
-        {pushed ? <BackButton /> : null}
-        <div className="ph-text">
-          <h1 className="ph-title">{title}</h1>
-          {sub ? <span className="ph-sub">{sub}</span> : null}
-        </div>
-        <div className="ph-actions">
-          {actions}
-          {pushed && !onSettings ? null : <Avatar />}
-        </div>
-      </div>
-      {children ? <div className="ph-tools">{children}</div> : null}
-    </header>
-  );
-};
 
 export const CloseButton = ({ onClick }: { onClick: () => void }) => (
   <IconButton label="Close" onClick={onClick}>

@@ -187,8 +187,10 @@
   }
 }
 
-/* ---------- Pressable ---------- */
-.pressable {
+/* ---------- Pressable ----------
+ * The reset has no specificity (:where), so a component's own single-class style (a card's padding, a row's background)
+ * always wins over it, whatever order the stylesheets load in (consumer review 1 #8). */
+:where(.pressable) {
   appearance: none;
   background: none;
   border: 0;
@@ -210,16 +212,14 @@
 }
 
 /* ---------- ContextMenu ---------- */
-/* focus handed back after a sheet or menu was closed by a pointer: no ring (ui/focus.ts; a key press brings it back) */
-[data-quiet-focus]:focus-visible {
-  outline: none;
-}
 /*
- * Focus rings are for the keyboard only, everywhere (polish 15). ui/focus.ts sets data-input on <html> from the last
- * input: a touch or a click turns every ring off (even one the browser decided to show, like the week ring after a sheet
- * closed by Escape and then a swipe), and the next key press turns them back on.
+ * Focus rings are for the keyboard only, everywhere (polish 15). ui/focus.ts marks the focused element with
+ * data-quiet-focus while the last input is a pointer (and on focus handed back after a sheet or menu was closed by one):
+ * a touch or a click turns its ring off (even one the browser decided to show, like the week ring after a sheet closed by
+ * Escape and then a swipe), and the next key press turns it back on. One element's attribute, never <html>'s: a rule keyed
+ * on the root restyled the whole document on every switch (feel review 2 N5).
  */
-:root[data-input='pointer'] :focus-visible {
+[data-quiet-focus]:focus-visible {
   outline: none !important;
   /* the hero pager and the Progress plots draw their ring as a shadow */
   box-shadow: none !important;
@@ -280,29 +280,24 @@
   position: fixed;
   inset: 0;
   z-index: 70;
-  touch-action: none;
+  /* the hole catches nothing: taps outside are a capture-phase listener (ContextMenu.tsx) */
+  pointer-events: none;
 }
-/* opacity only (ContextMenu animates it): a blur under a fading scrim was re-sampled on every frame of the menu's arrival */
-.cm-scrim {
-  position: absolute;
-  inset: 0;
-  background: var(--scrim-menu);
-}
-.cm-lift {
+/*
+ * The cut-out scrim (§11.2): a box at the lifted element's rest rect whose spread shadow dims everything else, the bar and
+ * the tab bar included; the real element shows through it undimmed, with no z-index. Its scale rides the element's lift.
+ * Opacity only (no backdrop-filter).
+ */
+.cm-hole {
   position: fixed;
-  z-index: 1;
+  pointer-events: none;
   transform-origin: 50% 50%;
-}
-.cm-lift.has-preview {
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-menu);
-  overflow: hidden;
-  padding: 16px;
+  box-shadow: 0 0 0 200vmax var(--scrim-menu);
 }
 .cm-menu {
   position: fixed;
   z-index: 2;
+  pointer-events: auto;
   display: grid;
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
@@ -333,7 +328,7 @@
 .cm-item.destructive {
   color: var(--bad);
 }
-.cm-item:active:not(:disabled),
+.cm-item[data-pressed]:not(:disabled),
 .cm-item:focus-visible {
   background: var(--surface-3);
   outline: none;
@@ -357,7 +352,7 @@
   color: var(--bad);
 }
 
-/* ---------- SwipeRow ---------- */
+/* ---------- SwipeRow v2 (§11.3): the pane behind, the action a 72 px button at the revealed edge ---------- */
 .swipe-row {
   position: relative;
   overflow: hidden;
@@ -367,8 +362,7 @@
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  padding: 0 20px;
+  align-items: stretch;
   background: var(--surface-2);
   color: var(--ink-2);
   transition:
@@ -384,21 +378,38 @@
 .swipe-pane.from-left {
   justify-content: flex-end;
 }
-.is-armed .swipe-pane.tone-ok {
+.is-armed .swipe-pane.tone-ok,
+.swipe-row[data-revealed] .swipe-pane.tone-ok {
   background: var(--ok);
   color: #fff;
 }
-.is-armed .swipe-pane.tone-warn {
+.is-armed .swipe-pane.tone-warn,
+.swipe-row[data-revealed] .swipe-pane.tone-warn {
   background: var(--warn);
   color: #000;
 }
-.is-armed .swipe-pane.tone-bad {
+.is-armed .swipe-pane.tone-bad,
+.swipe-row[data-revealed] .swipe-pane.tone-bad {
   background: var(--bad);
   color: #fff;
 }
-.is-armed .swipe-pane.tone-neutral {
+.is-armed .swipe-pane.tone-neutral,
+.swipe-row[data-revealed] .swipe-pane.tone-neutral {
   background: var(--surface-3);
   color: var(--ink);
+}
+.swipe-action {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  width: 72px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .swipe-act {
   display: inline-grid;
@@ -604,8 +615,9 @@
   height: 24px;
   font-size: 0.75rem;
 }
-.avatar:active .avatar-disc {
+.avatar[data-pressed] .avatar-disc {
   transform: scale(0.97);
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .avatar.on .avatar-disc {
   box-shadow:
@@ -789,15 +801,51 @@ button.tabh-date::after,
   right: 8px;
 }
 
-/* ---------- Sheet v2 header ---------- */
+/* ---------- Sheet v3 header: the grabber row (24) and the title row; a drag may start anywhere here ---------- */
 .sheet-grab {
+  flex: none;
   touch-action: none;
-  position: sticky;
-  top: -6px;
-  z-index: 3;
   background: var(--bg);
-  margin: -6px -16px 0;
-  padding: 6px 16px 0;
+  padding: 0 16px 8px;
+}
+.sheet-grab-bar {
+  height: 24px;
+  display: grid;
+  place-items: center;
+}
+button.sheet-grab-bar {
+  appearance: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  border-radius: var(--r-md);
+}
+button.sheet-grab-bar .sheet-grip {
+  display: block;
+}
+/* a smaller detent than the box: the body's scroller ends at the screen's bottom (Sheet.tsx writes --sheet-inset on a snap) */
+.sheet-stack {
+  padding-bottom: var(--sheet-inset, 0px);
+}
+/* a sheet taller than 80 % of the screen keeps its top when the keys come: no lift, its body ends above them (§9.4) */
+.sheet[data-tall] {
+  bottom: 0;
+  transition: none;
+}
+.sheet[data-tall]:not([data-box='large']) {
+  max-height: calc(100% - var(--safe-t) - 10px);
+}
+html.kb-open .sheet[data-tall][data-box='auto'] {
+  height: var(--sheet-box-h, auto);
+}
+.sheet[data-tall] .sheet-stack {
+  padding-bottom: calc(var(--sheet-inset, 0px) + var(--kb, 0px));
+}
+.sheet-grab-bar .sheet-grip {
+  margin: 0;
 }
 .sheet-titles {
   position: relative;
@@ -833,20 +881,9 @@ button.tabh-date::after,
 .sheet .sheet-title:focus {
   outline: none;
 }
-/* the shared title in flight: a fixed copy above the sheet, so the sheet's clipping never cuts it */
-.sheet-flyer {
-  position: fixed;
-  z-index: 5;
-  margin: 0;
-  transform-origin: 0 0;
-  pointer-events: none;
-  white-space: nowrap;
-}
 @media (min-width: 700px) {
   .sheet-grab {
-    margin: -12px -20px 0;
-    padding: 12px 20px 0;
-    top: -12px;
+    padding: 0 20px 8px;
   }
 }
 
@@ -910,9 +947,10 @@ button.tabh-date::after,
   position: absolute;
   inset: -4px -2px;
 }
-.daystep-arrow:active {
+.daystep-arrow[data-pressed] {
   background: var(--surface-3);
-  transform: scale(0.92);
+  transform: scale(0.97);
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .daystep-arrow + .daystep-arrow::before {
   content: '';
@@ -964,4 +1002,482 @@ button.tabh-date::after,
   .daystep-today svg {
     display: none;
   }
+}
+
+/* ---------- the one press (docs/feel.md §11.1, M33): data-pressed is set synchronously on pointerdown ---------- */
+.pressable[data-press='scale'],
+.mark-hit[data-press='scale'],
+.wring.is-btn[data-press='scale'] {
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-pressed][data-press='scale'] {
+  transform: scale(0.97);
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-pressed][data-press='surface'] {
+  background: var(--surface-2);
+}
+[data-pressed][data-press='dim'] {
+  opacity: 0.55;
+}
+/* the hold (§11.2): the pre-grow at 300 ms (visual only), then the lift in place (ui/lift.ts writes the element's scale) */
+[data-preholding],
+[data-preholding][data-press] {
+  transform: scale(1.02);
+  transition: transform 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-lifting] {
+  transition: none !important;
+}
+
+/* ---------- the bar, the large title, the strip (docs/feel.md §2.7, contracts §B.2) ----------
+ * NavBar renders these as direct children of the page element (a fragment): the bar and the strip stick inside that
+ * element's box. --hdr (0..1 over the first 44 px of scroll) is written on the tab scroller; nothing here animates layout. */
+.nb-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: calc(44px + var(--safe-t));
+  padding: var(--safe-t) 16px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px;
+  align-items: center;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+.nb-bar.has-seg {
+  grid-template-columns: minmax(0, 1fr) 96px;
+}
+.nb-bar.is-collapsed {
+  box-shadow: 0 1px 0 var(--line);
+}
+.nb-bar .nb-cap {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  min-height: 44px;
+  min-width: 0;
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: left;
+}
+.nb-word {
+  flex: none;
+}
+.nb-date {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  opacity: calc(1 - var(--hdr, 0));
+}
+.nb-bar .nb-inline {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(-50%);
+  max-width: max(0px, calc(100% - 2 * (24px + var(--nb-word-w, 0px))));
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: var(--hdr, 0);
+  font: 600 17px/22px var(--sans);
+  color: var(--ink);
+}
+/* the dim press, relative to the fade the scroll gives each (the plain rule would lose to their opacity) */
+.nb-title[data-pressed][data-press='dim'] {
+  opacity: calc(0.55 * (1 - var(--hdr, 0)));
+}
+.nb-bar .nb-inline[data-pressed][data-press='dim'] {
+  opacity: calc(0.55 * var(--hdr, 0));
+}
+/* the inline title takes taps only once it shows (collapsed): at rest it is invisible over the caps line */
+.nb-bar .nb-inline {
+  pointer-events: none;
+}
+.nb-bar.is-collapsed .nb-inline {
+  pointer-events: auto;
+}
+.nb-bar .nb-inline[data-preholding] {
+  transform: translateX(-50%) scale(1.02);
+}
+.nb-inline > .nb-sl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nb-trail {
+  grid-column: 2;
+  position: relative;
+  height: 44px;
+}
+.nb-trail > * {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+.nb-trail-item {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+/* the old headers' accessory beside the avatar (the TabHeader adapter) */
+.nb-acc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+}
+.nb-title {
+  position: relative;
+  display: block;
+  /* the row is 44 (§2.1: 4 above a 34/40 line); the 4 is padding, not margin, so the title's target is 44 tall (§2.3) */
+  box-sizing: border-box;
+  margin: 0 16px;
+  padding-top: 4px;
+  height: 44px;
+  min-height: 44px;
+  font: italic 400 34px/40px var(--display);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: calc(1 - var(--hdr, 0));
+  touch-action: pan-y;
+}
+/* the stacked labels: the cur one in flow, prev and next over it (opacities written from the pager's progress) */
+.nb-sl {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+.nb-sl-abs {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.nb-date > .nb-sl-abs {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.nb-title > .nb-sl-abs {
+  top: 4px; /* under the title's 4 px top padding, on the cur label's line */
+  left: 0;
+}
+.nb-inline > .nb-sl-abs {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.nb-strip {
+  position: sticky;
+  top: calc(44px + var(--safe-t));
+  z-index: 19;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 52px;
+  height: 53px;
+  background: var(--bg);
+  touch-action: pan-y;
+}
+.nb-strip::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.nb-strip .nb-cell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  padding-top: 6px;
+  gap: 2px;
+  height: 52px;
+  min-height: 44px;
+  min-width: 0;
+}
+.nb-letter {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.nb-cell.is-today .nb-letter {
+  color: var(--ink);
+}
+.nb-num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font: 600 15px/20px var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.nb-cell.is-today:not(.is-shown) .nb-num {
+  color: var(--accent-text);
+}
+.nb-cell.is-shown .nb-num {
+  color: #fff;
+}
+.nb-disc {
+  position: absolute;
+  top: 21px;
+  left: 0;
+  margin-left: calc(100% / 14 - 14px);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  will-change: transform;
+  pointer-events: none;
+}
+.nb-disc.is-today {
+  background: var(--accent);
+}
+.nb-dot {
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+}
+.nb-dot.is-done,
+.nb-dot.is-bonus {
+  background: var(--accent);
+}
+.nb-dot.is-floor {
+  background: var(--warn);
+}
+.nb-dot.is-planned {
+  box-shadow: inset 0 0 0 1px var(--ink-3);
+}
+.nb-dot.is-missed,
+.nb-dot.is-skipped {
+  background: var(--ink-4);
+}
+.nb-gap {
+  height: 16px;
+}
+.nb-gap.lg {
+  height: 24px;
+}
+/*
+ * A paged tab root's page element (contracts §A.3): full-bleed, no gutter and no bottom padding of its own (the cur page
+ * carries the padding, so its min-height includes it). `.page` is for unpaged roots (consumer review 1 #11).
+ */
+.page-root {
+  position: relative;
+  display: block;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+/* a NavBar inside an old padded .page (the TabHeader adapter): the bar and the strip break out of the gutter */
+.page > .nb-bar,
+.page > .nb-strip {
+  margin-inline: calc(-1 * var(--gutter));
+}
+.page > .nb-title {
+  margin-inline: calc(16px - var(--gutter));
+}
+.page:has(> .nb-bar:first-child) {
+  padding-top: 0;
+}
+/* the Today pill: 32 tall, 44 hit (§2.4); crossfades with the avatar in the trailing slot */
+.today-pill.pressable {
+  position: relative;
+  height: 32px;
+  min-height: 32px;
+  margin: 6px 0;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  font: 600 13px/16px var(--sans);
+  white-space: nowrap;
+}
+.today-pill::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+/* ---------- the pushed bar (§2.6) ---------- */
+.pushed-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: calc(44px + var(--safe-t));
+  padding-top: var(--safe-t);
+  display: grid;
+  /* the trailing 44 keeps the root bar's 16 px gutter (the avatar does not move on a push); the leading column matches it so
+     the title stays centred, the chevron at the edge (feel review 1 #10) */
+  grid-template-columns: 60px minmax(0, 1fr) 60px;
+  align-items: center;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+.pushed-bar .back-btn {
+  justify-self: start;
+  /* the old header's -12px pull would put 12 px of the 44 px target off the screen's edge */
+  margin-left: 0;
+}
+.pb-text {
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+}
+.pb-title {
+  margin: 0;
+  max-width: 100%;
+  font: 600 17px/22px var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pb-eyebrow {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.pb-trail {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 16px;
+}
+/* focus lands on the title when a page is pushed (for VoiceOver and the keyboard), without a ring on a heading */
+.pb-title:focus {
+  outline: none;
+}
+.pushed-bar.is-collapsed {
+  box-shadow: 0 1px 0 var(--line);
+}
+.page > .pushed-bar {
+  margin-inline: calc(-1 * var(--gutter));
+}
+.page:has(> .pushed-bar:first-child) {
+  padding-top: 0;
+}
+
+/* ---------- DayPager v2 (§9.2, §3.5) ----------
+ * (the attribute keeps the contract's .dp ahead of features/sessions/sessions.css, whose day picker also uses .dp) */
+.dp,
+.dp[aria-roledescription='pager'] {
+  display: block;
+  gap: 0;
+  position: relative;
+  overflow-x: clip;
+  touch-action: pan-y;
+  outline: none;
+}
+.dp:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.dp-track {
+  position: relative;
+  touch-action: pan-y;
+  will-change: transform;
+}
+.dp-page {
+  min-width: 0;
+}
+.dp-page[data-role='cur'] {
+  position: relative;
+  min-height: calc(var(--scroller-h) - var(--chrome-h));
+}
+.dp-page[data-role='prev'],
+.dp-page[data-role='next'] {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.dp-page[data-role='prev'] {
+  left: -100%;
+}
+.dp-page[data-role='next'] {
+  left: 100%;
+}
+/* a pager that is a block inside a page (the DatePager adapter: the old hero, Morning, Plan, the day picker) keeps its own height */
+.dp-intrinsic > .dp-track > .dp-page[data-role='cur'] {
+  min-height: 0;
+}
+
+/* ---------- Segmented (§2.4, contracts §C.6): one thumb on springs.settle ---------- */
+.seg .seg-thumb {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: auto;
+  inset-inline-end: auto;
+  will-change: transform;
+}
+.seg-label {
+  position: relative;
+  z-index: 1;
+}
+/* the press on touch-down (§11.1): a segment's label dims; the thumb answers the change itself (consumer review 1 #9) */
+.seg-label {
+  transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.seg-btn[data-pressed]:not(:disabled) .seg-label {
+  opacity: 0.55;
+  transition-duration: 120ms;
+}
+.seg.in-bar {
+  width: 96px;
+  height: 32px;
+  margin: 6px 0;
+  gap: 0;
+  border-radius: 9px;
+}
+.seg.in-bar .seg-btn {
+  padding: 0;
+  border-radius: 9px;
+  font: 600 13px/16px var(--sans);
+}
+.seg.in-bar .seg-btn::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.seg.in-bar .seg-thumb {
+  border-radius: 9px;
+}
+
+/* ---------- WeekRing: the shown day marked, a missed day a quiet gap ---------- */
+.wring-gap {
+  stroke: var(--ink-4);
+}
+/* the DatePager adapter's old hosts (deleted with it): their pager carried the gutter as padding; it moves onto each page so
+   an always-mounted neighbour never shows in the gutter */
+.dp.pl-pager,
+.dp.m-pager {
+  padding-inline: 0;
+}
+.dp.pl-pager > .dp-track > .dp-page,
+.dp.m-pager > .dp-track > .dp-page {
+  padding-inline: var(--page-pad);
+  white-space: normal;
 }

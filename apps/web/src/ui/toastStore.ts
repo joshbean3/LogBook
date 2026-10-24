@@ -1,6 +1,9 @@
+import { TOAST_MS, TOAST_UNDO_MS } from '@/lib/gesture';
+
 /**
  * The toast's state, outside React so it can be tested without a DOM. One toast at a time: `show` replaces whatever is
- * up and starts its timer (2.8s, 6.5s with an action, or the action's own `duration`); `act(id)` runs the action of the toast with that id.
+ * up and starts its timer (TOAST_MS 4 s plain, TOAST_UNDO_MS 6 s with an action, or the action's own `duration`;
+ * docs/feel.md §8, contracts §C.7); `act(id)` runs the action of the toast with that id.
  *
  * D-F1: an action that shows a follow-up toast ("Ease them" → "Eased. Undo") used to lose it, because the old code ran
  * the action and then cleared the toast, wiping the one the action had just shown. `act` clears only the toast that was
@@ -9,7 +12,7 @@
 export interface ToastAction {
   label: string;
   fn: () => void;
-  /** How long the toast stays up, in ms (default 6.5s). For an Undo whose consequence is large, e.g. replacing a plan. */
+  /** How long the toast stays up, in ms (default TOAST_UNDO_MS, 6 s). For an Undo whose consequence is large, e.g. replacing a plan. */
   duration?: number;
 }
 export interface ToastSpec {
@@ -18,8 +21,6 @@ export interface ToastSpec {
   action?: ToastAction;
 }
 
-export const TOAST_MS = 2800;
-export const TOAST_ACTION_MS = 6500;
 
 // the timers are called through arrows: a bare `setTimeout` called as a method throws "Illegal invocation" in browsers
 const realTimers = { set: (fn: () => void, ms: number) => setTimeout(fn, ms), clear: (t: ReturnType<typeof setTimeout> | undefined) => clearTimeout(t) };
@@ -45,7 +46,7 @@ export const createToastStore = (timers: { set: (fn: () => void, ms: number) => 
       timers.clear(timer);
       const id = ++seq;
       current = { id, text, action };
-      timer = timers.set(() => dismiss(id), action ? (action.duration ?? TOAST_ACTION_MS) : TOAST_MS);
+      timer = timers.set(() => dismiss(id), action ? (action.duration ?? TOAST_UNDO_MS) : TOAST_MS);
       emit();
       return id;
     },

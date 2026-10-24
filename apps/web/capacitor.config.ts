@@ -20,7 +20,8 @@ const config: CapacitorConfig = {
     CapacitorCookies: { enabled: true },
     SplashScreen: { launchShowDuration: 0, launchAutoHide: false, backgroundColor: '#000000', showSpinner: false },
     StatusBar: { style: 'DARK', overlaysWebView: true },
-    Keyboard: { resize: 'native', resizeOnFullScreen: true },
+    // the WebView never resizes for the keyboard: lib/keyboard.ts writes --kb and html.kb-open (docs/feel.md §12)
+    Keyboard: { resize: 'none', resizeOnFullScreen: false },
   },
 };
 

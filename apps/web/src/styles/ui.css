@@ -108,12 +108,20 @@
 .group {
   background: var(--surface);
   border: var(--card-border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-group);
   box-shadow: var(--shadow-1);
   overflow: hidden;
 }
 .group > * + * {
   border-top: 1px solid var(--line);
+}
+/* the plain row inside an inset group: 44, or 60 with a sub (spec §3) */
+.group > .row {
+  min-height: 44px;
+  padding: 0 16px;
+}
+.group > .row.two {
+  min-height: 60px;
 }
 .group-pad {
   padding: 12px 16px;
@@ -175,7 +183,7 @@
   text-decoration: none;
   transition: background var(--dur-fast);
 }
-.lrow.tappable:active {
+.lrow.tappable[data-pressed] {
   background: var(--surface-2);
 }
 @media (hover: hover) {
@@ -198,7 +206,7 @@ label.lrow {
   cursor: pointer;
   transition: background var(--dur-fast);
 }
-label.lrow:active {
+label.lrow[data-pressed] {
   background: var(--surface-2);
 }
 /* the verb at the right of a whole-row action ("Connect", "Import"): a word, not a second button */
@@ -375,12 +383,17 @@ label.lrow:active {
   gap: 6px;
   white-space: nowrap;
   transition:
-    transform 100ms var(--ease-out),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
     background var(--dur-fast),
     opacity var(--dur-fast);
 }
-.btn:active:not(:disabled) {
-  transform: scale(0.98);
+/* the one press (§11.1): data-pressed on pointerdown (ui/usePress.ts delegates it to plain buttons), 0.97 in 120 ms */
+.btn[data-pressed]:not(:disabled) {
+  transform: scale(0.97);
+  transition:
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+    background var(--dur-fast),
+    opacity var(--dur-fast);
 }
 .btn:disabled {
   opacity: 0.4;
@@ -445,7 +458,7 @@ label.lrow:active {
   flex: none;
   transition:
     background var(--dur-fast),
-    transform 100ms var(--ease-out);
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 @media (hover: hover) {
   .icon-btn:hover:not(:disabled) {
@@ -453,8 +466,11 @@ label.lrow:active {
     color: var(--ink);
   }
 }
-.icon-btn:active:not(:disabled) {
-  transform: scale(0.92);
+.icon-btn[data-pressed]:not(:disabled) {
+  transform: scale(0.97);
+  transition:
+    background var(--dur-fast),
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .icon-btn:disabled {
   opacity: 0.3;
@@ -503,8 +519,8 @@ label.lrow:active {
 .sec-head .link {
   color: var(--ink-2);
 }
-.link:active {
-  opacity: 0.6;
+.link[data-pressed] {
+  opacity: 0.55;
 }
 @media (hover: hover) {
   .link:hover {
@@ -577,7 +593,7 @@ label.lrow:active {
   gap: 6px;
   white-space: nowrap;
   transition:
-    transform 100ms var(--ease-out),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
     background var(--dur-fast),
     color var(--dur-fast);
 }
@@ -588,8 +604,12 @@ label.lrow:active {
     background: var(--surface-2);
   }
 }
-.chip-btn:active:not(:disabled) {
+.chip-btn[data-pressed]:not(:disabled) {
   transform: scale(0.97);
+  transition:
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+    background var(--dur-fast),
+    color var(--dur-fast);
 }
 /* a 32px chip to the eye, 44px to the thumb */
 .chip-btn::after {
@@ -832,47 +852,75 @@ textarea.in {
   cursor: default;
 }
 
-/* ---------- sheet ---------- */
+/* ---------- sheet v3 (docs/feel.md §9.4): transforms only; sheetY moves it, the scrim and the recede ride sheetY ---------- */
 .sheet-wrap {
   position: fixed;
   inset: 0;
   z-index: 40;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
 }
 .sheet-scrim {
   position: absolute;
   inset: 0;
-  background: var(--scrim);
+  background: #000;
+  opacity: 0;
 }
 .sheet {
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  bottom: var(--kb, 0px);
+  transition: bottom 250ms cubic-bezier(0.32, 0.72, 0, 1);
   background: var(--bg);
   width: 100%;
   max-width: 560px;
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
+  /* auto: the content's height, at most the large detent (a tall sheet shrinks above the keyboard instead of lifting) */
+  max-height: calc(100% - var(--safe-t) - 10px - var(--kb, 0px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 20px 20px 0 0;
   box-shadow: var(--shadow-sheet);
   border-top: 1px solid var(--line-strong);
-  padding: 6px 16px calc(16px + var(--safe-b));
-  display: grid;
-  gap: 12px;
-  align-content: start;
   touch-action: pan-y;
+  will-change: transform;
   container: sheet / inline-size;
+}
+.sheet[data-box='large'] {
+  top: calc(var(--safe-t) + 10px);
+  max-height: none;
 }
 .sheet.wide {
   max-width: 760px;
 }
-/* the large detent: the screen less a 32px peek of the page behind, whatever the content's height */
-.sheet.large {
-  height: calc(100dvh - 32px - var(--safe-t));
+.sheet-stack {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* a push slides sideways inside the sheet: never a horizontal scrollbar */
+  overflow: clip;
 }
-/* a push slides sideways inside the sheet: never a horizontal scrollbar */
-.sheet {
+/* the body is the scroller: a drag may start here only at scrollTop 0 and downward */
+.sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   overflow-x: clip;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 2px 16px calc(16px + var(--safe-b));
+}
+/* the fixed slot under the grabber (the builder's ghost) */
+.sheet-header {
+  flex: none;
+  padding: 0 16px 12px;
+  touch-action: none;
 }
 .sheet-grip {
   width: 36px;
@@ -933,24 +981,22 @@ textarea.in {
   margin-left: auto;
 }
 @media (min-width: 700px) {
-  .sheet-wrap {
-    align-items: center;
-    padding: 24px;
-  }
-  .sheet {
-    border-radius: 16px;
-    padding: 12px 20px 20px;
-  }
-  .sheet-grip {
-    display: none;
+  .sheet-body {
+    padding: 2px 20px 20px;
   }
 }
 
 /* ---------- toast ---------- */
 /* placed by .toast-host (foundation.css): centred above the tab bar, as wide as its words */
+.toast-wrap {
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+}
 .toast {
-  /* the words let taps through to what is under them; only the action takes one (D-F3) */
-  pointer-events: none;
+  /* the pill takes a swipe (away ≥ 110 px/s dismisses it); the action is its one tap */
+  pointer-events: auto;
+  touch-action: none;
   min-height: 44px;
   background: var(--ink);
   color: var(--bg);
@@ -1094,7 +1140,7 @@ textarea.in {
 .card {
   background: var(--surface);
   border: var(--card-border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-card);
   box-shadow: var(--shadow-1);
   padding: 16px;
   display: grid;
@@ -1170,10 +1216,14 @@ textarea.in {
   transition:
     background var(--dur-fast),
     box-shadow var(--dur-fast),
-    transform 100ms var(--ease-out);
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.dcell:active .dcell-pill {
-  transform: scale(0.94);
+.dcell[data-pressed] .dcell-pill {
+  transform: scale(0.97);
+  transition:
+    background var(--dur-fast),
+    box-shadow var(--dur-fast),
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .dcell-num {
   font-variant-numeric: tabular-nums;
@@ -1261,7 +1311,7 @@ textarea.in {
   user-select: none;
   -webkit-user-select: none;
 }
-.aura[role='button']:active {
+.aura[role='button'][data-pressed] {
   background: var(--surface-2);
 }
 .aura-glow {
@@ -1390,10 +1440,10 @@ textarea.in {
   letter-spacing: -0.01em;
   transition:
     background var(--dur-fast),
-    transform 100ms var(--ease-out);
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.aura-share:active,
-.aura[role='button']:active .aura-pill {
+.aura-share[data-pressed],
+.aura[role='button'][data-pressed] .aura-pill {
   background: rgba(255, 255, 255, 0.12);
 }
 .aura-pill::before,
