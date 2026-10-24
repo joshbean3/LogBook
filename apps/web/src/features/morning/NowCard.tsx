@@ -19,9 +19,8 @@ export const NowCard = ({ T, date, now, rel }: { T: MorningTimeline; date: strin
   return (
     <section className={`now-card is-${rel}`} aria-label="Now">
       <MiniTimeline stops={stops} now={rel === 'today' ? now : rel === 'past' ? 1440 : -1} label={label} shared={morningLineId(date)} />
-      <p className="now-line" aria-live={rel === 'today' ? 'polite' : undefined}>
-        {line}
-      </p>
+      {/* not a live region: the countdown changes every minute, and VoiceOver read it every minute (code review 1 F10) */}
+      <p className="now-line">{line}</p>
     </section>
   );
 };

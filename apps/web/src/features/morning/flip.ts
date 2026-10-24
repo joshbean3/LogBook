@@ -1,10 +1,9 @@
-import type { Transition } from 'motion/react';
+import { spring, type Transition } from 'motion/react';
 import { springs } from '@/lib/motion';
-import { springAdvance, springParams } from '@/ui/springSim';
 
 /**
  * The FLIP rule (docs/feel.md §10.1) on the compositor: a row whose slot moved is drawn where it was and springs home on
- * `springs.settle` by `transform` alone. The spring is sampled (WP1's integrator, the physics motion runs) into a WAAPI
+ * `springs.settle` by `transform` alone. The spring is sampled (motion's own spring generator, the physics `animate` runs) into a WAAPI
  * animation, so it keeps running while the main thread is busy: a Skip's or a drop's write re-renders every page that reads
  * the month, Today's under this one included, and a main-thread spring would freeze through that and jump.
  */
@@ -43,14 +42,13 @@ export const flipY = (el: HTMLElement, from: number, done?: () => void, t: Trans
     done?.();
     return;
   }
-  const p = springParams(t);
+  const o = t as { stiffness?: number; damping?: number; mass?: number; restDelta?: number; restSpeed?: number };
+  const gen = spring({ keyframes: [from, 0], stiffness: o.stiffness, damping: o.damping, mass: o.mass, restDelta: o.restDelta ?? 0.5, restSpeed: o.restSpeed ?? 10 });
   const ys = [from];
-  let pos = from;
-  let vel = 0;
-  for (let i = 0; i < 240; i++) {
-    [pos, vel] = springAdvance(p, pos, vel, 0, FRAME);
-    ys.push(pos);
-    if (Math.abs(pos) <= p.rd && Math.abs(vel) <= p.rs) break;
+  for (let i = 1; i <= 240; i++) {
+    const s = gen.next(i * FRAME * 1000);
+    ys.push(s.value as number);
+    if (s.done) break;
   }
   ys[ys.length - 1] = 0;
   const frames = ys.map((y, i) => ({ transform: `translateY(${y.toFixed(2)}px)`, offset: i / (ys.length - 1) }));

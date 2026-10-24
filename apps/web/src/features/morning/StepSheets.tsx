@@ -1,5 +1,5 @@
 import { AFTER_LABELS, AFTER_ORDER, buildMorning, shiftDays, durationWords, isAfterKey, MAX_STEPS, newStepId, normalizeAfterOrder, routineOf, STEP_MINS_MAX, STEP_NAME_MAX, type MorningDay, type MorningSettings, type MorningStep, type RoutineKey } from '@logbook/shared';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMorningMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
@@ -28,6 +28,28 @@ const IDEAS: Array<[string, number]> = [
   ['Walk the dog', 15],
 ];
 
+/** Run `fn` once the next frame has been painted. */
+const afterPaint = (fn: () => void) => requestAnimationFrame(() => setTimeout(fn, 0));
+
+/**
+ * The writes a sheet's Save makes, sent once the sheet has closed (its body unmounts when the close completes), a painted
+ * frame later (code review 1 F3). A write's optimistic patch re-renders Today's three mounted pages and this one; inside the
+ * close it took the closing slide's frames (a 250 ms frame at 4×). The page answers when the sheet is gone, as the alarm
+ * drag's release and Skip already do.
+ */
+export const useOnClosed = (): ((fn: () => void) => void) => {
+  const q = useRef<Array<() => void>>([]);
+  useEffect(
+    () => () => {
+      const list = q.current;
+      q.current = [];
+      if (list.length) afterPaint(() => list.forEach((f) => f()));
+    },
+    [],
+  );
+  return (fn) => void q.current.push(fn);
+};
+
 /** Hold the sheet open while the draft differs from what was saved. */
 const useSticky = (dirty: boolean) => {
   const sheet = useSheet();
@@ -45,7 +67,6 @@ const Length = ({ value, onChange, label, min = 1, max = STEP_MINS_MAX, chips = 
           on={c === value}
           onClick={() => {
             if (c === value) return;
-            haptics.select();
             onChange(c);
           }}
         >
@@ -91,6 +112,7 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
   const sheet = useSheet();
   const toast = useToast();
   const { settings } = useMorningMutations();
+  const later = useOnClosed();
   const steps = st.after.steps ?? [];
   const current = stepKey ? routineOf(st).find((r) => r.key === stepKey) : undefined;
   const [name, setName] = useState(current?.name ?? '');
@@ -126,19 +148,37 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
 
   const save = () => {
     if (!patch || !dirty) return;
-    // the row answering on the page is the confirmation (only Undo and errors raise toasts, §8)
-    settings.mutate({ after: patch });
+    // the row answering on the page is the confirmation (only Undo and errors raise toasts, §8), once the sheet has closed
+    const after = patch;
+    later(() => settings.mutate({ after }));
     sheet.close();
   };
   const remove = () => {
     if (!stepKey || !current) return;
     const r = removal(st, stepKey);
-    settings.mutate({ after: r.off });
+    const name = current.name;
     haptics.delete();
+    later(() => {
+      settings.mutate({ after: r.off });
+      toast(`${name} removed`, { label: 'Undo', fn: () => settings.mutate({ after: r.undo }) });
+    });
     sheet.close();
-    toast(`${current.name} removed`, { label: 'Undo', fn: () => settings.mutate({ after: r.undo }) });
   };
 
+  // a tap on a step is mostly to change its length: editing, How long comes first (the sheet's first focus is its stepper,
+  // no keyboard); adding, the name does (focused, the keyboard up)
+  const nameField = (
+    <label className="se-field">
+      <span className="caps">Name</span>
+      <input className="in se-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={STEP_NAME_MAX} placeholder={adding ? 'Walk the dog' : current?.name} autoCapitalize="sentences" enterKeyHint="done" autoFocus={adding} />
+    </label>
+  );
+  const lengthField = (
+    <div className="se-field">
+      <span className="caps">How long</span>
+      <Length value={len} onChange={setLen} label="Length" />
+    </div>
+  );
   const ideas = adding ? [...offBuiltins.map((k) => [AFTER_LABELS[k], st.after[k] || 15] as [string, number]), ...IDEAS.filter(([n]) => !routineOf(st).some((r) => r.name.toLowerCase() === n.toLowerCase()))].slice(0, 8) : [];
 
   return (
@@ -149,10 +189,7 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
         save();
       }}
     >
-      <label className="se-field">
-        <span className="caps">Name</span>
-        <input className="in se-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={STEP_NAME_MAX} placeholder={adding ? 'Walk the dog' : current?.name} autoCapitalize="sentences" enterKeyHint="done" autoFocus={adding} />
-      </label>
+      {adding ? nameField : lengthField}
       {ideas.length ? (
         <div className="se-chips se-ideas" role="group" aria-label="Ideas">
           {ideas.map(([n, m]) => (
@@ -160,7 +197,6 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
               key={n}
               on={trimmed.toLowerCase() === n.toLowerCase()}
               onClick={() => {
-                haptics.select();
                 setName(n);
                 setLen(m);
               }}
@@ -170,10 +206,7 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
           ))}
         </div>
       ) : null}
-      <div className="se-field">
-        <span className="caps">How long</span>
-        <Length value={len} onChange={setLen} label="Length" />
-      </div>
+      {adding ? lengthField : nameField}
       <LeaveLine day={day} before={st} after={preview} />
       {full ? <p className="se-note">That’s {MAX_STEPS} steps of your own, the most a morning holds. Remove one to add another.</p> : null}
       <div className="sheet-foot">
@@ -195,34 +228,37 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
 };
 
 /**
- * The alarm (the drag's fallback, spec §4.2): when it goes off and how long from the alarm to out of the door (the wake-up
- * routine, which a run morning and a gym morning keep separately). The sheet ends in its two choices, `Just today` and
- * `Every morning` (no segmented switch to set first): each saves. `Just today` writes this date's `{ wake }`; `Every
- * morning` the routine's alarm (a morning with an alarm of its own keeps it, moved to the new time). `preselect` (contracts
- * §F) makes that choice the filled one: `today` on tomorrow's date reads `Just tomorrow` (the Close card's alarm row).
- * No toast: the page answering is the confirmation.
+ * The alarm (the drag's fallback, spec §4.2): when it goes off, and nothing else (the wake-up routine's length is a routine
+ * setting, in Timings: here it rewrote every morning behind a button that said `Just today`, feel review 1 FL3). The sheet
+ * ends in its two choices, `Just today` and `Every morning` (no segmented switch to set first): each saves. `Just today`
+ * writes this date's `{ wake }` (or, set back to the routine's alarm, gives the day back to the routine); `Every morning`
+ * moves the routine's alarm and gives this morning back to it (its own alarm is deleted, code review 1 F2), so the page
+ * reads `Every morning` and the day follows the routine from then on. `preselect` (contracts §F) makes that choice the
+ * filled one: `today` on tomorrow's date reads `Just tomorrow` (the Close card's alarm row). No toast: the page answering is
+ * the confirmation, once the sheet has closed.
  */
 export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { settings: MorningSettings; day: MorningDay; date: string; dayName: string; preselect?: 'today' | 'every' }) => {
   const sheet = useSheet();
   const today = useToday();
   const justName = date === today ? 'today' : date === shiftDays(today, 1) ? 'tomorrow' : dayName;
   const { settings, setDay } = useMorningMutations();
-  const g = day.mode === 'gym' ? 'gym' : 'run';
+  const later = useOnClosed();
   const [wake, setWake] = useState(day.wake);
-  const [wakeup, setWakeup] = useState(st[g].wakeup);
   const lead: 'day' | 'usual' = preselect === 'every' ? 'usual' : 'day';
-  const wakeupDirty = wakeup !== st[g].wakeup;
-  const dayDirty = wake !== day.wake || wakeupDirty;
-  const usualDirty = wake !== st.wake || (day.own && wake !== day.wake) || wakeupDirty;
+  const dayDirty = wake !== day.wake;
+  const usualDirty = wake !== st.wake || day.own;
   useSticky(dayDirty);
-  const preview = useMemo(() => ({ ...st, [g]: { ...st[g], wakeup } }) as MorningSettings, [st, g, wakeup]);
   const save = (scope: 'day' | 'usual') => {
-    const patch: Record<string, unknown> = {};
-    if (wakeupDirty) patch[g] = { wakeup };
-    if (scope === 'usual' && wake !== st.wake) patch.wake = wake;
-    if (Object.keys(patch).length) settings.mutate(patch);
-    // a morning of its own keeps its own alarm; "every morning" brings it along so the page shows what was chosen
-    if (wake !== day.wake && (scope === 'day' || day.own)) setDay.mutate({ date, day: { wake } });
+    const own = day.own;
+    later(() => {
+      if (scope === 'usual') {
+        if (wake !== st.wake) settings.mutate({ wake });
+        if (own) setDay.mutate({ date, day: null });
+      } else if (wake === st.wake) {
+        // the routine's own alarm is no alarm of the day's own
+        if (own) setDay.mutate({ date, day: null });
+      } else setDay.mutate({ date, day: { wake } });
+    });
     sheet.close();
   };
   const choice = (scope: 'day' | 'usual') => (
@@ -236,12 +272,7 @@ export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { se
         <span className="caps">Alarm</span>
         <Stepper value={wake} onChange={setWake} step={WAKE_STEP} min={WAKE_MIN} max={WAKE_MAX} format={short} parse={parseWake} label="Alarm" inputProps={{ inputMode: 'numeric', autoComplete: 'off' }} />
       </div>
-      <div className="se-field">
-        <span className="caps">Alarm to out the door</span>
-        <Length value={wakeup} onChange={setWakeup} label="Wake-up time" min={0} max={180} chips={[5, 10, 15, 20, 30, 45]} />
-        <span className="se-hint">{g === 'gym' ? 'On gym mornings' : 'On run and rest mornings'}</span>
-      </div>
-      <LeaveLine day={day} dayAfter={{ ...day, wake }} before={st} after={preview} />
+      <LeaveLine day={day} dayAfter={{ ...day, wake }} before={st} after={st} />
       <div className="sheet-foot se-choices">
         {choice('usual')}
         {choice('day')}
@@ -254,13 +285,14 @@ export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { se
 export const StartEditor = ({ settings: st, day }: { settings: MorningSettings; day: MorningDay }) => {
   const sheet = useSheet();
   const { settings } = useMorningMutations();
+  const later = useOnClosed();
   const [mode, setMode] = useState(st.after.showerMode);
   const [at, setAt] = useState(st.after.showerAt);
   const dirty = mode !== st.after.showerMode || (mode === 'fixed' && at !== st.after.showerAt);
   useSticky(dirty);
   const preview = useMemo(() => ({ ...st, after: { ...st.after, showerMode: mode, showerAt: at } }), [st, mode, at]);
   const save = () => {
-    settings.mutate({ after: { showerMode: mode, showerAt: at } });
+    later(() => settings.mutate({ after: { showerMode: mode, showerAt: at } }));
     sheet.close();
   };
   return (

@@ -10,6 +10,8 @@ import { short, WAKE_MAX, WAKE_MIN, WAKE_STEP } from './model';
 
 /** Past WAKE_MIN / WAKE_MAX the stamp follows the finger at a quarter of its travel (spec §4.2). */
 const PAST_RANGE = 0.25;
+/** A click this long after a drag (or a horizontal let-go) ended is a new tap, not the gesture's leftover (code review 1 F11). */
+const SWALLOW_MS = 400;
 /** The keyboard's steps go up as one write after this long without another key. */
 const KEY_IDLE_MS = 700;
 
@@ -43,7 +45,7 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
   const reduce = useReduced();
   const el = useRef<HTMLButtonElement>(null);
   const stamp = useRef<HTMLSpanElement>(null);
-  const g = useRef({ id: -1, x0: 0, y0: 0, from: 0, cur: 0, phase: 'idle' as 'idle' | 'pending' | 'drag' | 'off', swallow: false });
+  const g = useRef({ id: -1, x0: 0, y0: 0, from: 0, cur: 0, phase: 'idle' as 'idle' | 'pending' | 'drag' | 'off', swallow: 0 });
   const keys = useRef<{ from: number; cur: number; t: ReturnType<typeof setTimeout> | 0 } | null>(null);
   const wakeRef = useRef(wake);
   wakeRef.current = wake;
@@ -83,7 +85,7 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
     s.id = -1;
     el.current?.removeAttribute('data-pressed');
     if (was !== 'drag') return;
-    s.swallow = true;
+    s.swallow = performance.now();
     bandHome();
     cb.current.onDragging?.(false);
     if (!commit && s.cur !== s.from) flushSync(() => cb.current.onStep(s.from, s.from));
@@ -101,7 +103,7 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
       s.y0 = e.clientY;
       s.from = s.cur = wakeRef.current;
       s.phase = 'pending';
-      s.swallow = false;
+      s.swallow = 0;
       node.setAttribute('data-pressed', '');
     };
     const move = (e: PointerEvent) => {
@@ -115,7 +117,7 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
         if (axis === 'x') {
           // the edge swipe (or nothing) has it
           s.phase = 'off';
-          s.swallow = true;
+          s.swallow = performance.now();
           node.removeAttribute('data-pressed');
           return;
         }
@@ -206,9 +208,11 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
       onKeyDown={onKeyDown}
       onBlur={flushKeys}
       onClick={(e) => {
-        // the click a drag (or a horizontal let-go) leaves behind is not a tap
-        if (g.current.swallow) {
-          g.current.swallow = false;
+        // the click a drag (or a horizontal let-go) leaves behind is not a tap; a touch drag leaves none, so the flag only
+        // covers a click that comes right after the gesture (a later Enter or tap is the user's)
+        const sw = g.current.swallow;
+        g.current.swallow = 0;
+        if (sw && performance.now() - sw < SWALLOW_MS) {
           e.preventDefault();
           return;
         }

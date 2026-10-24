@@ -127,14 +127,45 @@ export interface SchedRow {
   step?: RoutineStep;
 }
 
+/**
+ * Run `fn` once a push has settled: after the slide's length, at an idle moment (at the latest 0.7 s after that). The first
+ * measures of a new page (the FLIP's row tops, the Leave row's toast room) wait for it: read on the push's first frames they
+ * forced the page's style and layout inside the slide (feel review 1 FL4); by now the layout is the one the frames drew.
+ * Returns a cancel.
+ */
+export const whenSettled = (fn: () => void): (() => void) => {
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+  let idle = 0;
+  const t = window.setTimeout(() => {
+    if (w.requestIdleCallback) idle = w.requestIdleCallback(fn, { timeout: 700 });
+    else fn();
+  }, 450);
+  return () => {
+    clearTimeout(t);
+    if (idle) w.cancelIdleCallback?.(idle);
+  };
+};
+
 /** 'today' / 'tomorrow' / 'this morning': the word the Wake row's `Just …` uses. */
 export const justWord = (date: string, today: string, tomorrow: string) => (date === today ? 'today' : date === tomorrow ? 'tomorrow' : 'this morning');
+
+/** The rows an alarm drag keeps while the finger is down (FL1): the set it began with, so nothing is inserted or removed. */
+export interface RowSet {
+  free: boolean;
+  late: boolean;
+}
+
+/** The workout row's name: `Easy run`, `Threshold run`; a session typed `Run` (or `Long run`) is not `Run run`. */
+export const workName = (key: string, type: string) => (key !== 'run' ? type : /\brun$/i.test(type.trim()) ? type : `${type} run`);
 
 /**
  * The rows of a morning, top to bottom: Wake · the workout (its door and cool-down, or its walks, folded into its sub) · Free ·
  * the routine's steps. The Leave row is drawn by LeaveRow. `patched`: an alarm drag is laying its own wake over the day.
+ * `keep`: while the finger is down the row set stays the one the drag began with (spec §4.2, heights do not change): a Free
+ * that the alarm has eaten reads `0 min`, a late note the alarm has cleared stays (it says on time), and a late note the
+ * alarm would bring waits for the release (the Leave row's sub says it meanwhile).
  */
-export const rowsOf = (T: MorningTimeline, just: string, patched = false): SchedRow[] => {
+export const rowsOf = (T: MorningTimeline, just: string, patched = false, keep?: RowSet | null): SchedRow[] => {
   const out: SchedRow[] = [];
   const wake = T.blocks.find((b) => b.key === 'wake');
   const door = doorOf(T);
@@ -143,12 +174,18 @@ export const rowsOf = (T: MorningTimeline, just: string, patched = false): Sched
   const work = T.blocks.find((b) => b.key === 'run' || b.key === 'gym');
   if (work && door != null) {
     const sub = work.key === 'run' ? `${num(T.day.miles)} mi · ${clock(T.settings.run.pace)}/mi · back ${short(T.back)}` : `${durationWords(T.day.minutes)} · back ${short(T.back)}`;
-    out.push({ id: 'work', kind: 'work', at: door, start: door, end: T.back, name: work.key === 'run' ? `${T.day.type} run` : T.day.type, sub, icon: work.key, tone: work.tone });
+    out.push({ id: 'work', kind: 'work', at: door, start: door, end: T.back, name: workName(work.key, T.day.type), sub, icon: work.key, tone: work.tone });
   }
-  if (T.late && T.fix) out.push({ id: 'late', kind: 'late', at: T.back, start: T.back, end: T.back, name: '', sub: '', icon: 'late' });
-  const free = T.blocks.find((b) => b.key === 'free');
-  if (free) out.push({ id: 'free', kind: 'free', at: free.start, start: free.start, end: free.end, name: 'Free', sub: `${durationWords(free.mins)} · routine at ${short(free.end)}`, icon: 'free' });
+  if (keep ? keep.late : T.late && T.fix) out.push({ id: 'late', kind: 'late', at: T.back, start: T.back, end: T.back, name: '', sub: '', icon: 'late' });
   const steps = new Map(routineOf(T.settings).map((r) => [r.key, r]));
+  const first = T.blocks.find((b) => b.id != null && steps.has(b.id));
+  const free = T.blocks.find((b) => b.key === 'free');
+  const routineAt = (at: number) => (first ? `${durationWords(0)} · routine at ${short(at)}` : durationWords(0));
+  if (free && (!keep || keep.free)) out.push({ id: 'free', kind: 'free', at: free.start, start: free.start, end: free.end, name: 'Free', sub: first ? `${durationWords(free.mins)} · routine at ${short(free.end)}` : durationWords(free.mins), icon: 'free' });
+  else if (!free && keep?.free) {
+    const at = first?.start ?? T.back;
+    out.push({ id: 'free', kind: 'free', at, start: at, end: at, name: 'Free', sub: routineAt(at), icon: 'free' });
+  }
   for (const b of T.blocks) {
     if (b.id == null) continue;
     const step = steps.get(b.id);

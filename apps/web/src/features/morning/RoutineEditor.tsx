@@ -4,13 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBootstrap, useMonths, useMorningMutations } from '@/api/queries';
 import { buildSnapshot } from '@/api/snapshot';
 import { useRouteParams } from '@/app/NavController';
-import { haptics } from '@/lib/haptics';
 import { fadeIn, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, ChipButton, Stepper, usePress } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { MiniTimeline } from '../day/MiniTimeline';
 import { morningOf, parseWake, ROUTINE_DEFAULTS, short, stopsOf, WAKE_MIN } from './model';
+import { useOnClosed } from './StepSheets';
 
 /** The latest a morning's leave field goes (6 pm). */
 const LEAVE_MAX = 1080;
@@ -76,7 +76,6 @@ const FieldRow = ({ f, s, onChange, open, onToggle, highlight, focus }: { f: Fie
           aria-label={`${name}: ${f.fmt(v)}. ${f.cycle ? 'Tap for the next common length' : 'Tap to change'}`}
           onClick={() => {
             if (!f.cycle) return onToggle();
-            haptics.select();
             onChange(nextIn(f.cycle, v));
           }}
         >
@@ -105,6 +104,7 @@ const FieldRow = ({ f, s, onChange, open, onToggle, highlight, focus }: { f: Fie
 export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningDay; settings: MorningSettings; focus?: string }) => {
   const sheet = useSheet();
   const { settings } = useMorningMutations();
+  const later = useOnClosed();
   const [saved] = useState(() => normalizeMorningSettings(initial));
   const [s, setS] = useState<MorningSettings>(saved);
   const [preview, setPreview] = useState<MorningMode>(day.mode);
@@ -121,26 +121,31 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
   const dirty = JSON.stringify(s) !== JSON.stringify(saved);
   useEffect(() => sheet.update({ sticky: dirty }), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // the morning this sheet was opened for keeps its own alarm (code review 1 F1): the preview and the Leave field are that
+  // morning's, so the field reads what the Leave row read; a morning on the routine's alarm follows the Usual alarm row
+  const wakeOf = (x: MorningSettings) => (day.own ? day.wake : x.wake);
   const T = useMemo(() => {
-    const d: MorningDay = { ...day, mode: preview, wake: s.wake, type: preview === day.mode ? day.type : preview === 'run' ? 'Easy' : preview === 'gym' ? 'Strength' : 'Rest', minutes: preview === 'gym' && day.mode !== 'gym' ? s.gym.length : day.minutes };
+    const d: MorningDay = { ...day, mode: preview, wake: wakeOf(s), type: preview === day.mode ? day.type : preview === 'run' ? 'Easy' : preview === 'gym' ? 'Strength' : 'Rest', minutes: preview === 'gym' && day.mode !== 'gym' ? s.gym.length : day.minutes };
     return buildMorning(d, s);
-  }, [day, preview, s]);
+  }, [day, preview, s]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // the Leave row's field: the time you leave on this morning; changing it sets when the routine starts (at a set time)
+  // its floor is the routine straight after the workout: earlier than that the morning cannot leave, so `−` stops there
+  const earliest = useMemo(() => buildMorning({ ...day, wake: wakeOf(s) }, { ...s, after: { ...s.after, showerMode: 'after' } }).leave, [day, s]); // eslint-disable-line react-hooks/exhaustive-deps
   const leave = useMemo<Field>(
     () => ({
       id: 'leave',
       label: 'Leave for work',
       sub: s.after.showerMode === 'fixed' ? `The routine starts at ${short(s.after.showerAt)}` : 'Sets when the routine starts',
-      get: (x) => buildMorning({ ...day, wake: x.wake }, x).leave,
+      get: (x) => buildMorning({ ...day, wake: wakeOf(x) }, x).leave,
       put: (x, v) => ({ ...x, after: { ...x.after, showerMode: 'fixed', showerAt: Math.max(WAKE_MIN, v - routineOf(x).reduce((m, r) => m + r.mins, 0)) } }),
       step: 5,
-      min: WAKE_MIN,
+      min: Math.max(WAKE_MIN, earliest),
       max: LEAVE_MAX,
       fmt: short,
       parse: parseWake,
     }),
-    [day, s.after.showerMode, s.after.showerAt],
+    [day, s.after.showerMode, s.after.showerAt, earliest], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const row = (id: string) => {
     const f = id === 'leave' ? leave : FIELDS[id]!;
@@ -148,8 +153,9 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
   };
   const save = () => {
     const after = s.after.showerMode !== saved.after.showerMode || s.after.showerAt !== saved.after.showerAt ? { after: { showerMode: s.after.showerMode, showerAt: s.after.showerAt } } : {};
-    // the page answering is the confirmation (no toast, no haptic: §8, §11.4)
-    settings.mutate({ wake: s.wake, run: s.run, gym: s.gym, ...after });
+    // the page answering is the confirmation (no toast, no haptic: §8, §11.4), once the sheet has closed
+    const patch = { wake: s.wake, run: s.run, gym: s.gym, ...after };
+    later(() => settings.mutate(patch));
     sheet.close();
   };
 

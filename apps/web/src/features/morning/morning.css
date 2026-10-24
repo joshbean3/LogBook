@@ -274,6 +274,13 @@
   color: var(--warn);
   white-space: normal;
 }
+.late-text.is-clear {
+  color: var(--ink-3);
+}
+/* a late note an alarm drag has cleared keeps its height until the release takes it away (FL1) */
+.late-fixes.is-held {
+  visibility: hidden;
+}
 .late-fixes {
   grid-column: 1 / -1;
   grid-row: 2;
@@ -312,6 +319,27 @@
   background: var(--surface-2);
   border-radius: var(--r-group);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+/* picked up, it stays picked up while it moves (feel review 1 FL16): the shadow is its own layer, faded in by opacity */
+.sch > li.is-lifted .sch-hit {
+  background: var(--surface-2);
+  border-radius: var(--r-group);
+}
+.sch > li.is-lifted::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--r-group);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: ah-in 160ms var(--ease-out) both;
+}
+
+/* ---------- the workout row handed to another thing (Skip on a two-session morning): the new one fades in ---------- */
+.sch-ico.is-swap,
+.sch-main.is-swap {
+  animation: ah-in 150ms var(--ease-out) both;
 }
 
 /* ---------- the Leave row: the endpoint, sticky to the page's bottom inside the group (§4.4) ---------- */
@@ -559,10 +587,15 @@
   padding-right: 12px;
 }
 
-/* 320: the Leave row's empty time column gives its room to the name, so `Leave for work` never truncates */
+/* 320: the Leave row keeps the time column with every other row (feel review 1 FL9); its stamp takes the row times' size
+   so `Leave for work` fits, and the subs drop their second half (the times are on the rows and the Now card) */
 @media (max-width: 359px) {
-  .leave-row .sch-hit {
-    grid-template-columns: 0 32px minmax(0, 1fr) auto;
+  .leave-stamp {
+    font: 600 17px/22px var(--sans);
+  }
+  .sch-sub .sub-wide,
+  .leave-row .sch-name .sub-wide {
+    display: none;
   }
   /* the run row keeps `4 mi · back 8:13` whole: the pace goes */
   .sch-sub .sub-pace {

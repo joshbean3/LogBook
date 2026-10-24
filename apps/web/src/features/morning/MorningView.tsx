@@ -1,6 +1,6 @@
 import { AFTER_ORDER, fmtDate, label, monthOf, routineOf, shiftDays, type MorningTimeline, type Session } from '@logbook/shared';
 import { Plus, SlidersHorizontal } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouteParams } from '@/app/NavController';
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -10,7 +10,7 @@ import { useSheet } from '@/ui/Sheet';
 import { useNowMinutes } from '../day/useNow';
 import { useLog } from '../log/useLog';
 import { useOpenSession } from '../sessions/SessionCard';
-import { justWord, morningOf, ROUTINE_DEFAULTS, rowsOf, takeLegacyOrder } from './model';
+import { justWord, morningOf, ROUTINE_DEFAULTS, rowsOf, takeLegacyOrder, type RowSet } from './model';
 import { NowCard } from './NowCard';
 import { useOpenRoutineEditor } from './RoutineEditor';
 import { Schedule, type ScheduleActions } from './Schedule';
@@ -29,11 +29,15 @@ const titleOf = (date: string, today: string) => (date === today ? 'This morning
 /** Run `fn` once the next frame has been painted. */
 const afterPaint = (fn: () => void) => requestAnimationFrame(() => setTimeout(fn, 0));
 
-/** An alarm being dragged: the wake laid over the day, where the drag began, and whether the finger is still on it. */
+/**
+ * An alarm being dragged: the wake laid over the day, where the drag began, whether the finger is still on it, and the
+ * row set it began with (kept while the finger is down: feel review 1 FL1).
+ */
 interface AlarmDrag {
   wake: number;
   from: number;
   live: boolean;
+  keep: RowSet;
 }
 
 const MorningSkeleton = () => (
@@ -79,7 +83,12 @@ export default function MorningView() {
   const T0 = useMemo(() => morningOf(sessions, override, st), [sessions, override, st]);
   const T = useMemo(() => (drag && drag.wake !== T0.day.wake ? morningOf(sessions, override, st, { wake: drag.wake }) : T0), [drag, T0, sessions, override, st]);
   const just = justWord(date, today, shiftDays(today, 1));
-  const rows = useMemo(() => rowsOf(T, just, !!drag && drag.wake !== T0.day.wake), [T, just, drag, T0]);
+  // while the finger is down the rows keep the set the drag began with: Free reads 0 min rather than leaving, and a late
+  // note waits for the release (the Leave row says late meanwhile), so nothing under the thumb reflows twice (FL1); the
+  // release brings the real set in once, on the FLIP's spring
+  const rows = useMemo(() => rowsOf(T, just, !!drag && drag.wake !== T0.day.wake, drag?.live ? drag.keep : null), [T, just, drag, T0]);
+  const shownSet = useRef<RowSet>({ free: false, late: false });
+  shownSet.current = { free: rows.some((r) => r.id === 'free'), late: rows.some((r) => r.id === 'late') };
   // the stamps the drag has moved (against where it began): lit while it moves, fading back to ink over 400 ms on release
   const moved = useMemo(() => {
     const out = new Set<string>();
@@ -94,15 +103,21 @@ export default function MorningView() {
   useEffect(() => {
     if (drag && !drag.live && (T0.day.wake === drag.wake || drag.wake === drag.from)) setDrag(null);
   }, [drag, T0.day.wake]);
-  const onStep = useCallback((wake: number, from: number) => setDrag({ wake, from, live: true }), []);
+  const onStep = useCallback((wake: number, from: number) => setDrag((d) => ({ wake, from, live: true, keep: d?.live ? d.keep : shownSet.current })), []);
+  const usual = st.wake;
+  const own = !!override;
   const onCommit = useCallback(
     (wake: number, from: number) => {
-      setDrag(wake === from ? null : { wake, from, live: false });
+      setDrag((d) => (wake === from ? null : { wake, from, live: false, keep: d?.keep ?? shownSet.current }));
+      if (wake === from) return;
       // the release frame paints first (the stamps start fading, the row settles): the write's optimistic month patch
-      // re-renders every page that reads the month, Today's under this one included, and must not hold that frame back
-      if (wake !== from) afterPaint(() => setDay.mutate({ date, day: { wake } }, { onError: () => setDrag(null) }));
+      // re-renders every page that reads the month, Today's under this one included, and must not hold that frame back.
+      // Back on the routine's alarm, the morning is the routine's again (no override that only repeats it, code review 1 F2)
+      const day = wake === usual ? null : { wake };
+      if (!day && !own) return;
+      afterPaint(() => setDay.mutate({ date, day }, { onError: () => setDrag(null) }));
     },
-    [date, setDay],
+    [date, setDay, usual, own],
   );
   const [alarmDragging, setAlarmDragging] = useState(false);
 
@@ -113,6 +128,27 @@ export default function MorningView() {
     const legacy = takeLegacyOrder();
     if (legacy && (!serverOrder || serverOrder.join() === AFTER_ORDER.join()) && legacy.join() !== AFTER_ORDER.join()) settings.mutate({ after: { order: legacy } });
   }, [!!log.boot]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- a toast raised once the morning has been re-laid (FL2) ----------
+  // a Skip's toast sits above the Leave row's new place: it is raised from the render that shows the change (the mutation's
+  // patch reaches the page a task or more after the tap; at 4× after the old `afterPaint` had already raised it over the
+  // Leave row), a painted frame later, when LeaveRow has measured that place
+  const pend = useRef<{ landed: (list: Session[]) => boolean; raise: () => void; t: number } | null>(null);
+  const flushPend = () => {
+    const p = pend.current;
+    if (!p) return;
+    pend.current = null;
+    clearTimeout(p.t);
+    afterPaint(p.raise);
+  };
+  const raiseAfter = (landed: (list: Session[]) => boolean, raise: () => void) => {
+    if (pend.current) flushPend();
+    pend.current = { landed, raise, t: window.setTimeout(flushPend, 2000) };
+  };
+  useEffect(() => {
+    if (pend.current?.landed(sessions)) flushPend();
+  });
+  useEffect(() => () => void (pend.current && clearTimeout(pend.current.t)), []);
 
   const ready = !!log.boot && log.loaded(date);
   const dayName = rel === 'today' ? 'today' : date === shiftDays(today, 1) ? 'tomorrow' : fmtDate('dowLong', date);
@@ -127,6 +163,14 @@ export default function MorningView() {
     const open = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && !x.mark);
     const skipped = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && x.mark === 'skip');
     const remark = (list: Session[], m: Session['mark']) => list.forEach((x) => mark.mutate({ session: x, mark: m }));
+    const marked = (list: Session[], m: Session['mark']) => (now: Session[]) => list.every((x) => now.find((y) => y.id === x.id)?.mark === m);
+    // the session is the run: skipping it is the one write, and the morning (its alarm included) follows. No haptic (§11.4).
+    // The menu's Skip and the late note's `Skip the run` are the same act, with the same Undo (code review 1 F5)
+    const skipOne = (x: Session) => {
+      const prev = x.mark;
+      mark.mutate({ session: x, mark: 'skip' });
+      raiseAfter(marked([x], 'skip'), () => toast(`${label(x)} skipped`, { label: 'Undo', fn: () => mark.mutate({ session: x, mark: prev }) }));
+    };
     const eyebrow = `Morning · ${fmtDate('md', date)}`;
     const editWake = () => sheet.open({ eyebrow, title: 'Alarm', body: <WakeEditor settings={T0.settings} day={T0.day} date={date} dayName={dayName} /> });
     return {
@@ -149,30 +193,26 @@ export default function MorningView() {
       saveOrder: (visible) => settings.mutate({ after: { order: fullOrder(T0.settings, visible) } }),
       editLeave: () => openRoutine('leave'),
       skipLabel: s ? label(s) : null,
-      // the session is the run: skipping it is the one write, and the morning (its alarm included) follows. No haptic (§11.4)
       skip: () => {
-        if (!s) return;
-        const prev = s.mark;
-        mark.mutate({ session: s, mark: 'skip' });
-        // raised once the morning has been re-laid, so it sits above the Leave row's new place
-        afterPaint(() => toast(`${label(s)} skipped`, { label: 'Undo', fn: () => mark.mutate({ session: s, mark: prev }) }));
+        if (s) skipOne(s);
       },
-      // a rest day: every workout of the day skipped (Skip takes the one in the row)
-      rest: () => {
-        if (!open.length) return;
-        remark(open, 'skip');
-        afterPaint(() => toast('Rest morning', { label: 'Undo', fn: () => remark(open, null) }));
-      },
+      // a rest day: every workout of the day still to do skipped (Skip takes the one in the row); none open (both done), no
+      // item (code review 1 F4)
+      rest: open.length
+        ? () => {
+            remark(open, 'skip');
+            raiseAfter(marked(open, 'skip'), () => toast('Rest morning', { label: 'Undo', fn: () => remark(open, null) }));
+          }
+        : null,
       backLabel: T0.day.mode === 'rest' && skipped.length ? label(skipped[0]!) : null,
+      // the rows coming back are the answer: no toast (code review 1 F12)
       backToPlan: () => {
-        if (!skipped.length) return;
-        remark(skipped, null);
-        afterPaint(() => toast(`Back to ${label(skipped[0]!)}`, { label: 'Undo', fn: () => remark(skipped, 'skip') }));
+        if (skipped.length) remark(skipped, null);
       },
       late: {
-        wake: (wake) => setDay.mutate({ date, day: { wake } }),
+        wake: (wake) => setDay.mutate({ date, day: wake === T0.settings.wake ? null : { wake } }),
         miles: run ? (miles) => upsert.mutate({ id: run.id, date: run.date, kind: run.kind, type: run.type, title: run.title, details: run.details, miles, minutes: run.minutes }) : null,
-        skipRun: run ? () => mark.mutate({ session: run, mark: 'skip' }) : null,
+        skipRun: run ? () => skipOne(run) : null,
       },
     };
   })();

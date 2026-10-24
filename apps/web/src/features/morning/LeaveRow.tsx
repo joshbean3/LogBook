@@ -4,11 +4,12 @@ import type * as React from 'react';
 import { forwardRef, useLayoutEffect, useRef, useState } from 'react';
 import { Pressable } from '@/ui';
 import { drawnY } from './flip';
-import { short } from './model';
+import { short, whenSettled } from './model';
 
 /** What the Leave row's sub says: the countdown today, the lateness when the run eats into the routine. */
 const subOf = (T: MorningTimeline, rel: 'past' | 'today' | 'future', now: number) => {
-  if (T.late) return `${T.late} min later than your routine`;
+  // the late note above says by how much against the routine; this row says it in two words (feel review 1 FL6)
+  if (T.late) return `${T.late} min late`;
   if (rel !== 'today') return `${durationWords(T.leave - T.day.wake)} after waking`;
   if (now >= T.leave) return 'Out for the day';
   return `In ${durationWords(Math.max(1, Math.ceil(T.leave - now)))}`;
@@ -38,28 +39,49 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
     const sc = li?.closest<HTMLElement>('.pushed');
     if (!li || !sc) return;
     const flip = drawnY(li);
-    const lift = Math.max(0, Math.round(sc.getBoundingClientRect().bottom - (li.getBoundingClientRect().top - flip)));
-    sc.style.setProperty('--toast-lift', `${lift}px`);
+    const lift = `${Math.max(0, Math.round(sc.getBoundingClientRect().bottom - (li.getBoundingClientRect().top - flip)))}px`;
+    // a custom property set on the page invalidates the style of everything under it: only when it changed
+    if (sc.style.getPropertyValue('--toast-lift') !== lift) sc.style.setProperty('--toast-lift', lift);
   };
   const putRef = useRef(put);
   putRef.current = put;
   // measured on the frame after a render, never inside it: a synchronous read here forced the new page's first layout inside
-  // the push's commit (WP1's N4); a toast is raised after the morning has painted, so this has run by then
+  // the push's commit (WP1's N4). The first measure waits until the push has settled (an idle moment after its slide): read
+  // in the first frames it forced the page's style and layout inside the slide (feel review 1 FL4). A toast is raised after
+  // the morning has re-laid and painted (MorningView), so a later render's measure has run by then.
   const pending = useRef(0);
+  const first = useRef(true);
+  const settling = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
+    if (first.current) {
+      first.current = false;
+      settling.current = whenSettled(() => {
+        settling.current = null;
+        putRef.current();
+      });
+      return;
+    }
     if (!pending.current)
       pending.current = requestAnimationFrame(() => {
         pending.current = 0;
         putRef.current();
       });
   });
-  useLayoutEffect(() => () => cancelAnimationFrame(pending.current), []);
+  useLayoutEffect(
+    () => () => {
+      cancelAnimationFrame(pending.current);
+      settling.current?.();
+    },
+    [],
+  );
   useLayoutEffect(() => {
     const li = ref.current;
     const sc = li?.closest<HTMLElement>('.pushed');
     if (!li || !sc) return;
     let raf = 0;
     const later = () => {
+      // the observer's first call comes on the push's first frame: the settled measure covers it
+      if (settling.current) return;
       if (!raf)
         raf = requestAnimationFrame(() => {
           raf = 0;
@@ -85,8 +107,11 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
         <Briefcase size={18} />
       </span>
       <span className="sch-main">
-        <span className="sch-name">Leave for work</span>
-        <span className={`sch-sub ${T.late ? 'is-late' : ''}`}>{sub}</span>
+        {/* 320 (FL9): the row keeps the time column with the others, so the name says `Leave` (the stamp says when) */}
+        <span className="sch-name">
+          Leave<span className="sub-wide"> for work</span>
+        </span>
+        <span className={`sch-sub ${T.late ? 'is-late' : ''}`}>{/^(.+?)( after waking)$/.test(sub) ? <>{sub.replace(/ after waking$/, '')}<span className="sub-wide"> after waking</span></> : sub}</span>
       </span>
       <span className={`leave-stamp ${moved ? 'is-moved' : ''}`}>
         <span key={`c${labels.n}`} className={`ah-d ${labels.n ? 'is-in' : ''}`}>

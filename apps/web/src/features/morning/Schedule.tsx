@@ -10,7 +10,7 @@ import { ChipButton, Pressable, type ContextMenuItem, type DragPoint } from '@/u
 import { AlarmHandle, type AlarmHandleProps } from './AlarmHandle';
 import { drawnY, flipY, stopFlip } from './flip';
 import { LeaveRow } from './LeaveRow';
-import { short, timeState, type SchedRow } from './model';
+import { short, timeState, whenSettled, type SchedRow } from './model';
 
 /** The late note's three fixes (spec §4.1): the alarm is the morning's, the miles and the skip are the session's. */
 export interface LateFixes {
@@ -39,7 +39,8 @@ export interface ScheduleActions {
   editLeave: () => void;
   skipLabel: string | null;
   skip: () => void;
-  rest: () => void;
+  /** Every open workout of the day skipped; null when none is open (the item would do nothing, code review 1 F4). */
+  rest: (() => void) | null;
   backLabel: string | null;
   backToPlan: () => void;
   late: LateFixes;
@@ -77,23 +78,39 @@ const Progress = ({ p }: { p: number }) => (
  */
 export const Flash = ({ t }: { t: string }) => <span className="sch-flash" aria-hidden="true" data-t={t} />;
 
-/** The run row's sub with its pace as a part a narrow screen drops (`4 mi · back 8:13` at 320: the time back is the news). */
+/**
+ * A sub with the part a narrow screen drops: the run row's pace (`4 mi · back 8:13` at 320: the time back is the news), and
+ * Free's `· routine at 8:40` (the routine's first row says 8:40 in its time column; feel review 1 FL9).
+ */
 const subOf = (r: SchedRow): ReactNode => {
   const m = r.kind === 'work' ? /^(.+? mi)( · [^·]+\/mi)( · back .+)$/.exec(r.sub) : null;
-  return m ? (
-    <>
-      {m[1]}
-      <span className="sub-pace">{m[2]}</span>
-      {m[3]}
-    </>
-  ) : (
-    r.sub
-  );
+  if (m)
+    return (
+      <>
+        {m[1]}
+        <span className="sub-pace">{m[2]}</span>
+        {m[3]}
+      </>
+    );
+  const f = r.kind === 'free' ? /^(.+?)( · routine at .+)$/.exec(r.sub) : null;
+  if (f)
+    return (
+      <>
+        {f[1]}
+        <span className="sub-wide">{f[2]}</span>
+      </>
+    );
+  return r.sub;
 };
 
-/** One row type: time 48 · icon disc 32 · name and sub. Nothing on the right. */
-const RowBody = ({ r, time, moved }: { r: SchedRow; time: ReactNode; moved?: boolean }) => {
+/**
+ * One row type: time 48 · icon disc 32 · name and sub. Nothing on the right. `swap`: the row's content became another
+ * thing in the same box (Skip on a two-session morning hands the slot to the lift): the icon and the words are keyed on it
+ * and fade in over 150 ms (feel review 1 FL5), the box and the time stay.
+ */
+const RowBody = ({ r, time, moved, swap }: { r: SchedRow; time: ReactNode; moved?: boolean; swap?: { key: string; on: boolean } }) => {
   const Icon = iconOf(r);
+  const sw = swap?.on ? ' is-swap' : '';
   return (
     <>
       {time == null ? (
@@ -104,10 +121,10 @@ const RowBody = ({ r, time, moved }: { r: SchedRow; time: ReactNode; moved?: boo
           <Flash t={typeof time === 'string' ? time : ''} />
         </span>
       )}
-      <span className="sch-ico" aria-hidden="true">
+      <span key={`i${swap?.key ?? ''}`} className={`sch-ico${sw}`} aria-hidden="true">
         <Icon size={18} />
       </span>
-      <span className="sch-main">
+      <span key={`m${swap?.key ?? ''}`} className={`sch-main${sw}`}>
         <span className="sch-name">{r.name}</span>
         {r.sub ? <span className="sch-sub">{subOf(r)}</span> : null}
       </span>
@@ -117,7 +134,25 @@ const RowBody = ({ r, time, moved }: { r: SchedRow; time: ReactNode; moved?: boo
 
 /** The late note as one row under the run (spec §4.1): by how much, and the fixes as one-tap chips. */
 const LateBody = ({ T, fix, interactive }: { T: MorningTimeline; fix?: LateFixes; interactive: boolean }) => {
-  if (!T.late || !T.fix) return null;
+  // an alarm drag that began late and has come back in time keeps the row (the row set holds under the finger, FL1): it says
+  // so, its chips held in place unseen until the release takes the row away
+  if (!T.late || !T.fix)
+    return (
+      <div className="sch-hit late-hit" role="note">
+        <span className="sch-time-slot" aria-hidden="true" />
+        <span className="sch-ico" aria-hidden="true">
+          <CircleAlert size={18} />
+        </span>
+        <span className="sch-main">
+          <span className="sch-name late-text is-clear">Back {short(T.back)} · in time</span>
+        </span>
+        {interactive && fix ? (
+          <span className="late-fixes is-held" aria-hidden="true">
+            <ChipButton tabIndex={-1}>Wake 0:00</ChipButton>
+          </span>
+        ) : null}
+      </div>
+    );
   const miles = T.fix.maxMiles != null ? Math.floor(T.fix.maxMiles * 2) / 2 : null;
   const wake = Math.floor(T.fix.latestWake / 5) * 5;
   return (
@@ -127,8 +162,9 @@ const LateBody = ({ T, fix, interactive }: { T: MorningTimeline; fix?: LateFixes
         <CircleAlert size={18} />
       </span>
       <span className="sch-main">
+        {/* one line at 390 (feel review 1 FL6): the time back and by how much; the chips under it */}
         <span className="sch-name late-text">
-          Back {short(T.back)}, {T.late} min past the routine
+          Back {short(T.back)} · {T.late} min late
         </span>
       </span>
       {interactive && fix ? (
@@ -200,6 +236,8 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
 
   // ---------- the FLIP (§10.1): a row whose slot moved starts where it was drawn and springs home on `settle` ----------
   const tops = useRef(new Map<string, number>());
+  const recording = useRef<(() => void) | null>(null);
+  useEffect(() => () => recording.current?.(), []);
   /** The lifted step under the finger: its slot's top on the page against where the finger says it is (1:1, no spring). */
   const place = () => {
     const d = drag.current;
@@ -211,13 +249,14 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
   useLayoutEffect(() => {
     const ol = list.current;
     if (!ol) return;
-    // the first render only records where the rows are, on the next frame: reading offsetTop here would force the new page's
-    // first layout inside the push's commit
+    // the first render only records where the rows are, once the push has settled: reading offsetTop here would force the new
+    // page's first layout inside the push's commit, and on the next frame it forced it inside the slide (feel review 1 FL4)
     if (!tops.current.size) {
-      requestAnimationFrame(() => {
-        if (tops.current.size || !list.current) return;
-        for (const li of list.current.querySelectorAll<HTMLElement>(':scope > li[data-row]')) tops.current.set(li.dataset.row!, li.offsetTop);
-      });
+      if (!recording.current)
+        recording.current = whenSettled(() => {
+          if (tops.current.size || !list.current) return;
+          for (const li of list.current.querySelectorAll<HTMLElement>(':scope > li[data-row]')) tops.current.set(li.dataset.row!, li.offsetTop);
+        });
       return;
     }
     const sc = ol.closest<HTMLElement>('.pushed');
@@ -283,7 +322,9 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
     if (!el || !actions) return;
     stopFlip(el);
     const visualTop = el.getBoundingClientRect().top;
-    drag.current = { id, grab: p.y - visualTop, y: p.y, el, from: order.join('|') };
+    // the grab is where the finger went down, not where the drag began 8 px later: the row takes up the slop on the first
+    // drag frame and stays under the thumb (feel review 1 FL7)
+    drag.current = { id, grab: p.y - p.dy - visualTop, y: p.y, el, from: order.join('|') };
     el.classList.add('is-lifted');
     localRef.current = order;
     flushSync(() => setLocal(order));
@@ -335,6 +376,43 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
     setSaid(`${byId.get(id)?.name ?? 'Step'} moved to ${j + 1} of ${o.length}`);
   };
 
+  // ---------- focus after a row leaves (code review 1 F6) ----------
+  // a keyboard Remove or Skip takes away the row the menu gives focus back to: once that row is gone and focus fell to the
+  // body, the next row that is still here takes it (the one before, else the Wake row)
+  const refocus = useRef<{ id: string; ids: string[]; until: number } | null>(null);
+  const keepFocus = (id: string) => {
+    refocus.current = { id, ids: [...shown.map((x) => x.id), 'leave'], until: performance.now() + 2000 };
+    const live = (k: string) => list.current?.querySelector<HTMLElement>(`:scope > li[data-row="${CSS.escape(k)}"]:not([data-motion-pop-id]) .sch-hit`) ?? null;
+    const tick = () => {
+      const f = refocus.current;
+      if (!f || !list.current || performance.now() > f.until) return void (refocus.current = null);
+      if (!live(f.id)) {
+        const a = document.activeElement as HTMLElement | null;
+        // stray: on the body, or still on the row that is leaving (the menu gave it back before the row went)
+        const stray = !a || a === document.body || !!a.closest(`li[data-row="${CSS.escape(f.id)}"]`);
+        if (stray) {
+          const i = f.ids.indexOf(f.id);
+          const pick = [...f.ids.slice(i + 1), ...f.ids.slice(0, i).reverse(), 'wake'].map(live).find(Boolean);
+          pick?.focus({ preventScroll: true });
+        } else if (!a.closest('.cm-menu') && !a.closest('.sch')) return void (refocus.current = null);
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  // ---------- the workout row's content handed to another thing (FL5): fade the new one in, once ----------
+  const swaps = useRef(new Map<string, { key: string; on: boolean }>());
+  const swapOf = (r: SchedRow) => {
+    const key = `${r.icon}|${r.name}`;
+    const was = swaps.current.get(r.id);
+    return was == null ? { key, on: false } : was.key !== key ? { key, on: true } : was;
+  };
+  const nextSwaps = new Map<string, { key: string; on: boolean }>();
+  useLayoutEffect(() => {
+    swaps.current = nextSwaps;
+  });
+
   // ---------- the rows ----------
   const label = (r: SchedRow) => `${r.name}, ${clockOfDay(r.at)}${r.sub ? `, ${r.sub}` : ''}`;
   const rowFor = (r: SchedRow): ReactNode => {
@@ -364,14 +442,39 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
         </>
       );
     } else if (r.kind === 'work') {
+      const rest = actions.rest;
       const items: ContextMenuItem[] = [
-        ...(actions.skipLabel ? [{ label: `Skip ${actions.skipLabel}`, icon: <SkipForward size={18} />, onSelect: actions.skip }] : []),
-        { label: 'Make this a rest day', icon: <Moon size={18} />, onSelect: actions.rest },
+        ...(actions.skipLabel
+          ? [
+              {
+                label: `Skip ${actions.skipLabel}`,
+                icon: <SkipForward size={18} />,
+                onSelect: () => {
+                  keepFocus(r.id);
+                  actions.skip();
+                },
+              },
+            ]
+          : []),
+        ...(rest
+          ? [
+              {
+                label: 'Make this a rest day',
+                icon: <Moon size={18} />,
+                onSelect: () => {
+                  keepFocus(r.id);
+                  rest();
+                },
+              },
+            ]
+          : []),
         { label: 'Edit', icon: <Pencil size={18} />, onSelect: actions.editDay },
       ];
+      const swap = swapOf(r);
+      nextSwaps.set(r.id, swap);
       inner = (
         <Pressable as="div" className="sch-hit" press="surface" onPress={actions.editDay} holdMenu={items} menuLabel={`${r.name} actions`} label={`${label(r)}. Open the session`}>
-          <RowBody r={r} time={time} moved={isMoved} />
+          <RowBody r={r} time={time} moved={isMoved} swap={swap} />
         </Pressable>
       );
     } else if (r.kind === 'free')
@@ -392,7 +495,15 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
             onPress={() => actions.editStep(k)}
             holdMenu={[
               { label: 'Edit', icon: <Pencil size={18} />, onSelect: () => actions.editStep(k) },
-              { label: 'Remove', icon: <Trash2 size={18} />, onSelect: () => actions.removeStep(k), destructive: true },
+              {
+                label: 'Remove',
+                icon: <Trash2 size={18} />,
+                onSelect: () => {
+                  keepFocus(r.id);
+                  actions.removeStep(k);
+                },
+                destructive: true,
+              },
             ]}
             menuLabel={`${r.name} actions`}
             onDragStart={onDragStart(r.id)}
@@ -410,12 +521,12 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
           {order.length > 1 ? (
             <span className="sch-sr">
               {i > 0 ? (
-                <button type="button" className="sr-only" onClick={() => nudge(r.id, -1)}>
+                <button type="button" className="sr-only" tabIndex={-1} onClick={() => nudge(r.id, -1)}>
                   Move {r.name} up
                 </button>
               ) : null}
               {i < order.length - 1 ? (
-                <button type="button" className="sr-only" onClick={() => nudge(r.id, 1)}>
+                <button type="button" className="sr-only" tabIndex={-1} onClick={() => nudge(r.id, 1)}>
                   Move {r.name} down
                 </button>
               ) : null}
