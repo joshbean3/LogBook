@@ -985,6 +985,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* the quote line's slot while its module loads (44, the line's own height) */
+.cd-quote-slot {
+  height: 44px;
+}
 /* steps 3–4: the composer's box; the entry takes the field's place in it */
 .cd-box {
   position: relative;

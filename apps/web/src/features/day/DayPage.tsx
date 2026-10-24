@@ -14,6 +14,7 @@ import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { TodayTodos } from '../todos/TodayTodos';
 import { planEndOf } from './dayWords';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
+import { preloadCloseDay } from './CloseDay';
 import { Hero, SecondSession } from './Hero';
 import { useIsLive } from './live';
 import { MorningRow } from './MorningRow';
@@ -96,6 +97,8 @@ const LiveExtras = ({ date, loaded }: { date: ISODate; loaded: boolean }) => {
   useLayoutEffect(() => {
     if (!live || !loaded) return;
     const raf = requestAnimationFrame(hideSplash);
+    // the evening's card is fetched once the first screen is up (idle), never in its way
+    preloadCloseDay();
     return () => cancelAnimationFrame(raf);
   }, [live, loaded]);
   return null;

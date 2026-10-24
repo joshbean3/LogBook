@@ -2,7 +2,7 @@ import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate
 import { ChevronRight, PenLine, Share } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useMorningMutations, usePick, useSessionMutations, useTodos } from '@/api/queries';
 import { WORD_MAX } from '@/lib/gesture';
@@ -14,11 +14,8 @@ import { Ticker } from '@/ui/Ticker';
 import { useFirstToday } from '@/ui/useFirstToday';
 import { getDraft, subscribeDrafts } from '../journal/drafts';
 import { addToDraft, Composer } from '../journal/JournalDaySection';
-import { QuoteLine } from '../journal/JournalHome';
 import type { Log } from '../log/useLog';
 import { morningOf } from '../morning/model';
-import { WakeEditor } from '../morning/StepSheets';
-import { TodaysPick } from '../reads/TodaysPick';
 import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { groupsOn } from '../todos/groups';
@@ -27,6 +24,25 @@ import { HoldRing } from './HoldRing';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
 import { markSuccess } from './useStravaLanding';
 import { saveFocus, useFocus } from './WordSheet';
+
+/*
+ * The card's heavier parts load on their own (the Journal's quote line, the morning's alarm editor, Reads' pick), each in its
+ * fixed slot, so they never weigh on Today's first paint; `preloadCloseDay` fetches them at the first idle moment.
+ */
+const loadQuote = () => import('../journal/JournalHome');
+const loadWake = () => import('../morning/StepSheets');
+const loadPick = () => import('../reads/TodaysPick');
+const QuoteLine = lazy(() => loadQuote().then((m) => ({ default: m.QuoteLine })));
+const TodaysPick = lazy(() => loadPick().then((m) => ({ default: m.TodaysPick })));
+let preloaded = false;
+export const preloadCloseDay = () => {
+  if (preloaded) return;
+  preloaded = true;
+  const go = () => void Promise.all([loadQuote(), loadWake(), loadPick()]).catch(() => (preloaded = false));
+  const w = window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number };
+  if (w.requestIdleCallback) w.requestIdleCallback(go, { timeout: 4000 });
+  else setTimeout(go, 1500);
+};
 
 /** The card's title before and after the day's first entry (§5 step 0). */
 export const EVENING_TITLE = 'Two sentences, then sleep.';
@@ -181,13 +197,15 @@ const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: 
     >
       {writing || leaving === 'write' ? (
         <div ref={writeEl} key="write" className="cd-write" data-leaving={leaving === 'write' || undefined}>
-            <QuoteLine
-              date={date}
-              onInsert={(t) => {
-                addToDraft(date, t);
-                requestAnimationFrame(() => field.current?.focus());
-              }}
-            />
+            <Suspense fallback={<div className="cd-quote-slot" aria-hidden="true" />}>
+              <QuoteLine
+                date={date}
+                onInsert={(t) => {
+                  addToDraft(date, t);
+                  requestAnimationFrame(() => field.current?.focus());
+                }}
+              />
+            </Suspense>
             <div className="cd-composer">
               <Composer
                 date={date}
@@ -297,7 +315,7 @@ const WordRow = () => {
       }}
     >
       <span className="cd-trow-title">A word for tomorrow</span>
-      <span className="cd-trow-right">{focus.word || 'None'}</span>
+      {focus.word ? <span className="cd-trow-right">{focus.word}</span> : null}
       <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
     </Pressable>
   );
@@ -317,7 +335,10 @@ const AlarmRow = ({ log }: { log: Log }) => {
       className="row cd-trow cd-alarm"
       press="surface"
       label={`Alarm ${shortClock(T.day.wake)} tomorrow. Change`}
-      onPress={() => sheet.open({ eyebrow: 'Tomorrow', title: 'Alarm', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> })}
+      onPress={() =>
+        // the editor's module is fetched at idle (preloadCloseDay); a tap before that waits for it, once
+        void loadWake().then(({ WakeEditor }) => sheet.open({ eyebrow: 'Tomorrow', title: 'Alarm', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> }))
+      }
     >
       <span className="cd-trow-title tnum">Alarm {shortClock(T.day.wake)}</span>
       <span className="cd-trow-right">change</span>
@@ -421,7 +442,9 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODat
           </Pressable>
           {pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? (
             <div className="cd-pick">
-              <TodaysPick compact />
+              <Suspense fallback={null}>
+                <TodaysPick compact />
+              </Suspense>
             </div>
           ) : null}
         </>

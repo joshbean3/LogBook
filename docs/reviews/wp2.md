@@ -77,6 +77,116 @@ What it built (commits `7423539`, `cae8e99` and the step's last one):
   with `handle.goTo(newToday, { mode: 'crossfade' })` + `nav.replace('/today')`. A held day's hero reads the day's last
   minute, so its evening face stays.
 
+## Step 3 of 3: the evening and the run landing
+
+What it built (commits `555241f`, `a7f9c29`, `34ce0fe`, `e41b73b`, `df902ab` and the step's last one):
+
+- **The run landing** (`features/day/useStravaLanding.ts`, `RunLanding.tsx`, §6.1, build plan items 5, 6). A matched run in
+  today's snapshot whose landing has not been seen today waits (`stage = wait`): the hero keeps the face from before the run
+  (`preLandingFace`: the open face, its ring where it was) until Today is the active tab with nothing pushed over it, the
+  app is visible, the page is the live one and the hero is ≥ `LANDING_VISIBLE` in the tab scroller (an
+  `IntersectionObserver`). It subscribes to nothing while no landing waits, so a tab tap, a day step or a foreground return
+  re-renders no hero. Then, from the first calm frame (two frames on time, at most 1.2 s after the refetch that brought the
+  run): stage 1 fills the ring 0–300 and stage 2 crossfades its stroke into the check 300–500 (the check 0.8 → 1 on
+  `settle`), on one frame clock, on the ring's own node, with no React render (the node sets its own `data-done`); stage 3
+  is `growHero`: the card commits its 304 layout 150 ms early under the inverse transform (the landed face is already
+  mounted, hidden, under the face from before, so the commit is a class and two opacities), and from +500 one
+  `springs.settle` progress (0 → 1000, integrated on the frames' clock like the pager, at rest within 1 unit and 30/s)
+  scales the card back to 1 with its radius corrected and its content counter-scaled, carries the deck and the ring with
+  the bottom edge and translates everything below the hero by the same amount (`data-layout-exception` while it moves); on
+  its completion frame the styles clear, the one `success` fires (unless the hand already gave it today) and `.halo-boost`
+  runs; stage 4 draws the route (1.1 s), ticks DISTANCE from the planned miles, PACE from the easy pace, TIME from 0, fades
+  the verdict in, and the check's slot hands its place to Share. Then the coach: once per matched run, when the month has no
+  read, `fetchCoachRead` (`POST /coach/read`, the existing route) writes the answer into the month cache; the hero fades its
+  first sentence in (200 ms); a failure is silent and not asked again that day. The +8 s quiet repeat (`StravaRetry`, only
+  on the live open face): a non-quiet check answered `changed: 0` gets one `stravaSyncNow(qc, { force: true, quiet: true })`
+  8 s after it started. `useStravaPull` goes through `stravaSyncNow(qc, { force: true })`. The status line derives from
+  `useStravaChecking` in the render (no effect in between) and starts its fade one frame in.
+- **HoldRing**: two layers in the one node (the stroke's, the check's), the three values (`fill`, `morph`, `check`)
+  drivable by the landing (`RingDrive`), written to the node synchronously; the hand's completion plays stage 2 on it; no
+  1.12 pop on the ring (the check grows 0.8 → 1 on `settle`).
+- **The Close card** (`CloseDay.tsx`, §5, item 12): one card of fixed slots: `CLOSE THE DAY` and the title crossfading to
+  *Day, closed.*; the stamps (only what happened, counting once a day 60 ms apart, MI from the plan's miles); the run row
+  (60, the 40 ring while open, the words open the session sheet); the quote line as the composer's prompt (tap inserts it)
+  and the composer (`How did today go?`); Save swaps the box first (`flushSync`, the just-saved words shown until the month
+  carries the entry) with a native 150 ms opacity crossfade, the box keeping its height so nothing below moves, the
+  Composer's one `success`, `.halo-boost`, `Add to it`; Tomorrow always: the word as an inline field in the same 44 row
+  (Return saves; the bar's caps line paints before the write, `saveFocus`) and `Alarm 7:15 · change` (WP3's `WakeEditor`
+  for tomorrow, `Just tomorrow` chosen, a medium sheet); `Share the day`; today's read. Save blurs what had focus in the card.
+- **The session sheet** (§6.3, item 17): after a matched run the second row is `Share · Not feeling 100%` (which eases the
+  next three days, with Undo, and leaves the run done), Move and Edit under the ⋯; the evidence renders after the open
+  (WP1's request); no `0 mi` stat. Session actions: no haptic on Skip, un-completing or the illness skip; Done and Floor by
+  hand mark the session's one success; no toast without an Undo. The unused drag rows (`SessionRow`, `DropWeekStrip`,
+  `UnplannedRow`, `AddSessionButton`) are deleted with their `DROP_SPRING`, `useHoldDrag`, `DayStrip` and long-press uses:
+  nothing mounted them (build plan item 17 asked that the last two keep working "in the sheet"; they were not in it).
+- **Share doors** (item 18): the hero menu's Share, the landed face's Share pill (which takes the check's place at stage 4),
+  `Share the day` on the Close card and on past days' card.
+- No haptic on the calendar's month chevrons or the session editor's chips; no `Saved` / `Added to` toasts.
+
+### Battery (this step's scripts)
+
+`S/wp2/qa/run.mjs` now also runs `t41-close`, `t45-landing`, `t63-session` (S =
+`/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`); every row with its numbers is in
+`S/wp2/qa/results/TABLE.md`. Whole suite on this step's build: **164/165 at 1×, 153/156 at 4×** (the three 4× misses are
+step 1's page-commit items, WP1 requests: the [12] flick's 4.8 px vs 3 and the avatar after the pill's and the lit tab's
+slide; the 1× miss is the hero tap's sheet frame below). This step's rows (1× / 4×):
+
+| §3.4 [§14] | check | 1× | 4× |
+|---|---|---|---|
+| #8 [45] | `/strava/sync` requested after `visibilitychange` (bootstrap held 2 s) | 4.1 ms | 8.3 ms |
+| #8 [45] | `Checking Strava…` on screen after `visibilitychange` / shown for | 7.9 ms / 1483 ms | 10.2 ms / 1717 ms |
+| #8 [45] | stage 1: the ring's `stroke-dashoffset` at 0 (budget +300 ± 50) | +317 | +317 |
+| #8 [45] | stage 2: the check at scale 1, same node, `[data-done]` (+500 ± 50) | +517 | +550 |
+| #8 [45] | stage 3: `.hero` 304 ± 1 at the FLIP's completion (+900 ± 60); `.habits` translated on every intermediate frame | +907, 304.1, 14 frames | +931, 304.1, 12 frames |
+| #8 [45] | one `success`, on the FLIP's completion frame | 1, Δ 0 ms | 1, Δ 0 ms |
+| #8 [45] | the route's `pathLength` 1 at completion + 1100 ± 100 | +1093 | +1119 |
+| #8 [45] | frames with `0 mi`; layout keyframes in `getAnimations()` | 0; 0 | 0; 0 |
+| #8 [45] | hidden / Journal active / hero scrolled out when the run lands: 0 stages, 0 `success`; then once from stage 1, 1 `success` | pass ×3 | pass ×3 |
+| [53] | `changed: 0` after the back time: one more `/strava/sync` at +8 s ± 0.5, no status line for it | +7.999 s | +7.995 s |
+| #19 | one `POST /coach/read` `{ date, sessionId }` after stage 4, its sentence fades in, no `Reading`; a reload: 0 more; read in the month: 0 calls; a 500: no sentence, no toast | pass ×4 | pass ×4 |
+| #4 [41] | Close card at Fri 20:30: every slot, the Tomorrow group before any entry | pass | pass |
+| #4 [41] | the word row → the field in the same 44 box (maxLength 12); Return → `PATIENT · FRI, OCT 23` (≤ 150 ms), no toast, no haptic | 10 ms | 37 ms |
+| #4 [41] | after a reload; `/today/+1` `PATIENT · SAT, OCT 24`; scrolled 60 the word at opacity 1 | pass | pass |
+| §5 | the composer focused (keyboard stub): the card's height unchanged, `--kb` 336px | pass | pass |
+| §5 | Save: the entry in the box by one 150 ms opacity fade (started after the tap), the title → *Day, closed.*, `Add to it` 44 | 96 ms | 324 ms |
+| §5 | Save: exactly one `success`, `.halo-boost`, nothing below the box moves | 0 px | 0 px |
+| §5 | `Add to it` brings the composer back, focused; the alarm row: a medium sheet, `Just tomorrow`, 0 haptics; `Share the day` | pass | pass |
+| §6.3 | the open session's sheet: `Skip · Move · Edit`; its first frame after `touchend` (budget 17 / 70) | 30 ms (fail) | 54 ms |
+| §6.3 | Skip in the sheet: 0 haptics, toast with Undo; after a matched run: `Share · Not feeling 100%`, ⋯ `Move · Edit · Delete`, no `0 mi`; Not feeling 100% eases, the run stays done, 0 haptics | pass | pass |
+
+Re-run on this step after the Close card change: `t42-midnight` 5/5 and 5/5 (it failed 3/5 at both rates before Save blurred
+the card's focus: the Save button, focused by the tap, left the DOM 26 s of fake time later and its `focusout` restarted the
+idle minute), `t43-phase` 5/5 and 5/5, `t37-sections` 26/26 and 26/26, `t41-word` now 10/10 at 4× too (the word paints
+before the write).
+
+Gates: tsc shared/api/web exit 0; shared 88, api 59, web 99 (96 + 3 new in `faces.test.ts`) pass; `pnpm --filter
+@logbook/web build` ok, entry chunk 923.1 kB raw (step 2: 915.6; the Close card's quote line, alarm editor and read load in
+their own slots and are fetched at idle). Reduced motion (`shots-landing.mjs`): the landing swaps without the FLIP, still
+304 at rest, 1 `success`. Screenshots (Read): `S/wp2/qa/shots/landing-{390,320,390-reduced}-{open,grow,landed}.png`,
+`S/wp2/qa/shots/evening-{390,320}-{close,close-scrolled}.png`, `S/wp2/qa/shots/evening-390-{typed,saved,word,alarm}.png`;
+before: `S/wp2/qa/shots/after-{390,320}-*.png` (step 1's 20:30 and Sep 8 states).
+
+### Requests (this step)
+
+- **WP3 (`features/morning/StepSheets.tsx`, `WakeEditor`).** Its save still fires `haptics.success()` and toasts `Alarm 7:15
+  on tomorrow` (the Close card's alarm row opens it): §11.4 has no haptic on "Save of the alarm" and §8 toasts are Undo and
+  errors only.
+- **WP3 (risk 8, `packages/shared` types, the sessions table).** `Back to the plan` needs `plannedMiles` stored on a session at
+  its first edit; the shared `Session` type and the schema are WP3's.
+- **WP6 (`Composer`).** The journal write's optimistic month patch re-renders every mounted day page in the save's task: at
+  4× the Close card's crossfade starts 339 ms after the tap (1×: 101 ms) though the fade itself is a 150 ms compositor
+  animation. Deferring the month patch to after the next frame (or a lighter page subscription, step 2's note) would close it.
+- **WP1 (`Pressable`, repeated).** The hero's tap opens the session sheet from the click, a frame after the touch's release:
+  the sheet's first moving frame is 23–31 ms after `touchend` at 1× (§14 27: 17). Opening on `pointerup` here would bypass
+  the pager's swallowed tap-during-a-slide, so it stays on the click until Pressable has a release option.
+- **Contracts §D.1 / WP1.** motion's `animate()` started inside a long task takes its start from a stale frame time, so a
+  timed sequence jumps ahead by the task's length (the landing's ring at 4× read +197 ms for a 300 ms fill). The landing runs
+  its stages on the frames' own clock (as DayPager does); a `startOnNextFrame` option in `lib/motion.ts` would serve others.
+- **Spec §6.1 / risk 11.** `/coach/read` returns 2–3 sentences (the API's prompt asks for them); the hero shows the first,
+  one line, 15/20. If the owner wants the whole read on the face, the prompt should ask for one sentence.
+- **Spec §5 step 4.** "The entry replaces the field in the same box": the box keeps the composer's height after Save (so
+  nothing under it moves, §0.4 rule 1), which leaves space under a short entry until the next open.
+
 ## Requests
 
 - **WP1 (`ui/NavBar.tsx` DateStrip).** Its layout effect re-runs on every commit (deps `[idx, handle]`) and reads
