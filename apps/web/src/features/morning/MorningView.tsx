@@ -10,9 +10,9 @@ import { springs } from '@/lib/motion';
 import { ChipButton, DatePager, DayStepper, dayCaption, Skeleton, SkeletonGroup, TabHeader, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useLog, type Log } from '../log/useLog';
-import { DayEditor } from './DayEditor';
+import { useOpenSession } from '../sessions/SessionCard';
 import { MiniLine } from './MiniLine';
-import { morningOf, ROUTINE_DEFAULTS, short, takeLegacyOrder, timeParts, useNowMinutes, type DayPatch } from './model';
+import { morningOf, ROUTINE_DEFAULTS, short, takeLegacyOrder, timeParts, useNowMinutes } from './model';
 import { RoutineEditor } from './RoutineEditor';
 import { Schedule, type ScheduleActions } from './Schedule';
 import { fullOrder, GapEditor, removal, StartEditor, StepEditor, WakeEditor } from './StepSheets';
@@ -24,10 +24,22 @@ const skippable = (sessions: Session[], T: MorningTimeline) => {
   return kind ? (sessions.find((s) => s.kind === kind && !s.mark) ?? null) : null;
 };
 
+/** The late note's three fixes (spec §4.1): the alarm is the morning's, the miles and the skip are the session's. */
+interface LateFixes {
+  /** `{ wake }` for this date. */
+  wake: (wake: number) => void;
+  /** A session upsert with these miles (null when the day has no run session). */
+  miles: ((miles: number) => void) | null;
+  /** The run session marked 'skip' (null when there is none). */
+  skipRun: (() => void) | null;
+}
+
 /** When the routine runs past the shower: say by how much, and offer the two fixes as one-tap chips. */
-const LateNote = ({ T, onFix }: { T: MorningTimeline; onFix: (p: DayPatch) => void }) => {
+const LateNote = ({ T, fix }: { T: MorningTimeline; fix: LateFixes }) => {
   if (!T.late || !T.fix) return null;
   const miles = T.fix.maxMiles != null ? Math.floor(T.fix.maxMiles * 2) / 2 : null;
+  const wake = Math.floor(T.fix.latestWake / 5) * 5;
+  const run = miles == null ? null : miles >= 0.5 ? (fix.miles ? () => fix.miles!(miles) : null) : fix.skipRun;
   return (
     <div className="m-late" role="note">
       <p>
@@ -37,16 +49,16 @@ const LateNote = ({ T, onFix }: { T: MorningTimeline; onFix: (p: DayPatch) => vo
         <ChipButton
           onClick={() => {
             haptics.toggle();
-            onFix({ wake: Math.floor(T.fix!.latestWake / 5) * 5 });
+            fix.wake(wake);
           }}
         >
-          Wake {short(Math.floor(T.fix.latestWake / 5) * 5)}
+          Wake {short(wake)}
         </ChipButton>
-        {miles != null ? (
+        {miles != null && run ? (
           <ChipButton
             onClick={() => {
               haptics.toggle();
-              onFix(miles >= 0.5 ? { miles } : { mode: 'rest', type: 'Rest' });
+              run();
             }}
           >
             {miles >= 0.5 ? `Run ${num(miles)} mi` : 'Skip the run'}
@@ -81,7 +93,7 @@ const LeaveBar = ({ T, isToday, now, onPress }: { T: MorningTimeline; isToday: b
 };
 
 /** One day's page inside the pager: the stops at a glance, the late note, the schedule, the leave bar. Neighbours render it inert. */
-const DayPage = ({ date, log, st, now, interactive, actions }: { date: string; log: Log; st: MorningSettings; now: number; interactive: boolean; actions?: (T: MorningTimeline) => ScheduleActions & { setDay: (p: DayPatch) => void } }) => {
+const DayPage = ({ date, log, st, now, interactive, actions }: { date: string; log: Log; st: MorningSettings; now: number; interactive: boolean; actions?: (T: MorningTimeline) => ScheduleActions & { late: LateFixes } }) => {
   const T = useMemo(() => morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st), [log.snap, date, st]);
   const isToday = date === log.today;
   const a = interactive ? actions?.(T) : undefined;
@@ -89,7 +101,7 @@ const DayPage = ({ date, log, st, now, interactive, actions }: { date: string; l
   return (
     <div className={`m-day m-${T.day.mode}`}>
       <MiniLine T={T} className="m-sum" />
-      {interactive ? <LateNote T={T} onFix={(p) => a?.setDay(p)} /> : null}
+      {interactive && a ? <LateNote T={T} fix={a.late} /> : null}
       {before ? (
         <p className="m-pre">
           <i className="now-dot now-pulse" aria-hidden="true" />
@@ -134,7 +146,8 @@ export default function MorningView() {
   const now = useNowMinutes();
   const st = log.boot?.morningSettings ?? ROUTINE_DEFAULTS;
   const { setDay, settings } = useMorningMutations();
-  const { mark } = useSessionMutations();
+  const { mark, upsert } = useSessionMutations();
+  const openSession = useOpenSession(log);
   // the dev clock (?at=) rides along when the day changes; a day step replaces the entry, so Back never walks the days
   const go = (d: string) => nav(`${d === t ? '/morning' : `/morning/${d}`}${loc.search}`, { replace: true });
 
@@ -156,20 +169,22 @@ export default function MorningView() {
 
   const actionsFor =
     (d: string) =>
-    (DT: MorningTimeline): ScheduleActions & { setDay: (p: DayPatch) => void } => {
+    (DT: MorningTimeline): ScheduleActions & { late: LateFixes } => {
       const sessions = log.snap.sessionsOn(d);
       const s = skippable(sessions, DT);
-      const override = log.snap.morningOverride(d);
-      const write = (patch: DayPatch) => {
-        const x = DT.day;
-        setDay.mutate({ date: d, day: { mode: x.mode, type: x.type, miles: x.miles, minutes: x.minutes, wake: x.wake, ...patch } });
-      };
-      const restore = () => setDay.mutate({ date: d, day: override ?? null });
+      // the session the morning's workout is (spec §4.3: the session is the run), skipped or not
+      const workout = s ?? sessions.find((x) => x.kind === 'run') ?? sessions.find((x) => x.kind === 'lift') ?? null;
+      const run = sessions.find((x) => x.kind === 'run' && !x.mark) ?? null;
+      // the day's workouts still to do, and the ones skipped from it (what "Back to the plan" un-skips)
+      const open = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && !x.mark);
+      const skipped = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && x.mark === 'skip');
+      const remark = (list: Session[], m: Session['mark']) => list.forEach((x) => mark.mutate({ session: x, mark: m }));
       const eyebrow = `Morning · ${fmtDate('md', d)}`;
+      const editWake = () => sheet.open({ eyebrow, title: 'Alarm', body: <WakeEditor settings={DT.settings} day={DT.day} date={d} dayName={dayName(d)} /> });
       return {
-        setDay: write,
-        editDay: () => sheet.open({ eyebrow, title: fmtDate('dowLong', d), body: <DayEditor date={d} /> }),
-        editWake: () => sheet.open({ eyebrow, title: 'Alarm', body: <WakeEditor settings={DT.settings} day={DT.day} date={d} dayName={dayName(d)} /> }),
+        // one editor (M16): the run is the session, so the workout opens the session sheet; a morning with none, its alarm
+        editDay: () => (workout ? openSession(d, workout) : editWake()),
+        editWake,
         editGap: () => sheet.open({ eyebrow: 'Every morning', title: DT.day.mode === 'gym' ? 'The walk' : 'Door and cool-down', body: <GapEditor settings={DT.settings} day={DT.day} /> }),
         editStart: () => sheet.open({ eyebrow: 'Every morning', title: 'Routine starts', body: <StartEditor settings={DT.settings} day={DT.day} /> }),
         editStep: (k) => {
@@ -189,28 +204,29 @@ export default function MorningView() {
         skip: () => {
           if (!s) return;
           const prev = s.mark;
+          // the session is the run: skipping it is the one write, and the morning (its alarm included) follows
           mark.mutate({ session: s, mark: 'skip' });
-          // a morning the athlete reshaped keeps its alarm, and loses the workout with the session
-          if (DT.day.own && DT.day.mode !== 'rest') write({ mode: 'rest', type: 'Rest' });
           haptics.toggle();
-          toast(`${label(s)} skipped`, {
-            label: 'Undo',
-            fn: () => {
-              mark.mutate({ session: s, mark: prev });
-              if (DT.day.own) restore();
-            },
-          });
+          toast(`${label(s)} skipped`, { label: 'Undo', fn: () => mark.mutate({ session: s, mark: prev }) });
         },
+        // a rest day: every workout of the day skipped (Skip takes the one in the row)
         rest: () => {
-          write({ mode: 'rest', type: 'Rest' });
+          if (!open.length) return;
+          remark(open, 'skip');
           haptics.toggle();
-          toast('Rest morning', { label: 'Undo', fn: restore });
+          toast('Rest morning', { label: 'Undo', fn: () => remark(open, null) });
         },
-        backLabel: DT.day.mode === 'rest' && DT.day.own && DT.day.plan.mode !== 'rest' ? DT.day.plan.label || 'the plan' : null,
+        backLabel: DT.day.mode === 'rest' && skipped.length ? label(skipped[0]!) : null,
         backToPlan: () => {
-          setDay.mutate({ date: d, day: null });
+          if (!skipped.length) return;
+          remark(skipped, null);
           haptics.toggle();
-          toast(`Back to ${DT.day.plan.label || 'the plan'}`, { label: 'Undo', fn: restore });
+          toast(`Back to ${label(skipped[0]!)}`, { label: 'Undo', fn: () => remark(skipped, 'skip') });
+        },
+        late: {
+          wake: (wake) => setDay.mutate({ date: d, day: { wake } }),
+          miles: run ? (miles) => upsert.mutate({ id: run.id, date: run.date, kind: run.kind, type: run.type, title: run.title, details: run.details, miles, minutes: run.minutes }) : null,
+          skipRun: run ? () => mark.mutate({ session: run, mark: 'skip' }) : null,
         },
       };
     };

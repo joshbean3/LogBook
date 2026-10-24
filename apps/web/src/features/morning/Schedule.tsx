@@ -11,7 +11,7 @@ import { blockLabel, markTaught, short, wasTaught } from './model';
 /** What the schedule's rows open and change. MorningView builds it; it owns the sheets, the writes and the toasts. */
 export interface ScheduleActions {
   editWake: () => void;
-  /** This morning: run, gym or rest, the kind, the miles or minutes. */
+  /** This morning's workout: the session sheet (the session is the run, spec §4.3); the alarm sheet on a morning with none. */
   editDay: () => void;
   /** The stretch each side of the workout. */
   editGap: () => void;

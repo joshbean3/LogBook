@@ -9,9 +9,8 @@ import { useRouteParams } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import { useSheet } from '@/ui/Sheet';
 import { useLog } from '../log/useLog';
-import { parseWake } from './DayEditor';
 import { MiniLine } from './MiniLine';
-import { morningOf, ROUTINE_DEFAULTS, short } from './model';
+import { morningOf, parseWake, ROUTINE_DEFAULTS, short } from './model';
 
 /** One editable number of the routine: how it reads, how it steps, and the common values a tap on its chip cycles through. */
 interface Field {

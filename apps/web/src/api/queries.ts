@@ -423,8 +423,9 @@ export const useTodoMutations = () => {
 // ── end WP2 ──
 
 // ── WP3 ──
-// The Morning team's block. Settings PATCH (the routine editor's one save) and the per-day override (drags, the day
-// editor, rest mornings), both optimistic.
+// The Morning team's block. Settings PATCH (the routine editor's one save) and the per-day override (the alarm drag, the
+// alarm sheet, the late note's wake chip), both optimistic. A day's override is its alarm alone (spec §4.3): the body is
+// exactly `{ wake }`, whatever the caller holds, and the cache keeps the same shape.
 export const useMorningMutations = () => {
   const qc = useQueryClient();
   const settings = useMutation({
@@ -440,7 +441,8 @@ export const useMorningMutations = () => {
     onError: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
   });
   const setDay = useMutation({
-    mutationFn: async ({ date, day }: { date: string; day: MorningDayOverride | null }) => {
+    mutationFn: async ({ date, day: given }: { date: string; day: MorningDayOverride | null }) => {
+      const day: MorningDayOverride | null = given ? { wake: given.wake } : null;
       const month = monthOf(date);
       ensureMonth(qc, month);
       patchMonth(qc, month, (b) => {

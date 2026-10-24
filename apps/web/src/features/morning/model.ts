@@ -65,12 +65,29 @@ export const takeLegacyOrder = (): RoutineKey[] | null => {
   }
 };
 
-export type DayPatch = Partial<Pick<MorningDayOverride, 'wake' | 'miles' | 'minutes' | 'mode' | 'type'>>;
+/**
+ * What a morning's own setting can change: the alarm, nothing else (spec §4.3, M16). The workout is the session's, edited
+ * in the session sheet.
+ */
+export type DayPatch = { wake?: number };
 
-/** The morning for a date: the plan, the day's override and the routine, with `patch` (a drag in progress) laid over the day. */
+/** "7:15", "715" or "7": a morning hour, with or without minutes. */
+export const parseWake = (raw: string) => {
+  const s = raw.trim().toLowerCase().replace(/\s*(am|a)$/, '');
+  const x = /^(\d{1,2})(?::?(\d{2}))?$/.exec(s);
+  if (!x) return null;
+  const h = Number(x[1]);
+  const m = Number(x[2] ?? 0);
+  return h <= 23 && m <= 59 ? h * 60 + m : null;
+};
+
+/**
+ * The morning for a date: the sessions (the workout), the day's override (its alarm) and the routine, with `patch` (an
+ * alarm drag in progress) laid over the day.
+ */
 export const morningOf = (sessions: Session[], override: Partial<MorningDayOverride> | null, st: MorningSettings, patch?: DayPatch | null): MorningTimeline => {
   const day = morningDayFor(sessions, override, st);
-  return buildMorning(patch ? { ...day, ...patch } : day, st);
+  return buildMorning(patch?.wake != null ? { ...day, wake: patch.wake } : day, st);
 };
 
 /** Out the door: the start of the first buffer block (null on a rest morning). */

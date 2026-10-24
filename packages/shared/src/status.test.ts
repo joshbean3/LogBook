@@ -146,9 +146,9 @@ describe('morning timeline', () => {
     expect(t.back).toBe(440);
     expect(t.late).toBe(0);
     expect(t.leave).toBe(570);
-    // an empty day is a rest morning too, and a rest override wins over a planned run
+    // an empty day is a rest morning too; a skipped run is one, and the day's own alarm stays (spec §4.3: the session is the run)
     expect(morningDayFor([], null, MORNING_DEFAULTS).mode).toBe('rest');
-    const over = morningDayFor([sess({ date: '2026-10-14', kind: 'run', type: 'Easy', miles: 5 })], { mode: 'rest', type: 'Rest', miles: 5, minutes: 40, wake: 540 }, MORNING_DEFAULTS);
+    const over = morningDayFor([sess({ date: '2026-10-14', kind: 'run', type: 'Easy', miles: 5, mark: 'skip' })], { wake: 540 }, MORNING_DEFAULTS);
     const late = buildMorning(over, MORNING_DEFAULTS);
     expect(over.mode).toBe('rest');
     // 9:00 alarm on a rest day: the shower just starts after, nothing is "late"

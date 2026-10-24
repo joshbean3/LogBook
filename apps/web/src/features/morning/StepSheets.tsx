@@ -5,8 +5,7 @@ import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
 import { Button, ChipButton, Segmented, Stepper, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
-import { parseWake } from './DayEditor';
-import { short, WAKE_MAX, WAKE_MIN, WAKE_STEP } from './model';
+import { parseWake, short, WAKE_MAX, WAKE_MIN, WAKE_STEP } from './model';
 
 /*
  * The schedule's editors: one small sheet for each kind of row, so a tap edits exactly the thing tapped. Each keeps a draft
@@ -221,7 +220,7 @@ export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { se
     if (scope === 'usual' && wake !== st.wake) patch.wake = wake;
     if (Object.keys(patch).length) settings.mutate(patch);
     // a morning of its own keeps its own alarm; "every morning" brings it along so the page shows what was chosen
-    if (wake !== day.wake && (scope === 'day' || day.own)) setDay.mutate({ date, day: { mode: day.mode, type: day.type, miles: day.miles, minutes: day.minutes, wake } });
+    if (wake !== day.wake && (scope === 'day' || day.own)) setDay.mutate({ date, day: { wake } });
     haptics.success();
     sheet.close();
     toast(scope === 'usual' ? `Alarm ${short(wake)} every morning` : `Alarm ${short(wake)} on ${justName}`);
