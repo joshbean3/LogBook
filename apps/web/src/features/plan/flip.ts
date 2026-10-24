@@ -60,6 +60,8 @@ export const useFlip = (root: RefObject<HTMLElement | null>) => {
       if (was != null) dyOf.set(el, was + (visual.get(el)! - laid.get(el)!) - laid.get(el)!);
     }
     p.tops = new Map(els.map((el) => [keyOf(el) ?? '', laid.get(el)!] as const));
+    // reduced motion: the rows are simply where they are now (§10.2)
+    if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     for (const [el, dy] of dyOf) {
       // a row inside a day that moves rides its day's transform: only what moves relative to its day animates
       const day = el.dataset.sessionId ? el.closest<HTMLElement>('[data-plan-day]') : null;

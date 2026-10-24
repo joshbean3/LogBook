@@ -31,6 +31,7 @@ const RISE = 36;
 const EDGE = 64;
 const MAX_STEP = 14;
 
+const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const dayAt = (x: number, y: number): HTMLElement | null => document.elementFromPoint(x, y)?.closest<HTMLElement>(`[${PLAN_DAY}]`) ?? null;
 
 /** The session that has just been dropped: its new row hides its content until the pill lands in it. */
@@ -142,7 +143,8 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
   /** Fly the pill onto `r` on springs.settle (WAAPI, transform only); resolves on the landing frame. */
   const fly = (f: Flight, r: DOMRect | null, scale: number) => {
     f.off();
-    if (!r) return Promise.resolve();
+    // reduced motion: no travel; the pill fades where it is (§10.2)
+    if (!r || reduced()) return Promise.resolve();
     const a = f.pill.animate([{ transform: f.pill.style.transform }, { transform: onto(f, r, scale) }], { ...settleEasing, fill: 'forwards' });
     return a.finished.then(
       () => undefined,
@@ -150,7 +152,7 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
     );
   };
   const fadeOut = (f: Flight) => {
-    const a = f.pill.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: 'linear', fill: 'forwards' });
+    const a = f.pill.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reduced() ? 150 : 120, easing: 'linear', fill: 'forwards' });
     void a.finished.finally(() => f.pill.remove()).catch(() => undefined);
   };
   const end = (p: DragPoint, cancelled: boolean) => {

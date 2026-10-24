@@ -106,8 +106,12 @@ export default function PlanView(): React.JSX.Element {
   const monthPane = useRef<HTMLElement>(null);
   const fades = useRef<Animation[]>([]);
   const shownView = useRef(view);
+  // every render: a cut's no-fade belongs to the render it was asked for, whether or not that render switched the view
   useLayoutEffect(() => {
-    if (shownView.current === view) return;
+    if (shownView.current === view) {
+      noFade.current = false;
+      return;
+    }
     shownView.current = view;
     for (const a of fades.current) a.cancel();
     fades.current = [];
@@ -130,7 +134,7 @@ export default function PlanView(): React.JSX.Element {
     };
     if (aOut) aOut.onfinish = done;
     else done();
-  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
+  });
 
   // ---------- home, requests, the title ----------
   const goHome = useCallback(() => {

@@ -34,10 +34,9 @@ const Cell = ({ d, log, inMonth }: { d: string; log: Log; inMonth: boolean }) =>
   const k = lead ? sessionKey(log.snap, d, lead) : ran ? 'bonus' : 'rest';
   const miles = ran > 0 ? tenth(ran) : planned > 0 ? tenth(planned) : '';
   return (
-    <span className={`mg-cell k-${k} ${inMonth ? '' : 'is-out'} ${d === t ? 'is-today' : ''}`.trim()}>
+    <span className={`mg-cell k-${k} ${inMonth ? '' : 'is-out'} ${d === t ? 'is-today' : ''} ${lead || ran > 0 ? `has-tone t-${lead ? tone(lead) : 'easy'}` : ''}`.trim()}>
       <span className="mg-num tnum">{parseISO(d).getDate()}</span>
-      <span className={`mg-mi tnum ${ran > 0 ? 'is-ran' : ''}`.trim()}>{miles}</span>
-      {lead || ran > 0 ? <i className={`mg-tone ${lead ? `t-${tone(lead)}` : 't-easy'}`} aria-hidden="true" /> : null}
+      {miles ? <span className={`mg-mi tnum ${ran > 0 ? 'is-ran' : ''}`.trim()}>{miles}</span> : null}
     </span>
   );
 };

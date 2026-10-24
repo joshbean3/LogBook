@@ -344,12 +344,10 @@ const TemplatePanel = ({ log, prefill }: { log: Log; prefill?: BuilderPrefill })
   const isRace = goal !== 'base';
   const raceDate = isRace && race ? shiftDays(firstMon, weeks * 7 - 1) : null;
   const pickGoal = (g: Goal) => {
-    haptics.select();
     setGoal(g);
     setWeeks(GOAL_SPECS[g].defaultWeeks);
   };
   const toggleDay = (d: Weekday) => {
-    haptics.select();
     setRunDays((xs) => {
       if (xs.includes(d)) {
         if (xs.length === 1) return xs;
@@ -361,7 +359,6 @@ const TemplatePanel = ({ log, prefill }: { log: Log; prefill?: BuilderPrefill })
     });
   };
   const pickLong = (d: Weekday) => {
-    haptics.select();
     setLongDay(d);
     setRunDays((xs) => (xs.includes(d) ? xs : WEEKDAYS.filter((x) => xs.includes(x) || x === d)));
   };

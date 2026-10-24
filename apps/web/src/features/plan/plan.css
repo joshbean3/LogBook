@@ -9,21 +9,23 @@
   opacity: 1 !important;
 }
 
-/* ---------- the two panes: Week ⇄ Month is a 200 ms crossfade of both, mounted (PlanView) ---------- */
+/* ---------- the two panes: Week ⇄ Month is a 200 ms crossfade of both, mounted (PlanView) ----------
+ * Both panes sit in one grid cell, in flow: a switch changes no pane's position (no relayout of the one leaving); the pane
+ * that is neither shown nor leaving is under <Activity mode="hidden"> (display: none on its pager, no style or layout cost
+ * on a tab switch) and its section is hidden here. */
 .pl-panes {
-  position: relative;
+  display: grid;
+}
+.pl-pane {
+  grid-area: 1 / 1;
+  min-width: 0;
 }
 .pl-pane.is-leaving,
 .pl-pane.is-off {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
   pointer-events: none;
 }
 .pl-pane.is-off {
   visibility: hidden;
-  content-visibility: hidden;
 }
 /* each page carries the gutter and the page's bottom padding (inside the cur page, so its min-height includes it) */
 .pl-wpage,
@@ -534,7 +536,8 @@
 .mg-mi.is-ran {
   color: var(--ink);
 }
-.mg-tone {
+.mg-cell.has-tone::after {
+  content: '';
   position: absolute;
   bottom: 8px;
   left: 50%;
@@ -544,15 +547,15 @@
   border-radius: 2px;
   background: var(--tone, var(--t-rest));
 }
-.mg-cell.k-missed .mg-tone,
-.mg-cell.k-skipped .mg-tone {
+.mg-cell.k-missed::after,
+.mg-cell.k-skipped::after {
   background: var(--ink-4);
 }
-.mg-cell.k-planned .mg-tone,
-.mg-cell.k-today .mg-tone {
+.mg-cell.k-planned::after,
+.mg-cell.k-today::after {
   opacity: 0.55;
 }
-.mg-cell.is-out .mg-tone {
+.mg-cell.is-out::after {
   opacity: 0.3;
 }
 .mg-wk {
