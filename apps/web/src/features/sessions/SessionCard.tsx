@@ -514,18 +514,14 @@ export const sessionSheetTitle = (date: string) => <span className="caps sh-shee
 export interface OpenSessionOpts {
   /** Accepted for old callers; the sheet is the same from the hero and from a row. */
   fromHero?: boolean;
-  /**
-   * The shared title: the id the opener marked with `shared(id)` (by convention `session-<id>`). The opener's title flies
-   * into the sheet's header as it rises, and home again on close. Leave it off when nothing on the page carries the id.
-   */
+  /** Accepted for old callers and ignored: Sheet v3 has no title flyer (contracts rule 5, `SheetSpec.layoutId` goes at integration). */
   sharedId?: string;
 }
 
 /** The spec for a session's sheet: its name as the serif title, the date as the eyebrow. */
-export const sessionSheetSpec = (date: string, s: Session, opts: OpenSessionOpts = {}): SheetSpec => ({
+export const sessionSheetSpec = (date: string, s: Session, _opts: OpenSessionOpts = {}): SheetSpec => ({
   eyebrow: fmtDate('long', date),
   title: s.kind === 'rest' ? 'Rest' : label(s),
-  layoutId: opts.sharedId,
   action: <SessionMore date={date} id={s.id} />,
   body: <SessionSheet date={date} id={s.id} />,
   wide: true,
@@ -539,7 +535,7 @@ export const useOpenSession = (_log?: Log, how: { push?: boolean } = {}) => {
   const sheet = useSheet();
   return (date: string, s: Session, opts: OpenSessionOpts = {}) => {
     const spec = sessionSheetSpec(date, s, opts);
-    if (how.push) sheet.push({ ...spec, layoutId: undefined });
+    if (how.push) sheet.push(spec);
     else sheet.open(spec);
   };
 };
@@ -550,6 +546,6 @@ export const usePushSession = (log?: Log) => useOpenSession(log, { push: true })
 /** Open an unplanned run's sheet: the run's name as the title, the date as the eyebrow. */
 export const useOpenUnplanned = () => {
   const sheet = useSheet();
-  return (date: string, runs: Activity[], log: Log, opts: { sharedId?: string } = {}) =>
-    sheet.open({ eyebrow: fmtDate('long', date), title: runs.length === 1 ? runs[0]!.name : `${runs.length} runs`, layoutId: opts.sharedId, body: <UnplannedSheet date={date} runs={runs} log={log} />, wide: true });
+  return (date: string, runs: Activity[], log: Log, _opts: { sharedId?: string } = {}) =>
+    sheet.open({ eyebrow: fmtDate('long', date), title: runs.length === 1 ? runs[0]!.name : `${runs.length} runs`, body: <UnplannedSheet date={date} runs={runs} log={log} />, wide: true });
 };

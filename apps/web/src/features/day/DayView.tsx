@@ -16,7 +16,7 @@ import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
 import { useOpenCalendar } from './Calendar';
 import { DayPage } from './DayPage';
-import { setLiveDate } from './live';
+import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { useStravaPull } from './useStravaPull';
@@ -44,6 +44,25 @@ const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: '
  * - The bar's stacked labels follow the pager's `progress` with no render; during a 2–7 day `goTo` the label in the direction
  *   of travel shows the destination (`handle.target`: one render at the start of the slide).
  */
+/**
+ * The trailing slot's two occupants (§2.4): the avatar on today, the Today pill off it, both mounted, crossfading 120 ms by a
+ * CSS transition that starts on the commit's own frame. Through NavBar's keyed swap the fade started a frame after the
+ * commit's render (motion schedules it on the next frame), which at 4× put the avatar back 165–300 ms after the slide's rest
+ * (§14 20: 150). The hidden one is `inert` and leaves the accessibility tree.
+ */
+function TrailSwap({ home, onHome }: { home: boolean; onHome: () => void }): React.JSX.Element {
+  return (
+    <span className="trail-swap">
+      <span className="trail-swap-item" data-on={home || undefined} inert={!home || undefined} aria-hidden={!home || undefined}>
+        <Avatar />
+      </span>
+      <span className="trail-swap-item" data-on={!home || undefined} inert={home || undefined} aria-hidden={home || undefined}>
+        <TodayPill onPress={onHome} />
+      </span>
+    </span>
+  );
+}
+
 export default function DayView(): React.JSX.Element {
   // the day the tab treats as today: held past midnight until the rollover may apply (§5.4, useDeferred)
   const live = useToday();
@@ -110,6 +129,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   const goHome = useCallback(() => handle.goTo(todayRef.current), [handle]);
   // the live page (its once-a-day moments, the nudge, the splash) follows the date in the commit's own layout phase
   useLayoutEffect(() => setLiveDate(date), [date]);
+  useEffect(() => setPagerMoving(() => handle.moving.get()), [handle]);
   useRootRequest((p, how) => {
     const d = p.date && ISO.test(p.date) ? p.date : todayRef.current;
     if (how.cut) setDate(d);
@@ -157,7 +177,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         caps={{ prev: dayCaption(prev, today), cur: dayCaption(date, today), next: dayCaption(next, today) }}
         title={{ prev: dayTitle(prev, today), cur: dayTitle(date, today), next: dayTitle(next, today) }}
         progress={handle.progress}
-        trailing={date === today ? <Avatar key="avatar" /> : <TodayPill key="pill" onPress={goHome} />}
+        trailing={<TrailSwap key="trail" home={date === today} onHome={goHome} />}
         onTitlePress={() => {
           if (dateRef.current !== todayRef.current) goHome();
         }}

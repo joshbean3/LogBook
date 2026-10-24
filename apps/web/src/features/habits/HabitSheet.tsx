@@ -23,7 +23,7 @@ export const useArchiveHabit = () => {
 /** Open the habit sheet with the orb's name travelling into its title. */
 export const useOpenHabit = () => {
   const sheet = useSheet();
-  return (h: Habit) => sheet.open({ eyebrow: 'Habit', title: h.name, layoutId: `habit-${h.id}`, body: <HabitSheet id={h.id} /> });
+  return (h: Habit) => sheet.open({ eyebrow: 'Habit', title: h.name, body: <HabitSheet id={h.id} /> });
 };
 
 /**

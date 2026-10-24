@@ -232,6 +232,8 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
 
 /** The page the pager renders: a neighbour mounts as its shell and fills in in the background; the cur page renders at once. */
 export const DayPage = memo(function DayPage(p: DayPageProps): React.JSX.Element {
-  const ready = useDeferredValue(true, !p.live);
+  // the first render's value: the live page renders whole at once; a neighbour renders its shell, then fills in (React's
+  // `initialValue` is what the mount shows, so it is `p.live`; `!p.live` mounted every new neighbour whole inside the commit)
+  const ready = useDeferredValue(true, p.live);
   return ready ? <DayContent date={p.date} onMorning={p.onMorning} /> : <DayShell date={p.date} />;
 });

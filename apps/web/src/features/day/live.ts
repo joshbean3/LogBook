@@ -22,3 +22,14 @@ export const getLiveDate = () => live;
 export const subscribeLive = subscribe;
 /** True while `date` is the pager's cur page. */
 export const useIsLive = (date: string) => useSyncExternalStore(subscribe, () => live === date, () => live === date);
+
+/**
+ * Whether the day pager is moving (a slide, a spring, a drag): DayView registers its handle's `moving`. The hero reads it at a
+ * touch's start to answer a tap on its release only when the touch did not land on a moving page (that touch is the pager's:
+ * it catches the slide, and its click is swallowed).
+ */
+let moving: () => boolean = () => false;
+export const setPagerMoving = (f: () => boolean) => {
+  moving = f;
+};
+export const isPagerMoving = () => moving();

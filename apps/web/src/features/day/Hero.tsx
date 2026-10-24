@@ -5,7 +5,7 @@ import type * as React from 'react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useSessionMutations, useStravaChecking } from '@/api/queries';
-import { CHECKING_MAX_MS, CHECKING_MIN_MS } from '@/lib/gesture';
+import { CHECKING_MAX_MS, CHECKING_MIN_MS, HOLD_SLOP_PX } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { crossfade, fadeIn, fadeOut } from '@/lib/motion';
 import { Button, Pressable, Stepper, useSheet, useToast, type ContextMenuItem } from '@/ui';
@@ -13,7 +13,7 @@ import type { Log } from '../log/useLog';
 import { useSessionActions } from '../sessions/actions';
 import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
-import { useIsLive } from './live';
+import { isPagerMoving, useIsLive } from './live';
 import { CloseDay } from './CloseDay';
 import { faceOf, phaseOf, preLandingFace, secondOf, type Face } from './faces';
 import { HoldRing } from './HoldRing';
@@ -263,6 +263,30 @@ export const Hero = memo(function Hero({ date, log }: { date: ISODate; log: Log 
   );
 });
 
+/**
+ * The click a touch makes after its release, when the release already acted: it would land on what the release opened (the
+ * sheet's scrim, which closes the sheet). Swallowed at the window in the capture phase; a click with no pointer behind it
+ * (`detail === 0`: Enter, Space, VoiceOver) is never swallowed, and the arm goes at the next touch or after 600 ms.
+ * (A local stand-in for WP1's internal click swallow, until Pressable has a release option: docs/reviews/wp2.md, Requests.)
+ */
+const swallowNextClick = () => {
+  const on = (e: MouseEvent) => {
+    if (e.detail === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    done();
+  };
+  const done = () => {
+    clearTimeout(t);
+    window.removeEventListener('click', on, true);
+    window.removeEventListener('pointerdown', done, true);
+  };
+  const t = setTimeout(done, 600);
+  window.addEventListener('click', on, true);
+  window.addEventListener('pointerdown', done, true);
+};
+
 /** The 184 card (304 landed): every face but the evening's. The run landing (§6.1) plays on it. */
 const DayHero = ({ date, log, ph, face: dayFace, minutes }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number }) => {
   const nav = useNav();
@@ -291,6 +315,27 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes }: { date: ISODate; log
   const open = () => {
     if (lead) openSession(date, lead.session, { fromHero: true });
     else if (runs.length) openUnplanned(date, runs, log);
+  };
+  /*
+   * The tap opens the sheet on its release (§9.4 M7: the body renders on pointerup, the first motion frame is the next one):
+   * on touch the click comes a task later (1×: 4–7 ms, 4×: 23–39 ms), which cost the sheet's first frame (§14 27). A touch
+   * that came up before the hold, within the hold's slop, not on the ring or the stops line, and that did not land on a
+   * moving page (that touch is the pager's: it catches the slide and its click is swallowed) opens here; its click is then
+   * skipped. A click with no touch before it (a mouse, Enter, Space, VoiceOver) opens from the click as before.
+   */
+  const tap = useRef<{ x: number; y: number; moved: boolean; held: boolean; opened: number } | null>(null);
+  const onRelease = (e: React.PointerEvent<HTMLElement>) => {
+    const p = tap.current;
+    if (!p || p.moved || p.held || p.opened || e.pointerType === 'mouse' || isPagerMoving()) return;
+    p.opened = performance.now();
+    open();
+    swallowNextClick();
+  };
+  const onClickPress = () => {
+    const p = tap.current;
+    tap.current = null;
+    if (p?.opened && performance.now() - p.opened < 1000) return;
+    open();
   };
   const share = () => sheet.open({ title: 'Share', body: <ShareSheet data={shareFor(date, lead?.session ?? null, runs, log)} initial={runs.some((r) => r.polyline) ? 'route' : runs.length ? undefined : 'bubble'} /> });
   const setMark = (s: Session, m: SessionMark | null) => mark.mutate({ session: s, mark: m });
@@ -363,7 +408,22 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes }: { date: ISODate; log
       data-landing={landing.stage === 'still' ? undefined : landing.stage}
       press={face.pressable ? 'scale' : 'none'}
       ignore={HERO_IGNORE}
-      onPress={face.pressable ? open : undefined}
+      onPress={face.pressable ? onClickPress : undefined}
+      onHold={() => {
+        if (tap.current) tap.current.held = true;
+      }}
+      onPointerDown={(e: React.PointerEvent<HTMLElement>) => {
+        const ok = face.pressable && e.isPrimary && e.pointerType !== 'mouse' && !(e.target instanceof Element && e.target.closest(HERO_IGNORE)) && !isPagerMoving();
+        tap.current = ok ? { x: e.clientX, y: e.clientY, moved: false, held: false, opened: 0 } : null;
+      }}
+      onPointerMove={(e: React.PointerEvent<HTMLElement>) => {
+        const p = tap.current;
+        if (p && !p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > HOLD_SLOP_PX) p.moved = true;
+      }}
+      onPointerUp={face.pressable ? onRelease : undefined}
+      onPointerCancel={() => {
+        tap.current = null;
+      }}
       holdMenu={lead || runs.length ? items : undefined}
       menuLabel={`${name} actions`}
       label={face.pressable ? `${name}. Open` : name}
