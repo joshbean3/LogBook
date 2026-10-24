@@ -373,57 +373,50 @@
   padding: 0 16px;
 }
 
-/* ---------- the block card ---------- */
+/* ---------- the block card (§7.2: card 20/16, 128 tall; the arc 24; one 44 row, New block ›) ---------- */
 .pl-block {
-  border-radius: var(--r-lg);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 44px;
+  height: 128px;
+  border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
   overflow: hidden;
 }
 .pl-block-main {
   display: grid;
-  gap: 10px;
-  width: 100%;
-  padding: 16px;
-  text-align: left;
+  grid-template-rows: 14px 28px 24px;
+  row-gap: 2px;
+  align-content: start;
+  min-width: 0;
+  padding: 10px 16px 0;
 }
-.pl-block-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--ink-3);
+.pl-block-cap {
+  align-self: center;
 }
 .pl-block-name {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.625rem;
-  line-height: 1.875rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 22px/28px var(--sans);
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.pl-block-sub {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
+.pl-block .pl-arc {
+  height: 24px;
 }
 .pl-block-new {
-  appearance: none;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: none;
-  width: 100%;
-  min-height: 48px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  padding: 0 16px;
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px 0 16px;
+  font: 600 15px/20px var(--sans);
   color: var(--accent-text);
-}
-.pl-block-new:active {
-  background: var(--surface-2);
+  text-align: left;
 }
 .pl-arc {
   display: flex;
@@ -582,30 +575,35 @@
   margin-top: 24px;
 }
 
-/* ---------- plans sheet ---------- */
+/* ---------- the plans list (Settings › Plans): one inset group of 60 px rows ---------- */
 .pl-plans,
 .pl-detail {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   min-width: 0;
 }
-.pl-plan-row,
-.pl-ai-row {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: 100%;
+.pl-plans .pl-plan-list {
+  margin-top: 0;
+}
+.pl-plan-row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
   min-height: 60px;
+  padding: 0 12px 0 16px;
+  text-align: left;
+  color: inherit;
 }
-.pl-plan-row:active,
-.pl-ai-row:active {
-  background: var(--surface);
+.pl-plan-row + .pl-plan-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
 }
 .pl-plan-main {
   display: grid;
@@ -613,18 +611,33 @@
   min-width: 0;
 }
 .pl-plan-name {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  font-weight: 600;
+  font: 600 17px/22px var(--sans);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.pl-plan-st {
+  flex: none;
+  font: 400 13px/18px var(--sans);
+  color: var(--ink-3);
+}
+.pl-plan-st.on {
+  color: var(--accent-text);
+}
+.pl-plans-empty {
+  margin: 0;
+}
 .pl-ai-row {
-  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 60px;
+  border-radius: var(--r-group);
   background: var(--accent-tint);
   padding: 8px 12px;
   color: var(--accent-text);
+  text-align: left;
 }
 .pl-ai-row > span {
   display: grid;
@@ -702,19 +715,72 @@
 }
 .tp-preview {
   display: grid;
-  gap: 10px;
-  border-top: 1px solid var(--line);
+  gap: 8px;
 }
-.tp-head {
+/* ---------- the builder's fixed header: the ghost preview (§7.4: 160 tall with the slot's 12 px foot; a goal change
+   crossfades the face, nothing resizes) ---------- */
+.sheet-header:has(> .bh) {
+  box-shadow: 0 1px 0 var(--line);
+}
+.bh {
+  position: relative;
+  height: 148px;
+  min-width: 0;
+}
+.bh-face {
+  position: absolute;
+  inset: 0;
   display: grid;
-  gap: 4px;
-  padding-top: 16px;
+  grid-template-rows: 16px 24px 18px minmax(0, 1fr);
+  row-gap: 2px;
+  min-width: 0;
 }
-.tp-name {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.5rem;
-  line-height: 1.75rem;
+.bh-caps {
+  align-self: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bh-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 17px/24px var(--sans);
+  color: var(--ink);
+}
+.bh-dates {
+  font: 400 13px/18px var(--sans);
+  color: var(--ink-3);
+}
+.bh-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  column-gap: 3px;
+  min-height: 0;
+  margin-top: 8px;
+}
+.bh-wk {
+  display: grid;
+  grid-template-rows: repeat(7, minmax(0, 1fr));
+  row-gap: 2px;
+  min-width: 0;
+}
+.bh-cell {
+  border-radius: 2px;
+  background: var(--surface-2);
+  transition: opacity 200ms var(--ease-out);
+}
+.bh-cell[class*='t-'] {
+  background: var(--tone);
+}
+.bh-cell.out {
+  background: transparent;
+}
+.bh-error {
+  padding-top: 8px;
+  font: 400 15px/22px var(--sans);
+  color: var(--ink-3);
 }
 /* the weeks, ghosted: real numbers, held back until the plan is used */
 .tp-weeks {
@@ -724,7 +790,7 @@
 }
 .tp-week {
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) 56px;
+  grid-template-columns: 46px minmax(0, 1fr) 68px;
   align-items: center;
   gap: 8px;
   min-height: 30px;
@@ -786,22 +852,25 @@
 .tp-week.k-taper .tp-tot small {
   color: var(--accent-text);
 }
-.tp-foot {
-  align-items: center;
+/* the foot: what a tap does, in words, then the one verb across the sheet */
+.sheet-foot.tp-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
 }
 .tp-note {
-  flex: 1 1 140px;
-  min-width: 0;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
+  margin: 0;
+  font: 400 13px/18px var(--sans);
   color: var(--ink-3);
 }
-/* a replace says so above the button, in ink-2, before the one tap */
-.tp-replace {
-  margin: 4px 0 0;
-  font-size: 0.9375rem;
+.sheet-foot .btn.primary.tp-verb {
+  min-width: 0;
+  height: auto;
+  min-height: 48px;
+  padding: 6px 20px;
+  white-space: normal;
+  text-wrap: balance;
   line-height: 1.375rem;
-  color: var(--ink-2);
 }
 
 /* ---------- the AI builder (Write my next block), pushed inside the plans sheet ---------- */

@@ -1,5 +1,6 @@
 import { fmtDate, label, shiftDays, type Session } from '@logbook/shared';
 import { haptics } from '@/lib/haptics';
+import { Pressable } from '@/ui/Pressable';
 import { useSheet, type SheetApi } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
@@ -18,20 +19,21 @@ export const openMoveSheet = (sheet: SheetApi, date: string, session: Session) =
 /** Push Move inside an open session sheet, with a back chevron. */
 export const pushMoveSheet = (sheet: SheetApi, date: string, session: Session) => sheet.push(spec(date, session));
 
-/** Toast words and haptic for a reshape; one haptic, the warning when two hard days now touch. */
+/**
+ * Toast words for a reshape picked in the Move sheet, with Undo. A pick is silent (spec §11.4: `drop` is a drag's drop into
+ * a slot; a pick is a pick); a plan conflict, two hard days now touching, is the one `warning`.
+ */
 export const announceReshape = (toast: ReturnType<typeof useToast>, r: { conflict: string[] | null; said: string; undo: () => void }) => {
   if (r.conflict) {
     haptics.warning();
     toast('Two hard days in a row. Keep it?', { label: 'Undo', fn: r.undo });
-  } else {
-    haptics.drop();
-    toast(r.said, { label: 'Undo', fn: r.undo });
-  }
+  } else toast(r.said, { label: 'Undo', fn: r.undo });
 };
 
 /**
- * Move one session, usually a day or two: Tomorrow and the next free day as one-tap chips, then the week as a strip of
- * days (swipe or the chevrons for other weeks). A day that already has a session swaps with it, as a drop does in Plan.
+ * Move one session, usually a day or two: Tomorrow and the next free day as one-tap chips (Pressables), then the week as a
+ * strip of days (`DayPicker`: a swipe pages it 1:1, the chevrons slide). A day that already has a session swaps with it, as
+ * a drop does in Plan. A pick closes the sheet and the toast carries Undo.
  */
 export const MovePanel = ({ date, session }: { date: string; session: Session }) => {
   const log = useLog([date.slice(0, 7), shiftDays(date, 21).slice(0, 7)]);
@@ -63,9 +65,9 @@ export const MovePanel = ({ date, session }: { date: string; session: Session })
       </p>
       <div className="mv2-chips" role="group" aria-label="Quick picks">
         {chips.map(([k, d]) => (
-          <button key={k} type="button" className="pl-chip" onClick={() => go(d)}>
+          <Pressable key={k} className="pl-chip" onPress={() => go(d)}>
             {k}
-          </button>
+          </Pressable>
         ))}
       </div>
       <DayPicker value={date} origin={date} skipId={session.id} onPick={go} labelFor={(d, what) => (d === date ? `${fmtDate('long', d)}, where it is` : `${fmtDate('long', d)}, ${what}. Move here`)} />
