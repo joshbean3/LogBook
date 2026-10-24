@@ -5,13 +5,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useBootstrap, useHabitMutations } from '@/api/queries';
 import { STARTER_HABITS } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
-import { liftFx, useHoldDrag } from '@/lib/useDrag';
 import { springs } from '@/lib/motion';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
-import { PushedHeader } from '@/ui/headers';
-import { Button, EmptyState, Section } from '@/ui/primitives';
+import { Button, EmptyState, Pressable, PushedBar, Row, Section, type DragPoint } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
-import { LONG_PRESS_MS } from '@/ui/useLongPress';
 import { useToast } from '@/ui/Toast';
 
 const ROW_H = 60;
@@ -65,75 +62,52 @@ const HabitSheet = ({ habit, onArchive }: { habit: Habit; onArchive: () => void 
 };
 
 /**
- * One habit in the list. Tap: its sheet (rename, archive). Hold: it lifts; drag it up or down to reorder (siblings spring
- * aside, a tick per slot, a drop on release); let go without moving and its menu opens (Rename, Move up, Move down,
- * Archive), which is also the keyboard and VoiceOver path (the hidden "actions" button, Shift+F10).
+ * One habit in the list. Tap: its sheet (rename, archive). Hold 450: it lifts with its menu (Rename, Move up, Move down,
+ * Archive); move after the lift and the menu closes and the row follows the finger (siblings spring aside on `settle`, a
+ * `select` per slot, a `drop` on release). The grip and Shift+F10 open the same menu (the keyboard and VoiceOver path).
  */
-const HabitRow = ({ habit, index, count, lifted, y, onLift, onMove, onDrop, onCancel, onOpen, menuItems }: {
+const HabitRow = ({ habit, index, count, lifted, y, onDragStart, onDragMove, onDragEnd, onOpen, menuItems }: {
   habit: Habit;
   index: number;
   count: number;
   lifted: boolean;
   y: number;
-  onLift: () => void;
-  onMove: (dy: number) => void;
-  onDrop: () => void;
-  onCancel: () => void;
+  onDragStart: () => void;
+  onDragMove: (p: DragPoint) => void;
+  onDragEnd: (cancelled: boolean) => void;
   onOpen: () => void;
   menuItems: ContextMenuItem[];
 }) => {
   const reduce = useReducedMotion();
   const menu = useContextMenu();
   const rowRef = useRef<HTMLDivElement | null>(null);
-  const fx = liftFx(lifted, reduce);
-  const openMenu = (el: HTMLElement) => menu.open({ items: menuItems, anchor: el, label: `${habit.name} actions`, haptic: false });
-  const drag = useHoldDrag<HTMLDivElement>({
-    holdMs: LONG_PRESS_MS,
-    onArm: () => {
-      haptics.lift();
-      onLift();
-    },
-    onMove: (p) => onMove(p.dy),
-    onDrop: () => onDrop(),
-    onCancel: (_phase, reason) => {
-      onCancel();
-      if (reason === 'up' && rowRef.current) openMenu(rowRef.current);
-    },
-  });
+  const openMenu = () => rowRef.current && menu.open({ items: menuItems, anchor: rowRef.current, label: `${habit.name} actions`, haptic: false });
   return (
     <motion.div
-      ref={(el) => {
-        rowRef.current = el;
-        drag.ref.current = el;
-      }}
+      ref={rowRef}
       className={`s-hrow ${lifted ? 'is-lifted' : ''}`}
       layout={lifted || reduce ? false : 'position'}
-      animate={{ y, scale: fx.scale }}
-      transition={{ y: lifted || reduce ? { duration: 0 } : springs.settle, scale: fx.transition, layout: springs.settle }}
+      animate={{ y }}
+      transition={{ y: lifted || reduce ? { duration: 0 } : springs.settle, layout: springs.settle }}
       style={{ zIndex: lifted ? 3 : undefined }}
-      {...drag.bind}
     >
-      <button
-        type="button"
+      <Pressable
         className="s-hrow-main"
-        onClick={() => {
-          if (drag.consumeClick()) return;
-          onOpen();
-        }}
-        onKeyDown={(e) => {
-          if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
-            e.preventDefault();
-            if (rowRef.current) openMenu(rowRef.current);
-          }
-        }}
-        aria-label={`${habit.name}, ${index + 1} of ${count}. Open`}
+        press="surface"
+        onPress={onOpen}
+        holdMenu={menuItems}
+        menuLabel={`${habit.name} actions`}
+        onDragStart={() => onDragStart()}
+        onDragMove={(p) => onDragMove(p)}
+        onDragEnd={(_p, _e, cancelled) => onDragEnd(cancelled)}
+        label={`${habit.name}, ${index + 1} of ${count}. Open. Hold to move`}
       >
         <span className="s-horb" aria-hidden="true">
           {habit.name.charAt(0).toUpperCase()}
         </span>
         <span className="s-hname-text">{habit.name}</span>
-      </button>
-      <button type="button" className="s-hgrip" aria-label={`${habit.name} actions`} onClick={(e) => openMenu(e.currentTarget.closest('.s-hrow') as HTMLElement)}>
+      </Pressable>
+      <button type="button" className="s-hgrip" aria-label={`${habit.name} actions`} onClick={openMenu}>
         <GripVertical size={18} aria-hidden="true" />
       </button>
     </motion.div>
@@ -146,6 +120,8 @@ export const HabitsPage = () => {
   const sheet = useSheet();
   const toast = useToast();
   const [text, setText] = useState('');
+  // the add field's own answer (a duplicate): in place, under the field, not a toast
+  const [note, setNote] = useState<string | null>(null);
   const all = boot.data?.habits ?? [];
   const live = all.filter((h) => !h.archivedOn).sort((a, b) => a.position - b.position);
   const archived = all.filter((h) => h.archivedOn);
@@ -186,8 +162,8 @@ export const HabitsPage = () => {
     const n = name.trim().replace(/\s+/g, ' ').slice(0, 80);
     if (!n) return;
     const dupe = all.find((h) => h.name.toLowerCase() === n.toLowerCase());
-    if (dupe && !dupe.archivedOn) return toast(`${dupe.name} is already on Today.`);
-    haptics.toggle();
+    if (dupe && !dupe.archivedOn) return setNote(`${dupe.name} is already on Today.`);
+    setNote(null);
     if (dupe) hm.patch.mutate({ id: dupe.id, archived: false });
     else hm.add.mutate(n);
   };
@@ -195,7 +171,7 @@ export const HabitsPage = () => {
 
   return (
     <div className="page s-set s-sub">
-      <PushedHeader title="Habits" backLabel="Back to Settings" />
+      <PushedBar title="Habits" />
       {live.length ? (
         <>
           <p className="s-lede">Tap one to rename it. Hold and drag to change the order on Today.</p>
@@ -214,11 +190,11 @@ export const HabitsPage = () => {
                   y={up && lift ? lift.dy - (lift.over - lift.start) * ROW_H : 0}
                   menuItems={itemsFor(h, live.findIndex((x) => x.id === id))}
                   onOpen={() => openSheet(h)}
-                  onLift={() => {
+                  onDragStart={() => {
                     setOrder(live.map((x) => x.id));
                     setLift({ id, start: i, over: i, dy: 0 });
                   }}
-                  onMove={(dy) =>
+                  onDragMove={({ dy }) =>
                     setLift((l) => {
                       if (!l) return l;
                       const over = Math.max(0, Math.min(live.length - 1, l.start + Math.round(dy / ROW_H)));
@@ -233,7 +209,12 @@ export const HabitsPage = () => {
                       return { ...l, over, dy };
                     })
                   }
-                  onDrop={() => {
+                  onDragEnd={(cancelled) => {
+                    if (cancelled) {
+                      setLift(null);
+                      setOrder(null);
+                      return;
+                    }
                     const next = order;
                     setLift(null);
                     haptics.drop();
@@ -242,10 +223,6 @@ export const HabitsPage = () => {
                       hm.reorder.mutate(next);
                       setTimeout(() => setOrder(null), 1500);
                     } else setOrder(null);
-                  }}
-                  onCancel={() => {
-                    setLift(null);
-                    setOrder(null);
                   }}
                 />
               );
@@ -282,11 +259,16 @@ export const HabitsPage = () => {
               setText('');
             }}
           >
-            <input className="in s-add-in" value={text} maxLength={80} placeholder="Floss, Walk the dog, Vitamins" aria-label="New habit" enterKeyHint="done" onChange={(e) => setText(e.target.value)} />
+            <input className="in s-add-in" value={text} maxLength={80} placeholder="Floss, Walk the dog, Vitamins" aria-label="New habit" aria-describedby={note ? 's-add-note' : undefined} enterKeyHint="done" onChange={(e) => (setText(e.target.value), setNote(null))} />
             <button type="submit" className="s-add-btn" aria-label="Add habit" disabled={!text.trim()}>
               <Plus size={20} aria-hidden="true" />
             </button>
           </form>
+          {note ? (
+            <p id="s-add-note" className="s-note" role="status">
+              {note}
+            </p>
+          ) : null}
           {starters.length ? (
             <div className="s-starters" role="group" aria-label="Starters">
               {starters.map((s) => (
@@ -302,24 +284,19 @@ export const HabitsPage = () => {
 
       {archived.length ? (
         <Section title="Archived" meta={archived.length} level="primary">
-          <div className="list-edge s-list">
+          <div className="group s-group">
             {archived.map((h) => (
-              <div key={h.id} className="s-row">
-                <span className="s-row-main">
-                  <span className="s-row-title muted">{h.name}</span>
-                  <span className="s-row-sub">Archived {fmtDate('md', h.archivedOn!)}</span>
-                </span>
-                <button
-                  type="button"
-                  className="btn soft sm s-restore"
-                  onClick={() => {
-                    haptics.toggle();
-                    hm.patch.mutate({ id: h.id, archived: false });
-                  }}
-                >
-                  Restore
-                </button>
-              </div>
+              <Row
+                key={h.id}
+                className="s-archived"
+                title={h.name}
+                sub={`Archived ${fmtDate('md', h.archivedOn!)}`}
+                right={
+                  <button type="button" className="btn soft sm s-restore" onClick={() => hm.patch.mutate({ id: h.id, archived: false })}>
+                    Restore
+                  </button>
+                }
+              />
             ))}
           </div>
         </Section>

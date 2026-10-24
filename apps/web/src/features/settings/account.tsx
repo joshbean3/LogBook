@@ -2,16 +2,15 @@ import { addMonths, monthsBetween, today } from '@logbook/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { api, ApiError, NetworkError } from '@/api/client';
 import { fetchExport, fetchMonth, useBootstrap, useDeleteAccount } from '@/api/queries';
 import type { Bootstrap, ExportBundle, MonthBundle } from '@/api/types';
+import { markSignedOut } from '@/features/auth/flag';
 import { takeLegacyProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
-import { useToast } from '@/ui/Toast';
 
 // ---------- export ----------
 const save = (data: unknown, name: string) => {
@@ -166,8 +165,6 @@ export const DeleteStepOne = ({ onExport }: { onExport: () => void }) => {
 const DeleteStepTwo = () => {
   const sheet = useSheet();
   const qc = useQueryClient();
-  const nav = useNavigate();
-  const toast = useToast();
   const boot = useBootstrap();
   const del = useDeleteAccount();
   const [pw, setPw] = useState('');
@@ -189,7 +186,6 @@ const DeleteStepTwo = () => {
     const uid = boot.data?.user.id;
     del.mutate(pw, {
       onSuccess: () => {
-        haptics.delete();
         sheet.close();
         // an old device copy of the training answers goes too (the account's copy went with the account)
         takeLegacyProfile(uid);
@@ -198,9 +194,8 @@ const DeleteStepTwo = () => {
         } catch {
           /* nothing kept */
         }
-        qc.clear();
-        nav('/login', { replace: true });
-        toast('Account deleted.');
+        // Authed drops the cache and shows sign in: that screen is the answer (no toast)
+        markSignedOut(qc);
       },
       onError: (e2) => {
         haptics.error();

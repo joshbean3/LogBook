@@ -1,136 +1,59 @@
-/* ---------- Settings: one hero, then grouped edge-to-edge lists on black. The row is the target. ---------- */
+/* ---------- Settings (§8): a pushed page of inset groups; every row pushes its section, or opens a sheet. ---------- */
 .s-set {
   --swipe-bg: var(--bg);
 }
 
-/* the hero: who you are, what you are training for */
-.s-me {
-  appearance: none;
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  margin-top: 16px;
-  padding: 20px 20px 24px;
-  border-radius: var(--r-lg);
-  border: var(--card-border);
-  background: var(--surface);
-  color: var(--ink);
-  text-align: left;
-  font: inherit;
-  overflow: hidden;
-  min-height: 132px;
-  transition: transform 100ms var(--ease-out);
-}
-.s-me:active {
-  transform: scale(0.985);
-}
-.s-me-eyebrow {
-  color: var(--ink-3);
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.s-me-goal {
-  font-size: 1.75rem;
-  line-height: 2.125rem;
-  overflow-wrap: break-word;
-}
-.s-me-sub {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-2);
-}
-
-/* a list on black: no card; hairlines from the gutter */
-.s-list {
+/* the inset groups (§8): one surface per group, 44 rows (60 with a second line), the row is the target */
+.s-sec .s-group {
   margin-top: 4px;
 }
-.s-row {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 52px;
-  padding-block: 8px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
+.s-root > .s-sec:first-of-type {
+  margin-top: 8px;
 }
-.s-row.two {
-  min-height: 64px;
-}
-.s-row.tap {
-  cursor: pointer;
-  transition: background var(--dur-fast);
-}
-.s-row.tap:active {
-  background: var(--surface);
-}
-@media (hover: hover) {
-  .s-row.tap:hover {
-    background: var(--surface);
-  }
-}
-.s-row-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-.s-row-title {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+.s-group .lrow-title {
+  font-weight: 400;
   letter-spacing: -0.01em;
-  color: var(--ink);
 }
-.s-row-title.bad {
-  color: var(--bad);
+.s-group .lrow-right {
+  min-width: 0;
+  max-width: 60%;
 }
-.s-row-title.muted {
-  color: var(--ink-3);
-}
-.s-row-sub {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-}
-.s-row-value {
-  flex: none;
-  max-width: 55%;
+.s-value {
+  min-width: 0;
   font-size: 1.0625rem;
   line-height: 1.375rem;
-  color: var(--ink-2);
-  text-align: right;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.s-row-chev {
+.s-chev {
   flex: none;
   color: var(--ink-4);
   margin-right: -4px;
 }
-.s-broken .s-row-value {
+.s-go.tone-bad .lrow-title,
+.s-go.tone-bad .s-value,
+.s-danger .lrow-title {
   color: var(--bad);
-  font-weight: 600;
+}
+/* a row whose second line is a sentence (a result, a note): it wraps instead of ellipsizing */
+.s-wrap .lrow-sub {
+  white-space: normal;
+  overflow: visible;
+}
+.s-wrap {
+  padding-block: 10px;
 }
 .s-bad {
   color: var(--bad);
 }
 .s-email {
   font-size: 0.9375rem;
+}
+.s-first {
+  margin-top: 24px;
 }
 
 /* the switch: 51 × 31, the knob springs across, the track lights blue (the screen's one blue when it is on) */
@@ -181,9 +104,6 @@
 }
 
 /* ---------- sub-pages ---------- */
-.s-sub .s-list:first-of-type {
-  margin-top: 16px;
-}
 .s-label {
   display: flex;
   justify-content: space-between;
@@ -217,9 +137,9 @@
   color: var(--ink-3);
 }
 
-/* the rebuild offer: pinned above the tab bar while there are changes */
-.s-sub {
-  padding-bottom: calc(var(--tabbar-h) + 200px + var(--safe-b));
+/* the rebuild offer: pinned above the tab bar while there are changes (You and Training keep room for it) */
+.s-sub.s-pad-rebuild {
+  padding-bottom: 200px;
 }
 .s-rebuild {
   position: fixed;
@@ -348,9 +268,6 @@
   place-items: center;
   border-radius: 50%;
 }
-.s-hgrip:active {
-  color: var(--ink-2);
-}
 .s-ghost-orbs {
   display: flex;
   gap: 12px;
@@ -402,9 +319,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.s-starter:active {
-  background: var(--surface);
 }
 .s-restore.btn.sm {
   flex: none;
@@ -484,26 +398,18 @@
   line-height: 1.25rem;
   color: var(--bad);
 }
-.s-strava {
-  display: grid;
-  gap: 12px;
-}
 
 /* heart-rate zones beside Strava: the zones in ink, the explanation quiet, Sync at the right */
 .s-zones {
   align-items: flex-start;
   padding-block: 12px;
 }
-.s-zones .s-row-main {
+.s-zones .lrow-main {
   gap: 4px;
 }
 .s-zones-line {
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
-}
-.s-zones-sync {
-  flex: none;
-  margin-top: 6px;
 }
 
 /* Restore is a full 44px target (QA D-X1) */
@@ -533,6 +439,9 @@
   outline: none;
   color: var(--ink);
 }
-.s-row:has(.s-name-in:focus-visible) {
+.s-name-row:has(.s-name-in:focus-visible) {
   box-shadow: inset 0 -2px 0 var(--accent-bright);
+}
+.s-archived .lrow-title {
+  color: var(--ink-3);
 }

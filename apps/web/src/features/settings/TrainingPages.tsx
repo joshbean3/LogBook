@@ -8,12 +8,11 @@ import { DayLetters, Dial, GoalChips, MilesDial, RaceStrip } from '@/features/on
 import { defaultRaceDay, fixLongRun, MILES_MAX, MILES_MIN, nextMondayAfter, paceText, safeTemplate, sameProfile, type TrainingProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, springs } from '@/lib/motion';
-import { PushedHeader } from '@/ui/headers';
 import { Section } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
-import { Avatar } from '@/ui/Avatar';
-import { initialOf, SRow } from './parts';
+import { PushedBar, Row } from '@/ui';
+import { SGroup } from './parts';
 import { useTrainingProfile } from './useProfile';
 
 /** A page's own copy of the answers: edits stay here until "Rebuild my plan from next week". */
@@ -37,9 +36,8 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
   const takeBack = (r: TemplateApplied) =>
     undo.mutate(r, {
       onSuccess: () => {
-        haptics.delete();
+        // the bar's answer is the plan itself: the old block is back on Plan, the answers with it
         save(before);
-        toast('Plan restored.');
       },
       onError: () => {
         haptics.error();
@@ -56,7 +54,6 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
       { goal: p.goal, raceDate: p.raceDate, runDays: p.runDays, longRunDay: p.longRunDay, weeklyMiles: p.weeklyMiles, startDate: start },
       {
         onSuccess: (r) => {
-          haptics.success();
           onDone(p);
           toast(r.block.sessionCount ? `${r.block.name}: ${r.block.sessionCount} runs from ${fmtDate('short', start)}.` : `${r.block.name}, from ${fmtDate('short', start)}.`, { label: 'Undo', fn: () => takeBack(r) });
         },
@@ -121,7 +118,6 @@ const NameRow = () => {
     const next = v.trim().slice(0, 60);
     if (next === saved) return;
     setName.mutate(next, {
-      onSuccess: () => haptics.toggle(),
       onError: () => {
         haptics.error();
         toast('Couldn’t save your name. Try again.');
@@ -129,9 +125,9 @@ const NameRow = () => {
     });
   };
   return (
-    <label className="s-row">
-      <span className="s-row-main">
-        <span className="s-row-title">Name</span>
+    <label className="lrow s-name-row">
+      <span className="lrow-main">
+        <span className="lrow-title">Name</span>
       </span>
       <input
         className="s-name-in"
@@ -158,13 +154,13 @@ export const YouPage = () => {
   const d = useDraftProfile();
   const start = nextMondayAfter(today());
   return (
-    <div className="page s-set s-sub">
-      <PushedHeader title="You" backLabel="Back to Settings" right={<Avatar initial={initialOf(boot.data?.user)} />} />
-      <div className="list-edge s-list">
+    <div className="page s-set s-sub s-pad-rebuild">
+      <PushedBar title="You" />
+      <SGroup title="Account">
         <NameRow />
-        <SRow title="Email" value={<span className="s-email">{boot.data?.user.email}</span>} />
-        <SRow title="Units" sub="Kilometres are on the way." value="Miles" />
-      </div>
+        <Row title="Email" right={<span className="s-value s-email">{boot.data?.user.email}</span>} />
+        <Row title="Units" sub="Kilometres are on the way." right={<span className="s-value">Miles</span>} />
+      </SGroup>
       <Section title="Training for" level="primary">
         {!d.loaded ? (
           <Shape />
@@ -205,8 +201,8 @@ export const TrainingPage = () => {
   };
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
   return (
-    <div className="page s-set s-sub">
-      <PushedHeader title="Training" backLabel="Back to Settings" />
+    <div className="page s-set s-sub s-pad-rebuild">
+      <PushedBar title="Training" />
       {!d.loaded ? (
         <div className="sec-secondary">
           <Shape />

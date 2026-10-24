@@ -1,65 +1,45 @@
 import { ChevronRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
+import type * as React from 'react';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
 import { springs } from '@/lib/motion';
+import { Group, Row, Section } from '@/ui';
+
+/** The chevron of a row that pushes (or opens) something. */
+export const Chev = (): React.JSX.Element => <ChevronRight size={18} className="s-chev" aria-hidden="true" />;
 
 /**
- * A settings row on black, in an edge-to-edge list: the title, an optional quiet sub, the value at the right, and a
- * chevron when it goes somewhere. The whole row is the target (a link, a button, or a label around a switch).
+ * One inset group under its sentence-case title (§8: the root's `You · Training · Habits · Morning routine · Connections ·
+ * App · Data · Account`, and the groups inside each section page). Rows are `Row`s: 44 tall, 60 with a second line.
  */
-export const SRow = ({
-  title,
-  sub,
-  value,
-  to,
-  onPress,
-  chevron,
-  tone,
-  label,
-  right,
-  className = '',
-}: {
-  title: ReactNode;
-  sub?: ReactNode;
-  value?: ReactNode;
-  to?: string;
-  onPress?: () => void;
-  chevron?: boolean;
-  tone?: 'bad' | 'accent';
-  label?: string;
-  right?: ReactNode;
-  className?: string;
-}) => {
-  const inner = (
-    <>
-      <span className="s-row-main">
-        <span className={`s-row-title ${tone ?? ''}`}>{title}</span>
-        {sub ? <span className="s-row-sub">{sub}</span> : null}
-      </span>
-      {value != null ? <span className="s-row-value">{value}</span> : null}
-      {right}
-      {chevron ?? (to || onPress) ? <ChevronRight size={18} className="s-row-chev" aria-hidden="true" /> : null}
-    </>
-  );
-  const cls = `s-row ${sub ? 'two' : ''} ${to || onPress ? 'tap' : ''} ${className}`;
-  if (to)
-    return (
-      <Link to={to} className={cls} aria-label={label}>
-        {inner}
-      </Link>
-    );
-  if (onPress)
-    return (
-      <button type="button" className={cls} onClick={onPress} aria-label={label}>
-        {inner}
-      </button>
-    );
-  return <div className={cls}>{inner}</div>;
-};
+export const SGroup = ({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }): React.JSX.Element => (
+  <Section title={title} level="secondary" className={`s-sec ${className}`}>
+    <Group className="s-group">{children}</Group>
+  </Section>
+);
 
-/** An on/off switch: the knob springs across, the track lights blue. The row around it is its label. */
-export const Switch = ({ on, onChange, label }: { on: boolean; onChange: (on: boolean) => void; label: string }) => {
+/**
+ * A row that goes somewhere (a push, a sheet, the Strava hand-off): the value on the right, then the chevron. The whole row is
+ * the target; its press is the row surface (`--surface-2`, the one press of §11.1, set by the press delegate on `.lrow.tappable`).
+ */
+export const GoRow = ({ title, sub, value, onPress, label, tone, className = '' }: { title: ReactNode; sub?: ReactNode; value?: ReactNode; onPress: () => void; label?: string; tone?: 'bad'; className?: string }): React.JSX.Element => (
+  <Row
+    className={`s-go ${tone ? `tone-${tone}` : ''} ${className}`}
+    title={title}
+    sub={sub}
+    onClick={onPress}
+    label={label}
+    right={
+      <>
+        {value != null ? <span className="s-value">{value}</span> : null}
+        <Chev />
+      </>
+    }
+  />
+);
+
+/** An on/off switch: the knob springs across on `settle` (a transform), the track lights blue. 51 × 44, the whole height the target. */
+export const Switch = ({ on, onChange, label }: { on: boolean; onChange: (on: boolean) => void; label: string }): React.JSX.Element => {
   const reduce = useReducedMotion();
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} className={`s-switch ${on ? 'on' : ''}`} onClick={() => onChange(!on)}>
@@ -67,6 +47,3 @@ export const Switch = ({ on, onChange, label }: { on: boolean; onChange: (on: bo
     </button>
   );
 };
-
-/** The account's initial for the avatar: the name's first letter (contract 6), else the email's. */
-export const initialOf = (u: { name?: string | null; email?: string } | undefined) => ((u?.name ?? '').trim() || (u?.email ?? '')).charAt(0).toUpperCase() || undefined;
