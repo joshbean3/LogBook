@@ -21,13 +21,23 @@ const C = 2 * Math.PI * R;
  *   so a hold here is only ever a completion.
  * - A quick tap opens the sheet on the click, not on pointerup: the click a touch makes after pointerup would otherwise land
  *   on the sheet's new scrim and close it again. If no click follows (a browser that drops it), a short timer opens it.
+ * - Contracts §F: the ring and the check are one node. `done` (controlled, e.g. a session already marked done or the run
+ *   landing's morph) shows the check in place (`.hold-ring[data-done]`); without it the ring keeps its own state after a
+ *   completed hold. `size` draws the ring at 48 (the hero) or 40 (the second-session card, the Close row); unset, it keeps
+ *   the current 64 px box.
  */
-export const HoldRing = ({ label, onComplete, onTap }: { label: string; onComplete: () => void; onTap: () => void }) => {
+export const HoldRing = ({ label, onComplete, onTap, size, done: doneProp }: { label: string; onComplete: () => void; onTap: () => void; size?: 48 | 40; done?: boolean }) => {
   const reduce = useReducedMotion();
-  const p = useMotionValue(0);
+  const p = useMotionValue(doneProp ? 1 : 0);
   const dash = useTransform(p, (v) => C * (1 - v));
-  const [done, setDone] = useState(false);
+  const [doneSelf, setDone] = useState(false);
+  const done = doneProp ?? doneSelf;
   const g = useRef<{ id: number; x: number; y: number; t: number; anim: ReturnType<typeof animate> | null } | null>(null);
+  useEffect(() => {
+    // a controlled change: the fill follows (full with the check, empty without)
+    if (doneProp === undefined) return;
+    if (!g.current) p.set(doneProp ? 1 : 0);
+  }, [doneProp, p]);
   const tapAt = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(
@@ -64,6 +74,8 @@ export const HoldRing = ({ label, onComplete, onTap }: { label: string; onComple
     <motion.button
       type="button"
       className={`hold-ring ${done ? 'is-done' : ''}`}
+      data-done={done || undefined}
+      data-size={size}
       aria-label={label}
       animate={done && !reduce ? { scale: [1, COMPLETE_SCALE, 1] } : { scale: 1 }}
       transition={springs.complete}

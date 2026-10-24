@@ -891,3 +891,75 @@
   justify-self: start;
   margin-top: 8px;
 }
+
+/* contracts §F: HoldRing `size` (48 on the hero, 40 on the second-session card and the Close row); the box is the ring */
+.hold-ring[data-size='48'],
+.hold-ring[data-size='40'] {
+  width: var(--ring);
+  height: var(--ring);
+}
+.hold-ring[data-size='48'] {
+  --ring: 48px;
+}
+.hold-ring[data-size='40'] {
+  --ring: 40px;
+}
+.hold-ring[data-size] svg {
+  inset: 0;
+  width: var(--ring);
+  height: var(--ring);
+}
+
+/* contracts §F: FirstRunHero, the 184 × 358 setup face (16 + 13 eyebrow + 4 + 3 × 44 rows + 16 + the 3 px border-box rounding) */
+.aura.first-run-hero {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 358px;
+  height: 184px;
+  min-height: 0;
+  padding: 16px 16px 0;
+  display: grid;
+  grid-template-rows: 13px auto;
+  row-gap: 4px;
+  align-content: start;
+  overflow: hidden;
+}
+.frh-eyebrow {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.frh-rows {
+  display: grid;
+  grid-auto-rows: 44px;
+  margin: 0 -16px;
+}
+.frh-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  min-height: 44px;
+  text-align: left;
+  width: 100%;
+}
+.frh-row + .frh-row {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.frh-ic {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.frh-title {
+  font: 600 15px/20px var(--sans);
+  color: var(--ink);
+}
+.frh-chev {
+  color: var(--ink-3);
+}

@@ -8,9 +8,11 @@ import { useLog } from '../log/useLog';
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 /**
  * The calendar sheet behind a tap on the date line: one month, Monday first, a dot under each day in its day colour, today
- * ringed, the shown day filled. A day goes there; the month steps with the two chevrons inside the sheet.
+ * ringed, the shown day filled. A day goes there; the month steps with the two chevrons inside the sheet. In `week` mode
+ * (Plan's `Go to a week…`) the shown day's whole week is lit and a pick answers that week's Monday. No haptic on a pick.
  */
-export const CalendarSheet = ({ date, onPick }: { date: ISODate; onPick: (d: ISODate) => void }) => {
+export const CalendarSheet = ({ date, onPick, mode = 'day' }: { date: ISODate; onPick: (d: ISODate) => void; mode?: 'day' | 'week' }) => {
+  const shownMon = mondayOf(date);
   const [month, setMonth] = useState(monthOf(date));
   const first = `${month}-01`;
   const log = useLog(useMemo(() => [month], [month]));
@@ -45,17 +47,17 @@ export const CalendarSheet = ({ date, onPick }: { date: ISODate; onPick: (d: ISO
         {cells.map((d) => {
           const inMonth = monthOf(d) === month;
           const k = log.loaded(d) ? dayKey(log.snap, d) : null;
+          const on = mode === 'week' ? mondayOf(d) === shownMon : d === date;
           return (
             <button
               key={d}
               type="button"
-              className={`cal-day ${inMonth ? '' : 'out'} ${d === log.today ? 'is-today' : ''} ${d === date ? 'is-on' : ''}`}
-              aria-label={`${fmtDate('long', d)}${k && k !== 'rest' && k !== 'planned' ? `, ${dayWord(log.snap, d)}` : ''}`}
-              aria-current={d === date ? 'date' : undefined}
+              className={`cal-day ${inMonth ? '' : 'out'} ${d === log.today ? 'is-today' : ''} ${on ? 'is-on' : ''} ${mode === 'week' && on ? 'in-week' : ''}`}
+              aria-label={`${mode === 'week' ? `Week of ${fmtDate('long', mondayOf(d))}` : fmtDate('long', d)}${k && k !== 'rest' && k !== 'planned' ? `, ${dayWord(log.snap, d)}` : ''}`}
+              aria-current={on ? (mode === 'week' ? 'true' : 'date') : undefined}
               onClick={() => {
-                haptics.select();
                 sheet.close();
-                onPick(d);
+                onPick(mode === 'week' ? mondayOf(d) : d);
               }}
             >
               <span>{parseISO(d).getDate()}</span>
@@ -66,4 +68,19 @@ export const CalendarSheet = ({ date, onPick }: { date: ISODate; onPick: (d: ISO
       </div>
     </div>
   );
+};
+
+/**
+ * Opens the calendar sheet (medium, contracts §F): `day` mode answers the picked day (Today's `Go to a day…`), `week` mode
+ * lights `value`'s week and answers the picked week's Monday (Plan's `Go to a week…`).
+ */
+export const useOpenCalendar = (o: { mode: 'day' | 'week'; value: string; onPick: (date: string) => void }): (() => void) => {
+  const sheet = useSheet();
+  return () =>
+    sheet.open({
+      eyebrow: o.mode === 'week' ? 'Go to a week' : 'Go to a day',
+      title: o.mode === 'week' ? `Week of ${fmtDate('md', mondayOf(o.value))}` : fmtDate('long', o.value),
+      detent: 'medium',
+      body: <CalendarSheet date={o.value} onPick={o.onPick} mode={o.mode} />,
+    });
 };

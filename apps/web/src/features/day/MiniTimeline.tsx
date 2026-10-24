@@ -23,23 +23,17 @@ export const stopProgress = (stops: Stop[], now: number) => {
 
 /**
  * The morning as four stops on one line (wake → door → back → leave), evenly spaced so the four clock times never collide
- * at 320, with a blue "now" dot travelling along it. It is a button: a tap pushes the full Morning timeline. Its press is not
- * stopped here, so a hold on it is the hero's hold (the hero menu) and a swipe on it pages the day.
+ * at 320, with a blue "now" dot travelling along it (contracts §F). With `onPress` it is a button: a tap pushes This morning;
+ * without, a picture of the line (the Now card's landing). `shared` sets `data-shared`, the id the hero → This morning flyer
+ * travels between (`morning-line-<date>`). Its press is not stopped here, so a hold on it is the hero's hold (the hero menu)
+ * and a swipe on it pages the day.
  */
-export const MiniTimeline = ({ stops, now, onPress, label }: { stops: Stop[]; now: number; onPress: () => void; label: string }) => {
+export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: Stop[]; now: number; onPress?: () => void; label: string; shared?: string }) => {
   const reduce = useReducedMotion();
   const p = stopProgress(stops, now);
   const n = stops.length - 1;
-  return (
-    <button
-      type="button"
-      className="mini-tl"
-      aria-label={label}
-      onClick={(e) => {
-        e.stopPropagation();
-        onPress();
-      }}
-    >
+  const body = (
+    <>
       <span className="mini-tl-line" aria-hidden="true">
         <span className="mini-tl-done" style={{ width: `${p * 100}%` }} />
         {stops.map((s, i) => (
@@ -55,6 +49,26 @@ export const MiniTimeline = ({ stops, now, onPress, label }: { stops: Stop[]; no
           </span>
         ))}
       </span>
+    </>
+  );
+  if (!onPress)
+    return (
+      <div className="mini-tl" role="img" aria-label={label} data-shared={shared}>
+        {body}
+      </div>
+    );
+  return (
+    <button
+      type="button"
+      className="mini-tl"
+      aria-label={label}
+      data-shared={shared}
+      onClick={(e) => {
+        e.stopPropagation();
+        onPress();
+      }}
+    >
+      {body}
     </button>
   );
 };
