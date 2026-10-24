@@ -259,7 +259,7 @@ export const HabitsPage = () => {
               setText('');
             }}
           >
-            <input className="in s-add-in" value={text} maxLength={80} placeholder="Floss, Walk the dog, Vitamins" aria-label="New habit" aria-describedby={note ? 's-add-note' : undefined} enterKeyHint="done" onChange={(e) => (setText(e.target.value), setNote(null))} />
+            <input className="in s-add-in" value={text} maxLength={80} placeholder="Floss, Vitamins" aria-label="New habit" aria-describedby={note ? 's-add-note' : undefined} enterKeyHint="done" onChange={(e) => (setText(e.target.value), setNote(null))} />
             <button type="submit" className="s-add-btn" aria-label="Add habit" disabled={!text.trim()}>
               <Plus size={20} aria-hidden="true" />
             </button>

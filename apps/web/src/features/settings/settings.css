@@ -46,6 +46,17 @@
 .s-wrap {
   padding-block: 10px;
 }
+/* a drill row's line under its title wraps to a second line rather than losing its end (at 320 "See your runs land …"
+   said nothing); the row grows from 60 by its own height, nothing animates */
+.s-go .lrow-sub {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.s-go.two {
+  padding-block: 10px;
+}
 .s-bad {
   color: var(--bad);
 }

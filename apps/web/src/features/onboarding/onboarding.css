@@ -881,6 +881,10 @@
   }
 }
 @container page (max-width: 21rem) {
+  /* the week's mileage bars give the name column room for "EASY 4" and its LONG tag at 320 (it read "LO…") */
+  .ob-wrow {
+    grid-template-columns: 62px 3px minmax(0, 1fr) 20%;
+  }
   .ob-title,
   .ob-pay-title {
     font-size: 1.75rem;

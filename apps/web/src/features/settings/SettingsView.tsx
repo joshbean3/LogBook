@@ -113,7 +113,7 @@ export default function SettingsView(): React.JSX.Element {
       </SGroup>
 
       <SGroup title="Data">
-        <GoRow title="Import and export" sub="Everything you’ve logged, as one JSON file." onPress={go('data')} />
+        <GoRow title="Import and export" sub="Your log, as one JSON file." onPress={go('data')} />
       </SGroup>
 
       <SGroup title="Account">

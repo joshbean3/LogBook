@@ -90,7 +90,7 @@ const DrillRow = ({ title, sub, spark, value, unit, onPress, label }: { title: s
       <span className="pg-row-sub">{sub}</span>
     </span>
     {spark}
-    {/* the number's slot is always there, so every row's sparkline sits in the same column */}
+    {/* the number's column is auto (visual F18): an empty slot is not drawn, so the sparkline sits against the chevron */}
     <span className={`stamp pg-row-num pg-row-val ${value == null ? 'is-empty' : ''}`} aria-hidden={value == null ? true : undefined}>
       {value}
       {value != null && unit ? <small>{unit}</small> : null}

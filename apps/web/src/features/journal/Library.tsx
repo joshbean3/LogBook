@@ -162,7 +162,7 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
       ) : !items.length ? (
         // one quiet 60 row (§8, visual S8): no ghost, no verb
         <Group className="lib-fav-empty">
-          <Row className="lib-fav-empty-row" title="No favourites yet" sub="Swipe a quote right, or hold an entry, and it stays here." />
+          <Row className="lib-fav-empty-row" title="No favourites yet" sub="Swipe a quote right to keep it." />
         </Group>
       ) : (
         <div className="carousel fav-carousel" role="list">
