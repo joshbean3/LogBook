@@ -196,6 +196,15 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
   useLayoutEffect(() => {
     const ol = list.current;
     if (!ol) return;
+    // the first render only records where the rows are, on the next frame: reading offsetTop here would force the new page's
+    // first layout inside the push's commit
+    if (!tops.current.size) {
+      requestAnimationFrame(() => {
+        if (tops.current.size || !list.current) return;
+        for (const li of list.current.querySelectorAll<HTMLElement>(':scope > li[data-row]')) tops.current.set(li.dataset.row!, li.offsetTop);
+      });
+      return;
+    }
     const sc = ol.closest<HTMLElement>('.pushed');
     const scBottom = sc?.getBoundingClientRect().bottom ?? Infinity;
     const next = new Map<string, number>();

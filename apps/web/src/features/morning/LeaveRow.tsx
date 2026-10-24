@@ -3,6 +3,7 @@ import { Briefcase } from 'lucide-react';
 import type * as React from 'react';
 import { forwardRef, useLayoutEffect, useRef } from 'react';
 import { Pressable } from '@/ui';
+import { drawnY } from './flip';
 import { short } from './model';
 
 /** What the Leave row's sub says: the countdown today, the lateness when the run eats into the routine. */
@@ -31,13 +32,23 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
     const li = ref.current;
     const sc = li?.closest<HTMLElement>('.pushed');
     if (!li || !sc) return;
-    const flip = Number(/translateY\((-?[\d.]+)px\)/.exec(li.style.transform)?.[1] ?? 0);
+    const flip = drawnY(li);
     const lift = Math.max(0, Math.round(sc.getBoundingClientRect().bottom - (li.getBoundingClientRect().top - flip)));
     sc.style.setProperty('--toast-lift', `${lift}px`);
   };
   const putRef = useRef(put);
   putRef.current = put;
-  useLayoutEffect(() => putRef.current());
+  // measured on the frame after a render, never inside it: a synchronous read here forced the new page's first layout inside
+  // the push's commit (WP1's N4); a toast is raised after the morning has painted, so this has run by then
+  const pending = useRef(0);
+  useLayoutEffect(() => {
+    if (!pending.current)
+      pending.current = requestAnimationFrame(() => {
+        pending.current = 0;
+        putRef.current();
+      });
+  });
+  useLayoutEffect(() => () => cancelAnimationFrame(pending.current), []);
   useLayoutEffect(() => {
     const li = ref.current;
     const sc = li?.closest<HTMLElement>('.pushed');
