@@ -4,27 +4,19 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
-import { fadeIn, fadeOut } from '@/lib/motion';
+import { crossfade } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, Group, Section, SwipeRow, useSheet, useToast } from '@/ui';
+import { Button, Group, Pressable, Section, SwipeRow, useSheet, useToast } from '@/ui';
 import type { Log } from '../log/useLog';
 import { getDraft, setDraft, subscribeDrafts } from './drafts';
+import { FavStar } from './FavStar';
+import { below, carry, carryScaleY } from './feel';
 import { runStamp, useDayPrompt } from './prompt';
 import './journal.css';
 
 export const timeOf = (at: string) => {
   const d = new Date(at);
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-};
-
-/**
- * The shared-element id travels from whatever was touched: a ribbon dot, a timeline row's date, the memory card. The id is
- * set on that element just before the sheet opens (and taken off any other carrier), so one element holds it at a time.
- */
-export const markShared = (id: string, from?: Element | null) => {
-  document.querySelectorAll(`[data-shared="${CSS.escape(id)}"]`).forEach((n) => n !== from && n.removeAttribute('data-shared'));
-  from?.setAttribute('data-shared', id);
-  return from ? id : undefined;
 };
 
 /** Share words: the system share sheet where there is one, else the clipboard. */
@@ -34,8 +26,8 @@ export const shareText = async (text: string, toast: (t: string) => void) => {
       await navigator.share({ text });
       return;
     }
+    // the clipboard is the answer itself (no plain toast, §8): only a failure speaks
     await navigator.clipboard.writeText(text);
-    toast('Copied');
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return;
     toast('Couldn’t share that.');
@@ -52,10 +44,8 @@ export const useEntryActions = () => {
       remove.mutate(e);
       toast('Deleted', { label: 'Undo', fn: () => restore.mutate(e) });
     },
-    fav: (e: JournalEntry) => {
-      haptics.toggle();
-      patch.mutate({ entry: e, fav: !e.fav });
-    },
+    /** The star that shows the change pops and fires `toggle` on its apex (`FavStar`); un-favouriting is silent. */
+    fav: (e: JournalEntry) => patch.mutate({ entry: e, fav: !e.fav }),
     share: (e: JournalEntry) => void shareText(`${e.text}\n\n${fmtDate('long', e.date)}`, toast),
   };
 };
@@ -73,10 +63,8 @@ export const EntryEditor = ({ e }: { e: JournalEntry }) => {
   const [text, setText] = useState(e.text);
   const v = text.trim();
   const save = () => {
-    if (v && v !== e.text) {
-      haptics.success();
-      patch.mutate({ entry: e, text: v });
-    }
+    // an edit is not a day's close: no `success` (two a day, §11.4)
+    if (v && v !== e.text) patch.mutate({ entry: e, text: v });
     sheet.pop();
   };
   return (
@@ -130,7 +118,7 @@ export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: stri
           <Pencil size={16} aria-hidden="true" /> Edit
         </Button>
         <Button aria-pressed={e.fav} className={e.fav ? 'is-fav' : ''} onClick={() => act.fav(e)}>
-          <Star size={16} fill={e.fav ? 'currentColor' : 'none'} aria-hidden="true" /> {e.fav ? 'Favourited' : 'Favourite'}
+          <FavStar on={e.fav} size={16} always className="" /> {e.fav ? 'Favourited' : 'Favourite'}
         </Button>
         <Button onClick={() => act.share(e)}>
           <Share size={16} aria-hidden="true" /> Share
@@ -184,7 +172,7 @@ const DayComposer = ({ date }: { date: string }) => {
   );
 };
 
-/** Open one entry's sheet. Its title is the day, and flies from `from` (the touched date or dot) as `entry-<date>`. */
+/** Open one entry's sheet; its title is the day (`from` is kept for callers; the title flyer is gone, contracts §C.1). */
 export const useOpenEntry = () => {
   const sheet = useSheet();
   const today = useToday();
@@ -192,7 +180,6 @@ export const useOpenEntry = () => {
     sheet.open({
       eyebrow: ago(e.date, today),
       title: fmtDate('short', e.date),
-      layoutId: markShared(`entry-${e.date}`, opts.from),
       body: <EntrySheet e={e} stamp={opts.stamp} />,
     });
 };
@@ -207,7 +194,6 @@ export const useOpenDay = () => {
     sheet.open({
       eyebrow: ago(date, today),
       title: fmtDate('short', date),
-      layoutId: markShared(`entry-${date}`, opts.from),
       body: entries.length ? <DayList date={date} stamp={opts.stamp} /> : <DayComposer date={date} />,
     });
   };
@@ -234,7 +220,7 @@ export const EntryItem = ({ e, stamp }: { e: JournalEntry; stamp?: string | null
       <button type="button" className="jentry-body" onClick={(ev) => open(e, { from: ev.currentTarget.querySelector('.jentry-meta'), stamp })}>
         <span className="caps jentry-meta">
           <span>{timeOf(e.createdAt)}</span>
-          {e.fav ? <Star size={11} fill="currentColor" className="jfav" aria-label="Favourite" /> : null}
+          <FavStar on={e.fav} label="Favourite" />
         </span>
         <span className="jentry-text">{e.text}</span>
       </button>
@@ -242,17 +228,15 @@ export const EntryItem = ({ e, stamp }: { e: JournalEntry; stamp?: string | null
   );
 };
 
-/** The one blue on a composer, and only once there is something to save. Before that the word waits at ink-4 with no fill. */
-export const SaveButton = ({ ready, onClick, children = 'Save' }: { ready: boolean; onClick: () => void; children?: string }) =>
-  ready ? (
-    <Button variant="primary" onClick={onClick}>
-      {children}
-    </Button>
-  ) : (
-    <Button variant="quiet" className="idle" disabled>
-      {children}
-    </Button>
-  );
+/**
+ * Save on a composer (docs/feel.md §8): a 32 px pill, the one blue, at 40 % until there is something to save (44 px hit).
+ * It is the same element before and after, so the composer's foot never reflows.
+ */
+export const SaveButton = ({ ready, onClick, children = 'Save' }: { ready: boolean; onClick: () => void; children?: string }) => (
+  <Pressable as="button" className={`save-pill ${ready ? 'is-ready' : ''}`} disabled={!ready} onPress={onClick} label={children}>
+    {children}
+  </Pressable>
+);
 
 export interface ComposerProps {
   /** The day the entry is written to. */
@@ -264,16 +248,22 @@ export interface ComposerProps {
   size?: 'lg';
   /** Built from the day, e.g. `useDayPrompt(date)`: "Speed 5 done, 5.02 mi. How did it feel?". */
   placeholder?: string;
-  /** Between the words and Save: an optional prompt line (the quote of the day). `insert` puts text at the top of the entry. */
+  /** Between the words and Save: an optional prompt line (the day's `QuoteLine`). `insert` puts text at the top of the entry. */
   prompt?: (insert: (text: string) => void, text: string) => ReactNode;
   /** After a save, once the words have left the field. */
   onSaved?: () => void;
-  /** "Saved to your journal" toast after a save. Default true; off where the entry visibly lands (the Journal timeline). */
+  /** @deprecated kept for callers: a plain save raises no toast (§8, toasts are for Undo and errors only). */
   toast?: boolean;
   autoFocus?: boolean;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   /** VoiceOver name. Default "Journal entry". */
   label?: string;
+  /**
+   * `flip`: the field's growth (a new line, or the words leaving on Save) is a FLIP on `settle` (§10.1): the card's chrome
+   * (`.jcompose-bg` in the nearest `.jcompose`) scales from its old height and everything below rides back from where it
+   * was. Default: the field just grows (a card that must not resize keeps its own rule).
+   */
+  grow?: 'flip';
 }
 
 /** Put words on top of a day's unsaved draft (a quote to write from); every composer on that day picks them up (drafts.ts). */
@@ -283,11 +273,13 @@ export const addToDraft = (date: string, s: string) => {
 };
 /**
  * A bare textarea and Save: meant to sit in a card (or as the last row of a Group). Save is the one affordance; ⌘/Ctrl+Enter
- * also saves, unannounced. Saving is a beat: `haptics.success()`, the words leave the field, Save turns into a check for a
- * moment, and the entry settles into whatever list shows the day.
+ * also saves, unannounced. Saving: the words leave the field, Save turns into a check for a moment (a 150 ms crossfade in the
+ * same box) and the entry settles into whatever list shows the day. The first entry of today is the day's close and fires
+ * `success` (one of the two a day, §11.4); any later save is silent. No toast: the entry landing is the answer.
  */
-export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onSaved, toast: withToast = true, autoFocus, inputRef, label = 'Journal entry' }: ComposerProps) => {
+export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onSaved, autoFocus, inputRef, label = 'Journal entry', grow }: ComposerProps) => {
   const { add } = useJournalMutations();
+  const list = useJournalList('', false);
   const toast = useToast();
   const own = useRef<HTMLTextAreaElement>(null);
   const ref = inputRef ?? own;
@@ -301,13 +293,23 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
       setText((cur) => (cur === v ? cur : v));
     });
   }, [date]);
-  // the field grows with the words, never scrolls inside itself
+  // the field grows with the words, never scrolls inside itself; with grow="flip" the change is carried on `settle`
+  const lastH = useRef<number | null>(null);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const was = el.offsetHeight;
     el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [text, ref]);
+    const h = el.scrollHeight;
+    el.style.height = `${h}px`;
+    const d = h - (lastH.current ?? h);
+    lastH.current = h;
+    if (grow !== 'flip' || Math.abs(d) < 1 || !was) return;
+    const card = el.closest('.jcompose');
+    const bg = card?.querySelector<HTMLElement>('.jcompose-bg');
+    if (bg && card) carryScaleY(bg, (card.getBoundingClientRect().height - d) / card.getBoundingClientRect().height);
+    for (const n of below(el)) if (n !== bg) carry(n, -d);
+  }, [text, ref, grow]);
   useEffect(() => {
     if (!saved) return;
     const t = setTimeout(() => setSaved(false), 1400);
@@ -320,11 +322,11 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
   const save = () => {
     const v = text.trim();
     if (!v) return;
-    haptics.success();
+    const first = date === today && !(list.data?.entries ?? []).some((e) => e.date === date);
+    if (first) haptics.success();
     add.mutate({ date, text: v }, { onError: () => (set(v), toast('Couldn’t save that. Your words are back in the field.')) });
     set('');
     setSaved(true);
-    if (withToast) toast('Saved to your journal');
     onSaved?.();
   };
   const insert = (s: string) => {
@@ -341,6 +343,7 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
   const fallback = date === today ? 'Two sentences on the day.' : `Add an entry for ${fmtDate('short', date)}`;
   return (
     <div className={`composer ${size === 'lg' ? 'big' : ''}`}>
+      {grow === 'flip' ? <span className="jcompose-bg" aria-hidden="true" /> : null}
       <textarea
         ref={ref}
         className="jtext serif"
@@ -362,11 +365,11 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
       <div className="composer-foot">
         <AnimatePresence mode="popLayout" initial={false}>
           {saved && !text.trim() ? (
-            <motion.span key="saved" className="composer-saved" role="status" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: fadeIn }} exit={{ opacity: 0, transition: fadeOut }}>
+            <motion.span key="saved" className="composer-saved" role="status" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: crossfade }} exit={{ opacity: 0, transition: crossfade }}>
               <Check size={16} strokeWidth={2.6} aria-hidden="true" /> Saved
             </motion.span>
           ) : (
-            <motion.span key="save" className="composer-save" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: fadeIn }} exit={{ opacity: 0, transition: fadeOut }}>
+            <motion.span key="save" className="composer-save" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: crossfade }} exit={{ opacity: 0, transition: crossfade }}>
               <SaveButton ready={!!text.trim()} onClick={save} />
             </motion.span>
           )}
