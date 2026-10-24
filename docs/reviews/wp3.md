@@ -360,3 +360,80 @@ interim pager's neighbour days mounted off the sides). Before shows the interim 
 `Your routine` as a second list with grips and lengths on the right, the hint copy, `Timings for every morning` foot
 link, the late note as a card, the old Run/Gym/Rest DayEditor behind the run row. After shows the page above with this
 step's fixes (the late row, the sticky Leave row, 320's run row and sheets).
+
+## Fix round 1 (code review 1 F1–F12, feel review 1 FL1–FL17)
+
+Code commits `0d2dfb2`, `bdabcd5`. The finding-by-finding record (what was wrong, what changed, the failing check before and the
+passing check after, at 1× and 4×) is `S/wp3/fix-1.md`. New checks, all in the runner at both rates: `t30-sheets`,
+`t31-drag-rows`, `t32-skip`, `t33-push`, `t34-misc`; unit tests `apps/web/src/features/morning/model.test.ts` (5).
+
+### Files changed, and why
+
+| File | Change | Finding |
+|---|---|---|
+| `RoutineEditor.tsx` | The preview and the Leave field are the morning's own (its own alarm when it has one); the field's floor is the leave with the routine straight after the run; the save waits for the close; the cycling chip is silent | F1, F3, F8 |
+| `StepSheets.tsx` | `useOnClosed()`: Save / Remove writes go once the sheet has closed. `WakeEditor` is the alarm only (no wake-up length); `Every morning` = `PATCH {wake}` + DELETE the day's override; `Just today` at the routine's alarm deletes it. Editing a step opens on `How long`. Chips silent | F2, F3, FL3, FL11, F8 |
+| `MorningView.tsx` | The alarm drag keeps the row set it began with while the finger is down; a release on the routine's alarm deletes the override; toasts are raised from the render that shows the change (`raiseAfter`); the late note's Skip is the menu's Skip (Undo); `Back to …` has no toast; no rest-day item with nothing open | FL1, F2, FL2, F5, F12, F4 |
+| `model.ts` | `rowsOf(…, keep)`, `workName`, an empty routine's Free, `whenSettled` | FL1, FL10, FL15, FL4 |
+| `Schedule.tsx` | `keepFocus` after a Remove or Skip; Move buttons out of the Tab order; the reorder's grab from the pointerdown point; the workout row's content keyed and faded in when it changes; first FLIP measure after the push settles; the held late row; the late note's copy; Free's narrow part | F6, F7, FL7, FL5, FL4, FL1, FL6, FL9 |
+| `LeaveRow.tsx` | `N min late`; first measure after the push settles, the observer's first call skipped, `--toast-lift` written only when it changes; `Leave` at 320 | FL6, FL4, FL9 |
+| `AlarmHandle.tsx` | A click is swallowed only within 400 ms of a drag's end | F11 |
+| `NowCard.tsx` | The Now line is not a live region | F10 |
+| `flip.ts` | Samples motion's public `spring` generator, not `@/ui/springSim` | F9 |
+| `morning.css` | The lifted step's shadow layer; the swap fade; the held late chips; 320: the Leave row keeps its column, `.sub-wide` parts drop | FL16, FL5, FL1, FL9 |
+| `model.test.ts` (new) | The kept row set, `workName`, the empty routine | FL1, FL10, FL15 |
+
+### Battery after the fix (`S/wp3/qa/results/TABLE.md`, `results/run-fix1.log`)
+
+**497 pass, 1 fail, 0 missing** (1× and 4×; 414 checks of the earlier steps all still pass, 84 new). Per new script
+(1× / 4×): t30-sheets 14/14, 14/14; t31-drag-rows 6/6, 6/6; t32-skip 9/9, 9/9; t34-misc 10/10, 10/10; t33-push 3/3, 2/3.
+
+| Finding | Check | Before (`aaaa530`) | After 1× | After 4× |
+|---|---|---|---|---|
+| F1 | t30 F1a–c | field 9:30 vs page 10:05; Save left 10:05 | field 10:05 = page; +5 → page 10:10 | same |
+| F2 | t30 F2a–d | PATCH + PUT, `Just today`, month `{wake:440}` | PATCH + DELETE, `7:20 · Every morning`, month null; drag back → DELETE | same |
+| F3 | t30 F3 ×3 | 4×: 333 / 233 / 183 ms frames in the close | 17 ms | 50–67 ms |
+| FL1 | t31 | Shower 330.7 ↔ 431 px, 3 row sets under the finger | 387.0 every frame, 1 set; 1 change after release | same |
+| FL2 | t32 FL2 | 4× (pushed from the hero): toast 615 > Leave 567 | 555 ≤ 567 | 555 ≤ 567, 1 frame after the re-lay |
+| FL3 | t30 FL3 | wake-up field in the alarm sheet | gone; one PUT `{wake}` | same |
+| FL4 | t33 | stall 150–283 ms at 4× | no stall over 17 ms | stall 133–200 (Settings 117–167): **open, WP1** |
+| F4, F5, F6, F12 | t32 | menu offers rest day; no Undo; focus BODY; Back toast | fixed | fixed |
+| F7, F8, F11, FL7, FL9, FL10, FL16 | t34 | 1×1 Tab stop; `select` on chips; Enter swallowed; lag 8.75; 320 cut; `Run run`; no shadow | fixed (lag 1.00) | fixed |
+
+Restated checks: `t03` 3c (lag from the pointerdown point, finger-down frames only: it measured from the first drag frame,
+which hid FL7's slop), `t05` 5a (no live region, F10), `t09` 9a (`Back h:mm · N min late`, FL6).
+Gates: tsc 0; shared 93, api 62, web 91 (5 new); build 427 KB gzip; WP1 grep 23/23 + 48. WP1's battery on this build:
+the QA step's known failures (stubs, gallery, Plan) plus run-to-run flakes on the pager and the sheet gallery, which do
+not mount This morning (`S/wp3/wp1qa/results-fix1-TABLE-full.md`, details in `S/wp3/fix-1.md`).
+
+### Hand-verifiable steps (this round)
+
+1. Saturday, `/today/<today>/morning?at=06:30`: drag the `7:15` stamp down 3 steps. Nothing under the thumb moves; Free
+   reads `0 min · routine at 8:45`, the Leave row `5 min late`. Let go: Free fades out and `Back 8:45 · 5 min late` with
+   its chips slides in once.
+2. Give the day its own alarm (drag to 7:30), tap the stamp, `−` twice, `Every morning`: the sheet closes, then the Wake
+   row reads `7:20 · Every morning`; Timings › Usual alarm `+` moves this morning too.
+3. With the day's alarm at 8:00, tap the Leave row: the field reads the Leave row's time (`10:05`); `+`, Save: the
+   page reads `10:10`.
+4. Tap the alarm stamp: the sheet has the alarm and the two choices only.
+5. Push from Today's hero at 4×, hold the run row, Skip (Easy 4 alone on the day): the toast sits above `Leave for work`.
+6. Keyboard: focus Shower, Shift+F10, Remove: focus lands on Get ready. Tab from a step goes to the next row.
+7. Hold Shower and drag: the row stays under the finger, with a shadow.
+8. 320 wide: the Leave row's icon lines up with the others; no sub ends in `…`.
+
+### Requests (new in this round; earlier ones stand)
+
+- **WP1 (FL4, the push at 4×)**: the slide is driven on the main thread and starts before the push's click task, which
+  at 4× runs 150–220 ms (forced layout in `PushedLayer`'s `width()` read 63–98 ms, `focus()` 33–44 ms, the page mount).
+  The same tap to Settings stalls 33–183 ms (`t33-push`, control column). Please run the push's slide on the compositor
+  (a WAAPI animation sampled from `springs.page`, as this package's FLIP does), or start it after the commit, and read
+  the layer width from a cached value (as `sheetH()` does). This morning's own share (render 35 ms vs Settings' 18 ms at
+  4×, profiled unminified) is what remains on WP3's side; deferring rows was rejected (rows popping in mid-slide).
+- **WP2 (FL8, FL17)**: memoise the day pages (repeated: the alarm release's month patch, 150–267 ms at 4×); push from
+  the hero with `{ shared }` (test 26); the two-stop `MiniTimeline`'s `LEAVE` label alignment (FL15).
+- **Spec owner**: FL5 (should a skipped morning run hand its slot to the day's lift? the row now fades to the lift, the
+  data is unchanged); FL12 (§4.1 says a past morning reads `Woke 7:15 · Left 9:30`; the review asks for the session's
+  outcome and plan wording; not changed against the spec); FL13 (`Leave for work` on weekends: the routine has no
+  working days); FL14 (Undo on the alarm write, against §4.2's "no toast").
+- **Not done, why**: FL8's per-step re-lay at 4× (50–117 ms): most rows' times move each step; memoising by id saves the
+  routine rows only, and the release frame is WP2's. 1× longest frame 17 ms.
