@@ -81,14 +81,12 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
     if (k === 'cross' || k === 'lift') setMinutes((m) => m ?? 45);
   };
   const pickType = (t: string) => {
-    haptics.select();
     setType(t);
     // a fresh run takes its type's usual distance; an edited one keeps what it had
     if (kind === 'run' && (isNew || miles == null)) setMiles(DEFAULT_MILES[t] ?? miles ?? 5);
   };
   const repeat = () => {
     if (!last) return;
-    haptics.toggle();
     setType(last.type ?? type);
     setMiles(last.miles);
     setMinutes(last.minutes);
@@ -98,7 +96,6 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
   const floorMin = kind === 'run' ? floorMinutes({ kind, type }) : null;
   const floorOnly = kind === 'run' && miles == null && minutes != null && minutes === floorMin;
   const toggleFloor = () => {
-    haptics.toggle();
     if (floorOnly) {
       setMinutes(null);
       setMiles(DEFAULT_MILES[type] ?? 4);
@@ -108,7 +105,6 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
     }
   };
   const toggleEx = (n: string) => {
-    haptics.toggle();
     setExercises((xs) => (xs.includes(n) ? xs.filter((x) => x !== n) : [...xs, n]));
   };
   const addEx = () => {
@@ -133,10 +129,9 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
         miles: kind === 'run' ? miles : null,
         minutes: kind === 'rest' ? null : minutes,
       });
-      haptics.success();
+      // the sheet closing onto the changed row is the answer: no haptic, no toast without an Undo (§8, §11.4)
       if (depth > 1) sheet.pop();
       else sheet.close();
-      toast(isNew ? `Added to ${fmtDate('short', d)}` : d !== date ? `Moved to ${fmtDate('short', d)}` : 'Saved');
     } catch (err) {
       haptics.error();
       toast(err instanceof ApiError ? err.message : 'Not saved. Try again.');
@@ -222,7 +217,7 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
       ) : null}
       <div className="ed-group">
         <span className="ed-label">Day</span>
-        <DayPicker value={d} onPick={(x) => (haptics.select(), setD(x))} origin={session && !restore ? session.date : undefined} skipId={session?.id} />
+        <DayPicker value={d} onPick={(x) => setD(x)} origin={session && !restore ? session.date : undefined} skipId={session?.id} />
       </div>
       {kind !== 'rest' ? (
         <div className="ed-group">

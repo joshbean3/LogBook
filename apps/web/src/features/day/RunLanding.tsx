@@ -1,11 +1,12 @@
 import { clock, decodePolyline, routePath, type ISODate } from '@logbook/shared';
 import { Share } from 'lucide-react';
-import { animate, AnimatePresence, motion, motionValue, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { useMemo } from 'react';
-import { crossfade, ease, springs } from '@/lib/motion';
+import { crossfade, ease } from '@/lib/motion';
 import { Pressable, Ticker, useFirstToday } from '@/ui';
 import { coachSentence, milesText, type Face } from './faces';
+import { settleAt, settleVelAt } from './HoldRing';
 import { useIsLive } from './live';
 
 /** Stage 1 of the landing (§6.1): the ring fills to full in 300 ms. */
@@ -73,38 +74,37 @@ export const growHero = (el: HTMLElement, from: number, onDone: () => void, star
     for (const n of below) n.style.translate = '';
     el.removeAttribute('data-layout-exception');
   };
-  // the progress of the one layout FLIP, 0 → 1000, resting at 1 unit (§10: ≈ 400 ms on `settle`)
-  const h = motionValue(0);
-  const off = h.on('change', write);
+  // the progress of the one layout FLIP, 0 → 1000 on `springs.settle`, at rest within 1 unit and 30 units/s (§10: ≈ 400 ms).
+  // The spring is integrated on the frames' own clock from `startAt` (as the pager does), so a busy frame never shifts it:
+  // each frame shows where the spring is at that frame's time, and it completes on the first frame past its rest.
   write(0);
   let over = false;
-  let a: ReturnType<typeof animate> | null = null;
-  // the inverse lands in this commit's frame; the spring's clock starts on the first painted frame at or after `startAt`
-  // (the card holds its 184 until then: the commit's layout cost is paid before the card is due to move)
   let raf = 0;
-  const go = (now: number) => {
+  let t0 = 0;
+  const tick = (now: number) => {
     if (now < startAt) {
-      raf = requestAnimationFrame(go);
+      raf = requestAnimationFrame(tick);
       return;
     }
-    a = animate(h, 1000, {
-      ...springs.settle,
-      restDelta: 1,
-      restSpeed: 30,
-      onComplete: () => {
-        over = true;
-        off();
-        clear();
-        onDone();
-      },
-    });
+    // the spring's clock is `startAt`; a first frame that comes more than two frames late starts it one frame back instead
+    // (no jump into the middle of the motion)
+    if (!t0) t0 = now - startAt <= 34 ? startAt : now - 17;
+    const e = now - t0;
+    const p = 1000 * settleAt(e);
+    const v = 1000 * settleVelAt(e);
+    if (Math.abs(1000 - p) <= 1 && Math.abs(v) <= 30) {
+      over = true;
+      clear();
+      onDone();
+      return;
+    }
+    write(p);
+    raf = requestAnimationFrame(tick);
   };
-  raf = requestAnimationFrame(go);
+  raf = requestAnimationFrame(tick);
   return () => {
     if (over) return;
     cancelAnimationFrame(raf);
-    a?.stop();
-    off();
     clear();
   };
 };

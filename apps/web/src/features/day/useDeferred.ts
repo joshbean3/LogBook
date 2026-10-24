@@ -96,8 +96,10 @@ const scheduleIdle = () => {
 /** A draft written or cleared (subscribeDrafts): the waiting rollover asks again whether it may apply. */
 export const recheckDeferred = () => runDeferred('idle');
 
-const activity = () => {
+let lastWhy = '';
+const activity = (e?: Event) => {
   last = now();
+  lastWhy = e ? `${e.type}:${(e.target as HTMLElement | null)?.className ?? ''}` : '';
   scheduleIdle();
 };
 
@@ -108,17 +110,17 @@ const install = () => {
   const cap = { capture: true, passive: true } as const;
   window.addEventListener(
     'pointerdown',
-    () => {
+    (e: Event) => {
       down++;
       if (afterUp) clearTimeout(afterUp);
       afterUp = 0;
-      activity();
+      activity(e);
     },
     cap,
   );
-  const up = (applies: boolean) => () => {
+  const up = (applies: boolean) => (e: Event) => {
     down = Math.max(0, down - 1);
-    activity();
+    activity(e);
     // the tap's own action first (its click comes after the pointerup, on touch often in a later task): the change waits
     // for that click, with a fallback for a release that makes none (a hold, a drag)
     if (applies && !down) {
@@ -143,8 +145,8 @@ const install = () => {
   window.addEventListener('keyup', () => setTimeout(() => runDeferred('interaction'), 0), cap);
   window.addEventListener('scroll', activity, cap);
   window.addEventListener('focusin', activity, cap);
-  window.addEventListener('focusout', () => {
-    activity();
+  window.addEventListener('focusout', (e) => {
+    activity(e);
     setTimeout(() => runDeferred('interaction'), 0);
   }, cap);
   document.addEventListener('visibilitychange', () => {
@@ -216,5 +218,5 @@ export const useDeferredMinutes = (minutes: number, keyOf: (m: number) => string
 
 /** Test builds: the store's state for the acceptance scripts. */
 if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK)) {
-  (window as unknown as { __deferred?: unknown }).__deferred = { waiting: () => [...waiters].map((w) => w.kind), active: () => todayActive, down: () => down };
+  (window as unknown as { __deferred?: unknown }).__deferred = { waiting: () => [...waiters].map((w) => w.kind), active: () => todayActive, down: () => down, debug: () => ({ lastWhy, now: now(), last, spent, timer: !!idleTimer, ready: [...waiters].map((w) => (w.ready ? w.ready() : true)), since: [...waiters].map((w) => w.since) }) };
 }

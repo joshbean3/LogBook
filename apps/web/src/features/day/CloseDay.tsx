@@ -2,7 +2,8 @@ import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate
 import { ChevronRight, PenLine, Share } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useMorningMutations, usePick, useSessionMutations, useTodos } from '@/api/queries';
 import { WORD_MAX } from '@/lib/gesture';
 import { revealField } from '@/lib/keyboard';
@@ -11,6 +12,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { Ticker } from '@/ui/Ticker';
 import { useFirstToday } from '@/ui/useFirstToday';
+import { getDraft, subscribeDrafts } from '../journal/drafts';
 import { addToDraft, Composer } from '../journal/JournalDaySection';
 import { QuoteLine } from '../journal/JournalHome';
 import type { Log } from '../log/useLog';
@@ -24,7 +26,7 @@ import { shortClock } from './dayWords';
 import { HoldRing } from './HoldRing';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
 import { markSuccess } from './useStravaLanding';
-import { useFocus } from './WordSheet';
+import { saveFocus, useFocus } from './WordSheet';
 
 /** The card's title before and after the day's first entry (§5 step 0). */
 export const EVENING_TITLE = 'Two sentences, then sleep.';
@@ -33,6 +35,8 @@ export const CLOSED_TITLE = 'Day, closed.';
 export const CLOSE_ASK = 'How did today go?';
 /** The stamps' count-up runs 60 ms apart (§5 step 1). */
 const STAGGER_MS = 60;
+/** The slots' crossfade (§5: 150 ms, opacity only), from lib/motion's `crossfade`. */
+const CROSSFADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
 
 type StampRow = { k: string; v: number; from: number; fmt: (v: number) => string; u?: string; said: string };
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -124,12 +128,48 @@ const timeOf = (iso: string) => {
  * had, so nothing under it moves. `Add to it` brings the composer back the same way.
  */
 const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: () => void }) => {
-  const entries = log.snap.journalOn(date);
-  const [writing, setWriting] = useState(entries.length === 0);
+  const logged = log.snap.journalOn(date);
+  const [writing, setWriting] = useState(logged.length === 0);
+  // the words as they were saved, shown at once in the entry's place until the month carries the entry (the journal's write
+  // re-renders every page; the swap renders first, on its own)
+  const typed = useRef('');
+  useEffect(() => subscribeDrafts(() => {
+    const v = getDraft(date);
+    if (v.trim()) typed.current = v.trim();
+  }), [date]);
+  const [justSaved, setJustSaved] = useState<{ text: string; at: string } | null>(null);
+  const entries = justSaved && !logged.some((e) => e.text.trim() === justSaved.text) ? [{ id: 'just-saved', text: justSaved.text, createdAt: justSaved.at }, ...logged] : logged;
   const [lock, setLock] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const keep = () => setLock((h) => Math.max(h, box.current?.offsetHeight ?? 0));
+  // the two layers crossfade in the box (150 ms, opacity) as native animations, which the compositor runs even while the
+  // journal's write re-renders the pages; the leaving one stays its 150 ms, over the other, then goes
+  const [leaving, setLeaving] = useState<'write' | 'read' | null>(null);
+  const writeEl = useRef<HTMLDivElement>(null);
+  const readEl = useRef<HTMLDivElement>(null);
+  const swap = (to: boolean) => {
+    setLeaving(to ? 'read' : 'write');
+    setWriting(to);
+  };
+  const first = useRef(true);
+  useLayoutEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const inEl = writing ? writeEl.current : readEl.current;
+    const outEl = writing ? readEl.current : writeEl.current;
+    const ms = CROSSFADE_MS;
+    inEl?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: 'linear', fill: 'backwards' });
+    const out = outEl?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'linear', fill: 'forwards' });
+    if (!out) return setLeaving(null);
+    let live = true;
+    out.finished.then(() => live && setLeaving(null), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [writing]);
   return (
     <div
       ref={box}
@@ -139,9 +179,8 @@ const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: 
         if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) revealField(e.target);
       }}
     >
-      <AnimatePresence initial={false} mode="popLayout">
-        {writing ? (
-          <motion.div key="write" className="cd-write" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+      {writing || leaving === 'write' ? (
+        <div ref={writeEl} key="write" className="cd-write" data-leaving={leaving === 'write' || undefined}>
             <QuoteLine
               date={date}
               onInsert={(t) => {
@@ -157,17 +196,26 @@ const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: 
                 placeholder={CLOSE_ASK}
                 toast={false}
                 inputRef={field}
-                autoFocus={entries.length > 0}
+                autoFocus={logged.length > 0}
                 onSaved={() => {
-                  keep();
-                  setWriting(false);
-                  onSaved();
+                  // the keyboard goes down with the words, and nothing in the leaving layer keeps the focus (the midnight rule
+                  // sees no field in use, and the layer's removal later is no "activity")
+                  const a = document.activeElement;
+                  if (a instanceof HTMLElement && box.current?.contains(a)) a.blur();
+                  const text = typed.current;
+                  flushSync(() => {
+                    keep();
+                    if (text) setJustSaved({ text, at: new Date().toISOString() });
+                    swap(false);
+                    onSaved();
+                  });
                 }}
               />
             </div>
-          </motion.div>
-        ) : (
-          <motion.div key="read" className="cd-read" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+        </div>
+      ) : null}
+      {!writing || leaving === 'read' ? (
+        <div ref={readEl} key="read" className="cd-read" data-leaving={leaving === 'read' || undefined}>
             <div className="cd-entries">
               {entries.map((e) => (
                 <div key={e.id} className="cd-entry">
@@ -181,15 +229,14 @@ const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: 
               press="surface"
               onPress={() => {
                 keep();
-                setWriting(true);
+                swap(true);
               }}
               label="Add to it"
             >
               <PenLine size={16} aria-hidden="true" /> Add to it
             </Pressable>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -208,7 +255,7 @@ const WordRow = () => {
     if (done.current) return;
     done.current = true;
     const word = v.trim().slice(0, WORD_MAX);
-    if (word !== focus.word) settings.mutate({ focus: { word, quote: focus.quote, by: focus.by } });
+    if (word !== focus.word) saveFocus(settings, { word, quote: focus.quote, by: focus.by });
     setEditing(false);
   };
   if (editing)
@@ -312,7 +359,8 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODat
   const lead = ph?.training[0] ?? (ph?.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null);
   const planned = (ph?.training ?? []).reduce((t, p) => t + (p.session.kind === 'run' ? Number(p.session.miles) || 0 : 0), 0);
   const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length, runShown: !!lead });
-  const title = entries.length ? CLOSED_TITLE : EVENING_TITLE;
+  const [closedNow, setClosedNow] = useState(false);
+  const title = entries.length || closedNow ? CLOSED_TITLE : EVENING_TITLE;
   const share = () => {
     const base = shareDataFor(date, lead?.session ?? null, runs, log);
     const days = weekMiles(log.snap, date);
@@ -353,7 +401,14 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODat
       {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} /> : null}
       {still ? null : (
         <>
-          <ComposeBox date={date} log={log} onSaved={() => setBoost(true)} />
+          <ComposeBox
+            date={date}
+            log={log}
+            onSaved={() => {
+              setBoost(true);
+              setClosedNow(true);
+            }}
+          />
           <div className="cd-tomorrow">
             <span className="caps cd-tomorrow-head">Tomorrow</span>
             <div className="group cd-tgroup">

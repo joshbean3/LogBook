@@ -20,7 +20,7 @@ import { setLiveDate } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { useStravaPull } from './useStravaPull';
-import { useFocus, useOpenWordSheet } from './WordSheet';
+import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -132,7 +132,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   const titleMenu = (): ContextMenuItem[] => [
     { label: 'Change the word', onSelect: openWord },
     // the settings patch takes the whole focus (word, sentence, by): only the word is cleared
-    { label: 'Clear the word', disabled: !focus.word.trim(), onSelect: () => settings.mutate({ focus: { word: '', quote: focus.quote, by: focus.by } }) },
+    { label: 'Clear the word', disabled: !focus.word.trim(), onSelect: () => saveFocus(settings, { word: '', quote: focus.quote, by: focus.by }) },
     { label: 'Go to a day…', onSelect: openCalendar },
   ];
 

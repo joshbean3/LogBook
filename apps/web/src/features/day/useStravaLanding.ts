@@ -27,8 +27,8 @@ import { growHero, LANDING_FILL_MS } from './RunLanding';
  */
 export type LandingStage = 'still' | 'wait' | 'fill' | 'morph' | 'grow' | 'draw' | 'done';
 
-/** How far ahead of stage 3 its React commit is made (it holds the card at 184 until then): about one busy frame at 4×. */
-const GROW_LEAD_MS = 80;
+/** How far ahead of stage 3 its React commit is made (it holds the card at 184 until then): about two busy frames at 4×. */
+const GROW_LEAD_MS = 150;
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
 export const LANDING_EVENT = 'logbook:landing';
 const note = (stage: LandingStage, extra?: { t?: number; coach?: string; waited?: number }) => {

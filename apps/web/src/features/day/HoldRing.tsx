@@ -27,14 +27,23 @@ export interface RingDrive {
 }
 export const ringDrive = (done = false): RingDrive => ({ fill: motionValue(done ? 1 : 0), morph: motionValue(done ? 1 : 0), check: motionValue(done ? 1 : CHECK_FROM) });
 
-/** `springs.settle`'s step response at `t` ms (the analytic spring: the same k and c motion integrates), 0 → 1. */
-const settleAt = (t: number) => {
+const settleK = () => {
   const sp = springs.settle as { stiffness: number; damping: number };
   const w = Math.sqrt(sp.stiffness);
   const z = sp.damping / (2 * w);
-  const wd = w * Math.sqrt(Math.max(1e-6, 1 - z * z));
+  return { w, z, wd: w * Math.sqrt(Math.max(1e-6, 1 - z * z)) };
+};
+/** `springs.settle`'s step response at `t` ms (the analytic spring: the same k and c motion integrates), 0 → 1. */
+export const settleAt = (t: number) => {
+  const { w, z, wd } = settleK();
   const s = t / 1000;
   return 1 - Math.exp(-z * w * s) * (Math.cos(wd * s) + ((z * w) / wd) * Math.sin(wd * s));
+};
+/** Its velocity at `t` ms, in units of the step per second. */
+export const settleVelAt = (t: number) => {
+  const { w, z, wd } = settleK();
+  const s = t / 1000;
+  return ((w * w) / wd) * Math.exp(-z * w * s) * Math.sin(wd * s);
 };
 /** Resolves on the first frame after `ms` of `fn(elapsed)` driving values: one clock, the frames' own timestamps. */
 const onFrames = (t0: number, ms: number, fn: (elapsed: number) => void) =>

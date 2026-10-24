@@ -993,6 +993,12 @@
   flex-direction: column;
   touch-action: pan-y;
 }
+.cd-write[data-leaving],
+.cd-read[data-leaving] {
+  position: absolute;
+  inset: 0 0 auto 0;
+  pointer-events: none;
+}
 .cd-write,
 .cd-read {
   display: flex;
