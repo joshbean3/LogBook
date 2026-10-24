@@ -18,5 +18,7 @@ const subscribe = (f: () => void) => {
   return () => subs.delete(f);
 };
 export const getLiveDate = () => live;
+/** Hears every change of the live page (for a store that reads `getLiveDate` only while it needs to). */
+export const subscribeLive = subscribe;
 /** True while `date` is the pager's cur page. */
 export const useIsLive = (date: string) => useSyncExternalStore(subscribe, () => live === date, () => live === date);

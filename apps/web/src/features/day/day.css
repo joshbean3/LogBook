@@ -231,8 +231,9 @@
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
-.hero-stats .hero-share {
+.hero-share-slot {
   margin-left: auto;
+  display: flex;
 }
 .hero-coach {
   margin: 2px 0 0;
@@ -269,6 +270,10 @@
   right: 12px;
   bottom: 15px;
   z-index: 1;
+}
+/* the landing fades the ring's slot as Share takes its place */
+.hero-ring-in {
+  display: block;
 }
 /* the loading hero: the skeleton lives in the hero's own box (§14 test 40) */
 .hero-skel .skel {
@@ -439,23 +444,37 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-.hold-ring .hold-svg {
+/* the stroke's layer and the check's layer share the one circle (§6.1 stage 2: an opacity swap in the same node) */
+.hold-face,
+.hold-done {
   position: absolute;
   inset: 4px;
-  width: 48px;
-  height: 48px;
   border-radius: 50%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.hold-ring[data-size='40'] .hold-face,
+.hold-ring[data-size='40'] .hold-done {
+  inset: 2px;
+}
+.hold-face {
   background: rgba(255, 255, 255, 0.04);
-  transition: background var(--dur-color) var(--ease-out);
+}
+.hold-done {
+  background: var(--accent);
+  color: #fff;
+  opacity: 0;
+}
+.hold-ring .hold-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 .hold-ring[data-size='40'] {
   width: 44px;
   height: 44px;
-}
-.hold-ring[data-size='40'] .hold-svg {
-  inset: 2px;
-  width: 40px;
-  height: 40px;
 }
 .hold-track {
   fill: none;
@@ -468,16 +487,9 @@
   stroke-width: 3;
   stroke-linecap: round;
 }
-.hold-ring.is-done .hold-svg {
-  background: var(--accent);
-}
 .hold-check {
   position: relative;
   color: var(--ink-3);
-  transition: color var(--dur-color) var(--ease-out);
-}
-.hold-ring.is-done .hold-check {
-  color: #fff;
 }
 .hold-ring.ghost {
   display: block;
@@ -872,151 +884,244 @@
   box-shadow: inset 0 0 0 1px var(--ink-3);
 }
 
-/* ---------- close the day ---------- */
-.cd {
+/* ---------- close the day (§5): one card, fixed slots; content crossfades 150 ms inside them ---------- */
+.aura.cd {
+  box-sizing: border-box;
   min-height: 0;
-  padding: 18px;
-  gap: 12px;
-}
-.cd-top {
+  padding: 16px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 24px;
-  margin-right: 44px;
+  flex-direction: column;
+  gap: 0;
+  border-radius: var(--r-card);
 }
-.cd:not(.cd-hero) .cd-top {
-  margin-right: 0;
+.cd-eyebrow {
+  height: 13px;
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.cd-title-slot {
+  position: relative;
+  height: 28px;
+  margin-top: 4px;
 }
 .cd-title {
-  font-size: 1.75rem;
-  line-height: 2rem;
   margin: 0;
+  font: italic 400 22px/28px var(--display);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
 }
+/* step 1: the stamps, 40 tall (11 caps over a 22 stamp) */
 .cd-stamps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  height: 40px;
+  margin-top: 12px;
 }
 .cd-stamp {
   display: grid;
-  gap: 4px;
+  grid-template-rows: 13px 26px;
+  row-gap: 1px;
   min-width: 0;
 }
 .cd-stamp .caps {
-  font-size: 0.625rem;
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.62);
 }
 .cd-num {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
+  font: 800 22px/26px var(--stamp);
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-@container card (max-width: 18rem) {
-  .cd-num {
-    font-size: 1.0625rem;
-  }
-}
 .cd-num small {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font: 700 12px/16px var(--sans);
   letter-spacing: 0;
-  text-transform: none;
   color: rgba(255, 255, 255, 0.7);
 }
-.cd-open {
+/* nothing to stamp: one plain sentence in the stamps' place */
+.cd-line {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  margin: 12px 0 0;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-2);
+}
+/* step 2: the run row, 60, the 40 px ring at the right while open */
+.cd-run.pressable {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
-}
-.cd-open-main {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: inherit;
-  padding: 0;
+  height: 60px;
+  margin: 12px -16px 0;
+  padding: 0 12px 0 16px;
+  box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line);
   text-align: left;
+  touch-action: pan-y;
+}
+.cd-run-text {
   display: grid;
   gap: 2px;
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  align-content: center;
 }
-.cd-open-stamp {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
+.cd-run-stamp {
+  font: 800 17px/22px var(--stamp);
+  letter-spacing: -0.01em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.cd-open-sub {
-  font-size: 0.9375rem;
+.cd-run-sub {
+  font: 400 15px/20px var(--sans);
   color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* nothing to stamp yet: one plain sentence from the day in the stamps' place */
-.cd-line {
-  margin: 0;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 0.9375rem;
-  line-height: 1.375rem;
-  color: var(--ink-2);
-}
-/* the day's entries sit on the card behind one hairline: no band, no bleed */
-.cd-entries {
-  display: grid;
-  border-top: 1px solid var(--line);
-}
-.cd-entries .jentry {
-  background: transparent;
-}
-.cd-entries .jentry-body {
-  padding-inline: 0;
-}
-.cd-entries .swipe-content {
-  --swipe-bg: transparent;
-}
-.cd-entries .swipe-row:has(.swipe-pane.from-left, .swipe-pane.from-right) .swipe-content {
-  --swipe-bg: var(--surface);
-}
-/* after the entry: a quiet way back into the composer */
-.cd-addto {
-  appearance: none;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: none;
-  color: var(--ink-3);
-  font: inherit;
-  font-size: 0.9375rem;
-  min-height: 44px;
-  padding: 0;
+/* steps 3–4: the composer's box; the entry takes the field's place in it */
+.cd-box {
+  position: relative;
+  margin-top: 12px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-  cursor: pointer;
+  flex-direction: column;
+  touch-action: pan-y;
 }
-.cd-addto:active {
-  color: var(--ink-2);
+.cd-write,
+.cd-read {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 .cd-composer .composer {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border-radius: var(--r-group);
 }
-.cd-share {
-  justify-self: start;
+.cd-composer textarea.jtext {
+  min-height: 60px;
+  padding: 10px 12px 4px;
+  font: italic 400 17px/22px var(--display);
+}
+.cd-composer .composer-foot {
+  min-height: 44px;
+  padding: 0 6px 6px 12px;
+}
+.cd-entries {
+  display: grid;
+  gap: 12px;
+}
+.cd-entry {
+  display: grid;
+  gap: 2px;
+}
+.cd-entry-time {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.cd-entry-text {
   margin: 0;
+  font: italic 400 17px/22px var(--display);
+  color: var(--ink);
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* the Save slot becomes "Add to it", 44, at the box's foot */
+.cd-addto.pressable {
+  margin-top: auto;
+  padding-top: 8px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font: 400 15px/20px var(--sans);
+  text-align: left;
+}
+/* step 5: Tomorrow, always shown */
+.cd-tomorrow {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+.cd-tomorrow-head {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.cd-tgroup.group {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0;
+}
+.cd-trow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px 0 16px;
+  width: 100%;
+  text-align: left;
+  font: 400 17px/22px var(--sans);
+  color: var(--ink);
+}
+.cd-trow + .cd-trow {
+  box-shadow: inset 16px 1px 0 -15px var(--line);
+}
+.cd-trow-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-trow-right {
+  flex: none;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+}
+.cd-trow-chev {
+  flex: none;
+  color: var(--ink-4);
+}
+.cd-word-in {
+  flex: none;
+  width: 9em;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 800 16px/20px var(--stamp);
+  text-transform: uppercase;
+  text-align: right;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* steps 6–7 */
+.hero-share.cd-share {
+  align-self: flex-start;
+  margin-top: 12px;
+}
+.cd-pick {
+  margin-top: 8px;
 }
 .cd-pick .group {
   background: transparent;
   border: 0;
-  margin: 0 -18px;
+  margin: 0 -16px;
 }
 
 /* ---------- the word sheet (WordSheet.tsx) ---------- */

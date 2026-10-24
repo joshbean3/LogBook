@@ -1,135 +1,320 @@
-import { floorFor, label, mi, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
-import { PenLine, Share } from 'lucide-react';
+import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
+import { ChevronRight, PenLine, Share } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useState, type ReactNode } from 'react';
-import { usePick, useSessionMutations, useTodos } from '@/api/queries';
-import { rowPresence } from '@/lib/motion';
-import { useSheet } from '@/ui';
-import { Composer, EntryItem } from '../journal/JournalDaySection';
-import { useDayPrompt } from '../journal/prompt';
+import type * as React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMorningMutations, usePick, useSessionMutations, useTodos } from '@/api/queries';
+import { WORD_MAX } from '@/lib/gesture';
+import { revealField } from '@/lib/keyboard';
+import { crossfade } from '@/lib/motion';
+import { Pressable } from '@/ui/Pressable';
+import { useSheet } from '@/ui/Sheet';
+import { Ticker } from '@/ui/Ticker';
+import { useFirstToday } from '@/ui/useFirstToday';
+import { addToDraft, Composer } from '../journal/JournalDaySection';
+import { QuoteLine } from '../journal/JournalHome';
 import type { Log } from '../log/useLog';
+import { morningOf } from '../morning/model';
+import { WakeEditor } from '../morning/StepSheets';
 import { TodaysPick } from '../reads/TodaysPick';
 import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { groupsOn } from '../todos/groups';
+import { shortClock } from './dayWords';
 import { HoldRing } from './HoldRing';
-import { dayMiles, weekMiles } from './miles';
+import { dayMiles, sessionMiles, weekMiles } from './miles';
+import { markSuccess } from './useStravaLanding';
+import { useFocus } from './WordSheet';
 
-/** The card's title, which the composer's prompt must never repeat. */
-const EVENING_TITLE = 'Two sentences, then sleep.';
+/** The card's title before and after the day's first entry (§5 step 0). */
+export const EVENING_TITLE = 'Two sentences, then sleep.';
+export const CLOSED_TITLE = 'Day, closed.';
+/** The composer's question (§5 step 3): the title already says "two sentences". */
+export const CLOSE_ASK = 'How did today go?';
+/** The stamps' count-up runs 60 ms apart (§5 step 1). */
+const STAGGER_MS = 60;
 
-/**
- * The Journal's composer with the day's own prompt ("Speed 5 done, 5.02 mi. How did it feel?"), from the same status source
- * as the hero. The evening prompt's own close ("Two sentences, then sleep.") is the card's title, so here it asks instead.
- * No toast: the entry lands in this card.
- */
-const DayComposer = ({ date, today, autoFocus, onSaved, ask }: { date: ISODate; today: ISODate; autoFocus?: boolean; onSaved?: () => void; ask?: string | null }) => {
-  const dayAsk = useDayPrompt(date).replace(EVENING_TITLE, 'How did today go?');
-  const prompt = ask ?? dayAsk;
-  return (
-    <div className="cd-composer">
-      <Composer date={date} today={today} rows={2} placeholder={prompt} toast={false} autoFocus={autoFocus} onSaved={onSaved} />
-    </div>
-  );
-};
-
-/** After the day's entry: a second empty composer is noise. One quiet row opens it again. */
-const AddToIt = ({ date, today, ask }: { date: ISODate; today: ISODate; ask?: string | null }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <AnimatePresence initial={false} mode="popLayout">
-      {open ? (
-        <motion.div key="compose" {...rowPresence}>
-          <DayComposer date={date} today={today} autoFocus onSaved={() => setOpen(false)} ask={ask} />
-        </motion.div>
-      ) : (
-        <motion.button key="row" type="button" className="cd-addto" onClick={() => setOpen(true)} {...rowPresence}>
-          <PenLine size={16} aria-hidden="true" /> Add to it
-        </motion.button>
-      )}
-    </AnimatePresence>
-  );
-};
-
-/** A session still open in the evening: its stamp, the floor, and the hold ring, so the day can still be closed honestly. */
-const OpenLine = ({ p, onOpen }: { p: PhaseSession; onOpen: () => void }) => {
-  const { mark } = useSessionMutations();
-  const floor = floorFor(p.session);
-  return (
-    <div className="cd-open">
-      <button type="button" className="cd-open-main" onClick={onOpen}>
-        <span className="stamp cd-open-stamp">{label(p.session)}</span>
-        <span className="cd-open-sub">{floor ? `Floor: ${floor}` : p.word}</span>
-      </button>
-      <HoldRing label={`Hold to mark ${label(p.session)} done`} onComplete={() => mark.mutate({ session: p.session, mark: 'done' })} onTap={onOpen} />
-    </div>
-  );
-};
-
-type StampRow = { k: string; v: string; u?: string; said: string };
+type StampRow = { k: string; v: number; from: number; fmt: (v: number) => string; u?: string; said: string };
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * The day in numbers, only the ones that happened: MI (a run marked done by hand counts its planned miles), HABITS "3 of 5",
- * TO-DOS "2 done". A stamp that would read none, not yet or zero is left out; when none is left, one plain sentence from the
- * day takes the row ("Easy 4 still open. 5 habits to light.").
- *
- * Nothing is said twice on the card: when the open session's own row (its stamp and hold ring) is shown under the sentence
- * (`openShown`), the sentence leaves the session out ("5 habits to light."), and says nothing at all when that was all it had.
- * A past day has nothing left to light or tick off: it gets no instruction, only what it was (a rest day), or no sentence.
+ * The day in numbers (§5 step 1), only the ones that happened, at most three: `MI 4.0` (a run marked done by hand counts its
+ * planned miles), `HABITS 3 of 5`, `TO-DOS 2 done`. A stamp that would read zero is left out; when none is left, one plain
+ * sentence takes the row ("2 to-dos left.", "Rest day."), never an instruction, and nothing the run row below already says.
  */
-export const dayStamps = ({ miles, lit, habits, doneTodos, openTodos, open, restDay, openShown = false, past = false }: { miles: number; lit: number; habits: number; doneTodos: number; openTodos: number; open: string[]; restDay: boolean; openShown?: boolean; past?: boolean }) => {
+export const dayStamps = ({ miles, planned, lit, habits, doneTodos, openTodos, restDay, runShown }: { miles: number; planned: number; lit: number; habits: number; doneTodos: number; openTodos: number; restDay: boolean; runShown: boolean }) => {
   const stamps: StampRow[] = [];
-  if (miles > 0) stamps.push({ k: 'Mi', v: mi(miles), said: `${mi(miles)} miles` });
-  if (lit > 0) stamps.push({ k: 'Habits', v: String(lit), u: lit < habits ? `of ${habits}` : 'lit', said: lit < habits ? `${lit} of ${habits} habits` : `all ${habits} habits lit` });
-  if (doneTodos > 0) stamps.push({ k: 'To-dos', v: String(doneTodos), u: 'done', said: `${doneTodos} to-dos done` });
+  // the miles tick from the plan's (never a 0 mi frame, M32); counts from zero
+  if (miles > 0) stamps.push({ k: 'Mi', v: miles, from: planned > 0 ? planned : miles, fmt: (v) => mi(v), said: `${mi(miles)} miles` });
+  if (lit > 0) stamps.push({ k: 'Habits', v: lit, from: 0, fmt: (v) => String(Math.round(v)), u: `of ${habits}`, said: `${lit} of ${habits} habits` });
+  if (doneTodos > 0) stamps.push({ k: 'To-dos', v: doneTodos, from: 0, fmt: (v) => String(Math.round(v)), u: 'done', said: `${doneTodos} to-dos done` });
   if (stamps.length) return { stamps, line: null };
-  if (past) return { stamps, line: restDay ? 'Rest day.' : null };
   const bits: string[] = [];
-  if (open.length) {
-    if (!openShown) bits.push(`${open.join(' and ')} still open.`);
-  } else if (restDay) bits.push('Rest day.');
-  // nouns and numbers (§3.1 copy): the habits count only when > 0, which the stamps carry; no "N to light"
+  if (restDay && !runShown) bits.push('Rest day.');
   if (openTodos) bits.push(`${plural(openTodos, 'to-do', 'to-dos')} left.`);
-  return { stamps, line: bits.length ? bits.join(' ') : openShown ? null : 'A quiet day.' };
+  return { stamps, line: bits.length ? bits.join(' ') : runShown ? null : 'A quiet day.' };
+};
+
+/** A stamp's number: on the day's first view it counts up from `from`, each one `delay` after the last; later changes tick. */
+const StampNum = ({ s, delay, once }: { s: StampRow; delay: number; once: string | null }) => {
+  const first = useFirstToday(once);
+  const [v, setV] = useState(first ? s.from : s.v);
+  useEffect(() => {
+    if (v === s.v) return;
+    const t = setTimeout(() => setV(s.v), first ? delay : 0);
+    return () => clearTimeout(t);
+  }, [s.v]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <Ticker value={v} format={s.fmt} />;
+};
+
+/** The words of the run row (§5 step 2): `EASY 4` over `4.0 mi · 8:12 /mi`, `4 mi · Done`, or `Floor: 20 min easy` while open. */
+const runWords = (log: Log, date: ISODate, p: PhaseSession): string => {
+  const s = p.session;
+  const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
+  if (runs.length) {
+    const m = runs.reduce((t, r) => t + r.miles, 0);
+    const sec = runs.reduce((t, r) => t + r.movingSec, 0);
+    return m > 0.1 ? `${mi(m)} mi · ${clock(sec / m)} /mi` : `${mi(m)} mi`;
+  }
+  if (p.key === 'done' || p.key === 'floor') {
+    const m = s.kind === 'run' ? sessionMiles(log.snap, date, s).miles : 0;
+    return [m > 0 ? `${num(m)} mi` : s.minutes ? `${s.minutes} min` : null, p.key === 'floor' ? 'Floor met' : 'Done'].filter(Boolean).join(' · ');
+  }
+  const floor = floorFor(s);
+  return floor ? `Floor: ${floor}` : p.word;
+};
+
+/** The run row (§5 step 2): 60, the session's stamp and how it went; the 40 px ring while it is open. The words open the sheet. */
+const RunRow = ({ date, log, p, onOpen, still }: { date: ISODate; log: Log; p: PhaseSession; onOpen: () => void; still: boolean }) => {
+  const { mark } = useSessionMutations();
+  const s = p.session;
+  const open = p.key === 'today';
+  const done = p.key === 'done' || p.key === 'floor';
+  const byRun = done && log.snap.runsOn(date).length > 0 && s.kind === 'run';
+  return (
+    <Pressable as="div" className="cd-run" press="surface" ignore=".hold-ring" onPress={onOpen} label={`${label(s)}, ${runWords(log, date, p)}. Open`}>
+      <span className="cd-run-text">
+        <span className="cd-run-stamp">{label(s)}</span>
+        <span className="cd-run-sub">{runWords(log, date, p)}</span>
+      </span>
+      {!still && (open || (done && !byRun)) ? (
+        <HoldRing
+          size={40}
+          label={`Hold to mark ${label(s)} done`}
+          done={done}
+          onComplete={() => {
+            markSuccess(s.id);
+            mark.mutate({ session: s, mark: 'done' });
+          }}
+          onTap={onOpen}
+        />
+      ) : null}
+    </Pressable>
+  );
+};
+
+const timeOf = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 };
 
 /**
- * The composer's question when the card already says the day's first sentence: the open session's row is on the card ("How
- * did today go?"), or the sentence says "Rest day." ("What did you do with the day?"). Null: the day's own prompt.
+ * The composer's box (§5 steps 3–4): the quote line as the prompt, the Journal's composer, Save. After Save the entry takes
+ * the field's place in the same box (a 150 ms crossfade) and the Save slot becomes `Add to it`; the box keeps the height it
+ * had, so nothing under it moves. `Add to it` brings the composer back the same way.
  */
-export const composerAsk = ({ openShown, line }: { openShown: boolean; line: string | null }): string | null => {
-  if (openShown) return 'How did today go?';
-  if (line?.startsWith('Rest day.')) return 'What did you do with the day?';
-  return null;
+const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: () => void }) => {
+  const entries = log.snap.journalOn(date);
+  const [writing, setWriting] = useState(entries.length === 0);
+  const [lock, setLock] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const keep = () => setLock((h) => Math.max(h, box.current?.offsetHeight ?? 0));
+  return (
+    <div
+      ref={box}
+      className="cd-box"
+      style={lock ? { minHeight: lock } : undefined}
+      onFocusCapture={(e) => {
+        if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) revealField(e.target);
+      }}
+    >
+      <AnimatePresence initial={false} mode="popLayout">
+        {writing ? (
+          <motion.div key="write" className="cd-write" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+            <QuoteLine
+              date={date}
+              onInsert={(t) => {
+                addToDraft(date, t);
+                requestAnimationFrame(() => field.current?.focus());
+              }}
+            />
+            <div className="cd-composer">
+              <Composer
+                date={date}
+                today={log.today}
+                rows={2}
+                placeholder={CLOSE_ASK}
+                toast={false}
+                inputRef={field}
+                autoFocus={entries.length > 0}
+                onSaved={() => {
+                  keep();
+                  setWriting(false);
+                  onSaved();
+                }}
+              />
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div key="read" className="cd-read" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+            <div className="cd-entries">
+              {entries.map((e) => (
+                <div key={e.id} className="cd-entry">
+                  <span className="caps cd-entry-time">{timeOf(e.createdAt)}</span>
+                  <p className="cd-entry-text">{e.text}</p>
+                </div>
+              ))}
+            </div>
+            <Pressable
+              className="cd-addto"
+              press="surface"
+              onPress={() => {
+                keep();
+                setWriting(true);
+              }}
+              label="Add to it"
+            >
+              <PenLine size={16} aria-hidden="true" /> Add to it
+            </Pressable>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 /**
- * Close the day: the evening's card. The day stamped in one row (numbers only, see `dayStamps`), anything still open with its
- * hold ring, the day's entries and the composer with a prompt from the day, then "Share the day" once something is written
- * (and the composer folds into "Add to it"), and Today's read when there is one.
+ * `A word for tomorrow · Steady ›` (§5 step 5, M17): a tap turns the row into the field in the same 44 box; Return or leaving
+ * the field saves the sticky `settings.focus.word` (the bar's caps line changes at once: the confirmation; no toast, no haptic).
  */
-export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }: { date: ISODate; log: Log; ph: DayPhase | null; onOpenSession: (p: PhaseSession) => void; still?: boolean; corner?: ReactNode; asHero?: boolean }) => {
+const WordRow = () => {
+  const focus = useFocus();
+  const { settings } = useMorningMutations();
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState('');
+  const done = useRef(false);
+  const save = () => {
+    if (done.current) return;
+    done.current = true;
+    const word = v.trim().slice(0, WORD_MAX);
+    if (word !== focus.word) settings.mutate({ focus: { word, quote: focus.quote, by: focus.by } });
+    setEditing(false);
+  };
+  if (editing)
+    return (
+      <div className="row cd-trow cd-word-edit">
+        <span className="cd-trow-title">A word for tomorrow</span>
+        <input
+          className="cd-word-in"
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          maxLength={WORD_MAX}
+          placeholder="Steady"
+          autoCapitalize="words"
+          enterKeyHint="done"
+          aria-label="A word for tomorrow"
+          autoFocus
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              save();
+            } else if (e.key === 'Escape') {
+              done.current = true;
+              setEditing(false);
+            }
+          }}
+        />
+      </div>
+    );
+  return (
+    <Pressable
+      className="row cd-trow cd-word"
+      press="surface"
+      label={`A word for tomorrow${focus.word ? `: ${focus.word}` : ''}. Change`}
+      onPress={() => {
+        done.current = false;
+        setV(focus.word.slice(0, WORD_MAX));
+        setEditing(true);
+      }}
+    >
+      <span className="cd-trow-title">A word for tomorrow</span>
+      <span className="cd-trow-right">{focus.word || 'None'}</span>
+      <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
+    </Pressable>
+  );
+};
+
+const weekday = (s: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(Date.parse(`${s}T12:00:00Z`));
+
+/** `Alarm 7:15 · change ›` (§5 step 5): tomorrow's alarm, the WakeEditor for tomorrow with `Just tomorrow` chosen, a medium sheet. */
+const AlarmRow = ({ log }: { log: Log }) => {
+  const sheet = useSheet();
+  const st = log.boot?.morningSettings ?? null;
+  const tomorrow = shiftDays(log.today, 1);
+  const T = useMemo(() => (st ? morningOf(log.snap.sessionsOn(tomorrow), log.snap.morningOverride(tomorrow), st) : null), [st, log.snap, tomorrow]);
+  if (!st || !T) return null;
+  return (
+    <Pressable
+      className="row cd-trow cd-alarm"
+      press="surface"
+      label={`Alarm ${shortClock(T.day.wake)} tomorrow. Change`}
+      onPress={() => sheet.open({ eyebrow: 'Tomorrow', title: 'Alarm', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> })}
+    >
+      <span className="cd-trow-title tnum">Alarm {shortClock(T.day.wake)}</span>
+      <span className="cd-trow-right">change</span>
+      <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
+    </Pressable>
+  );
+};
+
+/**
+ * Close the day (docs/feel.md §5, build plan §3.2 item 12): the evening's hero, one card of fixed slots whose content
+ * crossfades (150 ms) in place:
+ * 0. `CLOSE THE DAY`, *Two sentences, then sleep.* → *Day, closed.* after the first save;
+ * 1. the stamps row (40): the day's numbers, counting up once a day, 60 ms apart;
+ * 2. the run row (60): the session, how it went, its 40 px ring while open; the words open the session sheet;
+ * 3–4. the composer (the quote line as its prompt) → after Save, the entry in the same box, one `success` (the Composer's),
+ *    `.halo-boost`, and `Add to it`;
+ * 5. Tomorrow, always: the word (inline) and tomorrow's alarm (WakeEditor);
+ * 6. `Share the day`; 7. Today's read when there is a pick.
+ * A neighbour's copy (`still`) shows the day only: no composer, no rows to act on.
+ */
+export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODate; log: Log; ph: DayPhase | null; onOpenSession: (p: PhaseSession) => void; still?: boolean; asHero?: boolean }): React.JSX.Element => {
   const sheet = useSheet();
   const todos = useTodos();
-  const isToday = date === log.today;
-  const pick = usePick(log.today, isToday && !still);
+  const pick = usePick(log.today, !still);
+  const [boost, setBoost] = useState(false);
+  useEffect(() => {
+    if (!boost) return;
+    const t = setTimeout(() => setBoost(false), 650);
+    return () => clearTimeout(t);
+  }, [boost]);
   const runs = log.snap.runsOn(date);
   const miles = dayMiles(log.snap, date).miles;
   const habits = log.habits.filter((h) => h.createdOn <= date);
   const lit = habits.filter((h) => log.snap.isHabitDone(date, h.id)).length;
   const groups = groupsOn(todos.data, date);
   const doneTodos = groups[3]?.items.length ?? 0;
-  const openTodos = isToday ? (groups[0]?.items.length ?? 0) : 0;
+  const openTodos = groups[0]?.items.length ?? 0;
   const entries = log.snap.journalOn(date);
-  const open = (ph?.training ?? []).filter((p) => p.key === 'today');
-  const primary = ph?.training[0] ?? ph?.primary ?? null;
-  const restDay = !ph?.training.length;
-  const openShown = !still && isToday && open.length > 0;
-  const { stamps, line } = dayStamps({ miles, lit, habits: habits.length, doneTodos, openTodos, open: open.map((p) => label(p.session)), restDay, openShown, past: date < log.today });
-  const ask = composerAsk({ openShown, line });
+  const lead = ph?.training[0] ?? (ph?.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null);
+  const planned = (ph?.training ?? []).reduce((t, p) => t + (p.session.kind === 'run' ? Number(p.session.miles) || 0 : 0), 0);
+  const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length, runShown: !!lead });
+  const title = entries.length ? CLOSED_TITLE : EVENING_TITLE;
   const share = () => {
-    const base = shareDataFor(date, primary?.session ?? null, runs, log);
+    const base = shareDataFor(date, lead?.session ?? null, runs, log);
     const days = weekMiles(log.snap, date);
     const data = runs.length ? base : { ...base, miles, week: base.week ? { ...base.week, days, total: days.reduce((t, d) => t + d.miles, 0) } : base.week };
     // the day's own words are the card's line: the latest entry, cut at a word to fit the bubble
@@ -137,21 +322,26 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }
     const cut = words.length > 80 ? `${words.slice(0, 79).replace(/\s+\S*$/, '')}…` : words;
     sheet.open({ title: 'Share the day', body: <ShareSheet data={cut ? { ...data, verdict: cut } : data} initial={miles > 0 ? (data.polyline ? 'route' : 'stamp') : 'bubble'} /> });
   };
+  const halo = miles > 0 || lead?.key === 'done' ? 'done' : lead?.key === 'floor' ? 'floor' : 'rest';
+  const once = still ? null : `close-${date}`;
   return (
-    <section className={`aura cd ${asHero ? 'cd-hero' : ''} halo-${miles > 0 || primary?.key === 'done' ? 'done' : primary?.key === 'floor' ? 'floor' : 'rest'}`} aria-label="Close the day">
+    <section className={`aura cd cd-hero halo-${halo} ${boost ? 'halo-boost' : ''}`} aria-label="Close the day">
       <span className="aura-glow" aria-hidden="true" />
-      <div className="cd-top">
-        <span className="caps">{isToday ? 'Close the day' : 'The day'}</span>
-        {corner}
+      <span className="caps cd-eyebrow">Close the day</span>
+      <div className="cd-title-slot">
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.h2 key={title} className="cd-title" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+            {title}
+          </motion.h2>
+        </AnimatePresence>
       </div>
-      <h2 className="cd-title display">{entries.length ? 'Day, closed.' : isToday ? EVENING_TITLE : 'Two sentences on the day.'}</h2>
       {stamps.length ? (
-        <div className={`cd-stamps n-${stamps.length}`} role="list" aria-label="The day">
-          {stamps.map((s) => (
+        <div className="cd-stamps" role="list" aria-label="The day">
+          {stamps.map((s, i) => (
             <span key={s.k} className="cd-stamp" role="listitem" aria-label={s.said}>
               <span className="caps">{s.k}</span>
-              <span className="stamp cd-num">
-                {s.v}
+              <span className="cd-num">
+                <StampNum s={s} delay={i * STAGGER_MS} once={once && `${once}-${s.k}`} />
                 {s.u ? <small> {s.u}</small> : null}
               </span>
             </span>
@@ -160,25 +350,27 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, corner, asHero }
       ) : line ? (
         <p className="cd-line">{line}</p>
       ) : null}
-      {openShown ? open.map((p) => <OpenLine key={p.session.id} p={p} onOpen={() => onOpenSession(p)} />) : null}
-      {entries.length ? (
-        <div className="cd-entries">
-          {entries.map((e) => (
-            <EntryItem key={e.id} e={e} />
-          ))}
-        </div>
-      ) : null}
-      {still ? null : entries.length ? <AddToIt date={date} today={log.today} ask={ask} /> : <DayComposer date={date} today={log.today} ask={ask} />}
-      {entries.length && !still ? (
-        <button type="button" className="aura-share cd-share" onClick={share}>
-          <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share the day
-        </button>
-      ) : null}
-      {isToday && !still && pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? (
-        <div className="cd-pick">
-          <TodaysPick compact />
-        </div>
-      ) : null}
+      {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} /> : null}
+      {still ? null : (
+        <>
+          <ComposeBox date={date} log={log} onSaved={() => setBoost(true)} />
+          <div className="cd-tomorrow">
+            <span className="caps cd-tomorrow-head">Tomorrow</span>
+            <div className="group cd-tgroup">
+              <WordRow />
+              <AlarmRow log={log} />
+            </div>
+          </div>
+          <Pressable className="hero-share cd-share" onPress={share} label="Share the day">
+            <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share the day
+          </Pressable>
+          {pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? (
+            <div className="cd-pick">
+              <TodaysPick compact />
+            </div>
+          ) : null}
+        </>
+      )}
     </section>
   );
 };

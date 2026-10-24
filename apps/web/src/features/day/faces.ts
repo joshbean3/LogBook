@@ -297,3 +297,22 @@ export const restMorning = (log: Log, date: ISODate, ph: DayPhase) => {
 
 /** The second session of a two-session day (§3.4): the first training session after the lead, skipped ones included. */
 export const secondOf = (ph: DayPhase, lead: PhaseSession | null): PhaseSession | null => ph.sessions.find((p) => p.session.kind !== 'rest' && p.session.id !== lead?.session.id) ?? null;
+
+/**
+ * The face the day showed before its run arrived (§6.1): the same day with that date's activities hidden. The run landing
+ * shows it while it waits to be seen and through stages 1 and 2 (the open face's ring filling and becoming the check).
+ */
+export const preLandingFace = (log: Log, date: ISODate, minutes: number): Face => {
+  const s = log.snap;
+  const snap = { ...s, activitiesOn: (d: string) => (d === date ? [] : s.activitiesOn(d)), runsOn: (d: string) => (d === date ? [] : s.runsOn(d)) };
+  const without = { ...log, snap } as Log;
+  return faceOf(without, date, phaseOf(without, date, minutes));
+};
+
+/** The coach's read as the hero says it (§3.2): its first sentence. */
+export const coachSentence = (text: string | null | undefined): string | null => {
+  const t = text?.replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  const m = /^.+?[.!?](?=\s|$)/.exec(t);
+  return m ? m[0] : t;
+};

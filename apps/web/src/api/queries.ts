@@ -210,6 +210,20 @@ export const useDaily = () => useQuery({ queryKey: keys.daily, queryFn: () => ap
 export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 });
 export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
 
+// ---------- the coach's read (spec §6.1: the client's one call after the landing; the sync route never calls Claude) ----------
+export interface CoachReadAnswer {
+  date: string;
+  key: string;
+  text: string;
+  createdAt: string;
+}
+/** The existing `POST /coach/read` (`{ date, sessionId }`); the answer is written into the month cache, where the hero reads it. */
+export const fetchCoachRead = async (qc: QueryClient, date: string, sessionId: string | null): Promise<CoachReadAnswer> => {
+  const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId } });
+  qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === r.date && c.key === r.key)), r] } : b));
+  return r;
+};
+
 // ---------- sessions ----------
 export const useSessionMutations = () => {
   const qc = useQueryClient();
