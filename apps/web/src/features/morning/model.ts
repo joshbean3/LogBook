@@ -128,18 +128,20 @@ export interface SchedRow {
 }
 
 /**
- * Run `fn` once a push has settled: after the slide's length, at an idle moment (at the latest 0.7 s after that). The first
+ * Run `fn` once a push has settled: after the slide's at-rest budget, at an idle moment (at the latest 0.7 s after that). The first
  * measures of a new page (the FLIP's row tops, the Leave row's toast room) wait for it: read on the push's first frames they
  * forced the page's style and layout inside the slide (feel review 1 FL4); by now the layout is the one the frames drew.
  * Returns a cancel.
  */
+/** The push's at-rest budget (spec §0.2 row 3: at rest ≤ 500 ms): a new page's first measures wait at least this long. */
+const PUSH_REST_MS = 500;
 export const whenSettled = (fn: () => void): (() => void) => {
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
   let idle = 0;
   const t = window.setTimeout(() => {
     if (w.requestIdleCallback) idle = w.requestIdleCallback(fn, { timeout: 700 });
     else fn();
-  }, 450);
+  }, PUSH_REST_MS);
   return () => {
     clearTimeout(t);
     if (idle) w.cancelIdleCallback?.(idle);
