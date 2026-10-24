@@ -279,7 +279,13 @@ const WordRow = () => {
   if (editing)
     return (
       <div className="row cd-trow cd-word-edit">
-        <span className="cd-trow-title">A word for tomorrow</span>
+        {/* the label keeps its words beside the field at 390; below 360 wide it shortens rather than being cut */}
+        <span className="cd-trow-title">
+          <span className="cd-word-long">A word for tomorrow</span>
+          <span className="cd-word-short" aria-hidden="true">
+            Word
+          </span>
+        </span>
         <input
           className="cd-word-in"
           value={v}

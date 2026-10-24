@@ -1,6 +1,6 @@
 import { mondayOf, shiftDays, weekSummary, type ISODate, type Snapshot, type WeekSummary } from '@logbook/shared';
 import type * as React from 'react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsActiveTab, useTabScroller } from '@/app/NavController';
 import { LANDING_VISIBLE } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
@@ -73,7 +73,8 @@ export const WeekCard = memo(function WeekCard({ date, log }: { date: ISODate; l
   const wk = isoWeek(date);
   const ran = Math.round(sum.doneMiles * 10) / 10;
   const plan = Math.round(sum.plannedMiles * 10) / 10;
-  const stats = [plan > 0 ? `${milesText(ran)} of ${milesText(plan)} mi` : ran > 0 ? `${milesText(ran)} mi` : null, sum.runsPlanned > 0 ? `${sum.runsDone} of ${sum.runsPlanned} runs` : null].filter(Boolean).join(' · ') || 'Nothing planned';
+  const parts = [plan > 0 ? `${milesText(ran)} of ${milesText(plan)} mi` : ran > 0 ? `${milesText(ran)} mi` : null, sum.runsPlanned > 0 ? `${sum.runsDone} of ${sum.runsPlanned} runs` : null].filter((x): x is string => !!x);
+  const stats = parts.join(' · ') || 'Nothing planned';
   const note = weekNote(log.snap, sum, date, log.today);
   const ref = useRef<HTMLElement | null>(null);
   return (
@@ -81,7 +82,20 @@ export const WeekCard = memo(function WeekCard({ date, log }: { date: ISODate; l
       <CardRing date={date} log={log} sum={sum} wk={wk.key} card={ref} />
       <span className="wc-text">
         <span className="caps wc-week">Week {wk.week}</span>
-        <span className="wc-stats tnum">{stats}</span>
+        {/* one line at 390; where it cannot be (320), it breaks only at the dot, never inside "4 runs" */}
+        <span className="wc-stats tnum">
+          {parts.length
+            ? parts.map((p, i) => (
+                <Fragment key={i}>
+                  {i ? ' ' : null}
+                  <span className="wc-part">
+                    {p}
+                    {i < parts.length - 1 ? ' ·' : ''}
+                  </span>
+                </Fragment>
+              ))
+            : stats}
+        </span>
         <span className="wc-note">{note}</span>
       </span>
     </Pressable>

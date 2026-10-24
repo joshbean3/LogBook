@@ -42,8 +42,27 @@ export const MorningRow = memo(function MorningRow({ date, log }: { date: ISODat
         }}
       >
         <Sun size={18} className="mr-ic" aria-hidden="true" />
-        <span className="mr-title">{w.title}</span>
-        <span className="mr-right tnum">{w.right}</span>
+        {/* below 360 wide a future day's title drops "morning" (the sun says it), so its time still fits */}
+        <span className="mr-title">
+          {/ morning$/.test(w.title) && !/^(This|That) /.test(w.title) ? (
+            <>
+              <span className="mr-long">{w.title}</span>
+              <span className="mr-short" aria-hidden="true">
+                {w.title.replace(/ morning$/, '')}
+              </span>
+            </>
+          ) : (
+            w.title
+          )}
+        </span>
+        {/* where both times cannot fit (320), the second drops whole to a hidden line instead of being cut mid-word */}
+        <span className="mr-right tnum">
+          {w.right.split(' · ').map((p, i) => (
+            <span key={i} className="mr-part">
+              {i ? ` · ${p}` : p}
+            </span>
+          ))}
+        </span>
         <ChevronRight size={16} className="mr-chev" aria-hidden="true" />
       </Pressable>
     </div>
