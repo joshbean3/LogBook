@@ -129,7 +129,7 @@ const RouteDraw = ({ polyline, drawKey, numbers }: { polyline: string; drawKey: 
   const from = held || numbers === 'go' || (first && !reduce) ? { pathLength: 0 } : false;
   return (
     <svg className="hero-route" viewBox="0 0 358 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <motion.path d={d} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={from} animate={{ pathLength: held ? 0 : 1 }} transition={reduce ? { duration: 0 } : { duration: ROUTE_S, ease }} />
+      <motion.path d={d} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={from} animate={{ pathLength: held ? 0 : 1 }} style={held ? { visibility: 'hidden' } : undefined} transition={reduce ? { duration: 0 } : { duration: ROUTE_S, ease }} />
     </svg>
   );
 };
