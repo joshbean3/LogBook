@@ -7,6 +7,7 @@ import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
 import { Button, ContextMenu, EmptyState, Group, IconButton, Pressable, Row, Section, Skeleton, SkeletonGroup, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
 import { FavStar } from './FavStar';
+import { PressButton } from './PressButton';
 import { measureBelow, useListFlip } from './feel';
 import { SaveButton, useEntryActions, useOpenEntry } from './JournalDaySection';
 
@@ -111,13 +112,13 @@ const QuoteRow = ({ q, open, onWrite }: { q: Quote; open: (q: Quote) => void; on
       left={q.mine ? { label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.remove(q) } : { label: 'Hide', icon: <EyeOff size={20} />, tone: 'neutral', destructive: false, onCommit: () => act.hide(q) }}
       menuItems={[{ label: 'Write about it', icon: <PenLine size={18} />, onSelect: () => onWrite(q) }]}
     >
-      <button type="button" className="qrow" onClick={() => open(q)}>
+      <PressButton className="qrow" onClick={() => open(q)}>
         <span className="qrow-text">“{q.text}”</span>
         <span className="qrow-by">
           <FavStar on={q.fav} label="Favourite" />
           <Byline q={q} />
         </span>
-      </button>
+      </PressButton>
     </SwipeRow>
   );
 };

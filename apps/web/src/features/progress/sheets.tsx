@@ -43,7 +43,7 @@ const SheetRow = ({ lead, title, sub, right, onPress, label: l }: { lead?: React
     </>
   );
   return onPress ? (
-    <Pressable className="pg-srow" pressScale={1} onPress={onPress} label={l}>
+    <Pressable className="pg-srow" press="surface" onPress={onPress} label={l}>
       {body}
     </Pressable>
   ) : (

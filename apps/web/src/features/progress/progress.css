@@ -747,3 +747,16 @@ button.pg-srow[data-pressed] {
   text-transform: none;
   color: var(--ink-3);
 }
+
+/* the chart: a new range crossfades in 150 ms; a scrub dims the other weeks by opacity (nothing animates a size, §10) */
+.pg-fade-in {
+  animation: pg-fade-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes pg-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.pg-week {
+  transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}

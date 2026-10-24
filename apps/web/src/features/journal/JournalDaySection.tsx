@@ -10,6 +10,7 @@ import { Button, Group, Pressable, Section, SwipeRow, useSheet, useToast } from 
 import type { Log } from '../log/useLog';
 import { getDraft, setDraft, subscribeDrafts } from './drafts';
 import { FavStar } from './FavStar';
+import { PressButton } from './PressButton';
 import { below, carry, carryScaleY } from './feel';
 import { runStamp, useDayPrompt } from './prompt';
 import './journal.css';
@@ -148,10 +149,10 @@ const DayList = ({ date, stamp }: { date: string; stamp?: string | null }) => {
       {stamp ? <span className="jstamp">{stamp}</span> : null}
       <div className="list-edge dsheet-list">
         {entries.map((e) => (
-          <button key={e.id} type="button" className="dsheet-row" onClick={() => sheet.push({ title: timeOf(e.createdAt), body: <EntrySheet e={e} stamp={stamp} /> })}>
+          <PressButton key={e.id} className="dsheet-row" onClick={() => sheet.push({ title: timeOf(e.createdAt), body: <EntrySheet e={e} stamp={stamp} /> })}>
             <span className="caps">{timeOf(e.createdAt)}</span>
             <span className="dsheet-text">{e.text}</span>
-          </button>
+          </PressButton>
         ))}
       </div>
       <Group className="dsheet-add">
@@ -217,13 +218,13 @@ export const EntryItem = ({ e, stamp }: { e: JournalEntry; stamp?: string | null
         { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
       ]}
     >
-      <button type="button" className="jentry-body" onClick={(ev) => open(e, { from: ev.currentTarget.querySelector('.jentry-meta'), stamp })}>
+      <PressButton className="jentry-body" onClick={(ev) => open(e, { from: ev.currentTarget.querySelector('.jentry-meta'), stamp })}>
         <span className="caps jentry-meta">
           <span>{timeOf(e.createdAt)}</span>
           <FavStar on={e.fav} label="Favourite" />
         </span>
         <span className="jentry-text">{e.text}</span>
-      </button>
+      </PressButton>
     </SwipeRow>
   );
 };

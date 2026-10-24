@@ -7,7 +7,7 @@ import { keys, useReads, useReadsMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { crossfade, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
+import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRows, SwipeRow, usePress, useSheet, useToast } from '@/ui';
 import { measureBelow, popFav, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
 import { TodaysPick } from './TodaysPick';
@@ -178,6 +178,7 @@ const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
 const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; today: string; onFlip: (via: 'tap' | 'swipe') => void; onDelete: () => void; onEdit: () => void; onOpened: () => void }) => {
   const open = useOpenLink();
   const toast = useToast();
+  const press = usePress();
   const [ticked, setTicked] = useState(false);
   const read = !!x.readAt;
   const shown = ticked ? !read : read;
@@ -211,7 +212,7 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
             setTimeout(() => onFlip('tap'), 420);
           }}
         />
-        <a className="rrow-link" href={x.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={`${title}.${bare ? '' : ` ${site}.`} Opens in a new window`} onClick={open(x.url, read ? undefined : onOpened)}>
+        <a className="rrow-link" data-press="dim" {...press.handlers} href={x.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={`${title}.${bare ? '' : ` ${site}.`} Opens in a new window`} onClick={open(x.url, read ? undefined : onOpened)}>
           <span className="rrow-title">{title}</span>
           <span className="caps rrow-meta">
             {bare ? null : `${site} · `}

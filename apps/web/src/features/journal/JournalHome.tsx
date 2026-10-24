@@ -11,6 +11,7 @@ import { crossfade, springs, useReduced } from '@/lib/motion';
 import { Button, EmptyState, IconButton, Pressable, Section, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
 import { FavStar } from './FavStar';
+import { PressButton } from './PressButton';
 import { measureBelow, popFav, useListFlip } from './feel';
 import { Composer, EntryEditor, monthsOf, timeOf, useEntryActions, useOpenDay, useOpenEntry } from './JournalDaySection';
 import { GhostLines } from './Ghost';
@@ -493,8 +494,7 @@ const Timeline = ({ today, all, pending, onWrite }: { today: string; all: Journa
                     { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
                   ]}
                 >
-                  <button
-                    type="button"
+                  <PressButton
                     className="jtl-row"
                     aria-label={`${fmtDate('long', e.date)}, ${timeOf(e.createdAt)}${stamp ? `, ${stamp}` : ''}${e.fav ? ', favourite' : ''}. ${e.text}`}
                     onClick={(ev) => openEntry(e, { from: ev.currentTarget.querySelector('.jtl-date-shared'), stamp: stampOf(e.date) })}
@@ -516,7 +516,7 @@ const Timeline = ({ today, all, pending, onWrite }: { today: string; all: Journa
                         <FavStar on={e.fav} />
                       </span>
                     </span>
-                  </button>
+                  </PressButton>
                 </SwipeRow>
               </div>
             );

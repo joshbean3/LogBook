@@ -234,7 +234,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-.rp-crow:active {
+.rp-crow[data-pressed] {
   background: var(--surface-2);
 }
 /* on Today the read row sits between sections, so it takes a section's gap */
@@ -301,7 +301,7 @@
   -webkit-user-select: none;
   user-select: none;
 }
-.rrow-link:active .rrow-title {
+.rrow-link[data-pressed] .rrow-title {
   color: var(--ink-2);
 }
 .rrow-title {

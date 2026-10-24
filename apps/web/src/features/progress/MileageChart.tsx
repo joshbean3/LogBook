@@ -1,7 +1,7 @@
 import { fmtDate, mi, num } from '@logbook/shared';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fadeIn, springs, useReduced } from '@/lib/motion';
+import { useReduced } from '@/lib/motion';
 import { niceTop, useWidth } from './charts';
 import { weekTitle, type Range, type WeekPoint } from './data';
 import { useScrub } from './useScrub';
@@ -22,7 +22,7 @@ export const weekWords = (p: WeekPoint, today: string) => {
 
 /**
  * The weekly mileage chart: run bars, ghost plan bars (outlined; dashed for weeks ahead), a four-week average line, this
- * week in blue, each series named on the chart itself. Bars move between ranges on `springs.settle`.
+ * week in blue, each series named on the chart itself. A new range crossfades in 150 ms; nothing animates a size.
  *
  * Gestures: press and slide to read a week (the parent's headline rewrites through `onScrub`); a quick tap opens it; a
  * pinch changes the range. Fallbacks: the range chips, arrow keys + Enter on the focused chart, and a hidden list of week
@@ -31,7 +31,6 @@ export const weekWords = (p: WeekPoint, today: string) => {
 export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghost }: { pts: WeekPoint[]; range: Range; today: string; onScrub: (i: number | null) => void; onOpen: (i: number) => void; onPinch?: (dir: -1 | 1) => void; ghost?: boolean }) => {
   const [wrapRef, width] = useWidth<HTMLDivElement>();
   const reduce = useReduced();
-  const settle = reduce ? { duration: 0 } : springs.settle;
   const [pinchR, setPinchR] = useState<number | null>(null);
   // the first paint draws in place; later range changes move the bars
   const drawn = useRef(false);
@@ -194,60 +193,35 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
           </defs>
           {grid.map((v) => (
             <g key={v}>
-              <motion.line x1={left} x2={W - right + 2} initial={false} animate={{ y1: y(v), y2: y(v) }} transition={settle} className="pg-grid" />
-              <motion.text x={W} initial={false} animate={{ attrY: y(v) }} transition={settle} dy="0.32em" textAnchor="end" className="pg-ax">
+              <line x1={left} x2={W - right + 2} y1={y(v)} y2={y(v)} className="pg-grid" />
+              <text x={W} y={y(v)} dy="0.32em" textAnchor="end" className="pg-ax">
                 {v}
-              </motion.text>
+              </text>
             </g>
           ))}
           <line x1={left} x2={W - right + 2} y1={y0} y2={y0} className="pg-base" />
           <g style={{ transform: `scaleX(${pinchScale})`, transformOrigin: `${W / 2}px ${y0}px`, transition: pinchR == null ? 'transform 200ms var(--ease-out)' : 'none' }}>
             {a != null ? <rect x={xc(a) - Math.max(bw, 10) / 2 - 3} y={padTop - 10} width={Math.max(bw, 10) + 6} height={y0 - padTop + 10} rx={4} className="pg-col" /> : null}
-            <g clipPath="url(#pg-clip)">
-              <AnimatePresence initial={false}>
-                {pts.map((p, i) => {
-                  const dim = a != null && a !== i;
-                  const enter = firstPaint ? false : { attrX: xc(i) - bw / 2, attrY: y0, height: 0, width: bw, opacity: 0 };
-                  // a week whose month has not loaded is a quiet gap: no bar, only a faint dash on the baseline (§8)
-                  if (p.missing)
-                    return (
-                      <motion.g key={p.w} className="pg-gap" data-week={p.w} initial={false} animate={{ opacity: 1 }}>
-                        <line x1={xc(i) - bw / 2} x2={xc(i) + bw / 2} y1={y0 - 1} y2={y0 - 1} className="pg-gap-line" />
-                      </motion.g>
-                    );
+            {/* bars are drawn where they belong (no attribute animates: §10, only transform and opacity); a new range
+                crossfades in 150 ms, keyed on the range; a month arriving fills its weeks in place */}
+            <g key={range} clipPath="url(#pg-clip)" className={firstPaint || reduce ? '' : 'pg-fade-in'}>
+              {pts.map((p, i) => {
+                const dim = a != null && a !== i;
+                // a week whose month has not loaded is a quiet gap: no bar, only a faint dash on the baseline (§8)
+                if (p.missing)
                   return (
-                    <motion.g key={p.w} initial={false} animate={{ opacity: dim ? 0.32 : 1 }} exit={{ opacity: 0 }} transition={{ opacity: fadeIn }}>
-                      {p.planned > 0 ? (
-                        <motion.rect
-                          className={`pg-plan ${p.future ? 'ahead' : ''}`}
-                          rx={3}
-                          initial={enter}
-                          animate={{ attrX: xc(i) - bw / 2 + 0.5, width: Math.max(1, bw - 1), attrY: y(p.planned) + 0.5, height: Math.max(0, y0 - y(p.planned)) + 6, opacity: 1 }}
-                          transition={settle}
-                        />
-                      ) : null}
-                      {p.ran > 0 ? (
-                        <motion.rect
-                          className={`pg-bar ${p.current ? 'cur' : ''}`}
-                          rx={Math.min(3, bw / 2)}
-                          initial={enter}
-                          animate={{ attrX: xc(i) - bw / 2, width: bw, attrY: y(p.ran), height: y0 - y(p.ran) + 6, opacity: 1 }}
-                          transition={settle}
-                        />
-                      ) : null}
-                      {p.logged > 0.05 ? (
-                        <motion.rect
-                          className="pg-logged"
-                          rx={Math.min(2.5, bw / 2)}
-                          initial={false}
-                          animate={{ attrX: xc(i) - bw / 2 + 1, width: Math.max(0, bw - 2), attrY: y(p.ran) + 1, height: Math.max(0, y(p.ran - p.logged) - y(p.ran) - 1) }}
-                          transition={settle}
-                        />
-                      ) : null}
-                    </motion.g>
+                    <g key={p.w} className="pg-gap" data-week={p.w}>
+                      <line x1={xc(i) - bw / 2} x2={xc(i) + bw / 2} y1={y0 - 1} y2={y0 - 1} className="pg-gap-line" />
+                    </g>
                   );
-                })}
-              </AnimatePresence>
+                return (
+                  <g key={p.w} className="pg-week" style={{ opacity: dim ? 0.32 : 1 }}>
+                    {p.planned > 0 ? <rect className={`pg-plan ${p.future ? 'ahead' : ''}`} rx={3} x={xc(i) - bw / 2 + 0.5} width={Math.max(1, bw - 1)} y={y(p.planned) + 0.5} height={Math.max(0, y0 - y(p.planned)) + 6} /> : null}
+                    {p.ran > 0 ? <rect className={`pg-bar ${p.current ? 'cur' : ''}`} rx={Math.min(3, bw / 2)} x={xc(i) - bw / 2} width={bw} y={y(p.ran)} height={y0 - y(p.ran) + 6} /> : null}
+                    {p.logged > 0.05 ? <rect className="pg-logged" rx={Math.min(2.5, bw / 2)} x={xc(i) - bw / 2 + 1} width={Math.max(0, bw - 2)} y={y(p.ran) + 1} height={Math.max(0, y(p.ran - p.logged) - y(p.ran) - 1)} /> : null}
+                  </g>
+                );
+              })}
             </g>
             {avgPts.length > 1 ? (
               <motion.path key={range} d={avgPath} className="pg-avg" initial={firstPaint || reduce ? false : { opacity: 0 }} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: firstPaint ? 0 : 0.18 }} />

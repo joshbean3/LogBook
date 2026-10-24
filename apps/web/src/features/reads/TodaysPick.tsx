@@ -5,7 +5,7 @@ import { useRef } from 'react';
 import { usePick, useReadsMutations } from '@/api/queries';
 import { fadeIn, fadeOut, springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, ContextMenu, Group, useToast } from '@/ui';
+import { Button, ContextMenu, Group, usePress, useToast } from '@/ui';
 import { openLink, useOpenLink } from './openLink';
 import './reads.css';
 
@@ -61,6 +61,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
   const p: Link | null = data?.pick ?? null;
   const left = data?.refreshesLeft ?? 0;
   const site = p ? p.siteName || hostOf(p.url) : '';
+  const press = usePress();
   const refresh = () => {
     another.mutate(date, {
       onSuccess: (r) => {
@@ -88,7 +89,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
             </div>
           </div>
         ) : p ? (
-          <a className="lrow two rp-crow" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
+          <a className="lrow two rp-crow" data-press="surface" {...press.handlers} href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
             <div className="lrow-main">
               <span className="caps">Today’s read · {site}</span>
               <span className="lrow-title">{linkTitle(p.title, p.url)}</span>

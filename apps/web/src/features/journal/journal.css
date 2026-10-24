@@ -222,9 +222,6 @@ textarea.jtext {
   line-height: 1rem;
   color: var(--ink-4);
 }
-.qline:active .qline-text {
-  color: var(--ink-2);
-}
 .qline-hint {
   font-size: 0.75rem;
   line-height: 1rem;
@@ -514,8 +511,8 @@ textarea.jtext {
 .jtl-item:not(.first) .jtl-row {
   padding-top: 2px;
 }
-.jtl-row:active {
-  background: var(--surface);
+.jtl-row[data-pressed] {
+  background: var(--surface-2);
 }
 .jtl-date {
   display: grid;
@@ -643,8 +640,8 @@ textarea.jsheet-text {
   color: inherit;
   cursor: pointer;
 }
-.dsheet-row:active {
-  background: var(--surface);
+.dsheet-row[data-pressed] {
+  background: var(--surface-2);
 }
 .dsheet-text {
   font-family: var(--serif);
@@ -677,7 +674,7 @@ textarea.jsheet-text {
   text-align: left;
   color: var(--ink);
 }
-.jentry-body:active {
+.jentry-body[data-pressed] {
   background: var(--surface-2);
 }
 .jentry-meta {
@@ -804,8 +801,8 @@ textarea.jsheet-text {
   color: inherit;
   cursor: pointer;
 }
-.qrow:active {
-  background: var(--surface);
+.qrow[data-pressed] {
+  background: var(--surface-2);
 }
 .qrow-text {
   font-family: var(--serif);
@@ -883,9 +880,6 @@ textarea.jsheet-text {
   color: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-.theme-card:active {
-  background: var(--surface-2);
 }
 .theme-card-top {
   display: flex;
