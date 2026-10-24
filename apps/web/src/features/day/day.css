@@ -331,7 +331,13 @@
   gap: 12px;
   text-align: left;
   min-height: 44px;
+  /* the line spans its column wherever it is mounted (a button shrinks to its content outside a grid parent) */
+  width: 100%;
+  box-sizing: border-box;
   cursor: pointer;
+}
+div.mini-tl {
+  cursor: default;
 }
 .mini-tl-line {
   position: relative;
