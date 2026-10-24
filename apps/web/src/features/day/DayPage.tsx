@@ -191,6 +191,8 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
 
 
   const habitsLit = loaded ? log.habits.filter((h) => h.createdOn <= date && log.snap.isHabitDone(date, h.id)).length : 0;
+  // the head's meta (§3.1 row 4, §3.3): `2 of 5` only when > 0; a future day counts its ghosts, `5 habits`
+  const habitsMeta = date > today ? (log.habits.length ? `${log.habits.length} ${log.habits.length === 1 ? 'habit' : 'habits'}` : null) : habitsLit > 0 ? `${habitsLit} of ${log.habits.filter((h) => h.createdOn <= date).length}` : null;
   return (
     <div className="day-page" data-day={date}>
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
@@ -202,7 +204,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       <section className="habits" aria-label="Habits" inert={date > today || undefined}>
         <div className="sec-head">
           <h2 className="sec-title">Habits</h2>
-          {habitsLit > 0 ? <span className="sec-meta tnum">{`${habitsLit} of ${log.habits.filter((h) => h.createdOn <= date).length}`}</span> : null}
+          {habitsMeta ? <span className="sec-meta tnum">{habitsMeta}</span> : null}
         </div>
         {loaded ? <OrbRowM date={date} log={log} editable={date <= today} /> : <div className="orbs-skel" />}
       </section>

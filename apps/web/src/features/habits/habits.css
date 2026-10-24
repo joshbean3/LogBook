@@ -1,66 +1,57 @@
-/* ---------- habit orbs: a row of lights under the hero ---------- */
+/* ---------- habit orbs (§3.1 row 4): 56 px orbs, 12 between them, names 12/16; the row scrolls itself ---------- */
 .orbs-wrap {
-  margin-top: var(--sp-secondary);
   display: grid;
-  gap: 4px;
-  container-type: inline-size;
+  min-width: 0;
 }
 .orbs-scroll {
   display: flex;
-  align-items: flex-start;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
-  margin: -8px calc(-1 * var(--page-pad)) 0;
-  padding: 8px var(--page-pad) 4px;
+  /* native scroll both ways: the row scrolls sideways, the page vertically; the pager never takes it (data-no-page) */
+  touch-action: pan-x pan-y;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 16px;
+  /* full bleed: the orbs scroll under the screen's edges, the first one sits on the 16 px gutter */
+  margin: 0 -16px;
+  padding: 0 16px;
   -webkit-overflow-scrolling: touch;
 }
 .orbs-scroll::-webkit-scrollbar {
   display: none;
 }
-.orbs-scroll.many {
-  scroll-snap-type: x proximity;
-  scroll-padding-inline: var(--page-pad);
-}
 .orbs {
   display: flex;
   gap: 4px;
-  flex: 1 0 auto;
-  justify-content: flex-start;
+  flex: none;
 }
+/* a cell is the 64 px hit; the ring inside is 56 */
 .orb {
   appearance: none;
   border: 0;
   background: none;
   padding: 0;
+  margin: 0;
   width: 64px;
   min-width: 64px;
+  min-height: 0;
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: 6px;
+  gap: 4px;
   color: var(--ink-3);
-  /* the row scrolls until the hold is up; after that the drag holds the page still itself */
-  touch-action: auto !important;
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
   scroll-snap-align: start;
+  position: relative;
 }
-.orbs-scroll:not(.many) .orbs {
-  gap: 0;
-  flex: 0 0 auto;
-}
-/* up to six (the "+" included) share the width; more scroll, 64px each, snapping */
-.orbs-scroll:not(.many) .orb {
-  width: min(76px, calc(100cqi / var(--n, 6)));
-  min-width: 0;
-}
-.orb.is-lifted {
+/* the one in the air rides over its neighbours */
+.orb[data-dragging] {
   z-index: 2;
-  cursor: grabbing;
 }
-.orb.is-lifted .orb-ring {
+.orb[data-dragging] .orb-ring {
   background: var(--surface-3);
   border-color: var(--line-strong);
 }
@@ -73,7 +64,7 @@
   display: grid;
   place-items: center;
   color: transparent;
-  background: var(--surface-2);
+  background: var(--surface-3);
   transition:
     background 160ms var(--ease-out),
     border-color 160ms var(--ease-out),
@@ -90,11 +81,16 @@
   line-height: 1;
   color: var(--ink-2);
 }
-/* lit: the fill, the check, the glow blooms */
+/* lit: the fill and the check on the tap's frame (no fade in: the colour is the answer), the glow blooms after */
 .orb.on .orb-ring {
   background: var(--accent);
   border-color: var(--accent-bright);
   color: #fff;
+  transition:
+    background 0ms,
+    border-color 0ms,
+    color 0ms,
+    box-shadow 320ms var(--ease-out);
   box-shadow:
     0 0 0 4px rgba(47, 59, 255, 0.18),
     0 0 28px rgba(47, 59, 255, 0.75);
@@ -109,18 +105,15 @@
   background: var(--warn);
 }
 .orb-name {
-  font-size: 11px;
-  line-height: 14px;
-  font-weight: 500;
+  font: 400 12px/16px var(--sans);
   color: var(--ink-3);
   max-width: 100%;
   padding-inline: 2px;
   text-align: center;
+  white-space: nowrap;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  transition: color 160ms var(--ease-out);
 }
 .orb.on .orb-name {
   color: var(--ink);
@@ -130,11 +123,6 @@
   border-style: dashed;
   color: var(--ink-3);
 }
-.orb-plus.on-add .orb-ring {
-  border-style: solid;
-  color: var(--ink);
-  background: var(--surface-2);
-}
 .orb:focus-visible {
   outline: none;
 }
@@ -142,27 +130,19 @@
   outline: 2px solid var(--accent-text);
   outline-offset: 3px;
 }
-.orbs-cap {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
+/* a future day (§3.3): ghost orbs, an outline in --ink-4 at 40 %, the names, nothing to press */
+.orb.ghost {
+  opacity: 0.4;
 }
-.orbs-cap.all {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.0625rem;
-  color: var(--ink);
+.orb.ghost .orb-ring {
+  background: none;
+  border-color: var(--ink-4);
 }
-.orb-add {
-  overflow: hidden;
-}
+/* the "+" orb's sheet */
 .orb-add-in {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-top: 8px;
 }
 .orb-add-in .in {
   flex: 1;
@@ -172,18 +152,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 10px 0 4px;
-}
-
-@media (max-width: 359px) {
-  .orb {
-    width: 54px;
-    min-width: 54px;
-  }
-  .orb-ring {
-    width: 48px;
-    height: 48px;
-  }
+  padding: 12px 0 4px;
 }
 
 /* ---------- the habit sheet ---------- */

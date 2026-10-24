@@ -1,66 +1,179 @@
-/* ---------- to-dos: rows that swipe, hold and drag; the sheet behind a tap ---------- */
+/* ---------- to-dos (§3.1 row 5, M9): an inset group on Today (no swipe), swipe rows in the sheet ---------- */
 
-/* a group of rows: hairlines between them, like the grouped list around it */
-.tgroup {
-  display: block;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.tgroup > * + * {
-  border-top: 1px solid var(--line);
-}
-
-.todo-wrap {
-  position: relative;
-  overflow: hidden;
+/* the inset group: radius 12, rows 44 / 60, hairlines inset 16. The rows carry the surface, so a FLIP that moves the rows
+   below a folding one never shows the group's own box behind them */
+.tt-group {
+  border-radius: var(--r-group);
+  border: var(--card-border);
   background: var(--surface);
-  -webkit-user-select: none;
+}
+.tt-group > * {
+  position: relative;
+  background: var(--surface);
+}
+.tt-group > :first-child {
+  border-top-left-radius: var(--r-group);
+  border-top-right-radius: var(--r-group);
+}
+.tt-group > :last-child {
+  border-bottom-left-radius: var(--r-group);
+  border-bottom-right-radius: var(--r-group);
+}
+.tt-group > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.tt-group > .tt-row[data-pressed],
+.tt-group > .tt-add[data-pressed],
+.tt-group > .tt-more[data-pressed] {
+  background: var(--surface-2);
+}
+.tt-row {
+  min-height: 44px;
+  -webkit-touch-callout: none;
   user-select: none;
+  -webkit-user-select: none;
+}
+.tt-row.two {
+  min-height: 60px;
+}
+.tt-row-in {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: inherit;
+  padding: 0 16px 0 5px;
+}
+.tt-name {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  padding: 0;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  font: 400 17px/22px var(--sans);
+  letter-spacing: -0.02em;
   -webkit-touch-callout: none;
 }
-.todo-under {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #fff;
-  background: linear-gradient(90deg, var(--ok) 0 50%, var(--bad) 50% 100%);
+.tt-row.two .tt-name {
+  padding: 8px 0;
 }
-/* each sign lives in its own 56px zone, the same distance the row has to travel to count */
-.todo-under-left,
-.todo-under-right {
-  width: 56px;
+.tt-text {
+  overflow-wrap: anywhere;
+}
+/* checked: the row dims (the words to --ink-3, struck) while it waits to fold */
+.tt-row.is-done .tt-name,
+.tl-row.is-done .tl-name {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+}
+.tt-aside {
+  color: var(--ink-3);
+  flex: none;
+}
+.tt-more,
+.tt-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  text-align: left;
+  font: 400 17px/22px var(--sans);
+  letter-spacing: -0.02em;
+}
+.tt-more {
+  justify-content: space-between;
+  color: var(--ink-2);
+}
+.tt-more svg {
+  color: var(--ink-3);
+}
+.tt-add {
+  color: var(--accent-text);
+}
+/* the add row become the field, in the same 44 box */
+.tt-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+}
+.tt-input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 max(16px, 17px)/22px var(--sans);
+  letter-spacing: -0.02em;
+  padding: 0;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.tt-input::placeholder {
+  color: var(--ink-3);
+}
+.tt-hint {
+  flex: none;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* the mark: 22, radius 6, a 44 hit; filled and checked on the tap's frame */
+.tmark-hit {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
+  flex: none;
 }
-.trow {
-  position: relative;
-  background: var(--surface);
-  touch-action: pan-y;
-  transition: background var(--dur-fast);
+.tmark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1.5px solid var(--ink-3);
+  display: grid;
+  place-items: center;
+  color: transparent;
+  background: transparent;
 }
-/* lifted by a hold: the row rises to the control surface with a hairline, no shadow on the canvas */
-.todo-wrap.is-lifted {
-  overflow: visible;
-  z-index: 1;
+.tmark.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
-.todo-wrap.is-lifted .trow {
-  background: var(--surface-2);
-  box-shadow: 0 0 0 1px var(--line-strong);
-  border-radius: var(--r-md);
+.tmark-hit:focus-visible {
+  outline: none;
 }
-.todo-wrap.is-lifted .todo-under,
-.tgroup.is-dragging .todo-under {
-  display: none;
+.tmark-hit:focus-visible .tmark {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
 }
 
 /* the name, and the note under it at 15px, two lines at most */
-.trow-name {
+.tl-name {
   appearance: none;
   border: 0;
   background: none;
@@ -76,7 +189,7 @@
   transition: color var(--dur);
   -webkit-touch-callout: none;
 }
-.trow-name.has-note {
+.tl-name.has-note {
   padding: 10px 0;
 }
 .trow-title {
@@ -91,7 +204,7 @@
 .trow-title > span {
   min-width: 0;
 }
-.trow.is-done .trow-name {
+.tl-row.is-done .tl-name {
   color: var(--ink-3);
 }
 .trow-note {
@@ -107,7 +220,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.trow.is-done .trow-note {
+.is-done .trow-note {
   color: var(--ink-4);
 }
 
@@ -128,7 +241,7 @@
   border-radius: 50%;
   background: var(--ink);
 }
-.trow.is-done .prio i {
+.is-done .prio i {
   background: var(--ink-4);
 }
 .seg-prio {
@@ -187,31 +300,30 @@
   transform: rotate(180deg);
 }
 
-/* the quick-add line: the field, what it understood ("High · Oct 17"), and Add at 44px like every control.
-   The field keeps 160px; when the hint would squeeze it (any phone) the hint takes its own line under the field. */
-.tadd {
-  container-type: inline-size;
-  flex-wrap: wrap;
+/* a folded group: Later, Someday, Completed */
+.tfold {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+  cursor: pointer;
+  justify-content: space-between;
 }
-.tadd .in {
-  flex: 1 1 160px;
-  min-width: 160px;
+.tfold-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
-.tadd-hint {
+.tfold-meta {
   color: var(--ink-3);
   white-space: nowrap;
-  flex: none;
 }
-.tadd-btn {
-  height: 44px;
-  flex: none;
+.tfold-chev {
+  transition: transform var(--dur-fast) var(--ease-out);
 }
-@container (max-width: 439px) {
-  .tadd-hint {
-    order: 3;
-    flex-basis: 100%;
-    padding: 0 0 8px;
-  }
+.tfold-chev.open {
+  transform: rotate(180deg);
 }
 
 /* the to-do sheet: the name on a hairline, the note in the serif under a caps label; Save is the one blue */
@@ -280,101 +392,35 @@
   margin-left: 4px;
 }
 
-/* Later, not delete: the left sign is amber */
-.todo-under:has(.later) {
-  background: linear-gradient(90deg, var(--ok) 0 50%, var(--warn) 50% 100%);
-}
-
-/* ---------- Today's top three: an edge-to-edge list of swipe rows ---------- */
-.tt-list > .tt-item {
-  overflow: hidden;
-}
-.tt-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 52px;
-}
-.tt-row .mark-hit {
-  margin-left: -12px;
-}
-.tt-name {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  padding: 8px 0;
-  text-align: left;
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  display: grid;
-  gap: 2px;
-  align-content: center;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  letter-spacing: -0.02em;
-}
-.tt-text {
-  overflow-wrap: anywhere;
-}
-.tt-row.is-done .tt-name {
-  color: var(--ink-3);
-  text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
-  transition: color var(--dur-color) var(--ease-out);
-}
-.tt-aside {
-  color: var(--ink-3);
-  flex: none;
-}
-.tt-more {
-  display: flex;
-  align-items: center;
-  min-height: 48px;
-  width: 100%;
-  text-align: left;
-  color: var(--accent-text);
-  font-size: 0.9375rem;
-  font-weight: 600;
-}
-.tt-more:active {
-  background: var(--surface);
-}
-.tt-clear {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 12px 0 4px;
-  color: var(--ink-2);
-  font-size: 0.9375rem;
-}
-.tt .tadd {
-  margin-inline: calc(-1 * var(--page-pad));
-  padding-inline: var(--page-pad) 12px;
-  background: transparent;
-  border-top: 1px solid var(--line);
-}
-
-/* the full list in its sheet */
+/* ---------- the full list in its sheet: SwipeRow v2 rows ---------- */
 .tlist {
   display: grid;
   margin: 0 -20px;
+  --swipe-bg: var(--bg-sheet, var(--surface));
 }
-.tlist .lrow,
-.tlist .lrow-add,
-.tlist .todo-wrap,
-.tlist .trow {
-  background: transparent;
-}
-.tlist .tgroup > * + *,
-.tlist .tfold,
-.tlist .tadd {
+.tgroup > * + * {
   border-top: 1px solid var(--line);
 }
-.tlist .trow {
-  background: var(--bg-sheet, var(--surface));
+.tl-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 20px 0 9px;
+}
+.tl-name {
+  flex: 1;
+  min-width: 0;
+}
+.tlist .tfold,
+.tlist .tlist-add {
+  border-top: 1px solid var(--line);
+}
+.tlist .tfold {
+  background: transparent;
+}
+.tlist-add .tt-field {
+  padding: 0 20px;
 }
 .tlist-clear {
   margin: 0;

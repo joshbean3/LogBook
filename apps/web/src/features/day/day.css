@@ -15,6 +15,14 @@
 .day-page > * {
   flex: none;
 }
+/* the exiting face of a crossfade is popped out of flow against the page */
+.day-page {
+  position: relative;
+}
+/* the hero's slot: the 184 card and the Close card crossfade in it (150 ms) */
+.hero-swap {
+  min-width: 0;
+}
 
 /* ---------- the hero (§3.2, M13): fixed 184 (304 landed with a route); faces crossfade inside the same box ---------- */
 .hero.aura {
@@ -625,9 +633,6 @@
 .habits > .orbs-wrap {
   margin-top: 0;
 }
-.habits[inert] .orbs {
-  opacity: 0.4;
-}
 .todos > .sec-primary {
   margin-top: 0;
 }
@@ -641,7 +646,7 @@
   letter-spacing: -0.01em;
 }
 .orbs-skel {
-  height: 72px;
+  height: 76px;
 }
 /* a neighbour's first frame: the page's shape */
 .day-page.is-shell .morning-row {

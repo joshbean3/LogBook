@@ -1,7 +1,8 @@
 import { fmtDate, habitStreak, monthOf, parseISO, shiftDays, type Habit, type ISODate } from '@logbook/shared';
 import { useMemo, useState } from 'react';
 import { useHabitMutations } from '@/api/queries';
-import { haptics } from '@/lib/haptics';
+import { animate, motionValue } from 'motion/react';
+import { hapticAtPeak, haptics } from '@/lib/haptics';
 import { Button, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
 import './habits.css';
@@ -66,7 +67,6 @@ export const HabitSheet = ({ id }: { id: string }) => {
     if (v && v !== h.name) {
       patch.mutate({ id: h.id, name: v });
       sheet.update({ title: v });
-      haptics.toggle();
     } else setName(h.name);
   };
   return (
@@ -98,8 +98,12 @@ export const HabitSheet = ({ id }: { id: string }) => {
               aria-pressed={on}
               aria-label={`${fmtDate('long', d)}, ${on ? 'done' : 'not done'}`}
               onClick={() => {
-                if (on) haptics.toggle();
-                else haptics.orb();
+                // lighting a day is an orb lighting: `orb` on the frame its fill completes (no pop on a cell); putting one out is silent
+                if (!on) {
+                  const fill = motionValue(0);
+                  hapticAtPeak(fill, 'orb');
+                  animate(fill, 1, { duration: 0.16, ease: 'linear' });
+                }
                 check.mutate({ habitId: h.id, date: d, done: !on });
               }}
             >
@@ -151,7 +155,6 @@ export const HabitNoteSheet = ({ habit, date }: { habit: Habit; date: ISODate })
   const save = () => {
     const v = text.trim();
     if (v !== cur) check.mutate({ habitId: habit.id, date, note: v || null });
-    haptics.toggle();
     sheet.close();
   };
   return (
