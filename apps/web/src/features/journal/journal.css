@@ -28,12 +28,16 @@
   top: 0;
   left: 0;
   right: 0;
-  pointer-events: none;
 }
-/* opacity, not visibility: visibility is inherited, so flipping it restyles the whole pane on the switch frame (inert and
-   aria-hidden keep it out of reach) */
+/* the hidden pane keeps its rendering state but is not drawn, hit or focusable; no inherited property flips on a switch
+   (visibility, pointer-events and inert restyle a whole pane: ~55 ms at 4× on the commit frame) */
 .j-pane.is-off {
-  opacity: 0;
+  content-visibility: hidden;
+}
+@supports not (content-visibility: hidden) {
+  .j-pane.is-off {
+    visibility: hidden;
+  }
 }
 
 /* ---------- the composer: the page's hero, open, lit from below ---------- */

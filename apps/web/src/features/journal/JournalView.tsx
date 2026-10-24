@@ -105,8 +105,8 @@ export default function JournalView() {
   );
 
   const cls = (s: Seg) => (seg === s ? 'is-on' : leaving === s ? 'is-leaving' : 'is-off');
-  // the leaving pane turns inert only once its fade is done: flipping `inert` restyles a whole pane, and that frame belongs
-  // after the fade, not on the commit frame (the incoming pane sits above it meanwhile and takes every touch)
+  // the hidden pane is `content-visibility: hidden` (not drawn, hit or focusable) and aria-hidden; no `inert`: flipping it
+  // restyles a whole pane on the commit frame. The leaving pane sits under the incoming one, which takes every touch.
   const off = (s: Seg) => (seg !== s && leaving !== s) || undefined;
   return (
     <div className="page journal-page">
@@ -125,11 +125,11 @@ export default function JournalView() {
         </div>
       </NavBar>
       <div className="j-panes">
-        <section ref={journalPane} className={`j-pane ${cls('journal')}`} inert={off('journal')} aria-hidden={off('journal')} aria-label="Journal">
+        <section ref={journalPane} className={`j-pane ${cls('journal')}`} aria-hidden={off('journal')} aria-label="Journal">
           <JournalPane today={today} focusKey={focusKey} />
         </section>
         {/* both mounted and laid out from the start (the hidden one is visibility: hidden): a switch restyles, never mounts */}
-        <section ref={libraryPane} className={`j-pane ${cls('library')}`} inert={off('library')} aria-hidden={off('library')} aria-label="Library">
+        <section ref={libraryPane} className={`j-pane ${cls('library')}`} aria-hidden={off('library')} aria-label="Library">
           <LibraryPane onWrite={writeAbout} />
         </section>
       </div>
