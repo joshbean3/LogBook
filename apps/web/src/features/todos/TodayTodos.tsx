@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { clientKey, useTodos } from '@/api/queries';
 import { rowPresence } from '@/lib/motion';
-import { Mark, Pressable, Section, SkeletonRows, useSheet, type ContextMenuItem } from '@/ui';
+import { Mark, Pressable, Section, useSheet, type ContextMenuItem } from '@/ui';
 import { groupsOn, type TodoGroupSpec } from './groups';
 import { PriorityDots } from './PriorityDots';
 import { QuickAddField, TodoListSheet, useTodoActions } from './TodoList';
@@ -70,7 +70,7 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
   const restBits = [more > 0 ? `${more} more` : null, later.items.length ? `Later ${later.items.length}` : null, someday.items.length ? `Someday ${someday.items.length}` : null].filter(Boolean) as string[];
   return (
     <Section title="To-dos" meta={today.items.length || undefined} level="primary" className="tt">
-      {todos.isPending && !todos.data ? <SkeletonRows rows={2} label="Loading to-dos" /> : null}
+      {/* no skeleton rows: Today's one skeleton is the hero's (§14 test 40); the list fills in when it lands */}
       <div className="list-edge tt-list">
         <AnimatePresence initial={false}>
           {top.map((x) => (

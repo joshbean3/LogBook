@@ -63,7 +63,10 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp }
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  /** The click that ends a completing hold is not a tap (it would open the sheet over the landing). */
+  const quietUntil = useRef(0);
   const finish = () => {
+    quietUntil.current = performance.now() + 700;
     g.current = null;
     detach();
     setDone(true);
@@ -133,6 +136,7 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp }
       onContextMenu={(e) => e.preventDefault()}
       onClick={(e) => {
         e.stopPropagation();
+        if (performance.now() < quietUntil.current) return;
         // Enter / Space (detail 0) completes at once
         if (e.detail === 0 && !done) {
           p.set(1);

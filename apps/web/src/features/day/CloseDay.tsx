@@ -89,8 +89,8 @@ export const dayStamps = ({ miles, lit, habits, doneTodos, openTodos, open, rest
   if (open.length) {
     if (!openShown) bits.push(`${open.join(' and ')} still open.`);
   } else if (restDay) bits.push('Rest day.');
-  if (habits > lit) bits.push(`${plural(habits - lit, 'habit', 'habits')} to light.`);
-  else if (openTodos) bits.push(`${plural(openTodos, 'to-do', 'to-dos')} left.`);
+  // nouns and numbers (§3.1 copy): the habits count only when > 0, which the stamps carry; no "N to light"
+  if (openTodos) bits.push(`${plural(openTodos, 'to-do', 'to-dos')} left.`);
   return { stamps, line: bits.length ? bits.join(' ') : openShown ? null : 'A quiet day.' };
 };
 

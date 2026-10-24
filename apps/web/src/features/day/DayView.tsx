@@ -98,7 +98,8 @@ export default function DayView(): React.JSX.Element {
   const openCalendar = useOpenCalendar({ mode: 'day', value: date, onPick: (d) => handle.goTo(d) });
   const titleMenu = (): ContextMenuItem[] => [
     { label: 'Change the word', onSelect: openWord },
-    { label: 'Clear the word', disabled: !focus.word.trim(), onSelect: () => settings.mutate({ focus: { word: '' } }) },
+    // the settings patch takes the whole focus (word, sentence, by): only the word is cleared
+    { label: 'Clear the word', disabled: !focus.word.trim(), onSelect: () => settings.mutate({ focus: { word: '', quote: focus.quote, by: focus.by } }) },
     { label: 'Go to a day…', onSelect: openCalendar },
   ];
 
