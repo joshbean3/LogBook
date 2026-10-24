@@ -10,7 +10,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
-import { PlanBuilder } from './PlanBuilder';
+import { PlanBuilder, type BuilderPrefill } from './PlanBuilder';
 import './plan.css';
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
@@ -109,8 +109,8 @@ export const BlockCard = ({ log }: { log: Log }) => {
 // ---------- the plans sheet ----------
 type SheetApi = ReturnType<typeof useSheet>;
 export const openPlans = (sheet: SheetApi, log: Log) => sheet.open({ title: 'Plans', body: <PlansPanel log={log} /> });
-export const openTemplate = (sheet: SheetApi, log: Log, push = false) => {
-  const spec = { title: 'New block', detent: 'large' as const, body: <TemplatePanel log={log} /> };
+export const openTemplate = (sheet: SheetApi, log: Log, push = false, prefill?: BuilderPrefill) => {
+  const spec = { title: prefill ? 'Next block' : 'New block', detent: 'large' as const, body: <TemplatePanel log={log} prefill={prefill} /> };
   if (push) sheet.push(spec);
   else sheet.open(spec);
 };
@@ -121,8 +121,11 @@ export const openTemplate = (sheet: SheetApi, log: Log, push = false) => {
  */
 export const planName = (b: PlanBlock, all: PlanBlock[], t: string) => (all.some((x) => x.id !== b.id && x.name === b.name && x.start > b.end) ? `${b.name} · ${b.end < t ? 'ended' : 'ends'} ${fmtDate('md', b.end)}` : b.name);
 
-/** Your plans, newest first, each one a row; New block (the one blue) and, with the AI on, "Write my next block". */
-const PlansPanel = ({ log }: { log: Log }) => {
+/**
+ * Your plans, newest first, each one a row; New block (the one blue) and, with the AI on, "Write my next block". `foot`
+ * false drops the New block foot (the Plans page carries New block in its bar).
+ */
+export const PlansPanel = ({ log, foot = true }: { log: Log; foot?: boolean }) => {
   const sheet = useSheet();
   const t = log.today;
   const blocks = [...(log.boot?.blocks ?? [])].sort((a, b) => (a.start < b.start ? 1 : -1));
@@ -159,14 +162,16 @@ const PlansPanel = ({ log }: { log: Log }) => {
           <ChevronRight size={18} aria-hidden="true" />
         </button>
       ) : null}
-      <div className="sheet-foot">
-        <span />
-        <div className="foot-right">
-          <Button variant="primary" onClick={() => openTemplate(sheet, log, true)}>
-            New block
-          </Button>
+      {foot ? (
+        <div className="sheet-foot">
+          <span />
+          <div className="foot-right">
+            <Button variant="primary" onClick={() => openTemplate(sheet, log, true)}>
+              New block
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 };
@@ -273,23 +278,32 @@ const habitsOf = (log: Log) => {
  * weekly miles: the block draws itself underneath as ghosted weeks, straight from `buildTemplate`, before anything is saved.
  * "Use this plan" writes it (`POST /plans/template`).
  */
-const TemplatePanel = ({ log }: { log: Log }) => {
+const TemplatePanel = ({ log, prefill }: { log: Log; prefill?: BuilderPrefill }) => {
   const sheet = useSheet();
   const nav = useNavigate();
   const toast = useToast();
   const write = useTemplatePlan();
   const undo = useTemplateUndo();
   const t = log.today;
-  const start0 = useMemo(() => habitsOf(log), []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [goal, setGoal] = useState<Goal>('base');
-  const [weeks, setWeeks] = useState(GOAL_SPECS.base.defaultWeeks);
+  // the starting point: a prefill (the next block, contracts §F BuilderPrefill), else what the last four weeks say
+  const start0 = useMemo(() => {
+    const h = habitsOf(log);
+    const days = prefill?.runDays?.length ? WEEKDAYS.filter((_, i) => prefill.runDays!.includes(i)) : null;
+    const runDays = days?.length ? days : h.runDays;
+    const long = prefill?.longRunDay !== undefined ? WEEKDAYS[prefill.longRunDay] : undefined;
+    return { runDays, longDay: long && runDays.includes(long) ? long : runDays.includes('sun') ? 'sun' : runDays[runDays.length - 1]!, weeklyMiles: prefill?.weeklyMiles ? Math.min(150, Math.max(3, Math.round(prefill.weeklyMiles))) : h.weeklyMiles, goal: (prefill?.goal && prefill.goal in GOAL_SPECS ? prefill.goal : 'base') as Goal };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [goal, setGoal] = useState<Goal>(start0.goal);
+  const [weeks, setWeeks] = useState(GOAL_SPECS[start0.goal].defaultWeeks);
   const [runDays, setRunDays] = useState<Weekday[]>(start0.runDays);
-  const [longDay, setLongDay] = useState<Weekday>(start0.runDays.includes('sun') ? 'sun' : start0.runDays[start0.runDays.length - 1]!);
+  const [longDay, setLongDay] = useState<Weekday>(start0.longDay);
   const [miles, setMiles] = useState(start0.weeklyMiles);
   const [soon, setSoon] = useState(false);
   const [race, setRace] = useState(true);
+  // a prefilled start (the day after the ending block) holds until "Start tomorrow" is toggled; never today or earlier
+  const [preStart, setPreStart] = useState(() => (prefill?.startDate && prefill.startDate > t ? prefill.startDate : null));
   const nextMon = shiftDays(mondayOf(t), 7);
-  const startDate = soon ? shiftDays(t, 1) : nextMon;
+  const startDate = preStart ?? (soon ? shiftDays(t, 1) : nextMon);
   const firstMon = parseISO(startDate).getDay() === 1 ? startDate : shiftDays(mondayOf(startDate), 7);
   const isRace = goal !== 'base';
   const raceDate = isRace && race ? shiftDays(firstMon, weeks * 7 - 1) : null;
@@ -408,7 +422,7 @@ const TemplatePanel = ({ log }: { log: Log }) => {
         </div>
       </div>
       <div className="ed-chips">
-        <button type="button" role="switch" aria-checked={soon} className={`pl-chip ${soon ? 'on' : ''}`} onClick={() => (haptics.toggle(), setSoon((v) => !v))}>
+        <button type="button" role="switch" aria-checked={soon} className={`pl-chip ${soon ? 'on' : ''}`} onClick={() => (haptics.toggle(), setPreStart(null), setSoon((v) => !v))}>
           Start tomorrow
         </button>
         {isRace ? (
