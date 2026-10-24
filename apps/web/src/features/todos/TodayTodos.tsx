@@ -1,10 +1,10 @@
 import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
-import { Check, Clock, Flag, FlagOff, Moon, PenLine, Trash2 } from 'lucide-react';
+import { Check, Clock, Flag, FlagOff, Moon, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { clientKey, useTodos } from '@/api/queries';
 import { rowPresence } from '@/lib/motion';
-import { Mark, Pressable, Section, SkeletonRows, SwipeRow, useSheet } from '@/ui';
+import { Mark, Pressable, Section, SkeletonRows, useSheet, type ContextMenuItem } from '@/ui';
 import { groupsOn, type TodoGroupSpec } from './groups';
 import { PriorityDots } from './PriorityDots';
 import { QuickAddField, TodoListSheet, useTodoActions } from './TodoList';
@@ -22,7 +22,7 @@ const asideOf = (x: Todo, date: ISODate) => {
 };
 
 /** One of the top three: the square, the words, how much it matters. Tap the words for the editor. */
-const TopRow = ({ x, date, onDone, onEdit }: { x: Todo; date: ISODate; onDone: () => void; onEdit: () => void }) => {
+const TopRow = ({ x, date, onDone, onEdit, menu }: { x: Todo; date: ISODate; onDone: () => void; onEdit: () => void; menu: ContextMenuItem[] }) => {
   const reduce = useReducedMotion();
   const [checked, setChecked] = useState(false);
   const aside = asideOf(x, date);
@@ -38,21 +38,22 @@ const TopRow = ({ x, date, onDone, onEdit }: { x: Todo; date: ISODate; onDone: (
           setTimeout(onDone, reduce ? 120 : FOLD_MS);
         }}
       />
-      <button type="button" className="tt-name" onClick={onEdit}>
+      <Pressable className="tt-name" press="dim" onPress={onEdit} holdMenu={menu} menuLabel={`${x.text} actions`}>
         <span className="trow-title">
           <PriorityDots level={x.priority} />
           <span className="tt-text">{x.text}</span>
         </span>
         {x.note ? <span className="trow-note">{x.note}</span> : null}
-      </button>
+      </Pressable>
       {aside ? <span className="tt-aside caps">{aside}</span> : null}
     </div>
   );
 };
 
 /**
- * To-dos on Today: the three that matter most (high first, then your order) as an edge-to-edge list of swipe rows (right
- * for Done, left for Later; hold for Today / Later / Someday, Priority, Edit, Delete), the quick-add line under them, and
+ * To-dos on Today: the three that matter most (high first, then your order) as an edge-to-edge list. No swipe rows on Today
+ * (M9: the day pager is the page's one horizontal gesture): the mark is Done, the words open the to-do, and a hold on the
+ * words opens Later · Someday · Priority · Delete. The quick-add line under them, and
  * one quiet row for everything else ("+2 more · Later 3 · Someday 1") that opens the full list in a sheet.
  */
 export const TodayTodos = ({ date }: { date: ISODate }) => {
@@ -74,19 +75,18 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
         <AnimatePresence initial={false}>
           {top.map((x) => (
             <motion.div key={clientKey(x.id)} className="tt-item" {...rowPresence} layout="position">
-              <SwipeRow
-                label={x.text}
-                right={{ label: 'Done', icon: <Check size={20} strokeWidth={2.5} />, tone: 'ok', onCommit: () => act.done(x) }}
-                left={{ label: 'Later', icon: <Clock size={20} strokeWidth={2.5} />, tone: 'warn', onCommit: () => act.later(x) }}
-                menuItems={[
+              <TopRow
+                x={x}
+                date={date}
+                onDone={() => act.done(x, false)}
+                onEdit={() => edit(x)}
+                menu={[
+                  { label: 'Later', icon: <Clock size={18} />, onSelect: () => act.later(x) },
                   { label: 'Someday', icon: <Moon size={18} />, onSelect: () => act.someday(x) },
                   x.priority < 2 ? { label: 'High priority', icon: <Flag size={18} />, onSelect: () => act.priority(x, 2) } : { label: 'Clear priority', icon: <FlagOff size={18} />, onSelect: () => act.priority(x, 0) },
-                  { label: 'Edit', icon: <PenLine size={18} />, onSelect: () => edit(x) },
                   { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) },
                 ]}
-              >
-                <TopRow x={x} date={date} onDone={() => act.done(x, false)} onEdit={() => edit(x)} />
-              </SwipeRow>
+              />
             </motion.div>
           ))}
         </AnimatePresence>
@@ -101,7 +101,7 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
           <Check size={16} strokeWidth={2.5} aria-hidden="true" /> All clear for today.
         </p>
       ) : null}
-      <QuickAddField date={date} placeholder={top.length ? 'Add a to-do' : 'Add the first one'} />
+      <QuickAddField date={date} placeholder="Add a to-do" />
     </Section>
   );
 };

@@ -273,7 +273,6 @@ export const OrbRow = ({ date, log, editable = true, quiet = false }: { date: IS
   const orbs = useRef(new Map<string, OrbHandle>());
   const list = log.habits.filter((h) => h.createdOn <= date);
   const done = list.filter((h) => log.snap.isHabitDone(date, h.id)).length;
-  const all = list.length > 0 && done === list.length;
   /** A new order for the habits shown on this day slots into the full order; nothing is written when nothing moved. */
   const commit = (visible: string[]) => {
     const ids = log.habits.map((h) => h.id);
@@ -345,7 +344,7 @@ export const OrbRow = ({ date, log, editable = true, quiet = false }: { date: IS
   const many = list.length + 1 > 6;
   return (
     <section className="orbs-wrap" aria-label="Habits">
-      <div className={`orbs-scroll ${many ? 'many' : ''}`} style={{ ['--n' as string]: list.length + (editable ? 1 : 0) }}>
+      <div className={`orbs-scroll ${many ? 'many' : ''}`} data-no-page="" style={{ ['--n' as string]: list.length + (editable ? 1 : 0) }}>
         <Reorder.Group as="div" axis="x" values={live.order} onReorder={live.setOrder} className="orbs" role="group" aria-label={`Habits, ${done} of ${list.length} lit`}>
           {live.order.map((id, i) => {
             const h = byId.get(id);
@@ -381,10 +380,8 @@ export const OrbRow = ({ date, log, editable = true, quiet = false }: { date: IS
           </button>
         ) : null}
       </div>
-      <p className={`orbs-cap ${all ? 'all' : ''}`} aria-live="polite">
-        {/* a past day has nothing left to light: it says what happened */}
-        {!list.length ? 'Habits light up here as you do them.' : all ? 'All lit.' : quiet ? null : done ? `${done} of ${list.length} lit` : date < log.today ? 'None lit that day.' : `${list.length} to light`}
-      </p>
+      {/* the count is the section head's meta ("2 of 5", only when > 0); the row says something only when it is empty */}
+      {!list.length ? <p className="orbs-cap">Habits light up here as you do them.</p> : null}
       <AnimatePresence initial={false}>{adding ? <AddHabit key="add" existing={log.habits.map((h) => h.name)} onDone={() => setAdding(false)} /> : null}</AnimatePresence>
     </section>
   );

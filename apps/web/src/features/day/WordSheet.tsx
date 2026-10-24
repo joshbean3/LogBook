@@ -10,7 +10,7 @@ export const EMPTY_FOCUS: Focus = { word: '', quote: '', by: '' };
 
 /**
  * The word-and-sentence editor (docs/feel.md §2.3, §5; contracts §F): a word, a sentence, who said it, saved to the sticky
- * `settings.focus`. The body that `FocusStrip` opened, moved here. The word is at most `WORD_MAX` (12) characters, so the
+ * `settings.focus`. The body the old word strip opened, moved here. The word is at most `WORD_MAX` (12) characters, so the
  * caps line `WORD · THU, OCT 29` fits at 320. No toast and no haptic: the caps line changing is the confirmation.
  */
 export const WordSheet = ({ initial }: { initial: Focus }): React.JSX.Element => {
