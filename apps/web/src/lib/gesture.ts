@@ -18,6 +18,12 @@ export const FLICK_V = 500;
 export const EDGE_PX = 24;
 export const POP_COMMIT_FRAC = 0.35;
 export const POP_COMMIT_V = 300;
+/**
+ * A push, a pop or a sheet's rise this close to its rest (px) looks at rest: a tap that lands then is a tap, not a touch
+ * during a transition (feel review 4 D1). The page spring spends its last ~120 ms within 10 px. A pushed layer in the band
+ * completes on that pointerdown; the edge band's catch keeps §10's 1 px rule.
+ */
+export const ARRIVED_PX = 8;
 
 /** Sheet: dismiss speed and fraction, and the lock after the body reaches scrollTop 0 by scrolling. */
 export const SHEET_DISMISS_V = 400;

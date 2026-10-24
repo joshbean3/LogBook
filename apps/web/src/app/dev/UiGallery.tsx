@@ -198,6 +198,11 @@ const FieldSheetBody = () => {
       <Button variant="soft" className="gal-sheet-open-another" onClick={() => sheet.open({ title: 'Another', eyebrow: 'Replaced', body: <p className="ink2 gal-another-body">A short sheet opened over the tall one.</p> })}>
         Open another
       </Button>
+      {/* open() over this open auto sheet with a [medium, large] spec: it rests at medium as a fresh open would (consumer
+          review 4 #1); the replaced spec's onClose runs (consumer review 4 #2) */}
+      <Button variant="soft" className="gal-sheet-open-medium" onClick={() => sheet.open({ title: 'Routine', detent: 'medium', detents: ['medium', 'large'], body: <DetentBody />, onClose: () => galLog('close-medium') })}>
+        Open medium
+      </Button>
     </>
   );
 };
@@ -245,6 +250,10 @@ const DetentBody = () => {
           Filler {i + 1}: the medium detent shows the top half; the body still scrolls to its last line.
         </p>
       ))}
+      {/* open() of a short auto sheet over this medium one: no stale detent or inset is kept (consumer review 4 #1) */}
+      <Button variant="soft" className="gal-sheet-open-auto" onClick={() => sheet.open({ title: 'Another', eyebrow: 'Replaced', body: <p className="ink2 gal-another-body">A short sheet opened over the medium one.</p>, onClose: () => galLog('close-auto2') })}>
+        Open auto
+      </Button>
       <div className="sheet-foot">
         <Button variant="primary" className="gal-detent-save" onClick={() => (galLog('detent-save'), sheet.close())}>
           Save
@@ -731,7 +740,7 @@ function Gallery({ onLab }: { onLab: () => void }) {
       <Section title="Sheets" meta="sheetY owns it; the tab recedes to 0.92">
         <div className="sec-group">
           <div className="gal-chips">
-            <Button variant="soft" className="gal-sheet-auto" onClick={() => sheet.open({ title: 'Easy 6', eyebrow: 'Auto · scrolls', body: <FieldSheetBody /> })}>
+            <Button variant="soft" className="gal-sheet-auto" onClick={() => sheet.open({ title: 'Easy 6', eyebrow: 'Auto · scrolls', body: <FieldSheetBody />, onClose: () => galLog('close-auto') })}>
               Auto + field
             </Button>
             <Button variant="soft" className="gal-sheet-stack" onClick={() => sheet.open({ title: 'Easy 6', eyebrow: dayCaption(today()), body: <SheetBody level={1} /> })}>

@@ -131,6 +131,14 @@ export class Controller {
       /* private mode */
     }
   }
+  /**
+   * A layer started leaving (a pop, a pop-all, a jump's pop-down): the state is the same, but `isLeaving` changed, so the
+   * store's listeners hear it (code review 4 #2: a sheet up over the page re-reads what it covers, and the page under the
+   * leaving one is shown, not black, while it slides). No React render: the snapshot is unchanged.
+   */
+  private leavingChanged() {
+    for (const f of this.listeners) f();
+  }
   private setTab(tab: TabId, t: Partial<TabState>, extra: Partial<NavState> = {}) {
     this.set({ ...this.state, ...extra, tabs: { ...this.state.tabs, [tab]: { ...this.state.tabs[tab], ...t } } });
   }
@@ -443,9 +451,14 @@ export class Controller {
     const tab = this.state.active;
     const top = this.state.tabs[tab].stack.at(-1);
     if (!top) return;
+    // a sheet or a menu up over the page closes first, as for a push or a jump: its entry is released before the pop's
+    // own rule runs, so the URL ends on the page that stays (code review 4 #2)
+    this.closeOverlays();
     const c = this.layers.get(top.key);
-    if (c) c.leave((left) => this.answered(tab, top.key, left));
-    else this.finishPop(tab, top.key);
+    if (c) {
+      c.leave((left) => this.answered(tab, top.key, left));
+      this.leavingChanged();
+    } else this.finishPop(tab, top.key);
   };
 
   /**
@@ -454,17 +467,17 @@ export class Controller {
    * out of the stack the moment they have left; `then(true)` follows. A catch that brings the top back answers `then(false)`
    * and uncovers the layer under it: nothing is left half gone (code review 1 #1).
    */
-  private removeLayers(tab: TabId, removed: PushedEntry[], then: (left: boolean) => void, owed = false) {
+  private removeLayers(tab: TabId, removed: PushedEntry[], then: (left: boolean, dropped: boolean) => void, owed = false) {
     const gone = new Set(removed.map((e) => e.key));
+    /** Takes them out of the stack; false when another pop already had (it dispatched its own `pop`). */
     const drop = () => {
-      if (this.state.tabs[tab].stack.some((e) => gone.has(e.key))) flushSync(() => this.setTab(tab, { stack: this.state.tabs[tab].stack.filter((e) => !gone.has(e.key)) }));
+      if (!this.state.tabs[tab].stack.some((e) => gone.has(e.key))) return false;
+      flushSync(() => this.setTab(tab, { stack: this.state.tabs[tab].stack.filter((e) => !gone.has(e.key)) }));
+      return true;
     };
     const top = removed.at(-1);
     const c = top && this.layers.get(top.key);
-    if (!c) {
-      drop();
-      return then(true);
-    }
+    if (!c) return then(true, drop());
     const under = removed
       .slice(0, -1)
       .map((e) => this.layers.get(e.key))
@@ -480,12 +493,13 @@ export class Controller {
           this.going.delete(e.key);
           this.owed.delete(e.key);
         }
-        if (left) drop();
-        else for (const u of under) u.cover(false);
-        then(left);
+        const dropped = left && drop();
+        if (!left) for (const u of under) u.cover(false);
+        then(left, dropped);
       },
       { all: removed.length > 1 },
     );
+    this.leavingChanged();
   }
 
   /** The pop's last frame: unmount the layer, then the history rule (§1.3), same frame. Also the edge swipe's end. */
@@ -514,13 +528,15 @@ export class Controller {
     const tab = this.state.active;
     const stack = this.state.tabs[tab].stack;
     if (!stack.length || this.popping.has(tab)) return;
+    const history = opts.history !== false;
+    // a lit-tab pop-all under a sheet or a menu closes it first, as pop does (a popstate's pop-all has none: Back closed it)
+    if (history) this.closeOverlays();
     this.popping.add(tab);
     const top = stack.at(-1)!;
-    const history = opts.history !== false;
     this.removeLayers(
       tab,
       stack,
-      (left) => {
+      (left, dropped) => {
         this.popping.delete(tab);
         const early = stack.some((e) => this.settled.has(e.key));
         for (const e of stack) this.settled.delete(e.key);
@@ -532,8 +548,10 @@ export class Controller {
         }
         const cur = this.state.tabs[tab];
         // a push or a jump during the spring replaced the stack (its layers were unmounted, which answers `true`): that
-        // action wrote the history, and this pop-all writes nothing over it (code review 2 #4)
-        if (cur.stack.length) return;
+        // action wrote the history, and this pop-all writes nothing over it (code review 2 #4). A chevron pop that this
+        // pop-all rode along (Back during it) took the layers off itself: it wrote the history and dispatched the one
+        // `pop` (code review 4 #3)
+        if (cur.stack.length || !dropped) return;
         if (history && tab === this.state.active) {
           const n = stack.length;
           const consecutive = stack.every((e, k) => e.idx !== -1 && e.idx === stack[0]!.idx + k) && top.idx === this.cur;
@@ -696,8 +714,9 @@ export class Controller {
     const t = this.state.tabs[tab];
     const removed = t.stack.slice(i + 1);
     const to = t.stack[i]!.path;
-    this.removeLayers(tab, removed, (left) => {
-      if (left) this.emit('pop', to, tab);
+    this.removeLayers(tab, removed, (left, dropped) => {
+      // a chevron pop it rode along dispatched its own `pop` (code review 4 #3)
+      if (left && dropped) this.emit('pop', to, tab);
       else if (tab === this.state.active) this.restoreTop(tab);
     });
     this.write('replace', to);

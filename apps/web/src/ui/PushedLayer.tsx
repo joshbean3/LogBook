@@ -2,7 +2,7 @@ import { animate, cancelFrame, frame, motion, useMotionValue, useReducedMotion, 
 import type * as React from 'react';
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { PushedScrollerScope, useNavInternal, type LayerControl } from '@/app/NavController';
-import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis, POP_COMMIT_FRAC, POP_COMMIT_V } from '@/lib/gesture';
+import { ARRIVED_PX, EDGE_PX, FLICK_V, LOCK_PX, lockAxis, POP_COMMIT_FRAC, POP_COMMIT_V } from '@/lib/gesture';
 import { springs } from '@/lib/motion';
 import { swallowClickOf, swallowNextClickOf } from './clickSwallow';
 import { restoreFocus } from './focus';
@@ -191,13 +191,28 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
     if (fade.get() !== f) fade.jump(f);
   };
   /**
-   * A push or a pop is moving: more than 1 px from its target, or (reduced motion) its crossfade is running. While it is,
-   * a tap on the page itself or on the page under it does nothing (UIKit takes no touch during a transition).
+   * A push or a pop is moving: more than ARRIVED_PX from its target, or (reduced motion) its crossfade is running. While it
+   * is, a tap on the page itself or on the page under it does nothing (UIKit takes no touch during a transition). Closer
+   * than that the screen looks at rest (feel review 4 D1, consumer review 4 #3): see `arrive`.
    */
   const transitioning = () => {
     const r = running.current;
     if (!r || gone.current) return false;
-    return reduce || Math.abs(x.get() - r.target) > 1;
+    return reduce || Math.abs(x.get() - r.target) > ARRIVED_PX;
+  };
+  /**
+   * A tap that lands while the push or pop is within ARRIVED_PX of its target (the screen already looks still): the
+   * animation completes on this event, its completion runs (a pop's unmount and history rule, a push's inert parent and
+   * focus), and the tap goes on to whatever is under it now. §10's "within 1 px … completes on that event", with a visual
+   * threshold; the edge band keeps the 1 px rule, where it decides catch or no catch.
+   */
+  const arrive = () => {
+    const r = running.current;
+    if (!r || gone.current || reduce || Math.abs(x.get() - r.target) > ARRIVED_PX) return;
+    running.current = null;
+    r.controls.stop();
+    x.jump(r.target);
+    r.onDone();
   };
   /** Back to rest at 0 (a catch let go short of the pop): every pending leave is answered `false`. */
   const home = (v: number) => {
@@ -358,6 +373,7 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
       // a tap on a page still sliding in or out (or fading, under reduced motion: code review 3 #2) opens nothing (feel
       // review 2 N1: UIKit takes no touch on the content during a transition): a double tap on the opener pushes once
       if (transitioning()) swallowClickOf(e.pointerId);
+      else arrive();
       return;
     }
     let caught = false;
@@ -446,18 +462,26 @@ export const PushedLayer = ({ entry, depth, parent, children }: PushedLayerProps
    * root rides the top layer, so the top layer guards the root too.
    */
   useEffect(() => {
-    const guard = (el: HTMLElement | null | undefined, live: () => boolean) => {
+    /** `owns`: this layer guards that page now (the parent, unless covered; the root, in a two-layer pop-all). */
+    const guard = (el: HTMLElement | null | undefined, owns: () => boolean) => {
       if (!el) return () => undefined;
       const down = (e: PointerEvent) => {
-        if (!live()) return;
+        if (!owns()) return;
+        if (!transitioning()) {
+          // nearly there: the move completes now (feel review 4 D1). A pop uncovers this page, so the tap is its own; a
+          // push is covering it, so the tap still goes nowhere
+          const covering = running.current?.target === 0;
+          arrive();
+          if (!covering) return;
+        }
         e.stopPropagation();
         swallowClickOf(e.pointerId);
       };
       el.addEventListener('pointerdown', down, { capture: true });
       return () => el.removeEventListener('pointerdown', down, { capture: true });
     };
-    const offs = [guard(parent.current, () => !covered.current && transitioning())];
-    if (depth === 2) offs.push(guard(ctl.scrollers[sm.tab].current, () => allMode.current && transitioning()));
+    const offs = [guard(parent.current, () => !covered.current)];
+    if (depth === 2) offs.push(guard(ctl.scrollers[sm.tab].current, () => allMode.current));
     return () => offs.forEach((f) => f());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

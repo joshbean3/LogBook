@@ -4,7 +4,7 @@ import type * as React from 'react';
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { TabScope, useNavInternal } from '@/app/NavController';
-import { LOCK_PX, lockAxis, PROJECT_S, SHEET_DISMISS_FRAC, SHEET_DISMISS_V, SHEET_SCROLL_LOCK_MS } from '@/lib/gesture';
+import { ARRIVED_PX, LOCK_PX, lockAxis, PROJECT_S, SHEET_DISMISS_FRAC, SHEET_DISMISS_V, SHEET_SCROLL_LOCK_MS } from '@/lib/gesture';
 import { useKeyboardOpen } from '@/lib/keyboard';
 import { deprecated, reducedFade, sheetOpen, springs } from '@/lib/motion';
 import { restoreFocus } from './focus';
@@ -225,9 +225,11 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
    */
   const inset = useRef(0);
   /**
-   * The inset an upward drag dropped (the body runs on below the screen, so no empty band shows under it), and the sticky
-   * feet it would carry off the screen with it: while dropped they are translated back up, so Save stays where it was on
-   * the screen's bottom (consumer review 3 #1, feel review 3 R3); 0 when nothing is dropped.
+   * While the sheet is between its detents with no inset (an upward drag dropped it, a grow dropped it at its start, a
+   * shrink has not put it back yet, a drag down from large), the sticky feet are held on the screen's bottom: translated up
+   * by min(cap, yv), so Save never leaves the screen and nothing jumps when the inset changes (consumer review 3 #1, feel
+   * review 3 R3, code review 4 #1: a grabber tap, Enter on the grabber, the keys coming up, a release). `dropped` is the
+   * cap, the lowest detent's offset in the box: below it the feet go down with the sheet (a dismiss). 0 when unpinned.
    */
   const dropped = useRef(0);
   const feet = useRef<HTMLElement[]>([]);
@@ -235,6 +237,13 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
     if (!dropped.current) return;
     const ty = -Math.min(dropped.current, Math.max(0, yv));
     for (const f of feet.current) f.style.transform = ty ? `translateY(${ty.toFixed(2)}px)` : '';
+  };
+  /** Hold the feet from now until the inset is back (or the sheet rests at the box's top): see `dropped`. */
+  const armPin = () => {
+    const cap = geo().off(ds[0]!);
+    if (cap <= 0) return;
+    feet.current = [...(ref.current?.querySelectorAll<HTMLElement>('.sheet-body .sheet-foot') ?? [])];
+    dropped.current = cap;
   };
   const setInset = (px: number) => {
     const v = Math.max(0, Math.round(px));
@@ -260,6 +269,9 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
     // an auto sheet keeps the height it has while the keys are up (its stack's padding must not grow it)
     if (boxKind === 'auto' && !document.documentElement.classList.contains('kb-open')) el.style.setProperty('--sheet-box-h', `${box}px`);
   };
+  /** This render's box and geometry, for the mount-once listeners (open() over the open sheet can change them). */
+  const latest = useRef({ boxKind, markTall, geo, ds });
+  latest.current = { boxKind, markTall, geo, ds };
   /** Stop what runs on sheetY where it is drawn (motion's stop() samples the clock once more: a few px past the last frame). */
   const stop = () => {
     const a = anim.current;
@@ -285,10 +297,13 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
     (want ?? firstField).focus({ preventScroll: true });
   };
 
-  /** Re-express the sheet against detent `d` (same frame, no visual change) and spring to it. */
-  const snapTo = (d: AnyDetent, v: number) => {
+  /**
+   * Re-express the sheet against detent `d` (same frame, no visual change) and spring to it. `visual`: where the box is
+   * drawn now (base + sheetY), or, after open() replaced the spec with one of another box, where the new box must be drawn
+   * so the sheet's top stays where it was.
+   */
+  const snapTo = (d: AnyDetent, v: number, visual = base.get() + sheetY.get()) => {
     const g = geo();
-    const visual = base.get() + sheetY.get();
     cur.current = d;
     setDetent(d);
     base.jump(g.off(d));
@@ -296,7 +311,11 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
     height.set(g.vis(d));
     stop();
     const to = g.off(d);
+    // the inset changes with this snap (dropped at once on a grow, back on the rest of a shrink): the feet are held on the
+    // screen's bottom for the whole snap (code review 4 #1)
+    if (to !== inset.current) armPin();
     if (to < inset.current) setInset(to);
+    pinFeet(base.get() + sheetY.get());
     const rested = () => {
       setInset(to);
       // only a FLIP a drag folded into sheetY ends on this rest; one still on its own spring (a tap's settle on a sheet at
@@ -341,8 +360,8 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
      * frame apart and the first frame already shows the sheet where sheetY says.
      */
     const apply = () => {
-      const g = geo();
-      const lowest = ds[0]!;
+      const g = latest.current.geo();
+      const lowest = latest.current.ds[0]!;
       const yv = base.get() + sheetY.get();
       const d = Math.max(0, yv - g.off(lowest));
       const p = clamp01(1 - d / g.H);
@@ -417,13 +436,14 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
       // in motion's frame step: this one is the frame that paints the sheet; `second` runs in the frame after it
       frame.update(() => live && anim.current === pending && frame.update(second));
     }
+    // the box kind and markTall of the current render: open() over the open sheet can change the box (consumer review 4 #1)
     const ro = new ResizeObserver(() => {
-      if (boxKind === 'auto' && !resizing.current) {
+      if (latest.current.boxKind === 'auto' && !resizing.current) {
         const h = ref.current?.offsetHeight ?? 0;
         height.set(h);
         visH.current = h;
       }
-      markTall();
+      latest.current.markTall();
     });
     ro.observe(panel);
     register({
@@ -452,11 +472,45 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
   // by a transform (§10.1, the FLIP rule); at rest the box takes the new content height in the same frame the shift ends
   // open() over the open sheet (a new `gen`) is the same panel change, with a crossfade (consumer review 3 #5)
   const shownPanel = useRef(panelKey);
+  const shownGen = useRef(gen);
+  const shownKind = useRef(boxKind);
+  /**
+   * open() over the open sheet with a spec of another box, or another rest detent: the sheet goes to the new spec's rest
+   * detent, as a fresh open of it would rest (consumer review 4 #1: it kept the old detent and inset), from where it is
+   * drawn now, on springs.sheet like any detent snap. The top stays put on the commit frame: the new box is drawn at
+   * `yv − oldBox + newBox`; an auto FLIP in flight ends there (its shift folded in).
+   */
+  const redetent = (el: HTMLElement, was: AnyDetent, want: AnyDetent) => {
+    const g = geo();
+    const large = g.H - (g.st + 10);
+    const medium = Math.round(0.5 * g.H);
+    const oldBox = was === 'large' ? large : was === 'medium' ? medium : resizing.current ? boxB.current - shift.get() : visH.current;
+    const yv = base.get() + sheetY.get();
+    resizing.current?.stop();
+    resizing.current = null;
+    flip.current = null;
+    held.current = false;
+    el.style.height = '';
+    shift.jump(0);
+    // an auto box has no inset (it is its content): the old detent's inset must not count in its height
+    if (boxKind === 'auto') setInset(0);
+    const newBox = boxKind === 'large' ? large : boxKind === 'medium' ? medium : el.offsetHeight;
+    if (boxKind === 'auto') visH.current = newBox;
+    markTall();
+    snapTo(want, 0, yv - oldBox + newBox);
+  };
   useLayoutEffect(() => {
     if (shownPanel.current === panelKey) return;
     shownPanel.current = panelKey;
+    const regen = shownGen.current !== gen;
+    shownGen.current = gen;
+    const was = shownKind.current;
+    shownKind.current = boxKind;
     const el = ref.current;
-    if (!el || boxKind !== 'auto' || closing.current) return;
+    if (!el || closing.current) return;
+    const want: AnyDetent = first.detent && ds.includes(first.detent) ? first.detent : ds[ds.length - 1]!;
+    if (regen && (was !== boxKind || (boxKind !== 'auto' && want !== cur.current))) return redetent(el, was, want);
+    if (boxKind !== 'auto') return;
     const vis0 = resizing.current ? boxB.current - shift.get() : visH.current;
     // a FLIP retargeted mid-flight keeps its speed (consumer review 3 #8); a held one starts from rest
     const v0 = resizing.current && !held.current ? shiftVelocity() : 0;
@@ -652,11 +706,10 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
       // bottom meanwhile (pinFeet), written before the move that would carry them off
       const y = follow(ev.clientY - st.y0);
       if (inset.current > 0 && y < 0) {
-        feet.current = [...(ref.current?.querySelectorAll<HTMLElement>('.sheet-body .sheet-foot') ?? [])];
-        dropped.current = inset.current;
+        armPin();
         pinFeet(base.get() + sheetY.get());
         setInset(0);
-      }
+      } else if (!inset.current && !dropped.current && y > 0) armPin(); // down from large: Save stays on the screen's bottom
       sheetY.set(y);
     };
     /** A FLIP held by this finger: a drag folds it into sheetY (the sheet stays where it is drawn); a tap lets it go on. */
@@ -708,7 +761,9 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
    */
   const scrimBusy = useRef(false);
   const onScrimDown = () => {
-    scrimBusy.current = !closing.current && (Math.abs(sheetY.get()) > 1 || opacity.get() < 0.99 || !!flip.current);
+    // within ARRIVED_PX of its detent the sheet looks at rest: the tap closes it (feel review 4 D1)
+    const f = flip.current;
+    scrimBusy.current = !closing.current && (Math.abs(sheetY.get()) > ARRIVED_PX || opacity.get() < 0.99 || (!!f && Math.abs(shift.get() - f.to) > ARRIVED_PX));
   };
   const onScrimClick = () => {
     if (scrimBusy.current) {
@@ -860,7 +915,11 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
     };
     return {
       open: (s) => {
+        // the specs this open() replaces leave the sheet: each one's onClose runs, as a close would run it (consumer
+        // review 4 #2); a sheet that is closing already ran them
+        const replaced = phase.current === 'open' ? st.current.stack : [];
         const fresh = capture();
+        for (const r of replaced) r.onClose?.();
         const tab = ctl.getState().active;
         // over an open sheet: the same sheet with a new first panel (its box FLIPs, the content crossfades)
         setState((cur) => ({ stack: [s], gen: fresh ? 0 : cur.gen + 1, dir: 0, tab: fresh ? tab : cur.tab, key: fresh ? cur.key + 1 : cur.key }));
@@ -872,6 +931,8 @@ export const SheetProvider = ({ children }: { children: ReactNode }): React.JSX.
       },
       pop: () => {
         if (st.current.stack.length <= 1) return beginClose({ kind: 'tween' });
+        // the popped panel leaves the sheet: its onClose runs (the same rule as a replace)
+        st.current.stack.at(-1)?.onClose?.();
         setState((cur) => (cur.stack.length <= 1 ? cur : { ...cur, stack: cur.stack.slice(0, -1), dir: -1 }));
       },
       close: () => beginClose({ kind: 'tween' }),

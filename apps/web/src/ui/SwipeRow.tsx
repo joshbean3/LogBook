@@ -102,16 +102,19 @@ export const SwipeRow = ({ right, left, children, menuItems = [], label, menu = 
     to(0, v);
   };
 
-  // open at the detent: a tap elsewhere (capture, so it is seen before anything handles it) or a scroll closes it; the
-  // closing tap is consumed (its click reaches nothing), as iOS does
+  // open at the detent: a tap elsewhere (capture, so it is seen before anything handles it) or a scroll closes it. A
+  // closing tap inside the row's list is consumed (its click reaches nothing), as iOS's table does; one on a bar, the tab
+  // bar or a sheet's header acts on that first tap (consumer review 4 #4: the sheet's Close and the chevron needed two)
   useEffect(() => {
     if (!revealed) return;
     const onDown = (e: PointerEvent) => {
       const row = ref.current;
       const t = e.target as Element | null;
       if (t?.closest?.('.swipe-action') && row?.contains(t)) return;
+      const list = row?.closest('.sheet-body, .pushed, .tab-scroll');
+      const inList = !!t && !!list?.contains(t) && !t.closest?.('.nb-bar, .pushed-bar');
       // that pointer's click only (code review 3 #6): a closing touch that scrolls leaves nothing armed
-      swallowClickOf(e.pointerId);
+      if (inList) swallowClickOf(e.pointerId);
       home();
     };
     const onScroll = () => home();
