@@ -26,6 +26,160 @@ This review covers five steps, newest first:
 - WP1's battery against this build: `cd S/wp4/wp1qa && SHIFT_MIN=auto RES=$PWD/results-wp4 node run.mjs` (a copy of WP1's harness with `BASE`, `WT` and `RES` from the environment; defaults 8830 and this worktree). For the base, add `BASE=http://localhost:8831 WT=S/wp4/before-wt`.
 - The Plan scripts put the page's `Date` at Fri Oct 23 2026 06:30 New York with a Date-only override (`qa/plib.mjs`), not Playwright's `clock.install`: the installed clock also fakes `requestAnimationFrame` and `performance.now`, which bunches frames at 4× (a drop's 18-frame settle read as 3 frames under it). The smoke and the seams' e2e use WP1's `SHIFT_MIN=auto`.
 
+# Fix round 2: the second code review and the second feel review
+
+The findings are `S/wp4/review-code-2.md` (#1–#11) and `S/wp4/review-feel-2.md` (A–G). For each one, `S/wp4/fix-2.md` gives what was done and the proof.
+
+Every finding of severity 3 or more (code #1–#4, feel A–E; feel C is code #3) was reproduced first as a check that fails on the reviewed build (`7f8efcd`, a fake-clock dist built at the start of this round, `S/wp4/r2b-dist`, served on 8831 by `S/wp4/serve-r2b.sh`), then fixed in this package's files and shown passing at 1× and 4×. So were the severity-2 and -1 findings I fixed. The checks are five new scripts in the battery: `qa/y1-panes.mjs`, `y2-rows.mjs`, `y3-move.mjs`, `y4-skel.mjs`, `y5-small.mjs` (helpers `qa/ylib.mjs`).
+
+| Script | Before (7f8efcd): 1× / 4× | After: 1× / 4× |
+|---|---|---|
+| y1-panes (9) | 0/9 · 0/9 | 9/9 · 9/9 |
+| y2-rows (10) | 1/10 · 1/10 | 10/10 · 10/10 |
+| y3-move (4) | 0/4 · 0/4 | 4/4 · 4/4 |
+| y4-skel (6) | 4/6 · 2/6 | 6/6 · 6/6 |
+| y5-small (8 at 1×, 7 at 4×) | 1/8 · 0/7 | 8/8 · 7/7 |
+
+The checks that passed before are guards; `fix-2.md` lists them, and the two checks of the old battery changed on purpose (`x3`'s F5 now reads the whole row's opacity; `y1`'s feel A bound follows the incoming pane). Logs: before `S/wp4/qa/results/y-old/`, after `y-new/`.
+
+## What changed
+
+| File | What and why |
+|---|---|
+| `features/plan/PlanView.tsx` | **#1**: a switch changes only the incoming pane's anchor; the leaving pane keeps the page it shows while it fades (A, B), and a view shown again inside its own fade-out comes back on its own anchor (C). Commits move only their own pager's anchor. **#6**: `show()` clears the goTo label target and reads the month pager's target when going to Week. **#7**: focus moves only off `<body>` or an inert pane. **A**: when a switch moves the scroll, the bar's `--hdr` parts cross over on the panes' 200 ms fade (WAAPI, from the computed opacity), and the held pane is clipped below the large title. **D**: a neighbour page has three faces: empty for the one frame of a commit that ends a slide (live on the next frame), `still` in a commit that comes under a finger, live once the pager rests. |
+| `features/plan/Week.tsx` | **#2/B**: `fadeAway()` fades a session's whole row (or a rest day's word and outline only) and releases the fill once the change is in; the delete's toast and focus come in the layout of the render the row leaves in (`flip(after)`). **#4**: the conflict row sits under the pair's later day on this page, else its earlier day. **#8**: a delete that took a focused row away focuses that day's row. **D**: `rowFace`/`bonusFace`/`emptyFace` (no hooks) shared by the live rows and `StillGroup`/`StillDay`; `WeekPage still`. **#3/E**: drops go through `useMoveTo`, and the drag knows the row it lands in (`landingIndex`). |
+| `features/plan/moveRule.ts` (new) | **#3/C**: `useMoveTo()`, the one rule for the drag and the Move sheet (from a past day onto today or later: move only; else swap as before). **E**: `dayOrder`, `landingIndex`. |
+| `features/plan/flip.ts` | **B**: `useFlip(root, extra, surf)` scales the group's surface layer from its top with the last row on the same spring; `flip(after)` runs `after` in the layout of the first render that shows the change (a text change counts), or after 1.5 s. |
+| `features/plan/useDayDrag.tsx` | **E**: `slotFor(to)`: the pill flies to the slot the new row takes (one row under the last when it joins the day); the crossover waits until no sliding row covers the slot. **#2**: the hush fades only an empty day's row and is cancelled at the crossover. |
+| `features/plan/plan.css` | **B**: `.pl-wsurf` and `isolation: isolate` on the week group; the first row's edge rules follow it. **E**: days after a conflict row paint above it. **G**: the dragged row's placeholder at scale 1 on `--surface`. **D**: the loading skeleton's blocks on `--surface-2` (they were invisible). |
+| `features/plan/Month.tsx` | **D**: `MonthPage still` (the same rows as plain elements). |
+| `features/plan/Blocks.tsx` | **#9**: Monday-based block weeks after a lead-in, as the builder numbers them, for the card's caption, Plans' rows and the plan detail. |
+| `features/plan/Builder.tsx` | **#5**: navigate to the new block only if the sheet is still open when the write lands. **G**: Weeks and Weekly miles select their value on focus. |
+| `features/plan/PlanBuilder.tsx` | **#11**: the AI builder's Replace is silent (no `delete` without an Undo). |
+| `features/sessions/MoveSheet.tsx` | **#3/C**: `useMoveTo`; the sentence says the rule from a past day. **#8**: after a pick, focus goes to the moved session's row once the sheet lets go of it. |
+| `features/sessions/DayPicker.tsx` | **#10**: a chevron while the strip moves is queued and taken at rest in one `goTo`. |
+| `features/sessions/daypicker.css` | **G**: the foot's `::before` covers the gutters and takes their taps. |
+
+`api/queries.ts`, `api/types.ts`: untouched. No react-router import. No WP1, WP2 or WP5 file touched.
+
+## The battery after this round, WP1's battery, gates
+
+Run on the committed tree (`f44a708`) on Sun Oct 25 2026, after the previous session ended mid-battery. Nothing else ran on the machine. The fixes were read against both reviews and the diff, and they hold; no code changed in this step.
+
+### WP4's battery
+
+`node S/wp4/qa/run.mjs`: every script at 1× and 4×, each against a freshly served seed. **278/278 at 1× and 274/277 at 4×** (y5's G-number check runs at 1× only). The table is `S/wp4/qa/results/TABLE.md`, the log `results/run-fix2-final.log`, and a copy of the run's results is in `results/final-fix2/`. All 241 checks from fix round 1 and the 37 new ones pass at 1×.
+
+| Section | Checks | 1× | 4× |
+|---|---|---|---|
+| The QA step's battery: E2E, §5.4 #1–#11, reduced motion, §0.2, 9a, t34 | 203 | 203/203 | 201/203 |
+| fix 1 (`x1`–`x4`) | 38 | 38/38 | 37/38 |
+| fix 2, panes, labels, focus, bar (`y1`) | 9 | 9/9 | 9/9 |
+| fix 2, rows, delete, conflict, landing (`y2`) | 10 | 10/10 | 10/10 |
+| fix 2, Move rule, focus (`y3`) | 4 | 4/4 | 4/4 |
+| fix 2, neighbours under quick swipes (`y4`) | 6 | 6/6 | 6/6 |
+| fix 2, builder, caption, picker, polish (`y5`) | 8 / 7 | 8/8 | 7/7 |
+
+Three checks failed at 4×. All three are timing bounds. Each was rerun on this tree and, alternately, on the reviewed build (`7f8efcd`, `r2b-dist` on 8831, `serve-r2b.sh`). The reviewed build misses each of them the same way, so they are load noise, not regressions. Script: `qa/rerun4.sh`, logs in `results/re4/`.
+
+| Check (4×) | In the battery | This tree, reruns | Reviewed build, reruns |
+|---|---|---|---|
+| p1 #49: the first frame after release lies on the release spring (± 1 px) | 1.7 px off | fails 3 of 9 (1.1–1.5 px) | fails 1 of 9 (1.2 px) |
+| p7 #7: the builder's crossfade settles within 220 ms of its first frame | 365 ms (a 167 ms first frame) | fails 1 of 3 | fails 1 of 3 |
+| x2 C3/F2: on a swap, the pill rests ≤ 560 ms after the release | 585 ms | fails 2 of 7 (707, 916); 5 pass (453–533) | fails 3 of 7 (581–624), and the empty day twice (662, 774) |
+
+Notes:
+
+- **p1:** every miss puts the frame *behind* the spring at the time it was observed. The track was drawn at the frame's start, and the mutation observer stamped it later.
+- **x2:** the drop and the toast coincide with the rest in every run (within 35 ms). Only the main-thread rest is late. This is feel F (the inactive-tabs re-render).
+
+### Quick swipes, measured (feel D's cost)
+
+`y4`'s frame gaps over four quick swipes, alternating the two builds. This tree: nine runs at each rate (the battery's, three reruns, five alternating). The reviewed build: five at each rate. Logs in `results/re-y4/`.
+
+| | This tree | Reviewed build |
+|---|---|---|
+| 4×, worst four frames, weeks | 133–183, 100–150, 83–133, 67–100 ms | 67–117, 50–83, 50–67, 17–50 ms |
+| 4×, worst four frames, months | 100–217, 83–217, 67–167, 50–117 ms | 50–100, 50–83, 33–67, 33–50 ms |
+| 4×, empty or skeleton page on screen / content changing under the finger | 0 / 0 in every run | fails both, every run (week and month) |
+| 4×, four swipes are four pages | 8 of 9 runs (one month run went 3) | 4 of 5 runs (one week run went 3) |
+| 1×, worst frame | 17 ms in 6 of 9 runs; once each a 33, a 117 and a 183 ms month frame | 17 ms in 5 of 5 |
+
+`qa/dbg/y4gap.mjs` shows where the long frames fall at 4×:
+
+- 100–183 ms at each caught commit, while the track moves under the finger: the still neighbour is built in that frame;
+- 67–117 ms just after the last slide rests: the still pages go live in one `flushSync`.
+
+At 1× it found none in six month runs.
+
+So feel D is closed: no blank card, nothing pops. The price is longer frames under a fast finger at 4×. That is worse than fix-2's first estimate (117–150 ms) and over §15's 34 ms, as the reviewed build's 50–117 ms already were.
+
+### WP1's battery against this build
+
+`cd S/wp4/wp1qa && SHIFT_MIN=auto RES=$PWD/results-fix2-final node run.mjs`; table `results-fix2-final/TABLE.md`, log `run-fix2-final.log`. Result: **603/615 at 1× and 570/590 at 4×**. Fix round 1 had 612/617 and 578/592, on Sat Oct 24.
+
+Seven checks fail at both rates and passed on Saturday: t13-pager 11 and 19, t34's four Plan-row checks, and r1-a11y c10. They depend on the date (today is Sunday). The reviewed build fails exactly the same checks today, with the same numbers (`results-r2b-sun/`: t13 33/35, t34 17/21, r1-a11y 8/9 at 1×).
+
+- **t34's Plan row:** the harness picks the first `k-planned` row among *all* mounted pages. On a Sunday that row is next week's Run 4 (Oct 31), which sits off screen at x > 390, so the hold lands on nothing (`qa/dbg/sun-hold.mjs`). WP4's own restatement, p16, holds a row on screen: 5/5 at both rates.
+- **t13 11 and 19, r1-a11y c10:** Today's day strip and title across the week's end. These are WP1's and WP2's surfaces.
+
+The other flips are WP1's sheet, shell and pager timings, rerun alternately on both builds (`results-alt/`):
+
+- **r1-sheet f5 at 1×** (tap a Plan row; the sheet moves on the first frame, bound 17 ms). This tree fails 3 of 3 (+21.6, +22.0, +30.4 ms); the reviewed build passes 2 of 2 (+18.4, +18.6). `qa/dbg/tapcost.mjs` found the same work on both builds:
+  - the same 6 mutations in Plan and 9 elsewhere;
+  - the click's processing 16–20 ms here against 15–21 ms on the reviewed build;
+  - the first rAF at +22–30 ms against +21–31 ms.
+
+  It is the session sheet's open (WP2) against a 17 ms bound. Fix round 1's run failed it too (+22.5 ms).
+- **r2-sheet u1-push at 1×:** passed 2 of 2 on rerun.
+- **r4-nav c4-2a/c4-2b:** WP1's standing reveal race.
+- **The rest:** 4× gallery and shell timings, in the same spread as fix round 1's run.
+
+### Gates (this tree)
+
+| Gate | Result |
+|---|---|
+| `pnpm --filter @logbook/shared build` | 0 |
+| `tsc --noEmit` (shared, api, web) | 0 |
+| `@logbook/shared test` | 88/88 |
+| `@logbook/api test` | 59/59 |
+| `@logbook/web test` | 90/90 |
+| `@logbook/web build` | ok, entry 940.8 kB (939.0 before) |
+
+Log: `S/wp4/gates-fix2.log`.
+
+### Screenshots
+
+`node S/wp4/qa/shots-all.mjs fix2` takes every state the package owns at 390 and 320, plus reduced motion: `S/wp4/qa/shots/fix2-*.png` (40). I looked at them as three montages: `fix2-m390.png`, `fix2-m320.png` and `fix2-m390b.png`.
+
+- At both widths, `scrollWidth` equals the width, and the console has 0 errors.
+- The dropped and conflict states show one surface with no tear, the question under its day, and `Moved to Thu · Undo`.
+- The block card reads `Week 3 of 11` on this week, `Week 4 of 11` on next week and `Weeks 4–9 of 11` on November.
+
+## Hand-verifiable steps (this round)
+
+1. **Month → a straddling week.** On November's grid tap the first row (Oct 26). Expected: the grid fades out as November, never turning into October.
+2. **Week → Month while scrolled.** On a past week, scroll to the block card and tap `Month`. Expected: the large title `Plan` fades in with the month; the week fading out never shows above the title.
+3. **This week, then Month at once.** Expected: the week slides home under the fade; the month bar reads `OCTOBER 2026`, with `NOVEMBER 2026` waiting on its right.
+4. **Delete a rest day, then Undo.** Expected: `Rest` fades, the `+` stays; Undo brings `Rest` back, fully drawn.
+5. **Delete a session from its menu.** Expected: the row (its grey lifted box too) fades; the rows below slide up with no gap in the card; the toast rises as the row goes. With the keyboard (Shift+F10, Delete), focus lands on that day's row.
+6. **Move a missed session to Today or Tomorrow.** Expected: one move; today keeps its own run (two rows under one label), nothing turns `Missed` in the past.
+7. **Drag a missed past session onto today.** Expected: the pill lands under today's row, where the moved row appears.
+8. **Four quick swipes on Plan (week and month).** Expected: every page sliding in is the real week or month; nothing on it changes as it slides.
+9. **A block that starts on a Saturday.** Expected: the week before reads `Lead-in · Week 1 starts …`, then `Week 1 of 8`, `Week 2 of 8`.
+10. **The builder's Weeks field.** Tap it and type `5`: it reads `5`.
+
+## Not closed, and why
+
+- **feel F** (4× `drop` after the visible rest): the inactive-tabs re-render Request, unchanged.
+- **feel G, truncation at 320**: kept; the stamp stays 17 px on one line (the type scale); the full name is in the sheet and the row's label.
+- **Caught commits at 4×**: a commit under a finger now builds the new neighbour (still) in that frame, so the worst frame of four quick swipes at 4× is longer than before (at 4× the worst frames over four quick swipes are 133–183 ms for weeks and 100–217 ms for months, against 67–117 and 50–100 ms on the reviewed build; at 1×, 17 ms in 6 of 9 runs); the total work is the same, moved out of the yielding transitions. One more long frame (67–117 ms at 4×) comes just after the last slide rests, when the still pages go live in one `flushSync`. A commit that ends a slide is unchanged (F6, `x4` at 4×: week 83/50/83/50, month 83/83/67/50 ms, under its 90 ms bound). The rest of that frame is WP1's (role swap, NavBar's forced layout: standing Request). For the next round: build the page two steps ahead as a still face in a transition while the finger drags, so a caught commit only moves a page that already exists; and let the still pages go live one per frame after the rest, not all in one `flushSync`.
+
+## Requests (this round)
+
+- **WP1 (harness, `t34-menu.mjs`)**: pick the Plan row among the rows on screen (x inside the viewport), not the first `k-planned` row of every mounted page; on a Sunday it is next week's, off screen, and the check fails on every build.
+- No new Request to the app's code. The standing ones that this round leans on: WP1 `NavBar` forced layout in the commit (now also the cost of a still neighbour in a caught commit), WP1/app inactive tabs re-render (feel F), WP2 `reshape.ts` `dropPlan` never into the past (WP4's `moveRule.ts` is the shim: delete it at integration when `dropPlan` has the rule), API `/plans/apply` `replacedIds` (the AI builder's Replace stays silent until then).
+
 # Fix round 1: the code review and the feel review
 
 The findings are `S/wp4/review-code-1.md` (C1–C10) and `S/wp4/review-feel-1.md` (F1–F14). For each one, `S/wp4/fix-1.md` gives what was done and the proof.
