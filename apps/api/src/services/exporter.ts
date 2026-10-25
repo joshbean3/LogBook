@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { isISODate, type ExportActivity, type ExportV2, type MorningDayOverride } from '@logbook/shared';
+import { isISODate, type ExportActivity, type ExportV2, type LegacyMorningDay } from '@logbook/shared';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
@@ -69,8 +69,9 @@ export const exportAccount = (db: DB, userId: string): ExportV2 => {
       perfAt: a.perfAt,
       polyline: a.polyline,
     }));
-  const morning: Record<string, MorningDayOverride> = {};
-  for (const m of db.select().from(morningDays).where(eq(morningDays.userId, userId)).all()) morning[m.date] = { mode: m.mode as MorningDayOverride['mode'], type: m.type, miles: m.miles, minutes: m.minutes, wake: m.wake };
+  // the stored columns as they are (spec §4.3): an export is a backup, so the legacy fields ride along; only `wake` is read back
+  const morning: Record<string, LegacyMorningDay> = {};
+  for (const m of db.select().from(morningDays).where(eq(morningDays.userId, userId)).all()) morning[m.date] = { mode: m.mode as LegacyMorningDay['mode'], type: m.type, miles: m.miles, minutes: m.minutes, wake: m.wake };
   return {
     version: 2,
     exportedAt: nowISO(),
@@ -241,7 +242,10 @@ export const zExportV2 = z.object({
       }),
     )
     .default([]),
-  morningDays: z.record(zDay, z.object({ mode: z.enum(['run', 'gym', 'rest']), type: str(30), miles: z.number(), minutes: z.number(), wake: z.number() })).default({}),
+  // `wake` required, the four legacy fields optional: an old file with all five imports, and so does one with `{ wake }` alone
+  morningDays: z
+    .record(zDay, z.object({ wake: z.number(), mode: z.enum(['run', 'gym', 'rest']).optional(), type: str(30).optional(), miles: z.number().optional(), minutes: z.number().optional() }))
+    .default({}),
   coach: z.array(z.object({ date: zDay, key: str(120), text: str(2000), createdAt: z.string() })).default([]),
 });
 export type ImportV2 = z.infer<typeof zExportV2>;
@@ -432,7 +436,8 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
     for (const [date, m] of Object.entries(b.morningDays)) {
       const res = t
         .insert(morningDays)
-        .values({ userId, date, mode: m.mode, type: m.type, miles: m.miles, minutes: Math.round(m.minutes), wake: Math.round(m.wake) })
+        // a missing legacy column gets the same neutral filler as PUT /morning/days (nothing reads them)
+        .values({ userId, date, mode: m.mode ?? 'run', type: m.type ?? '', miles: m.miles ?? 0, minutes: Math.round(m.minutes ?? 0), wake: Math.round(m.wake) })
         .onConflictDoNothing()
         .run();
       if (res.changes) bump('morningDays');
