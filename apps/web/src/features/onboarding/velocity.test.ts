@@ -10,13 +10,17 @@ describe('releaseVelocity (onboarding edge swipe, review 2 code N3)', () => {
     const s: Array<[number, number]> = [[8, 0], [60, 50], [120, 100]];
     expect(releaseVelocity(s, 1600)).toBe(0);
   });
-  it('a finger still for more than 50 ms has none, even with moves inside the last 100 ms', () => {
+  it('a finger still for more than 80 ms has none, even with moves inside the last 150 ms', () => {
     const s: Array<[number, number]> = [[8, 0], [60, 20], [120, 30]];
-    expect(releaseVelocity(s, 90)).toBe(0);
+    expect(releaseVelocity(s, 120)).toBe(0);
   });
-  it('only the last 100 ms count', () => {
+  it('only the last 150 ms count', () => {
     const s: Array<[number, number]> = [[0, 0], [300, 50], [310, 200], [320, 210]];
     expect(releaseVelocity(s, 215)).toBeCloseTo(1000, -1);
+  });
+  it('a flick whose moves reached a busy page 40–90 ms apart (4×) is still a flick', () => {
+    const s: Array<[number, number]> = [[8, 0], [42, 70], [76, 130], [110, 190]];
+    expect(releaseVelocity(s, 230)).toBeGreaterThan(300);
   });
   it('one sample is no velocity', () => {
     expect(releaseVelocity([[10, 0]], 5)).toBe(0);

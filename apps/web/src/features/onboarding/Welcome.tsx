@@ -209,8 +209,8 @@ function Flow({ uid }: { uid: string }) {
     const g = edge.current;
     edge.current = null;
     if (!g || e.pointerId !== g.id || !g.lock) return;
-    // the release velocity (review 2 code N3): only the moves of the last 100 ms before the release count, by the events'
-    // own timestamps (not when a busy main thread got to them), and a finger that has been still for 50 ms has none, so a
+    // the release velocity (review 2 code N3): only the moves of the last 150 ms before the release count, by the events'
+    // own timestamps (not when a busy main thread got to them), and a finger that has been still for 80 ms has none, so a
     // drag that stopped is not a flick; a system cancel is velocity 0 and never commits (as PushedLayer and SwipeRow treat it)
     const cancelled = e.type === 'pointercancel';
     const v = cancelled ? 0 : releaseVelocity(g.samples, e.timeStamp);
@@ -406,8 +406,8 @@ function Flow({ uid }: { uid: string }) {
       {qIndex >= 0 ? (
         <header className="ob-top">
           {/* the chevron and Skip stay in place and fade with the dots when a step has none (review 2 feel N11), never a
-              one-frame cut; hidden, they are out of the tab order and the accessibility tree (visibility) */}
-          <button type="button" className={`icon-btn ob-back ${canBack ? '' : 'is-gone'}`} aria-label="Back" onClick={canBack ? back : undefined} tabIndex={canBack ? undefined : -1}>
+              one-frame cut; hidden, they are inert (out of the tab order, the accessibility tree and hit-testing) */}
+          <button type="button" className={`icon-btn ob-back ${canBack ? '' : 'is-gone'}`} aria-label="Back" onClick={canBack ? back : undefined} inert={!canBack}>
             <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
           </button>
           <div className="ob-dots" role="progressbar" aria-label="Setup" aria-valuemin={1} aria-valuemax={QUESTIONS.length} aria-valuenow={qIndex + 1} aria-valuetext={`Step ${qIndex + 1} of ${QUESTIONS.length}`}>
@@ -415,7 +415,7 @@ function Flow({ uid }: { uid: string }) {
               <span key={q} className={`ob-dot ${i === qIndex ? 'on' : i < qIndex ? 'done' : ''}`} />
             ))}
           </div>
-          <Pressable className={`ob-skip ${step !== 'goal' ? '' : 'is-gone'}`} press="dim" onPress={step !== 'goal' ? next : () => undefined}>
+          <Pressable className={`ob-skip ${step !== 'goal' ? '' : 'is-gone'}`} press="dim" inert={step === 'goal'} onPress={step !== 'goal' ? next : () => undefined}>
             Skip
           </Pressable>
         </header>
