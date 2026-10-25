@@ -9,7 +9,7 @@ import { useOpenRoutineEditor } from '@/features/morning/RoutineEditor';
 import { haptics } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
 import { PushedBar, useToast } from '@/ui';
-import { useBodyFade, useBodyReady } from '@/features/journal/feel';
+import { useBelowFold } from '@/features/journal/feel';
 import { zoneLine } from './HrZones';
 import { GoRow, SGroup } from './parts';
 import { HapticsRow } from './SectionPages';
@@ -52,16 +52,11 @@ export default function SettingsView(): React.JSX.Element {
   const { profile, block, loaded, stored: hasStored, source } = useTrainingProfile();
   useStravaReturn();
   const go = (section: string) => () => nav.push(`/settings/${section}`);
-  // the push draws the bar; the eight groups follow as a deferred render that never holds the slide (review feel F4)
-  const ready = useBodyReady();
+  // the push's commit draws the bar and the first screen (You, Training, Habits, Morning routine), so the page is whole
+  // on the slide's first frame; the groups below the fold follow as a deferred render that never holds the slide
+  // (review feel F4, review 2 feel N1)
   const pageRef = useRef<HTMLDivElement>(null);
-  useBodyFade(pageRef, ready);
-  if (!ready)
-    return (
-      <div className="page s-set s-root">
-        <PushedBar title="Settings" />
-      </div>
-    );
+  const rest = useBelowFold(pageRef);
 
   const data = boot.data;
   const user = data?.user;
@@ -110,37 +105,42 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Morning routine timings" />
       </SGroup>
 
-      {data?.features.strava ? (
-        <SGroup title="Connections">
-          <GoRow
-            title="Strava"
-            sub={strava?.connected && strava.error ? 'Stopped syncing. Reconnect to pick up new runs.' : strava?.connected ? (strava.athleteName ? `Connected as ${strava.athleteName}` : 'Connected') : 'See your runs land on Today.'}
-            value={strava?.connected && strava.error ? 'Reconnect' : strava?.connected ? undefined : 'Connect'}
-            tone={strava?.connected && strava.error ? 'bad' : undefined}
-            onPress={go('connections')}
-          />
-          {zones ? <GoRow title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
-        </SGroup>
+      {rest ? (
+        <>
+          {data?.features.strava ? (
+            <SGroup title="Connections">
+              <GoRow
+                title="Strava"
+                sub={strava?.connected && strava.error ? 'Stopped syncing. Reconnect to pick up new runs.' : strava?.connected ? (strava.athleteName ? `Connected as ${strava.athleteName}` : 'Connected') : 'See your runs land on Today.'}
+                value={strava?.connected && strava.error ? 'Reconnect' : strava?.connected ? undefined : 'Connect'}
+                tone={strava?.connected && strava.error ? 'bad' : undefined}
+                onPress={go('connections')}
+              />
+              {zones ? <GoRow title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
+            </SGroup>
+          ) : null}
+
+          <SGroup title="App">
+            {/* one tap, not a page with one switch on it (review feel F13); the App page keeps it with the Home screen rows */}
+            <HapticsRow />
+            {isNative ? null : <GoRow title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
+          </SGroup>
+
+          <SGroup title="Data">
+            <GoRow title="Import and export" sub="Your log, as one JSON file." onPress={go('data')} />
+          </SGroup>
+
+          <SGroup title="Account">
+            {/* not "Account" twice (the group's title and the row's, review feel F13); the email is the title, so it has the
+                row's width and is whole at 320 (review 2 feel N9) */}
+            <GoRow title={user?.email ?? ' '} sub="Signed in" onPress={go('account')} className="s-acct-row" label={`Account: signed in as ${user?.email ?? ''}`} />
+          </SGroup>
+
+          <p className="s-colophon">
+            <span className="caps">Logbook</span>
+          </p>
+        </>
       ) : null}
-
-      <SGroup title="App">
-        {/* one tap, not a page with one switch on it (review feel F13); the App page keeps it with the Home screen rows */}
-        <HapticsRow />
-        {isNative ? null : <GoRow title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
-      </SGroup>
-
-      <SGroup title="Data">
-        <GoRow title="Import and export" sub="Your log, as one JSON file." onPress={go('data')} />
-      </SGroup>
-
-      <SGroup title="Account">
-        {/* not "Account" twice (the group's title and the row's, review feel F13): who is signed in, on the right */}
-        <GoRow title="Signed in as" value={user?.email} onPress={go('account')} className="s-acct-row" label={`Account: signed in as ${user?.email ?? ''}`} />
-      </SGroup>
-
-      <p className="s-colophon">
-        <span className="caps">Logbook</span>
-      </p>
     </div>
   );
 }

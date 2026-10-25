@@ -184,6 +184,7 @@ export default function ProgressView() {
   const ctx = sp ? `${weekTitle(sp.w, t)}${sp.current ? ' · so far' : sp.future ? ' · planned' : ''}` : m.since ? `Since ${md(m.since)}` : rangeLabel(range);
   // a slot never shows a dash: while scrubbing (three slots that must hold still) an empty one says a word; at rest a stat with
   // no value yet (no finished week to average) is left out
+  const held = pts.some((p) => p.missing);
   const slots: Array<{ label: string; value: number | null; word?: string; format: (v: number) => string; unit?: string }> = sp
     ? sp.missing
       ? [
@@ -196,14 +197,28 @@ export default function ProgressView() {
           { label: 'Planned', value: sp.planned || null, word: 'No plan', format: num, unit: 'mi' },
           { label: 'Runs', value: sp.future ? sp.plannedRuns : sp.runs, format: (v) => String(Math.round(v)) },
         ]
-    : [
-        { label: 'Avg week', value: m.sum.avg, format: mi, unit: 'mi' },
-        { label: 'Best week', value: m.sum.best?.ran ?? null, format: mi, unit: 'mi' },
-        // with a month of the range not loaded the total would be short under the full range's label: it waits (review code F8)
-        { label: 'Total', value: pts.some((p) => p.missing) ? null : m.sum.total, word: 'Loading', format: (v) => String(Math.round(v)), unit: 'mi' },
-      ];
+    : held
+      ? // a month of the range not loaded: every number of the range would read the gap as weeks off and change by itself
+        // when the month lands, so all three wait in their slots (review code F8, review 2 code N5 / feel N6)
+        [
+          { label: 'Avg week', value: null, word: 'Loading', format: mi },
+          { label: 'Best week', value: null, word: 'Loading', format: mi },
+          { label: 'Total', value: null, word: 'Loading', format: (v) => String(Math.round(v)) },
+        ]
+      : [
+          { label: 'Avg week', value: m.sum.avg, format: mi, unit: 'mi' },
+          { label: 'Best week', value: m.sum.best?.ran ?? null, format: mi, unit: 'mi' },
+          { label: 'Total', value: m.sum.total, format: (v) => String(Math.round(v)), unit: 'mi' },
+        ];
   if (scrub != null) lastShown.current = slots.map((x) => x.value);
-  const readWords = sp ? `${ctx}: ${sp.future ? '' : `${mi(sp.ran)} miles, `}${sp.planned ? `${num(sp.planned)} planned, ` : ''}${sp.future ? sp.plannedRuns : sp.runs} runs` : `${ctx}: ${m.sum.avg != null ? `${mi(m.sum.avg)} miles a week on average, ` : ''}${m.sum.best ? `best week ${mi(m.sum.best.ran)}, ` : ''}${Math.round(m.sum.total)} miles in all`;
+  // VoiceOver reads what the slots show: never a number the screen is holding back
+  const readWords = sp
+    ? sp.missing
+      ? `${ctx}: not loaded yet`
+      : `${ctx}: ${sp.future ? '' : `${mi(sp.ran)} miles, `}${sp.planned ? `${num(sp.planned)} planned, ` : ''}${sp.future ? sp.plannedRuns : sp.runs} runs`
+    : held
+      ? `${ctx}: a month of this range is still loading`
+      : `${ctx}: ${m.sum.avg != null ? `${mi(m.sum.avg)} miles a week on average, ` : ''}${m.sum.best ? `best week ${mi(m.sum.best.ran)}, ` : ''}${Math.round(m.sum.total)} miles in all`;
 
   const chips = (
     <Segmented
@@ -214,7 +229,7 @@ export default function ProgressView() {
       options={RANGES.map((r) => [r, <span key={r} aria-label={rangeLabel(r)}>{r}</span>] as [Range, ReactNode])}
     />
   );
-  const gaps = pts.some((p) => p.missing);
+  const gaps = held;
 
   // ---------- new account: the chart as it will look, one sentence, one verb ----------
   if (!m.ran && !gaps) {

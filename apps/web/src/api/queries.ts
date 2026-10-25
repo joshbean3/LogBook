@@ -803,9 +803,18 @@ const fetchReads = () => api<{ links: Link[] }>('/reads').then((r) => r.links);
 /** Unread first, then newest first: the order the server keeps. */
 const readsOrder = (a: Link, b: Link) => (!!a.readAt === !!b.readAt ? (a.addedAt < b.addedAt ? 1 : -1) : a.readAt ? 1 : -1);
 export const useReads = () => useQuery({ queryKey: keys.reads, queryFn: fetchReads, staleTime: 30_000 });
+// the pick takes 10–20 s the first time each day; one that has not answered in 45 s is given up on, so Reads can say so and
+// offer Retry instead of waiting in silence (review 2 feel N5)
+const PICK_GIVE_UP_MS = 45_000;
 /** Today's pick. The first ask of the day makes it, which can take a while: the query waits, the screen does not. Refreshed with the other dated data when the app comes back to the front (main.tsx: after five minutes, or when the bootstrap changed), so a verdict given elsewhere shows within minutes. */
 export const usePick = (date: string, enabled = true) =>
-  useQuery({ queryKey: keys.pick(date), queryFn: () => api<PickResult>(`/reads/pick?date=${date}`), enabled, staleTime: 2 * 60_000, retry: false });
+  useQuery({
+    queryKey: keys.pick(date),
+    queryFn: () => api<PickResult>(`/reads/pick?date=${date}`, typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(PICK_GIVE_UP_MS) } : {}),
+    enabled,
+    staleTime: 2 * 60_000,
+    retry: false,
+  });
 
 export const useReadsMutations = () => {
   const qc = useQueryClient();

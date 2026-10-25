@@ -15,6 +15,7 @@ import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip 
 import { DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { handOff } from './handoff';
 import { StravaPrimer } from './StravaPrimer';
+import { releaseVelocity } from './velocity';
 import './onboarding.css';
 
 /**
@@ -100,6 +101,7 @@ const useDraft = (uid: string) => {
 
 /** The block starts tomorrow, so the first week is this week: you leave onboarding looking at a real one. */
 const startOf = (t: ISODate) => shiftDays(t, 1);
+
 const profileOf = (d: Draft, start: ISODate): TrainingProfile => {
   const goal = d.goal ?? 'base';
   return { goal, raceDate: goal === 'base' ? null : d.raceDate === undefined ? defaultRaceDay(goal, start) : d.raceDate, runDays: d.runDays, longRunDay: fixLongRun(d.runDays, d.longRunDay), weeklyMiles: d.weeklyMiles };
@@ -201,16 +203,18 @@ function Flow({ uid }: { uid: string }) {
     }
     x.set(Math.max(0, dx));
     g.samples.push([e.clientX, e.timeStamp]);
-    if (g.samples.length > 6) g.samples.shift();
+    if (g.samples.length > 8) g.samples.shift();
   };
   const onEdgeUp = (e: React.PointerEvent<HTMLElement>) => {
     const g = edge.current;
     edge.current = null;
     if (!g || e.pointerId !== g.id || !g.lock) return;
-    const [ax, at] = g.samples[0]!;
-    const [bx, bt] = g.samples[g.samples.length - 1]!;
-    const v = bt > at ? ((bx - ax) / (bt - at)) * 1000 : 0;
-    const commit = x.get() > wRef.current * POP_COMMIT_FRAC || v > POP_COMMIT_V;
+    // the release velocity (review 2 code N3): only the moves of the last 100 ms before the release count, by the events'
+    // own timestamps (not when a busy main thread got to them), and a finger that has been still for 50 ms has none, so a
+    // drag that stopped is not a flick; a system cancel is velocity 0 and never commits (as PushedLayer and SwipeRow treat it)
+    const cancelled = e.type === 'pointercancel';
+    const v = cancelled ? 0 : releaseVelocity(g.samples, e.timeStamp);
+    const commit = !cancelled && (x.get() > wRef.current * POP_COMMIT_FRAC || v > POP_COMMIT_V);
     if (reduce) {
       // reduced motion: tracking stayed 1:1; the change itself is the step's 150 ms fade
       x.jump(0);
@@ -401,25 +405,19 @@ function Flow({ uid }: { uid: string }) {
       <span className={`ob-halo ${step === 'ready' ? 'bloom' : ''}`} aria-hidden="true" />
       {qIndex >= 0 ? (
         <header className="ob-top">
-          {canBack ? (
-            <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={back}>
-              <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
-            </button>
-          ) : (
-            <span className="ob-skip-space" />
-          )}
+          {/* the chevron and Skip stay in place and fade with the dots when a step has none (review 2 feel N11), never a
+              one-frame cut; hidden, they are out of the tab order and the accessibility tree (visibility) */}
+          <button type="button" className={`icon-btn ob-back ${canBack ? '' : 'is-gone'}`} aria-label="Back" onClick={canBack ? back : undefined} tabIndex={canBack ? undefined : -1}>
+            <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
+          </button>
           <div className="ob-dots" role="progressbar" aria-label="Setup" aria-valuemin={1} aria-valuemax={QUESTIONS.length} aria-valuenow={qIndex + 1} aria-valuetext={`Step ${qIndex + 1} of ${QUESTIONS.length}`}>
             {QUESTIONS.map((q, i) => (
               <span key={q} className={`ob-dot ${i === qIndex ? 'on' : i < qIndex ? 'done' : ''}`} />
             ))}
           </div>
-          {step !== 'goal' ? (
-            <Pressable className="ob-skip" press="dim" onPress={next}>
-              Skip
-            </Pressable>
-          ) : (
-            <span className="ob-skip-space" />
-          )}
+          <Pressable className={`ob-skip ${step !== 'goal' ? '' : 'is-gone'}`} press="dim" onPress={step !== 'goal' ? next : () => undefined}>
+            Skip
+          </Pressable>
         </header>
       ) : null}
       {under ? (

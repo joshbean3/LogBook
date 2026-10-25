@@ -8,7 +8,7 @@ import { haptics } from '@/lib/haptics';
 import { crossfade, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRows, SwipeRow, usePress, useSheet, useToast } from '@/ui';
-import { below, carry, measureBelow, popFav, useBodyFade, useBodyReady, useListFlip } from '../journal/feel';
+import { below, carry, measureBelow, popFav, useBelowFold, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
 import { TodaysPick } from './TodaysPick';
 import './reads.css';
@@ -229,6 +229,8 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
 };
 
 type Tab = 'unread' | 'read';
+/** Links on the first screen under the pick (a row is 72 px): drawn in the push's commit; the rest one render later. */
+const FIRST_SCREEN = 5;
 const FADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
 /**
  * Reads (docs/feel.md §8), the pushed page at `/journal/reads/:tab?` over the mounted Journal: the PushedBar, quick add on
@@ -240,7 +242,10 @@ const FADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
 export default function ReadsView() {
   const params = useRouteParams();
   const nav = useNav();
-  const ready = useBodyReady();
+  // the push's commit draws the whole first screen (quick add, today's pick, the first links), so the page is whole on the
+  // slide's first frame (review 2 feel N1); the links below the fold follow as a deferred render that never holds a frame
+  const pageRef = useRef<HTMLDivElement>(null);
+  const rest = useBelowFold(pageRef);
   const [tab, setTabRaw] = useState<Tab>(params.tab === 'read' ? 'read' : 'unread');
   const setTab = (k: Tab) => {
     setTabRaw(k);
@@ -272,8 +277,11 @@ export default function ReadsView() {
   const [adding, setAddingRaw] = useState(false);
   const top = useRef<HTMLDivElement>(null);
   const moved = useRef<(() => void) | null>(null);
+  // the field fades in when the person opens it, never on the page's first frame (it would fade every push)
+  const addFade = useRef(false);
   const setAdding = (v: boolean | ((c: boolean) => boolean)) => {
     moved.current = measureBelow(top.current);
+    addFade.current = true;
     setAddingRaw(v);
   };
   const showAdd = !empty || adding;
@@ -310,7 +318,7 @@ export default function ReadsView() {
     const ro = new ResizeObserver(pickMoved);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [pickMoved, ready]);
+  }, [pickMoved]);
   useListFlip(listRef, `${shownTab}:${shownList.map((x) => x.id).join(',')}`);
   // the tab switch: a 150 ms crossfade of the list in place (opacity only)
   const stage = useRef<HTMLDivElement>(null);
@@ -333,7 +341,7 @@ export default function ReadsView() {
   };
   const rows = (
     <div ref={listRef} className="rlist">
-      {shownList.map((x) => (
+      {(rest ? shownList : shownList.slice(0, FIRST_SCREEN)).map((x) => (
         <div key={x.id} data-key={x.id} className="rlist-item">
           <LinkRow
             x={x}
@@ -347,8 +355,6 @@ export default function ReadsView() {
       ))}
     </div>
   );
-  const pageRef = useRef<HTMLDivElement>(null);
-  useBodyFade(pageRef, ready);
   const bar = (
     <PushedBar
         title="Reads"
@@ -361,13 +367,12 @@ export default function ReadsView() {
         }
       />
   );
-  if (!ready) return <div className="page reads-page">{bar}</div>;
   return (
     <div ref={pageRef} className="page reads-page">
       {bar}
       <div ref={top} className="jtl-anchor" aria-hidden="true" />
       {showAdd ? (
-        <div className="fade-in">
+        <div className={addFade.current ? 'fade-in' : undefined}>
           <QuickAdd inputRef={input} onDone={() => setAdding(false)} />
         </div>
       ) : null}

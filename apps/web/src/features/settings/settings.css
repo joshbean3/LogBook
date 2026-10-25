@@ -148,15 +148,14 @@
   color: var(--ink-3);
 }
 
-/* the rebuild offer: pinned above the tab bar while there are changes (You and Training keep room for it) */
-.s-sub.s-pad-rebuild {
-  padding-bottom: 200px;
-}
+/* the rebuild offer (review 2 feel N3): the page's last block, sticky to the bottom of the pushed page's scroller (which ends
+   at the tab bar). While the page is longer than the screen it rides 12 px above the tab bar; scrolled to the end it sits
+   after Easy pace, so nothing is ever under it for good. Never position: fixed: inside the transformed layer that is
+   absolute, and it scrolled with the page over the steppers. */
 .s-rebuild {
-  position: fixed;
-  left: max(var(--gutter), calc(50% - 344px));
-  right: max(var(--gutter), calc(50% - 344px));
-  bottom: calc(var(--tabbar-h) + 12px + var(--safe-b));
+  position: sticky;
+  bottom: 12px;
+  margin-top: 24px;
   z-index: 20;
   display: grid;
   gap: 4px;

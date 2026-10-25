@@ -18,21 +18,18 @@ const Wait = ({ compact }: { compact?: boolean }) => (
 );
 
 /**
- * The pick being made, on Reads: the hero's own box (its eyebrow, a title's and a line's quiet bars, the actions' row
- * held empty), so when the pick lands it fills the same place and the links under it do not move (review feel F2). What
- * the real card differs by is carried on `settle` by the page (ReadsView's ResizeObserver).
+ * The pick being made, on Reads: the hero's own box (its eyebrow, the title's slot, the actions' row held empty), so when
+ * the pick lands it fills the same place and the links under it do not move (review feel F2). The title's slot says what
+ * is happening in words, never skeleton bars (review 2 feel N5: skeletons are for offline). What the real card differs by
+ * is carried on `settle` by the page (ReadsView).
  */
 const HeroWait = () => (
   <section className="rp rp-wait" aria-label="Today’s pick" aria-busy="true">
     <div className="rp-top">
       <span className="caps">Today’s pick</span>
     </div>
-    <div className="rp-body" role="status" aria-label="Finding today’s pick">
-      <span className="rwait-title" aria-hidden="true">
-        <span className="rwait-bar" />
-        <span className="rwait-bar short" />
-      </span>
-      <span className="rwait-bar line" aria-hidden="true" />
+    <div className="rp-body" role="status">
+      <p className="rp-wait-words">Finding today’s pick…</p>
     </div>
     <div className="rp-actions" aria-hidden="true" />
   </section>
@@ -135,6 +132,19 @@ export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean;
     if (waiting) return <HeroWait />;
     if (off) return <Slim>Daily picks are off. Your links still wait below.</Slim>;
     if (data?.reason === 'empty') return <Slim>Save links and Logbook finds you one a day.</Slim>;
+    // the request failed (or never answered and was given up on): say so, and the verb is to ask again (review 2 feel N5)
+    if (q.isError && !data)
+      return (
+        <Slim
+          verb={
+            <Button size="sm" className="rp-slim-verb" onClick={() => void q.refetch()}>
+              <RotateCw size={14} aria-hidden="true" /> Retry
+            </Button>
+          }
+        >
+          Couldn’t find today’s pick.
+        </Slim>
+      );
     return (
       <Slim
         verb={

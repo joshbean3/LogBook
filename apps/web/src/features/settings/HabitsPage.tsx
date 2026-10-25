@@ -1,8 +1,10 @@
 import { fmtDate, type Habit } from '@logbook/shared';
 import { ArrowDown, ArrowUp, Archive, GripVertical, Pencil, Plus } from 'lucide-react';
 import { animate, motion, motionValue, useReducedMotion, type MotionValue } from 'motion/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useBootstrap, useHabitMutations } from '@/api/queries';
+import { keys, useBootstrap, useHabitMutations } from '@/api/queries';
+import { below, carry } from '@/features/journal/feel';
 import { STARTER_HABITS } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
@@ -85,6 +87,7 @@ const HabitRow = ({ habit, index, count, lifted, y, onDragStart, onDragMove, onD
   return (
     <motion.div
       ref={rowRef}
+      data-hid={habit.id}
       className={`s-hrow ${lifted ? 'is-lifted' : ''}`}
       style={{ y, zIndex: lifted ? 3 : undefined }}
     >
@@ -127,12 +130,11 @@ export const HabitsPage = () => {
   // The drag (review code F4, F5). While it is under way the DOM order never changes: the lifted row's offset is the
   // finger's (a motion value set on the pointer move itself, so it is on screen in the same frame) and the rows it passes
   // move aside by one row on `settle`. On the drop the new order commits once, and every row is re-based in that commit's
-  // layout effect from where it is on screen to its new slot, so nothing jumps. The dropped order stays on screen until
+  // layout effect (the re-basing below) from where it is on screen to its new slot, so nothing jumps. The dropped order stays on screen until
   // the cache has it; the drag's own state lives in a ref, so a second drag right after a drop starts from what is shown.
   const [order, setOrder] = useState<string[] | null>(null);
   const [liftId, setLiftId] = useState<string | null>(null);
   const drag = useRef<{ id: string; base: string[]; start: number; over: number } | null>(null);
-  const dropped = useRef<Map<string, number> | null>(null);
   const ys = useRef(new Map<string, MotionValue<number>>());
   const yOf = (id: string) => {
     let v = ys.current.get(id);
@@ -145,20 +147,64 @@ export const HabitsPage = () => {
   useEffect(() => {
     if (!liftId && order && order.join() === liveKey) setOrder(null);
   }, [liftId, order, liveKey]);
-  // the drop's commit: each row from where it is on screen (its old slot + its offset) to its new slot, on `settle`
+
+  // Every change to the order or to the set of rows (review 2 code N1, feel N2): a drag's drop, the menu's Move up / Move
+  // down (the keyboard and VoiceOver path for the drag), Archive, Undo, Restore, a habit added, the server's order coming
+  // back after a refused save. Rows have fixed 60 px slots, so where each row is on screen is its slot in the order shown
+  // last plus its offset: read on the render that changes the order (no layout read), and in that commit's layout effect
+  // each row that stays is put back there and springs to its new slot on `settle`. A row that arrives fades in (150 ms); a
+  // row that leaves is drawn once more where it was, under the rows that close over it, and fades out; what is under the
+  // list rides along on `settle`.
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const sig = ids.join();
+  const shown = useRef<{ sig: string; ids: string[] } | null>(null);
+  const snap = useRef<{ sig: string; at: Map<string, number>; gone: Array<[HTMLElement, number]>; after: Array<[HTMLElement, number]> } | null>(null);
+  if (shown.current && shown.current.sig !== sig && snap.current?.sig !== sig) {
+    const at = new Map(shown.current.ids.map((k, i) => [k, i * ROW_H + yOf(k).get()]));
+    const box = listRef.current;
+    const keep = new Set(ids);
+    const gone: Array<[HTMLElement, number]> = [];
+    if (box && !reduce)
+      for (const el of box.querySelectorAll<HTMLElement>(':scope > [data-hid]'))
+        if (!keep.has(el.dataset.hid!)) gone.push([el.cloneNode(true) as HTMLElement, at.get(el.dataset.hid!) ?? 0]);
+    const after: Array<[HTMLElement, number]> = box && !reduce ? below(box).map((n) => [n, n.getBoundingClientRect().top]) : [];
+    snap.current = { sig, at, gone, after };
+  }
   useLayoutEffect(() => {
-    const was = dropped.current;
-    if (!was) return;
-    dropped.current = null;
+    const was = snap.current;
+    snap.current = null;
+    shown.current = { sig, ids };
+    if (!was || was.sig !== sig) return;
+    const box = listRef.current;
     ids.forEach((id, i) => {
-      const at = was.get(id);
-      if (at == null) return;
       const y = yOf(id);
-      y.jump(at - i * ROW_H);
-      if (Math.abs(y.get()) >= 0.5 && !reduce) animate(y, 0, springs.settle);
-      else y.jump(0);
+      const from = was.at.get(id);
+      if (from == null) {
+        y.jump(0);
+        if (!reduce) box?.querySelector<HTMLElement>(`:scope > [data-hid="${CSS.escape(id)}"]`)?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'cubic-bezier(.22,1,.36,1)' });
+        return;
+      }
+      y.jump(from - i * ROW_H);
+      if (Math.abs(y.get()) < 0.5 || reduce) return y.jump(0);
+      // the spring's clock starts on the frame that paints the row where it was (a long commit frame is not elapsed time,
+      // or at 4× the first painted frame would already be half way)
+      const at = y.get();
+      requestAnimationFrame(() => {
+        if (y.get() === at && !y.isAnimating()) animate(y, 0, springs.settle);
+      });
     });
-  });
+    if (box)
+      for (const [ghost, top] of was.gone) {
+        ghost.classList.remove('is-lifted');
+        ghost.setAttribute('aria-hidden', 'true');
+        ghost.inert = true;
+        Object.assign(ghost.style, { position: 'absolute', left: '0', right: '0', top: '0', transform: `translateY(${top}px)`, pointerEvents: 'none', zIndex: '-1' });
+        box.appendChild(ghost);
+        ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' }).onfinish = () => ghost.remove();
+      }
+    for (const [n, top] of was.after) if (n.isConnected) carry(n, top - n.getBoundingClientRect().top);
+  }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const startDrag = (id: string) => {
     const base = [...ids];
     const start = base.indexOf(id);
@@ -203,11 +249,21 @@ export const HabitsPage = () => {
       }
       return;
     }
-    // where every row is on screen now, in list coordinates (its slot in the shown order + its offset)
-    dropped.current = new Map(g.base.map((k, i) => [k, i * ROW_H + yOf(k).get()]));
+    // the new order commits once; the re-basing effect above carries every row from where it is on screen
     setOrder(next);
-    hm.reorder.mutate(next, { onError: () => setOrder(null) });
+    saveOrder(next);
   };
+  // a refused save (review 2 code N2): WP2's `reorder` has already written the order into the bootstrap cache and has no
+  // `onError` of its own (request 20), so the page asks for the server's order again (the rows slide back to it) and says so
+  const qc = useQueryClient();
+  const saveOrder = (next: string[]) =>
+    hm.reorder.mutate(next, {
+      onError: () => {
+        setOrder(null);
+        void qc.invalidateQueries({ queryKey: keys.bootstrap });
+        toast('Couldn’t save the order.');
+      },
+    });
 
   const archive = (h: Habit) => {
     hm.patch.mutate({ id: h.id, archived: true });
@@ -221,7 +277,7 @@ export const HabitsPage = () => {
     cur.splice(from, 1);
     cur.splice(to, 0, id);
     haptics.drop();
-    hm.reorder.mutate(cur);
+    saveOrder(cur);
   };
   const openSheet = (h: Habit) => sheet.open({ eyebrow: 'Habit', title: h.name, body: <HabitSheet habit={h} onArchive={() => archive(h)} /> });
   const itemsFor = (h: Habit, i: number): ContextMenuItem[] => [
@@ -248,7 +304,7 @@ export const HabitsPage = () => {
       {live.length ? (
         <>
           <p className="s-lede">Tap one to rename it. Hold and drag to change the order on Today.</p>
-          <div className="s-hlist" style={{ height: ids.length * ROW_H }}>
+          <div className="s-hlist" ref={listRef} style={{ height: ids.length * ROW_H }}>
             {ids.map((id, i) => {
               const h = byId.get(id);
               if (!h) return null;

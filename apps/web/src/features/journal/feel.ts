@@ -1,5 +1,5 @@
 import { animate, motionValue, type MotionValue } from 'motion/react';
-import { useDeferredValue, useLayoutEffect, useRef, type RefObject } from 'react';
+import { startTransition, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { hapticAtPeak } from '@/lib/haptics';
 import { COMPLETE_SCALE, forScale, springs } from '@/lib/motion';
 
@@ -14,19 +14,27 @@ const BOUNDS = `${SCROLLERS}, .j-pane`;
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * A pushed page's body, one render after the push (review feel F4): the push's own commit draws the bar and the layer, so
- * the slide starts on the next frame; the body renders right after as React's deferred (interruptible, time-sliced) render,
- * which never holds a frame of the slide, and fades in over 120 ms. On a fast phone it lands in the first frame or two of
- * the slide, while the page is still at the screen's right edge.
+ * What a pushed page holds below its first screen (review 2 feel N1). The push's own commit draws the bar and everything on
+ * the first screen, so the page is whole on the slide's first frame (iOS pushes are opaque from frame 1; never an empty
+ * page sliding in, no body fade). What is below the fold follows once the slide has come to rest (the layer's inline
+ * transform is back at none: read from its style attribute, never a layout or style read), as a transition render, so its
+ * commit never lands inside the slide; with no layer, or after 1.2 s at most, it follows anyway. Off screen, no fade.
  */
-export const useBodyReady = (): boolean => useDeferredValue(true, false);
-/** The body's arrival: everything in the page but its bar (the first child) fades in, opacity only. */
-export const useBodyFade = (page: RefObject<HTMLElement | null>, ready: boolean) => {
-  useLayoutEffect(() => {
-    const el = page.current;
-    if (!ready || !el || reduced()) return;
-    for (const c of [...el.children].slice(1)) c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: 'cubic-bezier(.22,1,.36,1)' });
-  }, [ready, page]);
+export const useBelowFold = (page: RefObject<HTMLElement | null>): boolean => {
+  const [rest, setRest] = useState(false);
+  useEffect(() => {
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = () => {
+      const layer = page.current?.closest<HTMLElement>('.pushed');
+      const tf = layer?.style.transform ?? '';
+      if (!layer || !tf || tf === 'none' || /^translateX\(0(px)?\)$/.test(tf) || performance.now() - t0 > 1200) return startTransition(() => setRest(true));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [page]);
+  return rest;
 };
 
 /**
@@ -70,22 +78,41 @@ export const carry = (el: HTMLElement, d: number) => {
   });
 };
 
-/** A box's chrome (a card's background layer) carried from `from` × its height back to 1 on `settle`, top-anchored. */
+/**
+ * A box's chrome (a card's background layer) carried from `from` × its height back to 1 on `settle`, top-anchored. `from`
+ * is the at-rest ratio (old height / new height). A growth while the last one is still running (review 2 code N4) starts
+ * from where the chrome is on screen (the running scale × `from`), stops the running animation, and only the current one
+ * clears the transform when it ends, so the edge never shows full height for a frame and never jumps.
+ */
+const scales = new WeakMap<HTMLElement, { s: MotionValue<number>; off: () => void }>();
 export const carryScaleY = (el: HTMLElement, from: number) => {
-  if (!Number.isFinite(from) || Math.abs(from - 1) < 0.002 || reduced()) return;
-  const s = motionValue(from);
+  if (!Number.isFinite(from) || reduced()) return;
+  const run = scales.get(el);
+  const start = (run ? run.s.get() : 1) * from;
+  run?.s.stop();
+  run?.off();
+  if (Math.abs(start - 1) < 0.002) {
+    scales.delete(el);
+    el.style.transform = '';
+    return;
+  }
+  const s = motionValue(start);
   el.style.transformOrigin = '50% 0';
-  el.style.transform = `scaleY(${from})`;
+  el.style.transform = `scaleY(${start})`;
   const off = s.on('change', (v) => (el.style.transform = `scaleY(${v})`));
-  requestAnimationFrame(() =>
+  scales.set(el, { s, off });
+  requestAnimationFrame(() => {
+    if (scales.get(el)?.s !== s) return;
     animate(s, 1, {
       ...forScale(springs.settle),
       onComplete: () => {
         off();
+        if (scales.get(el)?.s !== s) return;
+        scales.delete(el);
         el.style.transform = '';
       },
-    }),
-  );
+    });
+  });
 };
 
 /** Everything after `el` in its scroller: its later siblings, then what follows each ancestor up to the scroller (or pane). */

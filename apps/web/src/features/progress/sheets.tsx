@@ -110,15 +110,17 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
       ? 'Week kept.'
       : current
         ? `${Words(Math.max(0, sum.target - sum.keptSessions))} more ${plural(sum.target - sum.keptSessions, 'session keeps', 'sessions keep')} it.`
-        : `${Words(sum.keptSessions)} of the ${sum.target} ${plural(sum.target, 'session', 'sessions')} that keep a week.`;
+        : `${sum.keptSessions ? Words(sum.keptSessions) : 'None'} of the ${sum.target} ${plural(sum.target, 'session', 'sessions')} that keep a week.`;
   // the seven days live in Plan (the same list, with drag and swipe): one row takes you there instead of repeating it
   // §1.3: a 0 ms cut to Plan already at that week; one Back returns to Progress with the sheet closed
   const openInPlan = () => nav.go(`/plan/week/${w}`);
   return (
     <div className="pg-sheet">
       <div className="pg-week-top">
+        {/* the numeral is the sentence's number (review 2 feel N4): the sessions that keep the week, never the runs (the
+            Runs stamp says those), so the ring and the words beside it agree */}
         <WeekRing days={ringDays(sum, today)} size={64} today={ti != null && ti >= 0 ? ti : undefined} onceADay={null}>
-          {ran.runs || ''}
+          {future ? '' : sum.keptSessions || ''}
         </WeekRing>
         <div className="pg-week-words">
           <p className="pg-week-line">{keptLine}</p>
@@ -192,7 +194,8 @@ export const AdherenceSheet = ({ ad, today, range, log }: { ad: Adherence; today
           return (
             <SheetRow
               key={wk.w}
-              lead={<WeekRing days={s.days.map((d) => d.ring)} size={40} onceADay={null} />}
+              // no numeral: the row's sentence counts (on plan), and a second number beside it would be a third meaning (review 2 feel N4)
+              lead={<WeekRing days={s.days.map((d) => d.ring)} size={40} onceADay={null}>{''}</WeekRing>}
               title={weekTitle(wk.w, today)}
               sub={`${wk.kept} of ${wk.planned} on plan${wk.ahead ? ` · ${wk.ahead} ahead` : ''}`}
               right={
@@ -201,7 +204,7 @@ export const AdherenceSheet = ({ ad, today, range, log }: { ad: Adherence; today
                 </span>
               }
               onPress={() => openWeek(wk.w, 'push')}
-              label={`${weekTitle(wk.w, today)}: ${wk.kept} of ${wk.planned} sessions kept${wk.ahead ? `, ${wk.ahead} still ahead` : ''}. Open week`}
+              label={`${weekTitle(wk.w, today)}: ${wk.kept} of ${wk.planned} sessions on plan${wk.ahead ? `, ${wk.ahead} still ahead` : ''}. Open week`}
             />
           );
         })}

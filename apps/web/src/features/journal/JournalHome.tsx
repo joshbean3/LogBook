@@ -422,11 +422,14 @@ const Timeline = ({ today, all, pending, onWrite }: { today: string; all: Journa
   const rowsRef = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
   const flip = useRef<(() => void) | null>(null);
-  useListFlip(rowsRef, shown.map((e) => keyOf(e.id)).join(','));
+  // the field's carry first, then the list's FLIP (review 2 code N6): layout effects run in the order they are declared, so
+  // when Close removes the field and the list changes in one commit, the rows measure where they are with the container
+  // already carried, and each is carried only by its own move (not by the field's height twice)
   useLayoutEffect(() => {
     flip.current?.();
     flip.current = null;
   }, [searching]);
+  useListFlip(rowsRef, shown.map((e) => keyOf(e.id)).join(','));
   const stampOf = (d: string) => (log.loaded(d) ? runStamp(log.snap, d) : null);
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
   return (

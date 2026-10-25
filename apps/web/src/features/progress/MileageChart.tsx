@@ -157,7 +157,9 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
       (['middle', 'end', 'start'] as const).flatMap((anchor) => [0, -12].map((dy) => ({ x: anchor === 'middle' ? x : anchor === 'end' ? x + bw / 2 : x - bw / 2, y: yy + dy, text: 'PLAN', anchor, cls: 'pg-lbl-plan' }))),
     );
   }
-  if (avgPts.length > 1 && lastAvg != null) {
+  // a month of the range still on its way: the label would average the gap as weeks off and change by itself when the month
+  // lands (review 2 feel N6); the broken line says enough until then
+  if (avgPts.length > 1 && lastAvg != null && !pts.some((p) => p.missing)) {
     const t = `4-WK AVG ${Math.round(lastAvg)}`;
     const cands: Lbl[] = [];
     // walk back along the line from its end: right of a point, above it, below it

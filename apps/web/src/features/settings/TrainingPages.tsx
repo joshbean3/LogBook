@@ -15,16 +15,27 @@ import { PushedBar, Row } from '@/ui';
 import { SGroup } from './parts';
 import { useTrainingProfile } from './useProfile';
 
-/** A page's own copy of the answers: edits stay here until "Rebuild my plan from next week". */
+/**
+ * The pages' copy of the answers: edits stay here until "Rebuild my plan from next week" or "Undo changes". It outlives
+ * the page (review 2 feel N7): a back tap with a change pending keeps it, so coming back to You or Training shows the
+ * change and its Rebuild card again instead of throwing it away without a word. Both pages share it (one plan, one offer).
+ */
+let keptDraft: { uid: string; p: TrainingProfile } | null = null;
 const useDraftProfile = () => {
   const tp = useTrainingProfile();
-  const [draft, setDraft] = useState<TrainingProfile | null>(null);
+  const uid = useBootstrap().data?.user.id ?? '';
+  // one account's pending change never shows for another signed in on this device
+  const [draft, setDraftRaw] = useState<TrainingProfile | null>(() => (keptDraft && keptDraft.uid === uid ? keptDraft.p : null));
+  const setDraft = (d: TrainingProfile | null) => {
+    keptDraft = d ? { uid, p: d } : null;
+    setDraftRaw(d);
+  };
   const p = draft ?? tp.profile;
   return { ...tp, p, dirty: !!draft && !sameProfile(draft, tp.profile), edit: (next: Partial<TrainingProfile>) => setDraft({ ...p, ...next }), reset: () => setDraft(null) };
 };
 
 /**
- * The offer that follows any change to the plan's answers: a card pinned above the tab bar with what the new block will be,
+ * The offer that follows any change to the plan's answers: a card held above the tab bar (sticky, the page's last block) with what the new block will be,
  * Rebuild (POST /plans/template with replace, from next Monday; done runs and the past stay), and Undo changes.
  */
 const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: boolean; profile: TrainingProfile; before: TrainingProfile; onDone: (p: TrainingProfile) => void; onReset: () => void; save: (p: TrainingProfile) => void }) => {
@@ -154,7 +165,7 @@ export const YouPage = () => {
   const d = useDraftProfile();
   const start = nextMondayAfter(today());
   return (
-    <div className="page s-set s-sub s-pad-rebuild">
+    <div className="page s-set s-sub">
       <PushedBar title="You" />
       <SGroup title="Account">
         <NameRow />
@@ -201,7 +212,7 @@ export const TrainingPage = () => {
   };
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
   return (
-    <div className="page s-set s-sub s-pad-rebuild">
+    <div className="page s-set s-sub">
       <PushedBar title="Training" />
       {!d.loaded ? (
         <div className="sec-secondary">
