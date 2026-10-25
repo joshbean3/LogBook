@@ -10,7 +10,7 @@ import { Button, ChipButton, Stepper, usePress } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { MiniTimeline } from '../day/MiniTimeline';
 import { morningOf, parseWake, ROUTINE_DEFAULTS, short, stopsOf, WAKE_MIN } from './model';
-import { useOnClosed } from './StepSheets';
+import { useClosed } from './StepSheets';
 
 /** The latest a morning's leave field goes (6 pm). */
 const LEAVE_MAX = 1080;
@@ -103,8 +103,8 @@ const FieldRow = ({ f, s, onChange, open, onToggle, highlight, focus }: { f: Fie
  */
 export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningDay; settings: MorningSettings; focus?: string }) => {
   const sheet = useSheet();
-  const { settings } = useMorningMutations();
-  const later = useOnClosed();
+  const { settingsWhen } = useMorningMutations();
+  const closed = useClosed();
   const [saved] = useState(() => normalizeMorningSettings(initial));
   const [s, setS] = useState<MorningSettings>(saved);
   const [preview, setPreview] = useState<MorningMode>(day.mode);
@@ -136,7 +136,8 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
     () => ({
       id: 'leave',
       label: 'Leave for work',
-      sub: s.after.showerMode === 'fixed' ? `The routine starts at ${short(s.after.showerAt)}` : 'Sets when the routine starts',
+      // said from this morning (feel review 2 R2-2): a run that comes back after the set start pushes the routine to its return
+      sub: s.after.showerMode !== 'fixed' ? 'Sets when the routine starts' : T.late ? `Starts after your ${day.mode === 'gym' ? 'workout' : 'run'}, ${short(T.back)}` : `The routine starts at ${short(s.after.showerAt)}`,
       get: (x) => buildMorning({ ...day, wake: wakeOf(x) }, x).leave,
       put: (x, v) => ({ ...x, after: { ...x.after, showerMode: 'fixed', showerAt: Math.max(WAKE_MIN, v - routineOf(x).reduce((m, r) => m + r.mins, 0)) } }),
       step: 5,
@@ -145,17 +146,21 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
       fmt: short,
       parse: parseWake,
     }),
-    [day, s.after.showerMode, s.after.showerAt, earliest], // eslint-disable-line react-hooks/exhaustive-deps
+    [day, s.after.showerMode, s.after.showerAt, earliest, T.late, T.back], // eslint-disable-line react-hooks/exhaustive-deps
   );
+  // a morning with its own alarm previews that alarm, so the Usual alarm row says what it moves: the other mornings' leave
+  // (feel review 2 R2-2), live as it steps
+  const usualLeave = day.own ? buildMorning({ ...day, wake: s.wake, own: false }, s).leave : null;
+  const usual = useMemo<Field>(() => (usualLeave == null ? FIELDS.wake! : { ...FIELDS.wake!, sub: `Other mornings: leave ${short(usualLeave)}` }), [usualLeave]);
   const row = (id: string) => {
-    const f = id === 'leave' ? leave : FIELDS[id]!;
+    const f = id === 'leave' ? leave : id === 'wake' ? usual : FIELDS[id]!;
     return <FieldRow key={id} f={f} s={s} highlight={focused === id} focus={focused === id} open={open === id} onToggle={() => setOpen((o) => (o === id ? null : id))} onChange={(v) => setS((cur) => f.put(cur, v))} />;
   };
   const save = () => {
     const after = s.after.showerMode !== saved.after.showerMode || s.after.showerAt !== saved.after.showerAt ? { after: { showerMode: s.after.showerMode, showerAt: s.after.showerAt } } : {};
     // the page answering is the confirmation (no toast, no haptic: §8, §11.4), once the sheet has closed
     const patch = { wake: s.wake, run: s.run, gym: s.gym, ...after };
-    later(() => settings.mutate(patch));
+    settingsWhen(patch, closed());
     sheet.close();
   };
 
@@ -175,6 +180,7 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
         </div>
         <MiniTimeline stops={stopsOf(T)} now={-1} label={`Preview: ${stopsOf(T).map((x) => `${x.label} ${short(x.at)}`).join(', ')}`} />
         <p className="rt-verdict">
+          {day.own ? `This morning, its own alarm ${short(day.wake)}: ` : ''}
           {durationWords(T.leave - T.day.wake)} from alarm to door.{T.late ? ` ${T.late} min late for the routine.` : ''}
         </p>
       </div>

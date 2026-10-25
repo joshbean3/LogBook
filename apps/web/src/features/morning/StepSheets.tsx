@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMorningMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
-import { Button, ChipButton, Segmented, Stepper, useToast } from '@/ui';
+import { Button, ChipButton, Segmented, Stepper } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { parseWake, short, WAKE_MAX, WAKE_MIN, WAKE_STEP } from './model';
 
@@ -32,22 +32,29 @@ const IDEAS: Array<[string, number]> = [
 const afterPaint = (fn: () => void) => requestAnimationFrame(() => setTimeout(fn, 0));
 
 /**
- * The writes a sheet's Save makes, sent once the sheet has closed (its body unmounts when the close completes), a painted
- * frame later (code review 1 F3). A write's optimistic patch re-renders Today's three mounted pages and this one; inside the
- * close it took the closing slide's frames (a 250 ms frame at 4×). The page answers when the sheet is gone, as the alarm
- * drag's release and Skip already do.
+ * When a sheet's answer may reach the page: once the sheet has closed (its body unmounts when the close completes) and a
+ * frame has been painted (code review 1 F3). A write's optimistic patch re-renders Today's three mounted pages and this one;
+ * inside the close it took the closing slide's frames (a 250 ms frame at 4×). The write itself goes at the tap
+ * (`settingsWhen` / `setDayWhen` send now and patch the cache when this resolves, code review 2 N3), so an app that goes
+ * away during the close has already sent it. Call it in the Save handler; it returns the promise.
  */
-export const useOnClosed = (): ((fn: () => void) => void) => {
-  const q = useRef<Array<() => void>>([]);
+export const useClosed = (): (() => Promise<void>) => {
+  const gate = useRef<{ p: Promise<void>; open: () => void } | null>(null);
   useEffect(
     () => () => {
-      const list = q.current;
-      q.current = [];
-      if (list.length) afterPaint(() => list.forEach((f) => f()));
+      const g = gate.current;
+      if (g) afterPaint(g.open);
     },
     [],
   );
-  return (fn) => void q.current.push(fn);
+  return () => {
+    if (!gate.current) {
+      let open = () => undefined as void;
+      const p = new Promise<void>((r) => (open = r));
+      gate.current = { p, open };
+    }
+    return gate.current.p;
+  };
 };
 
 /** Hold the sheet open while the draft differs from what was saved. */
@@ -108,11 +115,10 @@ export const removal = (st: MorningSettings, key: RoutineKey) => {
  * One step of the back-home routine: its name and its length, or a new step (no `stepKey`). A new one goes on the end of
  * the routine. Removing a built-in block switches it off (it comes back from the Add sheet); removing your own deletes it.
  */
-export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSettings; day: MorningDay; stepKey?: RoutineKey }) => {
+export const StepEditor = ({ settings: st, day, stepKey, onRemove }: { settings: MorningSettings; day: MorningDay; stepKey?: RoutineKey; onRemove?: (landed: Promise<void>) => void }) => {
   const sheet = useSheet();
-  const toast = useToast();
-  const { settings } = useMorningMutations();
-  const later = useOnClosed();
+  const { settingsWhen } = useMorningMutations();
+  const closed = useClosed();
   const steps = st.after.steps ?? [];
   const current = stepKey ? routineOf(st).find((r) => r.key === stepKey) : undefined;
   const [name, setName] = useState(current?.name ?? '');
@@ -149,19 +155,15 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
   const save = () => {
     if (!patch || !dirty) return;
     // the row answering on the page is the confirmation (only Undo and errors raise toasts, §8), once the sheet has closed
-    const after = patch;
-    later(() => settings.mutate({ after }));
+    settingsWhen({ after: patch }, closed());
     sheet.close();
   };
+  // the page's Remove (MorningView) owns the write, its Undo toast raised once the rows have re-laid (code review 2 N1) and
+  // the focus kept on the page (N5); the sheet hands it the moment its close has completed
   const remove = () => {
-    if (!stepKey || !current) return;
-    const r = removal(st, stepKey);
-    const name = current.name;
+    if (!stepKey || !current || !onRemove) return;
     haptics.delete();
-    later(() => {
-      settings.mutate({ after: r.off });
-      toast(`${name} removed`, { label: 'Undo', fn: () => settings.mutate({ after: r.undo }) });
-    });
+    onRemove(closed());
     sheet.close();
   };
 
@@ -210,7 +212,7 @@ export const StepEditor = ({ settings: st, day, stepKey }: { settings: MorningSe
       <LeaveLine day={day} before={st} after={preview} />
       {full ? <p className="se-note">That’s {MAX_STEPS} steps of your own, the most a morning holds. Remove one to add another.</p> : null}
       <div className="sheet-foot">
-        {adding ? (
+        {adding || !onRemove ? (
           <span />
         ) : (
           <Button variant="ghost" className="danger" onClick={remove}>
@@ -241,8 +243,8 @@ export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { se
   const sheet = useSheet();
   const today = useToday();
   const justName = date === today ? 'today' : date === shiftDays(today, 1) ? 'tomorrow' : dayName;
-  const { settings, setDay } = useMorningMutations();
-  const later = useOnClosed();
+  const { settingsWhen, setDayWhen } = useMorningMutations();
+  const closed = useClosed();
   const [wake, setWake] = useState(day.wake);
   const lead: 'day' | 'usual' = preselect === 'every' ? 'usual' : 'day';
   const dayDirty = wake !== day.wake;
@@ -250,15 +252,14 @@ export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { se
   useSticky(dayDirty);
   const save = (scope: 'day' | 'usual') => {
     const own = day.own;
-    later(() => {
-      if (scope === 'usual') {
-        if (wake !== st.wake) settings.mutate({ wake });
-        if (own) setDay.mutate({ date, day: null });
-      } else if (wake === st.wake) {
-        // the routine's own alarm is no alarm of the day's own
-        if (own) setDay.mutate({ date, day: null });
-      } else setDay.mutate({ date, day: { wake } });
-    });
+    const landed = closed();
+    if (scope === 'usual') {
+      if (wake !== st.wake) settingsWhen({ wake }, landed);
+      if (own) setDayWhen({ date, day: null }, landed);
+    } else if (wake === st.wake) {
+      // the routine's own alarm is no alarm of the day's own
+      if (own) setDayWhen({ date, day: null }, landed);
+    } else setDayWhen({ date, day: { wake } }, landed);
     sheet.close();
   };
   const choice = (scope: 'day' | 'usual') => (
@@ -284,15 +285,15 @@ export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { se
 /** When the back-home routine starts: as soon as you are back, or at a set time (so a long run shows as late). */
 export const StartEditor = ({ settings: st, day }: { settings: MorningSettings; day: MorningDay }) => {
   const sheet = useSheet();
-  const { settings } = useMorningMutations();
-  const later = useOnClosed();
+  const { settingsWhen } = useMorningMutations();
+  const closed = useClosed();
   const [mode, setMode] = useState(st.after.showerMode);
   const [at, setAt] = useState(st.after.showerAt);
   const dirty = mode !== st.after.showerMode || (mode === 'fixed' && at !== st.after.showerAt);
   useSticky(dirty);
   const preview = useMemo(() => ({ ...st, after: { ...st.after, showerMode: mode, showerAt: at } }), [st, mode, at]);
   const save = () => {
-    later(() => settings.mutate({ after: { showerMode: mode, showerAt: at } }));
+    settingsWhen({ after: { showerMode: mode, showerAt: at } }, closed());
     sheet.close();
   };
   return (

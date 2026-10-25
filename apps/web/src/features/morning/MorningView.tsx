@@ -1,4 +1,4 @@
-import { AFTER_ORDER, fmtDate, label, monthOf, routineOf, shiftDays, type MorningTimeline, type Session } from '@logbook/shared';
+import { AFTER_ORDER, fmtDate, label, monthOf, routineOf, sessionStatus, shiftDays, type MorningSettings, type MorningTimeline, type RoutineKey, type Session } from '@logbook/shared';
 import { Plus, SlidersHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouteParams } from '@/app/NavController';
@@ -69,7 +69,7 @@ export default function MorningView() {
   const log = useLog(months);
   const now = useNowMinutes();
   const st = log.boot?.morningSettings ?? ROUTINE_DEFAULTS;
-  const { setDay, settings } = useMorningMutations();
+  const { setDay, settings, settingsWhen } = useMorningMutations();
   const { mark, upsert } = useSessionMutations();
   const openSession = useOpenSession(log);
   const openRoutine = useOpenRoutineEditor();
@@ -78,6 +78,8 @@ export default function MorningView() {
 
   // ---------- the alarm drag: the day re-laid from the dragged wake on every step ----------
   const [drag, setDrag] = useState<AlarmDrag | null>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
   const sessions = log.snap.sessionsOn(date);
   const override = log.snap.morningOverride(date);
   const T0 = useMemo(() => morningOf(sessions, override, st), [sessions, override, st]);
@@ -129,11 +131,13 @@ export default function MorningView() {
     if (legacy && (!serverOrder || serverOrder.join() === AFTER_ORDER.join()) && legacy.join() !== AFTER_ORDER.join()) settings.mutate({ after: { order: legacy } });
   }, [!!log.boot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---------- a toast raised once the morning has been re-laid (FL2) ----------
-  // a Skip's toast sits above the Leave row's new place: it is raised from the render that shows the change (the mutation's
+  // ---------- a toast raised once the morning has been re-laid (FL2, code review 2 N1) ----------
+  // an Undo toast sits above the Leave row's new place: it is raised from the render that shows the change (the mutation's
   // patch reaches the page a task or more after the tap; at 4× after the old `afterPaint` had already raised it over the
-  // Leave row), a painted frame later, when LeaveRow has measured that place
-  const pend = useRef<{ landed: (list: Session[]) => boolean; raise: () => void; t: number } | null>(null);
+  // Leave row), a painted frame later, when LeaveRow has measured that place. `after`: the change reaches the page only once
+  // that resolves (a sheet's close), and the 2 s fallback counts from then
+  type Now = { sessions: Session[]; st: MorningSettings };
+  const pend = useRef<{ landed: (now: Now) => boolean; raise: () => void; t: number } | null>(null);
   const flushPend = () => {
     const p = pend.current;
     if (!p) return;
@@ -141,12 +145,18 @@ export default function MorningView() {
     clearTimeout(p.t);
     afterPaint(p.raise);
   };
-  const raiseAfter = (landed: (list: Session[]) => boolean, raise: () => void) => {
+  const raiseAfter = (landed: (now: Now) => boolean, raise: () => void, after?: Promise<void>) => {
     if (pend.current) flushPend();
-    pend.current = { landed, raise, t: window.setTimeout(flushPend, 2000) };
+    const p = { landed, raise, t: 0 };
+    pend.current = p;
+    const arm = () => {
+      if (pend.current === p) p.t = window.setTimeout(flushPend, 2000);
+    };
+    if (after) void after.then(arm);
+    else arm();
   };
   useEffect(() => {
-    if (pend.current?.landed(sessions)) flushPend();
+    if (pend.current?.landed({ sessions, st })) flushPend();
   });
   useEffect(() => () => void (pend.current && clearTimeout(pend.current.t)), []);
 
@@ -163,7 +173,10 @@ export default function MorningView() {
     const open = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && !x.mark);
     const skipped = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && x.mark === 'skip');
     const remark = (list: Session[], m: Session['mark']) => list.forEach((x) => mark.mutate({ session: x, mark: m }));
-    const marked = (list: Session[], m: Session['mark']) => (now: Session[]) => list.every((x) => now.find((y) => y.id === x.id)?.mark === m);
+    const marked = (list: Session[], m: Session['mark']) => (now: Now) => list.every((x) => now.sessions.find((y) => y.id === x.id)?.mark === m);
+    // a run or lift of the day already done (marked done or floor, or by its evidence: a Strava run, logged sets). A skipped
+    // one does not count: the day's other workout skipped too is a rest day (spec §4.1's menu on a one-session morning)
+    const settled = sessions.some((x) => (x.kind === 'run' || x.kind === 'lift') && ['done', 'floor'].includes(sessionStatus(log.snap, date, x)));
     // the session is the run: skipping it is the one write, and the morning (its alarm included) follows. No haptic (§11.4).
     // The menu's Skip and the late note's `Skip the run` are the same act, with the same Undo (code review 1 F5)
     const skipOne = (x: Session) => {
@@ -172,33 +185,55 @@ export default function MorningView() {
       raiseAfter(marked([x], 'skip'), () => toast(`${label(x)} skipped`, { label: 'Undo', fn: () => mark.mutate({ session: x, mark: prev }) }));
     };
     const eyebrow = `Morning · ${fmtDate('md', date)}`;
-    const editWake = () => sheet.open({ eyebrow, title: 'Alarm', body: <WakeEditor settings={T0.settings} day={T0.day} date={date} dayName={dayName} /> });
+    // the alarm on screen: an arrow-key change the stamp has just committed (its write is on the way) is the sheet's start
+    // (code review 2 N4), not the cache's alarm under it
+    const editWake = () => {
+      const d = dragRef.current;
+      const day = d && d.wake !== T0.day.wake ? { ...T0.day, wake: d.wake, own: d.wake !== usual } : T0.day;
+      sheet.open({ eyebrow, title: 'Alarm', body: <WakeEditor settings={T0.settings} day={day} date={date} dayName={dayName} /> });
+    };
+    /**
+     * A step taken off the routine, from the hold menu (at once) or from its sheet (`landed`: once the sheet has closed). Its
+     * Undo toast is raised once the rows have re-laid, above the Leave row's new place (code review 2 N1); `keep` keeps focus
+     * on the page once the row has gone (N5).
+     */
+    const removeStep = (k: RoutineKey, landed?: Promise<void>, keep?: () => void) => {
+      const name = routineOf(T0.settings).find((r) => r.key === k)?.name ?? 'Step';
+      const r = removal(T0.settings, k);
+      if (landed) {
+        settingsWhen({ after: r.off }, landed);
+        if (keep) void landed.then(keep);
+      } else {
+        settings.mutate({ after: r.off });
+        haptics.delete();
+      }
+      raiseAfter(
+        (now) => !routineOf(now.st).some((x) => x.key === k),
+        () => toast(`${name} removed`, { label: 'Undo', fn: () => settings.mutate({ after: r.undo }) }),
+        landed,
+      );
+    };
     return {
       // one editor (M16): the run is the session, so the workout opens the session sheet; a morning with none, its alarm
       editDay: () => (workout ? openSession(date, workout) : editWake()),
       editWake,
       editStart: () => sheet.open({ eyebrow: 'Every morning', title: 'Routine starts', body: <StartEditor settings={T0.settings} day={T0.day} /> }),
-      editStep: (k) => {
+      editStep: (k, keep) => {
         const name = routineOf(T0.settings).find((r) => r.key === k)?.name ?? 'Step';
-        sheet.open({ eyebrow: 'Your routine', title: name, body: <StepEditor settings={T0.settings} day={T0.day} stepKey={k} /> });
+        sheet.open({ eyebrow: 'Your routine', title: name, body: <StepEditor settings={T0.settings} day={T0.day} stepKey={k} onRemove={(landed) => removeStep(k, landed, keep)} /> });
       },
       addStep: () => sheet.open({ eyebrow: 'Your routine', title: 'Add a step', body: <StepEditor settings={T0.settings} day={T0.day} /> }),
-      removeStep: (k) => {
-        const name = routineOf(T0.settings).find((r) => r.key === k)?.name ?? 'Step';
-        const r = removal(T0.settings, k);
-        settings.mutate({ after: r.off });
-        haptics.delete();
-        toast(`${name} removed`, { label: 'Undo', fn: () => settings.mutate({ after: r.undo }) });
-      },
+      removeStep: (k) => removeStep(k),
       saveOrder: (visible) => settings.mutate({ after: { order: fullOrder(T0.settings, visible) } }),
       editLeave: () => openRoutine('leave'),
       skipLabel: s ? label(s) : null,
       skip: () => {
         if (s) skipOne(s);
       },
-      // a rest day: every workout of the day still to do skipped (Skip takes the one in the row); none open (both done), no
-      // item (code review 1 F4)
-      rest: open.length
+      // a rest day: every workout of the day skipped (Skip takes the one in the row). Only on a morning nothing is done on
+      // (code review 1 F4, code review 2 N2): next to a done session it skipped a session the row did not show and
+      // said `Rest morning` on a morning that was not one
+      rest: open.length && s && !settled
         ? () => {
             remark(open, 'skip');
             raiseAfter(marked(open, 'skip'), () => toast('Rest morning', { label: 'Undo', fn: () => remark(open, null) }));

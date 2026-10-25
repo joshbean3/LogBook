@@ -456,7 +456,56 @@ export const useMorningMutations = () => {
     },
     onError: (_e, v) => invalidateMonth(qc, monthOf(v.date)),
   });
-  return { settings, setDay };
+  // Sent at the tap, shown later (code review 2 N3): a sheet's Save goes on the wire (or into the outbox) the moment it is
+  // tapped, so the app going away during the close cannot lose it; the cache, which is what re-renders the pages, takes the
+  // change (and the server's answer) only once `landed` resolves, when the sheet's close has completed (code review 1 F3)
+  const settingsLanded = useMutation({
+    mutationFn: async ({ patch, landed }: { patch: Record<string, unknown>; landed: Promise<void> }) => {
+      const req = write<MorningSettings>('/morning/settings', 'PATCH', patch, [keys.bootstrap]);
+      let answer: { saved: MorningSettings | null } | null = null;
+      req.then((saved) => void (answer = { saved }), () => undefined);
+      await landed;
+      // the server answered during the close: its copy alone, one render
+      const merged = (b: Bootstrap | undefined) => (b ? { ...b, morningSettings: deepMerge(b.morningSettings, patch) as MorningSettings } : b);
+      const early = answer as { saved: MorningSettings | null } | null;
+      if (early?.saved) {
+        const saved = early.saved;
+        qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, morningSettings: saved } : b));
+        return;
+      }
+      qc.setQueryData<Bootstrap>(keys.bootstrap, merged);
+      const saved = await req;
+      if (saved) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, morningSettings: saved } : b));
+      else qc.setQueryData<Bootstrap>(keys.bootstrap, merged);
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
+  });
+  const setDayLanded = useMutation({
+    mutationFn: async ({ date, day: given, landed }: { date: string; day: MorningDayOverride | null; landed: Promise<void> }) => {
+      const day: MorningDayOverride | null = given ? { wake: given.wake } : null;
+      const month = monthOf(date);
+      const req = day ? write(`/morning/days/${date}`, 'PUT', day, [keys.month(month)]) : write(`/morning/days/${date}`, 'DELETE', undefined, [keys.month(month)]);
+      req.catch(() => undefined);
+      await landed;
+      ensureMonth(qc, month);
+      patchMonth(qc, month, (b) => {
+        const next = { ...b.morningDays };
+        if (day) next[date] = day;
+        else delete next[date];
+        return { ...b, morningDays: next };
+      });
+      await req;
+    },
+    onError: (_e, v) => invalidateMonth(qc, monthOf(v.date)),
+  });
+  return {
+    settings,
+    setDay,
+    /** `settings.mutate(patch)`, sent now, on the page once `landed` resolves. */
+    settingsWhen: (patch: Record<string, unknown>, landed: Promise<void>) => settingsLanded.mutate({ patch, landed }),
+    /** `setDay.mutate({ date, day })`, sent now, on the page once `landed` resolves. */
+    setDayWhen: (v: { date: string; day: MorningDayOverride | null }, landed: Promise<void>) => setDayLanded.mutate({ ...v, landed }),
+  };
 };
 const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;

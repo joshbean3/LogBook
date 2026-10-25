@@ -1,5 +1,5 @@
 import { clockOfDay, num, type MorningTimeline, type RoutineKey } from '@logbook/shared';
-import { AlarmClock, Backpack, BookOpen, CircleAlert, CircleDot, Coffee, Dog, Dumbbell, Flower2, Footprints, Moon, Pencil, PersonStanding, Sandwich, ShowerHead, Shirt, SkipForward, Trash2, Undo2, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import { AlarmClock, Backpack, BookOpen, CircleAlert, CircleCheck, CircleDot, Coffee, Dog, Dumbbell, Flower2, Footprints, Moon, Pencil, PersonStanding, Sandwich, ShowerHead, Shirt, SkipForward, Trash2, Undo2, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -30,7 +30,8 @@ export interface ScheduleActions {
   editDay: () => void;
   /** When the back-home routine starts. */
   editStart: () => void;
-  editStep: (k: RoutineKey) => void;
+  /** The step's sheet; `keep` keeps focus on the page if its Remove takes the row away (code review 2 N5). */
+  editStep: (k: RoutineKey, keep?: () => void) => void;
   addStep: () => void;
   removeStep: (k: RoutineKey) => void;
   /** The routine's new order, the steps on the schedule only. One write. */
@@ -138,10 +139,11 @@ const LateBody = ({ T, fix, interactive }: { T: MorningTimeline; fix?: LateFixes
   // so, its chips held in place unseen until the release takes the row away
   if (!T.late || !T.fix)
     return (
-      <div className="sch-hit late-hit" role="note">
+      <div className="sch-hit late-hit is-clear" role="note">
         <span className="sch-time-slot" aria-hidden="true" />
+        {/* in time: no warning (feel review 2 R2-3); the one line sits in the middle of the held height */}
         <span className="sch-ico" aria-hidden="true">
-          <CircleAlert size={18} />
+          <CircleCheck size={18} />
         </span>
         <span className="sch-main">
           <span className="sch-name late-text is-clear">Back {short(T.back)} · in time</span>
@@ -492,9 +494,9 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
             as="div"
             className="sch-hit"
             press="surface"
-            onPress={() => actions.editStep(k)}
+            onPress={() => actions.editStep(k, () => keepFocus(r.id))}
             holdMenu={[
-              { label: 'Edit', icon: <Pencil size={18} />, onSelect: () => actions.editStep(k) },
+              { label: 'Edit', icon: <Pencil size={18} />, onSelect: () => actions.editStep(k, () => keepFocus(r.id)) },
               {
                 label: 'Remove',
                 icon: <Trash2 size={18} />,

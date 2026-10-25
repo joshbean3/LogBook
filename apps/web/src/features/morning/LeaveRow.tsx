@@ -111,7 +111,18 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
         <span className="sch-name">
           Leave<span className="sub-wide"> for work</span>
         </span>
-        <span className={`sch-sub ${T.late ? 'is-late' : ''}`}>{/^(.+?)( after waking)$/.test(sub) ? <>{sub.replace(/ after waking$/, '')}<span className="sub-wide"> after waking</span></> : sub}</span>
+        <span className={`sch-sub ${T.late ? 'is-late' : ''}`}>
+          {/ after waking$/.test(sub) ? (
+            <>
+              <span className="sub-wide">{sub}</span>
+              {/* 320: `2 h 15 min after waking` does not fit beside the stamp, and a bare duration said nothing (feel review 2
+                  R2-9): the alarm it counts from does */}
+              <span className="sub-narrow">Alarm {short(T.day.wake)}</span>
+            </>
+          ) : (
+            sub
+          )}
+        </span>
       </span>
       <span className={`leave-stamp ${moved ? 'is-moved' : ''}`}>
         <span key={`c${labels.n}`} className={`ah-d ${labels.n ? 'is-in' : ''}`}>

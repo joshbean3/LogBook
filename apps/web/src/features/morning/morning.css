@@ -277,6 +277,26 @@
 .late-text.is-clear {
   color: var(--ink-3);
 }
+/* back in time while the finger holds the row (feel review 2 R2-3): a neutral disc, the line in the middle of the held height */
+.late-hit.is-clear .sch-ico {
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+.late-hit.is-clear > .sch-time-slot,
+.late-hit.is-clear > .sch-ico,
+.late-hit.is-clear > .sch-main {
+  grid-row: 1 / 3;
+  align-self: center;
+}
+.late-hit.is-clear > .sch-time-slot {
+  grid-column: 1;
+}
+.late-hit.is-clear > .sch-ico {
+  grid-column: 2;
+}
+.late-hit.is-clear > .sch-main {
+  grid-column: 3;
+}
 /* a late note an alarm drag has cleared keeps its height until the release takes it away (FL1) */
 .late-fixes.is-held {
   visibility: hidden;
@@ -587,6 +607,9 @@
   padding-right: 12px;
 }
 
+.sub-narrow {
+  display: none;
+}
 /* 320: the Leave row keeps the time column with every other row (feel review 1 FL9); its stamp takes the row times' size
    so `Leave for work` fits, and the subs drop their second half (the times are on the rows and the Now card) */
 @media (max-width: 359px) {
@@ -596,6 +619,9 @@
   .sch-sub .sub-wide,
   .leave-row .sch-name .sub-wide {
     display: none;
+  }
+  .sch-sub .sub-narrow {
+    display: inline;
   }
   /* the run row keeps `4 mi · back 8:13` whole: the pace goes */
   .sch-sub .sub-pace {

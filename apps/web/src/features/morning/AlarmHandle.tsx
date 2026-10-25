@@ -216,7 +216,10 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
           e.preventDefault();
           return;
         }
-        if (!disabled) onTap();
+        if (disabled) return;
+        // arrows then Enter: the steps are committed first, so the sheet opens on the alarm on screen (code review 2 N4)
+        flushKeys();
+        onTap();
       }}
     >
       <span ref={stamp} className="ah-stamp sch-time">
