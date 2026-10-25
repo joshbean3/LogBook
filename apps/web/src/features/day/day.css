@@ -157,6 +157,8 @@
   text-overflow: ellipsis;
 }
 .hero-deck-done .hero-sub {
+  flex: none;
+  height: 20px;
   font: 400 15px/20px var(--sans);
   color: var(--ink-2);
 }
@@ -174,10 +176,15 @@
 .hero-deck-out .hero-sub {
   margin-top: 6px;
 }
+/* done by hand (§3.2): the week line (20) over Share and the verb (32), 4 apart: 56, the deck's own height. Both controls
+   draw 32 and reach 44 with a hit area that runs 6 px past their box (day review 3 #2: a 44 tall verb squeezed the week
+   line to an 8 px strip) */
 .hero-done-tools {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 4px;
+  height: 32px;
   margin-top: 4px;
   min-width: 0;
 }
@@ -201,14 +208,26 @@
   inset: -6px 0;
 }
 .hero-verb.pressable {
-  min-height: 44px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  min-height: 32px;
   padding: 0 8px;
   color: var(--ink-3);
   font: 400 13px/18px var(--sans);
+  min-width: 0;
+}
+.hero-verb.pressable::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.hero-verb-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
 }
 .hero-stats {
   display: flex;
@@ -1046,6 +1065,10 @@
   position: absolute;
   inset: 0 0 auto 0;
   pointer-events: none;
+}
+/* the field's still copy that leaves on Save (feel review 3 #1): laid out as the live layer's own children */
+.cd-write-still {
+  display: contents;
 }
 .cd-write,
 .cd-read {

@@ -12,6 +12,7 @@ import { Button, Chip, ChipButton } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useFirstToday } from '@/ui/useFirstToday';
+import { setCoachShown, useCoachShown } from '../day/coachShown';
 import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
 import type { ShareData, ShareDayType } from '../share/cards';
@@ -210,12 +211,18 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
   const a = assess(log.zones, sess, runs);
   const laps = runs.flatMap((r) => r.laps ?? []).filter((l) => l[0] > 160);
   const key = sess ? sess.id : 'run';
-  const saved = log.snap.coachOn(date, key);
+  // the month's read, else the one the hero's ask brought back (it joins the month without a notify, so an open sheet hears
+  // of it here: code review 3 #1)
+  const fresh = useCoachShown(date, key);
+  const saved = log.snap.coachOn(date, key) ?? fresh;
   const qc = useQueryClient();
   const toast = useToast();
   const coach = useMutation({
     mutationFn: () => api<{ date: string; key: string; text: string; createdAt: string }>('/coach/read', { method: 'POST', json: { date, sessionId: sess?.id ?? null } }),
-    onSuccess: (r) => qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === date && c.key === key)), r] } : b)),
+    onSuccess: (r) => {
+      setCoachShown(date, key, r.text);
+      qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === date && c.key === key)), r] } : b));
+    },
     onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t get the coach’s read.'),
   });
   const fastest = laps.length ? Math.min(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;

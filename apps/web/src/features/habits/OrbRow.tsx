@@ -57,6 +57,22 @@ const watchGestures = () => {
   window.addEventListener('scroll', mark, opts);
 };
 const busyHand = () => pointersDown > 0 || isPagerMoving();
+/**
+ * Every orb's held write, sent together: the first one due sends them all in one task, so a row of orbs tapped in a row
+ * costs one round of page renders at rest, not one per orb on its own idle callback (feel review 3 #4: three 107–147 ms
+ * frames at 4×). Also sent when the page is going (`pagehide`, a reload or a relaunch, as well as a hidden app), so a tap
+ * just before it is not lost (feel review 3 #3).
+ */
+const heldWrites = new Set<() => void>();
+const sendHeld = () => {
+  for (const f of [...heldWrites]) f();
+};
+let pageHideOn = false;
+const watchPageHide = () => {
+  if (pageHideOn || typeof window === 'undefined') return;
+  pageHideOn = true;
+  window.addEventListener('pagehide', sendHeld);
+};
 type IdleWin = { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void };
 const onIdle = (f: () => void): (() => void) => {
   const w = window as unknown as IdleWin;
@@ -158,12 +174,14 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
   const send = useRef(() => {});
   send.current = () => {
     const w = write.current;
+    heldWrites.delete(sendMine);
     if (!w) return;
     clearTimeout(w.t);
     w.idle?.();
     write.current = null;
     onLight(h, w.on);
   };
+  const [sendMine] = useState(() => () => send.current());
   /**
    * The write's timer: sent once the row has been still for QUIET_MS (another orb tapped meanwhile moves it on) and the hand
    * has rested (RESTED_MS after the last pointer, scroll or page move), at the next idle moment.
@@ -183,7 +201,7 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
       cur.idle = undefined;
       // a gesture that began meanwhile: wait for it to rest too
       if (performance.now() - cur.at < MAX_WAIT_MS && (busyHand() || performance.now() - lastGesture < RESTED_MS)) due();
-      else send.current();
+      else sendHeld();
     });
   };
   useEffect(() => {
@@ -202,9 +220,12 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
       clearTimeout(pending.t);
       pending.idle?.();
       write.current = null;
+      heldWrites.delete(sendMine);
     } else {
       watchGestures();
+      watchPageHide();
       write.current = { on: next, at: performance.now(), t: setTimeout(due, WRITE_AFTER_MS) };
+      heldWrites.add(sendMine);
     }
     if (next) {
       unpeak.current();

@@ -18,7 +18,8 @@ import { isPagerMoving, useIsLive } from './live';
 import { afterPaint, swallowNextClick } from './release';
 import { CloseDay } from './CloseDay';
 import { faceOf, heroLead, phaseOf, preLandingFace, secondOf, withMark, type Face } from './faces';
-import { HoldRing } from './HoldRing';
+import { HoldRing, MORPH_MS } from './HoldRing';
+import { refusedMark } from './marks';
 import { sessionMiles, weekMiles } from './miles';
 import { MiniTimeline, OutLine } from './MiniTimeline';
 import { LandedDeck, LandingRoute, RingSlot, SharePill } from './RunLanding';
@@ -169,7 +170,7 @@ const Deck = ({ c }: { c: DeckCtx }) => {
                   c.onAdjust();
                 }}
               >
-                Ran a different distance?
+                <span className="hero-verb-text">Ran a different distance?</span>
               </Pressable>
             ) : null}
           </span>
@@ -244,11 +245,11 @@ const FaceLayer = memo(function FaceLayer({ face, numbers, date, log, isToday, n
 });
 
 /** The evening slot: the Close card (its own height); a neighbour's copy is still (no composer, no read). */
-const EveningFace = ({ date, log, ph, onOpen }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; onOpen: (p: PhaseSession) => void }) => {
+const EveningFace = ({ date, log, ph, onOpen, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; onOpen: (p: PhaseSession) => void; markNow: MarkNow }) => {
   const live = useIsLive(date);
   return (
     <div className="hero hero-close" data-face="evening">
-      <CloseDay date={date} log={log} ph={ph} onOpenSession={onOpen} still={!live} asHero />
+      <CloseDay date={date} log={log} ph={ph} onOpenSession={onOpen} still={!live} asHero markNow={markNow} />
     </div>
   );
 };
@@ -262,6 +263,9 @@ const EveningFace = ({ date, log, ph, onOpen }: { date: ISODate; log: Log; ph: R
  * compact card below (`SecondSession`): no inner carousel, ever; the day pager is the only horizontal gesture. The evening
  * slot is the Close card (its own height).
  */
+/** A mark that answers on the card first and writes after (`useMarkOverride`); `waitMs`: what the write waits out. */
+export type MarkNow = (s: Session, m: SessionMark | null, waitMs?: number) => Promise<void>;
+
 /** The face crossfade's length (`crossfade`, 150 ms): a mark's write waits it out. */
 const CROSSFADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
 
@@ -285,19 +289,24 @@ const useMarkOverride = (real: Log, date: ISODate) => {
     if ((real.snap.sessionsOn(date).find((x) => x.id === over.id)?.mark ?? null) === over.mark) setOver(null);
   }, [real, date, over, settled]);
   const { mark } = useSessionMutations();
+  const toast = useToast();
   const markNow = useCallback(
-    (s: Session, m: SessionMark | null): Promise<void> => {
+    (s: Session, m: SessionMark | null, waitMs = CROSSFADE_MS): Promise<void> => {
       flushSync(() => setOver({ id: s.id, mark: m }));
       inFlight.current.set(s.id, (inFlight.current.get(s.id) ?? 0) + 1);
       // one promise per write (a second `mutate` on the same observer drops the first one's callbacks)
-      const w = afterPaint(() => mark.mutateAsync({ session: s, mark: m }), CROSSFADE_MS + 17);
-      w.catch(() => setOver((o) => (o?.id === s.id && o.mark === m ? null : o))).finally(() => {
+      const w = afterPaint(() => mark.mutateAsync({ session: s, mark: m }), waitMs + 17);
+      // a refusal takes the card back and says so (code review 3 #3): the error replaces a Skip's Undo toast
+      w.catch(() => {
+        setOver((o) => (o?.id === s.id && o.mark === m ? null : o));
+        toast(refusedMark(s, m));
+      }).finally(() => {
         inFlight.current.set(s.id, Math.max(0, (inFlight.current.get(s.id) ?? 1) - 1));
         setSettled((n) => n + 1);
       });
       return w;
     },
-    [mark],
+    [mark, toast],
   );
   return { log, markNow };
 };
@@ -319,21 +328,20 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
   return (
     <AnimatePresence initial={false} mode="popLayout">
       <motion.div key={evening ? 'close' : 'day'} className="hero-swap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
-        {evening ? <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} /> : <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} markNow={markNow} />}
+        {evening ? <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} markNow={markNow} /> : <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} markNow={markNow} />}
       </motion.div>
     </AnimatePresence>
   );
 });
 
 /** The 184 card (304 landed): every face but the evening's. The run landing (§6.1) plays on it. */
-const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: (s: Session, m: SessionMark | null) => Promise<void> }) => {
+const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: MarkNow }) => {
   const nav = useNav();
   const sheet = useSheet();
   const toast = useToast();
   const openSession = useOpenSession(log);
   const openUnplanned = useOpenUnplanned();
   const act = useSessionActions(log);
-  const { mark } = useSessionMutations();
   const [boost, setBoost] = useState(false);
   const isToday = date === log.today;
   const hero = useRef<HTMLElement | null>(null);
@@ -376,14 +384,17 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
     open();
   };
   const share = () => sheet.open({ title: 'Share', body: <ShareSheet data={shareFor(date, lead?.session ?? null, runs, log)} initial={runs.some((r) => r.polyline) ? 'route' : runs.length ? undefined : 'bubble'} /> });
-  const setMark = (s: Session, m: SessionMark | null) => mark.mutate({ session: s, mark: m });
-  /** The session done by hand (the ring, or Done in the menu): the day's one success for it, the halo blooms. */
+  /**
+   * The session done by hand (the ring, or Done in the menu): the day's one success for it, the halo blooms. The face
+   * crossfades to `done by hand` in its own small render on the completion's frame, with the ring's check (`markNow`: the
+   * month's write re-renders every page, which at 4× held the face 0.5–0.9 s behind the check; code review 3 #2, feel
+   * review 3 #2), and the write waits out the check's swap. A write that fails takes the check and the face back, with an
+   * error toast (the promise).
+   */
   const complete = (s: Session) => {
     markSuccess(s.id);
     setBoost(true);
-    // the ring shows its check from its own latch at once, and the write goes after that frame is painted (it re-renders
-    // every page in a synchronous store update); a write that fails takes the check back (the promise)
-    return afterPaint(() => mark.mutateAsync({ session: s, mark: 'done' }));
+    return markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS));
   };
   // the face crossfades to Skipped. first (its own render), then the toast, then the write (markNow)
   const skip = (s: Session) => {
@@ -399,7 +410,8 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       const s = lead.session;
       const byHand = s.mark === 'done' || s.mark === 'floor';
       const future = date > log.today;
-      if (byHand) list.push({ label: 'Not done', onSelect: () => setMark(s, null) });
+      // Not done answers on the card too (the check fades out with the face; day review 3 #5)
+      if (byHand) list.push({ label: 'Not done', onSelect: () => void markNow(s, null).catch(() => undefined) });
       else if (!future && lead.key !== 'done' && lead.key !== 'floor')
         list.push({
           label: 'Done',
@@ -557,7 +569,7 @@ export const SecondSession = memo(function SecondSession({ date, log: real }: { 
       <AnimatePresence initial={false}>
         {open || (isToday && byHand) ? (
           <motion.span key="ring" className="ss-ring" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
-            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), markNow(s, 'done'))} onTap={() => openSession(date, s)} />
+            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS)))} onTap={() => openSession(date, s)} />
           </motion.span>
         ) : null}
       </AnimatePresence>

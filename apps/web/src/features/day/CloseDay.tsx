@@ -23,11 +23,14 @@ import { useHabitsLit } from '../habits/OrbRow';
 import { groupsOn } from '../todos/groups';
 import { shortClock } from './dayWords';
 import { floorShort } from './faces';
-import { HoldRing, settleAt, settleVelAt } from './HoldRing';
+import { HoldRing, MORPH_MS, settleAt, settleVelAt } from './HoldRing';
+import type { MarkNow } from './Hero';
+import { refusedMark } from './marks';
 import { watchJournalAdd } from './journalGuard';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
 import { afterPaint, useReleaseTap } from './release';
 import { markSuccess } from './useStravaLanding';
+import { keepAboveKeyboard, revealBox } from './reveal';
 import { saveFocus, useFocus } from './WordSheet';
 
 /*
@@ -112,8 +115,9 @@ const runWords = (log: Log, date: ISODate, p: PhaseSession): string => {
 };
 
 /** The run row (§5 step 2): 60, the session's stamp and how it went; the 40 px ring while it is open. The words open the sheet. */
-const RunRow = ({ date, log, p, onOpen, still }: { date: ISODate; log: Log; p: PhaseSession; onOpen: () => void; still: boolean }) => {
+const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: Log; p: PhaseSession; onOpen: () => void; still: boolean; markNow?: MarkNow }) => {
   const { mark } = useSessionMutations();
+  const toast = useToast();
   const s = p.session;
   const open = p.key === 'today';
   const done = p.key === 'done' || p.key === 'floor';
@@ -131,7 +135,12 @@ const RunRow = ({ date, log, p, onOpen, still }: { date: ISODate; log: Log; p: P
           done={done}
           onComplete={() => {
             markSuccess(s.id);
-            return afterPaint(() => mark.mutateAsync({ session: s, mark: 'done' }));
+            // the row's words and the MI stamp answer on the card with the check (the hero's override: its own small render),
+            // the write after the swap (feel review 3 #2); a refusal takes them back and says so (code review 3 #3)
+            if (markNow) return markNow(s, 'done', MORPH_MS);
+            const w = afterPaint(() => mark.mutateAsync({ session: s, mark: 'done' }));
+            w.catch(() => toast(refusedMark(s, 'done')));
+            return w;
           }}
           onTap={onOpen}
         />
@@ -273,6 +282,16 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
   const [leaving, setLeaving] = useState<'write' | 'read' | null>(null);
   const writeEl = useRef<HTMLDivElement>(null);
   const readEl = useRef<HTMLDivElement>(null);
+  /*
+   * What leaves on Save is a still copy of the field as it was pressed: the words and the Save button, taken in the Save task
+   * before the Composer's own update (it empties itself and shows `✓ Saved` in that task). Fading out the live Composer
+   * showed the empty prompt and the pill for the crossfade, which read as a lost save (feel review 3 #1); the entry is the
+   * answer (§0.4). The copy is inert and hidden from assistive tech; the Composer itself unmounts in the Save's commit.
+   */
+  const stillEl = useRef<HTMLDivElement>(null);
+  const still = useRef<HTMLElement | null>(null);
+  // the composer takes the focus when `Add to it` opens it, never when a refusal brings it back (code review 3 #4)
+  const [focusOnOpen, setFocusOnOpen] = useState(false);
   const swap = (to: boolean) => {
     flipFrom.current = cardOf()?.offsetHeight ?? 0;
     setLeaving(to ? 'read' : 'write');
@@ -282,6 +301,7 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
     if (!alive.current) return;
     // a keyboard user whose focus we moved to `Add to it` gets the field back
     if (readEl.current?.contains(document.activeElement)) focusTo.current = 'field';
+    setFocusOnOpen(false);
     setJustSaved(null);
     onRefused();
     if (!writing) swap(true);
@@ -294,8 +314,11 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
       first.current = false;
       return;
     }
+    // the field's still copy goes in the leaving layer's place before its first frame
+    if (!writing && stillEl.current && still.current) stillEl.current.replaceChildren(still.current);
+    still.current = null;
     const inEl = writing ? writeEl.current : readEl.current;
-    const outEl = writing ? readEl.current : writeEl.current;
+    const outEl = writing ? readEl.current : (stillEl.current ?? writeEl.current);
     const ms = CROSSFADE_MS;
     // a swap back before the last one ended (a refusal inside the crossfade) reuses the leaving layer: its forwards-filled
     // fade-out would outlast the new fade-in and hold it at 0 (code review 2 #1)
@@ -351,11 +374,17 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
       onPointerDownCapture={() => (via.current = 'pointer')}
       onKeyDownCapture={() => (via.current = 'other')}
       onFocusCapture={(e) => {
-        if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) revealField(e.target);
+        // the composer's whole box (the field and Save) above the keyboard, and kept there as the field grows (day review 3 #3)
+        if (e.target instanceof HTMLTextAreaElement) revealBox(e.target.closest<HTMLElement>('.cd-composer'));
+        else if (e.target instanceof HTMLInputElement) revealField(e.target);
+      }}
+      onInput={(e) => {
+        if (e.target instanceof HTMLTextAreaElement) keepAboveKeyboard(e.target.closest<HTMLElement>('.cd-composer'));
       }}
     >
-      {writing || leaving === 'write' ? (
-        <div ref={writeEl} key="write" className="cd-write" data-leaving={leaving === 'write' || undefined}>
+      {!writing && leaving === 'write' ? <div ref={stillEl} key="write-still" className="cd-write" data-leaving aria-hidden="true" inert /> : null}
+      {writing ? (
+        <div ref={writeEl} key="write" className="cd-write">
             <Suspense fallback={<div className="cd-quote-slot" aria-hidden="true" />}>
               <QuoteLine
                 date={date}
@@ -373,8 +402,25 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
                 placeholder={CLOSE_ASK}
                 toast={false}
                 inputRef={field}
-                autoFocus={logged.length > 0}
+                autoFocus={focusOnOpen}
                 onSaved={() => {
+                  // the field as pressed, before the Composer's own update reaches the DOM (a controlled textarea's value is
+                  // not cloned: it is set on the copy)
+                  const w = writeEl.current;
+                  if (w) {
+                    const copy = document.createElement('div');
+                    copy.className = 'cd-write-still';
+                    for (const n of w.childNodes) copy.appendChild(n.cloneNode(true));
+                    const src = w.querySelectorAll('textarea');
+                    copy.querySelectorAll('textarea').forEach((ta, i) => {
+                      ta.value = src[i]?.value ?? '';
+                      ta.readOnly = true;
+                      ta.tabIndex = -1;
+                      ta.removeAttribute('id');
+                    });
+                    copy.querySelectorAll('button, a, [tabindex]').forEach((b) => b.setAttribute('tabindex', '-1'));
+                    still.current = copy;
+                  }
                   // the keyboard goes down with the words, and nothing in the leaving layer keeps the focus (the midnight rule
                   // sees no field in use, and the layer's removal later is no "activity")
                   const a = document.activeElement;
@@ -385,6 +431,7 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
                   const { text } = watchJournalAdd(qc, date, { toast, onRefused: () => refused.current() });
                   flushSync(() => {
                     keep();
+                    setFocusOnOpen(false);
                     if (text) setJustSaved({ text, at: new Date().toISOString() });
                     swap(false);
                     onSaved();
@@ -407,7 +454,10 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
             <Pressable
               className="cd-addto"
               press="surface"
-              onPress={() => swap(true)}
+              onPress={() => {
+                setFocusOnOpen(true);
+                swap(true);
+              }}
               label="Add to it"
             >
               <PenLine size={16} aria-hidden="true" /> Add to it
@@ -546,7 +596,7 @@ const AlarmRow = ({ log }: { log: Log }) => {
  * 6. `Share the day`; 7. Today's read when there is a pick.
  * A neighbour's copy (`still`) shows the day only: no composer, no rows to act on.
  */
-export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODate; log: Log; ph: DayPhase | null; onOpenSession: (p: PhaseSession) => void; still?: boolean; asHero?: boolean }): React.JSX.Element => {
+export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { date: ISODate; log: Log; ph: DayPhase | null; onOpenSession: (p: PhaseSession) => void; still?: boolean; asHero?: boolean; markNow?: MarkNow }): React.JSX.Element => {
   const sheet = useSheet();
   const todos = useTodos();
   const pick = usePick(log.today, !still);
@@ -607,7 +657,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODat
       ) : line ? (
         <p className="cd-line">{line}</p>
       ) : null}
-      {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} /> : null}
+      {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} markNow={markNow} /> : null}
       {still ? null : (
         <>
           <ComposeBox

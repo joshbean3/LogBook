@@ -3,7 +3,6 @@ import { PenLine, Share } from 'lucide-react';
 import type * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { revealField } from '@/lib/keyboard';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -13,6 +12,7 @@ import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { watchJournalAdd } from './journalGuard';
 import { dayMiles, weekMiles } from './miles';
+import { keepAboveKeyboard, revealBox } from './reveal';
 
 const timeOf = (iso: string) => {
   const d = new Date(iso);
@@ -48,20 +48,26 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
     focusTo.current = null;
     add.current?.focus({ preventScroll: true });
   }, [writing]);
+  // the words as saved, on the card at once in the entry's place until the month carries the entry: the journal's write
+  // re-renders every page, and at 4× the words were nowhere for 0.6 s (code review 3 #5); as the Close card's `justSaved`
+  const [justSaved, setJustSaved] = useState<{ text: string; at: string } | null>(null);
   const saved = () => {
     const keyboard = via.current !== 'pointer';
     if (keyboard) focusTo.current = 'add';
-    watchJournalAdd(qc, date, {
+    const { text } = watchJournalAdd(qc, date, {
       toast,
       onRefused: () => {
         if (!alive.current) return;
+        setJustSaved(null);
         setAutoFocus(keyboard);
         setWriting(true);
       },
     });
+    if (text) setJustSaved({ text, at: new Date().toISOString() });
     setWriting(false);
   };
-  const entries = log.snap.journalOn(date);
+  const logged = log.snap.journalOn(date);
+  const entries = justSaved && !logged.some((e) => e.text.trim() === justSaved.text.trim()) ? [{ id: 'just-saved', text: justSaved.text, createdAt: justSaved.at }, ...logged] : logged;
   const runs = log.snap.runsOn(date);
   const share = () => {
     const lead = log.snap.sessionsOn(date).find((s) => s.kind !== 'rest') ?? null;
@@ -87,11 +93,13 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
         </div>
       ) : null}
       {writing ? (
-        // §5.1: the field is scrolled above the keyboard on focus (code review 1 #5)
+        // §5.1: the composer is scrolled above the keyboard on focus (code review 1 #5)
         <div
           className="td-composer"
           data-no-page=""
-          onFocusCapture={(e) => e.target instanceof HTMLTextAreaElement && revealField(e.target)}
+          // the box (the field and Save), not the field alone: Save sat under the keyboard (day review 3 #3)
+          onFocusCapture={(e) => e.target instanceof HTMLTextAreaElement && revealBox(e.currentTarget)}
+          onInput={(e) => keepAboveKeyboard(e.currentTarget)}
           onPointerDownCapture={() => (via.current = 'pointer')}
           onKeyDownCapture={() => (via.current = 'other')}
         >

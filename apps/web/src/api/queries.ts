@@ -220,9 +220,9 @@ export interface CoachReadAnswer {
 /**
  * The existing `POST /coach/read` (`{ date, sessionId }`). The answer joins the month's cached payload in place: the same
  * object, so no observer is told and no mounted page rebuilds its snapshot for one sentence (that write was a 160 ms task at
- * 1× and 800 ms at 4× just after the landing; day review 2 #7). Later renders (the session sheet, a reload's persisted cache
- * once anything else is written, the next fetch from the server, which has stored it) read it there; the hero shows it at
- * once through the caller (`features/day/coachShown.ts`).
+ * 1× and 800 ms at 4× just after the landing; day review 2 #7). Later renders and the next fetch from the server (which has
+ * stored it) read it there; the caller also puts it in `features/day/coachShown.ts`, a small kept store the landed deck and
+ * the session sheet read, so an open sheet and a cold open show it at once (code review 3 #1, day review 3 #1).
  */
 export const fetchCoachRead = async (qc: QueryClient, date: string, sessionId: string | null): Promise<CoachReadAnswer> => {
   const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId } });

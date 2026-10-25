@@ -4,7 +4,7 @@ import type * as React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FILL_MS, HOLD_SLOP_PX } from '@/lib/gesture';
 import { hapticAtPeak, haptics } from '@/lib/haptics';
-import { forScale, springs } from '@/lib/motion';
+import { crossfade, forScale, springs } from '@/lib/motion';
 
 /** How long the thumb rests on the ring before the session counts as done (`FILL_MS`). */
 export const HOLD_TO_COMPLETE_MS = FILL_MS;
@@ -169,9 +169,13 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
       setDone(false);
       selfMorph.current = false;
       if (g.current) return;
-      d.morph.jump(0);
-      d.check.jump(CHECK_FROM);
       if (!mount) p.set(0);
+      // a check taken back (Not done, a refused write) crossfades back into the empty ring with the face (150 ms), never
+      // leaves in one frame (code review 3 #2, #3); a new hold meanwhile takes the value over (motion stops this animation)
+      if (mount || reduce || d.morph.get() <= 0) {
+        d.morph.jump(0);
+        d.check.jump(CHECK_FROM);
+      } else void animate(d.morph, 0, { ...crossfade, onComplete: () => d.check.jump(CHECK_FROM) });
     }
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
   // the three values are written to the node on their change, synchronously (not through motion's next-frame style batch),
