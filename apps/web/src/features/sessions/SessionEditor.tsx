@@ -9,6 +9,7 @@ import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
 import { DayPicker } from './DayPicker';
+import { PressButton } from './PressButton';
 
 const KIND_LABEL: Record<SessionKind, string> = { run: 'Run', lift: 'Lift', cross: 'Cross', rest: 'Rest' };
 const KIND_ORDER: SessionKind[] = ['run', 'lift', 'cross', 'rest'];
@@ -81,14 +82,12 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
     if (k === 'cross' || k === 'lift') setMinutes((m) => m ?? 45);
   };
   const pickType = (t: string) => {
-    haptics.select();
     setType(t);
     // a fresh run takes its type's usual distance; an edited one keeps what it had
     if (kind === 'run' && (isNew || miles == null)) setMiles(DEFAULT_MILES[t] ?? miles ?? 5);
   };
   const repeat = () => {
     if (!last) return;
-    haptics.toggle();
     setType(last.type ?? type);
     setMiles(last.miles);
     setMinutes(last.minutes);
@@ -98,7 +97,6 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
   const floorMin = kind === 'run' ? floorMinutes({ kind, type }) : null;
   const floorOnly = kind === 'run' && miles == null && minutes != null && minutes === floorMin;
   const toggleFloor = () => {
-    haptics.toggle();
     if (floorOnly) {
       setMinutes(null);
       setMiles(DEFAULT_MILES[type] ?? 4);
@@ -108,7 +106,6 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
     }
   };
   const toggleEx = (n: string) => {
-    haptics.toggle();
     setExercises((xs) => (xs.includes(n) ? xs.filter((x) => x !== n) : [...xs, n]));
   };
   const addEx = () => {
@@ -133,10 +130,9 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
         miles: kind === 'run' ? miles : null,
         minutes: kind === 'rest' ? null : minutes,
       });
-      haptics.success();
+      // the sheet closing onto the changed row is the answer: no haptic, no toast without an Undo (§8, §11.4)
       if (depth > 1) sheet.pop();
       else sheet.close();
-      toast(isNew ? `Added to ${fmtDate('short', d)}` : d !== date ? `Moved to ${fmtDate('short', d)}` : 'Saved');
     } catch (err) {
       haptics.error();
       toast(err instanceof ApiError ? err.message : 'Not saved. Try again.');
@@ -159,10 +155,10 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
       </div>
       <Segmented label="Kind" options={KIND_ORDER.map((k) => [k, KIND_LABEL[k]] as [SessionKind, string])} value={kind} onChange={pickKind} />
       {lastWords ? (
-        <button type="button" className="pl-chip ed-repeat" onClick={repeat}>
+        <PressButton className="pl-chip ed-repeat" onClick={repeat}>
           <Repeat size={16} aria-hidden="true" />
           {lastWords}
-        </button>
+        </PressButton>
       ) : null}
       {types.length ? (
         <div className="ed-group">
@@ -171,10 +167,10 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
           </span>
           <div className="ed-chips" role="radiogroup" aria-labelledby="ed-type">
             {types.map((t) => (
-              <button key={t} type="button" role="radio" aria-checked={type === t} className={`pl-chip ${type === t ? 'on' : ''}`} onClick={() => pickType(t)}>
+              <PressButton key={t} role="radio" aria-checked={type === t} className={`pl-chip ${type === t ? 'on' : ''}`} onClick={() => pickType(t)}>
                 {kind === 'run' ? <i className={`ed-dot t-${tone({ kind, type: t })}`} aria-hidden="true" /> : null}
                 {t}
-              </button>
+              </PressButton>
             ))}
           </div>
         </div>
@@ -188,9 +184,9 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
             <Stepper label="Miles" value={miles ?? 0} onChange={(v) => setMiles(v)} step={0.5} min={0.5} max={50} format={fmtMi} parse={parseMi} inputProps={{ inputMode: 'decimal' }} />
           )}
           {floorMin ? (
-            <button type="button" role="switch" aria-checked={floorOnly} className={`pl-chip ${floorOnly ? 'on' : ''}`} onClick={toggleFloor}>
+            <PressButton role="switch" aria-checked={floorOnly} className={`pl-chip ${floorOnly ? 'on' : ''}`} onClick={toggleFloor}>
               Floor only · {floorMin} min
-            </button>
+            </PressButton>
           ) : null}
         </div>
       ) : null}
@@ -201,9 +197,9 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
           </span>
           <div className="ed-chips" role="group" aria-labelledby="ed-ex">
             {[...new Set([...exercises, ...names])].map((n) => (
-              <button key={n} type="button" role="checkbox" aria-checked={exercises.includes(n)} className={`pl-chip ${exercises.includes(n) ? 'on' : ''}`} onClick={() => toggleEx(n)}>
+              <PressButton key={n} role="checkbox" aria-checked={exercises.includes(n)} className={`pl-chip ${exercises.includes(n) ? 'on' : ''}`} onClick={() => toggleEx(n)}>
                 {n}
-              </button>
+              </PressButton>
             ))}
           </div>
           <div className="ed-add">
@@ -222,7 +218,7 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
       ) : null}
       <div className="ed-group">
         <span className="ed-label">Day</span>
-        <DayPicker value={d} onPick={(x) => (haptics.select(), setD(x))} origin={session && !restore ? session.date : undefined} skipId={session?.id} />
+        <DayPicker value={d} onPick={(x) => setD(x)} origin={session && !restore ? session.date : undefined} skipId={session?.id} />
       </div>
       {kind !== 'rest' ? (
         <div className="ed-group">

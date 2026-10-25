@@ -1,99 +1,198 @@
-import { EVENING_START, fmtDate, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
-import { useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router';
-import { DatePager, DayStepper, dayCaption, Skeleton, SkeletonGroup, TabHeader, useSheet } from '@/ui';
-import { OrbRow } from '../habits/OrbRow';
-import { StravaPrimer, useStravaPrimer } from '../onboarding';
+import { dayKey, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMotionValueEvent } from 'motion/react';
+import type * as React from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { useHomeControl, useIsActiveTab, useNav, useRootRequest, useRouteParams } from '@/app/NavController';
+import { useToday, TodayHold } from '@/lib/useToday';
+import { hasDraft, subscribeDrafts } from '../journal/drafts';
+import { stravaSyncNow, useMorningMutations } from '@/api/queries';
+import { Avatar } from '@/ui/Avatar';
+import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
+import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, TodayPill, type StripStatus } from '@/ui/NavBar';
+import { REFRESH } from '@/ui/nav';
+import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
-import { useOpenSession } from '../sessions/SessionCard';
-import { TodayTodos } from '../todos/TodayTodos';
-import { CloseDay } from './CloseDay';
-import { FocusStrip } from './FocusStrip';
-import { dayTitleWord } from './dayWords';
-import { Hero, phaseOf } from './Hero';
-import { PlanEnd } from './PlanEnd';
-import { SetupCard } from './SetupCard';
-import { useNowMinutes } from './useNow';
+import { useOpenCalendar } from './Calendar';
+import { DayPage } from './DayPage';
+import { setLiveDate, setPagerMoving } from './live';
+import { morningLineId, morningPath } from './Hero';
+import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { useStravaPull } from './useStravaPull';
-import { CalendarSheet } from './Calendar';
+import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
 
-/** The shape of Today while the months load: the header's word, the hero, the orbs, two rows. */
-const TodaySkeleton = () => (
-  <SkeletonGroup label="Loading today">
-    <Skeleton h={232} r="card" />
-    <div className="orbs-skel">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <Skeleton key={i} circle h={56} />
-      ))}
-    </div>
-  </SkeletonGroup>
-);
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+/** Test builds expose the pager and the page's date to the acceptance scripts (`window.__pager`, `window.__today`). */
+const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
+type TodayHooks = { date: () => string; today: () => string; setDate: (d: string) => void; renders: number; pageRenders: number };
+const hooks = (TEST_HOOKS ? ((window as unknown as { __today?: TodayHooks }).__today ??= { date: () => '', today: () => '', setDate: () => {}, renders: 0, pageRenders: 0 }) : null) as TodayHooks | null;
+const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: 'done', bonus: 'bonus', floor: 'floor', planned: 'planned', today: 'planned', missed: 'missed', skipped: 'skipped' };
 
 /**
- * Today (docs/experience.md §5.1): the screen opened twice a day. Top to bottom: the header (date line, the day's word,
- * avatar), the time-aware hero (swipe it for other days), the habit orbs, the top three to-dos, and Close the day in the
- * evening. Nothing repeats the hero; every status word comes from `dayPhase` / `sessionWord`.
+ * Today (docs/feel.md §2, §3; build-plan §3.2 item 1): the tab root. One page element whose first content is the bar
+ * (`NavBar`, a fragment: the sticky bar with the owner's word and the date part, the large title, the sticky `DateStrip`,
+ * the gap), then the `DayPager` rendering a `DayPage` for prev, cur and next.
+ *
+ * - The date is page state: read once from the route, mirrored into the URL with `nav.replace` on every commit (no history
+ *   entry), and changed from outside only through `useRootRequest` (a jump cuts to the date; on an active Today the pager
+ *   slides). The lit tab re-tapped off today slides home (`useHomeControl`).
+ * - Three ways to change the day (§0.1): swipe anywhere under the bar (the strip and the large title row are attached to the
+ *   pager), tap a strip cell, come home (the title block, the Today pill, today's cell, the lit tab). The calendar is a jump
+ *   behind the title's hold menu (`Change the word · Clear the word · Go to a day…`).
+ * - The bar's stacked labels follow the pager's `progress` with no render; during a 2–7 day `goTo` the label in the direction
+ *   of travel shows the destination (`handle.target`: one render at the start of the slide).
  */
-export default function DayView() {
-  const params = useParams();
-  const nav = useNavigate();
-  const sheet = useSheet();
+/**
+ * The trailing slot's two occupants (§2.4): the avatar on today, the Today pill off it, both mounted, crossfading 120 ms by a
+ * CSS transition that starts on the commit's own frame. Through NavBar's keyed swap the fade started a frame after the
+ * commit's render (motion schedules it on the next frame), which at 4× put the avatar back 165–300 ms after the slide's rest
+ * (§14 20: 150). The hidden one is `inert` and leaves the accessibility tree.
+ */
+function TrailSwap({ home, onHome }: { home: boolean; onHome: () => void }): React.JSX.Element {
+  return (
+    <span className="trail-swap">
+      <span className="trail-swap-item" data-on={home || undefined} inert={!home || undefined} aria-hidden={!home || undefined}>
+        <Avatar />
+      </span>
+      <span className="trail-swap-item" data-on={!home || undefined} inert={home || undefined} aria-hidden={home || undefined}>
+        <TodayPill onPress={onHome} />
+      </span>
+    </span>
+  );
+}
+
+export default function DayView(): React.JSX.Element {
+  // the day the tab treats as today: held past midnight until the rollover may apply (§5.4, useDeferred)
+  const live = useToday();
+  const [held, setHeld] = useState(live);
+  const roll = useRef<(to: ISODate) => void>(setHeld);
+  useEffect(() => {
+    if (held === live) return;
+    return deferChange({ kind: 'day', ready: () => !hasDraft(held), apply: () => roll.current(live) });
+  }, [held, live]);
+  // the rule is re-asked when a draft is written or cleared (it still needs its idle minute, a tab change or a return)
+  useEffect(() => subscribeDrafts(recheckDeferred), []);
+  return (
+    <TodayHold value={held}>
+      <TodayRoot roll={roll} setHeld={setHeld} />
+    </TodayHold>
+  );
+}
+
+function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => void>; setHeld: (d: ISODate) => void }): React.JSX.Element {
+  const params = useRouteParams();
+  const nav = useNav();
+  const qc = useQueryClient();
+  const handle = useDayPagerHandle();
   const base = useLog([]);
-  const t = base.today;
-  const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : t;
-  const months = useMemo(() => [...new Set([monthOf(shiftDays(date, -7)), monthOf(date), monthOf(shiftDays(date, 7)), monthOf(mondayOf(date)), monthOf(shiftDays(date, 14))])], [date]);
-  const log = useLog(months);
-  const minutes = useNowMinutes();
-  const openSession = useOpenSession(log);
+  const today = base.today;
+  const [date, setDate] = useState<ISODate>(() => (params.date && ISO.test(params.date) ? params.date : today));
+  const dateRef = useRef(date);
+  dateRef.current = date;
+  const todayRef = useRef(today);
+  todayRef.current = today;
+
+  // the strip's week: its own memoised log (the pages keep theirs)
+  const stripMonths = useMemo(() => [...new Set([monthOf(mondayOf(date)), monthOf(shiftDays(mondayOf(date), 6))])], [date]);
+  const log = useLog(stripMonths);
+  const focus = useFocus();
+  const { settings } = useMorningMutations();
+  const openWord = useOpenWordSheet();
   useStravaPull(!!log.strava?.connected);
-  const primer = useStravaPrimer();
-  const go = (d: ISODate) => nav(d === t ? '/today' : `/today/${d}`);
-  const loaded = log.loaded(date) && !!log.boot;
-  const ph = useMemo(() => (loaded ? phaseOf(log, date, minutes) : null), [loaded, log, date, minutes]);
-  const isToday = date === t;
-  const runs = log.snap.runsOn(date);
 
-  // the first day: nothing planned around today, no runs, and no habits or no plan yet
-  const around = useMemo(() => Array.from({ length: 22 }, (_, i) => shiftDays(t, i - 7)), [t]);
-  const hasPlan = around.some((d) => log.snap.sessionsOn(d).length > 0);
-  const hasRuns = around.some((d) => log.snap.activitiesOn(d).length > 0);
-  const setup = loaded && isToday && !hasRuns && (!hasPlan || !log.habits.length) && !log.snap.journalOn(t).length;
+  // a cold open: the Strava check starts with the first frame from the persisted bootstrap (stravaSyncNow keeps one per 30 s)
+  useEffect(() => {
+    if (base.boot?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
+    // once, on the first frame that has a bootstrap
+  }, [!!base.boot]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openCalendar = () => sheet.open({ eyebrow: 'Go to a day', title: fmtDate('long', date), body: <CalendarSheet date={date} onPick={go} /> });
-  const multi = (ph?.training.length ?? 0) > 1;
-  const closeAtEnd = loaded && ((isToday && minutes >= EVENING_START && ph?.phase !== 'evening') || date < t);
-  const showHabits = isToday || (date < t && log.habits.some((h) => h.createdOn <= date));
+  if (hooks) {
+    hooks.renders++;
+    hooks.date = () => dateRef.current;
+    hooks.today = () => todayRef.current;
+    hooks.setDate = (d: string) => {
+      setDate(d);
+      nav.replace(d === todayRef.current ? '/today' : `/today/${d}`);
+    };
+    (window as unknown as { __pager?: unknown }).__pager = handle;
+  }
+
+  const commit = useCallback(
+    (d: ISODate) => {
+      setDate(d);
+      nav.replace(d === todayRef.current ? '/today' : `/today/${d}`);
+    },
+    [nav],
+  );
+  const goHome = useCallback(() => handle.goTo(todayRef.current), [handle]);
+  // the live page (its once-a-day moments, the nudge, the splash) follows the date in the commit's own layout phase
+  useLayoutEffect(() => setLiveDate(date), [date]);
+  useEffect(() => setPagerMoving(() => handle.moving.get()), [handle]);
+  useRootRequest((p, how) => {
+    const d = p.date && ISO.test(p.date) ? p.date : todayRef.current;
+    if (how.cut) setDate(d);
+    else handle.goTo(d);
+  });
+  useHomeControl({ atHome: date === today, goHome });
+  // the rollover (§5.4): the held day becomes the new today; a page that showed the held today crossfades to the new one
+  roll.current = (to: ISODate) => {
+    const wasToday = dateRef.current === todayRef.current;
+    flushSync(() => setHeld(to));
+    if (wasToday) {
+      handle.goTo(to, { mode: 'crossfade' });
+      nav.replace('/today');
+    }
+  };
+  const active = useIsActiveTab();
+  useEffect(() => setTodayActive(active), [active]);
+
+  const openCalendar = useOpenCalendar({ mode: 'day', value: date, onPick: (d) => handle.goTo(d) });
+  const titleMenu = (): ContextMenuItem[] => [
+    { label: 'Change the word', onSelect: openWord },
+    // the settings patch takes the whole focus (word, sentence, by): only the word is cleared
+    { label: 'Clear the word', disabled: !focus.word.trim(), onSelect: () => saveFocus(settings, { word: '', quote: focus.quote, by: focus.by }) },
+    { label: 'Go to a day…', onSelect: openCalendar },
+  ];
+
+  // the destination of a 2–7 day goTo shows in the label in its direction (one render at its start, one at its end)
+  const [tgt, setTgt] = useState<string | null>(null);
+  useMotionValueEvent(handle.target, 'change', setTgt);
+  const prev = tgt && tgt < date ? tgt : shiftDays(date, -1);
+  const next = tgt && tgt > date ? tgt : shiftDays(date, 1);
+
+  const stripRef = useRef<HTMLElement | null>(null);
+  const titleRef = useRef<HTMLElement | null>(null);
+  useEffect(() => handle.attach([stripRef.current, titleRef.current]), [handle]);
+
+  const statusOf = (d: string): StripStatus => (log.loaded(d) ? (STRIP[dayKey(log.snap, d)] ?? null) : null);
+  const onMorning = useCallback((d: ISODate) => nav.push(morningPath(d), { shared: morningLineId(d) }), [nav]);
+  const render = useCallback((d: string, live: boolean) => <DayPage date={d} live={live} onMorning={onMorning} />, [onMorning]);
 
   return (
-    <div className="page today">
-      {/* the word and sentence you chose: always first, until you change it */}
-      <FocusStrip />
-      <TabHeader
-        title={loaded && !setup ? dayTitleWord(ph, runs) : 'Today'}
-        date={dayCaption(date, t)}
-        onDatePress={openCalendar}
-        onDateStep={(d) => go(shiftDays(date, d))}
-        dateLabel={`${fmtDate('long', date)}. Pick a day`}
-        accessory={<DayStepper date={date} today={t} onGo={go} />}
-      />
-      {!loaded ? (
-        <TodaySkeleton />
-      ) : setup ? (
-        <SetupCard log={log} hasPlan={hasPlan} />
-      ) : (
-        <DatePager className="hero-pager" date={date} onChange={go} disabled={multi} label="Day" prevLabel="Previous day" nextLabel="Next day" render={(d) => <Hero date={d} log={log} minutes={minutes} live={d === date} />} />
-      )}
-      {loaded && !setup ? <PlanEnd log={log} date={date} today={t} /> : null}
-      {/* after first run (and until Later): "See your runs land here", under the hero; the setup card has its own Strava step */}
-      {loaded && isToday && !setup && primer.show ? <StravaPrimer className="today-primer" onLater={primer.later} /> : null}
-      {loaded && showHabits && !(setup && !log.habits.length) ? <OrbRow date={date} log={log} quiet={isToday && minutes >= EVENING_START} /> : null}
-      {loaded && isToday ? <TodayTodos date={date} /> : null}
-      {closeAtEnd ? (
-        <div className="sec-primary">
-          <CloseDay date={date} log={log} ph={ph} onOpenSession={(p) => openSession(date, p.session, { fromHero: true })} />
-        </div>
-      ) : null}
+    <div className="page-root today-root">
+      <NavBar
+        word={capsWord(focus.word)}
+        caps={{ prev: dayCaption(prev, today), cur: dayCaption(date, today), next: dayCaption(next, today) }}
+        title={{ prev: dayTitle(prev, today), cur: dayTitle(date, today), next: dayTitle(next, today) }}
+        progress={handle.progress}
+        trailing={<TrailSwap key="trail" home={date === today} onHome={goHome} />}
+        onTitlePress={() => {
+          if (dateRef.current !== todayRef.current) goHome();
+        }}
+        titleMenu={titleMenu}
+        titleLabel={date === today ? 'Today' : `${dayTitle(date, today)}. Go to today`}
+        titleRef={titleRef}
+        gap={16}
+      >
+        <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} onPick={(d) => handle.goTo(d)} />
+      </NavBar>
+      <DayPager date={date} step="day" handle={handle} onCommit={commit} render={render} label="Day" prevLabel="Previous day" nextLabel="Next day" />
+      {/* pull to refresh's keyboard and VoiceOver path (WP1's request): the same REFRESH a committed pull fires */}
+      <button type="button" className="dpager-sr" onClick={() => window.dispatchEvent(new CustomEvent(REFRESH))}>
+        Check for new runs
+      </button>
     </div>
   );
 }

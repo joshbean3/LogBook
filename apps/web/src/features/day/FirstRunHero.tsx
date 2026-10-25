@@ -15,7 +15,7 @@ const ROWS: Array<{ key: FirstRunAction; title: string; icon: React.JSX.Element 
  * The first-run face of Today's hero (docs/feel.md §3.2 last row, contracts §F): `SET UP YOUR DAY` and three starter rows in
  * the deck's column, 184 tall and 358 wide like every other face. It is the payoff of onboarding too (WP6's Welcome renders
  * it at the resting y of Today's hero slot), so it uses no tab-scoped hook: what each row does is the caller's `onAction`.
- * Built from the setup card (`SetupCard.tsx`), whose body Today still shows until WP2 swaps the face.
+ * Today shows it in the hero slot on the first day (`DayPage`), wired to the habits sheet, the builder and the primer.
  */
 export const FirstRunHero = ({ onAction }: { onAction: (k: FirstRunAction) => void }): React.JSX.Element => (
   <section className="aura first-run-hero halo-upcoming" aria-label="Set up your day">

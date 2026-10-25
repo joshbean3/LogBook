@@ -1,8 +1,8 @@
 import { today } from '@logbook/shared';
-import { useEffect, useState } from 'react';
+import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from 'react';
 
-/** Today's date, which rolls over while the app stays open. */
-export const useToday = () => {
+/** Today's date as the clock has it, which rolls over while the app stays open (polled every 30 s and on visibility). */
+export const useLiveToday = () => {
   const [t, setT] = useState(today);
   useEffect(() => {
     const check = () => {
@@ -17,6 +17,21 @@ export const useToday = () => {
     };
   }, []);
   return t;
+};
+
+/**
+ * The day a subtree treats as today. The Today tab holds its day past midnight until the rollover is applied (docs/feel.md
+ * §5.4, `features/day/useDeferred.ts`): inside `TodayHold` every `useToday()` (and so every `useLog`) reads the held day, so
+ * the page, its title, its caps line, the strip and the composer stay on it. Everywhere else it is the live date.
+ */
+const Held = createContext<string | null>(null);
+export const TodayHold = ({ value, children }: { value: string; children?: ReactNode }) => createElement(Held.Provider, { value }, children);
+
+/** Today's date: the held day inside `TodayHold`, else the live one (polled; `useToday` keeps polling under a hold too). */
+export const useToday = () => {
+  const held = useContext(Held);
+  const live = useLiveToday();
+  return held ?? live;
 };
 
 export const useMedia = (q: string) => {
