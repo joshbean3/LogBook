@@ -1,7 +1,7 @@
 import { fmtDate, mi, num } from '@logbook/shared';
-import { AnimatePresence, motion } from 'motion/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { fadeIn, springs, useReduced } from '@/lib/motion';
+import { motion } from 'motion/react';
+import { useCallback, useRef, useState } from 'react';
+import { useReduced } from '@/lib/motion';
 import { niceTop, useWidth } from './charts';
 import { weekTitle, type Range, type WeekPoint } from './data';
 import { useScrub } from './useScrub';
@@ -14,6 +14,7 @@ const monthOfWeek = (w: string) => up(monthShort.format(new Date(`${w}T12:00:00`
 /** Words for one week, for VoiceOver and the week buttons. */
 export const weekWords = (p: WeekPoint, today: string) => {
   const t = weekTitle(p.w, today);
+  if (p.missing) return `${t}: not loaded yet`;
   if (p.future) return `${t}: ${num(p.planned)} miles planned`;
   const ran = `${mi(p.ran)} miles in ${p.runs} ${p.runs === 1 ? 'run' : 'runs'}${p.logged > 0.05 ? `, ${mi(p.logged)} logged by hand` : ''}`;
   return `${t}${p.current ? ' so far' : ''}: ${ran}${p.planned ? `, ${num(p.planned)} planned` : ''}`;
@@ -21,7 +22,7 @@ export const weekWords = (p: WeekPoint, today: string) => {
 
 /**
  * The weekly mileage chart: run bars, ghost plan bars (outlined; dashed for weeks ahead), a four-week average line, this
- * week in blue, each series named on the chart itself. Bars move between ranges on `springs.settle`.
+ * week in blue, each series named on the chart itself. A new range crossfades in 150 ms; nothing animates a size.
  *
  * Gestures: press and slide to read a week (the parent's headline rewrites through `onScrub`); a quick tap opens it; a
  * pinch changes the range. Fallbacks: the range chips, arrow keys + Enter on the focused chart, and a hidden list of week
@@ -30,14 +31,15 @@ export const weekWords = (p: WeekPoint, today: string) => {
 export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghost }: { pts: WeekPoint[]; range: Range; today: string; onScrub: (i: number | null) => void; onOpen: (i: number) => void; onPinch?: (dir: -1 | 1) => void; ghost?: boolean }) => {
   const [wrapRef, width] = useWidth<HTMLDivElement>();
   const reduce = useReduced();
-  const settle = reduce ? { duration: 0 } : springs.settle;
   const [pinchR, setPinchR] = useState<number | null>(null);
-  // the first paint draws in place; later range changes move the bars
-  const drawn = useRef(false);
-  const firstPaint = !drawn.current;
-  useEffect(() => {
-    if (width) drawn.current = true;
-  });
+  // the first paint draws in place; a range change crossfades the new bars in. Decided per range change, never per render:
+  // the fade class goes only on a group that mounts for a new range (its key), so a scrub or a month landing re-renders
+  // the same group without restarting its fade (review code F3)
+  const firstRange = useRef<Range | null>(null);
+  const changed = useRef(false);
+  if (width && firstRange.current == null) firstRange.current = range;
+  else if (firstRange.current != null && range !== firstRange.current) changed.current = true;
+  const fade = changed.current && !reduce;
 
   const W = Math.max(220, width || 340);
   const H = CHART_H;
@@ -85,6 +87,17 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
 
   // the average: finished weeks only
   const avgPts = pts.map((p, i) => (p.avg == null ? null : ([xc(i), y(p.avg)] as const))).filter((q): q is readonly [number, number] => !!q);
+  // the line breaks where a month has not loaded: it never bridges a gap with a value it does not have
+  const avgPath = (() => {
+    let d = '';
+    let prev = -2;
+    pts.forEach((p, i) => {
+      if (p.avg == null) return;
+      d += `${i === prev + 1 ? 'L' : 'M'}${xc(i).toFixed(1)},${y(p.avg).toFixed(1)}`;
+      prev = i;
+    });
+    return d;
+  })();
   const lastAvg = [...pts].reverse().find((p) => p.avg != null)?.avg ?? null;
 
   // y grid: three quiet lines
@@ -98,7 +111,8 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
   pts.forEach((p, i) => {
     if (i === 0 || monthOfWeek(p.w) === monthOfWeek(pts[i - 1]!.w)) return;
     const x = xc(i);
-    if (xLabels.some((l) => Math.abs(l.x - x) < 30)) return;
+    // a label needs its own width and a gap: "OCT" and "NOW" must not touch at 320 (review feel F13)
+    if (xLabels.some((l) => Math.abs(l.x - x) < 36)) return;
     if (x > W - right - 8) return;
     xLabels.push({ x, text: monthOfWeek(p.w) });
   });
@@ -143,7 +157,9 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
       (['middle', 'end', 'start'] as const).flatMap((anchor) => [0, -12].map((dy) => ({ x: anchor === 'middle' ? x : anchor === 'end' ? x + bw / 2 : x - bw / 2, y: yy + dy, text: 'PLAN', anchor, cls: 'pg-lbl-plan' }))),
     );
   }
-  if (avgPts.length > 1 && lastAvg != null) {
+  // a month of the range still on its way: the label would average the gap as weeks off and change by itself when the month
+  // lands (review 2 feel N6); the broken line says enough until then
+  if (avgPts.length > 1 && lastAvg != null && !pts.some((p) => p.missing)) {
     const t = `4-WK AVG ${Math.round(lastAvg)}`;
     const cands: Lbl[] = [];
     // walk back along the line from its end: right of a point, above it, below it
@@ -182,56 +198,39 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
           </defs>
           {grid.map((v) => (
             <g key={v}>
-              <motion.line x1={left} x2={W - right + 2} initial={false} animate={{ y1: y(v), y2: y(v) }} transition={settle} className="pg-grid" />
-              <motion.text x={W} initial={false} animate={{ attrY: y(v) }} transition={settle} dy="0.32em" textAnchor="end" className="pg-ax">
+              <line x1={left} x2={W - right + 2} y1={y(v)} y2={y(v)} className="pg-grid" />
+              <text x={W} y={y(v)} dy="0.32em" textAnchor="end" className="pg-ax">
                 {v}
-              </motion.text>
+              </text>
             </g>
           ))}
           <line x1={left} x2={W - right + 2} y1={y0} y2={y0} className="pg-base" />
           <g style={{ transform: `scaleX(${pinchScale})`, transformOrigin: `${W / 2}px ${y0}px`, transition: pinchR == null ? 'transform 200ms var(--ease-out)' : 'none' }}>
             {a != null ? <rect x={xc(a) - Math.max(bw, 10) / 2 - 3} y={padTop - 10} width={Math.max(bw, 10) + 6} height={y0 - padTop + 10} rx={4} className="pg-col" /> : null}
-            <g clipPath="url(#pg-clip)">
-              <AnimatePresence initial={false}>
-                {pts.map((p, i) => {
-                  const dim = a != null && a !== i;
-                  const enter = firstPaint ? false : { attrX: xc(i) - bw / 2, attrY: y0, height: 0, width: bw, opacity: 0 };
+            {/* bars are drawn where they belong (no attribute animates: §10, only transform and opacity); a new range
+                crossfades in 150 ms, keyed on the range; a month arriving fills its weeks in place */}
+            <g key={`bars-${range}`} clipPath="url(#pg-clip)" className={fade ? 'pg-fade-in' : undefined}>
+              {pts.map((p, i) => {
+                const dim = a != null && a !== i;
+                // a week whose month has not loaded is a quiet gap: no bar, only a faint dash on the baseline (§8)
+                if (p.missing)
                   return (
-                    <motion.g key={p.w} initial={false} animate={{ opacity: dim ? 0.32 : 1 }} exit={{ opacity: 0 }} transition={{ opacity: fadeIn }}>
-                      {p.planned > 0 ? (
-                        <motion.rect
-                          className={`pg-plan ${p.future ? 'ahead' : ''}`}
-                          rx={3}
-                          initial={enter}
-                          animate={{ attrX: xc(i) - bw / 2 + 0.5, width: Math.max(1, bw - 1), attrY: y(p.planned) + 0.5, height: Math.max(0, y0 - y(p.planned)) + 6, opacity: 1 }}
-                          transition={settle}
-                        />
-                      ) : null}
-                      {p.ran > 0 ? (
-                        <motion.rect
-                          className={`pg-bar ${p.current ? 'cur' : ''}`}
-                          rx={Math.min(3, bw / 2)}
-                          initial={enter}
-                          animate={{ attrX: xc(i) - bw / 2, width: bw, attrY: y(p.ran), height: y0 - y(p.ran) + 6, opacity: 1 }}
-                          transition={settle}
-                        />
-                      ) : null}
-                      {p.logged > 0.05 ? (
-                        <motion.rect
-                          className="pg-logged"
-                          rx={Math.min(2.5, bw / 2)}
-                          initial={false}
-                          animate={{ attrX: xc(i) - bw / 2 + 1, width: Math.max(0, bw - 2), attrY: y(p.ran) + 1, height: Math.max(0, y(p.ran - p.logged) - y(p.ran) - 1) }}
-                          transition={settle}
-                        />
-                      ) : null}
-                    </motion.g>
+                    <g key={p.w} className="pg-gap" data-week={p.w}>
+                      <line x1={xc(i) - bw / 2} x2={xc(i) + bw / 2} y1={y0 - 1} y2={y0 - 1} className="pg-gap-line" />
+                    </g>
                   );
-                })}
-              </AnimatePresence>
+                return (
+                  <g key={p.w} className="pg-week" style={{ opacity: dim ? 0.32 : 1 }}>
+                    {p.planned > 0 ? <rect className={`pg-plan ${p.future ? 'ahead' : ''}`} rx={3} x={xc(i) - bw / 2 + 0.5} width={Math.max(1, bw - 1)} y={y(p.planned) + 0.5} height={Math.max(0, y0 - y(p.planned)) + 6} /> : null}
+                    {p.ran > 0 ? <rect className={`pg-bar ${p.current ? 'cur' : ''}`} rx={Math.min(3, bw / 2)} x={xc(i) - bw / 2} width={bw} y={y(p.ran)} height={y0 - y(p.ran) + 6} /> : null}
+                    {p.logged > 0.05 ? <rect className="pg-logged" rx={Math.min(2.5, bw / 2)} x={xc(i) - bw / 2 + 1} width={Math.max(0, bw - 2)} y={y(p.ran) + 1} height={Math.max(0, y(p.ran - p.logged) - y(p.ran) - 1)} /> : null}
+                  </g>
+                );
+              })}
             </g>
             {avgPts.length > 1 ? (
-              <motion.path key={range} d={`M${avgPts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join('L')}`} className="pg-avg" initial={firstPaint || reduce ? false : { opacity: 0 }} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: firstPaint ? 0 : 0.18 }} />
+              // its own key (the bars' group and the line once shared `range` as a key: React then kept stray copies)
+              <motion.path key={`avg-${range}`} d={avgPath} className="pg-avg" initial={fade ? { opacity: 0 } : false} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: fade ? 0.18 : 0 }} />
             ) : null}
             {ci >= 0 && pts[ci]!.ran <= 0 && !pts[ci]!.planned ? <circle cx={xc(ci)} cy={y0} r={2.5} className="pg-now-dot" /> : null}
           </g>

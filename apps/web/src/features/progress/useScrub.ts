@@ -55,7 +55,8 @@ export const useScrub = (o: ScrubOptions) => {
     setActive(i);
     opts.current.onScrub(i);
   };
-  const tick = (i: number) => (i === opts.current.peak ? haptics.toggle() : haptics.select());
+  // the scrub ticks `select` per week (§11.4: the Progress scrub); `toggle` is for a mark or a star, never a scrub
+  const tick = (_i: number) => haptics.select();
   const to = (i: number | null) => {
     const p = press.current;
     if (!p || i == null || i === p.last) return;

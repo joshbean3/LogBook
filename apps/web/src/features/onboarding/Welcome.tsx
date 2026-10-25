@@ -1,17 +1,21 @@
-import { fmtDate, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
+import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
 import { Check, ChevronLeft, Clock } from 'lucide-react';
-import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
-import { useBootstrap, useMorningMutations, useOnboard } from '@/api/queries';
+import { FirstRunHero, type FirstRunAction } from '@/features/day/FirstRunHero';
+import { useBootstrap, useHabitMutations, useMorningMutations, useOnboard } from '@/api/queries';
+import { useNav } from '@/app/NavController';
 import type { OnboardingAnswers } from '@/api/types';
 import { haptics } from '@/lib/haptics';
-import { fadeIn, springs } from '@/lib/motion';
-import { LogoMark } from '@/ui/primitives';
-import { Pressable } from '@/ui/Pressable';
+import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
+import { crossfade, fadeIn, springs } from '@/lib/motion';
+import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { handOff } from './handoff';
 import { StravaPrimer } from './StravaPrimer';
+import { commitsBack, releaseVelocity } from './velocity';
 import './onboarding.css';
 
 /**
@@ -24,17 +28,17 @@ import './onboarding.css';
  *   /welcome/morning  when you wake and leave (two markers on a timeline), what you do before you leave (chips),
  *                     and when it is tight, a one-tap earlier alarm
  *   /welcome/habits   starter habits (chips that become orbs)
- *   /welcome/ready    the payoff: POST /me/onboarding, the first week, "Tomorrow: Easy 4. Out the door 6:50."
- *   /welcome/strava   the primer, only when this server can connect Strava and the account is not connected
+ *   /welcome/ready    the payoff: POST /me/onboarding, the first week, "Tomorrow: Easy 4. Out the door 6:50.", and
+ *                     Today's first-run face where Today's hero will be; Open Today hands off to Today in place (§8)
  *
  * Every answer lives in sessionStorage per account, so a reload lands on the same step with the same answers. Back is the
  * chevron, the browser's back, or an edge swipe from the left. An account that has finished (onboardedAt set) never sees
  * this, unless it is in the middle of its own payoff.
  */
 
-type Step = '' | 'goal' | 'days' | 'morning' | 'habits' | 'ready' | 'strava';
+type Step = '' | 'goal' | 'days' | 'morning' | 'habits' | 'ready';
 const QUESTIONS: Step[] = ['goal', 'days', 'morning', 'habits'];
-const ORDER: Step[] = ['', ...QUESTIONS, 'ready', 'strava'];
+const ORDER: Step[] = ['', ...QUESTIONS, 'ready'];
 
 interface Draft {
   goal: Goal | null;
@@ -97,6 +101,7 @@ const useDraft = (uid: string) => {
 
 /** The block starts tomorrow, so the first week is this week: you leave onboarding looking at a real one. */
 const startOf = (t: ISODate) => shiftDays(t, 1);
+
 const profileOf = (d: Draft, start: ISODate): TrainingProfile => {
   const goal = d.goal ?? 'base';
   return { goal, raceDate: goal === 'base' ? null : d.raceDate === undefined ? defaultRaceDay(goal, start) : d.raceDate, runDays: d.runDays, longRunDay: fixLongRun(d.runDays, d.longRunDay), weeklyMiles: d.weeklyMiles };
@@ -108,17 +113,35 @@ export default function Welcome() {
   const user = boot.data?.user;
   if (!user) return null;
   // the owner, and anyone already through, goes straight to Today, unless this is the end of their own first run
-  const ending = /^(ready|strava)/.test(params['*'] ?? '') && !!ss.get(PAYOFF_KEY);
+  const ending = /^ready/.test(params['*'] ?? '') && !!ss.get(PAYOFF_KEY);
   if (user.onboardedAt && !ending) return <Navigate to="/today" replace />;
   return <Flow uid={user.id} />;
 }
 
+/** "Add habits" on the payoff's face, after the hand-off: the starters the questions did not pick, as one-tap adds (Today's own first-run sheet). */
+const AddHabitsSheet = () => {
+  const { add } = useHabitMutations();
+  const boot = useBootstrap();
+  const sheet = useSheet();
+  const have = new Set((boot.data?.habits ?? []).filter((h) => !h.archivedOn).map((h) => h.name.toLowerCase()));
+  return (
+    <EmptyState starters={STARTER_HABITS.filter((n) => !have.has(n.toLowerCase()))} onStarter={(name) => add.mutateAsync(name)} verb={{ label: 'Done', onPress: () => sheet.close() }} startersLabel="Starter habits">
+      Tap the ones you want to do every day. They become lights on Today.
+    </EmptyState>
+  );
+};
+
 function Flow({ uid }: { uid: string }) {
   const nav = useNavigate();
+  const framed = useNav();
+  const toast = useToast();
+  const boot = useBootstrap();
   const params = useParams();
   const reduce = useReducedMotion();
   const step = ((params['*'] ?? '').split('/')[0] ?? '') as Step;
   const [d, set] = useDraft(uid);
+  const sheet = useSheet();
+  const screenRef = useRef<HTMLElement>(null);
   const t = useMemo(() => todayISO(), []);
   const start = startOf(t);
   const profile = profileOf(d, start);
@@ -134,62 +157,98 @@ function Flow({ uid }: { uid: string }) {
   const go = (s: Step, replace = false) => nav(s ? `/welcome/${s}` : '/welcome', { replace });
   const back = () => {
     const i = ORDER.indexOf(step);
-    if (i <= ORDER.indexOf('goal') || step === 'ready' || step === 'strava') return;
+    if (i <= ORDER.indexOf('goal') || step === 'ready') return;
     go(ORDER[i - 1]!, true);
   };
 
-  // the edge swipe: a touch from the left 24px drags the step (1:1), and past 35% of the width or a fling goes back.
-  // Document listeners, like PushedPage, so a horizontal move can be claimed before the browser pans.
+  // the edge swipe (§1.4, §9.3's numbers): a pointer that goes down within 24 px of the left edge and locks horizontally
+  // drags the step 1:1, like a pushed page (review feel F3): the step being left becomes an opaque page carrying its own
+  // copy of the halo, and the step before it is drawn under it at −30 % (−0.3 × (W − x)) under a scrim that lifts as it
+  // comes. Past 35 % of the width or a 300 px/s release, the step slides off on `page` (`pageFlick` for a flick) with the
+  // release velocity, and the route goes back once it has gone: the step under it is already where it belongs, so the
+  // swap shows nothing (no enter or exit animation, no frame of either step twice). Short of it, it springs home.
+  // Pointer events on the screen itself (`touch-action: pan-y`), never a touchmove listener on the document (§12).
   const x = useMotionValue(0);
-  const canBack = idx > ORDER.indexOf('goal') && step !== 'ready' && step !== 'strava';
-  const backRef = useRef(back);
-  backRef.current = back;
-  const canRef = useRef(canBack);
-  canRef.current = canBack;
-  useEffect(() => {
-    let g: null | { x0: number; y0: number; lock: null | 'x' | 'y'; samples: Array<[number, number]> } = null;
-    const onStart = (e: TouchEvent) => {
-      const t = e.touches[0];
-      g = e.touches.length === 1 && t && t.clientX <= 24 && canRef.current && !document.querySelector('.sheet-wrap, .cm-layer') ? { x0: t.clientX, y0: t.clientY, lock: null, samples: [[t.clientX, performance.now()]] } : null;
-    };
-    const onMove = (e: TouchEvent) => {
-      const t = e.touches[0];
-      if (!g || !t) return;
-      const dx = t.clientX - g.x0;
-      const dy = t.clientY - g.y0;
-      if (!g.lock) {
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-        g.lock = dx > Math.abs(dy) ? 'x' : 'y';
+  const wRef = useRef(390);
+  const underX = useTransform(x, (v) => -0.3 * (wRef.current - v));
+  const scrimO = useTransform(x, (v) => 0.3 * (1 - v / wRef.current));
+  const [under, setUnder] = useState<Step | null>(null);
+  const swipeRef = useRef<HTMLDivElement>(null);
+  const underBox = useRef({ top: 0, h: 0, vTop: 0 });
+  // the route changed under a committed edge swipe: the new step shows at rest, without its entrance
+  const swapping = useRef(false);
+  const canBack = idx > ORDER.indexOf('goal') && step !== 'ready';
+  const edge = useRef<null | { id: number; x0: number; y0: number; lock: 'x' | null; samples: Array<[number, number]> }>(null);
+  const onEdgeDown = (e: React.PointerEvent<HTMLElement>) => {
+    edge.current = e.isPrimary && canBack && !swapping.current && e.clientX <= EDGE_PX && !document.querySelector('.sheet-wrap, .cm-layer') ? { id: e.pointerId, x0: e.clientX, y0: e.clientY, lock: null, samples: [[e.clientX, e.timeStamp]] } : null;
+  };
+  const onEdgeMove = (e: React.PointerEvent<HTMLElement>) => {
+    const g = edge.current;
+    if (!g || e.pointerId !== g.id) return;
+    const dx = e.clientX - g.x0;
+    const dy = e.clientY - g.y0;
+    if (!g.lock) {
+      if (Math.hypot(dx, dy) < LOCK_PX) return;
+      if (lockAxis(dx, dy) !== 'x' || dx < 0) {
+        edge.current = null;
+        return;
       }
-      if (g.lock !== 'x') return;
-      if (e.cancelable) e.preventDefault();
-      x.set(Math.max(0, dx));
-      g.samples.push([t.clientX, performance.now()]);
-      if (g.samples.length > 6) g.samples.shift();
-    };
-    const onEnd = () => {
-      const st = g;
-      g = null;
-      if (!st || st.lock !== 'x') return;
-      const [ax, at] = st.samples[0]!;
-      const [bx, bt] = st.samples[st.samples.length - 1]!;
-      const v = bt > at ? ((bx - ax) / (bt - at)) * 1000 : 0;
-      if (x.get() > window.innerWidth * 0.35 || v > 500) {
-        x.set(0);
-        backRef.current();
-      } else animate(x, 0, reduce ? { duration: 0 } : { ...springs.settle, velocity: v });
-    };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('touchend', onEnd);
-    document.addEventListener('touchcancel', onEnd);
-    return () => {
-      document.removeEventListener('touchstart', onStart);
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onEnd);
-      document.removeEventListener('touchcancel', onEnd);
-    };
-  }, [x, reduce]);
+      g.lock = 'x';
+      e.currentTarget.setPointerCapture(e.pointerId);
+      wRef.current = e.currentTarget.clientWidth || window.innerWidth;
+      const sw = swipeRef.current;
+      underBox.current = { top: sw?.offsetTop ?? 0, h: sw?.offsetHeight ?? 0, vTop: sw?.getBoundingClientRect().top ?? 0 };
+      x.stop();
+      setUnder(ORDER[idx - 1] ?? null);
+    }
+    x.set(Math.max(0, dx));
+    g.samples.push([e.clientX, e.timeStamp]);
+    if (g.samples.length > 8) g.samples.shift();
+  };
+  const onEdgeUp = (e: React.PointerEvent<HTMLElement>) => {
+    const g = edge.current;
+    edge.current = null;
+    if (!g || e.pointerId !== g.id || !g.lock) return;
+    // the release velocity (review 2 code N3): only the moves of the last 150 ms before the release count, by the events'
+    // own timestamps (not when a busy main thread got to them), and a finger that has been still for 80 ms has none, so a
+    // drag that stopped is not a flick; a system cancel is velocity 0 and never commits (as PushedLayer and SwipeRow treat it)
+    const cancelled = e.type === 'pointercancel';
+    const v = cancelled ? 0 : releaseVelocity(g.samples, e.timeStamp);
+    // §9.3: past 35 % or a flick, and never while the finger is going back toward the edge (v ≥ 0, as PushedLayer;
+    // review 3 code N3: a flick back from past 35 % springs home)
+    const commit = commitsBack(x.get(), wRef.current, v, cancelled);
+    if (reduce) {
+      // reduced motion: tracking stayed 1:1; the change itself is the step's 150 ms fade
+      x.jump(0);
+      setUnder(null);
+      if (commit) back();
+      return;
+    }
+    const spring = Math.abs(v) >= FLICK_V ? springs.pageFlick : springs.page;
+    if (commit)
+      animate(x, wRef.current, {
+        ...spring,
+        velocity: Math.max(0, v),
+        onComplete: () => {
+          swapping.current = true;
+          back();
+        },
+      });
+    else animate(x, 0, { ...spring, velocity: v, onComplete: () => setUnder(null) });
+  };
+  // the swap: the step that was under is now the step; the dragged one (gone off screen) and the layer under it go on the
+  // same frame, before paint
+  useLayoutEffect(() => {
+    if (!swapping.current) return;
+    swapping.current = false;
+    const sw = swipeRef.current;
+    if (sw) {
+      for (const el of sw.querySelectorAll<HTMLElement>(':scope > .ob-stage')) if (el.dataset.step !== step) el.style.visibility = 'hidden';
+      sw.style.transform = 'none';
+    }
+    x.jump(0);
+    setUnder(null);
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // guards: questions need the promise first only in spirit; later steps need a goal
   if (!ORDER.includes(step) || step === '') return <Navigate to="/welcome/goal" replace />;
@@ -198,6 +257,7 @@ function Flow({ uid }: { uid: string }) {
   const qIndex = QUESTIONS.indexOf(step);
   const next = () => go(ORDER[idx + 1]!);
 
+  const bodyFor = (step: Step): React.ReactNode => {
   let body: React.ReactNode;
   switch (step) {
     case 'goal':
@@ -209,7 +269,7 @@ function Flow({ uid }: { uid: string }) {
           />
           <AnimatePresence initial={false}>
             {d.goal && d.goal !== 'base' ? (
-              <motion.div key="race" className="ob-race-block" initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }} transition={reduce ? fadeIn : springs.settle}>
+              <motion.div key="race" className="ob-race-block" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
                 <p className="ob-q-label">
                   Race day <span className="ob-q-value">{profile.raceDate ? fmtDate('short', profile.raceDate) : 'Not set'}</span>
                 </p>
@@ -297,61 +357,94 @@ function Flow({ uid }: { uid: string }) {
       );
       break;
     case 'ready':
-      body = <Payoff uid={uid} draft={d} set={set} profile={profile} start={start} today={t} onDone={(strava) => (strava ? go('strava') : finish())} />;
-      break;
-    case 'strava':
-      body = (
-        <div className="ob-step ob-strava">
-          <StravaPrimer variant="screen" onLater={() => finish()} onConnect={() => clearAll()} />
-        </div>
-      );
+      body = <Payoff draft={d} set={set} profile={profile} start={start} today={t} onOpen={openToday} />;
       break;
   }
+  return body;
+  };
+  const body = bodyFor(step);
+  const skip = swapping.current;
 
   function clearAll() {
     ss.del(draftKey(uid));
     ss.del(PAYOFF_KEY);
   }
-  function finish() {
-    clearAll();
-    nav('/today', { replace: true });
+  /**
+   * A row of the payoff's face, once Today is up (review code F2, F7): each does what it says, the way Today's own first-run
+   * face does. Add habits: the starters sheet. Plan a week: the week just written, in Plan (a jump). Connect Strava: the
+   * primer, only on a server that can connect it and an account that has not (else an error says why, in place of a page
+   * of raw JSON from /api/strava/connect).
+   */
+  function afterHandOff(then: FirstRunAction) {
+    if (then === 'habits') sheet.open({ title: 'Add habits', body: <AddHabitsSheet /> });
+    else if (then === 'plan') framed.go(`/plan/week/${mondayOf(start)}`);
+    else {
+      const b = boot.data;
+      if (b?.features.strava && !b.strava.connected) sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
+      else if (!b?.features.strava) toast('Strava isn’t set up on this server yet.');
+    }
+  }
+  /** The hand-off (§8): Today mounts under a still copy of this screen, the week falls away, Today's chrome fades in. */
+  function openToday(then?: FirstRunAction) {
+    const cut = () => {
+      clearAll();
+      nav('/today', { replace: true });
+    };
+    const screen = screenRef.current;
+    if (!screen) return cut();
+    handOff({
+      screen,
+      falls: '.ob-week, .ob-pay-foot',
+      fades: '.ob-pay-head, .ob-halo',
+      reduce: !!reduce,
+      cut,
+      after: then ? () => afterHandOff(then) : undefined,
+    });
   }
 
   return (
-    <main className="ob">
+    <main className="ob" ref={screenRef} onPointerDown={onEdgeDown} onPointerMove={onEdgeMove} onPointerUp={onEdgeUp} onPointerCancel={onEdgeUp}>
       <span className={`ob-halo ${step === 'ready' ? 'bloom' : ''}`} aria-hidden="true" />
       {qIndex >= 0 ? (
         <header className="ob-top">
-          {canBack ? (
-            <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={back}>
+          {/* the chevron and Skip stay in place and fade with the dots when a step has none (review 2 feel N11), never a
+              one-frame cut; hidden, they are inert (out of the tab order, the accessibility tree and hit-testing). The fade is
+              the slot's, so each keeps its own press (review 3 code N8) */}
+          <span className={`ob-slot ${canBack ? '' : 'is-gone'}`} inert={!canBack}>
+            <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={canBack ? back : undefined}>
               <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
             </button>
-          ) : (
-            <span className="ob-skip-space" />
-          )}
+          </span>
           <div className="ob-dots" role="progressbar" aria-label="Setup" aria-valuemin={1} aria-valuemax={QUESTIONS.length} aria-valuenow={qIndex + 1} aria-valuetext={`Step ${qIndex + 1} of ${QUESTIONS.length}`}>
             {QUESTIONS.map((q, i) => (
               <span key={q} className={`ob-dot ${i === qIndex ? 'on' : i < qIndex ? 'done' : ''}`} />
             ))}
           </div>
-          {step !== 'goal' ? (
-            <button type="button" className="ob-skip" onClick={next}>
+          <span className={`ob-slot end ${step !== 'goal' ? '' : 'is-gone'}`} inert={step === 'goal'}>
+            <Pressable className="ob-skip" press="dim" onPress={step !== 'goal' ? next : () => undefined}>
               Skip
-            </button>
-          ) : (
-            <span className="ob-skip-space" />
-          )}
+            </Pressable>
+          </span>
         </header>
       ) : null}
-      <motion.div className="ob-swipe" style={{ x }}>
-      <AnimatePresence mode="popLayout" initial={false} custom={dir}>
+      {under ? (
+        <motion.div className="ob-under" style={{ x: underX, top: underBox.current.top, height: underBox.current.h }} aria-hidden="true">
+          <div className="ob-stage">{bodyFor(under)}</div>
+          <motion.span className="ob-under-scrim" style={{ opacity: scrimO }} />
+        </motion.div>
+      ) : null}
+      <motion.div ref={swipeRef} className={`ob-swipe ${under ? 'is-edge' : ''}`} style={{ x }}>
+      {under ? <span className="ob-halo ob-halo-copy" aria-hidden="true" style={{ top: -underBox.current.vTop, height: window.innerHeight }} /> : null}
+      <AnimatePresence mode="popLayout" initial={false} custom={{ dir, skip }}>
         <motion.div
           key={step}
           className="ob-stage"
-          custom={dir}
-          initial={reduce ? { opacity: 0 } : { opacity: 0, x: dir * 48 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={reduce ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 0, x: dir * -48, transition: { ...springs.page, opacity: { duration: 0.1 } } }}
+          data-step={step}
+          custom={{ dir, skip }}
+          variants={stageVariants(!!reduce)}
+          initial={skip ? false : 'enter'}
+          animate="center"
+          exit="exit"
           transition={reduce ? { duration: 0.15 } : { ...springs.page, opacity: { duration: 0.12 } }}
         >
           {body}
@@ -361,6 +454,14 @@ function Flow({ uid }: { uid: string }) {
     </main>
   );
 }
+
+/** A step comes in from the side it is ahead or behind; after a committed edge swipe (`skip`) it neither enters nor exits. */
+const stageVariants = (reduce: boolean) => ({
+  enter: ({ dir }: { dir: number; skip: boolean }) => (reduce ? { opacity: 0 } : { opacity: 0, x: dir * 48 }),
+  center: { opacity: 1, x: 0 },
+  exit: ({ dir, skip }: { dir: number; skip: boolean }) =>
+    skip ? { opacity: 0, transition: { duration: 0 } } : reduce ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 0, x: dir * -48, transition: { ...springs.page, opacity: { duration: 0.1 } } },
+});
 
 // ---------- a question ----------
 function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next' }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string }) {
@@ -379,13 +480,16 @@ function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Nex
 }
 
 // ---------- the payoff ----------
-function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: string; draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onDone: (strava: boolean) => void }) {
+/**
+ * The payoff (§8): the first week, written into the plan, under the headline; the hero is Today's first-run face
+ * (`FirstRunHero`, WP2) at the resting y of Today's hero slot (157 + safe-t at 390 × 844, contracts §A.5). `Open Today` (or a
+ * row of the face) is the hand-off: the week rows fall away and Today's chrome fades in around a hero that stays put
+ * (`handoff.ts`), with no route cut and no leave animation.
+ */
+function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onOpen: (then?: FirstRunAction) => void }) {
   const reduce = useReducedMotion();
-  const boot = useBootstrap();
   const onboard = useOnboard();
-  const heroRef = useRef<HTMLDivElement>(null);
-  const [leaving, setLeaving] = useState<number | null>(null);
-  const [waiting, setWaiting] = useState(false);
+  const [waiting, setWaiting] = useState<{ then?: FirstRunAction } | null>(null);
   const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [profile, start, today, draft.wake, draft.leave, draft.routine]);
 
   const routine = routineFrom(draft.routine ?? []);
@@ -409,7 +513,6 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
     ss.set(PAYOFF_KEY, '1');
     onboard.mutate(answers, {
       onSuccess: (r) => {
-        haptics.success();
         // the routine the chips made (the server takes wake and leave; the blocks between are the morning's own setting)
         morning.settings.mutate({ after: { ...routine, names: routineNames(draft.routine ?? []), showerMode: 'fixed', showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } });
         // the answers are on the account now (POST /me/onboarding stores them as the training profile)
@@ -422,52 +525,45 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
     if (!saved && !onboard.isPending) send();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const strava = !!boot.data?.features.strava && !boot.data?.strava.connected;
   const done = saved || onboard.isSuccess;
-  const leave = () => {
-    if (!done) {
-      setWaiting(true);
-      return;
-    }
-    if (strava) return onDone(true);
-    // the shared move into Today: the week falls away and the hero rises to where Today's hero sits
-    const top = heroRef.current?.getBoundingClientRect().top ?? 0;
-    setLeaving(reduce ? 0 : Math.min(0, 112 - top));
-    setTimeout(() => onDone(false), reduce ? 120 : 340);
+  const open = (then?: FirstRunAction) => {
+    if (!done) return setWaiting({ then });
+    onOpen(then);
   };
   // pressed while the plan was still being written: go as soon as it lands
   useEffect(() => {
     if (waiting && done) {
-      setWaiting(false);
-      leave();
+      const w = waiting;
+      setWaiting(null);
+      onOpen(w.then);
     }
   }, [waiting, done]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const first = week.first;
-  const firstLong = week.template?.sessions.find((x) => /long/i.test(x.type)) ?? null;
   const m = week.morning;
+  const fade = reduce ? { duration: 0.15 } : { ...springs.page };
   return (
     <div className="ob-step ob-payoff">
-      <motion.div
-        ref={heroRef}
-        className="ob-pay-hero"
-        animate={leaving != null ? { y: leaving, scale: 0.98 } : { y: 0, scale: 1 }}
-        transition={reduce ? { duration: 0 } : springs.page}
-      >
+      <header className="ob-pay-head">
         <motion.span className="caps ob-pay-eyebrow" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={fadeIn}>
           {week.template ? week.template.name : 'Your first week'}
         </motion.span>
-        <motion.h1 className="ob-pay-title display" initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : { ...springs.page, delay: 0.1 }}>
+        <motion.h1 className="ob-pay-title display" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fade : { ...fade, delay: 0.08 }}>
           {first ? `${week.firstWhen}: ${week.days.find((x) => x.session === first)?.label ?? 'Easy'}.` : 'Your week is ready.'}
         </motion.h1>
         {m ? (
-          <motion.p className="ob-pay-door display" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : { ...springs.page, delay: 0.22 }}>
+          <motion.p className="ob-pay-door display" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...fadeIn, delay: reduce ? 0 : 0.16 }}>
             Out the door {hm(m.door)}.
           </motion.p>
         ) : null}
-      </motion.div>
+      </header>
 
-      <motion.ol className="ob-week" aria-label="Your first week" initial={reduce ? false : { opacity: 0, y: 24 }} animate={leaving != null ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 1, y: 0 }} transition={reduce ? fadeIn : { ...springs.page, delay: 0.32 }}>
+      {/* Today's first-run face, where Today's hero will be: it does not move on the way in */}
+      <div className="ob-pay-hero">
+        <FirstRunHero onAction={(k) => open(k)} />
+      </div>
+
+      <motion.ol className="ob-week" aria-label="Your first week" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fade : { ...fade, delay: 0.24 }}>
         {week.days.map((day) => {
           const s = day.session;
           const bar = s ? Math.max(0.12, Math.min(1, (s.miles ?? 0) / Math.max(1, ...week.days.map((x) => x.session?.miles ?? 0)))) : 0;
@@ -485,7 +581,7 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
               </span>
               {s ? (
                 <span className="ob-wbar" aria-hidden="true">
-                  <motion.span className="ob-wbar-fill" initial={reduce ? false : { scaleX: 0 }} animate={{ scaleX: bar }} transition={reduce ? { duration: 0 } : { ...springs.number, delay: 0.45 }} />
+                  <motion.span className="ob-wbar-fill" initial={reduce ? false : { scaleX: 0 }} animate={{ scaleX: bar }} transition={reduce ? { duration: 0 } : { ...springs.number, delay: 0.4 }} />
                 </span>
               ) : null}
             </li>
@@ -493,7 +589,7 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
         })}
       </motion.ol>
 
-      <motion.div className="ob-pay-foot" animate={leaving != null ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 1 }}>
+      <div className="ob-pay-foot">
         <p className="ob-pay-sum" aria-live="polite">
           {onboard.isError ? (
             <span className="ob-err">Couldn’t save your plan. Check your connection and try again.</span>
@@ -511,12 +607,11 @@ function Payoff({ uid, draft, set, profile, start, today, onDone }: { uid: strin
             Try again
           </Pressable>
         ) : (
-          <Pressable className="btn primary block ob-cta" onPress={leave} disabled={waiting}>
-            {waiting ? 'One moment…' : strava ? 'Next' : 'Open Today'}
+          <Pressable className="btn primary block ob-cta" onPress={() => open()} disabled={!!waiting}>
+            {waiting ? 'One moment…' : 'Open Today'}
           </Pressable>
         )}
-        {firstLong ? <p className="ob-pay-note">{`First long run: ${fmtDate('short', firstLong.date)}, ${firstLong.miles} mi. Everything moves with a drag in Plan.`}</p> : null}
-      </motion.div>
+      </div>
     </div>
   );
 }

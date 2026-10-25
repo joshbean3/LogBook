@@ -1,14 +1,14 @@
 import { fmtDate, type JournalEntry, type Quote, linkTitle } from '@logbook/shared';
 import { ChevronRight, EyeOff, PenLine, Plus, Search, Share, Star, Trash2 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useNav } from '@/app/NavController';
 import { seedOf, usePick, useJournalList, useJournalMutations, useQuotes, useQuoteThemes, useReads, useThemeQuotes, type QuoteTheme } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
-import { rowPresence } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, ContextMenu, EmptyState, Group, IconButton, Pressable, Section, Skeleton, SkeletonGroup, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
-import { GhostCards } from './Ghost';
+import { Button, ContextMenu, EmptyState, Group, IconButton, Pressable, Row, Section, Skeleton, SkeletonGroup, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
+import { FavStar } from './FavStar';
+import { PressButton } from './PressButton';
+import { measureBelow, useListFlip } from './feel';
 import { SaveButton, useEntryActions, useOpenEntry } from './JournalDaySection';
 
 const Byline = ({ q }: { q: Quote }) =>
@@ -19,15 +19,12 @@ const Byline = ({ q }: { q: Quote }) =>
     </span>
   ) : null;
 
-/** Favourite (with a toggle haptic), Hide or Delete (with Undo): the one place quote actions live. */
+/** Favourite (the star that shows it fires `toggle` on its pop's apex), Hide or Delete (with Undo): the one place quote actions live. */
 export const useQuoteActions = () => {
   const { quotePrefs, removeQuote, addQuote, another } = useJournalMutations();
   const toast = useToast();
   return {
-    fav: (q: Quote) => {
-      haptics.toggle();
-      quotePrefs.mutate({ id: q.id, fav: !q.fav });
-    },
+    fav: (q: Quote) => quotePrefs.mutate({ id: q.id, fav: !q.fav }),
     hide: (q: Quote, isDaily?: boolean) => {
       haptics.delete();
       quotePrefs.mutate({ id: q.id, hidden: true });
@@ -88,7 +85,7 @@ const QuoteSheet = ({ q: opened, onWrite }: { q: Quote; onWrite: (q: Quote) => v
               setFav(!fav);
             }}
           >
-            <Star size={16} fill={fav ? 'currentColor' : 'none'} aria-hidden="true" />
+            <FavStar on={fav} size={16} always className="" />
             {fav ? 'Favourited' : 'Favourite'}
           </Button>
         </div>
@@ -115,20 +112,20 @@ const QuoteRow = ({ q, open, onWrite }: { q: Quote; open: (q: Quote) => void; on
       left={q.mine ? { label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.remove(q) } : { label: 'Hide', icon: <EyeOff size={20} />, tone: 'neutral', destructive: false, onCommit: () => act.hide(q) }}
       menuItems={[{ label: 'Write about it', icon: <PenLine size={18} />, onSelect: () => onWrite(q) }]}
     >
-      <button type="button" className="qrow" onClick={() => open(q)}>
+      <PressButton className="qrow" onClick={() => open(q)}>
         <span className="qrow-text">“{q.text}”</span>
         <span className="qrow-by">
-          {q.fav ? <Star size={11} fill="currentColor" className="jfav" aria-label="Favourite" /> : null}
+          <FavStar on={q.fav} label="Favourite" />
           <Byline q={q} />
         </span>
-      </button>
+      </PressButton>
     </SwipeRow>
   );
 };
 
-/** The way to Reads: one touchable card that says what is waiting, and pushes /reads. */
+/** The way to Reads: one touchable card that says what is waiting, and pushes /journal/reads over the mounted Journal. */
 const ReadsRow = () => {
-  const nav = useNavigate();
+  const nav = useNav();
   const today = useToday();
   const reads = useReads();
   const pick = usePick(today, false);
@@ -136,7 +133,7 @@ const ReadsRow = () => {
   const p = pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? pick.data.pick : null;
   const sub = [unread ? `${unread} unread` : null, p ? `Today: ${linkTitle(p.title, p.url)}` : null].filter(Boolean).join(' · ') || 'Save links to come back to';
   return (
-    <Pressable className="reads-row" onPress={() => nav('/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${linkTitle(p.title, p.url)}` : ''}`}>
+    <Pressable className="reads-row" onPress={() => nav.push('/journal/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${linkTitle(p.title, p.url)}` : ''}`}>
       <span className="reads-row-main">
         <span className="reads-row-title">Reads</span>
         <span className="reads-row-sub">{sub}</span>
@@ -163,12 +160,10 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
           <Skeleton h={156} r="card" />
         </div>
       ) : !items.length ? (
-        <EmptyState
-          ghost={<GhostCards />}
-          verb={{ label: 'Browse themes', onPress: () => document.getElementById('lib-themes')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
-        >
-          Swipe a quote right, or hold an entry, and it stays here.
-        </EmptyState>
+        // one quiet 60 row (§8, visual S8): no ghost, no verb
+        <Group className="lib-fav-empty">
+          <Row className="lib-fav-empty-row" title="No favourites yet" sub="Swipe a quote right to keep it." />
+        </Group>
       ) : (
         <div className="carousel fav-carousel" role="list">
           {items.map((it) =>
@@ -215,23 +210,35 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
   const page = useQuotes({ theme: 'Yours', limit: 100 });
   const { addQuote } = useJournalMutations();
   const toast = useToast();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAddingRaw] = useState(false);
   const [nt, setNt] = useState('');
   const [na, setNa] = useState('');
   const field = useRef<HTMLTextAreaElement>(null);
+  const head = useRef<HTMLDivElement>(null);
+  const rows = useRef<HTMLDivElement>(null);
+  const flip = useRef<(() => void) | null>(null);
   const mine = page.data?.quotes ?? [];
-  useEffect(() => {
+  // the form opening or closing moves what is below by a FLIP on `settle` (§10.1), never a height animation
+  const setAdding = (v: boolean) => {
+    flip.current = measureBelow(head.current);
+    setAddingRaw(v);
+  };
+  useLayoutEffect(() => {
+    flip.current?.();
+    flip.current = null;
     if (adding) requestAnimationFrame(() => field.current?.focus());
   }, [adding]);
+  useListFlip(rows, mine.map((q) => q.id).join(','));
   const add = () => {
-    haptics.success();
+    // a quote kept is not a day's close: no `success` (two a day, §11.4)
+    flip.current = measureBelow(head.current);
     addQuote.mutate({ text: nt.trim(), author: na.trim() }, { onError: () => toast('Couldn’t add that quote.') });
     setNt('');
     setNa('');
     setAdding(false);
   };
   const form = (
-    <motion.div key="form" {...rowPresence}>
+    <div className="fade-in">
       <Group className="qadd">
         <textarea ref={field} className="jtext serif" rows={2} maxLength={400} placeholder="A line worth keeping" aria-label="Quote" value={nt} onChange={(e) => setNt(e.target.value)} />
         <input className="jtext qadd-by" maxLength={80} placeholder="Who said it (optional)" aria-label="Author" value={na} onChange={(e) => setNa(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && nt.trim().length >= 3 && add()} />
@@ -244,7 +251,7 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
           </SaveButton>
         </div>
       </Group>
-    </motion.div>
+    </div>
   );
   return (
     <Section
@@ -259,7 +266,8 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
         ) : undefined
       }
     >
-      <AnimatePresence initial={false}>{adding ? form : null}</AnimatePresence>
+      <div ref={head} className="jtl-anchor" aria-hidden="true" />
+      {adding ? form : null}
       {page.isPending && !page.data ? (
         <SkeletonRows rows={2} label="Loading your quotes" />
       ) : !mine.length ? (
@@ -267,14 +275,12 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
           <EmptyState verb={{ label: 'Add a quote', onPress: () => setAdding(true) }}>Lines you want to keep. They come back as a day’s quote.</EmptyState>
         )
       ) : (
-        <div className="list-edge lib-list">
-          <AnimatePresence initial={false}>
-            {mine.map((q) => (
-              <motion.div key={q.id} className="lib-item" {...rowPresence}>
-                <QuoteRow q={q} open={open} onWrite={onWrite} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
+        <div ref={rows} className="list-edge lib-list">
+          {mine.map((q) => (
+            <div key={q.id} data-key={q.id} className="lib-item">
+              <QuoteRow q={q} open={open} onWrite={onWrite} />
+            </div>
+          ))}
         </div>
       )}
     </Section>
@@ -311,7 +317,7 @@ const ThemeList = ({ theme, onWrite }: { theme: string; onWrite: (q: Quote) => v
         ))}
       </div>
       {list.length > shown ? (
-        <Button variant="quiet" block className="theme-more" onClick={() => (haptics.select(), setShown((n) => n + PAGE))}>
+        <Button variant="quiet" block className="theme-more" onClick={() => setShown((n) => n + PAGE)}>
           More
         </Button>
       ) : null}
@@ -327,14 +333,10 @@ const QuoteSearch = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   const page = useQuotes({ theme: 'All', q: needle, limit });
   const open = useOpenQuote(onWrite, true);
   const field = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const t = setTimeout(() => field.current?.focus(), 380);
-    return () => clearTimeout(t);
-  }, []);
   const list = needle.length >= 2 ? (page.data?.quotes ?? []) : [];
   return (
     <div className="qsearch">
-      <input ref={field} className="in" type="search" enterKeyHint="search" placeholder="Words, an author or a book" aria-label="Search quotes" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} />
+      <input ref={field} autoFocus className="in" type="search" enterKeyHint="search" placeholder="Words, an author or a book" aria-label="Search quotes" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} />
       {needle.length < 2 ? null : page.isPending && !page.data ? (
         <SkeletonRows rows={3} label="Searching" />
       ) : !list.length ? (
@@ -356,7 +358,7 @@ const QuoteSearch = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
     </div>
   );
 };
-/** The magnifier that opens the search sheet (the Library's header accessory). */
+/** The magnifier that opens the search sheet (the Themes section's action; the Journal bar's trailing slot stays empty, §2.4). */
 export const useQuoteSearch = (onWrite: (q: Quote) => void) => {
   const sheet = useSheet();
   return () => sheet.open({ eyebrow: 'Library', title: 'Search quotes', detent: 'large', body: <QuoteSearch onWrite={onWrite} /> });
@@ -388,7 +390,7 @@ const Themes = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   const sheet = useSheet();
   const list = (themes.data ?? []).filter((t) => t.count > 0);
   return (
-    <Section title="Themes" level="primary" className="lib-themes">
+    <Section title="Themes" level="primary" className="lib-themes" action={<LibrarySearchButton onWrite={onWrite} />}>
       <span id="lib-themes" className="anchor" />
       {themes.isPending && !themes.data ? (
         <SkeletonGroup label="Loading themes" className="theme-grid">
@@ -408,13 +410,8 @@ const Themes = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
 };
 
 /** The Library segment: the way to Reads, then favourites, your own quotes, and the themes. */
-export const Library = ({ focus, onWrite }: { focus?: 'favorites' | 'quotes' | null; onWrite: (q: Quote) => void }) => {
+export const Library = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   const open = useOpenQuote(onWrite);
-  useEffect(() => {
-    if (!focus) return;
-    const el = document.querySelector(focus === 'favorites' ? '.lib-favs' : '#lib-themes');
-    requestAnimationFrame(() => el?.scrollIntoView({ block: 'start' }));
-  }, [focus]);
   return (
     <div className="library">
       <ReadsRow />
