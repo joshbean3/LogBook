@@ -1,11 +1,127 @@
 # WP2 Today: review
 
-Branch `feel/wp2`, from `feel/pages-base` (`400f8f5`). Spec: `docs/feel.md` v4.2. Build plan §3. This file has fix round 1
-first (the three reviews' findings), then the QA step's review (the package's acceptance, as team-rules asks of REVIEW.md),
+Branch `feel/wp2`, from `feel/pages-base` (`400f8f5`). Spec: `docs/feel.md` v4.2. Build plan §3. This file has fix round 2
+first, then fix round 1 (each: the three reviews' findings), then the QA step's review (the package's acceptance, as team-rules asks of REVIEW.md),
 then the three build steps' notes as they were written (`# Build history`).
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`. The battery is `S/wp2/qa/`
 (one runner, `node run.mjs`, at 1× and 4×; every row with its numbers in `S/wp2/qa/results/TABLE.md`).
+
+## Fix round 2 (2026-10-25): the three reviews' findings, round 2
+
+Reviews: `S/wp2/review-code-2.md` (code 1–6), `S/wp2/review-feel-2.md` (feel 1–11), `S/wp2/review-day-2.md` (day 1–10). The full
+record (finding → what was done → the proof, before and after, 1× and 4×) is `S/wp2/fix-2.md`. Each finding has a check under
+`S/wp2/qa/` (`f2-save`, `f2-ring`, `f2-orbs`, `f2-skip`, `f2-close`, `f2-coach`, `f2-misc`, `f2-open`, all in `run.mjs`) or a unit
+test (`faces.test.ts`), run first against the review build (`bf3c49e`, kept at `S/wp2/fix2/dist-before`), where it failed.
+
+### What changed (all in WP2's files)
+
+| Files | Findings | Change |
+|---|---|---|
+| `features/day/journalGuard.ts` (new), `CloseDay.tsx`, `TheDayCard.tsx` | code 1, 2, 5; day 1 | A Today composer's journal add is followed from the mutation cache until the server answers (`watchJournalAdd`), so a refusal rolls the card back however late it comes and whatever has unmounted: the provisional entry leaves the month, the words return to the draft with the error toast (unless the still-mounted Composer did both), the field comes back. The Close card cancels its layers' earlier animations before a new crossfade (a refusal inside the crossfade left the field at opacity 0). A keyboard Save moves the focus to `Add to it`; a refused one back to the field |
+| `features/day/HoldRing.tsx`, `release.ts`, `Hero.tsx`, `CloseDay.tsx` | code 3 | The ring shows its own completion (`doneSelf || done`); the caller's `done` takes it back on a true → false edge, a failed write (the promise `onComplete` may return) clears it. The check's swap starts in the completing task, a frame in; the callers write after the frame (`afterPaint`). The motion-driven styles are written only by their listeners (a background commit could write a stale `style` back). The second ring's `toggle` listens to a value of its own (see request 34) |
+| `features/habits/OrbRow.tsx`, `DayPage.tsx`, `CloseDay.tsx` | feel 1, 2; code 6; day 6 | The orb's write waits for the hand to rest (no pointer down, no pager move, no scroll for 250 ms), then goes at idle (8 s cap; at once on unmount or hide). The orbs' shown state is a per-day store; the head's count (`HabitsMeta`) and the Close card's stamp count from it (`useHabitsLit`) |
+| `features/day/faces.ts`, `faces.test.ts` | day 2, feel 8 | The Skipped face's eyebrow follows its deck: `THIS MORNING` while the morning line shows, never `OUT`; the deck's change at Leave has its own face key (deferred, crossfaded). The next-session row's time is its own span, dropped whole below 360 |
+| `features/day/Hero.tsx`, `RunLanding.tsx`, `day.css` | code 4, feel 4, 5, 6, 7 | `useMarkOverride` for the hero and the second session: the face (or the line) first, the write after the 150 ms crossfade, the override held while any write of that session is in flight. The second session's line crossfades in a `popLayout` slot and its ring fades; `Not done` on a marked-done second session. The hero's ring slot fades with the faces (`AnimatePresence`) |
+| `features/day/CloseDay.tsx` | feel 3 | `flipCard`: the box is scaled and clipped to its interpolated height while the card moves (its layers counter-scaled), so `Add to it`'s composer is revealed as the card opens, never over the Tomorrow group |
+| `api/queries.ts` (WP2 block), `features/day/coachShown.ts` (new), `useStravaLanding.ts`, `RunLanding.tsx` | day 7 | The coach's read joins the month's cached payload in place (no page rebuilds its snapshot for one sentence) and shows at once in the landed deck from a small store |
+| `features/day/DayPage.tsx` | feel 10, day 4 (WP2's part) | The one-time nudge's store is read by its slot, not by every day page (the first push re-rendered all three pages inside the push's task) |
+
+### Not closed in WP2's files, and why
+
+- **day 3** (the alarm sheet) and **day 4 / feel 10** (the morning push), restated from the input's own time (`f2-open`): WP2's
+  part holds on both builds (the push and the sheet happen in the pointerup's own task; the sheet's scrim is already darkening
+  on the first frame after the input). The sheet's edge moves two frames later (WP1's `Sheet`, request 32); the push's first
+  move is the push's own task (WP1's PushedLayer / DayPager measure, WP3's MorningView mount; requests 27, 29). Numbers in
+  `S/wp2/fix-2.md`.
+- **feel 9**: the half-collapsed bar is WP1's NavBar (no snap) and WP1's `revealField` target. Request 33.
+- **feel 11, day 8**: the Skip deck's words (`ALARM` / `Wake`, the rest morning's stops) are the spec's call. Request 25.
+- **day 5**: WP6's Composer haptic and journal write. Requests 30, 17.
+- **day 9** (sev 1): `Add to it` shows the composer in the entries' place; keeping the entries above it is a third layer and a
+  different Save transition. Left for the integration polish.
+- **day 10**: WP1's crossfade from black. Request 31.
+- **feel 7** on Oct 11: that lift is done by its logged sets, not a mark, so there is nothing to take back from the card; a
+  marked-done second session now has `Not done`.
+
+### Battery
+
+`node S/wp2/qa/run.mjs` (the QA battery, round 1's fix checks and this round's), run with `SHIFT_DAYS=-1`: the real date
+was Sunday Oct 25, a lift-only day, and the QA scripts were written on the Saturday (the two-session day with an open run).
+A first attempt on Sunday's own date failed `t46`, `t13`, `t16`, `t45`, `t63` and part of `t10` for that reason alone (no
+open run today); the QA lib now takes `SHIFT_DAYS`, and `t45` / `t63`'s node-side dates follow it (marked `[restated in fix
+round 2]`). Table: `S/wp2/qa/results/TABLE.md`.
+
+| Part | Checks | 1× | 4× | Round 1 |
+|---|---|---|---|---|
+| QA battery | 183 | 183/183 | 171/174 | 183/183, 171/174 |
+| Round 1's fix checks | 55 | 54/55 | 47/50 | 54/55, 47/50 |
+| This round's fix checks | 37 | 35/37 | 35/37 | — |
+| **All** | 275 | **272/275** | **253/261** | 237/238, 218/224 |
+
+The misses, each one also missing on the review build or in round 1:
+- QA 4×: [13] catch mid-slide and [20] ×2 (the avatar after the slide): WP1's pager and commit task at 4× (requests 1–3);
+  round 1 missed [12] and [20] ×2.
+- Round 1's F2 (`f1-push`, the push's first moved frame ≤ 17 ms at 1×): a coin flip on both builds (review build: 2 of 3
+  checks in each of two runs; this build: 1, 2, 3 and 2 of 3 in four runs; first moved frames 11–26 ms on both). At 4×
+  it fails on both (WP1 / WP3, requests 27, 29). D6 at 4× (WP6, request 30).
+- Run three times on both builds because a single run missed: `f1-orbs` F4 at 4× (longest frame while tapping: review build
+  74–90 ms, this build 73–91 ms, budget 100; the battery's run had one 107.7 ms frame), `f1-close` F3 at 4× (translated
+  frames: review build 2, 4, 2; this build 2, 7, 3), `t41-close` slots at 4× (the lazy quote line not in yet: review build
+  11/11 then 10/11, this build 11/11 twice). The same spread on both builds.
+- This round's two `f2-open` "whole" checks: WP1's Sheet and PushedLayer, WP3's MorningView (requests 27, 29, 32). WP2's
+  part of both passes.
+
+Gates: `tsc --noEmit` shared / api / web 0; shared 88, api 59, web 103 (102 + the skipped-eyebrow test);
+`pnpm --filter @logbook/web build` ok (35 files precompressed).
+
+### WP1's battery on this build (`S/wp2/wp1qa`, results `results/`; round 1's run kept in `results-fix1/`)
+
+**1× 612/618, 4× 575/593** (round 1: 613/618, 586/593), run as round 1 ran it, on the Saturday at 13:30 (`SHIFT_MIN=auto
+SHIFT_DAYS=-1`; the copy's lib takes `SHIFT_DAYS` now; a first try at Saturday evening put the Close card on Today's hero and
+failed `t34`'s hero checks for that alone). 13 checks failed that had passed in round 1 and 4 passed that had failed. Every
+script with a new miss was run again on the review build (`bf3c49e`, served on 8811) and on this build, side by side
+(`S/wp2/fix2/wp1-control.log`):
+
+| Script (rate) | Review build | This build |
+|---|---|---|
+| `r2-sheet` (1×), `t01-press` (4×) | 13/13, 6/6 | 13/13, 6/6 |
+| `t14-hold` (1×), (4×) | 23/25, 25/25 | 23/25, 24/25 |
+| `r1-sheet` (1×) | 9/10 | 10/10 |
+| `r1-misc`, `r2-layer`, `r3-sheet`, `r4-sheet` (4×) | 2/3, 18/20, 27/28, 20/22 | 2/3, 18/20, 27/28, 20/22 |
+| `t13-pager` (4×) | 33/37 | 35/37 |
+| `r4-nav` (4×), three runs | 7/8, 8/8, 6/8 | 6/8, 7/8, 6/8 |
+| `t02-cut` (4×), "old pages, 60 ms tap", seven runs each | 91–205 ms, median 112 | 92–176 ms, median 103 |
+
+The same spread on both builds: these are WP1's gallery, pager and sheet timings at 4×, which this round's changes do not
+touch (they run on `/dev/ui` or on stub roots, or move Today's pages the same way on both builds).
+
+### Screenshots (looked at)
+
+`S/wp2/qa/shots/fix2/{before,after}-{390,320}-{skip-0750,second-skipped,close-addto,orbs-two}.png` and
+`{before,after}-next-row-{390,320}.png`: the skipped morning keeps `THIS MORNING` at 07:50; the second session reads
+`Skipped` with no ring after its Skip; the composer back after `Add to it` sits above the Tomorrow group; the head reads
+`2 of 5` with two orbs lit; the next-session row at 320 drops its time whole.
+
+### Requests added this round
+
+**WP1**
+32. `ui/Sheet.tsx`: the sheet is in the DOM (and its scrim darkening) on the first frame after the release, but its edge sits
+    at the closed position for two frames (motion's first sample, then the effect-started animation's first frame): the edge
+    first moves 60–76 ms after the input at 1× (`f2-open`). Start the rise one sample in, in the open's own task.
+33. `ui/NavBar.tsx` / `lib/keyboard.ts` `revealField` (feel review 2 #9): a scroll can rest inside the large title's 0–60 band
+    (the title half cut). Snap to 0 or 60 on scroll end; `revealField` should target an offset outside the band.
+34. `lib/haptics.ts` `hapticAtPeak`: `fireOnce()` unsubscribes inside the value's change notification, and motion's
+    subscription list then skips the next listener for that notification. On a value with a listener after it, that listener
+    misses the value the haptic fired on: HoldRing's check stayed at 0.46–0.98 opacity at rest (now avoided in HoldRing with a
+    private value). The orb's pop and the to-do's mark lose one frame's write at the apex. Unsubscribe on the next microtask.
+
+**WP3**
+- MorningView's mount is still the other part of the push's task (request 27). The alarm sheet's body (WakeEditor) renders
+  in the release's task with the sheet; at 4× the sheet is in the DOM 114–146 ms after the input (`f2-open`).
+
+**Spec**
+- Request 25 (the deck after Skip) also covers its words: the rest morning's first stop says `ALARM 7:15` while the This
+  morning row says `Wake 7:15` (feel review 2 #11). One word for the morning's first stop, everywhere.
 
 ## Fix round 1 (2026-10-25): the three reviews' findings
 
