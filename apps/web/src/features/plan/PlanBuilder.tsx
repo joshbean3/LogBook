@@ -6,7 +6,6 @@ import { useRef, useState } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { api, ApiError } from '@/api/client';
 import { keys, usePlanDelete } from '@/api/queries';
-import { haptics } from '@/lib/haptics';
 import { Button, Chip, Field, Group, Note, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -46,9 +45,9 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
       // spec §8: a toast only with an Undo (or for an error). An Add is undone by deleting the new block; a Replace cannot
       // be put back from here (the apply route returns no replaced ids: a request in docs/reviews/wp4.md), so it says
-      // nothing: the new block on the calendar (and in Plans) is the answer, and it buzzes as the destructive commit it is
-      if (applyMode === 'replace' && existing) haptics.delete();
-      else
+      // nothing and stays silent (`delete` is a destructive commit WITH Undo, contracts §D.3; code review 2 #11): the new
+      // block on the calendar (and in Plans) is the answer
+      if (!(applyMode === 'replace' && existing))
         toast(`${r.block.name} is on your calendar`, {
           label: 'Undo',
           fn: () => void removeBlock.mutateAsync(r.block).catch(() => toast('Couldn’t undo. The new plan is still there.')),

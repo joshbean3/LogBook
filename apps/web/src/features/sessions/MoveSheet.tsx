@@ -5,7 +5,7 @@ import { useSheet, type SheetApi } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
 import { DayPicker } from './DayPicker';
-import { useReshape } from './reshape';
+import { movesOnly, useMoveTo } from '../plan/moveRule';
 
 const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
 
@@ -31,21 +31,45 @@ export const announceReshape = (toast: ReturnType<typeof useToast>, r: { conflic
 };
 
 /**
+ * After a pick the row the sheet would give focus back to has moved (it is a new row on its new day): focus goes to the
+ * moved session's row in the shown page once the sheet has let go of focus, not to `<body>` (code review 2 #8).
+ */
+const refocusMoved = (id: string) => {
+  const t0 = performance.now();
+  const tick = () => {
+    if (performance.now() - t0 > 1500) return;
+    const a = document.activeElement;
+    // still in the closing sheet: wait; somewhere else on purpose: leave it
+    if (a && a !== document.body && a.isConnected) {
+      if (a.closest('.sheet, [role="dialog"]')) return void requestAnimationFrame(tick);
+      return;
+    }
+    const row = document.querySelector<HTMLElement>(`.tab[data-active] .pl-pane.is-on .dp-page[data-role="cur"] [data-session-id="${CSS.escape(id)}"] .pl-line`);
+    if (row) row.focus({ preventScroll: true });
+    else requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
+/**
  * Move one session, usually a day or two: Tomorrow and the next free day as one-tap chips (Pressables), then the week as a
  * strip of days (`DayPicker`: a swipe pages it 1:1, the chevrons slide). A day that already has a session swaps with it, as
- * a drop does in Plan. A pick closes the sheet and the toast carries Undo.
+ * a drop does in Plan, except from a day already past onto today or later: it moves and that day keeps its own (the one
+ * rule, `moveRule.ts`: code review 2 #3). A pick closes the sheet and the toast carries Undo.
  */
 export const MovePanel = ({ date, session }: { date: string; session: Session }) => {
   const log = useLog([date.slice(0, 7), shiftDays(date, 21).slice(0, 7)]);
   const sheet = useSheet();
   const toast = useToast();
-  const { reshape } = useReshape();
+  const moveTo = useMoveTo();
   const t = log.today;
   const go = (to: string) => {
     if (to === date) return;
-    const r = reshape(log, session, date, to);
+    const r = moveTo(log, session, date, to);
+    const hadFocus = !!document.activeElement && document.activeElement !== document.body;
     sheet.close();
     if (r) announceReshape(toast, r);
+    if (r && hadFocus) refocusMoved(session.id);
   };
   // the quick picks say days as the owner reads them: Today and Tomorrow are today's, not the session's (review-feel-1 #4)
   const tomorrow = shiftDays(t, 1);
@@ -61,7 +85,7 @@ export const MovePanel = ({ date, session }: { date: string; session: Session })
   return (
     <div className="mv2">
       <p className="t-sub ink2">
-        {nameOf(session)} is on {date === t ? 'today' : fmtDate('long', date)}. A day with something on it swaps.
+        {nameOf(session)} is on {date === t ? 'today' : fmtDate('long', date)}. {movesOnly(date, t, t) ? 'An earlier day with something on it swaps; from today on, it joins the day.' : 'A day with something on it swaps.'}
       </p>
       <div className="mv2-chips" role="group" aria-label="Quick picks">
         {chips.map(([k, d]) => (

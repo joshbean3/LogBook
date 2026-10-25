@@ -120,18 +120,41 @@
   overflow: hidden;
 }
 /* the week group's surface belongs to its rows (an inset grouped table): the first row carries the top edge, the last the
-   bottom edge, so when rows FLIP the group's edge rides the last row and nothing is clipped (review-feel-1 #5) */
+   bottom edge, so when rows FLIP the group's edge rides the last row and nothing is clipped (review-feel-1 #5). Behind the
+   rows a plain surface (.pl-wsurf, inset by the corner radius) fills the space a leaving row opens or a coming one takes
+   while the rows slide: flip.ts scales it from its top with the last row, so the group never tears (feel review 2 B). */
 .pl-group.pl-wgroup {
   background: none;
   border: 0;
   overflow: visible;
+  isolation: isolate;
+}
+.pl-wsurf {
+  position: absolute;
+  z-index: -1;
+  top: var(--r-group);
+  bottom: var(--r-group);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-left: var(--card-border);
+  border-right: var(--card-border);
+  transform-origin: 50% 0;
+  pointer-events: none;
+}
+/* the inline question is revealed by the rows below sliding off it, never drawn over them (feel review 2 E) */
+.pl-wgroup > .pl-conflict {
+  z-index: 0;
+}
+.pl-wgroup > .pl-conflict ~ .pl-day {
+  z-index: 1;
 }
 .pl-wgroup > .pl-day,
 .pl-wgroup > .pl-conflict {
   border-left: var(--card-border);
   border-right: var(--card-border);
 }
-.pl-wgroup > :first-child {
+.pl-wgroup > .pl-wsurf + * {
   border-top: var(--card-border);
   border-top-left-radius: var(--r-group);
   border-top-right-radius: var(--r-group);
@@ -141,8 +164,8 @@
   border-bottom-left-radius: var(--r-group);
   border-bottom-right-radius: var(--r-group);
 }
-.pl-wgroup > :first-child .pl-lines > :first-child,
-.pl-wgroup > :first-child .pl-lines > .pl-slot:first-child > .pl-line {
+.pl-wgroup > .pl-wsurf + * .pl-lines > :first-child,
+.pl-wgroup > .pl-wsurf + * .pl-lines > .pl-slot:first-child > .pl-line {
   border-top-right-radius: calc(var(--r-group) - 1px);
 }
 .pl-wgroup > :last-child .pl-lines > :last-child,
@@ -243,6 +266,17 @@
 .pl-line.is-moving > *,
 .pl-line[data-dragging] > * {
   opacity: 0.35;
+}
+/* once the pill carries the session, the row it left is a placeholder at rest: no lift, no overhang past the group's edge
+   (feel review 2 G); it settles in 120 ms (the lift's own [data-lifting] rule turns transitions off) */
+.pl-line[data-dragging] {
+  scale: 1 !important;
+  background: var(--surface) !important;
+}
+.pl-line.pressable[data-lifting][data-dragging] {
+  transition:
+    scale 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 120ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 /* the dropped session's new row waits for the pill to land in it */
 .pl-slot[data-landing] .pl-line > * {
@@ -407,6 +441,10 @@
 /* skeleton: the seven rows' shape */
 .pl-skel {
   padding: 0;
+}
+/* the blocks show on the group's surface (a plain .skel is --surface: on this group it was invisible, feel review 2 D) */
+.pl-skel .skel {
+  --skel-bg: var(--surface-2);
 }
 .pl-skel-row {
   display: flex;

@@ -16,7 +16,19 @@ import { PlanBuilder } from './PlanBuilder';
 import './plan.css';
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
-const planWeeks = (b: PlanBlock) => Math.ceil((daysBetween(b.start, b.end) + 1) / 7);
+/**
+ * A block's weeks as the builder numbers them (code review 2 #9): Monday-based, after a lead-in when it does not start on
+ * a Monday (`·, W1, W2 …` in the builder's grid). `firstMon` is week 1's Monday; `weekOf(d)` is 0 in the lead-in.
+ */
+const firstMonOf = (b: PlanBlock) => (mondayOf(b.start) === b.start ? b.start : shiftDays(mondayOf(b.start), 7));
+const planWeeks = (b: PlanBlock) => {
+  const m = firstMonOf(b);
+  return b.end < m ? 1 : Math.floor(daysBetween(m, b.end) / 7) + 1;
+};
+const weekOf = (b: PlanBlock, d: string) => {
+  const m = firstMonOf(b);
+  return d < m ? 0 : Math.min(planWeeks(b), Math.floor(daysBetween(m, d) / 7) + 1);
+};
 const stateOf = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active');
 /**
  * The plan to show: the one running today, else the next one to start, else the last one. A block that a newer one has
@@ -79,7 +91,7 @@ export const blockCardOf = (log: Log): BlockCardData => {
   const weeks = b ? planWeeks(b) : 0;
   const st = b ? stateOf(b, t) : 'Active';
   const arc = b ? arcOf(log, b) : [];
-  return { t, boot: !!log.boot, b, st, weeks, wk: b && st === 'Active' ? Math.min(weeks, Math.floor(daysBetween(b.start, t) / 7) + 1) : 0, arc, peak: Math.max(0, ...arc.map((w) => w.planned)) };
+  return { t, boot: !!log.boot, b, st, weeks, wk: b && st === 'Active' ? weekOf(b, t) : 0, arc, peak: Math.max(0, ...arc.map((w) => w.planned)) };
 };
 
 /**
@@ -93,17 +105,19 @@ export const blockCardOf = (log: Log): BlockCardData => {
  * With no page, today's place.
  */
 const whereFor = (d: BlockCardData, page?: { from: string; to: string }) => {
-  const { b, st, weeks, wk, t } = d;
+  const { b, st, weeks, wk } = d;
   if (!b) return '';
-  const today = st === 'Active' ? `Week ${wk} of ${weeks}` : st === 'Upcoming' ? `Starts ${fmtDate('md', b.start)}` : `Finished ${fmtDate('md', b.end)}`;
+  const lead = `Lead-in · Week 1 starts ${fmtDate('md', firstMonOf(b))}`;
+  const today = st === 'Active' ? (wk ? `Week ${wk} of ${weeks}` : lead) : st === 'Upcoming' ? `Starts ${fmtDate('md', b.start)}` : `Finished ${fmtDate('md', b.end)}`;
   if (!page) return today;
   if (page.to < b.start) return `Starts ${fmtDate('md', b.start)}`;
-  if (page.from > b.end) return `${b.end < t ? 'Ended' : 'Ends'} ${fmtDate('md', b.end)}`;
-  const n = (d0: string) => Math.min(weeks, Math.max(1, Math.floor(daysBetween(b.start, d0) / 7) + 1));
-  if (page.from <= t && t <= page.to && st === 'Active') return today;
-  const a = n(page.from > b.start ? page.from : b.start);
-  const z = n(page.to < b.end ? page.to : b.end);
-  return a === z ? `Week ${a} of ${weeks}` : `Weeks ${a}–${z} of ${weeks}`;
+  if (page.from > b.end) return `${b.end < d.t ? 'Ended' : 'Ends'} ${fmtDate('md', b.end)}`;
+  // a week page is one of the block's weeks (or its lead-in); a month page, the weeks it shows
+  const a = weekOf(b, page.from > b.start ? page.from : b.start);
+  const z = weekOf(b, page.to < b.end ? page.to : b.end);
+  if (!z) return lead;
+  const a1 = Math.max(1, a);
+  return a1 === z ? `Week ${z} of ${weeks}` : `Weeks ${a1}–${z} of ${weeks}`;
 };
 
 export const BlockCardView = ({ data, getLog, page }: { data: BlockCardData; getLog: () => Log; page?: { from: string; to: string } }) => {

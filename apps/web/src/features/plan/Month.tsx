@@ -41,8 +41,8 @@ const Cell = ({ d, log, inMonth }: { d: string; log: Log; inMonth: boolean }) =>
   );
 };
 
-/** One month page. */
-export const MonthPage = memo(function MonthPage({ first, onWeek, block }: { first: string; onWeek: (mon: string) => void; block: PlanBlockProps }) {
+/** One month page. `still`: a neighbour not yet live, the same pixels with no Pressables (PlanView; feel review 2 D). */
+export const MonthPage = memo(function MonthPage({ first, onWeek, block, still }: { first: string; onWeek: (mon: string) => void; block: PlanBlockProps; still?: boolean }) {
   const weeks = monthWeeks(first);
   const months = useMemo(() => [...new Set([monthOf(weeks[0]!), monthOf(first), monthOf(shiftDays(weeks.at(-1)!, 6))])], [first]); // eslint-disable-line react-hooks/exhaustive-deps
   const log = useLog(months);
@@ -67,16 +67,8 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block }: { fir
           // a past week with nothing run reads as such (`0 of 26`), never its plan as if it were run (review-feel-1 #12)
           const total = done > 0 ? tenth(done) : w.plannedMiles ? (past ? '0' : tenth(w.plannedMiles)) : '';
           const of = w.plannedMiles ? (done > 0 || past ? `of ${tenth(w.plannedMiles)}` : 'planned') : '';
-          return (
-            <Pressable
-              key={mon}
-              as="div"
-              press="surface"
-              data-week={mon}
-              className={`mg-week ${now ? 'is-now' : ''}`.trim()}
-              label={`Week of ${fmtDate('md', mon)}: ${w.plannedMiles ? `${tenth(done)} of ${tenth(w.plannedMiles)} miles` : `${tenth(done)} miles`}. Show the week`}
-              onPress={() => onWeek(mon)}
-            >
+          const cells = (
+            <>
               {Array.from({ length: 7 }, (_, i) => {
                 const d = shiftDays(mon, i);
                 return <Cell key={d} d={d} log={log} inMonth={d >= first && d < next} />;
@@ -85,6 +77,26 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block }: { fir
                 <b className="tnum">{total}</b>
                 {of ? <small>{of}</small> : null}
               </span>
+            </>
+          );
+          const cls = `mg-week ${now ? 'is-now' : ''}`.trim();
+          if (still)
+            return (
+              <div key={mon} className={`pressable ${cls}`} data-press="surface" data-week={mon}>
+                {cells}
+              </div>
+            );
+          return (
+            <Pressable
+              key={mon}
+              as="div"
+              press="surface"
+              data-week={mon}
+              className={cls}
+              label={`Week of ${fmtDate('md', mon)}: ${w.plannedMiles ? `${tenth(done)} of ${tenth(w.plannedMiles)} miles` : `${tenth(done)} miles`}. Show the week`}
+              onPress={() => onWeek(mon)}
+            >
+              {cells}
             </Pressable>
           );
         })}

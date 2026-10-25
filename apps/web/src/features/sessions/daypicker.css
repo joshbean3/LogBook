@@ -81,3 +81,11 @@
     -16px 0 0 var(--bg),
     16px 0 0 var(--bg);
 }
+/* and takes the taps there, so a tap beside the foot never reaches a cell scrolled under it (feel review 2 G) */
+.sheet:has(.dpk) .sheet-foot::before {
+  content: '';
+  position: absolute;
+  inset: 0 -16px;
+  z-index: -1;
+  background: var(--bg);
+}

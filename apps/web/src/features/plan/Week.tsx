@@ -1,6 +1,6 @@
-import { assess, fmtDate, heroSession, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey } from '@logbook/shared';
+import { assess, fmtDate, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey } from '@logbook/shared';
 import { ArrowRightLeft, Check, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
-import { createContext, Fragment, memo, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, Fragment, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
@@ -10,11 +10,12 @@ import { Skeleton } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
 import { sessionCan, useSessionActions } from '../sessions/actions';
-import { hardPair, useReshape, type ReshapeResult } from '../sessions/reshape';
+import type { ReshapeResult } from '../sessions/reshape';
 import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { BlockCardView, type PlanBlockProps } from './Blocks';
 import { crossfade, fadeOut } from '@/lib/motion';
 import { useFlip, waapiOf } from './flip';
+import { dayOrder, landingIndex, useMoveTo } from './moveRule';
 import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
 import { WeekLine } from './WeekLine';
 
@@ -32,31 +33,20 @@ import { WeekLine } from './WeekLine';
  */
 
 const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
-const isTraining = (s: Session) => s.kind !== 'rest';
 /**
  * What every row of a group does, made once per group (a row would otherwise hold some twenty mutation observers of its own):
  * open a session, add, move, mark, delete and restore, reshape, toast, and `flip` (the FLIP capture, flip.ts: called right
  * before a change that moves rows).
  */
-const useKit = (log: Log, flip: () => void, onReshaped: (r: ReshapeResult, to: string) => void) => {
+const useKit = (log: Log, flip: (after?: () => void) => void, onReshaped: (r: ReshapeResult, to: string) => void) => {
   const open = useOpenSession(log);
   const openUnplanned = useOpenUnplanned();
   const act = useSessionActions(log);
   const toast = useToast();
-  const { mark, remove, restore, move: moveM } = useSessionMutations();
-  const { reshape } = useReshape();
-  /**
-   * A drop from a past day onto today or later moves the session and leaves the day it lands on as it is: a swap would
-   * send that day's session into the past, where it reads `Missed` (review-feel-1 #9). Two sessions then sit under one
-   * label. Between two past days a drop still swaps (rearranging what was).
-   */
-  const moveOnly = (l: Log, s: Session, from: string, to: string): ReshapeResult | null => {
-    if (from === to) return null;
-    const conflict = hardPair(l.snap.sessionsOn, [{ s, to }], [from, to]);
-    moveM.mutate({ session: s, to });
-    return { swapped: null, conflict, undo: () => moveM.mutate({ session: { ...s, date: to }, to: from }), said: `Moved to ${fmtDate('short', to)}` };
-  };
-  return { log, open, openUnplanned, add: act.add, move: act.move, toast, mark, remove, restore, reshape, moveOnly, flip, onReshaped };
+  const { mark, remove, restore } = useSessionMutations();
+  // a drop moves or swaps by the one rule the Move sheet uses too (moveRule.ts: never a swap into the past)
+  const moveTo = useMoveTo();
+  return { log, open, openUnplanned, add: act.add, move: act.move, toast, mark, remove, restore, moveTo, flip, onReshaped };
 };
 type KitT = ReturnType<typeof useKit>;
 const Kit = createContext<KitT | null>(null);
@@ -64,6 +54,8 @@ const useRowKit = () => useContext(Kit)!;
 
 export interface Conflict {
   days: string[];
+  /** The day the question sits under: the pair's later day, or its earlier one when the later is on the next page (code review 2 #4). */
+  at: string;
   undo: () => void;
 }
 
@@ -80,23 +72,33 @@ const Status = ({ k, word }: { k: StatusKey; word: string }) => {
 };
 
 /**
- * A row leaving the group (a delete): its content fades (`fadeOut`, 100 ms), then the layout commits once and the rows
- * below FLIP (docs/feel.md §10.1; review-feel-1 #5). Resolves when the fade is done.
+ * What leaves on a delete fades (`fadeOut`, 100 ms), then the layout commits once and the rows below FLIP (docs/feel.md
+ * §10.1; review-feel-1 #5): a session's whole row (its lifted surface too, so no empty grey box is left: feel review 2 B),
+ * a rest day's word and outline only (the row stays, an empty day). `done` resolves when the fade is over; `release` drops
+ * the held opacity once the change is in, so an element React keeps (the rest day's row, a row put back by Undo or by a
+ * failed write) never stays invisible (code review 2 #2).
  */
-const fadeRowOut = (el: HTMLElement | null) => {
-  const kids = el ? (Array.from(el.children) as HTMLElement[]) : [];
-  if (!kids.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
-  const anims = kids.map((k) => k.animate([{ opacity: getComputedStyle(k).opacity }, { opacity: 0 }], { ...waapiOf(fadeOut), fill: 'forwards' }));
-  return anims[0]!.finished.then(
-    () => undefined,
-    () => undefined,
-  );
+const fadeAway = (els: Array<Element | null | undefined>) => {
+  const list = els.filter((e): e is HTMLElement => e instanceof HTMLElement);
+  if (!list.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return { done: Promise.resolve(), release: () => undefined };
+  const anims = list.map((k) => k.animate([{ opacity: getComputedStyle(k).opacity }, { opacity: 0 }], { ...waapiOf(fadeOut), fill: 'forwards' }));
+  return {
+    done: anims[0]!.finished.then(
+      () => undefined,
+      () => undefined,
+    ),
+    release: () => anims.forEach((a) => a.cancel()),
+  };
 };
 
-/** One session on a day: a 60 px row in the group. */
-const SessionRow = ({ date, s }: { date: string; s: Session }) => {
-  const row = useRef<HTMLElement>(null);
-  const { log, open, move, toast, mark, remove, restore, reshape, moveOnly, flip, onReshaped } = useRowKit();
+/** After a delete took a focused row away, focus goes to what is now on that day (code review 2 #8), not to `<body>`. */
+const focusDay = (group: HTMLElement | null, date: string) => {
+  if (document.activeElement && document.activeElement !== document.body && document.activeElement.isConnected) return;
+  group?.querySelector<HTMLElement>(`[${PLAN_DAY}="${date}"] .pl-line`)?.focus({ preventScroll: true });
+};
+
+/** What a session row shows, with no hooks: the live row and a neighbour page not yet live draw the same pixels. */
+const rowFace = (log: Log, date: string, s: Session) => {
   const k = sessionKey(log.snap, date, s);
   const word = sessionWord(log.snap, date, s);
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
@@ -107,16 +109,60 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
   const dist = !a && s.kind === 'run' && s.miles && new RegExp(`\\b${num(s.miles)}\\b`).test(name) ? '' : dist0;
   const typeWord = s.type && !name.toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const sub = a && runs.length === 1 ? runs[0]!.name : typeWord;
+  const body = (
+    <>
+      <span className="pl-tone" aria-hidden="true" />
+      <span className="pl-main">
+        <span className="stamp pl-name">{name}</span>
+        {sub ? <span className="pl-sub">{sub}</span> : null}
+      </span>
+      {dist ? <span className="pl-dist tnum">{dist}</span> : null}
+      <Status k={k} word={word} />
+    </>
+  );
+  return { k, word, name, dist, cls: `pl-line t-${tone(s)} k-${k}`, body };
+};
+const bonusFace = (log: Log, date: string, runs: Activity[]) => {
+  const a = assess(log.zones, null, runs);
+  const word = sessionWord(log.snap, date, null);
+  const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
+  const body = (
+    <>
+      <span className="pl-tone" aria-hidden="true" />
+      <span className="pl-main">
+        <span className="stamp pl-name">{name}</span>
+        <span className="pl-sub">Off the plan</span>
+      </span>
+      <span className="pl-dist tnum">{mi(a.miles)} mi</span>
+      <Status k="bonus" word={word} />
+    </>
+  );
+  return { name, word, miles: a.miles, body };
+};
+const emptyFace = (log: Log, date: string, rest: Session | null) => (
+  <>
+    <span className="pl-tone" aria-hidden="true" />
+    <span className="pl-main">{rest ? <span className="pl-rest">Rest</span> : null}</span>
+    {date >= log.today ? <Plus size={18} className="pl-plus" aria-hidden="true" /> : null}
+  </>
+);
+
+/** One session on a day: a 60 px row in the group. */
+const SessionRow = ({ date, s }: { date: string; s: Session }) => {
+  const row = useRef<HTMLElement>(null);
+  const { log, open, move, toast, mark, remove, restore, moveTo, flip, onReshaped } = useRowKit();
+  const { k, word, name, dist, cls, body } = rowFace(log, date, s);
   const drag = useDayDrag({
     date,
     session: s,
     title: name,
     row,
+    // the pill flies to the row the session will occupy there (feel review 2 E)
+    slotFor: (to) => landingIndex(log, s, date, to),
     // written at the release (the rows reflow under the pill's flight); the haptic and the toast when the pill rests
     onDrop: (to, landed) => {
       flip();
-      // a swap would send the session on a day still to come into the past, where it reads Missed: move only (F9)
-      const r = date < log.today && to >= log.today ? moveOnly(log, s, date, to) : reshape(log, s, date, to);
+      const r = moveTo(log, s, date, to);
       if (!r) return false;
       void landed.then(() => onReshaped(r, to));
       return true;
@@ -148,10 +194,17 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
         destructive: true,
         onSelect: () => {
           haptics.delete();
-          void fadeRowOut(row.current).then(() => {
-            flip();
+          const f = fadeAway([row.current]);
+          void f.done.then(() => {
+            const group = row.current?.closest<HTMLElement>('.pl-wgroup') ?? null;
+            const focused = !!row.current?.contains(document.activeElement);
+            // the toast rises in the layout of the render the row leaves in, not before it (feel review 2 B)
+            flip(() => {
+              f.release();
+              if (focused) focusDay(group, date);
+              toast(`${name} deleted`, { label: 'Undo', fn: () => (flip(), restore.mutate(s)) });
+            });
             remove.mutate(s);
-            toast(`${name} deleted`, { label: 'Undo', fn: () => (flip(), restore.mutate(s)) });
           });
         },
       },
@@ -164,20 +217,14 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
         ref={row}
         as="div"
         press="surface"
-        className={`pl-line t-${tone(s)} k-${k}`}
+        className={cls}
         label={`${fmtDate('dowLong', date)}: ${name}${dist ? `, ${dist}` : ''}, ${word}. Open; hold for actions or to move`}
         onPress={() => open(date, s)}
         holdMenu={menu}
         menuLabel={`${name} actions`}
         {...drag}
       >
-        <span className="pl-tone" aria-hidden="true" />
-        <span className="pl-main">
-          <span className="stamp pl-name">{name}</span>
-          {sub ? <span className="pl-sub">{sub}</span> : null}
-        </span>
-        {dist ? <span className="pl-dist tnum">{dist}</span> : null}
-        <Status k={k} word={word} />
+        {body}
       </Pressable>
     </div>
   );
@@ -186,18 +233,10 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
 /** A run that happened with nothing planned for it. Tap opens it. */
 const BonusRow = ({ date, runs }: { date: string; runs: Activity[] }) => {
   const { log, openUnplanned } = useRowKit();
-  const a = assess(log.zones, null, runs);
-  const word = sessionWord(log.snap, date, null);
-  const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
+  const { name, word, miles, body } = bonusFace(log, date, runs);
   return (
-    <Pressable as="div" press="surface" className="pl-line t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(a.miles)} miles, ${word}. Open`}>
-      <span className="pl-tone" aria-hidden="true" />
-      <span className="pl-main">
-        <span className="stamp pl-name">{name}</span>
-        <span className="pl-sub">Off the plan</span>
-      </span>
-      <span className="pl-dist tnum">{mi(a.miles)} mi</span>
-      <Status k="bonus" word={word} />
+    <Pressable as="div" press="surface" className="pl-line t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(miles)} miles, ${word}. Open`}>
+      {body}
     </Pressable>
   );
 };
@@ -219,10 +258,14 @@ const EmptyRow = ({ date, rest }: { date: string; rest: Session | null }) => {
           icon: <Trash2 size={18} />,
           onSelect: () => {
             haptics.delete();
-            void fadeRowOut(line.current).then(() => {
-              flip();
+            // the word and the outline go; the row stays (an empty day, its + from today on)
+            const f = fadeAway([line.current?.querySelector('.pl-rest'), line.current?.querySelector('.pl-tone')]);
+            void f.done.then(() => {
+              flip(() => {
+                f.release();
+                toast('Rest day deleted', { label: 'Undo', fn: () => (flip(), restore.mutate(rest)) });
+              });
               remove.mutate(rest);
-              toast('Rest day deleted', { label: 'Undo', fn: () => (flip(), restore.mutate(rest)) });
             });
           },
         },
@@ -230,37 +273,69 @@ const EmptyRow = ({ date, rest }: { date: string; rest: Session | null }) => {
     : undefined;
   return (
     <Pressable ref={line} as="div" press="surface" className={`pl-line is-rest ${rest ? '' : 'is-empty'}`.trim()} label={`${fmtDate('dowLong', date)}: ${rest ? 'rest' : 'nothing planned'}. Add a session`} onPress={() => add(date)} holdMenu={items} menuLabel="Rest day actions">
-      <span className="pl-tone" aria-hidden="true" />
-      <span className="pl-main">{rest ? <span className="pl-rest">Rest</span> : null}</span>
-      {date >= log.today ? <Plus size={18} className="pl-plus" aria-hidden="true" /> : null}
+      {emptyFace(log, date, rest)}
     </Pressable>
   );
 };
 
 /** One day: the date column (weekday, the number; today's in the accent disc) and its rows. The whole day takes a drop. */
+/** What a day holds, in the order its rows are drawn (moveRule.ts's `dayOrder`, which the drag's landing reads too). */
+const dayOf = (log: Log, date: string) => {
+  const sessions = log.snap.sessionsOn(date);
+  const ordered = dayOrder(sessions);
+  const runs = log.snap.runsOn(date);
+  const bonus = !ordered.some((s) => s.kind === 'run') && runs.length > 0;
+  const rest = sessions.find((s) => s.kind === 'rest') ?? null;
+  const t = log.today;
+  return { ordered, runs, bonus, rest, cls: `pl-day ${date === t ? 'is-today' : ''} ${date < t ? 'is-past' : ''}`.trim() };
+};
+const DateCol = ({ date }: { date: string }) => (
+  <div className="pl-date" aria-hidden="true">
+    <span className="pl-dow">{fmtDate('dow', date)}</span>
+    <span className="pl-num tnum">{parseISO(date).getDate()}</span>
+  </div>
+);
 const DayRow = ({ date }: { date: string }) => {
   const { log } = useRowKit();
-  const t = log.today;
-  const sessions = log.snap.sessionsOn(date);
-  const training = sessions.filter(isTraining);
-  const lead = heroSession(training);
-  const ordered = lead ? [lead, ...training.filter((s) => s !== lead)] : [];
-  const runs = log.snap.runsOn(date);
-  const bonus = !training.some((s) => s.kind === 'run') && runs.length > 0;
-  const rest = sessions.find((s) => s.kind === 'rest') ?? null;
-  const isToday = date === t;
+  const { ordered, runs, bonus, rest, cls } = dayOf(log, date);
   return (
-    <div className={`pl-day ${isToday ? 'is-today' : ''} ${date < t ? 'is-past' : ''}`.trim()} role="listitem" {...{ [PLAN_DAY]: date }}>
-      <div className="pl-date" aria-hidden="true">
-        <span className="pl-dow">{fmtDate('dow', date)}</span>
-        <span className="pl-num tnum">{parseISO(date).getDate()}</span>
-      </div>
+    <div className={cls} role="listitem" {...{ [PLAN_DAY]: date }}>
+      <DateCol date={date} />
       <div className="pl-lines">
         {ordered.map((s) => (
           <SessionRow key={s.id} date={date} s={s} />
         ))}
         {bonus ? <BonusRow date={date} runs={runs} /> : null}
         {!ordered.length && !bonus ? <EmptyRow date={date} rest={rest} /> : null}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * A neighbour page before it is live (PlanView mounts the live page in a transition after a commit): the same days, the
+ * same rows, the same pixels, with no handlers and no hooks per row, so a quick swipe that reaches it before the
+ * transition shows the week as it is, and the swap to the live page changes nothing on screen (feel review 2 D).
+ */
+const StillDay = ({ log, date }: { log: Log; date: string }) => {
+  const { ordered, runs, bonus, rest, cls } = dayOf(log, date);
+  const line = (key: string, className: string, body: ReactNode) => (
+    <div key={key} className="pl-slot">
+      <div className={`pressable ${className}`} data-press="surface">
+        {body}
+      </div>
+    </div>
+  );
+  return (
+    <div className={cls}>
+      <DateCol date={date} />
+      <div className="pl-lines">
+        {ordered.map((s) => {
+          const f = rowFace(log, date, s);
+          return line(s.id, f.cls, f.body);
+        })}
+        {bonus ? <div className="pressable pl-line t-easy k-bonus" data-press="surface">{bonusFace(log, date, runs).body}</div> : null}
+        {!ordered.length && !bonus ? <div className={`pressable pl-line is-rest ${rest ? '' : 'is-empty'}`.trim()} data-press="surface">{emptyFace(log, date, rest)}</div> : null}
       </div>
     </div>
   );
@@ -290,31 +365,30 @@ const ConflictRow = ({ c, onKeep }: { c: Conflict; onKeep: () => void }) => {
 /** The seven days of `mon` in one inset group (the drop target of every drag). */
 const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log; conflict: Conflict | null; setConflict: (c: Conflict | null) => void }) => {
   const group = useRef<HTMLDivElement>(null);
-  // the block card (and anything else under the group) rides the same FLIP: the group's edge and the card move together
-  const flip = useFlip(group, () => {
-    const out: HTMLElement[] = [];
-    for (let e = group.current?.nextElementSibling as HTMLElement | null; e; e = e.nextElementSibling as HTMLElement | null) out.push(e);
-    return out;
-  });
+  const surf = useRef<HTMLDivElement>(null);
+  // the block card (and anything else under the group) rides the same FLIP: the group's edge and the card move together;
+  // the surface behind the rows stretches with them (no tear where a row left or comes)
+  const flip = useFlip(
+    group,
+    () => {
+      const out: HTMLElement[] = [];
+      for (let e = group.current?.nextElementSibling as HTMLElement | null; e; e = e.nextElementSibling as HTMLElement | null) out.push(e);
+      return out;
+    },
+    () => surf.current,
+  );
   const kit = useKit(log, flip, (r, to) => onReshaped(r, to));
   const { toast } = kit;
   const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
-  if (!log.loaded(mon) || !log.loaded(shiftDays(mon, 6)))
-    return (
-      <div className="pl-group pl-skel" aria-label="Loading the week" aria-busy="true">
-        {days.map((d) => (
-          <div key={d} className="pl-skel-row">
-            <Skeleton w={28} h={32} r={8} />
-            <Skeleton w="55%" h={18} r="line" />
-          </div>
-        ))}
-      </div>
-    );
+  if (!log.loaded(mon) || !log.loaded(shiftDays(mon, 6))) return <SkelGroup days={days} />;
   const onReshaped = (r: ReshapeResult, to: string) => {
     if (r.conflict) {
       haptics.warning();
+      const [a, b] = r.conflict as [string, string];
+      const inPage = (d: string) => d >= mon && d <= shiftDays(mon, 6);
       setConflict({
         days: r.conflict,
+        at: inPage(b) ? b : inPage(a) ? a : to,
         undo: () => {
           flip();
           r.undo();
@@ -330,10 +404,11 @@ const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log;
   return (
     <Kit.Provider value={kit}>
       <div ref={group} className="pl-group pl-wgroup" role="list" aria-label={`Week of ${fmtDate('md', mon)}`}>
+        <div ref={surf} className="pl-wsurf" aria-hidden="true" />
         {days.map((d) => (
           <Fragment key={d}>
             <DayRow date={d} />
-            {conflict && conflict.days[1] === d ? (
+            {conflict && conflict.at === d ? (
               <ConflictRow
                 c={conflict}
                 onKeep={() => {
@@ -349,8 +424,35 @@ const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log;
   );
 };
 
-/** One week page: the week line, the group, the block card. Memoised by its Monday (the pager re-renders none on a commit). */
-export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block }: { mon: string; onThisWeek: () => void; block: PlanBlockProps }) {
+/** A week not yet live (`still`): the same group, drawn from the same log, with no row hooks (feel review 2 D). */
+const StillGroup = ({ mon, log }: { mon: string; log: Log }) => {
+  const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
+  if (!log.loaded(mon) || !log.loaded(shiftDays(mon, 6))) return <SkelGroup days={days} />;
+  return (
+    <div className="pl-group pl-wgroup" aria-hidden="true">
+      <div className="pl-wsurf" />
+      {days.map((d) => (
+        <StillDay key={d} log={log} date={d} />
+      ))}
+    </div>
+  );
+};
+const SkelGroup = ({ days }: { days: string[] }) => (
+  <div className="pl-group pl-skel" aria-label="Loading the week" aria-busy="true">
+    {days.map((d) => (
+      <div key={d} className="pl-skel-row">
+        <Skeleton w={28} h={32} r={8} />
+        <Skeleton w="55%" h={18} r="line" />
+      </div>
+    ))}
+  </div>
+);
+
+/**
+ * One week page: the week line, the group, the block card. Memoised by its Monday (the pager re-renders none on a commit).
+ * `still`: a neighbour not yet live draws the same page without its row hooks (PlanView makes it live in a transition).
+ */
+export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block, still }: { mon: string; onThisWeek: () => void; block: PlanBlockProps; still?: boolean }) {
   const months = useMemo(() => [...new Set([monthOf(mon), monthOf(shiftDays(mon, 6))])], [mon]);
   const page = useMemo(() => ({ from: mon, to: shiftDays(mon, 6) }), [mon]);
   const log = useLog(months);
@@ -367,7 +469,7 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block }: { mon
   return (
     <div className="pl-wpage">
       {log.loaded(mon) ? <WeekLine log={log} mon={mon} onThisWeek={onThisWeek} /> : <div className="pl-wl" aria-hidden="true" />}
-      <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />
+      {still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
       <BlockCardView data={block.data} getLog={block.getLog} page={page} />
     </div>
   );

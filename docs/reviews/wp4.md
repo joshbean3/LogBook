@@ -4,9 +4,10 @@ Branch `feel/wp4`, on `feel/pages-base` (WP1 merged, the seams' §F exports). Sp
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`.
 
-This review covers four steps, newest first:
+This review covers five steps, newest first:
 
-- **Fix round 1** (first below): every finding of the code review and the feel review, reproduced on the reviewed build, fixed and proved at 1× and 4×; the battery and WP1's battery rerun.
+- **Fix round 2** (first below): every finding of the second code review and the second feel review, reproduced on the reviewed build (`7f8efcd`), fixed and proved at 1× and 4×; the battery and WP1's battery rerun.
+- **Fix round 1**: every finding of the code review and the feel review, reproduced on the reviewed build, fixed and proved at 1× and 4×; the battery and WP1's battery rerun.
 - **The QA step** (first below): the whole acceptance battery at 1× and 4×, WP1's battery against this build, before/after screenshots of every state the package owns, one fix, and the consolidated findings, requests and hand-verifiable steps.
 - **Step 2**: the block card, the builder with its ghost header, `PlansPage`, `MoveSheet` and `DayPicker`, Plan's haptics.
 - **Step 1**: PlanView, the Week rows and the drag, the Month grid.

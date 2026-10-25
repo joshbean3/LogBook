@@ -59,6 +59,18 @@ interface Flight {
   off: () => void;
 }
 
+/** A row of another day still sliding (a FLIP) over the slot: the crossover waits for it to pass (feel review 2 E). */
+const covered = (slot: HTMLElement) => {
+  const r = slot.getBoundingClientRect();
+  const day = slot.closest(`[${PLAN_DAY}]`);
+  for (const d of Array.from(slot.closest('.pl-wgroup')?.children ?? [])) {
+    if (d === day || d.classList.contains('pl-wsurf') || !d.getAnimations().some((a) => a.playState === 'running')) continue;
+    const q = d.getBoundingClientRect();
+    if (q.bottom > r.top + 1 && q.top < r.bottom - 1) return true;
+  }
+  return false;
+};
+
 /** The pill's top-left for a finger at (fx, fy). */
 const anchor = (f: Pick<Flight, 'w' | 'h'>, fx: number, fy: number) => ({ x: fx - f.w / 2, y: fy - RISE - f.h / 2 });
 
@@ -66,11 +78,28 @@ const anchor = (f: Pick<Flight, 'w' | 'h'>, fx: number, fy: number) => ({ x: fx 
  * `onDrop(to, landed)` writes the drop at the release and says whether it wrote; `landed` resolves on the frame the pill
  * rests in the slot (the haptic and the toast belong there).
  */
-export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { date: string; session: Session; title: string; row: RefObject<HTMLElement | null>; onDrop: (to: string, landed: Promise<void>) => boolean; disabled?: boolean }) => {
+export const useDayDrag = ({
+  date,
+  session,
+  title,
+  row,
+  onDrop,
+  slotFor,
+  disabled,
+}: {
+  date: string;
+  session: Session;
+  title: string;
+  row: RefObject<HTMLElement | null>;
+  onDrop: (to: string, landed: Promise<void>) => boolean;
+  /** The row the session will occupy on `to` (0 = first; the count of rows there = a new row after the last). Default 0. */
+  slotFor?: (to: string) => number;
+  disabled?: boolean;
+}) => {
   const scroller = useTabScroller();
   const fl = useRef<Flight | null>(null);
-  const o = useRef({ date, onDrop });
-  o.current = { date, onDrop };
+  const o = useRef({ date, onDrop, slotFor });
+  o.current = { date, onDrop, slotFor };
 
   const light = (f: Flight, el: HTMLElement | null) => {
     const day = el?.getAttribute(PLAN_DAY) ?? null;
@@ -145,8 +174,10 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
    * the name's centre line (the source row's own name offset, in layout px: the row may be scaled), at `scale` about the
    * pill's centre. Returns the transform and the distance it travels.
    */
-  const onto = (f: Flight, line: HTMLElement, scale: number) => {
-    const r = line.getBoundingClientRect();
+  const onto = (f: Flight, line: HTMLElement, scale: number, below = false) => {
+    const r0 = line.getBoundingClientRect();
+    // a new row after the day's last one: the slot one row under it
+    const r = below ? new DOMRect(r0.left, r0.top + r0.height, r0.width, r0.height) : r0;
     const src = row.current;
     const nm = src?.querySelector<HTMLElement>('.pl-name');
     const sr = src?.getBoundingClientRect();
@@ -164,11 +195,11 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
    * Fly the pill onto `line` on springs.settle (WAAPI, transform only): `done` resolves on the rest frame, `ready` once the
    * flight runs on the compositor (so main-thread work after it cannot delay its start).
    */
-  const fly = (f: Flight, line: HTMLElement | null, scale: number) => {
+  const fly = (f: Flight, line: HTMLElement | null, scale: number, below = false) => {
     f.off();
     // reduced motion: no travel; the pill fades where it is (§10.2)
     if (!line || reduced()) return { done: Promise.resolve(), ready: Promise.resolve() };
-    const to = onto(f, line, scale);
+    const to = onto(f, line, scale, below);
     const a = f.pill.animate([{ transform: f.pill.style.transform }, { transform: to.tf }], { ...settleFor(to.travel), fill: 'forwards' });
     const ok = () => undefined;
     return { done: a.finished.then(ok, ok), ready: a.ready.then(ok, ok) };
@@ -191,8 +222,12 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
     const to = el?.getAttribute(PLAN_DAY) ?? null;
     if (!to || to === o.current.date) return back();
     const id = session.id;
-    // the slot it goes into: the day's first row (the session leads the day it lands on)
-    const slotEl = el?.querySelector<HTMLElement>('.pl-line') ?? el;
+    // the slot it goes into: the row it will occupy there (a swap leads the day; a move onto a day from the past joins what
+    // is there, after it: feel review 2 E)
+    const lines = el ? Array.from(el.querySelectorAll<HTMLElement>('.pl-lines > .pl-slot > .pl-line, .pl-lines > .pl-line')) : [];
+    const idx = Math.max(0, o.current.slotFor?.(to) ?? 0);
+    const below = lines.length > 0 && idx >= lines.length;
+    const slotEl = lines[Math.min(idx, lines.length - 1)] ?? el;
     src?.classList.add('is-moving');
     // the row it left keeps its placeholder look until the data moves it (or, if the write never lands, for 1.5 s)
     setTimeout(() => src?.classList.remove('is-moving'), 1500);
@@ -208,9 +243,11 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
       }
       return true;
     };
-    const empty = !el?.querySelector('[data-session-id]');
-    const hush = empty && slotEl && !reduced() ? Array.from(slotEl.children).map((c) => c.animate([{ opacity: getComputedStyle(c).opacity }, { opacity: 0 }], { ...waapiOf(fadeOutT), fill: 'forwards' })) : [];
-    const flight = fly(f, slotEl ?? null, 0.9);
+    // only an empty day's row goes (its `Rest` / `+`); a run off the plan, or a session that stays, keeps its row (code
+    // review 2 #2): the fills are dropped once the new row is in
+    const replaced = !below && slotEl?.classList.contains('is-rest') ? slotEl : null;
+    const hush = replaced && !reduced() ? Array.from(replaced.children).map((c) => c.animate([{ opacity: getComputedStyle(c).opacity }, { opacity: 0 }], { ...waapiOf(fadeOutT), fill: 'forwards' })) : [];
+    const flight = fly(f, slotEl ?? null, 0.9, below);
     // the flight (and the hush) start on the compositor first, and the write comes one `fadeOut` (100 ms) into the flight:
     // the pill's first frames leave the finger on an idle main thread, and the write's render cannot hold them back
     let wrote = true;
@@ -222,11 +259,12 @@ export const useDayDrag = ({ date, session, title, row, onDrop, disabled }: { da
     void flight.done.then(() => {
       if (!wrote) return back();
       land();
-      // the new row is under the pill (its content held back): they cross over
+      // the new row is under the pill (its content held back): they cross over once no row sliding past is over it
       const t0 = performance.now();
       const wait = () => {
-        const there = document.querySelector(`[${PLAN_DAY}="${to}"] [data-session-id="${CSS.escape(id)}"]`);
-        if (!there && performance.now() - t0 < 1000) return void requestAnimationFrame(wait);
+        const there = document.querySelector<HTMLElement>(`[${PLAN_DAY}="${to}"] [data-session-id="${CSS.escape(id)}"]`);
+        if ((!there || covered(there)) && performance.now() - t0 < 1000) return void requestAnimationFrame(wait);
+        for (const a of hush) a.cancel();
         endLanding(id);
         fadeOut(f);
       };

@@ -1,6 +1,6 @@
 import { buildTemplate, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
 import { AnimatePresence, motion } from 'motion/react';
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
@@ -23,6 +23,13 @@ import './plan.css';
  */
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
+/** A number field takes a typed number in place of the one it shows (feel review 2 G: `8` then `5` read `85`). */
+const selectAll = (e: ReactFocusEvent<HTMLInputElement>) => {
+  const el = e.currentTarget;
+  el.select();
+  // WebKit can drop a selection made on focus as the touch ends: once more on the next frame
+  requestAnimationFrame(() => document.activeElement === el && el.select());
+};
 
 // ---------- the store the body writes and the header reads ----------
 export interface GhostState {
@@ -286,9 +293,12 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       (r) => {
         // a destructive commit with Undo (spec §11.4), when it commits; a plain new block is silent
         if (replacing) haptics.delete();
-        if (alive.current) sheet.close();
-        // the new block's first week, only when the builder was opened on Plan; over Today the tab stays (spec §1.3)
-        if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
+        const wasOpen = alive.current;
+        if (wasOpen) sheet.close();
+        // the new block's first week, only when the builder was opened on Plan and is still open: a write that lands after
+        // a dismiss moves nothing (the owner may be anywhere by then; spec: nothing changes without a user action, code
+        // review 2 #5). Over Today the tab stays (spec §1.3). The toast with Undo shows either way.
+        if (tab === 'plan' && wasOpen) nav.go(`/plan/week/${mondayOf(r.block.start)}`);
         // the sheet (and this component) is gone by the time Undo is tapped: follow the promise, not mutate's callbacks.
         // The restored rows are the answer to an Undo; only a failure says something (spec §8: toasts for Undo and errors)
         announceApplied(toast, r, () =>
@@ -380,11 +390,11 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       <div className="tp-steps">
         <div className="ed-group">
           <span className="ed-label">{raceDate ? 'Weeks to race day' : 'Weeks'}</span>
-          <Stepper label="Weeks" value={weeks} onChange={setWeeks} step={1} min={2} max={30} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric' }} />
+          <Stepper label="Weeks" value={weeks} onChange={setWeeks} step={1} min={2} max={30} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
         </div>
         <div className="ed-group">
           <span className="ed-label">Miles a week now</span>
-          <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={3} max={150} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric' }} />
+          <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={3} max={150} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
         </div>
       </div>
       <div className="ed-chips">

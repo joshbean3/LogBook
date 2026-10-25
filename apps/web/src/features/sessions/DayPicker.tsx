@@ -30,8 +30,32 @@ export const DayPicker = ({ value, onPick, origin, skipId, labelFor }: { value: 
     if (mon !== week) handle.goTo(mon);
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   const t = log.today;
-  // a chevron tapped while a slide runs steps on from where that slide is going, not from the committed week (code review 1 #5)
-  const from = () => handle.target.get() ?? week;
+  const weekNow = useRef(week);
+  weekNow.current = week;
+  /**
+   * A chevron tapped while the strip moves (a chevron's slide, a swipe's release) waits for it to rest, then slides on by
+   * every step asked for meanwhile, in one goTo (its destination is in place before that slide starts): no step is lost and
+   * the page sliding in never changes under the eye (code review 1 #5, code review 2 #10).
+   */
+  const queued = useRef({ n: 0, waiting: false });
+  const step = (dir: 1 | -1) => {
+    const q = queued.current;
+    if (!handle.moving.get() && !q.waiting) return handle.goTo(shiftDays(weekNow.current, 7 * dir));
+    q.n += dir;
+    if (q.waiting) return;
+    q.waiting = true;
+    const off = handle.moving.on('change', (m) => {
+      if (m) return;
+      off();
+      // the rest's commit runs right after `moving` drops: step on from the week it commits
+      queueMicrotask(() => {
+        const n = q.n;
+        q.n = 0;
+        q.waiting = false;
+        if (n) handle.goTo(shiftDays(weekNow.current, 7 * n));
+      });
+    });
+  };
   const render = (mon: string) => (
     <div className="dpk-week" role="group" aria-label={`Week of ${fmtDate('md', mon)}`}>
       {Array.from({ length: 7 }, (_, i) => {
@@ -65,10 +89,10 @@ export const DayPicker = ({ value, onPick, origin, skipId, labelFor }: { value: 
           {fmtDate('md', week)} – {fmtDate('md', shiftDays(week, 6))}
         </span>
         <span className="dpk-nav">
-          <IconButton label="Previous week" onClick={() => handle.goTo(shiftDays(from(), -7))}>
+          <IconButton label="Previous week" onClick={() => step(-1)}>
             <ChevronLeft size={20} />
           </IconButton>
-          <IconButton label="Next week" onClick={() => handle.goTo(shiftDays(from(), 7))}>
+          <IconButton label="Next week" onClick={() => step(1)}>
             <ChevronRight size={20} />
           </IconButton>
         </span>
