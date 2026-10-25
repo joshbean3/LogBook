@@ -1,17 +1,17 @@
-import { daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, weekdayIndex, type PlanBlock, type PlanDraft, type TrainingProfile } from '@logbook/shared';
+import { daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNav, useTab } from '@/app/NavController';
 import { api, ApiError } from '@/api/client';
-import { keys } from '@/api/queries';
-import { haptics } from '@/lib/haptics';
+import { keys, usePlanDelete } from '@/api/queries';
 import { Button, Chip, Field, Group, Note, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
-import { openTemplate } from './Blocks';
+import { builderSpec } from './Builder';
+import type { BuilderPrefill } from './builderModel';
 
 type Mode = 'file' | 'text' | 'describe' | 'revise';
 const MODES: Array<[Mode, string]> = [
@@ -24,7 +24,8 @@ const nextMonday = (t: string) => shiftDays(mondayOf(t), 7);
 
 const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mode: Mode; onDone: () => void; onDiscard: () => void; log: Log }) => {
   const qc = useQueryClient();
-  const nav = useNavigate();
+  const nav = useNav();
+  const tab = useTab();
   const toast = useToast();
   const sheet = useSheet();
   const [name, setName] = useState(draft.name);
@@ -36,16 +37,24 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
   const miles = draft.sessions.reduce((t, s) => t + (s.kind === 'run' ? s.miles ?? 0 : 0), 0);
   const byDate = new Map<string, PlanDraft['sessions']>();
   for (const s of draft.sessions) byDate.set(s.date, [...(byDate.get(s.date) ?? []), s]);
+  const { remove: removeBlock } = usePlanDelete();
   const apply = useMutation({
     mutationFn: (applyMode: 'replace' | 'add') => api<{ block: PlanBlock; months: string[] }>('/plans/apply', { method: 'POST', json: { draft: { ...draft, name: name.trim() || draft.name }, mode: applyMode, source: mode } }),
-    onSuccess: async (r) => {
+    onSuccess: async (r, applyMode) => {
       for (const m of monthsBetween(shiftDays(draft.start, -14), shiftDays(draft.end, 14))) void qc.invalidateQueries({ queryKey: keys.month(m) });
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
-      haptics.success();
-      toast(`${draft.sessions.length} sessions added to your calendar`);
+      // spec §8: a toast only with an Undo (or for an error). An Add is undone by deleting the new block; a Replace cannot
+      // be put back from here (the apply route returns no replaced ids: a request in docs/reviews/wp4.md), so it says
+      // nothing and stays silent (`delete` is a destructive commit WITH Undo, contracts §D.3; code review 2 #11): the new
+      // block on the calendar (and in Plans) is the answer
+      if (!(applyMode === 'replace' && existing))
+        toast(`${r.block.name} is on your calendar`, {
+          label: 'Undo',
+          fn: () => void removeBlock.mutateAsync(r.block).catch(() => toast('Couldn’t undo. The new plan is still there.')),
+        });
       onDone();
       sheet.close();
-      nav(`/plan/week/${r.block.start}`);
+      if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
     },
     onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the plan.'),
   });
@@ -288,30 +297,15 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
 
 // ---------- the builder's door (contracts §F) ----------
 
-/** What the builder starts from. Days are Monday-based indices (0 = Monday … 6 = Sunday, `weekdayIndex`). */
-export interface BuilderPrefill {
-  goal?: string;
-  runDays?: number[];
-  longRunDay?: number;
-  weeklyMiles?: number;
-  startDate: string;
-}
-
-/** The next block after `block`, from the account's training answers: same goal, days and miles, starting the day after it ends. */
-export const fromEndingBlock = (block: PlanBlock, profile: TrainingProfile): BuilderPrefill => ({
-  goal: profile.goal,
-  runDays: profile.runDays.map(weekdayIndex),
-  longRunDay: weekdayIndex(profile.longRunDay),
-  weeklyMiles: profile.weeklyMiles,
-  startDate: shiftDays(block.end, 1),
-});
+export { fromEndingBlock, type BuilderPrefill } from './builderModel';
 
 /**
- * Opens the builder (the New block template sheet, large) over the current tab, with `prefill` applied: Plan's block card
- * `New block ›`, the Plans page's `New block`, Today's plan-end `Next block` (spec §1.6, §7.4).
+ * Opens the builder over the current tab (spec §1.6, §7.4): a large sheet whose fixed header is the ghost preview, with
+ * `prefill` applied. Its doors: Plan's block card `New block ›`, the Plans page's `New block`, Today's plan-end `Next block`.
+ * `Create` lands on the new block's first week only when the sheet was opened on Plan; over Today the tab stays.
  */
 export const useOpenBuilder = (): ((prefill?: BuilderPrefill) => void) => {
   const sheet = useSheet();
   const log = useLog([]);
-  return (prefill) => openTemplate(sheet, log, false, prefill);
+  return (prefill) => sheet.open(builderSpec(log, prefill));
 };
