@@ -1,11 +1,132 @@
 # WP2 Today: review
 
-Branch `feel/wp2`, from `feel/pages-base` (`400f8f5`). Spec: `docs/feel.md` v4.2. Build plan §3. This file has the QA step's
-review first (the package's acceptance, as team-rules asks of REVIEW.md), then the three build steps' notes as they were
-written (`# Build history`).
+Branch `feel/wp2`, from `feel/pages-base` (`400f8f5`). Spec: `docs/feel.md` v4.2. Build plan §3. This file has fix round 1
+first (the three reviews' findings), then the QA step's review (the package's acceptance, as team-rules asks of REVIEW.md),
+then the three build steps' notes as they were written (`# Build history`).
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`. The battery is `S/wp2/qa/`
 (one runner, `node run.mjs`, at 1× and 4×; every row with its numbers in `S/wp2/qa/results/TABLE.md`).
+
+## Fix round 1 (2026-10-25): the three reviews' findings
+
+Reviews: `S/wp2/review-code-1.md` (C1–C9), `S/wp2/review-feel-1.md` (F1–F14), `S/wp2/review-day-1.md` (D1–D10). The full
+record (finding → what was done → the proof, with before and after numbers) is `S/wp2/fix-1.md`. Each finding has a check under
+`S/wp2/qa/` (`f1-close`, `f1-second`, `f1-notfeeling`, `f1-landing-away`, `f1-hero`, `f1-push`, `f1-orbs`, `f1-misc`,
+`f1-midnight`, `f1-static`, all in `run.mjs`). Each check failed on the review build (`504bb21`, kept at
+`S/wp2/fix1/dist-before`) and passes on this one, at 1× and 4× except where noted below.
+
+### What changed (all in WP2's files)
+
+| Files | Findings | Change |
+|---|---|---|
+| `features/day/CloseDay.tsx`, `day.css` | C1, F3/D2, C5/D4, C7, D5, D6, F5, F11 | A refused Save rolls back: the field comes back with the words and the title goes back. After Save the box gives back the composer's height and what follows rises by one FLIP (`flipCard`, `data-layout-exception`, `springs.settle` on the frame clock). The entry is on Save's first frame. The word field calls `revealField`, and Return or Escape gives the focus back to its row. The alarm row opens its sheet on the release, in that task. The run row's floor is in minutes. The quote shows on two lines |
+| `features/day/Hero.tsx`, `faces.ts`, `faces.test.ts` | F1, D7, F10, F5, C2, F7, F8, D1/D10 | `heroLead`: a run skipped beside another session keeps the hero. The Skipped face keeps the morning's eyebrow. Skip and Undo swap the face first (`markNow`: a mark override in its own render), and the write follows after that frame. `floorShort` for the hero's line. The second session's ring takes a boolean `done` and `haptic="toggle"`. The landed pace waits with the numbers. The face's `AnimatePresence` is keyed by the day |
+| `features/day/HoldRing.tsx` | C2, C4, F7 | `done` turning false clears the ring's own latch. The frame loops of `fillRingAt` / `morphRingAt` stop when their run is cancelled, and the ring drops `data-done` on rollback. `haptic` prop (`success` by default, `toggle` through `hapticAtPeak` on the check's layer) |
+| `features/day/useStravaLanding.ts` | C4 | Left during stages 1–3, the landing stops, puts the ring back and waits. It plays from stage 1 when next seen. The seen marks are set only when the FLIP settles |
+| `features/day/useDeferred.ts` | D1 | `useDeferredMinutes` takes the live minutes when the shown day changes |
+| `features/day/release.ts` (new), `MiniTimeline.tsx`, `MorningRow.tsx` | F2/D3, D5 | `useReleaseTap` and `swallowNextClick`, moved out of `Hero.tsx`: the stops line, the This morning row and the alarm row act on `pointerup` |
+| `features/day/DayPage.tsx` | F4 | A page renders month writes in the background (`useDeferredValue`), except a new day |
+| `features/habits/OrbRow.tsx` | F4 | A write waits until the row has been still for 700 ms. It is sent at once on unmount or when the app is hidden |
+| `features/day/TheDayCard.tsx` | C5 | The composer calls `revealField` on focus |
+| `features/day/WeekCard.tsx` | D8 | `weekNote` counts sessions left (not marked, not counted) instead of days |
+| `features/day/WordSheet.tsx` | F14 | The explanatory line is deleted, and Save stands clear of the bottom edge |
+| `features/sessions/actions.tsx`, `reshape.ts`, `SessionCard.tsx` | C3, C6 | "Not feeling 100%" is on today's matched run only, and `easeAfter` never touches a date before today. The sick skip and its easing are one action with one Undo. With nothing to ease, the pill says so in place |
+| `features/sessions/PressButton.tsx` (new), `SessionCard.tsx`, `SessionEditor.tsx`, `sessions.css` | C9 | The session sheet's verbs and pills and the editor's chips use the one press (`usePress`). Their `:active` rules are deleted. WP4's chips keep a `:not(.pressable):active` fallback |
+| `features/share/ShareSheet.tsx` | D9, C6 | The lead card is set (not scrolled to), ticks come only after a touch, and there is no `success` on share or save. Save says `Saved` on its own button |
+| `features/todos/TodayTodos.tsx`, `TodoList.tsx`, `todos.css` | C8, F6, F13 | Pending dones are written on unmount. A past day with nothing on it says `Nothing done`. The To-dos sheet opens at medium |
+
+### Rejected or not fully closed, and why
+
+- **F12** (the Skip face's deck): the eyebrow now stays. The deck stays a four-stop line, showing the morning as it is now. It does
+  not keep the skipped run's Door and Back, because `morningOf` drops a skipped session, so This morning (where the line
+  pushes, its shared element) shows the morning without the run. A line that kept them would contradict the page it opens.
+  Spec request 25 below.
+- **F9** (the scroll that starts on the hero flinches): WP1's synchronous press (M33). Request 26.
+- **F2 at 4×**: the push now starts on the release. Median first moved frame: 1× 33–35 → 13–18 ms; 4× 219–270 → 74–125 ms.
+  What is left is the push's own task: DayPager's ResizeObserver `measure` and PushedLayer's `width()` force the new
+  layer's layout (≈ 60 % of it, `S/wp2/qa/dbg/prof-push.mjs`), and MorningView mounts. At 1× the first frame after the
+  release still shows `.pushed` at its rest, because motion samples its start value on the first frame. Requests 27 and 29.
+- **F4**: Today's own share of the write's long task is now ≈ 2.5 % (11 ms of 422 sampled at 4×), and the orb row writes
+  only once the finger rests. While three orbs are tapped 440 ms apart, the longest frame at 4× is 209 → 52 ms. The long
+  frame that remains comes after the row rests (4× ≈ 140 ms). It is the other mounted tabs re-rendering on the month: Progress
+  `buildModel` 41 ms, Plan `SessionLine` / `BlockCard`, and motion's layout projection. Request 28.
+- **D6 at 4×**: Save's `success` comes from WP6's `Composer` inside its `save()`, about 95 ms before the entry's first
+  frame at 4× (1× within a frame). Requests 30 and 17.
+- **D10**: the fade from opacity 0 is WP1's DayPager `crossfade`. The content part is fixed (D1). Request 31.
+
+### Battery (`node S/wp2/qa/run.mjs`: the QA battery plus the fix checks): 1× 237/238, 4× 218/224
+
+The QA battery's own 183 checks: **1× 183/183, 4× 171/174** (the QA step's final run: 183/183, 168/174). The misses at 4×:
+
+| Check | This run | Before (QA final) | Owner |
+|---|---|---|---|
+| [12] flick trajectory ≤ 3 px at 4× | 3.29 px (5.73 in the first run) | 4.25 px | WP1's pager spring at 4× (request 3) |
+| [20] the avatar after the pill's / lit tab's slide at 4× | 156 / 172 ms after rest | 189 / 119 | The commit task at 4× (requests 1–2). Measured 3 × 2 times on both builds this round: before 119–223 ms (median ≈ 150), after 121–172 ms (median ≈ 163). The same spread, not a regression |
+
+Restated this round, each marked `[restated in fix round 1]` in its script:
+- `t41-close` §5: "nothing below the box moves" now covers the 150 ms crossfade. After it, what follows rises by exactly the
+  box's change on the FLIP (spec §5 "only the entries list grows, via FLIP on what follows"; the old wording was spec
+  request 23, now withdrawn).
+- `t63-session` §6.3: with nothing to ease, the pill answers in place and no toast appears (C6).
+- `t13-hero` #13: "two faces" counts faces on screen (opacity > 0). A leaving face at 0 that motion removes a long frame
+  later is not part of the crossfade.
+
+The fix checks fail at 4× only for F2 (above) and D6 (above). At 1× they fail only for F2's This morning row, in one of the
+two full runs (17.3 / 20.4 ms against 17, the second frame; see F2).
+
+Gates: `tsc --noEmit` shared / api / web 0; shared 88, api 59, web 102 (99 + 3 new: Skip on two sessions, the floor words,
+the week card's count); `pnpm --filter @logbook/web build` ok.
+
+### WP1's battery on this build (`S/wp2/wp1qa`, results `results/`, the QA step's run kept in `results-qa/`)
+
+**1× 613/618, 4× 586/593** (the QA step: 612/617, 584/592; WP1's own final: 614/617, 586/593). Every miss also failed in the
+QA step's run, except three. Each of those three was rerun, and run on the review build as a control:
+- `r3-sheet` u3-5 at 1× (the gallery's sheet over a sheet): passed on 2 of 2 reruns.
+- `r4-sheet` k4-1 at 4× (the sheet's travel step): flaky on both builds. The review build failed 2 of 3 runs (69, 64 / 65 px);
+  this build failed 2 of 3 (90, 75 px), against a bound of 60–62.
+- `t13-pager` 15c at 4×: the battery crossed midnight in New York, so "today" became Sunday Oct 25. On a Sunday the strip's
+  next cell is the next week, and the review build fails the same checks (11, 12, 15c, 19 at 4×; 11 and 19 at 1×). This is
+  a date dependence in WP1's lab script, not this round.
+
+### Requests added this round (they extend the consolidated list below)
+
+**WP1**
+26. `ui/usePress.ts` (F9, spec M33): a vertical flick that starts on a card scales it to 0.98 for 2–4 frames before
+    `pointercancel`. Start the 0.97 after 60–80 ms unmoved, or at once on an early `pointerup` (UIKit's
+    `delaysContentTouches`).
+27. `ui/DayPager.tsx` ResizeObserver `measure` (`clientWidth` plus a `--chrome-h` write) and `ui/PushedLayer.tsx` `width()`
+    both force the new layer's layout inside the push's task (≈ 60 % of the 4× push, `S/wp2/qa/dbg/prof-push.mjs`). Cache
+    the widths. PushedLayer's slide also shows its start value on its first frame (motion's first sample; request 10).
+28. Mounted tabs: a month write re-renders Plan and Progress synchronously (Progress `buildModel` 41 ms, Plan `SessionLine`
+    and `BlockCard`, and motion's layout projection), which is the whole of the orb write's long task at 4×. A mounted
+    inactive tab could take the month deferred, or not at all (WP1's shell, or each root, as Today now does).
+29. `ui/ContextMenu.tsx` runs `onSelect` in a `requestAnimationFrame` after the click, which costs a frame before any menu
+    action shows (the Skip face: 1× ≈ 36 ms, 4× 80–200 ms).
+31. `ui/DayPager.tsx` `goTo(…, { mode: 'crossfade' })` fades the cur page in from opacity 0 with nothing under it: three
+    frames of black under the bar at midnight (D10). Keep the old page under the new one for the 150 ms.
+
+**WP3**
+- MorningView's mount is the other part of the push's task at 4× (request 27).
+
+**WP4**
+- `features/sessions/MoveSheet.tsx` and `features/plan/{Blocks,Week}.tsx` render `.pl-chip` as plain buttons. WP2 deleted
+  `:active` for its own (C9) and keeps `.pl-chip:not(.pressable):active` for these until they use the one press
+  (`features/sessions/PressButton.tsx`, or `usePress`).
+
+**WP6**
+30. `Composer` fires `haptics.success()` inside `save()`, before the Close card can show the entry (D6: at 4×, about 95 ms
+    before the visual). Add an option (`haptic: false`, or an `onSaved` that fires it) so the Close card fires it on the
+    entry's first frame.
+
+**Spec**
+25. §3.2 Skip "deck unchanged": the shared `morningOf` drops a skipped session, so the deck shows the morning as it now is.
+    Keeping the skipped run's stops would contradict This morning.
+- Request 23 (the box keeps the composer's height) is withdrawn. The box takes the entry's height, and what follows moves by
+  FLIP (F3).
+
+### Screenshots (looked at)
+
+`S/wp2/qa/shots/fix1/{before,after}-{390,320}-{sat-0630,sat-skipped,sat-1230,past-todos,close,close-saved,close-word-kb}.png`.
 
 ## QA: the package's acceptance (2026-10-24)
 
@@ -365,7 +486,8 @@ decisions for Today (M1, M9, M13–M15, M17, M18, M22, M31, M32, M34), WP1's rev
 21. §3.1 row 4: 56 px orbs with 12 gaps and "scroll past 6" cannot both hold in 358 (six cells are 396); names take two lines
     (the row is 92, not 72).
 22. §6.1 / risk 11: `/coach/read` returns 2–3 sentences; the hero shows the first.
-23. §5 step 4: after Save the box keeps the composer's height (nothing below moves), leaving space under a short entry.
+23. ~~§5 step 4: after Save the box keeps the composer's height~~ Withdrawn in fix round 1: the box takes the entry's height and
+    what follows moves by FLIP (feel review 1 #3).
 24. §3.1 nudge: "a 24 px line under the hero"; built as a 44 box (its hit area) with the row directly under it (44 between
     the hero and the row on the first open, against 24 + 12).
 

@@ -263,7 +263,7 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
   /*
    * A mark from the hero (Skip, its Undo) shows on the face first, in its own small render, and the month's write follows:
    * the write re-renders every mounted page, which at 4× held the 150 ms crossfade back 300 ms behind its toast (feel review
-   * 1 #10, day review 1 #7). The override goes once the month carries the mark (or the write settles either way).
+   * 1 #10, day review 1 #7). The override goes once the page's month carries the mark (or the write fails).
    */
   const [over, setOver] = useState<{ id: string; mark: SessionMark | null } | null>(null);
   const log = useMemo(() => (over ? withMark(real, date, over.id, over.mark) : real), [real, date, over]);
@@ -276,7 +276,10 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
       flushSync(() => setOver({ id: s.id, mark: m }));
       // the write after that frame is painted (it re-renders every page and every mounted tab that reads the month)
       requestAnimationFrame(() =>
-        setTimeout(() => mark.mutate({ session: s, mark: m }, { onSettled: () => setOver((o) => (o?.id === s.id && o.mark === m ? null : o)) }), 0),
+        // the override goes when the page's (background-rendered) log carries the mark (the effect above), or at once if the
+        // write fails; never on the write's success alone, which can come before the page has rendered it (the face would
+        // flip back for a few frames at 4×)
+        setTimeout(() => mark.mutate({ session: s, mark: m }, { onError: () => setOver((o) => (o?.id === s.id && o.mark === m ? null : o)) }), 0),
       );
     },
     [mark],

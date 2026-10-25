@@ -273,7 +273,7 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
     const inEl = writing ? writeEl.current : readEl.current;
     const outEl = writing ? readEl.current : writeEl.current;
     const ms = CROSSFADE_MS;
-    inEl?.animate([{ opacity: Math.min(1, FIRST_FRAME) }, { opacity: 1 }], { duration: ms * (1 - FIRST_FRAME), easing: 'linear', fill: 'backwards' });
+    inEl?.animate([{ opacity: Math.min(1, FIRST_FRAME) }, { opacity: 1 }], { duration: ms, easing: 'linear', fill: 'backwards' });
     const out = outEl?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'linear', fill: 'forwards' });
     // the composer back (taller): the box grows now and what follows rides down with the card's edge
     const card = cardOf();
