@@ -85,7 +85,7 @@ Commits: `44d833e` (the page), `23cc874` (Now card geometry, the stamp's column 
 | `features/morning/AlarmHandle.tsx` (new) | The Wake stamp, 48 × 60, the only element with `touch-action: none`. It locks after 10 px inside the 40° vertical cone, and a horizontal lock lets go. Each `trunc(dy / 14)` step from the pointerdown point is 5 minutes, with one `haptics.select()` per step and the page re-laid on the same frame (`flushSync`). Past `WAKE_MIN`/`WAKE_MAX` the stamp rubber-bands at 0.25×. Release sends one write. The digits are two stacked labels crossfading over 120 ms. It is a slider for the keyboard and VoiceOver (`aria-valuenow`, `aria-valuetext`): ArrowUp/Down move 5 min, with one write when the keys stop. A tap, Enter or a release before the lock opens the alarm sheet. A handle that captures the pointer ignores its child's implicit-capture loss |
 | `features/morning/Schedule.tsx` | One row type (time 48 · icon 32 · name · sub, nothing on the right) in one inset group: Wake · the workout (door and cool-down folded into `4 mi · 8:20/mi · back 8:13`) · the late note · Free (`27 min · routine at 8:40`) · the steps · Leave. The row under way has the accent time and the 2 px `scaleX` line (1 s linear). Rows are `Pressable`s: a tap opens the editor; a 450 ms hold opens `Edit · Remove` on a step and `Skip Easy 4 · Make this a rest day · Edit` on the run. A move after the hold drags the step 1:1 (inline transform, no spring under the finger), with a `select` per slot crossed and the others sliding by FLIP. Release gives one `drop` and one `saveOrder`. Alt+Arrow and hidden `Move … up/down` buttons are the keyboard and VoiceOver path. Rows that leave fade 100 ms (`AnimatePresence popLayout`) and the rows below spring on `settle` |
 | `features/morning/flip.ts` (new) | The FLIP (§10.1) on the compositor: `springs.settle` sampled with WP1's integrator into a WAAPI `translateY` animation. A Skip's or a drop's write re-renders every page that reads the month (Today's three, under this one), which blocks the main thread for about 400 ms at 4×. A motion-value spring froze through that and jumped (measured, 4×: 0 frames translated). This one keeps playing |
-| `features/morning/LeaveRow.tsx` (new) | `Leave for work`, sub `In 45 min` (late: `12 min later than your routine` in `--warn`), stamp 22/28 on the right, `position: sticky; bottom: 0` with a hairline above. It writes `--toast-lift` on `.pushed` from its resting position (on every render, scroll and resize), so toasts sit above it. A tap opens the routine editor on its leave field. `m-leave-glow` is gone |
+| `features/morning/LeaveRow.tsx` (new) | `Leave for work`, sub `In 45 min` (late: `12 min later than your routine` in `--warn`; since fix round 1 FL6 it reads `12 min late`, a spec change listed under fix round 2's Spec owner requests), stamp 22/28 on the right, `position: sticky; bottom: 0` with a hairline above. It writes `--toast-lift` on `.pushed` from its resting position (on every render, scroll and resize), so toasts sit above it. A tap opens the routine editor on its leave field. `m-leave-glow` is gone |
 | `features/morning/model.ts` | `rowsOf`, `timeState`, `nowLine`, `justWord`. Its own 30 s `useNowMinutes` and the reorder "lesson" are deleted |
 | `features/morning/StepSheets.tsx` | `WakeEditor` ends in its two choices, `Every morning · Just today` (`Just tomorrow` for tomorrow), each saving on its own tap. The filled one follows `preselect` and there is no segmented. No toast and no `success` haptic on any editor's save; `Remove` keeps its Undo. `GapEditor` is deleted (the buffers fold into the run row; the routine editor keeps the field). The segmented in `StartEditor` fires no haptic |
 | `features/morning/RoutineEditor.tsx` | A `Leave` field leads the sheet: the time you leave on this morning, which sets when the routine starts (fixed). `useOpenRoutineEditor('leave')` opens on it, and the input takes focus when the open animation completes. The preview is `MiniTimeline`. No height animation (the fine stepper fades in), no `:active` scale, no toast, no `success` |
@@ -220,7 +220,7 @@ the API, grep and gate scripts once, one table). Full table with every number: `
 | `morning.css` | **Chips under 44 px**: ui.css's `.chip-btn::after` band is 6 px past the padding box, so 42 with the 1 px border; the `5` chip was 35 wide; the band sat under the following block (stacking). The late note's, the sheets' length and idea chips and the routine sheet's mode chips: min-width 44, band 7 px, rows 14 apart, `z-index: 1`; the mode chips 6 px lower, clear of the sheet's grab zone. At ≤ 359 px the length chips are 40 to the eye with a 3 px side band (44 to the thumb) so all six fit one line | T3, T7 |
 | `Schedule.tsx`, `morning.css` | The late note's chips take the whole row under the note (from the time column): one line at 390 (was two), two at 320 (was three, a 190 px row) | screenshot `late` 320/390 |
 | `LeaveRow.tsx`, `morning.css` | **The Leave stamp rolls** (§4.5, §0.2 row 4): the alarm stamp's two stacked labels, 120 ms opacity in/out, in one box. Before, Leave changed by a cut | 4o, 4p (new) |
-| `morning.css` | The late Leave sub `18 min later than your routine` wraps instead of ending `your…` (the news is `routine`); the row pads 8 px top and bottom so a two-line sub is not flush with the hairline | screenshot `late` 390 |
+| `morning.css` | The late Leave sub `18 min later than your routine` (now `18 min late`, FL6) wraps instead of ending `your…` (the news is `routine`); the row pads 8 px top and bottom so a two-line sub is not flush with the hairline | screenshot `late` 390 |
 | `Schedule.tsx`, `morning.css` | 320: the run row's sub keeps `4 mi · back 8:13` (the pace is a part that drops at ≤ 359 px); it was `4 mi · 8:20/mi · bac…` | screenshots at 320 |
 | `morning.css` | The alarm sheet's two choices are `minmax(0, 1fr)` halves: `Just tomorrow` widened the sheet's content past a 320 screen (16 elements past the edge, the stepper's `+` cut) | `alarm-sheet-tomorrow` 320 |
 | `MorningView.tsx` | `today` from `useToday()`: a second `useLog([])` built a second snapshot of the month inside the push's commit | 22a/22b profiling |
@@ -302,7 +302,8 @@ morning beyond `r1-push f4 push morning` and `c2-2`, which pass on the real page
 
 1. At 320 wide, set Friday's alarm to 8:00 and open This morning at 08:40. Expected: the late note reads `Back 8:58, 18
    min past the routine` with `Wake 7:40 · Run 1.5 mi` on one line and `Skip the run` under them; the Leave row reads
-   `18 min later than your routine` in amber on two lines, and sits above the tab bar, not under it.
+   `18 min later than your routine` in amber on two lines, and sits above the tab bar, not under it. (Fix round 1 FL6 changed
+   both strings: the note reads `Back 8:58 · 18 min late`, the Leave sub `18 min late`, on one line each.)
 2. On a long morning (step 1), scroll the page. Expected: the Leave row stays pinned above the tab bar until the end
    of the group scrolls into view.
 3. Timings → Leave → "When I'm back", then hold Easy run → Skip Easy 4. Expected: the run row fades, the rows below
@@ -437,3 +438,80 @@ not mount This morning (`S/wp3/wp1qa/results-fix1-TABLE-full.md`, details in `S/
   working days); FL14 (Undo on the alarm write, against §4.2's "no toast").
 - **Not done, why**: FL8's per-step re-lay at 4× (50–117 ms): most rows' times move each step; memoising by id saves the
   routine rows only, and the release frame is WP2's. 1× longest frame 17 ms.
+
+## Fix round 2 (code review 2 N1–N6, feel review 2 R2-1 to R2-9)
+
+The finding-by-finding record (what was wrong, what changed, the failing check before and the passing check after, at 1× and
+4×, and why the rest were not done) is `S/wp3/fix-2.md`. New check: `S/wp3/qa/t35-fix2.mjs` (in the runner at both rates),
+run first on the reviewed build (`a526140`): 4/13 at 1× and at 4×, every finding it covers failing as the reviews measured.
+
+### Files changed, and why
+
+| File | Change | Finding |
+|---|---|---|
+| `api/queries.ts` (WP3 block only) | `settingsWhen(patch, landed)` and `setDayWhen({ date, day }, landed)`: the request (or its outbox entry) goes at the tap; the optimistic cache patch, and the server's answer, wait for `landed`. `settings` / `setDay` are unchanged for every other caller | N3 |
+| `StepSheets.tsx` | `useClosed()` (was `useOnClosed`): a promise the editor's unmount plus a painted frame resolves. Every sheet's Save sends at the tap with it. The step sheet's Remove hands the page its `landed` (the page owns the write, the toast and the focus) | N3, N1, N5 |
+| `RoutineEditor.tsx` | Saves through `settingsWhen`. On a morning with its own alarm, `Usual alarm` reads `Other mornings: leave 9:30` (live), the verdict names the morning (`This morning, its own alarm 8:00: …`), and a fixed start the run overruns reads `Starts after your run, 9:15` | N3, R2-2 |
+| `MorningView.tsx` | `removeStep(k, landed?, keep?)` for both Removes, its Undo toast through `raiseAfter`, which now takes a settings predicate and an `after` promise (its fallback counts from the close). The rest-day item only when the morning's workout is open and no run or lift of the day is done or floor (`sessionStatus`: a mark, a Strava run, logged sets); a skipped one does not hide it. `editWake` opens on the alarm on screen | N1, N2, N4, N5 |
+| `Schedule.tsx` | A step's tap and its Edit pass `keepFocus` to the sheet. The held "in time" late row wears `CircleCheck` | N5, R2-3 |
+| `AlarmHandle.tsx` | Enter (the click) flushes the pending arrow steps before it opens the sheet | N4 |
+| `LeaveRow.tsx` | 320: the past and future Leave sub reads `Alarm 7:15` (the wide one keeps `2 h 15 min after waking`) | R2-9 |
+| `morning.css` | The held clear late row: neutral disc, its line in the middle of the held height, in the rows' columns. `.sub-narrow` | R2-3, R2-9 |
+| `docs/reviews/wp3.md` | The late copy in the step 2 and QA sections corrected to fix round 1's (`12 min late`) | N6 |
+
+### Battery after the fix (`S/wp3/qa/results/TABLE-fix2.md`, `results/run-fix2.log`)
+
+**525 pass, 1 fail, 0 missing** at 1× and 4×: the 497 of round 1 still pass, plus `t35-fix2` 14/14 at each rate. The one
+fail is FL4b at 4× (cold push stall 133–150 ms; Settings 100–167 in the same run), the open WP1 request.
+
+| Finding | Check | Before (`a526140`, 1× / 4×) | After 1× | After 4× |
+|---|---|---|---|---|
+| N1 = R2-1 | t35 N1a, N1c | toast bottom 615 > Leave top 567 (menu and sheet) | 555 ≤ 567 | 555 ≤ 567 |
+| N2 | t35 N2 | rest-day item next to a done run / a done lift | `["Edit"]`, `["Skip Threshold 6","Edit"]` | same |
+| N3 | t35 N3 | page gone 150 ms after `Just today`: no request, row null | `PUT +33 ms`, row `{wake: 440}` | `PUT +87 ms`, same row |
+| N4 | t35 N4 | sheet `7:15`, both choices disabled | `7:30`, `Every morning` live, one PUT | same |
+| N5 | t35 N5 | focus `BODY` | `ready` | `ready` |
+| R2-2 | t35 R2-2 | (reviewer's p30) Usual alarm `+` changed nothing | `Other mornings: leave 9:30` → `9:35` | same |
+| R2-3 | t35 R2-3 | orange `CircleAlert` | neutral check, disc and line in the columns | same |
+| R2-9 | t35 R2-9 | `2 h 15 min` | `Alarm 7:15` | same |
+
+Restated: `t47-wake` 47d reads the rows once the sheet has gone (the write now leaves at the tap; 600 ms after it was
+mid-crossfade on the stamp). Gates: tsc 0; shared 93, api 62, web 91; build ok; WP1 grep gates pass.
+
+WP1's battery on this build (`S/wp3/wp1qa/`, port 8820, `SHIFT_MIN=auto`, `results-fix2.txt`, table
+`results-fix2-TABLE-full.md`): 602/606 at 1×, 593/607 at 4×. The 1× failures are the known ones (t02 interim ×2, t12 12a,
+r1-sheet f5, all on Plan, stubs or the gallery). At 4× there are the known t02, t12 12g, t14 14c, r1-sheet f5, r1-push c5 and
+r1-misc f8, plus run-to-run flakes on the pager, the sheet gallery and the layer gallery (t13 12, r2-layer c2-1-tap and c2-3,
+r2-sheet u1-push, r3-sheet u3-5, r4-nav c4-2b). A 4× rerun of those scripts (`results-fix2-rerun.txt`) passed r3-sheet,
+c2-1-tap and t13 12, and failed other checks of the same scripts instead (t13 13 and 15c, r2-sheet u1-pop, r4-nav c4-2a).
+None of them mounts This morning; the load average was about 3 on 4 cores, with other teams' batteries running.
+t01 1.4x (touchend clears `data-pressed` ≤ 50 ms at 4×) read 63 and 60 ms. A control, interleaved on the same server with
+the reviewed build (`feel-dist-2`, `a526140`), five runs each: this build 38, 20, 38, 38, 37 then 24, 36, 42, 44, 37 ms;
+the reviewed build 45, 38, 35, 51, 40 ms. Load, not this change.
+
+### Hand-verifiable steps (this round)
+
+1. Saturday, `/today/<today>/morning`: hold Shower, `Remove`. The rows close up, then `Shower removed · Undo` rises above
+   `Leave for work`, not on it. The same from Shower's sheet, `Remove`: the toast comes once the sheet has gone, above the row.
+2. Mark the run done (Settings or the session sheet), then hold the run row: `Edit` only. Mark the lift done instead: `Skip
+   Threshold 6 · Edit`. With both open: `Skip Threshold 6 · Make this a rest day · Edit`.
+3. Tap the alarm stamp, `+`, `Just today`, and lock the phone at once: the alarm is on the server (the request leaves at the tap).
+4. Keyboard: focus the stamp, ArrowUp three times, Enter: the sheet reads `7:30`, and `Every morning` is live.
+5. Keyboard: Enter on Shower, Tab to `Remove`, Enter: focus lands on `Get ready`.
+6. Give the day its own alarm (8:00), open Timings: the verdict says `This morning, its own alarm 8:00`; open `Usual alarm`,
+   `+` three times: its line moves from `Other mornings: leave 9:30` to `9:35`.
+7. A late morning (alarm 7:30), drag the stamp up 3 steps and hold: the late row reads `Back 8:30 · in time` beside a grey
+   check, centred in its height.
+8. 320 wide, tomorrow's morning: the Leave row's sub reads `Alarm 7:15`.
+
+### Requests (new in this round; earlier ones stand)
+
+- **Spec owner**: (a) FL6's copy, already shipped in fix round 1 at the feel review's request: §4.1's `Back 8:28, 12 min
+  past the routine` is now `Back 8:28 · 12 min late`, and §4.4's `12 min later than your routine` is now `12 min late`
+  (code review 2 N6). Please take both into the spec or say to revert. (b) R2-6: §4.1 asks for `LateNote` as "one 60 row" with
+  three chips. Chips that hit 44 px make it 96 at 390 and 150 at 320. Either the row grows (as now), or the fixes move into the
+  row's hold menu and its tap sheet and the row stays 60. (c) What "Make this a rest day" means next to a done session (N2):
+  it is now not offered once a run or lift of the day is done (a skipped one does not hide it).
+- **WP1**: R2-5 (the push at 4×) and R2-8 (a lifted row following the finger 1:1 while the hold menu is up needs the
+  menu's pointer stream from `Pressable`) stand as filed.
+- **WP2**: R2-4 (memoise the day pages) stands; R2-7's blink is the length of that commit frame.
