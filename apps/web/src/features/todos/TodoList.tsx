@@ -113,7 +113,15 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold }: { x: Todo; date: ISOD
   const act = useTodoActions(date);
   const [checked, setChecked] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // checked, its fold not run yet: the write goes if the row goes first (the sheet closed; code review 1 #8)
+  const pending = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      pending.current?.();
+    },
+    [],
+  );
   const isToday = !done && inToday(x, date);
   const dueLabel = dueLabelOf(x, date);
   const carried = x.bucket === 'today' && x.createdOn < date && !done;
@@ -132,9 +140,16 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold }: { x: Todo; date: ISOD
           onToggle={(next) => {
             if (done) return act.reopen(x);
             clearTimeout(timer.current);
+            pending.current = null;
             setChecked(next);
             // the check is the answer; the row folds into Completed after the beat (still undoable with a tap)
-            if (next) timer.current = setTimeout(() => fold(x), FOLD_MS);
+            if (next) {
+              pending.current = () => act.done(x);
+              timer.current = setTimeout(() => {
+                pending.current = null;
+                fold(x);
+              }, FOLD_MS);
+            }
           }}
         />
         <button

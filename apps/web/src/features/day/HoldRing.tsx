@@ -3,7 +3,7 @@ import { animate, motionValue, useMotionValueEvent, useReducedMotion, type Motio
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { FILL_MS, HOLD_SLOP_PX } from '@/lib/gesture';
-import { haptics } from '@/lib/haptics';
+import { hapticAtPeak, haptics } from '@/lib/haptics';
 import { forScale, springs } from '@/lib/motion';
 
 /** How long the thumb rests on the ring before the session counts as done (`FILL_MS`). */
@@ -46,9 +46,11 @@ export const settleVelAt = (t: number) => {
   return ((w * w) / wd) * Math.exp(-z * w * s) * Math.sin(wd * s);
 };
 /** Resolves on the first frame after `ms` of `fn(elapsed)` driving values: one clock, the frames' own timestamps. */
-const onFrames = (t0: number, ms: number, fn: (elapsed: number) => void) =>
+const onFrames = (t0: number, ms: number, fn: (elapsed: number) => void, alive: () => boolean = () => true) =>
   new Promise<number>((res) => {
     const tick = (t: number) => {
+      // a sequence that was stopped writes nothing more (its caller resolves into its own `alive()` check)
+      if (!alive()) return res(t);
       const e = t - t0;
       fn(Math.min(e, ms));
       if (e >= ms) res(t);
@@ -65,10 +67,10 @@ export const frameAt = (t: number) =>
   });
 
 /** Stage 1 of the landing (§6.1) on the frames' clock from `t0`: the stroke fills from where it is to full in `ms`, linear. */
-export const fillRingAt = async (d: RingDrive, t0: number, ms: number): Promise<number> => {
+export const fillRingAt = async (d: RingDrive, t0: number, ms: number, alive: () => boolean = () => true): Promise<number> => {
   const p0 = d.fill.get();
-  const t1 = p0 >= 1 ? t0 : await onFrames(t0, ms, (e) => d.fill.set(p0 + (1 - p0) * (e / ms)));
-  d.fill.set(1);
+  const t1 = p0 >= 1 ? t0 : await onFrames(t0, ms, (e) => d.fill.set(p0 + (1 - p0) * (e / ms)), alive);
+  if (alive()) d.fill.set(1);
   return t1;
 };
 /**
@@ -76,12 +78,18 @@ export const fillRingAt = async (d: RingDrive, t0: number, ms: number): Promise<
  * check scales 0.8 → 1 on `settle` (computed from the spring's own k and c, so a busy frame never shifts it). No React render
  * runs in it: the node takes `data-done` itself. Resolves on the frame the swap ends.
  */
-export const morphRingAt = async (d: RingDrive, t1: number, reduce = false): Promise<number> => {
+export const morphRingAt = async (d: RingDrive, t1: number, reduce = false, alive: () => boolean = () => true): Promise<number> => {
   if (d.morph.get() >= 1) return t1;
-  const tEnd = await onFrames(t1, MORPH_MS, (e) => {
-    d.morph.set(e / MORPH_MS);
-    d.check.set(reduce ? 1 : CHECK_FROM + (1 - CHECK_FROM) * settleAt(e));
-  });
+  const tEnd = await onFrames(
+    t1,
+    MORPH_MS,
+    (e) => {
+      d.morph.set(e / MORPH_MS);
+      d.check.set(reduce ? 1 : CHECK_FROM + (1 - CHECK_FROM) * settleAt(e));
+    },
+    alive,
+  );
+  if (!alive()) return tEnd;
   d.morph.set(1);
   // the spring keeps settling past the swap (≈ 0.99 at 200 ms); it rests on its own clock
   if (!reduce) void animate(d.check, 1, forScale(springs.settle));
@@ -112,13 +120,18 @@ export const morphRing = (d: RingDrive, reduce = false) =>
  *   sheet's new scrim. If no click follows, a short timer opens it.
  * - 48 on the hero (a 56 hit), 40 on the second-session card and the Close row.
  */
-export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, drive }: { label: string; onComplete: () => void; onTap: () => void; size?: 48 | 40; done?: boolean; drive?: RingDrive }): React.JSX.Element => {
+export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, drive, haptic = 'success' }: { label: string; onComplete: () => void; onTap: () => void; size?: 48 | 40; done?: boolean; drive?: RingDrive; haptic?: 'success' | 'toggle' }): React.JSX.Element => {
   const reduce = useReducedMotion() ?? false;
   const [own] = useState(() => ringDrive(!!doneProp));
   const d = drive ?? own;
   const p = d.fill;
   const [doneSelf, setDone] = useState(false);
   const done = doneProp ?? doneSelf;
+  // a `done` the caller takes back (the session cleared elsewhere) clears the ring's own latch too, so it is the empty ring
+  // again and answers the next hold (code review 1 #2)
+  useEffect(() => {
+    if (doneProp === false) setDone(false);
+  }, [doneProp]);
   const g = useRef<{ id: number; x: number; y: number; t: number; anim: ReturnType<typeof animate> | null } | null>(null);
   const tapAt = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -160,7 +173,16 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
     if (faceEl.current) faceEl.current.style.opacity = String(1 - v);
     if (doneEl.current) doneEl.current.style.opacity = String(v);
     const el = btn.current;
-    if (!drive || !el || v <= 0 || el.hasAttribute('data-done')) return;
+    if (!drive || !el) return;
+    // a landing that was left before its end puts the ring back (useStravaLanding): the node says so again
+    if (v <= 0) {
+      if (!done && el.hasAttribute('data-done')) {
+        el.removeAttribute('data-done');
+        el.setAttribute('aria-pressed', 'false');
+      }
+      return;
+    }
+    if (el.hasAttribute('data-done')) return;
     el.setAttribute('data-done', 'true');
     el.setAttribute('aria-pressed', 'true');
   });
@@ -190,7 +212,10 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
     g.current = null;
     detach();
     setDone(true);
-    haptics.success();
+    // the day's session: its one success (M18); any other (the second session of the day): a toggle on the frame the check
+    // is in (§11.4, feel review 1 #7)
+    if (haptic === 'toggle') hapticAtPeak(d.morph, 'toggle');
+    else haptics.success();
     latest.current.onComplete();
   };
   const drain = () => void animate(p, 0, reduce ? { duration: 0.15 } : springs.settle);

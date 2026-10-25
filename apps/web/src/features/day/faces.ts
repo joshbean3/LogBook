@@ -1,4 +1,4 @@
-import { dayPhase, durationWords, floorFor, label, mondayOf, num, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type MorningAfterKey, type MorningSettings, type PhaseSession, type Session } from '@logbook/shared';
+import { dayPhase, durationWords, floorFor, floorMinutes, isSkipMark, label, mondayOf, num, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type MorningAfterKey, type MorningSettings, type PhaseSession, type Session } from '@logbook/shared';
 import { dayCaption } from '@/ui/captions';
 import type { Log } from '../log/useLog';
 import { isAfterKey, morningOf, routineName } from '../morning/model';
@@ -27,6 +27,8 @@ export interface Face {
   eyebrow: string;
   /** A caps note at the eyebrow's right ('TOMORROW · LONG 4'). */
   aside?: string;
+  /** The landed eyebrow's pace (' · 8:14 /MI'), the end of `eyebrow`: held back with the numbers through the landing. */
+  eyebrowPace?: string;
   stamp: string;
   line: string;
   /** Another day's record or plan: the stamp in --ink-2 and the line in --ink-3. */
@@ -56,6 +58,27 @@ export interface Face {
 /** The phase of a day, with the clock passed in (the page's clock, `?at=` in dev). */
 export const phaseOf = (log: Log, date: ISODate, minutes: number): DayPhase =>
   dayPhase({ date: log.today, minutes }, { date, snapshot: log.snap, settings: log.boot?.morningSettings ?? null, override: log.snap.morningOverride(date) });
+
+/**
+ * The session the hero is about on a day: the phase's lead (`heroSession`: the first run that is not skipped, else the first
+ * other training session), except that a run skipped while another session is planned keeps the hero: Skip answers on the
+ * card the owner acted on (`Skipped.`), and the other session stays in its compact card below (§0.2 6:30 step 8, §3.2 Skip;
+ * feel review 1 #1). `secondOf` is the other one.
+ */
+export const heroLead = (ph: DayPhase): PhaseSession | null => {
+  const lead = ph.training[0] ?? (ph.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null);
+  const run = ph.sessions.find((p) => p.session.kind === 'run');
+  return run && lead && run !== lead && lead.session.kind !== 'run' && isSkipMark(run.session.mark) ? run : lead;
+};
+
+/** The log with one session's mark as given: the hero's face of a mark before the month carries it, and of a mark undone. */
+export const withMark = (log: Log, date: ISODate, id: string, mark: Session['mark']): Log => {
+  const s = log.snap;
+  const snap = { ...s, sessionsOn: (d: string) => (d === date ? s.sessionsOn(d).map((x) => (x.id === id ? { ...x, mark } : x)) : s.sessionsOn(d)) };
+  return { ...log, snap } as Log;
+};
+/** The day as it was before `id` was skipped (its mark cleared): what the Skipped face keeps from the face it replaced. */
+const unskipped = (log: Log, date: ISODate, id: string, minutes: number): DayPhase => phaseOf(withMark(log, date, id, null), date, minutes);
 
 /** Miles as the hero says them: '5.02', '4', '4.5'. */
 export const milesText = (v: number) => num(v);
@@ -159,7 +182,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
   const past = date < today;
   const now = ph.now;
   const runs = log.snap.runsOn(date);
-  const lead = ph.training[0] ?? (ph.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null);
+  const lead = heroLead(ph);
   const myRuns = !lead || lead.session.kind === 'run' ? runs : [];
   const halo = haloOf(lead, runs.length > 0);
   const base = { lead, runs: myRuns, quiet: !isToday, ring: null, tall: false, halo, pressable: !!lead || myRuns.length > 0 } as const;
@@ -180,6 +203,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       key: `landed-${lead?.session.id ?? myRuns[0]!.id}`,
       kind: 'landed',
       eyebrow: pace ? `${up(head)} · ${pace} /MI` : up(head),
+      eyebrowPace: pace ? ` · ${pace} /MI` : undefined,
       stamp: who,
       line: `${milesText(t.miles)} mi${pace ? ` at ${pace}` : ''}.${lead?.key === 'floor' ? ' Floor met.' : ''}`,
       quiet: false,
@@ -264,8 +288,12 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
   const rm = restMorning(log, date, ph);
   const next = nextUp(log, date, now);
   if (lead && lead.key === 'skipped') {
-    const stops = rm?.stops ?? null;
-    return { ...base, quiet: false, key: `skipped-${lead.session.id}`, kind: 'skipped', eyebrow: up(kindEyebrow(lead.session)), stamp: up(label(lead.session)), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
+    // the eyebrow the face had before the skip (`THIS MORNING` before the door; day review 1 #7); the deck the morning as it
+    // now is (the line still ends at Leave), or the next session once the morning is over
+    const was = unskipped(log, date, lead.session.id, now).phase;
+    const eyebrow = was === 'morning' ? 'THIS MORNING' : was === 'out' ? 'OUT' : up(kindEyebrow(lead.session));
+    const stops = rm?.stops ?? (ph.phase === 'morning' ? runStops(ph) : null);
+    return { ...base, quiet: false, key: `skipped-${lead.session.id}`, kind: 'skipped', eyebrow, stamp: up(label(lead.session)), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
   }
   if (rm) {
     const line = now < rm.wake ? `Alarm in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;
@@ -274,13 +302,21 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
   return { ...base, quiet: false, key: 'rest', kind: 'rest', eyebrow: 'REST DAY', stamp: 'REST', line: 'Rest day', next, pressable: false };
 };
 
-/** '4 mi · floor 20 min easy' / '45 min · floor 2 lifts, 20 min'. */
+/**
+ * The floor as the hero and the Close card say it: its minutes (`20 min`), nouns and numbers on one line; the whole
+ * description (`20 min with the middle 10 steady`) is the session sheet's (§3.2 *4 mi · floor 20 min*; feel review 1 #5).
+ */
+export const floorShort = (s: Session): string => {
+  const m = floorMinutes(s);
+  return m ? `${m} min` : floorFor(s);
+};
+
+/** '4 mi · floor 20 min' / '45 min · floor 20 min'. */
 export const planWords = (s: Session): string => {
   const bits: string[] = [];
   if (s.kind === 'run' && s.miles) bits.push(`${num(s.miles)} mi`);
   else if (s.minutes) bits.push(`${s.minutes} min`);
-  const floor = floorFor(s);
-  if (floor) bits.push(`floor ${floor}`);
+  if (floorFor(s)) bits.push(`floor ${floorShort(s)}`);
   return bits.join(' · ') || label(s);
 };
 

@@ -47,17 +47,17 @@ export const useSessionActions = (log: Log) => {
     haptics.success();
   };
   /**
-   * "Not feeling 100%" after a run that counted (§6.3): the run stays done; what it offers is the next three days, eased,
-   * with Undo. Before it counts, it is the illness skip (`sick`).
+   * "Not feeling 100%" after a run that counted (§6.3): the run stays done; what it does is ease the next three days still
+   * ahead, with Undo. Before it counts, it is the illness skip (`sick`). Returns how many sessions it eased: with none, it says
+   * nothing (the sheet's pill answers in place; §8: toasts are for Undo and errors only, code review 1 #6).
    */
-  const notFeeling = (date: string, s: Session) => {
+  const notFeeling = (date: string, s: Session): number => {
     if (counts(sessionStatus(log.snap, date, s))) {
       const r = easeAfter(log, date);
       if (r.eased) toast(`${r.eased} ${r.eased === 1 ? 'session' : 'sessions'} eased`, { label: 'Undo', fn: r.undo });
-      else toast('Nothing hard in the next three days.');
-      return;
+      return r.eased;
     }
-    sick(date, s);
+    return sick(date, s);
   };
   /** Floor met by hand: the day kept. The sheet's Floor shows it; no toast without an Undo (§8). */
   const floor = (s: Session) => {
@@ -75,17 +75,23 @@ export const useSessionActions = (log: Log) => {
     mark.mutate({ session: s, mark: skipping ? 'skip' : null });
     toast(skipping ? `${nameOf(s)} skipped` : `${nameOf(s)} back on`, { label: 'Undo', fn: () => mark.mutate({ session: s, mark: was }) });
   };
-  /** "Not feeling 100%": skipped for illness (the week still counts it), then the offer to ease the next three days. */
-  const sick = (date: string, s: Session) => {
+  /**
+   * "Not feeling 100%": skipped for illness (the week still counts it) and the next three days still ahead eased, in one
+   * action with one Undo for both (§8: a toast carries an Undo or an error, never an offer; code review 1 #6).
+   */
+  const sick = (date: string, s: Session): number => {
+    const was = s.mark;
     mark.mutate({ session: s, mark: 'sick' });
-    toast('Not feeling 100%. Ease the next few days?', {
-      label: 'Ease them',
+    const r = easeAfter(log, date);
+    const said = r.eased ? `${nameOf(s)} skipped · ${r.eased} eased` : `${nameOf(s)} skipped`;
+    toast(said, {
+      label: 'Undo',
       fn: () => {
-        const r = easeAfter(log, date);
-        if (r.eased) toast(`${r.eased} ${r.eased === 1 ? 'session' : 'sessions'} eased`, { label: 'Undo', fn: r.undo });
-        else toast('Nothing hard in the next three days.');
+        mark.mutate({ session: { ...s, mark: 'sick' }, mark: was });
+        r.undo();
       },
     });
+    return r.eased;
   };
   const del = (s: Session) => {
     remove.mutate(s);

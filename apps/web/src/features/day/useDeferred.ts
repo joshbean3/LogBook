@@ -199,6 +199,15 @@ export const useDeferredMinutes = (minutes: number, keyOf: (m: number) => string
   const applied = useRef(minutes);
   const latest = useRef(minutes);
   latest.current = minutes;
+  // the day the minutes are of: when the held day rolls (§5.4, applied on idle like any change), the new day starts on the
+  // live clock, not on the held day's last minute (its evening face would show on the new morning and change again a minute
+  // later with no touch; day review 1 #1)
+  const day = useToday();
+  const dayOf = useRef(day);
+  if (dayOf.current !== day) {
+    dayOf.current = day;
+    applied.current = minutes;
+  }
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const want = keyOf(minutes);
   const same = want === keyOf(applied.current);

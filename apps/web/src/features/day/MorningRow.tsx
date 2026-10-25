@@ -9,6 +9,7 @@ import { morningOf } from '../morning/model';
 import { shortClock } from './dayWords';
 import { morningLineId, morningPath } from './Hero';
 import { dismissNudge } from './nudge';
+import { useReleaseTap } from './release';
 
 const D = (s: string) => Date.parse(`${s}T12:00:00Z`);
 const weekday = (s: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(D(s));
@@ -30,16 +31,22 @@ export const MorningRow = memo(function MorningRow({ date, log }: { date: ISODat
   const st = log.boot?.morningSettings ?? null;
   const T = useMemo(() => (st ? morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st) : null), [st, log.snap, date]);
   const w = morningRowWords(date, log.today, T?.day.wake ?? null, T?.leave ?? null);
+  // the push starts on the touch's release (§0.2 6:30 step 3: first frame ≤ 16 ms after touch-up), the click path for the rest
+  const rel = useReleaseTap(() => {
+    dismissNudge();
+    nav.push(morningPath(date), { shared: morningLineId(date) });
+  });
   return (
     <div className="morning-row group">
       <Pressable
         className="mr-row"
         press="surface"
         label={`${w.title}${w.right ? `, ${w.right}` : ''}. Open`}
-        onPress={() => {
-          dismissNudge();
-          nav.push(morningPath(date), { shared: morningLineId(date) });
-        }}
+        onPointerDown={rel.onPointerDown}
+        onPointerMove={rel.onPointerMove}
+        onPointerUp={rel.onPointerUp}
+        onPointerCancel={rel.onPointerCancel}
+        onPress={rel.onClick}
       >
         <Sun size={18} className="mr-ic" aria-hidden="true" />
         {/* below 360 wide a future day's title drops "morning" (the sun says it), so its time still fits */}

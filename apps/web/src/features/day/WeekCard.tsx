@@ -1,4 +1,4 @@
-import { mondayOf, shiftDays, weekSummary, type ISODate, type Snapshot, type WeekSummary } from '@logbook/shared';
+import { counts, mondayOf, sessionStatus, shiftDays, weekSummary, type ISODate, type Snapshot, type WeekSummary } from '@logbook/shared';
 import type * as React from 'react';
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsActiveTab, useTabScroller } from '@/app/NavController';
@@ -37,7 +37,9 @@ export const weekNote = (snap: Snapshot, sum: WeekSummary, date: ISODate, today:
   if (sum.runsPlanned > 0 && sum.runsDone >= sum.runsPlanned) return 'Every run done.';
   if (sum.kept) return 'Week kept.';
   if (sum.weekStart < mondayOf(today)) return `${sum.keptSessions} of ${sum.target} kept.`;
-  const left = sum.days.filter((d) => d.date >= today && snap.sessionsOn(d.date).some((s) => s.kind !== 'rest' && s.mark == null)).length;
+  // sessions, not days: each training session from today on that is neither marked nor already counted (a run Strava
+  // matched, a lift with its sets in), so the line agrees with the runs count above it (day review 1 #8)
+  const left = sum.days.filter((d) => d.date >= today).reduce((n, d) => n + snap.sessionsOn(d.date).filter((s) => s.kind !== 'rest' && s.mark == null && !counts(sessionStatus(snap, d.date, s))).length, 0);
   return left ? `${left} ${left === 1 ? 'session' : 'sessions'} to go.` : 'Nothing left this week.';
 };
 

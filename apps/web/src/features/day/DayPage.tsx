@@ -183,7 +183,16 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
     if (h) h.pageRenders++;
   }
   const months = useMemo(() => monthsFor(date), [date]);
-  const log = useLog(months);
+  /*
+   * A write to the months (an orb, a to-do, a mark) re-renders every mounted page; the pages render it in the background
+   * (`useDeferredValue`: the urgent pass keeps the log it had, so its memoised sections bail out), so the next touch is
+   * handled between its slices instead of after a 200 ms task at 4× (feel review 1 #4). What a tap shows first is the
+   * control's own (the orb's fill, the mark's check, the hero's override) and never waits on this. A new day (the midnight
+   * roll) is never deferred: the page that crossfades in must already be of its own day.
+   */
+  const fresh = useLog(months);
+  const later = useDeferredValue(fresh);
+  const log = later.today === fresh.today ? later : fresh;
   const primer = useStravaPrimer();
   const nudge = useNudge();
   const today = log.today;

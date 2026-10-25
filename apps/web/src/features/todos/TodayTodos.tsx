@@ -165,9 +165,22 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
   const down = useRef(0);
   const waiting = useRef(new Map<string, Todo>());
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  // a checked row whose fold has not run yet: its write is sent if the page goes first (a day swipe, a tab change, a jump;
+  // code review 1 #8), as the orb row flushes its pending write
+  const pend = useRef(new Map<string, Todo>());
+  const sendDone = useRef((x: Todo) => act.done(x, isToday ? date : today));
+  sendDone.current = (x: Todo) => act.done(x, isToday ? date : today);
+  useEffect(
+    () => () => {
+      timers.current.forEach(clearTimeout);
+      for (const x of pend.current.values()) sendDone.current(x);
+      pend.current.clear();
+    },
+    [],
+  );
   const foldNow = (x: Todo) => {
     const key = clientKey(x.id);
+    if (!pend.current.has(key)) return;
     const content = groupRef.current?.querySelector<HTMLElement>(`[data-key="${key}"] .tt-row-in`);
     const finish = () => {
       // the promoted row (the next one into the top three) fades in where the folded one leaves room
@@ -180,6 +193,7 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
           return n;
         });
       });
+      pend.current.delete(key);
       act.done(x, isToday ? date : today);
     };
     if (content && !reduce) void animate(content, { opacity: 0 }, { duration: 0.1, ease: 'easeOut' }).then(finish);
@@ -210,7 +224,9 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
     clearTimeout(timers.current.get(key));
     timers.current.delete(key);
     waiting.current.delete(key);
+    pend.current.delete(key);
     if (past) return next ? act.done(x) : act.reopen(x);
+    if (next) pend.current.set(key, x);
     setChecked((c) => {
       const n = new Set(c);
       if (next) n.add(key);
@@ -241,14 +257,21 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
   fns.current = { onMark, onEdit, menu };
   const stable = useMemo(() => ({ onMark: (x: Todo, n: boolean) => fns.current.onMark(x, n), onEdit: (x: Todo) => fns.current.onEdit(x), menu: (x: Todo) => fns.current.menu(x) }), []);
 
-  const openList = (open?: 'later' | 'someday') => sheet.open({ title: 'To-dos', detent: 'large', body: <TodoListSheet date={date} open={open} /> });
+  // medium first (a short list does not open over a screen of black; feel review 1 #13), large a drag or the grabber away
+  const openList = (open?: 'later' | 'someday') => sheet.open({ title: 'To-dos', detent: 'medium', detents: ['medium', 'large'], body: <TodoListSheet date={date} open={open} /> });
   const moreText = more > 0 ? `+${more} more` : [later ? `Later ${later}` : null, someday ? `Someday ${someday}` : null].filter(Boolean).join(' · ');
   const count = past ? rows.filter((x) => x.doneOn === date).length : visible.filter((x) => !checked.has(clientKey(x.id))).length;
   const canAdd = !past;
+  // a past day with nothing on it says so in one quiet row of the group: the section is quiet, never a bare heading over
+  // empty space (§3: "quiet when there is nothing to say, never absent"; feel review 1 #6)
   const empty = !top.length && !moreText && !canAdd;
   return (
     <Section title="To-dos" meta={count ? (past ? `${count} done` : count) : undefined} level="primary" className="tt">
-      {empty ? null : (
+      {empty ? (
+        <div className="tt-group">
+          <p className="tt-none">Nothing done</p>
+        </div>
+      ) : (
         <div ref={groupRef} className="tt-group" onPointerDown={onListDown}>
           {top.map((x) => (
             <TodoRow key={clientKey(x.id)} x={x} date={date} on={!!x.doneOn || checked.has(clientKey(x.id))} {...stable} />

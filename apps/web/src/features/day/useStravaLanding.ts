@@ -147,13 +147,19 @@ export const useStravaLanding = ({ date, log, face, pre, hero }: { date: ISODate
   const [ring] = useState(() => ringDrive(false));
   const [boost, setBoost] = useState(false);
   const run = useRef(0);
+  /** A sequence is playing stages 1–2 (the stage is still `wait` through them). */
+  const started = useRef(false);
   const growStart = useRef(0);
+  /** The ring as the face before the run had it: where a landing that has not been seen (or was left) waits. */
+  const ringToPre = () => {
+    ring.fill.jump(pre.ring === 'done' ? 1 : 0);
+    ring.morph.jump(pre.ring === 'done' ? 1 : 0);
+    ring.check.jump(pre.ring === 'done' ? 1 : 0.8);
+  };
   // a run that arrives (or leaves) while the page is up
   useEffect(() => {
     if (landed && stage === 'still' && !seenToday(key)) {
-      ring.fill.jump(pre.ring === 'done' ? 1 : 0);
-      ring.morph.jump(pre.ring === 'done' ? 1 : 0);
-      ring.check.jump(pre.ring === 'done' ? 1 : 0.8);
+      ringToPre();
       setStage('wait');
     } else if (!landed && stage !== 'still') {
       run.current++;
@@ -162,14 +168,27 @@ export const useStravaLanding = ({ date, log, face, pre, hero }: { date: ISODate
   }, [landed, key]); // eslint-disable-line react-hooks/exhaustive-deps
   const seen = useSeen(date, hero, landed && stage !== 'still' && stage !== 'done');
 
-  // the sequence, once the landing is seen: from stage 1 (or 3 when the face before had no ring to fill)
+  // the sequence, once the landing is seen: from stage 1 (or 3 when the face before had no ring to fill). Left before its
+  // FLIP has settled (another tab, the hero scrolled away, the app hidden), it stops where it is and waits again, the ring
+  // as it was before the run; the next time it is seen it plays from stage 1 (§6.1: "seen, or it waits"; the success fires
+  // only with the visual; code review 1 #4)
   useEffect(() => {
-    if (stage !== 'wait' || !seen) return;
+    if (!seen) {
+      if (stage === 'wait' || stage === 'grow') {
+        const playing = stage === 'grow' || started.current;
+        run.current++;
+        started.current = false;
+        if (playing) {
+          ringToPre();
+          if (stage === 'grow') setStage('wait');
+        }
+      }
+      return;
+    }
+    if (stage !== 'wait') return;
     const me = ++run.current;
     const alive = () => run.current === me;
-    markSeenToday(key);
-    // the day's other once-a-day moments are this landing's: a later view of the face is still
-    if (face.landed) markSeenToday(face.landed.drawKey);
+    started.current = true;
     void (async () => {
       // the refetch that brought the run is still rendering the pages: the sequence starts on the first calm frame after it
       const asked = performance.now();
@@ -178,11 +197,11 @@ export const useStravaLanding = ({ date, log, face, pre, hero }: { date: ISODate
       note('fill', { t: t0, waited: Math.round(t0 - asked) });
       let growAt = t0;
       if (pre.ring) {
-        const t1 = await fillRingAt(ring, t0, LANDING_FILL_MS);
+        const t1 = await fillRingAt(ring, t0, LANDING_FILL_MS, alive);
         if (!alive()) return;
         note('morph', { t: t1 });
         growAt = t1 + MORPH_MS;
-        const morph = morphRingAt(ring, t1, reduce);
+        const morph = morphRingAt(ring, t1, reduce, alive);
         // stage 3's commit (the card's 304 layout under its inverse) is paid during the morph's last frames, so the card
         // moves on the frame stage 2 ends, not a render later
         await Promise.race([morph, frameAt(growAt - GROW_LEAD_MS)]);
@@ -201,6 +220,10 @@ export const useStravaLanding = ({ date, log, face, pre, hero }: { date: ISODate
     const el = hero.current;
     const settled = () => {
       if (run.current !== me) return;
+      started.current = false;
+      // seen to its end: once a day from here (a landing left before this frame plays again from stage 1)
+      markSeenToday(key);
+      if (face.landed) markSeenToday(face.landed.drawKey);
       // the one success, on the frame the shape stops changing (only when the hand has not already given it today)
       if (!seenToday(successKey(id))) {
         markSuccess(id);

@@ -106,6 +106,16 @@
 .tt-add {
   color: var(--accent-text);
 }
+/* a past day with nothing on it: one quiet row (15/20 --ink-3) */
+.tt-none {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+}
 /* the add row become the field, in the same 44 box */
 .tt-field {
   display: flex;

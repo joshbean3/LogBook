@@ -26,6 +26,13 @@ export const HABIT_STARTERS = ['Sleep 7 h', 'Stretch', 'Read', 'Protein', 'No ph
 const POP_V = 5.5;
 /** The check's write, after the pop has settled (`springs.complete` rests in ≈ 300 ms). */
 const WRITE_AFTER_MS = 350;
+/**
+ * The row's writes wait for the finger to rest (feel review 1 #4): a month write re-renders every mounted tab that reads the
+ * month (at 4× a 130–200 ms task), and the next orb tapped in the same motion must not queue behind it. A write is sent once
+ * no orb has been touched for `QUIET_MS` (and at once when the page goes, or the app is hidden).
+ */
+const QUIET_MS = 700;
+let lastOrbTouch = 0;
 /** The orb's cell (64 hit, 56 ring) plus the 4 px between cells: the 12 px between rings. */
 const PITCH = 68;
 
@@ -81,7 +88,22 @@ const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragSt
     write.current = null;
     onLight(h, w.on);
   };
-  useEffect(() => () => send.current(), []);
+  /** The write's timer: sent once the row has been still for QUIET_MS (another orb tapped meanwhile moves it on). */
+  const due = () => {
+    const w = write.current;
+    if (!w) return;
+    const wait = lastOrbTouch + QUIET_MS - performance.now();
+    if (wait > 0) w.t = setTimeout(due, wait);
+    else send.current();
+  };
+  useEffect(() => {
+    const hide = () => document.visibilityState === 'hidden' && send.current();
+    document.addEventListener('visibilitychange', hide);
+    return () => {
+      document.removeEventListener('visibilitychange', hide);
+      send.current();
+    };
+  }, []);
   const light = () => {
     const next = !on;
     setAhead(next);
@@ -89,7 +111,7 @@ const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragSt
     if (pending) {
       clearTimeout(pending.t);
       write.current = null;
-    } else write.current = { on: next, t: setTimeout(() => send.current(), WRITE_AFTER_MS) };
+    } else write.current = { on: next, t: setTimeout(due, WRITE_AFTER_MS) };
     if (next) {
       unpeak.current();
       if (reduce) {
@@ -125,6 +147,7 @@ const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragSt
       onDragMove={(p) => onDragMove(h.id, p)}
       onDragEnd={(_p, _e, cancelled) => onDragEnd(h.id, cancelled)}
       onPointerDown={(e: React.PointerEvent<HTMLElement>) => {
+        lastOrbTouch = performance.now();
         travel.current = e.isPrimary && (e.pointerType !== 'mouse' || e.button === 0) ? { x: e.clientX, y: e.clientY, moved: false, held: false, lit: false } : null;
       }}
       onPointerMove={(e: React.PointerEvent<HTMLElement>) => {

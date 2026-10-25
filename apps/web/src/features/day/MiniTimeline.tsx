@@ -1,6 +1,7 @@
 import type * as React from 'react';
 import { usePress } from '@/ui/usePress';
 import { shortClock } from './dayWords';
+import { useReleaseTap } from './release';
 
 export interface Stop {
   key: string;
@@ -45,6 +46,8 @@ const Line = ({ p, n }: { p: number; n: number }) => (
  */
 export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: Stop[]; now: number; onPress?: () => void; label: string; shared?: string }): React.JSX.Element => {
   const press = usePress({ disabled: !onPress });
+  // the push starts on the touch's release, not on the click a task later (§0.2 6:30 step 3)
+  const rel = useReleaseTap(() => onPress?.());
   const p = stopProgress(stops, now);
   const n = stops.length - 1;
   const body = (
@@ -74,9 +77,25 @@ export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: St
       aria-label={label}
       data-shared={shared}
       {...press.handlers}
+      onPointerDown={(e) => {
+        press.handlers.onPointerDown?.(e);
+        rel.onPointerDown(e);
+      }}
+      onPointerMove={(e) => {
+        press.handlers.onPointerMove?.(e);
+        rel.onPointerMove(e);
+      }}
+      onPointerUp={(e) => {
+        press.handlers.onPointerUp?.(e);
+        rel.onPointerUp(e);
+      }}
+      onPointerCancel={(e) => {
+        press.handlers.onPointerCancel?.(e);
+        rel.onPointerCancel();
+      }}
       onClick={(e) => {
         e.stopPropagation();
-        onPress();
+        rel.onClick();
       }}
     >
       {body}

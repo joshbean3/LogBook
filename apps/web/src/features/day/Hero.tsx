@@ -2,7 +2,8 @@ import { label, num, type Activity, type ISODate, type PhaseSession, type Sessio
 import { ChevronRight, Share } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNav } from '@/app/NavController';
 import { useSessionMutations, useStravaChecking } from '@/api/queries';
 import { CHECKING_MAX_MS, CHECKING_MIN_MS, HOLD_SLOP_PX } from '@/lib/gesture';
@@ -14,8 +15,9 @@ import { useSessionActions } from '../sessions/actions';
 import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { isPagerMoving, useIsLive } from './live';
+import { swallowNextClick } from './release';
 import { CloseDay } from './CloseDay';
-import { faceOf, phaseOf, preLandingFace, secondOf, type Face } from './faces';
+import { faceOf, heroLead, phaseOf, preLandingFace, secondOf, withMark, type Face } from './faces';
 import { HoldRing } from './HoldRing';
 import { sessionMiles, weekMiles } from './miles';
 import { MiniTimeline, OutLine } from './MiniTimeline';
@@ -72,6 +74,12 @@ const useCheckingLine = () => {
 
 /** `fadeIn`'s value one frame (16.7 ms) into its 120 ms on the (.22, 1, .36, 1) curve. */
 const FADE_FIRST_FRAME = 0.4;
+/**
+ * `crossfade`'s value one frame into its 150 ms on the same curve: a face coming in (Skip, its Undo, a phase change) is on
+ * the first frame after its commit, with the toast that names it, not a frame behind it (motion's first frame samples 0;
+ * day review 1 #7).
+ */
+const FACE_FIRST_FRAME = 0.35;
 
 const StatusLine = ({ text }: { text: string }) => {
   const checking = useCheckingLine();
@@ -194,7 +202,17 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
   return (
     <>
       <div className="hero-eyebrow-row">
-        <span className="caps hero-eyebrow">{face.eyebrow}</span>
+        {/* the landed pace comes in with the numbers and the verdict (§6.1 stage 4): one pace on the card at a time (feel review 1 #8) */}
+        {face.eyebrowPace ? (
+          <span className="caps hero-eyebrow">
+            {face.eyebrow.slice(0, -face.eyebrowPace.length)}
+            <motion.span initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
+              {face.eyebrowPace}
+            </motion.span>
+          </span>
+        ) : (
+          <span className="caps hero-eyebrow">{face.eyebrow}</span>
+        )}
         {face.aside ? <span className="caps hero-aside">{face.aside}</span> : null}
       </div>
       <span className="hero-stamp">{face.stamp}</span>
@@ -241,7 +259,28 @@ const EveningFace = ({ date, log, ph, onOpen }: { date: ISODate; log: Log; ph: R
  * compact card below (`SecondSession`): no inner carousel, ever; the day pager is the only horizontal gesture. The evening
  * slot is the Close card (its own height).
  */
-export const Hero = memo(function Hero({ date, log }: { date: ISODate; log: Log }) {
+export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log: Log }) {
+  /*
+   * A mark from the hero (Skip, its Undo) shows on the face first, in its own small render, and the month's write follows:
+   * the write re-renders every mounted page, which at 4× held the 150 ms crossfade back 300 ms behind its toast (feel review
+   * 1 #10, day review 1 #7). The override goes once the month carries the mark (or the write settles either way).
+   */
+  const [over, setOver] = useState<{ id: string; mark: SessionMark | null } | null>(null);
+  const log = useMemo(() => (over ? withMark(real, date, over.id, over.mark) : real), [real, date, over]);
+  useEffect(() => {
+    if (over && (real.snap.sessionsOn(date).find((x) => x.id === over.id)?.mark ?? null) === over.mark) setOver(null);
+  }, [real, date, over]);
+  const { mark } = useSessionMutations();
+  const markNow = useCallback(
+    (s: Session, m: SessionMark | null) => {
+      flushSync(() => setOver({ id: s.id, mark: m }));
+      // the write after that frame is painted (it re-renders every page and every mounted tab that reads the month)
+      requestAnimationFrame(() =>
+        setTimeout(() => mark.mutate({ session: s, mark: m }, { onSettled: () => setOver((o) => (o?.id === s.id && o.mark === m ? null : o)) }), 0),
+      );
+    },
+    [mark],
+  );
   // the clock's face changes wait for an interaction or idle (§5.3, useDeferred); a minute that keeps the face ticks at once
   const clock = useFaceMinutes();
   const keyOf = (m: number) => {
@@ -257,38 +296,14 @@ export const Hero = memo(function Hero({ date, log }: { date: ISODate; log: Log 
   return (
     <AnimatePresence initial={false} mode="popLayout">
       <motion.div key={evening ? 'close' : 'day'} className="hero-swap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
-        {evening ? <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} /> : <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} />}
+        {evening ? <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} /> : <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} markNow={markNow} />}
       </motion.div>
     </AnimatePresence>
   );
 });
 
-/**
- * The click a touch makes after its release, when the release already acted: it would land on what the release opened (the
- * sheet's scrim, which closes the sheet). Swallowed at the window in the capture phase; a click with no pointer behind it
- * (`detail === 0`: Enter, Space, VoiceOver) is never swallowed, and the arm goes at the next touch or after 600 ms.
- * (A local stand-in for WP1's internal click swallow, until Pressable has a release option: docs/reviews/wp2.md, Requests.)
- */
-const swallowNextClick = () => {
-  const on = (e: MouseEvent) => {
-    if (e.detail === 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    done();
-  };
-  const done = () => {
-    clearTimeout(t);
-    window.removeEventListener('click', on, true);
-    window.removeEventListener('pointerdown', done, true);
-  };
-  const t = setTimeout(done, 600);
-  window.addEventListener('click', on, true);
-  window.addEventListener('pointerdown', done, true);
-};
-
 /** The 184 card (304 landed): every face but the evening's. The run landing (§6.1) plays on it. */
-const DayHero = ({ date, log, ph, face: dayFace, minutes }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number }) => {
+const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: (s: Session, m: SessionMark | null) => void }) => {
   const nav = useNav();
   const sheet = useSheet();
   const toast = useToast();
@@ -345,10 +360,11 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes }: { date: ISODate; log
     setMark(s, 'done');
     setBoost(true);
   };
+  // the face crossfades to Skipped. first (its own render), then the toast, then the write (markNow)
   const skip = (s: Session) => {
     const was = s.mark;
-    setMark(s, 'skip');
-    toast(`${label(s)} skipped`, { label: 'Undo', fn: () => mark.mutate({ session: { ...s, mark: 'skip' }, mark: was }) });
+    markNow(s, 'skip');
+    toast(`${label(s)} skipped`, { label: 'Undo', fn: () => markNow({ ...s, mark: 'skip' }, was) });
   };
 
   /** The hold menu: ≤ 4, the things a runner reaches for. */
@@ -429,8 +445,10 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes }: { date: ISODate; log
       label={face.pressable ? `${name}. Open` : name}
     >
       <span className="aura-glow" aria-hidden="true" />
-      <AnimatePresence initial={false} mode="popLayout">
-        <motion.div key={main.key} className="hero-face" data-k={main.kind} initial={{ opacity: 0 }} animate={{ opacity: preShown ? 0 : 1 }} exit={{ opacity: 0 }} transition={crossfade} inert={preShown || undefined} aria-hidden={preShown || undefined}>
+      {/* a new day (the midnight roll) is not a face change: the page crossfades in already on its face, never through a
+          second crossfade from the day before's (day review 1 #1, #10) */}
+      <AnimatePresence key={log.today} initial={false} mode="popLayout">
+        <motion.div key={main.key} className="hero-face" data-k={main.kind} initial={{ opacity: preShown ? 0 : FACE_FIRST_FRAME }} animate={{ opacity: preShown ? 0 : 1 }} exit={{ opacity: 0 }} transition={crossfade} inert={preShown || undefined} aria-hidden={preShown || undefined}>
           <FaceLayer face={main} numbers={landing.numbers} date={date} log={log} isToday={isToday} now={ph.now} acts={acts} />
         </motion.div>
       </AnimatePresence>
@@ -456,7 +474,8 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes }: { date: ISODate; log
  */
 export const SecondSession = memo(function SecondSession({ date, log }: { date: ISODate; log: Log }) {
   const ph = useMemo(() => phaseOf(log, date, 12 * 60), [log, date]);
-  const lead = ph.training[0] ?? null;
+  // the hero's session (a skipped run keeps the hero: heroLead); this card is the other one
+  const lead = heroLead(ph);
   const p: PhaseSession | null = secondOf(ph, lead);
   const openSession = useOpenSession(log);
   const act = useSessionActions(log);
@@ -468,7 +487,8 @@ export const SecondSession = memo(function SecondSession({ date, log }: { date: 
   const open = p.key === 'today' && isToday;
   const sub = [s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : null, p.key === 'today' ? 'Planned' : p.word].filter(Boolean).join(' · ');
   const items: ContextMenuItem[] = [];
-  if (p.key !== 'done' && p.key !== 'floor' && date <= log.today) items.push({ label: 'Done', onSelect: () => (haptics.success(), markSuccess(s.id), mark.mutate({ session: s, mark: 'done' })) });
+  // the second session's completion is not the day's success (M18: two a day); its ring answers with a toggle (§11.4)
+  if (p.key !== 'done' && p.key !== 'floor' && date <= log.today) items.push({ label: 'Done', onSelect: () => (markSuccess(s.id), mark.mutate({ session: s, mark: 'done' })) });
   if (p.key === 'today' || p.key === 'planned')
     items.push({
       label: 'Skip',
@@ -494,7 +514,7 @@ export const SecondSession = memo(function SecondSession({ date, log }: { date: 
         <span className="ss-sub">{sub}</span>
       </span>
       {open || (isToday && (s.mark === 'done' || s.mark === 'floor')) ? (
-        <span className="ss-ring">{<HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={s.mark === 'done' || s.mark === 'floor' ? true : undefined} onComplete={() => (markSuccess(s.id), mark.mutate({ session: s, mark: 'done' }))} onTap={() => openSession(date, s)} />}</span>
+        <span className="ss-ring">{<HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={s.mark === 'done' || s.mark === 'floor'} haptic="toggle" onComplete={() => (markSuccess(s.id), mark.mutate({ session: s, mark: 'done' }))} onTap={() => openSession(date, s)} />}</span>
       ) : null}
     </Pressable>
   );

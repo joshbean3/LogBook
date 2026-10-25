@@ -16,6 +16,7 @@ import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
 import type { ShareData, ShareDayType } from '../share/cards';
 import { sessionCan, useSessionActions } from './actions';
+import { PressButton } from './PressButton';
 import { LiftLog } from './LiftLog';
 import { dayMiles, sessionMiles } from './miles';
 import { voiceHead, voiceLine } from './voice';
@@ -356,6 +357,8 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const sheet = useSheet();
   const act = useSessionActions(log);
   const [liftOpen, setLiftOpen] = useState(false);
+  // "Not feeling 100%" with nothing hard in the days ahead answers on its own pill, not in a toast (§8)
+  const [nothingToEase, setNothingToEase] = useState(false);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
   const gone = !s && log.loaded(date);
   useEffect(() => {
@@ -396,14 +399,14 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
       <Stats stats={stats} />
       {c.mark ? (
         <div className="ss-verbs" role="group" aria-label="Mark it">
-          <button type="button" className={`ss-big done ${st === 'done' ? 'is-on' : ''}`} aria-pressed={st === 'done'} onClick={() => (st === 'done' ? act.clear(s) : act.done(s))}>
+          <PressButton className={`ss-big done ${st === 'done' ? 'is-on' : ''}`} aria-pressed={st === 'done'} onClick={() => (st === 'done' ? act.clear(s) : act.done(s))}>
             <Check size={20} strokeWidth={2.6} aria-hidden="true" />
             Done
-          </button>
-          <button type="button" className={`ss-big floor ${st === 'floor' ? 'is-on' : ''}`} aria-pressed={st === 'floor'} onClick={() => (st === 'floor' ? act.clear(s) : act.floor(s))}>
+          </PressButton>
+          <PressButton className={`ss-big floor ${st === 'floor' ? 'is-on' : ''}`} aria-pressed={st === 'floor'} onClick={() => (st === 'floor' ? act.clear(s) : act.floor(s))}>
             <span className="ss-floor-glyph" aria-hidden="true" />
             Floor
-          </button>
+          </PressButton>
         </div>
       ) : c.auto ? (
         <p className="t-sub ink2 ss-auto">{st === 'floor' ? 'Floor held, from the run that came in.' : s.kind === 'lift' ? 'Done: the sets are logged.' : 'Done: matched to your run.'}</p>
@@ -414,39 +417,42 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         // §6.3: after a matched run the second row is Share · Not feeling 100% (Move and Edit are under the ⋯)
         <div className="ss-second">
           {share && share.miles > 0 ? (
-            <button type="button" className="ss-pill" onClick={() => act.share(share, true)}>
+            <PressButton press="surface" className="ss-pill" onClick={() => act.share(share, true)}>
               <Share2 size={18} aria-hidden="true" />
               Share
-            </button>
+            </PressButton>
           ) : null}
-          <button type="button" className="ss-pill" onClick={() => act.notFeeling(date, s)}>
-            <HeartPulse size={18} aria-hidden="true" />
-            Not feeling 100%
-          </button>
+          {/* today's run only: a past day's "not feeling" would rewrite days that are already a record (code review 1 #3) */}
+          {date === log.today ? (
+            <PressButton press="surface" className="ss-pill" disabled={nothingToEase} onClick={() => setNothingToEase(act.notFeeling(date, s) === 0)}>
+              <HeartPulse size={18} aria-hidden="true" />
+              {nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'}
+            </PressButton>
+          ) : null}
         </div>
       ) : (
         <div className="ss-second">
           {share && share.miles > 0 ? (
-            <button type="button" className="ss-pill" onClick={() => act.share(share, true)}>
+            <PressButton press="surface" className="ss-pill" onClick={() => act.share(share, true)}>
               <Share2 size={18} aria-hidden="true" />
               Share
-            </button>
+            </PressButton>
           ) : c.skip || s.mark === 'skip' || s.mark === 'sick' ? (
-            <button type="button" className="ss-pill" aria-pressed={s.mark === 'skip' || s.mark === 'sick'} onClick={() => act.skip(s)}>
+            <PressButton press="surface" className="ss-pill" aria-pressed={s.mark === 'skip' || s.mark === 'sick'} onClick={() => act.skip(s)}>
               <SkipForward size={18} aria-hidden="true" />
               {s.mark === 'skip' || s.mark === 'sick' ? 'Put back' : 'Skip'}
-            </button>
+            </PressButton>
           ) : null}
-          <button type="button" className="ss-pill" onClick={() => act.move(date, s, true)}>
+          <PressButton press="surface" className="ss-pill" onClick={() => act.move(date, s, true)}>
             <ArrowRightLeft size={18} aria-hidden="true" />
             Move
             <ChevronRight size={16} className="ss-pill-chev" aria-hidden="true" />
-          </button>
-          <button type="button" className="ss-pill" onClick={() => act.edit(date, s, true)}>
+          </PressButton>
+          <PressButton press="surface" className="ss-pill" onClick={() => act.edit(date, s, true)}>
             <Pencil size={18} aria-hidden="true" />
             Edit
             <ChevronRight size={16} className="ss-pill-chev" aria-hidden="true" />
-          </button>
+          </PressButton>
         </div>
       )}
       {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} /> : null}

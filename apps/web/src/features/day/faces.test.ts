@@ -1,12 +1,12 @@
-import { MORNING_DEFAULTS, type Activity, type Session } from '@logbook/shared';
+import { MORNING_DEFAULTS, weekSummary, type Activity, type Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import type { Log } from '../log/useLog';
 import { dayStamps } from './CloseDay';
-import { coachSentence, faceOf, milesText, otherEyebrow, phaseOf, planWords, preLandingFace } from './faces';
+import { coachSentence, faceOf, floorShort, heroLead, milesText, otherEyebrow, phaseOf, planWords, preLandingFace, secondOf } from './faces';
 import { morningRowWords } from './MorningRow';
-import { isoWeek } from './WeekCard';
+import { isoWeek, weekNote } from './WeekCard';
 
 const FRI = '2026-10-23';
 const run = (date: string, over: Partial<Session> = {}): Session => ({ id: `s-${date}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null, blockId: null, movedFrom: null, mark: null, ...over });
@@ -34,7 +34,7 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     const f = faceOf(log, FRI, ph);
     expect(f.kind).toBe('open');
     expect(f.ring).toBe('open');
-    expect(f.line).toBe('4 mi · floor 20 min easy');
+    expect(f.line).toBe('4 mi · floor 20 min');
   });
   it('done by hand: "4 mi. Done." and the check in the ring', () => {
     const l2 = logOf(bundle([run(FRI, { mark: 'done' })]));
@@ -89,7 +89,7 @@ describe('the words around the hero', () => {
     expect(isoWeek('2027-01-01').key).toBe('2026-W53');
   });
   it('plan words and miles', () => {
-    expect(planWords(run(FRI))).toBe('4 mi · floor 20 min easy');
+    expect(planWords(run(FRI))).toBe('4 mi · floor 20 min');
     expect(milesText(5.02)).toBe('5.02');
     expect(milesText(4)).toBe('4');
   });
@@ -120,5 +120,33 @@ describe('the run landing and the Close card (docs/feel.md §5, §6)', () => {
     const q = dayStamps({ miles: 0, planned: 0, lit: 0, habits: 5, doneTodos: 0, openTodos: 2, restDay: true, runShown: false });
     expect(q.stamps).toEqual([]);
     expect(q.line).toBe('Rest day. 2 to-dos left.');
+  });
+});
+
+describe('fix round 1: Skip on two sessions, the floor words, the week card count', () => {
+  const SAT = '2026-10-24';
+  const lift = (date: string, over: Partial<Session> = {}): Session => ({ ...run(date), id: `l-${date}`, position: 1, kind: 'lift', type: 'Strength', miles: null, minutes: 45, ...over });
+  it('a run skipped beside a lift keeps the hero (Skipped., the morning eyebrow); the lift is the second card', () => {
+    const l = logOf(bundle([run(SAT, { type: 'Threshold', miles: 6, mark: 'skip' }), lift(SAT)]), SAT);
+    const ph = phaseOf(l, SAT, 6 * 60 + 30);
+    expect(heroLead(ph)?.session.id).toBe(`s-${SAT}`);
+    expect(secondOf(ph, heroLead(ph))?.session.id).toBe(`l-${SAT}`);
+    const f = faceOf(l, SAT, ph);
+    expect(f.kind).toBe('skipped');
+    expect(f.stamp).toBe('THRESHOLD 6');
+    expect(f.line).toBe('Skipped.');
+    expect(f.eyebrow).toBe('THIS MORNING');
+  });
+  it('the floor on the hero is its minutes only', () => {
+    expect(planWords(run(SAT, { type: 'Threshold', miles: 6 }))).toBe('6 mi · floor 20 min');
+    expect(floorShort(lift(SAT))).toBe('20 min');
+  });
+  it('the week card counts sessions left (a matched run is not one)', () => {
+    const sessions = [run(FRI), run(SAT, { type: 'Threshold', miles: 6 }), lift(SAT), lift('2026-10-25')];
+    const l = logOf(bundle(sessions));
+    expect(weekNote(l.snap, weekSummary(l.snap, '2026-10-19'), FRI, FRI)).toBe('4 sessions to go.');
+    const a = { id: 'a2', date: FRI, kind: 'run', name: 'Run', time: '07:30', miles: 4.1, movingSec: 2000, elevFt: 0, avgHr: null, polyline: null, laps: null } as unknown as Activity;
+    const l2 = logOf(bundle(sessions, [a]));
+    expect(weekNote(l2.snap, weekSummary(l2.snap, '2026-10-19'), FRI, FRI)).toBe('3 sessions to go.');
   });
 });

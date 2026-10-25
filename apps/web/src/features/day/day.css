@@ -1013,6 +1013,11 @@
 .cd-quote-slot {
   height: 44px;
 }
+/* the nightly quote reads whole in its 44 slot: two lines of 15/20 (40) rather than one cut line (feel review 1 #11) */
+.cd .qline.quote-line .qline-text {
+  -webkit-line-clamp: 2;
+  overflow-wrap: normal;
+}
 /* steps 3–4: the composer's box; the entry takes the field's place in it */
 .cd-box {
   position: relative;
@@ -1177,6 +1182,10 @@
   font-size: 1.1875rem;
   line-height: 1.35;
   resize: none;
+}
+/* Save stands clear of the sheet's bottom edge and the home indicator (feel review 1 #14) */
+.word-sheet {
+  padding-bottom: calc(16px + var(--safe-b, 0px));
 }
 .focus-actions {
   display: flex;

@@ -2,6 +2,7 @@ import { type ISODate } from '@logbook/shared';
 import { PenLine, Share } from 'lucide-react';
 import type * as React from 'react';
 import { memo, useState } from 'react';
+import { revealField } from '@/lib/keyboard';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { Composer } from '../journal/JournalDaySection';
@@ -49,7 +50,8 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
         </div>
       ) : null}
       {writing ? (
-        <div className="td-composer" data-no-page="">
+        // §5.1: the field is scrolled above the keyboard on focus (code review 1 #5)
+        <div className="td-composer" data-no-page="" onFocusCapture={(e) => e.target instanceof HTMLTextAreaElement && revealField(e.target)}>
           <Composer date={date} today={log.today} rows={2} placeholder="Add to the day" toast={false} autoFocus onSaved={() => setWriting(false)} />
         </div>
       ) : (

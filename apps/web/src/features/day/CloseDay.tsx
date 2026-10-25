@@ -1,6 +1,6 @@
 import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
 import { ChevronRight, PenLine, Share } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -20,8 +20,10 @@ import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { groupsOn } from '../todos/groups';
 import { shortClock } from './dayWords';
-import { HoldRing } from './HoldRing';
+import { floorShort } from './faces';
+import { HoldRing, settleAt, settleVelAt } from './HoldRing';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
+import { useReleaseTap } from './release';
 import { markSuccess } from './useStravaLanding';
 import { saveFocus, useFocus } from './WordSheet';
 
@@ -31,6 +33,9 @@ import { saveFocus, useFocus } from './WordSheet';
  */
 const loadQuote = () => import('../journal/JournalHome');
 const loadWake = () => import('../morning/StepSheets');
+/** The alarm editor's module once it is in (preloaded at idle): a tap then opens its sheet in the release's own task. */
+let wakeMod: Awaited<ReturnType<typeof loadWake>> | null = null;
+const loadWakeKept = () => loadWake().then((m) => (wakeMod = m));
 const loadPick = () => import('../reads/TodaysPick');
 const QuoteLine = lazy(() => loadQuote().then((m) => ({ default: m.QuoteLine })));
 const TodaysPick = lazy(() => loadPick().then((m) => ({ default: m.TodaysPick })));
@@ -38,7 +43,7 @@ let preloaded = false;
 export const preloadCloseDay = () => {
   if (preloaded) return;
   preloaded = true;
-  const go = () => void Promise.all([loadQuote(), loadWake(), loadPick()]).catch(() => (preloaded = false));
+  const go = () => void Promise.all([loadQuote(), loadWakeKept(), loadPick()]).catch(() => (preloaded = false));
   const w = window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number };
   if (w.requestIdleCallback) w.requestIdleCallback(go, { timeout: 4000 });
   else setTimeout(go, 1500);
@@ -100,8 +105,7 @@ const runWords = (log: Log, date: ISODate, p: PhaseSession): string => {
     const m = s.kind === 'run' ? sessionMiles(log.snap, date, s).miles : 0;
     return [m > 0 ? `${num(m)} mi` : s.minutes ? `${s.minutes} min` : null, p.key === 'floor' ? 'Floor met' : 'Done'].filter(Boolean).join(' · ');
   }
-  const floor = floorFor(s);
-  return floor ? `Floor: ${floor}` : p.word;
+  return floorFor(s) ? `Floor: ${floorShort(s)}` : p.word;
 };
 
 /** The run row (§5 step 2): 60, the session's stamp and how it went; the 40 px ring while it is open. The words open the sheet. */
@@ -139,36 +143,128 @@ const timeOf = (iso: string) => {
 };
 
 /**
- * The composer's box (§5 steps 3–4): the quote line as the prompt, the Journal's composer, Save. After Save the entry takes
- * the field's place in the same box (a 150 ms crossfade) and the Save slot becomes `Add to it`; the box keeps the height it
- * had, so nothing under it moves. `Add to it` brings the composer back the same way.
+ * What follows the composer's box when the box changes height (§5: "only the entries list grows, via FLIP on what follows";
+ * §10.1): the layout has already committed at the new height; on the same frame the card is scaled back to `from`
+ * (`scaleY`, its radius corrected), its rows counter-scaled so no text stretches, the rows after the box and every section
+ * below the hero carried with the card's bottom edge; one `springs.settle` value then releases them together (integrated on
+ * the frames' own clock, as the landing's FLIP is) and the inline styles clear on its completion frame. The card carries
+ * `data-layout-exception` while it moves. Returns a cleanup that stops it.
  */
-const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: () => void }) => {
+const flipCard = (card: HTMLElement, box: HTMLElement, from: number): (() => void) => {
+  const to = card.offsetHeight;
+  if (Math.abs(to - from) < 1) return () => undefined;
+  const swap = card.closest('.hero-swap') ?? card;
+  const below: HTMLElement[] = [];
+  for (let n = swap.nextElementSibling; n; n = n.nextElementSibling) if (n instanceof HTMLElement) below.push(n);
+  const kids = [...card.children].filter((k): k is HTMLElement => k instanceof HTMLElement);
+  const after = new Set(kids.slice(kids.indexOf(box) + 1));
+  const top = card.getBoundingClientRect().top;
+  const tops = kids.map((k) => k.getBoundingClientRect().top - top);
+  const r = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 20;
+  card.setAttribute('data-layout-exception', '');
+  for (const k of [card, ...kids]) k.style.transition = 'none';
+  const write = (p: number) => {
+    const v = from + ((to - from) * p) / 1000;
+    const sc = v / to;
+    const d = v - to;
+    card.style.transformOrigin = '50% 0';
+    card.style.transform = `scaleY(${sc})`;
+    card.style.borderRadius = `${r}px / ${r / sc}px`;
+    kids.forEach((k, i) => {
+      k.style.transformOrigin = `50% ${-tops[i]!}px`;
+      k.style.transform = `${after.has(k) ? `translateY(${d / sc}px) ` : ''}scaleY(${1 / sc})`;
+    });
+    for (const n of below) n.style.translate = `0 ${d}px`;
+  };
+  const clear = () => {
+    for (const k of [card, ...kids]) {
+      k.style.transform = '';
+      k.style.transformOrigin = '';
+      k.style.transition = '';
+    }
+    card.style.borderRadius = '';
+    for (const n of below) n.style.translate = '';
+    card.removeAttribute('data-layout-exception');
+  };
+  write(0);
+  let raf = 0;
+  let t0 = 0;
+  const tick = (now: number) => {
+    if (!t0) t0 = now - 17;
+    const e = now - t0;
+    const p = 1000 * settleAt(e);
+    if (Math.abs(1000 - p) <= 1 && Math.abs(1000 * settleVelAt(e)) <= 30) {
+      raf = 0;
+      clear();
+      return;
+    }
+    write(p);
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  return () => {
+    if (!raf) return;
+    cancelAnimationFrame(raf);
+    clear();
+  };
+};
+
+/** One frame (16.7 ms) into the slots' 150 ms linear crossfade: a layer coming in shows on its first frame. */
+const FIRST_FRAME = 16.7 / CROSSFADE_MS;
+
+/**
+ * The composer's box (§5 steps 3–4): the quote line as the prompt, the Journal's composer, Save. After Save the entry takes
+ * the field's place in the same box (a 150 ms crossfade, the box holding the composer's height) and the Save slot becomes
+ * `Add to it`; then the box takes the entry's height and what follows moves up by FLIP (`flipCard`). `Add to it` brings the
+ * composer back the same way. A Save the server refuses (the Composer puts the words back in the day's draft) brings the
+ * field back with them and the title as it was (code review 1 #1).
+ */
+const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log; onSaved: () => void; onRefused: () => void }) => {
+  const reduce = useReducedMotion() ?? false;
   const logged = log.snap.journalOn(date);
   const [writing, setWriting] = useState(logged.length === 0);
   // the words as they were saved, shown at once in the entry's place until the month carries the entry (the journal's write
   // re-renders every page; the swap renders first, on its own)
   const typed = useRef('');
-  useEffect(() => subscribeDrafts(() => {
-    const v = getDraft(date);
-    if (v.trim()) typed.current = v.trim();
-  }), [date]);
   const [justSaved, setJustSaved] = useState<{ text: string; at: string } | null>(null);
+  const saved = useRef<string | null>(null);
+  const refused = useRef(() => undefined as void);
+  useEffect(() => subscribeDrafts(() => {
+    const v = getDraft(date).trim();
+    // the Composer's onError puts the refused words back into the draft: the entry was never saved
+    if (saved.current && v === saved.current) {
+      saved.current = null;
+      refused.current();
+      return;
+    }
+    if (v) typed.current = v;
+  }), [date]);
   const entries = justSaved && !logged.some((e) => e.text.trim() === justSaved.text) ? [{ id: 'just-saved', text: justSaved.text, createdAt: justSaved.at }, ...logged] : logged;
   const [lock, setLock] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const keep = () => setLock((h) => Math.max(h, box.current?.offsetHeight ?? 0));
+  const cardOf = () => box.current?.closest<HTMLElement>('.cd') ?? null;
+  // the card's height before a change, for the FLIP of what follows
+  const flipFrom = useRef(0);
   // the two layers crossfade in the box (150 ms, opacity) as native animations, which the compositor runs even while the
   // journal's write re-renders the pages; the leaving one stays its 150 ms, over the other, then goes
   const [leaving, setLeaving] = useState<'write' | 'read' | null>(null);
   const writeEl = useRef<HTMLDivElement>(null);
   const readEl = useRef<HTMLDivElement>(null);
   const swap = (to: boolean) => {
+    flipFrom.current = cardOf()?.offsetHeight ?? 0;
     setLeaving(to ? 'read' : 'write');
     setWriting(to);
   };
+  refused.current = () => {
+    setJustSaved(null);
+    onRefused();
+    swap(true);
+  };
   const first = useRef(true);
+  const flip = useRef<(() => void) | null>(null);
+  useEffect(() => () => flip.current?.(), []);
   useLayoutEffect(() => {
     if (first.current) {
       first.current = false;
@@ -177,15 +273,44 @@ const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: 
     const inEl = writing ? writeEl.current : readEl.current;
     const outEl = writing ? readEl.current : writeEl.current;
     const ms = CROSSFADE_MS;
-    inEl?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: 'linear', fill: 'backwards' });
+    inEl?.animate([{ opacity: Math.min(1, FIRST_FRAME) }, { opacity: 1 }], { duration: ms * (1 - FIRST_FRAME), easing: 'linear', fill: 'backwards' });
     const out = outEl?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'linear', fill: 'forwards' });
-    if (!out) return setLeaving(null);
+    // the composer back (taller): the box grows now and what follows rides down with the card's edge
+    const card = cardOf();
+    if (writing && card && box.current && !reduce) {
+      flip.current?.();
+      flip.current = flipCard(card, box.current, flipFrom.current);
+    }
+    if (!out) {
+      setLeaving(null);
+      setLock(0);
+      return;
+    }
     let live = true;
-    out.finished.then(() => live && setLeaving(null), () => undefined);
+    out.finished.then(
+      () => {
+        if (!live) return;
+        // the entry in place: the box gives back the composer's height, and what follows rises with the card's edge
+        flipFrom.current = cardOf()?.offsetHeight ?? 0;
+        setLeaving(null);
+        setLock(0);
+      },
+      () => undefined,
+    );
     return () => {
       live = false;
     };
-  }, [writing]);
+  }, [writing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const wasLocked = useRef(0);
+  useLayoutEffect(() => {
+    const was = wasLocked.current;
+    wasLocked.current = lock;
+    if (!was || lock || writing) return;
+    const card = cardOf();
+    if (!card || !box.current || reduce) return;
+    flip.current?.();
+    flip.current = flipCard(card, box.current, flipFrom.current);
+  }, [lock]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div
       ref={box}
@@ -221,6 +346,7 @@ const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: 
                   const a = document.activeElement;
                   if (a instanceof HTMLElement && box.current?.contains(a)) a.blur();
                   const text = typed.current;
+                  saved.current = text || null;
                   flushSync(() => {
                     keep();
                     if (text) setJustSaved({ text, at: new Date().toISOString() });
@@ -246,7 +372,7 @@ const ComposeBox = ({ date, log, onSaved }: { date: ISODate; log: Log; onSaved: 
               className="cd-addto"
               press="surface"
               onPress={() => {
-                keep();
+                saved.current = null;
                 swap(true);
               }}
               label="Add to it"
@@ -269,11 +395,20 @@ const WordRow = () => {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState('');
   const done = useRef(false);
-  const save = () => {
+  // Return or Escape gives the focus back to the row (a keyboard or VoiceOver user keeps their place; code review 1 #7)
+  const row = useRef<HTMLElement>(null);
+  const refocus = useRef(false);
+  useLayoutEffect(() => {
+    if (editing || !refocus.current) return;
+    refocus.current = false;
+    row.current?.focus({ preventScroll: true });
+  }, [editing]);
+  const save = (back = false) => {
     if (done.current) return;
     done.current = true;
     const word = v.trim().slice(0, WORD_MAX);
     if (word !== focus.word) saveFocus(settings, { word, quote: focus.quote, by: focus.by });
+    refocus.current = back;
     setEditing(false);
   };
   if (editing)
@@ -296,13 +431,16 @@ const WordRow = () => {
           enterKeyHint="done"
           aria-label="A word for tomorrow"
           autoFocus
-          onBlur={save}
+          // §5.1: the field is scrolled above the keyboard (code review 1 #5)
+          onFocus={(e) => revealField(e.currentTarget)}
+          onBlur={() => save()}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              save();
+              save(true);
             } else if (e.key === 'Escape') {
               done.current = true;
+              refocus.current = true;
               setEditing(false);
             }
           }}
@@ -311,6 +449,7 @@ const WordRow = () => {
     );
   return (
     <Pressable
+      ref={row}
       className="row cd-trow cd-word"
       press="surface"
       label={`A word for tomorrow${focus.word ? `: ${focus.word}` : ''}. Change`}
@@ -335,16 +474,25 @@ const AlarmRow = ({ log }: { log: Log }) => {
   const st = log.boot?.morningSettings ?? null;
   const tomorrow = shiftDays(log.today, 1);
   const T = useMemo(() => (st ? morningOf(log.snap.sessionsOn(tomorrow), log.snap.morningOverride(tomorrow), st) : null), [st, log.snap, tomorrow]);
+  // §0.2 21:00 step 4: the sheet rises from the touch's release, in that task, when the editor's module is already in (it is
+  // fetched at idle, preloadCloseDay); a tap before that waits for it, once
+  const rel = useReleaseTap(() => {
+    if (!st || !T) return;
+    const open = ({ WakeEditor }: NonNullable<typeof wakeMod>) => sheet.open({ eyebrow: 'Tomorrow', title: 'Alarm', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> });
+    if (wakeMod) open(wakeMod);
+    else void loadWakeKept().then(open);
+  });
   if (!st || !T) return null;
   return (
     <Pressable
       className="row cd-trow cd-alarm"
       press="surface"
       label={`Alarm ${shortClock(T.day.wake)} tomorrow. Change`}
-      onPress={() =>
-        // the editor's module is fetched at idle (preloadCloseDay); a tap before that waits for it, once
-        void loadWake().then(({ WakeEditor }) => sheet.open({ eyebrow: 'Tomorrow', title: 'Alarm', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> }))
-      }
+      onPointerDown={rel.onPointerDown}
+      onPointerMove={rel.onPointerMove}
+      onPointerUp={rel.onPointerUp}
+      onPointerCancel={rel.onPointerCancel}
+      onPress={rel.onClick}
     >
       <span className="cd-trow-title tnum">Alarm {shortClock(T.day.wake)}</span>
       <span className="cd-trow-right">change</span>
@@ -434,6 +582,10 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODat
             onSaved={() => {
               setBoost(true);
               setClosedNow(true);
+            }}
+            onRefused={() => {
+              setBoost(false);
+              setClosedNow(false);
             }}
           />
           <div className="cd-tomorrow">

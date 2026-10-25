@@ -9,6 +9,7 @@ import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog } from '../log/useLog';
 import { DayPicker } from './DayPicker';
+import { PressButton } from './PressButton';
 
 const KIND_LABEL: Record<SessionKind, string> = { run: 'Run', lift: 'Lift', cross: 'Cross', rest: 'Rest' };
 const KIND_ORDER: SessionKind[] = ['run', 'lift', 'cross', 'rest'];
@@ -154,10 +155,10 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
       </div>
       <Segmented label="Kind" options={KIND_ORDER.map((k) => [k, KIND_LABEL[k]] as [SessionKind, string])} value={kind} onChange={pickKind} />
       {lastWords ? (
-        <button type="button" className="pl-chip ed-repeat" onClick={repeat}>
+        <PressButton className="pl-chip ed-repeat" onClick={repeat}>
           <Repeat size={16} aria-hidden="true" />
           {lastWords}
-        </button>
+        </PressButton>
       ) : null}
       {types.length ? (
         <div className="ed-group">
@@ -166,10 +167,10 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
           </span>
           <div className="ed-chips" role="radiogroup" aria-labelledby="ed-type">
             {types.map((t) => (
-              <button key={t} type="button" role="radio" aria-checked={type === t} className={`pl-chip ${type === t ? 'on' : ''}`} onClick={() => pickType(t)}>
+              <PressButton key={t} role="radio" aria-checked={type === t} className={`pl-chip ${type === t ? 'on' : ''}`} onClick={() => pickType(t)}>
                 {kind === 'run' ? <i className={`ed-dot t-${tone({ kind, type: t })}`} aria-hidden="true" /> : null}
                 {t}
-              </button>
+              </PressButton>
             ))}
           </div>
         </div>
@@ -183,9 +184,9 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
             <Stepper label="Miles" value={miles ?? 0} onChange={(v) => setMiles(v)} step={0.5} min={0.5} max={50} format={fmtMi} parse={parseMi} inputProps={{ inputMode: 'decimal' }} />
           )}
           {floorMin ? (
-            <button type="button" role="switch" aria-checked={floorOnly} className={`pl-chip ${floorOnly ? 'on' : ''}`} onClick={toggleFloor}>
+            <PressButton role="switch" aria-checked={floorOnly} className={`pl-chip ${floorOnly ? 'on' : ''}`} onClick={toggleFloor}>
               Floor only · {floorMin} min
-            </button>
+            </PressButton>
           ) : null}
         </div>
       ) : null}
@@ -196,9 +197,9 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
           </span>
           <div className="ed-chips" role="group" aria-labelledby="ed-ex">
             {[...new Set([...exercises, ...names])].map((n) => (
-              <button key={n} type="button" role="checkbox" aria-checked={exercises.includes(n)} className={`pl-chip ${exercises.includes(n) ? 'on' : ''}`} onClick={() => toggleEx(n)}>
+              <PressButton key={n} role="checkbox" aria-checked={exercises.includes(n)} className={`pl-chip ${exercises.includes(n) ? 'on' : ''}`} onClick={() => toggleEx(n)}>
                 {n}
-              </button>
+              </PressButton>
             ))}
           </div>
           <div className="ed-add">

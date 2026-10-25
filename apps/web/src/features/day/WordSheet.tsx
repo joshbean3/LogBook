@@ -46,7 +46,6 @@ export const WordSheet = ({ initial }: { initial: Focus }): React.JSX.Element =>
         <span className="caps">By</span>
         <input className="in" value={by} onChange={(e) => setBy(e.target.value)} maxLength={80} placeholder="Optional" enterKeyHint="done" />
       </label>
-      <p className="fine">It stays on Today, every day, until you change it.</p>
       <div className="focus-actions">
         {initial.word || initial.quote ? (
           <Button
