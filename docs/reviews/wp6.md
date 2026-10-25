@@ -1,8 +1,146 @@
 # WP6 review: Journal, Progress, Settings, Reads, onboarding, auth
 
-Branch `feel/wp6`, on `feel/pages-base` (`400f8f5`: WP1 merged, every contracts §F export at its final signature). Spec `docs/feel.md` v4.2 §8, §14 tests 4, 25, 50, 51, 54 (and 9a for the real Progress and Journal links); build plan §7. Three steps: Journal, Progress and Reads (step 1); Settings, first run and `/start` (step 2); the QA lead's battery, WP1's battery on this build, screenshots and the fixes they found (QA step); then two rounds of review fixes (newest first below). The step sections after it are kept as the record of what each step built.
+Branch `feel/wp6`, on `feel/pages-base` (`400f8f5`: WP1 merged, every contracts §F export at its final signature). Spec `docs/feel.md` v4.2 §8, §14 tests 4, 25, 50, 51, 54 (and 9a for the real Progress and Journal links); build plan §7. Three steps: Journal, Progress and Reads (step 1); Settings, first run and `/start` (step 2); the QA lead's battery, WP1's battery on this build, screenshots and the fixes they found (QA step); then three rounds of review fixes (newest first below). The step sections after it are kept as the record of what each step built.
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`. Everything below was measured on this worktree's `VITE_FAKE_CLOCK=1` build served by `apps/api` on port 8840 (seed copy `S/wp6/test.db`), Playwright 390 × 844, DPR 2, `isMobile`, `hasTouch`, CDP touch, at 1× and 4× CPU, on 2026-10-24 (the real date; the battery names no fixed date beyond the seeded ones).
+
+## Fix round 3 (2026-10-25)
+
+The two round-3 reviews are `S/wp6/review-code-3.md` (code N1–N8) and `S/wp6/review-feel-3.md` (feel R3-1 … R3-8). The fixes are
+in `2e9f4b9`, `3768354` and `fd14697`. Finding → fix → proof, one line each: `S/wp6/fix-3.md`.
+
+### Result
+
+- **Severity ≥ 3.** Each has a check in `S/wp6/qa/fix3/` that fails on the reviewed build and passes on this branch, at 1× and 4×:
+  - code N1 = R3-1 (the Rebuild card's exit);
+  - code N2 = R3-2 (below-fold pop-in);
+  - code N3 = R3-4 (the backward flick);
+  - code N4 = R3-5 (habits writes inside the motion);
+  - R3-3 (Save's double move).
+
+  The reviewed build is `c9311c1`, the feel reviewer's dist `S/wp6/feel-dist-3`, served on 8842 by `S/wp6/fix3before/serve.sh`.
+  The runner is `S/wp6/qa/fix3/run-fix3.mjs`, and it starts a fresh seed for every script and rate.
+  **Before: 33/53 at 1×, 30/53 at 4×. After, on the final commit `fd14697` (`out/TABLE-after-final.md`): 53/53 at 1×,
+  53/53 at 4×.**
+- **Severity ≤ 2.**
+  - Fixed: code N5, N6, N7, N8; feel R3-7.
+  - R3-6 is left as it is, with a reason. The sheet floor goes to WP1 as request 24.
+  - R3-8's 320 disc peek is left as it is, with a reason.
+  - No finding was wrong. Two measurement notes are in fix-3 § "Not wrong".
+- **Found by the reruns and fixed (`3768354`).** Round 1's `f-f1-flip` caught a Save that moved the page twice at 4×. Two
+  causes:
+  - the field cleared in one commit and the entry arrived in another, up to 420 ms later;
+  - the list's FLIP was measured against an ancestor whose carry was still moving.
+
+  Now both changes land in one commit, and the FLIP re-bases that ancestor. Its Reads case was a race in the check: it fails
+  identically on the reviewed build, and it now waits for the pick itself.
+- **Also found by the reruns (`fd14697`).** The sheet-path archive's commit shared the sheet's unmount frame: 104–131 ms
+  against Escape's 60–75 at 4×. It now runs a frame later. At 4× the longest frame is now 33 ms against Escape's 67, in two
+  runs.
+
+### What changed (files, why)
+
+| File | Change | Findings |
+|---|---|---|
+| `features/settings/TrainingPages.tsx` | `RebuildBar` without AnimatePresence. The card fades in place (inert while leaving, its words frozen). Then it leaves the flow in the same commit as a spacer of the exact room the page needs at its scroll position, trued up in a layout effect with `scrollTop` kept. The spacer shrinks only by what is below the screen's edge, as the finger scrolls. The kept draft carries its base and is used only while the plan still matches it. | code N1 = R3-1, N5 |
+| `features/settings/SettingsView.tsx` | Every group is in the push's commit (no `useBelowFold`). With no name, the You row says "Add your name", so the email shows once. | code N2 = R3-2, R3-7 |
+| `features/reads/ReadsView.tsx`, `features/journal/feel.ts` | The links drawn in the push's commit are `rowsOnScreen(200, 72)`, from the screen's height, which is cached and read off the push's commit. | code N2 = R3-2 |
+| `features/onboarding/velocity.ts` (+ test), `Welcome.tsx`, `onboarding.css` | `commitsBack()`: past 35 % or a flick, only with v ≥ 0, never on a cancel. The fade of the chevron and Skip is on a `.ob-slot` wrapper, so they keep their own presses. | code N3 = R3-4, N8 |
+| `features/settings/HabitsPage.tsx` | Archive, Undo and Restore go through a page overlay first. The bootstrap write follows once every re-basing spring has ended (with a 1.5 s cap, or at once when the page goes). From the sheet, the archive waits for the sheet to be gone, plus one frame. Focus goes to the grip now in the slot. A failed write says so. | code N4 = R3-5, N6 |
+| `journal.css`, `reads.css`, `settings.css`, `progress.css` | `overflow-anchor: none` on WP6's page roots (`.j-panes`, `.reads-page`, `.s-set`, `.pg-page`). | R3-3 |
+| `features/settings/parts.tsx` | The switch knob mounts at rest (`initial={false}`). | code N7 |
+| `api/queries.ts` (WP6 block), `features/journal/JournalDaySection.tsx` | `whenShown(vars, f)`: the composer clears in the query cache's own notification batch, the same commit as the entry's arrival. A 250 ms fallback covers a paused mutation. | found by `f-f1-flip` |
+| `features/journal/feel.ts` (`useListFlip`) | An ancestor still riding a carry is re-based (held, then restarted) with the rows, so they share one clock. | found by `f-f1-flip` |
+
+### Measured (before → after; `S/wp6/qa/fix3/out/`)
+
+| Check | Before | After (1× / 4×) |
+|---|---|---|
+| Undo changes at the end of Training (390 / 320) | the page jumps 154 / 216 px in one frame | 0 / 0 px. The room goes back as the finger scrolls up. |
+| Successful Rebuild at the end, the frame the card leaves | 134 px | 0 px |
+| Pushes: on screen at rest but not on the first moving frame | Reads rows 6–7 (390 × 844), 6–8 (430 × 932); Settings "App" (390, 430) | none, at 390, 430, 375 and 320 |
+| First moving frame of a push, 1× | Reads 29–31 ms, Settings 30–31 | Reads 28–46, Settings 30–31 (4× INFO: Reads 92–209, Settings 45–205; not interleaved) |
+| Welcome: past 35 %, flicked back | goes back 3/3 | springs home 3/3 (controls: still past 35 % and a forward flick still go back) |
+| Habits Archive from the sheet, its longest frame | 33 ms (1×); 4×: 217 ms, `180 → 810` in one frame | 17 ms (Escape: 17); 4×: 33 ms (Escape: 67), two runs |
+| Habits at 4×: Undo / Restore | 3 frames, 52.8 px steps / 4 frames, 52.3 px | 15 frames, ≤ 11 px / 15 frames, ≤ 7.9 px |
+| Menu Archive: rows start | 164 ms (1×) / 384 ms (4×) after the tap | 82 / 234 ms |
+| Focus after Archive by keyboard (menu, sheet) | `<body>` | the grip now in that slot |
+| Save at scrollTop 250 | 66 px down, then back (`scrollTop` 250 → 184) | rises 66 px only (250 → 250); one commit (`p-jflip`) |
+| Stale draft over a plan rebuilt at 30 mi | 24 mi + Rebuild card | 30 mi, no card |
+| Haptics knob on the App page's push | slides 0 → 20 | 20 on every frame |
+| Chevron release / Skip dim | 0.97 → 1 in one frame / eases over 200 ms | 6 frames / 0.55 on the first pressed frame |
+| Settings root with no name | the email twice | once; the You row says "Add your name" |
+
+### The batteries (final commit `fd14697`, fresh seed DBs; WP1's on `3768354`)
+
+| Battery | Result | Notes |
+|---|---|---|
+| Round-3 checks (`S/wp6/qa/fix3/`) | **53/53 at 1×, 53/53 at 4×** (before: 33/53, 30/53) | Habits rerun twice more at both rates on `fd14697`: 52/52 (`out/habits-final.log`) |
+| WP6's battery (`S/wp6/qa/run.mjs`, `results-fix3/`, `run-fix3.log`) | **168/169 at 1×, 152/152 at 4×** | The 1× miss is t50's "incoming fade finished ≤ 200 ms": it read 201 ms. Reruns read 191, 199, 194, 189, 193, 177 and 192 ms; the reviewed build, interleaved, read 175, 194, 170, 181 and 173, plus 173, 199 and 172 (`out/t50-pairs.log`, `out/t50-rerun.log`). With and without this round's `overflow-anchor` rule, 12 runs each, the medians were 187 and 183.5 ms (`out/t50-anchor.log`). It is the tight bound on a loaded machine, not a change. On `3768354` the preview build (8841) failed to build, because WP2's `queries.ts` lacked `whenShown`. `integ/build.sh` now splices WP6's block in (request 25), and t54 on the preview passes 9/9 at both rates. |
+| Round-2 checks on this build (`fix2/run-fix2.mjs`, `out/r2-after.log`, on `3768354`) | **56/56 at 1×, 51/53 at 4×** | The 4× misses are both `g-push` Settings → Training: one run without a whole first frame, and a 67 ms frame. The review saw the same on the reviewed build. Rerun interleaved with the reviewed build (`out/rerun-4x.log`): the medians of the first moving frame are alike (Reads 72/82 vs 105/76, Settings 77/91 vs 76/61, Training 54/71 vs 58/41 ms), and one 100 ms Training frame appeared on this build. `g-habits` on `fd14697`: 10/10 at both rates. |
+| Round-1 checks on this build (`fix1/run-fix1.mjs`, `out/r1-after.log`, on `3768354`) | **62/62 at 1×, 59/62 at 4×** (round 2: 62/62, 56/62) | The 4× misses: `f-f4-push`'s 70 ms budgets for Reads (89) and Training (72), restated since round 2, and `f-c3-chart`'s crossfade, flaky on both builds. `f-f1-flip` is now 4/4 at both rates. `f-c45-habits` on `fd14697`: 5/5 at both rates. |
+| WP1's battery on this build (`wp1qa/`, `SHIFT_MIN=auto`, `run-fix3.log`, `results/TABLE-full-fix3.md`, on `3768354`) | **602/614 at 1×, 566/589 at 4×** by the table's own "all (excl. 2·interim)" row (round 2, same row: 602/614, 573/589) | Every check that missed here and not in round 2 was rerun on this build and on the reviewed build (the control harness on 8842), alternating, on fresh seeds (`out/wp1-pairs.log`, `out/t14-rerun.log`). Each one either missed on the control too (r1-a11y c10, t12 12a/12g, t13 11/15c/19, t14 14c at 4×, t01 at 4×, r4-nav c4-2), or passed on this build in the rerun (t20b, tsw-swipe sw3, t12 12b). t14-hold 14a/14c at 1× misses on both builds across three alternations. All of them are WP1's gallery, sheet, pager and nav pages: none opens a WP6 page, and none opens Settings › Habits, the only place `fd14697` changed. |
+| Gates | tsc 0 (shared, api, web); tests: shared 88, api 59, web 98; web build ok (entry 940.00 kB / 309.38 kB gzip) | |
+
+Screenshots: before/after at 390 × 844 and 320 × 568 (`S/wp6/qa/fix3/shots/`, contact sheets `sheet-390.png`, `sheet-320.png`;
+all looked at). Settings root: "Add your name" (after) vs the email twice (before). Training after Undo changes: still
+scrolled where it was (after) vs jumped to the top (before); the blank room under Easy pace is the spacer, which goes as the
+finger scrolls up. Onboarding headers, Habits after Archive, the Settings end and the card at the end: unchanged.
+
+### Restated
+
+- **Habits at 4× now judged like 1×.** Round 2 allowed a "dropped frame" at 4× because the write's commit landed inside the
+  spring. The write now waits for the springs, so `h-habits` asks both rates for the same thing:
+  - no cut;
+  - at least 3 frames;
+  - at most 30 px a frame;
+  - the longest frame while the rows move under 40 ms (1×) or 120 ms (4×).
+
+  A long commit frame before anything moves counts as latency. It is judged on its own: rows start within 200 / 400 ms.
+- **The sheet's "hold at 0"** is measured from the page's own `click` / `keydown`, not from before Playwright dispatches it.
+  Playwright's `click()` costs 2–3 frames of round trips, which made every click-close look held.
+- **Pushes' 4× first moving frame.** Settings now renders four more short groups in the commit, and Reads up to 10 rows. At 1× it is
+  unchanged (28–46 ms). At 4× it is INFO, as in round 2. `g-push` and `f-f4-push`'s 4× rows read the same as in round 2:
+  Reads 4× median 73–89 ms; one Settings → Training run without a whole first frame. The review measured that run on the
+  reviewed build too.
+
+### Hand-verifiable steps (fix round 3)
+
+1. Settings › Training: tap + twice, scroll to the end, tap Undo changes. The card fades and nothing else moves (where it
+   was stays blank). Scroll up: the page scrolls normally, and back at the top it is its own length.
+2. Settings on a phone the size of an iPhone 15 or larger: the page slides in with App (and Haptics) already there. Nothing
+   appears once it has landed.
+3. First run, "Which days can you run?": drag from the left edge past a third of the width, then flick back toward the
+   edge and let go. The step springs back. Tap the chevron and hold it: it presses to 0.97 and eases back when you slide off.
+4. Settings › Habits: open a habit, tap Archive. The sheet slides down smoothly, then the rows close up. With VoiceOver or the
+   keyboard, Archive from the grip's menu: focus lands on the next habit's grip.
+5. Journal: type six lines, scroll so the composer is half under the bar, then Save. The entries rise once, with no bounce.
+6. Settings › Training: +3, Back. In Plan, use a template at 30 mi. Then open Training again: 30 mi, and no card.
+
+### Requests (new in fix round 3)
+
+24. **WP1 (`Sheet` v3)**: the first moving frame of a trivial sheet (the habit's: a field, a line and a button) is about 45 ms
+    after touch end at 1× and 125 ms at 4× (feel R3-6, `S/wp6/feel3/sheets3.mjs`). §9.4 asks for ≤ 1 frame and ≤ 70 ms. WP6's
+    heaviest body, Progress › Consistency, adds about 12 ms at 1× over that floor. I'd rather not defer its grid, which would
+    pop in while the sheet rises.
+25. **Integration (`api/queries.ts`)**: WP6's block now imports `notifyManager` from `@tanstack/react-query` and exports
+    `whenShown`, which `Composer` uses. A merge that keeps another branch's copy of the WP6 block breaks the build:
+    `S/wp6/integ/build.sh` hit this and now splices WP6's block in.
+
+Still standing: 16 and 17 (WP1), 18 (the push's own commit), 20 (WP2 `reorder` onError), 21 (contracts §A.2), 22 (WP1, "layer
+at rest": `useBelowFold` is now used by Reads alone, for its rows past the first screen), 23 (WP2: a bootstrap
+write re-renders Today under the stack; HabitsPage now keeps its writes out of its own motion, but the frame is still long).
+Requests 8, 9, 10, 11 and 15 stand as given in earlier steps.
+
+### Left as is (reasons)
+
+- **Feel R3-6, the sheet bodies.** See request 24. The floor is WP1's, and Consistency's share is under a frame at 1×.
+- **Feel R3-8, the run-day discs at 320 × 568.** They peek out at the sides of the sticky card: the discs sit in the gutter by
+  design (round 1 F12), and covering the gutter would take a negative margin on a sticky element inside the transformed layer.
+- **Seen, not a finding:** after a successful Rebuild, scrolled to the end, the Weekly miles note above is rewritten with a
+  different line count. The page clamps 20 px. Easy pace stays still, and the dial above it moves 20 px in one frame.
+- Round 2's items (the quote line, the ghost chart, the 320 axis, the ribbon's first letter, the one-row Connections page)
+  stand as given.
 
 ## Fix round 2 (2026-10-25)
 
