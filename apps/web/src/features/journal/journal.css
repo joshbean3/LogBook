@@ -11,6 +11,13 @@
 }
 /* two mounted panes (M28): the shown one in flow; the leaving one absolute, held still by a transform while it fades; the
    other hidden. The stack clips vertically so a hidden pane never adds scroll room */
+/* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
+   must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
+   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
+   this root is left out of anchor selection. */
+.j-panes {
+  overflow-anchor: none;
+}
 .j-panes {
   position: relative;
   overflow: visible clip;

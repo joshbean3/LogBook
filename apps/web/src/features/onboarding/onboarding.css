@@ -56,15 +56,20 @@
 .ob-back {
   color: var(--ink);
 }
-/* the chevron and Skip fade with the dots (220 ms, opacity) when a step has none; hidden only once the fade is done */
-.ob-back,
-.ob-skip {
+/* the chevron and Skip fade with the dots (220 ms, opacity) when a step has none; hidden only once the fade is done. The
+   fade is on the slot (`.ob-slot`), never on the button, so the buttons keep their own press transitions (review 3 code N8:
+   the icon button's 160 ms scale release, the dim verb's instant dim) */
+.ob-slot {
+  display: grid;
+  place-items: center start;
   transition:
     opacity 220ms var(--ease-out),
     visibility 0s linear 0s;
 }
-.ob-back.is-gone,
-.ob-skip.is-gone {
+.ob-slot.end {
+  place-items: center end;
+}
+.ob-slot.is-gone {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

@@ -43,7 +43,7 @@ export const Switch = ({ on, onChange, label }: { on: boolean; onChange: (on: bo
   const reduce = useReducedMotion();
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} className={`s-switch ${on ? 'on' : ''}`} onClick={() => onChange(!on)}>
-      <motion.span className="s-knob" animate={{ x: on ? 20 : 0 }} transition={reduce ? { duration: 0 } : springs.settle} />
+      <motion.span className="s-knob" initial={false} animate={{ x: on ? 20 : 0 }} transition={reduce ? { duration: 0 } : springs.settle} />
     </button>
   );
 };

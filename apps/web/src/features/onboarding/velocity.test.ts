@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { releaseVelocity } from './velocity';
+import { commitsBack, releaseVelocity } from './velocity';
 
 describe('releaseVelocity (onboarding edge swipe, review 2 code N3)', () => {
   it('a flick released while moving keeps its speed', () => {
@@ -25,4 +25,12 @@ describe('releaseVelocity (onboarding edge swipe, review 2 code N3)', () => {
   it('one sample is no velocity', () => {
     expect(releaseVelocity([[10, 0]], 5)).toBe(0);
   });
+});
+
+describe('commitsBack (§9.3, review 3 code N3)', () => {
+  it('past 35 % released still goes back', () => expect(commitsBack(240, 390, 0, false)).toBe(true));
+  it('past 35 % but flicked back toward the edge springs home', () => expect(commitsBack(166, 390, -900, false)).toBe(false));
+  it('a forward flick short of 35 % goes back', () => expect(commitsBack(100, 390, 600, false)).toBe(true));
+  it('short of 35 % and slow springs home', () => expect(commitsBack(100, 390, 200, false)).toBe(false));
+  it('a system cancel never goes back', () => expect(commitsBack(300, 390, 900, true)).toBe(false));
 });

@@ -8,7 +8,7 @@ import { haptics } from '@/lib/haptics';
 import { crossfade, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRows, SwipeRow, usePress, useSheet, useToast } from '@/ui';
-import { below, carry, measureBelow, popFav, useBelowFold, useListFlip } from '../journal/feel';
+import { below, carry, measureBelow, popFav, rowsOnScreen, useBelowFold, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
 import { TodaysPick } from './TodaysPick';
 import './reads.css';
@@ -229,8 +229,12 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
 };
 
 type Tab = 'unread' | 'read';
-/** Links on the first screen under the pick (a row is 72 px): drawn in the push's commit; the rest one render later. */
-const FIRST_SCREEN = 5;
+/**
+ * The links that can reach the first screen, drawn in the push's commit; the rest one render later, below the fold. The
+ * cut is the screen (review 3 code N2 / feel R3-2), never a count: rows are 72 px, and the list starts no higher than
+ * 200 px (the bar and quick add, with the slimmest pick card), plus one row under the edge. At 390 × 844 that is 10.
+ */
+const LIST_TOP_MIN = 200;
 const FADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
 /**
  * Reads (docs/feel.md §8), the pushed page at `/journal/reads/:tab?` over the mounted Journal: the PushedBar, quick add on
@@ -341,7 +345,7 @@ export default function ReadsView() {
   };
   const rows = (
     <div ref={listRef} className="rlist">
-      {(rest ? shownList : shownList.slice(0, FIRST_SCREEN)).map((x) => (
+      {(rest ? shownList : shownList.slice(0, rowsOnScreen(LIST_TOP_MIN, 72))).map((x) => (
         <div key={x.id} data-key={x.id} className="rlist-item">
           <LinkRow
             x={x}

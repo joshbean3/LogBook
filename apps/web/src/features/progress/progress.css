@@ -757,3 +757,11 @@ button.pg-srow[data-pressed] {
 .pg-week {
   transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
+   must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
+   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
+   this root is left out of anchor selection. */
+.pg-page {
+  overflow-anchor: none;
+}

@@ -8,14 +8,14 @@ import { useBootstrap, useHabitMutations, useMorningMutations, useOnboard } from
 import { useNav } from '@/app/NavController';
 import type { OnboardingAnswers } from '@/api/types';
 import { haptics } from '@/lib/haptics';
-import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis, POP_COMMIT_FRAC, POP_COMMIT_V } from '@/lib/gesture';
+import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
 import { crossfade, fadeIn, springs } from '@/lib/motion';
 import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
 import { DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { handOff } from './handoff';
 import { StravaPrimer } from './StravaPrimer';
-import { releaseVelocity } from './velocity';
+import { commitsBack, releaseVelocity } from './velocity';
 import './onboarding.css';
 
 /**
@@ -214,7 +214,9 @@ function Flow({ uid }: { uid: string }) {
     // drag that stopped is not a flick; a system cancel is velocity 0 and never commits (as PushedLayer and SwipeRow treat it)
     const cancelled = e.type === 'pointercancel';
     const v = cancelled ? 0 : releaseVelocity(g.samples, e.timeStamp);
-    const commit = !cancelled && (x.get() > wRef.current * POP_COMMIT_FRAC || v > POP_COMMIT_V);
+    // §9.3: past 35 % or a flick, and never while the finger is going back toward the edge (v ≥ 0, as PushedLayer;
+    // review 3 code N3: a flick back from past 35 % springs home)
+    const commit = commitsBack(x.get(), wRef.current, v, cancelled);
     if (reduce) {
       // reduced motion: tracking stayed 1:1; the change itself is the step's 150 ms fade
       x.jump(0);
@@ -406,18 +408,23 @@ function Flow({ uid }: { uid: string }) {
       {qIndex >= 0 ? (
         <header className="ob-top">
           {/* the chevron and Skip stay in place and fade with the dots when a step has none (review 2 feel N11), never a
-              one-frame cut; hidden, they are inert (out of the tab order, the accessibility tree and hit-testing) */}
-          <button type="button" className={`icon-btn ob-back ${canBack ? '' : 'is-gone'}`} aria-label="Back" onClick={canBack ? back : undefined} inert={!canBack}>
-            <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
-          </button>
+              one-frame cut; hidden, they are inert (out of the tab order, the accessibility tree and hit-testing). The fade is
+              the slot's, so each keeps its own press (review 3 code N8) */}
+          <span className={`ob-slot ${canBack ? '' : 'is-gone'}`} inert={!canBack}>
+            <button type="button" className="icon-btn ob-back" aria-label="Back" onClick={canBack ? back : undefined}>
+              <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          </span>
           <div className="ob-dots" role="progressbar" aria-label="Setup" aria-valuemin={1} aria-valuemax={QUESTIONS.length} aria-valuenow={qIndex + 1} aria-valuetext={`Step ${qIndex + 1} of ${QUESTIONS.length}`}>
             {QUESTIONS.map((q, i) => (
               <span key={q} className={`ob-dot ${i === qIndex ? 'on' : i < qIndex ? 'done' : ''}`} />
             ))}
           </div>
-          <Pressable className={`ob-skip ${step !== 'goal' ? '' : 'is-gone'}`} press="dim" inert={step === 'goal'} onPress={step !== 'goal' ? next : () => undefined}>
-            Skip
-          </Pressable>
+          <span className={`ob-slot end ${step !== 'goal' ? '' : 'is-gone'}`} inert={step === 'goal'}>
+            <Pressable className="ob-skip" press="dim" onPress={step !== 'goal' ? next : () => undefined}>
+              Skip
+            </Pressable>
+          </span>
         </header>
       ) : null}
       {under ? (

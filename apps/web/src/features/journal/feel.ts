@@ -38,6 +38,15 @@ export const useBelowFold = (page: RefObject<HTMLElement | null>): boolean => {
 };
 
 /**
+ * The screen's height, read once and on `resize` (never inside a push's commit: `innerHeight` can force a layout), for the
+ * first-screen cuts below (review 3 code N2: a cut is the screen, never a fixed count).
+ */
+let viewportH = typeof window !== 'undefined' ? window.innerHeight || 844 : 844;
+if (typeof window !== 'undefined') window.addEventListener('resize', () => (viewportH = window.innerHeight || viewportH), { passive: true });
+/** How many rows of `rowH` px reach the screen when the list starts no higher than `top` px, plus one under the edge. */
+export const rowsOnScreen = (top: number, rowH: number): number => Math.max(1, Math.ceil((viewportH - top) / rowH) + 1);
+
+/**
  * The running carry of an element (so a second change re-bases from where it is on screen, never jumps), and the inline
  * `transition` the element had before the first carry took it over: a carry stopped by another restores that one, never
  * the `none` the first carry wrote (review code F6).

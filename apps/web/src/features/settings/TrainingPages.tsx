@@ -1,6 +1,6 @@
 import { fmtDate, today } from '@logbook/shared';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { useBootstrap, useMorningMutations, useRebuildPlan, useSetName, useUndoRebuild } from '@/api/queries';
 import type { TemplateApplied } from '@/api/types';
@@ -20,18 +20,27 @@ import { useTrainingProfile } from './useProfile';
  * the page (review 2 feel N7): a back tap with a change pending keeps it, so coming back to You or Training shows the
  * change and its Rebuild card again instead of throwing it away without a word. Both pages share it (one plan, one offer).
  */
-let keptDraft: { uid: string; p: TrainingProfile } | null = null;
+let keptDraft: { uid: string; base: TrainingProfile; p: TrainingProfile } | null = null;
 const useDraftProfile = () => {
   const tp = useTrainingProfile();
   const uid = useBootstrap().data?.user.id ?? '';
   // one account's pending change never shows for another signed in on this device
-  const [draft, setDraftRaw] = useState<TrainingProfile | null>(() => (keptDraft && keptDraft.uid === uid ? keptDraft.p : null));
-  const setDraft = (d: TrainingProfile | null) => {
-    keptDraft = d ? { uid, p: d } : null;
+  const [draft, setDraftRaw] = useState<{ base: TrainingProfile; p: TrainingProfile } | null>(() => (keptDraft && keptDraft.uid === uid ? keptDraft : null));
+  const setDraft = (d: { base: TrainingProfile; p: TrainingProfile } | null) => {
+    keptDraft = d ? { uid, ...d } : null;
     setDraftRaw(d);
   };
-  const p = draft ?? tp.profile;
-  return { ...tp, p, dirty: !!draft && !sameProfile(draft, tp.profile), edit: (next: Partial<TrainingProfile>) => setDraft({ ...p, ...next }), reset: () => setDraft(null) };
+  // a draft holds only over the answers it was made from (review 3 code N5): once the plan changed under it (rebuilt in
+  // Plan, or on another device), it is dropped, never shown as a change that would undo the new plan
+  const live = !!draft && tp.loaded && sameProfile(draft.base, tp.profile);
+  useEffect(() => {
+    if (draft && tp.loaded && !live) {
+      if (keptDraft && keptDraft.p === draft.p) keptDraft = null;
+      setDraftRaw(null);
+    }
+  }, [draft, tp.loaded, live]);
+  const p = live && draft ? draft.p : tp.profile;
+  return { ...tp, p, dirty: live && !!draft && !sameProfile(draft.p, tp.profile), edit: (next: Partial<TrainingProfile>) => setDraft({ base: tp.profile, p: { ...p, ...next } }), reset: () => setDraft(null) };
 };
 
 /**
@@ -57,7 +66,11 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
     });
   const [err, setErr] = useState<string | null>(null);
   const start = nextMondayAfter(today());
-  const tpl = useMemo(() => (show ? safeTemplate(profile, start) : null), [show, profile, start]);
+  // leaving, the card keeps the words it had (the answers under it are already the undone ones)
+  const shownP = useRef(profile);
+  if (show) shownP.current = profile;
+  const shownProfile = shownP.current;
+
   const go = () => {
     setErr(null);
     const p = { ...profile, longRunDay: fixLongRun(profile.runDays, profile.longRunDay), raceDate: profile.goal === 'base' ? null : profile.raceDate };
@@ -75,18 +88,74 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
       },
     );
   };
+  // The card's footprint outlives it (review 3 code N1 / feel R3-1). Leaving, it fades in place; once the fade is done it
+  // goes from the flow in the same commit as a blank spacer of the room the page still needs where it is scrolled, so the
+  // scroller never clamps and nothing on screen moves. The spacer then gives that room back only as the finger scrolls up
+  // (it never reaches into the screen), and goes for good with the page or when the card comes back.
+  const [mounted, setMounted] = useState(show);
+  const [room, setRoom] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const roomRef = useRef<HTMLDivElement>(null);
+  if (show && !mounted) {
+    setMounted(true);
+    setRoom(0);
+  }
+  const tpl = useMemo(() => (show || mounted ? safeTemplate(shownProfile, start) : null), [show || mounted, shownProfile, start]); // eslint-disable-line react-hooks/exhaustive-deps
+  const leftAt = useRef(0);
+  const left = () => {
+    const card = cardRef.current;
+    const sc = card?.closest<HTMLElement>('.pushed, .tab-scroll');
+    if (!card || !sc) return setMounted(false);
+    const footprint = card.offsetHeight + parseFloat(getComputedStyle(card).marginTop || '0');
+    // the room the page needs without the card, at this scrollTop: what would otherwise be clamped away in one frame
+    const need = Math.max(0, Math.ceil(sc.scrollTop + sc.clientHeight - (sc.scrollHeight - footprint)));
+    leftAt.current = sc.scrollTop;
+    setRoom(Math.min(footprint, need));
+    setMounted(false);
+  };
+  // the commit that takes the card out: the spacer is trued up to the exact room (margins around the card collapse
+  // differently around a plain block) and the scroll position kept, before the frame paints
+  useLayoutEffect(() => {
+    const el = roomRef.current;
+    const sc = el?.closest<HTMLElement>('.pushed, .tab-scroll');
+    if (!el || !sc || room <= 0) return;
+    const h = el.offsetHeight;
+    const exact = Math.max(0, Math.ceil(leftAt.current + sc.clientHeight - (sc.scrollHeight - h)));
+    if (exact !== h) el.style.height = `${exact}px`;
+    if (sc.scrollTop !== leftAt.current) sc.scrollTop = leftAt.current;
+  }, [room]);
+  useEffect(() => {
+    const el = roomRef.current;
+    const sc = el?.closest<HTMLElement>('.pushed, .tab-scroll');
+    if (!el || !sc || room <= 0) return;
+    let h = el.offsetHeight;
+    // shrink only by what is below the screen's bottom edge: scrollMax stays ≥ scrollTop, so the scroller never clamps
+    const onScroll = () => {
+      const next = Math.max(0, Math.min(h, Math.ceil(sc.scrollTop + sc.clientHeight - (sc.scrollHeight - h))));
+      if (next === h) return;
+      h = next;
+      el.style.height = `${h}px`;
+      if (h === 0) sc.removeEventListener('scroll', onScroll);
+    };
+    sc.addEventListener('scroll', onScroll, { passive: true });
+    return () => sc.removeEventListener('scroll', onScroll);
+  }, [room]);
   return (
-    <AnimatePresence>
-      {show ? (
+    <>
+      {mounted ? (
         <motion.div
-          key="rebuild"
+          ref={cardRef}
           className="s-rebuild halo halo-upcoming"
           role="region"
           aria-label="Rebuild my plan"
+          aria-hidden={show ? undefined : true}
+          inert={!show}
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
+          animate={show ? { opacity: 1, y: 0 } : reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
           transition={reduce ? fadeIn : springs.sheet}
+          onAnimationComplete={() => {
+            if (!show) left();
+          }}
         >
           <p className="s-rebuild-title">Rebuild my plan from next week</p>
           <p className="s-rebuild-sub">{err ?? (tpl ? `${tpl.name}. ${tpl.summary} Runs you’ve done stay.` : 'Starts Monday. Runs you’ve done stay.')}</p>
@@ -99,8 +168,10 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
             </button>
           </div>
         </motion.div>
+      ) : room > 0 ? (
+        <div ref={roomRef} key="room" className="s-rebuild-room" aria-hidden="true" style={{ height: room }} />
       ) : null}
-    </AnimatePresence>
+    </>
   );
 };
 

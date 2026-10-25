@@ -1,16 +1,18 @@
-import { fmtDate, type Habit } from '@logbook/shared';
+import { fmtDate, today, type Habit } from '@logbook/shared';
 import { ArrowDown, ArrowUp, Archive, GripVertical, Pencil, Plus } from 'lucide-react';
 import { animate, motion, motionValue, useReducedMotion, type MotionValue } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { keys, useBootstrap, useHabitMutations } from '@/api/queries';
+import type { Bootstrap } from '@/api/types';
 import { below, carry } from '@/features/journal/feel';
 import { STARTER_HABITS } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
 import { Button, EmptyState, Pressable, PushedBar, Row, Section, type DragPoint } from '@/ui';
-import { useSheet } from '@/ui/Sheet';
+import { useSheet, useSheetMotion } from '@/ui/Sheet';
+import { restoreFocus } from '@/ui/focus';
 import { useToast } from '@/ui/Toast';
 
 const ROW_H = 60;
@@ -52,8 +54,9 @@ const HabitSheet = ({ habit, onArchive }: { habit: Habit; onArchive: () => void 
         block
         className="s-archive"
         onClick={() => {
-          sheet.close();
+          // the answer starts on the tap (the haptic); the archive itself waits for the sheet to be gone (review 3 code N4)
           onArchive();
+          sheet.close();
         }}
       >
         <Archive size={18} aria-hidden="true" />
@@ -117,12 +120,20 @@ const HabitRow = ({ habit, index, count, lifted, y, onDragStart, onDragMove, onD
 export const HabitsPage = () => {
   const boot = useBootstrap();
   const hm = useHabitMutations();
+  const qc = useQueryClient();
   const sheet = useSheet();
   const toast = useToast();
   const [text, setText] = useState('');
   // the add field's own answer (a duplicate): in place, under the field, not a toast
   const [note, setNote] = useState<string | null>(null);
-  const all = boot.data?.habits ?? [];
+  // Archive, Undo and Restore are shown first and written after (review 3 code N4 / feel R3-5). The page's own overlay of
+  // `archived` per habit changes what it draws in a commit of this page alone, so the rows close up (or open) at once on a
+  // still main thread; the bootstrap write, whose commit re-renders every reader of it (Today under the stack included,
+  // request 23), goes out once the rows are at rest, so its long frame never lands inside their spring. An entry is
+  // dropped once the cache agrees with it (or the write failed and the server's answer is back).
+  const [pend, setPend] = useState<Record<string, boolean>>({});
+  const cached = boot.data?.habits ?? [];
+  const all = Object.keys(pend).length ? cached.map((h) => (h.id in pend ? { ...h, archivedOn: pend[h.id] ? (h.archivedOn ?? today()) : null } : h)) : cached;
   const live = all.filter((h) => !h.archivedOn).sort((a, b) => a.position - b.position);
   const archived = all.filter((h) => h.archivedOn);
   const byId = new Map(all.map((h) => [h.id, h]));
@@ -156,6 +167,7 @@ export const HabitsPage = () => {
   // row that leaves is drawn once more where it was, under the rows that close over it, and fades out; what is under the
   // list rides along on `settle`.
   const listRef = useRef<HTMLDivElement | null>(null);
+  const moving = useRef(0);
   const sig = ids.join();
   const shown = useRef<{ sig: string; ids: string[] } | null>(null);
   const snap = useRef<{ sig: string; at: Map<string, number>; gone: Array<[HTMLElement, number]>; after: Array<[HTMLElement, number]> } | null>(null);
@@ -190,7 +202,9 @@ export const HabitsPage = () => {
       // or at 4× the first painted frame would already be half way)
       const at = y.get();
       requestAnimationFrame(() => {
-        if (y.get() === at && !y.isAnimating()) animate(y, 0, springs.settle);
+        if (y.get() !== at || y.isAnimating()) return;
+        moving.current++;
+        void animate(y, 0, springs.settle).then(() => void moving.current--);
       });
     });
     if (box)
@@ -204,6 +218,29 @@ export const HabitsPage = () => {
       }
     for (const [n, top] of was.after) if (n.isConnected) carry(n, top - n.getBoundingClientRect().top);
   }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
+  // after a change to the set of rows: the waiting writes go once the rows are at rest (the spring's 300 ms from the frame
+  // that paints it, and a frame), and focus that fell with an archived row goes to its slot
+  useEffect(() => {
+    const slot = refocus.current;
+    refocus.current = null;
+    const raf = requestAnimationFrame(() => {
+      if (Object.keys(pendRef.current).length) {
+        if (flushT.current) clearTimeout(flushT.current);
+        // the settle spring is about 0.5 s to its rest from the frame that paints it; the write waits for every row
+        // (a spring stopped by a drag may never report its end: after 1.5 s the writes go anyway)
+        let tries = 0;
+        const later = (ms: number) => (flushT.current = setTimeout(() => (moving.current > 0 && ++tries < 10 ? later(100) : ((moving.current = 0), flushRef.current())), ms));
+        later(520);
+      }
+      const a = document.activeElement;
+      if (slot == null || (a && a !== document.body && a.isConnected && !a.closest('[inert]'))) return;
+      const box = listRef.current;
+      const rows = box ? [...box.querySelectorAll<HTMLElement>(':scope > [data-hid]:not([inert])')] : [];
+      const to = rows[Math.min(slot, rows.length - 1)]?.querySelector<HTMLElement>('.s-hgrip') ?? document.querySelector<HTMLElement>('.pushed .s-add-in, .pushed .sec-secondary button');
+      if (to) restoreFocus(to);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [sig]);
 
   const startDrag = (id: string) => {
     const base = [...ids];
@@ -255,7 +292,6 @@ export const HabitsPage = () => {
   };
   // a refused save (review 2 code N2): WP2's `reorder` has already written the order into the bootstrap cache and has no
   // `onError` of its own (request 20), so the page asks for the server's order again (the rows slide back to it) and says so
-  const qc = useQueryClient();
   const saveOrder = (next: string[]) =>
     hm.reorder.mutate(next, {
       onError: () => {
@@ -265,11 +301,59 @@ export const HabitsPage = () => {
       },
     });
 
-  const archive = (h: Habit) => {
-    hm.patch.mutate({ id: h.id, archived: true });
-    haptics.delete();
-    toast(`${h.name} archived`, { label: 'Undo', fn: () => hm.patch.mutate({ id: h.id, archived: false }) });
+  const pendRef = useRef(pend);
+  pendRef.current = pend;
+  const flushT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // the re-basing springs still running (the waiting writes go once there are none)
+  const flush = () => {
+    if (flushT.current) clearTimeout(flushT.current);
+    flushT.current = null;
+    const now = qc.getQueryData<Bootstrap>(keys.bootstrap)?.habits ?? [];
+    for (const [id, archived] of Object.entries(pendRef.current)) {
+      const h = now.find((x) => x.id === id);
+      if (!h || !!h.archivedOn === archived) continue;
+      hm.patch.mutateAsync({ id, archived }).catch(() => {
+        // the hook has asked for the server's list again; the rows go back to it on `settle`
+        setPend(({ [id]: _, ...rest }) => rest);
+        toast(archived ? `Couldn’t archive ${h.name}.` : `Couldn’t bring back ${h.name}.`);
+      });
+    }
   };
+  // what the cache now agrees with needs no overlay (nothing changes on screen when it goes)
+  useEffect(() => {
+    const ids = Object.keys(pend);
+    if (!ids.length) return;
+    const agreed = ids.filter((id) => {
+      const h = cached.find((x) => x.id === id);
+      return !h || !!h.archivedOn === pend[id];
+    });
+    if (agreed.length) setPend((p) => Object.fromEntries(Object.entries(p).filter(([id]) => !agreed.includes(id))));
+  }, [cached, pend]);
+  // leaving the page sends what is still waiting
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+  useEffect(() => () => flushRef.current(), []);
+  // focus (review 3 code N6): the archived row was where the menu or the sheet hands focus back; it goes to the row now in
+  // its slot (or the one above, or the add field), never to <body>
+  const refocus = useRef<number | null>(null);
+  const setArchived = (h: Habit, archived: boolean) => {
+    if (archived) refocus.current = live.findIndex((x) => x.id === h.id);
+    setPend((p) => ({ ...p, [h.id]: archived }));
+  };
+  const archive = (h: Habit, haptic = true) => {
+    setArchived(h, true);
+    if (haptic) haptics.delete();
+    toast(`${h.name} archived`, { label: 'Undo', fn: () => setArchived(h, false) });
+  };
+  // from the habit's sheet: once the sheet has closed (its spring never carries this page's commit)
+  const sm = useSheetMotion();
+  const afterSheet = useRef<Habit | null>(null);
+  useEffect(() => {
+    if (sm.open || !afterSheet.current) return;
+    const h = afterSheet.current;
+    afterSheet.current = null;
+    archive(h, false);
+  }, [sm.open]); // eslint-disable-line react-hooks/exhaustive-deps
   const moveTo = (id: string, to: number) => {
     const cur = live.map((h) => h.id);
     const from = cur.indexOf(id);
@@ -279,7 +363,20 @@ export const HabitsPage = () => {
     haptics.drop();
     saveOrder(cur);
   };
-  const openSheet = (h: Habit) => sheet.open({ eyebrow: 'Habit', title: h.name, body: <HabitSheet habit={h} onArchive={() => archive(h)} /> });
+  const openSheet = (h: Habit) =>
+    sheet.open({
+      eyebrow: 'Habit',
+      title: h.name,
+      body: (
+        <HabitSheet
+          habit={h}
+          onArchive={() => {
+            haptics.delete();
+            afterSheet.current = h;
+          }}
+        />
+      ),
+    });
   const itemsFor = (h: Habit, i: number): ContextMenuItem[] => [
     { label: 'Rename', icon: <Pencil size={18} />, onSelect: () => openSheet(h) },
     { label: 'Move up', icon: <ArrowUp size={18} />, disabled: i === 0, onSelect: () => moveTo(h.id, i - 1) },
@@ -293,7 +390,7 @@ export const HabitsPage = () => {
     const dupe = all.find((h) => h.name.toLowerCase() === n.toLowerCase());
     if (dupe && !dupe.archivedOn) return setNote(`${dupe.name} is already on Today.`);
     setNote(null);
-    if (dupe) hm.patch.mutate({ id: dupe.id, archived: false });
+    if (dupe) setArchived(dupe, false);
     else hm.add.mutate(n);
   };
   const starters = STARTER_HABITS.filter((s) => !live.some((h) => h.name.toLowerCase() === s.toLowerCase()));
@@ -390,7 +487,7 @@ export const HabitsPage = () => {
                 title={h.name}
                 sub={`Archived ${fmtDate('md', h.archivedOn!)}`}
                 right={
-                  <button type="button" className="btn soft sm s-restore" onClick={() => hm.patch.mutate({ id: h.id, archived: false })}>
+                  <button type="button" className="btn soft sm s-restore" onClick={() => setArchived(h, false)}>
                     Restore
                   </button>
                 }
