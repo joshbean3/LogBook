@@ -79,6 +79,8 @@ export const useReshape = () => {
     const before: Session[] = [];
     for (let i = 1; i <= days; i++) {
       const d = shiftDays(date, i);
+      // only what is still ahead is eased: a day before today is a record (a missed run stays what it was; code review 1 #3)
+      if (d < log.today) continue;
       for (const x of log.snap.sessionsOn(d)) {
         if (x.kind !== 'run' || isSkipMark(x.mark) || counts(sessionStatus(log.snap, d, x))) continue;
         const t = tone(x);

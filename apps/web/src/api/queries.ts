@@ -210,6 +210,31 @@ export const useDaily = () => useQuery({ queryKey: keys.daily, queryFn: () => ap
 export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 });
 export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
 
+// ---------- the coach's read (spec §6.1: the client's one call after the landing; the sync route never calls Claude) ----------
+export interface CoachReadAnswer {
+  date: string;
+  key: string;
+  text: string;
+  createdAt: string;
+}
+/**
+ * The existing `POST /coach/read` (`{ date, sessionId }`). The answer joins the month's cached payload in place: the same
+ * object, so no observer is told and no mounted page rebuilds its snapshot for one sentence (that write was a 160 ms task at
+ * 1× and 800 ms at 4× just after the landing; day review 2 #7). Later renders and the next fetch from the server (which has
+ * stored it) read it there; the caller also puts it in `features/day/coachShown.ts`, a small kept store the landed deck and
+ * the session sheet read, so an open sheet and a cold open show it at once (code review 3 #1, day review 3 #1).
+ */
+export const fetchCoachRead = async (qc: QueryClient, date: string, sessionId: string | null): Promise<CoachReadAnswer> => {
+  const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId } });
+  const b = qc.getQueryData<MonthBundle>(keys.month(monthOf(date)));
+  if (b) {
+    const i = b.coach.findIndex((c) => c.date === r.date && c.key === r.key);
+    if (i >= 0) b.coach.splice(i, 1, r);
+    else b.coach.push(r);
+  }
+  return r;
+};
+
 // ---------- sessions ----------
 export const useSessionMutations = () => {
   const qc = useQueryClient();
@@ -423,8 +448,9 @@ export const useTodoMutations = () => {
 // ── end WP2 ──
 
 // ── WP3 ──
-// The Morning team's block. Settings PATCH (the routine editor's one save) and the per-day override (drags, the day
-// editor, rest mornings), both optimistic.
+// The Morning team's block. Settings PATCH (the routine editor's one save) and the per-day override (the alarm drag, the
+// alarm sheet, the late note's wake chip), both optimistic. A day's override is its alarm alone (spec §4.3): the body is
+// exactly `{ wake }`, whatever the caller holds, and the cache keeps the same shape.
 export const useMorningMutations = () => {
   const qc = useQueryClient();
   const settings = useMutation({
@@ -440,7 +466,8 @@ export const useMorningMutations = () => {
     onError: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
   });
   const setDay = useMutation({
-    mutationFn: async ({ date, day }: { date: string; day: MorningDayOverride | null }) => {
+    mutationFn: async ({ date, day: given }: { date: string; day: MorningDayOverride | null }) => {
+      const day: MorningDayOverride | null = given ? { wake: given.wake } : null;
       const month = monthOf(date);
       ensureMonth(qc, month);
       patchMonth(qc, month, (b) => {
@@ -454,7 +481,56 @@ export const useMorningMutations = () => {
     },
     onError: (_e, v) => invalidateMonth(qc, monthOf(v.date)),
   });
-  return { settings, setDay };
+  // Sent at the tap, shown later (code review 2 N3): a sheet's Save goes on the wire (or into the outbox) the moment it is
+  // tapped, so the app going away during the close cannot lose it; the cache, which is what re-renders the pages, takes the
+  // change (and the server's answer) only once `landed` resolves, when the sheet's close has completed (code review 1 F3)
+  const settingsLanded = useMutation({
+    mutationFn: async ({ patch, landed }: { patch: Record<string, unknown>; landed: Promise<void> }) => {
+      const req = write<MorningSettings>('/morning/settings', 'PATCH', patch, [keys.bootstrap]);
+      let answer: { saved: MorningSettings | null } | null = null;
+      req.then((saved) => void (answer = { saved }), () => undefined);
+      await landed;
+      // the server answered during the close: its copy alone, one render
+      const merged = (b: Bootstrap | undefined) => (b ? { ...b, morningSettings: deepMerge(b.morningSettings, patch) as MorningSettings } : b);
+      const early = answer as { saved: MorningSettings | null } | null;
+      if (early?.saved) {
+        const saved = early.saved;
+        qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, morningSettings: saved } : b));
+        return;
+      }
+      qc.setQueryData<Bootstrap>(keys.bootstrap, merged);
+      const saved = await req;
+      if (saved) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, morningSettings: saved } : b));
+      else qc.setQueryData<Bootstrap>(keys.bootstrap, merged);
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
+  });
+  const setDayLanded = useMutation({
+    mutationFn: async ({ date, day: given, landed }: { date: string; day: MorningDayOverride | null; landed: Promise<void> }) => {
+      const day: MorningDayOverride | null = given ? { wake: given.wake } : null;
+      const month = monthOf(date);
+      const req = day ? write(`/morning/days/${date}`, 'PUT', day, [keys.month(month)]) : write(`/morning/days/${date}`, 'DELETE', undefined, [keys.month(month)]);
+      req.catch(() => undefined);
+      await landed;
+      ensureMonth(qc, month);
+      patchMonth(qc, month, (b) => {
+        const next = { ...b.morningDays };
+        if (day) next[date] = day;
+        else delete next[date];
+        return { ...b, morningDays: next };
+      });
+      await req;
+    },
+    onError: (_e, v) => invalidateMonth(qc, monthOf(v.date)),
+  });
+  return {
+    settings,
+    setDay,
+    /** `settings.mutate(patch)`, sent now, on the page once `landed` resolves. */
+    settingsWhen: (patch: Record<string, unknown>, landed: Promise<void>) => settingsLanded.mutate({ patch, landed }),
+    /** `setDay.mutate({ date, day })`, sent now, on the page once `landed` resolves. */
+    setDayWhen: (v: { date: string; day: MorningDayOverride | null }, landed: Promise<void>) => setDayLanded.mutate({ ...v, landed }),
+  };
 };
 const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
@@ -627,6 +703,15 @@ export const usePlanDelete = () => {
 
 // ── WP6 ──
 // The Journal team's block: journal entries, quotes, reads and today's pick. Other teams import, never edit.
+import { notifyManager } from '@tanstack/react-query';
+
+/**
+ * A save's answer on screen, in the same commit as the entry's arrival in every list (review 3: the composer cleared in one
+ * commit and the entry arrived in another, up to 420 ms later at 4×, because the query cache tells React on a setTimeout:
+ * the page moved twice). `whenShown(vars, f)` before `add.mutate(vars)`: `f` runs in the cache's own notification batch.
+ */
+const shownBy = new WeakMap<object, () => void>();
+export const whenShown = <T extends object>(vars: T, f: () => void): T => (shownBy.set(vars, f), vars);
 
 export const useJournalList = (q: string, fav: boolean) =>
   useQuery({ queryKey: keys.journal(q, fav), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>(`/journal?q=${encodeURIComponent(q)}&fav=${fav ? 1 : 0}&limit=200`), staleTime: 30_000 });
@@ -658,13 +743,18 @@ export const useJournalMutations = () => {
   };
   /** Save an entry. The month and every list show it at once (a provisional id), then swap in the server's. Resolves to the entry. */
   const add = useMutation({
-    mutationFn: async ({ date, text }: { date: string; text: string }) => {
+    mutationFn: async (vars: { date: string; text: string }) => {
+      const { date, text } = vars;
       const month = monthOf(date);
       const tmp: JournalEntry = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, date, text, createdAt: new Date().toISOString(), editedAt: null, fav: false };
-      ensureMonth(qc, month);
-      patchMonth(qc, month, (b) => ({ ...b, journal: [...b.journal, tmp] }));
       void qc.cancelQueries({ queryKey: ['journal'] });
-      patchJournalLists(qc, (l, q, fav) => (matchesList(tmp, q, fav) ? [tmp, ...l] : l));
+      const shown = shownBy.get(vars);
+      notifyManager.batch(() => {
+        ensureMonth(qc, month);
+        patchMonth(qc, month, (b) => ({ ...b, journal: [...b.journal, tmp] }));
+        patchJournalLists(qc, (l, q, fav) => (matchesList(tmp, q, fav) ? [tmp, ...l] : l));
+        if (shown) notifyManager.schedule(shown);
+      });
       const saved = await write<JournalEntry>('/journal', 'POST', { date, text }, [keys.month(month), ['journal']], { tmpId: tmp.id });
       if (saved) {
         patchMonth(qc, month, (b) => ({ ...b, journal: b.journal.map((x) => (x.id === tmp.id ? saved : x)) }));
@@ -803,9 +893,18 @@ const fetchReads = () => api<{ links: Link[] }>('/reads').then((r) => r.links);
 /** Unread first, then newest first: the order the server keeps. */
 const readsOrder = (a: Link, b: Link) => (!!a.readAt === !!b.readAt ? (a.addedAt < b.addedAt ? 1 : -1) : a.readAt ? 1 : -1);
 export const useReads = () => useQuery({ queryKey: keys.reads, queryFn: fetchReads, staleTime: 30_000 });
+// the pick takes 10–20 s the first time each day; one that has not answered in 45 s is given up on, so Reads can say so and
+// offer Retry instead of waiting in silence (review 2 feel N5)
+const PICK_GIVE_UP_MS = 45_000;
 /** Today's pick. The first ask of the day makes it, which can take a while: the query waits, the screen does not. Refreshed with the other dated data when the app comes back to the front (main.tsx: after five minutes, or when the bootstrap changed), so a verdict given elsewhere shows within minutes. */
 export const usePick = (date: string, enabled = true) =>
-  useQuery({ queryKey: keys.pick(date), queryFn: () => api<PickResult>(`/reads/pick?date=${date}`), enabled, staleTime: 2 * 60_000, retry: false });
+  useQuery({
+    queryKey: keys.pick(date),
+    queryFn: () => api<PickResult>(`/reads/pick?date=${date}`, typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? { signal: AbortSignal.timeout(PICK_GIVE_UP_MS) } : {}),
+    enabled,
+    staleTime: 2 * 60_000,
+    retry: false,
+  });
 
 export const useReadsMutations = () => {
   const qc = useQueryClient();

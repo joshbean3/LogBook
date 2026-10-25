@@ -1,6 +1,5 @@
 import { dayPhase, label, monthOf, sessionKey, today as todayISO, type LocalNow, type MorningDayOverride, type MorningSettings, type Session } from '@logbook/shared';
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router';
 import type { AppSnapshot } from '@/api/snapshot';
 import { useLog } from '../log/useLog';
 
@@ -22,8 +21,8 @@ export const parseAt = (search: string): number | null => {
 
 /** Now, as the day phase wants it, re-read each minute. Honours `?at=HH:MM` on dev builds. */
 export const useNow = (): LocalNow => {
-  const { search } = useLocation();
-  const at = parseAt(search);
+  // read once per mount: the fake clock is a dev/QA aid (read from window.location, never the router)
+  const at = parseAt(typeof location === 'undefined' ? '' : location.search);
   const read = (): LocalNow => {
     const d = new Date();
     return { date: todayISO(), minutes: at ?? d.getHours() * 60 + d.getMinutes() };

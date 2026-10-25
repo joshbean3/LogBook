@@ -459,7 +459,8 @@
     color var(--dur-color) var(--ease-out),
     transform 100ms var(--ease-out);
 }
-.pl-chip:active {
+/* WP4's chips (MoveSheet, the Plan's: not PressButtons yet; docs/reviews/wp2.md, Requests) keep their old press until they move */
+.pl-chip:not(.pressable):active {
   transform: scale(0.97);
 }
 .pl-chip.on {
@@ -539,11 +540,15 @@
   letter-spacing: -0.01em;
   transition:
     background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out),
-    transform 120ms var(--ease-out);
+    color var(--dur-color) var(--ease-out);
 }
-.ss-big:active {
-  transform: scale(0.97);
+/* the one press (§11.1): data-pressed on touch-down (PressButton), the colour transitions kept beside the scale's */
+.ss-big.pressable[data-press='scale'],
+.pl-chip.pressable[data-press='scale'] {
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .ss-big.done {
   background: var(--accent);
@@ -597,9 +602,6 @@
   font: inherit;
   font-size: 0.9375rem;
   font-weight: 600;
-}
-.ss-pill:active {
-  background: var(--surface);
 }
 .ss-pill[aria-pressed='true'] {
   background: var(--surface-2);

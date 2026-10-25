@@ -1,128 +1,67 @@
+import type * as React from 'react';
 import { ago, eachDay, fmtDate, parseISO, shiftDays, type JournalEntry, type Quote } from '@logbook/shared';
-import { BookOpen, CalendarDays, EyeOff, PenLine, Search, Share, Shuffle, Star, Trash2, X } from 'lucide-react';
-import { animate, AnimatePresence, motion } from 'motion/react';
+import { CalendarDays, EyeOff, PenLine, Search, Share, Shuffle, Star, Trash2, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNav } from '@/app/NavController';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
+import { HOLD_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
-import { fadeIn, rowPresence, springs, useReduced } from '@/lib/motion';
-import { Button, ContextMenu, EmptyState, IconButton, Section, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
+import { crossfade, springs, useReduced } from '@/lib/motion';
+import { Button, EmptyState, IconButton, Pressable, Section, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
+import { FavStar } from './FavStar';
+import { PressButton } from './PressButton';
+import { measureBelow, popFav, useListFlip } from './feel';
 import { Composer, EntryEditor, monthsOf, timeOf, useEntryActions, useOpenDay, useOpenEntry } from './JournalDaySection';
-import { bumpHint, readHint, useCardSwipe, useSlideSwap } from './gestures';
-import { GhostLines } from './Ghost';
 import { runStamp, useDayPrompt } from './prompt';
 
 /** "“…” (Seneca)": how a quote goes into an entry when it is used as a prompt. */
 export const asPrompt = (q: Quote) => `“${q.text}”${q.author ? ` (${q.author})` : ''}`;
 
-/** The quote, whole, as the context menu lifts it. */
-const QuotePreview = ({ q }: { q: Quote }) => (
-  <div className="qpreview">
-    <p className="qpreview-text">“{q.text}”</p>
-    {q.author ? (
-      <p className="qpreview-by">
-        {q.author}
-        {q.work ? <cite> · {q.work}</cite> : null}
-      </p>
-    ) : null}
-  </div>
-);
-
 /**
- * The quote of the day as an optional prompt line inside the composer (serif 17, ink-3). Tap: it goes into the entry as a
- * prompt. Swipe sideways: another quote; the line keeps going the way it was swiped and the next one slides in from the
- * other side once it has gone (a pager, never a cross-dissolve). Hold: Favourite, Hide, Open in library (and the tap and
- * swipe again, as fallbacks). Taught once: the line nudges left and back and says so under itself, for the first visits.
+ * The quote line (contracts §F, docs/feel.md §8): the day's quote as one quiet serif line, 44 tall (15/20 `--ink-3`). Tap:
+ * the quote goes to `onInsert` as a prompt (`“…” (Author)`). Hold 450 ms: `Favourite · Hide`; Hide has Undo. No swipe. It
+ * sits inside Journal's composer and the Close card's. `date` is the day the line sits on (the quote is the day's, `/daily`).
+ * Favouriting has no star on the line, so the `toggle` lands when a star's pop would peak (`popFav`).
  */
-const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => void; text: string; onOpenInLibrary: (q: Quote) => void }) => {
+export const QuoteLine = ({ date, onInsert }: { date: string; onInsert: (text: string) => void }): React.JSX.Element | null => {
   const daily = useDaily();
-  const { another, quotePrefs } = useJournalMutations();
+  const { quotePrefs, another } = useJournalMutations();
   const toast = useToast();
-  const reduce = useReduced();
-  const live = daily.data?.quote ?? null;
-  const latest = useRef(live);
-  latest.current = live;
-  // what the line shows: the day's quote, except while one is leaving and the next is on its way
-  const [q, setQ] = useState(live);
-  const sliding = useRef(false);
-  useEffect(() => {
-    if (!sliding.current) setQ(live);
-  }, [live]);
-  const [hint] = useState(() => readHint('quote-line'));
-  const btn = useRef<HTMLButtonElement>(null);
-  const shuffleRef = useRef<(d: -1 | 1) => void>(() => undefined);
-  const swipe = useCardSwipe((d) => shuffleRef.current(d), !!q);
-  const slide = useSlideSwap(swipe.x, btn);
-  const shuffle = async (d: -1 | 1) => {
-    if (sliding.current) return;
-    sliding.current = true;
-    bumpHint('quote-line', 9);
-    const gone = slide.out(d);
-    try {
-      await another.mutateAsync('quote');
-      await gone;
-      setQ(latest.current);
-      slide.in(d);
-    } catch {
-      await gone;
-      slide.back();
-      toast('Couldn’t find another quote.');
-    } finally {
-      sliding.current = false;
-    }
-  };
-  shuffleRef.current = (d) => void shuffle(d);
-  // the one-time nudge: 24px left and home, so the line reads as something that moves
-  useEffect(() => {
-    if (!hint || reduce || !q) return;
-    bumpHint('quote-line');
-    const t = setTimeout(() => void animate(swipe.x, -24, springs.settle).then(() => animate(swipe.x, 0, springs.settle)), 900);
-    return () => clearTimeout(t);
-  }, [!!q]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (daily.isPending && !daily.data)
-    return (
-      <div className="qline-wrap">
-        <Skeleton h={16} w="72%" className="qline-skel" />
-      </div>
-    );
+  const q = daily.data?.quote ?? null;
   if (!q) return null;
-  const used = text.includes(q.text.slice(0, 60));
-  const hide = () => {
-    haptics.delete();
-    quotePrefs.mutate({ id: q.id, hidden: true });
-    void shuffle(1);
-    toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
-  };
+  const items = [
+    {
+      label: q.fav ? 'Unfavourite' : 'Favourite',
+      icon: <Star size={18} />,
+      onSelect: () => {
+        if (!q.fav) popFav();
+        quotePrefs.mutate({ id: q.id, fav: !q.fav });
+      },
+    },
+    ...(q.mine
+      ? []
+      : [
+          {
+            label: 'Hide',
+            icon: <EyeOff size={18} />,
+            destructive: true,
+            onSelect: () => {
+              haptics.delete();
+              quotePrefs.mutate({ id: q.id, hidden: true });
+              another.mutate('quote');
+              toast('You won’t see that quote again', { label: 'Undo', fn: () => quotePrefs.mutate({ id: q.id, hidden: false }) });
+            },
+          },
+        ]),
+  ];
   return (
-    <AnimatePresence initial={false}>
-      {used ? null : (
-        <motion.div key="qline" className="qline-wrap" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1, transition: { height: springs.settle, opacity: fadeIn } }} exit={{ height: 0, opacity: 0, transition: { height: springs.settle, opacity: { duration: 0.1 } } }}>
-          <ContextMenu
-            label="Today’s quote"
-            preview={<QuotePreview q={q} />}
-            items={[
-              { label: 'Use as a prompt', icon: <PenLine size={18} />, onSelect: () => insert(asPrompt(q)) },
-              { label: 'Another quote', icon: <Shuffle size={18} />, onSelect: () => (haptics.select(), void shuffle(1)) },
-              { label: q.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => (haptics.toggle(), quotePrefs.mutate({ id: q.id, fav: !q.fav })) },
-              { label: 'Open in library', icon: <BookOpen size={18} />, onSelect: () => onOpenInLibrary(q) },
-              ...(q.mine ? [] : [{ label: 'Hide', icon: <EyeOff size={18} />, onSelect: hide }]),
-            ]}
-          >
-            <motion.button ref={btn} type="button" className={`qline ${another.isPending ? 'busy' : ''}`} aria-label={`Today’s quote: ${q.text}${q.author ? `, ${q.author}` : ''}. Use as a prompt`} onClick={() => insert(asPrompt(q))} onClickCapture={swipe.onClickCapture} {...swipe.props}>
-              <motion.span key={q.id} className="qline-in" initial={reduce ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
-                <span className="qline-text">“{q.text}”</span>
-                <span className="qline-by">
-                  {q.fav ? <Star size={11} fill="currentColor" className="jfav" aria-hidden="true" /> : null}
-                  {q.author || 'Unknown'}
-                </span>
-              </motion.span>
-            </motion.button>
-          </ContextMenu>
-          {hint ? <p className="qline-hint">Tap to write from it. Swipe for another.</p> : null}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <Pressable className="qline quote-line" press="dim" data-date={date} onPress={() => onInsert(asPrompt(q))} holdMenu={items} menuLabel="Today’s quote" label={`Today’s quote: ${q.text}${q.author ? `, ${q.author}` : ''}. Use as a prompt`}>
+      <span className="qline-in">
+        <span className="qline-text">“{q.text}”</span>
+      </span>
+    </Pressable>
   );
 };
 
@@ -131,9 +70,8 @@ const QuoteLine = ({ insert, text, onOpenInLibrary }: { insert: (s: string) => v
  * ribbon scrolls sideways (snapping to days) and opens with today at its right edge. Tap a dot for that day (its entry, or a
  * composer for it). Hold a day and slide to scrub: each day steps with `haptics.select()`, the ribbon follows the finger to
  * its edges, and the line under it previews the day; let go to open it. A plain swipe just scrolls. With a mouse, press and
- * drag scrubs at once. Arrow keys move between days.
+ * drag scrubs at once. Arrow keys move between days. The hold is the app's one clock (HOLD_MS, §11.2).
  */
-const HOLD_MS = 220;
 const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string, JournalEntry[]>; onToday: () => void }) => {
   const days = useMemo(() => eachDay(shiftDays(today, -13), today), [today]);
   const openDay = useOpenDay();
@@ -236,21 +174,25 @@ const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string,
     if (s.on && i >= 0) open(i);
     setActive(null);
   };
-  // while a finger scrubs, the ribbon must not scroll under it (a non-passive touchmove, so the browser asks first)
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const block = (e: TouchEvent) => {
-      if (scrub.current.on && e.cancelable) e.preventDefault();
-    };
-    const move = (e: TouchEvent) => {
+  // while a finger scrubs, the ribbon must not scroll under it: a non-passive touchmove, attached inside this gesture's
+  // touchstart and removed when it ends (nothing listens at rest, spec test 7)
+  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const move = (ev: TouchEvent) => {
       const s = scrub.current;
-      if (s.on && e.touches[0]) step(e.touches[0].clientX);
-      block(e);
+      if (!s.on) return;
+      if (ev.touches[0]) step(ev.touches[0].clientX);
+      if (ev.cancelable) ev.preventDefault();
+    };
+    const end = () => {
+      el.removeEventListener('touchmove', move);
+      el.removeEventListener('touchend', end);
+      el.removeEventListener('touchcancel', end);
     };
     el.addEventListener('touchmove', move, { passive: false });
-    return () => el.removeEventListener('touchmove', move);
-  });
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+  };
   const reduce = useReduced();
   const shown = active != null ? days[active]! : null;
   const preview = shown ? byDate.get(shown)?.[0] : null;
@@ -262,6 +204,7 @@ const Ribbon = ({ today, byDate, onToday }: { today: string; byDate: Map<string,
         onScroll={(e) => setMore(e.currentTarget.scrollLeft > 2)}
         role="group"
         aria-label={`${written} of the last 14 days written`}
+        onTouchStart={onTouchStart}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -366,17 +309,17 @@ export const memoryPool = (all: JournalEntry[], today: string) => {
   return all.filter((e) => e.date <= cutoff && !newest.has(e.id)).reverse();
 };
 
+
 /**
  * "On this day" (an entry from this date in an earlier year) or "From your journal" (the daily memory), as one card, only
- * when there is an entry old enough to be a memory (see `memoryPool`); otherwise nothing at all. The server's daily memory
- * is used when it qualifies; else the day's pick among the entries that do. Swipe sideways (or "Another memory"): the card
- * leaves the way it was swiped and the next comes in from the other side.
+ * when there is an entry old enough to be a memory (see `memoryPool`); otherwise nothing at all. Tap: the entry. Hold:
+ * Another memory · Favourite · Open the day · Share. A new memory crossfades in the same card (150 ms); no swipe.
  */
 const MemoryCard = ({ today, all }: { today: string; all: JournalEntry[] }) => {
   const daily = useDaily();
   const act = useEntryActions();
   const openEntry = useOpenEntry();
-  const nav = useNavigate();
+  const nav = useNav();
   const reduce = useReduced();
   const pool = useMemo(() => memoryPool(all, today), [all, today]);
   const ok = useMemo(() => new Set(pool.map((e) => e.id)), [pool]);
@@ -384,66 +327,61 @@ const MemoryCard = ({ today, all }: { today: string; all: JournalEntry[] }) => {
   const server = daily.data?.memory && ok.has(daily.data.memory.id) ? daily.data.memory : null;
   // how many times it has been shuffled today: 0 shows the server's (or the day's) pick, then the pool in turn
   const [turn, setTurn] = useState(0);
+  const card = useRef<HTMLElement>(null);
+  const flip = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => {
+    flip.current?.();
+    flip.current = null;
+  }, [turn]);
   const pick = (n: number) => {
     if (!pool.length) return null;
     if (n === 0 && server) return server;
     const start = server ? pool.findIndex((e) => e.id === server.id) : seedOf(today) % pool.length;
     return pool[(start + n + pool.length) % pool.length]!;
   };
-  const e = onThisDay ?? pick(turn);
+  // the card keeps what it shows until "Another memory" (a save above it must not re-pick it: nothing changes on its own)
+  const shownId = useRef<{ turn: number; id: string } | null>(null);
+  const kept = shownId.current && shownId.current.turn === turn ? (all.find((x) => x.id === shownId.current!.id) ?? null) : null;
+  const e = onThisDay ?? kept ?? pick(turn);
+  if (e && !onThisDay) shownId.current = { turn, id: e.id };
   const log = useLog(e ? monthsOf([e.date]) : []);
-  const card = useRef<HTMLElement>(null);
-  const busy = useRef(false);
-  const shuffleRef = useRef<(d: -1 | 1) => void>(() => undefined);
-  const swipe = useCardSwipe((d) => shuffleRef.current(d), !onThisDay && pool.length > 1);
-  const slide = useSlideSwap(swipe.x, card);
-  shuffleRef.current = (d) => {
-    if (busy.current) return;
-    busy.current = true;
-    void slide.out(d).then(() => {
-      setTurn((t) => t + d);
-      slide.in(d);
-      busy.current = false;
-    });
-  };
   if (!e) return null;
   const stamp = log.loaded(e.date) ? runStamp(log.snap, e.date) : null;
   const kicker = onThisDay ? `On this day · ${parseISO(e.date).getFullYear()}` : 'From your journal';
+  const another = () => {
+    // the card may change height: what is below rides the change on `settle` (§10.1)
+    flip.current = measureBelow(card.current);
+    setTurn((t) => t + 1);
+  };
   return (
-    <ContextMenu
-      label="Memory"
-      items={[
-        ...(onThisDay || pool.length < 2 ? [] : [{ label: 'Another memory', icon: <Shuffle size={18} />, onSelect: () => (haptics.select(), shuffleRef.current(1)) }]),
+    <Pressable
+      ref={card}
+      as="div"
+      className="jmem-card"
+      press="scale"
+      label={`${kicker}. ${e.text}`}
+      onPress={(ev) => openEntry(e, { from: (ev.currentTarget as HTMLElement).querySelector('.jmem-date'), stamp })}
+      menuLabel="Memory"
+      holdMenu={[
+        ...(onThisDay || pool.length < 2 ? [] : [{ label: 'Another memory', icon: <Shuffle size={18} />, onSelect: another }]),
         { label: e.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => act.fav(e) },
-        { label: 'Open the day', icon: <CalendarDays size={18} />, onSelect: () => nav(`/today/${e.date}`) },
+        { label: 'Open the day', icon: <CalendarDays size={18} />, onSelect: () => nav.go(`/today/${e.date}`) },
         { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
       ]}
     >
-      <div className="jmem-clip">
-        <motion.section ref={card} className="jmem-card" aria-label={kicker} onClickCapture={swipe.onClickCapture} {...swipe.props}>
-          <div className="jmem-top">
-            <span className="caps">{kicker}</span>
-            <span className="caps jmem-ago">{onThisDay ? yearsAgo(e.date, today) : ago(e.date, today)}</span>
-          </div>
-          <motion.button
-            key={e.id}
-            type="button"
-            className="jmem-open"
-            initial={reduce ? { opacity: 0 } : false}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.15 }}
-            onClick={(ev) => openEntry(e, { from: ev.currentTarget.querySelector('.jmem-date'), stamp })}
-          >
-            <span className="memory-text clamp">{e.text}</span>
-            <span className="jmem-foot">
-              <span className="caps jmem-date">{fmtDate('long', e.date)}</span>
-              {stamp ? <span className="jstamp">{stamp}</span> : null}
-              {e.fav ? <Star size={12} fill="currentColor" className="jfav" aria-label="Favourite" /> : null}
-            </span>
-          </motion.button>
-        </motion.section>
-      </div>
-    </ContextMenu>
+      <span className="jmem-top">
+        <span className="caps">{kicker}</span>
+        <span className="caps jmem-ago">{onThisDay ? yearsAgo(e.date, today) : ago(e.date, today)}</span>
+      </span>
+      <motion.span key={e.id} className="jmem-open" initial={turn && !reduce ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={crossfade}>
+        <span className="memory-text clamp">{e.text}</span>
+        <span className="jmem-foot">
+          <span className="caps jmem-date">{fmtDate('long', e.date)}</span>
+          {stamp ? <span className="jstamp">{stamp}</span> : null}
+          <FavStar on={e.fav} size={12} label="Favourite" />
+        </span>
+      </motion.span>
+    </Pressable>
   );
 };
 
@@ -464,9 +402,11 @@ const useStableKeys = (entries: JournalEntry[]) => {
 const PAGE = 30;
 /**
  * Every entry, newest first, edge to edge. The date stands at the left of a day's first entry; a day with a run wears the
- * run's name as a stamp. Tap: the entry. Swipe left: Delete (with Undo). Hold: Edit, Favourite, Share, Delete.
+ * run's name as a stamp. Tap: the entry. Swipe left: Delete (with Undo). Hold: Edit, Favourite, Share, Delete. The rows come
+ * from the cache; the skeleton shows only with nothing cached and no network (newuser 3.5). A row that arrives fades in and
+ * the rows it displaces ride a FLIP on `settle`; nothing animates height.
  */
-const Timeline = ({ today, all, loading, onWrite }: { today: string; all: JournalEntry[]; loading: boolean; onWrite: () => void }) => {
+const Timeline = ({ today, all, pending, onWrite }: { today: string; all: JournalEntry[]; pending: boolean; onWrite: () => void }) => {
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
   const [limit, setLimit] = useState(PAGE);
@@ -479,7 +419,19 @@ const Timeline = ({ today, all, loading, onWrite }: { today: string; all: Journa
   const openEntry = useOpenEntry();
   const sheet = useSheet();
   const search = useRef<HTMLInputElement>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const head = useRef<HTMLDivElement>(null);
+  const flip = useRef<(() => void) | null>(null);
+  // the field's carry first, then the list's FLIP (review 2 code N6): layout effects run in the order they are declared, so
+  // when Close removes the field and the list changes in one commit, the rows measure where they are with the container
+  // already carried, and each is carried only by its own move (not by the field's height twice)
+  useLayoutEffect(() => {
+    flip.current?.();
+    flip.current = null;
+  }, [searching]);
+  useListFlip(rowsRef, shown.map((e) => keyOf(e.id)).join(','));
   const stampOf = (d: string) => (log.loaded(d) ? runStamp(log.snap, d) : null);
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
   return (
     <Section
       title="Entries"
@@ -491,6 +443,7 @@ const Timeline = ({ today, all, loading, onWrite }: { today: string; all: Journa
           <IconButton
             label={searching ? 'Close search' : 'Search entries'}
             onClick={() => {
+              flip.current = measureBelow(head.current);
               if (searching) setQ('');
               setSearching((s) => !s);
               if (!searching) requestAnimationFrame(() => search.current?.focus());
@@ -501,80 +454,76 @@ const Timeline = ({ today, all, loading, onWrite }: { today: string; all: Journa
         ) : undefined
       }
     >
-      <AnimatePresence initial={false}>
-        {searching ? (
-          <motion.div key="search" className="jtl-search" {...rowPresence}>
-            <input ref={search} className="in" type="search" placeholder="Search your entries" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} aria-label="Search entries" />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-      {loading ? (
-        <SkeletonGroup label="Loading your entries" className="jtl-skel">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="jtl-skel-row">
-              <Skeleton w={28} h={22} />
-              <div style={{ display: 'grid', gap: 8, flex: 1 }}>
-                <Skeleton w={`${88 - i * 14}%`} h={16} />
-                <Skeleton w={`${60 - i * 8}%`} h={16} />
+      <div ref={head} className="jtl-anchor" aria-hidden="true" />
+      {searching ? (
+        <div className="jtl-search fade-in">
+          <input ref={search} className="in" type="search" placeholder="Search your entries" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} aria-label="Search entries" />
+        </div>
+      ) : null}
+      {pending ? (
+        offline ? (
+          <SkeletonGroup label="Loading your entries" className="jtl-skel">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="jtl-skel-row">
+                <Skeleton w={28} h={22} />
+                <div style={{ display: 'grid', gap: 8, flex: 1 }}>
+                  <Skeleton w={`${88 - i * 14}%`} h={16} />
+                  <Skeleton w={`${60 - i * 8}%`} h={16} />
+                </div>
               </div>
-            </div>
-          ))}
-        </SkeletonGroup>
+            ))}
+          </SkeletonGroup>
+        ) : null
       ) : !all.length ? (
-        <EmptyState
-          ghost={<GhostLines rows={3} lead />}
-          verb={{ label: 'Write today’s', onPress: onWrite }}
-        >
+        // the sentence and its verb, no ghost rows: they read as the loading skeleton (review feel F10)
+        <EmptyState verb={{ label: 'Write today’s', onPress: onWrite }}>
           Two sentences a day. Every one lands here, newest first.
         </EmptyState>
       ) : q.trim() && !list.length && !found.isPending ? (
         <EmptyState verb={{ label: 'Clear the search', onPress: () => setQ('') }}>Nothing you wrote says “{q.trim()}”.</EmptyState>
       ) : (
-        <div className="jtl" role="list">
-          <AnimatePresence initial={false}>
-            {shown.map((e, i) => {
-              const first = i === 0 || shown[i - 1]!.date !== e.date;
-              const stamp = first ? stampOf(e.date) : null;
-              return (
-                <motion.div key={keyOf(e.id)} role="listitem" className={`jtl-item ${first ? 'first' : ''}`} {...rowPresence}>
-                  <SwipeRow
-                    label={`Entry from ${fmtDate('short', e.date)}`}
-                    left={{ label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.del(e) }}
-                    menuItems={[
-                      { label: 'Edit', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: fmtDate('short', e.date), title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' }) },
-                      { label: e.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => act.fav(e) },
-                      { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
-                    ]}
+        <div ref={rowsRef} className="jtl" role="list">
+          {shown.map((e, i) => {
+            const first = i === 0 || shown[i - 1]!.date !== e.date;
+            const stamp = first ? stampOf(e.date) : null;
+            return (
+              <div key={keyOf(e.id)} data-key={keyOf(e.id)} role="listitem" className={`jtl-item ${first ? 'first' : ''}`}>
+                <SwipeRow
+                  label={`Entry from ${fmtDate('short', e.date)}`}
+                  left={{ label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.del(e) }}
+                  menuItems={[
+                    { label: 'Edit', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: fmtDate('short', e.date), title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' }) },
+                    { label: e.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => act.fav(e) },
+                    { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
+                  ]}
+                >
+                  <PressButton
+                    className="jtl-row"
+                    aria-label={`${fmtDate('long', e.date)}, ${timeOf(e.createdAt)}${stamp ? `, ${stamp}` : ''}${e.fav ? ', favourite' : ''}. ${e.text}`}
+                    onClick={(ev) => openEntry(e, { from: ev.currentTarget.querySelector('.jtl-date-shared'), stamp: stampOf(e.date) })}
                   >
-                    <button
-                      type="button"
-                      className="jtl-row"
-                      aria-label={`${fmtDate('long', e.date)}, ${timeOf(e.createdAt)}${stamp ? `, ${stamp}` : ''}${e.fav ? ', favourite' : ''}. ${e.text}`}
-                      onClick={(ev) => openEntry(e, { from: ev.currentTarget.querySelector('.jtl-date-shared'), stamp: stampOf(e.date) })}
-                    >
-                      <span className="jtl-date" aria-hidden="true">
-                        {first ? (
-                          <span className="jtl-date-shared">
-                            <span className="jtl-day">{parseISO(e.date).getDate()}</span>
-                            <span className="caps">{e.date === today ? 'Today' : fmtDate('dow', e.date)}</span>
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="jtl-body" aria-hidden="true">
-                        <span className="jtl-text">{e.text}</span>
-                        <span className="jtl-meta">
-                          {first && e.date.slice(0, 7) !== today.slice(0, 7) ? <span className="caps">{e.date.slice(0, 4) !== today.slice(0, 4) ? fmtDate('month', e.date) : fmtDate('monthShort', e.date)}</span> : null}
-                          <span className="caps">{timeOf(e.createdAt)}</span>
-                          {stamp ? <span className="jstamp">{stamp}</span> : null}
-                          {e.fav ? <Star size={11} fill="currentColor" className="jfav" /> : null}
+                    <span className="jtl-date" aria-hidden="true">
+                      {first ? (
+                        <span className="jtl-date-shared">
+                          <span className="jtl-day">{parseISO(e.date).getDate()}</span>
+                          <span className="caps">{e.date === today ? 'Today' : fmtDate('dow', e.date)}</span>
                         </span>
+                      ) : null}
+                    </span>
+                    <span className="jtl-body" aria-hidden="true">
+                      <span className="jtl-text">{e.text}</span>
+                      <span className="jtl-meta">
+                        {first && e.date.slice(0, 7) !== today.slice(0, 7) ? <span className="caps">{e.date.slice(0, 4) !== today.slice(0, 4) ? fmtDate('month', e.date) : fmtDate('monthShort', e.date)}</span> : null}
+                        <span className="caps">{timeOf(e.createdAt)}</span>
+                        {stamp ? <span className="jstamp">{stamp}</span> : null}
+                        <FavStar on={e.fav} />
                       </span>
-                    </button>
-                  </SwipeRow>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                    </span>
+                  </PressButton>
+                </SwipeRow>
+              </div>
+            );
+          })}
         </div>
       )}
       {list.length > limit ? (
@@ -587,10 +536,11 @@ const Timeline = ({ today, all, loading, onWrite }: { today: string; all: Journa
 };
 
 /**
- * The Journal segment: write first (the composer, open, its placeholder built from the day, the quote of the day inside it
- * as a prompt line), then memory (the 14-day ribbon, on this day / from your journal), then every entry.
+ * The Journal segment: write first (the composer, open, its placeholder built from the day, the day's quote line inside it
+ * as a prompt), then memory (the 14-day ribbon, on this day / from your journal), then every entry. `focusKey` changing
+ * (a quote sent here from the Library) focuses the composer once the segment's crossfade and any closing sheet are done.
  */
-export const JournalHome = ({ today, onOpenQuote, focusOnMount }: { today: string; onOpenQuote: (q: Quote) => void; focusOnMount?: boolean }) => {
+export const JournalHome = ({ today, focusKey = 0 }: { today: string; focusKey?: number }) => {
   const placeholder = useDayPrompt(today);
   const list = useJournalList('', false);
   const all = useMemo(() => list.data?.entries ?? [], [list.data]);
@@ -606,8 +556,8 @@ export const JournalHome = ({ today, onOpenQuote, focusOnMount }: { today: strin
     input.current?.focus({ preventScroll: true });
   };
   useEffect(() => {
-    if (!focusOnMount) return;
-    // after the segment has slid in and any closing sheet has let go of the page (it is inert until then)
+    if (!focusKey) return;
+    // the page is inert until a closing sheet has let go of it: try again until the field takes the focus
     let tries = 0;
     let t: ReturnType<typeof setTimeout>;
     const attempt = () => {
@@ -617,20 +567,19 @@ export const JournalHome = ({ today, onOpenQuote, focusOnMount }: { today: strin
       if (document.activeElement === el) {
         el.setSelectionRange(el.value.length, el.value.length);
         el.scrollIntoView({ block: 'center' });
-      } else if (tries++ < 10) t = setTimeout(attempt, 150);
+      } else if (tries++ < 12) t = setTimeout(attempt, 100);
     };
-    t = setTimeout(attempt, 380);
+    t = setTimeout(attempt, 160);
     return () => clearTimeout(t);
-  }, [focusOnMount]);
+  }, [focusKey]);
   return (
     <div className="jhome">
       <section ref={card} className="jcompose" aria-label="Write today’s entry">
-        <Composer date={today} today={today} size="lg" rows={3} toast={false} placeholder={placeholder} inputRef={input} label={`Today’s entry. ${placeholder}`} prompt={(insert, text) => <QuoteLine insert={insert} text={text} onOpenInLibrary={onOpenQuote} />} />
+        <Composer date={today} today={today} size="lg" rows={3} placeholder={placeholder} inputRef={input} label={`Today’s entry. ${placeholder}`} grow="flip" prompt={(insert) => <QuoteLine date={today} onInsert={insert} />} />
       </section>
       <Ribbon today={today} byDate={byDate} onToday={write} />
       <MemoryCard today={today} all={all} />
-      <Timeline today={today} all={all} loading={list.isPending && !list.data} onWrite={write} />
+      <Timeline today={today} all={all} pending={!list.data} onWrite={write} />
     </div>
   );
 };
-

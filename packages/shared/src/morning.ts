@@ -150,21 +150,34 @@ export const morningPlanFor = (all: Session[]): MorningPlan => {
   return { mode: 'rest', type: 'Rest', miles: DEFAULT_RUN_MILES, minutes: null, label: rest ? 'Rest day' : sessions[0] ? label(sessions[0]) : all[0] ? `${label(all[0])} skipped` : '' };
 };
 
-const MODES: readonly MorningMode[] = ['run', 'gym', 'rest'];
 
-export interface MorningDay extends MorningDayOverride {
+/**
+ * The morning a timeline is built from. The workout (`mode/type/miles/minutes`) is the session's, through the plan
+ * (`morningPlanFor`); the alarm is the override's when the day has one, else the routine's. `own`: the day has an
+ * override (its own alarm).
+ */
+export interface MorningDay {
+  mode: MorningMode;
+  type: string;
+  miles: number;
+  minutes: number;
+  wake: number;
   plan: MorningPlan;
   own: boolean;
 }
 
+/**
+ * One editor (spec §4.3, M16): the workout comes from the sessions, only `wake` from the override. An override stored
+ * before the change (`{ mode, type, miles, minutes, wake }`, in the database or a persisted cache) is read as `{ wake }`:
+ * its other fields are dropped here, quietly, so the hero, Plan, Share and `assess` cannot disagree with the session.
+ */
 export const morningDayFor = (sessions: Session[], override: Partial<MorningDayOverride> | null, settings: MorningSettings): MorningDay => {
   const plan = morningPlanFor(sessions);
-  const mode: MorningMode = override && MODES.includes(override.mode as MorningMode) ? (override.mode as MorningMode) : plan.mode;
   return {
-    mode,
-    type: override?.type || plan.type,
-    miles: n(override?.miles, plan.miles),
-    minutes: n(override?.minutes, plan.minutes ?? settings.gym.length),
+    mode: plan.mode,
+    type: plan.type,
+    miles: plan.miles,
+    minutes: n(plan.minutes, settings.gym.length),
     wake: n(override?.wake, settings.wake),
     plan,
     own: !!override,

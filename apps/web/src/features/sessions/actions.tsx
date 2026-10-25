@@ -1,10 +1,11 @@
-import { counts, floorMinutes, isAutoStatus, label, sessionStatus, type Session } from '@logbook/shared';
+import { counts, isAutoStatus, label, sessionStatus, type Session } from '@logbook/shared';
 import { ArrowRightLeft, Check, HeartPulse, Pencil, Share2, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { markSeenToday } from '@/ui/useFirstToday';
 import type { Log } from '../log/useLog';
 import type { ShareData } from '../share/cards';
 import { ShareSheet } from '../share/ShareSheet';
@@ -39,40 +40,58 @@ export const useSessionActions = (log: Log) => {
   const sheet = useSheet();
   const toast = useToast();
 
+  /** Done by hand: the session's one success (a Strava run that lands later is silent, §6.1). */
   const done = (s: Session) => {
     mark.mutate({ session: s, mark: 'done' });
+    markSeenToday(`success-${s.id}`);
     haptics.success();
   };
+  /**
+   * "Not feeling 100%" after a run that counted (§6.3): the run stays done; what it does is ease the next three days still
+   * ahead, with Undo. Before it counts, it is the illness skip (`sick`). Returns how many sessions it eased: with none, it says
+   * nothing (the sheet's pill answers in place; §8: toasts are for Undo and errors only, code review 1 #6).
+   */
+  const notFeeling = (date: string, s: Session): number => {
+    if (counts(sessionStatus(log.snap, date, s))) {
+      const r = easeAfter(log, date);
+      if (r.eased) toast(`${r.eased} ${r.eased === 1 ? 'session' : 'sessions'} eased`, { label: 'Undo', fn: r.undo });
+      return r.eased;
+    }
+    return sick(date, s);
+  };
+  /** Floor met by hand: the day kept. The sheet's Floor shows it; no toast without an Undo (§8). */
   const floor = (s: Session) => {
     mark.mutate({ session: s, mark: 'floor' });
-    haptics.toggle();
-    toast(`Floor met. ${floorMinutes(s) ?? 20} min is a day kept.`);
+    markSeenToday(`success-${s.id}`);
+    haptics.success();
   };
+  /** Un-completing is silent (§11.4). */
   const clear = (s: Session) => {
     mark.mutate({ session: s, mark: null });
-    haptics.toggle();
   };
   const skip = (s: Session) => {
     const was = s.mark;
     const skipping = was !== 'skip' && was !== 'sick';
     mark.mutate({ session: s, mark: skipping ? 'skip' : null });
-    haptics.toggle();
     toast(skipping ? `${nameOf(s)} skipped` : `${nameOf(s)} back on`, { label: 'Undo', fn: () => mark.mutate({ session: s, mark: was }) });
   };
-  /** "Not feeling 100%": skipped for illness (the week still counts it), then the offer to ease the next three days. */
-  const sick = (date: string, s: Session) => {
+  /**
+   * "Not feeling 100%": skipped for illness (the week still counts it) and the next three days still ahead eased, in one
+   * action with one Undo for both (§8: a toast carries an Undo or an error, never an offer; code review 1 #6).
+   */
+  const sick = (date: string, s: Session): number => {
+    const was = s.mark;
     mark.mutate({ session: s, mark: 'sick' });
-    haptics.toggle();
-    toast('Not feeling 100%. Ease the next few days?', {
-      label: 'Ease them',
+    const r = easeAfter(log, date);
+    const said = r.eased ? `${nameOf(s)} skipped · ${r.eased} eased` : `${nameOf(s)} skipped`;
+    toast(said, {
+      label: 'Undo',
       fn: () => {
-        const r = easeAfter(log, date);
-        if (r.eased) {
-          haptics.success();
-          toast(`${r.eased} ${r.eased === 1 ? 'session' : 'sessions'} eased`, { label: 'Undo', fn: r.undo });
-        } else toast('Nothing hard in the next three days.');
+        mark.mutate({ session: { ...s, mark: 'sick' }, mark: was });
+        r.undo();
       },
     });
+    return r.eased;
   };
   const del = (s: Session) => {
     remove.mutate(s);
@@ -112,5 +131,5 @@ export const useSessionActions = (log: Log) => {
     return items;
   };
 
-  return { done, floor, clear, skip, sick, del, move, edit, share, add, menuItems };
+  return { done, floor, clear, skip, sick, notFeeling, del, move, edit, share, add, menuItems };
 };

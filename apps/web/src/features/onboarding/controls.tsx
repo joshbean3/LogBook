@@ -174,23 +174,24 @@ export const RaceStrip = ({ start, value, onChange }: { start: ISODate; value: I
  */
 export const DayLetters = ({ runDays, longRunDay, onChange }: { runDays: Weekday[]; longRunDay: Weekday; onChange: (runDays: Weekday[], longRunDay: Weekday) => void }) => {
   const reduce = useReducedMotion();
-  const [nudge, setNudge] = useState<Weekday | null>(null);
+  const dayEls = useRef(new Map<Weekday, HTMLElement>());
   const toggle = (d: Weekday) => {
     const on = runDays.includes(d);
     if (on && runDays.length === 1) {
-      // one run day is the least a plan can hold
+      // one run day is the least a plan can hold: the letter shakes no (the `translate` property, so the press scale on
+      // `transform` is untouched)
       haptics.error();
-      setNudge(d);
-      setTimeout(() => setNudge(null), 320);
+      if (!reduce) dayEls.current.get(d)?.animate({ translate: ['0px', '-5px', '5px', '-3px', '0px'] }, { duration: 300, easing: 'ease-out' });
       return;
     }
     haptics.select();
     const next = sortDays(on ? runDays.filter((x) => x !== d) : [...runDays, d]);
     onChange(next, fixLongRun(next, longRunDay));
   };
-  const makeLong = (d: Weekday) => {
+  const makeLong = (d: Weekday, held = false) => {
     if (d === longRunDay) return;
-    haptics.select();
+    // a hold already answered with its lift
+    if (!held) haptics.select();
     onChange(sortDays(runDays.includes(d) ? runDays : [...runDays, d]), d);
   };
   const cycle = () => {
@@ -211,8 +212,8 @@ export const DayLetters = ({ runDays, longRunDay, onChange }: { runDays: Weekday
               aria-pressed={on}
               label={`${DAY_NAME[d]}, ${long ? 'long run' : on ? 'run day' : 'rest day'}`}
               onPress={() => toggle(d)}
-              onLongPress={() => makeLong(d)}
-              animate={nudge === d && !reduce ? { x: [0, -5, 5, -3, 0], transition: { duration: 0.3 } } : { x: 0 }}
+              ref={(el: HTMLElement | null) => void (el ? dayEls.current.set(d, el) : dayEls.current.delete(d))}
+              onHold={() => makeLong(d, true)}
             >
               <span className="ob-day-disc">{DAY_LETTER[d]}</span>
               <span className="ob-day-cap" aria-hidden="true">
@@ -224,9 +225,9 @@ export const DayLetters = ({ runDays, longRunDay, onChange }: { runDays: Weekday
       </div>
       <p className="ob-long">
         <span>Long run on</span>
-        <button type="button" className="ob-long-btn" onClick={cycle} aria-label={`Long run on ${DAY_NAME[longRunDay]}. Move it to the next run day`}>
+        <Pressable className="ob-long-btn" onPress={cycle} label={`Long run on ${DAY_NAME[longRunDay]}. Move it to the next run day`}>
           {DAY_NAME[longRunDay]}
-        </button>
+        </Pressable>
         <span className="ob-long-hint">or hold a day</span>
       </p>
     </div>

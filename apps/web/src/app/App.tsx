@@ -9,12 +9,9 @@ import { outbox } from '@/api/outbox';
 import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
 import { Login, Signup } from '@/features/auth/AuthScreens';
 import DayView from '@/features/day/DayView';
-import { useLog } from '@/features/log/useLog';
 import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
 import { matchRoute, type PushedEntry } from '@/ui/nav';
-import { PushedBar } from '@/ui/NavBar';
-import { useSheet } from '@/ui/Sheet';
 import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { useNav } from './NavController';
@@ -31,6 +28,8 @@ const views = {
   journal: () => import('@/features/journal/JournalView'),
   reads: () => import('@/features/reads/ReadsView'),
   settings: () => import('@/features/settings/SettingsView'),
+  settingsSection: () => import('@/features/settings/SettingsSection'),
+  plans: () => import('@/features/plan/PlansPage'),
   welcome: () => import('@/features/onboarding/Welcome'),
   gallery: () => import('./dev/UiGallery'),
 };
@@ -67,39 +66,22 @@ const ProgressView = view(views.progress);
 const JournalView = view(views.journal);
 const ReadsView = view(views.reads);
 const SettingsView = view(views.settings);
+const SettingsSection = view(views.settingsSection);
+const PlansPage = view(views.plans);
 const Welcome = view(views.welcome);
 const UiGallery = view(views.gallery);
 
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
 const prefetchViews = () => {
   const pushed = () => {
-    for (const v of [MorningView, SettingsView, ReadsView]) void v.preload().catch(() => undefined);
+    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView]) void v.preload().catch(() => undefined);
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [PlanView, ProgressView, JournalView, Welcome]) void v.preload().catch(() => undefined);
+    for (const v of [PlanView, ProgressView, JournalView, Welcome, PlansPage]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
-};
-
-/**
- * INTERIM `/settings/plans` until WP4's PlansPage lands (build plan §2.3): a pushed page with the Plans bar whose one row
- * opens the plans sheet that Plan's block card opens today.
- */
-const InterimPlans = () => {
-  const sheet = useSheet();
-  const log = useLog([]);
-  return (
-    <div className="page">
-      <PushedBar title="Plans" />
-      <div className="section">
-        <button type="button" className="lrow tappable" onClick={() => void import('@/features/plan/Blocks').then((m) => m.openPlans(sheet, log))}>
-          <span className="grow">Your plans</span>
-        </button>
-      </div>
-    </div>
-  );
 };
 
 /**
@@ -129,8 +111,9 @@ const pages = STUBS
 const pushedFor = (e: PushedEntry) => {
   const pattern = matchRoute(e.path).route?.pattern;
   if (pattern === '/today/:date/morning') return <MorningView />;
-  if (pattern === '/settings/:section' && e.params.section === 'plans') return <InterimPlans />;
-  if (pattern === '/settings' || pattern === '/settings/:section') return <SettingsView />;
+  if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
+  if (pattern === '/settings/:section') return <SettingsSection />;
+  if (pattern === '/settings') return <SettingsView />;
   if (pattern === '/journal/reads/:tab?') return <ReadsView />;
   if (pattern === '/dev/ui') return STUBS ? <StubPushed /> : <UiGallery />;
   return null;

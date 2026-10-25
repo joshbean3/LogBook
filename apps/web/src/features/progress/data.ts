@@ -2,7 +2,7 @@
  * Progress: every number on the page, from the log. Pure functions over the snapshot so the page, its sheets and its tests
  * agree. Nothing here renders.
  */
-import { counts, e1rm, fmtDate, isSkipMark, label, mi, mondayOf, parseISO, sessionStatus, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet, type PlanBlock, type Session } from '@logbook/shared';
+import { counts, e1rm, fmtDate, isSkipMark, label, mi, mondayOf, monthOf, parseISO, sessionStatus, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet, type PlanBlock, type Session } from '@logbook/shared';
 import type { AppSnapshot } from '@/api/snapshot';
 import { dayMiles } from '../sessions/miles';
 
@@ -78,11 +78,17 @@ export interface WeekPoint {
   longRun: Activity | null;
   current: boolean;
   future: boolean;
+  /** A day of this week falls in a month that has not loaded (yet): drawn as a quiet gap, left out of every summary. */
+  missing?: boolean;
   /** Trailing four-week average of finished weeks (null before the first run, on this week and the future). */
   avg: number | null;
 }
 
-export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range): WeekPoint[] => {
+/**
+ * The weeks in view. `loaded(month)` (the snapshot's own) marks weeks that touch a month not loaded yet as `missing`: the
+ * page builds from the months that are there and a missing one is a quiet gap (§8, critic C11), never the page skeleton.
+ */
+export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range, loaded?: (month: string) => boolean): WeekPoint[] => {
   const mon = mondayOf(today);
   const n = RANGE_WEEKS[r];
   const pts: WeekPoint[] = Array.from({ length: n + FUTURE_WEEKS }, (_, i) => {
@@ -118,12 +124,13 @@ export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range): WeekPoi
         long = Math.max(long, dm.logged / Math.max(1, n));
       }
     }
-    return { w, ran, runs, logged, planned, plannedRuns, long, longRun, current: w === mon, future: w > mon, avg: null };
+    const missing = loaded ? days7(w).some((d) => !loaded(monthOf(d))) : false;
+    return { w, ran, runs, logged, planned, plannedRuns, long, longRun, current: w === mon, future: w > mon, missing, avg: null };
   });
   const first = pts.findIndex((p) => p.ran > 0);
   pts.forEach((p, i) => {
-    if (p.current || p.future || first < 0 || i < first) return;
-    const win = pts.slice(Math.max(first, i - 3), i + 1);
+    if (p.current || p.future || p.missing || first < 0 || i < first) return;
+    const win = pts.slice(Math.max(first, i - 3), i + 1).filter((q) => !q.missing);
     p.avg = sum(win.map((q) => q.ran)) / win.length;
   });
   return pts;
@@ -132,13 +139,13 @@ export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range): WeekPoi
 /** Weeks that count toward averages: finished, from the first week with a run. */
 export const finishedWeeks = (pts: WeekPoint[]) => {
   const first = pts.findIndex((p) => p.ran > 0);
-  return first < 0 ? [] : pts.slice(first).filter((p) => !p.current && !p.future);
+  return first < 0 ? [] : pts.slice(first).filter((p) => !p.current && !p.future && !p.missing);
 };
 
 /** The numbers above the chart when nobody is touching it: the range, summed up. */
 export const rangeSummary = (pts: WeekPoint[]) => {
   const done = finishedWeeks(pts);
-  const past = pts.filter((p) => !p.future);
+  const past = pts.filter((p) => !p.future && !p.missing);
   const best = past.reduce<WeekPoint | null>((b, p) => (!b || p.ran > b.ran ? p : b), null);
   return {
     avg: done.length ? sum(done.map((p) => p.ran)) / done.length : null,
@@ -313,7 +320,7 @@ export interface LongRun {
   best: { miles: number; w: ISODate; month: string } | null;
 }
 export const longRuns = (pts: WeekPoint[]): LongRun => {
-  const past = pts.filter((p) => !p.future);
+  const past = pts.filter((p) => !p.future && !p.missing);
   const first = past.findIndex((p) => p.ran > 0);
   const live = first < 0 ? [] : past.slice(first);
   const points = live.map((p) => ({ w: p.w, miles: p.long, run: p.longRun }));

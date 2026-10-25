@@ -1,19 +1,12 @@
-import { clock, KIND_WORD, mi, num, weekStreak, type Activity, type DayPhase, type ISODate, type PhaseSession, type Snapshot, type WeekSummary } from '@logbook/shared';
+import { clock, daysBetween, KIND_WORD, mi, num, weekStreak, type Activity, type DayPhase, type ISODate, type PhaseSession, type Snapshot, type WeekSummary } from '@logbook/shared';
 import type { WeekDayStatus } from '@/ui';
+import type { Log } from '../log/useLog';
 
 /** "7:35" without the AM: the hero is a morning, the clock face is enough. */
 export const shortClock = (m: number) => {
   const v = ((Math.round(m) % 1440) + 1440) % 1440;
   const h = Math.floor(v / 60);
   return `${h % 12 || 12}:${String(v % 60).padStart(2, '0')}`;
-};
-
-/** The header's serif word for a day: the lead session's name (Speed, Easy, Strength), Rest, or Run for a run off the plan. */
-export const dayTitleWord = (ph: DayPhase | null, runs: Activity[]): string => {
-  const p = ph?.training[0] ?? ph?.primary ?? null;
-  if (p) return p.session.kind === 'rest' ? 'Rest' : p.session.type || KIND_WORD[p.session.kind];
-  if (runs.length) return 'Run';
-  return ph ? 'Rest' : 'Today';
 };
 
 /** The runs of a day added up: miles, moving time, pace per mile ("8:14"). */
@@ -59,3 +52,15 @@ export const streakLine = (snap: Snapshot, today: ISODate): string | null => {
   if (s.weeks === 1) return 'Last week kept.';
   return null;
 };
+
+/** When the plan-end card shows (§3.1 row 7): within 3 days of the last block's end on today, or on a day past it with nothing planned. */
+export const planEndOf = (log: Log, date: ISODate) => {
+  const blocks = log.boot?.blocks ?? [];
+  if (!blocks.length) return null;
+  const last = blocks.reduce((a, b) => (b.end > a.end ? b : a));
+  const left = daysBetween(log.today, last.end);
+  const past = date > last.end && !log.snap.sessionsOn(date).length;
+  const soon = date <= last.end && date >= log.today && daysBetween(date, last.end) <= 3 && left >= 0;
+  return past || soon ? { block: last, past } : null;
+};
+
