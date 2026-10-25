@@ -352,7 +352,13 @@ export const HabitsPage = () => {
     if (sm.open || !afterSheet.current) return;
     const h = afterSheet.current;
     afterSheet.current = null;
-    archive(h, false);
+    // a frame after the sheet's own last frame (its unmount), so the two commits never share one frame
+    let done = false;
+    const raf = requestAnimationFrame(() => ((done = true), archive(h, false)));
+    return () => {
+      cancelAnimationFrame(raf);
+      if (!done) archive(h, false);
+    };
   }, [sm.open]); // eslint-disable-line react-hooks/exhaustive-deps
   const moveTo = (id: string, to: number) => {
     const cur = live.map((h) => h.id);
