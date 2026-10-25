@@ -1,8 +1,138 @@
 # WP6 review: Journal, Progress, Settings, Reads, onboarding, auth
 
-Branch `feel/wp6`, on `feel/pages-base` (`400f8f5`: WP1 merged, every contracts §F export at its final signature). Spec `docs/feel.md` v4.2 §8, §14 tests 4, 25, 50, 51, 54 (and 9a for the real Progress and Journal links); build plan §7. Three steps: Journal, Progress and Reads (step 1); Settings, first run and `/start` (step 2); the QA lead's battery, WP1's battery on this build, screenshots and the fixes they found (QA step, first below). The step sections after it are kept as the record of what each step built.
+Branch `feel/wp6`, on `feel/pages-base` (`400f8f5`: WP1 merged, every contracts §F export at its final signature). Spec `docs/feel.md` v4.2 §8, §14 tests 4, 25, 50, 51, 54 (and 9a for the real Progress and Journal links); build plan §7. Three steps: Journal, Progress and Reads (step 1); Settings, first run and `/start` (step 2); the QA lead's battery, WP1's battery on this build, screenshots and the fixes they found (QA step); then two rounds of review fixes (newest first below). The step sections after it are kept as the record of what each step built.
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`. Everything below was measured on this worktree's `VITE_FAKE_CLOCK=1` build served by `apps/api` on port 8840 (seed copy `S/wp6/test.db`), Playwright 390 × 844, DPR 2, `isMobile`, `hasTouch`, CDP touch, at 1× and 4× CPU, on 2026-10-24 (the real date; the battery names no fixed date beyond the seeded ones).
+
+## Fix round 2 (2026-10-25)
+
+The two round-2 reviews are `S/wp6/review-code-2.md` (code N1–N7) and `S/wp6/review-feel-2.md` (feel N1–N11). The fixes are in
+`40f000d` and `3baedb2`. Finding → fix → proof, one line each: `S/wp6/fix-2.md`.
+
+### Result
+
+- **Severity ≥ 3.** Every such finding has a check in `S/wp6/qa/fix2/` that fails on the reviewed build and passes on this
+  branch, at 1× and 4×:
+  - code N1 = feel N2, code N2, code N3 = feel N8, feel N1, feel N3, feel N4.
+  - The reviewed build is `58ecb3f`, the reviewer's dist `S/wp6/feel-dist-2`, served on 8842 by `S/wp6/fix2before/serve.sh`.
+  - Runner `S/wp6/qa/fix2/run-fix2.mjs`; tables `out/TABLE-before.md` and `out/TABLE-after.md`.
+  - **Before: 27/56 at 1×, 21/53 at 4×. After: 56/56 at 1×, 53/53 at 4×.**
+- **Severity ≤ 2.**
+  - Fixed, with checks in `g-sev2`, `g-training` and `g-edge`: code N4, N5 (= feel N6), N6; feel N5, N7, N9, and the
+    onboarding header part of N11.
+  - WP1's primitives: feel N10 (requests 16 and 17 stand).
+  - Contract text: code N7, now request 21.
+  - Feel N11's other items are left as they are, with reasons (below).
+  - No finding was wrong.
+- **Restated:** round 1's `f-f4-push` 4× budget. N1 asks for the page to be whole on the slide's first frame, and that
+  frame now carries the page's render. Measured interleaved; see "Restated".
+- **Batteries.**
+  - WP6's battery: **169/169 at 1×, 152/152 at 4×** (`S/wp6/qa/results-fix2/`, log `S/wp6/qa/run-fix2.log`).
+  - Round-1 checks on this build: **62/62 at 1×, 56/62 at 4×. The six misses at 4× are `f-f4-push`'s four (restated below) and two that pass on reruns (`f-c3-chart`, and `f-f1-flip`, which missed the same way on the reviewed build)**.
+  - WP1's battery: **614/626 at 1×, 586/603 at 4× (round 1: 611/619, 577/591). Every check that passed in round 1 and missed here also misses on the reviewed build: `t13-pager` 11 and 19 at both rates (today is a Sunday), and `t02-cut`, `t14-hold` 14c and `r4-nav` c4-2a/b, which are flaky (`S/wp6/wp1qa-control/control-fix2.log`). None is on a WP6 page**.
+- **Gates.** `tsc --noEmit` exits 0 for shared, api and web. Tests pass: shared 88, api 59, web 93.
+  `pnpm --filter @logbook/web build` is ok (entry 939.54 kB / 309.13 kB gzip).
+
+### What changed (files, why)
+
+| File | Change | Findings |
+|---|---|---|
+| `features/settings/HabitsPage.tsx` | Every change to the order or to the set of rows re-bases each row from where it is on screen: its slot in the order shown last, plus its offset, read on the render that changes it. Rows spring to their new slots on `settle`, starting on the painted frame. A row that arrives fades in. One that leaves fades as an inert copy under the rows closing over it. What sits below rides along. A refused save asks for the server's order again and shows "Couldn’t save the order." | code N1 = feel N2, code N2 |
+| `features/onboarding/Welcome.tsx`, `velocity.ts` (+ test), `onboarding.css` | The release velocity comes from the pointer's own samples: the last 150 ms by event time, and none once the finger has been still 80 ms. A system cancel never commits. The chevron and Skip stay mounted, fade with the dots, and are inert while hidden. | code N3 = feel N8, feel N11 |
+| `features/journal/feel.ts` | `useBodyReady` and `useBodyFade` are replaced by `useBelowFold(pageRef)`: what is below a pushed page's fold renders once the layer's inline transform is at rest (1.2 s cap), as a transition, with no fade. `carryScaleY` re-bases from a running scale, and only the current animation clears it. | feel N1, code N4 |
+| `features/settings/SettingsView.tsx`, `SettingsSection.tsx` | The first screen (You, Training, Habits, Morning routine; every section page) is drawn in the push's commit; the groups below the fold follow at rest. The account row's email is now its title, with "Signed in" under it. | feel N1, N9 |
+| `features/reads/ReadsView.tsx`, `TodaysPick.tsx`, `reads.css`, `api/queries.ts` (WP6 block) | Quick add, the pick and the first 5 links are drawn in the push's commit, and QuickAdd fades only when opened. The pick's wait says "Finding today’s pick…" in a 212 px box. A failed or hung pick shows "Couldn’t find today’s pick." with Retry: `usePick` gives up after 45 s. | feel N1, N5 |
+| `features/settings/TrainingPages.tsx`, `settings.css` | The Rebuild card is `position: sticky; bottom: 12px`, the page's last block. The draft is kept per account until Rebuild or Undo changes. | feel N3, N7 |
+| `features/progress/sheets.tsx`, `ProgressView.tsx`, `MileageChart.tsx` | The week sheet's ring shows the sentence's number. Adherence rows have no numeral, and their label says "on plan". The sheet says "None of the 3…". With a month held, Avg/Best/Total read "Loading", VoiceOver reads no held number, and the 4-WK AVG label is left out. | feel N4, code N5 = feel N6 |
+| `features/journal/JournalHome.tsx` | The search field's carry is declared before the list's FLIP. | code N6 |
+
+### Measured (before → after, 1× / 4×; `S/wp6/qa/fix2/out/`)
+
+| Check | Before | After |
+|---|---|---|
+| Habits Move down / up / Archive / Undo | 1 frame, a 60 px step | 14–16 frames, ≤ 10 px a frame (1×). On the first frame after the commit every row is where it was (both rates). |
+| Refused reorder (drag, menu) | refused order on screen, no word | the server's order, plus "Couldn’t save the order." |
+| Edge swipe: held still 1.5 s at 31 % / cancel at 43 % | goes back / goes back | springs home / springs home (a flick, a slow drag and past 35 % behave as before) |
+| Pushes: body on the first moving frame; page children's opacity on the slide | 4×: 3–8 empty frames; both rates: opacity 0, with 3–8 fades running | every frame whole; opacity 1, no fades (Reads, Settings, Training × 3) |
+| Rebuild card, 390, scrolled to the end | card top 426 over Easy pace's note (594) | note 574 above the card at 598; at rest the card sits 12 px over the scroller's bottom (320 too) |
+| Week sheet ring / adherence rows | **1** beside "Two of the 3…" / numeral **2** | **2** / none; "No of the 3" → "None of the 3" |
+| Composer chrome, two growths 150 / 90 ms apart | drops 18.8 / 12.5 px (4×: 20.7 / 16.7) | 0 |
+| Progress with Sep held | Avg 13.4, Best 25.7, aria "…67 miles in all", `4-WK AVG 1` | all "Loading", aria "…still loading", no label |
+| Close search with a query | rows +62 px on the first frame | 0 px |
+| Pick waiting / failed | 3 bars / "That’s all for today. Back tomorrow." | "Finding today’s pick…" / "Couldn’t find today’s pick. Retry" |
+| Back with a pending Training change | 20 mi, no card | 23 mi and the card; Undo changes → 20 mi |
+| 320 account row | label and email both clipped | neither clipped |
+| Onboarding chevron going back to the first question | gone in 1 frame | 7 frames of fade |
+
+### Restated
+
+**Round 1's `f-f4-push` 4× budget (first moving frame ≤ 70 ms).** Round 1 met it by sliding a bare bar and fading the body
+in, which is exactly what feel N1 rejects.
+
+Interleaved on the same machine with round 1's light sampler, 4×, three runs of three pushes each, the medians were:
+- Reads: 69, 42, 42 → 139, 135, 104 ms (before → after)
+- Settings: 58, 55, 57 → 89, 92, 88 ms
+- Training: 38, 55, 37 → 85, 86, 71 ms
+
+At 1× it is unchanged: 29–31 ms on both builds.
+
+**Where the 4× time goes** (Training push profile, unminified build, `S/wp6/qa/fix2/prof-push2.mjs`):
+- the page's own render: 6–8 ms;
+- the push's synchronous commit: `flushSync` in `nav.push` → `PushedLayer.startPush` → `width()` forcing layout, 14–19 ms
+  (request 18).
+
+**What decides now** is `g-push`:
+- the body is on the first moving frame;
+- no body fade;
+- slide frames ≤ 25 / 50 ms;
+- first moving frame, median ≤ 34 ms at 1×.
+
+At 4× the median is reported as INFO, not judged. Reads costs the most, about 60–70 ms more at 4× (its pick, quick add and five
+swipe rows); Settings and Training cost about 30 ms more.
+
+**`g-habits` at 4×.** After Undo, the write's answer re-renders every bootstrap reader, Today under the stack included. That is
+a 150–250 ms frame at 4×, and it can carry the spring most of the way in one step. So "no cut" at 4× is: the row is where it
+was on the first frame after the commit, and it moves over more than one frame.
+
+### Hand-verifiable steps (fix round 2)
+
+1. Settings › Habits: hold the grip, then choose Move down. The two rows trade places by sliding. Archive one: the rows below
+   slide up, and "Add a habit" rides with them. Undo: they slide back, and the habit fades in.
+2. With the network failing (devtools offline is not enough, the write would queue; block `PUT /api/habits/order`), drag a
+   habit. It slides back and the toast says "Couldn’t save the order."
+3. First run, "Which days can you run?": drag from the left edge to a third of the width, stop, wait a second, let go. It
+   springs back. Go back to the first question: the chevron and Skip fade with the dots.
+4. On a slow phone, push Reads, Settings and Settings › Run days. Each page slides in whole, with no empty slab and nothing
+   fading in.
+5. Settings › Training: tap + three times. The Rebuild card sits above the tab bar. Scroll to the end and Easy pace is above
+   it. Go back, come in again: the change and the card are still there. Undo changes clears them.
+6. Progress › Plan adherence: the rings have no number. Tap a week: the ring's number matches its sentence.
+7. Reads on the first open of a day: the pick's card says "Finding today’s pick…".
+
+### Requests (new in fix round 2)
+
+20. **WP2 (`api/queries.ts`, `useHabitMutations.reorder`)**: add the `onError: invalidate bootstrap` that `patch` has.
+    `reorder` writes the new order into the bootstrap cache before the request, so a refused save stays everywhere: Today's
+    orb row too. WP6 invalidates from both of its call sites meanwhile.
+21. **Contracts §A.2**: state that `nav.replace(path)` from inside a pushed page replaces that page's own entry
+    (`NavController.tsx:602`). `ReadsView` (the tab mirror) and `SettingsView` (clearing `?strava=`) rely on it.
+22. **WP1 (`PushedLayer`)**, optional: expose "this layer is at rest", a hook or a `data-` attribute. `useBelowFold` now reads
+    the layer's inline `transform` for it, which works but is an implementation detail.
+23. **WP2 (Today under a stack)**, for information: a bootstrap write re-renders Today's mounted page under any pushed page,
+    which costs a 150–250 ms frame at 4× right after Settings' habit writes and drops frames of their springs.
+
+Still standing: 16 and 17 (WP1, the quote line's lift scale and the Segmented thumb at 4×; feel N10), and 18 (the push's own
+commit, now the main share of a whole page's first frame at 4×). Requests 8, 9, 10, 11 and 15 stand as given in earlier steps.
+
+### Left as is (reasons)
+
+- **The quote line stays after it is inserted** (feel N11). `QuoteLine` is a contracts §F export shared with WP2's Close card.
+  Advancing it calls `another('quote')`, which changes the day's quote everywhere. Fading it leaves a 44 px gap, or needs the
+  composer's Save row to FLIP. Decide at integration with WP2.
+- **The fresh Progress ghost chart** (feel N11) is the EmptyState `ghost` the spec's empty state asks for ("the chart as it
+  will look"). It is drawn quiet.
+- **At 320 the chart's month labels** sit 36 px apart, so November falls under NOW.
+- **The Journal ribbon's clipped first day and the one-row Connections page**: the reasons are as in round 1.
 
 ## Fix round 1 (2026-10-25)
 
