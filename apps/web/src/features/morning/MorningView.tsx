@@ -1,4 +1,4 @@
-import { AFTER_ORDER, fmtDate, label, monthOf, routineOf, sessionStatus, shiftDays, type MorningSettings, type MorningTimeline, type RoutineKey, type Session } from '@logbook/shared';
+import { AFTER_ORDER, fmtDate, label, monthOf, routineOf, sessionStatus, shiftDays, type MorningSettings, type MorningTimeline, type RoutineKey, type Session, type Snapshot } from '@logbook/shared';
 import { Plus, SlidersHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouteParams } from '@/app/NavController';
@@ -17,10 +17,17 @@ import { Schedule, type ScheduleActions } from './Schedule';
 import { fullOrder, removal, StartEditor, StepEditor, WakeEditor } from './StepSheets';
 import './morning.css';
 
+/**
+ * A workout of the morning still to do: no mark, and not done by its evidence either (a Strava run, logged sets: what
+ * `sessionStatus` reads as done or floor, and Today's hero says `Done` or `Logged`). One rule for the menu's Skip, the late
+ * note's fixes and the rest-day item (code review 3 N7): a done session is never offered a skip or a shorter run.
+ */
+const isOpen = (snap: Snapshot, date: string) => (x: Session) => (x.kind === 'run' || x.kind === 'lift') && !x.mark && !['done', 'floor'].includes(sessionStatus(snap, date, x));
+
 /** The planned session a morning is built from, when there is one left to skip. */
-const skippable = (sessions: Session[], T: MorningTimeline) => {
+const skippable = (open: Session[], T: MorningTimeline) => {
   const kind = T.day.mode === 'run' ? 'run' : T.day.mode === 'gym' ? 'lift' : T.day.plan.mode === 'run' ? 'run' : T.day.plan.mode === 'gym' ? 'lift' : null;
-  return kind ? (sessions.find((s) => s.kind === kind && !s.mark) ?? null) : null;
+  return kind ? (open.find((s) => s.kind === kind) ?? null) : null;
 };
 
 /** The bar's title: `This morning` on today, the day's own morning otherwise (the eyebrow carries the date). */
@@ -165,12 +172,16 @@ export default function MorningView() {
 
   const actions = ((): ScheduleActions | undefined => {
     if (!interactive) return undefined;
-    const s = skippable(sessions, T0);
-    // the session the morning's workout is (spec §4.3: the session is the run), skipped or not
+    // the day's workouts still to do (isOpen: no mark and not done by a Strava run or logged sets), and the ones skipped from
+    // it (what "Back to the plan" un-skips)
+    const open = sessions.filter(isOpen(log.snap, date));
+    const s = skippable(open, T0);
+    // the session the morning's workout is (spec §4.3: the session is the run), skipped, done or not
     const workout = s ?? sessions.find((x) => x.kind === 'run') ?? sessions.find((x) => x.kind === 'lift') ?? null;
-    const run = sessions.find((x) => x.kind === 'run' && !x.mark) ?? null;
-    // the day's workouts still to do, and the ones skipped from it (what "Back to the plan" un-skips)
-    const open = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && !x.mark);
+    // the run the late note's `Run 5 mi` and `Skip the run` change: only one still to run (N7: a run Strava has matched is done)
+    const run = open.find((x) => x.kind === 'run') ?? null;
+    // the morning's workout already done (marked, or by a Strava run or logged sets): the late note keeps no fix
+    const done = !s && !!workout && ['done', 'floor'].includes(sessionStatus(log.snap, date, workout));
     const skipped = sessions.filter((x) => (x.kind === 'run' || x.kind === 'lift') && x.mark === 'skip');
     const remark = (list: Session[], m: Session['mark']) => list.forEach((x) => mark.mutate({ session: x, mark: m }));
     const marked = (list: Session[], m: Session['mark']) => (now: Now) => list.every((x) => now.sessions.find((y) => y.id === x.id)?.mark === m);
@@ -245,7 +256,7 @@ export default function MorningView() {
         if (skipped.length) remark(skipped, null);
       },
       late: {
-        wake: (wake) => setDay.mutate({ date, day: wake === T0.settings.wake ? null : { wake } }),
+        wake: done ? null : (wake) => setDay.mutate({ date, day: wake === T0.settings.wake ? null : { wake } }),
         miles: run ? (miles) => upsert.mutate({ id: run.id, date: run.date, kind: run.kind, type: run.type, title: run.title, details: run.details, miles, minutes: run.minutes }) : null,
         skipRun: run ? () => skipOne(run) : null,
       },
@@ -268,7 +279,7 @@ export default function MorningView() {
       ) : (
         <>
           <NowCard T={T} date={date} now={now} rel={rel} />
-          <Schedule T={T} rows={rows} rel={rel} now={now} moved={moved} actions={actions} wake={{ onStep, onCommit, onDragging: setAlarmDragging, dragging: alarmDragging }} />
+          <Schedule T={T} rows={rows} rel={rel} now={now} moved={moved} actions={actions} wake={{ onStep, onCommit, onDragging: setAlarmDragging, dragging: alarmDragging, held: !!drag?.live }} />
           {actions ? (
             <Pressable className="m-add" press="dim" onPress={actions.addStep}>
               <Plus size={22} aria-hidden="true" />

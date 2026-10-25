@@ -1,4 +1,4 @@
-import { buildMorning, clock, durationWords, monthOf, normalizeMorningSettings, parsePace, routineOf, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
+import { buildMorning, clock, durationWords, fmtDate, monthOf, normalizeMorningSettings, parsePace, routineOf, shiftDays, type MorningDay, type MorningMode, type MorningSettings } from '@logbook/shared';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBootstrap, useMonths, useMorningMutations } from '@/api/queries';
@@ -101,7 +101,7 @@ const FieldRow = ({ f, s, onChange, open, onToggle, highlight, focus }: { f: Fie
  * when the leave time moved it) in one PATCH. `focus: 'leave'` (the Leave row) opens on the leave field with its input
  * focused once the sheet has risen.
  */
-export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningDay; settings: MorningSettings; focus?: string }) => {
+export const RoutineEditor = ({ day, settings: initial, focus, dayWord = 'This morning' }: { day: MorningDay; settings: MorningSettings; focus?: string; /** The morning's word: `This morning`, `Tomorrow`, `Yesterday`, `Tuesday`. */ dayWord?: string }) => {
   const sheet = useSheet();
   const { settingsWhen } = useMorningMutations();
   const closed = useClosed();
@@ -121,37 +121,49 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
   const dirty = JSON.stringify(s) !== JSON.stringify(saved);
   useEffect(() => sheet.update({ sticky: dirty }), [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // the morning this sheet was opened for keeps its own alarm (code review 1 F1): the preview and the Leave field are that
-  // morning's, so the field reads what the Leave row read; a morning on the routine's alarm follows the Usual alarm row
+  // the morning this sheet was opened for keeps its own alarm (code review 1 F1): previewed as itself, on that alarm, and named
+  // by its word (`This morning`, `Tomorrow`, `Tuesday`: code review 3 N8). The other kinds of morning the chips preview are
+  // the routine's own, on the usual alarm
   const wakeOf = (x: MorningSettings) => (day.own ? day.wake : x.wake);
+  const total = (x: MorningSettings) => routineOf(x).reduce((m, r) => m + r.mins, 0);
+  const kindWord = (m: MorningMode) => (m === 'run' ? 'Run mornings' : m === 'gym' ? 'Gym mornings' : 'Rest mornings');
   const T = useMemo(() => {
-    const d: MorningDay = { ...day, mode: preview, wake: wakeOf(s), type: preview === day.mode ? day.type : preview === 'run' ? 'Easy' : preview === 'gym' ? 'Strength' : 'Rest', minutes: preview === 'gym' && day.mode !== 'gym' ? s.gym.length : day.minutes };
+    const d: MorningDay = { ...day, mode: preview, wake: preview === day.mode ? wakeOf(s) : s.wake, own: preview === day.mode && day.own, type: preview === day.mode ? day.type : preview === 'run' ? 'Easy' : preview === 'gym' ? 'Strength' : 'Rest', minutes: preview === 'gym' && day.mode !== 'gym' ? s.gym.length : day.minutes };
     return buildMorning(d, s);
   }, [day, preview, s]); // eslint-disable-line react-hooks/exhaustive-deps
+  // this morning as it is (its own alarm, its workout), live with the edits: what the Leave row on the page reads
+  const mine = useMemo(() => buildMorning({ ...day, wake: wakeOf(s) }, s), [day, s]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the same workout on the usual alarm: a morning like this one that keeps the routine's alarm
+  const usualLeave = buildMorning({ ...day, wake: s.wake, own: false }, s).leave;
 
-  // the Leave row's field: the time you leave on this morning; changing it sets when the routine starts (at a set time)
-  // its floor is the routine straight after the workout: earlier than that the morning cannot leave, so `−` stops there
-  const earliest = useMemo(() => buildMorning({ ...day, wake: wakeOf(s) }, { ...s, after: { ...s.after, showerMode: 'after' } }).leave, [day, s]); // eslint-disable-line react-hooks/exhaustive-deps
-  const leave = useMemo<Field>(
-    () => ({
-      id: 'leave',
-      label: 'Leave for work',
-      // said from this morning (feel review 2 R2-2): a run that comes back after the set start pushes the routine to its return
-      sub: s.after.showerMode !== 'fixed' ? 'Sets when the routine starts' : T.late ? `Starts after your ${day.mode === 'gym' ? 'workout' : 'run'}, ${short(T.back)}` : `The routine starts at ${short(s.after.showerAt)}`,
-      get: (x) => buildMorning({ ...day, wake: wakeOf(x) }, x).leave,
-      put: (x, v) => ({ ...x, after: { ...x.after, showerMode: 'fixed', showerAt: Math.max(WAKE_MIN, v - routineOf(x).reduce((m, r) => m + r.mins, 0)) } }),
-      step: 5,
-      min: Math.max(WAKE_MIN, earliest),
-      max: LEAVE_MAX,
-      fmt: short,
-      parse: parseWake,
-    }),
-    [day, s.after.showerMode, s.after.showerAt, earliest, T.late, T.back], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-  // a morning with its own alarm previews that alarm, so the Usual alarm row says what it moves: the other mornings' leave
-  // (feel review 2 R2-2), live as it steps
-  const usualLeave = day.own ? buildMorning({ ...day, wake: s.wake, own: false }, s).leave : null;
-  const usual = useMemo<Field>(() => (usualLeave == null ? FIELDS.wake! : { ...FIELDS.wake!, sub: `Other mornings: leave ${short(usualLeave)}` }), [usualLeave]);
+  // the Leave field is every morning's (feel review 3 R3-2): the routine's set start plus its steps, which every morning on
+  // time leaves at, whatever this one's alarm or run (a fixed start writes every morning). When this morning leaves at
+  // another time, the sub says so and why; the field neither reads nor floors at it. Routine "when I'm back": the field
+  // reads a morning like this one on the usual alarm, and a change sets the routine to a fixed start
+  const leaveOf = (x: MorningSettings) => (x.after.showerMode === 'fixed' ? x.after.showerAt + total(x) : buildMorning({ ...day, wake: x.wake, own: false }, x).leave);
+  const leaveNow = leaveOf(s);
+  const leaveSub =
+    mine.leave !== leaveNow
+      ? `${dayWord}: ${short(mine.leave)}, ${day.own && usualLeave !== mine.leave ? `on its own alarm ${short(day.wake)}` : day.mode === 'rest' ? 'after waking' : `after the ${day.mode === 'gym' ? 'workout' : 'run'}`}`
+      : s.after.showerMode !== 'fixed'
+        ? 'Sets when the routine starts'
+        : `The routine starts at ${short(s.after.showerAt)}`;
+  const leave: Field = {
+    id: 'leave',
+    label: 'Leave for work',
+    sub: leaveSub,
+    get: leaveOf,
+    put: (x, v) => ({ ...x, after: { ...x.after, showerMode: 'fixed', showerAt: Math.max(WAKE_MIN, v - total(x)) } }),
+    step: 5,
+    min: WAKE_MIN + total(s),
+    max: LEAVE_MAX,
+    fmt: short,
+    parse: parseWake,
+  };
+  // a morning with its own alarm keeps it, so the Usual alarm row says what it moves: mornings like this one on the usual
+  // alarm (feel review 2 R2-2), named as such rather than as every other morning (code review 3 N8), live as it steps
+  const usualSub = day.own ? `${kindWord(day.mode)}${day.mode === 'rest' ? '' : ' like this one'}: leave ${short(usualLeave)}` : null;
+  const usual = useMemo<Field>(() => (usualSub == null ? FIELDS.wake! : { ...FIELDS.wake!, sub: usualSub }), [usualSub]);
   const row = (id: string) => {
     const f = id === 'leave' ? leave : id === 'wake' ? usual : FIELDS[id]!;
     return <FieldRow key={id} f={f} s={s} highlight={focused === id} focus={focused === id} open={open === id} onToggle={() => setOpen((o) => (o === id ? null : id))} onChange={(v) => setS((cur) => f.put(cur, v))} />;
@@ -180,8 +192,9 @@ export const RoutineEditor = ({ day, settings: initial, focus }: { day: MorningD
         </div>
         <MiniTimeline stops={stopsOf(T)} now={-1} label={`Preview: ${stopsOf(T).map((x) => `${x.label} ${short(x.at)}`).join(', ')}`} />
         <p className="rt-verdict">
-          {day.own ? `This morning, its own alarm ${short(day.wake)}: ` : ''}
-          {durationWords(T.leave - T.day.wake)} from alarm to door.{T.late ? ` ${T.late} min late for the routine.` : ''}
+          {preview !== day.mode ? `${kindWord(preview)}: ` : day.own ? `${dayWord}, its own alarm ${short(day.wake)}: ` : ''}
+          {/* leaving for work, not the run's door (the preview's DOOR is that one: feel review 3 R3-4) */}
+          {durationWords(T.leave - T.day.wake)} from alarm to leaving.{T.late ? ` ${T.late} min late for the routine.` : ''}
         </p>
       </div>
 
@@ -248,6 +261,7 @@ export const useOpenRoutineEditor = (): ((focus?: 'leave') => void) => {
     const snap = buildSnapshot(bundles, today, boot.data?.morningSettings?.run?.pace ?? null);
     const st = boot.data?.morningSettings ?? ROUTINE_DEFAULTS;
     const T = morningOf(snap.sessionsOn(date), snap.morningOverride(date), st);
-    sheet.open({ eyebrow: 'Every morning', title: 'Timings', detent: 'large', body: <RoutineEditor day={T.day} settings={T.settings} focus={focus} /> });
+    const dayWord = date === today ? 'This morning' : date === shiftDays(today, 1) ? 'Tomorrow' : date === shiftDays(today, -1) ? 'Yesterday' : fmtDate('dowLong', date);
+    sheet.open({ eyebrow: 'Every morning', title: 'Timings', detent: 'large', body: <RoutineEditor day={T.day} settings={T.settings} focus={focus} dayWord={dayWord} /> });
   };
 };

@@ -515,3 +515,90 @@ the reviewed build 45, 38, 35, 51, 40 ms. Load, not this change.
 - **WP1**: R2-5 (the push at 4×) and R2-8 (a lifted row following the finger 1:1 while the hold menu is up needs the
   menu's pointer stream from `Pressable`) stand as filed.
 - **WP2**: R2-4 (memoise the day pages) stands; R2-7's blink is the length of that commit frame.
+
+## Fix round 3 (code review 3 N7, N8; feel review 3 R3-1 to R3-4)
+
+The finding-by-finding record is `S/wp3/fix-3.md`. New check: `S/wp3/qa/t36-fix3.mjs` (12 checks, in the runner at both
+rates), run first on the reviewed build (`ce90ff5`, served from `S/wp3/feel-dist-3` on 8821 by `S/wp3/fix3/serve-before.sh`):
+2/12 at 1×, 2/12 at 4× (the two that pass are the 06:30 guard N7d and the console). After: 12/12 at 1× and at 4×.
+
+The real date in New York is now Sun Oct 25 (a lift alone in the seed). The harness takes `DAY=YYYY-MM-DD` (and `AT`,
+default 13:30) and shifts the page's `Date` only; every run in this round is `DAY=2026-10-24`, the Saturday the battery last
+passed on (Threshold 6 + Strength, alarm 7:15, routine at a set 8:40, leave 9:30). WP1's battery copy got the same switch.
+
+### Files changed, and why
+
+| File | Change | Finding |
+|---|---|---|
+| `MorningView.tsx` | One rule for a workout still to do, `isOpen`: run or lift, no mark, and `sessionStatus` neither `done` nor `floor` (a Strava run, logged sets). It feeds the menu's Skip, the late note's `Run N mi` / `Skip the run`, and the rest-day item. The late note's `Wake` fix is null once the morning's workout is done. `held` (an alarm drag keeping the row set) goes to the schedule | N7, R3-1 |
+| `Schedule.tsx` | `LateBody`: the fixes show on today only before the time back (all three at 08:40 with back 8:58, as §4.4 #9 has them); with none left the note is one centred 60 row. While `held`, the row keeps the height it had when the drag began (read once, from the last commit, in the render that starts the hold) as `min-height`; the "in time" state has no placeholder chip | N7, R3-1 |
+| `morning.css` | The `grid-row: 1 / 3` centring of the held row is gone; the "in time" and the no-fix late rows centre their line with `align-items: center` | R3-1, N7 |
+| `RoutineEditor.tsx` | The Leave field is every morning's: the routine's set start plus its steps (or, routine "when I'm back", a morning like this one on the usual alarm), floored at the earliest start, not at this morning's leave. Its sub says when this morning leaves at another time and why (`This morning: 10:05, on its own alarm 8:00`). `dayWord` (new optional prop; `useOpenRoutineEditor`'s signature is unchanged) names the morning in the verdict. `Usual alarm` on an own-alarm morning reads `<Kind> mornings like this one: leave …`. The preview chips preview the routine's own run / gym / rest morning on the usual alarm (`Rest mornings: …`); the Leave field does not read the preview. The verdict says `from alarm to leaving` | R3-2, N8, R3-4 |
+
+### Battery after the fix (`S/wp3/qa/results/TABLE-fix3.md`, `results/run-fix3.log`, `DAY=2026-10-24`)
+
+**547 pass, 3 fail, 0 missing** at 1× and 4×: everything of round 2 plus `t36-fix3` 12/12 at each rate. The three fails are
+4× push timings, the open WP1 request (R2-5, R3-3): t06 22a (This morning 176 ms against Settings' 101, the bound is Settings'
++ 3 frames), t33 FL4a and FL4c (cold push first frame and rest; Settings' own medians in the same run were 186 and 636 ms).
+FL4b, the one 4× fail of round 2, passed in this run. A control, interleaved on the same machine twice (`S/wp3/fix3/ctl-push.txt`):
+the reviewed build failed the same checks in the same runs (run 1: 22a 175 ms against Settings' 110, FL4b and FL4c fail; run 2:
+22a, FL4a, FL4c pass, FL4b fails) and this build matched it (run 1: 22a 162 against 97, FL4a, FL4b, FL4c fail; run 2: the same
+three pass, FL4b fails). Load average 2.5 to 3.2 with other teams' batteries running; not this change.
+
+| Finding | Check | Before (`ce90ff5`, 1× / 4×) | After 1× | After 4× |
+|---|---|---|---|---|
+| N7 | t36 N7a, lift with 3 logged sets | `["Skip Strength","Edit"]` | `["Edit"]` | same |
+| N7 | t36 N7b, run matched by a 6 mi activity, 08:00 | chips `Wake 7:25 · Run 5 mi · Skip the run`, menu `Skip Threshold 6 · Edit` | chips none, menu `Edit` | same |
+| N7 | t36 N7c, open run at 09:00 (back 8:45) | the three chips | none | none |
+| R3-1 | t36 R3-1 at 390 / 320 | held row 96 → 64 / 142 → 64; Shower 423 → 391 / 469 → 391 under the finger | 96 and 423 on all 83 frames / 142 and 469 on all 80 | same |
+| R3-2 | t36 R3-2, R3-2b, own alarm 8:00 | field `10:05`, `−` disabled, `+` → `showerAt 560`; every morning then 10:10 | field `9:30`, sub `This morning: 10:05, on its own alarm 8:00`, `−` live, `+` → `showerAt 525`; this morning 10:05, the next 9:35 | same |
+| N8 | t36 N8a, N8b, tomorrow with its own alarm | `This morning, its own alarm 8:00`; `Other mornings: leave 9:30`; Rest day moves the Leave sub | `Tomorrow, its own alarm 8:00`; `Gym mornings like this one: leave 9:30`; the chips leave the field and its sub alone | same |
+| R3-4 | t36 R3-4 | `from alarm to door` | `from alarm to leaving` | same |
+
+Restated (the fix changes what they measure; `S/wp3/fix-3.md` has the detail): t32 F5 and t35 R2-3 open the late morning
+at `?at=06:30` (they ran on the afternoon clock, after the time back, where the fixes now go); t30 F1a accepts the page's
+leave in the Leave field's sub on an own-alarm morning, and F1c (a step on the field moves the page's Leave) runs on a morning
+on the routine's alarm; t35 R2-2 reads `<Kind> mornings like this one` for `Other mornings`.
+
+Gates (in the battery): tsc 0 (shared, api, web); shared 93, api 62, web 91 passed; web build ok; WP1's grep gates 23/23 +
+48 unit tests.
+
+After the battery, one CSS-only change: a late note with no fix left (`is-quiet`) centres its line (it sat at the top of its
+60 row in the first after-screenshot). On that final build the late-row scripts (t09, t20, t31, t32, t35, t36), the push
+scripts (t06, t33) and the gates were rerun at both rates: the final table (`results/TABLE-fix3-final.md`) is **549 pass,
+1 fail, 0 missing**, the one fail FL4b at 4× (`morning [50,167,200]`, Settings `[150,167,117]` in the same run), the same one
+open WP1 check as round 2.
+
+WP1's battery on this build (`S/wp3/wp1qa/`, port 8820, `DAY=2026-10-24`, `results-fix3.txt`): 600/606 at 1×, 589/607 at 4×
+(round 2: 602/606, 593/607). Every failure is on WP1's gallery, sheet lab, pager or Plan stubs (t01 1.4x, t02 interim, t12
+12a/12g, t13 15c, t14 14a/14c, r1-sheet f5, r1-press u4, r2-layer c2-*, r2-sheet u1, r3-sheet u3-5, r4-sheet k4-1, r4-nav
+c4-2a); none mounts This morning, and this round changed no file outside `features/morning`. The eight scripts whose failures
+differ from round 2 were rerun interleaved against the reviewed build at 1× and 4× (`S/wp3/fix3/wp1-ctl.txt`): the same kind of
+fails on both, moving between ids from run to run (this build 9 fails in 16 runs, the reviewed build 11; e.g. t14 at 1×:
+14a + 14c here, 14c there; t02: 1 here, 2–3 there; r2-layer 4×: 1 here, 2 there). Load average 2.5 to 3.2 throughout.
+
+Screenshots (looked at): `S/wp3/qa/shots/fix3-{before,after}-{390,320}-{late,held,late-0900,late-done,timings}.png`;
+`fix3-r31-held-{390,320}-{1,4}x.png`, `fix3-n7b-*`, `fix3-n8-*`. scrollWidth 390 / 320, nothing cut in the Timings subs,
+console clean.
+
+### Hand-verifiable steps (this round)
+
+1. Saturday with its own alarm 7:30 (5 min late): drag the stamp up 3 steps and hold. The late row reads `Back 8:30 · in time`
+   and keeps its height; nothing under it moves until you let go. The same at 320 wide.
+2. Log three sets for a gym morning's lift (no mark), hold the workout row: `Edit` only.
+3. A late run morning whose run Strava has matched: the late note reads `Back 8:45 · 5 min late`, one row, no chips; the run
+   row's menu is `Edit` only. A late morning whose run is still open, after the time back: the same note, no chips. Before the
+   alarm: `Wake 7:25 · Run 5 mi · Skip the run`.
+4. Give the day its own alarm 8:00 and tap `Leave for work`: the field reads `9:30`, its sub `This morning: 10:05, on its own
+   alarm 8:00`; `−` goes below 9:30; `+` and Save leave this morning at 10:05 and move the next morning to 9:35.
+5. Open Timings from tomorrow's page (its own alarm 8:00): the verdict starts `Tomorrow, its own alarm 8:00:` and ends
+   `from alarm to leaving.`; `Usual alarm` reads `Gym mornings like this one: leave 9:30`; `Rest day` previews `Rest mornings:
+   2 h 15 min from alarm to leaving.` and the Leave field does not change.
+
+### Requests (new in this round; earlier ones stand)
+
+- **WP1**: R3-3 is R2-5 restated (the cold push at 4× starts, then stalls): the click task's `width()` and `focus`, as filed.
+- **Whoever owns `packages/shared/src/phase.test.ts`**: line 115 is titled "day, no door" and asserts `phase: 'rest'` (code
+  review 3's process note; not a WP3 file).
+- **Spec owner**: the late note now offers its fixes only while they can change the morning (before the time back, and for a
+  run still to do). §4.1 does not say when the fixes go; please confirm.

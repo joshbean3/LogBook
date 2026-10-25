@@ -14,8 +14,8 @@ import { short, timeState, whenSettled, type SchedRow } from './model';
 
 /** The late note's three fixes (spec §4.1): the alarm is the morning's, the miles and the skip are the session's. */
 export interface LateFixes {
-  /** `{ wake }` for this date. */
-  wake: (wake: number) => void;
+  /** `{ wake }` for this date (null once the morning's workout is done: an earlier alarm changes nothing then, N7). */
+  wake: ((wake: number) => void) | null;
   /** A session upsert with these miles (null when the day has no run session). */
   miles: ((miles: number) => void) | null;
   /** The run session marked 'skip' (null when there is none). */
@@ -133,32 +133,48 @@ const RowBody = ({ r, time, moved, swap }: { r: SchedRow; time: ReactNode; moved
   );
 };
 
-/** The late note as one row under the run (spec §4.1): by how much, and the fixes as one-tap chips. */
-const LateBody = ({ T, fix, interactive }: { T: MorningTimeline; fix?: LateFixes; interactive: boolean }) => {
+/**
+ * The late note as one row under the run (spec §4.1): by how much, and the fixes as one-tap chips. The fixes are offered
+ * while they can still change the morning (code review 3 N7): on today, until the time back (build plan §4.4 #9 keeps all
+ * three at 08:40 on the run, back 8:58); the miles and the skip only for a run still to do (MorningView passes neither for a
+ * run Strava has matched or one marked). `held`: an alarm drag's finger is down (the row set is kept,
+ * FL1), and the row keeps the height it had when the drag began, whatever it says meanwhile (feel review 3 R3-1).
+ */
+const LateBody = ({ T, fix, interactive, now, rel, held }: { T: MorningTimeline; fix?: LateFixes; interactive: boolean; now: number; rel: ScheduleProps['rel']; held: boolean }) => {
+  const box = useRef<HTMLDivElement>(null);
+  const hold = useRef<number | null>(null);
+  // read in the render that starts the hold: the DOM is still the last commit's, the note as the drag found it. One read a
+  // drag (the page has just laid out for the pointer move); released, the row lays out as itself again
+  if (!held) hold.current = null;
+  else if (hold.current == null && box.current) hold.current = box.current.offsetHeight;
+  const style = hold.current != null ? { minHeight: hold.current } : undefined;
   // an alarm drag that began late and has come back in time keeps the row (the row set holds under the finger, FL1): it says
-  // so, its chips held in place unseen until the release takes the row away
+  // so, neutral (feel review 2 R2-3), its one line in the middle of the height it holds
   if (!T.late || !T.fix)
     return (
-      <div className="sch-hit late-hit is-clear" role="note">
+      <div ref={box} className="sch-hit late-hit is-clear" role="note" style={style}>
         <span className="sch-time-slot" aria-hidden="true" />
-        {/* in time: no warning (feel review 2 R2-3); the one line sits in the middle of the held height */}
         <span className="sch-ico" aria-hidden="true">
           <CircleCheck size={18} />
         </span>
         <span className="sch-main">
           <span className="sch-name late-text is-clear">Back {short(T.back)} · in time</span>
         </span>
-        {interactive && fix ? (
-          <span className="late-fixes is-held" aria-hidden="true">
-            <ChipButton tabIndex={-1}>Wake 0:00</ChipButton>
-          </span>
-        ) : null}
       </div>
     );
   const miles = T.fix.maxMiles != null ? Math.floor(T.fix.maxMiles * 2) / 2 : null;
   const wake = Math.floor(T.fix.latestWake / 5) * 5;
+  // back home (or a run already done): the morning is what it is, and the note says so without offering to change it
+  const live = interactive && !!fix && (rel !== 'today' || now < T.back);
+  const chips = live
+    ? [
+        fix.wake ? <ChipButton key="w" onClick={() => fix.wake!(wake)}>Wake {short(wake)}</ChipButton> : null,
+        miles != null && miles >= 0.5 && fix.miles ? <ChipButton key="m" onClick={() => fix.miles!(miles)}>Run {num(miles)} mi</ChipButton> : null,
+        fix.skipRun ? <ChipButton key="s" onClick={fix.skipRun}>Skip the run</ChipButton> : null,
+      ].filter(Boolean)
+    : [];
   return (
-    <div className="sch-hit late-hit" role="note">
+    <div ref={box} className={`sch-hit late-hit${chips.length ? '' : ' is-quiet'}`} role="note" style={style}>
       <span className="sch-time-slot" aria-hidden="true" />
       <span className="sch-ico" aria-hidden="true">
         <CircleAlert size={18} />
@@ -169,14 +185,8 @@ const LateBody = ({ T, fix, interactive }: { T: MorningTimeline; fix?: LateFixes
           Back {short(T.back)} · {T.late} min late
         </span>
       </span>
-      {interactive && fix ? (
-        // the fixes take the row's whole width under the note (from the time column), so three chips fit one line at 390
-        <span className="late-fixes">
-          <ChipButton onClick={() => fix.wake(wake)}>Wake {short(wake)}</ChipButton>
-          {miles != null && miles >= 0.5 && fix.miles ? <ChipButton onClick={() => fix.miles!(miles)}>Run {num(miles)} mi</ChipButton> : null}
-          {fix.skipRun ? <ChipButton onClick={fix.skipRun}>Skip the run</ChipButton> : null}
-        </span>
-      ) : null}
+      {/* the fixes take the row's whole width under the note (from the time column), so three chips fit one line at 390 */}
+      {chips.length ? <span className="late-fixes">{chips}</span> : null}
     </div>
   );
 };
@@ -191,7 +201,7 @@ export interface ScheduleProps {
   /** Taps, holds and drags; absent on a past morning (read-only). */
   actions?: ScheduleActions;
   /** The alarm handle's callbacks (the Wake row's stamp). */
-  wake: Pick<AlarmHandleProps, 'onStep' | 'onCommit' | 'onDragging'> & { dragging: boolean };
+  wake: Pick<AlarmHandleProps, 'onStep' | 'onCommit' | 'onDragging'> & { dragging: boolean; /** An alarm drag (finger or arrow keys) is keeping the row set. */ held?: boolean };
 }
 
 /**
@@ -423,7 +433,7 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
     const time = short(r.at);
     const isMoved = moved.has(r.id);
     let inner: ReactNode;
-    if (r.kind === 'late') inner = <LateBody T={T} fix={actions?.late} interactive={interactive} />;
+    if (r.kind === 'late') inner = <LateBody T={T} fix={actions?.late} interactive={interactive} now={now} rel={rel} held={!!wake.held} />;
     else if (!actions)
       inner = (
         <>
