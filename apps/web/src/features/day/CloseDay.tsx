@@ -4,26 +4,29 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMorningMutations, usePick, useSessionMutations, useTodos } from '@/api/queries';
 import { WORD_MAX } from '@/lib/gesture';
 import { revealField } from '@/lib/keyboard';
 import { crossfade } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
+import { useToast } from '@/ui/Toast';
 import { Ticker } from '@/ui/Ticker';
 import { useFirstToday } from '@/ui/useFirstToday';
-import { getDraft, subscribeDrafts } from '../journal/drafts';
 import { addToDraft, Composer } from '../journal/JournalDaySection';
 import type { Log } from '../log/useLog';
 import { morningOf } from '../morning/model';
 import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
+import { useHabitsLit } from '../habits/OrbRow';
 import { groupsOn } from '../todos/groups';
 import { shortClock } from './dayWords';
 import { floorShort } from './faces';
 import { HoldRing, settleAt, settleVelAt } from './HoldRing';
+import { watchJournalAdd } from './journalGuard';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
-import { useReleaseTap } from './release';
+import { afterPaint, useReleaseTap } from './release';
 import { markSuccess } from './useStravaLanding';
 import { saveFocus, useFocus } from './WordSheet';
 
@@ -128,7 +131,7 @@ const RunRow = ({ date, log, p, onOpen, still }: { date: ISODate; log: Log; p: P
           done={done}
           onComplete={() => {
             markSuccess(s.id);
-            mark.mutate({ session: s, mark: 'done' });
+            return afterPaint(() => mark.mutateAsync({ session: s, mark: 'done' }));
           }}
           onTap={onOpen}
         />
@@ -148,7 +151,9 @@ const timeOf = (iso: string) => {
  * (`scaleY`, its radius corrected), its rows counter-scaled so no text stretches, the rows after the box and every section
  * below the hero carried with the card's bottom edge; one `springs.settle` value then releases them together (integrated on
  * the frames' own clock, as the landing's FLIP is) and the inline styles clear on its completion frame. The card carries
- * `data-layout-exception` while it moves. Returns a cleanup that stops it.
+ * `data-layout-exception` while it moves. The box itself is the one part whose height changes: it is clipped to its own
+ * interpolated height (scaled to it, its layers counter-scaled, `clip-path: inset(0)`), so a composer coming back is revealed
+ * as the card opens and never drawn over the Tomorrow group below it (feel review 2 #3). Returns a cleanup that stops it.
  */
 const flipCard = (card: HTMLElement, box: HTMLElement, from: number): (() => void) => {
   const to = card.offsetHeight;
@@ -161,8 +166,11 @@ const flipCard = (card: HTMLElement, box: HTMLElement, from: number): (() => voi
   const top = card.getBoundingClientRect().top;
   const tops = kids.map((k) => k.getBoundingClientRect().top - top);
   const r = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 20;
+  const boxH = box.offsetHeight || 1;
+  const layers = [...box.children].filter((k): k is HTMLElement => k instanceof HTMLElement);
   card.setAttribute('data-layout-exception', '');
-  for (const k of [card, ...kids]) k.style.transition = 'none';
+  for (const k of [card, ...kids, ...layers]) k.style.transition = 'none';
+  box.style.clipPath = 'inset(0)';
   const write = (p: number) => {
     const v = from + ((to - from) * p) / 1000;
     const sc = v / to;
@@ -171,17 +179,29 @@ const flipCard = (card: HTMLElement, box: HTMLElement, from: number): (() => voi
     card.style.transform = `scaleY(${sc})`;
     card.style.borderRadius = `${r}px / ${r / sc}px`;
     kids.forEach((k, i) => {
-      k.style.transformOrigin = `50% ${-tops[i]!}px`;
+      const top = tops[i]!;
+      k.style.transformOrigin = `50% ${-top}px`;
+      if (k === box) {
+        // on screen the box is its old height plus what the card has opened so far (nb of its new height), its top in place
+        const nb = Math.max(0.01, (boxH + d) / boxH);
+        k.style.transform = `translateY(${(top * (1 - nb)) / sc}px) scaleY(${nb / sc})`;
+        for (const l of layers) {
+          l.style.transformOrigin = '50% 0';
+          l.style.transform = `scaleY(${1 / nb})`;
+        }
+        return;
+      }
       k.style.transform = `${after.has(k) ? `translateY(${d / sc}px) ` : ''}scaleY(${1 / sc})`;
     });
     for (const n of below) n.style.translate = `0 ${d}px`;
   };
   const clear = () => {
-    for (const k of [card, ...kids]) {
+    for (const k of [card, ...kids, ...layers]) {
       k.style.transform = '';
       k.style.transformOrigin = '';
       k.style.transition = '';
     }
+    box.style.clipPath = '';
     card.style.borderRadius = '';
     for (const n of below) n.style.translate = '';
     card.removeAttribute('data-layout-exception');
@@ -216,29 +236,30 @@ const FIRST_FRAME = 16.7 / CROSSFADE_MS;
  * The composer's box (§5 steps 3–4): the quote line as the prompt, the Journal's composer, Save. After Save the entry takes
  * the field's place in the same box (a 150 ms crossfade, the box holding the composer's height) and the Save slot becomes
  * `Add to it`; then the box takes the entry's height and what follows moves up by FLIP (`flipCard`). `Add to it` brings the
- * composer back the same way. A Save the server refuses (the Composer puts the words back in the day's draft) brings the
- * field back with them and the title as it was (code review 1 #1).
+ * composer back the same way. A Save the server refuses brings the field back with the words and the title as it was, however
+ * late the refusal comes (`watchJournalAdd`: the Composer that sent it has usually left by then; code review 2 #1).
  */
 const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log; onSaved: () => void; onRefused: () => void }) => {
   const reduce = useReducedMotion() ?? false;
+  const qc = useQueryClient();
+  const toast = useToast();
   const logged = log.snap.journalOn(date);
   const [writing, setWriting] = useState(logged.length === 0);
   // the words as they were saved, shown at once in the entry's place until the month carries the entry (the journal's write
   // re-renders every page; the swap renders first, on its own)
-  const typed = useRef('');
   const [justSaved, setJustSaved] = useState<{ text: string; at: string } | null>(null);
-  const saved = useRef<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  // how the last Save was pressed: a keyboard or VoiceOver Save keeps its place (the focus goes to `Add to it`, and back to
+  // the field when the Save is refused); a touch Save puts the keyboard away and moves no focus (code review 2 #5)
+  const via = useRef<'pointer' | 'other'>('other');
+  const focusTo = useRef<'addto' | 'field' | null>(null);
   const refused = useRef(() => undefined as void);
-  useEffect(() => subscribeDrafts(() => {
-    const v = getDraft(date).trim();
-    // the Composer's onError puts the refused words back into the draft: the entry was never saved
-    if (saved.current && v === saved.current) {
-      saved.current = null;
-      refused.current();
-      return;
-    }
-    if (v) typed.current = v;
-  }), [date]);
   const entries = justSaved && !logged.some((e) => e.text.trim() === justSaved.text) ? [{ id: 'just-saved', text: justSaved.text, createdAt: justSaved.at }, ...logged] : logged;
   const [lock, setLock] = useState(0);
   const box = useRef<HTMLDivElement>(null);
@@ -258,9 +279,12 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
     setWriting(to);
   };
   refused.current = () => {
+    if (!alive.current) return;
+    // a keyboard user whose focus we moved to `Add to it` gets the field back
+    if (readEl.current?.contains(document.activeElement)) focusTo.current = 'field';
     setJustSaved(null);
     onRefused();
-    swap(true);
+    if (!writing) swap(true);
   };
   const first = useRef(true);
   const flip = useRef<(() => void) | null>(null);
@@ -273,6 +297,14 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
     const inEl = writing ? writeEl.current : readEl.current;
     const outEl = writing ? readEl.current : writeEl.current;
     const ms = CROSSFADE_MS;
+    // a swap back before the last one ended (a refusal inside the crossfade) reuses the leaving layer: its forwards-filled
+    // fade-out would outlast the new fade-in and hold it at 0 (code review 2 #1)
+    for (const el of [inEl, outEl]) for (const a of el?.getAnimations() ?? []) a.cancel();
+    // the focus of a keyboard Save: `Add to it` once the entry is in; the field again when the Save was refused
+    const to = focusTo.current;
+    focusTo.current = null;
+    if (to === 'addto') readEl.current?.querySelector<HTMLElement>('.cd-addto')?.focus({ preventScroll: true });
+    else if (to === 'field') field.current?.focus({ preventScroll: true });
     inEl?.animate([{ opacity: Math.min(1, FIRST_FRAME) }, { opacity: 1 }], { duration: ms, easing: 'linear', fill: 'backwards' });
     const out = outEl?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: 'linear', fill: 'forwards' });
     // the composer back (taller): the box grows now and what follows rides down with the card's edge
@@ -316,6 +348,8 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
       ref={box}
       className="cd-box"
       style={lock ? { minHeight: lock } : undefined}
+      onPointerDownCapture={() => (via.current = 'pointer')}
+      onKeyDownCapture={() => (via.current = 'other')}
       onFocusCapture={(e) => {
         if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) revealField(e.target);
       }}
@@ -345,8 +379,10 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
                   // sees no field in use, and the layer's removal later is no "activity")
                   const a = document.activeElement;
                   if (a instanceof HTMLElement && box.current?.contains(a)) a.blur();
-                  const text = typed.current;
-                  saved.current = text || null;
+                  if (via.current !== 'pointer') focusTo.current = 'addto';
+                  via.current = 'other';
+                  // the words as sent (the add is in the cache now), followed until the server answers
+                  const { text } = watchJournalAdd(qc, date, { toast, onRefused: () => refused.current() });
                   flushSync(() => {
                     keep();
                     if (text) setJustSaved({ text, at: new Date().toISOString() });
@@ -371,10 +407,7 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
             <Pressable
               className="cd-addto"
               press="surface"
-              onPress={() => {
-                saved.current = null;
-                swap(true);
-              }}
+              onPress={() => swap(true)}
               label="Add to it"
             >
               <PenLine size={16} aria-hidden="true" /> Add to it
@@ -526,7 +559,8 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still }: { date: ISODat
   const runs = log.snap.runsOn(date);
   const miles = dayMiles(log.snap, date).miles;
   const habits = log.habits.filter((h) => h.createdOn <= date);
-  const lit = habits.filter((h) => log.snap.isHabitDone(date, h.id)).length;
+  // as the orbs show it (a tap's write follows later): the stamp changes with the orb
+  const { lit } = useHabitsLit(date, log);
   const groups = groupsOn(todos.data, date);
   const doneTodos = groups[3]?.items.length ?? 0;
   const openTodos = groups[0]?.items.length ?? 0;

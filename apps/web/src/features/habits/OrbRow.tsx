@@ -2,7 +2,7 @@ import type { Habit, ISODate } from '@logbook/shared';
 import { Archive, Info, PenLine, Plus } from 'lucide-react';
 import { animate, motion, motionValue, useMotionValue, type MotionValue } from 'motion/react';
 import type * as React from 'react';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 import { useHabitMutations } from '@/api/queries';
 import { HOLD_SLOP_PX } from '@/lib/gesture';
@@ -14,6 +14,7 @@ import { Pressable } from '@/ui/Pressable';
 import { ChipButton } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import type { DragPoint } from '@/ui/useHold';
+import { isPagerMoving } from '../day/live';
 import type { Log } from '../log/useLog';
 import { HabitNoteSheet, useArchiveHabit, useOpenHabit } from './HabitSheet';
 import './habits.css';
@@ -33,6 +34,74 @@ const WRITE_AFTER_MS = 350;
  */
 const QUIET_MS = 700;
 let lastOrbTouch = 0;
+/**
+ * …and for the hand to be off the glass (feel review 2 #1): the write re-renders every mounted page, so it must not land under
+ * the next gesture (a day swipe started 400 ms after the orb froze for 133–167 ms at 4×). It waits while a pointer is down,
+ * the day pager moves or anything scrolls, until `RESTED_MS` after the last of them, then goes at the first idle moment (at
+ * most `MAX_WAIT_MS` after the tap; at once when the page goes or the app is hidden).
+ */
+const RESTED_MS = 250;
+const MAX_WAIT_MS = 8000;
+let pointersDown = 0;
+let lastGesture = 0;
+let watching = false;
+const watchGestures = () => {
+  if (watching || typeof window === 'undefined') return;
+  watching = true;
+  const opts = { capture: true, passive: true } as const;
+  const mark = () => (lastGesture = performance.now());
+  window.addEventListener('pointerdown', () => (pointersDown++, mark()), opts);
+  const up = () => ((pointersDown = Math.max(0, pointersDown - 1)), mark());
+  window.addEventListener('pointerup', up, opts);
+  window.addEventListener('pointercancel', up, opts);
+  window.addEventListener('scroll', mark, opts);
+};
+const busyHand = () => pointersDown > 0 || isPagerMoving();
+type IdleWin = { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void };
+const onIdle = (f: () => void): (() => void) => {
+  const w = window as unknown as IdleWin;
+  if (w.requestIdleCallback) {
+    const h = w.requestIdleCallback(f, { timeout: 300 });
+    return () => w.cancelIdleCallback?.(h);
+  }
+  const t = setTimeout(f, 0);
+  return () => clearTimeout(t);
+};
+
+/**
+ * The orbs' shown state ahead of the month (a tap answers on its own frame; the write follows later), per day, so the head's
+ * count and the Close card's stamp change with the orb, never by themselves a second later (code review 2 #6, feel review 2
+ * #2, day review 2 #6). An entry goes when the month agrees.
+ */
+const EMPTY: ReadonlyMap<string, boolean> = new Map();
+const shown = new Map<string, ReadonlyMap<string, boolean>>();
+const shownSubs = new Set<() => void>();
+const setShown = (date: string, id: string, v: boolean | null) => {
+  const cur = shown.get(date) ?? EMPTY;
+  if (v === null ? !cur.has(id) : cur.get(id) === v) return;
+  const next = new Map(cur);
+  if (v === null) next.delete(id);
+  else next.set(id, v);
+  if (next.size) shown.set(date, next);
+  else shown.delete(date);
+  for (const f of shownSubs) f();
+};
+const subShown = (f: () => void) => {
+  shownSubs.add(f);
+  return () => void shownSubs.delete(f);
+};
+/** How many of the day's habits are lit as the orbs show them (the month's checks, with the taps not yet written). */
+export const useHabitsLit = (date: string, log: Log): { lit: number; total: number } => {
+  const ahead = useSyncExternalStore(subShown, () => shown.get(date) ?? EMPTY, () => EMPTY);
+  const list = log.habits.filter((h) => h.createdOn <= date);
+  return { lit: list.filter((h) => ahead.get(h.id) ?? log.snap.isHabitDone(date, h.id)).length, total: list.length };
+};
+/** The habits head's meta (§3.1 row 4, §3.3): `2 of 5` only when > 0; a future day counts its ghosts, `5 habits`. */
+export const HabitsMeta = ({ date, log }: { date: string; log: Log }): React.JSX.Element | null => {
+  const { lit, total } = useHabitsLit(date, log);
+  const text = date > log.today ? (log.habits.length ? `${log.habits.length} ${log.habits.length === 1 ? 'habit' : 'habits'}` : null) : lit > 0 ? `${lit} of ${total}` : null;
+  return text ? <span className="sec-meta tnum">{text}</span> : null;
+};
 /** The orb's cell (64 hit, 56 ring) plus the 4 px between cells: the 12 px between rings. */
 const PITCH = 68;
 
@@ -40,6 +109,7 @@ type Drag = { id: string; from: number; to: number; pitch: number; scroll0: numb
 
 interface OrbProps {
   h: Habit;
+  date: string;
   on: boolean;
   note: string;
   index: number;
@@ -59,15 +129,20 @@ interface OrbProps {
  * place with the menu `Note · Details · Archive`; a move after the hold closes the menu and the orb follows the finger along
  * the row (the row's other orbs make room on `settle`, `select` per slot crossed, `drop` on release).
  */
-const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragStart, onDragMove, onDragEnd, onStep, bind }: OrbProps) {
+const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, onDragStart, onDragMove, onDragEnd, onStep, bind }: OrbProps) {
   const reduce = useReduced();
   const pop = useMotionValue(1);
   // the tap's answer lands on its own frame: the shown state runs ahead of the cache until the cache agrees
-  const [ahead, setAhead] = useState<boolean | null>(null);
+  const [ahead, setAheadSelf] = useState<boolean | null>(null);
   const on = ahead ?? lit;
+  const setAhead = (v: boolean | null) => {
+    setAheadSelf(v);
+    setShown(date, h.id, v);
+  };
   useEffect(() => {
     if (ahead !== null && ahead === lit) setAhead(null);
-  }, [lit, ahead]);
+  }, [lit, ahead]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => setShown(date, h.id, null), [date, h.id]);
   const unpeak = useRef<() => void>(() => {});
   useEffect(() => () => unpeak.current(), []);
   /*
@@ -79,22 +154,37 @@ const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragSt
   const travel = useRef<{ x: number; y: number; moved: boolean; held: boolean; lit: boolean } | null>(null);
   // the write waits for the pop: a month write re-renders every mounted day page, which must not land in the release's frame
   // or under the pop's peak (4×: 65 ms). A second tap before it is sent takes the change back and sends nothing.
-  const write = useRef<{ on: boolean; t: ReturnType<typeof setTimeout> } | null>(null);
+  const write = useRef<{ on: boolean; at: number; t: ReturnType<typeof setTimeout>; idle?: () => void } | null>(null);
   const send = useRef(() => {});
   send.current = () => {
     const w = write.current;
     if (!w) return;
     clearTimeout(w.t);
+    w.idle?.();
     write.current = null;
     onLight(h, w.on);
   };
-  /** The write's timer: sent once the row has been still for QUIET_MS (another orb tapped meanwhile moves it on). */
+  /**
+   * The write's timer: sent once the row has been still for QUIET_MS (another orb tapped meanwhile moves it on) and the hand
+   * has rested (RESTED_MS after the last pointer, scroll or page move), at the next idle moment.
+   */
   const due = () => {
     const w = write.current;
     if (!w) return;
-    const wait = lastOrbTouch + QUIET_MS - performance.now();
-    if (wait > 0) w.t = setTimeout(due, wait);
-    else send.current();
+    const n = performance.now();
+    const wait = Math.max(lastOrbTouch + QUIET_MS - n, lastGesture + RESTED_MS - n);
+    if (n - w.at < MAX_WAIT_MS && (wait > 0 || busyHand())) {
+      w.t = setTimeout(due, Math.max(50, wait));
+      return;
+    }
+    w.idle = onIdle(() => {
+      const cur = write.current;
+      if (!cur) return;
+      cur.idle = undefined;
+      // a gesture that began meanwhile: wait for it to rest too
+      if (performance.now() - cur.at < MAX_WAIT_MS && (busyHand() || performance.now() - lastGesture < RESTED_MS)) due();
+      else send.current();
+    });
   };
   useEffect(() => {
     const hide = () => document.visibilityState === 'hidden' && send.current();
@@ -110,8 +200,12 @@ const Orb = memo(function Orb({ h, on: lit, note, index, onLight, menu, onDragSt
     const pending = write.current;
     if (pending) {
       clearTimeout(pending.t);
+      pending.idle?.();
       write.current = null;
-    } else write.current = { on: next, t: setTimeout(due, WRITE_AFTER_MS) };
+    } else {
+      watchGestures();
+      write.current = { on: next, at: performance.now(), t: setTimeout(due, WRITE_AFTER_MS) };
+    }
     if (next) {
       unpeak.current();
       if (reduce) {
@@ -434,7 +528,7 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
     return () => document.removeEventListener('keydown', onKey);
   }, [editable, ghost]);
 
-  const lit = list.filter((h) => log.snap.isHabitDone(date, h.id)).length;
+  const { lit } = useHabitsLit(date, log);
   return (
     <div className={`orbs-wrap ${ghost ? 'is-ghost' : ''}`}>
       <div ref={scroller} className="orbs-scroll" data-no-page="">
@@ -447,6 +541,7 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
               <Orb
                 key={h.id}
                 h={h}
+                date={date}
                 index={i}
                 on={log.snap.isHabitDone(date, h.id)}
                 note={log.snap.checkOf(date, h.id)?.note ?? ''}

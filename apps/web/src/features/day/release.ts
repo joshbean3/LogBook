@@ -75,3 +75,21 @@ export const useReleaseTap = (fn: () => void, { ignore }: { ignore?: string } = 
     },
   };
 };
+
+/**
+ * Runs `fn` once the current frame is painted (a frame callback, then a task): a write that re-renders every page that reads
+ * the month (a synchronous store update) must not hold back the frame that shows the answer to the touch (code review 2 #3,
+ * feel review 2 #4). Resolves or rejects with `fn`'s result.
+ */
+export const afterPaint = <T>(fn: () => T | Promise<T>, delayMs = 0): Promise<T> =>
+  new Promise<T>((res, rej) =>
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        try {
+          res(fn());
+        } catch (e) {
+          rej(e);
+        }
+      }, delayMs),
+    ),
+  );

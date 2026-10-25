@@ -217,10 +217,21 @@ export interface CoachReadAnswer {
   text: string;
   createdAt: string;
 }
-/** The existing `POST /coach/read` (`{ date, sessionId }`); the answer is written into the month cache, where the hero reads it. */
+/**
+ * The existing `POST /coach/read` (`{ date, sessionId }`). The answer joins the month's cached payload in place: the same
+ * object, so no observer is told and no mounted page rebuilds its snapshot for one sentence (that write was a 160 ms task at
+ * 1× and 800 ms at 4× just after the landing; day review 2 #7). Later renders (the session sheet, a reload's persisted cache
+ * once anything else is written, the next fetch from the server, which has stored it) read it there; the hero shows it at
+ * once through the caller (`features/day/coachShown.ts`).
+ */
 export const fetchCoachRead = async (qc: QueryClient, date: string, sessionId: string | null): Promise<CoachReadAnswer> => {
   const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId } });
-  qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === r.date && c.key === r.key)), r] } : b));
+  const b = qc.getQueryData<MonthBundle>(keys.month(monthOf(date)));
+  if (b) {
+    const i = b.coach.findIndex((c) => c.date === r.date && c.key === r.key);
+    if (i >= 0) b.coach.splice(i, 1, r);
+    else b.coach.push(r);
+  }
   return r;
 };
 

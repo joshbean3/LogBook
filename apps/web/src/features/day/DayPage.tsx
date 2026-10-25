@@ -8,7 +8,7 @@ import { EmptyState } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
-import { HABIT_STARTERS, OrbRow } from '../habits/OrbRow';
+import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { TodayTodos } from '../todos/TodayTodos';
@@ -104,10 +104,14 @@ const LiveExtras = ({ date, loaded }: { date: ISODate; loaded: boolean }) => {
   return null;
 };
 
-/** The nudge shows on the live page only. */
+/**
+ * The nudge shows on the live page only. It reads its own store here, not in the page: its dismissal (the first push of This
+ * morning) then re-renders this slot alone, not every mounted day page inside the push's task (feel review 2 #10).
+ */
 const NudgeSlot = ({ date, onMorning }: { date: ISODate; onMorning: (date: ISODate) => void }) => {
   const live = useIsLive(date);
-  if (!live) return null;
+  const nudge = useNudge();
+  if (!live || !nudge) return null;
   return (
     <Nudge
       onOpen={() => {
@@ -194,7 +198,6 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const later = useDeferredValue(fresh);
   const log = later.today === fresh.today ? later : fresh;
   const primer = useStravaPrimer();
-  const nudge = useNudge();
   const today = log.today;
   const isToday = date === today;
   const loaded = log.loaded(date) && !!log.boot;
@@ -202,21 +205,19 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const end = loaded ? planEndOf(log, date) : null;
 
 
-  const habitsLit = loaded ? log.habits.filter((h) => h.createdOn <= date && log.snap.isHabitDone(date, h.id)).length : 0;
-  // the head's meta (§3.1 row 4, §3.3): `2 of 5` only when > 0; a future day counts its ghosts, `5 habits`
-  const habitsMeta = date > today ? (log.habits.length ? `${log.habits.length} ${log.habits.length === 1 ? 'habit' : 'habits'}` : null) : habitsLit > 0 ? `${habitsLit} of ${log.habits.filter((h) => h.createdOn <= date).length}` : null;
   return (
     <div className="day-page" data-day={date}>
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       <Sentence />
-      {isToday && nudge && loaded && !first ? <NudgeSlot date={date} onMorning={onMorning} /> : null}
+      {isToday && loaded && !first ? <NudgeSlot date={date} onMorning={onMorning} /> : null}
       <MorningRow date={date} log={log} />
       {loaded ? <SecondSession date={date} log={log} /> : null}
       <section className="habits" aria-label="Habits" inert={date > today || undefined}>
         <div className="sec-head">
           <h2 className="sec-title">Habits</h2>
-          {habitsMeta ? <span className="sec-meta tnum">{habitsMeta}</span> : null}
+          {/* the count as the orbs show it, on the tap's frame (OrbRow's shown state) */}
+          {loaded ? <HabitsMeta date={date} log={log} /> : null}
         </div>
         {loaded ? <OrbRowM date={date} log={log} editable={date <= today} /> : <div className="orbs-skel" />}
       </section>

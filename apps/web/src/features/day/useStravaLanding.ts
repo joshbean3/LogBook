@@ -4,6 +4,7 @@ import { useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import { useNav, useTabScroller } from '@/app/NavController';
 import { fetchCoachRead, STRAVA_SYNC_KEY, stravaSyncNow, type StravaSyncAnswer } from '@/api/queries';
+import { setCoachShown } from './coachShown';
 import { LANDING_VISIBLE, STRAVA_RETRY_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { NAV_EVENT } from '@/ui/nav';
@@ -272,7 +273,8 @@ export const useStravaLanding = ({ date, log, face, pre, hero }: { date: ISODate
 
 /**
  * The coach's one sentence (§6.1, risk 11): once per matched run, when the month has no read for that date and session, the
- * client asks the existing `POST /coach/read` and writes the answer into the month cache (the hero fades it in). Nothing
+ * client asks the existing `POST /coach/read`; the answer joins the month's payload in place and the hero fades it in from
+ * `coachShown` (no rebuild of every page for one sentence; day review 2 #7). Nothing
  * waits for it and nothing says "Reading…"; a failure leaves the face without a sentence, silently, and is not asked again
  * today (the session sheet's own read button still works).
  */
@@ -286,7 +288,9 @@ const useCoachRead = (date: ISODate, log: Log, face: Face, on: boolean) => {
     if (!want || !live || seenToday(k)) return;
     markSeenToday(k);
     note('done', { coach: 'asked' });
-    fetchCoachRead(qc, date, sessionId).catch(() => undefined);
+    fetchCoachRead(qc, date, sessionId)
+      .then((r) => setCoachShown(date, r.key || (sessionId ?? 'run'), r.text))
+      .catch(() => undefined);
   }, [want, live, k]); // eslint-disable-line react-hooks/exhaustive-deps
 };
 

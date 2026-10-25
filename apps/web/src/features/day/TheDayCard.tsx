@@ -1,14 +1,17 @@
 import { type ISODate } from '@logbook/shared';
 import { PenLine, Share } from 'lucide-react';
 import type * as React from 'react';
-import { memo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { revealField } from '@/lib/keyboard';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
+import { useToast } from '@/ui/Toast';
 import { Composer } from '../journal/JournalDaySection';
 import type { Log } from '../log/useLog';
 import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
+import { watchJournalAdd } from './journalGuard';
 import { dayMiles, weekMiles } from './miles';
 
 const timeOf = (iso: string) => {
@@ -19,11 +22,45 @@ const timeOf = (iso: string) => {
 /**
  * The day (docs/feel.md §3.1 row 9, §3.3): on past days only, the card under the week: `THE DAY`, what was written that day
  * (plain rows: the Today page has no swipe rows, M9; the Journal edits them), `Add to it` (the day's composer, inline) and
- * `Share the day`. It is the link between Today and the Journal.
+ * `Share the day`. It is the link between Today and the Journal. A Save the server refuses opens the composer again with the
+ * words and the error toast, however late it comes (`watchJournalAdd`; code review 2 #2). A keyboard or VoiceOver Save leaves
+ * the focus on `Add to it` (code review 2 #5).
  */
 export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODate; log: Log }): React.JSX.Element {
   const sheet = useSheet();
   const [writing, setWriting] = useState(false);
+  const qc = useQueryClient();
+  const toast = useToast();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  // how the composer was last pressed: a touch Save moves no focus and a refused one does not raise the keyboard by itself
+  const via = useRef<'pointer' | 'other'>('other');
+  const focusTo = useRef<'add' | null>(null);
+  const [autoFocus, setAutoFocus] = useState(true);
+  const add = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (writing || focusTo.current !== 'add') return;
+    focusTo.current = null;
+    add.current?.focus({ preventScroll: true });
+  }, [writing]);
+  const saved = () => {
+    const keyboard = via.current !== 'pointer';
+    if (keyboard) focusTo.current = 'add';
+    watchJournalAdd(qc, date, {
+      toast,
+      onRefused: () => {
+        if (!alive.current) return;
+        setAutoFocus(keyboard);
+        setWriting(true);
+      },
+    });
+    setWriting(false);
+  };
   const entries = log.snap.journalOn(date);
   const runs = log.snap.runsOn(date);
   const share = () => {
@@ -51,11 +88,27 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
       ) : null}
       {writing ? (
         // §5.1: the field is scrolled above the keyboard on focus (code review 1 #5)
-        <div className="td-composer" data-no-page="" onFocusCapture={(e) => e.target instanceof HTMLTextAreaElement && revealField(e.target)}>
-          <Composer date={date} today={log.today} rows={2} placeholder="Add to the day" toast={false} autoFocus onSaved={() => setWriting(false)} />
+        <div
+          className="td-composer"
+          data-no-page=""
+          onFocusCapture={(e) => e.target instanceof HTMLTextAreaElement && revealField(e.target)}
+          onPointerDownCapture={() => (via.current = 'pointer')}
+          onKeyDownCapture={() => (via.current = 'other')}
+        >
+          <Composer date={date} today={log.today} rows={2} placeholder="Add to the day" toast={false} autoFocus={autoFocus} onSaved={saved} />
         </div>
       ) : (
-        <Pressable className="td-add" press="surface" onPress={() => setWriting(true)} label="Add to it">
+        <Pressable
+          ref={add}
+          className="td-add"
+          press="surface"
+          onPress={() => {
+            via.current = 'other';
+            setAutoFocus(true);
+            setWriting(true);
+          }}
+          label="Add to it"
+        >
           <PenLine size={16} aria-hidden="true" /> Add to it
         </Pressable>
       )}

@@ -60,6 +60,25 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     expect(f.tall).toBe(true);
     expect(f.line).toMatch(/^5\.02 mi at \d+:\d\d\.$/);
   });
+  it('a run skipped before the door keeps THIS MORNING through Leave, never OUT; after Leave a new face key (day review 2 #2)', () => {
+    const l = logOf(bundle([run(FRI, { mark: 'skip' }), run('2026-10-24', { type: 'Threshold', miles: 6 })]));
+    const at = (m: number) => faceOf(l, FRI, phaseOf(l, FRI, m));
+    const a = at(6 * 60 + 30);
+    const b = at(7 * 60 + 50);
+    const c = at(8 * 60 + 45);
+    for (const f of [a, b, c]) {
+      expect(f.kind).toBe('skipped');
+      expect(f.eyebrow).toBe('THIS MORNING');
+      expect(f.line).toBe('Skipped.');
+    }
+    // the door passing changes nothing on the card
+    expect(b.key).toBe(a.key);
+    const d = at(12 * 60);
+    expect(d.eyebrow).toBe('TODAY’S RUN');
+    expect(d.stops).toBeUndefined();
+    // the deck's change at Leave goes through the deferred crossfade: its own key
+    expect(d.key).not.toBe(a.key);
+  });
   it('a rest day after leave: Rest day, the next session as one row', () => {
     const l4 = logOf(bundle([run('2026-10-24', { type: 'Long', miles: 4 })]), '2026-10-23');
     const f = faceOf(l4, FRI, phaseOf(l4, FRI, 12 * 60));

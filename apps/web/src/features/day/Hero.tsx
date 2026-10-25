@@ -15,7 +15,7 @@ import { useSessionActions } from '../sessions/actions';
 import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { isPagerMoving, useIsLive } from './live';
-import { swallowNextClick } from './release';
+import { afterPaint, swallowNextClick } from './release';
 import { CloseDay } from './CloseDay';
 import { faceOf, heroLead, phaseOf, preLandingFace, secondOf, withMark, type Face } from './faces';
 import { HoldRing } from './HoldRing';
@@ -152,7 +152,7 @@ const Deck = ({ c }: { c: DeckCtx }) => {
         <StatusLine text={face.status ?? ''} />
       </div>
     );
-  if (face.landed) return <LandedDeck face={face} numbers={c.numbers} easyPace={c.log.snap.easyPace ?? null} onShare={c.onShare} />;
+  if (face.landed) return <LandedDeck date={c.date} face={face} numbers={c.numbers} easyPace={c.log.snap.easyPace ?? null} onShare={c.onShare} />;
   if (face.doneHand)
     return (
       <div className="hero-deck hero-deck-ring hero-deck-done">
@@ -188,7 +188,10 @@ const Deck = ({ c }: { c: DeckCtx }) => {
             c.onOpenNext();
           }}
         >
-          <span className="hero-next-text">{face.next.text}</span>
+          <span className="hero-next-text">
+            {face.next.head}
+            {face.next.tail ? <span className="hero-next-tail">{face.next.tail}</span> : null}
+          </span>
           <ChevronRight size={16} aria-hidden="true" />
         </Pressable>
       </div>
@@ -259,31 +262,48 @@ const EveningFace = ({ date, log, ph, onOpen }: { date: ISODate; log: Log; ph: R
  * compact card below (`SecondSession`): no inner carousel, ever; the day pager is the only horizontal gesture. The evening
  * slot is the Close card (its own height).
  */
-export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log: Log }) {
-  /*
-   * A mark from the hero (Skip, its Undo) shows on the face first, in its own small render, and the month's write follows:
-   * the write re-renders every mounted page, which at 4× held the 150 ms crossfade back 300 ms behind its toast (feel review
-   * 1 #10, day review 1 #7). The override goes once the page's month carries the mark (or the write fails).
-   */
+/** The face crossfade's length (`crossfade`, 150 ms): a mark's write waits it out. */
+const CROSSFADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
+
+/**
+ * A mark from the card (Skip, its Undo, the second session's Done) shows first, in its own small render, and the month's
+ * write follows once the 150 ms crossfade it starts is over: the write re-renders every mounted page, which at 4× held the
+ * crossfade back 300 ms behind its toast (feel review 1 #10, day review 1 #7) and, sent a frame after the face, still landed
+ * in the middle of it (feel review 2 #4). The Undo keeps the toast, so a late write is safe.
+ *
+ * The override goes once no write of that session is still in flight and the page's (background-rendered) month carries the
+ * mark; or at once when its write fails. A Skip and a quick Undo are two writes: clearing on the first match (the month still
+ * without the Skip) let the face flip back and forth inside one crossfade and come to rest at 35 % (code review 2 #4).
+ */
+const useMarkOverride = (real: Log, date: ISODate) => {
   const [over, setOver] = useState<{ id: string; mark: SessionMark | null } | null>(null);
+  const inFlight = useRef(new Map<string, number>());
+  const [settled, setSettled] = useState(0);
   const log = useMemo(() => (over ? withMark(real, date, over.id, over.mark) : real), [real, date, over]);
   useEffect(() => {
-    if (over && (real.snap.sessionsOn(date).find((x) => x.id === over.id)?.mark ?? null) === over.mark) setOver(null);
-  }, [real, date, over]);
+    if (!over || (inFlight.current.get(over.id) ?? 0) > 0) return;
+    if ((real.snap.sessionsOn(date).find((x) => x.id === over.id)?.mark ?? null) === over.mark) setOver(null);
+  }, [real, date, over, settled]);
   const { mark } = useSessionMutations();
   const markNow = useCallback(
-    (s: Session, m: SessionMark | null) => {
+    (s: Session, m: SessionMark | null): Promise<void> => {
       flushSync(() => setOver({ id: s.id, mark: m }));
-      // the write after that frame is painted (it re-renders every page and every mounted tab that reads the month)
-      requestAnimationFrame(() =>
-        // the override goes when the page's (background-rendered) log carries the mark (the effect above), or at once if the
-        // write fails; never on the write's success alone, which can come before the page has rendered it (the face would
-        // flip back for a few frames at 4×)
-        setTimeout(() => mark.mutate({ session: s, mark: m }, { onError: () => setOver((o) => (o?.id === s.id && o.mark === m ? null : o)) }), 0),
-      );
+      inFlight.current.set(s.id, (inFlight.current.get(s.id) ?? 0) + 1);
+      // one promise per write (a second `mutate` on the same observer drops the first one's callbacks)
+      const w = afterPaint(() => mark.mutateAsync({ session: s, mark: m }), CROSSFADE_MS + 17);
+      w.catch(() => setOver((o) => (o?.id === s.id && o.mark === m ? null : o))).finally(() => {
+        inFlight.current.set(s.id, Math.max(0, (inFlight.current.get(s.id) ?? 1) - 1));
+        setSettled((n) => n + 1);
+      });
+      return w;
     },
     [mark],
   );
+  return { log, markNow };
+};
+
+export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log: Log }) {
+  const { log, markNow } = useMarkOverride(real, date);
   // the clock's face changes wait for an interaction or idle (§5.3, useDeferred); a minute that keeps the face ticks at once
   const clock = useFaceMinutes();
   const keyOf = (m: number) => {
@@ -306,7 +326,7 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
 });
 
 /** The 184 card (304 landed): every face but the evening's. The run landing (§6.1) plays on it. */
-const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: (s: Session, m: SessionMark | null) => void }) => {
+const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: (s: Session, m: SessionMark | null) => Promise<void> }) => {
   const nav = useNav();
   const sheet = useSheet();
   const toast = useToast();
@@ -360,14 +380,16 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
   /** The session done by hand (the ring, or Done in the menu): the day's one success for it, the halo blooms. */
   const complete = (s: Session) => {
     markSuccess(s.id);
-    setMark(s, 'done');
     setBoost(true);
+    // the ring shows its check from its own latch at once, and the write goes after that frame is painted (it re-renders
+    // every page in a synchronous store update); a write that fails takes the check back (the promise)
+    return afterPaint(() => mark.mutateAsync({ session: s, mark: 'done' }));
   };
   // the face crossfades to Skipped. first (its own render), then the toast, then the write (markNow)
   const skip = (s: Session) => {
     const was = s.mark;
-    markNow(s, 'skip');
-    toast(`${label(s)} skipped`, { label: 'Undo', fn: () => markNow({ ...s, mark: 'skip' }, was) });
+    markNow(s, 'skip').catch(() => undefined);
+    toast(`${label(s)} skipped`, { label: 'Undo', fn: () => void markNow({ ...s, mark: 'skip' }, was).catch(() => undefined) });
   };
 
   /** The hold menu: ≤ 4, the things a runner reaches for. */
@@ -383,7 +405,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
           label: 'Done',
           onSelect: () => {
             haptics.success();
-            complete(s);
+            complete(s).catch(() => undefined);
           },
         });
       if (lead.key === 'today' || lead.key === 'planned') list.push({ label: 'Skip', onSelect: () => skip(s) });
@@ -462,11 +484,15 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       ) : null}
       {/* a foreground check that found nothing while the session is open past its back time: one quiet repeat at +8 s (§6.1) */}
       {isToday && face.kind === 'open' ? <StravaRetry date={date} /> : null}
-      {ringOn && ringLead ? (
-        <RingSlot key={ringLead.session.id} leaving={landing.stage === 'draw'}>
-          <HoldRing label={`Hold to mark ${label(ringLead.session)} done`} done={ringDone} drive={landing.ring ?? undefined} onComplete={() => complete(ringLead.session)} onTap={open} />
-        </RingSlot>
-      ) : null}
+      {/* the ring fades with the faces (a Skip from the open face, its Undo): never dropped or mounted in one frame (feel
+          review 2 #6) */}
+      <AnimatePresence initial={false}>
+        {ringOn && ringLead ? (
+          <RingSlot key={ringLead.session.id} leaving={landing.stage === 'draw'}>
+            <HoldRing label={`Hold to mark ${label(ringLead.session)} done`} done={ringDone} drive={landing.ring ?? undefined} onComplete={() => complete(ringLead.session)} onTap={open} />
+          </RingSlot>
+        ) : null}
+      </AnimatePresence>
     </Pressable>
   );
 };
@@ -475,7 +501,10 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
  * The second session of a two-session day (§3.4, §3.1 row 3): a compact card, 60 tall: the stamp (17), the plan and its word
  * (15), the 40 px hold ring on the right while it is open today. Tap → its sheet; hold → `Done · Skip · Move`.
  */
-export const SecondSession = memo(function SecondSession({ date, log }: { date: ISODate; log: Log }) {
+export const SecondSession = memo(function SecondSession({ date, log: real }: { date: ISODate; log: Log }) {
+  // its Done, Skip, Not done and their Undo answer on the card first (a 150 ms crossfade of its line), the write after it,
+  // as the hero's do (feel review 2 #5)
+  const { log, markNow } = useMarkOverride(real, date);
   const ph = useMemo(() => phaseOf(log, date, 12 * 60), [log, date]);
   // the hero's session (a skipped run keeps the hero: heroLead); this card is the other one
   const lead = heroLead(ph);
@@ -483,22 +512,25 @@ export const SecondSession = memo(function SecondSession({ date, log }: { date: 
   const openSession = useOpenSession(log);
   const act = useSessionActions(log);
   const toast = useToast();
-  const { mark } = useSessionMutations();
   if (!p || !lead) return null;
   const s = p.session;
   const isToday = date === log.today;
   const open = p.key === 'today' && isToday;
   const sub = [s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : null, p.key === 'today' ? 'Planned' : p.word].filter(Boolean).join(' · ');
+  const quiet = (w: Promise<void>) => void w.catch(() => undefined);
   const items: ContextMenuItem[] = [];
+  const byHand = s.mark === 'done' || s.mark === 'floor';
+  // a mark by hand can be taken back from the card, as on the hero (feel review 2 #7)
+  if (byHand) items.push({ label: 'Not done', onSelect: () => quiet(markNow(s, null)) });
   // the second session's completion is not the day's success (M18: two a day); its ring answers with a toggle (§11.4)
-  if (p.key !== 'done' && p.key !== 'floor' && date <= log.today) items.push({ label: 'Done', onSelect: () => (markSuccess(s.id), mark.mutate({ session: s, mark: 'done' })) });
+  else if (p.key !== 'done' && p.key !== 'floor' && date <= log.today) items.push({ label: 'Done', onSelect: () => (markSuccess(s.id), quiet(markNow(s, 'done'))) });
   if (p.key === 'today' || p.key === 'planned')
     items.push({
       label: 'Skip',
       onSelect: () => {
         const was = s.mark;
-        mark.mutate({ session: s, mark: 'skip' });
-        toast(`${label(s)} skipped`, { label: 'Undo', fn: () => mark.mutate({ session: { ...s, mark: 'skip' }, mark: was }) });
+        quiet(markNow(s, 'skip'));
+        toast(`${label(s)} skipped`, { label: 'Undo', fn: () => quiet(markNow({ ...s, mark: 'skip' }, was)) });
       },
     });
   if (p.key !== 'done' && p.key !== 'floor') items.push({ label: 'Move', onSelect: () => act.move(date, s) });
@@ -514,11 +546,21 @@ export const SecondSession = memo(function SecondSession({ date, log }: { date: 
     >
       <span className="ss-text">
         <span className="ss-stamp">{label(s)}</span>
-        <span className="ss-sub">{sub}</span>
+        <span className="ss-sub-slot">
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.span key={sub} className="ss-sub" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+              {sub}
+            </motion.span>
+          </AnimatePresence>
+        </span>
       </span>
-      {open || (isToday && (s.mark === 'done' || s.mark === 'floor')) ? (
-        <span className="ss-ring">{<HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={s.mark === 'done' || s.mark === 'floor'} haptic="toggle" onComplete={() => (markSuccess(s.id), mark.mutate({ session: s, mark: 'done' }))} onTap={() => openSession(date, s)} />}</span>
-      ) : null}
+      <AnimatePresence initial={false}>
+        {open || (isToday && byHand) ? (
+          <motion.span key="ring" className="ss-ring" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), markNow(s, 'done'))} onTap={() => openSession(date, s)} />
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
     </Pressable>
   );
 });

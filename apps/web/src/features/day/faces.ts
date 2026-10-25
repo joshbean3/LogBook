@@ -19,6 +19,10 @@ export interface NextUp {
   session: Session;
   /** 'Tomorrow: Long 4 · out 5:55' */
   text: string;
+  /** The words that always show ('Tomorrow: Long 4') and the time after them (' · out 5:55'), which below 360 wide is
+   * dropped whole rather than cut mid-word (feel review 2 #8). */
+  head: string;
+  tail: string;
 }
 export interface Face {
   /** The AnimatePresence key: the face and the session it is about. */
@@ -77,8 +81,6 @@ export const withMark = (log: Log, date: ISODate, id: string, mark: Session['mar
   const snap = { ...s, sessionsOn: (d: string) => (d === date ? s.sessionsOn(d).map((x) => (x.id === id ? { ...x, mark } : x)) : s.sessionsOn(d)) };
   return { ...log, snap } as Log;
 };
-/** The day as it was before `id` was skipped (its mark cleared): what the Skipped face keeps from the face it replaced. */
-const unskipped = (log: Log, date: ISODate, id: string, minutes: number): DayPhase => phaseOf(withMark(log, date, id, null), date, minutes);
 
 /** Miles as the hero says them: '5.02', '4', '4.5'. */
 export const milesText = (v: number) => num(v);
@@ -156,7 +158,9 @@ export const nextUp = (log: Log, date: ISODate, now: number): NextUp | null => {
     if (!s) continue;
     const door = phaseOf(log, d, now).doorAt;
     const when = i === 1 ? 'Tomorrow' : new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`));
-    return { date: d, session: s, text: `${when}: ${label(s)}${door != null ? ` · out ${shortClock(door)}` : ''}` };
+    const head = `${when}: ${label(s)}`;
+    const tail = door != null ? ` · out ${shortClock(door)}` : '';
+    return { date: d, session: s, text: head + tail, head, tail };
   }
   return null;
 };
@@ -288,12 +292,13 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
   const rm = restMorning(log, date, ph);
   const next = nextUp(log, date, now);
   if (lead && lead.key === 'skipped') {
-    // the eyebrow the face had before the skip (`THIS MORNING` before the door; day review 1 #7); the deck the morning as it
-    // now is (the line still ends at Leave), or the next session once the morning is over
-    const was = unskipped(log, date, lead.session.id, now).phase;
-    const eyebrow = was === 'morning' ? 'THIS MORNING' : was === 'out' ? 'OUT' : up(kindEyebrow(lead.session));
+    // the deck is the morning as it now is (the line still ends at Leave), or the next session once the morning is over. The
+    // eyebrow follows the deck, never the skipped run's phase: `THIS MORNING` while the line shows (day review 1 #7), and
+    // never `OUT` at the door the owner did not go through (day review 2 #2). The deck's change at Leave is a face change of
+    // its own (`-am` in the key), so it waits for a touch or idle and crossfades (§5.3).
     const stops = rm?.stops ?? (ph.phase === 'morning' ? runStops(ph) : null);
-    return { ...base, quiet: false, key: `skipped-${lead.session.id}`, kind: 'skipped', eyebrow, stamp: up(label(lead.session)), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
+    const eyebrow = stops ? 'THIS MORNING' : up(kindEyebrow(lead.session));
+    return { ...base, quiet: false, key: `skipped-${lead.session.id}${stops ? '-am' : ''}`, kind: 'skipped', eyebrow, stamp: up(label(lead.session)), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
   }
   if (rm) {
     const line = now < rm.wake ? `Alarm in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;

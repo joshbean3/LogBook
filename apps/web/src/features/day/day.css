@@ -590,6 +590,12 @@
 .mr-short {
   display: none;
 }
+/* the rest face's next-session row: below 360 the time after the session drops whole (feel review 2 #8) */
+@media (max-width: 359px) {
+  .hero-next-tail {
+    display: none;
+  }
+}
 @media (max-width: 359px) {
   .mr-title .mr-long {
     display: none;
@@ -631,7 +637,16 @@
 .second-session.is-quiet .ss-stamp {
   color: var(--ink-2);
 }
+/* the line crossfades in place on a mark (150 ms; the leaving one absolute over it, popLayout) */
+.ss-sub-slot {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 20px;
+}
 .ss-sub {
+  display: block;
+  min-width: 0;
   font: 400 15px/20px var(--sans);
   color: var(--ink-3);
   white-space: nowrap;

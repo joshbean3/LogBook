@@ -1,12 +1,13 @@
 import { clock, decodePolyline, routePath, type ISODate } from '@logbook/shared';
 import { Share } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { useMemo } from 'react';
 import { crossfade, ease } from '@/lib/motion';
 import { Pressable, Ticker, useFirstToday } from '@/ui';
 import { coachSentence, milesText, type Face } from './faces';
 import { settleAt, settleVelAt } from './HoldRing';
+import { useCoachShown } from './coachShown';
 import { useIsLive } from './live';
 
 /** Stage 1 of the landing (§6.1): the ring fills to full in 300 ms. */
@@ -161,11 +162,13 @@ export const SharePill = ({ onShare }: { onShare: () => void }) => (
  * clock; never a `0 mi` frame, M32) and tick to the run's on `springs.number` from its completion (`go`); Share fades in as
  * the check leaves. The coach's sentence fades in (200 ms) when its read arrives; nothing stands in its place before.
  */
-export const LandedDeck = ({ face, numbers, easyPace, onShare }: { face: Face; numbers: 'hold' | 'go' | 'still'; easyPace: number | null; onShare: () => void }) => {
+export const LandedDeck = ({ date, face, numbers, easyPace, onShare }: { date: ISODate; face: Face; numbers: 'hold' | 'go' | 'still'; easyPace: number | null; onShare: () => void }) => {
   const L = face.landed!;
+  // the read as it answers (only this deck re-renders), else the month's
+  const fresh = useCoachShown(date, face.lead ? face.lead.session.id : 'run');
   const held = numbers === 'hold';
   const planned = face.lead?.session.kind === 'run' && face.lead.session.miles ? Number(face.lead.session.miles) : L.miles;
-  const coach = coachSentence(L.coach);
+  const coach = coachSentence(L.coach ?? fresh);
   return (
     <div className="hero-deck hero-deck-landed">
       <div className="hero-stats">
@@ -197,11 +200,20 @@ export const LandedDeck = ({ face, numbers, easyPace, onShare }: { face: Face; n
   );
 };
 
-/** The ring's slot: it fades out (150 ms) as the landing hands its place to Share (stage 4). */
-export const RingSlot = ({ leaving, children }: { leaving: boolean; children: React.ReactNode }) => (
-  <span className="hero-ring" style={{ pointerEvents: leaving ? 'none' : undefined }}>
-    <motion.span className="hero-ring-in" initial={false} animate={{ opacity: leaving ? 0 : 1 }} transition={crossfade}>
-      {children}
-    </motion.span>
-  </span>
-);
+/**
+ * The ring's slot: it fades out (150 ms) as the landing hands its place to Share (stage 4). Inside an `AnimatePresence` it
+ * also crossfades with the faces when a face gains or loses its ring (a Skip from the open face, its Undo): in from one frame
+ * in, out over 150 ms, not touchable while it leaves.
+ */
+export const RingSlot = ({ leaving, children }: { leaving: boolean; children: React.ReactNode }) => {
+  const present = useIsPresent();
+  return (
+    <span className="hero-ring" style={{ pointerEvents: leaving || !present ? 'none' : undefined }}>
+      <motion.span className="hero-ring-in" initial={{ opacity: RING_FIRST_FRAME }} animate={{ opacity: leaving ? 0 : 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+        {children}
+      </motion.span>
+    </span>
+  );
+};
+/** `crossfade`'s value one frame in (as the hero's faces): a ring coming in is on the first frame after its commit. */
+const RING_FIRST_FRAME = 0.35;

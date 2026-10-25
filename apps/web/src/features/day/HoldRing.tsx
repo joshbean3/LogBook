@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
 import { animate, motionValue, useMotionValueEvent, useReducedMotion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FILL_MS, HOLD_SLOP_PX } from '@/lib/gesture';
 import { hapticAtPeak, haptics } from '@/lib/haptics';
 import { forScale, springs } from '@/lib/motion';
@@ -15,6 +15,8 @@ const C = 2 * Math.PI * R;
 const CHECK_FROM = 0.8;
 /** Stage 2's opacity swap, stroke → check (§6.1). */
 export const MORPH_MS = 200;
+/** One frame (16.7 ms) into the linear swap. */
+const FIRST_FRAME = 16.7 / MORPH_MS;
 
 /**
  * The ring's three motion values, so the run landing can play stages 1 and 2 on the same node (§6.1): `fill` (0 → 1, the
@@ -95,10 +97,14 @@ export const morphRingAt = async (d: RingDrive, t1: number, reduce = false, aliv
   if (!reduce) void animate(d.check, 1, forScale(springs.settle));
   return tEnd;
 };
-/** Stage 2 alone (the hand's completion): the stroke's layer into the check, on motion's clock. */
-export const morphRing = (d: RingDrive, reduce = false) =>
+/**
+ * Stage 2 alone (the hand's completion): the stroke's layer into the check, on motion's clock. `lead` starts the swap one
+ * frame in (motion's first frame samples the start value), so the check shows on the first frame after the completion.
+ */
+export const morphRing = (d: RingDrive, reduce = false, lead = false) =>
   new Promise<void>((res) => {
     if (d.morph.get() >= 1) return res();
+    if (lead && d.morph.get() < FIRST_FRAME) d.morph.jump(FIRST_FRAME);
     d.check.jump(reduce ? 1 : CHECK_FROM);
     if (!reduce) void animate(d.check, 1, forScale(springs.settle));
     void animate(d.morph, 1, { duration: MORPH_MS / 1000, ease: 'linear', onComplete: () => res() });
@@ -120,17 +126,22 @@ export const morphRing = (d: RingDrive, reduce = false) =>
  *   sheet's new scrim. If no click follows, a short timer opens it.
  * - 48 on the hero (a 56 hit), 40 on the second-session card and the Close row.
  */
-export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, drive, haptic = 'success' }: { label: string; onComplete: () => void; onTap: () => void; size?: 48 | 40; done?: boolean; drive?: RingDrive; haptic?: 'success' | 'toggle' }): React.JSX.Element => {
+export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, drive, haptic = 'success' }: { label: string; onComplete: () => void | Promise<unknown>; onTap: () => void; size?: 48 | 40; done?: boolean; drive?: RingDrive; haptic?: 'success' | 'toggle' }): React.JSX.Element => {
   const reduce = useReducedMotion() ?? false;
   const [own] = useState(() => ringDrive(!!doneProp));
   const d = drive ?? own;
   const p = d.fill;
   const [doneSelf, setDone] = useState(false);
-  const done = doneProp ?? doneSelf;
-  // a `done` the caller takes back (the session cleared elsewhere) clears the ring's own latch too, so it is the empty ring
-  // again and answers the next hold (code review 1 #2)
+  // a completion shows at once, from the ring's own latch: the caller's `done` comes from the page's log, which is rendered
+  // in the background and can arrive most of a second later at 4× (code review 2 #3)
+  const done = doneSelf || !!doneProp;
+  // a `done` the caller takes back (true → false: the session cleared elsewhere) clears the latch too, so it is the empty
+  // ring again and answers the next hold (code review 1 #2); so does a completion whose write fails (`onComplete`'s promise)
+  const prevProp = useRef(doneProp);
   useEffect(() => {
-    if (doneProp === false) setDone(false);
+    const was = prevProp.current;
+    prevProp.current = doneProp;
+    if (was && doneProp === false) setDone(false);
   }, [doneProp]);
   const g = useRef<{ id: number; x: number; y: number; t: number; anim: ReturnType<typeof animate> | null } | null>(null);
   const tapAt = useRef(0);
@@ -138,6 +149,7 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
   const latest = useRef({ onComplete, onTap });
   latest.current = { onComplete, onTap };
   const first = useRef(true);
+  const selfMorph = useRef(false);
   useEffect(() => {
     // the node follows `done` (unless the landing drives it): done → the check (stage 2 from where the stroke is); not → the empty ring
     const mount = first.current;
@@ -145,11 +157,17 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
     if (drive) return;
     if (done) {
       if (mount) return;
+      // a hold that completed here started its swap in `finish`, in the completing frame's own task
+      if (selfMorph.current) {
+        selfMorph.current = false;
+        return;
+      }
       p.stop();
       p.set(1);
       void morphRing(d, reduce);
     } else {
       setDone(false);
+      selfMorph.current = false;
       if (g.current) return;
       d.morph.jump(0);
       d.check.jump(CHECK_FROM);
@@ -163,6 +181,16 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
   const fillEl = useRef<SVGCircleElement>(null);
   const faceEl = useRef<HTMLSpanElement>(null);
   const doneEl = useRef<HTMLSpanElement>(null);
+  // the three values reach the node only here, never through React's `style` (a page rendered in the background reads them
+  // mid-animation and its later commit would write that stale value back over the frame's: a check stuck part-way)
+  useLayoutEffect(() => {
+    if (fillEl.current) fillEl.current.style.strokeDashoffset = String(C * (1 - p.get()));
+    if (faceEl.current) faceEl.current.style.opacity = String(1 - d.morph.get());
+    if (doneEl.current) {
+      doneEl.current.style.opacity = String(d.morph.get());
+      doneEl.current.style.transform = `scale(${d.check.get()})`;
+    }
+  }, [d, p]);
   useMotionValueEvent(p, 'change', (v) => {
     if (fillEl.current) fillEl.current.style.strokeDashoffset = String(C * (1 - v));
   });
@@ -212,11 +240,22 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
     g.current = null;
     detach();
     setDone(true);
+    // the check starts in this task, ahead of any render (code review 2 #3); the caller sends its write after this frame
+    p.stop();
+    p.set(1);
+    selfMorph.current = true;
+    const swapped = morphRing(d, reduce, true);
     // the day's session: its one success (M18); any other (the second session of the day): a toggle on the frame the check
-    // is in (§11.4, feel review 1 #7)
-    if (haptic === 'toggle') hapticAtPeak(d.morph, 'toggle');
-    else haptics.success();
-    latest.current.onComplete();
+    // is fully in (§11.4, feel review 1 #7), the swap's last frame. It listens to a value of its own: `hapticAtPeak` lets go
+    // of its value inside that value's change notification, which skips the listener after it, and on `morph` that was the
+    // node's own (the check stayed at the opacity of the frame before: 0.46 at 4×; WP1 request in docs/reviews/wp2.md)
+    if (haptic === 'toggle') {
+      const peak = motionValue(0);
+      hapticAtPeak(peak, 'toggle');
+      void swapped.then(() => peak.set(1));
+    } else haptics.success();
+    const w = latest.current.onComplete();
+    if (w && typeof w.then === 'function') w.then(undefined, () => setDone(false));
   };
   const drain = () => void animate(p, 0, reduce ? { duration: 0.15 } : springs.settle);
   const cancel = () => {
@@ -292,15 +331,15 @@ export const HoldRing = ({ label, onComplete, onTap, size = 48, done: doneProp, 
       }}
     >
       {/* the stroke's layer: the track, the fill and a faint check that says what holding does */}
-      <span ref={faceEl} className="hold-face" style={{ opacity: 1 - d.morph.get() }} aria-hidden="true">
+      <span ref={faceEl} className="hold-face" aria-hidden="true">
         <svg className="hold-svg" viewBox="0 0 56 56">
           <circle cx={28} cy={28} r={R} className="hold-track" />
-          <circle ref={fillEl} cx={28} cy={28} r={R} className="hold-fill" strokeDasharray={C} style={{ strokeDashoffset: C * (1 - p.get()) }} transform="rotate(-90 28 28)" />
+          <circle ref={fillEl} cx={28} cy={28} r={R} className="hold-fill" strokeDasharray={C} transform="rotate(-90 28 28)" />
         </svg>
         <Check className="hold-check" size={size === 40 ? 18 : 22} strokeWidth={2.75} />
       </span>
       {/* the check's layer, in the same circle: crossfades in and grows 0.8 → 1 */}
-      <span ref={doneEl} className="hold-done" style={{ opacity: d.morph.get(), transform: `scale(${d.check.get()})` }} aria-hidden="true">
+      <span ref={doneEl} className="hold-done" aria-hidden="true">
         <Check size={size === 40 ? 18 : 22} strokeWidth={2.75} />
       </span>
     </button>
