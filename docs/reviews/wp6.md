@@ -4,6 +4,85 @@ Branch `feel/wp6`, on `feel/pages-base` (`400f8f5`: WP1 merged, every contracts 
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`. Everything below was measured on this worktree's `VITE_FAKE_CLOCK=1` build served by `apps/api` on port 8840 (seed copy `S/wp6/test.db`), Playwright 390 × 844, DPR 2, `isMobile`, `hasTouch`, CDP touch, at 1× and 4× CPU, on 2026-10-24 (the real date; the battery names no fixed date beyond the seeded ones).
 
+## Fix round 1 (2026-10-25)
+
+The two round-1 reviews (`S/wp6/review-code-1.md`, code F1–F13; `S/wp6/review-feel-1.md`, feel F1–F13). Finding → fix →
+proof, one line each: `S/wp6/fix-1.md`. Fixes in `bcebd1a`.
+
+### Result
+
+- Every finding of severity ≥ 3 (code F1–F5, feel F1–F6) has a check in `S/wp6/qa/fix1/` that fails on the reviewed build
+  (`ce512ad`, served on 8842 by `S/wp6/before1/serve.sh`) and passes on this branch, at 1× and 4×. Runner
+  `S/wp6/qa/fix1/run-fix1.mjs` (`TAG=before|after`), tables `out/TABLE-before.md`, `out/TABLE-after.md`.
+  **Before: 22/42 at 1×, 21/42 at 4× (f-visual: 6/16 at 1×). After: 62/62 at 1×, 62/62 at 4×.**
+- Severity ≤ 2: code F6–F13 and feel F9, F10, F12, F13 fixed (proofs in `f-sev2`, `f-visual`); feel F7 and F8 are WP1's
+  primitives (requests 16, 17); feel F11 is WP2's Today behind the copy (request 9 stands; 0 px on the WP2 + WP6 preview).
+  Two polish items left as they are, with reasons (below). No finding was wrong.
+- WP6's battery: **169/169 at 1×, 152/152 at 4×** (17 static gates; the gates lost two exceptions this round: the Haptics
+  switch's own `toggle` and the "No link" toast). `S/wp6/qa/results-fix1/`.
+- WP1's battery on this build (`S/wp6/wp1qa/`, `SHIFT_MIN=auto`): **611/619 at 1×, 577/591 at 4×** (QA step: 610/616,
+  576/592). Six checks missed here that passed in the QA step's run: t09-push 10 (4×) and r2-layer c2-3 (4×) pass on a rerun;
+  t12-sheet 12g (1×) passes on the rerun; t13-pager 15c (4×), t14-hold 14c (1×, menu at 461–466 ms for a 460 ms bound) and
+  r4-nav c4-2a fail the same way on the reviewed build (`S/wp6/wp1qa-control/control-fix1.log`, same scripts on 8842). None
+  is on a WP6 page. Logs: `wp1qa/run-fix1.log`, `rerun-fix1.log`, `results/TABLE-full-fix1.md`.
+- Gates: `tsc --noEmit` shared/api/web exit 0; shared 88, api 59, web 87 passed; `pnpm --filter @logbook/web build` ok
+  (entry 939.04 kB / 308.92 kB gzip).
+
+### What changed (files, why)
+
+| File | Change | Findings |
+|---|---|---|
+| `features/journal/feel.ts` | `useListFlip` reads "before" rects on the render that changes the list and "after" rects in that commit (screen rects both: no stale origin); `carry()` keeps and restores the element's own `transition`; `below()` stops at a `.j-pane`; `useBodyReady` / `useBodyFade` (a pushed page's body as a deferred render, faded in 120 ms) | feel F1, code F6, feel F4 |
+| `features/journal/JournalView.tsx` | the switch's commit effect clears both panes' hold-still transform after cancelling the fades | code F1 |
+| `features/journal/journal.css`, `JournalHome.tsx` | no focus ring on the in-card fields; theme names break between words (hyphenate), 20/24 under 360; no ghost rows in the entries' empty state | feel F5, F9, F10 |
+| `features/reads/ReadsView.tsx`, `TodaysPick.tsx`, `reads.css` | the pick waits in the hero's own box; what is under the pick rides its size changes on `settle` (the pick's layout effect, ResizeObserver backstop, no read at mount); the tab mirrored with `nav.replace`; un-marking silent; no "No link" toast; the Read control fades in when it first appears; body deferred | feel F2, F4, code F9, F11, F12 |
+| `features/settings/HabitsPage.tsx` | the drag on motion values with the DOM order fixed until the drop; one re-basing commit; no 1.5 s timer | code F4, F5 |
+| `features/settings/SettingsView.tsx`, `SettingsSection.tsx`, `SectionPages.tsx` | bodies deferred behind the bar; `?strava=` cleared with `nav.replace('/settings')`; `HapticsRow` (root and App page) fires `toggle` through `hapticAtPeak`; "Signed in as · email" row; one Account group | feel F4, code F10, F13, feel F13 |
+| `features/progress/MileageChart.tsx` | fade per range change; the line keyed `avg-<range>` (it shared the bars' key: React kept stray groups); month labels 36 px apart | code F3, feel F13 |
+| `features/progress/ProgressView.tsx`, `sheets.tsx`, `progress.css` | a missing month: drill-downs wait, Total "Loading", a neutral verdict; "on plan" for adherence, "kept" for the week rule; the fresh page's sentence in sans | code F8, feel F6, F13 |
+| `features/onboarding/Welcome.tsx`, `onboarding.css` | the edge swipe as a pushed page's back (the step before under it at −30 %, opaque dragged step with its own halo, no enter/exit at the swap); the payoff face's rows each do what they say after the hand-off; Strava primer only where it can connect; run-day discs inside the gutter | feel F3, code F2, F7, feel F12 |
+
+### Measured (before → after; `S/wp6/qa/fix1/out/`)
+
+| Check | Before (1× / 4×) | After (1× / 4×) |
+|---|---|---|
+| code F1: double switch 70 ms apart, stale transform | `translateY(-100px)`, composer top 61 under the control | none; composer 161 |
+| code F2: payoff rows Add habits / Plan a week | `/today`, nothing open | habits sheet / `/plan/week/2026-10-19` |
+| code F3: bar groups' min opacity on the first scrub | 0 / 0 | 1.00 / 1.00 (a range change still fades: full at 208 ms) |
+| code F4: frames with the lifted habit > 20 px off the finger | 3 of 140 (−56 px) | 0 of 134 (median 0, max 12) |
+| code F5: second reorder 0.5 s after a drop | lost | kept, screen and server |
+| feel F1: worst excursion outside [from, to] ± 6 px | Journal Save 384–387 px; mark read 426 px | 0; 0 |
+| feel F2: links' largest step when the pick lands | 176 px in one frame (10 539 px/s) | 26 px over 300 ms on `settle` |
+| feel F3: frames with two questions over each other; under-step position | 4 frames; nothing under (black) | 0; −70.4 px at x 102 (= −0.3 × (W − x)) |
+| feel F4: first moving frame, median of 3, 4× (Reads / Settings / Training) | 75 / 61 / 73 ms | 43 / 42 / 33 ms (1×: 31 / 31 / 30, unchanged); slide's longest frame ≤ 50 ms at 4× |
+| feel F5: composer outline while typing | solid 2 px | none |
+| feel F6 / F9 / F10 / F12 | "Kept" in both sheets; "Acceptance" broken at 320; 17 ghost elements; discs x 9–381 | "on plan" vs "kept"; none broken; 0; discs x 20–370 |
+
+### Hand-verifiable steps (fix round 1)
+
+1. Journal: scroll down a little, then tap Library and Journal quickly (a double tap). Expected: Journal comes back where it was, and scrolling to the top shows the whole composer under the control.
+2. Journal: type six short lines (the box grows), then Save. Expected: the new entry fades in at the top of Entries and the others slide down from where they were; nothing flies up from the bottom.
+3. Reads on the first open of a day: "Today's pick" waits in a full-size card; when the pick arrives the links under it do not jump (at most a short slide). Mark a link read: the Unread · Read control fades in and the rows slide.
+4. Settings › Habits: hold a habit, drag it down past two others. Expected: it stays under your finger the whole way (no row-height jump at each slot), the others slide aside, it drops in place. Drag another one right after: it saves too.
+5. Progress: press and slide on the chart right after opening the tab. Expected: the bars dim around the week, never blink out.
+6. First run (a new account): on "Which days can you run?", drag from the left edge. Expected: the goal question is under it, offset left and dimmed, like a pushed page; let go past a third: it slides off and the goal question is simply there. On the payoff, tap "Plan a week": Today, then Plan at the first week.
+7. Settings: Haptics is a switch on the main page; the Account row reads "Signed in as" with the email.
+
+### Requests (new in fix round 1)
+
+16. **WP1 (`ui/lift.ts`)**: for a `press="dim"` element the lift reads its start scale after `data-preholding` / `data-pressed` are cleared, so the quote line drops 1.02 → 1.00 on the lift frame and regrows (feel F7, `S/wp6/feel1/qprobe.mjs`). Read the scale before clearing them.
+17. **WP1 (`Segmented`)**: at 4× the thumb starts 63–173 ms after the tap (motion, after the commit) while the switch's opacity fades start in 3–5 ms (feel F8). Move the thumb with WAAPI/CSS from the same commit, so the control and the content agree from the first frame.
+18. **WP1 (push commit)**: with a bare pushed page (only `PushedBar`) the first moving frame at 4× is still 54–60 ms after touchend on a session's first push: the push's own synchronous commit (Shell, `PushedLayer`, and `width()` reading `clientWidth` inside `apply`, a forced layout of 8 ms at 4×). WP6's pages now add 0–10 ms on top (their bodies are deferred).
+19. **WP2 (`FirstRunHero`)**, optional: a prop that leaves out rows the caller has already answered (the payoff answers habits and the week). WP6 now maps every row after the hand-off, so nothing is broken without it.
+
+Retired this round: 2 (Reads mirrors its tab with `nav.replace`, which replaces the top pushed entry in place) and 13 (the Haptics switch fires `toggle` through `hapticAtPeak`).
+
+### Left as is (reasons)
+
+- feel F13: the Journal ribbon's first visible day is clipped at 390: it is a horizontal scroller and the clipped day is the cue that more days are to the left. The Connections page with one row: on a Strava server it also holds the connection's status and heart-rate zones; it cannot be exercised on the QA server (no Strava keys).
+- feel F11: the double exposure during the hand-off is the seams base's old DayView behind the payoff's copy; on the WP2 + WP6 preview t54 lands at 0 px with 0 black frames (`t54-firstrun-integ` 9/9 at both rates). Re-check frame by frame at integration.
+- feel F4 at 4×: the first push of a session is near the 70 ms budget because of request 18; the later ones are 22–45 ms.
+
 ## QA step (2026-10-24)
 
 ### Result
