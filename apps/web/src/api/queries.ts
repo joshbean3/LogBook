@@ -627,6 +627,15 @@ export const usePlanDelete = () => {
 
 // ── WP6 ──
 // The Journal team's block: journal entries, quotes, reads and today's pick. Other teams import, never edit.
+import { notifyManager } from '@tanstack/react-query';
+
+/**
+ * A save's answer on screen, in the same commit as the entry's arrival in every list (review 3: the composer cleared in one
+ * commit and the entry arrived in another, up to 420 ms later at 4×, because the query cache tells React on a setTimeout:
+ * the page moved twice). `whenShown(vars, f)` before `add.mutate(vars)`: `f` runs in the cache's own notification batch.
+ */
+const shownBy = new WeakMap<object, () => void>();
+export const whenShown = <T extends object>(vars: T, f: () => void): T => (shownBy.set(vars, f), vars);
 
 export const useJournalList = (q: string, fav: boolean) =>
   useQuery({ queryKey: keys.journal(q, fav), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>(`/journal?q=${encodeURIComponent(q)}&fav=${fav ? 1 : 0}&limit=200`), staleTime: 30_000 });
@@ -658,13 +667,18 @@ export const useJournalMutations = () => {
   };
   /** Save an entry. The month and every list show it at once (a provisional id), then swap in the server's. Resolves to the entry. */
   const add = useMutation({
-    mutationFn: async ({ date, text }: { date: string; text: string }) => {
+    mutationFn: async (vars: { date: string; text: string }) => {
+      const { date, text } = vars;
       const month = monthOf(date);
       const tmp: JournalEntry = { id: `tmp-${Math.random().toString(36).slice(2, 9)}`, date, text, createdAt: new Date().toISOString(), editedAt: null, fav: false };
-      ensureMonth(qc, month);
-      patchMonth(qc, month, (b) => ({ ...b, journal: [...b.journal, tmp] }));
       void qc.cancelQueries({ queryKey: ['journal'] });
-      patchJournalLists(qc, (l, q, fav) => (matchesList(tmp, q, fav) ? [tmp, ...l] : l));
+      const shown = shownBy.get(vars);
+      notifyManager.batch(() => {
+        ensureMonth(qc, month);
+        patchMonth(qc, month, (b) => ({ ...b, journal: [...b.journal, tmp] }));
+        patchJournalLists(qc, (l, q, fav) => (matchesList(tmp, q, fav) ? [tmp, ...l] : l));
+        if (shown) notifyManager.schedule(shown);
+      });
       const saved = await write<JournalEntry>('/journal', 'POST', { date, text }, [keys.month(month), ['journal']], { tmpId: tmp.id });
       if (saved) {
         patchMonth(qc, month, (b) => ({ ...b, journal: b.journal.map((x) => (x.id === tmp.id ? saved : x)) }));

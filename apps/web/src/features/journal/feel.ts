@@ -174,6 +174,11 @@ export const useListFlip = (ref: RefObject<HTMLElement | null>, sig: string) => 
     shown.current = sig;
     const box = ref.current;
     if (!box || !was || was.sig !== sig) return;
+    // An ancestor still riding a carry (the composer shrank or the pick landed a frame or two before this commit) is held
+    // where it is now and restarted with the rows, so the rows' carries and its own share one clock from the next frame.
+    // Measured against an ancestor that kept moving while the rows' springs had not started, a row dipped 17–34 px the
+    // wrong way first (review 3: Journal Save, Reads delete just after the pick landed).
+    for (let a = box.parentElement; a && !a.matches(SCROLLERS); a = a.parentElement) if (carries.has(a)) carry(a, 0);
     for (const r of box.children as HTMLCollectionOf<HTMLElement>) {
       const k = r.dataset.key;
       if (!k) continue;

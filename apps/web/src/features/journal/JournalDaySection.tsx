@@ -2,7 +2,7 @@ import { ago, fmtDate, monthOf, type JournalEntry } from '@logbook/shared';
 import { Check, Pencil, Share, Star, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { useJournalList, useJournalMutations } from '@/api/queries';
+import { useJournalList, useJournalMutations, whenShown } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { crossfade } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
@@ -325,9 +325,17 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
     if (!v) return;
     const first = date === today && !(list.data?.entries ?? []).some((e) => e.date === date);
     if (first) haptics.success();
-    add.mutate({ date, text: v }, { onError: () => (set(v), toast('Couldn’t save that. Your words are back in the field.')) });
-    set('');
-    setSaved(true);
+    // the field empties in the commit that shows the entry in the list (one move of the page, not two)
+    let cleared = false;
+    const clear = () => {
+      if (cleared) return;
+      cleared = true;
+      set('');
+      setSaved(true);
+    };
+    add.mutate(whenShown({ date, text: v }, clear), { onError: () => (clear(), set(v), toast('Couldn’t save that. Your words are back in the field.')) });
+    // the field's words are in the draft store and the outbox now; a list that is not mounted still clears the field
+    setTimeout(clear, 250);
     onSaved?.();
   };
   const insert = (s: string) => {
