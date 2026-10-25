@@ -1,11 +1,104 @@
 # WP2 Today: review
 
-Branch `feel/wp2`, from `feel/pages-base` (`400f8f5`). Spec: `docs/feel.md` v4.2. Build plan §3. This file has fix round 2
-first, then fix round 1 (each: the three reviews' findings), then the QA step's review (the package's acceptance, as team-rules asks of REVIEW.md),
+Branch `feel/wp2`, from `feel/pages-base` (`400f8f5`). Spec: `docs/feel.md` v4.2. Build plan §3. This file has fix round 3
+first, then fix rounds 2 and 1 (each: the three reviews' findings), then the QA step's review (the package's acceptance, as team-rules asks of REVIEW.md),
 then the three build steps' notes as they were written (`# Build history`).
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`. The battery is `S/wp2/qa/`
 (one runner, `node run.mjs`, at 1× and 4×; every row with its numbers in `S/wp2/qa/results/TABLE.md`).
+
+## Fix round 3 (2026-10-25): the three reviews' findings, round 3
+
+Reviews: `S/wp2/review-code-3.md` (code 1–5), `S/wp2/review-feel-3.md` (feel 1–7), `S/wp2/review-day-3.md` (day 1–12). The full
+record (finding → what was done → the proof, before and after, 1× and 4×) is `S/wp2/fix-3.md`. Each finding fixed has a check
+under `S/wp2/qa/` (`f3-marks`, `f3-coach`, `f3-deck`, `f3-kb`, `f3-save`, `f3-orbs`, all in `run.mjs`) or a unit test
+(`coachShown.test.ts`), run first against the review build (`320923d`, kept at `S/wp2/fix3/dist-before`): 1 of 20 checks passed
+there at 4×, 0 at 1×; all 20 pass here at both rates.
+
+### What changed (all in WP2's files)
+
+| Files | Findings | Change |
+|---|---|---|
+| `features/day/Hero.tsx`, `CloseDay.tsx`, `HoldRing.tsx`, `marks.ts` (new) | code 2, 3; feel 2; day 4, 5, 6 | Done (the ring and the menu) and Not done go through `useMarkOverride`'s `markNow`, as Skip and the second session did: the face, the Close card's run row and its `MI` stamp change with the check, in their own small render; the write waits out the check's swap. A refused mark raises `Couldn’t mark … done.` / `Couldn’t skip ….` (replacing Skip's Undo toast) and the check fades back instead of leaving in one frame |
+| `features/day/coachShown.ts`, `coachShown.test.ts` (new), `features/sessions/SessionCard.tsx`, `api/queries.ts` (WP2 block, comment) | code 1, day 1 | The coach store is kept in `localStorage` (the last 30 reads) and read by the session sheet as well as the landed deck: an open sheet shows the read when it lands (one Claude call), and a cold open has the sentence on its first frame |
+| `features/day/CloseDay.tsx`, `day.css` | feel 1, code 4 | Save fades out a still copy of the field as it was pressed (words and Save), never the emptied Composer or its `Saved` pill. The composer takes the focus only when `Add to it` opens it |
+| `features/day/TheDayCard.tsx` | code 5 | The just-saved words show in the entries at once, until the month has the entry |
+| `features/day/reveal.ts` (new), `CloseDay.tsx`, `TheDayCard.tsx` | day 3 | Both composers keep their whole box (field and Save) above the keyboard: on focus, and as the field grows |
+| `features/day/Hero.tsx`, `day.css` | day 2 | The done-by-hand deck fits its 56: week line 20, tools 32; the verb draws 32 with a 44 hit area |
+| `features/habits/OrbRow.tsx` | feel 3, 4 | The row's held writes go together in one task, and on `pagehide` |
+
+### Not closed in WP2's files, and why
+
+- **day 7** (sev 3, the morning push's first frame) and **feel 5** (the freeze at rest after it): WP2's part (the push in the
+  release's own task) holds; the rest is WP1's PushedLayer / DayPager and WP3's MorningView (requests 27, 29, 35).
+- **feel 3**, the unlit orb after a fast reopen: the write is now sent on `pagehide` (the server has it), but the persisted
+  month the app reopens with is saved on the persister's throttle (request 36).
+- **feel 6** (sev 1, a release queued behind a long frame completes the hold at 4×): left. The completion runs in a frame
+  callback and cannot see a release still in the input queue; waiting a frame for one would delay every completion.
+- **feel 7** (sev 1, a done-by-sets lift's hold answers nothing): there is nothing to take back on the card; a hold with no
+  menu is WP1's `Pressable` (request 37).
+- **day 8, 9, 11, 12; feel 9, 10, 11**: unchanged requests 30 / 17 (WP6), 32, 31, 33 (WP1), 25 (spec). **day 10** (sev 1):
+  integration polish, as in round 2.
+
+### Battery
+
+`node S/wp2/qa/run.mjs` with `SHIFT_DAYS=-1` (as round 2: the QA scripts' Saturday). Table `S/wp2/qa/results/TABLE.md`, copy
+`S/wp2/qa/results-fix3/`, log `S/wp2/fix3/run-fix3.log`.
+
+| Part | Checks | 1× | 4× | Round 2 |
+|---|---|---|---|---|
+| QA battery | 183 / 174 | 183/183 | 173/174 | 183/183, 171/174 |
+| Round 1's fix checks | 55 / 50 | 55/55 | 46/50 | 54/55, 47/50 |
+| Round 2's fix checks | 37 | 35/37 | 35/37 | 35/37, 35/37 |
+| This round's fix checks | 20 | 20/20 | 20/20 | — |
+| **All** | | **293/295** | **274/281** | 272/275, 253/261 |
+
+The misses, each one also missing on the review build or in round 2: QA [20] pill at 4× (WP1); round 1's F2 ×2 at 4× (push;
+WP1 / WP3) and D6 at 4× (WP6); round 2's two `f2-open` "whole" checks (WP1 / WP3). Two 4× checks that missed once were run
+again on both builds side by side (`S/wp2/fix3/ctl/`): `f1-close` F3 (the FLIP's translated frames) misses one run in three on
+both builds; `t41-close`'s slot check samples the lazy quote line 800 ms after login, which arrives 556–1168 ms after login here
+and 749–1173 ms on the review build (the same race on both; it passed on the battery's rerun).
+
+Gates: `tsc --noEmit` shared / api / web 0; shared 88, api 59, web 107 (+4: `coachShown.test.ts`); `pnpm --filter @logbook/web
+build` ok (35 files precompressed).
+
+### WP1's battery on this build (`S/wp2/wp1qa`, results `results/`; round 2's run kept in `results-fix2/`)
+
+**1× 623/627, 4× 586/603** (`SHIFT_MIN=auto SHIFT_DAYS=-1`, as round 2; round 2's run of the same scripts: 623/627,
+586/604; log `S/wp2/fix3/wp1-run-fix3.log`). Six checks missed that had passed in round 2's run, and seven passed that had
+missed. Each script with a new miss was run twice more on this build (8810) and on the review build (`320923d`, 8811), side by
+side (`S/wp2/fix3/ctl/wp1/`):
+
+| Script (rate) | This build | Review build |
+|---|---|---|
+| `r1-sheet` (1×; f5, a Plan row's sheet) | 9/10, 9/10 | 9/10, 9/10 |
+| `t13-pager` (4×; catch mid-slide, 15c, goTo) | 34/37, 33/37 | 33/37, 32/37 |
+| `r2-sheet` (4×; u1-pop) | 12/13, 12/13 | 12/13, 12/13 |
+| `t01-press` (4×; gallery press) | 6/6, 5/6 | 5/6, 5/6 |
+
+The same spread on both builds: WP1's gallery, pager and sheet timings at 4× and a Plan row (no WP2 code on that path).
+
+### Screenshots (looked at)
+
+`S/wp2/qa/shots/fix3/`: `deck-done-{390,320}-crop.png` (before: `before-deck-done-{390,320}.png`), the done-by-hand face whole;
+`kb-theday.png`, `kb-close.png` (before: `before-kb-*.png`), Save above the keyboard after six lines; `save-cast-montage.png`
+and `save-cast-zoom.png`, the Close card's Save frame by frame (the words fade as the entry comes in, no empty prompt).
+
+### Requests added this round
+
+**WP3 / WP1**
+35. After the morning push rests, one 228–371 ms task at about +1.0–1.4 s at 4× (58–85 ms at 1×; feel review 3 #5): the
+    owner's first drag on the Wake stamp lands in it. Profile MorningView's (or PushedLayer's) work at rest and defer it to idle.
+
+**WP1 / WP5**
+36. The persisted query cache is written on the persister's throttle: a write made just before a reload or a relaunch (an
+    orb's check) reopens unlit from the restored month, though the server has it (feel review 3 #3). Flush the persister on
+    `pagehide` and after an optimistic write; send the outbox's queued writes with `keepalive: true` on `pagehide`.
+
+**WP1**
+37. `ui/Pressable.tsx`: a hold on a card with no `holdMenu` answers nothing (no lift, no menu), so the press reads as broken
+    (feel review 3 #7: a lift done by its logged sets). Either do not arm the hold without a menu (the press stays a tap), or
+    give it the lift and settle back.
 
 ## Fix round 2 (2026-10-25): the three reviews' findings, round 2
 
