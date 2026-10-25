@@ -10,6 +10,7 @@ import { isNative } from '@/lib/native';
 import { Button, PushedBar, Row, useSheet, useToast } from '@/ui';
 import { DeleteStepOne, exportAll } from './account';
 import { HrZonesRow } from './HrZones';
+import { popFav } from '@/features/journal/feel';
 import { GoRow, SGroup, Switch } from './parts';
 
 // ---------- install (the web app only) ----------
@@ -113,9 +114,34 @@ export const ConnectionsPage = (): React.JSX.Element => {
   );
 };
 
+/**
+ * The Haptics switch (the Settings root's App group and the App page). Turning it on answers with the feel it turns on, as
+ * `toggle` on the apex of the `complete` curve (`hapticAtPeak`, contracts §D.3: never fired straight from the tap; review
+ * code F13); turning it off is silent.
+ */
+export const HapticsRow = (): React.JSX.Element => {
+  const [hapticsOn, setHapticsOn] = useHapticsEnabled();
+  return (
+    <Row
+      className="s-wrap"
+      title="Haptics"
+      sub={isNative ? 'A tap you can feel for a lift, a drop and a done.' : 'On phones that support it. iPhone browsers don’t.'}
+      right={
+        <Switch
+          on={hapticsOn}
+          label="Haptics"
+          onChange={(on) => {
+            setHapticsOn(on);
+            if (on) popFav();
+          }}
+        />
+      }
+    />
+  );
+};
+
 /** /settings/app: haptics, and on the web, installing to the home screen. */
 export const AppPage = (): React.JSX.Element => {
-  const [hapticsOn, setHapticsOn] = useHapticsEnabled();
   const [canInstall, setCanInstall] = useState(!!deferredInstall);
   useEffect(() => {
     const fn = (e: Event) => {
@@ -137,22 +163,7 @@ export const AppPage = (): React.JSX.Element => {
     <div className="page s-set s-sub">
       <PushedBar title="App" />
       <SGroup title="Feel">
-        <Row
-          className="s-wrap"
-          title="Haptics"
-          sub={isNative ? 'A tap you can feel for a lift, a drop and a done.' : 'On phones that support it. iPhone browsers don’t.'}
-          right={
-            <Switch
-              on={hapticsOn}
-              label="Haptics"
-              onChange={(on) => {
-                setHapticsOn(on);
-                // the switch answers with the feel it turns on
-                if (on) haptics.toggle();
-              }}
-            />
-          }
-        />
+        <HapticsRow />
       </SGroup>
       {!isNative ? (
         <SGroup title="Home screen">
@@ -260,10 +271,9 @@ export const AccountPage = (): React.JSX.Element => {
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Account" />
+      {/* one group: who is signed in, then the two ways out (no "Leave" header over Sign out, review feel F13) */}
       <SGroup title="Signed in as">
         <Row title={boot.data?.user.email ?? ' '} className="s-email-row" />
-      </SGroup>
-      <SGroup title="Leave" className="s-sec-quiet">
         <Row className="s-signout" title={logout.isPending ? 'Signing out…' : 'Sign out'} onClick={() => !logout.isPending && logout.mutate()} />
         <Row
           className="s-danger"

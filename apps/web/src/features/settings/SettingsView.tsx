@@ -1,15 +1,18 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import type * as React from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { keys, useBootstrap } from '@/api/queries';
 import { DAY_NAME, DAY_SHORT, goalLine, hm, isTemplateBlock, paceText, sortDays } from '@/features/onboarding/model';
 import { useOpenRoutineEditor } from '@/features/morning/RoutineEditor';
-import { haptics, useHapticsEnabled } from '@/lib/haptics';
+import { haptics } from '@/lib/haptics';
+import { isNative } from '@/lib/native';
 import { PushedBar, useToast } from '@/ui';
+import { useBodyFade, useBodyReady } from '@/features/journal/feel';
 import { zoneLine } from './HrZones';
 import { GoRow, SGroup } from './parts';
+import { HapticsRow } from './SectionPages';
 import { useTrainingProfile } from './useProfile';
 import './settings.css';
 
@@ -18,10 +21,13 @@ let stravaReturnRead = false;
 const useStravaReturn = () => {
   const qc = useQueryClient();
   const toast = useToast();
+  const nav = useNav();
   useEffect(() => {
     if (stravaReturnRead) return;
     stravaReturnRead = true;
     const s = new URLSearchParams(window.location.search).get('strava');
+    // read once: the parameter leaves the address (the top entry, in place), so a reload does not answer twice (review code F10)
+    if (s) nav.replace('/settings');
     if (s === 'connected') {
       // the Connections row answers ("Connected"); the runs follow a sync later
       void qc.invalidateQueries({ queryKey: keys.bootstrap });
@@ -30,7 +36,7 @@ const useStravaReturn = () => {
       haptics.error();
       toast('Didn’t connect to Strava. Try again.');
     }
-  }, [qc, toast]);
+  }, [qc, toast, nav]);
 };
 
 /**
@@ -43,10 +49,19 @@ export default function SettingsView(): React.JSX.Element {
   const boot = useBootstrap();
   const nav = useNav();
   const openRoutine = useOpenRoutineEditor();
-  const [hapticsOn] = useHapticsEnabled();
   const { profile, block, loaded, stored: hasStored, source } = useTrainingProfile();
   useStravaReturn();
   const go = (section: string) => () => nav.push(`/settings/${section}`);
+  // the push draws the bar; the eight groups follow as a deferred render that never holds the slide (review feel F4)
+  const ready = useBodyReady();
+  const pageRef = useRef<HTMLDivElement>(null);
+  useBodyFade(pageRef, ready);
+  if (!ready)
+    return (
+      <div className="page s-set s-root">
+        <PushedBar title="Settings" />
+      </div>
+    );
 
   const data = boot.data;
   const user = data?.user;
@@ -61,7 +76,7 @@ export default function SettingsView(): React.JSX.Element {
   const zones = zoneLine(data?.zones);
 
   return (
-    <div className="page s-set s-root">
+    <div ref={pageRef} className="page s-set s-root">
       <PushedBar title="Settings" />
 
       <SGroup title="You">
@@ -109,7 +124,9 @@ export default function SettingsView(): React.JSX.Element {
       ) : null}
 
       <SGroup title="App">
-        <GoRow title="Haptics" value={hapticsOn ? 'On' : 'Off'} onPress={go('app')} />
+        {/* one tap, not a page with one switch on it (review feel F13); the App page keeps it with the Home screen rows */}
+        <HapticsRow />
+        {isNative ? null : <GoRow title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
       </SGroup>
 
       <SGroup title="Data">
@@ -117,7 +134,8 @@ export default function SettingsView(): React.JSX.Element {
       </SGroup>
 
       <SGroup title="Account">
-        <GoRow title="Account" sub={user?.email} onPress={go('account')} />
+        {/* not "Account" twice (the group's title and the row's, review feel F13): who is signed in, on the right */}
+        <GoRow title="Signed in as" value={user?.email} onPress={go('account')} className="s-acct-row" label={`Account: signed in as ${user?.email ?? ''}`} />
       </SGroup>
 
       <p className="s-colophon">

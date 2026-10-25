@@ -199,7 +199,8 @@ export default function ProgressView() {
     : [
         { label: 'Avg week', value: m.sum.avg, format: mi, unit: 'mi' },
         { label: 'Best week', value: m.sum.best?.ran ?? null, format: mi, unit: 'mi' },
-        { label: 'Total', value: m.sum.total, format: (v) => String(Math.round(v)), unit: 'mi' },
+        // with a month of the range not loaded the total would be short under the full range's label: it waits (review code F8)
+        { label: 'Total', value: pts.some((p) => p.missing) ? null : m.sum.total, word: 'Loading', format: (v) => String(Math.round(v)), unit: 'mi' },
       ];
   if (scrub != null) lastShown.current = slots.map((x) => x.value);
   const readWords = sp ? `${ctx}: ${sp.future ? '' : `${mi(sp.ran)} miles, `}${sp.planned ? `${num(sp.planned)} planned, ` : ''}${sp.future ? sp.plannedRuns : sp.runs} runs` : `${ctx}: ${m.sum.avg != null ? `${mi(m.sum.avg)} miles a week on average, ` : ''}${m.sum.best ? `best week ${mi(m.sum.best.ran)}, ` : ''}${Math.round(m.sum.total)} miles in all`;
@@ -236,7 +237,14 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
-      {m.v ? (
+      {/* a month of the range not loaded: the verdict and the drill-downs would read the gap as weeks off (review code F8),
+          so the verdict says only that, in the same place, and the drill-downs wait under the chart's quiet gap */}
+      {m.v && gaps ? (
+        <>
+          <p className="pg-verdict">Your weeks so far.</p>
+          <p className="pg-sub">A month of this range is still on its way; its weeks are left blank.</p>
+        </>
+      ) : m.v ? (
         <>
           <p className="pg-verdict">{m.v.line}</p>
           <p className="pg-sub">{m.v.sub}</p>
@@ -263,7 +271,7 @@ export default function ProgressView() {
         </div>
         <MileageChart pts={pts} range={m.range} today={t} onScrub={setScrub} onOpen={openAt} onPinch={pinch} />
       </section>
-      <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} />
+      {gaps ? null : <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} />}
     </div>
   );
 }
@@ -271,9 +279,9 @@ export default function ProgressView() {
 /** The edge-to-edge list under the chart: each row a sparkline and one number, each opening its sheet. */
 const Drills = ({ m, t, range, log, sheet, onConnect }: { m: Model; t: string; range: Range; log: Log; sheet: ReturnType<typeof useSheet>; onConnect: () => void }) => {
   const { ad, lr, ep, lg, c } = m;
-  // "1 of 6 kept · 5 to go": counts, never a percentage grade
+  // "1 of 6 on plan · 5 to go": counts, never a percentage grade ("kept" is the week's word, review feel F6)
   const toGo = ad.weeks.reduce((s, w) => s + w.ahead, 0);
-  const adSub = ad.weeks.length ? [ad.planned ? `${ad.kept} of ${ad.planned} kept` : 'Nothing due yet', toGo ? `${toGo} to go` : null].filter(Boolean).join(' · ') : 'No plan in this range';
+  const adSub = ad.weeks.length ? [ad.planned ? `${ad.kept} of ${ad.planned} on plan` : 'Nothing due yet', toGo ? `${toGo} to go` : null].filter(Boolean).join(' · ') : 'No plan in this range';
   // "5.3 mi lately · best 8.0 in Aug"
   const lrDelta = lr.recent > 0 ? `${mi(lr.recent)} mi lately${lr.best && lr.best.miles > lr.recent + 0.05 ? ` · best ${mi(lr.best.miles)} in ${lr.best.month}` : ' · your longest yet'}` : lr.best ? `Best ${mi(lr.best.miles)} in ${lr.best.month}` : 'No runs yet';
   const ch = paceChange(ep.now, ep.then);

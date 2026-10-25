@@ -186,6 +186,24 @@
   flex: none;
 }
 
+/* the pick being made: the hero's box with quiet bars where the title and its line will be (no glow, nothing spins) */
+.rp-wait .rwait-title {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.rp-wait .rwait-title .rwait-bar {
+  height: 24px;
+}
+.rp-wait .rwait-title .rwait-bar.short {
+  height: 24px;
+  width: 48%;
+}
+.rp-wait .rwait-bar.line {
+  height: 14px;
+  width: 72%;
+  margin-top: 6px;
+}
 /* data still arriving: quiet bars the height the title and its line will take. Nothing spins. */
 .rwait {
   display: grid;

@@ -1,14 +1,14 @@
 import { ago, isAddressTitle, linkTitle, toISO, type Link, type PickResult } from '@logbook/shared';
 import { ArrowUpRight, Check, Copy, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouteParams } from '@/app/NavController';
+import { useNav, useRouteParams } from '@/app/NavController';
 import { keys, useReads, useReadsMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { crossfade, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRows, SwipeRow, usePress, useSheet, useToast } from '@/ui';
-import { measureBelow, popFav, useListFlip } from '../journal/feel';
+import { below, carry, measureBelow, popFav, useBodyFade, useBodyReady, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
 import { TodaysPick } from './TodaysPick';
 import './reads.css';
@@ -205,8 +205,8 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
           haptic={false}
           onClick={() => {
             if (ticked) return;
-            // `toggle` on the check's peak (§11.4), never on the tap
-            popFav();
+            // `toggle` on the check's peak (§11.4), never on the tap, and never on un-marking (review code F11)
+            if (!read) popFav();
             setTicked(true);
             // the check draws, then the row moves to the other list
             setTimeout(() => onFlip('tap'), 420);
@@ -232,13 +232,20 @@ type Tab = 'unread' | 'read';
 const FADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
 /**
  * Reads (docs/feel.md §8), the pushed page at `/journal/reads/:tab?` over the mounted Journal: the PushedBar, quick add on
- * top, today's pick, then the links on SwipeRow v2 (72 px reveal, 55 % / 600 px/s full). `Unread · Read` is page state
- * (read once from the route; a pushed page's path is not rewritten), and switching crossfades the list in 150 ms. A row
- * that leaves fades while the rows below FLIP up on `settle`; nothing animates height.
+ * top, today's pick, then the links on SwipeRow v2 (72 px reveal, 55 % / 600 px/s full). `Unread · Read` is page state,
+ * mirrored into the top entry with `nav.replace` (so a reload comes back to it), and switching crossfades the list in
+ * 150 ms. A row that leaves fades while the rows below FLIP up on `settle`; nothing animates height. Today's pick changing
+ * size (it lands, it is saved) carries what is under it on `settle` too.
  */
 export default function ReadsView() {
   const params = useRouteParams();
-  const [tab, setTab] = useState<Tab>(params.tab === 'read' ? 'read' : 'unread');
+  const nav = useNav();
+  const ready = useBodyReady();
+  const [tab, setTabRaw] = useState<Tab>(params.tab === 'read' ? 'read' : 'unread');
+  const setTab = (k: Tab) => {
+    setTabRaw(k);
+    nav.replace(k === 'read' ? '/journal/reads/read' : '/journal/reads');
+  };
   const today = useToday();
   const reads = useReads();
   const { patch, remove, restore } = useReadsMutations();
@@ -280,6 +287,30 @@ export default function ReadsView() {
   const shownTab: Tab = tabs ? tab : 'unread';
   const shownList = shownTab === 'read' ? read : unread;
   const listRef = useRef<HTMLDivElement>(null);
+  // the Unread · Read control appearing (the first link marked read) fades in; on the page's first frame it is just there
+  const tabsAtMount = useRef(tabs);
+  // today's pick changes size on its own (it lands 10–20 s after the first open of the day, or a verdict lands): what is
+  // under it is carried from where it was on `settle`, before the frame paints. The pick reports each of its commits (a
+  // layout effect, so the carry is in the same frame as the new size); a ResizeObserver catches anything else (fonts)
+  const pickBox = useRef<HTMLDivElement>(null);
+  const pickH = useRef<number | null>(null);
+  const pickMoved = useCallback(() => {
+    const el = pickBox.current;
+    if (!el) return;
+    const nh = el.offsetHeight;
+    const d = pickH.current == null ? 0 : nh - pickH.current;
+    pickH.current = nh;
+    if (Math.abs(d) >= 1) for (const n of below(el)) carry(n, -d);
+  }, []);
+  useLayoutEffect(() => {
+    const el = pickBox.current;
+    // no read here: the observer's first callback (after the first layout, never forced inside the push's commit) is
+    // where the starting height comes from
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(pickMoved);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pickMoved, ready]);
   useListFlip(listRef, `${shownTab}:${shownList.map((x) => x.id).join(',')}`);
   // the tab switch: a 150 ms crossfade of the list in place (opacity only)
   const stage = useRef<HTMLDivElement>(null);
@@ -289,12 +320,11 @@ export default function ReadsView() {
     lastTab.current = shownTab;
     stage.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: `cubic-bezier(${ease.join(', ')})` });
   }, [shownTab]);
-  /** The empty state's verb: take a link off the clipboard if there is one, else open the field. */
+  /** The empty state's verb: take a link off the clipboard if there is one, else open the field (the field is the answer). */
   const paste = async () => {
     try {
       const text = await navigator.clipboard.readText();
       if (adder.save(text)) return;
-      toast('No link on the clipboard. Paste one here.');
     } catch {
       /* no clipboard permission: the field it is */
     }
@@ -317,9 +347,10 @@ export default function ReadsView() {
       ))}
     </div>
   );
-  return (
-    <div className="page reads-page">
-      <PushedBar
+  const pageRef = useRef<HTMLDivElement>(null);
+  useBodyFade(pageRef, ready);
+  const bar = (
+    <PushedBar
         title="Reads"
         trailing={
           empty ? (
@@ -329,13 +360,20 @@ export default function ReadsView() {
           ) : undefined
         }
       />
+  );
+  if (!ready) return <div className="page reads-page">{bar}</div>;
+  return (
+    <div ref={pageRef} className="page reads-page">
+      {bar}
       <div ref={top} className="jtl-anchor" aria-hidden="true" />
       {showAdd ? (
         <div className="fade-in">
           <QuickAdd inputRef={input} onDone={() => setAdding(false)} />
         </div>
       ) : null}
-      <TodaysPick heroOnly={empty} />
+      <div ref={pickBox} className="r-pick">
+        <TodaysPick heroOnly={empty} onLayout={pickMoved} />
+      </div>
       {reads.isPending && !reads.data ? (
         <div className="r-lists">
           <SkeletonRows rows={3} label="Loading your links" />
@@ -349,7 +387,7 @@ export default function ReadsView() {
       ) : (
         <div className="r-lists">
           <Segmented
-            className="r-tabs"
+            className={`r-tabs ${tabsAtMount.current ? '' : 'fade-in'}`}
             label="Unread or read"
             options={[
               ['unread', `Unread${unread.length ? ` · ${unread.length}` : ''}`],

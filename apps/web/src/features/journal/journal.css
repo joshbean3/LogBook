@@ -156,6 +156,12 @@ textarea.jtext {
   min-height: 66px;
   overflow: hidden;
 }
+/* a field inside a card shows focus with its caret, never the global ring (base.css :focus-visible), which was clipped by
+   the card's top edge and overhung its sides (review feel F5); the selector outranks the global rule wherever it loads */
+.jtext:focus-visible,
+textarea.jtext:focus {
+  outline: none;
+}
 .jtext::placeholder {
   color: var(--ink-3);
 }
@@ -898,7 +904,15 @@ textarea.jsheet-text {
   line-height: 1.75rem;
   color: var(--ink);
   min-width: 0;
-  overflow-wrap: anywhere;
+  /* a name breaks between words, never inside one ("Acceptan / ce" at 320, review feel F9): a long word hyphenates */
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+@media (max-width: 359px) {
+  .theme-name {
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
 }
 .theme-count {
   flex: none;

@@ -101,6 +101,32 @@
   min-width: 0;
   position: relative;
 }
+/* the edge swipe (review feel F3): the step being left is an opaque page with its own copy of the halo, over the step
+   before it (at −30 %, under a scrim); nothing in either takes a touch while the finger has it */
+.ob-swipe.is-edge {
+  z-index: 1;
+  isolation: isolate;
+  background: var(--bg);
+}
+.ob-halo-copy {
+  position: absolute;
+  bottom: auto;
+}
+.ob-under {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+.ob-under-scrim {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+}
 .ob-stage {
   flex: 1;
   display: flex;
@@ -320,11 +346,20 @@
   color: var(--ink-3);
 }
 
-/* ---------- run days: seven letters edge to edge, so each is at least 44px even at 320 ---------- */
+/* ---------- run days: seven letters inside the 16 px gutter (review feel F12); each cell is at least 44 px wide, so at
+   the narrowest phones (< 360) the row's hit cells run edge to edge and the discs shrink to stay off the edges ---------- */
 .ob-days {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin-inline: calc(-1 * var(--page-pad) + 4px);
+}
+@media (max-width: 359px) {
+  .ob-days {
+    margin-inline: calc(-1 * var(--page-pad, 16px) + 4px);
+  }
+  .ob-days .ob-day-disc {
+    width: 36px;
+    height: 36px;
+  }
 }
 .ob-day {
   appearance: none;

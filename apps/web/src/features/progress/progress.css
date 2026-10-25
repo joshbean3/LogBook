@@ -329,10 +329,12 @@
   mask-image: none;
 }
 .pg-empty .empty-line {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.75rem;
-  line-height: 2rem;
+  /* one serif per screen, the title's (§8, review feel F13): the sentence is the verdict's sans */
+  font-family: var(--sans);
+  font-size: 1.25rem;
+  line-height: 1.5625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
 

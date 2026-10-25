@@ -64,8 +64,11 @@ export default function JournalView() {
     const p = pending.current;
     if (!p) return;
     pending.current = null;
+    // a switch inside a running fade (a double tap, a cut, a reselect): the fades stop and so does their hold-still
+    // transform; a cancelled animation never fires `finish`, so it is cleared here, on both panes (review code F1)
     for (const a of fades.current) a.cancel();
     fades.current = [];
+    for (const el of [journalPane.current, libraryPane.current]) if (el) el.style.transform = '';
     const sc = scroller.current;
     if (sc) sc.scrollTop = offsets.current[seg];
     const now = sc?.scrollTop ?? 0;

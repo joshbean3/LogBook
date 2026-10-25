@@ -14,7 +14,6 @@ import { FavStar } from './FavStar';
 import { PressButton } from './PressButton';
 import { measureBelow, popFav, useListFlip } from './feel';
 import { Composer, EntryEditor, monthsOf, timeOf, useEntryActions, useOpenDay, useOpenEntry } from './JournalDaySection';
-import { GhostLines } from './Ghost';
 import { runStamp, useDayPrompt } from './prompt';
 
 /** "“…” (Seneca)": how a quote goes into an entry when it is used as a prompt. */
@@ -473,7 +472,8 @@ const Timeline = ({ today, all, pending, onWrite }: { today: string; all: Journa
           </SkeletonGroup>
         ) : null
       ) : !all.length ? (
-        <EmptyState ghost={<GhostLines rows={3} lead />} verb={{ label: 'Write today’s', onPress: onWrite }}>
+        // the sentence and its verb, no ghost rows: they read as the loading skeleton (review feel F10)
+        <EmptyState verb={{ label: 'Write today’s', onPress: onWrite }}>
           Two sentences a day. Every one lands here, newest first.
         </EmptyState>
       ) : q.trim() && !list.length && !found.isPending ? (

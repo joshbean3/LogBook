@@ -1,7 +1,7 @@
 import { linkTitle, type Link } from '@logbook/shared';
 import { ArrowUpRight, Bookmark, ChevronRight, Copy, RotateCw, Sparkles, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { usePick, useReadsMutations } from '@/api/queries';
 import { fadeIn, fadeOut, springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
@@ -15,6 +15,27 @@ const Wait = ({ compact }: { compact?: boolean }) => (
     <span className="rwait-bar" />
     <span className="rwait-bar short" />
   </div>
+);
+
+/**
+ * The pick being made, on Reads: the hero's own box (its eyebrow, a title's and a line's quiet bars, the actions' row
+ * held empty), so when the pick lands it fills the same place and the links under it do not move (review feel F2). What
+ * the real card differs by is carried on `settle` by the page (ReadsView's ResizeObserver).
+ */
+const HeroWait = () => (
+  <section className="rp rp-wait" aria-label="Today’s pick" aria-busy="true">
+    <div className="rp-top">
+      <span className="caps">Today’s pick</span>
+    </div>
+    <div className="rp-body" role="status" aria-label="Finding today’s pick">
+      <span className="rwait-title" aria-hidden="true">
+        <span className="rwait-bar" />
+        <span className="rwait-bar short" />
+      </span>
+      <span className="rwait-bar line" aria-hidden="true" />
+    </div>
+    <div className="rp-actions" aria-hidden="true" />
+  </section>
 );
 
 /** True once this card has shown a placeholder, so the content that replaces it fades in; later swaps already animate on key. */
@@ -47,7 +68,7 @@ const Slim = ({ children, verb, busy }: { children: React.ReactNode; verb?: Reac
  * On Reads: the hero (an aura card, lit from below) only when a pick exists, else a slim card ("Save links and Logbook finds
  * you one a day"). With `compact`, one row for the Today page, and nothing at all when there is no pick.
  */
-export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?: boolean }) => {
+export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean; heroOnly?: boolean; onLayout?: () => void }) => {
   const date = useToday();
   const q = usePick(date);
   const { feedback, another } = useReadsMutations();
@@ -62,6 +83,13 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
   const left = data?.refreshesLeft ?? 0;
   const site = p ? p.siteName || hostOf(p.url) : '';
   const press = usePress();
+  // every commit of the card after its first (it may have changed size): the page carries what is under it in the same
+  // frame. Not on the mount: the page is being pushed then, and a layout read would be forced inside that commit
+  const mounted = useRef(false);
+  useLayoutEffect(() => {
+    if (mounted.current) onLayout?.();
+    mounted.current = true;
+  });
   const refresh = () => {
     another.mutate(date, {
       onSuccess: (r) => {
@@ -104,13 +132,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
   // no pick to show: a slim card, never a big empty hero (and on an empty Reads page, nothing: the page's one sentence says it)
   if ((!p || waiting) && heroOnly) return null;
   if (!p || waiting) {
-    if (waiting && (waited || !data))
-      return (
-        <Slim busy>
-          <span className="rp-slim-line">Finding today’s pick</span>
-          <Wait compact />
-        </Slim>
-      );
+    if (waiting) return <HeroWait />;
     if (off) return <Slim>Daily picks are off. Your links still wait below.</Slim>;
     if (data?.reason === 'empty') return <Slim>Save links and Logbook finds you one a day.</Slim>;
     return (

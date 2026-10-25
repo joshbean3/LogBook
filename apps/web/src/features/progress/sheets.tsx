@@ -110,7 +110,7 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
       ? 'Week kept.'
       : current
         ? `${Words(Math.max(0, sum.target - sum.keptSessions))} more ${plural(sum.target - sum.keptSessions, 'session keeps', 'sessions keep')} it.`
-        : `${Words(sum.keptSessions)} of ${sum.target} kept.`;
+        : `${Words(sum.keptSessions)} of the ${sum.target} ${plural(sum.target, 'session', 'sessions')} that keep a week.`;
   // the seven days live in Plan (the same list, with drag and swipe): one row takes you there instead of repeating it
   // §1.3: a 0 ms cut to Plan already at that week; one Back returns to Progress with the sheet closed
   const openInPlan = () => nav.go(`/plan/week/${w}`);
@@ -175,7 +175,8 @@ export const AdherenceSheet = ({ ad, today, range, log }: { ad: Adherence; today
   return (
     <div className="pg-sheet">
       <div className="pg-stamps">
-        <Stamp label="Kept" value={ad.kept} unit={`of ${ad.planned}`} note={ad.planned ? `${p}% of planned sessions` : 'Nothing due yet'} />
+        {/* "on plan", never "kept": a week is kept by the floor rule (the week sheet's words); this counts the block's sessions (review feel F6) */}
+        <Stamp label="On plan" value={ad.kept} unit={`of ${ad.planned}`} note={ad.planned ? `${p}% of planned sessions` : 'Nothing due yet'} />
         {ad.block ? (
           <Stamp label="Block week" value={Math.min(blockWeeks(ad.block.start, ad.block.end), weeksSince(ad.block.start, today))} unit={`of ${blockWeeks(ad.block.start, ad.block.end)}`} note={`${md(ad.block.start)} – ${md(ad.block.end)}`} />
         ) : (
@@ -183,7 +184,7 @@ export const AdherenceSheet = ({ ad, today, range, log }: { ad: Adherence; today
         )}
       </div>
       {ad.block?.summary ? <p className="pg-note">{ad.block.summary}</p> : null}
-      <p className="pg-note">Kept means done, at the floor, or skipped for illness. Rest days count by lowering the bar. Today and later are still ahead.</p>
+      <p className="pg-note">A session is on plan when it is done, done at the floor, or skipped for illness. Rest days are left out. Today and later are still ahead.</p>
       <div className="list-edge pg-list">
         {[...ad.weeks].reverse().map((wk) => {
           const s = weekSummary(log.snap, wk.w);
@@ -193,7 +194,7 @@ export const AdherenceSheet = ({ ad, today, range, log }: { ad: Adherence; today
               key={wk.w}
               lead={<WeekRing days={s.days.map((d) => d.ring)} size={40} onceADay={null} />}
               title={weekTitle(wk.w, today)}
-              sub={`${wk.kept} of ${wk.planned} kept${wk.ahead ? ` · ${wk.ahead} ahead` : ''}`}
+              sub={`${wk.kept} of ${wk.planned} on plan${wk.ahead ? ` · ${wk.ahead} ahead` : ''}`}
               right={
                 <span className="pg-meter" aria-hidden="true">
                   <i style={{ width: `${Math.round(r * 100)}%` } as CSSProperties} />

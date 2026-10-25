@@ -1,17 +1,18 @@
-import { fmtDate, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
+import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
 import { Check, ChevronLeft, Clock } from 'lucide-react';
-import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { FirstRunHero, type FirstRunAction } from '@/features/day/FirstRunHero';
-import { useBootstrap, useMorningMutations, useOnboard } from '@/api/queries';
+import { useBootstrap, useHabitMutations, useMorningMutations, useOnboard } from '@/api/queries';
+import { useNav } from '@/app/NavController';
 import type { OnboardingAnswers } from '@/api/types';
 import { haptics } from '@/lib/haptics';
-import { EDGE_PX, LOCK_PX, lockAxis, POP_COMMIT_FRAC, POP_COMMIT_V } from '@/lib/gesture';
+import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis, POP_COMMIT_FRAC, POP_COMMIT_V } from '@/lib/gesture';
 import { crossfade, fadeIn, springs } from '@/lib/motion';
-import { Pressable, useSheet } from '@/ui';
+import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { handOff } from './handoff';
 import { StravaPrimer } from './StravaPrimer';
 import './onboarding.css';
@@ -115,8 +116,24 @@ export default function Welcome() {
   return <Flow uid={user.id} />;
 }
 
+/** "Add habits" on the payoff's face, after the hand-off: the starters the questions did not pick, as one-tap adds (Today's own first-run sheet). */
+const AddHabitsSheet = () => {
+  const { add } = useHabitMutations();
+  const boot = useBootstrap();
+  const sheet = useSheet();
+  const have = new Set((boot.data?.habits ?? []).filter((h) => !h.archivedOn).map((h) => h.name.toLowerCase()));
+  return (
+    <EmptyState starters={STARTER_HABITS.filter((n) => !have.has(n.toLowerCase()))} onStarter={(name) => add.mutateAsync(name)} verb={{ label: 'Done', onPress: () => sheet.close() }} startersLabel="Starter habits">
+      Tap the ones you want to do every day. They become lights on Today.
+    </EmptyState>
+  );
+};
+
 function Flow({ uid }: { uid: string }) {
   const nav = useNavigate();
+  const framed = useNav();
+  const toast = useToast();
+  const boot = useBootstrap();
   const params = useParams();
   const reduce = useReducedMotion();
   const step = ((params['*'] ?? '').split('/')[0] ?? '') as Step;
@@ -143,13 +160,25 @@ function Flow({ uid }: { uid: string }) {
   };
 
   // the edge swipe (§1.4, §9.3's numbers): a pointer that goes down within 24 px of the left edge and locks horizontally
-  // drags the step 1:1; past 35 % of the width or a 300 px/s release goes back, else it springs home with its velocity.
+  // drags the step 1:1, like a pushed page (review feel F3): the step being left becomes an opaque page carrying its own
+  // copy of the halo, and the step before it is drawn under it at −30 % (−0.3 × (W − x)) under a scrim that lifts as it
+  // comes. Past 35 % of the width or a 300 px/s release, the step slides off on `page` (`pageFlick` for a flick) with the
+  // release velocity, and the route goes back once it has gone: the step under it is already where it belongs, so the
+  // swap shows nothing (no enter or exit animation, no frame of either step twice). Short of it, it springs home.
   // Pointer events on the screen itself (`touch-action: pan-y`), never a touchmove listener on the document (§12).
   const x = useMotionValue(0);
+  const wRef = useRef(390);
+  const underX = useTransform(x, (v) => -0.3 * (wRef.current - v));
+  const scrimO = useTransform(x, (v) => 0.3 * (1 - v / wRef.current));
+  const [under, setUnder] = useState<Step | null>(null);
+  const swipeRef = useRef<HTMLDivElement>(null);
+  const underBox = useRef({ top: 0, h: 0, vTop: 0 });
+  // the route changed under a committed edge swipe: the new step shows at rest, without its entrance
+  const swapping = useRef(false);
   const canBack = idx > ORDER.indexOf('goal') && step !== 'ready';
   const edge = useRef<null | { id: number; x0: number; y0: number; lock: 'x' | null; samples: Array<[number, number]> }>(null);
   const onEdgeDown = (e: React.PointerEvent<HTMLElement>) => {
-    edge.current = e.isPrimary && canBack && e.clientX <= EDGE_PX && !document.querySelector('.sheet-wrap, .cm-layer') ? { id: e.pointerId, x0: e.clientX, y0: e.clientY, lock: null, samples: [[e.clientX, e.timeStamp]] } : null;
+    edge.current = e.isPrimary && canBack && !swapping.current && e.clientX <= EDGE_PX && !document.querySelector('.sheet-wrap, .cm-layer') ? { id: e.pointerId, x0: e.clientX, y0: e.clientY, lock: null, samples: [[e.clientX, e.timeStamp]] } : null;
   };
   const onEdgeMove = (e: React.PointerEvent<HTMLElement>) => {
     const g = edge.current;
@@ -164,6 +193,11 @@ function Flow({ uid }: { uid: string }) {
       }
       g.lock = 'x';
       e.currentTarget.setPointerCapture(e.pointerId);
+      wRef.current = e.currentTarget.clientWidth || window.innerWidth;
+      const sw = swipeRef.current;
+      underBox.current = { top: sw?.offsetTop ?? 0, h: sw?.offsetHeight ?? 0, vTop: sw?.getBoundingClientRect().top ?? 0 };
+      x.stop();
+      setUnder(ORDER[idx - 1] ?? null);
     }
     x.set(Math.max(0, dx));
     g.samples.push([e.clientX, e.timeStamp]);
@@ -176,10 +210,39 @@ function Flow({ uid }: { uid: string }) {
     const [ax, at] = g.samples[0]!;
     const [bx, bt] = g.samples[g.samples.length - 1]!;
     const v = bt > at ? ((bx - ax) / (bt - at)) * 1000 : 0;
-    // back: the earlier step comes in from the left while the screen settles from where the finger left it
-    if (x.get() > window.innerWidth * POP_COMMIT_FRAC || v > POP_COMMIT_V) back();
-    animate(x, 0, reduce ? { duration: 0 } : { ...springs.page, velocity: v });
+    const commit = x.get() > wRef.current * POP_COMMIT_FRAC || v > POP_COMMIT_V;
+    if (reduce) {
+      // reduced motion: tracking stayed 1:1; the change itself is the step's 150 ms fade
+      x.jump(0);
+      setUnder(null);
+      if (commit) back();
+      return;
+    }
+    const spring = Math.abs(v) >= FLICK_V ? springs.pageFlick : springs.page;
+    if (commit)
+      animate(x, wRef.current, {
+        ...spring,
+        velocity: Math.max(0, v),
+        onComplete: () => {
+          swapping.current = true;
+          back();
+        },
+      });
+    else animate(x, 0, { ...spring, velocity: v, onComplete: () => setUnder(null) });
   };
+  // the swap: the step that was under is now the step; the dragged one (gone off screen) and the layer under it go on the
+  // same frame, before paint
+  useLayoutEffect(() => {
+    if (!swapping.current) return;
+    swapping.current = false;
+    const sw = swipeRef.current;
+    if (sw) {
+      for (const el of sw.querySelectorAll<HTMLElement>(':scope > .ob-stage')) if (el.dataset.step !== step) el.style.visibility = 'hidden';
+      sw.style.transform = 'none';
+    }
+    x.jump(0);
+    setUnder(null);
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // guards: questions need the promise first only in spirit; later steps need a goal
   if (!ORDER.includes(step) || step === '') return <Navigate to="/welcome/goal" replace />;
@@ -188,6 +251,7 @@ function Flow({ uid }: { uid: string }) {
   const qIndex = QUESTIONS.indexOf(step);
   const next = () => go(ORDER[idx + 1]!);
 
+  const bodyFor = (step: Step): React.ReactNode => {
   let body: React.ReactNode;
   switch (step) {
     case 'goal':
@@ -290,10 +354,29 @@ function Flow({ uid }: { uid: string }) {
       body = <Payoff draft={d} set={set} profile={profile} start={start} today={t} onOpen={openToday} />;
       break;
   }
+  return body;
+  };
+  const body = bodyFor(step);
+  const skip = swapping.current;
 
   function clearAll() {
     ss.del(draftKey(uid));
     ss.del(PAYOFF_KEY);
+  }
+  /**
+   * A row of the payoff's face, once Today is up (review code F2, F7): each does what it says, the way Today's own first-run
+   * face does. Add habits: the starters sheet. Plan a week: the week just written, in Plan (a jump). Connect Strava: the
+   * primer, only on a server that can connect it and an account that has not (else an error says why, in place of a page
+   * of raw JSON from /api/strava/connect).
+   */
+  function afterHandOff(then: FirstRunAction) {
+    if (then === 'habits') sheet.open({ title: 'Add habits', body: <AddHabitsSheet /> });
+    else if (then === 'plan') framed.go(`/plan/week/${mondayOf(start)}`);
+    else {
+      const b = boot.data;
+      if (b?.features.strava && !b.strava.connected) sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
+      else if (!b?.features.strava) toast('Strava isn’t set up on this server yet.');
+    }
   }
   /** The hand-off (§8): Today mounts under a still copy of this screen, the week falls away, Today's chrome fades in. */
   function openToday(then?: FirstRunAction) {
@@ -309,8 +392,7 @@ function Flow({ uid }: { uid: string }) {
       fades: '.ob-pay-head, .ob-halo',
       reduce: !!reduce,
       cut,
-      // Connect Strava on the face: the primer, over Today (Settings keeps its own door)
-      after: then === 'strava' ? () => sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> }) : undefined,
+      after: then ? () => afterHandOff(then) : undefined,
     });
   }
 
@@ -340,15 +422,24 @@ function Flow({ uid }: { uid: string }) {
           )}
         </header>
       ) : null}
-      <motion.div className="ob-swipe" style={{ x }}>
-      <AnimatePresence mode="popLayout" initial={false} custom={dir}>
+      {under ? (
+        <motion.div className="ob-under" style={{ x: underX, top: underBox.current.top, height: underBox.current.h }} aria-hidden="true">
+          <div className="ob-stage">{bodyFor(under)}</div>
+          <motion.span className="ob-under-scrim" style={{ opacity: scrimO }} />
+        </motion.div>
+      ) : null}
+      <motion.div ref={swipeRef} className={`ob-swipe ${under ? 'is-edge' : ''}`} style={{ x }}>
+      {under ? <span className="ob-halo ob-halo-copy" aria-hidden="true" style={{ top: -underBox.current.vTop, height: window.innerHeight }} /> : null}
+      <AnimatePresence mode="popLayout" initial={false} custom={{ dir, skip }}>
         <motion.div
           key={step}
           className="ob-stage"
-          custom={dir}
-          initial={reduce ? { opacity: 0 } : { opacity: 0, x: dir * 48 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={reduce ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 0, x: dir * -48, transition: { ...springs.page, opacity: { duration: 0.1 } } }}
+          data-step={step}
+          custom={{ dir, skip }}
+          variants={stageVariants(!!reduce)}
+          initial={skip ? false : 'enter'}
+          animate="center"
+          exit="exit"
           transition={reduce ? { duration: 0.15 } : { ...springs.page, opacity: { duration: 0.12 } }}
         >
           {body}
@@ -358,6 +449,14 @@ function Flow({ uid }: { uid: string }) {
     </main>
   );
 }
+
+/** A step comes in from the side it is ahead or behind; after a committed edge swipe (`skip`) it neither enters nor exits. */
+const stageVariants = (reduce: boolean) => ({
+  enter: ({ dir }: { dir: number; skip: boolean }) => (reduce ? { opacity: 0 } : { opacity: 0, x: dir * 48 }),
+  center: { opacity: 1, x: 0 },
+  exit: ({ dir, skip }: { dir: number; skip: boolean }) =>
+    skip ? { opacity: 0, transition: { duration: 0 } } : reduce ? { opacity: 0, transition: { duration: 0.1 } } : { opacity: 0, x: dir * -48, transition: { ...springs.page, opacity: { duration: 0.1 } } },
+});
 
 // ---------- a question ----------
 function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next' }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string }) {

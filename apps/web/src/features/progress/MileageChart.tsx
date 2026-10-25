@@ -1,6 +1,6 @@
 import { fmtDate, mi, num } from '@logbook/shared';
 import { motion } from 'motion/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useReduced } from '@/lib/motion';
 import { niceTop, useWidth } from './charts';
 import { weekTitle, type Range, type WeekPoint } from './data';
@@ -32,12 +32,14 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
   const [wrapRef, width] = useWidth<HTMLDivElement>();
   const reduce = useReduced();
   const [pinchR, setPinchR] = useState<number | null>(null);
-  // the first paint draws in place; later range changes move the bars
-  const drawn = useRef(false);
-  const firstPaint = !drawn.current;
-  useEffect(() => {
-    if (width) drawn.current = true;
-  });
+  // the first paint draws in place; a range change crossfades the new bars in. Decided per range change, never per render:
+  // the fade class goes only on a group that mounts for a new range (its key), so a scrub or a month landing re-renders
+  // the same group without restarting its fade (review code F3)
+  const firstRange = useRef<Range | null>(null);
+  const changed = useRef(false);
+  if (width && firstRange.current == null) firstRange.current = range;
+  else if (firstRange.current != null && range !== firstRange.current) changed.current = true;
+  const fade = changed.current && !reduce;
 
   const W = Math.max(220, width || 340);
   const H = CHART_H;
@@ -109,7 +111,8 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
   pts.forEach((p, i) => {
     if (i === 0 || monthOfWeek(p.w) === monthOfWeek(pts[i - 1]!.w)) return;
     const x = xc(i);
-    if (xLabels.some((l) => Math.abs(l.x - x) < 30)) return;
+    // a label needs its own width and a gap: "OCT" and "NOW" must not touch at 320 (review feel F13)
+    if (xLabels.some((l) => Math.abs(l.x - x) < 36)) return;
     if (x > W - right - 8) return;
     xLabels.push({ x, text: monthOfWeek(p.w) });
   });
@@ -204,7 +207,7 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
             {a != null ? <rect x={xc(a) - Math.max(bw, 10) / 2 - 3} y={padTop - 10} width={Math.max(bw, 10) + 6} height={y0 - padTop + 10} rx={4} className="pg-col" /> : null}
             {/* bars are drawn where they belong (no attribute animates: §10, only transform and opacity); a new range
                 crossfades in 150 ms, keyed on the range; a month arriving fills its weeks in place */}
-            <g key={range} clipPath="url(#pg-clip)" className={firstPaint || reduce ? '' : 'pg-fade-in'}>
+            <g key={`bars-${range}`} clipPath="url(#pg-clip)" className={fade ? 'pg-fade-in' : undefined}>
               {pts.map((p, i) => {
                 const dim = a != null && a !== i;
                 // a week whose month has not loaded is a quiet gap: no bar, only a faint dash on the baseline (§8)
@@ -224,7 +227,8 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
               })}
             </g>
             {avgPts.length > 1 ? (
-              <motion.path key={range} d={avgPath} className="pg-avg" initial={firstPaint || reduce ? false : { opacity: 0 }} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: firstPaint ? 0 : 0.18 }} />
+              // its own key (the bars' group and the line once shared `range` as a key: React then kept stray copies)
+              <motion.path key={`avg-${range}`} d={avgPath} className="pg-avg" initial={fade ? { opacity: 0 } : false} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: fade ? 0.18 : 0 }} />
             ) : null}
             {ci >= 0 && pts[ci]!.ran <= 0 && !pts[ci]!.planned ? <circle cx={xc(ci)} cy={y0} r={2.5} className="pg-now-dot" /> : null}
           </g>
