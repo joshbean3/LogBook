@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useState, useSyncExternalStore } from 'react';
 import { api } from '@/api/client';
 import { useBootstrap } from '@/api/queries';
-import { ease, fadeIn } from '@/lib/motion';
+import { ease, fadeIn, springs } from '@/lib/motion';
 import { isNative } from '@/lib/native';
 import { Pressable } from '@/ui/Pressable';
 import './stravaPrimer.css';
@@ -92,7 +92,7 @@ export const StravaPrimer = ({ onLater, onConnect, variant = 'card', className =
   };
   return (
     <section className={`sp sp-${variant} ${className}`} aria-label="Connect Strava">
-      <motion.div className="sp-sample halo halo-done" aria-hidden="true" initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : { type: 'spring', stiffness: 300, damping: 32, mass: 1 }}>
+      <motion.div className="sp-sample halo halo-done" aria-hidden="true" initial={reduce ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
         <div className="sp-sample-top">
           <span className="caps">Sample · Morning run</span>
         </div>

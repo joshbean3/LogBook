@@ -28,3 +28,9 @@ export const subscribeDrafts = (cb: () => void): (() => void) => {
     listeners.delete(cb);
   };
 };
+
+// test builds only (VITE_FAKE_CLOCK, DEV): the store's own functions on window, so the acceptance scripts can read the one
+// store the Journal composer and the Close card share (build plan §7.4 #10c). Statically false in a normal build.
+if ((import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK) && typeof window !== 'undefined') {
+  (window as unknown as { __drafts: unknown }).__drafts = { hasDraft, getDraft, setDraft, subscribeDrafts };
+}

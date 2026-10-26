@@ -1,6 +1,6 @@
 import { fmtDate, today } from '@logbook/shared';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { useBootstrap, useMorningMutations, useRebuildPlan, useSetName, useUndoRebuild } from '@/api/queries';
 import type { TemplateApplied } from '@/api/types';
@@ -8,24 +8,43 @@ import { DayLetters, Dial, GoalChips, MilesDial, RaceStrip } from '@/features/on
 import { defaultRaceDay, fixLongRun, MILES_MAX, MILES_MIN, nextMondayAfter, paceText, safeTemplate, sameProfile, type TrainingProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, springs } from '@/lib/motion';
-import { PushedHeader } from '@/ui/headers';
 import { Section } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
-import { Avatar } from '@/ui/Avatar';
-import { initialOf, SRow } from './parts';
+import { PushedBar, Row } from '@/ui';
+import { SGroup } from './parts';
 import { useTrainingProfile } from './useProfile';
 
-/** A page's own copy of the answers: edits stay here until "Rebuild my plan from next week". */
+/**
+ * The pages' copy of the answers: edits stay here until "Rebuild my plan from next week" or "Undo changes". It outlives
+ * the page (review 2 feel N7): a back tap with a change pending keeps it, so coming back to You or Training shows the
+ * change and its Rebuild card again instead of throwing it away without a word. Both pages share it (one plan, one offer).
+ */
+let keptDraft: { uid: string; base: TrainingProfile; p: TrainingProfile } | null = null;
 const useDraftProfile = () => {
   const tp = useTrainingProfile();
-  const [draft, setDraft] = useState<TrainingProfile | null>(null);
-  const p = draft ?? tp.profile;
-  return { ...tp, p, dirty: !!draft && !sameProfile(draft, tp.profile), edit: (next: Partial<TrainingProfile>) => setDraft({ ...p, ...next }), reset: () => setDraft(null) };
+  const uid = useBootstrap().data?.user.id ?? '';
+  // one account's pending change never shows for another signed in on this device
+  const [draft, setDraftRaw] = useState<{ base: TrainingProfile; p: TrainingProfile } | null>(() => (keptDraft && keptDraft.uid === uid ? keptDraft : null));
+  const setDraft = (d: { base: TrainingProfile; p: TrainingProfile } | null) => {
+    keptDraft = d ? { uid, ...d } : null;
+    setDraftRaw(d);
+  };
+  // a draft holds only over the answers it was made from (review 3 code N5): once the plan changed under it (rebuilt in
+  // Plan, or on another device), it is dropped, never shown as a change that would undo the new plan
+  const live = !!draft && tp.loaded && sameProfile(draft.base, tp.profile);
+  useEffect(() => {
+    if (draft && tp.loaded && !live) {
+      if (keptDraft && keptDraft.p === draft.p) keptDraft = null;
+      setDraftRaw(null);
+    }
+  }, [draft, tp.loaded, live]);
+  const p = live && draft ? draft.p : tp.profile;
+  return { ...tp, p, dirty: live && !!draft && !sameProfile(draft.p, tp.profile), edit: (next: Partial<TrainingProfile>) => setDraft({ base: tp.profile, p: { ...p, ...next } }), reset: () => setDraft(null) };
 };
 
 /**
- * The offer that follows any change to the plan's answers: a card pinned above the tab bar with what the new block will be,
+ * The offer that follows any change to the plan's answers: a card held above the tab bar (sticky, the page's last block) with what the new block will be,
  * Rebuild (POST /plans/template with replace, from next Monday; done runs and the past stay), and Undo changes.
  */
 const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: boolean; profile: TrainingProfile; before: TrainingProfile; onDone: (p: TrainingProfile) => void; onReset: () => void; save: (p: TrainingProfile) => void }) => {
@@ -37,9 +56,8 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
   const takeBack = (r: TemplateApplied) =>
     undo.mutate(r, {
       onSuccess: () => {
-        haptics.delete();
+        // the bar's answer is the plan itself: the old block is back on Plan, the answers with it
         save(before);
-        toast('Plan restored.');
       },
       onError: () => {
         haptics.error();
@@ -48,7 +66,11 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
     });
   const [err, setErr] = useState<string | null>(null);
   const start = nextMondayAfter(today());
-  const tpl = useMemo(() => (show ? safeTemplate(profile, start) : null), [show, profile, start]);
+  // leaving, the card keeps the words it had (the answers under it are already the undone ones)
+  const shownP = useRef(profile);
+  if (show) shownP.current = profile;
+  const shownProfile = shownP.current;
+
   const go = () => {
     setErr(null);
     const p = { ...profile, longRunDay: fixLongRun(profile.runDays, profile.longRunDay), raceDate: profile.goal === 'base' ? null : profile.raceDate };
@@ -56,7 +78,6 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
       { goal: p.goal, raceDate: p.raceDate, runDays: p.runDays, longRunDay: p.longRunDay, weeklyMiles: p.weeklyMiles, startDate: start },
       {
         onSuccess: (r) => {
-          haptics.success();
           onDone(p);
           toast(r.block.sessionCount ? `${r.block.name}: ${r.block.sessionCount} runs from ${fmtDate('short', start)}.` : `${r.block.name}, from ${fmtDate('short', start)}.`, { label: 'Undo', fn: () => takeBack(r) });
         },
@@ -67,18 +88,74 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
       },
     );
   };
+  // The card's footprint outlives it (review 3 code N1 / feel R3-1). Leaving, it fades in place; once the fade is done it
+  // goes from the flow in the same commit as a blank spacer of the room the page still needs where it is scrolled, so the
+  // scroller never clamps and nothing on screen moves. The spacer then gives that room back only as the finger scrolls up
+  // (it never reaches into the screen), and goes for good with the page or when the card comes back.
+  const [mounted, setMounted] = useState(show);
+  const [room, setRoom] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const roomRef = useRef<HTMLDivElement>(null);
+  if (show && !mounted) {
+    setMounted(true);
+    setRoom(0);
+  }
+  const tpl = useMemo(() => (show || mounted ? safeTemplate(shownProfile, start) : null), [show || mounted, shownProfile, start]); // eslint-disable-line react-hooks/exhaustive-deps
+  const leftAt = useRef(0);
+  const left = () => {
+    const card = cardRef.current;
+    const sc = card?.closest<HTMLElement>('.pushed, .tab-scroll');
+    if (!card || !sc) return setMounted(false);
+    const footprint = card.offsetHeight + parseFloat(getComputedStyle(card).marginTop || '0');
+    // the room the page needs without the card, at this scrollTop: what would otherwise be clamped away in one frame
+    const need = Math.max(0, Math.ceil(sc.scrollTop + sc.clientHeight - (sc.scrollHeight - footprint)));
+    leftAt.current = sc.scrollTop;
+    setRoom(Math.min(footprint, need));
+    setMounted(false);
+  };
+  // the commit that takes the card out: the spacer is trued up to the exact room (margins around the card collapse
+  // differently around a plain block) and the scroll position kept, before the frame paints
+  useLayoutEffect(() => {
+    const el = roomRef.current;
+    const sc = el?.closest<HTMLElement>('.pushed, .tab-scroll');
+    if (!el || !sc || room <= 0) return;
+    const h = el.offsetHeight;
+    const exact = Math.max(0, Math.ceil(leftAt.current + sc.clientHeight - (sc.scrollHeight - h)));
+    if (exact !== h) el.style.height = `${exact}px`;
+    if (sc.scrollTop !== leftAt.current) sc.scrollTop = leftAt.current;
+  }, [room]);
+  useEffect(() => {
+    const el = roomRef.current;
+    const sc = el?.closest<HTMLElement>('.pushed, .tab-scroll');
+    if (!el || !sc || room <= 0) return;
+    let h = el.offsetHeight;
+    // shrink only by what is below the screen's bottom edge: scrollMax stays ≥ scrollTop, so the scroller never clamps
+    const onScroll = () => {
+      const next = Math.max(0, Math.min(h, Math.ceil(sc.scrollTop + sc.clientHeight - (sc.scrollHeight - h))));
+      if (next === h) return;
+      h = next;
+      el.style.height = `${h}px`;
+      if (h === 0) sc.removeEventListener('scroll', onScroll);
+    };
+    sc.addEventListener('scroll', onScroll, { passive: true });
+    return () => sc.removeEventListener('scroll', onScroll);
+  }, [room]);
   return (
-    <AnimatePresence>
-      {show ? (
+    <>
+      {mounted ? (
         <motion.div
-          key="rebuild"
+          ref={cardRef}
           className="s-rebuild halo halo-upcoming"
           role="region"
           aria-label="Rebuild my plan"
+          aria-hidden={show ? undefined : true}
+          inert={!show}
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
+          animate={show ? { opacity: 1, y: 0 } : reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
           transition={reduce ? fadeIn : springs.sheet}
+          onAnimationComplete={() => {
+            if (!show) left();
+          }}
         >
           <p className="s-rebuild-title">Rebuild my plan from next week</p>
           <p className="s-rebuild-sub">{err ?? (tpl ? `${tpl.name}. ${tpl.summary} Runs you’ve done stay.` : 'Starts Monday. Runs you’ve done stay.')}</p>
@@ -91,8 +168,10 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
             </button>
           </div>
         </motion.div>
+      ) : room > 0 ? (
+        <div ref={roomRef} key="room" className="s-rebuild-room" aria-hidden="true" style={{ height: room }} />
       ) : null}
-    </AnimatePresence>
+    </>
   );
 };
 
@@ -121,7 +200,6 @@ const NameRow = () => {
     const next = v.trim().slice(0, 60);
     if (next === saved) return;
     setName.mutate(next, {
-      onSuccess: () => haptics.toggle(),
       onError: () => {
         haptics.error();
         toast('Couldn’t save your name. Try again.');
@@ -129,9 +207,9 @@ const NameRow = () => {
     });
   };
   return (
-    <label className="s-row">
-      <span className="s-row-main">
-        <span className="s-row-title">Name</span>
+    <label className="lrow s-name-row">
+      <span className="lrow-main">
+        <span className="lrow-title">Name</span>
       </span>
       <input
         className="s-name-in"
@@ -159,12 +237,12 @@ export const YouPage = () => {
   const start = nextMondayAfter(today());
   return (
     <div className="page s-set s-sub">
-      <PushedHeader title="You" backLabel="Back to Settings" right={<Avatar initial={initialOf(boot.data?.user)} />} />
-      <div className="list-edge s-list">
+      <PushedBar title="You" />
+      <SGroup title="Account">
         <NameRow />
-        <SRow title="Email" value={<span className="s-email">{boot.data?.user.email}</span>} />
-        <SRow title="Units" sub="Kilometres are on the way." value="Miles" />
-      </div>
+        <Row title="Email" right={<span className="s-value s-email">{boot.data?.user.email}</span>} />
+        <Row title="Units" sub="Kilometres are on the way." right={<span className="s-value">Miles</span>} />
+      </SGroup>
       <Section title="Training for" level="primary">
         {!d.loaded ? (
           <Shape />
@@ -206,7 +284,7 @@ export const TrainingPage = () => {
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
   return (
     <div className="page s-set s-sub">
-      <PushedHeader title="Training" backLabel="Back to Settings" />
+      <PushedBar title="Training" />
       {!d.loaded ? (
         <div className="sec-secondary">
           <Shape />

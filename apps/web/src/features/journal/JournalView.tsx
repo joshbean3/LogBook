@@ -1,101 +1,140 @@
 import type { Quote } from '@logbook/shared';
-import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
-import { springs, useReduced } from '@/lib/motion';
+import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { useHomeControl, useNav, useRootRequest, useRouteParams, useTabScroller } from '@/app/NavController';
+import { crossfade, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Segmented, TAB_RESELECT, TabHeader, type TabReselectDetail } from '@/ui';
+import { dayCaption, NavBar, Segmented } from '@/ui';
 import { addToDraft } from './JournalDaySection';
 import { asPrompt, JournalHome } from './JournalHome';
-import { Library, LibrarySearchButton, useOpenQuote } from './Library';
+import { Library } from './Library';
 import './journal.css';
+import './seg.css';
 
 type Seg = 'journal' | 'library';
-const ORDER: Record<Seg, number> = { journal: 0, library: 1 };
+// a switch re-renders the view, never the panes (their props are stable): at 4× the two trees cost ~200 ms to render
+const JournalPane = memo(JournalHome);
+const LibraryPane = memo(Library);
+const segOf = (p: Readonly<Record<string, string>>): Seg => (p.segment === 'library' ? 'library' : 'journal');
+const pathOf = (s: Seg) => (s === 'journal' ? '/journal' : '/journal/library');
+const FADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
+const EASING = `cubic-bezier(${ease.join(', ')})`;
 
 /**
- * Journal (docs/experience.md §5.5). Two segments under the header, Journal · Library; the content slides the way the
- * switch moved. Journal: write first, memory second, every entry last. Library: the fuel (Reads, favourites, your quotes,
- * the quote library). `/journal/library` is the library; the old `/journal/quotes` and `/journal/favorites` land on it,
- * scrolled to that section.
+ * Journal (docs/feel.md §8, M28; build plan §7.2 item 1). The NavBar (caps the date, title `Journal`, nothing trailing), then
+ * `Journal · Library` as a 32 px Segmented pinned under the bar. Both panes stay mounted; a switch is a 150 ms crossfade, and
+ * each pane keeps its own scroll offset: the tab scroller's offset is saved per segment and the incoming one is restored on
+ * the commit frame, while the outgoing pane is held still on screen by a transform until its fade ends. The segment is page
+ * state, mirrored with `nav.replace` and changed from outside only through `useRootRequest` (a cut sets it at once).
  */
 export default function JournalView() {
-  const params = useParams();
-  const nav = useNavigate();
+  const params = useRouteParams();
+  const nav = useNav();
   const today = useToday();
-  const reduce = useReduced();
-  const seg: Seg = params.tab === 'library' || params.tab === 'quotes' || params.tab === 'favorites' ? 'library' : 'journal';
-  const focus = params.tab === 'quotes' || params.tab === 'favorites' ? params.tab : null;
-  const prev = useRef(seg);
-  const dir = ORDER[seg] - ORDER[prev.current] || 0;
-  useEffect(() => {
-    prev.current = seg;
-  }, [seg]);
-  const [focusComposer, setFocusComposer] = useState(false);
+  const scroller = useTabScroller();
+  const [seg, setSeg] = useState<Seg>(() => segOf(params));
+  // the pane that is fading out (absolute, held still) during a switch; null at rest
+  const [leaving, setLeaving] = useState<Seg | null>(null);
+  const live = useRef(seg);
+  live.current = seg;
+  const offsets = useRef<Record<Seg, number>>({ journal: 0, library: 0 });
+  const pending = useRef<{ from: Seg; old: number; fade: boolean } | null>(null);
+  const journalPane = useRef<HTMLElement>(null);
+  const libraryPane = useRef<HTMLElement>(null);
+  const paneOf = (s: Seg) => (s === 'journal' ? journalPane : libraryPane).current;
+  const fades = useRef<Animation[]>([]);
+  const [focusKey, setFocusKey] = useState(0);
 
-  const go = (s: Seg) => {
-    if (window.scrollY > 120) window.scrollTo({ top: 0 });
-    nav(s === 'journal' ? '/journal' : '/journal/library', { replace: true });
-  };
-  // the lit tab tapped again at the top: back to writing
-  useEffect(() => {
-    const f = (e: Event) => (e as CustomEvent<TabReselectDetail>).detail.atTop && go('journal');
-    window.addEventListener(TAB_RESELECT, f);
-    return () => window.removeEventListener(TAB_RESELECT, f);
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  const show = useCallback(
+    (to: Seg, fade = true) => {
+      const from = live.current;
+      if (to === from) return;
+      const old = scroller.current?.scrollTop ?? 0;
+      offsets.current[from] = old;
+      pending.current = { from, old, fade };
+      setSeg(to);
+      setLeaving(fade ? from : null);
+      nav.replace(pathOf(to));
+    },
+    [nav, scroller],
+  );
 
-  /** "Write about it" from the library (or a quote's sheet): the quote goes on top of today's draft, and the composer opens. */
-  const writeAbout = (q: Quote) => {
-    addToDraft(today, asPrompt(q));
-    setFocusComposer(true);
-    go('journal');
-  };
-  /** "Open in library" on the quote line: the library, with that quote's sheet up. */
-  const openQuote = useOpenQuote(writeAbout);
-  const openInLibrary = (q: Quote) => {
-    go('library');
-    setTimeout(() => openQuote(q), reduce ? 160 : 360);
-  };
-  useEffect(() => {
-    if (!focusComposer || seg !== 'journal') return;
-    const t = setTimeout(() => setFocusComposer(false), 600);
-    return () => clearTimeout(t);
-  }, [focusComposer, seg]);
+  // the commit frame of a switch: the incoming pane's offset comes back, the outgoing pane is held where it was and fades
+  useLayoutEffect(() => {
+    const p = pending.current;
+    if (!p) return;
+    pending.current = null;
+    // a switch inside a running fade (a double tap, a cut, a reselect): the fades stop and so does their hold-still
+    // transform; a cancelled animation never fires `finish`, so it is cleared here, on both panes (review code F1)
+    for (const a of fades.current) a.cancel();
+    fades.current = [];
+    for (const el of [journalPane.current, libraryPane.current]) if (el) el.style.transform = '';
+    const sc = scroller.current;
+    if (sc) sc.scrollTop = offsets.current[seg];
+    const now = sc?.scrollTop ?? 0;
+    const inc = paneOf(seg);
+    const out = paneOf(p.from);
+    if (!p.fade || !out || !inc) return;
+    out.style.transform = `translateY(${now - p.old}px)`;
+    const aIn = inc.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: EASING });
+    const aOut = out.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_MS, easing: EASING, fill: 'forwards' });
+    fades.current = [aIn, aOut];
+    aOut.onfinish = () => {
+      // the leaving pane goes off on the frame its fill is dropped
+      flushSync(() => setLeaving((l) => (l === p.from ? null : l)));
+      out.style.transform = '';
+      aOut.cancel();
+    };
+  }, [seg]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const variants = {
-    enter: (d: number) => (reduce || !d ? { opacity: 0 } : { opacity: 0, x: `${d * 30}%` }),
-    center: { opacity: 1, x: 0 },
-    exit: (d: number) => (reduce || !d ? { opacity: 0 } : { opacity: 0, x: `${d * -30}%` }),
-  };
+  useHomeControl({ atHome: seg === 'journal', goHome: () => show('journal') });
+  useRootRequest((p, how) => {
+    const want = segOf(p);
+    if (want === live.current) return;
+    // a cut: the first frame that shows Journal is already on the segment, no fade
+    show(want, !how.cut);
+  });
+
+  /** "Write" from the library (a quote's sheet or a row's menu): the quote goes on top of today's draft, the composer opens. */
+  const todayRef = useRef(today);
+  todayRef.current = today;
+  const writeAbout = useCallback(
+    (q: Quote) => {
+      addToDraft(todayRef.current, asPrompt(q));
+      show('journal');
+      setFocusKey((k) => k + 1);
+    },
+    [show],
+  );
+
+  const cls = (s: Seg) => (seg === s ? 'is-on' : leaving === s ? 'is-leaving' : 'is-off');
+  // the hidden pane is `content-visibility: hidden` (not drawn, hit or focusable) and aria-hidden; no `inert`: flipping it
+  // restyles a whole pane on the commit frame. The leaving pane sits under the incoming one, which takes every touch.
+  const off = (s: Seg) => (seg !== s && leaving !== s) || undefined;
   return (
     <div className="page journal-page">
-      <TabHeader title="Journal" accessory={seg === 'library' ? <LibrarySearchButton onWrite={writeAbout} /> : null}>
-        <Segmented
-          className="j-seg"
-          label="Journal or library"
-          options={[
-            ['journal', 'Journal'],
-            ['library', 'Library'],
-          ]}
-          value={seg}
-          onChange={go}
-        />
-      </TabHeader>
-      <div className="j-stage">
-        <AnimatePresence mode="popLayout" initial={false} custom={dir}>
-          <motion.div
-            key={seg}
-            className="j-pane"
-            custom={dir}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={reduce ? { duration: 0.15 } : { x: springs.page, opacity: { duration: 0.12 } }}
-          >
-            {seg === 'journal' ? <JournalHome today={today} onOpenQuote={openInLibrary} focusOnMount={focusComposer} /> : <Library focus={focus} onWrite={writeAbout} />}
-          </motion.div>
-        </AnimatePresence>
+      <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Journal' }} gap={24}>
+        <div className="j-segrow">
+          <Segmented
+            className="j-seg"
+            label="Journal or library"
+            options={[
+              ['journal', 'Journal'],
+              ['library', 'Library'],
+            ]}
+            value={seg}
+            onChange={(s: Seg) => show(s)}
+          />
+        </div>
+      </NavBar>
+      <div className="j-panes">
+        <section ref={journalPane} className={`j-pane ${cls('journal')}`} aria-hidden={off('journal')} aria-label="Journal">
+          <JournalPane today={today} focusKey={focusKey} />
+        </section>
+        {/* both mounted and laid out from the start (the hidden one is visibility: hidden): a switch restyles, never mounts */}
+        <section ref={libraryPane} className={`j-pane ${cls('library')}`} aria-hidden={off('library')} aria-label="Library">
+          <LibraryPane onWrite={writeAbout} />
+        </section>
       </div>
     </div>
   );

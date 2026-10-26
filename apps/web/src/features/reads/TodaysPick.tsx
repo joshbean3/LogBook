@@ -1,12 +1,11 @@
 import { linkTitle, type Link } from '@logbook/shared';
 import { ArrowUpRight, Bookmark, ChevronRight, Copy, RotateCw, Sparkles, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { usePick, useReadsMutations } from '@/api/queries';
-import { haptics } from '@/lib/haptics';
 import { fadeIn, fadeOut, springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, ContextMenu, Group, useToast } from '@/ui';
+import { Button, ContextMenu, Group, usePress, useToast } from '@/ui';
 import { openLink, useOpenLink } from './openLink';
 import './reads.css';
 
@@ -16,6 +15,24 @@ const Wait = ({ compact }: { compact?: boolean }) => (
     <span className="rwait-bar" />
     <span className="rwait-bar short" />
   </div>
+);
+
+/**
+ * The pick being made, on Reads: the hero's own box (its eyebrow, the title's slot, the actions' row held empty), so when
+ * the pick lands it fills the same place and the links under it do not move (review feel F2). The title's slot says what
+ * is happening in words, never skeleton bars (review 2 feel N5: skeletons are for offline). What the real card differs by
+ * is carried on `settle` by the page (ReadsView).
+ */
+const HeroWait = () => (
+  <section className="rp rp-wait" aria-label="Today’s pick" aria-busy="true">
+    <div className="rp-top">
+      <span className="caps">Today’s pick</span>
+    </div>
+    <div className="rp-body" role="status">
+      <p className="rp-wait-words">Finding today’s pick…</p>
+    </div>
+    <div className="rp-actions" aria-hidden="true" />
+  </section>
 );
 
 /** True once this card has shown a placeholder, so the content that replaces it fades in; later swaps already animate on key. */
@@ -48,7 +65,7 @@ const Slim = ({ children, verb, busy }: { children: React.ReactNode; verb?: Reac
  * On Reads: the hero (an aura card, lit from below) only when a pick exists, else a slim card ("Save links and Logbook finds
  * you one a day"). With `compact`, one row for the Today page, and nothing at all when there is no pick.
  */
-export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?: boolean }) => {
+export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean; heroOnly?: boolean; onLayout?: () => void }) => {
   const date = useToday();
   const q = usePick(date);
   const { feedback, another } = useReadsMutations();
@@ -62,6 +79,14 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
   const p: Link | null = data?.pick ?? null;
   const left = data?.refreshesLeft ?? 0;
   const site = p ? p.siteName || hostOf(p.url) : '';
+  const press = usePress();
+  // every commit of the card after its first (it may have changed size): the page carries what is under it in the same
+  // frame. Not on the mount: the page is being pushed then, and a layout read would be forced inside that commit
+  const mounted = useRef(false);
+  useLayoutEffect(() => {
+    if (mounted.current) onLayout?.();
+    mounted.current = true;
+  });
   const refresh = () => {
     another.mutate(date, {
       onSuccess: (r) => {
@@ -73,8 +98,8 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
   };
   const verdict = (v: 'saved' | 'dismissed') => {
     if (!p) return;
-    if (v === 'saved') haptics.toggle();
-    feedback.mutate({ pick: p, verdict: v, date, onGone: () => toast('That pick is gone.') }, { onSuccess: () => v === 'saved' && toast('Saved to your reads.') });
+    // the pick moving into the list is the answer: no plain toast, no haptic (§8, §11.4)
+    feedback.mutate({ pick: p, verdict: v, date, onGone: () => toast('That pick is gone.') });
   };
 
   if (compact) {
@@ -89,7 +114,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
             </div>
           </div>
         ) : p ? (
-          <a className="lrow two rp-crow" href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
+          <a className="lrow two rp-crow" data-press="surface" {...press.handlers} href={p.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={labelOf(p, site)} onClick={open(p.url)}>
             <div className="lrow-main">
               <span className="caps">Today’s read · {site}</span>
               <span className="lrow-title">{linkTitle(p.title, p.url)}</span>
@@ -104,15 +129,22 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
   // no pick to show: a slim card, never a big empty hero (and on an empty Reads page, nothing: the page's one sentence says it)
   if ((!p || waiting) && heroOnly) return null;
   if (!p || waiting) {
-    if (waiting && (waited || !data))
-      return (
-        <Slim busy>
-          <span className="rp-slim-line">Finding today’s pick</span>
-          <Wait compact />
-        </Slim>
-      );
+    if (waiting) return <HeroWait />;
     if (off) return <Slim>Daily picks are off. Your links still wait below.</Slim>;
     if (data?.reason === 'empty') return <Slim>Save links and Logbook finds you one a day.</Slim>;
+    // the request failed (or never answered and was given up on): say so, and the verb is to ask again (review 2 feel N5)
+    if (q.isError && !data)
+      return (
+        <Slim
+          verb={
+            <Button size="sm" className="rp-slim-verb" onClick={() => void q.refetch()}>
+              <RotateCw size={14} aria-hidden="true" /> Retry
+            </Button>
+          }
+        >
+          Couldn’t find today’s pick.
+        </Slim>
+      );
     return (
       <Slim
         verb={
@@ -137,7 +169,7 @@ export const TodaysPick = ({ compact, heroOnly }: { compact?: boolean; heroOnly?
         ]
       : []),
     ...(p.verdict && left > 0 ? [{ label: 'Next pick', icon: <RotateCw size={18} />, onSelect: refresh }] : []),
-    { label: 'Copy link', icon: <Copy size={18} />, onSelect: () => void navigator.clipboard?.writeText(p.url).then(() => toast('Copied')) },
+    { label: 'Copy link', icon: <Copy size={18} />, onSelect: () => void navigator.clipboard?.writeText(p.url).catch(() => toast('Couldn’t copy the link.')) },
   ];
   return (
     <ContextMenu label="Today’s pick" items={menu}>

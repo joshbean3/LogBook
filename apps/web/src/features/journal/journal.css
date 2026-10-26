@@ -1,41 +1,76 @@
 /* ---------- Journal (docs/experience.md §5.5): write first, memory second, fuel in the Library ---------- */
 
-/* the segmented switch under the title, and the stage its two panes slide across */
-.j-seg .seg-btn {
-  flex: 1 1 0;
-  padding: 0 6px;
+/* the segmented switch, 32 px under the title row, pinned under the bar once scrolled (a sibling of the bar: §2.1's sticky rule) */
+.j-segrow {
+  position: sticky;
+  top: calc(44px + var(--safe-t));
+  z-index: 19;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: 6px var(--gutter);
+  background: var(--bg);
 }
-.j-stage {
+/* two mounted panes (M28): the shown one in flow; the leaving one absolute, held still by a transform while it fades; the
+   other hidden. The stack clips vertically so a hidden pane never adds scroll room */
+/* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
+   must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
+   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
+   this root is left out of anchor selection. */
+.j-panes {
+  overflow-anchor: none;
+}
+.j-panes {
   position: relative;
-  overflow-x: clip;
-  /* the panes slide edge to edge, so the stage reaches past the gutter and gives it back inside */
-  margin-inline: calc(-1 * var(--page-pad));
-  padding-inline: var(--page-pad);
+  overflow: visible clip;
 }
 .j-pane {
   min-width: 0;
+}
+.j-pane.is-on {
+  position: relative;
+  z-index: 1;
+}
+.j-pane.is-leaving,
+.j-pane.is-off {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+/* the hidden pane keeps its rendering state but is not drawn, hit or focusable; no inherited property flips on a switch
+   (visibility, pointer-events and inert restyle a whole pane: ~55 ms at 4× on the commit frame) */
+.j-pane.is-off {
+  content-visibility: hidden;
+}
+@supports not (content-visibility: hidden) {
+  .j-pane.is-off {
+    visibility: hidden;
+  }
 }
 
 /* ---------- the composer: the page's hero, open, lit from below ---------- */
 .jcompose {
   position: relative;
   isolation: isolate;
+}
+/* the card's chrome is its own layer, so a growing field scales it (FLIP, §10.1) instead of animating a height */
+.jcompose-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   overflow: hidden;
-  margin-top: var(--sp-secondary);
   background: var(--surface);
   border: var(--card-border);
   border-radius: var(--r-lg);
+  pointer-events: none;
 }
 /* the stage light rises behind Save only, never behind the words */
-.jcompose::after {
+.jcompose-bg::after {
   content: '';
   position: absolute;
   inset: auto 0 0;
   height: 84px;
-  z-index: -1;
   background: var(--halo);
   opacity: 0.45;
-  pointer-events: none;
 }
 .composer {
   display: grid;
@@ -45,7 +80,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 6px 12px 10px 16px;
+  padding: 6px 16px 12px;
   min-height: 56px;
 }
 .composer-foot .btn:only-child,
@@ -56,24 +91,53 @@
 .composer-saved {
   display: inline-flex;
 }
-/* nothing to save yet: the word waits at ink-4 with no fill; it turns blue once there is text */
-.composer-foot .btn.quiet.idle {
-  color: var(--ink-4);
+/* Save: a 32 px pill, the one blue, at 40 % until there is text (§8); a 44 px target */
+.save-pill.pressable {
+  position: relative;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font: 600 15px/20px var(--sans);
+  opacity: 0.4;
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms var(--ease-out);
+}
+.save-pill.is-ready {
   opacity: 1;
+}
+.save-pill::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
 }
 /* the beat after a save: Save becomes a check for a moment */
 .composer-saved {
   align-items: center;
   gap: 6px;
-  height: 44px;
-  padding: 0 18px;
+  height: 32px;
+  padding: 0 4px;
   margin-left: auto;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font: 600 15px/20px var(--sans);
   color: var(--ink-2);
 }
 .composer-saved svg {
   color: var(--accent-text);
+}
+/* a new row, a search field, a form: opacity in over 150 ms, nothing else */
+.fade-in {
+  animation: j-fade-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes j-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.jtl-anchor {
+  display: block;
+  height: 0;
 }
 
 /* ---------- bare text inputs that live inside a card ---------- */
@@ -99,26 +163,26 @@ textarea.jtext {
   min-height: 66px;
   overflow: hidden;
 }
+/* a field inside a card shows focus with its caret, never the global ring (base.css :focus-visible), which was clipped by
+   the card's top edge and overhung its sides (review feel F5); the selector outranks the global rule wherever it loads */
+.jtext:focus-visible,
+textarea.jtext:focus {
+  outline: none;
+}
 .jtext::placeholder {
   color: var(--ink-3);
 }
-/* the Journal page's writing voice at 22/28 */
+/* the Journal page's composer: 17/22 serif, the placeholder at --ink-3 (§8), three lines open */
 .composer.big .jtext {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font-size: 17px;
+  line-height: 22px;
   padding: 16px 16px 8px;
 }
 .composer.big textarea.jtext {
-  min-height: 108px;
+  min-height: 90px;
 }
 .composer.big .jtext::placeholder {
-  color: var(--ink-2);
-}
-@media (max-width: 359px) {
-  .composer.big .jtext {
-    font-size: 1.25rem;
-    line-height: 1.625rem;
-  }
+  color: var(--ink-3);
 }
 
 /* ---------- the quote of the day, a prompt line inside the composer ---------- */
@@ -175,9 +239,6 @@ textarea.jtext {
   line-height: 1rem;
   color: var(--ink-4);
 }
-.qline:active .qline-text {
-  color: var(--ink-2);
-}
 .qline-hint {
   font-size: 0.75rem;
   line-height: 1rem;
@@ -216,7 +277,7 @@ textarea.jtext {
 
 /* ---------- the ribbon of the last 14 days ---------- */
 .ribbon-wrap {
-  margin-top: var(--sp-secondary);
+  margin-top: 24px;
 }
 /* the ribbon reaches the screen edges and scrolls sideways: each day's column (the whole column is its button) is at
    least 44px wide, so 14 of them run past a phone's width; it snaps to days and opens on today, at the right edge */
@@ -224,9 +285,9 @@ textarea.jtext {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(44px, 1fr);
-  margin-inline: calc(-1 * var(--page-pad));
-  padding-inline: calc(var(--page-pad) - 12px);
-  scroll-padding-inline: calc(var(--page-pad) - 12px);
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: calc(var(--gutter) - 12px);
+  scroll-padding-inline: calc(var(--gutter) - 12px);
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -332,7 +393,7 @@ textarea.jtext {
 /* ---------- on this day / from your journal: one inset card ---------- */
 .jmem-card {
   position: relative;
-  margin-top: var(--sp-primary);
+  margin-top: 24px;
   padding: 14px 16px 6px;
   background: var(--surface);
   border: var(--card-border);
@@ -352,10 +413,13 @@ textarea.jtext {
 .jmem-ago {
   white-space: nowrap;
 }
+.jmem-card.pressable {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
 .jmem-open {
-  appearance: none;
-  border: 0;
-  background: none;
   margin: 0;
   padding: 8px 0 10px;
   display: grid;
@@ -366,9 +430,6 @@ textarea.jtext {
   text-align: left;
   color: inherit;
   cursor: pointer;
-}
-.jmem-open:active .memory-text {
-  color: var(--ink-2);
 }
 .memory-text {
   display: block;
@@ -424,14 +485,14 @@ textarea.jtext {
   margin-right: -10px;
 }
 .jtl-search {
-  overflow: hidden;
+  display: block;
 }
 .jtl-search .in {
   margin: 4px 0 12px;
 }
 .jtl {
   display: grid;
-  margin-inline: calc(-1 * var(--page-pad));
+  margin-inline: calc(-1 * var(--gutter));
 }
 .jtl-item {
   position: relative;
@@ -442,7 +503,7 @@ textarea.jtext {
   content: '';
   position: absolute;
   top: 0;
-  left: var(--page-pad);
+  left: var(--gutter);
   right: 0;
   height: 1px;
   background: var(--line);
@@ -457,7 +518,7 @@ textarea.jtext {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
   gap: 12px;
-  padding: 14px var(--page-pad);
+  padding: 14px var(--gutter);
   min-height: 60px;
   text-align: left;
   color: inherit;
@@ -467,8 +528,8 @@ textarea.jtext {
 .jtl-item:not(.first) .jtl-row {
   padding-top: 2px;
 }
-.jtl-row:active {
-  background: var(--surface);
+.jtl-row[data-pressed] {
+  background: var(--surface-2);
 }
 .jtl-date {
   display: grid;
@@ -596,8 +657,8 @@ textarea.jsheet-text {
   color: inherit;
   cursor: pointer;
 }
-.dsheet-row:active {
-  background: var(--surface);
+.dsheet-row[data-pressed] {
+  background: var(--surface-2);
 }
 .dsheet-text {
   font-family: var(--serif);
@@ -630,7 +691,7 @@ textarea.jsheet-text {
   text-align: left;
   color: var(--ink);
 }
-.jentry-body:active {
+.jentry-body[data-pressed] {
   background: var(--surface-2);
 }
 .jentry-meta {
@@ -650,7 +711,7 @@ textarea.jsheet-text {
 
 /* ---------- Library ---------- */
 .library {
-  padding-top: var(--sp-secondary);
+  padding-top: 0;
 }
 /* the way to Reads: one touchable card */
 .reads-row {
@@ -667,9 +728,6 @@ textarea.jsheet-text {
   text-align: left;
   color: inherit;
   cursor: pointer;
-}
-.reads-row:active {
-  background: var(--surface-2);
 }
 .reads-row-main {
   display: grid;
@@ -760,8 +818,8 @@ textarea.jsheet-text {
   color: inherit;
   cursor: pointer;
 }
-.qrow:active {
-  background: var(--surface);
+.qrow[data-pressed] {
+  background: var(--surface-2);
 }
 .qrow-text {
   font-family: var(--serif);
@@ -840,9 +898,6 @@ textarea.jsheet-text {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.theme-card:active {
-  background: var(--surface-2);
-}
 .theme-card-top {
   display: flex;
   align-items: baseline;
@@ -856,7 +911,15 @@ textarea.jsheet-text {
   line-height: 1.75rem;
   color: var(--ink);
   min-width: 0;
-  overflow-wrap: anywhere;
+  /* a name breaks between words, never inside one ("Acceptan / ce" at 320, review feel F9): a long word hyphenates */
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+@media (max-width: 359px) {
+  .theme-name {
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
 }
 .theme-count {
   flex: none;
@@ -973,4 +1036,14 @@ textarea.jsheet-text {
   font-size: 15px;
   line-height: 20px;
   -webkit-line-clamp: 1;
+}
+
+/* Library's empty favourites: one quiet 60 row (§8, visual S8) */
+.lib-fav-empty-row {
+  min-height: 60px;
+}
+/* the day's quote line inside the Journal composer sits on the card's 16 px inset */
+.composer .qline.quote-line {
+  width: auto;
+  margin: 0 16px;
 }

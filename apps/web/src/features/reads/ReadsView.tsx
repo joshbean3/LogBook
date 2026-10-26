@@ -1,17 +1,18 @@
 import { ago, isAddressTitle, linkTitle, toISO, type Link, type PickResult } from '@logbook/shared';
 import { ArrowUpRight, Check, Copy, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router';
+import { useNav, useRouteParams } from '@/app/NavController';
 import { keys, useReads, useReadsMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
-import { rowPresence, springs, useReduced } from '@/lib/motion';
+import { crossfade, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, EmptyState, IconButton, Mark, PushedHeader, Segmented, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
+import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRows, SwipeRow, usePress, useSheet, useToast } from '@/ui';
+import { below, carry, measureBelow, popFav, rowsOnScreen, useBelowFold, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
 import { TodaysPick } from './TodaysPick';
 import './reads.css';
+import '../journal/seg.css';
 
 const URL_RE = /https?:\/\/[^\s<>"')\]]+|(?:^|\s)(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>"')\]]*)?/i;
 /** The first link in a block of text, if there is one. */
@@ -43,8 +44,8 @@ const useAddLink = () => {
         { url: link },
         {
           onSuccess: (r) => {
-            if (r.existed) toast('Already saved.');
-            else haptics.toggle();
+            // the row landing in the list is the answer; only a link that was not added says why
+            if (r.existed) toast('That link is already saved.');
             // the first saved link is what a pick learns from: ask again if there was nothing to go on
             const pick = qc.getQueryData<PickResult>(keys.pick(date));
             if (pick?.reason === 'empty') void qc.invalidateQueries({ queryKey: keys.pick(date) });
@@ -177,6 +178,7 @@ const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
 const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; today: string; onFlip: (via: 'tap' | 'swipe') => void; onDelete: () => void; onEdit: () => void; onOpened: () => void }) => {
   const open = useOpenLink();
   const toast = useToast();
+  const press = usePress();
   const [ticked, setTicked] = useState(false);
   const read = !!x.readAt;
   const shown = ticked ? !read : read;
@@ -192,7 +194,7 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
       menuItems={[
         { label: 'Open', icon: <ArrowUpRight size={18} />, onSelect: () => (void openLink(x.url), read ? undefined : onOpened()) },
         { label: 'Edit', icon: <Pencil size={18} />, onSelect: onEdit },
-        { label: 'Copy link', icon: <Copy size={18} />, onSelect: () => void navigator.clipboard?.writeText(x.url).then(() => toast('Copied')) },
+        { label: 'Copy link', icon: <Copy size={18} />, onSelect: () => void navigator.clipboard?.writeText(x.url).catch(() => toast('Couldn’t copy the link.')) },
       ]}
     >
       <div className={`rrow ${shown ? 'is-read' : ''}`}>
@@ -203,13 +205,14 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
           haptic={false}
           onClick={() => {
             if (ticked) return;
-            haptics.toggle();
+            // `toggle` on the check's peak (§11.4), never on the tap, and never on un-marking (review code F11)
+            if (!read) popFav();
             setTicked(true);
             // the check draws, then the row moves to the other list
             setTimeout(() => onFlip('tap'), 420);
           }}
         />
-        <a className="rrow-link" href={x.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={`${title}.${bare ? '' : ` ${site}.`} Opens in a new window`} onClick={open(x.url, read ? undefined : onOpened)}>
+        <a className="rrow-link" data-press="dim" {...press.handlers} href={x.url} target="_blank" rel="noopener noreferrer" draggable={false} aria-label={`${title}.${bare ? '' : ` ${site}.`} Opens in a new window`} onClick={open(x.url, read ? undefined : onOpened)}>
           <span className="rrow-title">{title}</span>
           <span className="caps rrow-meta">
             {bare ? null : `${site} · `}
@@ -226,27 +229,42 @@ const LinkRow = ({ x, today, onFlip, onDelete, onEdit, onOpened }: { x: Link; to
 };
 
 type Tab = 'unread' | 'read';
-/** Reads (docs/experience.md §5.6), pushed from Journal → Library: quick add on top, today's pick, then the links. */
+/**
+ * The links that can reach the first screen, drawn in the push's commit; the rest one render later, below the fold. The
+ * cut is the screen (review 3 code N2 / feel R3-2), never a count: rows are 72 px, and the list starts no higher than
+ * 200 px (the bar and quick add, with the slimmest pick card), plus one row under the edge. At 390 × 844 that is 10.
+ */
+const LIST_TOP_MIN = 200;
+const FADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
+/**
+ * Reads (docs/feel.md §8), the pushed page at `/journal/reads/:tab?` over the mounted Journal: the PushedBar, quick add on
+ * top, today's pick, then the links on SwipeRow v2 (72 px reveal, 55 % / 600 px/s full). `Unread · Read` is page state,
+ * mirrored into the top entry with `nav.replace` (so a reload comes back to it), and switching crossfades the list in
+ * 150 ms. A row that leaves fades while the rows below FLIP up on `settle`; nothing animates height. Today's pick changing
+ * size (it lands, it is saved) carries what is under it on `settle` too.
+ */
 export default function ReadsView() {
-  const params = useParams();
-  const nav = useNavigate();
-  const tab: Tab = params.tab === 'read' ? 'read' : 'unread';
+  const params = useRouteParams();
+  const nav = useNav();
+  // the push's commit draws the whole first screen (quick add, today's pick, the first links), so the page is whole on the
+  // slide's first frame (review 2 feel N1); the links below the fold follow as a deferred render that never holds a frame
+  const pageRef = useRef<HTMLDivElement>(null);
+  const rest = useBelowFold(pageRef);
+  const [tab, setTabRaw] = useState<Tab>(params.tab === 'read' ? 'read' : 'unread');
+  const setTab = (k: Tab) => {
+    setTabRaw(k);
+    nav.replace(k === 'read' ? '/journal/reads/read' : '/journal/reads');
+  };
   const today = useToday();
   const reads = useReads();
   const { patch, remove, restore } = useReadsMutations();
   const sheet = useSheet();
   const toast = useToast();
-  const reduce = useReduced();
   const input = useRef<HTMLInputElement>(null);
   const adder = useAddLink();
   const all = reads.data ?? [];
   const unread = useMemo(() => all.filter((x) => !x.readAt), [all]);
   const read = useMemo(() => all.filter((x) => x.readAt), [all]);
-  const prevTab = useRef(tab);
-  const dir = tab === prevTab.current ? 0 : tab === 'read' ? 1 : -1;
-  useEffect(() => {
-    prevTab.current = tab;
-  }, [tab]);
 
   const del = (x: Link) => {
     haptics.delete();
@@ -260,55 +278,91 @@ export default function ReadsView() {
   };
   // nothing saved yet: one sentence and Paste a link; the field shows when the clipboard has no link (or from the +)
   const empty = !reads.isPending && !all.length;
-  const [adding, setAdding] = useState(false);
+  const [adding, setAddingRaw] = useState(false);
+  const top = useRef<HTMLDivElement>(null);
+  const moved = useRef<(() => void) | null>(null);
+  // the field fades in when the person opens it, never on the page's first frame (it would fade every push)
+  const addFade = useRef(false);
+  const setAdding = (v: boolean | ((c: boolean) => boolean)) => {
+    moved.current = measureBelow(top.current);
+    addFade.current = true;
+    setAddingRaw(v);
+  };
   const showAdd = !empty || adding;
-  useEffect(() => {
+  useLayoutEffect(() => {
+    moved.current?.();
+    moved.current = null;
     if (adding) requestAnimationFrame(() => input.current?.focus());
   }, [adding]);
   // the Unread / Read switch only once something has been read
   const tabs = read.length > 0;
   const shownTab: Tab = tabs ? tab : 'unread';
   const shownList = shownTab === 'read' ? read : unread;
-  /** The empty state's verb: take a link off the clipboard if there is one, else open the field. */
+  const listRef = useRef<HTMLDivElement>(null);
+  // the Unread · Read control appearing (the first link marked read) fades in; on the page's first frame it is just there
+  const tabsAtMount = useRef(tabs);
+  // today's pick changes size on its own (it lands 10–20 s after the first open of the day, or a verdict lands): what is
+  // under it is carried from where it was on `settle`, before the frame paints. The pick reports each of its commits (a
+  // layout effect, so the carry is in the same frame as the new size); a ResizeObserver catches anything else (fonts)
+  const pickBox = useRef<HTMLDivElement>(null);
+  const pickH = useRef<number | null>(null);
+  const pickMoved = useCallback(() => {
+    const el = pickBox.current;
+    if (!el) return;
+    const nh = el.offsetHeight;
+    const d = pickH.current == null ? 0 : nh - pickH.current;
+    pickH.current = nh;
+    if (Math.abs(d) >= 1) for (const n of below(el)) carry(n, -d);
+  }, []);
+  useLayoutEffect(() => {
+    const el = pickBox.current;
+    // no read here: the observer's first callback (after the first layout, never forced inside the push's commit) is
+    // where the starting height comes from
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(pickMoved);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pickMoved]);
+  useListFlip(listRef, `${shownTab}:${shownList.map((x) => x.id).join(',')}`);
+  // the tab switch: a 150 ms crossfade of the list in place (opacity only)
+  const stage = useRef<HTMLDivElement>(null);
+  const lastTab = useRef(shownTab);
+  useLayoutEffect(() => {
+    if (lastTab.current === shownTab) return;
+    lastTab.current = shownTab;
+    stage.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: `cubic-bezier(${ease.join(', ')})` });
+  }, [shownTab]);
+  /** The empty state's verb: take a link off the clipboard if there is one, else open the field (the field is the answer). */
   const paste = async () => {
     try {
       const text = await navigator.clipboard.readText();
       if (adder.save(text)) return;
-      toast('No link on the clipboard. Paste one here.');
     } catch {
       /* no clipboard permission: the field it is */
     }
     setAdding(true);
     input.current?.focus();
   };
-  const variants = {
-    enter: (d: number) => (reduce || !d ? { opacity: 0 } : { opacity: 0, x: `${d * 24}%` }),
-    center: { opacity: 1, x: 0 },
-    exit: (d: number) => (reduce || !d ? { opacity: 0 } : { opacity: 0, x: `${d * -24}%` }),
-  };
   const rows = (
-    <div className="rlist">
-      <AnimatePresence initial={false}>
-        {shownList.map((x) => (
-          <motion.div key={x.id} className="rlist-item" {...rowPresence}>
-            <LinkRow
-              x={x}
-              today={today}
-              onFlip={(via) => (via === 'swipe' && haptics.toggle(), flip(x))}
-              onDelete={() => del(x)}
-              onOpened={() => patch.mutate({ id: x.id, readAt: new Date().toISOString() })}
-              onEdit={() => sheet.open({ eyebrow: 'Link', title: 'Edit', body: <LinkSheet x={x} onDelete={() => del(x)} /> })}
-            />
-          </motion.div>
-        ))}
-      </AnimatePresence>
+    <div ref={listRef} className="rlist">
+      {(rest ? shownList : shownList.slice(0, rowsOnScreen(LIST_TOP_MIN, 72))).map((x) => (
+        <div key={x.id} data-key={x.id} className="rlist-item">
+          <LinkRow
+            x={x}
+            today={today}
+            onFlip={() => flip(x)}
+            onDelete={() => del(x)}
+            onOpened={() => patch.mutate({ id: x.id, readAt: new Date().toISOString() })}
+            onEdit={() => sheet.open({ eyebrow: 'Link', title: 'Edit', body: <LinkSheet x={x} onDelete={() => del(x)} /> })}
+          />
+        </div>
+      ))}
     </div>
   );
-  return (
-    <div className="page reads-page">
-      <PushedHeader
+  const bar = (
+    <PushedBar
         title="Reads"
-        right={
+        trailing={
           empty ? (
             <IconButton label={adding ? 'Close' : 'Add a link'} onClick={() => setAdding((v) => !v)}>
               {adding ? <X size={20} /> : <Plus size={20} />}
@@ -316,14 +370,19 @@ export default function ReadsView() {
           ) : undefined
         }
       />
-      <AnimatePresence initial={false}>
-        {showAdd ? (
-          <motion.div key="add" {...rowPresence}>
-            <QuickAdd inputRef={input} onDone={() => setAdding(false)} />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-      <TodaysPick heroOnly={empty} />
+  );
+  return (
+    <div ref={pageRef} className="page reads-page">
+      {bar}
+      <div ref={top} className="jtl-anchor" aria-hidden="true" />
+      {showAdd ? (
+        <div className={addFade.current ? 'fade-in' : undefined}>
+          <QuickAdd inputRef={input} onDone={() => setAdding(false)} />
+        </div>
+      ) : null}
+      <div ref={pickBox} className="r-pick">
+        <TodaysPick heroOnly={empty} onLayout={pickMoved} />
+      </div>
       {reads.isPending && !reads.data ? (
         <div className="r-lists">
           <SkeletonRows rows={3} label="Loading your links" />
@@ -337,27 +396,23 @@ export default function ReadsView() {
       ) : (
         <div className="r-lists">
           <Segmented
-            className="r-tabs"
+            className={`r-tabs ${tabsAtMount.current ? '' : 'fade-in'}`}
             label="Unread or read"
             options={[
               ['unread', `Unread${unread.length ? ` · ${unread.length}` : ''}`],
               ['read', `Read${read.length ? ` · ${read.length}` : ''}`],
             ]}
             value={shownTab}
-            onChange={(k) => nav(k === 'unread' ? '/reads' : '/reads/read', { replace: true })}
+            onChange={(k: Tab) => setTab(k)}
           />
-          <div className="r-stage">
-            <AnimatePresence mode="popLayout" initial={false} custom={dir}>
-              <motion.div key={shownTab} custom={dir} variants={variants} initial="enter" animate="center" exit="exit" transition={reduce ? { duration: 0.15 } : { x: springs.page, opacity: { duration: 0.12 } }}>
-                {shownList.length ? (
-                  rows
-                ) : shownTab === 'read' ? (
-                  <EmptyState verb={{ label: 'Show unread', onPress: () => nav('/reads', { replace: true }) }}>Links you finish move here.</EmptyState>
-                ) : (
-                  <EmptyState verb={{ label: 'Paste a link', onPress: () => void paste() }}>All read. The next link you keep lands here.</EmptyState>
-                )}
-              </motion.div>
-            </AnimatePresence>
+          <div ref={stage} className="r-stage">
+            {shownList.length ? (
+              rows
+            ) : shownTab === 'read' ? (
+              <EmptyState verb={{ label: 'Show unread', onPress: () => setTab('unread') }}>Links you finish move here.</EmptyState>
+            ) : (
+              <EmptyState verb={{ label: 'Paste a link', onPress: () => void paste() }}>All read. The next link you keep lands here.</EmptyState>
+            )}
           </div>
         </div>
       )}

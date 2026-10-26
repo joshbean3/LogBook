@@ -2,7 +2,12 @@
 .ob {
   position: relative;
   isolation: isolate;
-  min-height: 100dvh;
+  /* a full-screen route is its own scroller (the document never scrolls, §12): no 100dvh */
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  /* the edge swipe owns horizontal moves; vertical ones scroll */
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -51,6 +56,27 @@
 .ob-back {
   color: var(--ink);
 }
+/* the chevron and Skip fade with the dots (220 ms, opacity) when a step has none; hidden only once the fade is done. The
+   fade is on the slot (`.ob-slot`), never on the button, so the buttons keep their own press transitions (review 3 code N8:
+   the icon button's 160 ms scale release, the dim verb's instant dim) */
+.ob-slot {
+  display: grid;
+  place-items: center start;
+  transition:
+    opacity 220ms var(--ease-out),
+    visibility 0s linear 0s;
+}
+.ob-slot.end {
+  place-items: center end;
+}
+.ob-slot.is-gone {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 220ms var(--ease-out),
+    visibility 0s linear 220ms;
+}
 .ob-dots {
   display: flex;
   justify-content: center;
@@ -87,9 +113,6 @@
   color: var(--ink-2);
   border-radius: var(--r-pill);
 }
-.ob-skip:active {
-  color: var(--ink);
-}
 
 /* ---------- a step ---------- */
 .ob-swipe {
@@ -98,6 +121,32 @@
   flex-direction: column;
   min-width: 0;
   position: relative;
+}
+/* the edge swipe (review feel F3): the step being left is an opaque page with its own copy of the halo, over the step
+   before it (at −30 %, under a scrim); nothing in either takes a touch while the finger has it */
+.ob-swipe.is-edge {
+  z-index: 1;
+  isolation: isolate;
+  background: var(--bg);
+}
+.ob-halo-copy {
+  position: absolute;
+  bottom: auto;
+}
+.ob-under {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+.ob-under-scrim {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
 }
 .ob-stage {
   flex: 1;
@@ -318,11 +367,20 @@
   color: var(--ink-3);
 }
 
-/* ---------- run days: seven letters edge to edge, so each is at least 44px even at 320 ---------- */
+/* ---------- run days: seven letters inside the 16 px gutter (review feel F12); each cell is at least 44 px wide, so at
+   the narrowest phones (< 360) the row's hit cells run edge to edge and the discs shrink to stay off the edges ---------- */
 .ob-days {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin-inline: calc(-1 * var(--page-pad) + 4px);
+}
+@media (max-width: 359px) {
+  .ob-days {
+    margin-inline: calc(-1 * var(--page-pad, 16px) + 4px);
+  }
+  .ob-days .ob-day-disc {
+    width: 36px;
+    height: 36px;
+  }
 }
 .ob-day {
   appearance: none;
@@ -397,9 +455,6 @@
   color: var(--ink);
   font: inherit;
   font-weight: 600;
-}
-.ob-long-btn:active {
-  background: var(--surface-2);
 }
 
 /* ---------- weekly miles: the big stepper ---------- */
@@ -693,27 +748,59 @@
 }
 
 /* ---------- the payoff ---------- */
+/* the payoff: the headline fills exactly the room Today's bar, title and strip take (157 + safe-t at 390 × 844), so the
+   first-run face below it sits on Today's hero slot and does not move on the hand-off (§8, contracts §A.5) */
 .ob-payoff {
-  padding-top: calc(40px + var(--safe-t));
+  padding-top: 0;
+}
+.ob-pay-head {
+  box-sizing: border-box;
+  height: calc(157px + var(--safe-t));
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 16px;
+  min-width: 0;
+}
+.ob-pay-hero {
+  flex: none;
+  height: 184px;
+}
+.ob-pay-hero .first-run-hero {
+  margin: 0 auto;
+}
+/* the hand-off layer: a still copy of the payoff over everything while Today mounts under it */
+.ob-handoff {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  pointer-events: none;
+}
+.ob-handoff > .ob {
+  overflow: hidden;
 }
 .ob-pay-eyebrow {
   color: var(--ink-2);
 }
 .ob-pay-title {
-  margin-top: 12px;
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-  text-wrap: balance;
+  margin-top: 6px;
+  font-size: 2.125rem;
+  line-height: 2.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ob-pay-door {
-  margin-top: 4px;
-  font-size: 1.75rem;
-  line-height: 2.125rem;
+  margin-top: 2px;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
   color: var(--ink-2);
 }
 .ob-week {
   list-style: none;
-  margin: 32px calc(-1 * var(--page-pad)) 0;
+  margin: 16px calc(-1 * var(--page-pad)) 0;
   padding: 0;
   display: grid;
 }
@@ -723,7 +810,7 @@
   grid-template-columns: 62px 3px minmax(0, 1fr) 28%;
   align-items: center;
   gap: 12px;
-  min-height: 48px;
+  min-height: 44px;
   padding-inline: var(--page-pad);
 }
 .ob-wrow + .ob-wrow::before {
@@ -821,17 +908,6 @@
 .ob-err {
   color: var(--bad);
 }
-.ob-pay-note {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-3);
-  text-align: center;
-}
-
-/* ---------- strava ---------- */
-.ob-strava {
-  padding-top: calc(40px + var(--safe-t));
-}
 
 /* ---------- small screens: the titles step down, the space tightens ---------- */
 @media (max-width: 359px) {
@@ -861,6 +937,10 @@
   }
 }
 @container page (max-width: 21rem) {
+  /* the week's mileage bars give the name column room for "EASY 4" and its LONG tag at 320 (it read "LO…") */
+  .ob-wrow {
+    grid-template-columns: 62px 3px minmax(0, 1fr) 20%;
+  }
   .ob-title,
   .ob-pay-title {
     font-size: 1.75rem;
