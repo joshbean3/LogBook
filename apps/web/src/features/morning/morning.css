@@ -21,6 +21,9 @@
   border-radius: var(--r-card);
   border: var(--card-border);
   background: var(--surface);
+  /* WP2's line places its now dot by translating a full-width, invisible track by p of its width: the card clips it as the
+     hero's card does, so the track never sits past the screen's edge (integration: WP1 #19 at 320 after the line) */
+  overflow: clip;
 }
 .now-card .mini-tl {
   margin: 0;
