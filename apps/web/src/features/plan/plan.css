@@ -729,7 +729,9 @@
   color: var(--ink);
   font-weight: 600;
 }
-.btn.danger-text {
+/* a destructive verb reads red, as every destructive item does, over the quiet variant's ink (feel review 3 #7) */
+.btn.danger-text,
+.btn.quiet.danger-text {
   color: var(--bad);
 }
 
@@ -1161,4 +1163,9 @@
 .pl-mpage > .pl-block,
 .pl-mpage > .pl-block-empty {
   margin-top: 24px;
+}
+
+/* a pager slot drawn from the stash's HTML (PlanView, feel review 3 #1): the page box is its own child */
+.pl-snap {
+  display: contents;
 }

@@ -4,9 +4,10 @@ Branch `feel/wp4`, on `feel/pages-base` (WP1 merged, the seams' §F exports). Sp
 
 S = `/tmp/claude-0/-home-user-LogBook/4a9c51c6-05c9-563f-8f15-fe013a7d02f8/scratchpad/feel`.
 
-This review covers five steps, newest first:
+This review covers six steps, newest first:
 
-- **Fix round 2** (first below): every finding of the second code review and the second feel review, reproduced on the reviewed build (`7f8efcd`), fixed and proved at 1× and 4×; the battery and WP1's battery rerun.
+- **Fix round 3** (first below): every finding of the third code review and the third feel review, reproduced against the reviewed build (`e29e0c6`) and round 2's (`7f8efcd`), fixed and proved at 1× and 4×; the battery and WP1's battery rerun.
+- **Fix round 2**: every finding of the second code review and the second feel review, reproduced on the reviewed build (`7f8efcd`), fixed and proved at 1× and 4×; the battery and WP1's battery rerun.
 - **Fix round 1**: every finding of the code review and the feel review, reproduced on the reviewed build, fixed and proved at 1× and 4×; the battery and WP1's battery rerun.
 - **The QA step** (first below): the whole acceptance battery at 1× and 4×, WP1's battery against this build, before/after screenshots of every state the package owns, one fix, and the consolidated findings, requests and hand-verifiable steps.
 - **Step 2**: the block card, the builder with its ghost header, `PlansPage`, `MoveSheet` and `DayPicker`, Plan's haptics.
@@ -25,6 +26,143 @@ This review covers five steps, newest first:
   The older `shots.mjs`/`shots2.mjs` are the builder steps' scripts.
 - WP1's battery against this build: `cd S/wp4/wp1qa && SHIFT_MIN=auto RES=$PWD/results-wp4 node run.mjs` (a copy of WP1's harness with `BASE`, `WT` and `RES` from the environment; defaults 8830 and this worktree). For the base, add `BASE=http://localhost:8831 WT=S/wp4/before-wt`.
 - The Plan scripts put the page's `Date` at Fri Oct 23 2026 06:30 New York with a Date-only override (`qa/plib.mjs`), not Playwright's `clock.install`: the installed clock also fakes `requestAnimationFrame` and `performance.now`, which bunches frames at 4× (a drop's 18-frame settle read as 3 frames under it). The smoke and the seams' e2e use WP1's `SHIFT_MIN=auto`.
+
+# Fix round 3: the third code review and the third feel review
+
+The findings are `S/wp4/review-code-3.md` (#1, #2) and `S/wp4/review-feel-3.md` (#1–#7). For each one, `S/wp4/fix-3.md` gives what was done and the proof.
+
+## How the findings were reproduced
+
+Every finding was first turned into a check. The checks are six new scripts in the battery, `qa/z1-swipes.mjs` to `qa/z6-polish.mjs`, and they run against three builds:
+
+- **This tree**, on 8830.
+- **The reviewed build**, `e29e0c6`: the reviewer's fake-clock dist `S/wp4/feel-dist-3`, served on 8833 by `S/wp4/serve-r3b.sh`.
+- **Round 2's reviewed build**, `7f8efcd`, on 8831. It drew nothing in a neighbour slot under a finger, so it is the baseline for the cost of a caught commit.
+
+z1 and z5 run the reviewer's own probes (`qa/f3/r1-swipes.mjs`, `r2-seg.mjs`, copied unchanged) on all three builds, alternating runs. The other four were run on `e29e0c6` before the fix:
+
+| Script | Before (e29e0c6) | After, 1× · 4× |
+|---|---|---|
+| z2-rows: Delete hold, conflict row, joining drop | 1/4 · 0/3 | 4/4 · 3/3 |
+| z3-movefocus | 1/3 (the control) | 3/3 · 3/3 |
+| z4-barfade | 0/4 · 0/4 | 4/4 · 4/4 |
+| z6-polish | 1/4 | 4/4 · 4/4 |
+
+## What changed
+
+| File | What and why |
+|---|---|
+| `features/plan/PlanView.tsx` | **feel #1.** A page drawn still stays still while its pager moves, even as it becomes the shown page, so no page is made live under a finger. At rest the pages go live one per frame (the shown page, then ahead, then behind). A hidden stash (`display: none`) draws the pages two steps out, still, in a transition after each commit; a caught commit puts a stashed page into its slot as HTML (the `snap` face), parsed rather than rendered. A page with no snapshot is drawn in the commit when it is near the screen's edge, else two frames later. A finger landing on a pager whose neighbour slot is empty draws it at once (§15's `pointerdown` fallback). **feel #5.** Neither the live mounts nor the stash run inside Week ⇄ Month's crossfade. A long first frame after the fades start is paced (they go on from 33 ms). **code #2.** A scroll during the bar's crossfade retargets the bar's parts from where they are to the scroll's value (100–150 ms, easing out); the scroll event from the switch's own clamp is ignored. |
+| `features/plan/Week.tsx` | **feel #4.** Delete: two frames before the fade's end the row leaves in a `flushSync` render of its day alone (`DayKit.hide`, with `flip.reflow()`), and the write follows two frames later, once the FLIP runs on the compositor. Undo calls `unhide`, and a failed delete's refetch shows the row again. The same goes for Delete rest day. **feel #2.** `ConflictRow` starts its fade before the first paint. Each frame its bottom is clipped to the top of what is below it and to the group's surface, so it is revealed as they slide, whichever render moves them. |
+| `features/plan/flip.ts` | `flip.reflow()` lets a row's own render run the group's FLIP. A render that moved nothing resumes the running FLIPs at the time they had reached, rather than restarting them with no speed. |
+| `features/plan/useDayDrag.tsx` | **feel #3.** A drop that joins a day writes as soon as the flight is on the compositor. A swap still writes 100 ms in; an empty day after its hush. |
+| `features/sessions/MoveSheet.tsx` | **code #1.** A pick whose day is not on the shown page focuses the shown pager, never `<body>`. |
+| `features/plan/plan.css`, `Blocks.tsx` | **feel #7.** `Delete plan` in the destructive red, and `kept so far` kept on one line. `.pl-snap` is `display: contents`. |
+
+`api/queries.ts`, `api/types.ts`: untouched. No react-router import. No WP1, WP2 or WP5 file touched.
+
+## The battery after this round
+
+`node S/wp4/qa/run.mjs` gives **304/304 at 1× and 297/302 at 4×**. The log is `S/wp4/qa/results/run-fix3-final.log` (a copy is in `results/final-fix3/`), the table `results/TABLE-fix3.md`.
+
+| Section | Checks | 1× | 4× |
+|---|---|---|---|
+| QA step (E2E, §5.4 #1–#11, reduced, §0.2, 9a, t34) | 203 | 203/203 | 203/203 |
+| fix 1 (`x1`–`x4`) | 38 | 38/38 | 35/38 |
+| fix 2 (`y1`–`y5`) | 37 / 36 | 37/37 | 36/36 |
+| fix 3 (`z1`–`z6`) | 26 / 25 | 26/26 | 23/25 |
+
+The 4× misses, each rerun and compared with the reviewed build (`results/re4-fix3/`):
+
+| Check (4×) | Battery result | Rerun, alternating, this tree vs e29e0c6 |
+|---|---|---|
+| x2: the swap pill rests ≤ 560 ms | 598 ms | fails 1 of 3 on each build (592; 598) |
+| x2 F2: an empty day's `drop` ≤ 560 ms | 572 ms | passes 3 of 3 on each (456–549; 459–466) |
+| x3 F5: the conflict row's edge and card ride one FLIP, ≤ 45 px per frame | 133 px | passes 3 of 3 on each (19–37; 19–39) |
+| z5: Month tap → first change, median under e29e0c6's | 263 vs 231 ms | at par in earlier passes (250 vs 231, 258 vs 253, 258 vs 240); spread ±60 ms per build |
+| z1: the median worst frame within 15 ms of 7f8efcd's | weeks 109 vs 76 (e29e0c6: 113) | a 5-run rerun: weeks 101 vs 84 (e29e0c6: 142), months 90 vs 72 (e29e0c6: 133) |
+
+So x2, x3 and z5 are load noise.
+
+The z1 miss is the part of feel #1 that remains. This round undoes the regression against `e29e0c6`: in four passes the median worst frame at 4× is lower in every one, by 4–45 ms for weeks and 45–86 ms for months. It is not yet at the build that drew nothing: it is 0–33 ms above it for weeks and −3 to +18 ms for months, against that build's 32–66 blank or changing page-frames per pass. The four passes are tabled in `fix-3.md`.
+
+What is left in a caught commit at 4× is the style, layout and paint of the page that is about to be seen. Spec §15's 34 ms at 4× is out of reach while every caught commit pays the pager's role swap: about 60 ms at 4× even on the build that drew nothing. The new WP1 Request below covers it.
+
+At 1×, z1's worst frame is 22 ms on this tree, against 24–26 ms on the other two builds.
+
+## WP1's battery against this build
+
+`cd S/wp4/wp1qa && SHIFT_MIN=auto RES=$PWD/results-fix3 node run.mjs` gives **594/603 at 1× and 588/604 at 4×** (log `wp1qa/run-fix3.log`).
+
+The battery ran into Monday, Oct 26, so its date-sensitive rows differ from round 2's Sunday run. Every script with a failing check was rerun the same day on the reviewed build (`e29e0c6`, 8833: `run-r3b-mon.log`, `results-r3b-mon/`) and again on this tree (`run-fix3-re.log`). The two builds fail the same checks:
+
+| | 1× (175 checks) | 4× (175 checks) |
+|---|---|---|
+| This tree | 176 / 175 (the two runs) | 169 / 168 |
+| e29e0c6 | 175 | 168 |
+
+- **The same on both builds, every run:**
+  - t13 11 and 19 (Today's strip);
+  - t34's four Plan-row checks (the harness picks a row off screen; WP4's restatement p16 passes 5/5);
+  - r1-a11y c10;
+  - r1-sheet f5 (WP2's session sheet open against 17 ms).
+- **Timing rows that flip either way on both builds:** t02-cut 2 at 4×, t12 12a/12g, t14 14c, r1-push c5, r1-misc f8, r2-layer, r2-sheet u1 at 4×. None is in Plan's code.
+
+## Gates (this tree)
+
+| Gate | Result |
+|---|---|
+| `pnpm --filter @logbook/shared build` | 0 |
+| `tsc --noEmit` (shared, api, web) | 0 |
+| `@logbook/shared test` | 88/88 |
+| `@logbook/api test` | 59/59 |
+| `@logbook/web test` | 90/90 |
+| `@logbook/web build` | ok, entry 941.1 kB (940.8 before) |
+
+Log: `S/wp4/gates-fix3.log`.
+
+## Screenshots
+
+`node S/wp4/qa/shots-all.mjs fix3` takes every state the package owns at 390 and 320, plus reduced motion: `S/wp4/qa/shots/fix3-*.png` (40). I looked at them as the montages `fix3-m390.png` and `fix3-m320.png`. `z6` adds `fix3-plan-detail-{320,390}.png`.
+
+- `scrollWidth` equals the width at both widths, and the console has 0 errors.
+- The conflict state shows the question inside the group, under Saturday, with the card below it.
+- `Delete plan` is red.
+- At 320, `2 of 13 kept so far` keeps `kept so far` on one line.
+
+## Hand-verifiable steps (this round)
+
+1. **Four quick swipes on Plan, weeks and months.** Expected: every page that slides in is the real week or month, and nothing on it changes as it slides. On a slow phone the swipes stall less than before.
+2. **Delete a session from its menu.** Expected: the row fades, and the rows below start to slide up as it finishes. There is no still gap, and the toast rises with the slide.
+3. **Drag Wednesday's missed `Speed 5` onto Friday (today), making a hard pair.** Expected:
+   - the pill lands under Friday's run while Saturday is already moving down;
+   - `Two hard days in a row. Keep it?` fades in as the rows below slide off it;
+   - it never shows below the card's edge or over the block card.
+4. **With the keyboard: focus Saturday's row, Shift+F10, Move, then `Next free day`.** Expected: focus is on the week pager. The arrow keys page to next week, where the session now is.
+5. **Scroll a past week to the bottom, tap `Month`, and scroll to the top at once.** Expected: the large title follows the scroll, with no jump when the crossfade ends.
+6. **Settings › Plans › a plan.** Expected: `Delete plan` is red. At 320, `kept so far` stays on one line.
+
+## Not closed, and why
+
+- **feel #1 at 4×:** 0–33 ms (weeks) and −3 to +18 ms (months) above the no-build baseline, and §15's 34 ms is not met. See above; the Request is `DayPager` overscan.
+- **feel #6 (F), and its 4× consequences:** `drop` timing, #3's 5 parked frames at 4×, and the delete's 83–150 ms at 4×. All are the inactive-tabs Request, unchanged.
+- **feel #7, partly kept:**
+  - The builder's run days at 320 keep their 8 px gutter: each letter owns 44 px of hit area (`p7-builder`'s sweep), which 38 px buttons on the 16 px gutter could not.
+  - `AFTERNOO…` at 320 stays, as in round 2.
+  - The Month → week caps line comes before the panes fade; that needs the NavBar API below.
+
+## Requests (this round)
+
+- **WP1 (`ui/DayPager.tsx`): overscan.** Keep the pages ±2 mounted, inert and off screen, or accept a host-supplied page for the slot ahead. A caught commit then only swaps roles.
+  - Plan's shim: the stash and the HTML snapshot in `PlanView.tsx` (`stash`, `snapped`, the `snap` face, `pending`).
+  - Delete at integration once overscan lands.
+- **WP1 (`ui/NavBar.tsx`): an API to crossfade the `--hdr` parts and the caps line**, for example a `hdrOverride` motion value or a `crossfade(ms)` on the bar's handle. A host whose content height changes in one step (Week ⇄ Month) could then fade them without driving NavBar's DOM (code review 3 #2).
+  - Plan's shim: `barFades` in `PlanView.tsx`, which gives way to a scroll.
+  - Delete at integration.
+- **Standing, and leaned on harder this round:**
+  - WP1/app: inactive tabs re-render on a write (feel F; the 4× bounds of #3 and #4).
+  - WP1 `Segmented`: the layout read in `place`, 59 ms of the switch's commit at 4× (feel review 3 #5).
+  - WP1 NavBar: the forced layout in the caps effect, part of every caught commit.
 
 # Fix round 2: the second code review and the second feel review
 
