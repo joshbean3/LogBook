@@ -527,8 +527,6 @@ export const sessionSheetTitle = (date: string) => <span className="caps sh-shee
 export interface OpenSessionOpts {
   /** Accepted for old callers; the sheet is the same from the hero and from a row. */
   fromHero?: boolean;
-  /** Accepted for old callers and ignored: Sheet v3 has no title flyer (contracts rule 5, `SheetSpec.layoutId` goes at integration). */
-  sharedId?: string;
 }
 
 /** The spec for a session's sheet: its name as the serif title, the date as the eyebrow. */
@@ -559,6 +557,6 @@ export const usePushSession = (log?: Log) => useOpenSession(log, { push: true })
 /** Open an unplanned run's sheet: the run's name as the title, the date as the eyebrow. */
 export const useOpenUnplanned = () => {
   const sheet = useSheet();
-  return (date: string, runs: Activity[], log: Log, _opts: { sharedId?: string } = {}) =>
+  return (date: string, runs: Activity[], log: Log) =>
     sheet.open({ eyebrow: fmtDate('long', date), title: runs.length === 1 ? runs[0]!.name : `${runs.length} runs`, body: <UnplannedSheet date={date} runs={runs} log={log} />, wide: true });
 };

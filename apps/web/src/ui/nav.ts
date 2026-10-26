@@ -251,14 +251,3 @@ export interface NavEventDetail {
   tab: TabId;
 }
 
-/**
- * @deprecated never dispatched (contracts rule 5): a lit-tab tap goes through `useHomeControl` now. Kept while a feature
- * file still listens for it; WP1 deletes it after WP6 lands.
- */
-export const TAB_RESELECT = 'logbook:tab-reselect';
-/** @deprecated see TAB_RESELECT. */
-export interface TabReselectDetail {
-  tab: TabId;
-  atTop: boolean;
-}
-

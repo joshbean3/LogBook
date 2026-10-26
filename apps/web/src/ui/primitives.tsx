@@ -4,7 +4,6 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { fireHaptic, haptics, type HapticEvent } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { ghostOf, type GhostKind } from './Ghost';
-import { Skeleton, SkeletonGroup } from './Skeleton';
 import { usePress } from './usePress';
 
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'primary' | 'soft' | 'ghost' | 'quiet' | 'danger'; size?: 'md' | 'sm'; block?: boolean };
@@ -80,15 +79,6 @@ export const CardHead = ({ title, meta, children }: { title: ReactNode; meta?: R
 
 export const Note = ({ kind = 'info', children }: { kind?: 'info' | 'warn' | 'bad' | 'ok'; children: ReactNode }) => <p className={`note-line ${kind}`}>{children}</p>;
 
-/**
- * @deprecated render a skeleton shaped like the page instead (`Skeleton`, `SkeletonRows`). Kept so old imports compile:
- * it draws a neutral grey block (never a spinner) and announces `text` to VoiceOver.
- */
-export const Loading = ({ text = 'Loading', height = 96 }: { text?: string; height?: number }) => (
-  <SkeletonGroup label={text.replace(/…$/, '')} className="loading-block">
-    <Skeleton h={height} r="card" />
-  </SkeletonGroup>
-);
 
 export interface EmptyStateProps {
   /** The one sentence: what this will hold, said forward ("Your runs land here."). */
@@ -231,7 +221,7 @@ export const Ring = ({ value, size = 44, stroke = 4, color = 'var(--ok)', childr
 
 /**
  * Two to four segments with one thumb (`--surface-3`) that slides to the chosen one on `springs.settle` (a transform; no
- * layoutId, no haptic: §11.4, contracts §C.6). In the bar's 96 px trailing slot pass `className="in-bar"` (96 × 32, radius 9,
+ * shared-layout flight, no haptic: §11.4, contracts §C.6). In the bar's 96 px trailing slot pass `className="in-bar"` (96 × 32, radius 9,
  * 13/600 labels, each half a 44 px hit).
  */
 export function Segmented<T extends string>({ options, value, onChange, label, className = '', disabled }: { options: Array<[T, ReactNode]>; value: T; onChange: (v: T) => void; label: string; className?: string; disabled?: boolean }) {
@@ -443,22 +433,3 @@ export const LogoMark = ({ size = 24, color = 'currentColor' }: { size?: number;
     <polyline points="7.5,12 10,14.5 15.5,9" />
   </svg>
 );
-
-/** The one 7-day picker. Selected = filled ink pill, today = accent outline. `extra(d)` renders inside the pill under the number (tone dots). */
-export const DayStrip = ({ days, selected, today, onPick, labelOf, statusOf, extra, className = '', ariaLabel = 'Pick a day' }: { days: string[]; selected: string; today: string; onPick: (d: string) => void; labelOf: (d: string) => string; statusOf?: (d: string) => string | undefined; extra?: (d: string) => ReactNode; className?: string; ariaLabel?: string }) => (
-  <div className={`dstrip ${className}`} role="group" aria-label={ariaLabel}>
-    {days.map((d) => {
-      const st = statusOf?.(d);
-      return (
-        <button key={d} type="button" className={`dcell ${st ? `ds-${st}` : ''} ${d === selected ? 'is-sel' : ''} ${d === today ? 'is-today' : ''}`} aria-pressed={d === selected} aria-current={d === today ? 'date' : undefined} aria-label={labelOf(d)} onClick={() => onPick(d)}>
-          <span className="dcell-dow">{DOW_LETTER[new Date(`${d}T12:00:00`).getDay()]}</span>
-          <span className="dcell-pill">
-            <span className="dcell-num">{Number(d.slice(8))}</span>
-            {extra?.(d)}
-          </span>
-        </button>
-      );
-    })}
-  </div>
-);
-const DOW_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];

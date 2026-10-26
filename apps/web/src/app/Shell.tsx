@@ -2,12 +2,11 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { Fragment, memo, Suspense, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { NavigationType, parsePath, Route, Routes, UNSAFE_LocationContext as LocationContext, UNSAFE_RouteContext as RouteContext } from 'react-router';
 import { outbox } from '@/api/outbox';
 import { keys } from '@/api/queries';
 import { PTR_ARM_PX, PTR_QUIET_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
-import { matchRoute, REFRESH, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
+import { REFRESH, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
 import { PushedLayer, StackCtx, type StackMotion } from '@/ui/PushedLayer';
 import { pointerClaimed } from '@/ui/useHold';
 import { usePress } from '@/ui/usePress';
@@ -78,39 +77,6 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
   );
 };
 
-/** Each tab root's interim routes (old pages read their params with useParams until their packages replace them). */
-const ROOT_ROUTES: Record<TabId, string[]> = {
-  today: ['/today/:date?'],
-  plan: ['/plan/:view?/:date?'],
-  progress: ['/progress'],
-  journal: ['/journal/:tab?'],
-};
-
-/**
- * Interim (until RouterBridge goes): the old pages read their own route through react-router. `<Routes location>` would
- * still subscribe to the window's location (useRoutes reads useLocation() before it applies the override), so every URL
- * change, a tab tap included, re-rendered every tab's old page. The location here is pinned to the tab's (or the layer's)
- * own path and memoised on it: a URL change elsewhere re-renders nothing below.
- */
-/**
- * The route context is reset too: the `<Routes>` around the framed app makes a new matches object on every location change
- * (a popstate, the overlay release's back traversal included), and every nested `<Routes>` reading it re-rendered its old
- * page with it, 100 ms at 4× on the old Plan, inside the frame a sheet's flick needed (feel review 1 #1). The roots' and the
- * layers' patterns are absolute, so they match from an empty parent the same.
- */
-const ROOT_ROUTE_CTX = { outlet: null, matches: [], isDataRoute: false };
-const RouteAt = ({ path, children }: { path: string; children: ReactNode }) => {
-  const value = useMemo(() => {
-    const p = parsePath(path);
-    return { location: { pathname: p.pathname ?? '/', search: p.search ?? '', hash: p.hash ?? '', state: null, key: path }, navigationType: NavigationType.Pop };
-  }, [path]);
-  return (
-    <RouteContext.Provider value={ROOT_ROUTE_CTX}>
-      <LocationContext.Provider value={value}>{children}</LocationContext.Provider>
-    </RouteContext.Provider>
-  );
-};
-
 /** Memoised: a tab change re-renders the two sections whose `active` flips, and never their pages (the 0 ms cut). */
 const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, mounted, page, pushed }: { ctl: Controller; tab: TabId; state: TabState; active: boolean; leaving: boolean; mounted: boolean; page: ReactNode; pushed: (entry: PushedEntry) => ReactNode }) {
   const scroller = ctl.scrollers[tab];
@@ -119,24 +85,15 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
   useScrollerVars(scroller);
   usePullToRefresh(scroller, tab === 'today' && active);
   const stack = state.stack;
-  // the root's subtree depends on its path only: toggling `active` re-renders nothing below the section
+  // the root reads its own params (useRouteParams): toggling `active` or a URL change re-renders nothing below the section
   const root = useMemo(
     () =>
       mounted ? (
         <ErrorBoundary>
-          <Suspense fallback={null}>
-            <RouteAt path={state.path}>
-              <Routes>
-                {ROOT_ROUTES[tab].map((p) => (
-                  <Route key={p} path={p} element={page} />
-                ))}
-                <Route path="*" element={page} />
-              </Routes>
-            </RouteAt>
-          </Suspense>
+          <Suspense fallback={null}>{page}</Suspense>
         </ErrorBoundary>
       ) : null,
-    [mounted, state.path, tab, page],
+    [mounted, page],
   );
   return (
     <TabScope tab={tab}>
@@ -154,7 +111,7 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
                   <PushedEntryScope entry={e}>
                     <ErrorBoundary>
                       <Suspense fallback={null}>
-                        <LayerRoutes entry={e} pushed={pushed} />
+                        <LayerPage entry={e} pushed={pushed} />
                       </Suspense>
                     </ErrorBoundary>
                   </PushedEntryScope>
@@ -169,16 +126,8 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
 });
 
 /** A pushed layer's page, memoised on its entry: a tab change (or a push above it) does not re-render it. */
-const LayerRoutes = memo(function LayerRoutes({ entry, pushed }: { entry: PushedEntry; pushed: (entry: PushedEntry) => ReactNode }) {
-  const page = pushed(entry);
-  return (
-    <RouteAt path={entry.path}>
-      <Routes>
-        <Route path={matchRoute(entry.path).route?.pattern ?? '*'} element={page} />
-        <Route path="*" element={page} />
-      </Routes>
-    </RouteAt>
-  );
+const LayerPage = memo(function LayerPage({ entry, pushed }: { entry: PushedEntry; pushed: (entry: PushedEntry) => ReactNode }) {
+  return <>{pushed(entry)}</>;
 });
 
 const Scrim = ({ depth, value }: { depth: 1 | 2; value: MotionValue<number> }) => <motion.div className="tab-scrim" data-depth={depth} aria-hidden="true" style={{ opacity: value }} />;

@@ -31,7 +31,7 @@
 }
 /* 48px before a primary section, 24px before a secondary one, 12px between things inside a group */
 .sec-primary {
-  margin-top: var(--sp-primary);
+  margin-top: 48px;
 }
 .sec-secondary {
   margin-top: var(--sp-secondary);
@@ -625,162 +625,13 @@
     0 0 0 3.5px var(--accent-bright);
 }
 
-/* ---------- TabHeader ---------- */
-.tabh {
-  display: grid;
-  padding-top: 8px;
-}
-.tabh-top {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  min-height: 44px;
-}
-.tabh-text {
-  display: grid;
-  gap: 2px;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding-top: 6px;
-}
-.tabh-date {
-  justify-self: start;
-  position: relative;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  min-height: 16px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-3);
-  touch-action: pan-y;
-  -webkit-user-select: none;
-  user-select: none;
-}
-/* a 16px line to the eye, 44px to the thumb */
-button.tabh-date::after,
-.tabh-date.swipes::after {
-  content: '';
-  position: absolute;
-  inset: -14px -8px;
-}
-.tabh-title {
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-  letter-spacing: -0.01em;
-  overflow-wrap: break-word;
-}
-.tabh-title.wraps {
-  font-size: 1.75rem;
-  line-height: 2.125rem;
-}
-@media (max-width: 359px) {
-  .tabh-title {
-    font-size: 1.75rem;
-    line-height: 2.125rem;
-  }
-}
-.tabh-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-  margin-right: -6px;
-}
-.tabh-tools {
-  margin-top: 12px;
-}
-
-/* ---------- PushedHeader: pinned while the page scrolls ---------- */
-.pushed-head {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  margin: calc(-8px - var(--safe-t)) calc(-1 * var(--page-pad)) 0;
-  padding: calc(4px + var(--safe-t)) var(--page-pad) 4px;
-  /* opaque, with a hairline: no blur to re-rasterise while the page scrolls under it */
-  background: var(--surface);
-  box-shadow: 0 1px 0 var(--line-strong);
-}
-.pushed-top {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 52px;
-}
+/* ---------- the back chevron (ui/NavBar BackButton) ---------- */
 .back-btn {
   margin-left: -12px;
   flex: none;
 }
-.pushed-text {
-  display: grid;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.pushed-eyebrow {
-  line-height: 0.875rem;
-}
-.pushed-title {
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 1.75rem;
-  line-height: 2.125rem;
-  letter-spacing: -0.01em;
-  overflow-wrap: break-word;
-}
-.pushed-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-}
-.pushed-tools {
-  padding: 4px 0 8px;
-}
-/* the v1 PageHeader on a pushed page leads with the chevron */
-.ph.is-pushed .ph-top {
-  align-items: center;
-}
-.ph.is-pushed .back-btn {
-  align-self: flex-start;
-  margin-top: 2px;
-}
 
-/* ---------- DatePager ---------- */
-.dpager {
-  position: relative;
-  overflow-x: clip;
-  overflow-y: visible;
-  border-radius: var(--r-lg);
-}
-.dpager:focus-visible {
-  outline-offset: 4px;
-}
-.dpager-track {
-  position: relative;
-  touch-action: pan-y;
-}
-.dpager-page {
-  min-width: 0;
-}
-.dpager-page.prev,
-.dpager-page.next {
-  position: absolute;
-  top: 0;
-  width: 100%;
-}
-.dpager-page.prev {
-  right: calc(100% + var(--dpager-gap));
-}
-.dpager-page.next {
-  left: calc(100% + var(--dpager-gap));
-}
+/* ---------- DayPager's hidden Previous / Next (`.dpager-sr`): a pill at the page's edge on keyboard focus ---------- */
 .dpager-sr:focus-visible {
   top: 50%;
   width: auto;
@@ -901,106 +752,6 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 @media (min-width: 900px) {
   .toast-host {
     bottom: 28px;
-  }
-}
-
-/* ---------- the loading block a v1 Loading draws ---------- */
-.loading-block {
-  padding: 4px 0;
-}
-
-/* ---------- the day arrows: top-right of a dated page ---------- */
-.daystep {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.daystep-arrows {
-  display: flex;
-  align-items: center;
-  height: 36px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.daystep-arrow {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: none;
-  color: var(--ink);
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  touch-action: manipulation;
-  transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-}
-/* 36px to the eye, 44px to the thumb */
-.daystep-arrow::after {
-  content: '';
-  position: absolute;
-  inset: -4px -2px;
-}
-.daystep-arrow[data-pressed] {
-  background: var(--surface-3);
-  transform: scale(0.97);
-  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-.daystep-arrow + .daystep-arrow::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 1px;
-  background: var(--line-strong);
-}
-.daystep-arrow:focus-visible,
-.daystep-today:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
-}
-.daystep-today {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 32px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--accent-tint);
-  color: var(--accent-text);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-.daystep-today::after {
-  content: '';
-  position: absolute;
-  inset: -6px -2px;
-}
-/* a small phone: the arrows narrow and the Today button drops its chevrons, so the date beside them stays whole */
-@media (max-width: 359px) {
-  .daystep {
-    gap: 4px;
-  }
-  .daystep-arrow {
-    width: 32px;
-  }
-  .daystep-today {
-    padding: 0 8px;
-  }
-  .daystep-today svg {
-    display: none;
   }
 }
 
@@ -1128,13 +879,6 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-}
-/* the old headers' accessory beside the avatar (the TabHeader adapter) */
-.nb-acc {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 44px;
 }
 .nb-title {
   position: relative;
@@ -1288,7 +1032,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   margin: 0;
   padding: 0;
 }
-/* a NavBar inside an old padded .page (the TabHeader adapter): the bar and the strip break out of the gutter */
+/* a NavBar inside a padded .page (Journal, Progress): the bar and the strip break out of the gutter */
 .page > .nb-bar,
 .page > .nb-strip {
   margin-inline: calc(-1 * var(--gutter));
@@ -1417,7 +1161,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 .dp-page[data-role='next'] {
   left: 100%;
 }
-/* a pager that is a block inside a page (the DatePager adapter: the old hero, Morning, Plan, the day picker) keeps its own height */
+/* a pager that is a block inside a page (the day picker) keeps its own height */
 .dp-intrinsic > .dp-track > .dp-page[data-role='cur'] {
   min-height: 0;
 }
@@ -1467,15 +1211,4 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 /* ---------- WeekRing: the shown day marked, a missed day a quiet gap ---------- */
 .wring-gap {
   stroke: var(--ink-4);
-}
-/* the DatePager adapter's old hosts (deleted with it): their pager carried the gutter as padding; it moves onto each page so
-   an always-mounted neighbour never shows in the gutter */
-.dp.pl-pager,
-.dp.m-pager {
-  padding-inline: 0;
-}
-.dp.pl-pager > .dp-track > .dp-page,
-.dp.m-pager > .dp-track > .dp-page {
-  padding-inline: var(--page-pad);
-  white-space: normal;
 }

@@ -11,7 +11,7 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from '@/ui/ContextM
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, PushedBar, TodayPill, weekCaption, type StripStatus } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
-import { Button, ChipButton, EmptyState, Loading, Section, Segmented } from '@/ui/primitives';
+import { Button, ChipButton, EmptyState, Section, Segmented } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { Skeleton, SkeletonGroup, SkeletonPage, SkeletonRows } from '@/ui/Skeleton';
 import { SwipeRow } from '@/ui/SwipeRow';
@@ -671,9 +671,6 @@ function Gallery({ onLab }: { onLab: () => void }) {
             <Skeleton h={160} r="card" />
           </SkeletonGroup>
           <SkeletonRows rows={3} label="Loading to-dos" />
-          <Demo title="Loading (v1, deprecated)" note="now a grey block">
-            <Loading text="Loading to-dos…" />
-          </Demo>
           <Demo title="SkeletonPage">
             <div className="gal-frame">
               <SkeletonPage />

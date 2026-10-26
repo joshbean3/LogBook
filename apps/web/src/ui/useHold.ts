@@ -46,8 +46,7 @@ export interface HoldOpts {
   ignore?: string;
   disabled?: boolean;
   /**
-   * WP1-internal (adapters): false = no pre-grow and no in-place lift (`useLongPress` and `useHoldDrag` callers draw their
-   * own). Default true.
+   * WP1-internal: false = no pre-grow and no in-place lift (`useHoldDrag` callers draw their own). Default true.
    */
   visual?: boolean;
   /** WP1-internal: the element that pre-grows and lifts (default: the element the handlers are on). */

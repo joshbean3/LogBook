@@ -5,7 +5,7 @@ import { createPortal, flushSync } from 'react-dom';
 import { TabScope, useNavInternal } from '@/app/NavController';
 import { MAX_MENU_ITEMS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
-import { crossfade, deprecated, fadeOut, menuIn } from '@/lib/motion';
+import { crossfade, fadeOut, menuIn } from '@/lib/motion';
 import { restoreFocus } from './focus';
 import { drop, lift, type LiftHandle } from './lift';
 import type { TabId } from './nav';
@@ -32,8 +32,6 @@ export interface OpenContextMenu {
   returnFocus?: HTMLElement | null;
   /** `haptics.lift()` on open. Default true. */
   haptic?: boolean;
-  /** @deprecated accepted and ignored (contracts §C.4: the element itself lifts in place; no preview). */
-  preview?: ReactNode;
 }
 export interface ContextMenuApi {
   open: (o: OpenContextMenu) => void;
@@ -283,7 +281,6 @@ export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
       open: (o) => {
         if (!o.items.length) return;
         if (import.meta.env.DEV && o.items.length > MAX_MENU_ITEMS) console.warn(`ContextMenu: ${o.items.length} items (≤ ${MAX_MENU_ITEMS})`);
-        if (o.preview !== undefined) deprecated('ContextMenu preview');
         const liftEl = o.lift !== undefined ? o.lift : o.anchor instanceof HTMLElement ? o.anchor : null;
         // a menu opened over another: the old one's object settles first
         const prev = cur.current;
@@ -332,8 +329,6 @@ export interface ContextMenuProps {
   items: ContextMenuItem[];
   /** One element: the object. Its own taps keep working; a hold opens the menu. */
   children: ReactNode;
-  /** @deprecated accepted and ignored: the object itself lifts in place. */
-  preview?: ReactNode;
   /** The menu's accessible name, and the hidden "Actions" button's: "Easy 6" → "Easy 6 actions". */
   label?: string;
   disabled?: boolean;
@@ -348,10 +343,9 @@ export interface ContextMenuProps {
  * `haptics.lift()`, and opens the menu under the cut-out scrim. Shift+F10 or the ContextMenu key opens it at once, and a
  * visually hidden "Actions" button (shown on focus) does the same for VoiceOver. The wrapper is `display: contents`.
  */
-export const ContextMenu = ({ items, children, preview, label, disabled, as = 'div', a11yButton = true }: ContextMenuProps) => {
+export const ContextMenu = ({ items, children, label, disabled, as = 'div', a11yButton = true }: ContextMenuProps) => {
   const menu = useContextMenu();
   const wrap = useRef<HTMLElement>(null);
-  if (preview !== undefined) deprecated('ContextMenu preview');
   const target = () => (wrap.current?.firstElementChild as HTMLElement | null) ?? null;
   const open = (focus?: HTMLElement | null, haptic = false) => {
     const el = target();

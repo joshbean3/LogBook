@@ -166,17 +166,6 @@ export const fireHaptic = (e: HapticEvent | false | null | undefined) => {
   if (e) haptics[e]();
 };
 
-type LegacyKind = 'tick' | 'success' | 'warn';
-const LEGACY: Record<LegacyKind, HapticEvent> = { tick: 'toggle', success: 'success', warn: 'warning' };
-/**
- * @deprecated call the named event instead (`haptics.toggle()`, `haptics.select()`, …). The old kinds map to:
- * `tick` → `toggle` (Impact Light, as before), `success` → `success`, `warn` → `warning`. A new event name works too.
- */
-export const haptic = (kind: LegacyKind | HapticEvent = 'tick') => {
-  const e = (LEGACY as Record<string, HapticEvent | undefined>)[kind] ?? (kind as HapticEvent);
-  haptics[e]?.();
-};
-
 /**
  * Completion haptics land on the frame of the visual peak (spec M34, §11.4; contracts §D.3). Subscribes to `scale` (the
  * `complete` animation's MotionValue) and fires `e` once, on the first frame whose value is below the previous frame's after

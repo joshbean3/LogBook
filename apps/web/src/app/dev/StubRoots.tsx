@@ -1,5 +1,4 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { useStravaChecking } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { stravaSyncNow } from '@/api/queries';
@@ -12,7 +11,7 @@ import { useHomeControl, useIsActiveTab, useNav, useRootRequest, useRouteParams,
 
 /**
  * Test-only stub tab roots and a stub pushed page (built only with VITE_FAKE_CLOCK, loaded only with `?stubs=1`): they let
- * the WP1 acceptance scripts drive jumps, root requests, tab scopes, sheets, menus, toasts and the router bridge without
+ * the WP1 acceptance scripts drive jumps, root requests, tab scopes, sheets, menus and toasts without
  * depending on the pages other packages are rebuilding.
  */
 type Win = Window & { __rootRequests?: unknown[]; __navOf?: Partial<Record<TabId, ReturnType<typeof useNav>>>; __activeRenders?: Partial<Record<TabId, number>>; __drags?: string[]; __syncs?: string[] };
@@ -76,7 +75,6 @@ export const StubRoot = ({ tab }: { tab: TabId }) => {
   useHomeControl({ atHome: !Object.keys(params).length, goHome: () => setParams({}) });
   const sheet = useSheet();
   const toast = useToast();
-  const navigate = useNavigate();
   const checking = useStravaChecking();
   const qc = useQueryClient();
   return (
@@ -94,15 +92,6 @@ export const StubRoot = ({ tab }: { tab: TabId }) => {
         </button>
         <button type="button" className="stub-open-sheet" style={{ minHeight: 44 }} onClick={() => sheet.open({ title: `Sheet on ${tab}`, body: <Probe />, action: <ProbeAction />, header: <ProbeAction className="stub-header" /> })}>
           Open sheet
-        </button>
-        <button type="button" className="stub-rr-settings" style={{ minHeight: 44 }} onClick={() => navigate('/settings')}>
-          rr settings
-        </button>
-        <button type="button" className="stub-rr-reads" style={{ minHeight: 44 }} onClick={() => navigate('/journal/reads')}>
-          rr reads
-        </button>
-        <button type="button" className="stub-rr-replace" style={{ minHeight: 44 }} onClick={() => navigate('/today/2026-10-24', { replace: true })}>
-          rr replace
         </button>
         <button type="button" className="stub-sync-quiet" style={{ minHeight: 44 }} onClick={() => void stravaSyncNow(qc, { force: true, quiet: true })}>
           quiet sync
