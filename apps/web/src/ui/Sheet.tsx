@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { TabScope, useNavInternal } from '@/app/NavController';
 import { ARRIVED_PX, LOCK_PX, lockAxis, PROJECT_S, SHEET_DISMISS_FRAC, SHEET_DISMISS_V, SHEET_SCROLL_LOCK_MS } from '@/lib/gesture';
 import { useKeyboardOpen } from '@/lib/keyboard';
-import { deprecated, reducedFade, sheetOpen, springs } from '@/lib/motion';
+import { reducedFade, sheetOpen, springs } from '@/lib/motion';
 import { restoreFocus } from './focus';
 import { focusables, holdInert } from './inert';
 import type { TabId } from './nav';
@@ -44,8 +44,6 @@ export interface SheetSpec {
   /** One header action before Close (an IconButton). It belongs to its panel: a pushed panel shows its own (or none). */
   action?: ReactNode;
   onClose?: () => void;
-  /** @deprecated accepted and ignored (contracts rule 5): the title flyer is gone. */
-  layoutId?: string;
 }
 export interface SheetApi {
   /** Replaces the whole stack; renders the body on this call (never earlier). */
@@ -63,11 +61,6 @@ export const useSheet = (): SheetApi => {
   const c = useContext(Ctx);
   if (!c) throw new Error('useSheet outside SheetProvider');
   return c;
-};
-/** @deprecated returns `{}` in Sheet v3 (contracts rule 5): the title flyer is gone. */
-export const shared = (_id: string): Record<string, never> => {
-  deprecated('shared()');
-  return {};
 };
 export { useSheetMotion, type SheetMotion } from './sheetMotion';
 

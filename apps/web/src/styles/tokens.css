@@ -92,8 +92,6 @@
   --gutter: 16px;
   --section: 32px;
   --maxw: 720px;
-  /* @deprecated (spec §3: deleted) — kept while journal, progress and reads css read it; delete at integration */
-  --sp-primary: 48px;
   --sp-secondary: 24px;
   --sp-group: 12px;
   /* the page's side padding: the gutter on a phone, wider beside the rail (base.css); edge-to-edge lists bleed by it */

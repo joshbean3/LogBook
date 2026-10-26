@@ -104,7 +104,7 @@ export const usePress = (opts: { disabled?: boolean; /** WP1-internal: Pressable
  * the same rules (cleared on up / cancel / 12 px outside, re-armed on return), so every `:active` scale rule could go
  * (§11.1). The move/up listeners exist only while a pointer is pressing.
  */
-const DELEGATED = '.btn, .icon-btn, .chip-btn, .seg-btn, .dcell, .avatar, .daystep-arrow, .daystep-today, .link, .lrow.tappable, label.lrow, .aura[role="button"], .aura-share, .cm-item, .gal-edge-row';
+const DELEGATED = '.btn, .icon-btn, .chip-btn, .seg-btn, .avatar, .link, .lrow.tappable, label.lrow, .aura[role="button"], .aura-share, .cm-item, .gal-edge-row';
 let delegating = false;
 export const startPressDelegate = () => {
   if (delegating || typeof window === 'undefined') return;

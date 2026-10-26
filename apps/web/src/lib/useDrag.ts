@@ -1,8 +1,7 @@
-import type { TargetAndTransition, Transition } from 'motion/react';
+import type { Transition } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useHold } from '@/ui/useHold';
-import { HOLD_MS as ONE_HOLD } from './gesture';
-import { deprecated, LIFT_SCALE, springs } from './motion';
+import { HOLD_MS } from './gesture';
 
 /**
  * Press-and-hold drags for the things that move: a habit orb, a session row, a block on the morning timeline.
@@ -15,23 +14,10 @@ import { deprecated, LIFT_SCALE, springs } from './motion';
  * Until the hold is up the page scrolls as usual; once it is up, touch scrolling is held off so the drag owns the finger.
  */
 
-/** @deprecated the one hold clock lives in lib/gesture.ts (450 ms); re-exported here (contracts rule 5). */
-export const HOLD_MS = ONE_HOLD;
 /** How far a dedicated handle (`holdMs: 0`) must travel to count as a drag (a held drag uses the hold's DRAG_START_PX). */
 export const SLOP = 6;
 
-/** @deprecated use `springs.settle` (contracts rule 5). */
-export const DROP_SPRING: Transition = springs.settle;
 export const INSTANT: Transition = { duration: 0 };
-/** @deprecated the lift is `LIFT_SCALE` on `springs.lift`. */
-export const LIFT: TargetAndTransition = { scale: LIFT_SCALE };
-/** @deprecated the rest is scale 1 on `springs.settle`. */
-export const REST: TargetAndTransition = { scale: 1 };
-/** @deprecated what to animate to for a lifted or a resting thing: the lift on `springs.lift`, the drop on `springs.settle`; reduced motion instant. */
-export const liftFx = (lifted: boolean, reduce: boolean | null): TargetAndTransition => {
-  deprecated('liftFx');
-  return reduce ? { scale: 1, transition: INSTANT } : lifted ? { scale: LIFT_SCALE, transition: springs.lift } : { scale: 1, transition: springs.settle };
-};
 
 export type DragPhase = 'idle' | 'pending' | 'armed' | 'dragging';
 export type CancelReason = 'up' | 'cancel';

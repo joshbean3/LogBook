@@ -1,4 +1,4 @@
-import { spring as motionSpring, useReducedMotion, type GeneratorFactory, type Transition, type ValueAnimationOptions, type Variants } from 'motion/react';
+import { spring as motionSpring, useReducedMotion, type GeneratorFactory, type Transition, type ValueAnimationOptions } from 'motion/react';
 
 /**
  * The motion vocabulary (docs/feel.md §10, contracts §D.1). Eight springs, one sheet curve, one press tween, nothing else.
@@ -58,24 +58,8 @@ const named = {
   complete: { ...springFor(0.3, 0.3), restDelta: 0.0005, restSpeed: 0.01 },
 };
 
-const pressLegacy: Transition = { ...named.settle, type: 'spring' };
-
-/**
- * The eight springs. `press` is a deprecated alias of `settle` (contracts rule 5): it stays only while a feature file still
- * reads it, and is not one of the names (`SpringName`).
- */
-export const springs: typeof named & {
-  /** @deprecated the press is CSS now (`[data-pressed]`, 120 ms in / 160 ms out); this aliases `springs.settle`. */
-  press: Transition;
-} = {
-  ...named,
-  get press() {
-    deprecated('springs.press');
-    // behaviour unchanged while it is deprecated (contracts rule 5): the settle spring as it was before `unitAware`, so the
-    // old feature presses that read it (a whileTap scale to 0.985) keep what they did; the new press is CSS
-    return pressLegacy;
-  },
-};
+/** The eight springs (contracts §D.1). */
+export const springs: typeof named = named;
 export type SpringName = keyof typeof named;
 
 export const ease = [0.22, 1, 0.36, 1] as const;
@@ -122,42 +106,3 @@ export const useMotionFor = (name: SpringName): Transition => motionFor(name, us
 /** True when the user asked for reduced motion (never null). */
 export const useReduced = () => !!useReducedMotion();
 
-// ---------- deprecated aliases (contracts rule 5): kept while a feature file imports them; WP1 deletes them after WP6 lands ----------
-const seen = new Set<string>();
-/** One dev console count per deprecated name, on its first use. */
-export const deprecated = (name: string) => {
-  if (!import.meta.env.DEV || seen.has(name)) return;
-  seen.add(name);
-  console.count(`deprecated: ${name}`);
-};
-
-/** @deprecated use `springs.settle`. */
-export const spring: Transition = named.settle;
-/** @deprecated use `springs.page`. */
-export const springSoft: Transition = named.page;
-/** @deprecated use `fadeIn` / `colorTween`. */
-export const tween: Transition = { duration: 0.2, ease };
-/** @deprecated a page arriving is a 0 ms cut now; opacity only. */
-export const pageVariants: Variants = {
-  initial: { opacity: 0 },
-  enter: { opacity: 1, transition: fadeIn },
-  exit: { opacity: 0, transition: fadeOut },
-};
-/** @deprecated lists do not stagger. */
-export const listVariants: Variants = { hidden: {}, show: {} };
-/** @deprecated lists do not stagger. */
-export const itemVariants: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: fadeIn } };
-/** @deprecated use `crossfade`. */
-export const fadeVariants: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: fadeIn }, exit: { opacity: 0, transition: fadeOut } };
-/**
- * @deprecated animates height (a FLIP is the rule now, §10.1); kept, behaviour unchanged, until the to-do and journal
- * lists that import it are rebuilt by their packages.
- */
-export const rowPresence = {
-  get initial() {
-    deprecated('rowPresence');
-    return { height: 0, opacity: 0 };
-  },
-  animate: { height: 'auto', opacity: 1, transition: { height: named.settle, opacity: fadeIn } },
-  exit: { height: 0, opacity: 0, transition: { height: named.settle, opacity: fadeOut } },
-} as const;

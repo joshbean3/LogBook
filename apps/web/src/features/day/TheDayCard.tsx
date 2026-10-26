@@ -103,7 +103,7 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
           onPointerDownCapture={() => (via.current = 'pointer')}
           onKeyDownCapture={() => (via.current = 'other')}
         >
-          <Composer date={date} today={log.today} rows={2} placeholder="Add to the day" toast={false} autoFocus={autoFocus} onSaved={saved} />
+          <Composer date={date} today={log.today} rows={2} placeholder="Add to the day" autoFocus={autoFocus} onSaved={saved} />
         </div>
       ) : (
         <Pressable

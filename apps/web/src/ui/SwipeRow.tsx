@@ -38,13 +38,6 @@ export interface SwipeRowProps {
   onReveal?: (side: 'left' | 'right' | null) => void;
 }
 
-/** @deprecated the thresholds live in lib/gesture.ts (SWIPE_REVEAL_PX, SWIPE_FULL_FRAC, SWIPE_FULL_V; LOCK_PX). */
-export const SWIPE_LOCK = LOCK_PX;
-/** @deprecated `SWIPE_FULL_FRAC`. */
-export const SWIPE_COMMIT = SWIPE_FULL_FRAC;
-/** @deprecated the pane follows 1:1 now. */
-export const SWIPE_RUBBER = 1;
-
 /** The list item a row is (a wrapper with only the row in it counts as the row). */
 const itemOf = (row: HTMLElement) => {
   let item = row;

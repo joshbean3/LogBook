@@ -150,9 +150,9 @@ export class Controller {
   private native: { push: History['pushState']; replace: History['replaceState'] } | null = null;
   private writing = false;
   /**
-   * react-router (the old pages, until WP6 lands) writes history itself. A write it makes while one of our traversals is
-   * pending would be overtaken by that traversal (history.back() is only queued), so it waits in the same queue and runs, in
-   * order, after the popstate; the bridge's adopt that follows it is queued behind it.
+   * react-router (the full-screen routes: /start, /login, /signup, /welcome/*) writes history itself. A write it makes while
+   * one of our traversals is pending would be overtaken by that traversal (history.back() is only queued), so it waits in the
+   * same queue and runs, in order, after the popstate.
    */
   private hookHistory() {
     if (typeof window === 'undefined' || this.native) return;
@@ -166,11 +166,6 @@ export class Controller {
     };
     h.pushState = (data: unknown, unused: string, url?: string | URL | null) => foreign(true, data, unused, url);
     h.replaceState = (data: unknown, unused: string, url?: string | URL | null) => foreign(false, data, unused, url);
-  }
-  /** Set by RouterBridge while old pages still call react-router: how a foreign write is adopted (nav.go with `adopt`). */
-  private adopter: ((path: string, how: 'push' | 'replace') => void) | null = null;
-  setAdopter(fn: ((path: string, how: 'push' | 'replace') => void) | null) {
-    this.adopter = fn;
   }
   private run(fn: () => void) {
     this.writing = true;
@@ -204,13 +199,6 @@ export class Controller {
       }
       if (op.kind === 'foreign') {
         this.run(() => (op.push ? window.history.pushState(op.data, '', op.url) : window.history.replaceState(op.data, '', op.url)));
-        // the entry react-router just wrote is adopted (re-stamped), in a microtask: go uses flushSync
-        const adopt = this.adopter;
-        if (adopt && op.url != null) {
-          const u = new URL(String(op.url), window.location.href);
-          const how = op.push ? 'push' : 'replace';
-          queueMicrotask(() => adopt(u.pathname + u.search, how));
-        }
         continue;
       }
       const nav = { idx: op.idx, ...(op.overlay ? { overlay: true } : {}) };

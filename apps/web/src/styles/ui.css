@@ -239,40 +239,7 @@ label.lrow[data-pressed] {
   box-shadow: none;
 }
 
-/* ---------- hero ---------- */
-.hero {
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
-  padding: 16px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-}
-.hero-main {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.hero-title {
-  font-size: 1.75rem;
-  line-height: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  overflow-wrap: break-word;
-  hyphens: auto;
-}
-.hero[role='button'] {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  cursor: pointer;
-}
-.hero-chev {
-  color: var(--ink-3);
-  margin-right: -4px;
-}
+/* a family dot */
 .tone-dot {
   display: inline-block;
   width: 6px;
@@ -280,18 +247,6 @@ label.lrow[data-pressed] {
   border-radius: 50%;
   background: var(--tone, var(--ink-4));
   flex: none;
-}
-.hero-verdict {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-2);
-  letter-spacing: -0.01em;
-}
-.hero-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
 }
 
 /* ---------- stat strip ---------- */
@@ -550,10 +505,6 @@ label.lrow[data-pressed] {
   color: var(--warn);
   background: var(--warn-soft);
 }
-.chip.missed {
-  color: var(--bad);
-  background: var(--bad-soft);
-}
 .chip.open {
   color: var(--ink-2);
   background: var(--surface-2);
@@ -611,14 +562,14 @@ label.lrow[data-pressed] {
     background var(--dur-fast),
     color var(--dur-fast);
 }
-/* a 32px chip to the eye, 44px to the thumb */
+/* a 32px chip to the eye, 44px to the thumb (the band is measured from the padding box, inside the 1px border) */
 .chip-btn::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  top: -6px;
-  bottom: -6px;
+  top: -7px;
+  bottom: -7px;
 }
 .chip-btn.quiet {
   border-color: transparent;
@@ -1177,118 +1128,6 @@ textarea.in {
   border-radius: var(--r-md);
 }
 
-/* ---------- day strip: the one 7-day picker (Morning, Plan week) ----------
-   dow caption above a pill. Selected = filled ink pill, today = accent outline.
-   Status may colour the number; tones only ever appear as dots inside the pill. */
-.dstrip {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
-  margin-top: 24px;
-}
-.dcell {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  min-width: 0;
-  color: var(--ink);
-}
-.dcell-dow {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 400;
-  color: var(--ink-3);
-  letter-spacing: 0;
-}
-.dcell-pill {
-  width: 100%;
-  max-width: 48px;
-  aspect-ratio: 1;
-  border-radius: var(--r-pill);
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 2px;
-  transition:
-    background var(--dur-fast),
-    box-shadow var(--dur-fast),
-    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-.dcell[data-pressed] .dcell-pill {
-  transform: scale(0.97);
-  transition:
-    background var(--dur-fast),
-    box-shadow var(--dur-fast),
-    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-.dcell-num {
-  font-variant-numeric: tabular-nums;
-  font-size: 1.0625rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-.dcell.is-today .dcell-pill {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-}
-.dcell.is-today .dcell-dow {
-  color: var(--ink-2);
-  font-weight: 600;
-}
-.dcell.is-sel .dcell-pill {
-  background: var(--ink);
-  box-shadow:
-    0 0 0 4px rgba(47, 59, 255, 0.18),
-    0 0 24px rgba(91, 102, 255, 0.75);
-}
-.dcell.is-sel .dcell-num {
-  color: var(--bg);
-}
-.dcell.is-sel.is-today .dcell-pill {
-  box-shadow:
-    inset 0 0 0 1.5px var(--accent-bright),
-    0 0 0 4px rgba(47, 59, 255, 0.18),
-    0 0 24px rgba(91, 102, 255, 0.75);
-}
-.dcell-dot {
-  display: block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--tone, var(--ink-4));
-}
-.dcell-dot.none {
-  background: transparent;
-}
-.dcell.is-sel .dcell-dot {
-  background: var(--tone, var(--bg));
-  opacity: 1;
-}
-.dcell.is-sel .dcell-dot.none {
-  background: transparent;
-}
-.dcell.is-sel .sdot {
-  border-color: var(--bg);
-}
-.dcell.is-sel .sdot.on {
-  background: var(--bg);
-}
-/* a day outside the month in view (Plan's month grid) sits back without fading its number past 4.5:1: ink-3 for the number, the dots at half */
-.dcell.out:not(.is-sel) {
-  opacity: 1;
-}
-.dcell.out:not(.is-sel) .dcell-num {
-  color: var(--ink-3);
-}
-.dcell.out:not(.is-sel) .dcell-dot,
-.dcell.out:not(.is-sel) .sdot {
-  opacity: 0.5;
-}
-
 /* ---------- the aura card: black, lit from below, the day's numbers stamped on it ---------- */
 .aura {
   position: relative;
@@ -1480,7 +1319,6 @@ textarea.in {
   }
   .orb-ring,
   .mark,
-  .dcell-pill,
   .orbs-meter i {
     transition: none !important;
   }

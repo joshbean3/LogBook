@@ -62,9 +62,16 @@ body {
   pointer-events: none;
   opacity: 0;
 }
+/* the depth-1 scrim and the stack host sit above the root's sticky bars (z-index 20) even when the root is not transformed
+   (reduced motion's fade: no transform gives the root a stacking context), so the bar never paints over a pushed page.
+   Inside the host nothing has a z-index: the depth-2 scrim stays between the two layers by DOM order */
+.tab > .tab-scrim {
+  z-index: 25;
+}
 .stack-host {
   position: absolute;
   inset: 0;
+  z-index: 25;
   overflow: clip;
   /* only its layers take touches: a layer that is gone (or covered) can never swallow one meant for the root */
   pointer-events: none;

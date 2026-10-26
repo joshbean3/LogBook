@@ -1,5 +1,4 @@
 import { dayKey, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
-import { useQueryClient } from '@tanstack/react-query';
 import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -7,7 +6,7 @@ import { flushSync } from 'react-dom';
 import { useHomeControl, useIsActiveTab, useNav, useRootRequest, useRouteParams } from '@/app/NavController';
 import { useToday, TodayHold } from '@/lib/useToday';
 import { hasDraft, subscribeDrafts } from '../journal/drafts';
-import { stravaSyncNow, useMorningMutations } from '@/api/queries';
+import { useMorningMutations } from '@/api/queries';
 import { Avatar } from '@/ui/Avatar';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, TodayPill, type StripStatus } from '@/ui/NavBar';
@@ -84,7 +83,6 @@ export default function DayView(): React.JSX.Element {
 function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => void>; setHeld: (d: ISODate) => void }): React.JSX.Element {
   const params = useRouteParams();
   const nav = useNav();
-  const qc = useQueryClient();
   const handle = useDayPagerHandle();
   const base = useLog([]);
   const today = base.today;
@@ -102,12 +100,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   const openWord = useOpenWordSheet();
   useStravaPull(!!log.strava?.connected);
 
-  // a cold open: the Strava check starts with the first frame from the persisted bootstrap (stravaSyncNow keeps one per 30 s)
-  useEffect(() => {
-    if (base.boot?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
-    // once, on the first frame that has a bootstrap
-  }, [!!base.boot]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // a cold open's Strava check is main.tsx's (from the persisted bootstrap) or App's (after the first bootstrap): one each
   if (hooks) {
     hooks.renders++;
     hooks.date = () => dateRef.current;

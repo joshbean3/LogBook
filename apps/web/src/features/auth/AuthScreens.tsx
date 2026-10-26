@@ -203,8 +203,8 @@ export const Signup = () => {
       // the previous account's cache goes and the new bootstrap goes in on the same tick as the navigation
       qc.clear();
       if (boot) qc.setQueryData(keys.bootstrap, boot);
-      // the promise came before the account (/start): straight on to the first question (App.tsx's welcome route still
-      // shows its empty fallback for a few frames, its lazy view suspending once with the module here: WP1 request 15)
+      // the promise came before the account (/start): straight on to the first question (App.tsx preloads the welcome
+      // view while this form is up, so its route draws the question on the first frame)
       nav('/welcome/goal', { replace: true });
     } catch (e2) {
       haptics.error();

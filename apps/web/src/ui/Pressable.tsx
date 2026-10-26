@@ -1,11 +1,8 @@
-import { motion, type HTMLMotionProps } from 'motion/react';
 import type * as React from 'react';
 import { forwardRef, useRef, type HTMLAttributes, type ReactNode } from 'react';
 import { fireHaptic, type HapticEvent } from '@/lib/haptics';
-import { deprecated } from '@/lib/motion';
 import { useContextMenu, type ContextMenuItem } from './ContextMenu';
 import { useHold, type DragPoint, type HoldInfo } from './useHold';
-import type { LongPressInfo } from './useLongPress';
 import { usePress } from './usePress';
 
 /** scale: 0.97 (cards, pills, orbs, strip cells, chevron, tab items). surface: --surface-2 (rows). dim: opacity .55 (text verbs). */
@@ -35,16 +32,6 @@ export interface PressableProps extends Omit<HTMLAttributes<HTMLElement>, 'onCli
   label?: string;
   as?: 'button' | 'div' | 'li';
   className?: string;
-  /** @deprecated accepted and ignored (contracts rule 5; use `press`): a value ≥ 1 reads as `press="surface"`, below 1 as `scale`. */
-  pressScale?: number;
-  /** @deprecated use `onHold` (contracts rule 5: mapped to it). */
-  onLongPress?: (info: LongPressInfo) => void;
-  /** @deprecated motion props (an old caller's nudge); when present the element is a motion element, else a plain one. */
-  animate?: HTMLMotionProps<'div'>['animate'];
-  /** @deprecated see `animate`. */
-  initial?: HTMLMotionProps<'div'>['initial'];
-  /** @deprecated see `animate`. */
-  transition?: HTMLMotionProps<'div'>['transition'];
 }
 
 /**
@@ -62,7 +49,6 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
     as = 'button',
     children,
     onPress,
-    onLongPress,
     onHold,
     holdMenu,
     menuLabel,
@@ -72,7 +58,6 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
     ignore,
     press,
     haptic,
-    pressScale,
     disabled,
     label,
     className = '',
@@ -84,22 +69,14 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
     onContextMenu,
     onKeyDown,
     onClickCapture,
-    animate,
-    initial,
-    transition,
     ...rest
   } = props;
-  const legacyMotion = animate !== undefined || initial !== undefined || transition !== undefined;
-  if (legacyMotion) deprecated('Pressable motion props');
-  const motionProps = legacyMotion ? { animate, initial, transition } : {};
   const menu = useContextMenu();
-  if (onLongPress) deprecated('Pressable onLongPress');
-  if (pressScale !== undefined) deprecated('Pressable pressScale');
-  const style: PressStyle = press ?? (pressScale !== undefined && pressScale >= 1 ? 'surface' : 'scale');
+  const style: PressStyle = press ?? 'scale';
   const p = usePress({ disabled, ignore });
   // this Pressable's own menu is up (a drag or a move after the hold closes only that one)
   const ownMenu = useRef(false);
-  const holdFn = onHold ?? onLongPress;
+  const holdFn = onHold;
   const closeOwn = () => {
     if (ownMenu.current && menu.isOpen()) menu.close();
     ownMenu.current = false;
@@ -175,14 +152,13 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
     },
   };
   if (as === 'div' || as === 'li') {
-    const Tag = (legacyMotion ? (as === 'li' ? motion.li : motion.div) : as) as 'div';
+    const Tag = as as 'div';
     return (
       <Tag
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled || undefined}
         {...(common as HTMLAttributes<HTMLElement>)}
-        {...motionProps}
         onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {
           h.handlers.onKeyDown(e);
           onKeyDown?.(e);
@@ -197,19 +173,17 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
       </Tag>
     );
   }
-  const Button = (legacyMotion ? motion.button : 'button') as 'button';
   return (
-    <Button
+    <button
       type="button"
       disabled={disabled}
       {...(common as HTMLAttributes<HTMLButtonElement>)}
-      {...motionProps}
       onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {
         h.handlers.onKeyDown(e);
         onKeyDown?.(e);
       }}
     >
       {children}
-    </Button>
+    </button>
   );
 });

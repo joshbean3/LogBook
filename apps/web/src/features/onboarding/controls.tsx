@@ -3,7 +3,7 @@ import { Check, Minus, Plus } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
-import { springs } from '@/lib/motion';
+import { crossfade, springs } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
 import { DAY_LETTER, DAY_NAME, fixLongRun, GOALS, hm, hmFull, MIN_GAP, morningFrom, raceSundays, snap5, sortDays, STARTER_HABITS, TRACK_FROM, TRACK_TO, weeksUntil } from './model';
 
@@ -47,7 +47,8 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal' }: { value: Goal | n
             onPress={() => pick(g.id)}
             onKeyDown={(e: React.KeyboardEvent) => onKey(e, i)}
           >
-            {on ? <motion.span layoutId={`${id}-thumb`} className="ob-goal-thumb" transition={reduce ? { duration: 0 } : springs.settle} aria-hidden="true" /> : null}
+            {/* the fill crossfades onto the chosen goal (opacity only: no shared-layout flight across the grid, §10) */}
+            <motion.span className="ob-goal-thumb" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : crossfade} aria-hidden="true" />
             <span className="ob-goal-text">{g.label}</span>
           </Pressable>
         );

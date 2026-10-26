@@ -93,6 +93,17 @@ describe('hapticAtPeak', () => {
     expect(events).toEqual(['toggle']);
   });
 
+  it('a listener after it still sees the frame the haptic fires on (it unsubscribes after the notification)', async () => {
+    const { events, motionValue, hapticAtPeak } = await setup();
+    const s = motionValue(1);
+    hapticAtPeak(s, 'orb');
+    const seen: number[] = [];
+    s.on('change', (v) => seen.push(v));
+    for (const v of [1.04, 1.12, 1.11, 1.05]) s.set(v);
+    expect(events).toEqual(['orb']);
+    expect(seen).toEqual([1.04, 1.12, 1.11, 1.05]);
+  });
+
   it('falls back after FILL_MS when no frame comes', async () => {
     const { events, motionValue, hapticAtPeak } = await setup();
     hapticAtPeak(motionValue(1), 'orb');

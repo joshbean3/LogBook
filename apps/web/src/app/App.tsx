@@ -15,7 +15,6 @@ import { matchRoute, type PushedEntry } from '@/ui/nav';
 import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { useNav } from './NavController';
-import { RouterBridge } from './RouterBridge';
 import { Shell } from './Shell';
 import '@/styles/foundation.css';
 
@@ -119,19 +118,16 @@ const pushedFor = (e: PushedEntry) => {
   return null;
 };
 
-/** The framed app: the controller-driven Shell, and (until WP6 lands) the bridge from old pages' react-router calls. */
+/** The framed app: the controller-driven Shell. Nothing inside it uses react-router (contracts rule 2). */
 const Framed = () => {
-  // the splash goes in the rAF of the frame that paints the first content (WP2's DayPage takes this over)
+  // the splash goes in the rAF of the frame that paints the first content: Today's DayPage does it on its own first paint;
+  // this covers a cold start on another tab (a deep link to /plan), whose root may mount after Today's (hideSplash is
+  // idempotent)
   useLayoutEffect(() => {
     const raf = requestAnimationFrame(hideSplash);
     return () => cancelAnimationFrame(raf);
   }, []);
-  return (
-    <>
-      <RouterBridge />
-      <Shell pages={pages} pushed={pushedFor} />
-    </>
-  );
+  return <Shell pages={pages} pushed={pushedFor} />;
 };
 
 /**
@@ -202,6 +198,16 @@ const Authed = () => {
   );
 };
 
+/**
+ * Sign-up ends on first run: its view is preloaded while the form is up, so the first question is drawn on the frame the
+ * form leaves (React.lazy suspends once even for a loaded module; `view()` renders the module's own component once
+ * `preload` has it: WP6 request 15).
+ */
+const SignupRoute = () => {
+  useEffect(() => void Welcome.preload().catch(() => undefined), []);
+  return <Signup />;
+};
+
 /** onDeepLink → nav.go (a deep link on a running app is a jump). Lives under NavController. */
 const DeepLinks = () => {
   const nav = useNav();
@@ -233,7 +239,7 @@ export const App = () => {
       <Routes>
         <Route path="/start" element={<Start />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup" element={<SignupRoute />} />
         <Route path="/setup" element={<Navigate to="/signup" replace />} />
         <Route path="*" element={<Authed />} />
       </Routes>

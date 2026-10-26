@@ -31,10 +31,18 @@ export const hardPair = (sessionsOn: SessionsOn, moves: Array<{ s: Session; to: 
 };
 
 /**
+ * A session moved from a day already past onto today or later only moves: a swap would send the day's session into the
+ * past, where it reads `Missed` (WP4's review-feel-1 #9). The two then sit under one label.
+ */
+export const movesOnly = (from: string, to: string, today: string) => from < today && to >= today;
+
+/**
  * What dropping `s` on `to` does: a move, or a swap with the session that leads that day (its hero), when that one is not
- * already kept (a done session stays where it happened). Rest swaps too, so a rest day changes places with a run.
+ * already kept (a done session stays where it happened) and the swap would not send it into the past (`movesOnly`). Rest
+ * swaps too, so a rest day changes places with a run.
  */
 export const dropPlan = (log: Log, s: Session, from: string, to: string): { swapWith: Session | null } => {
+  if (movesOnly(from, to, log.today)) return { swapWith: null };
   const there = log.snap.sessionsOn(to).filter((x) => x.id !== s.id);
   const lead = heroSession(there);
   if (!lead) return { swapWith: null };
