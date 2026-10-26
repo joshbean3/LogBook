@@ -71,8 +71,9 @@ export const useFlip = (root: RefObject<HTMLElement | null>, extra?: () => HTMLE
   const top0 = () => root.current?.getBoundingClientRect().top ?? 0;
 
   // every render inside the window: one change can land in several renders (the conflict row now, the moved data a task
-  // later), and each one that moves rows animates them from where they are on screen
-  useLayoutEffect(() => {
+  // later), and each one that moves rows animates them from where they are on screen; a row's own render (one day letting
+  // go of a deleted row: feel review 3 #4) calls `flip.reflow()` from its layout instead
+  const reflow = () => {
     const p = st.current;
     if (!p) return;
     if (performance.now() > p.until) {
@@ -86,6 +87,7 @@ export const useFlip = (root: RefObject<HTMLElement | null>, extra?: () => HTMLE
     const sNow = sf && surfAnim.current ? new DOMMatrix(getComputedStyle(sf).transform).d || 1 : 1;
     // on screen now (a FLIP still running included), then laid out
     const visual = new Map(els.map((el) => [el, el.getBoundingClientRect().top - base] as const));
+    const was0 = { rows: [...running.current].map(([el, a]) => [el, a, a.currentTime] as const), surf: surfAnim.current ? ([surfAnim.current, surfAnim.current.currentTime] as const) : null };
     for (const a of running.current.values()) a.cancel();
     running.current.clear();
     surfAnim.current?.cancel();
@@ -97,6 +99,30 @@ export const useFlip = (root: RefObject<HTMLElement | null>, extra?: () => HTMLE
       const was = k ? p.tops.get(k) : undefined;
       // where it was on screen: its old layout top plus the offset its running FLIP still shows
       if (was != null) dyOf.set(el, was + (visual.get(el)! - laid.get(el)!) - laid.get(el)!);
+    }
+    // a render that moved nothing (the write's render after the day already let the row go): the running FLIPs go on as
+    // they are, never restarted from where they are with their speed lost
+    const keys0 = keysOf(els, root.current);
+    const sf0 = sf ? sf.offsetHeight : null;
+    const still = (el: HTMLElement) => {
+      const k = keyOf(el);
+      const was = k ? p.tops.get(k) : undefined;
+      return was == null || Math.abs(was - laid.get(el)!) <= 0.5;
+    };
+    if (keys0 === p.keys && els.every(still) && (sf0 == null || p.surfH == null || Math.abs(sf0 - p.surfH) <= 0.5)) {
+      // (put back at the time they had reached: the same keyframes still hold, as nothing moved)
+      for (const [el, a, t] of was0.rows) {
+        if (!el.isConnected || t == null) continue;
+        a.play();
+        a.currentTime = t;
+        running.current.set(el, a);
+      }
+      if (was0.surf && was0.surf[1] != null) {
+        was0.surf[0].play();
+        was0.surf[0].currentTime = was0.surf[1];
+        surfAnim.current = was0.surf[0];
+      }
+      return;
     }
     p.tops = new Map(els.map((el) => [keyOf(el) ?? '', laid.get(el)!] as const));
     const keys = keysOf(els, root.current);
@@ -128,14 +154,15 @@ export const useFlip = (root: RefObject<HTMLElement | null>, extra?: () => HTMLE
       running.current.set(el, a);
       a.onfinish = () => running.current.delete(el);
     }
-  });
+  };
+  useLayoutEffect(reflow);
 
   /**
    * Read the group's rows before a change that moves them; the renders of the next 1.5 s animate what moved. `after` runs
    * in the layout of the first render that shows the change (so a toast rises on the frame the row goes, not before it:
    * feel review 2 B), or after 1.5 s if the change never shows.
    */
-  return (after?: () => void) => {
+  const flip = (after?: () => void) => {
     const base = top0();
     const tops = new Map<string, number>();
     const els = items();
@@ -157,6 +184,7 @@ export const useFlip = (root: RefObject<HTMLElement | null>, extra?: () => HTMLE
         }
       }, 1500);
   };
+  return Object.assign(flip, { reflow });
 };
 
 /** What the group holds, to tell a render that shows a change (a row came, went, or changed its words) from one that does not. */

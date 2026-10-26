@@ -1,7 +1,7 @@
-import { addMonths, mondayOf, monthOf, monthStart, shiftDays } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthStart, parseISO, shiftDays } from '@logbook/shared';
 import { useMotionValueEvent } from 'motion/react';
 import type * as React from 'react';
-import { Activity, startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Activity, startTransition, useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useHomeControl, useNav, useRootRequest, useRouteParams, useTabScroller } from '@/app/NavController';
 import { crossfadeSlow, ease } from '@/lib/motion';
@@ -30,6 +30,8 @@ import './plan.css';
  * this week (month) slides home (`useHomeControl`).
  */
 type View = 'week' | 'month';
+/** How a pager slot draws its page: live, still (no row hooks), from the stash's HTML, or empty (PlanView's faceOf). */
+type Face = 'live' | 'still' | 'snap' | 'none';
 interface St {
   view: View;
   mon: string;
@@ -40,6 +42,8 @@ interface St {
 
 /** The month a week belongs to: its Thursday's (ISO weeks). */
 const monthOfWeek = (mon: string) => monthStart(shiftDays(mon, 3));
+/** Months from `a` to `b` (firsts of months). */
+const monthsApart = (a: string, b: string) => (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7));
 /** The first week that belongs to a month: the one whose Thursday falls in it. */
 const firstWeekOf = (first: string) => (shiftDays(mondayOf(first), 3) >= first ? mondayOf(first) : shiftDays(mondayOf(first), 7));
 
@@ -231,10 +235,44 @@ export default function PlanView(): React.JSX.Element {
       const parts = barParts().map((p) => ({ ...p, from: +getComputedStyle(p.el).opacity }));
       for (const a of barFades.current) a.cancel();
       barFades.current = parts.map((p) => p.el.animate([{ opacity: p.from }, { opacity: p.at(ha) }], { duration: ms, easing }));
+      // a scroll during the fade wins: each part goes on from where it is to the scroll's value (in the time left, 100–150
+      // ms), and the CSS (`--hdr`) has it again when the fade ends (code review 3 #2)
+      const t0 = performance.now();
+      const own = barFades.current;
+      let aim = ha;
+      const onScroll = () => {
+        if (barFades.current !== own || !own.some((a) => a.playState === 'running')) return void sc?.removeEventListener('scroll', onScroll);
+        // the scroll event of the switch's own clamp (or any scroll that leaves the bar's value where the fade is going) is
+        // not a change of aim
+        if (Math.abs(hdrOf(sc?.scrollTop) - aim) <= 0.01) return;
+        aim = hdrOf(sc?.scrollTop);
+        // in what is left of the fade, at least 100 ms and at most 150 (the scroll is the owner's hand), easing out, so the
+        // CSS takes it back with no step
+        const left = Math.max(100, Math.min(150, ms - (performance.now() - t0)));
+        const h = aim;
+        const next = parts.map((p, i) => {
+          const from = +getComputedStyle(p.el).opacity;
+          own[i]?.cancel();
+          return p.el.animate([{ opacity: from }, { opacity: p.at(h) }], { duration: left, easing });
+        });
+        own.splice(0, own.length, ...next);
+      };
+      sc?.addEventListener('scroll', onScroll, { passive: true });
     }
     const aIn = inc?.animate([{ opacity: from.inc }, { opacity: 1 }], { duration: Math.max(1, ms * (1 - from.inc)), easing });
     const aOut = out?.animate([{ opacity: from.out }, { opacity: 0 }], { duration: Math.max(1, ms * from.out), easing, fill: 'forwards' });
     fades.current = [aIn, aOut].filter((a): a is Animation => !!a);
+    // the switch's own work can hold the frame after the fades start (at 4×, 100–200 ms): their first visible frame would
+    // then be most of the way through, a cut (feel review 3 #5). After such a frame they go on from their second frame.
+    const paced = [...fades.current, ...barFades.current];
+    let f0 = 0;
+    requestAnimationFrame((t0) => {
+      f0 = t0;
+      requestAnimationFrame((t1) => {
+        if (t1 - f0 < 50) return;
+        for (const a of paced) if (a.playState === 'running' && (a.currentTime as number) > 33) a.currentTime = 33;
+      });
+    });
     const leavingH = view === 'week' ? monthH : weekH;
     const done = () => {
       if (fadeGen.current !== gen) return;
@@ -321,11 +359,13 @@ export default function PlanView(): React.JSX.Element {
   /**
    * A page that comes into a pager's neighbour slot is not built live inside the commit's flushSync (review-feel-1 #6;
    * spec §15 risk 1's fallback). When the commit ends a slide (the pager rests), the slot is empty for that frame and the
-   * page mounts live on the next one, while nothing moves. When the commit comes under a finger (a swipe that catches the
-   * slide: four quick swipes), the page is revealed at once, so the commit draws it `still`: the same pixels as the live
-   * page with none of its row hooks (no Pressables, mutation observers or drag state), and it goes live once the pager
-   * rests (feel review 2 D: never a blank card, nothing on it changes under the finger). Nothing on a page can be used
-   * while its pager moves (a touch then catches the slide). The shown page and a goTo's destination are always live.
+   * pages go live one a frame after it, while nothing moves (a finger landing first draws the empty one at once). When the
+   * commit comes under a finger (a swipe that catches the slide: four quick swipes), the page is drawn `still`: the same
+   * pixels as the live page with none of its row hooks (no Pressables, mutation observers or drag state), in the commit
+   * when its slot is at the screen's edge, else two frames later; a still page stays still while the pager moves, even as
+   * it becomes the shown page, and goes live once the pager rests (feel review 2 D, feel review 3 #1: never a blank card,
+   * nothing on it changes under the finger, and no page is made live under it). Nothing on a page can be used while its
+   * pager moves (a touch then catches the slide). A goTo's destination is always live.
    */
   const pagesOf = (m: string, f: string) => new Set([m, shiftDays(m, -7), shiftDays(m, 7), f, addMonths(f, -1), addMonths(f, 1)]);
   const [warm, setWarm] = useState<ReadonlySet<string>>(() => new Set([mon, first]));
@@ -337,49 +377,165 @@ export default function PlanView(): React.JSX.Element {
   useEffect(() => {
     const want = pagesOf(mon, first);
     const h = view === 'week' ? weekH : monthH;
+    // one page a frame, the shown one first, then the one ahead and the one behind (feel review 3 #1: three pages made live
+    // in one frame was a 67–117 ms frame at 4×); the other view's pages with the last step
+    const order = view === 'week' ? [mon, shiftDays(mon, 7), shiftDays(mon, -7)] : [first, addMonths(first, 1), addMonths(first, -1)];
     let raf = 0;
+    let waitFade: Animation | null = null;
     const live = () => {
       cancelAnimationFrame(raf);
-      if (h.moving.get() || same(want, warmNow.current)) return;
+      if (h.moving.get()) return;
+      // not during Week ⇄ Month's crossfade: the incoming pane's neighbours wait for it to end (feel review 3 #5)
+      const fade = fades.current.find((a) => a.playState === 'running') ?? null;
+      if (fade) {
+        if (waitFade !== fade) {
+          waitFade = fade;
+          void fade.finished.then(live, live);
+        }
+        return;
+      }
+      if (same(want, warmNow.current)) return;
       // the frame after the rest is painted, if nothing has started moving since (flushSync: before any input that frame);
       // while Plan is not the tab on screen (its first mount behind Today) it waits its turn in a transition
       raf = requestAnimationFrame(() => {
         if (h.moving.get()) return;
-        drawn.current = new Set([...drawn.current].filter((d) => !want.has(d)));
-        if (nav.getState().active === 'plan') flushSync(() => setWarm(want));
-        else startTransition(() => setWarm(want));
+        const now = warmNow.current;
+        const step = nav.getState().active === 'plan' ? order.find((d) => !now.has(d)) : undefined;
+        const next = step ? new Set([...now].filter((d) => want.has(d)).concat(step)) : want;
+        drawn.current = new Set([...drawn.current].filter((d) => !next.has(d)));
+        for (const k of [...snapped.current.keys()]) if (next.has(k.slice(2))) snapped.current.delete(k);
+        if (!step) return startTransition(() => setWarm(next));
+        flushSync(() => setWarm(next));
+        live();
       });
     };
     live();
-    const off = h.moving.on('change', live);
+    const off = h.moving.on('change', (m) => {
+      // a finger that lands on a pager at rest whose neighbour is not drawn yet (the commit that ended the slide left it
+      // empty, and the live mount has not come): it is drawn now, before the drag can show it (spec §15 risk 1's fallback)
+      if (m && order.some((d) => noneNow.current.has(d))) flushSync(bumpDrawn);
+      live();
+    });
     return () => {
       cancelAnimationFrame(raf);
       off();
     };
   }, [mon, first, view]); // eslint-disable-line react-hooks/exhaustive-deps
-  const faceOf = (d: string, live: boolean, h: typeof weekH): 'live' | 'still' | 'none' => {
-    if (live || warmNow.current.has(d) || h.target.get() === d) return 'live';
-    if (drawn.current.has(d) || h.moving.get()) {
-      drawn.current.add(d);
-      return 'still';
+  /**
+   * The stash (feel review 3 #1): the pages two steps out from the shown one, drawn still in a hidden (display: none) box
+   * in a transition after each commit, so the work runs in slices between frames and costs no style or layout. A caught
+   * commit that brings one of them into a neighbour slot puts in its HTML (`snap`): the slot's content is parsed, not
+   * rendered, in the commit. It is the still page's markup, so the pixels are the live page's.
+   */
+  const stashRef = useRef<HTMLDivElement>(null);
+  const keyOf = (d: string, h: typeof weekH) => `${h === weekH ? 'w' : 'm'}:${d}`;
+  /** Pages drawn from a snapshot, with the HTML they were drawn with (kept until they are live: nothing changes on screen). */
+  const snapped = useRef(new Map<string, string>());
+  const snapOf = (d: string, h: typeof weekH) => {
+    const k = keyOf(d, h);
+    if (snapped.current.has(k)) return true;
+    const el = stashRef.current?.querySelector<HTMLElement>(`[data-stash="${k}"] > .pl-wpage, [data-stash="${k}"] > .pl-mpage`);
+    if (!el || el.querySelector('.pl-skel, [aria-busy="true"]')) return false;
+    snapped.current.set(k, el.outerHTML);
+    return true;
+  };
+  const stashOf = (m: string, f: string, v: View) => (v === 'week' ? [shiftDays(m, 14), shiftDays(m, -14)].map((d) => `w:${d}`) : [addMonths(f, 2), addMonths(f, -2)].map((d) => `m:${d}`));
+  const [stash, setStash] = useState<string[]>([]);
+  // after each commit (between quick swipes too: its slices run between frames), but never inside Week ⇄ Month's
+  // crossfade: then it waits for the fade's end (feel review 3 #5)
+  useEffect(() => {
+    let on = true;
+    const go = () => {
+      if (!on) return;
+      const fade = fades.current.find((a) => a.playState === 'running');
+      if (fade) return void fade.finished.then(go, go);
+      const want = stashOf(mon, first, view);
+      startTransition(() => setStash((s) => (s.length === want.length && s.every((k, i) => k === want[i]) ? s : want)));
+    };
+    go();
+    return () => void (on = false);
+  }, [mon, first, view]); // eslint-disable-line react-hooks/exhaustive-deps
+  /**
+   * Pages a caught commit brought into a neighbour slot more than a quarter page off screen are drawn still two frames
+   * later (feel review 3 #1): the commit's frame then costs what a role swap costs, the build gets a frame of its own, and
+   * the finger cannot bring the slot on screen before then (it is drawn in the rAF before that frame's paint). A slot
+   * closer than that (a catch that finished the slide leaves it at the screen's edge) is drawn in the commit.
+   */
+  const pending = useRef(new Map<string, typeof weekH>());
+  /** Neighbours rendered empty in the last render (a commit that ended a slide), until they are drawn. */
+  const noneNow = useRef(new Set<string>());
+  const pendingRaf = useRef(0);
+  const [drawnVer, bumpDrawn] = useReducer((x: number) => x + 1, 0);
+  useLayoutEffect(() => {
+    if (!pending.current.size || pendingRaf.current) return;
+    pendingRaf.current = requestAnimationFrame(() => {
+      pendingRaf.current = requestAnimationFrame(() => {
+        pendingRaf.current = 0;
+        for (const [d, h] of pending.current) if (!snapOf(d, h)) drawn.current.add(d);
+        pending.current.clear();
+        flushSync(bumpDrawn);
+      });
+    });
+  });
+  useEffect(() => () => cancelAnimationFrame(pendingRaf.current), []);
+  const faceOf = (d: string, live: boolean, h: typeof weekH): Face => {
+    const f = faceOf0(d, live, h);
+    if (f === 'none') noneNow.current.add(d);
+    else noneNow.current.delete(d);
+    return f;
+  };
+  const faceOf0 = (d: string, live: boolean, h: typeof weekH): Face => {
+    if (warmNow.current.has(d) || h.target.get() === d) return 'live';
+    // a page drawn still (or from its snapshot) stays so while its pager moves, even as it becomes the shown page under a
+    // finger (feel review 3 #1: making it live there was the caught commit's largest cost); it goes live at the rest
+    if (snapped.current.has(keyOf(d, h))) return 'snap';
+    if (drawn.current.has(d)) return 'still';
+    if (h.moving.get()) {
+      // the stash drew it already: the commit puts its HTML in the slot (no React render of the page in the commit)
+      if (snapOf(d, h)) return 'snap';
+      // where the page will sit once this render is in: its slot's offset from the page the track's x is measured against
+      // (in a commit's render, the page being left), in page widths
+      const dp = (h === weekH ? weekPane : monthPane).current?.querySelector<HTMLElement>(':scope .dp-page[data-role="cur"]');
+      const at = dp?.dataset.date;
+      const W = window.innerWidth;
+      const k = at ? (h === weekH ? Math.round((parseISO(d).getTime() - parseISO(at).getTime()) / (7 * 864e5)) : monthsApart(at, d)) : 0;
+      const left = h.x.get() + k * W;
+      // close to the screen (a catch that finished the slide: the slot sits right at the edge): drawn in this render
+      if (left < W + W / 4 && left > -W - W / 4) {
+        drawn.current.add(d);
+        return 'still';
+      }
+      pending.current.set(d, h);
+      return 'none';
     }
-    return 'none';
+    return live ? 'live' : 'none';
   };
   const renderWeek = useCallback(
     (m: string, live: boolean) => {
       const f = faceOf(m, live, weekH);
+      if (f === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(m, weekH))! }} />;
       return f === 'none' ? <div className="pl-wpage" aria-hidden="true" /> : <WeekPage mon={m} onThisWeek={onThisWeek} block={block} still={f === 'still'} />;
     },
-    [onThisWeek, block, warm], // eslint-disable-line react-hooks/exhaustive-deps
+    [onThisWeek, block, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const renderMonth = useCallback(
     (f: string, live: boolean) => {
       const k = faceOf(f, live, monthH);
+      if (k === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(f, monthH))! }} />;
       return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} block={block} still={k === 'still'} />;
     },
-    [onWeek, block, warm], // eslint-disable-line react-hooks/exhaustive-deps
+    [onWeek, block, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  const stashBox = (
+    <div ref={stashRef} className="pl-stash" hidden aria-hidden="true" inert>
+      {stash.map((k) => (
+        <div key={k} data-stash={k}>
+          {k.startsWith('w:') ? <WeekPage mon={k.slice(2)} onThisWeek={onThisWeek} block={block} still /> : <MonthPage first={k.slice(2)} onWeek={onWeek} block={block} still />}
+        </div>
+      ))}
+    </div>
+  );
   const strava = useLog([]).strava;
   const paneCls = (v: View) => (view === v ? 'is-on' : st.leaving === v ? 'is-leaving' : 'is-off');
   const hidden = (v: View) => view !== v || undefined;
@@ -406,12 +562,14 @@ export default function PlanView(): React.JSX.Element {
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>
             <DayPager className="pl-wpager" date={mon} step="week" handle={weekH} onCommit={commitWeek} render={renderWeek} label="Week" prevLabel="Previous week" nextLabel="Next week" />
+            {view === 'week' ? stashBox : null}
           </Activity>
         </section>
         {monthOn ? (
           <section ref={monthPane} className={`pl-pane pl-month-pane ${paneCls('month')}`} inert={hidden('month')} aria-hidden={hidden('month')} aria-label="Month">
             <Activity mode={mode('month')}>
               <DayPager className="pl-mpager" date={first} step="month" handle={monthH} onCommit={commitMonth} render={renderMonth} label="Month" prevLabel="Previous month" nextLabel="Next month" />
+              {view === 'month' ? stashBox : null}
             </Activity>
           </section>
         ) : null}

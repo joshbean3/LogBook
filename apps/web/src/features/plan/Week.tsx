@@ -1,6 +1,7 @@
 import { assess, fmtDate, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey } from '@logbook/shared';
 import { ArrowRightLeft, Check, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
-import { createContext, Fragment, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, Fragment, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
@@ -38,7 +39,7 @@ const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
  * open a session, add, move, mark, delete and restore, reshape, toast, and `flip` (the FLIP capture, flip.ts: called right
  * before a change that moves rows).
  */
-const useKit = (log: Log, flip: (after?: () => void) => void, onReshaped: (r: ReshapeResult, to: string) => void) => {
+const useKit = (log: Log, flip: ReturnType<typeof useFlip>, onReshaped: (r: ReshapeResult, to: string) => void) => {
   const open = useOpenSession(log);
   const openUnplanned = useOpenUnplanned();
   const act = useSessionActions(log);
@@ -51,6 +52,16 @@ const useKit = (log: Log, flip: (after?: () => void) => void, onReshaped: (r: Re
 type KitT = ReturnType<typeof useKit>;
 const Kit = createContext<KitT | null>(null);
 const useRowKit = () => useContext(Kit)!;
+/**
+ * A deleted row leaves in a render of its day alone (feel review 3 #4): when its fade is over the day stops drawing it
+ * (`hide`), that render's layout starts the rows' FLIP (on the compositor), and only then does the write go, so its render
+ * of every mounted tab runs while the rows slide instead of between the fade and the slide. `unhide` is Undo's.
+ */
+interface DayKitT {
+  hide: (s: Session) => void;
+  unhide: (s: Session) => void;
+}
+const DayKit = createContext<DayKitT>({ hide: () => undefined, unhide: () => undefined });
 
 export interface Conflict {
   days: string[];
@@ -81,15 +92,20 @@ const Status = ({ k, word }: { k: StatusKey; word: string }) => {
 const fadeAway = (els: Array<Element | null | undefined>) => {
   const list = els.filter((e): e is HTMLElement => e instanceof HTMLElement);
   if (!list.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return { done: Promise.resolve(), release: () => undefined };
-  const anims = list.map((k) => k.animate([{ opacity: getComputedStyle(k).opacity }, { opacity: 0 }], { ...waapiOf(fadeOut), fill: 'forwards' }));
+  const t = { ...waapiOf(fadeOut), fill: 'forwards' as const };
+  const anims = list.map((k) => k.animate([{ opacity: getComputedStyle(k).opacity }, { opacity: 0 }], t));
+  const ok = () => undefined;
+  // `done` comes two frames before the fade's end (it is at 4 % by then, ease-out): the change that follows commits there,
+  // so the rows below start to move on the frame the fade ends, with no still frame between (feel review 3 #4)
+  const near = new Promise<void>((r) => setTimeout(r, Math.max(0, t.duration - 34)));
   return {
-    done: anims[0]!.finished.then(
-      () => undefined,
-      () => undefined,
-    ),
+    done: Promise.race([near, anims[0]!.finished.then(ok, ok)]),
     release: () => anims.forEach((a) => a.cancel()),
   };
 };
+
+/** Two frames on: a change committed now has been painted and its compositor animations have started. */
+const afterTwoFrames = (fn: () => void) => requestAnimationFrame(() => requestAnimationFrame(fn));
 
 /** After a delete took a focused row away, focus goes to what is now on that day (code review 2 #8), not to `<body>`. */
 const focusDay = (group: HTMLElement | null, date: string) => {
@@ -151,6 +167,7 @@ const emptyFace = (log: Log, date: string, rest: Session | null) => (
 const SessionRow = ({ date, s }: { date: string; s: Session }) => {
   const row = useRef<HTMLElement>(null);
   const { log, open, move, toast, mark, remove, restore, moveTo, flip, onReshaped } = useRowKit();
+  const { hide, unhide } = useContext(DayKit);
   const { k, word, name, dist, cls, body } = rowFace(log, date, s);
   const drag = useDayDrag({
     date,
@@ -202,9 +219,12 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
             flip(() => {
               f.release();
               if (focused) focusDay(group, date);
-              toast(`${name} deleted`, { label: 'Undo', fn: () => (flip(), restore.mutate(s)) });
+              toast(`${name} deleted`, { label: 'Undo', fn: () => (flip(), unhide(s), restore.mutate(s)) });
             });
-            remove.mutate(s);
+            // the row leaves in this task, in a render of its day (the rows below start to move on the next frame); the
+            // write once their FLIP runs on the compositor, so its render cannot hold back their first frames (feel review 3 #4)
+            flushSync(() => hide(s));
+            afterTwoFrames(() => remove.mutate(s));
           });
         },
       },
@@ -247,6 +267,7 @@ const BonusRow = ({ date, runs }: { date: string; runs: Activity[] }) => {
  */
 const EmptyRow = ({ date, rest }: { date: string; rest: Session | null }) => {
   const { log, add, move, toast, remove, restore, flip } = useRowKit();
+  const { hide, unhide } = useContext(DayKit);
   const line = useRef<HTMLElement>(null);
   const items: ContextMenuItem[] | undefined = rest
     ? [
@@ -263,9 +284,11 @@ const EmptyRow = ({ date, rest }: { date: string; rest: Session | null }) => {
             void f.done.then(() => {
               flip(() => {
                 f.release();
-                toast('Rest day deleted', { label: 'Undo', fn: () => (flip(), restore.mutate(rest)) });
+                toast('Rest day deleted', { label: 'Undo', fn: () => (flip(), unhide(rest), restore.mutate(rest)) });
               });
-              remove.mutate(rest);
+              // as a session's Delete: the word leaves in a render of its day, then the write (feel review 3 #4)
+              flushSync(() => hide(rest));
+              afterTwoFrames(() => remove.mutate(rest));
             });
           },
         },
@@ -280,8 +303,10 @@ const EmptyRow = ({ date, rest }: { date: string; rest: Session | null }) => {
 
 /** One day: the date column (weekday, the number; today's in the accent disc) and its rows. The whole day takes a drop. */
 /** What a day holds, in the order its rows are drawn (moveRule.ts's `dayOrder`, which the drag's landing reads too). */
-const dayOf = (log: Log, date: string) => {
-  const sessions = log.snap.sessionsOn(date);
+const dayOf = (log: Log, date: string, hidden?: ReadonlySet<string>) => {
+  const own = log.snap.sessionsOn(date);
+  // a deleted row is gone from its day before the write takes it out of the data
+  const sessions = hidden?.size ? own.filter((x) => !hidden.has(x.id)) : own;
   const ordered = dayOrder(sessions);
   const runs = log.snap.runsOn(date);
   const bonus = !ordered.some((s) => s.kind === 'run') && runs.length > 0;
@@ -296,19 +321,49 @@ const DateCol = ({ date }: { date: string }) => (
   </div>
 );
 const DayRow = ({ date }: { date: string }) => {
-  const { log } = useRowKit();
-  const { ordered, runs, bonus, rest, cls } = dayOf(log, date);
+  const { log, flip } = useRowKit();
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  const dayKit = useMemo<DayKitT>(
+    () => ({
+      hide: (x) => setHidden((m) => new Set(m).add(x.id)),
+      unhide: (x) =>
+        setHidden((m) => {
+          if (!m.has(x.id)) return m;
+          const n = new Set(m);
+          n.delete(x.id);
+          return n;
+        }),
+    }),
+    [],
+  );
+  // a render of this day alone (a row hidden or back): the group's FLIP runs from here (it does nothing when no row moved)
+  const hiddenWas = useRef(hidden);
+  useLayoutEffect(() => {
+    if (hiddenWas.current === hidden) return;
+    hiddenWas.current = hidden;
+    flip.reflow();
+  }, [hidden, flip]);
+  // once the data has let go of a hidden row, the day forgets it (a failed delete's refetch then shows it again)
+  const ids = log.snap.sessionsOn(date).map((x) => x.id).join(' ');
+  useEffect(() => {
+    if (!hidden.size) return;
+    const have = new Set(ids.split(' '));
+    if ([...hidden].some((id) => !have.has(id))) setHidden((m) => new Set([...m].filter((id) => have.has(id))));
+  }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { ordered, runs, bonus, rest, cls } = dayOf(log, date, hidden);
   return (
-    <div className={cls} role="listitem" {...{ [PLAN_DAY]: date }}>
-      <DateCol date={date} />
-      <div className="pl-lines">
-        {ordered.map((s) => (
-          <SessionRow key={s.id} date={date} s={s} />
-        ))}
-        {bonus ? <BonusRow date={date} runs={runs} /> : null}
-        {!ordered.length && !bonus ? <EmptyRow date={date} rest={rest} /> : null}
+    <DayKit.Provider value={dayKit}>
+      <div className={cls} role="listitem" {...{ [PLAN_DAY]: date }}>
+        <DateCol date={date} />
+        <div className="pl-lines">
+          {ordered.map((s) => (
+            <SessionRow key={s.id} date={date} s={s} />
+          ))}
+          {bonus ? <BonusRow date={date} runs={runs} /> : null}
+          {!ordered.length && !bonus ? <EmptyRow date={date} rest={rest} /> : null}
+        </div>
       </div>
-    </div>
+    </DayKit.Provider>
   );
 };
 
@@ -341,11 +396,35 @@ const StillDay = ({ log, date }: { log: Log; date: string }) => {
   );
 };
 
-/** The inline question under a hard pair, inside the group: it fades in (150 ms); the rows below move by transform (flip.ts). */
+/**
+ * The inline question under a hard pair, inside the group: it fades in (150 ms) from its first frame, and it is revealed
+ * as what is below it slides down off it (flip.ts moves the next days, or the block card under Sunday, on `settle`): each
+ * frame its bottom is clipped to the top of what is below it and to the group's surface, so no part of it is drawn below
+ * the group or over the block card while they move, whichever render moves them (feel review 3 #2; at 4× the drop's data
+ * can land after the question). Both start in the layout of the render it comes in, before that frame is painted.
+ */
 const ConflictRow = ({ c, onKeep }: { c: Conflict; onKeep: () => void }) => {
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    ref.current?.animate([{ opacity: 0 }, { opacity: 1 }], waapiOf(crossfade));
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate([{ opacity: 0 }, { opacity: 1 }], waapiOf(crossfade));
+    const group = el.closest<HTMLElement>('.pl-wgroup');
+    const surf = group?.querySelector<HTMLElement>('.pl-wsurf');
+    el.style.clipPath = 'inset(0 0 100% 0)';
+    const t0 = performance.now();
+    let raf = 0;
+    const clip = () => {
+      const r = el.getBoundingClientRect();
+      const below = el.nextElementSibling ?? group?.nextElementSibling;
+      const lim = Math.min(below?.getBoundingClientRect().top ?? Infinity, surf?.getBoundingClientRect().bottom ?? Infinity);
+      const cut = Math.max(0, Math.min(r.height, r.bottom - lim));
+      el.style.clipPath = cut > 0.5 ? `inset(0 0 ${cut.toFixed(1)}px 0)` : '';
+      if (performance.now() - t0 < 1500) raf = requestAnimationFrame(clip);
+      else el.style.clipPath = '';
+    };
+    raf = requestAnimationFrame(clip);
+    return () => cancelAnimationFrame(raf);
   }, []);
   return (
     <div ref={ref} className="pl-conflict" role="alert">

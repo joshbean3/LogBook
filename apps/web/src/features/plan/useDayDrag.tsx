@@ -18,9 +18,9 @@ import type { DragPoint } from '@/ui/useHold';
  *   row crossed; near the scroller's top or bottom edge the page scrolls under the drag;
  * - **end**: on another day the pill shrinks into the day's slot on `springs.settle` (a compositor animation: transform
  *   only, its easing the spring itself ending on the contract's 1 px rest, so a busy main thread cannot stall it), its name
- *   landing on the row's name. The write happens at the release (`onDrop(to, landed)`; an empty day's `Rest`/`+` fades
- *   100 ms first): the displaced rows FLIP (flip.ts) during the flight, together with the pill, and the new row is already
- *   there under it with its content held back (`data-landing`). On the frame the pill comes to rest `landed` resolves (the
+ *   landing on the row's name. The write happens at the release, once the flight runs on the compositor (`onDrop(to,
+ *   landed)`; a swap 100 ms into the flight, an empty day's `Rest`/`+` fades 100 ms first): the displaced rows FLIP
+ *   (flip.ts) during the flight, together with the pill, and the new row is already there under it with its content held back (`data-landing`). On the frame the pill comes to rest `landed` resolves (the
  *   caller fires `drop` or `warning` and raises the toast) and the two cross over in 120 ms (review-feel-1 #2, code review
  *   1 #3). On its own day, off any day, or cancelled, the pill springs back to where it came from.
  *
@@ -248,12 +248,15 @@ export const useDayDrag = ({
     const replaced = !below && slotEl?.classList.contains('is-rest') ? slotEl : null;
     const hush = replaced && !reduced() ? Array.from(replaced.children).map((c) => c.animate([{ opacity: getComputedStyle(c).opacity }, { opacity: 0 }], { ...waapiOf(fadeOutT), fill: 'forwards' })) : [];
     const flight = fly(f, slotEl ?? null, 0.9, below);
-    // the flight (and the hush) start on the compositor first, and the write comes one `fadeOut` (100 ms) into the flight:
-    // the pill's first frames leave the finger on an idle main thread, and the write's render cannot hold them back
+    // the flight (and the hush) start on the compositor first, so the write's render cannot hold back their first frames.
+    // A drop that joins a day (a new row under what is there) writes then, at once: the rows below the slot start sliding
+    // while the pill is still in the air, so it never parks on the row that is about to make room (feel review 3 #3). A
+    // swap writes one `fadeOut` (100 ms) into the flight (the pill's first frames leave the finger on an idle main thread;
+    // the displaced row still leaves the slot before the pill reaches it), an empty day once its `Rest` / `+` has faded.
     let wrote = true;
     void flight.ready.then(() => {
       if (hush.length) void hush[0]!.finished.then(() => (wrote = write()), () => undefined);
-      else if (reduced()) wrote = write();
+      else if (below || idx > 0 || reduced()) wrote = write();
       else setTimeout(() => (wrote = write()), waapiOf(fadeOutT).duration);
     });
     void flight.done.then(() => {

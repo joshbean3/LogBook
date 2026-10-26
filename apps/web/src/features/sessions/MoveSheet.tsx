@@ -32,10 +32,13 @@ export const announceReshape = (toast: ReturnType<typeof useToast>, r: { conflic
 
 /**
  * After a pick the row the sheet would give focus back to has moved (it is a new row on its new day): focus goes to the
- * moved session's row in the shown page once the sheet has let go of focus, not to `<body>` (code review 2 #8).
+ * moved session's row in the shown page once the sheet has let go of focus, not to `<body>` (code review 2 #8). When its
+ * new day is not on the shown page (a move past Sunday, or off Today's day), focus goes to the shown pager, where the
+ * arrow keys page to it (code review 3 #1).
  */
-const refocusMoved = (id: string) => {
+const refocusMoved = (id: string, to: string) => {
   const t0 = performance.now();
+  const cur = '.tab[data-active] .pl-pane.is-on .dp-page[data-role="cur"]';
   const tick = () => {
     if (performance.now() - t0 > 1500) return;
     const a = document.activeElement;
@@ -44,9 +47,12 @@ const refocusMoved = (id: string) => {
       if (a.closest('.sheet, [role="dialog"]')) return void requestAnimationFrame(tick);
       return;
     }
-    const row = document.querySelector<HTMLElement>(`.tab[data-active] .pl-pane.is-on .dp-page[data-role="cur"] [data-session-id="${CSS.escape(id)}"] .pl-line`);
-    if (row) row.focus({ preventScroll: true });
-    else requestAnimationFrame(tick);
+    const row = document.querySelector<HTMLElement>(`${cur} [data-session-id="${CSS.escape(id)}"] .pl-line`);
+    if (row) return void row.focus({ preventScroll: true });
+    // its day is on the shown page: the row comes with the write's render
+    if (document.querySelector(`${cur} [data-plan-day="${to}"]`) && performance.now() - t0 < 600) return void requestAnimationFrame(tick);
+    const pager = document.querySelector<HTMLElement>('.tab[data-active] .pl-pane.is-on .dp') ?? document.querySelector<HTMLElement>('.tab[data-active] .dp[aria-roledescription="pager"]');
+    pager?.focus({ preventScroll: true });
   };
   requestAnimationFrame(tick);
 };
@@ -69,7 +75,7 @@ export const MovePanel = ({ date, session }: { date: string; session: Session })
     const hadFocus = !!document.activeElement && document.activeElement !== document.body;
     sheet.close();
     if (r) announceReshape(toast, r);
-    if (r && hadFocus) refocusMoved(session.id);
+    if (r && hadFocus) refocusMoved(session.id, to);
   };
   // the quick picks say days as the owner reads them: Today and Tomorrow are today's, not the session's (review-feel-1 #4)
   const tomorrow = shiftDays(t, 1);
