@@ -8,9 +8,9 @@ import { useOpenBuilder } from './PlanBuilder';
 import './plan.css';
 
 /**
- * `/settings/plans` (spec M10, contracts §F): the block list as a pushed page at depth 2 over Settings, with `New block` in
- * the bar. The rows open each plan's detail sheet; `New block` opens the builder (large sheet). The list is the plans
- * panel Plan's block card opened as a sheet.
+ * `/settings/plans` (spec §1.6, contracts §F): the block list as a pushed page at depth 2 over Settings (its tab is Today's),
+ * with `New block` in the bar. The rows (one inset group, 60 tall) open each plan's detail sheet; `New block` opens the
+ * builder (large sheet, over Today: `Create` leaves the tab where it is).
  */
 export default function PlansPage(): React.JSX.Element {
   const log = useLog([]);
@@ -25,7 +25,7 @@ export default function PlansPage(): React.JSX.Element {
           </Pressable>
         }
       />
-      <div className="section">{log.boot ? <PlansPanel log={log} foot={false} /> : null}</div>
+      <div className="section">{log.boot ? <PlansPanel log={log} /> : null}</div>
     </div>
   );
 }
