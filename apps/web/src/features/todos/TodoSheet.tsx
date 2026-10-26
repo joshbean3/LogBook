@@ -46,7 +46,6 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
       p.bucket = bucket;
     }
     patch.mutate(p);
-    haptics.toggle();
     done();
   };
   const onKey = (ev: React.KeyboardEvent<HTMLElement>) => {
@@ -57,7 +56,6 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   };
   // Later means a day: tomorrow unless said otherwise, and the date field takes the focus
   const pick = (b: TodoBucket) => {
-    haptics.select();
     setBucket(b);
     if (b === 'later' && !due) setDue(tomorrow);
   };
@@ -73,7 +71,6 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
     if (!group) return;
     const r = stepWithin(group.items, x.id, dir, group.tier);
     if (!r) return;
-    haptics.drop();
     reorder.mutate(r.order);
     if (r.fix) {
       patch.mutate({ id: x.id, ...r.fix });

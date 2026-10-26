@@ -210,6 +210,31 @@ export const useDaily = () => useQuery({ queryKey: keys.daily, queryFn: () => ap
 export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 });
 export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
 
+// ---------- the coach's read (spec §6.1: the client's one call after the landing; the sync route never calls Claude) ----------
+export interface CoachReadAnswer {
+  date: string;
+  key: string;
+  text: string;
+  createdAt: string;
+}
+/**
+ * The existing `POST /coach/read` (`{ date, sessionId }`). The answer joins the month's cached payload in place: the same
+ * object, so no observer is told and no mounted page rebuilds its snapshot for one sentence (that write was a 160 ms task at
+ * 1× and 800 ms at 4× just after the landing; day review 2 #7). Later renders and the next fetch from the server (which has
+ * stored it) read it there; the caller also puts it in `features/day/coachShown.ts`, a small kept store the landed deck and
+ * the session sheet read, so an open sheet and a cold open show it at once (code review 3 #1, day review 3 #1).
+ */
+export const fetchCoachRead = async (qc: QueryClient, date: string, sessionId: string | null): Promise<CoachReadAnswer> => {
+  const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId } });
+  const b = qc.getQueryData<MonthBundle>(keys.month(monthOf(date)));
+  if (b) {
+    const i = b.coach.findIndex((c) => c.date === r.date && c.key === r.key);
+    if (i >= 0) b.coach.splice(i, 1, r);
+    else b.coach.push(r);
+  }
+  return r;
+};
+
 // ---------- sessions ----------
 export const useSessionMutations = () => {
   const qc = useQueryClient();

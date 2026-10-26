@@ -1,5 +1,6 @@
 import type * as React from 'react';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 import { useBootstrap, useMorningMutations } from '@/api/queries';
 import { WORD_MAX } from '@/lib/gesture';
 import { Button } from '@/ui/primitives';
@@ -10,7 +11,7 @@ export const EMPTY_FOCUS: Focus = { word: '', quote: '', by: '' };
 
 /**
  * The word-and-sentence editor (docs/feel.md §2.3, §5; contracts §F): a word, a sentence, who said it, saved to the sticky
- * `settings.focus`. The body that `FocusStrip` opened, moved here. The word is at most `WORD_MAX` (12) characters, so the
+ * `settings.focus`. The body the old word strip opened, moved here. The word is at most `WORD_MAX` (12) characters, so the
  * caps line `WORD · THU, OCT 29` fits at 320. No toast and no haptic: the caps line changing is the confirmation.
  */
 export const WordSheet = ({ initial }: { initial: Focus }): React.JSX.Element => {
@@ -22,7 +23,7 @@ export const WordSheet = ({ initial }: { initial: Focus }): React.JSX.Element =>
   const next = { word: word.trim(), quote: quote.trim(), by: by.trim() };
   const changed = next.word !== initial.word || next.quote !== initial.quote || next.by !== initial.by;
   const save = () => {
-    settings.mutate({ focus: next });
+    saveFocus(settings, next);
     sheet.close();
   };
   return (
@@ -45,7 +46,6 @@ export const WordSheet = ({ initial }: { initial: Focus }): React.JSX.Element =>
         <span className="caps">By</span>
         <input className="in" value={by} onChange={(e) => setBy(e.target.value)} maxLength={80} placeholder="Optional" enterKeyHint="done" />
       </label>
-      <p className="fine">It stays on Today, every day, until you change it.</p>
       <div className="focus-actions">
         {initial.word || initial.quote ? (
           <Button
@@ -69,10 +69,37 @@ export const WordSheet = ({ initial }: { initial: Focus }): React.JSX.Element =>
   );
 };
 
-/** The account's current word and sentence (empty strings when unset). */
+/**
+ * The word as just saved, ahead of the settings write: the caps line is the confirmation (M17, §14 41: within 150 ms), so it
+ * paints first, alone (`flushSync` of the few readers of the word), and the write, whose optimistic update re-renders every
+ * reader of the bootstrap, follows after that frame.
+ */
+let pending: Focus | null = null;
+const subs = new Set<() => void>();
+const setPending = (f: Focus | null) => {
+  pending = f;
+  for (const g of subs) g();
+};
+const subscribePending = (g: () => void) => {
+  subs.add(g);
+  return () => void subs.delete(g);
+};
+/** Save the word and sentence: the bar first, the write after the frame. */
+export const saveFocus = (settings: ReturnType<typeof useMorningMutations>['settings'], next: Focus) => {
+  flushSync(() => setPending(next));
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      settings.mutate({ focus: next });
+      setPending(null);
+    }, 0),
+  );
+};
+
+/** The account's current word and sentence (empty strings when unset); a save in flight reads as saved. */
 export const useFocus = (): Focus => {
   const boot = useBootstrap();
-  return { ...EMPTY_FOCUS, ...(boot.data?.morningSettings?.focus ?? {}) };
+  const p = useSyncExternalStore(subscribePending, () => pending, () => null);
+  return p ?? { ...EMPTY_FOCUS, ...(boot.data?.morningSettings?.focus ?? {}) };
 };
 
 /** Opens the word sheet (medium) on the current word and sentence: the title menu's `Change the word`, the sentence line, the Close card. */

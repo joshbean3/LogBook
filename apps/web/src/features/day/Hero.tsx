@@ -1,528 +1,37 @@
-import { clock, dayPhase, decodePolyline, durationWords, fmtDate, floorFor, label, mi, mondayOf, num, relativeDay, routePath, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type MorningAfterKey, type MorningSettings, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
-import { CalendarPlus, Check, ChevronRight, ChevronsDown, HeartPulse, MoveRight, Share, SkipForward, Sunrise, Undo2 } from 'lucide-react';
-import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
-import { useSessionMutations } from '@/api/queries';
+import { label, num, type Activity, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
+import { ChevronRight, Share } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import type * as React from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { useNav } from '@/app/NavController';
+import { useSessionMutations, useStravaChecking } from '@/api/queries';
+import { CHECKING_MAX_MS, CHECKING_MIN_MS, HOLD_SLOP_PX } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
-import { rowPresence, springs } from '@/lib/motion';
-import { Button, shared, Stepper, Ticker, useFirstToday, useSheet, useToast, WeekRing, type ContextMenuItem } from '@/ui';
+import { crossfade, fadeIn, fadeOut } from '@/lib/motion';
+import { Button, Pressable, Stepper, useSheet, useToast, type ContextMenuItem } from '@/ui';
 import type { Log } from '../log/useLog';
-import { isAfterKey, morningOf, routineName } from '../morning/model';
-import { useOpenWeek } from '../progress/sheets';
 import { useSessionActions } from '../sessions/actions';
 import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
+import { isPagerMoving, useIsLive } from './live';
+import { afterPaint, swallowNextClick } from './release';
 import { CloseDay } from './CloseDay';
-import { doneVerdict, planLine, ringDays, runTotals, shortClock } from './dayWords';
-import { HoldRing } from './HoldRing';
+import { faceOf, heroLead, phaseOf, preLandingFace, secondOf, withMark, type Face } from './faces';
+import { HoldRing, MORPH_MS } from './HoldRing';
+import { refusedMark } from './marks';
 import { sessionMiles, weekMiles } from './miles';
-import { MiniTimeline, OutLine, type Stop } from './MiniTimeline';
-import { useHoldMenu } from './useHoldMenu';
+import { MiniTimeline, OutLine } from './MiniTimeline';
+import { LandedDeck, LandingRoute, RingSlot, SharePill } from './RunLanding';
+import { markSuccess, StravaRetry, useStravaLanding } from './useStravaLanding';
+import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
-export type HeroState = 'morning' | 'out' | 'done' | 'open' | 'rest' | 'evening' | 'past' | 'future';
-type Halo = 'done' | 'floor' | 'missed' | 'upcoming' | 'rest';
+/** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
+export const morningLineId = (date: ISODate) => `morning-line-${date}`;
+export const morningPath = (date: ISODate) => `/today/${date}/morning`;
 
-/** The phase of a day, with the clock passed in (the page's clock, `?at=` in dev). */
-export const phaseOf = (log: Log, date: ISODate, minutes: number): DayPhase =>
-  dayPhase({ date: log.today, minutes }, { date, snapshot: log.snap, settings: log.boot?.morningSettings ?? null, override: log.snap.morningOverride(date) });
-
-const haloOf = (p: PhaseSession | null, hasRuns: boolean): Halo => {
-  if (!p) return hasRuns ? 'done' : 'rest';
-  switch (p.key) {
-    case 'done':
-    case 'bonus':
-      return 'done';
-    case 'floor':
-      return 'floor';
-    case 'missed':
-    case 'skipped':
-      return 'missed';
-    case 'rest':
-      return 'rest';
-    default:
-      return 'upcoming';
-  }
-};
-
-/** "Morning" / "Afternoon" / "Evening" / "Night" from a run's `HH:MM` start: the bonus run's eyebrow. */
-export const timeOfDay = (time: string | null | undefined): string => {
-  const h = Number(/^(\d{1,2}):/.exec(time ?? '')?.[1] ?? NaN);
-  if (!Number.isFinite(h)) return 'Off the plan';
-  if (h < 5) return 'Night';
-  if (h < 12) return 'Morning';
-  if (h < 17) return 'Afternoon';
-  if (h < 21) return 'Evening';
-  return 'Night';
-};
-
-/** Miles as the hero says them while they tick and at rest: "3.8", "4", "4.5". */
-const tenth = (v: number) => String(Math.round(v * 10) / 10);
-
-/** Short names for the routine's blocks on the hero's line, where four stops share 300px. */
-const STOP_WORD: Record<string, string> = { shower: 'Shower', ready: 'Ready', smoothie: 'Eat', prep: 'Prep' };
-/** The block's own name when it is one short word ("Shower"), else the short word ("Final prep" reads "Prep"). */
-const stopWord = (st: MorningSettings, k: MorningAfterKey) => {
-  const name = routineName(st, k);
-  return /^\S{1,7}$/.test(name) ? name : STOP_WORD[k]!;
-};
-
-/** A rest morning on the hero's line: alarm, the routine's first and last block, leave. Null without a timeline. */
-const restStops = (log: Log, date: ISODate): Stop[] | null => {
-  const st = log.boot?.morningSettings;
-  if (!st) return null;
-  const T = morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st);
-  const routine = T.blocks.filter((b) => isAfterKey(b.key));
-  const first = routine[0];
-  const last = routine.length > 1 ? routine[routine.length - 1] : undefined;
-  return [
-    { key: 'wake', label: 'Alarm', at: T.day.wake },
-    ...(first ? [{ key: 'first', label: stopWord(st, first.key as MorningAfterKey), at: first.start }] : []),
-    ...(last ? [{ key: 'last', label: stopWord(st, last.key as MorningAfterKey), at: last.start }] : []),
-    { key: 'leave', label: 'Leave', at: T.leave },
-  ];
-};
-
-/**
- * The ring in the hero's corner: the week around the shown day. Tap → the week sheet (the Progress team's, the app's one:
- * the ring large, miles and runs against the plan, the streak, and every session, each opening its own sheet).
- */
-const HeroWeekRing = ({ date, log, still }: { date: ISODate; log: Log; still?: boolean }) => {
-  const openWeek = useOpenWeek(log.today);
-  const sum = useMemo(() => weekSummary(log.snap, mondayOf(date)), [log.snap, date]);
-  const ti = sum.days.findIndex((d) => d.date === log.today);
-  return <WeekRing days={ringDays(sum, log.today)} size={40} today={ti >= 0 ? ti : undefined} onceADay={still ? null : 'today-week-ring'} onPress={still ? undefined : () => openWeek(sum.weekStart)} />;
-};
-
-/** The session's name as the hero's label: a stamp, and the shared element that flies into the session sheet. */
-const Stamp = ({ p, big, live, children }: { p: PhaseSession | null; big?: boolean; live: boolean; children?: ReactNode }) => (
-  <span className={`stamp hero-stamp ${big ? 'big' : ''}`} {...(live && p ? shared(`session-${p.session.id}`) : {})}>
-    {children ?? (p ? label(p.session) : '')}
-  </span>
-);
-
-/** The route drawn on black, once a day per run (and again when a run lands while the page is open). */
-const Route = ({ runs, drawKey }: { runs: Activity[]; drawKey: string | null }) => {
-  const reduce = useReducedMotion();
-  const first = useFirstToday(drawKey);
-  const poly = runs.find((r) => r.polyline)?.polyline ?? null;
-  const d = useMemo(() => (poly ? routePath(decodePolyline(poly), 358, 160, 12) : ''), [poly]);
-  if (!d) return null;
-  return (
-    <svg className="hero-route" viewBox="0 0 358 160" aria-hidden="true">
-      <motion.path d={d} fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={first && !reduce ? { pathLength: 0 } : false} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }} />
-    </svg>
-  );
-};
-
-/** One stamp of the hero's row: caps label over a number that ticks up on the day's first view of this run. */
-const HeroStat = ({ k, children }: { k: string; children: ReactNode }) => (
-  <span className="aura-stat">
-    <span className="caps">{k}</span>
-    <span className="stamp aura-num">{children}</span>
-  </span>
-);
-
-/**
- * The stamps under a run. A planned run: DISTANCE · PACE · TIME. A bonus run's verdict already says the miles and the pace,
- * so its stamps are TIME and HR (or the climb when there was no heart rate), never a dash or a zero.
- */
-const RunStamps = ({ runs, tickKey, bonus }: { runs: Activity[]; tickKey: string | null; bonus?: boolean }) => {
-  const t = runTotals(runs);
-  const paceSec = t.miles > 0.1 ? t.sec / t.miles : 0;
-  const hrs = runs.filter((r) => r.avgHr);
-  const hr = hrs.length ? Math.round(hrs.reduce((a, r) => a + (r.avgHr ?? 0) * r.movingSec, 0) / Math.max(1, hrs.reduce((a, r) => a + r.movingSec, 0))) : 0;
-  const elev = Math.round(runs.reduce((a, r) => a + r.elevFt, 0));
-  const once = (k: string) => (tickKey ? `${tickKey}-${k}` : undefined);
-  const time = t.sec > 0 ? (
-    <HeroStat k="Time">
-      <Ticker value={t.sec} format={(v) => clock(v)} from={0} onceADay={once('time')} />
-    </HeroStat>
-  ) : null;
-  if (bonus)
-    return (
-      <div className="aura-stats hero-stats hero-stats-2">
-        {time}
-        {hr ? (
-          <HeroStat k="Avg HR">
-            <Ticker value={hr} from={Math.round(hr * 0.8)} onceADay={once('hr')} />
-            <small>bpm</small>
-          </HeroStat>
-        ) : elev > 0 ? (
-          <HeroStat k="Climb">
-            <Ticker value={elev} from={0} onceADay={once('elev')} />
-            <small>ft</small>
-          </HeroStat>
-        ) : null}
-      </div>
-    );
-  return (
-    <div className="aura-stats hero-stats">
-      <HeroStat k="Distance">
-        <Ticker value={t.miles} format={mi} from={0} onceADay={once('mi')} />
-        <small>mi</small>
-      </HeroStat>
-      {paceSec ? (
-        <HeroStat k="Pace">
-          <Ticker value={paceSec} format={(v) => clock(v)} from={paceSec * 1.25} onceADay={once('pace')} />
-          <small>/mi</small>
-        </HeroStat>
-      ) : null}
-      {time}
-    </div>
-  );
-};
-
-/** The next session that is not rest or skipped, within a week after `date`. */
-const nextSession = (log: Log, date: ISODate) =>
-  Array.from({ length: 7 }, (_, i) => shiftDays(date, i + 1))
-    .map((d) => ({ d, s: log.snap.sessionsOn(d).find((s) => s.kind !== 'rest' && s.mark !== 'skip' && s.mark !== 'sick') }))
-    .find((x): x is { d: ISODate; s: NonNullable<typeof x.s> } => !!x.s) ?? null;
-
-/**
- * What leads the hero on a day with no session today: tomorrow's session ("Tomorrow: Easy 4."), or, on a plan that has
- * not started yet (the first day after onboarding: nothing planned or run in the week behind today), the first one. Null
- * when the day should just say rest.
- */
-const upNext = (log: Log, date: ISODate) => {
-  if (date !== log.today) return null;
-  const next = nextSession(log, date);
-  if (!next) return null;
-  const fresh = !Array.from({ length: 7 }, (_, i) => shiftDays(date, -1 - i)).some((d) => log.snap.sessionsOn(d).length || log.snap.activitiesOn(d).length);
-  const tomorrow = next.d === shiftDays(date, 1);
-  if (!tomorrow && !fresh) return null;
-  return { ...next, fresh, when: tomorrow ? 'Tomorrow' : fmtDate('dowLong', next.d) };
-};
-
-/** A rest morning before work: still a countdown and the way into Morning. Null once you have left (or with no timeline). */
-const restMorning = (log: Log, date: ISODate, ph: DayPhase) => {
-  if (date !== log.today || ph.phase !== 'rest' || ph.training.length) return null;
-  const stops = restStops(log, date);
-  if (!stops) return null;
-  const wake = stops[0]!.at;
-  const leave = stops[stops.length - 1]!.at;
-  if (ph.now >= leave) return null;
-  return { stops, wake, leave };
-};
-
-interface FaceCtx {
-  date: ISODate;
-  log: Log;
-  ph: DayPhase;
-  live: boolean;
-  /** the session was completed while this hero was on screen: the done face makes its entrance */
-  fresh: boolean;
-  onShare: () => void;
-  onMorning: () => void;
-  onOpen: (p: PhaseSession | null) => void;
-  onComplete: (p: PhaseSession) => void;
-}
-
-/** The Share pill on a hero: its own tap, never the card's. */
-const SharePill = ({ onShare }: { onShare: () => void }) => (
-  <button
-    type="button"
-    className="aura-share hero-share"
-    onClick={(e) => {
-      e.stopPropagation();
-      onShare();
-    }}
-  >
-    <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share
-  </button>
-);
-
-/** "Ran a different distance?": a one-row stepper in half miles that writes what was run onto the session. */
-const DistanceRow = ({ s, onClose }: { s: Session; onClose: () => void }) => {
-  const { upsert } = useSessionMutations();
-  const toast = useToast();
-  const [v, setV] = useState(Number(s.miles) || 1);
-  const save = () => {
-    if (v !== s.miles) {
-      upsert.mutate({ id: s.id, date: s.date, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: v, minutes: s.minutes });
-      haptics.toggle();
-      toast(`${num(v)} mi logged`);
-    }
-    onClose();
-  };
-  return (
-    <motion.div className="hero-dist" {...rowPresence} onClick={(e) => e.stopPropagation()}>
-      <div className="hero-dist-in">
-        <Stepper value={v} onChange={setV} step={0.5} min={0.5} max={60} format={(x) => `${num(x)} mi`} parse={(t) => (Number.isFinite(parseFloat(t)) ? Math.round(parseFloat(t) * 2) / 2 : null)} label="Miles run" inputProps={{ inputMode: 'decimal', autoComplete: 'off' }} />
-        <Button variant="primary" onClick={save}>
-          Save
-        </Button>
-      </div>
-    </motion.div>
-  );
-};
-
-/**
- * A session done with nothing from Strava: "4 mi. Done." with a check that pops in, the miles ticking up the first time the
- * day sees it, the Share pill, and a quiet way to say the run was longer or shorter than the plan.
- */
-const DoneFace = ({ c, p }: { c: FaceCtx; p: PhaseSession }) => {
-  const reduce = useReducedMotion();
-  const [adjust, setAdjust] = useState(false);
-  const run = p.session.kind === 'run';
-  const m = sessionMiles(c.log.snap, c.date, p.session);
-  const pop = c.fresh && !reduce;
-  const line = run && m.miles > 0 ? null : p.session.kind === 'lift' ? 'Lifted.' : `${label(p.session)}.`;
-  // where the run leaves the week, counted the same way (logged by hand or tracked)
-  const week = useMemo(() => {
-    const ran = weekMiles(c.log.snap, c.date).reduce((t, d) => t + d.miles, 0);
-    const plan = weekSummary(c.log.snap, mondayOf(c.date)).plannedMiles;
-    return run && plan > 0 ? `${tenth(ran)} of ${tenth(plan)} mi this week.` : null;
-  }, [c.log.snap, c.date, run]);
-  return (
-    <div className="hero-face hero-done">
-      <Stamp p={p} live={c.live} />
-      <h2 className="hero-line display hero-done-line">
-        <motion.span className="hero-check" aria-hidden="true" initial={pop ? { scale: 0.4, opacity: 0 } : false} animate={{ scale: 1, opacity: 1 }} transition={springs.complete}>
-          <Check size={18} strokeWidth={3} />
-        </motion.span>
-        <span>
-          {line ?? (
-            <>
-              <Ticker value={m.miles} format={tenth} from={0} onceADay={c.live ? `done-${p.session.id}` : undefined} /> mi.
-            </>
-          )}{' '}
-          Done.
-        </span>
-      </h2>
-      {week ? <p className="hero-plan">{week}</p> : null}
-      {c.live ? (
-        <div className="hero-done-tools">
-          <SharePill onShare={c.onShare} />
-          {run && m.source === 'planned' ? (
-            <button
-              type="button"
-              className="hero-dist-ask"
-              aria-expanded={adjust}
-              onClick={(e) => {
-                e.stopPropagation();
-                setAdjust((a) => !a);
-              }}
-            >
-              Ran a different distance?
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-      <AnimatePresence initial={false}>{adjust && c.live ? <DistanceRow key="dist" s={p.session} onClose={() => setAdjust(false)} /> : null}</AnimatePresence>
-    </div>
-  );
-};
-
-/** One page of the hero: what this session (or this day) needs you to see now. */
-const Face = ({ c, p, index }: { c: FaceCtx; p: PhaseSession | null; index: number }) => {
-  const { ph, date, log, live } = c;
-  const isToday = date === log.today;
-  const runs = log.snap.runsOn(date);
-  // runs belong to the run session (or to a day with nothing planned)
-  const myRuns = !p || p.session.kind === 'run' ? runs : [];
-  const lead = index === 0;
-
-  if (isToday && lead && ph.phase === 'morning' && ph.doorAt != null && ph.backBy != null) {
-    const n = ph.doorIn ?? 0;
-    const stops = [
-      { key: 'wake', label: 'Wake', at: ph.wakeAt ?? ph.doorAt },
-      { key: 'door', label: 'Door', at: ph.doorAt },
-      { key: 'back', label: 'Back', at: ph.backBy },
-      { key: 'leave', label: 'Leave', at: ph.leaveAt ?? ph.backBy },
-    ];
-    return (
-      <div className="hero-face">
-        <Stamp p={p} live={live} />
-        <h2 className="hero-line display">
-          Out the door in{' '}
-          {n < 60 ? (
-            <>
-              <Ticker value={n} /> min
-            </>
-          ) : (
-            durationWords(n)
-          )}
-        </h2>
-        <MiniTimeline stops={stops} now={ph.now} onPress={c.onMorning} label={`Morning timeline: wake ${shortClock(stops[0]!.at)}, out the door ${shortClock(ph.doorAt)}, back ${shortClock(ph.backBy)}, leave ${shortClock(stops[3]!.at)}. Open Morning`} />
-      </div>
-    );
-  }
-  if (isToday && lead && ph.phase === 'out' && ph.doorAt != null && ph.backBy != null) {
-    return (
-      <div className="hero-face">
-        <Stamp p={p} live={live} />
-        <h2 className="hero-line display">Back by {shortClock(ph.backBy)}</h2>
-        <OutLine door={ph.doorAt} back={ph.backBy} progress={ph.outProgress ?? 0} />
-      </div>
-    );
-  }
-  // a run off the plan: when it happened, the BONUS chip, the verdict with miles and pace, then TIME and HR
-  if (!p && runs.length) {
-    const drawKey = live ? `route-${runs[0]!.id}` : null;
-    return (
-      <div className="hero-face">
-        <div className="hero-labelrow">
-          <span className="caps hero-eyebrow">{timeOfDay(runs[0]!.time)}</span>
-          <span className="hero-word k-bonus">Bonus</span>
-        </div>
-        <Route runs={runs} drawKey={drawKey} />
-        <h2 className="hero-line display">{doneVerdict(null, runs)}</h2>
-        <RunStamps runs={runs} tickKey={drawKey} bonus />
-        {live ? <SharePill onShare={c.onShare} /> : null}
-      </div>
-    );
-  }
-  // done or at the floor
-  if (p && (p.key === 'done' || p.key === 'floor')) {
-    if (p.key === 'done' && !myRuns.length) return <DoneFace c={c} p={p} />;
-    const drawKey = live && myRuns[0] ? `route-${myRuns[0].id}` : null;
-    return (
-      <div className="hero-face">
-        <Stamp p={p} live={live} />
-        <Route runs={myRuns} drawKey={drawKey} />
-        <h2 className="hero-line display">{doneVerdict(p, myRuns)}</h2>
-        {myRuns.length ? <RunStamps runs={myRuns} tickKey={drawKey} /> : <p className="hero-plan">{planLine(p.session, '') || label(p.session)}</p>}
-        {myRuns.length && live ? <SharePill onShare={c.onShare} /> : null}
-      </div>
-    );
-  }
-  if (!p) {
-    // nothing planned: rest, said as a fact that counts
-    const next = nextSession(log, date);
-    const up = upNext(log, date);
-    const rm = lead ? restMorning(log, date, ph) : null;
-    const countdown = rm ? (ph.now < rm.wake ? `Alarm in ${durationWords(Math.ceil(rm.wake - ph.now))}.` : `Leave in ${durationWords(Math.ceil(rm.leave - ph.now))}.`) : null;
-    if (up) {
-      // What comes next leads, as the onboarding payoff promised: "Tomorrow: Easy 4." over that morning's door ("Out the
-      // door 6:45.", the run's door from the same timeline Morning draws). "Rest. It counts." is a sub-line only mid-plan;
-      // before the plan's first run there is nothing to rest from. On a rest morning before work, the morning's own line
-      // (alarm, routine, leave) stays under it, so the way into Morning is still there.
-      const nph = phaseOf(log, up.d, ph.now);
-      const block = up.s.blockId ? log.boot?.blocks.find((b) => b.id === up.s.blockId) : null;
-      const sub = [up.fresh ? null : 'Rest. It counts.', countdown].filter(Boolean).join(' ');
-      return (
-        <div className={`hero-face hero-next ${rm ? 'hero-restmorning' : ''}`}>
-          <span className="caps hero-eyebrow">{up.fresh ? (block?.name ?? 'Your plan') : 'Rest day'}</span>
-          <h2 className="hero-line display">
-            {up.when}: {label(up.s)}.
-          </h2>
-          {nph.doorAt != null ? <p className="hero-door display">Out the door {shortClock(nph.doorAt)}.</p> : null}
-          {sub ? <p className="hero-plan hero-rest-line">{sub}</p> : null}
-          {rm ? <MiniTimeline stops={rm.stops} now={ph.now} onPress={c.onMorning} label={`This morning: alarm ${shortClock(rm.wake)}, leave ${shortClock(rm.leave)}. Open Morning`} /> : null}
-        </div>
-      );
-    }
-    if (rm) {
-      // a rest morning before work: the countdown and the way into Morning stay
-      return (
-        <div className="hero-face hero-restmorning">
-          <span className="caps hero-eyebrow">Rest day</span>
-          <h2 className="hero-line display">Rest. It counts.</h2>
-          <p className="hero-plan">{countdown?.replace(/\.$/, '')}</p>
-          <MiniTimeline stops={rm.stops} now={ph.now} onPress={c.onMorning} label={`Rest morning: alarm ${shortClock(rm.wake)}, leave ${shortClock(rm.leave)}. Open Morning`} />
-        </div>
-      );
-    }
-    return (
-      <div className="hero-face">
-        <span className="caps hero-eyebrow">{isToday ? 'Rest day' : date < log.today ? relativeDay(date, log.today) : `${relativeDay(date, log.today)} · Rest`}</span>
-        <h2 className="hero-line display big">{date < log.today ? 'Rested. It counted.' : 'Rest. It counts.'}</h2>
-        {next?.s ? <p className="hero-plan">Next: {label(next.s)}, {relativeDay(next.d, log.today).toLowerCase() === 'tomorrow' ? 'tomorrow' : relativeDay(next.d, log.today)}.</p> : null}
-      </div>
-    );
-  }
-  const floor = floorFor(p.session);
-  if (isToday && p.key === 'today') {
-    return (
-      <div className="hero-face hero-open">
-        <div className="hero-open-text">
-          <span className="caps hero-eyebrow">{p.session.kind === 'run' ? 'Today’s run' : p.session.kind === 'lift' ? 'Today’s lift' : 'Today'}</span>
-          <Stamp p={p} big live={live} />
-          <p className="hero-plan">{planLine(p.session, floor)}</p>
-        </div>
-        <span className="hold-wrap">
-          {live ? <HoldRing label={`Hold to mark ${label(p.session)} done`} onComplete={() => c.onComplete(p)} onTap={() => c.onOpen(p)} /> : <span className="hold-ring ghost" aria-hidden="true" />}
-          <span className="caps hold-cap" aria-hidden="true">
-            Hold
-          </span>
-        </span>
-      </div>
-    );
-  }
-  // another day, quieter: what was, or what is coming
-  const future = date > log.today;
-  return (
-    <div className="hero-face hero-quiet">
-      <div className="hero-labelrow">
-        <span className="caps hero-eyebrow">{relativeDay(date, log.today)}</span>
-      </div>
-      <Stamp p={p} big live={live} />
-      <p className="hero-plan">
-        {p.key === 'skipped' ? (p.session.mark === 'sick' ? 'Skipped to recover. It counts for the week.' : 'Skipped.') : future ? planLine(p.session, floor) : p.key === 'missed' ? 'Missed. The week still counts.' : p.word}
-      </p>
-      {future && lead && ph.doorAt != null ? <p className="hero-sub">Out the door {shortClock(ph.doorAt)}.</p> : null}
-    </div>
-  );
-};
-
-/**
- * Pull the morning hero down to open the full Morning timeline. The hero follows the finger (rubber-banded), passes a line
- * with `haptics.threshold()`, and pushes /morning on release. The touch stops at the hero, so the page's pull to refresh does
- * not run underneath it.
- */
-const usePullToMorning = (enabled: boolean, onCommit: () => void) => {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const y = useMotionValue(0);
-  const fire = useRef(onCommit);
-  fire.current = onCommit;
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !enabled) return;
-    const LINE = 56;
-    let s: { x: number; y: number; on: boolean; armed: boolean } | null = null;
-    const start = (e: TouchEvent) => {
-      e.stopPropagation();
-      if (e.touches.length !== 1 || window.scrollY > 0) return void (s = null);
-      s = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY, on: false, armed: false };
-    };
-    const move = (e: TouchEvent) => {
-      if (!s) return;
-      const dx = e.touches[0]!.clientX - s.x;
-      const dy = e.touches[0]!.clientY - s.y;
-      if (!s.on) {
-        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-        if (dy <= 0 || Math.abs(dx) > dy) return void (s = null);
-        s.on = true;
-      }
-      if (e.cancelable) e.preventDefault();
-      const v = Math.max(0, dy);
-      y.set(v < LINE ? v * 0.6 : LINE * 0.6 + (v - LINE) * 0.2);
-      const over = v >= LINE;
-      if (over !== s.armed) {
-        s.armed = over;
-        if (over) haptics.threshold();
-      }
-    };
-    const end = () => {
-      const go = s?.on && s.armed;
-      s = null;
-      void animate(y, 0, springs.settle);
-      if (go) fire.current();
-    };
-    el.addEventListener('touchstart', start, { passive: true });
-    el.addEventListener('touchmove', move, { passive: false });
-    el.addEventListener('touchend', end);
-    el.addEventListener('touchcancel', end);
-    return () => {
-      el.removeEventListener('touchstart', start);
-      el.removeEventListener('touchmove', move);
-      el.removeEventListener('touchend', end);
-      el.removeEventListener('touchcancel', end);
-    };
-  }, [enabled, y]);
-  return { ref, y };
-};
+/** Pointers that start on these are not the hero's: the ring and the line own their press; the deck's buttons theirs. */
+const HERO_IGNORE = '.hold-ring, [data-shared], .hero-share, .hero-verb, .hero-next';
 
 /** The share card's data for a day whose miles are logged by hand: the session's miles, and the week counted the same way. */
 const shareFor = (date: ISODate, s: Session | null, runs: Activity[], log: Log) => {
@@ -535,199 +44,535 @@ const shareFor = (date: ISODate, s: Session | null, runs: Activity[], log: Log) 
 };
 
 /**
- * The time-aware hero (docs/experience.md §5.1). One card, lit from below, whose content follows `dayPhase`: the countdown
- * and mini timeline before the door (and on a rest morning before work), "Back by" while out, the route and stamps once the
- * run lands, "4 mi. Done." for a run marked done by hand, the hold-to-complete ring for a session still open, rest as a fact
- * that counts, Close the day in the evening, and a quieter look back or ahead on other days. Two sessions page inside it,
- * with dots. The week ring sits in its corner. Hold the card (anywhere but the ring) for its menu. `live` is false for the
- * neighbouring days drawn beside it while the date pager moves: those are still and claim no shared ids or daily moments.
+ * The open face's status line (§6.1): `Checking Strava…` while a non-quiet `/strava/sync` runs (`useStravaChecking`), shown
+ * for at least `CHECKING_MIN_MS` and at most `CHECKING_MAX_MS`; otherwise the face's own words. The two crossfade (120 ms in,
+ * 100 ms out) in the same box.
  */
-export const Hero = ({ date, log, minutes, live }: { date: ISODate; log: Log; minutes: number; live: boolean }) => {
+const useCheckingLine = () => {
+  const checking = useStravaChecking();
+  // shown on the render the check starts (no effect in between: the line's first frame is the next one)
+  const since = useRef(0);
+  if (checking && !since.current) since.current = performance.now();
+  const [hold, setHold] = useState(false);
+  const [capped, setCapped] = useState(false);
+  useEffect(() => {
+    if (checking) {
+      setCapped(false);
+      const cap = setTimeout(() => setCapped(true), Math.max(0, CHECKING_MAX_MS - (performance.now() - since.current)));
+      return () => clearTimeout(cap);
+    }
+    if (!since.current) return;
+    // it stays CHECKING_MIN_MS at least, then fades out
+    setHold(true);
+    const t = setTimeout(() => {
+      since.current = 0;
+      setHold(false);
+    }, Math.max(0, CHECKING_MIN_MS - (performance.now() - since.current)));
+    return () => clearTimeout(t);
+  }, [checking]);
+  return (checking && !capped) || (hold && !capped);
+};
+
+/** `fadeIn`'s value one frame (16.7 ms) into its 120 ms on the (.22, 1, .36, 1) curve. */
+const FADE_FIRST_FRAME = 0.4;
+/**
+ * `crossfade`'s value one frame into its 150 ms on the same curve: a face coming in (Skip, its Undo, a phase change) is on
+ * the first frame after its commit, with the toast that names it, not a frame behind it (motion's first frame samples 0;
+ * day review 1 #7).
+ */
+const FACE_FIRST_FRAME = 0.35;
+
+const StatusLine = ({ text }: { text: string }) => {
+  const checking = useCheckingLine();
+  return (
+    <span className="hero-status" aria-live="polite">
+      <AnimatePresence initial={false} mode="popLayout">
+        {/* the fade starts one frame in (motion's first frame samples 0): the line is on the first frame after the check starts */}
+        <motion.span key={checking ? 'checking' : text} className="hero-status-in" initial={{ opacity: FADE_FIRST_FRAME }} animate={{ opacity: 1, transition: fadeIn }} exit={{ opacity: 0, transition: fadeOut }}>
+          {checking ? 'Checking Strava…' : text}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+};
+
+/** "Ran a different distance?": a sheet with a stepper in half miles that writes what was run onto the session. */
+const DistanceSheet = ({ s }: { s: Session }) => {
+  const { upsert } = useSessionMutations();
+  const sheet = useSheet();
+  const [v, setV] = useState(Number(s.miles) || 1);
+  return (
+    <div className="hero-dist">
+      <Stepper value={v} onChange={setV} step={0.5} min={0.5} max={60} format={(x) => `${num(x)} mi`} parse={(t) => (Number.isFinite(parseFloat(t)) ? Math.round(parseFloat(t) * 2) / 2 : null)} label="Miles run" inputProps={{ inputMode: 'decimal', autoComplete: 'off' }} />
+      <Button
+        variant="primary"
+        onClick={() => {
+          if (v !== s.miles) upsert.mutate({ id: s.id, date: s.date, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: v, minutes: s.minutes });
+          sheet.close();
+        }}
+      >
+        Save
+      </Button>
+    </div>
+  );
+};
+
+interface DeckCtx {
+  date: ISODate;
+  log: Log;
+  face: Face;
+  isToday: boolean;
+  now: number;
+  onShare: () => void;
+  onMorning: () => void;
+  onOpenNext: () => void;
+  onAdjust: () => void;
+  /** The landing's hold on the landed face's numbers, route and verdict (§6.1). */
+  numbers: 'hold' | 'go' | 'still';
+}
+
+/** The deck (56): the only part that differs between faces. */
+const Deck = ({ c }: { c: DeckCtx }) => {
+  const { face } = c;
+  if (face.stops)
+    return (
+      <div className="hero-deck">
+        <MiniTimeline stops={face.stops} now={c.isToday ? c.now : -1} onPress={c.onMorning} label={face.stopsLabel ?? 'This morning'} shared={morningLineId(c.date)} />
+      </div>
+    );
+  if (face.out)
+    return (
+      <div className="hero-deck hero-deck-out">
+        <OutLine door={face.out.door} back={face.out.back} progress={face.out.progress} />
+        {face.out.sub ? <span className="hero-sub">{face.out.sub}</span> : null}
+      </div>
+    );
+  if (face.kind === 'open')
+    return (
+      <div className="hero-deck hero-deck-ring">
+        <StatusLine text={face.status ?? ''} />
+      </div>
+    );
+  if (face.landed) return <LandedDeck date={c.date} face={face} numbers={c.numbers} easyPace={c.log.snap.easyPace ?? null} onShare={c.onShare} />;
+  if (face.doneHand)
+    return (
+      <div className="hero-deck hero-deck-ring hero-deck-done">
+        {face.doneHand.week ? <span className="hero-sub">{face.doneHand.week}</span> : null}
+        {c.isToday ? (
+          <span className="hero-done-tools">
+            <SharePill onShare={c.onShare} />
+            {face.doneHand.adjust ? (
+              <Pressable
+                className="hero-verb"
+                press="dim"
+                onPress={(e) => {
+                  e.stopPropagation();
+                  c.onAdjust();
+                }}
+              >
+                <span className="hero-verb-text">Ran a different distance?</span>
+              </Pressable>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+    );
+  if (face.next)
+    return (
+      <div className="hero-deck">
+        <Pressable
+          className="hero-next"
+          press="surface"
+          label={`${face.next.text}. Open`}
+          onPress={(e) => {
+            e.stopPropagation();
+            c.onOpenNext();
+          }}
+        >
+          <span className="hero-next-text">
+            {face.next.head}
+            {face.next.tail ? <span className="hero-next-tail">{face.next.tail}</span> : null}
+          </span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </Pressable>
+      </div>
+    );
+  return <div className="hero-deck" />;
+};
+
+/** The words of a face: eyebrow (and its aside), stamp, line, the route on the landed face, the deck. */
+const FaceView = ({ c }: { c: DeckCtx }) => {
+  const { face } = c;
+  return (
+    <>
+      <div className="hero-eyebrow-row">
+        {/* the landed pace comes in with the numbers and the verdict (§6.1 stage 4): one pace on the card at a time (feel review 1 #8) */}
+        {face.eyebrowPace ? (
+          <span className="caps hero-eyebrow">
+            {face.eyebrow.slice(0, -face.eyebrowPace.length)}
+            <motion.span initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
+              {face.eyebrowPace}
+            </motion.span>
+          </span>
+        ) : (
+          <span className="caps hero-eyebrow">{face.eyebrow}</span>
+        )}
+        {face.aside ? <span className="caps hero-aside">{face.aside}</span> : null}
+      </div>
+      <span className="hero-stamp">{face.stamp}</span>
+      {/* the verdict crossfades in once the landing's FLIP is at rest (§6.1 stage 4) */}
+      <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
+        {face.line}
+      </motion.p>
+      {face.tall && face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
+      <Deck c={c} />
+    </>
+  );
+};
+
+interface DeckActions {
+  onShare: () => void;
+  onMorning: () => void;
+  onOpenNext: () => void;
+  onAdjust: () => void;
+}
+/**
+ * One face in its layer (`.hero-face`), memoised on what it draws: the hero's handlers come through a stable object, so a
+ * landing stage (a class, an opacity) re-renders no face.
+ */
+const FaceLayer = memo(function FaceLayer({ face, numbers, date, log, isToday, now, acts }: { face: Face; numbers: DeckCtx['numbers']; date: ISODate; log: Log; isToday: boolean; now: number; acts: DeckActions }) {
+  return <FaceView c={{ date, log, face, isToday, now, numbers, ...acts }} />;
+});
+
+/** The evening slot: the Close card (its own height); a neighbour's copy is still (no composer, no read). */
+const EveningFace = ({ date, log, ph, onOpen, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; onOpen: (p: PhaseSession) => void; markNow: MarkNow }) => {
+  const live = useIsLive(date);
+  return (
+    <div className="hero hero-close" data-face="evening">
+      <CloseDay date={date} log={log} ph={ph} onOpenSession={onOpen} still={!live} asHero markNow={markNow} />
+    </div>
+  );
+};
+
+/**
+ * The hero (docs/feel.md §3.2–3.4, M13): one card at a fixed 184 (304 for the landed face with its route), whose content
+ * follows the day and the clock. Faces are keyed by face + session inside `AnimatePresence mode="popLayout"` and crossfade
+ * (150 ms) in the same box, so a phase change moves nothing below the card. A tap opens the session sheet; a hold opens the
+ * menu (`Done · Skip · Move · Share`, ≤ 4); the ring and the four-stop line own their press (`ignore`), so a hold on the
+ * ring only completes and a tap on the line only pushes This morning. The second session of a two-session day is its own
+ * compact card below (`SecondSession`): no inner carousel, ever; the day pager is the only horizontal gesture. The evening
+ * slot is the Close card (its own height).
+ */
+/** A mark that answers on the card first and writes after (`useMarkOverride`); `waitMs`: what the write waits out. */
+export type MarkNow = (s: Session, m: SessionMark | null, waitMs?: number) => Promise<void>;
+
+/** The face crossfade's length (`crossfade`, 150 ms): a mark's write waits it out. */
+const CROSSFADE_MS = ((crossfade as { duration?: number }).duration ?? 0.15) * 1000;
+
+/**
+ * A mark from the card (Skip, its Undo, the second session's Done) shows first, in its own small render, and the month's
+ * write follows once the 150 ms crossfade it starts is over: the write re-renders every mounted page, which at 4× held the
+ * crossfade back 300 ms behind its toast (feel review 1 #10, day review 1 #7) and, sent a frame after the face, still landed
+ * in the middle of it (feel review 2 #4). The Undo keeps the toast, so a late write is safe.
+ *
+ * The override goes once no write of that session is still in flight and the page's (background-rendered) month carries the
+ * mark; or at once when its write fails. A Skip and a quick Undo are two writes: clearing on the first match (the month still
+ * without the Skip) let the face flip back and forth inside one crossfade and come to rest at 35 % (code review 2 #4).
+ */
+const useMarkOverride = (real: Log, date: ISODate) => {
+  const [over, setOver] = useState<{ id: string; mark: SessionMark | null } | null>(null);
+  const inFlight = useRef(new Map<string, number>());
+  const [settled, setSettled] = useState(0);
+  const log = useMemo(() => (over ? withMark(real, date, over.id, over.mark) : real), [real, date, over]);
+  useEffect(() => {
+    if (!over || (inFlight.current.get(over.id) ?? 0) > 0) return;
+    if ((real.snap.sessionsOn(date).find((x) => x.id === over.id)?.mark ?? null) === over.mark) setOver(null);
+  }, [real, date, over, settled]);
+  const { mark } = useSessionMutations();
+  const toast = useToast();
+  const markNow = useCallback(
+    (s: Session, m: SessionMark | null, waitMs = CROSSFADE_MS): Promise<void> => {
+      flushSync(() => setOver({ id: s.id, mark: m }));
+      inFlight.current.set(s.id, (inFlight.current.get(s.id) ?? 0) + 1);
+      // one promise per write (a second `mutate` on the same observer drops the first one's callbacks)
+      const w = afterPaint(() => mark.mutateAsync({ session: s, mark: m }), waitMs + 17);
+      // a refusal takes the card back and says so (code review 3 #3): the error replaces a Skip's Undo toast
+      w.catch(() => {
+        setOver((o) => (o?.id === s.id && o.mark === m ? null : o));
+        toast(refusedMark(s, m));
+      }).finally(() => {
+        inFlight.current.set(s.id, Math.max(0, (inFlight.current.get(s.id) ?? 1) - 1));
+        setSettled((n) => n + 1);
+      });
+      return w;
+    },
+    [mark, toast],
+  );
+  return { log, markNow };
+};
+
+export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log: Log }) {
+  const { log, markNow } = useMarkOverride(real, date);
+  // the clock's face changes wait for an interaction or idle (§5.3, useDeferred); a minute that keeps the face ticks at once
+  const clock = useFaceMinutes();
+  const keyOf = (m: number) => {
+    const f = faceOf(log, date, phaseOf(log, date, m));
+    return `${f.kind}|${f.key}|${f.halo}|${f.tall}`;
+  };
+  const minutes = useDeferredMinutes(clock, keyOf);
   const ph = useMemo(() => phaseOf(log, date, minutes), [log, date, minutes]);
-  const reduce = useReducedMotion();
-  const nav = useNavigate();
+  const face = useMemo(() => faceOf(log, date, ph), [log, date, ph]);
+  const evening = face.kind === 'evening';
+  const openSession = useOpenSession(log);
+  // the Close card is the one face that is not the 184 card: the two crossfade (150 ms) in the hero's slot
+  return (
+    <AnimatePresence initial={false} mode="popLayout">
+      <motion.div key={evening ? 'close' : 'day'} className="hero-swap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+        {evening ? <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} markNow={markNow} /> : <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} markNow={markNow} />}
+      </motion.div>
+    </AnimatePresence>
+  );
+});
+
+/** The 184 card (304 landed): every face but the evening's. The run landing (§6.1) plays on it. */
+const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: MarkNow }) => {
+  const nav = useNav();
   const sheet = useSheet();
   const toast = useToast();
   const openSession = useOpenSession(log);
   const openUnplanned = useOpenUnplanned();
   const act = useSessionActions(log);
-  const { mark } = useSessionMutations();
-  const [page, setPage] = useState(0);
   const [boost, setBoost] = useState(false);
-  const [fresh, setFresh] = useState(false);
   const isToday = date === log.today;
+  const hero = useRef<HTMLElement | null>(null);
+  // the face from before today's run, for the landing to wait on and play stages 1–2 from (cheap: only when it may be needed)
+  const pre = useMemo(() => (isToday && dayFace.kind === 'landed' ? preLandingFace(log, date, minutes) : dayFace), [isToday, dayFace, log, date, minutes]);
+  const landing = useStravaLanding({ date, log, face: dayFace, pre, hero });
+  const face = landing.show;
+  const lead = face.lead;
   const runs = log.snap.runsOn(date);
-  const pages: Array<PhaseSession | null> = ph.training.length ? ph.training : [ph.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null];
-  const cur = pages[Math.min(page, pages.length - 1)] ?? null;
-  const loaded = log.loaded(date);
 
-  // a run that lands while the page is open: the route draws (a new run, a new key), the numbers tick, one Success
-  const seenRuns = useRef<number | null>(null);
-  useEffect(() => {
-    if (!live || !isToday || !loaded) return;
-    if (seenRuns.current != null && runs.length > seenRuns.current) {
-      haptics.success();
-      setBoost(true);
-    }
-    seenRuns.current = runs.length;
-  }, [live, isToday, loaded, runs.length]);
   useEffect(() => {
     if (!boost) return;
     const t = setTimeout(() => setBoost(false), 650);
     return () => clearTimeout(t);
   }, [boost]);
 
-  const morningPath = isToday ? '/morning' : `/morning/${date}`;
-  const open = (p: PhaseSession | null) => {
-    // the stamp carries `session-<id>` (see Stamp): the hero's title flies into the sheet's
-    if (p) openSession(date, p.session, { fromHero: true, sharedId: `session-${p.session.id}` });
+  const open = () => {
+    if (lead) openSession(date, lead.session, { fromHero: true });
     else if (runs.length) openUnplanned(date, runs, log);
   };
-  const share = () => sheet.open({ title: 'Share', body: <ShareSheet data={shareFor(date, cur?.session ?? null, runs, log)} initial={runs.some((r) => r.polyline) ? 'route' : runs.length ? undefined : 'bubble'} /> });
-  const setMark = (p: PhaseSession, m: SessionMark | null, word?: string) => {
-    const was = p.session.mark;
-    mark.mutate({ session: p.session, mark: m });
-    if (word) toast(word, { label: 'Undo', fn: () => mark.mutate({ session: { ...p.session, mark: m }, mark: was }) });
+  /*
+   * The tap opens the sheet on its release (§9.4 M7: the body renders on pointerup, the first motion frame is the next one):
+   * on touch the click comes a task later (1×: 4–7 ms, 4×: 23–39 ms), which cost the sheet's first frame (§14 27). A touch
+   * that came up before the hold, within the hold's slop, not on the ring or the stops line, and that did not land on a
+   * moving page (that touch is the pager's: it catches the slide and its click is swallowed) opens here; its click is then
+   * skipped. A click with no touch before it (a mouse, Enter, Space, VoiceOver) opens from the click as before.
+   */
+  const tap = useRef<{ x: number; y: number; moved: boolean; held: boolean; opened: number } | null>(null);
+  const onRelease = (e: React.PointerEvent<HTMLElement>) => {
+    const p = tap.current;
+    if (!p || p.moved || p.held || p.opened || e.pointerType === 'mouse' || isPagerMoving()) return;
+    p.opened = performance.now();
+    open();
+    swallowNextClick();
   };
-  /** the click that ends a completing hold lands on the new face: it is not a tap */
-  const quietUntil = useRef(0);
-  const complete = (p: PhaseSession) => {
-    // the ring fired Success at its peak; the halo blooms (the day's first completion), the check pops, the miles tick
-    quietUntil.current = Date.now() + 700;
-    setMark(p, 'done');
+  const onClickPress = () => {
+    const p = tap.current;
+    tap.current = null;
+    if (p?.opened && performance.now() - p.opened < 1000) return;
+    open();
+  };
+  const share = () => sheet.open({ title: 'Share', body: <ShareSheet data={shareFor(date, lead?.session ?? null, runs, log)} initial={runs.some((r) => r.polyline) ? 'route' : runs.length ? undefined : 'bubble'} /> });
+  /**
+   * The session done by hand (the ring, or Done in the menu): the day's one success for it, the halo blooms. The face
+   * crossfades to `done by hand` in its own small render on the completion's frame, with the ring's check (`markNow`: the
+   * month's write re-renders every page, which at 4× held the face 0.5–0.9 s behind the check; code review 3 #2, feel
+   * review 3 #2), and the write waits out the check's swap. A write that fails takes the check and the face back, with an
+   * error toast (the promise).
+   */
+  const complete = (s: Session) => {
+    markSuccess(s.id);
     setBoost(true);
-    setFresh(true);
+    return markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS));
   };
-  const c: FaceCtx = { date, log, ph, live, fresh, onShare: share, onMorning: () => nav(morningPath), onOpen: open, onComplete: complete };
+  // the face crossfades to Skipped. first (its own render), then the toast, then the write (markNow)
+  const skip = (s: Session) => {
+    const was = s.mark;
+    markNow(s, 'skip').catch(() => undefined);
+    toast(`${label(s)} skipped`, { label: 'Undo', fn: () => void markNow({ ...s, mark: 'skip' }, was).catch(() => undefined) });
+  };
 
-  const evening = isToday && ph.phase === 'evening';
-  const rm = !cur && !runs.length ? restMorning(log, date, ph) : null;
-  const pull = usePullToMorning(live && isToday && (ph.phase === 'morning' || ph.phase === 'out' || !!rm), () => nav(morningPath, { state: { enter: 'pull' } }));
-
-  /** The long-press menu: every gesture's action, in the order a runner reaches for them. */
+  /** The hold menu: ≤ 4, the things a runner reaches for. */
   const items = (): ContextMenuItem[] => {
     const list: ContextMenuItem[] = [];
-    if (cur) {
-      const s = cur.session;
-      const manualDone = cur.key === 'done' && s.mark === 'done';
-      if (!evening) list.push({ label: 'Open', icon: <ChevronRight size={18} />, onSelect: () => open(cur) });
-      if (cur.key === 'today' || cur.key === 'missed' || cur.key === 'skipped')
-        list.push(
-          { label: 'Done', icon: <Check size={18} />, onSelect: () => (haptics.success(), complete(cur)) },
-          { label: 'Floor', icon: <ChevronsDown size={18} />, onSelect: () => (haptics.toggle(), setMark(cur, 'floor', `Floor met. ${floorFor(s) || '20 min'} is a day kept.`)) },
-        );
-      if (manualDone) list.push({ label: 'Not done', icon: <Undo2 size={18} />, onSelect: () => (haptics.toggle(), setMark(cur, null)) });
-      if (cur.key === 'today' || cur.key === 'planned') {
-        list.push({ label: 'Skip', icon: <SkipForward size={18} />, onSelect: () => (haptics.toggle(), setMark(cur, 'skip', `${label(s)} skipped`)) });
-        list.push({ label: 'Move', icon: <MoveRight size={18} />, onSelect: () => act.move(date, s) });
-        list.push({ label: 'Not feeling 100%', icon: <HeartPulse size={18} />, onSelect: () => act.sick(date, s) });
-      }
-    } else if (runs.length) list.push({ label: 'Open', icon: <ChevronRight size={18} />, onSelect: () => open(null) });
-    if (runs.length || (cur?.key === 'done' && cur.session.kind === 'run')) list.push({ label: 'Share', icon: <Share size={18} />, onSelect: share });
-    if (isToday && !evening) list.push({ label: 'Morning', icon: <Sunrise size={18} />, onSelect: () => nav(morningPath) });
-    list.push({ label: 'Add a session', icon: <CalendarPlus size={18} />, onSelect: () => act.add(date) });
-    return list;
+    if (lead) {
+      const s = lead.session;
+      const byHand = s.mark === 'done' || s.mark === 'floor';
+      const future = date > log.today;
+      // Not done answers on the card too (the check fades out with the face; day review 3 #5)
+      if (byHand) list.push({ label: 'Not done', onSelect: () => void markNow(s, null).catch(() => undefined) });
+      else if (!future && lead.key !== 'done' && lead.key !== 'floor')
+        list.push({
+          label: 'Done',
+          onSelect: () => {
+            haptics.success();
+            complete(s).catch(() => undefined);
+          },
+        });
+      if (lead.key === 'today' || lead.key === 'planned') list.push({ label: 'Skip', onSelect: () => skip(s) });
+      if (lead.key !== 'done' && lead.key !== 'floor') list.push({ label: 'Move', onSelect: () => act.move(date, s) });
+    }
+    if (runs.length || (lead && date <= log.today)) list.push({ label: 'Share', onSelect: share });
+    return list.slice(0, 4);
   };
 
-  const halo = haloOf(cur, runs.length > 0);
-  // a rest day led by tomorrow's session: the card opens that session (the morning line under it opens Morning)
-  const up = !cur && !runs.length ? upNext(log, date) : null;
-  const pressable = !!cur || runs.length > 0 || !!up || !!rm;
-  const name = cur ? `${label(cur.session)}, ${cur.word}` : runs.length ? 'Bonus run' : up ? `${up.when}: ${label(up.s)}` : 'Rest day';
-  const hm = useHoldMenu(items, evening ? 'Close the day' : name, { disabled: !live });
-
-  const corner = <HeroWeekRing date={date} log={log} still={!live} />;
-  if (evening)
-    return (
-      <div
-        className="hero-slot"
-        ref={(n) => {
-          hm.ref.current = n;
-        }}
-        {...hm.bind}
-      >
-        <CloseDay date={date} log={log} ph={ph} onOpenSession={open} still={!live} corner={<span className="hero-corner-in">{corner}</span>} asHero />
-        {hm.sr}
-      </div>
-    );
-
-  const openHero = () => (up ? openSession(up.d, up.s) : rm ? nav(morningPath) : open(cur));
+  // the handlers, current on every render, through one stable object (the face layers are memoised)
+  const latest = useRef<DeckActions>(null as unknown as DeckActions);
+  latest.current = {
+    onShare: share,
+    onMorning: () => nav.push(morningPath(date), { shared: morningLineId(date) }),
+    onOpenNext: () => face.next && openSession(face.next.date, face.next.session),
+    onAdjust: () => lead && sheet.open({ eyebrow: label(lead.session), title: 'Miles run', body: <DistanceSheet s={lead.session} /> }),
+  };
+  const [acts] = useState<DeckActions>(() => ({
+    onShare: () => latest.current.onShare(),
+    onMorning: () => latest.current.onMorning(),
+    onOpenNext: () => latest.current.onOpenNext(),
+    onAdjust: () => latest.current.onAdjust(),
+  }));
+  // while the landing waits and plays stages 1–2, the landed face is already mounted, hidden, under the face from before the
+  // run (its layer over it): stage 3 then only swaps two opacities and the card's height, with no face to render (§6.1)
+  const st = landing.stage;
+  const preShown = st === 'wait' || st === 'fill' || st === 'morph';
+  const preLayer = preShown || st === 'grow';
+  const main = preLayer ? dayFace : face;
+  const name = lead ? `${label(lead.session)}, ${lead.word}` : runs.length ? 'Run' : face.stamp === 'REST' ? 'Rest day' : face.stamp;
+  // the ring: the face's own (open, or the check after a hand completion), or the one the landing carries through the FLIP
+  const ringLead = lead ?? pre.lead;
+  const ringOn = !!ringLead && (landing.ringShown || !!face.ring);
+  const ringDone = landing.ring ? landing.stage !== 'wait' && landing.stage !== 'fill' ? true : pre.ring === 'done' : face.ring === 'done';
   return (
-    <div className="hero-slot">
-      <motion.div
-        ref={(n: HTMLDivElement | null) => {
-          pull.ref.current = n;
-          hm.ref.current = n;
-        }}
-        style={{ y: pull.y }}
-        className={`aura today-hero halo-${halo} ${boost ? 'halo-boost' : ''} ${pressable ? 'is-pressable' : ''} ${!isToday ? 'is-other' : ''}`}
-        role={pressable ? 'button' : 'group'}
-        tabIndex={pressable && live ? 0 : undefined}
-        aria-label={pressable ? `${name}. ${rm && !up ? 'Open Morning' : 'Open'}` : name}
-        {...hm.bind}
-        onClick={(e) => {
-          if (!pressable || !live || Date.now() < quietUntil.current || (e.target as HTMLElement).closest('button, a, textarea, input')) return;
-          openHero();
-        }}
-        onKeyDown={(e) => {
-          hm.bind.onKeyDown(e);
-          if (!pressable || e.target !== e.currentTarget) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            openHero();
-          }
-        }}
-        whileTap={pressable && live && !reduce ? { scale: 0.985 } : undefined}
-        transition={springs.press}
-      >
-        <span className="aura-glow" aria-hidden="true" />
-        <span className="hero-corner" onPointerDown={(e) => e.stopPropagation()}>
-          {corner}
-        </span>
-        {pages.length > 1 ? (
-          <>
-            <div
-              className="hero-pages"
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
-                if (i !== page) {
-                  setPage(i);
-                  haptics.select();
-                }
-              }}
-            >
-              {pages.map((p, i) => (
-                <div key={p?.session.id ?? i} className="hero-page" aria-hidden={i !== page || undefined}>
-                  <Face c={{ ...c, live: live && i === page }} p={p} index={i} />
-                </div>
-              ))}
-            </div>
-            <div className="hero-dots" role="tablist" aria-label="Sessions">
-              {pages.map((p, i) => (
-                <button
-                  key={p?.session.id ?? i}
-                  type="button"
-                  role="tab"
-                  aria-selected={i === page}
-                  aria-label={p ? label(p.session) : 'Day'}
-                  className={`hero-dot ${i === page ? 'on' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const el = (e.currentTarget.parentElement?.previousElementSibling as HTMLElement | null) ?? null;
-                    el?.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-                  }}
-                >
-                  <i />
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <Face c={c} p={cur} index={0} />
-        )}
-      </motion.div>
-      {hm.sr}
-    </div>
+    <Pressable
+      ref={hero}
+      as="div"
+      className={`hero aura halo-${face.halo} ${boost || landing.boost ? 'halo-boost' : ''} ${face.tall ? 'is-tall' : ''} ${face.quiet ? 'is-quiet' : ''} ${face.pressable ? 'is-pressable' : ''}`}
+      data-face={face.kind}
+      data-landing={landing.stage === 'still' ? undefined : landing.stage}
+      press={face.pressable ? 'scale' : 'none'}
+      ignore={HERO_IGNORE}
+      onPress={face.pressable ? onClickPress : undefined}
+      onHold={() => {
+        if (tap.current) tap.current.held = true;
+      }}
+      onPointerDown={(e: React.PointerEvent<HTMLElement>) => {
+        const ok = face.pressable && e.isPrimary && e.pointerType !== 'mouse' && !(e.target instanceof Element && e.target.closest(HERO_IGNORE)) && !isPagerMoving();
+        tap.current = ok ? { x: e.clientX, y: e.clientY, moved: false, held: false, opened: 0 } : null;
+      }}
+      onPointerMove={(e: React.PointerEvent<HTMLElement>) => {
+        const p = tap.current;
+        if (p && !p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) > HOLD_SLOP_PX) p.moved = true;
+      }}
+      onPointerUp={face.pressable ? onRelease : undefined}
+      onPointerCancel={() => {
+        tap.current = null;
+      }}
+      holdMenu={lead || runs.length ? items : undefined}
+      menuLabel={`${name} actions`}
+      label={face.pressable ? `${name}. Open` : name}
+    >
+      <span className="aura-glow" aria-hidden="true" />
+      {/* a new day (the midnight roll) is not a face change: the page crossfades in already on its face, never through a
+          second crossfade from the day before's (day review 1 #1, #10) */}
+      <AnimatePresence key={log.today} initial={false} mode="popLayout">
+        <motion.div key={main.key} className="hero-face" data-k={main.kind} initial={{ opacity: preShown ? 0 : FACE_FIRST_FRAME }} animate={{ opacity: preShown ? 0 : 1 }} exit={{ opacity: 0 }} transition={crossfade} inert={preShown || undefined} aria-hidden={preShown || undefined}>
+          <FaceLayer face={main} numbers={landing.numbers} date={date} log={log} isToday={isToday} now={ph.now} acts={acts} />
+        </motion.div>
+      </AnimatePresence>
+      {preLayer ? (
+        <motion.div key="pre" className="hero-face hero-face-pre" data-k={pre.kind} initial={false} animate={{ opacity: preShown ? 1 : 0 }} transition={crossfade}>
+          <FaceLayer face={pre} numbers="still" date={date} log={log} isToday={isToday} now={ph.now} acts={acts} />
+        </motion.div>
+      ) : null}
+      {/* a foreground check that found nothing while the session is open past its back time: one quiet repeat at +8 s (§6.1) */}
+      {isToday && face.kind === 'open' ? <StravaRetry date={date} /> : null}
+      {/* the ring fades with the faces (a Skip from the open face, its Undo): never dropped or mounted in one frame (feel
+          review 2 #6) */}
+      <AnimatePresence initial={false}>
+        {ringOn && ringLead ? (
+          <RingSlot key={ringLead.session.id} leaving={landing.stage === 'draw'}>
+            <HoldRing label={`Hold to mark ${label(ringLead.session)} done`} done={ringDone} drive={landing.ring ?? undefined} onComplete={() => complete(ringLead.session)} onTap={open} />
+          </RingSlot>
+        ) : null}
+      </AnimatePresence>
+    </Pressable>
   );
 };
+
+/**
+ * The second session of a two-session day (§3.4, §3.1 row 3): a compact card, 60 tall: the stamp (17), the plan and its word
+ * (15), the 40 px hold ring on the right while it is open today. Tap → its sheet; hold → `Done · Skip · Move`.
+ */
+export const SecondSession = memo(function SecondSession({ date, log: real }: { date: ISODate; log: Log }) {
+  // its Done, Skip, Not done and their Undo answer on the card first (a 150 ms crossfade of its line), the write after it,
+  // as the hero's do (feel review 2 #5)
+  const { log, markNow } = useMarkOverride(real, date);
+  const ph = useMemo(() => phaseOf(log, date, 12 * 60), [log, date]);
+  // the hero's session (a skipped run keeps the hero: heroLead); this card is the other one
+  const lead = heroLead(ph);
+  const p: PhaseSession | null = secondOf(ph, lead);
+  const openSession = useOpenSession(log);
+  const act = useSessionActions(log);
+  const toast = useToast();
+  if (!p || !lead) return null;
+  const s = p.session;
+  const isToday = date === log.today;
+  const open = p.key === 'today' && isToday;
+  const sub = [s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : null, p.key === 'today' ? 'Planned' : p.word].filter(Boolean).join(' · ');
+  const quiet = (w: Promise<void>) => void w.catch(() => undefined);
+  const items: ContextMenuItem[] = [];
+  const byHand = s.mark === 'done' || s.mark === 'floor';
+  // a mark by hand can be taken back from the card, as on the hero (feel review 2 #7)
+  if (byHand) items.push({ label: 'Not done', onSelect: () => quiet(markNow(s, null)) });
+  // the second session's completion is not the day's success (M18: two a day); its ring answers with a toggle (§11.4)
+  else if (p.key !== 'done' && p.key !== 'floor' && date <= log.today) items.push({ label: 'Done', onSelect: () => (markSuccess(s.id), quiet(markNow(s, 'done'))) });
+  if (p.key === 'today' || p.key === 'planned')
+    items.push({
+      label: 'Skip',
+      onSelect: () => {
+        const was = s.mark;
+        quiet(markNow(s, 'skip'));
+        toast(`${label(s)} skipped`, { label: 'Undo', fn: () => quiet(markNow({ ...s, mark: 'skip' }, was)) });
+      },
+    });
+  if (p.key !== 'done' && p.key !== 'floor') items.push({ label: 'Move', onSelect: () => act.move(date, s) });
+  return (
+    <Pressable
+      as="div"
+      className={`second-session card ${isToday ? '' : 'is-quiet'}`}
+      ignore=".hold-ring"
+      onPress={() => openSession(date, s)}
+      holdMenu={items.length ? items : undefined}
+      menuLabel={`${label(s)} actions`}
+      label={`${label(s)}, ${p.word}. Open`}
+    >
+      <span className="ss-text">
+        <span className="ss-stamp">{label(s)}</span>
+        <span className="ss-sub-slot">
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.span key={sub} className="ss-sub" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+              {sub}
+            </motion.span>
+          </AnimatePresence>
+        </span>
+      </span>
+      <AnimatePresence initial={false}>
+        {open || (isToday && byHand) ? (
+          <motion.span key="ring" className="ss-ring" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS)))} onTap={() => openSession(date, s)} />
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
+    </Pressable>
+  );
+});

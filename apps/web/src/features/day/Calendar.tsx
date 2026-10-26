@@ -1,7 +1,6 @@
 import { dayKey, dayWord, fmtDate, mondayOf, monthOf, parseISO, shiftDays, type ISODate } from '@logbook/shared';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { haptics } from '@/lib/haptics';
 import { IconButton, useSheet } from '@/ui';
 import { useLog } from '../log/useLog';
 
@@ -22,7 +21,6 @@ export const CalendarSheet = ({ date, onPick, mode = 'day' }: { date: ISODate; o
   const step = (n: number) => {
     const d = parseISO(first);
     d.setMonth(d.getMonth() + n);
-    haptics.select();
     setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
   return (

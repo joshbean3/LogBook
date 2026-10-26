@@ -1,5 +1,5 @@
 import { useReducedMotion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
@@ -64,8 +64,17 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
   const [busy, setBusy] = useState<'share' | 'save' | null>(null);
   const track = useRef<HTMLDivElement>(null);
   const cur = useRef(start);
+  // the carousel ticks only under the finger: opening on the lead card (set, not scrolled to) is no selection (§11.4: no
+  // haptic on opening a sheet; day review 1 #9)
+  const touched = useRef(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 1400);
+    return () => clearTimeout(t);
+  }, [saved]);
 
-  // the card nearest the middle is the one in view; a step is one select tick
+  // the card nearest the middle is the one in view; a step the finger makes is one select tick
   const onScroll = () => {
     const el = track.current;
     if (!el) return;
@@ -82,18 +91,22 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
     });
     if (best !== cur.current) {
       cur.current = best;
-      haptics.select();
+      if (touched.current) haptics.select();
       setI(best);
     }
   };
   const go = (n: number) => {
+    touched.current = true;
     const el = track.current;
     const k = el?.children[n] as HTMLElement | undefined;
     if (!el || !k) return;
     el.scrollTo({ left: k.offsetLeft - (el.clientWidth - k.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
   };
-  useEffect(() => {
-    if (start) requestAnimationFrame(() => go(start));
+  // the lead card is in the middle from the first frame: set, never a smooth scroll across the cards before it
+  useLayoutEffect(() => {
+    const el = track.current;
+    const k = el?.children[start] as HTMLElement | undefined;
+    if (el && k && start) el.scrollLeft = k.offsetLeft - (el.clientWidth - k.offsetWidth) / 2;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async (mode: 'share' | 'save') => {
@@ -101,8 +114,8 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
     try {
       const blob = await renderCard(t, data, caption);
       const r = await shareImage(blob, `logbook-${data.date}.png`, mode);
-      if (r !== 'cancelled') haptics.success();
-      if (r === 'saved') toast('Saved');
+      // the day's successes are two (M18): a share or a save is quiet, and Save says it on its own button (§8: no toast)
+      if (r === 'saved') setSaved(true);
     } catch {
       haptics.error();
       toast('Couldn’t make the image. Try again.');
@@ -113,7 +126,7 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
   return (
     <div className="share">
       <div className="share-main">
-        <div ref={track} className="share-track" role="group" aria-roledescription="carousel" aria-label="Card templates" onScroll={onScroll}>
+        <div ref={track} className="share-track" role="group" aria-roledescription="carousel" aria-label="Card templates" onScroll={onScroll} onPointerDown={() => (touched.current = true)} onWheel={() => (touched.current = true)}>
           {templates.map((k, n) => (
             <button
               key={k}
@@ -145,7 +158,7 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
       </div>
       <div className="sheet-foot">
         <Button variant="quiet" disabled={!!busy} onClick={() => run('save')}>
-          {busy === 'save' ? 'Saving' : 'Save'}
+          {busy === 'save' ? 'Saving' : saved ? 'Saved' : 'Save'}
         </Button>
         <div className="foot-right">
           <Button variant="primary" disabled={!!busy} onClick={() => run('share')}>

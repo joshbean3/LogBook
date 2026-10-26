@@ -1,276 +1,499 @@
-/* ---------- Today (docs/experience.md §5.1) ---------- */
+/* ---------- Today (docs/feel.md §2, §3): the page, its sections, the hero ---------- */
 
-.today .tabh {
-  margin-bottom: 16px;
+/* the tab root's page element: full-bleed (the bar and the strip run edge to edge; each day page carries the gutter) */
+.today-root {
+  min-height: 100%;
 }
 
-/* the hero sits in the date pager; the pager's pages keep the card's own radius */
-.hero-pager {
-  outline: none;
+/* one day: the sections in order, quiet never absent; the bottom padding lives inside the cur page (§3.1) */
+.day-page {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px calc(24px + max(0px, var(--kb) - var(--tabbar-h) - var(--safe-b)));
+  min-width: 0;
 }
-.hero-pager:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent-text);
-  border-radius: var(--r-lg);
+.day-page > * {
+  flex: none;
 }
-.hero-slot {
-  display: grid;
+/* the exiting face of a crossfade is popped out of flow against the page */
+.day-page {
+  position: relative;
 }
-.today-hero {
-  min-height: 196px;
-  padding: 18px 18px 18px;
+/* the hero's slot: the 184 card and the Close card crossfade in it (150 ms) */
+.hero-swap {
+  min-width: 0;
+}
+
+/* ---------- the hero (§3.2, M13): fixed 184 (304 landed with a route); faces crossfade inside the same box ---------- */
+.hero.aura {
+  box-sizing: border-box;
+  height: 184px;
+  min-height: 0;
+  padding: 0;
+  display: block;
   gap: 0;
+  border-radius: var(--r-card);
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
   touch-action: pan-y;
 }
-.today-hero.is-pressable {
+.hero.aura.is-tall {
+  height: 304px;
+}
+.hero.aura.is-pressable {
   cursor: pointer;
 }
-.today-hero.is-pressable:active {
+.hero.aura[data-pressed] {
   background: var(--surface);
 }
-/* the week ring in the corner: 40px to the eye, a 44px button */
-.hero-corner,
-.hero-corner-in {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
+.hero.hero-close,
+.hero.hero-first {
+  /* ui.css's old .hero (a padded grid card) must not reach the evening and first-run wrappers */
+  display: block;
+  height: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
-.hero-corner-in {
-  top: 8px;
-  right: 8px;
+.hero.hero-first > .first-run-hero {
+  max-width: none;
 }
 .hero-face {
-  display: grid;
-  gap: 8px;
-  align-content: start;
+  position: absolute;
+  inset: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  padding-right: 0;
 }
-/* the first line of every face clears the ring */
-.hero-face > :first-child {
-  margin-right: 52px;
-  min-height: 24px;
+.hero-eyebrow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 13px;
+  min-width: 0;
 }
-.hero-stamp {
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  justify-self: start;
-}
-.hero-stamp.big {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-  letter-spacing: -0.03em;
-  margin-top: 2px;
-  overflow-wrap: anywhere;
+.hero-eyebrow,
+.hero-aside {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  white-space: nowrap;
 }
 .hero-eyebrow {
-  color: var(--ink-3);
+  flex: none;
 }
-.hero-labelrow {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
+.hero-aside {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.hero-word {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+/* the stamp: one line, never broken mid-word (O4: "THRESHOL / D 6"); a long name ellipsizes */
+.hero-stamp {
+  display: block;
+  margin-top: 4px;
+  height: 34px;
+  font: 800 28px/34px var(--stamp);
+  letter-spacing: -0.02em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
-.hero-word.k-done,
-.hero-word.k-bonus {
-  color: var(--accent-text);
-}
-.hero-word.k-floor {
-  color: var(--warn);
-}
-.hero-word.k-missed {
-  color: var(--bad);
-}
-/* the serif sentence of the hero: "Out the door in 22 min", "Back by 8:22", "5.0 mi at 8:14. Logged." */
 .hero-line {
-  font-size: 1.75rem;
-  line-height: 2rem;
+  margin: 4px 0 0;
+  height: 28px;
+  font: italic 400 22px/28px var(--display);
   letter-spacing: -0.01em;
-  margin: 2px 0 0;
-  text-wrap: balance;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.hero-line.big {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-}
-@media (max-width: 359px) {
-  .hero-line.big,
-  .hero-stamp.big {
-    font-size: 2rem;
-    line-height: 2.25rem;
-  }
-}
-.hero-plan {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+.hero.is-quiet .hero-stamp {
   color: var(--ink-2);
-  margin: 0;
-  max-width: 34ch;
 }
-.hero-sub {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+.hero.is-quiet .hero-line {
   color: var(--ink-3);
-  margin: 0;
 }
-.hero-quiet .hero-stamp.big {
-  color: var(--ink-2);
-}
+/* the landed face's route: 358 × 120, edge to edge in the card, between the line and the deck */
 .hero-route {
   display: block;
-  width: 100%;
-  height: auto;
-  max-height: 150px;
-  margin: 2px 0 0;
+  flex: none;
+  width: calc(100% + 32px);
+  height: 120px;
+  margin: 6px -16px 0;
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
 }
-.hero-stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+/* the deck: 56, the only zone whose content differs between faces */
+.hero-deck {
+  position: relative;
+  flex: none;
+  height: 56px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.hero.is-tall .hero-deck {
   margin-top: 6px;
-  padding-top: 12px;
 }
-@media (max-width: 359px) {
-  .hero-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.hero-deck-ring {
+  padding-right: 64px;
 }
-.hero-share {
-  justify-self: start;
-  margin: 8px 0 0;
+.hero-sub,
+.hero-status {
+  font: 400 13px/18px var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* a bonus run stamps two numbers (TIME, HR): two columns, not three with a hole */
-.hero-stats.hero-stats-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.hero-deck-done .hero-sub {
+  flex: none;
+  height: 20px;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-2);
+}
+.hero-status {
+  position: relative;
+  display: block;
+  height: 18px;
+}
+.hero-status-in {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-deck-out .hero-sub {
+  margin-top: 6px;
+}
+/* done by hand (§3.2): the week line (20) over Share and the verb (32), 4 apart: 56, the deck's own height. Both controls
+   draw 32 and reach 44 with a hit area that runs 6 px past their box (day review 3 #2: a 44 tall verb squeezed the week
+   line to an 8 px strip) */
+.hero-done-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin-top: 4px;
+  min-width: 0;
+}
+.hero-share.pressable {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font: 600 13px/16px var(--sans);
+  position: relative;
+}
+.hero-share.pressable::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.hero-verb.pressable {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  color: var(--ink-3);
+  font: 400 13px/18px var(--sans);
+  min-width: 0;
+}
+.hero-verb.pressable::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.hero-verb-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-stats {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  min-width: 0;
+}
+.hero-stat {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.hero-stat .caps {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.62);
+}
+.hero-stat-num {
+  font: 800 17px/22px var(--stamp);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.hero-share-slot {
+  margin-left: auto;
+  display: flex;
+}
+.hero-coach {
+  margin: 2px 0 0;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-next.pressable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-group);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font: 400 15px/20px var(--sans);
+  text-align: left;
+  width: 100%;
+}
+.hero-next-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the ring sits at the deck's right, outside the crossfading face: the same node from the open face to the check */
+.hero-ring {
+  position: absolute;
+  right: 12px;
+  bottom: 15px;
+  z-index: 1;
+}
+/* the landing fades the ring's slot as Share takes its place */
+.hero-ring-in {
+  display: block;
+}
+/* the loading hero: the skeleton lives in the hero's own box (§14 test 40) */
+.hero-skel .skel {
+  position: absolute;
+  left: 16px;
+  border-radius: 6px;
+}
+.hero-skel-a {
+  top: 16px;
+  width: 30%;
+  height: 13px;
+}
+.hero-skel-b {
+  top: 37px;
+  width: 55%;
+  height: 30px;
+}
+.hero-skel-c {
+  top: 113px;
+  right: 16px;
+  height: 40px;
 }
 
-/* ---------- done by hand: "4 mi. Done." with a check that pops in ---------- */
-.hero-done {
-  gap: 10px;
-}
-.hero-done-line {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.hero-check {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 22px rgba(47, 59, 255, 0.7);
-}
-.hero-done-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 16px;
-  margin-top: 6px;
-}
-.hero-done-tools .hero-share {
-  margin: 0;
-}
-/* the quiet question: text, ink-3, a 44px target */
-.hero-dist-ask {
+/* ---------- the four-stop line (contracts §F): 44 tall, 2 px line, 8 px dots, the now dot by transform ---------- */
+.mini-tl {
   appearance: none;
   border: 0;
   background: none;
-  color: var(--ink-3);
+  color: inherit;
   font: inherit;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  min-height: 44px;
-  padding: 0 2px;
-  cursor: pointer;
-}
-.hero-dist-ask[aria-expanded='true'] {
-  color: var(--ink-2);
-}
-.hero-dist {
-  overflow: hidden;
-}
-.hero-dist-in {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-top: 4px;
-}
-.hero-dist-in .stepper {
-  flex: 1;
-  min-width: 0;
-}
-
-/* a rest morning before work: the countdown and the line into Morning stay */
-.hero-restmorning .mini-tl {
-  margin-top: 4px;
-}
-/* the run day ahead leads a rest or open day: "Tomorrow: Easy 4.5." over its door, in the serif, as onboarding promised */
-.hero-door {
-  font-size: 1.375rem;
-  line-height: 1.625rem;
-  color: var(--ink-2);
+  padding: 0;
   margin: 0;
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  text-align: left;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
 }
-
-/* the open session: the stamp and its plan on the left, the hold ring on the right */
-.hero-open {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  column-gap: 12px;
+.mini-tl-line {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 2px;
+  height: 8px;
 }
-.hero-open > :first-child {
-  margin-right: 0;
+.mini-tl-line::before,
+.mini-tl-done {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 2px;
+  background: var(--line-strong);
 }
-.hero-open-text {
+.mini-tl-done {
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+.mini-tl-stop {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+}
+.mini-tl-stop.past {
+  background: var(--accent);
+  box-shadow: none;
+}
+.mini-tl-nowtrack {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 8px;
+  pointer-events: none;
+}
+.mini-tl-now {
+  position: absolute;
+  left: -5px;
+  top: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 0 3px rgba(47, 59, 255, 0.35);
+}
+.hero.is-quiet .mini-tl-now {
+  display: none;
+}
+.mini-tl-times {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 13px;
+  height: 31px;
+}
+.mini-tl-time {
+  position: absolute;
+  top: 0;
   display: grid;
-  gap: 6px;
-  min-width: 0;
+  justify-items: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
-.hero-open-text > :first-child {
-  margin-right: 52px;
+.mini-tl-time[data-edge='start'] {
+  transform: translateX(-4px);
+  justify-items: start;
+}
+.mini-tl-time[data-edge='end'] {
+  transform: translateX(calc(-100% + 4px));
+  justify-items: end;
+}
+.mini-tl-time .caps {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.mini-tl-time .tnum {
+  font: 600 13px/18px var(--sans);
+  color: var(--ink);
+}
+.hero.is-quiet .mini-tl-time .tnum {
+  color: var(--ink-2);
+}
+.out-line {
+  position: relative;
+  height: 28px;
+}
+.out-line .mini-tl-line {
+  left: 0;
+  right: 0;
+}
+.out-line-ends {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 12px;
+  display: flex;
+  justify-content: space-between;
+  font: 600 13px/16px var(--sans);
+  color: var(--ink-2);
 }
 
-/* ---------- hold to complete ---------- */
+/* ---------- the hold ring: 48 on the hero (56 hit), 40 on the compact card and the Close row (44 hit) ---------- */
 .hold-ring {
   position: relative;
   appearance: none;
   border: 0;
   padding: 0;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
-  display: grid;
-  place-items: center;
-  color: var(--ink-2);
-  flex: none;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  user-select: none;
-}
-.hold-ring svg {
-  position: absolute;
-  inset: 4px;
   width: 56px;
   height: 56px;
+  border-radius: 50%;
+  background: none;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  flex: none;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* the stroke's layer and the check's layer share the one circle (§6.1 stage 2: an opacity swap in the same node) */
+.hold-face,
+.hold-done {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.hold-ring[data-size='40'] .hold-face,
+.hold-ring[data-size='40'] .hold-done {
+  inset: 2px;
+}
+.hold-face {
+  background: rgba(255, 255, 255, 0.04);
+}
+.hold-done {
+  background: var(--accent);
+  color: #fff;
+  opacity: 0;
+}
+.hold-ring .hold-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.hold-ring[data-size='40'] {
+  width: 44px;
+  height: 44px;
 }
 .hold-track {
   fill: none;
@@ -283,197 +506,370 @@
   stroke-width: 3;
   stroke-linecap: round;
 }
-.hold-ring.is-done {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 28px rgba(47, 59, 255, 0.75);
-  transition: box-shadow 320ms var(--ease-out);
-}
-.hold-wrap {
-  align-self: end;
-  margin-top: 52px;
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-}
-.hold-cap {
-  font-size: 0.625rem;
-  color: var(--ink-3);
-}
 .hold-check {
+  position: relative;
   color: var(--ink-3);
-  transition: color var(--dur-color) var(--ease-out);
-}
-.hold-ring.is-done .hold-check {
-  color: #fff;
 }
 .hold-ring.ghost {
   display: block;
+  width: 48px;
+  height: 48px;
+  margin: 4px;
+  box-sizing: border-box;
   border: 3px solid var(--line-strong);
-  width: 56px;
-  height: 56px;
-  background: none;
 }
 .hold-ring:focus-visible {
   outline: 2px solid var(--accent-text);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
-/* ---------- the mini timeline: four stops, a now dot ---------- */
-.mini-tl {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: inherit;
-  padding: 14px 0 2px;
-  margin: 2px 0 0;
-  display: grid;
-  gap: 12px;
-  text-align: left;
-  min-height: 44px;
-  /* the line spans its column wherever it is mounted (a button shrinks to its content outside a grid parent) */
-  width: 100%;
-  box-sizing: border-box;
-  cursor: pointer;
-}
-div.mini-tl {
-  cursor: default;
-}
-.mini-tl-line {
-  position: relative;
+/* ---------- under the hero: the sentence, the nudge, This morning, the second session ---------- */
+.sentence.pressable {
   display: block;
-  height: 2px;
-  margin: 0 6px;
-  background: var(--line-strong);
-  border-radius: 1px;
+  min-height: 44px;
+  padding: 8px 0 14px;
+  text-align: left;
+  width: 100%;
 }
-.mini-tl-done {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 1px;
+.sentence-text {
+  display: block;
+  font: italic 400 17px/22px var(--display);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.mini-tl-stop {
-  position: absolute;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
-  border-radius: 50%;
+.sentence-by {
+  font-style: normal;
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.nudge.pressable {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  height: 44px;
+  font: 400 13px/18px var(--sans);
+  color: var(--ink-3);
+  text-align: left;
+}
+.morning-row {
+  margin-top: 12px;
+  border-radius: var(--r-group);
   background: var(--surface);
-  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+  border: var(--card-border);
+  overflow: hidden;
 }
-.mini-tl-stop.past {
-  background: var(--ink-2);
-  box-shadow: none;
+.sentence + .morning-row,
+.nudge + .morning-row {
+  margin-top: 0;
 }
-.mini-tl-now {
-  position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  margin: -6px 0 0 -6px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow: 0 0 0 4px rgba(47, 59, 255, 0.25), 0 0 14px rgba(91, 102, 255, 0.9);
-}
-.mini-tl-times {
+.mr-row.pressable {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 18px auto minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  text-align: left;
 }
-.mini-tl-time {
-  font-variant-numeric: tabular-nums;
+.mr-ic {
+  color: var(--ink-2);
+}
+.mr-title {
+  font: 400 17px/22px var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.mr-right {
+  justify-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  height: 20px;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+  overflow: hidden;
+  max-width: 100%;
+}
+.mr-part {
+  /* a later part that does not fit drops whole to the hidden second line; the first ellipsizes only as a last resort */
+  flex: none;
+  white-space: pre;
+}
+.mr-part:first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mr-short {
+  display: none;
+}
+/* the rest face's next-session row: below 360 the time after the session drops whole (feel review 2 #8) */
+@media (max-width: 359px) {
+  .hero-next-tail {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .mr-title .mr-long {
+    display: none;
+  }
+  .mr-title .mr-short {
+    display: inline;
+  }
+}
+.mr-chev {
+  color: var(--ink-3);
+}
+.second-session.pressable {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 60px;
+  min-height: 60px;
+  padding: 0 10px 0 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  text-align: left;
+  width: 100%;
+}
+.ss-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.ss-stamp {
+  font: 800 17px/22px var(--stamp);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.second-session.is-quiet .ss-stamp {
+  color: var(--ink-2);
+}
+/* the line crossfades in place on a mark (150 ms; the leaving one absolute over it, popLayout) */
+.ss-sub-slot {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  height: 20px;
+}
+.ss-sub {
+  display: block;
+  min-width: 0;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ss-ring {
+  flex: none;
+}
+
+/* ---------- habits and to-dos: section heads 20/25, 24 between sections ---------- */
+.habits,
+.todos {
+  margin-top: 24px;
+  min-width: 0;
+}
+.day-page .day-sec-head,
+.habits > .sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  height: 25px;
+  margin-bottom: 8px;
+}
+.habits .sec-title {
+  margin: 0;
+  font: 600 20px/25px var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.habits .sec-meta {
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+}
+.habits > .orbs-wrap {
+  margin-top: 0;
+}
+.todos > .sec-primary {
+  margin-top: 0;
+}
+.todos .section-head {
+  min-height: 25px;
+  margin-bottom: 8px;
+  align-items: baseline;
+}
+.todos .section-title {
+  font: 600 20px/25px var(--sans);
+  letter-spacing: -0.01em;
+}
+.orbs-skel {
+  height: 76px;
+}
+/* a neighbour's first frame: the page's shape */
+.day-page.is-shell .morning-row {
+  height: 44px;
+}
+.day-page.is-shell .todos .section-head {
+  height: 25px;
+}
+
+/* ---------- the week card (§3.1 row 6, M22) ---------- */
+.week-card.pressable {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 108px;
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  text-align: left;
+  width: 100%;
+}
+.week-ring {
+  flex: none;
+  display: grid;
+}
+.week-card.is-skel {
+  margin-top: 24px;
+  min-height: 108px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+.wc-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wc-week {
+  font: 600 13px/18px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.wc-stats {
+  font: 600 17px/22px var(--sans);
+  color: var(--ink);
+}
+.wc-note {
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+}
+
+/* ---------- where the plan stops (§3.1 row 7) ---------- */
+.plan-end {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 96px;
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+}
+.plan-end.is-past {
+  border-color: rgba(91, 102, 255, 0.4);
+}
+.pe-text {
+  flex: 1;
+  min-width: 0;
   display: grid;
   gap: 2px;
 }
-.mini-tl-time:nth-child(2) {
-  justify-items: center;
-  transform: translateX(-17%);
+.pe-title {
+  margin: 0;
+  font: 600 17px/22px var(--sans);
+  color: var(--ink);
 }
-.mini-tl-time:nth-child(3) {
-  justify-items: center;
-  transform: translateX(17%);
+.pe-sub {
+  margin: 0;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
 }
-.mini-tl-time:last-child {
-  justify-items: end;
+.pe-next.pressable {
+  flex: none;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font: 600 13px/16px var(--sans);
+  position: relative;
 }
-.mini-tl-times[data-n='3'] {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.mini-tl-times[data-n='3'] .mini-tl-time:nth-child(2) {
-  transform: none;
-}
-.mini-tl-times[data-n='2'] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.mini-tl-time .caps {
-  font-size: 0.625rem;
-  color: rgba(255, 255, 255, 0.62);
-}
-.mini-tl-time .stamp {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-}
-.out-line {
-  display: grid;
-  gap: 10px;
-  padding-top: 14px;
-}
-.out-line-ends {
-  display: flex;
-  justify-content: space-between;
-}
-.out-line-ends .stamp {
-  font-size: 1.0625rem;
+.pe-next.pressable::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
 }
 
-/* ---------- two sessions: the hero pages between them ---------- */
-.hero-pages {
+/* ---------- the Strava primer (today, until connected) and the day (past days) ---------- */
+.strava-primer {
+  margin-top: 24px;
+}
+.the-day {
+  margin-top: 24px;
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 100%;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  margin: 0 -18px;
-  padding: 0 18px;
-  scroll-padding: 0 18px;
-  column-gap: 36px;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
 }
-.hero-pages::-webkit-scrollbar {
-  display: none;
+.td-eyebrow {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
 }
-.hero-page {
-  scroll-snap-align: start;
-  min-width: 0;
+.td-entries {
+  display: grid;
+  gap: 12px;
 }
-.hero-dots {
+.td-entry {
+  display: grid;
+  gap: 2px;
+}
+.td-time {
+  font: 600 11px/13px var(--sans);
+}
+.td-text {
+  margin: 0;
+  font: 400 17px/22px var(--sans);
+  color: var(--ink);
+  white-space: pre-wrap;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.td-add.pressable {
   display: flex;
-  justify-content: center;
-  margin: 6px 0 -12px;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--accent-text);
+  font: 400 15px/20px var(--sans);
+  text-align: left;
+  border-top: 1px solid var(--line);
 }
-.hero-dot {
-  appearance: none;
-  border: 0;
-  background: none;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  padding: 0;
+.td-share.pressable {
+  justify-self: start;
 }
-.hero-dot i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ink-4);
-  transition: background var(--dur-color) var(--ease-out);
-}
-.hero-dot.on i {
-  background: var(--ink);
+.td-composer .composer {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 
 /* ---------- the calendar sheet ---------- */
@@ -546,289 +942,268 @@ div.mini-tl {
   box-shadow: inset 0 0 0 1px var(--ink-3);
 }
 
-/* ---------- close the day ---------- */
-.cd {
+/* ---------- close the day (§5): one card, fixed slots; content crossfades 150 ms inside them ---------- */
+.aura.cd {
+  box-sizing: border-box;
   min-height: 0;
-  padding: 18px;
-  gap: 12px;
-}
-.cd-top {
+  padding: 16px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 24px;
-  margin-right: 44px;
+  flex-direction: column;
+  gap: 0;
+  border-radius: var(--r-card);
 }
-.cd:not(.cd-hero) .cd-top {
-  margin-right: 0;
+.cd-eyebrow {
+  height: 13px;
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.cd-title-slot {
+  position: relative;
+  height: 28px;
+  margin-top: 4px;
 }
 .cd-title {
-  font-size: 1.75rem;
-  line-height: 2rem;
   margin: 0;
+  font: italic 400 22px/28px var(--display);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
 }
+/* step 1: the stamps, 40 tall (11 caps over a 22 stamp) */
 .cd-stamps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  height: 40px;
+  margin-top: 12px;
 }
 .cd-stamp {
   display: grid;
-  gap: 4px;
+  grid-template-rows: 13px 26px;
+  row-gap: 1px;
   min-width: 0;
 }
 .cd-stamp .caps {
-  font-size: 0.625rem;
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.62);
 }
 .cd-num {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
+  font: 800 22px/26px var(--stamp);
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-@container card (max-width: 18rem) {
-  .cd-num {
-    font-size: 1.0625rem;
-  }
-}
 .cd-num small {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font: 700 12px/16px var(--sans);
   letter-spacing: 0;
-  text-transform: none;
   color: rgba(255, 255, 255, 0.7);
 }
-.cd-open {
+/* nothing to stamp: one plain sentence in the stamps' place */
+.cd-line {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  margin: 12px 0 0;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-2);
+}
+/* step 2: the run row, 60, the 40 px ring at the right while open */
+.cd-run.pressable {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 0;
-  border-top: 1px solid var(--line);
-}
-.cd-open-main {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: inherit;
-  padding: 0;
+  height: 60px;
+  margin: 12px -16px 0;
+  padding: 0 12px 0 16px;
+  box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line);
   text-align: left;
+  touch-action: pan-y;
+}
+.cd-run-text {
   display: grid;
   gap: 2px;
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  align-content: center;
 }
-.cd-open-stamp {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
+.cd-run-stamp {
+  font: 800 17px/22px var(--stamp);
+  letter-spacing: -0.01em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.cd-open-sub {
-  font-size: 0.9375rem;
+.cd-run-sub {
+  font: 400 15px/20px var(--sans);
   color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* nothing to stamp yet: one plain sentence from the day in the stamps' place */
-.cd-line {
-  margin: 0;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 0.9375rem;
-  line-height: 1.375rem;
-  color: var(--ink-2);
+/* the quote line's slot while its module loads (44, the line's own height) */
+.cd-quote-slot {
+  height: 44px;
 }
-/* the day's entries sit on the card behind one hairline: no band, no bleed */
-.cd-entries {
-  display: grid;
-  border-top: 1px solid var(--line);
+/* the nightly quote reads whole in its 44 slot: two lines of 15/20 (40) rather than one cut line (feel review 1 #11) */
+.cd .qline.quote-line .qline-text {
+  -webkit-line-clamp: 2;
+  overflow-wrap: normal;
 }
-.cd-entries .jentry {
-  background: transparent;
-}
-.cd-entries .jentry-body {
-  padding-inline: 0;
-}
-.cd-entries .swipe-content {
-  --swipe-bg: transparent;
-}
-.cd-entries .swipe-row:has(.swipe-pane.from-left, .swipe-pane.from-right) .swipe-content {
-  --swipe-bg: var(--surface);
-}
-/* after the entry: a quiet way back into the composer */
-.cd-addto {
-  appearance: none;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: none;
-  color: var(--ink-3);
-  font: inherit;
-  font-size: 0.9375rem;
-  min-height: 44px;
-  padding: 0;
+/* steps 3–4: the composer's box; the entry takes the field's place in it */
+.cd-box {
+  position: relative;
+  margin-top: 12px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  text-align: left;
-  cursor: pointer;
+  flex-direction: column;
+  touch-action: pan-y;
 }
-.cd-addto:active {
-  color: var(--ink-2);
+.cd-write[data-leaving],
+.cd-read[data-leaving] {
+  position: absolute;
+  inset: 0 0 auto 0;
+  pointer-events: none;
+}
+/* the field's still copy that leaves on Save (feel review 3 #1): laid out as the live layer's own children */
+.cd-write-still {
+  display: contents;
+}
+.cd-write,
+.cd-read {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 .cd-composer .composer {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border-radius: var(--r-group);
 }
-.cd-share {
-  justify-self: start;
+.cd-composer textarea.jtext {
+  min-height: 60px;
+  padding: 10px 12px 4px;
+  font: italic 400 17px/22px var(--display);
+}
+.cd-composer .composer-foot {
+  min-height: 44px;
+  padding: 0 6px 6px 12px;
+}
+.cd-entries {
+  display: grid;
+  gap: 12px;
+}
+.cd-entry {
+  display: grid;
+  gap: 2px;
+}
+.cd-entry-time {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.cd-entry-text {
   margin: 0;
+  font: italic 400 17px/22px var(--display);
+  color: var(--ink);
+  white-space: pre-wrap;
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* the Save slot becomes "Add to it", 44, at the box's foot */
+.cd-addto.pressable {
+  margin-top: auto;
+  padding-top: 8px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font: 400 15px/20px var(--sans);
+  text-align: left;
+}
+/* step 5: Tomorrow, always shown */
+.cd-tomorrow {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+.cd-tomorrow-head {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.cd-tgroup.group {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0;
+}
+.cd-trow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px 0 16px;
+  width: 100%;
+  text-align: left;
+  font: 400 17px/22px var(--sans);
+  color: var(--ink);
+}
+.cd-trow + .cd-trow {
+  box-shadow: inset 16px 1px 0 -15px var(--line);
+}
+.cd-trow-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-trow-right {
+  flex: none;
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+}
+.cd-trow-chev {
+  flex: none;
+  color: var(--ink-4);
+}
+.cd-word-in {
+  /* 12 capitals (RELENTLESSLY: 112 px) and its padding; the label beside it keeps its 160 px at 390 */
+  flex: 0 1 7.75em;
+  min-width: 6em;
+  width: 7.75em;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 800 16px/20px var(--stamp);
+  text-transform: uppercase;
+  text-align: right;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* steps 6–7 */
+.hero-share.cd-share {
+  align-self: flex-start;
+  margin-top: 12px;
+}
+.cd-pick {
+  margin-top: 8px;
 }
 .cd-pick .group {
   background: transparent;
   border: 0;
-  margin: 0 -18px;
+  margin: 0 -16px;
 }
 
-/* ---------- the first day ---------- */
-.setup {
-  min-height: 0;
-  gap: 10px;
-  padding: 20px 18px 12px;
-}
-.setup-title {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
-  margin: 0 0 6px;
-}
-@media (max-width: 359px) {
-  .setup-title {
-    font-size: 1.75rem;
-    line-height: 2rem;
-  }
-}
-.setup-steps {
-  display: grid;
-  margin: 0 -18px;
-}
-.setup-step {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 18px;
-  min-height: 64px;
-  border-top: 1px solid var(--line);
-  text-align: left;
-  width: 100%;
-}
-.setup-ic {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--surface-2);
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-.setup-step.is-done .setup-ic {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 18px rgba(47, 59, 255, 0.6);
-}
-.setup-text {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.setup-step-title {
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-.setup-step.is-done .setup-step-title {
-  color: var(--ink-3);
-}
-.setup-sub {
-  font-size: 0.875rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
-}
-.setup-chev {
-  color: var(--ink-3);
-}
-
-.orbs-skel {
-  display: flex;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hold-ring.is-done {
-    transition: none;
-  }
-}
-
-/* the Strava primer, under the hero after first run */
-.today-primer {
-  margin-top: var(--sp-secondary);
-}
-
-/* ── the word and sentence, at the very top of Today ── */
-.focus-strip {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-height: 44px;
-  margin: 0 calc(var(--page-pad) * -1) 4px;
-  padding: 10px var(--page-pad);
-  border-bottom: 1px solid var(--line);
-  color: var(--ink);
-  text-align: left;
-  width: calc(100% + var(--page-pad) * 2);
-  background: none;
-  cursor: pointer;
-}
-.focus-word {
-  flex: none;
-  font-size: 0.9375rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent-bright);
-}
-.focus-line {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: var(--ink-2);
-}
-.focus-quote {
-  font-size: 1.0625rem;
-  line-height: 1.3;
-}
-.focus-by {
-  font-size: 0.75rem;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.focus-strip.is-empty {
-  align-items: center;
-}
-.focus-invite {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.9375rem;
-  color: var(--ink-3);
-}
+/* ---------- the word sheet (WordSheet.tsx) ---------- */
 .focus-edit .focus-field {
   display: grid;
   gap: 6px;
@@ -846,74 +1221,15 @@ div.mini-tl {
   line-height: 1.35;
   resize: none;
 }
+/* Save stands clear of the sheet's bottom edge and the home indicator (feel review 1 #14) */
+.word-sheet {
+  padding-bottom: calc(16px + var(--safe-b, 0px));
+}
 .focus-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-}
-
-/* ---------- where the plan stops: its last days, and every day past it ---------- */
-.plan-end {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 4px 12px;
-  margin-top: 16px;
-  padding: 14px 16px;
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.plan-end.is-past {
-  box-shadow: inset 0 0 0 1px rgba(91, 102, 255, 0.4);
-}
-.plan-end-ic {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent-tint);
-  color: var(--accent-text);
-}
-.plan-end-text {
-  display: grid;
-  gap: 2px;
-}
-.plan-end-title {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-.plan-end-sub {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: var(--ink-2);
-}
-.plan-end .btn {
-  grid-column: 2;
-  justify-self: start;
-  margin-top: 8px;
-}
-
-/* contracts §F: HoldRing `size` (48 on the hero, 40 on the second-session card and the Close row); the box is the ring */
-.hold-ring[data-size='48'],
-.hold-ring[data-size='40'] {
-  width: var(--ring);
-  height: var(--ring);
-}
-.hold-ring[data-size='48'] {
-  --ring: 48px;
-}
-.hold-ring[data-size='40'] {
-  --ring: 40px;
-}
-.hold-ring[data-size] svg {
-  inset: 0;
-  width: var(--ring);
-  height: var(--ring);
 }
 
 /* contracts §F: FirstRunHero, the 184 × 358 setup face (16 + 13 eyebrow + 4 + 3 × 44 rows + 16 + the 3 px border-box rounding) */
@@ -968,4 +1284,48 @@ div.mini-tl {
 }
 .frh-chev {
   color: var(--ink-3);
+}
+
+/* ---------- the trailing slot (§2.4): avatar ⇄ Today pill, a 120 ms opacity crossfade on the commit frame ---------- */
+.trail-swap {
+  display: block;
+  position: relative;
+  width: 80px;
+  height: 44px;
+}
+.trail-swap-item {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  /* leaving: 100 ms, then hidden */
+  transition: opacity 100ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 100ms;
+}
+.trail-swap-item[data-on] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s;
+}
+
+/* the word row's field state: the label's short form only where the long one would be cut */
+.cd-word-short {
+  display: none;
+}
+@media (max-width: 359px) {
+  .cd-word-edit .cd-word-long {
+    display: none;
+  }
+  .cd-word-edit .cd-word-short {
+    display: inline;
+  }
+}
+
+/* the week card's stats: each part keeps its words together, so a narrow screen breaks only at the dot */
+.wc-part {
+  white-space: nowrap;
 }

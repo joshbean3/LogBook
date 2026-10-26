@@ -33,7 +33,17 @@ export const useNowMinutes = () => {
       t = setTimeout(tick, Math.max(250, (Math.floor(now) + 1 - now) * 60000 + 50));
     };
     tick();
-    const vis = () => document.visibilityState === 'visible' && setM(readMinutes());
+    // a return to the front re-reads the clock after its first frame (the status line and the check go first), and only a
+    // new minute re-renders the pages that read it
+    const vis = () => {
+      if (document.visibilityState !== 'visible') return;
+      requestAnimationFrame(() =>
+        setTimeout(() => {
+          const now = readMinutes();
+          setM((m) => (Math.floor(m) === Math.floor(now) ? m : now));
+        }, 0),
+      );
+    };
     document.addEventListener('visibilitychange', vis);
     return () => {
       clearTimeout(t);
