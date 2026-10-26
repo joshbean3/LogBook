@@ -70,10 +70,6 @@ The simplest path is Fly.io: one machine, one volume, no database server.
 6. **Open** `https://<your-app-name>.fly.dev` and create your account.
 7. **Close** setup so nobody else can: `fly secrets set ALLOW_SETUP=0`
 
-**Deploy on every push** (optional, once): `.github/workflows/deploy.yml` ships each push to this branch. Create a token with
-`fly tokens create deploy -a <your-app-name>` and add it to the GitHub repository as the Actions secret `FLY_API_TOKEN`
-(Settings → Secrets and variables → Actions). Without it the workflow skips.
-
 Any host that runs a Docker image with a persistent volume works the same way (Railway, Render, a VPS with `docker compose up -d`).
 
 ## Install it on your phone
