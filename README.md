@@ -2,14 +2,22 @@
 
 A personal training log, habit tracker and journal, built as an installable web app with its own server and database.
 
-Seven views, one data model:
+Four tabs, one data model:
 
-- **Today**: the day's planned sessions, graded against Strava automatically. Floor-or-full completion. Habits with streaks. To-dos that roll forward. Journal entries.
-- **Morning**: the morning timeline from alarm to front door, built from the day's plan. Warns when a long run would make you late.
-- **Plan**: week and month calendars, plus a plan builder. Claude turns a PDF, a photo, pasted text or a plain description into dated sessions you can check before saving.
-- **Trends**: weekly mileage against plan, effort by heart-rate zone, lift progress with estimated one-rep max, a 30-day consistency grid.
-- **Journal**: write, look back at a resurfaced entry, and a quote each day from a 3,458-quote library.
-- **Settings**: Strava, theme, install.
+- **Today**: one page per day. Swipe anywhere on the page to the next or the previous day; the date strip under the bar shows
+  the week and travels with you, and the caps line carries your word until you change it (`STEADY · FRI, OCT 23`). The hero
+  changes with the time of day: out the door in 22 minutes, back by 8:13, then the run landing from Strava (or hold the ring
+  to mark it done by hand). Habits as a row of orbs, the top three to-dos, the week's ring, and in the evening the day's
+  close: two sentences, tomorrow's word and alarm.
+- **This morning** (pushed from Today's hero or its `This morning` row): the schedule from the alarm to the door, built from
+  the day's run and your routine. Drag the alarm and every time below moves with it; hold a step to reorder it; it says when
+  you have to leave.
+- **Plan**: the week and the month, paged by swiping. Hold a session to move it to another day. A plan builder writes the
+  next block from your goal and run days (Claude can also turn a PDF, a photo or a description into sessions).
+- **Progress**: weekly mileage against plan, long-run and easy-pace trends, lifts with estimated one-rep max, consistency.
+- **Journal**: write the day, look back, a quote a day from a 3,458-quote library, and Reads (links saved for later, one
+  picked for you each day).
+- **Settings** (pushed from Today's avatar): you, training, habits, the morning routine, Strava, the app, your data, account.
 
 Install it on a phone from the browser. It opens full screen, caches everything it has seen, and queues writes made offline.
 
@@ -31,7 +39,7 @@ One Docker image serves both the API and the built web app.
 1. **Copy** the env file: `cp .env.example .env`
 2. **Install**: `pnpm install`
 3. **Start** both apps: `pnpm dev` (API on 8787, web on 5173 with a proxy)
-4. **Open** http://localhost:5173 and create your account (the first visit shows setup).
+4. **Open** http://localhost:5173 and create your account (the first visit shows Start, then sign-up).
 5. **Add** a habit and a session. Tick them.
 
 Skip Strava and Claude for now; the app works without them.
