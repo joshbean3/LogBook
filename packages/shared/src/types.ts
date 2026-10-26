@@ -184,13 +184,19 @@ export interface MorningSettings {
   };
   focus: { word: string; quote: string; by: string };
 }
+/**
+ * One morning's own setting (spec §4.3, M16): only the alarm. The session is the run, so the workout comes from the
+ * session and never from here. Stored rows still carry the old `mode/type/miles/minutes` columns (neutral fillers that
+ * nothing reads); every reader drops them.
+ */
 export interface MorningDayOverride {
-  mode: MorningMode;
-  type: string;
-  miles: number;
-  minutes: number;
   wake: number;
 }
+/**
+ * A morning day as exports wrote it before the one-editor change (and still write it: the exporter keeps the stored
+ * columns), so an old export file still imports. Nothing but the exporter and the import reads the four extra fields.
+ */
+export type LegacyMorningDay = MorningDayOverride & Partial<{ mode: MorningMode; type: string; miles: number; minutes: number }>;
 
 // ---------- integrations ----------
 export interface StravaStatus {
@@ -293,6 +299,6 @@ export interface ExportV2 {
   journal: JournalEntry[];
   quotes: { own: Array<{ id: string; text: string; author: string; createdAt: string }>; prefs: Array<{ quoteId: string; fav: boolean; hidden: boolean }> };
   links: Link[];
-  morningDays: Record<ISODate, MorningDayOverride>;
+  morningDays: Record<ISODate, LegacyMorningDay>;
   coach: CoachRead[];
 }

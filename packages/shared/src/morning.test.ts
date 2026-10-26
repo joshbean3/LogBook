@@ -1,11 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { AFTER_ORDER, buildMorning, isStepId, MORNING_DEFAULTS, morningDayFor, newStepId, normalizeAfterOrder, normalizeMorningSettings, normalizeSteps, routineOf } from './morning.js';
-import { zMorningSettingsPatch, zTrainingPatch, zTrainingProfile } from './schemas.js';
-import type { MorningSettings } from './types.js';
+import { zMorningDay, zMorningSettingsPatch, zTrainingPatch, zTrainingProfile } from './schemas.js';
+import type { LegacyMorningDay, MorningSettings, Session } from './types.js';
+
+const sess = (p: Partial<Session> & Pick<Session, 'date' | 'kind'>): Session => ({
+  id: p.id ?? `s-${p.date}-${p.kind}`,
+  position: 0,
+  type: null,
+  title: null,
+  details: null,
+  miles: null,
+  minutes: null,
+  blockId: null,
+  movedFrom: null,
+  mark: null,
+  ...p,
+});
 
 // MORNING_DEFAULTS: alarm 7:20, Easy 5 at 9:00/mi, back 8:30, the routine fixed at 8:40: shower 15, ready 15, smoothie 5,
 // prep 15, so leave is 9:30 (570).
-const easy5 = (st: MorningSettings) => buildMorning(morningDayFor([], { mode: 'run', type: 'Easy', miles: 5 }, st), st);
+const easy5 = (st: MorningSettings) => buildMorning(morningDayFor([sess({ date: '2026-10-23', kind: 'run', type: 'Easy', miles: 5 })], null, st), st);
 const after = (st: MorningSettings) => easy5(st).blocks.filter((b) => (AFTER_ORDER as readonly string[]).includes(b.key));
 
 describe('the back-home order (after.order)', () => {
@@ -55,7 +69,7 @@ describe('steps of your own (after.steps)', () => {
   const base = normalizeMorningSettings(MORNING_DEFAULTS);
   const dog = { id: 's_dog001', name: 'Walk the dog', mins: 10 } as const;
   const withDog = (order: string[]) => normalizeMorningSettings({ ...base, after: { ...base.after, steps: [dog], order } });
-  const rest = morningDayFor([], { mode: 'rest', type: 'Rest' }, base);
+  const rest = morningDayFor([], null, base);
 
   it('a step sits where its id is in the order, and the leave time grows by its length', () => {
     const before = buildMorning(rest, base);
@@ -113,5 +127,49 @@ describe('the training profile schema', () => {
     expect(zTrainingPatch.parse({ weeklyMiles: 22 })).toEqual({ weeklyMiles: 22 });
     expect(zTrainingPatch.safeParse({}).success).toBe(false);
     expect(zTrainingPatch.safeParse({ longRunDay: 'someday' }).success).toBe(false);
+  });
+});
+
+describe('one editor: the session is the run, the override is the alarm (spec §4.3)', () => {
+  const easy4 = sess({ date: '2026-10-23', kind: 'run', type: 'Easy', miles: 4 });
+  // a row the old day editor wrote: a rest morning with a long workout and its own alarm
+  const legacy: LegacyMorningDay = { mode: 'rest', type: 'Rest', miles: 9, minutes: 90, wake: 450 };
+
+  it('morningDayFor with a legacy override returns the session\'s workout and the override\'s wake', () => {
+    const day = morningDayFor([easy4], legacy, MORNING_DEFAULTS);
+    expect(day).toMatchObject({ mode: 'run', type: 'Easy', miles: 4, wake: 450, own: true });
+    expect(day.minutes).toBe(MORNING_DEFAULTS.gym.length);
+    // the same as the override reduced to its wake
+    expect(morningDayFor([easy4], { wake: 450 }, MORNING_DEFAULTS)).toEqual(day);
+    // and the timeline follows the session: 7:30 alarm, Easy 4 at 9:00/mi
+    const T = buildMorning(day, MORNING_DEFAULTS);
+    expect(T.blocks.find((b) => b.key === 'run')).toMatchObject({ start: 450 + 15 + 5, mins: 36 });
+  });
+
+  it('a legacy run override on a planned rest day is a rest morning; one on a lift day keeps the lift', () => {
+    const run: LegacyMorningDay = { mode: 'run', type: 'Long', miles: 12, minutes: 40, wake: 400 };
+    expect(morningDayFor([sess({ date: '2026-10-23', kind: 'rest' })], run, MORNING_DEFAULTS)).toMatchObject({ mode: 'rest', wake: 400 });
+    const lift = sess({ date: '2026-10-23', kind: 'lift', type: 'Strength', minutes: 50 });
+    expect(morningDayFor([lift], run, MORNING_DEFAULTS)).toMatchObject({ mode: 'gym', type: 'Strength', minutes: 50, wake: 400 });
+  });
+
+  it('a skipped session leaves a rest morning that keeps the day\'s own alarm', () => {
+    const day = morningDayFor([{ ...easy4, mark: 'skip' }], { wake: 480 }, MORNING_DEFAULTS);
+    expect(day).toMatchObject({ mode: 'rest', wake: 480, own: true });
+    expect(day.plan.label).toBe('Easy 4 skipped');
+  });
+
+  it('no override: the routine\'s alarm, own false; an override with no usable wake falls back to it too', () => {
+    expect(morningDayFor([easy4], null, MORNING_DEFAULTS)).toMatchObject({ wake: MORNING_DEFAULTS.wake, own: false });
+    expect(morningDayFor([easy4], {}, MORNING_DEFAULTS)).toMatchObject({ wake: MORNING_DEFAULTS.wake, own: true });
+  });
+
+  it('zMorningDay keeps only wake: legacy fields are stripped, not rejected', () => {
+    expect(zMorningDay.parse({ wake: 450 })).toEqual({ wake: 450 });
+    expect(zMorningDay.parse(legacy)).toEqual({ wake: 450 });
+    expect(zMorningDay.parse({ mode: 'nap', type: '', miles: 0, minutes: 0, wake: 445 })).toEqual({ wake: 445 });
+    expect(zMorningDay.safeParse({ mode: 'run' }).success).toBe(false);
+    expect(zMorningDay.safeParse({ wake: 1440 }).success).toBe(false);
+    expect(zMorningDay.safeParse({ wake: 7.5 }).success).toBe(false);
   });
 });

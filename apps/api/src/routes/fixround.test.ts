@@ -234,6 +234,82 @@ describe('contract 3: GET /export → POST /import', () => {
   });
 });
 
+describe('one editor: a morning day is its alarm (spec §4.3)', () => {
+  const D = shiftDays(T, 3);
+  const row = (userId: string, date: string) => sqlite.prepare('select mode, type, miles, minutes, wake from morning_days where user_id = ? and date = ?').get(userId, date);
+  const monthDays = async (cookie: string, date: string) => (await call('GET', `/api/months/${date.slice(0, 7)}`, undefined, cookie)).body.morningDays as Record<string, unknown>;
+
+  it('PUT { wake } on a day with no row inserts it with neutral fillers in the NOT NULL columns', async () => {
+    const { cookie, id } = await signUp('a@example.com');
+    const r = await call('PUT', `/api/morning/days/${D}`, { wake: 450 }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ wake: 450 });
+    // no session that day: mode 'run'; the rest are fillers
+    expect(row(id, D)).toEqual({ mode: 'run', type: '', miles: 0, minutes: 0, wake: 450 });
+    // a day with a lift: the filler mode is the session's
+    const L = shiftDays(T, 4);
+    await call('POST', '/api/sessions', { date: L, kind: 'lift', type: 'Strength' }, cookie);
+    expect((await call('PUT', `/api/morning/days/${L}`, { wake: 420 }, cookie)).status).toBe(200);
+    expect(row(id, L)).toEqual({ mode: 'gym', type: '', miles: 0, minutes: 0, wake: 420 });
+  });
+
+  it('PUT with the legacy fields stores and answers { wake } only; a second PUT changes only wake; the month says { wake }', async () => {
+    const { cookie, id } = await signUp('a@example.com');
+    const legacy = await call('PUT', `/api/morning/days/${D}`, { mode: 'rest', type: 'Rest', miles: 9, minutes: 90, wake: 430 }, cookie);
+    expect(legacy.status).toBe(200);
+    expect(legacy.body).toEqual({ wake: 430 });
+    expect(row(id, D)).toEqual({ mode: 'run', type: '', miles: 0, minutes: 0, wake: 430 });
+    // a row the old day editor wrote: a second PUT leaves its legacy columns as they are and moves the wake
+    const O = shiftDays(T, 5);
+    sqlite.prepare("insert into morning_days (user_id, date, mode, type, miles, minutes, wake) values (?, ?, 'rest', 'Rest', 6, 50, 440)").run(id, O);
+    const again = await call('PUT', `/api/morning/days/${O}`, { wake: 455, mode: 'gym', miles: 3 }, cookie);
+    expect(again.body).toEqual({ wake: 455 });
+    expect(row(id, O)).toEqual({ mode: 'rest', type: 'Rest', miles: 6, minutes: 50, wake: 455 });
+    expect((await call('PUT', `/api/morning/days/${D}`, { wake: 445 }, cookie)).body).toEqual({ wake: 445 });
+    expect(row(id, D)).toEqual({ mode: 'run', type: '', miles: 0, minutes: 0, wake: 445 });
+    // the month payload: { wake } and nothing else, for the new row and the legacy one alike
+    const m = { ...(await monthDays(cookie, D)), ...(await monthDays(cookie, O)) };
+    expect(m[D]).toEqual({ wake: 445 });
+    expect(m[O]).toEqual({ wake: 455 });
+    // still refused: no wake, or a wake off the clock
+    expect((await call('PUT', `/api/morning/days/${D}`, { mode: 'run' }, cookie)).status).toBe(422);
+    expect((await call('PUT', `/api/morning/days/${D}`, { wake: 1500 }, cookie)).status).toBe(422);
+    // DELETE still clears the day
+    expect((await call('DELETE', `/api/morning/days/${D}`, undefined, cookie)).status).toBe(200);
+    expect(row(id, D)).toBeUndefined();
+  });
+
+  it('the exporter round-trips legacy rows (the same wakes in a fresh account) and takes an old file with all five fields', async () => {
+    const a = await signUp('a@example.com');
+    const O = shiftDays(T, 5);
+    sqlite.prepare("insert into morning_days (user_id, date, mode, type, miles, minutes, wake) values (?, ?, 'rest', 'Rest', 6, 50, 440)").run(a.id, O);
+    await call('PUT', `/api/morning/days/${D}`, { wake: 450 }, a.cookie);
+    const file = (await call('GET', '/api/export', undefined, a.cookie)).body as ExportV2;
+    // the export keeps the stored columns (a backup), legacy and filler alike
+    expect(file.morningDays[O]).toEqual({ mode: 'rest', type: 'Rest', miles: 6, minutes: 50, wake: 440 });
+    expect(file.morningDays[D]).toEqual({ mode: 'run', type: '', miles: 0, minutes: 0, wake: 450 });
+    const b = await signUp('b@example.com');
+    const imp = await call('POST', '/api/import', file, b.cookie);
+    expect(imp.status).toBe(200);
+    expect(imp.body.imported.morningDays).toBe(2);
+    const wakes = async (cookie: string) => Object.fromEntries(Object.entries({ ...(await monthDays(cookie, D)), ...(await monthDays(cookie, O)) }).map(([k, v]) => [k, v]));
+    expect(await wakes(b.cookie)).toEqual({ [D]: { wake: 450 }, [O]: { wake: 440 } });
+    expect(await wakes(b.cookie)).toEqual(await wakes(a.cookie));
+
+    // an old export file (written before the change) whose morning days carry all five fields, and one with { wake } alone
+    const c = await signUp('c@example.com');
+    const old = { version: 2, morningDays: { [D]: { mode: 'gym', type: 'Strength', miles: 5, minutes: 45, wake: 415 }, [O]: { wake: 425 } } };
+    const r = await call('POST', '/api/import', old, c.cookie);
+    expect(r.status).toBe(200);
+    expect(r.body.imported.morningDays).toBe(2);
+    expect(row(c.id, D)).toEqual({ mode: 'gym', type: 'Strength', miles: 5, minutes: 45, wake: 415 });
+    expect(row(c.id, O)).toEqual({ mode: 'run', type: '', miles: 0, minutes: 0, wake: 425 });
+    expect(await wakes(c.cookie)).toEqual({ [D]: { wake: 415 }, [O]: { wake: 425 } });
+    // a morning day with no wake is a broken file
+    expect((await call('POST', '/api/import', { version: 2, morningDays: { [D]: { mode: 'run', type: 'Easy', miles: 4, minutes: 40 } } }, c.cookie)).status).toBe(422);
+  });
+});
+
 describe('contract 4: Idempotency-Key', () => {
   it('a replayed POST lands once and answers the first response', async () => {
     const { cookie, id } = await signUp('a@example.com');

@@ -1,5 +1,6 @@
 import {
   addMonths,
+  morningPlanFor,
   monthStart,
   NEW_ACCOUNT_MORNING,
   normalizeMorningSettings,
@@ -158,7 +159,8 @@ export const coreRoutes = (db: DB) => {
       checks,
       lifts,
       activities: activitiesBetween(db, userId, from, to),
-      morningDays: Object.fromEntries(mornings.map((m) => [m.date, { mode: m.mode, type: m.type, miles: m.miles, minutes: m.minutes, wake: m.wake } as MorningDayOverride])),
+      // one editor (spec §4.3): a morning's own setting is its alarm; the stored mode/type/miles/minutes are fillers nobody reads
+      morningDays: Object.fromEntries(mornings.map((m) => [m.date, { wake: m.wake } satisfies MorningDayOverride])),
       journal: entries,
       coach,
     });
@@ -400,12 +402,17 @@ export const coreRoutes = (db: DB) => {
   r.put('/morning/days/:date', async (c) => {
     const userId = uidOf(c);
     const date = zDate.parse(c.req.param('date'));
-    const body = await parseBody(c.req.raw, zMorningDay);
+    // `{ wake }` only: legacy fields an old client sends are stripped by the schema (spec §4.3)
+    const { wake } = await parseBody(c.req.raw, zMorningDay);
+    // the legacy columns are NOT NULL and stay; a new row gets neutral fillers that nothing reads (the workout is the
+    // session's), and a conflict changes the wake alone
+    const sessions = sessionsBetween(db, userId, date, date);
+    const mode = sessions.length ? morningPlanFor(sessions).mode : 'run';
     db.insert(morningDays)
-      .values({ userId, date, ...body })
-      .onConflictDoUpdate({ target: [morningDays.userId, morningDays.date], set: body })
+      .values({ userId, date, wake, mode, type: '', miles: 0, minutes: 0 })
+      .onConflictDoUpdate({ target: [morningDays.userId, morningDays.date], set: { wake } })
       .run();
-    return c.json(body);
+    return c.json({ wake } satisfies MorningDayOverride);
   });
 
   r.delete('/morning/days/:date', (c) => {
