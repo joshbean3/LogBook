@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { assess, clock, fmtDate, isISODate, KINDS, METERS_PER_MILE, mi, mondayOf, parseISO, shiftDays, today, zClaudePlanOutput, type Activity, type HrZone, type PlanDraft, type Session, type SessionKind } from '@logbook/shared';
+import { assess, clock, fmtDate, isISODate, KINDS, METERS_PER_MILE, mi, mondayOf, parseISO, shiftDays, today, zClaudeGoalOutput, zClaudePlanOutput, type Activity, type GoalLevel, type HrZone, type PlanDraft, type Session, type SessionKind } from '@logbook/shared';
 import { env } from '../env.js';
 import { ApiError } from '../lib/util.js';
 
@@ -172,4 +172,50 @@ export const coachRead = async (date: string, sess: Session | null, runs: Activi
     .trim();
   if (!text) throw new ApiError(502, 'Claude sent back an empty note. Try again.', 'empty');
   return text.slice(0, 700);
+};
+
+const GOAL_SCOPE: Record<GoalLevel, string> = {
+  year: 'a goal for the whole year',
+  month: 'a goal for one month',
+  week: 'a goal for one week (Monday to Sunday)',
+  day: 'a goal for one day: something he can finish today',
+};
+
+/**
+ * The goal review (Locke and Latham, "New Directions in Goal-Setting Theory", 2006): rewrite the owner's goal so it is
+ * specific, measurable, hard but attainable, bound to the period's deadline, and his; a learning goal when the task is new
+ * or complex. Keeps his intent and his voice; leaves a goal that already meets the rules alone.
+ */
+export const refineGoal = async (level: GoalLevel, period: string, end: string, text: string, t: string): Promise<{ text: string; why: string | null; changed: boolean }> => {
+  const c = anthropic();
+  const prompt = [
+    'You review personal goals using the findings of Locke and Latham\'s goal-setting research (35 years of studies; "New Directions in Goal-Setting Theory", 2006).',
+    'The findings to apply:',
+    '- Specific, difficult goals lead to higher performance than vague goals or "do your best". Replace vague words ("more", "better", "try to", "work on") with a concrete target.',
+    '- The goal must be measurable, so he can tell at the deadline whether he hit it: a number, a count, a finished thing, or a clear yes/no outcome.',
+    '- Hard but attainable: raise a timid goal a notch, scale down one that cannot fit the period. Difficulty must stay realistic for the time available.',
+    '- Bind it to its deadline: the period it is for.',
+    '- When the task is new or complex for him, a learning goal (find, try or master N strategies or skills) beats a performance outcome; when the goal is distant, name the first proximal step.',
+    '- Commitment comes from goals he owns: write in the first person, in his own words and voice, as a statement of what he will do, not a wish.',
+    '',
+    `TODAY: ${t}. This is ${GOAL_SCOPE[level]}, period ${period}, ending ${end}.`,
+    `HIS GOAL: ${text}`,
+    '',
+    'Return:',
+    '- goal: the rewritten goal, one sentence, at most 28 words, first person, no quotation marks, no emoji, no markdown. Keep his intent and any numbers he gave. If his goal already meets the rules, return it unchanged.',
+    '- why: one short plain sentence (under 16 words) naming what you changed, e.g. "Added a number and the Friday deadline so you can tell if you hit it." Empty string if unchanged.',
+    '- changed: true if you changed the meaning or the words beyond punctuation.',
+  ].join('\n');
+  const msg = await c.messages.create({ model: env.ANTHROPIC_MODEL, max_tokens: 1200, output_config: { effort: 'low', format: zodOutputFormat(zClaudeGoalOutput) }, messages: [{ role: 'user', content: prompt }] });
+  if (msg.stop_reason === 'refusal') throw new ApiError(422, 'Claude declined to review this goal.', 'refused');
+  const raw = msg.content.find((b) => b.type === 'text')?.text ?? '';
+  let out: { goal: string; why: string; changed: boolean };
+  try {
+    out = zClaudeGoalOutput.parse(JSON.parse(raw));
+  } catch {
+    throw new ApiError(502, 'The review didn’t come back usable. Try again.', 'invalid_goal');
+  }
+  const goal = out.goal.trim().replace(/^["“]|["”]$/g, '').slice(0, 400);
+  const changed = out.changed && !!goal && goal !== text.trim();
+  return { text: changed ? goal : text.trim(), why: changed ? out.why.trim().slice(0, 300) || null : null, changed };
 };

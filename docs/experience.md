@@ -27,7 +27,7 @@ The bar: someone opens Logbook at 6:30am and at 9pm and in under two seconds see
 
 **`docs/feel.md` §1–§2 (v4.2) is the navigation spec; this section is its summary.**
 
-**Tab bar: Today · Plan · Progress · Journal.** Four tabs. Icons: Sun, CalendarDays, Activity, BookOpen. There is no Morning tab: the morning is **This morning**, a page pushed from Today.
+**Tab bar: Today · Goals · Plan · Progress · Journal.** Five tabs. Icons: Sun, Target, CalendarDays, Activity, BookOpen. Goals carries a dot when today's or this week's goal is unset or a review is owed. There is no Morning tab: the morning is **This morning**, a page pushed from Today.
 
 | Route | What | Reached from |
 |---|---|---|

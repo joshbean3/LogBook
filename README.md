@@ -2,13 +2,22 @@
 
 A personal training log, habit tracker and journal, built as an installable web app with its own server and database.
 
-Four tabs, one data model:
+Five tabs, one data model:
 
 - **Today**: one page per day. Swipe anywhere on the page to the next or the previous day; the date strip under the bar shows
   the week and travels with you, and the caps line carries your word until you change it (`STEADY · FRI, OCT 23`). The hero
   changes with the time of day: out the door in 22 minutes, back by 8:13, then the run landing from Strava (or hold the ring
   to mark it done by hand). Habits as a row of orbs, the top three to-dos, the week's ring, and in the evening the day's
   close: two sentences, tomorrow's word and alarm.
+  Your day's and week's goals sit under the hero. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed
+  in a list (Work, Home) and highlighted in a colour; the To-dos sheet shows them by day or by list. Quick add reads marks
+  at the end of a line: `Send the model fri !!! #work` is a P1 for Friday in Work.
+- **Goals**: a goal for the year, the month, the week and the day. Write it as you'd say it; a review (Claude, on Locke and
+  Latham's goal-setting research) rewrites it to be specific, measurable, hard but attainable and due at the period's end,
+  and you keep its words or yours. When a period ends it asks "Did you hit it?" (Done, Partly, Missed, and a line on how it
+  went). History lists every day, week, month and year with its goal and outcome, including the ones with none set, and
+  the Log keeps every step: set, sharpened, edited, done, missed, cleared. A dot on the tab (and, on the phone, a morning
+  reminder) says when today's or this week's goal is unset.
 - **This morning** (pushed from Today's hero or its `This morning` row): the schedule from the alarm to the door, built from
   the day's run and your routine. Drag the alarm and every time below moves with it; hold a step to reorder it; it says when
   you have to leave.
@@ -60,6 +69,10 @@ The simplest path is Fly.io: one machine, one volume, no database server.
 5. **Deploy**: `fly deploy`
 6. **Open** `https://<your-app-name>.fly.dev` and create your account.
 7. **Close** setup so nobody else can: `fly secrets set ALLOW_SETUP=0`
+
+**Deploy on every push** (optional, once): `.github/workflows/deploy.yml` ships each push to this branch. Create a token with
+`fly tokens create deploy -a <your-app-name>` and add it to the GitHub repository as the Actions secret `FLY_API_TOKEN`
+(Settings → Secrets and variables → Actions). Without it the workflow skips.
 
 Any host that runs a Docker image with a persistent volume works the same way (Railway, Render, a VPS with `docker compose up -d`).
 

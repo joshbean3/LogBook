@@ -12,6 +12,7 @@ import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { TodayTodos } from '../todos/TodayTodos';
+import { TodayGoals } from '../goals/TodayGoals';
 import { planEndOf } from './dayWords';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
@@ -210,6 +211,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       <Sentence />
+      {loaded && !first ? <TodayGoals date={date} today={today} /> : null}
       {isToday && loaded && !first ? <NudgeSlot date={date} onMorning={onMorning} /> : null}
       <MorningRow date={date} log={log} />
       {loaded ? <SecondSession date={date} log={log} /> : null}

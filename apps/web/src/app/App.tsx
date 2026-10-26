@@ -22,6 +22,8 @@ import '@/styles/foundation.css';
 // other views arrive as chunks, prefetched once the first screen is up.
 const views = {
   morning: () => import('@/features/morning/MorningView'),
+  goals: () => import('@/features/goals/GoalsView'),
+  goalHistory: () => import('@/features/goals/GoalHistory'),
   plan: () => import('@/features/plan/PlanView'),
   progress: () => import('@/features/progress/ProgressView'),
   journal: () => import('@/features/journal/JournalView'),
@@ -60,6 +62,8 @@ const view = <P extends object>(load: () => Promise<{ default: React.ComponentTy
   return Object.assign(View, { preload });
 };
 const MorningView = view(views.morning);
+const GoalsView = view(views.goals);
+const GoalHistory = view(views.goalHistory);
 const PlanView = view(views.plan);
 const ProgressView = view(views.progress);
 const JournalView = view(views.journal);
@@ -77,7 +81,7 @@ const prefetchViews = () => {
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [PlanView, ProgressView, JournalView, Welcome, PlansPage]) void v.preload().catch(() => undefined);
+    for (const v of [GoalsView, PlanView, ProgressView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
@@ -99,9 +103,10 @@ const STUBS = (() => {
 const StubRoot = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot })));
 const StubPushed = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed })));
 const pages = STUBS
-  ? { today: <StubRoot tab="today" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
+  ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
   : {
       today: <DayView />,
+      goals: <GoalsView />,
       plan: <PlanView />,
       progress: <ProgressView />,
       journal: <JournalView />,
@@ -110,6 +115,7 @@ const pages = STUBS
 const pushedFor = (e: PushedEntry) => {
   const pattern = matchRoute(e.path).route?.pattern;
   if (pattern === '/today/:date/morning') return <MorningView />;
+  if (pattern === '/goals/history') return <GoalHistory />;
   if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;

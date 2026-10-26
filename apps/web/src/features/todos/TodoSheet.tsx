@@ -1,17 +1,19 @@
-import { shiftDays, type ISODate, type Todo, type TodoBucket, type TodoPriority } from '@logbook/shared';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { shiftDays, type ISODate, type Todo, type TodoBucket, type TodoColor, type TodoPriority } from '@logbook/shared';
+import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useTodoMutations, useTodos } from '@/api/queries';
+import { useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button, ChipButton, IconButton, Segmented } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { groupsOn, stepWithin } from './groups';
-import { PriorityDots } from './PriorityDots';
+import { ColorSwatches, colorStyle } from './colors';
+import { ListSheet } from './ListSheet';
+import { PRIORITY_SHORT, PriorityFlag } from './PriorityDots';
 
 /**
- * The editor behind a tap on a to-do: the name, a note, how much it matters, when it is for, and its place in the list.
- * Save is the sheet's one blue; priority and when are ink and white, never a colour.
+ * The editor behind a tap on a to-do: the name, a note, how much it matters (P1 to P3, each a coloured flag), the list it
+ * belongs to, a highlight colour, when it is for, and its place in the list. Save is the sheet's one blue.
  */
 export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   const { patch, reorder } = useTodoMutations();
@@ -28,18 +30,23 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   const [priority, setPriority] = useState<TodoPriority>(x.priority);
   const [bucket, setBucket] = useState<TodoBucket>(x.bucket);
   const [due, setDue] = useState<ISODate | null>(x.due);
+  const [groupId, setGroupId] = useState<string | null>(x.groupId);
+  const [color, setColor] = useState<TodoColor | null>(x.color);
+  const groups = useTodoGroups();
   const dateIn = useRef<HTMLInputElement>(null);
   const tomorrow = shiftDays(date, 1);
   const nextText = text.trim();
   const nextNote = note.trim();
   const nextDue = bucket === 'later' ? due ?? tomorrow : null;
-  const changed = !!nextText && (nextText !== cur.text || nextNote !== (cur.note ?? '') || priority !== cur.priority || bucket !== cur.bucket || nextDue !== cur.due);
+  const changed = !!nextText && (nextText !== cur.text || nextNote !== (cur.note ?? '') || priority !== cur.priority || bucket !== cur.bucket || nextDue !== cur.due || groupId !== cur.groupId || color !== cur.color);
   const save = () => {
     if (!changed) return;
     const p: Parameters<typeof patch.mutate>[0] = { id: x.id };
     if (nextText !== cur.text) p.text = nextText;
     if (nextNote !== (cur.note ?? '')) p.note = nextNote || null;
     if (priority !== cur.priority) p.priority = priority;
+    if (groupId !== cur.groupId) p.groupId = groupId;
+    if (color !== cur.color) p.color = color;
     if (bucket !== cur.bucket) p.bucket = bucket;
     if (nextDue !== cur.due) {
       p.due = nextDue;
@@ -87,30 +94,43 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
       </label>
       <div className="tsheet-field">
         <span className="caps">Priority</span>
-        <Segmented<'0' | '1' | '2'>
+        <Segmented<'0' | '3' | '2' | '1'>
           label="Priority"
-          value={String(priority) as '0' | '1' | '2'}
-          onChange={(v) => {
-            setPriority(Number(v) as TodoPriority);
-          }}
-          options={[
-            ['0', 'None'],
-            [
-              '1',
-              <span key="1" className="seg-prio">
-                <PriorityDots level={1} decorative />
-                Medium
-              </span>,
-            ],
-            [
-              '2',
-              <span key="2" className="seg-prio">
-                <PriorityDots level={2} decorative />
-                High
-              </span>,
-            ],
-          ]}
+          value={String(priority) as '0' | '3' | '2' | '1'}
+          onChange={(v) => setPriority(Number(v) as TodoPriority)}
+          options={(['0', '3', '2', '1'] as const).map((k) => [
+            k,
+            k === '0' ? (
+              'None'
+            ) : (
+              <span key={k} className="seg-prio">
+                <PriorityFlag level={Number(k) as TodoPriority} decorative size={13} />
+                {PRIORITY_SHORT[Number(k) as TodoPriority]}
+              </span>
+            ),
+          ])}
         />
+      </div>
+      <div className="tsheet-field">
+        <span className="caps">List</span>
+        <div className="tsheet-when tsheet-lists" role="radiogroup" aria-label="List">
+          <ChipButton on={groupId === null} onClick={() => setGroupId(null)} role="radio" aria-checked={groupId === null}>
+            None
+          </ChipButton>
+          {(groups.data ?? []).map((g) => (
+            <ChipButton key={g.id} on={groupId === g.id} onClick={() => setGroupId(g.id)} role="radio" aria-checked={groupId === g.id} className="list-pick" style={colorStyle(g.color)}>
+              <span className="list-pick-dot" aria-hidden="true" />
+              {g.name}
+            </ChipButton>
+          ))}
+          <ChipButton quiet onClick={() => sheet.push({ title: 'New list', body: <ListSheet onCreated={(g) => setGroupId(g.id)} /> })}>
+            <Plus size={14} strokeWidth={2.4} aria-hidden="true" /> New list
+          </ChipButton>
+        </div>
+      </div>
+      <div className="tsheet-field">
+        <span className="caps">Highlight</span>
+        <ColorSwatches value={color} onChange={setColor} label="Highlight" />
       </div>
       <div className="tsheet-field">
         <span className="caps">When</span>

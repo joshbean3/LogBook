@@ -127,6 +127,10 @@ export const todos = sqliteTable(
     text: text('text').notNull(),
     note: text('note'),
     priority: integer('priority').notNull().default(0),
+    /** Its own highlight (`TodoColor`); null shows its list's colour. Migration 0009. */
+    color: text('color'),
+    /** The list it is in (`todo_groups.id`); null when in none. Migration 0009. */
+    groupId: text('group_id'),
     due: text('due'),
     bucket: text('bucket').notNull().default('today'),
     position: integer('position').notNull().default(0),
@@ -136,6 +140,58 @@ export const todos = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index('todos_user').on(t.userId)],
+);
+
+/** The owner's named lists of to-dos ("Work", "Home"), each with a colour. Deleting one leaves its to-dos in no list. Migration 0009. */
+export const todoGroups = sqliteTable(
+  'todo_groups',
+  {
+    id: id(),
+    userId: userId(),
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: createdAt(),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('todo_groups_user').on(t.userId)],
+);
+
+/** One goal per level (year, month, week, day) and period. Migration 0009. */
+export const goals = sqliteTable(
+  'goals',
+  {
+    id: id(),
+    userId: userId(),
+    level: text('level').notNull(),
+    period: text('period').notNull(),
+    text: text('text').notNull(),
+    original: text('original'),
+    why: text('why'),
+    status: text('status').notNull().default('open'),
+    reflection: text('reflection'),
+    createdAt: createdAt(),
+    updatedAt: text('updated_at').notNull(),
+    closedAt: text('closed_at'),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('goals_user').on(t.userId), uniqueIndex('goals_user_level_period').on(t.userId, t.level, t.period)],
+);
+
+/** Every change to a goal, in order: what was set, sharpened, kept, edited, done, missed, cleared. Never deleted except with the account. Migration 0009. */
+export const goalEvents = sqliteTable(
+  'goal_events',
+  {
+    id: id(),
+    userId: userId(),
+    goalId: text('goal_id').notNull(),
+    level: text('level').notNull(),
+    period: text('period').notNull(),
+    kind: text('kind').notNull(),
+    text: text('text'),
+    at: text('at').notNull(),
+  },
+  (t) => [index('goal_events_user_at').on(t.userId, t.at), index('goal_events_goal').on(t.goalId)],
 );
 
 export const morningDays = sqliteTable(

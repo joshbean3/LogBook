@@ -57,7 +57,7 @@ interface Overlay {
 }
 type Op = { kind: 'push' | 'replace'; path: string; idx: number; overlay?: boolean } | { kind: 'traverse'; n: number } | { kind: 'foreign'; push: boolean; data: unknown; url?: string | URL | null };
 
-const ROOTS: Record<TabId, string> = { today: '/today', plan: '/plan', progress: '/progress', journal: '/journal' };
+const ROOTS: Record<TabId, string> = { today: '/today', goals: '/goals', plan: '/plan', progress: '/progress', journal: '/journal' };
 const STACKS_KEY = 'logbook.stacks';
 const STALE_MS = 30 * 60_000;
 const TRAVERSE_CAP_MS = 300;
@@ -65,6 +65,7 @@ const TRAVERSE_CAP_MS = 300;
 const navOf = (): { idx?: number; overlay?: boolean } | undefined => (window.history.state as { nav?: { idx?: number; overlay?: boolean } } | null)?.nav;
 const emptyTabs = (): Record<TabId, TabState> => ({
   today: { path: ROOTS.today, stack: [] },
+  goals: { path: ROOTS.goals, stack: [] },
   plan: { path: ROOTS.plan, stack: [] },
   progress: { path: ROOTS.progress, stack: [] },
   journal: { path: ROOTS.journal, stack: [] },
@@ -88,10 +89,10 @@ export class Controller {
   private dead = new Set<number>();
   private pending: { timer: ReturnType<typeof setTimeout> } | null = null;
   private queue: Op[] = [];
-  private rootSubs: Record<TabId, Set<{ current: RootCb }>> = { today: new Set(), plan: new Set(), progress: new Set(), journal: new Set() };
-  private home: Record<TabId, { current: HomeControl } | null> = { today: null, plan: null, progress: null, journal: null };
+  private rootSubs: Record<TabId, Set<{ current: RootCb }>> = { today: new Set(), goals: new Set(), plan: new Set(), progress: new Set(), journal: new Set() };
+  private home: Record<TabId, { current: HomeControl } | null> = { today: null, goals: null, plan: null, progress: null, journal: null };
   /** Each tab's `.tab-scroll` (the Shell attaches them). */
-  readonly scrollers: Record<TabId, RefObject<HTMLDivElement | null>> = { today: createRef(), plan: createRef(), progress: createRef(), journal: createRef() };
+  readonly scrollers: Record<TabId, RefObject<HTMLDivElement | null>> = { today: createRef(), goals: createRef(), plan: createRef(), progress: createRef(), journal: createRef() };
   private layers = new Map<string, LayerControl>();
   /** Tabs whose pop-all is running (a second lit-tab tap rides along instead of writing history twice). */
   private popping = new Set<TabId>();

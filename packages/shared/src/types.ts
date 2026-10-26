@@ -1,3 +1,4 @@
+import type { Aim, GoalEvent } from './goals.js';
 import type { ISODate } from './dates.js';
 
 // ---------- training plan ----------
@@ -93,8 +94,20 @@ export interface LiftSet {
   createdAt: string;
 }
 
-/** 0 none, 1 medium (one dot), 2 high (two dots). Never a colour. */
-export type TodoPriority = 0 | 1 | 2;
+/** 0 none, then P3 (1), P2 (2), P1 (3): a higher number matters more. Each is a flag in its own colour. */
+export type TodoPriority = 0 | 1 | 2 | 3;
+/** A highlight a to-do (or a list) carries: a colour bar at the row's edge. */
+export type TodoColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+export const TODO_COLORS: readonly TodoColor[] = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'];
+
+/** A named list of to-dos ("Work", "Home"), with its colour and its place among the lists. */
+export interface TodoGroup {
+  id: string;
+  name: string;
+  color: TodoColor;
+  position: number;
+  createdAt: string;
+}
 /** When it is for: Today (the working list), Later (a date or just "not today"), Someday (parked). */
 export type TodoBucket = 'today' | 'later' | 'someday';
 
@@ -104,6 +117,10 @@ export interface Todo {
   /** A small note under the name; null when there is none. */
   note: string | null;
   priority: TodoPriority;
+  /** Its own highlight; null shows its list's colour (or none). */
+  color: TodoColor | null;
+  /** The list it belongs to; null when it is in none. */
+  groupId: string | null;
   /** The date a Later item is for; it surfaces into Today on that day. */
   due: ISODate | null;
   bucket: TodoBucket;
@@ -301,4 +318,8 @@ export interface ExportV2 {
   links: Link[];
   morningDays: Record<ISODate, LegacyMorningDay>;
   coach: CoachRead[];
+  /** To-do lists (since goals and lists landed; absent in older exports). */
+  todoGroups?: TodoGroup[];
+  goals?: Aim[];
+  goalEvents?: GoalEvent[];
 }

@@ -52,7 +52,7 @@ export const settleInto = (list: Todo[], id: string, tier: Tier): Partial<Pick<T
   const next = list[i + 1];
   if (tier === 'priority') {
     // the list runs high → low, so the row above bounds it from above and the row below from below
-    const p = Math.min(prev?.priority ?? 2, Math.max(next?.priority ?? 0, x.priority));
+    const p = Math.min(prev?.priority ?? 3, Math.max(next?.priority ?? 0, x.priority));
     return p !== x.priority ? { priority: p as Todo['priority'] } : null;
   }
   if (tier === 'due' && x.due) {

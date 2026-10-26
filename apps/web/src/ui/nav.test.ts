@@ -3,9 +3,9 @@ import { matchRoute, resolveRoute, ROUTES, TABS } from './nav';
 
 /** docs/feel.md §1.2 and contracts §A.1: every route of the table and every redirect resolves to its target. */
 describe('the route table', () => {
-  it('has the four tabs in order', () => {
-    expect(TABS.map((t) => t.id)).toEqual(['today', 'plan', 'progress', 'journal']);
-    expect(TABS.map((t) => t.root)).toEqual(['/today', '/plan', '/progress', '/journal']);
+  it('has the five tabs in order', () => {
+    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'plan', 'progress', 'journal']);
+    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/plan', '/progress', '/journal']);
   });
 
   it.each([

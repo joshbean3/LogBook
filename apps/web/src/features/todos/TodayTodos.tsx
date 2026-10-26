@@ -3,7 +3,7 @@ import { ChevronRight, Clock, Flag, FlagOff, Moon, Plus, RotateCcw, Trash2 } fro
 import { animate } from 'motion/react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { clientKey, useTodos } from '@/api/queries';
+import { clientKey, useTodoGroups, useTodos } from '@/api/queries';
 import { FOLD_MS } from '@/lib/gesture';
 import { useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
@@ -15,7 +15,8 @@ import { useHold } from '@/ui/useHold';
 import { usePress } from '@/ui/usePress';
 import { useFlip } from './flip';
 import { byPosition, groupsOn, liveOn } from './groups';
-import { PriorityDots } from './PriorityDots';
+import { colorOf, colorStyle, groupOf, ListChip } from './colors';
+import { PriorityFlag } from './PriorityDots';
 import { QuickAddField, TodoListSheet, useTodoActions } from './TodoList';
 import { TodoMark } from './TodoMark';
 import { TodoSheet } from './TodoSheet';
@@ -55,7 +56,7 @@ interface RowProps {
 /**
  * One row of the inset group (44, or 60 with a note): the mark, the words, an aside. No swipe on Today (M9: the day pager
  * is the page's one horizontal gesture): the mark is Done, the words open the to-do, and a hold anywhere but on the mark
- * lifts the row in place with `Later · Someday · Priority · Delete`. The row shows `--surface-2` while pressed.
+ * lifts the row in place with `Later · Someday · Priority 1 · Delete`. The row shows `--surface-2` while pressed.
  */
 const TodoRow = memo(function TodoRow({ x, date, on, onMark, onEdit, menu }: RowProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -69,10 +70,14 @@ const TodoRow = memo(function TodoRow({ x, date, on, onMark, onEdit, menu }: Row
     },
   });
   const aside = asideOf(x, date);
+  const groups = useTodoGroups();
+  const tint = colorOf(x, groups.data);
+  const list = groupOf(x, groups.data);
   return (
     <div
       ref={ref}
-      className={`tt-row ${on ? 'is-done' : ''} ${x.note ? 'two' : ''}`}
+      className={`tt-row ${on ? 'is-done' : ''} ${x.note ? 'two' : ''} ${tint ? 'has-tc' : ''}`}
+      style={colorStyle(tint)}
       data-press="surface"
       data-flip=""
       data-key={clientKey(x.id)}
@@ -98,12 +103,12 @@ const TodoRow = memo(function TodoRow({ x, date, on, onMark, onEdit, menu }: Row
         <TodoMark on={on} label={aside ? `${x.text}, ${aside}` : x.text} onToggle={(next) => onMark(x, next)} />
         <button type="button" className="tt-name" onClick={() => onEdit(x)}>
           <span className="trow-title">
-            <PriorityDots level={x.priority} />
             <span className="tt-text">{x.text}</span>
+            <PriorityFlag level={x.priority} />
           </span>
           {x.note ? <span className="trow-note">{x.note}</span> : null}
         </button>
-        {aside ? <span className="tt-aside caps">{aside}</span> : null}
+        {aside ? <span className="tt-aside caps">{aside}</span> : list ? <ListChip group={list} /> : null}
       </div>
     </div>
   );
@@ -249,7 +254,7 @@ export const TodayTodos = ({ date }: { date: ISODate }) => {
       : [
           { label: 'Later', icon: <Clock size={18} />, onSelect: viaMenu(() => act.later(x)) },
           { label: 'Someday', icon: <Moon size={18} />, onSelect: viaMenu(() => act.someday(x)) },
-          x.priority < 2 ? { label: 'Priority', icon: <Flag size={18} />, onSelect: viaMenu(() => act.priority(x, 2)) } : { label: 'No priority', icon: <FlagOff size={18} />, onSelect: viaMenu(() => act.priority(x, 0)) },
+          x.priority < 3 ? { label: 'Priority 1', icon: <Flag size={18} />, onSelect: viaMenu(() => act.priority(x, 3)) } : { label: 'No priority', icon: <FlagOff size={18} />, onSelect: viaMenu(() => act.priority(x, 0)) },
           { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: viaMenu(() => act.remove(x)) },
         ];
   // memoised rows get stable callbacks

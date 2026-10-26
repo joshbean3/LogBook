@@ -21,7 +21,8 @@ import {
   userSettings,
   users,
 } from '../db/schema.js';
-import { toBlock, toEntry, toHabit, toLift, toSession, toTodo } from '../lib/map.js';
+import { goalEvents, goals, todoGroups } from '../db/schema.js';
+import { toBlock, toEntry, toGoal, toGoalEvent, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { nowISO } from '../lib/util.js';
 import { toLink } from '../routes/reads.js';
 
@@ -105,6 +106,9 @@ export const exportAccount = (db: DB, userId: string): ExportV2 => {
       .all()
       .map(toLift),
     todos: db.select().from(todos).where(eq(todos.userId, userId)).all().map(toTodo),
+    todoGroups: db.select().from(todoGroups).where(and(eq(todoGroups.userId, userId), isNull(todoGroups.deletedAt))).all().map(toTodoGroup),
+    goals: db.select().from(goals).where(and(eq(goals.userId, userId), isNull(goals.deletedAt))).all().map(toGoal),
+    goalEvents: db.select().from(goalEvents).where(eq(goalEvents.userId, userId)).all().map(toGoalEvent),
     journal: db
       .select()
       .from(journalEntries)
@@ -204,7 +208,9 @@ export const zExportV2 = z.object({
         id: zId,
         text: str(200).min(1),
         note: opt(str(1000)),
-        priority: z.number().int().min(0).max(2).default(0),
+        priority: z.number().int().min(0).max(3).default(0),
+        color: opt(z.enum(['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'])),
+        groupId: opt(str(64)),
         due: opt(zDay),
         bucket: z.enum(['today', 'later', 'someday']).default('today'),
         position: z.number().int().default(0),
@@ -214,6 +220,27 @@ export const zExportV2 = z.object({
         createdAt: z.string(),
       }),
     )
+    .default([]),
+  todoGroups: z.array(z.object({ id: zId, name: str(30).min(1), color: z.enum(['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink']), position: z.number().int().default(0), createdAt: z.string() })).default([]),
+  goals: z
+    .array(
+      z.object({
+        id: zId,
+        level: z.enum(['year', 'month', 'week', 'day']),
+        period: str(10).min(4),
+        text: str(400).min(1),
+        original: opt(str(400)),
+        why: opt(str(300)),
+        status: z.enum(['open', 'done', 'partly', 'missed']).default('open'),
+        reflection: opt(str(500)),
+        createdAt: z.string(),
+        updatedAt: z.string(),
+        closedAt: opt(z.string()),
+      }),
+    )
+    .default([]),
+  goalEvents: z
+    .array(z.object({ id: zId, goalId: zId, level: z.enum(['year', 'month', 'week', 'day']), period: str(10).min(4), kind: z.enum(['set', 'sharpened', 'kept', 'edited', 'done', 'partly', 'missed', 'reopened', 'cleared']), text: opt(str(500)), at: z.string() }))
     .default([]),
   journal: z.array(z.object({ id: zId, date: zDay, text: str(5000).min(1), createdAt: z.string(), editedAt: opt(z.string()), fav: z.boolean().default(false) })).default([]),
   quotes: z
@@ -380,11 +407,19 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
     }
 
     // ---------- to-dos, journal, quotes, links ----------
+    const groupIds = new Map<string, string>();
+    for (const g of b.todoGroups) {
+      const c = claim(todoGroups, todoGroups.id, todoGroups.userId, g.id);
+      groupIds.set(g.id, c.id);
+      if (c.have) continue;
+      t.insert(todoGroups).values({ id: c.id, userId, name: g.name, color: g.color, position: g.position, createdAt: g.createdAt, deletedAt: null }).run();
+      bump('todoGroups');
+    }
     for (const x of b.todos) {
       const c = claim(todos, todos.id, todos.userId, x.id);
       if (c.have) continue;
       t.insert(todos)
-        .values({ id: c.id, userId, text: x.text, note: x.note ?? null, priority: x.priority, due: x.due ?? null, bucket: x.bucket, position: x.position, createdOn: x.createdOn, doneOn: x.doneOn ?? null, deletedOn: x.deletedOn ?? null, createdAt: x.createdAt })
+        .values({ id: c.id, userId, text: x.text, note: x.note ?? null, priority: x.priority, color: x.color ?? null, groupId: x.groupId ? (groupIds.get(x.groupId) ?? null) : null, due: x.due ?? null, bucket: x.bucket, position: x.position, createdOn: x.createdOn, doneOn: x.doneOn ?? null, deletedOn: x.deletedOn ?? null, createdAt: x.createdAt })
         .run();
       bump('todos');
     }
@@ -441,6 +476,27 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
         .onConflictDoNothing()
         .run();
       if (res.changes) bump('morningDays');
+    }
+    // ---------- goals and their log ----------
+    const goalIds = new Map<string, string>();
+    for (const g of b.goals) {
+      // one goal per period: an account that already has one for that period keeps its own
+      const same = t.select({ id: goals.id }).from(goals).where(and(eq(goals.userId, userId), eq(goals.level, g.level), eq(goals.period, g.period))).get();
+      if (same) {
+        goalIds.set(g.id, same.id);
+        continue;
+      }
+      const c = claim(goals, goals.id, goals.userId, g.id);
+      goalIds.set(g.id, c.id);
+      if (c.have) continue;
+      t.insert(goals).values({ id: c.id, userId, level: g.level, period: g.period, text: g.text, original: g.original ?? null, why: g.why ?? null, status: g.status, reflection: g.reflection ?? null, createdAt: g.createdAt, updatedAt: g.updatedAt, closedAt: g.closedAt ?? null, deletedAt: null }).run();
+      bump('goals');
+    }
+    for (const e of b.goalEvents) {
+      const c = claim(goalEvents, goalEvents.id, goalEvents.userId, e.id);
+      if (c.have) continue;
+      t.insert(goalEvents).values({ id: c.id, userId, goalId: goalIds.get(e.goalId) ?? e.goalId, level: e.level, period: e.period, kind: e.kind, text: e.text ?? null, at: e.at }).run();
+      bump('goalEvents');
     }
     for (const x of b.coach) {
       const key = maps.sessions.get(x.key) ?? x.key;

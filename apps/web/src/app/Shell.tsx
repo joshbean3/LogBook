@@ -1,3 +1,4 @@
+import { GoalsBadge } from '@/features/goals/GoalsBadge';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
@@ -234,6 +235,7 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
     >
       <Icon size={24} aria-hidden="true" {...iconProps} />
       <span className="tab-label">{t.label}</span>
+      {t.id === 'goals' ? <GoalsBadge /> : null}
     </button>
   );
 });

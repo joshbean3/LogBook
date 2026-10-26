@@ -245,20 +245,21 @@
 .prio {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
   flex: none;
-  align-self: flex-start;
-  margin-top: 8px;
+  align-self: center;
 }
-.prio i {
-  display: block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ink);
+/* stored 3 = P1, 2 = P2, 1 = P3 */
+.prio-3 {
+  color: var(--prio-1);
 }
-.is-done .prio i {
-  background: var(--ink-4);
+.prio-2 {
+  color: var(--prio-2);
+}
+.prio-1 {
+  color: var(--prio-3);
+}
+.is-done .prio {
+  color: var(--ink-4);
 }
 .seg-prio {
   display: inline-flex;
@@ -269,9 +270,7 @@
   align-self: center;
   margin-top: 0;
 }
-.seg-prio .prio i {
-  background: currentColor;
-}
+
 
 /* right side: the day a Later item is for, or where a carried item came from */
 .tdue {
@@ -443,4 +442,156 @@
   margin: 0;
   padding: 12px 20px;
   color: var(--ink-2);
+}
+
+/* ---------- highlight, lists, the By list view ---------- */
+/* a coloured bar at the row's edge: its own highlight, or its list's */
+.tt-row.has-tc,
+.tl-row.has-tc {
+  position: relative;
+}
+.tt-row.has-tc::after,
+.tl-row.has-tc::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--tc);
+  pointer-events: none;
+}
+.tt-row.has-tc.is-done::after,
+.tl-row.has-tc.is-done::after {
+  opacity: 0.35;
+}
+.list-chip {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--tc, var(--ink-2));
+  background: color-mix(in srgb, var(--tc, var(--ink)) 16%, transparent);
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.swatch {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.swatch-dot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--tc);
+  color: #000;
+}
+.swatch.is-none .swatch-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ink-4);
+  position: relative;
+}
+.swatch.is-none .swatch-dot::after {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 1.5px;
+  background: var(--ink-4);
+  transform: rotate(-45deg);
+}
+.swatch.on .swatch-dot {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--tc, var(--ink-2));
+}
+.swatch.is-none.on .swatch-dot {
+  box-shadow: inset 0 0 0 1.5px var(--ink-2), 0 0 0 2px var(--bg), 0 0 0 4px var(--ink-2);
+}
+.tsheet-lists {
+  flex-wrap: wrap;
+}
+.list-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.list-pick-dot,
+.tlist-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--tc);
+  flex: none;
+}
+.tsheet-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink-3);
+}
+.tlist-seg {
+  /* the list runs edge to edge (.tlist's −20 px); the switch keeps the sheet's inset */
+  width: auto;
+  margin: 0 20px 12px;
+}
+.tlist-list + .tlist-list {
+  margin-top: 20px;
+}
+.tlist-head.pressable,
+.tlist-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.tlist-name {
+  font: 600 17px/22px var(--sans);
+  letter-spacing: -0.01em;
+}
+.tlist-head.is-none .tlist-name {
+  color: var(--ink-3);
+}
+.tlist-count {
+  font-size: 15px;
+  color: var(--ink-3);
+}
+.tlist-chev {
+  margin-left: auto;
+  color: var(--ink-4);
+}
+.tlist-new.pressable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  min-height: 44px;
+  margin: 20px 20px 0;
+  padding: 0 12px;
+  border-radius: var(--r-group);
+  border: 1px dashed var(--line-strong);
+  background: none;
+  color: var(--accent-text);
+  font: 500 17px/22px var(--sans);
 }

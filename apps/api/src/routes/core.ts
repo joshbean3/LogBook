@@ -19,6 +19,8 @@ import {
   zSessionInput,
   zTodoInput,
   zTodoPatch,
+  zTodoGroupInput,
+  zTodoGroupPatch,
   zTodosReorder,
   type HabitCheck,
   type HrZone,
@@ -29,9 +31,9 @@ import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
-import { activities, coachReads, habitChecks, habits, hrZones, journalEntries, liftSets, morningDays, planBlocks, stravaAccounts, todos, trainingSessions, userSettings } from '../db/schema.js';
+import { activities, coachReads, habitChecks, habits, hrZones, journalEntries, liftSets, morningDays, planBlocks, stravaAccounts, todoGroups, todos, trainingSessions, userSettings } from '../db/schema.js';
 import { env } from '../env.js';
-import { toActivity, toBlock, toEntry, toHabit, toLift, toSession, toTodo } from '../lib/map.js';
+import { toActivity, toBlock, toEntry, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { stravaStatus } from '../services/strava.js';
 import { syncInBackground } from './strava.js';
@@ -341,6 +343,51 @@ export const coreRoutes = (db: DB) => {
 
   r.get('/todos', (c) => c.json(liveTodos(uidOf(c), c.get('today'))));
 
+  /** A list id the owner may file a to-do under: his own, not deleted. Anything else is a 404. */
+  const groupOf = (userId: string, id: string | null | undefined): string | null => {
+    if (!id) return null;
+    const g = db.select({ id: todoGroups.id }).from(todoGroups).where(and(eq(todoGroups.userId, userId), eq(todoGroups.id, id), isNull(todoGroups.deletedAt))).get();
+    if (!g) throw new ApiError(404, 'List not found');
+    return g.id;
+  };
+
+  // ---------- to-do lists ----------
+  const liveGroups = (userId: string) => db.select().from(todoGroups).where(and(eq(todoGroups.userId, userId), isNull(todoGroups.deletedAt))).orderBy(asc(todoGroups.position), asc(todoGroups.createdAt)).all().map(toTodoGroup);
+
+  r.get('/todo-groups', (c) => c.json(liveGroups(uidOf(c))));
+
+  r.post('/todo-groups', async (c) => {
+    const userId = uidOf(c);
+    const body = await parseBody(c.req.raw, zTodoGroupInput);
+    const id = uid('g');
+    const pos = (db.select({ m: sql<number>`coalesce(max(${todoGroups.position}), -1)` }).from(todoGroups).where(eq(todoGroups.userId, userId)).get()?.m ?? -1) + 1;
+    db.insert(todoGroups).values({ id, userId, name: body.name, color: body.color, position: pos, createdAt: nowISO(), deletedAt: null }).run();
+    return c.json(toTodoGroup(db.select().from(todoGroups).where(eq(todoGroups.id, id)).get()!), 201);
+  });
+
+  r.patch('/todo-groups/:id', async (c) => {
+    const userId = uidOf(c);
+    const body = await parseBody(c.req.raw, zTodoGroupPatch);
+    const id = groupOf(userId, c.req.param('id'))!;
+    const set: Partial<typeof todoGroups.$inferInsert> = {};
+    if (body.name !== undefined) set.name = body.name;
+    if (body.color !== undefined) set.color = body.color;
+    if (body.position !== undefined) set.position = body.position;
+    if (Object.keys(set).length) db.update(todoGroups).set(set).where(eq(todoGroups.id, id)).run();
+    return c.json(toTodoGroup(db.select().from(todoGroups).where(eq(todoGroups.id, id)).get()!));
+  });
+
+  /** Deleting a list keeps its to-dos: they move to no list. */
+  r.delete('/todo-groups/:id', (c) => {
+    const userId = uidOf(c);
+    const id = groupOf(userId, c.req.param('id'))!;
+    db.transaction((tx) => {
+      tx.update(todoGroups).set({ deletedAt: nowISO() }).where(eq(todoGroups.id, id)).run();
+      tx.update(todos).set({ groupId: null }).where(and(eq(todos.userId, userId), eq(todos.groupId, id))).run();
+    });
+    return c.json({ ok: true });
+  });
+
   r.post('/todos', async (c) => {
     const userId = uidOf(c);
     const body = await parseBody(c.req.raw, zTodoInput);
@@ -351,7 +398,7 @@ export const coreRoutes = (db: DB) => {
     // a date only lives on a Later item, and Later always has one: tomorrow unless said otherwise
     const due = bucket === 'later' ? body.due ?? shiftDays(body.date, 1) : null;
     db.insert(todos)
-      .values({ id, userId, text: body.text, note: null, priority: body.priority ?? 0, due, bucket, position: pos, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() })
+      .values({ id, userId, text: body.text, note: null, priority: body.priority ?? 0, color: body.color ?? null, groupId: groupOf(userId, body.groupId), due, bucket, position: pos, createdOn: body.date, doneOn: null, deletedOn: null, createdAt: nowISO() })
       .run();
     return c.json(toTodo(db.select().from(todos).where(eq(todos.id, id)).get()!), 201);
   });
@@ -375,6 +422,8 @@ export const coreRoutes = (db: DB) => {
     if (body.text !== undefined) set.text = body.text;
     if (body.note !== undefined) set.note = body.note || null;
     if (body.priority !== undefined) set.priority = body.priority;
+    if (body.color !== undefined) set.color = body.color;
+    if (body.groupId !== undefined) set.groupId = groupOf(userId, body.groupId);
     if (body.bucket !== undefined) set.bucket = body.bucket;
     // a date only lives on a Later item; a row moved to Later without one gets tomorrow; otherwise the date is left alone
     const bucket = body.bucket ?? row.bucket;

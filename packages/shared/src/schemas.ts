@@ -49,7 +49,10 @@ export const zLiftInput = z.object({
 });
 
 // ---------- todos ----------
-export const zTodoPriority = z.union([z.literal(0), z.literal(1), z.literal(2)]);
+export const zTodoPriority = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]);
+export const zTodoColor = z.enum(['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink']);
+export const zTodoGroupInput = z.object({ name: z.string().trim().min(1).max(30), color: zTodoColor });
+export const zTodoGroupPatch = z.object({ name: z.string().trim().min(1).max(30).optional(), color: zTodoColor.optional(), position: z.number().int().min(0).max(10_000).optional() });
 export const zTodoBucket = z.enum(['today', 'later', 'someday']);
 export const zTodoInput = z.object({
   text: z.string().trim().min(1).max(200),
@@ -57,6 +60,8 @@ export const zTodoInput = z.object({
   priority: zTodoPriority.optional(),
   due: zDate.nullable().optional(),
   bucket: zTodoBucket.optional(),
+  color: zTodoColor.nullable().optional(),
+  groupId: z.string().min(1).max(64).nullable().optional(),
 });
 export const zTodosReorder = z.object({ order: z.array(z.string().min(1).max(64)).min(1).max(500) });
 export const zTodoPatch = z.object({
@@ -64,6 +69,10 @@ export const zTodoPatch = z.object({
   /** A small note under the name; empty or null clears it. */
   note: z.string().trim().max(500).nullable().optional(),
   priority: zTodoPriority.optional(),
+  /** Its own highlight; null clears it. */
+  color: zTodoColor.nullable().optional(),
+  /** The list it is in; null takes it out. */
+  groupId: z.string().min(1).max(64).nullable().optional(),
   /** The day a Later item is for; null clears it. */
   due: zDate.nullable().optional(),
   bucket: zTodoBucket.optional(),
@@ -304,3 +313,22 @@ export const zTemplateUndo = z.object({
   endedBlocks: z.array(zEndedBlock).max(100).optional(),
 });
 export type TemplateUndoInput = z.infer<typeof zTemplateUndo>;
+
+// ---------- goals ----------
+export const zGoalLevel = z.enum(['year', 'month', 'week', 'day']);
+/** Set (or replace) the goal of one period. */
+export const zGoalPut = z.object({
+  text: z.string().trim().min(1).max(400),
+  /** The owner's own words, when the review rewrote them. */
+  original: z.string().trim().max(400).nullable().optional(),
+  why: z.string().trim().max(300).nullable().optional(),
+  /** Which the owner chose after the review: the sharpened words, or his own. */
+  chose: z.enum(['sharpened', 'kept', 'own']).optional(),
+});
+export const zGoalPatch = z.object({
+  status: z.enum(['open', 'done', 'partly', 'missed']).optional(),
+  reflection: z.string().trim().max(500).nullable().optional(),
+});
+export const zGoalRefine = z.object({ level: zGoalLevel, period: z.string().min(4).max(10), text: z.string().trim().min(1).max(400) });
+/** What Claude returns for a goal review. */
+export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean() });

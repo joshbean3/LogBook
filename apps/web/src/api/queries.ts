@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoPriority, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
@@ -88,6 +88,8 @@ export const prefetchAll = (qc: QueryClient) => {
     qc.prefetchQuery({ queryKey: keys.journal('', false), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>('/journal?q=&fav=0&limit=200'), staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: keys.quotes(quoteParams), queryFn: () => api<QuotePage>(`/quotes?${qs}`), staleTime: 5 * 60_000 }),
     qc.prefetchQuery({ queryKey: keys.reads, queryFn: fetchReads, staleTime: 30_000 }),
+    qc.prefetchQuery({ queryKey: ['goals'], queryFn: () => api<Aim[]>('/goals'), staleTime: 30_000 }),
+    qc.prefetchQuery({ queryKey: ['todo-groups'], queryFn: () => api<TodoGroup[]>('/todo-groups'), staleTime: 60_000 }),
   ];
   return Promise.allSettled(jobs);
 };
@@ -389,7 +391,7 @@ export const useLiftMutations = () => {
 };
 
 // ---------- todos ----------
-type TodoPatch = { text?: string; note?: string | null; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; position?: number; doneOn?: string | null; deletedOn?: string | null };
+type TodoPatch = { text?: string; note?: string | null; priority?: TodoPriority; color?: TodoColor | null; groupId?: string | null; due?: string | null; bucket?: TodoBucket; position?: number; doneOn?: string | null; deletedOn?: string | null };
 /** The server's answer to an order change carries positions only: anything edited meanwhile keeps its edit. */
 const takePositions = (t: Todo[], list: Todo[]) => {
   const pos = new Map(list.map((x) => [x.id, x.position]));
@@ -399,7 +401,7 @@ export const useTodoMutations = () => {
   const qc = useQueryClient();
   const setTodos = (fn: (t: Todo[]) => Todo[]) => qc.setQueryData<Todo[]>(keys.todos, (t) => fn(t ?? []));
   const add = useMutation({
-    mutationFn: async (input: { text: string; date: string; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket }) => {
+    mutationFn: async (input: { text: string; date: string; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; color?: TodoColor | null; groupId?: string | null }) => {
       const { text, date } = input;
       const bucket: TodoBucket = input.bucket ?? (input.due && input.due > date ? 'later' : 'today');
       const cur = qc.getQueryData<Todo[]>(keys.todos) ?? [];
@@ -409,6 +411,8 @@ export const useTodoMutations = () => {
         text,
         note: null,
         priority: input.priority ?? 0,
+        color: input.color ?? null,
+        groupId: input.groupId ?? null,
         due: bucket === 'later' ? input.due ?? null : null,
         bucket,
         position: cur.reduce((m, x) => Math.max(m, x.position), -1) + 1,
@@ -419,7 +423,7 @@ export const useTodoMutations = () => {
       };
       setTodos((t) => [...t, tmp]);
       // anything edited or moved while the row was provisional is queued behind this create and sent with its real id
-      const saved = await write<Todo>('/todos', 'POST', { text, date, priority: tmp.priority, due: tmp.due, bucket }, [keys.todos], { tmpId: tmp.id });
+      const saved = await write<Todo>('/todos', 'POST', { text, date, priority: tmp.priority, due: tmp.due, bucket, color: tmp.color, groupId: tmp.groupId }, [keys.todos], { tmpId: tmp.id });
       if (!saved) return;
       keyAlias.set(saved.id, tmp.id);
       setTodos((t) => t.map((x) => (x.id === tmp.id ? { ...x, id: saved.id, createdAt: saved.createdAt } : x)));
@@ -1041,3 +1045,97 @@ export const useSaveTraining = () => {
   });
 };
 // ── end WP6 ──
+
+// ── Goals and to-do lists ──
+// Goals: one per level and period, set through the review (POST /goals/refine), reviewed when the period ends; every step
+// is logged on the server (GET /goals/events) for the history. To-do lists: named, coloured groups a to-do can be filed under.
+Object.assign(keys, { goals: ['goals'] as const, goalEvents: (goal?: string) => ['goal-events', goal ?? 'all'] as const, todoGroups: ['todo-groups'] as const });
+const goalsKey = ['goals'] as const;
+const groupsKey = ['todo-groups'] as const;
+
+export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: () => api<Aim[]>('/goals'), staleTime: 30_000 });
+export const useGoalEvents = (goal?: string, enabled = true) =>
+  useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: () => api<{ events: GoalEvent[]; more: boolean }>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`), staleTime: 15_000, enabled });
+
+/** The review: the goal rewritten to the goal-setting rules. Online only; offline the words stand as typed. */
+export const refineGoal = async (level: GoalLevel, period: string, text: string): Promise<GoalRefinement> => {
+  try {
+    return await api<GoalRefinement>('/goals/refine', { method: 'POST', json: { level, period, text } });
+  } catch (e) {
+    if (e instanceof ApiError && e.status < 500 && e.status !== 503) throw e;
+    return { text, why: null, changed: false, available: false };
+  }
+};
+
+export const useGoalMutations = () => {
+  const qc = useQueryClient();
+  const setGoals = (fn: (g: Aim[]) => Aim[]) => qc.setQueryData<Aim[]>(goalsKey, (g) => fn(g ?? []));
+  const touched = () => void qc.invalidateQueries({ queryKey: ['goal-events'] });
+  const set = useMutation({
+    mutationFn: async (input: { level: GoalLevel; period: string; text: string; original?: string | null; why?: string | null; chose?: 'sharpened' | 'kept' | 'own' }) => {
+      const { level, period, ...body } = input;
+      const now = new Date().toISOString();
+      setGoals((g) => {
+        const had = g.find((x) => x.level === level && x.period === period);
+        const next: Aim = had
+          ? { ...had, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, updatedAt: now }
+          : { id: `tmp-goal-${level}-${period}`, level, period, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, status: 'open', reflection: null, createdAt: now, updatedAt: now, closedAt: null };
+        return had ? g.map((x) => (x === had ? next : x)) : [next, ...g];
+      });
+      const saved = await write<Aim>(`/goals/${level}/${period}`, 'PUT', body, [goalsKey]);
+      if (saved) setGoals((g) => g.map((x) => (x.level === level && x.period === period ? saved : x)));
+      touched();
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),
+  });
+  const review = useMutation({
+    mutationFn: async ({ id, status, reflection }: { id: string; status?: GoalStatus; reflection?: string | null }) => {
+      const now = new Date().toISOString();
+      setGoals((g) => g.map((x) => (x.id === id ? { ...x, ...(status ? { status, closedAt: status === 'open' ? null : now } : {}), ...(reflection !== undefined ? { reflection } : {}) } : x)));
+      const saved = await write<Aim>(`/goals/${id}`, 'PATCH', { status, reflection }, [goalsKey]);
+      if (saved) setGoals((g) => g.map((x) => (x.id === id ? saved : x)));
+      touched();
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),
+  });
+  const clear = useMutation({
+    mutationFn: async (id: string) => {
+      setGoals((g) => g.filter((x) => x.id !== id));
+      await write(`/goals/${id}`, 'DELETE', undefined, [goalsKey]);
+      touched();
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),
+  });
+  return { set, review, clear };
+};
+
+export const useTodoGroups = () => useQuery({ queryKey: groupsKey, queryFn: () => api<TodoGroup[]>('/todo-groups'), staleTime: 60_000 });
+
+export const useTodoGroupMutations = () => {
+  const qc = useQueryClient();
+  const setGroups = (fn: (g: TodoGroup[]) => TodoGroup[]) => qc.setQueryData<TodoGroup[]>(groupsKey, (g) => fn(g ?? []));
+  const add = useMutation({
+    mutationFn: async (input: { name: string; color: TodoColor }) => {
+      const saved = await api<TodoGroup>('/todo-groups', { method: 'POST', json: input });
+      setGroups((g) => [...g, saved]);
+      return saved;
+    },
+  });
+  const patch = useMutation({
+    mutationFn: async ({ id, ...p }: { id: string; name?: string; color?: TodoColor; position?: number }) => {
+      setGroups((g) => g.map((x) => (x.id === id ? { ...x, ...p } : x)));
+      await write(`/todo-groups/${id}`, 'PATCH', p, [groupsKey]);
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: groupsKey }),
+  });
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      setGroups((g) => g.filter((x) => x.id !== id));
+      qc.setQueryData<Todo[]>(keys.todos, (t) => (t ?? []).map((x) => (x.groupId === id ? { ...x, groupId: null } : x)));
+      await write(`/todo-groups/${id}`, 'DELETE', undefined, [groupsKey, keys.todos]);
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: groupsKey }),
+  });
+  return { add, patch, remove };
+};
+// ── end Goals and to-do lists ──
