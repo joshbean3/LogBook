@@ -7,6 +7,7 @@ import { flushSync } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMorningMutations, usePick, useSessionMutations, useTodos } from '@/api/queries';
 import { WORD_MAX } from '@/lib/gesture';
+import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { crossfade } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
@@ -400,10 +401,10 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
                 today={log.today}
                 rows={2}
                 placeholder={CLOSE_ASK}
-                toast={false}
+                haptic={false}
                 inputRef={field}
                 autoFocus={focusOnOpen}
-                onSaved={() => {
+                onSaved={({ first }) => {
                   // the field as pressed, before the Composer's own update reaches the DOM (a controlled textarea's value is
                   // not cloned: it is set on the copy)
                   const w = writeEl.current;
@@ -436,6 +437,8 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
                     swap(false);
                     onSaved();
                   });
+                  // the day's close: its one success on the frame the entry shows (the swap above is committed)
+                  if (first) requestAnimationFrame(() => haptics.success());
                 }}
               />
             </div>
@@ -590,7 +593,7 @@ const AlarmRow = ({ log }: { log: Log }) => {
  * 0. `CLOSE THE DAY`, *Two sentences, then sleep.* → *Day, closed.* after the first save;
  * 1. the stamps row (40): the day's numbers, counting up once a day, 60 ms apart;
  * 2. the run row (60): the session, how it went, its 40 px ring while open; the words open the session sheet;
- * 3–4. the composer (the quote line as its prompt) → after Save, the entry in the same box, one `success` (the Composer's),
+ * 3–4. the composer (the quote line as its prompt) → after Save, the entry in the same box, one `success` (on the entry's first frame),
  *    `.halo-boost`, and `Add to it`;
  * 5. Tomorrow, always: the word (inline) and tomorrow's alarm (WakeEditor);
  * 6. `Share the day`; 7. Today's read when there is a pick.

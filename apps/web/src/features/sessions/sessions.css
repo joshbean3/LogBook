@@ -456,12 +456,7 @@
   white-space: nowrap;
   transition:
     background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out),
-    transform 100ms var(--ease-out);
-}
-/* WP4's chips (MoveSheet, the Plan's: not PressButtons yet; docs/reviews/wp2.md, Requests) keep their old press until they move */
-.pl-chip:not(.pressable):active {
-  transform: scale(0.97);
+    color var(--dur-color) var(--ease-out);
 }
 .pl-chip.on {
   background: var(--ink);
@@ -693,89 +688,6 @@
 }
 .ed .in {
   min-height: 44px;
-}
-
-/* ---------- the day picker: a week of days, one swipe per week ---------- */
-.dp {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.dp-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.dp-nav {
-  display: flex;
-  margin-right: -10px;
-}
-.dp-pager {
-  margin-inline: -16px;
-  border-radius: 0;
-}
-.dp-week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-.dp-day {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  min-height: 72px;
-}
-.dp-dow {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--ink-3);
-}
-.dp-pill {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 4px;
-  width: 40px;
-  height: 48px;
-  border-radius: 14px;
-  transition: background-color var(--dur-color) var(--ease-out);
-}
-.dp-num {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 1.0625rem;
-  line-height: 1.25rem;
-  font-variant-numeric: tabular-nums;
-}
-.dp-bar {
-  width: 14px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--tone);
-}
-.dp-bar.none {
-  background: transparent;
-}
-.dp-day.is-today .dp-pill {
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
-}
-.dp-day.is-origin .dp-pill {
-  opacity: 0.45;
-}
-.dp-day.is-sel .dp-pill {
-  background: var(--ink);
-  color: var(--bg);
-  opacity: 1;
-}
-.dp-day:active .dp-pill {
-  background: var(--surface-2);
 }
 
 /* ---------- move: quick picks, then the week ---------- */

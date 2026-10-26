@@ -112,7 +112,7 @@ describe('dayPhase', () => {
     expect(dayPhase(at(18, 0), ctx([easy5], [], {}, null)).phase).toBe('evening');
   });
 
-  it('a morning made into a rest day (the run skipped) keeps its own alarm: day, no door', () => {
+  it('a morning made into a rest day (the run skipped) keeps its own alarm: rest, no door', () => {
     const p = dayPhase(at(6, 30), { ...ctx([{ ...easy5, mark: 'skip' }]), override: { wake: 480 } });
     expect(p).toMatchObject({ phase: 'rest', mode: 'rest', wakeAt: 480, word: 'Skipped' });
     expect(p.doorAt).toBeUndefined();

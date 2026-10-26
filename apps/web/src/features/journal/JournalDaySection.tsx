@@ -156,7 +156,7 @@ const DayList = ({ date, stamp }: { date: string; stamp?: string | null }) => {
         ))}
       </div>
       <Group className="dsheet-add">
-        <Composer date={date} today={useToday()} rows={2} toast={false} placeholder="Add to this day" />
+        <Composer date={date} today={useToday()} rows={2} placeholder="Add to this day" />
       </Group>
     </div>
   );
@@ -168,7 +168,7 @@ const DayComposer = ({ date }: { date: string }) => {
   const placeholder = useDayPrompt(date);
   return (
     <Group className="dsheet-add">
-      <Composer date={date} today={useToday()} rows={4} toast={false} placeholder={placeholder} autoFocus onSaved={() => setTimeout(() => sheet.close(), 450)} />
+      <Composer date={date} today={useToday()} rows={4} placeholder={placeholder} autoFocus onSaved={() => setTimeout(() => sheet.close(), 450)} />
     </Group>
   );
 };
@@ -251,10 +251,13 @@ export interface ComposerProps {
   placeholder?: string;
   /** Between the words and Save: an optional prompt line (the day's `QuoteLine`). `insert` puts text at the top of the entry. */
   prompt?: (insert: (text: string) => void, text: string) => ReactNode;
-  /** After a save, once the words have left the field. */
-  onSaved?: () => void;
-  /** @deprecated kept for callers: a plain save raises no toast (§8, toasts are for Undo and errors only). */
-  toast?: boolean;
+  /** After a save, once the words have left the field. `first`: it was today's first entry (the day's close). */
+  onSaved?: (o: { first: boolean }) => void;
+  /**
+   * `false`: the caller fires the first entry's `success` itself, on the frame its entry shows (the Close card, which draws
+   * the entry in its own box; WP2 request 30). Default: the Composer fires it in Save.
+   */
+  haptic?: boolean;
   autoFocus?: boolean;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   /** VoiceOver name. Default "Journal entry". */
@@ -278,7 +281,7 @@ export const addToDraft = (date: string, s: string) => {
  * same box) and the entry settles into whatever list shows the day. The first entry of today is the day's close and fires
  * `success` (one of the two a day, §11.4); any later save is silent. No toast: the entry landing is the answer.
  */
-export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onSaved, autoFocus, inputRef, label = 'Journal entry', grow }: ComposerProps) => {
+export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onSaved, haptic = true, autoFocus, inputRef, label = 'Journal entry', grow }: ComposerProps) => {
   const { add } = useJournalMutations();
   const list = useJournalList('', false);
   const toast = useToast();
@@ -324,7 +327,7 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
     const v = text.trim();
     if (!v) return;
     const first = date === today && !(list.data?.entries ?? []).some((e) => e.date === date);
-    if (first) haptics.success();
+    if (first && haptic) haptics.success();
     // the field empties in the commit that shows the entry in the list (one move of the page, not two)
     let cleared = false;
     const clear = () => {
@@ -336,7 +339,7 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
     add.mutate(whenShown({ date, text: v }, clear), { onError: () => (clear(), set(v), toast('Couldn’t save that. Your words are back in the field.')) });
     // the field's words are in the draft store and the outbox now; a list that is not mounted still clears the field
     setTimeout(clear, 250);
-    onSaved?.();
+    onSaved?.({ first });
   };
   const insert = (s: string) => {
     const next = text.trim() ? `${s}\n\n${text}` : `${s}\n\n`;

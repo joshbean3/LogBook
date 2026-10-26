@@ -340,6 +340,8 @@ export const useHabitMutations = () => {
       const list = await write<Habit[]>('/habits/order', 'PUT', { order }, [keys.bootstrap]);
       if (list) setHabits(list);
     },
+    // the order went into the bootstrap before the request: a refused save takes the server's back (WP6 request 20)
+    onError: () => void qc.invalidateQueries({ queryKey: keys.bootstrap }),
   });
   const check = useMutation({
     mutationFn: async ({ habitId, date, done, note }: { habitId: string; date: string; done?: boolean; note?: string | null }) => {

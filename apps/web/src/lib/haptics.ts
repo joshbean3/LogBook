@@ -192,7 +192,9 @@ export const hapticAtPeak = (scale: MotionValue<number>, e: 'orb' | 'toggle') =>
   const fireOnce = () => {
     if (done) return;
     done = true;
-    off();
+    // unsubscribed after this change notification: motion's listener list skips the next listener of the same
+    // notification when one unsubscribes inside it (WP2 request 34: that listener missed the apex frame's value)
+    queueMicrotask(off);
     clearTimeout(timer);
     haptics[e]();
   };

@@ -41,8 +41,8 @@ export const startClock = (hhmm: string) => {
   return h == null || m == null || Number.isNaN(h) || Number.isNaN(m) ? hhmm : clockOfDay(h * 60 + m);
 };
 
-/** The chip class for a status key: the colours `.chip` already has. */
-export const chipKind = (k: StatusKey): string => ({ done: 'done', bonus: 'done', floor: 'floor', missed: 'missed', today: 'open', planned: 'upcoming', skipped: '', rest: '' })[k];
+/** The chip class for a status key: the colours `.chip` already has. A missed day is the plain chip, never red (§7.2). */
+export const chipKind = (k: StatusKey): string => ({ done: 'done', bonus: 'done', floor: 'floor', missed: '', today: 'open', planned: 'upcoming', skipped: '', rest: '' })[k];
 
 /** caps label, the number, its unit, and an optional small line under it ("of 6") */
 type SheetStat = [string, string, string?, string?];

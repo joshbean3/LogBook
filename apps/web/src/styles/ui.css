@@ -239,40 +239,7 @@ label.lrow[data-pressed] {
   box-shadow: none;
 }
 
-/* ---------- hero ---------- */
-.hero {
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
-  padding: 16px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-}
-.hero-main {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.hero-title {
-  font-size: 1.75rem;
-  line-height: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  overflow-wrap: break-word;
-  hyphens: auto;
-}
-.hero[role='button'] {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  cursor: pointer;
-}
-.hero-chev {
-  color: var(--ink-3);
-  margin-right: -4px;
-}
+/* a family dot */
 .tone-dot {
   display: inline-block;
   width: 6px;
@@ -280,18 +247,6 @@ label.lrow[data-pressed] {
   border-radius: 50%;
   background: var(--tone, var(--ink-4));
   flex: none;
-}
-.hero-verdict {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-2);
-  letter-spacing: -0.01em;
-}
-.hero-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
 }
 
 /* ---------- stat strip ---------- */
@@ -550,10 +505,6 @@ label.lrow[data-pressed] {
   color: var(--warn);
   background: var(--warn-soft);
 }
-.chip.missed {
-  color: var(--bad);
-  background: var(--bad-soft);
-}
 .chip.open {
   color: var(--ink-2);
   background: var(--surface-2);
@@ -611,14 +562,14 @@ label.lrow[data-pressed] {
     background var(--dur-fast),
     color var(--dur-fast);
 }
-/* a 32px chip to the eye, 44px to the thumb */
+/* a 32px chip to the eye, 44px to the thumb (the band is measured from the padding box, inside the 1px border) */
 .chip-btn::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  top: -6px;
-  bottom: -6px;
+  top: -7px;
+  bottom: -7px;
 }
 .chip-btn.quiet {
   border-color: transparent;

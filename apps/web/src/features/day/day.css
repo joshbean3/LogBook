@@ -49,7 +49,7 @@
 }
 .hero.hero-close,
 .hero.hero-first {
-  /* ui.css's old .hero (a padded grid card) must not reach the evening and first-run wrappers */
+  /* the evening and first-run wrappers are boxes for their own cards */
   display: block;
   height: auto;
   padding: 0;

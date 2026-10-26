@@ -202,6 +202,16 @@ const Authed = () => {
   );
 };
 
+/**
+ * Sign-up ends on first run: its view is preloaded while the form is up, so the first question is drawn on the frame the
+ * form leaves (React.lazy suspends once even for a loaded module; `view()` renders the module's own component once
+ * `preload` has it: WP6 request 15).
+ */
+const SignupRoute = () => {
+  useEffect(() => void Welcome.preload().catch(() => undefined), []);
+  return <Signup />;
+};
+
 /** onDeepLink → nav.go (a deep link on a running app is a jump). Lives under NavController. */
 const DeepLinks = () => {
   const nav = useNav();
@@ -233,7 +243,7 @@ export const App = () => {
       <Routes>
         <Route path="/start" element={<Start />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup" element={<SignupRoute />} />
         <Route path="/setup" element={<Navigate to="/signup" replace />} />
         <Route path="*" element={<Authed />} />
       </Routes>

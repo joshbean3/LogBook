@@ -1378,10 +1378,8 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   padding-top: 0;
 }
 
-/* ---------- DayPager v2 (§9.2, §3.5) ----------
- * (the attribute keeps the contract's .dp ahead of features/sessions/sessions.css, whose day picker also uses .dp) */
-.dp,
-.dp[aria-roledescription='pager'] {
+/* ---------- DayPager v2 (§9.2, §3.5) ---------- */
+.dp {
   display: block;
   gap: 0;
   position: relative;

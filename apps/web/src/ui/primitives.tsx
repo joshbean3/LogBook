@@ -140,8 +140,8 @@ export const EmptyState = ({ children, text, action, verb, ghost: ghostIn, start
     if (!onStarter || added.includes(st) || busy) return;
     setBusy(st);
     try {
+      // the starter's row answering is the confirmation: no haptic (§11.4 has none for adding one)
       await onStarter(st);
-      haptics.toggle();
       setAdded((a) => [...a, st]);
     } finally {
       setBusy(null);
@@ -190,12 +190,12 @@ export const Empty = ({ children }: { children: ReactNode }) => <EmptyState>{chi
 
 /** The check that says "did it": 44px hit target, circle for habits/sessions, square for to-dos. */
 /** The mark: the fill runs 160ms, then the check draws itself in 160ms. One haptic. Nothing else moves. */
-/** `haptic` overrides the event fired when the mark turns on: default `toggle` for a square (to-do) and for floor, `success` for a done session. Pass `false` for none. */
+/** `haptic`: the event fired when the mark turns on; none by default (a mark's `toggle` is its caller's, on the visual peak through `hapticAtPeak`, §11.4). */
 export const Mark = ({ status, onClick, disabled, label, title, square, haptic }: { status: 'done' | 'floor' | 'missed' | 'open' | 'upcoming' | 'rest' | 'skipped'; onClick?: () => void; disabled?: boolean; label: string; title?: string; square?: boolean; haptic?: HapticEvent | false }) => {
   const reduce = useReducedMotion();
   const prev = useRef(status);
   useEffect(() => {
-    if ((status === 'done' || status === 'floor') && prev.current !== status) fireHaptic(haptic ?? (square || status === 'floor' ? 'toggle' : 'success'));
+    if ((status === 'done' || status === 'floor') && prev.current !== status) fireHaptic(haptic);
     prev.current = status;
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
   const on = status === 'done' || status === 'floor';

@@ -142,10 +142,11 @@ export const useHold = (opts: HoldOpts): { handlers: HoldHandlers; cancel: () =>
     const el = targetEl(info.target);
     // a keyboard or right-click hold has no pointer to end a lift: the menu it opens lifts the element itself
     if (visual() && el && pointer) {
-      // data-pressed goes on the frame data-lifting comes (lift() does both)
-      st.el?.removeAttribute('data-preholding');
+      // data-pressed goes on the frame data-lifting comes (lift() does both); lift() reads the pre-grown scale before it
+      // clears data-preholding, so the lift starts at 1.02 and never dips to 1.00 first (WP4 / WP6 requests)
       st.lifted = el;
       lift(el, { reduce: reduced() });
+      if (st.el !== el) st.el?.removeAttribute('data-preholding');
       haptics.lift();
     }
     o.current.onHold?.(info);
