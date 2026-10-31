@@ -1237,7 +1237,7 @@ textarea.in {
   letter-spacing: 0;
   text-transform: none;
   margin-left: 2px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ink-2);
 }
 /* the small line under a stamp ("of 6"): 12px at 70% */
 .aura-note {
@@ -1246,7 +1246,7 @@ textarea.in {
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .aura-chev {

@@ -136,7 +136,7 @@
   color: var(--ink-3);
   margin-right: -12px;
 }
-.g-step-add {
+.g-steps .g-step.g-step-add {
   grid-template-columns: minmax(0, 1fr);
 }
 .g-step-input {

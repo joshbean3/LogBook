@@ -3,12 +3,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav, useRootRequest, useRouteParams, useTabScroller } from '@/app/NavController';
 import { useGoals, useJournalList, useTodos } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
-import { Button, Card, ChipButton, EmptyState, Group, NavBar, Section } from '@/ui';
+import { Button, Card, ChipButton, Group, NavBar, Section } from '@/ui';
 import { AskBar } from '../assistant/AskBar';
 import { useLog } from '../log/useLog';
 import { getEnergy, useEnergyVersion } from './energy';
 import { dayFacts, milesOn } from './facts';
 import { JournalDay, useOpenJournalDay } from './JournalDay';
+import { runStamp } from './prompt';
 import { useRunDays } from './queries';
 import './journal.css';
 
@@ -26,11 +27,11 @@ const MAX_MONTHS = 36;
  * run day in `--ink-4`, nothing else. Tap a dot for its day. Entries come from the cached list, runs from one read of the
  * year's activities.
  */
-const YearGrid = ({ today, entryDays, onOpen }: { today: string; entryDays: Set<string>; onOpen: (d: string) => void }) => {
+const YearGrid = ({ today, entryDays, keptRuns, onOpen }: { today: string; entryDays: Set<string>; keptRuns: Set<string>; onOpen: (d: string) => void }) => {
   const end = shiftDays(today, 6 - ((new Date(`${today}T12:00:00`).getDay() + 6) % 7));
   const start = shiftDays(end, -52 * 7 + 1);
   const runs = useRunDays(start, today);
-  const runDays = useMemo(() => new Set(runs.data ?? []), [runs.data]);
+  const runDays = useMemo(() => new Set([...(runs.data ?? []), ...keptRuns]), [runs.data, keptRuns]);
   const days = useMemo(() => eachDay(start, end), [start, end]);
   const n = entryDays.size;
   return (
@@ -85,9 +86,7 @@ const Month = ({ ym, today, log, goals, todos, query }: { ym: string; today: str
             return <JournalDay key={d} date={d} today={today} facts={facts} entries={list} variant={list.length || d === today ? 'row' : 'quiet'} onOpen={() => open(d)} />;
           })}
         </Group>
-      ) : (
-        <EmptyState>Nothing logged this month.</EmptyState>
-      )}
+      ) : null}
     </Section>
   );
 };
@@ -138,11 +137,17 @@ export default function JournalView() {
     return () => io.disconnect();
   }, [canMore, log.ready, scroller, count]);
 
-  // the year grid's entry days: the loaded months (live, so a save lights its dot) plus the cached list for the rest
-  const entryDays = useMemo(() => {
-    const s = new Set<string>();
-    for (const ym of months) for (const d of eachDay(`${ym}-01`, lastDayOf(ym) > today ? today : lastDayOf(ym))) if (log.snap.journalOn(d).length) s.add(d);
-    return s;
+  // the year grid's entry days and kept runs from the loaded months (live, so a save lights its dot); the cached entry
+  // list and the year's activities fill in the rest
+  const { entryDays, keptRuns } = useMemo(() => {
+    const entries = new Set<string>();
+    const runs = new Set<string>();
+    for (const ym of months)
+      for (const d of eachDay(`${ym}-01`, lastDayOf(ym) > today ? today : lastDayOf(ym))) {
+        if (log.snap.journalOn(d).length) entries.add(d);
+        if (runStamp(log.snap, d)) runs.add(d);
+      }
+    return { entryDays: entries, keptRuns: runs };
   }, [months, log.snap, today]);
 
   return (
@@ -157,7 +162,7 @@ export default function JournalView() {
         ))}
       </div>
       <input className="in jsearch" type="search" placeholder="Search what you wrote" aria-label="Search entries" value={query} onChange={(e) => setQuery(e.target.value)} />
-      {!query.trim() ? <YearGridAll today={today} loadedDays={entryDays} onOpen={open} /> : null}
+      {!query.trim() ? <YearGridAll today={today} loadedDays={entryDays} keptRuns={keptRuns} onOpen={open} /> : null}
       {months.map((ym) => (
         <Month key={ym} ym={ym} today={today} log={log} goals={goals.data} todos={todos.data} query={query} />
       ))}
@@ -172,10 +177,10 @@ export default function JournalView() {
 }
 
 /** The year grid's entry days: the loaded months, plus every date the cached entry list knows. */
-const YearGridAll = ({ today, loadedDays, onOpen }: { today: string; loadedDays: Set<string>; onOpen: (d: string) => void }) => {
+const YearGridAll = ({ today, loadedDays, keptRuns, onOpen }: { today: string; loadedDays: Set<string>; keptRuns: Set<string>; onOpen: (d: string) => void }) => {
   const list = useJournalDates();
   const days = useMemo(() => new Set([...loadedDays, ...list]), [loadedDays, list]);
-  return <YearGrid today={today} entryDays={days} onOpen={onOpen} />;
+  return <YearGrid today={today} entryDays={days} keptRuns={keptRuns} onOpen={onOpen} />;
 };
 
 const useJournalDates = () => {

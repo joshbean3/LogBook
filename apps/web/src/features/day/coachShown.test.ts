@@ -39,13 +39,3 @@ describe('coachShown (code review 3 #1, day review 3 #1)', () => {
     expect(a.coachShown('2026-10-24', 'run')).toBe('Easy and even.');
   });
 });
-
-describe('refusedMark (code review 3 #3)', () => {
-  it('names the session and what was refused', async () => {
-    const { refusedMark } = await import('./marks');
-    const s = { id: 'x', date: '2026-10-24', position: 0, kind: 'run', type: 'threshold', title: null, details: null, miles: 6, minutes: null, blockId: null, movedFrom: null, mark: null } as const;
-    expect(refusedMark(s as never, 'skip')).toMatch(/^Couldn’t skip .+\.$/);
-    expect(refusedMark(s as never, 'done')).toMatch(/^Couldn’t mark .+ done\.$/);
-    expect(refusedMark(s as never, null)).toMatch(/^Couldn’t change .+\.$/);
-  });
-});

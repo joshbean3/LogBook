@@ -156,7 +156,8 @@ export const JournalDaySheet = ({ date }: { date: string }) => {
   const years = memory ? parseISO(date).getFullYear() - parseISO(memory.date).getFullYear() : 0;
   return (
     <div className="jsheet">
-      <JournalDay date={date} today={today} facts={facts} entries={entries} variant="full">
+      {/* one entry: the editor below holds the words, so they are not shown twice */}
+      <JournalDay date={date} today={today} facts={facts} entries={entries.length === 1 ? [] : entries} variant="full">
         <EnergyDots date={date} value={energy} />
       </JournalDay>
       {entries.length === 0 ? (
@@ -187,7 +188,8 @@ export const useOpenJournalDay = () => {
   const sheet = useSheet();
   const today = useToday();
   return (date: string, how: 'open' | 'push' = 'open') => {
-    const spec = { eyebrow: `${dayEyebrow(date, today)}${date !== today ? ` · ${ago(date, today)}` : ''}`, title: dayTitle(date), body: <JournalDaySheet date={date} />, detent: 'large' as const, detents: ['large' as const], sticky: true };
+    const eyebrow = dayEyebrow(date, today);
+    const spec = { eyebrow: `${eyebrow}${eyebrow === 'Today' || eyebrow === 'Yesterday' ? '' : ` · ${ago(date, today)}`}`, title: dayTitle(date), body: <JournalDaySheet date={date} />, detent: 'large' as const, detents: ['large' as const], sticky: true };
     if (how === 'push') sheet.push(spec);
     else sheet.open(spec);
   };

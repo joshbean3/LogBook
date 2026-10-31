@@ -1,4 +1,4 @@
-import { clock, daysBetween, KIND_WORD, mi, num, weekStreak, type Activity, type DayPhase, type ISODate, type PhaseSession, type Snapshot, type WeekSummary } from '@logbook/shared';
+import { clock, daysBetween, weekStreak, type Activity, type ISODate, type Snapshot, type WeekSummary } from '@logbook/shared';
 import type { WeekDayStatus } from '@/ui';
 import type { Log } from '../log/useLog';
 
@@ -14,26 +14,6 @@ export const runTotals = (runs: Activity[]) => {
   const miles = runs.reduce((t, a) => t + a.miles, 0);
   const sec = runs.reduce((t, a) => t + a.movingSec, 0);
   return { miles, sec, pace: miles > 0.1 && sec ? clock(sec / miles) : null };
-};
-
-/** The sentence under a finished session: "5.0 mi at 8:14. Logged." / "Floor met. 20 min is a day kept." */
-export const doneVerdict = (p: PhaseSession | null, runs: Activity[]): string => {
-  const t = runTotals(runs);
-  const floor = p?.key === 'floor';
-  if (t.miles > 0) return `${mi(t.miles)} mi${t.pace ? ` at ${t.pace}` : ''}. ${floor ? 'Floor met.' : 'Logged.'}`;
-  if (floor) return 'Floor met. 20 min is a day kept.';
-  if (p?.session.kind === 'lift') return 'Lifted. Logged.';
-  return 'Done. Logged.';
-};
-
-/** One line that says what the plan asks: "5 mi · floor 20 min easy". */
-export const planLine = (s: PhaseSession['session'], floor: string): string => {
-  const bits: string[] = [];
-  if (s.kind === 'run' && s.miles) bits.push(`${num(s.miles)} mi`);
-  else if (s.minutes) bits.push(`${s.minutes} min`);
-  if (s.details) bits.push(s.details);
-  if (floor) bits.push(`floor ${floor}`);
-  return bits.join(' · ');
 };
 
 /** The WeekRing's seven statuses for the week around `date`. Today's open segment reads `open`. */

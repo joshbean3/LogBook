@@ -55,7 +55,8 @@ export const zonedToUtc = (date: string, time: string, tz: string): Date => {
   const off1 = offsetAt(new Date(guess), tz);
   let utc = guess - off1;
   const off2 = offsetAt(new Date(utc), tz);
-  if (off2 !== off1) utc = guess - off2;
+  // a wall clock inside a DST gap: the offset before the jump, so the instant lands after it
+  if (off2 !== off1) utc = guess - Math.min(off1, off2);
   return new Date(utc);
 };
 

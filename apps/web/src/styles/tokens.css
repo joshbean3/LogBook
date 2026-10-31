@@ -53,6 +53,8 @@
 
   --shadow-1: none;
   --shadow-2: 0 12px 40px rgba(0, 0, 0, 0.6);
+  /* docs/system.md §3: the two shadows. A menu, a lifted object and a sheet; nothing on the canvas. */
+  --shadow-menu: var(--shadow-2);
   --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.7);
   --card-border: 1px solid rgba(255, 255, 255, 0.06);
   --glass: rgba(0, 0, 0, 0.78);

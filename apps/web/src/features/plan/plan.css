@@ -26,6 +26,7 @@
   padding: 0;
   gap: 0;
   overflow: hidden;
+  grid-template-columns: minmax(0, 1fr);
 }
 .pl-strip-head.pressable {
   display: flex;
@@ -60,9 +61,7 @@
   color: var(--ink-2);
 }
 .pl-strip-sub {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-wrap: balance;
 }
 .pl-strip-chev {
   flex: none;
@@ -87,6 +86,7 @@
 }
 .pl-strip-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   padding: 4px 16px 16px;
   border-top: 1px solid var(--line);
@@ -114,6 +114,7 @@
 }
 .pl-strip-sec {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -121,6 +122,7 @@
 /* the last run: the route, the name, its numbers, one tap */
 .pl-last.pressable {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   width: 100%;
   text-align: left;
@@ -660,6 +662,10 @@
 }
 .pl-arc.tall {
   height: 96px;
+  gap: 6px;
+}
+.pl-arc.tall .pl-arc-wk i {
+  border-radius: var(--r-control);
 }
 .pl-arc-wk {
   position: relative;

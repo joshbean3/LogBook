@@ -64,8 +64,9 @@ export const SectionHead = ({ title, meta, action, first }: { title: ReactNode; 
 /** A grouped list: one surface, rows divided by hairlines. */
 export const Group = ({ children, className = '' }: { children: ReactNode; className?: string }) => <div className={`group ${className}`}>{children}</div>;
 
-export const Card = ({ className = '', flat, children, ...rest }: React.HTMLAttributes<HTMLElement> & { flat?: boolean }) => (
-  <section className={`card ${flat ? 'flat' : ''} ${className}`} {...rest}>
+/** The one card (docs/system.md §4): `--surface`, 20 radius, the 6% border. `hero` adds the halo: the one per tab. */
+export const Card = ({ className = '', flat, hero, children, ...rest }: React.HTMLAttributes<HTMLElement> & { flat?: boolean; hero?: boolean }) => (
+  <section className={`card ${flat ? 'flat' : ''} ${hero ? 'hero halo' : ''} ${className}`} {...rest}>
     {children}
   </section>
 );
@@ -374,6 +375,8 @@ export const AuraStat = ({ label, value, unit, note, className = '' }: { label: 
 };
 /** Three stats in a row, divided by hairlines. */
 export const StatStrip = ({ children, className = '' }: { children: ReactNode; className?: string }) => <div className={`strip ${className}`}>{children}</div>;
+/** The stat row of docs/system.md §4: caps labels over stamps, a hairline above, 2 to 4 columns. `AuraStat`s inside. */
+export const StatRow = ({ children, className = '' }: { children: ReactNode; className?: string }) => <div className={`aura-stats ${className}`}>{children}</div>;
 
 export const CloseButton = ({ onClick }: { onClick: () => void }) => (
   <IconButton label="Close" onClick={onClick}>
