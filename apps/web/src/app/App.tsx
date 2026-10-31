@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
-import { onDeepLink, hideSplash } from '@/lib/native';
+import { apiOrigin, onDeepLink, hideSplash } from '@/lib/native';
 import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
@@ -182,9 +182,22 @@ const Authed = () => {
   if (boot.error && !boot.data) {
     const status = (boot.error as { status?: number }).status;
     if (status === 401) return <Navigate to={signedOutHome()} replace />;
+    // the screen says what failed (the phone has no console): the server it tried, the answer or the error, and a retry
+    const err = boot.error as { message?: string; name?: string; code?: string | null };
+    const detail = [status ? `HTTP ${status}` : err.name === 'NetworkError' ? 'No answer' : (err.name ?? 'Error'), err.message, err.code ? `(${err.code})` : null].filter(Boolean).join(' · ');
     return (
       <div className="page">
         <p className="empty">Couldn’t connect. Check your connection.</p>
+        <p className="t-cap muted" style={{ margin: '8px 0 0', wordBreak: 'break-word' }}>
+          {apiOrigin || window.location.origin}
+          {' · '}
+          {detail}
+          {' · '}
+          {typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online'}
+        </p>
+        <button type="button" className="btn primary" style={{ marginTop: 16 }} onClick={() => void boot.refetch()}>
+          Try again
+        </button>
       </div>
     );
   }
