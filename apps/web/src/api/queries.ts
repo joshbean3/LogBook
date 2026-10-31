@@ -1,7 +1,8 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type AssistantThread, type AskContextInput, type Reminder, type ReminderInput, type NotificationSettings, type ProviderConnection, type ProviderId, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
+import { isNative } from '@/lib/native';
 import { api, ApiError } from './client';
 import { write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
@@ -1147,27 +1148,48 @@ export const useTodoGroupMutations = () => {
 // ── end Goals and to-do lists ──
 
 // ── Assistant ──
-// The assistant on Today: ask (Claude answers or proposes checked changes), then apply, dismiss or undo. A write here
-// changes rows across the app, so an apply or an undo refetches every dataset it may have touched.
-export const askAssistant = (date: string, turns: Array<{ role: 'user' | 'assistant'; text: string }>) => api<AssistantReply>('/assistant', { method: 'POST', json: { date, turns } });
+// The assistant (docs/system.md §7): one live thread per account on the server. Ask streams the reply (text deltas, then
+// the proposal); apply, dismiss and undo a proposal. A write here changes rows across the app, so an apply or an undo
+// refetches every dataset it may have touched.
+import { apiStream } from './client';
+export const assistantThreadKey = ['assistant', 'thread'] as const;
+export const fetchAssistantThread = () => api<AssistantThread>('/assistant/thread');
+export const useAssistantThread = (enabled = true) => useQuery({ queryKey: assistantThreadKey, queryFn: fetchAssistantThread, staleTime: 30_000, enabled });
+export const newAssistantThread = () => api<AssistantThread>('/assistant/new', { method: 'POST' });
+
+/** Ask on the live thread. `onText` gets the reply as it streams; the promise is the whole reply. */
+export const askAssistant = async (text: string, date: string, context: AskContextInput | undefined, onText?: (delta: string) => void): Promise<AssistantReply> => {
+  let reply: AssistantReply | null = null;
+  let failure: string | null = null;
+  await apiStream('/assistant', { date, text, context }, (event, data) => {
+    if (event === 'text' && typeof data === 'string') onText?.(data);
+    else if (event === 'done') reply = data as AssistantReply;
+    else if (event === 'error') failure = (data as { error?: string }).error ?? 'The assistant hit a problem.';
+  });
+  if (failure) throw new ApiError(failure, 502, 'assistant');
+  if (!reply) throw new ApiError('The assistant did not answer.', 502, 'assistant');
+  return reply;
+};
+
+/** Refetch what a proposal may have touched. */
+export const refreshAfterAssistant = (qc: QueryClient, months: string[] = []) => {
+  for (const m of months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+  for (const k of [keys.todos, ['goals'], ['goal-events'], ['todo-groups'], keys.bootstrap, ['day-plan'], remindersKey, assistantThreadKey] as const) void qc.invalidateQueries({ queryKey: k as readonly unknown[] });
+};
 
 export const useAssistantActions = () => {
   const qc = useQueryClient();
-  const refresh = (months: string[]) => {
-    for (const m of months) void qc.invalidateQueries({ queryKey: keys.month(m) });
-    for (const k of [keys.todos, ['goals'], ['goal-events'], ['todo-groups'], keys.bootstrap] as const) void qc.invalidateQueries({ queryKey: k as readonly unknown[] });
-  };
   const apply = useMutation({
     mutationFn: async (id: string) => {
       const r = await api<AssistantApplied>(`/assistant/${id}/apply`, { method: 'POST' });
-      refresh(r.months);
+      refreshAfterAssistant(qc, r.months);
       return r.proposal;
     },
   });
   const undo = useMutation({
     mutationFn: async (id: string) => {
       const r = await api<AssistantApplied>(`/assistant/${id}/undo`, { method: 'POST' });
-      refresh(r.months);
+      refreshAfterAssistant(qc, r.months);
       return r.proposal;
     },
   });
@@ -1175,6 +1197,75 @@ export const useAssistantActions = () => {
   return { apply, undo, dismiss };
 };
 // ── end Assistant ──
+
+// ── Reminders, push, connections, the note ──
+export const remindersKey = ['reminders'] as const;
+export const useReminders = (enabled = true) => useQuery({ queryKey: remindersKey, queryFn: () => api<Reminder[]>('/reminders'), staleTime: 30_000, enabled });
+export const useReminderMutations = () => {
+  const qc = useQueryClient();
+  const add = useMutation({ mutationFn: (input: ReminderInput) => api<Reminder>('/reminders', { method: 'POST', json: input }), onSuccess: () => void qc.invalidateQueries({ queryKey: remindersKey }) });
+  const remove = useMutation({
+    mutationFn: (id: string) => api<Reminder>(`/reminders/${id}`, { method: 'DELETE' }),
+    onMutate: (id) => qc.setQueryData<Reminder[]>(remindersKey, (list) => list?.filter((r) => r.id !== id)),
+    onSettled: () => void qc.invalidateQueries({ queryKey: remindersKey }),
+  });
+  return { add, remove };
+};
+
+export const notificationSettingsKey = ['notifications', 'settings'] as const;
+export const useNotificationSettings = () => useQuery({ queryKey: notificationSettingsKey, queryFn: () => api<NotificationSettings>('/notifications/settings'), staleTime: 60_000 });
+export const useNotificationSettingsPatch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<Pick<NotificationSettings, 'goalUnset' | 'tomorrow' | 'quietHours'>>) => api<NotificationSettings>('/notifications/settings', { method: 'PATCH', json: patch }),
+    onMutate: (patch) => qc.setQueryData<NotificationSettings>(notificationSettingsKey, (cur) => (cur ? { ...cur, ...patch } : cur)),
+    onSettled: () => void qc.invalidateQueries({ queryKey: notificationSettingsKey }),
+  });
+};
+
+/** The server's VAPID public key, to subscribe this browser with; `configured` false means the server cannot push. */
+export const fetchVapidKey = () => api<{ key: string | null; configured: boolean }>('/push/vapid-public-key');
+export const subscribePush = (sub: { kind: 'webpush' | 'apns'; endpoint: string; keys?: { p256dh: string; auth: string } }) => api<{ id: string; pushEnabled: boolean }>('/push/subscribe', { method: 'POST', json: { ...sub, userAgent: navigator.userAgent.slice(0, 200) } });
+export const unsubscribePush = (endpoint: string) => api<{ ok: boolean; pushEnabled: boolean }>('/push/subscribe', { method: 'DELETE', json: { endpoint } });
+
+export const connectionsKey = ['connections'] as const;
+export const useConnections = () => useQuery({ queryKey: connectionsKey, queryFn: () => api<ProviderConnection[]>('/connections'), staleTime: 30_000 });
+export const useConnectionMutations = () => {
+  const qc = useQueryClient();
+  const done = () => {
+    void qc.invalidateQueries({ queryKey: connectionsKey });
+    void qc.invalidateQueries({ queryKey: keys.bootstrap });
+  };
+  const disconnect = useMutation({ mutationFn: (provider: ProviderId) => api<ProviderConnection>(`/connections/${provider}/disconnect`, { method: 'POST' }), onSuccess: done });
+  const sync = useMutation({
+    mutationFn: (provider: ProviderId) => api<{ changed: number; status: ProviderConnection }>(`/connections/${provider}/sync`, { method: 'POST' }),
+    onSuccess: (r) => {
+      done();
+      if (r.changed) void qc.invalidateQueries({ queryKey: ['month'] });
+    },
+  });
+  return { disconnect, sync };
+};
+/** Open a provider's OAuth page: the browser follows the redirect; the app opens the system browser and deep-links back. */
+export const connectProvider = async (provider: ProviderId) => {
+  if (!isNative) {
+    window.location.href = `/api/connections/${provider}/connect`;
+    return;
+  }
+  const { url } = await api<{ url: string }>(`/connections/${provider}/connect-url`);
+  const { Browser } = await import('@capacitor/browser');
+  await Browser.open({ url, presentationStyle: 'popover' });
+};
+
+/** "About you, for the assistant" (PATCH /me { profileNote }). */
+export const useSetProfileNote = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (profileNote: string | null) => api<{ profileNote: string | null }>('/me', { method: 'PATCH', json: { profileNote } }),
+    onSuccess: (r) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, profileNote: r.profileNote } } : b)),
+  });
+};
+// ── end Reminders, push, connections, the note ──
 
 // ---------- the day's plan: morning, afternoon, evening (to-do and goal-step references, in order) ----------
 const dayPlanKey = (date: string) => ['day-plan', date] as const;
