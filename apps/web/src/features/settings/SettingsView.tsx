@@ -8,14 +8,15 @@ import { DAY_NAME, DAY_SHORT, goalLine, hm, isTemplateBlock, paceText, sortDays 
 import { useOpenRoutineEditor } from '@/features/morning/RoutineEditor';
 import { haptics } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
-import { PushedBar, useToast } from '@/ui';
+import { PushedBar, useSheet, useToast } from '@/ui';
+import { AboutYouSheet } from './account';
 import { zoneLine } from './HrZones';
 import { GoRow, SGroup } from './parts';
 import { HapticsRow } from './SectionPages';
 import { useTrainingProfile } from './useProfile';
 import './settings.css';
 
-/** Strava's hand-off comes back to `/settings?strava=…` (the API's landing): read once per page load. */
+/** A provider's hand-off comes back to `/settings?strava=…` or `?coros=…` (the API's landing): read once per page load. */
 let stravaReturnRead = false;
 const useStravaReturn = () => {
   const qc = useQueryClient();
@@ -24,16 +25,19 @@ const useStravaReturn = () => {
   useEffect(() => {
     if (stravaReturnRead) return;
     stravaReturnRead = true;
-    const s = new URLSearchParams(window.location.search).get('strava');
+    const q = new URLSearchParams(window.location.search);
+    const provider = (['strava', 'coros'] as const).find((p) => q.get(p));
+    const s = provider ? q.get(provider) : null;
     // read once: the parameter leaves the address (the top entry, in place), so a reload does not answer twice (review code F10)
     if (s) nav.replace('/settings');
     if (s === 'connected') {
       // the Connections row answers ("Connected"); the runs follow a sync later
       void qc.invalidateQueries({ queryKey: keys.bootstrap });
+      void qc.invalidateQueries({ queryKey: ['connections'] });
       setTimeout(() => void qc.invalidateQueries({ queryKey: ['month'] }), 6000);
     } else if (s === 'error') {
       haptics.error();
-      toast('Didn’t connect to Strava. Try again.');
+      toast(`Didn’t connect to ${provider === 'coros' ? 'COROS' : 'Strava'}. Try again.`);
     }
   }, [qc, toast, nav]);
 };
@@ -47,6 +51,7 @@ const useStravaReturn = () => {
 export default function SettingsView(): React.JSX.Element {
   const boot = useBootstrap();
   const nav = useNav();
+  const sheet = useSheet();
   const openRoutine = useOpenRoutineEditor();
   const { profile, block, loaded, stored: hasStored, source } = useTrainingProfile();
   useStravaReturn();
@@ -60,6 +65,7 @@ export default function SettingsView(): React.JSX.Element {
   const data = boot.data;
   const user = data?.user;
   const strava = data?.strava;
+  const coros = data?.connections?.find((c) => c.provider === 'coros');
   const habits = (data?.habits ?? []).filter((h) => !h.archivedOn).sort((a, b) => a.position - b.position);
   const ms = data?.morningSettings;
   const morning = ms ? buildMorning(morningDayFor([], null, ms), ms) : null;
@@ -77,6 +83,8 @@ export default function SettingsView(): React.JSX.Element {
         {/* the email is the Account row's title; with no name, this row asks for one instead of showing the email twice
             (review 3 feel R3-7) */}
         <GoRow title={user?.name || 'Add your name'} sub={loaded ? (named ? `${block!.name}, through ${fmtDate('md', block!.end)}` : goalLine(profile)) : ' '} onPress={go('you')} label={`You: ${user?.name || 'add your name'}`} />
+        {/* what the assistant reads before it answers (docs/system.md §7); replaces the server's ATHLETE_CONTEXT */}
+        <GoRow title="About you, for the assistant" sub={user?.profileNote ? user.profileNote : 'A sentence or two it reads before writing anything.'} onPress={() => sheet.open({ eyebrow: 'You', title: 'About you', body: <AboutYouSheet />, sticky: true })} className="s-wrap" />
       </SGroup>
 
       <SGroup title="Training">
@@ -106,7 +114,7 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Morning routine timings" />
       </SGroup>
 
-      {data?.features.strava ? (
+      {data?.features.strava || data?.features.coros ? (
         <SGroup title="Connections">
           <GoRow
             title="Strava"
@@ -115,9 +123,14 @@ export default function SettingsView(): React.JSX.Element {
             tone={strava?.connected && strava.error ? 'bad' : undefined}
             onPress={go('connections')}
           />
+          {data?.features.coros ? <GoRow title="COROS" sub={coros?.connected ? (coros.error ? 'Stopped syncing.' : 'Connected') : 'Runs from your watch.'} value={coros?.connected ? undefined : 'Connect'} tone={coros?.connected && coros.error ? 'bad' : undefined} onPress={go('connections')} /> : null}
           {zones ? <GoRow title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
         </SGroup>
       ) : null}
+
+      <SGroup title="Notifications">
+        <GoRow title="Reminders" sub={data?.pushEnabled ? 'On for this account.' : 'Your goal, tomorrow’s run, and your own.'} value={data?.pushEnabled ? 'On' : undefined} onPress={go('notifications')} />
+      </SGroup>
 
       <SGroup title="App">
         {/* one tap, not a page with one switch on it (review feel F13); the App page keeps it with the Home screen rows */}

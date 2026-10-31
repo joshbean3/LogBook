@@ -463,3 +463,40 @@
 .s-set {
   overflow-anchor: none;
 }
+
+/* about you, for the assistant: one field in a sheet */
+.s-about {
+  display: grid;
+  gap: 14px;
+}
+.s-about-in {
+  width: 100%;
+  min-height: 112px;
+  padding: 12px 14px;
+  border-radius: var(--r-group);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 400 max(1rem, var(--fs-sub)) / var(--lh-sub) var(--sans);
+  resize: vertical;
+}
+.s-about-in:focus {
+  outline: none;
+  border-color: var(--accent-bright);
+}
+
+/* quiet hours: two time fields on one row */
+.s-quiet {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.s-quiet-in {
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: var(--r-control);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+}

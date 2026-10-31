@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, NetworkError } from '@/api/client';
-import { fetchExport, fetchMonth, useBootstrap, useDeleteAccount } from '@/api/queries';
+import { fetchExport, fetchMonth, useBootstrap, useDeleteAccount, useSetProfileNote } from '@/api/queries';
 import type { Bootstrap, ExportBundle, MonthBundle } from '@/api/types';
 import { markSignedOut } from '@/features/auth/flag';
 import { takeLegacyProfile } from '@/features/onboarding/model';
@@ -253,3 +253,49 @@ const DeleteStepTwo = () => {
   );
 };
 
+
+// ---------- about you, for the assistant ----------
+/**
+ * "About you, for the assistant" (Settings › You): a sentence or two the assistant and the plan builder read before writing
+ * anything ("Runs before work; banker, long days"). Kept on the account (`PATCH /me { profileNote }`).
+ */
+export const AboutYouSheet = () => {
+  const sheet = useSheet();
+  const boot = useBootstrap();
+  const save = useSetProfileNote();
+  const [text, setText] = useState(boot.data?.user.profileNote ?? '');
+  const [err, setErr] = useState<string | null>(null);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => ref.current?.focus(), 380);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <form
+      className="s-about"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setErr(null);
+        save.mutate(text.trim() || null, {
+          onSuccess: () => sheet.close(),
+          onError: (e2) => {
+            haptics.error();
+            setErr(e2 instanceof NetworkError ? e2.message : 'Couldn’t save that. Try again.');
+          },
+        });
+      }}
+    >
+      <p className="s-del-lede">A sentence or two the assistant reads before it answers or writes a plan: who you are, how you train, what your days are like.</p>
+      <textarea ref={ref} className="s-about-in" rows={4} maxLength={1000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Runs before work. Banker: long, unpredictable days, so weekday sessions must be short." aria-label="About you, for the assistant" />
+      {err ? <p className="s-pw-err">{err}</p> : null}
+      <div className="s-del-actions">
+        <Button variant="primary" block type="submit" disabled={save.isPending}>
+          {save.isPending ? 'Saving…' : 'Save'}
+        </Button>
+        <Button variant="quiet" block type="button" onClick={() => sheet.close()}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+};
