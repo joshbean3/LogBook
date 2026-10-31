@@ -28,6 +28,15 @@ const BASE = `${apiOrigin}/api`;
  * behind (docs/platform.md §12).
  */
 export const LOCAL_DATE_HEADER = 'X-Local-Date';
+/** Beside the date, the device's IANA time zone: the server keeps it on the account for reminders and the assistant. */
+export const TIMEZONE_HEADER = 'X-Timezone';
+export const localTimeZone = (): string | null => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+};
 /** Contract 4: a write sent with this header lands once, however many times it is sent (the outbox's replays). */
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 
@@ -36,6 +45,8 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
   const headers = new Headers(rest.headers);
   if (json !== undefined) headers.set('content-type', 'application/json');
   if (!headers.has(LOCAL_DATE_HEADER)) headers.set(LOCAL_DATE_HEADER, today());
+  const tz = localTimeZone();
+  if (tz && !headers.has(TIMEZONE_HEADER)) headers.set(TIMEZONE_HEADER, tz);
   if (idempotencyKey) headers.set(IDEMPOTENCY_HEADER, idempotencyKey);
   let res: Response;
   try {
@@ -64,3 +75,52 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
 }
 
 export const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+
+/**
+ * A streamed POST (server-sent events): `onEvent` gets each `event` with its parsed `data` as it arrives. Resolves when
+ * the stream ends. The same cookies, date and time zone headers as `api`.
+ */
+export async function apiStream(path: string, json: unknown, onEvent: (event: string, data: unknown) => void): Promise<void> {
+  const headers = new Headers({ 'content-type': 'application/json', accept: 'text/event-stream', [LOCAL_DATE_HEADER]: today() });
+  const tz = localTimeZone();
+  if (tz) headers.set(TIMEZONE_HEADER, tz);
+  let res: Response;
+  try {
+    res = await fetch(BASE + path, { method: 'POST', credentials: isNative ? 'include' : 'same-origin', headers, body: JSON.stringify(json) });
+  } catch {
+    throw new NetworkError();
+  }
+  if (res.status === 401) {
+    for (const fn of onUnauthorized) fn();
+    throw new ApiError('Sign in to continue', 401, 'unauthenticated');
+  }
+  if (!res.ok) {
+    let msg = res.statusText || 'Request failed';
+    let code: string | null = null;
+    try {
+      const body = (await res.json()) as { error?: string; code?: string | null };
+      if (body.error) msg = body.error;
+      code = body.code ?? null;
+    } catch {
+      /* non-JSON error */
+    }
+    throw new ApiError(msg, res.status, code);
+  }
+  // a server that answered plain JSON (no stream): one `done`
+  if (!/text\/event-stream/.test(res.headers.get('content-type') ?? '') || !res.body) {
+    onEvent('done', await res.json());
+    return;
+  }
+  const { parseSSE } = await import('./sse');
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    const { events, rest } = parseSSE(buffer, done);
+    buffer = rest;
+    for (const e of events) onEvent(e.event, e.data);
+    if (done) break;
+  }
+}

@@ -1,15 +1,30 @@
-import type { CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
+import type { CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, ProviderConnection, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
 
 export interface Bootstrap {
   /** `onboardedAt` null = a new account that has not been through /welcome yet (absent in caches from before it existed). */
   /** `trainingProfile`: the training answers kept on the account (null before any; absent in caches from before it existed). */
-  user: { id: string; email: string; onboardedAt?: string | null; trainingProfile?: SavedTrainingProfile | null; /** Contract 6: the account's name (null or absent before one is given). */ name?: string | null };
+  user: {
+    id: string;
+    email: string;
+    onboardedAt?: string | null;
+    trainingProfile?: SavedTrainingProfile | null;
+    /** Contract 6: the account's name (null or absent before one is given). */
+    name?: string | null;
+    /** The IANA zone the device last reported (absent in caches from before it existed). */
+    timezone?: string | null;
+    /** "About you, for the assistant". */
+    profileNote?: string | null;
+  };
   habits: Habit[];
   blocks: PlanBlock[];
   morningSettings: MorningSettings;
   zones: HrZone[] | null;
+  /** Strava as it has always been read; `connections` carries every provider (absent in older caches). */
   strava: StravaStatus;
-  features: { claude: boolean; strava: boolean };
+  connections?: ProviderConnection[];
+  /** This account has at least one device subscribed to push. */
+  pushEnabled?: boolean;
+  features: { claude: boolean; strava: boolean; coros?: boolean; notifications?: boolean };
   /** The server also sends `serverTime`; `fetchBootstrap` drops it so the cached object only changes when the data does. */
 }
 

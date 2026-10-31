@@ -578,9 +578,9 @@ label.lrow[data-pressed] {
 }
 /* picked: lit gold, as a feeling is picked */
 .chip-btn.on {
-  background: rgba(255, 200, 61, 0.16);
-  color: var(--sun);
-  border-color: var(--sun);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  border-color: var(--accent-text);
 }
 .chip-btn:disabled {
   opacity: 0.4;
