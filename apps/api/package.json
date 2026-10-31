@@ -16,6 +16,7 @@
     "@anthropic-ai/sdk": "^0.133.0",
     "@hono/node-server": "^1.19.0",
     "@logbook/shared": "workspace:*",
+    "@sentry/node": "^11.10.0",
     "better-sqlite3": "^12.4.1",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.10.0",
