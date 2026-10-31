@@ -490,6 +490,8 @@ export const dayPlans = sqliteTable(
     userId: userId(),
     date: text('date').notNull(),
     bands: text('bands').notNull().default('{"morning":[],"afternoon":[],"evening":[]}'),
+    /** The timeline's blocks as JSON (`DaySlot[]`: ref, start, minutes). Migration 0019. */
+    slots: text('slots').notNull().default('[]'),
     updatedAt: text('updated_at').notNull(),
   },
   (t) => [uniqueIndex('day_plans_user_date').on(t.userId, t.date)],

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isISODate, type ISODate } from './dates.js';
-import { zDayPlanPut } from './dayplan.js';
+import { zDayBands, zDaySlot } from './dayplan.js';
 import { zClockMinutes, zGoal, zTemplateInput, zWeekday } from './schemas.js';
 import { KINDS } from './sessions.js';
 
@@ -56,7 +56,8 @@ export const zAssistantOp = z.discriminatedUnion('op', [
   // ---- v2 (docs/system.md §7): habits, the day's plan, the alarm, reminders, plan selection ----
   z.object({ op: z.literal('check_habit'), habitId: zId, date: zDay, done: z.boolean() }),
   z.object({ op: z.literal('add_habit'), name: z.string().trim().min(1).max(80) }),
-  z.object({ op: z.literal('plan_day'), date: zDay, bands: zDayPlanPut.shape.bands }),
+  // the day's plan (docs/today-v6.md §4): timed slots, the older bands, or both; what is left out is kept as stored
+  z.object({ op: z.literal('plan_day'), date: zDay, bands: zDayBands.optional(), slots: z.array(zDaySlot).max(60).optional() }).refine((o) => o.bands !== undefined || o.slots !== undefined, { message: 'Give bands, slots or both' }),
   z.object({ op: z.literal('set_alarm'), date: zDay, wake: zClockMinutes }),
   z.object({ op: z.literal('set_reminder'), title: z.string().trim().min(1).max(120), body: z.string().trim().max(300).nullable().optional(), at: z.iso.datetime({ offset: true }), route: z.string().max(120).nullable().optional() }),
   z.object({ op: z.literal('cancel_reminder'), id: zId }),
@@ -121,6 +122,8 @@ export interface AssistantReply {
   proposal: AssistantProposal | null;
   /** When the proposal was applied at once (`isDirectApply`): the months whose data changed, for the client to refetch. */
   months?: string[];
+  /** Likewise, the days whose plan changed. */
+  dates?: string[];
   threadId?: string;
   /** False when the server has no Claude key. */
   available: boolean;
@@ -155,6 +158,8 @@ export interface AssistantApplied {
   proposal: AssistantProposal;
   /** Months whose data changed, for the client to refetch. */
   months: string[];
+  /** Days whose plan (`GET /day-plans/:date`) changed, for the client to refetch. */
+  dates?: string[];
 }
 
 export type { ISODate };

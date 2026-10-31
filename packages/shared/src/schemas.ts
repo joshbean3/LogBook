@@ -375,3 +375,13 @@ export const zPushSubscribe = z.object({
   userAgent: z.string().max(200).optional(),
 });
 export const zPushUnsubscribe = z.object({ endpoint: z.string().min(8).max(2000) });
+
+// ---------- the day (docs/today-v6.md §5) ----------
+/** A range of the clock in minutes from midnight, 0..1439, the start before the end. */
+const zMinuteRange = z.object({ start: z.number().int().min(0).max(1439), end: z.number().int().min(0).max(1439) }).refine((r) => r.start < r.end, { message: 'start must be before end', path: ['end'] });
+/** `user_settings` key `day`: the timeline's window and the work hours (`GET/PATCH /me/day`; the bootstrap's `daySettings`). */
+export const zDaySettings = z.object({ window: zMinuteRange, workHours: zMinuteRange });
+export type DaySettings = z.infer<typeof zDaySettings>;
+export const zDaySettingsPatch = z.object({ window: zMinuteRange.optional(), workHours: zMinuteRange.optional() }).refine((p) => p.window !== undefined || p.workHours !== undefined, { message: 'Nothing to change' });
+/** 6:00 to 23:00, working 9:00 to 18:00. */
+export const DEFAULT_DAY_SETTINGS: DaySettings = { window: { start: 360, end: 1380 }, workHours: { start: 540, end: 1080 } };
