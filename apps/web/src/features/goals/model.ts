@@ -1,4 +1,4 @@
-import { fmtDate, periodEnd, periodName, periodSpan, type Aim, type GoalLevel, type GoalStatus, type ISODate } from '@logbook/shared';
+import { fmtDate, periodEnd, periodName, periodSpan, periodStart, type Aim, type GoalLevel, type GoalStatus, type ISODate } from '@logbook/shared';
 
 /** The words each level speaks in: its label, the question the editor asks, an example of a sharp goal. */
 export const LEVEL: Record<GoalLevel, { label: string; ask: string; example: string; set: string }> = {
@@ -34,3 +34,20 @@ export const setWords = (level: GoalLevel, period: string, today: ISODate) => {
 };
 
 export const goalOf = (goals: readonly Aim[] | undefined, level: GoalLevel, period: string) => goals?.find((g) => g.level === level && g.period === period) ?? null;
+
+const dayMs = 864e5;
+const localMs = (d: ISODate) => new Date(`${d}T00:00:00`).getTime();
+
+/** How far through its period a goal is by the clock (0 to 1), and the time left in words: `9 h left`, `3 days left`. */
+export const clockOf = (level: GoalLevel, period: string, now: number) => {
+  const from = localMs(periodStart(level, period));
+  const to = localMs(periodEnd(level, period)) + dayMs;
+  const elapsed = Math.max(0, Math.min(1, (now - from) / (to - from)));
+  const left = to - now;
+  const words =
+    left <= 0 ? 'Over' : now < from ? 'Not started' : left < 3600e3 ? `${Math.max(1, Math.round(left / 60e3))} min left` : left < 2 * dayMs && level === 'day' ? `${Math.round(left / 3600e3)} h left` : left < 1.5 * dayMs ? `${Math.round(left / 3600e3)} h left` : `${Math.ceil(left / dayMs)} days left`;
+  return { elapsed, words };
+};
+
+/** Each level's colour: the day in the app's ultramarine, the week amber, the month green, the year violet. */
+export const LEVEL_HUE: Record<GoalLevel, string> = { day: 'var(--accent-bright)', week: 'var(--warn)', month: 'var(--t-easy)', year: 'var(--t-lift)' };

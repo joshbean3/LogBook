@@ -4,7 +4,6 @@ import { HOLD_SLOP_PX } from '@/lib/gesture';
 import { hapticAtPeak } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
 import { usePress } from '@/ui/usePress';
-import { PointsPop, usePops } from '../goals/game';
 
 /** The pop's start velocity: `springs.complete` from rest at 1 overshoots to ≈ 1.12 (see OrbRow's POP_V). */
 const POP_V = 5.5;
@@ -14,8 +13,7 @@ const POP_V = 5.5;
  * no fade in), the box pops 1 → 1.12 → 1 on `springs.complete`, and `toggle` fires on the pop's peak frame
  * (`hapticAtPeak`, never in the handler). Un-checking is silent. Reduced motion: no pop; the haptic lands when the fill does.
  */
-export const TodoMark = ({ on, label, onToggle, disabled, points }: { on: boolean; label: string; onToggle: (next: boolean) => void; disabled?: boolean; points?: number }) => {
-  const { pops, fire } = usePops();
+export const TodoMark = ({ on, label, onToggle, disabled }: { on: boolean; label: string; onToggle: (next: boolean) => void; disabled?: boolean }) => {
   const reduce = useReduced();
   const pop = useMotionValue(1);
   const press = usePress({ disabled });
@@ -37,7 +35,6 @@ export const TodoMark = ({ on, label, onToggle, disabled, points }: { on: boolea
         animate(pop, 1, { ...springs.complete, velocity: POP_V });
       }
     }
-    if (next && points) fire(points);
     onToggle(next);
   };
   return (
@@ -68,7 +65,6 @@ export const TodoMark = ({ on, label, onToggle, disabled, points }: { on: boolea
         travel.current = null;
       }}
     >
-      {points ? <PointsPop pops={pops} /> : null}
       <motion.span className={`tmark ${on ? 'on' : ''}`} style={{ scale: pop }}>
         <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : on ? { pathLength: { duration: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01 } } : { duration: 0.1 }} />

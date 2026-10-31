@@ -20,6 +20,7 @@ import { authRoutes } from './routes/auth.js';
 import { coreRoutes } from './routes/core.js';
 import { goalRoutes } from './routes/goals.js';
 import { assistantRoutes } from './routes/assistant.js';
+import { dayPlanRoutes } from './routes/dayplans.js';
 import { journalRoutes } from './routes/journal.js';
 import { meRoutes } from './routes/me.js';
 import { planRoutes } from './routes/plans.js';
@@ -49,6 +50,7 @@ export const buildApp = (db: DB) => {
   authed.route('/', planRoutes(db));
   authed.route('/', goalRoutes(db));
   authed.route('/', assistantRoutes(db));
+  authed.route('/', dayPlanRoutes(db));
   app.route('/api', authed);
 
   app.onError((err, c) => {

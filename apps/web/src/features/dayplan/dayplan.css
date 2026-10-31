@@ -1,0 +1,660 @@
+/* Plan your day (Today): the goal as the headline, a tray of what has no time yet, the day in three bands of cards. */
+
+.pd {
+  display: grid;
+  gap: 10px;
+}
+.pd.is-skel {
+  min-height: 300px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+.pd-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pd-head-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-sub);
+}
+.pd-board {
+  display: grid;
+  gap: 10px;
+}
+
+/* ---------- the goal ---------- */
+.pd-goal {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 14px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  transition:
+    box-shadow 200ms var(--ease-out),
+    border-color 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+/* the wash: the share of the goal's steps checked, as light filling the card from the left */
+.pd-goal-wash {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(47, 59, 255, 0.08), rgba(47, 59, 255, 0.32));
+}
+.pd-goal-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: -1;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent-bright);
+  box-shadow: 0 0 18px 4px rgba(91, 102, 255, 0.5);
+  transition:
+    left 600ms var(--ease-out),
+    opacity 200ms;
+}
+.pd-goal.is-done {
+  border-color: rgba(91, 102, 255, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(91, 102, 255, 0.3),
+    0 12px 44px rgba(47, 59, 255, 0.38);
+}
+.pd-goal.is-done .pd-goal-wash {
+  background: linear-gradient(115deg, #1a23b8, var(--accent) 55%, var(--accent-bright));
+}
+.pd-goal.is-done .pd-goal-caps {
+  color: rgba(255, 255, 255, 0.78);
+}
+.pd-goal-in {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.pd-goal-ring {
+  position: relative;
+  flex: none;
+  margin: -7px -6px -8px -8px;
+}
+.pd-goal-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+.pd-goal-caps {
+  color: var(--ink-3);
+}
+.pd-goal-text {
+  font-family: var(--serif);
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+/* a to-do in the air can land here as a step */
+.pd-goal.is-open {
+  border: 1px dashed rgba(91, 102, 255, 0.6);
+}
+.pd-goal.is-target {
+  border-color: var(--accent-bright);
+  box-shadow:
+    0 0 0 2px var(--accent-bright),
+    0 0 36px rgba(91, 102, 255, 0.5);
+  transform: scale(1.015);
+}
+.pd-goal-drop {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(20, 26, 102, 0.92);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-text);
+  font-size: var(--fs-foot);
+  font-weight: 600;
+}
+.pd-goal.is-empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 80px;
+  border: 1px dashed var(--line-strong);
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(47, 59, 255, 0.2), transparent 60%),
+    var(--surface);
+  text-align: left;
+}
+.pd-goal-plus {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  box-shadow: 0 0 18px rgba(47, 59, 255, 0.35);
+}
+.pd-goal-set {
+  display: block;
+  font-family: var(--serif);
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
+  color: var(--ink);
+}
+.pd-goal-sub {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--fs-foot);
+}
+.pd-week {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  text-align: left;
+}
+.pd-week .caps {
+  margin-right: 4px;
+  color: var(--ink-3);
+}
+.pd-goal.is-done .pd-week {
+  border-top-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.85);
+}
+.pd-week-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  transform: translateY(-1px);
+}
+.pd-week-dot.is-done {
+  background: var(--accent-bright);
+  box-shadow: 0 0 8px var(--accent-bright);
+}
+.pd-week-text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ---------- a review owed ---------- */
+.pd-owed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--r-group);
+  background: var(--warn-soft);
+  color: var(--ink);
+  text-align: left;
+}
+.pd-owed-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 10px var(--warn);
+}
+.pd-owed-text {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-sub);
+}
+.pd-owed-text .caps {
+  color: var(--warn);
+}
+
+/* ---------- the tray ---------- */
+.pd-tray {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  transition:
+    border-color 200ms,
+    background-color 200ms;
+}
+.pd-tray.is-empty {
+  padding: 0;
+  border-color: transparent;
+  background: none;
+}
+.pd-tray.is-over {
+  border-color: var(--accent-bright);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.pd-tray-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 0;
+}
+.pd-tray-head .caps {
+  color: var(--ink-3);
+}
+.pd-hint {
+  color: var(--ink-4);
+  font-size: var(--fs-caps);
+  line-height: var(--lh-caps);
+  text-align: right;
+}
+
+/* ---------- the bands ---------- */
+.pd-band {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 10px 10px 10px 24px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  transition:
+    background-color 200ms,
+    box-shadow 200ms,
+    opacity 200ms;
+}
+.pd-band.is-now {
+  background:
+    radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--bh) 15%, transparent), transparent 65%),
+    var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bh) 32%, transparent);
+}
+.pd-band.is-past:not(.is-over) .pd-band-head {
+  opacity: 0.6;
+}
+.pd-band.is-over {
+  background: color-mix(in srgb, var(--bh) 9%, var(--surface));
+  box-shadow:
+    inset 0 0 0 2px var(--bh),
+    0 0 28px color-mix(in srgb, var(--bh) 28%, transparent);
+}
+/* the rail: the band's hue, filling down as its cards are checked */
+.pd-rail {
+  position: absolute;
+  left: 11px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--bh) 20%, transparent);
+}
+.pd-rail i {
+  position: absolute;
+  inset: 0;
+  transform-origin: top;
+  background: var(--bh);
+}
+.pd-band.is-done .pd-rail {
+  box-shadow: 0 0 12px var(--bh);
+}
+.pd-band-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+.pd-band-ic {
+  display: grid;
+  color: var(--bh);
+}
+.pd-band-name {
+  color: var(--ink);
+  font-size: var(--fs-sub);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.pd-band-span {
+  color: var(--ink-4);
+  font-size: var(--fs-foot);
+}
+.pd-now {
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  background: var(--bh);
+  color: #000;
+  font-size: var(--fs-caps);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--bh) 55%, transparent);
+}
+.pd-band-count {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: var(--fs-foot);
+}
+.pd-band.is-done .pd-band-count {
+  color: var(--bh);
+  font-weight: 650;
+}
+.pd-band-add {
+  width: 36px;
+  height: 36px;
+  margin: -4px -6px -4px auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: none;
+  border: 0;
+  color: var(--ink-3);
+}
+.pd-band-count + .pd-band-add {
+  margin-left: 2px;
+}
+.pd-zone {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+.pd-slot {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border-radius: var(--r-group);
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-4);
+  font-size: var(--fs-foot);
+}
+.pd-slot.is-live {
+  border-color: color-mix(in srgb, var(--bh, var(--accent-bright)) 60%, transparent);
+  color: var(--ink-3);
+}
+.pd-tray .pd-slot {
+  min-height: 36px;
+}
+
+/* the tray's cards are chips that wrap, so the day below stays in view */
+.pd-tray .pd-zone {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pd-tray .pd-slot {
+  flex: 1;
+}
+.pd-card.is-chip {
+  max-width: 100%;
+  border-radius: var(--r-pill);
+}
+.pd-card.is-chip .pd-card-in {
+  min-height: 40px;
+  padding: 0 14px 0 0;
+  gap: 0;
+}
+.pd-card.is-chip .tmark-hit {
+  margin: -2px -4px -2px -2px;
+  transform: scale(0.9);
+}
+.pd-card.is-chip .pd-card-name {
+  padding: 6px 0;
+}
+.pd-card.is-chip .pd-card-text {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  overflow-wrap: normal;
+}
+.pd-card.is-chip .pd-tag.is-goal {
+  margin-left: 6px;
+  padding: 3px;
+}
+.pd-card.is-chip.has-tc::before {
+  display: none;
+}
+.pd-card.is-chip.has-tc {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 55%, transparent);
+}
+
+/* ---------- cards ---------- */
+.pd-card {
+  position: relative;
+  border-radius: var(--r-group);
+  background: var(--surface-2);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition:
+    background-color 200ms,
+    box-shadow 200ms,
+    transform 250ms var(--ease-out);
+}
+.pd-card-in {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 48px;
+  padding: 2px 10px 2px 0;
+}
+.pd-card.has-tc::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--tc);
+}
+.pd-card-name {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.pd-card-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  overflow-wrap: anywhere;
+  transition: color 200ms;
+}
+.pd-card-note {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-foot);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pd-card.is-done .pd-card-text {
+  color: var(--ink-4);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+}
+.pd-card.is-step {
+  background:
+    linear-gradient(90deg, rgba(47, 59, 255, 0.16), rgba(47, 59, 255, 0.03)),
+    var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgba(91, 102, 255, 0.22);
+}
+.pd-card.is-step.is-done {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px rgba(91, 102, 255, 0.12);
+}
+.pd-tag.is-goal {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+  font-size: var(--fs-caps);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+/* the hold is up: the card rises to meet the finger */
+.pd-card.is-armed {
+  transform: scale(1.025);
+  background: var(--surface-3);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
+  z-index: 2;
+}
+/* where the card in the air would land */
+.pd-card.is-hole {
+  background: rgba(91, 102, 255, 0.07);
+  box-shadow: inset 0 0 0 1.5px rgba(91, 102, 255, 0.55);
+}
+.pd-card.is-hole .pd-card-in {
+  visibility: hidden;
+}
+.pd-card.is-hole::before {
+  display: none;
+}
+
+/* the card in the air */
+.pd-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  pointer-events: none;
+  background: var(--surface-3);
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 22px 50px rgba(0, 0, 0, 0.7),
+    0 0 34px rgba(47, 59, 255, 0.22);
+}
+.pd-ghost.is-bin {
+  box-shadow:
+    0 0 0 1.5px var(--bad),
+    0 22px 50px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------- the docks (over the tab bar while a card is in the air) ---------- */
+.pd-docks {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 14px);
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.pd-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 50px;
+  padding: 0 20px;
+  border-radius: var(--r-pill);
+  background: rgba(27, 27, 27, 0.92);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: var(--ink-2);
+  font-size: var(--fs-sub);
+  font-weight: 600;
+  box-shadow:
+    0 0 0 1px var(--line-strong),
+    0 12px 30px rgba(0, 0, 0, 0.6);
+  transition:
+    transform 180ms var(--ease-out),
+    background-color 180ms,
+    color 180ms;
+}
+.pd-dock.is-over {
+  transform: scale(1.08);
+  background: var(--accent);
+  color: #fff;
+}
+.pd-dock.is-bin.is-over {
+  background: var(--bad);
+}
+
+/* ---------- adding ---------- */
+.pd-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-group);
+  color: var(--ink-3);
+  font-size: var(--fs-sub);
+}
+.pd-add.is-field {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.pd-add-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-row);
+}
+.pd-all {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  color: var(--ink-3);
+  font-size: var(--fs-foot);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pd-goal,
+  .pd-card,
+  .pd-dock,
+  .pd-goal-edge {
+    transition: none;
+  }
+  .pd-card.is-armed,
+  .pd-goal.is-target,
+  .pd-dock.is-over {
+    transform: none;
+  }
+}
+
+/* kept in the layout, out of sight, while a card is in the air */
+.pd-hide {
+  visibility: hidden;
+}
+.pd-spacer {
+  display: block;
+  flex: none;
+}

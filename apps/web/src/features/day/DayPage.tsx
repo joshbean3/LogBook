@@ -11,8 +11,7 @@ import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
 import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
-import { TodayTodos } from '../todos/TodayTodos';
-import { TodayGoals } from '../goals/TodayGoals';
+import { PlanDay } from '../dayplan/PlanDay';
 import { AskBar } from '../assistant/AskBar';
 import { planEndOf } from './dayWords';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
@@ -28,7 +27,6 @@ import { useFocus, useOpenWordSheet } from './WordSheet';
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
 // the sections that do not depend on which page is live: a commit (a role change) never re-renders them (risk 1)
 const OrbRowM = memo(OrbRow);
-const TodayTodosM = memo(TodayTodos);
 // the plan-end card is rare (a few days a block) and pulls in the builder: loaded when it is first needed
 const PlanEnd = lazy(() => import('./PlanEnd'));
 
@@ -162,11 +160,7 @@ const DayShell = ({ date }: { date: ISODate }) => (
       </div>
       <div className="orbs-skel" />
     </section>
-    <section className="todos" aria-hidden="true">
-      <div className="section-head">
-        <h2 className="section-title">To-dos</h2>
-      </div>
-    </section>
+    <section className="pd is-skel" aria-hidden="true" />
     <div className="week-card card is-skel" aria-hidden="true" />
   </div>
 );
@@ -213,7 +207,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       <Sentence />
-      {loaded && !first ? <TodayGoals date={date} today={today} /> : null}
+      {loaded && !first ? <PlanDay date={date} today={today} /> : null}
       {isToday && loaded && !first ? <NudgeSlot date={date} onMorning={onMorning} /> : null}
       <MorningRow date={date} log={log} />
       {loaded ? <SecondSession date={date} log={log} /> : null}
@@ -224,9 +218,6 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
           {loaded ? <HabitsMeta date={date} log={log} /> : null}
         </div>
         {loaded ? <OrbRowM date={date} log={log} editable={date <= today} /> : <div className="orbs-skel" />}
-      </section>
-      <section className="todos" aria-label="To-dos">
-        <TodayTodosM date={date} />
       </section>
       {loaded ? <WeekCard date={date} log={log} /> : <div className="week-card card is-skel" />}
       {end ? (

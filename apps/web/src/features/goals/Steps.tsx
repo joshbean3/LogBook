@@ -1,4 +1,4 @@
-import { GOAL_STEPS_MAX, goalProgress, POINTS, type Aim, type GoalStep } from '@logbook/shared';
+import { GOAL_STEPS_MAX, goalProgress, type Aim, type GoalStep } from '@logbook/shared';
 import { Plus, X } from 'lucide-react';
 import { animate, motion, useMotionValue } from 'motion/react';
 import { useState } from 'react';
@@ -51,15 +51,22 @@ export const GoalRing = ({ goal, label }: { goal: Aim; label: string }) => {
  * A goal's steps, checked off where they stand (Today's card, the Goals tab, the goal's card). Checking the last one
  * finishes the goal; unchecking one of a done goal opens it again. `editable` adds the remove marks and the add row.
  */
-export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: boolean; compact?: boolean }) => {
+/** Save a goal's steps; the last one checked finishes the goal, one unchecked opens a done goal again. */
+export const useSaveSteps = () => {
   const { review } = useGoalMutations();
-  const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState('');
-  const save = (steps: GoalStep[]) => {
+  return (goal: Aim, steps: GoalStep[]) => {
     const all = steps.length > 0 && steps.every((s) => s.done);
     const status = all && goal.status === 'open' ? 'done' : !all && goal.status === 'done' ? 'open' : undefined;
     review.mutate({ id: goal.id, steps, ...(status ? { status } : {}) });
   };
+};
+export const newStepId = newId;
+
+export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: boolean; compact?: boolean }) => {
+  const saveSteps = useSaveSteps();
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const save = (steps: GoalStep[]) => saveSteps(goal, steps);
   const add = () => {
     const t = draft.trim();
     if (!t) return setAdding(false);
@@ -71,7 +78,7 @@ export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: b
     <ul className={`g-steps ${compact ? 'compact' : ''}`} aria-label="Steps">
       {goal.steps.map((s) => (
         <li key={s.id} className={`g-step ${s.done ? 'is-done' : ''}`}>
-          <TodoMark on={s.done} label={s.text} points={POINTS.step} onToggle={(next) => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
+          <TodoMark on={s.done} label={s.text} onToggle={(next) => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
           <span className="g-step-text">{s.text}</span>
           {editable ? (
             <button type="button" className="g-step-x" aria-label={`Remove ${s.text}`} onClick={() => save(goal.steps.filter((x) => x.id !== s.id))}>

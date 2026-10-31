@@ -409,3 +409,16 @@ export const assistantActions = sqliteTable(
   },
   (t) => [index('assistant_actions_user').on(t.userId, t.createdAt)],
 );
+
+/** A day's plan: three bands (`DayBands` JSON) of to-do and goal-step references, in order. Migration 0012. */
+export const dayPlans = sqliteTable(
+  'day_plans',
+  {
+    id: id(),
+    userId: userId(),
+    date: text('date').notNull(),
+    bands: text('bands').notNull().default('{"morning":[],"afternoon":[],"evening":[]}'),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [uniqueIndex('day_plans_user_date').on(t.userId, t.date)],
+);

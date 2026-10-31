@@ -1,4 +1,4 @@
-import { fmtDate, POINTS, shiftDays, type ISODate, type Todo } from '@logbook/shared';
+import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
 import { Check, ChevronDown, ChevronRight, Clock, Plus, RotateCcw, Sun, Trash2 } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clientKey, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
@@ -144,7 +144,6 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
     <SwipeRow right={right} left={left} menuItems={[...extra, { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) }]} label={x.text} className="tl-swipe">
       <div className={`tl-row ${on ? 'is-done' : ''} ${tint ? 'has-tc' : ''}`} style={colorStyle(tint)}>
         <TodoMark
-          points={done ? undefined : POINTS.todo[x.priority]}
           on={on}
           label={dueLabel ? `${x.text}, ${dueLabel}` : x.text}
           onToggle={(next) => {

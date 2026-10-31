@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
@@ -83,6 +83,7 @@ export const prefetchAll = (qc: QueryClient) => {
   const jobs: Array<Promise<unknown>> = [
     ...months.map((m) => qc.prefetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 })),
     qc.prefetchQuery({ queryKey: keys.todos, queryFn: () => api<Todo[]>('/todos'), staleTime: 30_000 }),
+    qc.prefetchQuery({ queryKey: dayPlanKey(today()), queryFn: () => fetchDayPlan(today()), staleTime: 30_000 }),
     qc.prefetchQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 }),
     qc.prefetchQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 }),
     qc.prefetchQuery({ queryKey: keys.journal('', false), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>('/journal?q=&fav=0&limit=200'), staleTime: 30_000 }),
@@ -397,17 +398,19 @@ const takePositions = (t: Todo[], list: Todo[]) => {
   const pos = new Map(list.map((x) => [x.id, x.position]));
   return t.map((x) => (pos.has(x.id) ? { ...x, position: pos.get(x.id)! } : x));
 };
+/** A to-do's provisional id, fixed length: the outbox matches it as a substring, so it must never be a prefix of another. */
+export const newTodoId = () => `tmp-${Math.random().toString(36).slice(2, 9).padEnd(7, '0')}`;
+
 export const useTodoMutations = () => {
   const qc = useQueryClient();
   const setTodos = (fn: (t: Todo[]) => Todo[]) => qc.setQueryData<Todo[]>(keys.todos, (t) => fn(t ?? []));
   const add = useMutation({
-    mutationFn: async (input: { text: string; date: string; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; color?: TodoColor | null; groupId?: string | null }) => {
+    mutationFn: async (input: { id?: string; text: string; date: string; priority?: TodoPriority; due?: string | null; bucket?: TodoBucket; color?: TodoColor | null; groupId?: string | null }) => {
       const { text, date } = input;
       const bucket: TodoBucket = input.bucket ?? (input.due && input.due > date ? 'later' : 'today');
       const cur = qc.getQueryData<Todo[]>(keys.todos) ?? [];
       const tmp: Todo = {
-        // a fixed-length id: the outbox matches it as a substring, so it must never be a prefix of another
-        id: `tmp-${Math.random().toString(36).slice(2, 9).padEnd(7, '0')}`,
+        id: input.id ?? newTodoId(),
         text,
         note: null,
         priority: input.priority ?? 0,
@@ -1172,3 +1175,24 @@ export const useAssistantActions = () => {
   return { apply, undo, dismiss };
 };
 // ── end Assistant ──
+
+// ---------- the day's plan: morning, afternoon, evening (to-do and goal-step references, in order) ----------
+const dayPlanKey = (date: string) => ['day-plan', date] as const;
+const fetchDayPlan = async (date: string): Promise<DayPlan> => {
+  const p = await api<DayPlan>(`/day-plans/${date}`);
+  return { ...p, bands: cleanBands({ ...emptyBands(), ...p.bands }) };
+};
+export const useDayPlan = (date: string) => useQuery({ queryKey: dayPlanKey(date), queryFn: () => fetchDayPlan(date), staleTime: 30_000 });
+
+/** Put the day's whole plan after a drag: the board shows it on the drop's frame; the write follows (the outbox when offline). */
+export const useDayPlanSave = (date: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (bands: DayBands) => {
+      const clean = cleanBands(bands);
+      qc.setQueryData<DayPlan>(dayPlanKey(date), (p) => ({ date, updatedAt: p?.updatedAt ?? null, bands: clean }));
+      await write<DayPlan>(`/day-plans/${date}`, 'PUT', { bands: clean }, [dayPlanKey(date)]);
+    },
+    onError: () => void qc.invalidateQueries({ queryKey: dayPlanKey(date) }),
+  });
+};
