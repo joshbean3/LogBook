@@ -136,3 +136,89 @@ export const goalsDue = (goals: readonly Aim[] | undefined, today: ISODate) => {
 
 /** How far through its steps a goal is: 0 to 1 (a goal with no steps is 0 until done, then 1). */
 export const goalProgress = (g: Pick<Aim, 'steps' | 'status'>) => (g.status === 'done' ? 1 : g.steps.length ? g.steps.filter((x) => x.done).length / g.steps.length : 0);
+
+// ---------- the game: streaks, points, levels ----------
+
+/** What each thing is worth. A goal's points land when it is done (partly earns a share); steps and to-dos on the check. */
+export const POINTS = {
+  step: 10,
+  goal: { day: 50, week: 200, month: 500, year: 2000 } as Record<GoalLevel, number>,
+  partly: 0.4,
+  /** Per day of the streak a hit day goal extends, up to ten days. */
+  streakBonus: 5,
+  /** A done to-do by priority: none, P3, P2, P1. */
+  todo: [10, 15, 20, 30] as const,
+};
+export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365] as const;
+
+/**
+ * The streak of day goals hit, ending today (if today's is done) or yesterday (today is still open). A day with no goal,
+ * or a goal partly done or missed, ends it.
+ */
+export const dayStreak = (goals: readonly Aim[] | undefined, today: ISODate): number => {
+  const done = new Set((goals ?? []).filter((g) => g.level === 'day' && g.status === 'done').map((g) => g.period));
+  let d = done.has(today) ? today : shiftDays(today, -1);
+  let n = 0;
+  while (done.has(d)) {
+    n++;
+    d = shiftDays(d, -1);
+  }
+  return n;
+};
+
+/** The longest run of day goals hit, ever. */
+export const bestDayStreak = (goals: readonly Aim[] | undefined): number => {
+  const days = [...new Set((goals ?? []).filter((g) => g.level === 'day' && g.status === 'done').map((g) => g.period))].sort();
+  let best = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const d of days) {
+    run = prev && shiftDays(prev, 1) === d ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = d;
+  }
+  return best;
+};
+
+/** The streak a day goal would make if it were hit on `date` (the number the card promises). */
+export const streakIfHit = (goals: readonly Aim[] | undefined, date: ISODate) => {
+  let n = 1;
+  const done = new Set((goals ?? []).filter((g) => g.level === 'day' && g.status === 'done').map((g) => g.period));
+  for (let d = shiftDays(date, -1); done.has(d); d = shiftDays(d, -1)) n++;
+  return n;
+};
+
+export type DayMark = 'done' | 'partly' | 'missed' | 'open' | 'none' | 'ahead';
+/** The week's seven days by their day goal: hit, partly, missed, open (set, not yet), none set, or still ahead. */
+export const weekMarks = (goals: readonly Aim[] | undefined, date: ISODate, today: ISODate): Array<{ date: ISODate; mark: DayMark }> => {
+  const mon = mondayOf(date);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = shiftDays(mon, i);
+    const g = goals?.find((x) => x.level === 'day' && x.period === d);
+    const mark: DayMark = g ? (g.status === 'open' ? (d < today ? 'missed' : 'open') : g.status) : d > today ? 'ahead' : 'none';
+    return { date: d, mark };
+  });
+};
+
+/** The points a goal has earned: its checked steps, and (once done or partly done) its own worth with any streak bonus. */
+export const goalPoints = (g: Aim, streakAtHit = 0): number => {
+  const steps = g.steps.filter((s) => s.done).length * POINTS.step;
+  const base = POINTS.goal[g.level];
+  const own = g.status === 'done' ? base + (g.level === 'day' ? Math.min(streakAtHit, 10) * POINTS.streakBonus : 0) : g.status === 'partly' ? Math.round(base * POINTS.partly) : 0;
+  return steps + own;
+};
+
+/** Every goal's points, each day goal with the streak it made. */
+export const totalGoalPoints = (goals: readonly Aim[] | undefined): number => {
+  const list = goals ?? [];
+  return list.reduce((t, g) => t + goalPoints(g, g.level === 'day' && g.status === 'done' ? streakIfHit(list, g.period) : 0), 0);
+};
+
+/** Levels: level n starts at 250 × n(n−1)/2 points (0, 250, 750, 1500, 2500, …). */
+export const levelOf = (points: number) => {
+  let n = 1;
+  while (250 * ((n * (n + 1)) / 2) <= points) n++;
+  const floor = 250 * (((n - 1) * n) / 2);
+  const next = 250 * ((n * (n + 1)) / 2);
+  return { level: n, floor, next, into: points - floor, span: next - floor };
+};

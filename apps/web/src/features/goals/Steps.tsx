@@ -1,9 +1,8 @@
-import { GOAL_STEPS_MAX, goalProgress, type Aim, type GoalStep } from '@logbook/shared';
+import { GOAL_STEPS_MAX, goalProgress, POINTS, type Aim, type GoalStep } from '@logbook/shared';
 import { Plus, X } from 'lucide-react';
 import { animate, motion, useMotionValue } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useGoalMutations } from '@/api/queries';
-import { hapticAtPeak } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { springs, useReduced } from '@/lib/motion';
 import { usePress } from '@/ui/usePress';
@@ -28,18 +27,12 @@ export const GoalRing = ({ goal, label }: { goal: Aim; label: string }) => {
   const reduce = useReduced();
   const pop = useMotionValue(1);
   const press = usePress();
-  const unpeak = useRef<() => void>(() => {});
-  useEffect(() => () => unpeak.current(), []);
   const done = goal.status === 'done';
   const p = goalProgress(goal);
   const toggle = () => {
     const next = done ? 'open' : 'done';
-    if (next === 'done') {
-      unpeak.current();
-      unpeak.current = hapticAtPeak(pop, 'toggle');
-      if (!reduce) animate(pop, 1, { ...springs.complete, velocity: POP_V });
-      else pop.set(1.0001);
-    }
+    // the pop is the ring's; the haptic and the burst are the row's, once the goal turns done (wherever it was done from)
+    if (next === 'done' && !reduce) animate(pop, 1, { ...springs.complete, velocity: POP_V });
     // done with steps left: they are all checked with it (the goal is the sum of its steps)
     review.mutate({ id: goal.id, status: next, ...(next === 'done' && goal.steps.some((s) => !s.done) ? { steps: goal.steps.map((s) => ({ ...s, done: true })) } : {}) });
   };
@@ -78,7 +71,7 @@ export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: b
     <ul className={`g-steps ${compact ? 'compact' : ''}`} aria-label="Steps">
       {goal.steps.map((s) => (
         <li key={s.id} className={`g-step ${s.done ? 'is-done' : ''}`}>
-          <TodoMark on={s.done} label={s.text} onToggle={(next) => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
+          <TodoMark on={s.done} label={s.text} points={POINTS.step} onToggle={(next) => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
           <span className="g-step-text">{s.text}</span>
           {editable ? (
             <button type="button" className="g-step-x" aria-label={`Remove ${s.text}`} onClick={() => save(goal.steps.filter((x) => x.id !== s.id))}>

@@ -750,3 +750,249 @@
 .gs-chip-p1 {
   color: var(--prio-1);
 }
+
+/* ---------- the game ---------- */
+/* the points a check earns, rising from the mark */
+.tmark-hit {
+  position: relative;
+}
+.g-pops {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.g-pop {
+  position: absolute;
+  left: 0;
+  transform-origin: center;
+  translate: -50% 0;
+  font: 700 13px/1 var(--sans);
+  color: var(--warn);
+  white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+/* the ring's sparks when a goal is hit */
+.g-ring-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.g-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.g-burst i {
+  position: absolute;
+  left: -2.5px;
+  top: -2.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+}
+.g-burst i.warm {
+  background: var(--warn);
+}
+
+/* the hit: the card flashes and says so */
+.g-live.is-hit {
+  animation: g-flash 1.2s var(--ease-out);
+}
+@keyframes g-flash {
+  0% {
+    background: transparent;
+  }
+  12% {
+    background: var(--accent-tint);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.g-hit {
+  margin: -2px 14px 6px 54px;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--warn);
+}
+.g-hit.big {
+  font-size: var(--fs-sub);
+}
+
+/* the steps' progress, under the goal's words */
+.g-bar {
+  display: block;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.g-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  transform-origin: left center;
+}
+
+/* the streak and the week, at the top of Today's goals */
+.g-strip {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.g-strip-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.g-flame {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px 3px 7px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font: 700 var(--fs-sub) / 1 var(--sans);
+}
+.g-flame.is-hot {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.g-flame.big {
+  padding: 5px 12px 5px 9px;
+  font-size: var(--fs-head);
+}
+.g-strip-line {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.g-strip-pts {
+  font: 700 var(--fs-foot) / 1 var(--sans);
+  color: var(--warn);
+}
+.g-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.g-wday {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.g-wday i {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+.g-wday.is-done i {
+  background: var(--accent);
+  box-shadow: none;
+}
+.g-wday.is-partly i {
+  background: var(--warn-soft);
+  box-shadow: inset 0 0 0 1.5px var(--warn);
+}
+.g-wday.is-missed i,
+.g-wday.is-none i {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ink-4);
+  opacity: 0.6;
+}
+.g-wday.is-open i {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--accent-bright);
+}
+.g-wday.is-ahead i {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.g-wday.is-today .g-wday-l {
+  color: var(--ink);
+}
+.g-wday-l {
+  font: 600 10px/1 var(--sans);
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+/* the level, on Goals */
+.g-level {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 16px;
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  background-image: radial-gradient(70% 90% at 100% 0%, rgba(255, 176, 32, 0.1), rgba(255, 176, 32, 0) 70%);
+}
+.g-level-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+.g-level-l {
+  display: grid;
+  gap: 4px;
+}
+.g-level-pts {
+  font-size: var(--fs-stamp);
+  line-height: var(--lh-stamp);
+  color: var(--ink);
+}
+.g-level-pts small {
+  font-size: var(--fs-sub);
+  color: var(--ink-3);
+}
+.g-level-r {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+.g-level-best {
+  font-size: var(--fs-foot);
+  color: var(--ink-3);
+}
+.g-xp {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.g-xp i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  transform-origin: left center;
+}
+.g-level-next {
+  font-size: var(--fs-foot);
+  color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-live.is-hit {
+    animation: none;
+  }
+}

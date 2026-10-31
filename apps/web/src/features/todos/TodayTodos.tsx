@@ -1,4 +1,4 @@
-import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
+import { fmtDate, POINTS, shiftDays, type ISODate, type Todo } from '@logbook/shared';
 import { ChevronRight, Clock, Flag, FlagOff, Moon, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { animate } from 'motion/react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
@@ -100,7 +100,7 @@ const TodoRow = memo(function TodoRow({ x, date, on, onMark, onEdit, menu }: Row
       onClickCapture={hold.handlers.onClickCapture}
     >
       <div className="tt-row-in">
-        <TodoMark on={on} label={aside ? `${x.text}, ${aside}` : x.text} onToggle={(next) => onMark(x, next)} />
+        <TodoMark on={on} label={aside ? `${x.text}, ${aside}` : x.text} onToggle={(next) => onMark(x, next)} points={POINTS.todo[x.priority]} />
         <button type="button" className="tt-name" onClick={() => onEdit(x)}>
           <span className="trow-title">
             <span className="tt-text">{x.text}</span>

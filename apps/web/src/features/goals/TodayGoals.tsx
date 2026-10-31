@@ -6,6 +6,7 @@ import { Pressable } from '@/ui/Pressable';
 import { goalOf, periodCaps } from './model';
 import { GoalRow } from './GoalsView';
 import { useOpenGoal } from './GoalSheets';
+import { StreakStrip } from './game';
 import './goals.css';
 
 /**
@@ -21,6 +22,7 @@ export const TodayGoals = memo(function TodayGoals({ date, today }: { date: ISOD
   const owed = date === today ? awaitingReview(list, today)[0] : undefined;
   return (
     <section className="goals-card group" aria-label="Goals">
+      <StreakStrip date={date} goals={list} />
       {owed ? (
         <Pressable className="g-owed" press="surface" onPress={() => open(owed.level, owed.period)} label={`${periodCaps(owed.level, owed.period, today)}: ${owed.text}. Did you hit it?`}>
           <span className="g-owed-dot" aria-hidden="true" />

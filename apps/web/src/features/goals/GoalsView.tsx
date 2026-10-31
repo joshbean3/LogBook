@@ -1,6 +1,8 @@
-import { awaitingReview, currentGoals, GOAL_LEVELS, periodOf, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
+import { awaitingReview, currentGoals, GOAL_LEVELS, goalPoints, goalProgress, periodOf, shiftDays, shiftPeriod, streakIfHit, type Aim, type GoalLevel } from '@logbook/shared';
 import { Bell, ChevronRight, History, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
+import { haptics } from '@/lib/haptics';
 import { useNav } from '@/app/NavController';
 import { useGoals } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
@@ -13,6 +15,7 @@ import { goalOf, LEVEL, periodCaps, setWords, STATUS_WORD } from './model';
 import { disableReminders, enableReminders, remindersOn, remindersSupported } from './reminders';
 import { ReviewButtons, StatusIcon, useOpenGoal } from './GoalSheets';
 import { GoalRing, GoalSteps } from './Steps';
+import { Burst, isMilestone, LevelCard } from './game';
 import './goals.css';
 
 /**
@@ -35,18 +38,54 @@ export const GoalRow = ({ level, period, goal, today, compact, steps }: { level:
         </span>
       </Pressable>
     );
+  return <LiveGoal level={level} period={period} goal={goal} today={today} compact={compact} steps={steps} caps={caps} />;
+};
+
+let celebrated = '';
+
+/** A set goal: the ring, the words, the progress bar, its steps; and the moment it turns done. */
+const LiveGoal = ({ level, period, goal, today, compact, steps, caps }: { level: GoalLevel; period: string; goal: Aim; today: string; compact?: boolean; steps?: boolean; caps: string }) => {
+  const open = useOpenGoal();
+  const all = useGoals().data;
   const n = goal.steps.length;
   const k = goal.steps.filter((x) => x.done).length;
   const ended = goal.status === 'partly' || goal.status === 'missed';
+  // the hit: only a change seen here (open → done), never a goal that loads already done
+  const was = useRef(goal.status);
+  const [hit, setHit] = useState<{ at: number; line: string; big: boolean } | null>(null);
+  useEffect(() => {
+    const before = was.current;
+    was.current = goal.status;
+    if (before === 'done' || goal.status !== 'done') return;
+    const streak = level === 'day' ? streakIfHit(all, period) : 0;
+    const big = level !== 'day' || isMilestone(streak);
+    const pts = goalPoints(goal, streak);
+    const line = level === 'day' ? `Goal hit · +${pts}${streak > 1 ? ` · ${streak}-day streak` : ''}` : `${LEVEL[level].label} goal hit · +${pts}`;
+    // a goal shows in more than one place (Today and the Goals tab stay mounted): the haptic is once per hit
+    const key = `${goal.id}:${goal.updatedAt}`;
+    if (celebrated !== key) {
+      celebrated = key;
+      if (big) haptics.celebrate();
+      else haptics.success();
+    }
+    setHit({ at: Date.now(), line, big });
+    const t = setTimeout(() => setHit(null), 2600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goal.status]);
+  const progress = goalProgress(goal);
   return (
-    <div className={`g-live is-${goal.status} ${compact ? 'compact' : ''}`}>
+    <div className={`g-live is-${goal.status} ${compact ? 'compact' : ''} ${hit ? 'is-hit' : ''}`}>
       <div className="g-live-head">
         {ended ? (
           <span className={`g-stamp g-live-stamp is-${goal.status}`} aria-label={STATUS_WORD[goal.status]}>
             <StatusIcon status={goal.status} size={14} />
           </span>
         ) : (
-          <GoalRing goal={goal} label={`${caps}: ${goal.text}. ${goal.status === 'done' ? 'Done' : 'Mark done'}`} />
+          <span className="g-ring-wrap">
+            <GoalRing goal={goal} label={`${caps}: ${goal.text}. ${goal.status === 'done' ? 'Done' : 'Mark done'}`} />
+            <Burst go={hit?.at ?? 0} big={hit?.big} />
+          </span>
         )}
         <Pressable className="g-live-main" press="dim" onPress={() => open(level, period)} label={`${caps}: ${goal.text}. Open`}>
           <span className="caps g-row-caps">
@@ -54,8 +93,20 @@ export const GoalRow = ({ level, period, goal, today, compact, steps }: { level:
             {n ? <span className="g-live-count tnum"> · {k} of {n}</span> : null}
           </span>
           <span className="g-row-text">{goal.text}</span>
+          {n && goal.status !== 'done' ? (
+            <span className="g-bar" aria-hidden="true">
+              <motion.i initial={false} animate={{ scaleX: Math.max(0.03, progress) }} transition={{ type: 'spring', duration: 0.45, bounce: 0 }} />
+            </span>
+          ) : null}
         </Pressable>
       </div>
+      <AnimatePresence>
+        {hit ? (
+          <motion.p className={`g-hit ${hit.big ? 'big' : ''}`} role="status" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            {hit.line}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
       {steps && n ? <GoalSteps goal={goal} compact /> : null}
     </div>
   );
@@ -125,6 +176,7 @@ export default function GoalsView(): React.JSX.Element {
         <SkeletonRows rows={4} label="Loading goals" />
       ) : (
         <>
+          <LevelCard />
           <ReviewCard goals={list} today={today} />
           <section className="g-now" aria-label="Your goals now">
             <div className="group g-group">
