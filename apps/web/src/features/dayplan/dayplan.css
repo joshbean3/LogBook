@@ -25,11 +25,16 @@
   flex: none;
   white-space: nowrap;
 }
-.dy-sec .section-meta {
+/* the head's meta, under the title: the button takes the head's right (it would not fit beside both at 320) */
+.dy-meta {
+  margin: -8px 0 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
 }
 .dy-plan.btn.sm {
   flex: none;
@@ -267,6 +272,7 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-rows: minmax(0, 100%);
   align-items: center;
   height: 100%;
   background: inherit;
@@ -309,8 +315,17 @@
   place-items: center;
   width: 44px;
   height: 100%;
-  max-height: 44px;
-  align-self: center;
+  overflow: hidden;
+}
+/* the Mark at 22, its hit as tall as the block (44 wide), centred in whatever height the block has */
+.dy-block .mark-hit {
+  height: 100%;
+  min-height: 0;
+  margin-left: 0;
+}
+.dy-block .mark {
+  width: 22px;
+  height: 22px;
 }
 /* the hold is up: the block rises to meet the finger; in the air it is above its neighbours */
 .dy-block.is-held,

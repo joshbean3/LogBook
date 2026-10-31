@@ -341,6 +341,7 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
 
   const loaded = !!todos.data && !!goals.data && !!log.boot;
   if (!loaded) return <section className="card dy is-skel" aria-hidden="true" />;
+  const meta = metaWords(done, everything.length, planned);
   const target = drag?.kind === 'place' && drag.target != null ? { start: drag.target, minutes: defaultMinutes(drag.item) } : null;
   const liveBlock = drag && drag.kind !== 'place' ? { ref: drag.ref, mode: drag.kind as BlockMode } : null;
   return (
@@ -348,7 +349,6 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
       <Section
         level="none"
         title="The day"
-        meta={metaWords(done, everything.length, planned)}
         action={
           editable ? (
             <Button variant="soft" size="sm" className="dy-plan" onClick={() => ask(date, 'Plan my day', { tab: 'today', date })}>
@@ -359,6 +359,7 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
         }
         className="dy-sec"
       >
+        {meta ? <p className="dy-meta">{meta}</p> : null}
         <div ref={trayRef}>
           <Tray items={tray} editable={editable} hole={drag?.kind === 'place' ? drag.item.ref : null} host={trayHost} />
         </div>
