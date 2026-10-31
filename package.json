@@ -16,6 +16,5 @@
     "db:migrate": "pnpm --filter @logbook/api db:migrate",
     "db:generate": "pnpm --filter @logbook/api db:generate",
     "ios": "pnpm --filter @logbook/shared build && pnpm --filter @logbook/web build:ios && cd apps/web && npx cap sync ios && npx cap open ios",
-    "plan:load": "node scripts/load-plan.mjs"
   }
 }

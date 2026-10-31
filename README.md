@@ -2,47 +2,46 @@
 
 A personal training log, habit tracker and journal, built as an installable web app with its own server and database.
 
-Five tabs, one data model:
+Four tabs, one language, one assistant (the contract is `docs/system.md`):
 
-- **Today**: one page per day. Swipe anywhere on the page to the next or the previous day; the date strip under the bar shows
-  the week and travels with you, and the caps line carries your word until you change it (`STEADY · FRI, OCT 23`). The hero
-  changes with the time of day: out the door in 22 minutes, back by 8:13, then the run landing from Strava (or hold the ring
-  to mark it done by hand). Habits as a row of orbs, the week's ring, and in the evening the day's close: two sentences,
-  tomorrow's word and alarm.
-  **Plan your day** sits under the hero: the day's goal as the headline (a sun in its corner grows as its steps are checked
-  and fills the card in gold when it is done, with a full-screen moment), then the day in four sections, Anytime, Morning,
-  Afternoon and Evening, each a pill in its colour that fills like a gauge and folds away on a tap. Every to-do and every
-  step of the goal is a card with an icon read from its words and a round check: hold one,
-  drag it into a band or reorder it, drop a to-do on the goal to make it a step, or on Tomorrow or Delete at the top of the
-  screen. Let go of a hold without moving for its menu. Checked cards stay where they are, struck, and each band's rail
-  fills as its cards are done. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed
-  in a list (Work, Home) and highlighted in a colour; the To-dos sheet shows them by day or by list. Quick add reads marks
-  at the end of a line: `Send the model fri !!! #work` is a P1 for Friday in Work.
-- **Ask** (the bar at the top of each day): the assistant, on Claude Sonnet. Ask about your plan ("what's left this week?")
+- **Today**: the same five sections every day. The Ask bar; today's workout as one card (its name, the plan line, and one
+  status line whose words follow the clock and Strava: "Out the door in 22 min ›", "Back by 8:13", "5.02 mi at 8:14.
+  Logged.", with the route and DISTANCE · PACE · TIME once a run has landed; a circle check marks it done by hand, hold the
+  card for Done · Floor · Skip · Move); today's goal (the same row the Goals tab shows); the schedule (to-dos and the goal's
+  steps under Anytime, Morning, Afternoon, Evening; hold a row to drag it between bands or onto Tomorrow / Delete; quick
+  add reads `Send the model fri !!! #work`); habits as a row of orbs; the week's ring and line; and from 6 pm a "Close the
+  day" row that opens the evening sheet (the day's facts, two sentences, share). Swipe the page to another day; the date
+  strip under the bar is the picker.
+- **Ask** (the bar at the top of each tab): the assistant, on Claude Sonnet. Ask about your plan ("what's left this week?")
   or ask for a change ("push the runs I missed this week to next week", "add a P1 to-do to call the bank Friday", "set this
-  week's goal from my plan"). It reads your plan, to-dos and goals, and proposes the change as a list in words; nothing
-  changes until you tap Apply, and Undo puts it all back. Every proposal and what came of it is kept.
-- **Goals**: a goal for the year, the month, the week and the day, drawn as an orbit of four rings (the year outermost,
-  the day inside). Each ring fills in its level's colour as its goal comes along, and a hand on it shows how much of the
-  period is gone. Under it, a card per level to swipe through, with the goal, its steps and its time left. Write it as you'd say it; a review (Claude, on Locke and
-  Latham's goal-setting research) rewrites it to be specific, measurable, hard but attainable and due at the period's end,
-  and you keep its words or yours. When a period ends it asks "Did you hit it?" (Done, Partly, Missed, and a line on how it
-  went). History lists every day, week, month and year with its goal and outcome, including the ones with none set, and
-  the Log keeps every step: set, sharpened, edited, done, missed, cleared. A dot on the tab (and, on the phone, a morning
-  reminder) says when today's or this week's goal is unset.
-- **This morning** (pushed from Today's hero or its `This morning` row): the schedule from the alarm to the door, built from
-  the day's run and your routine. Drag the alarm and every time below moves with it; hold a step to reorder it; it says when
-  you have to leave.
-- **Plan**: the week and the month, paged by swiping. Hold a session to move it to another day. A plan builder writes the
-  next block from your goal and run days (Claude can also turn a PDF, a photo or a description into sessions).
-- **Progress**: weekly mileage against plan, long-run and easy-pace trends, lifts with estimated one-rep max, consistency.
-- **Journal**, after One Year: the year as a garden. Every day is a dot; a day with a memory has grown a little hand-drawn
-  plant, and today is a house. Touch a day for its name, tap it to open it. A day's page carries the days around it as a
-  row of plants, its memory in typewriter ink (or a hand-drawn plus to plant one; planting draws the plant in), and what
-  you wrote on that day a year ago. Plus a quote a day from a 3,458-quote library, and Reads (links saved for later).
-- **Settings** (pushed from Today's avatar): you, training, habits, the morning routine, Strava, the app, your data, account.
+  week's goal from my plan", "pick a plan", "remind me to pack my kit at 9"). It reads your plan, the week's runs, habits,
+  goals, mornings and reminders, and proposes the change as a list in words; nothing changes until you tap Apply, and Undo
+  puts it all back. One small, obviously reversible change ("check stretch") is done at once with Undo in a toast. The
+  conversation lives on the server, so it is the same on every device; the reply streams in as it is written. Every
+  proposal and what came of it is kept. "Remember that Tuesdays are gym" is kept and read on every turn.
+- **Goals**: day, week, month and year as four rows of one component (the goal in serif, its steps as circle checks, the
+  time left, a check for the goal itself). Ahead: tomorrow and next week. When a period ends, one card asks "Did you hit
+  it?" (Done, Partly, Missed, a line on how it went, and "mark the rest missed"). Set a goal in two taps; "Suggest steps"
+  (Claude) is a button after saving, never a gate. History is one list with a level filter and the hit rate on top. A dot
+  on the tab says when today's or this week's goal is unset.
+- **Workout Plan**: the Ask bar with three starters (Pick a plan · Change my week · How is my week looking?); the progress
+  strip (this week's miles against the plan, runs, weeks kept, a 13-week sparkline) that expands in place into the mileage
+  chart with scrub and 3M / 6M / 1Y, the last run's route and stats, records (best mile, 5K, 10K, longest run, biggest
+  week) and the block's adherence; then the week (hold a session to move it; tap it for its sheet with Done and Floor) and
+  the month; then the block, which opens the plan library (Base, 5K, 10K, Half, Marathon at 3 to 5 days, "Build my own",
+  "From a file or description") and lets you edit a block's days and target for the weeks ahead, with Undo.
+- **This morning** (pushed from the workout card's "Out the door" line): the schedule from the alarm to the door. Drag the
+  alarm and every time below moves with it.
+- **Journal**: a logbook. Every day with a run, a goal or an entry is a page: the facts filled in for you ("Easy 5 · 5.02
+  mi at 8:14 · 3 of 4 habits · goal done · 4 to-dos"), an energy pick, and your words, with "a year ago" when there is
+  one. Months as headers with a jump strip, a year of dots on top, search over what you wrote. A quote a day sits in the
+  composer as a prompt.
+- **Settings** (pushed from Today's avatar): you (name, training answers, "about you" for the assistant), habits, the
+  morning routine, Connections (Strava, COROS), Notifications (this device, the two reminders Logbook sends, your own,
+  quiet hours), the app, your data, account.
 
-Install it on a phone from the browser. It opens full screen, caches everything it has seen, and queues writes made offline.
+Install it on a phone from the browser. It opens full screen, caches everything it has seen, queues writes made offline,
+and, once you allow it, delivers reminders as push notifications.
 
 ## Stack
 
@@ -76,13 +75,16 @@ The simplest path is Fly.io: one machine, one volume, no database server.
 1. **Open** a terminal in this folder.
 2. **Create** the app: `fly launch --no-deploy --copy-config --name <your-app-name>` (accept the defaults).
 3. **Create** the volume: `fly volumes create logbook_data --size 1 --region ewr`
-4. **Set** secrets (the session secret must be long and random):
+4. **Set** secrets (the session secret must be long and random; setup is open only while you say so):
    ```
-   fly secrets set SESSION_SECRET=$(openssl rand -hex 32) APP_URL=https://<your-app-name>.fly.dev
+   fly secrets set SESSION_SECRET=$(openssl rand -hex 32) APP_URL=https://<your-app-name>.fly.dev ALLOW_SETUP=1
    ```
 5. **Deploy**: `fly deploy`
 6. **Open** `https://<your-app-name>.fly.dev` and create your account.
 7. **Close** setup so nobody else can: `fly secrets set ALLOW_SETUP=0`
+
+`fly.toml` keeps one machine running (`min_machines_running = 1`): the reminder scheduler and the provider syncs are loops
+inside the API process, so a machine that stops between requests would send nothing.
 
 Any host that runs a Docker image with a persistent volume works the same way (Railway, Render, a VPS with `docker compose up -d`).
 
@@ -105,7 +107,7 @@ Android: open the URL in Chrome, tap the ⋮ menu, then "Install app" or "Add to
 3. **Restart** the server.
 4. **Open** Settings in the app and tap Connect Strava.
 
-Activities from the last 120 days sync on connect, on boot, every 20 minutes, and whenever you tap Refresh. For runs, laps and heart rate come along, which is what grades the effort.
+Activities from the last 120 days sync on connect; after that every 20 minutes, on boot and on Refresh, the server asks for everything since the last sync (less two days, for late uploads). For runs, laps and heart rate come along, which is what grades the effort. Strava's 100-calls-per-15-minutes budget is shared by every account on the server; a 429 pauses everyone until the window turns. An account whose access was revoked waits for a Reconnect in Settings instead of being retried.
 
 Optional, for instant updates: subscribe to Strava's webhook once (one curl command, run from anywhere):
 
@@ -116,9 +118,32 @@ curl -X POST https://www.strava.com/api/v3/push_subscriptions \
   -F verify_token=$STRAVA_WEBHOOK_VERIFY_TOKEN
 ```
 
+## Connect COROS
+
+COROS's "Connect your data" OAuth app works the same way behind one interface (`apps/api/src/services/providers`): create the
+app at https://open.coros.com, set its redirect to `https://<your-app>/api/connections/coros/callback`, then set `COROS_CLIENT_ID`
+and `COROS_CLIENT_SECRET`. Settings › Connections then shows a COROS row. The endpoint roots default to the documented ones
+(`COROS_AUTH_URL`, `COROS_TOKEN_URL`, `COROS_API_URL`); `providers/coros.ts` lists what to confirm against COROS's developer
+docs before the first real connection. A run both Strava and COROS recorded (same start within two minutes, distance within
+2%) is counted once.
+
+## Reminders and push
+
+Reminders ("Today's goal is unset" fifteen minutes after the alarm, "Tomorrow: Easy 5, out the door 6:50" at 9 pm, and your
+own or the assistant's) are sent as Web Push from the server. Generate a VAPID key pair once and set it:
+
+```
+npx web-push generate-vapid-keys
+fly secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com
+```
+
+Then Settings › Notifications › "Notifications on this device" subscribes the browser (on an iPhone, install to the home
+screen first). Without the keys the scheduler logs what it would have sent. APNs (the native app) stores its tokens but is not
+sent yet; the app keeps its local notifications meanwhile.
+
 ## Connect Claude
 
-Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPIC_MODEL` to change). This turns on the plan builder, the coach's read, the goal review and the assistant (which runs on `claude-sonnet-5-5`). `ATHLETE_CONTEXT` is a sentence or two about you that Claude reads before writing anything.
+Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPIC_MODEL` to change). This turns on the plan builder, the coach's read, the goal review and the assistant (which runs on `claude-sonnet-5-5`). What Claude knows about you is written in Settings › You › "About you, for the assistant" (it replaced the `ATHLETE_CONTEXT` variable).
 
 ## Environment variables
 
@@ -131,7 +156,9 @@ Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPI
 | `ALLOW_SETUP` | `1` lets the first visitor create the account; set `0` after |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Claude |
 | `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN` | Strava |
-| `ATHLETE_CONTEXT` | Who you are, for Claude |
+| `COROS_CLIENT_ID`, `COROS_CLIENT_SECRET`, `COROS_AUTH_URL`, `COROS_TOKEN_URL`, `COROS_API_URL` | COROS (the URLs have defaults) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for reminders (`npx web-push generate-vapid-keys`) |
+| `VITE_API_ORIGIN` | Build-time, the iPhone app only: the server it talks to (no default) |
 
 ## Development
 
@@ -160,12 +187,6 @@ First time:
 
 Every update after that: `git pull && pnpm install && fly deploy && pnpm ios`, then press Play in Xcode. Deploy before you run the app: it talks to the server, so new features need the new server.
 
-### Load a plan from a file
-
-`pnpm plan:load` puts `plans/2026-10-banking-plan.json` (Oct 19 to Nov 8) on your calendar. It asks for your Logbook email and password, replaces what was only planned on those dates, and stops on the plan's last day: anything planned after it is cleared, and an older block ends the day before. Runs you already marked are never touched. Another file: `pnpm plan:load plans/<file>.json`. Another server: `LOGBOOK_URL=https://… pnpm plan:load`.
-
-When a plan runs out, Today says so (from three days before its end) with a Next block button.
-
 Note: with a free Apple ID the app must be reinstalled from Xcode every 7 days. A paid Apple Developer account ($99/yr) lifts that to a year and unlocks TestFlight, where it installs like any App Store app.
 
-The app signs in against `VITE_API_ORIGIN` (default `https://josh-logbook.fly.dev`). Change it with `VITE_API_ORIGIN=https://your-server pnpm --filter @logbook/web build`.
+The app signs in against `VITE_API_ORIGIN`, which has no default: build it with `VITE_API_ORIGIN=https://your-server pnpm ios` (or `VITE_API_ORIGIN=https://your-server pnpm --filter @logbook/web build:ios`). A build without it has no server to talk to and says so in the console.

@@ -182,7 +182,7 @@
   padding: 14px;
   border-radius: var(--r-group);
   background: var(--surface);
-  border: 1px solid rgba(91, 102, 255, 0.35);
+  border: 1px solid var(--accent-tint);
 }
 .as-proposal.is-dismissed,
 .as-proposal.is-undone {

@@ -1,5 +1,5 @@
 import { shiftDays, today, type HrZone } from '@logbook/shared';
-import { and, asc, eq, gte, inArray, isNull, lte, ne, notInArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, lte, notInArray, sql } from 'drizzle-orm';
 import type { DB } from '../../db/index.js';
 import { activities, hrZones, providerConnections } from '../../db/schema.js';
 import { nowISO, uid } from '../../lib/util.js';
@@ -371,5 +371,3 @@ export const connectionStatus = (db: DB, userId: string, provider: ProviderId): 
 
 export const connectionStatuses = (db: DB, userId: string): ConnectionStatus[] => PROVIDER_IDS.map((p) => connectionStatus(db, userId, p));
 
-void inArray;
-void ne;

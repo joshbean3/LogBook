@@ -85,8 +85,9 @@ const NATIVE_TOKEN_KEY = 'logbook.apnsToken';
 
 const enableNativePush = async (): Promise<PushOutcome> => {
   try {
-    // the plugin is optional: a build without it falls back to local notifications
-    const mod = (await import(/* @vite-ignore */ '@capacitor/push-notifications' as string).catch(() => null)) as { PushNotifications?: { requestPermissions: () => Promise<{ receive: string }>; register: () => Promise<void>; addListener: (ev: string, fn: (t: { value: string }) => void) => Promise<unknown> } } | null;
+    // the plugin is optional (a bare name, so the bundler leaves it alone): a build without it falls back to local notifications
+    const pluginName = ['@capacitor', 'push-notifications'].join('/');
+    const mod = (await import(/* @vite-ignore */ pluginName).catch(() => null)) as { PushNotifications?: { requestPermissions: () => Promise<{ receive: string }>; register: () => Promise<void>; addListener: (ev: string, fn: (t: { value: string }) => void) => Promise<unknown> } } | null;
     if (!mod?.PushNotifications) {
       const { enableReminders } = await import('@/features/goals/reminders');
       return (await enableReminders()) ? 'on' : 'denied';

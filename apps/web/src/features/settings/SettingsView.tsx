@@ -10,7 +10,6 @@ import { haptics } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
 import { PushedBar, useSheet, useToast } from '@/ui';
 import { AboutYouSheet } from './account';
-import { zoneLine } from './HrZones';
 import { GoRow, SGroup } from './parts';
 import { HapticsRow } from './SectionPages';
 import { useTrainingProfile } from './useProfile';
@@ -73,7 +72,6 @@ export default function SettingsView(): React.JSX.Element {
   const named = !!block && !isTemplateBlock(block) && !hasStored;
   const dash = '–';
   const days = loaded ? (profile.runDays.length > 5 ? `${profile.runDays.length} a week` : sortDays(profile.runDays).map((d) => DAY_SHORT[d]).join(' ')) : dash;
-  const zones = zoneLine(data?.zones);
 
   return (
     <div ref={pageRef} className="page s-set s-root">
@@ -124,7 +122,6 @@ export default function SettingsView(): React.JSX.Element {
             onPress={go('connections')}
           />
           {data?.features.coros ? <GoRow title="COROS" sub={coros?.connected ? (coros.error ? 'Stopped syncing.' : 'Connected') : 'Runs from your watch.'} value={coros?.connected ? undefined : 'Connect'} tone={coros?.connected && coros.error ? 'bad' : undefined} onPress={go('connections')} /> : null}
-          {zones ? <GoRow title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
         </SGroup>
       ) : null}
 

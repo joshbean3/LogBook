@@ -8,7 +8,7 @@ import { env } from '../env.js';
 import { ApiError, nowISO, uid } from '../lib/util.js';
 import { activityLines, contextFor, goalLines, habitLines, memoryBlock, profileBlock, sessionLines, weekSummary } from './assistant/context.js';
 import { applyAction, labelOp } from './assistant/ops.js';
-import { appendMessage, liveThread, newThread, threadView, windowOf, type ThreadRow } from './assistant/threads.js';
+import { appendMessage, liveThread, windowOf, type ThreadRow } from './assistant/threads.js';
 
 export { sessionLines } from './assistant/context.js';
 export { applyAction, dismissAction, labelOp, proposalOf, recentActions, undoAction } from './assistant/ops.js';
@@ -29,7 +29,7 @@ export const setAssistantClient = (c: AssistantClient | null) => {
 
 // ---------- the prompt ----------
 
-const SYSTEM = `You are the assistant inside Logbook, a personal app for one person's running and lifting plan, habits, to-dos, goals, reminders and mornings. The owner (named in the OWNER line when known; use their name, never "he" or "she" unless they told you) asks you to look things up or change things.
+const SYSTEM = `You are the assistant inside Logbook, a personal app for the owner's running and lifting plan, habits, to-dos, goals, reminders and mornings. The owner (named in the OWNER line when known; use their name, and never assume a pronoun they did not give you) asks you to look things up or change things.
 
 How you work:
 - Answer from the data you are given in the latest message's CONTEXT block. For sessions outside the dates shown call get_sessions; for a week's numbers get_week_summary; for habits, goals or activities on other days get_habits, get_goals, get_activities.
@@ -132,11 +132,6 @@ export const ask = async (db: DB, userId: string, input: AskInput, opts: { onTex
   const effort = effortFor(userText);
   // what this turn said so far (text before a tool call carries into the reply)
   let said = '';
-  const emit = (t: string) => {
-    if (!t) return;
-    said += (said ? '\n' : '') + t;
-    opts.onText?.(t);
-  };
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const started = Date.now();
@@ -273,5 +268,3 @@ export const logUsage = (db: DB, userId: string, kind: string, model: string, us
   db.insert(llmUsage).values({ id: uid('lu'), userId, kind, model, inputTokens: usage?.input_tokens ?? 0, outputTokens: usage?.output_tokens ?? 0, cachedTokens: usage?.cache_read_input_tokens ?? 0, ms, at: nowISO() }).run();
 };
 
-void threadView;
-void newThread;

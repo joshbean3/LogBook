@@ -99,7 +99,7 @@
   width: 27px;
   height: 27px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--ink);
 }
 .s-switch:focus-visible {
   outline: 2px solid var(--accent-bright);
@@ -367,7 +367,7 @@
   gap: 4px;
 }
 .s-del-continue.btn {
-  border-color: rgba(255, 59, 92, 0.4);
+  border-color: var(--bad);
   background: var(--bad-soft);
   height: 52px;
 }
@@ -375,7 +375,7 @@
   height: 52px;
   background: var(--bad);
   border-color: var(--bad);
-  color: #fff;
+  color: var(--accent-ink);
   font-size: 1.0625rem;
 }
 .s-pw {

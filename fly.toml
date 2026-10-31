@@ -1,5 +1,6 @@
-# fly launch --no-deploy, then: fly volumes create logbook_data --size 1 ; fly secrets set ... ; fly deploy
-app = "josh-logbook"
+# fly launch --no-deploy --copy-config --name <your-app-name>, then: fly volumes create logbook_data --size 1 ; fly secrets set ... ; fly deploy
+# `fly launch` writes your app's name here; APP_URL is a secret (fly secrets set APP_URL=https://<your-app-name>.fly.dev).
+app = "logbook"
 primary_region = "ewr"
 
 [build]
@@ -9,15 +10,16 @@ primary_region = "ewr"
   PORT = "8787"
   DATABASE_PATH = "/data/logbook.db"
   NODE_ENV = "production"
-  APP_URL = "https://josh-logbook.fly.dev"
-  ALLOW_SETUP = "1"
+  # ALLOW_SETUP and APP_URL are secrets (README: Deploy it), never committed here.
 
 [http_service]
   internal_port = 8787
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
+  # one machine stays up: the reminder scheduler (a 60 s loop in the API process) and the 20-minute provider syncs run
+  # only while the process is alive, and a push sent from a machine that woke for it would come late or not at all
+  min_machines_running = 1
 
   [[http_service.checks]]
     interval = "30s"

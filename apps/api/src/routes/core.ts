@@ -96,7 +96,7 @@ export const coreRoutes = (db: DB) => {
     const userId = uidOf(c);
     // opening the app is the moment to pull in new runs: sync when the last one is older than 15 minutes
     const connections = connectionStatuses(db, userId);
-    for (const cs of connections) if (cs.connected && cs.configured && cs.status === 'ok' && !cs.syncing && (!cs.lastSyncAt || Date.now() - new Date(cs.lastSyncAt).getTime() > 15 * 60_000)) syncInBackground(db, userId, cs.provider);
+    for (const cs of connections) if (cs.connected && cs.configured && cs.status !== 'needs_reauth' && cs.status !== 'revoked' && !cs.syncing && (!cs.lastSyncAt || Date.now() - new Date(cs.lastSyncAt).getTime() > 15 * 60_000)) syncInBackground(db, userId, cs.provider);
     const st = stravaStatus(db, userId);
     const acct = db.select({ timezone: users.timezone, profileNote: users.profileNote }).from(users).where(eq(users.id, userId)).get();
     const hs = db.select().from(habits).where(eq(habits.userId, userId)).orderBy(asc(habits.position), asc(habits.createdOn)).all().map(toHabit);
