@@ -21,6 +21,10 @@ export const users = sqliteTable('users', {
   timezone: text('timezone'),
   /** `{ start: "22:00", end: "07:00" }` as JSON: a reminder due inside it moves to the window's end. Migration 0014. */
   quietHoursJson: text('quiet_hours_json'),
+  /** When the address was confirmed through its mailed link; null until then (accounts from before 0016 were set to their created_at). Migration 0016. */
+  emailVerifiedAt: text('email_verified_at'),
+  /** When the password was last changed (a reset or Settings › Account); null when it is the one from sign-up. Migration 0016. */
+  passwordChangedAt: text('password_changed_at'),
 });
 
 export const authSessions = sqliteTable('auth_sessions', {
@@ -29,7 +33,27 @@ export const authSessions = sqliteTable('auth_sessions', {
   expiresAt: text('expires_at').notNull(),
   createdAt: createdAt(),
   userAgent: text('user_agent'),
+  /** The last request on this session, written at most once an hour (Settings › Account › Sessions). Migration 0016. */
+  lastSeenAt: text('last_seen_at'),
 });
+
+/**
+ * One-time links sent by mail: `verify` (24 h) confirms an address, `reset` (1 h) sets a new password. Only a sha256 of the
+ * 32-byte token is kept, so the table is worthless on its own; `used_at` makes each link single use. Migration 0016.
+ */
+export const emailTokens = sqliteTable(
+  'email_tokens',
+  {
+    id: id(),
+    userId: userId(),
+    kind: text('kind').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    usedAt: text('used_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('email_tokens_user').on(t.userId), uniqueIndex('email_tokens_hash').on(t.tokenHash)],
+);
 
 /** Small JSON documents keyed by name: morning settings, preferences. */
 export const userSettings = sqliteTable(
@@ -572,3 +596,38 @@ export const notificationLog = sqliteTable(
   },
   (t) => [index('notification_log_user').on(t.userId, t.at)],
 );
+
+// ---------- ops (migration 0017) ----------
+
+/**
+ * Advisory leases: one row per job family (`job:<name>`) and one for the migration lock. A process holds a lease by
+ * name until `expires_at` (ms since the epoch); `lib/leases.ts` takes it with one upsert, so two processes on the
+ * same file (the API and the worker) never run the same job at once. Created by db/index.ts before the migrations run.
+ */
+export const leases = sqliteTable('leases', {
+  name: text('name').primaryKey(),
+  holder: text('holder').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+});
+
+/** One row per job run (`services/ops/jobs.ts`): what ran, when, whether it worked, and what it did (`meta`, JSON). Kept 14 days. */
+export const jobRuns = sqliteTable(
+  'job_runs',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    startedAt: text('started_at').notNull(),
+    finishedAt: text('finished_at'),
+    ok: integer('ok'),
+    error: text('error'),
+    meta: text('meta'),
+  },
+  (t) => [index('job_runs_name_started').on(t.name, t.startedAt), index('job_runs_started').on(t.startedAt)],
+);
+
+/** Fixed-window counters behind `lib/ratelimit.ts`: `key` is `<limit>:<user or ip>`, `window_start` ms since the epoch. */
+export const rateLimits = sqliteTable('rate_limits', {
+  key: text('key').primaryKey(),
+  windowStart: integer('window_start').notNull(),
+  count: integer('count').notNull(),
+});

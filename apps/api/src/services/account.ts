@@ -6,6 +6,7 @@ import {
   authSessions,
   coachReads,
   dailyPicks,
+  emailTokens,
   habitChecks,
   habits,
   hrZones,
@@ -43,6 +44,7 @@ import {
  */
 export const USER_TABLES: Array<{ table: SQLiteTable; userId: SQLiteColumn }> = [
   { table: authSessions, userId: authSessions.userId },
+  { table: emailTokens, userId: emailTokens.userId },
   { table: userSettings, userId: userSettings.userId },
   { table: habits, userId: habits.userId },
   { table: habitChecks, userId: habitChecks.userId },
