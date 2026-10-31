@@ -1,149 +1,50 @@
-/* a session as a 60px list row (taller when the name or the details need a second line) */
-.srow {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 4px 0 16px;
-  background: var(--surface);
-  min-height: 60px;
+/* ---------- sessions: the session sheet, its evidence, the editor and Move (docs/system.md: tokens only) ---------- */
+
+/* the one stat pattern (§4.6): caps labels over stamps, a hairline above, 2 to 4 columns */
+.strip.stat-row {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  margin-top: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
-/* the run's own name leads at 17/600 and wraps to a second line rather than clip; the plan is the 15px sub */
-.srow .lrow-title,
-.srow .lrow-sub {
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  text-overflow: clip;
+.strip.stat-row.cols-1 {
+  --cols: 1;
 }
-.srow.s-skipped .srow-main,
-.srow.s-rest .srow-main {
-  opacity: 0.55;
+.strip.stat-row.cols-2 {
+  --cols: 2;
 }
-.srow.s-skipped .lrow-title {
-  text-decoration: line-through;
+.strip.stat-row.cols-3 {
+  --cols: 3;
 }
-.srow-body {
-  appearance: none;
-  border: 0;
-  background: none;
-  /* a hold opens Move: no text selection or callout while the finger is down */
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  padding: 10px 8px 10px 0;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
-  color: inherit;
-  min-height: 60px;
+.strip.stat-row.cols-4 {
+  --cols: 4;
 }
-.srow-bar {
-  width: 4px;
-  align-self: stretch;
-  border-radius: 2px;
-  background: var(--tone);
-  flex: none;
+.strip.stat-row .stat-val {
+  font-size: var(--fs-stamp);
+  line-height: var(--lh-stamp);
 }
-.srow-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 1px;
+.strip.stat-row .stat-val.sm {
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
 }
-.srow-stat {
-  display: grid;
-  justify-items: end;
-  text-align: right;
-  flex: none;
-}
-.srow-stat b {
-  font-size: 17px;
-  line-height: 22px;
-  font-weight: 600;
-}
-.srow-stat small {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--ink-3);
-  letter-spacing: 0;
-}
-.srow-chev {
-  color: var(--ink-4);
-  flex: none;
+/* four stamps at 320 go two by two rather than clip; the third loses its hairline (it starts a row) */
+@media (max-width: 359px) {
+  .strip.stat-row.cols-4 {
+    --cols: 2;
+    row-gap: 12px;
+  }
+  .strip.stat-row.cols-4 > :nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
 }
 
-/* ---------- a row in the air: the row itself dims once the hold is up; a compact copy (dot and name) rides just above the finger;
-   a day cell lights where it can land ---------- */
-.srow.is-lifted {
-  opacity: 0.35;
-}
-.srow-ghost {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 60;
-  pointer-events: none;
-  will-change: transform;
-}
-/* the lift: surface-2, a line-strong hairline, no shadow (brand §9) */
-.srow-ghost-pill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  max-width: 240px;
-  padding: 0 14px 0 12px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-  opacity: 0.9;
-  white-space: nowrap;
-}
-.srow-ghost-dot {
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--tone);
-}
-.srow-ghost-title {
-  font-size: 15px;
-  line-height: 20px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* the target under a dragged session: the one accent-bright ring. It is drawn by a fixed overlay on the body (above the row in the air,
-   so the copy under the finger never hides it); the cell itself only brightens its number */
-.drop-ring {
-  position: fixed;
-  z-index: 62;
-  pointer-events: none;
-  border-radius: var(--r-pill);
-  box-shadow:
-    inset 0 0 0 2px var(--accent-bright),
-    0 0 0 4px rgba(47, 59, 255, 0.18),
-    0 0 20px rgba(91, 102, 255, 0.6);
-}
-
-/* evidence, in the sheet */
+/* ---------- evidence, in the sheet ---------- */
 .actual {
   display: grid;
   gap: 14px;
   min-width: 0;
-}
-.actual .strip {
-  margin-top: 0;
 }
 .splits {
   display: grid;
@@ -156,8 +57,8 @@
   grid-template-columns: 24px minmax(0, 1fr) 48px 32px;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
 }
 .split-n {
   color: var(--ink-3);
@@ -167,14 +68,14 @@
 .split-bar {
   height: 14px;
   background: var(--surface-2);
-  border-radius: 4px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .split-bar i {
   display: block;
   height: 100%;
   background: var(--zc);
-  border-radius: 4px;
+  border-radius: var(--r-pill);
   opacity: var(--za);
 }
 .split-pace {
@@ -189,13 +90,14 @@
 .split.part {
   opacity: 0.6;
 }
+/* the record's mile: the one blue, and the word PR where its number was */
 .split.is-pr .split-bar i {
-  background: var(--sun);
+  background: var(--accent);
   opacity: 1;
-  box-shadow: 0 0 10px rgba(255, 200, 61, 0.6);
 }
+.split.is-pr .split-n,
 .split.is-pr .split-pace {
-  color: var(--sun);
+  color: var(--accent-text);
 }
 .split.sz1,
 .split.sz2 {
@@ -211,14 +113,11 @@
 .assess {
   display: grid;
   gap: 4px;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
 }
 .assess-head {
   font-weight: 600;
-}
-.assess.v-on .assess-head {
-  color: var(--ok);
 }
 .assess.v-off .assess-head,
 .assess.v-short .assess-head {
@@ -231,37 +130,28 @@
   color: var(--ink-2);
   list-style: disc;
 }
+/* the coach's read, when the server holds one: an eyebrow and the line in the serif */
 .coach {
   display: grid;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--line-strong);
-  border-radius: 20px;
-  background: var(--surface);
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 .coach-head {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: var(--ink);
-  font-size: var(--fs-row);
-  font-weight: 700;
+  gap: 6px;
 }
-.coach-head svg {
-  color: var(--coral);
-}
-.coach p {
+.coach-line {
+  margin: 0;
   font-family: var(--serif);
-  font-size: 22px;
-  line-height: 28px;
-  letter-spacing: 0;
+  font-style: italic;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
   color: var(--ink);
-}
-.coach .link {
-  justify-self: start;
 }
 
-/* lift log: hairline and air, no inner box inside the sheet */
+/* ---------- lift log: hairline and air, no inner box inside the sheet ---------- */
 .lift-log {
   display: grid;
   gap: 8px;
@@ -288,8 +178,8 @@
   color: var(--ink-3);
 }
 .hint {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
   min-height: 1em;
 }
@@ -301,8 +191,8 @@
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   border-top: 1px solid var(--line);
 }
 .sets li:first-child {
@@ -313,129 +203,7 @@
   margin-right: -8px;
 }
 
-/* ---------- the sheet: one head from every way in ----------
-   the page's hero already drew the route and lit the day; the sheet names the session and stamps the numbers */
-/* the sheet's date sits where a title would, as a caps label: Inter, never the serif under 22px */
-.sh-sheet-date {
-  display: block;
-  font-family: var(--sans);
-  font-style: normal;
-}
-/* the sheet body: 16px between the head and each section, the footer last */
-.sh-body {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-/* eyebrow and status, the name, the strip */
-.sh-head {
-  display: grid;
-  gap: 8px;
-  padding-top: 2px;
-  min-width: 0;
-}
-/* 32px chips and 36px buttons keep their size but take a 44px touch */
-.sh-body .chip-btn,
-.sh-body .btn,
-.share .chip-btn,
-.share .btn {
-  position: relative;
-}
-.sh-body .chip-btn::after,
-.sh-body .btn::after,
-.share .chip-btn::after,
-.share .btn::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -6px;
-  bottom: -6px;
-}
-.sh-body .btn::after,
-.share .btn::after {
-  top: -4px;
-  bottom: -4px;
-}
-.sh-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 20px;
-}
-.sh-top .caps {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* the name: the display serif at 28/32 for a run ("Afternoon Run"), the stamp at 28 for a number label ("EASY 6") */
-.sh-title {
-  font-size: 28px;
-  line-height: 32px;
-  overflow-wrap: break-word;
-  color: var(--ink);
-}
-.sh-title.display {
-  text-transform: none;
-}
-/* the summary strip: four caps labels over four stamps on a 12% hairline */
-.sh-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-.sh-stat {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  /* label · number · note share rows across the stats, so a label that wraps ("Out the door") never drops its number */
-  grid-template-rows: subgrid;
-  grid-row: span 3;
-  row-gap: 4px;
-}
-.sh-stat > .caps {
-  align-self: end;
-}
-.sh-num {
-  font-variant-numeric: tabular-nums;
-  font-size: 28px;
-  line-height: 32px;
-  white-space: nowrap;
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  min-width: 0;
-}
-.sh-num small {
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  color: rgba(255, 255, 255, 0.7);
-}
-/* the plan under the actual: "of 6" in 12px at 70%, so the strip reads what happened first */
-.sh-note {
-  font-size: 12px;
-  line-height: 16px;
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-/* at 320 the four stamps go two by two rather than clip */
-@media (max-width: 359px) {
-  .sh-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
-  }
-}
-
-/* ---------- a chip you can tap: 44px, one selection look (filled white when on) ---------- */
+/* ---------- a chip you can tap (the editor's kinds and types, Move's quick picks): 44, filled ink when on ---------- */
 .pl-chip {
   appearance: none;
   display: inline-flex;
@@ -449,7 +217,7 @@
   background: var(--surface);
   color: var(--ink-2);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: var(--fs-sub);
   font-weight: 600;
   white-space: nowrap;
   transition:
@@ -464,27 +232,31 @@
 .pl-chip.sm {
   padding: 0 12px;
 }
+.pl-chip.pressable[data-press='scale'] {
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out),
+    transform 160ms var(--ease-out);
+}
 
-/* ---------- the session sheet (Sheet v2: the name is the sheet's title, the date its eyebrow) ---------- */
+/* ---------- the session sheet: the name is the sheet's title, the date its eyebrow ---------- */
 .ss {
   display: grid;
   gap: 16px;
   min-width: 0;
 }
-.sheet-more {
-  display: contents;
-}
-/* the route at the top, on a dark map (a faint street grid): start in mint, finish checkered, medals where records fell */
+/* the route: one ink line on the surface, a dot at the start, a ring at the end (no tiles, no glow) */
 .ss-map {
   margin-inline: -16px;
-  height: 210px;
-  background:
-    radial-gradient(80% 90% at 50% 60%, rgba(255, 110, 70, 0.1), rgba(0, 0, 0, 0) 70%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(35deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 64px),
-    #0b0d10;
+  height: 180px;
+  background: var(--surface);
   border-block: 1px solid var(--line);
+}
+.ss-map.is-compact {
+  margin-inline: 0;
+  height: 120px;
+  border: 0;
+  border-radius: var(--r-group);
 }
 .ss-map svg {
   display: block;
@@ -492,127 +264,21 @@
   height: 100%;
   overflow: visible;
 }
-.ss-map path {
+.ss-map-line {
   fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.ss-map-glow {
-  stroke: rgba(255, 90, 60, 0.4);
-  stroke-width: 10;
-  filter: blur(5px);
-}
-.ss-map-line {
-  stroke-width: 4;
-}
-/* the start: a mint ring (on a loop it rings the finish flag) */
 .ss-map-start {
-  fill: rgba(63, 224, 160, 0.18);
-  stroke: var(--mint);
-  stroke-width: 3;
+  fill: var(--ink);
 }
-.ss-pin {
-  fill: var(--sun);
-  stroke: #b37400;
-  stroke-width: 1.5;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+.ss-map-end {
+  fill: var(--surface);
+  stroke: var(--accent-bright);
+  stroke-width: 2.5;
 }
-.ss-pin-pr {
-  fill: #1a1200;
-  font: 800 8.5px/1 var(--sans);
-}
-.ss-pin-tag {
-  fill: rgba(17, 17, 17, 0.92);
-  stroke: rgba(255, 200, 61, 0.55);
-  stroke-width: 1;
-}
-.ss-pin-words {
-  fill: #fff;
-  font: 650 10.5px/1 var(--sans);
-}
-
-/* the record: a medal and what it beat (Strava's PR card) */
-.rec-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 200, 61, 0.35);
-  border-radius: 18px;
-  background: linear-gradient(110deg, rgba(255, 200, 61, 0.16), rgba(255, 200, 61, 0.04) 60%), var(--surface);
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-}
-.medal {
-  flex: none;
-  filter: drop-shadow(0 4px 10px rgba(255, 180, 30, 0.35));
-}
-.medal-pr {
-  fill: #1a1200;
-  font: 800 11px/1 var(--sans);
-}
-.rec-words {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.rec-head {
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  font-weight: 700;
-}
-.rec-detail {
-  color: var(--ink-2);
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-}
-.rec-more {
-  color: var(--sun);
-  font-size: var(--fs-foot);
-  font-weight: 600;
-}
-
-/* a run's numbers: two columns, label over number, centred */
-.run-grid {
-  display: grid;
-  align-items: start;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  row-gap: 18px;
-  column-gap: 12px;
-  padding: 8px 0 4px;
-}
-.run-cell {
-  display: grid;
-  align-content: start;
-  justify-items: center;
-  gap: 2px;
-  text-align: center;
-  min-width: 0;
-}
-.run-k {
-  color: var(--ink-3);
-  font-size: var(--fs-sub);
-}
-.run-v {
-  color: var(--ink);
-  font-size: 1.625rem;
-  line-height: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-.run-v small {
-  font-size: var(--fs-sub);
-  font-weight: 600;
-  color: var(--ink-2);
-}
-.run-n {
-  color: var(--ink-3);
-  font-size: var(--fs-foot);
-}
-
 .ss-status {
   display: flex;
   align-items: center;
@@ -621,100 +287,42 @@
   min-height: 20px;
 }
 .ss-meta {
-  margin-top: -8px;
+  margin: -8px 0 0;
 }
-.ss .sh-stats {
-  margin-top: 0;
-}
-/* the two verbs that matter: Done (the one blue) and Floor, 48px, side by side */
+/* the two verbs that matter: Done (primary) and Floor (soft), 48 tall, side by side */
 .ss-verbs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-.ss-big {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 52px;
-  border-radius: var(--r-pill);
-  font: inherit;
-  font-size: 1.0625rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
+.ss-verbs .btn.lg {
+  height: 48px;
+  font-size: var(--fs-head);
 }
-/* the one press (§11.1): data-pressed on touch-down (PressButton), the colour transitions kept beside the scale's */
-.ss-big.pressable[data-press='scale'],
-.pl-chip.pressable[data-press='scale'] {
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out),
-    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-.ss-big.done {
-  background: var(--accent);
-  border: 1px solid var(--accent-bright);
-  color: #fff;
-}
-.ss-big.done.is-on {
-  background: var(--ok-soft);
-  border-color: transparent;
-  color: var(--accent-text);
-}
-.ss-big.floor {
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
+/* floor: the amber word on the soft tint; held, the same word on the surface */
+.btn.ss-floor {
   color: var(--warn);
-}
-.ss-big.floor.is-on {
   background: var(--warn-soft);
-  border-color: transparent;
 }
-.ss-floor-glyph {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 2px currentColor;
-  background: linear-gradient(to top, currentColor 50%, transparent 50%);
+.btn.ss-floor.is-on {
+  background: var(--surface);
+  border-color: var(--line-strong);
 }
 .ss-auto {
   margin: 0;
 }
-/* Skip / Share, Move ›, Edit ›: ink pills under the verbs */
+/* Skip · Move · Edit · Share: quiet words under the verbs */
 .ss-second {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 0 4px;
+  margin: -8px 0 0 -14px;
 }
-.ss-pill {
-  appearance: none;
-  flex: 1 1 0;
-  min-width: 88px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: transparent;
+.ss-second .btn.quiet {
+  padding: 0 14px;
+}
+.ss-second .btn.quiet[aria-pressed='true'] {
   color: var(--ink);
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-}
-.ss-pill[aria-pressed='true'] {
-  background: var(--surface-2);
-}
-.ss-pill-chev {
-  color: var(--ink-3);
-  margin-right: -4px;
 }
 .ss-floor-line {
   margin: 0;
@@ -724,8 +332,25 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 2px var(--warn);
-  background: linear-gradient(to top, var(--warn) 50%, transparent 50%);
+  border: 2px solid var(--warn);
+  background: var(--warn-soft);
+}
+
+/* ---------- the share: the words, then one verb ---------- */
+.share {
+  display: grid;
+  gap: 16px;
+}
+.share-text {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: var(--card-border);
+  font-family: var(--sans);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
 }
 
 /* ---------- the editor: shaped by the kind ---------- */
@@ -743,16 +368,16 @@
 .ed-preview i {
   width: 3px;
   align-self: stretch;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--tone);
 }
 .ed-preview .stamp {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
 }
 .ed-preview-day {
   margin-left: auto;
-  font-size: 0.8125rem;
+  font-size: var(--fs-foot);
   color: var(--ink-3);
 }
 .ed-group {
@@ -761,8 +386,8 @@
   min-width: 0;
 }
 .ed-label {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   font-weight: 600;
   color: var(--ink-2);
 }
@@ -778,7 +403,7 @@
   background: var(--tone);
 }
 .pl-chip.on .ed-dot {
-  box-shadow: 0 0 0 1.5px var(--bg);
+  outline: 1.5px solid var(--bg);
 }
 .ed-repeat {
   justify-self: start;
@@ -800,6 +425,9 @@
 .ed .in {
   min-height: 44px;
 }
+.ed-group > .pl-chip {
+  justify-self: start;
+}
 
 /* ---------- move: quick picks, then the week ---------- */
 .mv2 {
@@ -814,8 +442,4 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.ed-group > .pl-chip {
-  justify-self: start;
 }

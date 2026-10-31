@@ -14,7 +14,7 @@ import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
 import { DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { handOff } from './handoff';
-import { StravaPrimer } from './StravaPrimer';
+import { StravaPrimer, useStravaPrimer } from './StravaPrimer';
 import { commitsBack, releaseVelocity } from './velocity';
 import './onboarding.css';
 
@@ -394,7 +394,7 @@ function Flow({ uid }: { uid: string }) {
     if (!screen) return cut();
     handOff({
       screen,
-      falls: '.ob-week, .ob-pay-foot',
+      falls: '.ob-week, .ob-strava, .ob-pay-foot',
       fades: '.ob-pay-head, .ob-halo',
       reduce: !!reduce,
       cut,
@@ -489,6 +489,7 @@ function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Nex
 function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onOpen: (then?: FirstRunAction) => void }) {
   const reduce = useReducedMotion();
   const onboard = useOnboard();
+  const primer = useStravaPrimer();
   const [waiting, setWaiting] = useState<{ then?: FirstRunAction } | null>(null);
   const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [profile, start, today, draft.wake, draft.leave, draft.routine]);
 
@@ -588,6 +589,8 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
           );
         })}
       </motion.ol>
+      {/* the one Strava door on the last step: a row, never a screen (docs/system.md) */}
+      {primer.show ? <StravaPrimer className="ob-strava" /> : null}
 
       <div className="ob-pay-foot">
         <p className="ob-pay-sum" aria-live="polite">

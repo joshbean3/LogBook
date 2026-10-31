@@ -6,20 +6,17 @@ import { flushSync } from 'react-dom';
 import { useHomeControl, useIsActiveTab, useNav, useRootRequest, useRouteParams } from '@/app/NavController';
 import { useToday, TodayHold } from '@/lib/useToday';
 import { hasDraft, subscribeDrafts } from '../journal/drafts';
-import { useMorningMutations } from '@/api/queries';
 import { Avatar } from '@/ui/Avatar';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
-import { capsWord, DateStrip, dayCaption, dayTitle, NavBar, TodayPill, type StripStatus } from '@/ui/NavBar';
+import { DateStrip, dayCaption, dayTitle, NavBar, TodayPill, type StripStatus } from '@/ui/NavBar';
 import { REFRESH } from '@/ui/nav';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
 import { useOpenCalendar } from './Calendar';
 import { DayPage } from './DayPage';
 import { setLiveDate, setPagerMoving } from './live';
-import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { useStravaPull } from './useStravaPull';
-import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -30,16 +27,16 @@ const hooks = (TEST_HOOKS ? ((window as unknown as { __today?: TodayHooks }).__t
 const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: 'done', bonus: 'bonus', floor: 'floor', planned: 'planned', today: 'planned', missed: 'missed', skipped: 'skipped' };
 
 /**
- * Today (docs/feel.md §2, §3; build-plan §3.2 item 1): the tab root. One page element whose first content is the bar
- * (`NavBar`, a fragment: the sticky bar with the owner's word and the date part, the large title, the sticky `DateStrip`,
- * the gap), then the `DayPager` rendering a `DayPage` for prev, cur and next.
+ * Today (docs/system.md §2): the tab root. One page element whose first content is the bar (`NavBar`, a fragment: the
+ * sticky bar with the date as its caps line, the large title, the sticky `DateStrip`, the gap), then the `DayPager`
+ * rendering a `DayPage` for prev, cur and next.
  *
  * - The date is page state: read once from the route, mirrored into the URL with `nav.replace` on every commit (no history
  *   entry), and changed from outside only through `useRootRequest` (a jump cuts to the date; on an active Today the pager
  *   slides). The lit tab re-tapped off today slides home (`useHomeControl`).
  * - Three ways to change the day (§0.1): swipe anywhere under the bar (the strip and the large title row are attached to the
  *   pager), tap a strip cell, come home (the title block, the Today pill, today's cell, the lit tab). The calendar is a jump
- *   behind the title's hold menu (`Change the word · Clear the word · Go to a day…`).
+ *   behind the title's hold menu (`Go to a day…`).
  * - The bar's stacked labels follow the pager's `progress` with no render; during a 2–7 day `goTo` the label in the direction
  *   of travel shows the destination (`handle.target`: one render at the start of the slide).
  */
@@ -95,9 +92,6 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   // the strip's week: its own memoised log (the pages keep theirs)
   const stripMonths = useMemo(() => [...new Set([monthOf(mondayOf(date)), monthOf(shiftDays(mondayOf(date), 6))])], [date]);
   const log = useLog(stripMonths);
-  const focus = useFocus();
-  const { settings } = useMorningMutations();
-  const openWord = useOpenWordSheet();
   useStravaPull(!!log.strava?.connected);
 
   // a cold open's Strava check is main.tsx's (from the persisted bootstrap) or App's (after the first bootstrap): one each
@@ -142,12 +136,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   useEffect(() => setTodayActive(active), [active]);
 
   const openCalendar = useOpenCalendar({ mode: 'day', value: date, onPick: (d) => handle.goTo(d) });
-  const titleMenu = (): ContextMenuItem[] => [
-    { label: 'Change the word', onSelect: openWord },
-    // the settings patch takes the whole focus (word, sentence, by): only the word is cleared
-    { label: 'Clear the word', disabled: !focus.word.trim(), onSelect: () => saveFocus(settings, { word: '', quote: focus.quote, by: focus.by }) },
-    { label: 'Go to a day…', onSelect: openCalendar },
-  ];
+  const titleMenu = (): ContextMenuItem[] => [{ label: 'Go to a day…', onSelect: openCalendar }];
 
   // the destination of a 2–7 day goTo shows in the label in its direction (one render at its start, one at its end)
   const [tgt, setTgt] = useState<string | null>(null);
@@ -160,13 +149,11 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   useEffect(() => handle.attach([stripRef.current, titleRef.current]), [handle]);
 
   const statusOf = (d: string): StripStatus => (log.loaded(d) ? (STRIP[dayKey(log.snap, d)] ?? null) : null);
-  const onMorning = useCallback((d: ISODate) => nav.push(morningPath(d), { shared: morningLineId(d) }), [nav]);
-  const render = useCallback((d: string, live: boolean) => <DayPage date={d} live={live} onMorning={onMorning} />, [onMorning]);
+  const render = useCallback((d: string, live: boolean) => <DayPage date={d} live={live} />, []);
 
   return (
     <div className="page-root today-root">
       <NavBar
-        word={capsWord(focus.word)}
         caps={{ prev: dayCaption(prev, today), cur: dayCaption(date, today), next: dayCaption(next, today) }}
         title={{ prev: dayTitle(prev, today), cur: dayTitle(date, today), next: dayTitle(next, today) }}
         progress={handle.progress}

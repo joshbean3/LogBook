@@ -1,24 +1,18 @@
-import { assess, clock, clockOfDay, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
+import { assess, clock, clockOfDay, counts, e1rm, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
+import { Check, MoreHorizontal, Sparkles } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { api, ApiError } from '@/api/client';
-import { keys, useSessionMutations } from '@/api/queries';
-import type { MonthBundle } from '@/api/types';
 import { useContextMenu } from '@/ui/ContextMenu';
-import { Button, Chip, ChipButton } from '@/ui/primitives';
+import { Button, Chip, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
-import { useToast } from '@/ui/Toast';
-import { setCoachShown, useCoachShown } from '../day/coachShown';
+import { useCoachShown } from '../day/coachShown';
 import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
 import type { ShareData, ShareDayType } from '../share/cards';
 import { sessionCan, useSessionActions } from './actions';
-import { PressButton } from './PressButton';
 import { LiftLog } from './LiftLog';
 import { dayMiles, sessionMiles } from './miles';
 import { voiceHead, voiceLine } from './voice';
-import { mainRun, RecordCard, recordLap, RouteMap, RunGrid, useRunRecords, whenLine } from './RunDetail';
+import { mainRun, recordLap, RouteMap, useRunRecords, whenLine } from './RunDetail';
 import './sessions.css';
 
 /** One line that says what the session is: "Easy · 6 mi · 1.5 mi wu". The floor is explained in the sheet, never in the row. */
@@ -45,20 +39,14 @@ export const chipKind = (k: StatusKey): string => ({ done: 'done', bonus: 'done'
 /** caps label, the number, its unit, and an optional small line under it ("of 6") */
 type SheetStat = [string, string, string?, string?];
 
-const Stats = ({ stats }: { stats: SheetStat[] }) =>
+/** The one stat pattern (docs/system.md §4.6): caps labels over stamps, a hairline above, 2 to 4 columns. */
+export const StatRow = ({ stats }: { stats: SheetStat[] }) =>
   stats.length ? (
-    <div className="sh-stats" role="list" aria-label="Summary">
+    <StatStrip className={`stat-row cols-${stats.length}`}>
       {stats.map(([k, v, u, n]) => (
-        <span key={k} className="sh-stat" role="listitem">
-          <span className="caps">{k}</span>
-          <span className="stamp sh-num">
-            {v}
-            {u ? <small>{u}</small> : null}
-          </span>
-          {n ? <span className="sh-note">{n}</span> : null}
-        </span>
+        <Stat key={k} label={k} value={v} unit={u} delta={n ? { text: n } : undefined} small={stats.length > 3} />
       ))}
-    </div>
+    </StatStrip>
   ) : null;
 
 /** The day's verdict in the brand voice: "Floor held." / "Easy 6, done." / "6.0 mi, off the plan." */
@@ -71,17 +59,16 @@ const runVerdict = (sess: Session | null, runs: Activity[], miles: number, statu
 /** The run miles the plan asked for on this day, 0 when it named none. */
 export const plannedMiles = (s: Session | null | undefined): number => (s?.kind === 'run' ? Number(s.miles) || 0 : 0);
 
-/** A finished run's numbers: DISTANCE (what happened, "of 6" under it) / PACE / TIME / AVG HR. */
-const runStats = (sess: Session | null, runs: Activity[], log: Log): SheetStat[] => {
+/** A finished run's numbers: DISTANCE (what happened, "of 6" under it) · PACE · TIME · HR. */
+export const runStats = (sess: Session | null, runs: Activity[], log: Log): SheetStat[] => {
   const a = assess(log.zones, sess, runs);
   const planned = plannedMiles(sess);
   const dist: SheetStat[] = a.miles >= 0.05 ? [['Distance', mi(a.miles), 'mi', planned ? `of ${num(planned)}` : undefined]] : [];
-  return [
-    ...dist,
-    ['Pace', a.pace ?? '—', a.pace ? '/mi' : undefined],
-    ['Time', clock(a.movingSec)],
-    ['Avg HR', a.avgHr != null ? String(a.avgHr) : '—', a.avgHr != null ? 'bpm' : undefined],
-  ];
+  const out: SheetStat[] = [...dist];
+  if (a.pace) out.push(['Pace', a.pace, '/mi']);
+  if (a.movingSec) out.push(['Time', clock(a.movingSec)]);
+  if (a.avgHr != null) out.push(['HR', String(a.avgHr), 'bpm']);
+  return out;
 };
 
 /** A planned session's numbers: PLAN / FLOOR / OUT / BACK when known (SETS for a lift). */
@@ -100,20 +87,19 @@ const planStats = (date: string, s: Session, log: Log, sets: number): SheetStat[
     if (main?.id === s.id) {
       const T = morningOf(sessions, log.snap.morningOverride(date), log.boot.morningSettings ?? MORNING_DEFAULTS);
       const door = doorOf(T);
-      // "Out at": four caps labels share one baseline at 320 ("Out the door" wrapped to two lines); the sentence elsewhere keeps "Out the door"
       if (door != null) stats.push(['Out at', short(door)], ['Back', short(T.back)]);
     }
   }
   if (sets) stats.push(['Sets', String(sets)]);
-  return stats;
+  return stats.slice(0, 4);
 };
 
 const weekdayLong = (d: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(`${d}T12:00:00`));
 
 /**
- * Everything a share card needs: the kind of day (it picks the cards), its title, the run when there was one (an activity,
- * or a run marked Done by hand at its planned miles: contract 5's `sessionMiles`), the sets, the habits lit, the day's words,
- * and the week around it, counted the same way.
+ * Everything a share needs: the kind of day, its title, the run when there was one (an activity, or a run marked Done by
+ * hand at its planned miles: contract 5's `sessionMiles`), the sets, the habits lit, the day's words, and the week around
+ * it, counted the same way.
  */
 export const shareDataFor = (date: string, sess: Session | null, runs: Activity[], log: Log): ShareData => {
   const a = assess(log.zones, sess, runs);
@@ -204,25 +190,18 @@ export const shareFor = (date: string, s: Session, log: Log): ShareData | null =
   return runs.length || sessionMiles(log.snap, date, s).miles > 0 ? shareDataFor(date, s, runs, log) : null;
 };
 
-/** What happened, graded against the plan: who ran it and when, splits, the read, the coach. */
+/**
+ * What happened, graded against the plan: who ran it and when, splits, the read, and the coach's read when the server
+ * already holds one (nothing is fetched from here).
+ */
 export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; sess: Session | null; runs: Activity[]; log: Log; prLap?: Lap | null }) => {
   const a = assess(log.zones, sess, runs);
   const laps = runs.flatMap((r) => r.laps ?? []).filter((l) => l[0] > 160);
   const key = sess ? sess.id : 'run';
   // the month's read, else the one the hero's ask brought back (it joins the month without a notify, so an open sheet hears
-  // of it here: code review 3 #1)
+  // of it here)
   const fresh = useCoachShown(date, key);
   const saved = log.snap.coachOn(date, key) ?? fresh;
-  const qc = useQueryClient();
-  const toast = useToast();
-  const coach = useMutation({
-    mutationFn: () => api<{ date: string; key: string; text: string; createdAt: string }>('/coach/read', { method: 'POST', json: { date, sessionId: sess?.id ?? null } }),
-    onSuccess: (r) => {
-      setCoachShown(date, key, r.text);
-      qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === date && c.key === key)), r] } : b));
-    },
-    onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t get the coach’s read.'),
-  });
   const fastest = laps.length ? Math.min(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const slowest = laps.length ? Math.max(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const za = a.avgHr != null ? zoneOf(log.zones, a.avgHr) : null;
@@ -253,7 +232,7 @@ export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; 
             const w = slowest === fastest ? 1 : 0.35 + 0.65 * (1 - (p - fastest) / (slowest - fastest));
             return (
               <div key={i} className={`split ${z ? `sz${z}` : ''} ${part ? 'part' : ''} ${l === prLap ? 'is-pr' : ''}`}>
-                <span className="split-n">{l === prLap ? '🏅' : part ? mi(l[0] / METERS_PER_MILE) : i + 1}</span>
+                <span className="split-n">{l === prLap ? 'PR' : part ? mi(l[0] / METERS_PER_MILE) : i + 1}</span>
                 <span className="split-bar">
                   <i style={{ width: `${w * 100}%` }} />
                 </span>
@@ -274,23 +253,13 @@ export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; 
           </ul>
         </div>
       ) : null}
-      {log.features.claude ? (
-        saved ? (
-          <div className="coach">
-            <span className="coach-head">
-              <Sparkles size={16} aria-hidden="true" /> Coach’s read
-            </span>
-            <p className="serif">{saved}</p>
-            <button type="button" className="link sm" disabled={coach.isPending} onClick={() => coach.mutate()}>
-              {coach.isPending ? 'Asking…' : 'Ask again'}
-            </button>
-          </div>
-        ) : (
-          <ChipButton onClick={() => coach.mutate()} disabled={coach.isPending}>
-            <Sparkles size={14} />
-            {coach.isPending ? 'Reading the run…' : 'Coach’s read'}
-          </ChipButton>
-        )
+      {saved ? (
+        <div className="coach">
+          <span className="caps coach-head">
+            <Sparkles size={14} aria-hidden="true" /> Coach’s read
+          </span>
+          <p className="coach-line">{saved}</p>
+        </div>
       ) : null}
     </div>
   );
@@ -299,9 +268,8 @@ export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; 
 export { RouteMap } from './RunDetail';
 
 /**
- * The session sheet's ⋯, in the sheet header's action slot (`SheetSpec.action`): Share, "Not feeling 100%" and Delete as a
- * context menu under the button (the same menu, destructive last and red, that a long-press opens elsewhere). It reads
- * the session live, like the sheet's body, so a mark made in the sheet changes what it offers.
+ * The session sheet's ⋯, in the sheet header's action slot (`SheetSpec.action`): "Not feeling 100%" and Delete as a context
+ * menu under the button. It reads the session live, like the sheet's body, so a mark made in the sheet changes what it offers.
  */
 const SessionMore = ({ date, id }: { date: string; id: string }) => {
   const log = useLog([monthOf(date)]);
@@ -310,12 +278,8 @@ const SessionMore = ({ date, id }: { date: string; id: string }) => {
   const btn = useRef<HTMLButtonElement>(null);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
   if (!s) return null;
-  const share = shareFor(date, s, log);
   const name = s.kind === 'rest' ? 'Rest' : label(s);
-  // after a matched run the sheet's row is Share · Not feeling 100% (§6.3): Move and Edit live here; otherwise the row has them
-  const matched = s.kind === 'run' && log.snap.runsOn(date).length > 0;
-  const keep = matched ? ['Move', 'Edit'] : ['Not feeling 100%', 'Share'];
-  const items = act.menuItems(date, s, { share, push: true }).filter((i) => keep.includes(i.label) || i.destructive);
+  const items = act.menuItems(date, s, { push: true }).filter((i) => i.label === 'Not feeling 100%' || i.destructive);
   if (!items.length) return null;
   return (
     <button
@@ -337,10 +301,9 @@ const SessionMore = ({ date, id }: { date: string; id: string }) => {
 };
 
 /**
- * The session, in full. Its name is the sheet's title (it flew in from the row or the hero), the route sits at the top when
- * there is one, then the two verbs that matter: Done (the one blue) and Floor, 48px. Skip, Move and Edit sit under them;
- * Move and Edit push inside the sheet. Delete and "Not feeling 100%" live in the header's ⋯ (`SessionMore`). The evidence (splits, the
- * read, started · HR · cadence · elevation) follows.
+ * The session, in full (docs/system.md): the sheet's serif title is its name, the eyebrow the date; the route at the top
+ * when there is one; one StatRow; Done (`Button primary`) and Floor (`Button soft`) at 48; Skip, Move, Edit and Share as
+ * quiet buttons; Delete and "Not feeling 100%" in the header's ⋯. The evidence (splits, the read) follows.
  */
 const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the sheet body is captured once at open; subscribing here keeps marks, sets and deletes live while it is up
@@ -348,7 +311,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const sheet = useSheet();
   const act = useSessionActions(log);
   const [liftOpen, setLiftOpen] = useState(false);
-  // "Not feeling 100%" with nothing hard in the days ahead answers on its own pill, not in a toast (§8)
+  // "Not feeling 100%" with nothing hard in the days ahead answers on its own button, not in a toast (§8)
   const [nothingToEase, setNothingToEase] = useState(false);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
   const gone = !s && log.loaded(date);
@@ -363,13 +326,11 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const runs = s?.kind === 'run' ? log.snap.runsOn(date) : [];
   // a run with an activity, or one marked Done by hand (its planned miles, contract 5), can be shared
   const share = useMemo(() => (s && s.kind === 'run' && (runs.length || sessionMiles(log.snap, date, s).miles > 0) ? shareDataFor(date, s, runs, log) : null), [date, s, runs, log]);
-  // the sheet opens on the stamps and the verbs; the evidence (splits, the read, the coach) renders right after, in the
-  // background (WP1's request: the body's first render decided the open's first frame at 4×)
+  // the sheet opens on the stats and the verbs; the evidence (splits, the read) renders right after, in the background
   const evidence = useDeferredValue(true, false);
   const records = useRunRecords(runs);
   if (!s) return null;
   const when = runs.length ? whenLine(date, log.today, mainRun(runs)?.time ?? null, startClock) : null;
-  const showSplits = () => document.getElementById(`splits-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   const matched = s.kind === 'run' && runs.length > 0;
   const c = sessionCan(log, date, s);
   const st = c.st;
@@ -383,75 +344,56 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const poly = polyRun?.polyline;
   const meta = sessionMeta(s);
   const floorText = floorFor(s);
+  const skipped = s.mark === 'skip' || s.mark === 'sick';
   return (
     <div className={`ss t-${tone(s)}`}>
-      {poly ? <RouteMap polyline={poly} drawKey={s.id} run={polyRun} records={records} /> : null}
+      {poly ? <RouteMap polyline={poly} drawKey={s.id} /> : null}
       <div className="ss-status">
         <Chip kind={chipKind(key)}>{word}</Chip>
         {when ? <span className="t-sub ink3">{when}</span> : null}
         {s.movedFrom ? <span className="t-sub ink3">Moved from {fmtDate('md', s.movedFrom)}</span> : null}
       </div>
       {meta ? <p className="t-sub ink2 ss-meta">{meta}</p> : null}
-      {records.length ? <RecordCard records={records} date={date} onTap={showSplits} /> : null}
-      {runs.length ? <RunGrid sess={s} runs={runs} log={log} planned={plannedMiles(s)} /> : <Stats stats={stats} />}
+      <StatRow stats={stats} />
       {c.mark ? (
         <div className="ss-verbs" role="group" aria-label="Mark it">
-          <PressButton className={`ss-big done ${st === 'done' ? 'is-on' : ''}`} aria-pressed={st === 'done'} onClick={() => (st === 'done' ? act.clear(s) : act.done(s))}>
-            <Check size={20} strokeWidth={2.6} aria-hidden="true" />
+          <Button variant={st === 'done' ? 'soft' : 'primary'} className="lg" aria-pressed={st === 'done'} onClick={() => (st === 'done' ? act.clear(s) : act.done(s))}>
+            <Check size={18} strokeWidth={2.6} aria-hidden="true" />
             Done
-          </PressButton>
-          <PressButton className={`ss-big floor ${st === 'floor' ? 'is-on' : ''}`} aria-pressed={st === 'floor'} onClick={() => (st === 'floor' ? act.clear(s) : act.floor(s))}>
-            <span className="ss-floor-glyph" aria-hidden="true" />
+          </Button>
+          <Button variant={st === 'floor' ? 'default' : 'soft'} className={`lg ss-floor ${st === 'floor' ? 'is-on' : ''}`} aria-pressed={st === 'floor'} onClick={() => (st === 'floor' ? act.clear(s) : act.floor(s))}>
             Floor
-          </PressButton>
+          </Button>
         </div>
       ) : c.auto ? (
         <p className="t-sub ink2 ss-auto">{st === 'floor' ? 'Floor held, from the run that came in.' : s.kind === 'lift' ? 'Done: the sets are logged.' : 'Done: matched to your run.'}</p>
       ) : s.kind !== 'rest' && date > log.today ? (
         <p className="t-sub ink2 ss-auto">Planned for {date === shiftDays(log.today, 1) ? 'tomorrow' : fmtDate('dowLong', date)}. Done and Floor open on the day.</p>
       ) : null}
-      {matched ? (
-        // §6.3: after a matched run the second row is Share · Not feeling 100% (Move and Edit are under the ⋯)
-        <div className="ss-second">
-          {share && share.miles > 0 ? (
-            <PressButton press="surface" className="ss-pill" onClick={() => act.share(share, true)}>
-              <Share2 size={18} aria-hidden="true" />
-              Share
-            </PressButton>
-          ) : null}
-          {/* today's run only: a past day's "not feeling" would rewrite days that are already a record (code review 1 #3) */}
-          {date === log.today ? (
-            <PressButton press="surface" className="ss-pill" disabled={nothingToEase} onClick={() => setNothingToEase(act.notFeeling(date, s) === 0)}>
-              <HeartPulse size={18} aria-hidden="true" />
-              {nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'}
-            </PressButton>
-          ) : null}
-        </div>
-      ) : (
-        <div className="ss-second">
-          {share && share.miles > 0 ? (
-            <PressButton press="surface" className="ss-pill" onClick={() => act.share(share, true)}>
-              <Share2 size={18} aria-hidden="true" />
-              Share
-            </PressButton>
-          ) : c.skip || s.mark === 'skip' || s.mark === 'sick' ? (
-            <PressButton press="surface" className="ss-pill" aria-pressed={s.mark === 'skip' || s.mark === 'sick'} onClick={() => act.skip(s)}>
-              <SkipForward size={18} aria-hidden="true" />
-              {s.mark === 'skip' || s.mark === 'sick' ? 'Put back' : 'Skip'}
-            </PressButton>
-          ) : null}
-          <PressButton press="surface" className="ss-pill" onClick={() => act.move(date, s, true)}>
-            <ArrowRightLeft size={18} aria-hidden="true" />
-            Move
-            <ChevronRight size={16} className="ss-pill-chev" aria-hidden="true" />
-          </PressButton>
-          <PressButton press="surface" className="ss-pill" onClick={() => act.edit(date, s, true)}>
-            <Pencil size={18} aria-hidden="true" />
-            Edit
-            <ChevronRight size={16} className="ss-pill-chev" aria-hidden="true" />
-          </PressButton>
-        </div>
-      )}
+      <div className="ss-second">
+        {!matched && (c.skip || skipped) ? (
+          <Button variant="quiet" aria-pressed={skipped} onClick={() => act.skip(s)}>
+            {skipped ? 'Put back' : 'Skip'}
+          </Button>
+        ) : null}
+        <Button variant="quiet" onClick={() => act.move(date, s, true)}>
+          Move
+        </Button>
+        <Button variant="quiet" onClick={() => act.edit(date, s, true)}>
+          Edit
+        </Button>
+        {share && share.miles > 0 ? (
+          <Button variant="quiet" onClick={() => act.share(share, true)}>
+            Share
+          </Button>
+        ) : null}
+        {/* today's matched run only: a past day's "not feeling" would rewrite days that are already a record */}
+        {matched && date === log.today ? (
+          <Button variant="quiet" disabled={nothingToEase} onClick={() => setNothingToEase(act.notFeeling(date, s) === 0)}>
+            {nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'}
+          </Button>
+        ) : null}
+      </div>
       {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} prLap={recordLap(runs, records)} /> : null}
       {s.kind === 'lift' && sets.length ? (
         <p className="t-sub ink2">
@@ -473,11 +415,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
           {liftOpen ? <LiftLog date={date} /> : null}
         </>
       ) : null}
-      {s.kind !== 'rest' && floorText && !runs.length ? (
-        <p className="fine ss-floor-line">
-          The floor: {floorText}. On a bad day it still counts.
-        </p>
-      ) : null}
+      {s.kind !== 'rest' && floorText && !runs.length ? <p className="fine ss-floor-line">The floor: {floorText}. On a bad day it still counts.</p> : null}
     </div>
   );
 };
@@ -492,30 +430,26 @@ export const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activi
   const when = whenLine(date, log.today, mainRun(runs)?.time ?? null, startClock);
   return (
     <div className="ss t-easy">
-      {polyRun?.polyline ? <RouteMap polyline={polyRun.polyline} drawKey={`u-${date}`} run={polyRun} records={records} /> : null}
+      {polyRun?.polyline ? <RouteMap polyline={polyRun.polyline} drawKey={`u-${date}`} /> : null}
       <div className="ss-status">
         <Chip kind={chipKind(key)}>{sessionWord(log.snap, date, null)}</Chip>
         <span className="t-sub ink3">{when ? `${when} · off the plan` : 'Off the plan'}</span>
       </div>
-      {records.length ? <RecordCard records={records} date={date} onTap={() => document.getElementById('splits-run')?.scrollIntoView({ behavior: 'smooth', block: 'center' })} /> : null}
-      <RunGrid sess={null} runs={runs} log={log} planned={0} />
-      <SessionActual date={date} sess={null} runs={runs} log={log} prLap={recordLap(runs, records)} />
+      <StatRow stats={runStats(null, runs, log)} />
       {share.miles > 0 ? (
-        <div className="sheet-foot">
-          <span />
-          <div className="foot-right">
-            <Button variant="primary" onClick={() => act.share(share, true)}>
-              Share
-            </Button>
-          </div>
+        <div className="ss-second">
+          <Button variant="quiet" onClick={() => act.share(share, true)}>
+            Share
+          </Button>
         </div>
       ) : null}
+      <SessionActual date={date} sess={null} runs={runs} log={log} prLap={recordLap(runs, records)} />
     </div>
   );
 };
 
 /** The sheet's title on the old path: the date as a caps label. New callers pass the session's name as the title and the date as the eyebrow. */
-export const sessionSheetTitle = (date: string) => <span className="caps sh-sheet-date">{fmtDate('long', date)}</span>;
+export const sessionSheetTitle = (date: string) => <span className="caps">{fmtDate('long', date)}</span>;
 
 export interface OpenSessionOpts {
   /** Accepted for old callers; the sheet is the same from the hero and from a row. */
@@ -532,8 +466,8 @@ export const sessionSheetSpec = (date: string, s: Session, _opts: OpenSessionOpt
 });
 
 /**
- * Open a session's sheet: `open(date, session, { sharedId })`. With `{ push: true }` (from inside another sheet, like
- * Progress's week sheet) it slides in on top of that sheet, with Back to it, instead of replacing it.
+ * Open a session's sheet: `open(date, session, { sharedId })`. With `{ push: true }` (from inside another sheet) it slides
+ * in on top of that sheet, with Back to it, instead of replacing it.
  */
 export const useOpenSession = (_log?: Log, how: { push?: boolean } = {}) => {
   const sheet = useSheet();

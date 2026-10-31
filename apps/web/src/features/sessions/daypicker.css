@@ -44,7 +44,7 @@
   gap: 4px;
   width: 40px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: var(--r-group);
 }
 .dpk-num {
   font-family: var(--stamp);
@@ -56,14 +56,15 @@
 .dpk-bar {
   width: 14px;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--tone);
 }
 .dpk-bar.none {
   background: transparent;
 }
 .dpk-day.is-today .dpk-pill {
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+  outline: 1.5px solid var(--accent-bright);
+  outline-offset: -1.5px;
 }
 .dpk-day.is-origin .dpk-pill {
   opacity: 0.45;
@@ -77,11 +78,9 @@
    where the gutter-wide sticky foot does not cover them (review-feel-1 #8). Until the foot is full-bleed itself (a request
    in docs/reviews/wp4.md), a sheet that holds a picker paints the foot's background into the gutters too. */
 .sheet:has(.dpk) .sheet-foot {
-  box-shadow:
-    -16px 0 0 var(--bg),
-    16px 0 0 var(--bg);
+  position: relative;
 }
-/* and takes the taps there, so a tap beside the foot never reaches a cell scrolled under it (feel review 2 G) */
+/* it takes the taps there, so a tap beside the foot never reaches a cell scrolled under it (feel review 2 G) */
 .sheet:has(.dpk) .sheet-foot::before {
   content: '';
   position: absolute;

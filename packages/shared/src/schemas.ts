@@ -337,3 +337,39 @@ export const zGoalPatch = z.object({
 export const zGoalRefine = z.object({ level: zGoalLevel, period: z.string().min(4).max(10), text: z.string().trim().min(1).max(400) });
 /** What Claude returns for a goal review. */
 export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean(), steps: z.array(z.string()) });
+
+// ---------- reminders and push ----------
+export const zClockTime = z.string().regex(/^\d{2}:\d{2}$/, 'Expected HH:MM');
+/** Daily, or weekly on named days (`weekly:mon,wed`). Stored as `FREQ=DAILY` / `FREQ=WEEKLY;BYDAY=MO,WE`. */
+export const zRrule = z.string().regex(/^(daily|weekly:(mon|tue|wed|thu|fri|sat|sun)(,(mon|tue|wed|thu|fri|sat|sun))*|FREQ=DAILY|FREQ=WEEKLY;BYDAY=(MO|TU|WE|TH|FR|SA|SU)(,(MO|TU|WE|TH|FR|SA|SU))*)$/, 'daily, or weekly:mon,wed');
+/**
+ * `POST /reminders`: a title, when (`at` as an ISO datetime with its offset, or a local `date` + `time` read in the
+ * account's time zone), an optional repeat, and the route a tap opens.
+ */
+export const zReminderInput = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    body: z.string().trim().max(300).nullable().optional(),
+    route: z.string().trim().max(120).regex(/^\/[\w\-/?=&.%]*$/, 'a path inside the app').nullable().optional(),
+    at: z.iso.datetime({ offset: true }).optional(),
+    date: zDate.optional(),
+    time: zClockTime.optional(),
+    rrule: zRrule.nullable().optional(),
+  })
+  .refine((r) => !!r.at || (!!r.date && !!r.time), { message: 'Give at, or date and time', path: ['at'] });
+export type ReminderInput = z.infer<typeof zReminderInput>;
+
+export const zQuietHours = z.object({ start: zClockTime, end: zClockTime }).nullable();
+/** `PATCH /notifications/settings`: the two system reminders and quiet hours. */
+export const zNotificationSettingsPatch = z.object({
+  goalUnset: z.boolean().optional(),
+  tomorrow: z.boolean().optional(),
+  quietHours: zQuietHours.optional(),
+});
+export const zPushSubscribe = z.object({
+  kind: z.enum(['webpush', 'apns']),
+  endpoint: z.string().min(8).max(2000),
+  keys: z.object({ p256dh: z.string().max(400), auth: z.string().max(200) }).optional(),
+  userAgent: z.string().max(200).optional(),
+});
+export const zPushUnsubscribe = z.object({ endpoint: z.string().min(8).max(2000) });

@@ -89,12 +89,12 @@ export const swapRef = (plan: DayBands, from: string, to: string): DayBands => {
   return out;
 };
 
-/** Each section of the day: its words, its colour (the feel palette), and the icon a to-do there gets when its words name none. */
-export const BAND: Record<Place, { label: string; span: string; hue: string; icon: string }> = {
-  tray: { label: 'Anytime', span: 'Whenever today works', hue: 'var(--mint)', icon: '✨' },
-  morning: { label: 'Morning', span: 'Until noon', hue: 'var(--sun)', icon: '☀️' },
-  afternoon: { label: 'Afternoon', span: 'Noon to 5', hue: 'var(--sky)', icon: '🌤️' },
-  evening: { label: 'Evening', span: 'After 5', hue: 'var(--coral)', icon: '🌙' },
+/** Each band of the day: its words. A band carries no hue (docs/system.md §3): it is a caps label. */
+export const BAND: Record<Place, { label: string; span: string }> = {
+  tray: { label: 'Anytime', span: 'Whenever today works' },
+  morning: { label: 'Morning', span: 'Until noon' },
+  afternoon: { label: 'Afternoon', span: 'Noon to 5' },
+  evening: { label: 'Evening', span: 'After 5' },
 };
 
 /** How a band stands against the clock today: still to come, now, or over. */

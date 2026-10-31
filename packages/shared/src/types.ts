@@ -216,8 +216,24 @@ export interface MorningDayOverride {
 export type LegacyMorningDay = MorningDayOverride & Partial<{ mode: MorningMode; type: string; miles: number; minutes: number }>;
 
 // ---------- integrations ----------
+export type ProviderId = 'strava' | 'coros';
+export type ConnectionState = 'ok' | 'needs_reauth' | 'error' | 'revoked' | 'disconnected';
+/** One integration as Settings → Connections shows it (`GET /connections`). */
+export interface ProviderConnection {
+  provider: ProviderId;
+  name: string;
+  configured: boolean;
+  connected: boolean;
+  status: ConnectionState;
+  athleteName: string | null;
+  lastSyncAt: string | null;
+  syncing: boolean;
+  error: string | null;
+}
+
 export interface StravaStatus {
   connected: boolean;
+  status?: ConnectionState;
   athleteName: string | null;
   lastSyncAt: string | null;
   syncing: boolean;
@@ -322,4 +338,30 @@ export interface ExportV2 {
   todoGroups?: TodoGroup[];
   goals?: Aim[];
   goalEvents?: GoalEvent[];
+}
+
+// ---------- reminders ----------
+export type ReminderSource = 'user' | 'agent' | 'system';
+export type ReminderStatus = 'pending' | 'sent' | 'cancelled';
+export interface Reminder {
+  id: string;
+  title: string;
+  body: string | null;
+  route: string | null;
+  /** ISO instant. */
+  fireAtUtc: string;
+  /** The wall clock in the account's time zone, for the list. */
+  local: { date: string; time: string } | null;
+  rrule: string | null;
+  source: ReminderSource;
+  status: ReminderStatus;
+  createdAt: string;
+}
+export interface NotificationSettings {
+  /** "Today's goal is unset", fifteen minutes after the alarm. */
+  goalUnset: boolean;
+  /** "Tomorrow: Easy 5, out the door 6:50", at 21:00. */
+  tomorrow: boolean;
+  quietHours: { start: string; end: string } | null;
+  timezone: string | null;
 }

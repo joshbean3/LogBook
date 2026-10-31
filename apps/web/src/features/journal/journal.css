@@ -1,77 +1,250 @@
-/* ---------- Journal (docs/experience.md §5.5): write first, memory second, fuel in the Library ---------- */
+/* Journal (docs/system.md): the logbook. Tokens only; the serif for words, Inter for facts. */
+.journal-page {
+  padding-bottom: 32px;
+}
 
-/* the segmented switch, 32 px under the title row, pinned under the bar once scrolled (a sibling of the bar: §2.1's sticky rule) */
-.j-segrow {
-  position: sticky;
-  top: calc(44px + var(--safe-t));
-  z-index: 19;
-  margin: 0 calc(-1 * var(--gutter));
-  padding: 6px var(--gutter);
-  background: var(--bg);
+/* ---------- the month strip, the search ---------- */
+.jmonths {
+  display: flex;
+  gap: 8px;
+  margin: 16px calc(-1 * var(--page-pad)) 0;
+  padding: 0 var(--page-pad);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
-/* two mounted panes (M28): the shown one in flow; the leaving one absolute, held still by a transform while it fades; the
-   other hidden. The stack clips vertically so a hidden pane never adds scroll room */
-/* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
-   must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
-   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
-   this root is left out of anchor selection. */
-.j-panes {
-  overflow-anchor: none;
+.jmonths::-webkit-scrollbar {
+  display: none;
 }
-.j-panes {
+.jmonths .chip-btn {
+  flex: none;
+}
+.jmonths .chip-btn.is-on {
+  background: var(--accent-tint);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+.jsearch {
+  margin-top: 16px;
+  font-family: var(--sans);
+}
+
+/* ---------- the year ---------- */
+.jyear {
+  margin-top: var(--sp-secondary);
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+.jyear-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.jyear-meta {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.jyear-grid {
+  display: grid;
+  grid-template-columns: repeat(52, minmax(0, 1fr));
+  grid-template-rows: repeat(7, 6px);
+  grid-auto-flow: column;
+  gap: 2px 0;
+  justify-items: center;
+}
+.jyear-dot {
+  appearance: none;
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--line);
+}
+.jyear-dot.is-run {
+  background: var(--ink-4);
+}
+.jyear-dot.is-entry {
+  background: var(--accent);
+}
+.jyear-dot.is-future {
+  background: transparent;
+}
+
+/* ---------- a day ---------- */
+.jmonth {
+  overflow: visible;
+}
+.jday.is-row.pressable,
+.jday.is-quiet.pressable {
+  display: grid;
+  width: 100%;
+  text-align: left;
+  border-radius: 0;
+}
+.jday.is-row.pressable {
   position: relative;
-  overflow: visible clip;
+  gap: 6px;
+  padding: 14px 40px 14px 16px;
 }
-.j-pane {
+.jday.is-row.is-empty.pressable {
+  padding-right: 16px;
+}
+.jday-head {
+  display: grid;
+  gap: 2px;
+}
+.jday-title {
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.jday-facts {
+  display: flex;
+  flex-wrap: wrap;
   min-width: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
-.j-pane.is-on {
-  position: relative;
-  z-index: 1;
+.jday-fact + .jday-fact::before {
+  content: ' · ';
+  white-space: pre;
 }
-.j-pane.is-leaving,
-.j-pane.is-off {
+.jday-facts.is-none {
+  display: block;
+}
+.jday-text {
+  margin: 0;
+  font: 400 var(--fs-body) / var(--lh-body) var(--serif);
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.jday-text.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.jday-write {
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  color: var(--accent-text);
+}
+.jday-chev {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-4);
 }
-/* the hidden pane keeps its rendering state but is not drawn, hit or focusable; no inherited property flips on a switch
-   (visibility, pointer-events and inert restyle a whole pane: ~55 ms at 4× on the commit frame) */
-.j-pane.is-off {
-  content-visibility: hidden;
+.jday.is-empty .jday-chev {
+  display: none;
 }
-@supports not (content-visibility: hidden) {
-  .j-pane.is-off {
-    visibility: hidden;
-  }
+/* a day with facts and no words: one 44 px line */
+.jday.is-quiet.pressable {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+}
+.jday.is-quiet .jday-facts {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+}
+.jday-quiet-date {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.jday.is-full {
+  display: grid;
+  gap: 16px;
+}
+.jday-entries {
+  display: grid;
+  gap: 12px;
 }
 
-/* ---------- the composer: the page's hero, open, lit from below ---------- */
-.jcompose {
-  position: relative;
-  isolation: isolate;
+/* ---------- energy ---------- */
+.jenergy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
 }
-/* the card's chrome is its own layer, so a growing field scales it (FLIP, §10.1) instead of animating a height */
-.jcompose-bg {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  pointer-events: none;
+.jenergy-dots {
+  display: flex;
+  gap: 4px;
+  margin-right: -8px;
 }
-/* the stage light rises behind Save only, never behind the words */
-.jcompose-bg::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0;
-  height: 84px;
-  background: var(--halo);
-  opacity: 0.45;
+.jenergy-dot {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
+.jenergy-dot i {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  transition:
+    background var(--dur-color) var(--ease-out),
+    border-color var(--dur-color) var(--ease-out);
+}
+.jenergy-dot.is-on i {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---------- the sheet ---------- */
+.jsheet {
+  display: grid;
+  gap: 20px;
+}
+.jsheet-compose .composer {
+  padding-top: 4px;
+}
+.jsheet-rowtext {
+  font: 400 var(--fs-body) / var(--lh-body) var(--serif);
+  white-space: nowrap;
+}
+.jsheet-memory .lrow-sub {
+  font-family: var(--serif);
+}
+.jeditor {
+  display: grid;
+  gap: 8px;
+}
+.jeditor .jtext {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.jeditor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.jeditor-del {
+  color: var(--bad);
+  margin-left: -18px;
+}
+
+/* ---------- the composer (also Today's; `features/day/day.css` builds on these names) ---------- */
 .composer {
   display: grid;
 }
@@ -91,7 +264,7 @@
 .composer-saved {
   display: inline-flex;
 }
-/* Save: a 32 px pill, the one blue, at 40 % until there is text (§8); a 44 px target */
+/* Save: a 32 px pill, the one blue, at 40 % until there is text; a 44 px target */
 .save-pill.pressable {
   position: relative;
   height: 32px;
@@ -100,10 +273,12 @@
   border: 0;
   border-radius: var(--r-pill);
   background: var(--accent);
-  color: #fff;
-  font: 600 15px/20px var(--sans);
+  color: var(--accent-ink);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   opacity: 0.4;
-  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms var(--ease-out);
+  transition:
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 200ms var(--ease-out);
 }
 .save-pill.is-ready {
   opacity: 1;
@@ -113,34 +288,18 @@
   position: absolute;
   inset: -6px 0;
 }
-/* the beat after a save: Save becomes a check for a moment */
 .composer-saved {
   align-items: center;
   gap: 6px;
   height: 32px;
   padding: 0 4px;
   margin-left: auto;
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .composer-saved svg {
   color: var(--accent-text);
 }
-/* a new row, a search field, a form: opacity in over 150 ms, nothing else */
-.fade-in {
-  animation: j-fade-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@keyframes j-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-.jtl-anchor {
-  display: block;
-  height: 0;
-}
-
-/* ---------- bare text inputs that live inside a card ---------- */
 .jtext {
   display: block;
   width: 100%;
@@ -148,7 +307,7 @@
   border: 0;
   background: transparent;
   padding: 12px 16px;
-  font-size: 1.0625rem;
+  font-size: var(--fs-body);
   line-height: 1.5rem;
   resize: none;
   outline: none;
@@ -163,8 +322,6 @@ textarea.jtext {
   min-height: 66px;
   overflow: hidden;
 }
-/* a field inside a card shows focus with its caret, never the global ring (base.css :focus-visible), which was clipped by
-   the card's top edge and overhung its sides (review feel F5); the selector outranks the global rule wherever it loads */
 .jtext:focus-visible,
 textarea.jtext:focus {
   outline: none;
@@ -172,878 +329,44 @@ textarea.jtext:focus {
 .jtext::placeholder {
   color: var(--ink-3);
 }
-/* the Journal page's composer: 17/22 serif, the placeholder at --ink-3 (§8), three lines open */
 .composer.big .jtext {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
   padding: 16px 16px 8px;
 }
 .composer.big textarea.jtext {
   min-height: 90px;
 }
-.composer.big .jtext::placeholder {
-  color: var(--ink-3);
-}
 
-/* ---------- the quote of the day, a prompt line inside the composer ---------- */
-.qline-wrap {
-  overflow: hidden;
-  padding: 0 16px;
-}
-.qline-skel {
-  margin: 12px 0;
-}
-.qline {
-  appearance: none;
-  display: block;
+/* ---------- the quote of the day: one serif line in the editor's placeholder area ---------- */
+.qline.pressable {
+  display: grid;
+  gap: 2px;
   width: 100%;
   min-height: 44px;
   margin: 0;
-  padding: 10px 0;
+  padding: 10px 16px;
   border: 0;
   border-top: 1px solid var(--line);
+  border-radius: 0;
   background: none;
   text-align: left;
   color: var(--ink-3);
-  cursor: pointer;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: opacity var(--dur-color) var(--ease-out);
-}
-.qline.busy {
-  opacity: 0.6;
-}
-.qline-in {
-  display: grid;
-  gap: 2px;
 }
 .qline-text {
-  font-family: var(--serif);
+  font: 400 var(--fs-body) / var(--lh-body) var(--serif);
   font-style: italic;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  letter-spacing: 0;
   color: var(--ink-3);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
   overflow-wrap: anywhere;
 }
 .qline-by {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-4);
 }
-.qline-hint {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-4);
-  margin: -4px 0 4px;
-}
-/* the whole quote, as the hold lifts it */
-.qpreview {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-lg);
-  max-height: 46vh;
-  overflow: auto;
-}
-.qpreview-text {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.qpreview-by {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  color: var(--ink-2);
-}
-.qpreview-by cite {
-  font-weight: 400;
-  color: var(--ink-3);
-}
 
-/* ---------- the ribbon of the last 14 days ---------- */
-.ribbon-wrap {
-  margin-top: 24px;
-}
-/* the ribbon reaches the screen edges and scrolls sideways: each day's column (the whole column is its button) is at
-   least 44px wide, so 14 of them run past a phone's width; it snaps to days and opens on today, at the right edge */
-.ribbon {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(44px, 1fr);
-  margin-inline: calc(-1 * var(--gutter));
-  padding-inline: calc(var(--gutter) - 12px);
-  scroll-padding-inline: calc(var(--gutter) - 12px);
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-.ribbon::-webkit-scrollbar {
-  display: none;
-}
-/* earlier days wait off the left edge: the edge fades, so the ribbon reads as one that scrolls */
-.ribbon.has-more {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px);
-  mask-image: linear-gradient(to right, transparent 0, #000 28px);
-}
-/* a scrub holds the ribbon still under the finger */
-.ribbon.scrubbing {
-  scroll-snap-type: none;
-}
-.rday {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  min-width: 44px;
-  height: 56px;
-  display: grid;
-  grid-template-rows: 36px 14px;
-  justify-items: center;
-  align-items: center;
-  color: var(--ink-4);
-  cursor: pointer;
-  scroll-snap-align: end;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-}
-.rdot {
-  display: block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1.5px solid var(--ink-4);
-  transition: border-color var(--dur-color) var(--ease-out);
-}
-.rday.has .rdot {
-  background: var(--ink);
-  border-color: var(--ink);
-}
-/* today wears a blue ring, written or not */
-.rday.today .rdot {
-  box-shadow:
-    0 0 0 3px var(--bg),
-    0 0 0 4.5px var(--accent-bright);
-}
-.rletter {
-  font-size: 0.625rem;
-  line-height: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-.rday.today .rletter {
-  color: var(--ink-2);
-}
-/* under the finger while scrubbing: the dot grows and the day's letter lights */
-.rday.on .rdot {
-  transform: scale(1.5);
-  border-color: var(--ink);
-}
-.rday.on .rletter {
-  color: var(--ink);
-}
-.rday:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: -2px;
-  border-radius: 8px;
-}
-.ribbon-cap {
-  display: flex;
-  gap: 8px;
-  min-height: 20px;
-  margin-top: 2px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  letter-spacing: -0.01em;
-}
-.ribbon-cap-date {
-  flex: none;
-  font-weight: 600;
-  color: var(--ink);
-}
-.ribbon-cap-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ---------- on this day / from your journal: one inset card ---------- */
-.jmem-card {
-  position: relative;
-  margin-top: 24px;
-  padding: 14px 16px 6px;
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  -webkit-touch-callout: none;
-}
-.jmem-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.jmem-top .caps:first-child {
-  color: var(--ink-2);
-}
-.jmem-ago {
-  white-space: nowrap;
-}
-.jmem-card.pressable {
-  display: block;
-  width: 100%;
-  text-align: left;
-  color: inherit;
-}
-.jmem-open {
-  margin: 0;
-  padding: 8px 0 10px;
-  display: grid;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.memory-text {
-  display: block;
-  font-family: var(--serif);
-  letter-spacing: 0;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-}
-.memory-text.clamp {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-  overflow: hidden;
-}
-.jmem-foot {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-}
-
-/* ---------- small marks: the run stamp, the favourite star ---------- */
-.jstamp {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.625rem;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.jfav {
-  color: var(--star);
-  flex: none;
-}
-
-/* ---------- the entry timeline: edge to edge, a day's date at the left of its first entry ---------- */
-.jtl-sec .section-head .icon-btn {
-  margin-right: -10px;
-}
-.jtl-search {
-  display: block;
-}
-.jtl-search .in {
-  margin: 4px 0 12px;
-}
-.jtl {
-  display: grid;
-  margin-inline: calc(-1 * var(--gutter));
-}
-.jtl-item {
-  position: relative;
-  overflow: hidden;
-}
-/* a hairline between days, not between the entries of one day */
-.jtl-item.first:not(:first-child)::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: var(--gutter);
-  right: 0;
+.jsentinel {
   height: 1px;
-  background: var(--line);
-  z-index: 2;
 }
-.jtl-row {
-  appearance: none;
-  border: 0;
-  background: none;
-  margin: 0;
-  width: 100%;
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px var(--gutter);
-  min-height: 60px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  transition: background var(--dur-fast);
-}
-.jtl-item:not(.first) .jtl-row {
-  padding-top: 2px;
-}
-.jtl-row[data-pressed] {
-  background: var(--surface-2);
-}
-.jtl-date {
-  display: grid;
-  align-content: start;
-}
-.jtl-date-shared {
-  display: grid;
-  justify-items: start;
-}
-.jtl-day {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 1.375rem;
-  line-height: 1.5rem;
-  letter-spacing: -0.03em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.jtl-body {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.jtl-text {
-  font-family: var(--serif);
-  letter-spacing: 0;
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-.jtl-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  min-width: 0;
-}
-.jtl-skel {
-  display: grid;
-  gap: 20px;
-  padding-top: 8px;
-}
-.jtl-skel-row {
-  display: flex;
-  gap: 12px;
-}
-.jtl-more {
+.jmore {
   margin-top: 8px;
-}
-/* the empty state's ghost rows: the timeline at 30% */
-.jtl-row.ghost {
-  cursor: default;
-}
-
-/* ---------- the entry sheet: words to read, then the verbs ---------- */
-.esheet {
-  display: grid;
-  gap: 12px;
-}
-.esheet-text {
-  font-family: var(--serif);
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  letter-spacing: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-}
-.esheet-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.esheet-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-  padding-bottom: 8px;
-}
-.esheet-actions .btn.is-fav svg {
-  color: var(--star);
-}
-.btn.danger-quiet {
-  color: var(--bad);
-  margin-left: auto;
-}
-.esheet-actions .btn {
-  padding: 0 14px;
-}
-/* the editor: the sheet is the surface, so the text sits on a hairline with 8px of air */
-.jsheet-text {
-  padding: 8px 0;
-  min-height: 160px;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-}
-textarea.jsheet-text {
-  overflow: auto;
-}
-/* a day with several entries */
-.dsheet {
-  display: grid;
-  gap: 12px;
-}
-.dsheet-list {
-  margin-top: -4px;
-}
-.dsheet-row {
-  appearance: none;
-  border: 0;
-  background: none;
-  display: grid;
-  gap: 4px;
-  width: 100%;
-  padding-block: 12px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.dsheet-row[data-pressed] {
-  background: var(--surface-2);
-}
-.dsheet-text {
-  font-family: var(--serif);
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  letter-spacing: 0;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-.dsheet-add {
-  margin-bottom: 8px;
-}
-
-/* ---------- an entry as a row in a group (Today's journal section) ---------- */
-.jentry-body {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 10px 16px;
-  cursor: pointer;
-  margin: 0;
-  width: 100%;
-  min-width: 0;
-  min-height: 52px;
-  display: grid;
-  gap: 4px;
-  text-align: left;
-  color: var(--ink);
-}
-.jentry-body[data-pressed] {
-  background: var(--surface-2);
-}
-.jentry-meta {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-}
-.jentry-text {
-  font-family: var(--serif);
-  letter-spacing: 0;
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-}
-
-/* ---------- Library ---------- */
-.library {
-  padding-top: 0;
-}
-/* the way to Reads: one touchable card */
-.reads-row {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 72px;
-  padding: 14px 12px 14px 16px;
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.reads-row-main {
-  display: grid;
-  gap: 2px;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.reads-row-title {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.75rem;
-  line-height: 2rem;
-}
-.reads-row-sub {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  letter-spacing: -0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.reads-row-count {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
-  color: var(--ink-2);
-}
-/* favourites: a carousel of quote and entry cards */
-.fav-carousel {
-  --carousel-item: min(78%, 300px);
-  padding-block: 4px;
-}
-.fav-card {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 156px;
-  padding: 16px;
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.fav-card.is-entry {
-  background: var(--bg);
-  border-color: var(--line-strong);
-}
-.fav-text {
-  font-family: var(--serif);
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  letter-spacing: 0;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-.fav-card:not(.is-entry) .fav-text {
-  font-style: italic;
-}
-.fav-by {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 600;
-  color: var(--ink-3);
-}
-/* quote lists, edge to edge */
-.lib-list > .lib-item {
-  overflow: hidden;
-}
-.qrow {
-  appearance: none;
-  border: 0;
-  background: none;
-  margin: 0;
-  width: 100%;
-  display: grid;
-  gap: 4px;
-  padding-block: 12px;
-  min-height: 60px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.qrow[data-pressed] {
-  background: var(--surface-2);
-}
-.qrow-text {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  letter-spacing: 0;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-}
-.qrow-by {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-3);
-}
-.by {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0 6px;
-  align-items: baseline;
-  min-width: 0;
-}
-.by-author {
-  font-weight: 600;
-  color: var(--ink-2);
-}
-.by cite {
-  font-style: italic;
-  color: var(--ink-3);
-}
-.sec-verb {
-  height: 44px;
-  padding: 0 10px;
-  margin-right: -10px;
-}
-.qadd {
-  margin-bottom: 12px;
-}
-.qadd-by {
-  border-top: 1px solid var(--line);
-  min-height: 44px;
-}
-.anchor {
-  display: block;
-  position: relative;
-  top: -80px;
-}
-/* the themes: a 2-column grid of cards, each its theme's name, its count, and the day's line from it */
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.theme-grid.odd > :last-child {
-  grid-column: 1 / -1;
-}
-.theme-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 128px;
-  padding: 14px 14px 16px;
-  background: var(--surface);
-  border: var(--card-border);
-  border-radius: var(--r-lg);
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.theme-card-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.theme-name {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.5rem;
-  line-height: 1.75rem;
-  color: var(--ink);
-  min-width: 0;
-  /* a name breaks between words, never inside one ("Acceptan / ce" at 320, review feel F9): a long word hyphenates */
-  overflow-wrap: break-word;
-  hyphens: auto;
-}
-@media (max-width: 359px) {
-  .theme-name {
-    font-size: 1.25rem;
-    line-height: 1.5rem;
-  }
-}
-.theme-count {
-  flex: none;
-  font-size: 0.75rem;
-  line-height: 1rem;
-  font-weight: 600;
-  color: var(--ink-3);
-}
-.theme-sample {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-.theme-more {
-  margin-top: 12px;
-  min-height: 48px;
-}
-.qsearch {
-  display: grid;
-  gap: 12px;
-}
-/* the quote sheet: the quote at 22/28, the work, Favourite as the verb */
-.qsheet {
-  display: grid;
-  gap: 10px;
-}
-.quote-text {
-  font-family: var(--display);
-  font-style: italic;
-  color: var(--ink);
-  text-wrap: pretty;
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-}
-.quote-text.long {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-}
-.qsheet-work {
-  font-style: italic;
-  color: var(--ink-3);
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-}
-.qsheet .sheet-foot .btn svg {
-  margin-right: 2px;
-}
-.qsheet .sheet-foot .foot-right {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-/* rows that are buttons: no UA inline padding, the row sets its own */
-.qrow,
-.dsheet-row {
-  padding-inline: 0;
-}
-
-/* ---------- ghost previews: shapes only, never words, dates or sites (critic B1) ---------- */
-.jghost {
-  display: grid;
-}
-.jghost-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--line);
-}
-.jghost-lead {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--ink-4);
-}
-.jghost-lines {
-  display: grid;
-  gap: 10px;
-  flex: 1 1 auto;
-}
-.jghost-bar {
-  display: block;
-  height: 12px;
-  border-radius: 6px;
-  background: var(--ink-4);
-}
-.jghost-bar.short {
-  height: 10px;
-  opacity: 0.7;
-}
-.jghost-card {
-  cursor: default;
-}
-
-/* contracts §F: the exported QuoteLine, one serif line 44 tall (15/20 --ink-3, docs/feel.md §5 row 3) */
-.qline.quote-line {
-  display: flex;
-  align-items: center;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  border-top: 0;
-  overflow: hidden;
-}
-.qline.quote-line .qline-text {
-  font-size: 15px;
-  line-height: 20px;
-  -webkit-line-clamp: 1;
-}
-
-/* Library's empty favourites: one quiet 60 row (§8, visual S8) */
-.lib-fav-empty-row {
-  min-height: 60px;
-}
-/* the day's quote line inside the Journal composer sits on the card's 16 px inset */
-.composer .qline.quote-line {
-  width: auto;
-  margin: 0 16px;
 }
