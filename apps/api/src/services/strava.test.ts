@@ -18,12 +18,12 @@ describe('syncActivities', () => {
   it('joins a sync already running for the athlete instead of skipping it, and answers with that sync’s changes', async () => {
     const { openDatabase } = await import('../db/index.js');
     const { env } = await import('../env.js');
-    const { stravaAccounts, users } = await import('../db/schema.js');
+    const { providerConnections, users } = await import('../db/schema.js');
     const { syncActivities, isSyncing } = await import('./strava.js');
     const { db } = openDatabase(':memory:');
     const now = new Date().toISOString();
     db.insert(users).values({ id: 'u1', email: 'a@b.c', passwordHash: 'x', createdAt: now }).run();
-    db.insert(stravaAccounts).values({ userId: 'u1', athleteId: '1', athleteName: 'A', accessToken: 't', refreshToken: 'r', expiresAt: Math.floor(Date.now() / 1000) + 3600, connectedAt: now }).run();
+    db.insert(providerConnections).values({ userId: 'u1', provider: 'strava', externalAthleteId: '1', athleteName: 'A', accessToken: 't', refreshToken: 'r', expiresAt: Math.floor(Date.now() / 1000) + 3600, scope: null, cursor: null, lastSyncAt: null, lastError: null, status: 'ok', connectedAt: now }).run();
     const was = env.stravaConfigured;
     env.stravaConfigured = true;
     const realFetch = globalThis.fetch;

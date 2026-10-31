@@ -31,12 +31,13 @@ import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
-import { activities, coachReads, habitChecks, habits, hrZones, journalEntries, liftSets, morningDays, planBlocks, stravaAccounts, todoGroups, todos, trainingSessions, userSettings } from '../db/schema.js';
+import { activities, coachReads, habitChecks, habits, hrZones, journalEntries, liftSets, morningDays, planBlocks, todoGroups, todos, trainingSessions, users, userSettings } from '../db/schema.js';
 import { env } from '../env.js';
 import { toActivity, toBlock, toEntry, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
+import { connectionStatuses, syncInBackground } from '../services/providers/index.js';
 import { stravaStatus } from '../services/strava.js';
-import { syncInBackground } from './strava.js';
+import { hasPush } from '../services/push.js';
 import { z } from 'zod';
 import { readTrainingProfile } from '../services/training.js';
 import { deleteBlock, restoreBlock } from '../services/plans.js';
@@ -75,7 +76,8 @@ export const activitiesBetween = (db: DB, userId: string, from: string, to: stri
   db
     .select()
     .from(activities)
-    .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), gte(activities.date, from), lte(activities.date, to)))
+    // a row another provider also recorded (`duplicate_of`) is left out: status and miles count each run once
+    .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), isNull(activities.duplicateOf), gte(activities.date, from), lte(activities.date, to)))
     .orderBy(asc(activities.date), asc(activities.time))
     .all()
     .map(toActivity);
@@ -93,8 +95,10 @@ export const coreRoutes = (db: DB) => {
   r.get('/bootstrap', (c) => {
     const userId = uidOf(c);
     // opening the app is the moment to pull in new runs: sync when the last one is older than 15 minutes
+    const connections = connectionStatuses(db, userId);
+    for (const cs of connections) if (cs.connected && cs.configured && cs.status === 'ok' && !cs.syncing && (!cs.lastSyncAt || Date.now() - new Date(cs.lastSyncAt).getTime() > 15 * 60_000)) syncInBackground(db, userId, cs.provider);
     const st = stravaStatus(db, userId);
-    if (st.connected && !st.syncing && (!st.lastSyncAt || Date.now() - new Date(st.lastSyncAt).getTime() > 15 * 60_000)) syncInBackground(db, userId);
+    const acct = db.select({ timezone: users.timezone, profileNote: users.profileNote }).from(users).where(eq(users.id, userId)).get();
     const hs = db.select().from(habits).where(eq(habits.userId, userId)).orderBy(asc(habits.position), asc(habits.createdOn)).all().map(toHabit);
     const blocks = db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), isNull(planBlocks.deletedAt))).orderBy(asc(planBlocks.start)).all();
     const counts = blocks.length
@@ -107,13 +111,15 @@ export const coreRoutes = (db: DB) => {
       : [];
     const countOf = new Map(counts.map((x) => [x.blockId, x.n]));
     return c.json({
-      user: { ...c.get('user'), trainingProfile: readTrainingProfile(db, userId) },
+      user: { ...c.get('user'), trainingProfile: readTrainingProfile(db, userId), timezone: acct?.timezone ?? null, profileNote: acct?.profileNote ?? null },
       habits: hs,
       blocks: blocks.map((b) => toBlock(b, countOf.get(b.id) ?? 0)),
       morningSettings: morningSettingsOf(db, userId),
       zones: zonesOf(db, userId),
       strava: st,
-      features: { claude: env.claudeConfigured, strava: env.stravaConfigured },
+      connections,
+      pushEnabled: hasPush(db, userId),
+      features: { claude: env.claudeConfigured, strava: env.stravaConfigured, coros: env.corosConfigured, notifications: env.vapidConfigured },
       serverTime: nowISO(),
     });
   });
@@ -480,8 +486,6 @@ export const coreRoutes = (db: DB) => {
     return c.json(activitiesBetween(db, userId, from, to));
   });
 
-  // keep the import used for status typing
-  void stravaAccounts;
   void desc;
   return r;
 };

@@ -8,6 +8,7 @@ import { habits, planBlocks, users } from '../db/schema.js';
 import { toHabit } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { deleteAccount } from '../services/account.js';
+import { revokeAll } from '../services/providers/index.js';
 import { retireBlock, writeTemplate } from '../services/plans.js';
 import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
 import { checkThrottle, clearThrottle, failThrottle, ipOf } from './auth.js';
@@ -35,19 +36,25 @@ export const meRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
 
   const meOf = (id: string) => {
-    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt }).from(users).where(eq(users.id, id)).get();
+    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt, timezone: users.timezone, profileNote: users.profileNote }).from(users).where(eq(users.id, id)).get();
     if (!u) throw new ApiError(404, 'Account not found');
-    return { ...u, name: u.name ?? null, trainingProfile: readTrainingProfile(db, id) };
+    return { ...u, name: u.name ?? null, timezone: u.timezone ?? null, profileNote: u.profileNote ?? null, trainingProfile: readTrainingProfile(db, id) };
   };
 
   /** The account: id, email, `name` (null until given), `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
   r.get('/me', (c) => c.json(meOf(c.get('user').id)));
 
-  /** Contract 6: `{ name }` sets the account's name (trimmed, up to 60); "" or null clears it. Answers like `GET /me`. */
+  /**
+   * Contract 6: `{ name }` sets the account's name (trimmed, up to 60); "" or null clears it. `{ profileNote }` is "About
+   * you, for the assistant" (up to 1000). Either or both. Answers like `GET /me`.
+   */
   r.patch('/me', async (c) => {
     const userId = c.get('user').id;
-    const { name } = await parseBody(c.req.raw, zMePatch);
-    db.update(users).set({ name: name ? name : null }).where(eq(users.id, userId)).run();
+    const body = await parseBody(c.req.raw, zMePatch);
+    const set: Partial<typeof users.$inferInsert> = {};
+    if (body.name !== undefined) set.name = body.name ? body.name : null;
+    if (body.profileNote !== undefined) set.profileNote = body.profileNote ? body.profileNote : null;
+    if (Object.keys(set).length) db.update(users).set(set).where(eq(users.id, userId)).run();
     return c.json(meOf(userId));
   });
 
@@ -125,6 +132,8 @@ export const meRoutes = (db: DB) => {
       throw new ApiError(403, 'That password doesn’t match.', 'bad_password');
     }
     clearThrottle(ip);
+    // every integration is told first, best effort; then the rows go
+    await revokeAll(db, userId);
     const removed = deleteAccount(db, userId);
     deleteCookie(c, COOKIE, { path: '/' });
     return c.json({ ok: true, removed });

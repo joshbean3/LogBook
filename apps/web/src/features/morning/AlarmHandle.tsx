@@ -228,7 +228,7 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
         </span>
         <span className="sch-flash" aria-hidden="true" data-t={labels.cur} />
         {labels.prev != null ? (
-          <span key={`p${labels.n}`} className="ah-d is-out" aria-hidden="true" onAnimationEnd={() => setLabels((l) => (l.n === labels.n ? { ...l, prev: null } : l))}>
+          <span key={`p${labels.n}`} className="ah-d is-out" aria-hidden="true" onTransitionEnd={() => setLabels((l) => (l.n === labels.n ? { ...l, prev: null } : l))}>
             {labels.prev}
           </span>
         ) : null}

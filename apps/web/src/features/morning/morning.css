@@ -30,7 +30,7 @@
 }
 .now-line {
   margin: 0;
-  font: 600 17px/22px var(--sans);
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -91,7 +91,7 @@
 }
 .sch-time {
   position: relative;
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
   white-space: nowrap;
@@ -134,14 +134,14 @@
   min-width: 0;
 }
 .sch-name {
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .sch-sub {
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
@@ -166,7 +166,6 @@
   right: 16px;
   bottom: 0;
   height: 2px;
-  border-radius: 1px;
   background: var(--line-strong);
   overflow: hidden;
   pointer-events: none;
@@ -227,25 +226,17 @@
   grid-area: 1 / 1;
 }
 .ah-d.is-in {
-  animation: ah-in 120ms var(--ease-out) both;
+  opacity: 1;
+  transition: opacity var(--dur-in) var(--ease-out);
+  @starting-style {
+    opacity: 0;
+  }
 }
 .ah-d.is-out {
-  animation: ah-out 120ms var(--ease-out) both;
-}
-@keyframes ah-in {
-  from {
-    opacity: 0;
-  }
-  to {
+  opacity: 0;
+  transition: opacity var(--dur-in) var(--ease-out);
+  @starting-style {
     opacity: 1;
-  }
-}
-@keyframes ah-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
   }
 }
 /* the Wake row while its alarm is dragged: --surface-2 and 1.02 (160 ms) */
@@ -273,7 +264,7 @@
   color: var(--warn);
 }
 .late-text {
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--warn);
   white-space: normal;
 }
@@ -328,22 +319,13 @@
 .sch-hit[data-lifting] {
   background: var(--surface-2);
   border-radius: var(--r-group);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  outline: 1px solid var(--line-strong);
 }
-/* picked up, it stays picked up while it moves (feel review 1 FL16): the shadow is its own layer, faded in by opacity */
+/* picked up, it stays picked up while it moves: the surface and a hairline, no shadow (docs/system.md §3) */
 .sch > li.is-lifted .sch-hit {
   background: var(--surface-2);
   border-radius: var(--r-group);
-}
-.sch > li.is-lifted::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: var(--r-group);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  pointer-events: none;
-  animation: ah-in 160ms var(--ease-out) both;
+  outline: 1px solid var(--line-strong);
 }
 
 /* ---------- the workout row handed to another thing (Skip on a two-session morning): the new one fades in ---------- */
@@ -374,7 +356,7 @@
   position: relative;
   /* the two stacked labels of its roll share one box */
   display: inline-grid;
-  font: 600 22px/28px var(--sans);
+  font: 600 var(--fs-title) / var(--lh-title) var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
@@ -399,7 +381,7 @@
   border: 0;
   background: none;
   color: var(--accent-text);
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   text-align: left;
 }
 
@@ -454,7 +436,7 @@
   border-bottom: 1px solid var(--line);
 }
 .rt-row.is-focus {
-  box-shadow: inset 3px 0 0 var(--accent-bright);
+  border-left: 3px solid var(--accent-bright);
   padding-left: 12px;
 }
 .rt-line {
@@ -604,7 +586,7 @@
    so `Leave for work` fits, and the subs drop their second half (the times are on the rows and the Now card) */
 @media (max-width: 359px) {
   .leave-stamp {
-    font: 600 17px/22px var(--sans);
+    font: 600 var(--fs-head) / var(--lh-head) var(--sans);
   }
   .sch-sub .sub-wide,
   .leave-row .sch-name .sub-wide {
@@ -635,4 +617,87 @@
   .sch.is-alarm-drag > li.k-wake {
     scale: none;
   }
+}
+
+/* ---------- the four-stop line (the Now card, the routine preview): 44 tall, 2 px line, 8 px dots, the now dot by transform ---------- */
+.mini-tl {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+}
+.mini-tl-line {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 7px;
+  height: 2px;
+  background: var(--line-strong);
+}
+.mini-tl-done {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+.mini-tl-stop {
+  position: absolute;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+}
+.mini-tl-stop.past {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.mini-tl-nowtrack {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mini-tl-now {
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  border: 2px solid var(--bg);
+}
+.mini-tl-times {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 18px;
+  height: 26px;
+}
+.mini-tl-time {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.mini-tl-time[data-edge='start'] {
+  transform: none;
+  justify-items: start;
+}
+.mini-tl-time[data-edge='end'] {
+  transform: translateX(-100%);
+  justify-items: end;
+}
+.mini-tl-time .caps {
+  color: var(--ink-3);
+}
+.mini-tl-time .tnum {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink);
 }

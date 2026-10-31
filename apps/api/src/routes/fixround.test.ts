@@ -166,8 +166,8 @@ describe('contract 3: GET /export → POST /import', () => {
     await call('POST', '/api/quotes', { text: 'Keep going, gently.', author: 'Me' }, cookie);
     await call('PUT', `/api/morning/days/${T}`, { mode: 'run', type: 'Easy', miles: 4, minutes: 40, wake: 400 }, cookie);
     sqlite
-      .prepare("insert into activities (id, user_id, date, time, name, sport_type, kind, distance_m, moving_sec, elapsed_sec, elev_m, laps_json, polyline, updated_at) values (?, ?, ?, '07:30', 'Morning Run', 'Run', 'run', 6437.4, 2160, 2200, 12, '[[1609.3,540,140]]', 'abc', ?)")
-      .run(`act-${userId}`, userId, shiftDays(T, -1), new Date().toISOString());
+      .prepare("insert into activities (id, user_id, external_id, date, time, name, sport_type, kind, distance_m, moving_sec, elapsed_sec, elev_m, laps_json, polyline, updated_at) values (?, ?, ?, ?, '07:30', 'Morning Run', 'Run', 'run', 6437.4, 2160, 2200, 12, '[[1609.3,540,140]]', 'abc', ?)")
+      .run(`act-${userId}`, userId, `act-${userId}`, shiftDays(T, -1), new Date().toISOString());
     sqlite.prepare("insert into coach_reads (user_id, date, key, text, created_at) values (?, ?, ?, 'Even pacing.', ?)").run(userId, shiftDays(T, -1), s.id, new Date().toISOString());
     sqlite
       .prepare("insert into links (id, user_id, url, title, site_name, tags_json, added_at, source) values (?, ?, 'https://example.com/a', 'A read', 'example.com', '[\"run\"]', ?, 'me')")

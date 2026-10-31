@@ -1,28 +1,32 @@
-import { eachDay, monthsBetween, shiftDays, today, zCoachRequest, zPlanApply, zPlanDraftRequest, zPlanMode, type Session } from '@logbook/shared';
-import { and, eq, gt, gte, isNull, lte } from 'drizzle-orm';
+import { shiftDays, today, zCoachRequest, zPlanApply, zPlanDraftRequest, zPlanMode, type Session, type Template } from '@logbook/shared';
+import { and, eq, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
-import { coachReads, planBlocks, trainingSessions } from '../db/schema.js';
-import { toBlock, toSession } from '../lib/map.js';
-import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
+import { coachReads, planBlocks, trainingSessions, users } from '../db/schema.js';
+import { toSession } from '../lib/map.js';
+import { rateLimit } from '../lib/ratelimit.js';
+import { ApiError, nowISO, parseBody } from '../lib/util.js';
 import { coachRead, draftPlan, type AthleteContext } from '../services/claude.js';
+import { liveBlocks, removePlanned, writeTemplate } from '../services/plans.js';
 import { stravaStatus } from '../services/strava.js';
 import { activitiesBetween, sessionsBetween, zonesOf } from './core.js';
 
 const MAX_FILE = 25 * 1024 * 1024;
+/** Ten plan drafts a day per account (each is a long Claude call). */
+export const DRAFT_LIMIT = { limit: 10, windowMs: 24 * 3600_000 };
 
 export const aiRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
   const uidOf = (c: { get: (k: 'user') => { id: string } }) => c.get('user').id;
   const ctxOf = (userId: string): AthleteContext => {
     const t = today();
-    return { activities: activitiesBetween(db, userId, shiftDays(t, -60), t), zones: zonesOf(db, userId), stravaOk: stravaStatus(db, userId).connected };
+    return { activities: activitiesBetween(db, userId, shiftDays(t, -60), t), zones: zonesOf(db, userId), stravaOk: stravaStatus(db, userId).connected, note: db.select({ n: users.profileNote }).from(users).where(eq(users.id, userId)).get()?.n ?? null };
   };
 
   /** multipart (file) or JSON; both carry the same fields */
-  r.post('/plans/draft', async (c) => {
+  r.post('/plans/draft', rateLimit('plans-draft', DRAFT_LIMIT.limit, DRAFT_LIMIT.windowMs, 'Plan drafts are limited to 10 a day.'), async (c) => {
     const userId = uidOf(c);
     const ct = c.req.header('content-type') ?? '';
     let fields: Record<string, string> = {};
@@ -75,44 +79,44 @@ export const aiRoutes = (db: DB) => {
     return row?.d ?? null;
   };
 
-  /** Write a draft into the calendar. `replace` clears the date range first; `add` keeps what is there. */
+  /**
+   * Write a draft into the calendar with the template's semantics (`writeTemplate`): `replace` soft-deletes only the
+   * planned, not-kept sessions in the window from today on (a session done by a tap, a Strava run or logged sets stays;
+   * the past is never touched), and ends any block the new one overlaps. `only` first clears what is planned after the
+   * draft's end and ends older blocks the day before. Answers `{ block, months, removed, replacedIds, endedBlocks }`,
+   * which `POST /plans/template/undo` takes back.
+   */
   r.post('/plans/apply', async (c) => {
     const userId = uidOf(c);
     const { draft, mode, source, only } = await parseBody(c.req.raw, zPlanApply);
-    const blockId = uid('b');
-    const now = nowISO();
-    db.transaction((tx) => {
-      // a plan that stops at its end: nothing planned after it, and no other block running over it
+    const today = c.get('today');
+    const template: Template = { name: draft.name, summary: draft.summary || null, start: draft.start, end: draft.end, sessions: draft.sessions.map((s) => ({ ...s, type: s.type ?? null, title: s.title ?? null, details: s.details ?? null, miles: s.miles ?? null, minutes: s.minutes ?? null })), weeks: [] } as unknown as Template;
+    const applied = db.transaction(() => {
+      const at = nowISO();
+      const extraReplaced: string[] = [];
+      const extraEnded: Array<{ id: string; prevEnd: string } | { id: string; deleted: true }> = [];
+      // a plan that stops at its end: nothing only planned after it, and no other block running over it
       if (only) {
-        tx.update(trainingSessions)
-          .set({ deletedAt: now, updatedAt: now })
-          .where(and(eq(trainingSessions.userId, userId), gt(trainingSessions.date, draft.end), isNull(trainingSessions.mark), isNull(trainingSessions.deletedAt)))
-          .run();
-        for (const b of tx.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), isNull(planBlocks.deletedAt), gte(planBlocks.end, draft.start))).all()) {
-          if (b.start < draft.start) tx.update(planBlocks).set({ end: shiftDays(draft.start, -1) }).where(eq(planBlocks.id, b.id)).run();
-          else tx.update(planBlocks).set({ deletedAt: now }).where(eq(planBlocks.id, b.id)).run();
+        const last = db.select({ d: trainingSessions.date }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), isNull(trainingSessions.deletedAt))).orderBy(trainingSessions.date).all().pop()?.d;
+        if (last && last > draft.end) extraReplaced.push(...removePlanned(db, userId, shiftDays(draft.end, 1), last, today, undefined, at));
+        for (const b of liveBlocks(db, userId)) {
+          if (b.end < draft.start) continue;
+          if (b.start < draft.start) {
+            db.update(planBlocks).set({ end: shiftDays(draft.start, -1) }).where(eq(planBlocks.id, b.id)).run();
+            extraEnded.push({ id: b.id, prevEnd: b.end });
+          } else {
+            extraReplaced.push(...removePlanned(db, userId, b.start, b.end, today, b.id, at));
+            db.update(planBlocks).set({ deletedAt: at }).where(eq(planBlocks.id, b.id)).run();
+            extraEnded.push({ id: b.id, deleted: true });
+          }
         }
       }
-      // replace clears what was only planned; anything already marked (done, floor, skipped, sick) is history and stays
-      if (mode === 'replace')
-        tx.update(trainingSessions)
-          .set({ deletedAt: now, updatedAt: now })
-          .where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end), isNull(trainingSessions.mark), isNull(trainingSessions.deletedAt)))
-          .run();
-      const pos = new Map<string, number>();
-      if (mode === 'add' || mode === 'replace') {
-        for (const d of eachDay(draft.start, draft.end)) pos.set(d, 0);
-        for (const s of tx.select({ date: trainingSessions.date, position: trainingSessions.position }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end), isNull(trainingSessions.deletedAt))).all()) pos.set(s.date, Math.max(pos.get(s.date) ?? 0, s.position + 1));
-      }
-      for (const s of draft.sessions) {
-        const p = pos.get(s.date) ?? 0;
-        pos.set(s.date, p + 1);
-        tx.insert(trainingSessions).values({ id: uid('p'), userId, date: s.date, position: p, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: s.miles, minutes: s.minutes, blockId, movedFrom: null, mark: null, createdAt: now, updatedAt: now }).run();
-      }
-      tx.insert(planBlocks).values({ id: blockId, userId, name: draft.name, start: draft.start, end: draft.end, source: source ? zPlanMode.or(z.literal('chat')).parse(source) : null, summary: draft.summary || null, createdAt: now }).run();
+      const out = writeTemplate(db, userId, template, { replace: mode === 'replace', source: source ? zPlanMode.or(z.literal('chat')).parse(source) : 'chat', today });
+      const replacedIds = [...new Set([...extraReplaced, ...out.replacedIds])];
+      const endedBlocks = [...extraEnded, ...out.endedBlocks.filter((e) => !extraEnded.some((x) => x.id === e.id))];
+      return { ...out, replacedIds, removed: replacedIds.length, endedBlocks, ...(endedBlocks[0] ? { endedBlock: endedBlocks[0] } : {}) };
     });
-    const block = db.select().from(planBlocks).where(eq(planBlocks.id, blockId)).get()!;
-    return c.json({ block: toBlock(block, draft.sessions.length), months: monthsBetween(draft.start, draft.end) }, 201);
+    return c.json(applied, 201);
   });
 
   r.post('/coach/read', async (c) => {

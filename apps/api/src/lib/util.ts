@@ -14,7 +14,7 @@ export const uid = (prefix = '', len = 12): string => {
 export const nowISO = (): string => new Date().toISOString();
 
 export class ApiError extends HTTPException {
-  constructor(status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 502 | 503, message: string, public code?: string) {
+  constructor(status: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 502 | 503, message: string, public code?: string) {
     super(status, { message });
   }
 }

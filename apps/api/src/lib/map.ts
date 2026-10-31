@@ -43,6 +43,7 @@ export const toEntry = (r: InferSelectModel<typeof journalEntries>): JournalEntr
 
 export const toActivity = (r: InferSelectModel<typeof activities>): Activity => ({
   id: r.id,
+  provider: r.provider as Activity['provider'],
   date: r.date,
   time: r.time,
   name: r.name,

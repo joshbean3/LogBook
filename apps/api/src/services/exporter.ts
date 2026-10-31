@@ -21,7 +21,9 @@ import {
   userSettings,
   users,
 } from '../db/schema.js';
-import { goalEvents, goals, todoGroups } from '../db/schema.js';
+import { assistantMessages, assistantThreads, dayPlans, goalEvents, goals, reminders, todoGroups, userMemory } from '../db/schema.js';
+import { cleanBands, emptyBands, type DayBands } from '@logbook/shared';
+import { listReminders } from './reminders.js';
 import { toBlock, toEntry, toGoal, toGoalEvent, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { nowISO } from '../lib/util.js';
 import { toLink } from '../routes/reads.js';
@@ -50,10 +52,12 @@ export const exportAccount = (db: DB, userId: string): ExportV2 => {
   const acts: ExportActivity[] = db
     .select()
     .from(activities)
-    .where(and(eq(activities.userId, userId), isNull(activities.deletedAt)))
+    .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), isNull(activities.duplicateOf)))
     .all()
     .map((a) => ({
       id: a.id,
+      provider: a.provider as ExportActivity['provider'],
+      externalId: a.externalId,
       date: a.date,
       time: a.time,
       name: a.name,
@@ -142,6 +146,55 @@ export const exportAccount = (db: DB, userId: string): ExportV2 => {
       .where(eq(coachReads.userId, userId))
       .all()
       .map((x) => ({ date: x.date, key: x.key, text: x.text, createdAt: x.createdAt })),
+    timezone: u.timezone ?? null,
+    profileNote: u.profileNote ?? null,
+    dayPlans: db
+      .select()
+      .from(dayPlans)
+      .where(eq(dayPlans.userId, userId))
+      .all()
+      .map((d) => {
+        let bands: DayBands;
+        try {
+          bands = cleanBands({ ...emptyBands(), ...(JSON.parse(d.bands) as Partial<DayBands>) });
+        } catch {
+          bands = emptyBands();
+        }
+        return { date: d.date, bands, updatedAt: d.updatedAt };
+      }),
+    reminders: listReminders(db, userId),
+    memories: db
+      .select()
+      .from(userMemory)
+      .where(eq(userMemory.userId, userId))
+      .all()
+      .map((m) => ({ key: m.key, text: m.text, updatedAt: m.updatedAt })),
+    assistantThreads: db
+      .select()
+      .from(assistantThreads)
+      .where(eq(assistantThreads.userId, userId))
+      .all()
+      .map((t) => ({
+        id: t.id,
+        title: t.title,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        compactedSummary: t.compactedSummary,
+        messages: db
+          .select()
+          .from(assistantMessages)
+          .where(eq(assistantMessages.threadId, t.id))
+          .all()
+          .map((m) => {
+            let content: unknown = m.contentJson;
+            try {
+              content = JSON.parse(m.contentJson);
+            } catch {
+              /* kept as text */
+            }
+            return { role: m.role, content, actionId: m.actionId, createdAt: m.createdAt };
+          }),
+      })),
   };
 };
 
@@ -183,6 +236,8 @@ export const zExportV2 = z.object({
     .array(
       z.object({
         id: zId,
+        provider: z.enum(['strava', 'coros']).optional(),
+        externalId: opt(str(120)),
         date: zDay,
         time: opt(str(8)),
         name: str(200),
@@ -378,6 +433,8 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
         .values({
           id: c.id,
           userId,
+          provider: a.provider ?? 'strava',
+          externalId: a.externalId ?? a.id,
           date: a.date,
           time: a.time ?? null,
           name: a.name,

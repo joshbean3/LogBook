@@ -19,7 +19,7 @@ CREATE TABLE `provider_connections` (
 );--> statement-breakpoint
 CREATE UNIQUE INDEX `provider_connections_athlete` ON `provider_connections` (`provider`,`external_athlete_id`);--> statement-breakpoint
 INSERT OR IGNORE INTO `provider_connections` (`user_id`, `provider`, `external_athlete_id`, `athlete_name`, `access_token`, `refresh_token`, `expires_at`, `scope`, `cursor`, `last_sync_at`, `last_error`, `status`, `connected_at`)
-SELECT `user_id`, 'strava', `athlete_id`, `athlete_name`, `access_token`, `refresh_token`, `expires_at`, `scope`, NULL, `last_sync_at`, `last_error`, 'ok', `connected_at` FROM `strava_accounts` ORDER BY `connected_at`;--> statement-breakpoint
+SELECT `user_id`, 'strava', `athlete_id`, `athlete_name`, `access_token`, `refresh_token`, `expires_at`, `scope`, NULL, `last_sync_at`, `last_error`, 'ok', `created_at` FROM `strava_accounts` ORDER BY `created_at`;--> statement-breakpoint
 DROP TABLE `strava_accounts`;--> statement-breakpoint
 CREATE TABLE `activities_new` (
 	`id` text NOT NULL,

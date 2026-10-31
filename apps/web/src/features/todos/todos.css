@@ -63,7 +63,7 @@
   display: grid;
   gap: 2px;
   align-content: center;
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: -0.02em;
   -webkit-touch-callout: none;
 }
@@ -93,7 +93,7 @@
   min-height: 44px;
   padding: 0 16px;
   text-align: left;
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: -0.02em;
 }
 .tt-more {
@@ -113,7 +113,7 @@
   min-height: 44px;
   margin: 0;
   padding: 0 16px;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
 /* the add row become the field, in the same 44 box */
@@ -132,7 +132,7 @@
   outline: none;
   background: transparent;
   color: var(--ink);
-  font: 400 max(16px, 17px)/22px var(--sans);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: -0.02em;
   padding: 0;
   user-select: text;
@@ -142,7 +142,6 @@
 .tt-input:focus,
 .tt-input:focus-visible {
   outline: none;
-  box-shadow: none;
 }
 .tt-input::placeholder {
   color: var(--ink-3);
@@ -153,7 +152,7 @@
   white-space: nowrap;
 }
 
-/* the mark: 22, radius 6, a 44 hit; filled and checked on the tap's frame */
+/* the mark (the goal sheet's steps): 22, the control radius, a 44 hit; filled and checked on the tap's frame */
 .tmark-hit {
   appearance: none;
   border: 0;
@@ -168,7 +167,7 @@
 .tmark {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   border: 1.5px solid var(--ink-3);
   display: grid;
   place-items: center;
@@ -178,20 +177,7 @@
 .tmark.on {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
-}
-/* the round check (the day board): a ring that fills with its section's colour (`--mk`) */
-.tmark.round {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 2px solid var(--ink-3);
-}
-.tmark.round.on {
-  background: var(--mk, var(--sun));
-  border-color: var(--mk, var(--sun));
-  color: #000;
-  box-shadow: 0 0 14px color-mix(in srgb, var(--mk, var(--sun)) 55%, transparent);
+  color: var(--accent-ink);
 }
 .tmark-hit:focus-visible {
   outline: none;
@@ -225,8 +211,8 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -237,8 +223,8 @@
   color: var(--ink-3);
 }
 .trow-note {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   font-weight: 400;
   letter-spacing: -0.01em;
   color: var(--ink-3);
@@ -253,13 +239,15 @@
   color: var(--ink-4);
 }
 
-/* priority: white dots, one for medium, two for high; never a colour */
-/* on the first line of the name: 22px line, 6px dot, 8px down */
+/* priority: a quiet 6 px dot in its level's colour (`--prio-*`), beside the name */
 .prio {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
   flex: none;
   align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 /* stored 3 = P1, 2 = P2, 1 = P3 */
 .prio-3 {
@@ -291,8 +279,8 @@
   white-space: nowrap;
 }
 .carried {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   font-weight: 600;
   color: var(--ink-3);
   background: var(--surface-2);
@@ -368,8 +356,8 @@
   background: transparent;
   padding: 10px 0 11px;
   min-height: 44px;
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -471,7 +459,7 @@
   top: 8px;
   bottom: 8px;
   width: 3px;
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 var(--r-control) var(--r-control) 0;
   background: var(--tc);
   pointer-events: none;
 }
@@ -487,8 +475,8 @@
   white-space: nowrap;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   font-weight: 600;
   color: var(--tc, var(--ink-2));
   background: color-mix(in srgb, var(--tc, var(--ink)) 16%, transparent);
@@ -514,12 +502,13 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
+  border: 2px solid var(--tc);
   background: var(--tc);
-  color: #000;
+  color: var(--bg);
 }
 .swatch.is-none .swatch-dot {
   background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--ink-4);
+  border-color: var(--ink-4);
   position: relative;
 }
 .swatch.is-none .swatch-dot::after {
@@ -531,10 +520,12 @@
   transform: rotate(-45deg);
 }
 .swatch.on .swatch-dot {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--tc, var(--ink-2));
+  outline: 2px solid var(--tc, var(--ink-2));
+  outline-offset: 2px;
 }
 .swatch.is-none.on .swatch-dot {
-  box-shadow: inset 0 0 0 1.5px var(--ink-2), 0 0 0 2px var(--bg), 0 0 0 4px var(--ink-2);
+  border-color: var(--ink-2);
+  outline-color: var(--ink-2);
 }
 .tsheet-lists {
   flex-wrap: wrap;
@@ -554,8 +545,8 @@
 }
 .tsheet-hint {
   margin: 0;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 .tlist-seg {
@@ -580,14 +571,15 @@
   text-align: left;
 }
 .tlist-name {
-  font: 600 17px/22px var(--sans);
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
   letter-spacing: -0.01em;
 }
 .tlist-head.is-none .tlist-name {
   color: var(--ink-3);
 }
 .tlist-count {
-  font-size: 15px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-3);
 }
 .tlist-chev {
@@ -606,5 +598,5 @@
   border: 1px dashed var(--line-strong);
   background: none;
   color: var(--accent-text);
-  font: 500 17px/22px var(--sans);
+  font: 500 var(--fs-body) / var(--lh-body) var(--sans);
 }

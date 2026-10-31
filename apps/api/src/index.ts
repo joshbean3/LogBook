@@ -10,8 +10,9 @@ import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import { purgeExpiredSessions, requireAuth, type AuthEnv } from './auth.js';
 import { openDatabase, type DB } from './db/index.js';
-import { stravaAccounts } from './db/schema.js';
+import { bodyLimit } from 'hono/body-limit';
 import { idempotency } from './lib/requests.js';
+import { ApiError } from './lib/util.js';
 import { seedQuotes } from './db/seed.js';
 import { env } from './env.js';
 import { aiRoutes } from './routes/ai.js';
@@ -25,7 +26,11 @@ import { journalRoutes } from './routes/journal.js';
 import { meRoutes } from './routes/me.js';
 import { planRoutes } from './routes/plans.js';
 import { readsRoutes } from './routes/reads.js';
-import { stravaRoutes, syncInBackground } from './routes/strava.js';
+import { stravaRoutes } from './routes/strava.js';
+import { connectionRoutes } from './routes/connections.js';
+import { reminderRoutes } from './routes/reminders.js';
+import { syncAllConnections } from './services/providers/index.js';
+import { startScheduler } from './services/reminders.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,8 +40,15 @@ export const buildApp = (db: DB) => {
   app.use(secureHeaders({ crossOriginEmbedderPolicy: false }));
 
   app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
+  // request bodies: 1 MB everywhere, 25 MB for a plan draft's PDF or photo
+  const tooBig = (c: { req: { path: string } }) => {
+    throw new ApiError(413, `That request is too big (${c.req.path.endsWith('/plans/draft') ? '25 MB' : '1 MB'} at most).`, 'too_big');
+  };
+  app.use('/api/plans/draft', bodyLimit({ maxSize: 25 * 1024 * 1024, onError: tooBig }));
+  app.use('/api/*', async (c, next) => (c.req.path.endsWith('/plans/draft') ? next() : bodyLimit({ maxSize: 1024 * 1024, onError: tooBig })(c, next)));
   app.route('/api/auth', authRoutes(db));
   app.route('/api/strava', stravaRoutes(db));
+  app.route('/api/connections', connectionRoutes(db));
   const authed = new Hono<AuthEnv>();
   authed.use(requireAuth(db));
   // contract 4: a write sent twice with the same Idempotency-Key (the outbox's replays) lands once
@@ -51,6 +63,7 @@ export const buildApp = (db: DB) => {
   authed.route('/', goalRoutes(db));
   authed.route('/', assistantRoutes(db));
   authed.route('/', dayPlanRoutes(db));
+  authed.route('/', reminderRoutes(db));
   app.route('/api', authed);
 
   app.onError((err, c) => {
@@ -115,13 +128,12 @@ if (isMain) {
   serve({ fetch: app.fetch, port: env.PORT, hostname: '0.0.0.0' }, (info) => {
     console.log(`Logbook API listening on http://localhost:${info.port} (${env.NODE_ENV})`);
   });
-  // Strava keeps itself fresh: a sync on boot and then every 20 minutes, for every connected account
-  const syncAll = () => {
-    for (const a of db.select({ userId: stravaAccounts.userId }).from(stravaAccounts).all()) syncInBackground(db, a.userId);
-  };
-  if (env.stravaConfigured) {
-    setTimeout(syncAll, 3000);
-    setInterval(syncAll, 20 * 60_000).unref();
+  // every connection keeps itself fresh: a sync on boot and then every 20 minutes (never one waiting for a reconnect)
+  if (env.stravaConfigured || env.corosConfigured) {
+    setTimeout(() => syncAllConnections(db), 3000);
+    setInterval(() => syncAllConnections(db), 20 * 60_000).unref();
   }
+  // reminders: the 60 s loop that books the system reminders and sends what is due
+  startScheduler(db);
   setInterval(() => purgeExpiredSessions(db), 6 * 3600_000).unref();
 }

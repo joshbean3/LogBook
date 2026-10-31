@@ -298,7 +298,9 @@ export const zDeleteAccount = z.object({ password: z.string().min(1).max(200) })
 // ---------- fix round contracts (docs/platform.md §7–§11) ----------
 
 /** `PATCH /me`: the account's name ("Josh"); an empty string or null clears it. */
-export const zMePatch = z.object({ name: z.string().trim().max(60).nullable() });
+export const zMePatch = z
+  .object({ name: z.string().trim().max(60).nullable().optional(), profileNote: z.string().trim().max(1000).nullable().optional() })
+  .refine((o) => o.name !== undefined || o.profileNote !== undefined, { message: 'Nothing to change' });
 
 /** What `POST /plans/template` did to a block the new one overlapped: ended it the day before (`prevEnd` was its end), or deleted it (it had not started). */
 export const zEndedBlock = z.union([z.object({ id: z.string().min(1).max(64), prevEnd: zDate }), z.object({ id: z.string().min(1).max(64), deleted: z.literal(true) })]);

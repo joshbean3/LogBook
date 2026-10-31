@@ -165,6 +165,8 @@ export const importRoutes = (db: DB) => {
               .values({
                 id: aid,
                 userId,
+                provider: 'strava',
+                externalId: aid,
                 date,
                 time: typeof a.time === 'string' ? a.time : null,
                 name: str(a.name, 120) ?? 'Activity',

@@ -115,7 +115,7 @@ export const writeTemplate = (db: DB, userId: string, t: Template, opts: { repla
     .where(and(eq(trainingSessions.userId, userId), isNull(trainingSessions.deletedAt), gte(trainingSessions.date, t.start), lte(trainingSessions.date, t.end)))
     .all())
     pos.set(s.date, Math.max(pos.get(s.date) ?? 0, s.position + 1));
-  db.insert(planBlocks).values({ id: blockId, userId, name: t.name, start: t.start, end: t.end, source: opts.source, summary: t.summary, createdAt: now }).run();
+  db.insert(planBlocks).values({ id: blockId, userId, name: t.name, start: t.start, end: t.end, source: opts.source, summary: t.summary || null, createdAt: now }).run();
   for (const s of t.sessions) {
     const p = pos.get(s.date) ?? 0;
     pos.set(s.date, p + 1);

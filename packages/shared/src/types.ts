@@ -1,3 +1,4 @@
+import type { DayBands } from './dayplan.js';
 import type { Aim, GoalEvent } from './goals.js';
 import type { ISODate } from './dates.js';
 
@@ -44,6 +45,8 @@ export type Lap = [number, number, number | null];
 
 export interface Activity {
   id: string;
+  /** Which integration recorded it. */
+  provider?: ProviderId;
   date: ISODate;
   /** `HH:MM` local start time */
   time: string | null;
@@ -297,6 +300,9 @@ export interface TemplateAppliedV2 {
 /** One activity in an export: the stored row, lossless (meters, elapsed time, laps, route). */
 export interface ExportActivity {
   id: string;
+  /** Which integration recorded it (absent in older exports: Strava). */
+  provider?: ProviderId;
+  externalId?: string;
   date: ISODate;
   time: string | null;
   name: string;
@@ -338,6 +344,14 @@ export interface ExportV2 {
   todoGroups?: TodoGroup[];
   goals?: Aim[];
   goalEvents?: GoalEvent[];
+  /** Since the agent v2 and reminders (absent in older exports). */
+  dayPlans?: Array<{ date: ISODate; bands: DayBands; updatedAt: string }>;
+  reminders?: Reminder[];
+  memories?: Array<{ key: string; text: string; updatedAt: string }>;
+  assistantThreads?: Array<{ id: string; title: string | null; createdAt: string; updatedAt: string; compactedSummary: string | null; messages: Array<{ role: string; content: unknown; actionId: string | null; createdAt: string }> }>;
+  /** The account's time zone and "About you" note. */
+  timezone?: string | null;
+  profileNote?: string | null;
 }
 
 // ---------- reminders ----------
