@@ -13,11 +13,17 @@
 }
 .dy-sec {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
 }
 .dy-sec > .section-head {
   gap: 8px;
+  min-width: 0;
+}
+.dy-sec > .section-head .section-title {
+  flex: none;
+  white-space: nowrap;
 }
 .dy-sec .section-meta {
   white-space: nowrap;
@@ -34,6 +40,7 @@
 /* ---------- the tray: chips that wrap ---------- */
 .dy-tray {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .dy-tray-head {
@@ -109,7 +116,6 @@
 .dy-tl {
   position: relative;
   min-width: 0;
-  overflow: hidden;
   touch-action: pan-y;
 }
 .dy-hour {
@@ -189,7 +195,7 @@
   position: absolute;
   left: 12px;
   right: 8px;
-  top: 4px;
+  bottom: 4px;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-3);
