@@ -39,10 +39,17 @@ export const localTimeZone = (): string | null => {
 };
 /** Contract 4: a write sent with this header lands once, however many times it is sent (the outbox's replays). */
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+/**
+ * On every request: the server's second lock against cross-site requests (a form on another site cannot add a custom
+ * header). It also covers the native app, whose Origin is `capacitor://localhost`.
+ */
+export const REQUESTED_WITH_HEADER = 'X-Requested-With';
+export const REQUESTED_WITH_VALUE = 'logbook';
 
 export async function api<T>(path: string, init: RequestInit & { json?: unknown; idempotencyKey?: string } = {}): Promise<T> {
   const { json, idempotencyKey, ...rest } = init;
   const headers = new Headers(rest.headers);
+  headers.set(REQUESTED_WITH_HEADER, REQUESTED_WITH_VALUE);
   if (json !== undefined) headers.set('content-type', 'application/json');
   if (!headers.has(LOCAL_DATE_HEADER)) headers.set(LOCAL_DATE_HEADER, today());
   const tz = localTimeZone();
@@ -81,7 +88,7 @@ export const isOffline = () => typeof navigator !== 'undefined' && navigator.onL
  * the stream ends. The same cookies, date and time zone headers as `api`.
  */
 export async function apiStream(path: string, json: unknown, onEvent: (event: string, data: unknown) => void): Promise<void> {
-  const headers = new Headers({ 'content-type': 'application/json', accept: 'text/event-stream', [LOCAL_DATE_HEADER]: today() });
+  const headers = new Headers({ 'content-type': 'application/json', accept: 'text/event-stream', [LOCAL_DATE_HEADER]: today(), [REQUESTED_WITH_HEADER]: REQUESTED_WITH_VALUE });
   const tz = localTimeZone();
   if (tz) headers.set(TIMEZONE_HEADER, tz);
   let res: Response;

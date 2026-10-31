@@ -1,7 +1,8 @@
-import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zCredentials, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
+import { z } from 'zod';
 import { COOKIE, verifyPassword, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { habits, planBlocks, users } from '../db/schema.js';
@@ -11,7 +12,7 @@ import { deleteAccount } from '../services/account.js';
 import { revokeAll } from '../services/providers/index.js';
 import { retireBlock, writeTemplate } from '../services/plans.js';
 import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
-import { checkThrottle, clearThrottle, failThrottle, ipOf } from './auth.js';
+import { checkThrottle, clearThrottle, failThrottle, ipOf, sendVerification } from './auth.js';
 import { deepMerge, readSetting, writeSetting } from './core.js';
 
 /** The block source that marks the plan onboarding wrote, so a second call replaces it instead of adding another. */
@@ -36,26 +37,54 @@ export const meRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
 
   const meOf = (id: string) => {
-    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt, timezone: users.timezone, profileNote: users.profileNote }).from(users).where(eq(users.id, id)).get();
+    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt, timezone: users.timezone, profileNote: users.profileNote, emailVerifiedAt: users.emailVerifiedAt, passwordChangedAt: users.passwordChangedAt }).from(users).where(eq(users.id, id)).get();
     if (!u) throw new ApiError(404, 'Account not found');
-    return { ...u, name: u.name ?? null, timezone: u.timezone ?? null, profileNote: u.profileNote ?? null, trainingProfile: readTrainingProfile(db, id) };
+    return { ...u, name: u.name ?? null, timezone: u.timezone ?? null, profileNote: u.profileNote ?? null, emailVerifiedAt: u.emailVerifiedAt ?? null, passwordChangedAt: u.passwordChangedAt ?? null, trainingProfile: readTrainingProfile(db, id) };
   };
 
-  /** The account: id, email, `name` (null until given), `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
+  /** The account: id, email, `name` (null until given), `onboardedAt`, `emailVerifiedAt`, and the training answers (`trainingProfile`, null before any were given). */
   r.get('/me', (c) => c.json(meOf(c.get('user').id)));
 
   /**
    * Contract 6: `{ name }` sets the account's name (trimmed, up to 60); "" or null clears it. `{ profileNote }` is "About
-   * you, for the assistant" (up to 1000). Either or both. Answers like `GET /me`.
+   * you, for the assistant" (up to 1000). `{ email, password }` changes the address (the password confirms it; the new
+   * address gets a verify link and `emailVerifiedAt` goes back to null). Any of them. Answers like `GET /me`.
    */
+  const zMePatchFull = z
+    .object({
+      name: z.string().trim().max(60).nullable().optional(),
+      profileNote: z.string().trim().max(1000).nullable().optional(),
+      email: zCredentials.shape.email.optional(),
+      password: z.string().min(1).max(200).optional(),
+    })
+    .refine((o) => o.name !== undefined || o.profileNote !== undefined || o.email !== undefined, { message: 'Nothing to change' });
   r.patch('/me', async (c) => {
     const userId = c.get('user').id;
-    const body = await parseBody(c.req.raw, zMePatch);
+    const body = await parseBody(c.req.raw, zMePatchFull);
     const set: Partial<typeof users.$inferInsert> = {};
     if (body.name !== undefined) set.name = body.name ? body.name : null;
     if (body.profileNote !== undefined) set.profileNote = body.profileNote ? body.profileNote : null;
+    let reverify = false;
+    if (body.email !== undefined) {
+      const ip = ipOf(c.req.raw.headers);
+      checkThrottle(ip);
+      const row = db.select({ email: users.email, passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).get();
+      if (!row) throw new ApiError(404, 'Account not found');
+      if (!body.password || !(await verifyPassword(body.password, row.passwordHash))) {
+        failThrottle(ip);
+        throw new ApiError(403, 'That password doesn’t match.', 'bad_password');
+      }
+      clearThrottle(ip);
+      if (body.email !== row.email) {
+        if (db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).get()) throw new ApiError(409, 'There is already an account with that email.', 'email_taken');
+        set.email = body.email;
+        set.emailVerifiedAt = null;
+        reverify = true;
+      }
+    }
     if (Object.keys(set).length) db.update(users).set(set).where(eq(users.id, userId)).run();
-    return c.json(meOf(userId));
+    const verificationSent = reverify ? await sendVerification(db, userId, body.email!) : undefined;
+    return c.json({ ...meOf(userId), ...(verificationSent === undefined ? {} : { verificationSent }) });
   });
 
   /**

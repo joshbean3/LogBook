@@ -8,6 +8,8 @@ import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
 import { Login, Signup } from '@/features/auth/AuthScreens';
+import { Verify } from '@/features/auth/Verify';
+import { Reset } from '@/features/auth/Reset';
 import DayView from '@/features/day/DayView';
 import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
@@ -223,7 +225,7 @@ export const App = () => {
   // a 401 anywhere sends you to sign in, without reloading the page
   useEffect(() => {
     const fn = () => {
-      if (!/^\/(login|setup|signup|start)/.test(location.pathname)) navigate(signedOutHome(), { replace: true });
+      if (!/^\/(login|setup|signup|start|verify|reset)/.test(location.pathname)) navigate(signedOutHome(), { replace: true });
     };
     onUnauthorized.add(fn);
     return () => {
@@ -237,6 +239,8 @@ export const App = () => {
         <Route path="/start" element={<Start />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignupRoute />} />
+        <Route path="/verify" element={<Verify />} />
+        <Route path="/reset" element={<Reset />} />
         <Route path="/setup" element={<Navigate to="/signup" replace />} />
         <Route path="*" element={<Authed />} />
       </Routes>

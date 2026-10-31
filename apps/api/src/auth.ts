@@ -112,16 +112,20 @@ export const issueToken = (db: DB, userId: string, kind: TokenKind): string => {
   return raw;
 };
 
-/** Spend a token: its row when it exists, is of the kind, is unused and unexpired (marked used here); else the reason. */
-export const consumeToken = (db: DB, kind: TokenKind, raw: string): { ok: true; userId: string } | { ok: false; why: 'invalid' | 'expired' | 'used' } => {
+/**
+ * Spend a token: its row when it exists, is of the kind, is unused and unexpired (marked used here, unless `spend` is
+ * false and the caller marks it with `spendToken` once the rest of the request has passed); else the reason.
+ */
+export const consumeToken = (db: DB, kind: TokenKind, raw: string, { spend = true }: { spend?: boolean } = {}): { ok: true; userId: string; tokenId: string } | { ok: false; why: 'invalid' | 'expired' | 'used' } => {
   if (!raw || raw.length > 200) return { ok: false, why: 'invalid' };
   const row = db.select().from(emailTokens).where(and(eq(emailTokens.tokenHash, hashToken(raw)), eq(emailTokens.kind, kind))).get();
   if (!row) return { ok: false, why: 'invalid' };
   if (row.usedAt) return { ok: false, why: 'used' };
   if (row.expiresAt < nowISO()) return { ok: false, why: 'expired' };
-  db.update(emailTokens).set({ usedAt: nowISO() }).where(eq(emailTokens.id, row.id)).run();
-  return { ok: true, userId: row.userId };
+  if (spend) spendToken(db, row.id);
+  return { ok: true, userId: row.userId, tokenId: row.id };
 };
+export const spendToken = (db: DB, tokenId: string) => db.update(emailTokens).set({ usedAt: nowISO() }).where(eq(emailTokens.id, tokenId)).run();
 
 /** Tokens nobody can use any more: expired, or spent over a day ago. */
 export const purgeOldTokens = (db: DB) => db.delete(emailTokens).where(lt(emailTokens.expiresAt, new Date(Date.now() - 864e5).toISOString())).run();

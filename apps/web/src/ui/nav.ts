@@ -61,6 +61,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/start', owner: null, kind: 'full' },
   { pattern: '/login', owner: null, kind: 'full' },
   { pattern: '/signup', owner: null, kind: 'full' },
+  { pattern: '/verify', owner: null, kind: 'full' },
+  { pattern: '/reset', owner: null, kind: 'full' },
   { pattern: '/morning/:date', owner: null, kind: 'redirect', to: '/today/:date/morning' },
   { pattern: '/morning', owner: null, kind: 'redirect', to: '/today' },
   { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/journal' },

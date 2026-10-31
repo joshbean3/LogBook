@@ -20,7 +20,7 @@ const canSignUp = (s: AuthStatus | undefined) => !!s && (s.signupOpen ?? s.setup
  * The black screen with the halo rising from the bottom (once, as the screen arrives). With no title it is the quiet
  * stand-in while the status arrives: no spinner, nothing moves.
  */
-const Frame = ({ title, sub, children, foot }: { title?: string; sub?: string; children?: React.ReactNode; foot?: React.ReactNode }) => {
+export const Frame = ({ title, sub, children, foot }: { title?: string; sub?: string; children?: React.ReactNode; foot?: React.ReactNode }) => {
   const reduce = useReducedMotion();
   // from the promise (/start): the same lit surface, so the halo holds still and only the form rises
   const fromStart = (useLocation().state as { from?: string } | null)?.from === 'start';
@@ -44,7 +44,7 @@ const Frame = ({ title, sub, children, foot }: { title?: string; sub?: string; c
 };
 
 /** A dark field with its caps label, an inline error in plain words under it, and (for passwords) a Show button. */
-const AuthField = ({
+export const AuthField = ({
   label,
   error,
   hint,
@@ -79,17 +79,87 @@ const AuthField = ({
 };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const emailProblem = (v: string) => (!v.trim() ? 'Enter your email address.' : !EMAIL.test(v.trim()) ? 'That doesn’t look like an email address.' : null);
+export const emailProblem = (v: string) => (!v.trim() ? 'Enter your email address.' : !EMAIL.test(v.trim()) ? 'That doesn’t look like an email address.' : null);
+/** The server's policy (ten characters, nothing common, not the email), checked here first so the obvious case never leaves the device. */
+export const PASSWORD_MIN = 10;
+export const newPasswordProblem = (v: string) => (!v ? 'Choose a password.' : v.length < PASSWORD_MIN ? `Use at least ${PASSWORD_MIN} characters.` : null);
 /** Any failure in plain words, never a status code. */
-const plain = (e: unknown, fallback: string) =>
+export const plain = (e: unknown, fallback: string) =>
   e instanceof NetworkError ? 'Couldn’t reach Logbook. Check your connection and try again.' : e instanceof ApiError && e.status === 429 ? 'Too many tries. Wait a minute, then try again.' : e instanceof ApiError && e.status >= 500 ? 'Something went wrong on our side. Try again in a moment.' : fallback;
 
 type Errors = { email?: string | null; password?: string | null; form?: string | null };
 /** The keyboard's "next" on a field: move to the next one (never the form's implicit submission, flows 1.1). */
-const nextOn = (next: React.RefObject<HTMLInputElement | null>) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+export const nextOn = (next: React.RefObject<HTMLInputElement | null>) => (e: React.KeyboardEvent<HTMLInputElement>) => {
   if (e.key !== 'Enter') return;
   e.preventDefault();
   next.current?.focus();
+};
+
+/**
+ * "Forgot your password?": the email, Send, then one line whatever the address ("If that address has an account, a link
+ * is on its way"): the server answers the same either way, so the form says nothing about who has an account. Used
+ * inside Login and under an expired reset link (/reset).
+ */
+export const ForgotForm = ({ initialEmail = '', onBack }: { initialEmail?: string; onBack?: () => void }) => {
+  const [email, setEmail] = useState(initialEmail);
+  const [err, setErr] = useState<Errors>({});
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const problem = emailProblem(email);
+    setErr({ email: problem });
+    if (problem) {
+      ref.current?.focus();
+      return;
+    }
+    setBusy(true);
+    try {
+      await api('/auth/forgot', { method: 'POST', json: { email: email.trim() } });
+      setSent(true);
+    } catch (e2) {
+      haptics.error();
+      setErr({ form: plain(e2, 'Couldn’t send the link. Try again.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (sent)
+    return (
+      <div className="auth-form">
+        <p className="auth-done" role="status">
+          If that address has an account, a link is on its way. It works for an hour.
+        </p>
+        {onBack ? (
+          <button type="button" className="btn soft block auth-submit" onClick={onBack}>
+            Back to sign in
+          </button>
+        ) : (
+          <Link to="/login" replace className="btn soft block auth-submit">
+            Back to sign in
+          </Link>
+        )}
+      </div>
+    );
+  return (
+    <form className="auth-form" onSubmit={submit} noValidate>
+      <AuthField inputRef={ref} label="Email" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="send" autoFocus={!initialEmail} value={email} onChange={(e) => setEmail(e.target.value)} error={err.email} />
+      {err.form ? (
+        <p className="auth-err form" role="alert">
+          {err.form}
+        </p>
+      ) : null}
+      <button type="submit" className="btn primary block auth-submit" disabled={busy}>
+        {busy ? 'Sending…' : 'Send the link'}
+      </button>
+      {onBack ? (
+        <button type="button" className="auth-link auth-link-center" onClick={onBack}>
+          Back to sign in
+        </button>
+      ) : null}
+    </form>
+  );
 };
 
 export const Login = () => {
@@ -102,6 +172,7 @@ export const Login = () => {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
   const pwRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const [returning] = useState(hasAccountHere);
@@ -132,6 +203,12 @@ export const Login = () => {
       setBusy(false);
     }
   };
+  if (forgot)
+    return (
+      <Frame title="Forgot your password?" sub="We’ll send you a link to choose a new one.">
+        <ForgotForm initialEmail={email.trim()} onBack={() => setForgot(false)} />
+      </Frame>
+    );
   return (
     <Frame
       // "Welcome back" only on a device that has signed in before: a new person never reads it (critic B7)
@@ -159,10 +236,16 @@ export const Login = () => {
         <button type="submit" className="btn primary block auth-submit" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
+        <button type="button" className="auth-link auth-link-center" onClick={() => setForgot(true)}>
+          Forgot your password?
+        </button>
       </form>
     </Frame>
   );
 };
+
+/** How long the "we sent a link" line stays readable before the first question replaces the form. */
+const VERIFY_LINE_MS = 1400;
 
 export const Signup = () => {
   const status = useAuthStatus();
@@ -173,16 +256,16 @@ export const Signup = () => {
   const [err, setErr] = useState<Errors>({});
   const [taken, setTaken] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [sentLine, setSentLine] = useState(false);
   const created = useRef(false);
   const refs = { email: useRef<HTMLInputElement>(null), password: useRef<HTMLInputElement>(null) };
   // after Create account the cache is cleared under the form (its status query goes pending): the form stays until it leaves
   if (status.isPending && !created.current) return <Frame />;
   if (status.data && !canSignUp(status.data) && !created.current) return <Navigate to="/login" replace />;
-  const pwProblem = (v: string) => (!v ? 'Choose a password.' : v.length < 8 ? 'Use at least 8 characters.' : null);
   // two fields, Show instead of a confirm field (the iOS convention), checked only here, on the final Go (flows 1.1)
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const next: Errors = { email: emailProblem(email), password: pwProblem(pw) };
+    const next: Errors = { email: emailProblem(email), password: newPasswordProblem(pw) };
     setErr(next);
     setTaken(false);
     const first = (['email', 'password'] as const).find((k) => next[k]);
@@ -192,14 +275,16 @@ export const Signup = () => {
     }
     setBusy(true);
     try {
-      await api('/auth/signup', { method: 'POST', json: { email: email.trim(), password: pw } });
+      const made = await api<{ verificationSent?: boolean }>('/auth/signup', { method: 'POST', json: { email: email.trim(), password: pw } });
       created.current = true;
       markHasAccount();
+      // the verify link is on its way: one line under the form, read while the first question is fetched (never a gate)
+      setSentLine(true);
       // The form stays (busy) until the first question can replace it in one commit (flows 1.2): the new account's
       // bootstrap and the first-run module are fetched first. Clearing the cache before that unmounted the form into an
       // empty frame (this screen's status query went pending) and left `Authed` black until the bootstrap answered and
       // the chunk arrived (317 ms at 1×, 433 at 4×).
-      const [boot] = await Promise.all([fetchBootstrap().catch(() => null), import('@/features/onboarding/Welcome').catch(() => null)]);
+      const [boot] = await Promise.all([fetchBootstrap().catch(() => null), import('@/features/onboarding/Welcome').catch(() => null), made.verificationSent === false ? null : new Promise((r) => setTimeout(r, VERIFY_LINE_MS))]);
       // the previous account's cache goes and the new bootstrap goes in on the same tick as the navigation
       qc.clear();
       if (boot) qc.setQueryData(keys.bootstrap, boot);
@@ -213,7 +298,10 @@ export const Signup = () => {
         setErr({ email: 'There’s already an account with that email.' });
         refs.email.current?.focus();
       } else if (e2 instanceof ApiError && e2.status === 403) setErr({ form: 'New accounts are closed here. Sign in instead.' });
-      else if (e2 instanceof ApiError && e2.status === 422) setErr({ form: 'Check the email address and try again.' });
+      else if (e2 instanceof ApiError && e2.status === 422 && e2.code === 'weak_password') {
+        setErr({ password: e2.message });
+        refs.password.current?.focus();
+      } else if (e2 instanceof ApiError && e2.status === 422) setErr({ form: 'Check the email address and try again.' });
       else setErr({ form: plain(e2, 'Couldn’t create the account. Try again.') });
     } finally {
       setBusy(false);
@@ -271,16 +359,21 @@ export const Signup = () => {
             if (err.password) setErr((x) => ({ ...x, password: null }));
           }}
           error={err.password}
-          hint="At least 8 characters."
+          hint={`At least ${PASSWORD_MIN} characters.`}
         />
         {err.form ? (
           <p className="auth-err form" role="alert">
             {err.form}
           </p>
         ) : null}
-        <button type="submit" className="btn primary block auth-submit" disabled={busy}>
-          {busy ? 'Creating your account…' : 'Create account'}
+        <button type="submit" className="btn primary block auth-submit" disabled={busy || sentLine}>
+          {sentLine ? 'Account created' : busy ? 'Creating your account…' : 'Create account'}
         </button>
+        {sentLine ? (
+          <p className="auth-done" role="status">
+            We sent a link to verify your email. You can keep going.
+          </p>
+        ) : null}
       </form>
     </Frame>
   );

@@ -10,7 +10,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "dev:worker": "RUN_JOBS=worker tsx watch src/worker.ts",
+    "start:worker": "node dist/worker.js",
+    "backup": "sh ../../scripts/backup.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

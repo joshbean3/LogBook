@@ -343,6 +343,24 @@ export const providerConnections = sqliteTable(
 );
 
 /**
+ * OAuth clients this server registered with a provider's authorization server (RFC 7591 dynamic registration), one per
+ * provider and issuer: COROS's MCP server hands out a client id on first connect instead of a developer console. The
+ * redirect URI is kept so a changed APP_URL re-registers. Migration 0018.
+ */
+export const providerClients = sqliteTable(
+  'provider_clients',
+  {
+    provider: text('provider').notNull(),
+    issuer: text('issuer').notNull(),
+    clientId: text('client_id').notNull(),
+    clientSecret: text('client_secret'),
+    redirectUri: text('redirect_uri').notNull(),
+    registeredAt: text('registered_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.provider, t.issuer] })],
+);
+
+/**
  * Activities as a provider recorded them. Keyed by (user, provider, external id) so two accounts on the same athlete never
  * collide; `id` stays the row id the client knows (unique). `duplicate_of` marks a row another provider also recorded
  * (same start within two minutes, distance within 2%): it is kept but left out of status and miles. Migration 0015.
