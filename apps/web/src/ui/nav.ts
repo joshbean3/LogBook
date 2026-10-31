@@ -1,11 +1,11 @@
-import { Activity, BookOpen, CalendarDays, Sun, Target, type LucideIcon } from 'lucide-react';
+import { Activity, BookOpen, CalendarDays, Repeat, Sun, Target, type LucideIcon } from 'lucide-react';
 
 /**
- * The navigation model (docs/feel.md §1, contracts §A.1): four tabs, the route table, and `matchRoute`, which turns a URL into
+ * The navigation model (docs/feel.md §1, contracts §A.1): six tabs, the route table, and `matchRoute`, which turns a URL into
  * the tab it lights, the root page it shows and the pushed pages stacked over it. NavController is the only reader that acts
  * on it; everything else asks the controller.
  */
-export type TabId = 'today' | 'goals' | 'plan' | 'progress' | 'journal';
+export type TabId = 'today' | 'goals' | 'habits' | 'plan' | 'progress' | 'journal';
 
 export interface TabDef {
   id: TabId;
@@ -14,10 +14,11 @@ export interface TabDef {
   label: string;
   icon: LucideIcon;
 }
-/** Five, in this order. Icons: Sun · Target · CalendarDays · Activity · BookOpen (§1.1; Goals joined as the second tab). */
+/** Six, in this order. Icons: Sun · Target · Repeat · CalendarDays · Activity · BookOpen (§1.1; Goals joined as the second tab, Habits as the third). */
 export const TABS: readonly TabDef[] = [
   { id: 'today', root: '/today', label: 'Today', icon: Sun },
   { id: 'goals', root: '/goals', label: 'Goals', icon: Target },
+  { id: 'habits', root: '/habits', label: 'Habits', icon: Repeat },
   { id: 'plan', root: '/plan', label: 'Plan', icon: CalendarDays },
   { id: 'progress', root: '/progress', label: 'Progress', icon: Activity },
   { id: 'journal', root: '/journal', label: 'Journal', icon: BookOpen },
@@ -52,6 +53,9 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/dev/ui', owner: 'today', kind: 'pushed', depth: 1, title: 'UI' },
   { pattern: '/goals', owner: 'goals', kind: 'root' },
   { pattern: '/goals/history', owner: 'goals', kind: 'pushed', depth: 1, title: 'History' },
+  { pattern: '/habits', owner: 'habits', kind: 'root' },
+  // today's morning, pushed over the Habits root (no date in the URL: it never moves a root, unlike /today/:date/morning)
+  { pattern: '/habits/morning', owner: 'habits', kind: 'pushed', depth: 1, title: 'This morning' },
   { pattern: '/plan', owner: 'plan', kind: 'root' },
   { pattern: '/plan/week/:mon', owner: 'plan', kind: 'root' },
   { pattern: '/plan/month/:month', owner: 'plan', kind: 'root' },

@@ -2,12 +2,12 @@
 
 A personal training log, habit tracker and journal, built as an installable web app with its own server and database.
 
-Five tabs, one data model:
+Six tabs, one data model:
 
 - **Today**: one page per day. Swipe anywhere on the page to the next or the previous day; the date strip under the bar shows
   the week and travels with you, and the caps line carries your word until you change it (`STEADY · FRI, OCT 23`). The hero
   changes with the time of day: out the door in 22 minutes, back by 8:13, then the run landing from Strava (or hold the ring
-  to mark it done by hand). Habits as a row of orbs, the week's ring, and in the evening the day's close: two sentences,
+  to mark it done by hand). The week's ring, and in the evening the day's close: two sentences,
   tomorrow's word and alarm.
   **Plan your day** sits under the hero: the day's goal as the headline (a sun in its corner grows as its steps are checked
   and fills the card in gold when it is done, with a full-screen moment), then the day in four sections, Anytime, Morning,
@@ -30,7 +30,11 @@ Five tabs, one data model:
   went). History lists every day, week, month and year with its goal and outcome, including the ones with none set, and
   the Log keeps every step: set, sharpened, edited, done, missed, cleared. A dot on the tab (and, on the phone, a morning
   reminder) says when today's or this week's goal is unset.
-- **This morning** (pushed from Today's hero or its `This morning` row): the schedule from the alarm to the door, built from
+- **Habits**: today's habits as a row of orbs (tap one to light it, hold for a note, its details or to archive it, drag to
+  reorder, `+` to add), the `This morning · Wake 7:30 · Leave 8:40 ›` row, and Streaks: every habit with its streak, its
+  count over the last 30 days and those days as a small grid; tap one for its sheet. Manage habits (rename, reorder,
+  archive) sits under the list.
+- **This morning** (pushed from Today's hero or the Habits tab's `This morning` row): the schedule from the alarm to the door, built from
   the day's run and your routine. Drag the alarm and every time below moves with it; hold a step to reorder it; it says when
   you have to leave.
 - **Plan**: the week and the month, paged by swiping. Hold a session to move it to another day. A plan builder writes the

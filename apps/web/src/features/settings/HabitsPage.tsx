@@ -48,7 +48,7 @@ const HabitSheet = ({ habit, onArchive }: { habit: Habit; onArchive: () => void 
           if (e.key === 'Escape') setName(habit.name);
         }}
       />
-      <p className="s-note">On Today since {fmtDate('long', habit.createdOn)}. Its history stays if you archive it.</p>
+      <p className="s-note">On the Habits tab since {fmtDate('long', habit.createdOn)}. Its history stays if you archive it.</p>
       <Button
         variant="quiet"
         block
@@ -394,7 +394,7 @@ export const HabitsPage = () => {
     const n = name.trim().replace(/\s+/g, ' ').slice(0, 80);
     if (!n) return;
     const dupe = all.find((h) => h.name.toLowerCase() === n.toLowerCase());
-    if (dupe && !dupe.archivedOn) return setNote(`${dupe.name} is already on Today.`);
+    if (dupe && !dupe.archivedOn) return setNote(`${dupe.name} is already on the Habits tab.`);
     setNote(null);
     if (dupe) setArchived(dupe, false);
     else hm.add.mutate(n);
@@ -406,7 +406,7 @@ export const HabitsPage = () => {
       <PushedBar title="Habits" />
       {live.length ? (
         <>
-          <p className="s-lede">Tap one to rename it. Hold and drag to change the order on Today.</p>
+          <p className="s-lede">Tap one to rename it. Hold and drag to change the order on the Habits tab.</p>
           <div className="s-hlist" ref={listRef} style={{ height: ids.length * ROW_H }}>
             {ids.map((id, i) => {
               const h = byId.get(id);
@@ -445,7 +445,7 @@ export const HabitsPage = () => {
             starters={[...STARTER_HABITS]}
             onStarter={(n) => hm.add.mutateAsync(n)}
           >
-            Habits are the small lights on Today. Start with one.
+            Habits are the small lights on the Habits tab. Start with one.
           </EmptyState>
         </div>
       )}

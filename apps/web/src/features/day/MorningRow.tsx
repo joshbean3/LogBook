@@ -23,10 +23,11 @@ export const morningRowWords = (date: ISODate, today: ISODate, wake: number | nu
 };
 
 /**
- * The This morning row (docs/feel.md §3.1 row 2): one 44 row in an inset group under the hero, on every day, the door to the
- * day's morning (pushed, `/today/<date>/morning`, with the four-stop line as the shared element when the hero draws it).
+ * The This morning row: one 44 row in an inset group, the door to the day's morning. On the Habits tab it pushes `to`
+ * (`/habits/morning`, today's morning over that tab); elsewhere `/today/<date>/morning`, with the four-stop line as the
+ * shared element when the hero draws it.
  */
-export const MorningRow = memo(function MorningRow({ date, log }: { date: ISODate; log: Log }): React.JSX.Element {
+export const MorningRow = memo(function MorningRow({ date, log, to }: { date: ISODate; log: Log; to?: string }): React.JSX.Element {
   const nav = useNav();
   const st = log.boot?.morningSettings ?? null;
   const T = useMemo(() => (st ? morningOf(log.snap.sessionsOn(date), log.snap.morningOverride(date), st) : null), [st, log.snap, date]);
@@ -34,7 +35,8 @@ export const MorningRow = memo(function MorningRow({ date, log }: { date: ISODat
   // the push starts on the touch's release (§0.2 6:30 step 3: first frame ≤ 16 ms after touch-up), the click path for the rest
   const rel = useReleaseTap(() => {
     dismissNudge();
-    nav.push(morningPath(date), { shared: morningLineId(date) });
+    if (to) nav.push(to);
+    else nav.push(morningPath(date), { shared: morningLineId(date) });
   });
   return (
     <div className="morning-row group">

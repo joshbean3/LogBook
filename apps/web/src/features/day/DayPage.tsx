@@ -8,7 +8,7 @@ import { EmptyState } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
-import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
+import { HABIT_STARTERS } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { PlanDay } from '../dayplan/PlanDay';
@@ -18,15 +18,12 @@ import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
 import { Hero, SecondSession } from './Hero';
 import { useIsLive } from './live';
-import { MorningRow } from './MorningRow';
 import { dismissNudge, useNudge } from './nudge';
 import { TheDayCard } from './TheDayCard';
 import { WeekCard } from './WeekCard';
 import { useFocus, useOpenWordSheet } from './WordSheet';
 
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
-// the sections that do not depend on which page is live: a commit (a role change) never re-renders them (risk 1)
-const OrbRowM = memo(OrbRow);
 // the plan-end card is rare (a few days a block) and pulls in the builder: loaded when it is first needed
 const PlanEnd = lazy(() => import('./PlanEnd'));
 
@@ -47,7 +44,7 @@ const AddHabitsSheet = () => {
   const sheet = useSheet();
   return (
     <EmptyState starters={HABIT_STARTERS} onStarter={(name) => add.mutateAsync(name)} verb={{ label: 'Done', onPress: () => sheet.close() }} startersLabel="Starter habits">
-      Tap the ones you want to do every day. They become lights on Today.
+      Tap the ones you want to do every day. They become lights on the Habits tab.
     </EmptyState>
   );
 };
@@ -146,20 +143,12 @@ interface DayPageProps {
 }
 
 /**
- * A neighbour's first frame (risk 1): the page's shape only (the hero's box, the row, the section heads, the week card's
- * box), so mounting the one new neighbour inside a commit's synchronous frame costs almost nothing; its content renders in
+ * A neighbour's first frame (risk 1): the page's shape only (the hero's box, the plan's box, the week card's box), so mounting the one new neighbour inside a commit's synchronous frame costs almost nothing; its content renders in
  * the background right after (`useDeferredValue`, interruptible by the next touch). Never a card over black.
  */
 const DayShell = ({ date }: { date: ISODate }) => (
   <div className="day-page is-shell" data-day={date}>
     <div className="hero aura hero-skel" data-face="loading" aria-hidden="true" />
-    <div className="morning-row" aria-hidden="true" />
-    <section className="habits" aria-hidden="true">
-      <div className="sec-head">
-        <h2 className="sec-title">Habits</h2>
-      </div>
-      <div className="orbs-skel" />
-    </section>
     <section className="pd is-skel" aria-hidden="true" />
     <div className="week-card card is-skel" aria-hidden="true" />
   </div>
@@ -168,8 +157,8 @@ const DayShell = ({ date }: { date: ISODate }) => (
 /**
  * One day's page inside the pager (docs/feel.md §3.1, §3.3): every day renders the same sections in the same order, quiet when
  * there is nothing to say, never absent, so the page never collapses under a swipe: the hero, the sentence (when set), the
- * This morning row, the second session (two-session days), habits, to-dos, the week card, the plan end (near or past a
- * block's end), the Strava primer (today, until connected), the day's card (past days). The bottom padding lives here, inside
+ * day's plan, the second session (two-session days), the week card, the plan end (near or past a block's end), the Strava
+ * primer (today, until connected), the day's card (past days). The habits and the This morning row live on the Habits tab. The bottom padding lives here, inside
  * the cur page, so the page's `min-height` includes it and a short day does not scroll.
  *
  * Memoised on `date` and `live`, with one memoised `useLog` per page (critic C12): nothing renders while the track moves; a
@@ -209,16 +198,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       <Sentence />
       {loaded && !first ? <PlanDay date={date} today={today} /> : null}
       {isToday && loaded && !first ? <NudgeSlot date={date} onMorning={onMorning} /> : null}
-      <MorningRow date={date} log={log} />
       {loaded ? <SecondSession date={date} log={log} /> : null}
-      <section className="habits" aria-label="Habits" inert={date > today || undefined}>
-        <div className="sec-head">
-          <h2 className="sec-title">Habits</h2>
-          {/* the count as the orbs show it, on the tap's frame (OrbRow's shown state) */}
-          {loaded ? <HabitsMeta date={date} log={log} /> : null}
-        </div>
-        {loaded ? <OrbRowM date={date} log={log} editable={date <= today} /> : <div className="orbs-skel" />}
-      </section>
       {loaded ? <WeekCard date={date} log={log} /> : <div className="week-card card is-skel" />}
       {end ? (
         <Suspense fallback={null}>

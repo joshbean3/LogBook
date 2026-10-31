@@ -17,7 +17,7 @@ import { PushedEntryScope, TabScope, useNavInternal, useNavState, type Controlle
 import './shell.css';
 
 /**
- * The frame (docs/feel.md §9.1, contracts §A.3): four tabs, each its own mounted scroller (`visibility: hidden` + `inert`
+ * The frame (docs/feel.md §9.1, contracts §A.3): six tabs, each its own mounted scroller (`visibility: hidden` + `inert`
  * when not active, never `display: none`, so WebKit keeps its scrollTop), each with a stack of pushed layers over it; the tab
  * bar as the grid's second row. A tab change is a 0 ms cut: no opacity, no transform, no scrollTo, no remount.
  */
@@ -200,8 +200,8 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
   const press = usePress();
   const fromPointer = useRef(false);
   const Icon = t.icon;
-  // selected: Sun (its disc filled, its rays kept: with no stroke it is a bare dot) and the book filled, the calendar filled, Activity at stroke 2.5 (§1.1); unselected: stroke 1.8, no fill
-  const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', strokeWidth: 2 } : t.id === 'progress' ? { strokeWidth: 2.5 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
+  // selected: Sun (its disc filled, its rays kept: with no stroke it is a bare dot) and the book filled, the calendar filled, Activity and Repeat (open strokes: a fill would be a blot) at stroke 2.5 (§1.1); unselected: stroke 1.8, no fill
+  const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', strokeWidth: 2 } : t.id === 'progress' || t.id === 'habits' ? { strokeWidth: 2.5 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
   return (
     <button
       type="button"

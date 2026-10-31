@@ -1,13 +1,12 @@
-import { fmtDate, habitStreak, monthOf, parseISO, shiftDays, type Habit, type ISODate } from '@logbook/shared';
+import { fmtDate, monthOf, parseISO, shiftDays, type Habit, type ISODate } from '@logbook/shared';
 import { useMemo, useState } from 'react';
 import { useHabitMutations } from '@/api/queries';
 import { animate, motionValue } from 'motion/react';
 import { hapticAtPeak, haptics } from '@/lib/haptics';
 import { Button, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
+import { habitWindow, WINDOW_DAYS as DAYS } from './stats';
 import './habits.css';
-
-const DAYS = 30;
 
 /** Archive a habit with an Undo, from anywhere (the orb's menu, the habit sheet). */
 export const useArchiveHabit = () => {
@@ -41,19 +40,9 @@ export const HabitSheet = ({ id }: { id: string }) => {
   const h = (log.boot?.habits ?? []).find((x) => x.id === id) ?? null;
   const [name, setName] = useState(h?.name ?? '');
   if (!h) return null;
-  const days = Array.from({ length: DAYS }, (_, i) => shiftDays(from, i));
   const isDone = (d: ISODate) => log.snap.isHabitDone(d, h.id);
-  // "N of 30" counts only the days the habit existed
-  const since = days.filter((d) => d >= h.createdOn);
-  const lit = since.filter(isDone).length;
-  const streak = habitStreak(isDone, t);
-  // the longest run of lit days in the window, for the stamp when today's streak is short
-  let best = 0;
-  let run = 0;
-  for (const d of since) {
-    run = isDone(d) ? run + 1 : 0;
-    best = Math.max(best, run);
-  }
+  // "N of 30" counts only the days the habit existed; the best run is the stamp when today's streak is short
+  const { days, since, lit, streak, best } = habitWindow(isDone, t, h.createdOn, DAYS);
   const stamps: Array<{ k: string; v: number; u: string }> = [];
   if (streak > 0) stamps.push({ k: 'Streak', v: streak, u: streak === 1 ? 'day' : 'days' });
   if (best > streak && best >= 2) stamps.push({ k: 'Best', v: best, u: 'days' });

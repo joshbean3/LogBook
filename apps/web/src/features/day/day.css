@@ -676,32 +676,17 @@
   flex: none;
 }
 
-/* ---------- habits and to-dos: section heads 20/25, 24 between sections ---------- */
-.habits,
+/* ---------- to-dos: section heads 20/25, 24 between sections ---------- */
 .todos {
   margin-top: 24px;
   min-width: 0;
 }
-.day-page .day-sec-head,
-.habits > .sec-head {
+.day-page .day-sec-head {
   display: flex;
   align-items: baseline;
   gap: 8px;
   height: 25px;
   margin-bottom: 8px;
-}
-.habits .sec-title {
-  margin: 0;
-  font: 600 20px/25px var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.habits .sec-meta {
-  font: 400 15px/20px var(--sans);
-  color: var(--ink-3);
-}
-.habits > .orbs-wrap {
-  margin-top: 0;
 }
 .todos > .sec-primary {
   margin-top: 0;
@@ -715,13 +700,7 @@
   font: 600 20px/25px var(--sans);
   letter-spacing: -0.01em;
 }
-.orbs-skel {
-  height: 76px;
-}
 /* a neighbour's first frame: the page's shape */
-.day-page.is-shell .morning-row {
-  height: 44px;
-}
 .day-page.is-shell .todos .section-head {
   height: 25px;
 }

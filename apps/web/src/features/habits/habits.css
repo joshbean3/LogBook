@@ -253,3 +253,121 @@
 .hs-notein {
   width: 100%;
 }
+
+/* ---------- the Habits tab ---------- */
+.hv-today {
+  margin-top: 0;
+}
+.hv-morning,
+.hv-streaks {
+  margin-top: 24px;
+}
+/* section heads 20/25 (as Today's were), the meta 15/20 at the baseline */
+.hv-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  height: 25px;
+  margin-bottom: 8px;
+}
+.hv-head .sec-title {
+  margin: 0;
+  font: 600 20px/25px var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.hv-head .sec-meta {
+  font: 400 15px/20px var(--sans);
+  color: var(--ink-3);
+}
+.hv-morning .morning-row {
+  margin-top: 0;
+}
+/* one row per habit: the initial, the name and its line, the last 30 days as a 10 × 3 grid at the right */
+.hv-row.pressable {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
+  height: 60px;
+  min-height: 60px;
+  text-align: left;
+  color: var(--ink);
+}
+.hv-orb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface-3);
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ink-2);
+}
+.hv-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.hv-name {
+  font: 600 17px/22px var(--sans);
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hv-sub {
+  font: 400 15px/20px var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 359px) {
+  .hv-count {
+    display: none;
+  }
+}
+.hv-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 7px);
+  grid-auto-rows: 7px;
+  gap: 2px;
+}
+.hv-cell {
+  display: block;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+.hv-cell.on {
+  background: var(--accent);
+}
+.hv-cell.is-today {
+  box-shadow: inset 0 0 0 1px var(--ink-2);
+}
+.hv-cell.on.is-today {
+  box-shadow: inset 0 0 0 1px #fff;
+}
+.hv-cell.before {
+  opacity: 0.35;
+}
+/* Manage habits: a quiet row to the Settings page, 24 under the list */
+.hv-manage-list {
+  margin-top: 24px;
+}
+.hv-manage.lrow {
+  background: none;
+  color: var(--ink-2);
+}
+.hv-manage .lrow-title {
+  font-weight: 500;
+}
+.hv-manage[data-pressed] {
+  background: var(--surface-2);
+}

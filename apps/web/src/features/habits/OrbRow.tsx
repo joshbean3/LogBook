@@ -112,6 +112,11 @@ export const useHabitsLit = (date: string, log: Log): { lit: number; total: numb
   const list = log.habits.filter((h) => h.createdOn <= date);
   return { lit: list.filter((h) => ahead.get(h.id) ?? log.snap.isHabitDone(date, h.id)).length, total: list.length };
 };
+/** One habit's lit state on a day as the orbs show it (a tap not yet written counts), `fromMonth` otherwise. */
+export const useHabitShown = (date: string, id: string, fromMonth: boolean): boolean => {
+  const ahead = useSyncExternalStore(subShown, () => shown.get(date) ?? EMPTY, () => EMPTY);
+  return ahead.get(id) ?? fromMonth;
+};
 /** The habits head's meta (§3.1 row 4, §3.3): `2 of 5` only when > 0; a future day counts its ghosts, `5 habits`. */
 export const HabitsMeta = ({ date, log }: { date: string; log: Log }): React.JSX.Element | null => {
   const { lit, total } = useHabitsLit(date, log);
@@ -537,8 +542,11 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
       const tg = e.target as HTMLElement | null;
       if (tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName))) return;
       if (document.querySelector('.sheet-wrap, .cm-layer')) return;
-      // only the page the owner is looking at: the pager's live page on the active tab
-      if (!scroller.current?.closest('.tab[data-active] .dp-page[data-role=cur]')) return;
+      // only the row the owner is looking at: on the active tab, and on a pager's live page when it sits in one
+      const el = scroller.current;
+      if (!el?.closest('.tab[data-active]')) return;
+      const pg = el.closest('.dp-page');
+      if (pg && pg.getAttribute('data-role') !== 'cur') return;
       const n = Number(e.key);
       if (n >= 1 && n <= 9) {
         e.preventDefault();

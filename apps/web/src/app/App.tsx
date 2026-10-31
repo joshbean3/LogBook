@@ -24,6 +24,7 @@ const views = {
   morning: () => import('@/features/morning/MorningView'),
   goals: () => import('@/features/goals/GoalsView'),
   goalHistory: () => import('@/features/goals/GoalHistory'),
+  habits: () => import('@/features/habits/HabitsView'),
   plan: () => import('@/features/plan/PlanView'),
   progress: () => import('@/features/progress/ProgressView'),
   journal: () => import('@/features/journal/JournalView'),
@@ -64,6 +65,7 @@ const view = <P extends object>(load: () => Promise<{ default: React.ComponentTy
 const MorningView = view(views.morning);
 const GoalsView = view(views.goals);
 const GoalHistory = view(views.goalHistory);
+const HabitsView = view(views.habits);
 const PlanView = view(views.plan);
 const ProgressView = view(views.progress);
 const JournalView = view(views.journal);
@@ -81,14 +83,14 @@ const prefetchViews = () => {
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [GoalsView, PlanView, ProgressView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
+    for (const v of [GoalsView, HabitsView, PlanView, ProgressView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
 };
 
 /**
- * Test builds only (VITE_FAKE_CLOCK): `?stubs=1` on the first load swaps the four roots and /dev/ui for the stubs the WP1
+ * Test builds only (VITE_FAKE_CLOCK): `?stubs=1` on the first load swaps the six roots and /dev/ui for the stubs the WP1
  * acceptance scripts drive. Statically false in a normal build, so the stubs never ship.
  */
 const STUBS = (() => {
@@ -103,10 +105,11 @@ const STUBS = (() => {
 const StubRoot = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot })));
 const StubPushed = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed })));
 const pages = STUBS
-  ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
+  ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, habits: <StubRoot tab="habits" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
   : {
       today: <DayView />,
       goals: <GoalsView />,
+      habits: <HabitsView />,
       plan: <PlanView />,
       progress: <ProgressView />,
       journal: <JournalView />,
@@ -114,7 +117,8 @@ const pages = STUBS
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
 const pushedFor = (e: PushedEntry) => {
   const pattern = matchRoute(e.path).route?.pattern;
-  if (pattern === '/today/:date/morning') return <MorningView />;
+  // This morning: the day's from Today, today's from Habits (MorningView falls back to today without a `date` param)
+  if (pattern === '/today/:date/morning' || pattern === '/habits/morning') return <MorningView />;
   if (pattern === '/goals/history') return <GoalHistory />;
   if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
   if (pattern === '/settings/:section') return <SettingsSection />;
