@@ -135,19 +135,22 @@ describe('metrics', () => {
 });
 
 describe('per-address limits', () => {
-  it('close /api/auth/* to an address after 20 calls a minute, and keep health open', async () => {
+  it('close /api/auth/* writes to an address after 20 a minute; reads, health and other addresses stay open', async () => {
     const a = buildApp(db, { ipLimits: true });
-    const headers = { 'fly-client-ip': '203.0.113.9' };
+    const headers = { 'fly-client-ip': '203.0.113.9', 'content-type': 'application/json' };
+    // logout is the one auth write with no throttle of its own (login closes after six failures)
+    const attempt = () => a.request('/api/auth/logout', { method: 'POST', headers });
     let last = 0;
-    for (let i = 0; i < IP_LIMITS.auth.limit; i++) last = (await a.request('/api/auth/status', { headers })).status;
-    expect(last).toBe(200);
-    const over = await a.request('/api/auth/status', { headers });
+    for (let i = 0; i < IP_LIMITS.auth.limit; i++) last = (await attempt()).status;
+    expect(last).not.toBe(429);
+    const over = await attempt();
     expect(over.status).toBe(429);
     expect(over.headers.get('retry-after')).toMatch(/^\d+$/);
     expect(((await over.json()) as { code: string }).code).toBe('rate_limited');
-    // another address is fine; the health check never counts
-    expect((await a.request('/api/auth/status', { headers: { 'fly-client-ip': '203.0.113.10' } })).status).toBe(200);
+    // a cold open's status check never counts, nor does the health check; another address is fine
+    expect((await a.request('/api/auth/status', { headers })).status).toBe(200);
     expect((await a.request('/api/health', { headers })).status).toBe(200);
+    expect((await a.request('/api/auth/logout', { method: 'POST', headers: { ...headers, 'fly-client-ip': '203.0.113.10' } })).status).not.toBe(429);
   });
 
   it('the global ceiling counts every API call from an address', async () => {

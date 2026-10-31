@@ -61,7 +61,8 @@ export const buildApp = (db: DB, opts: AppOptions = {}) => {
 
   app.route('/api', opsRoutes(db, { dbPath, shuttingDown: opts.shuttingDown }));
   if (opts.ipLimits ?? env.NODE_ENV !== 'test') {
-    app.use('/api/auth/*', ipRateLimit(db, 'ip-auth', IP_LIMITS.auth.limit, IP_LIMITS.auth.windowMs, 'Too many sign-in attempts from this address.'));
+    // writes only: a cold open's GET /auth/status and the sessions list never count toward the sign-in ceiling
+    app.use('/api/auth/*', async (c, next) => (c.req.method === 'GET' ? next() : ipRateLimit(db, 'ip-auth', IP_LIMITS.auth.limit, IP_LIMITS.auth.windowMs, 'Too many sign-in attempts from this address.')(c, next)));
     // soft: counted in batches of ten per process, so the table sees a write every tenth request, not every one
     app.use('/api/*', ipRateLimit(db, 'ip-all', IP_LIMITS.all.limit, IP_LIMITS.all.windowMs, 'Too many requests from this address.', { batch: 10 }));
   }
