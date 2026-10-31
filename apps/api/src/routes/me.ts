@@ -1,25 +1,17 @@
-import { buildTemplate, DEFAULT_DAY_SETTINGS, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zCredentials, shiftDays, TemplateError, today as serverToday, weekdayOf, zDaySettings, zDaySettingsPatch, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type DaySettings, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
-import { z } from 'zod';
 import { COOKIE, verifyPassword, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { habits, planBlocks, users } from '../db/schema.js';
 import { toHabit } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { deleteAccount } from '../services/account.js';
-import { revokeAll } from '../services/providers/index.js';
 import { retireBlock, writeTemplate } from '../services/plans.js';
 import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
-import { checkThrottle, clearThrottle, failThrottle, ipOf, sendVerification } from './auth.js';
+import { checkThrottle, clearThrottle, failThrottle, ipOf } from './auth.js';
 import { deepMerge, readSetting, writeSetting } from './core.js';
-
-/** The day's settings (docs/today-v6.md §5): the stored ones, each range checked, else the defaults (6:00–23:00, work 9:00–18:00). */
-export const daySettingsOf = (db: DB, userId: string): DaySettings => {
-  const ok = zDaySettings.safeParse(readSetting(db, userId, 'day'));
-  return ok.success ? ok.data : DEFAULT_DAY_SETTINGS;
-};
 
 /** The block source that marks the plan onboarding wrote, so a second call replaces it instead of adding another. */
 export const ONBOARDING_SOURCE = 'onboarding';
@@ -43,54 +35,20 @@ export const meRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
 
   const meOf = (id: string) => {
-    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt, timezone: users.timezone, profileNote: users.profileNote, emailVerifiedAt: users.emailVerifiedAt, passwordChangedAt: users.passwordChangedAt }).from(users).where(eq(users.id, id)).get();
+    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt }).from(users).where(eq(users.id, id)).get();
     if (!u) throw new ApiError(404, 'Account not found');
-    return { ...u, name: u.name ?? null, timezone: u.timezone ?? null, profileNote: u.profileNote ?? null, emailVerifiedAt: u.emailVerifiedAt ?? null, passwordChangedAt: u.passwordChangedAt ?? null, trainingProfile: readTrainingProfile(db, id) };
+    return { ...u, name: u.name ?? null, trainingProfile: readTrainingProfile(db, id) };
   };
 
-  /** The account: id, email, `name` (null until given), `onboardedAt`, `emailVerifiedAt`, and the training answers (`trainingProfile`, null before any were given). */
+  /** The account: id, email, `name` (null until given), `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
   r.get('/me', (c) => c.json(meOf(c.get('user').id)));
 
-  /**
-   * Contract 6: `{ name }` sets the account's name (trimmed, up to 60); "" or null clears it. `{ profileNote }` is "About
-   * you, for the assistant" (up to 1000). `{ email, password }` changes the address (the password confirms it; the new
-   * address gets a verify link and `emailVerifiedAt` goes back to null). Any of them. Answers like `GET /me`.
-   */
-  const zMePatchFull = z
-    .object({
-      name: z.string().trim().max(60).nullable().optional(),
-      profileNote: z.string().trim().max(1000).nullable().optional(),
-      email: zCredentials.shape.email.optional(),
-      password: z.string().min(1).max(200).optional(),
-    })
-    .refine((o) => o.name !== undefined || o.profileNote !== undefined || o.email !== undefined, { message: 'Nothing to change' });
+  /** Contract 6: `{ name }` sets the account's name (trimmed, up to 60); "" or null clears it. Answers like `GET /me`. */
   r.patch('/me', async (c) => {
     const userId = c.get('user').id;
-    const body = await parseBody(c.req.raw, zMePatchFull);
-    const set: Partial<typeof users.$inferInsert> = {};
-    if (body.name !== undefined) set.name = body.name ? body.name : null;
-    if (body.profileNote !== undefined) set.profileNote = body.profileNote ? body.profileNote : null;
-    let reverify = false;
-    if (body.email !== undefined) {
-      const ip = ipOf(c.req.raw.headers);
-      checkThrottle(ip);
-      const row = db.select({ email: users.email, passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).get();
-      if (!row) throw new ApiError(404, 'Account not found');
-      if (!body.password || !(await verifyPassword(body.password, row.passwordHash))) {
-        failThrottle(ip);
-        throw new ApiError(403, 'That password doesn’t match.', 'bad_password');
-      }
-      clearThrottle(ip);
-      if (body.email !== row.email) {
-        if (db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).get()) throw new ApiError(409, 'There is already an account with that email.', 'email_taken');
-        set.email = body.email;
-        set.emailVerifiedAt = null;
-        reverify = true;
-      }
-    }
-    if (Object.keys(set).length) db.update(users).set(set).where(eq(users.id, userId)).run();
-    const verificationSent = reverify ? await sendVerification(db, userId, body.email!) : undefined;
-    return c.json({ ...meOf(userId), ...(verificationSent === undefined ? {} : { verificationSent }) });
+    const { name } = await parseBody(c.req.raw, zMePatch);
+    db.update(users).set({ name: name ? name : null }).where(eq(users.id, userId)).run();
+    return c.json(meOf(userId));
   });
 
   /**
@@ -155,18 +113,6 @@ export const meRoutes = (db: DB) => {
   });
 
   /** Delete the account and everything it owns. Needs the password; signs out every device. */
-  // ---------- the day: the timeline's window and the work hours (user_settings key `day`) ----------
-  r.get('/me/day', (c) => c.json(daySettingsOf(db, c.get('user').id)));
-
-  /** `{ window?: {start,end}, workHours?: {start,end} }` in minutes from midnight; either or both. Answers the whole setting. */
-  r.patch('/me/day', async (c) => {
-    const userId = c.get('user').id;
-    const patch = await parseBody(c.req.raw, zDaySettingsPatch);
-    const next = zDaySettings.parse({ ...daySettingsOf(db, userId), ...patch });
-    writeSetting(db, userId, 'day', next);
-    return c.json(next);
-  });
-
   r.delete('/me', async (c) => {
     const ip = ipOf(c.req.raw.headers);
     checkThrottle(ip);
@@ -179,8 +125,6 @@ export const meRoutes = (db: DB) => {
       throw new ApiError(403, 'That password doesn’t match.', 'bad_password');
     }
     clearThrottle(ip);
-    // every integration is told first, best effort; then the rows go
-    await revokeAll(db, userId);
     const removed = deleteAccount(db, userId);
     deleteCookie(c, COOKIE, { path: '/' });
     return c.json({ ok: true, removed });

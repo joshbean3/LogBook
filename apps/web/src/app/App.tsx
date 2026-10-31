@@ -8,8 +8,6 @@ import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
 import { Login, Signup } from '@/features/auth/AuthScreens';
-import { Verify } from '@/features/auth/Verify';
-import { Reset } from '@/features/auth/Reset';
 import DayView from '@/features/day/DayView';
 import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
@@ -27,9 +25,12 @@ const views = {
   goals: () => import('@/features/goals/GoalsView'),
   goalHistory: () => import('@/features/goals/GoalHistory'),
   plan: () => import('@/features/plan/PlanView'),
+  progress: () => import('@/features/progress/ProgressView'),
   journal: () => import('@/features/journal/JournalView'),
+  reads: () => import('@/features/reads/ReadsView'),
   settings: () => import('@/features/settings/SettingsView'),
   settingsSection: () => import('@/features/settings/SettingsSection'),
+  plans: () => import('@/features/plan/PlansPage'),
   welcome: () => import('@/features/onboarding/Welcome'),
   gallery: () => import('./dev/UiGallery'),
 };
@@ -64,20 +65,23 @@ const MorningView = view(views.morning);
 const GoalsView = view(views.goals);
 const GoalHistory = view(views.goalHistory);
 const PlanView = view(views.plan);
+const ProgressView = view(views.progress);
 const JournalView = view(views.journal);
+const ReadsView = view(views.reads);
 const SettingsView = view(views.settings);
 const SettingsSection = view(views.settingsSection);
+const PlansPage = view(views.plans);
 const Welcome = view(views.welcome);
 const UiGallery = view(views.gallery);
 
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
 const prefetchViews = () => {
   const pushed = () => {
-    for (const v of [MorningView, SettingsView, SettingsSection]) void v.preload().catch(() => undefined);
+    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView]) void v.preload().catch(() => undefined);
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
-    for (const v of [GoalsView, PlanView, JournalView, Welcome, GoalHistory]) void v.preload().catch(() => undefined);
+    for (const v of [GoalsView, PlanView, ProgressView, JournalView, Welcome, PlansPage, GoalHistory]) void v.preload().catch(() => undefined);
   };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 400);
@@ -99,11 +103,12 @@ const STUBS = (() => {
 const StubRoot = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot })));
 const StubPushed = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed })));
 const pages = STUBS
-  ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, plan: <StubRoot tab="plan" />, journal: <StubRoot tab="journal" /> }
+  ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
   : {
       today: <DayView />,
       goals: <GoalsView />,
       plan: <PlanView />,
+      progress: <ProgressView />,
       journal: <JournalView />,
     };
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
@@ -111,8 +116,10 @@ const pushedFor = (e: PushedEntry) => {
   const pattern = matchRoute(e.path).route?.pattern;
   if (pattern === '/today/:date/morning') return <MorningView />;
   if (pattern === '/goals/history') return <GoalHistory />;
+  if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;
+  if (pattern === '/journal/reads/:tab?') return <ReadsView />;
   if (pattern === '/dev/ui') return STUBS ? <StubPushed /> : <UiGallery />;
   return null;
 };
@@ -225,7 +232,7 @@ export const App = () => {
   // a 401 anywhere sends you to sign in, without reloading the page
   useEffect(() => {
     const fn = () => {
-      if (!/^\/(login|setup|signup|start|verify|reset)/.test(location.pathname)) navigate(signedOutHome(), { replace: true });
+      if (!/^\/(login|setup|signup|start)/.test(location.pathname)) navigate(signedOutHome(), { replace: true });
     };
     onUnauthorized.add(fn);
     return () => {
@@ -239,8 +246,6 @@ export const App = () => {
         <Route path="/start" element={<Start />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignupRoute />} />
-        <Route path="/verify" element={<Verify />} />
-        <Route path="/reset" element={<Reset />} />
         <Route path="/setup" element={<Navigate to="/signup" replace />} />
         <Route path="*" element={<Authed />} />
       </Routes>

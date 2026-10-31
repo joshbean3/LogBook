@@ -1,4 +1,3 @@
-import { aiVisible } from './ai-sources.js';
 import { counts, monthsBetween, sessionStatus, shiftDays, type EndedBlockRef, type ISODate, type PlanBlock, type Snapshot, type Template } from '@logbook/shared';
 import { and, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import type { DB } from '../db/index.js';
@@ -8,14 +7,9 @@ import { nowISO, uid } from '../lib/util.js';
 import { activitiesBetween, sessionsBetween } from '../routes/core.js';
 
 /** A status snapshot for one user over a date range, read from the database (the server's twin of the web's log cache). */
-/**
- * The status snapshot for a range. `opts.forAi` keeps only the activities a model may read (services/ai-sources.ts):
- * a status derived from a Strava run is derived Strava data and stays out of every model call.
- */
-export const snapshotFor = (db: DB, userId: string, from: ISODate, to: ISODate, today: ISODate, opts: { forAi?: boolean } = {}): Snapshot => {
+export const snapshotFor = (db: DB, userId: string, from: ISODate, to: ISODate, today: ISODate): Snapshot => {
   const sessions = sessionsBetween(db, userId, from, to);
-  const all = activitiesBetween(db, userId, from, to);
-  const acts = opts.forAi ? aiVisible(all) : all;
+  const acts = activitiesBetween(db, userId, from, to);
   const sets = db
     .select({ date: liftSets.date, n: sql<number>`count(*)` })
     .from(liftSets)
@@ -121,7 +115,7 @@ export const writeTemplate = (db: DB, userId: string, t: Template, opts: { repla
     .where(and(eq(trainingSessions.userId, userId), isNull(trainingSessions.deletedAt), gte(trainingSessions.date, t.start), lte(trainingSessions.date, t.end)))
     .all())
     pos.set(s.date, Math.max(pos.get(s.date) ?? 0, s.position + 1));
-  db.insert(planBlocks).values({ id: blockId, userId, name: t.name, start: t.start, end: t.end, source: opts.source, summary: t.summary || null, createdAt: now }).run();
+  db.insert(planBlocks).values({ id: blockId, userId, name: t.name, start: t.start, end: t.end, source: opts.source, summary: t.summary, createdAt: now }).run();
   for (const s of t.sessions) {
     const p = pos.get(s.date) ?? 0;
     pos.set(s.date, p + 1);

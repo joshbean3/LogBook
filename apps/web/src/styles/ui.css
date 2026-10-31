@@ -578,9 +578,9 @@ label.lrow[data-pressed] {
 }
 /* picked: lit gold, as a feeling is picked */
 .chip-btn.on {
-  background: var(--accent-tint);
-  color: var(--accent-text);
-  border-color: var(--accent-text);
+  background: rgba(255, 200, 61, 0.16);
+  color: var(--sun);
+  border-color: var(--sun);
 }
 .chip-btn:disabled {
   opacity: 0.4;
@@ -1237,7 +1237,7 @@ textarea.in {
   letter-spacing: 0;
   text-transform: none;
   margin-left: 2px;
-  color: var(--ink-2);
+  color: rgba(255, 255, 255, 0.7);
 }
 /* the small line under a stamp ("of 6"): 12px at 70% */
 .aura-note {
@@ -1246,7 +1246,7 @@ textarea.in {
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink-2);
+  color: rgba(255, 255, 255, 0.7);
   white-space: nowrap;
 }
 .aura-chev {

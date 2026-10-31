@@ -430,10 +430,12 @@ const NavRows = () => {
         [`/today/${t}/morning`, 'This morning (pushed on Today)'],
         ['/settings', 'Settings (pushed, Today stays lit)'],
         ['/settings/training', 'Training (depth 2)'],
+        ['/settings/plans', 'Plans (depth 2)'],
         ['/plan', 'Plan (tab)'],
-        ['/goals', 'Goals (tab)'],
+        ['/progress', 'Progress (tab)'],
         ['/journal', 'Journal (tab)'],
-        ['/progress', '/progress redirects to Plan'],
+        ['/journal/reads', 'Reads (pushed, Journal stays lit)'],
+        ['/trends', '/trends redirects to Progress'],
         ['/morning', '/morning redirects to Today'],
       ].map(([to, label]) => (
         <Pressable key={to} as="div" press="surface" className="gal-edge-row" onPress={() => nav.go(to!)}>

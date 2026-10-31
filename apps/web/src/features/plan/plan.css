@@ -1,180 +1,12 @@
-/* ---------- Workout Plan: the strip, the week you reshape by touching it, the month, the block, the library (docs/system.md) ---------- */
+/* ---------- Plan: the week you reshape by touching it, and the month (docs/feel.md §7) ---------- */
 
 /*
- * The title is `Workout Plan` on every page: the NavBar binds every stacked label to the pager's progress, and the title
- * has no neighbour to fade to, so it is held at full opacity here.
+ * The title is `Plan` on every page: the NavBar binds every stacked label to the pager's progress, and Plan's title has no
+ * neighbour to fade to, so it is held at full opacity here (a local shim; request in docs/reviews/wp4.md).
  */
 .plan-root .nb-title [data-sl],
 .plan-root .nb-inline [data-sl] {
   opacity: 1 !important;
-}
-
-/* ---------- the top: the Ask bar, the starters, the strip ---------- */
-.pl-top {
-  display: grid;
-  gap: 12px;
-  padding: 0 var(--page-pad) 24px;
-  min-width: 0;
-}
-.pl-starters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-/* the strip: the one hero, a Card with the halo; its head is the tap that expands it */
-.card.pl-strip {
-  padding: 0;
-  gap: 0;
-  overflow: hidden;
-  grid-template-columns: minmax(0, 1fr);
-}
-.pl-strip-head.pressable {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  min-height: 104px;
-  padding: 16px 12px 8px 16px;
-  text-align: left;
-  color: inherit;
-  border-radius: var(--r-card) var(--r-card) 0 0;
-}
-.pl-strip-words {
-  display: grid;
-  flex: 1 1 auto;
-  min-width: 0;
-  gap: 2px;
-}
-.pl-strip-stamp {
-  font-size: var(--fs-stamp);
-  line-height: var(--lh-stamp);
-  white-space: nowrap;
-  color: var(--ink);
-}
-.pl-strip-stamp small {
-  font-family: var(--sans);
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-2);
-}
-.pl-strip-sub {
-  text-wrap: balance;
-}
-.pl-strip-chev {
-  flex: none;
-  color: var(--ink-3);
-  transition: transform var(--dur) var(--ease-out);
-}
-.pl-strip-chev.is-open {
-  transform: rotate(180deg);
-}
-.pl-strip-spark {
-  padding: 0 16px 16px;
-}
-.pl-strip-spark .pl-arc {
-  height: 40px;
-  justify-content: space-between;
-}
-.pl-strip-spark .pl-arc-wk {
-  flex: 0 1 12px;
-}
-/* in the strip the past is quiet and the shown week is the one lit bar */
-.pl-strip-spark .pl-arc-wk .ran {
-  background: var(--ink-4);
-}
-.pl-strip-spark .pl-arc-wk.is-now .ran {
-  background: var(--accent);
-}
-.pl-strip-more {
-  overflow: hidden;
-}
-.pl-strip-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-  padding: 4px 16px 16px;
-  border-top: 1px solid var(--line);
-}
-.pl-strip-body .seg.pl-range {
-  margin-top: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.pl-eyebrow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 16px;
-}
-.pl-eyebrow .caps {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.pl-eyebrow-meta {
-  flex: none;
-  color: var(--ink-4);
-}
-.pl-strip-sec {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-/* the last run: the route, the name, its numbers, one tap */
-.pl-last.pressable {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  color: inherit;
-  border-radius: var(--r-group);
-}
-.pl-last .ss-map {
-  background: var(--surface-2);
-}
-.pl-last-name {
-  color: var(--ink);
-}
-.pl-rec-val {
-  font-size: var(--fs-head);
-  line-height: var(--lh-head);
-  color: var(--ink);
-}
-.pl-rec-val small {
-  font-family: var(--sans);
-  font-size: var(--fs-foot);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-3);
-}
-.pl-block-line {
-  margin: 0;
-  color: var(--ink);
-}
-.meter.pl-meter {
-  height: 4px;
-  border-radius: var(--r-pill);
-}
-.meter.pl-meter > i {
-  background: var(--accent);
-  border-radius: var(--r-pill);
-}
-.pl-long {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.pl-long > span {
-  min-width: 0;
 }
 
 /* ---------- the two panes: Week ⇄ Month is a 200 ms crossfade of both, mounted (PlanView) ----------
@@ -190,7 +22,7 @@
   min-width: 0;
 }
 /* the shown pane alone sets the height: the one fading out (or off) is out of flow, so the tab's scroll range is the
-   shown pane's from the tap, never clamped when the fade ends */
+   shown pane's from the tap, never clamped when the fade ends (review-feel-1 #1) */
 .pl-pane.is-leaving,
 .pl-pane.is-off {
   pointer-events: none;
@@ -210,7 +42,7 @@
   padding: 0 16px 24px;
 }
 
-/* ---------- the week line: the week's title, the This week pill, the bar once a mile is run, the sentence ---------- */
+/* ---------- the week line (§7.1): 22/28 600, the This week pill, the bar once a mile is run, the sentence ---------- */
 .pl-wl {
   min-height: 52px;
 }
@@ -223,10 +55,7 @@
 .pl-wl-head {
   margin: 0 auto 0 0;
   min-width: 0;
-  font-family: var(--sans);
-  font-size: var(--fs-title);
-  line-height: var(--lh-title);
-  font-weight: 600;
+  font: 600 22px/28px var(--sans);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -241,15 +70,13 @@
   border-radius: var(--r-pill);
   background: var(--accent-tint);
   color: var(--accent-text);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 600;
+  font: 600 13px/16px var(--sans);
   white-space: nowrap;
   opacity: 0;
   /* on the live page only: it fades in over 120 ms on the frame its page commits */
   transition:
-    opacity var(--dur-in) var(--ease-out),
-    transform 160ms var(--ease-out);
+    opacity 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .pl-now::after {
   content: '';
@@ -262,7 +89,7 @@
 .pl-bar {
   height: 4px;
   margin-top: 10px;
-  border-radius: var(--r-pill);
+  border-radius: 2px;
   background: var(--surface-3);
   overflow: hidden;
 }
@@ -271,20 +98,19 @@
   height: 100%;
   width: 100%;
   background: var(--accent);
-  border-radius: var(--r-pill);
+  border-radius: 2px;
   transform-origin: 0 50%;
 }
 .pl-wl-sub {
   margin: 4px 0 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  font: 400 15px/20px var(--sans);
   color: var(--ink-2);
 }
 .pl-bar + .pl-wl-sub {
   margin-top: 8px;
 }
 
-/* ---------- the seven days: 60 px rows in one inset group ---------- */
+/* ---------- the seven days: 60 px rows in one inset group (§7.2) ---------- */
 .pl-group {
   position: relative;
   margin-top: 16px;
@@ -294,9 +120,9 @@
   overflow: hidden;
 }
 /* the week group's surface belongs to its rows (an inset grouped table): the first row carries the top edge, the last the
-   bottom edge, so when rows FLIP the group's edge rides the last row and nothing is clipped. Behind the rows a plain
-   surface (.pl-wsurf, inset by the corner radius) fills the space a leaving row opens or a coming one takes while the rows
-   slide: flip.ts scales it from its top with the last row, so the group never tears. */
+   bottom edge, so when rows FLIP the group's edge rides the last row and nothing is clipped (review-feel-1 #5). Behind the
+   rows a plain surface (.pl-wsurf, inset by the corner radius) fills the space a leaving row opens or a coming one takes
+   while the rows slide: flip.ts scales it from its top with the last row, so the group never tears (feel review 2 B). */
 .pl-group.pl-wgroup {
   background: none;
   border: 0;
@@ -316,7 +142,7 @@
   transform-origin: 50% 0;
   pointer-events: none;
 }
-/* the inline question is revealed by the rows below sliding off it, never drawn over them */
+/* the inline question is revealed by the rows below sliding off it, never drawn over them (feel review 2 E) */
 .pl-wgroup > .pl-conflict {
   z-index: 0;
 }
@@ -375,9 +201,7 @@
   height: 60px;
 }
 .pl-dow {
-  font-size: var(--fs-caps);
-  line-height: var(--lh-caps);
-  font-weight: 600;
+  font: 600 11px/13px var(--sans);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -389,9 +213,7 @@
   height: 28px;
   margin-left: -6px;
   border-radius: 50%;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  font-weight: 600;
+  font: 600 15px/20px var(--sans);
   color: var(--ink);
 }
 .pl-day.is-past .pl-num {
@@ -402,10 +224,14 @@
 }
 .pl-day.is-today .pl-num {
   background: var(--accent);
-  color: var(--accent-ink);
+  color: #fff;
 }
 .pl-lines {
   min-width: 0;
+}
+.pl-slot + .pl-slot > .pl-line,
+.pl-slot + .pl-line {
+  box-shadow: inset 0 1px 0 var(--line);
 }
 /* a session: tone bar 3, its name as a 17 px stamp, the distance 15 ink-3, the status */
 .pl-line.pressable {
@@ -423,22 +249,10 @@
   text-align: left;
   font: inherit;
   /* the foundation's press/pre-grow transform transition stays: the lift reads the pre-grow's 1.02 from it, so the hold
-     never dips to 1.00 on the lift frame */
+     never dips to 1.00 on the lift frame (review-feel-1 #3) */
   transition:
-    transform 160ms var(--ease-out),
-    background-color var(--dur-color) var(--ease-out);
-}
-/* the hairline between two rows of one day */
-.pl-slot + .pl-slot > .pl-line::before,
-.pl-slot + .pl-line::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--line);
-  pointer-events: none;
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .pl-line[data-pressed][data-press='surface'] {
   background: var(--surface-2);
@@ -453,29 +267,29 @@
 .pl-line[data-dragging] > * {
   opacity: 0.35;
 }
-/* once the pill carries the session, the row it left is a placeholder at rest: no lift, no overhang past the group's edge;
-   it settles in 120 ms (the lift's own [data-lifting] rule turns transitions off) */
+/* once the pill carries the session, the row it left is a placeholder at rest: no lift, no overhang past the group's edge
+   (feel review 2 G); it settles in 120 ms (the lift's own [data-lifting] rule turns transitions off) */
 .pl-line[data-dragging] {
   scale: 1 !important;
   background: var(--surface) !important;
 }
 .pl-line.pressable[data-lifting][data-dragging] {
   transition:
-    scale var(--dur-in) var(--ease-out),
-    background-color var(--dur-in) var(--ease-out) !important;
+    scale 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 120ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
 /* the dropped session's new row waits for the pill to land in it */
 .pl-slot[data-landing] .pl-line > * {
   opacity: 0;
 }
 .pl-slot .pl-line > * {
-  transition: opacity var(--dur-in) var(--ease-out);
+  transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .pl-tone {
   flex: none;
   width: 3px;
   height: 32px;
-  border-radius: var(--r-pill);
+  border-radius: 2px;
   background: var(--tone, var(--t-rest));
 }
 .pl-main {
@@ -485,23 +299,21 @@
 }
 .pl-name {
   overflow: hidden;
-  font-size: var(--fs-head);
-  line-height: var(--lh-head);
+  font-size: 17px;
+  line-height: 22px;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .pl-sub {
   overflow: hidden;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font: 400 13px/18px var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .pl-dist {
   flex: none;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  font: 400 15px/20px var(--sans);
   color: var(--ink-3);
 }
 .pl-st {
@@ -514,9 +326,7 @@
   color: var(--accent-text);
 }
 .pl-st.is-word {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 500;
+  font: 500 13px/18px var(--sans);
   color: var(--ink-3);
 }
 .pl-st.is-word.k-floor {
@@ -538,15 +348,14 @@
 }
 .pl-line.is-rest .pl-tone {
   background: transparent;
-  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 /* a day with nothing planned: no rest outline, no word (only the + from today on) */
 .pl-line.is-empty .pl-tone {
-  border: 0;
+  box-shadow: none;
 }
 .pl-rest {
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
+  font: 400 17px/22px var(--sans);
   color: var(--ink-3);
 }
 .pl-plus {
@@ -556,8 +365,7 @@
 /* a day lit under a dragged session: the 2 px accent ring inside, --accent-tint */
 .pl-day.is-target {
   background: var(--accent-tint);
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 .pl-day.is-target .pl-line.pressable {
   background: transparent;
@@ -570,9 +378,7 @@
 }
 .pl-conflict p {
   margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  font-weight: 500;
+  font: 500 15px/20px var(--sans);
   color: var(--ink);
 }
 .pl-conflict-acts {
@@ -589,9 +395,7 @@
   border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--ink);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 600;
+  font: 600 13px/16px var(--sans);
 }
 .pl-ask.is-on {
   background: var(--accent-tint);
@@ -616,6 +420,7 @@
   border-radius: var(--r-pill);
   background: var(--surface-3);
   border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-2);
   color: var(--ink);
   pointer-events: none;
   white-space: nowrap;
@@ -629,10 +434,7 @@
   background: var(--tone, var(--accent));
 }
 .drag-pill-name {
-  font-family: var(--stamp);
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  font-weight: 800;
+  font: 800 15px/20px var(--stamp);
   letter-spacing: -0.02em;
   text-transform: uppercase;
 }
@@ -640,7 +442,7 @@
 .pl-skel {
   padding: 0;
 }
-/* the blocks show on the group's surface (a plain .skel is --surface: on this group it was invisible) */
+/* the blocks show on the group's surface (a plain .skel is --surface: on this group it was invisible, feel review 2 D) */
 .pl-skel .skel {
   --skel-bg: var(--surface-2);
 }
@@ -652,14 +454,50 @@
   padding: 0 16px;
 }
 
-/* ---------- the block under the week: one Group, the arc in its row ---------- */
-.pl-block .lrow .pl-arc {
-  width: 96px;
-  height: 24px;
-  gap: 2px;
+/* ---------- the block card (§7.2: card 20/16, 128 tall; the arc 24; one 44 row, New block ›) ---------- */
+.pl-block {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 44px;
+  height: 128px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  overflow: hidden;
 }
-.pl-block .lrow .pl-arc-wk {
-  flex: 0 1 5px;
+.pl-block-main {
+  display: grid;
+  grid-template-rows: 14px 28px 24px;
+  row-gap: 2px;
+  align-content: start;
+  min-width: 0;
+  padding: 10px 16px 0;
+}
+.pl-block-cap {
+  align-self: center;
+}
+.pl-block-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 22px/28px var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.pl-block .pl-arc {
+  height: 24px;
+}
+.pl-block-new {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px 0 16px;
+  font: 600 15px/20px var(--sans);
+  color: var(--accent-text);
+  text-align: left;
 }
 .pl-arc {
   display: flex;
@@ -669,10 +507,6 @@
 }
 .pl-arc.tall {
   height: 96px;
-  gap: 6px;
-}
-.pl-arc.tall .pl-arc-wk i {
-  border-radius: var(--r-control);
 }
 .pl-arc-wk {
   position: relative;
@@ -685,7 +519,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border-radius: var(--r-pill);
+  border-radius: 3px;
   min-height: 2px;
 }
 .pl-arc-wk .plan {
@@ -693,21 +527,18 @@
 }
 .pl-arc-wk.ahead .plan {
   background: transparent;
-  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 .pl-arc-wk .ran {
   background: var(--accent);
 }
 .pl-arc-wk.is-now .plan {
-  border: 1.5px solid var(--accent-bright);
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
   background: transparent;
 }
-/* a ghost arc under an empty state keeps its bars quiet */
-.empty-ghost .pl-arc-wk .plan {
-  background: var(--surface-2);
-}
 
-/* ---------- the month: 7 × ≤ 6 rows of 56 px cells, a Wk column, this week on --surface ---------- */
+/* ---------- the month, zoomed out ---------- */
+/* ---------- the month (§7.3): 7 × ≤ 6 rows of 56 px cells, a Wk column, this week on --surface ---------- */
 .mg {
   display: grid;
   gap: 0;
@@ -723,9 +554,7 @@
 }
 .mg-head span {
   text-align: center;
-  font-size: var(--fs-caps);
-  line-height: var(--lh-caps);
-  font-weight: 600;
+  font: 600 11px/13px var(--sans);
   letter-spacing: 0.06em;
   color: var(--ink-3);
 }
@@ -738,7 +567,7 @@
   height: 56px;
   min-height: 56px;
   border-radius: var(--r-group);
-  transition: background-color var(--dur-color) var(--ease-out);
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .mg-week.is-now {
   background: var(--surface);
@@ -761,15 +590,13 @@
   place-items: center;
   min-width: 22px;
   height: 18px;
-  border-radius: var(--r-pill);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 500;
+  border-radius: 9px;
+  font: 500 13px/18px var(--sans);
   color: var(--ink);
 }
 .mg-cell.is-today .mg-num {
   background: var(--accent);
-  color: var(--accent-ink);
+  color: #fff;
   font-weight: 600;
 }
 .mg-cell.is-out .mg-num,
@@ -777,9 +604,7 @@
   color: var(--ink-4);
 }
 .mg-mi {
-  font-size: var(--fs-caps);
-  line-height: var(--lh-caps);
-  font-weight: 500;
+  font: 500 11px/13px var(--sans);
   color: var(--ink-3);
 }
 .mg-mi.is-ran {
@@ -793,7 +618,7 @@
   width: 16px;
   height: 3px;
   margin-left: -8px;
-  border-radius: var(--r-pill);
+  border-radius: 2px;
   background: var(--tone, var(--t-rest));
 }
 .mg-cell.k-missed::after,
@@ -815,66 +640,172 @@
   min-width: 0;
 }
 .mg-wk b {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  font-weight: 600;
+  font: 600 15px/20px var(--sans);
   color: var(--ink);
 }
 .mg-wk small {
-  font-size: var(--fs-caps);
-  line-height: var(--lh-caps);
+  font: 400 11px/13px var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
 }
 .mg-wk.is-plan b {
   color: var(--ink-3);
 }
-/* the block under the grid keeps the page's rhythm */
+/* the block card under the grid keeps the page's rhythm */
 .pl-mpage .mg + * {
   margin-top: 24px;
 }
 
-/* ---------- the library and a plan's detail ---------- */
-.pl-lib,
+/* ---------- the plans list (Settings › Plans): one inset group of 60 px rows ---------- */
+.pl-plans,
 .pl-detail {
   display: grid;
   gap: 16px;
   min-width: 0;
 }
-.pl-lib .sec-secondary {
-  margin-top: 8px;
+.pl-plans .pl-plan-list {
+  margin-top: 0;
 }
-.pl-lib-ic {
-  flex: none;
-  color: var(--ink-3);
+.pl-plan-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 0 12px 0 16px;
+  text-align: left;
+  color: inherit;
+}
+.pl-plan-row + .pl-plan-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.pl-plan-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pl-plan-name {
+  font: 600 17px/22px var(--sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pl-plan-st {
   flex: none;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font: 400 13px/18px var(--sans);
   color: var(--ink-3);
 }
 .pl-plan-st.on {
   color: var(--accent-text);
 }
-/* a preset's first weeks, drawn quietly: nothing is saved yet */
-.group.pl-ghost {
-  opacity: 0.72;
+.pl-plans-empty {
+  margin: 0;
 }
-.pl-ghost .pl-tone {
-  height: 24px;
+.pl-ai-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 60px;
+  border-radius: var(--r-group);
+  background: var(--accent-tint);
+  padding: 8px 12px;
+  color: var(--accent-text);
+  text-align: left;
 }
-/* a destructive verb reads red, as every destructive item does, over the quiet variant's ink */
+.pl-ai-row > span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.pl-ai-row b {
+  color: var(--ink);
+  font-weight: 600;
+}
+/* a destructive verb reads red, as every destructive item does, over the quiet variant's ink (feel review 3 #7) */
 .btn.danger-text,
 .btn.quiet.danger-text {
   color: var(--bad);
 }
 
-/* ---------- the builder (Build my own) and Edit block ---------- */
+/* ---------- New block: the template picker ---------- */
 .tp {
   display: grid;
   gap: 20px;
   min-width: 0;
+}
+/* Seven letters on a 44 px pitch. Inside the 16 px gutters that needs 6 × 44 + a letter ≈ 304 px, more than a 320 screen's
+ * 288, so below 380 px the row takes 8 px of each gutter (it never touches the screen edge): 40 px letters, 4 px gaps.
+ * Each letter's hit area (::after) covers half of each gap beside it, so the areas tile at exactly the pitch (44 here). */
+.tp-days {
+  --tp-gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--tp-gap);
+  margin-inline: -8px;
+}
+@media (min-width: 380px) {
+  .tp-days {
+    --tp-gap: 6px;
+    margin-inline: 0;
+  }
+}
+.tp-day::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(var(--tp-gap) / -2);
+}
+.tp-day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  height: 56px;
+  min-width: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  font-family: var(--stamp);
+  font-weight: 800;
+  font-size: 1.0625rem;
+  color: var(--ink-3);
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
+}
+.tp-day.on {
+  background: var(--ink);
+  color: var(--bg);
+}
+.tp-day.long {
+  box-shadow:
+    inset 0 0 0 2px var(--accent-bright),
+    0 0 14px rgba(91, 102, 255, 0.45);
+}
+.tp-day small {
+  font-family: var(--sans);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 0.75rem;
+}
+.tp-long {
+  align-items: center;
+}
+/* at 320 the long-run chips keep one line: the caption goes above them (review-feel-1 #14) */
+@media (max-width: 380px) {
+  .tp-long > .t-sub {
+    flex-basis: 100%;
+  }
 }
 .tp-steps {
   display: grid;
@@ -885,10 +816,10 @@
   display: grid;
   gap: 8px;
 }
-/* the builder's fixed header: the ghost preview (148 tall with the slot's foot; a goal change crossfades the face, nothing
-   resizes) */
+/* ---------- the builder's fixed header: the ghost preview (§7.4: 160 tall with the slot's 12 px foot; a goal change
+   crossfades the face, nothing resizes) ---------- */
 .sheet-header:has(> .bh) {
-  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 var(--line);
 }
 .bh {
   position: relative;
@@ -914,14 +845,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--fs-head);
-  line-height: var(--lh-head);
-  font-weight: 600;
+  font: 600 17px/24px var(--sans);
   color: var(--ink);
 }
 .bh-dates {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font: 400 13px/18px var(--sans);
   color: var(--ink-3);
 }
 .bh-grid {
@@ -938,9 +866,9 @@
   min-width: 0;
 }
 .bh-cell {
-  border-radius: var(--r-pill);
+  border-radius: 2px;
   background: var(--surface-2);
-  transition: opacity var(--dur-color) var(--ease-out);
+  transition: opacity 200ms var(--ease-out);
 }
 .bh-cell[class*='t-'] {
   background: var(--tone);
@@ -950,8 +878,7 @@
 }
 .bh-error {
   padding-top: 8px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  font: 400 15px/22px var(--sans);
   color: var(--ink-3);
 }
 /* the weeks, ghosted: real numbers, held back until the plan is used */
@@ -973,11 +900,11 @@
 }
 .tp-wk b {
   font-family: var(--stamp);
-  font-size: var(--fs-foot);
+  font-size: 0.8125rem;
   font-weight: 800;
 }
 .tp-wk small {
-  font-size: var(--fs-caps);
+  font-size: 0.625rem;
   color: var(--ink-3);
   margin-top: 2px;
 }
@@ -988,12 +915,12 @@
 }
 .tp-cell {
   height: 24px;
-  border-radius: var(--r-control);
+  border-radius: 6px;
   background: var(--surface);
   display: grid;
   place-items: center;
   font-family: var(--stamp);
-  font-size: var(--fs-caps);
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--tone, var(--ink-3));
@@ -1009,11 +936,11 @@
 }
 .tp-tot b {
   font-family: var(--stamp);
-  font-size: var(--fs-foot);
+  font-size: 0.875rem;
   font-weight: 800;
 }
 .tp-tot small {
-  font-size: var(--fs-caps);
+  font-size: 0.5625rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -1032,8 +959,7 @@
 }
 .tp-note {
   margin: 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font: 400 13px/18px var(--sans);
   color: var(--ink-3);
 }
 .sheet-foot .btn.primary.tp-verb {
@@ -1043,10 +969,10 @@
   padding: 6px 20px;
   white-space: normal;
   text-wrap: balance;
-  line-height: var(--lh-body);
+  line-height: 1.375rem;
 }
 
-/* ---------- the Claude builder (From a file or description) ---------- */
+/* ---------- the AI builder (Write my next block), pushed inside the plans sheet ---------- */
 .brow {
   padding: 12px 16px;
   min-width: 0;
@@ -1071,7 +997,7 @@
   background: var(--surface-2);
 }
 .builder .in.bare:focus {
-  outline: 2px solid var(--accent-tint);
+  box-shadow: 0 0 0 3px var(--accent-tint);
 }
 .drop {
   display: grid;
@@ -1079,7 +1005,7 @@
   gap: 4px;
   padding: 20px 16px;
   border: 1.5px dashed var(--line-strong);
-  border-radius: var(--r-group);
+  border-radius: var(--r-lg);
   text-align: center;
   cursor: pointer;
   color: var(--ink-2);
@@ -1098,11 +1024,12 @@
   overflow-wrap: anywhere;
 }
 
-/* ---------- its preview ---------- */
+/* ---------- preview ---------- */
 .pv-hero {
   background: var(--surface);
   border: var(--card-border);
-  border-radius: var(--r-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
   padding: 16px;
   display: grid;
   gap: 4px;
@@ -1118,8 +1045,8 @@
   border-bottom: 1px dashed var(--line-strong);
   background: transparent;
   padding: 0 0 4px;
-  font-size: var(--fs-title);
-  line-height: var(--lh-title);
+  font-size: 22px;
+  line-height: 28px;
   font-weight: 600;
   letter-spacing: 0;
   color: var(--ink);
@@ -1136,7 +1063,7 @@
   gap: 4px;
   margin-top: 12px;
   padding: 10px 12px;
-  border-radius: var(--r-group);
+  border-radius: var(--r-md);
   background: var(--warn-soft);
 }
 .pv-notes .t-label {
@@ -1144,8 +1071,8 @@
 }
 .pv-notes ul {
   padding-left: 18px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  font-size: 15px;
+  line-height: 20px;
   color: var(--ink-2);
   display: grid;
   gap: 2px;
@@ -1160,16 +1087,16 @@
   display: flex;
   gap: 8px;
   align-items: baseline;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font-size: 12px;
+  line-height: 16px;
   color: var(--ink-3);
   letter-spacing: 0;
 }
 .pv-wk b {
   color: var(--ink);
   font-weight: 600;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  font-size: 15px;
+  line-height: 20px;
 }
 .pv-days {
   display: flex;
@@ -1186,8 +1113,8 @@
   opacity: 0.4;
 }
 .pv-dow {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font-size: 12px;
+  line-height: 16px;
   color: var(--ink-3);
   white-space: nowrap;
 }
@@ -1230,7 +1157,7 @@
   margin-top: 8px;
 }
 
-/* the block under the week's group and the month's grid: 24 between sections */
+/* the block card under the week's group and the month's grid: 24 between sections (§3) */
 .pl-wpage > .pl-block,
 .pl-wpage > .pl-block-empty,
 .pl-mpage > .pl-block,
@@ -1238,7 +1165,7 @@
   margin-top: 24px;
 }
 
-/* a pager slot drawn from the stash's HTML (PlanView): the page box is its own child */
+/* a pager slot drawn from the stash's HTML (PlanView, feel review 3 #1): the page box is its own child */
 .pl-snap {
   display: contents;
 }

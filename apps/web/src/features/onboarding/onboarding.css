@@ -25,9 +25,24 @@
   pointer-events: none;
   transition: opacity var(--dur-color) var(--ease-out);
 }
+/* the promise: the light rises once, then holds still */
+.ob-halo.rise {
+  opacity: 0.9;
+  animation: ob-rise 1.1s var(--ease-out) both;
+}
 /* the payoff: full bloom */
 .ob-halo.bloom {
   opacity: 1;
+}
+@keyframes ob-rise {
+  from {
+    opacity: 0;
+    transform: translateY(35%);
+  }
+  to {
+    opacity: 0.9;
+    transform: none;
+  }
 }
 
 /* ---------- top bar: back, progress dots, skip ---------- */
@@ -71,7 +86,7 @@
 .ob-dot {
   width: 6px;
   height: 6px;
-  border-radius: var(--r-pill);
+  border-radius: 3px;
   background: var(--ink-4);
   transition:
     width 220ms var(--ease-out),
@@ -130,7 +145,7 @@
 .ob-under-scrim {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: #000;
   pointer-events: none;
 }
 .ob-stage {
@@ -288,7 +303,7 @@
   width: 76px;
   height: 88px;
   transform: translateX(-50%);
-  border-radius: var(--r-group);
+  border-radius: 18px;
   border: 1.5px solid var(--line-strong);
   background: var(--surface);
   pointer-events: none;
@@ -303,8 +318,8 @@
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(to right, transparent, var(--bg) 22%, var(--bg) 78%, transparent);
-  mask-image: linear-gradient(to right, transparent, var(--bg) 22%, var(--bg) 78%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
   outline: none;
 }
 .ob-race-strip::-webkit-scrollbar {
@@ -397,7 +412,7 @@
     background 160ms var(--ease-out),
     color 160ms var(--ease-out),
     border-color 160ms var(--ease-out),
-    outline-color 320ms var(--ease-out);
+    box-shadow 320ms var(--ease-out);
 }
 .ob-day.on .ob-day-disc {
   background: var(--ink);
@@ -405,8 +420,10 @@
   color: var(--bg);
 }
 .ob-day.long .ob-day-disc {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 3px;
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 5px var(--accent-bright),
+    0 0 24px rgba(47, 59, 255, 0.7);
 }
 .ob-day-cap {
   height: 14px;
@@ -538,15 +555,15 @@
   right: 0;
   top: calc(50% - 2px);
   height: 4px;
-  border-radius: var(--r-pill);
+  border-radius: 2px;
   background: var(--surface-3);
 }
 .ob-seg {
   position: absolute;
   top: calc(50% - 4px);
   height: 8px;
-  border-radius: var(--r-pill);
-  background: var(--ink-4);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
   transition:
     left 120ms var(--ease-out),
     width 120ms var(--ease-out);
@@ -566,10 +583,10 @@
   border-radius: 50%;
   background: var(--ink);
   border: 3px solid var(--bg);
-  outline: 1.5px solid var(--ink-2);
+  box-shadow: 0 0 0 1.5px var(--ink-2);
   transition:
     transform 120ms var(--ease-out),
-    outline-color var(--dur-color) var(--ease-out);
+    box-shadow var(--dur-color) var(--ease-out);
   touch-action: none;
   outline: none;
 }
@@ -581,11 +598,14 @@
 }
 .ob-marker.on {
   transform: scale(1.15);
-  outline: 1.5px solid var(--accent-bright);
+  box-shadow:
+    0 0 0 1.5px var(--accent-bright),
+    0 0 20px rgba(47, 59, 255, 0.8);
 }
 .ob-marker:focus-visible {
-  outline: 1.5px solid var(--ink);
-  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1.5px var(--ink),
+    0 0 0 5px var(--accent-bright);
 }
 .ob-hours {
   position: relative;
@@ -822,7 +842,7 @@
 .ob-wtone {
   width: 3px;
   height: 24px;
-  border-radius: var(--r-pill);
+  border-radius: 2px;
   background: var(--tone, transparent);
 }
 .ob-wrow.rest .ob-wtone {
@@ -838,7 +858,7 @@
 .ob-wlong {
   margin-left: 8px;
   padding: 2px 6px;
-  border-radius: var(--r-control);
+  border-radius: 6px;
   background: var(--surface-2);
   color: var(--ink);
   vertical-align: 2px;
@@ -856,14 +876,14 @@
 }
 .ob-wbar {
   height: 6px;
-  border-radius: var(--r-pill);
+  border-radius: 3px;
   background: var(--surface-2);
   overflow: hidden;
 }
 .ob-wbar-fill {
   display: block;
   height: 100%;
-  border-radius: var(--r-pill);
+  border-radius: 3px;
   background: var(--tone);
   transform-origin: left center;
 }
@@ -932,12 +952,17 @@
   position: sticky;
   bottom: 0;
   padding-bottom: 4px;
-  background: var(--bg);
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6) 24px);
 }
 @media (max-width: 359px) {
   .ob-day-disc {
     width: 38px;
     height: 38px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ob-halo.rise {
+    animation: none;
   }
 }
 
@@ -953,20 +978,4 @@
   border-color: var(--accent);
   color: var(--ink);
   background: var(--accent-soft, var(--surface));
-}
-
-/* the Strava row on the payoff, and its Later (Today's card and the sheet reuse `.sp`) */
-.sp {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-}
-.sp .group {
-  width: 100%;
-}
-.ob-strava {
-  margin-top: 24px;
-}
-.sp-later {
-  margin-left: -14px;
 }

@@ -1,4 +1,3 @@
-import type { DayBands, DaySlot } from './dayplan.js';
 import type { Aim, GoalEvent } from './goals.js';
 import type { ISODate } from './dates.js';
 
@@ -45,8 +44,6 @@ export type Lap = [number, number, number | null];
 
 export interface Activity {
   id: string;
-  /** Which integration recorded it. */
-  provider?: ProviderId;
   date: ISODate;
   /** `HH:MM` local start time */
   time: string | null;
@@ -219,24 +216,8 @@ export interface MorningDayOverride {
 export type LegacyMorningDay = MorningDayOverride & Partial<{ mode: MorningMode; type: string; miles: number; minutes: number }>;
 
 // ---------- integrations ----------
-export type ProviderId = 'strava' | 'coros';
-export type ConnectionState = 'ok' | 'needs_reauth' | 'error' | 'revoked' | 'disconnected';
-/** One integration as Settings → Connections shows it (`GET /connections`). */
-export interface ProviderConnection {
-  provider: ProviderId;
-  name: string;
-  configured: boolean;
-  connected: boolean;
-  status: ConnectionState;
-  athleteName: string | null;
-  lastSyncAt: string | null;
-  syncing: boolean;
-  error: string | null;
-}
-
 export interface StravaStatus {
   connected: boolean;
-  status?: ConnectionState;
   athleteName: string | null;
   lastSyncAt: string | null;
   syncing: boolean;
@@ -300,9 +281,6 @@ export interface TemplateAppliedV2 {
 /** One activity in an export: the stored row, lossless (meters, elapsed time, laps, route). */
 export interface ExportActivity {
   id: string;
-  /** Which integration recorded it (absent in older exports: Strava). */
-  provider?: ProviderId;
-  externalId?: string;
   date: ISODate;
   time: string | null;
   name: string;
@@ -344,38 +322,4 @@ export interface ExportV2 {
   todoGroups?: TodoGroup[];
   goals?: Aim[];
   goalEvents?: GoalEvent[];
-  /** Since the agent v2 and reminders (absent in older exports). */
-  dayPlans?: Array<{ date: ISODate; bands: DayBands; slots?: DaySlot[]; updatedAt: string }>;
-  reminders?: Reminder[];
-  memories?: Array<{ key: string; text: string; updatedAt: string }>;
-  assistantThreads?: Array<{ id: string; title: string | null; createdAt: string; updatedAt: string; compactedSummary: string | null; messages: Array<{ role: string; content: unknown; actionId: string | null; createdAt: string }> }>;
-  /** The account's time zone and "About you" note. */
-  timezone?: string | null;
-  profileNote?: string | null;
-}
-
-// ---------- reminders ----------
-export type ReminderSource = 'user' | 'agent' | 'system';
-export type ReminderStatus = 'pending' | 'sent' | 'cancelled';
-export interface Reminder {
-  id: string;
-  title: string;
-  body: string | null;
-  route: string | null;
-  /** ISO instant. */
-  fireAtUtc: string;
-  /** The wall clock in the account's time zone, for the list. */
-  local: { date: string; time: string } | null;
-  rrule: string | null;
-  source: ReminderSource;
-  status: ReminderStatus;
-  createdAt: string;
-}
-export interface NotificationSettings {
-  /** "Today's goal is unset", fifteen minutes after the alarm. */
-  goalUnset: boolean;
-  /** "Tomorrow: Easy 5, out the door 6:50", at 21:00. */
-  tomorrow: boolean;
-  quietHours: { start: string; end: string } | null;
-  timezone: string | null;
 }

@@ -14,8 +14,6 @@ export interface AthleteContext {
   activities: Activity[];
   zones: HrZone[] | null;
   stravaOk: boolean;
-  /** "About you, for the assistant" (users.profile_note), when written. */
-  note?: string | null;
 }
 
 /** Six weeks of running, typical paces and zones: what a coach would want to know before writing anything. */
@@ -36,7 +34,7 @@ export const recentContext = (ctx: AthleteContext): string => {
     ctx.stravaOk ? `Recent weekly running from Strava (Mon-start): ${weeks.join('; ')}.` : 'Recent running data is not available right now; do not assume the athlete is untrained.',
     paces.length ? `Typical recent run paces per mile: ${paces.join(', ')}.` : '',
     ctx.zones ? `Heart-rate zones (bpm): ${ctx.zones.map((z) => `Z${z.zone} ${z.min}${z.max ? `-${z.max}` : '+'}`).join(', ')}.` : '',
-    ctx.note ? `Athlete: ${ctx.note}` : '',
+    env.ATHLETE_CONTEXT ? `Athlete: ${env.ATHLETE_CONTEXT}` : '',
   ]
     .filter(Boolean)
     .join('\n');

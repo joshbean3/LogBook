@@ -92,55 +92,6 @@
       "when": 1792400000000,
       "tag": "0012_day_plans",
       "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "6",
-      "when": 1792500000000,
-      "tag": "0013_assistant_v2",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "6",
-      "when": 1792600000000,
-      "tag": "0014_reminders",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "6",
-      "when": 1792700000000,
-      "tag": "0015_providers",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "6",
-      "when": 1792800000000,
-      "tag": "0016_accounts",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "6",
-      "when": 1792900000000,
-      "tag": "0017_ops",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "6",
-      "when": 1793000000000,
-      "tag": "0018_provider_clients",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "6",
-      "when": 1793100000000,
-      "tag": "0019_day_slots",
-      "breakpoints": true
     }
   ]
 }

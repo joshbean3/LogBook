@@ -15,16 +15,6 @@ export const users = sqliteTable('users', {
   trainingProfile: text('training_profile'),
   /** The athlete's name ("Josh"): the avatar's initial and Settings → You. Null until given. Migration 0008. */
   name: text('name'),
-  /** "About you, for the assistant": a sentence or two the owner wrote in Settings → You, read into the assistant's context. Migration 0013. */
-  profileNote: text('profile_note'),
-  /** IANA time zone (`X-Timezone` on every authed request), for reminders and the assistant. Migration 0014. */
-  timezone: text('timezone'),
-  /** `{ start: "22:00", end: "07:00" }` as JSON: a reminder due inside it moves to the window's end. Migration 0014. */
-  quietHoursJson: text('quiet_hours_json'),
-  /** When the address was confirmed through its mailed link; null until then (accounts from before 0016 were set to their created_at). Migration 0016. */
-  emailVerifiedAt: text('email_verified_at'),
-  /** When the password was last changed (a reset or Settings › Account); null when it is the one from sign-up. Migration 0016. */
-  passwordChangedAt: text('password_changed_at'),
 });
 
 export const authSessions = sqliteTable('auth_sessions', {
@@ -33,27 +23,7 @@ export const authSessions = sqliteTable('auth_sessions', {
   expiresAt: text('expires_at').notNull(),
   createdAt: createdAt(),
   userAgent: text('user_agent'),
-  /** The last request on this session, written at most once an hour (Settings › Account › Sessions). Migration 0016. */
-  lastSeenAt: text('last_seen_at'),
 });
-
-/**
- * One-time links sent by mail: `verify` (24 h) confirms an address, `reset` (1 h) sets a new password. Only a sha256 of the
- * 32-byte token is kept, so the table is worthless on its own; `used_at` makes each link single use. Migration 0016.
- */
-export const emailTokens = sqliteTable(
-  'email_tokens',
-  {
-    id: id(),
-    userId: userId(),
-    kind: text('kind').notNull(),
-    tokenHash: text('token_hash').notNull(),
-    expiresAt: text('expires_at').notNull(),
-    usedAt: text('used_at'),
-    createdAt: createdAt(),
-  },
-  (t) => [index('email_tokens_user').on(t.userId), uniqueIndex('email_tokens_hash').on(t.tokenHash)],
-);
 
 /** Small JSON documents keyed by name: morning settings, preferences. */
 export const userSettings = sqliteTable(
@@ -315,63 +285,24 @@ export const shownItems = sqliteTable(
   (t) => [primaryKey({ columns: [t.userId, t.kind, t.itemId] })],
 );
 
-/**
- * One row per connected provider (Strava, Coros): the OAuth tokens, the athlete it is, the sync cursor and the last error.
- * `status`: ok | needs_reauth | error | revoked. UNIQUE(provider, external_athlete_id): one Logbook account per athlete.
- * Migration 0015 (copied from the old `strava_accounts`).
- */
-export const providerConnections = sqliteTable(
-  'provider_connections',
-  {
-    userId: userId(),
-    provider: text('provider').notNull(),
-    externalAthleteId: text('external_athlete_id').notNull(),
-    athleteName: text('athlete_name'),
-    accessToken: text('access_token').notNull(),
-    refreshToken: text('refresh_token').notNull(),
-    /** Unix seconds. */
-    expiresAt: integer('expires_at').notNull(),
-    scope: text('scope'),
-    /** Provider-specific sync cursor (an ISO time or an opaque token). */
-    cursor: text('cursor'),
-    lastSyncAt: text('last_sync_at'),
-    lastError: text('last_error'),
-    status: text('status').notNull().default('ok'),
-    connectedAt: text('connected_at').notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.provider] }), uniqueIndex('provider_connections_athlete').on(t.provider, t.externalAthleteId)],
-);
+export const stravaAccounts = sqliteTable('strava_accounts', {
+  userId: text('user_id').primaryKey(),
+  athleteId: text('athlete_id').notNull(),
+  athleteName: text('athlete_name'),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  scope: text('scope'),
+  connectedAt: createdAt(),
+  lastSyncAt: text('last_sync_at'),
+  lastError: text('last_error'),
+});
 
-/**
- * OAuth clients this server registered with a provider's authorization server (RFC 7591 dynamic registration), one per
- * provider and issuer: COROS's MCP server hands out a client id on first connect instead of a developer console. The
- * redirect URI is kept so a changed APP_URL re-registers. Migration 0018.
- */
-export const providerClients = sqliteTable(
-  'provider_clients',
-  {
-    provider: text('provider').notNull(),
-    issuer: text('issuer').notNull(),
-    clientId: text('client_id').notNull(),
-    clientSecret: text('client_secret'),
-    redirectUri: text('redirect_uri').notNull(),
-    registeredAt: text('registered_at').notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.provider, t.issuer] })],
-);
-
-/**
- * Activities as a provider recorded them. Keyed by (user, provider, external id) so two accounts on the same athlete never
- * collide; `id` stays the row id the client knows (unique). `duplicate_of` marks a row another provider also recorded
- * (same start within two minutes, distance within 2%): it is kept but left out of status and miles. Migration 0015.
- */
 export const activities = sqliteTable(
   'activities',
   {
-    id: text('id').notNull(),
+    id: id(),
     userId: userId(),
-    provider: text('provider').notNull().default('strava'),
-    externalId: text('external_id').notNull(),
     date: text('date').notNull(),
     time: text('time'),
     name: text('name').notNull(),
@@ -387,14 +318,11 @@ export const activities = sqliteTable(
     lapsJson: text('laps_json'),
     perfAt: text('perf_at'),
     perfFailed: integer('perf_failed').notNull().default(0),
-    /** When the detail fetch last failed; retried after 24 hours. */
-    perfFailedAt: text('perf_failed_at'),
     polyline: text('polyline'),
-    duplicateOf: text('duplicate_of'),
     deletedAt: text('deleted_at'),
     updatedAt: text('updated_at').notNull(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.provider, t.externalId] }), uniqueIndex('activities_id').on(t.id), index('activities_user_date').on(t.userId, t.date)],
+  (t) => [index('activities_user_date').on(t.userId, t.date)],
 );
 
 export const hrZones = sqliteTable('hr_zones', {
@@ -490,164 +418,7 @@ export const dayPlans = sqliteTable(
     userId: userId(),
     date: text('date').notNull(),
     bands: text('bands').notNull().default('{"morning":[],"afternoon":[],"evening":[]}'),
-    /** The timeline's blocks as JSON (`DaySlot[]`: ref, start, minutes). Migration 0019. */
-    slots: text('slots').notNull().default('[]'),
     updatedAt: text('updated_at').notNull(),
   },
   (t) => [uniqueIndex('day_plans_user_date').on(t.userId, t.date)],
 );
-
-// ---------- the assistant, v2 (migration 0013) ----------
-
-/** One conversation with the assistant. The live thread is the newest; `POST /assistant/new` starts another. */
-export const assistantThreads = sqliteTable(
-  'assistant_threads',
-  {
-    id: id(),
-    userId: userId(),
-    title: text('title'),
-    createdAt: createdAt(),
-    updatedAt: text('updated_at').notNull(),
-    /** What the messages before the kept window said, in a paragraph, once the thread outgrew the model call. */
-    compactedSummary: text('compacted_summary'),
-  },
-  (t) => [index('assistant_threads_user').on(t.userId, t.updatedAt)],
-);
-
-/** Every message of a thread as the model saw or said it: the full content blocks (tool_use and tool_result included) as JSON. */
-export const assistantMessages = sqliteTable(
-  'assistant_messages',
-  {
-    id: id(),
-    threadId: text('thread_id').notNull(),
-    userId: userId(),
-    role: text('role').notNull(),
-    contentJson: text('content_json').notNull(),
-    /** The proposal (`assistant_actions.id`) an assistant message carried, when it called propose_changes. */
-    actionId: text('action_id'),
-    createdAt: createdAt(),
-  },
-  (t) => [index('assistant_messages_thread').on(t.threadId, t.createdAt)],
-);
-
-/** What the assistant was told to remember ("I run before work"), injected into every turn. */
-export const userMemory = sqliteTable(
-  'user_memory',
-  {
-    userId: userId(),
-    key: text('key').notNull(),
-    text: text('text').notNull(),
-    updatedAt: text('updated_at').notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.userId, t.key] })],
-);
-
-/** Tokens per model call, for the bill. */
-export const llmUsage = sqliteTable(
-  'llm_usage',
-  {
-    id: id(),
-    userId: userId(),
-    kind: text('kind').notNull(),
-    model: text('model').notNull(),
-    inputTokens: integer('input_tokens').notNull().default(0),
-    outputTokens: integer('output_tokens').notNull().default(0),
-    cachedTokens: integer('cached_tokens').notNull().default(0),
-    ms: integer('ms').notNull().default(0),
-    at: text('at').notNull(),
-  },
-  (t) => [index('llm_usage_user_at').on(t.userId, t.at)],
-);
-
-// ---------- reminders and push (migration 0014) ----------
-
-/** A device that takes pushes: a Web Push subscription (`endpoint_or_token` is the endpoint) or an APNs token. */
-export const pushSubscriptions = sqliteTable(
-  'push_subscriptions',
-  {
-    id: id(),
-    userId: userId(),
-    kind: text('kind').notNull(),
-    endpointOrToken: text('endpoint_or_token').notNull(),
-    p256dh: text('p256dh'),
-    auth: text('auth'),
-    userAgent: text('user_agent'),
-    createdAt: createdAt(),
-    lastOkAt: text('last_ok_at'),
-    failedAt: text('failed_at'),
-  },
-  (t) => [index('push_subscriptions_user').on(t.userId), uniqueIndex('push_subscriptions_endpoint').on(t.userId, t.endpointOrToken)],
-);
-
-/**
- * A reminder: fires once at `fire_at_utc` (and, with an `rrule`, again at the next occurrence). `source`: user | agent |
- * system; `dedupe_key` keeps the system's own ("goal-unset:2026-10-31") from doubling. `status`: pending | sent | cancelled.
- */
-export const reminders = sqliteTable(
-  'reminders',
-  {
-    id: id(),
-    userId: userId(),
-    title: text('title').notNull(),
-    body: text('body'),
-    route: text('route'),
-    fireAtUtc: text('fire_at_utc').notNull(),
-    rrule: text('rrule'),
-    source: text('source').notNull().default('user'),
-    assistantActionId: text('assistant_action_id'),
-    dedupeKey: text('dedupe_key'),
-    status: text('status').notNull().default('pending'),
-    createdAt: createdAt(),
-  },
-  (t) => [index('reminders_due').on(t.status, t.fireAtUtc), index('reminders_user').on(t.userId, t.fireAtUtc), uniqueIndex('reminders_dedupe').on(t.userId, t.dedupeKey)],
-);
-
-/** Every push attempt: which reminder, which device, what came back. */
-export const notificationLog = sqliteTable(
-  'notification_log',
-  {
-    id: id(),
-    userId: userId(),
-    reminderId: text('reminder_id').notNull(),
-    subscriptionId: text('subscription_id'),
-    status: text('status').notNull(),
-    error: text('error'),
-    at: text('at').notNull(),
-  },
-  (t) => [index('notification_log_user').on(t.userId, t.at)],
-);
-
-// ---------- ops (migration 0017) ----------
-
-/**
- * Advisory leases: one row per job family (`job:<name>`) and one for the migration lock. A process holds a lease by
- * name until `expires_at` (ms since the epoch); `lib/leases.ts` takes it with one upsert, so two processes on the
- * same file (the API and the worker) never run the same job at once. Created by db/index.ts before the migrations run.
- */
-export const leases = sqliteTable('leases', {
-  name: text('name').primaryKey(),
-  holder: text('holder').notNull(),
-  expiresAt: integer('expires_at').notNull(),
-});
-
-/** One row per job run (`services/ops/jobs.ts`): what ran, when, whether it worked, and what it did (`meta`, JSON). Kept 14 days. */
-export const jobRuns = sqliteTable(
-  'job_runs',
-  {
-    id: id(),
-    name: text('name').notNull(),
-    startedAt: text('started_at').notNull(),
-    finishedAt: text('finished_at'),
-    ok: integer('ok'),
-    error: text('error'),
-    meta: text('meta'),
-  },
-  (t) => [index('job_runs_name_started').on(t.name, t.startedAt), index('job_runs_started').on(t.startedAt)],
-);
-
-/** Fixed-window counters behind `lib/ratelimit.ts`: `key` is `<limit>:<user or ip>`, `window_start` ms since the epoch. */
-export const rateLimits = sqliteTable('rate_limits', {
-  key: text('key').primaryKey(),
-  windowStart: integer('window_start').notNull(),
-  count: integer('count').notNull(),
-});

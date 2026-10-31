@@ -298,9 +298,7 @@ export const zDeleteAccount = z.object({ password: z.string().min(1).max(200) })
 // ---------- fix round contracts (docs/platform.md §7–§11) ----------
 
 /** `PATCH /me`: the account's name ("Josh"); an empty string or null clears it. */
-export const zMePatch = z
-  .object({ name: z.string().trim().max(60).nullable().optional(), profileNote: z.string().trim().max(1000).nullable().optional() })
-  .refine((o) => o.name !== undefined || o.profileNote !== undefined, { message: 'Nothing to change' });
+export const zMePatch = z.object({ name: z.string().trim().max(60).nullable() });
 
 /** What `POST /plans/template` did to a block the new one overlapped: ended it the day before (`prevEnd` was its end), or deleted it (it had not started). */
 export const zEndedBlock = z.union([z.object({ id: z.string().min(1).max(64), prevEnd: zDate }), z.object({ id: z.string().min(1).max(64), deleted: z.literal(true) })]);
@@ -339,49 +337,3 @@ export const zGoalPatch = z.object({
 export const zGoalRefine = z.object({ level: zGoalLevel, period: z.string().min(4).max(10), text: z.string().trim().min(1).max(400) });
 /** What Claude returns for a goal review. */
 export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean(), steps: z.array(z.string()) });
-
-// ---------- reminders and push ----------
-export const zClockTime = z.string().regex(/^\d{2}:\d{2}$/, 'Expected HH:MM');
-/** Daily, or weekly on named days (`weekly:mon,wed`). Stored as `FREQ=DAILY` / `FREQ=WEEKLY;BYDAY=MO,WE`. */
-export const zRrule = z.string().regex(/^(daily|weekly:(mon|tue|wed|thu|fri|sat|sun)(,(mon|tue|wed|thu|fri|sat|sun))*|FREQ=DAILY|FREQ=WEEKLY;BYDAY=(MO|TU|WE|TH|FR|SA|SU)(,(MO|TU|WE|TH|FR|SA|SU))*)$/, 'daily, or weekly:mon,wed');
-/**
- * `POST /reminders`: a title, when (`at` as an ISO datetime with its offset, or a local `date` + `time` read in the
- * account's time zone), an optional repeat, and the route a tap opens.
- */
-export const zReminderInput = z
-  .object({
-    title: z.string().trim().min(1).max(120),
-    body: z.string().trim().max(300).nullable().optional(),
-    route: z.string().trim().max(120).regex(/^\/[\w\-/?=&.%]*$/, 'a path inside the app').nullable().optional(),
-    at: z.iso.datetime({ offset: true }).optional(),
-    date: zDate.optional(),
-    time: zClockTime.optional(),
-    rrule: zRrule.nullable().optional(),
-  })
-  .refine((r) => !!r.at || (!!r.date && !!r.time), { message: 'Give at, or date and time', path: ['at'] });
-export type ReminderInput = z.infer<typeof zReminderInput>;
-
-export const zQuietHours = z.object({ start: zClockTime, end: zClockTime }).nullable();
-/** `PATCH /notifications/settings`: the two system reminders and quiet hours. */
-export const zNotificationSettingsPatch = z.object({
-  goalUnset: z.boolean().optional(),
-  tomorrow: z.boolean().optional(),
-  quietHours: zQuietHours.optional(),
-});
-export const zPushSubscribe = z.object({
-  kind: z.enum(['webpush', 'apns']),
-  endpoint: z.string().min(8).max(2000),
-  keys: z.object({ p256dh: z.string().max(400), auth: z.string().max(200) }).optional(),
-  userAgent: z.string().max(200).optional(),
-});
-export const zPushUnsubscribe = z.object({ endpoint: z.string().min(8).max(2000) });
-
-// ---------- the day (docs/today-v6.md §5) ----------
-/** A range of the clock in minutes from midnight, 0..1439, the start before the end. */
-const zMinuteRange = z.object({ start: z.number().int().min(0).max(1439), end: z.number().int().min(0).max(1439) }).refine((r) => r.start < r.end, { message: 'start must be before end', path: ['end'] });
-/** `user_settings` key `day`: the timeline's window and the work hours (`GET/PATCH /me/day`; the bootstrap's `daySettings`). */
-export const zDaySettings = z.object({ window: zMinuteRange, workHours: zMinuteRange });
-export type DaySettings = z.infer<typeof zDaySettings>;
-export const zDaySettingsPatch = z.object({ window: zMinuteRange.optional(), workHours: zMinuteRange.optional() }).refine((p) => p.window !== undefined || p.workHours !== undefined, { message: 'Nothing to change' });
-/** 6:00 to 23:00, working 9:00 to 18:00. */
-export const DEFAULT_DAY_SETTINGS: DaySettings = { window: { start: 360, end: 1380 }, workHours: { start: 540, end: 1080 } };
