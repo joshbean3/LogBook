@@ -1,4 +1,4 @@
-import { buildTemplate, cleanBands, fmtDate, monthOf, periodOf, shiftDays, TemplateError, type AssistantOp, type AssistantProposal, type DayBands, type EndedBlockRef } from '@logbook/shared';
+import { buildTemplate, cleanBands, fmtDate, monthOf, periodOf, shiftDays, TemplateError, zAssistantOp, type AssistantOp, type AssistantProposal, type DayBands, type EndedBlockRef } from '@logbook/shared';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { DB } from '../../db/index.js';
 import { assistantActions, dayPlans, goalEvents, goals, habitChecks, habits, morningDays, reminders, todoGroups, todos, trainingSessions } from '../../db/schema.js';
@@ -190,7 +190,8 @@ export const actionOf = (db: DB, userId: string, id: string) => {
 export const applyAction = (db: DB, userId: string, id: string, today: string) => {
   const row = actionOf(db, userId, id);
   if (row.status !== 'proposed') throw new ApiError(409, row.status === 'applied' ? 'Already applied.' : 'This proposal is closed.');
-  const ops = JSON.parse(row.ops) as AssistantOp[];
+  // parsed again on the way in: a stored op is what the schema says it is (a clock time becomes minutes)
+  const ops = (JSON.parse(row.ops) as unknown[]).map((o) => zAssistantOp.parse(o));
   const undo: UndoRecord = { sessions: [], todos: [], goals: [], checks: [], dayPlans: [], alarms: [], reminders: [], templates: [], created: { sessions: [], todos: [], goals: [], habits: [] } };
   const months = new Set<string>();
   const now = nowISO();
