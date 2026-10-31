@@ -1,56 +1,15 @@
-import { GOAL_STEPS_MAX, goalProgress, type Aim, type GoalStep } from '@logbook/shared';
+import { GOAL_STEPS_MAX, type Aim, type GoalStep } from '@logbook/shared';
 import { Plus, X } from 'lucide-react';
-import { animate, motion, useMotionValue } from 'motion/react';
 import { useState } from 'react';
 import { useGoalMutations } from '@/api/queries';
 import { revealField } from '@/lib/keyboard';
-import { springs, useReduced } from '@/lib/motion';
-import { usePress } from '@/ui/usePress';
-import { TodoMark } from '../todos/TodoMark';
+import { IconButton, Mark } from '@/ui/primitives';
 import './goals.css';
 
 const newId = () => `s${Math.random().toString(36).slice(2, 9)}`;
+export const newStepId = newId;
 export const stepsOf = (texts: readonly string[]): GoalStep[] => texts.map((text) => ({ id: newId(), text, done: false }));
 
-const R = 12;
-const C = 2 * Math.PI * R;
-/** The pop's start velocity, as the to-do mark's. */
-const POP_V = 5.5;
-
-/**
- * The goal's ring: how far through its steps it is (an arc that fills as steps are checked), a check inside once it is
- * done. A tap marks the goal done (the ring fills, pops on `springs.complete`, `toggle` on the peak frame) or opens it
- * again. 28 px drawn, a 44 px target.
- */
-export const GoalRing = ({ goal, label }: { goal: Aim; label: string }) => {
-  const { review } = useGoalMutations();
-  const reduce = useReduced();
-  const pop = useMotionValue(1);
-  const press = usePress();
-  const done = goal.status === 'done';
-  const p = goalProgress(goal);
-  const toggle = () => {
-    const next = done ? 'open' : 'done';
-    // the pop is the ring's; the haptic and the burst are the row's, once the goal turns done (wherever it was done from)
-    if (next === 'done' && !reduce) animate(pop, 1, { ...springs.complete, velocity: POP_V });
-    // done with steps left: they are all checked with it (the goal is the sum of its steps)
-    review.mutate({ id: goal.id, status: next, ...(next === 'done' && goal.steps.some((s) => !s.done) ? { steps: goal.steps.map((s) => ({ ...s, done: true })) } : {}) });
-  };
-  return (
-    <button type="button" className={`g-ring-hit ${done ? 'is-done' : ''}`} role="checkbox" aria-checked={done} aria-label={label} data-press="scale" {...press.handlers} onClick={toggle}>
-      <motion.svg className="g-ring" width={28} height={28} viewBox="0 0 28 28" style={{ scale: pop }} aria-hidden="true">
-        <circle cx={14} cy={14} r={R} className="g-ring-track" />
-        <motion.circle cx={14} cy={14} r={R} className="g-ring-arc" strokeDasharray={C} initial={false} animate={{ strokeDashoffset: C * (1 - p) }} transition={reduce ? { duration: 0 } : springs.settle} transform="rotate(-90 14 14)" />
-        <motion.path d="M9 14.5l3.2 3.2L19.5 10.5" className="g-ring-check" initial={false} animate={{ pathLength: done ? 1 : 0, opacity: done ? 1 : 0 }} transition={reduce ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }} />
-      </motion.svg>
-    </button>
-  );
-};
-
-/**
- * A goal's steps, checked off where they stand (Today's card, the Goals tab, the goal's card). Checking the last one
- * finishes the goal; unchecking one of a done goal opens it again. `editable` adds the remove marks and the add row.
- */
 /** Save a goal's steps; the last one checked finishes the goal, one unchecked opens a done goal again. */
 export const useSaveSteps = () => {
   const { review } = useGoalMutations();
@@ -60,9 +19,26 @@ export const useSaveSteps = () => {
     review.mutate({ id: goal.id, steps, ...(status ? { status } : {}) });
   };
 };
-export const newStepId = newId;
 
-export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: boolean; compact?: boolean }) => {
+/**
+ * @deprecated The ring is gone (docs/system.md §4: every check is a `Mark`). A circle Mark that marks the goal done or opens it
+ * again, kept for `features/dayplan/PlanDay.tsx`.
+ */
+export const GoalRing = ({ goal, label }: { goal: Aim; label: string }) => {
+  const { review } = useGoalMutations();
+  const done = goal.status === 'done';
+  const toggle = () => {
+    const next = done ? 'open' : 'done';
+    review.mutate({ id: goal.id, status: next, ...(next === 'done' && goal.steps.some((s) => !s.done) ? { steps: goal.steps.map((s) => ({ ...s, done: true })) } : {}) });
+  };
+  return <Mark status={done ? 'done' : 'open'} label={label} onClick={toggle} haptic="success" />;
+};
+
+/**
+ * A goal's steps in the detail sheet: circle Marks to check them where they stand (the last one finishes the goal), a remove
+ * per step and one add row when `editable`.
+ */
+export const GoalSteps = ({ goal, editable }: { goal: Aim; editable?: boolean }) => {
   const saveSteps = useSaveSteps();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
@@ -75,15 +51,15 @@ export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: b
   };
   if (!goal.steps.length && !editable) return null;
   return (
-    <ul className={`g-steps ${compact ? 'compact' : ''}`} aria-label="Steps">
+    <ul className="g-steps" aria-label="Steps">
       {goal.steps.map((s) => (
         <li key={s.id} className={`g-step ${s.done ? 'is-done' : ''}`}>
-          <TodoMark on={s.done} label={s.text} onToggle={(next) => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
+          <Mark status={s.done ? 'done' : 'open'} label={s.text} onClick={() => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: !x.done } : x)))} haptic="toggle" />
           <span className="g-step-text">{s.text}</span>
           {editable ? (
-            <button type="button" className="g-step-x" aria-label={`Remove ${s.text}`} onClick={() => save(goal.steps.filter((x) => x.id !== s.id))}>
-              <X size={15} aria-hidden="true" />
-            </button>
+            <IconButton label={`Remove ${s.text}`} className="g-step-x" onClick={() => save(goal.steps.filter((x) => x.id !== s.id))}>
+              <X size={16} aria-hidden="true" />
+            </IconButton>
           ) : null}
         </li>
       ))}
@@ -119,7 +95,7 @@ export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: b
   );
 };
 
-/** Suggested steps before the goal exists: keep, drop or add, then they go in with it. */
+/** Steps before the goal exists (the editor): numbered, each droppable, one row to add. */
 export const DraftSteps = ({ steps, onChange }: { steps: string[]; onChange: (s: string[]) => void }) => {
   const [draft, setDraft] = useState('');
   const add = () => {
@@ -135,9 +111,9 @@ export const DraftSteps = ({ steps, onChange }: { steps: string[]; onChange: (s:
             {i + 1}
           </span>
           <span className="g-step-text">{s}</span>
-          <button type="button" className="g-step-x" aria-label={`Drop ${s}`} onClick={() => onChange(steps.filter((_, j) => j !== i))}>
-            <X size={15} aria-hidden="true" />
-          </button>
+          <IconButton label={`Drop ${s}`} className="g-step-x" onClick={() => onChange(steps.filter((_, j) => j !== i))}>
+            <X size={16} aria-hidden="true" />
+          </IconButton>
         </li>
       ))}
       {steps.length < GOAL_STEPS_MAX ? (

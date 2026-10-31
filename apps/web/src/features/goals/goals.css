@@ -1,345 +1,45 @@
-/* Goals: the tab, the card on Today, the sheets and the history. Inset groups of 60 rows, caps over the row's voice, the
-   accent for done, amber for partly, ink for missed (never red, as Plan's missed rows). Nothing animates layout. */
-
-/* ---------- a goal row ---------- */
-.g-row.pressable,
-.g-hrow.pressable {
+/* Goals (docs/system.md): one stack of goal rows, the sheets, the history. Tokens only; the row itself is goalrow.css. */
+.g-page {
+  padding-bottom: 32px;
+}
+.g-stack {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 64px;
-  padding: 11px 14px 11px 16px;
-  text-align: left;
-  color: var(--ink);
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-}
-.g-group > .g-row:last-child,
-.g-group > .g-hrow:last-child,
-.goals-card > .g-row:last-child {
-  border-bottom: 0;
-}
-.g-row.compact {
-  min-height: 56px;
-  padding-block: 9px;
-}
-.g-row[data-pressed],
-.g-hrow[data-pressed],
-.g-owed[data-pressed],
-.g-link[data-pressed],
-.g-trail[data-pressed] {
-  background: var(--surface-2);
-}
-.g-row-main {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-.g-row-caps {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.g-row-text {
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.g-row.is-done .g-row-text,
-.g-hrow.is-done .g-row-text {
-  color: var(--ink-2);
-}
-.g-row-set {
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  color: var(--accent-text);
-  font-weight: 500;
-}
-.g-row-none {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-4);
-}
-.g-row-end {
-  display: grid;
-  place-items: center;
-  min-width: 24px;
-}
-.g-chev {
-  color: var(--ink-4);
-}
-.g-plus {
-  color: var(--accent-text);
-}
-.g-stamp {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-}
-.g-stamp.is-done {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.g-stamp.is-partly {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-.g-stamp.is-missed {
-  background: var(--surface-3);
-  color: var(--ink-3);
+  gap: var(--sp-group);
 }
 
-/* ---------- the tab ---------- */
-.g-page .g-now {
-  margin-top: 8px;
-}
-.g-ahead,
-.g-past {
-  margin-top: var(--section);
-}
-.g-ahead .sec-title {
-  margin: 0 0 10px;
-  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.g-foot {
-  margin: 14px 4px 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-
-/* the review owed: a card above the four, its three answers along the bottom */
-.g-review {
-  margin: 8px 0 16px;
-  padding: 16px;
+/* ---------- a review owed ---------- */
+.g-review-body {
   display: grid;
   gap: 8px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-}
-.g-review-text {
-  margin: 0;
-  font: 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  color: var(--ink);
+  padding: 14px 16px 12px;
 }
 .g-review-ask {
   margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-3);
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
-
-/* Done · Partly · Missed */
+.g-review-text {
+  margin: 0;
+  font: 400 var(--fs-title) / var(--lh-title) var(--display);
+  font-style: italic;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
 .g-answers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 4px;
-}
-.g-answer {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 44px;
-  border-radius: var(--r-control);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font: 600 var(--fs-sub) / 1 var(--sans);
-  transition: background-color var(--dur-color) var(--ease-out), color var(--dur-color) var(--ease-out), border-color var(--dur-color) var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
-}
-.g-answer.is-done.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-.g-answer.is-partly.on {
-  background: var(--warn-soft);
-  border-color: var(--warn);
-  color: var(--warn);
-}
-.g-answer.is-missed.on {
-  background: var(--surface-3);
-  border-color: var(--ink-3);
-  color: var(--ink);
-}
-
-/* the last fourteen days: one mark a day */
-.g-trail.pressable {
-  display: grid;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 12px;
-  padding: 14px 16px;
-  text-align: left;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-  color: var(--ink);
-}
-.g-trail-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.g-trail-sum {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: var(--fs-sub);
-  color: var(--ink-2);
-}
-.g-trail-marks {
-  display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
   gap: 4px;
+  margin-left: -12px;
 }
-.g-mark {
-  height: 18px;
-  border-radius: 5px;
-  background: var(--surface-3);
-}
-.g-mark.is-done {
-  background: var(--accent);
-  box-shadow: 0 0 10px rgba(47, 59, 255, 0.55);
-}
-/* a run of hit days reads as one bar of light */
-.g-mark.is-joined {
-  margin-left: -4px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-.g-mark.is-partly {
-  background: var(--warn);
-  opacity: 0.85;
-}
-.g-mark.is-missed {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--ink-4);
-}
-.g-mark.is-open {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
-}
-.g-mark.is-none {
-  background: var(--surface-2);
-}
-.g-mark.is-today {
-  outline: 1.5px solid var(--ink-2);
-  outline-offset: 2px;
-}
-
-/* the history and reminders rows */
-.g-link.pressable,
-.g-link.g-switch {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  grid-template-areas: 'ic title end' 'ic sub end';
-  align-items: center;
-  column-gap: 12px;
-  row-gap: 1px;
-  width: 100%;
-  min-height: 60px;
-  padding: 9px 12px 9px 16px;
-  text-align: left;
-  color: var(--ink);
-  background: transparent;
-  border: 0;
-}
-.g-link + .g-link {
-  border-top: 1px solid var(--line);
-}
-.g-link-ic {
-  grid-area: ic;
-  color: var(--ink-3);
-}
-.g-link-title {
-  grid-area: title;
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-}
-.g-link-sub {
-  grid-area: sub;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-.g-link > .g-chev,
-.g-link > .s-switch {
-  grid-area: end;
-}
-
-/* ---------- on Today: the day's goal and the week's, under the hero ---------- */
-.goals-card {
-  margin-top: 12px;
-}
-.goals-card.is-skel {
-  height: 112px;
-}
-.goals-card + .morning-row {
-  margin-top: 12px;
-}
-.g-owed.pressable {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 52px;
-  padding: 8px 12px 8px 16px;
-  text-align: left;
-  color: var(--ink);
-  background: var(--accent-tint);
-  border: 0;
-  border-bottom: 1px solid var(--line);
-}
-.g-owed-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-}
-.g-owed-text {
-  display: grid;
-  gap: 2px;
-}
-.g-owed-ask {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-}
-
-/* the tab's dot: something to set or to review */
-.tab-item {
-  position: relative;
-}
-.tab-dot {
-  position: absolute;
-  top: 6px;
-  left: calc(50% + 9px);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow: 0 0 0 2px var(--surface);
-  pointer-events: none;
+.g-answers .btn {
+  height: 44px;
+  padding: 0 14px;
 }
 
 /* ---------- the sheets ---------- */
 .gsheet {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 .gs-field {
   display: grid;
@@ -347,332 +47,80 @@
 }
 .gs-input {
   width: 100%;
-  min-height: 112px;
-  padding: 12px 14px;
-  border-radius: var(--r-group);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  min-height: 96px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 400 var(--fs-title) / var(--lh-title) var(--display);
+  font-style: italic;
   color: var(--ink);
-  font-size: max(16px, var(--fs-sentence));
-  line-height: var(--lh-sentence);
   resize: none;
 }
-.gs-input::placeholder,
-.gs-note::placeholder {
+.gs-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.gs-input::placeholder {
   color: var(--ink-4);
 }
-.gs-input:focus,
-.gs-note:focus {
-  outline: none;
-  border-color: var(--accent-bright);
+.gs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.gs-hint {
-  margin: -4px 2px 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+.gs-chip-text {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gs-hint,
+.gs-why {
+  margin: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
 .gs-sentence {
   margin: 0;
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
+  font: 400 var(--fs-sheet) / var(--lh-sheet) var(--display);
+  font-style: italic;
   color: var(--ink);
+  overflow-wrap: anywhere;
 }
-.gs-sharp {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  border-radius: var(--r-group);
-  background: var(--accent-tint);
-  border: 1px solid rgba(91, 102, 255, 0.35);
-}
-.gs-sharp-caps {
-  display: inline-flex;
+.gs-suggest {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--accent-text);
+  gap: 12px;
 }
-.gs-why {
-  margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-2);
-}
-.gs-mine {
-  display: grid;
-  gap: 6px;
-  padding: 0 4px;
-}
-.gs-mine-text {
-  margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+.gs-caption {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
-}
-.gs-from {
-  margin: -8px 0 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-.gs-from-why {
-  color: var(--ink-4);
 }
 .gs-note {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: var(--r-control);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--ink);
-  font-size: max(16px, var(--fs-sub));
-  line-height: var(--lh-sub);
-  resize: none;
-}
-.g-log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-radius: var(--r-group);
-  background: var(--surface-2);
-}
-.g-log-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-}
-.g-log-row + .g-log-row {
-  border-top: 1px solid var(--line);
-}
-.g-log-when {
-  color: var(--ink-3);
-  white-space: nowrap;
+  font-family: var(--sans);
 }
 
-/* ---------- the history ---------- */
-.g-history .g-seg {
-  margin: 8px 0 16px;
-  width: 100%;
-}
-.g-tally {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 16px;
-  padding: 14px 8px;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-}
-.g-tally-cell {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-}
-.g-tally-cell .stamp {
-  font-size: 1.375rem;
-  line-height: 1.625rem;
-}
-.g-hrow.is-none.pressable {
-  min-height: 52px;
-  padding-block: 8px;
-}
-.g-hrow-note {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-  font-style: italic;
-}
-.g-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-foot);
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--ink-3);
-}
-.g-state.is-done {
-  color: var(--accent-text);
-}
-.g-state.is-partly {
-  color: var(--warn);
-}
-.g-state.is-none {
-  color: var(--ink-4);
-  font-weight: 500;
-}
-.g-hrow.is-owed .g-state {
-  color: var(--ink-2);
-}
-.g-logday + .g-logday {
-  margin-top: 20px;
-}
-.g-logday-head {
-  margin: 0 4px 8px;
-}
-.g-feed {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.g-feed-row {
-  display: grid;
-  gap: 3px;
-  padding: 12px 16px;
-}
-.g-feed-row + .g-feed-row {
-  border-top: 1px solid var(--line);
-}
-.g-feed-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.g-feed-what {
-  font-size: var(--fs-sub);
-  font-weight: 600;
-  color: var(--ink);
-}
-.g-feed-row.is-done .g-feed-what {
-  color: var(--accent-text);
-}
-.g-feed-row.is-partly .g-feed-what {
-  color: var(--warn);
-}
-.g-feed-row.is-cleared .g-feed-what,
-.g-feed-row.is-missed .g-feed-what {
-  color: var(--ink-3);
-}
-.g-feed-when {
-  font-size: var(--fs-foot);
-  color: var(--ink-3);
-}
-.g-feed-text {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-2);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .g-answer {
-    transition: none;
-  }
-}
-
-/* ---------- a set goal, live: the ring, the words, its steps ---------- */
-.g-live {
-  border-bottom: 1px solid var(--line);
-  padding: 6px 0;
-}
-.g-group > .g-live:last-child,
-.goals-card > .g-live:last-child {
-  border-bottom: 0;
-}
-.g-live-head {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  align-items: center;
-  column-gap: 4px;
-  padding: 0 14px 0 6px;
-}
-.g-live-main.pressable {
-  display: grid;
-  gap: 3px;
-  min-height: 52px;
-  padding: 6px 0;
-  text-align: left;
-  color: var(--ink);
-  background: none;
-  border: 0;
-  min-width: 0;
-}
-.g-live.is-done .g-row-text {
-  color: var(--ink-2);
-}
-.g-live-count {
-  color: var(--accent-text);
-  letter-spacing: 0.06em;
-}
-.g-live.is-done .g-live-count {
-  color: var(--ink-3);
-}
-.g-live-stamp {
-  justify-self: center;
-}
-
-.g-ring-hit {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-bright);
-  -webkit-tap-highlight-color: transparent;
-}
-.g-ring-track {
-  fill: none;
-  stroke: var(--surface-3);
-  stroke-width: 2.5;
-}
-.g-ring-arc {
-  fill: none;
-  stroke: var(--accent-bright);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
-.g-ring-hit.is-done .g-ring-track {
-  fill: var(--accent);
-  stroke: var(--accent);
-}
-.g-ring-hit.is-done .g-ring-arc {
-  stroke: var(--accent);
-}
-.g-ring-check {
-  fill: none;
-  stroke: var(--accent-ink);
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* the steps: a short checklist under the goal, its marks lined up under the ring */
+/* ---------- steps (the sheet's list; the row's steps are goalrow.css) ---------- */
 .g-steps {
-  list-style: none;
+  display: grid;
   margin: 0;
-  padding: 0 14px 4px 6px;
-}
-.g-steps.is-draft {
   padding: 0;
-  border-radius: var(--r-group);
-  background: var(--surface-2);
+  list-style: none;
 }
 .g-step {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 4px;
-  min-height: 40px;
-}
-.g-steps.compact .g-step {
-  min-height: 38px;
+  min-height: 44px;
+  margin-left: -11px;
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  color: var(--ink);
 }
 .g-steps.is-draft .g-step {
-  padding: 0 4px;
-  border-bottom: 1px solid var(--line);
-}
-.g-steps.is-draft .g-step:last-child {
-  border-bottom: 0;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  margin-left: 0;
 }
 .g-step-text {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .g-step.is-done .g-step-text {
@@ -681,43 +129,27 @@
   text-decoration-color: var(--ink-4);
 }
 .g-step-num {
-  justify-self: center;
-  font-size: var(--fs-foot);
-  font-weight: 600;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .g-step-x {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-4);
+  color: var(--ink-3);
+  margin-right: -12px;
 }
 .g-step-add {
   grid-template-columns: minmax(0, 1fr);
 }
-.g-step-addbtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 0 0 12px;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-}
 .g-step-input {
   width: 100%;
-  min-height: 40px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0 0 0 11px;
   border: 0;
   background: transparent;
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   color: var(--ink);
-  font-size: max(16px, var(--fs-sub));
+}
+.g-steps.is-draft .g-step-input {
+  padding-left: 0;
 }
 .g-step-input:focus {
   outline: none;
@@ -725,540 +157,65 @@
 .g-step-input::placeholder {
   color: var(--ink-4);
 }
-.g-log-step {
-  color: var(--ink-3);
-}
-
-/* where a day's goal can start: one tap fills the field */
-.gs-chips {
+.g-step-addbtn {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-  margin-top: -6px;
-}
-.gs-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font: 500 var(--fs-foot) / 1 var(--sans);
-}
-.gs-chip-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.gs-chip-p1 {
-  color: var(--prio-1);
-}
-
-/* ---------- the game ---------- */
-/* the points a check earns, rising from the mark */
-.tmark-hit {
-  position: relative;
-}
-
-
-/* the ring's sparks when a goal is hit */
-.g-ring-wrap {
-  position: relative;
-  display: grid;
-  place-items: center;
-}
-.g-burst {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-.g-burst i {
-  position: absolute;
-  left: -2.5px;
-  top: -2.5px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-}
-.g-burst i.warm {
-  background: var(--warn);
-}
-.g-burst i.white {
-  background: #fff;
-}
-.g-burst .g-wave {
-  position: absolute;
-  left: -22px;
-  top: -22px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid var(--accent-bright);
-  box-shadow: 0 0 18px var(--accent-bright);
-}
-
-/* the hit: the card flashes and says so */
-.g-live.is-hit {
-  animation: g-flash 1.2s var(--ease-out);
-}
-@keyframes g-flash {
-  0% {
-    background: transparent;
-  }
-  12% {
-    background: var(--accent-tint);
-  }
-  100% {
-    background: transparent;
-  }
-}
-.g-hit {
-  margin: -2px 14px 6px 54px;
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--warn);
-}
-.g-hit.big {
-  font-size: var(--fs-sub);
-}
-
-/* the steps' progress, under the goal's words */
-.g-bar {
-  display: block;
-  height: 3px;
-  margin-top: 6px;
-  border-radius: 2px;
-  background: var(--surface-3);
-  overflow: hidden;
-}
-.g-bar i {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-bright));
-  transform-origin: left center;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .g-live.is-hit {
-    animation: none;
-  }
-}
-
-/* ---------- the orbit: four rings, the year outside, the day inside ---------- */
-.gv-head {
-  display: grid;
-  gap: 14px;
-}
-.gv-orbit {
-  position: relative;
-  justify-self: center;
-  width: min(288px, 82vw);
-  aspect-ratio: 1;
-  margin-top: 4px;
-}
-.gv-orbit::before {
-  /* the glow the rings sit in */
-  content: '';
-  position: absolute;
-  inset: 14%;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 200, 61, 0.16), transparent);
-  filter: blur(12px);
-  pointer-events: none;
-}
-.gv-orbit-svg {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.gv-orbit > .g-burst {
-  z-index: 2;
-}
-.gv-ring {
-  opacity: 0.55;
-  transition: opacity 240ms var(--ease-out);
-}
-.gv-ring.is-sel {
-  opacity: 1;
-}
-.gv-track {
-  fill: none;
-  stroke: var(--hue);
-  stroke-opacity: 0.16;
-}
-.gv-ring.is-unset .gv-track {
-  stroke-opacity: 0.1;
-  stroke-dasharray: 1.5 7;
-  stroke-linecap: round;
-}
-.gv-arc {
-  fill: none;
-  stroke: var(--hue);
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--hue) 70%, transparent));
-}
-.gv-ring.is-done .gv-arc {
-  filter: drop-shadow(0 0 9px var(--hue));
-}
-.gv-hand {
-  stroke: rgba(255, 255, 255, 0.85);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-.gv-ring:not(.is-sel) .gv-hand {
-  stroke: rgba(255, 255, 255, 0.4);
-}
-.gv-centre {
-  position: absolute;
-  inset: 32%;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 1px;
-  text-align: center;
-  pointer-events: none;
-}
-.gv-centre-name {
-  color: var(--hue);
-}
-.gv-centre-left {
-  font-family: var(--serif);
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
-  color: var(--ink);
-  white-space: nowrap;
-}
-.gv-centre-sub {
-  color: var(--ink-3);
-  font-size: var(--fs-caps);
-  line-height: var(--lh-caps);
-  white-space: nowrap;
-}
-.gv-centre-left.is-done {
-  color: var(--hue);
-  text-shadow: 0 0 18px var(--hue);
-}
-
-/* the level picker under the orbit */
-.gv-picks {
-  justify-self: center;
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  border: var(--card-border);
-}
-.gv-pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0 0 0 11px;
   border: 0;
-  border-radius: var(--r-pill);
-  background: none;
-  color: var(--ink-3);
-  font: 600 var(--fs-foot) / 1 var(--sans);
-  transition:
-    background-color 200ms,
-    color 200ms;
-}
-.gv-pick.is-sel {
-  background: var(--surface-3);
-  color: var(--ink);
-}
-.gv-pick i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--hue);
-}
-.gv-pick i.is-set {
-  background: color-mix(in srgb, var(--hue) 45%, transparent);
-}
-.gv-pick i.is-done {
-  background: var(--hue);
-  box-shadow: 0 0 8px var(--hue);
+  background: transparent;
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  color: var(--accent-text);
 }
 
-/* the cards: one per level, swiped sideways, the next one peeking */
-.gv-strip {
+/* ---------- history ---------- */
+.g-history .g-seg {
+  margin: 8px 0 16px;
+}
+.g-tally {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: var(--sp-secondary);
+}
+.g-tally-cell {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: calc(100% - 28px);
-  gap: 10px;
-  margin-inline: calc(-1 * var(--page-pad));
-  padding: 2px var(--page-pad) 6px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--page-pad);
-  scrollbar-width: none;
-}
-.gv-strip::-webkit-scrollbar {
-  display: none;
-}
-.gv-card,
-.gv-card.pressable {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  min-height: 200px;
-  padding: 16px 16px 18px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  scroll-snap-align: start;
-  text-align: left;
-}
-.gv-card-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--hue) 34%, transparent), transparent 62%),
-    radial-gradient(90% 70% at 100% 100%, color-mix(in srgb, var(--hue) 14%, transparent), transparent 70%);
-  pointer-events: none;
-}
-.gv-card.is-done {
-  border-color: color-mix(in srgb, var(--hue) 55%, transparent);
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--hue) 25%, transparent);
-}
-.gv-card.is-done .gv-card-glow {
-  background:
-    radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--hue) 60%, transparent), transparent 70%),
-    radial-gradient(100% 80% at 100% 100%, color-mix(in srgb, var(--hue) 30%, transparent), transparent 75%);
-}
-.gv-card-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-.gv-card-head .caps {
-  color: var(--ink-2);
-}
-.gv-left {
-  flex: none;
-  color: var(--hue);
-  font-size: var(--fs-foot);
-  font-weight: 650;
-}
-.gv-card-body {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.gv-text.pressable,
-.gv-text {
-  flex: 1;
+  gap: 4px;
   min-width: 0;
-  font-family: var(--serif);
-  font-size: var(--fs-stamp);
-  line-height: var(--lh-stamp);
-  color: var(--ink);
-  text-align: left;
-  text-wrap: pretty;
 }
-.gv-card-ring {
-  margin: -6px -8px 0 0;
-}
-.gv-card .g-steps {
-  margin: 0 -6px;
-}
-.gv-clock {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 8px;
-  height: 2px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-.gv-clock i {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  background: color-mix(in srgb, var(--hue) 70%, transparent);
-}
-.gv-set {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-.gv-set-plus {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--hue) 22%, transparent);
-  color: var(--hue);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--hue) 40%, transparent);
-}
-.gv-set-words {
-  font-family: var(--serif);
+.g-tally-cell .stamp {
   font-size: var(--fs-stamp);
   line-height: var(--lh-stamp);
   color: var(--ink);
 }
-.gv-example {
-  color: var(--ink-3);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+.g-hist .lrow-title {
+  white-space: normal;
 }
-@media (prefers-reduced-motion: reduce) {
-  .gv-ring,
-  .gv-pick {
-    transition: none;
-  }
-}
-
-/* the cards' rings take their level's colour */
-.gv-card .g-ring-arc {
-  stroke: var(--hue);
-}
-.gv-card .g-ring-hit.is-done .g-ring-arc {
-  fill: var(--hue);
-}
-.gv-card .g-ring-hit.is-done .g-ring-check {
-  stroke: #000;
-}
-.gv-set-plus {
-  background: #fff;
-  color: #000;
-  box-shadow: 0 0 22px color-mix(in srgb, var(--hue) 45%, transparent);
-}
-
-/* ---------- the moment a goal is done (after How We Feel): dark, a shape springs up, the words, one white pill ---------- */
-.cel {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  justify-items: center;
-  padding: calc(var(--safe-t) + 40px) 28px calc(var(--safe-b) + 32px);
-  background: rgba(0, 0, 0, 0.96);
-  text-align: center;
-}
-.cel-stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 100%;
-}
-.cel-shape {
-  display: block;
-  width: min(62vw, 250px);
-  aspect-ratio: 1;
-}
-.cel-shape.is-sun {
-  border-radius: 50%;
-  background: var(--g-sun);
-  box-shadow: 0 0 90px rgba(255, 190, 40, 0.45);
-}
-.cel-shape.is-mint {
-  /* a heart-ish leaf: two round lobes */
-  border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%;
-  background: var(--g-mint);
-  box-shadow: 0 0 90px rgba(63, 224, 160, 0.4);
-}
-.cel-shape.is-coral {
-  border-radius: 30% 70% 62% 38% / 42% 36% 64% 58%;
-  background: var(--g-coral);
-  box-shadow: 0 0 90px rgba(255, 91, 91, 0.4);
-}
-.cel-shape.is-sky {
-  border-radius: 46% 54% 50% 50% / 64% 64% 36% 36%;
-  background: var(--g-sky);
-  box-shadow: 0 0 90px rgba(112, 136, 255, 0.45);
-}
-.cel-dot {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 14px;
-  height: 14px;
-  margin: -7px 0 0 -7px;
-  border-radius: 50%;
-}
-.cel-dot.is-sun {
-  background: var(--sun);
-}
-.cel-dot.is-mint {
-  background: var(--mint);
-}
-.cel-dot.is-coral {
-  background: var(--coral);
-}
-.cel-dot.is-sky {
-  background: var(--sky);
-}
-.cel-words {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  width: 100%;
-  max-width: 420px;
-}
-.cel-title {
-  margin: 0;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: 2.75rem;
-  line-height: 3rem;
-  color: var(--ink);
-}
-.cel-title em {
+.g-hist-text {
+  font: 400 var(--fs-body) / var(--lh-body) var(--display);
   font-style: italic;
 }
-.cel-title em.is-sun {
-  color: var(--sun);
+.g-hist-none {
+  font-weight: 400;
+  color: var(--ink-3);
 }
-.cel-title em.is-mint {
-  color: var(--mint);
+.g-hist .lrow-sub .caps {
+  color: var(--ink-3);
 }
-.cel-title em.is-coral {
-  color: var(--coral);
+.g-hist-note {
+  color: var(--ink-3);
 }
-.cel-title em.is-sky {
-  color: var(--sky);
+.g-state {
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
 }
-.cel-line {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: var(--fs-row);
+.g-state.is-done {
+  color: var(--accent-text);
 }
-.cel-goal {
-  margin: 6px 0 18px;
-  padding: 12px 16px;
-  border-radius: 16px;
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+.g-state.is-missed {
+  color: var(--bad);
 }
-.cel-btn {
-  width: 100%;
-  height: 52px;
-  font-size: var(--fs-row);
+.g-state.is-partly {
+  color: var(--warn);
 }

@@ -18,7 +18,16 @@ const schema = z.object({
   STRAVA_CLIENT_ID: z.string().optional(),
   STRAVA_CLIENT_SECRET: z.string().optional(),
   STRAVA_WEBHOOK_VERIFY_TOKEN: z.string().default('logbook-verify'),
-  ATHLETE_CONTEXT: z.string().default(''),
+  /** COROS "Connect your data" OAuth app. The URLs default to the documented endpoints; override them if COROS's docs say otherwise. */
+  COROS_CLIENT_ID: z.string().optional(),
+  COROS_CLIENT_SECRET: z.string().optional(),
+  COROS_AUTH_URL: z.string().default('https://open.coros.com/oauth2/authorize'),
+  COROS_TOKEN_URL: z.string().default('https://open.coros.com/oauth2/accesstoken'),
+  COROS_API_URL: z.string().default('https://open.coros.com'),
+  /** Web Push (VAPID). `npx web-push generate-vapid-keys` makes a pair; the subject is a mailto: or https: URL. Unset: the scheduler logs instead of sending. */
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
   /** Dev only: '1' returns a fixed daily pick instead of searching the web. */
   READS_FAKE_PICK: z.string().optional(),
 });
@@ -36,6 +45,8 @@ export const env = {
   allowSignup: parsed.data.ALLOW_SIGNUP,
   secureCookies: parsed.data.APP_URL.startsWith('https://'),
   stravaConfigured: !!(parsed.data.STRAVA_CLIENT_ID && parsed.data.STRAVA_CLIENT_SECRET),
+  corosConfigured: !!(parsed.data.COROS_CLIENT_ID && parsed.data.COROS_CLIENT_SECRET),
+  vapidConfigured: !!(parsed.data.VAPID_PUBLIC_KEY && parsed.data.VAPID_PRIVATE_KEY),
   claudeConfigured: !!parsed.data.ANTHROPIC_API_KEY,
   readsFakePick: parsed.data.READS_FAKE_PICK === '1' || parsed.data.READS_FAKE_PICK === 'true',
 };

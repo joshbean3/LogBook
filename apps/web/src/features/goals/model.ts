@@ -48,6 +48,3 @@ export const clockOf = (level: GoalLevel, period: string, now: number) => {
     left <= 0 ? 'Over' : now < from ? 'Not started' : left < 3600e3 ? `${Math.max(1, Math.round(left / 60e3))} min left` : left < 2 * dayMs && level === 'day' ? `${Math.round(left / 3600e3)} h left` : left < 1.5 * dayMs ? `${Math.round(left / 3600e3)} h left` : `${Math.ceil(left / dayMs)} days left`;
   return { elapsed, words };
 };
-
-/** Each level's colour, from the feel palette: the day the sun, the week mint, the month coral, the year sky. */
-export const LEVEL_HUE: Record<GoalLevel, string> = { day: 'var(--sun)', week: 'var(--mint)', month: 'var(--coral)', year: 'var(--sky)' };

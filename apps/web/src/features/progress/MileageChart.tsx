@@ -1,7 +1,7 @@
 import { fmtDate, mi, num } from '@logbook/shared';
 import { motion } from 'motion/react';
 import { useCallback, useRef, useState } from 'react';
-import { useReduced } from '@/lib/motion';
+import { crossfade, useReduced } from '@/lib/motion';
 import { niceTop, useWidth } from './charts';
 import { weekTitle, type Range, type WeekPoint } from './data';
 import { useScrub } from './useScrub';
@@ -209,7 +209,7 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
             {a != null ? <rect x={xc(a) - Math.max(bw, 10) / 2 - 3} y={padTop - 10} width={Math.max(bw, 10) + 6} height={y0 - padTop + 10} rx={4} className="pg-col" /> : null}
             {/* bars are drawn where they belong (no attribute animates: §10, only transform and opacity); a new range
                 crossfades in 150 ms, keyed on the range; a month arriving fills its weeks in place */}
-            <g key={`bars-${range}`} clipPath="url(#pg-clip)" className={fade ? 'pg-fade-in' : undefined}>
+            <motion.g key={`bars-${range}`} clipPath="url(#pg-clip)" initial={fade ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={crossfade}>
               {pts.map((p, i) => {
                 const dim = a != null && a !== i;
                 // a week whose month has not loaded is a quiet gap: no bar, only a faint dash on the baseline (§8)
@@ -227,7 +227,7 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
                   </g>
                 );
               })}
-            </g>
+            </motion.g>
             {avgPts.length > 1 ? (
               // its own key (the bars' group and the line once shared `range` as a key: React then kept stray copies)
               <motion.path key={`avg-${range}`} d={avgPath} className="pg-avg" initial={fade ? { opacity: 0 } : false} animate={{ opacity: a != null ? 0.4 : 1 }} transition={{ duration: 0.2, delay: fade ? 0.18 : 0 }} />
