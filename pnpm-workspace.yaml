@@ -1,5 +1,7 @@
 packages:
   - apps/*
+  # the Expo app keeps its own npm install (Expo and pnpm's strict layout do not mix)
+  - '!apps/mobile'
   - packages/*
 onlyBuiltDependencies:
   - better-sqlite3

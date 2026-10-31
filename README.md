@@ -148,6 +148,28 @@ pnpm db:generate   regenerate the SQLite migration after a schema change
 
 How a session gets its status, in one place: `packages/shared/src/status.ts`. A run with Strava miles is done; under 80% of planned miles is the floor; a skip mark wins over everything. The same function runs on the server and in the browser, so the two never disagree.
 
+## Your phone, with Expo Go
+
+The quickest way to have Logbook on the phone: `apps/mobile` is a small Expo app that shows the deployed site full screen (sign-in sticks, links open in the browser, swipe from the left edge goes back). It runs inside the Expo Go app, so there is no Xcode, no Apple developer account and no install to trust.
+
+5 steps, ~5 min. Need: the Expo Go app from the App Store (or Play Store), the phone and the Mac on the same Wi-Fi.
+
+1. **Open** Terminal.
+2. **Install** the app's packages (~2 min, once):
+   ```bash
+   cd ~/LogBook/apps/mobile && npm install
+   ```
+3. **Start** it:
+   ```bash
+   npx expo start
+   ```
+4. **Scan** the QR code in the terminal with the iPhone's Camera (Android: the Expo Go app's scanner). Logbook opens in Expo Go.
+5. **Sign in** once; it stays signed in.
+
+Skip if: you want a real App Store or TestFlight build. That path is `npx eas build --platform ios` with an Apple developer account, or the Capacitor project below.
+
+Note: it opens the server named in `apps/mobile/app.json` (`expo.extra.appUrl`, the Fly app). Change it there to point at another server. Expo Go needs the Mac running `expo start` only while developing; a built app (EAS) does not.
+
 ## The iPhone app
 
 `apps/web/ios` is a native Xcode project (Capacitor) that bundles the web build and talks to your server. It needs a Mac with Xcode.
