@@ -18,6 +18,7 @@ import { ReviewButtons, StatusIcon, useOpenGoal } from './GoalSheets';
 import { GoalRing, GoalSteps } from './Steps';
 import { Burst, celebrateOnce } from './game';
 import { Orbit, type OrbitGoal } from './Orbit';
+import { useCelebrate } from './Celebrate';
 import './goals.css';
 
 /** Nearest first on the cards: the day, then the week, the month, the year (the orbit draws them the other way, outside in). */
@@ -195,6 +196,7 @@ export default function GoalsView(): React.JSX.Element {
   const was = useRef<Record<string, string>>({});
   const [hits, setHits] = useState<Partial<Record<GoalLevel, number>>>({});
   const [orbitHit, setOrbitHit] = useState(0);
+  const celebrate = useCelebrate();
   const sig = orbit.map((g) => `${g.goal?.id}:${g.goal?.status}`).join('|');
   useEffect(() => {
     for (const g of orbit) {
@@ -206,6 +208,7 @@ export default function GoalsView(): React.JSX.Element {
         setHits((h) => ({ ...h, [g.level]: Date.now() }));
         setOrbitHit(Date.now());
         setSel(g.level);
+        celebrate(g.goal);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

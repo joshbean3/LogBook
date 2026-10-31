@@ -40,6 +40,17 @@
   --t-cross: #d1a15c;
   --t-rest: #7a7a7a;
   /* to-do highlights and lists (a bar at the row's edge, a list's chip): the session tones, so the app keeps one palette */
+  /* the feel palette (warmth from the data, after How We Feel): sun, mint, coral, sky, each a flat colour and a lit gradient */
+  --sun: #ffc83d;
+  --mint: #3fe0a0;
+  --coral: #ff5b5b;
+  --sky: #7088ff;
+  --sun-ink: #1a1200;
+  --g-sun: radial-gradient(120% 120% at 30% 25%, #ffe17a, #ffc23d 55%, #ff9f1c);
+  --g-mint: radial-gradient(120% 120% at 30% 25%, #9cf5c9, #3fe0a0 55%, #14b877);
+  --g-coral: radial-gradient(120% 120% at 30% 25%, #ffa38f, #ff5b5b 55%, #f2304f);
+  --g-sky: radial-gradient(120% 120% at 30% 25%, #b3c0ff, #7088ff 55%, #8a5cff);
+
   --tag-red: var(--bad);
   --tag-orange: var(--t-hard);
   --tag-yellow: var(--warn);

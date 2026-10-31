@@ -180,6 +180,19 @@
   border-color: var(--accent);
   color: #fff;
 }
+/* the round check (the day board): a ring that fills with its section's colour (`--mk`) */
+.tmark.round {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-3);
+}
+.tmark.round.on {
+  background: var(--mk, var(--sun));
+  border-color: var(--mk, var(--sun));
+  color: #000;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--mk, var(--sun)) 55%, transparent);
+}
 .tmark-hit:focus-visible {
   outline: none;
 }

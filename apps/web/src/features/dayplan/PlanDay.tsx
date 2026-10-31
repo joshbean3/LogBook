@@ -1,5 +1,5 @@
 import { awaitingReview, DAY_BANDS, GOAL_STEPS_MAX, goalProgress, periodOf, stepRef, todoRef, type Aim, type DayBand, type ISODate, type Todo } from '@logbook/shared';
-import { ArrowRight, ChevronRight, Moon, Plus, RotateCcw, Sun, Sunrise, Target, Trash2 } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronRight, Clock, Moon, Plus, RotateCcw, Sun, Sunrise, Trash2 } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -16,7 +16,8 @@ import { useOpenGoal } from '../goals/GoalSheets';
 import { goalOf, periodCaps } from '../goals/model';
 import { GoalRing, newStepId, useSaveSteps } from '../goals/Steps';
 import { Burst, celebrateOnce } from '../goals/game';
-import { colorOf, colorStyle, groupOf, ListChip } from '../todos/colors';
+import { useCelebrate } from '../goals/Celebrate';
+import { colorOf, colorStyle, groupOf } from '../todos/colors';
 import { PriorityFlag } from '../todos/PriorityDots';
 import { parseQuickAdd } from '../todos/quickAdd';
 import { TodoListSheet, useTodoActions } from '../todos/TodoList';
@@ -24,9 +25,9 @@ import { TodoMark } from '../todos/TodoMark';
 import { TodoSheet } from '../todos/TodoSheet';
 import { groupsOn } from '../todos/groups';
 import { BAND, bandsOf, bandTime, cardsFor, lay, moveCard, placeOf, swapRef, type Card, type Laid, type Place } from './model';
+import { emojiOf } from './emoji';
 import './dayplan.css';
 
-const BAND_ICON = { morning: Sunrise, afternoon: Sun, evening: Moon } as const;
 
 /** Where a dragged card is over: a place and an index in it, the goal (a to-do becomes a step), or a dock. */
 type Over = { kind: 'place'; place: Place; index: number } | { kind: 'goal' } | { kind: 'tomorrow' } | { kind: 'bin' } | null;
@@ -38,7 +39,6 @@ interface Drag {
   over: Over;
   w: number;
   h: number;
-  chip: boolean;
   /** where it was lifted from: held open (a spacer) while it is over another place, so nothing above the finger moves */
   from: { place: Place; index: number } | null;
   /** the finger's offset inside the card when it lifted */
@@ -120,7 +120,7 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
     const place = best.dataset.pdZone as Place;
     // the index: how many of the zone's other cards sit above the finger (their layout boxes, not mid-animation)
     const zr = best.getBoundingClientRect();
-    const wrap = place === 'tray';
+    const wrap = false;
     let index = 0;
     for (const el of best.querySelectorAll<HTMLElement>('[data-pd-card]')) {
       if (el.dataset.pdCard === d.ref) continue;
@@ -149,7 +149,7 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
       lastX.current = { x: p.x, t: performance.now() };
       const at = placeOf(laid, card.ref);
       follow(p);
-      setDrag({ ref: card.ref, card, laid: held ?? laid, over: at ? { kind: 'place', ...at } : null, from: at, w: r.width, h: r.height, ox, oy, chip: el.classList.contains('is-chip') });
+      setDrag({ ref: card.ref, card, laid: held ?? laid, over: at ? { kind: 'place', ...at } : null, from: at, w: r.width, h: r.height, ox, oy });
     },
     move: (p: DragPoint) => {
       const d = live.current;
@@ -321,17 +321,17 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
       <div className="pd-head">
         <h2 className="section-title">{date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The day'}</h2>
         {total ? (
-          <span className="pd-head-meta tnum">
-            {done} of {total}
+          <span className={`pd-count tnum ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
+            <span aria-hidden="true">🎉</span> {done}/{total}
           </span>
         ) : null}
       </div>
       <div ref={boardRef} className="pd-board">
         {owed ? <OwedRow goal={owed} today={today} /> : null}
         <GoalCard date={date} today={today} goal={goal} week={week} target={drag?.over?.kind === 'goal'} dragging={drag?.card.kind === 'todo'} />
-        <Tray cards={shown.tray} drag={drag} api={api} date={date} today={today} editable={editable} empty={!total} spacer={spacer('tray')} />
+        <Section place="tray" cards={shown.tray} drag={drag} api={api} date={date} today={today} editable={editable} spacer={spacer('tray')} />
         {DAY_BANDS.map((b) => (
-          <Band key={b} band={b} cards={shown.bands[b]} spacer={spacer(b)} drag={drag} api={api} date={date} today={today} editable={editable} onAdd={(id) => save.mutate({ ...bandsOf(shown), [b]: [...shown.bands[b].map((c) => c.ref), todoRef(id)] })} />
+          <Section key={b} place={b} cards={shown.bands[b]} spacer={spacer(b)} drag={drag} api={api} date={date} today={today} editable={editable} onAdd={(id) => save.mutate({ ...bandsOf(shown), [b]: [...shown.bands[b].map((c) => c.ref), todoRef(id)] })} />
         ))}
         {date === today ? <AllTodos date={date} /> : null}
       </div>
@@ -364,9 +364,9 @@ interface Spacer {
 }
 
 /** A zone's cards, with the lifted card's old room kept open where it was (see `Drag.from`). */
-const ZoneCards = ({ cards, spacer, drag, api, date, today, editable, chip }: { cards: Card[]; spacer: Spacer | null; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; chip?: boolean }) => {
-  const nodes = cards.map((c) => <CardRow key={c.ref} card={c} drag={drag} api={api} date={date} today={today} editable={editable} chip={chip} />);
-  if (spacer) nodes.splice(Math.min(spacer.index, nodes.length), 0, <span key="pd-spacer" className="pd-spacer" style={{ width: chip ? spacer.w : undefined, height: spacer.h }} aria-hidden="true" />);
+const ZoneCards = ({ cards, spacer, drag, api, date, today, editable, hue, fallback }: { cards: Card[]; spacer: Spacer | null; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; hue: string; fallback: string }) => {
+  const nodes = cards.map((c) => <CardRow key={c.ref} card={c} drag={drag} api={api} date={date} today={today} editable={editable} hue={hue} fallback={fallback} />);
+  if (spacer) nodes.splice(Math.min(spacer.index, nodes.length), 0, <span key="pd-spacer" className="pd-spacer" style={{ height: spacer.h }} aria-hidden="true" />);
   return <>{nodes}</>;
 };
 
@@ -387,13 +387,14 @@ const OwedRow = ({ goal, today }: { goal: Aim; today: ISODate }) => {
 };
 
 /**
- * The day's goal, as the headline of the plan: its words in the serif, the ring to finish it, and a wash of light that
- * fills the card from the left as its steps are checked. When it is done the card glows and the burst plays. While a to-do
- * is dragged, the card opens to take it as a step.
+ * The day's goal, as the headline of the plan: its words in the serif over a sun in the corner. The sun grows as the steps
+ * are checked (the bar under the words counts them), and when the goal is done it swells to fill the card, the words turn
+ * dark on gold, and the moment plays. While a to-do is dragged, the card opens to take it as a step.
  */
 const GoalCard = ({ date, today, goal, week, target, dragging }: { date: ISODate; today: ISODate; goal: Aim | null; week: Aim | null; target: boolean; dragging: boolean }) => {
   const open = useOpenGoal();
   const reduce = useReduced();
+  const celebrate = useCelebrate();
   const was = useRef(goal?.status);
   const [hit, setHit] = useState(0);
   useEffect(() => {
@@ -402,16 +403,19 @@ const GoalCard = ({ date, today, goal, week, target, dragging }: { date: ISODate
     if (!goal || before !== 'open' || goal.status !== 'done') return;
     celebrateOnce(`${goal.id}:${goal.updatedAt}`, false);
     setHit(Date.now());
+    celebrate(goal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goal?.status, goal]);
   if (!goal)
     return (
       <Pressable className="pd-goal is-empty" data-pd-goal="" press="surface" onPress={() => open('day', date)} label={date === today ? 'Set today’s goal' : 'Set this day’s goal'}>
-        <span className="pd-goal-plus" aria-hidden="true">
-          <Target size={18} strokeWidth={2.2} />
-        </span>
+        <span className="pd-goal-blob" aria-hidden="true" />
         <span className="pd-goal-main">
-          <span className="pd-goal-set">{date === today ? 'Set today’s goal' : 'Set this day’s goal'}</span>
-          <span className="pd-goal-sub">The one thing that would make the day count</span>
+          <span className="caps pd-goal-caps">{date === today ? 'Today' : periodCaps('day', date, today)}</span>
+          <span className="pd-goal-set">What would make today count?</span>
+          <span className="pd-goal-cta">
+            <Plus size={16} strokeWidth={2.6} aria-hidden="true" /> Set the goal
+          </span>
         </span>
       </Pressable>
     );
@@ -423,23 +427,29 @@ const GoalCard = ({ date, today, goal, week, target, dragging }: { date: ISODate
   const full = n < GOAL_STEPS_MAX;
   return (
     <div className={`pd-goal is-${goal.status} ${target ? 'is-target' : ''} ${dragging && full ? 'is-open' : ''}`} data-pd-goal="">
-      <motion.span className="pd-goal-wash" aria-hidden="true" initial={false} animate={{ scaleX: isDone ? 1 : Math.max(0, p) }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.1 }} />
-      <span className="pd-goal-edge" aria-hidden="true" style={{ left: `${(isDone ? 1 : p) * 100}%`, opacity: p > 0 && !isDone ? 1 : 0 }} />
+      <motion.span className="pd-goal-blob" aria-hidden="true" initial={false} animate={{ scale: isDone ? 9 : 0.55 + 0.45 * p }} transition={reduce ? { duration: 0 } : isDone ? { type: 'spring', duration: 0.9, bounce: 0.05 } : { type: 'spring', duration: 0.6, bounce: 0.3 }} />
       <div className="pd-goal-in">
+        <Pressable className="pd-goal-main" press="dim" onPress={() => open('day', date)} label={`${goal.text}. Open`}>
+          <span className="caps pd-goal-caps">{isDone ? 'Done today' : date === today ? 'Today’s goal' : periodCaps('day', date, today)}</span>
+          <span className="pd-goal-text">{goal.text}</span>
+        </Pressable>
         {ended ? null : (
           <span className="pd-goal-ring">
             <GoalRing goal={goal} label={`Today’s goal: ${goal.text}. ${isDone ? 'Done' : 'Mark done'}`} />
             <Burst go={hit} big />
           </span>
         )}
-        <Pressable className="pd-goal-main" press="dim" onPress={() => open('day', date)} label={`${goal.text}. Open`}>
-          <span className="caps pd-goal-caps">
-            {date === today ? 'Today’s goal' : periodCaps('day', date, today)}
-            {n ? <span className="tnum"> · {k} of {n} steps</span> : null}
-          </span>
-          <span className="pd-goal-text">{goal.text}</span>
-        </Pressable>
       </div>
+      {n ? (
+        <div className="pd-goal-steps" aria-label={`${k} of ${n} steps`}>
+          <span className="pd-goal-bar" aria-hidden="true">
+            <motion.i initial={false} animate={{ scaleX: isDone ? 1 : p }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.6, bounce: 0.15 }} />
+          </span>
+          <span className="pd-goal-count tnum">
+            {k}/{n}
+          </span>
+        </div>
+      ) : null}
       <AnimatePresence>
         {target || (dragging && full) ? (
           <motion.span className="pd-goal-drop" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
@@ -459,77 +469,86 @@ const GoalCard = ({ date, today, goal, week, target, dragging }: { date: ISODate
   );
 };
 
-/** What has no time yet. It hides when empty, except while a card is in the air (then it is a place to put one back). */
-const Tray = ({ cards, drag, api, date, today, editable, empty, spacer }: { cards: Card[]; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; empty: boolean; spacer: Spacer | null }) => {
-  const [adding, setAdding] = useState(false);
-  const show = cards.length > 0 || !!drag || adding || empty;
-  if (!show && !editable) return null;
-  return (
-    <div data-pd-box="" className={`pd-tray ${drag?.over?.kind === 'place' && drag.over.place === 'tray' ? 'is-over' : ''} ${!cards.length && !drag ? 'is-empty' : ''}`}>
-      {show ? (
-        <div className="pd-tray-head">
-          <span className="caps">{cards.length ? 'To place' : drag ? 'No time yet' : ''}</span>
-          {cards.length && !drag ? <span className="pd-hint">Hold a card, then drag it into the day</span> : null}
-        </div>
-      ) : null}
-      <div className="pd-zone" data-pd-zone="tray">
-        <ZoneCards cards={cards} spacer={spacer} drag={drag} api={api} date={date} today={today} editable={editable} chip />
-        {!cards.length && !spacer && drag ? <span className="pd-slot" aria-hidden="true" /> : null}
-      </div>
-      {/* hidden, never removed, while a card is in the air: the page below must not move under the finger */}
-      {editable ? (
-        <div className={drag ? 'pd-hide' : undefined}>
-          <AddInline date={date} today={today} placeholder={empty ? 'What needs doing?' : 'Add a to-do'} open={adding} setOpen={setAdding} />
-        </div>
-      ) : null}
-    </div>
-  );
+const SECTION_ICON = { tray: Clock, morning: Sunrise, afternoon: Sun, evening: Moon } as const;
+const closedKey = (p: Place) => `logbook.plan.closed.${p}`;
+const readClosed = (p: Place) => {
+  try {
+    return localStorage.getItem(closedKey(p)) === '1';
+  } catch {
+    return false;
+  }
 };
 
-/** One band of the day: its rail (the hue of its hour, filling as its cards are checked), its head, its cards, its slot. */
-const Band = ({ band, cards, spacer, drag, api, date, today, editable, onAdd }: { band: DayBand; cards: Card[]; spacer: Spacer | null; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; onAdd: (id: string) => void }) => {
+/**
+ * One section of the day (Anytime, Morning, Afternoon, Evening): a pill in its colour that fills like a gauge as its cards
+ * are checked and folds the section away on a tap, then its cards. A section a card is dragged over opens for it.
+ */
+const Section = ({ place, cards, spacer, drag, api, date, today, editable, onAdd }: { place: Place; cards: Card[]; spacer: Spacer | null; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; onAdd?: (id: string) => void }) => {
   const minutes = useNowMinutes();
-  const [adding, setAdding] = useState(false);
   const reduce = useReduced();
-  const time = date === today ? bandTime(band, Math.floor(minutes / 60)) : date < today ? 'past' : 'ahead';
-  const Icon = BAND_ICON[band];
+  const [adding, setAdding] = useState(false);
+  const [closed, setClosed] = useState(() => readClosed(place));
+  const meta = BAND[place];
+  const time = place === 'tray' ? 'any' : date === today ? bandTime(place, Math.floor(minutes / 60)) : date < today ? 'past' : 'ahead';
+  const Icon = SECTION_ICON[place];
   const done = cards.filter((c) => c.done).length;
   const fill = cards.length ? done / cards.length : 0;
-  const over = drag?.over?.kind === 'place' && drag.over.place === band;
+  const over = drag?.over?.kind === 'place' && drag.over.place === place;
+  const open = !closed || over;
   const allDone = cards.length > 0 && done === cards.length;
+  const toggle = () => {
+    const next = !closed;
+    setClosed(next);
+    haptics.select();
+    try {
+      localStorage.setItem(closedKey(place), next ? '1' : '0');
+    } catch {
+      /* the fold is a convenience: it lasts the session without storage */
+    }
+  };
   return (
-    <div data-pd-box="" className={`pd-band is-${time} ${over ? 'is-over' : ''} ${allDone ? 'is-done' : ''}`} style={{ '--bh': BAND[band].hue } as React.CSSProperties}>
-      <span className="pd-rail" aria-hidden="true">
-        <motion.i initial={false} animate={{ scaleY: fill }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.6, bounce: 0 }} />
-      </span>
-      <div className="pd-band-head">
-        <span className="pd-band-ic" aria-hidden="true">
-          <Icon size={15} strokeWidth={2.2} />
-        </span>
-        <span className="pd-band-name">{BAND[band].label}</span>
-        {time === 'now' ? <span className="pd-now">Now</span> : <span className="pd-band-span">{BAND[band].span}</span>}
-        {cards.length ? (
-          <span className="pd-band-count tnum">
-            {done}/{cards.length}
-          </span>
-        ) : null}
+    <div data-pd-box="" className={`pd-sec is-${time} ${over ? 'is-over' : ''} ${allDone ? 'is-done' : ''} ${open ? '' : 'is-closed'}`} style={{ '--bh': meta.hue } as React.CSSProperties}>
+      <div className="pd-sec-head">
+        <button type="button" className="pd-pill" aria-expanded={open} onClick={toggle}>
+          <motion.i className="pd-pill-fill" aria-hidden="true" initial={false} animate={{ scaleX: fill }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.6, bounce: 0.1 }} />
+          <Icon size={14} strokeWidth={2.4} aria-hidden="true" className="pd-pill-ic" />
+          <span className="pd-pill-name">{meta.label}</span>
+          <span className="pd-pill-count tnum">({allDone ? '✓' : cards.length ? `${done}/${cards.length}` : 0})</span>
+          <ChevronDown size={14} strokeWidth={2.4} aria-hidden="true" className="pd-pill-chev" />
+        </button>
+        {time === 'now' ? <span className="pd-now">Now</span> : null}
         {editable ? (
-          <button type="button" className={`pd-band-add ${drag ? 'pd-hide' : ''}`} aria-label={`Add a to-do to the ${BAND[band].label.toLowerCase()}`} onClick={() => setAdding(true)}>
+          <button type="button" className={`pd-sec-add ${drag ? 'pd-hide' : ''}`} aria-label={`Add a to-do to ${place === 'tray' ? 'Anytime' : `the ${meta.label.toLowerCase()}`}`} onClick={() => (setClosed(false), setAdding(true))}>
             <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
           </button>
         ) : null}
       </div>
-      <div className="pd-zone" data-pd-zone={band}>
-        <ZoneCards cards={cards} spacer={spacer} drag={drag} api={api} date={date} today={today} editable={editable} />
-        {!cards.length && !spacer ? <span className={`pd-slot ${drag ? 'is-live' : ''}`}>{drag ? `Drop into the ${BAND[band].label.toLowerCase()}` : time === 'past' ? 'Nothing here' : 'Nothing yet'}</span> : null}
+      <div className="pd-zone" data-pd-zone={place}>
+        {open ? (
+          <>
+            <ZoneCards cards={cards} spacer={spacer} drag={drag} api={api} date={date} today={today} editable={editable} hue={meta.hue} fallback={meta.icon} />
+            {!cards.length && !spacer && !adding ? (
+              drag ? (
+                <span className="pd-slot is-live">Drop into {place === 'tray' ? 'Anytime' : `the ${meta.label.toLowerCase()}`}</span>
+              ) : editable ? (
+                <button type="button" className="pd-slot" onClick={() => setAdding(true)}>
+                  <span>{place === 'tray' ? 'Anytime today works' : time === 'past' ? 'This part of the day has passed' : `Nothing in the ${meta.label.toLowerCase()} yet`}</span>
+                  <Plus size={15} strokeWidth={2.4} aria-hidden="true" />
+                </button>
+              ) : (
+                <span className="pd-slot">Nothing here</span>
+              )
+            ) : null}
+          </>
+        ) : null}
       </div>
-      {adding ? <AddInline date={date} today={today} placeholder={`Add to the ${BAND[band].label.toLowerCase()}`} open setOpen={setAdding} onAdd={onAdd} /> : null}
+      {adding ? <AddInline date={date} today={today} placeholder={place === 'tray' ? 'Add a to-do' : `Add to the ${meta.label.toLowerCase()}`} open setOpen={setAdding} onAdd={onAdd} /> : null}
     </div>
   );
 };
 
-/** The words of a card: the same face on the page and in the air. */
-const CardFace = ({ card, date, today, editable, onOpen, chip }: { card: Card; date: ISODate; today: ISODate; editable: boolean; onOpen?: () => void; chip?: boolean }) => {
+/** The words of a card: its icon in a circle of its section's colour, its name and what it belongs to, the round check. */
+const CardFace = ({ card, date, today, editable, onOpen, hue, fallback }: { card: Card; date: ISODate; today: ISODate; editable: boolean; onOpen?: () => void; hue: string; fallback: string }) => {
   const groups = useTodoGroups();
   const act = useTodoActions(date);
   const saveSteps = useSaveSteps();
@@ -537,30 +556,33 @@ const CardFace = ({ card, date, today, editable, onOpen, chip }: { card: Card; d
     const { goal, step } = card;
     return (
       <>
-        <TodoMark on={step.done} label={step.text} disabled={!editable} onToggle={(next) => saveSteps(goal, goal.steps.map((s) => (s.id === step.id ? { ...s, done: next } : s)))} />
+        <span className="pd-ico is-goal" aria-hidden="true">
+          🎯
+        </span>
         <button type="button" className="pd-card-name" onClick={onOpen}>
           <span className="pd-card-text">{step.text}</span>
+          <span className="pd-card-meta is-goal">Step of today’s goal</span>
         </button>
-        <span className="pd-tag is-goal" aria-label="A step of the day’s goal">
-          <Target size={12} strokeWidth={2.4} aria-hidden="true" />
-          {chip ? null : 'Goal'}
-        </span>
+        <TodoMark round on={step.done} label={step.text} disabled={!editable} onToggle={(next) => saveSteps(goal, goal.steps.map((s) => (s.id === step.id ? { ...s, done: next } : s)))} />
       </>
     );
   }
   const x = card.todo;
   const list = groupOf(x, groups.data);
+  const meta = [list?.name, x.note].filter(Boolean).join(' · ');
   return (
     <>
-      <TodoMark on={card.done} label={x.text} disabled={!editable && date !== today} onToggle={(next) => (next ? act.done(x, date <= today ? date : today) : act.reopen(x))} />
+      <span className="pd-ico" style={{ '--ic': hue } as React.CSSProperties} aria-hidden="true">
+        {emojiOf(x.text, fallback)}
+      </span>
       <button type="button" className="pd-card-name" onClick={onOpen}>
         <span className="pd-card-text">
           {x.text}
           <PriorityFlag level={x.priority} />
         </span>
-        {x.note && !chip ? <span className="pd-card-note">{x.note}</span> : null}
+        {meta ? <span className="pd-card-meta">{meta}</span> : null}
       </button>
-      {list && !chip ? <ListChip group={list} /> : null}
+      <TodoMark round on={card.done} label={x.text} disabled={!editable && date !== today} onToggle={(next) => (next ? act.done(x, date <= today ? date : today) : act.reopen(x))} />
     </>
   );
 };
@@ -569,7 +591,7 @@ const CardFace = ({ card, date, today, editable, onOpen, chip }: { card: Card; d
  * A card on the board. A hold lifts it (the one hold clock, `useHoldDrag`); moving takes it into the air (the page's copy
  * becomes the slot it would land in); letting go without moving opens its menu. `layout` lets the others part for it.
  */
-const CardRow = ({ card, drag, api, date, today, editable, chip }: { card: Card; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; chip?: boolean }) => {
+const CardRow = ({ card, drag, api, date, today, editable, hue, fallback }: { card: Card; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; hue: string; fallback: string }) => {
   const groups = useTodoGroups();
   const cm = useContextMenu();
   const sheet = useSheet();
@@ -629,8 +651,8 @@ const CardRow = ({ card, drag, api, date, today, editable, chip }: { card: Card;
       ref={d.ref}
       layout={reduce ? false : 'position'}
       transition={springs.settle}
-      className={`pd-card ${chip ? 'is-chip' : ''} ${card.done ? 'is-done' : ''} ${card.kind === 'step' ? 'is-step' : ''} ${tint ? 'has-tc' : ''} ${isHole ? 'is-hole' : ''} ${armed ? 'is-armed' : ''}`}
-      style={colorStyle(tint)}
+      className={`pd-card ${card.done ? 'is-done' : ''} ${card.kind === 'step' ? 'is-step' : ''} ${tint ? 'has-tc' : ''} ${isHole ? 'is-hole' : ''} ${armed ? 'is-armed' : ''}`}
+      style={{ ...colorStyle(tint), '--mk': card.kind === 'step' ? 'var(--sun)' : hue } as React.CSSProperties}
       data-pd-card={card.ref}
       {...d.bind}
       onPointerDown={(e) => {
@@ -645,20 +667,22 @@ const CardRow = ({ card, drag, api, date, today, editable, chip }: { card: Card;
       }}
     >
       <div className="pd-card-in">
-        <CardFace card={card} date={date} today={today} editable={editable} onOpen={onOpen} chip={chip} />
+        <CardFace card={card} date={date} today={today} editable={editable} onOpen={onOpen} hue={hue} fallback={fallback} />
       </div>
     </motion.div>
   );
 };
 
-/** The card in the air: over everything, leaning into its motion, with the shadow of something lifted. */
+/** The card in the air: over everything, leaning into its motion, in the colour of where it would land. */
 const Ghost = ({ drag, x, y, tilt, scale, fade, date }: { drag: Drag; x: MotionValue<number>; y: MotionValue<number>; tilt: MotionValue<number>; scale: MotionValue<number>; fade: MotionValue<number>; date: ISODate }) => {
   const groups = useTodoGroups();
   const tint = drag.card.kind === 'todo' ? colorOf(drag.card.todo, groups.data) : null;
+  const place = drag.over?.kind === 'place' ? drag.over.place : (drag.from?.place ?? 'tray');
+  const meta = BAND[place];
   return (
-    <motion.div className={`pd-ghost pd-card ${drag.chip ? 'is-chip' : ''} ${drag.card.kind === 'step' ? 'is-step' : ''} ${drag.card.done ? 'is-done' : ''} ${tint ? 'has-tc' : ''} ${drag.over?.kind === 'bin' ? 'is-bin' : ''}`} style={{ x, y, rotate: tilt, scale, opacity: fade, width: drag.w, ...colorStyle(tint) }} aria-hidden="true">
+    <motion.div className={`pd-ghost pd-card ${drag.card.kind === 'step' ? 'is-step' : ''} ${drag.card.done ? 'is-done' : ''} ${tint ? 'has-tc' : ''} ${drag.over?.kind === 'bin' ? 'is-bin' : ''}`} style={{ x, y, rotate: tilt, scale, opacity: fade, width: drag.w, ...colorStyle(tint), '--mk': meta.hue, '--gh': meta.hue } as React.CSSProperties} aria-hidden="true">
       <div className="pd-card-in">
-        <CardFace card={drag.card} date={date} today={date} editable={false} chip={drag.chip} />
+        <CardFace card={drag.card} date={date} today={date} editable={false} hue={meta.hue} fallback={meta.icon} />
       </div>
     </motion.div>
   );

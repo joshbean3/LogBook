@@ -1,4 +1,5 @@
 import { GoalsBadge } from '@/features/goals/GoalsBadge';
+import { CelebrateLayer } from '@/features/goals/Celebrate';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
@@ -67,6 +68,7 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
   }, [leaving, st.active]);
   return (
     <div className="shell">
+      <CelebrateLayer />
       <div className="tabs-host">
         {TABS.map((t) => (
           <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={st.active === t.id} leaving={leaving === t.id && st.active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />

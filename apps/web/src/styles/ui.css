@@ -353,10 +353,11 @@ label.lrow[data-pressed] {
 .btn:disabled {
   opacity: 0.4;
 }
+/* the one primary: a white pill, black words (the verb that moves you on) */
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent-bright);
-  color: var(--accent-ink);
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #000000;
 }
 .btn.soft {
   background: var(--accent-tint);
@@ -575,10 +576,11 @@ label.lrow[data-pressed] {
   border-color: transparent;
   color: var(--ink-3);
 }
+/* picked: lit gold, as a feeling is picked */
 .chip-btn.on {
-  background: var(--ink);
-  color: var(--bg);
-  border-color: var(--ink);
+  background: rgba(255, 200, 61, 0.16);
+  color: var(--sun);
+  border-color: var(--sun);
 }
 .chip-btn:disabled {
   opacity: 0.4;

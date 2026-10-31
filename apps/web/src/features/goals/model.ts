@@ -49,5 +49,5 @@ export const clockOf = (level: GoalLevel, period: string, now: number) => {
   return { elapsed, words };
 };
 
-/** Each level's colour: the day in the app's ultramarine, the week amber, the month green, the year violet. */
-export const LEVEL_HUE: Record<GoalLevel, string> = { day: 'var(--accent-bright)', week: 'var(--warn)', month: 'var(--t-easy)', year: 'var(--t-lift)' };
+/** Each level's colour, from the feel palette: the day the sun, the week mint, the month coral, the year sky. */
+export const LEVEL_HUE: Record<GoalLevel, string> = { day: 'var(--sun)', week: 'var(--mint)', month: 'var(--coral)', year: 'var(--sky)' };
