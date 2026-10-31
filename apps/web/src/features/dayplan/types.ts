@@ -11,5 +11,3 @@ export interface DayPlanBody {
   bands: DayBands;
   slots: DaySlot[];
 }
-
-export const isDayRef = (r: string): r is DaySlot['ref'] => /^(todo|step|session):/.test(r);

@@ -65,8 +65,9 @@
   line-height: var(--lh-sub);
   color: var(--ink-3);
 }
-/* a chip: the one chip style, as a Pressable (its 44 px hit is the chip's own ::after band) */
-.dy-chip.pressable {
+/* a chip: the one chip style, as a Pressable (its 44 px hit is the chip's own ::after band); the ghost wears the same */
+.dy-chip {
+  box-sizing: border-box;
   min-height: 32px;
   max-width: 100%;
   color: var(--ink);
