@@ -22,9 +22,11 @@ export const REQUESTED_WITH_VALUE = 'logbook';
 /** Origins the native shells report (iOS WKWebView, Android WebView). */
 const NATIVE_ORIGINS = new Set(['capacitor://localhost', 'ionic://localhost', 'http://localhost', 'https://localhost']);
 
+/** The origin of a URL. For a scheme the URL standard calls non-special (`capacitor://localhost`), `.origin` is "null", so it is built from the parts. */
 const originOf = (s: string): string | null => {
   try {
-    return new URL(s).origin;
+    const u = new URL(s);
+    return u.origin === 'null' ? (u.host ? `${u.protocol}//${u.host}` : null) : u.origin;
   } catch {
     return null;
   }

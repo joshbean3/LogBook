@@ -307,3 +307,35 @@
     animation-duration: 150ms !important;
   }
 }
+
+/* ---------- verify, reset, forgot: one line of state under a form, and the quiet second door ---------- */
+/* "If that address has an account, a link is on its way": a status line in body size, never a toast (there is no shell here) */
+.auth-done {
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
+}
+/* "Forgot your password?", "Back to sign in": the same link style as the switch line, centred under the submit button */
+.auth-link.auth-link-center {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  justify-content: center;
+  width: 100%;
+  color: var(--ink-2);
+}
+.auth-link.auth-link-center:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+  border-radius: var(--r-control);
+}
+/* Settings › Account: a change-of-password sheet stacks three fields; the sessions list says what each device is */
+.s-pwform {
+  display: grid;
+  gap: 12px;
+}
+.s-session-out.btn {
+  flex: none;
+}

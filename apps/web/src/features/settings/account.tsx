@@ -1,9 +1,10 @@
 import { addMonths, monthsBetween, today } from '@logbook/shared';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { api, ApiError, NetworkError } from '@/api/client';
-import { fetchExport, fetchMonth, useBootstrap, useDeleteAccount, useSetProfileNote } from '@/api/queries';
+import { fetchExport, fetchMonth, keys, useBootstrap, useDeleteAccount, useSetProfileNote } from '@/api/queries';
+import '@/features/auth/auth.css';
 import type { Bootstrap, ExportBundle, MonthBundle } from '@/api/types';
 import { markSignedOut } from '@/features/auth/flag';
 import { takeLegacyProfile } from '@/features/onboarding/model';
@@ -291,6 +292,178 @@ export const AboutYouSheet = () => {
       <div className="s-del-actions">
         <Button variant="primary" block type="submit" disabled={save.isPending}>
           {save.isPending ? 'Saving…' : 'Save'}
+        </Button>
+        <Button variant="quiet" block type="button" onClick={() => sheet.close()}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+// ---------- the address, the password, the sessions (Settings › Account) ----------
+/** The bootstrap's user with `emailVerifiedAt` (absent in caches from before verification existed, which reads as verified: nothing nags an old account). */
+export type AccountUser = Bootstrap['user'] & { emailVerifiedAt?: string | null };
+export const emailVerifiedOf = (boot: Bootstrap | undefined): string | null | undefined => (boot?.user as AccountUser | undefined)?.emailVerifiedAt;
+
+/** The server's first rule (ten characters); the rest (nothing common, not the email) comes back from it in plain words. */
+export const PASSWORD_MIN = 10;
+const newPasswordProblem = (v: string) => (!v ? 'Choose a password.' : v.length < PASSWORD_MIN ? `Use at least ${PASSWORD_MIN} characters.` : null);
+const plainError = (e: unknown, fallback: string) => (e instanceof NetworkError ? 'Couldn’t reach Logbook. Check your connection.' : e instanceof ApiError && e.status === 429 ? 'Too many tries. Wait a minute, then try again.' : e instanceof ApiError && e.status === 422 ? e.message : fallback);
+
+export interface SessionRow {
+  id: string;
+  current: boolean;
+  device: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+}
+export const sessionsKey = ['auth-sessions'] as const;
+export const useSessions = () => useQuery({ queryKey: sessionsKey, queryFn: () => api<SessionRow[]>('/auth/sessions'), staleTime: 15_000 });
+/** Sign one device out. This one: the app shows sign in (`markSignedOut`). */
+export const useEndSession = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api<{ ok: true; current: boolean }>(`/auth/sessions/${id}`, { method: 'DELETE' }),
+    onSuccess: (r) => {
+      if (r.current) markSignedOut(qc);
+      else void qc.invalidateQueries({ queryKey: sessionsKey });
+    },
+  });
+};
+export const useEndOtherSessions = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: () => api<{ ok: true; revoked: number }>('/auth/sessions/revoke-others', { method: 'POST', json: {} }), onSuccess: () => void qc.invalidateQueries({ queryKey: sessionsKey }) });
+};
+export const useResendVerification = () => useMutation({ mutationFn: () => api<{ ok: true; sent: boolean; emailVerifiedAt: string | null }>('/auth/verify/resend', { method: 'POST', json: {} }) });
+
+/** A password field inside a sheet: the settings pattern (52 tall, Show at the right, the error under it). */
+const PwField = ({ label, value, onChange, error, autoComplete, inputRef, enterKeyHint = 'next', name }: { label: string; value: string; onChange: (v: string) => void; error?: string | null; autoComplete: 'current-password' | 'new-password'; inputRef?: React.Ref<HTMLInputElement>; enterKeyHint?: 'next' | 'done'; name: string }) => {
+  const id = useId();
+  const [shown, setShown] = useState(false);
+  return (
+    <div className={`s-pw ${error ? 'bad' : ''}`}>
+      <input ref={inputRef} id={id} className="in s-pw-in" type={shown ? 'text' : 'password'} name={name} autoComplete={autoComplete} enterKeyHint={enterKeyHint} aria-label={label} placeholder={label} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-err` : undefined} value={value} onChange={(e) => onChange(e.target.value)} />
+      <button type="button" className="s-pw-eye" aria-label={shown ? 'Hide password' : 'Show password'} aria-pressed={shown} onClick={() => setShown((v) => !v)}>
+        {shown ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+      </button>
+      {error ? (
+        <p id={`${id}-err`} className="s-pw-err" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
+/** Change password: the current one, the new one twice. `POST /auth/password` signs every other device out. */
+export const ChangePasswordSheet = ({ onDone }: { onDone: (line: string) => void }) => {
+  const sheet = useSheet();
+  const qc = useQueryClient();
+  const boot = useBootstrap();
+  const [cur, setCur] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [err, setErr] = useState<{ cur?: string | null; next?: string | null; again?: string | null; form?: string | null }>({});
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => ref.current?.focus(), 380);
+    return () => clearTimeout(t);
+  }, []);
+  const change = useMutation({ mutationFn: () => api<{ ok: true; revoked: number }>('/auth/password', { method: 'POST', json: { current: cur, password: next } }) });
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const problems = { cur: cur ? null : 'Enter your current password.', next: newPasswordProblem(next), again: again === next ? null : 'The two passwords don’t match.' };
+    setErr(problems);
+    if (problems.cur || problems.next || problems.again) return;
+    change.mutate(undefined, {
+      onSuccess: (r) => {
+        sheet.close();
+        void qc.invalidateQueries({ queryKey: sessionsKey });
+        onDone(r.revoked ? `Password changed. ${r.revoked === 1 ? 'One other device was' : `${r.revoked} other devices were`} signed out.` : 'Password changed.');
+      },
+      onError: (e2) => {
+        haptics.error();
+        if (e2 instanceof ApiError && e2.status === 403) setErr({ cur: 'That password doesn’t match. Try again.' });
+        else if (e2 instanceof ApiError && e2.status === 422) setErr({ next: e2.message });
+        else setErr({ form: plainError(e2, 'Couldn’t change the password. Try again.') });
+      },
+    });
+  };
+  return (
+    <form className="s-del" onSubmit={submit} noValidate>
+      <input type="email" name="email" autoComplete="username" value={boot.data?.user.email ?? ''} readOnly hidden />
+      <div className="s-pwform">
+        <PwField inputRef={ref} name="current-password" label="Current password" autoComplete="current-password" value={cur} onChange={setCur} error={err.cur} />
+        <PwField name="new-password" label={`New password (${PASSWORD_MIN}+ characters)`} autoComplete="new-password" value={next} onChange={setNext} error={err.next} />
+        <PwField name="confirm-password" label="New password, once more" autoComplete="new-password" value={again} onChange={setAgain} error={err.again} enterKeyHint="done" />
+      </div>
+      {err.form ? <p className="s-pw-err">{err.form}</p> : null}
+      <p className="s-del-lede">Every other device is signed out when it changes.</p>
+      <div className="s-del-actions">
+        <Button variant="primary" block type="submit" disabled={change.isPending}>
+          {change.isPending ? 'Saving…' : 'Change password'}
+        </Button>
+        <Button variant="quiet" block type="button" onClick={() => sheet.close()}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+/** Change email: the new address and the password. `PATCH /me { email, password }`; the new address gets a verify link. */
+export const ChangeEmailSheet = ({ onDone }: { onDone: (line: string) => void }) => {
+  const sheet = useSheet();
+  const qc = useQueryClient();
+  const boot = useBootstrap();
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [err, setErr] = useState<{ email?: string | null; pw?: string | null; form?: string | null }>({});
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => ref.current?.focus(), 380);
+    return () => clearTimeout(t);
+  }, []);
+  const change = useMutation({ mutationFn: () => api<AccountUser & { verificationSent?: boolean }>('/me', { method: 'PATCH', json: { email: email.trim(), password: pw } }) });
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const problems = { email: !email.trim() ? 'Enter the new address.' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? 'That doesn’t look like an email address.' : null, pw: pw ? null : 'Enter your password.' };
+    setErr(problems);
+    if (problems.email || problems.pw) return;
+    change.mutate(undefined, {
+      onSuccess: (u) => {
+        qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, email: u.email, emailVerifiedAt: u.emailVerifiedAt ?? null } as AccountUser } : b));
+        sheet.close();
+        onDone(u.verificationSent === false ? 'Address changed. We couldn’t send the verify mail; try Resend in a moment.' : `We sent a link to ${u.email} to verify it.`);
+      },
+      onError: (e2) => {
+        haptics.error();
+        if (e2 instanceof ApiError && e2.status === 403) setErr({ pw: 'That password doesn’t match. Try again.' });
+        else if (e2 instanceof ApiError && e2.status === 409) setErr({ email: 'There’s already an account with that email.' });
+        else setErr({ form: plainError(e2, 'Couldn’t change the address. Try again.') });
+      },
+    });
+  };
+  return (
+    <form className="s-del" onSubmit={submit} noValidate>
+      <p className="s-del-lede">Now {boot.data?.user.email ?? 'this account'}. The new address gets a link to verify it.</p>
+      <div className="s-pwform">
+        <div className={`s-pw ${err.email ? 'bad' : ''}`}>
+          <input ref={ref} className="in s-pw-in" type="email" name="email" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" aria-label="New email" placeholder="New email" aria-invalid={err.email ? true : undefined} value={email} onChange={(e) => setEmail(e.target.value)} />
+          {err.email ? (
+            <p className="s-pw-err" role="alert">
+              {err.email}
+            </p>
+          ) : null}
+        </div>
+        <PwField name="password" label="Your password" autoComplete="current-password" value={pw} onChange={setPw} error={err.pw} enterKeyHint="done" />
+      </div>
+      {err.form ? <p className="s-pw-err">{err.form}</p> : null}
+      <div className="s-del-actions">
+        <Button variant="primary" block type="submit" disabled={change.isPending}>
+          {change.isPending ? 'Saving…' : 'Change email'}
         </Button>
         <Button variant="quiet" block type="button" onClick={() => sheet.close()}>
           Cancel

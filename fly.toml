@@ -2,6 +2,10 @@
 # `fly launch` writes your app's name here; APP_URL is a secret (fly secrets set APP_URL=https://<your-app-name>.fly.dev).
 app = "logbook"
 primary_region = "ewr"
+# SIGTERM, then this long before the kill: the server stops listening, finishes in-flight requests (10 s cap) and
+# closes the database; litestream (when on) syncs the last changes after node exits
+kill_signal = "SIGTERM"
+kill_timeout = "15s"
 
 [build]
   dockerfile = "Dockerfile"
@@ -10,15 +14,38 @@ primary_region = "ewr"
   PORT = "8787"
   DATABASE_PATH = "/data/logbook.db"
   NODE_ENV = "production"
-  # ALLOW_SETUP and APP_URL are secrets (README: Deploy it), never committed here.
+  # the background jobs (reminders, provider syncs, purges, the WAL checkpoint, the nightly backup) run inside the API
+  # process; see [processes] below for the split
+  RUN_JOBS = "inline"
+  # ALLOW_SETUP, APP_URL, SESSION_SECRET, SENTRY_DSN, METRICS_TOKEN and the LITESTREAM_* values are secrets
+  # (README: Deploy it, Backups, Observability), never committed here.
+
+# ---------- the optional worker split ----------
+# dist/worker.js runs the same jobs in a process of its own. On Fly a volume mounts to ONE machine, and the worker
+# needs the very file the API writes, so a separate process group would get a separate volume: an empty database.
+# That is why the default stays inline. The split is for a host with a shared disk (docker compose: both services on
+# the same volume) or for when the database moves off SQLite. To try it on Fly anyway, both groups would need to land
+# on one machine, which process groups do not do. The configuration, for reference:
+#
+# [processes]
+#   app = "/app/bin/start.sh"          # RUN_JOBS=off  (fly secrets set RUN_JOBS=off, or per-group env)
+#   worker = "node dist/worker.js"     # RUN_JOBS=worker
+#
+# [http_service]
+#   processes = ["app"]
+#
+# [[mounts]]
+#   source = "logbook_data"
+#   destination = "/data"
+#   processes = ["app", "worker"]      # two machines, two volumes: NOT the same file
 
 [http_service]
   internal_port = 8787
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  # one machine stays up: the reminder scheduler (a 60 s loop in the API process) and the 20-minute provider syncs run
-  # only while the process is alive, and a push sent from a machine that woke for it would come late or not at all
+  # one machine stays up: the reminder scheduler (a 60 s loop) and the 20-minute provider syncs run only while the
+  # process is alive, and a push sent from a machine that woke for it would come late or not at all
   min_machines_running = 1
 
   [[http_service.checks]]
@@ -26,7 +53,8 @@ primary_region = "ewr"
     timeout = "5s"
     grace_period = "10s"
     method = "GET"
-    path = "/api/health"
+    # SELECT 1 against the database; 503 while the process shuts down, so the proxy stops sending it requests
+    path = "/api/ready"
 
 [[mounts]]
   source = "logbook_data"

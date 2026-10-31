@@ -4,22 +4,27 @@ import { requireAuth, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { env } from '../env.js';
 import { ApiError } from '../lib/util.js';
+import { bindCorosStore, corosAuthorizeUrl } from '../services/providers/coros.js';
 import { connect, connectionStatus, connectionStatuses, disconnect, handleWebhook, isProviderId, ProviderError, providerOf, syncConnection, syncInBackground, syncZones, type ProviderId } from '../services/providers/index.js';
 
-const sign = (userId: string, ts: number, app: 0 | 1, provider: string) => createHmac('sha256', env.SESSION_SECRET).update(`${userId}.${ts}.${app}.${provider}`).digest('base64url');
-/** The OAuth state: who started it, when, which provider, and whether to land back in the iOS app or the web app. */
-export const makeState = (userId: string, provider: ProviderId, app: 0 | 1 = 0) => {
+const sign = (userId: string, ts: number, app: 0 | 1, provider: string, extra: string) => createHmac('sha256', env.SESSION_SECRET).update(`${userId}.${ts}.${app}.${provider}.${extra}`).digest('base64url');
+/**
+ * The OAuth state: who started it, when, which provider, whether to land back in the iOS app or the web app, and an
+ * optional `extra` the provider needs back at the callback (COROS: its sealed PKCE verifier; base64url, so no dots).
+ * The signature covers all of it.
+ */
+export const makeState = (userId: string, provider: ProviderId, app: 0 | 1 = 0, extra = '') => {
   const ts = Date.now();
-  return `${userId}.${ts}.${app}.${provider}.${sign(userId, ts, app, provider)}`;
+  return `${userId}.${ts}.${app}.${provider}.${extra}.${sign(userId, ts, app, provider, extra)}`;
 };
-export const readState = (state: string | undefined, provider: ProviderId): { userId: string; app: boolean } | null => {
-  const [userId, tsS, appS, prov, sig] = (state ?? '').split('.');
-  if (!userId || !tsS || !appS || !prov || !sig || prov !== provider) return null;
+export const readState = (state: string | undefined, provider: ProviderId): { userId: string; app: boolean; extra: string } | null => {
+  const [userId, tsS, appS, prov, extra, sig] = (state ?? '').split('.');
+  if (!userId || !tsS || !appS || !prov || extra === undefined || !sig || prov !== provider) return null;
   const ts = Number(tsS);
   const app = appS === '1' ? 1 : 0;
   if (!Number.isFinite(ts) || Date.now() - ts > 15 * 60_000) return null;
-  const expected = sign(userId, ts, app, provider);
-  return expected.length === sig.length && timingSafeEqual(Buffer.from(expected), Buffer.from(sig)) ? { userId, app: app === 1 } : null;
+  const expected = sign(userId, ts, app, provider, extra);
+  return expected.length === sig.length && timingSafeEqual(Buffer.from(expected), Buffer.from(sig)) ? { userId, app: app === 1, extra } : null;
 };
 /** Where a finished OAuth dance lands: the web app's Settings, or the iOS app via its URL scheme. */
 const landing = (app: boolean, query: string) => (app ? `logbook://settings?${query}` : `/settings?${query}`);
@@ -42,33 +47,36 @@ const providerParam = (id: string): ProviderId => {
 export const connectionRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
   const auth = requireAuth(db);
+  bindCorosStore(db);
+
+  /** The authorize URL. COROS discovers its endpoints and registers itself first, and seals a PKCE verifier into the state. */
+  const authorizeUrl = async (id: ProviderId, userId: string, app: 0 | 1): Promise<string> => {
+    const p = providerOf(id);
+    if (!p.configured) throw new ApiError(400, `${p.name} isn’t configured on this server.`, 'not_configured');
+    try {
+      return id === 'coros' ? await corosAuthorizeUrl(db, (sealed) => makeState(userId, id, app, sealed)) : p.authorizeUrl(makeState(userId, id, app));
+    } catch (e) {
+      return toApiError(e);
+    }
+  };
 
   r.get('/', auth, (c) => c.json(connectionStatuses(db, c.get('user').id)));
 
-  r.get('/:provider/connect', auth, (c) => {
-    const id = providerParam(c.req.param('provider'));
-    const p = providerOf(id);
-    if (!p.configured) throw new ApiError(400, `${p.name} isn’t configured on this server.`, 'not_configured');
-    return c.redirect(p.authorizeUrl(makeState(c.get('user').id, id)));
-  });
+  r.get('/:provider/connect', auth, async (c) => c.redirect(await authorizeUrl(providerParam(c.req.param('provider')), c.get('user').id, 0)));
 
-  r.get('/:provider/connect-url', auth, (c) => {
-    const id = providerParam(c.req.param('provider'));
-    const p = providerOf(id);
-    if (!p.configured) throw new ApiError(400, `${p.name} isn’t configured on this server.`, 'not_configured');
-    return c.json({ url: p.authorizeUrl(makeState(c.get('user').id, id, 1)) });
-  });
+  r.get('/:provider/connect-url', auth, async (c) => c.json({ url: await authorizeUrl(providerParam(c.req.param('provider')), c.get('user').id, 1) }));
 
   r.get('/:provider/callback', async (c) => {
     const id = providerParam(c.req.param('provider'));
     const q = c.req.query();
     const st = readState(q.state, id);
     if (!st) return c.redirect(`/settings?${id}=error&reason=state`);
-    const { userId, app } = st;
+    const { userId, app, extra } = st;
     if (q.error) return c.redirect(landing(app, `${id}=error&reason=${encodeURIComponent(q.error)}`));
     if (!q.code) return c.redirect(landing(app, `${id}=error&reason=nocode`));
     try {
-      await connect(db, userId, id, q.code, q.scope ?? null);
+      // COROS's exchange takes the sealed PKCE verifier from the state where the others take the granted scope
+      await connect(db, userId, id, q.code, id === 'coros' ? extra : (q.scope ?? null));
     } catch (e) {
       return c.redirect(landing(app, `${id}=error&reason=${encodeURIComponent(e instanceof Error ? e.message : 'token')}`));
     }

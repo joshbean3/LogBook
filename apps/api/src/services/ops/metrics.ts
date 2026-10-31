@@ -47,12 +47,13 @@ export const renderMetrics = (db: DB, dbPath: string, now = Date.now()): string 
     for (const [l, v] of rows) out.push(`${name}${labels(l)} ${fmt(v)}`);
   };
 
-  metric('logbook_build_info', 'The running version.', [[{ version: appVersion() }, 1]]);
-  metric('process_uptime_seconds', 'Seconds since this process started.', [[{}, uptimeSeconds(now)]]);
-  metric('process_resident_memory_bytes', 'Resident set size.', [[{}, process.memoryUsage().rss]]);
+  metric('logbook_build_info', 'gauge', 'The running version.', [[{ version: appVersion() }, 1]]);
+  metric('process_uptime_seconds', 'gauge', 'Seconds since this process started.', [[{}, uptimeSeconds(now)]]);
+  metric('process_resident_memory_bytes', 'gauge', 'Resident set size.', [[{}, process.memoryUsage().rss]]);
 
   metric(
     'http_requests_total',
+    'counter',
     'API requests served by this process, by status class.',
     ['2xx', '3xx', '4xx', '5xx'].map((cls) => [{ class: cls }, state.byClass.get(cls) ?? 0]),
   );
@@ -63,12 +64,14 @@ export const renderMetrics = (db: DB, dbPath: string, now = Date.now()): string 
   const jobs = db.all<{ name: string; ok: number | null; n: number }>(sql`SELECT name, ok, count(*) AS n FROM job_runs GROUP BY name, ok ORDER BY name, ok`);
   metric(
     'logbook_job_runs_total',
+    'gauge',
     'Job runs recorded in the last 14 days, by job and outcome (ok, failed, running).',
     jobs.map((j) => [{ name: j.name, ok: j.ok === null ? 'running' : j.ok ? 'true' : 'false' }, j.n]),
   );
   const lastOk = db.all<{ name: string; at: string }>(sql`SELECT name, max(finished_at) AS at FROM job_runs WHERE ok = 1 GROUP BY name`);
   metric(
     'logbook_job_last_success_timestamp_seconds',
+    'gauge',
     'When each job last finished without an error.',
     lastOk.map((j) => [{ name: j.name }, Math.round(new Date(j.at).getTime() / 1000)]),
   );
@@ -77,20 +80,20 @@ export const renderMetrics = (db: DB, dbPath: string, now = Date.now()): string 
   const llm = db.get<{ input: number; output: number; cached: number; calls: number }>(
     sql`SELECT coalesce(sum(input_tokens), 0) AS input, coalesce(sum(output_tokens), 0) AS output, coalesce(sum(cached_tokens), 0) AS cached, count(*) AS calls FROM llm_usage WHERE at >= ${dayAgo}`,
   );
-  metric('logbook_llm_tokens_24h', 'Claude tokens in the last 24 hours, by kind.', [
+  metric('logbook_llm_tokens_24h', 'gauge', 'Claude tokens in the last 24 hours, by kind.', [
     [{ kind: 'input' }, llm?.input ?? 0],
     [{ kind: 'output' }, llm?.output ?? 0],
     [{ kind: 'cached' }, llm?.cached ?? 0],
   ]);
-  metric('logbook_llm_calls_24h', 'Claude calls in the last 24 hours.', [[{}, llm?.calls ?? 0]]);
+  metric('logbook_llm_calls_24h', 'gauge', 'Claude calls in the last 24 hours.', [[{}, llm?.calls ?? 0]]);
 
   const activeSince = new Date(now + (SESSION_DAYS - 1) * 864e5).toISOString();
   const active = db.get<{ n: number }>(sql`SELECT count(DISTINCT user_id) AS n FROM auth_sessions WHERE expires_at > ${activeSince}`);
-  metric('logbook_active_users_24h', 'Accounts with a session used in the last 24 hours.', [[{}, active?.n ?? 0]]);
+  metric('logbook_active_users_24h', 'gauge', 'Accounts with a session used in the last 24 hours.', [[{}, active?.n ?? 0]]);
   const users = db.get<{ n: number }>(sql`SELECT count(*) AS n FROM users`);
-  metric('logbook_users_total', 'Accounts.', [[{}, users?.n ?? 0]]);
+  metric('logbook_users_total', 'gauge', 'Accounts.', [[{}, users?.n ?? 0]]);
 
-  metric('logbook_db_file_bytes', 'Size of the SQLite file.', [[{}, dbFileBytes(dbPath)]]);
-  metric('logbook_db_wal_bytes', 'Size of the SQLite write-ahead log.', [[{}, walBytes(dbPath)]]);
+  metric('logbook_db_file_bytes', 'gauge', 'Size of the SQLite file.', [[{}, dbFileBytes(dbPath)]]);
+  metric('logbook_db_wal_bytes', 'gauge', 'Size of the SQLite write-ahead log.', [[{}, walBytes(dbPath)]]);
   return out.join('\n') + '\n';
 };

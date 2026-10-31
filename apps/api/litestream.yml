@@ -1,0 +1,15 @@
+# Litestream (https://litestream.io): the live database streamed to S3-compatible storage. Read by bin/start.sh; every
+# ${VAR} is taken from the environment (fly secrets). Tigris, R2 and B2 need the endpoint; AWS S3 does not.
+#   LITESTREAM_REPLICA_URL        s3://<bucket>/logbook
+#   LITESTREAM_ACCESS_KEY_ID      the bucket's key id       (Litestream reads these two by name)
+#   LITESTREAM_SECRET_ACCESS_KEY  the bucket's secret
+#   LITESTREAM_REPLICA_ENDPOINT   https://fly.storage.tigris.dev (Tigris), https://<account>.r2.cloudflarestorage.com (R2); empty for AWS
+dbs:
+  - path: ${DATABASE_PATH}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}
+        endpoint: ${LITESTREAM_REPLICA_ENDPOINT}
+        # how far back a point-in-time restore can go; snapshots are taken every 24 h inside it
+        retention: 72h
+        snapshot-interval: 24h
+        sync-interval: 1s

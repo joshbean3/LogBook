@@ -3,6 +3,7 @@ import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '@/api/client';
 import type { ProviderConnection, ProviderId, Reminder } from '@logbook/shared';
+import type { Bootstrap } from '@/api/types';
 import { connectProvider, keys, stravaSyncNow, useBootstrap, useConnectionMutations, useConnections, useNotificationSettings, useNotificationSettingsPatch, useReminderMutations, useReminders, useStravaChecking } from '@/api/queries';
 import { markSignedOut } from '@/features/auth/flag';
 import { remindersOn, remindersSupported } from '@/features/goals/reminders';
@@ -10,7 +11,7 @@ import { haptics, useHapticsEnabled } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
 import { currentWebPush, disablePush, enablePush, webPushSupported } from '@/lib/sw';
 import { Button, PushedBar, Row, useSheet, useToast } from '@/ui';
-import { DeleteStepOne, exportAll } from './account';
+import { ChangeEmailSheet, ChangePasswordSheet, DeleteStepOne, emailVerifiedOf, exportAll, useEndOtherSessions, useEndSession, useResendVerification, useSessions } from './account';
 import { popFav } from '@/features/journal/feel';
 import { GoRow, SGroup, Switch } from './parts';
 
@@ -375,12 +376,25 @@ export const DataPage = (): React.JSX.Element => {
   );
 };
 
-/** /settings/account: who is signed in, Sign out, Delete account (a two-step sheet). */
+/** "since Oct 3" for the sessions list. */
+const since = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+/**
+ * /settings/account: the address (Verified, or Not verified with Resend; the row opens Change email), Change password,
+ * the sessions (this device marked, Sign out per row, Sign out everywhere else, Sign out), and Delete account (a two-step sheet).
+ */
 export const AccountPage = (): React.JSX.Element => {
   const boot = useBootstrap();
   const qc = useQueryClient();
   const sheet = useSheet();
   const toast = useToast();
+  const sessions = useSessions();
+  const endSession = useEndSession();
+  const endOthers = useEndOtherSessions();
+  const resend = useResendVerification();
+  const [resent, setResent] = useState(false);
+  // null = the link was never opened; undefined = a cache from before verification existed (nothing to nag about)
+  const unverified = emailVerifiedOf(boot.data) === null;
   const logout = useMutation({
     mutationFn: () => api('/auth/logout', { method: 'POST' }),
     onSuccess: () => markSignedOut(qc),
@@ -394,13 +408,77 @@ export const AccountPage = (): React.JSX.Element => {
       haptics.error();
       toast('Export didn’t finish. Check your connection.');
     });
+  const doResend = () =>
+    resend.mutate(undefined, {
+      onSuccess: (r) => {
+        setResent(true);
+        if (r.emailVerifiedAt) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, emailVerifiedAt: r.emailVerifiedAt } as Bootstrap['user'] } : b));
+        toast(r.emailVerifiedAt ? 'Already verified.' : 'A new link is on its way. It works for 24 hours.');
+      },
+      onError: (e) => {
+        haptics.error();
+        toast(e instanceof ApiError && e.status === 429 ? 'Three mails an hour is the limit. Check your inbox for the last one.' : 'Couldn’t send the link. Check your connection.');
+      },
+    });
+  const list = sessions.data ?? [];
+  const others = list.filter((s) => !s.current);
+  const cannot = () => {
+    haptics.error();
+    toast('Couldn’t sign that device out. Check your connection.');
+  };
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Account" />
-      {/* one group: who is signed in, then the two ways out (no "Leave" header over Sign out, review feel F13) */}
       <SGroup title="Signed in as">
-        <Row title={boot.data?.user.email ?? ' '} className="s-email-row" />
+        <GoRow
+          className="s-email-row s-wrap"
+          title={boot.data?.user.email ?? ' '}
+          sub={unverified ? 'Not verified' : 'Verified'}
+          value={
+            unverified ? (
+              <Button variant="soft" size="sm" disabled={resend.isPending || resent} onClick={doResend}>
+                {resent ? 'Sent' : resend.isPending ? 'Sending…' : 'Resend'}
+              </Button>
+            ) : undefined
+          }
+          label="Change email"
+          onPress={() => sheet.open({ eyebrow: 'Account', title: 'Change email', body: <ChangeEmailSheet onDone={toast} />, sticky: true })}
+        />
+        <GoRow title="Change password" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Change password', body: <ChangePasswordSheet onDone={toast} />, sticky: true })} />
+      </SGroup>
+      {/* every device with this account open: this one first, the rest with Sign out; then the two ways out of this one */}
+      <SGroup title="Sessions">
+        {sessions.isPending ? <Row title=" " sub="Loading…" className="s-wrap" /> : null}
+        {list.map((s) => (
+          <Row
+            key={s.id}
+            className="s-wrap"
+            title={s.device}
+            sub={s.current ? `This device · since ${since(s.createdAt)}` : `Last seen ${ago(s.lastSeenAt) ?? 'a while ago'} · since ${since(s.createdAt)}`}
+            right={
+              !s.current ? (
+                <Button variant="quiet" size="sm" className="s-session-out" disabled={endSession.isPending} onClick={() => endSession.mutate(s.id, { onError: cannot })}>
+                  Sign out
+                </Button>
+              ) : null
+            }
+          />
+        ))}
+        {others.length ? (
+          <Row
+            title={endOthers.isPending ? 'Signing out…' : 'Sign out everywhere else'}
+            onClick={() =>
+              !endOthers.isPending &&
+              endOthers.mutate(undefined, {
+                onSuccess: (r) => toast(r.revoked === 1 ? 'Signed out one other device.' : `Signed out ${r.revoked} other devices.`),
+                onError: cannot,
+              })
+            }
+          />
+        ) : null}
         <Row className="s-signout" title={logout.isPending ? 'Signing out…' : 'Sign out'} onClick={() => !logout.isPending && logout.mutate()} />
+      </SGroup>
+      <SGroup title="Your account">
         <Row
           className="s-danger"
           title="Delete account"

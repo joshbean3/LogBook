@@ -48,12 +48,26 @@ const bump = (db: DB, key: string, windowStart: number, by: number): number => {
 
 const retryAfter = (windowStart: number, windowMs: number, now: number) => Math.max(1, Math.ceil((windowStart + windowMs - now) / 1000));
 
+/** The database the short form of `checkRate` (no db argument) counts in; `buildApp` binds it. */
+let boundDb: DB | null = null;
+export const bindRateLimitDb = (db: DB | null) => {
+  boundDb = db;
+};
+
 /**
  * Count one call against `key` and say whether it is within `limit` per `windowMs`. `batch` > 1 writes the table
  * every n-th call from this process (the soft global limit); the default writes every call, so the count is exact
- * across processes and restarts.
+ * across processes and restarts. The short form without a db uses the one `buildApp` bound (and counts in memory
+ * only when none is).
  */
-export const checkRate = (db: DB, key: string, limit: number, windowMs: number, now = Date.now(), opts: { batch?: number } = {}): RateResult => {
+export function checkRate(db: DB, key: string, limit: number, windowMs: number, now?: number, opts?: { batch?: number }): RateResult;
+export function checkRate(key: string, limit: number, windowMs: number, now?: number): RateResult;
+export function checkRate(a: DB | string, b: string | number, c: number, d?: number, e?: number | { batch?: number }, f?: { batch?: number }): RateResult {
+  if (typeof a === 'string') return countRate(boundDb, a, b as number, c, d ?? Date.now(), {});
+  return countRate(a, b as string, c, d as number, (e as number | undefined) ?? Date.now(), f ?? {});
+}
+
+const countRate = (db: DB | null, key: string, limit: number, windowMs: number, now: number, opts: { batch?: number }): RateResult => {
   const windowStart = Math.floor(now / windowMs) * windowMs;
   let c = cache.get(key);
   if (c && c.windowStart !== windowStart) {
@@ -63,13 +77,13 @@ export const checkRate = (db: DB, key: string, limit: number, windowMs: number, 
   if (c && c.count >= limit) return { ok: false, retryAfterSec: retryAfter(windowStart, windowMs, now), count: c.count, limit };
   const batch = Math.max(1, opts.batch ?? 1);
   if (!c) {
-    c = { windowStart, count: bump(db, key, windowStart, 1), pending: 0 };
+    c = { windowStart, count: db ? bump(db, key, windowStart, 1) : 1, pending: 0 };
     if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value as string);
     cache.set(key, c);
   } else {
     c.count++;
     c.pending++;
-    if (c.pending >= batch) {
+    if (db && c.pending >= batch) {
       c.count = bump(db, key, windowStart, c.pending);
       c.pending = 0;
     }

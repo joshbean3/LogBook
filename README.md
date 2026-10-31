@@ -68,25 +68,33 @@ Skip Strava and Claude for now; the app works without them.
 
 ## Deploy it
 
-The simplest path is Fly.io: one machine, one volume, no database server.
+The simplest path is Fly.io: one machine, one volume, no database server. SQLite runs in WAL mode on the volume;
+Litestream (optional, step 6) streams every change to a bucket, and the server writes a nightly copy of its own.
 
-7 steps, ~15 min. Need: `flyctl` installed and signed in.
+8 steps, ~20 min. Need: `flyctl` installed and signed in.
 
 1. **Open** a terminal in this folder.
 2. **Create** the app: `fly launch --no-deploy --copy-config --name <your-app-name>` (accept the defaults).
 3. **Create** the volume: `fly volumes create logbook_data --size 1 --region ewr`
 4. **Set** secrets (the session secret must be long and random; setup is open only while you say so):
    ```
-   fly secrets set SESSION_SECRET=$(openssl rand -hex 32) APP_URL=https://<your-app-name>.fly.dev ALLOW_SETUP=1
+   fly secrets set SESSION_SECRET=$(openssl rand -hex 32) APP_URL=https://<your-app-name>.fly.dev ALLOW_SETUP=1 METRICS_TOKEN=$(openssl rand -hex 16)
    ```
-5. **Deploy**: `fly deploy`
-6. **Open** `https://<your-app-name>.fly.dev` and create your account.
-7. **Close** setup so nobody else can: `fly secrets set ALLOW_SETUP=0`
+5. **Deploy**: `fly deploy`. The boot applies the migrations (under a lock in the database, so a second process never
+   races it), and Fly's check polls `GET /api/ready` (a `SELECT 1`; 503 while the process is shutting down).
+6. **Turn on** continuous backups to Tigris, Fly's S3: the numbered list under [Backups](#backups). Five minutes, and
+   a machine that loses its volume comes back with its data.
+7. **Open** `https://<your-app-name>.fly.dev` and create your account.
+8. **Close** setup so nobody else can: `fly secrets set ALLOW_SETUP=0`
 
-`fly.toml` keeps one machine running (`min_machines_running = 1`): the reminder scheduler and the provider syncs are loops
-inside the API process, so a machine that stops between requests would send nothing.
+`fly.toml` keeps one machine running (`min_machines_running = 1`): the reminder scheduler and the provider syncs are
+jobs inside the API process (`RUN_JOBS=inline`, the default; see [The worker process](#the-worker-process)), so a
+machine that stops between requests would send nothing. `kill_timeout` gives a deploy 15 s: on SIGTERM the server
+stops listening, finishes what is in flight (10 s at most), closes the database and exits.
 
-Any host that runs a Docker image with a persistent volume works the same way (Railway, Render, a VPS with `docker compose up -d`).
+Any host that runs a Docker image with a persistent volume works the same way (Railway, Render, a VPS with
+`docker compose up -d`). The image's entrypoint is `apps/api/bin/start.sh`: plain `node dist/index.js`, or the same
+under `litestream replicate` when `LITESTREAM_REPLICA_URL` is set.
 
 ## Install it on your phone
 
@@ -120,12 +128,34 @@ curl -X POST https://www.strava.com/api/v3/push_subscriptions \
 
 ## Connect COROS
 
-COROS's "Connect your data" OAuth app works the same way behind one interface (`apps/api/src/services/providers`): create the
-app at https://open.coros.com, set its redirect to `https://<your-app>/api/connections/coros/callback`, then set `COROS_CLIENT_ID`
-and `COROS_CLIENT_SECRET`. Settings › Connections then shows a COROS row. The endpoint roots default to the documented ones
-(`COROS_AUTH_URL`, `COROS_TOKEN_URL`, `COROS_API_URL`); `providers/coros.ts` lists what to confirm against COROS's developer
-docs before the first real connection. A run both Strava and COROS recorded (same start within two minutes, distance within
-2%) is counted once.
+COROS has no self-service API, but it runs an official MCP server (https://mcp.coros.com/mcp, built for AI clients), and
+Logbook connects as one of them: the same Settings › Connections row as Strava, behind the same `Provider` interface
+(`apps/api/src/services/providers/coros.ts`, with the OAuth client in `oauth.ts` and the JSON-RPC client in `mcp.ts`).
+There is nothing to register and no developer console:
+
+1. Set `APP_URL` to the public https URL of your server (COROS redirects the sign-in back to
+   `APP_URL/api/connections/coros/callback`, so it has to be reachable from the internet). Nothing else: the COROS row
+   appears in Settings › Connections on an https server.
+2. Deploy. On the first connect the server discovers COROS's OAuth endpoints from the MCP URL (RFC 9728 and 8414) and
+   registers itself as a client (RFC 7591). The registration is kept in the `provider_clients` table and reused; a changed
+   `APP_URL` registers again.
+3. Settings › Connections › COROS › Connect: sign in at COROS, and the last 120 days of activities arrive in the
+   background. COROS has no webhook, so after that the 20-minute loop is the only way new activities come in (an access
+   token lasts 30 days and its refresh token 180; both rotate on refresh and are stored).
+4. Only if COROS refuses the registration (the connect answers "refused to register this server as a client"): register a
+   client with COROS by hand, with `APP_URL/api/connections/coros/callback` as its redirect and the scope
+   `openid mcp.tools offline_access`, and set `COROS_CLIENT_ID` (and `COROS_CLIENT_SECRET` if one was issued). A local
+   http server needs this too. `COROS_MCP_URL` changes the server (default `https://mcp.coros.com/mcp`; the regional
+   hosts are followed automatically).
+
+The tool and OAuth endpoints are verified against the live server; the tools' field names are not published, so
+`coros.ts` reads them tolerantly (the argument names come from the server's own tool schemas) and logs the first record it
+cannot map at debug level. If a connect works but no activities appear, that log line says what to fix, in that one file.
+
+The assistant may read COROS activities: COROS built the MCP server for AI clients. Strava activities never reach a model
+(Strava's API terms; see `apps/api/src/services/ai-sources.ts`). A run both recorded (same start within two minutes,
+distance within 2%) is counted once, under whichever provider was connected first, and the assistant sees it only when
+the COROS copy is the one kept.
 
 ## Reminders and push
 
@@ -159,6 +189,13 @@ Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPI
 | `COROS_CLIENT_ID`, `COROS_CLIENT_SECRET`, `COROS_AUTH_URL`, `COROS_TOKEN_URL`, `COROS_API_URL` | COROS (the URLs have defaults) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for reminders (`npx web-push generate-vapid-keys`) |
 | `VITE_API_ORIGIN` | Build-time, the iPhone app only: the server it talks to (no default) |
+| `RUN_JOBS` | Who runs the background jobs: `inline` (the API, default), `worker` (`dist/worker.js`), `off` |
+| `RUN_MIGRATIONS` | `0` skips the migrations at boot (`pnpm db:migrate` applies them by hand) |
+| `LOG_LEVEL`, `LOG_FORMAT` | `debug`/`info`/`warn`/`error`; `json` (production default) or `pretty` |
+| `SENTRY_DSN` | Errors go to Sentry as well as the log |
+| `METRICS_TOKEN` | Bearer token for `GET /api/metrics` (open when unset) |
+| `BACKUP_DIR`, `BACKUP_KEEP` | The nightly `VACUUM INTO` copies: where (`backups/` next to the DB) and how many (7) |
+| `LITESTREAM_REPLICA_URL`, `LITESTREAM_ACCESS_KEY_ID`, `LITESTREAM_SECRET_ACCESS_KEY`, `LITESTREAM_REPLICA_ENDPOINT` | Continuous replication of the database to a bucket (Docker entrypoint) |
 
 ## Development
 
@@ -190,3 +227,107 @@ Every update after that: `git pull && pnpm install && fly deploy && pnpm ios`, t
 Note: with a free Apple ID the app must be reinstalled from Xcode every 7 days. A paid Apple Developer account ($99/yr) lifts that to a year and unlocks TestFlight, where it installs like any App Store app.
 
 The app signs in against `VITE_API_ORIGIN`, which has no default: build it with `VITE_API_ORIGIN=https://your-server pnpm ios` (or `VITE_API_ORIGIN=https://your-server pnpm --filter @logbook/web build:ios`). A build without it has no server to talk to and says so in the console.
+
+## Backups
+
+Two layers, both on by default once configured: Litestream streams the WAL to a bucket within a second of every write
+(point-in-time restore, 72 h of history), and the server writes a plain copy of the whole database every night.
+
+**Nightly copies.** At 03:00 UTC the jobs runner (the API, or the worker) runs `VACUUM INTO /data/backups/logbook-YYYY-MM-DD.db`
+and keeps the newest seven (`BACKUP_DIR`, `BACKUP_KEEP`). A copy is a complete, compact SQLite file that any `sqlite3`
+opens. `scripts/backup.sh` writes one by hand (with an integrity check), from the machine:
+
+```
+fly ssh console -C "/app/scripts/backup.sh"
+fly sftp get /data/backups/logbook-<stamp>.db ./
+```
+
+**Litestream on Tigris** (Fly's S3-compatible storage; R2 or B2 work the same with their endpoint). 6 steps, ~5 min:
+
+1. **Create** the bucket from this folder: `fly storage create --name <your-app-name>-db`. It prints the credentials:
+   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `BUCKET_NAME`. (It also sets them as secrets
+   on the app under those names; Litestream reads its own, set next.)
+2. **Set** them for Litestream:
+   ```
+   fly secrets set LITESTREAM_REPLICA_URL=s3://<BUCKET_NAME>/logbook \
+     LITESTREAM_ACCESS_KEY_ID=<AWS_ACCESS_KEY_ID> LITESTREAM_SECRET_ACCESS_KEY=<AWS_SECRET_ACCESS_KEY> \
+     LITESTREAM_REPLICA_ENDPOINT=https://fly.storage.tigris.dev
+   ```
+   The machine restarts; `fly logs` shows `litestream` replicating `/data/logbook.db`.
+3. **Check** it: `fly ssh console -C "litestream snapshots -config /app/litestream.yml /data/logbook.db"` lists the
+   generations in the bucket.
+4. **Drill** the restore once (do this before you need it). To a scratch path, without touching the live file:
+   ```
+   fly ssh console -C "litestream restore -o /tmp/drill.db -config /app/litestream.yml /data/logbook.db"
+   fly ssh console -C "/app/scripts/restore.sh /tmp/drill.db"   # only if you mean to replace the live database
+   ```
+   `restore.sh` checks the copy (`PRAGMA integrity_check`, the number of accounts), moves the live file and its
+   `-wal`/`-shm` aside as `logbook.db.before-restore-<stamp>`, and puts the copy in place. Then
+   `fly machine restart <id>` so the server opens the restored file. The same script takes a nightly copy or an
+   `s3://` URL. For a dry run that touches nothing, stop after the first command and open `/tmp/drill.db`.
+5. **Lose the volume** and come back: a new machine with an empty `/data` starts, `start.sh` sees no database file,
+   runs `litestream restore -if-replica-exists` and boots on the restored copy. Nothing to do by hand.
+6. **Rotate** the keys when you rotate anything else: `fly storage` can issue new credentials; set them with the same
+   `fly secrets set` as in step 2.
+
+Locally, `docker compose` reads the same four `LITESTREAM_*` values from `.env`.
+
+## Observability
+
+**Logs.** One JSON object per line on stdout (`LOG_FORMAT=json`, the production default; `pretty` for a terminal):
+`level`, `time`, `msg`, then the fields. Every API request writes one line (`method`, `path`, `status`, `ms`, `userId`,
+`ip`, `requestId`); a request over a second is logged at `warn` as `slow request`. The request id comes from the
+caller's `X-Request-Id` when it sends one, is minted otherwise, and goes back in the response header; every line
+written while the request is being served carries it, as does a 500's body (`requestId`), so one `fly logs | grep
+<id>` shows what happened. `LOG_LEVEL=debug` adds the health checks and the jobs' idle ticks.
+
+**Errors.** `services/ops/errors.ts` reports anything unexpected: a 500 from a route, a job that threw, an unhandled
+rejection (logged, process goes on), an uncaught exception (logged, process exits 1 and is restarted). With
+`SENTRY_DSN` set, each goes to Sentry too, with the request id, the user id, the job name and the process (`api` or
+`worker`) as tags; `@sentry/node` is loaded only when the DSN is set.
+
+**Health.** `GET /api/health` and `GET /api/ready` (the same answer) run `SELECT 1` and report
+`{ ok, db: "ok", wal_bytes, uptime_s, version }`; a database that cannot answer is a 503, and so is the window
+between SIGTERM and exit, so the proxy drains the machine before it stops. Fly's check and the Docker `HEALTHCHECK`
+poll `/api/ready`.
+
+**Metrics.** `GET /api/metrics` is Prometheus text (`Authorization: Bearer $METRICS_TOKEN` when the token is set; set
+it in production): `http_requests_total{class}` and the `http_request_duration_seconds` histogram for this process;
+`logbook_job_runs_total{name,ok}` and `logbook_job_last_success_timestamp_seconds{name}` from the `job_runs` table
+(14 days, both processes); `logbook_llm_tokens_24h{kind}` and `logbook_llm_calls_24h` from `llm_usage`;
+`logbook_active_users_24h` (accounts whose session was used in the last day) and `logbook_users_total`;
+`logbook_db_file_bytes` and `logbook_db_wal_bytes`; `process_uptime_seconds`, `process_resident_memory_bytes`,
+`logbook_build_info{version}`. Point a Grafana Cloud or Prometheus scraper at it, or just `curl` it.
+
+**Rate limits** persist in the `rate_limits` table (fixed windows, a small cache in front), so a restart or a second
+process does not reset them: per account, the assistant (30 an hour) and plan drafts (10 a day); per address, 20
+calls a minute on `/api/auth/*` and a soft 600 a minute on `/api/*` (counted ten at a time), with the address taken
+from `Fly-Client-IP`, then the first `X-Forwarded-For` hop. Over a limit is a 429 with `Retry-After`.
+
+## The worker process
+
+The background jobs are seven families, each a timer: `reminders` (the 60 s loop that books the system reminders and
+sends what is due), `provider-sync` (Strava and COROS, every 20 min), `session-purge` (6 h), `wal-checkpoint`
+(`PRAGMA wal_checkpoint(PASSIVE)` every 5 min), `nightly-backup` (03:00 UTC, catching up after downtime),
+`idempotency-purge` (1 h) and `ops-purge` (job runs older than 14 days, stale rate-limit windows, 6 h). Every run is a
+row in `job_runs` (`name`, `started_at`, `finished_at`, `ok`, `error`, `meta`); the quiet ones (`reminders`,
+`wal-checkpoint`) only write a row when they did something or failed. A failed run is reported like a 500 and the
+next tick tries again.
+
+Each family runs under a lease in the database (`leases`: `name`, `holder`, `expires_at`), taken with one
+`INSERT … ON CONFLICT DO UPDATE … WHERE expired OR mine` and held a little longer than the period. So whichever
+processes are up, one of them runs each job; if that one dies, another takes over within about a period. The
+migrations at boot take the same kind of lease, so two processes starting together apply them once.
+
+`RUN_JOBS` says who runs them:
+
+- `inline` (the default): the API process, as before. The right setting for one machine, which is what Fly gives a
+  SQLite app: a volume mounts to one machine, and the worker needs the very file the API writes.
+- `worker`: `node dist/worker.js` (`pnpm --filter @logbook/api dev:worker` locally), a process with no HTTP, the
+  same jobs, the same file. Set `RUN_JOBS=off` on the API then. For a host with a shared local disk
+  (`docker-compose.yml` has the service, commented out) or for when the database moves off SQLite; `fly.toml`
+  documents the `[processes]` split and why it stays off on Fly.
+- `off`: nobody. Reminders stop; only for a scratch API.
+
+Both processes open the database the same way (`db/index.ts`: WAL, `synchronous = NORMAL`, `busy_timeout` 5 s), and
+either applies the migrations at boot unless `RUN_MIGRATIONS=0`.

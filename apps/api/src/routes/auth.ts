@@ -24,7 +24,7 @@ import type { DB } from '../db/index.js';
 import { authSessions, users } from '../db/schema.js';
 import { env } from '../env.js';
 import { csrf } from '../lib/csrf.js';
-import { checkRate, rateLimit } from '../lib/ratelimit.js';
+import { checkRate, clientIp, rateLimit } from '../lib/ratelimit.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { lastMail, resetMail, sendMail, sentMails, tokenOf, verifyMail } from '../services/mail.js';
 
@@ -44,7 +44,8 @@ export const failThrottle = (ip: string) => {
   failures.set(ip, f);
 };
 export const clearThrottle = (ip: string) => failures.delete(ip);
-export const ipOf = (h: Headers) => h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('cf-connecting-ip') || 'local';
+/** The caller's address (Fly's header first, then the usual proxies): lib/ratelimit.ts knows the proxies. */
+export const ipOf = (h: Headers) => clientIp(h);
 
 /** The limits on the mailing routes: resend 3 an hour per account; forgot 5 an hour per address of origin, 3 per email. */
 export const RESEND_LIMIT = { limit: 3, windowMs: 3600_000 };
@@ -145,8 +146,8 @@ export const authRoutes = (db: DB) => {
   r.post('/forgot', async (c) => {
     const ip = ipOf(c.req.raw.headers);
     const { email } = await parseBody(c.req.raw, z.object({ email: zCredentials.shape.email }));
-    const byIp = checkRate(`forgot-ip:${ip}`, FORGOT_IP_LIMIT.limit, FORGOT_IP_LIMIT.windowMs);
-    const byEmail = byIp.ok ? checkRate(`forgot-email:${email}`, FORGOT_EMAIL_LIMIT.limit, FORGOT_EMAIL_LIMIT.windowMs) : byIp;
+    const byIp = checkRate(db, `forgot-ip:${ip}`, FORGOT_IP_LIMIT.limit, FORGOT_IP_LIMIT.windowMs);
+    const byEmail = byIp.ok ? checkRate(db, `forgot-email:${email}`, FORGOT_EMAIL_LIMIT.limit, FORGOT_EMAIL_LIMIT.windowMs) : byIp;
     if (!byIp.ok || !byEmail.ok) {
       const sec = byIp.ok ? byEmail.retryAfterSec : byIp.retryAfterSec;
       c.header('retry-after', String(sec));

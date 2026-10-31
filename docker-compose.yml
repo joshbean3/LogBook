@@ -7,8 +7,28 @@ services:
     environment:
       DATABASE_PATH: /data/logbook.db
       NODE_ENV: production
+      # the API runs the background jobs itself; set `off` when the worker service below is on
+      RUN_JOBS: inline
+      # LITESTREAM_REPLICA_URL (+ keys, endpoint) in .env turns on continuous replication (README: Backups)
     volumes:
       - logbook_data:/data
     restart: unless-stopped
+    stop_grace_period: 15s
+
+  # The worker: the same jobs in a process of their own, on the same file (one volume, two containers, one host:
+  # SQLite is fine with that on a local disk, not over NFS). Uncomment it and set RUN_JOBS: off on the API.
+  # worker:
+  #   build: .
+  #   command: ['node', 'dist/worker.js']
+  #   env_file: .env
+  #   environment:
+  #     DATABASE_PATH: /data/logbook.db
+  #     NODE_ENV: production
+  #     RUN_JOBS: worker
+  #     RUN_MIGRATIONS: '0'   # the API applies them; the worker waits on the lease either way
+  #   volumes:
+  #     - logbook_data:/data
+  #   restart: unless-stopped
+  #   stop_grace_period: 15s
 volumes:
   logbook_data:

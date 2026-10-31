@@ -16,7 +16,7 @@ import { ApiError } from './lib/util.js';
 import { seedQuotes } from './db/seed.js';
 import { env } from './env.js';
 import { log, logContext } from './lib/log.js';
-import { ipRateLimit } from './lib/ratelimit.js';
+import { bindRateLimitDb, ipRateLimit } from './lib/ratelimit.js';
 import { aiRoutes } from './routes/ai.js';
 import { importRoutes } from './routes/import.js';
 import { authRoutes } from './routes/auth.js';
@@ -55,6 +55,7 @@ export interface AppOptions {
 export const buildApp = (db: DB, opts: AppOptions = {}) => {
   const app = new Hono<AuthEnv>();
   const dbPath = opts.dbPath ?? ':memory:';
+  bindRateLimitDb(db);
   app.use(requestLogging());
   app.use(secureHeaders({ crossOriginEmbedderPolicy: false }));
 
