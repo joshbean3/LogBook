@@ -1,13 +1,19 @@
 # Deploying v5 to Fly
 
-Deploy only a verified commit of `claude/ecstatic-euler-l7hmw0`: the one named in the pull request or in the chat recap as verified (typecheck, tests, build, screenshots). Never a `WIP` snapshot commit. This release runs three migrations at boot (assistant threads, reminders, the provider tables, which rebuild `activities` and drop `strava_accounts`), so back the database up first.
+Deploy only a verified commit of `claude/ecstatic-euler-l7hmw0`. Never a `WIP` snapshot commit.
+
+| Commit | What | Verified |
+|---|---|---|
+| `8660227` | v5: four tabs, one language, assistant v2, reminders, providers | typecheck, 357 tests, production build, screenshots at 390 and 320 |
+| `b2d2ed4` | v5.1: the Strava AI gate, accounts for the public (verification, reset, sessions, origin checks), Litestream and the worker, metrics, durable rate limits, COROS as an MCP client | typecheck, 424 tests, production build (web, api, worker, service worker) |
+ This release runs three migrations at boot (assistant threads, reminders, the provider tables, which rebuild `activities` and drop `strava_accounts`), so back the database up first.
 
 9 steps, ~15 min. Need: a Mac with `flyctl` signed in, the app's name (the one `fly apps list` shows; the README used `josh-logbook`).
 
 1. **Open** Terminal.
 2. **Fetch** the ref (~1 min):
    ```bash
-   cd ~/LogBook && git fetch origin claude/ecstatic-euler-l7hmw0 && git checkout <verified commit>
+   cd ~/LogBook && git fetch origin claude/ecstatic-euler-l7hmw0 && git checkout b2d2ed4
    ```
 3. **Back up** the live database before the migrations run (~1 min):
    ```bash
@@ -34,7 +40,10 @@ Deploy only a verified commit of `claude/ecstatic-euler-l7hmw0`: the one named i
    ```
 9. **Keep** the backup file until the next release.
 
-Optional, after the deploy:
+Optional, after the deploy (each is one `fly secrets set … -a <app>`; nothing breaks without them):
+- Verification and reset mails: `RESEND_API_KEY` and `MAIL_FROM="Logbook <hello@yourdomain>"` (without them the mails are logged, and existing accounts count as verified).
+- Backups off the machine: `LITESTREAM_REPLICA_URL`, `LITESTREAM_ACCESS_KEY_ID`, `LITESTREAM_SECRET_ACCESS_KEY` (README › Backups has the Tigris commands); nightly local backups run regardless.
+- Errors and metrics: `SENTRY_DSN`, `METRICS_TOKEN`.
 - Push notifications: `npx web-push generate-vapid-keys`, then `fly secrets set VAPID_PUBLIC_KEY=… VAPID_PRIVATE_KEY=… VAPID_SUBJECT=mailto:you@example.com -a <app>`.
 - The iPhone build: `VITE_API_ORIGIN=https://<app>.fly.dev pnpm ios` (the origin no longer has a default).
 
