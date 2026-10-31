@@ -1196,3 +1196,7 @@ export const useDayPlanSave = (date: string) => {
     onError: () => void qc.invalidateQueries({ queryKey: dayPlanKey(date) }),
   });
 };
+
+// ---------- a run's history, for its records (two years back) ----------
+export const useRunHistory = () =>
+  useQuery({ queryKey: ['activities', 'history'] as const, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -730)}&to=${shiftDays(today(), 1)}`), staleTime: 5 * 60_000 });

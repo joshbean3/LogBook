@@ -1,17 +1,14 @@
-import { assess, clock, clockOfDay, counts, decodePolyline, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, routePath, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Session, type StatusKey } from '@logbook/shared';
+import { assess, clock, clockOfDay, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError } from '@/api/client';
 import { keys, useSessionMutations } from '@/api/queries';
-import { ease } from '@/lib/motion';
 import type { MonthBundle } from '@/api/types';
 import { useContextMenu } from '@/ui/ContextMenu';
 import { Button, Chip, ChipButton } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import { useFirstToday } from '@/ui/useFirstToday';
 import { setCoachShown, useCoachShown } from '../day/coachShown';
 import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
@@ -21,6 +18,7 @@ import { PressButton } from './PressButton';
 import { LiftLog } from './LiftLog';
 import { dayMiles, sessionMiles } from './miles';
 import { voiceHead, voiceLine } from './voice';
+import { mainRun, RecordCard, recordLap, RouteMap, RunGrid, useRunRecords, whenLine } from './RunDetail';
 import './sessions.css';
 
 /** One line that says what the session is: "Easy · 6 mi · 1.5 mi wu". The floor is explained in the sheet, never in the row. */
@@ -207,7 +205,7 @@ export const shareFor = (date: string, s: Session, log: Log): ShareData | null =
 };
 
 /** What happened, graded against the plan: who ran it and when, splits, the read, the coach. */
-export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: Session | null; runs: Activity[]; log: Log }) => {
+export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; sess: Session | null; runs: Activity[]; log: Log; prLap?: Lap | null }) => {
   const a = assess(log.zones, sess, runs);
   const laps = runs.flatMap((r) => r.laps ?? []).filter((l) => l[0] > 160);
   const key = sess ? sess.id : 'run';
@@ -246,7 +244,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
       <p className="fine">{line}</p>
       {a.avgHr == null && runs.some((r) => !r.perfAt) ? <p className="fine">Heart rate and splits are on their way.</p> : null}
       {laps.length > 1 ? (
-        <div className="splits" aria-label="Mile splits">
+        <div className="splits" id={`splits-${key}`} aria-label="Mile splits">
           {laps.map((l, i) => {
             const part = l[0] < 0.9 * METERS_PER_MILE;
             const z = l[2] != null ? zoneOf(log.zones, l[2]) : null;
@@ -254,8 +252,8 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
             // the fastest mile gets the longest bar
             const w = slowest === fastest ? 1 : 0.35 + 0.65 * (1 - (p - fastest) / (slowest - fastest));
             return (
-              <div key={i} className={`split ${z ? `sz${z}` : ''} ${part ? 'part' : ''}`}>
-                <span className="split-n">{part ? mi(l[0] / METERS_PER_MILE) : i + 1}</span>
+              <div key={i} className={`split ${z ? `sz${z}` : ''} ${part ? 'part' : ''} ${l === prLap ? 'is-pr' : ''}`}>
+                <span className="split-n">{l === prLap ? '🏅' : part ? mi(l[0] / METERS_PER_MILE) : i + 1}</span>
                 <span className="split-bar">
                   <i style={{ width: `${w * 100}%` }} />
                 </span>
@@ -279,8 +277,8 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
       {log.features.claude ? (
         saved ? (
           <div className="coach">
-            <span className="caps row" style={{ gap: 6 }}>
-              <Sparkles size={12} /> Coach’s read
+            <span className="coach-head">
+              <Sparkles size={16} aria-hidden="true" /> Coach’s read
             </span>
             <p className="serif">{saved}</p>
             <button type="button" className="link sm" disabled={coach.isPending} onClick={() => coach.mutate()}>
@@ -298,21 +296,7 @@ export const SessionActual = ({ date, sess, runs, log }: { date: string; sess: S
   );
 };
 
-/** The route at the top of the sheet, on black; it draws itself the first time it is seen today. */
-export const RouteMap = ({ polyline, drawKey }: { polyline: string; drawKey: string }) => {
-  const reduce = useReducedMotion();
-  const first = useFirstToday(`route-sheet-${drawKey}`);
-  const d = useMemo(() => routePath(decodePolyline(polyline), 358, 168, 14), [polyline]);
-  if (!d) return null;
-  return (
-    <div className="ss-map" aria-hidden="true">
-      <svg viewBox="0 0 358 168" preserveAspectRatio="xMidYMid meet">
-        <path d={d} className="ss-map-glow" />
-        <motion.path d={d} className="ss-map-line" initial={first && !reduce ? { pathLength: 0 } : false} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease }} />
-      </svg>
-    </div>
-  );
-};
+export { RouteMap } from './RunDetail';
 
 /**
  * The session sheet's ⋯, in the sheet header's action slot (`SheetSpec.action`): Share, "Not feeling 100%" and Delete as a
@@ -382,7 +366,10 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the sheet opens on the stamps and the verbs; the evidence (splits, the read, the coach) renders right after, in the
   // background (WP1's request: the body's first render decided the open's first frame at 4×)
   const evidence = useDeferredValue(true, false);
+  const records = useRunRecords(runs);
   if (!s) return null;
+  const when = runs.length ? whenLine(date, log.today, mainRun(runs)?.time ?? null, startClock) : null;
+  const showSplits = () => document.getElementById(`splits-${s.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   const matched = s.kind === 'run' && runs.length > 0;
   const c = sessionCan(log, date, s);
   const st = c.st;
@@ -392,18 +379,21 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const others = log.snap.activitiesOn(date).filter((a) => a.kind !== 'run');
   const canLog = s.kind === 'lift' || (s.kind === 'cross' && /hyrox/i.test(s.type ?? ''));
   const stats = runs.length ? runStats(s, runs, log) : planStats(date, s, log, s.kind === 'lift' ? sets.length : 0);
-  const poly = runs.find((r) => r.polyline)?.polyline;
+  const polyRun = runs.find((r) => r.polyline) ?? null;
+  const poly = polyRun?.polyline;
   const meta = sessionMeta(s);
   const floorText = floorFor(s);
   return (
     <div className={`ss t-${tone(s)}`}>
-      {poly ? <RouteMap polyline={poly} drawKey={s.id} /> : null}
+      {poly ? <RouteMap polyline={poly} drawKey={s.id} run={polyRun} records={records} /> : null}
       <div className="ss-status">
         <Chip kind={chipKind(key)}>{word}</Chip>
+        {when ? <span className="t-sub ink3">{when}</span> : null}
         {s.movedFrom ? <span className="t-sub ink3">Moved from {fmtDate('md', s.movedFrom)}</span> : null}
       </div>
       {meta ? <p className="t-sub ink2 ss-meta">{meta}</p> : null}
-      <Stats stats={stats} />
+      {records.length ? <RecordCard records={records} date={date} onTap={showSplits} /> : null}
+      {runs.length ? <RunGrid sess={s} runs={runs} log={log} planned={plannedMiles(s)} /> : <Stats stats={stats} />}
       {c.mark ? (
         <div className="ss-verbs" role="group" aria-label="Mark it">
           <PressButton className={`ss-big done ${st === 'done' ? 'is-on' : ''}`} aria-pressed={st === 'done'} onClick={() => (st === 'done' ? act.clear(s) : act.done(s))}>
@@ -462,7 +452,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
           </PressButton>
         </div>
       )}
-      {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} /> : null}
+      {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} prLap={recordLap(runs, records)} /> : null}
       {s.kind === 'lift' && sets.length ? (
         <p className="t-sub ink2">
           {sets.length} {sets.length === 1 ? 'set' : 'sets'}: {sets.map((x) => `${x.exercise} ${x.weight}×${x.reps}`).join(', ')}
@@ -496,17 +486,20 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
 export const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log; fromHero?: boolean }) => {
   const share = useMemo(() => shareDataFor(date, null, runs, log), [date, runs, log]);
   const act = useSessionActions(log);
-  const poly = runs.find((r) => r.polyline)?.polyline;
+  const polyRun = runs.find((r) => r.polyline) ?? null;
   const key = sessionKey(log.snap, date, null);
+  const records = useRunRecords(runs);
+  const when = whenLine(date, log.today, mainRun(runs)?.time ?? null, startClock);
   return (
     <div className="ss t-easy">
-      {poly ? <RouteMap polyline={poly} drawKey={`u-${date}`} /> : null}
+      {polyRun?.polyline ? <RouteMap polyline={polyRun.polyline} drawKey={`u-${date}`} run={polyRun} records={records} /> : null}
       <div className="ss-status">
         <Chip kind={chipKind(key)}>{sessionWord(log.snap, date, null)}</Chip>
-        <span className="t-sub ink3">Off the plan</span>
+        <span className="t-sub ink3">{when ? `${when} · off the plan` : 'Off the plan'}</span>
       </div>
-      <Stats stats={runStats(null, runs, log)} />
-      <SessionActual date={date} sess={null} runs={runs} log={log} />
+      {records.length ? <RecordCard records={records} date={date} onTap={() => document.getElementById('splits-run')?.scrollIntoView({ behavior: 'smooth', block: 'center' })} /> : null}
+      <RunGrid sess={null} runs={runs} log={log} planned={0} />
+      <SessionActual date={date} sess={null} runs={runs} log={log} prLap={recordLap(runs, records)} />
       {share.miles > 0 ? (
         <div className="sheet-foot">
           <span />

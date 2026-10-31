@@ -23,9 +23,9 @@ export const decodePolyline = (s: string): Array<[number, number]> => {
   return out;
 };
 
-/** [lat, lng][] → an SVG path in a w×h box with padding, aspect preserved, lat flipped so north is up. */
-export const routePath = (pts: Array<[number, number]>, w: number, h: number, pad = 8): string => {
-  if (pts.length < 2) return '';
+/** [lat, lng][] → the points in a w×h box with padding, aspect preserved, lat flipped so north is up; and the path through them. */
+export const routeGeometry = (pts: Array<[number, number]>, w: number, h: number, pad = 8): { d: string; xy: Array<[number, number]> } => {
+  if (pts.length < 2) return { d: '', xy: [] };
   let minLat = Infinity;
   let maxLat = -Infinity;
   let minLng = Infinity;
@@ -42,13 +42,31 @@ export const routePath = (pts: Array<[number, number]>, w: number, h: number, pa
   const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanY);
   const ox = (w - spanX * scale) / 2;
   const oy = (h - spanY * scale) / 2;
-  return pts
-    .map(([la, ln], i) => {
-      const x = ox + (ln - minLng) * cos * scale;
-      const y = oy + (maxLat - la) * scale;
-      return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join('');
+  const xy = pts.map(([la, ln]): [number, number] => [ox + (ln - minLng) * cos * scale, oy + (maxLat - la) * scale]);
+  return { d: xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''), xy };
+};
+
+/** [lat, lng][] → an SVG path in a w×h box with padding, aspect preserved, lat flipped so north is up. */
+export const routePath = (pts: Array<[number, number]>, w: number, h: number, pad = 8): string => routeGeometry(pts, w, h, pad).d;
+
+const metersBetween = ([a1, o1]: [number, number], [a2, o2]: [number, number]) => {
+  const r = Math.PI / 180;
+  const x = (o2 - o1) * r * Math.cos(((a1 + a2) / 2) * r);
+  const y = (a2 - a1) * r;
+  return Math.hypot(x, y) * 6371e3;
+};
+
+/** The index of the route point a fraction (0 to 1) of the way along it, by distance. */
+export const indexAlong = (pts: Array<[number, number]>, frac: number): number => {
+  if (pts.length < 2) return 0;
+  const seg = pts.slice(1).map((p, i) => metersBetween(pts[i]!, p));
+  const total = seg.reduce((t, d) => t + d, 0);
+  let want = Math.max(0, Math.min(1, frac)) * total;
+  for (let i = 0; i < seg.length; i++) {
+    want -= seg[i]!;
+    if (want <= 0) return i + 1;
+  }
+  return pts.length - 1;
 };
 
 /** Encoder, for seeds and tests. */
