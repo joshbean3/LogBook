@@ -131,7 +131,10 @@ export const AssistantSheet = ({ date, initial, context }: { date: ISODate; init
   useEffect(() => {
     if (thread.data) assistantStore.hydrate(thread.data);
   }, [thread.data]);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [turns.length, busy, streaming?.text]);
+  useEffect(() => {
+    // braces on purpose: an effect must return a cleanup or nothing (a returned value crashes React with "destroy is not a function")
+    end.current?.scrollIntoView({ block: 'end' });
+  }, [turns.length, busy, streaming?.text]);
 
   const send = async (text: string) => {
     const t = text.trim();

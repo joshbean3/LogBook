@@ -101,6 +101,8 @@ export const paintOrder = (slots: readonly DaySlot[], levels: Map<string, number
 export interface Referenced {
   ref: string;
   altRefs?: readonly string[];
+  /** A done item is never "to place": it leaves the tray (a placed one stays on the timeline, struck). */
+  done?: boolean;
 }
 
 /**
@@ -123,12 +125,12 @@ export const trayOf = <T extends Referenced>(plan: Pick<DayPlanBody, 'bands' | '
   for (const b of DAY_BANDS)
     for (const r of plan?.bands[b] ?? []) {
       const it = by.get(r);
-      if (it && !placed.has(it) && !seen.has(it)) {
+      if (it && !it.done && !placed.has(it) && !seen.has(it)) {
         seen.add(it);
         out.push(it);
       }
     }
-  for (const it of items) if (!placed.has(it) && !seen.has(it)) out.push(it);
+  for (const it of items) if (!it.done && !placed.has(it) && !seen.has(it)) out.push(it);
   return out;
 };
 

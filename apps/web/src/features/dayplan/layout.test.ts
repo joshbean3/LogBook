@@ -149,3 +149,11 @@ describe('words', () => {
     expect(hourLabel(1380)).toBe('11 PM');
   });
 });
+
+describe('the tray leaves done items out', () => {
+  it('skips a done to-do whether or not it sits in a band', () => {
+    const items = [{ ref: 'todo:a', done: true }, { ref: 'todo:b', done: false }, { ref: 'step:g:1', done: true }];
+    const plan = { bands: { morning: ['todo:a'], afternoon: [], evening: [] }, slots: [] };
+    expect(trayOf(plan, items).map((i) => i.ref)).toEqual(['todo:b']);
+  });
+});
