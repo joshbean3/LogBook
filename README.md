@@ -331,3 +331,35 @@ migrations at boot take the same kind of lease, so two processes starting togeth
 
 Both processes open the database the same way (`db/index.ts`: WAL, `synchronous = NORMAL`, `busy_timeout` 5 s), and
 either applies the migrations at boot unless `RUN_MIGRATIONS=0`.
+
+## Email, verification and password reset
+
+Logbook sends two mails: a verify link at sign-up (and after a change of address) and a reset link from "Forgot your
+password?". Both go through [Resend](https://resend.com)'s HTTP API; nothing else is needed.
+
+3 steps, ~5 min:
+
+1. **Verify** your sending domain in Resend and create an API key.
+2. **Set** `RESEND_API_KEY` and `MAIL_FROM` (for example `Logbook <hello@yourdomain>`), and make sure `APP_URL` is the
+   address people open the app at: the links in the mails are built from it.
+3. **Restart** the server.
+
+Without a key no mail leaves the server: each one is printed to the log, and outside production `GET /api/auth/dev/last-mail`
+shows the last one with its token, so sign-up and reset can be walked by hand.
+
+What the mails say: "Verify your email for Logbook" carries one link good for 24 hours; "Reset your Logbook password"
+carries one link good for an hour and only once. Only a hash of each token is stored (`email_tokens`).
+
+How it behaves:
+
+- A new account can use the app at once. After 7 days unverified, the assistant and the connections answer
+  `403 email_unverified` until the link is opened; Settings › Account shows "Not verified · Resend" (three mails an hour).
+  Accounts from before this existed count as verified.
+- `POST /api/auth/forgot` always answers 200, so nothing says which addresses have accounts; it is limited to 5 an hour
+  per address of origin and 3 per email. A reset sets the new password and signs every other device out.
+- Passwords are 10 characters or more, not one of the hundred most common, and not your email address.
+- Settings › Account lists every device signed in (this one marked, the browser and OS, when it was last here), with
+  Sign out per device and "Sign out everywhere else". Changing the password also signs the other devices out.
+- Every write under `/api` must come from the app: an `Origin` (or `Referer`) on `APP_URL`'s origin (or the native app's,
+  or `localhost` outside production), or the header `X-Requested-With: logbook`, which the web and native clients send on
+  every request. A `curl` against a production server needs that header; provider webhooks and OAuth callbacks are exempt.

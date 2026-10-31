@@ -144,7 +144,7 @@ describe('per-address limits', () => {
     const over = await a.request('/api/auth/status', { headers });
     expect(over.status).toBe(429);
     expect(over.headers.get('retry-after')).toMatch(/^\d+$/);
-    expect((await over.json()).code).toBe('rate_limited');
+    expect(((await over.json()) as { code: string }).code).toBe('rate_limited');
     // another address is fine; the health check never counts
     expect((await a.request('/api/auth/status', { headers: { 'fly-client-ip': '203.0.113.10' } })).status).toBe(200);
     expect((await a.request('/api/health', { headers })).status).toBe(200);

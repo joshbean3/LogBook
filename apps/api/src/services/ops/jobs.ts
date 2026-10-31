@@ -169,6 +169,8 @@ export const defaultJobs = (): Job[] => [
     dailyAtUtcHour: 3,
     initialDelayMs: 60_000,
     leaseMs: H,
+    // in production, or wherever BACKUP_DIR says so; a dev checkout would otherwise fill data/backups with copies of a scratch database
+    enabled: () => env.isProd || !!env.BACKUP_DIR,
     run: ({ sqlite, dbPath }, now) => nightlyBackup(sqlite, dbPath, now),
   },
   {
