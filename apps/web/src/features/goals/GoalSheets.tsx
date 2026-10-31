@@ -88,9 +88,6 @@ export const GoalEditor = ({ level, period, initial }: { level: GoalLevel; perio
       ) : null}
       <p className="gs-hint">Due {deadlineWords(level, period, today)}. Write it as you’d say it.</p>
       <div className="sheet-foot">
-        <Button variant="ghost" onClick={done}>
-          Cancel
-        </Button>
         <div className="foot-right">
           <Button variant="primary" onClick={save} disabled={!words}>
             Set goal

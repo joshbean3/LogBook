@@ -1,3 +1,4 @@
+import type { Activity } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
@@ -7,7 +8,7 @@ const D = '2026-10-25';
 const bundle = (over: Partial<MonthBundle> = {}): Record<string, MonthBundle> => ({
   '2026-10': { month: '2026-10', sessions: [], checks: [], lifts: [], activities: [], morningDays: {}, journal: [], coach: [], ...over },
 });
-const run = { id: 'a1', date: D, time: '07:10', name: 'Morning Run', sportType: 'Run', kind: 'run' as const, miles: 5.02, movingSec: 5.02 * 494, elevFt: 40, avgHr: null, maxHr: null, cadence: null, laps: null };
+const run: Activity = { id: 'a1', date: D, time: '07:10', name: 'Morning Run', sportType: 'Run', kind: 'run', miles: 5.02, movingSec: 5.02 * 494, elevFt: 40, avgHr: null, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null };
 const habits = [
   { id: 'h1', name: 'Stretch', position: 0, createdOn: '2026-01-01', archivedOn: null },
   { id: 'h2', name: 'Read', position: 1, createdOn: '2026-01-01', archivedOn: null },

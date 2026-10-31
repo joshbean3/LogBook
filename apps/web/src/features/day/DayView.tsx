@@ -66,7 +66,7 @@ export default function DayView(): React.JSX.Element {
   const roll = useRef<(to: ISODate) => void>(setHeld);
   useEffect(() => {
     if (held === live) return;
-    return deferChange({ kind: 'day', ready: () => !hasDraft(held), apply: () => roll.current(live) });
+    return deferChange({ ready: () => !hasDraft(held), apply: () => roll.current(live) });
   }, [held, live]);
   // the rule is re-asked when a draft is written or cleared (it still needs its idle minute, a tab change or a return)
   useEffect(() => subscribeDrafts(recheckDeferred), []);

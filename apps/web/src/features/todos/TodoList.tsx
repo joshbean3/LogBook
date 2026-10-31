@@ -1,7 +1,7 @@
 import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
 import { Check, ChevronDown, ChevronRight, Clock, Plus, RotateCcw, Sun, Trash2 } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { clientKey, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
+import { clientKey, newTodoId, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { FOLD_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
@@ -31,9 +31,10 @@ const dueLabelOf = (x: Todo, date: ISODate) => (x.bucket === 'later' && x.due ? 
  * "Call the bank fri !!": the field reads its marks and says what it understood, in caps, as you type (inside the same 44
  * px row, so nothing below moves). Return adds the to-do and keeps the field for the next one; Return on an empty field, or
  * leaving it empty, closes it. On focus it is scrolled above the keyboard after the keyboard's 250 ms (`revealField`).
- * `date` is the day it is written on (today); `due`, the day a to-do added on a future day's page is for.
+ * `date` is the day it is written on (today); `due`, the day a to-do added on a future day's page is for. `onAdd` gets the
+ * new to-do's id (the schedule files it in a band).
  */
-export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do', autoFocus, onClose, onAdded }: { date: ISODate; due?: ISODate; groupId?: string | null; placeholder?: string; autoFocus?: boolean; onClose?: () => void; onAdded?: () => void }) => {
+export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do', autoFocus, onClose, onAdded, onAdd }: { date: ISODate; due?: ISODate; groupId?: string | null; placeholder?: string; autoFocus?: boolean; onClose?: () => void; onAdded?: () => void; onAdd?: (id: string) => void }) => {
   const { add } = useTodoMutations();
   const hintId = useId();
   const [draft, setDraft] = useState('');
@@ -45,7 +46,9 @@ export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do',
     if (!parsed.text) return onClose?.();
     const forDay = due && parsed.bucket === 'today' ? { bucket: 'later' as const, due } : { bucket: parsed.bucket, due: parsed.due };
     onAdded?.();
-    add.mutate({ text: parsed.text, date, priority: parsed.priority, groupId: parsed.groupId ?? groupId ?? null, ...forDay });
+    const id = newTodoId();
+    add.mutate({ id, text: parsed.text, date, priority: parsed.priority, groupId: parsed.groupId ?? groupId ?? null, ...forDay });
+    onAdd?.(id);
     setDraft('');
   };
   return (

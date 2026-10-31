@@ -10,6 +10,8 @@ import { nowISO } from './util.js';
 
 /** The header the web client sends on every request: its local date, `YYYY-MM-DD`. */
 export const LOCAL_DATE_HEADER = 'x-local-date';
+/** The client's IANA time zone, sent beside the date; stored on the account when it changes. */
+export const TIMEZONE_HEADER = 'x-timezone';
 /** How far the client's date may sit from the server's and still be believed (time zones span ±14 h, so ±1 day; 2 for slack). */
 export const LOCAL_DATE_SLACK_DAYS = 2;
 

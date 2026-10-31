@@ -44,7 +44,7 @@ const ReviewOwed = ({ goals, today }: { goals: Aim[]; today: string }) => {
   if (!g) return null;
   const rest = owed.slice(1);
   return (
-    <Section title="Review" level="secondary">
+    <div className="sec-secondary">
       <Group className="g-review">
         <div className="g-review-body">
           <p className="g-review-ask">{periodName(g.level, g.period, today)}: did you hit it?</p>
@@ -64,7 +64,7 @@ const ReviewOwed = ({ goals, today }: { goals: Aim[]; today: string }) => {
           </Button>
         ) : null}
       </Group>
-    </Section>
+    </div>
   );
 };
 

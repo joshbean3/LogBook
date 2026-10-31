@@ -479,6 +479,8 @@ export const assistantMessages = sqliteTable(
     userId: userId(),
     role: text('role').notNull(),
     contentJson: text('content_json').notNull(),
+    /** The proposal (`assistant_actions.id`) an assistant message carried, when it called propose_changes. */
+    actionId: text('action_id'),
     createdAt: createdAt(),
   },
   (t) => [index('assistant_messages_thread').on(t.threadId, t.createdAt)],

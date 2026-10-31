@@ -6,7 +6,7 @@ import { useToday } from '@/lib/useToday';
 import { Button, Card, ChipButton, EmptyState, Group, NavBar, Section } from '@/ui';
 import { AskBar } from '../assistant/AskBar';
 import { useLog } from '../log/useLog';
-import { getEnergy, useEnergy } from './energy';
+import { getEnergy, useEnergyVersion } from './energy';
 import { dayFacts, milesOn } from './facts';
 import { JournalDay, useOpenJournalDay } from './JournalDay';
 import { useRunDays } from './queries';
@@ -65,8 +65,8 @@ const daysOf = (ym: string, today: string, snap: ReturnType<typeof useLog>['snap
 
 const Month = ({ ym, today, log, goals, todos, query }: { ym: string; today: string; log: ReturnType<typeof useLog>; goals: readonly Aim[] | undefined; todos: ReturnType<typeof useTodos>['data']; query: string }) => {
   const open = useOpenJournalDay();
-  // re-render on an energy change anywhere (the facts carry it)
-  useEnergy(today);
+  // re-render on an energy change on any day (the facts carry it)
+  useEnergyVersion();
   const loaded = log.loaded(ym);
   const days = useMemo(() => (loaded ? daysOf(ym, today, log.snap, goals) : []), [loaded, ym, today, log.snap, goals]);
   const q = query.trim().toLowerCase();

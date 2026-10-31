@@ -1,4 +1,4 @@
-import { buildTemplate, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
+import { buildTemplate, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type TemplateInput, type Weekday } from '@logbook/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react';
 import { useNav, useTab } from '@/app/NavController';
@@ -6,24 +6,25 @@ import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { crossfade, reducedFade, useReduced } from '@/lib/motion';
-import { Button, Note, Stepper } from '@/ui/primitives';
-import { Pressable } from '@/ui/Pressable';
+import { Button, Note, Segmented, Stepper } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
+import { DayLetters } from '../onboarding/controls';
+import { fixLongRun } from '../onboarding/model';
 import { builderVerb, type BuilderPrefill } from './builderModel';
+import '../onboarding/onboarding.css';
 import './plan.css';
 
 /*
- * The block builder (docs/feel.md §7.4): a large sheet whose fixed header is the ghost preview (160 tall: the block's
+ * The block builder (docs/system.md: "Build my own"): a large sheet whose fixed header is the ghost preview (the block's
  * shape as a grid of weeks, live as the controls change; a goal change crossfades it, nothing else moves), the controls
- * under it, and one verb in the foot that says what it does: `Use this plan`, or `Replace 44 planned sessions from Oct 19`.
- * The header and the body are two siblings in the sheet, so the body publishes what it built through a small store made per
- * open (`ghostStore`) and the header subscribes to it.
+ * under it (a Segmented for the goal, the day letters, two Steppers, a Segmented for the start and the race), and one verb
+ * in the foot that says what it does: `Use this plan`, or `Replace 44 planned sessions from Oct 19`.
  */
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
-/** A number field takes a typed number in place of the one it shows (feel review 2 G: `8` then `5` read `85`). */
+/** A number field takes a typed number in place of the one it shows (`8` then `5` read `85`). */
 const selectAll = (e: ReactFocusEvent<HTMLInputElement>) => {
   const el = e.currentTarget;
   el.select();
@@ -60,7 +61,7 @@ const ghostStore = (initial: GhostState): GhostStore => {
 
 // ---------- the ghost header ----------
 /** One column per week of the block, Monday at the top; a run is its tone, brighter the longer it is. */
-const GhostGrid = ({ tpl }: { tpl: Template }) => {
+export const GhostGrid = ({ tpl }: { tpl: Template }) => {
   const byDate = new Map(tpl.sessions.map((s) => [s.date, s] as const));
   const max = Math.max(1, ...tpl.sessions.map((s) => s.miles));
   return (
@@ -82,20 +83,24 @@ const GhostGrid = ({ tpl }: { tpl: Template }) => {
   );
 };
 
+/** The block in one caps line: `12 weeks · 48 runs · peak 32 mi`. */
+export const templateCaps = (tpl: Template) => {
+  const weeks = tpl.weeks.filter((w) => w.week > 0).length;
+  const peak = Math.max(0, ...tpl.weeks.map((w) => w.miles));
+  return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} · ${tpl.sessions.length} runs · peak ${tenth(peak)} mi`;
+};
+
 /** The sheet's fixed header: what the block will look like, before anything is saved. */
 const GhostHeader = ({ store }: { store: GhostStore }) => {
   const g = useSyncExternalStore(store.subscribe, store.get);
   const reduce = useReduced();
   const tpl = g.tpl;
   const weeks = tpl ? tpl.weeks.filter((w) => w.week > 0).length : 0;
-  const peak = tpl ? Math.max(0, ...tpl.weeks.map((w) => w.miles)) : 0;
   let face: ReactNode = null;
   if (tpl)
     face = (
       <>
-        <span className="caps bh-caps">
-          {weeks} {weeks === 1 ? 'week' : 'weeks'} · {tpl.sessions.length} runs · peak {tenth(peak)} mi
-        </span>
+        <span className="caps bh-caps">{templateCaps(tpl)}</span>
         <span className="bh-name">{tpl.name}</span>
         <span className="bh-dates">
           {fmtDate('md', tpl.start)} – {fmtDate('md', tpl.end)}
@@ -124,14 +129,12 @@ const GhostHeader = ({ store }: { store: GhostStore }) => {
 
 // ---------- the body: the controls ----------
 const GOALS: Array<[Goal, string]> = [
-  ['base', 'Just running'],
+  ['base', 'Base'],
   ['5k', '5K'],
   ['10k', '10K'],
   ['half', 'Half'],
-  ['marathon', 'Marathon'],
+  ['marathon', 'Full'],
 ];
-const LETTER: Record<Weekday, string> = { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' };
-const DAY_NAME: Record<Weekday, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
 const KIND_WORD: Record<string, string> = { 'lead-in': 'Lead-in', build: '', down: 'Down week', taper: 'Taper', race: 'Race week' };
 
 /** What the last four weeks say: the days you run and your weekly miles. */
@@ -158,7 +161,7 @@ const habitsOf = (log: Log) => {
  * The starting point: the prefill (the next block, from the ending one), else the account's training answers (onboarding,
  * Settings › Training), else what the last four weeks say.
  */
-const startOf = (log: Log, prefill?: BuilderPrefill) => {
+export const startOf = (log: Log, prefill?: BuilderPrefill) => {
   const h = habitsOf(log);
   const prof = log.boot?.user.trainingProfile ?? null;
   const pick = prefill?.runDays?.length ? WEEKDAYS.filter((_, i) => prefill.runDays!.includes(i)) : prof?.runDays?.length ? WEEKDAYS.filter((d) => prof.runDays.includes(d)) : null;
@@ -187,8 +190,73 @@ const replaceable = (log: Log, from: string, to: string, overlap: PlanBlock[]) =
   return n;
 };
 
+/**
+ * What a template would replace: planned, not kept, from its first day (never before today), counted from the months it
+ * spans (fetched here, so a block reaching past the prefetched weeks still counts every session it replaces), and, like
+ * the server, the rest of any block it overlaps (that block ends the day before this one starts).
+ */
+export const useReplaceCount = (log: Log, tpl: Template | null) => {
+  const t = log.today;
+  const overlap = (log.boot?.blocks ?? []).filter((b) => tpl && b.start <= tpl.end && b.end >= tpl.start);
+  const last = overlap.reduce((e, b) => (b.end > e ? b.end : e), tpl?.end ?? t);
+  const span = useLog(useMemo(() => (tpl ? monthsBetween(tpl.start > t ? tpl.start : t, last) : []), [tpl?.start, last, t])); // eslint-disable-line react-hooks/exhaustive-deps
+  const from = tpl ? (tpl.start > t ? tpl.start : t) : t;
+  const existing = tpl ? replaceable(span, from, tpl.end, overlap) : 0;
+  return { existing, from, counting: !!tpl && !span.ready };
+};
+
 /** How long the Undo after a new block stays up. */
 const BLOCK_UNDO_MS = 8000;
+
+/** After the verb: the block is on the calendar, with Undo (it puts back what a replace took away). */
+const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResult, undo: () => void) => {
+  const n = r.replacedIds?.length ?? 0;
+  toast(`${r.block.name} is on your calendar.${n ? ` ${n} ${n === 1 ? 'session' : 'sessions'} replaced.` : ''}`, { label: 'Undo', fn: undo, duration: BLOCK_UNDO_MS });
+};
+
+/**
+ * The one way a template lands on the calendar (the builder, a library preset, an edited block): `POST /plans/template`,
+ * the sheet closed, Plan at the block's first week when it was opened there, and the toast with Undo. The promise settles
+ * whether or not the sheet is still open: a write that lands after a dismiss still raises its Undo, and a failure still
+ * says so.
+ */
+export const useApplyTemplate = () => {
+  const sheet = useSheet();
+  const nav = useNav();
+  const tab = useTab();
+  const toast = useToast();
+  const write = useTemplatePlan();
+  const undo = useTemplateUndo();
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
+  const apply = (input: TemplateInput, replacing: boolean) => {
+    if (write.isPending) return;
+    void write.mutateAsync({ ...input, replace: replacing }).then(
+      (r) => {
+        // a destructive commit with Undo, when it commits; a plain new block is silent
+        if (replacing) haptics.delete();
+        const wasOpen = alive.current;
+        if (wasOpen) sheet.close();
+        // the new block's first week, only when it was opened on Plan and is still open: a write that lands after a
+        // dismiss moves nothing (the owner may be anywhere by then)
+        if (tab === 'plan' && wasOpen) nav.go(`/plan/week/${mondayOf(r.block.start)}`);
+        announceApplied(toast, r, () =>
+          undo.mutateAsync(r).then(
+            () => undefined,
+            () => toast('Couldn’t undo. The new block is still there.'),
+          ),
+        );
+      },
+      (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the block. Try again.'),
+    );
+  };
+  return { apply, pending: write.isPending };
+};
 
 /** The builder's input from its controls (the same rule for the first render and every change). */
 const inputOf = (t: string, c: { goal: Goal; weeks: number; runDays: Weekday[]; longDay: Weekday; miles: number; soon: boolean; race: boolean; preStart: string | null }) => {
@@ -198,7 +266,7 @@ const inputOf = (t: string, c: { goal: Goal; weeks: number; runDays: Weekday[]; 
   const raceDate = c.goal !== 'base' && c.race ? shiftDays(firstMon, c.weeks * 7 - 1) : null;
   return { goal: c.goal, weeks: c.weeks, startDate, runDays: c.runDays, longRunDay: c.longDay, weeklyMiles: c.miles, raceDate };
 };
-const build = (input: ReturnType<typeof inputOf>): { tpl: Template | null; error: string | null } => {
+export const build = (input: TemplateInput): { tpl: Template | null; error: string | null } => {
   try {
     return { tpl: buildTemplate(input), error: null };
   } catch (e) {
@@ -215,12 +283,7 @@ const seedOf = (log: Log, prefill?: BuilderPrefill) => {
 type Seed = ReturnType<typeof seedOf>;
 
 const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: Seed }) => {
-  const sheet = useSheet();
-  const nav = useNav();
-  const tab = useTab();
-  const toast = useToast();
-  const write = useTemplatePlan();
-  const undo = useTemplateUndo();
+  const { apply, pending } = useApplyTemplate();
   const t = log.today;
   const s0 = seed.c;
   const [goal, setGoal] = useState<Goal>(s0.goal);
@@ -230,88 +293,33 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
   const [miles, setMiles] = useState(s0.miles);
   const [soon, setSoon] = useState(s0.soon);
   const [race, setRace] = useState(s0.race);
-  // a prefilled start (the day after the ending block) holds until "Start tomorrow" is toggled; never today or earlier
+  // a prefilled start (the day after the ending block) holds until the start is changed; never today or earlier
   const [preStart, setPreStart] = useState(s0.preStart);
   const isRace = goal !== 'base';
-  // the body outlives nothing: a write that lands after the sheet was dismissed still says what it did (code review 1 #2)
-  const alive = useRef(true);
-  useEffect(
-    () => () => {
-      alive.current = false;
-    },
-    [],
-  );
   const pickGoal = (g: Goal) => {
     setGoal(g);
     setWeeks(GOAL_SPECS[g].defaultWeeks);
   };
-  const toggleDay = (d: Weekday) => {
-    setRunDays((xs) => {
-      if (xs.includes(d)) {
-        if (xs.length === 1) return xs;
-        const next = xs.filter((x) => x !== d);
-        if (d === longDay) setLongDay(next[next.length - 1]!);
-        return next;
-      }
-      return WEEKDAYS.filter((x) => xs.includes(x) || x === d);
-    });
-  };
-  const pickLong = (d: Weekday) => {
-    setLongDay(d);
-    setRunDays((xs) => (xs.includes(d) ? xs : WEEKDAYS.filter((x) => xs.includes(x) || x === d)));
-  };
   const input = inputOf(t, { goal, weeks, runDays, longDay, miles, soon, race, preStart });
-  const { startDate, raceDate } = input;
+  const { raceDate } = input;
   // the first render reuses the seed the header was made with (the same input, built once)
   const first = useRef<Seed['built'] | null>(seed.built);
   const built = useMemo(() => {
     const f = first.current;
     first.current = null;
     return f ?? build(input);
-  }, [goal, weeks, startDate, runDays.join(','), longDay, miles, raceDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [goal, weeks, input.startDate, runDays.join(','), longDay, miles, raceDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const tpl = built.tpl;
-  // the week-by-week list (84 cells) renders after the open: null on the first render, the template in a deferred one
-  // (code review 1 #9: without an initial value it rendered in the open's commit)
+  // the week-by-week list renders after the open: null on the first render, the template in a deferred one
   const listTpl = useDeferredValue(tpl, null);
   // the header shows what the controls build, on the same frame (a layout effect re-renders the header before paint)
   useLayoutEffect(() => store.set({ tpl, error: built.error, goal }), [built, goal, store, tpl]);
-  // what a replace would clear: planned, not kept, from the block's first day (never before today), counted from the
-  // months it spans (fetched here, so a block reaching past the prefetched weeks still counts every session it replaces)
-  // (and, like the server, the rest of any block it overlaps: that block ends the day before this one starts)
-  const overlap = (log.boot?.blocks ?? []).filter((b) => tpl && b.start <= tpl.end && b.end >= tpl.start);
-  const last = overlap.reduce((e, b) => (b.end > e ? b.end : e), tpl?.end ?? t);
-  const span = useLog(useMemo(() => (tpl ? monthsBetween(tpl.start > t ? tpl.start : t, last) : []), [tpl?.start, last, t])); // eslint-disable-line react-hooks/exhaustive-deps
-  const from = tpl ? (tpl.start > t ? tpl.start : t) : t;
-  const existing = tpl ? replaceable(span, from, tpl.end, overlap) : 0;
-  const counting = !!tpl && !span.ready;
+  const { existing, from, counting } = useReplaceCount(log, tpl);
   const use = () => {
-    if (!tpl || counting || write.isPending) return;
-    const replacing = existing > 0;
-    // the promise settles whether or not the sheet is still open (mutate's own callbacks need a mounted observer): a write
-    // that lands after a dismiss still raises its Undo, and a failure still says so (code review 1 #2)
-    write.mutateAsync({ ...input, replace: replacing }).then(
-      (r) => {
-        // a destructive commit with Undo (spec §11.4), when it commits; a plain new block is silent
-        if (replacing) haptics.delete();
-        const wasOpen = alive.current;
-        if (wasOpen) sheet.close();
-        // the new block's first week, only when the builder was opened on Plan and is still open: a write that lands after
-        // a dismiss moves nothing (the owner may be anywhere by then; spec: nothing changes without a user action, code
-        // review 2 #5). Over Today the tab stays (spec §1.3). The toast with Undo shows either way.
-        if (tab === 'plan' && wasOpen) nav.go(`/plan/week/${mondayOf(r.block.start)}`);
-        // the sheet (and this component) is gone by the time Undo is tapped: follow the promise, not mutate's callbacks.
-        // The restored rows are the answer to an Undo; only a failure says something (spec §8: toasts for Undo and errors)
-        announceApplied(toast, r, () =>
-          undo.mutateAsync(r).then(
-            () => undefined,
-            () => toast('Couldn’t undo. The new block is still there.'),
-          ),
-        );
-      },
-      (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the block. Try again.'),
-    );
+    if (!tpl || counting || pending) return;
+    apply(input, existing > 0);
   };
-  // a number field the owner types in sits above the foot and the keyboard (review-feel-1 #7; spec §0.2, risk 6)
+  // a number field the owner types in sits above the foot and the keyboard
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = root.current;
@@ -355,37 +363,13 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
         <span className="ed-label" id="tp-goal">
           Training for
         </span>
-        <div className="ed-chips" role="radiogroup" aria-labelledby="tp-goal">
-          {GOALS.map(([g, w]) => (
-            <Pressable key={g} role="radio" aria-checked={goal === g} className={`pl-chip ${goal === g ? 'on' : ''}`} onPress={() => pickGoal(g)}>
-              {w}
-            </Pressable>
-          ))}
-        </div>
+        <Segmented label="Training for" value={goal} onChange={pickGoal} options={GOALS} />
       </div>
       <div className="ed-group">
         <span className="ed-label" id="tp-days">
-          Run days <span className="ink3">· hold a day for the long run</span>
+          Run days
         </span>
-        <div className="tp-days" role="group" aria-labelledby="tp-days">
-          {WEEKDAYS.map((d) => {
-            const on = runDays.includes(d);
-            return (
-              <Pressable key={d} className={`tp-day ${on ? 'on' : ''} ${longDay === d ? 'long' : ''}`} aria-pressed={on} label={`${DAY_NAME[d]}${on ? ', a run day' : ''}${longDay === d ? ', long run' : ''}`} onPress={() => toggleDay(d)} onHold={() => pickLong(d)}>
-                <span>{LETTER[d]}</span>
-                {longDay === d ? <small>Long</small> : null}
-              </Pressable>
-            );
-          })}
-        </div>
-        <div className="ed-chips tp-long" role="radiogroup" aria-label="Long run day">
-          <span className="ink3 t-sub">Long run</span>
-          {runDays.map((d) => (
-            <Pressable key={d} role="radio" aria-checked={longDay === d} className={`pl-chip sm ${longDay === d ? 'on' : ''}`} onPress={() => pickLong(d)}>
-              {DAY_NAME[d].slice(0, 3)}
-            </Pressable>
-          ))}
-        </div>
+        <DayLetters runDays={runDays} longRunDay={fixLongRun(runDays, longDay)} onChange={(d, l) => (setRunDays(d), setLongDay(l))} />
       </div>
       <div className="tp-steps">
         <div className="ed-group">
@@ -397,36 +381,38 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
           <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={3} max={150} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
         </div>
       </div>
-      <div className="ed-chips">
-        <Pressable role="switch" aria-checked={soon} className={`pl-chip ${soon ? 'on' : ''}`} onPress={() => (setPreStart(null), setSoon((v) => !v))}>
-          Start tomorrow
-        </Pressable>
-        {isRace ? (
-          <Pressable role="switch" aria-checked={race} className={`pl-chip ${race ? 'on' : ''}`} onPress={() => setRace((v) => !v)}>
-            Race on the last Sunday
-          </Pressable>
-        ) : null}
+      <div className="ed-group">
+        <span className="ed-label">Starts</span>
+        <Segmented
+          label="Starts"
+          value={preStart ? 'prefill' : soon ? 'tomorrow' : 'monday'}
+          onChange={(v) => {
+            setPreStart(null);
+            setSoon(v === 'tomorrow');
+          }}
+          options={preStart ? [['prefill', fmtDate('md', preStart)], ['monday', 'Next Monday'], ['tomorrow', 'Tomorrow']] : [['monday', 'Next Monday'], ['tomorrow', 'Tomorrow']]}
+        />
       </div>
+      {isRace ? (
+        <div className="ed-group">
+          <span className="ed-label">The last Sunday</span>
+          <Segmented label="Race day" value={race ? 'race' : 'none'} onChange={(v) => setRace(v === 'race')} options={[['race', 'Race day'], ['none', 'No race']]} />
+        </div>
+      ) : null}
       {built.error ? <Note kind="bad">{built.error}</Note> : null}
       {listTpl ? <WeekByWeek tpl={listTpl} /> : null}
       <div className="sheet-foot tp-foot">
         <p className="tp-note">{!tpl ? '' : existing ? 'Anything you’ve done stays, and Undo puts it all back.' : `Starts ${fmtDate('short', tpl.start)}. Nothing is saved until you use it.`}</p>
-        <Button variant="primary" block className="tp-verb" disabled={!tpl || counting || write.isPending} onClick={use}>
-          {write.isPending ? 'Writing it' : counting ? 'Checking your calendar…' : builderVerb(existing, from)}
+        <Button variant="primary" block className="tp-verb" disabled={!tpl || counting || pending} onClick={use}>
+          {pending ? 'Writing it' : counting ? 'Checking your calendar…' : builderVerb(existing, from)}
         </Button>
       </div>
     </div>
   );
 };
 
-/** After the verb: the block is on the calendar, with Undo (it puts back what a replace took away). */
-const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResult, undo: () => void) => {
-  const n = r.replacedIds?.length ?? 0;
-  toast(`${r.block.name} is on your calendar.${n ? ` ${n} ${n === 1 ? 'session' : 'sessions'} replaced.` : ''}`, { label: 'Undo', fn: undo, duration: BLOCK_UNDO_MS });
-};
-
 /** The weeks with their numbers (the header has the shape; this has each day's miles). */
-const WeekByWeek = ({ tpl }: { tpl: Template }) => {
+export const WeekByWeek = ({ tpl }: { tpl: Template }) => {
   const byDate = new Map(tpl.sessions.map((s) => [s.date, s] as const));
   return (
     <div className="tp-preview">
@@ -443,7 +429,11 @@ const WeekByWeek = ({ tpl }: { tpl: Template }) => {
               <span className="tp-cells" aria-hidden="true">
                 {Array.from({ length: 7 }, (_, i) => {
                   const s = byDate.get(shiftDays(mon, i));
-                  return <span key={i} className={`tp-cell ${s ? `t-${tone(s)}` : ''}`}>{s ? (s.type === 'Race' ? 'R' : num(s.miles)) : ''}</span>;
+                  return (
+                    <span key={i} className={`tp-cell ${s ? `t-${tone(s)}` : ''}`}>
+                      {s ? (s.type === 'Race' ? 'R' : num(s.miles)) : ''}
+                    </span>
+                  );
                 })}
               </span>
               <span className="tp-tot">
@@ -459,14 +449,13 @@ const WeekByWeek = ({ tpl }: { tpl: Template }) => {
   );
 };
 
-/** The builder as a sheet spec: large, the ghost preview as its fixed header (contracts §C.1 `header`). */
+/** The builder as a sheet spec: large, the ghost preview as its fixed header. */
 export const builderSpec = (log: Log, prefill?: BuilderPrefill): SheetSpec => {
   // the header's first face is the block the controls start on: no empty face crossfading to it during the open
-  // (code review 1 #9)
   const seed = seedOf(log, prefill);
   const store = ghostStore({ tpl: seed.built.tpl, error: seed.built.error, goal: seed.c.goal });
   return {
-    title: prefill ? 'Next block' : 'New block',
+    title: prefill ? 'Next block' : 'Build my own',
     detent: 'large',
     header: <GhostHeader store={store} />,
     body: <BuilderBody log={log} store={store} seed={seed} />,

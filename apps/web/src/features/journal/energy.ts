@@ -8,6 +8,7 @@ import { useSyncExternalStore } from 'react';
 const KEY = 'logbook.energy';
 type Map = Record<string, number>;
 let cache: Map | null = null;
+let version = 0;
 const listeners = new Set<() => void>();
 
 const read = (): Map => {
@@ -28,6 +29,7 @@ export const setEnergy = (date: string, value: number | null): void => {
   if (value == null) delete m[date];
   else m[date] = value;
   cache = m;
+  version++;
   try {
     localStorage.setItem(KEY, JSON.stringify(m));
   } catch {
@@ -45,3 +47,6 @@ const subscribe = (cb: () => void) => {
 
 /** The day's energy, live. */
 export const useEnergy = (date: string): number | null => useSyncExternalStore(subscribe, () => getEnergy(date), () => null);
+
+/** A number that changes on any day's energy change, for a list that reads many days through `getEnergy`. */
+export const useEnergyVersion = (): number => useSyncExternalStore(subscribe, () => version, () => 0);

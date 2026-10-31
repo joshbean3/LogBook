@@ -53,11 +53,15 @@
   grid-auto-flow: column;
   gap: 2px 0;
   justify-items: center;
+  align-items: center;
+  overflow: hidden;
 }
+/* 6 px dots; on a 320 wide screen the 52 columns are narrower than that, and the dots shrink with them */
 .jyear-dot {
   appearance: none;
-  width: 6px;
-  height: 6px;
+  width: 100%;
+  max-width: 6px;
+  aspect-ratio: 1;
   padding: 0;
   border: 0;
   border-radius: var(--r-pill);

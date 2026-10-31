@@ -14,6 +14,7 @@ CREATE TABLE `assistant_messages` (
 	`user_id` text NOT NULL,
 	`role` text NOT NULL,
 	`content_json` text NOT NULL,
+	`action_id` text,
 	`created_at` text NOT NULL
 );--> statement-breakpoint
 CREATE INDEX `assistant_messages_thread` ON `assistant_messages` (`thread_id`,`created_at`);--> statement-breakpoint
