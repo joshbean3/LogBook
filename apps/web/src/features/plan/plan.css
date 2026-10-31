@@ -77,6 +77,10 @@
 }
 .pl-strip-spark .pl-arc {
   height: 40px;
+  justify-content: space-between;
+}
+.pl-strip-spark .pl-arc-wk {
+  flex: 0 1 12px;
 }
 .pl-strip-more {
   overflow: hidden;
@@ -643,6 +647,10 @@
 .pl-block .lrow .pl-arc {
   width: 96px;
   height: 24px;
+  gap: 2px;
+}
+.pl-block .lrow .pl-arc-wk {
+  flex: 0 1 5px;
 }
 .pl-arc {
   display: flex;

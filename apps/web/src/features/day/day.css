@@ -191,6 +191,10 @@
 .day-goal {
   margin-top: var(--sp-secondary);
 }
+/* the empty row is one column (goalrow.css keeps the Mark's column for the set state) */
+.day-goal .goal-row.is-empty {
+  grid-template-columns: minmax(0, 1fr);
+}
 .day-goal.is-skel {
   min-height: 72px;
   border-radius: var(--r-card);

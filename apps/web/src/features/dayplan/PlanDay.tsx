@@ -349,6 +349,7 @@ const Band = ({ place, cards, spacer, drag, api, date, today, editable, moveTo, 
         </span>
         {nodes}
         {!cards.length && !spacer && drag ? <span className="pd-slot">Drop into {meta.label.toLowerCase()}</span> : null}
+        {!cards.length && !spacer && !drag && !editable ? <span className="pd-slot">Nothing that day</span> : null}
       </div>
       {editable && !drag ? (
         adding ? (

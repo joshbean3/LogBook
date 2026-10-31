@@ -105,7 +105,7 @@ export const blockCardOf = (log: Log): BlockCardData => {
 const whereFor = (d: BlockCardData, page?: { from: string; to: string }) => {
   const { b, st, weeks, wk } = d;
   if (!b) return '';
-  const lead = `lead-in · week 1 starts ${fmtDate('md', firstMonOf(b))}`;
+  const lead = `lead-in to ${fmtDate('md', firstMonOf(b))}`;
   const today = st === 'Active' ? (wk ? `week ${wk} of ${weeks}` : lead) : st === 'Upcoming' ? `starts ${fmtDate('md', b.start)}` : `finished ${fmtDate('md', b.end)}`;
   if (!page) return today;
   if (page.to < b.start) return `starts ${fmtDate('md', b.start)}`;
@@ -142,7 +142,7 @@ export const BlockCardView = ({ data, getLog, page }: { data: BlockCardData; get
   return (
     <section className="pl-block sec-primary" aria-label={`Your plan: ${b.name}, ${weeks} weeks, ${where}`}>
       <Group>
-        <Row title={b.name} sub={`${weeks} ${weeks === 1 ? 'week' : 'weeks'} · ${where}`} right={<Arc weeks={arc} today={t} />} onClick={openDetail} label={`${b.name}. ${weeks} weeks, ${where}. Open`} />
+        <Row title={b.name} sub={/\bweeks?\b/i.test(b.name) ? where : `${weeks} ${weeks === 1 ? 'week' : 'weeks'} · ${where}`} right={<Arc weeks={arc} today={t} />} onClick={openDetail} label={`${b.name}. ${weeks} weeks, ${where}. Open`} />
         <Row title="Change or build a plan" right={<ChevronRight size={18} className="lrow-chev" aria-hidden="true" />} onClick={library} />
       </Group>
     </section>
