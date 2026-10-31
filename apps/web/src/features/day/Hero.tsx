@@ -195,7 +195,6 @@ export const Hero = memo(function Hero({ date, log }: { date: ISODate; log: Log 
           holdMenu={items.length ? items : undefined}
           menuLabel={`${name} actions`}
           label={pressable ? `${name}. Open` : name}
-          disabled={!pressable}
         >
           <span className="caps hero-eyebrow">{w.eyebrow}</span>
           <span className="stamp hero-stamp">{w.stamp}</span>

@@ -9,18 +9,22 @@ import { useToday } from '@/lib/useToday';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { monthCaption, NavBar, weekCaption } from '@/ui/NavBar';
-import { Note, Segmented } from '@/ui/primitives';
+import { ChipButton, Note, Segmented } from '@/ui/primitives';
+import { useFirstToday } from '@/ui/useFirstToday';
+import { AskBar, useOpenAssistant } from '../assistant/AskBar';
 import { useOpenCalendar } from '../day/Calendar';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { MonthPage } from './Month';
+import { ProgressStrip } from './ProgressStrip';
 import { WeekPage } from './Week';
 import './plan.css';
 
 /**
- * Plan (docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps `THIS WEEK · OCT 19–25` / `OCTOBER 2026` as stacked
- * labels bound to the shown pager's progress; title `Plan`, tap → this week / this month, hold → `Go to a week…`; the
- * `Week | Month` segmented in the 96 px slot), then two mounted panes: the week pager (`DayPager step='week'`, full-bleed,
+ * Workout Plan (docs/system.md §2): the NavBar (caps `THIS WEEK · OCT 19–25` / `OCTOBER 2026` as stacked labels bound to
+ * the shown pager's progress; title `Workout Plan`, tap → this week / this month, hold → `Go to a week…`; the `Week | Month`
+ * segmented in the 96 px slot), the Ask bar with its starter chips on the first visit of the day, the progress strip (the
+ * one hero), then two mounted panes: the week pager (`DayPager step='week'`, full-bleed,
  * each page the week line, seven rows and the block card) and the month pager (`step='month'`). Switching is a 200 ms
  * crossfade of the two panes (both in the DOM during it); the segmented's thumb rides `settle`. No haptic on any of it.
  *
@@ -537,6 +541,10 @@ export default function PlanView(): React.JSX.Element {
     </div>
   );
   const strava = useLog([]).strava;
+  // the Ask bar's door, and three quiet starters the first time the page is seen today (docs/system.md §7)
+  const ask = useOpenAssistant();
+  const starters = useFirstToday('plan-starters');
+  const askCtx = { tab: 'plan' as const, date: mon };
   const paneCls = (v: View) => (view === v ? 'is-on' : st.leaving === v ? 'is-leaving' : 'is-off');
   const hidden = (v: View) => view !== v || undefined;
   // the pane that is neither shown nor fading out defers its updates (a drop re-renders the shown pages only)
@@ -545,7 +553,7 @@ export default function PlanView(): React.JSX.Element {
     <div ref={rootRef} className={`page-root plan-root plan-${view}`}>
       <NavBar
         caps={caps}
-        title={{ cur: 'Plan' }}
+        title={{ cur: 'Workout Plan' }}
         progress={handle.progress}
         wideTrailing
         trailing={<Segmented key="seg" className="in-bar" label="Week or month" value={view} onChange={(v: View) => v !== live.current.st.view && show(v)} options={[['week', 'Week'], ['month', 'Month']]} />}
@@ -554,10 +562,23 @@ export default function PlanView(): React.JSX.Element {
           if (s.view === 'week' ? s.mon !== live.current.thisMon : s.first !== live.current.thisFirst) goHome();
         }}
         titleMenu={titleMenu}
-        titleLabel={atHome ? 'Plan' : view === 'week' ? 'Plan. Go to this week' : 'Plan. Go to this month'}
+        titleLabel={atHome ? 'Workout Plan' : view === 'week' ? 'Workout Plan. Go to this week' : 'Workout Plan. Go to this month'}
         titleRef={titleRef}
         gap={24}
       />
+      <div className="pl-top">
+        <AskBar date={mon} context={askCtx} />
+        {starters ? (
+          <div className="pl-starters" role="group" aria-label="Ask about your plan">
+            {['Pick a plan', 'Change my week', 'How is my week looking?'].map((q) => (
+              <ChipButton key={q} quiet onClick={() => ask(mon, q, askCtx)}>
+                {q}
+              </ChipButton>
+            ))}
+          </div>
+        ) : null}
+        <ProgressStrip mon={mon} />
+      </div>
       <div className="pl-panes">
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>
