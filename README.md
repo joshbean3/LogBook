@@ -7,16 +7,22 @@ Five tabs, one data model:
 - **Today**: one page per day. Swipe anywhere on the page to the next or the previous day; the date strip under the bar shows
   the week and travels with you, and the caps line carries your word until you change it (`STEADY · FRI, OCT 23`). The hero
   changes with the time of day: out the door in 22 minutes, back by 8:13, then the run landing from Strava (or hold the ring
-  to mark it done by hand). Habits as a row of orbs, the top three to-dos, the week's ring, and in the evening the day's
-  close: two sentences, tomorrow's word and alarm.
-  Your day's and week's goals sit under the hero. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed
+  to mark it done by hand). Habits as a row of orbs, the week's ring, and in the evening the day's close: two sentences,
+  tomorrow's word and alarm.
+  **Plan your day** sits under the hero: the day's goal as the headline (a wash of light fills it as its steps are checked),
+  then the day in three bands, Morning, Afternoon and Evening. Every to-do and every step of the goal is a card: hold one,
+  drag it into a band or reorder it, drop a to-do on the goal to make it a step, or on Tomorrow or Delete at the top of the
+  screen. Let go of a hold without moving for its menu. Checked cards stay where they are, struck, and each band's rail
+  fills as its cards are done. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed
   in a list (Work, Home) and highlighted in a colour; the To-dos sheet shows them by day or by list. Quick add reads marks
   at the end of a line: `Send the model fri !!! #work` is a P1 for Friday in Work.
 - **Ask** (the bar at the top of each day): the assistant, on Claude Sonnet. Ask about your plan ("what's left this week?")
   or ask for a change ("push the runs I missed this week to next week", "add a P1 to-do to call the bank Friday", "set this
   week's goal from my plan"). It reads your plan, to-dos and goals, and proposes the change as a list in words; nothing
   changes until you tap Apply, and Undo puts it all back. Every proposal and what came of it is kept.
-- **Goals**: a goal for the year, the month, the week and the day. Write it as you'd say it; a review (Claude, on Locke and
+- **Goals**: a goal for the year, the month, the week and the day, drawn as an orbit of four rings (the year outermost,
+  the day inside). Each ring fills in its level's colour as its goal comes along, and a hand on it shows how much of the
+  period is gone. Under it, a card per level to swipe through, with the goal, its steps and its time left. Write it as you'd say it; a review (Claude, on Locke and
   Latham's goal-setting research) rewrites it to be specific, measurable, hard but attainable and due at the period's end,
   and you keep its words or yours. When a period ends it asks "Did you hit it?" (Done, Partly, Missed, and a line on how it
   went). History lists every day, week, month and year with its goal and outcome, including the ones with none set, and

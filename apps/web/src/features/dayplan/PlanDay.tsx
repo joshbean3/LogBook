@@ -99,22 +99,24 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
     if (!board) return null;
     const g = board.querySelector<HTMLElement>('[data-pd-goal]');
     if (g && d.card.kind === 'todo' && goal && goal.steps.length < GOAL_STEPS_MAX && inside(g.getBoundingClientRect(), x, y)) return { kind: 'goal' };
-    const zones = [...board.querySelectorAll<HTMLElement>('[data-pd-zone]')];
-    if (!zones.length) return null;
+    const boxes = [...board.querySelectorAll<HTMLElement>('[data-pd-box]')];
+    if (!boxes.length) return null;
     const br = board.getBoundingClientRect();
     if (x < br.left - 40 || x > br.right + 40) return null;
-    // the zone the finger is in, else the nearest one by height
-    let best = zones[0]!;
+    // the band (or the tray) the finger is in, its head included; between two, the nearer
+    let box = boxes[0]!;
     let bestD = Infinity;
-    for (const z of zones) {
+    for (const z of boxes) {
       const r = z.getBoundingClientRect();
       const dd = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
       if (dd < bestD) {
         bestD = dd;
-        best = z;
+        box = z;
       }
     }
     if (bestD > 120) return null;
+    const best = box.querySelector<HTMLElement>('[data-pd-zone]');
+    if (!best) return null;
     const place = best.dataset.pdZone as Place;
     // the index: how many of the zone's other cards sit above the finger (their layout boxes, not mid-animation)
     const zr = best.getBoundingClientRect();
@@ -261,10 +263,12 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
     };
     let raf = 0;
     const tick = () => {
+      // the edges the page scrolls from: under the header, and above the tab bar (never while over a dock)
       const box = scroller?.getBoundingClientRect();
-      const top = (box?.top ?? 0) + 120;
-      const bottom = (box?.bottom ?? window.innerHeight) - 130;
-      const dy = y < top ? -Math.ceil(((top - y) / 80) * 14) : y > bottom ? Math.ceil(((y - bottom) / 80) * 14) : 0;
+      const top = Math.max(box?.top ?? 0, 0) + 140;
+      const bottom = Math.min(box?.bottom ?? window.innerHeight, window.innerHeight) - 80;
+      const k = live.current?.over?.kind;
+      const dy = k === 'tomorrow' || k === 'bin' ? 0 : y < top ? -Math.ceil(((top - y) / 80) * 14) : y > bottom ? Math.ceil(((y - bottom) / 80) * 14) : 0;
       if (dy && scroller) {
         const before = scroller.scrollTop;
         scroller.scrollTop += Math.max(-18, Math.min(18, dy));
@@ -461,7 +465,7 @@ const Tray = ({ cards, drag, api, date, today, editable, empty, spacer }: { card
   const show = cards.length > 0 || !!drag || adding || empty;
   if (!show && !editable) return null;
   return (
-    <div className={`pd-tray ${drag?.over?.kind === 'place' && drag.over.place === 'tray' ? 'is-over' : ''} ${!cards.length && !drag ? 'is-empty' : ''}`}>
+    <div data-pd-box="" className={`pd-tray ${drag?.over?.kind === 'place' && drag.over.place === 'tray' ? 'is-over' : ''} ${!cards.length && !drag ? 'is-empty' : ''}`}>
       {show ? (
         <div className="pd-tray-head">
           <span className="caps">{cards.length ? 'To place' : drag ? 'No time yet' : ''}</span>
@@ -494,7 +498,7 @@ const Band = ({ band, cards, spacer, drag, api, date, today, editable, onAdd }: 
   const over = drag?.over?.kind === 'place' && drag.over.place === band;
   const allDone = cards.length > 0 && done === cards.length;
   return (
-    <div className={`pd-band is-${time} ${over ? 'is-over' : ''} ${allDone ? 'is-done' : ''}`} style={{ '--bh': BAND[band].hue } as React.CSSProperties}>
+    <div data-pd-box="" className={`pd-band is-${time} ${over ? 'is-over' : ''} ${allDone ? 'is-done' : ''}`} style={{ '--bh': BAND[band].hue } as React.CSSProperties}>
       <span className="pd-rail" aria-hidden="true">
         <motion.i initial={false} animate={{ scaleY: fill }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.6, bounce: 0 }} />
       </span>
@@ -574,6 +578,8 @@ const CardRow = ({ card, drag, api, date, today, editable, chip }: { card: Card;
   const saveSteps = useSaveSteps();
   const reduce = useReduced();
   const [armed, setArmed] = useState(false);
+  // a hold that came to a menu (or a drag) owns its release: the click after it opens nothing
+  const held = useRef(false);
   const tint = card.kind === 'todo' ? colorOf(card.todo, groups.data) : null;
   const isHole = drag?.ref === card.ref;
   const menu = (): ContextMenuItem[] => {
@@ -599,6 +605,7 @@ const CardRow = ({ card, drag, api, date, today, editable, chip }: { card: Card;
   const d = useHoldDrag<HTMLDivElement>({
     disabled: !editable,
     onArm: () => {
+      held.current = true;
       setArmed(true);
       api.current.lift(card.ref);
     },
@@ -626,6 +633,16 @@ const CardRow = ({ card, drag, api, date, today, editable, chip }: { card: Card;
       style={colorStyle(tint)}
       data-pd-card={card.ref}
       {...d.bind}
+      onPointerDown={(e) => {
+        held.current = false;
+        d.bind.onPointerDown(e);
+      }}
+      onClickCapture={(e) => {
+        if (!held.current) return;
+        held.current = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
       <div className="pd-card-in">
         <CardFace card={card} date={date} today={today} editable={editable} onOpen={onOpen} chip={chip} />
@@ -647,9 +664,9 @@ const Ghost = ({ drag, x, y, tilt, scale, fade, date }: { drag: Drag; x: MotionV
   );
 };
 
-/** While a card is in the air: Tomorrow (to-dos) and the bin, over the tab bar. */
+/** While a card is in the air: Tomorrow (to-dos) and the bin, over the header. */
 const Docks = ({ over, todo }: { over: Over; todo: boolean }) => (
-  <motion.div className="pd-docks" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', duration: 0.3, bounce: 0.15 }}>
+  <motion.div className="pd-docks" initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', duration: 0.3, bounce: 0.15 }}>
     {todo ? (
       <span className={`pd-dock ${over?.kind === 'tomorrow' ? 'is-over' : ''}`} data-pd-dock="tomorrow">
         <ArrowRight size={17} strokeWidth={2.4} aria-hidden="true" /> Tomorrow

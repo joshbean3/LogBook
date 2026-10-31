@@ -945,9 +945,9 @@
   line-height: var(--lh-caps);
   white-space: nowrap;
 }
-.gv-centre-sub.is-done {
+.gv-centre-left.is-done {
   color: var(--hue);
-  font-weight: 650;
+  text-shadow: 0 0 18px var(--hue);
 }
 
 /* the level picker under the orbit */

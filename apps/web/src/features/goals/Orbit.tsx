@@ -92,12 +92,21 @@ const OrbitCentre = ({ g, now }: { g: OrbitGoal; now: number }) => {
   const clock = clockOf(g.level, g.period, now);
   const n = g.goal?.steps.length ?? 0;
   const k = g.goal?.steps.filter((s) => s.done).length ?? 0;
-  const sub = !g.goal ? 'No goal yet' : g.goal.status === 'done' ? 'Done' : g.goal.status !== 'open' ? (g.goal.status === 'partly' ? 'Partly done' : 'Missed') : n ? `${k} of ${n} steps` : 'Under way';
+  const sub = !g.goal ? 'No goal yet' : g.goal.status !== 'open' ? (g.goal.status === 'partly' ? 'Partly done' : 'Missed') : n ? `${k} of ${n} steps` : 'Under way';
   return (
     <div className="gv-centre" style={{ '--hue': LEVEL_HUE[g.level] } as React.CSSProperties}>
       <span className="caps gv-centre-name">{CENTRE_NAME[g.level]}</span>
-      <span className="gv-centre-left">{clock.words}</span>
-      <span className={`gv-centre-sub ${g.goal?.status === 'done' ? 'is-done' : ''}`}>{sub}</span>
+      {g.goal?.status === 'done' ? (
+        <>
+          <span className="gv-centre-left is-done">Done</span>
+          <span className="gv-centre-sub">{clock.words.replace(' left', ' to spare')}</span>
+        </>
+      ) : (
+        <>
+          <span className="gv-centre-left">{clock.words}</span>
+          <span className="gv-centre-sub">{sub}</span>
+        </>
+      )}
     </div>
   );
 };
