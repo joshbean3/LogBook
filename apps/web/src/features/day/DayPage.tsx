@@ -68,7 +68,7 @@ const GoalSection = ({ date, today }: { date: ISODate; today: ISODate }) => {
   };
   return (
     <div className="day-goal">
-      <GoalRow level="day" period={date} goal={goal} today={today} variant="hero" now={now} onOpen={() => open('day', date)} onToggleStep={goal ? (step) => saveSteps(goal, goal.steps.map((s) => (s.id === step.id ? { ...s, done: !s.done } : s))) : undefined} onToggleDone={goal ? () => toggleDone(goal) : undefined} />
+      <GoalRow level="day" period={date} goal={goal} today={today} variant="hero" steps="count" now={now} onOpen={() => open('day', date)} onToggleStep={goal ? (step) => saveSteps(goal, goal.steps.map((s) => (s.id === step.id ? { ...s, done: !s.done } : s))) : undefined} onToggleDone={goal ? () => toggleDone(goal) : undefined} />
     </div>
   );
 };

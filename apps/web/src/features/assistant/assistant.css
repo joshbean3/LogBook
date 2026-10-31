@@ -105,6 +105,47 @@
   color: var(--ink);
   border-bottom-left-radius: 6px;
 }
+.as-streaming::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--accent-text);
+  animation: as-caret 1s steps(2) infinite;
+}
+@keyframes as-caret {
+  to {
+    opacity: 0;
+  }
+}
+
+/* one small change applied at once: a line, not a card */
+.as-applied {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  max-width: 88%;
+  padding: 8px 12px;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+}
+.as-applied.is-undone {
+  opacity: 0.7;
+}
+.as-applied-ic {
+  color: var(--ink-3);
+}
+.as-applied .caps {
+  color: var(--accent-text);
+}
+
 .as-typing {
   display: inline-flex;
   gap: 5px;
@@ -258,7 +299,8 @@
   color: var(--ink-4);
 }
 @media (prefers-reduced-motion: reduce) {
-  .as-typing i {
+  .as-typing i,
+  .as-streaming::after {
     animation: none;
     opacity: 0.6;
   }

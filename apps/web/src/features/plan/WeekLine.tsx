@@ -50,13 +50,14 @@ export const weekWords = (log: Log, mon: string) => {
     sub = next ? `${done}. Next: ${nameOf(next[1])}, ${when(next[0])}.` : w.kept ? `${done}. Week kept.` : `${done}.`;
   }
   const progress = w.plannedMiles > 0 ? Math.min(1, w.doneMiles / w.plannedMiles) : w.doneMiles > 0 ? 1 : 0;
-  return { head, sub, progress, ran: w.doneMiles, summary: w };
+  // the strip above the week already says the miles (docs/system.md §5, nothing twice): the line under it says only what is next
+  const forward = sun < t ? (w.kept ? 'Week kept.' : training.length ? `${w.keptSessions} of ${plural(training.length, 'session')} kept.` : 'Nothing was planned.') : mon > t ? sub : next ? `Next: ${nameOf(next[1])}, ${when(next[0])}.` : training.length ? (w.kept ? 'Week kept.' : 'Nothing left this week.') : 'Tap a day to add a session, or pick a plan below.';
+  return { head, sub, forward, progress, ran: w.doneMiles, summary: w };
 };
 
 /**
- * The week line (content under the bar's 24 gap): the line 22/28 600 at the left, the `This week` pill at the right off
- * this week (shown on the live page only; it fades in over 120 ms when its page commits, plan.css), the 4 px bar of miles
- * run only once a mile is run (`scaleX`, no animation), the sentence 15/20.
+ * The week line under the progress strip: one forward sentence ("Next: Long 12, today.") at the left and the `This week`
+ * pill at the right off this week. The miles live in the strip above it, so they are not said again here.
  */
 export const WeekLine = ({ log, mon, onThisWeek }: { log: Log; mon: string; onThisWeek: () => void }) => {
   const w = weekWords(log, mon);
@@ -64,19 +65,13 @@ export const WeekLine = ({ log, mon, onThisWeek }: { log: Log; mon: string; onTh
   return (
     <div className="pl-wl">
       <div className="pl-wl-top">
-        <h2 className="pl-wl-head">{w.head}</h2>
+        <p className="pl-wl-sub">{w.forward}</p>
         {off ? (
           <Pressable className="pl-now" onPress={onThisWeek} label="This week">
             This week
           </Pressable>
         ) : null}
       </div>
-      {w.ran > 0 ? (
-        <div className="pl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(w.progress * 100)} aria-label={`${tenth(w.ran)} of ${tenth(w.summary.plannedMiles)} miles run`}>
-          <i style={{ transform: `scaleX(${w.progress})` }} />
-        </div>
-      ) : null}
-      <p className="pl-wl-sub">{w.sub}</p>
     </div>
   );
 };

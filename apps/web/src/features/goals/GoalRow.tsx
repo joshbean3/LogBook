@@ -24,13 +24,15 @@ export interface GoalRowProps {
   onToggleDone?: () => void;
   /** `hero`: the day goal on Today (larger text). Default: a row on Goals. */
   variant?: 'row' | 'hero';
+  /** `list` (default): the steps as rows with Marks. `count`: only the "1 of 2" meta, when the steps are listed elsewhere (Today's schedule). */
+  steps?: 'list' | 'count';
   /** The clock, for the time left. */
   now?: number;
 }
 
 const markStatus = (g: Aim): 'done' | 'floor' | 'missed' | 'open' => (g.status === 'done' ? 'done' : g.status === 'partly' ? 'floor' : g.status === 'missed' ? 'missed' : 'open');
 
-export const GoalRow = memo(function GoalRow({ level, period, goal, today, onOpen, onToggleStep, onToggleDone, variant = 'row', now = Date.now() }: GoalRowProps) {
+export const GoalRow = memo(function GoalRow({ level, period, goal, today, onOpen, onToggleStep, onToggleDone, variant = 'row', steps = 'list', now = Date.now() }: GoalRowProps) {
   const caps = periodCaps(level, period, today);
   if (!goal) {
     return (
@@ -59,7 +61,7 @@ export const GoalRow = memo(function GoalRow({ level, period, goal, today, onOpe
       <div className="goal-row-mark">
         <Mark status={markStatus(goal)} label={closed ? `${goal.status}. Reopen` : 'Mark done'} onClick={onToggleDone} disabled={!onToggleDone} haptic="success" />
       </div>
-      {goal.steps.length ? (
+      {goal.steps.length && steps === 'list' ? (
         <ul className="goal-row-steps">
           {goal.steps.map((s) => (
             <li key={s.id} className={`goal-row-step ${s.done ? 'is-done' : ''}`}>

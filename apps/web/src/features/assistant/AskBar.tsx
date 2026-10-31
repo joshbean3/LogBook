@@ -5,6 +5,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { AssistantSheet } from './AssistantSheet';
 import { useAssistantTurns } from './store';
+import { useAssistantThread } from '@/api/queries';
 import './assistant.css';
 
 /**
@@ -40,7 +41,9 @@ const PROMPT: Record<AskContext['tab'], string> = {
 export const AskBar = memo(function AskBar({ date, context }: { date: ISODate; context?: AskContext }) {
   const open = useOpenAssistant();
   const turns = useAssistantTurns();
-  const live = turns.length > 0;
+  // the server's thread (loaded once, kept warm) says whether a conversation is going before the sheet ever opens
+  const thread = useAssistantThread();
+  const live = turns.length > 0 || (thread.data?.turns.length ?? 0) > 0;
   const ctx: AskContext = context ?? { tab: 'today', date };
   return (
     <Pressable className="ask-bar" press="surface" onPress={() => open(date, undefined, ctx)} label="Ask Logbook. Ask about your plan or ask for a change">

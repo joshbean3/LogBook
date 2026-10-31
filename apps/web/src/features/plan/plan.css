@@ -81,6 +81,13 @@
 .pl-strip-spark .pl-arc-wk {
   flex: 0 1 12px;
 }
+/* in the strip the past is quiet and the shown week is the one lit bar */
+.pl-strip-spark .pl-arc-wk .ran {
+  background: var(--ink-4);
+}
+.pl-strip-spark .pl-arc-wk.is-now .ran {
+  background: var(--accent);
+}
 .pl-strip-more {
   overflow: hidden;
 }
