@@ -1,3 +1,4 @@
+import { aiVisible } from './ai-sources.js';
 import { counts, monthsBetween, sessionStatus, shiftDays, type EndedBlockRef, type ISODate, type PlanBlock, type Snapshot, type Template } from '@logbook/shared';
 import { and, eq, gte, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
 import type { DB } from '../db/index.js';
@@ -7,9 +8,14 @@ import { nowISO, uid } from '../lib/util.js';
 import { activitiesBetween, sessionsBetween } from '../routes/core.js';
 
 /** A status snapshot for one user over a date range, read from the database (the server's twin of the web's log cache). */
-export const snapshotFor = (db: DB, userId: string, from: ISODate, to: ISODate, today: ISODate): Snapshot => {
+/**
+ * The status snapshot for a range. `opts.forAi` keeps only the activities a model may read (services/ai-sources.ts):
+ * a status derived from a Strava run is derived Strava data and stays out of every model call.
+ */
+export const snapshotFor = (db: DB, userId: string, from: ISODate, to: ISODate, today: ISODate, opts: { forAi?: boolean } = {}): Snapshot => {
   const sessions = sessionsBetween(db, userId, from, to);
-  const acts = activitiesBetween(db, userId, from, to);
+  const all = activitiesBetween(db, userId, from, to);
+  const acts = opts.forAi ? aiVisible(all) : all;
   const sets = db
     .select({ date: liftSets.date, n: sql<number>`count(*)` })
     .from(liftSets)

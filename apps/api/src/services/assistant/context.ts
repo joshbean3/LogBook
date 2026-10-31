@@ -1,6 +1,7 @@
 import { buildMorning, cleanBands, clock, emptyBands, fmtDate, METERS_PER_MILE, mondayOf, morningDayFor, periodOf, shiftDays, weekTotals, type AskContextInput, type DayBands } from '@logbook/shared';
 import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm';
 import type { DB } from '../../db/index.js';
+import { aiVisible } from '../ai-sources.js';
 import { activities, dayPlans, goals, habitChecks, habits, morningDays, planBlocks, reminders, todoGroups, todos, trainingSessions, userMemory, users } from '../../db/schema.js';
 import { morningSettingsOf } from '../../routes/core.js';
 import { snapshotFor } from '../plans.js';
@@ -17,13 +18,16 @@ const sessionsBetween = (db: DB, userId: string, from: string, to: string) =>
     .orderBy(asc(trainingSessions.date), asc(trainingSessions.position))
     .all();
 
+/** Activities a model may read: never Strava's (services/ai-sources.ts). */
 const activitiesBetween = (db: DB, userId: string, from: string, to: string) =>
-  db
-    .select()
-    .from(activities)
-    .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), isNull(activities.duplicateOf), gte(activities.date, from), lte(activities.date, to)))
-    .orderBy(asc(activities.date), asc(activities.time))
-    .all();
+  aiVisible(
+    db
+      .select()
+      .from(activities)
+      .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), isNull(activities.duplicateOf), gte(activities.date, from), lte(activities.date, to)))
+      .orderBy(asc(activities.date), asc(activities.time))
+      .all(),
+  );
 
 const mi = (m: number) => Math.round((m / METERS_PER_MILE) * 10) / 10;
 
@@ -46,7 +50,7 @@ export const sessionLines = (db: DB, userId: string, from: string, to: string, t
 export const weekSummary = (db: DB, userId: string, mon: string, today: string): string => {
   const monday = mondayOf(mon);
   const sun = shiftDays(monday, 6);
-  const snap = snapshotFor(db, userId, monday, sun, today);
+  const snap = snapshotFor(db, userId, monday, sun, today, { forAi: true });
   const t = weekTotals(snap, monday);
   return [`WEEK of ${monday} (${fmtDate('md', monday)} to ${fmtDate('md', sun)}): planned ${Math.round(t.planned * 10) / 10} mi, ran ${t.ran} mi, ${t.hit} of ${t.sessions} sessions kept.`, sessionLines(db, userId, monday, sun, today)].join('\n');
 };

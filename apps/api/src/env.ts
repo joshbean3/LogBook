@@ -30,6 +30,8 @@ const schema = z.object({
   VAPID_SUBJECT: z.string().optional(),
   /** Dev only: '1' returns a fixed daily pick instead of searching the web. */
   READS_FAKE_PICK: z.string().optional(),
+  /** Providers whose data never reaches a model, besides strava (always excluded): comma-separated. */
+  AI_EXCLUDED_PROVIDERS: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

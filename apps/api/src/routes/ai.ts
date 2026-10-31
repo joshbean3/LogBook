@@ -12,6 +12,7 @@ import { coachRead, draftPlan, type AthleteContext } from '../services/claude.js
 import { liveBlocks, removePlanned, writeTemplate } from '../services/plans.js';
 import { stravaStatus } from '../services/strava.js';
 import { activitiesBetween, sessionsBetween, zonesOf } from './core.js';
+import { aiVisible } from '../services/ai-sources.js';
 
 const MAX_FILE = 25 * 1024 * 1024;
 /** Ten plan drafts a day per account (each is a long Claude call). */
@@ -22,7 +23,7 @@ export const aiRoutes = (db: DB) => {
   const uidOf = (c: { get: (k: 'user') => { id: string } }) => c.get('user').id;
   const ctxOf = (userId: string): AthleteContext => {
     const t = today();
-    return { activities: activitiesBetween(db, userId, shiftDays(t, -60), t), zones: zonesOf(db, userId), stravaOk: stravaStatus(db, userId).connected, note: db.select({ n: users.profileNote }).from(users).where(eq(users.id, userId)).get()?.n ?? null };
+    return { activities: aiVisible(activitiesBetween(db, userId, shiftDays(t, -60), t)), zones: zonesOf(db, userId), stravaOk: stravaStatus(db, userId).connected, note: db.select({ n: users.profileNote }).from(users).where(eq(users.id, userId)).get()?.n ?? null };
   };
 
   /** multipart (file) or JSON; both carry the same fields */
@@ -124,7 +125,7 @@ export const aiRoutes = (db: DB) => {
     const { date, sessionId } = await parseBody(c.req.raw, zCoachRequest);
     const sessions = sessionsBetween(db, userId, date, date);
     const sess = sessionId ? sessions.find((s) => s.id === sessionId) ?? null : null;
-    const runs = activitiesBetween(db, userId, date, date).filter((a) => a.kind === 'run');
+    const runs = aiVisible(activitiesBetween(db, userId, date, date)).filter((a) => a.kind === 'run');
     if (!runs.length) throw new ApiError(422, 'No run recorded on that day yet.', 'no_runs');
     const text = await coachRead(date, sess, runs, ctxOf(userId));
     const key = sess ? sess.id : 'run';

@@ -1,3 +1,4 @@
+import { aiSourcesNote } from './ai-sources.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { isDirectApply, shiftDays, zAssistantOp, type AskContextInput, type AssistantChange, type AssistantProposal } from '@logbook/shared';
 import { and, eq } from 'drizzle-orm';
@@ -30,6 +31,8 @@ export const setAssistantClient = (c: AssistantClient | null) => {
 // ---------- the prompt ----------
 
 const SYSTEM = `You are the assistant inside Logbook, a personal app for the owner's running and lifting plan, habits, to-dos, goals, reminders and mornings. The owner (named in the OWNER line when known; use their name, and never assume a pronoun they did not give you) asks you to look things up or change things.
+
+${aiSourcesNote()}
 
 How you work:
 - Answer from the data you are given in the latest message's CONTEXT block. For sessions outside the dates shown call get_sessions; for a week's numbers get_week_summary; for habits, goals or activities on other days get_habits, get_goals, get_activities.
