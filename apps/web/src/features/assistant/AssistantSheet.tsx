@@ -8,6 +8,7 @@ import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { assistantStore, useAssistantTurns } from './store';
+import type { AskContext } from './AskBar';
 import './assistant.css';
 
 const iconOf = (c: AssistantChange) =>
@@ -82,7 +83,8 @@ const startersFor = (date: ISODate, today: ISODate) => {
  * The assistant (Claude Sonnet): ask in words; it answers, or proposes changes to the plan, to-dos and goals that run only
  * when Apply is tapped (and Undo takes back). The conversation stays for the session.
  */
-export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: string }) => {
+export const AssistantSheet = ({ date, initial, context }: { date: ISODate; initial?: string; context?: AskContext }) => {
+  void context; // sent with every turn once the server reads it (docs/system.md §7)
   const today = useToday();
   const turns = useAssistantTurns();
   const [draft, setDraft] = useState(initial ?? '');

@@ -1,11 +1,11 @@
-import { Activity, BookOpen, CalendarDays, Sun, Target, type LucideIcon } from 'lucide-react';
+import { BookOpen, CalendarDays, Sun, Target, type LucideIcon } from 'lucide-react';
 
 /**
  * The navigation model (docs/feel.md §1, contracts §A.1): four tabs, the route table, and `matchRoute`, which turns a URL into
  * the tab it lights, the root page it shows and the pushed pages stacked over it. NavController is the only reader that acts
  * on it; everything else asks the controller.
  */
-export type TabId = 'today' | 'goals' | 'plan' | 'progress' | 'journal';
+export type TabId = 'today' | 'goals' | 'plan' | 'journal';
 
 export interface TabDef {
   id: TabId;
@@ -14,12 +14,11 @@ export interface TabDef {
   label: string;
   icon: LucideIcon;
 }
-/** Five, in this order. Icons: Sun · Target · CalendarDays · Activity · BookOpen (§1.1; Goals joined as the second tab). */
+/** Four, in this order (docs/system.md §2). Icons: Sun · Target · CalendarDays · BookOpen. Progress lives inside Plan. */
 export const TABS: readonly TabDef[] = [
   { id: 'today', root: '/today', label: 'Today', icon: Sun },
   { id: 'goals', root: '/goals', label: 'Goals', icon: Target },
   { id: 'plan', root: '/plan', label: 'Plan', icon: CalendarDays },
-  { id: 'progress', root: '/progress', label: 'Progress', icon: Activity },
   { id: 'journal', root: '/journal', label: 'Journal', icon: BookOpen },
 ];
 export const tabDef = (id: TabId): TabDef => TABS.find((t) => t.id === id)!;
@@ -39,15 +38,16 @@ export interface RouteDef {
   to?: string;
 }
 
-export const SETTINGS_SECTIONS = ['you', 'training', 'habits', 'plans', 'connections', 'app', 'data', 'account'] as const;
+export const SETTINGS_SECTIONS = ['you', 'training', 'habits', 'connections', 'notifications', 'app', 'data', 'account'] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
-const SECTION_TITLE: Record<SettingsSection, string> = { you: 'You', training: 'Training', habits: 'Habits', plans: 'Plans', connections: 'Connections', app: 'App', data: 'Data', account: 'Account' };
+const SECTION_TITLE: Record<SettingsSection, string> = { you: 'You', training: 'Training', habits: 'Habits', connections: 'Connections', notifications: 'Notifications', app: 'App', data: 'Data', account: 'Account' };
 
 /** The whole table of §1.2: roots, pushed pages, full screens and redirects, in match order. */
 export const ROUTES: readonly RouteDef[] = [
   { pattern: '/today/:date?', owner: 'today', kind: 'root' },
   { pattern: '/today/:date/morning', owner: 'today', kind: 'pushed', depth: 1, title: 'This morning' },
   { pattern: '/settings', owner: 'today', kind: 'pushed', depth: 1, title: 'Settings' },
+  { pattern: '/settings/plans', owner: null, kind: 'redirect', to: '/plan' },
   { pattern: '/settings/:section', owner: 'today', kind: 'pushed', depth: 2, title: (p) => SECTION_TITLE[p.section as SettingsSection] ?? 'Settings' },
   { pattern: '/dev/ui', owner: 'today', kind: 'pushed', depth: 1, title: 'UI' },
   { pattern: '/goals', owner: 'goals', kind: 'root' },
@@ -55,21 +55,22 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/plan', owner: 'plan', kind: 'root' },
   { pattern: '/plan/week/:mon', owner: 'plan', kind: 'root' },
   { pattern: '/plan/month/:month', owner: 'plan', kind: 'root' },
-  { pattern: '/progress', owner: 'progress', kind: 'root' },
   { pattern: '/journal', owner: 'journal', kind: 'root' },
-  { pattern: '/journal/library', owner: 'journal', kind: 'root' },
-  { pattern: '/journal/reads/:tab?', owner: 'journal', kind: 'pushed', depth: 1, title: 'Reads' },
+  { pattern: '/journal/:ym', owner: 'journal', kind: 'root' },
   { pattern: '/welcome/*', owner: null, kind: 'full' },
   { pattern: '/start', owner: null, kind: 'full' },
   { pattern: '/login', owner: null, kind: 'full' },
   { pattern: '/signup', owner: null, kind: 'full' },
   { pattern: '/morning/:date', owner: null, kind: 'redirect', to: '/today/:date/morning' },
   { pattern: '/morning', owner: null, kind: 'redirect', to: '/today' },
-  { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/journal/reads/:tab?' },
-  { pattern: '/plan/plans', owner: null, kind: 'redirect', to: '/settings/plans' },
-  { pattern: '/journal/quotes', owner: null, kind: 'redirect', to: '/journal/library' },
-  { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal/library' },
-  { pattern: '/trends', owner: null, kind: 'redirect', to: '/progress' },
+  { pattern: '/reads/:tab?', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/journal/reads/:tab?', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/journal/library', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/plan/plans', owner: null, kind: 'redirect', to: '/plan' },
+  { pattern: '/journal/quotes', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/journal/favorites', owner: null, kind: 'redirect', to: '/journal' },
+  { pattern: '/progress', owner: null, kind: 'redirect', to: '/plan' },
+  { pattern: '/trends', owner: null, kind: 'redirect', to: '/plan' },
   { pattern: '/setup', owner: null, kind: 'redirect', to: '/signup' },
   { pattern: '*', owner: null, kind: 'redirect', to: '/today' },
 ];
@@ -120,14 +121,16 @@ const isIsoDay = (s: string) => {
 };
 const isMonday = (s: string) => isIsoDay(s) && new Date(`${s}T12:00:00Z`).getUTCDay() === 1;
 const isFirstOfMonth = (s: string) => isIsoDay(s) && s.endsWith('-01');
+const isYearMonth = (s: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 /** A param that fails its check sends the URL to its tab's root. */
 const VALID: Record<string, (v: string) => boolean> = {
   date: isIsoDay,
   mon: isMonday,
   month: isFirstOfMonth,
+  ym: isYearMonth,
   section: (v) => (SETTINGS_SECTIONS as readonly string[]).includes(v),
 };
-const INVALID_TO: Record<string, string> = { '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today' };
+const INVALID_TO: Record<string, string> = { '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/journal': '/journal' };
 
 // ---------- the matcher ----------
 const clean = (path: string) => {
@@ -203,8 +206,7 @@ export const matchRoute = (pathname: string): RouteMatch => {
     }
     if (route.kind === 'full') return { kind: 'full', tab: null, root: path, stack: [], params, route };
     const tab = route.owner!;
-    // Journal's segment is page state like a date (§1.2): /journal/library names it, so a root request can tell the two apart
-    if (route.kind === 'root') return { kind: 'root', tab, root: path, stack: [], params: route.pattern === '/journal/library' ? { ...params, segment: 'library' } : params, route };
+    if (route.kind === 'root') return { kind: 'root', tab, root: path, stack: [], params, route };
     // pushed: the root under it and the layers it implies
     if (route.pattern === '/today/:date/morning') {
       const root = `/today/${params.date}`;

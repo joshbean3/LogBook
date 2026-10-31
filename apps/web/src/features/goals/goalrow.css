@@ -1,0 +1,98 @@
+/* The goal row (docs/system.md §4, §5): one surface, a caps eyebrow, a serif line, circle Marks. No hue per level. */
+.goal-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-card);
+}
+.goal-row.is-row {
+  border-radius: var(--r-group);
+}
+.goal-row-head.pressable {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 0 14px 16px;
+  border-radius: inherit;
+  text-align: left;
+}
+.goal-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.goal-row-caps {
+  color: var(--ink-3);
+}
+.goal-row-meta {
+  color: var(--ink-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.goal-row.is-done .goal-row-meta {
+  color: var(--accent-text);
+}
+.goal-row-text {
+  font: 400 var(--fs-title) / var(--lh-title) var(--display);
+  font-style: italic;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.goal-row.is-hero .goal-row-text {
+  font-size: var(--fs-sheet);
+  line-height: var(--lh-sheet);
+}
+.goal-row.is-done .goal-row-text,
+.goal-row.is-missed .goal-row-text {
+  color: var(--ink-2);
+}
+.goal-row-chev {
+  display: none;
+}
+.goal-row-mark {
+  display: grid;
+  place-items: center;
+  min-height: 72px;
+}
+.goal-row-steps {
+  grid-column: 1 / -1;
+  display: grid;
+  margin: 0;
+  padding: 0 0 6px;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.goal-row-step {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  min-height: 44px;
+  padding-right: 16px;
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  color: var(--ink);
+}
+.goal-row-step.is-done .goal-row-step-text {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+}
+.goal-row.is-empty.pressable {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  text-align: left;
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+.goal-row-set {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  color: var(--accent-text);
+}

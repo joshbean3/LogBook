@@ -3,9 +3,9 @@ import { matchRoute, resolveRoute, ROUTES, TABS } from './nav';
 
 /** docs/feel.md §1.2 and contracts §A.1: every route of the table and every redirect resolves to its target. */
 describe('the route table', () => {
-  it('has the five tabs in order', () => {
-    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'plan', 'progress', 'journal']);
-    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/plan', '/progress', '/journal']);
+  it('has the four tabs in order', () => {
+    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'plan', 'journal']);
+    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/plan', '/journal']);
   });
 
   it.each([
@@ -14,9 +14,8 @@ describe('the route table', () => {
     ['/plan', 'root', 'plan', '/plan'],
     ['/plan/week/2026-10-26', 'root', 'plan', '/plan/week/2026-10-26'],
     ['/plan/month/2026-11-01', 'root', 'plan', '/plan/month/2026-11-01'],
-    ['/progress', 'root', 'progress', '/progress'],
     ['/journal', 'root', 'journal', '/journal'],
-    ['/journal/library', 'root', 'journal', '/journal/library'],
+    ['/journal/2026-10', 'root', 'journal', '/journal/2026-10'],
   ])('%s is a %s of %s', (path, kind, tab, root) => {
     const m = matchRoute(path);
     expect(m.kind).toBe(kind);
@@ -25,10 +24,15 @@ describe('the route table', () => {
     expect(m.stack).toEqual([]);
   });
 
-  it("Journal's two roots carry different params (the segment is page state, consumer review 1 #7)", () => {
+  it('the old Journal segments, Progress and Reads redirect home (docs/system.md §2)', () => {
     expect(matchRoute('/journal').params).toEqual({});
-    expect(matchRoute('/journal/library').params).toEqual({ segment: 'library' });
-    expect(resolveRoute('/journal/quotes').params).toEqual({ segment: 'library' });
+    expect(resolveRoute('/journal/library').path).toBe('/journal');
+    expect(resolveRoute('/journal/quotes').path).toBe('/journal');
+    expect(resolveRoute('/journal/reads').path).toBe('/journal');
+    expect(resolveRoute('/progress').path).toBe('/plan');
+    expect(resolveRoute('/trends').path).toBe('/plan');
+    expect(resolveRoute('/settings/plans').path).toBe('/plan');
+    expect(matchRoute('/journal/2026-13').kind).toBe('redirect');
   });
 
   it('pushed pages imply their stacks, every implied entry with idx −1', () => {
@@ -41,18 +45,12 @@ describe('the route table', () => {
     expect(settings).toMatchObject({ kind: 'pushed', tab: 'today', root: '/today' });
     expect(settings.stack.map((e) => [e.path, e.depth, e.idx])).toEqual([['/settings', 1, -1]]);
 
-    for (const [section, title] of [['you', 'You'], ['training', 'Training'], ['habits', 'Habits'], ['plans', 'Plans'], ['connections', 'Connections'], ['app', 'App'], ['data', 'Data'], ['account', 'Account']] as const) {
+    for (const [section, title] of [['you', 'You'], ['training', 'Training'], ['habits', 'Habits'], ['connections', 'Connections'], ['notifications', 'Notifications'], ['app', 'App'], ['data', 'Data'], ['account', 'Account']] as const) {
       const m = matchRoute(`/settings/${section}`);
       expect(m.kind).toBe('pushed');
       expect(m.tab).toBe('today');
       expect(m.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/settings', 1, 'Settings', -1], [`/settings/${section}`, 2, title, -1]]);
     }
-    expect(matchRoute('/settings/plans').kind).toBe('pushed');
-
-    const reads = matchRoute('/journal/reads');
-    expect(reads).toMatchObject({ kind: 'pushed', tab: 'journal', root: '/journal' });
-    expect(reads.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/journal/reads', 1, 'Reads', -1]]);
-    expect(matchRoute('/journal/reads/read').stack[0]!.params).toEqual({ tab: 'read' });
 
     const ui = matchRoute('/dev/ui');
     expect(ui).toMatchObject({ kind: 'pushed', tab: 'today' });
@@ -67,14 +65,16 @@ describe('the route table', () => {
     ['/morning/2026-10-23', '/today/2026-10-23/morning'],
     ['/morning', '/today'],
     ['/morning/banana', '/today'],
-    ['/reads', '/journal/reads'],
-    ['/reads/read', '/journal/reads/read'],
-    ['/journal/quotes', '/journal/library'],
-    ['/journal/favorites', '/journal/library'],
-    ['/plan/plans', '/settings/plans'],
+    ['/reads', '/journal'],
+    ['/reads/read', '/journal'],
+    ['/journal/quotes', '/journal'],
+    ['/journal/favorites', '/journal'],
+    ['/plan/plans', '/plan'],
+    ['/settings/plans', '/plan'],
     ['/settings/routine', '/settings'],
     ['/settings/banana', '/settings'],
-    ['/trends', '/progress'],
+    ['/trends', '/plan'],
+    ['/progress', '/plan'],
     ['/setup', '/signup'],
     ['/today/banana', '/today'],
     ['/today/2026-02-30', '/today'],

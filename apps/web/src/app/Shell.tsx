@@ -201,7 +201,7 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
   const fromPointer = useRef(false);
   const Icon = t.icon;
   // selected: Sun (its disc filled, its rays kept: with no stroke it is a bare dot) and the book filled, the calendar filled, Activity at stroke 2.5 (§1.1); unselected: stroke 1.8, no fill
-  const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', strokeWidth: 2 } : t.id === 'progress' ? { strokeWidth: 2.5 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
+  const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', strokeWidth: 2 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
   return (
     <button
       type="button"

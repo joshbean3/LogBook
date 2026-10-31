@@ -90,7 +90,7 @@ export default function SettingsView(): React.JSX.Element {
           </>
         )}
         <GoRow title="Easy pace" value={ms ? `${paceText(ms.run.pace)} /mi` : dash} onPress={go('training')} />
-        <GoRow title="Plans" value={block?.name ?? (loaded ? 'None' : dash)} onPress={go('plans')} className="s-plans-row" label={`Plans${block ? `: ${block.name}` : ''}`} />
+        <GoRow title="Plans" value={block?.name ?? (loaded ? 'None' : dash)} onPress={() => nav.go('/plan')} className="s-plans-row" label={`Plans${block ? `: ${block.name}` : ''}`} />
       </SGroup>
 
       <SGroup title="Habits">

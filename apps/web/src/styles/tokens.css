@@ -1,4 +1,4 @@
-/* Logbook design tokens. One black canvas; light comes from the data. 4pt grid. */
+/* Logbook design tokens (docs/system.md §3). One black canvas, one blue, four radii, one type scale. 4pt grid. */
 :root {
   color-scheme: dark;
   --bg: #000000;
@@ -30,7 +30,6 @@
   --warn-soft: #3a2a08;
   --bad: #ff3b5c;
   --bad-soft: #3d1018;
-  --star: #ffb020;
 
   --t-easy: #35d07f;
   --t-long: #3b82ff;
@@ -40,17 +39,6 @@
   --t-cross: #d1a15c;
   --t-rest: #7a7a7a;
   /* to-do highlights and lists (a bar at the row's edge, a list's chip): the session tones, so the app keeps one palette */
-  /* the feel palette (warmth from the data, after How We Feel): sun, mint, coral, sky, each a flat colour and a lit gradient */
-  --sun: #ffc83d;
-  --mint: #3fe0a0;
-  --coral: #ff5b5b;
-  --sky: #7088ff;
-  --sun-ink: #1a1200;
-  --g-sun: radial-gradient(120% 120% at 30% 25%, #ffe17a, #ffc23d 55%, #ff9f1c);
-  --g-mint: radial-gradient(120% 120% at 30% 25%, #9cf5c9, #3fe0a0 55%, #14b877);
-  --g-coral: radial-gradient(120% 120% at 30% 25%, #ffa38f, #ff5b5b 55%, #f2304f);
-  --g-sky: radial-gradient(120% 120% at 30% 25%, #b3c0ff, #7088ff 55%, #8a5cff);
-
   --tag-red: var(--bad);
   --tag-orange: var(--t-hard);
   --tag-yellow: var(--warn);
@@ -74,34 +62,32 @@
 
   --sans: 'Inter', 'Inter Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --stamp: 'Inter Tight', 'Inter Tight Fallback', 'Inter', -apple-system, sans-serif;
-  /* the journal's typewriter (after One Year): the system's own mono */
-  --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'Roboto Mono', Consolas, monospace;
-  /* the journal's ink on black: the app's blue, lifted to read as writing */
-  --j-ink: #a9b0ff;
-  --j-ink-soft: rgba(122, 132, 255, 0.42);
   --serif: 'Instrument Serif', 'Instrument Serif Fallback', 'Iowan Old Style', Georgia, serif;
   --display: 'Instrument Serif', 'Instrument Serif Fallback', 'Iowan Old Style', Georgia, serif;
 
-  /* the four radii (spec §0.1): card 20, inset group 12, control 9, pill */
+  /* the four radii (docs/system.md §3): card 20, inset group 12, control 9, pill. The old names alias them. */
   --r-card: 20px;
   --r-group: 12px;
   --r-control: 9px;
-  /* the nine type sizes (spec §3): size/line */
-  --fs-title: 2.125rem; --lh-title: 2.5rem;
-  --fs-stamp: 1.75rem; --lh-stamp: 2.125rem;
-  --fs-sentence: 1.375rem; --lh-sentence: 1.75rem;
-  --fs-head: 1.25rem; --lh-head: 1.5625rem;
-  --fs-row: 1.0625rem; --lh-row: 1.375rem;
-  --fs-sub: 0.9375rem; --lh-sub: 1.25rem;
-  --fs-foot: 0.8125rem; --lh-foot: 1.125rem;
-  --fs-orb: 0.75rem; --lh-orb: 1rem;
-  --fs-caps: 0.6875rem; --lh-caps: 0.8125rem;
-  --r-lg: 20px;
-  --r-md: 12px;
   --r-pill: 999px;
-  --r-sm: 8px;
-  /* a context-menu card */
-  --r-menu: 14px;
+  --r-lg: var(--r-card);
+  --r-md: var(--r-group);
+  --r-sm: var(--r-control);
+  --r-menu: var(--r-group);
+  /* the type scale (docs/system.md §3), rem only: size / line */
+  --fs-display: 2.125rem; --lh-display: 2.5rem;
+  --fs-sheet: 1.75rem; --lh-sheet: 2.125rem;
+  --fs-stamp: 1.75rem; --lh-stamp: 2.125rem;
+  --fs-title: 1.375rem; --lh-title: 1.75rem;
+  --fs-head: 1.0625rem; --lh-head: 1.375rem;
+  --fs-body: 1.0625rem; --lh-body: 1.375rem;
+  --fs-sub: 0.9375rem; --lh-sub: 1.25rem;
+  --fs-foot: 0.8125rem; --lh-foot: 1rem;
+  --fs-caps: 0.6875rem; --lh-caps: 0.8125rem;
+  /* older names, kept for the files not yet migrated */
+  --fs-sentence: var(--fs-title); --lh-sentence: var(--lh-title);
+  --fs-row: var(--fs-body); --lh-row: var(--lh-body);
+  --fs-orb: 0.75rem; --lh-orb: 1rem;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --dur-fast: 160ms;
