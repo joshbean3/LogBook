@@ -6,14 +6,15 @@ Deploy only a verified commit of `claude/ecstatic-euler-l7hmw0`. Never a `WIP` s
 |---|---|---|
 | `8660227` | v5: four tabs, one language, assistant v2, reminders, providers | typecheck, 357 tests, production build, screenshots at 390 and 320 |
 | `b2d2ed4` | v5.1: the Strava AI gate, accounts for the public (verification, reset, sessions, origin checks), Litestream and the worker, metrics, durable rate limits, COROS as an MCP client | typecheck, 424 tests, production build (web, api, worker, service worker) |
- This release runs three migrations at boot (assistant threads, reminders, the provider tables, which rebuild `activities` and drop `strava_accounts`), so back the database up first.
+| `2af874d` | v5.2: the day builder (the timeline, place/move/resize, plan my day with slots), the assistant sheet crash fixed | typecheck, 460 tests, production build, touch-driven browser checks at 390 and 320 |
+ This release runs seven migrations at boot (assistant threads, reminders, the provider tables which rebuild `activities` and drop `strava_accounts`, accounts, ops, provider clients, day slots), so back the database up first.
 
 9 steps, ~15 min. Need: a Mac with `flyctl` signed in, the app's name (the one `fly apps list` shows; the README used `josh-logbook`).
 
 1. **Open** Terminal.
 2. **Fetch** the ref (~1 min):
    ```bash
-   cd ~/LogBook && git fetch origin claude/ecstatic-euler-l7hmw0 && git checkout b2d2ed4
+   cd ~/LogBook && git fetch origin claude/ecstatic-euler-l7hmw0 && git checkout 2af874d
    ```
 3. **Back up** the live database before the migrations run (~1 min):
    ```bash
