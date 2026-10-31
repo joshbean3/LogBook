@@ -186,7 +186,7 @@ Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPI
 | `ALLOW_SETUP` | `1` lets the first visitor create the account; set `0` after |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Claude |
 | `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN` | Strava |
-| `COROS_CLIENT_ID`, `COROS_CLIENT_SECRET`, `COROS_AUTH_URL`, `COROS_TOKEN_URL`, `COROS_API_URL` | COROS (the URLs have defaults) |
+| `COROS_MCP_URL`, `COROS_CLIENT_ID`, `COROS_CLIENT_SECRET` | COROS (the server registers itself with COROS; the client id is only a fallback) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for reminders (`npx web-push generate-vapid-keys`) |
 | `VITE_API_ORIGIN` | Build-time, the iPhone app only: the server it talks to (no default) |
 | `RUN_JOBS` | Who runs the background jobs: `inline` (the API, default), `worker` (`dist/worker.js`), `off` |
