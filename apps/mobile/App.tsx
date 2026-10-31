@@ -1,9 +1,12 @@
 import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
+import type React from 'react';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
+import { WebView } from 'react-native-webview';
+import type { AndroidWebViewProps, IOSWebViewProps, WebViewErrorEvent, WebViewHttpErrorEvent, WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+type WebViewProps = IOSWebViewProps & AndroidWebViewProps;
 
 /**
  * Logbook on the phone through Expo Go: the deployed web app, full screen, in one WebView. Cookies persist between opens
@@ -12,6 +15,8 @@ import { WebView, type WebViewNavigation } from 'react-native-webview';
  */
 const APP_URL: string = (Constants.expoConfig?.extra?.appUrl as string | undefined) ?? 'https://josh-logbook.fly.dev';
 const origin = new URL(APP_URL).origin;
+// react-native-webview 14's class typing collapses to `never` under @types/react 19.3; its props type is still right
+const Web = WebView as unknown as React.ComponentType<WebViewProps & { ref?: React.Ref<WebView> }>;
 
 export default function App() {
   const web = useRef<WebView>(null);
@@ -27,7 +32,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.root} edges={['top']}>
-        <StatusBar style="light" backgroundColor="#000000" />
+        <StatusBar style="light" />
         {failed ? (
           <View style={styles.center}>
             <Text style={styles.title}>Couldn’t reach Logbook</Text>
@@ -43,7 +48,7 @@ export default function App() {
             </Pressable>
           </View>
         ) : null}
-        <WebView
+        <Web
           ref={web}
           source={{ uri: `${APP_URL}/today` }}
           style={[styles.web, failed ? styles.hidden : null]}
@@ -56,8 +61,8 @@ export default function App() {
           setSupportMultipleWindows={false}
           onShouldStartLoadWithRequest={stayInside}
           onLoadEnd={() => setLoading(false)}
-          onError={(e) => setFailed(e.nativeEvent.description || 'Check your connection.')}
-          onHttpError={(e) => {
+          onError={(e: WebViewErrorEvent) => setFailed(e.nativeEvent.description || 'Check your connection.')}
+          onHttpError={(e: WebViewHttpErrorEvent) => {
             if (e.nativeEvent.statusCode >= 500) setFailed(`The server answered ${e.nativeEvent.statusCode}.`);
           }}
           applicationNameForUserAgent="Logbook/1.0 (expo)"
