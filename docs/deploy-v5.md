@@ -1,13 +1,13 @@
 # Deploying v5 to Fly
 
-Deploy only a verified ref: `deploy/v5` (tag `v5.0.0`) today, `v5.1.0` once the accounts, backups and COROS work is verified. This release runs three migrations at boot (assistant threads, reminders, the provider tables, which rebuild `activities` and drop `strava_accounts`), so back the database up first.
+Deploy only a verified commit of `claude/ecstatic-euler-l7hmw0`: the one named in the pull request or in the chat recap as verified (typecheck, tests, build, screenshots). Never a `WIP` snapshot commit. This release runs three migrations at boot (assistant threads, reminders, the provider tables, which rebuild `activities` and drop `strava_accounts`), so back the database up first.
 
 9 steps, ~15 min. Need: a Mac with `flyctl` signed in, the app's name (the one `fly apps list` shows; the README used `josh-logbook`).
 
 1. **Open** Terminal.
 2. **Fetch** the ref (~1 min):
    ```bash
-   cd ~/LogBook && git fetch origin deploy/v5 && git checkout deploy/v5
+   cd ~/LogBook && git fetch origin claude/ecstatic-euler-l7hmw0 && git checkout <verified commit>
    ```
 3. **Back up** the live database before the migrations run (~1 min):
    ```bash
