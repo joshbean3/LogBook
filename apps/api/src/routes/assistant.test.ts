@@ -1,4 +1,4 @@
-import { shiftDays, today } from '@logbook/shared';
+import { mondayOf, shiftDays, today } from '@logbook/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, type DB } from '../db/index.js';
 import { assistantActions, assistantMessages, llmUsage, userMemory } from '../db/schema.js';
@@ -202,7 +202,8 @@ describe('POST /assistant with a scripted Claude', () => {
     expect(ctx).toMatch(/HABITS/);
     expect(ctx).toMatch(/MORNING: alarm/);
     expect(ctx).toMatch(/ACTIVITIES, last 14 days/);
-    expect(ctx).toMatch(/DAY PLAN for/);
+    expect(ctx).toMatch(/THE DAY .*: window 6:00–23:00, work 9:00–18:00, morning wake \d+:\d\d/);
+    expect(ctx).toMatch(/to place \(ref, what/);
     expect(calls[0]!.output_config).toEqual({ effort: 'low' });
 
     // streamed: text events, then done with the reply
@@ -299,6 +300,85 @@ describe('POST /assistant with a scripted Claude', () => {
     const err = (calls[1]!.messages as Array<{ content: Array<{ is_error?: boolean; content?: string }> }>).at(-1)!.content[0]!;
     expect(err.is_error).toBe(true);
     expect(err.content).toMatch(/No session with id p_nope/);
+  });
+
+  it('plans the day: slots for two to-dos and a step, said in words, applied as slots, and undone whole', async () => {
+    const t = today();
+    const bank = (await call('POST', '/api/todos', { text: 'Call the bank', date: t, priority: 3 })).body;
+    const brief = (await call('POST', '/api/todos', { text: 'Write the brief', date: t })).body;
+    const goal = (await call('PUT', `/api/goals/day/${t}`, { text: 'Ship the report.', steps: [{ id: 's_draft', text: 'Draft it', done: false }, { id: 's_send', text: 'Send it', done: false }] })).body;
+    const step = goal.steps[0];
+    // a plan already on the board: the bands hold the bank call, and a block is on the timeline
+    await call('PUT', `/api/day-plans/${t}`, { bands: { morning: [`todo:${bank.id}`], afternoon: [], evening: [] }, slots: [{ ref: `todo:${brief.id}`, start: 900, minutes: 30 }] });
+
+    const { client, calls } = scripted([
+      propose('A deep-work morning, the call after lunch.', [
+        {
+          op: 'plan_day',
+          date: t,
+          slots: [
+            { ref: `step:${goal.id}:${step.id}`, start: 540, minutes: 45 },
+            { ref: `todo:${bank.id}`, start: 780, minutes: 30 },
+            { ref: `todo:${brief.id}`, start: 600, minutes: 30 },
+          ],
+        },
+      ]),
+    ]);
+    setAssistantClient(client);
+    const r = await call('POST', '/api/assistant', { date: t, text: 'Plan my day', context: { tab: 'today', date: t } });
+    expect(r.status).toBe(200);
+    // the context carried the timeline: what is placed, and what waits in the tray
+    const ctx = (calls[0]!.messages as Array<{ content: Array<{ text: string }> }>).at(-1)!.content[0]!.text;
+    expect(ctx).toMatch(new RegExp(`placed \\(ref, what, when\\):\\n- todo:${brief.id} “Write the brief” 15:00–15:30 30 min`));
+    expect(ctx).toMatch(new RegExp(`- todo:${bank.id} “Call the bank” P1 \\(in the morning band\\)`));
+    expect(ctx).toMatch(new RegExp(`- step:${goal.id}:${step.id} “Draft it” \\(goal “Ship the report.”\\)`));
+    // always a proposal, never applied at once, and each placement in words
+    expect(r.body.proposal.status).toBe('proposed');
+    expect(r.body.proposal.changes[0].label).toBe('Place “Draft it” at 9:00 am for 45 min, “Write the brief” at 10:00 am for 30 min, “Call the bank” at 1:00 pm for 30 min');
+    expect((await call('GET', `/api/day-plans/${t}`)).body.slots).toEqual([{ ref: `todo:${brief.id}`, start: 900, minutes: 30 }]);
+
+    const applied = await call('POST', `/api/assistant/${r.body.proposal.id}/apply`);
+    expect(applied.status).toBe(200);
+    expect(applied.body.dates).toEqual([t]);
+    const plan = (await call('GET', `/api/day-plans/${t}`)).body;
+    expect(plan.slots).toEqual([
+      { ref: `step:${goal.id}:${step.id}`, start: 540, minutes: 45 },
+      { ref: `todo:${brief.id}`, start: 600, minutes: 30 },
+      { ref: `todo:${bank.id}`, start: 780, minutes: 30 },
+    ]);
+    // a placed ref leaves the bands
+    expect(plan.bands).toEqual({ morning: [], afternoon: [], evening: [] });
+
+    const undone = await call('POST', `/api/assistant/${r.body.proposal.id}/undo`);
+    expect(undone.body.proposal.status).toBe('undone');
+    expect(undone.body.dates).toEqual([t]);
+    expect((await call('GET', `/api/day-plans/${t}`)).body).toMatchObject({ bands: { morning: [`todo:${bank.id}`], afternoon: [], evening: [] }, slots: [{ ref: `todo:${brief.id}`, start: 900, minutes: 30 }] });
+  });
+
+  it('refuses a slot whose ref is not live that day, with a reason the model can act on', async () => {
+    const t = today();
+    const later = (await call('POST', '/api/todos', { text: 'Renew the passport', date: t, bucket: 'later', due: shiftDays(t, 3) })).body;
+    const goal = (await call('PUT', `/api/goals/day/${t}`, { text: 'Ship it.', steps: [{ id: 's_draft', text: 'Draft', done: false }] })).body;
+    const { client, calls } = scripted([
+      propose('Plan it.', [{ op: 'plan_day', date: t, slots: [{ ref: `todo:${later.id}`, start: 540, minutes: 30 }] }]),
+      propose('Plan it.', [{ op: 'plan_day', date: t, slots: [{ ref: `step:${goal.id}:nope`, start: 540, minutes: 45 }] }]),
+      propose('Plan it.', [{ op: 'plan_day', date: t, slots: [{ ref: `todo:${later.id}`, start: 542, minutes: 30 }] }]),
+      { content: [{ type: 'text', text: 'That one is for another day.' }] },
+    ]);
+    setAssistantClient(client);
+    const r = await call('POST', '/api/assistant', { date: t, text: 'plan my day' });
+    expect(r.body).toMatchObject({ text: 'That one is for another day.', proposal: null });
+    const errOf = (i: number) => (calls[i]!.messages as Array<{ content: Array<{ is_error?: boolean; content?: string }> }>).at(-1)!.content[0]!;
+    expect(errOf(1).is_error).toBe(true);
+    expect(errOf(1).content).toMatch(new RegExp(`“Renew the passport” \\(todo:${later.id}\\) is not on ${t}’s list: it is for ${shiftDays(t, 3)}`));
+    expect(errOf(2).content).toMatch(/has no step nope. Its steps are: s_draft “Draft”/);
+    expect(errOf(3).content).toMatch(/slots.0.start: a multiple of 5/);
+    // a session on another day, or a goal for another period, is refused the same way
+    const s = (await call('POST', '/api/sessions', { date: shiftDays(t, 1), kind: 'run', title: 'Easy 4', miles: 4 })).body;
+    expect(() => labelOp(db, userId, { op: 'plan_day', date: t, slots: [{ ref: `session:${s.id}`, start: 400, minutes: 50 }] }, t)).toThrow(new RegExp(`is on ${shiftDays(t, 1)}, not ${t}`));
+    const week = (await call('PUT', `/api/goals/week/${mondayOf(t)}`, { text: 'Run 20.', steps: [{ id: 's_long', text: 'Long run', done: false }] })).body;
+    expect(() => labelOp(db, userId, { op: 'plan_day', date: shiftDays(t, 10), slots: [{ ref: `step:${week.id}:${week.steps[0].id}`, start: 400, minutes: 50 }] }, t)).toThrow(/is the week goal for/);
+    expect(labelOp(db, userId, { op: 'plan_day', date: t, slots: [{ ref: `step:${week.id}:${week.steps[0].id}`, start: 400, minutes: 50 }] }, t)).toBe('Place “Long run” at 6:40 am for 50 min');
   });
 
   it('limits an account to 30 asks an hour', async () => {

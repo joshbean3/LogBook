@@ -1,4 +1,7 @@
-import type { CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, ProviderConnection, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
+import type { CoachRead, DaySettings, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, ProviderConnection, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
+
+/** The day's plan (docs/today-v6.md §5): the timeline's slots and the bands. */
+export type { DayPlan, DaySlot, DayRef, DaySettings } from '@logbook/shared';
 
 export interface Bootstrap {
   /** `onboardedAt` null = a new account that has not been through /welcome yet (absent in caches from before it existed). */
@@ -18,6 +21,8 @@ export interface Bootstrap {
   habits: Habit[];
   blocks: PlanBlock[];
   morningSettings: MorningSettings;
+  /** The timeline's window and the work hours (`GET/PATCH /me/day`; absent in caches from before it existed). */
+  daySettings?: DaySettings;
   zones: HrZone[] | null;
   /** Strava as it has always been read; `connections` carries every provider (absent in older caches). */
   strava: StravaStatus;

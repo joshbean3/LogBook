@@ -97,7 +97,6 @@ const todoLines = (db: DB, userId: string) => {
   return {
     todos: open.length ? open.map((t) => `- ${t.id} | ${prio[t.priority] || 'none'} | ${t.bucket}${t.due ? ` ${t.due}` : ''} | ${t.groupId ? (listName.get(t.groupId) ?? '-') : '-'} | ${t.text}`).join('\n') : '(none)',
     lists: lists.length ? lists.map((g) => `${g.id} ${g.name}`).join('; ') : 'none',
-    byId: new Map(open.map((t) => [t.id, t.text])),
   };
 };
 

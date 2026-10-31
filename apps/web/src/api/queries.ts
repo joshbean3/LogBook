@@ -1267,22 +1267,44 @@ export const useSetProfileNote = () => {
 };
 // ── end Reminders, push, connections, the note ──
 
-// ---------- the day's plan: morning, afternoon, evening (to-do and goal-step references, in order) ----------
+// ---------- the day's plan: the timeline's slots and the bands (to-do, goal-step and session references) ----------
+/** One block on the day's timeline (docs/today-v6.md §5; `DaySlot` in @logbook/shared once it lands). */
+export interface DayPlanSlot {
+  ref: string;
+  start: number;
+  minutes: number;
+}
+export type DayPlanWithSlots = DayPlan & { slots: DayPlanSlot[] };
+/** What a save carries: the bands (without the placed refs) and every slot; either alone keeps the other as cached. */
+export interface DayPlanSaveBody {
+  bands?: DayBands;
+  slots?: DayPlanSlot[];
+}
 const dayPlanKey = (date: string) => ['day-plan', date] as const;
-const fetchDayPlan = async (date: string): Promise<DayPlan> => {
-  const p = await api<DayPlan>(`/day-plans/${date}`);
-  return { ...p, bands: cleanBands({ ...emptyBands(), ...p.bands }) };
+const slotsOf = (raw: unknown): DayPlanSlot[] => (Array.isArray(raw) ? raw.filter((s): s is DayPlanSlot => !!s && typeof s === 'object' && typeof (s as DayPlanSlot).ref === 'string' && Number.isFinite((s as DayPlanSlot).start) && Number.isFinite((s as DayPlanSlot).minutes)) : []);
+const fetchDayPlan = async (date: string): Promise<DayPlanWithSlots> => {
+  const p = await api<Partial<DayPlanWithSlots>>(`/day-plans/${date}`);
+  return { date, updatedAt: p.updatedAt ?? null, bands: cleanBands({ ...emptyBands(), ...p.bands }), slots: slotsOf(p.slots) };
 };
 export const useDayPlan = (date: string) => useQuery({ queryKey: dayPlanKey(date), queryFn: () => fetchDayPlan(date), staleTime: 30_000 });
 
-/** Put the day's whole plan after a drag: the board shows it on the drop's frame; the write follows (the outbox when offline). */
+/**
+ * Put the day's whole plan at a gesture's end: the timeline shows it on the drop's frame; the write follows (the outbox when
+ * offline). One PUT per gesture. A server that does not answer with `slots` yet leaves the page's own in place.
+ */
 export const useDayPlanSave = (date: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (bands: DayBands) => {
-      const clean = cleanBands(bands);
-      qc.setQueryData<DayPlan>(dayPlanKey(date), (p) => ({ date, updatedAt: p?.updatedAt ?? null, bands: clean }));
-      await write<DayPlan>(`/day-plans/${date}`, 'PUT', { bands: clean }, [dayPlanKey(date)]);
+    mutationFn: async (body: DayPlanSaveBody) => {
+      const prev = qc.getQueryData<DayPlanWithSlots>(dayPlanKey(date));
+      const bands = cleanBands(body.bands ?? prev?.bands ?? emptyBands());
+      const slots = body.slots ?? prev?.slots ?? [];
+      qc.setQueryData<DayPlanWithSlots>(dayPlanKey(date), { date, updatedAt: prev?.updatedAt ?? null, bands, slots });
+      const res = await write<Partial<DayPlanWithSlots>>(`/day-plans/${date}`, 'PUT', { bands, slots }, [dayPlanKey(date)]);
+      if (res && Array.isArray(res.slots)) {
+        const saved = { bands: cleanBands({ ...emptyBands(), ...res.bands }), slots: slotsOf(res.slots) };
+        qc.setQueryData<DayPlanWithSlots>(dayPlanKey(date), (p) => (p && p.slots !== slots ? p : { date, updatedAt: res.updatedAt ?? p?.updatedAt ?? null, ...saved }));
+      }
     },
     onError: () => void qc.invalidateQueries({ queryKey: dayPlanKey(date) }),
   });
@@ -1291,3 +1313,30 @@ export const useDayPlanSave = (date: string) => {
 // ---------- a run's history, for its records (two years back) ----------
 export const useRunHistory = () =>
   useQuery({ queryKey: ['activities', 'history'] as const, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -730)}&to=${shiftDays(today(), 1)}`), staleTime: 5 * 60_000 });
+
+// ---------- the day's settings: the timeline's window and the work hours (docs/today-v6.md §5; user_settings key `day`) ----------
+// (an import inside the block, so the shared header above stays untouched)
+import type { DaySettings } from '@logbook/shared';
+export const DAY_SETTINGS_DEFAULTS: DaySettings = { window: { start: 360, end: 1380 }, workHours: { start: 540, end: 1080 } };
+const daySettingsKey = ['day-settings'] as const;
+/** `GET /me/day`; the bootstrap's `daySettings` (or the defaults) until it loads. */
+export const useDaySettings = () => {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: daySettingsKey,
+    queryFn: () => api<DaySettings>('/me/day'),
+    staleTime: 5 * 60_000,
+    placeholderData: () => qc.getQueryData<Bootstrap>(keys.bootstrap)?.daySettings ?? DAY_SETTINGS_DEFAULTS,
+  });
+};
+/** `PATCH /me/day` with either range or both; the cache (and the bootstrap's copy) takes the answer. */
+export const useSaveDaySettings = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<DaySettings>) => api<DaySettings>('/me/day', { method: 'PATCH', json: patch }),
+    onSuccess: (next) => {
+      qc.setQueryData<DaySettings>(daySettingsKey, next);
+      qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, daySettings: next } : b));
+    },
+  });
+};
