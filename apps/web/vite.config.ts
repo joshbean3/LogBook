@@ -38,6 +38,10 @@ export default defineConfig({
     react(),
     fonts(),
     VitePWA({
+      // the worker is src/sw.ts (precache, fonts, push and notification taps); the plugin injects the build's manifest into it
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'icons/*.svg'],
       manifest: {
@@ -57,19 +61,10 @@ export default defineConfig({
           { src: '/icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        // the build's scripts, styles and icons; not the fonts (eight files, 400 KB), which are cached as they are used
+      injectManifest: {
+        // the build's scripts, styles and icons; not the fonts (eight files, 400 KB), which src/sw.ts caches as they are used
         globPatterns: ['**/*.{js,css,html,svg,png}'],
         globIgnores: ['fonts/**'],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/fonts/'),
-            handler: 'CacheFirst',
-            options: { cacheName: 'fonts', expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
-          },
-        ],
       },
       devOptions: { enabled: false },
     }),

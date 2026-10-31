@@ -123,6 +123,7 @@ export const AssistantSheet = ({ date, initial, context }: { date: ISODate; init
   const qc = useQueryClient();
   const toast = useToast();
   const thread = useAssistantThread();
+  const { undo } = useAssistantActions();
   const { turns, streaming, busy, threadId } = useAssistantState();
   const [draft, setDraft] = useState(initial ?? '');
   const end = useRef<HTMLDivElement>(null);
@@ -153,17 +154,7 @@ export const AssistantSheet = ({ date, initial, context }: { date: ISODate; init
         const id = r.proposal.id;
         toast(r.proposal.changes[0]?.label ?? r.proposal.summary, {
           label: 'Undo',
-          fn: () => {
-            void (async () => {
-              try {
-                const u = await (await import('@/api/client')).api<{ proposal: AssistantProposal; months: string[] }>(`/assistant/${id}/undo`, { method: 'POST' });
-                assistantStore.setProposal(u.proposal);
-                refreshAfterAssistant(qc, u.months);
-              } catch (e) {
-                toast(e instanceof Error ? e.message : 'Couldn’t undo that.');
-              }
-            })();
-          },
+          fn: () => void undo.mutateAsync(id).then((next) => assistantStore.setProposal(next)).catch((e: unknown) => toast(e instanceof Error ? e.message : 'Couldn’t undo that.')),
         });
       }
     } catch (e) {

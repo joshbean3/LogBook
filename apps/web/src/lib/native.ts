@@ -3,8 +3,13 @@ import { Capacitor } from '@capacitor/core';
 /** True inside the iOS app; false in Safari and on the desktop. */
 export const isNative = Capacitor.isNativePlatform();
 
-/** Where the API lives. In the browser it is the same origin; the app talks to your server. */
-export const apiOrigin = isNative ? ((import.meta.env.VITE_API_ORIGIN as string | undefined) ?? 'https://josh-logbook.fly.dev') : '';
+/**
+ * Where the API lives. In the browser it is the same origin; the app talks to your server, named at build time by
+ * `VITE_API_ORIGIN` (README: "The iPhone app"). No default: a build without it talks to nothing, loudly.
+ */
+const configuredOrigin = ((import.meta.env.VITE_API_ORIGIN as string | undefined) ?? '').replace(/\/+$/, '');
+if (isNative && !configuredOrigin) console.error('VITE_API_ORIGIN is not set: the app has no server to talk to. Build with VITE_API_ORIGIN=https://your-server.');
+export const apiOrigin = isNative ? configuredOrigin : '';
 
 /** Deep links (logbook://settings?strava=connected) become in-app navigations. */
 export const onDeepLink = async (go: (path: string) => void) => {
