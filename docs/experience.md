@@ -1,5 +1,7 @@
 # Logbook experience spec, v3
 
+> Superseded in part by `docs/system.md` (v5, 31 Oct 2026): four tabs, one token set, ten primitives. Where this document and system.md disagree, system.md wins.
+
 The one document every build team works from. Inputs: `docs/research/consumer-research.md` (what premium consumer apps do, with sources) and `docs/research/audit.md` (what our build does wrong, screen by screen). Brand values in `docs/brand.md` stay: true black, one electric blue, the halo, Instrument Serif italic, Inter Tight stamps, caps labels, the voice. This spec replaces the layout recipes in `docs/design-spec.md` and the motion section of `brand.md` where they disagree.
 
 The verdict we are fixing: every screen is the same module (caps label over a `#111` card) stacked nine times, ordered like the database, with no sense of time of day, actions as grey text links, gestures nobody can find, heroes that repeat (and contradict) the list beneath them, zeros as headlines, and no motion between related views.

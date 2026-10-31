@@ -1,5 +1,7 @@
 # Logbook mobile design spec
 
+> See `docs/system.md` (v5) first: it carries the current tokens, primitives and the forbidden list. This document remains for the 4pt grid and the anti-patterns.
+
 The rules every screen follows. Derived from Apple HIG values and from how WHOOP, Oura, Strava, Apple Fitness, Things 3, Todoist, Structured and RISE lay out a phone screen. When a rule here conflicts with instinct, the rule wins.
 
 ## 1. Spacing (4pt grid)
