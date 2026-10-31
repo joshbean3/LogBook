@@ -1,5 +1,6 @@
 import {
   addMonths,
+  DEFAULT_DAY_SETTINGS,
   morningPlanFor,
   monthStart,
   NEW_ACCOUNT_MORNING,
@@ -7,6 +8,7 @@ import {
   shiftDays,
   today,
   zDate,
+  zDaySettings,
   zHabitCheck,
   zHabitInput,
   zHabitsReorder,
@@ -115,6 +117,8 @@ export const coreRoutes = (db: DB) => {
       habits: hs,
       blocks: blocks.map((b) => toBlock(b, countOf.get(b.id) ?? 0)),
       morningSettings: morningSettingsOf(db, userId),
+      // the timeline's window and work hours (docs/today-v6.md §5; `GET/PATCH /me/day`), the defaults until set
+      daySettings: ((d) => (d.success ? d.data : DEFAULT_DAY_SETTINGS))(zDaySettings.safeParse(readSetting(db, userId, 'day'))),
       zones: zonesOf(db, userId),
       strava: st,
       connections,

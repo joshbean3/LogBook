@@ -1,9 +1,10 @@
-import { buildTemplate, cleanBands, fmtDate, monthOf, periodOf, shiftDays, TemplateError, zAssistantOp, type AssistantOp, type AssistantProposal, type DayBands, type EndedBlockRef } from '@logbook/shared';
+import { buildTemplate, cleanBands, cleanPlan, cleanSlots, fmtDate, monthOf, periodOf, shiftDays, TemplateError, zAssistantOp, type AssistantOp, type AssistantProposal, type DayBands, type DaySlot, type EndedBlockRef, type GoalStep } from '@logbook/shared';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { DB } from '../../db/index.js';
 import { assistantActions, dayPlans, goalEvents, goals, habitChecks, habits, morningDays, reminders, todoGroups, todos, trainingSessions } from '../../db/schema.js';
 import { localParts } from '../../lib/tz.js';
 import { ApiError, nowISO, uid } from '../../lib/util.js';
+import { bandsOf, slotsOf } from '../../routes/dayplans.js';
 import { undoTemplate, writeTemplate } from '../plans.js';
 import { createReminder, reminderOf, restoreReminder, timezoneOf } from '../reminders.js';
 
@@ -66,8 +67,73 @@ const bandRefsOk = (db: DB, userId: string, bands: DayBands) => {
   for (const r of refs) {
     if (r.startsWith('todo:')) todoOf(db, userId, r.slice(5));
     else if (r.startsWith('step:')) goalOf(db, userId, r.split(':')[1]!);
+    else if (r.startsWith('session:')) sessionOf(db, userId, r.slice(8));
   }
   return refs.length;
+};
+
+// ---------- the day's timeline: what a ref is, and whether it is live on a date ----------
+
+/** One thing a slot may hold, named for the owner and for Claude. */
+export interface DayRefInfo {
+  ref: string;
+  kind: 'todo' | 'step' | 'session';
+  title: string;
+  /** A to-do's priority (3 is P1), else 0. */
+  priority: number;
+  /** A step's goal, in words. */
+  goal?: string;
+  done: boolean;
+}
+
+/**
+ * Whether a to-do is on the board on `date` (the rule of features/dayplan/model.ts): today, the Today items and any Later
+ * item whose day has come, open or done today; ahead, what is due that day; behind, what was due or done that day.
+ */
+export const todoOnDay = (t: Pick<TodoRow, 'bucket' | 'due' | 'createdOn' | 'doneOn' | 'deletedOn'>, date: string, today: string): boolean => {
+  if (t.createdOn > date || (t.deletedOn && t.deletedOn <= date)) return false;
+  if (date === today) return (t.bucket === 'today' || (t.bucket === 'later' && !!t.due && t.due <= date)) && (!t.doneOn || t.doneOn === date);
+  if (date > today) return t.due === date && !t.doneOn;
+  return t.due === date || t.doneOn === date;
+};
+
+const stepsOf = (g: GoalRow): GoalStep[] => {
+  try {
+    const v = JSON.parse(g.steps) as unknown;
+    return Array.isArray(v) ? (v as GoalStep[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+/** What a ref is on `date`, or an error that says why it cannot be placed there (a message Claude can act on). */
+export const dayRefOf = (db: DB, userId: string, ref: string, date: string, today: string): DayRefInfo => {
+  if (ref.startsWith('todo:')) {
+    const t = todoOf(db, userId, ref.slice(5));
+    if (!todoOnDay(t, date, today)) throw new Error(`“${t.text}” (${ref}) is not on ${date}’s list: it is ${t.doneOn ? `done (${t.doneOn})` : t.bucket === 'later' ? `for ${t.due ?? 'later'}` : t.bucket}. Give it that date first (update_todo with due), or leave it out.`);
+    return { ref, kind: 'todo', title: t.text, priority: t.priority, done: !!t.doneOn };
+  }
+  if (ref.startsWith('step:')) {
+    const [, goalId, stepId] = ref.split(':');
+    const g = goalOf(db, userId, goalId ?? '');
+    if (periodOf(g.level as 'day', date) !== g.period) throw new Error(`Goal ${g.id} is the ${g.level} goal for ${g.period}, not for ${date}; its steps cannot be placed on that day.`);
+    const steps = stepsOf(g);
+    const st = steps.find((x) => x.id === stepId);
+    if (!st) throw new Error(`Goal ${g.id} has no step ${stepId ?? ''}. Its steps are: ${steps.length ? steps.map((x) => `${x.id} “${x.text}”`).join(', ') : 'none'}.`);
+    return { ref, kind: 'step', title: st.text, priority: 0, goal: g.text, done: st.done };
+  }
+  if (ref.startsWith('session:')) {
+    const s = sessionOf(db, userId, ref.slice(8));
+    if (s.date !== date) throw new Error(`Session ${s.id} (${sessionName(s)}) is on ${s.date}, not ${date}.`);
+    return { ref, kind: 'session', title: sessionName(s), priority: 0, done: !!s.mark };
+  }
+  throw new Error(`${ref} is not a ref (todo:<id>, step:<goalId>:<stepId> or session:<id>).`);
+};
+
+/** Each slot's ref checked against the day; the slots cleaned (each ref once, on the grid, by start). */
+const slotsOk = (db: DB, userId: string, slots: DaySlot[], date: string, today: string) => {
+  const clean = cleanSlots(slots);
+  return clean.map((s) => ({ slot: s, info: dayRefOf(db, userId, s.ref, date, today) }));
 };
 
 /** Checks an operation against the owner's rows and says it in words. Throws with a message Claude can act on. */
@@ -126,9 +192,18 @@ export const labelOp = (db: DB, userId: string, op: AssistantOp, today: string):
       return `Add habit “${op.name}”`;
     }
     case 'plan_day': {
-      const b = cleanBands(op.bands);
-      bandRefsOk(db, userId, b);
-      return `Plan ${op.date === today ? 'today' : dow(op.date)}: ${b.morning.length} in the morning, ${b.afternoon.length} in the afternoon, ${b.evening.length} in the evening`;
+      const day = op.date === today ? 'today' : dow(op.date);
+      const parts: string[] = [];
+      if (op.slots) {
+        const placed = slotsOk(db, userId, op.slots, op.date, today);
+        if (placed.length) parts.push(`Place ${placed.map(({ slot, info }) => `“${info.title}” at ${hm(slot.start)} for ${slot.minutes} min`).join(', ')}${op.date === today ? '' : ` on ${day}`}`);
+      }
+      if (op.bands) {
+        const b = cleanBands(op.bands);
+        bandRefsOk(db, userId, b);
+        if (!op.slots || b.morning.length + b.afternoon.length + b.evening.length) parts.push(`Plan ${day}: ${b.morning.length} in the morning, ${b.afternoon.length} in the afternoon, ${b.evening.length} in the evening`);
+      }
+      return parts.join('; ') || `Leave ${day} as it is`;
     }
     case 'set_alarm':
       if (op.date < today) throw new Error(`Cannot set an alarm in the past (${op.date}).`);
@@ -194,6 +269,7 @@ export const applyAction = (db: DB, userId: string, id: string, today: string) =
   const ops = (JSON.parse(row.ops) as unknown[]).map((o) => zAssistantOp.parse(o));
   const undo: UndoRecord = { sessions: [], todos: [], goals: [], checks: [], dayPlans: [], alarms: [], reminders: [], templates: [], created: { sessions: [], todos: [], goals: [], habits: [] } };
   const months = new Set<string>();
+  const dates = new Set<string>();
   const now = nowISO();
   const keepSession = (s: SessionRow) => undo.sessions.some((x) => x.id === s.id) || undo.sessions.push({ ...s });
   const keepTodo = (t: TodoRow) => undo.todos.some((x) => x.id === t.id) || undo.todos.push({ ...t });
@@ -326,10 +402,16 @@ export const applyAction = (db: DB, userId: string, id: string, today: string) =
           }
           case 'plan_day': {
             const prior = db.select().from(dayPlans).where(and(eq(dayPlans.userId, userId), eq(dayPlans.date, op.date))).get() ?? null;
-            undo.dayPlans!.push({ date: op.date, prior });
-            const json = JSON.stringify(cleanBands(op.bands));
-            if (prior) db.update(dayPlans).set({ bands: json, updatedAt: now }).where(eq(dayPlans.id, prior.id)).run();
-            else db.insert(dayPlans).values({ id: uid('dp'), userId, date: op.date, bands: json, updatedAt: now }).run();
+            if (!undo.dayPlans!.some((d) => d.date === op.date)) undo.dayPlans!.push({ date: op.date, prior: prior ? { ...prior } : null });
+            dates.add(op.date);
+            // the bands replace the stored ones when given; a slot places or moves its ref, and the other blocks stay
+            const was = prior ? cleanPlan({ bands: bandsOf(prior.bands), slots: slotsOf(prior.slots) }) : cleanPlan({});
+            const moved = new Set<string>((op.slots ?? []).map((x) => x.ref));
+            const slots = op.slots ? [...was.slots.filter((x) => !moved.has(x.ref)), ...op.slots] : was.slots;
+            const next = cleanPlan({ bands: op.bands ?? was.bands, slots });
+            const set = { bands: JSON.stringify(next.bands), slots: JSON.stringify(next.slots), updatedAt: now };
+            if (prior) db.update(dayPlans).set(set).where(eq(dayPlans.id, prior.id)).run();
+            else db.insert(dayPlans).values({ id: uid('dp'), userId, date: op.date, ...set }).run();
             break;
           }
           case 'set_alarm': {
@@ -367,7 +449,7 @@ export const applyAction = (db: DB, userId: string, id: string, today: string) =
     if (e instanceof ApiError) throw e;
     throw new ApiError(409, `${e instanceof Error ? e.message : 'A change no longer applies.'} Ask again for a fresh proposal.`, 'stale_proposal');
   }
-  return { proposal: proposalOf(actionOf(db, userId, id)), months: [...months].sort() };
+  return { proposal: proposalOf(actionOf(db, userId, id)), months: [...months].sort(), dates: [...dates].sort() };
 };
 
 /** Puts back every row an applied proposal touched, and removes what it added. */
@@ -377,6 +459,7 @@ export const undoAction = (db: DB, userId: string, id: string, today: string) =>
   const u = JSON.parse(row.undo) as UndoRecord;
   const now = nowISO();
   const months = new Set<string>();
+  const dates = new Set<string>();
   db.transaction(() => {
     for (const s of u.sessions) {
       const cur = db.select({ date: trainingSessions.date }).from(trainingSessions).where(eq(trainingSessions.id, s.id)).get();
@@ -413,7 +496,9 @@ export const undoAction = (db: DB, userId: string, id: string, today: string) =>
       db.delete(habits).where(and(eq(habits.userId, userId), inArray(habits.id, u.created.habits))).run();
     }
     for (const d of u.dayPlans ?? []) {
-      if (d.prior) db.update(dayPlans).set({ bands: d.prior.bands, updatedAt: now }).where(eq(dayPlans.id, d.prior.id)).run();
+      dates.add(d.date);
+      // the whole row comes back (a record from before the slots column restores the bands alone)
+      if (d.prior) db.update(dayPlans).set({ bands: d.prior.bands, ...(d.prior.slots !== undefined ? { slots: d.prior.slots } : {}), updatedAt: now }).where(eq(dayPlans.id, d.prior.id)).run();
       else db.delete(dayPlans).where(and(eq(dayPlans.userId, userId), eq(dayPlans.date, d.date))).run();
     }
     for (const a of u.alarms ?? []) {
@@ -428,7 +513,7 @@ export const undoAction = (db: DB, userId: string, id: string, today: string) =>
     }
     db.update(assistantActions).set({ status: 'undone' }).where(eq(assistantActions.id, id)).run();
   });
-  return { proposal: proposalOf(actionOf(db, userId, id)), months: [...months].sort() };
+  return { proposal: proposalOf(actionOf(db, userId, id)), months: [...months].sort(), dates: [...dates].sort() };
 };
 
 export const dismissAction = (db: DB, userId: string, id: string) => {

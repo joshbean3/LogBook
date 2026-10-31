@@ -1,12 +1,13 @@
-import { buildMorning, cleanBands, clock, emptyBands, fmtDate, METERS_PER_MILE, mondayOf, morningDayFor, periodOf, shiftDays, weekTotals, type AskContextInput, type DayBands } from '@logbook/shared';
+import { buildMorning, clock, DEFAULT_DAY_SETTINGS, fmtDate, METERS_PER_MILE, mondayOf, morningDayFor, periodOf, sessionRef, shiftDays, stepRef, todoRef, weekTotals, zDaySettings, type AskContextInput, type DaySettings, type GoalStep, type MorningTimeline } from '@logbook/shared';
 import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm';
 import type { DB } from '../../db/index.js';
 import { aiVisible } from '../ai-sources.js';
 import { activities, dayPlans, goals, habitChecks, habits, morningDays, planBlocks, reminders, todoGroups, todos, trainingSessions, userMemory, users } from '../../db/schema.js';
-import { morningSettingsOf } from '../../routes/core.js';
+import { morningSettingsOf, readSetting } from '../../routes/core.js';
+import { planOf } from '../../routes/dayplans.js';
 import { snapshotFor } from '../plans.js';
 import { readTrainingProfile } from '../training.js';
-import { dow, sessionName } from './ops.js';
+import { dayRefOf, dow, sessionName, todoOnDay } from './ops.js';
 
 // ---------- what Claude is shown ----------
 
@@ -102,12 +103,63 @@ const todoLines = (db: DB, userId: string) => {
 
 const hm = (m: number) => `${Math.floor(m / 60) % 24}:${String(Math.round(m) % 60).padStart(2, '0')}`;
 
-const bandsOf = (raw: string | undefined): DayBands => {
-  try {
-    return cleanBands({ ...emptyBands(), ...(JSON.parse(raw ?? '{}') as Partial<DayBands>) });
-  } catch {
-    return emptyBands();
+/** The day's settings as stored, else the defaults (the same rule as `GET /me/day`). */
+const daySettingsOf = (db: DB, userId: string): DaySettings => {
+  const ok = zDaySettings.safeParse(readSetting(db, userId, 'day'));
+  return ok.success ? ok.data : DEFAULT_DAY_SETTINGS;
+};
+
+const PRIO = ['no priority', 'P3', 'P2', 'P1'];
+
+/**
+ * The day as a timeline (docs/today-v6.md §4): the window and the work hours, the morning (from the morning timeline), the
+ * workout, what is placed (every slot) and what waits in the tray (the day's to-dos and the day goal's steps with no time).
+ */
+export const dayBlock = (db: DB, userId: string, date: string, today: string, tl: MorningTimeline, daySessions: Array<{ id: string; kind: string; title: string | null; type: string | null; miles: number | null; mark: string | null }>): string => {
+  const ds = daySettingsOf(db, userId);
+  const plan = planOf(date, db.select().from(dayPlans).where(and(eq(dayPlans.userId, userId), eq(dayPlans.date, date))).get());
+  const placed = new Set<string>(plan.slots.map((s) => s.ref));
+  const bandOf = new Map<string, string>();
+  for (const b of ['morning', 'afternoon', 'evening'] as const) for (const r of plan.bands[b]) bandOf.set(r, b);
+  const workout = tl.blocks.find((b) => b.key === 'run' || b.key === 'gym');
+  const session = daySessions.find((x) => x.kind !== 'rest');
+  const morning = `wake ${hm(tl.day.wake)}${workout ? ` door ${hm(workout.start)}` : ''} back ${hm(tl.back)} leave ${hm(tl.leave)}`;
+  const workoutText = session ? `workout ${sessionRef(session.id)} ${sessionName(session)}${workout ? ` ${hm(workout.start)}–${hm(workout.end)}` : ''}${placed.has(sessionRef(session.id)) ? '' : ' (on the timeline at its time; never place anything over it)'}` : 'no workout';
+  const head = `THE DAY ${date}${date === today ? ' (today)' : ''}: window ${hm(ds.window.start)}–${hm(ds.window.end)}, work ${hm(ds.workHours.start)}–${hm(ds.workHours.end)}, morning ${morning} (from the morning timeline), ${workoutText}.`;
+  const slotLines = plan.slots.map((s) => {
+    try {
+      const info = dayRefOf(db, userId, s.ref, date, today);
+      return `- ${s.ref} “${info.title}” ${hm(s.start)}–${hm(s.start + s.minutes)} ${s.minutes} min${info.done ? ' (done)' : ''}`;
+    } catch {
+      return `- ${s.ref} (gone) ${hm(s.start)} ${s.minutes} min`;
+    }
+  });
+  const tray: string[] = [];
+  const goal = db.select().from(goals).where(and(eq(goals.userId, userId), isNull(goals.deletedAt), eq(goals.level, 'day'), eq(goals.period, date))).get();
+  if (goal) {
+    let steps: GoalStep[] = [];
+    try {
+      steps = JSON.parse(goal.steps) as GoalStep[];
+    } catch {
+      steps = [];
+    }
+    for (const st of steps) {
+      const ref = stepRef(goal.id, st.id);
+      if (!placed.has(ref) && !st.done) tray.push(`- ${ref} “${st.text}” (goal “${goal.text}”)${bandOf.has(ref) ? ` (in the ${bandOf.get(ref)} band)` : ''}`);
+    }
   }
+  const dayTodos = db
+    .select()
+    .from(todos)
+    .where(and(eq(todos.userId, userId), isNull(todos.deletedOn)))
+    .orderBy(desc(todos.priority), asc(todos.position))
+    .all()
+    .filter((t) => todoOnDay(t, date, today) && !t.doneOn);
+  for (const t of dayTodos) {
+    const ref = todoRef(t.id);
+    if (!placed.has(ref)) tray.push(`- ${ref} “${t.text}” ${PRIO[t.priority] ?? 'no priority'}${bandOf.has(ref) ? ` (in the ${bandOf.get(ref)} band)` : ''}`);
+  }
+  return [head, `placed (ref, what, when):`, slotLines.length ? slotLines.join('\n') : '(nothing placed yet)', `to place (ref, what; these need a slot when planning the day):`, tray.length ? tray.join('\n') : '(everything has a time)'].join('\n');
 };
 
 /** The page the owner is on, in a sentence. */
@@ -166,9 +218,7 @@ export const contextFor = (db: DB, userId: string, today: string, date: string, 
   const daySessions = sessionsBetween(db, userId, date, date).map((s) => ({ ...s, kind: s.kind as 'run', mark: s.mark as null }));
   const tl = buildMorning(morningDayFor(daySessions, override ? { wake: override.wake } : null, settings), settings);
   const out = tl.blocks.find((b) => b.key === 'run' || b.key === 'gym')?.start;
-  const plan = bandsOf(db.select({ bands: dayPlans.bands }).from(dayPlans).where(and(eq(dayPlans.userId, userId), eq(dayPlans.date, date))).get()?.bands);
   const t = todoLines(db, userId);
-  const refName = (r: string) => (r.startsWith('todo:') ? `${r} (${t.byId.get(r.slice(5)) ?? 'done or gone'})` : r);
   const pending = db
     .select()
     .from(reminders)
@@ -184,8 +234,7 @@ export const contextFor = (db: DB, userId: string, today: string, date: string, 
     `HABITS (id | name | ${date}):`,
     habitLines(db, userId, date),
     '',
-    `DAY PLAN for ${date} (bands of to-do and goal-step refs; todo:<id>, step:<goalId>:<stepId>):`,
-    `morning: ${plan.morning.map(refName).join(', ') || '-'}; afternoon: ${plan.afternoon.map(refName).join(', ') || '-'}; evening: ${plan.evening.map(refName).join(', ') || '-'}`,
+    dayBlock(db, userId, date, today, tl, daySessions),
     '',
     `PLAN BLOCKS: ${blocks.length ? blocks.map((b) => `${b.name} (${b.start} to ${b.end})`).join('; ') : 'none'}`,
     '',

@@ -1,4 +1,4 @@
-import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zCredentials, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, DEFAULT_DAY_SETTINGS, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zCredentials, shiftDays, TemplateError, today as serverToday, weekdayOf, zDaySettings, zDaySettingsPatch, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type DaySettings, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
@@ -14,6 +14,12 @@ import { retireBlock, writeTemplate } from '../services/plans.js';
 import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
 import { checkThrottle, clearThrottle, failThrottle, ipOf, sendVerification } from './auth.js';
 import { deepMerge, readSetting, writeSetting } from './core.js';
+
+/** The day's settings (docs/today-v6.md §5): the stored ones, each range checked, else the defaults (6:00–23:00, work 9:00–18:00). */
+export const daySettingsOf = (db: DB, userId: string): DaySettings => {
+  const ok = zDaySettings.safeParse(readSetting(db, userId, 'day'));
+  return ok.success ? ok.data : DEFAULT_DAY_SETTINGS;
+};
 
 /** The block source that marks the plan onboarding wrote, so a second call replaces it instead of adding another. */
 export const ONBOARDING_SOURCE = 'onboarding';
@@ -149,6 +155,18 @@ export const meRoutes = (db: DB) => {
   });
 
   /** Delete the account and everything it owns. Needs the password; signs out every device. */
+  // ---------- the day: the timeline's window and the work hours (user_settings key `day`) ----------
+  r.get('/me/day', (c) => c.json(daySettingsOf(db, c.get('user').id)));
+
+  /** `{ window?: {start,end}, workHours?: {start,end} }` in minutes from midnight; either or both. Answers the whole setting. */
+  r.patch('/me/day', async (c) => {
+    const userId = c.get('user').id;
+    const patch = await parseBody(c.req.raw, zDaySettingsPatch);
+    const next = zDaySettings.parse({ ...daySettingsOf(db, userId), ...patch });
+    writeSetting(db, userId, 'day', next);
+    return c.json(next);
+  });
+
   r.delete('/me', async (c) => {
     const ip = ipOf(c.req.raw.headers);
     checkThrottle(ip);

@@ -38,7 +38,14 @@ How you work:
 - Answer from the data you are given in the latest message's CONTEXT block. For sessions outside the dates shown call get_sessions; for a week's numbers get_week_summary; for habits, goals or activities on other days get_habits, get_goals, get_activities.
 - When the owner asks for a change, work out every row it touches, then call propose_changes once with all of them. Most changes wait for the owner to tap Apply, so propose the whole change; do not ask for permission first. One small change asked plainly (check a habit, mark a session, check off or add a to-do, set a reminder or an alarm) is applied at once and the owner gets an Undo. If the request is ambiguous in a way that changes what you would do, ask one short question instead.
 - "Push out a week" means moving each named session seven days later. "Missed" means a past session that is not marked done and has nothing logged that day. Keep each session's details; only its date moves. Never move sessions into the past.
-- Use the ids exactly as given. Dates are YYYY-MM-DD. Times for set_alarm are HH:MM; a reminder's "at" is an ISO datetime with the owner's offset. Priorities: 3 is P1 (top), 2 is P2, 1 is P3, 0 none. A goal's period is the year (2026), the month (2026-10), the week's Monday, or the day. A day plan's bands hold to-do refs (todo:<id>) and goal-step refs (step:<goalId>:<stepId>).
+- Use the ids exactly as given. Dates are YYYY-MM-DD. Times for set_alarm are HH:MM; a reminder's "at" is an ISO datetime with the owner's offset. Priorities: 3 is P1 (top), 2 is P2, 1 is P3, 0 none. A goal's period is the year (2026), the month (2026-10), the week's Monday, or the day. A day plan holds refs: a to-do (todo:<id>), a goal step (step:<goalId>:<stepId>) or a session (session:<id>); a slot is {ref, start, minutes} with start in minutes from midnight (9:00 is 540) on a 5-minute grid.
+
+Planning the day (THE DAY block; "plan my day", or placing anything on the timeline):
+- Answer with one propose_changes carrying one plan_day {date, slots} that gives a slot to every item under "to place", and leave what is already placed where it is unless the owner asks to move it. Planning the day is always a proposal; never apply it at once.
+- Every slot lies inside the window: never before its start or after its end. Nothing goes over the morning routine (wake to leave) or the workout; a slot never overlaps the workout or another block, and blocks keep 10 minutes between them.
+- The work hours are for work: deep work (the goal's steps, P1 to-dos) before noon; calls, errands and small things after. P1 first, then P2, then P3, then the rest; a to-do takes 30 minutes and a step 45 unless the owner or the item says otherwise.
+- Keep what the owner has told you (MEMORIES and ABOUT): "no meetings before 10" means none before 10:00. When the day cannot hold everything, place what matters most and say in your summary what was left out.
+- Your summary says how the day is laid out in one plain sentence; the owner sees each placement in words under it.
 - "Pick a plan" or "build a plan" means apply_plan_template from the training answers (goal, run days, long-run day, weekly miles) unless the owner says otherwise; start next Monday unless asked; replace only when asked or when the plan clearly supersedes the current block.
 - When the owner tells you something about themselves worth keeping ("I run before work", "my knee is sore this month"), call remember with it; call forget to drop one that is no longer true. Do not store what the app already knows.
 - Your summary in propose_changes is what the owner reads above the list: one plain sentence saying what will happen.
@@ -69,7 +76,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'propose_changes',
     description:
-      'Propose changes for the owner to approve. Each change is one operation: move_session {id, to}, update_session {id, type?, title?, details?, miles?, minutes?}, add_session {date, kind: run|lift|cross|rest, type?, title?, details?, miles?, minutes?}, delete_session {id}, mark_session {id, mark: done|floor|skip|sick|null}, add_todo {text, priority?, due?, bucket?: today|later|someday, groupId?}, update_todo {id, text?, priority?, due?, bucket?, groupId?, done?}, delete_todo {id}, set_goal {level: year|month|week|day, period, text, steps?}, review_goal {id, status: open|done|partly|missed}, check_habit {habitId, date, done}, add_habit {name}, plan_day {date, bands: {morning: ref[], afternoon: ref[], evening: ref[]}}, set_alarm {date, wake: "HH:MM"}, set_reminder {title, body?, at: ISO datetime with offset, route?}, cancel_reminder {id}, apply_plan_template {goal: base|5k|10k|half|marathon, startDate, runDays: [mon..sun], longRunDay, weeklyMiles, weeks?, raceDate?, replace: boolean}.',
+      'Propose changes for the owner to approve. Each change is one operation: move_session {id, to}, update_session {id, type?, title?, details?, miles?, minutes?}, add_session {date, kind: run|lift|cross|rest, type?, title?, details?, miles?, minutes?}, delete_session {id}, mark_session {id, mark: done|floor|skip|sick|null}, add_todo {text, priority?, due?, bucket?: today|later|someday, groupId?}, update_todo {id, text?, priority?, due?, bucket?, groupId?, done?}, delete_todo {id}, set_goal {level: year|month|week|day, period, text, steps?}, review_goal {id, status: open|done|partly|missed}, check_habit {habitId, date, done}, add_habit {name}, plan_day {date, slots?: [{ref, start: minutes from midnight on a 5-minute grid, minutes: 5..720}], bands?: {morning: ref[], afternoon: ref[], evening: ref[]}} (a slot places or moves its ref on the day's timeline and takes it out of the bands; other blocks stay; bands replace the bands when given), set_alarm {date, wake: "HH:MM"}, set_reminder {title, body?, at: ISO datetime with offset, route?}, cancel_reminder {id}, apply_plan_template {goal: base|5k|10k|half|marathon, startDate, runDays: [mon..sun], longRunDay, weeklyMiles, weeks?, raceDate?, replace: boolean}.',
     input_schema: {
       type: 'object',
       properties: {
@@ -112,6 +119,8 @@ export interface AskResult {
   text: string;
   proposal: AssistantProposal | null;
   months?: string[];
+  /** When applied at once: the days whose plan changed. */
+  dates?: string[];
   threadId: string;
 }
 
@@ -174,7 +183,7 @@ export const ask = async (db: DB, userId: string, input: AskInput, opts: { onTex
     }
 
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-    let proposalOut: { proposal: AssistantProposal; months?: string[] } | null = null;
+    let proposalOut: { proposal: AssistantProposal; months?: string[]; dates?: string[] } | null = null;
     for (const call of calls) {
       const r = (content: string, is_error = false): Anthropic.Beta.BetaToolResultBlockParam => ({ type: 'tool_result', tool_use_id: call.id, content, ...(is_error ? { is_error: true } : {}) });
       switch (call.name) {
@@ -233,13 +242,15 @@ export const ask = async (db: DB, userId: string, input: AskInput, opts: { onTex
             db.insert(assistantActions).values({ id, userId, ask: userText.slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
             let proposal: AssistantProposal = { id, summary: p.data.summary, changes, status: 'proposed' };
             let months: string[] | undefined;
+            let dates: string[] | undefined;
             if (isDirectApply(p.data.changes)) {
-              // docs/system.md §7: one obviously reversible change applies at once, with Undo
+              // docs/system.md §7: one obviously reversible change applies at once, with Undo (never plan_day: DIRECT_APPLY_OPS)
               const applied = applyAction(db, userId, id, input.today);
               proposal = applied.proposal;
               months = applied.months;
+              dates = applied.dates;
             }
-            proposalOut = { proposal, months };
+            proposalOut = { proposal, months, dates };
             results.push(r(proposal.status === 'applied' ? `Applied at once (proposal ${id}); the owner has an Undo.` : `Proposal ${id} is shown to the owner with ${changes.length} change${changes.length === 1 ? '' : 's'}; nothing is applied until they tap Apply.`));
           } catch (e) {
             results.push(r(e instanceof Error ? e.message : 'A change did not check out.', true));
@@ -252,11 +263,11 @@ export const ask = async (db: DB, userId: string, input: AskInput, opts: { onTex
     }
     messages.push({ role: 'user', content: results });
     if (proposalOut) {
-      const { proposal, months } = proposalOut as { proposal: AssistantProposal; months?: string[] };
+      const { proposal, months, dates } = proposalOut as { proposal: AssistantProposal; months?: string[]; dates?: string[] };
       // the turn ends here: the proposal is the answer, and the tool's result goes on the thread so the next ask follows it cleanly
       appendMessage(db, thread.id, userId, 'assistant', res.content, proposal.id);
       appendMessage(db, thread.id, userId, 'user', results);
-      return { text: said, proposal, months, threadId: thread.id };
+      return { text: said, proposal, months, dates, threadId: thread.id };
     }
     appendMessage(db, thread.id, userId, 'assistant', res.content);
     appendMessage(db, thread.id, userId, 'user', results);

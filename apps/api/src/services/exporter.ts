@@ -22,7 +22,7 @@ import {
   users,
 } from '../db/schema.js';
 import { assistantMessages, assistantThreads, dayPlans, goalEvents, goals, reminders, todoGroups, userMemory } from '../db/schema.js';
-import { cleanBands, emptyBands, type DayBands } from '@logbook/shared';
+import { planOf } from '../routes/dayplans.js';
 import { listReminders } from './reminders.js';
 import { toBlock, toEntry, toGoal, toGoalEvent, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { nowISO } from '../lib/util.js';
@@ -153,15 +153,7 @@ export const exportAccount = (db: DB, userId: string): ExportV2 => {
       .from(dayPlans)
       .where(eq(dayPlans.userId, userId))
       .all()
-      .map((d) => {
-        let bands: DayBands;
-        try {
-          bands = cleanBands({ ...emptyBands(), ...(JSON.parse(d.bands) as Partial<DayBands>) });
-        } catch {
-          bands = emptyBands();
-        }
-        return { date: d.date, bands, updatedAt: d.updatedAt };
-      }),
+      .map((d) => ({ ...planOf(d.date, d), updatedAt: d.updatedAt })),
     reminders: listReminders(db, userId),
     memories: db
       .select()

@@ -1,4 +1,4 @@
-import type { DayBands } from './dayplan.js';
+import type { DayBands, DaySlot } from './dayplan.js';
 import type { Aim, GoalEvent } from './goals.js';
 import type { ISODate } from './dates.js';
 
@@ -345,7 +345,7 @@ export interface ExportV2 {
   goals?: Aim[];
   goalEvents?: GoalEvent[];
   /** Since the agent v2 and reminders (absent in older exports). */
-  dayPlans?: Array<{ date: ISODate; bands: DayBands; updatedAt: string }>;
+  dayPlans?: Array<{ date: ISODate; bands: DayBands; slots?: DaySlot[]; updatedAt: string }>;
   reminders?: Reminder[];
   memories?: Array<{ key: string; text: string; updatedAt: string }>;
   assistantThreads?: Array<{ id: string; title: string | null; createdAt: string; updatedAt: string; compactedSummary: string | null; messages: Array<{ role: string; content: unknown; actionId: string | null; createdAt: string }> }>;
