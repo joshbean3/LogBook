@@ -13,6 +13,7 @@ import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { TodayTodos } from '../todos/TodayTodos';
 import { TodayGoals } from '../goals/TodayGoals';
+import { AskBar } from '../assistant/AskBar';
 import { planEndOf } from './dayWords';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
@@ -208,6 +209,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
 
   return (
     <div className="day-page" data-day={date}>
+      <AskBar date={date} />
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       <Sentence />

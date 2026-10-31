@@ -13,3 +13,4 @@ export * from './phase.js';
 export * from './templates.js';
 export * from './links.js';
 export * from './goals.js';
+export * from './assistant.js';

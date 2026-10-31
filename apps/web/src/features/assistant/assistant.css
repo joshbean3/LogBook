@@ -1,0 +1,265 @@
+/* The assistant: a bar at the top of each day, and a conversation in a large sheet. The app's surfaces and type; the one
+   blue is the Apply button and the send arrow. */
+
+.ask-bar.pressable {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-3);
+  text-align: left;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.ask-bar[data-pressed] {
+  background: var(--surface-2);
+}
+.ask-bar-ic {
+  color: var(--accent-text);
+}
+.ask-bar-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-bar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+}
+
+/* the sheet: the thread scrolls, the composer stays at the bottom over the keyboard */
+.as-sheet {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 60vh;
+}
+.as-thread {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding-bottom: 12px;
+}
+.as-empty {
+  display: grid;
+  gap: 14px;
+}
+.as-empty-lead {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+}
+.as-empty-lead svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent-text);
+}
+.as-starters {
+  display: grid;
+  gap: 8px;
+}
+.as-starter {
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: var(--r-group);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  text-align: left;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-turn {
+  display: grid;
+  gap: 8px;
+}
+.as-turn.is-user {
+  justify-items: end;
+}
+.as-bubble {
+  margin: 0;
+  max-width: 88%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.is-user .as-bubble {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-bottom-right-radius: 6px;
+}
+.is-assistant .as-bubble {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-bottom-left-radius: 6px;
+}
+.as-typing {
+  display: inline-flex;
+  gap: 5px;
+  width: fit-content;
+}
+.as-typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  animation: as-dot 1.1s ease-in-out infinite;
+}
+.as-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.as-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes as-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+/* a proposal: the summary, the changes in words, the decision */
+.as-proposal {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: 1px solid rgba(91, 102, 255, 0.35);
+}
+.as-proposal.is-dismissed,
+.as-proposal.is-undone {
+  border-color: var(--line);
+  opacity: 0.7;
+}
+.as-proposal-sum {
+  margin: 0;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  font-weight: 600;
+  color: var(--ink);
+}
+.as-changes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+}
+.as-change {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+}
+.as-change + .as-change {
+  border-top: 1px solid var(--line);
+}
+.as-change-ic {
+  color: var(--ink-3);
+  padding-top: 2px;
+}
+.as-proposal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.as-proposal-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.as-proposal.is-applied .as-proposal-state .caps {
+  color: var(--accent-text);
+}
+.as-undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--ink-2);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+}
+
+.as-compose {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 40px;
+  align-items: end;
+  gap: 8px;
+  padding: 10px 0 calc(6px + var(--safe-b));
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.as-compose:not(:has(.as-new)) {
+  grid-template-columns: minmax(0, 1fr) 40px;
+}
+.as-new {
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+}
+.as-input {
+  width: 100%;
+  min-height: 40px;
+  max-height: 120px;
+  padding: 9px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: max(16px, var(--fs-sub));
+  line-height: 1.3;
+  resize: none;
+}
+.as-input:focus {
+  outline: none;
+  border-color: var(--accent-bright);
+}
+.as-send {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.as-send:disabled {
+  background: var(--surface-3);
+  color: var(--ink-4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .as-typing i {
+    animation: none;
+    opacity: 0.6;
+  }
+}

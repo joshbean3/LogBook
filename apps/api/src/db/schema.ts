@@ -388,3 +388,24 @@ export const idempotencyKeys = sqliteTable(
 );
 
 export const uniqueEmail = uniqueIndex;
+
+/**
+ * The assistant's proposals and what came of them: the owner's ask, Claude's summary, the checked operations, and, once
+ * applied, the rows as they were (so Undo puts them back). Migration 0011.
+ */
+export const assistantActions = sqliteTable(
+  'assistant_actions',
+  {
+    id: id(),
+    userId: userId(),
+    ask: text('ask').notNull(),
+    summary: text('summary').notNull(),
+    ops: text('ops').notNull(),
+    labels: text('labels').notNull(),
+    undo: text('undo'),
+    status: text('status').notNull().default('proposed'),
+    createdAt: createdAt(),
+    appliedAt: text('applied_at'),
+  },
+  (t) => [index('assistant_actions_user').on(t.userId, t.createdAt)],
+);

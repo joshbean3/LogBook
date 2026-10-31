@@ -12,6 +12,10 @@ Five tabs, one data model:
   Your day's and week's goals sit under the hero. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed
   in a list (Work, Home) and highlighted in a colour; the To-dos sheet shows them by day or by list. Quick add reads marks
   at the end of a line: `Send the model fri !!! #work` is a P1 for Friday in Work.
+- **Ask** (the bar at the top of each day): the assistant, on Claude Sonnet. Ask about your plan ("what's left this week?")
+  or ask for a change ("push the runs I missed this week to next week", "add a P1 to-do to call the bank Friday", "set this
+  week's goal from my plan"). It reads your plan, to-dos and goals, and proposes the change as a list in words; nothing
+  changes until you tap Apply, and Undo puts it all back. Every proposal and what came of it is kept.
 - **Goals**: a goal for the year, the month, the week and the day. Write it as you'd say it; a review (Claude, on Locke and
   Latham's goal-setting research) rewrites it to be specific, measurable, hard but attainable and due at the period's end,
   and you keep its words or yours. When a period ends it asks "Did you hit it?" (Done, Partly, Missed, and a line on how it
@@ -104,7 +108,7 @@ curl -X POST https://www.strava.com/api/v3/push_subscriptions \
 
 ## Connect Claude
 
-Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPIC_MODEL` to change). This turns on the plan builder and the coach's read. `ATHLETE_CONTEXT` is a sentence or two about you that Claude reads before writing anything.
+Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPIC_MODEL` to change). This turns on the plan builder, the coach's read, the goal review and the assistant (which runs on `claude-sonnet-5-5`). `ATHLETE_CONTEXT` is a sentence or two about you that Claude reads before writing anything.
 
 ## Environment variables
 

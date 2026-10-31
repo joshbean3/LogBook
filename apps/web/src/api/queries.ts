@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
@@ -1139,3 +1139,33 @@ export const useTodoGroupMutations = () => {
   return { add, patch, remove };
 };
 // ── end Goals and to-do lists ──
+
+// ── Assistant ──
+// The assistant on Today: ask (Claude answers or proposes checked changes), then apply, dismiss or undo. A write here
+// changes rows across the app, so an apply or an undo refetches every dataset it may have touched.
+export const askAssistant = (date: string, turns: Array<{ role: 'user' | 'assistant'; text: string }>) => api<AssistantReply>('/assistant', { method: 'POST', json: { date, turns } });
+
+export const useAssistantActions = () => {
+  const qc = useQueryClient();
+  const refresh = (months: string[]) => {
+    for (const m of months) void qc.invalidateQueries({ queryKey: keys.month(m) });
+    for (const k of [keys.todos, ['goals'], ['goal-events'], ['todo-groups'], keys.bootstrap] as const) void qc.invalidateQueries({ queryKey: k as readonly unknown[] });
+  };
+  const apply = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await api<AssistantApplied>(`/assistant/${id}/apply`, { method: 'POST' });
+      refresh(r.months);
+      return r.proposal;
+    },
+  });
+  const undo = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await api<AssistantApplied>(`/assistant/${id}/undo`, { method: 'POST' });
+      refresh(r.months);
+      return r.proposal;
+    },
+  });
+  const dismiss = useMutation({ mutationFn: (id: string) => api<AssistantProposal>(`/assistant/${id}/dismiss`, { method: 'POST' }) });
+  return { apply, undo, dismiss };
+};
+// ── end Assistant ──
