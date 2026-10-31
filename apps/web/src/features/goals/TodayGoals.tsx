@@ -31,7 +31,7 @@ export const TodayGoals = memo(function TodayGoals({ date, today }: { date: ISOD
           <ChevronRight size={16} aria-hidden="true" className="g-chev" />
         </Pressable>
       ) : null}
-      <GoalRow level="day" period={date} goal={goalOf(list, 'day', date)} today={today} compact />
+      <GoalRow level="day" period={date} goal={goalOf(list, 'day', date)} today={today} compact steps />
       <GoalRow level="week" period={week} goal={goalOf(list, 'week', week)} today={today} compact />
     </section>
   );

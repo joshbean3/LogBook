@@ -317,6 +317,8 @@ export type TemplateUndoInput = z.infer<typeof zTemplateUndo>;
 // ---------- goals ----------
 export const zGoalLevel = z.enum(['year', 'month', 'week', 'day']);
 /** Set (or replace) the goal of one period. */
+export const zGoalStep = z.object({ id: z.string().min(1).max(40), text: z.string().trim().min(1).max(120), done: z.boolean() });
+export const zGoalSteps = z.array(zGoalStep).max(5);
 export const zGoalPut = z.object({
   text: z.string().trim().min(1).max(400),
   /** The owner's own words, when the review rewrote them. */
@@ -324,11 +326,14 @@ export const zGoalPut = z.object({
   why: z.string().trim().max(300).nullable().optional(),
   /** Which the owner chose after the review: the sharpened words, or his own. */
   chose: z.enum(['sharpened', 'kept', 'own']).optional(),
+  steps: zGoalSteps.optional(),
 });
 export const zGoalPatch = z.object({
   status: z.enum(['open', 'done', 'partly', 'missed']).optional(),
   reflection: z.string().trim().max(500).nullable().optional(),
+  /** The whole list, as it now stands: checks, adds, removes and edits all go this way. */
+  steps: zGoalSteps.optional(),
 });
 export const zGoalRefine = z.object({ level: zGoalLevel, period: z.string().min(4).max(10), text: z.string().trim().min(1).max(400) });
 /** What Claude returns for a goal review. */
-export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean() });
+export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean(), steps: z.array(z.string()) });

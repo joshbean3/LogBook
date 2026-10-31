@@ -555,3 +555,198 @@
     transition: none;
   }
 }
+
+/* ---------- a set goal, live: the ring, the words, its steps ---------- */
+.g-live {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0;
+}
+.g-group > .g-live:last-child,
+.goals-card > .g-live:last-child {
+  border-bottom: 0;
+}
+.g-live-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 4px;
+  padding: 0 14px 0 6px;
+}
+.g-live-main.pressable {
+  display: grid;
+  gap: 3px;
+  min-height: 52px;
+  padding: 6px 0;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  min-width: 0;
+}
+.g-live.is-done .g-row-text {
+  color: var(--ink-2);
+}
+.g-live-count {
+  color: var(--accent-text);
+  letter-spacing: 0.06em;
+}
+.g-live.is-done .g-live-count {
+  color: var(--ink-3);
+}
+.g-live-stamp {
+  justify-self: center;
+}
+
+.g-ring-hit {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-bright);
+  -webkit-tap-highlight-color: transparent;
+}
+.g-ring-track {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 2.5;
+}
+.g-ring-arc {
+  fill: none;
+  stroke: var(--accent-bright);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.g-ring-hit.is-done .g-ring-track {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.g-ring-hit.is-done .g-ring-arc {
+  stroke: var(--accent);
+}
+.g-ring-check {
+  fill: none;
+  stroke: var(--accent-ink);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* the steps: a short checklist under the goal, its marks lined up under the ring */
+.g-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 14px 4px 6px;
+}
+.g-steps.is-draft {
+  padding: 0;
+  border-radius: var(--r-group);
+  background: var(--surface-2);
+}
+.g-step {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 4px;
+  min-height: 40px;
+}
+.g-steps.compact .g-step {
+  min-height: 38px;
+}
+.g-steps.is-draft .g-step {
+  padding: 0 4px;
+  border-bottom: 1px solid var(--line);
+}
+.g-steps.is-draft .g-step:last-child {
+  border-bottom: 0;
+}
+.g-step-text {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.g-step.is-done .g-step-text {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+}
+.g-step-num {
+  justify-self: center;
+  font-size: var(--fs-foot);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.g-step-x {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-4);
+}
+.g-step-add {
+  grid-template-columns: minmax(0, 1fr);
+}
+.g-step-addbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 0 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.g-step-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: max(16px, var(--fs-sub));
+}
+.g-step-input:focus {
+  outline: none;
+}
+.g-step-input::placeholder {
+  color: var(--ink-4);
+}
+.g-log-step {
+  color: var(--ink-3);
+}
+
+/* where a day's goal can start: one tap fills the field */
+.gs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -6px;
+}
+.gs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: 500 var(--fs-foot) / 1 var(--sans);
+}
+.gs-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gs-chip-p1 {
+  color: var(--prio-1);
+}

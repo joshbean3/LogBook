@@ -186,7 +186,7 @@ const GOAL_SCOPE: Record<GoalLevel, string> = {
  * specific, measurable, hard but attainable, bound to the period's deadline, and his; a learning goal when the task is new
  * or complex. Keeps his intent and his voice; leaves a goal that already meets the rules alone.
  */
-export const refineGoal = async (level: GoalLevel, period: string, end: string, text: string, t: string): Promise<{ text: string; why: string | null; changed: boolean }> => {
+export const refineGoal = async (level: GoalLevel, period: string, end: string, text: string, t: string): Promise<{ text: string; why: string | null; changed: boolean; steps: string[] }> => {
   const c = anthropic();
   const prompt = [
     'You review personal goals using the findings of Locke and Latham\'s goal-setting research (35 years of studies; "New Directions in Goal-Setting Theory", 2006).',
@@ -205,11 +205,14 @@ export const refineGoal = async (level: GoalLevel, period: string, end: string, 
     '- goal: the rewritten goal, one sentence, at most 28 words, first person, no quotation marks, no emoji, no markdown. Keep his intent and any numbers he gave. If his goal already meets the rules, return it unchanged.',
     '- why: one short plain sentence (under 16 words) naming what you changed, e.g. "Added a number and the Friday deadline so you can tell if you hit it." Empty string if unchanged.',
     '- changed: true if you changed the meaning or the words beyond punctuation.',
+    level === 'day' || level === 'week'
+      ? `- steps: 2 to 4 proximal subgoals that get the goal done ${level === 'day' ? 'today' : 'this week'}, in the order he would do them; each one concrete, verb first, under 8 words, no numbering. [] when the goal is one single action.`
+      : '- steps: [] (a year or a month goal is reviewed on its own).',
   ].join('\n');
   const msg = await c.messages.create({ model: env.ANTHROPIC_MODEL, max_tokens: 1200, output_config: { effort: 'low', format: zodOutputFormat(zClaudeGoalOutput) }, messages: [{ role: 'user', content: prompt }] });
   if (msg.stop_reason === 'refusal') throw new ApiError(422, 'Claude declined to review this goal.', 'refused');
   const raw = msg.content.find((b) => b.type === 'text')?.text ?? '';
-  let out: { goal: string; why: string; changed: boolean };
+  let out: { goal: string; why: string; changed: boolean; steps: string[] };
   try {
     out = zClaudeGoalOutput.parse(JSON.parse(raw));
   } catch {
@@ -217,5 +220,6 @@ export const refineGoal = async (level: GoalLevel, period: string, end: string, 
   }
   const goal = out.goal.trim().replace(/^["“]|["”]$/g, '').slice(0, 400);
   const changed = out.changed && !!goal && goal !== text.trim();
-  return { text: changed ? goal : text.trim(), why: changed ? out.why.trim().slice(0, 300) || null : null, changed };
+  const steps = level === 'day' || level === 'week' ? out.steps.map((x) => x.trim().replace(/^[-•\d.)\s]+/, '').slice(0, 120)).filter(Boolean).slice(0, 4) : [];
+  return { text: changed ? goal : text.trim(), why: changed ? out.why.trim().slice(0, 300) || null : null, changed, steps };
 };

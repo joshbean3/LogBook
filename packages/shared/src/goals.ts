@@ -8,6 +8,14 @@ export const GOAL_LEVELS: readonly GoalLevel[] = ['year', 'month', 'week', 'day'
 /** Open until the period is reviewed; the review says how it went. */
 export type GoalStatus = 'open' | 'done' | 'partly' | 'missed';
 
+/** A small step toward a goal (2 to 5 of them): checked off through the day, each check logged. */
+export interface GoalStep {
+  id: string;
+  text: string;
+  done: boolean;
+}
+export const GOAL_STEPS_MAX = 5;
+
 export interface Aim {
   id: string;
   level: GoalLevel;
@@ -22,13 +30,15 @@ export interface Aim {
   status: GoalStatus;
   /** A line written at the review. */
   reflection: string | null;
+  /** Its steps, in order; empty when it has none. */
+  steps: GoalStep[];
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
 }
 
 /** Everything that happens to a goal, kept so the history can say what was set, changed, done and missed. */
-export type GoalEventKind = 'set' | 'sharpened' | 'kept' | 'edited' | 'done' | 'partly' | 'missed' | 'reopened' | 'cleared';
+export type GoalEventKind = 'set' | 'sharpened' | 'kept' | 'edited' | 'done' | 'partly' | 'missed' | 'reopened' | 'cleared' | 'step' | 'unstep';
 
 export interface GoalEvent {
   id: string;
@@ -46,6 +56,8 @@ export interface GoalRefinement {
   text: string;
   why: string | null;
   changed: boolean;
+  /** Steps the review suggests (a day's or a week's goal): verb first, in order; empty when it has none to offer. */
+  steps: string[];
   /** False when the server has no Claude key: the words come back untouched. */
   available: boolean;
 }
@@ -121,3 +133,6 @@ export const goalsDue = (goals: readonly Aim[] | undefined, today: ISODate) => {
   const cur = currentGoals(goals, today);
   return { day: !cur.day, week: !cur.week, month: !cur.month, year: !cur.year, review: awaitingReview(goals, today).length };
 };
+
+/** How far through its steps a goal is: 0 to 1 (a goal with no steps is 0 until done, then 1). */
+export const goalProgress = (g: Pick<Aim, 'steps' | 'status'>) => (g.status === 'done' ? 1 : g.steps.length ? g.steps.filter((x) => x.done).length / g.steps.length : 0);

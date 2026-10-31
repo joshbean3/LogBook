@@ -52,6 +52,21 @@ describe('goals', () => {
     expect(kinds).toEqual(['set', 'kept']);
   });
 
+  it('keeps a goal’s steps, logs each check, and an edit of the words leaves the steps alone', async () => {
+    const steps = [
+      { id: 's1', text: 'Open the model', done: false },
+      { id: 's2', text: 'Fix the revenue tab', done: false },
+    ];
+    const g = (await call('PUT', '/api/goals/day/2026-10-26', { text: 'Send the Q4 model to Ana by 3 pm.', steps })).body;
+    expect(g.steps).toEqual(steps);
+    const checked = await call('PATCH', `/api/goals/${g.id}`, { steps: [{ ...steps[0], done: true }, steps[1]] });
+    expect(checked.body.steps[0].done).toBe(true);
+    await call('PATCH', `/api/goals/${g.id}`, { steps: [steps[0], steps[1]] });
+    expect((await call('PUT', '/api/goals/day/2026-10-26', { text: 'Send the Q4 model to Ana by 2 pm.' })).body.steps).toHaveLength(2);
+    const log = (await call('GET', `/api/goals/events?goal=${g.id}`)).body.events.map((e: { kind: string; text: string }) => `${e.kind}:${e.text}`).reverse();
+    expect(log).toEqual(['set:Send the Q4 model to Ana by 3 pm.', 'step:Open the model', 'unstep:Open the model', 'edited:Send the Q4 model to Ana by 2 pm.']);
+  });
+
   it('refuses a period that does not match its level', async () => {
     expect((await call('PUT', '/api/goals/week/2026-10-27', { text: 'x' })).status).toBe(400); // a Tuesday
     expect((await call('PUT', '/api/goals/month/2026-10-01', { text: 'x' })).status).toBe(400);
@@ -64,7 +79,7 @@ describe('goals', () => {
     (env as { ANTHROPIC_API_KEY?: string }).ANTHROPIC_API_KEY = '';
     try {
       const r = await call('POST', '/api/goals/refine', { level: 'day', period: '2026-10-26', text: 'be productive' });
-      if (r.body.available === false) expect(r.body).toEqual({ text: 'be productive', why: null, changed: false, available: false });
+      if (r.body.available === false) expect(r.body).toEqual({ text: 'be productive', why: null, changed: false, steps: [], available: false });
     } finally {
       (env as { ANTHROPIC_API_KEY?: string }).ANTHROPIC_API_KEY = key;
     }

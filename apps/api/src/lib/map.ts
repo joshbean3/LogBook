@@ -1,4 +1,4 @@
-import { METERS_PER_MILE, type Activity, type Habit, type JournalEntry, type Lap, type LiftSet, type PlanBlock, type Session, type SessionKind, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoPriority, TODO_COLORS, type Aim, type GoalEvent, type GoalLevel, type GoalStatus, type GoalEventKind, type TodoGroup } from '@logbook/shared';
+import { METERS_PER_MILE, type Activity, type Habit, type JournalEntry, type Lap, type LiftSet, type PlanBlock, type Session, type SessionKind, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoPriority, TODO_COLORS, type Aim, type GoalEvent, type GoalLevel, type GoalStatus, type GoalEventKind, type GoalStep, type TodoGroup } from '@logbook/shared';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { activities, goalEvents, goals, habits, journalEntries, liftSets, planBlocks, todoGroups, todos, trainingSessions } from '../db/schema.js';
 
@@ -76,9 +76,20 @@ export const toGoal = (r: InferSelectModel<typeof goals>): Aim => ({
   why: r.why,
   status: r.status as GoalStatus,
   reflection: r.reflection,
+  steps: parseSteps(r.steps),
   createdAt: r.createdAt,
   updatedAt: r.updatedAt,
   closedAt: r.closedAt,
 });
+
+/** A goal's steps from their JSON; anything unreadable is no steps. */
+export const parseSteps = (raw: string | null): GoalStep[] => {
+  try {
+    const v = JSON.parse(raw ?? '[]') as unknown;
+    return Array.isArray(v) ? v.filter((x): x is GoalStep => !!x && typeof x.id === 'string' && typeof x.text === 'string').map((x) => ({ id: x.id, text: x.text, done: !!x.done })) : [];
+  } catch {
+    return [];
+  }
+};
 
 export const toGoalEvent = (r: InferSelectModel<typeof goalEvents>): GoalEvent => ({ id: r.id, goalId: r.goalId, level: r.level as GoalLevel, period: r.period, kind: r.kind as GoalEventKind, text: r.text, at: r.at });

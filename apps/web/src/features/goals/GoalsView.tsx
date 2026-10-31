@@ -12,22 +12,52 @@ import '../settings/settings.css';
 import { goalOf, LEVEL, periodCaps, setWords, STATUS_WORD } from './model';
 import { disableReminders, enableReminders, remindersOn, remindersSupported } from './reminders';
 import { ReviewButtons, StatusIcon, useOpenGoal } from './GoalSheets';
+import { GoalRing, GoalSteps } from './Steps';
 import './goals.css';
 
-/** One goal of the four: the period in caps, the goal in the row's voice, its state at the right; empty, the way to set it. */
-export const GoalRow = ({ level, period, goal, today, compact }: { level: GoalLevel; period: string; goal: Aim | null; today: string; compact?: boolean }) => {
+/**
+ * One goal: the period in caps, the goal in the row's voice. A set goal is a thing to work: its ring at the left (tap to
+ * mark it done; it fills as steps are checked), the words open its card, and with `steps` its steps sit under it to be
+ * checked off where they are. An empty period is the way to set it.
+ */
+export const GoalRow = ({ level, period, goal, today, compact, steps }: { level: GoalLevel; period: string; goal: Aim | null; today: string; compact?: boolean; steps?: boolean }) => {
   const open = useOpenGoal();
   const caps = periodCaps(level, period, today);
+  if (!goal)
+    return (
+      <Pressable className={`g-row is-empty ${compact ? 'compact' : ''}`} press="surface" onPress={() => open(level, period)} label={`${caps}: ${setWords(level, period, today)}`}>
+        <span className="g-row-main">
+          <span className="caps g-row-caps">{caps}</span>
+          <span className="g-row-set">{setWords(level, period, today)}</span>
+        </span>
+        <span className="g-row-end" aria-hidden="true">
+          <Plus size={18} strokeWidth={2.2} className="g-plus" />
+        </span>
+      </Pressable>
+    );
+  const n = goal.steps.length;
+  const k = goal.steps.filter((x) => x.done).length;
+  const ended = goal.status === 'partly' || goal.status === 'missed';
   return (
-    <Pressable className={`g-row ${goal ? `is-${goal.status}` : 'is-empty'} ${compact ? 'compact' : ''}`} press="surface" onPress={() => open(level, period)} label={goal ? `${caps}: ${goal.text}. ${STATUS_WORD[goal.status]}. Open` : `${caps}: ${setWords(level, period, today)}`}>
-      <span className="g-row-main">
-        <span className="caps g-row-caps">{caps}</span>
-        {goal ? <span className="g-row-text">{goal.text}</span> : <span className="g-row-set">{setWords(level, period, today)}</span>}
-      </span>
-      <span className="g-row-end" aria-hidden="true">
-        {goal ? goal.status === 'open' ? <ChevronRight size={16} className="g-chev" /> : <span className={`g-stamp is-${goal.status}`}><StatusIcon status={goal.status} size={14} /></span> : <Plus size={18} strokeWidth={2.2} className="g-plus" />}
-      </span>
-    </Pressable>
+    <div className={`g-live is-${goal.status} ${compact ? 'compact' : ''}`}>
+      <div className="g-live-head">
+        {ended ? (
+          <span className={`g-stamp g-live-stamp is-${goal.status}`} aria-label={STATUS_WORD[goal.status]}>
+            <StatusIcon status={goal.status} size={14} />
+          </span>
+        ) : (
+          <GoalRing goal={goal} label={`${caps}: ${goal.text}. ${goal.status === 'done' ? 'Done' : 'Mark done'}`} />
+        )}
+        <Pressable className="g-live-main" press="dim" onPress={() => open(level, period)} label={`${caps}: ${goal.text}. Open`}>
+          <span className="caps g-row-caps">
+            {caps}
+            {n ? <span className="g-live-count tnum"> · {k} of {n}</span> : null}
+          </span>
+          <span className="g-row-text">{goal.text}</span>
+        </Pressable>
+      </div>
+      {steps && n ? <GoalSteps goal={goal} compact /> : null}
+    </div>
   );
 };
 
@@ -99,7 +129,7 @@ export default function GoalsView(): React.JSX.Element {
           <section className="g-now" aria-label="Your goals now">
             <div className="group g-group">
               {GOAL_LEVELS.map((l) => (
-                <GoalRow key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} />
+                <GoalRow key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} steps={l === 'day' || l === 'week'} />
               ))}
             </div>
           </section>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { awaitingReview, currentGoals, goalsDue, periodEnd, periodName, periodOf, periodPast, periodSpan, shiftPeriod, type Aim } from './goals.js';
 
-const goal = (level: Aim['level'], period: string, status: Aim['status'] = 'open'): Aim => ({ id: `${level}-${period}`, level, period, text: 'x', original: null, why: null, status, reflection: null, createdAt: '', updatedAt: '', closedAt: null });
+const goal = (level: Aim['level'], period: string, status: Aim['status'] = 'open'): Aim => ({ id: `${level}-${period}`, level, period, text: 'x', original: null, why: null, status, reflection: null, steps: [], createdAt: '', updatedAt: '', closedAt: null });
 
 describe('goal periods', () => {
   it('names the period a date is in', () => {

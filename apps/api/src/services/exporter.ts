@@ -233,6 +233,7 @@ export const zExportV2 = z.object({
         why: opt(str(300)),
         status: z.enum(['open', 'done', 'partly', 'missed']).default('open'),
         reflection: opt(str(500)),
+        steps: z.array(z.object({ id: str(40).min(1), text: str(120).min(1), done: z.boolean() })).max(5).default([]),
         createdAt: z.string(),
         updatedAt: z.string(),
         closedAt: opt(z.string()),
@@ -240,7 +241,7 @@ export const zExportV2 = z.object({
     )
     .default([]),
   goalEvents: z
-    .array(z.object({ id: zId, goalId: zId, level: z.enum(['year', 'month', 'week', 'day']), period: str(10).min(4), kind: z.enum(['set', 'sharpened', 'kept', 'edited', 'done', 'partly', 'missed', 'reopened', 'cleared']), text: opt(str(500)), at: z.string() }))
+    .array(z.object({ id: zId, goalId: zId, level: z.enum(['year', 'month', 'week', 'day']), period: str(10).min(4), kind: z.enum(['set', 'sharpened', 'kept', 'edited', 'done', 'partly', 'missed', 'reopened', 'cleared', 'step', 'unstep']), text: opt(str(500)), at: z.string() }))
     .default([]),
   journal: z.array(z.object({ id: zId, date: zDay, text: str(5000).min(1), createdAt: z.string(), editedAt: opt(z.string()), fav: z.boolean().default(false) })).default([]),
   quotes: z
@@ -489,7 +490,7 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
       const c = claim(goals, goals.id, goals.userId, g.id);
       goalIds.set(g.id, c.id);
       if (c.have) continue;
-      t.insert(goals).values({ id: c.id, userId, level: g.level, period: g.period, text: g.text, original: g.original ?? null, why: g.why ?? null, status: g.status, reflection: g.reflection ?? null, createdAt: g.createdAt, updatedAt: g.updatedAt, closedAt: g.closedAt ?? null, deletedAt: null }).run();
+      t.insert(goals).values({ id: c.id, userId, level: g.level, period: g.period, text: g.text, original: g.original ?? null, why: g.why ?? null, status: g.status, reflection: g.reflection ?? null, steps: JSON.stringify(g.steps), createdAt: g.createdAt, updatedAt: g.updatedAt, closedAt: g.closedAt ?? null, deletedAt: null }).run();
       bump('goals');
     }
     for (const e of b.goalEvents) {

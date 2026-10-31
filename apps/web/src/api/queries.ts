@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type TemplateInput, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
@@ -1063,7 +1063,7 @@ export const refineGoal = async (level: GoalLevel, period: string, text: string)
     return await api<GoalRefinement>('/goals/refine', { method: 'POST', json: { level, period, text } });
   } catch (e) {
     if (e instanceof ApiError && e.status < 500 && e.status !== 503) throw e;
-    return { text, why: null, changed: false, available: false };
+    return { text, why: null, changed: false, steps: [], available: false };
   }
 };
 
@@ -1072,14 +1072,14 @@ export const useGoalMutations = () => {
   const setGoals = (fn: (g: Aim[]) => Aim[]) => qc.setQueryData<Aim[]>(goalsKey, (g) => fn(g ?? []));
   const touched = () => void qc.invalidateQueries({ queryKey: ['goal-events'] });
   const set = useMutation({
-    mutationFn: async (input: { level: GoalLevel; period: string; text: string; original?: string | null; why?: string | null; chose?: 'sharpened' | 'kept' | 'own' }) => {
+    mutationFn: async (input: { level: GoalLevel; period: string; text: string; original?: string | null; why?: string | null; chose?: 'sharpened' | 'kept' | 'own'; steps?: GoalStep[] }) => {
       const { level, period, ...body } = input;
       const now = new Date().toISOString();
       setGoals((g) => {
         const had = g.find((x) => x.level === level && x.period === period);
         const next: Aim = had
-          ? { ...had, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, updatedAt: now }
-          : { id: `tmp-goal-${level}-${period}`, level, period, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, status: 'open', reflection: null, createdAt: now, updatedAt: now, closedAt: null };
+          ? { ...had, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, steps: body.steps ?? had.steps, updatedAt: now }
+          : { id: `tmp-goal-${level}-${period}`, level, period, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, status: 'open', reflection: null, steps: body.steps ?? [], createdAt: now, updatedAt: now, closedAt: null };
         return had ? g.map((x) => (x === had ? next : x)) : [next, ...g];
       });
       const saved = await write<Aim>(`/goals/${level}/${period}`, 'PUT', body, [goalsKey]);
@@ -1089,10 +1089,10 @@ export const useGoalMutations = () => {
     onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),
   });
   const review = useMutation({
-    mutationFn: async ({ id, status, reflection }: { id: string; status?: GoalStatus; reflection?: string | null }) => {
+    mutationFn: async ({ id, status, reflection, steps }: { id: string; status?: GoalStatus; reflection?: string | null; steps?: GoalStep[] }) => {
       const now = new Date().toISOString();
-      setGoals((g) => g.map((x) => (x.id === id ? { ...x, ...(status ? { status, closedAt: status === 'open' ? null : now } : {}), ...(reflection !== undefined ? { reflection } : {}) } : x)));
-      const saved = await write<Aim>(`/goals/${id}`, 'PATCH', { status, reflection }, [goalsKey]);
+      setGoals((g) => g.map((x) => (x.id === id ? { ...x, ...(status ? { status, closedAt: status === 'open' ? null : now } : {}), ...(reflection !== undefined ? { reflection } : {}), ...(steps ? { steps } : {}) } : x)));
+      const saved = await write<Aim>(`/goals/${id}`, 'PATCH', { status, reflection, steps }, [goalsKey]);
       if (saved) setGoals((g) => g.map((x) => (x.id === id ? saved : x)));
       touched();
     },

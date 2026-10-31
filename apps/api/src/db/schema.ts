@@ -170,6 +170,8 @@ export const goals = sqliteTable(
     why: text('why'),
     status: text('status').notNull().default('open'),
     reflection: text('reflection'),
+    /** Its steps as JSON (`GoalStep[]`). Migration 0010. */
+    steps: text('steps').notNull().default('[]'),
     createdAt: createdAt(),
     updatedAt: text('updated_at').notNull(),
     closedAt: text('closed_at'),

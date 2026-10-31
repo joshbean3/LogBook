@@ -14,7 +14,7 @@ type View = GoalLevel | 'log';
 /** How far back each level lists its periods, even the ones with no goal set: the gaps are part of the record. */
 const SPAN: Record<GoalLevel, number> = { day: 30, week: 12, month: 12, year: 3 };
 
-const LOG_WORD: Record<GoalEventKind, string> = { set: 'Set', sharpened: 'Sharpened', kept: 'Kept your words', edited: 'Edited', done: 'Done', partly: 'Partly done', missed: 'Missed', reopened: 'Reopened', cleared: 'Cleared' };
+const LOG_WORD: Record<GoalEventKind, string> = { set: 'Set', sharpened: 'Sharpened', kept: 'Kept your words', edited: 'Edited', done: 'Done', partly: 'Partly done', missed: 'Missed', reopened: 'Reopened', cleared: 'Cleared', step: 'Checked off a step', unstep: 'Unchecked a step' };
 const localDay = (iso: string) => {
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, '0');

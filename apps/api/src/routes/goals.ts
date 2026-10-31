@@ -6,7 +6,7 @@ import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { goalEvents, goals } from '../db/schema.js';
 import { env } from '../env.js';
-import { toGoal, toGoalEvent } from '../lib/map.js';
+import { parseSteps, toGoal, toGoalEvent } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { refineGoal } from '../services/claude.js';
 
@@ -52,7 +52,7 @@ export const goalRoutes = (db: DB) => {
   r.post('/goals/refine', async (c) => {
     const body = await parseBody(c.req.raw, zGoalRefine);
     const period = validPeriod(body.level, body.period);
-    if (!env.claudeConfigured) return c.json({ text: body.text, why: null, changed: false, available: false });
+    if (!env.claudeConfigured) return c.json({ text: body.text, why: null, changed: false, steps: [], available: false });
     const out = await refineGoal(body.level, period, periodEnd(body.level, period), body.text, c.get('today'));
     return c.json({ ...out, available: true });
   });
@@ -74,14 +74,14 @@ export const goalRoutes = (db: DB) => {
         id = existing.id;
         const revived = !!existing.deletedAt;
         db.update(goals)
-          .set({ text: body.text, original, why: body.why ?? null, status: revived ? 'open' : existing.status, reflection: revived ? null : existing.reflection, closedAt: revived ? null : existing.closedAt, updatedAt: now, deletedAt: null })
+          .set({ text: body.text, original, why: body.why ?? null, status: revived ? 'open' : existing.status, reflection: revived ? null : existing.reflection, closedAt: revived ? null : existing.closedAt, updatedAt: now, deletedAt: null, ...(body.steps ? { steps: JSON.stringify(body.steps) } : revived ? { steps: '[]' } : {}) })
           .where(eq(goals.id, id))
           .run();
         if (revived) log(userId, { id, level, period }, 'set', body.text, now);
         else if (existing.text !== body.text) log(userId, { id, level, period }, 'edited', body.text, now);
       } else {
         id = uid('goal');
-        db.insert(goals).values({ id, userId, level, period, text: body.text, original, why: body.why ?? null, status: 'open', reflection: null, createdAt: now, updatedAt: now, closedAt: null, deletedAt: null }).run();
+        db.insert(goals).values({ id, userId, level, period, text: body.text, original, why: body.why ?? null, status: 'open', reflection: null, steps: JSON.stringify(body.steps ?? []), createdAt: now, updatedAt: now, closedAt: null, deletedAt: null }).run();
         log(userId, { id, level, period }, 'set', body.chose === 'kept' && body.original ? body.original : original ?? body.text, now);
       }
       // what the review did, and what the owner chose: the sharpened words, or his own
@@ -99,12 +99,24 @@ export const goalRoutes = (db: DB) => {
     const now = nowISO();
     const set: Partial<typeof goals.$inferInsert> = { updatedAt: now };
     if (body.reflection !== undefined) set.reflection = body.reflection || null;
+    // a step checked or unchecked is logged by its words; adds, removes and edits just change the list
+    const was = new Map(parseSteps(row.steps).map((x) => [x.id, x]));
+    const stepLog: Array<[GoalEventKind, string]> = [];
+    if (body.steps !== undefined) {
+      set.steps = JSON.stringify(body.steps);
+      for (const x of body.steps) {
+        const before = was.get(x.id);
+        if (x.done && !before?.done) stepLog.push(['step', x.text]);
+        if (!x.done && before?.done) stepLog.push(['unstep', x.text]);
+      }
+    }
     if (body.status !== undefined && body.status !== row.status) {
       set.status = body.status;
       set.closedAt = body.status === 'open' ? null : now;
     }
     db.transaction(() => {
       db.update(goals).set(set).where(eq(goals.id, row.id)).run();
+      for (const [kind, text] of stepLog) log(userId, row, kind, text, now);
       if (set.status) log(userId, row, set.status === 'open' ? 'reopened' : (set.status as GoalEventKind), set.reflection ?? row.reflection ?? null, now);
     });
     return c.json(toGoal(db.select().from(goals).where(eq(goals.id, row.id)).get()!));

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => false } }));
 const { plannedReminders } = await import('./reminders');
 
-const g = (level: 'day' | 'week', period: string) => ({ id: period, level, period, text: 'x', original: null, why: null, status: 'open' as const, reflection: null, createdAt: '', updatedAt: '', closedAt: null });
+const g = (level: 'day' | 'week', period: string) => ({ id: period, level, period, text: 'x', original: null, why: null, status: 'open' as const, reflection: null, steps: [], createdAt: '', updatedAt: '', closedAt: null });
 
 describe('goal reminders', () => {
   it('reminds each morning a day has no goal, and on Monday for the week', () => {
