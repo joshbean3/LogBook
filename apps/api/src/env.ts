@@ -32,6 +32,10 @@ const schema = z.object({
   READS_FAKE_PICK: z.string().optional(),
   /** Providers whose data never reaches a model, besides strava (always excluded): comma-separated. */
   AI_EXCLUDED_PROVIDERS: z.string().optional(),
+  /** Transactional mail (verification, password reset) through Resend's HTTP API. Unset: mails are logged, never sent. */
+  RESEND_API_KEY: z.string().optional(),
+  /** The From line of every mail: `Logbook <hello@yourdomain>` (a domain verified in Resend). */
+  MAIL_FROM: z.string().default('Logbook <onboarding@resend.dev>'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -51,6 +55,7 @@ export const env = {
   vapidConfigured: !!(parsed.data.VAPID_PUBLIC_KEY && parsed.data.VAPID_PRIVATE_KEY),
   claudeConfigured: !!parsed.data.ANTHROPIC_API_KEY,
   readsFakePick: parsed.data.READS_FAKE_PICK === '1' || parsed.data.READS_FAKE_PICK === 'true',
+  mailConfigured: !!parsed.data.RESEND_API_KEY,
 };
 
 if (env.isProd && parsed.data.SESSION_SECRET === 'dev-only-secret-change-me-please-now') {
