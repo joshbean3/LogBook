@@ -17,6 +17,7 @@ export class NetworkError extends Error {
 
 export const onUnauthorized = new Set<() => void>();
 
+import { CapacitorHttp } from '@capacitor/core';
 import { today } from '@logbook/shared';
 import { apiOrigin, isNative } from '@/lib/native';
 
@@ -39,7 +40,8 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
   if (idempotencyKey) headers.set(IDEMPOTENCY_HEADER, idempotencyKey);
   let res: Response;
   try {
-    res = await fetch(BASE + path, { ...rest, credentials: isNative ? 'include' : 'same-origin', headers, body: json !== undefined ? JSON.stringify(json) : rest.body });
+    const body = json !== undefined ? JSON.stringify(json) : rest.body;
+    res = isNative ? await nativeFetch(BASE + path, rest.method ?? 'GET', headers, body) : await fetch(BASE + path, { ...rest, credentials: 'same-origin', headers, body });
   } catch {
     throw new NetworkError();
   }
@@ -62,5 +64,21 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+/**
+ * In the iPhone app every request goes through Capacitor's native HTTP plugin, called directly: the request leaves from
+ * the device with the native cookie jar (the sign-in sticks) and no CORS, whatever the generated capacitor.config.json
+ * says. (The plugin's own `fetch` patch depends on that file answering "enabled" at page load; when it does not, requests
+ * leave the WebView from capacitor://localhost and the server refuses them, which read as "Couldn't connect".)
+ */
+export const nativeFetch = async (url: string, method: string, headers: Headers, body: RequestInit['body']): Promise<Response> => {
+  const h: Record<string, string> = {};
+  headers.forEach((v, k) => {
+    h[k] = v;
+  });
+  const r = await CapacitorHttp.request({ url, method, headers: h, data: typeof body === 'string' ? body : undefined, responseType: 'text', connectTimeout: 20_000, readTimeout: 30_000 });
+  const text = typeof r.data === 'string' ? r.data : r.data == null ? '' : JSON.stringify(r.data);
+  return new Response(r.status === 204 ? null : text, { status: r.status, headers: r.headers as Record<string, string> });
+};
 
 export const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;

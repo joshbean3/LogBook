@@ -1,3 +1,5 @@
+import { nativeFetch } from '@/api/client';
+import { apiOrigin, isNative } from '@/lib/native';
 import { daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
@@ -166,15 +168,12 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
           fd.set('start', s);
           if (instr.trim()) fd.set('instructions', instr.trim());
           fd.set('file', file);
-          res = await fetch('/api/plans/draft', { method: 'POST', body: fd, credentials: 'same-origin', signal: ac.signal });
+          res = await fetch(`${apiOrigin}/api/plans/draft`, { method: 'POST', body: fd, credentials: isNative ? 'include' : 'same-origin', signal: ac.signal });
         } else {
-          res = await fetch('/api/plans/draft', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ mode, text: mode === 'text' ? text : undefined, instructions: instr.trim() || undefined, start: s, end: end || undefined }),
-            credentials: 'same-origin',
-            signal: ac.signal,
-          });
+          const body = JSON.stringify({ mode, text: mode === 'text' ? text : undefined, instructions: instr.trim() || undefined, start: s, end: end || undefined });
+          const headers = new Headers({ 'content-type': 'application/json' });
+          // the iPhone app goes through the native HTTP plugin (api/client.ts); the browser's fetch stays cancellable
+          res = isNative ? await nativeFetch(`${apiOrigin}/api/plans/draft`, 'POST', headers, body) : await fetch('/api/plans/draft', { method: 'POST', headers, body, credentials: 'same-origin', signal: ac.signal });
         }
       } catch (e) {
         if (e instanceof ApiError) throw e;
