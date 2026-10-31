@@ -11,6 +11,7 @@ import { startPressDelegate } from '@/ui/usePress';
 import { bootNative } from '@/lib/native';
 import { startServiceWorker } from '@/lib/sw';
 import { App } from './app/App';
+import { CACHE_KEY } from './app/ErrorBoundary';
 import { NavController } from './app/NavController';
 import { onUnauthorized } from './api/client';
 import { outbox } from './api/outbox';
@@ -34,7 +35,7 @@ const qc = new QueryClient({
 // everything the app has seen lives in IndexedDB, so it opens instantly and works on the subway
 const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
 const persister = createAsyncStoragePersister({
-  key: 'logbook.cache.v1',
+  key: CACHE_KEY,
   storage: {
     getItem: (k) => withTimeout(get<string>(k).catch(() => null), 2500, null).then((v) => v ?? null),
     setItem: (k, v) => set(k, v).catch(() => undefined),
@@ -82,7 +83,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PersistQueryClientProvider
       client={qc}
-      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 14, buster: 'v1', dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && !['auth-status', 'auth-session'].includes(String(q.queryKey[0])) } }}
+      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 * 14, buster: 'v2', dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && !['auth-status', 'auth-session'].includes(String(q.queryKey[0])) } }}
       onSuccess={() => {
         // a cold open: the sync starts from the persisted bootstrap at once, not after the first network answer
         if (!document.hidden) syncIfConnected();

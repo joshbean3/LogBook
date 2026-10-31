@@ -1053,7 +1053,10 @@ Object.assign(keys, { goals: ['goals'] as const, goalEvents: (goal?: string) => 
 const goalsKey = ['goals'] as const;
 const groupsKey = ['todo-groups'] as const;
 
-export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: () => api<Aim[]>('/goals'), staleTime: 30_000 });
+/** A goal as the app reads it. Goals cached on the phone, or served by a server, from before steps existed have none. */
+const aimOf = (g: Aim): Aim => (Array.isArray(g.steps) ? g : { ...g, steps: [] });
+const aimsOf = (gs: Aim[]): Aim[] => (gs.every((g) => Array.isArray(g.steps)) ? gs : gs.map(aimOf));
+export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: async () => aimsOf(await api<Aim[]>('/goals')), select: aimsOf, staleTime: 30_000 });
 export const useGoalEvents = (goal?: string, enabled = true) =>
   useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: () => api<{ events: GoalEvent[]; more: boolean }>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`), staleTime: 15_000, enabled });
 
@@ -1069,7 +1072,7 @@ export const refineGoal = async (level: GoalLevel, period: string, text: string)
 
 export const useGoalMutations = () => {
   const qc = useQueryClient();
-  const setGoals = (fn: (g: Aim[]) => Aim[]) => qc.setQueryData<Aim[]>(goalsKey, (g) => fn(g ?? []));
+  const setGoals = (fn: (g: Aim[]) => Aim[]) => qc.setQueryData<Aim[]>(goalsKey, (g) => fn(aimsOf(g ?? [])));
   const touched = () => void qc.invalidateQueries({ queryKey: ['goal-events'] });
   const set = useMutation({
     mutationFn: async (input: { level: GoalLevel; period: string; text: string; original?: string | null; why?: string | null; chose?: 'sharpened' | 'kept' | 'own'; steps?: GoalStep[] }) => {
@@ -1083,7 +1086,7 @@ export const useGoalMutations = () => {
         return had ? g.map((x) => (x === had ? next : x)) : [next, ...g];
       });
       const saved = await write<Aim>(`/goals/${level}/${period}`, 'PUT', body, [goalsKey]);
-      if (saved) setGoals((g) => g.map((x) => (x.level === level && x.period === period ? saved : x)));
+      if (saved) setGoals((g) => g.map((x) => (x.level === level && x.period === period ? aimOf(saved) : x)));
       touched();
     },
     onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),
@@ -1093,7 +1096,7 @@ export const useGoalMutations = () => {
       const now = new Date().toISOString();
       setGoals((g) => g.map((x) => (x.id === id ? { ...x, ...(status ? { status, closedAt: status === 'open' ? null : now } : {}), ...(reflection !== undefined ? { reflection } : {}), ...(steps ? { steps } : {}) } : x)));
       const saved = await write<Aim>(`/goals/${id}`, 'PATCH', { status, reflection, steps }, [goalsKey]);
-      if (saved) setGoals((g) => g.map((x) => (x.id === id ? saved : x)));
+      if (saved) setGoals((g) => g.map((x) => (x.id === id ? aimOf(saved) : x)));
       touched();
     },
     onError: () => void qc.invalidateQueries({ queryKey: goalsKey }),
