@@ -192,7 +192,8 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
     lift: (item, el) => {
       const r = el.getBoundingClientRect();
       ghost.lift(r);
-      setDrag({ kind: 'place', item, w: r.width, ox: 0, oy: 0, target: null, overGoal: false });
+      // the rect is read while the chip is pressed (0.97) or pre-grown (1.02): the ghost takes its layout width, with a px of slack
+      setDrag({ kind: 'place', item, w: el.offsetWidth + 2, ox: 0, oy: 0, target: null, overGoal: false });
     },
     start: (item, p) => {
       const d = live.current;
