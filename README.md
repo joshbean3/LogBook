@@ -9,8 +9,10 @@ Five tabs, one data model:
   changes with the time of day: out the door in 22 minutes, back by 8:13, then the run landing from Strava (or hold the ring
   to mark it done by hand). Habits as a row of orbs, the week's ring, and in the evening the day's close: two sentences,
   tomorrow's word and alarm.
-  **Plan your day** sits under the hero: the day's goal as the headline (a wash of light fills it as its steps are checked),
-  then the day in three bands, Morning, Afternoon and Evening. Every to-do and every step of the goal is a card: hold one,
+  **Plan your day** sits under the hero: the day's goal as the headline (a sun in its corner grows as its steps are checked
+  and fills the card in gold when it is done, with a full-screen moment), then the day in four sections, Anytime, Morning,
+  Afternoon and Evening, each a pill in its colour that fills like a gauge and folds away on a tap. Every to-do and every
+  step of the goal is a card with an icon read from its words and a round check: hold one,
   drag it into a band or reorder it, drop a to-do on the goal to make it a step, or on Tomorrow or Delete at the top of the
   screen. Let go of a hold without moving for its menu. Checked cards stay where they are, struck, and each band's rail
   fills as its cards are done. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed

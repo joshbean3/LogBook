@@ -120,14 +120,11 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
     const place = best.dataset.pdZone as Place;
     // the index: how many of the zone's other cards sit above the finger (their layout boxes, not mid-animation)
     const zr = best.getBoundingClientRect();
-    const wrap = false;
     let index = 0;
     for (const el of best.querySelectorAll<HTMLElement>('[data-pd-card]')) {
       if (el.dataset.pdCard === d.ref) continue;
       const top = zr.top + el.offsetTop;
-      if (!wrap) {
-        if (top + el.offsetHeight / 2 < y) index++;
-      } else if (top + el.offsetHeight < y || (top <= y && zr.left + el.offsetLeft + el.offsetWidth / 2 < x)) index++;
+      if (top + el.offsetHeight / 2 < y) index++;
     }
     return { kind: 'place', place, index };
   };
