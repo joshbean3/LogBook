@@ -6,14 +6,15 @@ import { crossfade, ease } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar, Segmented } from '@/ui';
 import { addToDraft } from './JournalDaySection';
-import { asPrompt, JournalHome } from './JournalHome';
+import { asPrompt } from './JournalHome';
+import { JournalGarden } from './Garden';
 import { Library } from './Library';
 import './journal.css';
 import './seg.css';
 
 type Seg = 'journal' | 'library';
 // a switch re-renders the view, never the panes (their props are stable): at 4× the two trees cost ~200 ms to render
-const JournalPane = memo(JournalHome);
+const JournalPane = memo(JournalGarden);
 const LibraryPane = memo(Library);
 const segOf = (p: Readonly<Record<string, string>>): Seg => (p.segment === 'library' ? 'library' : 'journal');
 const pathOf = (s: Seg) => (s === 'journal' ? '/journal' : '/journal/library');

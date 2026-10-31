@@ -36,8 +36,10 @@ Five tabs, one data model:
 - **Plan**: the week and the month, paged by swiping. Hold a session to move it to another day. A plan builder writes the
   next block from your goal and run days (Claude can also turn a PDF, a photo or a description into sessions).
 - **Progress**: weekly mileage against plan, long-run and easy-pace trends, lifts with estimated one-rep max, consistency.
-- **Journal**: write the day, look back, a quote a day from a 3,458-quote library, and Reads (links saved for later, one
-  picked for you each day).
+- **Journal**, after One Year: the year as a garden. Every day is a dot; a day with a memory has grown a little hand-drawn
+  plant, and today is a house. Touch a day for its name, tap it to open it. A day's page carries the days around it as a
+  row of plants, its memory in typewriter ink (or a hand-drawn plus to plant one; planting draws the plant in), and what
+  you wrote on that day a year ago. Plus a quote a day from a 3,458-quote library, and Reads (links saved for later).
 - **Settings** (pushed from Today's avatar): you, training, habits, the morning routine, Strava, the app, your data, account.
 
 Install it on a phone from the browser. It opens full screen, caches everything it has seen, and queues writes made offline.

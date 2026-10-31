@@ -406,7 +406,7 @@ const PAGE = 30;
  * from the cache; the skeleton shows only with nothing cached and no network (newuser 3.5). A row that arrives fades in and
  * the rows it displaces ride a FLIP on `settle`; nothing animates height.
  */
-const Timeline = ({ today, all, pending, onWrite }: { today: string; all: JournalEntry[]; pending: boolean; onWrite: () => void }) => {
+export const Timeline = ({ today, all, pending, onWrite }: { today: string; all: JournalEntry[]; pending: boolean; onWrite: () => void }) => {
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
   const [limit, setLimit] = useState(PAGE);
