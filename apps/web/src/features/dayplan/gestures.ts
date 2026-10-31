@@ -94,6 +94,14 @@ export const useGhostValues = (reduce: boolean) => {
       animate(scale, 1, springs.settle);
       void Promise.all([animate(x, r.left, springs.settle), animate(y, r.top, springs.settle)]).then(end);
     },
+    /** Settle onto a rect while fading (the chip became a block), then `end`. */
+    land: (r: DOMRect | null, end: () => void) => {
+      if (!r || reduce) return end();
+      animate(scale, 1, springs.settle);
+      animate(x, r.left, springs.settle);
+      animate(y, r.top, springs.settle);
+      void animate(fade, 0, { duration: 0.24, ease: [0.22, 1, 0.36, 1] }).then(end);
+    },
     /** Shrink and fade away (the chip became something else), then `end`. */
     vanish: (end: () => void) => {
       if (reduce) return end();

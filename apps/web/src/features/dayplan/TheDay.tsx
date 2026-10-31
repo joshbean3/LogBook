@@ -93,9 +93,9 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
     if (door == null) return null;
     return { slot: { ref: it.ref as DaySlot['ref'], start: door, minutes: Math.max(15, morning.back - door) }, item: it, derived: true };
   }, [morning, sessions, sessionItems, placed]);
-  const blocksAll = useMemo(() => (derived ? [...placed, derived] : placed), [placed, derived]);
+  const blocksAll = useMemo((): Placed[] => (derived ? [...placed, derived] : placed), [placed, derived]);
   // the window is laid from what is committed, so nothing shifts under a finger
-  const window = useMemo(() => windowOf(daySettings, morningRest ? { wake: morningRest.day.wake, leave: morningRest.leave } : null, plan.data?.slots ?? []), [daySettings, morningRest, plan.data]);
+  const win = useMemo(() => windowOf(daySettings, morningRest ? { wake: morningRest.day.wake, leave: morningRest.leave } : null, plan.data?.slots ?? []), [daySettings, morningRest, plan.data]);
   const blocks = useMemo(() => blocksAll.map((b) => (drag && drag.kind !== 'place' && drag.ref === b.item.ref ? { ...b, slot: { ...b.slot, start: drag.start, minutes: drag.minutes } } : b)), [blocksAll, drag]);
   const ghostMorning = useMemo((): MorningGhost | null => (morning ? { wake: morning.day.wake, door: doorOf(morning), leave: morning.leave } : null), [morning]);
 
@@ -168,7 +168,7 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
       const picked = SESSION_MENU.map((l) => sessionAct.menuItems(date, it.session).find((i) => i.label === l)).filter((i): i is ContextMenuItem => !!i);
       return placedBlock ? [un, ...picked.slice(0, 3)] : picked.slice(0, 4);
     }
-    const at = placedBlock ? null : nextFree(blocksAll.map((b) => b.slot), now != null ? now : window.start, defaultMinutes(it), window);
+    const at = placedBlock ? null : nextFree(blocksAll.map((b) => b.slot), now != null ? now : win.start, defaultMinutes(it), win);
     const place: ContextMenuItem | null = at != null && editable ? { label: `Place at ${clockShort(at)}`, onSelect: () => commit(placeSlot(shownPlan, { ref: it.ref as DaySlot['ref'], start: at, minutes: defaultMinutes(it) })) } : null;
     const first = placedBlock ? un : place;
     if (it.kind === 'step') return [...(first ? [first] : []), { label: it.done ? 'Not done' : 'Done', onSelect: () => toggle(it) }, edit(it), { label: 'Remove step', icon: <Trash2 size={18} />, destructive: true, onSelect: () => removeStep(it) }];
@@ -214,7 +214,7 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
       ghost.follow(p.x - d.ox, p.y - d.oy);
       const g = goalEl();
       const overGoal = !!goal && item.kind === 'todo' && inside(g?.getBoundingClientRect(), p, 4);
-      const target = overGoal ? null : startAtPoint(tlRef.current, p, window, defaultMinutes(item));
+      const target = overGoal ? null : startAtPoint(tlRef.current, p, win, defaultMinutes(item));
       if (target === d.target && overGoal === d.overGoal) return;
       if (target != null && target !== d.target) haptics.select();
       if (overGoal !== d.overGoal) {
@@ -262,7 +262,7 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
       const b = blockOf(ref);
       const tl = tlRef.current;
       if (!b || !tl) return;
-      const t = minutesAtY(p.y - tl.getBoundingClientRect().top, window);
+      const t = minutesAtY(p.y - tl.getBoundingClientRect().top, win);
       live.current = { kind: mode, ref, start: b.slot.start, minutes: b.slot.minutes, from: b.slot.start, fromMinutes: b.slot.minutes, session: !!b.derived, grab: t - b.slot.start };
       setDrag(live.current);
       last.current = { x: p.x, y: p.y };
@@ -273,15 +273,15 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
       const d = live.current;
       if (!d || d.kind !== mode || d.ref !== ref) return;
       last.current = { x: p.x, y: p.y };
-      const t = timeAtPoint(tlRef.current, p, window, 10_000);
+      const t = timeAtPoint(tlRef.current, p, win, 10_000);
       if (t == null) return;
       if (mode === 'move') {
-        const start = clampStart(snap15(t - d.grab), d.minutes, window);
+        const start = clampStart(snap15(t - d.grab), d.minutes, win);
         if (start === d.start) return;
         haptics.select();
         live.current = { ...d, start };
       } else {
-        const minutes = clampMinutes(t - d.start, d.start, window);
+        const minutes = clampMinutes(t - d.start, d.start, win);
         if (minutes === d.minutes) return;
         haptics.select();
         live.current = { ...d, minutes };
@@ -336,7 +336,7 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
   const onAdded = (id: string, at: number) => {
     commit(placeSlot(shownPlan, { ref: todoRef(id) as DaySlot['ref'], start: at, minutes: DEFAULT_MINUTES.todo }));
     const next = at + DEFAULT_MINUTES.todo;
-    setAdding(next + DEFAULT_MINUTES.todo <= window.end ? next : null);
+    setAdding(next + DEFAULT_MINUTES.todo <= win.end ? next : null);
   };
 
   const loaded = !!todos.data && !!goals.data && !!log.boot;
@@ -362,7 +362,7 @@ export const TheDay = memo(function TheDay({ date, today, log }: { date: ISODate
         <div ref={trayRef}>
           <Tray items={tray} editable={editable} hole={drag?.kind === 'place' ? drag.item.ref : null} host={trayHost} />
         </div>
-        <Timeline date={date} today={today} window={window} now={now} editable={editable} blocks={blocks} morning={ghostMorning} live={liveBlock} target={target} adding={adding} onAddAt={setAdding} onAdded={onAdded} lastOpen={lastOpen} host={blockHost} tlRef={tlRef} />
+        <Timeline date={date} today={today} window={win} now={now} editable={editable} blocks={blocks} morning={ghostMorning} live={liveBlock} target={target} adding={adding} onAddAt={setAdding} onAdded={onAdded} lastOpen={lastOpen} host={blockHost} tlRef={tlRef} />
       </Section>
       {drag?.kind === 'place' ? createPortal(<Ghost item={drag.item} w={drag.w} v={ghost.values} overGoal={drag.overGoal} />, document.body) : null}
     </Card>

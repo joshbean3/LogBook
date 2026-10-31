@@ -1,184 +1,403 @@
-/* The schedule (docs/system.md §2): `Schedule` over plain groups, one per band, each with a caps label row, 44/60 rows
-   with a square Mark, and an Add row. No hue per band: a band is a caps label. */
+/* The day (docs/today-v6.md): one Card with the head, the tray of chips to place, and the timeline. Tokens only
+   (docs/system.md §3, §6): no hue of its own; a block's bar is its kind's token, a session's its tone. */
 
-.pd.is-skel {
-  margin-top: 48px;
-  min-height: 200px;
-  border-radius: var(--r-group);
-  background: var(--surface);
+.card.dy {
+  margin-top: var(--sp-secondary);
+  gap: 0;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.pd-board {
+.card.dy.is-skel {
+  min-height: 240px;
+}
+.dy-sec {
   display: grid;
-  gap: var(--sp-group);
+  gap: 12px;
+  min-width: 0;
 }
-/* a band: the group; while a row is dragged over it, its hairline strengthens */
-.pd-band.group {
-  transition: border-color var(--dur-color) var(--ease-out);
+.dy-sec > .section-head {
+  gap: 8px;
 }
-.pd-band.is-over {
-  border-color: var(--line-strong);
+.dy-sec .section-meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
-.pd-zone {
+.dy-plan.btn.sm {
+  flex: none;
+  gap: 5px;
+  padding: 0 12px;
+}
+
+/* ---------- the tray: chips that wrap ---------- */
+.dy-tray {
   display: grid;
+  gap: 8px;
 }
-/* the group's hairlines come from its direct children; the zone draws its own rows' */
-.pd-zone > * + * {
-  border-top: 1px solid var(--line);
-}
-.pd-band-head {
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 16px;
+.dy-tray-head {
   color: var(--ink-3);
 }
-.pd-slot {
+.dy-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dy-tray-empty {
+  margin: 0;
+  min-height: 32px;
   display: flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0 16px;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-3);
 }
-/* a row on the board: the layout engine moves it; its press is the row's own */
-.pd-card {
-  position: relative;
-  background: var(--surface);
+/* a chip: the one chip style, as a Pressable (its 44 px hit is the chip's own ::after band) */
+.dy-chip.pressable {
+  min-height: 32px;
+  max-width: 100%;
+  color: var(--ink);
+  font-weight: 500;
+  gap: 8px;
+  padding: 0 12px 0 10px;
+  text-align: left;
   touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
   -webkit-touch-callout: none;
-  transition:
-    background-color var(--dur-color),
-    opacity var(--dur-color);
 }
-.pd-row.lrow {
-  padding-left: 12px;
-  gap: 8px;
+.dy-chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.pd-row .lrow-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 400;
-  white-space: normal;
-  overflow-wrap: anywhere;
+.dy-chip-ic {
+  flex: none;
+  color: var(--accent-text);
 }
-.pd-row .lrow-sub {
-  color: var(--ink-3);
+.dy-chip .prio {
+  flex: none;
 }
-/* done: the words step back, struck; the check stays lit */
-.pd-row.is-done .lrow-title {
+.dy-chip.is-done {
   color: var(--ink-3);
   text-decoration: line-through;
   text-decoration-color: var(--ink-4);
 }
-.pd-row.is-done .lrow-sub {
-  color: var(--ink-4);
-}
-/* the hold is up: the row rises to meet the finger */
-.pd-card.is-armed {
-  background: var(--surface-2);
-}
-/* where the row in the air would land */
-.pd-card.is-hole {
+/* lifted into the ghost: the chip's place is kept, out of sight */
+.dy-chip.is-hole {
   opacity: 0;
 }
-/* the row in the air */
-.pd-ghost {
+/* the chip in the air: over everything, on the menu's shadow */
+.dy-ghost.dy-chip {
   position: fixed;
   left: 0;
   top: 0;
   z-index: 1000;
   pointer-events: none;
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-group);
-  box-shadow: var(--shadow-2);
+  min-height: 32px;
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-menu);
+  transform-origin: 0 0;
+}
+.dy-ghost.is-over-goal {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+/* ---------- the timeline: the hour grid ---------- */
+.dy-tl {
+  position: relative;
+  min-width: 0;
   overflow: hidden;
+  touch-action: pan-y;
 }
-.pd-ghost .lrow {
-  background: transparent;
-}
-.pd-ghost.is-bin {
-  border-color: var(--bad);
-}
-/* the docks (over the bar while a row is in the air: the bar is never a place to drop) */
-.pd-docks {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  top: calc(var(--safe-t) + 22px);
-  z-index: 999;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
+.dy-hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
   pointer-events: none;
 }
-.pd-dock {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 20px;
-  border-radius: var(--r-pill);
+.dy-hour-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40px;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.dy-hour.is-past .dy-hour-label {
+  color: var(--ink-4);
+}
+.dy-hour-line {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  top: 0;
+  border-top: 1px solid var(--line);
+}
+.dy-half-line {
+  position: absolute;
+  left: 40px;
+  right: 0;
+  top: 28px;
+  border-top: 1px dashed var(--line);
+}
+/* the now line: accent, 2 px, a 6 px dot in the label column */
+.dy-now {
+  position: absolute;
+  left: 34px;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--accent-bright);
+  transform: translateY(-1px);
+  pointer-events: none;
+  z-index: 4;
+}
+.dy-now-dot {
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+}
+/* the morning ghost: wake to leave, behind everything, never draggable */
+.dy-morning {
+  position: absolute;
+  left: 42px;
+  right: 2px;
+  border-radius: var(--r-group);
   background: var(--surface-2);
-  border: 1px solid var(--line-strong);
-  color: var(--ink-2);
+  opacity: 0.55;
+  overflow: hidden;
+  pointer-events: none;
+}
+.dy-morning::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--ink-4);
+}
+.dy-morning-label {
+  position: absolute;
+  left: 12px;
+  right: 8px;
+  top: 4px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* where a chip would land: translucent, snapped */
+.dy-target {
+  position: absolute;
+  left: 42px;
+  right: 2px;
+  border-radius: var(--r-group);
+  background: var(--accent-tint);
+  border: 1px dashed var(--accent-text);
+  pointer-events: none;
+  z-index: 6;
+}
+.dy-target-cap {
+  position: absolute;
+  left: 12px;
+  top: 2px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--accent-text);
+}
+
+/* ---------- a block ---------- */
+.dy-block {
+  --dy-bar: var(--ink-3);
+  --dy-indent: 0px;
+  position: absolute;
+  left: calc(42px + var(--dy-indent));
+  right: 2px;
+  box-sizing: border-box;
+  border-radius: var(--r-group);
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  z-index: 2;
+  transition:
+    background-color var(--dur-color),
+    border-color var(--dur-color),
+    box-shadow var(--dur-color),
+    transform var(--dur-fast) var(--ease-out);
+}
+.dy-block.kind-step {
+  --dy-bar: var(--accent);
+}
+.dy-block.kind-session {
+  --dy-bar: var(--tone);
+}
+.dy-block::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--dy-bar);
+  z-index: 2;
+}
+.dy-block.is-done {
+  background: var(--surface-2);
+}
+.dy-block-in {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  height: 100%;
+  background: inherit;
+}
+.dy-block-main {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  height: 100%;
+  padding-left: 12px;
+}
+.dy-block-title {
+  font-size: var(--fs-head);
+  line-height: var(--lh-head);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dy-block-cap {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.dy-block.is-done .dy-block-title {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+}
+.dy-block.is-done .dy-block-cap {
+  color: var(--ink-4);
+}
+.dy-block-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 100%;
+  max-height: 44px;
+  align-self: center;
+}
+/* the hold is up: the block rises to meet the finger; in the air it is above its neighbours */
+.dy-block.is-held,
+.dy-block.is-live {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-menu);
+  transform: scale(1.02);
+  z-index: 8;
+}
+.dy-block.is-live {
+  transition: none;
+}
+/* the grab zone at the bottom edge: the pill shows on hold or hover */
+.dy-grip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 3px;
+  pointer-events: none;
+  z-index: 3;
+}
+.dy-grip-pill {
+  width: 32px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--ink-3);
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+.dy-block.is-held .dy-grip-pill,
+.dy-block.is-live .dy-grip-pill {
+  opacity: 1;
+}
+@media (hover: hover) {
+  .dy-block:hover .dy-grip-pill {
+    opacity: 1;
+  }
+}
+.dy-block.is-resize .dy-grip-pill {
+  background: var(--ink);
+}
+/* swipe left: the pane behind the content says where it goes */
+.dy-swipe-pane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 16px;
+  background: var(--surface-2);
+  color: var(--ink-3);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   font-weight: 600;
-  box-shadow: var(--shadow-2);
-  transition:
-    transform var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast),
-    color var(--dur-fast);
+  white-space: nowrap;
+  transition: background-color var(--dur-fast), color var(--dur-fast);
 }
-.pd-dock.is-over {
-  transform: scale(1.06);
+.dy-block.is-armed .dy-swipe-pane {
   background: var(--ink);
   color: var(--bg);
 }
-.pd-dock.is-bin.is-over {
-  background: var(--bad);
-  color: var(--ink);
+.dy-block.is-swiping {
+  z-index: 7;
 }
-/* the Add row: quiet, the plus in the Mark's column */
-.pd-add.lrow {
-  padding-left: 12px;
-  gap: 8px;
-  color: var(--ink-3);
+
+/* ---------- the inline Add field at a time ---------- */
+.dy-add {
+  position: absolute;
+  left: 42px;
+  right: 2px;
+  z-index: 9;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-group);
+  overflow: hidden;
 }
-.pd-add .lrow-title {
-  font-weight: 400;
-  color: var(--ink-3);
-}
-.pd-add-ic {
-  width: 44px;
-  flex: none;
-  color: var(--ink-3);
-}
-.pd-band .tt-field {
-  padding-left: 16px;
-}
-/* the whole list, in the sheet */
-.pd-all .lrow-title {
-  font-weight: 400;
+.dy-add .tt-field {
+  padding: 0 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pd-card,
-  .pd-dock {
+  .dy-block,
+  .dy-grip-pill,
+  .dy-swipe-pane {
     transition: none;
   }
-  .pd-dock.is-over {
+  .dy-block.is-held,
+  .dy-block.is-live {
     transform: none;
   }
-}
-
-/* kept in the layout, out of sight, while a row is in the air */
-.pd-spacer {
-  display: block;
-  flex: none;
 }

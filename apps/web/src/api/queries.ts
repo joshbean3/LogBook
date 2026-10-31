@@ -1,4 +1,4 @@
-import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type AssistantThread, type AskContextInput, type Reminder, type ReminderInput, type NotificationSettings, type ProviderConnection, type ProviderId, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type AssistantThread, type AskContextInput, type Reminder, type ReminderInput, type NotificationSettings, type ProviderConnection, type ProviderId, type TemplateInput, type DayBands, type DayPlan, type DaySlot, cleanBands, cleanPlan, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
@@ -1268,42 +1268,34 @@ export const useSetProfileNote = () => {
 // ── end Reminders, push, connections, the note ──
 
 // ---------- the day's plan: the timeline's slots and the bands (to-do, goal-step and session references) ----------
-/** One block on the day's timeline (docs/today-v6.md §5; `DaySlot` in @logbook/shared once it lands). */
-export interface DayPlanSlot {
-  ref: string;
-  start: number;
-  minutes: number;
-}
-export type DayPlanWithSlots = DayPlan & { slots: DayPlanSlot[] };
-/** What a save carries: the bands (without the placed refs) and every slot; either alone keeps the other as cached. */
+/** What a save carries (docs/today-v6.md §5): the bands (without the placed refs), the slots, or both; what is left out is kept as cached. */
 export interface DayPlanSaveBody {
   bands?: DayBands;
-  slots?: DayPlanSlot[];
+  slots?: DaySlot[];
 }
 const dayPlanKey = (date: string) => ['day-plan', date] as const;
-const slotsOf = (raw: unknown): DayPlanSlot[] => (Array.isArray(raw) ? raw.filter((s): s is DayPlanSlot => !!s && typeof s === 'object' && typeof (s as DayPlanSlot).ref === 'string' && Number.isFinite((s as DayPlanSlot).start) && Number.isFinite((s as DayPlanSlot).minutes)) : []);
-const fetchDayPlan = async (date: string): Promise<DayPlanWithSlots> => {
-  const p = await api<Partial<DayPlanWithSlots>>(`/day-plans/${date}`);
-  return { date, updatedAt: p.updatedAt ?? null, bands: cleanBands({ ...emptyBands(), ...p.bands }), slots: slotsOf(p.slots) };
+const fetchDayPlan = async (date: string): Promise<DayPlan> => {
+  const p = await api<Partial<DayPlan>>(`/day-plans/${date}`);
+  return { date, updatedAt: p.updatedAt ?? null, ...cleanPlan({ bands: { ...emptyBands(), ...p.bands }, slots: Array.isArray(p.slots) ? p.slots : [] }) };
 };
 export const useDayPlan = (date: string) => useQuery({ queryKey: dayPlanKey(date), queryFn: () => fetchDayPlan(date), staleTime: 30_000 });
 
 /**
  * Put the day's whole plan at a gesture's end: the timeline shows it on the drop's frame; the write follows (the outbox when
- * offline). One PUT per gesture. A server that does not answer with `slots` yet leaves the page's own in place.
+ * offline). One PUT per gesture. The server's answer replaces the cache unless a later save has moved on.
  */
 export const useDayPlanSave = (date: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: DayPlanSaveBody) => {
-      const prev = qc.getQueryData<DayPlanWithSlots>(dayPlanKey(date));
-      const bands = cleanBands(body.bands ?? prev?.bands ?? emptyBands());
-      const slots = body.slots ?? prev?.slots ?? [];
-      qc.setQueryData<DayPlanWithSlots>(dayPlanKey(date), { date, updatedAt: prev?.updatedAt ?? null, bands, slots });
-      const res = await write<Partial<DayPlanWithSlots>>(`/day-plans/${date}`, 'PUT', { bands, slots }, [dayPlanKey(date)]);
+      const prev = qc.getQueryData<DayPlan>(dayPlanKey(date));
+      const clean = cleanPlan({ bands: body.bands ?? prev?.bands ?? emptyBands(), slots: body.slots ?? prev?.slots ?? [] });
+      const next: DayPlan = { date, updatedAt: prev?.updatedAt ?? null, ...clean };
+      qc.setQueryData<DayPlan>(dayPlanKey(date), next);
+      const res = await write<Partial<DayPlan>>(`/day-plans/${date}`, 'PUT', clean, [dayPlanKey(date)]);
       if (res && Array.isArray(res.slots)) {
-        const saved = { bands: cleanBands({ ...emptyBands(), ...res.bands }), slots: slotsOf(res.slots) };
-        qc.setQueryData<DayPlanWithSlots>(dayPlanKey(date), (p) => (p && p.slots !== slots ? p : { date, updatedAt: res.updatedAt ?? p?.updatedAt ?? null, ...saved }));
+        const saved = cleanPlan({ bands: { ...emptyBands(), ...res.bands }, slots: res.slots });
+        qc.setQueryData<DayPlan>(dayPlanKey(date), (p) => (p && p !== next ? p : { date, updatedAt: res.updatedAt ?? p?.updatedAt ?? null, ...saved }));
       }
     },
     onError: () => void qc.invalidateQueries({ queryKey: dayPlanKey(date) }),

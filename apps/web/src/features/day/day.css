@@ -200,6 +200,14 @@
   border-radius: var(--r-card);
   background: var(--surface);
 }
+/* a to-do chip dragged over the goal: the row lights to take it as a step */
+.day-goal .goal-row {
+  transition: border-color var(--dur-color), background-color var(--dur-color);
+}
+.day-goal.is-drop .goal-row {
+  border-color: var(--accent-text);
+  background: var(--surface-2);
+}
 
 /* ---------- habits: the section head, the orbs ---------- */
 .habits .orbs-wrap {

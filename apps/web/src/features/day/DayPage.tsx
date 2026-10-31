@@ -13,7 +13,7 @@ import { goalOf } from '../goals/model';
 import { useSaveSteps } from '../goals/Steps';
 import { HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
-import { PlanDay } from '../dayplan/PlanDay';
+import { TheDay } from '../dayplan/TheDay';
 import { CLOSED_TITLE, EVENING_TITLE, useOpenCloseDay } from './CloseDay';
 import { Hero } from './Hero';
 import { useIsLive } from './live';
@@ -103,7 +103,7 @@ const DayShell = ({ date }: { date: ISODate }) => (
     <div className="ask-bar is-skel" aria-hidden="true" />
     <div className="card hero hero-skel" data-hero="loading" aria-hidden="true" />
     <div className="day-goal is-skel" aria-hidden="true" />
-    <section className="pd is-skel" aria-hidden="true" />
+    <section className="card dy is-skel" aria-hidden="true" />
     <section className="sec-primary habits" aria-hidden="true">
       <div className="section-head">
         <h2 className="section-title">Habits</h2>
@@ -117,7 +117,7 @@ const DayShell = ({ date }: { date: ISODate }) => (
 /**
  * One day's page inside the pager (docs/system.md §2): the same five sections every day, in the same order, quiet when
  * there is nothing to say and never absent, so the page never collapses under a swipe: the Ask bar, the workout, the day's
- * goal, the schedule, the habits, then the week and (in the evening, or on a past day) the Close row. The bottom padding
+ * goal, the day, the habits, then the week and (in the evening, or on a past day) the Close row. The bottom padding
  * lives here, inside the cur page, so the page's `min-height` includes it and a short day does not scroll.
  *
  * Memoised on `date`, with one memoised `useLog` per page: nothing renders while the track moves; a commit re-renders only
@@ -145,7 +145,7 @@ const DayContent = memo(function DayContent({ date }: { date: ISODate }): React.
       {!loaded ? <HeroSkeleton /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       {loaded ? <GoalSection date={date} today={today} /> : <div className="day-goal is-skel" aria-hidden="true" />}
-      {loaded ? <PlanDay date={date} today={today} /> : <section className="pd is-skel" aria-hidden="true" />}
+      {loaded ? <TheDay date={date} today={today} log={log} /> : <section className="card dy is-skel" aria-hidden="true" />}
       <Section title="Habits" meta={loaded ? <HabitsMeta date={date} log={log} /> : null} className="habits">
         <div inert={date > today || undefined}>{loaded ? <OrbRowM date={date} log={log} editable={date <= today} /> : <div className="orbs-skel" />}</div>
       </Section>

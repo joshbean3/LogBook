@@ -34,37 +34,39 @@ const Chip = memo(function Chip({ item, editable, hole, host }: { item: DayItem;
   // the hold is up and nothing moved yet: the release opens the menu (a drag takes the chip instead)
   const armed = useRef(false);
   const label = item.kind === 'step' ? `${item.title}, a step of today’s goal` : item.title;
+  const openMenu = (anchor: HTMLElement, haptic: boolean) => {
+    const items = host.current.menu(item);
+    if (items.length) cm.open({ items, anchor, lift: anchor, label: `${item.title} actions`, haptic });
+  };
   return (
     <Pressable
       ref={el}
       as="div"
       className={`chip-btn dy-chip ${hole ? 'is-hole' : ''} ${item.done ? 'is-done' : ''}`}
       press="scale"
-      disabled={!editable && item.kind === 'todo'}
       data-dy-chip={item.ref}
-      label={`${label}. Hold to place`}
+      label={editable ? `${label}. Hold to place` : label}
       onPress={() => host.current.open(item)}
       onHold={(info) => {
-        if (info.source === 'keyboard') {
-          const items = host.current.menu(item);
-          if (items.length) cm.open({ items, anchor: info.target, lift: info.target, label: `${item.title} actions` });
-          return;
-        }
+        if (info.source === 'keyboard' || !editable) return openMenu(info.target, false);
         armed.current = true;
         host.current.lift(item, info.target);
       }}
-      onDragStart={(p) => {
-        armed.current = false;
-        host.current.start(item, p);
-      }}
-      onDragMove={(p) => host.current.move(item, p)}
-      onDragEnd={(_p, _e, cancelled) => host.current.end(item, cancelled)}
+      onDragStart={
+        editable
+          ? (p) => {
+              armed.current = false;
+              host.current.start(item, p);
+            }
+          : undefined
+      }
+      onDragMove={editable ? (p) => host.current.move(item, p) : undefined}
+      onDragEnd={editable ? (_p, _e, cancelled) => host.current.end(item, cancelled) : undefined}
       onPointerUp={() => {
         if (!armed.current) return;
         armed.current = false;
         host.current.end(item, true);
-        const items = host.current.menu(item);
-        if (items.length && el.current) cm.open({ items, anchor: el.current, lift: el.current, label: `${item.title} actions`, haptic: false });
+        if (el.current) openMenu(el.current, false);
       }}
       onPointerCancel={() => {
         if (!armed.current) return;
