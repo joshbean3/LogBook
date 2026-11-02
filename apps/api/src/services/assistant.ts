@@ -10,9 +10,12 @@ import { ApiError, nowISO, uid } from '../lib/util.js';
 /** The assistant runs on Sonnet (the owner's choice: quick, and capable enough to edit a plan). */
 export const ASSISTANT_MODEL = 'claude-sonnet-5-5';
 const MAX_ROUNDS = 6;
+/** A whole plan (eight weeks of runs, and the old plan's sessions removed) fits in one proposal. */
+export const MAX_CHANGES = 200;
 
 let client: Anthropic | null = null;
-const anthropic = () => (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 120_000, maxRetries: 2 }));
+// replies are streamed (a fifty-change proposal is a long tool call); ten minutes a call, one retry
+const anthropic = () => (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 600_000, maxRetries: 1 }));
 
 type SessionRow = typeof trainingSessions.$inferSelect;
 type TodoRow = typeof todos.$inferSelect;
@@ -104,6 +107,7 @@ How you work:
 - Use the ids exactly as given. Dates are YYYY-MM-DD. Priorities: 3 is P1 (top), 2 is P2, 1 is P3, 0 none. A goal's period is the year (2026), the month (2026-10), the week's Monday, or the day.
 - Your summary in propose_changes is what he reads above the list: one plain sentence saying what will happen.
 - When you are only answering a question, reply in two or three plain sentences. No markdown headings, no bullet lists unless asked for a list, no emoji.
+- To replace a plan: from the new plan's first day on, delete_session each session of the old plan that is not marked and has nothing logged (keep what was done), then add_session each workout of the new plan on its date with its miles and a title like "Easy 5" or "Long 12". All of it goes in one propose_changes (up to 200 changes); never split a plan across asks.
 - The owner may attach photos, screenshots or PDFs: a training plan, a race schedule, a work calendar, a to-do list on paper. Read them closely and work only from what you can see. If one is a plan or schedule they want in the app, turn it into changes with propose_changes (one add_session per workout on its real date, to-dos with add_todo); if the start date or year is not clear from the file, ask one short question first. If you cannot read part of a file, say which part.`;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
@@ -120,7 +124,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
       type: 'object',
       properties: {
         summary: { type: 'string', description: 'One plain sentence: what will happen when he taps Apply.' },
-        changes: { type: 'array', items: { type: 'object', description: 'One operation, with an "op" field naming it.' }, minItems: 1, maxItems: 40 },
+        changes: { type: 'array', items: { type: 'object', description: 'One operation, with an "op" field naming it.' }, minItems: 1, maxItems: MAX_CHANGES },
       },
       required: ['summary', 'changes'],
       additionalProperties: false,
@@ -130,7 +134,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
 
 // ---------- checking and labelling a proposal ----------
 
-const zProposal = z.object({ summary: z.string().trim().min(1).max(400), changes: z.array(zAssistantOp).min(1).max(40) });
+export const zProposal = z.object({ summary: z.string().trim().min(1).max(400), changes: z.array(zAssistantOp).min(1).max(MAX_CHANGES) });
 
 const sessionOf = (db: DB, userId: string, id: string) => {
   const row = db.select().from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.id, id), isNull(trainingSessions.deletedAt))).get();
@@ -249,17 +253,19 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
   const messages = messagesFor(history, contextFor(db, userId, today, date));
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    const res = await anthropic().beta.messages.create({
-      model: ASSISTANT_MODEL,
-      max_tokens: 16000,
-      system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-      tools: TOOLS,
-      tool_choice: { type: 'auto' },
-      output_config: { effort: 'medium' },
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      messages,
-    });
+    const res = await anthropic()
+      .beta.messages.stream({
+        model: ASSISTANT_MODEL,
+        max_tokens: 32000,
+        system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+        tools: TOOLS,
+        tool_choice: { type: 'auto' },
+        output_config: { effort: 'medium' },
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        messages,
+      })
+      .finalMessage();
     if (res.stop_reason === 'refusal') return { text: 'I can’t help with that one.', proposal: null };
     // the whole turn goes back as it came (tool calls and thinking blocks included)
     messages.push({ role: 'assistant', content: res.content });
@@ -269,7 +275,8 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
       .map((b) => b.text)
       .join('\n')
       .trim();
-    if (!calls.length || res.stop_reason === 'max_tokens') return { text: said || 'Done.', proposal: null };
+    if (res.stop_reason === 'max_tokens') return { text: 'That came out too long to write in one go. Ask for it a few weeks at a time.', proposal: null };
+    if (!calls.length) return { text: said || 'Done.', proposal: null };
 
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {

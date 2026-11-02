@@ -9,6 +9,7 @@ import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
 import { AttachError, prepareFile, requestTurns, type PreparedFile } from './attach';
+import { NetworkError } from '@/api/client';
 import { assistantStore, useAssistantTurns } from './store';
 import './assistant.css';
 
@@ -16,8 +17,13 @@ const iconOf = (c: AssistantChange) =>
   c.op.op.endsWith('_session') ? <CalendarDays size={15} aria-hidden="true" /> : c.op.op.endsWith('_todo') ? <CheckSquare size={15} aria-hidden="true" /> : <Target size={15} aria-hidden="true" />;
 
 /** A proposal: what will happen, each change in words, and the one decision. After Apply it says so, with Undo. */
+/** A proposal of more than this many changes shows the first six and a "Show all" (a plan can be fifty). */
+const FOLD_OVER = 8;
+
 const ProposalCard = ({ p }: { p: AssistantProposal }) => {
   const { apply, undo, dismiss } = useAssistantActions();
+  const [all, setAll] = useState(false);
+  const shown = all || p.changes.length <= FOLD_OVER ? p.changes : p.changes.slice(0, 6);
   const toast = useToast();
   const busy = apply.isPending || undo.isPending;
   const run = async (fn: typeof apply, ok?: () => void) => {
@@ -33,13 +39,18 @@ const ProposalCard = ({ p }: { p: AssistantProposal }) => {
     <div className={`as-proposal is-${p.status}`}>
       <p className="as-proposal-sum">{p.summary}</p>
       <ul className="as-changes">
-        {p.changes.map((c, i) => (
+        {shown.map((c, i) => (
           <li key={i} className="as-change">
             <span className="as-change-ic">{iconOf(c)}</span>
             <span className="as-change-text">{c.label}</span>
           </li>
         ))}
       </ul>
+      {shown.length < p.changes.length ? (
+        <button type="button" className="as-more" onClick={() => setAll(true)}>
+          Show all {p.changes.length} changes
+        </button>
+      ) : null}
       {p.status === 'proposed' ? (
         <div className="as-proposal-foot">
           <Button
@@ -105,6 +116,15 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
   const turns = useAssistantTurns();
   const [draft, setDraft] = useState(initial ?? '');
   const [busy, setBusy] = useState(false);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!busy) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), 12_000);
+    return () => clearTimeout(t);
+  }, [busy]);
   const [pending, setPending] = useState<PreparedFile[]>([]);
   const [preparing, setPreparing] = useState(false);
   const toast = useToast();
@@ -144,6 +164,8 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
     if ((!t && !files.length) || busy || preparing) return;
     setDraft('');
     setPending([]);
+    // the field grew with the words; empty again, it goes back to one line
+    if (field.current) field.current.style.height = '';
     assistantStore.push({ role: 'user', text: t, files: files.length ? files.map((f) => f.shown) : undefined }, files.map((f) => f.file));
     setBusy(true);
     try {
@@ -151,7 +173,9 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
       const r = await askAssistant(date, history);
       assistantStore.push({ role: 'assistant', text: r.text, proposal: r.proposal });
     } catch (e) {
-      assistantStore.push({ role: 'assistant', text: e instanceof Error ? `That didn’t go through: ${e.message}` : 'That didn’t go through. Try again.' });
+      // say what happened: the phone could not reach the server, or the server's own message
+      const why = e instanceof NetworkError ? 'Couldn’t reach Logbook. Check your connection, then send it again.' : e instanceof Error ? e.message : 'Try again.';
+      assistantStore.push({ role: 'assistant', text: `That didn’t go through. ${why}` });
     } finally {
       setBusy(false);
     }
@@ -189,6 +213,7 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
               <i />
               <i />
             </p>
+            {slow ? <p className="as-slow">Still working. A plan from photos can take a minute or two; you can close this and come back.</p> : null}
           </div>
         ) : null}
         <div ref={end} />

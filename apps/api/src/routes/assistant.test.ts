@@ -97,3 +97,25 @@ describe('assistant proposals', () => {
     expect((await call('POST', `/api/assistant/${id}/apply`)).status).toBe(409);
   });
 });
+
+describe('asking without holding the line', () => {
+  it('says an answer that is gone (expired, or the server restarted) is gone, so the app can say to send it again', async () => {
+    const r = await call('GET', '/api/assistant/jobs/aj_nothere');
+    expect(r.status).toBe(404);
+    expect(r.body.code).toBe('job_gone');
+  });
+
+  it('still answers at once, job or not, when the server has no Claude key', async () => {
+    const key = env.ANTHROPIC_API_KEY;
+    const configured = env.claudeConfigured;
+    env.claudeConfigured = false;
+    try {
+      const r = await call('POST', '/api/assistant?async=1', { date: '2026-11-02', turns: [{ role: 'user', text: 'hi' }] });
+      expect(r.status).toBe(200);
+      expect(r.body.available).toBe(false);
+    } finally {
+      env.claudeConfigured = configured;
+      env.ANTHROPIC_API_KEY = key;
+    }
+  });
+});

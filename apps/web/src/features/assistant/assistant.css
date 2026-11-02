@@ -373,3 +373,22 @@
     opacity: 0.6;
   }
 }
+
+/* a proposal of many changes shows six, then this */
+.as-more {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+/* under the typing dots once an answer takes a while */
+.as-slow {
+  margin: 0;
+  max-width: 88%;
+  font-size: var(--fs-foot);
+  line-height: 1.35;
+  color: var(--ink-3);
+}

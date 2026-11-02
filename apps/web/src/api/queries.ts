@@ -1,8 +1,9 @@
+import { askAndWait, type JobAnswer } from '@/features/assistant/poll';
 import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
-import { api, ApiError } from './client';
+import { api, ApiError, NetworkError } from './client';
 import { write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
 
@@ -1149,7 +1150,16 @@ export const useTodoGroupMutations = () => {
 // ── Assistant ──
 // The assistant on Today: ask (Claude answers or proposes checked changes), then apply, dismiss or undo. A write here
 // changes rows across the app, so an apply or an undo refetches every dataset it may have touched.
-export const askAssistant = (date: string, turns: Array<{ role: 'user' | 'assistant'; text: string; attachments?: Attachment[] }>) => api<AssistantReply>('/assistant', { method: 'POST', json: { date, turns } });
+/**
+ * Ask the assistant. The ask runs on the server in the background and the app reads its answer with short requests
+ * (features/assistant/poll.ts), so a long one (a plan read from photos) never hangs on one request.
+ */
+export const askAssistant = (date: string, turns: Array<{ role: 'user' | 'assistant'; text: string; attachments?: Attachment[] }>) =>
+  askAndWait<AssistantReply>(
+    () => api<{ jobId: string } | AssistantReply>('/assistant?async=1', { method: 'POST', json: { date, turns } }),
+    (id) => api<JobAnswer<AssistantReply>>(`/assistant/jobs/${encodeURIComponent(id)}`),
+    { isTransient: (e) => e instanceof NetworkError },
+  );
 
 export const useAssistantActions = () => {
   const qc = useQueryClient();
