@@ -1,4 +1,4 @@
-import type { AssistantProposal, AssistantTurn } from '@logbook/shared';
+import type { AssistantProposal, AssistantTurn, Attachment } from '@logbook/shared';
 import { useSyncExternalStore } from 'react';
 
 /**
@@ -15,6 +15,11 @@ let turns: AssistantTurn[] = (() => {
   }
 })();
 const subs = new Set<() => void>();
+/**
+ * The files sent with a user turn, kept in memory only (sessionStorage keeps the names and small previews): the assistant
+ * can look again at a photo for as long as the app is open.
+ */
+const fileData = new WeakMap<AssistantTurn, Attachment[]>();
 const emit = () => {
   try {
     sessionStorage.setItem(KEY, JSON.stringify(turns.slice(-40)));
@@ -26,10 +31,12 @@ const emit = () => {
 
 export const assistantStore = {
   get: () => turns,
-  push: (t: AssistantTurn) => {
+  push: (t: AssistantTurn, files?: Attachment[]) => {
+    if (files?.length) fileData.set(t, files);
     turns = [...turns, t];
     emit();
   },
+  filesOf: (t: AssistantTurn) => fileData.get(t),
   setProposal: (p: AssistantProposal) => {
     turns = turns.map((t) => (t.proposal?.id === p.id ? { ...t, proposal: p } : t));
     emit();

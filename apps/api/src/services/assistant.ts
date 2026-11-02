@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { fmtDate, METERS_PER_MILE, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal } from '@logbook/shared';
+import { fmtDate, METERS_PER_MILE, type Attachment, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal } from '@logbook/shared';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '../db/index.js';
@@ -95,7 +95,7 @@ const contextFor = (db: DB, userId: string, today: string, date: string): string
   ].join('\n');
 };
 
-const SYSTEM = `You are the assistant inside Logbook, a personal app for one person's running and lifting plan, habits, to-dos and goals. He asks you to look things up or change things.
+const SYSTEM = `You are the assistant inside Logbook, a personal app for one person's running and lifting plan, habits, to-dos and goals. The owner asks you to look things up or change things.
 
 How you work:
 - Answer from the data you are given in the latest message's CONTEXT block. For sessions outside the dates shown, call get_sessions.
@@ -103,7 +103,8 @@ How you work:
 - "Push out a week" means moving each named session seven days later. "Missed" means a past session that is not marked done and has nothing logged that day. Keep each session's details; only its date moves. Never move sessions into the past.
 - Use the ids exactly as given. Dates are YYYY-MM-DD. Priorities: 3 is P1 (top), 2 is P2, 1 is P3, 0 none. A goal's period is the year (2026), the month (2026-10), the week's Monday, or the day.
 - Your summary in propose_changes is what he reads above the list: one plain sentence saying what will happen.
-- When you are only answering a question, reply in two or three plain sentences. No markdown headings, no bullet lists unless he asks for a list, no emoji.`;
+- When you are only answering a question, reply in two or three plain sentences. No markdown headings, no bullet lists unless asked for a list, no emoji.
+- The owner may attach photos, screenshots or PDFs: a training plan, a race schedule, a work calendar, a to-do list on paper. Read them closely and work only from what you can see. If one is a plan or schedule they want in the app, turn it into changes with propose_changes (one add_session per workout on its real date, to-dos with add_todo); if the start date or year is not clear from the file, ask one short question first. If you cannot read part of a file, say which part.`;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -211,13 +212,41 @@ export interface AskResult {
 }
 
 /** One ask: Claude reads the context, may look up sessions, and either answers or proposes changes (saved, not applied). */
-export const ask = async (db: DB, userId: string, turns: Array<{ role: 'user' | 'assistant'; text: string }>, date: string, today: string): Promise<AskResult> => {
+type AskTurn = { role: 'user' | 'assistant'; text: string; attachments?: Attachment[] };
+
+/** A file as Claude reads it: a photo as an image block, a PDF as a document block (titled with its name). */
+export const attachmentBlock = (f: Attachment): Anthropic.Beta.BetaContentBlockParam =>
+  f.mediaType === 'application/pdf'
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: f.data }, title: f.name }
+    : { type: 'image', source: { type: 'base64', media_type: f.mediaType, data: f.data } };
+
+/**
+ * The messages for an ask. A user turn's files come first, then its words (Claude reads a file best placed before the
+ * question about it); the last turn also carries the CONTEXT block. The newest file is marked for the prompt cache, so the
+ * assistant's later rounds in the same ask (a lookup, then a proposal) read the files from cache instead of paying again.
+ */
+export const messagesFor = (turns: AskTurn[], context: string): Anthropic.Beta.BetaMessageParam[] => {
+  const history = turns.slice(-20);
+  const lastAt = history.length - 1;
+  const fileTurns = history.map((t, i) => (t.attachments?.length ? i : -1)).filter((i) => i >= 0);
+  const cacheAt = fileTurns.length ? fileTurns[fileTurns.length - 1]! : -1;
+  return history.map((t, i) => {
+    if (t.role === 'assistant') return { role: 'assistant', content: t.text || '(no reply)' };
+    const blocks: Anthropic.Beta.BetaContentBlockParam[] = (t.attachments ?? []).map(attachmentBlock);
+    if (i === cacheAt && blocks.length) blocks[blocks.length - 1] = { ...blocks[blocks.length - 1]!, cache_control: { type: 'ephemeral' } } as Anthropic.Beta.BetaContentBlockParam;
+    if (i === lastAt) blocks.push({ type: 'text', text: `CONTEXT\n${context}` });
+    const words = t.text.trim() || (t.attachments?.length ? 'Take a look at this.' : '');
+    if (words) blocks.push({ type: 'text', text: words });
+    return { role: 'user', content: blocks };
+  });
+};
+
+export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string, today: string): Promise<AskResult> => {
   if (!env.claudeConfigured) throw new ApiError(503, 'The assistant needs ANTHROPIC_API_KEY on the server.', 'claude_not_configured');
   const history = turns.slice(-20);
   const last = history[history.length - 1]!;
   if (last.role !== 'user') throw new ApiError(400, 'The last turn must be yours.');
-  const messages: Anthropic.Beta.BetaMessageParam[] = history.slice(0, -1).map((t) => ({ role: t.role, content: t.text }));
-  messages.push({ role: 'user', content: [{ type: 'text', text: `CONTEXT\n${contextFor(db, userId, today, date)}` }, { type: 'text', text: last.text }] });
+  const messages = messagesFor(history, contextFor(db, userId, today, date));
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const res = await anthropic().beta.messages.create({
@@ -259,7 +288,7 @@ export const ask = async (db: DB, userId: string, turns: Array<{ role: 'user' | 
         try {
           const changes: AssistantChange[] = p.data.changes.map((op) => ({ op, label: labelOp(db, userId, op, today) }));
           const id = uid('aa');
-          db.insert(assistantActions).values({ id, userId, ask: last.text.slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
+          db.insert(assistantActions).values({ id, userId, ask: (last.text || (last.attachments?.length ? `[${last.attachments.map((f) => f.name).join(', ')}]` : '')).slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
           return { text: said, proposal: { id, summary: p.data.summary, changes, status: 'proposed' } };
         } catch (e) {
           results.push({ type: 'tool_result', tool_use_id: call.id, is_error: true, content: e instanceof Error ? e.message : 'A change did not check out.' });

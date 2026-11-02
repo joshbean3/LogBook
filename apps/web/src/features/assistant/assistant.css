@@ -208,7 +208,7 @@
   position: sticky;
   bottom: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 40px;
+  grid-template-columns: auto auto minmax(0, 1fr) 40px;
   align-items: end;
   gap: 8px;
   padding: 10px 0 calc(6px + var(--safe-b));
@@ -216,7 +216,117 @@
   border-top: 1px solid var(--line);
 }
 .as-compose:not(:has(.as-new)) {
-  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-columns: auto minmax(0, 1fr) 40px;
+}
+/* the paperclip: a quiet round control beside the field */
+.as-attach {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--ink-2);
+}
+.as-attach:disabled {
+  color: var(--ink-4);
+}
+/* what is about to be sent: a row over the field, a preview per photo, a name per PDF, each with its remove */
+.as-files {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 2px;
+}
+.as-file {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 56px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.as-file.is-photo {
+  width: 56px;
+  overflow: visible;
+}
+.as-file.is-photo img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.as-file.is-doc {
+  max-width: 180px;
+  padding: 0 28px 0 12px;
+}
+.as-file.is-preparing {
+  width: 56px;
+  justify-content: center;
+  color: var(--ink-3);
+}
+.as-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-foot);
+}
+.as-file-x {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  background: var(--ink-2);
+  color: var(--bg);
+}
+/* a 44 px target around the small remove dot */
+.as-file-x::after {
+  content: '';
+  position: absolute;
+  inset: -11px;
+}
+/* files in the thread, over the words they came with */
+.as-turn-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 88%;
+}
+.as-turn-photo {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+.as-turn-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-foot);
+}
+.as-turn-doc span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .as-new {
   min-height: 40px;

@@ -1,5 +1,5 @@
 import { fmtDate, type AssistantChange, type AssistantProposal, type ISODate } from '@logbook/shared';
-import { ArrowUp, CalendarDays, CheckSquare, RotateCcw, Sparkles, Target } from 'lucide-react';
+import { ArrowUp, CalendarDays, CheckSquare, FileText, Paperclip, RotateCcw, Sparkles, Target, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { askAssistant, useAssistantActions } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -7,6 +7,8 @@ import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
+import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
+import { AttachError, prepareFile, requestTurns, type PreparedFile } from './attach';
 import { assistantStore, useAssistantTurns } from './store';
 import './assistant.css';
 
@@ -68,6 +70,22 @@ const ProposalCard = ({ p }: { p: AssistantProposal }) => {
   );
 };
 
+/** The files a turn carried, as the thread shows them: a photo's preview, a PDF's name. */
+const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
+  <div className="as-turn-files">
+    {files.map((f, i) =>
+      f.thumb ? (
+        <img key={i} className="as-turn-photo" src={f.thumb} alt={f.name} />
+      ) : (
+        <span key={i} className="as-turn-doc">
+          <FileText size={15} aria-hidden="true" />
+          <span>{f.name}</span>
+        </span>
+      ),
+    )}
+  </div>
+);
+
 const startersFor = (date: ISODate, today: ISODate) => {
   const day = date === today ? 'today' : fmtDate('short', date);
   return [
@@ -87,18 +105,49 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
   const turns = useAssistantTurns();
   const [draft, setDraft] = useState(initial ?? '');
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<PreparedFile[]>([]);
+  const [preparing, setPreparing] = useState(false);
+  const toast = useToast();
   const end = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [turns.length, busy]);
+  const picker = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' });
+  }, [turns.length, busy]);
+
+  /** Picked files: each becomes a photo (shrunk, as a JPEG) or a PDF, up to four with a message. */
+  const addFiles = async (list: FileList | null) => {
+    const files = Array.from(list ?? []);
+    if (!files.length) return;
+    const room = ATTACHMENT_LIMITS.perTurn - pending.length;
+    if (files.length > room) toast(`Up to ${ATTACHMENT_LIMITS.perTurn} files with a message. ${room > 0 ? `The first ${room} ${room === 1 ? 'was' : 'were'} added.` : ''}`.trim());
+    setPreparing(true);
+    try {
+      const ready: PreparedFile[] = [];
+      for (const f of files.slice(0, Math.max(0, room))) {
+        try {
+          ready.push(await prepareFile(f));
+        } catch (e) {
+          toast(e instanceof AttachError ? e.message : `Couldn’t add ${f.name || 'that file'}.`);
+        }
+      }
+      if (ready.length) setPending((p) => [...p, ...ready].slice(0, ATTACHMENT_LIMITS.perTurn));
+    } finally {
+      setPreparing(false);
+      if (picker.current) picker.current.value = '';
+    }
+  };
 
   const send = async (text: string) => {
     const t = text.trim();
-    if (!t || busy) return;
+    const files = pending;
+    if ((!t && !files.length) || busy || preparing) return;
     setDraft('');
-    assistantStore.push({ role: 'user', text: t });
+    setPending([]);
+    assistantStore.push({ role: 'user', text: t, files: files.length ? files.map((f) => f.shown) : undefined }, files.map((f) => f.file));
     setBusy(true);
     try {
-      const history = assistantStore.get().map((x) => ({ role: x.role, text: x.proposal ? `${x.text}\n[Proposed: ${x.proposal.summary} Status: ${x.proposal.status}.]`.trim() : x.text }));
+      const history = requestTurns(assistantStore.get(), assistantStore.filesOf);
       const r = await askAssistant(date, history);
       assistantStore.push({ role: 'assistant', text: r.text, proposal: r.proposal });
     } catch (e) {
@@ -114,7 +163,7 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
         {turns.length === 0 ? (
           <div className="as-empty">
             <p className="as-empty-lead">
-              <Sparkles size={16} aria-hidden="true" /> Ask about your plan, or ask for a change. Nothing changes until you tap Apply.
+              <Sparkles size={16} aria-hidden="true" /> Ask about your plan, or ask for a change. Attach a photo or a PDF of a plan, a schedule or a list and it can read it. Nothing changes until you tap Apply.
             </p>
             <div className="as-starters">
               {startersFor(date, today).map((s) => (
@@ -127,6 +176,7 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
         ) : (
           turns.map((t, i) => (
             <div key={i} className={`as-turn is-${t.role}`}>
+              {t.files?.length ? <TurnFiles files={t.files} /> : null}
               {t.text ? <p className="as-bubble">{t.text}</p> : null}
               {t.proposal ? <ProposalCard p={t.proposal} /> : null}
             </div>
@@ -144,17 +194,35 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
         <div ref={end} />
       </div>
       <div className="as-compose">
+        {pending.length || preparing ? (
+          <div className="as-files" aria-label="Files to send">
+            {pending.map((f, i) => (
+              <span key={i} className={`as-file ${f.shown.thumb ? 'is-photo' : 'is-doc'}`}>
+                {f.shown.thumb ? <img src={f.shown.thumb} alt="" /> : <FileText size={18} aria-hidden="true" />}
+                {f.shown.thumb ? null : <span className="as-file-name">{f.shown.name}</span>}
+                <button type="button" className="as-file-x" aria-label={`Remove ${f.shown.name}`} onClick={() => setPending((p) => p.filter((_, j) => j !== i))}>
+                  <X size={12} strokeWidth={2.6} aria-hidden="true" />
+                </button>
+              </span>
+            ))}
+            {preparing ? <span className="as-file is-preparing" aria-label="Preparing">…</span> : null}
+          </div>
+        ) : null}
         {turns.length ? (
           <button type="button" className="as-new" onClick={() => assistantStore.clear()}>
             New
           </button>
         ) : null}
+        <button type="button" className="as-attach" aria-label="Attach a photo or a PDF" disabled={busy || preparing || pending.length >= ATTACHMENT_LIMITS.perTurn} onClick={() => picker.current?.click()}>
+          <Paperclip size={19} aria-hidden="true" />
+        </button>
+        <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
         <textarea
           ref={field}
           className="as-input"
           rows={1}
           maxLength={2000}
-          placeholder={`Ask or change anything${date !== today ? ` about ${fmtDate('short', date)}` : ''}`}
+          placeholder={pending.length ? 'Add a note (optional)' : `Ask or change anything${date !== today ? ` about ${fmtDate('short', date)}` : ''}`}
           aria-label="Ask the assistant"
           enterKeyHint="send"
           value={draft}
@@ -172,7 +240,7 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
             }
           }}
         />
-        <button type="button" className="as-send" aria-label="Send" disabled={!draft.trim() || busy} onClick={() => void send(draft)}>
+        <button type="button" className="as-send" aria-label="Send" disabled={(!draft.trim() && !pending.length) || busy || preparing} onClick={() => void send(draft)}>
           <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
         </button>
       </div>

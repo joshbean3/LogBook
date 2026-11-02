@@ -66,6 +66,8 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown;
 }
 
 /**
+ * (The read timeout matches the server's: an ask that reads a long PDF and proposes changes can run past a minute.)
+ *
  * In the iPhone app every request goes through Capacitor's native HTTP plugin, called directly: the request leaves from
  * the device with the native cookie jar (the sign-in sticks) and no CORS, whatever the generated capacitor.config.json
  * says. (The plugin's own `fetch` patch depends on that file answering "enabled" at page load; when it does not, requests
@@ -76,7 +78,7 @@ export const nativeFetch = async (url: string, method: string, headers: Headers,
   headers.forEach((v, k) => {
     h[k] = v;
   });
-  const r = await CapacitorHttp.request({ url, method, headers: h, data: typeof body === 'string' ? body : undefined, responseType: 'text', connectTimeout: 20_000, readTimeout: 30_000 });
+  const r = await CapacitorHttp.request({ url, method, headers: h, data: typeof body === 'string' ? body : undefined, responseType: 'text', connectTimeout: 20_000, readTimeout: 150_000 });
   const text = typeof r.data === 'string' ? r.data : r.data == null ? '' : JSON.stringify(r.data);
   return new Response(r.status === 204 ? null : text, { status: r.status, headers: r.headers as Record<string, string> });
 };
