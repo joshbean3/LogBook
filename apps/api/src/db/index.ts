@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from '../env.js';
+import { repairAfterNewerVersion } from './compat.js';
 import * as schema from './schema.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -21,6 +22,8 @@ export const openDatabase = (dbPath = env.DATABASE_PATH) => {
   const folder = candidates.find((p) => fs.existsSync(path.join(p, 'meta', '_journal.json')));
   if (!folder) throw new Error('Migrations folder not found. Run `pnpm db:generate`.');
   migrate(db, { migrationsFolder: folder });
+  // a database a newer server upgraded, read by this one: put back the two tables this code cannot read (db/compat.ts)
+  for (const line of repairAfterNewerVersion(sqlite)) console.info(`[db] repaired after a newer version: ${line}`);
   return { db, sqlite };
 };
 
