@@ -1,153 +1,18 @@
 import type * as React from 'react';
-import { fmtDate, LEARNING_MAX, shiftDays, type Learning } from '@logbook/shared';
-import { Search, Trash2, X } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useTabScroller } from '@/app/NavController';
+import type { Learning, LearningMonth } from '@logbook/shared';
+import { ChevronRight, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNav } from '@/app/NavController';
 import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
-import { Button } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
-import { useSheet } from '@/ui/Sheet';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
-import { useToast } from '@/ui/Toast';
-import { useLearnedMutations, useLearnings, useLearningStats } from './queries';
+import { byTime, Composer, Days, groupByMonth, Line, monthName, plural, statsWords, useLoadMore, useOpenLearning } from './LearnedParts';
+import { useLearningMonths, useLearnings, useLearningStats } from './queries';
 import './learned.css';
 
-/** Oldest first within a day: the order they were written. */
-const byTime = (a: Learning, b: Learning) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0);
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-/** "12 days in a row · 48 things learned"; a run under two days is not a headline. */
-export const statsWords = (s: { days: number; streak: number; total: number }) => {
-  const things = plural(s.total, 'thing') + ' learned';
-  if (s.streak >= 2) return `${s.streak} days in a row · ${things}`;
-  return s.days > 1 ? `${things} over ${s.days} days` : things;
-};
-
-/** A field that grows with its words and never scrolls inside itself. */
-const useGrow = (ref: React.RefObject<HTMLTextAreaElement | null>, text: string) =>
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [ref, text]);
-
-/**
- * The words and Save. `hero`: the day's first, at the size of the prompt above it. `quiet`: "Add another", one line until
- * there are words, Save only then. ⌘/Ctrl+Enter saves. The field is kept above the keyboard on focus (`revealField`).
- */
-const Composer = ({ today, quiet }: { today: string; quiet?: boolean }) => {
-  const { add } = useLearnedMutations(today);
-  const toast = useToast();
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = useState('');
-  useGrow(ref, text);
-  const v = text.trim();
-  const save = () => {
-    if (!v) return;
-    setText('');
-    add.mutate({ date: today, text: v }, { onError: () => (setText(v), toast('Couldn’t save that. Your words are back in the field.')) });
-  };
-  return (
-    <div className={`ln-compose ${quiet ? 'is-quiet' : ''}`}>
-      <textarea
-        ref={ref}
-        className="ln-field"
-        rows={quiet ? 1 : 3}
-        maxLength={LEARNING_MAX}
-        placeholder={quiet ? 'Add another' : 'One thing, in a sentence or two'}
-        aria-label={quiet ? 'Add another thing you learned today' : 'What you learned today'}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onFocus={(e) => revealField(e.currentTarget)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            save();
-          }
-        }}
-      />
-      {!quiet || v ? (
-        <div className="ln-compose-foot">
-          <Pressable as="button" className={`ln-save ${v ? 'is-ready' : ''}`} disabled={!v} onPress={save} label="Save">
-            Save
-          </Pressable>
-        </div>
-      ) : null}
-    </div>
-  );
-};
-
-/** Behind a tap on a learning: its words to change, Save, and Delete (with Undo). */
-const LearningSheet = ({ item, today }: { item: Learning; today: string }) => {
-  const sheet = useSheet();
-  const { edit, del } = useLearnedMutations(today);
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = useState(item.text);
-  useGrow(ref, text);
-  const v = text.trim();
-  const save = () => {
-    if (v && v !== item.text) edit.mutate({ item, text: v });
-    sheet.close();
-  };
-  return (
-    <div className="ln-sheet">
-      <textarea
-        ref={ref}
-        className="ln-field ln-sheet-field"
-        rows={3}
-        maxLength={LEARNING_MAX}
-        value={text}
-        aria-label="What you learned"
-        onChange={(e) => setText(e.target.value)}
-        onFocus={(e) => revealField(e.currentTarget)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            save();
-          }
-        }}
-      />
-      <div className="sheet-foot">
-        <Button
-          variant="quiet"
-          className="ln-del"
-          onClick={() => {
-            sheet.close();
-            del(item);
-          }}
-        >
-          <Trash2 size={16} aria-hidden="true" /> Delete
-        </Button>
-        <div className="foot-right">
-          <Button variant="primary" onClick={save} disabled={!v || v === item.text}>
-            Save
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const useOpenLearning = (today: string) => {
-  const sheet = useSheet();
-  return (item: Learning) =>
-    sheet.open({
-      eyebrow: item.date === today ? 'Today' : item.date === shiftDays(today, -1) ? 'Yesterday' : fmtDate('dowLong', item.date),
-      title: fmtDate('md', item.date),
-      sticky: true,
-      body: <LearningSheet item={item} today={today} />,
-    });
-};
-
-/** One learning as serif words; a tap opens it. */
-const Line = ({ item, onOpen, className = '' }: { item: Learning; onOpen: (l: Learning) => void; className?: string }) => (
-  <Pressable as="button" className={`ln-line ${className}`} press="dim" onPress={() => onOpen(item)} label={`${item.text}. Edit`}>
-    {item.text}
-  </Pressable>
-);
+export { statsWords };
 
 /**
  * The hero: before today has anything, the serif question and the field; after, today's learnings as serif lines and a
@@ -175,56 +40,116 @@ const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[];
   </section>
 );
 
-interface Month {
-  month: string;
-  days: Array<{ date: string; items: Learning[] }>;
-}
-/** Newest month first, newest day first, each day's learnings in the order they were written. */
-const groupByMonth = (rows: Learning[]): Month[] => {
-  const months: Month[] = [];
-  for (const r of rows) {
-    const m = r.date.slice(0, 7);
-    let month = months[months.length - 1];
-    if (!month || month.month !== m) months.push((month = { month: m, days: [] }));
-    let day = month.days[month.days.length - 1];
-    if (!day || day.date !== r.date) month.days.push((day = { date: r.date, items: [] }));
-    day.items.push(r);
-  }
-  for (const m of months) for (const d of m.days) d.items.sort(byTime);
-  return months;
+/**
+ * Everything before, kept by year and month, newest first: a year's heading with its count, then a row per month with its
+ * counts and the newest thing in it. A month opens its own page (/learned/2026-11-01) with every day in it.
+ */
+const Archive = ({ months, today }: { months: LearningMonth[]; today: string }) => {
+  const nav = useNav();
+  const years = useMemo(() => {
+    const out: Array<{ year: string; total: number; months: LearningMonth[] }> = [];
+    for (const m of months) {
+      const y = m.month.slice(0, 4);
+      let cur = out[out.length - 1];
+      if (!cur || cur.year !== y) out.push((cur = { year: y, total: 0, months: [] }));
+      cur.total += m.count;
+      cur.months.push(m);
+    }
+    return out;
+  }, [months]);
+  const thisMonth = today.slice(0, 7);
+  return (
+    <div className="ln-archive">
+      {years.map((y) => (
+        <section key={y.year} className="ln-year" aria-label={y.year}>
+          <div className="ln-year-head">
+            <h3 className="ln-year-title">{y.year}</h3>
+            <span className="ln-year-meta">{plural(y.total, 'thing')}</span>
+          </div>
+          <div className="ln-months">
+            {y.months.map((m) => (
+              <Pressable
+                key={m.month}
+                as="button"
+                className="ln-mrow"
+                press="surface"
+                onPress={() => nav.push(`/learned/${m.month}-01`)}
+                label={`${monthName(m.month)} ${y.year}, ${plural(m.count, 'thing')} on ${plural(m.days, 'day')}. Open`}
+              >
+                <span className="ln-mrow-top">
+                  <span className="ln-mrow-name">{monthName(m.month)}</span>
+                  {m.month === thisMonth ? <span className="caps ln-mrow-now">This month</span> : null}
+                  <span className="ln-mrow-meta">
+                    {plural(m.count, 'thing')}
+                    <span className="ln-mrow-days"> · {plural(m.days, 'day')}</span>
+                  </span>
+                </span>
+                <span className="ln-mrow-latest">{m.latest}</span>
+                <ChevronRight size={18} aria-hidden="true" className="ln-mrow-chev" />
+              </Pressable>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+};
+
+/** Typing settles for 250 ms before it searches. */
+const useSettled = (v: string, ms = 250) => {
+  const [out, setOut] = useState(v);
+  useEffect(() => {
+    const t = setTimeout(() => setOut(v), ms);
+    return () => clearTimeout(t);
+  }, [v, ms]);
+  return out;
+};
+
+/** What the search found, across every month, under month headings. */
+const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Learning) => void }) => {
+  const list = useLearnings({ q });
+  const end = useRef<HTMLDivElement>(null);
+  useLoadMore(end, list);
+  const months = useMemo(() => groupByMonth(list.data?.pages.flatMap((p) => p.learnings) ?? []), [list.data]);
+  if (list.isPending)
+    return (
+      <SkeletonGroup label="Searching" className="ln-more">
+        <Skeleton w="40%" h={12} />
+        <Skeleton w="85%" h={20} />
+      </SkeletonGroup>
+    );
+  if (!months.length) return <p className="ln-none">Nothing you learned matches “{q}”.</p>;
+  return (
+    <div className="ln-past">
+      {months.map((m) => (
+        <section key={m.month} className="ln-month" aria-label={`${monthName(m.month)} ${m.month.slice(0, 4)}`}>
+          <h3 className="ln-month-title">
+            {monthName(m.month)} {m.month.slice(0, 4)}
+          </h3>
+          <Days days={m.days} today={today} onOpen={onOpen} />
+        </section>
+      ))}
+      <div ref={end} className="ln-end" aria-hidden="true" />
+    </div>
+  );
 };
 
 /**
- * What I learned (the tab root): today's card, the stats line, then every day before it, newest first, under month
- * headings. Older pages load as the end of the list comes into view; the search filters what has loaded.
+ * What I learned (the tab root): today's card, the stats line, a search over everything, then the archive: every month
+ * with something in it, by year, each one a tap from its days.
  */
 export default function LearnedView(): React.JSX.Element {
   const today = useToday();
-  const list = useLearnings();
+  const list = useLearnings({ month: today.slice(0, 7) });
+  const months = useLearningMonths();
   const stats = useLearningStats();
   const open = useOpenLearning(today);
   const [q, setQ] = useState('');
-  const scroller = useTabScroller();
-  const end = useRef<HTMLDivElement>(null);
+  const needle = useSettled(q.trim());
 
-  const all = useMemo(() => list.data?.pages.flatMap((p) => p.learnings) ?? [], [list.data]);
-  const todays = useMemo(() => all.filter((l) => l.date === today).sort(byTime), [all, today]);
-  const needle = q.trim().toLowerCase();
-  const shown = useMemo(() => (needle ? all.filter((l) => l.text.toLowerCase().includes(needle)) : all.filter((l) => l.date < today)), [all, needle, today]);
-  const months = useMemo(() => groupByMonth(shown), [shown]);
-  const hasPast = all.some((l) => l.date < today) || list.hasNextPage;
-
-  // the next page when the end of the list comes into view (a screen early)
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list;
-  useEffect(() => {
-    const el = end.current;
-    if (!el || !hasNextPage || isFetchingNextPage) return;
-    const io = new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && void fetchNextPage(), { root: scroller.current, rootMargin: '0px 0px 600px 0px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage, scroller, months.length]);
-
+  const todays = useMemo(() => (list.data?.pages.flatMap((p) => p.learnings) ?? []).filter((l) => l.date === today).sort(byTime), [list.data, today]);
   const s = stats.data;
+  const hasPast = !!s && s.total > todays.length;
   return (
     <div className="page ln-page">
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={24} />
@@ -238,12 +163,12 @@ export default function LearnedView(): React.JSX.Element {
         <TodayCard today={today} items={todays} onOpen={open} />
       )}
       <p className="ln-stats" aria-live="polite">
-        {list.isPending || !s ? ' ' : s.total > 0 ? statsWords(s) : 'One thing a day. They gather here.'}
+        {list.isPending || !s ? ' ' : s.total > 0 ? statsWords(s) : 'One thing a day. They gather here.'}
       </p>
       {hasPast ? (
         <label className="ln-search">
           <Search size={16} aria-hidden="true" className="ln-search-icon" />
-          <input className="ln-search-in" type="search" enterKeyHint="search" placeholder="Search what you learned" aria-label="Search what you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={(e) => revealField(e.currentTarget)} />
+          <input className="ln-search-in" type="search" enterKeyHint="search" placeholder="Search everything you learned" aria-label="Search everything you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={(e) => revealField(e.currentTarget)} />
           {q ? (
             <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
               <X size={16} aria-hidden="true" />
@@ -251,28 +176,16 @@ export default function LearnedView(): React.JSX.Element {
           ) : null}
         </label>
       ) : null}
-      {needle && !months.length && !list.hasNextPage ? <p className="ln-none">Nothing you learned matches “{q.trim()}”.</p> : null}
-      <div className="ln-past">
-        {months.map((m) => (
-          <section key={m.month} className="ln-month" aria-label={fmtDate('month', `${m.month}-01`)}>
-            <h3 className="ln-month-title">{fmtDate('month', `${m.month}-01`)}</h3>
-            {m.days.map((d) => (
-              <div key={d.date} className="ln-day">
-                <span className="caps ln-day-caps">{d.date === today ? 'Today' : d.date === shiftDays(today, -1) ? `Yesterday, ${fmtDate('md', d.date)}` : `${fmtDate('dowLong', d.date)}, ${fmtDate('md', d.date)}`}</span>
-                {d.items.map((l) => (
-                  <Line key={l.id} item={l} onOpen={open} />
-                ))}
-              </div>
-            ))}
-          </section>
-        ))}
-      </div>
-      <div ref={end} className="ln-end" aria-hidden="true" />
-      {list.isFetchingNextPage ? (
-        <SkeletonGroup label="Loading older" className="ln-more">
-          <Skeleton w="40%" h={12} />
-          <Skeleton w="85%" h={20} />
+      {needle ? (
+        <Found q={needle} today={today} onOpen={open} />
+      ) : months.isPending ? (
+        <SkeletonGroup label="Loading the months" className="ln-more">
+          <Skeleton w="30%" h={24} />
+          <Skeleton w="100%" h={56} />
+          <Skeleton w="100%" h={56} />
         </SkeletonGroup>
+      ) : months.data?.length ? (
+        <Archive months={months.data} today={today} />
       ) : null}
     </div>
   );

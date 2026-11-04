@@ -52,6 +52,27 @@ describe('what I learned', () => {
     expect((await call('GET', '/api/learnings?before=nonsense')).status).toBe(400);
   });
 
+  it('keeps an archive by month, and filters by month and words', async () => {
+    await call('POST', '/api/learnings', { date: '2026-09-03', text: 'Zone 2 is conversational' });
+    await call('POST', '/api/learnings', { date: '2026-09-20', text: 'Cadence near 180' });
+    await call('POST', '/api/learnings', { date: '2026-09-20', text: '100% of effort is 80% pace' });
+    await call('POST', '/api/learnings', { date: '2025-12-31', text: 'Sleep debt is real' });
+    const gone = await call('POST', '/api/learnings', { date: '2025-11-02', text: 'Deleted one' });
+    await call('DELETE', `/api/learnings/${gone.body.id}`);
+    const m = await call('GET', '/api/learnings/months');
+    expect(m.status).toBe(200);
+    expect(m.body.months).toEqual([
+      { month: '2026-09', count: 3, days: 2, latest: '100% of effort is 80% pace' },
+      { month: '2025-12', count: 1, days: 1, latest: 'Sleep debt is real' },
+    ]);
+    const sep = await call('GET', '/api/learnings?month=2026-09');
+    expect(sep.body.learnings.map((x: { text: string }) => x.text)).toEqual(['100% of effort is 80% pace', 'Cadence near 180', 'Zone 2 is conversational']);
+    // any case; a % is a character, not a wildcard
+    expect((await call('GET', '/api/learnings?q=ZONE')).body.learnings.map((x: { text: string }) => x.text)).toEqual(['Zone 2 is conversational']);
+    expect((await call('GET', `/api/learnings?q=${encodeURIComponent('%')}`)).body.learnings).toHaveLength(1);
+    expect((await call('GET', '/api/learnings?month=2026-13')).status).toBe(422);
+  });
+
   it('edits, deletes softly and restores', async () => {
     const a = await call('POST', '/api/learnings', { text: 'First draft' });
     const p = await call('PATCH', `/api/learnings/${a.body.id}`, { text: ' Better words ' });

@@ -1,4 +1,4 @@
-import { shiftDays, zLearningInput, zLearningPatch, zLearningQuery, type Learning, type LearningPage, type LearningStats } from '@logbook/shared';
+import { shiftDays, zLearningInput, zLearningPatch, zLearningQuery, type Learning, type LearningMonth, type LearningPage, type LearningStats } from '@logbook/shared';
 import { and, desc, eq, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
@@ -44,6 +44,9 @@ export const learnedRoutes = (db: DB) => {
   r.get('/learnings', (c) => {
     const q = parseQuery(c.req.query(), zLearningQuery);
     const conds = [live(uidOf(c))];
+    if (q.month) conds.push(sql`substr(${learnings.date}, 1, 7) = ${q.month}`);
+    // instr, not LIKE: a % or _ in the words is a character, not a pattern
+    if (q.q) conds.push(sql`instr(lower(${learnings.text}), lower(${q.q})) > 0`);
     if (q.before) {
       const k = parseCursor(q.before);
       conds.push(
@@ -64,6 +67,30 @@ export const learnedRoutes = (db: DB) => {
     const page = rows.slice(0, q.limit);
     const out: LearningPage = { learnings: page.map(toLearning), next: rows.length > q.limit ? cursorOf(page[page.length - 1]!) : null };
     return c.json(out);
+  });
+
+  /** The archive: every month with something in it, newest first, with its counts and newest words. */
+  r.get('/learnings/months', (c) => {
+    const userId = uidOf(c);
+    const month = sql<string>`substr(${learnings.date}, 1, 7)`;
+    const groups = db
+      .select({ month, count: sql<number>`count(*)`, days: sql<number>`count(distinct ${learnings.date})` })
+      .from(learnings)
+      .where(live(userId))
+      .groupBy(month)
+      .orderBy(desc(month))
+      .all();
+    const months: LearningMonth[] = groups.map((g) => {
+      const top = db
+        .select({ text: learnings.text })
+        .from(learnings)
+        .where(and(live(userId), sql`substr(${learnings.date}, 1, 7) = ${g.month}`))
+        .orderBy(desc(learnings.date), desc(learnings.createdAt), desc(learnings.id))
+        .limit(1)
+        .get();
+      return { month: g.month, count: g.count, days: g.days, latest: top?.text ?? '' };
+    });
+    return c.json({ months });
   });
 
   r.get('/learnings/stats', (c) => {

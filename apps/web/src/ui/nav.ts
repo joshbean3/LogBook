@@ -54,6 +54,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/goals', owner: 'goals', kind: 'root' },
   { pattern: '/goals/history', owner: 'goals', kind: 'pushed', depth: 1, title: 'History' },
   { pattern: '/learned', owner: 'learned', kind: 'root' },
+  // a month of What I learned, from the tab's archive ('/learned/2026-11-01': the first of the month, like Plan's months)
+  { pattern: '/learned/:month', owner: 'learned', kind: 'pushed', depth: 1, title: (p) => (p.month ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${p.month}T12:00:00Z`)) : 'What I learned') },
   { pattern: '/plan', owner: 'plan', kind: 'root' },
   // a morning's schedule, pushed over Plan from its morning card (today's when no date is given; never moves Plan's root)
   { pattern: '/plan/morning/:date?', owner: 'plan', kind: 'pushed', depth: 1, title: 'This morning' },
@@ -133,7 +135,7 @@ const VALID: Record<string, (v: string) => boolean> = {
   month: isFirstOfMonth,
   section: (v) => (SETTINGS_SECTIONS as readonly string[]).includes(v),
 };
-const INVALID_TO: Record<string, string> = { '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today' };
+const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today' };
 
 // ---------- the matcher ----------
 const clean = (path: string) => {

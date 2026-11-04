@@ -25,6 +25,7 @@ const views = {
   goals: () => import('@/features/goals/GoalsView'),
   goalHistory: () => import('@/features/goals/GoalHistory'),
   learned: () => import('@/features/learned/LearnedView'),
+  learnedMonth: () => import('@/features/learned/LearnedMonth'),
   plan: () => import('@/features/plan/PlanView'),
   progress: () => import('@/features/progress/ProgressView'),
   journal: () => import('@/features/journal/JournalView'),
@@ -66,6 +67,7 @@ const MorningView = view(views.morning);
 const GoalsView = view(views.goals);
 const GoalHistory = view(views.goalHistory);
 const LearnedView = view(views.learned);
+const LearnedMonth = view(views.learnedMonth);
 const PlanView = view(views.plan);
 const ProgressView = view(views.progress);
 const JournalView = view(views.journal);
@@ -79,7 +81,7 @@ const UiGallery = view(views.gallery);
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
 const prefetchViews = () => {
   const pushed = () => {
-    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView]) void v.preload().catch(() => undefined);
+    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView, LearnedMonth]) void v.preload().catch(() => undefined);
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
@@ -120,6 +122,7 @@ const pushedFor = (e: PushedEntry) => {
   // This morning: the day's from Today, today's from Habits (MorningView falls back to today without a `date` param)
   if (pattern === '/today/:date/morning' || pattern === '/plan/morning/:date?') return <MorningView />;
   if (pattern === '/goals/history') return <GoalHistory />;
+  if (pattern === '/learned/:month') return <LearnedMonth />;
   if (pattern === '/settings/:section' && e.params.section === 'plans') return <PlansPage />;
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;

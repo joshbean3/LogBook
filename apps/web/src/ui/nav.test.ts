@@ -27,6 +27,15 @@ describe('the route table', () => {
     expect(m.stack).toEqual([]);
   });
 
+  it('a month of What I learned is pushed over the tab, titled by its month; a bad month goes to the tab', () => {
+    const m = matchRoute('/learned/2026-09-01');
+    expect(m.kind).toBe('pushed');
+    expect(m.tab).toBe('learned');
+    expect(m.root).toBe('/learned');
+    expect(m.stack.map((e) => e.title)).toEqual(['September 2026']);
+    expect(matchRoute('/learned/2026-09-14')).toMatchObject({ kind: 'redirect', redirect: '/learned' });
+  });
+
   it("Journal's two roots carry different params (the segment is page state, consumer review 1 #7)", () => {
     expect(matchRoute('/journal').params).toEqual({});
     expect(matchRoute('/journal/library').params).toEqual({ segment: 'library' });

@@ -136,7 +136,13 @@ export const zLearningText = z.string().trim().min(1).max(LEARNING_MAX);
 /** `date` defaults to the request's local day. */
 export const zLearningInput = z.object({ date: zDate.optional(), text: zLearningText });
 export const zLearningPatch = z.object({ text: zLearningText });
-export const zLearningQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(60), before: z.string().max(80).optional() });
+/** `month` ('2026-11') keeps one month; `q` keeps the ones whose words contain it (any case). */
+export const zLearningQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(60),
+  before: z.string().max(80).optional(),
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
+  q: z.string().trim().min(1).max(100).optional(),
+});
 export const zLearning = z.object({ id: z.string(), date: zDate, text: z.string(), createdAt: z.string(), editedAt: z.string().nullable() });
 export type LearningInput = z.infer<typeof zLearningInput>;
 export type LearningPatch = z.infer<typeof zLearningPatch>;
@@ -145,6 +151,13 @@ export type Learning = z.infer<typeof zLearning>;
 export interface LearningPage {
   learnings: Learning[];
   next: string | null;
+}
+/** A month in the archive, newest first: how many things, on how many days, and the newest one's words. */
+export interface LearningMonth {
+  month: string;
+  count: number;
+  days: number;
+  latest: string;
 }
 /** `days`: distinct days with an entry; `streak`: consecutive days ending today or yesterday; `total`: every entry. */
 export interface LearningStats {
