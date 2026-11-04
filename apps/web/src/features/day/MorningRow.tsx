@@ -23,7 +23,7 @@ export const morningRowWords = (date: ISODate, today: ISODate, wake: number | nu
 };
 
 /**
- * The This morning row: one 44 row in an inset group, the door to the day's morning. On the Habits tab it pushes `to`
+ * The This morning row: one 44 row in an inset group, the door to the day's morning. Where given, it pushes `to`
  * (`/habits/morning`, today's morning over that tab); elsewhere `/today/<date>/morning`, with the four-stop line as the
  * shared element when the hero draws it.
  */

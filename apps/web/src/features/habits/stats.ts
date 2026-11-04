@@ -1,6 +1,6 @@
 import { habitStreak, shiftDays, type ISODate } from '@logbook/shared';
 
-/** The window every habit is read over: the habit sheet's grid and the Habits tab's mini grids and streak lines. */
+/** The window every habit is read over: the habit sheet's grid and the history sheet's mini grids and streak lines. */
 export const WINDOW_DAYS = 30;
 
 export interface HabitWindow {

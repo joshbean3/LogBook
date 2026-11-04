@@ -8,7 +8,8 @@ import { EmptyState } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
-import { HABIT_STARTERS } from '../habits/OrbRow';
+import { useOpenHabitsHistory } from '../habits/HabitsHistory';
+import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { PlanDay } from '../dayplan/PlanDay';
@@ -44,7 +45,7 @@ const AddHabitsSheet = () => {
   const sheet = useSheet();
   return (
     <EmptyState starters={HABIT_STARTERS} onStarter={(name) => add.mutateAsync(name)} verb={{ label: 'Done', onPress: () => sheet.close() }} startersLabel="Starter habits">
-      Tap the ones you want to do every day. They become lights on the Habits tab.
+      Tap the ones you want to do every day. They become lights at the top of Today.
     </EmptyState>
   );
 };
@@ -119,6 +120,29 @@ const NudgeSlot = ({ date, onMorning }: { date: ISODate; onMorning: (date: ISODa
   );
 };
 
+const OrbRowM = memo(OrbRow);
+
+/**
+ * The day's habits, at the top of the page: the orbs (a tap lights one; a hold opens Note · Details · Archive; "+" adds),
+ * how many are lit, and History (every habit's last 30 days). Locked on a day still to come.
+ */
+const HabitsTop = memo(function HabitsTop({ date, log }: { date: ISODate; log: Log }) {
+  const history = useOpenHabitsHistory();
+  return (
+    <section className="habits day-habits" aria-label="Habits" inert={date > log.today || undefined}>
+      <div className="day-sec-head">
+        <h2 className="sec-title">Habits</h2>
+        <HabitsMeta date={date} log={log} />
+        <button type="button" className="day-habits-history" onClick={history}>
+          History
+          <ChevronRight size={15} aria-hidden="true" />
+        </button>
+      </div>
+      <OrbRowM date={date} log={log} />
+    </section>
+  );
+});
+
 /** The one-time nudge (§3.1): `Your morning lives here now ›`, until tapped or This morning is first pushed. */
 const Nudge = ({ onOpen }: { onOpen: () => void }) => {
   useEffect(() => {
@@ -158,7 +182,7 @@ const DayShell = ({ date }: { date: ISODate }) => (
  * One day's page inside the pager (docs/feel.md §3.1, §3.3): every day renders the same sections in the same order, quiet when
  * there is nothing to say, never absent, so the page never collapses under a swipe: the hero, the sentence (when set), the
  * day's plan, the second session (two-session days), the week card, the plan end (near or past a block's end), the Strava
- * primer (today, until connected), the day's card (past days). The habits and the This morning row live on the Habits tab. The bottom padding lives here, inside
+ * primer (today, until connected), the day's card (past days). Habits sit at the top; the morning's schedule lives on Plan. The bottom padding lives here, inside
  * the cur page, so the page's `min-height` includes it and a short day does not scroll.
  *
  * Memoised on `date` and `live`, with one memoised `useLog` per page (critic C12): nothing renders while the track moves; a
@@ -192,12 +216,12 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
 
   return (
     <div className="day-page" data-day={date}>
+      {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
       <AskBar date={date} />
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       <Sentence />
       {loaded && !first ? <PlanDay date={date} today={today} /> : null}
-      {isToday && loaded && !first ? <NudgeSlot date={date} onMorning={onMorning} /> : null}
       {loaded ? <SecondSession date={date} log={log} /> : null}
       {loaded ? <WeekCard date={date} log={log} /> : <div className="week-card card is-skel" />}
       {end ? (

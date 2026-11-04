@@ -1310,3 +1310,33 @@
 .wc-part {
   white-space: nowrap;
 }
+
+/* habits, at the top of the day: the heading with its count, History at the right, the orbs under it */
+.day-habits {
+  margin: 0 0 16px;
+}
+.day-habits .day-sec-head {
+  align-items: center;
+  height: 32px;
+}
+.day-habits .sec-title {
+  font: 600 var(--fs-head, 1.25rem) / var(--lh-head, 1.5625rem) var(--sans);
+}
+.day-habits-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 0 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / 1 var(--sans);
+}
+.day-habits.is-skel {
+  height: 128px;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  opacity: 0.5;
+}

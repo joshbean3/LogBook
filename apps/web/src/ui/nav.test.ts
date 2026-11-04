@@ -4,15 +4,15 @@ import { impliesRoot, matchRoute, resolveRoute, ROUTES, TABS } from './nav';
 /** docs/feel.md §1.2 and contracts §A.1: every route of the table and every redirect resolves to its target. */
 describe('the route table', () => {
   it('has the six tabs in order', () => {
-    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'habits', 'plan', 'progress', 'journal']);
-    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/habits', '/plan', '/progress', '/journal']);
+    expect(TABS.map((t) => t.id)).toEqual(['today', 'goals', 'learned', 'plan', 'progress', 'journal']);
+    expect(TABS.map((t) => t.root)).toEqual(['/today', '/goals', '/learned', '/plan', '/progress', '/journal']);
   });
 
   it.each([
     ['/today', 'root', 'today', '/today'],
     ['/today/2026-10-24', 'root', 'today', '/today/2026-10-24'],
     ['/goals', 'root', 'goals', '/goals'],
-    ['/habits', 'root', 'habits', '/habits'],
+    ['/learned', 'root', 'learned', '/learned'],
     ['/plan', 'root', 'plan', '/plan'],
     ['/plan/week/2026-10-26', 'root', 'plan', '/plan/week/2026-10-26'],
     ['/plan/month/2026-11-01', 'root', 'plan', '/plan/month/2026-11-01'],
@@ -56,12 +56,13 @@ describe('the route table', () => {
     expect(reads.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/journal/reads', 1, 'Reads', -1]]);
     expect(matchRoute('/journal/reads/read').stack[0]!.params).toEqual({ tab: 'read' });
 
-    const habitsMorning = matchRoute('/habits/morning');
-    expect(habitsMorning).toMatchObject({ kind: 'pushed', tab: 'habits', root: '/habits' });
-    expect(habitsMorning.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/habits/morning', 1, 'This morning', -1]]);
-    expect(habitsMorning.stack[0]!.params).toEqual({});
+    const planMorning = matchRoute('/plan/morning');
+    expect(planMorning).toMatchObject({ kind: 'pushed', tab: 'plan', root: '/plan' });
+    expect(planMorning.stack.map((e) => [e.path, e.depth, e.title, e.idx])).toEqual([['/plan/morning', 1, 'This morning', -1]]);
+    expect(planMorning.stack[0]!.params).toEqual({});
+    expect(matchRoute('/plan/morning/2026-11-05').stack[0]!.params).toEqual({ date: '2026-11-05' });
     // no date in its URL: a jump to it never moves the Habits root
-    expect(impliesRoot(habitsMorning)).toBe(false);
+    expect(impliesRoot(planMorning)).toBe(false);
     expect(impliesRoot(morning)).toBe(true);
 
     const ui = matchRoute('/dev/ui');
@@ -91,7 +92,9 @@ describe('the route table', () => {
     ['/today/banana/morning', '/today'],
     ['/plan/week/2026-10-27', '/plan'],
     ['/plan/month/2026-10-23', '/plan'],
-    ['/habits/banana', '/today'],
+    ['/habits', '/today'],
+    ['/habits/morning', '/plan/morning'],
+    ['/plan/morning/banana', '/plan'],
     ['/nowhere', '/today'],
     ['/', '/today'],
   ])('%s redirects to %s', (from, to) => {
