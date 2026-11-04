@@ -1,4 +1,4 @@
-import { chooseItem, QUOTE_THEMES, shiftDays, today, zJournalInput, zJournalPatch, zPickKind, zQuoteInput, type JournalEntry, type Quote } from '@logbook/shared';
+import { chooseItem, QUOTE_THEMES, shiftDays, today, zJournalInput, zJournalPatch, zPickKind, zQuoteInput, zRecallKind, zRecallPrefs, type JournalEntry, type Quote } from '@logbook/shared';
 import { and, asc, desc, eq, inArray, isNull, like, lt, or, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { dailyPicks, journalEntries, quotePrefs, quotes, shownItems, userQuotes } from '../db/schema.js';
 import { toEntry } from '../lib/map.js';
+import { keyOf, recallToday, setRecallPrefs } from '../services/recall.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 
 export const journalRoutes = (db: DB) => {
@@ -188,6 +189,22 @@ export const journalRoutes = (db: DB) => {
     const { kind } = await parseBody(c.req.raw, z.object({ kind: zPickKind }));
     const item = pick(userId, kind, c.get('today'), true);
     return c.json({ kind, item });
+  });
+
+  // ---------- remember when (services/recall.ts) ----------
+  r.get('/journal/recall', async (c) => c.json(await recallToday(db, uidOf(c), c.get('today'))));
+
+  r.post('/journal/recall/another', async (c) => c.json(await recallToday(db, uidOf(c), c.get('today'), { another: true })));
+
+  r.put('/journal/recall/:kind/:id', async (c) => {
+    const userId = uidOf(c);
+    const kind = zRecallKind.safeParse(c.req.param('kind'));
+    if (!kind.success) throw new ApiError(404, 'Nothing to remember there');
+    const id = c.req.param('id');
+    const body = await parseBody(c.req.raw, zRecallPrefs);
+    if (!setRecallPrefs(db, userId, kind.data, id, body)) throw new ApiError(404, 'Nothing to remember there');
+    // un-hiding (Undo) puts it back as today's; hiding moves on to the next
+    return c.json(await recallToday(db, userId, c.get('today'), { prefer: body.hidden === false ? keyOf({ kind: kind.data, id }) : undefined }));
   });
 
   return r;

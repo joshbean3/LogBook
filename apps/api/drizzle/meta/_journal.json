@@ -92,6 +92,20 @@
       "when": 1792400000000,
       "tag": "0012_day_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793800000000,
+      "tag": "0013_learnings",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793900000000,
+      "tag": "0014_recall",
+      "breakpoints": true
     }
   ]
 }

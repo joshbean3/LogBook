@@ -5,7 +5,6 @@ import type { MonthBundle } from '@/api/types';
 import type { Log } from '../log/useLog';
 import { dayStamps } from './CloseDay';
 import { coachSentence, faceOf, floorShort, heroLead, milesText, otherEyebrow, phaseOf, planWords, preLandingFace, secondOf } from './faces';
-import { morningRowWords } from './MorningRow';
 import { isoWeek, weekNote } from './WeekCard';
 
 const FRI = '2026-10-23';
@@ -94,12 +93,6 @@ describe('the words around the hero', () => {
     expect(otherEyebrow('2026-10-24', FRI)).toBe('TOMORROW');
     expect(otherEyebrow('2026-10-28', FRI)).toBe('IN 5 DAYS');
     expect(otherEyebrow('2026-10-11', FRI)).toBe('SUN, OCT 11');
-  });
-  it('the This morning row', () => {
-    expect(morningRowWords(FRI, FRI, 435, 570)).toEqual({ title: 'This morning', right: 'Wake 7:15 · Leave 9:30' });
-    expect(morningRowWords('2026-10-22', FRI, 435, 570)).toEqual({ title: 'That morning', right: 'Left 9:30' });
-    expect(morningRowWords('2026-10-24', FRI, 435, 570)).toEqual({ title: 'Tomorrow morning', right: 'Alarm 7:15' });
-    expect(morningRowWords('2026-10-28', FRI, 435, 570).title).toBe('Wednesday morning');
   });
   it('the ISO week', () => {
     expect(isoWeek('2026-10-23').week).toBe(43);

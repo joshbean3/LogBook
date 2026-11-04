@@ -16,3 +16,4 @@ export * from './goals.js';
 export * from './assistant.js';
 export * from './dayplan.js';
 export * from './records.js';
+export * from './recall.js';

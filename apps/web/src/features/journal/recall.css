@@ -1,0 +1,125 @@
+/* "Remember when": the reminder at the top of the Journal tab. A card on black, lit faintly from below (the halo at low
+   strength), the reminder in the serif, three quiet verbs under it. */
+
+.recall-wrap {
+  margin-bottom: 20px;
+}
+.recall.card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  gap: 14px;
+  padding: 16px 16px 12px;
+}
+.recall-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+/* the item: an outgoing and an incoming one share the cell while they cross-fade, so the card never collapses between */
+.recall-stack {
+  display: grid;
+  min-width: 0;
+}
+.recall-body {
+  grid-area: 1 / 1;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+.recall-eyebrow {
+  margin: 0;
+}
+.recall-text {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--dur-in) var(--ease-out);
+}
+
+/* the three verbs: quiet text pills; Remind me more lights when it is on */
+.recall-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 2px;
+  margin: 0 -10px;
+}
+.recall-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--ink-2);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out),
+    border-color var(--dur-color) var(--ease-out);
+}
+/* the hit area reaches 44 px without making the pill bigger */
+.recall-tool {
+  position: relative;
+}
+.recall-tool::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+.recall-tool svg {
+  flex: none;
+  color: var(--ink-3);
+}
+.recall-tool.is-on {
+  background: var(--accent-tint);
+  border-color: rgba(122, 132, 255, 0.28);
+  color: var(--accent-text);
+}
+.recall-tool.is-on svg {
+  color: var(--accent-text);
+}
+.recall-tool:disabled {
+  opacity: 0.5;
+}
+.recall[aria-busy='true'] .recall-text {
+  opacity: 0.6;
+}
+
+/* a small phone keeps the three on one line: only the bell keeps its icon (it carries the on state) */
+@media (max-width: 359px) {
+  .recall-tool {
+    padding: 0 8px;
+    gap: 5px;
+  }
+  .recall-tools {
+    margin: 0 -8px;
+    gap: 4px 0;
+  }
+  .recall-tool:not(.is-boost) svg {
+    display: none;
+  }
+}

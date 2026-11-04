@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isISODate, type ExportActivity, type ExportV2, type LegacyMorningDay } from '@logbook/shared';
+import { LEARNING_MAX, type Learning } from '@logbook/shared';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
@@ -22,6 +23,8 @@ import {
   users,
 } from '../db/schema.js';
 import { goalEvents, goals, todoGroups } from '../db/schema.js';
+import { learnings } from '../db/schema.js';
+import { recallItems } from '../db/schema.js';
 import { toBlock, toEntry, toGoal, toGoalEvent, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { nowISO } from '../lib/util.js';
 import { toLink } from '../routes/reads.js';
@@ -31,7 +34,7 @@ import { toLink } from '../routes/reads.js';
  * into the same account or a fresh one, idempotently by id. Soft-deleted rows are not exported (they are gone to the
  * athlete); to-dos keep their `deletedOn` (it is part of the to-do).
  */
-export const exportAccount = (db: DB, userId: string): ExportV2 => {
+export const exportAccount = (db: DB, userId: string): ExportV2 & { learnings: Learning[] } & { recall: RecallExport[] } => {
   const u = db.select().from(users).where(eq(users.id, userId)).get()!;
   const settings: Record<string, unknown> = {};
   for (const s of db.select().from(userSettings).where(eq(userSettings.userId, userId)).all()) {
@@ -142,8 +145,23 @@ export const exportAccount = (db: DB, userId: string): ExportV2 => {
       .where(eq(coachReads.userId, userId))
       .all()
       .map((x) => ({ date: x.date, key: x.key, text: x.text, createdAt: x.createdAt })),
+    // what I learned (absent in older exports)
+    learnings: db
+      .select()
+      .from(learnings)
+      .where(and(eq(learnings.userId, userId), isNull(learnings.deletedAt)))
+      .all()
+      .map((l) => ({ id: l.id, date: l.date, text: l.text, createdAt: l.createdAt, editedAt: l.editedAt })),
+    // "Remember when": what was boosted, hidden and summarised (absent in older exports; not read back on import)
+    recall: db
+      .select()
+      .from(recallItems)
+      .where(eq(recallItems.userId, userId))
+      .all()
+      .map((r) => ({ kind: r.sourceKind, id: r.sourceId, boost: r.boost, hidden: r.hidden, summary: r.summary, summarizedAt: r.summarizedAt, lastShown: r.lastShown })),
   };
 };
+type RecallExport = { kind: string; id: string; boost: boolean; hidden: boolean; summary: string | null; summarizedAt: string | null; lastShown: string | null };
 
 // ---------- import ----------
 
@@ -275,6 +293,7 @@ export const zExportV2 = z.object({
     .record(zDay, z.object({ wake: z.number(), mode: z.enum(['run', 'gym', 'rest']).optional(), type: str(30).optional(), miles: z.number().optional(), minutes: z.number().optional() }))
     .default({}),
   coach: z.array(z.object({ date: zDay, key: str(120), text: str(2000), createdAt: z.string() })).default([]),
+  learnings: z.array(z.object({ id: zId, date: zDay, text: str(LEARNING_MAX).min(1), createdAt: z.string(), editedAt: opt(z.string()) })).default([]),
 });
 export type ImportV2 = z.infer<typeof zExportV2>;
 
@@ -503,6 +522,13 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
       const key = maps.sessions.get(x.key) ?? x.key;
       const res = t.insert(coachReads).values({ userId, date: x.date, key, text: x.text, createdAt: x.createdAt }).onConflictDoNothing().run();
       if (res.changes) bump('coach');
+    }
+    // ---------- what I learned ----------
+    for (const l of b.learnings) {
+      const c = claim(learnings, learnings.id, learnings.userId, l.id);
+      if (c.have) continue;
+      t.insert(learnings).values({ id: c.id, userId, date: l.date, text: l.text, createdAt: l.createdAt, editedAt: l.editedAt ?? null, deletedAt: null }).run();
+      bump('learnings');
     }
   });
   return counts;

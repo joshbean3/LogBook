@@ -1,0 +1,285 @@
+/* ---------- Plan's morning card (MorningCard.tsx): the morning as a track, at the top of Plan, outside the pager ---------- */
+.mc-wrap {
+  /* the card's height, so the skeleton holds the same room (one line of the big words, the track, the footer) */
+  --mc-h: 236px;
+  padding: 0 16px 24px;
+  min-width: 0;
+}
+.mc-skel {
+  display: block;
+}
+
+.mc {
+  --mc-bg: var(--surface);
+  /* the dots' half width: the track's first and last dot sit on its edges without being cut */
+  --mc-in: 6px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  align-content: start;
+  width: 100%;
+  min-height: var(--mc-h);
+  padding: 16px 18px 0;
+  background: var(--mc-bg);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  container: mc / inline-size;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.mc[data-pressed] {
+  --mc-bg: var(--surface-2);
+}
+@media (hover: hover) {
+  .mc:hover {
+    border-color: var(--line-strong);
+  }
+}
+
+.mc-eyebrow {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the one line that matters now: the serif at 28 */
+.mc-head {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.75rem;
+  line-height: 2rem;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+
+/* ---------- the track: caps labels over the stops, the line, the stamped times under them ---------- */
+.mc-track {
+  display: block;
+  margin-top: 20px;
+  padding-bottom: 14px;
+  --halo-blue: 0.42;
+}
+/* the stage light rises from under the track, wider than it (to the card's edges) and stopping at the footer's hairline */
+.mc-track.halo::before {
+  inset: -44px -18px 0;
+  border-radius: 0;
+}
+.mc-track.halo::after {
+  display: none;
+}
+.mc-row {
+  position: relative;
+  display: block;
+}
+.mc-labels {
+  height: 14px;
+}
+.mc-line {
+  height: 24px;
+  margin: 6px 0 4px;
+}
+.mc-times {
+  height: 22px;
+}
+/* everything on the track is placed at its fraction --p of the line between the edge dots' centres */
+.mc-at {
+  position: absolute;
+  top: 0;
+  left: calc(var(--mc-in) + var(--p) * (100% - 2 * var(--mc-in)));
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.mc-lab.is-start,
+.mc-time.is-start {
+  left: 0;
+  transform: none;
+}
+.mc-lab.is-end,
+.mc-time.is-end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.mc-lab {
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mc-short {
+  display: none;
+}
+.mc-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--ink);
+}
+.mc-u {
+  font-family: var(--sans);
+  font-size: 0.625rem;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+.is-today .mc-time.is-past,
+.is-today .mc-lab.is-past {
+  color: var(--ink-3);
+}
+
+/* the line: a hairline rail, the part behind now in ink, the workout's stretch in its tone (a 3 px bar) */
+.mc-rail,
+.mc-done {
+  position: absolute;
+  left: var(--mc-in);
+  right: var(--mc-in);
+  top: 11px;
+  height: 2px;
+  border-radius: 1px;
+}
+.mc-rail {
+  background: var(--line-strong);
+}
+.mc-done {
+  background: var(--ink-2);
+  transform-origin: left center;
+}
+.mc-seg {
+  position: absolute;
+  top: 10.5px;
+  height: 3px;
+  border-radius: 2px;
+  left: calc(var(--mc-in) + var(--a) * (100% - 2 * var(--mc-in)));
+  width: calc((var(--b) - var(--a)) * (100% - 2 * var(--mc-in)));
+  background: var(--tone, var(--ink-3));
+}
+/* stops: hollow ahead, filled once passed; Leave, the morning's end, a size up */
+.mc-dot {
+  top: 7px;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--ink-3);
+  background: var(--mc-bg);
+  transition: background var(--dur-fast);
+}
+.mc-dot.k-leave {
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-color: var(--ink);
+}
+.mc-dot.is-past {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+/* now: the one blue dot on the line (static per minute) */
+.mc-now {
+  z-index: 2;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 3px rgba(47, 59, 255, 0.28),
+    0 0 14px var(--accent-bright);
+}
+/* the workout's name, on its stretch: a stamp in a pill that cuts the line, never wider than the stretch */
+.mc-work {
+  z-index: 1;
+  top: 2px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px 0 8px;
+  max-width: calc(var(--room) * (100% - 2 * var(--mc-in)) - 20px);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--mc-bg);
+  transition: background var(--dur-fast);
+}
+.mc-work-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--stamp);
+  font-weight: 800;
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.mc-work.is-rest .mc-work-name {
+  color: var(--ink-2);
+}
+
+/* ---------- the footer: the routine in one quiet line, and the verb that says the card opens ---------- */
+.mc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 4px;
+  margin: 0 -18px;
+  padding: 11px 12px 11px 18px;
+  min-height: 44px;
+  border-top: 1px solid var(--line);
+}
+.mc-quiet {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+}
+.mc-open {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+
+/* the new account's card: the words and the verb, no track */
+.mc.is-setup {
+  --mc-h: auto;
+}
+.mc.is-setup .mc-quiet {
+  display: block;
+  margin: 6px 0 16px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-2);
+}
+
+/* a narrow card (320, or 390 at a larger text size): the times drop AM/PM, Run out reads Out */
+@container mc (max-width: 340px) {
+  .mc-long {
+    display: none;
+  }
+  .mc-short {
+    display: inline;
+  }
+  .mc-u {
+    display: none;
+  }
+}

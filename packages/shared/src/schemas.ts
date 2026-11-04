@@ -129,6 +129,30 @@ export const zJournalPatch = z.object({ text: z.string().trim().min(1).max(5000)
 export const zQuoteInput = z.object({ text: z.string().trim().min(3).max(400), author: z.string().trim().max(80).default('') });
 export const zPickKind = z.enum(['memory', 'quote']);
 
+// ---------- what I learned ----------
+/** One thing learned, in a sentence or a few: trimmed, 1..1000 characters. */
+export const LEARNING_MAX = 1000;
+export const zLearningText = z.string().trim().min(1).max(LEARNING_MAX);
+/** `date` defaults to the request's local day. */
+export const zLearningInput = z.object({ date: zDate.optional(), text: zLearningText });
+export const zLearningPatch = z.object({ text: zLearningText });
+export const zLearningQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(60), before: z.string().max(80).optional() });
+export const zLearning = z.object({ id: z.string(), date: zDate, text: z.string(), createdAt: z.string(), editedAt: z.string().nullable() });
+export type LearningInput = z.infer<typeof zLearningInput>;
+export type LearningPatch = z.infer<typeof zLearningPatch>;
+export type Learning = z.infer<typeof zLearning>;
+/** A page of learnings, newest first; `next` is the `before` cursor for the page after it (null at the end). */
+export interface LearningPage {
+  learnings: Learning[];
+  next: string | null;
+}
+/** `days`: distinct days with an entry; `streak`: consecutive days ending today or yesterday; `total`: every entry. */
+export interface LearningStats {
+  days: number;
+  streak: number;
+  total: number;
+}
+
 // ---------- plan builder ----------
 export const zPlanMode = z.enum(['file', 'text', 'describe', 'revise']);
 export const zPlanDraftRequest = z.object({

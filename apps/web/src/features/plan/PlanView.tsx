@@ -13,6 +13,7 @@ import { Note, Segmented } from '@/ui/primitives';
 import { useOpenCalendar } from '../day/Calendar';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
+import { MorningCard } from './MorningCard';
 import { MonthPage } from './Month';
 import { WeekPage } from './Week';
 import './plan.css';
@@ -558,6 +559,8 @@ export default function PlanView(): React.JSX.Element {
         titleRef={titleRef}
         gap={24}
       />
+      {/* the morning belongs to the day, not to the week or month shown: above both panes, outside the pagers */}
+      <MorningCard />
       <div className="pl-panes">
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>

@@ -422,3 +422,37 @@ export const dayPlans = sqliteTable(
   },
   (t) => [uniqueIndex('day_plans_user_date').on(t.userId, t.date)],
 );
+
+/** What I learned: one row per thing learned, several a day; soft-deleted so a delete can be undone. */
+export const learnings = sqliteTable(
+  'learnings',
+  {
+    id: id(),
+    userId: userId(),
+    date: text('date').notNull(),
+    text: text('text').notNull(),
+    createdAt: createdAt(),
+    editedAt: text('edited_at'),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('learnings_user_date').on(t.userId, t.date)],
+);
+
+/**
+ * "Remember when" (the top of the Journal tab): one row per past journal entry or learning that has been shown, boosted or
+ * hidden. `summary` is Claude's one-line reminder, written once and kept (never the plain fallback). Migration 0014.
+ */
+export const recallItems = sqliteTable(
+  'recall_items',
+  {
+    userId: userId(),
+    sourceKind: text('source_kind').notNull(),
+    sourceId: text('source_id').notNull(),
+    boost: integer('boost', { mode: 'boolean' }).notNull().default(false),
+    hidden: integer('hidden', { mode: 'boolean' }).notNull().default(false),
+    summary: text('summary'),
+    summarizedAt: text('summarized_at'),
+    lastShown: text('last_shown'),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.sourceKind, t.sourceId] })],
+);

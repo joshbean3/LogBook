@@ -213,15 +213,38 @@ export const nowLine = (T: MorningTimeline, now: number, rel: 'past' | 'today' |
   const wake = T.day.wake;
   if (rel === 'past') return `Woke ${short(wake)} · Left ${short(T.leave)}`;
   if (rel === 'future') return `Alarm ${short(wake)} · Leave ${short(T.leave)}`;
-  const inW = (m: number) => durationWords(Math.max(1, Math.ceil(m - now)));
-  if (now < wake) return `Alarm in ${inW(wake)}`;
-  const door = doorOf(T);
-  if (door != null && now < door) return `Out the door in ${inW(door)}`;
-  if (door != null && now < T.back) return `Back by ${short(T.back)}`;
-  if (now >= T.leave) return `Left ${short(T.leave)}`;
+  const p = morningPhase(T, now);
+  const inW = (m: number) => inWords(m, now);
+  if (p.k === 'alarm') return `Alarm in ${inW(p.at)}`;
+  if (p.k === 'door') return `Out the door in ${inW(p.at)}`;
+  if (p.k === 'out') return `Back by ${short(p.at)}`;
+  if (p.k === 'left') return `Left ${short(p.at)}`;
   const leave = `Leave in ${inW(T.leave)}`;
-  const b = T.blocks.find((x) => x.start <= now && now < x.end);
-  if (b?.key === 'free') return `Free until ${short(b.end)} · ${leave}`;
-  if (b && b.id != null) return `${blockLabel(T, b)} now · ${leave}`;
+  if (p.k === 'free') return `Free until ${short(p.until)} · ${leave}`;
+  if (p.k === 'step') return `${p.name} now · ${leave}`;
   return leave;
+};
+
+/** "22 min" until `at`, never less than a minute (the Now card's and the Plan card's countdowns). */
+export const inWords = (at: number, now: number) => durationWords(Math.max(1, Math.ceil(at - now)));
+
+/**
+ * Where today's morning is at `now`, the one rule under every line that says so (the Now card's `nowLine`, Plan's morning
+ * card): before the alarm, before the door, out (until back), in the home stretch (free, a step under way, or between them),
+ * or gone. `at` is the time that phase is counting to (the leave time for the home stretch, the leave time once gone).
+ */
+export type MorningPhase =
+  | { k: 'alarm' | 'door' | 'out' | 'left' | 'leave'; at: number }
+  | { k: 'free'; at: number; until: number }
+  | { k: 'step'; at: number; name: string };
+export const morningPhase = (T: MorningTimeline, now: number): MorningPhase => {
+  if (now < T.day.wake) return { k: 'alarm', at: T.day.wake };
+  const door = doorOf(T);
+  if (door != null && now < door) return { k: 'door', at: door };
+  if (door != null && now < T.back) return { k: 'out', at: T.back };
+  if (now >= T.leave) return { k: 'left', at: T.leave };
+  const b = T.blocks.find((x) => x.start <= now && now < x.end);
+  if (b?.key === 'free') return { k: 'free', at: T.leave, until: b.end };
+  if (b && b.id != null) return { k: 'step', at: T.leave, name: blockLabel(T, b) };
+  return { k: 'leave', at: T.leave };
 };

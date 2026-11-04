@@ -30,7 +30,7 @@ export type GardenMode = 'garden' | 'day';
  * page carries the days around it as a row of plants, its name, and its memory in the typewriter ink, or the hand-drawn
  * plus to plant one. Planting draws the day's plant in. The pill at the bottom switches between the two.
  */
-export const JournalGarden = ({ today, focusKey = 0 }: { today: string; focusKey?: number }) => {
+export const JournalGarden = ({ today, focusKey = 0, openDay = null }: { today: string; focusKey?: number; openDay?: { date: string; n: number } | null }) => {
   const list = useJournalList('', false);
   const all = useMemo(() => list.data?.entries ?? [], [list.data]);
   const byDate = useMemo(() => {
@@ -52,6 +52,10 @@ export const JournalGarden = ({ today, focusKey = 0 }: { today: string; focusKey
     setDay(d);
     setMode('day');
   };
+  // a day asked for from outside (Remember when's words): its page, as a tap in the garden opens it
+  useEffect(() => {
+    if (openDay) open(openDay.date);
+  }, [openDay]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="gdn">
       {mode === 'garden' ? <Garden today={today} byDate={byDate} all={all} pending={!list.data} onOpen={open} /> : <DayPage key={day} date={day} today={today} byDate={byDate} onDay={setDay} writeKey={writeKey} />}

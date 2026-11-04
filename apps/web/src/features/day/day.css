@@ -554,77 +554,11 @@
   color: var(--ink-3);
   text-align: left;
 }
-.morning-row {
-  margin-top: 12px;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-  overflow: hidden;
-}
-.sentence + .morning-row,
-.nudge + .morning-row {
-  margin-top: 0;
-}
-.mr-row.pressable {
-  display: grid;
-  grid-template-columns: 18px auto minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  height: 44px;
-  min-height: 44px;
-  padding: 0 12px 0 16px;
-  text-align: left;
-}
-.mr-ic {
-  color: var(--ink-2);
-}
-.mr-title {
-  font: 400 17px/22px var(--sans);
-  color: var(--ink);
-  white-space: nowrap;
-}
-.mr-right {
-  justify-self: end;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  height: 20px;
-  font: 400 15px/20px var(--sans);
-  color: var(--ink-3);
-  overflow: hidden;
-  max-width: 100%;
-}
-.mr-part {
-  /* a later part that does not fit drops whole to the hidden second line; the first ellipsizes only as a last resort */
-  flex: none;
-  white-space: pre;
-}
-.mr-part:first-child {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mr-short {
-  display: none;
-}
 /* the rest face's next-session row: below 360 the time after the session drops whole (feel review 2 #8) */
 @media (max-width: 359px) {
   .hero-next-tail {
     display: none;
   }
-}
-@media (max-width: 359px) {
-  .mr-title .mr-long {
-    display: none;
-  }
-  .mr-title .mr-short {
-    display: inline;
-  }
-}
-.mr-chev {
-  color: var(--ink-3);
 }
 .second-session.pressable {
   margin-top: 12px;

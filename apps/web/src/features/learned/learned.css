@@ -1,0 +1,277 @@
+/* What I learned: today's card lit from below, a quiet stats line, then the past under month headings. */
+
+/* ---------- today's card (the hero) ---------- */
+.ln-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 20px 0 4px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-lg);
+  min-width: 0;
+}
+.ln-hero.has-items {
+  padding-bottom: 12px;
+}
+.ln-hero-skel {
+  gap: 12px;
+  padding: 20px 16px 24px;
+  min-height: 200px;
+}
+/* the stage light, from under the card's foot: behind Save, never behind the words (it fades out well below them) */
+.ln-glow {
+  position: absolute;
+  inset: auto 0 0;
+  height: 96px;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.55;
+  pointer-events: none;
+}
+/* with today's words in the card the light stays low, under the last field's foot */
+.ln-hero.has-items .ln-glow {
+  height: 44px;
+  opacity: 0.45;
+}
+.ln-prompt {
+  margin: 0;
+  padding: 0 16px;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+.ln-hero-caps {
+  padding: 0 16px 4px;
+}
+.ln-today-list {
+  display: grid;
+}
+
+/* ---------- the field ---------- */
+.ln-compose {
+  display: grid;
+  min-width: 0;
+}
+.ln-field {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  padding: 8px 16px;
+  font-family: var(--serif);
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  letter-spacing: 0;
+  resize: none;
+  overflow: hidden;
+}
+.ln-field:focus,
+.ln-field:focus-visible {
+  outline: none;
+}
+.ln-field::placeholder {
+  color: var(--ink-3);
+}
+textarea.ln-field {
+  min-height: 44px;
+}
+.ln-compose:not(.is-quiet) textarea.ln-field {
+  min-height: 100px;
+}
+/* "Add another": a hairline above, one line, the words at --ink-4 until there are some */
+.ln-compose.is-quiet {
+  margin: 8px 16px 0;
+  border-top: 1px solid var(--line);
+}
+.ln-compose.is-quiet .ln-field {
+  padding: 12px 0 8px;
+}
+.ln-compose.is-quiet .ln-field::placeholder {
+  color: var(--ink-4);
+}
+.ln-compose.is-quiet .ln-compose-foot {
+  padding-right: 0;
+}
+.ln-compose-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 56px;
+  padding: 4px 16px 8px;
+}
+/* Save: a 32 px pill, the one blue, at 40 % until there are words; a 44 px target */
+.ln-save.pressable {
+  position: relative;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #fff;
+  font: 600 0.9375rem/1.25rem var(--sans);
+  opacity: 0.4;
+  transition: opacity var(--dur-color) var(--ease-out);
+}
+.ln-save.is-ready {
+  opacity: 1;
+}
+.ln-save::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+/* ---------- a learning as words ---------- */
+.ln-line.pressable {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.ln-line.is-today.pressable {
+  width: auto;
+  margin: 0 16px;
+  padding: 8px 0;
+  border-radius: 0;
+}
+.ln-line.is-today + .ln-line.is-today {
+  border-top: 1px solid var(--line);
+}
+.ln-line + .ln-line {
+  margin-top: 2px;
+}
+.ln-sheet .ln-sheet-field {
+  padding: 4px 0 12px;
+}
+
+/* ---------- the stats line ---------- */
+.ln-stats {
+  margin: 12px 4px 0;
+  min-height: 20px;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- search ---------- */
+.ln-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 28px;
+  min-height: 44px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.ln-search:focus-within {
+  border-color: var(--line-strong);
+}
+.ln-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+.ln-search-in {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 40px 0 36px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.0625rem;
+  line-height: 1.375rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ln-search-in:focus,
+.ln-search-in:focus-visible {
+  outline: none;
+}
+.ln-search-in::placeholder {
+  color: var(--ink-3);
+}
+.ln-search-in::-webkit-search-cancel-button {
+  display: none;
+}
+.ln-search-clear {
+  position: absolute;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+}
+.ln-none {
+  margin: 24px 4px 0;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  color: var(--ink-3);
+}
+
+/* ---------- the past ---------- */
+.ln-month {
+  margin-top: 32px;
+}
+.ln-month-title {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.ln-day {
+  display: grid;
+  padding: 14px 0 10px;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.ln-day:last-child {
+  border-bottom: 0;
+}
+.ln-day-caps {
+  margin-bottom: 4px;
+}
+.ln-end {
+  height: 1px;
+}
+.ln-more {
+  display: grid;
+  gap: 10px;
+  padding: 16px 0;
+}

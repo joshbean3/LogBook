@@ -9,6 +9,7 @@ import { addToDraft } from './JournalDaySection';
 import { asPrompt } from './JournalHome';
 import { JournalGarden } from './Garden';
 import { Library } from './Library';
+import { RecallCard } from './RecallCard';
 import './journal.css';
 import './seg.css';
 
@@ -45,6 +46,9 @@ export default function JournalView() {
   const paneOf = (s: Seg) => (s === 'journal' ? journalPane : libraryPane).current;
   const fades = useRef<Animation[]>([]);
   const [focusKey, setFocusKey] = useState(0);
+  // Remember when's words open their day's page in the garden
+  const [openDay, setOpenDay] = useState<{ date: string; n: number } | null>(null);
+  const openRecalled = useCallback((date: string) => setOpenDay((r) => ({ date, n: (r?.n ?? 0) + 1 })), []);
 
   const show = useCallback(
     (to: Seg, fade = true) => {
@@ -130,7 +134,8 @@ export default function JournalView() {
       </NavBar>
       <div className="j-panes">
         <section ref={journalPane} className={`j-pane ${cls('journal')}`} aria-hidden={off('journal')} aria-label="Journal">
-          <JournalPane today={today} focusKey={focusKey} />
+          <RecallCard today={today} onOpenDay={openRecalled} />
+          <JournalPane today={today} focusKey={focusKey} openDay={openDay} />
         </section>
         {/* both mounted and laid out from the start (the hidden one is visibility: hidden): a switch restyles, never mounts */}
         <section ref={libraryPane} className={`j-pane ${cls('library')}`} aria-hidden={off('library')} aria-label="Library">
