@@ -1,7 +1,7 @@
 /* ---------- Plan's morning card (MorningCard.tsx): the morning as a track, at the top of Plan, outside the pager ---------- */
 .mc-wrap {
   /* the card's height, so the skeleton holds the same room (one line of the big words, the track, the footer) */
-  --mc-h: 236px;
+  --mc-h: 240px;
   padding: 0 16px 24px;
   min-width: 0;
 }
@@ -271,15 +271,26 @@
   color: var(--ink-2);
 }
 
-/* a narrow card (320, or 390 at a larger text size): the times drop AM/PM, Run out reads Out */
-@container mc (max-width: 340px) {
+/*
+ * The line's width decides the words (morningCard.ts LINE_LONG / LINE_AMPM, plus the dots' 12 px): AM/PM only on a wide card
+ * (a tablet, the rail), and on a narrow one (320, or 390 at a larger text size) Run out reads Out and the stamps step to 15.
+ */
+.mc-u {
+  display: none;
+}
+@container mc (min-width: 400px) {
+  .mc-u {
+    display: inline;
+  }
+}
+@container mc (max-width: 299.98px) {
   .mc-long {
     display: none;
   }
   .mc-short {
     display: inline;
   }
-  .mc-u {
-    display: none;
+  .mc-time {
+    font-size: 0.9375rem;
   }
 }

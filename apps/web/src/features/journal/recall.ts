@@ -31,7 +31,9 @@ export const useRecallActions = (date: string) => {
       if (boost !== undefined) qc.setQueryData<RecallState>(key, (s) => (s?.item && s.item.id === id && s.item.kind === kind ? { ...s, item: { ...s.item, boosted: boost } } : s));
       try {
         const next = await write<RecallState>(`/journal/recall/${kind}/${encodeURIComponent(id)}`, 'PUT', { boost, hidden }, [key]);
-        if (next) set(next);
+        // a boost answered after "Another" moved on keeps the card where it is
+        const cur = qc.getQueryData<RecallState>(key)?.item;
+        if (next && (hidden !== undefined || !cur || (cur.kind === kind && cur.id === id))) set(next);
         // queued offline: a hidden one leaves now; the next comes when the write lands and the query refetches
         else if (hidden) qc.setQueryData<RecallState>(key, (s) => (s?.item && s.item.id === id && s.item.kind === kind ? { ...s, item: null } : s));
         return next;

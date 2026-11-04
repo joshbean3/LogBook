@@ -34,19 +34,27 @@ describe('the stops on the track', () => {
   });
   it('sit in proportion to time, but never closer than their gap (the run keeps room for its name)', () => {
     const stops = cardStops(RUN);
-    expect(gapsOf(stops)).toEqual([0.2, 0.34, 0.2]);
-    expect(trackOf(stops.map((s) => s.at), gapsOf(stops))).toEqual([0, 0.2, 0.54, 1]);
+    // a 390 phone's line (308 px): 74 px at the edges, 108 for the run
+    const g = gapsOf(stops, 308);
+    expect(g.map((x) => Math.round(x * 308))).toEqual([74, 108, 74]);
+    expect(trackOf(stops.map((s) => s.at), g)).toEqual([0, 0.2403, 0.5909, 1]);
+    // a 320 phone's (238 px): the minimums leave little room, but every stretch keeps its own
+    const n = trackOf(stops.map((s) => s.at), gapsOf(stops, 238));
+    expect(n[1]! * 238).toBeGreaterThanOrEqual(62 - 0.01);
+    expect((n[2]! - n[1]!) * 238).toBeGreaterThanOrEqual(108 - 0.01);
+    expect((1 - n[2]!) * 238).toBeGreaterThanOrEqual(62 - 0.01);
     expect(trackOf([0, 50, 60, 100], [0.2, 0.2, 0.2])).toEqual([0, 0.5, 0.7, 1]);
     expect(trackOf([0, 1, 2, 100], [0.2, 0.2, 0.2])).toEqual([0, 0.2, 0.4, 1]);
     expect(trackOf([0, 98, 99, 100], [0.2, 0.2, 0.2])).toEqual([0, 0.6, 0.8, 1]);
-    expect(trackOf([440, 570], gapsOf(cardStops(REST)))).toEqual([0, 1]);
+    expect(gapsOf(cardStops(REST), 238)).toEqual([0]);
+    expect(trackOf([440, 570], [0])).toEqual([0, 1]);
   });
   it('are evenly spaced when the gaps cannot all fit', () => {
     expect(trackOf([0, 10, 20, 100], [0.5, 0.5, 0.5])).toEqual([0, 1 / 3, 2 / 3, 1].map((x) => Math.round(x * 1e4) / 1e4));
   });
   it('carry the now dot in proportion within the stretch it is in, and none outside the morning', () => {
     const stops = cardStops(RUN);
-    const pos = trackOf(stops.map((s) => s.at), gapsOf(stops));
+    const pos = [0, 0.2, 0.54, 1];
     expect(nowOnTrack(stops, pos, 482.5)).toBeCloseTo(0.37);
     expect(nowOnTrack(stops, pos, 440)).toBe(0);
     expect(nowOnTrack(stops, pos, 570)).toBe(1);

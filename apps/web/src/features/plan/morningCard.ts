@@ -59,8 +59,24 @@ export const trackOf = (ats: number[], gaps: number[]): number[] => {
   return p.map((x) => Math.round(x * 1e4) / 1e4);
 };
 
-/** The minimum stretches of a card's track: the run's (door → back) wide enough for its name, the others for two labels. */
-export const gapsOf = (stops: CardStop[]): number[] => stops.slice(1).map((s, i) => (stops[i]!.key === 'door' && s.key === 'back' ? 0.34 : stops.length === 2 ? 0 : 0.2));
+/**
+ * The narrowest line (px between the edge dots' centres) that still shows `RUN OUT` and the times with AM/PM: below the
+ * first the labels shorten (`OUT`) and the stamps step to 15; from the second the meridiem shows. morningcard.css's
+ * container queries are these plus the dots' 12 px.
+ */
+export const LINE_LONG = 288;
+export const LINE_AMPM = 388;
+
+/**
+ * The minimum stretches of a card's track, as fractions of a line `width` px wide: the run's (door → back) wide enough for
+ * the pill with its name between two dots; the first and the last for the edge stop's label and stamp (which run inward
+ * from the edge) and half its neighbour's. A two-stop line has no minimum.
+ */
+export const gapsOf = (stops: CardStop[], width: number): number[] => {
+  if (stops.length <= 2) return stops.slice(1).map(() => 0);
+  const edge = width >= LINE_AMPM ? 104 : width >= LINE_LONG ? 74 : 62;
+  return stops.slice(1).map((s, i) => (stops[i]!.key === 'door' && s.key === 'back' ? 108 : edge) / Math.max(1, width));
+};
 
 /** Where `now` sits on the track: between the two stops it falls between, in proportion to the time; null outside the morning. */
 export const nowOnTrack = (stops: CardStop[], pos: number[], now: number): number | null => {

@@ -1,7 +1,7 @@
 import { clockOfDay, fmtDate, monthOf, shiftDays, type MorningTimeline } from '@logbook/shared';
 import { AlarmClock, ArrowUpRight, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import type * as React from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import { dayCaption } from '@/ui/captions';
@@ -108,10 +108,22 @@ interface Tap {
 }
 
 const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: string; rel: 'today' | 'tomorrow'; now: number; tap: Tap; menu: () => ContextMenuItem[] }) => {
+  // the line's width (between the edge dots' centres) sets how close two stops may sit; a first guess from the window
+  const lineRef = useRef<HTMLSpanElement>(null);
+  const [width, setWidth] = useState(() => Math.max(200, Math.min(window.innerWidth, 720) - 32 - 38 - 12));
+  useLayoutEffect(() => {
+    const el = lineRef.current;
+    if (!el) return;
+    const read = () => setWidth(Math.round(el.clientWidth) - 12);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const stops = cardStops(T);
   const pos = trackOf(
     stops.map((s) => s.at),
-    gapsOf(stops),
+    gapsOf(stops, width),
   );
   const isToday = rel === 'today';
   const nowP = isToday ? nowOnTrack(stops, pos, now) : null;
@@ -143,7 +155,7 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
               </span>
             ))}
           </span>
-          <span className="mc-row mc-line">
+          <span ref={lineRef} className="mc-row mc-line">
             <span className="mc-rail" />
             {nowP != null ? <span className="mc-done" style={{ transform: `scaleX(${nowP})` }} /> : null}
             {seg ? <span className="mc-seg" style={{ '--a': seg.a, '--b': seg.b } as React.CSSProperties} /> : null}

@@ -288,9 +288,6 @@
 .goals-card.is-skel {
   height: 112px;
 }
-.goals-card + .morning-row {
-  margin-top: 12px;
-}
 .g-owed.pressable {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr) 16px;

@@ -280,9 +280,6 @@
   font: 400 15px/20px var(--sans);
   color: var(--ink-3);
 }
-.hv-morning .morning-row {
-  margin-top: 0;
-}
 /* one row per habit: the initial, the name and its line, the last 30 days as a 10 × 3 grid at the right */
 .hv-row.pressable {
   display: grid;
