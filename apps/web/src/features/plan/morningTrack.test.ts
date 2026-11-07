@@ -1,7 +1,7 @@
 import { MORNING_DEFAULTS, type Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
 import { morningOf, nowLine } from '../morning/model';
-import { cardStops, gapsOf, headline, nowOnTrack, quietLine, trackOf, whichMorning, workOf } from './morningCard';
+import { cardStops, gapsOf, headline, nowOnTrack, quietLine, trackOf, whichMorning, workOf } from './morningTrack';
 
 const sess = (p: Partial<Session> & Pick<Session, 'date' | 'kind'>): Session => ({ id: `s-${p.date}-${p.kind}`, position: 0, type: null, title: null, details: null, miles: null, minutes: null, blockId: null, movedFrom: null, mark: null, ...p });
 // MORNING_DEFAULTS: alarm 7:20, Easy 5 at 9:00/mi (out 7:35, back 8:30), the routine fixed at 8:40, leave 9:30
