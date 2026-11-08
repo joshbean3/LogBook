@@ -6,63 +6,24 @@
 
 .pd {
   display: grid;
-  gap: 14px;
+  min-width: 0;
 }
 .pd.is-skel {
   min-height: 300px;
-  border-radius: 24px;
+  border-radius: var(--r-card);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
-.pd-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.pd-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font-size: var(--fs-foot);
-  font-weight: 650;
-  transition:
-    background-color 300ms,
-    color 300ms;
-}
+/* the section head: "Plan your day" and how many are done, grey at its baseline (the orange words when all are) */
 .pd-count.is-all {
-  background: var(--sun);
-  color: var(--sun-ink);
+  color: var(--accent-text);
+  font-weight: 600;
 }
+/* the board: the goal card, then one card per band, 12 apart */
 .pd-board {
   display: grid;
-  gap: 18px;
-}
-
-/* ---------- the count, top right: the day so far ---------- */
-.pd-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--r-pill);
-  background: var(--surface-2);
-  color: var(--ink);
-  font-size: var(--fs-sub);
-  font-weight: 650;
-  transition:
-    background-color 300ms,
-    color 300ms;
-}
-.pd-count.is-all {
-  background: var(--sun);
-  color: var(--sun-ink);
-  box-shadow: 0 0 22px rgba(255, 200, 61, 0.45);
+  gap: var(--gap);
+  min-width: 0;
 }
 
 /* ---------- the goal: words over a sun that grows, and swells to fill the card when it is done ---------- */
@@ -72,10 +33,11 @@
   overflow: hidden;
   display: grid;
   gap: 12px;
-  padding: 18px 16px 16px;
-  border-radius: 24px;
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   text-align: left;
   transition:
     box-shadow 200ms var(--ease-out),
@@ -118,8 +80,8 @@
 .pd-goal-text {
   max-width: 88%;
   font-family: var(--serif);
-  font-size: 1.625rem;
-  line-height: 1.95rem;
+  font-size: 1.5rem;
+  line-height: 1.875rem;
   color: var(--ink);
   text-wrap: pretty;
   transition: color 300ms;
@@ -127,8 +89,8 @@
 .pd-goal-set {
   max-width: 78%;
   font-family: var(--serif);
-  font-size: 1.625rem;
-  line-height: 1.95rem;
+  font-size: 1.5rem;
+  line-height: 1.875rem;
   color: var(--ink);
 }
 .pd-goal-cta {
@@ -136,9 +98,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 40px;
-  margin-top: 6px;
-  padding: 0 16px;
+  height: 44px;
+  margin-top: 8px;
+  padding: 0 18px;
   border-radius: var(--r-pill);
   background: var(--primary);
   color: var(--primary-ink);
@@ -215,8 +177,10 @@
   stroke: var(--sun);
 }
 /* a to-do in the air can land here as a step */
-.pd-goal.is-open {
-  border: 1px dashed rgba(255, 200, 61, 0.6);
+.pd-goal.is-droppable {
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255, 200, 61, 0.6),
+    var(--shadow-1);
 }
 .pd-goal.is-target {
   border-color: var(--sun);
@@ -275,18 +239,23 @@
   -webkit-box-orient: vertical;
 }
 
-/* ---------- a review owed ---------- */
+/* ---------- a review owed: one white row over the goal ---------- */
 .pd-owed {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 48px;
-  padding: 0 16px;
-  border-radius: var(--r-pill);
-  background: rgba(255, 200, 61, 0.12);
-  border: 1px solid rgba(255, 200, 61, 0.4);
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 14px 0 16px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
+}
+.pd-owed > svg {
+  flex: none;
+  color: var(--ink-4);
 }
 .pd-owed-dot {
   flex: none;
@@ -298,134 +267,165 @@
 }
 .pd-owed-text {
   flex: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: var(--fs-sub);
+  min-width: 0;
+  display: grid;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .pd-owed-text .caps {
-  color: var(--sun);
+  color: var(--ink-3);
 }
 
-/* ---------- sections: Anytime, Morning, Afternoon, Evening ---------- */
+/* ---------- the bands: Anytime, Morning, Afternoon, Evening, each its own white card ---------- */
 .pd-sec {
+  position: relative;
   display: grid;
-  gap: 8px;
-  padding: 4px 0;
-  border-radius: 20px;
-  transition:
-    background-color 200ms,
-    box-shadow 200ms;
+  min-width: 0;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow 200ms var(--ease-out);
 }
+/* a card in the air over this band: its edge lights in the band's colour */
 .pd-sec.is-over {
-  background: color-mix(in srgb, var(--bh) 8%, transparent);
-  box-shadow: 0 0 0 10px color-mix(in srgb, var(--bh) 8%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--bh) 70%, transparent),
+    0 0 28px color-mix(in srgb, var(--bh) 25%, transparent);
 }
+/* the head row: icon tile, name, Now, x/y with its ring, the fold */
 .pd-sec-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 36px;
-}
-/* the pill: the section's colour, filling like a gauge as its cards are checked; a tap folds the section */
-.pd-pill {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 14px 0 16px;
   border: 0;
-  border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--bh) 16%, var(--surface));
-  color: var(--bh);
-  font-size: var(--fs-caps);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.pd-pill-fill {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  transform-origin: left center;
-  background: color-mix(in srgb, var(--bh) 34%, var(--surface));
-}
-.pd-pill-count {
-  letter-spacing: 0.02em;
-}
-.pd-pill-chev {
-  transition: transform 220ms var(--ease-out);
-}
-.pd-sec.is-closed .pd-pill-chev {
-  transform: rotate(-90deg);
-}
-.pd-sec.is-done .pd-pill {
-  background: var(--bh);
+  border-radius: var(--r-card);
+  background: none;
   color: var(--ink);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--bh) 45%, transparent);
+  font: inherit;
+  text-align: left;
 }
-.pd-sec.is-done .pd-pill-fill {
-  display: none;
-}
-.pd-sec.is-past:not(.is-over):not(.is-done) .pd-pill {
-  opacity: 0.6;
-}
-.pd-now {
-  padding: 3px 8px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--bh);
-  color: var(--bh);
-  font-size: var(--fs-caps);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--bh) 40%, transparent);
-}
-.pd-sec-add {
-  width: 36px;
-  height: 36px;
-  margin: 0 -6px 0 auto;
+.pd-sec-ic {
+  flex: none;
   display: grid;
   place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
+  background: color-mix(in srgb, var(--bh) 18%, var(--surface));
+  color: color-mix(in srgb, var(--bh) 55%, var(--ink));
+}
+.pd-sec-name {
+  min-width: 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pd-sec-right {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.pd-sec-count {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
+.pd-sec.is-done .pd-sec-count {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pd-ring {
+  display: block;
+}
+.pd-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+.pd-ring-track {
+  stroke: var(--line);
+}
+.pd-ring-arc {
+  stroke: var(--bh);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 600ms var(--ease-out);
+}
+.pd-sec-chev {
+  flex: none;
+  color: var(--ink-4);
+  transition: transform 220ms var(--ease-out);
+}
+.pd-sec.is-closed .pd-sec-chev {
+  transform: rotate(-90deg);
+}
+/* a part of today already over steps back */
+.pd-sec.is-past:not(.is-over):not(.is-done) .pd-sec-ic {
+  opacity: 0.55;
+}
+.pd-sec.is-past:not(.is-over) .pd-sec-name {
+  color: var(--ink-2);
+}
+.pd-now {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--bh) 16%, var(--surface));
+  color: color-mix(in srgb, var(--bh) 45%, var(--ink));
+  font: 600 var(--fs-caps) / 1rem var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* the rows: a zone the drag measures (its cards' offsets), hairlines from the words */
 .pd-zone {
   position: relative;
   display: grid;
-  gap: 8px;
+  min-width: 0;
 }
+.pd-zone:empty {
+  display: none;
+}
+.pd-zone > * {
+  position: relative;
+}
+.pd-zone > .pd-card::after,
+.pd-add::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.pd-zone > .pd-card.is-hole::after,
+.pd-zone > .pd-card.is-hole + .pd-card::after,
+.pd-zone > .pd-card.is-armed::after,
+.pd-zone > .pd-card.is-armed + .pd-card::after {
+  opacity: 0;
+}
+/* a dashed slot only while a card is in the air: the one "drop here" */
 .pd-slot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 52px;
-  padding: 0 16px;
-  border-radius: 16px;
-  border: 1.5px dashed var(--line-strong);
-  background: none;
-  color: var(--ink-4);
-  font: inherit;
-  font-size: var(--fs-sub);
-  text-align: left;
-}
-.pd-slot.is-live {
   justify-content: center;
-  border-color: color-mix(in srgb, var(--bh) 65%, transparent);
-  color: var(--bh);
+  min-height: 52px;
+  margin: 0 12px 12px;
+  border-radius: var(--r-control);
+  border: 1.5px dashed color-mix(in srgb, var(--bh) 65%, transparent);
+  color: color-mix(in srgb, var(--bh) 50%, var(--ink));
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
-
-/* ---------- cards: an icon in a circle of the section's colour, the words, the round check ---------- */
+/* ---------- a to-do as a row: the icon tile, the words, the round check ---------- */
 .pd-card {
   position: relative;
-  border-radius: 18px;
-  background: var(--surface-2);
+  border-radius: var(--r-control);
+  background: var(--surface);
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -440,30 +440,30 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 58px;
-  padding: 6px 6px 6px 10px;
+  min-height: 56px;
+  padding: 6px 6px 6px 16px;
 }
 .pd-ico {
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--ic, var(--mint)) 20%, transparent);
-  font-size: 1.25rem;
+  border-radius: var(--r-icon);
+  background: color-mix(in srgb, var(--ic, var(--mint)) 16%, var(--surface));
+  font-size: 1.0625rem;
   line-height: 1;
 }
 .pd-ico.is-goal {
   background: rgba(255, 200, 61, 0.2);
-  box-shadow: inset 0 0 0 1px rgba(255, 200, 61, 0.45);
 }
+/* a list's colour: a slim bar at the row's leading edge */
 .pd-card.has-tc::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 14px;
-  bottom: 14px;
+  top: 16px;
+  bottom: 16px;
   width: 3px;
   border-radius: 0 3px 3px 0;
   background: var(--tc);
@@ -472,7 +472,7 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 1px;
   padding: 4px 0;
   border: 0;
   background: none;
@@ -485,9 +485,7 @@
   align-items: center;
   gap: 6px;
   color: var(--ink);
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  font-weight: 550;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   overflow-wrap: anywhere;
   transition: color 200ms;
 }
@@ -495,11 +493,12 @@
   overflow: hidden;
   color: var(--ink-3);
   font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .pd-card-meta.is-goal {
-  color: var(--sun);
+  color: color-mix(in srgb, var(--sun) 50%, var(--ink-2));
 }
 /* done: the words and the icon step back; the check stays lit */
 .pd-card.is-done .pd-ico,
@@ -511,21 +510,18 @@
   text-decoration: line-through;
   text-decoration-color: var(--ink-4);
 }
-.pd-card.is-step {
-  box-shadow: inset 0 0 0 1px rgba(255, 200, 61, 0.18);
-}
-/* the hold is up: the card rises to meet the finger */
+/* the hold is up: the row rises off the card to meet the finger */
 .pd-card.is-armed {
   z-index: 2;
   transform: scale(1.025);
-  background: var(--surface-3);
-  box-shadow: 0 10px 28px rgba(15, 42, 68, 0.165);
+  border-radius: var(--r-tile);
+  box-shadow: var(--shadow-float);
 }
 /* where the card in the air would land */
 .pd-card.is-hole {
   opacity: 1;
-  background: color-mix(in srgb, var(--mk) 8%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mk) 60%, transparent);
+  background: color-mix(in srgb, var(--mk) 8%, var(--surface));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mk) 55%, transparent);
 }
 .pd-card.is-hole .pd-card-in {
   visibility: hidden;
@@ -541,6 +537,7 @@
   top: 0;
   z-index: 1000;
   pointer-events: none;
+  border-radius: var(--r-tile);
   background: var(--surface);
   border-color: color-mix(in srgb, var(--gh, var(--sun)) 55%, transparent);
   box-shadow:
@@ -596,25 +593,56 @@
   background: var(--bad);
 }
 
-/* ---------- adding ---------- */
+/* ---------- the add row at a band's foot; the field takes its place ---------- */
 .pd-add {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 12px;
-  border-radius: var(--r-group);
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: 0 0 var(--r-card) var(--r-card);
   color: var(--ink-3);
-  font-size: var(--fs-sub);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  text-align: left;
+}
+/* an empty band: the add row is the band's only row, no hairline under the head */
+.pd-zone:empty + .pd-add::after {
+  display: none;
+}
+.pd-add-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
+  border: 1.5px dashed var(--line-strong);
+  color: var(--ink-3);
+}
+.pd-add-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pd-add.is-field {
-  border-radius: 16px;
-  background: var(--surface);
   color: var(--ink-2);
+}
+.pd-add.is-field .pd-add-ic {
+  border-style: solid;
+  border-color: var(--ink-3);
+  color: var(--ink-2);
+}
+.pd-add-input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 .pd-add-input {
   flex: 1;
   min-width: 0;
+  height: 40px;
   border: 0;
   outline: none;
   background: none;
@@ -622,14 +650,18 @@
   font: inherit;
   font-size: var(--fs-row);
 }
-.pd-all {
-  justify-self: center;
+/* the rest of the to-dos: a white action pill under the bands */
+.pill-row.pd-all {
+  color: var(--ink-2);
+  font-size: var(--fs-sub);
+}
+.pd-all-in {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
-  color: var(--ink-3);
-  font-size: var(--fs-foot);
+}
+.pd-all-in svg {
+  color: var(--ink-4);
 }
 
 @media (prefers-reduced-motion: reduce) {

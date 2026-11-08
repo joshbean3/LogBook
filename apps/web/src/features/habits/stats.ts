@@ -58,3 +58,36 @@ export const streakLine = (w: HabitWindow): string => {
   const p = streakParts(w);
   return p.count ? `${p.streak} · ${p.count}` : p.streak;
 };
+
+/** One stat tile on the habit sheet: a label, a big number with its unit, and a status word under it. */
+export interface HabitTile {
+  label: string;
+  value: string;
+  unit: string;
+  status: string;
+  /** Nothing to show yet: the status reads grey. */
+  none: boolean;
+}
+
+/**
+ * The habit sheet's two tiles: the streak (its best run of the window under it when that is longer) and how many of the
+ * window's days were lit (`countLabel`: "Last 30 days", or "Since Nov 2" for a newer habit). A habit with nothing lit keeps
+ * both tiles, with dashes (empty states keep the layout).
+ */
+export const habitTiles = (w: Pick<HabitWindow, 'since' | 'lit' | 'streak' | 'best'>, countLabel: string): [HabitTile, HabitTile] => {
+  const days = (n: number) => (n === 1 ? 'day' : 'days');
+  const streak: HabitTile =
+    w.streak > 0
+      ? { label: 'Streak', value: String(w.streak), unit: days(w.streak), status: w.best > w.streak ? `Best ${w.best} ${days(w.best)}` : 'Your best yet', none: false }
+      : { label: 'Streak', value: '–', unit: '', status: w.best >= 2 ? `Best ${w.best} days` : 'Light it today', none: w.best < 2 };
+  const n = w.since.length;
+  const count: HabitTile =
+    w.lit > 0
+      ? { label: countLabel, value: String(w.lit), unit: `of ${n}`, status: `${Math.round((w.lit / Math.max(1, n)) * 100)}% of days`, none: false }
+      : { label: countLabel, value: '0', unit: `of ${n}`, status: 'No days yet', none: true };
+  return [streak, count];
+};
+
+/** The history sheet's longest current streak across habits: its days and the habit's name, or null when none is running. */
+export const longestStreak = (list: Array<{ name: string; streak: number }>): { name: string; streak: number } | null =>
+  list.reduce<{ name: string; streak: number } | null>((top, x) => (x.streak > 0 && (!top || x.streak > top.streak) ? x : top), null);

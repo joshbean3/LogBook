@@ -355,7 +355,7 @@
   transform: rotate(180deg);
 }
 
-/* the to-do sheet: the name on a hairline, the note in the serif under a caps label; Save is the one blue */
+/* the to-do sheet (shape system §5): the name in a white card, then each setting in its own card, its label in grey */
 .tsheet-kicker {
   display: block;
   font-family: var(--sans);
@@ -364,34 +364,47 @@
 .tsheet-name {
   width: 100%;
   min-width: 0;
+  min-height: 56px;
+  padding: 0 16px;
   border: 0;
-  border-bottom: 1px solid var(--line);
-  background: transparent;
-  padding: 10px 0 11px;
-  min-height: 44px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   font-size: 17px;
   line-height: 22px;
   font-weight: 500;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--ink);
   outline: none;
-  border-radius: 0;
 }
 .tsheet-name:focus {
-  border-bottom-color: var(--line-strong);
+  box-shadow:
+    inset 0 0 0 2px var(--ink-2),
+    var(--shadow-1);
 }
 .tsheet-field {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
-.tsheet-note {
-  padding: 8px 0;
-  min-height: 96px;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
+.tsheet-label {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
 }
-.tsheet-note:focus {
-  border-bottom-color: var(--line-strong);
+.tsheet-field .tsheet-note {
+  padding: 10px 12px;
+  min-height: 88px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+}
+.tsheet-field .tsheet-note:focus {
+  box-shadow: inset 0 0 0 2px var(--ink-2);
 }
 .tsheet-when {
   display: flex;
@@ -424,38 +437,65 @@
 /* ---------- the full list in its sheet: SwipeRow v2 rows ---------- */
 .tlist {
   display: grid;
-  margin: 0 -20px;
-  /* the rows are the sheet's own colour (the pane shows only under a moving row) */
-  --swipe-bg: var(--bg);
+  gap: var(--gap);
+  min-width: 0;
+  /* the rows are their card's white (the pane shows only under a moving row) */
+  --swipe-bg: var(--surface);
 }
-.tgroup > * + * {
-  border-top: 1px solid var(--line);
+/* each group of to-dos is one white card; hairlines from the words */
+.tgroup {
+  overflow: hidden;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.tgroup > * {
+  position: relative;
+}
+.tgroup > * + *::before {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 48px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
 }
 .tl-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
-  padding: 0 20px 0 9px;
+  min-height: 52px;
+  padding: 0 16px 0 6px;
 }
 .tl-name {
   flex: 1;
   min-width: 0;
 }
-.tlist .tfold,
-.tlist .tlist-add {
-  border-top: 1px solid var(--line);
-}
+/* the add field and each fold (Later, Someday, Completed) are white rows of their own */
+.tlist .tlist-add,
 .tlist .tfold {
-  background: transparent;
+  min-height: 52px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .tlist-add .tt-field {
-  padding: 0 20px;
+  min-height: 52px;
+  padding: 0 16px;
 }
 .tlist-clear {
   margin: 0;
-  padding: 12px 20px;
-  color: var(--ink-2);
+  padding: 14px 16px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink-3);
+  font-size: var(--fs-sub);
 }
 
 /* ---------- highlight, lists, the By list view ---------- */
@@ -560,12 +600,15 @@
   color: var(--ink-3);
 }
 .tlist-seg {
-  /* the list runs edge to edge (.tlist's −20 px); the switch keeps the sheet's inset */
   width: auto;
-  margin: 0 20px 12px;
+  margin: 0 0 4px;
+}
+.tlist-list {
+  display: grid;
+  gap: 8px;
 }
 .tlist-list + .tlist-list {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 .tlist-head.pressable,
 .tlist-head {
@@ -574,7 +617,7 @@
   gap: 8px;
   width: 100%;
   min-height: 44px;
-  padding: 0 20px;
+  padding: 0 4px;
   border: 0;
   background: none;
   color: var(--ink);
@@ -600,11 +643,11 @@
   align-items: center;
   gap: 8px;
   width: auto;
-  min-height: 44px;
-  margin: 20px 20px 0;
-  padding: 0 12px;
-  border-radius: var(--r-group);
-  border: 1px dashed var(--line-strong);
+  min-height: 52px;
+  margin: 16px 0 0;
+  padding: 0 16px;
+  border-radius: var(--r-tile);
+  border: 1.5px dashed var(--line-strong);
   background: none;
   color: var(--accent-text);
   font: 500 17px/22px var(--sans);

@@ -41,7 +41,7 @@ export const ListSheet = ({ group, onCreated }: { group?: TodoGroup; onCreated?:
     <>
       <input className="tsheet-name" value={name} maxLength={30} placeholder="Work, Home, Banking…" aria-label="List name" autoFocus={!group} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
       <div className="tsheet-field">
-        <span className="caps">Colour</span>
+        <span className="tsheet-label">Colour</span>
         <ColorSwatches value={color} onChange={(c) => c && setColor(c)} allowNone={false} />
       </div>
       {group ? <p className="tsheet-hint">{n ? `${n} open to-do${n === 1 ? '' : 's'} in this list.` : 'No open to-dos in this list.'} Deleting it keeps them.</p> : null}

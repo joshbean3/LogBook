@@ -10,7 +10,7 @@ import { useSheet } from '@/ui/Sheet';
 import { useNowMinutes } from '../day/useNow';
 import { useLog } from '../log/useLog';
 import { useOpenSession } from '../sessions/SessionCard';
-import { justWord, morningOf, ROUTINE_DEFAULTS, rowsOf, takeLegacyOrder, type RowSet } from './model';
+import { justWord, morningOf, short as shortClock, ROUTINE_DEFAULTS, rowsOf, takeLegacyOrder, type RowSet } from './model';
 import { NowCard } from './NowCard';
 import { useOpenRoutineEditor } from './RoutineEditor';
 import { Schedule, type ScheduleActions } from './Schedule';
@@ -279,11 +279,19 @@ export default function MorningView() {
       ) : (
         <>
           <NowCard T={T} date={date} now={now} rel={rel} />
+          <div className="m-head">
+            <h2 className="m-head-title">Schedule</h2>
+            <span className="m-head-meta tnum">
+              {shortClock(T.day.wake)} to {shortClock(T.leave)}
+            </span>
+          </div>
           <Schedule T={T} rows={rows} rel={rel} now={now} moved={moved} actions={actions} wake={{ onStep, onCommit, onDragging: setAlarmDragging, dragging: alarmDragging, held: !!drag?.live }} />
           {actions ? (
-            <Pressable className="m-add" press="dim" onPress={actions.addStep}>
-              <Plus size={22} aria-hidden="true" />
-              Add a step
+            <Pressable className="pill-row m-add" press="surface" onPress={actions.addStep} label="Add a step">
+              <span className="m-add-in">
+                <Plus size={18} aria-hidden="true" />
+                Add a step
+              </span>
             </Pressable>
           ) : null}
         </>

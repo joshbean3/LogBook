@@ -145,6 +145,20 @@
 .hero.is-tall .hero-deck {
   margin-top: 6px;
 }
+/* the card's two parts (shape system §3): the words over the deck, split by a full-width hairline */
+.hero-deck:not(:empty)::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: -16px;
+  right: -16px;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.hero.is-tall .hero-deck::before {
+  display: none;
+}
 .hero-deck-ring {
   padding-right: 64px;
 }
@@ -268,13 +282,18 @@
   gap: 8px;
   height: 44px;
   min-height: 44px;
-  padding: 0 12px;
-  border-radius: var(--r-group);
-  background: rgba(15, 42, 68, 0.06);
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: var(--r-control);
+  background: none;
   color: var(--ink);
   font: 400 15px/20px var(--sans);
   text-align: left;
   width: 100%;
+}
+.hero-next.pressable > svg {
+  flex: none;
+  color: var(--ink-4);
 }
 .hero-next-text {
   flex: 1;
@@ -616,12 +635,43 @@
   margin-top: 24px;
   min-width: 0;
 }
-.day-page .day-sec-head {
+/* every section head on the day (shape system §2): sans 20/25, a grey meta at its baseline, an orange action at the right */
+.day-sec-head {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  height: 25px;
-  margin-bottom: var(--sec-gap);
+  min-width: 0;
+  min-height: 25px;
+  margin: 0 0 var(--sec-gap);
+}
+.day-sec-head .sec-title {
+  margin: 0;
+  flex: none;
+  font: 600 1.25rem / 1.5625rem var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.day-sec-head .sec-meta {
+  min-width: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.day-sec-head .sec-action {
+  flex: none;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: -10px 0 -10px auto;
+  padding: 0 0 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / 1 var(--sans);
 }
 .todos > .sec-primary {
   margin-top: 0;
@@ -640,48 +690,44 @@
   height: 25px;
 }
 
-/* ---------- the week card (§3.1 row 6, M22) ---------- */
-.week-card.pressable {
-  margin-top: 24px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 108px;
-  padding: 16px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  text-align: left;
-  width: 100%;
-}
-.week-ring {
-  flex: none;
-  display: grid;
-}
-.week-card.is-skel {
-  margin-top: 24px;
-  min-height: 108px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-}
-.wc-text {
-  display: grid;
-  gap: 2px;
+/* ---------- the week (§3.1 row 6, M22): a section head over two tiles, miles and runs; the ring in the runs tile ---------- */
+.week-card {
   min-width: 0;
 }
-.wc-week {
-  font: 600 13px/18px var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+.week-card.is-skel {
+  height: 155px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  opacity: 0.5;
 }
-.wc-stats {
-  font: 600 17px/22px var(--sans);
-  color: var(--ink);
+.wc-tiles.pressable {
+  width: 100%;
+  text-align: left;
 }
-.wc-note {
-  font: 400 15px/20px var(--sans);
-  color: var(--ink-3);
+.wc-tile {
+  min-height: 112px;
+}
+.wc-runs {
+  padding-right: 14px;
+}
+.wc-runs .tile-label,
+.wc-runs .tile-value {
+  padding-right: 46px;
+}
+.week-ring {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+}
+/* the week's one line: two lines at most where the tile is narrow */
+.tile-status.wc-note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-weight: 500;
+  color: var(--ink-2);
 }
 
 /* ---------- where the plan stops (§3.1 row 7) ---------- */
@@ -737,56 +783,82 @@
 .strava-primer {
   margin-top: 24px;
 }
+/* the day's words (past days): a section head with Share, then the entries as rows in one card, an add row at its foot */
 .the-day {
-  margin-top: 24px;
+  margin-top: var(--section);
+  min-width: 0;
+}
+.td-card {
   display: grid;
-  gap: 8px;
-  padding: 16px;
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
 }
-.td-eyebrow {
-  font: 600 11px/13px var(--sans);
-  letter-spacing: 0.06em;
-}
-.td-entries {
-  display: grid;
-  gap: 12px;
-}
 .td-entry {
+  position: relative;
   display: grid;
   gap: 2px;
+  padding: 14px 16px;
+}
+.td-entry + .td-entry::before,
+.td-card > .td-entry ~ .td-add::before,
+.td-card > .td-entry ~ .td-composer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
 }
 .td-time {
-  font: 600 11px/13px var(--sans);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
 }
 .td-text {
   margin: 0;
-  font: 400 17px/22px var(--sans);
+  font: italic 400 1.0625rem / 1.375rem var(--display);
   color: var(--ink);
   white-space: pre-wrap;
   -webkit-user-select: text;
   user-select: text;
 }
 .td-add.pressable {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  color: var(--accent-text);
-  font: 400 15px/20px var(--sans);
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 16px;
+  border-radius: var(--r-card);
+  color: var(--ink-3);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-align: left;
-  border-top: 1px solid var(--line);
 }
-.td-share.pressable {
-  justify-self: start;
+.td-card > .td-entry ~ .td-add.pressable {
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  color: var(--accent-text);
+}
+.td-add-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.td-composer {
+  position: relative;
+  padding: 12px;
 }
 .td-composer .composer {
-  background: rgba(15, 42, 68, 0.04);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--r-control);
 }
 
 /* ---------- the calendar sheet ---------- */
@@ -891,39 +963,47 @@
 .cd-stamps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  height: 40px;
-  margin-top: 12px;
+  height: 48px;
+  margin-top: 14px;
 }
+/* three numbers split by hairlines, the label over each */
 .cd-stamp {
   display: grid;
-  grid-template-rows: 13px 26px;
-  row-gap: 1px;
+  grid-template-rows: 18px 30px;
   min-width: 0;
+  padding: 0 12px;
 }
-.cd-stamp .caps {
-  font: 600 11px/13px var(--sans);
-  letter-spacing: 0.06em;
-  color: rgba(15, 42, 68, 0.62);
+.cd-stamp:first-child {
+  padding-left: 0;
+}
+.cd-stamp + .cd-stamp {
+  box-shadow: inset 1px 0 0 var(--line);
+}
+.cd-stamp-k {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cd-num {
-  font: 800 22px/26px var(--stamp);
+  font: 700 26px/30px var(--stamp);
   letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cd-num small {
-  font: 700 12px/16px var(--sans);
+  font: 500 13px/16px var(--sans);
   letter-spacing: 0;
-  color: rgba(15, 42, 68, 0.7);
+  color: var(--ink-3);
 }
 /* nothing to stamp: one plain sentence in the stamps' place */
 .cd-line {
   display: flex;
   align-items: center;
-  height: 40px;
-  margin: 12px 0 0;
+  height: 48px;
+  margin: 14px 0 0;
   font: 400 15px/20px var(--sans);
   color: var(--ink-2);
 }
@@ -932,8 +1012,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 60px;
-  margin: 12px -16px 0;
+  height: 64px;
+  margin: 14px -16px 0;
   padding: 0 12px 0 16px;
   box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line);
   text-align: left;
@@ -995,9 +1075,9 @@
   min-width: 0;
 }
 .cd-composer .composer {
-  background: rgba(15, 42, 68, 0.04);
-  border: 1px solid var(--line);
-  border-radius: var(--r-group);
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--r-control);
 }
 .cd-composer textarea.jtext {
   min-height: 60px;
@@ -1017,8 +1097,7 @@
   gap: 2px;
 }
 .cd-entry-time {
-  font: 600 11px/13px var(--sans);
-  letter-spacing: 0.06em;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .cd-entry-text {
@@ -1041,36 +1120,33 @@
   font: 400 15px/20px var(--sans);
   text-align: left;
 }
-/* step 5: Tomorrow, always shown */
-.cd-tomorrow {
-  margin-top: 16px;
+/* after the card: Tomorrow (its own section: the word and the alarm in one group), the read, Share the day as a pill */
+.cd-after {
   display: grid;
-  gap: 8px;
+  gap: var(--gap);
+  margin-top: var(--section);
+  min-width: 0;
 }
-.cd-tomorrow-head {
-  font: 600 11px/13px var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+.cd-tomorrow {
+  min-width: 0;
 }
 .cd-tgroup.group {
   margin: 0;
-  background: rgba(15, 42, 68, 0.04);
-  border: 0;
 }
 .cd-trow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  height: 44px;
-  padding: 0 12px 0 16px;
+  gap: 12px;
+  min-height: 56px;
+  height: 56px;
+  padding: 0 14px 0 16px;
   width: 100%;
   text-align: left;
   font: 400 17px/22px var(--sans);
   color: var(--ink);
 }
-.cd-trow + .cd-trow {
-  box-shadow: inset 16px 1px 0 -15px var(--line);
+.cd-tgroup > .cd-trow + .cd-trow {
+  box-shadow: inset 60px 1px 0 var(--surface), inset 0 1px 0 var(--line);
 }
 .cd-trow-title {
   flex: 1;
@@ -1106,18 +1182,13 @@
   user-select: text;
   -webkit-user-select: text;
 }
-/* steps 6–7 */
-.hero-share.cd-share {
-  align-self: flex-start;
-  margin-top: 12px;
+.pill-row.cd-share {
+  color: var(--ink);
 }
-.cd-pick {
-  margin-top: 8px;
-}
-.cd-pick .group {
-  background: transparent;
-  border: 0;
-  margin: 0 -16px;
+.cd-share-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ---------- the word sheet (WordSheet.tsx) ---------- */
@@ -1170,37 +1241,44 @@
 }
 .frh-rows {
   display: grid;
-  grid-auto-rows: 44px;
-  margin: 0 -16px;
+  grid-auto-rows: 48px;
+  margin: 2px -16px 0;
 }
 .frh-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 0 16px;
-  min-height: 44px;
+  padding: 0 14px 0 16px;
+  min-height: 48px;
   text-align: left;
   width: 100%;
 }
-.frh-row + .frh-row {
-  box-shadow: inset 0 1px 0 var(--line);
+.frh-row + .frh-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
 }
 .frh-ic {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
   display: grid;
   place-items: center;
-  background: var(--surface-2);
-  color: var(--ink);
+  background: var(--columbia-wash);
+  color: var(--ink-2);
 }
 .frh-title {
-  font: 600 15px/20px var(--sans);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
 .frh-chev {
-  color: var(--ink-3);
+  color: var(--ink-4);
 }
 
 /* ---------- the trailing slot (§2.4): avatar ⇄ Today pill, a 120 ms opacity crossfade on the commit frame ---------- */
@@ -1405,15 +1483,15 @@
   height: 52px;
 }
 
-/* ---------- the day's timeline: what was done, in order, at the foot of the day ---------- */
+/* ---------- the day's timeline: what was done, in order, as rows in one card at the foot of the day ---------- */
 .tl {
-  margin-top: 32px;
+  min-width: 0;
 }
 .tl-list {
   position: relative;
   display: grid;
-  margin: 8px 0 0;
-  padding: 4px 0;
+  margin: 0;
+  padding: 0;
   list-style: none;
   border-radius: var(--r-card);
   background: var(--surface);
@@ -1423,28 +1501,41 @@
 .tl-row {
   position: relative;
   display: grid;
-  grid-template-columns: 64px 32px minmax(0, 1fr);
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 10px;
-  min-height: 56px;
-  padding: 8px 16px 8px 12px;
+  column-gap: 12px;
+  min-height: 60px;
+  padding: 10px 16px;
+}
+/* hairlines from the words */
+.tl-row + .tl-row::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
 }
 /* the thread between the tiles */
 .tl-row + .tl-row::before {
   content: '';
   position: absolute;
-  top: -10px;
-  height: 20px;
-  left: calc(12px + 64px + 10px + 15px);
+  top: -12px;
+  height: 24px;
+  left: calc(16px + 15px);
   width: 2px;
   border-radius: 1px;
   background: var(--columbia);
 }
 .tl-time {
+  align-self: start;
+  padding-top: 2px;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-3);
   text-align: right;
+  white-space: nowrap;
 }
 .tl-tile {
   position: relative;
@@ -1453,7 +1544,7 @@
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 10px;
+  border-radius: var(--r-icon);
   background: var(--columbia-wash);
   color: var(--ink-2);
 }
@@ -1473,7 +1564,7 @@
   min-width: 0;
 }
 .tl-title {
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1486,49 +1577,52 @@
   font-size: 1.0625rem;
 }
 .tl-sub {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 
-/* ---------- today's session on hold (Plan's Held.tsx) ---------- */
+/* ---------- today's session on hold (Plan's Held.tsx): one white row over the hero ---------- */
 .held-note.pressable {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  margin: 0 0 10px;
-  padding: 8px 12px;
-  border-radius: var(--r-group);
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  gap: 12px;
+  min-height: 60px;
+  margin: 0 0 var(--gap);
+  padding: 10px 14px 10px 16px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
   text-align: left;
 }
-.held-note.held-rest.pressable {
-  background: var(--columbia-wash);
-  color: var(--ink-2);
-}
+/* the dot in a tinted tile: orange while ill or hurt, grey while resting */
 .held-dot {
   flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
+  background: radial-gradient(circle, var(--accent) 0 4px, var(--accent-soft) 4.5px);
 }
 .held-rest .held-dot {
-  background: var(--ink-4);
+  background: radial-gradient(circle, var(--ink-4) 0 4px, var(--columbia-wash) 4.5px);
 }
 .held-note-text {
   flex: 1;
   min-width: 0;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .held-note-go {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  color: var(--accent-text);
   font: 600 var(--fs-sub) / 1 var(--sans);
+}
+.held-rest .held-note-go {
+  color: var(--ink-2);
 }
 
 /* ---------- section rhythm (shape system §5): every section starts 28 below the one before ---------- */

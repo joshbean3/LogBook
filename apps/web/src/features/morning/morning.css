@@ -6,7 +6,29 @@
   display: block;
 }
 .m-page > .now-card {
-  margin-top: 16px;
+  margin-top: 12px;
+}
+/* the section head over the schedule (shape system §2): sans 20/25, a grey meta at its baseline */
+.m-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: var(--section) 0 var(--sec-gap);
+}
+.m-head-title {
+  margin: 0;
+  font: 600 1.25rem / 1.5625rem var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.m-head-meta {
+  min-width: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- the Now card: the four stops and one live line (96 tall, card 20/16, no halo) ---------- */
@@ -14,10 +36,10 @@
 .now-card {
   display: grid;
   align-content: center;
-  gap: 4px;
+  gap: 10px;
   min-height: 96px;
   box-sizing: border-box;
-  padding: 13px 16px;
+  padding: var(--pad-card);
   border-radius: var(--r-card);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
@@ -29,9 +51,12 @@
 .now-card .mini-tl {
   margin: 0;
 }
+/* where the morning is, in the serif, over the four stops */
 .now-line {
+  order: -1;
   margin: 0;
-  font: 600 17px/22px var(--sans);
+  font: italic 400 22px/28px var(--display);
+  letter-spacing: -0.01em;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -45,12 +70,12 @@
 /* ---------- the schedule: one group, one row type ---------- */
 .sch {
   position: relative;
-  margin: 24px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   border: var(--card-border);
   box-shadow: var(--shadow-1);
-  border-radius: var(--r-group);
+  border-radius: var(--r-card);
   background: var(--surface);
   /* no overflow clip: a lifted step (1.03) and the alarm row while dragged (1.02) grow past the group's edges */
 }
@@ -60,7 +85,7 @@
   background: var(--surface);
 }
 .sch > li:first-child {
-  border-radius: var(--r-group) var(--r-group) 0 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
 }
 /* the hairline between rows, inset to the name (iOS), drawn by the lower row so a moving row carries its own */
 .sch > li + li::before {
@@ -127,8 +152,8 @@
   place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  background: var(--surface-3);
+  border-radius: var(--r-icon);
+  background: var(--columbia-wash);
   color: var(--ink-2);
 }
 .sch-main {
@@ -360,7 +385,7 @@
   position: sticky;
   z-index: 3;
   bottom: 0;
-  border-radius: 0 0 var(--r-group) var(--r-group);
+  border-radius: 0 0 var(--r-card) var(--r-card);
 }
 .sch > li.leave-row::before {
   left: 0;
@@ -376,7 +401,8 @@
   position: relative;
   /* the two stacked labels of its roll share one box */
   display: inline-grid;
-  font: 600 22px/28px var(--sans);
+  font: 700 24px/28px var(--stamp);
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
@@ -390,19 +416,15 @@
 }
 
 /* ---------- + Add a step ---------- */
-.m-add {
-  display: flex;
+.pill-row.m-add {
+  margin-top: var(--gap);
+  color: var(--ink);
+  font-size: var(--fs-sub);
+}
+.m-add-in {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 44px;
-  margin: 8px 0 0;
-  padding: 0 16px;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: 400 17px/22px var(--sans);
-  text-align: left;
+  gap: 8px;
 }
 
 /* ---------- skeleton: the page's shape ---------- */

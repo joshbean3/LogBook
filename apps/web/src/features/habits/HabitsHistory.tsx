@@ -1,5 +1,5 @@
 import { monthOf, shiftDays, type Habit } from '@logbook/shared';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Flame, SlidersHorizontal, Sun } from 'lucide-react';
 import type * as React from 'react';
 import { useMemo } from 'react';
 import { useNav } from '@/app/NavController';
@@ -9,8 +9,8 @@ import { useSheet } from '@/ui/Sheet';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useLog, type Log } from '../log/useLog';
 import { HabitSheet } from './HabitSheet';
-import { useHabitShown } from './OrbRow';
-import { habitWindow, streakLine, streakParts, WINDOW_DAYS, type HabitWindow } from './stats';
+import { useHabitShown, useHabitsLit } from './OrbRow';
+import { habitWindow, longestStreak, streakLine, streakParts, WINDOW_DAYS, type HabitWindow } from './stats';
 import './habits.css';
 
 /** The last 30 days as a 10 × 3 grid of cells, oldest at the top left, today at the bottom right (outlined). */
@@ -67,18 +67,24 @@ export const HabitsHistory = (): React.JSX.Element => {
   if (!loaded) return <SkeletonRows rows={4} label="Loading habits" />;
   return (
     <div className="hv-history">
+      <HistoryTiles log={log} />
       {log.habits.length ? (
-        <div className="list-edge hv-list">
+        <div className="hv-list">
           {log.habits.map((h) => (
             <StreakRow key={h.id} h={h} log={log} />
           ))}
         </div>
       ) : (
-        <p className="empty">No habits yet. Add one with the + at the end of the row on Today.</p>
+        <p className="hv-none">No habits yet. Add one with the + at the end of the row on Today.</p>
       )}
-      <div className="list-edge hv-manage-list">
+      <div className="group hv-manage-list">
         <Row
           className="hv-manage"
+          left={
+            <span className="icon-tile" aria-hidden="true">
+              <SlidersHorizontal size={16} />
+            </span>
+          }
           title="Manage habits"
           sub="Rename, reorder, archive"
           right={<ChevronRight size={16} aria-hidden="true" className="lrow-chev" />}
@@ -88,6 +94,36 @@ export const HabitsHistory = (): React.JSX.Element => {
           }}
           label="Manage habits: rename, reorder, archive. Open"
         />
+      </div>
+    </div>
+  );
+};
+
+/** Two tiles over the list: how many are lit today (as the orbs show it), and the longest streak running. */
+const HistoryTiles = ({ log }: { log: Log }) => {
+  const { lit, total } = useHabitsLit(log.today, log);
+  const top = longestStreak(log.habits.map((h) => ({ name: h.name, streak: habitWindow((d) => log.snap.isHabitDone(d, h.id), log.today, h.createdOn).streak })));
+  return (
+    <div className="tiles hv-tiles">
+      <div className="tile">
+        <span className="tile-label">
+          <Sun size={15} aria-hidden="true" /> Today
+        </span>
+        <span className="tile-value tnum">
+          {total ? lit : '–'}
+          {total ? <small>of {total}</small> : null}
+        </span>
+        <span className={`tile-status ${!total ? 'is-none' : ''}`}>{!total ? 'No habits yet' : lit >= total ? 'All lit' : `${total - lit} to go`}</span>
+      </div>
+      <div className="tile">
+        <span className="tile-label">
+          <Flame size={15} aria-hidden="true" /> Top streak
+        </span>
+        <span className="tile-value tnum">
+          {top ? top.streak : '–'}
+          {top ? <small>{top.streak === 1 ? 'day' : 'days'}</small> : null}
+        </span>
+        <span className={`tile-status hv-top ${top ? '' : 'is-none'}`}>{top ? top.name : 'None running'}</span>
       </div>
     </div>
   );

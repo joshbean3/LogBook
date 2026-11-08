@@ -160,43 +160,38 @@
   padding: 12px 0 4px;
 }
 
-/* ---------- the habit sheet ---------- */
+/* ---------- the habit sheet (shape system §5): two stat tiles, the 30 days in a card, the notes in a card, the name, Archive ---------- */
 .hs {
   display: grid;
-  gap: 18px;
-}
-.hs-stamps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-.hs-stamp {
-  display: grid;
-  gap: 4px;
+  gap: var(--gap);
   min-width: 0;
 }
-.hs-stamp .caps {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.hs-tile {
+  min-height: 104px;
 }
-.hs-start {
+.hs-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.hs-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.hs-card-title {
   margin: 0;
-  font-size: 0.9375rem;
-  line-height: 1.375rem;
-  color: var(--ink-2);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
-.hs-num {
-  font-variant-numeric: tabular-nums;
-  font-size: 1.75rem;
-  line-height: 2rem;
-}
-.hs-num small {
-  font-size: 0.75rem;
-  font-weight: 700;
+.hs-card-foot {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
-  text-transform: none;
-  letter-spacing: 0;
+  white-space: nowrap;
 }
 .hs-grid {
   display: grid;
@@ -207,11 +202,11 @@
   appearance: none;
   border: 0;
   aspect-ratio: 1;
-  min-height: 44px;
-  border-radius: 12px;
+  min-height: 40px;
+  border-radius: var(--r-control);
   background: var(--surface-2);
   color: var(--ink-3);
-  font-size: 0.8125rem;
+  font: 500 0.8125rem / 1 var(--stamp);
   font-variant-numeric: tabular-nums;
   display: grid;
   place-items: center;
@@ -221,76 +216,115 @@
 .hs-cell.on {
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 10px rgba(242, 96, 12, 0.55);
+  box-shadow: 0 0 10px rgba(242, 96, 12, 0.45);
 }
 .hs-cell.is-today {
   box-shadow: inset 0 0 0 1.5px var(--ink-2);
 }
 .hs-cell.on.is-today {
-  box-shadow: inset 0 0 0 1.5px #fff, 0 0 10px rgba(242, 96, 12, 0.55);
+  box-shadow: inset 0 0 0 1.5px #fff, 0 0 10px rgba(242, 96, 12, 0.45);
 }
 .hs-cell.before {
   opacity: 0.35;
 }
-.hs-notes {
-  display: grid;
-  gap: 8px;
+/* the notes: rows with hairlines between them */
+.hs-card.hs-notes {
+  gap: 0;
+}
+.hs-card.hs-notes .hs-card-head {
+  padding-bottom: 6px;
 }
 .hs-note {
   display: grid;
   gap: 2px;
   padding-block: 10px;
 }
+.hs-note + .hs-note {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.hs-note-date {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
 .hs-note-text {
   font-family: var(--display);
   font-style: italic;
   font-size: 1.0625rem;
+  line-height: 1.375rem;
+  color: var(--ink);
+}
+.hs-note-none {
+  margin: 4px 0 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
 }
 .hs-field {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 .hs-notein {
   width: 100%;
 }
+/* archiving: Settings' destructive pill (an Undo follows in the toast) */
+.pill-row.hs-archive {
+  margin-top: 4px;
+  color: var(--bad);
+  font-weight: 600;
+}
 
-/* ---------- the habits history sheet ---------- */
-.hv-today {
-  margin-top: 0;
+/* ---------- the habits history sheet: two tiles, the habits as rows in one card, Manage habits in a group ---------- */
+.hv-history {
+  display: grid;
+  gap: var(--gap);
+  min-width: 0;
 }
-.hv-morning,
-.hv-streaks {
-  margin-top: 24px;
+.hv-top {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* section heads 20/25 (as Today's were), the meta 15/20 at the baseline */
-.hv-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  height: 25px;
-  margin-bottom: 8px;
+.hv-list {
+  display: grid;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
 }
-.hv-head .sec-title {
+.hv-none {
   margin: 0;
-  font: 600 20px/25px var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.hv-head .sec-meta {
-  font: 400 15px/20px var(--sans);
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--ink-3);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
 }
 /* one row per habit: the initial, the name and its line, the last 30 days as a 10 × 3 grid at the right */
 .hv-row.pressable {
+  position: relative;
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   column-gap: 12px;
   width: 100%;
-  height: 60px;
-  min-height: 60px;
+  min-height: 64px;
+  padding: 10px 16px;
   text-align: left;
   color: var(--ink);
+}
+.hv-row.pressable + .hv-row.pressable::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
 }
 .hv-orb {
   width: 32px;
@@ -312,15 +346,14 @@
   min-width: 0;
 }
 .hv-name {
-  font: 600 17px/22px var(--sans);
-  letter-spacing: -0.02em;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .hv-sub {
-  font: 400 15px/20px var(--sans);
-  letter-spacing: -0.01em;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -354,17 +387,9 @@
 .hv-cell.before {
   opacity: 0.35;
 }
-/* Manage habits: a quiet row to the Settings page, 24 under the list */
-.hv-manage-list {
-  margin-top: 24px;
+.hv-manage-list.group {
+  margin: 0;
 }
 .hv-manage.lrow {
-  background: none;
-  color: var(--ink-2);
-}
-.hv-manage .lrow-title {
-  font-weight: 500;
-}
-.hv-manage[data-pressed] {
-  background: var(--surface-2);
+  gap: 12px;
 }

@@ -178,7 +178,7 @@ const DayShell = ({ date }: { date: ISODate }) => (
   <div className="day-page is-shell" data-day={date}>
     <div className="hero aura hero-skel" data-face="loading" aria-hidden="true" />
     <section className="pd is-skel" aria-hidden="true" />
-    <div className="week-card card is-skel" aria-hidden="true" />
+    <div className="week-card is-skel" aria-hidden="true" />
   </div>
 );
 
@@ -228,7 +228,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       <Sentence />
       {loaded && !first ? <PlanDay date={date} today={today} /> : null}
       {loaded ? <SecondSession date={date} log={log} /> : null}
-      {loaded ? <WeekCard date={date} log={log} /> : <div className="week-card card is-skel" />}
+      {loaded ? <WeekCard date={date} log={log} /> : <div className="week-card is-skel" />}
       {end ? (
         <Suspense fallback={null}>
           <PlanEnd log={log} date={date} />
