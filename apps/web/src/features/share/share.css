@@ -63,6 +63,7 @@
   overflow: hidden;
   background: var(--scrim-solid);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .share-canvas {
   display: block;

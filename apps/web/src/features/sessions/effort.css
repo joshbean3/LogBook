@@ -117,6 +117,7 @@
   min-height: 60px;
   padding: 10px 14px;
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-group);
   background: var(--surface);
   color: var(--ink);

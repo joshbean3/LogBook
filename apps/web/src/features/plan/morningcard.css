@@ -23,6 +23,7 @@
   padding: 16px 18px 0;
   background: var(--mc-bg);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   color: var(--ink);
   text-align: left;

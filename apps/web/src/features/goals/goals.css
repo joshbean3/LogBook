@@ -125,6 +125,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .g-review-text {
   margin: 0;
@@ -186,6 +187,7 @@
   border-radius: var(--r-group);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
 }
 .g-trail-head {
@@ -463,6 +465,7 @@
   border-radius: var(--r-group);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .g-tally-cell {
   display: grid;
@@ -956,6 +959,7 @@
   border-radius: var(--r-pill);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .gv-pick {
   display: inline-flex;
@@ -1020,6 +1024,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   scroll-snap-align: start;
   text-align: left;
 }

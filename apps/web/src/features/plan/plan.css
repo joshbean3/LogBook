@@ -91,6 +91,7 @@
   margin-top: 16px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-group);
   overflow: hidden;
 }
@@ -437,6 +438,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   overflow: hidden;
 }
 .pl-block-main {

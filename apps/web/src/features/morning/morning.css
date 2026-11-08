@@ -20,6 +20,7 @@
   padding: 13px 16px;
   border-radius: var(--r-card);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   background: var(--surface);
   /* WP2's line places its now dot by translating a full-width, invisible track by p of its width: the card clips it as the
      hero's card does, so the track never sits past the screen's edge (integration: WP1 #19 at 320 after the line) */
@@ -48,6 +49,7 @@
   padding: 0;
   list-style: none;
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-group);
   background: var(--surface);
   /* no overflow clip: a lifted step (1.03) and the alarm row while dragged (1.02) grow past the group's edges */

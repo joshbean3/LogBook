@@ -295,6 +295,7 @@ html.kb-open .dock {
   border-radius: var(--r-pill);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
   pointer-events: none;
   opacity: 0;

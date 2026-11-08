@@ -5,6 +5,7 @@
 .tt-group {
   border-radius: var(--r-group);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   background: var(--surface);
 }
 .tt-group > * {

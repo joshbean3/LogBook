@@ -1137,6 +1137,7 @@ textarea.in {
   isolation: isolate;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   padding: 18px 18px 16px;
   min-height: 220px;

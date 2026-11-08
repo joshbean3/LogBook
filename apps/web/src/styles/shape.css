@@ -1,0 +1,333 @@
+/*
+ * Shape system v2 (docs/shape-system.md): one way to build a screen. Loaded after every other stylesheet so the shared
+ * primitives (cards, groups, buttons, round buttons, segmented controls, sheets, bars) all speak it; features build their own
+ * cards from the same tokens. White borderless cards with a soft lift on the pale page, 16 gutter, 12 between, 22/18/12 radii.
+ */
+
+/* ---------- cards, tiles, groups ---------- */
+.card {
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
+}
+.group {
+  border-radius: var(--r-tile);
+}
+.group > .row,
+.lrow {
+  min-height: 56px;
+}
+.group > .row.two,
+.lrow.two {
+  min-height: 64px;
+}
+/* separators start where the words start, not at the card's edge */
+.group > * + * {
+  border-top: 0;
+  box-shadow: inset 16px 1px 0 var(--surface), inset 0 1px 0 var(--line);
+}
+
+/* a 2-column grid of tiles (Health Monitor in the references): label, big number with unit, status word */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+}
+.tile {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  text-align: left;
+}
+.tile-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tile-label svg {
+  flex: none;
+  color: var(--ink-4);
+}
+.tile-value {
+  font: 700 1.75rem / 2rem var(--stamp);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tile-value small {
+  margin-left: 3px;
+  font: 500 var(--fs-sub) / 1 var(--sans);
+  color: var(--ink-3);
+}
+.tile-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.tile-status.is-hi {
+  color: var(--accent-text);
+}
+.tile-status.is-none {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+/* a two-line context chip under a page title (status, phase, weather in the references) */
+.ctx-row {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0 18px;
+  min-width: 0;
+}
+.ctx-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 12px 8px 8px;
+  border-radius: var(--r-chip);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  text-align: left;
+}
+.ctx-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.ctx-text {
+  display: grid;
+  min-width: 0;
+}
+.ctx-title {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ctx-sub {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ctx-chip > svg {
+  flex: none;
+  margin-left: 2px;
+  color: var(--ink-4);
+}
+
+/* a 32 px icon tile before a row's title */
+.icon-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+
+/* a full-width white action pill with centred words (Settings' secondary actions) */
+.pill-row {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+}
+
+/* ---------- section headers: plain sans, sentence case (never caps) ---------- */
+.sec-head {
+  align-items: baseline;
+  margin: 0 0 var(--sec-gap);
+}
+.sec-head .t-label {
+  font: 600 1.25rem / 1.5625rem var(--sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  height: 48px;
+  border-color: transparent;
+  box-shadow: var(--shadow-1);
+  font-size: 1rem;
+}
+.btn.primary,
+.btn.soft,
+.btn.ghost,
+.btn.quiet {
+  box-shadow: none;
+}
+.btn.soft {
+  background: var(--columbia-wash);
+  color: var(--ink);
+}
+.btn.sm {
+  height: 36px;
+  font-size: var(--fs-sub);
+}
+.btn.block.primary,
+.sheet-foot .btn.primary {
+  height: 54px;
+  font-size: 1.0625rem;
+}
+
+/* round buttons: white, lifted, 40 to the eye and 44 to the thumb */
+.icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+}
+.icon-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+.icon-btn.bare {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ---------- segmented control: a pale track, the chosen segment white and lifted ---------- */
+.seg-thumb {
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---------- the tab bar's trailing avatar: a floating white capsule ---------- */
+.nb-trail .avatar {
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+.avatar-disc {
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+
+/* ---------- the pushed bar: round back button, centred title; a background only once the page scrolls under it ---------- */
+.pushed-bar {
+  background: transparent;
+  transition: background var(--dur-color) var(--ease-out);
+}
+.pushed-bar.is-collapsed {
+  background: var(--bg);
+}
+.pushed-bar .back-btn {
+  margin-left: 16px;
+}
+.back-btn {
+  margin-left: 0;
+}
+
+/* ---------- sheets: rounder top, grabber, a centred sans title, round buttons either side ---------- */
+.sheet {
+  border-radius: 24px 24px 0 0;
+  border-top: 0;
+}
+.sheet-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 48px;
+}
+.sheet-head > .sheet-back {
+  grid-column: 1;
+  grid-row: 1;
+  margin-left: 0;
+}
+.sheet-head > .sheet-titles {
+  grid-column: 2;
+  grid-row: 1;
+  justify-items: center;
+  text-align: center;
+}
+.sheet-head > .sheet-titles .sheet-titles-in {
+  justify-items: center;
+}
+.sheet-head > .sheet-action {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+}
+.sheet-head:has(> .sheet-back) > .sheet-action {
+  grid-column: 3;
+  margin-right: 48px;
+  justify-self: end;
+}
+.sheet-head > .icon-btn:last-child {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+.sheet-title {
+  margin: 0;
+  font: 600 1.0625rem / 1.375rem var(--sans);
+  font-style: normal;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sheet-eyebrow {
+  margin-bottom: 1px;
+}
+.sheet-body {
+  gap: var(--gap);
+}
+
+/* ---------- inputs: filled, no border until focus ---------- */
+.in,
+input.in,
+textarea.in,
+select.in {
+  border-color: transparent;
+  background: var(--surface-2);
+  border-radius: var(--r-control);
+}
+.in:focus,
+input.in:focus,
+textarea.in:focus {
+  border-color: var(--ink-2);
+}

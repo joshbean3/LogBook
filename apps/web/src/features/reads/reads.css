@@ -25,6 +25,7 @@
   isolation: isolate;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   padding: 18px 18px 16px;
   min-height: 180px;
@@ -163,6 +164,7 @@
   padding: 10px 12px 10px 16px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   font-size: 0.9375rem;
   line-height: 1.25rem;

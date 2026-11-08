@@ -36,6 +36,7 @@
   isolation: isolate;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   padding: 14px 16px 10px;
   margin-top: 12px;
@@ -777,6 +778,7 @@ button.pg-srow[data-pressed] {
   border-radius: var(--r-pill);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-2);

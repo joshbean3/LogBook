@@ -11,6 +11,7 @@
   padding: 20px 0 4px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   min-width: 0;
 }
@@ -311,6 +312,7 @@ textarea.ln-field {
   display: grid;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   overflow: hidden;
 }
@@ -417,6 +419,7 @@ textarea.ln-field {
   border-radius: var(--r-group);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .ln-gday.is-empty {
   align-items: center;

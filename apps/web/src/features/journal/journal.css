@@ -60,6 +60,7 @@
   overflow: hidden;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   pointer-events: none;
 }
@@ -397,6 +398,7 @@ textarea.jtext:focus {
   padding: 14px 16px 6px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   overflow: hidden;
   -webkit-touch-callout: none;
@@ -724,6 +726,7 @@ textarea.jsheet-text {
   padding: 14px 12px 14px 16px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   text-align: left;
   color: inherit;
@@ -770,6 +773,7 @@ textarea.jsheet-text {
   padding: 16px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   text-align: left;
   color: inherit;
@@ -892,6 +896,7 @@ textarea.jsheet-text {
   padding: 14px 14px 16px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-radius: var(--r-lg);
   text-align: left;
   color: inherit;

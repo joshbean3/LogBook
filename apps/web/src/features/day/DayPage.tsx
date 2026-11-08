@@ -140,7 +140,9 @@ const HabitsTop = memo(function HabitsTop({ date, log }: { date: ISODate; log: L
           <ChevronRight size={15} aria-hidden="true" />
         </button>
       </div>
-      <OrbRowM date={date} log={log} />
+      <div className="day-habits-card">
+        <OrbRowM date={date} log={log} />
+      </div>
     </section>
   );
 });

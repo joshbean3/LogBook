@@ -562,6 +562,7 @@
   border-radius: 14px;
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   color: var(--ink-2);
   font-size: var(--fs-foot);
 }

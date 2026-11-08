@@ -571,6 +571,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   text-align: left;
   width: 100%;
 }
@@ -620,7 +621,7 @@
   align-items: baseline;
   gap: 8px;
   height: 25px;
-  margin-bottom: 8px;
+  margin-bottom: var(--sec-gap);
 }
 .todos > .sec-primary {
   margin-top: 0;
@@ -650,6 +651,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   text-align: left;
   width: 100%;
 }
@@ -693,6 +695,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .plan-end.is-past {
   border-color: rgba(47, 93, 133, 0.4);
@@ -742,6 +745,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .td-eyebrow {
   font: 600 11px/13px var(--sans);
@@ -1247,7 +1251,16 @@
 
 /* habits, at the top of the day: the heading with its count, History at the right, the orbs under it */
 .day-habits {
-  margin: 0 0 16px;
+  margin: 0 0 var(--section);
+}
+/* the orbs in one white card (shape system §3): the row scrolls inside it, to its edges */
+.day-habits-card {
+  overflow: hidden;
+  padding: 14px 16px 12px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .day-habits .day-sec-head {
   align-items: center;
@@ -1275,39 +1288,25 @@
   opacity: 0.5;
 }
 
-/* ---------- the status chip and its sheet (docs/inspiration.md §6, Today 1) ---------- */
-.st-row {
-  display: flex;
-  margin: 2px 0 14px;
+/* ---------- the context row: status and block chips (shape system §3), and the status sheet ---------- */
+.st-row .ctx-chip {
+  flex: 1 1 0;
 }
-.st-pill.pressable {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 12px 0 10px;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  color: var(--ink);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+.st-row .st-chip {
+  flex: 1.15 1 0;
 }
-.st-pill svg {
-  color: var(--ink-3);
-}
-.st-pill-sick.pressable,
-.st-pill-injured.pressable {
+.st-chip-sick .ctx-ic,
+.st-chip-injured .ctx-ic {
   background: var(--accent-soft);
-  border-color: transparent;
   color: var(--accent-text);
 }
-.st-pill-rest.pressable,
-.st-pill-travel.pressable,
-.st-pill-taper.pressable {
-  background: var(--columbia-wash);
-  border-color: transparent;
+.st-chip-sick .ctx-sub,
+.st-chip-injured .ctx-sub {
+  color: var(--accent-text);
+}
+.st-chip-training .ctx-ic {
+  background: var(--columbia);
+  color: var(--ink);
 }
 .st-dot {
   flex: none;
@@ -1338,6 +1337,7 @@
   border-radius: var(--r-group);
   background: var(--surface);
   border: var(--card-border);
+  box-shadow: var(--shadow-1);
   overflow: hidden;
 }
 .st-kind.pressable {
@@ -1529,4 +1529,12 @@
   align-items: center;
   gap: 2px;
   font: 600 var(--fs-sub) / 1 var(--sans);
+}
+
+/* ---------- section rhythm (shape system §5): every section starts 28 below the one before ---------- */
+.day-page > .pd,
+.day-page > .week-card.pressable,
+.day-page > .week-card,
+.day-page > .tl {
+  margin-top: var(--section);
 }
