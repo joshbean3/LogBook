@@ -44,14 +44,15 @@ export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.J
     <section className="tl" aria-label={isToday ? 'Today so far' : 'That day'}>
       <div className="day-sec-head">
         <h2 className="sec-title">{isToday ? 'Today so far' : 'That day'}</h2>
-        <span className="sec-meta tnum">{rows.length}</span>
+        <span className="sec-meta tnum">
+          {rows.length} {rows.length === 1 ? 'thing' : 'things'}
+        </span>
       </div>
       <ol className="tl-list">
         {rows.map((r) => {
           const Icon = ICON[r.kind];
           return (
             <li key={r.id} className={`tl-row tl-${r.kind}`}>
-              <span className="tl-time tnum">{r.mins === null ? '' : clockOf(r.mins)}</span>
               <span className="tl-tile" aria-hidden="true">
                 <Icon size={16} />
               </span>
@@ -59,6 +60,7 @@ export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.J
                 <span className="tl-title">{r.title}</span>
                 {r.sub ? <span className="tl-sub">{r.sub}</span> : null}
               </span>
+              <span className="tl-time tnum">{r.mins === null ? '' : clockOf(r.mins)}</span>
             </li>
           );
         })}

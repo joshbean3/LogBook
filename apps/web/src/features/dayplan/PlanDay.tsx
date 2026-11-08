@@ -315,11 +315,11 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
 
   return (
     <section className={`pd ${drag ? 'is-dragging' : ''}`} aria-label="Plan your day">
-      <div className="pd-head">
-        <h2 className="section-title">{date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The day'}</h2>
+      <div className="day-sec-head pd-head">
+        <h2 className="sec-title">{date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The day'}</h2>
         {total ? (
-          <span className={`pd-count tnum ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
-            <span aria-hidden="true">🎉</span> {done}/{total}
+          <span className={`sec-meta tnum pd-count ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
+            {done === total ? `All ${total} done` : `${done} of ${total} done`}
           </span>
         ) : null}
       </div>
@@ -423,7 +423,7 @@ const GoalCard = ({ date, today, goal, week, target, dragging }: { date: ISODate
   const ended = goal.status === 'partly' || goal.status === 'missed';
   const full = n < GOAL_STEPS_MAX;
   return (
-    <div className={`pd-goal is-${goal.status} ${target ? 'is-target' : ''} ${dragging && full ? 'is-open' : ''}`} data-pd-goal="">
+    <div className={`pd-goal is-${goal.status} ${target ? 'is-target' : ''} ${dragging && full ? 'is-droppable' : ''}`} data-pd-goal="">
       <motion.span className="pd-goal-blob" aria-hidden="true" initial={false} animate={{ scale: isDone ? 9 : 0.55 + 0.45 * p }} transition={reduce ? { duration: 0 } : isDone ? { type: 'spring', duration: 0.9, bounce: 0.05 } : { type: 'spring', duration: 0.6, bounce: 0.3 }} />
       <div className="pd-goal-in">
         <Pressable className="pd-goal-main" press="dim" onPress={() => open('day', date)} label={`${goal.text}. Open`}>
@@ -476,13 +476,25 @@ const readClosed = (p: Place) => {
   }
 };
 
+/** A band's progress: a small ring in its colour that closes as its cards are checked (the day total on the head, §5). */
+const BandRing = ({ fill }: { fill: number }) => {
+  const r = 8;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg className="pd-ring" width={20} height={20} viewBox="0 0 20 20" aria-hidden="true">
+      <circle className="pd-ring-track" cx={10} cy={10} r={r} />
+      <circle className="pd-ring-arc" cx={10} cy={10} r={r} strokeDasharray={c} strokeDashoffset={c * (1 - fill)} transform="rotate(-90 10 10)" />
+    </svg>
+  );
+};
+
 /**
- * One section of the day (Anytime, Morning, Afternoon, Evening): a pill in its colour that fills like a gauge as its cards
- * are checked and folds the section away on a tap, then its cards. A section a card is dragged over opens for it.
+ * One band of the day (Anytime, Morning, Afternoon, Evening) as its own white card: a head row (the band's icon tile, its
+ * name, Now while it is now, how many are done with a small ring, the fold chevron), its to-dos as rows, and an add row at
+ * the foot. A band a card is dragged over opens for it and lights its edge.
  */
 const Section = ({ place, cards, spacer, drag, api, date, today, editable, onAdd }: { place: Place; cards: Card[]; spacer: Spacer | null; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean; onAdd?: (id: string) => void }) => {
   const minutes = useNowMinutes();
-  const reduce = useReduced();
   const [adding, setAdding] = useState(false);
   const [closed, setClosed] = useState(() => readClosed(place));
   const meta = BAND[place];
@@ -493,6 +505,7 @@ const Section = ({ place, cards, spacer, drag, api, date, today, editable, onAdd
   const over = drag?.over?.kind === 'place' && drag.over.place === place;
   const open = !closed || over;
   const allDone = cards.length > 0 && done === cards.length;
+  const name = place === 'tray' ? 'Anytime' : `the ${meta.label.toLowerCase()}`;
   const toggle = () => {
     const next = !closed;
     setClosed(next);
@@ -503,43 +516,38 @@ const Section = ({ place, cards, spacer, drag, api, date, today, editable, onAdd
       /* the fold is a convenience: it lasts the session without storage */
     }
   };
+  const empty = place === 'tray' ? 'Anytime today works' : time === 'past' ? 'This part of the day has passed' : `Nothing in the ${meta.label.toLowerCase()} yet`;
   return (
     <div data-pd-box="" className={`pd-sec is-${time} ${over ? 'is-over' : ''} ${allDone ? 'is-done' : ''} ${open ? '' : 'is-closed'}`} style={{ '--bh': meta.hue } as React.CSSProperties}>
-      <div className="pd-sec-head">
-        <button type="button" className="pd-pill" aria-expanded={open} onClick={toggle}>
-          <motion.i className="pd-pill-fill" aria-hidden="true" initial={false} animate={{ scaleX: fill }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.6, bounce: 0.1 }} />
-          <Icon size={14} strokeWidth={2.4} aria-hidden="true" className="pd-pill-ic" />
-          <span className="pd-pill-name">{meta.label}</span>
-          <span className="pd-pill-count tnum">({allDone ? '✓' : cards.length ? `${done}/${cards.length}` : 0})</span>
-          <ChevronDown size={14} strokeWidth={2.4} aria-hidden="true" className="pd-pill-chev" />
-        </button>
+      <button type="button" className="pd-sec-head" aria-expanded={open} aria-label={`${meta.label}${cards.length ? `, ${done} of ${cards.length} done` : ''}. ${open ? 'Fold' : 'Open'}`} onClick={toggle}>
+        <span className="pd-sec-ic" aria-hidden="true">
+          <Icon size={16} strokeWidth={2.2} />
+        </span>
+        <span className="pd-sec-name">{meta.label}</span>
         {time === 'now' ? <span className="pd-now">Now</span> : null}
-        {editable ? (
-          <button type="button" className={`pd-sec-add ${drag ? 'pd-hide' : ''}`} aria-label={`Add a to-do to ${place === 'tray' ? 'Anytime' : `the ${meta.label.toLowerCase()}`}`} onClick={() => (setClosed(false), setAdding(true))}>
-            <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
+        <span className="pd-sec-right" aria-hidden="true">
+          {cards.length ? (
+            <>
+              <span className="pd-sec-count tnum">
+                {done}/{cards.length}
+              </span>
+              <BandRing fill={fill} />
+            </>
+          ) : !editable ? (
+            <span className="pd-sec-count">Nothing</span>
+          ) : null}
+          <ChevronDown size={16} strokeWidth={2.2} className="pd-sec-chev" />
+        </span>
+      </button>
       <div className="pd-zone" data-pd-zone={place}>
         {open ? (
           <>
             <ZoneCards cards={cards} spacer={spacer} drag={drag} api={api} date={date} today={today} editable={editable} hue={meta.hue} fallback={meta.icon} />
-            {!cards.length && !spacer && !adding ? (
-              drag ? (
-                <span className="pd-slot is-live">Drop into {place === 'tray' ? 'Anytime' : `the ${meta.label.toLowerCase()}`}</span>
-              ) : editable ? (
-                <button type="button" className="pd-slot" onClick={() => setAdding(true)}>
-                  <span>{place === 'tray' ? 'Anytime today works' : time === 'past' ? 'This part of the day has passed' : `Nothing in the ${meta.label.toLowerCase()} yet`}</span>
-                  <Plus size={15} strokeWidth={2.4} aria-hidden="true" />
-                </button>
-              ) : (
-                <span className="pd-slot">Nothing here</span>
-              )
-            ) : null}
+            {!cards.length && !spacer && drag ? <span className="pd-slot is-live">Drop into {name}</span> : null}
           </>
         ) : null}
       </div>
-      {adding ? <AddInline date={date} today={today} placeholder={place === 'tray' ? 'Add a to-do' : `Add to the ${meta.label.toLowerCase()}`} open setOpen={setAdding} onAdd={onAdd} /> : null}
+      {open && editable ? <AddInline date={date} today={today} label={cards.length ? `Add to ${name}` : empty} placeholder={`Add to ${name}`} hidden={!!drag} open={adding} setOpen={setAdding} onAdd={onAdd} /> : null}
     </div>
   );
 };
@@ -700,7 +708,7 @@ const Docks = ({ over, todo }: { over: Over; todo: boolean }) => (
 );
 
 /** Add a to-do where it is asked for (the quick-add words work: `!!`, `#list`, `tomorrow`). */
-const AddInline = ({ date, today, placeholder, open, setOpen, onAdd }: { date: ISODate; today: ISODate; placeholder: string; open: boolean; setOpen: (o: boolean) => void; onAdd?: (id: string) => void }) => {
+const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onAdd }: { date: ISODate; today: ISODate; label: string; placeholder: string; hidden?: boolean; open: boolean; setOpen: (o: boolean) => void; onAdd?: (id: string) => void }) => {
   const { add } = useTodoMutations();
   const groups = useTodoGroups();
   const [draft, setDraft] = useState('');
@@ -717,14 +725,18 @@ const AddInline = ({ date, today, placeholder, open, setOpen, onAdd }: { date: I
   };
   if (!open)
     return (
-      <Pressable className="pd-add" press="surface" onPress={() => setOpen(true)}>
-        <Plus size={17} strokeWidth={2.4} aria-hidden="true" />
-        {placeholder}
+      <Pressable className={`pd-add ${hidden ? 'pd-hide' : ''}`} press="surface" onPress={() => setOpen(true)} label={placeholder}>
+        <span className="pd-add-ic" aria-hidden="true">
+          <Plus size={16} strokeWidth={2.4} />
+        </span>
+        <span className="pd-add-text">{label}</span>
       </Pressable>
     );
   return (
     <div className="pd-add is-field">
-      <Plus size={17} strokeWidth={2.4} aria-hidden="true" />
+      <span className="pd-add-ic" aria-hidden="true">
+        <Plus size={16} strokeWidth={2.4} />
+      </span>
       <input
         autoFocus
         className="pd-add-input"
@@ -754,9 +766,11 @@ const AllTodos = ({ date }: { date: ISODate }) => {
   const someday = g[2]!.items.length;
   const words = ['All to-dos', later ? `Later ${later}` : null, someday ? `Someday ${someday}` : null].filter(Boolean).join(' · ');
   return (
-    <Pressable className="pd-all" press="dim" onPress={() => sheet.open({ title: 'To-dos', detent: 'medium', detents: ['medium', 'large'], body: <TodoListSheet date={date} /> })} label={`Open ${words}`}>
-      {words}
-      <ChevronRight size={15} aria-hidden="true" />
+    <Pressable className="pill-row pd-all" press="surface" onPress={() => sheet.open({ title: 'To-dos', detent: 'medium', detents: ['medium', 'large'], body: <TodoListSheet date={date} /> })} label={`Open ${words}`}>
+      <span className="pd-all-in">
+        {words}
+        <ChevronRight size={16} aria-hidden="true" />
+      </span>
     </Pressable>
   );
 };

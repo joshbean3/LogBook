@@ -23,6 +23,7 @@ import { ToastProvider } from './ui/Toast';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/ui.css';
+import './styles/shape.css';
 
 const qc = new QueryClient({
   defaultOptions: {

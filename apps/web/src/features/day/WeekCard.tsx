@@ -1,9 +1,10 @@
-import { counts, mondayOf, sessionStatus, shiftDays, weekSummary, type ISODate, type Snapshot, type WeekSummary } from '@logbook/shared';
+import { counts, fmtDate, mondayOf, sessionStatus, shiftDays, weekSummary, type ISODate, type Snapshot, type WeekSummary } from '@logbook/shared';
 import type * as React from 'react';
-import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsActiveTab, useTabScroller } from '@/app/NavController';
 import { LANDING_VISIBLE } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
+import { CalendarCheck, CircleCheck, Footprints } from 'lucide-react';
 import { Pressable } from '@/ui/Pressable';
 import { WeekRing } from '@/ui/WeekRing';
 import type { Log } from '../log/useLog';
@@ -60,12 +61,22 @@ const markCelebrated = (key: string) => {
   }
 };
 
+/** The section's name: this week, the one either side of it, or the week's Monday. */
+const weekTitle = (mon: ISODate, today: ISODate) => {
+  const cur = mondayOf(today);
+  if (mon === cur) return 'This week';
+  if (mon === shiftDays(cur, 7)) return 'Next week';
+  if (mon === shiftDays(cur, -7)) return 'Last week';
+  return `Week of ${fmtDate('md', mon)}`;
+};
+
 /**
- * The Week card (docs/feel.md §3.1 row 6, M22): on every day page, the shown day marked on a 64 px `WeekRing` (a missed day a
- * quiet `--ink-4` gap, never red), `WEEK 43` over `8 of 20 mi · 3 of 4 runs` and one line. Tap → the week sheet (Progress's).
+ * The week (docs/feel.md §3.1 row 6, M22; shape system §3): on every day page, a section head (`This week`, `Week 43`) over a
+ * pair of tiles: the miles (`8 of 20 mi`, what is left) and the runs (`3 of 4`, the card's one line) with the shown day
+ * marked on a 40 px `WeekRing` (a missed day a quiet `--ink-4` gap, never red). Tap → the week sheet (Progress's).
  *
  * It owns `celebrate` (§11.4): when the current ISO week's planned runs are all done, once per ISO week, only while Today
- * is the active tab and the card is at least `LANDING_VISIBLE` on screen (it waits for both), with the ring's arcs filling
+ * is the active tab and the tiles are at least `LANDING_VISIBLE` on screen (it waits for both), with the ring's arcs filling
  * on `springs.number` as it fires.
  */
 export const WeekCard = memo(function WeekCard({ date, log }: { date: ISODate; log: Log }): React.JSX.Element {
@@ -78,29 +89,42 @@ export const WeekCard = memo(function WeekCard({ date, log }: { date: ISODate; l
   const parts = [plan > 0 ? `${milesText(ran)} of ${milesText(plan)} mi` : ran > 0 ? `${milesText(ran)} mi` : null, sum.runsPlanned > 0 ? `${sum.runsDone} of ${sum.runsPlanned} runs` : null].filter((x): x is string => !!x);
   const stats = parts.join(' · ') || 'Nothing planned';
   const note = weekNote(log.snap, sum, date, log.today);
+  const left = Math.round((plan - ran) * 10) / 10;
+  const miles = plan > 0 ? (left <= 0 ? { text: 'All run', icon: true, none: false } : { text: `${milesText(left)} mi to go`, icon: false, none: false }) : ran > 0 ? { text: 'Unplanned', icon: false, none: true } : { text: 'Nothing planned', icon: false, none: true };
   const ref = useRef<HTMLElement | null>(null);
   return (
-    <Pressable as="div" ref={ref} className="week-card card" data-week={wk.key} label={`Week ${wk.week}: ${stats}. ${note} Open the week`} onPress={() => openWeek(mon)}>
-      <CardRing date={date} log={log} sum={sum} wk={wk.key} card={ref} />
-      <span className="wc-text">
-        <span className="caps wc-week">Week {wk.week}</span>
-        {/* one line at 390; where it cannot be (320), it breaks only at the dot, never inside "4 runs" */}
-        <span className="wc-stats tnum">
-          {parts.length
-            ? parts.map((p, i) => (
-                <Fragment key={i}>
-                  {i ? ' ' : null}
-                  <span className="wc-part">
-                    {p}
-                    {i < parts.length - 1 ? ' ·' : ''}
-                  </span>
-                </Fragment>
-              ))
-            : stats}
+    <section className="week-card" data-week={wk.key} aria-label={weekTitle(mon, log.today)}>
+      <div className="day-sec-head">
+        <h2 className="sec-title">{weekTitle(mon, log.today)}</h2>
+        <span className="sec-meta tnum">Week {wk.week}</span>
+      </div>
+      <Pressable as="div" ref={ref} className="tiles wc-tiles" label={`Week ${wk.week}: ${stats}. ${note} Open the week`} onPress={() => openWeek(mon)}>
+        <span className="tile wc-tile">
+          <span className="tile-label">
+            <Footprints size={15} aria-hidden="true" /> Miles
+          </span>
+          <span className="tile-value tnum">
+            {plan > 0 || ran > 0 ? milesText(ran) : '–'}
+            <small>{plan > 0 ? `of ${milesText(plan)} mi` : 'mi'}</small>
+          </span>
+          <span className={`tile-status ${miles.none ? 'is-none' : ''}`}>
+            {miles.icon ? <CircleCheck size={14} aria-hidden="true" /> : null}
+            {miles.text}
+          </span>
         </span>
-        <span className="wc-note">{note}</span>
-      </span>
-    </Pressable>
+        <span className="tile wc-tile wc-runs">
+          <span className="tile-label">
+            <CalendarCheck size={15} aria-hidden="true" /> Runs
+          </span>
+          <span className="tile-value tnum">
+            {sum.runsPlanned > 0 || sum.runsDone > 0 ? sum.runsDone : '–'}
+            {sum.runsPlanned > 0 ? <small>of {sum.runsPlanned}</small> : null}
+          </span>
+          <span className="tile-status wc-note">{note}</span>
+          <CardRing date={date} log={log} sum={sum} wk={wk.key} card={ref} />
+        </span>
+      </Pressable>
+    </section>
   );
 });
 
@@ -139,7 +163,7 @@ const CardRing = ({ date, log, sum, wk, card }: { date: ISODate; log: Log; sum: 
   }, [live, closed, active, wk, scroller, card]);
   return (
     <span className="week-ring" data-celebrated={fill ? '' : undefined}>
-      <WeekRing key={fill ?? (live ? 'live' : 'still')} days={days} size={64} marked={marked} today={ti >= 0 ? ti : undefined} onceADay={fill ?? (live && current ? 'week-card-ring' : null)} />
+      <WeekRing key={fill ?? (live ? 'live' : 'still')} days={days} size={40} marked={marked} today={ti >= 0 ? ti : undefined} onceADay={fill ?? (live && current ? 'week-card-ring' : null)} />
     </span>
   );
 };

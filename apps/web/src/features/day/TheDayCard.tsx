@@ -80,49 +80,57 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
     sheet.open({ title: 'Share the day', body: <ShareSheet data={cut ? { ...data, verdict: cut } : data} initial={miles > 0 ? (data.polyline ? 'route' : 'stamp') : 'bubble'} /> });
   };
   return (
-    <section className="the-day card" aria-label="The day">
-      <span className="caps td-eyebrow">The day</span>
-      {entries.length ? (
-        <div className="td-entries">
-          {entries.map((e) => (
-            <div key={e.id} className="td-entry">
-              <span className="caps td-time">{timeOf(e.createdAt)}</span>
-              <p className="td-text">{e.text}</p>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {writing ? (
-        // §5.1: the composer is scrolled above the keyboard on focus (code review 1 #5)
-        <div
-          className="td-composer"
-          data-no-page=""
-          // the box (the field and Save), not the field alone: Save sat under the keyboard (day review 3 #3)
-          onFocusCapture={(e) => e.target instanceof HTMLTextAreaElement && revealBox(e.currentTarget)}
-          onInput={(e) => keepAboveKeyboard(e.currentTarget)}
-          onPointerDownCapture={() => (via.current = 'pointer')}
-          onKeyDownCapture={() => (via.current = 'other')}
-        >
-          <Composer date={date} today={log.today} rows={2} placeholder="Add to the day" autoFocus={autoFocus} onSaved={saved} />
-        </div>
-      ) : (
-        <Pressable
-          ref={add}
-          className="td-add"
-          press="surface"
-          onPress={() => {
-            via.current = 'other';
-            setAutoFocus(true);
-            setWriting(true);
-          }}
-          label="Add to it"
-        >
-          <PenLine size={16} aria-hidden="true" /> Add to it
+    <section className="the-day" aria-label="The day">
+      <div className="day-sec-head">
+        <h2 className="sec-title">Journal</h2>
+        {entries.length ? (
+          <span className="sec-meta tnum">
+            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+          </span>
+        ) : null}
+        <Pressable className="sec-action td-share" press="dim" onPress={share} label="Share the day">
+          <Share size={15} strokeWidth={2.25} aria-hidden="true" /> Share
         </Pressable>
-      )}
-      <Pressable className="td-share hero-share" onPress={share} label="Share the day">
-        <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share the day
-      </Pressable>
+      </div>
+      <div className="td-card">
+        {entries.map((e) => (
+          <div key={e.id} className="td-entry">
+            <span className="td-time tnum">{timeOf(e.createdAt)}</span>
+            <p className="td-text">{e.text}</p>
+          </div>
+        ))}
+        {writing ? (
+          // §5.1: the composer is scrolled above the keyboard on focus (code review 1 #5)
+          <div
+            className="td-composer"
+            data-no-page=""
+            // the box (the field and Save), not the field alone: Save sat under the keyboard (day review 3 #3)
+            onFocusCapture={(e) => e.target instanceof HTMLTextAreaElement && revealBox(e.currentTarget)}
+            onInput={(e) => keepAboveKeyboard(e.currentTarget)}
+            onPointerDownCapture={() => (via.current = 'pointer')}
+            onKeyDownCapture={() => (via.current = 'other')}
+          >
+            <Composer date={date} today={log.today} rows={2} placeholder="Add to the day" autoFocus={autoFocus} onSaved={saved} />
+          </div>
+        ) : (
+          <Pressable
+            ref={add}
+            className="td-add"
+            press="surface"
+            onPress={() => {
+              via.current = 'other';
+              setAutoFocus(true);
+              setWriting(true);
+            }}
+            label={entries.length ? 'Add to it' : 'Write about the day'}
+          >
+            <span className="td-add-ic" aria-hidden="true">
+              <PenLine size={16} />
+            </span>
+            {entries.length ? 'Add to it' : 'Nothing written. Write about the day'}
+          </Pressable>
+        )}
+      </div>
     </section>
   );
 });

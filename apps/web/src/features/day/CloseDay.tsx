@@ -1,5 +1,5 @@
 import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
-import { ChevronRight, PenLine, Share } from 'lucide-react';
+import { AlarmClock, ChevronRight, PenLine, Share, Type } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -449,7 +449,7 @@ const ComposeBox = ({ date, log, onSaved, onRefused }: { date: ISODate; log: Log
             <div className="cd-entries">
               {entries.map((e) => (
                 <div key={e.id} className="cd-entry">
-                  <span className="caps cd-entry-time">{timeOf(e.createdAt)}</span>
+                  <span className="cd-entry-time tnum">{timeOf(e.createdAt)}</span>
                   <p className="cd-entry-text">{e.text}</p>
                 </div>
               ))}
@@ -500,6 +500,9 @@ const WordRow = () => {
   if (editing)
     return (
       <div className="row cd-trow cd-word-edit">
+        <span className="icon-tile" aria-hidden="true">
+          <Type size={16} />
+        </span>
         {/* the label keeps its words beside the field at 390; below 360 wide it shortens rather than being cut */}
         <span className="cd-trow-title">
           <span className="cd-word-long">A word for tomorrow</span>
@@ -545,6 +548,9 @@ const WordRow = () => {
         setEditing(true);
       }}
     >
+      <span className="icon-tile" aria-hidden="true">
+        <Type size={16} />
+      </span>
       <span className="cd-trow-title">A word for tomorrow</span>
       {focus.word ? <span className="cd-trow-right">{focus.word}</span> : null}
       <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
@@ -580,6 +586,9 @@ const AlarmRow = ({ log }: { log: Log }) => {
       onPointerCancel={rel.onPointerCancel}
       onPress={rel.onClick}
     >
+      <span className="icon-tile" aria-hidden="true">
+        <AlarmClock size={16} />
+      </span>
       <span className="cd-trow-title tnum">Alarm {shortClock(T.day.wake)}</span>
       <span className="cd-trow-right">change</span>
       <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
@@ -635,34 +644,34 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
   const halo = miles > 0 || lead?.key === 'done' ? 'done' : lead?.key === 'floor' ? 'floor' : 'rest';
   const once = still ? null : `close-${date}`;
   return (
-    <section className={`aura cd cd-hero halo-${halo} ${boost ? 'halo-boost' : ''}`} aria-label="Close the day">
-      <span className="aura-glow" aria-hidden="true" />
-      <span className="caps cd-eyebrow">Close the day</span>
-      <div className="cd-title-slot">
-        <AnimatePresence initial={false} mode="popLayout">
-          <motion.h2 key={title} className="cd-title" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
-            {title}
-          </motion.h2>
-        </AnimatePresence>
-      </div>
-      {stamps.length ? (
-        <div className="cd-stamps" role="list" aria-label="The day">
-          {stamps.map((s, i) => (
-            <span key={s.k} className="cd-stamp" role="listitem" aria-label={s.said}>
-              <span className="caps">{s.k}</span>
-              <span className="cd-num">
-                <StampNum s={s} delay={i * STAGGER_MS} once={once && `${once}-${s.k}`} />
-                {s.u ? <small> {s.u}</small> : null}
-              </span>
-            </span>
-          ))}
+    <>
+      <section className={`aura cd cd-hero halo-${halo} ${boost ? 'halo-boost' : ''}`} aria-label="Close the day">
+        <span className="aura-glow" aria-hidden="true" />
+        <span className="caps cd-eyebrow">Close the day</span>
+        <div className="cd-title-slot">
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.h2 key={title} className="cd-title" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+              {title}
+            </motion.h2>
+          </AnimatePresence>
         </div>
-      ) : line ? (
-        <p className="cd-line">{line}</p>
-      ) : null}
-      {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} markNow={markNow} /> : null}
-      {still ? null : (
-        <>
+        {stamps.length ? (
+          <div className="cd-stamps" role="list" aria-label="The day">
+            {stamps.map((s, i) => (
+              <span key={s.k} className="cd-stamp" role="listitem" aria-label={s.said}>
+                <span className="cd-stamp-k">{s.k}</span>
+                <span className="cd-num">
+                  <StampNum s={s} delay={i * STAGGER_MS} once={once && `${once}-${s.k}`} />
+                  {s.u ? <small> {s.u}</small> : null}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : line ? (
+          <p className="cd-line">{line}</p>
+        ) : null}
+        {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} markNow={markNow} /> : null}
+        {still ? null : (
           <ComposeBox
             date={date}
             log={log}
@@ -675,16 +684,19 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
               setClosedNow(false);
             }}
           />
-          <div className="cd-tomorrow">
-            <span className="caps cd-tomorrow-head">Tomorrow</span>
+        )}
+      </section>
+      {still ? null : (
+        <div className="cd-after">
+          <section className="cd-tomorrow" aria-label="Tomorrow">
+            <div className="day-sec-head">
+              <h2 className="sec-title">Tomorrow</h2>
+            </div>
             <div className="group cd-tgroup">
               <WordRow />
               <AlarmRow log={log} />
             </div>
-          </div>
-          <Pressable className="hero-share cd-share" onPress={share} label="Share the day">
-            <Share size={14} strokeWidth={2.25} aria-hidden="true" /> Share the day
-          </Pressable>
+          </section>
           {pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? (
             <div className="cd-pick">
               <Suspense fallback={null}>
@@ -692,8 +704,13 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
               </Suspense>
             </div>
           ) : null}
-        </>
+          <Pressable className="pill-row cd-share" press="surface" onPress={share} label="Share the day">
+            <span className="cd-share-in">
+              <Share size={16} strokeWidth={2.25} aria-hidden="true" /> Share the day
+            </span>
+          </Pressable>
+        </div>
       )}
-    </section>
+    </>
   );
 };
