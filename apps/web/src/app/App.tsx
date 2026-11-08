@@ -11,6 +11,7 @@ import { Login, Signup } from '@/features/auth/AuthScreens';
 import DayView from '@/features/day/DayView';
 import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
+import { FeatureIntros } from '@/features/onboarding/FeatureIntro';
 import { matchRoute, type PushedEntry } from '@/ui/nav';
 import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
@@ -140,7 +141,13 @@ const Framed = () => {
     const raf = requestAnimationFrame(hideSplash);
     return () => cancelAnimationFrame(raf);
   }, []);
-  return <Shell pages={pages} pushed={pushedFor} />;
+  return (
+    <>
+      <Shell pages={pages} pushed={pushedFor} />
+      {/* Plan, Learned and Journal introduce themselves once, to accounts that went through first run */}
+      <FeatureIntros />
+    </>
+  );
 };
 
 /**

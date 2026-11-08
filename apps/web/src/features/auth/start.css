@@ -1,0 +1,263 @@
+/* ---------- /start, the welcome pager (inspiration §6 Onboarding): real cards, one pill in a fixed place ---------- */
+.start {
+  position: relative;
+  isolation: isolate;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+.start-brand {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(20px + var(--safe-t)) var(--gutter) 0;
+}
+.start-brand .caps {
+  color: var(--ink-2);
+}
+.start-track {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.start-track::-webkit-scrollbar {
+  display: none;
+}
+.start-page {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px var(--gutter) 8px;
+  overflow: hidden;
+}
+.start-card,
+.start-words {
+  width: 100%;
+  max-width: 400px;
+  margin-inline: auto;
+}
+.start-words {
+  margin-top: 32px;
+}
+.start-title {
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.start-sub {
+  margin-top: 8px;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--ink-2);
+  max-width: 34ch;
+}
+.start-foot {
+  flex: none;
+  width: 100%;
+  max-width: 432px;
+  margin-inline: auto;
+  padding: 8px var(--gutter) calc(12px + var(--safe-b));
+}
+.start-dots {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+/* each dot is a 24px target around a 7px dot; the current one is a navy bar */
+.start-dot {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.start-dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--ink-4);
+  transition:
+    width var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out);
+}
+.start-dot.on::before {
+  width: 20px;
+  background: var(--ink);
+}
+.start-dot:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+.start-cta.btn {
+  height: 56px;
+  font-size: var(--fs-row);
+}
+/* the quiet way in for someone who already has an account: a full 48px target */
+.start-signin {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 100%;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  border-radius: var(--r-pill, 999px);
+}
+.start-signin:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
+}
+
+/* ---------- the privacy page, before any account ---------- */
+.start-privacy {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+.pv-top {
+  flex: none;
+  padding: calc(4px + var(--safe-t)) 8px 0;
+}
+.pv-back {
+  width: 44px;
+  height: 44px;
+  color: var(--ink);
+}
+.pv-body {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 432px;
+  margin-inline: auto;
+  padding: 4px var(--gutter) 16px;
+}
+.pv-title {
+  font-size: 2.75rem;
+  line-height: 2.875rem;
+}
+.pv-promise {
+  color: var(--ink);
+  font-weight: 500;
+}
+.pv-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 14px 12px 14px 16px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-group);
+  box-shadow: var(--shadow-1);
+}
+.pv-choice-words {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.pv-choice-title {
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  font-weight: 600;
+}
+.pv-choice-sub {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+.pv-later {
+  margin-top: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+.pv-foot {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to bottom, rgba(243, 248, 251, 0), var(--bg) 24px);
+  padding-top: 24px;
+}
+
+/* the staged entrance: the card at 0 ms, the words at 80, the foot at 160 (CSS opacity keyframes) */
+@keyframes start-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes start-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.start-in {
+  animation: start-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.start-in.s1 {
+  animation-delay: 80ms;
+}
+.start-in.s2 {
+  animation-delay: 160ms;
+}
+
+@media (max-width: 359px), (max-height: 700px) {
+  .start-title,
+  .pv-title {
+    font-size: 2.125rem;
+    line-height: 2.375rem;
+  }
+  .start-words {
+    margin-top: 20px;
+  }
+  .start-sub {
+    font-size: var(--fs-sub);
+    line-height: var(--lh-sub);
+  }
+  .start-cta.btn {
+    height: 52px;
+  }
+  .start-signin {
+    min-height: 44px;
+    margin-top: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .start-in {
+    animation-name: start-fade;
+    animation-duration: 150ms !important;
+  }
+}

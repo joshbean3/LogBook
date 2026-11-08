@@ -2,7 +2,9 @@ import type * as React from 'react';
 import { useEffect } from 'react';
 import { useNav, useRouteParams } from '@/app/NavController';
 import { HabitsPage } from './HabitsPage';
-import { AccountPage, AppPage, ConnectionsPage, DataPage } from './SectionPages';
+import { DataSourcesPage } from './DataSources';
+import { PrivacyPage } from './PrivacyPage';
+import { AccountPage, AppPage, DataPage } from './SectionPages';
 import { TrainingPage, YouPage } from './TrainingPages';
 import './settings.css';
 
@@ -10,7 +12,8 @@ const PAGES: Record<string, () => React.JSX.Element> = {
   you: YouPage,
   training: TrainingPage,
   habits: HabitsPage,
-  connections: ConnectionsPage,
+  connections: DataSourcesPage,
+  privacy: PrivacyPage,
   app: AppPage,
   data: DataPage,
   account: AccountPage,

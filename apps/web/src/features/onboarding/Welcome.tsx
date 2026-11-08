@@ -2,6 +2,7 @@ import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, 
 import { Check, ChevronLeft, Clock } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { FirstRunHero, type FirstRunAction } from '@/features/day/FirstRunHero';
 import { useBootstrap, useHabitMutations, useMorningMutations, useOnboard } from '@/api/queries';
@@ -13,6 +14,7 @@ import { crossfade, fadeIn, springs } from '@/lib/motion';
 import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
 import { DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { enrollIntros } from './FeatureIntro';
 import { handOff } from './handoff';
 import { StravaPrimer } from './StravaPrimer';
 import { commitsBack, releaseVelocity } from './velocity';
@@ -351,7 +353,7 @@ function Flow({ uid }: { uid: string }) {
     }
     case 'habits':
       body = (
-        <Question title="A few lights for every day." sub="Pick any. They become the orbs you tap on Today." onNext={next} nextLabel="Build my week">
+        <Question title="A few lights for every day." sub="Pick any, or none. They become the lights you tap on Today." onNext={next} nextLabel="Build my week" later="You can add or change habits any time.">
           <HabitPicker selected={d.habits} custom={d.custom} onChange={(habits, custom) => set({ habits, custom })} />
         </Question>
       );
@@ -464,13 +466,18 @@ const stageVariants = (reduce: boolean) => ({
 });
 
 // ---------- a question ----------
-function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next' }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string }) {
+/**
+ * One question to a screen (inspiration §2.9, §2.24): the question is the title, the button stays grey until the answer is
+ * valid, and every answer here can be changed later in Settings, so the foot says so (`later`).
+ */
+function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next', later = 'You can change this later in Settings.' }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string; later?: string | null }) {
   return (
     <div className="ob-step ob-question">
       <h1 className="ob-title display">{title}</h1>
       <p className="ob-sub">{sub}</p>
       <div className="ob-body">{children}</div>
       <div className="ob-foot">
+        {later ? <p className="ob-later">{later}</p> : null}
         <Pressable className="btn primary block ob-cta" disabled={nextDisabled} onPress={onNext}>
           {nextLabel}
         </Pressable>
@@ -489,6 +496,7 @@ function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Nex
 function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onOpen: (then?: FirstRunAction) => void }) {
   const reduce = useReducedMotion();
   const onboard = useOnboard();
+  const qc = useQueryClient();
   const [waiting, setWaiting] = useState<{ then?: FirstRunAction } | null>(null);
   const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [profile, start, today, draft.wake, draft.leave, draft.routine]);
 
@@ -517,6 +525,8 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
         morning.settings.mutate({ after: { ...routine, names: routineNames(draft.routine ?? []), showerMode: 'fixed', showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } });
         // the answers are on the account now (POST /me/onboarding stores them as the training profile)
         set({ sent: key, firstDay: r.firstDay });
+        // this account went through first run: Plan, Learned and Journal introduce themselves the first time they open
+        void enrollIntros(qc);
       },
       onError: () => haptics.error(),
     });

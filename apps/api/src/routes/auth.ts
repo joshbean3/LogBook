@@ -1,4 +1,4 @@
-import { zCredentials } from '@logbook/shared';
+import { zConsentInput, zCredentials } from '@logbook/shared';
 import { eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 import { createSession, destroySession, hashPassword, hasLiveSession, requireAuth, userCount, verifyPassword, type AuthEnv } from '../auth.js';
@@ -6,6 +6,7 @@ import type { DB } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { env } from '../env.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
+import { writeConsent } from '../services/consent.js';
 
 /** A tiny in-memory throttle on failed sign-ins (and failed password checks), per address. */
 const failures = new Map<string, { n: number; until: number }>();
@@ -40,10 +41,12 @@ export const authRoutes = (db: DB) => {
   /** Create an account and sign it in. The new account has `onboardedAt: null`, so the app sends it to /welcome. */
   const create = async (c: Context<AuthEnv>) => {
     if (!canCreate(userCount(db))) throw new ApiError(403, 'Setup is closed. Sign in instead.', 'setup_closed');
-    const { email, password } = await parseBody(c.req.raw, zCredentials);
+    // `consent`: the choice made on the privacy page before the account existed (optional; older clients send none)
+    const { email, password, consent } = await parseBody(c.req.raw, zCredentials.extend({ consent: zConsentInput.optional() }));
     if (db.select({ id: users.id }).from(users).where(eq(users.email, email)).get()) throw new ApiError(409, 'There is already an account with that email. Sign in instead.', 'email_taken');
     const id = uid('u');
     db.insert(users).values({ id, email, passwordHash: await hashPassword(password), createdAt: nowISO(), onboardedAt: null }).run();
+    if (consent) writeConsent(db, id, consent);
     createSession(db, c, id);
     return c.json({ id, email, name: null, onboardedAt: null }, 201);
   };

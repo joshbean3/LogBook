@@ -52,7 +52,7 @@ describe('the route table', () => {
     expect(settings).toMatchObject({ kind: 'pushed', tab: 'today', root: '/today' });
     expect(settings.stack.map((e) => [e.path, e.depth, e.idx])).toEqual([['/settings', 1, -1]]);
 
-    for (const [section, title] of [['you', 'You'], ['training', 'Training'], ['habits', 'Habits'], ['plans', 'Plans'], ['connections', 'Connections'], ['app', 'App'], ['data', 'Data'], ['account', 'Account']] as const) {
+    for (const [section, title] of [['you', 'You'], ['training', 'Training'], ['habits', 'Habits'], ['plans', 'Plans'], ['connections', 'Data sources'], ['app', 'App'], ['data', 'Data'], ['account', 'Account'], ['privacy', 'Privacy']] as const) {
       const m = matchRoute(`/settings/${section}`);
       expect(m.kind).toBe('pushed');
       expect(m.tab).toBe('today');

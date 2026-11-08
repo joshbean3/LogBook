@@ -40,9 +40,9 @@ export interface RouteDef {
   to?: string;
 }
 
-export const SETTINGS_SECTIONS = ['you', 'training', 'habits', 'plans', 'connections', 'app', 'data', 'account'] as const;
+export const SETTINGS_SECTIONS = ['you', 'training', 'habits', 'plans', 'connections', 'app', 'data', 'account', 'privacy'] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
-const SECTION_TITLE: Record<SettingsSection, string> = { you: 'You', training: 'Training', habits: 'Habits', plans: 'Plans', connections: 'Connections', app: 'App', data: 'Data', account: 'Account' };
+const SECTION_TITLE: Record<SettingsSection, string> = { you: 'You', training: 'Training', habits: 'Habits', plans: 'Plans', connections: 'Data sources', app: 'App', data: 'Data', account: 'Account', privacy: 'Privacy' };
 
 /** The whole table of §1.2: roots, pushed pages, full screens and redirects, in match order. */
 export const ROUTES: readonly RouteDef[] = [

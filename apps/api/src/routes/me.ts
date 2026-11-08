@@ -1,4 +1,4 @@
-import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
@@ -10,6 +10,7 @@ import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { deleteAccount } from '../services/account.js';
 import { retireBlock, writeTemplate } from '../services/plans.js';
 import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
+import { enrollIntros, markIntroSeen, readConsent, readIntros, writeConsent } from '../services/consent.js';
 import { checkThrottle, clearThrottle, failThrottle, ipOf } from './auth.js';
 import { deepMerge, readSetting, writeSetting } from './core.js';
 
@@ -142,6 +143,21 @@ export const meRoutes = (db: DB) => {
     const removed = deleteAccount(db, userId);
     deleteCookie(c, COOKIE, { path: '/' });
     return c.json({ ok: true, removed });
+  });
+
+  /** What the assistant may read (`{ training, health, at }`), as chosen on the privacy page or in Settings › Privacy. */
+  r.get('/me/consent', (c) => c.json({ consent: readConsent(db, c.get('user').id) }));
+  r.put('/me/consent', async (c) => {
+    const body = await parseBody(c.req.raw, zConsentInput);
+    return c.json({ consent: writeConsent(db, c.get('user').id, body) });
+  });
+
+  /** The one-time feature intros: `{ seen }` (null when the account is not enrolled). First run enrolls; a shown sheet marks its key. */
+  r.get('/me/intros', (c) => c.json(readIntros(db, c.get('user').id)));
+  r.post('/me/intros/enroll', (c) => c.json(enrollIntros(db, c.get('user').id)));
+  r.post('/me/intros/seen', async (c) => {
+    const { key } = await parseBody(c.req.raw, zIntroSeen);
+    return c.json(markIntroSeen(db, c.get('user').id, key));
   });
 
   return r;

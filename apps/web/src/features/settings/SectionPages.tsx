@@ -2,16 +2,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '@/api/client';
-import { keys, stravaSyncNow, useBootstrap, useStravaChecking } from '@/api/queries';
+import { useBootstrap } from '@/api/queries';
 import { markSignedOut } from '@/features/auth/flag';
-import { connectStrava } from '@/features/onboarding/StravaPrimer';
 import { haptics, useHapticsEnabled } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
-import { Button, PushedBar, Row, useSheet, useToast } from '@/ui';
+import { PushedBar, Row, useSheet, useToast } from '@/ui';
 import { DeleteStepOne, exportAll } from './account';
-import { HrZonesRow } from './HrZones';
 import { popFav } from '@/features/journal/feel';
-import { GoRow, SGroup, Switch } from './parts';
+import type { LucideIcon } from 'lucide-react';
+import { GoRow, SGroup, Switch, Tile } from './parts';
 
 // ---------- install (the web app only) ----------
 type BIP = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
@@ -25,105 +24,17 @@ const isStandalone = () => matchMedia('(display-mode: standalone)').matches || (
 /** Safari on an iPhone or iPad: the one browser where Add to Home Screen is a manual step worth explaining. */
 const isIosSafari = () => /iP(hone|ad|od)/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
 
-const ago = (iso: string | null | undefined) => {
-  if (!iso) return null;
-  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60e3);
-  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
-};
-
-/** Disconnect asks first: new runs stop landing, the ones here stay. No toast: the Strava row turns back into Connect. */
-const DisconnectSheet = () => {
-  const qc = useQueryClient();
-  const sheet = useSheet();
-  const toast = useToast();
-  const disconnect = useMutation({
-    mutationFn: () => api('/strava/disconnect', { method: 'POST' }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: keys.bootstrap });
-      sheet.close();
-    },
-    onError: () => {
-      haptics.error();
-      toast('Couldn’t disconnect. Try again.');
-    },
-  });
-  return (
-    <div className="s-del">
-      <p className="s-del-lede">New runs stop landing on Today. The runs already here stay.</p>
-      <div className="s-del-actions">
-        <Button variant="danger" block onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
-          {disconnect.isPending ? 'Disconnecting…' : 'Disconnect Strava'}
-        </Button>
-        <Button variant="quiet" block onClick={() => sheet.close()}>
-          Keep it connected
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-/** /settings/connections: Strava (connect, its last sync, Sync now, disconnect) and the heart-rate zones it brings. */
-export const ConnectionsPage = (): React.JSX.Element => {
-  const boot = useBootstrap();
-  const qc = useQueryClient();
-  const sheet = useSheet();
-  const toast = useToast();
-  const checking = useStravaChecking();
-  const s = boot.data?.strava;
-  const can = !!boot.data?.features.strava;
-  const sync = () =>
-    stravaSyncNow(qc, { force: true })
-      .then(() => qc.invalidateQueries({ queryKey: keys.bootstrap }))
-      .catch(() => {
-        haptics.error();
-        toast('Couldn’t reach Strava. Try again when you’re online.');
-      });
-  return (
-    <div className="page s-set s-sub">
-      <PushedBar title="Connections" />
-      {!can ? (
-        <p className="s-note s-first">This server isn’t set up to connect to Strava.</p>
-      ) : (
-        <>
-          <SGroup title="Strava">
-            {s?.connected && s.error ? (
-              <GoRow title="Strava stopped syncing" sub="Reconnect to pick up new runs." value="Reconnect" tone="bad" onPress={() => void connectStrava()} />
-            ) : s?.connected ? (
-              <>
-                <Row title={s.athleteName ? `Connected as ${s.athleteName}` : 'Connected'} sub="New runs land on Today a minute after they sync." className="s-wrap" />
-                <Row
-                  className="s-sync-row"
-                  title="Sync now"
-                  sub={checking ? 'Checking Strava…' : ago(s.lastSyncAt) ? `Last synced ${ago(s.lastSyncAt)}` : 'Not synced yet'}
-                  onClick={() => (checking ? undefined : void sync())}
-                />
-              </>
-            ) : (
-              <GoRow title="Connect Strava" sub="See your runs land on Today." onPress={() => void connectStrava()} />
-            )}
-            <HrZonesRow zones={boot.data?.zones ?? null} connected={!!s?.connected} />
-          </SGroup>
-          {s?.connected ? (
-            <SGroup title="Disconnect" className="s-sec-quiet">
-              <Row className="s-danger" title="Disconnect Strava" onClick={() => sheet.open({ eyebrow: 'Connection', title: 'Disconnect Strava?', body: <DisconnectSheet /> })} />
-            </SGroup>
-          ) : null}
-        </>
-      )}
-    </div>
-  );
-};
-
 /**
  * The Haptics switch (the Settings root's App group and the App page). Turning it on answers with the feel it turns on, as
  * `toggle` on the apex of the `complete` curve (`hapticAtPeak`, contracts §D.3: never fired straight from the tap; review
  * code F13); turning it off is silent.
  */
-export const HapticsRow = (): React.JSX.Element => {
+export const HapticsRow = ({ icon }: { icon?: LucideIcon } = {}): React.JSX.Element => {
   const [hapticsOn, setHapticsOn] = useHapticsEnabled();
   return (
     <Row
-      className="s-wrap"
+      className={`s-wrap ${icon ? 'has-tile' : ''}`}
+      left={icon ? <Tile icon={icon} /> : undefined}
       title="Haptics"
       sub={isNative ? 'A tap you can feel for a lift, a drop and a done.' : 'On phones that support it. iPhone browsers don’t.'}
       right={
