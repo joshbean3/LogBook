@@ -7,9 +7,8 @@ import { weekTitle, type Range, type WeekPoint } from './data';
 import { useScrub } from './useScrub';
 
 export const CHART_H = 220;
-const up = (s: string) => s.toUpperCase();
 const monthShort = new Intl.DateTimeFormat('en-US', { month: 'short' });
-const monthOfWeek = (w: string) => up(monthShort.format(new Date(`${w}T12:00:00`)));
+const monthOfWeek = (w: string) => monthShort.format(new Date(`${w}T12:00:00`));
 
 /** Words for one week, for VoiceOver and the week buttons. */
 export const weekWords = (p: WeekPoint, today: string) => {
@@ -107,7 +106,7 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
 
   // x: month names where a month begins, and NOW under this week
   const xLabels: Array<{ x: number; text: string; now?: boolean }> = [];
-  if (ci >= 0) xLabels.push({ x: xc(ci), text: 'NOW', now: true });
+  if (ci >= 0) xLabels.push({ x: xc(ci), text: 'Now', now: true });
   pts.forEach((p, i) => {
     if (i === 0 || monthOfWeek(p.w) === monthOfWeek(pts[i - 1]!.w)) return;
     const x = xc(i);
@@ -141,9 +140,9 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
     const x = xc(peak);
     const yy = y(pts[peak]!.ran) - 6;
     place([
-      { x, y: yy, text: 'RUN', anchor: 'middle', cls: 'pg-lbl-run' },
-      { x: x - bw / 2, y: yy, text: 'RUN', anchor: 'start', cls: 'pg-lbl-run' },
-      { x: x + bw / 2, y: yy, text: 'RUN', anchor: 'end', cls: 'pg-lbl-run' },
+      { x, y: yy, text: 'Run', anchor: 'middle', cls: 'pg-lbl-run' },
+      { x: x - bw / 2, y: yy, text: 'Run', anchor: 'start', cls: 'pg-lbl-run' },
+      { x: x + bw / 2, y: yy, text: 'Run', anchor: 'end', cls: 'pg-lbl-run' },
     ]);
   }
   let planI = -1;
@@ -154,13 +153,13 @@ export const MileageChart = ({ pts, range, today, onScrub, onOpen, onPinch, ghos
     const x = xc(planI);
     const yy = y(pts[planI]!.planned) - 6;
     place(
-      (['middle', 'end', 'start'] as const).flatMap((anchor) => [0, -12].map((dy) => ({ x: anchor === 'middle' ? x : anchor === 'end' ? x + bw / 2 : x - bw / 2, y: yy + dy, text: 'PLAN', anchor, cls: 'pg-lbl-plan' }))),
+      (['middle', 'end', 'start'] as const).flatMap((anchor) => [0, -12].map((dy) => ({ x: anchor === 'middle' ? x : anchor === 'end' ? x + bw / 2 : x - bw / 2, y: yy + dy, text: 'Plan', anchor, cls: 'pg-lbl-plan' }))),
     );
   }
   // a month of the range still on its way: the label would average the gap as weeks off and change by itself when the month
   // lands (review 2 feel N6); the broken line says enough until then
   if (avgPts.length > 1 && lastAvg != null && !pts.some((p) => p.missing)) {
-    const t = `4-WK AVG ${Math.round(lastAvg)}`;
+    const t = `4-wk avg ${Math.round(lastAvg)}`;
     const cands: Lbl[] = [];
     // walk back along the line from its end: right of a point, above it, below it
     for (let k = avgPts.length - 1; k >= Math.max(0, avgPts.length - 6); k--) {

@@ -229,7 +229,7 @@ const AdherenceGhost = () => (
 // ---------- long run ----------
 export const LongRunSheet = ({ lr, log, today }: { lr: LongRun; log: Log; today: string }) => {
   const openRun = useOpenRun(log);
-  const pts = lr.points.map((p) => ({ key: p.w, label: up(md(p.w)), y: p.miles > 0 ? p.miles : null }));
+  const pts = lr.points.map((p) => ({ key: p.w, label: md(p.w), y: p.miles > 0 ? p.miles : null }));
   let best: number | null = null;
   pts.forEach((p, i) => {
     if (p.y != null && (best == null || p.y > pts[best]!.y!)) best = i;
@@ -298,7 +298,7 @@ export const paceChange = (now: number | null, then: number | null) => {
 };
 export const EasyPaceSheet = ({ ep, log, range }: { ep: EasyPace; log: Log; range: Range }) => {
   const openRun = useOpenRun(log);
-  const pts = ep.runs.map((r) => ({ key: r.a.id, label: up(md(r.a.date)), y: r.pace }));
+  const pts = ep.runs.map((r) => ({ key: r.a.id, label: md(r.a.date), y: r.pace }));
   let best: number | null = null;
   pts.forEach((p, i) => {
     if (best == null || p.y < pts[best]!.y) best = i;
@@ -358,7 +358,7 @@ export const EasyPaceSheet = ({ ep, log, range }: { ep: EasyPace; log: Log; rang
 
 // ---------- lifts ----------
 export const LiftSheet = ({ g }: { g: LiftGroup }) => {
-  const pts = g.days.map((d) => ({ key: d.date, label: up(md(d.date)), y: d.e1rm }));
+  const pts = g.days.map((d) => ({ key: d.date, label: md(d.date), y: d.e1rm }));
   let best: number | null = null;
   pts.forEach((p, i) => {
     if (best == null || p.y > pts[best]!.y) best = i;

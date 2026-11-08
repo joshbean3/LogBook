@@ -3,7 +3,7 @@ export { TrendChart, type TrendChartProps, type ChartZone } from './TrendChart';
 export { Spark } from './Spark';
 export { RangeControl } from './RangeControl';
 export { TrendTable } from './TrendTable';
-export { TrendCard, type TrendCardProps } from './TrendCard';
+export { TrendCard, RangePill, type TrendCardProps, type TrendTone } from './TrendCard';
 export { Ring, Rings, type RingItem } from './Rings';
 export { Gauge } from './Gauge';
 export { useChartWidth } from './useWidth';

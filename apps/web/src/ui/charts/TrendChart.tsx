@@ -25,7 +25,7 @@ export interface TrendChartProps {
   avg?: number | null;
   /** Shaded horizontal zones (heart-rate zones), labelled at the left. */
   zones?: ChartZone[];
-  /** The x label for each index (short caps: "NOV 8"). Only a few are drawn. */
+  /** The x label for each index ("Nov 8"). Only a few are drawn. */
   labels: string[];
   /** The y labels, drawn on the right only. */
   format: (v: number) => string;
@@ -54,8 +54,9 @@ const TOP = 10;
 const BOTTOM = 22;
 
 /**
- * The chart kit's line chart (docs/inspiration.md §3). Y labels on the right only; a shaded personal-normal band; a dotted
- * average with an "Avg" pill; faint daily bars behind a smooth line; the newest point glowing orange; an optional earlier
+ * The chart kit's line chart (docs/inspiration.md §3). Y labels on the right only, over dashed hairlines; a soft personal-normal
+ * band; a dotted average with an "Avg" pill that says its value; faint daily bars behind a smooth line; the newest point
+ * glowing orange with a faint line down to its day; an optional earlier
  * period in grey. Press and slide to read a point (the readout above rewrites), arrow keys do the same. With nothing to
  * draw it keeps its frame and says so in the middle.
  */
@@ -84,6 +85,8 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
   // two ticks that would print the same label (0.5 and 1 as "1") keep only the first
   const ticks = niceTicks(lo, hi, 3, steps).filter((v, k, all) => all.findIndex((u) => format(u) === format(v)) === k);
   const xl = labelIndices(n, plotW, 60);
+  // the Avg pill fits its words: 'Avg' and the value
+  const avgW = avg != null ? Math.round(30 + format(avg).length * 6.2) : 0;
 
   const lineSegs = segments(line);
   const lastSeg = lineSegs[lineSegs.length - 1];
@@ -149,13 +152,19 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
         <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
           <defs>
             <radialGradient id={`glow${id}`}>
-              <stop offset="0" stopColor="var(--accent)" stopOpacity="0.5" />
-              <stop offset="0.6" stopColor="var(--accent)" stopOpacity="0.12" />
+              <stop offset="0" stopColor="var(--accent)" stopOpacity="0.55" />
+              <stop offset="0.45" stopColor="var(--accent)" stopOpacity="0.18" />
               <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
             </radialGradient>
             <linearGradient id={`fill${id}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor={tone === 'accent' ? 'var(--accent)' : 'var(--columbia)'} stopOpacity={tone === 'accent' ? 0.16 : 0.55} />
+              <stop offset="0" stopColor={tone === 'accent' ? 'var(--accent)' : 'var(--columbia)'} stopOpacity={tone === 'accent' ? 0.18 : 0.6} />
               <stop offset="1" stopColor={tone === 'accent' ? 'var(--accent)' : 'var(--columbia)'} stopOpacity="0" />
+            </linearGradient>
+            {/* the personal normal: a soft band, strongest in its middle, fading to its edges */}
+            <linearGradient id={`band${id}`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor="var(--columbia)" stopOpacity="0.18" />
+              <stop offset="0.5" stopColor="var(--columbia)" stopOpacity="0.5" />
+              <stop offset="1" stopColor="var(--columbia)" stopOpacity="0.18" />
             </linearGradient>
           </defs>
           {/* zones: shaded bands, deeper as they climb */}
@@ -186,7 +195,7 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
               ) : null}
             </g>
           ))}
-          {band ? <rect x={LEFT} y={Math.min(y(band.lo), y(band.hi))} width={plotW} height={Math.max(2, Math.abs(y(band.hi) - y(band.lo)))} className="ck-band" /> : null}
+          {band ? <rect x={LEFT} y={Math.min(y(band.lo), y(band.hi))} width={plotW} height={Math.max(4, Math.abs(y(band.hi) - y(band.lo)))} rx={4} fill={`url(#band${id})`} className="ck-band" /> : null}
           {/* faint daily bars behind the line */}
           {zero && bars
             ? bars.map((v, i) =>
@@ -208,19 +217,20 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
           {avg != null ? (
             <g className="ck-avg">
               <line x1={LEFT} x2={LEFT + plotW} y1={y(avg)} y2={y(avg)} className="ck-avg-line" />
-              <rect x={LEFT + 2} y={y(avg) - 8} width={30} height={16} rx={8} className="ck-avg-pill" />
-              <text x={LEFT + 17} y={y(avg)} dy="0.34em" textAnchor="middle" className="ck-avg-word">
-                Avg
+              <rect x={LEFT + 4} y={y(avg) - 9} width={avgW} height={18} rx={9} className="ck-avg-pill" />
+              <text x={LEFT + 4 + avgW / 2} y={y(avg)} dy="0.35em" textAnchor="middle" className="ck-avg-word">
+                Avg <tspan className="ck-avg-num">{format(avg)}</tspan>
               </text>
             </g>
           ) : null}
           {active != null ? <line x1={x(active)} x2={x(active)} y1={TOP - 4} y2={y0} className="ck-cursor" /> : null}
           {active != null && activeVal != null ? <circle cx={x(active)} cy={y(activeVal)} r={4.5} className="ck-active" /> : null}
-          {/* the newest point, lit */}
+          {/* the newest point, lit: a soft glow, a white-ringed orange dot, a faint line down to its day */}
           {newest && active == null ? (
             <g>
-              <circle cx={x(newest.i)} cy={y(newest.v)} r={13} fill={`url(#glow${id})`} />
-              <circle cx={x(newest.i)} cy={y(newest.v)} r={4.25} className="ck-newest" />
+              <line x1={x(newest.i)} x2={x(newest.i)} y1={y(newest.v) + 6} y2={y0} className="ck-drop" />
+              <circle cx={x(newest.i)} cy={y(newest.v)} r={16} fill={`url(#glow${id})`} />
+              <circle cx={x(newest.i)} cy={y(newest.v)} r={5} className="ck-newest" />
             </g>
           ) : null}
           <line x1={LEFT} x2={LEFT + plotW} y1={y0} y2={y0} className="ck-base" />

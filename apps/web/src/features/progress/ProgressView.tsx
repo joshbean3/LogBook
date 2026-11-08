@@ -1,5 +1,5 @@
 import { clock, dayStatus, fmtDate, mi, monthsBetween, num, shiftDays, weekCheck, weekStreak, type LiftSet } from '@logbook/shared';
-import { Activity as ActivityIcon, Check, ChevronRight, Dumbbell, Footprints } from 'lucide-react';
+import { Activity as ActivityIcon, CalendarCheck, CalendarDays, ChevronRight, Dumbbell, Footprints, HeartPulse, Plus, RefreshCw, Route, Timer, TrendingUp, type LucideIcon } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNav } from '@/app/NavController';
 import { useAllLifts } from '@/api/queries';
@@ -8,16 +8,17 @@ import { dayCaption, EmptyState, NavBar, Pressable, Segmented, Ticker, useSheet 
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer } from '../onboarding/StravaPrimer';
 import { Spark } from './charts';
-import { adherence, consistency, easyPace, FUTURE_WEEKS, liftGroups, longRuns, paceText, pct, plural, RANGE_WEEKS, RANGES, rangeBounds, rangeLabel, rangePhrase, rangeSummary, signedPct, verdict, weekId, weekSeries, weekTitle, type Range, type WeekPoint } from './data';
+import { adherence, consistency, easyPace, FUTURE_WEEKS, liftGroups, longRuns, paceText, pct, plural, RANGE_WEEKS, RANGES, rangeBounds, rangeLabel, rangePhrase, rangeSummary, signedPct, verdict, weekSeries, weekTitle, type Range } from './data';
 import { MileageChart } from './MileageChart';
 import { ActivitySheet, LiftDaySheet, SourceChip } from './ActivitySheet';
-import { activityFeed, FEED_FILTERS, feedDetail, monthCompare, monthWords, syncWords, type FeedFilter, type FeedItem } from './feed';
+import { blockWords, stravaChip, tileStatus, trendTone } from './context';
+import { activityFeed, FEED_FILTERS, feedDetail, monthCompare, monthWords, type FeedFilter, type FeedItem } from './feed';
 import { MetricIcon } from './icons';
 import { METRICS, type MetricId } from './metrics';
 import { useMetricModels } from './useMetrics';
 import { useNow } from './useNow';
 import { useOpenSession } from '../sessions/SessionCard';
-import { TrendCard, TrendChart } from '@/ui/charts';
+import { RangePill, TrendCard, TrendChart } from '@/ui/charts';
 import { AdherenceSheet, ConsistencySheet, EasyPaceSheet, LiftsSheet, LongRunSheet, paceChange, useOpenWeek } from './sheets';
 import './progress.css';
 import './metric.css';
@@ -91,34 +92,30 @@ const buildModel = (log: Log, sets: LiftSet[], t: string, range: Range, from: st
 };
 type Model = ReturnType<typeof buildModel>;
 
-/** A drill-down: the whole row opens its sheet; a sparkline and one number on the right. */
-const DrillRow = ({ title, sub, spark, value, unit, onPress, label }: { title: string; sub: ReactNode; spark?: ReactNode; value?: ReactNode; unit?: string; onPress: () => void; label: string }) => (
-  <Pressable className="pg-row" press="surface" onPress={onPress} label={label}>
-    <span className="pg-row-main">
-      <span className="pg-row-title">{title}</span>
-      <span className="pg-row-sub">{sub}</span>
-    </span>
-    {spark}
-    {/* the number's column is auto (visual F18): an empty slot is not drawn, so the sparkline sits against the chevron */}
-    <span className={`stamp pg-row-num pg-row-val ${value == null ? 'is-empty' : ''}`} aria-hidden={value == null ? true : undefined}>
-      {value}
-      {value != null && unit ? <small>{unit}</small> : null}
-    </span>
-    <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
-  </Pressable>
+/** A section of the page: a plain sans header (an optional grey meta or an action at its right), then its cards. */
+const Sec = ({ id, title, meta, children }: { id: string; title: string; meta?: ReactNode; children: ReactNode }) => (
+  <section className="pg-sec" aria-labelledby={id}>
+    <div className="pg-head">
+      <h2 className="pg-head-title" id={id}>
+        {title}
+      </h2>
+      {meta != null ? <span className="pg-head-meta">{meta}</span> : null}
+    </div>
+    {children}
+  </section>
 );
 
 /**
- * Progress (docs/feel.md §8, docs/inspiration.md §6): the NavBar (caps the date, title `Progress`, nothing trailing), when
- * Strava last synced, the verdict in the sans, then the hero (this month's running miles in orange against last month's in
- * grey), the trend cards and vitals rows that open the metric pages (/progress/metric/:id), the weeks (the range as a
- * Segmented, the weekly chart and the drill-downs), and the activity list with its filters and source chips. The page builds from the months that are loaded: a month still on
- * its way (or never answering) is a quiet gap in the chart and is left out of the numbers, never the page skeleton. Links
- * into other tabs go through `nav.go` (a day row → Today at that day; `Open in Plan` → that week); `Connect Strava` opens
- * the primer card as a sheet over Progress (Settings keeps its one door).
+ * Progress (docs/shape-system.md §6 "A tab", docs/inspiration.md §6): the NavBar (the date in caps, the serif title), the
+ * context row (where runs come from and when Strava last answered; the block and its week, which opens Plan), the hero card
+ * (this month's running miles in orange against last month's in grey), Trends as a grid of tiles that open the metric pages
+ * (/progress/metric/:id), Vitals as tiles waiting on Apple Health, the Weeks card (the verdict, three numbers that follow the
+ * finger, the weekly chart, the range) with its drill-downs in one inset group, and Activities as rows in one card under
+ * their filter chips. The page builds from the months that are loaded: a month still on its way (or never answering) is a
+ * quiet gap in the chart and is left out of the numbers, never the page skeleton. Links into other tabs go through `nav.go`;
+ * `Connect Strava` opens the primer card as a sheet over Progress (Settings keeps its one door).
  */
 export default function ProgressView() {
-  const nav = useNav();
   const sheet = useSheet();
   const [range, setRange] = useRange();
   const t = useAsOf(useToday());
@@ -126,6 +123,211 @@ export default function ProgressView() {
   const months = useMemo(() => monthsBetween(shiftDays(from, -63), to), [from, to]);
   const log = useLog(months);
   const lifts = useAllLifts();
+
+  // one model from what is loaded; the snapshot only changes when a month does, so a scrub never rebuilds this
+  const anyLoaded = months.some((m) => log.snap.loaded(m));
+  const model = useMemo(() => (anyLoaded && log.boot ? buildModel(log, lifts.data ?? [], t, range, from) : null), [anyLoaded, log.snap, log.boot, lifts.data, t, range, from]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const header = <NavBar caps={{ cur: dayCaption(t, t) }} title={{ cur: 'Progress' }} gap={16} />;
+  // nothing at all on this device yet: the bar alone, quietly, until the first month lands (no skeleton, no empty state)
+  if (!model)
+    return (
+      <div className="page pg-page" aria-busy="true">
+        {header}
+      </div>
+    );
+
+  const connect = () => sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
+  return (
+    <div className="page pg-page">
+      {header}
+      <ContextRow log={log} t={t} onConnect={connect} />
+      <MonthHero log={log} t={t} />
+      <Trends log={log} />
+      <Vitals />
+      <Weeks m={model} t={t} range={range} setRange={setRange} log={log} onConnect={connect} />
+      <Activities log={log} t={t} from={from} range={range} />
+    </div>
+  );
+}
+
+// ---------- the context row: where runs come from, and the block ----------
+const ContextRow = ({ log, t, onConnect }: { log: Log; t: string; onConnect: () => void }) => {
+  const nav = useNav();
+  const now = useNow(60_000);
+  const s = stravaChip(log.features.strava, log.strava, now);
+  const blk = blockWords(log.boot?.blocks ?? [], t);
+  const sIcon = (
+    <span className={`ctx-ic pg-ctx-ic is-${s.tone}`} aria-hidden="true">
+      {s.title === 'Strava' ? <RefreshCw size={16} className={s.sub === 'Syncing…' ? 'pg-spin' : ''} /> : <Footprints size={16} />}
+    </span>
+  );
+  const sText = (
+    <span className="ctx-text">
+      <span className="ctx-title">{s.title}</span>
+      <span className={`ctx-sub ${s.tone === 'warn' ? 'pg-ctx-warn' : ''}`}>{s.sub}</span>
+    </span>
+  );
+  return (
+    <div className="ctx-row pg-ctx-row">
+      {s.tap ? (
+        <Pressable className="ctx-chip pg-ctx-chip" press="scale" onPress={s.tap === 'connect' ? onConnect : () => nav.go('/settings/connections')} label={`${s.title}: ${s.sub}. ${s.tap === 'connect' ? 'Connect' : 'Open Data sources'}`}>
+          {sIcon}
+          {sText}
+          <ChevronRight size={15} aria-hidden="true" />
+        </Pressable>
+      ) : (
+        <div className="ctx-chip pg-ctx-chip" role="status" aria-label={`${s.title}: ${s.sub}`}>
+          {sIcon}
+          {sText}
+        </div>
+      )}
+      {blk ? (
+        <Pressable className="ctx-chip pg-ctx-chip" press="scale" onPress={() => nav.go('/plan')} label={`${blk.title}, ${blk.sub}. Open Plan`}>
+          <span className="ctx-ic" aria-hidden="true">
+            <CalendarDays size={16} />
+          </span>
+          <span className="ctx-text">
+            <span className="ctx-title">{blk.title}</span>
+            <span className="ctx-sub">{blk.sub}</span>
+          </span>
+        </Pressable>
+      ) : null}
+    </div>
+  );
+};
+
+// ---------- the hero: this month's running total against last month's ----------
+const monthName = (d: string) => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(`${d}T12:00:00`));
+const MonthHero = ({ log, t }: { log: Log; t: string }) => {
+  const mc = useMemo(() => monthCompare(log.snap, t), [log.snap, t]);
+  const cur = monthName(mc.cur);
+  const prev = monthName(mc.prev);
+  const labels = Array.from({ length: mc.length }, (_, i) => (i === 0 ? md(shiftDays(mc.cur, i)) : String(i + 1)));
+  const sentence = monthWords(mc, monthName);
+  const curOn = mc.curTotal > 0;
+  const prevOn = mc.prevLoaded && mc.prevTotal > 0;
+  return (
+    <section className="card pg-hero pg-month" aria-label={`${cur}: ${mi(mc.curTotal)} miles so far. ${mc.prevLoaded ? `${prev}: ${mi(mc.prevTotal)} miles. ` : ''}${sentence}`}>
+      <span className="pg-glow" aria-hidden="true" />
+      <div className="pg-month-top" aria-hidden="true">
+        <span className="pg-month-cur">
+          {/* never a zero as the headline: an empty month is a dash */}
+          <span className={`pg-month-big ${curOn ? '' : 'is-dash'}`}>
+            {curOn ? mi(mc.curTotal) : '–'}
+            {curOn ? <small>mi</small> : null}
+          </span>
+          <span className="pg-mkey is-now">{cur} so far</span>
+        </span>
+        <span className="pg-month-prev">
+          <span className={`pg-month-small ${prevOn ? '' : 'is-dash'}`}>
+            {prevOn ? mi(mc.prevTotal) : '–'}
+            {prevOn ? <small>mi</small> : null}
+          </span>
+          <span className="pg-mkey">{prev}</span>
+        </span>
+      </div>
+      <p className="pg-month-words">{sentence}</p>
+      <TrendChart
+        label={`Running total of miles, ${cur} against ${prev}`}
+        // two empty months draw the frame alone: a flat line at zero is not something to read
+        line={curOn || mc.prevTotal > 0 ? mc.curLine : []}
+        previous={mc.prevLoaded && (curOn || mc.prevTotal > 0) ? mc.prevLine : undefined}
+        labels={labels}
+        format={(v) => String(Math.round(v))}
+        zero
+        tone="accent"
+        fill
+        height={150}
+        empty={<span>Your miles this month draw here.</span>}
+        readout={(i) =>
+          i == null ? null : (
+            <span className="pg-readline">
+              Day {i + 1} · {mc.curLine[i] != null ? `${mi(mc.curLine[i]!)} mi` : '–'} · {prev.slice(0, 3)} {mc.prevLine[i] != null ? `${mi(mc.prevLine[i]!)} mi` : '–'}
+            </span>
+          )
+        }
+      />
+    </section>
+  );
+};
+
+// ---------- Trends: a 2-column grid of tiles, each opening its metric page ----------
+const CARD_IDS: readonly MetricId[] = ['mileage', 'pace', 'consistency', 'lifts'];
+/** A tile has 150 px: the short name. */
+const TILE_NAME: Partial<Record<MetricId, string>> = { mileage: 'Mileage', lifts: 'Lifts' };
+const Trends = ({ log }: { log: Log }) => {
+  const nav = useNav();
+  const models = useMetricModels(log, CARD_IDS);
+  return (
+    <Sec id="pg-trends" title="Trends" meta="Last 30 days">
+      <div className="tiles pg-tiles">
+        {CARD_IDS.map((id) => {
+          const mm = models[id];
+          const v = mm.variant;
+          return (
+            <TrendCard
+              key={id}
+              label={TILE_NAME[id] ?? METRICS[id].name}
+              icon={<MetricIcon id={id} size={16} />}
+              value={mm.value != null ? v.format(mm.value) : null}
+              unit={v.unit}
+              status={tileStatus(mm.status)}
+              tone={trendTone(mm)}
+              spark={mm.line}
+              invert={v.invert}
+              zero={v.zero}
+              aria={`${METRICS[id].name}: ${mm.value != null ? `${v.format(mm.value)} ${v.unit}, ` : ''}${mm.status}`}
+              onPress={() => nav.push(`/progress/metric/${id}`)}
+            />
+          );
+        })}
+      </div>
+    </Sec>
+  );
+};
+
+// ---------- Vitals: the Health Monitor tiles, empty until Apple Health ----------
+const VITALS: Array<{ id: MetricId; label: string; unit: string }> = [
+  { id: 'rhr', label: 'Resting HR', unit: 'bpm' },
+  { id: 'hrv', label: 'HRV', unit: 'ms' },
+  { id: 'sleep', label: 'Sleep', unit: 'h' },
+];
+const Vitals = () => {
+  const nav = useNav();
+  return (
+    <Sec id="pg-vitals" title="Vitals" meta="Against your normal">
+      <div className="tiles pg-tiles">
+        {VITALS.map((x) => (
+          <Pressable key={x.id} className="tile pg-vital" press="scale" onPress={() => nav.push(`/progress/metric/${x.id}`)} label={`${METRICS[x.id].name}: no data yet, comes with Apple Health. Open`}>
+            <span className="pg-vital-main">
+              <span className="tile-label">
+                <MetricIcon id={x.id} size={16} />
+                <span>{x.label}</span>
+              </span>
+              <span className="tile-value pg-vital-none">No data</span>
+              <span className="pg-vital-foot">Comes with Apple Health</span>
+            </span>
+            <RangePill pos={null} />
+          </Pressable>
+        ))}
+        {/* where the readings will come from: Data sources says when */}
+        <Pressable className="pg-slot" press="scale" onPress={() => nav.go('/settings/connections')} label="Apple Health: not yet available. Open Data sources">
+          <span className="pg-slot-ic" aria-hidden="true">
+            <HeartPulse size={18} />
+          </span>
+          <span className="pg-slot-title">Apple Health</span>
+          <span className="pg-slot-sub">Not yet available</span>
+        </Pressable>
+      </div>
+    </Sec>
+  );
+};
+
+// ---------- Weeks: the verdict, three numbers that follow the finger, the weekly chart, the range; then the drill-downs ----------
+const Weeks = ({ m, t, range, setRange, log, onConnect }: { m: Model; t: string; range: Range; setRange: (r: Range) => void; log: Log; onConnect: () => void }) => {
+  const nav = useNav();
+  const sheet = useSheet();
   const openWeek = useOpenWeek(t);
   const [scrub, setScrubState] = useState<number | null>(null);
   const [opened, setOpened] = useState<number | null>(null);
@@ -137,29 +339,13 @@ export default function ProgressView() {
     if (i == null && scrub != null) setReleased((n) => n + 1);
     setScrubState(i);
   };
-
-  // one model from what is loaded; the snapshot only changes when a month does, so a scrub never rebuilds this
-  const anyLoaded = months.some((m) => log.snap.loaded(m));
-  const model = useMemo(() => (anyLoaded && log.boot ? buildModel(log, lifts.data ?? [], t, range, from) : null), [anyLoaded, log.snap, log.boot, lifts.data, t, range, from]); // eslint-disable-line react-hooks/exhaustive-deps
-  const m = model;
-
-  const header = <NavBar caps={{ cur: dayCaption(t, t) }} title={{ cur: 'Progress' }} gap={24} />;
-  // nothing at all on this device yet: the bar alone, quietly, until the first month lands (no skeleton, no empty state)
-  if (!m)
-    return (
-      <div className="page pg-page" aria-busy="true">
-        {header}
-      </div>
-    );
-
   const pts = m.pts;
   // the range is a Segmented: no haptic on a change (§11.4)
   const pick = (r: Range) => {
     if (r !== range) setRange(r);
   };
   const pinch = (dir: -1 | 1) => {
-    const i = RANGES.indexOf(range) + dir;
-    const r = RANGES[i];
+    const r = RANGES[RANGES.indexOf(range) + dir];
     if (r) setRange(r);
   };
   const openAt = (i: number) => {
@@ -169,7 +355,34 @@ export default function ProgressView() {
     setOpened(i);
     openWeek(p.w, 'open', () => setOpened(null));
   };
-  const connect = () => sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
+  const gaps = pts.some((p) => p.missing);
+  const chips = (
+    <Segmented
+      className="pg-range"
+      label="Range"
+      value={range}
+      onChange={pick}
+      options={RANGES.map((r) => [r, <span key={r} aria-label={rangeLabel(r)}>{r}</span>] as [Range, ReactNode])}
+    />
+  );
+
+  // ---------- new account: the card keeps its place (the chart's shape as a ghost), one sentence, one verb ----------
+  if (!m.ran && !gaps) {
+    const strava = log.features.strava && !log.strava?.connected;
+    return (
+      <Sec id="pg-weeks" title="Weeks" meta={rangeLabel(range)}>
+        <div className="card pg-weeks pg-weeks-empty">
+          <EmptyState
+            ghost="bars"
+            verb={m.planned ? (strava ? { label: 'Connect Strava', onPress: onConnect } : { label: 'See the plan', onPress: () => nav.go('/plan') }) : { label: 'Plan a week', onPress: () => nav.go('/plan'), primary: true }}
+          >
+            {m.planned ? 'Your plan is set. Each run you log lands here.' : 'Plan a week and run it. This card draws the rest.'}
+          </EmptyState>
+        </div>
+        {m.c.habitOf ? <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={onConnect} /> : null}
+      </Sec>
+    );
+  }
 
   // ---------- the headline numbers: the range at rest, the week under the finger while scrubbing ----------
   const shown = scrub ?? opened;
@@ -177,7 +390,6 @@ export default function ProgressView() {
   const ctx = sp ? `${weekTitle(sp.w, t)}${sp.current ? ' · so far' : sp.future ? ' · planned' : ''}` : m.since ? `Since ${md(m.since)}` : rangeLabel(range);
   // a slot never shows a dash: while scrubbing (three slots that must hold still) an empty one says a word; at rest a stat with
   // no value yet (no finished week to average) is left out
-  const held = pts.some((p) => p.missing);
   const slots: Array<{ label: string; value: number | null; word?: string; format: (v: number) => string; unit?: string }> = sp
     ? sp.missing
       ? [
@@ -190,7 +402,7 @@ export default function ProgressView() {
           { label: 'Planned', value: sp.planned || null, word: 'No plan', format: num, unit: 'mi' },
           { label: 'Runs', value: sp.future ? sp.plannedRuns : sp.runs, format: (v) => String(Math.round(v)) },
         ]
-    : held
+    : gaps
       ? // a month of the range not loaded: every number of the range would read the gap as weeks off and change by itself
         // when the month lands, so all three wait in their slots (review code F8, review 2 code N5 / feel N6)
         [
@@ -209,76 +421,28 @@ export default function ProgressView() {
     ? sp.missing
       ? `${ctx}: not loaded yet`
       : `${ctx}: ${sp.future ? '' : `${mi(sp.ran)} miles, `}${sp.planned ? `${num(sp.planned)} planned, ` : ''}${sp.future ? sp.plannedRuns : sp.runs} runs`
-    : held
+    : gaps
       ? `${ctx}: a month of this range is still loading`
       : `${ctx}: ${m.sum.avg != null ? `${mi(m.sum.avg)} miles a week on average, ` : ''}${m.sum.best ? `best week ${mi(m.sum.best.ran)}, ` : ''}${Math.round(m.sum.total)} miles in all`;
-
-  const chips = (
-    <Segmented
-      className="pg-range"
-      label="Range"
-      value={range}
-      onChange={pick}
-      options={RANGES.map((r) => [r, <span key={r} aria-label={rangeLabel(r)}>{r}</span>] as [Range, ReactNode])}
-    />
-  );
-  const gaps = held;
-
-  const fresh = <Freshness log={log} />;
-  // ---------- new account: the page keeps its shape (dashes, empty shells), one sentence, one verb ----------
-  if (!m.ran && !gaps) {
-    const strava = log.features.strava && !log.strava?.connected;
-    return (
-      <div className="page pg-page">
-        {header}
-        {fresh}
-        <MonthHero log={log} t={t} />
-        <EmptyState
-          className="pg-empty"
-          verb={m.planned ? (strava ? { label: 'Connect Strava', onPress: connect } : { label: 'See the plan', onPress: () => nav.go('/plan') }) : { label: 'Plan a week', onPress: () => nav.go('/plan'), primary: true }}
-        >
-          {m.planned ? 'Your plan is set. Each run you log lands here.' : 'Plan a week and run it. This page draws the rest.'}
-        </EmptyState>
-        <Trends log={log} />
-        {m.c.habitOf ? <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} /> : null}
-        <Activities log={log} t={t} from={from} />
-      </div>
-    );
-  }
+  // a month of the range not loaded: the verdict and the drill-downs would read the gap as weeks off (review code F8), so the
+  // verdict says only that, in the same place, and the drill-downs wait under the chart's quiet gap
+  const line = m.v && gaps ? { line: 'Your weeks so far.', sub: 'A month of this range is still on its way; its weeks are left blank.' } : m.v;
 
   return (
-    <div className="page pg-page">
-      {header}
-      {fresh}
-      {/* a month of the range not loaded: the verdict and the drill-downs would read the gap as weeks off (review code F8),
-          so the verdict says only that, in the same place, and the drill-downs wait under the chart's quiet gap */}
-      {m.v && gaps ? (
-        <>
-          <p className="pg-verdict">Your weeks so far.</p>
-          <p className="pg-sub">A month of this range is still on its way; its weeks are left blank.</p>
-        </>
-      ) : m.v ? (
-        <>
-          <p className="pg-verdict">{m.v.line}</p>
-          <p className="pg-sub">{m.v.sub}</p>
-        </>
-      ) : null}
-      <MonthHero log={log} t={t} />
-      <Trends log={log} />
-      <section className="pg-sec" aria-labelledby="pg-weeks">
-      <h2 className="section-title" id="pg-weeks">
-        Weeks
-      </h2>
-      {chips}
-      <section className="pg-hero pg-weeks" aria-label="Weekly miles">
-        <div className="pg-ctx-row">
-          <span className="caps pg-ctx">{ctx}</span>
-        </div>
+    <Sec id="pg-weeks" title="Weeks" meta={rangeLabel(range)}>
+      <div className="card pg-hero pg-weeks" aria-label="Weekly miles" role="group">
+        <span className="pg-eyebrow">{ctx}</span>
+        {line ? (
+          <>
+            <p className="pg-verdict">{line.line}</p>
+            <p className="pg-sub">{line.sub}</p>
+          </>
+        ) : null}
         <div className="pg-readout" role="status" aria-label={readWords}>
           {slots.map((s, i) =>
             s.value == null && !s.word ? null : (
-              <span className="pg-slot" key={i} aria-hidden="true">
-                <span className="caps">{s.label}</span>
+              <span className="pg-slot-stat" key={i} aria-hidden="true">
+                <span className="pg-slot-label">{s.label}</span>
                 <span className="stamp pg-slot-num">
                   {s.value == null ? <span className="pg-slot-word">{s.word}</span> : scrub != null ? <span className="tnum">{s.format(s.value)}</span> : <Ticker key={released} value={s.value} format={s.format} from={released ? (lastShown.current[i] ?? undefined) : undefined} />}
                   {s.unit && s.value != null ? <small>{s.unit}</small> : null}
@@ -288,123 +452,114 @@ export default function ProgressView() {
           )}
         </div>
         <MileageChart pts={pts} range={m.range} today={t} onScrub={setScrub} onOpen={openAt} onPinch={pinch} />
-      </section>
-      {gaps ? null : <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} />}
-      </section>
-      <Activities log={log} t={t} from={from} />
+        {chips}
+      </div>
+      {gaps ? null : <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={onConnect} />}
+    </Sec>
+  );
+};
+
+/** A drill-down row in the Weeks group: an icon tile, the title over its words, a sparkline and one number, a chevron. */
+const DrillRow = ({ icon: Icon, title, sub, spark, value, unit, onPress, label }: { icon: LucideIcon; title: string; sub: ReactNode; spark?: ReactNode; value?: ReactNode; unit?: string; onPress: () => void; label: string }) => (
+  <Pressable className="pg-drill" press="surface" onPress={onPress} label={label}>
+    <span className="icon-tile" aria-hidden="true">
+      <Icon size={17} />
+    </span>
+    <span className="pg-drill-main">
+      <span className="pg-drill-title">{title}</span>
+      <span className="pg-drill-sub">{sub}</span>
+    </span>
+    {spark ? <span className="pg-drill-spark">{spark}</span> : null}
+    {/* the number's column is auto: an empty slot is not drawn, so the sparkline sits against the chevron */}
+    {value != null ? (
+      <span className="pg-drill-val" aria-hidden="true">
+        {value}
+        {unit ? <small>{unit}</small> : null}
+      </span>
+    ) : null}
+    <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
+  </Pressable>
+);
+
+/** The drill-downs under the Weeks card, in one inset group: each row a sparkline and one number, each opening its sheet. */
+const Drills = ({ m, t, range, log, sheet, onConnect }: { m: Model; t: string; range: Range; log: Log; sheet: ReturnType<typeof useSheet>; onConnect: () => void }) => {
+  const { ad, lr, ep, lg, c } = m;
+  // "1 of 6 on plan · 5 to go": counts, never a percentage grade ("kept" is the week's word, review feel F6)
+  const toGo = ad.weeks.reduce((s, w) => s + w.ahead, 0);
+  const adSub = ad.weeks.length ? [ad.planned ? `${ad.kept} of ${ad.planned} on plan` : 'Nothing due yet', toGo ? `${toGo} to go` : null].filter(Boolean).join(' · ') : 'No plan in this range';
+  // "5.3 mi lately · best 8.0 in Aug"
+  const lrDelta = lr.recent > 0 ? `${mi(lr.recent)} mi lately${lr.best && lr.best.miles > lr.recent + 0.05 ? ` · best ${mi(lr.best.miles)} in ${lr.best.month}` : ' · your longest yet'}` : lr.best ? `Best ${mi(lr.best.miles)} in ${lr.best.month}` : 'No runs yet';
+  const ch = paceChange(ep.now, ep.then);
+  const epSub = [ch ? (ch === 'level' ? `Level with ${ep.thenMonth}` : `${ch} than ${ep.thenMonth}`) : `${ep.runs.length} easy ${plural(ep.runs.length, 'run')}`, ep.nowHr != null ? `${Math.round(ep.nowHr)} bpm` : null].filter(Boolean).join(' · ');
+  const top = lg[0];
+  // "Squat 225 × 5 · est. max 263": the set itself, then the estimate, in words
+  const topLast = top ? top.days[top.days.length - 1]! : null;
+  const liftSub = top && topLast ? `${top.name} ${topLast.weight} × ${topLast.reps} · est. max ${Math.round(topLast.e1rm)}` : `None ${rangePhrase(range)}`;
+  const tp = pct(c.rows[0]!.hit, c.rows[0]!.of);
+  const hp = pct(c.habitHit, c.habitOf);
+  const eyebrow = rangeLabel(range);
+  return (
+    <div className="group pg-drills" aria-label="Drill-downs" role="group">
+      {m.ran || ad.weeks.length ? (
+        <DrillRow
+          icon={CalendarCheck}
+          title="Plan adherence"
+          sub={adSub}
+          spark={<Spark values={ad.weeks.map((w) => (w.planned ? w.kept / w.planned : null))} />}
+          onPress={() => sheet.open({ title: 'Plan adherence', eyebrow: ad.block?.name ?? eyebrow, body: <AdherenceSheet ad={ad} today={t} range={range} log={log} />, wide: true })}
+          label={`Plan adherence: ${adSub}. Open`}
+        />
+      ) : null}
+      {m.ran ? (
+        <DrillRow
+          icon={Route}
+          title="Long run"
+          sub={lrDelta}
+          spark={<Spark values={lr.points.map((p) => (p.miles > 0 ? p.miles : null))} />}
+          onPress={() => sheet.open({ title: 'Long run', eyebrow, body: <LongRunSheet lr={lr} log={log} today={t} />, wide: true })}
+          label={`Long run: ${lrDelta}. Open`}
+        />
+      ) : null}
+      {ep.runs.length ? (
+        <DrillRow
+          icon={Timer}
+          title="Easy pace"
+          sub={epSub}
+          spark={<Spark values={ep.weekly.map((w) => w.pace)} invert />}
+          value={ep.now != null ? paceText(ep.now) : undefined}
+          unit="/mi"
+          onPress={() => sheet.open({ title: 'Easy pace', eyebrow, body: <EasyPaceSheet ep={ep} log={log} range={range} />, wide: true })}
+          label={`Easy pace: ${ep.now != null ? `${paceText(ep.now)} a mile` : 'not enough runs yet'}. ${epSub}. Open`}
+        />
+      ) : null}
+      <DrillRow
+        icon={Dumbbell}
+        title="Lifts"
+        sub={liftSub}
+        spark={top ? <Spark values={top.days.map((d) => d.e1rm)} /> : undefined}
+        value={top && top.change != null ? signedPct(top.change) : undefined}
+        onPress={() => sheet.open({ title: 'Lifts', eyebrow, body: <LiftsSheet groups={lg} range={range} />, wide: true })}
+        label={`Lifts: ${top ? `${liftSub}${top.change != null ? `, ${signedPct(top.change)} since ${md(top.days[0]!.date)}` : ''}` : `none ${rangePhrase(range)}`}. Open`}
+      />
+      <DrillRow
+        icon={TrendingUp}
+        title="Consistency"
+        sub={[hp != null ? `Habits ${hp}%` : null, tp != null ? `Training ${tp}%` : null].filter(Boolean).join(' · ') || 'Habits and training, day by day'}
+        spark={<Spark values={c.habitWeeks.map((w) => w.v)} />}
+        value={c.weeks ? c.keptWeeks : undefined}
+        unit={c.weeks ? `of ${c.weeks}` : undefined}
+        onPress={() => sheet.open({ title: 'Consistency', eyebrow, detent: 'large', body: <ConsistencySheet c={c} log={log} today={t} range={range} streak={m.streak} />, wide: true })}
+        label={`Consistency: ${c.weeks ? `${c.keptWeeks} of ${c.weeks} weeks kept` : 'your first week is under way'}${hp != null ? `, habits ${hp}%` : ''}. Open`}
+      />
+      {log.features.strava && !log.strava?.connected ? (
+        // Strava's door on Progress: the primer card as a sheet over Progress (no navigation; Settings keeps its own door, §1.3)
+        <DrillRow icon={Plus} title="Connect Strava" sub="Runs land here on their own" onPress={onConnect} label="Connect Strava. Opens a card about it" />
+      ) : null}
     </div>
   );
-}
-
-// ---------- freshness: when Strava last answered, under the title ----------
-const Freshness = ({ log }: { log: Log }) => {
-  const now = useNow(60_000);
-  const words = syncWords(log.strava, now);
-  if (!words) return null;
-  return (
-    <p className="pg-fresh" role="status">
-      {words.startsWith('Synced') ? <Check size={13} strokeWidth={2.6} aria-hidden="true" className="pg-fresh-ok" /> : null}
-      <span>Strava · {words}</span>
-    </p>
-  );
 };
 
-// ---------- the hero: this month's running total against last month's ----------
-const monthName = (d: string) => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(`${d}T12:00:00`));
-const MonthHero = ({ log, t }: { log: Log; t: string }) => {
-  const mc = useMemo(() => monthCompare(log.snap, t), [log.snap, t]);
-  const cur = monthName(mc.cur);
-  const prev = monthName(mc.prev);
-  const labels = Array.from({ length: mc.length }, (_, i) => {
-    const d = shiftDays(mc.cur, i);
-    return i === 0 ? md(d).toUpperCase() : String(i + 1);
-  });
-  const sentence = monthWords(mc, monthName);
-  return (
-    <section className="pg-hero pg-month" aria-label={`${cur}: ${mi(mc.curTotal)} miles so far. ${mc.prevLoaded ? `${prev}: ${mi(mc.prevTotal)} miles. ` : ''}${sentence}`}>
-      <span className="pg-glow" aria-hidden="true" />
-      <div className="pg-month-totals" aria-hidden="true">
-        <span className="pg-month-total">
-          <span className="caps pg-key is-now">{cur}</span>
-          {/* never a zero as the headline: an empty month is a dash */}
-          <span className={`stamp pg-slot-num ${mc.curTotal > 0 ? '' : 'is-dash'}`}>
-            {mc.curTotal > 0 ? mi(mc.curTotal) : '–'}
-            {mc.curTotal > 0 ? <small>mi</small> : null}
-          </span>
-        </span>
-        <span className="pg-month-total">
-          <span className="caps pg-key">{prev}</span>
-          <span className={`stamp pg-slot-num is-prev ${mc.prevLoaded && mc.prevTotal > 0 ? '' : 'is-dash'}`}>
-            {mc.prevLoaded && mc.prevTotal > 0 ? mi(mc.prevTotal) : '–'}
-            {mc.prevLoaded && mc.prevTotal > 0 ? <small>mi</small> : null}
-          </span>
-        </span>
-      </div>
-      <p className="pg-month-words">{sentence}</p>
-      <TrendChart
-        label={`Running total of miles, ${cur} against ${prev}`}
-        // two empty months draw the frame alone: a flat line at zero is not something to read
-        line={mc.curTotal > 0 || mc.prevTotal > 0 ? mc.curLine : []}
-        previous={mc.prevLoaded && (mc.curTotal > 0 || mc.prevTotal > 0) ? mc.prevLine : undefined}
-        labels={labels}
-        format={(v) => String(Math.round(v))}
-        zero
-        tone="accent"
-        height={150}
-        readout={(i) =>
-          i == null ? null : (
-            <span className="mp-readout caps on">
-              Day {i + 1} · {mc.curLine[i] != null ? `${mi(mc.curLine[i]!)} mi` : '–'} · {prev.slice(0, 3)} {mc.prevLine[i] != null ? `${mi(mc.prevLine[i]!)} mi` : '–'}
-            </span>
-          )
-        }
-      />
-    </section>
-  );
-};
-
-// ---------- trend cards and the vitals rows: each opens its metric page ----------
-const CARD_IDS: readonly MetricId[] = ['mileage', 'pace', 'consistency', 'lifts'];
-const VITAL_IDS: readonly MetricId[] = ['sleep', 'hrv', 'rhr'];
-const Trends = ({ log }: { log: Log }) => {
-  const nav = useNav();
-  const models = useMetricModels(log, CARD_IDS);
-  const open = (id: MetricId) => nav.push(`/progress/metric/${id}`);
-  return (
-    <section className="pg-sec" aria-labelledby="pg-trends">
-      <h2 className="section-title" id="pg-trends">
-        Trends
-      </h2>
-      <div className="pg-cards">
-        {CARD_IDS.map((id) => {
-          const mm = models[id];
-          const v = mm.variant;
-          return <TrendCard key={id} label={METRICS[id].name} icon={<MetricIcon id={id} size={13} />} value={mm.value != null ? v.format(mm.value) : null} unit={v.unit} status={mm.status} spark={mm.line} invert={v.invert} zero={v.zero} onPress={() => open(id)} />;
-        })}
-      </div>
-      <h3 className="pg-vitals-h">Vitals</h3>
-      <div className="list-edge pg-vitals" role="group" aria-label="Vitals">
-        {VITAL_IDS.map((id) => (
-          <Pressable key={id} className="pg-row" press="surface" onPress={() => open(id)} label={`${METRICS[id].name}: comes with Apple Health. Open`}>
-            <span className="pg-vital-icon" aria-hidden="true">
-              <MetricIcon id={id} size={15} />
-            </span>
-            <span className="pg-row-main">
-              <span className="pg-row-title">{METRICS[id].name}</span>
-              <span className="pg-row-sub">Comes with Apple Health</span>
-            </span>
-            <span className="stamp pg-row-num pg-row-val pg-dash" aria-hidden="true">
-              –
-            </span>
-            <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
-          </Pressable>
-        ))}
-      </div>
-    </section>
-  );
-};
-
-// ---------- the activity list: filter chips, a source chip on every row ----------
+// ---------- Activities: filter chips, then the rows in one card, a source chip on every row ----------
 const PAGE = 12;
 const KIND_ICON = { run: Footprints, lift: Dumbbell, cross: ActivityIcon } as const;
 const EMPTY_WORDS: Record<FeedFilter, string> = {
@@ -413,7 +568,7 @@ const EMPTY_WORDS: Record<FeedFilter, string> = {
   lifts: 'No lifts in this range yet. Sets you log show up here.',
   races: 'No races in this range. A run on a day planned as a race shows up here.',
 };
-const Activities = ({ log, t, from }: { log: Log; t: string; from: string }) => {
+const Activities = ({ log, t, from, range }: { log: Log; t: string; from: string; range: Range }) => {
   const sheet = useSheet();
   const openSession = useOpenSession(log);
   const [filter, setFilter] = useState<FeedFilter>('all');
@@ -425,10 +580,7 @@ const Activities = ({ log, t, from }: { log: Log; t: string; from: string }) => 
     else if (x.session) openSession(x.date, x.session);
   };
   return (
-    <section className="pg-sec" aria-labelledby="pg-acts">
-      <h2 className="section-title" id="pg-acts">
-        Activities
-      </h2>
+    <Sec id="pg-acts" title="Activities" meta={rangeLabel(range)}>
       <div className="pg-filters" role="radiogroup" aria-label="Show">
         {FEED_FILTERS.map(([k, l]) => (
           <button
@@ -436,7 +588,7 @@ const Activities = ({ log, t, from }: { log: Log; t: string; from: string }) => 
             type="button"
             role="radio"
             aria-checked={filter === k}
-            className={`chip-btn pg-filter ${filter === k ? 'on' : ''}`}
+            className={`pg-filter ${filter === k ? 'on' : ''}`}
             onClick={() => {
               setFilter(k);
               setShown(PAGE);
@@ -446,22 +598,25 @@ const Activities = ({ log, t, from }: { log: Log; t: string; from: string }) => 
           </button>
         ))}
       </div>
-      <div className="list-edge pg-acts" role="list">
+      <div className="card pg-acts" role="list">
         {items.length === 0 ? (
           <div className="pg-acts-empty" role="listitem">
-            {EMPTY_WORDS[filter]}
+            <span className="icon-tile" aria-hidden="true">
+              <Footprints size={17} />
+            </span>
+            <span>{EMPTY_WORDS[filter]}</span>
           </div>
         ) : (
           items.slice(0, shown).map((x) => {
             const Icon = KIND_ICON[x.kind];
             const detail = feedDetail(x, t, paceText, clock);
             return (
-              <Pressable key={x.key} className="pg-row pg-act" press="surface" onPress={() => openItem(x)} label={`${x.title}, ${x.race ? 'race, ' : ''}from ${x.source}. ${detail}${x.miles ? `, ${mi(x.miles)} miles` : ''}. Open`}>
-                <span className={`pg-act-icon k-${x.kind}`} aria-hidden="true">
-                  <Icon size={16} strokeWidth={2.2} />
+              <Pressable key={x.key} className="pg-act" press="surface" onPress={() => openItem(x)} label={`${x.title}, ${x.race ? 'race, ' : ''}from ${x.source}. ${detail}${x.miles ? `, ${mi(x.miles)} miles` : ''}. Open`}>
+                <span className={`icon-tile pg-act-icon k-${x.kind} ${x.race ? 'is-race' : ''}`} aria-hidden="true">
+                  <Icon size={17} />
                 </span>
-                <span className="pg-row-main">
-                  <span className="pg-row-title pg-act-title">
+                <span className="pg-act-main">
+                  <span className="pg-act-title">
                     <span className="pg-act-name">{x.title}</span>
                     {x.race ? <span className="pg-act-race">Race</span> : null}
                   </span>
@@ -470,7 +625,7 @@ const Activities = ({ log, t, from }: { log: Log; t: string; from: string }) => 
                     <span className="pg-act-detail">{detail}</span>
                   </span>
                 </span>
-                <span className="stamp pg-row-num pg-row-val" aria-hidden="true">
+                <span className="pg-act-val" aria-hidden="true">
                   {x.miles != null && x.miles > 0.05 ? (
                     <>
                       {mi(x.miles)}
@@ -488,85 +643,12 @@ const Activities = ({ log, t, from }: { log: Log; t: string; from: string }) => 
             );
           })
         )}
+        {items.length > shown ? (
+          <button type="button" className="pg-more" onClick={() => setShown((n) => n + PAGE)}>
+            Show {Math.min(PAGE, items.length - shown)} more
+          </button>
+        ) : null}
       </div>
-      {items.length > shown ? (
-        <button type="button" className="link pg-more" onClick={() => setShown((n) => n + PAGE)}>
-          Show {Math.min(PAGE, items.length - shown)} more
-        </button>
-      ) : null}
-    </section>
-  );
-};
-
-/** The edge-to-edge list under the chart: each row a sparkline and one number, each opening its sheet. */
-const Drills = ({ m, t, range, log, sheet, onConnect }: { m: Model; t: string; range: Range; log: Log; sheet: ReturnType<typeof useSheet>; onConnect: () => void }) => {
-  const { ad, lr, ep, lg, c } = m;
-  // "1 of 6 on plan · 5 to go": counts, never a percentage grade ("kept" is the week's word, review feel F6)
-  const toGo = ad.weeks.reduce((s, w) => s + w.ahead, 0);
-  const adSub = ad.weeks.length ? [ad.planned ? `${ad.kept} of ${ad.planned} on plan` : 'Nothing due yet', toGo ? `${toGo} to go` : null].filter(Boolean).join(' · ') : 'No plan in this range';
-  // "5.3 mi lately · best 8.0 in Aug"
-  const lrDelta = lr.recent > 0 ? `${mi(lr.recent)} mi lately${lr.best && lr.best.miles > lr.recent + 0.05 ? ` · best ${mi(lr.best.miles)} in ${lr.best.month}` : ' · your longest yet'}` : lr.best ? `Best ${mi(lr.best.miles)} in ${lr.best.month}` : 'No runs yet';
-  const ch = paceChange(ep.now, ep.then);
-  const epSub = [ch ? (ch === 'level' ? `Level with ${ep.thenMonth}` : `${ch} than ${ep.thenMonth}`) : `${ep.runs.length} easy ${plural(ep.runs.length, 'run')}`, ep.nowHr != null ? `${Math.round(ep.nowHr)}\u00a0bpm` : null].filter(Boolean).join(' · ');
-  const top = lg[0];
-  // "Squat 225 × 5 · est. max 263": the set itself, then the estimate, in words
-  const topLast = top ? top.days[top.days.length - 1]! : null;
-  const liftSub = top && topLast ? `${top.name} ${topLast.weight} × ${topLast.reps} · est. max ${Math.round(topLast.e1rm)}` : `None ${rangePhrase(range)}`;
-  const tp = pct(c.rows[0]!.hit, c.rows[0]!.of);
-  const hp = pct(c.habitHit, c.habitOf);
-  const eyebrow = rangeLabel(range);
-  return (
-    <div className="list-edge pg-drills" aria-label="Drill-downs" role="group">
-      {m.ran || ad.weeks.length ? (
-        <DrillRow
-          title="Plan adherence"
-          sub={adSub}
-          spark={<Spark values={ad.weeks.map((w) => (w.planned ? w.kept / w.planned : null))} />}
-          onPress={() => sheet.open({ title: 'Plan adherence', eyebrow: ad.block?.name ?? eyebrow, body: <AdherenceSheet ad={ad} today={t} range={range} log={log} />, wide: true })}
-          label={`Plan adherence: ${adSub}. Open`}
-        />
-      ) : null}
-      {m.ran ? (
-        <DrillRow
-          title="Long run"
-          sub={lrDelta}
-          spark={<Spark values={lr.points.map((p) => (p.miles > 0 ? p.miles : null))} />}
-          onPress={() => sheet.open({ title: 'Long run', eyebrow, body: <LongRunSheet lr={lr} log={log} today={t} />, wide: true })}
-          label={`Long run: ${lrDelta}. Open`}
-        />
-      ) : null}
-      {ep.runs.length ? (
-        <DrillRow
-          title="Easy pace"
-          sub={epSub}
-          spark={<Spark values={ep.weekly.map((w) => w.pace)} invert />}
-          value={ep.now != null ? paceText(ep.now) : undefined}
-          unit="/mi"
-          onPress={() => sheet.open({ title: 'Easy pace', eyebrow, body: <EasyPaceSheet ep={ep} log={log} range={range} />, wide: true })}
-          label={`Easy pace: ${ep.now != null ? `${paceText(ep.now)} a mile` : 'not enough runs yet'}. ${epSub}. Open`}
-        />
-      ) : null}
-      <DrillRow
-        title="Lifts"
-        sub={liftSub}
-        spark={top ? <Spark values={top.days.map((d) => d.e1rm)} /> : undefined}
-        value={top && top.change != null ? signedPct(top.change) : undefined}
-        onPress={() => sheet.open({ title: 'Lifts', eyebrow, body: <LiftsSheet groups={lg} range={range} />, wide: true })}
-        label={`Lifts: ${top ? `${liftSub}${top.change != null ? `, ${signedPct(top.change)} since ${md(top.days[0]!.date)}` : ''}` : `none ${rangePhrase(range)}`}. Open`}
-      />
-      <DrillRow
-        title="Consistency"
-        sub={[hp != null ? `Habits ${hp}%` : null, tp != null ? `Training ${tp}%` : null].filter(Boolean).join(' · ') || 'Habits and training, day by day'}
-        spark={<Spark values={c.habitWeeks.map((w) => w.v)} />}
-        value={c.weeks ? c.keptWeeks : undefined}
-        unit={c.weeks ? `of ${c.weeks} wks` : undefined}
-        onPress={() => sheet.open({ title: 'Consistency', eyebrow, detent: 'large', body: <ConsistencySheet c={c} log={log} today={t} range={range} streak={m.streak} />, wide: true })}
-        label={`Consistency: ${c.weeks ? `${c.keptWeeks} of ${c.weeks} weeks kept` : 'your first week is under way'}${hp != null ? `, habits ${hp}%` : ''}. Open`}
-      />
-      {log.features.strava && !log.strava?.connected ? (
-        // Strava's door on Progress: the primer card as a sheet over Progress (no navigation; Settings keeps its own door, §1.3)
-        <DrillRow title="Connect Strava" sub="Runs land here on their own" onPress={onConnect} label="Connect Strava. Opens a card about it" />
-      ) : null}
-    </div>
+    </Sec>
   );
 };

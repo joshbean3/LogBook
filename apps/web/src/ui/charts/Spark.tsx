@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { extent, segments, smoothPath, type Series } from './scale';
+import { areaPath, extent, segments, smoothPath, type Series } from './scale';
 import './charts.css';
 
 /**
@@ -7,7 +7,7 @@ import './charts.css';
  * higher (pace: faster is up); `zero` pins the floor at 0. With fewer than two values it draws a dashed baseline in the same box, so a card keeps its
  * shape when it is empty. Decorative: the row or card it sits in says the number in words.
  */
-export const Spark = ({ values, w = 64, h = 24, invert, zero, glow = true, className = '' }: { values: Series; w?: number; h?: number; invert?: boolean; zero?: boolean; glow?: boolean; className?: string }) => {
+export const Spark = ({ values, w = 64, h = 24, invert, zero, glow = true, area, className = '' }: { values: Series; w?: number; h?: number; invert?: boolean; zero?: boolean; glow?: boolean; /** A soft fill under the line (tiles, the trend table). */ area?: boolean; className?: string }) => {
   const id = useId().replace(/:/g, '');
   const e = extent(values);
   const segs = segments(values);
@@ -38,15 +38,20 @@ export const Spark = ({ values, w = 64, h = 24, invert, zero, glow = true, class
     <svg className={`ck-spark ${className}`} width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
       <defs>
         <radialGradient id={`g${id}`}>
-          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.45" />
+          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.5" />
           <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
         </radialGradient>
+        <linearGradient id={`a${id}`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="var(--columbia)" stopOpacity="0.7" />
+          <stop offset="1" stopColor="var(--columbia)" stopOpacity="0" />
+        </linearGradient>
       </defs>
+      {area ? segs.map((s, k) => (s.length > 1 ? <path key={`a${k}`} d={areaPath(s.map((p) => xy(p.i, p.v)), h)} fill={`url(#a${id})`} /> : null)) : null}
       {segs.map((s, k) => (
         <path key={k} d={smoothPath(s.map((p) => xy(p.i, p.v)))} className="ck-spark-line" />
       ))}
-      {glow ? <circle cx={lx} cy={ly} r={5} fill={`url(#g${id})`} /> : null}
-      <circle cx={lx} cy={ly} r={2.4} className="ck-spark-dot" />
+      {glow ? <circle cx={lx} cy={ly} r={7} fill={`url(#g${id})`} /> : null}
+      {glow ? <circle cx={lx} cy={ly} r={2.8} className="ck-spark-dot" /> : null}
     </svg>
   );
 };

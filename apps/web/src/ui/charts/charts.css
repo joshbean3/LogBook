@@ -1,8 +1,8 @@
-/* ---------- the chart kit: Columbia and navy for data, orange only for the newest point ---------- */
+/* ---------- the chart kit: Columbia and navy for data, orange only for the newest point (docs/shape-system.md) ---------- */
 .ck-chart {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 .ck-readout {
@@ -11,7 +11,7 @@
 .ck-plot {
   position: relative;
   outline: none;
-  border-radius: var(--r-group);
+  border-radius: var(--r-control);
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
@@ -26,36 +26,32 @@
   display: block;
   overflow: visible;
 }
+/* clean axes: dashed hairlines, the labels on the right in the quiet sans */
 .ck-grid {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
+}
+.ck-base {
   stroke: var(--line);
   stroke-width: 1;
 }
-.ck-base {
-  stroke: var(--line-strong);
-  stroke-width: 1;
-}
 .ck-ax {
-  font: 600 10px/1 var(--stamp);
-  letter-spacing: 0.04em;
-  fill: var(--ink-3);
+  font: 500 11px/1 var(--sans);
+  fill: var(--ink-4);
   font-variant-numeric: tabular-nums;
-  text-transform: uppercase;
-}
-.ck-band {
-  fill: var(--columbia);
-  opacity: 0.38;
 }
 .ck-zone {
   fill: var(--columbia);
 }
 .ck-zone-label {
-  font: 700 9px/1 var(--stamp);
-  letter-spacing: 0.06em;
-  fill: var(--ink-2);
+  font: 600 10px/1 var(--sans);
+  fill: var(--ink-3);
 }
 .ck-bar {
   fill: var(--columbia);
-  opacity: 0.75;
+  opacity: 0.8;
 }
 .ck-bar.on {
   fill: var(--ink-2);
@@ -78,7 +74,7 @@
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.85;
+  opacity: 0.7;
 }
 .ck-dot {
   fill: var(--surface);
@@ -86,20 +82,25 @@
   stroke-width: 1.5;
 }
 .ck-avg-line {
-  stroke: var(--ink-2);
+  stroke: var(--ink-3);
   stroke-width: 1.25;
   stroke-dasharray: 1.5 4;
   stroke-linecap: round;
 }
 .ck-avg-pill {
   fill: var(--surface);
-  stroke: var(--line-strong);
+  stroke: var(--line);
   stroke-width: 1;
+  filter: drop-shadow(0 1px 2px rgba(15, 42, 68, 0.08));
 }
 .ck-avg-word {
-  font: 700 9.5px/1 var(--sans);
-  letter-spacing: 0.02em;
-  fill: var(--ink-2);
+  font: 500 10.5px/1 var(--sans);
+  fill: var(--ink-3);
+}
+.ck-avg-num {
+  font-weight: 700;
+  fill: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 .ck-cursor {
   stroke: var(--ink-2);
@@ -114,7 +115,14 @@
 .ck-newest {
   fill: var(--accent);
   stroke: var(--surface);
-  stroke-width: 2;
+  stroke-width: 2.5;
+}
+.ck-drop {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 1.5 3;
+  stroke-linecap: round;
+  opacity: 0.45;
 }
 .ck-empty {
   position: absolute;
@@ -144,6 +152,8 @@
 }
 .ck-spark-dot {
   fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.25;
 }
 .ck-spark-none {
   stroke: var(--ink-4);
@@ -152,17 +162,17 @@
   stroke-linecap: round;
 }
 
-/* ---------- range control: < 1M 3M 6M 1Y > ---------- */
+/* ---------- range control: < 1M 3M 6M 1Y >, round steps either side of a pale track ---------- */
 .ck-range {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 .ck-range-keys {
   flex: 1;
   display: flex;
   gap: 2px;
-  padding: 2px;
+  padding: 3px;
   border-radius: var(--r-pill);
   background: var(--surface-2);
 }
@@ -172,8 +182,8 @@
   border: 0;
   background: none;
   position: relative;
-  color: var(--ink-2);
-  font: 600 13px/16px var(--sans);
+  color: var(--ink-3);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   font-variant-numeric: tabular-nums;
 }
 .ck-range-key {
@@ -193,15 +203,21 @@
   box-shadow: var(--shadow-1);
 }
 .ck-range-step {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   flex: none;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.ck-range-step::after {
+  inset: -4px;
 }
 .ck-range-step:disabled {
   color: var(--ink-4);
+  background: transparent;
 }
 .ck-range-key:focus-visible,
 .ck-range-step:focus-visible {
@@ -209,140 +225,112 @@
   outline-offset: 1px;
 }
 
-/* ---------- trend table ---------- */
+/* ---------- trend table: a quiet header, then period, change and a soft sparkline per row ---------- */
 .ck-ttable-rows {
   display: grid;
 }
 .ck-trow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 24px 72px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) 76px;
   align-items: center;
-  gap: 10px;
-  min-height: 44px;
+  gap: 12px;
+  min-height: 48px;
   border-top: 1px solid var(--line);
 }
-.ck-trow:first-child {
+.ck-trow-head {
+  min-height: 28px;
+  border-top: 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-4);
+}
+.ck-trow-head + .ck-trow {
   border-top: 0;
 }
 .ck-trow-days {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
   white-space: nowrap;
 }
 .ck-trow-change {
-  font-size: 1rem;
-  line-height: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font: 700 var(--fs-sub) / var(--lh-sub) var(--stamp);
   color: var(--ink);
-  text-align: right;
   white-space: nowrap;
-  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+.ck-trow-words {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ck-trow-change.is-none {
-  font: 500 0.8125rem/1.125rem var(--sans);
-  letter-spacing: 0;
-  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-4);
 }
 .ck-trow-arrow {
+  flex: none;
   display: grid;
   place-items: center;
-  color: var(--ink-2);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  color: var(--surface);
 }
 .ck-foot {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-3);
   text-wrap: pretty;
 }
 
-/* ---------- trend card ---------- */
+/* ---------- trend tile (a .tile in a .tiles grid, styles/shape.css): label, number, status word, a soft sparkline ---------- */
 .ck-tcard {
   appearance: none;
-  border: var(--card-border);
-  background: var(--surface);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-1);
-  padding: 12px 14px 12px;
-  display: grid;
-  gap: 2px;
-  justify-items: start;
-  text-align: left;
-  min-width: 0;
+  font: inherit;
   width: 100%;
-  color: var(--ink);
-  position: relative;
   overflow: hidden;
+  container: tcard / inline-size;
 }
 .ck-tcard-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   width: 100%;
-  min-width: 0;
 }
-.ck-tcard-icon {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
-  flex: none;
+.ck-tcard-head > svg:first-child {
+  color: var(--ink-3);
 }
 .ck-tcard-label {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 600;
-  color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.ck-tcard-chev {
+.ck-tcard .tile-label .ck-tcard-go {
+  margin-left: auto;
   color: var(--ink-4);
-  flex: none;
 }
 .ck-tcard-num {
-  margin-top: 6px;
-  font-size: 1.625rem;
-  line-height: 2rem;
-  white-space: nowrap;
+  margin-top: 2px;
 }
-.ck-tcard-num small,
-.ck-big small {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  margin-left: 3px;
-  color: var(--ink-3);
+.ck-tcard-num.is-empty,
+.ck-tcard.is-waiting .ck-tcard-num {
+  color: var(--ink-4);
 }
 .ck-tcard-status {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-  max-width: 100%;
-  min-height: calc(var(--lh-foot) * 2);
+  align-items: flex-start;
+  min-height: var(--lh-sub);
+}
+.ck-tcard-status > svg {
+  margin-top: 2.5px;
+}
+.ck-tcard-status > span {
+  min-width: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-}
-/* a narrow card (a 320 px phone) gives the label the chevron's room */
-.ck-tcard {
-  container: tcard / inline-size;
-}
-@container tcard (max-width: 128px) {
-  .ck-tcard-chev {
-    display: none;
-  }
-  .ck-tcard-head {
-    gap: 5px;
-  }
 }
 .ck-tcard-spark {
   margin-top: 6px;
@@ -350,9 +338,40 @@
   display: block;
   min-width: 0;
 }
-.ck-tcard-num.is-empty,
-.ck-tcard.is-waiting .ck-tcard-num {
-  color: var(--ink-4);
+/* a 320 px phone: the arrow gives its room to the label */
+@container tcard (max-width: 132px) {
+  .ck-tcard .tile-label .ck-tcard-go {
+    display: none;
+  }
+}
+
+/* ---------- the slim range pill at a vital tile's right ---------- */
+.ck-rpill {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 100%;
+  min-height: 56px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  flex: none;
+}
+.ck-rpill-band {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: var(--r-pill);
+  background: var(--columbia);
+}
+.ck-rpill-dot {
+  position: absolute;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--ink-2);
 }
 
 /* ---------- rings ---------- */

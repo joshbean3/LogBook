@@ -47,8 +47,8 @@ const CardCanvas = ({ template, data, caption, active }: { template: Template; d
 
 /**
  * The share sheet: every template as a live 9:16 card in a carousel you swipe (it snaps card by card), the page dots under
- * it, the caption field when the card takes one, and Share as the one blue verb (Save beside it in ink). Tapping a dot or a
- * card that peeks in brings it to the middle.
+ * it, the caption in its own card when the card takes one, and Share as the one navy pill pinned at the bottom (Save the white
+ * pill beside it). Tapping a dot or a card that peeks in brings it to the middle.
  */
 export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Template }) => {
   const toast = useToast();
@@ -153,18 +153,22 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
             ))}
           </span>
         </div>
-        {/* the caption sits right under the card it writes on, never under the footer */}
-        {t === 'bubble' ? <input className="in share-caption" value={caption} maxLength={80} aria-label="Caption" placeholder="Say something" onChange={(e) => setCaption(e.target.value)} /> : null}
+        {/* the caption sits right under the card it writes on, in a card of its own, never under the footer */}
+        {t === 'bubble' ? (
+          <label className="card share-cap">
+            <span className="share-cap-label">Caption</span>
+            <input className="in share-caption" value={caption} maxLength={80} placeholder="Say something" onChange={(e) => setCaption(e.target.value)} />
+          </label>
+        ) : null}
       </div>
-      <div className="sheet-foot">
-        <Button variant="quiet" disabled={!!busy} onClick={() => run('save')}>
+      {/* one navy pill pinned at the bottom; Save is the white pill beside it */}
+      <div className="sheet-foot share-foot">
+        <Button className="share-save" disabled={!!busy} onClick={() => run('save')}>
           {busy === 'save' ? 'Saving' : saved ? 'Saved' : 'Save'}
         </Button>
-        <div className="foot-right">
-          <Button variant="primary" disabled={!!busy} onClick={() => run('share')}>
-            {busy === 'share' ? 'Sharing' : 'Share'}
-          </Button>
-        </div>
+        <Button variant="primary" className="share-go" disabled={!!busy} onClick={() => run('share')}>
+          {busy === 'share' ? 'Sharing' : 'Share'}
+        </Button>
       </div>
     </div>
   );

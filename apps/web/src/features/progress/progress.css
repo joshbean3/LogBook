@@ -1,45 +1,92 @@
-/* ---------- Progress: a verdict, one chart you can play with, then the drill-downs ---------- */
+/* ---------- Progress (docs/shape-system.md §6, a tab): context chips, a hero card, tiles, the weeks card, the activity card ---------- */
 
-/* the verdict: 20/25 600 in the sans (one serif per screen: the title, §8), then the week in plain words */
-.pg-verdict {
-  font: 600 20px/25px var(--sans);
+/* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
+   must not move it too (review 3 feel R3-3). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. */
+.pg-page {
+  overflow-anchor: none;
+}
+
+/* ---------- sections: 28 above, a plain sans header 12 above its first card ---------- */
+.pg-sec {
+  margin-top: var(--section);
+}
+.pg-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 var(--sec-gap);
+  min-width: 0;
+}
+.pg-head-title {
+  margin: 0 auto 0 0;
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
   letter-spacing: -0.01em;
   color: var(--ink);
-  margin-top: 0;
-  text-wrap: pretty;
 }
-.pg-sub {
-  margin-top: 8px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-2);
-  text-wrap: pretty;
-}
-
-/* the range, a Segmented over the chart that steers every section (32 tall, 44 hit; styled with .j-seg in journal.css) */
-.seg.pg-range {
-  margin-top: 24px;
-  margin-bottom: 12px;
-  font-variant-numeric: tabular-nums;
-}
-/* a week whose month has not loaded: a quiet gap, a faint dash on the baseline */
-.pg-gap-line {
-  stroke: var(--ink-4);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
+.pg-head-meta {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-/* the hero: the chart card, lit from below */
+/* ---------- the context row: Strava and the block ---------- */
+.pg-ctx-row {
+  margin-bottom: 16px;
+}
+.pg-ctx-row > .ctx-chip {
+  flex: 1 1 0;
+}
+.pg-ctx-ic.is-ok {
+  background: var(--columbia);
+  color: var(--ink);
+}
+.pg-ctx-ic.is-warn {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pg-ctx-warn {
+  color: var(--accent-text);
+}
+/* a 320 px phone: smaller icons and padding so the words keep their room */
+@container page (max-width: 21rem) {
+  .pg-ctx-row {
+    gap: 8px;
+  }
+  .pg-ctx-row > .ctx-chip {
+    gap: 8px;
+    padding: 8px 8px 8px 6px;
+  }
+  .pg-ctx-row .ctx-ic {
+    width: 28px;
+    height: 28px;
+  }
+  .pg-ctx-row .ctx-chip > svg {
+    display: none;
+  }
+}
+.pg-spin {
+  animation: pg-spin 1.1s linear infinite;
+}
+@keyframes pg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pg-spin {
+    animation: none;
+  }
+}
+
+/* ---------- a hero card, lit from below ---------- */
 .pg-hero {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  padding: 14px 16px 10px;
-  margin-top: 12px;
   container: pghero / inline-size;
 }
 .pg-glow {
@@ -47,40 +94,223 @@
   inset: 0;
   z-index: -1;
   background: var(--halo);
-  opacity: 0.7;
+  opacity: 0.6;
   pointer-events: none;
 }
-.pg-ctx-row {
-  display: flex;
-  align-items: center;
-  min-height: 16px;
-}
-.pg-ctx {
-  color: var(--ink-2);
+/* the one caps eyebrow a card may carry */
+.pg-eyebrow {
+  display: block;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the headline numbers: three stamps that rewrite under the finger */
-.pg-readout {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 8px;
+.pg-readline {
+  display: block;
+  min-height: var(--lh-foot);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.pg-slot {
+
+/* ---------- this month against last: the big total at the left, last month's at the right, a sentence, the lines ---------- */
+.pg-month {
+  padding-bottom: 12px;
+}
+.pg-month-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pg-month-cur,
+.pg-month-prev {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
-.pg-slot .caps {
-  font-size: 0.625rem;
+.pg-month-prev {
+  justify-items: end;
+  text-align: right;
+  padding-top: 8px;
+}
+.pg-month-big {
+  font: 700 2.125rem / 2.375rem var(--stamp);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.pg-month-small {
+  font: 700 1.25rem / 1.5rem var(--stamp);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.pg-month-big small,
+.pg-month-small small {
+  margin-left: 3px;
+  font: 500 var(--fs-sub) / 1 var(--sans);
+  color: var(--ink-3);
+}
+.pg-month-big.is-dash,
+.pg-month-small.is-dash {
+  color: var(--ink-4);
+}
+.pg-mkey {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.pg-mkey::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  flex: none;
+}
+.pg-mkey.is-now::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+/* the hero sentence: Logbook's serif */
+.pg-month-words {
+  margin: 12px 0 8px;
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* ---------- tiles: trends and vitals ---------- */
+.pg-vital {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+  font: inherit;
+  width: 100%;
+}
+.pg-vital {
+  container: vital / inline-size;
+}
+/* a narrow tile gives the label's icon room back to its words ("Resting HR") */
+@container vital (max-width: 140px) {
+  .pg-vital .tile-label svg {
+    display: none;
+  }
+}
+.pg-vital-main {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+.pg-vital-none {
+  color: var(--ink-4);
+  white-space: normal;
+}
+.pg-vital-foot {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+/* an "add here" slot: where the vitals will come from */
+.pg-slot {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+  padding: 14px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--r-tile);
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  text-align: center;
+}
+.pg-slot-ic {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink-2);
+  margin-bottom: 4px;
+}
+.pg-slot-title {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.pg-slot-sub {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+}
+
+/* ---------- the weeks card ---------- */
+.pg-weeks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+.pg-verdict {
+  margin-top: 6px;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.pg-sub {
+  margin-top: 2px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+/* the headline numbers: three stamps that rewrite under the finger, split by hairlines */
+.pg-readout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.pg-slot-stat {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pg-slot-stat + .pg-slot-stat {
+  padding-left: 12px;
+  box-shadow: inset 1px 0 0 var(--line);
+}
+.pg-slot-label {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
   white-space: nowrap;
 }
 .pg-slot-num {
-  font-size: 1.75rem;
-  line-height: 2rem;
+  font-size: 1.5rem;
+  line-height: 1.875rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
@@ -89,21 +319,310 @@
 .pg-slot-num small,
 .pg-row-num small,
 .pg-stamp-num small {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font: 500 0.8125rem / 1 var(--sans);
   letter-spacing: 0;
   text-transform: none;
   margin-left: 3px;
-  color: rgba(15, 42, 68, 0.7);
+  color: var(--ink-3);
 }
-@container pghero (max-width: 17rem) {
+/* an empty slot while scrubbing says a word ("No plan"), never a dash; it sits on the numerals' baseline */
+.pg-slot-word {
+  font: 600 1rem / 1 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
+@container pghero (max-width: 18rem) {
   .pg-readout {
     gap: 8px;
   }
-  .pg-slot-num {
-    font-size: 1.375rem;
-    line-height: 1.75rem;
+  .pg-slot-stat + .pg-slot-stat {
+    padding-left: 8px;
   }
+  .pg-slot-num {
+    font-size: 1.25rem;
+    line-height: 1.625rem;
+  }
+}
+.seg.pg-range {
+  margin-top: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pg-weeks-empty {
+  padding-bottom: 18px;
+}
+.pg-weeks-empty .empty-ghost {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.pg-weeks-empty .empty-line {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+/* ---------- the drill-downs: one inset group under the weeks card ---------- */
+.pg-drills {
+  margin-top: var(--gap);
+}
+.pg-drill {
+  appearance: none;
+  border: 0;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+.group > .pg-drill + .pg-drill {
+  box-shadow: inset 60px 1px 0 var(--surface), inset 0 1px 0 var(--line);
+}
+.pg-drill[data-pressed] {
+  background: var(--surface-2);
+}
+@media (hover: hover) {
+  .pg-drill:hover {
+    background: var(--surface-2);
+  }
+}
+.pg-drill:focus-visible,
+.pg-act:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: -2px;
+}
+.pg-drill-main,
+.pg-act-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.pg-drill-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pg-drill-sub {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.pg-drill-spark {
+  flex: none;
+  display: block;
+}
+.pg-drill-val,
+.pg-act-val {
+  flex: none;
+  font: 700 1.125rem / 1.5rem var(--stamp);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+  text-align: right;
+}
+.pg-drill-val small,
+.pg-act-val small {
+  margin-left: 2px;
+  font: 500 var(--fs-foot) / 1 var(--sans);
+  color: var(--ink-3);
+}
+.pg-act-val:empty {
+  display: none;
+}
+.pg-chev {
+  color: var(--ink-4);
+  flex: none;
+  margin-right: -4px;
+}
+/* at 320 the title and its number win; the sparkline lives in the sheet */
+@container page (max-width: 21rem) {
+  .pg-drill-spark {
+    display: none;
+  }
+}
+
+/* the drill-downs' small sparkline (charts.tsx Spark): the kit's navy line, its newest point orange */
+.pg-spark {
+  flex: none;
+  overflow: visible;
+}
+.pg-spark-line {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pg-spark-dot {
+  fill: var(--accent);
+}
+.pg-spark-none {
+  display: inline-block;
+}
+
+/* ---------- activities: filter chips, then the rows in one card ---------- */
+.pg-filters {
+  display: flex;
+  gap: 8px;
+  margin: 0 calc(-1 * var(--gutter)) var(--gap);
+  padding: 2px var(--gutter) 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pg-filters::-webkit-scrollbar {
+  display: none;
+}
+.pg-filter {
+  appearance: none;
+  flex: none;
+  position: relative;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font: 600 var(--fs-sub) / 1 var(--sans);
+  transition:
+    background var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
+}
+.pg-filter::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+.pg-filter.on {
+  background: var(--primary);
+  color: var(--primary-ink);
+  box-shadow: none;
+}
+.pg-filter:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
+}
+.card.pg-acts {
+  padding: 4px 0;
+  overflow: hidden;
+}
+.pg-act {
+  appearance: none;
+  border: 0;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+/* separators start where the words start */
+.pg-act + .pg-act {
+  box-shadow: inset 60px 1px 0 var(--surface), inset 0 1px 0 var(--line);
+}
+.pg-act[data-pressed] {
+  background: var(--surface-2);
+}
+@media (hover: hover) {
+  .pg-act:hover {
+    background: var(--surface-2);
+  }
+}
+.pg-act-icon.k-lift {
+  background: color-mix(in srgb, var(--t-lift) 12%, white);
+  color: var(--t-lift);
+}
+.pg-act-icon.k-cross {
+  background: var(--surface-2);
+}
+.pg-act-icon.is-race {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pg-act-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+}
+.pg-act-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-act-race {
+  flex: none;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font: 600 var(--fs-caps) / 1 var(--sans);
+}
+.pg-act-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.pg-act-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-acts-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+.pg-more {
+  appearance: none;
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--line);
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.pg-more:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: -2px;
 }
 
 /* ---------- the chart ---------- */
@@ -134,32 +653,34 @@
   font-family: var(--sans);
 }
 .pg-grid {
-  stroke: rgba(15, 42, 68, 0.07);
+  stroke: var(--line-strong);
   stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
 }
 .pg-base {
-  stroke: rgba(15, 42, 68, 0.16);
+  stroke: var(--line);
   stroke-width: 1;
 }
 .pg-ax {
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  fill: var(--ink-3);
+  font: 500 11px/1 var(--sans);
+  fill: var(--ink-4);
+  font-variant-numeric: tabular-nums;
 }
 .pg-ax.now {
   fill: var(--accent-text);
+  font-weight: 600;
 }
 /* run bars white, this week the one blue, plan an outline (dashed ahead), the average a thin line */
 .pg-bar {
-  fill: rgba(15, 42, 68, 0.86);
+  fill: var(--ink-2);
 }
 .pg-bar.cur {
-  fill: var(--accent-bright);
+  fill: var(--accent);
 }
 .pg-plan {
-  fill: rgba(15, 42, 68, 0.03);
-  stroke: rgba(15, 42, 68, 0.34);
+  fill: var(--columbia-wash);
+  stroke: var(--ink-4);
   stroke-width: 1;
 }
 .pg-plan.ahead {
@@ -184,9 +705,9 @@
 }
 /* series named on the chart: caps, outlined in black so they read over a bar */
 .pg-lbl {
-  font-size: 0.5625rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0;
   fill: var(--ink-2);
   paint-order: stroke;
   stroke: var(--surface);
@@ -217,126 +738,6 @@
 .pg-ghost-slot {
   display: grid;
   gap: 8px;
-}
-
-/* ---------- drill-downs: an edge-to-edge list, a sparkline and one number per row ---------- */
-.pg-drills {
-  margin-top: 24px;
-}
-.pg-row {
-  appearance: none;
-  border: 0;
-  background: var(--bg);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 64px;
-  padding-block: 10px;
-  cursor: pointer;
-  transition: background var(--dur-fast);
-}
-.pg-row[data-pressed] {
-  background: var(--surface-2);
-}
-@media (hover: hover) {
-  .pg-row:hover {
-    background: var(--surface);
-  }
-}
-.pg-row:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: -2px;
-}
-/* the value column is auto (visual F18): a row with no number gives the room back to its words, and its sparkline sits
-   right against the chevron */
-.pg-row-val {
-  text-align: right;
-}
-.pg-row-val.is-empty {
-  display: none;
-}
-.pg-row-main {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-.pg-row-title {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pg-row-sub {
-  font-size: 0.875rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
-  letter-spacing: -0.01em;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.pg-row-num {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
-  white-space: nowrap;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.pg-chev {
-  color: var(--ink-3);
-  flex: none;
-  margin-right: -4px;
-}
-.pg-spark {
-  flex: none;
-  overflow: visible;
-}
-.pg-spark-line {
-  fill: none;
-  stroke: rgba(15, 42, 68, 0.78);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.pg-spark-dot {
-  fill: var(--accent-bright);
-}
-.pg-spark-none {
-  display: inline-block;
-}
-/* at 320 the title and its number win; the sparkline lives in the sheet */
-@container page (max-width: 21rem) {
-  .pg-row .pg-spark {
-    display: none;
-  }
-}
-
-/* ---------- empty: the chart as it will look, one sentence, one verb ---------- */
-.pg-empty {
-  margin-top: 12px;
-}
-.pg-empty .empty-ghost {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-.pg-empty .empty-line {
-  /* one serif per screen, the title's (§8, review feel F13): the sentence is the verdict's sans */
-  font-family: var(--sans);
-  font-size: 1.25rem;
-  line-height: 1.5625rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
 }
 
 /* ---------- sheets ---------- */
@@ -759,194 +1160,46 @@ button.pg-srow[data-pressed] {
   transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
-   must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
-   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
-   this root is left out of anchor selection. */
-.pg-page {
-  overflow-anchor: none;
-}
-
-/* ---------- the redesign: freshness, this month, trend cards, vitals, the activity list ---------- */
-/* freshness under the title: "Strava · Synced 6 m ago" */
-.pg-fresh {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 12px;
-  padding: 3px 10px;
-  border-radius: var(--r-pill);
+/* ---------- the drill-down sheets, in cards (docs/shape-system.md §5, sheets): stamps in a card, rows in an inset group ---------- */
+.pg-sheet > .pg-stamps,
+.pg-sheet > .pg-line,
+.pg-sheet > .pg-grid-wrap,
+.pg-sheet > .pg-week-top {
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
 }
-.pg-fresh-ok {
-  color: var(--ink-2);
-}
-/* the sections under the hero: 32 above each, a sentence-case title */
-.pg-sec {
-  margin-top: 32px;
-}
-.pg-sec > .section-title {
-  margin-bottom: 12px;
-}
-.pg-sec .seg.pg-range {
+.pg-sheet .list-edge.pg-list {
+  --page-pad: 16px;
+  margin-inline: 0;
   margin-top: 0;
-}
-.pg-hero.pg-weeks {
-  margin-top: 0;
-}
-/* this month, the page's hero: two totals over the running lines (orange is this month, grey last month) */
-.pg-month {
-  margin-top: 20px;
-  padding-bottom: 8px;
-}
-.pg-month-totals {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.pg-month-total {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.pg-key {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-.pg-key::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ink-4);
-  flex: none;
-}
-.pg-key.is-now::before {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-tint);
-}
-.pg-slot-num.is-prev {
-  color: var(--ink-3);
-}
-.pg-slot-num.is-dash {
-  color: var(--ink-4);
-}
-.pg-month-words {
-  margin: 6px 0 10px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-2);
-  text-wrap: pretty;
-}
-/* trend cards: two across, the same shell empty or full */
-.pg-cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.pg-vitals-h {
-  margin-top: 20px;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-.pg-vitals {
-  margin-top: 4px;
-}
-.pg-vitals .pg-row {
-  min-height: 56px;
-}
-.pg-vital-icon,
-.pg-act-icon {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
-  flex: none;
-}
-.pg-dash {
-  color: var(--ink-4);
-}
-/* the activity list */
-.pg-filters {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
-}
-.pg-filter {
-  height: 32px;
-  font-size: 0.875rem;
-}
-.pg-filter.on {
-  background: var(--primary);
-  color: var(--primary-ink);
-  border-color: var(--primary);
-}
-.pg-act .pg-row-num {
-  font-size: 1.125rem;
-}
-.pg-act .pg-row-num small {
-  font-size: 0.6875rem;
-}
-.pg-act-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.pg-act-name {
-  min-width: 0;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.pg-act-race {
-  flex: none;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 7px;
-  border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.pg-sheet .pg-srow {
+  background: var(--surface);
+  padding-block: 10px;
 }
-.pg-act-sub {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 6px;
-  min-width: 0;
-  font-size: 0.875rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
+.pg-sheet button.pg-srow[data-pressed] {
+  background: var(--surface-2);
 }
-.pg-act-detail {
-  min-width: 0;
+@media (hover: hover) {
+  .pg-sheet button.pg-srow:hover {
+    background: var(--surface-2);
+  }
 }
-.pg-acts-empty {
-  padding-block: 14px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-3);
+.pg-sheet > .pg-note {
+  padding-inline: 4px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
 }
-.pg-more {
-  margin-top: 4px;
+.pg-stamp .caps {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
 }
