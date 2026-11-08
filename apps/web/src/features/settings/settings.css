@@ -1,18 +1,63 @@
-/* ---------- Settings (§8): a pushed page of inset groups; every row pushes its section, or opens a sheet. ---------- */
+/* ---------- Settings (§8, shape system §6, reference 658-672): a pushed page of inset groups under small sans headers,
+   then action pills, then the version, centred. Every row pushes its section, or opens a sheet. ---------- */
 .s-set {
   --swipe-bg: var(--bg);
 }
 
-/* the inset groups (§8): one surface per group, 44 rows (60 with a second line), the row is the target */
-.s-sec .s-group {
-  margin-top: 4px;
+/* a section: header 28 above, 12 to its container; an optional grey footnote under it */
+.s-sec {
+  margin-top: var(--section);
+  min-width: 0;
 }
-.s-root > .s-sec:first-of-type {
-  margin-top: 8px;
+.s-set > .pushed-bar + .s-sec,
+.s-set > .pushed-bar + .card {
+  margin-top: 12px;
+}
+.s-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 var(--sec-gap);
+  padding: 0 2px;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+.s-head-meta {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.s-foot {
+  margin: 8px 0 0;
+  padding: 0 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.s-card.card {
+  gap: 12px;
+}
+
+/* the inset groups: one white surface per group, rows 56 (64 with a second line), the row is the target */
+.s-group.group {
+  border-radius: var(--r-tile);
+}
+.s-group > .lrow {
+  min-height: 56px;
+}
+.s-group > .lrow.two {
+  min-height: 64px;
 }
 .s-group .lrow-title {
   font-weight: 400;
   letter-spacing: -0.01em;
+}
+.s-group .lrow-sub {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
 }
 .s-group .lrow-right {
   min-width: 0;
@@ -44,10 +89,10 @@
   overflow: visible;
 }
 .s-wrap {
-  padding-block: 10px;
+  padding-block: 11px;
 }
 /* a drill row's line under its title wraps to a second line rather than losing its end (at 320 "See your runs land …"
-   said nothing); the row grows from 60 by its own height, nothing animates */
+   said nothing); the row grows from 64 by its own height, nothing animates */
 .s-go .lrow-sub {
   white-space: normal;
   display: -webkit-box;
@@ -55,7 +100,7 @@
   -webkit-line-clamp: 2;
 }
 .s-go.two {
-  padding-block: 10px;
+  padding-block: 11px;
 }
 .s-bad {
   color: var(--bad);
@@ -63,54 +108,108 @@
 .s-email {
   font-size: 0.9375rem;
 }
-.s-first {
-  margin-top: 24px;
-}
 
-/* the soft icon tile at a row's start; the hairline under a tiled row starts after the tile, as on iOS */
-.s-tile {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
-}
+/* the icon tile at a row's start (.icon-tile, shape.css); a quiet one for what is not there yet. Hairlines between rows
+   start where the words start, after the tile, never at the card's edge */
 .s-tile.is-muted {
   background: var(--surface-2);
   color: var(--ink-4);
 }
-.s-group > .has-tile + .has-tile {
-  border-top-color: transparent;
+.s-group > * + * {
   position: relative;
+  border-top: 0;
+  box-shadow: none;
 }
-.s-group > .has-tile + .has-tile::before {
+.s-group > * + *::before {
   content: '';
   position: absolute;
-  top: -1px;
-  left: 60px;
+  top: 0;
+  left: 16px;
   right: 0;
   height: 1px;
   background: var(--line);
+  pointer-events: none;
+}
+.s-group > .has-tile + *::before,
+.s-group > .has-tile + .has-tile::before {
+  left: 60px;
 }
 
+/* action pills: full-width white pills with centred words; the one that loses something in red on a pale red */
+.s-pills {
+  display: grid;
+  gap: var(--gap);
+  margin-top: var(--section);
+}
+.pill-row.s-pill {
+  font-weight: 500;
+  transition:
+    transform 120ms var(--ease-out),
+    background var(--dur-fast);
+}
+.pill-row.s-pill[data-pressed]:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--surface-2);
+}
+.pill-row.s-pill.is-danger {
+  background: var(--bad-soft);
+  box-shadow: none;
+  color: var(--bad);
+}
+.pill-row.s-pill:disabled {
+  color: var(--ink-4);
+}
+
+/* the version, centred at the bottom under the wordmark */
 .s-colophon {
-  margin-top: 48px;
+  margin: 36px 0 8px;
   text-align: center;
   display: grid;
   gap: 4px;
   justify-items: center;
 }
+.s-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+}
+.s-wordmark .display {
+  font-size: 1.625rem;
+  line-height: 2rem;
+}
 .s-version {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-4);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
-.s-colophon .caps {
-  color: var(--ink-4);
+
+/* a page's promise (Privacy): a white card, an icon, one serif sentence on the halo */
+.card.s-hero {
+  margin-top: 12px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px;
+  background: var(--surface) var(--halo) no-repeat;
+  background-size: 100% 160%;
+  background-position: 50% 100%;
+}
+.s-hero-ic {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.s-hero-line {
+  margin: 0;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
+  color: var(--ink);
 }
 
 /* ---------- sub-pages ---------- */
@@ -122,28 +221,21 @@
   font-size: 0.9375rem;
   line-height: 1.25rem;
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 .s-label-value {
   color: var(--ink);
 }
-.s-race {
-  margin-top: 24px;
-  display: grid;
-  /* the race strip scrolls inside the page; as a grid item it would otherwise grow to every Sunday it holds */
+.s-race.card {
+  margin-top: var(--gap);
+  /* the race strip scrolls inside the card; as a grid item it would otherwise grow to every Sunday it holds */
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  overflow: hidden;
 }
 .s-note {
   margin-top: 12px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-}
-.s-lede {
-  margin-top: 16px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 
@@ -159,9 +251,10 @@
   display: grid;
   gap: 4px;
   padding: 16px 16px 12px;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  border-radius: var(--r-card);
+  border: var(--card-border);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
   overflow: hidden;
 }
 .s-rebuild-title {
@@ -190,17 +283,21 @@
 }
 
 /* ---------- habits ---------- */
+/* the habits on Today: rows in one white card; the lifted row floats over it */
 .s-hlist {
   position: relative;
-  margin: 16px calc(-1 * var(--page-pad)) 0;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .s-hrow {
   position: relative;
   display: flex;
   align-items: center;
   height: 60px;
-  padding-inline: var(--page-pad) 4px;
-  background: var(--bg);
+  padding-inline: 16px 4px;
+  background: transparent;
   touch-action: auto;
   -webkit-touch-callout: none;
   user-select: none;
@@ -210,15 +307,15 @@
   content: '';
   position: absolute;
   top: 0;
-  left: var(--page-pad);
+  left: 64px;
   right: 0;
   height: 1px;
   background: var(--line);
 }
 .s-hrow.is-lifted {
-  background: var(--surface-2);
-  border-radius: 14px;
-  outline: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: var(--r-tile);
+  box-shadow: var(--shadow-float);
   cursor: grabbing;
 }
 .s-hrow.is-lifted::before,
@@ -282,15 +379,14 @@
   gap: 12px;
 }
 .s-add {
-  margin-top: 4px;
   display: flex;
   gap: 8px;
 }
 .s-add-in.in {
   flex: 1;
   height: 48px;
-  border-radius: var(--r-pill);
-  padding: 0 18px;
+  border-radius: var(--r-control);
+  padding: 0 14px;
   font-size: 1.0625rem;
 }
 .s-add-btn {
@@ -299,17 +395,20 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--ink);
+  border: 0;
+  background: var(--primary);
+  color: var(--primary-ink);
   display: grid;
   place-items: center;
 }
 .s-add-btn:disabled {
-  opacity: 0.35;
+  background: var(--surface-3);
+  color: var(--ink-4);
+}
+.s-add-sec .s-note {
+  margin: 0;
 }
 .s-starters {
-  margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -356,9 +455,15 @@
   padding-bottom: 8px;
 }
 .s-del-lede {
-  font-size: 1.0625rem;
+  margin: 0;
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  font-size: var(--fs-sub);
   line-height: 1.375rem;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .s-del-actions {
   margin-top: 8px;
@@ -366,12 +471,13 @@
   gap: 4px;
 }
 .s-del-continue.btn {
-  border-color: rgba(255, 59, 92, 0.4);
+  border-color: transparent;
   background: var(--bad-soft);
-  height: 52px;
+  box-shadow: none;
+  height: 54px;
 }
 .s-del-final.btn {
-  height: 52px;
+  height: 54px;
   background: var(--bad);
   border-color: var(--bad);
   color: #fff;
@@ -463,15 +569,6 @@
   overflow-anchor: none;
 }
 
-/* Privacy: the promise in ink, the list of what is sent under the switch */
-.s-promise {
-  color: var(--ink);
-  font-weight: 500;
-}
-.s-privacy-facts {
-  margin-top: 8px;
-  padding: 0 4px 24px;
-}
 .s-wrap-title .lrow-title {
   white-space: normal;
   overflow: visible;

@@ -6,7 +6,6 @@ import { useNavInternal, useTabOrNull } from '@/app/NavController';
 import { LOCK_PX, TOAST_DISMISS_V } from '@/lib/gesture';
 import { fadeIn, fadeOut, springs } from '@/lib/motion';
 import type { TabId } from './nav';
-import { safeTopPx, useSheetMotion } from './sheetMotion';
 import { createToastStore, type ToastAction } from './toastStore';
 
 // contracts §C.7 names ui/Toast.tsx as ToastAction's module (consumer review 3 #7)
@@ -25,20 +24,11 @@ export const useToast = (): ToastFn => {
   return useMemo<ToastFn>(() => (text, action) => show(tab, text, action), [show, tab]);
 };
 
-/** Room kept between a toast and the top of an open sheet, and from the top of the screen. */
-const GAP = 12;
-const px = (v: string) => {
-  const n = parseFloat(v);
-  return Number.isFinite(n) ? n : 0;
-};
-
 /**
  * One line of feedback at a time, with an optional action (Undo) (docs/feel.md §8, contracts §C.7). 4 s plain, 6 s with
  * an action (`TOAST_MS` / `TOAST_UNDO_MS`), the action's own `duration` when it asks. Scoped to the tab that raised it: a
- * tab change dismisses it with `fadeOut`. It sits above the tab bar, above This morning's Leave row (`--toast-lift` on the
- * pushed page), or, while a sheet is up, just above the sheet's top edge, following `sheetY` from the module store as the
- * sheet rises, is dragged or falls (pinned under the status bar when a tall sheet leaves no room); the placement is a
- * transform, no per-frame query. Fades in 120 ms, out 100 ms; a swipe away (≥ 110 px/s) dismisses it. role="status".
+ * tab change dismisses it with `fadeOut`. A small white pill floating at the top of the screen, under the status bar
+ * (inspiration §2.13), over a sheet too. Fades in 120 ms, out 100 ms; a swipe away (≥ 110 px/s) dismisses it. role="status".
  */
 export const ToastProvider = ({ children }: { children: ReactNode }): React.JSX.Element => {
   const store = useMemo(() => createToastStore(), []);
@@ -58,37 +48,13 @@ export const ToastProvider = ({ children }: { children: ReactNode }): React.JSX.
     [ctl, store],
   );
 
-  // ---------- placement: a transform on the host, from the sheet's motion store ----------
+  // ---------- placement: a small floating pill at the top (shape system v2), under the status bar ----------
+  // It sits over whatever is there, a tall sheet's header included, so nothing has to make room for it and it never moves
+  // while a sheet rises or falls under it. A swipe up (toward the edge it sits on) sends it away.
   const host = useRef<HTMLDivElement>(null);
   const pill = useRef<HTMLDivElement>(null);
   const hostY = useMotionValue(0);
-  const { sheetY, height, open: sheetUp } = useSheetMotion();
-  const top = useRef(false);
-  useLayoutEffect(() => {
-    if (!t) return;
-    const el = host.current;
-    if (!el) return;
-    // This morning's Leave row asks for room (--toast-lift on the top pushed page of the active tab), read once per toast
-    const layers = document.querySelectorAll<HTMLElement>('.tab[data-active] .pushed');
-    const lift = layers.length ? px(getComputedStyle(layers[layers.length - 1]!).getPropertyValue('--toast-lift')) : 0;
-    const place = () => {
-      const restBottom = el.offsetTop + el.offsetHeight;
-      const h = pill.current?.offsetHeight ?? 44;
-      top.current = false;
-      if (!sheetUp) return hostY.set(-lift);
-      const H = window.innerHeight;
-      const kb = px(getComputedStyle(document.documentElement).getPropertyValue('--kb'));
-      const sheetTop = H - kb - height.get() + sheetY.get();
-      if (sheetTop >= restBottom + GAP) return hostY.set(-lift);
-      if (sheetTop - GAP - h >= safeTopPx() + GAP) return hostY.set(sheetTop - GAP - restBottom);
-      // a tall sheet: pinned under the status bar
-      top.current = true;
-      hostY.set(safeTopPx() + GAP + h - restBottom);
-    };
-    place();
-    const offs = [sheetY.on('change', place), height.on('change', place)];
-    return () => offs.forEach((f) => f());
-  }, [t, sheetUp, sheetY, height, hostY]);
+  const top = useRef(true);
 
   // ---------- swipe to dismiss ----------
   const dx = useMotionValue(0);

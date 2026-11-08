@@ -805,12 +805,21 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
               <div className="sheet-grip" />
             </div>
           )}
-          <div className="sheet-head">
-            {depth > 1 ? (
-              <button type="button" className="icon-btn sheet-back" aria-label="Back" title="Back" onClick={pop}>
-                <ChevronLeft size={24} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            ) : null}
+          {/* shape system §5: the round close (or back, inside a push) at the left, the centred sans title, the panel's one
+              action at the right (with Close beside it inside a push). Both sides are as wide as the wider one, so the title
+              sits on the sheet's centre line. */}
+          <div className="sheet-head" data-side={depth > 1 ? (top.action ? 2 : 1) : 1}>
+            <span className="sheet-lead">
+              {depth > 1 ? (
+                <button type="button" className="icon-btn sheet-back" aria-label="Back" title="Back" onClick={pop}>
+                  <ChevronLeft size={22} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              ) : (
+                <button type="button" className="icon-btn sheet-close" aria-label="Close" title="Close" onClick={() => requestClose({ kind: 'tween' })}>
+                  <X size={19} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              )}
+            </span>
             <div className="sheet-titles">
               <AnimatePresence custom={dir} mode="popLayout" initial={false}>
                 <motion.div key={panelKey} className="sheet-titles-in" custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
@@ -821,14 +830,18 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
                 </motion.div>
               </AnimatePresence>
             </div>
-            {top.action ? (
-              <span key={panelKey} className="sheet-action">
-                {top.action}
-              </span>
-            ) : null}
-            <button type="button" className="icon-btn" aria-label="Close" title="Close" onClick={() => requestClose({ kind: 'tween' })}>
-              <X size={20} aria-hidden="true" />
-            </button>
+            <span className="sheet-trail">
+              {top.action ? (
+                <span key={panelKey} className="sheet-action">
+                  {top.action}
+                </span>
+              ) : null}
+              {depth > 1 ? (
+                <button type="button" className="icon-btn sheet-close" aria-label="Close" title="Close" onClick={() => requestClose({ kind: 'tween' })}>
+                  <X size={19} strokeWidth={2.2} aria-hidden="true" />
+                </button>
+              ) : null}
+            </span>
           </div>
         </div>
         {top.header ? <div className="sheet-header">{top.header}</div> : null}

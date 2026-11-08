@@ -9,8 +9,8 @@ import { isNative } from '@/lib/native';
 import { PushedBar, Row, useSheet, useToast } from '@/ui';
 import { DeleteStepOne, exportAll } from './account';
 import { popFav } from '@/features/journal/feel';
-import type { LucideIcon } from 'lucide-react';
-import { GoRow, SGroup, Switch, Tile } from './parts';
+import { Download, House, Mail, Upload, Vibrate, type LucideIcon } from 'lucide-react';
+import { ActionPill, GoRow, SGroup, Switch, Tile } from './parts';
 
 // ---------- install (the web app only) ----------
 type BIP = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
@@ -74,18 +74,18 @@ export const AppPage = (): React.JSX.Element => {
     <div className="page s-set s-sub">
       <PushedBar title="App" />
       <SGroup title="Feel">
-        <HapticsRow />
+        <HapticsRow icon={Vibrate} />
       </SGroup>
       {!isNative ? (
         <SGroup title="Home screen">
           {isStandalone() ? (
-            <Row className="s-wrap" title="Installed" sub="You’re running Logbook from the home screen." />
+            <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Installed" sub="You’re running Logbook from the home screen." />
           ) : canInstall ? (
-            <GoRow title="Install Logbook" sub="Full screen, and it opens offline." onPress={() => void install()} />
+            <GoRow icon={House} title="Install Logbook" sub="Full screen, and it opens offline." onPress={() => void install()} />
           ) : isIosSafari() ? (
-            <Row className="s-wrap" title="Add to Home Screen" sub="In Safari: Share, then Add to Home Screen." />
+            <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Add to Home Screen" sub="In Safari: Share, then Add to Home Screen." />
           ) : (
-            <Row className="s-wrap" title="Add to Home Screen" sub="From your browser’s menu, for full screen and offline." />
+            <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Add to Home Screen" sub="From your browser’s menu, for full screen and offline." />
           )}
         </SGroup>
       ) : null}
@@ -147,26 +147,25 @@ export const DataPage = (): React.JSX.Element => {
       <PushedBar title="Data" />
       <SGroup title="Your log">
         <Row
-          className="s-wrap s-import-row"
+          className="s-wrap s-import-row has-tile"
+          left={<Tile icon={Upload} />}
           title="Import"
           sub={importBundle.isPending ? 'Reading the file…' : importResult ? <span className={importResult.bad ? 's-bad' : ''}>{importResult.text}</span> : 'A Logbook export or your old log, as JSON.'}
           onClick={() => !importBundle.isPending && fileRef.current?.click()}
           label="Import a file"
         />
-        <Row className="s-wrap s-export-row" title="Export" sub={exporting ?? saved ?? 'Everything you’ve logged, as one JSON file.'} onClick={() => void runExport()} label="Export my data" />
+        <Row className="s-wrap s-export-row has-tile" left={<Tile icon={Download} />} title="Export" sub={exporting ?? saved ?? 'Everything you’ve logged, as one JSON file.'} onClick={() => void runExport()} label="Export my data" />
       </SGroup>
       <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => e.target.files?.[0] && importBundle.mutate(e.target.files[0])} />
     </div>
   );
 };
 
-/** /settings/account: who is signed in, Sign out, Delete account (a two-step sheet). */
-export const AccountPage = (): React.JSX.Element => {
-  const boot = useBootstrap();
+/** Sign out: the Settings root's action pill and the Account page's. A failure says so in a toast. */
+export const useSignOut = () => {
   const qc = useQueryClient();
-  const sheet = useSheet();
   const toast = useToast();
-  const logout = useMutation({
+  return useMutation({
     mutationFn: () => api('/auth/logout', { method: 'POST' }),
     onSuccess: () => markSignedOut(qc),
     onError: () => {
@@ -174,6 +173,14 @@ export const AccountPage = (): React.JSX.Element => {
       toast('Couldn’t sign out. Check your connection.');
     },
   });
+};
+
+/** /settings/account: who is signed in, then Sign out and Delete account (a two-step sheet) as action pills. */
+export const AccountPage = (): React.JSX.Element => {
+  const boot = useBootstrap();
+  const sheet = useSheet();
+  const toast = useToast();
+  const logout = useSignOut();
   const runExport = () =>
     void exportAll(() => undefined).catch(() => {
       haptics.error();
@@ -182,14 +189,18 @@ export const AccountPage = (): React.JSX.Element => {
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Account" />
-      {/* one group: who is signed in, then the two ways out (no "Leave" header over Sign out, review feel F13) */}
+      {/* who is signed in, then the two ways out as action pills (reference 660), the one that loses everything in red */}
       <SGroup title="Signed in as">
-        <Row title={boot.data?.user.email ?? ' '} className="s-email-row" />
-        <Row className="s-signout" title={logout.isPending ? 'Signing out…' : 'Sign out'} onClick={() => !logout.isPending && logout.mutate()} />
-        <Row
+        <Row title={boot.data?.user.email ?? ' '} className="s-email-row has-tile" left={<Tile icon={Mail} />} />
+      </SGroup>
+      <div className="s-pills">
+        <ActionPill className="s-signout" disabled={logout.isPending} onPress={() => logout.mutate()}>
+          {logout.isPending ? 'Signing out…' : 'Sign out'}
+        </ActionPill>
+        <ActionPill
+          danger
           className="s-danger"
-          title="Delete account"
-          onClick={() =>
+          onPress={() =>
             sheet.open({
               eyebrow: 'Account',
               title: 'Delete account',
@@ -203,8 +214,10 @@ export const AccountPage = (): React.JSX.Element => {
               ),
             })
           }
-        />
-      </SGroup>
+        >
+          Delete account
+        </ActionPill>
+      </div>
     </div>
   );
 };

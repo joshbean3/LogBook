@@ -36,8 +36,10 @@
 }
 
 
-/* ---------- the sheet: the thread scrolls, the composer stays pinned at the bottom (over the keyboard) ---------- */
-/* the sheet body's one row fills it, so a short conversation still has its composer at the bottom */
+/* ---------- the sheet: the thread scrolls, the composer stays pinned at the bottom (over the keyboard) ----------
+ * Built on the shape system (docs/shape-system.md, reference coach chat 69-100): the context chip under the header, the
+ * owner's words in navy bubbles at the right, the assistant's words on white cards, a proposal as one card of rows, the
+ * suggested replies as full-width rows in one white group, and the composer as a white pill with round attach and send. */
 .sheet-body:has(> .as-sheet) {
   align-content: stretch;
 }
@@ -45,117 +47,150 @@
   display: grid;
   /* the thread takes what is left (and grows past it: the body scrolls), the composer its own height */
   grid-template-rows: 1fr auto;
+  min-width: 0;
 }
 .as-thread {
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 2px 0 16px;
+  gap: var(--gap);
+  padding: 0 0 16px;
   min-width: 0;
 }
 
-/* where it was opened from: one small chip, removable */
-/* it stays at the top while the conversation scrolls under it, so a long thread still shows what it is about */
+/* ---------- where it was opened from: a context chip, removable, that stays at the top while the thread scrolls ---------- */
 .as-context {
   position: sticky;
-  top: 0;
+  /* over the body's 4 px top padding too, so nothing shows above it as the thread scrolls */
+  top: -4px;
   z-index: 1;
   display: flex;
-  /* a short fade under it, so what scrolls behind does not collide with it */
-  margin: -2px 0 -10px;
-  padding: 2px 0 10px;
-  background: linear-gradient(var(--bg) 70%, transparent);
+  margin: -4px 0 -4px;
+  padding: 4px 0 8px;
+  background: linear-gradient(var(--bg) 75%, rgba(243, 248, 251, 0));
   pointer-events: none;
 }
-.as-context .as-chip {
+.as-context .ctx-chip.as-ctx {
   pointer-events: auto;
-  box-shadow: 0 2px 8px rgba(15, 42, 68, 0.08);
-}
-.as-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   max-width: 100%;
-  min-height: 30px;
-  padding: 0 4px 0 10px;
-  border-radius: var(--r-pill);
-  background: var(--columbia-wash);
-  border: 1px solid var(--line);
-  color: var(--ink-2);
-  font: 500 var(--fs-foot) / 1.2 var(--sans);
+  min-height: 48px;
+  padding: 6px 6px 6px 7px;
+  box-shadow: var(--shadow-float);
 }
-.as-chip-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.as-ctx .ctx-ic {
+  width: 32px;
+  height: 32px;
 }
 .as-chip-x {
   position: relative;
   flex: none;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
   border-radius: 50%;
   border: 0;
-  background: var(--surface-3);
-  color: var(--ink-2);
+  background: var(--surface-2);
+  color: var(--ink-3);
 }
 /* a 44 px target around the small dot */
 .as-chip-x::after {
   content: '';
   position: absolute;
-  inset: -11px;
+  inset: -8px;
 }
 
+/* ---------- an empty conversation: what it can do, then ways to start ---------- */
 .as-empty {
   display: grid;
-  gap: 14px;
+  gap: var(--gap);
 }
-.as-empty-lead {
-  display: flex;
-  gap: 8px;
+.card.as-intro {
+  gap: 6px;
+  padding: 18px 16px;
+  background: var(--surface) var(--halo) no-repeat;
+  background-size: 100% 140%;
+  background-position: 50% 100%;
+}
+.as-intro-ic {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.as-intro-title {
+  margin: 0;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
+  color: var(--ink);
+}
+.as-intro-sub {
   margin: 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
-.as-empty-lead svg {
-  flex: none;
-  margin-top: 2px;
-  color: var(--accent-text);
+.as-head {
+  margin: 16px 0 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
 
-/* starters and suggested replies: full-width rows in the owner's words; a tap sends */
+/* ---------- starters and suggested replies: full-width rows in one white group; a tap sends ---------- */
 .as-replies {
   display: grid;
-  gap: 8px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
 }
 .as-reply {
+  position: relative;
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
   align-items: start;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  min-height: 48px;
-  padding: 13px 14px;
-  border-radius: var(--r-group);
-  border: var(--card-border);
+  min-height: 52px;
+  padding: 15px 16px;
+  border: 0;
+  border-radius: 0;
   background: var(--surface);
-  box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  transition: background var(--dur-fast);
 }
+/* the hairline starts where the words start */
+.as-reply + .as-reply::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 44px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.as-reply[data-pressed],
 .as-reply:active {
   background: var(--surface-2);
 }
 .as-reply-ic {
   margin-top: 2px;
-  color: var(--ink-3);
+  color: var(--ink-4);
+}
+.as-reply-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-/* turns: the owner's words in navy on the right, the assistant's on white on the left */
+/* ---------- turns: the owner's words in navy at the right, the assistant's on white cards ---------- */
 .as-turn {
   display: grid;
   gap: 8px;
@@ -163,38 +198,49 @@
 }
 .as-turn.is-user {
   justify-items: end;
+  margin-top: 4px;
 }
 .as-bubble {
   margin: 0;
-  max-width: 88%;
-  padding: 10px 14px;
-  border-radius: 18px;
+  max-width: 84%;
+  padding: 11px 15px;
+  border-radius: 20px 20px 6px 20px;
+  background: var(--primary);
+  color: var(--primary-ink);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.is-user .as-bubble {
-  background: var(--primary);
-  color: var(--primary-ink);
-  border-bottom-right-radius: 6px;
-}
-.is-assistant .as-bubble {
-  justify-self: start;
+.as-answer {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
   background: var(--surface);
-  color: var(--ink);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
-  border-bottom-left-radius: 6px;
+  color: var(--ink);
+  font-size: var(--fs-sub);
+  line-height: 1.375rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.as-working {
+  display: grid;
+  gap: 8px;
+  justify-self: start;
+  max-width: 100%;
 }
 .as-typing {
   display: inline-flex;
   gap: 5px;
   width: fit-content;
+  margin: 0;
+  padding: 3px 0;
 }
 .as-typing i {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--ink-3);
   animation: as-dot 1.1s ease-in-out infinite;
@@ -218,23 +264,21 @@
 /* under the typing dots once an answer takes a while */
 .as-slow {
   margin: 0;
-  max-width: 88%;
   font-size: var(--fs-foot);
-  line-height: 1.35;
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 
-/* an ask that did not go through: it stays in the chat, with Retry */
+/* an ask that did not go through: it stays in the chat, on a card, with Retry */
 .as-error {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(0, 1fr);
   gap: 4px 10px;
-  max-width: 88%;
-  padding: 12px 14px;
-  border-radius: 18px;
-  border-bottom-left-radius: 6px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
   background: var(--surface);
-  border: 1px solid var(--line-strong);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
 }
 .as-error-ic {
@@ -254,62 +298,62 @@
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  margin-top: 6px;
-  padding: 0 14px;
+  margin-top: 8px;
+  padding: 0 16px;
   border-radius: var(--r-pill);
   border: 0;
   background: var(--primary);
   color: var(--primary-ink);
-  font: 600 var(--fs-foot) / 1 var(--sans);
+  font: 600 var(--fs-sub) / 1 var(--sans);
 }
 
-/* ---------- a proposal: the summary, a card per change, the decision ---------- */
-.as-proposal {
-  display: grid;
-  gap: 10px;
+/* ---------- a proposal: one card; the summary, a row per change, the decision ---------- */
+.card.as-proposal {
+  gap: 0;
+  padding: 0;
   min-width: 0;
-  scroll-margin-top: 8px;
+  overflow: hidden;
+  scroll-margin-top: 64px;
+}
+.as-prop-head {
+  display: grid;
+  gap: 4px;
+  padding: 16px 16px 6px;
 }
 .as-proposal-sum {
   margin: 0;
-  padding: 0 2px;
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  font-weight: 600;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
   color: var(--ink);
 }
 .as-changes {
   list-style: none;
   display: grid;
-  gap: 8px;
   margin: 0;
   padding: 0;
 }
 .as-change {
+  position: relative;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
-  padding: 10px 6px 10px 12px;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
+  min-height: 60px;
+  padding: 10px 6px 10px 16px;
   transition: opacity 160ms ease;
 }
-.as-change-ic {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+.as-change + .as-change::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
 }
 /* a change that deletes something: orange means look here */
 .as-change.is-risky .as-change-ic {
-  background: var(--accent-tint);
+  background: var(--accent-soft);
   color: var(--accent-text);
 }
 .as-change-body {
@@ -318,63 +362,68 @@
   min-width: 0;
 }
 .as-change-text {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
   overflow-wrap: anywhere;
 }
 .as-change-why {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: var(--fs-foot);
-  line-height: 1.3;
+  line-height: var(--lh-foot);
   color: var(--ink-3);
+  overflow-wrap: anywhere;
 }
 .as-change-x {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
+  margin: 0 7px;
   border-radius: 50%;
   border: 0;
-  background: none;
+  background: var(--surface-2);
   color: var(--ink-3);
 }
+.as-change-x::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
 .as-change-x:active {
-  background: var(--surface-2);
+  background: var(--surface-3);
 }
 .as-change-left {
-  padding-right: 8px;
+  padding-right: 10px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 /* removed before Apply: it stays in place, faded and struck, with Put back */
-.as-change.is-off {
-  background: transparent;
-  box-shadow: none;
-  border-style: dashed;
-  border-color: var(--line-strong);
-}
 .as-change.is-off .as-change-ic,
 .as-change.is-off .as-change-body {
-  opacity: 0.5;
+  opacity: 0.45;
 }
 .as-change.is-off .as-change-text {
   text-decoration: line-through;
 }
 .as-change.is-off .as-change-x {
+  background: var(--columbia-wash);
   color: var(--ink-2);
 }
 .as-proposal-foot {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
-  margin-top: 2px;
+  padding: 10px 16px 16px;
 }
 .as-proposal-foot .btn {
   height: 48px;
+  border-color: transparent;
+  box-shadow: none;
 }
-.as-proposal-foot .btn.ghost {
+.as-proposal-foot .btn.quiet {
+  padding: 0 14px;
+  background: var(--surface-2);
   color: var(--ink-2);
 }
 /* grey until there is something to apply */
@@ -387,13 +436,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 40px;
-  padding: 0 2px;
+  gap: 8px;
+  min-height: 52px;
+  margin-top: 6px;
+  padding: 6px 12px 6px 16px;
+  border-top: 1px solid var(--line);
 }
-.as-proposal-state .caps {
+.as-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
-.as-proposal.is-applied .as-proposal-state .caps {
+.as-status.is-on {
   color: var(--ink-2);
 }
 .as-proposal.is-dismissed .as-changes,
@@ -407,79 +463,98 @@
   min-height: 36px;
   padding: 0 14px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
+  border: 0;
+  background: var(--columbia-wash);
   color: var(--ink);
-  font: 600 var(--fs-foot) / 1 var(--sans);
+  font: 600 var(--fs-sub) / 1 var(--sans);
 }
 /* a proposal of many changes shows six, then this */
 .as-more {
   justify-self: start;
   min-height: 44px;
-  padding: 0 2px;
+  margin: 0 0 0 60px;
+  padding: 0;
   border: 0;
   background: none;
-  color: var(--ink-2);
+  color: var(--accent-text);
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
-/* ---------- the composer, pinned to the sheet's bottom ---------- */
+/* ---------- the composer, pinned to the sheet's bottom: a white pill with round attach and send ---------- */
 .as-compose {
   position: sticky;
   bottom: calc(-16px - var(--safe-b));
   z-index: 2;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) 40px;
-  align-items: end;
-  gap: 8px;
-  margin-bottom: calc(-16px - var(--safe-b));
-  padding: 10px 0 calc(10px + var(--safe-b));
-  background: var(--bg);
-  border-top: 1px solid var(--line);
+  gap: 10px;
+  margin: 0 calc(-1 * var(--gutter)) calc(-16px - var(--safe-b));
+  padding: 14px var(--gutter) calc(10px + var(--safe-b));
+  /* a fade, not a rule: the thread runs under it */
+  background: linear-gradient(to bottom, rgba(243, 248, 251, 0), var(--bg) 16px);
 }
-.as-compose:not(:has(.as-new)) {
-  grid-template-columns: auto minmax(0, 1fr) 40px;
+.as-pill {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: end;
+  gap: 6px;
+  min-height: 52px;
+  padding: 7px;
+  border-radius: 26px;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-float);
 }
 /* a proposal waiting off screen: the bar that brings it back */
 .as-review {
-  grid-column: 1 / -1;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 44px;
-  margin-top: -2px;
-  padding: 0 14px 0 16px;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px 0 8px;
   border-radius: var(--r-pill);
   border: 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  text-align: left;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-review-n {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
   background: var(--primary);
   color: var(--primary-ink);
-  font: 600 var(--fs-sub) / 1 var(--sans);
-  box-shadow: var(--shadow-1);
+  font: 700 var(--fs-sub) / 1 var(--stamp);
+  font-variant-numeric: tabular-nums;
 }
-/* the paperclip: a quiet round control beside the field */
+.as-review svg {
+  color: var(--ink-3);
+}
+/* the paperclip: a round control inside the pill */
 .as-attach {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
+  border: 0;
+  background: var(--columbia-wash);
   color: var(--ink-2);
 }
 .as-attach:disabled {
   color: var(--ink-4);
 }
-/* what is about to be sent: a row over the field, a preview per photo, a name per PDF, each with its remove */
+/* what is about to be sent: a row over the pill, a preview per photo, a name per PDF, each with its remove */
 .as-files {
-  grid-column: 1 / -1;
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 2px 2px;
+  padding: 6px 2px 2px;
 }
 .as-file {
   position: relative;
@@ -488,9 +563,9 @@
   align-items: center;
   gap: 6px;
   height: 56px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--ink-2);
 }
 .as-file.is-photo {
@@ -529,7 +604,7 @@
   border-radius: 50%;
   border: 2px solid var(--bg);
   background: var(--ink-2);
-  color: var(--bg);
+  color: var(--surface);
 }
 /* a 44 px target around the small remove dot */
 .as-file-x::after {
@@ -544,24 +619,23 @@
   align-items: flex-start;
   justify-content: flex-end;
   gap: 6px;
-  max-width: 88%;
+  max-width: 84%;
 }
 .as-turn-photo {
   width: 96px;
   height: 96px;
   object-fit: cover;
-  border-radius: 14px;
-  border: 1px solid var(--line);
+  border-radius: var(--r-tile);
+  box-shadow: var(--shadow-1);
 }
 .as-turn-doc {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   max-width: 220px;
-  padding: 8px 12px;
-  border-radius: 14px;
+  padding: 9px 12px;
+  border-radius: var(--r-control);
   background: var(--surface);
-  border: var(--card-border);
   box-shadow: var(--shadow-1);
   color: var(--ink-2);
   font-size: var(--fs-foot);
@@ -571,25 +645,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.as-new {
-  min-height: 40px;
-  padding: 0 6px;
-  border: 0;
-  background: none;
-  color: var(--ink-2);
-  font: 600 var(--fs-foot) / 1 var(--sans);
-}
 .as-input {
   width: 100%;
-  min-height: 40px;
+  min-height: 38px;
   max-height: 120px;
-  padding: 9px 14px;
-  border-radius: 20px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--ink);
   font-size: max(16px, var(--fs-sub));
-  line-height: 1.3;
+  line-height: 1.375rem;
   resize: none;
 }
 .as-input::placeholder {
@@ -597,21 +663,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--ink-3);
+  color: var(--ink-4);
 }
 .as-input:focus {
   outline: none;
-  border-color: var(--ink-2);
 }
 .as-send {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 0;
   background: var(--primary);
   color: var(--primary-ink);
+  transition: background var(--dur-color);
 }
 .as-send:disabled {
   background: var(--surface-3);

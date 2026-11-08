@@ -8,9 +8,6 @@
   font-weight: 600;
   color: var(--t-easy);
 }
-.ds-foot {
-  padding-inline: 16px;
-}
 .ds-soon .lrow-title {
   color: var(--ink-2);
 }
@@ -30,9 +27,20 @@
 .cx-check {
   list-style: none;
   margin: 0;
-  padding: 0;
   display: grid;
   gap: 14px;
+}
+/* the steps in one white card (shape system: content in cards on the sheet's page colour) */
+.cx-steps {
+  padding: 18px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.cx-check {
+  padding: 0;
+  gap: 8px;
 }
 .cx-steps li {
   display: grid;
@@ -61,9 +69,10 @@
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 10px;
   align-items: start;
-  padding: 12px 14px;
-  border-radius: var(--r-group);
-  background: var(--surface-2);
+  padding: 14px 16px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink);
@@ -88,6 +97,6 @@
   color: var(--ink-2);
 }
 .cx-cta.btn {
-  height: 52px;
+  height: 54px;
   margin-top: 4px;
 }

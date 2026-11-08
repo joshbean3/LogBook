@@ -1,5 +1,5 @@
 import { buildMorning, fmtDate, morningDayFor, tone as toneOf, WEEKDAYS, type Goal, type ISODate, type MorningSettings, type Weekday } from '@logbook/shared';
-import { Check, Minus, Plus } from 'lucide-react';
+import { Check, Flag, Footprints, Medal, Minus, Plus, Timer, Trophy, Zap, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
@@ -14,6 +14,20 @@ import { DAY_LETTER, DAY_NAME, fixLongRun, GOALS, hm, hmFull, MIN_GAP, morningFr
  */
 
 // ---------- goal ----------
+/** Each goal's choice card: an icon and one plain line under the name (the race distance, then what the plan does). */
+export const GOAL_CARD: Record<Goal, { Icon: LucideIcon; line: string }> = {
+  base: { Icon: Footprints, line: 'A steady build, no race day.' },
+  '5k': { Icon: Zap, line: '3.1 miles. Speed, then a short taper.' },
+  '10k': { Icon: Timer, line: '6.2 miles. Speed and a longer long run.' },
+  half: { Icon: Medal, line: '13.1 miles. Long runs, then a taper.' },
+  marathon: { Icon: Trophy, line: '26.2 miles. The longest build, then a taper.' },
+};
+const goalCard = (g: Goal) => GOAL_CARD[g] ?? { Icon: Flag, line: '' };
+
+/**
+ * What you are training for, as choice cards (inspiration §3, reference 165 and 171): an icon, the name and one line;
+ * the chosen one gets a navy outline and a check. A radio group: arrows move the choice.
+ */
 export const GoalChips = ({ value, onChange, id = 'ob-goal' }: { value: Goal | null; onChange: (g: Goal) => void; id?: string }) => {
   const reduce = useReducedMotion();
   const refs = useRef<Array<HTMLElement | null>>([]);
@@ -34,6 +48,7 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal' }: { value: Goal | n
     <div className="ob-goals" role="radiogroup" aria-label="What are you training for?">
       {GOALS.map((g, i) => {
         const on = value === g.id;
+        const { Icon, line } = goalCard(g.id);
         return (
           <Pressable
             key={g.id}
@@ -43,13 +58,21 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal' }: { value: Goal | n
             role="radio"
             aria-checked={on}
             tabIndex={on || (value == null && i === 0) ? 0 : -1}
-            className={`ob-goal ${g.id === 'base' ? 'wide' : ''} ${on ? 'on' : ''}`}
+            className={`ob-goal ${on ? 'on' : ''}`}
             onPress={() => pick(g.id)}
             onKeyDown={(e: React.KeyboardEvent) => onKey(e, i)}
           >
-            {/* the fill crossfades onto the chosen goal (opacity only: no shared-layout flight across the grid, §10) */}
-            <motion.span className="ob-goal-thumb" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : crossfade} aria-hidden="true" />
-            <span className="ob-goal-text">{g.label}</span>
+            <span className="icon-tile ob-goal-ic" aria-hidden="true">
+              <Icon size={18} strokeWidth={2.1} />
+            </span>
+            <span className="ob-goal-words">
+              <span className="ob-goal-text">{g.label}</span>
+              {line ? <span className="ob-goal-line">{line}</span> : null}
+            </span>
+            {/* the check fades onto the chosen card (opacity only, §10) */}
+            <motion.span className="ob-goal-check" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : crossfade} aria-hidden="true">
+              <Check size={18} strokeWidth={2.6} />
+            </motion.span>
           </Pressable>
         );
       })}

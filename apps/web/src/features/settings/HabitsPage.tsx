@@ -10,10 +10,11 @@ import { STARTER_HABITS } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
-import { Button, EmptyState, Pressable, PushedBar, Row, Section, type DragPoint } from '@/ui';
+import { Button, EmptyState, Pressable, PushedBar, Row, type DragPoint } from '@/ui';
 import { useSheet, useSheetMotion } from '@/ui/Sheet';
 import { restoreFocus } from '@/ui/focus';
 import { useToast } from '@/ui/Toast';
+import { SCard, SGroup } from './parts';
 
 const ROW_H = 60;
 
@@ -406,7 +407,11 @@ export const HabitsPage = () => {
       <PushedBar title="Habits" />
       {live.length ? (
         <>
-          <p className="s-lede">Tap one to rename it. Hold and drag to change the order on Today.</p>
+          <section className="s-sec" aria-labelledby="s-hlist-h">
+            <h2 className="s-head" id="s-hlist-h">
+              <span>On Today</span>
+              <span className="s-head-meta">{live.length}</span>
+            </h2>
           <div className="s-hlist" ref={listRef} style={{ height: ids.length * ROW_H }}>
             {ids.map((id, i) => {
               const h = byId.get(id);
@@ -429,9 +434,11 @@ export const HabitsPage = () => {
               );
             })}
           </div>
+            <p className="s-foot">Tap one to rename it. Hold and drag to change the order on Today.</p>
+          </section>
         </>
       ) : (
-        <div className="sec-secondary">
+        <div className="s-sec">
           <EmptyState
             ghost={
               <div className="s-ghost-orbs">
@@ -451,7 +458,7 @@ export const HabitsPage = () => {
       )}
 
       {live.length ? (
-        <Section title="Add a habit" level="primary">
+        <SCard title="Add a habit" className="s-add-sec">
           <form
             className="s-add"
             onSubmit={(e) => {
@@ -480,12 +487,11 @@ export const HabitsPage = () => {
               ))}
             </div>
           ) : null}
-        </Section>
+        </SCard>
       ) : null}
 
       {archived.length ? (
-        <Section title="Archived" meta={archived.length} level="primary">
-          <div className="group s-group">
+        <SGroup title="Archived" meta={archived.length}>
             {archived.map((h) => (
               <Row
                 key={h.id}
@@ -499,8 +505,7 @@ export const HabitsPage = () => {
                 }
               />
             ))}
-          </div>
-        </Section>
+        </SGroup>
       ) : null}
     </div>
   );

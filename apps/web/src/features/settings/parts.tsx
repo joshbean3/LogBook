@@ -1,9 +1,9 @@
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { springs } from '@/lib/motion';
-import { Group, Row, Section } from '@/ui';
+import { Row } from '@/ui';
 import './switch.css';
 
 /** The chevron of a row that pushes (or opens) something. */
@@ -14,19 +14,48 @@ export const Chev = (): React.JSX.Element => <ChevronRight size={18} className="
  * icon in the second ink. Colour stays out of it; a tile says what the row is, never how it is doing.
  */
 export const Tile = ({ icon: Icon, tone }: { icon: LucideIcon; tone?: 'muted' }): React.JSX.Element => (
-  <span className={`s-tile ${tone ? `is-${tone}` : ''}`} aria-hidden="true">
+  <span className={`icon-tile s-tile ${tone ? `is-${tone}` : ''}`} aria-hidden="true">
     <Icon size={18} strokeWidth={2} />
   </span>
 );
 
 /**
- * One inset group under its sentence-case title (§8: the root's `You · Training · Habits · Morning routine · Connections ·
- * App · Data · Account`, and the groups inside each section page). Rows are `Row`s: 44 tall, 60 with a second line.
+ * A settings section (shape system §6, reference 658-672): a small sans header in sentence case, then its content in one
+ * white container, then an optional grey footnote under it (`foot`). Every section page is built from these.
  */
-export const SGroup = ({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }): React.JSX.Element => (
-  <Section title={title} level="secondary" className={`s-sec ${className}`}>
-    <Group className="s-group">{children}</Group>
-  </Section>
+const SSec = ({ title, meta, foot, className, children }: { title: string; meta?: ReactNode; foot?: ReactNode; className: string; children: ReactNode }): React.JSX.Element => {
+  const id = useId();
+  return (
+    <section className={`s-sec ${className}`} aria-labelledby={id}>
+      <h2 className="s-head" id={id}>
+        <span>{title}</span>
+        {meta != null ? <span className="s-head-meta">{meta}</span> : null}
+      </h2>
+      {children}
+      {foot ? <p className="s-foot">{foot}</p> : null}
+    </section>
+  );
+};
+
+/** One inset group of rows under its title: 56 tall rows (64 with a second line), icon tiles, hairlines from the words. */
+export const SGroup = ({ title, meta, foot, children, className = '' }: { title: string; meta?: ReactNode; foot?: ReactNode; children: ReactNode; className?: string }): React.JSX.Element => (
+  <SSec title={title} meta={meta} foot={foot} className={className}>
+    <div className="group s-group">{children}</div>
+  </SSec>
+);
+
+/** One white card under its title, for a control that is not a list (a stepper, the run days, the race-day strip). */
+export const SCard = ({ title, meta, foot, children, className = '' }: { title: string; meta?: ReactNode; foot?: ReactNode; children: ReactNode; className?: string }): React.JSX.Element => (
+  <SSec title={title} meta={meta} foot={foot} className={className}>
+    <div className="card s-card">{children}</div>
+  </SSec>
+);
+
+/** A full-width white action pill with centred words (Sign out, Disconnect); `danger` for the one that loses something. */
+export const ActionPill = ({ children, onPress, danger, disabled, className = '', label }: { children: ReactNode; onPress: () => void; danger?: boolean; disabled?: boolean; className?: string; label?: string }): React.JSX.Element => (
+  <button type="button" className={`pill-row s-pill ${danger ? 'is-danger' : ''} ${className}`} onClick={onPress} disabled={disabled} aria-label={label}>
+    {children}
+  </button>
 );
 
 /**

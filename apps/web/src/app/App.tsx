@@ -18,7 +18,6 @@ import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { useNav } from './NavController';
 import { Shell } from './Shell';
 import '@/styles/foundation.css';
-import '@/styles/shape.css';
 
 // Today is in the entry bundle (imported above), not a chunk: the first screen never waits on a module request (WP5). The
 // other views arrive as chunks, prefetched once the first screen is up.

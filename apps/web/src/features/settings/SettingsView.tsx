@@ -9,12 +9,12 @@ import { DAY_NAME, DAY_SHORT, goalLine, hm, isTemplateBlock, paceText, sortDays 
 import { useOpenRoutineEditor } from '@/features/morning/RoutineEditor';
 import { haptics } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
-import { PushedBar } from '@/ui';
+import { LogoMark, PushedBar } from '@/ui';
 import { zoneLine } from './HrZones';
 import { ago } from './format';
-import { GoRow, SGroup } from './parts';
+import { ActionPill, GoRow, SGroup } from './parts';
 import { stravaGuide, useConnectionSheet } from './DataSources';
-import { HapticsRow } from './SectionPages';
+import { HapticsRow, useSignOut } from './SectionPages';
 import { useConsent } from '@/features/auth/consent';
 import { useAppVersion } from './version';
 import { useTrainingProfile } from './useProfile';
@@ -76,6 +76,7 @@ export default function SettingsView(): React.JSX.Element {
   const zones = zoneLine(data?.zones);
   const consent = useConsent();
   const version = useAppVersion();
+  const signOut = useSignOut();
 
   return (
     <div ref={pageRef} className="page s-set s-root">
@@ -172,8 +173,17 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow icon={Mail} title={user?.email ?? ' '} sub="Signed in" onPress={go('account')} className="s-acct-row" label={`Account: signed in as ${user?.email ?? ''}`} />
       </SGroup>
 
+      <div className="s-pills">
+        <ActionPill className="s-signout" disabled={signOut.isPending} onPress={() => signOut.mutate()}>
+          {signOut.isPending ? 'Signing out…' : 'Sign out'}
+        </ActionPill>
+      </div>
+
       <p className="s-colophon">
-        <span className="caps">Logbook</span>
+        <span className="s-wordmark">
+          <LogoMark size={22} color="var(--ink)" />
+          <span className="display">Logbook</span>
+        </span>
         <span className="s-version">{version}</span>
       </p>
     </div>
