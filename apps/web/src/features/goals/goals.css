@@ -1259,3 +1259,315 @@
   height: 52px;
   font-size: var(--fs-row);
 }
+
+/* ---------- redesign (docs/inspiration.md §6 Goals) ---------- */
+
+/* the head never grows past the page (the level picks are about as wide as a 320 phone) */
+.gv-head {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 359px) {
+  .gv-pick {
+    padding: 0 9px;
+  }
+}
+
+/* the time left on an empty card reads in navy: the level's hue on white is too faint for words */
+.gv-left {
+  color: var(--ink-2);
+}
+
+/* the one honest number: kept of answered, against the span before. Navy on track, orange behind */
+.g-score {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px 14px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  min-width: 0;
+}
+.g-score-caps {
+  color: var(--ink-3);
+}
+.g-score-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  min-width: 0;
+}
+.g-score-num {
+  font-size: 2.75rem;
+  line-height: 2.75rem;
+  color: var(--ink);
+}
+.g-score-num small {
+  text-transform: none;
+  font-size: var(--fs-head);
+  letter-spacing: -0.01em;
+  color: var(--ink-3);
+}
+.g-score-words {
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink-2);
+}
+.g-score-vs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 6px 0 0;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.g-score-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  font-weight: 650;
+  background: var(--ok-soft);
+  color: var(--ink);
+}
+.g-score.is-on .g-score-num {
+  color: var(--ink);
+}
+.g-score.is-behind {
+  background: linear-gradient(180deg, var(--accent-soft), var(--surface) 70%);
+}
+.g-score.is-behind .g-score-num {
+  color: var(--accent-text);
+}
+.g-score.is-behind .g-score-chip {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.g-score.is-none .g-score-num {
+  color: var(--ink-4);
+}
+.g-score.is-none .g-score-words {
+  color: var(--ink-3);
+  font-size: var(--fs-sub);
+}
+.g-score-owed {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.g-gauge-big small {
+  text-transform: none;
+  font-size: var(--fs-head);
+  color: var(--ink-3);
+}
+
+/* a card's line on what is left, in words */
+.gv-leftwords {
+  margin: -4px 0 0;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+}
+.gv-leftwords.is-done {
+  color: var(--ink);
+}
+
+/* the stale nudge: a dot, the goals named, one pill */
+.g-nudge {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 14px 14px 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.g-nudge-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-tint);
+}
+.g-nudge-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.g-nudge-title {
+  margin: 0;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.g-nudge-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
+}
+.g-nudge-list li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.g-nudge-more {
+  color: var(--ink-3);
+}
+.g-nudge-btn.btn {
+  align-self: center;
+}
+
+/* the goal's half-arc gauge: steps done along the arc, the time used as a tick */
+.g-gauge {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  margin: -4px 0 -4px;
+}
+.g-gauge-svg {
+  display: block;
+  width: min(240px, 100%);
+  height: auto;
+  overflow: visible;
+}
+.g-gauge-track,
+.g-gauge-arc {
+  fill: none;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+.g-gauge-track {
+  stroke: var(--columbia-wash);
+}
+.g-gauge-arc {
+  stroke: var(--ink-2);
+}
+.g-gauge.is-done .g-gauge-arc {
+  stroke: var(--ink);
+}
+.g-gauge.is-behind .g-gauge-arc {
+  stroke: var(--accent);
+}
+.g-gauge-tick {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.g-gauge-mid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 52%;
+  display: grid;
+  justify-items: center;
+  transform: translateY(-50%);
+}
+.g-gauge-big {
+  font-size: var(--fs-stamp);
+  line-height: var(--lh-stamp);
+  color: var(--ink);
+}
+.g-gauge.is-behind .g-gauge-big {
+  color: var(--accent-text);
+}
+.g-gauge-sub {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.g-gauge-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
+}
+.g-gauge-time i {
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.g-gauge-behind {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* the two ways to set a goal: choice cards, the chosen one outlined in navy with a check */
+.g-choices {
+  display: grid;
+  gap: 10px;
+}
+.g-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color var(--dur-color) var(--ease-out),
+    background-color var(--dur-color) var(--ease-out);
+}
+.g-choice.is-on {
+  border-color: var(--ink);
+  background: var(--columbia-wash);
+}
+.g-choice-ic {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.g-choice.is-on .g-choice-ic {
+  background: var(--surface);
+  color: var(--ink);
+}
+.g-choice-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.g-choice-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.g-choice-sub {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.g-choice-check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  color: var(--primary-ink);
+}
+.g-choice.is-on .g-choice-check {
+  border-color: var(--ink);
+  background: var(--ink);
+}

@@ -136,7 +136,7 @@
 }
 .gdn-page {
   display: grid;
-  min-height: 38dvh;
+  min-height: 26dvh;
   align-content: center;
   padding: 8px 6px;
 }

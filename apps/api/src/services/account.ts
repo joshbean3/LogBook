@@ -31,6 +31,7 @@ import {
   userSettings,
   users,
 } from '../db/schema.js';
+import { dayTags } from '../db/schema.js';
 
 /**
  * Every table that holds a user's rows, with its `user_id` column. A new table with a `user_id` must be added here;
@@ -64,6 +65,7 @@ export const USER_TABLES: Array<{ table: SQLiteTable; userId: SQLiteColumn }> = 
   { table: coachReads, userId: coachReads.userId },
   { table: links, userId: links.userId },
   { table: idempotencyKeys, userId: idempotencyKeys.userId },
+  { table: dayTags, userId: dayTags.userId },
 ];
 
 export const userTableNames = (): string[] => USER_TABLES.map((t) => getTableName(t.table));

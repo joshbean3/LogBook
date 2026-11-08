@@ -1,4 +1,4 @@
-import type { Learning, LearningMonth, LearningPage, LearningStats } from '@logbook/shared';
+import type { Learning, LearningEchoes, LearningMonth, LearningPage, LearningStats } from '@logbook/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { write } from '@/api/outbox';
@@ -20,6 +20,7 @@ export const learnedKeys = {
   list: (f: LearnedFilter = {}) => ['learnings', 'list', { month: f.month ?? null, q: f.q ?? null }] as const,
   months: ['learnings', 'months'] as const,
   stats: ['learnings', 'stats'] as const,
+  echoes: ['learnings', 'echoes'] as const,
 };
 const PAGE = 60;
 type Pages = InfiniteData<LearningPage, string | null>;
@@ -44,6 +45,9 @@ export const useLearnings = (f: LearnedFilter = {}, enabled = true) =>
 export const useLearningMonths = () => useQuery({ queryKey: learnedKeys.months, queryFn: async () => (await api<{ months: LearningMonth[] }>('/learnings/months')).months, staleTime: 30_000 });
 
 export const useLearningStats = () => useQuery({ queryKey: learnedKeys.stats, queryFn: () => api<LearningStats>('/learnings/stats'), staleTime: 30_000 });
+
+/** From your archive: a year ago, a month ago, one at random (the server keeps the random one for the day). */
+export const useLearningEchoes = (enabled = true) => useQuery({ queryKey: learnedKeys.echoes, queryFn: () => api<LearningEchoes>('/learnings/echoes'), staleTime: 5 * 60_000, enabled });
 
 /** Newest day first, newest first within a day: the server's order. */
 const order = (a: Learning, b: Learning) => (a.date === b.date ? (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1);

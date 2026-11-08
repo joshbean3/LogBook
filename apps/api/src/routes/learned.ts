@@ -1,4 +1,5 @@
 import { shiftDays, zLearningInput, zLearningPatch, zLearningQuery, type Learning, type LearningMonth, type LearningPage, type LearningStats } from '@logbook/shared';
+import { addMonths, daysBetween, type LearningEchoes } from '@logbook/shared';
 import { and, desc, eq, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
@@ -28,6 +29,55 @@ export const streakOf = (days: string[], today: string): number => {
   let n = 0;
   for (; i < days.length && days[i] === want; i++, n++) want = shiftDays(want, -1);
   return n;
+};
+
+/** The same day of the month `n` months back, clamped to that month's last day: Mar 31 → Feb 28. */
+const sameDayMonthsBack = (today: string, n: number) => {
+  const first = addMonths(today, -n);
+  const last = shiftDays(addMonths(first, 1), -1);
+  const want = `${first.slice(0, 8)}${today.slice(8, 10)}`;
+  return want > last ? last : want;
+};
+
+/** A day-stable pick: the same index all day, a different one tomorrow. */
+const seedOf = (s: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+};
+
+/** How far a learning may sit from the day it stands for ("a year ago" can be a few days either side). */
+export const ECHO_WINDOW = 3;
+
+/**
+ * "From your archive" (the Learned tab, under the stats): the learning nearest to a year ago and to a month ago (within
+ * three days either side, the earlier one on a tie), and one at random from everything older than a week that is neither,
+ * the same one all day. Pure over the rows (any order), so it is tested without a database.
+ */
+export const echoesOf = (rows: readonly Learning[], today: string): LearningEchoes => {
+  const near = (target: string, skip: Set<string>) => {
+    let best: Learning | null = null;
+    let bestD = Infinity;
+    for (const r of rows) {
+      if (skip.has(r.id)) continue;
+      const d = Math.abs(daysBetween(target, r.date));
+      if (d > ECHO_WINDOW) continue;
+      if (d < bestD || (d === bestD && best && (r.date < best.date || (r.date === best.date && r.createdAt < best.createdAt)))) {
+        best = r;
+        bestD = d;
+      }
+    }
+    return best;
+  };
+  const used = new Set<string>();
+  const yearAgo = near(shiftDays(today, -365), used);
+  if (yearAgo) used.add(yearAgo.id);
+  const monthAgo = near(sameDayMonthsBack(today, 1), used);
+  if (monthAgo) used.add(monthAgo.id);
+  const weekAgo = shiftDays(today, -7);
+  const pool = rows.filter((r) => r.date <= weekAgo && !used.has(r.id)).sort((a, b) => (a.id < b.id ? -1 : 1));
+  const random = pool.length ? pool[seedOf(today) % pool.length]! : null;
+  return { yearAgo, monthAgo, random };
 };
 
 /**
@@ -106,6 +156,12 @@ export const learnedRoutes = (db: DB) => {
       .map((x) => x.date);
     const out: LearningStats = { days: days.length, streak: streakOf(days, today), total };
     return c.json(out);
+  });
+
+  /** From your archive: a year ago, a month ago, and one at random (the rows are small: a line or two a day). */
+  r.get('/learnings/echoes', (c) => {
+    const rows = db.select().from(learnings).where(and(live(uidOf(c)), lt(learnings.date, c.get('today')))).all().map(toLearning);
+    return c.json(echoesOf(rows, c.get('today')));
   });
 
   r.post('/learnings', async (c) => {

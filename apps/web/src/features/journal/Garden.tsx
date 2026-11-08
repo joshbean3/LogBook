@@ -11,6 +11,7 @@ import { getDraft, setDraft } from './drafts';
 import { QuoteLine, Timeline } from './JournalHome';
 import { Plant, PlantButtonGlyph } from './plants';
 import { useDayPrompt } from './prompt';
+import { DayTags } from './DayTags';
 import './garden.css';
 
 const COLS = 14;
@@ -28,7 +29,8 @@ export type GardenMode = 'garden' | 'day';
  * The Journal (after One Year): the year as a garden and each day as a page. The garden is the year's days in rows of
  * dots; a day with a memory has grown a plant, today is the little house. A touch names the day; a tap opens it. The day
  * page carries the days around it as a row of plants, its name, and its memory in the typewriter ink, or the hand-drawn
- * plus to plant one. Planting draws the day's plant in. The pill at the bottom switches between the two.
+ * plus to plant one. Planting draws the day's plant in. Under the memory, the day's tags, each a yes or a no. The pill at
+ * the bottom switches between the two.
  */
 export const JournalGarden = ({ today, focusKey = 0, openDay = null }: { today: string; focusKey?: number; openDay?: { date: string; n: number } | null }) => {
   const list = useJournalList('', false);
@@ -319,6 +321,7 @@ const DayPage = ({ date, today, byDate, onDay, writeKey }: { date: string; today
           </button>
         )}
       </div>
+      <DayTags date={date} today={today} />
       {year && !writing ? (
         <button type="button" className="gdn-ago" onClick={() => onDay(year.d)}>
           <span className="gdn-ago-k">

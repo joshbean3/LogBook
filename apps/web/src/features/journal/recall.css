@@ -1,5 +1,5 @@
-/* "Remember when": the reminder at the top of the Journal tab. A card on black, lit faintly from below (the halo at low
-   strength), the reminder in the serif, three quiet verbs under it. */
+/* "Remember when": the reminder at the top of the Journal tab, as an insight card. A soft Columbia header with the date
+   and Share, the reminder in the serif, three quiet verbs under it. */
 
 .recall-wrap {
   margin-bottom: 20px;
@@ -8,16 +8,83 @@
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  gap: 14px;
-  padding: 16px 16px 12px;
+  gap: 12px;
+  padding: 0 16px 12px;
 }
-.recall-glow {
+/* the insight card's soft header: Columbia, lit from below, holding the date and Share */
+.recall-head {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 56px;
+  margin: 0 -16px;
+  padding: 10px 8px 10px 16px;
+  background: linear-gradient(180deg, var(--columbia) 0%, var(--columbia-wash) 100%);
+}
+.recall-head-light {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: var(--halo);
-  opacity: 0.32;
+  background: radial-gradient(70% 120% at 50% 130%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%);
   pointer-events: none;
+}
+.recall-head .recall-eyebrow {
+  color: var(--ink-2);
+}
+.recall-share-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Share: the card as it will look, then the two verbs */
+.recall-share {
+  display: grid;
+  gap: 16px;
+}
+.recall-share-preview {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  height: min(44vh, 380px);
+  aspect-ratio: 4 / 5;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.recall-share-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.recall-share-wait {
+  padding: 16px;
+  font-size: var(--fs-foot);
+  color: var(--ink-3);
+  text-align: center;
+}
+.recall-share-actions {
+  display: grid;
+  gap: 8px;
+}
+.recall-share-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
 }
 
 /* the item: an outgoing and an incoming one share the cell while they cross-fade, so the card never collapses between */

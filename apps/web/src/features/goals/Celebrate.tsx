@@ -23,7 +23,7 @@ export const useCelebrate = () => (goal: Aim) => {
 /**
  * The moment a goal is hit: the page goes dark, the level's shape (the day's sun, the week's mint, the month's coral, the
  * year's sky) springs up out of nothing and settles, then the words in the serif and the one white pill to carry on. A tap
- * anywhere closes it; it closes by itself after a while. Reduced motion: it simply appears.
+ * anywhere closes it; it closes by itself after four seconds (one short moment, never a show). Reduced motion: it simply appears.
  */
 export const CelebrateLayer = () => {
   const [goal, setGoal] = useState<Aim | null>(null);
@@ -35,7 +35,7 @@ export const CelebrateLayer = () => {
   }, []);
   useEffect(() => {
     if (!goal) return;
-    const t = setTimeout(() => setGoal(null), 6000);
+    const t = setTimeout(() => setGoal(null), 4000);
     const key = (e: KeyboardEvent) => e.key === 'Escape' && setGoal(null);
     window.addEventListener('keydown', key);
     return () => {

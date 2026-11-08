@@ -165,6 +165,12 @@ export interface LearningStats {
   streak: number;
   total: number;
 }
+/** `GET /learnings/echoes`: "From your archive", one learning from about a year ago, one from about a month ago, one at random (kept for the day). */
+export interface LearningEchoes {
+  yearAgo: Learning | null;
+  monthAgo: Learning | null;
+  random: Learning | null;
+}
 
 // ---------- plan builder ----------
 export const zPlanMode = z.enum(['file', 'text', 'describe', 'revise']);

@@ -7,6 +7,8 @@ import type { DB } from '../db/index.js';
 import { dailyPicks, journalEntries, quotePrefs, quotes, shownItems, userQuotes } from '../db/schema.js';
 import { toEntry } from '../lib/map.js';
 import { keyOf, recallToday, setRecallPrefs } from '../services/recall.js';
+import { addTag, dayOf, markDay, removeTag, statsOf } from '../services/daytags.js';
+import { isISODate, zDayTagAdd, zDayTagMark } from '@logbook/shared';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 
 export const journalRoutes = (db: DB) => {
@@ -205,6 +207,23 @@ export const journalRoutes = (db: DB) => {
     if (!setRecallPrefs(db, userId, kind.data, id, body)) throw new ApiError(404, 'Nothing to remember there');
     // un-hiding (Undo) puts it back as today's; hiding moves on to the next
     return c.json(await recallToday(db, userId, c.get('today'), { prefer: body.hidden === false ? keyOf({ kind: kind.data, id }) : undefined }));
+  });
+
+  // ---------- day tags (services/daytags.ts) ----------
+  const dayParam = (c: { req: { param: (k: string) => string }; get: (k: 'today') => string }) => {
+    const d = c.req.param('date');
+    if (!isISODate(d)) throw new ApiError(400, 'That isn’t a day.', 'bad_date');
+    if (d > c.get('today')) throw new ApiError(422, 'That day has not come yet');
+    return d;
+  };
+  r.get('/journal/tags/stats', (c) => c.json(statsOf(db, uidOf(c))));
+  r.post('/journal/tags', async (c) => c.json({ tags: addTag(db, uidOf(c), (await parseBody(c.req.raw, zDayTagAdd)).label) }));
+  r.delete('/journal/tags/:id', (c) => c.json({ tags: removeTag(db, uidOf(c), c.req.param('id')) }));
+  r.get('/journal/tags/:date', (c) => c.json(dayOf(db, uidOf(c), dayParam(c))));
+  r.put('/journal/tags/:date', async (c) => {
+    const date = dayParam(c);
+    const body = await parseBody(c.req.raw, zDayTagMark);
+    return c.json(markDay(db, uidOf(c), date, body.tag, body.value));
   });
 
   return r;

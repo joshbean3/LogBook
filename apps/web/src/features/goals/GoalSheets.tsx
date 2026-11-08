@@ -10,6 +10,8 @@ import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { deadlineWords, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
+import { HalfGauge, NewGoalChoice } from './GoalSheetParts';
+import { useNowMinutes } from '../day/useNow';
 import './goals.css';
 
 type Step = { kind: 'write' } | { kind: 'reviewing' } | { kind: 'compare'; text: string; why: string | null; mine: string; changed: boolean };
@@ -19,7 +21,7 @@ type Step = { kind: 'write' } | { kind: 'reviewing' } | { kind: 'compare'; text:
  * measurable, hard but attainable and due at the period's end, and he picks the sharpened words or keeps his own. A goal
  * the review leaves alone, or one written offline, is saved as typed. Every step lands in the goal's log on the server.
  */
-export const GoalEditor = ({ level, period, initial }: { level: GoalLevel; period: string; initial?: string }) => {
+export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: GoalLevel; period: string; initial?: string; closeOnSave?: boolean }) => {
   const today = useToday();
   const sheet = useSheet();
   const depth = useSheetDepth();
@@ -29,6 +31,8 @@ export const GoalEditor = ({ level, period, initial }: { level: GoalLevel; perio
   const [step, setStep] = useState<Step>({ kind: 'write' });
   const field = useRef<HTMLTextAreaElement>(null);
   const done = () => (depth > 1 ? sheet.pop() : sheet.close());
+  // pushed from the two ways to set a goal, a saved goal closes the sheet; Cancel still goes back to them
+  const finish = () => (closeOnSave ? sheet.close() : done());
   const words = text.trim();
 
   const existing = goalOf(useGoals().data, level, period);
@@ -38,7 +42,7 @@ export const GoalEditor = ({ level, period, initial }: { level: GoalLevel; perio
     // new steps go in with the goal; an edit of the words keeps the steps it had unless the review offered new ones
     set.mutate({ level, period, text: final, original: original ?? null, why: why ?? null, chose, ...(steps.length || !existing ? { steps: stepsOf(steps) } : {}) });
     haptics.drop();
-    done();
+    finish();
   };
   const review = async () => {
     if (!words || step.kind === 'reviewing') return;
@@ -207,9 +211,11 @@ export const GoalDetail = ({ id }: { id: string }) => {
   const g = goals.data?.find((x) => x.id === id) ?? null;
   const events = useGoalEvents(id.startsWith('tmp-') ? undefined : id, !id.startsWith('tmp-'));
   const [note, setNote] = useState(g?.reflection ?? '');
+  const minutes = useNowMinutes();
   useEffect(() => setNote(g?.reflection ?? ''), [g?.reflection]);
   if (!g) return <p className="gs-hint">This goal was cleared.</p>;
   const past = periodPast(g.level, g.period, today);
+  const now = new Date(`${today}T00:00:00`).getTime() + minutes * 60e3;
   const saveNote = () => {
     const v = note.trim();
     if (v !== (g.reflection ?? '')) review.mutate({ id: g.id, reflection: v || null });
@@ -217,6 +223,7 @@ export const GoalDetail = ({ id }: { id: string }) => {
   const log = events.data?.events ?? [];
   return (
     <div className="gsheet">
+      <HalfGauge goal={g} now={now} />
       <p className="gs-sentence serif">{g.text}</p>
       {g.original ? (
         <p className="gs-from">
@@ -224,7 +231,7 @@ export const GoalDetail = ({ id }: { id: string }) => {
         </p>
       ) : null}
       <div className="gs-field">
-        <span className="caps">Steps</span>
+        <span className="caps">What counts toward it</span>
         <GoalSteps goal={g} editable />
       </div>
       <div className="gs-field">
@@ -287,7 +294,9 @@ export const useOpenGoal = () => {
     const g = goalOf(goals.data, level, period);
     const eyebrow = periodCaps(level, period, today);
     if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
-    else sheet.open({ eyebrow, title: g ? 'Edit goal' : LEVEL[level].ask, body: <GoalEditor level={level} period={period} initial={g?.text} />, sticky: true });
+    else if (g) sheet.open({ eyebrow, title: 'Edit goal', body: <GoalEditor level={level} period={period} initial={g.text} />, sticky: true });
+    // a new goal: set it myself (the editor, pushed) or ask for a suggestion from the last 90 days
+    else sheet.open({ eyebrow, title: LEVEL[level].ask, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title: LEVEL[level].ask, body: <GoalEditor level={level} period={period} closeOnSave />, sticky: true })} /> });
   };
 };
 

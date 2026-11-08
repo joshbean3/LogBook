@@ -1,6 +1,6 @@
-import { awaitingReview, currentGoals, goalProgress, periodOf, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
+import { currentGoals, goalProgress, periodOf, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
 import { Bell, ChevronRight, History, Plus } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useGoals } from '@/api/queries';
@@ -12,9 +12,10 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { Switch } from '../settings/parts';
 import '../settings/settings.css';
 import { useNowMinutes } from '../day/useNow';
-import { clockOf, goalOf, LEVEL, LEVEL_HUE, periodCaps, setWords, STATUS_WORD } from './model';
+import { clockOf, goalOf, leftWords, LEVEL, LEVEL_HUE, periodCaps, setWords, STATUS_WORD } from './model';
 import { disableReminders, enableReminders, remindersOn, remindersSupported } from './reminders';
-import { ReviewButtons, StatusIcon, useOpenGoal } from './GoalSheets';
+import { StatusIcon, useOpenGoal } from './GoalSheets';
+import { ScoreCard, StaleNudge } from './GoalParts';
 import { GoalRing, GoalSteps } from './Steps';
 import { Burst, celebrateOnce } from './game';
 import { Orbit, type OrbitGoal } from './Orbit';
@@ -101,7 +102,6 @@ const LevelCard = ({ level, period, goal, today, now, hit }: { level: GoalLevel;
       <motion.span className="gv-card-glow" aria-hidden="true" initial={false} animate={{ opacity: goal.status === 'done' ? 1 : 0.25 + 0.6 * p }} transition={reduce ? { duration: 0 } : { duration: 0.5 }} />
       <div className="gv-card-head">
         <span className="caps">{caps}</span>
-        <span className="gv-left">{goal.status === 'done' ? 'Done' : ended ? STATUS_WORD[goal.status] : clock.words}</span>
       </div>
       <div className="gv-card-body">
         <Pressable className="gv-text" press="dim" onPress={() => open(level, period)} label={`${goal.text}. Open`}>
@@ -118,29 +118,12 @@ const LevelCard = ({ level, period, goal, today, now, hit }: { level: GoalLevel;
           </span>
         )}
       </div>
+      <p className={`gv-leftwords ${goal.status === 'done' ? 'is-done' : ''}`}>{leftWords(goal, level, period, now)}</p>
       {goal.steps.length ? <GoalSteps goal={goal} compact /> : null}
       <span className="gv-clock" aria-hidden="true">
         <i style={{ transform: `scaleX(${clock.elapsed})` }} />
       </span>
     </article>
-  );
-};
-
-/** The review owed first: a past goal still open, with its three answers. The next one waits behind it. */
-const ReviewCard = ({ goals, today }: { goals: Aim[]; today: string }) => {
-  const owed = awaitingReview(goals, today);
-  const g = owed[0];
-  if (!g) return null;
-  return (
-    <section className="card g-review" aria-label="Review">
-      <span className="caps">
-        {periodCaps(g.level, g.period, today)}
-        {owed.length > 1 ? ` · 1 of ${owed.length}` : ''}
-      </span>
-      <p className="g-review-text">{g.text}</p>
-      <p className="g-review-ask">Did you hit it?</p>
-      <ReviewButtons goal={g} />
-    </section>
   );
 };
 
@@ -247,7 +230,6 @@ export default function GoalsView(): React.JSX.Element {
       ) : (
         <>
           <section className="gv-head" aria-label="Your goals now">
-            <Orbit goals={orbit} sel={sel} onSel={toCard} now={now} hit={orbitHit} />
             <div className="gv-picks" role="tablist" aria-label="Level">
               {CARD_ORDER.map((l) => (
                 <button key={l} type="button" role="tab" aria-selected={sel === l} className={`gv-pick ${sel === l ? 'is-sel' : ''}`} style={{ '--hue': LEVEL_HUE[l] } as React.CSSProperties} onClick={() => toCard(l)}>
@@ -256,15 +238,15 @@ export default function GoalsView(): React.JSX.Element {
                 </button>
               ))}
             </div>
+            <ScoreCard goals={list} level={sel} today={today} />
+            <Orbit goals={orbit} sel={sel} onSel={toCard} now={now} hit={orbitHit} />
             <div ref={strip} className="gv-strip" onScroll={onScroll}>
               {CARD_ORDER.map((l) => (
                 <LevelCard key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} now={now} hit={hits[l] ?? 0} />
               ))}
             </div>
           </section>
-          <AnimatePresence initial={false}>
-            <ReviewCard goals={list} today={today} />
-          </AnimatePresence>
+          <StaleNudge goals={list} today={today} />
           <section className="g-ahead" aria-label="Ahead">
             <h2 className="sec-title">Ahead</h2>
             <div className="group g-group">

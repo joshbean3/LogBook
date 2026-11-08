@@ -10,6 +10,7 @@ import { Pressable } from '@/ui/Pressable';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { byTime, Composer, Days, groupByMonth, Line, monthName, plural, statsWords, useLoadMore, useOpenLearning } from './LearnedParts';
 import { useLearningMonths, useLearnings, useLearningStats } from './queries';
+import { Echoes } from './LearnedEchoes';
 import './learned.css';
 
 export { statsWords };
@@ -34,6 +35,7 @@ const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[];
     ) : (
       <>
         <h2 className="ln-prompt">What did you learn today?</h2>
+        <p className="ln-hint">Name one thing and why it matters. Like: “Strides after easy runs keep my legs quick.”</p>
         <Composer key="hero" today={today} />
       </>
     )}
@@ -165,6 +167,7 @@ export default function LearnedView(): React.JSX.Element {
       <p className="ln-stats" aria-live="polite">
         {list.isPending || !s ? ' ' : s.total > 0 ? statsWords(s) : 'One thing a day. They gather here.'}
       </p>
+      {hasPast ? <Echoes today={today} onOpen={open} /> : null}
       {hasPast ? (
         <label className="ln-search">
           <Search size={16} aria-hidden="true" className="ln-search-icon" />
