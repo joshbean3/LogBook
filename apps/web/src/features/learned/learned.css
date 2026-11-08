@@ -118,8 +118,8 @@ textarea.ln-field {
   padding: 0 16px;
   border: 0;
   border-radius: var(--r-pill);
-  background: var(--accent);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-ink);
   font: 600 0.9375rem/1.25rem var(--sans);
   opacity: 0.4;
   transition: opacity var(--dur-color) var(--ease-out);

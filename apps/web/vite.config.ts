@@ -48,8 +48,8 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#000000',
-        theme_color: '#000000',
+        background_color: '#f3f8fb',
+        theme_color: '#f3f8fb',
         categories: ['health', 'fitness', 'lifestyle'],
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

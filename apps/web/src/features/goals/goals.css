@@ -213,7 +213,7 @@
 }
 .g-mark.is-done {
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(47, 59, 255, 0.55);
+  box-shadow: 0 0 10px rgba(242, 96, 12, 0.55);
 }
 /* a run of hit days reads as one bar of light */
 .g-mark.is-joined {
@@ -381,7 +381,7 @@
   padding: 16px;
   border-radius: var(--r-group);
   background: var(--accent-tint);
-  border: 1px solid rgba(91, 102, 255, 0.35);
+  border: 1px solid rgba(47, 93, 133, 0.35);
 }
 .gs-sharp-caps {
   display: inline-flex;
@@ -789,7 +789,7 @@
   background: var(--warn);
 }
 .g-burst i.white {
-  background: #fff;
+  background: var(--columbia);
 }
 .g-burst .g-wave {
   position: absolute;
@@ -909,12 +909,12 @@
   filter: drop-shadow(0 0 9px var(--hue));
 }
 .gv-hand {
-  stroke: rgba(255, 255, 255, 0.85);
+  stroke: rgba(15, 42, 68, 0.85);
   stroke-width: 2;
   stroke-linecap: round;
 }
 .gv-ring:not(.is-sel) .gv-hand {
-  stroke: rgba(255, 255, 255, 0.4);
+  stroke: rgba(15, 42, 68, 0.4);
 }
 .gv-centre {
   position: absolute;
@@ -1085,7 +1085,7 @@
   bottom: 8px;
   height: 2px;
   border-radius: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(15, 42, 68, 0.08);
   overflow: hidden;
 }
 .gv-clock i {
@@ -1137,11 +1137,11 @@
   fill: var(--hue);
 }
 .gv-card .g-ring-hit.is-done .g-ring-check {
-  stroke: #000;
+  stroke: var(--ink);
 }
 .gv-set-plus {
-  background: #fff;
-  color: #000;
+  background: var(--primary);
+  color: var(--primary-ink);
   box-shadow: 0 0 22px color-mix(in srgb, var(--hue) 45%, transparent);
 }
 
@@ -1154,7 +1154,7 @@
   grid-template-rows: 1fr auto;
   justify-items: center;
   padding: calc(var(--safe-t) + 40px) 28px calc(var(--safe-b) + 32px);
-  background: rgba(0, 0, 0, 0.96);
+  background: rgba(243, 248, 251, 0.97);
   text-align: center;
 }
 .cel-stage {

@@ -96,7 +96,7 @@
 }
 .recall-tool.is-on {
   background: var(--accent-tint);
-  border-color: rgba(122, 132, 255, 0.28);
+  border-color: rgba(47, 93, 133, 0.28);
   color: var(--accent-text);
 }
 .recall-tool.is-on svg {

@@ -178,7 +178,7 @@
 .tmark.on {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
 }
 /* the round check (the day board): a ring that fills with its section's colour (`--mk`) */
 .tmark.round {
@@ -190,7 +190,7 @@
 .tmark.round.on {
   background: var(--mk, var(--sun));
   border-color: var(--mk, var(--sun));
-  color: #000;
+  color: var(--ink);
   box-shadow: 0 0 14px color-mix(in srgb, var(--mk, var(--sun)) 55%, transparent);
 }
 .tmark-hit:focus-visible {
@@ -515,7 +515,7 @@
   height: 30px;
   border-radius: 50%;
   background: var(--tc);
-  color: #000;
+  color: var(--ink);
 }
 .swatch.is-none .swatch-dot {
   background: transparent;

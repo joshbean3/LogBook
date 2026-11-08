@@ -18,15 +18,15 @@
   padding: 0 12px;
   border: 0;
   border-radius: 8px;
-  background: rgba(122, 132, 255, 0.14);
+  background: rgba(47, 93, 133, 0.14);
   color: var(--j-ink);
   font: 500 0.8125rem/1 var(--mono);
   letter-spacing: 0.01em;
 }
 .gdn-pill.is-solid {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 6px 22px rgba(47, 59, 255, 0.45);
+  background: var(--primary);
+  color: var(--primary-ink);
+  box-shadow: 0 6px 22px rgba(242, 96, 12, 0.45);
 }
 
 /* ---------- the year ---------- */
@@ -61,11 +61,11 @@
   background: var(--j-ink-soft);
 }
 .gdn-cell.is-future .gdn-dot {
-  background: rgba(122, 132, 255, 0.2);
+  background: rgba(47, 93, 133, 0.2);
 }
 .gdn-cell.is-today .gdn-plant {
-  color: #fff;
-  filter: drop-shadow(0 0 6px rgba(122, 132, 255, 0.8));
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(47, 93, 133, 0.8));
 }
 .gdn-plant {
   display: grid;
@@ -124,15 +124,15 @@
   padding: 4px;
   border: 0;
   background: none;
-  color: rgba(122, 132, 255, 0.32);
+  color: rgba(47, 93, 133, 0.32);
   -webkit-tap-highlight-color: transparent;
 }
 .gdn-strip-plant.has {
-  color: rgba(122, 132, 255, 0.6);
+  color: rgba(47, 93, 133, 0.6);
 }
 .gdn-strip-plant.is-on {
-  color: #fff;
-  filter: drop-shadow(0 0 10px rgba(122, 132, 255, 0.75));
+  color: var(--accent);
+  filter: drop-shadow(0 0 10px rgba(47, 93, 133, 0.75));
 }
 .gdn-page {
   display: grid;
@@ -181,7 +181,7 @@
 }
 .gdn-plantbtn .plant-plus {
   color: var(--j-ink);
-  filter: drop-shadow(0 0 12px rgba(122, 132, 255, 0.45));
+  filter: drop-shadow(0 0 12px rgba(47, 93, 133, 0.45));
 }
 
 /* writing: the field is the page; done is a solid ink key */
@@ -197,7 +197,7 @@
   outline: none;
   resize: none;
   background: none;
-  color: #fff;
+  color: var(--ink);
   caret-color: var(--accent-bright);
   font: 400 1rem/1.55 var(--mono);
 }
@@ -223,10 +223,10 @@
   padding: 0 16px;
   border: 0;
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-ink);
   font: 600 0.875rem/1 var(--mono);
-  box-shadow: 0 6px 18px rgba(47, 59, 255, 0.4);
+  box-shadow: 0 6px 18px rgba(242, 96, 12, 0.4);
 }
 .gdn-btn.is-quiet {
   background: none;
@@ -239,7 +239,7 @@
   display: grid;
   gap: 6px;
   padding: 14px 16px;
-  border: 1px dashed rgba(122, 132, 255, 0.35);
+  border: 1px dashed rgba(47, 93, 133, 0.35);
   border-radius: 12px;
   background: none;
   color: var(--j-ink);
@@ -270,12 +270,12 @@
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  background: rgba(20, 22, 40, 0.88);
+  background: rgba(255, 255, 255, 0.88);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   box-shadow:
-    0 0 0 1px rgba(122, 132, 255, 0.22),
-    0 10px 30px rgba(0, 0, 0, 0.6);
+    0 0 0 1px rgba(47, 93, 133, 0.22),
+    0 10px 30px rgba(15, 42, 68, 0.18);
 }
 .gdn-toggle button {
   display: inline-flex;
@@ -294,8 +294,8 @@
     color 180ms;
 }
 .gdn-toggle button.is-on {
-  background: var(--accent);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-ink);
 }
 .gdn-toggle .plant {
   margin-bottom: 9px;

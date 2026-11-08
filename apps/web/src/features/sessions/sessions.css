@@ -132,8 +132,8 @@
   border-radius: var(--r-pill);
   box-shadow:
     inset 0 0 0 2px var(--accent-bright),
-    0 0 0 4px rgba(47, 59, 255, 0.18),
-    0 0 20px rgba(91, 102, 255, 0.6);
+    0 0 0 4px rgba(242, 96, 12, 0.18),
+    0 0 20px rgba(47, 93, 133, 0.6);
 }
 
 /* evidence, in the sheet */
@@ -387,7 +387,7 @@
   gap: 12px;
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(15, 42, 68, 0.12);
 }
 .sh-stat {
   display: grid;
@@ -417,13 +417,13 @@
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(15, 42, 68, 0.7);
 }
 /* the plan under the actual: "of 6" in 12px at 70%, so the strip reads what happened first */
 .sh-note {
   font-size: 12px;
   line-height: 16px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(15, 42, 68, 0.7);
   letter-spacing: 0;
   white-space: nowrap;
 }
@@ -480,10 +480,10 @@
   height: 210px;
   background:
     radial-gradient(80% 90% at 50% 60%, rgba(255, 110, 70, 0.1), rgba(0, 0, 0, 0) 70%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(35deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 64px),
-    #0b0d10;
+    repeating-linear-gradient(0deg, rgba(15, 42, 68, 0.035) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgba(15, 42, 68, 0.035) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(35deg, rgba(15, 42, 68, 0.025) 0 2px, transparent 2px 64px),
+    var(--surface-2);
   border-block: 1px solid var(--line);
 }
 .ss-map svg {
@@ -515,19 +515,19 @@
   fill: var(--sun);
   stroke: #b37400;
   stroke-width: 1.5;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 2px 6px rgba(15, 42, 68, 0.18));
 }
 .ss-pin-pr {
-  fill: #1a1200;
+  fill: var(--ink);
   font: 800 8.5px/1 var(--sans);
 }
 .ss-pin-tag {
-  fill: rgba(17, 17, 17, 0.92);
+  fill: rgba(255, 255, 255, 0.95);
   stroke: rgba(255, 200, 61, 0.55);
   stroke-width: 1;
 }
 .ss-pin-words {
-  fill: #fff;
+  fill: var(--ink);
   font: 650 10.5px/1 var(--sans);
 }
 
@@ -550,7 +550,7 @@
   filter: drop-shadow(0 4px 10px rgba(255, 180, 30, 0.35));
 }
 .medal-pr {
-  fill: #1a1200;
+  fill: var(--ink);
   font: 800 11px/1 var(--sans);
 }
 .rec-words {
@@ -659,7 +659,7 @@
 .ss-big.done {
   background: var(--accent);
   border: 1px solid var(--accent-bright);
-  color: #fff;
+  color: var(--accent-ink);
 }
 .ss-big.done.is-on {
   background: var(--ok-soft);

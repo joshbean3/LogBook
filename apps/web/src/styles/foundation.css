@@ -323,7 +323,7 @@
 }
 /* destructive actions come last, after a heavier rule */
 .cm-item.sep {
-  border-top: 6px solid rgba(0, 0, 0, 0.45);
+  border-top: 6px solid rgba(15, 42, 68, 0.06);
 }
 .cm-item.destructive {
   color: var(--bad);
@@ -386,7 +386,7 @@
 .is-armed .swipe-pane.tone-warn,
 .swipe-row[data-revealed] .swipe-pane.tone-warn {
   background: var(--warn);
-  color: #000;
+  color: var(--ink);
 }
 .is-armed .swipe-pane.tone-bad,
 .swipe-row[data-revealed] .swipe-pane.tone-bad {
@@ -978,7 +978,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   color: var(--accent-text);
 }
 .nb-cell.is-shown .nb-num {
-  color: #fff;
+  color: var(--ink);
 }
 .nb-disc {
   position: absolute;

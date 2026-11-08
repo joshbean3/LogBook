@@ -330,7 +330,7 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
     for (const el of scrollers) el.style.overflowY = 'hidden';
     // the receding tab shows black around it (iOS's card stack), only while a sheet is up
     const host = reduce ? null : (tabEl?.parentElement ?? null);
-    if (host) host.style.background = '#000';
+    if (host) host.style.background = 'var(--scrim-solid)';
     /*
      * Under a pushed page, the layers it covers are hidden while the sheet is up: scaled, the top page's edge would let a
      * fraction of a pixel of them through (they are inert behind the sheet either way). A page on its way out covers

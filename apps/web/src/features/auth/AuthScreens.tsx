@@ -30,7 +30,7 @@ const Frame = ({ title, sub, children, foot }: { title?: string; sub?: string; c
       {title ? (
         <motion.div className="auth-body" initial={reduce ? { opacity: 0 } : { opacity: 0, y: fromStart ? 40 : 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
           <div className="auth-brand">
-            <LogoMark size={24} color="#fff" />
+            <LogoMark size={24} color="var(--ink)" />
             <span className="caps">Logbook</span>
           </div>
           <h1 className="auth-title display">{title}</h1>

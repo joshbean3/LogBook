@@ -145,7 +145,7 @@
 .ob-under-scrim {
   position: absolute;
   inset: 0;
-  background: #000;
+  background: var(--scrim-solid);
   pointer-events: none;
 }
 .ob-stage {
@@ -423,7 +423,7 @@
   box-shadow:
     0 0 0 3px var(--bg),
     0 0 0 5px var(--accent-bright),
-    0 0 24px rgba(47, 59, 255, 0.7);
+    0 0 24px rgba(242, 96, 12, 0.7);
 }
 .ob-day-cap {
   height: 14px;
@@ -563,7 +563,7 @@
   top: calc(50% - 4px);
   height: 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(15, 42, 68, 0.35);
   transition:
     left 120ms var(--ease-out),
     width 120ms var(--ease-out);
@@ -600,7 +600,7 @@
   transform: scale(1.15);
   box-shadow:
     0 0 0 1.5px var(--accent-bright),
-    0 0 20px rgba(47, 59, 255, 0.8);
+    0 0 20px rgba(242, 96, 12, 0.8);
 }
 .ob-marker:focus-visible {
   box-shadow:
@@ -952,7 +952,7 @@
   position: sticky;
   bottom: 0;
   padding-bottom: 4px;
-  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.6) 24px);
+  background: linear-gradient(to bottom, transparent, rgba(243, 248, 251, 0.96) 24px);
 }
 @media (max-width: 359px) {
   .ob-day-disc {

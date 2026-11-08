@@ -355,9 +355,9 @@ label.lrow[data-pressed] {
 }
 /* the one primary: a white pill, black words (the verb that moves you on) */
 .btn.primary {
-  background: #ffffff;
-  border-color: #ffffff;
-  color: #000000;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
 }
 .btn.soft {
   background: var(--accent-tint);
@@ -814,7 +814,7 @@ textarea.in {
 .sheet-scrim {
   position: absolute;
   inset: 0;
-  background: #000;
+  background: var(--scrim-solid);
   opacity: 0;
 }
 .sheet {
@@ -1178,7 +1178,7 @@ textarea.in {
   width: 100%;
   height: auto;
   margin: 6px 0 2px;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35));
+  filter: drop-shadow(0 0 10px rgba(15, 42, 68, 0.35));
 }
 .aura-title {
   font-size: 2.75rem;
@@ -1210,7 +1210,7 @@ textarea.in {
   gap: 12px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(15, 42, 68, 0.12);
 }
 .aura-stat {
   display: grid;
@@ -1218,7 +1218,7 @@ textarea.in {
   min-width: 0;
 }
 .aura-stat .caps {
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(15, 42, 68, 0.62);
   letter-spacing: 0.1em;
   font-size: 0.625rem;
 }
@@ -1237,7 +1237,7 @@ textarea.in {
   letter-spacing: 0;
   text-transform: none;
   margin-left: 2px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(15, 42, 68, 0.7);
 }
 /* the small line under a stamp ("of 6"): 12px at 70% */
 .aura-note {
@@ -1246,7 +1246,7 @@ textarea.in {
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(15, 42, 68, 0.7);
   white-space: nowrap;
 }
 .aura-chev {
@@ -1265,7 +1265,7 @@ textarea.in {
 .aura-pill,
 .aura-share {
   appearance: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 42, 68, 0.06);
   border: 1px solid var(--line-strong);
   color: var(--ink);
   border-radius: var(--r-pill);
@@ -1285,7 +1285,7 @@ textarea.in {
 }
 .aura-share[data-pressed],
 .aura[role='button'][data-pressed] .aura-pill {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(15, 42, 68, 0.12);
 }
 .aura-pill::before,
 .aura-share::before {

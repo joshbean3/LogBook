@@ -40,7 +40,7 @@ export const Start = () => {
       <div className="start-stage">
         <div className="start-step">
           <div className="start-mark start-in">
-            <LogoMark size={56} color="#fff" />
+            <LogoMark size={56} color="var(--ink)" />
           </div>
           <h1 className="start-title display start-in">Your day, lit.</h1>
           <p className="start-sub start-in s1">A plan that fits your mornings. Four questions, then your first week.</p>

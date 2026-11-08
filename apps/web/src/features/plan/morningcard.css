@@ -193,7 +193,7 @@
   border-radius: 50%;
   background: var(--accent);
   box-shadow:
-    0 0 0 3px rgba(47, 59, 255, 0.28),
+    0 0 0 3px rgba(242, 96, 12, 0.28),
     0 0 14px var(--accent-bright);
 }
 /* the workout's name, on its stretch: a stamp in a pill that cuts the line, never wider than the stretch */

@@ -97,7 +97,7 @@ export const StravaPrimer = ({ onLater, onConnect, variant = 'card', className =
           <span className="caps">Sample · Morning run</span>
         </div>
         <svg className="sp-route" viewBox="0 0 324 170" fill="none">
-          <motion.path d={ROUTE} stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease, delay: reduce ? 0 : 0.2 }} />
+          <motion.path d={ROUTE} stroke="var(--ink)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" initial={reduce ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease, delay: reduce ? 0 : 0.2 }} />
         </svg>
         <div className="sp-stamps">
           <span>

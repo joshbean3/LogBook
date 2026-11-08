@@ -86,15 +86,15 @@
 .orb.on .orb-ring {
   background: var(--accent);
   border-color: var(--accent-bright);
-  color: #fff;
+  color: var(--accent-ink);
   transition:
     background 0ms,
     border-color 0ms,
     color 0ms,
     box-shadow 320ms var(--ease-out);
   box-shadow:
-    0 0 0 4px rgba(47, 59, 255, 0.18),
-    0 0 28px rgba(47, 59, 255, 0.75);
+    0 0 0 4px rgba(242, 96, 12, 0.18),
+    0 0 28px rgba(242, 96, 12, 0.75);
 }
 .orb-note {
   position: absolute;
@@ -220,14 +220,14 @@
 }
 .hs-cell.on {
   background: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 10px rgba(47, 59, 255, 0.55);
+  color: var(--accent-ink);
+  box-shadow: 0 0 10px rgba(242, 96, 12, 0.55);
 }
 .hs-cell.is-today {
   box-shadow: inset 0 0 0 1.5px var(--ink-2);
 }
 .hs-cell.on.is-today {
-  box-shadow: inset 0 0 0 1.5px #fff, 0 0 10px rgba(47, 59, 255, 0.55);
+  box-shadow: inset 0 0 0 1.5px #fff, 0 0 10px rgba(242, 96, 12, 0.55);
 }
 .hs-cell.before {
   opacity: 0.35;

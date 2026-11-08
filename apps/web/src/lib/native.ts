@@ -56,7 +56,7 @@ export const bootNative = async () => {
   if (!isNative) return;
   try {
     const [{ StatusBar, Style }, { Keyboard }] = await Promise.all([import('@capacitor/status-bar'), import('@capacitor/keyboard')]);
-    await StatusBar.setStyle({ style: Style.Dark });
+    await StatusBar.setStyle({ style: Style.Light });
     await StatusBar.setOverlaysWebView({ overlay: true });
     Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => undefined);
   } catch {

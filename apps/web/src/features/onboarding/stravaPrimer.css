@@ -13,7 +13,7 @@
 .sp-sample {
   position: relative;
   border-radius: 16px;
-  background: #050505;
+  background: var(--surface-2);
   border: 1px solid var(--line);
   padding: 14px 16px 16px;
   overflow: hidden;
@@ -31,14 +31,14 @@
   height: auto;
   max-height: 170px;
   margin: 8px 0 12px;
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.35));
+  filter: drop-shadow(0 0 6px rgba(15, 42, 68, 0.35));
 }
 .sp-stamps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(15, 42, 68, 0.12);
 }
 .sp-stamps > span {
   display: grid;
@@ -53,7 +53,7 @@
 .sp-stamps small {
   font-size: 0.75rem;
   margin-left: 2px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(15, 42, 68, 0.7);
   font-weight: 700;
 }
 .sp-title {

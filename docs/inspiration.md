@@ -8,6 +8,45 @@ Ground rules
 - Palette: Columbia Blue, white, orange as the highlight.
 - Screenshots are not committed. Detailed per-screenshot notes are in `docs/research/inspiration/notes-*.md`, and every rule below cites screenshot numbers.
 
+## 0. What stays: Logbook's integrity
+
+The references teach how a professional app looks and feels. They do not decide what Logbook is. Every change in this plan has to pass this section first.
+
+What Logbook is
+- One athlete's private daily logbook: the day, the training block, the habits, and what was learned and felt, kept honestly in one place. It is built for its owner, not for an audience.
+- Its job: open it at 6:30 am or 9 pm and see the one thing that matters now in under two seconds, then touch it directly (`docs/experience.md`).
+- What it is for, in the owner's own use:
+  - Training for races: a plan of runs and lifts by week and block, synced activities, and progress over time.
+  - The morning: wake, run, back, out the door, with the alarm and the leave time.
+  - Habits: tapped as lights at the top of Today, with history behind them.
+  - Goals: year, month, week and day, reviewed honestly.
+  - Learned: one thing a day, kept by month.
+  - Journal: entries, and a daily "remember when" from your own words.
+  - To-dos and plan-my-day.
+  - An assistant that proposes and never acts alone: you apply, with Undo.
+
+What does not change
+- The six tabs and what each is for. Today is the day, not a score dashboard: habits first, then the plan. Health rings, when they come, sit under the habits and only once there is real data.
+- The interaction model: the thing is the control (tap to open, hold for its menu, drag to move), the day pager, instant paint from cache, writes that work offline.
+- Principles: one job and one hero per screen, nothing shown twice; progress, not grades (no zero as a headline, no coins, badges or streak shaming); celebration one or two moments a day at most; honest numbers.
+- The voice: verbs, then a plain clause. No hype, no "coach personality" theatre.
+- Type: Instrument Serif italic for the big words, Inter Tight stamps for numbers, small caps labels. This keeps Logbook from looking like the reference, whose type is a plain sans.
+- The halo, the light rising from under what matters. It stays as Logbook's signature, relit in Columbia Blue (and orange for a highlight) instead of electric blue on black.
+- Privacy: your data is yours, and nothing goes to the assistant without your say.
+
+What changes
+- The skin: from true black with one electric blue to white and Columbia Blue, navy ink, orange as the one highlight. This is the owner's call and supersedes the "Night" palette in `docs/brand.md`.
+- The craft: sheets, feedback, data honesty, metric pages, chart grammar, logging ergonomics and how the assistant shows up, all from the references below.
+
+What we do not take
+- A score-first home, nutrition, cycle, lab records, a paywall, a coach with a persona, confetti on every log.
+
+The test for every screen
+1. Does it help one athlete run the day and the training block better?
+2. With the logo hidden, does it still read as Logbook (serif words, stamped numbers, the halo, the habits as lights)?
+3. Does it keep the principles above?
+If any answer is no, the reference loses.
+
 ## Status
 
 | Source | Reviewed | Notes |
