@@ -3,8 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import { useNav, useTabScroller } from '@/app/NavController';
-import { fetchCoachRead, STRAVA_SYNC_KEY, stravaSyncNow, type StravaSyncAnswer } from '@/api/queries';
-import { setCoachShown } from './coachShown';
+import { STRAVA_SYNC_KEY, stravaSyncNow, type StravaSyncAnswer } from '@/api/queries';
 import { LANDING_VISIBLE, STRAVA_RETRY_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { NAV_EVENT } from '@/ui/nav';
@@ -256,7 +255,6 @@ export const useStravaLanding = ({ date, log, face, pre, hero }: { date: ISODate
   }, [stage]);
 
   // the read is asked for after the landing (or on a landed face whose landing was seen earlier), never before it
-  useCoachRead(date, log, face, landed && (stage === 'done' || (stage === 'still' && seenToday(key))));
 
   // the render a run arrives in already waits (the effect above makes it so a commit later): the ring never leaves its node
   const now: LandingStage = stage === 'still' && landed && !seenToday(key) ? 'wait' : stage;
@@ -271,28 +269,10 @@ export const useStravaLanding = ({ date, log, face, pre, hero }: { date: ISODate
   };
 };
 
-/**
- * The coach's one sentence (§6.1, risk 11): once per matched run, when the month has no read for that date and session, the
- * client asks the existing `POST /coach/read`; the answer joins the month's payload in place and the hero fades it in from
- * `coachShown` (no rebuild of every page for one sentence; day review 2 #7). Nothing
- * waits for it and nothing says "Reading…"; a failure leaves the face without a sentence, silently, and is not asked again
- * today (the session sheet's own read button still works).
+/*
+ * The coach's sentence after a run is off: it was written from the synced run, and every synced run comes from Strava, whose
+ * API policy bars its data from any AI use (the server refuses POST /coach/read). Saved sentences still show.
  */
-const useCoachRead = (date: ISODate, log: Log, face: Face, on: boolean) => {
-  const qc = useQueryClient();
-  const sessionId = face.lead?.session.id ?? null;
-  const k = `coach-${date}-${sessionId ?? 'run'}`;
-  const want = on && log.features.claude && !!face.landed && !face.landed.coach;
-  const live = useIsLive(date);
-  useEffect(() => {
-    if (!want || !live || seenToday(k)) return;
-    markSeenToday(k);
-    note('done', { coach: 'asked' });
-    fetchCoachRead(qc, date, sessionId)
-      .then((r) => setCoachShown(date, r.key || (sessionId ?? 'run'), r.text))
-      .catch(() => undefined);
-  }, [want, live, k]); // eslint-disable-line react-hooks/exhaustive-deps
-};
 
 /**
  * The silent repeat (§6.1): when a foreground check answers `changed: 0` and the session is still open past its back time

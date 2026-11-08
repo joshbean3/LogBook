@@ -56,3 +56,11 @@ describe('day timeline', () => {
     expect((await call('GET', '/api/day/nope/timeline')).status).toBe(400);
   });
 });
+
+describe('Strava data stays out of AI', () => {
+  it('the run note is refused with the reason, since every synced run comes from Strava', async () => {
+    const r = await call('POST', '/api/coach/read', { date: T, sessionId: null });
+    expect(r.status).toBe(422);
+    expect(r.body.code).toBe('strava_terms');
+  });
+});

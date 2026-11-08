@@ -1,15 +1,14 @@
-import { eachDay, monthsBetween, shiftDays, today, zCoachRequest, zPlanApply, zPlanDraftRequest, zPlanMode, type Session } from '@logbook/shared';
+import { eachDay, monthsBetween, shiftDays, today, zPlanApply, zPlanDraftRequest, zPlanMode, type Session } from '@logbook/shared';
 import { and, eq, gt, gte, isNull, lte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
-import { coachReads, planBlocks, trainingSessions } from '../db/schema.js';
+import { planBlocks, trainingSessions } from '../db/schema.js';
 import { toBlock, toSession } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
-import { coachRead, draftPlan, type AthleteContext } from '../services/claude.js';
-import { stravaStatus } from '../services/strava.js';
-import { activitiesBetween, sessionsBetween, zonesOf } from './core.js';
+import { RUN_NOTE_OFF, draftPlan, type AthleteContext } from '../services/claude.js';
+import { sessionsBetween, zonesOf } from './core.js';
 
 const MAX_FILE = 25 * 1024 * 1024;
 
@@ -18,7 +17,10 @@ export const aiRoutes = (db: DB) => {
   const uidOf = (c: { get: (k: 'user') => { id: string } }) => c.get('user').id;
   const ctxOf = (userId: string): AthleteContext => {
     const t = today();
-    return { activities: activitiesBetween(db, userId, shiftDays(t, -60), t), zones: zonesOf(db, userId), stravaOk: stravaStatus(db, userId).connected };
+    const runs = sessionsBetween(db, userId, shiftDays(t, -60), t)
+      .filter((s) => s.kind === 'run' && (s.mark === 'done' || s.mark === 'floor') && s.miles)
+      .map((s) => ({ date: s.date, miles: s.miles!, minutes: s.minutes }));
+    return { runs, zones: zonesOf(db, userId) };
   };
 
   /** multipart (file) or JSON; both carry the same fields */
@@ -115,17 +117,9 @@ export const aiRoutes = (db: DB) => {
     return c.json({ block: toBlock(block, draft.sessions.length), months: monthsBetween(draft.start, draft.end) }, 201);
   });
 
-  r.post('/coach/read', async (c) => {
-    const userId = uidOf(c);
-    const { date, sessionId } = await parseBody(c.req.raw, zCoachRequest);
-    const sessions = sessionsBetween(db, userId, date, date);
-    const sess = sessionId ? sessions.find((s) => s.id === sessionId) ?? null : null;
-    const runs = activitiesBetween(db, userId, date, date).filter((a) => a.kind === 'run');
-    if (!runs.length) throw new ApiError(422, 'No run recorded on that day yet.', 'no_runs');
-    const text = await coachRead(date, sess, runs, ctxOf(userId));
-    const key = sess ? sess.id : 'run';
-    db.insert(coachReads).values({ userId, date, key, text, createdAt: nowISO() }).onConflictDoUpdate({ target: [coachReads.userId, coachReads.date, coachReads.key], set: { text, createdAt: nowISO() } }).run();
-    return c.json({ date, key, text, createdAt: nowISO() });
+  /** Off: see RUN_NOTE_OFF. Saved notes from before still show; no new ones are written. */
+  r.post('/coach/read', () => {
+    throw new ApiError(422, RUN_NOTE_OFF, 'strava_terms');
   });
 
   void toSession;

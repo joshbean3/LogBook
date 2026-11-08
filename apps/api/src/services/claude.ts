@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { assess, clock, fmtDate, isISODate, KINDS, METERS_PER_MILE, mi, mondayOf, parseISO, shiftDays, today, zClaudeGoalOutput, zClaudePlanOutput, type Activity, type GoalLevel, type HrZone, type PlanDraft, type Session, type SessionKind } from '@logbook/shared';
+import { clock, fmtDate, isISODate, KINDS, mi, mondayOf, shiftDays, today, zClaudeGoalOutput, zClaudePlanOutput, type GoalLevel, type HrZone, type PlanDraft, type Session, type SessionKind } from '@logbook/shared';
 import { env } from '../env.js';
 import { ApiError } from '../lib/util.js';
 
@@ -10,10 +10,13 @@ const anthropic = () => {
   return (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 10 * 60_000, maxRetries: 2 }));
 };
 
+/**
+ * What a plan draft knows about the athlete. Runs come from the sessions they marked done, never from Strava: Strava's API
+ * policy (June 2026) bars its data from any AI use, prompts included.
+ */
 export interface AthleteContext {
-  activities: Activity[];
+  runs: Array<{ date: string; miles: number; minutes: number | null }>;
   zones: HrZone[] | null;
-  stravaOk: boolean;
 }
 
 /** Six weeks of running, typical paces and zones: what a coach would want to know before writing anything. */
@@ -22,16 +25,16 @@ export const recentContext = (ctx: AthleteContext): string => {
   const weeks: string[] = [];
   for (let i = 6; i >= 1; i--) {
     const m = shiftDays(mon, -7 * i);
-    const ran = ctx.activities.filter((a) => a.kind === 'run' && a.date >= m && a.date < shiftDays(m, 7)).reduce((t, a) => t + a.miles, 0);
+    const ran = ctx.runs.filter((a) => a.date >= m && a.date < shiftDays(m, 7)).reduce((t, a) => t + a.miles, 0);
     weeks.push(`${fmtDate('md', m)}: ${mi(ran)} mi`);
   }
-  const paces = ctx.activities
-    .filter((a) => a.kind === 'run' && a.miles > 0.5)
+  const paces = ctx.runs
+    .filter((a) => a.miles > 0.5 && a.minutes)
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 8)
-    .map((a) => clock(a.movingSec / a.miles));
+    .map((a) => clock((a.minutes! * 60) / a.miles));
   return [
-    ctx.stravaOk ? `Recent weekly running from Strava (Mon-start): ${weeks.join('; ')}.` : 'Recent running data is not available right now; do not assume the athlete is untrained.',
+    ctx.runs.length ? `Recent weekly running, from the sessions they marked done (Mon-start): ${weeks.join('; ')}.` : 'Recent running data is not available; do not assume the athlete is untrained.',
     paces.length ? `Typical recent run paces per mile: ${paces.join(', ')}.` : '',
     ctx.zones ? `Heart-rate zones (bpm): ${ctx.zones.map((z) => `Z${z.zone} ${z.min}${z.max ? `-${z.max}` : '+'}`).join(', ')}.` : '',
     env.ATHLETE_CONTEXT ? `Athlete: ${env.ATHLETE_CONTEXT}` : '',
@@ -144,35 +147,11 @@ export const draftPlan = async (input: DraftInput): Promise<PlanDraft> => {
   return cleanDraft(json, input.start, input.end);
 };
 
-/** Two or three sentences on one day's run against the plan. */
-export const coachRead = async (date: string, sess: Session | null, runs: Activity[], ctx: AthleteContext): Promise<string> => {
-  const c = anthropic();
-  const a = assess(ctx.zones, sess, runs);
-  const splits = a.laps.map((l, i) => `Mile ${i + 1}: ${clock(l[1] / (l[0] / METERS_PER_MILE))}/mi${l[2] != null ? `, ${l[2]} bpm` : ''}`).join('\n');
-  const prompt = [
-    'You are a running coach writing a short note on one run for the athlete himself.',
-    recentContext(ctx),
-    '',
-    `DATE: ${fmtDate('long', date)} ${parseISO(date).getFullYear()}`,
-    `PLANNED: ${sess ? [sess.type, sess.title, sess.miles ? `${sess.miles} mi` : null, sess.details].filter(Boolean).join(' · ') : 'Nothing planned'}`,
-    `ACTUAL: ${mi(a.miles)} mi in ${clock(a.movingSec)}${a.pace ? ` (${a.pace}/mi)` : ''}${a.avgHr != null ? `, avg HR ${a.avgHr}, max ${a.maxHr}` : ''}${runs[0]?.cadence ? `, cadence ${runs[0].cadence} spm` : ''}`,
-    splits ? `SPLITS:\n${splits}` : '',
-    `AUTOMATIC CHECKS: ${a.lines.join(' ')}`,
-    '',
-    'Write 2-3 plain sentences, under 70 words: what the run did for him, the one thing to change, and what it means for his next session. Use the numbers. No greeting, no lists, no hype, no markdown.',
-  ]
-    .filter(Boolean)
-    .join('\n');
-  const msg = await c.messages.create({ model: env.ANTHROPIC_MODEL, max_tokens: 1200, output_config: { effort: 'low' }, messages: [{ role: 'user', content: prompt }] });
-  if (msg.stop_reason === 'refusal') throw new ApiError(422, 'Claude declined to write this one.', 'refused');
-  const text = msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim();
-  if (!text) throw new ApiError(502, 'Claude sent back an empty note. Try again.', 'empty');
-  return text.slice(0, 700);
-};
+/**
+ * The run note is off. It was written from the synced run (splits, heart rate, cadence), and every synced run comes from
+ * Strava, whose API policy (June 2026) bars its data from any AI use. It comes back when runs arrive from Apple Health.
+ */
+export const RUN_NOTE_OFF = 'Run notes are off: Strava doesn’t allow its data to be sent to an AI. They return with Apple Health.';
 
 const GOAL_SCOPE: Record<GoalLevel, string> = {
   year: 'a goal for the whole year',
