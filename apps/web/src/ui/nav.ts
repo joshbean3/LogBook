@@ -44,6 +44,8 @@ export const SETTINGS_SECTIONS = ['you', 'training', 'habits', 'plans', 'connect
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 const SECTION_TITLE: Record<SettingsSection, string> = { you: 'You', training: 'Training', habits: 'Habits', plans: 'Plans', connections: 'Data sources', app: 'App', data: 'Data', account: 'Account', privacy: 'Privacy' };
 
+const METRIC_TITLE: Record<string, string> = { mileage: 'Weekly mileage', pace: 'Run pace', consistency: 'Consistency', lifts: 'Lift volume', sleep: 'Sleep', hrv: 'HRV', rhr: 'Resting HR' };
+
 /** The whole table of §1.2: roots, pushed pages, full screens and redirects, in match order. */
 export const ROUTES: readonly RouteDef[] = [
   { pattern: '/today/:date?', owner: 'today', kind: 'root' },
@@ -62,6 +64,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/plan/week/:mon', owner: 'plan', kind: 'root' },
   { pattern: '/plan/month/:month', owner: 'plan', kind: 'root' },
   { pattern: '/progress', owner: 'progress', kind: 'root' },
+  // a metric's page, pushed from Progress's trend cards (features/progress/metrics.ts names the ids)
+  { pattern: '/progress/metric/:id', owner: 'progress', kind: 'pushed', depth: 1, title: (p) => METRIC_TITLE[p.id ?? ''] ?? 'Progress' },
   { pattern: '/journal', owner: 'journal', kind: 'root' },
   { pattern: '/journal/library', owner: 'journal', kind: 'root' },
   { pattern: '/journal/reads/:tab?', owner: 'journal', kind: 'pushed', depth: 1, title: 'Reads' },

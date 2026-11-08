@@ -765,3 +765,186 @@ button.pg-srow[data-pressed] {
 .pg-page {
   overflow-anchor: none;
 }
+
+/* ---------- the redesign: freshness, this month, trend cards, vitals, the activity list ---------- */
+/* freshness under the title: "Strava · Synced 6 m ago" */
+.pg-fresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: var(--card-border);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.pg-fresh-ok {
+  color: var(--ink-2);
+}
+/* the sections under the hero: 32 above each, a sentence-case title */
+.pg-sec {
+  margin-top: 32px;
+}
+.pg-sec > .section-title {
+  margin-bottom: 12px;
+}
+.pg-sec .seg.pg-range {
+  margin-top: 0;
+}
+.pg-hero.pg-weeks {
+  margin-top: 0;
+}
+/* this month, the page's hero: two totals over the running lines (orange is this month, grey last month) */
+.pg-month {
+  margin-top: 20px;
+  padding-bottom: 8px;
+}
+.pg-month-totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.pg-month-total {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pg-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.pg-key::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  flex: none;
+}
+.pg-key.is-now::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+.pg-slot-num.is-prev {
+  color: var(--ink-3);
+}
+.pg-slot-num.is-dash {
+  color: var(--ink-4);
+}
+.pg-month-words {
+  margin: 6px 0 10px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+/* trend cards: two across, the same shell empty or full */
+.pg-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.pg-vitals-h {
+  margin-top: 20px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pg-vitals {
+  margin-top: 4px;
+}
+.pg-vitals .pg-row {
+  min-height: 56px;
+}
+.pg-vital-icon,
+.pg-act-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+  flex: none;
+}
+.pg-dash {
+  color: var(--ink-4);
+}
+/* the activity list */
+.pg-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.pg-filter {
+  height: 32px;
+  font-size: 0.875rem;
+}
+.pg-filter.on {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+}
+.pg-act .pg-row-num {
+  font-size: 1.125rem;
+}
+.pg-act .pg-row-num small {
+  font-size: 0.6875rem;
+}
+.pg-act-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.pg-act-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-act-race {
+  flex: none;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.pg-act-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  color: var(--ink-3);
+}
+.pg-act-detail {
+  min-width: 0;
+}
+.pg-acts-empty {
+  padding-block: 14px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+.pg-more {
+  margin-top: 4px;
+}

@@ -1,17 +1,26 @@
-import { dayStatus, fmtDate, mi, monthsBetween, num, shiftDays, weekCheck, weekStreak, type LiftSet } from '@logbook/shared';
-import { ChevronRight } from 'lucide-react';
+import { clock, dayStatus, fmtDate, mi, monthsBetween, num, shiftDays, weekCheck, weekStreak, type LiftSet } from '@logbook/shared';
+import { Activity as ActivityIcon, Check, ChevronRight, Dumbbell, Footprints } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNav } from '@/app/NavController';
 import { useAllLifts } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
-import { dayCaption, EmptyState, GhostBars, NavBar, Pressable, Segmented, Skeleton, Ticker, useSheet } from '@/ui';
+import { dayCaption, EmptyState, NavBar, Pressable, Segmented, Ticker, useSheet } from '@/ui';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer } from '../onboarding/StravaPrimer';
 import { Spark } from './charts';
 import { adherence, consistency, easyPace, FUTURE_WEEKS, liftGroups, longRuns, paceText, pct, plural, RANGE_WEEKS, RANGES, rangeBounds, rangeLabel, rangePhrase, rangeSummary, signedPct, verdict, weekId, weekSeries, weekTitle, type Range, type WeekPoint } from './data';
 import { MileageChart } from './MileageChart';
+import { ActivitySheet, LiftDaySheet, SourceChip } from './ActivitySheet';
+import { activityFeed, FEED_FILTERS, feedDetail, monthCompare, monthWords, syncWords, type FeedFilter, type FeedItem } from './feed';
+import { MetricIcon } from './icons';
+import { METRICS, type MetricId } from './metrics';
+import { useMetricModels } from './useMetrics';
+import { useNow } from './useNow';
+import { useOpenSession } from '../sessions/SessionCard';
+import { TrendCard, TrendChart } from '@/ui/charts';
 import { AdherenceSheet, ConsistencySheet, EasyPaceSheet, LiftsSheet, LongRunSheet, paceChange, useOpenWeek } from './sheets';
 import './progress.css';
+import './metric.css';
 import '../journal/seg.css';
 
 // ---------- the range: a per-viewer convenience, remembered on this device ----------
@@ -100,26 +109,10 @@ const DrillRow = ({ title, sub, spark, value, unit, onPress, label }: { title: s
 );
 
 /**
- * The empty state's ghost: the chart's shape, abstract. Plain bars of no particular height pattern, a baseline and three
- * grey bars where the headline numbers will be; no numbers, no axis, no labels, nothing that reads as someone's data.
- */
-const ProgressGhost = () => (
-  <section className="pg-hero pg-ghost" aria-hidden="true">
-    <div className="pg-ghost-read">
-      {[0, 1, 2].map((i) => (
-        <span key={i} className="pg-ghost-slot">
-          <Skeleton w={44} h={9} r="line" />
-          <Skeleton w={64} h={26} r="control" />
-        </span>
-      ))}
-    </div>
-    <GhostBars count={13} height={160} />
-  </section>
-);
-
-/**
- * Progress (docs/feel.md §8): the NavBar (caps the date, title `Progress`, nothing trailing), the verdict in the sans, the
- * range as a Segmented, the chart and the drill-downs. The page builds from the months that are loaded: a month still on
+ * Progress (docs/feel.md §8, docs/inspiration.md §6): the NavBar (caps the date, title `Progress`, nothing trailing), when
+ * Strava last synced, the verdict in the sans, then the hero (this month's running miles in orange against last month's in
+ * grey), the trend cards and vitals rows that open the metric pages (/progress/metric/:id), the weeks (the range as a
+ * Segmented, the weekly chart and the drill-downs), and the activity list with its filters and source chips. The page builds from the months that are loaded: a month still on
  * its way (or never answering) is a quiet gap in the chart and is left out of the numbers, never the page skeleton. Links
  * into other tabs go through `nav.go` (a day row → Today at that day; `Open in Plan` → that week); `Connect Strava` opens
  * the primer card as a sheet over Progress (Settings keeps its one door).
@@ -231,20 +224,24 @@ export default function ProgressView() {
   );
   const gaps = held;
 
-  // ---------- new account: the chart as it will look, one sentence, one verb ----------
+  const fresh = <Freshness log={log} />;
+  // ---------- new account: the page keeps its shape (dashes, empty shells), one sentence, one verb ----------
   if (!m.ran && !gaps) {
     const strava = log.features.strava && !log.strava?.connected;
     return (
       <div className="page pg-page">
         {header}
+        {fresh}
+        <MonthHero log={log} t={t} />
         <EmptyState
           className="pg-empty"
-          ghost={<ProgressGhost />}
           verb={m.planned ? (strava ? { label: 'Connect Strava', onPress: connect } : { label: 'See the plan', onPress: () => nav.go('/plan') }) : { label: 'Plan a week', onPress: () => nav.go('/plan'), primary: true }}
         >
           {m.planned ? 'Your plan is set. Each run you log lands here.' : 'Plan a week and run it. This page draws the rest.'}
         </EmptyState>
+        <Trends log={log} />
         {m.c.habitOf ? <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} /> : null}
+        <Activities log={log} t={t} from={from} />
       </div>
     );
   }
@@ -252,6 +249,7 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
+      {fresh}
       {/* a month of the range not loaded: the verdict and the drill-downs would read the gap as weeks off (review code F8),
           so the verdict says only that, in the same place, and the drill-downs wait under the chart's quiet gap */}
       {m.v && gaps ? (
@@ -265,9 +263,14 @@ export default function ProgressView() {
           <p className="pg-sub">{m.v.sub}</p>
         </>
       ) : null}
+      <MonthHero log={log} t={t} />
+      <Trends log={log} />
+      <section className="pg-sec" aria-labelledby="pg-weeks">
+      <h2 className="section-title" id="pg-weeks">
+        Weeks
+      </h2>
       {chips}
-      <section className="pg-hero" aria-label="Weekly miles">
-        <span className="pg-glow" aria-hidden="true" />
+      <section className="pg-hero pg-weeks" aria-label="Weekly miles">
         <div className="pg-ctx-row">
           <span className="caps pg-ctx">{ctx}</span>
         </div>
@@ -287,9 +290,213 @@ export default function ProgressView() {
         <MileageChart pts={pts} range={m.range} today={t} onScrub={setScrub} onOpen={openAt} onPinch={pinch} />
       </section>
       {gaps ? null : <Drills m={m} t={t} range={range} log={log} sheet={sheet} onConnect={connect} />}
+      </section>
+      <Activities log={log} t={t} from={from} />
     </div>
   );
 }
+
+// ---------- freshness: when Strava last answered, under the title ----------
+const Freshness = ({ log }: { log: Log }) => {
+  const now = useNow(60_000);
+  const words = syncWords(log.strava, now);
+  if (!words) return null;
+  return (
+    <p className="pg-fresh" role="status">
+      {words.startsWith('Synced') ? <Check size={13} strokeWidth={2.6} aria-hidden="true" className="pg-fresh-ok" /> : null}
+      <span>Strava · {words}</span>
+    </p>
+  );
+};
+
+// ---------- the hero: this month's running total against last month's ----------
+const monthName = (d: string) => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(`${d}T12:00:00`));
+const MonthHero = ({ log, t }: { log: Log; t: string }) => {
+  const mc = useMemo(() => monthCompare(log.snap, t), [log.snap, t]);
+  const cur = monthName(mc.cur);
+  const prev = monthName(mc.prev);
+  const labels = Array.from({ length: mc.length }, (_, i) => {
+    const d = shiftDays(mc.cur, i);
+    return i === 0 ? md(d).toUpperCase() : String(i + 1);
+  });
+  const sentence = monthWords(mc, monthName);
+  return (
+    <section className="pg-hero pg-month" aria-label={`${cur}: ${mi(mc.curTotal)} miles so far. ${mc.prevLoaded ? `${prev}: ${mi(mc.prevTotal)} miles. ` : ''}${sentence}`}>
+      <span className="pg-glow" aria-hidden="true" />
+      <div className="pg-month-totals" aria-hidden="true">
+        <span className="pg-month-total">
+          <span className="caps pg-key is-now">{cur}</span>
+          {/* never a zero as the headline: an empty month is a dash */}
+          <span className={`stamp pg-slot-num ${mc.curTotal > 0 ? '' : 'is-dash'}`}>
+            {mc.curTotal > 0 ? mi(mc.curTotal) : '–'}
+            {mc.curTotal > 0 ? <small>mi</small> : null}
+          </span>
+        </span>
+        <span className="pg-month-total">
+          <span className="caps pg-key">{prev}</span>
+          <span className={`stamp pg-slot-num is-prev ${mc.prevLoaded && mc.prevTotal > 0 ? '' : 'is-dash'}`}>
+            {mc.prevLoaded && mc.prevTotal > 0 ? mi(mc.prevTotal) : '–'}
+            {mc.prevLoaded && mc.prevTotal > 0 ? <small>mi</small> : null}
+          </span>
+        </span>
+      </div>
+      <p className="pg-month-words">{sentence}</p>
+      <TrendChart
+        label={`Running total of miles, ${cur} against ${prev}`}
+        // two empty months draw the frame alone: a flat line at zero is not something to read
+        line={mc.curTotal > 0 || mc.prevTotal > 0 ? mc.curLine : []}
+        previous={mc.prevLoaded && (mc.curTotal > 0 || mc.prevTotal > 0) ? mc.prevLine : undefined}
+        labels={labels}
+        format={(v) => String(Math.round(v))}
+        zero
+        tone="accent"
+        height={150}
+        readout={(i) =>
+          i == null ? null : (
+            <span className="mp-readout caps on">
+              Day {i + 1} · {mc.curLine[i] != null ? `${mi(mc.curLine[i]!)} mi` : '–'} · {prev.slice(0, 3)} {mc.prevLine[i] != null ? `${mi(mc.prevLine[i]!)} mi` : '–'}
+            </span>
+          )
+        }
+      />
+    </section>
+  );
+};
+
+// ---------- trend cards and the vitals rows: each opens its metric page ----------
+const CARD_IDS: readonly MetricId[] = ['mileage', 'pace', 'consistency', 'lifts'];
+const VITAL_IDS: readonly MetricId[] = ['sleep', 'hrv', 'rhr'];
+const Trends = ({ log }: { log: Log }) => {
+  const nav = useNav();
+  const models = useMetricModels(log, CARD_IDS);
+  const open = (id: MetricId) => nav.push(`/progress/metric/${id}`);
+  return (
+    <section className="pg-sec" aria-labelledby="pg-trends">
+      <h2 className="section-title" id="pg-trends">
+        Trends
+      </h2>
+      <div className="pg-cards">
+        {CARD_IDS.map((id) => {
+          const mm = models[id];
+          const v = mm.variant;
+          return <TrendCard key={id} label={METRICS[id].name} icon={<MetricIcon id={id} size={13} />} value={mm.value != null ? v.format(mm.value) : null} unit={v.unit} status={mm.status} spark={mm.line} invert={v.invert} zero={v.zero} onPress={() => open(id)} />;
+        })}
+      </div>
+      <h3 className="pg-vitals-h">Vitals</h3>
+      <div className="list-edge pg-vitals" role="group" aria-label="Vitals">
+        {VITAL_IDS.map((id) => (
+          <Pressable key={id} className="pg-row" press="surface" onPress={() => open(id)} label={`${METRICS[id].name}: comes with Apple Health. Open`}>
+            <span className="pg-vital-icon" aria-hidden="true">
+              <MetricIcon id={id} size={15} />
+            </span>
+            <span className="pg-row-main">
+              <span className="pg-row-title">{METRICS[id].name}</span>
+              <span className="pg-row-sub">Comes with Apple Health</span>
+            </span>
+            <span className="stamp pg-row-num pg-row-val pg-dash" aria-hidden="true">
+              –
+            </span>
+            <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
+          </Pressable>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+// ---------- the activity list: filter chips, a source chip on every row ----------
+const PAGE = 12;
+const KIND_ICON = { run: Footprints, lift: Dumbbell, cross: ActivityIcon } as const;
+const EMPTY_WORDS: Record<FeedFilter, string> = {
+  all: 'Nothing logged in this range yet. Synced runs and runs you mark done land here.',
+  runs: 'No runs in this range yet. Once one syncs or you mark one done, it shows up here.',
+  lifts: 'No lifts in this range yet. Sets you log show up here.',
+  races: 'No races in this range. A run on a day planned as a race shows up here.',
+};
+const Activities = ({ log, t, from }: { log: Log; t: string; from: string }) => {
+  const sheet = useSheet();
+  const openSession = useOpenSession(log);
+  const [filter, setFilter] = useState<FeedFilter>('all');
+  const [shown, setShown] = useState(PAGE);
+  const items = useMemo(() => activityFeed(log.snap, from, t, filter), [log.snap, from, t, filter]);
+  const openItem = (x: FeedItem) => {
+    if (x.activity) sheet.open({ eyebrow: fmtDate('long', x.date), title: x.title, body: <ActivitySheet a={x.activity} />, wide: true });
+    else if (x.kind === 'lift') sheet.open({ eyebrow: fmtDate('long', x.date), title: x.title, body: <LiftDaySheet sets={x.sets} /> });
+    else if (x.session) openSession(x.date, x.session);
+  };
+  return (
+    <section className="pg-sec" aria-labelledby="pg-acts">
+      <h2 className="section-title" id="pg-acts">
+        Activities
+      </h2>
+      <div className="pg-filters" role="radiogroup" aria-label="Show">
+        {FEED_FILTERS.map(([k, l]) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={filter === k}
+            className={`chip-btn pg-filter ${filter === k ? 'on' : ''}`}
+            onClick={() => {
+              setFilter(k);
+              setShown(PAGE);
+            }}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+      <div className="list-edge pg-acts" role="list">
+        {items.length === 0 ? (
+          <div className="pg-acts-empty" role="listitem">
+            {EMPTY_WORDS[filter]}
+          </div>
+        ) : (
+          items.slice(0, shown).map((x) => {
+            const Icon = KIND_ICON[x.kind];
+            const detail = feedDetail(x, t, paceText, clock);
+            return (
+              <Pressable key={x.key} className="pg-row pg-act" press="surface" onPress={() => openItem(x)} label={`${x.title}, ${x.race ? 'race, ' : ''}from ${x.source}. ${detail}${x.miles ? `, ${mi(x.miles)} miles` : ''}. Open`}>
+                <span className={`pg-act-icon k-${x.kind}`} aria-hidden="true">
+                  <Icon size={16} strokeWidth={2.2} />
+                </span>
+                <span className="pg-row-main">
+                  <span className="pg-row-title pg-act-title">
+                    <span className="pg-act-name">{x.title}</span>
+                    {x.race ? <span className="pg-act-race">Race</span> : null}
+                  </span>
+                  <span className="pg-act-sub">
+                    <SourceChip source={x.source} />
+                    <span className="pg-act-detail">{detail}</span>
+                  </span>
+                </span>
+                <span className="stamp pg-row-num pg-row-val" aria-hidden="true">
+                  {x.miles != null && x.miles > 0.05 ? (
+                    <>
+                      {mi(x.miles)}
+                      <small>mi</small>
+                    </>
+                  ) : x.kind === 'lift' && x.sets.length ? (
+                    <>
+                      {x.sets.length}
+                      <small>sets</small>
+                    </>
+                  ) : null}
+                </span>
+                <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
+              </Pressable>
+            );
+          })
+        )}
+      </div>
+      {items.length > shown ? (
+        <button type="button" className="link pg-more" onClick={() => setShown((n) => n + PAGE)}>
+          Show {Math.min(PAGE, items.length - shown)} more
+        </button>
+      ) : null}
+    </section>
+  );
+};
 
 /** The edge-to-edge list under the chart: each row a sparkline and one number, each opening its sheet. */
 const Drills = ({ m, t, range, log, sheet, onConnect }: { m: Model; t: string; range: Range; log: Log; sheet: ReturnType<typeof useSheet>; onConnect: () => void }) => {
