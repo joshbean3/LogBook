@@ -5,7 +5,7 @@ import { useRouteParams } from '@/app/NavController';
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
-import { dayCaption, Pressable, PushedBar, Skeleton, SkeletonGroup, useToast } from '@/ui';
+import { Pressable, PushedBar, Skeleton, SkeletonGroup, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useNowMinutes } from '../day/useNow';
 import { useLog } from '../log/useLog';
@@ -267,7 +267,7 @@ export default function MorningView() {
     <div className={`page m-page is-${rel}`}>
       <PushedBar
         title={titleOf(date, today)}
-        eyebrow={dayCaption(date, today)}
+        eyebrow={fmtDate('long', date)}
         trailing={
           <Pressable className="icon-btn" label="Timings for every morning" onPress={() => openRoutine()}>
             <SlidersHorizontal size={22} aria-hidden="true" />

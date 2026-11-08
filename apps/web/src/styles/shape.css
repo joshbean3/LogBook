@@ -509,3 +509,15 @@ textarea.in:focus {
 .cm-layer .cm-item.destructive .cm-icon {
   color: var(--bad);
 }
+
+/* ---------- a pushed page's subtitle: a grey line under the centred title, not a caps eyebrow (shape system §5) ---------- */
+.pushed-bar .pb-text {
+  gap: 1px;
+}
+.pushed-bar .pb-eyebrow {
+  order: 2;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
