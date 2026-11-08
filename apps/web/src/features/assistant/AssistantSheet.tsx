@@ -1,6 +1,31 @@
-import { fmtDate, type AssistantChange, type AssistantProposal, type ISODate } from '@logbook/shared';
-import { ArrowUp, CalendarDays, CheckSquare, FileText, Paperclip, RotateCcw, Sparkles, Target, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { fmtDate, screenLabel, type AssistantChange, type AssistantProposal, type AssistantScreen, type ISODate } from '@logbook/shared';
+import {
+  Activity,
+  ArrowUp,
+  Bike,
+  BookOpen,
+  CalendarCheck,
+  CalendarDays,
+  CalendarX,
+  CheckSquare,
+  ChevronUp,
+  CircleAlert,
+  CornerDownRight,
+  Dumbbell,
+  FileText,
+  Footprints,
+  Lightbulb,
+  Moon,
+  Paperclip,
+  RotateCcw,
+  RotateCw,
+  Sparkles,
+  Sun,
+  Target,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { askAssistant, useAssistantActions } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
@@ -8,76 +33,120 @@ import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
-import { AttachError, prepareFile, requestTurns, type PreparedFile } from './attach';
-import { NetworkError } from '@/api/client';
-import { assistantStore, useAssistantTurns } from './store';
+import { AttachError, prepareFile, type PreparedFile } from './attach';
+import { retryAsk, sendTurn } from './conversation';
+import { assistantStore, useAssistantBusy, useAssistantTurns } from './store';
 import './assistant.css';
 
-const iconOf = (c: AssistantChange) =>
-  c.op.op.endsWith('_session') ? <CalendarDays size={15} aria-hidden="true" /> : c.op.op.endsWith('_todo') ? <CheckSquare size={15} aria-hidden="true" /> : <Target size={15} aria-hidden="true" />;
+/** What a change is about, for its icon: a workout added, a change to the plan's days, a to-do, a goal. Deletes are flagged. */
+const kindOf = (c: AssistantChange): { Icon: LucideIcon; risky?: boolean } => {
+  const op = c.op;
+  switch (op.op) {
+    case 'add_session':
+      return { Icon: op.kind === 'lift' ? Dumbbell : op.kind === 'cross' ? Bike : op.kind === 'rest' ? Moon : Footprints };
+    case 'mark_session':
+      return { Icon: CalendarCheck };
+    case 'delete_session':
+      return { Icon: CalendarX, risky: true };
+    case 'move_session':
+    case 'update_session':
+      return { Icon: CalendarDays };
+    case 'delete_todo':
+      return { Icon: CheckSquare, risky: true };
+    case 'add_todo':
+    case 'update_todo':
+      return { Icon: CheckSquare };
+    default:
+      return { Icon: Target };
+  }
+};
 
-/** A proposal: what will happen, each change in words, and the one decision. After Apply it says so, with Undo. */
 /** A proposal of more than this many changes shows the first six and a "Show all" (a plan can be fifty). */
 const FOLD_OVER = 8;
+const changesWord = (n: number) => `${n} change${n === 1 ? '' : 's'}`;
 
-const ProposalCard = ({ p }: { p: AssistantProposal }) => {
+/**
+ * A proposal (docs/inspiration.md §3, Proposal card): the summary, then each change on its own card with its icon, its
+ * words and its reason, and a Remove for leaving that one out. Apply names how many will run; after it, Undo.
+ */
+const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }) => {
   const { apply, undo, dismiss } = useAssistantActions();
   const [all, setAll] = useState(false);
-  const shown = all || p.changes.length <= FOLD_OVER ? p.changes : p.changes.slice(0, 6);
   const toast = useToast();
-  const busy = apply.isPending || undo.isPending;
-  const run = async (fn: typeof apply, ok?: () => void) => {
+  const skipped = new Set(p.skipped ?? []);
+  const live = p.changes.length - skipped.size;
+  const open = p.status === 'proposed';
+  const busy = apply.isPending || undo.isPending || dismiss.isPending;
+  const shown = all || p.changes.length <= FOLD_OVER ? p.changes : p.changes.slice(0, 6);
+  const toggle = (i: number) => {
+    const next = skipped.has(i) ? [...skipped].filter((x) => x !== i) : [...skipped, i];
+    assistantStore.setProposal({ ...p, skipped: next.sort((a, b) => a - b) });
+  };
+  const run = async (fn: () => Promise<AssistantProposal>, ok?: () => void) => {
     try {
-      const next = await fn.mutateAsync(p.id);
-      assistantStore.setProposal(next);
+      const next = await fn();
+      // the server says what it skipped once applied; a dismissed one keeps what was removed here
+      assistantStore.setProposal(next.skipped || next.status !== 'dismissed' ? next : { ...next, skipped: p.skipped });
       ok?.();
     } catch (e) {
       toast(e instanceof Error ? e.message : 'That didn’t go through. Try again.');
     }
   };
   return (
-    <div className={`as-proposal is-${p.status}`}>
+    <section className={`as-proposal is-${p.status}`} data-waiting={waiting ? '' : undefined} aria-label="Proposed changes">
       <p className="as-proposal-sum">{p.summary}</p>
       <ul className="as-changes">
-        {shown.map((c, i) => (
-          <li key={i} className="as-change">
-            <span className="as-change-ic">{iconOf(c)}</span>
-            <span className="as-change-text">{c.label}</span>
-          </li>
-        ))}
+        {shown.map((c, i) => {
+          const { Icon, risky } = kindOf(c);
+          const off = skipped.has(i);
+          return (
+            <li key={i} className={`as-change${off ? ' is-off' : ''}${risky ? ' is-risky' : ''}`}>
+              <span className="as-change-ic" aria-hidden="true">
+                <Icon size={16} strokeWidth={2.2} />
+              </span>
+              <span className="as-change-body">
+                <span className="as-change-text">
+                  {off ? <span className="sr-only">Removed: </span> : null}
+                  {c.label}
+                </span>
+                {c.reason ? <span className="as-change-why">{c.reason}</span> : null}
+              </span>
+              {open ? (
+                <button type="button" className="as-change-x" disabled={busy} aria-label={off ? `Put back: ${c.label}` : `Remove: ${c.label}`} onClick={() => toggle(i)}>
+                  {off ? <RotateCcw size={15} aria-hidden="true" /> : <X size={16} strokeWidth={2.4} aria-hidden="true" />}
+                </button>
+              ) : off ? (
+                <span className="as-change-left caps">Left out</span>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
       {shown.length < p.changes.length ? (
         <button type="button" className="as-more" onClick={() => setAll(true)}>
           Show all {p.changes.length} changes
         </button>
       ) : null}
-      {p.status === 'proposed' ? (
+      {open ? (
         <div className="as-proposal-foot">
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={async () => {
-              const next = await dismiss.mutateAsync(p.id).catch(() => null);
-              if (next) assistantStore.setProposal(next);
-            }}
-          >
+          <Button variant="ghost" disabled={busy} onClick={() => void run(() => dismiss.mutateAsync(p.id))}>
             Not now
           </Button>
-          <Button variant="primary" disabled={busy} aria-busy={apply.isPending} onClick={() => void run(apply, () => haptics.drop())}>
-            {apply.isPending ? 'Applying…' : p.changes.length === 1 ? 'Apply' : `Apply ${p.changes.length} changes`}
+          <Button variant="primary" className="as-apply" disabled={busy || live === 0} aria-busy={apply.isPending} onClick={() => void run(() => apply.mutateAsync({ id: p.id, skip: p.skipped }), () => haptics.drop())}>
+            {apply.isPending ? 'Applying…' : live === 0 ? 'Apply' : `Apply ${changesWord(live)}`}
           </Button>
         </div>
       ) : (
         <div className="as-proposal-state">
-          <span className="caps">{p.status === 'applied' ? 'Applied' : p.status === 'undone' ? 'Undone' : 'Not applied'}</span>
+          <span className="caps">{p.status === 'applied' ? (skipped.size ? `Applied ${live} of ${p.changes.length}` : 'Applied') : p.status === 'undone' ? 'Undone' : 'Not applied'}</span>
           {p.status === 'applied' ? (
-            <button type="button" className="as-undo" disabled={busy} onClick={() => void run(undo)}>
+            <button type="button" className="as-undo" disabled={busy} onClick={() => void run(() => undo.mutateAsync(p.id))}>
               <RotateCcw size={14} aria-hidden="true" /> {undo.isPending ? 'Undoing…' : 'Undo'}
             </button>
           ) : null}
         </div>
       )}
-    </div>
+    </section>
   );
 };
 
@@ -97,6 +166,20 @@ const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
   </div>
 );
 
+/** Rows that send themselves: the starters on an empty conversation, the suggested replies after an answer. */
+const ReplyRows = ({ items, label, onPick }: { items: string[]; label: string; onPick: (s: string) => void }) => (
+  <div className="as-replies" role="group" aria-label={label}>
+    {items.map((s) => (
+      <button key={s} type="button" className="as-reply" onClick={() => onPick(s)}>
+        <CornerDownRight size={15} className="as-reply-ic" aria-hidden="true" />
+        <span>{s}</span>
+      </button>
+    ))}
+  </div>
+);
+
+const SCREEN_ICON: Record<AssistantScreen['tab'], LucideIcon> = { today: Sun, plan: CalendarDays, progress: Activity, goals: Target, learned: Lightbulb, journal: BookOpen };
+
 const startersFor = (date: ISODate, today: ISODate) => {
   const day = date === today ? 'today' : fmtDate('short', date);
   return [
@@ -107,29 +190,62 @@ const startersFor = (date: ISODate, today: ISODate) => {
   ];
 };
 
+/** The working state: three dots, and after 12 s a line that says it is still going and that closing is fine. */
+const Working = ({ since }: { since: number }) => {
+  const [slow, setSlow] = useState(() => Date.now() - since >= 12_000);
+  useEffect(() => {
+    const left = 12_000 - (Date.now() - since);
+    if (left <= 0) return setSlow(true);
+    const t = setTimeout(() => setSlow(true), left);
+    return () => clearTimeout(t);
+  }, [since]);
+  return (
+    <div className="as-turn is-assistant">
+      <p className="as-bubble as-typing" aria-label="Working on it">
+        <i />
+        <i />
+        <i />
+      </p>
+      {slow ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+    </div>
+  );
+};
+
+/** The waiting proposal, when it has scrolled out of view: a bar over the composer that brings it back. */
+const useOutOfView = (el: HTMLElement | null) => {
+  const [out, setOut] = useState(false);
+  useEffect(() => {
+    if (!el || typeof IntersectionObserver === 'undefined') return setOut(false);
+    const root = el.closest<HTMLElement>('.sheet-body');
+    // the composer sits over the bottom of the scroller: a proposal behind it is not in view
+    const io = new IntersectionObserver(([e]) => setOut(!e!.isIntersecting), { root, rootMargin: '0px 0px -120px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [el]);
+  return out;
+};
+
 /**
  * The assistant (Claude Sonnet): ask in words; it answers, or proposes changes to the plan, to-dos and goals that run only
- * when Apply is tapped (and Undo takes back). The conversation stays for the session.
+ * when Apply is tapped (and Undo takes back). The conversation stays for the session; an ask keeps going with the sheet
+ * closed. `screen` is where it was opened from, shown as a chip the owner can remove.
  */
-export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: string }) => {
+export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
   const today = useToday();
   const turns = useAssistantTurns();
+  const busySince = useAssistantBusy();
+  const busy = busySince !== null;
+  const [screen, setScreen] = useState(openedFrom);
+  // with the screen removed, the question is about no page in particular: today
+  const askDate = openedFrom && !screen ? today : date;
   const [draft, setDraft] = useState(initial ?? '');
-  const [busy, setBusy] = useState(false);
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    if (!busy) {
-      setSlow(false);
-      return;
-    }
-    const t = setTimeout(() => setSlow(true), 12_000);
-    return () => clearTimeout(t);
-  }, [busy]);
   const [pending, setPending] = useState<PreparedFile[]>([]);
   const [preparing, setPreparing] = useState(false);
   const toast = useToast();
   const end = useRef<HTMLDivElement>(null);
+  const lastTurn = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   // a request handed in pre-filled (Plan's "Move them") shows whole, not cut to one line
   useEffect(() => {
     const el = field.current;
@@ -137,10 +253,24 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [initial]);
-  const picker = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    end.current?.scrollIntoView({ block: 'end' });
-  }, [turns.length, busy]);
+  // a new turn comes into view; a proposal shows from its top, so its summary is read first
+  const last = turns[turns.length - 1];
+  useLayoutEffect(() => {
+    if (last?.role === 'assistant' && last.proposal && !busy) lastTurn.current?.scrollIntoView({ block: 'start' });
+    else {
+      // to the very bottom of the scroller, so nothing sits under the pinned composer
+      const body = end.current?.closest<HTMLElement>('.sheet-body');
+      if (body) body.scrollTop = body.scrollHeight;
+    }
+  }, [turns.length, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // the newest proposal still waiting for a decision, and whether it has scrolled away
+  const waiting = [...turns].reverse().find((t) => t.proposal?.status === 'proposed')?.proposal ?? null;
+  const [waitingEl, setWaitingEl] = useState<HTMLElement | null>(null);
+  const thread = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => setWaitingEl(thread.current?.querySelector<HTMLElement>('.as-proposal[data-waiting]') ?? null), [waiting?.id, turns.length]);
+  const outOfView = useOutOfView(waitingEl);
+  const waitingCount = waiting ? waiting.changes.length - (waiting.skipped?.length ?? 0) : 0;
 
   /** Picked files: each becomes a photo (shrunk, as a JPEG) or a PDF, up to four with a message. */
   const addFiles = async (list: FileList | null) => {
@@ -165,7 +295,7 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
     }
   };
 
-  const send = async (text: string) => {
+  const send = (text: string) => {
     const t = text.trim();
     const files = pending;
     if ((!t && !files.length) || busy || preparing) return;
@@ -173,59 +303,67 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
     setPending([]);
     // the field grew with the words; empty again, it goes back to one line
     if (field.current) field.current.style.height = '';
-    assistantStore.push({ role: 'user', text: t, files: files.length ? files.map((f) => f.shown) : undefined }, files.map((f) => f.file));
-    setBusy(true);
-    try {
-      const history = requestTurns(assistantStore.get(), assistantStore.filesOf);
-      const r = await askAssistant(date, history);
-      assistantStore.push({ role: 'assistant', text: r.text, proposal: r.proposal });
-    } catch (e) {
-      // say what happened: the phone could not reach the server, or the server's own message
-      const why = e instanceof NetworkError ? 'Couldn’t reach Logbook. Check your connection, then send it again.' : e instanceof Error ? e.message : 'Try again.';
-      assistantStore.push({ role: 'assistant', text: `That didn’t go through. ${why}` });
-    } finally {
-      setBusy(false);
-    }
+    void sendTurn(askAssistant, askDate, screen, t, { shown: files.length ? files.map((f) => f.shown) : undefined, data: files.map((f) => f.file) });
   };
+
+  const replies = !busy && last?.role === 'assistant' && !last.error && last.replies?.length ? last.replies : null;
 
   return (
     <div className="as-sheet">
-      <div className="as-thread" aria-live="polite">
+      <div className="as-thread" ref={thread} aria-live="polite">
+        {screen ? (
+          <div className="as-context">
+            <span className="as-chip">
+              {(() => {
+                const Icon = SCREEN_ICON[screen.tab];
+                return <Icon size={14} aria-hidden="true" />;
+              })()}
+              <span className="as-chip-text">{screenLabel(screen)}</span>
+              <button type="button" className="as-chip-x" aria-label={`Don’t send ${screenLabel(screen)} with the question`} onClick={() => setScreen(undefined)}>
+                <X size={13} strokeWidth={2.6} aria-hidden="true" />
+              </button>
+            </span>
+          </div>
+        ) : null}
         {turns.length === 0 ? (
           <div className="as-empty">
             <p className="as-empty-lead">
               <Sparkles size={16} aria-hidden="true" /> Ask about your plan, or ask for a change. Attach a photo or a PDF of a plan, a schedule or a list and it can read it. Nothing changes until you tap Apply.
             </p>
-            <div className="as-starters">
-              {startersFor(date, today).map((s) => (
-                <button key={s} type="button" className="as-starter" onClick={() => void send(s)}>
-                  {s}
-                </button>
-              ))}
-            </div>
+            <ReplyRows items={startersFor(askDate, today)} label="Ways to start" onPick={send} />
           </div>
         ) : (
           turns.map((t, i) => (
-            <div key={i} className={`as-turn is-${t.role}`}>
+            <div key={i} ref={i === turns.length - 1 ? lastTurn : undefined} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}`}>
               {t.files?.length ? <TurnFiles files={t.files} /> : null}
-              {t.text ? <p className="as-bubble">{t.text}</p> : null}
-              {t.proposal ? <ProposalCard p={t.proposal} /> : null}
+              {t.error ? (
+                <div className="as-error" role="alert">
+                  <CircleAlert size={16} className="as-error-ic" aria-hidden="true" />
+                  <p>{t.text}</p>
+                  {i === turns.length - 1 && !busy ? (
+                    <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen)}>
+                      <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
+                    </button>
+                  ) : null}
+                </div>
+              ) : t.text ? (
+                <p className="as-bubble">{t.text}</p>
+              ) : null}
+              {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
             </div>
           ))
         )}
-        {busy ? (
-          <div className="as-turn is-assistant">
-            <p className="as-bubble as-typing" aria-label="Thinking">
-              <i />
-              <i />
-              <i />
-            </p>
-            {slow ? <p className="as-slow">Still working. A plan from photos can take a minute or two; you can close this and come back.</p> : null}
-          </div>
-        ) : null}
+        {replies ? <ReplyRows items={replies} label="Suggested replies" onPick={send} /> : null}
+        {busySince !== null ? <Working since={busySince} /> : null}
         <div ref={end} />
       </div>
       <div className="as-compose">
+        {waiting && outOfView ? (
+          <button type="button" className="as-review" onClick={() => waitingEl?.scrollIntoView({ block: 'start', behavior: 'smooth' })}>
+            <span>Review changes ({waitingCount})</span>
+            <ChevronUp size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : null}
         {pending.length || preparing ? (
           <div className="as-files" aria-label="Files to send">
             {pending.map((f, i) => (
@@ -237,7 +375,11 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
                 </button>
               </span>
             ))}
-            {preparing ? <span className="as-file is-preparing" aria-label="Preparing">…</span> : null}
+            {preparing ? (
+              <span className="as-file is-preparing" aria-label="Preparing">
+                …
+              </span>
+            ) : null}
           </div>
         ) : null}
         {turns.length ? (
@@ -254,7 +396,7 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
           className="as-input"
           rows={1}
           maxLength={2000}
-          placeholder={pending.length ? 'Add a note (optional)' : `Ask or change anything${date !== today ? ` about ${fmtDate('short', date)}` : ''}`}
+          placeholder={pending.length ? 'Add a note (optional)' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
           aria-label="Ask the assistant"
           enterKeyHint="send"
           value={draft}
@@ -268,15 +410,14 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              void send(draft);
+              send(draft);
             }
           }}
         />
-        <button type="button" className="as-send" aria-label="Send" disabled={(!draft.trim() && !pending.length) || busy || preparing} onClick={() => void send(draft)}>
+        <button type="button" className="as-send" aria-label="Send" disabled={(!draft.trim() && !pending.length) || busy || preparing} onClick={() => send(draft)}>
           <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
         </button>
       </div>
     </div>
   );
 };
-

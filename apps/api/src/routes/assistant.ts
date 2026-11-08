@@ -1,9 +1,9 @@
-import { zAssistantAsk } from '@logbook/shared';
+import { zAssistantApply, zAssistantAsk } from '@logbook/shared';
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { env } from '../env.js';
-import { parseBody } from '../lib/util.js';
+import { ApiError, parseBody } from '../lib/util.js';
 import { applyAction, ask, dismissAction, recentActions, undoAction } from '../services/assistant.js';
 import { jobState, startJob } from '../services/assistantJobs.js';
 
@@ -24,7 +24,7 @@ export const assistantRoutes = (db: DB) => {
     if (!env.claudeConfigured) return c.json({ text: 'The assistant needs a Claude key on the server (ANTHROPIC_API_KEY).', proposal: null, available: false });
     const userId = uidOf(c);
     const today = c.get('today');
-    const run = async () => ({ ...(await ask(db, userId, body.turns, body.date, today)), available: true as const });
+    const run = async () => ({ ...(await ask(db, userId, body.turns, body.date, today, body.screen)), available: true as const });
     if (c.req.query('async') === '1') return c.json({ jobId: startJob(userId, run) }, 202);
     return c.json(await run());
   });
@@ -33,7 +33,21 @@ export const assistantRoutes = (db: DB) => {
     if (!state) return c.json({ error: 'That answer is no longer here (the server may have restarted). Send it again.', code: 'job_gone' }, 404);
     return c.json(state);
   });
-  r.post('/assistant/:id/apply', (c) => c.json(applyAction(db, uidOf(c), c.req.param('id'), c.get('today'))));
+  /** Apply. An optional body `{ skip: [indexes] }` leaves out the changes the owner removed; no body applies them all. */
+  r.post('/assistant/:id/apply', async (c) => {
+    const raw = await c.req.text();
+    let json: unknown = {};
+    if (raw.trim()) {
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        throw new ApiError(400, 'Body must be JSON');
+      }
+    }
+    const body = zAssistantApply.safeParse(json);
+    if (!body.success) throw new ApiError(422, body.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; '), 'validation');
+    return c.json(applyAction(db, uidOf(c), c.req.param('id'), c.get('today'), body.data.skip));
+  });
   r.post('/assistant/:id/undo', (c) => c.json(undoAction(db, uidOf(c), c.req.param('id'), c.get('today'))));
   r.post('/assistant/:id/dismiss', (c) => c.json(dismissAction(db, uidOf(c), c.req.param('id'))));
   r.get('/assistant/log', (c) => c.json(recentActions(db, uidOf(c))));

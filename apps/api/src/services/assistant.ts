@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { TRAINING_STATUS_INFO, fmtDate, METERS_PER_MILE, statusOn, type TrainingStatus, type Attachment, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal } from '@logbook/shared';
+import { TRAINING_STATUS_INFO, fmtDate, screenLabel, statusOn, type TrainingStatus, type Attachment, type AssistantScreen, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal } from '@logbook/shared';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '../db/index.js';
-import { activities, assistantActions, goalEvents, goals, planBlocks, todoGroups, todos, trainingSessions } from '../db/schema.js';
+import { assistantActions, goalEvents, goals, planBlocks, todoGroups, todos, trainingSessions } from '../db/schema.js';
 import { env } from '../env.js';
 import { ApiError, nowISO, uid } from '../lib/util.js';
 import { readSetting } from '../routes/core.js';
@@ -14,9 +14,16 @@ const MAX_ROUNDS = 6;
 /** A whole plan (eight weeks of runs, and the old plan's sessions removed) fits in one proposal. */
 export const MAX_CHANGES = 200;
 
+/** The one call the assistant makes: a streamed message, read whole. */
+export type AssistantClient = { beta: { messages: { stream: (params: Parameters<Anthropic['beta']['messages']['stream']>[0]) => { finalMessage: () => Promise<Anthropic.Beta.BetaMessage> } } } };
 let client: Anthropic | null = null;
+let injected: AssistantClient | null = null;
+/** Tests hand in a fake client; null puts the real one back. */
+export const setAssistantClient = (c: AssistantClient | null) => {
+  injected = c;
+};
 // replies are streamed (a fifty-change proposal is a long tool call); ten minutes a call, one retry
-const anthropic = () => (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 600_000, maxRetries: 1 }));
+const anthropic = (): AssistantClient => injected ?? (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 600_000, maxRetries: 1 }));
 
 type SessionRow = typeof trainingSessions.$inferSelect;
 type TodoRow = typeof todos.$inferSelect;
@@ -35,26 +42,30 @@ const sessionsBetween = (db: DB, userId: string, from: string, to: string) =>
     .orderBy(asc(trainingSessions.date), asc(trainingSessions.position))
     .all();
 
-/** One line per session, with what was logged that day, so Claude can tell done from missed. */
+/**
+ * One line per planned session with its mark, so Claude can tell done from missed. Synced activities are never read
+ * here: they come from Strava, whose terms keep its data out of any AI model (the assistant sees only what the owner
+ * planned and marked himself).
+ */
 export const sessionLines = (db: DB, userId: string, from: string, to: string, today: string): string => {
   const rows = sessionsBetween(db, userId, from, to);
-  const acts = db
-    .select({ date: activities.date, kind: activities.kind, meters: activities.distanceM })
-    .from(activities)
-    .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), gte(activities.date, from), lte(activities.date, to)))
-    .all();
-  const logged = (d: string) => acts.filter((a) => a.date === d).map((a) => `${a.kind}${a.meters ? ` ${Math.round((a.meters / METERS_PER_MILE) * 10) / 10} mi` : ''}`);
   if (!rows.length) return '(nothing planned)';
   return rows
     .map((s) => {
-      const l = logged(s.date);
-      const state = s.mark ? `marked ${s.mark}` : s.date < today ? (l.length ? 'not marked' : 'not marked, nothing logged') : s.date === today ? 'today' : 'ahead';
-      return `- ${s.id} | ${s.date} ${dow(s.date)} | ${s.kind}: ${sessionName(s)}${s.miles ? ` (${s.miles} mi)` : ''}${s.minutes ? ` (${s.minutes} min)` : ''} | ${state}${l.length ? ` | logged: ${l.join(', ')}` : ''}${s.movedFrom ? ` | moved from ${s.movedFrom}` : ''}`;
+      const state = s.mark ? `marked ${s.mark}` : s.date < today ? 'not marked' : s.date === today ? 'today' : 'ahead';
+      return `- ${s.id} | ${s.date} ${dow(s.date)} | ${s.kind}: ${sessionName(s)}${s.miles ? ` (${s.miles} mi)` : ''}${s.minutes ? ` (${s.minutes} min)` : ''} | ${state}${s.movedFrom ? ` | moved from ${s.movedFrom}` : ''}`;
     })
     .join('\n');
 };
 
-const contextFor = (db: DB, userId: string, today: string, date: string): string => {
+/** Where the owner opened the conversation from, in a line Claude can read "this week" and "here" against. */
+export const screenLine = (screen: AssistantScreen | undefined): string | null => {
+  if (!screen) return null;
+  const extra = screen.tab === 'plan' && screen.week ? ` (${screen.week} to ${shiftDays(screen.week, 6)})` : screen.tab === 'today' && screen.date ? ` (${screen.date})` : '';
+  return `SCREEN: He opened you from ${screenLabel(screen)}${extra}. Read "this", "here" and "this week" against it.`;
+};
+
+export const contextFor = (db: DB, userId: string, today: string, date: string, screen?: AssistantScreen): string => {
   const mon = mondayOf(today);
   const from = shiftDays(mon, -7);
   const to = shiftDays(mon, 27);
@@ -84,8 +95,10 @@ const contextFor = (db: DB, userId: string, today: string, date: string): string
   const prio = ['', 'P3', 'P2', 'P1'];
   const status = readSetting<TrainingStatus>(db, userId, 'status');
   const kind = statusOn(status, today);
+  const where = screenLine(screen);
   return [
     `TODAY: ${today} (${fmtDate('long', today)}). The owner is looking at ${date === today ? 'today' : `${date} (${fmtDate('long', date)})`}. Weeks run Monday to Sunday; this week starts ${mon}.`,
+    ...(where ? [where] : []),
     `STATUS: ${kind === 'training' ? 'Training (on the plan as written)' : `${TRAINING_STATUS_INFO[kind].label} since ${status!.from}${status!.until ? `, until ${status!.until}` : ', until they change it'}. ${TRAINING_STATUS_INFO[kind].line} Respect it: do not push hard sessions while sick, injured or resting; suggest moving them instead.`}`,
     '',
     `PLAN BLOCKS: ${blocks.length ? blocks.map((b) => `${b.name} (${b.start} to ${b.end})`).join('; ') : 'none'}`,
@@ -107,23 +120,25 @@ const SYSTEM = `You are the assistant inside Logbook, a personal app for one per
 How you work:
 - Answer from the data you are given in the latest message's CONTEXT block. For sessions outside the dates shown, call get_sessions.
 - When he asks for a change, work out every row it touches, then call propose_changes once with all of them. Nothing changes until he taps Apply, so propose the whole change; do not ask for permission first. If the request is ambiguous in a way that changes what you would do, ask one short question instead.
-- "Push out a week" means moving each named session seven days later. "Missed" means a past session that is not marked done and has nothing logged that day. Keep each session's details; only its date moves. Never move sessions into the past.
+- "Push out a week" means moving each named session seven days later. "Missed" means a past session that is not marked done. You cannot see runs synced from Strava (its terms keep that data from you), so if he says he did one, take his word. Keep each session's details; only its date moves. Never move sessions into the past.
 - Use the ids exactly as given. Dates are YYYY-MM-DD. Priorities: 3 is P1 (top), 2 is P2, 1 is P3, 0 none. A goal's period is the year (2026), the month (2026-10), the week's Monday, or the day.
-- Your summary in propose_changes is what he reads above the list: one plain sentence saying what will happen.
+- Your summary in propose_changes is what he reads above the list: one plain sentence saying what will happen. Each change may carry "why": a reason in a few words ("rest after the long run"), shown under it; leave it out when the change speaks for itself.
 - When you are only answering a question, reply in two or three plain sentences. No markdown headings, no bullet lists unless asked for a list, no emoji.
-- To replace a plan: from the new plan's first day on, delete_session each session of the old plan that is not marked and has nothing logged (keep what was done), then add_session each workout of the new plan on its date with its miles and a title like "Easy 5" or "Long 12". All of it goes in one propose_changes (up to 200 changes); never split a plan across asks.
-- The owner may attach photos, screenshots or PDFs: a training plan, a race schedule, a work calendar, a to-do list on paper. Read them closely and work only from what you can see. If one is a plan or schedule they want in the app, turn it into changes with propose_changes (one add_session per workout on its real date, to-dos with add_todo); if the start date or year is not clear from the file, ask one short question first. If you cannot read part of a file, say which part.`;
+- To replace a plan: from the new plan's first day on, delete_session each session of the old plan that is not marked (keep what was done), then add_session each workout of the new plan on its date with its miles and a title like "Easy 5" or "Long 12". All of it goes in one propose_changes (up to 200 changes); never split a plan across asks.
+- The owner may attach photos, screenshots or PDFs: a training plan, a race schedule, a work calendar, a to-do list on paper. Read them closely and work only from what you can see. If one is a plan or schedule they want in the app, turn it into changes with propose_changes (one add_session per workout on its real date, to-dos with add_todo); if the start date or year is not clear from the file, ask one short question first. If you cannot read part of a file, say which part.
+- CONTEXT may have a SCREEN line: the screen he opened you from. Use it to read what "this" or "this week" means; do not mention it otherwise.
+- End every reply with up to three short follow-ups he might send next, written as he would type them to you (first person, under 60 characters, no quotes inside), each a real next step from what you just said. Put them on the last line, exactly like this: <replies>["Move it to Saturday instead", "What does next week look like?"]</replies>. Leave the line out when nothing fits.`;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'get_sessions',
-    description: 'Planned sessions between two dates (inclusive), with their ids, what was logged each day, and whether each is marked. Use for dates outside the CONTEXT block.',
+    description: 'Planned sessions between two dates (inclusive), with their ids and whether each is marked. Use for dates outside the CONTEXT block.',
     input_schema: { type: 'object', properties: { from: { type: 'string', description: 'YYYY-MM-DD' }, to: { type: 'string', description: 'YYYY-MM-DD, at most 120 days after from' } }, required: ['from', 'to'], additionalProperties: false },
   },
   {
     name: 'propose_changes',
     description:
-      'Propose changes for the owner to approve. Each change is one operation: move_session {id, to}, update_session {id, type?, title?, details?, miles?, minutes?}, add_session {date, kind: run|lift|cross|rest, type?, title?, details?, miles?, minutes?}, delete_session {id}, mark_session {id, mark: done|floor|skip|sick|null}, add_todo {text, priority?, due?, bucket?: today|later|someday, groupId?}, update_todo {id, text?, priority?, due?, bucket?, groupId?, done?}, delete_todo {id}, set_goal {level: year|month|week|day, period, text, steps?}, review_goal {id, status: open|done|partly|missed}.',
+      'Propose changes for the owner to approve. Any change may add why: a short reason. Each change is one operation: move_session {id, to}, update_session {id, type?, title?, details?, miles?, minutes?}, add_session {date, kind: run|lift|cross|rest, type?, title?, details?, miles?, minutes?}, delete_session {id}, mark_session {id, mark: done|floor|skip|sick|null}, add_todo {text, priority?, due?, bucket?: today|later|someday, groupId?}, update_todo {id, text?, priority?, due?, bucket?, groupId?, done?}, delete_todo {id}, set_goal {level: year|month|week|day, period, text, steps?}, review_goal {id, status: open|done|partly|missed}.',
     input_schema: {
       type: 'object',
       properties: {
@@ -217,7 +232,36 @@ export const labelOp = (db: DB, userId: string, op: AssistantOp, today: string):
 export interface AskResult {
   text: string;
   proposal: AssistantProposal | null;
+  replies?: string[];
 }
+
+const REPLIES = /<replies>([\s\S]*?)(?:<\/replies>|$)/i;
+/**
+ * Takes the suggested replies off the end of what Claude wrote: at most three short lines in the owner's voice. The tag
+ * always comes off the text; a tag that does not hold a list of short lines gives none.
+ */
+export const splitReplies = (said: string): { text: string; replies: string[] } => {
+  const m = REPLIES.exec(said);
+  if (!m) return { text: said.trim(), replies: [] };
+  const text = (said.slice(0, m.index) + said.slice(m.index + m[0].length)).trim();
+  let raw: unknown;
+  try {
+    raw = JSON.parse(m[1]!.trim());
+  } catch {
+    return { text, replies: [] };
+  }
+  if (!Array.isArray(raw)) return { text, replies: [] };
+  const seen = new Set<string>();
+  const replies: string[] = [];
+  for (const r of raw) {
+    if (typeof r !== 'string') continue;
+    const line = r.replace(/\s+/g, ' ').trim();
+    if (!line || line.length > 80 || seen.has(line.toLowerCase())) continue;
+    seen.add(line.toLowerCase());
+    replies.push(line);
+  }
+  return { text, replies: replies.slice(0, 3) };
+};
 
 /** One ask: Claude reads the context, may look up sessions, and either answers or proposes changes (saved, not applied). */
 type AskTurn = { role: 'user' | 'assistant'; text: string; attachments?: Attachment[] };
@@ -249,12 +293,12 @@ export const messagesFor = (turns: AskTurn[], context: string): Anthropic.Beta.B
   });
 };
 
-export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string, today: string): Promise<AskResult> => {
+export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string, today: string, screen?: AssistantScreen): Promise<AskResult> => {
   if (!env.claudeConfigured) throw new ApiError(503, 'The assistant needs ANTHROPIC_API_KEY on the server.', 'claude_not_configured');
   const history = turns.slice(-20);
   const last = history[history.length - 1]!;
   if (last.role !== 'user') throw new ApiError(400, 'The last turn must be yours.');
-  const messages = messagesFor(history, contextFor(db, userId, today, date));
+  const messages = messagesFor(history, contextFor(db, userId, today, date, screen));
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const res = await anthropic()
@@ -274,13 +318,14 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
     // the whole turn goes back as it came (tool calls and thinking blocks included)
     messages.push({ role: 'assistant', content: res.content });
     const calls = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
-    const said = res.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n')
-      .trim();
+    const { text: said, replies } = splitReplies(
+      res.content
+        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n'),
+    );
     if (res.stop_reason === 'max_tokens') return { text: 'That came out too long to write in one go. Ask for it a few weeks at a time.', proposal: null };
-    if (!calls.length) return { text: said || 'Done.', proposal: null };
+    if (!calls.length) return { text: said || 'Done.', proposal: null, replies };
 
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
@@ -297,10 +342,10 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
           continue;
         }
         try {
-          const changes: AssistantChange[] = p.data.changes.map((op) => ({ op, label: labelOp(db, userId, op, today) }));
+          const changes: AssistantChange[] = p.data.changes.map((op) => ({ op, label: labelOp(db, userId, op, today), ...(op.why ? { reason: op.why } : {}) }));
           const id = uid('aa');
           db.insert(assistantActions).values({ id, userId, ask: (last.text || (last.attachments?.length ? `[${last.attachments.map((f) => f.name).join(', ')}]` : '')).slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
-          return { text: said, proposal: { id, summary: p.data.summary, changes, status: 'proposed' } };
+          return { text: said, proposal: { id, summary: p.data.summary, changes, status: 'proposed' }, replies };
         } catch (e) {
           results.push({ type: 'tool_result', tool_use_id: call.id, is_error: true, content: e instanceof Error ? e.message : 'A change did not check out.' });
         }
@@ -320,12 +365,21 @@ interface UndoRecord {
   todos: TodoRow[];
   goals: GoalRow[];
   created: { sessions: string[]; todos: string[]; goals: string[] };
+  /** The changes the owner removed before Apply (by index). Kept here so the log shows them, with no new column. */
+  skipped?: number[];
 }
 
 export const proposalOf = (row: typeof assistantActions.$inferSelect): AssistantProposal => {
   const ops = JSON.parse(row.ops) as AssistantOp[];
   const labels = JSON.parse(row.labels) as string[];
-  return { id: row.id, summary: row.summary, changes: ops.map((op, i) => ({ op, label: labels[i] ?? op.op })), status: row.status as AssistantProposal['status'] };
+  const skipped = row.undo ? ((JSON.parse(row.undo) as UndoRecord).skipped ?? []) : [];
+  return {
+    id: row.id,
+    summary: row.summary,
+    changes: ops.map((op, i) => ({ op, label: labels[i] ?? op.op, ...(op.why ? { reason: op.why } : {}) })),
+    status: row.status as AssistantProposal['status'],
+    ...(skipped.length ? { skipped } : {}),
+  };
 };
 
 const actionOf = (db: DB, userId: string, id: string) => {
@@ -334,12 +388,19 @@ const actionOf = (db: DB, userId: string, id: string) => {
   return row;
 };
 
-/** Runs a proposal in one transaction, keeping the rows it touched as they were. Answers the months that changed. */
-export const applyAction = (db: DB, userId: string, id: string, today: string) => {
+/**
+ * Runs a proposal in one transaction, keeping the rows it touched as they were. Answers the months that changed. `skip`
+ * names the changes (by index) the owner removed: they are neither checked nor run, and the rest run as one.
+ */
+export const applyAction = (db: DB, userId: string, id: string, today: string, skip: number[] = []) => {
   const row = actionOf(db, userId, id);
   if (row.status !== 'proposed') throw new ApiError(409, row.status === 'applied' ? 'Already applied.' : 'This proposal is closed.');
-  const ops = JSON.parse(row.ops) as AssistantOp[];
-  const undo: UndoRecord = { sessions: [], todos: [], goals: [], created: { sessions: [], todos: [], goals: [] } };
+  const all = JSON.parse(row.ops) as AssistantOp[];
+  const skipped = [...new Set(skip)].sort((a, b) => a - b);
+  if (skipped.some((i) => i >= all.length)) throw new ApiError(422, `skip: this proposal has ${all.length} change${all.length === 1 ? '' : 's'}.`, 'validation');
+  if (skipped.length >= all.length) throw new ApiError(422, 'Nothing left to apply. Put a change back, or tap Not now.', 'validation');
+  const ops = all.filter((_, i) => !skipped.includes(i));
+  const undo: UndoRecord = { sessions: [], todos: [], goals: [], created: { sessions: [], todos: [], goals: [] }, ...(skipped.length ? { skipped } : {}) };
   const months = new Set<string>();
   const now = nowISO();
   const keepSession = (s: SessionRow) => undo.sessions.some((x) => x.id === s.id) || undo.sessions.push({ ...s });

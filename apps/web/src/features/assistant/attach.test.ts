@@ -30,6 +30,21 @@ describe('what the assistant is sent', () => {
     expect(out[0]!.text).toBe('a\n[Sent earlier: a1.jpg, a2.jpg]');
   });
 
+  it('leaves out an ask that did not go through, and names the changes the owner removed', () => {
+    const turns: AssistantTurn[] = [
+      { role: 'user', text: 'Clear my list' },
+      { role: 'assistant', text: 'That didn’t go through. Try again.', error: true },
+      {
+        role: 'assistant',
+        text: 'Here.',
+        proposal: { id: 'a', summary: 'Delete 2 to-dos', changes: [{ op: { op: 'delete_todo', id: 't1' }, label: 'Delete to-do “x”' }, { op: { op: 'delete_todo', id: 't2' }, label: 'Delete to-do “y”' }], status: 'applied', skipped: [1] },
+      },
+    ];
+    const out = requestTurns(turns, () => undefined);
+    expect(out.map((t) => t.role)).toEqual(['user', 'assistant']);
+    expect(out[1]!.text).toBe('Here.\n[Proposed: Delete 2 to-dos Status: applied. He left out: Delete to-do “y”.]');
+  });
+
   it('names the files of a turn whose data is gone (the app was reopened)', () => {
     const t: AssistantTurn = { role: 'user', text: '', files: [{ name: 'week.pdf', mediaType: 'application/pdf' }] };
     expect(requestTurns([t], () => undefined)[0]).toEqual({ role: 'user', text: '[Sent earlier: week.pdf]' });
