@@ -1,9 +1,9 @@
-import type { CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
+import type { TrainingStatus, CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
 
 export interface Bootstrap {
   /** `onboardedAt` null = a new account that has not been through /welcome yet (absent in caches from before it existed). */
   /** `trainingProfile`: the training answers kept on the account (null before any; absent in caches from before it existed). */
-  user: { id: string; email: string; onboardedAt?: string | null; trainingProfile?: SavedTrainingProfile | null; /** Contract 6: the account's name (null or absent before one is given). */ name?: string | null };
+  user: { id: string; email: string; onboardedAt?: string | null; trainingProfile?: SavedTrainingProfile | null; /** Contract 6: the account's name (null or absent before one is given). */ name?: string | null; /** How the athlete is training now (null or absent: training as planned). */ status?: TrainingStatus | null };
   habits: Habit[];
   blocks: PlanBlock[];
   morningSettings: MorningSettings;

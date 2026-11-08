@@ -1,5 +1,5 @@
 import { askAndWait, type JobAnswer } from '@/features/assistant/poll';
-import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile } from '@logbook/shared';
+import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
@@ -1046,6 +1046,24 @@ export const useSaveTraining = () => {
     },
     onSuccess: (r) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, trainingProfile: r.trainingProfile } } : b)),
     onError: (_e, _p, ctx) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, trainingProfile: ctx?.was ?? null } } : b)),
+  });
+};
+/**
+ * Set how the athlete is training (the chip on Today): the bootstrap's copy changes at once, the server's answer replaces
+ * it, and a failure puts the old one back.
+ */
+export const useSetStatus = () => {
+  const qc = useQueryClient();
+  const put = (status: TrainingStatus | null) => qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, user: { ...b.user, status } } : b));
+  return useMutation({
+    mutationFn: (p: { kind: TrainingStatusKind; until: ISODate | null; today: ISODate }) => api<{ status: TrainingStatus | null }>('/me/status', { method: 'PUT', json: { kind: p.kind, until: p.until } }),
+    onMutate: (p) => {
+      const was = qc.getQueryData<Bootstrap>(keys.bootstrap)?.user.status ?? null;
+      put(p.kind === 'training' ? null : { kind: p.kind, from: p.today, until: p.until });
+      return { was };
+    },
+    onSuccess: (r) => put(r.status),
+    onError: (_e, _p, ctx) => put(ctx?.was ?? null),
   });
 };
 // ── end WP6 ──

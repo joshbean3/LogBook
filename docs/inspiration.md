@@ -289,6 +289,18 @@ Also: a live session bar during a workout (263, 275); a sync pill when data arri
 
 Depends on the Apple Developer enrollment: Apple Health data, Sign in with Apple, background sync.
 
+## 8a. Progress
+
+| Step | Status | Commit |
+|---|---|---|
+| 1a Palette: Columbia, white, orange; halo relit; native shell | Done | eab3abb |
+| 1b Dock: floating tab capsule, ask bar on every tab, folds on scroll | Done | 574589d |
+| 2a Today: status chip with an end date (Today, the assistant) | Done | this commit |
+| 2b Today: the day's timeline ("Today so far") | Done | this commit |
+| 2c Plan reads the status (sessions held while sick, injured or resting) | Next | |
+| 2d Assistant: proposal cards, review bar, suggested replies | Next | |
+| 1c Chart kit, rings, trend table | Later, with Progress | |
+
 ## 9. Open questions
 1. 473 of the 715 numbered screenshots are not in the Drive folder. Upload the rest, or work from the 242?
 2. Light only, or light plus dark?

@@ -1,11 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { fmtDate, METERS_PER_MILE, type Attachment, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal } from '@logbook/shared';
+import { TRAINING_STATUS_INFO, fmtDate, METERS_PER_MILE, statusOn, type TrainingStatus, type Attachment, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal } from '@logbook/shared';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '../db/index.js';
 import { activities, assistantActions, goalEvents, goals, planBlocks, todoGroups, todos, trainingSessions } from '../db/schema.js';
 import { env } from '../env.js';
 import { ApiError, nowISO, uid } from '../lib/util.js';
+import { readSetting } from '../routes/core.js';
 
 /** The assistant runs on Sonnet (the owner's choice: quick, and capable enough to edit a plan). */
 export const ASSISTANT_MODEL = 'claude-sonnet-5-5';
@@ -81,8 +82,11 @@ const contextFor = (db: DB, userId: string, today: string, date: string): string
     .all()
     .filter((g) => g.status === 'open' || g.period >= periodOf(g.level as 'day', shiftDays(today, -7)));
   const prio = ['', 'P3', 'P2', 'P1'];
+  const status = readSetting<TrainingStatus>(db, userId, 'status');
+  const kind = statusOn(status, today);
   return [
     `TODAY: ${today} (${fmtDate('long', today)}). The owner is looking at ${date === today ? 'today' : `${date} (${fmtDate('long', date)})`}. Weeks run Monday to Sunday; this week starts ${mon}.`,
+    `STATUS: ${kind === 'training' ? 'Training (on the plan as written)' : `${TRAINING_STATUS_INFO[kind].label} since ${status!.from}${status!.until ? `, until ${status!.until}` : ', until they change it'}. ${TRAINING_STATUS_INFO[kind].line} Respect it: do not push hard sessions while sick, injured or resting; suggest moving them instead.`}`,
     '',
     `PLAN BLOCKS: ${blocks.length ? blocks.map((b) => `${b.name} (${b.start} to ${b.end})`).join('; ') : 'none'}`,
     '',

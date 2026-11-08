@@ -107,7 +107,7 @@ export const coreRoutes = (db: DB) => {
       : [];
     const countOf = new Map(counts.map((x) => [x.blockId, x.n]));
     return c.json({
-      user: { ...c.get('user'), trainingProfile: readTrainingProfile(db, userId) },
+      user: { ...c.get('user'), trainingProfile: readTrainingProfile(db, userId), status: readSetting(db, userId, 'status') },
       habits: hs,
       blocks: blocks.map((b) => toBlock(b, countOf.get(b.id) ?? 0)),
       morningSettings: morningSettingsOf(db, userId),

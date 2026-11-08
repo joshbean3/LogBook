@@ -23,6 +23,7 @@ import { assistantRoutes } from './routes/assistant.js';
 import { dayPlanRoutes } from './routes/dayplans.js';
 import { journalRoutes } from './routes/journal.js';
 import { learnedRoutes } from './routes/learned.js';
+import { timelineRoutes } from './routes/timeline.js';
 import { meRoutes } from './routes/me.js';
 import { planRoutes } from './routes/plans.js';
 import { readsRoutes } from './routes/reads.js';
@@ -45,6 +46,7 @@ export const buildApp = (db: DB) => {
   authed.route('/', coreRoutes(db));
   authed.route('/', journalRoutes(db));
   authed.route('/', learnedRoutes(db));
+  authed.route('/', timelineRoutes(db));
   authed.route('/', aiRoutes(db));
   authed.route('/', readsRoutes(db));
   authed.route('/', importRoutes(db));

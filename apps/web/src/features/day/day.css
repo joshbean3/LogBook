@@ -1274,3 +1274,219 @@
   background: var(--surface);
   opacity: 0.5;
 }
+
+/* ---------- the status chip and its sheet (docs/inspiration.md §6, Today 1) ---------- */
+.st-row {
+  display: flex;
+  margin: 2px 0 14px;
+}
+.st-pill.pressable {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.st-pill svg {
+  color: var(--ink-3);
+}
+.st-pill-sick.pressable,
+.st-pill-injured.pressable {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+.st-pill-rest.pressable,
+.st-pill-travel.pressable,
+.st-pill-taper.pressable {
+  background: var(--columbia-wash);
+  border-color: transparent;
+}
+.st-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-2);
+}
+.st-dot.st-taper {
+  background: var(--columbia);
+  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+}
+.st-dot.st-rest,
+.st-dot.st-travel {
+  background: var(--ink-4);
+}
+.st-dot.st-sick,
+.st-dot.st-injured {
+  background: var(--accent);
+}
+.st-sheet {
+  display: grid;
+  gap: 20px;
+  padding-bottom: 8px;
+}
+.st-kinds {
+  display: grid;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: var(--card-border);
+  overflow: hidden;
+}
+.st-kind.pressable {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) 18px;
+  align-items: center;
+  column-gap: 12px;
+  min-height: 60px;
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--ink);
+}
+.st-kind + .st-kind {
+  border-top: 1px solid var(--line);
+}
+.st-kind.is-on {
+  background: var(--columbia-wash);
+}
+.st-kind-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.st-kind-name {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.st-kind-line {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+.st-check {
+  color: var(--ink);
+}
+.st-lengths {
+  display: grid;
+  gap: 10px;
+}
+.st-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.st-chip {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 var(--fs-sub) / 1 var(--sans);
+}
+.st-chip.is-on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
+}
+.st-foot {
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+.st-save.btn {
+  height: 52px;
+}
+
+/* ---------- the day's timeline: what was done, in order, at the foot of the day ---------- */
+.tl {
+  margin-top: 32px;
+}
+.tl-list {
+  position: relative;
+  display: grid;
+  margin: 8px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.tl-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px 32px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  min-height: 56px;
+  padding: 8px 16px 8px 12px;
+}
+/* the thread between the tiles */
+.tl-row + .tl-row::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  height: 20px;
+  left: calc(12px + 64px + 10px + 15px);
+  width: 2px;
+  border-radius: 1px;
+  background: var(--columbia);
+}
+.tl-time {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  text-align: right;
+}
+.tl-tile {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.tl-habit .tl-tile {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.tl-run .tl-tile,
+.tl-lift .tl-tile,
+.tl-activity .tl-tile {
+  background: var(--ink);
+  color: #fff;
+}
+.tl-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.tl-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tl-learned .tl-title,
+.tl-journal .tl-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.0625rem;
+}
+.tl-sub {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}

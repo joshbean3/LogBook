@@ -1,4 +1,4 @@
-import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
@@ -37,7 +37,7 @@ export const meRoutes = (db: DB) => {
   const meOf = (id: string) => {
     const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt }).from(users).where(eq(users.id, id)).get();
     if (!u) throw new ApiError(404, 'Account not found');
-    return { ...u, name: u.name ?? null, trainingProfile: readTrainingProfile(db, id) };
+    return { ...u, name: u.name ?? null, trainingProfile: readTrainingProfile(db, id), status: readSetting<TrainingStatus>(db, id, 'status') };
   };
 
   /** The account: id, email, `name` (null until given), `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
@@ -49,6 +49,20 @@ export const meRoutes = (db: DB) => {
     const { name } = await parseBody(c.req.raw, zMePatch);
     db.update(users).set({ name: name ? name : null }).where(eq(users.id, userId)).run();
     return c.json(meOf(userId));
+  });
+
+  /**
+   * How the athlete is training now: `{ kind, until }`, from the request's day through `until` (inclusive; null for until
+   * changed). "training" clears it. Answers `{ status }` (null when cleared).
+   */
+  r.put('/me/status', async (c) => {
+    const userId = c.get('user').id;
+    const body = await parseBody(c.req.raw, zTrainingStatusInput);
+    const today = c.get('today');
+    if (body.until !== null && body.until < today) throw new ApiError(422, 'That day has already passed', 'validation');
+    const status: TrainingStatus | null = body.kind === 'training' ? null : { kind: body.kind, from: today, until: body.until };
+    writeSetting(db, userId, 'status', status);
+    return c.json({ status });
   });
 
   /**

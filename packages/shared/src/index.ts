@@ -17,3 +17,5 @@ export * from './assistant.js';
 export * from './dayplan.js';
 export * from './records.js';
 export * from './recall.js';
+export * from './trainingStatus.js';
+export * from './timeline.js';
