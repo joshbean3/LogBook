@@ -1,4 +1,4 @@
-import type { ISODate } from '@logbook/shared';
+import type { AssistantScreen, ISODate } from '@logbook/shared';
 import { Sparkles } from 'lucide-react';
 import { memo } from 'react';
 import { Pressable } from '@/ui/Pressable';
@@ -7,10 +7,14 @@ import { AssistantSheet } from './AssistantSheet';
 import { useAssistantTurns } from './store';
 import './assistant.css';
 
-/** Open the assistant over the page (large sheet), asking about `date`. */
+/**
+ * Open the assistant over the page (large sheet), asking about `date`. `screen` is where it was opened from (Today and
+ * its day, Plan and its week, a tab): the conversation shows it as a chip the owner can remove, and sends it with each ask.
+ */
 export const useOpenAssistant = () => {
   const sheet = useSheet();
-  return (date: ISODate, initial?: string) => sheet.open({ title: 'Ask Logbook', eyebrow: 'Assistant', detent: 'large', detents: ['large'], sticky: true, body: <AssistantSheet date={date} initial={initial} /> });
+  return (date: ISODate, initial?: string, screen?: AssistantScreen) =>
+    sheet.open({ title: 'Ask Logbook', detent: 'large', detents: ['large'], sticky: true, body: <AssistantSheet date={date} initial={initial} screen={screen} /> });
 };
 
 /**

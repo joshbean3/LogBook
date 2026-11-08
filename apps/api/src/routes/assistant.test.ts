@@ -1,10 +1,10 @@
 import { shiftDays, today } from '@logbook/shared';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type DB } from '../db/index.js';
-import { assistantActions } from '../db/schema.js';
+import { activities, assistantActions } from '../db/schema.js';
 import { env } from '../env.js';
 import { buildApp } from '../index.js';
-import { labelOp } from '../services/assistant.js';
+import { labelOp, setAssistantClient, splitReplies } from '../services/assistant.js';
 
 type App = ReturnType<typeof buildApp>;
 let app: App;
@@ -117,5 +117,150 @@ describe('asking without holding the line', () => {
       env.claudeConfigured = configured;
       env.ANTHROPIC_API_KEY = key;
     }
+  });
+});
+
+describe('applying only some of a proposal', () => {
+  it('leaves out the changes the owner removed, says which, and Undo still puts back what ran', async () => {
+    const t = today();
+    const a = (await call('POST', '/api/sessions', { date: shiftDays(t, 1), kind: 'run', title: 'Easy 5', miles: 5 })).body;
+    const id = propose([
+      { op: 'move_session', id: a.id, to: shiftDays(t, 3) },
+      { op: 'add_todo', text: 'Book a massage' },
+      { op: 'add_todo', text: 'Buy gels' },
+    ]);
+    const r = await call('POST', `/api/assistant/${id}/apply`, { skip: [1, 1] });
+    expect(r.status).toBe(200);
+    expect(r.body.proposal).toMatchObject({ status: 'applied', skipped: [1] });
+    const texts = (await call('GET', '/api/todos')).body.map((x: { text: string }) => x.text);
+    expect(texts).toContain('Buy gels');
+    expect(texts).not.toContain('Book a massage');
+    const month = (await call('GET', `/api/months/${shiftDays(t, 3).slice(0, 7)}`)).body;
+    expect(month.sessions.find((s: { id: string }) => s.id === a.id).date).toBe(shiftDays(t, 3));
+    // the log keeps what was left out, through Undo
+    const undone = await call('POST', `/api/assistant/${id}/undo`);
+    expect(undone.body.proposal).toMatchObject({ status: 'undone', skipped: [1] });
+    expect((await call('GET', '/api/todos')).body.find((x: { text: string }) => x.text === 'Buy gels').deletedOn).toBeTruthy();
+  });
+
+  it('runs the rest when the change that went stale is the one removed', async () => {
+    const t = today();
+    const id = propose([
+      { op: 'move_session', id: 'p_gone', to: shiftDays(t, 9) },
+      { op: 'add_todo', text: 'Stretch' },
+    ]);
+    expect((await call('POST', `/api/assistant/${id}/apply`)).status).toBe(409);
+    const r = await call('POST', `/api/assistant/${id}/apply`, { skip: [0] });
+    expect(r.status).toBe(200);
+    expect((await call('GET', '/api/todos')).body.some((x: { text: string }) => x.text === 'Stretch')).toBe(true);
+  });
+
+  it('refuses a skip list that does not fit the proposal, changing nothing', async () => {
+    const id = propose([
+      { op: 'add_todo', text: 'a' },
+      { op: 'add_todo', text: 'b' },
+    ]);
+    for (const body of [{ skip: [2] }, { skip: [-1] }, { skip: [0.5] }, { skip: 'all' }, { skip: [0, 1] }]) {
+      const r = await call('POST', `/api/assistant/${id}/apply`, body);
+      expect(r.status).toBe(422);
+      expect(r.body.code).toBe('validation');
+    }
+    const bad = await app.request(`/api/assistant/${id}/apply`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: '{nope' });
+    expect(bad.status).toBe(400);
+    expect((await call('GET', '/api/todos')).body).toEqual([]);
+    // no body still applies the whole proposal, as before
+    expect((await call('POST', `/api/assistant/${id}/apply`)).body.proposal.skipped).toBeUndefined();
+  });
+});
+
+describe('suggested replies', () => {
+  it('takes up to three short lines off the end of the answer, and none from a tag that does not parse', () => {
+    expect(splitReplies('Two runs left.\n<replies>["Move Thursday to Friday", "What about lifts?"]</replies>')).toEqual({ text: 'Two runs left.', replies: ['Move Thursday to Friday', 'What about lifts?'] });
+    expect(splitReplies('Ok. <replies>["a", "b", "c", "d"]</replies>').replies).toEqual(['a', 'b', 'c']);
+    expect(splitReplies(`Ok. <replies>["a", "A", "", 4, "${'x'.repeat(81)}"]</replies>`).replies).toEqual(['a']);
+    expect(splitReplies('Ok. <replies>not json</replies>')).toEqual({ text: 'Ok.', replies: [] });
+    expect(splitReplies('Ok. <replies>{"a": 1}</replies>')).toEqual({ text: 'Ok.', replies: [] });
+    expect(splitReplies('Cut off <replies>["Move it')).toEqual({ text: 'Cut off', replies: [] });
+    expect(splitReplies('No tag at all.')).toEqual({ text: 'No tag at all.', replies: [] });
+  });
+});
+
+describe('asking, with a fake Claude', () => {
+  type Block = { type: 'text'; text: string } | { type: 'tool_use'; id: string; name: string; input: unknown };
+  let configured = env.claudeConfigured;
+  const fakeClaude = (...rounds: Block[][]) => {
+    let n = 0;
+    const stream = vi.fn((_: unknown) => ({
+      finalMessage: async () => {
+        const content = rounds[Math.min(n++, rounds.length - 1)]!;
+        return { stop_reason: content.some((b) => b.type === 'tool_use') ? 'tool_use' : 'end_turn', content } as never;
+      },
+    }));
+    setAssistantClient({ beta: { messages: { stream } } } as never);
+    return stream;
+  };
+  /** Everything Claude was sent in the first call, as one string. */
+  const sent = (stream: ReturnType<typeof fakeClaude>) => JSON.stringify(stream.mock.calls[0]![0]);
+  beforeEach(() => {
+    configured = env.claudeConfigured;
+    env.claudeConfigured = true;
+  });
+  afterEach(() => {
+    env.claudeConfigured = configured;
+    setAssistantClient(null);
+  });
+
+  it('answers with the suggested replies Claude wrote, without the tag', async () => {
+    fakeClaude([{ type: 'text', text: 'You have two runs left this week.\n<replies>["Move Thursday to Friday", "Make Saturday shorter"]</replies>' }]);
+    const r = await call('POST', '/api/assistant', { date: today(), turns: [{ role: 'user', text: 'What is left?' }] });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ text: 'You have two runs left this week.', proposal: null, available: true, replies: ['Move Thursday to Friday', 'Make Saturday shorter'] });
+  });
+
+  it('gives no replies when the tag does not parse, and keeps the answer', async () => {
+    fakeClaude([{ type: 'text', text: 'Done looking. <replies>[Move it, later]</replies>' }]);
+    const r = await call('POST', '/api/assistant', { date: today(), turns: [{ role: 'user', text: 'hi' }] });
+    expect(r.body.text).toBe('Done looking.');
+    expect(r.body.replies).toEqual([]);
+  });
+
+  it('carries a reason per change, and replies, with a proposal', async () => {
+    const t = today();
+    const a = (await call('POST', '/api/sessions', { date: shiftDays(t, 1), kind: 'run', title: 'Long 10', miles: 10 })).body;
+    fakeClaude([
+      { type: 'text', text: 'Here you go. <replies>["Keep it on Sunday instead"]</replies>' },
+      { type: 'tool_use', id: 'tu1', name: 'propose_changes', input: { summary: 'Move the long run a day later.', changes: [{ op: 'move_session', id: a.id, to: shiftDays(t, 2), why: 'rain on the day' }, { op: 'add_todo', text: 'Pack a rain jacket' }] } },
+    ]);
+    const r = await call('POST', '/api/assistant', { date: t, turns: [{ role: 'user', text: 'Move the long run a day' }] });
+    expect(r.body.proposal.changes[0]).toMatchObject({ label: expect.stringMatching(/^Move Long 10/), reason: 'rain on the day' });
+    expect(r.body.proposal.changes[1].reason).toBeUndefined();
+    expect(r.body.replies).toEqual(['Keep it on Sunday instead']);
+    // the reason stays with the proposal in the log
+    expect((await call('GET', '/api/assistant/log')).body[0].changes[0].reason).toBe('rain on the day');
+  });
+
+  it('tells Claude the screen it was opened from, and nothing when the owner removed it', async () => {
+    const withScreen = fakeClaude([{ type: 'text', text: 'Ok.' }]);
+    await call('POST', '/api/assistant', { date: today(), screen: { tab: 'plan', week: '2026-11-09' }, turns: [{ role: 'user', text: 'What is on this week?' }] });
+    expect(sent(withScreen)).toContain('SCREEN: He opened you from Plan, week of Nov 9 (2026-11-09 to 2026-11-15).');
+    const without = fakeClaude([{ type: 'text', text: 'Ok.' }]);
+    await call('POST', '/api/assistant', { date: today(), turns: [{ role: 'user', text: 'What is on this week?' }] });
+    expect(sent(without)).not.toContain('SCREEN:');
+    expect((await call('POST', '/api/assistant', { date: today(), screen: { tab: 'settings' }, turns: [{ role: 'user', text: 'x' }] })).status).toBe(422);
+  });
+
+  it('never sends Claude a synced activity (Strava data stays out of the model)', async () => {
+    const t = today();
+    await call('POST', '/api/sessions', { date: shiftDays(t, -1), kind: 'run', title: 'Easy 5', miles: 5 });
+    db.insert(activities)
+      .values({ id: '13000000099', userId, date: shiftDays(t, -1), time: '07:00', name: 'Rainy Riverside Loop', sportType: 'Run', kind: 'run', distanceM: 8851, movingSec: 2700, elapsedSec: 2760, elevM: 12, avgHr: 151, maxHr: 170, cadence: null, polyline: null, deletedAt: null, updatedAt: new Date().toISOString(), lapsJson: null, perfAt: null, perfFailed: 0 })
+      .run();
+    const stream = fakeClaude([{ type: 'text', text: 'Ok.' }]);
+    await call('POST', '/api/assistant', { date: t, turns: [{ role: 'user', text: 'Did I run yesterday?' }] });
+    const all = sent(stream);
+    expect(all).toContain('Easy 5');
+    expect(all).not.toContain('Rainy Riverside Loop');
+    expect(all).not.toContain('5.5 mi');
+    expect(all).not.toContain('logged');
   });
 });

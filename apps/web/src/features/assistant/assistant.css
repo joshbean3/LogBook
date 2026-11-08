@@ -1,5 +1,5 @@
-/* The assistant: a bar at the top of each day, and a conversation in a large sheet. The app's surfaces and type; the one
-   blue is the Apply button and the send arrow. */
+/* The assistant: the bar at the top of a day, and the conversation in a large sheet. White cards on the Columbia page,
+   navy for the user's words and the one verb, orange only for what needs a look (a change that deletes). */
 
 .ask-bar.pressable {
   display: grid;
@@ -35,18 +35,79 @@
   background: var(--accent-bright);
 }
 
-/* the sheet: the thread scrolls, the composer stays at the bottom over the keyboard */
+
+/* ---------- the sheet: the thread scrolls, the composer stays pinned at the bottom (over the keyboard) ---------- */
+/* the sheet body's one row fills it, so a short conversation still has its composer at the bottom */
+.sheet-body:has(> .as-sheet) {
+  align-content: stretch;
+}
 .as-sheet {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  min-height: 60vh;
+  /* the thread takes what is left (and grows past it: the body scrolls), the composer its own height */
+  grid-template-rows: 1fr auto;
 }
 .as-thread {
   display: grid;
   align-content: start;
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 14px;
+  padding: 2px 0 16px;
+  min-width: 0;
 }
+
+/* where it was opened from: one small chip, removable */
+/* it stays at the top while the conversation scrolls under it, so a long thread still shows what it is about */
+.as-context {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  /* a short fade under it, so what scrolls behind does not collide with it */
+  margin: -2px 0 -10px;
+  padding: 2px 0 10px;
+  background: linear-gradient(var(--bg) 70%, transparent);
+  pointer-events: none;
+}
+.as-context .as-chip {
+  pointer-events: auto;
+  box-shadow: 0 2px 8px rgba(15, 42, 68, 0.08);
+}
+.as-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--columbia-wash);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font: 500 var(--fs-foot) / 1.2 var(--sans);
+}
+.as-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.as-chip-x {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+/* a 44 px target around the small dot */
+.as-chip-x::after {
+  content: '';
+  position: absolute;
+  inset: -11px;
+}
+
 .as-empty {
   display: grid;
   gap: 14px;
@@ -64,23 +125,41 @@
   margin-top: 2px;
   color: var(--accent-text);
 }
-.as-starters {
+
+/* starters and suggested replies: full-width rows in the owner's words; a tap sends */
+.as-replies {
   display: grid;
   gap: 8px;
 }
-.as-starter {
-  min-height: 44px;
-  padding: 10px 14px;
+.as-reply {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 13px 14px;
   border-radius: var(--r-group);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  border: var(--card-border);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
+.as-reply:active {
+  background: var(--surface-2);
+}
+.as-reply-ic {
+  margin-top: 2px;
+  color: var(--ink-3);
+}
+
+/* turns: the owner's words in navy on the right, the assistant's on white on the left */
 .as-turn {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 .as-turn.is-user {
   justify-items: end;
@@ -101,8 +180,11 @@
   border-bottom-right-radius: 6px;
 }
 .is-assistant .as-bubble {
-  background: var(--surface-2);
+  justify-self: start;
+  background: var(--surface);
   color: var(--ink);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
   border-bottom-left-radius: 6px;
 }
 .as-typing {
@@ -133,23 +215,64 @@
     opacity: 1;
   }
 }
+/* under the typing dots once an answer takes a while */
+.as-slow {
+  margin: 0;
+  max-width: 88%;
+  font-size: var(--fs-foot);
+  line-height: 1.35;
+  color: var(--ink-3);
+}
 
-/* a proposal: the summary, the changes in words, the decision */
+/* an ask that did not go through: it stays in the chat, with Retry */
+.as-error {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 4px 10px;
+  max-width: 88%;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+.as-error-ic {
+  margin-top: 2px;
+  color: var(--accent-text);
+}
+.as-error p {
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  overflow-wrap: anywhere;
+}
+.as-retry {
+  grid-column: 2;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  border: 0;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+}
+
+/* ---------- a proposal: the summary, a card per change, the decision ---------- */
 .as-proposal {
   display: grid;
   gap: 10px;
-  padding: 14px;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: 1px solid rgba(47, 93, 133, 0.35);
-}
-.as-proposal.is-dismissed,
-.as-proposal.is-undone {
-  border-color: var(--line);
-  opacity: 0.7;
+  min-width: 0;
+  scroll-margin-top: 8px;
 }
 .as-proposal-sum {
   margin: 0;
+  padding: 0 2px;
   font-size: var(--fs-row);
   line-height: var(--lh-row);
   font-weight: 600;
@@ -157,66 +280,184 @@
 }
 .as-changes {
   list-style: none;
+  display: grid;
+  gap: 8px;
   margin: 0;
   padding: 0;
-  border-radius: var(--r-control);
-  background: var(--surface-2);
 }
 .as-change {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 8px;
-  padding: 9px 12px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 6px 10px 12px;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  transition: opacity 160ms ease;
+}
+.as-change-ic {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+/* a change that deletes something: orange means look here */
+.as-change.is-risky .as-change-ic {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+.as-change-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.as-change-text {
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink);
+  overflow-wrap: anywhere;
 }
-.as-change + .as-change {
-  border-top: 1px solid var(--line);
-}
-.as-change-ic {
+.as-change-why {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-foot);
+  line-height: 1.3;
   color: var(--ink-3);
-  padding-top: 2px;
+}
+.as-change-x {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+}
+.as-change-x:active {
+  background: var(--surface-2);
+}
+.as-change-left {
+  padding-right: 8px;
+  color: var(--ink-3);
+}
+/* removed before Apply: it stays in place, faded and struck, with Put back */
+.as-change.is-off {
+  background: transparent;
+  box-shadow: none;
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+.as-change.is-off .as-change-ic,
+.as-change.is-off .as-change-body {
+  opacity: 0.5;
+}
+.as-change.is-off .as-change-text {
+  text-decoration: line-through;
+}
+.as-change.is-off .as-change-x {
+  color: var(--ink-2);
 }
 .as-proposal-foot {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
+  margin-top: 2px;
+}
+.as-proposal-foot .btn {
+  height: 48px;
+}
+.as-proposal-foot .btn.ghost {
+  color: var(--ink-2);
+}
+/* grey until there is something to apply */
+.as-proposal-foot .btn.primary:disabled {
+  background: var(--surface-3);
+  color: var(--ink-4);
+  opacity: 1;
 }
 .as-proposal-state {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 40px;
+  padding: 0 2px;
+}
+.as-proposal-state .caps {
+  color: var(--ink-3);
 }
 .as-proposal.is-applied .as-proposal-state .caps {
-  color: var(--accent-text);
+  color: var(--ink-2);
+}
+.as-proposal.is-dismissed .as-changes,
+.as-proposal.is-undone .as-changes {
+  opacity: 0.6;
 }
 .as-undo {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-strong);
-  background: none;
-  color: var(--ink-2);
+  background: var(--surface);
+  color: var(--ink);
   font: 600 var(--fs-foot) / 1 var(--sans);
 }
+/* a proposal of many changes shows six, then this */
+.as-more {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 
+/* ---------- the composer, pinned to the sheet's bottom ---------- */
 .as-compose {
   position: sticky;
-  bottom: 0;
+  bottom: calc(-16px - var(--safe-b));
+  z-index: 2;
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) 40px;
   align-items: end;
   gap: 8px;
-  padding: 10px 0 calc(6px + var(--safe-b));
+  margin-bottom: calc(-16px - var(--safe-b));
+  padding: 10px 0 calc(10px + var(--safe-b));
   background: var(--bg);
   border-top: 1px solid var(--line);
 }
 .as-compose:not(:has(.as-new)) {
   grid-template-columns: auto minmax(0, 1fr) 40px;
+}
+/* a proposal waiting off screen: the bar that brings it back */
+.as-review {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: -2px;
+  padding: 0 14px 0 16px;
+  border-radius: var(--r-pill);
+  border: 0;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: 600 var(--fs-sub) / 1 var(--sans);
+  box-shadow: var(--shadow-1);
 }
 /* the paperclip: a quiet round control beside the field */
 .as-attach {
@@ -226,7 +467,7 @@
   height: 40px;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
-  background: none;
+  background: var(--surface);
   color: var(--ink-2);
 }
 .as-attach:disabled {
@@ -249,7 +490,7 @@
   height: 56px;
   border-radius: var(--r-md);
   border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--ink-2);
 }
 .as-file.is-photo {
@@ -319,7 +560,8 @@
   max-width: 220px;
   padding: 8px 12px;
   border-radius: 14px;
-  background: var(--surface-2);
+  background: var(--surface);
+  border: var(--card-border);
   color: var(--ink-2);
   font-size: var(--fs-foot);
 }
@@ -330,10 +572,10 @@
 }
 .as-new {
   min-height: 40px;
-  padding: 0 8px;
+  padding: 0 6px;
   border: 0;
   background: none;
-  color: var(--accent-text);
+  color: var(--ink-2);
   font: 600 var(--fs-foot) / 1 var(--sans);
 }
 .as-input {
@@ -343,7 +585,7 @@
   padding: 9px 14px;
   border-radius: 20px;
   border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--ink);
   font-size: max(16px, var(--fs-sub));
   line-height: 1.3;
@@ -354,10 +596,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--ink-3);
 }
 .as-input:focus {
   outline: none;
-  border-color: var(--accent-bright);
+  border-color: var(--ink-2);
 }
 .as-send {
   display: grid;
@@ -378,23 +621,7 @@
     animation: none;
     opacity: 0.6;
   }
-}
-
-/* a proposal of many changes shows six, then this */
-.as-more {
-  justify-self: start;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-}
-/* under the typing dots once an answer takes a while */
-.as-slow {
-  margin: 0;
-  max-width: 88%;
-  font-size: var(--fs-foot);
-  line-height: 1.35;
-  color: var(--ink-3);
+  .as-change {
+    transition: none;
+  }
 }

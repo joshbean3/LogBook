@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isISODate, type ISODate } from './dates.js';
+import { fmtDate, isISODate, type ISODate } from './dates.js';
 import { KINDS } from './sessions.js';
 
 // ---------- the assistant: what it may change, as checked operations ----------
@@ -8,14 +8,17 @@ const zDay = z.string().refine(isISODate, 'a date as YYYY-MM-DD');
 const zId = z.string().min(1).max(64);
 const zMiles = z.number().min(0).max(200);
 const zMinutes = z.number().int().min(0).max(1440);
+/** Every change may carry a one-line reason, shown under it on its card. */
+const why = { why: z.string().trim().transform((s) => s.slice(0, 140)).optional() };
 
 /**
  * Every change the assistant can propose. Nothing runs until the owner taps Apply; then all of a proposal runs in one
  * transaction, with an undo record. The server checks each one against the owner's own rows before it is shown.
  */
 export const zAssistantOp = z.discriminatedUnion('op', [
-  z.object({ op: z.literal('move_session'), id: zId, to: zDay }),
+  z.object({ ...why, op: z.literal('move_session'), id: zId, to: zDay }),
   z.object({
+    ...why,
     op: z.literal('update_session'),
     id: zId,
     type: z.string().max(30).nullable().optional(),
@@ -25,6 +28,7 @@ export const zAssistantOp = z.discriminatedUnion('op', [
     minutes: zMinutes.nullable().optional(),
   }),
   z.object({
+    ...why,
     op: z.literal('add_session'),
     date: zDay,
     kind: z.enum(KINDS as unknown as [string, ...string[]]),
@@ -34,10 +38,11 @@ export const zAssistantOp = z.discriminatedUnion('op', [
     miles: zMiles.nullable().optional(),
     minutes: zMinutes.nullable().optional(),
   }),
-  z.object({ op: z.literal('delete_session'), id: zId }),
-  z.object({ op: z.literal('mark_session'), id: zId, mark: z.enum(['done', 'floor', 'skip', 'sick']).nullable() }),
-  z.object({ op: z.literal('add_todo'), text: z.string().trim().min(1).max(200), priority: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(), due: zDay.nullable().optional(), bucket: z.enum(['today', 'later', 'someday']).optional(), groupId: zId.nullable().optional() }),
+  z.object({ ...why, op: z.literal('delete_session'), id: zId }),
+  z.object({ ...why, op: z.literal('mark_session'), id: zId, mark: z.enum(['done', 'floor', 'skip', 'sick']).nullable() }),
+  z.object({ ...why, op: z.literal('add_todo'), text: z.string().trim().min(1).max(200), priority: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(), due: zDay.nullable().optional(), bucket: z.enum(['today', 'later', 'someday']).optional(), groupId: zId.nullable().optional() }),
   z.object({
+    ...why,
     op: z.literal('update_todo'),
     id: zId,
     text: z.string().trim().min(1).max(200).optional(),
@@ -47,9 +52,9 @@ export const zAssistantOp = z.discriminatedUnion('op', [
     groupId: zId.nullable().optional(),
     done: z.boolean().optional(),
   }),
-  z.object({ op: z.literal('delete_todo'), id: zId }),
-  z.object({ op: z.literal('set_goal'), level: z.enum(['year', 'month', 'week', 'day']), period: z.string().min(4).max(10), text: z.string().trim().min(1).max(400), steps: z.array(z.string().trim().min(1).max(120)).max(5).optional() }),
-  z.object({ op: z.literal('review_goal'), id: zId, status: z.enum(['open', 'done', 'partly', 'missed']) }),
+  z.object({ ...why, op: z.literal('delete_todo'), id: zId }),
+  z.object({ ...why, op: z.literal('set_goal'), level: z.enum(['year', 'month', 'week', 'day']), period: z.string().min(4).max(10), text: z.string().trim().min(1).max(400), steps: z.array(z.string().trim().min(1).max(120)).max(5).optional() }),
+  z.object({ ...why, op: z.literal('review_goal'), id: zId, status: z.enum(['open', 'done', 'partly', 'missed']) }),
 ]);
 export type AssistantOp = z.infer<typeof zAssistantOp>;
 
@@ -57,6 +62,8 @@ export type AssistantOp = z.infer<typeof zAssistantOp>;
 export interface AssistantChange {
   op: AssistantOp;
   label: string;
+  /** Why, in one line, when the assistant gave a reason. */
+  reason?: string;
 }
 
 export type AssistantActionStatus = 'proposed' | 'applied' | 'dismissed' | 'undone';
@@ -65,6 +72,11 @@ export interface AssistantProposal {
   summary: string;
   changes: AssistantChange[];
   status: AssistantActionStatus;
+  /**
+   * The changes (by index) left out. Before Apply the app keeps the ones the owner removed here; after, the server says
+   * which it skipped.
+   */
+  skipped?: number[];
 }
 
 /** What the app shows for a file sent with a turn: its name and type, and for a photo a small preview (a data URL). */
@@ -80,6 +92,10 @@ export interface AssistantTurn {
   text: string;
   files?: AssistantFileShown[];
   proposal?: AssistantProposal | null;
+  /** Up to three follow-ups the owner might send next, in his own words. */
+  replies?: string[];
+  /** An ask that did not go through: shown with Retry, never sent back to the assistant. */
+  error?: boolean;
 }
 
 // ---------- attachments: photos and PDFs sent to the assistant ----------
@@ -114,14 +130,41 @@ export type Attachment = z.infer<typeof zAttachment>;
 export interface AssistantReply {
   text: string;
   proposal: AssistantProposal | null;
+  /** Up to three follow-ups in the owner's voice; none without a key or when Claude wrote none that read right. */
+  replies?: string[];
   /** False when the server has no Claude key. */
   available: boolean;
 }
+
+// ---------- screen context: where the conversation was opened from ----------
+
+export const ASSISTANT_SCREENS = ['today', 'plan', 'progress', 'goals', 'learned', 'journal'] as const;
+export const zAssistantScreen = z.object({
+  tab: z.enum(ASSISTANT_SCREENS),
+  /** Today: the day shown. */
+  date: zDay.optional(),
+  /** Plan: the week shown (its Monday), or the month. */
+  week: zDay.optional(),
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+});
+export type AssistantScreen = z.infer<typeof zAssistantScreen>;
+
+const TAB_NAME: Record<AssistantScreen['tab'], string> = { today: 'Today', plan: 'Plan', progress: 'Progress', goals: 'Goals', learned: 'Learned', journal: 'Journal' };
+/** The screen in words, as the chip shows it and the assistant reads it: "Plan, week of Nov 9", "Today, Sun Nov 8". */
+export const screenLabel = (s: AssistantScreen): string => {
+  const name = TAB_NAME[s.tab];
+  if (s.tab === 'today' && s.date) return `${name}, ${fmtDate('dow', s.date)} ${fmtDate('md', s.date)}`;
+  if (s.tab === 'plan' && s.week) return `${name}, week of ${fmtDate('md', s.week)}`;
+  if (s.tab === 'plan' && s.month) return `${name}, ${fmtDate('month', `${s.month}-01`)}`;
+  return name;
+};
 
 export const zAssistantAsk = z
   .object({
     /** The day the owner was looking at when they asked (the page's date). */
     date: zDay,
+    /** Where the conversation was opened from, unless the owner removed it. */
+    screen: zAssistantScreen.optional(),
     turns: z
       .array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(8000), attachments: z.array(zAttachment).max(ATTACHMENT_LIMITS.perTurn).optional() }))
       .min(1)
@@ -135,6 +178,10 @@ export const zAssistantAsk = z
     const last = a.turns[a.turns.length - 1];
     if (last && last.role === 'user' && !last.text.trim() && !last.attachments?.length) ctx.addIssue({ code: 'custom', path: ['turns'], message: 'Say something or attach a file' });
   });
+
+/** Apply, leaving out the changes (by index) the owner removed. */
+export const zAssistantApply = z.object({ skip: z.array(z.number().int().min(0).max(999)).max(999).optional() });
+export type AssistantApply = z.infer<typeof zAssistantApply>;
 
 export interface AssistantApplied {
   proposal: AssistantProposal;

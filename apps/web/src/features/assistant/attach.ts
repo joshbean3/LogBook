@@ -87,14 +87,21 @@ export interface RequestTurn {
   attachments?: Attachment[];
 }
 
-const wordsOf = (t: AssistantTurn) => (t.proposal ? `${t.text}\n[Proposed: ${t.proposal.summary} Status: ${t.proposal.status}.]`.trim() : t.text);
+const wordsOf = (t: AssistantTurn) => {
+  const p = t.proposal;
+  if (!p) return t.text;
+  const left = p.skipped?.length ? ` He left out: ${p.skipped.map((i) => p.changes[i]?.label ?? `change ${i + 1}`).join('; ')}.` : '';
+  return `${t.text}\n[Proposed: ${p.summary} Status: ${p.status}.${left}]`.trim();
+};
 
 /**
  * The conversation as sent: newest files first, as many as fit the limits (4 files, 20 MB), so the assistant can still
  * look at a photo sent a few turns back. A turn whose files are not resent (too many, or the app was reopened and the
- * data is gone) names them, so the assistant knows something was shown there.
+ * data is gone) names them, so the assistant knows something was shown there. An ask that did not go through is the
+ * app's message, not the assistant's: it is never sent back.
  */
-export const requestTurns = (turns: readonly AssistantTurn[], dataOf: (t: AssistantTurn) => Attachment[] | undefined): RequestTurn[] => {
+export const requestTurns = (all: readonly AssistantTurn[], dataOf: (t: AssistantTurn) => Attachment[] | undefined): RequestTurn[] => {
+  const turns = all.filter((t) => !t.error);
   const out: RequestTurn[] = turns.map((t) => ({ role: t.role, text: wordsOf(t) }));
   let count = 0;
   let bytes = 0;

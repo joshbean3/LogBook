@@ -1172,9 +1172,9 @@ export const useTodoGroupMutations = () => {
  * Ask the assistant. The ask runs on the server in the background and the app reads its answer with short requests
  * (features/assistant/poll.ts), so a long one (a plan read from photos) never hangs on one request.
  */
-export const askAssistant = (date: string, turns: Array<{ role: 'user' | 'assistant'; text: string; attachments?: Attachment[] }>) =>
+export const askAssistant = (date: string, turns: Array<{ role: 'user' | 'assistant'; text: string; attachments?: Attachment[] }>, screen?: import('@logbook/shared').AssistantScreen) =>
   askAndWait<AssistantReply>(
-    () => api<{ jobId: string } | AssistantReply>('/assistant?async=1', { method: 'POST', json: { date, turns } }),
+    () => api<{ jobId: string } | AssistantReply>('/assistant?async=1', { method: 'POST', json: { date, turns, ...(screen ? { screen } : {}) } }),
     (id) => api<JobAnswer<AssistantReply>>(`/assistant/jobs/${encodeURIComponent(id)}`),
     { isTransient: (e) => e instanceof NetworkError },
   );
@@ -1186,8 +1186,9 @@ export const useAssistantActions = () => {
     for (const k of [keys.todos, ['goals'], ['goal-events'], ['todo-groups'], keys.bootstrap] as const) void qc.invalidateQueries({ queryKey: k as readonly unknown[] });
   };
   const apply = useMutation({
-    mutationFn: async (id: string) => {
-      const r = await api<AssistantApplied>(`/assistant/${id}/apply`, { method: 'POST' });
+    /** `skip`: the changes (by index) the owner removed before Apply. */
+    mutationFn: async ({ id, skip }: { id: string; skip?: number[] }) => {
+      const r = await api<AssistantApplied>(`/assistant/${id}/apply`, { method: 'POST', ...(skip?.length ? { json: { skip } } : {}) });
       refresh(r.months);
       return r.proposal;
     },

@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react';
 import type * as React from 'react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useOpenAssistant } from '@/features/assistant/AskBar';
+import { useScreenContext } from '@/features/assistant/screen';
 import { useAssistantTurns } from '@/features/assistant/store';
 import { useLiveToday } from '@/lib/useToday';
 import { Pressable } from '@/ui/Pressable';
@@ -40,7 +41,10 @@ const useCompactOnScroll = () => {
  */
 export const Dock = ({ today: todayPath, children }: { today: string; children: ReactNode }): React.JSX.Element => {
   const live = useLiveToday();
-  const open = useOpenAssistant();
+  const openAssistant = useOpenAssistant();
+  const screenNow = useScreenContext();
+  // the conversation carries the screen it was opened from (Today and its day, Plan and its week, a tab)
+  const open = (d: ISODate) => openAssistant(d, undefined, screenNow(d, live));
   const turns = useAssistantTurns();
   const compact = useCompactOnScroll();
   const date = (DAY.exec(todayPath)?.[1] ?? live) as ISODate;
