@@ -7,6 +7,7 @@ import { assistantActions, goalEvents, goals, planBlocks, todoGroups, todos, tra
 import { env } from '../env.js';
 import { ApiError, nowISO, uid } from '../lib/util.js';
 import { readSetting } from '../routes/core.js';
+import { assistantMayReadTraining } from './consent.js';
 
 /** The assistant runs on Sonnet (the owner's choice: quick, and capable enough to edit a plan). */
 export const ASSISTANT_MODEL = 'claude-sonnet-5-5';
@@ -66,6 +67,12 @@ export const screenLine = (screen: AssistantScreen | undefined): string | null =
 };
 
 export const contextFor = (db: DB, userId: string, today: string, date: string, screen?: AssistantScreen): string => {
+  // the owner's choice on the privacy page: with it off, nothing from the training log goes to Claude
+  if (!assistantMayReadTraining(db, userId))
+    return [
+      `TODAY: ${today} (${fmtDate('long', today)}).`,
+      'TRAINING DATA: the owner has turned off reading their training data (Settings, Privacy). You cannot see their plan, sessions, goals, to-dos or status. Answer in general terms, say so when an answer would need their data, and propose no changes.',
+    ].join('\n');
   const mon = mondayOf(today);
   const from = shiftDays(mon, -7);
   const to = shiftDays(mon, 27);

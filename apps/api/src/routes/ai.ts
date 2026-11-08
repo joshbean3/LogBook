@@ -9,6 +9,7 @@ import { toBlock, toSession } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { RUN_NOTE_OFF, draftPlan, type AthleteContext } from '../services/claude.js';
 import { sessionsBetween, zonesOf } from './core.js';
+import { assistantMayReadTraining } from '../services/consent.js';
 
 const MAX_FILE = 25 * 1024 * 1024;
 
@@ -17,6 +18,8 @@ export const aiRoutes = (db: DB) => {
   const uidOf = (c: { get: (k: 'user') => { id: string } }) => c.get('user').id;
   const ctxOf = (userId: string): AthleteContext => {
     const t = today();
+    // with training data turned off (Settings, Privacy), a draft is written from what the person hands it, nothing else
+    if (!assistantMayReadTraining(db, userId)) return { runs: [], zones: null };
     const runs = sessionsBetween(db, userId, shiftDays(t, -60), t)
       .filter((s) => s.kind === 'run' && (s.mark === 'done' || s.mark === 'floor') && s.miles)
       .map((s) => ({ date: s.date, miles: s.miles!, minutes: s.minutes }));

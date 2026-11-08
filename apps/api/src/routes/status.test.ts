@@ -64,3 +64,26 @@ describe('Strava data stays out of AI', () => {
     expect(r.body.code).toBe('strava_terms');
   });
 });
+
+describe('the privacy choice reaches the assistant', () => {
+  it('with training data off, the assistant context carries none of it; on, it does', async () => {
+    const { contextFor } = await import('../services/assistant.js');
+    const { writeConsent } = await import('../services/consent.js');
+    const db = openDatabase(':memory:').db;
+    app = buildApp(db);
+    const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'pv@example.com', password: 'password123' }) });
+    cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
+    const { mondayOf } = await import('@logbook/shared');
+    const goal = await call('PUT', `/api/goals/week/${mondayOf(T)}`, { text: 'Run four times' });
+    const me = (await call('GET', '/api/me')).body.id as string;
+    const on = contextFor(db, me, T, T);
+    expect(goal.status).toBeLessThan(300);
+    expect(on).toContain('Run four times');
+    expect(on).toContain('PLAN BLOCKS');
+    writeConsent(db, me, { training: false });
+    const off = contextFor(db, me, T, T);
+    expect(off).toContain('turned off reading their training data');
+    expect(off).not.toContain('PLAN BLOCKS');
+    expect(off).not.toContain('Run four times');
+  });
+});
