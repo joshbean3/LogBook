@@ -351,8 +351,8 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
   }, []);
   return (
     <div ref={root} className="tp">
-      <div className="ed-group">
-        <span className="ed-label" id="tp-goal">
+      <section className="card tp-card" aria-labelledby="tp-goal">
+        <span className="tp-card-h" id="tp-goal">
           Training for
         </span>
         <div className="ed-chips" role="radiogroup" aria-labelledby="tp-goal">
@@ -362,10 +362,13 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
             </Pressable>
           ))}
         </div>
-      </div>
-      <div className="ed-group">
-        <span className="ed-label" id="tp-days">
-          Run days <span className="ink3">· hold a day for the long run</span>
+      </section>
+      <section className="card tp-card" aria-labelledby="tp-days">
+        <span className="tp-card-top">
+          <span className="tp-card-h" id="tp-days">
+            Run days
+          </span>
+          <span className="tp-card-s">Hold a day for the long run</span>
         </span>
         <div className="tp-days" role="group" aria-labelledby="tp-days">
           {WEEKDAYS.map((d) => {
@@ -379,31 +382,39 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
           })}
         </div>
         <div className="ed-chips tp-long" role="radiogroup" aria-label="Long run day">
-          <span className="ink3 t-sub">Long run</span>
+          <span className="tp-card-s">Long run</span>
           {runDays.map((d) => (
             <Pressable key={d} role="radio" aria-checked={longDay === d} className={`pl-chip sm ${longDay === d ? 'on' : ''}`} onPress={() => pickLong(d)}>
               {DAY_NAME[d].slice(0, 3)}
             </Pressable>
           ))}
         </div>
-      </div>
-      <div className="tp-steps">
-        <div className="ed-group">
-          <span className="ed-label">{raceDate ? 'Weeks to race day' : 'Weeks'}</span>
+      </section>
+      <div className="tiles tp-steps">
+        <div className="tile tp-step">
+          <span className="tile-label">{raceDate ? 'Weeks to race day' : 'Weeks'}</span>
           <Stepper label="Weeks" value={weeks} onChange={setWeeks} step={1} min={2} max={30} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
         </div>
-        <div className="ed-group">
-          <span className="ed-label">Miles a week now</span>
+        <div className="tile tp-step">
+          <span className="tile-label">Miles a week now</span>
           <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={3} max={150} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
         </div>
       </div>
-      <div className="ed-chips">
-        <Pressable role="switch" aria-checked={soon} className={`pl-chip ${soon ? 'on' : ''}`} onPress={() => (setPreStart(null), setSoon((v) => !v))}>
-          Start tomorrow
+      <div className="group tp-opts">
+        <Pressable role="switch" aria-checked={soon} className="tp-opt" press="surface" onPress={() => (setPreStart(null), setSoon((v) => !v))}>
+          <span className="tp-opt-main">
+            <span className="tp-opt-t">Start tomorrow</span>
+            <span className="tp-opt-s">{soon ? `Week 1 starts ${fmtDate('md', startDate)}` : 'Else it starts next Monday'}</span>
+          </span>
+          <span className={`pl-switch ${soon ? 'on' : ''}`} aria-hidden="true" />
         </Pressable>
         {isRace ? (
-          <Pressable role="switch" aria-checked={race} className={`pl-chip ${race ? 'on' : ''}`} onPress={() => setRace((v) => !v)}>
-            Race on the last Sunday
+          <Pressable role="switch" aria-checked={race} className="tp-opt" press="surface" onPress={() => setRace((v) => !v)}>
+            <span className="tp-opt-main">
+              <span className="tp-opt-t">Race on the last Sunday</span>
+              <span className="tp-opt-s">{raceDate ? `Race day ${fmtDate('md', raceDate)}, with a taper before it` : 'No race day: the block just ends'}</span>
+            </span>
+            <span className={`pl-switch ${race ? 'on' : ''}`} aria-hidden="true" />
           </Pressable>
         ) : null}
       </div>
@@ -429,8 +440,8 @@ const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResu
 const WeekByWeek = ({ tpl }: { tpl: Template }) => {
   const byDate = new Map(tpl.sessions.map((s) => [s.date, s] as const));
   return (
-    <div className="tp-preview">
-      <span className="ed-label">Week by week</span>
+    <section className="card tp-card tp-preview" aria-label="Week by week">
+      <span className="tp-card-h">Week by week</span>
       <div className="tp-weeks" aria-label={`${tpl.name}, week by week`}>
         {tpl.weeks.map((w) => {
           const mon = mondayOf(w.start);
@@ -454,8 +465,8 @@ const WeekByWeek = ({ tpl }: { tpl: Template }) => {
           );
         })}
       </div>
-      <p className="fine">{tpl.summary} Each run’s type sets its floor.</p>
-    </div>
+      <p className="tp-sum">{tpl.summary} Each run’s type sets its floor.</p>
+    </section>
   );
 };
 

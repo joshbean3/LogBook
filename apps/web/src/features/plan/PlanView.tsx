@@ -15,7 +15,8 @@ import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
 import { MorningCard } from './MorningCard';
-import { MonthPage } from './Month';
+import { MonthPage, monthWeeks } from './Month';
+import { PlanContext } from './PlanContext';
 import { WeekPage } from './Week';
 import './plan.css';
 
@@ -558,8 +559,10 @@ export default function PlanView(): React.JSX.Element {
         titleMenu={titleMenu}
         titleLabel={atHome ? 'Plan' : view === 'week' ? 'Plan. Go to this week' : 'Plan. Go to this month'}
         titleRef={titleRef}
-        gap={24}
+        gap={16}
       />
+      {/* the block, the week's place in it and its phase: for the page shown (it changes as a page commits) */}
+      <PlanContext block={block} mons={view === 'week' ? [mon] : monthWeeks(first)} page={view === 'week' ? { from: mon, to: shiftDays(mon, 6) } : { from: first, to: shiftDays(addMonths(first, 1), -1) }} />
       {/* the morning belongs to the day, not to the week or month shown: above both panes, outside the pagers */}
       <MorningCard />
       <HeldBanner />

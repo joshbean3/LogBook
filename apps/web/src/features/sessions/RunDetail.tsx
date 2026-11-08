@@ -150,31 +150,19 @@ export const RecordCard = ({ records, date, onTap }: { records: RunRecord[]; dat
   );
 };
 
-/** A finished run's numbers as Strava lays them out: two columns, the label over the number. */
-export const RunGrid = ({ sess, runs, log, planned }: { sess: Session | null; runs: Activity[]; log: Log; planned: number }) => {
+/**
+ * A finished run's numbers, in the order the sheet shows them: the distance first (the sheet's hero, "of 5 planned" under
+ * it), then pace, moving time, elevation and average heart rate as two rows of tiles (cadence and max heart rate are in
+ * the evidence's line under them).
+ */
+export const runNumbers = (sess: Session | null, runs: Activity[], log: Log, planned: number): Array<{ k: string; v: string; u?: string; n?: string }> => {
   const a = assess(log.zones, sess, runs);
   const elev = runs.reduce((t, r) => t + r.elevFt, 0);
-  const cad = runs.find((r) => r.cadence)?.cadence ?? null;
-  const cells: Array<[string, string, string?, string?]> = [
-    ['Distance', mi(a.miles), 'mi', planned ? `of ${num(planned)} planned` : undefined],
-    ['Avg Pace', a.pace ?? '—', a.pace ? '/mi' : undefined],
-    ['Moving Time', clock(a.movingSec)],
-    ['Elevation Gain', String(Math.round(elev)), 'ft'],
-    ['Avg Heart Rate', a.avgHr != null ? String(a.avgHr) : '—', a.avgHr != null ? 'bpm' : undefined],
-    cad ? ['Cadence', String(Math.round(cad)), 'spm'] : ['Max Heart Rate', a.maxHr != null ? String(a.maxHr) : '—', a.maxHr != null ? 'bpm' : undefined],
+  return [
+    { k: 'Distance', v: mi(a.miles), u: 'mi', n: planned ? `of ${num(planned)} mi planned` : 'Distance' },
+    { k: 'Avg pace', v: a.pace ?? '–', u: a.pace ? '/mi' : undefined },
+    { k: 'Moving time', v: clock(a.movingSec) },
+    { k: 'Elevation', v: String(Math.round(elev)), u: 'ft' },
+    { k: 'Avg heart rate', v: a.avgHr != null ? String(a.avgHr) : '–', u: a.avgHr != null ? 'bpm' : undefined, n: a.avgHr == null ? 'No data yet' : undefined },
   ];
-  return (
-    <div className="run-grid" role="list" aria-label="The run">
-      {cells.map(([k, v, u, n]) => (
-        <span key={k} className="run-cell" role="listitem">
-          <span className="run-k">{k}</span>
-          <span className="run-v tnum">
-            {v}
-            {u ? <small> {u}</small> : null}
-          </span>
-          {n ? <span className="run-n">{n}</span> : null}
-        </span>
-      ))}
-    </div>
-  );
 };

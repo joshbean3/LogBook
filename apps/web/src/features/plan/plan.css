@@ -42,32 +42,79 @@
   padding: 0 16px 24px;
 }
 
-/* ---------- the week line (§7.1): 22/28 600, the This week pill, the bar once a mile is run, the sentence ---------- */
-.pl-wl {
-  min-height: 52px;
+/* ---------- the page's rhythm (docs/shape-system.md §5): the context row under the title, the morning and the held banner
+   as cards 12 apart, then the panes' sections 28 apart, each a sans header 12 above its first card ---------- */
+.plan-root > .pl-ctx {
+  margin: 0 16px 18px;
 }
-.pl-wl-head {
-  margin: 0 auto 0 0;
-  min-width: 0;
-  font: 600 22px/28px var(--sans);
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
+.pl-ctx .ctx-chip {
+  flex: 1 1 0;
+}
+.pl-ctx .pl-ctx-block {
+  flex: 1.15 1 0;
+}
+.pl-ctx .ctx-ic.is-lit {
+  background: var(--columbia);
   color: var(--ink);
 }
+.pl-ctx .ph-race .ctx-ic,
+.pl-ctx .ph-peak .ctx-ic {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+/* an empty row while the account loads: the room the chips take, so nothing below moves when they come */
+.pl-ctx:empty {
+  min-height: 52px;
+}
+.plan-root > .pl-panes {
+  margin-top: var(--section);
+}
+.pl-sec + .pl-sec {
+  margin-top: var(--section);
+}
+.pl-head-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: var(--sec-gap);
+}
+.pl-head {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 1.25rem / 1.5625rem var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.pl-sec > .pl-head {
+  margin-bottom: var(--sec-gap);
+}
+.pl-head-meta {
+  flex: none;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+/* `This week ›` off this week: the header's action, in orange words; it fades in over 120 ms when its page commits */
 .pl-now.pressable {
   position: relative;
   flex: none;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 0;
+  height: auto;
+  margin-left: auto;
+  padding: 0;
   border: 0;
-  border-radius: var(--r-pill);
-  background: var(--accent-tint);
+  background: none;
   color: var(--accent-text);
-  font: 600 13px/16px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   white-space: nowrap;
   opacity: 0;
-  /* on the live page only: it fades in over 120 ms on the frame its page commits */
   transition:
     opacity 120ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
@@ -75,24 +122,61 @@
 .pl-now::after {
   content: '';
   position: absolute;
-  inset: -6px 0;
+  inset: -12px -8px;
 }
 .dp-page[data-role='cur'] .pl-now {
   opacity: 1;
 }
-.pl-wl-sub {
-  margin: 4px 0 0;
-  font: 400 15px/20px var(--sans);
+.pl-week-sec > .pl-mcard + .pl-group,
+.pl-week-sec > .pl-mcard + .pl-skel {
+  margin-top: var(--gap);
+}
+
+/* ---------- the week's mileage card: label and runs, the big number, the bars with their target, the key, the sentence ---------- */
+.pl-mcard {
+  display: grid;
+  min-width: 0;
+}
+.pl-mcard.is-wait {
+  min-height: 252px;
+}
+.pl-mc-head {
+  display: grid;
+  gap: 2px;
+}
+.pl-mc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.pl-mc-top .tile-label svg {
+  color: var(--ink-3);
+}
+.pl-mc-top .tile-status {
+  flex: none;
+  white-space: nowrap;
+}
+.pl-mc-value {
+  font-size: 2.125rem;
+  line-height: 2.375rem;
+}
+.pl-mc-foot {
+  margin: 14px -16px 0;
+  padding: 12px 16px 0;
+  border-top: 1px solid var(--line);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-/* ---------- the seven days: 60 px rows in one inset group (§7.2) ---------- */
+
+/* ---------- the days: one card, a row per day (the date, then its sessions as rows with an icon tile) ---------- */
 .pl-group {
   position: relative;
-  margin-top: 16px;
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
-  border-radius: var(--r-group);
+  border-radius: var(--r-card);
   overflow: hidden;
 }
 /* the week group's surface belongs to its rows (an inset grouped table): the first row carries the top edge, the last the
@@ -108,13 +192,11 @@
 .pl-wsurf {
   position: absolute;
   z-index: -1;
-  top: var(--r-group);
-  bottom: var(--r-group);
+  top: var(--r-card);
+  bottom: var(--r-card);
   left: 0;
   right: 0;
   background: var(--surface);
-  border-left: var(--card-border);
-  border-right: var(--card-border);
   transform-origin: 50% 0;
   pointer-events: none;
 }
@@ -125,37 +207,28 @@
 .pl-wgroup > .pl-conflict ~ .pl-day {
   z-index: 1;
 }
-.pl-wgroup > .pl-day,
-.pl-wgroup > .pl-conflict {
-  border-left: var(--card-border);
-  border-right: var(--card-border);
-}
 .pl-wgroup > .pl-wsurf + * {
-  border-top: var(--card-border);
-  border-top-left-radius: var(--r-group);
-  border-top-right-radius: var(--r-group);
+  border-top-left-radius: var(--r-card);
+  border-top-right-radius: var(--r-card);
 }
 .pl-wgroup > :last-child {
-  border-bottom: var(--card-border);
-  border-bottom-left-radius: var(--r-group);
-  border-bottom-right-radius: var(--r-group);
-}
-.pl-wgroup > .pl-wsurf + * .pl-lines > :first-child,
-.pl-wgroup > .pl-wsurf + * .pl-lines > .pl-slot:first-child > .pl-line {
-  border-top-right-radius: calc(var(--r-group) - 1px);
-}
-.pl-wgroup > :last-child .pl-lines > :last-child,
-.pl-wgroup > :last-child .pl-lines > .pl-slot:last-child > .pl-line {
-  border-bottom-right-radius: calc(var(--r-group) - 1px);
+  border-bottom-left-radius: var(--r-card);
+  border-bottom-right-radius: var(--r-card);
 }
 .pl-day {
   position: relative;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 4px;
   padding-left: 16px;
   background: var(--surface);
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-/* hairlines inset 16 */
+/* today, lit: a wash of Columbia across its row, its number in the orange disc */
+.pl-day.is-today {
+  background: color-mix(in srgb, var(--columbia-wash) 75%, var(--surface));
+}
+/* hairlines between days, from the gutter */
 .pl-day + .pl-day::before,
 .pl-conflict + .pl-day::before,
 .pl-day + .pl-conflict::before {
@@ -169,58 +242,61 @@
 }
 .pl-date {
   display: grid;
-  grid-template-rows: 13px 28px;
+  grid-template-rows: 30px 16px;
   align-content: start;
-  justify-items: start;
-  gap: 2px;
-  padding-top: 8px;
-  height: 60px;
-}
-.pl-dow {
-  font: 600 11px/13px var(--sans);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  justify-items: center;
+  gap: 0;
+  width: 36px;
+  padding-top: 9px;
 }
 .pl-num {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  margin-left: -6px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  font: 600 15px/20px var(--sans);
+  font: 700 1.125rem / 1 var(--stamp);
+  letter-spacing: -0.01em;
   color: var(--ink);
+}
+.pl-dow {
+  font: 500 var(--fs-orb) / 1rem var(--sans);
+  color: var(--ink-3);
 }
 .pl-day.is-past .pl-num {
-  color: var(--ink-2);
-}
-.pl-day.is-today .pl-dow {
-  color: var(--ink);
+  color: var(--ink-3);
 }
 .pl-day.is-today .pl-num {
   background: var(--accent);
   color: var(--accent-ink);
+  box-shadow: 0 0 12px rgba(242, 96, 12, 0.32);
+}
+.pl-day.is-today .pl-dow {
+  color: var(--ink);
+  font-weight: 600;
 }
 .pl-lines {
   min-width: 0;
 }
+/* between two sessions of a day: a hairline from the words, not the edge */
 .pl-slot + .pl-slot > .pl-line,
 .pl-slot + .pl-line {
-  box-shadow: inset 0 1px 0 var(--line);
+  background-image: linear-gradient(var(--line), var(--line));
+  background-size: calc(100% - 44px) 1px;
+  background-position: right top;
+  background-repeat: no-repeat;
 }
-/* a session: tone bar 3, its name as a 17 px stamp, the distance 15 ink-3, the status */
+/* a session: its icon tile in its tone, the name 17/22 600 over one line 15/20 grey, the status at the right */
 .pl-line.pressable {
   position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  height: 60px;
-  min-height: 60px;
-  padding: 0 16px 0 0;
+  min-height: 64px;
+  padding: 10px 16px 10px 0;
   border: 0;
-  background: var(--surface);
+  background-color: transparent;
   color: var(--ink);
   text-align: left;
   font: inherit;
@@ -231,12 +307,16 @@
     background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .pl-line[data-pressed][data-press='surface'] {
-  background: var(--surface-2);
+  background-color: color-mix(in srgb, var(--surface-2) 70%, transparent);
 }
 /* lifted in place for the menu (ui/lift.ts scales it to 1.03; the menu's cut-out shows it at full brightness) */
 .pl-line[data-lifting] {
-  border-radius: var(--r-group);
-  background: var(--surface-2);
+  border-radius: var(--r-tile);
+  padding-left: 8px;
+  margin-left: -8px;
+  width: calc(100% + 8px);
+  background-color: var(--surface);
+  box-shadow: var(--shadow-float);
 }
 /* in the air: the pill carries it; the row stays as its placeholder (and while the pill lands) */
 .pl-line.is-moving > *,
@@ -247,7 +327,8 @@
    (feel review 2 G); it settles in 120 ms (the lift's own [data-lifting] rule turns transitions off) */
 .pl-line[data-dragging] {
   scale: 1 !important;
-  background: var(--surface) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
 }
 .pl-line.pressable[data-lifting][data-dragging] {
   transition:
@@ -261,12 +342,22 @@
 .pl-slot .pl-line > * {
   transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.pl-tone {
+.pl-ic {
   flex: none;
-  width: 3px;
-  height: 32px;
-  border-radius: 2px;
-  background: var(--tone, var(--t-rest));
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-icon);
+  background: color-mix(in srgb, var(--tone, var(--t-rest)) 13%, var(--surface));
+  color: var(--tone, var(--t-rest));
+}
+.pl-ic.is-empty {
+  background: transparent;
+}
+.pl-ic.is-add {
+  border: 1.5px dashed var(--line-strong);
+  color: var(--ink-3);
 }
 .pl-main {
   display: grid;
@@ -275,22 +366,17 @@
 }
 .pl-name {
   overflow: hidden;
-  font-size: 17px;
-  line-height: 22px;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .pl-sub {
   overflow: hidden;
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.pl-dist {
-  flex: none;
-  font: 400 15px/20px var(--sans);
-  color: var(--ink-3);
 }
 .pl-st {
   flex: none;
@@ -298,15 +384,25 @@
   place-items: center;
   min-width: 14px;
 }
+/* done: a check in a lit disc */
 .pl-st.is-check {
-  color: var(--accent-text);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 0 10px rgba(242, 96, 12, 0.3);
+}
+.pl-st.is-chev {
+  color: var(--ink-4);
 }
 .pl-st.is-word {
-  font: 500 13px/18px var(--sans);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .pl-st.is-word.k-floor {
   color: var(--warn);
+  font-weight: 600;
 }
 /* missed: the word in ink-3 and a 1 px strike on the name; never red */
 .pl-line.k-missed .pl-name {
@@ -315,27 +411,22 @@
   text-decoration-color: var(--ink-3);
   color: var(--ink-2);
 }
-.pl-line.k-missed .pl-tone,
-.pl-line.k-skipped .pl-tone {
-  opacity: 0.4;
+.pl-line.k-missed .pl-ic,
+.pl-line.k-skipped .pl-ic {
+  opacity: 0.45;
 }
 .pl-line.k-skipped .pl-name {
   color: var(--ink-3);
 }
-.pl-line.is-rest .pl-tone {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
-}
-/* a day with nothing planned: no rest outline, no word (only the + from today on) */
-.pl-line.is-empty .pl-tone {
-  box-shadow: none;
-}
-.pl-rest {
-  font: 400 17px/22px var(--sans);
+.pl-line.is-rest .pl-ic:not(.is-empty) {
+  background: var(--surface-2);
   color: var(--ink-3);
 }
-.pl-plus {
-  flex: none;
+.pl-line.is-rest {
+  min-height: 56px;
+}
+.pl-rest {
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink-3);
 }
 /* a day lit under a dragged session: the 2 px accent ring inside, --accent-tint */
@@ -343,44 +434,43 @@
   background: var(--accent-tint);
   box-shadow: inset 0 0 0 2px var(--accent);
 }
-.pl-day.is-target .pl-line.pressable {
-  background: transparent;
-}
 /* the inline question under a hard pair */
 .pl-conflict {
   position: relative;
-  padding: 12px 16px;
+  padding: 12px 16px 14px;
   background: var(--surface);
 }
 .pl-conflict p {
   margin: 0;
-  font: 500 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
 .pl-conflict-acts {
   display: flex;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 .pl-ask.pressable {
   position: relative;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 14px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 16px;
   border: 0;
   border-radius: var(--r-pill);
-  background: var(--surface-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
-  font: 600 13px/16px var(--sans);
+  font: 600 var(--fs-sub) / 1 var(--sans);
 }
 .pl-ask.is-on {
-  background: var(--accent-tint);
-  color: var(--accent-text);
+  background: var(--primary);
+  color: var(--primary-ink);
+  box-shadow: none;
 }
 .pl-ask::after {
   content: '';
   position: absolute;
-  inset: -6px 0;
+  inset: -4px 0;
 }
 /* the pill in the air (portalled to body; its transform is written from the finger) */
 .drag-pill {
@@ -391,11 +481,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 14px 0 12px;
+  height: 40px;
+  padding: 0 16px 0 14px;
   border-radius: var(--r-pill);
-  background: var(--surface-3);
-  border: 1px solid var(--line-strong);
+  background: var(--surface);
   box-shadow: var(--shadow-2);
   color: var(--ink);
   pointer-events: none;
@@ -410,9 +499,8 @@
   background: var(--tone, var(--accent));
 }
 .drag-pill-name {
-  font: 800 15px/20px var(--stamp);
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  letter-spacing: -0.01em;
 }
 /* skeleton: the seven rows' shape */
 .pl-skel {
@@ -426,55 +514,85 @@
   display: flex;
   align-items: center;
   gap: 24px;
-  height: 60px;
+  height: 64px;
   padding: 0 16px;
 }
 
-/* ---------- the block card (§7.2: card 20/16, 128 tall; the arc 24; one 44 row, New block ›) ---------- */
-.pl-block {
+/* ---------- the block card: opens the plan (its arrow), the caption, the name, its dates, the arc; then New block ---------- */
+.pl-block.card {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 44px;
-  height: 128px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
+  padding: 0;
   overflow: hidden;
 }
-.pl-block-main {
+.pl-block-main.pressable {
+  position: relative;
   display: grid;
-  grid-template-rows: 14px 28px 24px;
-  row-gap: 2px;
-  align-content: start;
+  gap: 2px;
   min-width: 0;
-  padding: 10px 16px 0;
+  padding: 16px 48px 14px 16px;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pl-block-main[data-pressed] {
+  background: var(--surface-2);
+}
+.pl-block-go {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: var(--ink-4);
 }
 .pl-block-cap {
-  align-self: center;
+  display: block;
+  margin-bottom: 2px;
 }
 .pl-block-name {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 600 22px/28px var(--sans);
+  overflow-wrap: break-word;
+  font: 600 1.25rem / 1.5625rem var(--sans);
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.pl-block .pl-arc {
-  height: 24px;
+.pl-block-dates {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
 }
-.pl-block-new {
+.pl-block-main .pl-arc {
+  height: 40px;
+  margin: 12px -32px 0 0;
+}
+.pl-block-new.pressable {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   width: 100%;
-  height: 44px;
-  padding: 0 12px 0 16px;
-  font: 600 15px/20px var(--sans);
-  color: var(--accent-text);
+  min-height: 56px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   text-align: left;
+  background: transparent;
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pl-block-new[data-pressed] {
+  background: var(--surface-2);
+}
+.pl-block-new .icon-tile {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pl-block-new-t {
+  flex: 1 1 auto;
+}
+.pl-block-new > svg:last-child {
+  color: var(--ink-4);
+}
+.pl-block-empty.card {
+  padding: 0;
+  overflow: hidden;
 }
 .pl-arc {
   display: flex;
@@ -496,29 +614,35 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border-radius: 3px;
-  min-height: 2px;
+  border-radius: 4px 4px 2px 2px;
+  min-height: 3px;
 }
 .pl-arc-wk .plan {
   background: var(--surface-3);
 }
 .pl-arc-wk.ahead .plan {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  background: var(--columbia-wash);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 .pl-arc-wk .ran {
-  background: var(--accent);
+  background: var(--ink-2);
 }
 .pl-arc-wk.is-now .plan {
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
-  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  background: var(--accent-soft);
+}
+.pl-arc-wk.is-now .ran {
+  background: var(--accent);
 }
 
-/* ---------- the month, zoomed out ---------- */
-/* ---------- the month (§7.3): 7 × ≤ 6 rows of 56 px cells, a Wk column, this week on --surface ---------- */
-.mg {
+/* ---------- the month: one card, the weekday letters over up to six week rows (a Wk column), this week lit ---------- */
+.pl-month-sec .pl-head-meta {
+  margin-left: auto;
+}
+.mg.card {
   display: grid;
   gap: 0;
+  padding: 8px 8px 8px;
 }
 .mg-head,
 .mg-week {
@@ -526,13 +650,14 @@
   grid-template-columns: repeat(7, minmax(0, 1fr)) 52px;
 }
 .mg-head {
-  height: 24px;
+  height: 32px;
   align-items: center;
+  margin: 0 0 2px;
+  border-bottom: 1px solid var(--line);
 }
 .mg-head span {
   text-align: center;
-  font: 600 11px/13px var(--sans);
-  letter-spacing: 0.06em;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .mg-head .mg-wk-h {
@@ -541,13 +666,13 @@
 }
 .mg-week.pressable {
   position: relative;
-  height: 56px;
-  min-height: 56px;
-  border-radius: var(--r-group);
+  height: 60px;
+  min-height: 60px;
+  border-radius: var(--r-control);
   transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .mg-week.is-now {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--columbia-wash) 75%, var(--surface));
 }
 .mg-week[data-pressed][data-press='surface'] {
   background: var(--surface-2);
@@ -555,7 +680,7 @@
 .mg-cell {
   position: relative;
   display: grid;
-  grid-template-rows: 18px 13px;
+  grid-template-rows: 24px 14px;
   align-content: start;
   justify-items: center;
   gap: 2px;
@@ -565,32 +690,33 @@
 .mg-num {
   display: grid;
   place-items: center;
-  min-width: 22px;
-  height: 18px;
-  border-radius: 9px;
-  font: 500 13px/18px var(--sans);
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  font: 600 var(--fs-sub) / 1 var(--stamp);
   color: var(--ink);
 }
 .mg-cell.is-today .mg-num {
   background: var(--accent);
   color: var(--accent-ink);
-  font-weight: 600;
+  box-shadow: 0 0 10px rgba(242, 96, 12, 0.3);
 }
 .mg-cell.is-out .mg-num,
 .mg-cell.is-out .mg-mi {
   color: var(--ink-4);
 }
 .mg-mi {
-  font: 500 11px/13px var(--sans);
+  font: 500 var(--fs-orb) / 14px var(--sans);
   color: var(--ink-3);
 }
 .mg-mi.is-ran {
   color: var(--ink);
+  font-weight: 600;
 }
 .mg-cell.has-tone::after {
   content: '';
   position: absolute;
-  bottom: 8px;
+  bottom: 6px;
   left: 50%;
   width: 16px;
   height: 3px;
@@ -617,51 +743,51 @@
   min-width: 0;
 }
 .mg-wk b {
-  font: 600 15px/20px var(--sans);
+  font: 700 var(--fs-row) / var(--lh-row) var(--stamp);
   color: var(--ink);
 }
 .mg-wk small {
-  font: 400 11px/13px var(--sans);
+  font: 400 var(--fs-orb) / 14px var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
 }
 .mg-wk.is-plan b {
   color: var(--ink-3);
 }
-/* the block card under the grid keeps the page's rhythm */
-.pl-mpage .mg + * {
-  margin-top: 24px;
-}
 
-/* ---------- the plans list (Settings › Plans): one inset group of 60 px rows ---------- */
+/* ---------- the plans list (Settings › Plans): one inset group, an icon tile before each plan ---------- */
 .pl-plans,
 .pl-detail {
   display: grid;
-  gap: 16px;
+  gap: var(--gap);
   min-width: 0;
 }
-.pl-plans .pl-plan-list {
-  margin-top: 0;
+.pl-plans .group {
+  border-radius: var(--r-tile);
 }
-.pl-plan-row {
+.pl-plan-row.pressable {
   position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 60px;
-  padding: 0 12px 0 16px;
+  min-height: 64px;
+  padding: 8px 12px 8px 16px;
   text-align: left;
   color: inherit;
+  background: var(--surface);
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.pl-plan-row + .pl-plan-row::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 16px;
-  right: 0;
-  height: 1px;
-  background: var(--line);
+.pl-plan-row[data-pressed] {
+  background: var(--surface-2);
+}
+.pl-plan-ic.is-on {
+  background: var(--columbia);
+  color: var(--ink);
+}
+.pl-ai-ic {
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 .pl-plan-main {
   display: grid;
@@ -669,49 +795,82 @@
   min-width: 0;
 }
 .pl-plan-name {
-  font: 600 17px/22px var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pl-plan-sub {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .pl-plan-st {
   flex: none;
-  font: 400 13px/18px var(--sans);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .pl-plan-st.on {
   color: var(--accent-text);
-}
-.pl-plans-empty {
-  margin: 0;
-}
-.pl-ai-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 60px;
-  border-radius: var(--r-group);
-  background: var(--accent-tint);
-  padding: 8px 12px;
-  color: var(--accent-text);
-  text-align: left;
-}
-.pl-ai-row > span {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-}
-.pl-ai-row b {
-  color: var(--ink);
   font-weight: 600;
+}
+.pl-plan-chev {
+  flex: none;
+  color: var(--ink-4);
+}
+.pl-plans-empty.card {
+  display: grid;
+  gap: 4px;
+}
+.pl-plans-empty-t {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.pl-plans-empty-s {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+/* a plan's sheet: the arc card, two tiles, the words, the one pill */
+.pl-detail-arc.card {
+  display: grid;
+  gap: 2px;
+}
+.pl-detail-arc .pl-arc {
+  margin-top: 12px;
+}
+.pl-detail-label {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.pl-detail-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.pl-detail-words.card {
+  display: grid;
+  gap: 4px;
+}
+.pl-detail-sum {
+  margin: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+/* the red trash in a tinted circle at the sheet's top right */
+.icon-btn.pl-del {
+  background: var(--bad-soft);
+  color: var(--bad);
+  box-shadow: none;
 }
 /* a destructive verb reads red, as every destructive item does, over the quiet variant's ink (feel review 3 #7) */
 .btn.danger-text,
 .btn.quiet.danger-text {
   color: var(--bad);
 }
-
 /* ---------- New block: the template picker ---------- */
 .tp {
   display: grid;
@@ -1134,35 +1293,29 @@
   margin-top: 8px;
 }
 
-/* the block card under the week's group and the month's grid: 24 between sections (§3) */
-.pl-wpage > .pl-block,
-.pl-wpage > .pl-block-empty,
-.pl-mpage > .pl-block,
-.pl-mpage > .pl-block-empty {
-  margin-top: 24px;
-}
-
 /* a pager slot drawn from the stash's HTML (PlanView, feel review 3 #1): the page box is its own child */
 .pl-snap {
   display: contents;
 }
 
 /* ---------- sessions on hold while a status holds them (docs/inspiration.md §5) ---------- */
-.pl-line.is-held {
+.pl-line.is-held .pl-ic,
+.pl-line.is-held .pl-name {
   opacity: 0.55;
 }
 .pl-line.is-held .pl-sub {
   color: var(--accent-text);
   font-weight: 600;
 }
+/* the held banner: one card under the morning, its status as an icon row, the sentence, the two ways out */
 .held {
   position: relative;
   overflow: hidden;
   isolation: isolate;
   display: grid;
-  gap: 6px;
-  margin: -12px 16px 20px;
-  padding: 16px 16px 14px;
+  gap: 12px;
+  margin: var(--gap) 16px 0;
+  padding: var(--pad-card);
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
@@ -1174,17 +1327,44 @@
   height: 80px;
   z-index: -1;
   background: var(--halo-amber);
-  opacity: 0.8;
+  opacity: 0.7;
   pointer-events: none;
 }
 .held-rest .held-glow {
   background: var(--halo);
 }
-.held-caps {
+.held-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.held-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-soft);
   color: var(--accent-text);
 }
-.held-rest .held-caps {
+.held-rest .held-ic,
+.held-travel .held-ic {
+  background: var(--columbia-wash);
   color: var(--ink-2);
+}
+.held-words {
+  display: grid;
+  min-width: 0;
+}
+.held-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.held-sub {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
 }
 .held-line {
   margin: 0;
@@ -1197,5 +1377,214 @@
 .held-actions {
   display: flex;
   gap: 8px;
-  margin-top: 6px;
+}
+
+/* at 320 the chips keep their words: the round icons give up their room */
+@media (max-width: 359px) {
+  .pl-ctx .ctx-ic {
+    display: none;
+  }
+  .pl-ctx .ctx-chip {
+    padding-left: 14px;
+  }
+}
+
+/* ---------- the builder on the shape system (docs/shape-system.md §6, an entry sheet): the preview as a card in the fixed
+   header, then each choice in its own card (a 17/22 title, the controls filled on white), the two numbers as tiles with
+   steppers, the two switches as an inset group, the weeks in a card, the one navy pill pinned ---------- */
+.sheet-header:has(> .bh) {
+  box-shadow: none;
+  padding-bottom: 4px;
+}
+.bh {
+  height: 172px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.bh-face {
+  inset: 14px 16px;
+}
+.tp {
+  gap: var(--gap);
+}
+.tp-card.card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.tp-card-top {
+  display: grid;
+}
+.tp-card-h {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.tp-card-s {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.tp-long > .tp-card-s {
+  align-self: center;
+  margin-right: 4px;
+}
+/* controls on a white card are filled, never outlined: the chosen one navy */
+.tp-card .pl-chip {
+  height: 40px;
+  border-color: transparent;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.tp-card .pl-chip.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
+}
+.tp-card .tp-day {
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+  box-shadow: none;
+  color: var(--ink-3);
+}
+.tp-card .tp-day.on {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.tp-card .tp-day.long {
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    0 0 12px rgba(242, 96, 12, 0.35);
+}
+/* at 320 the day letters keep inside the card's padding */
+.tp-card .tp-days {
+  margin-inline: 0;
+}
+.tp-steps.tiles {
+  gap: var(--gap);
+}
+.tp-step.tile {
+  gap: 10px;
+}
+.tp-step .tile-label {
+  white-space: normal;
+}
+.tp-step .stepper {
+  height: 44px;
+}
+.tp-opts.group {
+  border-radius: var(--r-tile);
+}
+.tp-opt.pressable {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 16px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tp-opt[data-pressed] {
+  background: var(--surface-2);
+}
+.tp-opt-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tp-opt-t {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+}
+.tp-opt-s {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+/* a switch: a pill track and a white knob; on, the track navy */
+.pl-switch {
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pl-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 2px 6px rgba(15, 42, 68, 0.2);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pl-switch.on {
+  background: var(--primary);
+}
+.pl-switch.on::after {
+  transform: translateX(20px);
+}
+.tp-preview.card {
+  gap: 10px;
+}
+.tp-preview .tp-weeks {
+  opacity: 1;
+}
+.tp-cell {
+  background: var(--surface-2);
+}
+.tp-sum {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.sheet-foot.tp-foot .btn.primary.tp-verb {
+  min-height: 54px;
+  font-size: 1.0625rem;
+}
+.tp-note {
+  text-align: center;
+}
+.pl-plan-name {
+  white-space: normal;
+}
+.tp-step .stepper {
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+}
+.tp-step .step {
+  background: transparent;
+  color: var(--ink);
+}
+@media (max-width: 359px) {
+  .tp-cell {
+    font-size: 0.625rem;
+    letter-spacing: -0.04em;
+  }
+}
+
+/* the AI builder preview: sections 28 apart, the weeks in one group, the one pill pinned */
+.pv-head {
+  margin-top: var(--section);
+}
+.pv-weeks.group {
+  border-radius: var(--r-card);
+}
+.pv-actions {
+  justify-content: center;
+}
+.pv-foot.sheet-foot .btn.block {
+  width: 100%;
 }

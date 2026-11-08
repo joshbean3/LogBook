@@ -183,7 +183,7 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
         <span className="mc-foot">
           <span className="mc-quiet">{quiet}</span>
           <span className="mc-open">
-            See the schedule
+            Schedule
             <ChevronRight size={16} aria-hidden="true" />
           </span>
         </span>
