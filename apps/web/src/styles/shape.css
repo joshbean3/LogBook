@@ -22,8 +22,18 @@
 }
 /* separators start where the words start, not at the card's edge */
 .group > * + * {
+  position: relative;
   border-top: 0;
-  box-shadow: inset 16px 1px 0 var(--surface), inset 0 1px 0 var(--line);
+}
+.group > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
 }
 
 /* a 2-column grid of tiles (Health Monitor in the references): label, big number with unit, status word */
