@@ -77,7 +77,7 @@ export default defineConfig({
   resolve: { alias: { '@': path.resolve(here, 'src') } },
   server: {
     port: 5173,
-    proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: false } },
+    proxy: { '/api': { target: `http://localhost:${process.env.API_PORT ?? 8787}`, changeOrigin: false } },
   },
   build: { target: 'es2022', sourcemap: false, chunkSizeWarningLimit: 900 },
 });
