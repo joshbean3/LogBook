@@ -32,7 +32,7 @@ const Frame = ({ title, sub, children, foot, back }: { title?: string; sub?: str
         <motion.div className="auth-body" initial={reduce ? { opacity: 0 } : { opacity: 0, y: fromStart ? 40 : 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fadeIn : springs.page}>
           {back ? (
             <button type="button" className="icon-btn auth-back" aria-label="Back" onClick={back}>
-              <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
+              <ChevronLeft size={22} strokeWidth={2.2} aria-hidden="true" />
             </button>
           ) : (
             <div className="auth-brand">
@@ -65,7 +65,7 @@ const AuthField = ({
   const msg = error || hint;
   return (
     <div className={`auth-field ${error ? 'bad' : ''}`}>
-      <label className="auth-label caps" htmlFor={id}>
+      <label className="auth-label" htmlFor={id}>
         {label}
       </label>
       <div className="auth-in-wrap">
@@ -159,8 +159,10 @@ export const Login = () => {
       }
     >
       <form className="auth-form" onSubmit={submit} noValidate>
+        <div className="card auth-fields">
         <AuthField inputRef={emailRef} label="Email" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" autoFocus={!handed} value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={nextOn(pwRef)} error={err.email} />
         <AuthField inputRef={pwRef} label="Password" type="password" name="password" autoComplete="current-password" enterKeyHint="go" reveal autoFocus={!!handed} value={pw} onChange={(e) => setPw(e.target.value)} error={err.password} />
+        </div>
         {err.form ? (
           <p className="auth-err form" role="alert">
             {err.form}
@@ -249,6 +251,7 @@ export const Signup = () => {
     return (
       <Frame key="email" title="What’s your email?" sub="You sign in with it. It’s never shared." back={() => (canGoBack() ? nav(-1) : nav('/start', { replace: true, state: { step: 'privacy' } }))} foot={foot}>
         <form className="auth-form" onSubmit={toPassword} noValidate>
+          <div className="card auth-fields">
           <AuthField
             inputRef={refs.email}
             label="Email"
@@ -268,6 +271,7 @@ export const Signup = () => {
             }}
             error={err.email}
           />
+          </div>
           {taken ? (
             <Link to="/login" replace state={{ email: email.trim() }} className="btn soft block auth-taken">
               Sign in with that email
@@ -284,6 +288,7 @@ export const Signup = () => {
       <form className="auth-form" onSubmit={submit} noValidate>
         {/* the pair, for a password manager: the email stays in the form, out of sight */}
         <input type="email" name="email" autoComplete="username" value={email.trim()} readOnly hidden />
+        <div className="card auth-fields">
         <AuthField
           inputRef={refs.password}
           label="Password"
@@ -300,6 +305,7 @@ export const Signup = () => {
           }}
           hint={pwOk ? 'Good.' : pw ? `${8 - pw.length} more ${8 - pw.length === 1 ? 'character' : 'characters'}.` : 'At least 8 characters.'}
         />
+        </div>
         {err.form ? (
           <p className="auth-err form" role="alert">
             {err.form}

@@ -1,4 +1,5 @@
-/* ---------- Sign in and sign up: a black screen lit from the bottom, no card ---------- */
+/* ---------- Sign in and sign up (shape system v2, reference 710-711): the round back button, the serif question, the
+   fields in one white card, and the navy pill pinned at the bottom with the other door under it. The halo rises once. ---------- */
 .auth {
   position: relative;
   isolation: isolate;
@@ -6,13 +7,12 @@
   height: 100%;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  display: grid;
-  align-content: start;
-  justify-items: stretch;
-  padding: calc(48px + var(--safe-t)) var(--gutter) calc(32px + var(--safe-b));
+  display: flex;
+  flex-direction: column;
+  padding: calc(8px + var(--safe-t)) var(--gutter) calc(12px + var(--safe-b));
   background: var(--bg);
   color: var(--ink);
-  overflow: hidden;
+  overflow-x: hidden;
   container: page / inline-size;
 }
 /* the halo rises from the bottom of the viewport, under the form, never under the words; once, as the screen arrives */
@@ -38,51 +38,69 @@
   }
 }
 .auth-body {
+  flex: 1;
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
   margin-inline: auto;
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .auth-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--ink);
-  margin-bottom: 24px;
-}
-.auth-back {
-  width: 44px;
   height: 44px;
-  margin: -28px 0 12px -10px;
+  margin-bottom: 28px;
   color: var(--ink);
 }
 .auth-brand .caps {
   color: var(--ink-2);
 }
+.auth .auth-back.icon-btn {
+  align-self: flex-start;
+  width: 40px;
+  height: 40px;
+  margin: 2px 0 30px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+}
 .auth-title {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
+  margin: 0;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
   color: var(--ink);
   overflow-wrap: break-word;
 }
 .auth-sub {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  margin: 6px 0 24px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-3);
-  letter-spacing: -0.01em;
-  margin-bottom: 16px;
-  max-width: 32ch;
+  max-width: 34ch;
 }
 .auth-form {
-  display: grid;
-  gap: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+/* the fields: one white card, each field a label over a filled input, a hairline between two */
+.card.auth-fields {
+  gap: 0;
+  padding: 4px 16px;
 }
 .auth-field {
   display: grid;
   gap: 6px;
+  padding: 12px 0 14px;
+}
+.auth-field + .auth-field {
+  border-top: 1px solid var(--line);
 }
 .auth-label {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .auth-field.bad .auth-label {
@@ -92,10 +110,12 @@
   position: relative;
 }
 .auth .in.auth-in {
-  background: var(--surface);
-  border-color: var(--line-strong);
   height: 52px;
   padding: 0 14px;
+  border: 2px solid transparent;
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+  box-shadow: none;
   color: var(--ink);
   font-size: 1.0625rem;
 }
@@ -103,7 +123,7 @@
   padding-right: 52px;
 }
 .auth .in.auth-in:focus {
-  border-color: var(--ink-3);
+  border-color: var(--ink-2);
   box-shadow: none;
 }
 .auth-field.bad .in.auth-in {
@@ -127,32 +147,46 @@
   color: var(--ink);
 }
 .auth-err {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  margin: 0;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--bad);
 }
 .auth-err.form {
-  margin-top: -4px;
+  padding: 0 16px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
 }
 .auth-hint {
-  font-size: 0.75rem;
-  line-height: 1rem;
+  margin: 0;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
+/* the one navy pill, pinned to the bottom of the screen (it stays grey until the answer is valid) */
 .auth-submit.btn {
-  height: 52px;
-  margin-top: 4px;
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  height: 54px;
   font-size: 1.0625rem;
 }
+.auth-submit.btn:disabled {
+  background: var(--surface-3);
+  border-color: var(--surface-3);
+  color: var(--ink-4);
+  opacity: 1;
+}
 .auth-taken.btn {
-  margin-top: -6px;
+  height: 48px;
 }
 .auth-foot {
-  margin-top: 24px;
+  margin-top: 4px;
 }
 .auth-switch {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-3);
   text-align: center;
 }
@@ -162,25 +196,21 @@
   align-items: center;
   min-height: 44px;
   padding: 0 4px;
-  color: var(--ink);
+  color: var(--accent-text);
   font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--ink-4);
-  text-underline-offset: 4px;
+  text-decoration: none;
 }
 @media (max-width: 359px) {
-  .auth {
-    padding-top: calc(32px + var(--safe-t));
-  }
   .auth-title {
     font-size: 1.75rem;
     line-height: 2.125rem;
   }
-  .auth-brand {
-    margin-bottom: 16px;
+  .auth-brand,
+  .auth .auth-back.icon-btn {
+    margin-bottom: 18px;
   }
-  .auth-form {
-    gap: 12px;
+  .auth-sub {
+    margin-bottom: 16px;
   }
 }
 /* the same step-down at a larger text size: the screen is a size container in rem */
@@ -195,4 +225,3 @@
     animation: none;
   }
 }
-

@@ -8,7 +8,7 @@ import { haptics } from '@/lib/haptics';
 import { Button, Pressable, PushedBar, Row, useSheet, useToast } from '@/ui';
 import { ago } from './format';
 import { HrZonesRow } from './HrZones';
-import { GoRow, SGroup, Tile } from './parts';
+import { ActionPill, GoRow, SGroup, Tile } from './parts';
 import './dataSources.css';
 
 
@@ -147,9 +147,7 @@ export const DataSourcesPage = (): React.JSX.Element => {
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Data sources" />
-      <p className="s-lede">Where your runs and health numbers come from.</p>
-
-      <SGroup title="Strava">
+      <SGroup title="Strava" foot={can && s?.connected ? 'A run can take a minute to arrive after Strava has it.' : 'Where your runs come from.'}>
         {!can ? (
           <Row className="s-wrap has-tile" left={<Tile icon={Activity} tone="muted" />} title="Strava" sub="Not available on this Logbook yet." />
         ) : s?.connected && s.error ? (
@@ -182,9 +180,8 @@ export const DataSourcesPage = (): React.JSX.Element => {
         {can && s?.connected ? <GoRow className="s-how-row" icon={CircleHelp} title="How it connects" sub="The steps, and what to check if runs stop." onPress={() => openGuide(stravaGuide(true))} /> : null}
         <HrZonesRow zones={boot.data?.zones ?? null} connected={!!s?.connected} />
       </SGroup>
-      {can && s?.connected ? <p className="s-note ds-foot">A run can take a minute to arrive after Strava has it.</p> : null}
 
-      <SGroup title="Apple Health">
+      <SGroup title="Apple Health" foot="Sleep, heart-rate variability and resting heart rate will come from here.">
         <Row
           className="s-wrap has-tile ds-soon"
           left={<Tile icon={HeartPulse} tone="muted" />}
@@ -194,9 +191,11 @@ export const DataSourcesPage = (): React.JSX.Element => {
       </SGroup>
 
       {can && s?.connected ? (
-        <SGroup title="Disconnect" className="s-sec-quiet">
-          <Row className="s-danger" title="Disconnect Strava" onClick={() => sheet.open({ eyebrow: 'Connection', title: 'Disconnect Strava?', body: <DisconnectSheet /> })} />
-        </SGroup>
+        <div className="s-pills">
+          <ActionPill danger className="s-danger" onPress={() => sheet.open({ eyebrow: 'Connection', title: 'Disconnect Strava?', body: <DisconnectSheet /> })}>
+            Disconnect Strava
+          </ActionPill>
+        </div>
       ) : null}
     </div>
   );

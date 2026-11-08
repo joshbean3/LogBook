@@ -2,6 +2,7 @@ import type * as React from 'react';
 import { useConsent, useSaveConsent } from '@/features/auth/consent';
 import { CONSENT_TITLE, consentSub, PRIVACY_PROMISE, PrivacyFacts } from '@/features/auth/PrivacyFacts';
 import { haptics } from '@/lib/haptics';
+import { ShieldCheck } from 'lucide-react';
 import { PushedBar, Row, useToast } from '@/ui';
 import { SGroup, Switch } from './parts';
 
@@ -22,7 +23,12 @@ export const PrivacyPage = (): React.JSX.Element => {
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Privacy" />
-      <p className="s-lede s-promise">{PRIVACY_PROMISE}</p>
+      <section className="card s-hero" aria-label="The promise">
+        <span className="s-hero-ic" aria-hidden="true">
+          <ShieldCheck size={20} strokeWidth={2} />
+        </span>
+        <p className="s-hero-line display">{PRIVACY_PROMISE}</p>
+      </section>
       <SGroup title="The assistant">
         <Row
           className="s-wrap s-wrap-title"
@@ -49,9 +55,7 @@ export const PrivacyPage = (): React.JSX.Element => {
         />
         <Row className="s-wrap" title="Health data" sub="Asked separately when Apple Health arrives. Nothing is read until then." right={<span className="s-value">Not yet</span>} />
       </SGroup>
-      <div className="s-privacy-facts">
-        <PrivacyFacts on={on} />
-      </div>
+      <PrivacyFacts on={on} />
     </div>
   );
 };

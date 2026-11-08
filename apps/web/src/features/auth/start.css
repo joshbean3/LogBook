@@ -111,7 +111,7 @@
   border-radius: 12px;
 }
 .start-cta.btn {
-  height: 56px;
+  height: 54px;
   font-size: var(--fs-row);
 }
 /* the quiet way in for someone who already has an account: a full 48px target */
@@ -143,11 +143,13 @@
 }
 .pv-top {
   flex: none;
-  padding: calc(4px + var(--safe-t)) 8px 0;
+  padding: calc(8px + var(--safe-t)) var(--gutter) 0;
 }
-.pv-back {
-  width: 44px;
-  height: 44px;
+.start .pv-back.icon-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
   color: var(--ink);
 }
 .pv-body {
@@ -155,11 +157,11 @@
   width: 100%;
   max-width: 432px;
   margin-inline: auto;
-  padding: 4px var(--gutter) 16px;
+  padding: 24px var(--gutter) 16px;
 }
 .pv-title {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
 }
 .pv-promise {
   color: var(--ink);
@@ -170,10 +172,10 @@
   align-items: center;
   gap: 12px;
   margin-top: 24px;
-  padding: 14px 12px 14px 16px;
+  padding: 16px 14px 16px 16px;
   background: var(--surface);
   border: var(--card-border);
-  border-radius: var(--r-group);
+  border-radius: var(--r-card);
   box-shadow: var(--shadow-1);
 }
 .pv-choice-words {
@@ -193,9 +195,10 @@
   color: var(--ink-3);
 }
 .pv-later {
-  margin-top: 20px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  margin-top: 12px;
+  padding: 0 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 .pv-foot {

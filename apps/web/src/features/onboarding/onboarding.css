@@ -1,4 +1,5 @@
-/* ---------- First run: full screen, black, lit from the bottom. No tab bar, no cards. ---------- */
+/* ---------- First run (shape system v2, reference 165, 171, 710): full screen on the page colour, lit from the bottom;
+   one question to a screen, its answer in white cards, the navy pill pinned at the bottom. No tab bar. ---------- */
 .ob {
   position: relative;
   isolation: isolate;
@@ -50,10 +51,14 @@
   display: grid;
   grid-template-columns: 64px 1fr 64px;
   align-items: center;
-  padding: calc(4px + var(--safe-t)) 4px 0;
-  height: calc(52px + var(--safe-t));
+  padding: calc(6px + var(--safe-t)) var(--gutter) 0;
+  height: calc(54px + var(--safe-t));
 }
-.ob-back {
+.ob .ob-back.icon-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
   color: var(--ink);
 }
 /* the chevron and Skip fade with the dots (220 ms, opacity) when a step has none; hidden only once the fade is done. The
@@ -105,6 +110,7 @@
   background: none;
   height: 44px;
   min-width: 44px;
+  margin-right: -12px;
   padding: 0 12px;
   justify-self: end;
   font: inherit;
@@ -165,22 +171,29 @@
   min-width: 0;
 }
 .ob-title {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
+  margin-top: 8px;
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
   text-wrap: balance;
   overflow-wrap: break-word;
 }
 .ob-sub {
-  margin-top: 8px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  margin-top: 6px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-3);
-  max-width: 34ch;
+  max-width: 36ch;
 }
 .ob-body {
-  margin-top: 32px;
+  margin-top: 24px;
   display: flex;
   flex-direction: column;
+  gap: var(--gap);
+  min-width: 0;
+}
+/* an answer's white card */
+.card.ob-card {
+  gap: 0;
   min-width: 0;
 }
 .ob-foot {
@@ -199,8 +212,14 @@
   color: var(--ink-3);
 }
 .ob-cta.btn {
-  height: 56px;
+  height: 54px;
   font-size: 1.0625rem;
+}
+.ob-cta.btn:disabled {
+  background: var(--surface-3);
+  border-color: var(--surface-3);
+  color: var(--ink-4);
+  opacity: 1;
 }
 .ob-q-label {
   display: flex;
@@ -218,7 +237,7 @@
   color: var(--ink-2);
 }
 .ob-hint {
-  margin-top: 16px;
+  margin-top: 14px;
   font-size: 0.9375rem;
   line-height: 1.25rem;
   color: var(--ink-3);
@@ -250,50 +269,66 @@
   background: none;
 }
 
-/* ---------- goal chips: one selection look, a white thumb that slides ---------- */
+/* ---------- goal: choice cards (icon, name, one line); the chosen one outlined in navy, with a check ---------- */
 .ob-goals {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 .ob-goal {
   appearance: none;
   display: grid;
-  place-items: center;
-  position: relative;
-  isolation: isolate;
-  height: 56px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
+  grid-template-columns: 32px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 14px;
+  min-height: 66px;
+  padding: 12px 16px;
+  border-radius: var(--r-tile);
+  border: 0;
   background: var(--surface);
-  color: var(--ink-2);
+  box-shadow: var(--shadow-1), inset 0 0 0 1px rgba(15, 42, 68, 0.04);
+  color: var(--ink);
   font: inherit;
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  transition: color var(--dur-color) var(--ease-out);
-}
-.ob-goal.wide {
-  grid-column: 1 / -1;
+  text-align: left;
+  transition: box-shadow var(--dur-color) var(--ease-out);
 }
 .ob-goal.on {
-  color: var(--bg);
+  box-shadow: var(--shadow-1), inset 0 0 0 2px var(--ink);
 }
-.ob-goal-thumb {
-  position: absolute;
-  inset: -1px;
-  z-index: -1;
-  border-radius: inherit;
+.ob-goal .ob-goal-ic {
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+  transition:
+    background var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
+}
+.ob-goal.on .ob-goal-ic {
   background: var(--ink);
+  color: var(--primary-ink);
+}
+.ob-goal-words {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
 }
 .ob-goal-text {
-  position: relative;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+}
+.ob-goal-line {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.ob-goal-check {
+  display: grid;
+  place-items: center;
+  color: var(--ink);
 }
 
 /* ---------- race day wheel ---------- */
 .ob-race-block {
   overflow: hidden;
-  margin-top: 32px;
+  margin-top: 2px;
 }
 .ob-race-block > .ob-q-label {
   margin-bottom: 12px;
@@ -466,7 +501,7 @@
 
 /* ---------- weekly miles: the big stepper ---------- */
 .ob-miles-label {
-  margin-top: 40px;
+  margin-top: 0;
 }
 .ob-miles {
   margin-top: 16px;
@@ -628,8 +663,11 @@
   color: var(--ink-4);
   font-variant-numeric: tabular-nums;
 }
-.ob-verdict {
-  margin-top: 32px;
+.card.ob-verdict {
+  gap: 0;
+  background: var(--surface) var(--halo) no-repeat;
+  background-size: 100% 150%;
+  background-position: 50% 100%;
 }
 .ob-verdict-big {
   font-size: 1.75rem;
@@ -699,18 +737,18 @@
   color: var(--ink-3);
 }
 .ob-chips {
-  margin-top: 24px;
+  margin-top: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 .ob-chip {
   appearance: none;
-  height: 44px;
+  height: 40px;
   padding: 0 16px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
+  border: 1px solid transparent;
+  background: var(--surface-2);
   color: var(--ink-2);
   font: inherit;
   font-size: 0.9375rem;
@@ -732,6 +770,8 @@
 }
 .ob-chip.add {
   border-style: dashed;
+  border-color: var(--line-strong);
+  background: transparent;
   color: var(--ink-3);
 }
 .ob-chip:disabled {
@@ -805,11 +845,16 @@
   line-height: 1.75rem;
   color: var(--ink-2);
 }
+/* the first week: rows in one white card */
 .ob-week {
   list-style: none;
-  margin: 16px calc(-1 * var(--page-pad)) 0;
-  padding: 0;
+  margin: 16px 0 0;
+  padding: 4px 0;
   display: grid;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
 }
 .ob-wrow {
   position: relative;
@@ -818,13 +863,13 @@
   align-items: center;
   gap: 12px;
   min-height: 44px;
-  padding-inline: var(--page-pad);
+  padding-inline: 16px;
 }
 .ob-wrow + .ob-wrow::before {
   content: '';
   position: absolute;
   top: 0;
-  left: var(--page-pad);
+  left: 16px;
   right: 0;
   height: 1px;
   background: var(--line);
@@ -925,23 +970,23 @@
     line-height: 2.125rem;
   }
   .ob-body {
-    margin-top: 24px;
+    margin-top: 18px;
+  }
+  .ob-goal {
+    min-height: 60px;
+    padding-block: 10px;
   }
   .ob-goals {
     gap: 10px;
   }
-  .ob-miles-label {
-    margin-top: 24px;
-  }
+
   .ob-week {
     margin-top: 20px;
   }
   .ob-wrow {
     min-height: 44px;
   }
-  .ob-verdict {
-    margin-top: 20px;
-  }
+
 }
 @container page (max-width: 21rem) {
   /* the week's mileage bars give the name column room for "EASY 4" and its LONG tag at 320 (it read "LO…") */
@@ -975,7 +1020,7 @@
 
 /* the morning step: what happens before you leave, and the one-tap fix when it is tight */
 .ob-routine-label {
-  margin-top: 28px;
+  margin-top: 0;
 }
 .ob-routine {
   margin-top: 12px;

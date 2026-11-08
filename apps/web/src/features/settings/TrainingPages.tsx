@@ -8,11 +8,10 @@ import { DayLetters, Dial, GoalChips, MilesDial, RaceStrip } from '@/features/on
 import { defaultRaceDay, fixLongRun, MILES_MAX, MILES_MIN, nextMondayAfter, paceText, safeTemplate, sameProfile, type TrainingProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, springs } from '@/lib/motion';
-import { Section } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 import { PushedBar, Row } from '@/ui';
-import { SGroup } from './parts';
+import { SCard, SGroup } from './parts';
 import { useTrainingProfile } from './useProfile';
 
 /**
@@ -243,14 +242,17 @@ export const YouPage = () => {
         <Row title="Email" right={<span className="s-value s-email">{boot.data?.user.email}</span>} />
         <Row title="Units" sub="Kilometres are on the way." right={<span className="s-value">Miles</span>} />
       </SGroup>
-      <Section title="Training for" level="primary">
+      <section className="s-sec" aria-labelledby="s-goal-h">
+        <h2 className="s-head" id="s-goal-h">
+          <span>Training for</span>
+        </h2>
         {!d.loaded ? (
           <Shape />
         ) : (
           <>
             <GoalChips id="s-goal" value={d.p.goal} onChange={(g) => d.edit({ goal: g, raceDate: g === 'base' ? null : d.p.raceDate && d.p.goal !== 'base' ? d.p.raceDate : defaultRaceDay(g, start) })} />
             {d.p.goal !== 'base' ? (
-              <div className="s-race">
+              <div className="card s-card s-race">
                 <p className="s-label">
                   Race day <span className="s-label-value">{d.p.raceDate ? fmtDate('short', d.p.raceDate) : 'Not set'}</span>
                 </p>
@@ -259,7 +261,7 @@ export const YouPage = () => {
             ) : null}
           </>
         )}
-      </Section>
+      </section>
       <RebuildBar show={d.dirty} profile={d.p} before={d.profile} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );
@@ -286,30 +288,31 @@ export const TrainingPage = () => {
     <div className="page s-set s-sub">
       <PushedBar title="Training" />
       {!d.loaded ? (
-        <div className="sec-secondary">
+        <div className="s-sec">
           <Shape />
         </div>
       ) : (
         <>
-          <Section title="Weekly miles" level="secondary">
-            <MilesDial value={d.p.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => d.edit({ weeklyMiles: v })} />
-            <p className="s-note">
-              {d.source === 'block'
+          <SCard
+            title="Weekly miles"
+            foot={
+              d.source === 'block'
                 ? 'This week of your current block. Change it and Logbook rebuilds from next week, building about 10% a week.'
                 : d.source === 'none'
                   ? 'Where a new plan starts. It builds about 10% a week, with a lighter week every fourth.'
-                  : 'Where your plan started. Change it and Logbook rebuilds from next week, building about 10% a week.'}
-            </p>
-          </Section>
-          <Section title="Run days" level="primary">
+                  : 'Where your plan started. Change it and Logbook rebuilds from next week, building about 10% a week.'
+            }
+          >
+            <MilesDial value={d.p.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => d.edit({ weeklyMiles: v })} />
+          </SCard>
+          <SCard title="Run days">
             <DayLetters runDays={d.p.runDays} longRunDay={fixLongRun(d.p.runDays, d.p.longRunDay)} onChange={(runDays, longRunDay) => d.edit({ runDays, longRunDay })} />
-          </Section>
+          </SCard>
         </>
       )}
-      <Section title="Easy pace" level="primary">
+      <SCard title="Easy pace" foot="Morning times each run at this pace. It saves as you change it.">
         <Dial value={pace} onChange={changePace} min={240} max={1200} step={5} format={paceText} unit="per mile" valueText={(v) => `${Math.floor(v / 60)} minutes ${v % 60} seconds per mile`} label="Easy pace" scrubPx={8} />
-        <p className="s-note">Morning times each run at this pace. It saves as you change it.</p>
-      </Section>
+      </SCard>
       <RebuildBar show={d.dirty} profile={d.p} before={d.profile} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );

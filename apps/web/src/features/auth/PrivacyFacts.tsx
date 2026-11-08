@@ -15,8 +15,8 @@ export const consentSub = (on: boolean) => (on ? 'On. When you ask, it reads you
  */
 export const PrivacyFacts = ({ on }: { on: boolean }): React.JSX.Element => (
   <div className="pv-facts">
-    <section className="pv-list" aria-labelledby="pv-sent">
-      <h2 id="pv-sent" className="caps pv-h">
+    <section className="card pv-list" aria-labelledby="pv-sent">
+      <h2 id="pv-sent" className="pv-h">
         Sent to Claude, by Anthropic
       </h2>
       <ul>
@@ -34,8 +34,8 @@ export const PrivacyFacts = ({ on }: { on: boolean }): React.JSX.Element => (
         </li>
       </ul>
     </section>
-    <section className="pv-list never" aria-labelledby="pv-never">
-      <h2 id="pv-never" className="caps pv-h">
+    <section className="card pv-list never" aria-labelledby="pv-never">
+      <h2 id="pv-never" className="pv-h">
         Never sent
       </h2>
       <ul>

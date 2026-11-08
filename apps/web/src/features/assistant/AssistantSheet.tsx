@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   CalendarDays,
   CalendarX,
+  Check,
   CheckSquare,
   ChevronUp,
   CircleAlert,
@@ -20,6 +21,7 @@ import {
   RotateCcw,
   RotateCw,
   Sparkles,
+  SquarePen,
   Sun,
   Target,
   X,
@@ -31,6 +33,7 @@ import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
+import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
 import { AttachError, prepareFile, type PreparedFile } from './attach';
@@ -92,16 +95,20 @@ const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }
       toast(e instanceof Error ? e.message : 'That didn’t go through. Try again.');
     }
   };
+  const applied = p.status === 'applied';
   return (
-    <section className={`as-proposal is-${p.status}`} data-waiting={waiting ? '' : undefined} aria-label="Proposed changes">
-      <p className="as-proposal-sum">{p.summary}</p>
+    <section className={`as-proposal card is-${p.status}`} data-waiting={waiting ? '' : undefined} aria-label="Proposed changes">
+      <header className="as-prop-head">
+        <span className="caps">{open ? `${changesWord(p.changes.length)} to review` : 'Changes'}</span>
+        <p className="as-proposal-sum">{p.summary}</p>
+      </header>
       <ul className="as-changes">
         {shown.map((c, i) => {
           const { Icon, risky } = kindOf(c);
           const off = skipped.has(i);
           return (
             <li key={i} className={`as-change${off ? ' is-off' : ''}${risky ? ' is-risky' : ''}`}>
-              <span className="as-change-ic" aria-hidden="true">
+              <span className="icon-tile as-change-ic" aria-hidden="true">
                 <Icon size={16} strokeWidth={2.2} />
               </span>
               <span className="as-change-body">
@@ -113,10 +120,10 @@ const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }
               </span>
               {open ? (
                 <button type="button" className="as-change-x" disabled={busy} aria-label={off ? `Put back: ${c.label}` : `Remove: ${c.label}`} onClick={() => toggle(i)}>
-                  {off ? <RotateCcw size={15} aria-hidden="true" /> : <X size={16} strokeWidth={2.4} aria-hidden="true" />}
+                  {off ? <RotateCcw size={15} aria-hidden="true" /> : <X size={15} strokeWidth={2.4} aria-hidden="true" />}
                 </button>
               ) : off ? (
-                <span className="as-change-left caps">Left out</span>
+                <span className="as-change-left">Left out</span>
               ) : null}
             </li>
           );
@@ -129,7 +136,7 @@ const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }
       ) : null}
       {open ? (
         <div className="as-proposal-foot">
-          <Button variant="ghost" disabled={busy} onClick={() => void run(() => dismiss.mutateAsync(p.id))}>
+          <Button variant="quiet" disabled={busy} onClick={() => void run(() => dismiss.mutateAsync(p.id))}>
             Not now
           </Button>
           <Button variant="primary" className="as-apply" disabled={busy || live === 0} aria-busy={apply.isPending} onClick={() => void run(() => apply.mutateAsync({ id: p.id, skip: p.skipped }), () => haptics.drop())}>
@@ -138,8 +145,11 @@ const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }
         </div>
       ) : (
         <div className="as-proposal-state">
-          <span className="caps">{p.status === 'applied' ? (skipped.size ? `Applied ${live} of ${p.changes.length}` : 'Applied') : p.status === 'undone' ? 'Undone' : 'Not applied'}</span>
-          {p.status === 'applied' ? (
+          <span className={`as-status ${applied ? 'is-on' : ''}`}>
+            {applied ? <Check size={15} strokeWidth={2.6} aria-hidden="true" /> : p.status === 'undone' ? <RotateCcw size={14} strokeWidth={2.4} aria-hidden="true" /> : <X size={14} strokeWidth={2.4} aria-hidden="true" />}
+            {applied ? (skipped.size ? `Applied ${live} of ${p.changes.length}` : 'Applied') : p.status === 'undone' ? 'Undone' : 'Not applied'}
+          </span>
+          {applied ? (
             <button type="button" className="as-undo" disabled={busy} onClick={() => void run(() => undo.mutateAsync(p.id))}>
               <RotateCcw size={14} aria-hidden="true" /> {undo.isPending ? 'Undoing…' : 'Undo'}
             </button>
@@ -171,8 +181,8 @@ const ReplyRows = ({ items, label, onPick }: { items: string[]; label: string; o
   <div className="as-replies" role="group" aria-label={label}>
     {items.map((s) => (
       <button key={s} type="button" className="as-reply" onClick={() => onPick(s)}>
-        <CornerDownRight size={15} className="as-reply-ic" aria-hidden="true" />
-        <span>{s}</span>
+        <CornerDownRight size={16} className="as-reply-ic" aria-hidden="true" />
+        <span className="as-reply-text">{s}</span>
       </button>
     ))}
   </div>
@@ -201,12 +211,14 @@ const Working = ({ since }: { since: number }) => {
   }, [since]);
   return (
     <div className="as-turn is-assistant">
-      <p className="as-bubble as-typing" aria-label="Working on it">
-        <i />
-        <i />
-        <i />
-      </p>
-      {slow ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+      <div className="as-answer as-working">
+        <p className="as-typing" aria-label="Working on it">
+          <i />
+          <i />
+          <i />
+        </p>
+        {slow ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+      </div>
     </div>
   );
 };
@@ -308,28 +320,51 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
 
   const replies = !busy && last?.role === 'assistant' && !last.error && last.replies?.length ? last.replies : null;
 
+  // "New" lives in the sheet's header, at the right, once there is a conversation to clear (shape system §5)
+  const sheet = useSheet();
+  const hasTurns = turns.length > 0;
+  useEffect(() => {
+    sheet.update({
+      action: hasTurns ? (
+        <button type="button" className="icon-btn as-new" aria-label="New conversation" title="New conversation" onClick={() => assistantStore.clear()}>
+          <SquarePen size={18} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      ) : undefined,
+    });
+  }, [hasTurns]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="as-sheet">
       <div className="as-thread" ref={thread} aria-live="polite">
         {screen ? (
           <div className="as-context">
-            <span className="as-chip">
-              {(() => {
-                const Icon = SCREEN_ICON[screen.tab];
-                return <Icon size={14} aria-hidden="true" />;
-              })()}
-              <span className="as-chip-text">{screenLabel(screen)}</span>
+            <span className="ctx-chip as-ctx">
+              <span className="ctx-ic" aria-hidden="true">
+                {(() => {
+                  const Icon = SCREEN_ICON[screen.tab];
+                  return <Icon size={16} />;
+                })()}
+              </span>
+              <span className="ctx-text">
+                <span className="ctx-title">{screenLabel(screen)}</span>
+                <span className="ctx-sub">Sent with your question</span>
+              </span>
               <button type="button" className="as-chip-x" aria-label={`Don’t send ${screenLabel(screen)} with the question`} onClick={() => setScreen(undefined)}>
-                <X size={13} strokeWidth={2.6} aria-hidden="true" />
+                <X size={14} strokeWidth={2.6} aria-hidden="true" />
               </button>
             </span>
           </div>
         ) : null}
         {turns.length === 0 ? (
           <div className="as-empty">
-            <p className="as-empty-lead">
-              <Sparkles size={16} aria-hidden="true" /> Ask about your plan, or ask for a change. Attach a photo or a PDF of a plan, a schedule or a list and it can read it. Nothing changes until you tap Apply.
-            </p>
+            <section className="card as-intro">
+              <span className="as-intro-ic" aria-hidden="true">
+                <Sparkles size={18} />
+              </span>
+              <p className="as-intro-title display">Ask about your plan, or ask for a change.</p>
+              <p className="as-intro-sub">Attach a photo or a PDF of a plan, a schedule or a list and it can read it. Nothing changes until you tap Apply.</p>
+            </section>
+            <h3 className="as-head">Try one</h3>
             <ReplyRows items={startersFor(askDate, today)} label="Ways to start" onPick={send} />
           </div>
         ) : (
@@ -347,7 +382,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
                   ) : null}
                 </div>
               ) : t.text ? (
-                <p className="as-bubble">{t.text}</p>
+                <p className={t.role === 'user' ? 'as-bubble' : 'as-answer'}>{t.text}</p>
               ) : null}
               {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
             </div>
@@ -360,7 +395,12 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
       <div className="as-compose">
         {waiting && outOfView ? (
           <button type="button" className="as-review" onClick={() => waitingEl?.scrollIntoView({ block: 'start', behavior: 'smooth' })}>
-            <span>Review changes ({waitingCount})</span>
+            <span className="as-review-n" aria-hidden="true">
+              {waitingCount}
+            </span>
+            <span className="as-review-text">
+              Review changes<span className="sr-only"> ({waitingCount})</span>
+            </span>
             <ChevronUp size={18} strokeWidth={2.4} aria-hidden="true" />
           </button>
         ) : null}
@@ -382,41 +422,38 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             ) : null}
           </div>
         ) : null}
-        {turns.length ? (
-          <button type="button" className="as-new" onClick={() => assistantStore.clear()}>
-            New
+        <div className="as-pill">
+          <button type="button" className="as-attach" aria-label="Attach a photo or a PDF" disabled={busy || preparing || pending.length >= ATTACHMENT_LIMITS.perTurn} onClick={() => picker.current?.click()}>
+            <Paperclip size={18} aria-hidden="true" />
           </button>
-        ) : null}
-        <button type="button" className="as-attach" aria-label="Attach a photo or a PDF" disabled={busy || preparing || pending.length >= ATTACHMENT_LIMITS.perTurn} onClick={() => picker.current?.click()}>
-          <Paperclip size={19} aria-hidden="true" />
-        </button>
-        <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
-        <textarea
-          ref={field}
-          className="as-input"
-          rows={1}
-          maxLength={2000}
-          placeholder={pending.length ? 'Add a note (optional)' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
-          aria-label="Ask the assistant"
-          enterKeyHint="send"
-          value={draft}
-          autoFocus
-          onFocus={(e) => revealField(e.currentTarget)}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            e.currentTarget.style.height = 'auto';
-            e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 120)}px`;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              send(draft);
-            }
-          }}
-        />
-        <button type="button" className="as-send" aria-label="Send" disabled={(!draft.trim() && !pending.length) || busy || preparing} onClick={() => send(draft)}>
-          <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
-        </button>
+          <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
+          <textarea
+            ref={field}
+            className="as-input"
+            rows={1}
+            maxLength={2000}
+            placeholder={pending.length ? 'Add a note (optional)' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
+            aria-label="Ask the assistant"
+            enterKeyHint="send"
+            value={draft}
+            autoFocus
+            onFocus={(e) => revealField(e.currentTarget)}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              e.currentTarget.style.height = 'auto';
+              e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 120)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send(draft);
+              }
+            }}
+          />
+          <button type="button" className="as-send" aria-label="Send" disabled={(!draft.trim() && !pending.length) || busy || preparing} onClick={() => send(draft)}>
+            <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
   );

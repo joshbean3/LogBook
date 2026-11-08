@@ -271,7 +271,7 @@ function Flow({ uid }: { uid: string }) {
           />
           <AnimatePresence initial={false}>
             {d.goal && d.goal !== 'base' ? (
-              <motion.div key="race" className="ob-race-block" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
+              <motion.div key="race" className="card ob-card ob-race-block" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
                 <p className="ob-q-label">
                   Race day <span className="ob-q-value">{profile.raceDate ? fmtDate('short', profile.raceDate) : 'Not set'}</span>
                 </p>
@@ -285,12 +285,16 @@ function Flow({ uid }: { uid: string }) {
     case 'days':
       body = (
         <Question title="Which days can you run?" sub="Tap a day to run it. Hold one to make it the long run." onNext={next}>
-          <DayLetters runDays={d.runDays} longRunDay={fixLongRun(d.runDays, d.longRunDay)} onChange={(runDays, longRunDay) => set({ runDays, longRunDay })} />
-          <p className="ob-q-label ob-miles-label">About how much do you run now?</p>
-          <MilesDial value={d.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => set({ weeklyMiles: v, milesTouched: true })} />
-          <p className="ob-hint">
-            {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week. {d.goal && d.goal !== 'base' ? `Your ${goalLong(d.goal)} plan` : 'Your plan'} builds from {d.weeklyMiles} mi, about 10% a week.
-          </p>
+          <div className="card ob-card">
+            <DayLetters runDays={d.runDays} longRunDay={fixLongRun(d.runDays, d.longRunDay)} onChange={(runDays, longRunDay) => set({ runDays, longRunDay })} />
+          </div>
+          <div className="card ob-card ob-miles-card">
+            <p className="ob-q-label ob-miles-label">About how much do you run now?</p>
+            <MilesDial value={d.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => set({ weeklyMiles: v, milesTouched: true })} />
+            <p className="ob-hint">
+              {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week. {d.goal && d.goal !== 'base' ? `Your ${goalLong(d.goal)} plan` : 'Your plan'} builds from {d.weeklyMiles} mi, about 10% a week.
+            </p>
+          </div>
         </Question>
       );
       break;
@@ -303,7 +307,10 @@ function Flow({ uid }: { uid: string }) {
       const fix = earlier == null ? null : earlier >= TRACK_FROM ? { wake: earlier, leave: d.leave, text: `Wake ${hm(earlier)}?` } : { wake: d.wake, leave: snap5(d.leave + pv.late + 2), text: `Leave ${hm(snap5(d.leave + pv.late + 2))}?` };
       body = (
         <Question title="When do you wake, and leave for work?" sub="Drag the two markers. Logbook plans the run in between." onNext={next}>
-          <MorningTrack wake={d.wake} leave={d.leave} settings={st} onChange={(wake, leave) => set({ wake, leave })} />
+          <div className="card ob-card ob-track-card">
+            <MorningTrack wake={d.wake} leave={d.leave} settings={st} onChange={(wake, leave) => set({ wake, leave })} />
+          </div>
+          <div className="card ob-card">
           <p className="ob-q-label ob-routine-label">
             Before you leave <span className="ob-q-value">{routineTotal(routineFrom(chips))} min</span>
           </p>
@@ -327,7 +334,8 @@ function Flow({ uid }: { uid: string }) {
               );
             })}
           </div>
-          <div className="ob-verdict" aria-live="polite">
+          </div>
+          <div className="card ob-card ob-verdict" aria-live="polite">
             <p className="ob-verdict-big display">Out the door {hm(pv.door)}.</p>
             <p className="ob-verdict-sub">{pv.late > 0 ? `Tight: an easy 4 runs ${pv.late} min into getting ready.` : `An easy 4 has you back by ${hm(pv.back)}${pv.spare >= 5 ? `, with ${pv.spare} min to spare` : ''}.`}</p>
             <AnimatePresence initial={false}>
@@ -354,7 +362,9 @@ function Flow({ uid }: { uid: string }) {
     case 'habits':
       body = (
         <Question title="A few lights for every day." sub="Pick any, or none. They become the lights you tap on Today." onNext={next} nextLabel="Build my week" later="You can add or change habits any time.">
-          <HabitPicker selected={d.habits} custom={d.custom} onChange={(habits, custom) => set({ habits, custom })} />
+          <div className="card ob-card">
+            <HabitPicker selected={d.habits} custom={d.custom} onChange={(habits, custom) => set({ habits, custom })} />
+          </div>
         </Question>
       );
       break;
