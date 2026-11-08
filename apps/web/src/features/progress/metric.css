@@ -1,214 +1,233 @@
-/* ---------- a metric's page: the number, the chart, the tiles, the trend, the explainer ---------- */
-.mp-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
+/* ---------- a metric's page (docs/shape-system.md §6): the hero, two tiles, the chart card, the trend card, the explainer ---------- */
+
+/* the bar: a round back, the name centred with a grey date under it, a round info button */
+.mp-page .pb-eyebrow {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.mp-icon {
+.mp-page .pushed-bar {
+  height: calc(56px + var(--safe-t));
+}
+
+/* the hero: the one big number (or the gauge), centred over Logbook's halo */
+.mp-hero {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
-  flex: none;
+  justify-items: center;
+  gap: 4px;
+  padding: 20px 0 8px;
+  text-align: center;
 }
-.mp-name {
-  font: italic 400 1.625rem/2rem var(--serif);
-  color: var(--ink);
-  min-width: 0;
-}
-.mp-value {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin-top: 12px;
+.mp-halo {
+  position: absolute;
+  inset: -12px -16px 0;
+  z-index: -1;
+  background: radial-gradient(55% 60% at 50% 45%, rgba(185, 217, 235, 0.75), rgba(185, 217, 235, 0) 70%);
+  pointer-events: none;
 }
 .mp-big {
-  font-size: 3rem;
-  line-height: 3.25rem;
+  font: 700 3.5rem / 3.75rem var(--stamp);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
   white-space: nowrap;
 }
 .mp-big.is-empty {
   color: var(--ink-4);
 }
-.mp-big small {
-  font-size: 0.9375rem;
-}
-.mp-date {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+.mp-big small,
+.mp-unit {
+  margin-left: 4px;
+  font: 500 1.0625rem / 1 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--ink-3);
 }
-.mp-status-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 4px;
+.mp-hero .ck-gauge-num {
+  font-size: 2.5rem;
+  line-height: 2.75rem;
 }
 .mp-status {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
-  min-width: 0;
+}
+.mp-status.is-up,
+.mp-status.is-down {
+  color: var(--accent-text);
+}
+.mp-status.is-none {
+  color: var(--ink-3);
+  font-weight: 500;
 }
 .mp-usual {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-3);
-  text-align: right;
   font-variant-numeric: tabular-nums;
-  flex: none;
-  max-width: 50%;
 }
+
+/* two stat tiles that say when they were updated */
+.mp-tiles {
+  margin-top: 16px;
+}
+.mp-tile .tile-value.is-empty {
+  color: var(--ink-4);
+}
+.mp-tile-note {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the chart card */
 .mp-card {
   position: relative;
-  margin-top: 16px;
-  padding: 12px 14px 12px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
+  margin-top: var(--gap);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  isolation: isolate;
-  overflow: hidden;
+  gap: 14px;
 }
-.mp-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--halo);
-  opacity: 0.55;
-  pointer-events: none;
+.mp-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.mp-card-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.mp-card-meta {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .mp-chips {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: -2px -16px 0;
+  padding: 2px 16px 4px;
+}
+.mp-chips::-webkit-scrollbar {
+  display: none;
 }
 .mp-chip {
-  height: 30px;
-  font-size: 0.8125rem;
+  appearance: none;
+  flex: none;
+  position: relative;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+}
+.mp-chip::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
 }
 .mp-chip.on {
   background: var(--primary);
   color: var(--primary-ink);
-  border-color: var(--primary);
+}
+.mp-chip:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
 }
 .mp-readout {
   display: block;
-  min-height: 14px;
+  min-height: var(--lh-foot);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .mp-readout.on {
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.mp-window {
-  text-align: center;
-  margin-top: -4px;
-}
-.mp-tiles {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-.mp-tile {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  padding: 10px 10px 10px 12px;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  min-width: 0;
-}
-.mp-tile .caps {
-  font-size: 0.625rem;
-  white-space: nowrap;
-}
-.mp-tile-num {
-  font-size: 1.25rem;
-  line-height: 1.625rem;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mp-tile-num small {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  margin-left: 2px;
-  color: var(--ink-3);
-}
-.mp-tile-sub {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mp-tile-note {
-  margin-top: 4px;
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
-  color: var(--ink-3);
-}
+
+/* the sections under the chart */
 .mp-sec {
-  margin-top: 32px;
+  margin-top: var(--section);
 }
-.mp-sec .section-title {
-  margin-bottom: 4px;
+.mp-table {
+  padding-top: 10px;
+  padding-bottom: 6px;
 }
-.mp-more {
-  margin-top: 16px;
-}
-.mp-q {
-  margin-top: 14px;
+.mp-foot {
+  margin-top: 8px;
+  padding-inline: 8px;
+  text-align: center;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--ink-3);
+  text-wrap: pretty;
+}
+.mp-more {
+  margin-top: var(--gap);
+}
+/* the explainer: three answers split by hairlines */
+.mp-explain {
+  display: grid;
+  gap: 0;
+  padding-block: 4px;
+}
+.mp-qa {
+  padding-block: 12px;
+}
+.mp-qa + .mp-qa {
+  border-top: 1px solid var(--line);
+}
+.mp-q {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
 }
 .mp-a {
   margin-top: 4px;
   font-size: var(--fs-sub);
   line-height: 1.375rem;
-  color: var(--ink);
+  color: var(--ink-2);
   text-wrap: pretty;
 }
 .mp-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-control);
+  background: var(--columbia-wash);
   color: var(--ink-2);
 }
 @container page (max-width: 21rem) {
   .mp-big {
-    font-size: 2.5rem;
-    line-height: 2.75rem;
-  }
-  .mp-tiles {
-    gap: 6px;
-  }
-  .mp-tile {
-    padding: 8px;
-  }
-  .mp-tile-num {
-    font-size: 1.0625rem;
+    font-size: 2.75rem;
+    line-height: 3rem;
   }
 }

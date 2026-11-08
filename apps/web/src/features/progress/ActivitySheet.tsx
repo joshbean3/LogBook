@@ -1,5 +1,6 @@
 import { assess, clock, fmtDate, mi, monthOf, zoneOf, type Activity, type LiftSet } from '@logbook/shared';
-import { ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronRight, Clock, Dumbbell, Footprints, Heart, Layers, MapPin, Mountain, Timer } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Pressable } from '@/ui';
 import { Gauge, TrendChart } from '@/ui/charts';
 import { useLog } from '../log/useLog';
@@ -7,17 +8,43 @@ import { RecordCard, RouteMap, useRunRecords, whenLine } from '../sessions/RunDe
 import { startClock, usePushSession } from '../sessions/SessionCard';
 import { paceText } from './data';
 import { chartZones, effortWord, hrShare, lapRows, zoneShare } from './run';
+import './progress.css';
 import './activity.css';
 import './metric.css';
 
 /** The source chip on a row and at the top of a sheet: where the entry came from. */
 export const SourceChip = ({ source }: { source: 'Strava' | 'Manual' }) => <span className={`pa-source ${source === 'Strava' ? 'is-strava' : ''}`}>{source}</span>;
 
+const CELL_ICON: Record<string, ReactNode> = {
+  Distance: <MapPin size={16} />,
+  Pace: <Timer size={16} />,
+  Time: <Clock size={16} />,
+  Elevation: <Mountain size={16} />,
+  'Heart rate': <Heart size={16} />,
+  'Max HR': <Heart size={16} />,
+  Cadence: <Footprints size={16} />,
+};
+
+/** A tile of the 2×2: the label with its icon, the stamped number with its small unit. */
+const Cell = ({ k, v, u, icon }: { k: string; v: string; u?: string; icon?: ReactNode }) => (
+  <span className="tile pa-cell" role="listitem">
+    <span className="tile-label">
+      {icon ?? CELL_ICON[k]}
+      <span>{k}</span>
+    </span>
+    <span className={`tile-value ${v === '–' ? 'is-empty' : ''}`}>
+      {v}
+      {u && v !== '–' ? <small>{u}</small> : null}
+    </span>
+  </span>
+);
+
 /**
- * An activity in full, opened from Progress's list (docs/inspiration.md §6 "Run detail"): the route, where it came from and
- * when, a record if it set one, a 2×2 of the numbers that matter, the effort on a half gauge when there is heart rate and
- * zones, heart rate lap by lap over your zones, and the laps. The planned session it belongs to is one row away. Strava's
- * data is shown here and nowhere else: it is never sent to the assistant.
+ * An activity in full, opened from Progress's list (docs/inspiration.md §6 "Run detail", docs/shape-system.md §5 sheets): the
+ * map card (the route, where it came from and when), a record if it set one, a 2×2 of tiles for the numbers that matter, the
+ * effort on a half gauge when there is heart rate and zones, the heart-rate card (lap by lap over your zones), and the laps
+ * card. The planned session it belongs to is one row away. Strava's data is shown here and nowhere else: it is never sent to
+ * the assistant.
  */
 export const ActivitySheet = ({ a }: { a: Activity }) => {
   const log = useLog([monthOf(a.date)]);
@@ -37,46 +64,45 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
   const word = sess ? effortWord(as.effort) : null;
   const fastest = laps.length ? Math.min(...laps.map((l) => l.pace)) : 0;
   const slowest = laps.length ? Math.max(...laps.map((l) => l.pace)) : 0;
+  const easyish = !!sess && /easy|long|recovery/i.test(sess.type ?? '');
   const cells: Array<[string, string, string?]> = [
     ['Distance', a.miles > 0.05 ? mi(a.miles) : '–', a.miles > 0.05 ? 'mi' : undefined],
     run ? ['Pace', pace ? paceText(pace) : '–', pace ? '/mi' : undefined] : ['Elevation', String(Math.round(a.elevFt)), 'ft'],
     ['Time', a.movingSec ? clock(a.movingSec) : '–'],
-    a.avgHr != null ? ['Avg heart rate', String(a.avgHr), 'bpm'] : ['Elevation', String(Math.round(a.elevFt)), 'ft'],
+    a.avgHr != null ? ['Heart rate', String(a.avgHr), 'bpm'] : ['Elevation', String(Math.round(a.elevFt)), 'ft'],
   ];
   // never the same cell twice (a lift with no heart rate): the fourth falls back to max heart rate or cadence
-  if (!run && a.avgHr == null) cells[3] = a.maxHr != null ? ['Max heart rate', String(a.maxHr), 'bpm'] : ['Cadence', a.cadence ? String(Math.round(a.cadence)) : '–', a.cadence ? 'spm' : undefined];
+  if (!run && a.avgHr == null) cells[3] = a.maxHr != null ? ['Max HR', String(a.maxHr), 'bpm'] : ['Cadence', a.cadence ? String(Math.round(a.cadence)) : '–', a.cadence ? 'spm' : undefined];
   const fine = [za ? `Z${za} average` : null, a.maxHr != null ? `max ${a.maxHr} bpm` : null, a.cadence ? `${Math.round(a.cadence)} spm` : null, run && a.elevFt ? `${Math.round(a.elevFt)} ft up` : null].filter(Boolean).join(' · ');
   return (
     <div className="pa-sheet">
-      {a.polyline ? <RouteMap polyline={a.polyline} drawKey={`pa-${a.id}`} run={a} records={records} /> : null}
-      <div className="pa-status">
-        <SourceChip source="Strava" />
-        <span className="pa-when">{when ?? fmtDate('long', a.date)}</span>
-        {!run ? <span className="pa-when">· {a.sportType}</span> : null}
-      </div>
-      {records.length ? <RecordCard records={records} date={a.date} onTap={() => document.getElementById(`pa-laps-${a.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} /> : null}
-      <div className="pa-grid" role="list" aria-label="The numbers">
-        {cells.map(([k, v, u]) => (
-          <span key={k} className="pa-cell" role="listitem">
-            <span className="caps">{k}</span>
-            <span className="stamp pa-num">
-              {v}
-              {u && v !== '–' ? <small>{u}</small> : null}
-            </span>
+      <section className={`card pa-map ${a.polyline ? '' : 'pa-map-plain'}`} aria-label="Route and source">
+        {a.polyline ? <RouteMap polyline={a.polyline} drawKey={`pa-${a.id}`} run={a} records={records} /> : null}
+        <div className="pa-status">
+          <SourceChip source="Strava" />
+          <span className="pa-when">
+            {when ?? fmtDate('long', a.date)}
+            {!run ? ` · ${a.sportType}` : ''}
           </span>
+        </div>
+      </section>
+      {records.length ? <RecordCard records={records} date={a.date} onTap={() => document.getElementById(`pa-laps-${a.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} /> : null}
+      <div className="tiles pa-grid" role="list" aria-label="The numbers">
+        {cells.map(([k, v, u]) => (
+          <Cell key={k} k={k} v={v} u={u} />
         ))}
       </div>
       {fine ? <p className="pa-fine">{fine}</p> : null}
       {a.avgHr == null && !a.perfAt ? <p className="pa-fine">Heart rate and laps are on their way from Strava.</p> : null}
 
       {share != null ? (
-        <section className="pa-sec" aria-labelledby={`pa-eff-${a.id}`}>
+        <section className="card pa-card" aria-labelledby={`pa-eff-${a.id}`}>
           <h3 className="pa-h" id={`pa-eff-${a.id}`}>
             Effort
           </h3>
           <Gauge
             value={share}
-            band={sess && /easy|long|recovery/i.test(sess.type ?? '') ? zoneShare(log.zones, 2, a.maxHr) : null}
+            band={easyish ? zoneShare(log.zones, 2, a.maxHr) : null}
             center={
               <>
                 {a.avgHr}
@@ -89,11 +115,11 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
             size={220}
             label={`Effort: averaged ${a.avgHr} beats per minute${za ? `, zone ${za}` : ''}${word ? `. ${word}` : ''}`}
           />
-          {sess && /easy|long|recovery/i.test(sess.type ?? '') ? <p className="pa-fine pa-center">The shaded stretch is zone 2, where an easy run belongs.</p> : null}
+          {easyish ? <p className="pa-fine pa-center">The shaded stretch is zone 2, where an easy run belongs.</p> : null}
         </section>
       ) : null}
 
-      <section className="pa-sec" aria-labelledby={`pa-hr-${a.id}`}>
+      <section className="card pa-card" aria-labelledby={`pa-hr-${a.id}`}>
         <h3 className="pa-h" id={`pa-hr-${a.id}`}>
           Heart rate by lap
         </h3>
@@ -102,16 +128,16 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
           line={laps.map((l) => l.hr)}
           dots={laps.map((l) => l.hr)}
           zones={zones}
-          labels={laps.map((l) => (l.part ? `${mi(l.miles)} MI` : `MI ${l.n}`))}
+          labels={laps.map((l) => (l.part ? `${mi(l.miles)} mi` : `Mi ${l.n}`))}
           format={(v) => String(Math.round(v))}
           height={168}
           avg={hrLaps.length > 1 ? a.avgHr : null}
           empty={<span>{a.perfAt ? 'No heart rate on this one.' : 'Heart rate by lap comes in with Strava’s detail.'}</span>}
           readout={(i) =>
             i == null ? (
-              <span className="mp-readout caps">{zones.length ? 'Your zones shaded behind' : 'Set zones in Settings to shade them'}</span>
+              <span className="mp-readout">{zones.length ? 'Your zones shaded behind' : 'Set zones in Settings to shade them'}</span>
             ) : (
-              <span className="mp-readout caps on">
+              <span className="mp-readout on">
                 {laps[i]!.part ? `${mi(laps[i]!.miles)} mi` : `Mile ${laps[i]!.n}`} · {laps[i]!.hr != null ? `${laps[i]!.hr} bpm` : 'No heart rate'}
                 {laps[i]!.zone ? ` · Z${laps[i]!.zone}` : ''} · {paceText(laps[i]!.pace)} /mi
               </span>
@@ -121,12 +147,12 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
       </section>
 
       {laps.length > 1 ? (
-        <section className="pa-sec" aria-labelledby={`pa-laps-h-${a.id}`} id={`pa-laps-${a.id}`}>
+        <section className="card pa-card" aria-labelledby={`pa-laps-h-${a.id}`} id={`pa-laps-${a.id}`}>
           <h3 className="pa-h" id={`pa-laps-h-${a.id}`}>
             Laps
           </h3>
           <div className="pa-laps" role="table" aria-label="Laps">
-            <div className="pa-lap pa-lap-head caps" role="row">
+            <div className="pa-lap pa-lap-head" role="row">
               <span role="columnheader">Lap</span>
               <span role="columnheader" aria-hidden="true" />
               <span role="columnheader">Pace</span>
@@ -137,13 +163,13 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
               const w = slowest === fastest ? 1 : 0.3 + 0.7 * (1 - (l.pace - fastest) / (slowest - fastest));
               return (
                 <div key={l.n} className={`pa-lap ${l.pace === fastest ? 'is-best' : ''}`} role="row">
-                  <span className="pa-lap-n stamp" role="cell">
+                  <span className="pa-lap-n" role="cell">
                     {l.part ? mi(l.miles) : l.n}
                   </span>
                   <span className="pa-lap-bar" role="cell" aria-hidden="true">
                     <i style={{ width: `${w * 100}%` }} />
                   </span>
-                  <span className="pa-lap-pace stamp" role="cell">
+                  <span className="pa-lap-pace" role="cell">
                     {paceText(l.pace)}
                   </span>
                   <span className="pa-lap-hr" role="cell">
@@ -158,11 +184,14 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
       ) : null}
 
       {sess ? (
-        <div className="list-edge pa-more">
-          <Pressable className="pg-row" press="surface" onPress={() => openSession(a.date, sess)} label="Open the planned session">
-            <span className="pg-row-main">
-              <span className="pg-row-title">Open the planned session</span>
-              <span className="pg-row-sub">Mark it, move it, or get the coach’s read</span>
+        <div className="group pa-more">
+          <Pressable className="pg-drill" press="surface" onPress={() => openSession(a.date, sess)} label="Open the planned session">
+            <span className="icon-tile" aria-hidden="true">
+              <CalendarDays size={17} />
+            </span>
+            <span className="pg-drill-main">
+              <span className="pg-drill-title">Open the planned session</span>
+              <span className="pg-drill-sub">Mark it, move it, or get the coach’s read</span>
             </span>
             <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
           </Pressable>
@@ -172,42 +201,38 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
   );
 };
 
-/** A day's lift sets logged by hand, by exercise. */
+/** A day's lift sets logged by hand, by exercise: where they came from, two tiles, then the sets in one card. */
 export const LiftDaySheet = ({ sets }: { sets: LiftSet[] }) => {
   const by = new Map<string, LiftSet[]>();
   for (const s of sets) by.set(s.exercise.trim(), [...(by.get(s.exercise.trim()) ?? []), s]);
   const volume = sets.reduce((t, s) => t + s.weight * s.reps, 0);
   return (
     <div className="pa-sheet">
-      <div className="pa-status">
-        <SourceChip source="Manual" />
-        <span className="pa-when">Logged by hand</span>
+      <section className="card pa-map pa-map-plain" aria-label="Source">
+        <div className="pa-status">
+          <SourceChip source="Manual" />
+          <span className="pa-when">Logged by hand</span>
+        </div>
+      </section>
+      <div className="tiles pa-grid" role="list" aria-label="The numbers">
+        <Cell k="Sets" v={String(sets.length)} icon={<Layers size={16} />} />
+        <Cell k="Volume" v={Math.round(volume).toLocaleString('en-US')} u="lb" icon={<Dumbbell size={16} />} />
       </div>
-      <div className="pa-grid" role="list" aria-label="The numbers">
-        <span className="pa-cell" role="listitem">
-          <span className="caps">Sets</span>
-          <span className="stamp pa-num">{sets.length}</span>
-        </span>
-        <span className="pa-cell" role="listitem">
-          <span className="caps">Volume</span>
-          <span className="stamp pa-num">
-            {Math.round(volume).toLocaleString('en-US')}
-            <small>lb</small>
-          </span>
-        </span>
-      </div>
-      <div className="pa-laps" role="table" aria-label="Sets">
-        {[...by.entries()].map(([name, xs]) => (
-          <div key={name} className="pa-lift" role="row">
-            <span className="pa-lift-name" role="rowheader">
-              {name}
-            </span>
-            <span className="pa-lift-sets stamp" role="cell">
-              {xs.map((x) => `${x.weight}×${x.reps}`).join('  ')}
-            </span>
-          </div>
-        ))}
-      </div>
+      <section className="card pa-card" aria-label="Sets">
+        <h3 className="pa-h">Sets</h3>
+        <div className="pa-laps" role="table" aria-label="Sets">
+          {[...by.entries()].map(([name, xs]) => (
+            <div key={name} className="pa-lift" role="row">
+              <span className="pa-lift-name" role="rowheader">
+                {name}
+              </span>
+              <span className="pa-lift-sets" role="cell">
+                {xs.map((x) => `${x.weight}×${x.reps}`).join('  ')}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 };
