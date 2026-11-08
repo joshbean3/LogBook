@@ -1,5 +1,5 @@
 import { fmtDate, monthOf, periodOf, periodPast, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
-import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Sparkles, Target, X } from 'lucide-react';
+import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { refineGoal, useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -11,6 +11,7 @@ import { useToast } from '@/ui/Toast';
 import { deadlineWords, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
 import { HalfGauge, NewGoalChoice } from './GoalSheetParts';
+import { KPin } from './Kit';
 import { useNowMinutes } from '../day/useNow';
 import './goals.css';
 
@@ -60,46 +61,43 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
 
   if (step.kind === 'compare') {
     return (
-      <div className="gsheet">
-        <div className="gs-sharp">
-          <span className="caps gs-sharp-caps">
-            <Sparkles size={13} aria-hidden="true" /> {step.changed ? 'Sharpened' : 'Already sharp'}
+      <div className="gsheet k-sheet">
+        <section className="k-card gs-card gs-sharp">
+          <span className="k-label gs-sharp-label">
+            <Sparkles size={16} aria-hidden="true" /> {step.changed ? 'Sharpened' : 'Already sharp'}
           </span>
           <p className="gs-sentence serif">{step.text}</p>
           {step.why ? <p className="gs-why">{step.why}</p> : null}
-        </div>
-        {step.changed ? (
-          <div className="gs-mine">
-            <span className="caps">Your words</span>
-            <p className="gs-mine-text">{step.mine}</p>
-          </div>
-        ) : null}
-        {!existing?.steps.length ? (
-          <div className="gs-field">
-            <span className="caps">Steps · drop any, add your own</span>
-            <DraftSteps steps={steps} onChange={setSteps} />
-          </div>
-        ) : null}
-        <div className="sheet-foot">
           {step.changed ? (
-            <Button variant="ghost" onClick={() => save(step.mine, 'kept')}>
+            <>
+              <hr className="k-rule" />
+              <span className="k-label">Your words</span>
+              <p className="gs-mine-text">{step.mine}</p>
+            </>
+          ) : null}
+        </section>
+        {!existing?.steps.length ? (
+          <>
+            <h3 className="k-sheet-label">Steps · drop any, add your own</h3>
+            <DraftSteps steps={steps} onChange={setSteps} />
+          </>
+        ) : null}
+        <KPin>
+          <Button variant="primary" block onClick={() => (step.changed ? save(step.text, 'sharpened', step.mine, step.why) : save(step.mine, 'own'))}>
+            {step.changed ? 'Use this' : 'Set goal'}
+          </Button>
+          {step.changed ? (
+            <Button block className="gs-keep" onClick={() => save(step.mine, 'kept')}>
               Keep mine
             </Button>
-          ) : (
-            <span />
-          )}
-          <div className="foot-right">
-            <Button variant="primary" onClick={() => (step.changed ? save(step.text, 'sharpened', step.mine, step.why) : save(step.mine, 'own'))}>
-              {step.changed ? 'Use this' : 'Set goal'}
-            </Button>
-          </div>
-        </div>
+          ) : null}
+        </KPin>
       </div>
     );
   }
 
   return (
-    <div className="gsheet">
+    <div className="gsheet k-sheet">
       <label className="gs-field">
         <span className="sr-only">{periodCaps(level, period, today)}</span>
         <textarea
@@ -132,17 +130,12 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
           ))}
         </div>
       ) : null}
-      <p className="gs-hint">{step.kind === 'reviewing' ? 'Reviewing against the goal-setting rules…' : `Write it as you’d say it. The review makes it specific, measurable and due ${deadlineWords(level, period, today)}, and breaks it into steps.`}</p>
-      <div className="sheet-foot">
-        <Button variant="ghost" onClick={done}>
-          Cancel
+      <p className="k-foot gs-hint">{step.kind === 'reviewing' ? 'Reviewing against the goal-setting rules…' : `Write it as you’d say it. The review makes it specific, measurable and due ${deadlineWords(level, period, today)}, and breaks it into steps.`}</p>
+      <KPin>
+        <Button variant="primary" block onClick={() => void review()} disabled={!words || step.kind === 'reviewing'} aria-busy={step.kind === 'reviewing'}>
+          {step.kind === 'reviewing' ? 'Reviewing…' : 'Set goal'}
         </Button>
-        <div className="foot-right">
-          <Button variant="primary" onClick={() => void review()} disabled={!words || step.kind === 'reviewing'} aria-busy={step.kind === 'reviewing'}>
-            {step.kind === 'reviewing' ? 'Reviewing…' : 'Set goal'}
-          </Button>
-        </div>
-      </div>
+      </KPin>
     </div>
   );
 };
@@ -190,7 +183,7 @@ export const ReviewButtons = ({ goal, onAnswer }: { goal: Aim; onAnswer?: (s: Go
     onAnswer?.(next);
   };
   return (
-    <div className="g-answers" role="group" aria-label="How did it go?">
+    <div className="g-answers k-card" role="group" aria-label="How did it go?">
       {(['done', 'partly', 'missed'] as const).map((s) => (
         <button key={s} type="button" className={`g-answer is-${s} ${goal.status === s ? 'on' : ''}`} aria-pressed={goal.status === s} onClick={() => answer(s)}>
           <StatusIcon status={s} size={15} />
@@ -206,8 +199,7 @@ export const GoalDetail = ({ id }: { id: string }) => {
   const today = useToday();
   const sheet = useSheet();
   const goals = useGoals();
-  const { review, clear, set } = useGoalMutations();
-  const toast = useToast();
+  const { review } = useGoalMutations();
   const g = goals.data?.find((x) => x.id === id) ?? null;
   const events = useGoalEvents(id.startsWith('tmp-') ? undefined : id, !id.startsWith('tmp-'));
   const [note, setNote] = useState(g?.reflection ?? '');
@@ -222,49 +214,73 @@ export const GoalDetail = ({ id }: { id: string }) => {
   };
   const log = events.data?.events ?? [];
   return (
-    <div className="gsheet">
-      <HalfGauge goal={g} now={now} />
-      <p className="gs-sentence serif">{g.text}</p>
-      {g.original ? (
-        <p className="gs-from">
-          From your words: “{g.original}”{g.why ? <span className="gs-from-why"> {g.why}</span> : null}
-        </p>
-      ) : null}
-      <div className="gs-field">
-        <span className="caps">What counts toward it</span>
-        <GoalSteps goal={g} editable />
-      </div>
-      <div className="gs-field">
-        <span className="caps">{past ? 'Did you hit it?' : 'How is it going?'}</span>
-        <ReviewButtons goal={g} />
-      </div>
+    <div className="gsheet k-sheet">
+      <section className="k-card gs-card g-gauge-card" aria-label="Where it stands">
+        <HalfGauge goal={g} now={now} />
+        <hr className="k-rule" />
+        <p className="gs-sentence serif">{g.text}</p>
+        {g.original ? (
+          <p className="k-foot gs-from">
+            From your words: “{g.original}”{g.why ? <span className="gs-from-why"> {g.why}</span> : null}
+          </p>
+        ) : null}
+      </section>
+      <h3 className="k-sheet-label">What counts toward it</h3>
+      <GoalSteps goal={g} editable />
+      <h3 className="k-sheet-label">{past ? 'Did you hit it?' : 'How is it going?'}</h3>
+      <ReviewButtons goal={g} />
       {g.status !== 'open' || g.reflection ? (
-        <label className="gs-field">
-          <span className="caps">How it went</span>
-          <textarea className="gs-note" rows={2} maxLength={500} placeholder="A line for the record" value={note} onChange={(e) => setNote(e.target.value)} onBlur={saveNote} onFocus={(e) => revealField(e.currentTarget)} />
-        </label>
+        <>
+          <h3 className="k-sheet-label">How it went</h3>
+          <label className="k-card gs-note-card">
+            <span className="sr-only">How it went</span>
+            <textarea className="gs-note" rows={2} maxLength={500} placeholder="A line for the record" value={note} onChange={(e) => setNote(e.target.value)} onBlur={saveNote} onFocus={(e) => revealField(e.currentTarget)} />
+          </label>
+        </>
       ) : null}
       {log.length ? (
-        <div className="gs-field">
-          <span className="caps">Log</span>
-          <ol className="g-log">
+        <>
+          <h3 className="k-sheet-label">Log</h3>
+          <ol className="k-rows g-log">
             {log.map((e) => (
-              <li key={e.id} className="g-log-row">
+              <li key={e.id} className="k-row g-log-row">
                 <span className="g-log-what">
                   {EVENT_WORD[e.kind]}
                   {(e.kind === 'step' || e.kind === 'unstep') && e.text ? <span className="g-log-step">: {e.text}</span> : null}
                 </span>
-                <span className="g-log-when tnum">
-                  {dayOf(e.at) === today ? timeOf(e.at) : `${fmtDate('md', dayOf(e.at))}, ${timeOf(e.at)}`}
-                </span>
+                <span className="k-row-end g-log-when">{dayOf(e.at) === today ? timeOf(e.at) : `${fmtDate('md', dayOf(e.at))}, ${timeOf(e.at)}`}</span>
               </li>
             ))}
           </ol>
-        </div>
+        </>
       ) : null}
-      <div className="sheet-foot">
+      <KPin>
+        <Button variant="primary" block onClick={() => sheet.push({ eyebrow: periodCaps(g.level, g.period, today), title: 'Edit goal', body: <GoalEditor level={g.level} period={g.period} initial={g.text} /> })}>
+          Edit goal
+        </Button>
+      </KPin>
+    </div>
+  );
+};
+
+/** Clearing a goal, behind the sheet's red trash: what goes, then Clear (a toast brings it back with Undo). */
+const ClearGoal = ({ id }: { id: string }) => {
+  const sheet = useSheet();
+  const goals = useGoals();
+  const { clear, set } = useGoalMutations();
+  const toast = useToast();
+  const g = goals.data?.find((x) => x.id === id) ?? null;
+  if (!g) return <p className="k-foot">This goal was cleared.</p>;
+  return (
+    <div className="gsheet k-sheet">
+      <section className="k-card gs-card">
+        <p className="gs-sentence serif">{g.text}</p>
+        <p className="k-foot">Clearing takes the goal and its steps off the period. Its log is kept, and Undo brings it back.</p>
+      </section>
+      <KPin>
         <Button
-          variant="danger"
+          className="block k-danger"
+          block
           onClick={() => {
             const was = g;
             haptics.delete();
@@ -273,15 +289,20 @@ export const GoalDetail = ({ id }: { id: string }) => {
             toast('Goal cleared', { label: 'Undo', fn: () => set.mutate({ level: was.level, period: was.period, text: was.text, original: was.original, why: was.why, steps: was.steps }) });
           }}
         >
-          Clear
+          Clear goal
         </Button>
-        <div className="foot-right">
-          <Button variant="primary" onClick={() => sheet.push({ eyebrow: periodCaps(g.level, g.period, today), title: 'Edit goal', body: <GoalEditor level={g.level} period={g.period} initial={g.text} /> })}>
-            Edit
-          </Button>
-        </div>
-      </div>
+      </KPin>
     </div>
+  );
+};
+
+/** The goal sheet's header action: a red trash in a tinted circle, then the confirm. */
+const ClearButton = ({ id }: { id: string }) => {
+  const sheet = useSheet();
+  return (
+    <button type="button" className="icon-btn k-trash" aria-label="Clear goal" title="Clear goal" onClick={() => sheet.push({ title: 'Clear this goal?', body: <ClearGoal id={id} /> })}>
+      <Trash2 size={18} aria-hidden="true" />
+    </button>
   );
 };
 
@@ -293,7 +314,7 @@ export const useOpenGoal = () => {
   return (level: GoalLevel, period: string, opts: { edit?: boolean } = {}) => {
     const g = goalOf(goals.data, level, period);
     const eyebrow = periodCaps(level, period, today);
-    if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
+    if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, action: <ClearButton id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
     else if (g) sheet.open({ eyebrow, title: 'Edit goal', body: <GoalEditor level={level} period={period} initial={g.text} />, sticky: true });
     // a new goal: set it myself (the editor, pushed) or ask for a suggestion from the last 90 days
     else sheet.open({ eyebrow, title: LEVEL[level].ask, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title: LEVEL[level].ask, body: <GoalEditor level={level} period={period} closeOnSave />, sticky: true })} /> });

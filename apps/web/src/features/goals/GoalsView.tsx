@@ -8,6 +8,7 @@ import { useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
+import { Segmented } from '@/ui/primitives';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { Switch } from '../settings/parts';
 import '../settings/settings.css';
@@ -20,6 +21,7 @@ import { GoalRing, GoalSteps } from './Steps';
 import { Burst, celebrateOnce } from './game';
 import { Orbit, type OrbitGoal } from './Orbit';
 import { useCelebrate } from './Celebrate';
+import { KSection } from './Kit';
 import './goals.css';
 
 /** Nearest first on the cards: the day, then the week, the month, the year (the orbit draws them the other way, outside in). */
@@ -68,9 +70,9 @@ export const GoalRow = ({ level, period, goal, today, compact, steps }: { level:
 };
 
 /**
- * One level's card in the strip under the orbit: its colour glowing up from the corner as its goal comes along, the period
- * and its time left, the goal in large serif, its steps to check right there, the ring to finish it. Done, the card is lit
- * in its colour.
+ * One level's card in the strip: the period and its time left, the goal in the serif, the ring to finish it, what is left
+ * in words, its steps as rows to check right there, and the period's clock along the foot. Its colour glows up from the
+ * corner as the goal comes along; done, the card is lit in it. Every card has the same radius, padding and height.
  */
 const LevelCard = ({ level, period, goal, today, now, hit }: { level: GoalLevel; period: string; goal: Aim | null; today: string; now: number; hit: number }) => {
   const open = useOpenGoal();
@@ -82,7 +84,6 @@ const LevelCard = ({ level, period, goal, today, now, hit }: { level: GoalLevel;
   if (!goal)
     return (
       <Pressable className="gv-card is-empty" press="surface" style={style} onPress={() => open(level, period)} label={setWords(level, period, today)}>
-        <span className="gv-card-glow" aria-hidden="true" />
         <span className="gv-card-head">
           <span className="caps">{caps}</span>
           <span className="gv-left">{clock.words}</span>
@@ -94,14 +95,18 @@ const LevelCard = ({ level, period, goal, today, now, hit }: { level: GoalLevel;
           <span className="gv-set-words">{setWords(level, period, today)}</span>
         </span>
         <span className="gv-example">Like: {LEVEL[level].example}</span>
+        <span className="gv-clock" aria-hidden="true">
+          <i style={{ transform: `scaleX(${clock.elapsed})` }} />
+        </span>
       </Pressable>
     );
   const ended = goal.status === 'partly' || goal.status === 'missed';
   return (
     <article className={`gv-card is-${goal.status}`} style={style} aria-label={`${caps}: ${goal.text}`}>
-      <motion.span className="gv-card-glow" aria-hidden="true" initial={false} animate={{ opacity: goal.status === 'done' ? 1 : 0.25 + 0.6 * p }} transition={reduce ? { duration: 0 } : { duration: 0.5 }} />
+      <motion.span className="gv-card-glow" aria-hidden="true" initial={false} animate={{ opacity: goal.status === 'done' ? 1 : 0.2 + 0.6 * p }} transition={reduce ? { duration: 0 } : { duration: 0.5 }} />
       <div className="gv-card-head">
         <span className="caps">{caps}</span>
+        <span className="gv-left">{goal.status === 'open' ? clock.words : STATUS_WORD[goal.status]}</span>
       </div>
       <div className="gv-card-body">
         <Pressable className="gv-text" press="dim" onPress={() => open(level, period)} label={`${goal.text}. Open`}>
@@ -127,6 +132,26 @@ const LevelCard = ({ level, period, goal, today, now, hit }: { level: GoalLevel;
   );
 };
 
+/** The hero's legend under the rings: each level's colour, its name and where its goal stands; a tap picks the level. */
+const Legend = ({ goals, sel, onSel }: { goals: OrbitGoal[]; sel: GoalLevel; onSel: (l: GoalLevel) => void }) => (
+  <div className="gv-legend" role="group" aria-label="Levels">
+    {goals.map(({ level, goal }) => {
+      const n = goal?.steps.length ?? 0;
+      const k = goal?.steps.filter((x) => x.done).length ?? 0;
+      const word = !goal ? 'Not set' : goal.status !== 'open' ? STATUS_WORD[goal.status] : n ? `${k} of ${n}` : 'Set';
+      return (
+        <button key={level} type="button" className={`gv-leg ${sel === level ? 'is-sel' : ''} ${goal ? `is-${goal.status}` : 'is-none'}`} style={{ '--hue': LEVEL_HUE[level] } as React.CSSProperties} aria-pressed={sel === level} onClick={() => onSel(level)}>
+          <span className="gv-leg-top">
+            <i aria-hidden="true" />
+            {LEVEL[level].label}
+          </span>
+          <span className="gv-leg-word tnum">{word}</span>
+        </button>
+      );
+    })}
+  </div>
+);
+
 /** The last fourteen days as a chain of lights: lit for a day goal hit, dim for one missed, empty for none set. */
 const DayTrail = ({ goals, today, onOpen }: { goals: Aim[]; today: string; onOpen: () => void }) => {
   const days = Array.from({ length: 14 }, (_, i) => shiftDays(today, i - 13));
@@ -135,12 +160,13 @@ const DayTrail = ({ goals, today, onOpen }: { goals: Aim[]; today: string; onOpe
   const hit = days.filter((d) => of(d)?.status === 'done').length;
   return (
     <Pressable className="g-trail" press="surface" onPress={onOpen} label={`Last 14 days: ${set} goals set, ${hit} done. Open the history`}>
-      <span className="g-trail-head">
-        <span className="caps">Last 14 days</span>
-        <span className="g-trail-sum tnum">
-          {set ? `${hit} of ${set} done` : 'No day goals yet'}
-          <ChevronRight size={14} aria-hidden="true" />
-        </span>
+      <span className="k-label g-trail-head">
+        Day goals, last 14 days
+        <ChevronRight size={16} aria-hidden="true" className="k-label-end" />
+      </span>
+      <span className="k-num g-trail-num">
+        {set ? hit : '–'}
+        <small>{set ? `of ${set} done` : 'No day goals yet'}</small>
       </span>
       <span className="g-trail-marks" aria-hidden="true">
         {days.map((d, i) => {
@@ -224,66 +250,79 @@ export default function GoalsView(): React.JSX.Element {
 
   return (
     <div className="page g-page">
-      <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Goals' }} gap={24} />
+      <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Goals' }} gap={16}>
+        <div className="g-segrow">
+          <Segmented<GoalLevel> label="Level" className="k-seg g-levels" value={sel} onChange={toCard} options={CARD_ORDER.map((l) => [l, LEVEL[l].label] as [GoalLevel, string])} />
+        </div>
+      </NavBar>
       {goals.isPending && !goals.data ? (
         <SkeletonRows rows={4} label="Loading goals" />
       ) : (
         <>
-          <section className="gv-head" aria-label="Your goals now">
-            <div className="gv-picks" role="tablist" aria-label="Level">
-              {CARD_ORDER.map((l) => (
-                <button key={l} type="button" role="tab" aria-selected={sel === l} className={`gv-pick ${sel === l ? 'is-sel' : ''}`} style={{ '--hue': LEVEL_HUE[l] } as React.CSSProperties} onClick={() => toCard(l)}>
-                  <i aria-hidden="true" className={cur[l]?.status === 'done' ? 'is-done' : cur[l] ? 'is-set' : ''} />
-                  {LEVEL[l].label}
-                </button>
-              ))}
-            </div>
+          <div className="k-stack g-top">
             <ScoreCard goals={list} level={sel} today={today} />
-            <Orbit goals={orbit} sel={sel} onSel={toCard} now={now} hit={orbitHit} />
+            <section className="k-card g-hero" aria-label="Your goals now">
+              <Orbit goals={orbit} sel={sel} onSel={toCard} now={now} hit={orbitHit} />
+              <hr className="k-rule" />
+              <Legend goals={orbit} sel={sel} onSel={toCard} />
+            </section>
+            <StaleNudge goals={list} today={today} />
+          </div>
+          <KSection title="Now" meta={`${CARD_ORDER.filter((l) => cur[l]).length} of 4 set`} className="g-now">
             <div ref={strip} className="gv-strip" onScroll={onScroll}>
               {CARD_ORDER.map((l) => (
                 <LevelCard key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} now={now} hit={hits[l] ?? 0} />
               ))}
             </div>
-          </section>
-          <StaleNudge goals={list} today={today} />
-          <section className="g-ahead" aria-label="Ahead">
-            <h2 className="sec-title">Ahead</h2>
-            <div className="group g-group">
+          </KSection>
+          <KSection title="Ahead" className="g-ahead">
+            <div className="group g-group k-lined">
               <GoalRow level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} compact />
               <GoalRow level="week" period={next('week')} goal={goalOf(list, 'week', next('week'))} today={today} compact />
             </div>
-          </section>
-          <section className="g-past" aria-label="History">
-            <DayTrail goals={list} today={today} onOpen={() => nav.push('/goals/history')} />
-            <div className="group g-group">
-              <Pressable className="g-link" press="surface" onPress={() => nav.push('/goals/history')} label="History. Open">
-                <History size={18} aria-hidden="true" className="g-link-ic" />
-                <span className="g-link-title">History</span>
-                <span className="g-link-sub">Every goal, how it went, and what changed</span>
-                <ChevronRight size={16} aria-hidden="true" className="g-chev" />
-              </Pressable>
-              {remindersSupported() ? (
-                <div className="g-link g-switch">
-                  <Bell size={18} aria-hidden="true" className="g-link-ic" />
-                  <span className="g-link-title">Reminders</span>
-                  <span className="g-link-sub">Each morning a goal is unset; Mondays for the week</span>
-                  <Switch
-                    on={reminders}
-                    label="Goal reminders"
-                    onChange={async (on) => {
-                      if (on) setReminders(await enableReminders());
-                      else {
-                        await disableReminders();
-                        setReminders(false);
-                      }
-                    }}
-                  />
-                </div>
-              ) : null}
+          </KSection>
+          <KSection title="History" action="See all" actionLabel="See all of the history" onAction={() => nav.push('/goals/history')} className="g-past">
+            <div className="k-stack">
+              <DayTrail goals={list} today={today} onOpen={() => nav.push('/goals/history')} />
+              <ul className="k-rows has-icons">
+                <li>
+                  <Pressable className="k-row two" press="surface" onPress={() => nav.push('/goals/history')} label="History. Open">
+                    <span className="icon-tile" aria-hidden="true">
+                      <History size={17} />
+                    </span>
+                    <span className="k-row-main">
+                      <span className="k-row-title">History</span>
+                      <span className="k-row-sub">Every goal, how it went, and what changed</span>
+                    </span>
+                    <ChevronRight size={18} aria-hidden="true" className="k-chev" />
+                  </Pressable>
+                </li>
+                {remindersSupported() ? (
+                  <li className="k-row two">
+                    <span className="icon-tile" aria-hidden="true">
+                      <Bell size={17} />
+                    </span>
+                    <span className="k-row-main">
+                      <span className="k-row-title">Reminders</span>
+                      <span className="k-row-sub">Each morning a goal is unset; Mondays for the week</span>
+                    </span>
+                    <Switch
+                      on={reminders}
+                      label="Goal reminders"
+                      onChange={async (on) => {
+                        if (on) setReminders(await enableReminders());
+                        else {
+                          await disableReminders();
+                          setReminders(false);
+                        }
+                      }}
+                    />
+                  </li>
+                ) : null}
+              </ul>
             </div>
-            <p className="g-foot">{LEVEL.week.ask} Write it as you would say it; the review makes it specific, measurable and due on time.</p>
-          </section>
+            <p className="k-foot">{LEVEL.week.ask} Write it as you would say it; the review makes it specific, measurable and due on time.</p>
+          </KSection>
         </>
       )}
     </div>

@@ -1,17 +1,17 @@
 import { shiftDays, type JournalEntry } from '@logbook/shared';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Sprout } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useReduced } from '@/lib/motion';
-import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { getDraft, setDraft } from './drafts';
 import { QuoteLine, Timeline } from './JournalHome';
 import { Plant, PlantButtonGlyph } from './plants';
 import { useDayPrompt } from './prompt';
 import { DayTags } from './DayTags';
+import '../goals/kit.css';
 import './garden.css';
 
 const COLS = 14;
@@ -58,25 +58,37 @@ export const JournalGarden = ({ today, focusKey = 0, openDay = null }: { today: 
   useEffect(() => {
     if (openDay) open(openDay.date);
   }, [openDay]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toEntries = () => document.getElementById('j-entries')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   return (
     <div className="gdn">
-      {mode === 'garden' ? <Garden today={today} byDate={byDate} all={all} pending={!list.data} onOpen={open} /> : <DayPage key={day} date={day} today={today} byDate={byDate} onDay={setDay} writeKey={writeKey} />}
-      <div className="gdn-toggle" role="tablist" aria-label="Garden or day">
-        <button type="button" role="tab" aria-selected={mode === 'garden'} className={mode === 'garden' ? 'is-on' : ''} aria-label="The year" onClick={() => (setMode('garden'), haptics.select())}>
-          <Plant date="2026-03-01" size={22} />
-          <Plant date="2026-03-04" size={18} />
-        </button>
-        <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'is-on' : ''} aria-label="The day" onClick={() => (setMode('day'), haptics.select())}>
-          <Plant date={day} size={22} />
-        </button>
+      <section className="k-card gdn-card" aria-label={mode === 'garden' ? 'The year' : 'The day'}>
+        <div className="gdn-card-head">
+          <span className="k-label">
+            <Sprout size={16} aria-hidden="true" />
+            {mode === 'garden' ? 'Your garden' : 'The day'}
+          </span>
+          <div className="gdn-toggle" role="tablist" aria-label="Garden or day">
+            <button type="button" role="tab" aria-selected={mode === 'garden'} className={mode === 'garden' ? 'is-on' : ''} aria-label="The year" onClick={() => (setMode('garden'), haptics.select())}>
+              <Plant date="2026-03-01" size={18} />
+              <Plant date="2026-03-04" size={15} />
+            </button>
+            <button type="button" role="tab" aria-selected={mode === 'day'} className={mode === 'day' ? 'is-on' : ''} aria-label="The day" onClick={() => (setMode('day'), haptics.select())}>
+              <Plant date={day} size={18} />
+            </button>
+          </div>
+        </div>
+        {mode === 'garden' ? <Garden today={today} byDate={byDate} all={all} pending={!list.data} onOpen={open} onEntries={toEntries} /> : <DayPage key={day} date={day} today={today} byDate={byDate} onDay={setDay} writeKey={writeKey} />}
+      </section>
+      <DayTags date={day} today={today} />
+      <div id="j-entries" className="j-entries">
+        <Timeline today={today} all={all} pending={!list.data} onWrite={() => (open(today), setWriteKey((k) => k + 1))} />
       </div>
     </div>
   );
 };
 
-const Garden = ({ today, byDate, all, pending, onOpen }: { today: string; byDate: Map<string, JournalEntry[]>; all: JournalEntry[]; pending: boolean; onOpen: (d: string) => void }) => {
+const Garden = ({ today, byDate, all, pending, onOpen, onEntries }: { today: string; byDate: Map<string, JournalEntry[]>; all: JournalEntry[]; pending: boolean; onOpen: (d: string) => void; onEntries: () => void }) => {
   const reduce = useReduced();
-  const sheet = useSheet();
   const years = useMemo(() => [...new Set([today.slice(0, 4), ...all.map((e) => e.date.slice(0, 4))])].sort(), [all, today]);
   const [year, setYear] = useState(today.slice(0, 4));
   const days = useMemo(() => {
@@ -168,8 +180,8 @@ const Garden = ({ today, byDate, all, pending, onOpen }: { today: string; byDate
           </>
         ) : null}
       </p>
-      {pending ? null : (
-        <button type="button" className="gdn-link" onClick={() => sheet.open({ title: 'Every memory', detent: 'large', body: <Timeline today={today} all={all} pending={false} onWrite={() => (sheet.close(), onOpen(today))} /> })}>
+      {pending || !all.length ? null : (
+        <button type="button" className="gdn-link" onClick={onEntries}>
           every memory <ChevronRight size={14} aria-hidden="true" />
         </button>
       )}
@@ -321,7 +333,6 @@ const DayPage = ({ date, today, byDate, onDay, writeKey }: { date: string; today
           </button>
         )}
       </div>
-      <DayTags date={date} today={today} />
       {year && !writing ? (
         <button type="button" className="gdn-ago" onClick={() => onDay(year.d)}>
           <span className="gdn-ago-k">

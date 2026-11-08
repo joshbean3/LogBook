@@ -8,13 +8,14 @@ import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { HOLD_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { crossfade, springs, useReduced } from '@/lib/motion';
-import { Button, EmptyState, IconButton, Pressable, Section, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
+import { EmptyState, IconButton, Pressable, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
 import { FavStar } from './FavStar';
 import { PressButton } from './PressButton';
 import { measureBelow, popFav, useListFlip } from './feel';
 import { Composer, EntryEditor, monthsOf, timeOf, useEntryActions, useOpenDay, useOpenEntry } from './JournalDaySection';
 import { runStamp, useDayPrompt } from './prompt';
+import { KSection } from '../goals/Kit';
 
 /** "“…” (Seneca)": how a quote goes into an entry when it is used as a prompt. */
 export const asPrompt = (q: Quote) => `“${q.text}”${q.author ? ` (${q.author})` : ''}`;
@@ -433,14 +434,14 @@ export const Timeline = ({ today, all, pending, onWrite }: { today: string; all:
   const stampOf = (d: string) => (log.loaded(d) ? runStamp(log.snap, d) : null);
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
   return (
-    <Section
+    <KSection
       title="Entries"
       meta={all.length || undefined}
-      level="primary"
       className="jtl-sec"
       action={
         all.length > 3 ? (
           <IconButton
+            className="bare"
             label={searching ? 'Close search' : 'Search entries'}
             onClick={() => {
               flip.current = measureBelow(head.current);
@@ -476,13 +477,17 @@ export const Timeline = ({ today, all, pending, onWrite }: { today: string; all:
         ) : null
       ) : !all.length ? (
         // the sentence and its verb, no ghost rows: they read as the loading skeleton (review feel F10)
-        <EmptyState verb={{ label: 'Write today’s', onPress: onWrite }}>
-          Two sentences a day. Every one lands here, newest first.
-        </EmptyState>
+        <div className="k-card jtl-empty">
+          <EmptyState verb={{ label: 'Write today’s', onPress: onWrite }}>
+            Two sentences a day. Every one lands here, newest first.
+          </EmptyState>
+        </div>
       ) : q.trim() && !list.length && !found.isPending ? (
-        <EmptyState verb={{ label: 'Clear the search', onPress: () => setQ('') }}>Nothing you wrote says “{q.trim()}”.</EmptyState>
+        <div className="k-card jtl-empty">
+          <EmptyState verb={{ label: 'Clear the search', onPress: () => setQ('') }}>Nothing you wrote says “{q.trim()}”.</EmptyState>
+        </div>
       ) : (
-        <div ref={rowsRef} className="jtl" role="list">
+        <div ref={rowsRef} className="jtl k-rows" role="list">
           {shown.map((e, i) => {
             const first = i === 0 || shown[i - 1]!.date !== e.date;
             const stamp = first ? stampOf(e.date) : null;
@@ -527,11 +532,11 @@ export const Timeline = ({ today, all, pending, onWrite }: { today: string; all:
         </div>
       )}
       {list.length > limit ? (
-        <Button variant="quiet" block className="jtl-more" onClick={() => setLimit((l) => l + PAGE)}>
+        <button type="button" className="pill-row jtl-more" onClick={() => setLimit((l) => l + PAGE)}>
           Show {Math.min(PAGE, list.length - limit)} older
-        </Button>
+        </button>
       ) : null}
-    </Section>
+    </KSection>
   );
 };
 

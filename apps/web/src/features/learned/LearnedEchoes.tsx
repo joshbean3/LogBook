@@ -1,5 +1,6 @@
 import { addMonths, fmtDate, shiftDays, type Learning } from '@logbook/shared';
 import { Pressable } from '@/ui/Pressable';
+import { KSection } from '../goals/Kit';
 import { useLearningEchoes } from './queries';
 
 /** `Nov 10, 2025`: the year only when it is not this one. */
@@ -26,8 +27,7 @@ export const Echoes = ({ today, onOpen }: { today: string; onOpen: (l: Learning)
     { key: 'random', caps: 'From any day', item: e?.random, empty: 'Learnings older than a week show up here.' },
   ];
   return (
-    <section className="ln-echoes" aria-label="From your archive">
-      <h2 className="caps ln-echoes-title">From your archive</h2>
+    <KSection title="From your archive" className="ln-echoes">
       <div className="ln-echo-strip">
         {slots.map((s) =>
           s.item ? (
@@ -48,6 +48,6 @@ export const Echoes = ({ today, onOpen }: { today: string; onOpen: (l: Learning)
           ),
         )}
       </div>
-    </section>
+    </KSection>
   );
 };

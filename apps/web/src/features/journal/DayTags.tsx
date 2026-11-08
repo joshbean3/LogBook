@@ -1,5 +1,5 @@
-import { DAY_TAG_LABEL_MAX, DAY_TAG_MAX, dayTagEffectWords, dayTagId, type DayTagStat } from '@logbook/shared';
-import { ChevronRight, Plus, X } from 'lucide-react';
+import { DAY_TAG_LABEL_MAX, DAY_TAG_MAX, dayTagEffectWords, dayTagId, fmtDate, shiftDays, type DayTagStat } from '@logbook/shared';
+import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
@@ -7,6 +7,7 @@ import { useSheet } from '@/ui/Sheet';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 import { useDayTagMutations, useDayTags, useDayTagStats } from './tags';
+import { KSection } from '../goals/Kit';
 import './daytags.css';
 
 /**
@@ -39,23 +40,25 @@ export const DayTags = ({ date, today }: { date: string; today: string }) => {
     add.mutate({ id, label }, { onError: () => toast('Couldn’t add that tag. Try again.') });
   };
   const marked = tags.filter((t) => d?.values[t.id] !== undefined).length;
+  const when = date === today ? 'Today' : date === shiftDays(today, -1) ? 'Yesterday' : fmtDate('short', date);
   return (
-    <section className="dt" aria-label="The day’s tags">
-      <div className="dt-head">
-        <span className="caps">The day</span>
-        <span className="dt-count tnum">{tags.length ? `${marked} of ${tags.length} marked` : ''}</span>
-      </div>
-      <ul className="dt-rows">
+    <KSection title="Day tags" meta={when} action="What they do" actionLabel="What the tags do" onAction={() => sheet.open({ eyebrow: 'Journal', title: 'Day tags', detent: 'large', detents: ['large'], body: <TagStats /> })} className="dt">
+      <ul className="k-rows dt-rows" aria-label={`The day’s tags, ${when}`}>
+        {q.isPending && !d ? (
+          <li className="k-row dt-row">
+            <span className="dt-label is-wait">Loading the tags</span>
+          </li>
+        ) : null}
         {tags.map((t) => {
           const v = d?.values[t.id];
           return (
-            <li key={t.id} className="dt-row">
+            <li key={t.id} className="k-row dt-row">
               <span className="dt-label">{t.label}</span>
-              <span className="dt-pair" role="group" aria-label={t.label}>
-                <button type="button" className={`dt-btn ${v === true ? 'is-yes' : ''}`} aria-pressed={v === true} onClick={() => set(t.id, true)}>
+              <span className="k-pair" role="group" aria-label={t.label}>
+                <button type="button" className="is-yes" aria-pressed={v === true} onClick={() => set(t.id, true)}>
                   Yes
                 </button>
-                <button type="button" className={`dt-btn ${v === false ? 'is-no' : ''}`} aria-pressed={v === false} onClick={() => set(t.id, false)}>
+                <button type="button" className="is-no" aria-pressed={v === false} onClick={() => set(t.id, false)}>
                   No
                 </button>
               </span>
@@ -63,7 +66,7 @@ export const DayTags = ({ date, today }: { date: string; today: string }) => {
           );
         })}
         {tags.length < DAY_TAG_MAX ? (
-          <li className="dt-row dt-add">
+          <li className="k-row dt-row dt-add">
             {adding ? (
               <input
                 className="dt-input"
@@ -85,16 +88,14 @@ export const DayTags = ({ date, today }: { date: string; today: string }) => {
               />
             ) : (
               <button type="button" className="dt-addbtn" onClick={() => setAdding(true)}>
-                <Plus size={15} strokeWidth={2.4} aria-hidden="true" /> Add a tag
+                <Plus size={16} strokeWidth={2.4} aria-hidden="true" /> Add a tag
               </button>
             )}
           </li>
         ) : null}
       </ul>
-      <button type="button" className="dt-link" onClick={() => sheet.open({ eyebrow: 'Journal', title: 'Day tags', detent: 'large', detents: ['large'], body: <TagStats /> })}>
-        What they do <ChevronRight size={14} aria-hidden="true" />
-      </button>
-    </section>
+      <p className="k-foot">{tags.length ? `${marked} of ${tags.length} marked. Each yes or no is matched with the next day’s run.` : 'Mark the day with a tag of your own, like late screens or alcohol.'}</p>
+    </KSection>
   );
 };
 

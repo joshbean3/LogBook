@@ -75,7 +75,7 @@ export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: b
   };
   if (!goal.steps.length && !editable) return null;
   return (
-    <ul className={`g-steps ${compact ? 'compact' : ''}`} aria-label="Steps">
+    <ul className={`g-steps ${compact ? 'compact' : 'k-rows'} ${editable ? 'is-edit' : ''}`} aria-label="Steps">
       {goal.steps.map((s) => (
         <li key={s.id} className={`g-step ${s.done ? 'is-done' : ''}`}>
           <TodoMark on={s.done} label={s.text} onToggle={(next) => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
@@ -128,7 +128,7 @@ export const DraftSteps = ({ steps, onChange }: { steps: string[]; onChange: (s:
     setDraft('');
   };
   return (
-    <ul className="g-steps is-draft" aria-label="Steps">
+    <ul className="g-steps is-draft k-rows" aria-label="Steps">
       {steps.map((s, i) => (
         <li key={`${i}-${s}`} className="g-step">
           <span className="g-step-num tnum" aria-hidden="true">

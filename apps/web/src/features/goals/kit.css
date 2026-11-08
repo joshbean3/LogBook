@@ -1,0 +1,397 @@
+/*
+ * The shape kit Goals, Learned, Journal, Library and Reads share (docs/shape-system.md): a section with its plain sans header,
+ * the segmented control on a pale track, rows inside a card, the footnote, the red trash circle on a sheet, the sheet's
+ * section label. Built from the tokens; shape.css holds the app-wide primitives (card, tiles, group, icon tile, buttons).
+ */
+
+/* ---------- a section: 28 above, the header 12 above its first card ---------- */
+.k-sec {
+  margin-top: var(--section);
+  min-width: 0;
+}
+.k-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 25px;
+  margin: 0 0 var(--sec-gap);
+  min-width: 0;
+}
+.k-head-title {
+  margin: 0;
+  min-width: 0;
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.k-head-meta {
+  flex: none;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.k-head-act {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: -10px 0 -10px auto;
+  padding: 0 0 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.k-head-slot {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  margin: -10px 0 -10px auto;
+}
+.k-head-act.is-icon {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
+  color: var(--ink-2);
+}
+
+/* ---------- a stack of cards, 12 apart ---------- */
+.k-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+}
+
+/* ---------- a white card (when a feature cannot carry .card's grid) ---------- */
+.k-card {
+  position: relative;
+  min-width: 0;
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+}
+.k-card.is-flush {
+  padding: 0;
+  overflow: hidden;
+}
+/* a card's label row: 15/20 grey with a 16 px icon before it, an action at the right */
+.k-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.k-label > svg {
+  flex: none;
+  color: var(--ink-4);
+}
+.k-label-end {
+  margin-left: auto;
+  flex: none;
+}
+/* a big stamped number and its small grey unit */
+.k-num {
+  font: 700 2.125rem / 2.375rem var(--stamp);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.k-num small {
+  margin-left: 4px;
+  font: 500 var(--fs-sub) / 1 var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+/* a status word with its small icon: navy on track, orange behind, grey with nothing */
+.k-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.k-status.is-hi {
+  color: var(--accent-text);
+}
+.k-status.is-none {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+/* a full-width hairline between a card's parts */
+.k-rule {
+  height: 1px;
+  margin: 0 calc(-1 * var(--pad-card));
+  background: var(--line);
+  border: 0;
+}
+.k-foot {
+  margin: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.k-sec > .k-foot,
+.k-stack + .k-foot,
+.group + .k-foot,
+.k-card + .k-foot {
+  margin: 10px 4px 0;
+}
+
+/* ---------- rows inside a card (an inset group): 56 tall, 64 with a sub; separators start at the words ---------- */
+.k-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  min-width: 0;
+}
+.k-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.k-row.two {
+  min-height: 64px;
+}
+.k-rows > * + *::before,
+.k-rows > * + .k-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--k-sep, 16px);
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
+.k-rows > * {
+  position: relative;
+}
+.k-rows.has-icons {
+  --k-sep: 60px;
+}
+.k-row[data-pressed],
+button.k-row:active {
+  background: var(--surface-2);
+}
+.k-row-main {
+  flex: 1;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.k-row-title {
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.k-row-sub {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.k-row-end {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.k-chev {
+  flex: none;
+  color: var(--ink-4);
+  margin-right: -4px;
+}
+
+/* an inset group's rows split by a hairline that starts at the words (a pseudo line: an inset shadow offset to the right
+   also covers the top edge and hides the line) */
+.k-lined > * + * {
+  position: relative;
+  border-top: 0;
+  box-shadow: none;
+}
+.k-lined > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--k-sep, 16px);
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---------- the segmented control: a pale track, the chosen segment white and lifted ---------- */
+.seg.k-seg {
+  height: 36px;
+  gap: 0;
+  padding: 2px;
+  border-radius: var(--r-control);
+  background: rgba(15, 42, 68, 0.06);
+}
+.seg.k-seg .seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: 10px;
+  font: 600 var(--fs-foot) / 1.0625rem var(--sans);
+  color: var(--ink-3);
+}
+.seg.k-seg .seg-btn[aria-checked='true'] {
+  color: var(--ink);
+}
+/* each segment reaches 44 to the thumb */
+.seg.k-seg .seg-btn::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.seg.k-seg .seg-thumb {
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  inset-inline-start: 0;
+  height: auto;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 42, 68, 0.08), 0 2px 8px rgba(15, 42, 68, 0.08);
+}
+.seg.k-seg .seg-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- a two-way choice inside a row (Yes · No): a small segmented pair ---------- */
+.k-pair {
+  flex: none;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-control);
+  background: rgba(15, 42, 68, 0.06);
+}
+.k-pair > button {
+  position: relative;
+  min-width: 52px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-3);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out),
+    box-shadow var(--dur-color) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.k-pair > button::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.k-pair > button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 42, 68, 0.08), 0 2px 8px rgba(15, 42, 68, 0.08);
+}
+.k-pair > button.is-yes[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+
+/* ---------- sheets: a sans label over a card, the red trash circle, the pinned pill ---------- */
+.k-sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+}
+.k-sheet-label {
+  margin: 8px 4px -4px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.k-confirm {
+  display: grid;
+  gap: 6px;
+}
+.k-confirm-what {
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.icon-btn.k-trash {
+  background: var(--bad-soft);
+  color: var(--bad);
+  box-shadow: none;
+}
+.sheet-foot.k-pin {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 8px;
+}
+.k-pin .btn.block {
+  width: 100%;
+}
+.k-pin .btn.primary:disabled {
+  background: var(--surface-3);
+  border-color: transparent;
+  color: var(--ink-4);
+  opacity: 1;
+}
+.k-pin .btn {
+  border-color: transparent;
+}
+.btn.k-danger {
+  background: var(--bad);
+  color: #fff;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-pair > button {
+    transition: none;
+  }
+}

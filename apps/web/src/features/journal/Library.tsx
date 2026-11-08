@@ -1,15 +1,16 @@
 import { fmtDate, type JournalEntry, type Quote, linkTitle } from '@logbook/shared';
-import { ChevronRight, EyeOff, PenLine, Plus, Search, Share, Star, Trash2 } from 'lucide-react';
+import { BookMarked, ChevronRight, EyeOff, PenLine, Plus, Search, Share, Star, Trash2 } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { seedOf, usePick, useJournalList, useJournalMutations, useQuotes, useQuoteThemes, useReads, useThemeQuotes, type QuoteTheme } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
-import { Button, ContextMenu, EmptyState, Group, IconButton, Pressable, Row, Section, Skeleton, SkeletonGroup, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
+import { Button, ContextMenu, EmptyState, Group, IconButton, Pressable, Skeleton, SkeletonGroup, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
 import { FavStar } from './FavStar';
 import { PressButton } from './PressButton';
 import { measureBelow, useListFlip } from './feel';
 import { SaveButton, useEntryActions, useOpenEntry } from './JournalDaySection';
+import { KPin, KSection, KTrash } from '../goals/Kit';
 
 const Byline = ({ q }: { q: Quote }) =>
   q.author || q.work ? (
@@ -50,53 +51,43 @@ const QuoteSheet = ({ q: opened, onWrite }: { q: Quote; onWrite: (q: Quote) => v
   const [fav, setFav] = useState(opened.fav);
   const q = { ...opened, fav };
   return (
-    <div className="qsheet">
-      <blockquote className="quote-text display long">“{q.text}”</blockquote>
-      {q.work ? <cite className="qsheet-work serif">{q.work}</cite> : null}
-      <div className="sheet-foot">
-        {q.mine ? (
-          <Button
-            variant="quiet"
-            className="danger-quiet"
-            onClick={() => {
-              sheet.close();
-              act.remove(q);
-            }}
-          >
-            <Trash2 size={16} aria-hidden="true" /> Delete
-          </Button>
-        ) : (
-          <span />
-        )}
-        <div className="foot-right">
-          <Button
-            onClick={() => {
-              sheet.close();
-              onWrite(q);
-            }}
-          >
-            <PenLine size={16} aria-hidden="true" /> Write
-          </Button>
-          <Button
-            variant={fav ? 'default' : 'primary'}
-            aria-pressed={fav}
-            onClick={() => {
-              act.fav(q);
-              setFav(!fav);
-            }}
-          >
-            <FavStar on={fav} size={16} always className="" />
-            {fav ? 'Favourited' : 'Favourite'}
-          </Button>
-        </div>
-      </div>
+    <div className="qsheet k-sheet">
+      <section className="k-card qsheet-card">
+        <blockquote className="quote-text display long">“{q.text}”</blockquote>
+        {q.work ? <cite className="qsheet-work serif">{q.work}</cite> : null}
+      </section>
+      <KPin>
+        <Button
+          variant={fav ? 'default' : 'primary'}
+          block
+          aria-pressed={fav}
+          onClick={() => {
+            act.fav(q);
+            setFav(!fav);
+          }}
+        >
+          <FavStar on={fav} size={16} always className="" />
+          {fav ? 'Favourited' : 'Favourite'}
+        </Button>
+        <Button
+          block
+          onClick={() => {
+            sheet.close();
+            onWrite(q);
+          }}
+        >
+          <PenLine size={16} aria-hidden="true" /> Write about it
+        </Button>
+      </KPin>
     </div>
   );
 };
 export const useOpenQuote = (onWrite: (q: Quote) => void, push = false) => {
   const sheet = useSheet();
+  const act = useQuoteActions();
   return (q: Quote) => {
-    const spec = { eyebrow: q.mine ? 'Yours' : q.theme || undefined, title: q.author || 'Quote', body: <QuoteSheet q={q} onWrite={onWrite} /> };
+    const action = q.mine ? <KTrash label="Delete quote" title="Delete this quote?" what={`“${q.text}”`} words="It leaves your quotes. Undo writes it back." verb="Delete quote" onConfirm={() => act.remove(q)} /> : undefined;
+    const spec = { eyebrow: q.mine ? 'Yours' : q.theme || undefined, title: q.author || 'Quote', action, body: <QuoteSheet q={q} onWrite={onWrite} /> };
     if (push) sheet.push(spec);
     else sheet.open(spec);
   };
@@ -133,13 +124,18 @@ const ReadsRow = () => {
   const p = pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? pick.data.pick : null;
   const sub = [unread ? `${unread} unread` : null, p ? `Today: ${linkTitle(p.title, p.url)}` : null].filter(Boolean).join(' · ') || 'Save links to come back to';
   return (
-    <Pressable className="reads-row" onPress={() => nav.push('/journal/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${linkTitle(p.title, p.url)}` : ''}`}>
-      <span className="reads-row-main">
-        <span className="reads-row-title">Reads</span>
-        <span className="reads-row-sub">{sub}</span>
-      </span>
-      <ChevronRight size={20} className="muted" aria-hidden="true" />
-    </Pressable>
+    <div className="k-rows has-icons lib-reads">
+      <Pressable className="k-row two reads-row" press="surface" onPress={() => nav.push('/journal/reads')} label={`Reads. ${unread ? `${unread} unread. ` : ''}${p ? `Today’s pick: ${linkTitle(p.title, p.url)}` : ''}`}>
+        <span className="icon-tile" aria-hidden="true">
+          <BookMarked size={17} />
+        </span>
+        <span className="k-row-main">
+          <span className="k-row-title reads-row-title">Reads</span>
+          <span className="k-row-sub">{sub}</span>
+        </span>
+        <ChevronRight size={18} className="k-chev" aria-hidden="true" />
+      </Pressable>
+    </div>
   );
 };
 
@@ -153,7 +149,7 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
   const items: Array<{ kind: 'q'; q: Quote } | { kind: 'e'; e: JournalEntry }> = [...(entries.data?.entries ?? []).map((e) => ({ kind: 'e' as const, e })), ...(quotes.data?.quotes ?? []).map((q) => ({ kind: 'q' as const, q }))];
   const loading = (quotes.isPending && !quotes.data) || (entries.isPending && !entries.data);
   return (
-    <Section title="Favourites" meta={items.length || undefined} level="primary" className="lib-favs">
+    <KSection title="Favourites" meta={items.length || undefined} className="lib-favs">
       {loading ? (
         <div className="carousel fav-carousel" aria-hidden="true">
           <Skeleton h={156} r="card" />
@@ -161,9 +157,17 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
         </div>
       ) : !items.length ? (
         // one quiet 60 row (§8, visual S8): no ghost, no verb
-        <Group className="lib-fav-empty">
-          <Row className="lib-fav-empty-row" title="No favourites yet" sub="Swipe a quote right to keep it." />
-        </Group>
+        <ul className="k-rows has-icons lib-fav-empty">
+          <li className="k-row two">
+            <span className="icon-tile" aria-hidden="true">
+              <Star size={17} />
+            </span>
+            <span className="k-row-main">
+              <span className="k-row-title">No favourites yet</span>
+              <span className="k-row-sub">Swipe a quote right to keep it.</span>
+            </span>
+          </li>
+        </ul>
       ) : (
         <div className="carousel fav-carousel" role="list">
           {items.map((it) =>
@@ -201,7 +205,7 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
           )}
         </div>
       )}
-    </Section>
+    </KSection>
   );
 };
 
@@ -254,15 +258,14 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
     </div>
   );
   return (
-    <Section
+    <KSection
       title="Your quotes"
       meta={mine.length || undefined}
-      level="primary"
       action={
         mine.length && !adding ? (
-          <Button variant="ghost" className="sec-verb" onClick={() => setAdding(true)}>
+          <button type="button" className="k-head-act" onClick={() => setAdding(true)}>
             <Plus size={16} aria-hidden="true" /> Add
-          </Button>
+          </button>
         ) : undefined
       }
     >
@@ -272,10 +275,12 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
         <SkeletonRows rows={2} label="Loading your quotes" />
       ) : !mine.length ? (
         adding ? null : (
-          <EmptyState verb={{ label: 'Add a quote', onPress: () => setAdding(true) }}>Lines you want to keep. They come back as a day’s quote.</EmptyState>
+          <div className="k-card lib-empty">
+            <EmptyState verb={{ label: 'Add a quote', onPress: () => setAdding(true) }}>Lines you want to keep. They come back as a day’s quote.</EmptyState>
+          </div>
         )
       ) : (
-        <div ref={rows} className="list-edge lib-list">
+        <div ref={rows} className="k-rows lib-list">
           {mine.map((q) => (
             <div key={q.id} data-key={q.id} className="lib-item">
               <QuoteRow q={q} open={open} onWrite={onWrite} />
@@ -283,7 +288,7 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
           ))}
         </div>
       )}
-    </Section>
+    </KSection>
   );
 };
 
@@ -311,7 +316,7 @@ const ThemeList = ({ theme, onWrite }: { theme: string; onWrite: (q: Quote) => v
   if (!list.length) return <EmptyState>Every quote in {theme} is hidden. Hidden quotes stay hidden.</EmptyState>;
   return (
     <div className="theme-list">
-      <div className="list-edge lib-list">
+      <div className="k-rows lib-list">
         {list.slice(0, shown).map((x) => (
           <QuoteRow key={x.id} q={x} open={open} onWrite={onWrite} />
         ))}
@@ -343,7 +348,7 @@ const QuoteSearch = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
         <EmptyState verb={{ label: 'Clear', onPress: () => (setQ(''), field.current?.focus()) }}>Nothing says “{needle}”.</EmptyState>
       ) : (
         <>
-          <div className="list-edge lib-list">
+          <div className="k-rows lib-list">
             {list.map((x) => (
               <QuoteRow key={x.id} q={x} open={open} onWrite={onWrite} />
             ))}
@@ -366,7 +371,7 @@ export const useQuoteSearch = (onWrite: (q: Quote) => void) => {
 export const LibrarySearchButton = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   const search = useQuoteSearch(onWrite);
   return (
-    <IconButton label="Search quotes" className="lib-search-btn" onClick={search}>
+    <IconButton label="Search quotes" className="lib-search-btn bare" onClick={search}>
       <Search size={20} />
     </IconButton>
   );
@@ -390,7 +395,7 @@ const Themes = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   const sheet = useSheet();
   const list = (themes.data ?? []).filter((t) => t.count > 0);
   return (
-    <Section title="Themes" level="primary" className="lib-themes" action={<LibrarySearchButton onWrite={onWrite} />}>
+    <KSection title="Themes" className="lib-themes" action={<LibrarySearchButton onWrite={onWrite} />}>
       <span id="lib-themes" className="anchor" />
       {themes.isPending && !themes.data ? (
         <SkeletonGroup label="Loading themes" className="theme-grid">
@@ -405,7 +410,7 @@ const Themes = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
           ))}
         </div>
       )}
-    </Section>
+    </KSection>
   );
 };
 

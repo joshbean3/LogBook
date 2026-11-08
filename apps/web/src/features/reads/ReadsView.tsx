@@ -11,6 +11,7 @@ import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRow
 import { below, carry, measureBelow, popFav, rowsOnScreen, useBelowFold, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
 import { TodaysPick } from './TodaysPick';
+import { KPin, KSection, KTrash } from '../goals/Kit';
 import './reads.css';
 import '../journal/seg.css';
 
@@ -124,7 +125,7 @@ const QuickAdd = ({ inputRef, onDone }: { inputRef: React.RefObject<HTMLInputEle
 };
 
 /** The editor behind Edit: a note, tags, Delete and Save. Save is the sheet's one blue. */
-const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
+const LinkSheet = ({ x }: { x: Link }) => {
   const { patch } = useReadsMutations();
   const sheet = useSheet();
   const [note, setNote] = useState(x.note ?? '');
@@ -138,35 +139,27 @@ const LinkSheet = ({ x, onDelete }: { x: Link; onDelete: () => void }) => {
     sheet.close();
   };
   return (
-    <>
-      <p className="rsheet-title">{linkTitle(x.title, x.url)}</p>
-      {isAddressTitle(x.title, x.url) ? null : <span className="caps">{x.siteName || hostOf(x.url)}</span>}
-      <label className="rsheet-field">
-        <span className="caps">Note</span>
-        <textarea className="jtext serif rsheet-note" rows={3} maxLength={500} placeholder="Why you kept it" value={note} autoFocus={!x.note} onChange={(e) => setNote(e.target.value)} />
-      </label>
-      <label className="rsheet-field">
-        <span className="caps">Tags</span>
-        <input className="jtext rsheet-tags" maxLength={120} placeholder="running, sleep" value={tags} autoCapitalize="none" onChange={(e) => setTags(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())} />
-      </label>
-      <div className="sheet-foot">
-        <Button
-          variant="quiet"
-          className="danger-quiet"
-          onClick={() => {
-            sheet.close();
-            onDelete();
-          }}
-        >
-          <Trash2 size={16} aria-hidden="true" /> Delete
-        </Button>
-        <div className="foot-right">
-          <Button variant="primary" onClick={save} disabled={!changed}>
-            Save
-          </Button>
-        </div>
+    <div className="k-sheet rsheet">
+      <section className="k-card rsheet-card">
+        <p className="rsheet-title">{linkTitle(x.title, x.url)}</p>
+        {isAddressTitle(x.title, x.url) ? null : <span className="k-foot">{x.siteName || hostOf(x.url)}</span>}
+      </section>
+      <div className="k-rows rsheet-fields">
+        <label className="rsheet-field">
+          <span className="k-label">Note</span>
+          <textarea className="jtext serif rsheet-note" rows={3} maxLength={500} placeholder="Why you kept it" value={note} autoFocus={!x.note} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        <label className="rsheet-field">
+          <span className="k-label">Tags</span>
+          <input className="jtext rsheet-tags" maxLength={120} placeholder="running, sleep" value={tags} autoCapitalize="none" onChange={(e) => setTags(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), save())} />
+        </label>
       </div>
-    </>
+      <KPin>
+        <Button variant="primary" block onClick={save} disabled={!changed}>
+          Save
+        </Button>
+      </KPin>
+    </div>
   );
 };
 
@@ -344,7 +337,7 @@ export default function ReadsView() {
     input.current?.focus();
   };
   const rows = (
-    <div ref={listRef} className="rlist">
+    <div ref={listRef} className="rlist k-rows">
       {(rest ? shownList : shownList.slice(0, rowsOnScreen(LIST_TOP_MIN, 72))).map((x) => (
         <div key={x.id} data-key={x.id} className="rlist-item">
           <LinkRow
@@ -353,7 +346,7 @@ export default function ReadsView() {
             onFlip={() => flip(x)}
             onDelete={() => del(x)}
             onOpened={() => patch.mutate({ id: x.id, readAt: new Date().toISOString() })}
-            onEdit={() => sheet.open({ eyebrow: 'Link', title: 'Edit', body: <LinkSheet x={x} onDelete={() => del(x)} /> })}
+            onEdit={() => sheet.open({ eyebrow: 'Link', title: 'Edit', action: <KTrash label="Delete link" title="Delete this link?" what={linkTitle(x.title, x.url)} words="It leaves Reads. Undo brings it back." verb="Delete link" onConfirm={() => del(x)} />, body: <LinkSheet x={x} /> })}
           />
         </div>
       ))}
@@ -388,15 +381,23 @@ export default function ReadsView() {
           <SkeletonRows rows={3} label="Loading your links" />
         </div>
       ) : empty ? (
-        <div className="r-empty">
+        <div className="r-empty k-card">
           <EmptyState verb={{ label: 'Paste a link', primary: true, onPress: () => void paste() }}>Save links and Logbook finds you one a day.</EmptyState>
         </div>
       ) : !tabs ? (
-        <div className="r-lists">{unread.length ? rows : <EmptyState verb={{ label: 'Paste a link', onPress: () => void paste() }}>All read. The next link you keep lands here.</EmptyState>}</div>
+        <KSection title="Unread" meta={unread.length || undefined} className="r-lists">
+          {unread.length ? (
+            rows
+          ) : (
+            <div className="k-card r-empty-card">
+              <EmptyState verb={{ label: 'Paste a link', onPress: () => void paste() }}>All read. The next link you keep lands here.</EmptyState>
+            </div>
+          )}
+        </KSection>
       ) : (
         <div className="r-lists">
           <Segmented
-            className={`r-tabs ${tabsAtMount.current ? '' : 'fade-in'}`}
+            className={`k-seg r-tabs ${tabsAtMount.current ? '' : 'fade-in'}`}
             label="Unread or read"
             options={[
               ['unread', `Unread${unread.length ? ` · ${unread.length}` : ''}`],
@@ -409,9 +410,13 @@ export default function ReadsView() {
             {shownList.length ? (
               rows
             ) : shownTab === 'read' ? (
-              <EmptyState verb={{ label: 'Show unread', onPress: () => setTab('unread') }}>Links you finish move here.</EmptyState>
+              <div className="k-card r-empty-card">
+                <EmptyState verb={{ label: 'Show unread', onPress: () => setTab('unread') }}>Links you finish move here.</EmptyState>
+              </div>
             ) : (
-              <EmptyState verb={{ label: 'Paste a link', onPress: () => void paste() }}>All read. The next link you keep lands here.</EmptyState>
+              <div className="k-card r-empty-card">
+                <EmptyState verb={{ label: 'Paste a link', onPress: () => void paste() }}>All read. The next link you keep lands here.</EmptyState>
+              </div>
             )}
           </div>
         </div>

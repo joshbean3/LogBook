@@ -8,6 +8,7 @@ import { springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { LEVEL, suggestRequest, timeUsed } from './model';
+import { KPin } from './Kit';
 import './goals.css';
 
 /* The goal sheet's pieces that the sheets themselves use: the half-arc gauge and the two ways to set a goal. */
@@ -83,7 +84,7 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
     { id: 'suggest', icon: <Sparkles size={20} aria-hidden="true" />, title: 'Suggest from my last 90 days', sub: 'The assistant reads your training, habits and goals, then proposes one.' },
   ];
   return (
-    <div className="gsheet">
+    <div className="gsheet k-sheet">
       <div className="g-choices" role="radiogroup" aria-label="How to set it">
         {cards.map((c) => (
           <button key={c.id} type="button" role="radio" aria-checked={way === c.id} className={`g-choice ${way === c.id ? 'is-on' : ''}`} onClick={() => (setWay(c.id), haptics.select())}>
@@ -98,15 +99,12 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
           </button>
         ))}
       </div>
-      <p className="gs-hint">Like: {LEVEL[level].example}</p>
-      <div className="sheet-foot">
-        <span />
-        <div className="foot-right">
-          <Button variant="primary" onClick={go}>
-            {way === 'mine' ? 'Write it' : 'Ask the assistant'}
-          </Button>
-        </div>
-      </div>
+      <p className="k-foot gs-hint">Like: {LEVEL[level].example}</p>
+      <KPin>
+        <Button variant="primary" block onClick={go}>
+          {way === 'mine' ? 'Write it' : 'Ask the assistant'}
+        </Button>
+      </KPin>
     </div>
   );
 };

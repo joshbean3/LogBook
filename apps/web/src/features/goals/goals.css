@@ -1,9 +1,5 @@
-/* Goals: the tab, the card on Today, the sheets and the history. Inset groups of 60 rows, caps over the row's voice, the
-   accent for done, amber for partly, ink for missed (never red, as Plan's missed rows). Nothing animates layout. */
 
-/* ---------- a goal row ---------- */
-.g-row.pressable,
-.g-hrow.pressable {
+.g-row.pressable {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -27,10 +23,7 @@
   padding-block: 9px;
 }
 .g-row[data-pressed],
-.g-hrow[data-pressed],
-.g-owed[data-pressed],
-.g-link[data-pressed],
-.g-trail[data-pressed] {
+.g-owed[data-pressed] {
   background: var(--surface-2);
 }
 .g-row-main {
@@ -49,8 +42,7 @@
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.g-row.is-done .g-row-text,
-.g-hrow.is-done .g-row-text {
+.g-row.is-done .g-row-text {
   color: var(--ink-2);
 }
 .g-row-set {
@@ -95,27 +87,6 @@
   color: var(--ink-3);
 }
 
-/* ---------- the tab ---------- */
-.g-page .g-now {
-  margin-top: 8px;
-}
-.g-ahead,
-.g-past {
-  margin-top: var(--section);
-}
-.g-ahead .sec-title {
-  margin: 0 0 10px;
-  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.g-foot {
-  margin: 14px 4px 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-
 /* the review owed: a card above the four, its three answers along the bottom */
 .g-review {
   margin: 8px 0 16px;
@@ -137,150 +108,6 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-3);
-}
-
-/* Done · Partly · Missed */
-.g-answers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 4px;
-}
-.g-answer {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 44px;
-  border-radius: var(--r-control);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--ink-2);
-  font: 600 var(--fs-sub) / 1 var(--sans);
-  transition: background-color var(--dur-color) var(--ease-out), color var(--dur-color) var(--ease-out), border-color var(--dur-color) var(--ease-out);
-  -webkit-tap-highlight-color: transparent;
-}
-.g-answer.is-done.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-.g-answer.is-partly.on {
-  background: var(--warn-soft);
-  border-color: var(--warn);
-  color: var(--warn);
-}
-.g-answer.is-missed.on {
-  background: var(--surface-3);
-  border-color: var(--ink-3);
-  color: var(--ink);
-}
-
-/* the last fourteen days: one mark a day */
-.g-trail.pressable {
-  display: grid;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 12px;
-  padding: 14px 16px;
-  text-align: left;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  color: var(--ink);
-}
-.g-trail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.g-trail-sum {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: var(--fs-sub);
-  color: var(--ink-2);
-}
-.g-trail-marks {
-  display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
-  gap: 4px;
-}
-.g-mark {
-  height: 18px;
-  border-radius: 5px;
-  background: var(--surface-3);
-}
-.g-mark.is-done {
-  background: var(--accent);
-  box-shadow: 0 0 10px rgba(242, 96, 12, 0.55);
-}
-/* a run of hit days reads as one bar of light */
-.g-mark.is-joined {
-  margin-left: -4px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-.g-mark.is-partly {
-  background: var(--warn);
-  opacity: 0.85;
-}
-.g-mark.is-missed {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--ink-4);
-}
-.g-mark.is-open {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
-}
-.g-mark.is-none {
-  background: var(--surface-2);
-}
-.g-mark.is-today {
-  outline: 1.5px solid var(--ink-2);
-  outline-offset: 2px;
-}
-
-/* the history and reminders rows */
-.g-link.pressable,
-.g-link.g-switch {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  grid-template-areas: 'ic title end' 'ic sub end';
-  align-items: center;
-  column-gap: 12px;
-  row-gap: 1px;
-  width: 100%;
-  min-height: 60px;
-  padding: 9px 12px 9px 16px;
-  text-align: left;
-  color: var(--ink);
-  background: transparent;
-  border: 0;
-}
-.g-link + .g-link {
-  border-top: 1px solid var(--line);
-}
-.g-link-ic {
-  grid-area: ic;
-  color: var(--ink-3);
-}
-.g-link-title {
-  grid-area: title;
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-}
-.g-link-sub {
-  grid-area: sub;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-.g-link > .g-chev,
-.g-link > .s-switch {
-  grid-area: end;
 }
 
 /* ---------- on Today: the day's goal and the week's, under the hero ---------- */
@@ -333,234 +160,6 @@
   background: var(--accent-bright);
   box-shadow: 0 0 0 2px var(--surface);
   pointer-events: none;
-}
-
-/* ---------- the sheets ---------- */
-.gsheet {
-  display: grid;
-  gap: 16px;
-}
-.gs-field {
-  display: grid;
-  gap: 8px;
-}
-.gs-input {
-  width: 100%;
-  min-height: 112px;
-  padding: 12px 14px;
-  border-radius: var(--r-group);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--ink);
-  font-size: max(16px, var(--fs-sentence));
-  line-height: var(--lh-sentence);
-  resize: none;
-}
-.gs-input::placeholder,
-.gs-note::placeholder {
-  color: var(--ink-4);
-}
-.gs-input:focus,
-.gs-note:focus {
-  outline: none;
-  border-color: var(--accent-bright);
-}
-.gs-hint {
-  margin: -4px 2px 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-.gs-sentence {
-  margin: 0;
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
-  color: var(--ink);
-}
-.gs-sharp {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-  border-radius: var(--r-group);
-  background: var(--accent-tint);
-  border: 1px solid rgba(47, 93, 133, 0.35);
-}
-.gs-sharp-caps {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--accent-text);
-}
-.gs-why {
-  margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-2);
-}
-.gs-mine {
-  display: grid;
-  gap: 6px;
-  padding: 0 4px;
-}
-.gs-mine-text {
-  margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-3);
-}
-.gs-from {
-  margin: -8px 0 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-.gs-from-why {
-  color: var(--ink-4);
-}
-.gs-note {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: var(--r-control);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-2);
-  color: var(--ink);
-  font-size: max(16px, var(--fs-sub));
-  line-height: var(--lh-sub);
-  resize: none;
-}
-.g-log {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-radius: var(--r-group);
-  background: var(--surface-2);
-}
-.g-log-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-}
-.g-log-row + .g-log-row {
-  border-top: 1px solid var(--line);
-}
-.g-log-when {
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-/* ---------- the history ---------- */
-.g-history .g-seg {
-  margin: 8px 0 16px;
-  width: 100%;
-}
-.g-tally {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 16px;
-  padding: 14px 8px;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-}
-.g-tally-cell {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-}
-.g-tally-cell .stamp {
-  font-size: 1.375rem;
-  line-height: 1.625rem;
-}
-.g-hrow.is-none.pressable {
-  min-height: 52px;
-  padding-block: 8px;
-}
-.g-hrow-note {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-  font-style: italic;
-}
-.g-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-foot);
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--ink-3);
-}
-.g-state.is-done {
-  color: var(--accent-text);
-}
-.g-state.is-partly {
-  color: var(--warn);
-}
-.g-state.is-none {
-  color: var(--ink-4);
-  font-weight: 500;
-}
-.g-hrow.is-owed .g-state {
-  color: var(--ink-2);
-}
-.g-logday + .g-logday {
-  margin-top: 20px;
-}
-.g-logday-head {
-  margin: 0 4px 8px;
-}
-.g-feed {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.g-feed-row {
-  display: grid;
-  gap: 3px;
-  padding: 12px 16px;
-}
-.g-feed-row + .g-feed-row {
-  border-top: 1px solid var(--line);
-}
-.g-feed-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.g-feed-what {
-  font-size: var(--fs-sub);
-  font-weight: 600;
-  color: var(--ink);
-}
-.g-feed-row.is-done .g-feed-what {
-  color: var(--accent-text);
-}
-.g-feed-row.is-partly .g-feed-what {
-  color: var(--warn);
-}
-.g-feed-row.is-cleared .g-feed-what,
-.g-feed-row.is-missed .g-feed-what {
-  color: var(--ink-3);
-}
-.g-feed-when {
-  font-size: var(--fs-foot);
-  color: var(--ink-3);
-}
-.g-feed-text {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-2);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .g-answer {
-    transition: none;
-  }
 }
 
 /* ---------- a set goal, live: the ring, the words, its steps ---------- */
@@ -641,94 +240,6 @@
   stroke-linejoin: round;
 }
 
-/* the steps: a short checklist under the goal, its marks lined up under the ring */
-.g-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0 14px 4px 6px;
-}
-.g-steps.is-draft {
-  padding: 0;
-  border-radius: var(--r-group);
-  background: var(--surface-2);
-}
-.g-step {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 4px;
-  min-height: 40px;
-}
-.g-steps.compact .g-step {
-  min-height: 38px;
-}
-.g-steps.is-draft .g-step {
-  padding: 0 4px;
-  border-bottom: 1px solid var(--line);
-}
-.g-steps.is-draft .g-step:last-child {
-  border-bottom: 0;
-}
-.g-step-text {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.g-step.is-done .g-step-text {
-  color: var(--ink-3);
-  text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
-}
-.g-step-num {
-  justify-self: center;
-  font-size: var(--fs-foot);
-  font-weight: 600;
-  color: var(--ink-3);
-}
-.g-step-x {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-4);
-}
-.g-step-add {
-  grid-template-columns: minmax(0, 1fr);
-}
-.g-step-addbtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 0 0 12px;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-}
-.g-step-input {
-  width: 100%;
-  min-height: 40px;
-  padding: 0 12px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: max(16px, var(--fs-sub));
-}
-.g-step-input:focus {
-  outline: none;
-}
-.g-step-input::placeholder {
-  color: var(--ink-4);
-}
-.g-log-step {
-  color: var(--ink-3);
-}
-
 /* where a day's goal can start: one tap fills the field */
 .gs-chips {
   display: flex;
@@ -763,7 +274,6 @@
 .tmark-hit {
   position: relative;
 }
-
 
 /* the ring's sparks when a goal is hit */
 .g-ring-wrap {
@@ -849,19 +359,6 @@
   .g-live.is-hit {
     animation: none;
   }
-}
-
-/* ---------- the orbit: four rings, the year outside, the day inside ---------- */
-.gv-head {
-  display: grid;
-  gap: 14px;
-}
-.gv-orbit {
-  position: relative;
-  justify-self: center;
-  width: min(288px, 82vw);
-  aspect-ratio: 1;
-  margin-top: 4px;
 }
 .gv-orbit::before {
   /* the glow the rings sit in */
@@ -949,205 +446,10 @@
   color: var(--hue);
   text-shadow: 0 0 18px var(--hue);
 }
-
-/* the level picker under the orbit */
-.gv-picks {
-  justify-self: center;
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-}
-.gv-pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: none;
-  color: var(--ink-3);
-  font: 600 var(--fs-foot) / 1 var(--sans);
-  transition:
-    background-color 200ms,
-    color 200ms;
-}
-.gv-pick.is-sel {
-  background: var(--surface-3);
-  color: var(--ink);
-}
-.gv-pick i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--hue);
-}
-.gv-pick i.is-set {
-  background: color-mix(in srgb, var(--hue) 45%, transparent);
-}
-.gv-pick i.is-done {
-  background: var(--hue);
-  box-shadow: 0 0 8px var(--hue);
-}
-
-/* the cards: one per level, swiped sideways, the next one peeking */
-.gv-strip {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: calc(100% - 28px);
-  gap: 10px;
-  margin-inline: calc(-1 * var(--page-pad));
-  padding: 2px var(--page-pad) 6px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--page-pad);
-  scrollbar-width: none;
-}
-.gv-strip::-webkit-scrollbar {
-  display: none;
-}
-.gv-card,
-.gv-card.pressable {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  min-height: 200px;
-  padding: 16px 16px 18px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  scroll-snap-align: start;
-  text-align: left;
-}
-.gv-card-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--hue) 34%, transparent), transparent 62%),
-    radial-gradient(90% 70% at 100% 100%, color-mix(in srgb, var(--hue) 14%, transparent), transparent 70%);
-  pointer-events: none;
-}
-.gv-card.is-done {
-  border-color: color-mix(in srgb, var(--hue) 55%, transparent);
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--hue) 25%, transparent);
-}
-.gv-card.is-done .gv-card-glow {
-  background:
-    radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--hue) 60%, transparent), transparent 70%),
-    radial-gradient(100% 80% at 100% 100%, color-mix(in srgb, var(--hue) 30%, transparent), transparent 75%);
-}
-.gv-card-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-.gv-card-head .caps {
-  color: var(--ink-2);
-}
-.gv-left {
-  flex: none;
-  color: var(--hue);
-  font-size: var(--fs-foot);
-  font-weight: 650;
-}
-.gv-card-body {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.gv-text.pressable,
-.gv-text {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--serif);
-  font-size: var(--fs-stamp);
-  line-height: var(--lh-stamp);
-  color: var(--ink);
-  text-align: left;
-  text-wrap: pretty;
-}
-.gv-card-ring {
-  margin: -6px -8px 0 0;
-}
-.gv-card .g-steps {
-  margin: 0 -6px;
-}
-.gv-clock {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 8px;
-  height: 2px;
-  border-radius: 1px;
-  background: rgba(15, 42, 68, 0.08);
-  overflow: hidden;
-}
-.gv-clock i {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  background: color-mix(in srgb, var(--hue) 70%, transparent);
-}
-.gv-set {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-.gv-set-plus {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--hue) 22%, transparent);
-  color: var(--hue);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--hue) 40%, transparent);
-}
-.gv-set-words {
-  font-family: var(--serif);
-  font-size: var(--fs-stamp);
-  line-height: var(--lh-stamp);
-  color: var(--ink);
-}
-.gv-example {
-  color: var(--ink-3);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-}
 @media (prefers-reduced-motion: reduce) {
-  .gv-ring,
-  .gv-pick {
+.gv-ring {
     transition: none;
   }
-}
-
-/* the cards' rings take their level's colour */
-.gv-card .g-ring-arc {
-  stroke: var(--hue);
-}
-.gv-card .g-ring-hit.is-done .g-ring-arc {
-  fill: var(--hue);
-}
-.gv-card .g-ring-hit.is-done .g-ring-check {
-  stroke: var(--ink);
-}
-.gv-set-plus {
-  background: var(--primary);
-  color: var(--primary-ink);
-  box-shadow: 0 0 22px color-mix(in srgb, var(--hue) 45%, transparent);
 }
 
 /* ---------- the moment a goal is done (after How We Feel): dark, a shape springs up, the words, one white pill ---------- */
@@ -1264,186 +566,10 @@
   height: 52px;
   font-size: var(--fs-row);
 }
-
-/* ---------- redesign (docs/inspiration.md §6 Goals) ---------- */
-
-/* the head never grows past the page (the level picks are about as wide as a 320 phone) */
-.gv-head {
-  grid-template-columns: minmax(0, 1fr);
-}
-@media (max-width: 359px) {
-  .gv-pick {
-    padding: 0 9px;
-  }
-}
-
-/* the time left on an empty card reads in navy: the level's hue on white is too faint for words */
-.gv-left {
-  color: var(--ink-2);
-}
-
-/* the one honest number: kept of answered, against the span before. Navy on track, orange behind */
-.g-score {
-  display: grid;
-  gap: 2px;
-  padding: 14px 16px 14px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  min-width: 0;
-}
-.g-score-caps {
-  color: var(--ink-3);
-}
-.g-score-line {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  margin: 0;
-  min-width: 0;
-}
-.g-score-num {
-  font-size: 2.75rem;
-  line-height: 2.75rem;
-  color: var(--ink);
-}
-.g-score-num small {
-  text-transform: none;
-  font-size: var(--fs-head);
-  letter-spacing: -0.01em;
-  color: var(--ink-3);
-}
-.g-score-words {
-  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
-  color: var(--ink-2);
-}
-.g-score-vs {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  margin: 6px 0 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-.g-score-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 9px;
-  border-radius: var(--r-pill);
-  font-weight: 650;
-  background: var(--ok-soft);
-  color: var(--ink);
-}
-.g-score.is-on .g-score-num {
-  color: var(--ink);
-}
-.g-score.is-behind {
-  background: linear-gradient(180deg, var(--accent-soft), var(--surface) 70%);
-}
-.g-score.is-behind .g-score-num {
-  color: var(--accent-text);
-}
-.g-score.is-behind .g-score-chip {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.g-score.is-none .g-score-num {
-  color: var(--ink-4);
-}
-.g-score.is-none .g-score-words {
-  color: var(--ink-3);
-  font-size: var(--fs-sub);
-}
-.g-score-owed {
-  color: var(--accent-text);
-  font-weight: 600;
-}
 .g-gauge-big small {
   text-transform: none;
   font-size: var(--fs-head);
   color: var(--ink-3);
-}
-
-/* a card's line on what is left, in words */
-.gv-leftwords {
-  margin: -4px 0 0;
-  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.gv-leftwords.is-done {
-  color: var(--ink);
-}
-
-/* the stale nudge: a dot, the goals named, one pill */
-.g-nudge {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 10px;
-  margin: 16px 0 0;
-  padding: 14px 14px 14px 16px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-}
-.g-nudge-dot {
-  width: 8px;
-  height: 8px;
-  margin-top: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-tint);
-}
-.g-nudge-main {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-.g-nudge-title {
-  margin: 0;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.g-nudge-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 2px;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-2);
-}
-.g-nudge-list li {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.g-nudge-more {
-  color: var(--ink-3);
-}
-.g-nudge-btn.btn {
-  align-self: center;
-}
-
-/* the goal's half-arc gauge: steps done along the arc, the time used as a tick */
-.g-gauge {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  margin: -4px 0 -4px;
-}
-.g-gauge-svg {
-  display: block;
-  width: min(240px, 100%);
-  height: auto;
-  overflow: visible;
 }
 .g-gauge-track,
 .g-gauge-arc {
@@ -1510,10 +636,647 @@
   font-weight: 600;
 }
 
-/* the two ways to set a goal: choice cards, the chosen one outlined in navy with a check */
+/* ======================================================================================================================
+   Shape system v2 (docs/shape-system.md): the tab as a stack of white lifted cards on one gutter. The level control under
+   the title, the period's number card, the rings as one hero card with its legend, the cards per period, the nudge, then
+   Ahead and History as sections. The sheets: content in cards, steps as rows, one navy pill pinned at the bottom.
+   ====================================================================================================================== */
+
+/* ---------- the tab ---------- */
+.g-segrow {
+  padding-top: 4px;
+}
+.g-page > .nb-gap {
+  height: var(--gap);
+}
+.g-top {
+  min-width: 0;
+}
+
+/* the period's number */
+.g-score {
+  display: grid;
+  gap: 4px;
+}
+.g-score-num {
+  margin: 2px 0 0;
+  white-space: normal;
+}
+.g-score.is-none .g-score-num {
+  color: var(--ink-4);
+}
+.g-score.is-behind .g-score-num {
+  color: var(--accent-text);
+}
+.g-score-owed {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.g-score-foot {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  min-width: 0;
+}
+
+/* the rings: one hero card, lit from below, the legend under a hairline */
+.g-hero {
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.g-hero::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 70%;
+  background: var(--halo);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: -1;
+}
+.gv-orbit {
+  position: relative;
+  justify-self: center;
+  width: min(264px, 100%);
+  aspect-ratio: 1;
+  margin-top: 2px;
+}
+.gv-legend {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: -4px -8px -6px;
+}
+.gv-leg {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--ink-3);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-color) var(--ease-out);
+}
+.gv-leg.is-sel {
+  background: var(--columbia-wash);
+  color: var(--ink);
+}
+.gv-leg-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+}
+.gv-leg-top i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hue);
+}
+.gv-leg.is-none .gv-leg-top i {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--hue);
+}
+.gv-leg.is-done .gv-leg-top i {
+  box-shadow: 0 0 8px var(--hue);
+}
+.gv-leg-word {
+  max-width: 100%;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gv-leg.is-sel .gv-leg-word {
+  color: var(--ink-2);
+}
+
+/* the stale nudge */
+.g-nudge {
+  display: grid;
+  gap: 6px;
+}
+.g-nudge-label {
+  color: var(--accent-text);
+}
+.g-nudge-label > svg {
+  color: var(--accent);
+}
+.g-nudge-title {
+  margin: 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.g-nudge-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.g-nudge-list li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.g-nudge-more {
+  color: var(--ink-3);
+}
+.g-nudge-btn.btn {
+  justify-self: start;
+  margin-top: 6px;
+  padding: 0 16px;
+}
+
+/* the cards per period: swiped sideways, the next one peeking; all one height, radius and padding */
+.gv-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc(100% - 32px);
+  gap: var(--gap);
+  margin: -8px calc(-1 * var(--page-pad)) -16px;
+  padding: 8px var(--page-pad) 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--page-pad);
+  scrollbar-width: none;
+}
+.gv-strip::-webkit-scrollbar {
+  display: none;
+}
+.gv-card,
+.gv-card.pressable {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 208px;
+  padding: var(--pad-card) var(--pad-card) 22px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  scroll-snap-align: start;
+  text-align: left;
+}
+.gv-card-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--hue) 26%, transparent), transparent 62%);
+  pointer-events: none;
+}
+.gv-card.is-done .gv-card-glow {
+  background:
+    radial-gradient(130% 100% at 0% 0%, color-mix(in srgb, var(--hue) 44%, transparent), transparent 70%),
+    radial-gradient(100% 80% at 100% 100%, color-mix(in srgb, var(--hue) 20%, transparent), transparent 75%);
+}
+.gv-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.gv-card-head .caps {
+  min-width: 0;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gv-left {
+  flex: none;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.gv-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.gv-text.pressable,
+.gv-text {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-align: left;
+  text-wrap: pretty;
+}
+.gv-card-ring {
+  flex: none;
+  margin: -8px -10px 0 0;
+}
+.gv-card .g-ring-arc {
+  stroke: var(--hue);
+}
+.gv-card .g-ring-hit.is-done .g-ring-arc,
+.gv-card .g-ring-hit.is-done .g-ring-track {
+  fill: var(--hue);
+  stroke: var(--hue);
+}
+.gv-card .g-ring-hit.is-done .g-ring-check {
+  stroke: var(--ink);
+}
+.gv-leftwords {
+  margin: -4px 0 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.gv-leftwords.is-done {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.gv-clock {
+  position: absolute;
+  left: var(--pad-card);
+  right: var(--pad-card);
+  bottom: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.gv-clock i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: color-mix(in srgb, var(--hue) 85%, var(--ink));
+}
+.gv-set {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+.gv-set-plus {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-ink);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--hue) 45%, transparent);
+}
+.gv-set-words {
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  color: var(--ink);
+}
+.gv-example {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+
+/* steps on a card: rows split by hairlines, the mark lined up under the words */
+.g-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.g-steps.compact {
+  margin: 0 -6px;
+  border-top: 1px solid var(--line);
+}
+.g-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 6px;
+  min-height: 44px;
+}
+.g-steps.compact .g-step + .g-step {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+.g-step-text {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.g-step.is-done .g-step-text {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+}
+/* in a sheet: the steps as rows of an inset group, 56 tall */
+.g-steps.k-rows {
+  --k-sep: 52px;
+}
+.g-steps.k-rows .g-step {
+  min-height: 56px;
+  padding: 0 6px;
+}
+.g-step-num {
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--columbia-wash);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+  color: var(--ink-2);
+}
+.g-step-x {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-4);
+}
+.g-step-add {
+  grid-template-columns: minmax(0, 1fr);
+}
+.g-step-addbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 0 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.g-step-input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: max(16px, var(--fs-sub));
+}
+.g-step-input:focus {
+  outline: none;
+}
+.g-step-input::placeholder {
+  color: var(--ink-4);
+}
+
+/* the rows (Ahead, History): 64 with the caps over the words; separators start at the words */
+.g-row.pressable {
+  min-height: 64px;
+  padding: 10px 16px;
+  border-bottom: 0;
+}
+.g-row.compact {
+  min-height: 64px;
+}
+
+/* the last fourteen days: a card with its number and the chain of marks */
+.g-trail.pressable {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  text-align: left;
+}
+.g-trail[data-pressed] {
+  background: var(--surface-2);
+}
+.g-trail-num {
+  font-size: var(--fs-stamp);
+  line-height: var(--lh-stamp);
+}
+.g-trail-marks {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 6px;
+}
+.g-mark {
+  height: 22px;
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+.g-mark.is-done {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(242, 96, 12, 0.45);
+}
+.g-mark.is-joined {
+  margin-left: -4px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.g-mark.is-partly {
+  background: var(--warn);
+  opacity: 0.85;
+}
+.g-mark.is-missed {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ink-4);
+}
+.g-mark.is-open {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+}
+.g-mark.is-today {
+  outline: 1.5px solid var(--ink-2);
+  outline-offset: 2px;
+}
+
+/* ---------- the sheets ---------- */
+.gsheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+}
+.gs-card {
+  display: grid;
+  gap: 8px;
+}
+.gs-field {
+  display: grid;
+}
+.gs-sentence {
+  margin: 0;
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  color: var(--ink);
+}
+/* the goal's words: a white card to write in */
+.gs-input {
+  width: 100%;
+  min-height: 128px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  border: 1.5px solid transparent;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font-size: max(16px, var(--fs-sentence));
+  line-height: var(--lh-sentence);
+  resize: none;
+}
+.gs-input::placeholder,
+.gs-note::placeholder {
+  color: var(--ink-4);
+}
+.gs-input:focus {
+  outline: none;
+  border-color: var(--ink-2);
+}
+.gs-hint {
+  margin: 0 4px;
+}
+.gs-sharp-label {
+  color: var(--accent-text);
+}
+.gs-sharp-label > svg {
+  color: var(--accent);
+}
+.gs-why {
+  margin: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.gs-mine-text {
+  margin: -4px 0 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.gs-keep.btn {
+  background: var(--surface);
+}
+.gs-from {
+  margin: -2px 0 0;
+}
+.gs-from-why {
+  color: var(--ink-4);
+}
+/* the gauge tile: the half arc, a hairline, the goal's words */
+.g-gauge-card {
+  gap: 10px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.g-gauge {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  margin-top: 4px;
+}
+.g-gauge-svg {
+  display: block;
+  width: min(220px, 100%);
+  height: auto;
+  overflow: visible;
+}
+/* the note: a white card with the field filling it */
+.gs-note-card {
+  display: block;
+  padding: 4px;
+}
+.gs-note {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--ink);
+  font-size: max(16px, var(--fs-sub));
+  line-height: var(--lh-sub);
+  resize: none;
+}
+.gs-note:focus {
+  outline: none;
+}
+/* the log: rows of an inset group */
+.g-log .g-log-row {
+  justify-content: space-between;
+  min-height: 48px;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.g-log-what {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.g-log-when {
+  white-space: nowrap;
+  font-size: var(--fs-foot);
+}
+.g-log-step {
+  color: var(--ink-3);
+}
+
+/* Done · Partly · Missed: a three-way control in a card */
+.g-answers.k-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--r-tile);
+}
+.g-answer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 var(--fs-sub) / 1 var(--sans);
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.g-answer.is-done.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.g-answer.is-partly.on {
+  background: var(--warn-soft);
+  color: #8a5300;
+}
+.g-answer.is-missed.on {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+/* the two ways to set a goal: white choice cards, the chosen one outlined in navy with a check */
 .g-choices {
   display: grid;
-  gap: 10px;
+  gap: var(--gap);
 }
 .g-choice {
   display: grid;
@@ -1521,34 +1284,28 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 72px;
-  padding: 14px;
-  border: 1.5px solid var(--line-strong);
-  border-radius: 16px;
+  min-height: 76px;
+  padding: 14px var(--pad-card);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-tile);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    border-color var(--dur-color) var(--ease-out),
-    background-color var(--dur-color) var(--ease-out);
+  transition: border-color var(--dur-color) var(--ease-out);
 }
 .g-choice.is-on {
   border-color: var(--ink);
-  background: var(--columbia-wash);
 }
 .g-choice-ic {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-icon);
   background: var(--columbia-wash);
   color: var(--ink-2);
-}
-.g-choice.is-on .g-choice-ic {
-  background: var(--surface);
-  color: var(--ink);
 }
 .g-choice-main {
   display: grid;
@@ -1559,8 +1316,7 @@
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
 .g-choice-sub {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .g-choice-check {
@@ -1575,4 +1331,108 @@
 .g-choice.is-on .g-choice-check {
   border-color: var(--ink);
   background: var(--ink);
+}
+
+/* ---------- the history ---------- */
+.g-history .g-seg.seg {
+  margin: 8px 0 var(--gap);
+}
+.g-tally {
+  margin-bottom: var(--section);
+}
+.g-hrow.pressable {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 16px;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+}
+.g-hrow[data-pressed] {
+  background: var(--surface-2);
+}
+.g-hrow.is-none.pressable {
+  min-height: 56px;
+}
+.g-hrow.is-done .g-row-text {
+  color: var(--ink-2);
+}
+.g-hrow-note {
+  font: italic 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.g-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  white-space: nowrap;
+  color: var(--ink-3);
+}
+.g-state.is-done {
+  color: var(--accent-text);
+}
+.g-state.is-partly {
+  color: #8a5300;
+}
+.g-hrow.is-owed .g-state {
+  color: var(--ink-2);
+}
+.g-logday + .g-logday {
+  margin-top: var(--section);
+}
+.g-log-empty {
+  display: grid;
+  gap: 4px;
+}
+.g-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.g-feed-row {
+  display: grid;
+  gap: 3px;
+  padding: 12px 16px;
+}
+.g-feed-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.g-feed-what {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.g-feed-row.is-done .g-feed-what {
+  color: var(--accent-text);
+}
+.g-feed-row.is-partly .g-feed-what {
+  color: #8a5300;
+}
+.g-feed-row.is-cleared .g-feed-what,
+.g-feed-row.is-missed .g-feed-what {
+  color: var(--ink-3);
+}
+.g-feed-when {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.g-feed-text {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gv-leg,
+  .g-answer,
+  .g-choice {
+    transition: none;
+  }
 }

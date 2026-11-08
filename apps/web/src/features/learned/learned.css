@@ -1,27 +1,6 @@
-/* What I learned: today's card lit from below, a quiet stats line, then the past under month headings. */
 
-/* ---------- today's card (the hero) ---------- */
-.ln-hero {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-  padding: 20px 0 4px;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  min-width: 0;
-}
 .ln-hero.has-items {
   padding-bottom: 12px;
-}
-.ln-hero-skel {
-  gap: 12px;
-  padding: 20px 16px 24px;
-  min-height: 200px;
 }
 /* the stage light, from under the card's foot: behind Save, never behind the words (it fades out well below them) */
 .ln-glow {
@@ -167,50 +146,140 @@ textarea.ln-field {
   margin-top: 2px;
 }
 .ln-sheet .ln-sheet-field {
-  padding: 4px 0 12px;
+  min-height: 128px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.ln-end {
+  height: 1px;
 }
 
-/* ---------- the stats line ---------- */
-.ln-stats {
-  margin: 12px 4px 0;
-  min-height: 20px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+/* ---------- the hint over the first field (what a good entry looks like) ---------- */
+.ln-hint {
+  margin: 6px 0 0;
+  padding: 0 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
 }
 
-/* ---------- search ---------- */
+/* ======================================================================================================================
+   What I learned on shape system v2 (docs/shape-system.md): today's card lit from below, the counts as two tiles, the
+   archive's echoes as a strip of white cards, the search field, then each year as a section whose months are rows of one
+   inset group. A month's page: two tiles, then its days as rows of one card, a dash where there is nothing.
+   ====================================================================================================================== */
+
+/* ---------- today's card (the hero) ---------- */
+.ln-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  gap: 4px;
+  padding: var(--pad-card) 0 4px;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  border-radius: var(--r-card);
+  min-width: 0;
+}
+.ln-hero-skel {
+  gap: 12px;
+  padding: 20px 16px 24px;
+  min-height: 200px;
+}
+
+/* ---------- the counts ---------- */
+.ln-tiles .tile-status svg {
+  color: var(--ink-4);
+}
+
+/* ---------- from your archive: three cards, swiped sideways; an empty one keeps its card with a dash ---------- */
+.ln-echo-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(78%, 280px);
+  gap: var(--gap);
+  margin: -8px calc(-1 * var(--page-pad)) -16px;
+  padding: 8px var(--page-pad) 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--page-pad);
+  scrollbar-width: none;
+}
+.ln-echo-strip::-webkit-scrollbar {
+  display: none;
+}
+.ln-echo,
+.ln-echo.pressable {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 148px;
+  padding: var(--pad-card);
+  border: var(--card-border);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  text-align: left;
+  color: var(--ink);
+  scroll-snap-align: start;
+}
+.ln-echo-caps {
+  color: var(--ink-3);
+}
+.ln-echo-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  overflow-wrap: break-word;
+}
+.ln-echo-dash {
+  color: var(--ink-4);
+  font: 700 var(--fs-stamp) / var(--lh-stamp) var(--stamp);
+}
+.ln-echo-empty {
+  margin-top: auto;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+
+/* ---------- search: a white field on the page, 52 tall ---------- */
 .ln-search {
   position: relative;
   display: flex;
   align-items: center;
-  margin-top: 28px;
-  min-height: 44px;
-  border-radius: var(--r-md);
+  margin-top: var(--section);
+  min-height: 52px;
+  border-radius: var(--r-control);
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1.5px solid transparent;
+  box-shadow: var(--shadow-1);
 }
 .ln-search:focus-within {
-  border-color: var(--line-strong);
+  border-color: var(--ink-2);
 }
 .ln-search-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
   color: var(--ink-3);
   pointer-events: none;
 }
 .ln-search-in {
   flex: 1;
   min-width: 0;
-  height: 42px;
-  padding: 0 40px 0 36px;
+  height: 49px;
+  padding: 0 44px 0 42px;
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font: 400 max(16px, var(--fs-row)) / var(--lh-row) var(--sans);
   -webkit-appearance: none;
   appearance: none;
 }
@@ -226,7 +295,7 @@ textarea.ln-field {
 }
 .ln-search-clear {
   position: absolute;
-  right: 0;
+  right: 4px;
   width: 44px;
   height: 44px;
   display: grid;
@@ -236,210 +305,114 @@ textarea.ln-field {
   color: var(--ink-3);
 }
 .ln-none {
-  margin: 24px 4px 0;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-}
-
-/* ---------- the past ---------- */
-.ln-month {
-  margin-top: 32px;
-}
-.ln-month-title {
-  margin: 0 0 4px;
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 1.75rem;
-  line-height: 2.125rem;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.ln-day {
   display: grid;
-  padding: 14px 0 10px;
-  border-bottom: 1px solid var(--line);
-  min-width: 0;
-}
-.ln-day:last-child {
-  border-bottom: 0;
-}
-.ln-day-caps {
-  margin-bottom: 4px;
-}
-.ln-end {
-  height: 1px;
+  gap: 4px;
+  margin-top: var(--section);
 }
 .ln-more {
   display: grid;
   gap: 10px;
-  padding: 16px 0;
+  margin-top: var(--section);
 }
 
-/* ---------- the archive: years, then a row per month ---------- */
-.ln-archive {
-  display: grid;
-  gap: 28px;
-  margin-top: 28px;
+/* ---------- the archive: a year per section, its months as rows of one inset group ---------- */
+.ln-mtile.icon-tile {
+  width: 36px;
+  height: 36px;
+  font: 700 var(--fs-caps) / 1 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
 }
-.ln-year-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 4px 8px;
+.ln-mtile.is-now {
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
-.ln-year-title {
-  margin: 0;
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 1.75rem;
-  line-height: 2.125rem;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.ln-year-meta {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-/* the months as one card, hairlines between them */
 .ln-months {
-  display: grid;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  overflow: hidden;
+  --k-sep: 64px;
 }
-.ln-mrow.pressable {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 18px;
-  grid-template-areas:
-    'top chev'
-    'latest chev';
-  align-items: center;
-  column-gap: 12px;
-  row-gap: 2px;
-  width: 100%;
-  min-height: 72px;
-  padding: 12px 12px 12px 16px;
-  border: 0;
-  background: none;
-  text-align: left;
-  color: var(--ink);
-}
-.ln-mrow + .ln-mrow::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 16px;
-  right: 0;
-  border-top: 1px solid var(--line);
+.ln-mrow.k-row {
+  min-height: 68px;
 }
 .ln-mrow-top {
-  grid-area: top;
   display: flex;
   align-items: baseline;
   gap: 8px;
   min-width: 0;
 }
-.ln-mrow-name {
-  font: 600 17px/22px var(--sans);
-  letter-spacing: -0.02em;
+.ln-mrow-name.k-row-title {
+  font-weight: 600;
 }
 .ln-mrow-now {
+  flex: none;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--accent-text);
   white-space: nowrap;
 }
-/* a narrow phone keeps the count and lets the days go, so "This month" stays on one line */
-@media (max-width: 359px) {
-  .ln-mrow-days {
-    display: none;
-  }
-}
-.ln-mrow-meta {
-  margin-left: auto;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
 .ln-mrow-latest {
-  grid-area: latest;
   min-width: 0;
-  font-family: var(--serif);
+  font: italic 400 var(--fs-sub) / var(--lh-sub) var(--serif);
   font-size: 1.0625rem;
-  line-height: 1.375rem;
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ln-mrow-chev {
-  grid-area: chev;
-  color: var(--ink-4);
+.ln-mrow-meta {
+  font-weight: 600;
+  color: var(--ink-2);
 }
 
-/* ---------- a month's page ---------- */
-.ln-month-days {
+/* ---------- search results: a month's days in one card ---------- */
+.ln-days {
+  display: grid;
+  padding-block: 4px;
+}
+.ln-day {
+  display: grid;
+  padding: 12px 0 8px;
+  min-width: 0;
+}
+.ln-day + .ln-day {
+  border-top: 1px solid var(--line);
+}
+.ln-day-caps {
+  margin-bottom: 2px;
+}
+
+/* ---------- a month's page: the days as rows of one card ---------- */
+.ln-month-page .pb-eyebrow {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.ln-month-page .ln-tiles {
   margin-top: 8px;
 }
-
-/* ---------- the hint over the first field (what a good entry looks like) ---------- */
-.ln-hint {
-  margin: 6px 0 0;
-  padding: 0 16px;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-
-/* ---------- a month as a grid: a rounded row per day, a dash where there is nothing ---------- */
 .ln-grid {
-  display: grid;
-  gap: 4px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
+  --k-sep: 16px;
 }
-.ln-gday {
+.ln-gday.k-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 52px minmax(0, 1fr);
   align-items: start;
   gap: 8px;
-  min-height: 44px;
-  padding: 4px 14px 4px 12px;
-  border-radius: var(--r-group);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
+  min-height: 52px;
+  padding: 6px 16px;
 }
 .ln-gday.is-empty {
   align-items: center;
-  background: transparent;
-  border-color: var(--line);
 }
 .ln-gday-date {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding-top: 8px;
+  display: grid;
+  justify-items: start;
+  padding-top: 7px;
 }
 .ln-gday.is-empty .ln-gday-date {
   padding-top: 0;
 }
 .ln-gday-num {
-  min-width: 22px;
-  text-align: right;
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
+  font: 700 var(--fs-row) / var(--lh-row) var(--stamp);
   color: var(--ink);
 }
 .ln-gday.is-empty .ln-gday-num {
@@ -459,7 +432,7 @@ textarea.ln-field {
 .ln-line.is-grid.pressable {
   font-size: var(--fs-row);
   line-height: 1.5rem;
-  padding: 6px 0;
+  padding: 8px 0;
 }
 .ln-line.is-grid + .ln-line.is-grid {
   border-top: 1px solid var(--line);
@@ -467,70 +440,4 @@ textarea.ln-field {
 .ln-gday-dash {
   color: var(--ink-4);
   font: 600 var(--fs-row) / var(--lh-row) var(--stamp);
-}
-
-/* ---------- from your archive: three small cards, swiped sideways ---------- */
-.ln-echoes {
-  margin-top: 24px;
-  min-width: 0;
-}
-.ln-echoes-title {
-  margin: 0 4px 8px;
-}
-.ln-echo-strip {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: min(78%, 280px);
-  gap: 10px;
-  margin-inline: calc(-1 * var(--page-pad));
-  padding: 2px var(--page-pad) 6px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--page-pad);
-  scrollbar-width: none;
-}
-.ln-echo-strip::-webkit-scrollbar {
-  display: none;
-}
-.ln-echo,
-.ln-echo.pressable {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  min-height: 132px;
-  padding: 14px 16px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  text-align: left;
-  color: var(--ink);
-  scroll-snap-align: start;
-  min-width: 0;
-}
-.ln-echo.is-empty {
-  background: transparent;
-  box-shadow: none;
-  border: 1px dashed var(--line-strong);
-}
-.ln-echo-caps {
-  color: var(--ink-3);
-}
-.ln-echo-text {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font: 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  overflow-wrap: break-word;
-}
-.ln-echo-dash {
-  color: var(--ink-4);
-  font: 600 var(--fs-head) / var(--lh-head) var(--stamp);
-}
-.ln-echo-empty {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
 }

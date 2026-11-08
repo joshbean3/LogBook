@@ -1,6 +1,5 @@
 import type * as React from 'react';
 import { fmtDate, LEARNING_MAX, shiftDays, type Learning } from '@logbook/shared';
-import { Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTabScroller } from '@/app/NavController';
 import { revealField } from '@/lib/keyboard';
@@ -8,6 +7,7 @@ import { Button } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { KPin, KTrash } from '../goals/Kit';
 import { useLearnedMutations } from './queries';
 
 /* The pieces the tab and a month's page share: the field, the edit sheet, a learning as words, days under month headings. */
@@ -81,7 +81,7 @@ export const Composer = ({ today, quiet }: { today: string; quiet?: boolean }) =
 /** Behind a tap on a learning: its words to change, Save, and Delete (with Undo). */
 const LearningSheet = ({ item, today }: { item: Learning; today: string }) => {
   const sheet = useSheet();
-  const { edit, del } = useLearnedMutations(today);
+  const { edit } = useLearnedMutations(today);
   const ref = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState(item.text);
   useGrow(ref, text);
@@ -91,7 +91,7 @@ const LearningSheet = ({ item, today }: { item: Learning; today: string }) => {
     sheet.close();
   };
   return (
-    <div className="ln-sheet">
+    <div className="ln-sheet k-sheet">
       <textarea
         ref={ref}
         className="ln-field ln-sheet-field"
@@ -108,34 +108,24 @@ const LearningSheet = ({ item, today }: { item: Learning; today: string }) => {
           }
         }}
       />
-      <div className="sheet-foot">
-        <Button
-          variant="quiet"
-          className="ln-del"
-          onClick={() => {
-            sheet.close();
-            del(item);
-          }}
-        >
-          <Trash2 size={16} aria-hidden="true" /> Delete
+      <KPin>
+        <Button variant="primary" block onClick={save} disabled={!v || v === item.text}>
+          Save
         </Button>
-        <div className="foot-right">
-          <Button variant="primary" onClick={save} disabled={!v || v === item.text}>
-            Save
-          </Button>
-        </div>
-      </div>
+      </KPin>
     </div>
   );
 };
 
 export const useOpenLearning = (today: string) => {
   const sheet = useSheet();
+  const { del } = useLearnedMutations(today);
   return (item: Learning) =>
     sheet.open({
       eyebrow: item.date === today ? 'Today' : item.date === shiftDays(today, -1) ? 'Yesterday' : fmtDate('dowLong', item.date),
       title: fmtDate('md', item.date),
       sticky: true,
+      action: <KTrash label="Delete" title="Delete this?" what={item.text} words="It leaves What I learned. Undo brings it back." verb="Delete" onConfirm={() => del(item)} />,
       body: <LearningSheet item={item} today={today} />,
     });
 };
