@@ -21,6 +21,8 @@ export interface Session {
   movedFrom: ISODate | null;
   /** What the athlete said about it. Strava can also complete a session without a mark. */
   mark: SessionMark | null;
+  /** How hard it felt, 1 to 10, from the effort check-in; null (or absent) until asked. */
+  effort?: number | null;
 }
 
 export type SessionStatus = 'done' | 'floor' | 'skipped' | 'missed' | 'open' | 'upcoming' | 'rest';

@@ -15,6 +15,7 @@ export const toSession = (r: InferSelectModel<typeof trainingSessions>): Session
   blockId: r.blockId,
   movedFrom: r.movedFrom,
   mark: (r.mark as SessionMark | null) ?? null,
+  effort: r.effort ?? null,
 });
 
 export const toHabit = (r: InferSelectModel<typeof habits>): Habit => ({ id: r.id, name: r.name, position: r.position, createdOn: r.createdOn, archivedOn: r.archivedOn });

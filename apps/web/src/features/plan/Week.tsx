@@ -1,6 +1,7 @@
-import { assess, fmtDate, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
+import { assess, fmtDate, isFastRun, isHardRun, isRace, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
 import { isHeld } from './Held';
-import { ArrowRightLeft, Check, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
+import { ArrowRightLeft, Check, ChevronRight, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
+import { effortOf } from '../sessions/effortModel';
 import { createContext, Fragment, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { useSessionMutations } from '@/api/queries';
@@ -19,7 +20,7 @@ import { crossfade, fadeOut } from '@/lib/motion';
 import { useFlip, waapiOf } from './flip';
 import { dayOrder, landingIndex, useMoveTo } from './moveRule';
 import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
-import { WeekLine } from './WeekLine';
+import { barWeeks, WeekLine } from './WeekLine';
 
 /**
  * One week of Plan (docs/feel.md §7.2): the week line, the seven days as 60 px rows in one inset group, and the block card.
@@ -48,7 +49,7 @@ const useKit = (log: Log, flip: ReturnType<typeof useFlip>, onReshaped: (r: Resh
   const { mark, remove, restore } = useSessionMutations();
   // a drop moves or swaps by the one rule the Move sheet uses too (moveRule.ts: never a swap into the past)
   const moveTo = useMoveTo();
-  return { log, open, openUnplanned, add: act.add, move: act.move, toast, mark, remove, restore, moveTo, flip, onReshaped };
+  return { log, open, openUnplanned, add: act.add, move: act.move, askEffort: act.askEffort, toast, mark, remove, restore, moveTo, flip, onReshaped };
 };
 type KitT = ReturnType<typeof useKit>;
 const Kit = createContext<KitT | null>(null);
@@ -71,7 +72,10 @@ export interface Conflict {
   undo: () => void;
 }
 
-/** The status at a row's right edge: done (and a run off the plan) a 14 px check; missed and skipped a word in ink-3; floor in amber. */
+/**
+ * The status at a card's right edge: done (and a run off the plan) a check in a lit disc; missed and skipped a word in
+ * ink-3; floor in amber; still to do, the chevron that says the card opens.
+ */
 const Status = ({ k, word }: { k: StatusKey; word: string }) => {
   if (k === 'done' || k === 'bonus')
     return (
@@ -80,7 +84,7 @@ const Status = ({ k, word }: { k: StatusKey; word: string }) => {
       </span>
     );
   if (k === 'missed' || k === 'skipped' || k === 'floor') return <span className={`pl-st is-word k-${k}`}>{word}</span>;
-  return null;
+  return <ChevronRight size={18} className="pl-st is-chev" aria-hidden="true" />;
 };
 
 /**
@@ -114,6 +118,24 @@ const focusDay = (group: HTMLElement | null, date: string) => {
   group?.querySelector<HTMLElement>(`[${PLAN_DAY}="${date}"] .pl-line`)?.focus({ preventScroll: true });
 };
 
+/**
+ * A card's one line under the name: what was run (`7.6 mi · 8:42 /mi`), or what is asked: the workout's own shorthand
+ * when the plan wrote one (`1.5 mi wu, 3 × 1 mi, 1.5 mi cd`), else the effort the run is graded against (assess.ts: easy
+ * under the Z2 ceiling, tempo and threshold Z3–Z4, fast reps reaching Z4); a lift its minutes and kind. Then the effort
+ * once it is checked in (`Effort 6`).
+ */
+const intentOf = (type: string | null) => (isRace(type) ? 'Race day' : isHardRun(type) ? 'Z3–Z4, comfortably hard' : isFastRun(type) ? 'Fast reps, up to Z4' : 'Z2, conversational');
+const targetLine = (s: Session, name: string, dist: string, a: ReturnType<typeof assess> | null) => {
+  const typeWord = s.type && !name.toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
+  const bits: string[] = [];
+  if (a) bits.push(`${mi(a.miles)} mi`, ...(a.pace ? [`${a.pace} /mi`] : []));
+  else if (s.kind === 'run') bits.push(...(dist ? [dist] : []), s.details || intentOf(s.type));
+  else bits.push(...(dist ? [dist] : []), ...(typeWord ? [typeWord] : []), ...(s.details ? [s.details] : []));
+  const e = effortOf(s.effort);
+  if (e != null) bits.push(`Effort ${e}`);
+  return bits.join(' · ');
+};
+
 /** What a session row shows, with no hooks: the live row and a neighbour page not yet live draw the same pixels. */
 const rowFace = (log: Log, date: string, s: Session) => {
   const k = sessionKey(log.snap, date, s);
@@ -124,9 +146,8 @@ const rowFace = (log: Log, date: string, s: Session) => {
   const dist0 = a ? `${mi(a.miles)} mi` : s.kind === 'run' && s.miles ? `${num(s.miles)} mi` : s.minutes ? `${s.minutes} min` : '';
   // a planned distance the name already says (`Easy 4` · `4 mi`) is not said twice: the name gets the room (review-feel-1 #14)
   const dist = !a && s.kind === 'run' && s.miles && new RegExp(`\\b${num(s.miles)}\\b`).test(name) ? '' : dist0;
-  const typeWord = s.type && !name.toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const held = isHeld(s) && date >= log.today ? heldOn(log.boot?.user.status, date) : null;
-  const sub = held ? `On hold · ${TRAINING_STATUS_INFO[held].label}` : a && runs.length === 1 ? runs[0]!.name : typeWord;
+  const sub = held ? `On hold · ${TRAINING_STATUS_INFO[held].label}` : targetLine(s, name, dist, a);
   const body = (
     <>
       <span className="pl-tone" aria-hidden="true" />
@@ -134,11 +155,10 @@ const rowFace = (log: Log, date: string, s: Session) => {
         <span className="stamp pl-name">{name}</span>
         {sub ? <span className="pl-sub">{sub}</span> : null}
       </span>
-      {dist ? <span className="pl-dist tnum">{dist}</span> : null}
       <Status k={k} word={word} />
     </>
   );
-  return { k, word, name, dist, cls: `pl-line t-${tone(s)} k-${k}${held ? ' is-held' : ''}`, body };
+  return { k, word, name, dist, sub, cls: `pl-line pl-card t-${tone(s)} k-${k}${held ? ' is-held' : ''}`, body };
 };
 const bonusFace = (log: Log, date: string, runs: Activity[]) => {
   const a = assess(log.zones, null, runs);
@@ -149,9 +169,10 @@ const bonusFace = (log: Log, date: string, runs: Activity[]) => {
       <span className="pl-tone" aria-hidden="true" />
       <span className="pl-main">
         <span className="stamp pl-name">{name}</span>
-        <span className="pl-sub">Off the plan</span>
+        <span className="pl-sub">
+          {mi(a.miles)} mi{a.pace ? ` · ${a.pace} /mi` : ''} · Off the plan
+        </span>
       </span>
-      <span className="pl-dist tnum">{mi(a.miles)} mi</span>
       <Status k="bonus" word={word} />
     </>
   );
@@ -168,7 +189,7 @@ const emptyFace = (log: Log, date: string, rest: Session | null) => (
 /** One session on a day: a 60 px row in the group. */
 const SessionRow = ({ date, s }: { date: string; s: Session }) => {
   const row = useRef<HTMLElement>(null);
-  const { log, open, move, toast, mark, remove, restore, moveTo, flip, onReshaped } = useRowKit();
+  const { log, open, move, askEffort, toast, mark, remove, restore, moveTo, flip, onReshaped } = useRowKit();
   const { hide, unhide } = useContext(DayKit);
   const { k, word, name, dist, cls, body } = rowFace(log, date, s);
   const drag = useDayDrag({
@@ -195,7 +216,16 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
     return [
       done
         ? { label: 'Not done', icon: <Undo2 size={18} />, onSelect: () => mark.mutate({ session: s, mark: null }) }
-        : { label: 'Done', icon: <Check size={18} />, disabled: !c.mark, onSelect: () => mark.mutate({ session: s, mark: 'done' }) },
+        : {
+            label: 'Done',
+            icon: <Check size={18} />,
+            disabled: !c.mark,
+            // then the effort check-in, one step, with Skip (Effort.tsx)
+            onSelect: () => {
+              mark.mutate({ session: s, mark: 'done' });
+              askEffort(s);
+            },
+          },
       {
         label: skipped ? 'Put it back' : 'Skip',
         icon: <SkipForward size={18} />,
@@ -257,7 +287,7 @@ const BonusRow = ({ date, runs }: { date: string; runs: Activity[] }) => {
   const { log, openUnplanned } = useRowKit();
   const { name, word, miles, body } = bonusFace(log, date, runs);
   return (
-    <Pressable as="div" press="surface" className="pl-line t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(miles)} miles, ${word}. Open`}>
+    <Pressable as="div" press="surface" className="pl-line pl-card t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(miles)} miles, ${word}. Open`}>
       {body}
     </Pressable>
   );
@@ -391,7 +421,7 @@ const StillDay = ({ log, date }: { log: Log; date: string }) => {
           const f = rowFace(log, date, s);
           return line(s.id, f.cls, f.body);
         })}
-        {bonus ? <div className="pressable pl-line t-easy k-bonus" data-press="surface">{bonusFace(log, date, runs).body}</div> : null}
+        {bonus ? <div className="pressable pl-line pl-card t-easy k-bonus" data-press="surface">{bonusFace(log, date, runs).body}</div> : null}
         {!ordered.length && !bonus ? <div className={`pressable pl-line is-rest ${rest ? '' : 'is-empty'}`.trim()} data-press="surface">{emptyFace(log, date, rest)}</div> : null}
       </div>
     </div>
@@ -534,7 +564,10 @@ const SkelGroup = ({ days }: { days: string[] }) => (
  * `still`: a neighbour not yet live draws the same page without its row hooks (PlanView makes it live in a transition).
  */
 export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block, still }: { mon: string; onThisWeek: () => void; block: PlanBlockProps; still?: boolean }) {
-  const months = useMemo(() => [...new Set([monthOf(mon), monthOf(shiftDays(mon, 6))])], [mon]);
+  // the weeks the mileage bars show (the block's, or the weeks around this one), and the months they need
+  const b = block.data.b;
+  const weeks = useMemo(() => barWeeks(block.data, mon), [mon, b?.id, b?.start, b?.end, block.data.arc.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const months = useMemo(() => [...new Set([mon, shiftDays(mon, 6), ...weeks, ...weeks.map((w) => shiftDays(w, 6))].map(monthOf))].sort(), [mon, weeks]);
   const page = useMemo(() => ({ from: mon, to: shiftDays(mon, 6) }), [mon]);
   const log = useLog(months);
   const [conflict, setConflict] = useState<Conflict | null>(null);
@@ -549,9 +582,9 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block, still }
   }, [mon]);
   return (
     <div className="pl-wpage">
-      {log.loaded(mon) ? <WeekLine log={log} mon={mon} onThisWeek={onThisWeek} /> : <div className="pl-wl" aria-hidden="true" />}
+      {log.loaded(mon) ? <WeekLine log={log} mon={mon} onThisWeek={onThisWeek} block={block.data} weeks={weeks} /> : <div className="pl-wl" aria-hidden="true" />}
       {still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
-      <BlockCardView data={block.data} getLog={block.getLog} page={page} />
+      <BlockCardView data={block.data} getLog={block.getLog} page={page} inWeek />
     </div>
   );
 });

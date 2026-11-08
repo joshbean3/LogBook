@@ -41,6 +41,9 @@ import { z } from 'zod';
 import { readTrainingProfile } from '../services/training.js';
 import { deleteBlock, restoreBlock } from '../services/plans.js';
 
+/** `POST /sessions/:id/effort`: 1 to 10, whole numbers, or null to clear. */
+const zSessionEffort = z.object({ effort: z.number().int().min(1).max(10).nullable() });
+
 export const deepMerge = (a: any, b: any): any => {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b;
   const out = { ...(a && typeof a === 'object' ? a : {}) };
@@ -233,6 +236,18 @@ export const coreRoutes = (db: DB) => {
     const row = sessionOr404(userId, c.req.param('id'));
     const { mark } = await parseBody(c.req.raw, zMarkSession);
     db.update(trainingSessions).set({ mark, updatedAt: nowISO() }).where(eq(trainingSessions.id, row.id)).run();
+    return c.json(toSession(sessionOr404(userId, row.id)));
+  });
+
+  /**
+   * The effort check-in: how hard it felt, 1 to 10, or null to clear it. `updatedAt` is left alone on purpose: the day's
+   * timeline reads it as the time the session was marked, and changing the effort later does not move that.
+   */
+  r.post('/sessions/:id/effort', async (c) => {
+    const userId = uidOf(c);
+    const row = sessionOr404(userId, c.req.param('id'));
+    const { effort } = await parseBody(c.req.raw, zSessionEffort);
+    db.update(trainingSessions).set({ effort }).where(eq(trainingSessions.id, row.id)).run();
     return c.json(toSession(sessionOr404(userId, row.id)));
   });
 
