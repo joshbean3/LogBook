@@ -47,3 +47,11 @@ export const STATUS_LENGTHS = [
   { id: 'open', label: 'Until I change it', days: null },
 ] as const;
 export const untilFor = (today: ISODate, days: number | null): ISODate | null => (days === null ? null : shiftDays(today, days));
+
+/** The statuses that hold the plan's sessions (they wait until you are back); taper and travel change how, not whether. */
+export const HOLDING_KINDS: readonly TrainingStatusKind[] = ['sick', 'injured', 'rest'];
+/** The holding status on `date`, or null when sessions run as planned. */
+export const heldOn = (s: TrainingStatus | null | undefined, date: ISODate): TrainingStatusKind | null => {
+  const k = statusOn(s, date);
+  return HOLDING_KINDS.includes(k) ? k : null;
+};

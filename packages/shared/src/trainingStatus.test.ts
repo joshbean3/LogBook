@@ -19,3 +19,16 @@ describe('day status', () => {
     expect(untilFor('2026-11-08', null)).toBeNull();
   });
 });
+
+describe('held days', () => {
+  it('sick, injured and rest hold sessions; taper and travel do not', async () => {
+    const { heldOn } = await import('./trainingStatus.js');
+    const s = (kind: 'sick' | 'taper' | 'rest' | 'travel' | 'injured') => ({ kind, from: '2026-11-08', until: null });
+    expect(heldOn(s('sick'), '2026-11-09')).toBe('sick');
+    expect(heldOn(s('injured'), '2026-11-09')).toBe('injured');
+    expect(heldOn(s('rest'), '2026-11-09')).toBe('rest');
+    expect(heldOn(s('taper'), '2026-11-09')).toBeNull();
+    expect(heldOn(s('travel'), '2026-11-09')).toBeNull();
+    expect(heldOn(s('sick'), '2026-11-07')).toBeNull();
+  });
+});

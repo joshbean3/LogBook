@@ -295,9 +295,9 @@ Depends on the Apple Developer enrollment: Apple Health data, Sign in with Apple
 |---|---|---|
 | 1a Palette: Columbia, white, orange; halo relit; native shell | Done | eab3abb |
 | 1b Dock: floating tab capsule, ask bar on every tab, folds on scroll | Done | 574589d |
-| 2a Today: status chip with an end date (Today, the assistant) | Done | this commit |
-| 2b Today: the day's timeline ("Today so far") | Done | this commit |
-| 2c Plan reads the status (sessions held while sick, injured or resting) | Next | |
+| 2a Today: status chip with an end date (Today, the assistant) | Done | a7e6f2e |
+| 2b Today: the day's timeline ("Today so far") | Done | a7e6f2e |
+| 2c Plan reads the status (sessions held while sick, injured or resting) | Done | this commit |
 | 2d Assistant: proposal cards, review bar, suggested replies | Next | |
 | 1c Chart kit, rings, trend table | Later, with Progress | |
 

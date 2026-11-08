@@ -1,4 +1,5 @@
-import { assess, fmtDate, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey } from '@logbook/shared';
+import { assess, fmtDate, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
+import { isHeld } from './Held';
 import { ArrowRightLeft, Check, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { createContext, Fragment, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
@@ -124,7 +125,8 @@ const rowFace = (log: Log, date: string, s: Session) => {
   // a planned distance the name already says (`Easy 4` · `4 mi`) is not said twice: the name gets the room (review-feel-1 #14)
   const dist = !a && s.kind === 'run' && s.miles && new RegExp(`\\b${num(s.miles)}\\b`).test(name) ? '' : dist0;
   const typeWord = s.type && !name.toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
-  const sub = a && runs.length === 1 ? runs[0]!.name : typeWord;
+  const held = isHeld(s) && date >= log.today ? heldOn(log.boot?.user.status, date) : null;
+  const sub = held ? `On hold · ${TRAINING_STATUS_INFO[held].label}` : a && runs.length === 1 ? runs[0]!.name : typeWord;
   const body = (
     <>
       <span className="pl-tone" aria-hidden="true" />
@@ -136,7 +138,7 @@ const rowFace = (log: Log, date: string, s: Session) => {
       <Status k={k} word={word} />
     </>
   );
-  return { k, word, name, dist, cls: `pl-line t-${tone(s)} k-${k}`, body };
+  return { k, word, name, dist, cls: `pl-line t-${tone(s)} k-${k}${held ? ' is-held' : ''}`, body };
 };
 const bonusFace = (log: Log, date: string, runs: Activity[]) => {
   const a = assess(log.zones, null, runs);

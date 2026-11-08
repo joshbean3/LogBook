@@ -20,6 +20,7 @@ import { Hero, SecondSession } from './Hero';
 import { useIsLive } from './live';
 import { dismissNudge, useNudge } from './nudge';
 import { TheDayCard } from './TheDayCard';
+import { HeldNote } from '../plan/Held';
 import { DayTimeline } from './DayTimeline';
 import { StatusChip } from './StatusChip';
 import { WeekCard } from './WeekCard';
@@ -219,6 +220,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
     <div className="day-page" data-day={date}>
       {loaded ? <StatusChip date={date} today={today} /> : null}
       {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
+      {loaded && !first ? <HeldNote date={date} log={log} /> : null}
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       <Sentence />

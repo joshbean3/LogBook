@@ -130,6 +130,13 @@ export const AssistantSheet = ({ date, initial }: { date: ISODate; initial?: str
   const toast = useToast();
   const end = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
+  // a request handed in pre-filled (Plan's "Move them") shows whole, not cut to one line
+  useEffect(() => {
+    const el = field.current;
+    if (!el || !initial) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [initial]);
   const picker = useRef<HTMLInputElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' });
