@@ -262,7 +262,7 @@
   position: fixed;
   z-index: 50;
   left: 50%;
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 16px);
+  bottom: calc(var(--chrome-h) + var(--safe-b) + 8px);
   transform: translateX(-50%);
   width: auto;
   height: 44px;
@@ -743,7 +743,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   position: fixed;
   left: 16px;
   right: 16px;
-  bottom: calc(var(--tabbar-h) + 12px + var(--safe-b));
+  bottom: calc(var(--chrome-h) + 8px + var(--safe-b));
   z-index: 60;
   display: flex;
   justify-content: center;

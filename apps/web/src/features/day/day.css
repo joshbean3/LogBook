@@ -9,7 +9,7 @@
 .day-page {
   display: flex;
   flex-direction: column;
-  padding: 0 16px calc(24px + max(0px, var(--kb) - var(--tabbar-h) - var(--safe-b)));
+  padding: 0 16px calc(24px + max(var(--chrome-h) + var(--safe-b), var(--kb)));
   min-width: 0;
 }
 .day-page > * {

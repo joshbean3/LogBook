@@ -263,7 +263,7 @@
 /* the switch between the year and the day, at the foot, as One Year keeps it */
 .gdn-toggle {
   position: sticky;
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 14px);
+  bottom: calc(var(--chrome-h) + var(--safe-b) + 8px);
   z-index: 5;
   justify-self: center;
   display: flex;

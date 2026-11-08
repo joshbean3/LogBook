@@ -1,4 +1,5 @@
 import { GoalsBadge } from '@/features/goals/GoalsBadge';
+import { Dock } from './Dock';
 import { CelebrateLayer } from '@/features/goals/Celebrate';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
@@ -19,7 +20,7 @@ import './shell.css';
 /**
  * The frame (docs/feel.md §9.1, contracts §A.3): six tabs, each its own mounted scroller (`visibility: hidden` + `inert`
  * when not active, never `display: none`, so WebKit keeps its scrollTop), each with a stack of pushed layers over it; the tab
- * bar as the grid's second row. A tab change is a 0 ms cut: no opacity, no transform, no scrollTo, no remount.
+ * bar and the ask bar float over them in the dock (Dock.tsx). A tab change is a 0 ms cut: no opacity, no transform, no scrollTo, no remount.
  */
 export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; pushed: (entry: PushedEntry) => ReactNode }): React.JSX.Element => {
   const ctl = useNavInternal();
@@ -74,7 +75,9 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
           <TabSection key={t.id} ctl={ctl} tab={t.id} state={st.tabs[t.id]} active={st.active === t.id} leaving={leaving === t.id && st.active !== t.id} mounted={mounted.current.has(t.id)} page={pages[t.id]} pushed={pushed} />
         ))}
       </div>
-      <TabBar ctl={ctl} active={st.active} />
+      <Dock today={st.tabs.today.path}>
+        <TabBar ctl={ctl} active={st.active} />
+      </Dock>
       <NetPill />
     </div>
   );

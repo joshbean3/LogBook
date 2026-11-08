@@ -14,8 +14,9 @@ body {
   overflow: hidden;
 }
 .shell {
+  position: relative;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 .tabs-host {
@@ -114,23 +115,134 @@ body {
   z-index: 40;
 }
 
-/* ---------- the tab bar: grid row 2, opaque, no blur (WP5) ---------- */
-.tabbar {
-  position: relative;
+/* ---------- the dock: the ask bar over the tab capsule, floating over every tab (docs/inspiration.md §2.1–2) ---------- */
+.dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 30;
-  height: calc(var(--tabbar-h) + var(--safe-b));
-  padding: 0 4px var(--safe-b);
-  background: var(--surface);
-  border-top: 1px solid var(--line-strong);
+  display: grid;
+  gap: var(--dock-gap);
+  padding: 0 12px calc(var(--safe-b) + 8px);
+  pointer-events: none;
 }
-html.kb-open .tabbar {
+/* a soft floor of page colour under the dock, so words scrolling under it never fight the buttons */
+.dock::before {
+  content: '';
+  position: absolute;
+  inset: -28px 0 0;
+  background: linear-gradient(to bottom, rgba(243, 248, 251, 0), var(--bg) 46%);
+  pointer-events: none;
+}
+.dock > * {
+  position: relative;
+  pointer-events: auto;
+}
+html.kb-open .dock {
   visibility: hidden;
+}
+.dock-ask.pressable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--ask-h);
+  min-height: var(--ask-h);
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1), 0 6px 24px rgba(15, 42, 68, 0.08);
+  color: var(--ink-3);
+  text-align: left;
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 260ms var(--ease-out);
+}
+.dock-ask-ic {
+  flex: none;
+  color: var(--accent);
+}
+.dock-ask-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dock-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+.dock-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* folded: the ask bar sinks out and a round button opens beside the capsule */
+.dock[data-compact] .dock-ask {
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+  pointer-events: none;
+}
+.dock-ask-mini.pressable {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 0;
+  height: var(--tabbar-h);
+  min-height: 0;
+  margin-left: -8px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1), 0 6px 24px rgba(15, 42, 68, 0.1);
+  color: var(--accent);
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    width 260ms var(--ease-out),
+    margin 260ms var(--ease-out),
+    opacity 180ms var(--ease-out);
+}
+.dock[data-compact] .dock-ask-mini.pressable {
+  width: var(--tabbar-h);
+  margin-left: 0;
+  opacity: 1;
+  pointer-events: auto;
+}
+.dock-ask-mini .dock-dot {
+  position: absolute;
+  top: 12px;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+}
+
+/* the tab capsule: white, a pill, lifted by a soft shadow; no blur (WP5) */
+.tabbar {
+  flex: 1;
+  min-width: 0;
+  height: var(--tabbar-h);
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1), 0 8px 28px rgba(15, 42, 68, 0.1);
 }
 .tabbar .tabs {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  height: var(--tabbar-h);
+  height: 100%;
 }
 .tab-item {
   min-height: 44px;
@@ -144,17 +256,29 @@ html.kb-open .tabbar {
   color: var(--ink-3);
   -webkit-tap-highlight-color: transparent;
 }
+.tab-item svg {
+  width: 22px;
+  height: 22px;
+}
 .tab-item[aria-selected='true'] {
-  color: var(--accent-bright);
+  color: var(--accent);
 }
 .tab-label {
   font-size: 0.625rem;
   line-height: 0.75rem;
   font-weight: 500;
   letter-spacing: 0;
+  transition: opacity 180ms var(--ease-out);
 }
 .tab-item[aria-selected='true'] .tab-label {
-  font-weight: 600;
+  font-weight: 650;
+  color: var(--accent-text);
+}
+/* folded on a narrow phone: the capsule gives the button room by dropping the words */
+@media (max-width: 374px) {
+  .dock[data-compact] .tab-label {
+    display: none;
+  }
 }
 
 /* ---------- pull to refresh: a 24px ring under the status bar (Today only) ---------- */

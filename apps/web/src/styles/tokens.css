@@ -120,7 +120,11 @@
   --dur-out: 100ms;
   --dur-color: 200ms;
 
-  --tabbar-h: 50px;
+  --tabbar-h: 56px;
+  --ask-h: 48px;
+  --dock-gap: 8px;
+  /* the floating dock's height above the safe area: the ask bar, the gap, the capsule and the 8 px under it */
+  --chrome-h: calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px);
   /* the keyboard's height (lib/keyboard.ts writes it; 0 while it is down) */
   --kb: 0px;
   --safe-b: env(safe-area-inset-bottom, 0px);

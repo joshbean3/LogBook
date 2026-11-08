@@ -35,7 +35,7 @@
 /* each page carries the gutter and the page's bottom padding (inside the cur page, so its min-height includes it) */
 .pl-wpage,
 .pl-mpage {
-  padding: 0 16px calc(24px + max(0px, var(--kb) - var(--tabbar-h) - var(--safe-b)));
+  padding: 0 16px calc(24px + max(var(--chrome-h) + var(--safe-b), var(--kb)));
   min-width: 0;
 }
 .pl-note {
