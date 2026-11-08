@@ -23,24 +23,26 @@ export const turnOf = (r: AssistantReply): AssistantTurn => ({
   ...(r.replies?.length ? { replies: r.replies.slice(0, 3) } : {}),
   ...(r.thoughts ? { thoughts: r.thoughts } : {}),
   ...(typeof r.thoughtSeconds === 'number' ? { thoughtSeconds: r.thoughtSeconds } : {}),
+  ...(r.steps?.length ? { steps: r.steps } : {}),
 });
 
 /**
  * Sends the conversation as it stands and adds the answer to it. While the answer is written its words show as they come
  * (assistantStore.live); a failure stays in the chat as a turn with Retry; a stopped answer keeps the words it had. One
- * ask at a time; an answer for a conversation cleared meanwhile is dropped.
+ * ask at a time; the answer lands in the chat that asked, even when the owner has opened another or started a new one.
  */
 export const runAsk = async (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, now = Date.now) => {
   if (assistantStore.busySince() !== null) return;
-  const gen = assistantStore.generation();
-  assistantStore.setBusy(now());
+  const chat = assistantStore.currentId();
+  assistantStore.setBusy(now(), chat);
   let turn: AssistantTurn | null;
   try {
     const r = await ask(date, requestTurns(assistantStore.get(), assistantStore.filesOf), screen, {
       onJob: (id) => assistantStore.setJob(id),
-      onProgress: (l) => assistantStore.generation() === gen && assistantStore.setLive(l),
+      onProgress: (l) => assistantStore.setLive(l),
     });
     turn = turnOf(r);
+    if (r.title) assistantStore.name(chat, r.title);
     if (r.proposal) haptics.success();
   } catch (e) {
     if (e instanceof AskError && e.code === 'stopped') {
@@ -48,9 +50,8 @@ export const runAsk = async (ask: Ask, date: ISODate, screen: AssistantScreen | 
       turn = words ? { role: 'assistant', text: words, stopped: true } : null;
     } else turn = { role: 'assistant', text: failureText(e), error: true };
   }
-  if (assistantStore.generation() !== gen) return;
   assistantStore.setBusy(null);
-  if (turn) assistantStore.push(turn);
+  if (turn) assistantStore.pushTo(chat, turn);
 };
 
 /** Stop the answer being written: the server aborts it; runAsk keeps its words so far. */
@@ -81,4 +82,11 @@ export const sendTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | unde
   haptics.select();
   assistantStore.push({ role: 'user', text, ...(files.shown?.length ? { files: files.shown } : {}) }, files.data);
   return runAsk(ask, date, screen);
+};
+
+/** Edit a question already sent: everything from it on comes off, and the new words go in its place (ChatGPT's Edit). */
+export const editTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, index: number, text: string) => {
+  if (assistantStore.busySince() !== null || assistantStore.get()[index]?.role !== 'user') return;
+  assistantStore.truncate(index);
+  return sendTurn(ask, date, screen, text, { shown: undefined, data: [] });
 };

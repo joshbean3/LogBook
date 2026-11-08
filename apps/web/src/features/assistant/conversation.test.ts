@@ -1,7 +1,7 @@
 import type { AssistantReply } from '@logbook/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NetworkError } from '@/api/client';
-import { regenerate, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
+import { editTurn, regenerate, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
 import { AskError } from './poll';
 import { assistantStore } from './store';
 
@@ -30,16 +30,48 @@ describe('a conversation with the assistant', () => {
     expect(assistantStore.get().map((t) => t.text)).toEqual(['hi', 'Two runs left.']);
   });
 
-  it('asks once at a time, and drops an answer for a conversation cleared meanwhile', async () => {
+  it('asks once at a time; a new chat started meanwhile stays empty and the answer lands in the chat that asked', async () => {
     let finish!: (r: AssistantReply) => void;
     const ask = vi.fn(() => new Promise<AssistantReply>((r) => (finish = r)));
     const first = sendTurn(ask, '2026-11-08', undefined, 'one', none);
+    const asked = assistantStore.currentId();
     await runAsk(ask, '2026-11-08', undefined);
     expect(ask).toHaveBeenCalledTimes(1);
     assistantStore.clear();
-    finish(reply());
+    finish(reply({ title: 'Counting runs' }));
     await first;
     expect(assistantStore.get()).toEqual([]);
+    const chat = assistantStore.chats().find((c) => c.id === asked)!;
+    expect(chat).toMatchObject({ title: 'Counting runs', named: true });
+    expect(chat.turns.map((t) => t.text)).toEqual(['one', 'Two runs left.']);
+    assistantStore.open(asked);
+    expect(assistantStore.get()).toHaveLength(2);
+  });
+
+  it('keeps every chat in History, titled by its first words until the assistant names it', async () => {
+    await sendTurn(vi.fn(async () => reply()), '2026-11-08', undefined, 'Move my long run to Sunday because of the wedding', none);
+    const id = assistantStore.currentId();
+    expect(assistantStore.chats()[0]).toMatchObject({ id, title: 'Move my long run to Sunday because…' });
+    assistantStore.remove(id);
+    expect(assistantStore.chats().some((c) => c.id === id)).toBe(false);
+    expect(assistantStore.get()).toEqual([]);
+  });
+
+  it('Edit takes the question and everything after it off, and sends the new words', async () => {
+    const ask = vi.fn(async () => reply());
+    await sendTurn(ask, '2026-11-08', undefined, 'What is left?', none);
+    await sendTurn(ask, '2026-11-08', undefined, 'And lifts?', none);
+    await editTurn(ask, '2026-11-08', undefined, 2, 'And next week?');
+    expect(assistantStore.get().map((t) => t.text)).toEqual(['What is left?', 'Two runs left.', 'And next week?', 'Two runs left.']);
+    expect((ask.mock.calls[2] as unknown[])[1]).toEqual([{ role: 'user', text: 'What is left?' }, { role: 'assistant', text: 'Two runs left.' }, { role: 'user', text: 'And next week?' }]);
+  });
+
+  it('rates an answer, and a second tap on the same thumb takes it off', async () => {
+    await sendTurn(vi.fn(async () => reply()), '2026-11-08', undefined, 'hi', none);
+    assistantStore.rate(1, 'up');
+    expect(assistantStore.get()[1]!.rating).toBe('up');
+    assistantStore.rate(1, 'up');
+    expect(assistantStore.get()[1]!.rating).toBeUndefined();
   });
 
   it('shows the words as they come, and keeps how it reasoned with the answer', async () => {

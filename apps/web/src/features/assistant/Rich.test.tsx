@@ -21,4 +21,19 @@ describe('an answer’s formatting', () => {
   it('shows half-written formatting as plain words', () => {
     expect(renderToStaticMarkup(<Rich text="Run **eas" />)).toContain('Run **eas');
   });
+  it('reads a table, skipping the line under its header, and a fenced code block', () => {
+    expect(blocksOf('| Day | Run |\n|---|---|\n| Wed | Tempo 6 |\n| Sat | Long 10 |\n\n```\nA: 1\n```\nAfter')).toEqual([
+      { kind: 'table', rows: [['Day', 'Run'], ['Wed', 'Tempo 6'], ['Sat', 'Long 10']] },
+      { kind: 'code', text: 'A: 1', open: false },
+      { kind: 'p', lines: ['After'] },
+    ]);
+    const html = renderToStaticMarkup(<Rich text={'| Day | Run |\n|---|---|\n| Wed | **Tempo** |'} />);
+    expect(html).toContain('<th>Day</th>');
+    expect(html).toContain('<td><strong>Tempo</strong></td>');
+  });
+  it('fading, gives each word its own span so only new words animate', () => {
+    const html = renderToStaticMarkup(<Rich text="Two runs **left**" fade />);
+    expect(html.match(/class="as-w"/g)).toHaveLength(3);
+    expect(html).toContain('<strong><span class="as-w">left</span></strong>');
+  });
 });

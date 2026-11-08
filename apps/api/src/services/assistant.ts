@@ -132,11 +132,12 @@ How you work:
 - "Push out a week" means moving each named session seven days later. "Missed" means a past session that is not marked done. You cannot see runs synced from Strava (its terms keep that data from you), so if he says he did one, take his word. Keep each session's details; only its date moves. Never move sessions into the past.
 - Use the ids exactly as given. Dates are YYYY-MM-DD. Priorities: 3 is P1 (top), 2 is P2, 1 is P3, 0 none. A goal's period is the year (2026), the month (2026-10), the week's Monday, or the day.
 - Your summary in propose_changes is what he reads above the list: one plain sentence saying what will happen. Each change may carry "why": a reason in a few words ("rest after the long run"), shown under it; leave it out when the change speaks for itself.
-- When you are only answering a question, reply in two or three plain sentences. No markdown headings, no bullet lists unless asked for a list, no emoji.
+- When you are only answering a question, reply in two or three plain sentences. When you name three or more sessions, days or steps, put them in a short list ("- **Wed** Tempo 6"). Bold a key number or day sparingly. No headings, no tables unless asked, no emoji.
 - To replace a plan: from the new plan's first day on, delete_session each session of the old plan that is not marked (keep what was done), then add_session each workout of the new plan on its date with its miles and a title like "Easy 5" or "Long 12". All of it goes in one propose_changes (up to 200 changes); never split a plan across asks.
 - The owner may attach photos, screenshots or PDFs: a training plan, a race schedule, a work calendar, a to-do list on paper. Read them closely and work only from what you can see. If one is a plan or schedule they want in the app, turn it into changes with propose_changes (one add_session per workout on its real date, to-dos with add_todo); if the start date or year is not clear from the file, ask one short question first. If you cannot read part of a file, say which part.
 - CONTEXT may have a SCREEN line: the screen he opened you from. Use it to read what "this" or "this week" means; do not mention it otherwise.
-- End every reply with up to three short follow-ups he might send next, written as he would type them to you (first person, under 60 characters, no quotes inside), each a real next step from what you just said. Put them on the last line, exactly like this: <replies>["Move it to Saturday instead", "What does next week look like?"]</replies>. Leave the line out when nothing fits.`;
+- End every reply with up to three short follow-ups he might send next, written as he would type them to you (first person, under 60 characters, no quotes inside), each a real next step from what you just said. Put them on the last line, exactly like this: <replies>["Move it to Saturday instead", "What does next week look like?"]</replies>. Leave the line out when nothing fits.
+- When the conversation holds only one message from him (it is new), also give it a title of two to five plain words, sentence case, no period, on its own line just before the replies line: <title>Moving the tempo run</title>.`;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -242,6 +243,8 @@ export interface AskResult {
   text: string;
   proposal: AssistantProposal | null;
   replies?: string[];
+  title?: string;
+  steps?: string[];
   thoughts?: string;
   thoughtSeconds?: number;
 }
@@ -253,6 +256,15 @@ export interface AskOptions {
 }
 
 const REPLIES = /<replies>([\s\S]*?)(?:<\/replies>|$)/i;
+const TITLE = /<title>([\s\S]*?)(?:<\/title>|$)/i;
+/** Takes the conversation's title off what Claude wrote (first answer only): a few plain words, or none. */
+export const splitTitle = (said: string): { text: string; title?: string } => {
+  const m = TITLE.exec(said);
+  if (!m) return { text: said };
+  const text = (said.slice(0, m.index) + said.slice(m.index + m[0].length)).replace(/\n{3,}/g, '\n\n');
+  const title = m[1]!.replace(/["“”<>]/g, '').replace(/\s+/g, ' ').replace(/[.]$/, '').trim();
+  return title && title.length <= 48 ? { text, title } : { text };
+};
 /**
  * Takes the suggested replies off the end of what Claude wrote: at most three short lines in the owner's voice. The tag
  * always comes off the text; a tag that does not hold a list of short lines gives none.
@@ -325,11 +337,13 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
   let sentAt = 0;
   let trailing: ReturnType<typeof setTimeout> | null = null;
   let latest = '';
+  let title: string | undefined;
+  const steps: string[] = [];
   const seconds = () => Math.max(0, Math.round((Date.now() - t0) / 1000));
   const send = () => {
     trailing = null;
     sentAt = Date.now();
-    opts.progress?.({ phase, text: visibleReply([earlier, latest].filter(Boolean).join('\n\n')), thoughts: thoughts.trim().slice(-1500), seconds: seconds() });
+    opts.progress?.({ phase, text: visibleReply([earlier, latest].filter(Boolean).join('\n\n')), thoughts: thoughts.trim().slice(-1500), seconds: seconds(), ...(steps.length ? { steps: [...steps] } : {}) });
   };
   // at most every 100 ms, and always the last words before a pause (a trailing send), so nothing waits on the next chunk
   const report = (current: string, force = false) => {
@@ -344,7 +358,7 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
   const finish = (r: AskResult): AskResult => {
     if (trailing) clearTimeout(trailing);
     trailing = null;
-    return { ...r, ...(thoughts.trim() ? { thoughts: thoughts.trim().slice(-4000) } : {}), thoughtSeconds: seconds() };
+    return { ...r, ...(thoughts.trim() ? { thoughts: thoughts.trim().slice(-4000) } : {}), thoughtSeconds: seconds(), ...(title && !r.title ? { title } : {}), ...(steps.length ? { steps } : {}) };
   };
   report('', true);
 
@@ -369,7 +383,11 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
     for await (const ev of (stream[Symbol.asyncIterator] ? (stream as AsyncIterable<Anthropic.Beta.BetaRawMessageStreamEvent>) : [])) {
       if (ev.type === 'content_block_start') {
         const b = ev.content_block;
-        if (b.type === 'thinking') phase = 'thinking';
+        if (b.type === 'thinking') {
+          phase = 'thinking';
+          // a later round's reasoning starts on its own paragraph
+          if (thoughts.trim()) thoughts = `${thoughts.trimEnd()}\n\n`;
+        }
         else if (b.type === 'text') phase = 'writing';
         else if (b.type === 'tool_use') phase = b.name === 'propose_changes' ? 'proposing' : 'reading';
         report(current, true);
@@ -388,12 +406,14 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
     // the whole turn goes back as it came (tool calls and thinking blocks included)
     messages.push({ role: 'assistant', content: res.content });
     const calls = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
-    const { text: said, replies } = splitReplies(
+    const titled = splitTitle(
       res.content
         .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
         .map((b) => b.text)
         .join('\n'),
     );
+    title ??= titled.title;
+    const { text: said, replies } = splitReplies(titled.text);
     if (res.stop_reason === 'max_tokens') return finish({ text: 'That came out too long to write in one go. Ask for it a few weeks at a time.', proposal: null });
     if (!calls.length) return finish({ text: said || 'Done.', proposal: null, replies });
     // what was said before a tool call stays on screen while the next round runs
@@ -405,6 +425,10 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
         const q = z.object({ from: z.string(), to: z.string() }).safeParse(call.input);
         const ok = q.success && /^\d{4}-\d{2}-\d{2}$/.test(q.data.from) && /^\d{4}-\d{2}-\d{2}$/.test(q.data.to) && q.data.from <= q.data.to && q.data.to <= shiftDays(q.data.from, 120);
         results.push(ok ? { type: 'tool_result', tool_use_id: call.id, content: sessionLines(db, userId, q.data!.from, q.data!.to, today) } : { type: 'tool_result', tool_use_id: call.id, is_error: true, content: 'Give from and to as YYYY-MM-DD, at most 120 days apart.' });
+        if (ok) {
+          steps.push(q.data!.from === q.data!.to ? `Read your plan for ${fmtDate('md', q.data!.from)}` : `Read your plan, ${fmtDate('md', q.data!.from)} to ${fmtDate('md', q.data!.to)}`);
+          report(latest, true);
+        }
         continue;
       }
       if (call.name === 'propose_changes') {
@@ -415,6 +439,7 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
         }
         try {
           const changes: AssistantChange[] = p.data.changes.map((op) => ({ op, label: labelOp(db, userId, op, today), ...(op.why ? { reason: op.why } : {}) }));
+          steps.push(`Drafted ${changes.length} change${changes.length === 1 ? '' : 's'}`);
           const id = uid('aa');
           db.insert(assistantActions).values({ id, userId, ask: (last.text || (last.attachments?.length ? `[${last.attachments.map((f) => f.name).join(', ')}]` : '')).slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
           return finish({ text: [earlier === said ? '' : earlier, said].filter(Boolean).join('\n\n') || said, proposal: { id, summary: p.data.summary, changes, status: 'proposed' }, replies });

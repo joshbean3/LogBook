@@ -272,6 +272,15 @@ describe('asking, with a fake Claude', () => {
     expect(r.body).toMatchObject({ text: 'You have two runs left this week.', proposal: null, available: true, replies: ['Move Thursday to Friday', 'Make Saturday shorter'] });
   });
 
+  it('names a new conversation and says what it looked at on the way', async () => {
+    fakeClaude(
+      [{ type: 'tool_use', id: 'tu1', name: 'get_sessions', input: { from: '2026-11-02', to: '2026-11-08' } }],
+      [{ type: 'text', text: 'Last week was 31 miles.\n<title>Last week’s miles.</title>\n<replies>["And this week?"]</replies>' }],
+    );
+    const r = await call('POST', '/api/assistant', { date: today(), turns: [{ role: 'user', text: 'How much did I run last week?' }] });
+    expect(r.body).toMatchObject({ text: 'Last week was 31 miles.', title: 'Last week’s miles', steps: ['Read your plan, Nov 2 to Nov 8'], replies: ['And this week?'] });
+  });
+
   it('gives no replies when the tag does not parse, and keeps the answer', async () => {
     fakeClaude([{ type: 'text', text: 'Done looking. <replies>[Move it, later]</replies>' }]);
     const r = await call('POST', '/api/assistant', { date: today(), turns: [{ role: 'user', text: 'hi' }] });

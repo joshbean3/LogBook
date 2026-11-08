@@ -1,169 +1,50 @@
-import { fmtDate, PHASE_WORDS, screenLabel, type AssistantChange, type AssistantLive, type AssistantProposal, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
+import { fmtDate, PHASE_WORDS, screenLabel, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
 import {
   Activity,
   ArrowDown,
   ArrowUp,
-  Bike,
   BookOpen,
-  CalendarCheck,
   CalendarDays,
-  CalendarX,
   Check,
-  CheckSquare,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   CircleAlert,
   Copy,
-  CornerDownRight,
-  Dumbbell,
   FileText,
-  Footprints,
+  History,
   Lightbulb,
-  Moon,
-  Paperclip,
-  RotateCcw,
+  Pencil,
+  Plus,
   RotateCw,
-  Sparkles,
+  Share,
   Square,
   SquarePen,
   Sun,
   Target,
+  ThumbsDown,
+  ThumbsUp,
+  Volume2,
+  VolumeX,
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { askAssistant, stopAssistant, useAssistantActions } from '@/api/queries';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { askAssistant, stopAssistant, useBootstrap } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
+import { isNative } from '@/lib/native';
 import { useToday } from '@/lib/useToday';
-import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
 import { AttachError, prepareFile, type PreparedFile } from './attach';
-import { regenerate, retryAsk, sendTurn, stopAsk } from './conversation';
+import { editTurn, regenerate, retryAsk, sendTurn, stopAsk } from './conversation';
+import { HistoryPanel } from './History';
+import { ProposalCard } from './Proposal';
 import { Rich } from './Rich';
-import { assistantStore, useAssistantBusy, useAssistantLive, useAssistantTurns } from './store';
+import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantTurns } from './store';
 import './assistant.css';
-
-/** What a change is about, for its icon: a workout added, a change to the plan's days, a to-do, a goal. Deletes are flagged. */
-const kindOf = (c: AssistantChange): { Icon: LucideIcon; risky?: boolean } => {
-  const op = c.op;
-  switch (op.op) {
-    case 'add_session':
-      return { Icon: op.kind === 'lift' ? Dumbbell : op.kind === 'cross' ? Bike : op.kind === 'rest' ? Moon : Footprints };
-    case 'mark_session':
-      return { Icon: CalendarCheck };
-    case 'delete_session':
-      return { Icon: CalendarX, risky: true };
-    case 'move_session':
-    case 'update_session':
-      return { Icon: CalendarDays };
-    case 'delete_todo':
-      return { Icon: CheckSquare, risky: true };
-    case 'add_todo':
-    case 'update_todo':
-      return { Icon: CheckSquare };
-    default:
-      return { Icon: Target };
-  }
-};
-
-/** A proposal of more than this many changes shows the first six and a "Show all" (a plan can be fifty). */
-const FOLD_OVER = 8;
-const changesWord = (n: number) => `${n} change${n === 1 ? '' : 's'}`;
-
-/**
- * A proposal (docs/inspiration.md §3, Proposal card): the summary, then each change on its own card with its icon, its
- * words and its reason, and a Remove for leaving that one out. Apply names how many will run; after it, Undo.
- */
-const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }) => {
-  const { apply, undo, dismiss } = useAssistantActions();
-  const [all, setAll] = useState(false);
-  const toast = useToast();
-  const skipped = new Set(p.skipped ?? []);
-  const live = p.changes.length - skipped.size;
-  const open = p.status === 'proposed';
-  const busy = apply.isPending || undo.isPending || dismiss.isPending;
-  const shown = all || p.changes.length <= FOLD_OVER ? p.changes : p.changes.slice(0, 6);
-  const toggle = (i: number) => {
-    const next = skipped.has(i) ? [...skipped].filter((x) => x !== i) : [...skipped, i];
-    assistantStore.setProposal({ ...p, skipped: next.sort((a, b) => a - b) });
-  };
-  const run = async (fn: () => Promise<AssistantProposal>, ok?: () => void) => {
-    try {
-      const next = await fn();
-      // the server says what it skipped once applied; a dismissed one keeps what was removed here
-      assistantStore.setProposal(next.skipped || next.status !== 'dismissed' ? next : { ...next, skipped: p.skipped });
-      ok?.();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'That didn’t go through. Try again.');
-    }
-  };
-  const applied = p.status === 'applied';
-  return (
-    <section className={`as-proposal card is-${p.status}`} data-waiting={waiting ? '' : undefined} aria-label="Proposed changes">
-      <header className="as-prop-head">
-        <span className="caps">{open ? `${changesWord(p.changes.length)} to review` : 'Changes'}</span>
-        <p className="as-proposal-sum">{p.summary}</p>
-      </header>
-      <ul className="as-changes">
-        {shown.map((c, i) => {
-          const { Icon, risky } = kindOf(c);
-          const off = skipped.has(i);
-          return (
-            <li key={i} className={`as-change${off ? ' is-off' : ''}${risky ? ' is-risky' : ''}`} style={{ '--i': Math.min(i, 12) } as React.CSSProperties}>
-              <span className="icon-tile as-change-ic" aria-hidden="true">
-                <Icon size={16} strokeWidth={2.2} />
-              </span>
-              <span className="as-change-body">
-                <span className="as-change-text">
-                  {off ? <span className="sr-only">Removed: </span> : null}
-                  {c.label}
-                </span>
-                {c.reason ? <span className="as-change-why">{c.reason}</span> : null}
-              </span>
-              {open ? (
-                <button type="button" className="as-change-x" disabled={busy} aria-label={off ? `Put back: ${c.label}` : `Remove: ${c.label}`} onClick={() => toggle(i)}>
-                  {off ? <RotateCcw size={15} aria-hidden="true" /> : <X size={15} strokeWidth={2.4} aria-hidden="true" />}
-                </button>
-              ) : off ? (
-                <span className="as-change-left">Left out</span>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-      {shown.length < p.changes.length ? (
-        <button type="button" className="as-more" onClick={() => setAll(true)}>
-          Show all {p.changes.length} changes
-        </button>
-      ) : null}
-      {open ? (
-        <div className="as-proposal-foot">
-          <Button variant="quiet" disabled={busy} onClick={() => void run(() => dismiss.mutateAsync(p.id))}>
-            Not now
-          </Button>
-          <Button variant="primary" className="as-apply" disabled={busy || live === 0} aria-busy={apply.isPending} onClick={() => void run(() => apply.mutateAsync({ id: p.id, skip: p.skipped }), () => haptics.drop())}>
-            {apply.isPending ? 'Applying…' : live === 0 ? 'Apply' : `Apply ${changesWord(live)}`}
-          </Button>
-        </div>
-      ) : (
-        <div className="as-proposal-state">
-          <span className={`as-status ${applied ? 'is-on' : ''}`}>
-            {applied ? <Check size={15} strokeWidth={2.6} aria-hidden="true" /> : p.status === 'undone' ? <RotateCcw size={14} strokeWidth={2.4} aria-hidden="true" /> : <X size={14} strokeWidth={2.4} aria-hidden="true" />}
-            {applied ? (skipped.size ? `Applied ${live} of ${p.changes.length}` : 'Applied') : p.status === 'undone' ? 'Undone' : 'Not applied'}
-          </span>
-          {applied ? (
-            <button type="button" className="as-undo" disabled={busy} onClick={() => void run(() => undo.mutateAsync(p.id))}>
-              <RotateCcw size={14} aria-hidden="true" /> {undo.isPending ? 'Undoing…' : 'Undo'}
-            </button>
-          ) : null}
-        </div>
-      )}
-    </section>
-  );
-};
 
 /** The files a turn carried, as the thread shows them: a photo's preview, a PDF's name. */
 const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
@@ -181,29 +62,34 @@ const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
   </div>
 );
 
-/** Rows that send themselves: the starters on an empty conversation, the suggested replies after an answer. */
-const ReplyRows = ({ items, label, onPick }: { items: string[]; label: string; onPick: (s: string) => void }) => (
-  <div className="as-replies" role="group" aria-label={label}>
-    {items.map((s) => (
-      <button key={s} type="button" className="as-reply" onClick={() => onPick(s)}>
-        <CornerDownRight size={16} className="as-reply-ic" aria-hidden="true" />
-        <span className="as-reply-text">{s}</span>
-      </button>
-    ))}
-  </div>
-);
-
 const SCREEN_ICON: Record<AssistantScreen['tab'], LucideIcon> = { today: Sun, plan: CalendarDays, progress: Activity, goals: Target, learned: Lightbulb, journal: BookOpen };
 
-const startersFor = (date: ISODate, today: ISODate) => {
-  const day = date === today ? 'today' : fmtDate('short', date);
+/** Ways to start an empty chat: two lines each (what, then the rest), as ChatGPT's starter cards read. */
+type Starter = { title: string; sub: string; send?: string; attach?: true };
+const startersFor = (date: ISODate, today: ISODate): Starter[] => {
+  const run = date === today ? 'today’s run' : `${fmtDate('short', date)}’s run`;
   return [
-    `Push the runs I missed this week to next week`,
-    `Move ${day === 'today' ? 'today’s' : `${day}’s`} run to the next day`,
-    `What’s left on the plan this week?`,
-    `Set this week’s goal from my plan`,
+    { title: 'What’s left', sub: 'on the plan this week', send: 'What’s left on the plan this week?' },
+    { title: 'Push missed runs', sub: 'to next week', send: 'Push the runs I missed this week to next week' },
+    { title: `Move ${run}`, sub: 'to the next day', send: `Move ${run} to the next day` },
+    { title: 'Set this week’s goal', sub: 'from my plan', send: 'Set this week’s goal from my plan' },
+    { title: 'Read a plan', sub: 'from a photo or a PDF', attach: true },
   ];
 };
+
+const greeting = (h = new Date().getHours()) => (h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
+
+/** An answer as plain words, for Copy, Share and Read aloud: no stars, ticks or table bars. */
+export const plainOf = (text: string) =>
+  text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(^|\s)[*_](\S[^*_\n]*?)[*_]/g, '$1$2')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,4}\s+/gm, '')
+    .replace(/^\s*\|?[\s:|-]+\|?\s*$/gm, '')
+    .replace(/^\s*\|(.*)\|\s*$/gm, (_, row: string) => row.split('|').map((c) => c.trim()).join('  '))
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
 /** Seconds since `since`, ticking once a second while shown. */
 const useSeconds = (since: number) => {
@@ -240,56 +126,140 @@ const useSmoothText = (target: string) => {
   return target.slice(0, Math.min(n, target.length));
 };
 
-/** The reasoning summary, folded: "Thought for 6s ›" opens it. */
-const Thoughts = ({ text, seconds, live }: { text: string; seconds: number; live?: boolean }) => {
+/** A soft tick as the words land (ChatGPT's feel on iPhone): at most one every 110 ms, only while new words appear. */
+const useWordTicks = (text: string) => {
+  const words = text ? text.split(/\s+/).length : 0;
+  const last = useRef({ words, at: 0 });
+  useEffect(() => {
+    const now = performance.now();
+    if (words > last.current.words && now - last.current.at > 110) {
+      haptics.tick();
+      last.current.at = now;
+    }
+    last.current.words = words;
+  }, [words]);
+};
+
+/**
+ * How it got to the answer (Claude's and ChatGPT's fold above a reply): "Thought for 7s ›" opens the steps it took
+ * ("Read your plan, Nov 2 to Nov 8") and its reasoning. Nothing shows for an answer that took no time and no steps.
+ */
+const Process = ({ thoughts, seconds, steps }: { thoughts?: string; seconds?: number; steps?: string[] }) => {
   const [open, setOpen] = useState(false);
-  if (!text && !live) return seconds >= 1 ? <span className="as-thought-for">Thought for {seconds}s</span> : null;
+  const secs = Math.max(1, seconds ?? 0);
+  if (!thoughts && !steps?.length && (seconds ?? 0) < 2) return null;
   return (
-    <div className={`as-thoughts${open ? ' is-open' : ''}`}>
-      <button type="button" className="as-thought-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        {live ? 'Show thinking' : `Thought for ${Math.max(1, seconds)}s`}
-        <ChevronDown size={14} strokeWidth={2.4} aria-hidden="true" />
+    <div className={`as-process${open ? ' is-open' : ''}`}>
+      <button type="button" className="as-process-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {thoughts ? `Thought for ${secs}s` : steps?.length ? `${steps.length === 1 ? steps[0] : `${steps.length} steps`} · ${secs}s` : `Worked for ${secs}s`}
+        <ChevronRight size={15} strokeWidth={2.4} aria-hidden="true" />
       </button>
-      {open ? <p className="as-thought-text">{text || '…'}</p> : null}
+      {open ? (
+        <div className="as-process-body">
+          {steps?.map((s, i) => (
+            <p key={i} className="as-step">
+              <Check size={14} strokeWidth={2.6} aria-hidden="true" />
+              {s}
+            </p>
+          ))}
+          {thoughts ? <p className="as-thought-text">{thoughts}</p> : null}
+          <p className="as-step is-done">
+            <Check size={14} strokeWidth={2.6} aria-hidden="true" />
+            Done
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 };
 
 /**
- * The answer while it is written (docs/inspiration.md §4): what it is doing now with the seconds running ("Reading your
- * plan · 4s", a shimmer over the words), its reasoning to open, and its words so far flowing in behind a caret. Before the
- * first look comes back it says Thinking. After 20 s a line says closing is fine.
+ * The answer while it is written: what it is doing now with the seconds running ("Reading your plan · 4s", light passing
+ * over the words), the steps so far, the latest line of its reasoning; then its words fading in one by one behind a dot.
+ * Before anything comes back it says Thinking. After 20 s a line says closing is fine.
  */
 const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null }) => {
   const secs = useSeconds(since);
   const text = useSmoothText(live?.text ?? '');
+  useWordTicks(text);
+  const [open, setOpen] = useState(false);
   const phase = live?.phase ?? 'thinking';
-  const writing = phase === 'writing' && text.length > 0;
+  const writing = text.length > 0;
+  const lastThought = (live?.thoughts ?? '').trim().split(/\n+/).pop() ?? '';
   return (
-    <div className="as-turn is-assistant is-live">
-      <div className="as-answer as-live" aria-busy="true">
-        {!writing ? (
-          <p className="as-phase" aria-live="polite">
+    <div className="as-turn is-assistant is-live" aria-busy="true">
+      {writing ? (
+        <Process thoughts={live?.thoughts} seconds={live?.seconds ?? secs} steps={live?.steps} />
+      ) : (
+        <div className="as-working">
+          <button type="button" className="as-phase" aria-expanded={open} onClick={() => setOpen((v) => !v)} disabled={!live?.thoughts && !live?.steps?.length}>
             <span className="as-orb" aria-hidden="true" />
-            <span className="as-shimmer">{PHASE_WORDS[phase]}</span>
+            <span className="as-shimmer" aria-live="polite">
+              {PHASE_WORDS[phase]}
+            </span>
             <span className="as-phase-secs">{secs}s</span>
-          </p>
-        ) : null}
-        {live?.thoughts ? <Thoughts text={live.thoughts} seconds={secs} live /> : null}
-        {text ? <Rich text={text} after={writing ? <span className="as-caret" aria-hidden="true" /> : null} /> : null}
-        {secs >= 20 && !text ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
-      </div>
+            {live?.thoughts || live?.steps?.length ? <ChevronDown size={14} strokeWidth={2.4} className="as-phase-chev" aria-hidden="true" /> : null}
+          </button>
+          {live?.steps?.map((s, i) => (
+            <p key={i} className="as-step is-new">
+              <Check size={14} strokeWidth={2.6} aria-hidden="true" />
+              {s}
+            </p>
+          ))}
+          {open && live?.thoughts ? <p className="as-thought-text">{live.thoughts}</p> : lastThought ? <p className="as-thought-line">{lastThought}</p> : null}
+          {secs >= 20 ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+        </div>
+      )}
+      {writing ? (
+        <div className="as-answer">
+          <Rich text={text} fade after={<span className="as-caret" aria-hidden="true" />} />
+        </div>
+      ) : null}
     </div>
   );
 };
 
-/** Under a finished answer: how long it thought, Copy, and Regenerate on the newest one. */
-const AnswerMeta = ({ t, newest, onRegenerate }: { t: AssistantTurn; newest: boolean; onRegenerate: () => void }) => {
+/** One speaker for the whole chat: Read aloud on one answer stops any other. */
+const useSpeaker = () => {
+  const [speaking, setSpeaking] = useState<number | null>(null);
+  const ok = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  useEffect(() => () => void (ok && window.speechSynthesis.cancel()), [ok]);
+  const toggle = useCallback(
+    (i: number, text: string) => {
+      if (!ok) return;
+      window.speechSynthesis.cancel();
+      if (speaking === i) return setSpeaking(null);
+      const u = new SpeechSynthesisUtterance(plainOf(text));
+      u.rate = 1.02;
+      u.onend = u.onerror = () => setSpeaking((s) => (s === i ? null : s));
+      setSpeaking(i);
+      window.speechSynthesis.speak(u);
+    },
+    [ok, speaking],
+  );
+  return { speaking, toggle, ok };
+};
+
+const shareText = async (text: string) => {
+  if (isNative) {
+    const { Share: S } = await import('@capacitor/share');
+    await S.share({ text });
+    return true;
+  }
+  if (navigator.share) {
+    await navigator.share({ text });
+    return true;
+  }
+  return false;
+};
+
+/** Under a finished answer, as ChatGPT lays them out: Copy, Read aloud, thumbs, Share, and Ask again on the newest. */
+const AnswerActions = ({ t, index, newest, speaker, onRegenerate }: { t: AssistantTurn; index: number; newest: boolean; speaker: ReturnType<typeof useSpeaker>; onRegenerate: () => void }) => {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(t.text);
+      await navigator.clipboard.writeText(plainOf(t.text));
       haptics.select();
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
@@ -297,20 +267,96 @@ const AnswerMeta = ({ t, newest, onRegenerate }: { t: AssistantTurn; newest: boo
       toast('Couldn’t copy that.');
     }
   };
+  const share = async () => {
+    try {
+      if (!(await shareText(plainOf(t.text)))) await copy();
+    } catch {
+      /* the owner closed the share sheet */
+    }
+  };
+  const rate = (r: 'up' | 'down') => {
+    haptics.select();
+    assistantStore.rate(index, r);
+    if (t.rating !== r) toast(r === 'up' ? 'Thanks. Glad that helped.' : 'Thanks. Ask again or tell it what was off.');
+  };
+  const speaking = speaker.speaking === index;
   return (
-    <div className="as-meta">
-      {t.stopped ? <span className="as-stopped">Stopped</span> : <Thoughts text={t.thoughts ?? ''} seconds={t.thoughtSeconds ?? 0} />}
-      <span className="as-meta-actions">
-        <button type="button" className="as-meta-btn" aria-label={copied ? 'Copied' : 'Copy'} onClick={() => void copy()}>
-          {copied ? <Check size={15} strokeWidth={2.6} aria-hidden="true" /> : <Copy size={15} strokeWidth={2.2} aria-hidden="true" />}
+    <div className="as-actions" role="group" aria-label="Answer actions">
+      <button type="button" className="as-act" aria-label={copied ? 'Copied' : 'Copy'} onClick={() => void copy()}>
+        {copied ? <Check size={16} strokeWidth={2.6} aria-hidden="true" /> : <Copy size={16} strokeWidth={2.1} aria-hidden="true" />}
+      </button>
+      {speaker.ok ? (
+        <button type="button" className={`as-act${speaking ? ' is-on' : ''}`} aria-label={speaking ? 'Stop reading' : 'Read aloud'} aria-pressed={speaking} onClick={() => speaker.toggle(index, t.text)}>
+          {speaking ? <VolumeX size={16} strokeWidth={2.1} aria-hidden="true" /> : <Volume2 size={16} strokeWidth={2.1} aria-hidden="true" />}
         </button>
-        {newest ? (
-          <button type="button" className="as-meta-btn" aria-label="Ask again" onClick={onRegenerate}>
-            <RotateCw size={15} strokeWidth={2.2} aria-hidden="true" />
-          </button>
-        ) : null}
-      </span>
+      ) : null}
+      {t.rating !== 'down' ? (
+        <button type="button" className={`as-act${t.rating === 'up' ? ' is-on' : ''}`} aria-label="Good answer" aria-pressed={t.rating === 'up'} onClick={() => rate('up')}>
+          <ThumbsUp size={16} strokeWidth={2.1} fill={t.rating === 'up' ? 'currentColor' : 'none'} aria-hidden="true" />
+        </button>
+      ) : null}
+      {t.rating !== 'up' ? (
+        <button type="button" className={`as-act${t.rating === 'down' ? ' is-on' : ''}`} aria-label="Bad answer" aria-pressed={t.rating === 'down'} onClick={() => rate('down')}>
+          <ThumbsDown size={16} strokeWidth={2.1} fill={t.rating === 'down' ? 'currentColor' : 'none'} aria-hidden="true" />
+        </button>
+      ) : null}
+      <button type="button" className="as-act" aria-label="Share" onClick={() => void share()}>
+        <Share size={16} strokeWidth={2.1} aria-hidden="true" />
+      </button>
+      {newest ? (
+        <button type="button" className="as-act" aria-label="Ask again" onClick={onRegenerate}>
+          <RotateCw size={16} strokeWidth={2.1} aria-hidden="true" />
+        </button>
+      ) : null}
+      {t.stopped ? <span className="as-stopped">Stopped</span> : null}
     </div>
+  );
+};
+
+/** The owner's words: a soft bubble at the right. A tap shows Copy and Edit under it (ChatGPT's message menu). */
+const UserTurn = ({ t, canEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; onEdit: () => void }) => {
+  const [open, setOpen] = useState(false);
+  const toast = useToast();
+  return (
+    <>
+      {t.files?.length ? <TurnFiles files={t.files} /> : null}
+      {t.text ? (
+        <button type="button" className={`as-bubble${open ? ' is-open' : ''}`} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {t.text}
+        </button>
+      ) : null}
+      {open ? (
+        <div className="as-user-actions">
+          <button
+            type="button"
+            className="as-act"
+            aria-label="Copy"
+            onClick={() => {
+              void navigator.clipboard.writeText(t.text).then(
+                () => haptics.select(),
+                () => toast('Couldn’t copy that.'),
+              );
+              setOpen(false);
+            }}
+          >
+            <Copy size={16} strokeWidth={2.1} aria-hidden="true" />
+          </button>
+          {canEdit ? (
+            <button
+              type="button"
+              className="as-act"
+              aria-label="Edit"
+              onClick={() => {
+                setOpen(false);
+                onEdit();
+              }}
+            >
+              <Pencil size={16} strokeWidth={2.1} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
   );
 };
 
@@ -321,79 +367,172 @@ const useOutOfView = (el: HTMLElement | null) => {
     if (!el || typeof IntersectionObserver === 'undefined') return setOut(false);
     const root = el.closest<HTMLElement>('.sheet-body');
     // the composer sits over the bottom of the scroller: a proposal behind it is not in view
-    const io = new IntersectionObserver(([e]) => setOut(!e!.isIntersecting), { root, rootMargin: '0px 0px -120px 0px' });
+    const io = new IntersectionObserver(([e]) => setOut(!e!.isIntersecting), { root, rootMargin: '0px 0px -160px 0px' });
     io.observe(el);
     return () => io.disconnect();
   }, [el]);
   return out;
 };
 
+/** The chat's title and its History and New buttons, in the sheet's header (one white capsule at the right). */
+const useHeader = (onHistory: () => void, pushed: React.RefObject<boolean>) => {
+  const sheet = useSheet();
+  const id = useAssistantChatId();
+  const chats = useAssistantChats();
+  const title = chats.find((c) => c.id === id)?.title ?? 'New chat';
+  useEffect(() => {
+    if (pushed.current) return;
+    sheet.update({
+      title: <span className="as-title">{title}</span>,
+      action: (
+        <span className="as-head-actions">
+          <button type="button" className="as-head-btn" aria-label="History" title="History" onClick={onHistory}>
+            <History size={18} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="as-head-btn"
+            aria-label="New chat"
+            title="New chat"
+            onClick={() => {
+              haptics.select();
+              assistantStore.clear();
+            }}
+          >
+            <SquarePen size={18} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </span>
+      ),
+    });
+  }, [title]); // eslint-disable-line react-hooks/exhaustive-deps
+};
+
 /**
- * The assistant (Claude Sonnet): ask in words; it answers, or proposes changes to the plan, to-dos and goals that run only
- * when Apply is tapped (and Undo takes back). The conversation stays for the session; an ask keeps going with the sheet
- * closed. `screen` is where it was opened from, shown as a chip the owner can remove.
+ * The assistant (Claude Sonnet), laid out the way ChatGPT and Claude are on a phone: a greeting and starter cards on a
+ * new chat; the owner's words in soft bubbles at the right; the answers straight on the page, full width, with how it got
+ * there folded above and its actions below; the question just sent pinned at the top while the answer streams in under
+ * it; a composer box with the attach button, the screen it was opened from and Send (Stop while it works). Every chat is
+ * kept in History. It answers, or proposes changes that run only when Apply is tapped (and Undo takes back).
  */
 export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
   const today = useToday();
   const turns = useAssistantTurns();
   const busySince = useAssistantBusy();
+  const busyChat = useAssistantBusyChat();
+  const chatId = useAssistantChatId();
   const live = useAssistantLive();
-  const busy = busySince !== null;
+  const busyAnywhere = busySince !== null;
+  // the answer being written belongs to this chat (one can carry on in another while this one is open)
+  const busy = busyAnywhere && busyChat === chatId;
+  const name = useBootstrap().data?.user.name?.trim().split(/\s+/)[0];
+  const sheet = useSheet();
+  const speaker = useSpeaker();
   // turns added while the sheet is open come in with a rise; the ones already there just show
   const mountedAt = useRef(turns.length);
+  useEffect(() => {
+    mountedAt.current = turns.length;
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [screen, setScreen] = useState(openedFrom);
   // with the screen removed, the question is about no page in particular: today
   const askDate = openedFrom && !screen ? today : date;
   const [draft, setDraft] = useState(initial ?? '');
+  const [editing, setEditing] = useState<number | null>(null);
   const [pending, setPending] = useState<PreparedFile[]>([]);
   const [preparing, setPreparing] = useState(false);
   const toast = useToast();
-  const end = useRef<HTMLDivElement>(null);
-  const lastTurn = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const tail = useRef<HTMLDivElement>(null);
+  const compose = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
-  // a request handed in pre-filled (Plan's "Move them") shows whole, not cut to one line
-  useEffect(() => {
-    const el = field.current;
-    if (!el || !initial) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  }, [initial]);
-  // a new turn comes into view; a proposal shows from its top, so its summary is read first
-  const last = turns[turns.length - 1];
-  useLayoutEffect(() => {
-    if (last?.role === 'assistant' && last.proposal && !busy) lastTurn.current?.scrollIntoView({ block: 'start' });
-    else {
-      // to the very bottom of the scroller, so nothing sits under the pinned composer
-      const body = end.current?.closest<HTMLElement>('.sheet-body');
-      if (body) body.scrollTop = body.scrollHeight;
-    }
-  }, [turns.length, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bodyOf = () => root.current?.closest<HTMLElement>('.sheet-body') ?? null;
 
-  // follow the words as they come while the thread is at its bottom; scrolled up to read, it stays put and offers a jump
-  const [away, setAway] = useState(false);
+  const pushed = useRef(false);
+  useHeader(() => {
+    pushed.current = true;
+    sheet.push({
+      title: 'History',
+      body: (
+        <HistoryPanel
+          onDone={() => {
+            pushed.current = false;
+            sheet.pop();
+          }}
+        />
+      ),
+    });
+  }, pushed);
+  // coming back from History (or any pop), the header is this chat's again
   useEffect(() => {
-    const body = end.current?.closest<HTMLElement>('.sheet-body');
-    if (!body) return;
-    const on = () => setAway(body.scrollHeight - body.scrollTop - body.clientHeight > 140);
-    body.addEventListener('scroll', on, { passive: true });
-    return () => body.removeEventListener('scroll', on);
+    const t = setInterval(() => {
+      if (pushed.current && !document.querySelector('.as-history')) pushed.current = false;
+    }, 400);
+    return () => clearInterval(t);
+  }, []);
+
+  const fitField = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  };
+  // a request handed in pre-filled (Plan's "Move them") shows whole, not cut to one line
+  useEffect(() => fitField(field.current), [initial]);
+
+  // ---------- scrolling, the ChatGPT way ----------
+  // The last exchange (the newest question and everything after it) sits in a block at least a screen tall, so the
+  // question just sent can rise to the top and the answer stream in below it without the page jumping. Open a chat and
+  // it shows its end.
+  const [tailMin, setTailMin] = useState(0);
+  useLayoutEffect(() => {
+    const body = bodyOf();
+    if (!body || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setTailMin(Math.max(0, body.clientHeight - (compose.current?.offsetHeight ?? 0) - 12));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(body);
+    if (compose.current) ro.observe(compose.current);
+    return () => ro.disconnect();
   }, []);
   useLayoutEffect(() => {
-    if (away) return;
-    const body = end.current?.closest<HTMLElement>('.sheet-body');
+    const body = bodyOf();
     if (body) body.scrollTop = body.scrollHeight;
-  }, [live?.text, live?.phase, live?.thoughts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const last = turns[turns.length - 1];
+  const sentAt = useRef(0);
+  useLayoutEffect(() => {
+    if (last?.role !== 'user' || turns.length <= mountedAt.current) return;
+    const body = bodyOf();
+    const el = tail.current;
+    if (!body || !el) return;
+    sentAt.current = Date.now();
+    const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 4;
+    body.scrollTo({ top, behavior: 'smooth' });
+  }, [turns.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // scrolled up from the end: a round arrow over the composer takes it back down
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    const body = bodyOf();
+    if (!body) return;
+    const on = () => setAway(body.scrollHeight - body.scrollTop - body.clientHeight > 160);
+    on();
+    body.addEventListener('scroll', on, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(on) : null;
+    if (root.current) ro?.observe(root.current);
+    return () => {
+      body.removeEventListener('scroll', on);
+      ro?.disconnect();
+    };
+  }, []);
   const toBottom = () => {
-    const body = end.current?.closest<HTMLElement>('.sheet-body');
+    const body = bodyOf();
     body?.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
   };
 
   // the newest proposal still waiting for a decision, and whether it has scrolled away
   const waiting = [...turns].reverse().find((t) => t.proposal?.status === 'proposed')?.proposal ?? null;
   const [waitingEl, setWaitingEl] = useState<HTMLElement | null>(null);
-  const thread = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => setWaitingEl(thread.current?.querySelector<HTMLElement>('.as-proposal[data-waiting]') ?? null), [waiting?.id, turns.length]);
+  useLayoutEffect(() => setWaitingEl(root.current?.querySelector<HTMLElement>('.as-proposal[data-waiting]') ?? null), [waiting?.id, turns.length]);
   const outOfView = useOutOfView(waitingEl);
   const waitingCount = waiting ? waiting.changes.length - (waiting.skipped?.length ?? 0) : 0;
 
@@ -423,97 +562,105 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
   const send = (text: string) => {
     const t = text.trim();
     const files = pending;
-    if ((!t && !files.length) || busy || preparing) return;
+    if ((!t && !files.length) || busyAnywhere || preparing) return;
     setDraft('');
     setPending([]);
     // the field grew with the words; empty again, it goes back to one line
     if (field.current) field.current.style.height = '';
+    if (editing !== null) {
+      setEditing(null);
+      void editTurn(askAssistant, askDate, screen, editing, t);
+      return;
+    }
     void sendTurn(askAssistant, askDate, screen, t, { shown: files.length ? files.map((f) => f.shown) : undefined, data: files.map((f) => f.file) });
+  };
+  const startEdit = (i: number) => {
+    setEditing(i);
+    setDraft(turns[i]!.text);
+    requestAnimationFrame(() => {
+      const el = field.current;
+      if (!el) return;
+      fitField(el);
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
   };
 
   const replies = !busy && last?.role === 'assistant' && !last.error && last.replies?.length ? last.replies : null;
+  const tailFrom = (() => {
+    for (let i = turns.length - 1; i >= 0; i--) if (turns[i]!.role === 'user') return i;
+    return turns.length;
+  })();
+  const newestAnswer = turns.length - 1;
 
-  // "New" lives in the sheet's header, at the right, once there is a conversation to clear (shape system §5)
-  const sheet = useSheet();
-  const hasTurns = turns.length > 0;
-  useEffect(() => {
-    sheet.update({
-      action: hasTurns ? (
-        <button type="button" className="icon-btn as-new" aria-label="New conversation" title="New conversation" onClick={() => assistantStore.clear()}>
-          <SquarePen size={18} strokeWidth={2.2} aria-hidden="true" />
-        </button>
-      ) : undefined,
-    });
-  }, [hasTurns]); // eslint-disable-line react-hooks/exhaustive-deps
+  const renderTurn = (t: AssistantTurn, i: number) => (
+    <div key={`${chatId}-${i}`} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}${i >= mountedAt.current ? ' is-new' : ''}${editing === i ? ' is-editing' : ''}`}>
+      {t.role === 'user' ? (
+        <UserTurn t={t} canEdit={!busyAnywhere && !t.files?.length} onEdit={() => startEdit(i)} />
+      ) : t.error ? (
+        <div className="as-error" role="alert">
+          <CircleAlert size={16} className="as-error-ic" aria-hidden="true" />
+          <p>{t.text}</p>
+          {i === turns.length - 1 && !busyAnywhere ? (
+            <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen)}>
+              <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <Process thoughts={t.thoughts} seconds={t.thoughtSeconds} steps={t.steps} />
+          {t.text ? (
+            <div className="as-answer">
+              <Rich text={t.text} />
+            </div>
+          ) : null}
+          {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
+          <AnswerActions t={t} index={i} newest={i === newestAnswer && !busyAnywhere} speaker={speaker} onRegenerate={() => void regenerate(askAssistant, askDate, screen)} />
+        </>
+      )}
+    </div>
+  );
+
+  const empty = turns.length === 0 && !busy;
+  const ScreenIcon = screen ? SCREEN_ICON[screen.tab] : null;
+  const canSend = (draft.trim() || pending.length) && !preparing && !busyAnywhere;
 
   return (
-    <div className="as-sheet">
-      <div className="as-thread" ref={thread} aria-live="polite">
-        {screen ? (
-          <div className="as-context">
-            <span className="ctx-chip as-ctx">
-              <span className="ctx-ic" aria-hidden="true">
-                {(() => {
-                  const Icon = SCREEN_ICON[screen.tab];
-                  return <Icon size={16} />;
-                })()}
-              </span>
-              <span className="ctx-text">
-                <span className="ctx-title">{screenLabel(screen)}</span>
-                <span className="ctx-sub">Sent with your question</span>
-              </span>
-              <button type="button" className="as-chip-x" aria-label={`Don’t send ${screenLabel(screen)} with the question`} onClick={() => setScreen(undefined)}>
-                <X size={14} strokeWidth={2.6} aria-hidden="true" />
-              </button>
-            </span>
-          </div>
-        ) : null}
-        {turns.length === 0 ? (
-          <div className="as-empty">
-            <section className="card as-intro">
-              <span className="as-intro-ic" aria-hidden="true">
-                <Sparkles size={18} />
-              </span>
-              <p className="as-intro-title display">Ask about your plan, or ask for a change.</p>
-              <p className="as-intro-sub">Attach a photo or a PDF of a plan, a schedule or a list and it can read it. Nothing changes until you tap Apply.</p>
-            </section>
-            <h3 className="as-head">Try one</h3>
-            <ReplyRows items={startersFor(askDate, today)} label="Ways to start" onPick={send} />
+    <div className={`as-sheet${empty ? ' is-empty' : ''}`} ref={root}>
+      <div className="as-thread">
+        {empty ? (
+          <div className="as-hello">
+            <span className="as-hello-mark" aria-hidden="true" />
+            <p className="as-hello-title">
+              {greeting()}
+              {name ? `, ${name}` : ''}.
+            </p>
+            <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
+            <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
           </div>
         ) : (
-          turns.map((t, i) => (
-            <div key={i} ref={i === turns.length - 1 ? lastTurn : undefined} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}${i >= mountedAt.current ? ' is-new' : ''}`}>
-              {t.files?.length ? <TurnFiles files={t.files} /> : null}
-              {t.error ? (
-                <div className="as-error" role="alert">
-                  <CircleAlert size={16} className="as-error-ic" aria-hidden="true" />
-                  <p>{t.text}</p>
-                  {i === turns.length - 1 && !busy ? (
-                    <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen)}>
-                      <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
+          <>
+            {turns.slice(0, tailFrom).map((t, i) => renderTurn(t, i))}
+            <div className="as-tail" ref={tail} style={{ minHeight: tailFrom < turns.length || busy ? tailMin : undefined }}>
+              {turns.slice(tailFrom).map((t, j) => renderTurn(t, tailFrom + j))}
+              {replies ? (
+                <div className="as-followups" role="group" aria-label="Suggested replies">
+                  {replies.map((s) => (
+                    <button key={s} type="button" className="as-followup" onClick={() => send(s)}>
+                      {s}
                     </button>
-                  ) : null}
+                  ))}
                 </div>
-              ) : t.text ? (
-                t.role === 'user' ? (
-                  <p className="as-bubble">{t.text}</p>
-                ) : (
-                  <div className="as-answer">
-                    <Rich text={t.text} />
-                  </div>
-                )
               ) : null}
-              {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
-              {t.role === 'assistant' && !t.error ? <AnswerMeta t={t} newest={i === turns.length - 1 && !busy} onRegenerate={() => void regenerate(askAssistant, askDate, screen)} /> : null}
+              {busy && busySince !== null ? <LiveAnswer since={busySince} live={live} /> : null}
             </div>
-          ))
+          </>
         )}
-        {replies ? <ReplyRows items={replies} label="Suggested replies" onPick={send} /> : null}
-        {busySince !== null ? <LiveAnswer since={busySince} live={live} /> : null}
-        <div ref={end} />
       </div>
-      <div className="as-compose">
-        {away && (busy || turns.length > 0) && !(waiting && outOfView) ? (
+
+      <div className="as-compose" ref={compose}>
+        {away && !empty && !(waiting && outOfView) ? (
           <button type="button" className="icon-btn as-jump" aria-label="Jump to the newest" onClick={toBottom}>
             <ArrowDown size={18} strokeWidth={2.4} aria-hidden="true" />
           </button>
@@ -529,35 +676,59 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             <ChevronUp size={18} strokeWidth={2.4} aria-hidden="true" />
           </button>
         ) : null}
-        {pending.length || preparing ? (
-          <div className="as-files" aria-label="Files to send">
-            {pending.map((f, i) => (
-              <span key={i} className={`as-file ${f.shown.thumb ? 'is-photo' : 'is-doc'}`}>
-                {f.shown.thumb ? <img src={f.shown.thumb} alt="" /> : <FileText size={18} aria-hidden="true" />}
-                {f.shown.thumb ? null : <span className="as-file-name">{f.shown.name}</span>}
-                <button type="button" className="as-file-x" aria-label={`Remove ${f.shown.name}`} onClick={() => setPending((p) => p.filter((_, j) => j !== i))}>
-                  <X size={12} strokeWidth={2.6} aria-hidden="true" />
-                </button>
-              </span>
+        {empty && !draft && !pending.length ? (
+          <div className="as-starters" role="group" aria-label="Ways to start">
+            {startersFor(askDate, today).map((s) => (
+              <button key={s.title} type="button" className="as-starter" onClick={() => (s.attach ? picker.current?.click() : send(s.send!))}>
+                <span className="as-starter-title">{s.title}</span>
+                <span className="as-starter-sub">{s.sub}</span>
+              </button>
             ))}
-            {preparing ? (
-              <span className="as-file is-preparing" aria-label="Preparing">
-                …
-              </span>
-            ) : null}
           </div>
         ) : null}
-        <div className="as-pill">
-          <button type="button" className="as-attach" aria-label="Attach a photo or a PDF" disabled={busy || preparing || pending.length >= ATTACHMENT_LIMITS.perTurn} onClick={() => picker.current?.click()}>
-            <Paperclip size={18} aria-hidden="true" />
-          </button>
-          <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
+        {editing !== null ? (
+          <div className="as-editing">
+            <Pencil size={14} strokeWidth={2.2} aria-hidden="true" />
+            <span>Editing your message</span>
+            <button
+              type="button"
+              className="as-editing-x"
+              aria-label="Cancel editing"
+              onClick={() => {
+                setEditing(null);
+                setDraft('');
+                if (field.current) field.current.style.height = '';
+              }}
+            >
+              <X size={14} strokeWidth={2.6} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+        <div className="as-box">
+          {pending.length || preparing ? (
+            <div className="as-files" aria-label="Files to send">
+              {pending.map((f, i) => (
+                <span key={i} className={`as-file ${f.shown.thumb ? 'is-photo' : 'is-doc'}`}>
+                  {f.shown.thumb ? <img src={f.shown.thumb} alt="" /> : <FileText size={18} aria-hidden="true" />}
+                  {f.shown.thumb ? null : <span className="as-file-name">{f.shown.name}</span>}
+                  <button type="button" className="as-file-x" aria-label={`Remove ${f.shown.name}`} onClick={() => setPending((p) => p.filter((_, j) => j !== i))}>
+                    <X size={12} strokeWidth={2.6} aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+              {preparing ? (
+                <span className="as-file is-preparing" aria-label="Preparing">
+                  <span className="as-orb" aria-hidden="true" />
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <textarea
             ref={field}
             className="as-input"
             rows={1}
             maxLength={2000}
-            placeholder={pending.length ? 'Add a note (optional)' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
+            placeholder={pending.length ? 'Add a note (optional)' : turns.length ? 'Reply to Logbook' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
             aria-label="Ask the assistant"
             enterKeyHint="send"
             value={draft}
@@ -565,8 +736,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             onFocus={(e) => revealField(e.currentTarget)}
             onChange={(e) => {
               setDraft(e.target.value);
-              e.currentTarget.style.height = 'auto';
-              e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 120)}px`;
+              fitField(e.currentTarget);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -575,15 +745,30 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               }
             }}
           />
-          {busy ? (
-            <button type="button" className="as-send is-stop" aria-label="Stop" onClick={() => void stopAsk(stopAssistant)}>
-              <Square size={13} strokeWidth={0} fill="currentColor" aria-hidden="true" />
+          <div className="as-tools">
+            <button type="button" className="as-plus" aria-label="Attach a photo or a PDF" disabled={busyAnywhere || preparing || pending.length >= ATTACHMENT_LIMITS.perTurn} onClick={() => picker.current?.click()}>
+              <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
             </button>
-          ) : (
-            <button type="button" className={`as-send${draft.trim() || pending.length ? ' is-ready' : ''}`} aria-label="Send" disabled={(!draft.trim() && !pending.length) || preparing} onClick={() => send(draft)}>
-              <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
-            </button>
-          )}
+            <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
+            {screen && ScreenIcon ? (
+              <span className="as-ctx-pill">
+                <ScreenIcon size={14} strokeWidth={2.2} aria-hidden="true" />
+                <span className="as-ctx-pill-text">{screenLabel(screen)}</span>
+                <button type="button" className="as-ctx-pill-x" aria-label={`Don’t send ${screenLabel(screen)} with the question`} onClick={() => setScreen(undefined)}>
+                  <X size={12} strokeWidth={2.8} aria-hidden="true" />
+                </button>
+              </span>
+            ) : null}
+            {busy ? (
+              <button type="button" className="as-send is-stop" aria-label="Stop" onClick={() => void stopAsk(stopAssistant)}>
+                <Square size={12} strokeWidth={0} fill="currentColor" aria-hidden="true" />
+              </button>
+            ) : (
+              <button type="button" className={`as-send${canSend ? ' is-ready' : ''}`} aria-label={editing !== null ? 'Send edit' : 'Send'} disabled={!canSend} onClick={() => send(draft)}>
+                <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

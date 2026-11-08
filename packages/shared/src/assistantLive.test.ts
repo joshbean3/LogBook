@@ -7,6 +7,10 @@ describe('the words of a reply as they stream', () => {
     expect(visibleReply('Moved it to Saturday.\n<repl')).toBe('Moved it to Saturday.');
     expect(visibleReply('Moved it to Saturday.\n<')).toBe('Moved it to Saturday.');
   });
+  it('holds back the title line too', () => {
+    expect(visibleReply('Two runs left.\n<title>This week</title>\n<replies>[]</replies>')).toBe('Two runs left.');
+    expect(visibleReply('Two runs left.\n<tit')).toBe('Two runs left.');
+  });
   it('leaves a real angle bracket alone', () => {
     expect(visibleReply('Keep it < 8 miles')).toBe('Keep it < 8 miles');
     expect(visibleReply('Plain words')).toBe('Plain words');

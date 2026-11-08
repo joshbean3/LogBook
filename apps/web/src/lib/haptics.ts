@@ -12,7 +12,7 @@ import { isNative } from './native';
  * vibration API, so every meaning must also be carried visually.
  */
 
-export type HapticEvent = 'select' | 'toggle' | 'orb' | 'lift' | 'drop' | 'threshold' | 'success' | 'celebrate' | 'delete' | 'warning' | 'error';
+export type HapticEvent = 'tick' | 'select' | 'toggle' | 'orb' | 'lift' | 'drop' | 'threshold' | 'success' | 'celebrate' | 'delete' | 'warning' | 'error';
 
 type Cap = typeof import('@capacitor/haptics');
 let cap: Cap | null = null;
@@ -133,7 +133,15 @@ const fire = (name: HapticEvent, fn: () => void | false) => () => {
   }
 };
 
+let lastTick = 0;
 export const haptics: Record<HapticEvent, () => void> = {
+  /** The assistant's words landing as it writes: the lightest selection tick, at most one every 100 ms. */
+  tick: fire('tick', () => {
+    const now = performance.now();
+    if (now - lastTick < 100) return false;
+    lastTick = now;
+    return selection();
+  }),
   /** The strip disc crossing a cell (a strip-origin drag), an alarm step, a reorder or Plan drag crossing a slot, a stepper step, the Progress scrub. Never a tab, a page commit or a segmented change. Throttled (SELECT_THROTTLE_MS). */
   select: fire('select', selection),
   /** A to-do's mark, a favourite's star: only through `hapticAtPeak`, on the check's peak frame. */

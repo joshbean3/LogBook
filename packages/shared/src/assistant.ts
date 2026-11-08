@@ -101,6 +101,10 @@ export interface AssistantTurn {
   thoughtSeconds?: number;
   /** The owner stopped this answer partway: its words so far are kept, never sent back as if finished. */
   stopped?: boolean;
+  /** What it looked at on the way ("Read your plan, Nov 3 to 9"), shown with its reasoning. */
+  steps?: string[];
+  /** The owner's verdict on an answer (thumbs), kept with the conversation. */
+  rating?: 'up' | 'down';
 }
 
 // ---------- attachments: photos and PDFs sent to the assistant ----------
@@ -143,6 +147,8 @@ export interface AssistantLive {
   thoughts: string;
   /** Seconds since the ask started, as the server counts them. */
   seconds: number;
+  /** What it has looked at so far, in words. */
+  steps?: string[];
 }
 export const PHASE_WORDS: Record<AssistantPhase, string> = { thinking: 'Thinking', reading: 'Reading your plan', writing: 'Writing', proposing: 'Drafting the changes' };
 
@@ -151,10 +157,11 @@ export const PHASE_WORDS: Record<AssistantPhase, string> = { thinking: 'Thinking
  * written ("…next week.<rep" shows "…next week."), so the reader never sees markup flash.
  */
 export const visibleReply = (raw: string): string => {
-  const at = raw.search(/<replies/i);
+  const at = raw.search(/<(replies|title)>/i);
   if (at >= 0) return raw.slice(0, at).trimEnd();
   const lt = raw.lastIndexOf('<');
-  if (lt >= 0 && '<replies>'.startsWith(raw.slice(lt).toLowerCase())) return raw.slice(0, lt).trimEnd();
+  const tail = raw.slice(lt).toLowerCase();
+  if (lt >= 0 && ('<replies>'.startsWith(tail) || '<title>'.startsWith(tail))) return raw.slice(0, lt).trimEnd();
   return raw;
 };
 
@@ -166,6 +173,10 @@ export interface AssistantReply {
   proposal: AssistantProposal | null;
   /** Up to three follow-ups in the owner's voice; none without a key or when Claude wrote none that read right. */
   replies?: string[];
+  /** A short name for the conversation, on its first answer ("Moving the tempo"). */
+  title?: string;
+  /** What it looked at on the way. */
+  steps?: string[];
   /** False when the server has no Claude key. */
   available: boolean;
 }
