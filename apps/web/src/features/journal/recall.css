@@ -190,3 +190,64 @@
     display: none;
   }
 }
+
+/* ---------- shape v2: the insight card's padding on the system; the three verbs as one row under a hairline ---------- */
+.recall-wrap {
+  margin-bottom: var(--gap);
+}
+.recall.card {
+  gap: 12px;
+  padding: 0 var(--pad-card) 0;
+  border-radius: var(--r-card);
+}
+.recall-head {
+  min-height: 60px;
+  margin: 0 calc(-1 * var(--pad-card));
+  padding: 10px 10px 10px var(--pad-card);
+}
+.recall-share-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+.recall-share-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+.recall-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 2px calc(-1 * var(--pad-card)) 0;
+  border-top: 1px solid var(--line);
+}
+.recall-tool {
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 4px;
+  border-radius: 0;
+  border: 0;
+}
+.recall-tool + .recall-tool {
+  box-shadow: inset 1px 0 0 var(--line);
+}
+.recall-tool.is-on {
+  background: var(--accent-tint);
+  border-color: transparent;
+}
+@media (max-width: 359px) {
+  .recall-tools {
+    margin: 2px calc(-1 * var(--pad-card)) 0;
+  }
+  .recall-tool {
+    padding: 0 2px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1rem;
+  }
+  .recall-tool svg {
+    display: none;
+  }
+}

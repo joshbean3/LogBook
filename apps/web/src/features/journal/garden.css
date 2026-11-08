@@ -300,3 +300,83 @@
 .gdn-toggle .plant {
   margin-bottom: 9px;
 }
+
+/* ---------- shape v2: the garden lives in a white card; its head names the view and holds the year · day switch ---------- */
+.gdn {
+  gap: 0;
+  padding-bottom: 0;
+}
+.gdn-card.k-card {
+  display: grid;
+  gap: 14px;
+  padding: var(--pad-card) 12px 12px;
+  font-family: var(--mono);
+  color: var(--j-ink);
+}
+.gdn-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: -4px;
+  padding-left: 4px;
+  font-family: var(--sans);
+}
+/* the switch: a small segmented pair of plant glyphs, top right of the card */
+.gdn-card .gdn-toggle {
+  position: static;
+  flex: none;
+  display: inline-flex;
+  gap: 0;
+  padding: 2px;
+  border-radius: var(--r-control);
+  background: rgba(15, 42, 68, 0.06);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.gdn-card .gdn-toggle button {
+  position: relative;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
+  color: var(--j-ink-soft);
+}
+.gdn-card .gdn-toggle button::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+.gdn-card .gdn-toggle button.is-on {
+  background: var(--surface);
+  color: var(--j-ink);
+  box-shadow: 0 1px 2px rgba(15, 42, 68, 0.08), 0 2px 8px rgba(15, 42, 68, 0.08);
+}
+.gdn-card .gdn-toggle .plant {
+  margin-bottom: 6px;
+}
+.gdn-card .gdn-year {
+  gap: 14px;
+}
+.gdn-card .gdn-link {
+  margin-top: -6px;
+}
+/* a day inside the card: no page-height floor, the toggle no longer floats over its foot */
+.gdn-card .gdn-day {
+  min-height: 0;
+  padding-bottom: 4px;
+  gap: 14px;
+}
+.gdn-card .gdn-page {
+  min-height: 140px;
+  padding: 4px 6px;
+}
+/* a year ago: a row at the card's foot, under a hairline */
+.gdn-card .gdn-ago {
+  margin: 0 -12px -12px;
+  padding: 14px 16px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}

@@ -118,10 +118,10 @@ export default function JournalView() {
   const off = (s: Seg) => (seg !== s && leaving !== s) || undefined;
   return (
     <div className="page journal-page">
-      <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Journal' }} gap={24}>
+      <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Journal' }} gap={16}>
         <div className="j-segrow">
           <Segmented
-            className="j-seg"
+            className="k-seg j-seg"
             label="Journal or library"
             options={[
               ['journal', 'Journal'],

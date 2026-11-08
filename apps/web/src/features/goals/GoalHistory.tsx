@@ -1,4 +1,5 @@
 import { fmtDate, periodOf, periodPast, shiftPeriod, type Aim, type GoalEvent, type GoalEventKind, type GoalLevel } from '@logbook/shared';
+import { Check, Percent, Target, X } from 'lucide-react';
 import { useState } from 'react';
 import { useGoalEvents, useGoals } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
@@ -9,6 +10,7 @@ import { SkeletonRows } from '@/ui/Skeleton';
 import { goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
 import { StatusIcon, useOpenGoal } from './GoalSheets';
 import './goals.css';
+import './kit.css';
 
 type View = GoalLevel | 'log';
 /** How far back each level lists its periods, even the ones with no goal set: the gaps are part of the record. */
@@ -21,35 +23,48 @@ const localDay = (iso: string) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-/** The tally over the listed periods: what was set, and what came of it. */
-const Tally = ({ rows }: { rows: Array<{ goal: Aim | null; past: boolean }> }) => {
+const NOUN: Record<GoalLevel, string> = { day: 'days', week: 'weeks', month: 'months', year: 'years' };
+
+/** The tally over the listed periods, as four tiles: the hit rate, what was set, what was kept, what was missed. */
+const Tally = ({ level, rows }: { level: GoalLevel; rows: Array<{ goal: Aim | null; past: boolean }> }) => {
   const set = rows.filter((r) => r.goal).length;
-  const closed = rows.filter((r) => r.goal && r.past);
+  const closed = rows.filter((r) => r.goal && r.past && r.goal.status !== 'open');
   const n = (s: Aim['status']) => closed.filter((r) => r.goal!.status === s).length;
   const done = n('done');
   const rate = closed.length ? Math.round((done / closed.length) * 100) : null;
   return (
-    <div className="g-tally" role="group" aria-label="Tally">
-      <span className="g-tally-cell">
-        <span className="stamp tnum">{set}</span>
-        <span className="caps">Set</span>
-      </span>
-      <span className="g-tally-cell">
-        <span className="stamp tnum">{done}</span>
-        <span className="caps">Done</span>
-      </span>
-      <span className="g-tally-cell">
-        <span className="stamp tnum">{n('partly')}</span>
-        <span className="caps">Partly</span>
-      </span>
-      <span className="g-tally-cell">
-        <span className="stamp tnum">{n('missed')}</span>
-        <span className="caps">Missed</span>
-      </span>
-      <span className="g-tally-cell">
-        <span className="stamp tnum">{rate == null ? '–' : `${rate}%`}</span>
-        <span className="caps">Hit rate</span>
-      </span>
+    <div className="tiles g-tally" role="group" aria-label="Tally">
+      <div className="tile">
+        <span className="tile-label">
+          <Percent size={15} aria-hidden="true" /> Hit rate
+        </span>
+        <span className="tile-value tnum">{rate == null ? '–' : rate}{rate == null ? null : <small>%</small>}</span>
+        <span className={`tile-status ${closed.length ? '' : 'is-none'}`}>{closed.length ? `of ${closed.length} answered` : 'No data yet'}</span>
+      </div>
+      <div className="tile">
+        <span className="tile-label">
+          <Target size={15} aria-hidden="true" /> Set
+        </span>
+        <span className="tile-value tnum">
+          {set}
+          <small>of {rows.length}</small>
+        </span>
+        <span className="tile-status is-none">{NOUN[level]} set</span>
+      </div>
+      <div className="tile">
+        <span className="tile-label">
+          <Check size={15} aria-hidden="true" /> Done
+        </span>
+        <span className="tile-value tnum">{done}</span>
+        <span className={`tile-status ${done ? 'is-hi' : 'is-none'}`}>{done ? 'Kept' : 'None yet'}</span>
+      </div>
+      <div className="tile">
+        <span className="tile-label">
+          <X size={15} aria-hidden="true" /> Missed
+        </span>
+        <span className="tile-value tnum">{n('missed')}</span>
+        <span className="tile-status is-none">{n('partly')} partly</span>
+      </div>
     </div>
   );
 };
@@ -63,8 +78,8 @@ const Periods = ({ level, goals, today }: { level: GoalLevel; goals: Aim[]; toda
   });
   return (
     <>
-      <Tally rows={rows} />
-      <div className="group g-group">
+      <Tally level={level} rows={rows} />
+      <div className="group g-group g-hist-list k-lined">
         {rows.map(({ period, goal, past }) => {
           const caps = periodCaps(level, period, today);
           const state = goal ? (goal.status === 'open' ? (past ? 'Not reviewed' : 'Open') : STATUS_WORD[goal.status]) : 'No goal set';
@@ -96,7 +111,13 @@ const Log = ({ today }: { today: string }) => {
   const q = useGoalEvents();
   const events = q.data?.events ?? [];
   if (q.isPending && !q.data) return <SkeletonRows rows={6} label="Loading the log" />;
-  if (!events.length) return <p className="g-foot">Nothing yet. Set a goal and every step it takes lands here.</p>;
+  if (!events.length)
+    return (
+      <section className="k-card g-log-empty">
+        <p className="k-row-title">No changes yet</p>
+        <p className="k-foot">Set a goal and every step it takes lands here.</p>
+      </section>
+    );
   const byDay = new Map<string, GoalEvent[]>();
   for (const e of events) {
     const d = localDay(e.at);
@@ -106,8 +127,11 @@ const Log = ({ today }: { today: string }) => {
     <>
       {[...byDay.entries()].map(([d, list]) => (
         <section key={d} className="g-logday" aria-label={fmtDate('long', d)}>
-          <h2 className="caps g-logday-head">{d === today ? 'Today' : fmtDate('short', d)}</h2>
-          <ol className="group g-group g-feed">
+          <div className="k-head">
+            <h2 className="k-head-title">{d === today ? 'Today' : fmtDate('short', d)}</h2>
+            <span className="k-head-meta">{list.length === 1 ? '1 change' : `${list.length} changes`}</span>
+          </div>
+          <ol className="group g-group g-feed k-lined">
             {list.map((e) => (
               <li key={e.id} className={`g-feed-row is-${e.kind}`}>
                 <span className="g-feed-top">
@@ -137,7 +161,7 @@ export default function GoalHistory(): React.JSX.Element {
       <PushedBar title="History" />
       <Segmented<View>
         label="Show"
-        className="g-seg"
+        className="k-seg g-seg"
         value={view}
         onChange={setView}
         options={[

@@ -1,5 +1,6 @@
 import type * as React from 'react';
 import { fmtDate } from '@logbook/shared';
+import { CalendarDays, Lightbulb } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useRouteParams } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
@@ -8,6 +9,7 @@ import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { Line, monthName, plural, useLoadMore, useOpenLearning } from './LearnedParts';
 import { monthGrid } from './month';
 import { useLearningMonths, useLearnings } from './queries';
+import '../goals/kit.css';
 import './learned.css';
 
 /**
@@ -34,36 +36,66 @@ export default function LearnedMonth(): React.JSX.Element {
     <div className="page ln-page ln-month-page">
       <PushedBar title={`${monthName(month)} ${month.slice(0, 4)}`} eyebrow={eyebrow} />
       {list.isPending ? (
-        <SkeletonGroup label="Loading" className="ln-more">
+        <SkeletonGroup label="Loading" className="k-card ln-more">
           <Skeleton w="100%" h={52} />
           <Skeleton w="100%" h={52} />
           <Skeleton w="100%" h={52} />
         </SkeletonGroup>
       ) : grid.length ? (
         <>
-          {!filled ? <p className="ln-none">Nothing kept from {monthName(month)} yet. The days wait here.</p> : null}
-          <ol className="ln-grid" aria-label={`${monthName(month)} by day`}>
-            {grid.map((d) => (
-              <li key={d.date} className={`ln-gday ${d.items.length ? 'has' : 'is-empty'} ${d.date === today ? 'is-today' : ''}`}>
-                <span className="ln-gday-date" aria-label={fmtDate('long', d.date)}>
-                  <span className="stamp tnum ln-gday-num">{Number(d.date.slice(8, 10))}</span>
-                  <span className="caps ln-gday-dow">{fmtDate('dow', d.date)}</span>
-                </span>
-                <span className="ln-gday-items">
-                  {d.items.length ? (
-                    d.items.map((l) => <Line key={l.id} item={l} onOpen={open} className="is-grid" />)
-                  ) : (
-                    <span className="ln-gday-dash" aria-label="Nothing kept">
-                      –
-                    </span>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <div className="tiles ln-tiles">
+            <div className="tile">
+              <span className="tile-label">
+                <Lightbulb size={15} aria-hidden="true" /> Learned
+              </span>
+              <span className="tile-value tnum">
+                {count || '–'}
+                {count ? <small>{count === 1 ? 'thing' : 'things'}</small> : null}
+              </span>
+              <span className={`tile-status ${count ? '' : 'is-none'}`}>{count ? 'kept this month' : 'No data yet'}</span>
+            </div>
+            <div className="tile">
+              <span className="tile-label">
+                <CalendarDays size={15} aria-hidden="true" /> Days
+              </span>
+              <span className="tile-value tnum">
+                {days}
+                <small>of {grid.length}</small>
+              </span>
+              <span className={`tile-status ${days ? '' : 'is-none'}`}>{days ? 'filled in' : 'The days wait here'}</span>
+            </div>
+          </div>
+          <section className="k-sec" aria-label={`${monthName(month)} by day`}>
+            <div className="k-head">
+              <h2 className="k-head-title">By day</h2>
+              <span className="k-head-meta">Newest first</span>
+            </div>
+            <ol className="k-rows ln-grid">
+              {grid.map((d) => (
+                <li key={d.date} className={`k-row ln-gday ${d.items.length ? 'has' : 'is-empty'} ${d.date === today ? 'is-today' : ''}`}>
+                  <span className="ln-gday-date" aria-label={fmtDate('long', d.date)}>
+                    <span className="stamp tnum ln-gday-num">{Number(d.date.slice(8, 10))}</span>
+                    <span className="caps ln-gday-dow">{fmtDate('dow', d.date)}</span>
+                  </span>
+                  <span className="ln-gday-items">
+                    {d.items.length ? (
+                      d.items.map((l) => <Line key={l.id} item={l} onOpen={open} className="is-grid" />)
+                    ) : (
+                      <span className="ln-gday-dash" aria-label="Nothing kept">
+                        –
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
         </>
       ) : (
-        <p className="ln-none">{monthName(month)} has not started yet.</p>
+        <section className="k-card ln-none">
+          <p className="k-row-title">Not started yet</p>
+          <p className="k-foot">{monthName(month)} has not started yet.</p>
+        </section>
       )}
       <div ref={end} className="ln-end" aria-hidden="true" />
       {list.isFetchingNextPage ? (

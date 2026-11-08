@@ -715,49 +715,6 @@ textarea.jsheet-text {
 .library {
   padding-top: 0;
 }
-/* the way to Reads: one touchable card */
-.reads-row {
-  appearance: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 72px;
-  padding: 14px 12px 14px 16px;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.reads-row-main {
-  display: grid;
-  gap: 2px;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.reads-row-title {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.75rem;
-  line-height: 2rem;
-}
-.reads-row-sub {
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  letter-spacing: -0.01em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.reads-row-count {
-  font-size: 1.375rem;
-  line-height: 1.5rem;
-  color: var(--ink-2);
-}
 /* favourites: a carousel of quote and entry cards */
 .fav-carousel {
   --carousel-item: min(78%, 300px);
@@ -1051,4 +1008,125 @@ textarea.jsheet-text {
 .composer .qline.quote-line {
   width: auto;
   margin: 0 16px;
+}
+
+/* ======================================================================================================================
+   Journal on shape system v2 (docs/shape-system.md): the Journal · Library control under the title, Remember when as the
+   insight card, the garden in its own card (its dots, plants and typewriter ink kept), the day's tags as rows of one inset
+   group, the entries as rows of one card. The Library: Reads as a row, favourites as a strip of cards, your quotes as rows
+   of one card, the themes as tiles.
+   ====================================================================================================================== */
+
+/* the control under the title */
+.j-segrow {
+  padding: 4px var(--gutter) 4px;
+}
+.journal-page > .nb-gap {
+  height: 8px;
+}
+.j-pane > .recall-wrap {
+  margin-bottom: var(--gap);
+}
+
+/* ---------- the entries: rows of one card, a hairline between days ---------- */
+.jtl-sec.k-sec {
+  scroll-margin-top: 96px;
+}
+.jtl.k-rows {
+  display: grid;
+  margin-inline: 0;
+}
+.jtl.k-rows > .jtl-item::before {
+  content: none;
+}
+.jtl.k-rows > .jtl-item.first:not(:first-child)::before {
+  content: '';
+  left: 68px;
+}
+.jtl.k-rows .jtl-row {
+  padding: 14px 16px;
+}
+.jtl.k-rows .jtl-item:not(.first) .jtl-row {
+  padding-top: 0;
+}
+.jtl-search .in {
+  margin: 0 0 var(--gap);
+  height: 52px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.jtl-more.pill-row {
+  margin-top: var(--gap);
+}
+.jtl-empty .empty-state,
+.lib-empty .empty-state {
+  margin: 0;
+  padding: 0;
+}
+.jtl-sec .k-head-slot .icon-btn,
+.lib-themes .k-head-slot .icon-btn {
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  color: var(--ink-2);
+}
+
+/* ---------- the Library ---------- */
+.library > .lib-reads {
+  margin-top: 0;
+}
+.reads-row.k-row {
+  min-height: 64px;
+}
+.fav-carousel {
+  --carousel-item: min(78%, 300px);
+  padding-block: 4px;
+}
+.fav-card {
+  min-height: 156px;
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
+}
+.fav-card.is-entry {
+  background: var(--surface);
+  border: var(--card-border);
+}
+.fav-card.is-entry .fav-text {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--j-ink);
+}
+.lib-list.k-rows {
+  margin-inline: 0;
+}
+.lib-list.k-rows > .lib-item + .lib-item::before {
+  left: 16px;
+}
+.k-rows .qrow {
+  padding: 12px 16px;
+}
+.theme-grid {
+  gap: var(--gap);
+}
+.theme-card {
+  min-height: 132px;
+  padding: 14px;
+  border-radius: var(--r-tile);
+}
+.qadd.group {
+  margin-bottom: var(--gap);
+  border-radius: var(--r-card);
+}
+
+/* the quote sheet: the quote in a card, Favourite pinned, Write under it */
+.qsheet-card {
+  display: grid;
+  gap: 8px;
+}
+.qsheet .k-pin .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
