@@ -1,0 +1,463 @@
+/* ---------- the chart kit: Columbia and navy for data, orange only for the newest point ---------- */
+.ck-chart {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+.ck-readout {
+  min-height: 0;
+}
+.ck-plot {
+  position: relative;
+  outline: none;
+  border-radius: var(--r-group);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ck-plot.is-live {
+  cursor: crosshair;
+}
+.ck-plot:focus-visible {
+  box-shadow: 0 0 0 2px var(--columbia);
+}
+.ck-plot svg {
+  display: block;
+  overflow: visible;
+}
+.ck-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.ck-base {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+.ck-ax {
+  font: 600 10px/1 var(--stamp);
+  letter-spacing: 0.04em;
+  fill: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+.ck-band {
+  fill: var(--columbia);
+  opacity: 0.38;
+}
+.ck-zone {
+  fill: var(--columbia);
+}
+.ck-zone-label {
+  font: 700 9px/1 var(--stamp);
+  letter-spacing: 0.06em;
+  fill: var(--ink-2);
+}
+.ck-bar {
+  fill: var(--columbia);
+  opacity: 0.75;
+}
+.ck-bar.on {
+  fill: var(--ink-2);
+  opacity: 0.5;
+}
+.ck-line {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ck-line.accent {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.ck-prev {
+  fill: none;
+  stroke: var(--ink-4);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+.ck-dot {
+  fill: var(--surface);
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+}
+.ck-avg-line {
+  stroke: var(--ink-2);
+  stroke-width: 1.25;
+  stroke-dasharray: 1.5 4;
+  stroke-linecap: round;
+}
+.ck-avg-pill {
+  fill: var(--surface);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+.ck-avg-word {
+  font: 700 9.5px/1 var(--sans);
+  letter-spacing: 0.02em;
+  fill: var(--ink-2);
+}
+.ck-cursor {
+  stroke: var(--ink-2);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.ck-active {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.ck-newest {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.ck-empty {
+  position: absolute;
+  inset: 0 38px 22px 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  text-align: center;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+/* ---------- sparkline ---------- */
+.ck-spark {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+.ck-spark-line {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ck-spark-dot {
+  fill: var(--accent);
+}
+.ck-spark-none {
+  stroke: var(--ink-4);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+}
+
+/* ---------- range control: < 1M 3M 6M 1Y > ---------- */
+.ck-range {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ck-range-keys {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+}
+.ck-range-key,
+.ck-range-step {
+  appearance: none;
+  border: 0;
+  background: none;
+  position: relative;
+  color: var(--ink-2);
+  font: 600 13px/16px var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.ck-range-key {
+  flex: 1 1 0;
+  height: 30px;
+  border-radius: var(--r-pill);
+}
+.ck-range-key::after,
+.ck-range-step::after {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
+}
+.ck-range-key.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+.ck-range-step {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.ck-range-step:disabled {
+  color: var(--ink-4);
+}
+.ck-range-key:focus-visible,
+.ck-range-step:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 1px;
+}
+
+/* ---------- trend table ---------- */
+.ck-ttable-rows {
+  display: grid;
+}
+.ck-trow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 24px 72px;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-top: 1px solid var(--line);
+}
+.ck-trow:first-child {
+  border-top: 0;
+}
+.ck-trow-days {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.ck-trow-change {
+  font-size: 1rem;
+  line-height: 1.25rem;
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+  text-transform: none;
+}
+.ck-trow-change.is-none {
+  font: 500 0.8125rem/1.125rem var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+.ck-trow-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+}
+.ck-foot {
+  margin-top: 8px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+
+/* ---------- trend card ---------- */
+.ck-tcard {
+  appearance: none;
+  border: var(--card-border);
+  background: var(--surface);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-1);
+  padding: 12px 14px 12px;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  text-align: left;
+  min-width: 0;
+  width: 100%;
+  color: var(--ink);
+  position: relative;
+  overflow: hidden;
+}
+.ck-tcard-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.ck-tcard-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+  flex: none;
+}
+.ck-tcard-label {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+.ck-tcard-chev {
+  color: var(--ink-4);
+  flex: none;
+}
+.ck-tcard-num {
+  margin-top: 6px;
+  font-size: 1.625rem;
+  line-height: 2rem;
+  white-space: nowrap;
+}
+.ck-tcard-num small,
+.ck-big small {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 3px;
+  color: var(--ink-3);
+}
+.ck-tcard-status {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  max-width: 100%;
+  min-height: calc(var(--lh-foot) * 2);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+/* a narrow card (a 320 px phone) gives the label the chevron's room */
+.ck-tcard {
+  container: tcard / inline-size;
+}
+@container tcard (max-width: 128px) {
+  .ck-tcard-chev {
+    display: none;
+  }
+  .ck-tcard-head {
+    gap: 5px;
+  }
+}
+.ck-tcard-spark {
+  margin-top: 6px;
+  width: 100%;
+  display: block;
+  min-width: 0;
+}
+.ck-tcard-num.is-empty,
+.ck-tcard.is-waiting .ck-tcard-num {
+  color: var(--ink-4);
+}
+
+/* ---------- rings ---------- */
+.ck-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.ck-ring svg {
+  position: absolute;
+  inset: 0;
+}
+.ck-ring-track {
+  fill: none;
+  stroke: var(--columbia-wash);
+}
+.ck-ring-arc {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-linecap: round;
+}
+.ck-ring-arc.lit {
+  stroke: var(--accent);
+}
+.ck-ring-mid {
+  position: relative;
+  font-size: 1rem;
+  line-height: 1.25rem;
+  color: var(--ink);
+}
+.ck-rings {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+}
+.ck-rings-item {
+  appearance: none;
+  border: 0;
+  background: none;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: inherit;
+}
+.ck-rings-label {
+  white-space: nowrap;
+}
+
+/* ---------- half-arc gauge ---------- */
+.ck-gauge {
+  position: relative;
+  margin-inline: auto;
+  max-width: 100%;
+}
+.ck-gauge svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.ck-gauge-track {
+  fill: none;
+  stroke: var(--columbia-wash);
+  stroke-linecap: round;
+}
+.ck-gauge-band {
+  fill: none;
+  stroke: var(--columbia);
+  stroke-linecap: round;
+}
+.ck-gauge-fill {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-linecap: round;
+}
+.ck-gauge-dot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2.5;
+}
+.ck-gauge-mid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.ck-gauge-num {
+  font-size: 1.75rem;
+  line-height: 2rem;
+  color: var(--ink);
+}
+.ck-gauge-word {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.ck-gauge-ends {
+  display: flex;
+  justify-content: space-between;
+  padding-inline: 8px;
+  margin-top: -2px;
+}

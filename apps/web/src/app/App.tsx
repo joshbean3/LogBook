@@ -35,6 +35,7 @@ const views = {
   plans: () => import('@/features/plan/PlansPage'),
   welcome: () => import('@/features/onboarding/Welcome'),
   gallery: () => import('./dev/UiGallery'),
+  metric: () => import('@/features/progress/MetricPage'),
 };
 
 /**
@@ -77,11 +78,12 @@ const SettingsSection = view(views.settingsSection);
 const PlansPage = view(views.plans);
 const Welcome = view(views.welcome);
 const UiGallery = view(views.gallery);
+const MetricPage = view(views.metric);
 
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
 const prefetchViews = () => {
   const pushed = () => {
-    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView, LearnedMonth]) void v.preload().catch(() => undefined);
+    for (const v of [MorningView, SettingsView, SettingsSection, ReadsView, LearnedMonth, MetricPage]) void v.preload().catch(() => undefined);
   };
   requestAnimationFrame(() => setTimeout(pushed, 0));
   const run = () => {
@@ -128,6 +130,7 @@ const pushedFor = (e: PushedEntry) => {
   if (pattern === '/settings') return <SettingsView />;
   if (pattern === '/journal/reads/:tab?') return <ReadsView />;
   if (pattern === '/dev/ui') return STUBS ? <StubPushed /> : <UiGallery />;
+  if (pattern === '/progress/metric/:id') return <MetricPage />;
   return null;
 };
 
