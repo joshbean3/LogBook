@@ -291,15 +291,26 @@ Depends on the Apple Developer enrollment: Apple Health data, Sign in with Apple
 
 ## 8a. Progress
 
-| Step | Status | Commit |
+All six phases are built and merged (Nov 2026).
+
+| Step | What shipped | Commit |
 |---|---|---|
-| 1a Palette: Columbia, white, orange; halo relit; native shell | Done | eab3abb |
-| 1b Dock: floating tab capsule, ask bar on every tab, folds on scroll | Done | 574589d |
-| 2a Today: status chip with an end date (Today, the assistant) | Done | a7e6f2e |
-| 2b Today: the day's timeline ("Today so far") | Done | a7e6f2e |
-| 2c Plan reads the status (sessions held while sick, injured or resting) | Done | this commit |
-| 2d Assistant: proposal cards, review bar, suggested replies | Next | |
-| 1c Chart kit, rings, trend table | Later, with Progress | |
+| 1a Palette | Columbia, white, orange; halo relit; native shell and launch image | eab3abb |
+| 1b Dock | Floating tab capsule, ask bar on every tab, folds on scroll | 574589d |
+| 1c Chart kit | Line chart with normal band, average and glowing newest point; range control; trend table; trend card; rings; half-arc gauge (`ui/charts`) | 52c003c |
+| 2 Today | Status chip with an end date; the day's timeline; held-session note | a7e6f2e, 3ad71fa |
+| 2 Assistant | Change cards with Remove and Apply n; review bar; suggested replies; screen context chip; Retry in the chat | 621c9a4 |
+| 3 Plan and logging | Mileage bars with a dotted target line and phase band; workout cards; effort check-in (1 to 10); faster lift log; held banner | cf7cc5c, 3ad71fa |
+| 4 Progress | Metric pages (mileage, pace, consistency, lift volume; sleep, HRV, resting HR waiting on Apple Health); this month vs last; filters and source chips; run detail | 52c003c |
+| 5 Goals, Learned, Journal | Honest per-period number; set it myself or suggest; stale-goal nudge; month grid; archive echoes; day tags with effect on run effort; shareable Remember when | b3d4c1c |
+| 6 Onboarding and Settings | Welcome pager of real cards; privacy and consent before sign-up; one question per screen; feature intros; Data sources; Privacy page | (merge after cf7cc5c) |
+| Compliance | Strava data out of every Claude prompt; run notes off; the consent switch controls what Claude reads | fd114f7 and after |
+
+Deferred, with the reason
+- Sign in with Apple and email magic links: need the Apple Developer enrollment and an email service.
+- Apple Health data (sleep, HRV, resting HR, readiness rings on Today): needs the enrollment; the pages and empty states are ready.
+- Run notes from the coach: off under Strava's terms; return with Apple Health runs.
+- Setup as an assistant conversation, plate calculator, rest timer, "Update plan" after a session, Today hero's own Done offering the effort dial: smaller follow-ups.
 
 ## 9. Open questions
 1. 473 of the 715 numbered screenshots are not in the Drive folder. Upload the rest, or work from the 242?
