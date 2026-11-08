@@ -306,6 +306,8 @@ All six phases are built and merged (Nov 2026).
 | 6 Onboarding and Settings | Welcome pager of real cards; privacy and consent before sign-up; one question per screen; feature intros; Data sources; Privacy page | (merge after cf7cc5c) |
 | Compliance | Strava data out of every Claude prompt; run notes off; the consent switch controls what Claude reads | fd114f7 and after |
 
+| Shape system v2 | Every screen rebuilt on `docs/shape-system.md`: borderless lifted cards, 16/12/28 spacing, 22/18/12 radii, sans section headers, tiles, context chips, inset groups with icon tiles, round buttons, centred sheet titles | c88cc45 to d3ac42f |
+
 Deferred, with the reason
 - Sign in with Apple and email magic links: need the Apple Developer enrollment and an email service.
 - Apple Health data (sleep, HRV, resting HR, readiness rings on Today): needs the enrollment; the pages and empty states are ready.

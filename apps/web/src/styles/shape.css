@@ -531,3 +531,18 @@ textarea.in:focus {
   text-transform: none;
   color: var(--ink-3);
 }
+
+/* ---------- context chips on a narrow phone: the words get the room (icons go), each chip as wide as its words ---------- */
+@media (max-width: 374px) {
+  .ctx-row.ctx-row .ctx-chip {
+    flex: 0 1 auto;
+    gap: 6px;
+    padding: 8px 10px 8px 12px;
+  }
+  .ctx-row.ctx-row .ctx-chip:last-child {
+    flex: 1 1 0;
+  }
+  .ctx-row.ctx-row .ctx-ic {
+    display: none;
+  }
+}
