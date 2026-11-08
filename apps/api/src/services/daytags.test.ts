@@ -59,7 +59,8 @@ describe('day tags', () => {
   });
 
   it('shows the effect on the next day’s run once runs carry effort and there are five of each', async () => {
-    db.run(sql`alter table training_sessions add column effort integer`);
+    // the effort check-in's migration (0015) adds the column; a tree without it gets it here
+    if (!db.all<{ name: string }>(sql`pragma table_info(training_sessions)`).some((c) => c.name === 'effort')) db.run(sql`alter table training_sessions add column effort integer`);
     const me = (await call('GET', '/api/me')).body.id as string;
     for (let i = 0; i < 10; i++) {
       const day = shiftDays(T, -2 * (i + 1));

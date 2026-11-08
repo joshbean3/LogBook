@@ -1,15 +1,10 @@
 import { assess, clock, clockOfDay, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { api, ApiError } from '@/api/client';
-import { keys, useSessionMutations } from '@/api/queries';
-import type { MonthBundle } from '@/api/types';
 import { useContextMenu } from '@/ui/ContextMenu';
-import { Button, Chip, ChipButton } from '@/ui/primitives';
+import { Button, Chip } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
-import { useToast } from '@/ui/Toast';
-import { setCoachShown, useCoachShown } from '../day/coachShown';
+import { useCoachShown } from '../day/coachShown';
 import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
 import type { ShareData, ShareDayType } from '../share/cards';
@@ -215,16 +210,6 @@ export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; 
   // of it here: code review 3 #1)
   const fresh = useCoachShown(date, key);
   const saved = log.snap.coachOn(date, key) ?? fresh;
-  const qc = useQueryClient();
-  const toast = useToast();
-  const coach = useMutation({
-    mutationFn: () => api<{ date: string; key: string; text: string; createdAt: string }>('/coach/read', { method: 'POST', json: { date, sessionId: sess?.id ?? null } }),
-    onSuccess: (r) => {
-      setCoachShown(date, key, r.text);
-      qc.setQueryData<MonthBundle>(keys.month(monthOf(date)), (b) => (b ? { ...b, coach: [...b.coach.filter((c) => !(c.date === date && c.key === key)), r] } : b));
-    },
-    onError: (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t get the coach’s read.'),
-  });
   const fastest = laps.length ? Math.min(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const slowest = laps.length ? Math.max(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const za = a.avgHr != null ? zoneOf(log.zones, a.avgHr) : null;
@@ -276,23 +261,14 @@ export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; 
           </ul>
         </div>
       ) : null}
-      {log.features.claude ? (
-        saved ? (
-          <div className="coach">
-            <span className="coach-head">
-              <Sparkles size={16} aria-hidden="true" /> Coach’s read
-            </span>
-            <p className="serif">{saved}</p>
-            <button type="button" className="link sm" disabled={coach.isPending} onClick={() => coach.mutate()}>
-              {coach.isPending ? 'Asking…' : 'Ask again'}
-            </button>
-          </div>
-        ) : (
-          <ChipButton onClick={() => coach.mutate()} disabled={coach.isPending}>
-            <Sparkles size={14} />
-            {coach.isPending ? 'Reading the run…' : 'Coach’s read'}
-          </ChipButton>
-        )
+      {/* a note saved before run notes were turned off (Strava's terms bar its data from AI) still shows; no new ones */}
+      {saved ? (
+        <div className="coach">
+          <span className="coach-head">
+            <Sparkles size={16} aria-hidden="true" /> Coach’s read
+          </span>
+          <p className="serif">{saved}</p>
+        </div>
       ) : null}
     </div>
   );
