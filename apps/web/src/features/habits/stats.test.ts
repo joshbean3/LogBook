@@ -1,6 +1,6 @@
 import { shiftDays } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { habitWindow, streakLine, WINDOW_DAYS } from './stats';
+import { habitTiles, habitWindow, longestStreak, streakLine, WINDOW_DAYS } from './stats';
 
 const T = '2026-10-31';
 const doneOn = (days: string[]) => {
@@ -51,5 +51,29 @@ describe('streakLine', () => {
   });
   it('counts a young habit over its own days', () => {
     expect(line([T], shiftDays(T, -2))).toBe('1-day streak · 1 of 3');
+  });
+});
+
+describe('habitTiles', () => {
+  const since = Array.from({ length: 30 }, (_, i) => shiftDays(T, -i));
+  it('stamps the streak and the count, with the best run under a shorter streak', () => {
+    const [streak, count] = habitTiles({ since, lit: 12, streak: 3, best: 6 }, 'Last 30 days');
+    expect(streak).toMatchObject({ value: '3', unit: 'days', status: 'Best 6 days', none: false });
+    expect(count).toMatchObject({ label: 'Last 30 days', value: '12', unit: 'of 30', status: '40% of days', none: false });
+  });
+  it('keeps both tiles with dashes before anything is lit', () => {
+    const [streak, count] = habitTiles({ since: since.slice(0, 1), lit: 0, streak: 0, best: 0 }, 'Since Oct 31');
+    expect(streak).toMatchObject({ value: '–', status: 'Light it today', none: true });
+    expect(count).toMatchObject({ value: '0', unit: 'of 1', status: 'No days yet', none: true });
+  });
+  it('says one day, not one days', () => {
+    expect(habitTiles({ since, lit: 1, streak: 1, best: 1 }, 'x')[0]).toMatchObject({ unit: 'day', status: 'Your best yet' });
+  });
+});
+
+describe('longestStreak', () => {
+  it('picks the longest running streak, or none', () => {
+    expect(longestStreak([{ name: 'Read', streak: 2 }, { name: 'Stretch', streak: 5 }, { name: 'Meditate', streak: 0 }])).toEqual({ name: 'Stretch', streak: 5 });
+    expect(longestStreak([{ name: 'Read', streak: 0 }])).toBeNull();
   });
 });

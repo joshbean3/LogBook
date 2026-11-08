@@ -1,11 +1,12 @@
 import { fmtDate, monthOf, parseISO, shiftDays, type Habit, type ISODate } from '@logbook/shared';
+import { CalendarCheck, Flame } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useHabitMutations } from '@/api/queries';
 import { animate, motionValue } from 'motion/react';
 import { hapticAtPeak, haptics } from '@/lib/haptics';
 import { Button, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
-import { habitWindow, WINDOW_DAYS as DAYS } from './stats';
+import { habitTiles, habitWindow, WINDOW_DAYS as DAYS } from './stats';
 import './habits.css';
 
 /** Archive a habit with an Undo, from anywhere (the orb's menu, the habit sheet). */
@@ -43,10 +44,7 @@ export const HabitSheet = ({ id }: { id: string }) => {
   const isDone = (d: ISODate) => log.snap.isHabitDone(d, h.id);
   // "N of 30" counts only the days the habit existed; the best run is the stamp when today's streak is short
   const { days, since, lit, streak, best } = habitWindow(isDone, t, h.createdOn, DAYS);
-  const stamps: Array<{ k: string; v: number; u: string }> = [];
-  if (streak > 0) stamps.push({ k: 'Streak', v: streak, u: streak === 1 ? 'day' : 'days' });
-  if (best > streak && best >= 2) stamps.push({ k: 'Best', v: best, u: 'days' });
-  if (lit > 0) stamps.push({ k: since.length < DAYS ? `Since ${fmtDate('md', h.createdOn)}` : 'Last 30 days', v: lit, u: `of ${since.length}` });
+  const tiles = habitTiles({ since, lit, streak, best }, since.length < DAYS ? `Since ${fmtDate('md', h.createdOn)}` : `Last ${DAYS} days`);
   const notes = days
     .map((d) => ({ d, note: log.snap.checkOf(d, h.id)?.note ?? '' }))
     .filter((x) => x.note)
@@ -60,76 +58,84 @@ export const HabitSheet = ({ id }: { id: string }) => {
   };
   return (
     <div className="hs">
-      {stamps.length ? (
-        <div className="hs-stamps">
-          {stamps.map((s) => (
-            <span key={s.k} className="hs-stamp">
-              <span className="caps">{s.k}</span>
-              <span className="stamp hs-num">
-                {s.v}
-                <small> {s.u}</small>
-              </span>
+      <div className="tiles hs-tiles">
+        {tiles.map((x, i) => (
+          <div key={x.label} className="tile hs-tile">
+            <span className="tile-label">
+              {i === 0 ? <Flame size={15} aria-hidden="true" /> : <CalendarCheck size={15} aria-hidden="true" />} {x.label}
             </span>
-          ))}
-        </div>
-      ) : (
-        <p className="hs-start">Light it today and the streak starts here.</p>
-      )}
-      <div className="hs-grid" role="group" aria-label="Last 30 days">
-        {days.map((d) => {
-          const on = isDone(d);
-          const before = d < h.createdOn;
-          return (
-            <button
-              key={d}
-              type="button"
-              className={`hs-cell ${on ? 'on' : ''} ${d === t ? 'is-today' : ''} ${before ? 'before' : ''}`}
-              aria-pressed={on}
-              aria-label={`${fmtDate('long', d)}, ${on ? 'done' : 'not done'}`}
-              onClick={() => {
-                // lighting a day is an orb lighting: `orb` on the frame its fill completes (no pop on a cell); putting one out is silent
-                if (!on) {
-                  const fill = motionValue(0);
-                  hapticAtPeak(fill, 'orb');
-                  animate(fill, 1, { duration: 0.16, ease: 'linear' });
-                }
-                check.mutate({ habitId: h.id, date: d, done: !on });
-              }}
-            >
-              <span aria-hidden="true">{parseISO(d).getDate()}</span>
-            </button>
-          );
-        })}
-      </div>
-      {notes.length ? (
-        <div className="hs-notes">
-          <h4 className="section-title">Notes</h4>
-          <div className="list-edge">
-            {notes.map((n) => (
-              <div key={n.d} className="hs-note">
-                <span className="caps">{fmtDate('short', n.d)}</span>
-                <span className="hs-note-text">{n.note}</span>
-              </div>
-            ))}
+            <span className="tile-value tnum">
+              {x.value}
+              {x.unit ? <small>{x.unit}</small> : null}
+            </span>
+            <span className={`tile-status ${x.none ? 'is-none' : ''}`}>{x.status}</span>
           </div>
-        </div>
-      ) : null}
-      <label className="hs-field">
-        <span className="caps">Name</span>
-        <input className="in" value={name} maxLength={80} aria-label="Habit name" onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()} />
-      </label>
-      <div className="sheet-foot">
-        <Button
-          variant="danger"
-          onClick={() => {
-            sheet.close();
-            archive(h);
-          }}
-        >
-          Archive
-        </Button>
-        <span />
+        ))}
       </div>
+      <section className="card hs-card" aria-label={`Last ${DAYS} days`}>
+        <div className="hs-card-head">
+          <h3 className="hs-card-title">Last {DAYS} days</h3>
+          <span className="hs-card-foot">Tap a day to fix it</span>
+        </div>
+        <div className="hs-grid" role="group" aria-label="Last 30 days">
+          {days.map((d) => {
+            const on = isDone(d);
+            const before = d < h.createdOn;
+            return (
+              <button
+                key={d}
+                type="button"
+                className={`hs-cell ${on ? 'on' : ''} ${d === t ? 'is-today' : ''} ${before ? 'before' : ''}`}
+                aria-pressed={on}
+                aria-label={`${fmtDate('long', d)}, ${on ? 'done' : 'not done'}`}
+                onClick={() => {
+                  // lighting a day is an orb lighting: `orb` on the frame its fill completes (no pop on a cell); putting one out is silent
+                  if (!on) {
+                    const fill = motionValue(0);
+                    hapticAtPeak(fill, 'orb');
+                    animate(fill, 1, { duration: 0.16, ease: 'linear' });
+                  }
+                  check.mutate({ habitId: h.id, date: d, done: !on });
+                }}
+              >
+                <span aria-hidden="true">{parseISO(d).getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      <section className="card hs-card hs-notes" aria-label="Notes">
+        <div className="hs-card-head">
+          <h3 className="hs-card-title">Notes</h3>
+          {notes.length ? <span className="hs-card-foot tnum">{notes.length}</span> : null}
+        </div>
+        {notes.length ? (
+          notes.map((n) => (
+            <div key={n.d} className="hs-note">
+              <span className="hs-note-date">{fmtDate('short', n.d)}</span>
+              <span className="hs-note-text">{n.note}</span>
+            </div>
+          ))
+        ) : (
+          <p className="hs-note-none">No notes yet. Hold the orb on Today and choose Note.</p>
+        )}
+      </section>
+      <section className="card hs-card" aria-label="Name">
+        <label className="hs-field">
+          <span className="hs-card-title">Name</span>
+          <input className="in" value={name} maxLength={80} aria-label="Habit name" onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()} />
+        </label>
+      </section>
+      <button
+        type="button"
+        className="pill-row hs-archive"
+        onClick={() => {
+          sheet.close();
+          archive(h);
+        }}
+      >
+        Archive habit
+      </button>
     </div>
   );
 };

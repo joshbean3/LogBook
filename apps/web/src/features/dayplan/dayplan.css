@@ -635,6 +635,10 @@
   border-color: var(--ink-3);
   color: var(--ink-2);
 }
+.pd-add-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .pd-add-input {
   flex: 1;
   min-width: 0;

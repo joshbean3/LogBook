@@ -89,11 +89,11 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
     <>
       <input className="tsheet-name" value={text} maxLength={200} aria-label="To-do" onChange={(ev) => setText(ev.target.value)} onKeyDown={onKey} />
       <label className="tsheet-field">
-        <span className="caps">Note</span>
+        <span className="tsheet-label">Note</span>
         <textarea className="jtext serif tsheet-note" rows={3} maxLength={500} placeholder="Add a note" value={note} onChange={(ev) => setNote(ev.target.value)} onKeyDown={onKey} />
       </label>
       <div className="tsheet-field">
-        <span className="caps">Priority</span>
+        <span className="tsheet-label">Priority</span>
         <Segmented<'0' | '3' | '2' | '1'>
           label="Priority"
           value={String(priority) as '0' | '3' | '2' | '1'}
@@ -112,7 +112,7 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
         />
       </div>
       <div className="tsheet-field">
-        <span className="caps">List</span>
+        <span className="tsheet-label">List</span>
         <div className="tsheet-when tsheet-lists" role="radiogroup" aria-label="List">
           <ChipButton on={groupId === null} onClick={() => setGroupId(null)} role="radio" aria-checked={groupId === null}>
             None
@@ -129,11 +129,11 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
         </div>
       </div>
       <div className="tsheet-field">
-        <span className="caps">Highlight</span>
+        <span className="tsheet-label">Highlight</span>
         <ColorSwatches value={color} onChange={setColor} label="Highlight" />
       </div>
       <div className="tsheet-field">
-        <span className="caps">When</span>
+        <span className="tsheet-label">When</span>
         <div className="tsheet-when" role="group" aria-label="When">
           <ChipButton on={bucket === 'today'} onClick={() => pick('today')}>
             Today
@@ -149,7 +149,7 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
       </div>
       {movable && group ? (
         <div className="tsheet-field">
-          <span className="caps">Order</span>
+          <span className="tsheet-label">Order</span>
           <div className="tsheet-move">
             <IconButton label="Move up" disabled={idx <= 0} onClick={() => stepBy(-1)}>
               <ArrowUp size={18} />
