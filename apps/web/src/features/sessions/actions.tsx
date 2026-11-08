@@ -12,6 +12,7 @@ import { ShareSheet } from '../share/ShareSheet';
 import { openMoveSheet, pushMoveSheet } from './MoveSheet';
 import { useReshape } from './reshape';
 import { SessionEditor } from './SessionEditor';
+import { useEffortPrompt } from './Effort';
 
 const nameOf = (s: Session) => (s.kind === 'rest' ? 'Rest' : label(s));
 
@@ -39,6 +40,7 @@ export const useSessionActions = (log: Log) => {
   const { easeAfter } = useReshape();
   const sheet = useSheet();
   const toast = useToast();
+  const askEffort = useEffortPrompt();
 
   /** Done by hand: the session's one success (a Strava run that lands later is silent, §6.1). */
   const done = (s: Session) => {
@@ -118,7 +120,8 @@ export const useSessionActions = (log: Log) => {
     const items: ContextMenuItem[] = [];
     if (c.mark) {
       if (c.st === 'done') items.push({ label: 'Not done', icon: <Undo2 size={18} />, onSelect: () => clear(s) });
-      else items.push({ label: 'Done', icon: <Check size={18} />, onSelect: () => done(s) });
+      // a Done from a hold menu offers the effort check-in as its own small sheet (inside the session sheet, the sheet asks)
+      else items.push({ label: 'Done', icon: <Check size={18} />, onSelect: () => (done(s), extra.push ? undefined : askEffort(s)) });
       if (c.st === 'floor') items.push({ label: 'Clear floor', icon: <Undo2 size={18} />, onSelect: () => clear(s) });
       else items.push({ label: 'Floor', icon: <span className="cm-floor" />, onSelect: () => floor(s) });
     }
@@ -131,5 +134,5 @@ export const useSessionActions = (log: Log) => {
     return items;
   };
 
-  return { done, floor, clear, skip, sick, notFeeling, del, move, edit, share, add, menuItems };
+  return { done, floor, clear, skip, sick, notFeeling, del, move, edit, share, add, menuItems, askEffort };
 };

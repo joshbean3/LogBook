@@ -1,4 +1,4 @@
-import { counts, daysBetween, fmtDate, mondayOf, monthsBetween, num, sessionStatus, shiftDays, weekSummary, type PlanBlock } from '@logbook/shared';
+import { counts, daysBetween, fmtDate, mondayOf, monthsBetween, num, sessionStatus, shiftDays, weekTotals, type PlanBlock } from '@logbook/shared';
 import { ChevronRight, Sparkles } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useNav } from '@/app/NavController';
@@ -13,6 +13,8 @@ import { useLog, type Log } from '../log/useLog';
 import { builderSpec } from './Builder';
 import type { BuilderPrefill } from './builderModel';
 import { PlanBuilder } from './PlanBuilder';
+import { weekMiles } from '../sessions/miles';
+import { phasesOf, type PhaseWeek } from './phases';
 import './plan.css';
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
@@ -46,14 +48,31 @@ export const heroBlock = (blocks: PlanBlock[], t: string): PlanBlock | null => {
   );
 };
 
-/** Planned and run miles per week of a block, for its arc. */
+/**
+ * Planned and run miles per week of a block, for its arc. Miles run count a run marked Done without Strava at its planned
+ * miles, as the week line, Progress and Share count them (miles.ts).
+ */
 const arcOf = (log: Log, b: PlanBlock) => {
   const out: Array<{ mon: string; planned: number; ran: number }> = [];
   for (let mon = mondayOf(b.start); mon <= b.end; mon = shiftDays(mon, 7)) {
-    const w = weekSummary(log.snap, mon);
-    out.push({ mon, planned: w.plannedMiles, ran: w.doneMiles });
+    out.push({ mon, planned: weekTotals(log.snap, mon).planned, ran: mon <= log.today ? weekMiles(log.snap, mon, log.today).miles : 0 });
   }
   return out;
+};
+
+/** A block ends with a race when its last week holds a session typed or named Race (the template's race day). */
+const endsWithRace = (log: Log, b: PlanBlock) => {
+  for (let d = mondayOf(b.end); d <= shiftDays(mondayOf(b.end), 6); d = shiftDays(d, 1))
+    if (log.snap.sessionsOn(d).some((s) => /^race\b/i.test(s.type ?? '') || /^race\b/i.test(s.title ?? ''))) return true;
+  return false;
+};
+/** Each week's training phase (phases.ts), by its Monday. */
+const phasesFor = (log: Log, b: PlanBlock, arc: Array<{ mon: string; planned: number }>): Record<string, PhaseWeek> => {
+  const p = phasesOf(
+    arc.map((w) => w.planned),
+    { race: endsWithRace(log, b), base: /^base\b/i.test(b.name) },
+  );
+  return Object.fromEntries(arc.map((w, i) => [w.mon, p[i]!]));
 };
 
 /** The block's arc: a bar per week, planned as a ghost, run in blue over it, this week outlined. */
@@ -84,6 +103,8 @@ export interface BlockCardData {
   wk: number;
   arc: Array<{ mon: string; planned: number; ran: number }>;
   peak: number;
+  /** Each week's training phase by its Monday (empty with no block). */
+  phases: Record<string, PhaseWeek>;
 }
 export const blockCardOf = (log: Log): BlockCardData => {
   const t = log.today;
@@ -91,7 +112,7 @@ export const blockCardOf = (log: Log): BlockCardData => {
   const weeks = b ? planWeeks(b) : 0;
   const st = b ? stateOf(b, t) : 'Active';
   const arc = b ? arcOf(log, b) : [];
-  return { t, boot: !!log.boot, b, st, weeks, wk: b && st === 'Active' ? weekOf(b, t) : 0, arc, peak: Math.max(0, ...arc.map((w) => w.planned)) };
+  return { t, boot: !!log.boot, b, st, weeks, wk: b && st === 'Active' ? weekOf(b, t) : 0, arc, peak: Math.max(0, ...arc.map((w) => w.planned)), phases: b ? phasesFor(log, b, arc) : {} };
 };
 
 /**
@@ -120,7 +141,21 @@ const whereFor = (d: BlockCardData, page?: { from: string; to: string }) => {
   return a1 === z ? `Week ${z} of ${weeks}` : `Weeks ${a1}–${z} of ${weeks}`;
 };
 
-export const BlockCardView = ({ data, getLog, page }: { data: BlockCardData; getLog: () => Log; page?: { from: string; to: string } }) => {
+/**
+ * Where a week page sits in the block, for the week line's chip: its phase and `Week 5 of 11` (or the lead-in). Null for a
+ * week outside the block, or with no block.
+ */
+export const weekPlace = (d: BlockCardData, mon: string): { phase: PhaseWeek | null; where: string } | null => {
+  const { b } = d;
+  if (!b || shiftDays(mon, 6) < b.start || mon > b.end) return null;
+  return { phase: d.phases[mon] ?? null, where: whereFor(d, { from: mon, to: shiftDays(mon, 6) }) };
+};
+
+/**
+ * `inWeek`: under a week page, whose line already says the week's place and draws the weeks' miles, the card names the
+ * block and its dates only (nothing twice); under a month it keeps its caption and the arc.
+ */
+export const BlockCardView = ({ data, getLog, page, inWeek }: { data: BlockCardData; getLog: () => Log; page?: { from: string; to: string }; inWeek?: boolean }) => {
   const sheet = useSheet();
   const { t, b, arc, peak } = data;
   // the builder's door (useOpenBuilder's spec, with the card's log at the tap)
@@ -134,13 +169,14 @@ export const BlockCardView = ({ data, getLog, page }: { data: BlockCardData; get
         </EmptyState>
       </div>
     );
-  const where = whereFor(data, page);
+  const inside = inWeek && page && page.to >= b.start && page.from <= b.end;
+  const where = inside ? `${fmtDate('md', b.start)} – ${fmtDate('md', b.end)} · ${data.weeks} ${data.weeks === 1 ? 'week' : 'weeks'}` : whereFor(data, page);
   return (
-    <section className="pl-block sec-primary" aria-label={`Your block: ${b.name}. ${where}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}${peak ? `, peaks at ${tenth(peak)} miles` : ''}`}>
+    <section className={`pl-block sec-primary ${inside ? 'is-compact' : ''}`} aria-label={`Your block: ${b.name}. ${where}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}${peak ? `, peaks at ${tenth(peak)} miles` : ''}`}>
       <div className="pl-block-main">
         <span className="caps pl-block-cap">{where}</span>
         <span className="pl-block-name">{b.name}</span>
-        <Arc weeks={arc} today={t} />
+        {inside ? null : <Arc weeks={arc} today={t} />}
       </div>
       <Pressable className="pl-block-new" press="surface" onPress={openNew} label="New block">
         <span>New block</span>

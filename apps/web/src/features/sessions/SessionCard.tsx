@@ -16,6 +16,8 @@ import type { ShareData, ShareDayType } from '../share/cards';
 import { sessionCan, useSessionActions } from './actions';
 import { PressButton } from './PressButton';
 import { LiftLog } from './LiftLog';
+import { EffortRow } from './Effort';
+import { effortOf } from './effortModel';
 import { dayMiles, sessionMiles } from './miles';
 import { voiceHead, voiceLine } from './voice';
 import { mainRun, RecordCard, recordLap, RouteMap, RunGrid, useRunRecords, whenLine } from './RunDetail';
@@ -347,7 +349,8 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const log = useLog([monthOf(date)]);
   const sheet = useSheet();
   const act = useSessionActions(log);
-  const [liftOpen, setLiftOpen] = useState(false);
+  // the effort check-in opens in place when this sheet's own Done marks it (Effort.tsx)
+  const [askEffort, setAskEffort] = useState(false);
   // "Not feeling 100%" with nothing hard in the days ahead answers on its own pill, not in a toast (§8)
   const [nothingToEase, setNothingToEase] = useState(false);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
@@ -396,7 +399,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
       {runs.length ? <RunGrid sess={s} runs={runs} log={log} planned={plannedMiles(s)} /> : <Stats stats={stats} />}
       {c.mark ? (
         <div className="ss-verbs" role="group" aria-label="Mark it">
-          <PressButton className={`ss-big done ${st === 'done' ? 'is-on' : ''}`} aria-pressed={st === 'done'} onClick={() => (st === 'done' ? act.clear(s) : act.done(s))}>
+          <PressButton className={`ss-big done ${st === 'done' ? 'is-on' : ''}`} aria-pressed={st === 'done'} onClick={() => (st === 'done' ? (act.clear(s), setAskEffort(false)) : (act.done(s), setAskEffort(s.kind !== 'rest')))}>
             <Check size={20} strokeWidth={2.6} aria-hidden="true" />
             Done
           </PressButton>
@@ -410,6 +413,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
       ) : s.kind !== 'rest' && date > log.today ? (
         <p className="t-sub ink2 ss-auto">Planned for {date === shiftDays(log.today, 1) ? 'tomorrow' : fmtDate('dowLong', date)}. Done and Floor open on the day.</p>
       ) : null}
+      {s.kind !== 'rest' && (counts(st) || askEffort) ? <EffortRow session={s} ask={askEffort} onAsked={() => setAskEffort(false)} /> : null}
       {matched ? (
         // §6.3: after a matched run the second row is Share · Not feeling 100% (Move and Edit are under the ⋯)
         <div className="ss-second">
@@ -453,7 +457,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         </div>
       )}
       {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} prLap={recordLap(runs, records)} /> : null}
-      {s.kind === 'lift' && sets.length ? (
+      {s.kind === 'lift' && sets.length && !canLog ? (
         <p className="t-sub ink2">
           {sets.length} {sets.length === 1 ? 'set' : 'sets'}: {sets.map((x) => `${x.exercise} ${x.weight}×${x.reps}`).join(', ')}
         </p>
@@ -465,14 +469,8 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
             </p>
           ))
         : null}
-      {canLog ? (
-        <>
-          <Button variant={liftOpen ? 'default' : 'soft'} onClick={() => setLiftOpen((o) => !o)} style={{ justifySelf: 'start' }}>
-            {liftOpen ? 'Close the log' : 'Log sets'}
-          </Button>
-          {liftOpen ? <LiftLog date={date} /> : null}
-        </>
-      ) : null}
+      {/* the sets themselves, by exercise, and the pad to log the next one (LiftLog) */}
+      {canLog ? <LiftLog date={date} onDone={(n) => n > 0 && effortOf(s.effort) == null && setAskEffort(true)} /> : null}
       {s.kind !== 'rest' && floorText && !runs.length ? (
         <p className="fine ss-floor-line">
           The floor: {floorText}. On a bad day it still counts.

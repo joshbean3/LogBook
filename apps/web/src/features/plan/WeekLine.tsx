@@ -1,7 +1,11 @@
-import { fmtDate, isSkipMark, label, mondayOf, num, sessionKey, shiftDays, tone, weekSummary, type Session } from '@logbook/shared';
+import { fmtDate, isSkipMark, label, mondayOf, num, sessionKey, shiftDays, tone, weekSummary, weekTotals, type Session } from '@logbook/shared';
+import type * as React from 'react';
 import { Pressable } from '@/ui/Pressable';
 import type { Log } from '../log/useLog';
 import { weekMiles } from '../sessions/miles';
+import { weekPlace, type BlockCardData } from './Blocks';
+import { PHASE_WORDS, type TrainingPhase } from './phases';
+import './weekline.css';
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -53,29 +57,133 @@ export const weekWords = (log: Log, mon: string) => {
   return { head, sub, progress, ran: w.doneMiles, summary: w };
 };
 
+
 /**
- * The week line (content under the bar's 24 gap): the line 22/28 600 at the left, the `This week` pill at the right off
- * this week (shown on the live page only; it fades in over 120 ms when its page commits, plan.css), the 4 px bar of miles
- * run only once a mile is run (`scaleX`, no animation), the sentence 15/20.
+ * The weeks the mileage bars show for a week page: the block's weeks when the page is inside the block (at most 12, the
+ * page among them), else the six weeks before the page, the page and the week after.
  */
-export const WeekLine = ({ log, mon, onThisWeek }: { log: Log; mon: string; onThisWeek: () => void }) => {
-  const w = weekWords(log, mon);
-  const off = mon !== mondayOf(log.today);
+export const barWeeks = (d: BlockCardData, mon: string): string[] => {
+  const b = d.b;
+  if (b && shiftDays(mon, 6) >= b.start && mon <= b.end && d.arc.length) {
+    const all = d.arc.map((w) => w.mon);
+    if (all.length <= 12) return all;
+    const i = Math.max(0, all.indexOf(mon));
+    const from = Math.min(Math.max(0, i - 8), all.length - 12);
+    return all.slice(from, from + 12);
+  }
+  return Array.from({ length: 8 }, (_, i) => shiftDays(mon, (i - 6) * 7));
+};
+
+export interface BarWeek {
+  mon: string;
+  planned: number;
+  ran: number;
+  /** Ran at least what was planned. */
+  hit: boolean;
+  phase: TrainingPhase | null;
+}
+/** Planned and run miles per week, counted as the week line counts them (`weekTotals`, `weekMiles`). */
+export const barData = (log: Log, weeks: string[], phases: BlockCardData['phases']): BarWeek[] =>
+  weeks.map((mon) => {
+    const ok = log.loaded(mon) && log.loaded(shiftDays(mon, 6));
+    const planned = ok ? Math.round(weekTotals(log.snap, mon).planned * 100) / 100 : 0;
+    const ran = ok && mon <= log.today ? weekMiles(log.snap, mon, log.today).miles : 0;
+    return { mon, planned, ran, hit: planned > 0 && ran >= planned - 0.05, phase: phases[mon]?.phase ?? null };
+  });
+
+/**
+ * The weekly mileage bars (docs/inspiration.md §6 Plan, refs 386, 714): a bar per week, miles run filled (the page's week
+ * in orange, the newest point), each week's planned miles as a dotted cap (together a stepped dotted target line), a small
+ * lit dot over a week that ran its target, the page's week lit behind; under them the block's phases as a band.
+ */
+const MileBars = ({ data, mon, today }: { data: BarWeek[]; mon: string; today: string }) => {
+  const max = Math.max(1, ...data.map((w) => Math.max(w.planned, w.ran)));
+  const cur = data.find((w) => w.mon === mon);
+  const hits = data.filter((w) => w.hit).length;
+  const runs: Array<{ phase: TrainingPhase; n: number }> = [];
+  for (const w of data) {
+    if (!w.phase) continue;
+    const last = runs[runs.length - 1];
+    if (last && last.phase === w.phase) last.n++;
+    else runs.push({ phase: w.phase, n: 1 });
+  }
+  const banded = data.every((w) => w.phase);
+  const said = `Weekly miles, ${data.length} weeks.${cur ? ` This week ${tenth(cur.ran)} of ${tenth(cur.planned)} planned.` : ''} ${hits === 1 ? '1 week' : `${hits} weeks`} ran the target.`;
   return (
-    <div className="pl-wl">
-      <div className="pl-wl-top">
-        <h2 className="pl-wl-head">{w.head}</h2>
-        {off ? (
-          <Pressable className="pl-now" onPress={onThisWeek} label="This week">
-            This week
-          </Pressable>
-        ) : null}
+    <div className="pl-mb" style={{ '--n': data.length } as React.CSSProperties} role="img" aria-label={said}>
+      <div className="pl-mb-plot">
+        <span className="pl-mb-max tnum">{tenth(max)} mi</span>
+        {data.map((w) => (
+          <span key={w.mon} className={`pl-mb-wk ${w.mon === mon ? 'is-now' : ''} ${w.mon > today ? 'is-ahead' : ''} ${w.hit ? 'is-hit' : ''}`} style={{ '--p': w.planned / max, '--d': Math.min(w.ran, max) / max } as React.CSSProperties}>
+            {w.planned > 0 ? <i className="pl-mb-plan" /> : null}
+            {w.ran > 0 ? <i className="pl-mb-ran" /> : null}
+            {w.planned > 0 ? <i className="pl-mb-target" /> : null}
+            {w.hit ? <i className="pl-mb-hit" /> : null}
+          </span>
+        ))}
       </div>
-      {w.ran > 0 ? (
-        <div className="pl-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(w.progress * 100)} aria-label={`${tenth(w.ran)} of ${tenth(w.summary.plannedMiles)} miles run`}>
-          <i style={{ transform: `scaleX(${w.progress})` }} />
+      {banded && runs.length ? (
+        <div className="pl-mb-band" aria-hidden="true">
+          {runs.map((r, i) => (
+            <span key={i} className={`pl-ph ph-${r.phase}`} style={{ gridColumn: `span ${r.n}` }}>
+              <span>{r.phase === 'race' ? 'Race' : PHASE_WORDS[r.phase]}</span>
+            </span>
+          ))}
         </div>
       ) : null}
+      <div className="pl-mb-axis" aria-hidden="true">
+        <span>{fmtDate('md', data[0]!.mon)}</span>
+        <span className="pl-mb-key">
+          <i className="k-ran" />
+          Run
+          <i className="k-plan" />
+          Planned
+        </span>
+        <span>{fmtDate('md', data[data.length - 1]!.mon)}</span>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * The week line (content under the bar's 24 gap): the week's phase and place in the block as a chip, and the `This week`
+ * pill off this week (shown on the live page only; it fades in over 120 ms when its page commits, plan.css); the line
+ * 22/28 600; the mileage bars and the phase band; the sentence 15/20.
+ */
+export const WeekLine = ({ log, mon, onThisWeek, block, weeks }: { log: Log; mon: string; onThisWeek: () => void; block: BlockCardData; weeks: string[] }) => {
+  const w = weekWords(log, mon);
+  const off = mon !== mondayOf(log.today);
+  const place = weekPlace(block, mon);
+  const bars = barData(log, weeks, block.phases);
+  const ph = place?.phase ?? null;
+  return (
+    <div className="pl-wl">
+      {place || off ? (
+        <div className="pl-wl-chips">
+          {place ? (
+            <span className={`pl-phase ${ph ? `ph-${ph.phase}` : ''}`}>
+              {ph ? <i aria-hidden="true" /> : null}
+              <span>
+                {ph ? (
+                  <>
+                    <b>{PHASE_WORDS[ph.phase]}</b>
+                    {ph.down ? ' · Down week' : ''}
+                    {' · '}
+                  </>
+                ) : null}
+                {place.where}
+              </span>
+            </span>
+          ) : null}
+          {off ? (
+            <Pressable className="pl-now" onPress={onThisWeek} label="This week">
+              This week
+            </Pressable>
+          ) : null}
+        </div>
+      ) : null}
+      <h2 className="pl-wl-head">{w.head}</h2>
+      <MileBars data={bars} mon={mon} today={log.today} />
       <p className="pl-wl-sub">{w.sub}</p>
     </div>
   );

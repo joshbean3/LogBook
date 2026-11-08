@@ -1,0 +1,274 @@
+/* ---------- the week line's chip, mileage bars and phase band (WeekLine.tsx; docs/inspiration.md §6 Plan) ---------- */
+.pl-wpage {
+  --ph-base: var(--columbia-wash);
+  --ph-build: var(--columbia);
+  --ph-peak: var(--ink-2);
+  --ph-taper: repeating-linear-gradient(135deg, var(--columbia) 0 4px, var(--columbia-wash) 4px 8px);
+  --ph-race: var(--accent);
+}
+.pl-wl-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 8px;
+}
+.pl-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: var(--card-border);
+  font: 500 13px/16px var(--sans);
+  color: var(--ink-2);
+}
+.pl-phase > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pl-phase b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.pl-phase > i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.pl-phase.ph-base > i {
+  background: var(--ph-base);
+}
+.pl-phase.ph-build > i {
+  background: var(--ph-build);
+}
+.pl-phase.ph-peak > i {
+  background: var(--ph-peak);
+}
+.pl-phase.ph-taper > i {
+  background: var(--ph-taper);
+}
+.pl-phase.ph-race > i {
+  background: var(--ph-race);
+}
+.pl-wl-chips .pl-now.pressable {
+  margin-left: auto;
+}
+.pl-wl .pl-wl-sub {
+  margin-top: 10px;
+}
+
+.pl-mb {
+  margin-top: 12px;
+}
+.pl-mb-plot {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  height: 84px;
+  padding-top: 18px;
+}
+.pl-mb-max {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font: 600 11px/14px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pl-mb-wk {
+  position: relative;
+  height: 100%;
+}
+/* the page's week: lit behind */
+.pl-mb-wk.is-now::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -16px 1px -4px;
+  border-radius: 8px;
+  background: var(--columbia-wash);
+}
+.pl-mb-plan,
+.pl-mb-ran {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 0;
+  border-radius: 4px 4px 2px 2px;
+}
+.pl-mb-plan {
+  height: calc(var(--p) * 100%);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.pl-mb-wk.is-now .pl-mb-plan {
+  background: var(--surface);
+}
+.pl-mb-ran {
+  height: max(3px, calc(var(--d) * 100%));
+  background: var(--ink-2);
+}
+/* the newest point: this page's week in orange, its light under it */
+.pl-mb-wk.is-now .pl-mb-ran {
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(242, 96, 12, 0.35);
+}
+/* each week's target as a dotted cap across its slot: side by side they read as one stepped target line */
+.pl-mb-target {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: calc(var(--p) * 100%);
+  border-top: 2px dotted var(--ink-3);
+}
+.pl-mb-wk.is-ahead .pl-mb-target {
+  border-top-color: var(--ink-4);
+}
+/* a week that ran its target: a small lit dot over it */
+.pl-mb-hit {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(var(--p), var(--d)) * 100% + 6px);
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(242, 96, 12, 0.5);
+}
+.pl-mb-band {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  height: 16px;
+  margin-top: 6px;
+}
+/* a phase's run of weeks; its word shows only where it fits (one week of a long block is too narrow at 320) */
+.pl-ph {
+  container-type: inline-size;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  margin: 0 1px;
+  border-radius: 4px;
+  overflow: hidden;
+  font: 700 9px/16px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@container (max-width: 34px) {
+  .pl-ph > span {
+    display: none;
+  }
+}
+.pl-ph.ph-base {
+  background: var(--ph-base);
+  color: var(--ink-2);
+}
+.pl-ph.ph-build {
+  background: var(--ph-build);
+  color: var(--ink);
+}
+.pl-ph.ph-peak {
+  background: var(--ph-peak);
+  color: var(--surface);
+}
+.pl-ph.ph-taper {
+  background: var(--ph-taper);
+  color: var(--ink);
+}
+.pl-ph.ph-race {
+  background: var(--ph-race);
+  color: var(--accent-ink);
+}
+.pl-mb-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font: 600 11px/14px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pl-mb-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pl-mb-key i {
+  display: inline-block;
+}
+.pl-mb-key .k-ran {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--ink-2);
+}
+.pl-mb-key .k-plan {
+  width: 12px;
+  margin-left: 8px;
+  border-top: 2px dotted var(--ink-3);
+}
+
+/* ---------- workout cards (§6 Plan, ref 79): the name a stamp, the target in one line, the status at the right ---------- */
+.pl-lines .pl-line.pressable.pl-card {
+  width: auto;
+  height: auto;
+  min-height: 60px;
+  margin: 6px 12px 6px 0;
+  padding: 10px 12px 10px 10px;
+  border-radius: var(--r-group);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.pl-lines .pl-line.pressable.pl-card[data-pressed][data-press='surface'],
+.pl-lines .pl-line.pressable.pl-card[data-lifting] {
+  background: var(--surface-2);
+}
+.pl-lines .pl-line.pressable.pl-card[data-dragging] {
+  background: var(--surface) !important;
+}
+.pl-day.is-target .pl-lines .pl-line.pressable.pl-card {
+  background: var(--surface);
+}
+.pl-card .pl-tone {
+  width: 4px;
+  height: 36px;
+}
+.pl-card .pl-sub {
+  margin-top: 1px;
+}
+.pl-st.is-check {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+}
+.pl-st.is-chev {
+  color: var(--ink-4);
+}
+.pl-day:has(.pl-card) .pl-date {
+  height: 72px;
+  padding-top: 14px;
+}
+
+/* the block card under a week page: its name and dates (the week line above carries its place and the weeks' miles) */
+.pl-block.is-compact {
+  height: auto;
+  grid-template-rows: auto 44px;
+}
+.pl-block.is-compact .pl-block-main {
+  grid-template-rows: 14px 28px;
+  padding-bottom: 4px;
+}

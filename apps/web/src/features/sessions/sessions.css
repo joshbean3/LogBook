@@ -261,56 +261,246 @@
   justify-self: start;
 }
 
-/* lift log: hairline and air, no inner box inside the sheet */
+/* ---------- the lift log (LiftLog.tsx): sets by exercise, done rows tinted with a check, a number pad ---------- */
 .lift-log {
   display: grid;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  gap: 12px;
 }
-.lift-row {
+.lft {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: var(--card-border);
+  overflow: hidden;
+}
+.lft.is-active {
+  box-shadow: 0 0 0 2px var(--columbia);
+}
+.lft-head.pressable {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px 6px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+}
+.lft-head[data-pressed] {
+  background: var(--surface-2);
+}
+.lft-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 17px/22px var(--sans);
+}
+.lft-count {
+  flex: none;
+  font: 400 13px/18px var(--sans);
+  color: var(--ink-3);
+}
+.lft-sets {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px 8px;
+  list-style: none;
+}
+.lft-set {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 4px 0 8px;
+  border-radius: 10px;
+}
+/* a set done: Columbia wash, the numbers stamped, a check */
+.lft-set.is-done {
+  background: var(--columbia-wash);
+}
+.lft-n {
+  flex: none;
+  width: 18px;
+  font: 600 13px/18px var(--sans);
+  color: var(--ink-3);
+  text-align: center;
+}
+.lft-val {
+  flex: 1 1 auto;
+  font-size: 17px;
+  line-height: 22px;
+}
+.lft-check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  color: var(--surface);
+}
+.lft-set .icon-btn {
+  flex: none;
+  color: var(--ink-3);
+}
+/* the set about to be logged: two fields and last time's numbers */
+.lft-set.is-next {
+  flex-wrap: wrap;
+  row-gap: 2px;
+  padding: 6px 4px 6px 8px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.lft-fields {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lft-field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 72px;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 800 20px/40px var(--stamp);
+  letter-spacing: -0.02em;
+}
+.lft-field small {
+  font: 500 12px/16px var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+.lft-field.is-ghost {
+  color: var(--ink-4);
+}
+.lft-field.is-on {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--ink-2);
+}
+.lft-field:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
+}
+.lft-x {
+  color: var(--ink-3);
+  font: 400 17px/22px var(--sans);
+}
+.lft-hint {
+  margin-left: auto;
+  font: 400 13px/18px var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.lft-compose {
+  display: grid;
+  gap: 12px;
+}
+.lft-recents {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
+  gap: 8px;
 }
-.lift-row .in {
-  width: auto;
+.lft-chip.pressable {
+  min-height: 36px;
+  padding: 0 14px;
+  border: var(--card-border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 15px/20px var(--sans);
 }
-.lift-row .ex {
-  flex: 1 1 9rem;
+.lft-chip[data-pressed] {
+  background: var(--surface-2);
 }
-.lift-row .numin {
-  width: 5.2rem;
-}
-.times {
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
-}
-.hint {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--ink-3);
-  min-height: 1em;
-}
-.sets {
+.lft-pad {
   display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--r-card);
+  background: var(--surface-2);
 }
-.sets li {
+.lft-step {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  min-height: 44px;
-  font-size: 15px;
-  line-height: 20px;
-  border-top: 1px solid var(--line);
 }
-.sets li:first-child {
-  border-top: 0;
+.lft-stepbtn.pressable {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
 }
-.sets li .icon-btn {
-  margin-left: auto;
-  margin-right: -8px;
+.lft-stepval {
+  display: grid;
+  justify-items: center;
+}
+.lft-stepval .stamp {
+  font-size: var(--fs-stamp);
+  line-height: var(--lh-stamp);
+}
+.lft-stepval small {
+  font: 500 13px/18px var(--sans);
+  color: var(--ink-3);
+}
+.lft-keys {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.lft-key.pressable {
+  display: grid;
+  place-items: center;
+  height: 48px;
+  border: 0;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  color: var(--ink);
+  font: 600 22px/28px var(--sans);
+}
+.lft-key[data-pressed] {
+  background: var(--columbia-wash);
+}
+.lft-key:disabled {
+  color: var(--ink-4);
+}
+.lft-acts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.lft-add.btn.primary:disabled {
+  border-color: transparent;
+  background: var(--surface-3);
+  color: var(--ink-3);
+  opacity: 1;
+}
+.lft-open.btn,
+.lft-close.btn {
+  justify-self: start;
+}
+.lft-open.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ---------- the sheet: one head from every way in ----------

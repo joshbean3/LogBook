@@ -96,6 +96,8 @@ export const trainingSessions = sqliteTable(
     blockId: text('block_id'),
     movedFrom: text('moved_from'),
     mark: text('mark'),
+    /** How hard it felt, 1 to 10 (the effort check-in); null until asked. */
+    effort: integer('effort'),
     /** Soft delete so Undo on the phone restores the exact row, plan membership and all. */
     deletedAt: text('deleted_at'),
     createdAt: createdAt(),

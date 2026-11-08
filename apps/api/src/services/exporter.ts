@@ -203,6 +203,7 @@ export const zExportV2 = z.object({
         blockId: opt(zId),
         movedFrom: opt(zDay),
         mark: opt(z.enum(['done', 'floor', 'skip', 'sick'])),
+        effort: opt(z.number().int().min(1).max(10)),
       }),
     )
     .default([]),
@@ -392,6 +393,7 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
           blockId: s.blockId ? (maps.blocks.get(s.blockId) ?? null) : null,
           movedFrom: s.movedFrom ?? null,
           mark: s.mark ?? null,
+          effort: s.effort ?? null,
           createdAt: now,
           updatedAt: now,
         })

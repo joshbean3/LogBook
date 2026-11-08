@@ -46,12 +46,6 @@
 .pl-wl {
   min-height: 52px;
 }
-.pl-wl-top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 32px;
-}
 .pl-wl-head {
   margin: 0 auto 0 0;
   min-width: 0;
@@ -86,30 +80,11 @@
 .dp-page[data-role='cur'] .pl-now {
   opacity: 1;
 }
-.pl-bar {
-  height: 4px;
-  margin-top: 10px;
-  border-radius: 2px;
-  background: var(--surface-3);
-  overflow: hidden;
-}
-.pl-bar i {
-  display: block;
-  height: 100%;
-  width: 100%;
-  background: var(--accent);
-  border-radius: 2px;
-  transform-origin: 0 50%;
-}
 .pl-wl-sub {
   margin: 4px 0 0;
   font: 400 15px/20px var(--sans);
   color: var(--ink-2);
 }
-.pl-bar + .pl-wl-sub {
-  margin-top: 8px;
-}
-
 /* ---------- the seven days: 60 px rows in one inset group (§7.2) ---------- */
 .pl-group {
   position: relative;
