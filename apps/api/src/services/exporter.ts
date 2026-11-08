@@ -25,6 +25,7 @@ import {
 import { goalEvents, goals, todoGroups } from '../db/schema.js';
 import { learnings } from '../db/schema.js';
 import { recallItems } from '../db/schema.js';
+import { dayTags } from '../db/schema.js';
 import { toBlock, toEntry, toGoal, toGoalEvent, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { nowISO } from '../lib/util.js';
 import { toLink } from '../routes/reads.js';
@@ -34,7 +35,7 @@ import { toLink } from '../routes/reads.js';
  * into the same account or a fresh one, idempotently by id. Soft-deleted rows are not exported (they are gone to the
  * athlete); to-dos keep their `deletedOn` (it is part of the to-do).
  */
-export const exportAccount = (db: DB, userId: string): ExportV2 & { learnings: Learning[] } & { recall: RecallExport[] } => {
+export const exportAccount = (db: DB, userId: string): ExportV2 & { learnings: Learning[] } & { recall: RecallExport[] } & { dayTags: DayTagExport[] } => {
   const u = db.select().from(users).where(eq(users.id, userId)).get()!;
   const settings: Record<string, unknown> = {};
   for (const s of db.select().from(userSettings).where(eq(userSettings.userId, userId)).all()) {
@@ -159,9 +160,17 @@ export const exportAccount = (db: DB, userId: string): ExportV2 & { learnings: L
       .where(eq(recallItems.userId, userId))
       .all()
       .map((r) => ({ kind: r.sourceKind, id: r.sourceId, boost: r.boost, hidden: r.hidden, summary: r.summary, summarizedAt: r.summarizedAt, lastShown: r.lastShown })),
+    // day tags, a yes or a no per tag per day (absent in older exports; the tag list is in settings.journalTags)
+    dayTags: db
+      .select()
+      .from(dayTags)
+      .where(eq(dayTags.userId, userId))
+      .all()
+      .map((t) => ({ date: t.date, tag: t.tag, value: t.value })),
   };
 };
 type RecallExport = { kind: string; id: string; boost: boolean; hidden: boolean; summary: string | null; summarizedAt: string | null; lastShown: string | null };
+type DayTagExport = { date: string; tag: string; value: boolean };
 
 // ---------- import ----------
 
@@ -294,6 +303,7 @@ export const zExportV2 = z.object({
     .default({}),
   coach: z.array(z.object({ date: zDay, key: str(120), text: str(2000), createdAt: z.string() })).default([]),
   learnings: z.array(z.object({ id: zId, date: zDay, text: str(LEARNING_MAX).min(1), createdAt: z.string(), editedAt: opt(z.string()) })).default([]),
+  dayTags: z.array(z.object({ date: zDay, tag: str(32).min(1), value: z.boolean() })).default([]),
 });
 export type ImportV2 = z.infer<typeof zExportV2>;
 
@@ -529,6 +539,11 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
       if (c.have) continue;
       t.insert(learnings).values({ id: c.id, userId, date: l.date, text: l.text, createdAt: l.createdAt, editedAt: l.editedAt ?? null, deletedAt: null }).run();
       bump('learnings');
+    }
+    // ---------- day tags (a mark already there is kept) ----------
+    for (const x of b.dayTags) {
+      const res = t.insert(dayTags).values({ userId, date: x.date, tag: x.tag, value: x.value, updatedAt: nowISO() }).onConflictDoNothing().run();
+      if (res.changes) bump('dayTags');
     }
   });
   return counts;

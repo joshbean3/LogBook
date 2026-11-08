@@ -456,3 +456,16 @@ export const recallItems = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.sourceKind, t.sourceId] })],
 );
+
+/** Day tags (the Journal's day page): one yes (1) or no (0) per tag per day. The list of tags is in user_settings. Migration 0016. */
+export const dayTags = sqliteTable(
+  'day_tags',
+  {
+    userId: userId(),
+    date: text('date').notNull(),
+    tag: text('tag').notNull(),
+    value: integer('value', { mode: 'boolean' }).notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.date, t.tag] })],
+);

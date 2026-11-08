@@ -389,3 +389,145 @@ textarea.ln-field {
 .ln-month-days {
   margin-top: 8px;
 }
+
+/* ---------- the hint over the first field (what a good entry looks like) ---------- */
+.ln-hint {
+  margin: 6px 0 0;
+  padding: 0 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+
+/* ---------- a month as a grid: a rounded row per day, a dash where there is nothing ---------- */
+.ln-grid {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ln-gday {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 14px 4px 12px;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: var(--card-border);
+}
+.ln-gday.is-empty {
+  align-items: center;
+  background: transparent;
+  border-color: var(--line);
+}
+.ln-gday-date {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-top: 8px;
+}
+.ln-gday.is-empty .ln-gday-date {
+  padding-top: 0;
+}
+.ln-gday-num {
+  min-width: 22px;
+  text-align: right;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--ink);
+}
+.ln-gday.is-empty .ln-gday-num {
+  color: var(--ink-4);
+}
+.ln-gday.is-today .ln-gday-num {
+  color: var(--accent-text);
+}
+.ln-gday-dow {
+  font-size: 0.625rem;
+  line-height: 0.75rem;
+}
+.ln-gday-items {
+  display: grid;
+  min-width: 0;
+}
+.ln-line.is-grid.pressable {
+  font-size: var(--fs-row);
+  line-height: 1.5rem;
+  padding: 6px 0;
+}
+.ln-line.is-grid + .ln-line.is-grid {
+  border-top: 1px solid var(--line);
+}
+.ln-gday-dash {
+  color: var(--ink-4);
+  font: 600 var(--fs-row) / var(--lh-row) var(--stamp);
+}
+
+/* ---------- from your archive: three small cards, swiped sideways ---------- */
+.ln-echoes {
+  margin-top: 24px;
+  min-width: 0;
+}
+.ln-echoes-title {
+  margin: 0 4px 8px;
+}
+.ln-echo-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(78%, 280px);
+  gap: 10px;
+  margin-inline: calc(-1 * var(--page-pad));
+  padding: 2px var(--page-pad) 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--page-pad);
+  scrollbar-width: none;
+}
+.ln-echo-strip::-webkit-scrollbar {
+  display: none;
+}
+.ln-echo,
+.ln-echo.pressable {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 132px;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  text-align: left;
+  color: var(--ink);
+  scroll-snap-align: start;
+  min-width: 0;
+}
+.ln-echo.is-empty {
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed var(--line-strong);
+}
+.ln-echo-caps {
+  color: var(--ink-3);
+}
+.ln-echo-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font: 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  overflow-wrap: break-word;
+}
+.ln-echo-dash {
+  color: var(--ink-4);
+  font: 600 var(--fs-head) / var(--lh-head) var(--stamp);
+}
+.ln-echo-empty {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}

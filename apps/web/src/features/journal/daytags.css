@@ -1,0 +1,243 @@
+/* Day tags: a card under the day's memory, a row per tag with Yes and No; the sheet of what they do. */
+
+.dt {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px 6px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  font-family: var(--sans);
+  color: var(--ink);
+  min-width: 0;
+}
+.dt-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 4px;
+}
+.dt-count {
+  font-size: var(--fs-foot);
+  color: var(--ink-3);
+}
+.dt-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 2px;
+  border-top: 1px solid var(--line);
+}
+.dt-row:first-child {
+  border-top: 0;
+}
+.dt-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.dt-pair {
+  flex: none;
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--columbia-wash);
+}
+.dt-btn {
+  position: relative;
+  min-width: 52px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--ink-2);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
+}
+/* 32 px to the eye, 44 to the thumb */
+.dt-btn::after {
+  content: '';
+  position: absolute;
+  inset: -6px -2px;
+}
+.dt-btn.is-yes {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.dt-btn.is-no {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--ink-2);
+}
+.dt-add {
+  justify-content: flex-start;
+}
+.dt-addbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 600 var(--fs-sub) / 1 var(--sans);
+}
+.dt-input {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.dt-input:focus {
+  outline: none;
+}
+.dt-input::placeholder {
+  color: var(--ink-4);
+}
+.dt-link {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+}
+
+/* ---------- the sheet: what they do ---------- */
+.dt-sheet {
+  display: grid;
+  gap: 16px;
+}
+.dt-intro,
+.dt-foot {
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+}
+.dt-foot {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.dt-stats {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dt-stat {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-radius: var(--r-group);
+  background: var(--surface);
+  border: var(--card-border);
+}
+.dt-stat-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+}
+.dt-stat-name {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-stat-sum {
+  font-size: var(--fs-foot);
+  color: var(--ink-3);
+}
+.dt-x {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: -6px -8px -6px 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-4);
+}
+.dt-towards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.dt-toward {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.dt-toward-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.dt-toward-top > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-toward.is-full .dt-toward-top {
+  color: var(--ink);
+}
+.dt-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--columbia-wash);
+  overflow: hidden;
+}
+.dt-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: var(--columbia);
+  transform-origin: left;
+}
+.dt-toward.is-full .dt-bar i {
+  background: var(--ink-2);
+}
+.dt-effect {
+  margin: 0;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.dt-effect.has {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+}

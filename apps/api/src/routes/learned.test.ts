@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../db/index.js';
 import { env } from '../env.js';
 import { buildApp } from '../index.js';
-import { streakOf } from './learned.js';
+import { echoesOf, streakOf } from './learned.js';
 
 let app: ReturnType<typeof buildApp>;
 let cookie = '';
@@ -148,6 +148,35 @@ describe('what I learned', () => {
     cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
     expect((await call('POST', '/api/import', ex.body)).body.imported.learnings).toBe(1);
     expect((await call('GET', '/api/learnings')).body.learnings.map((x: { text: string }) => x.text)).toEqual(['Exported']);
+  });
+});
+
+describe('from your archive', () => {
+  const L = (id: string, date: string) => ({ id, date, text: id, createdAt: `${date}T08:00:00.000Z`, editedAt: null });
+  const t = '2026-11-08';
+
+  it('finds the nearest to a year and a month ago, and a random one older than a week', () => {
+    const rows = [L('y-far', '2025-11-01'), L('y', '2025-11-10'), L('m', '2026-10-07'), L('m2', '2026-10-12'), L('old', '2026-02-02'), L('new', '2026-11-05')];
+    const e = echoesOf(rows, t);
+    expect(e.yearAgo?.id).toBe('y');
+    expect(e.monthAgo?.id).toBe('m');
+    expect(['y-far', 'm2', 'old']).toContain(e.random?.id);
+    // the same one all day
+    expect(echoesOf([...rows].reverse(), t).random?.id).toBe(e.random?.id);
+  });
+
+  it('is empty with nothing old enough, and a month back clamps to the month’s end', () => {
+    expect(echoesOf([L('new', '2026-11-05')], t)).toEqual({ yearAgo: null, monthAgo: null, random: null });
+    expect(echoesOf([L('feb', '2026-02-28')], '2026-03-31').monthAgo?.id).toBe('feb');
+  });
+
+  it('serves them from GET /learnings/echoes', async () => {
+    await call('POST', '/api/learnings', { date: shiftDays(T, -30), text: 'A month back' });
+    await call('POST', '/api/learnings', { date: T, text: 'Today is not an echo' });
+    const r = await call('GET', '/api/learnings/echoes');
+    expect(r.status).toBe(200);
+    expect(r.body.random?.text ?? r.body.monthAgo?.text).toBe('A month back');
+    expect(JSON.stringify(r.body)).not.toContain('Today is not an echo');
   });
 });
 
