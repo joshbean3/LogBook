@@ -23,6 +23,8 @@ import { ToastProvider } from './ui/Toast';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/ui.css';
+// the shape system loads after the shared primitives so it wins their ties (App's eager imports come before these three)
+import './styles/shape.css';
 
 const qc = new QueryClient({
   defaultOptions: {
