@@ -210,6 +210,61 @@ describe('asking, with a fake Claude', () => {
     setAssistantClient(null);
   });
 
+  /** A fake that streams: it sends the events it is given, waiting for `go()` before each one after the first `at`. */
+  const streamingClaude = (deltas: string[], at = 1) => {
+    const gates: Array<() => void> = [];
+    let aborted = false;
+    const stream = vi.fn((_: unknown, opts?: { signal?: AbortSignal }) => {
+      opts?.signal?.addEventListener('abort', () => (aborted = true));
+      const events = async function* () {
+        yield { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } };
+        yield { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'Checking the week.' } };
+        yield { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } };
+        for (let i = 0; i < deltas.length; i++) {
+          if (i >= at) await new Promise<void>((r) => gates.push(r));
+          if (aborted) throw new Error('aborted');
+          yield { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: deltas[i] } };
+        }
+      };
+      const it = events();
+      return {
+        [Symbol.asyncIterator]: () => it,
+        finalMessage: async () => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: deltas.join('') }] }) as never,
+      };
+    });
+    setAssistantClient({ beta: { messages: { stream } } } as never);
+    return { go: () => gates.shift()?.(), pending: () => gates.length };
+  };
+  const settle = async () => {
+    for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 30));
+  };
+
+  it('streams: the phone reads the words so far and the reasoning while it runs, the replies tag held back', async () => {
+    const claude = streamingClaude(['You have ', 'two runs left.', '\n<replies>["Move it"]</replies>'], 2);
+    const start = await call('POST', '/api/assistant?async=1', { date: today(), turns: [{ role: 'user', text: 'What is left?' }] });
+    expect(start.status).toBe(202);
+    await settle();
+    const mid = await call('GET', `/api/assistant/jobs/${start.body.jobId}`);
+    expect(mid.body.status).toBe('running');
+    expect(mid.body.live).toMatchObject({ phase: 'writing', text: 'You have two runs left.', thoughts: 'Checking the week.' });
+    claude.go();
+    await settle();
+    const done = await call('GET', `/api/assistant/jobs/${start.body.jobId}`);
+    expect(done.body).toMatchObject({ status: 'done', reply: { text: 'You have two runs left.', replies: ['Move it'], thoughts: 'Checking the week.' } });
+    expect(typeof done.body.reply.thoughtSeconds).toBe('number');
+  });
+
+  it('stops partway: the job reads stopped and Claude’s request is aborted', async () => {
+    const claude = streamingClaude(['Half an ', 'answer'], 1);
+    const start = await call('POST', '/api/assistant?async=1', { date: today(), turns: [{ role: 'user', text: 'Plan my month' }] });
+    await settle();
+    expect((await call('DELETE', `/api/assistant/jobs/${start.body.jobId}`)).body).toEqual({ stopped: true });
+    claude.go();
+    await settle();
+    expect((await call('GET', `/api/assistant/jobs/${start.body.jobId}`)).body).toEqual({ status: 'error', error: { message: 'Stopped.', status: 499, code: 'stopped' } });
+    expect((await call('DELETE', `/api/assistant/jobs/${start.body.jobId}`)).body).toEqual({ stopped: false });
+  });
+
   it('answers with the suggested replies Claude wrote, without the tag', async () => {
     fakeClaude([{ type: 'text', text: 'You have two runs left this week.\n<replies>["Move Thursday to Friday", "Make Saturday shorter"]</replies>' }]);
     const r = await call('POST', '/api/assistant', { date: today(), turns: [{ role: 'user', text: 'What is left?' }] });

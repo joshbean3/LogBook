@@ -692,3 +692,295 @@
     transition: none;
   }
 }
+
+/* ---------- the live answer: what it is doing, its reasoning, its words flowing in (the assistant's feel) ---------- */
+.as-answer {
+  white-space: normal;
+}
+.as-live {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.as-phase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  min-height: 22px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+/* a small orb that breathes in Columbia and orange while it works */
+.as-orb {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, var(--columbia) 45%, var(--accent) 100%);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+  animation: as-breathe 1.6s ease-in-out infinite;
+}
+@keyframes as-breathe {
+  0%,
+  100% {
+    transform: scale(0.85);
+    box-shadow: 0 0 0 2px var(--accent-tint);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px var(--accent-tint);
+  }
+}
+/* the phase words with light passing over them */
+.as-shimmer {
+  background: linear-gradient(90deg, var(--ink-3) 0%, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%, var(--ink-3) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: as-sweep 1.8s linear infinite;
+}
+@keyframes as-sweep {
+  from {
+    background-position: 110% 0;
+  }
+  to {
+    background-position: -110% 0;
+  }
+}
+.as-phase-secs {
+  font: 500 var(--fs-foot) / 1 var(--sans);
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+/* the caret at the end of the words while they arrive */
+.as-caret {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--accent);
+  animation: as-blink 1s ease-in-out infinite;
+}
+@keyframes as-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ---------- formatted words ---------- */
+.as-rich {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.as-rich p,
+.as-rich ul,
+.as-rich ol {
+  margin: 0;
+}
+.as-rich ul,
+.as-rich ol {
+  display: grid;
+  gap: 4px;
+  padding-left: 20px;
+}
+.as-rich li::marker {
+  color: var(--ink-3);
+}
+.as-rich strong {
+  font-weight: 650;
+}
+.as-rich code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font: 500 0.875em / 1 var(--mono);
+}
+.as-rich-h {
+  font-weight: 650;
+}
+
+/* ---------- reasoning, folded ---------- */
+.as-thoughts {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.as-thought-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.as-thought-toggle svg {
+  transition: transform var(--dur) var(--ease-out);
+}
+.as-thoughts.is-open .as-thought-toggle svg {
+  transform: rotate(180deg);
+}
+.as-thought-text {
+  margin: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0 0 0 10px;
+  border-left: 2px solid var(--columbia);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  white-space: pre-wrap;
+}
+.as-thought-for {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-4);
+}
+
+/* ---------- under a finished answer: thought for, Copy, Ask again ---------- */
+.as-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 4px;
+}
+.as-meta-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+.as-meta-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-3);
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.as-meta-btn:active {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.as-stopped {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-4);
+}
+
+/* ---------- send becomes Stop while it works; send lights up once there are words ---------- */
+.as-send {
+  transition:
+    background var(--dur-color),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.as-send.is-ready {
+  animation: as-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.as-send:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.as-send.is-stop {
+  background: var(--ink);
+  color: #fff;
+}
+@keyframes as-pop {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* ---------- jump to the newest, when scrolled up while it writes ---------- */
+.as-jump.icon-btn {
+  position: absolute;
+  top: -52px;
+  left: 50%;
+  margin-left: -20px;
+  z-index: 2;
+  animation: as-rise 200ms var(--ease-out) both;
+}
+.as-compose {
+  position: sticky;
+}
+
+/* ---------- motion: a new turn rises in; a proposal's changes follow one after another ---------- */
+.as-turn.is-new,
+.as-turn.is-live {
+  animation: as-rise 260ms var(--ease-out) both;
+}
+.as-turn.is-new .as-change {
+  animation: as-rise 280ms var(--ease-out) both;
+  animation-delay: calc(80ms + var(--i, 0) * 40ms);
+}
+@keyframes as-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .as-orb,
+  .as-shimmer,
+  .as-caret,
+  .as-turn.is-new,
+  .as-turn.is-live,
+  .as-turn.is-new .as-change,
+  .as-jump.icon-btn,
+  .as-send.is-ready {
+    animation: none;
+  }
+  .as-shimmer {
+    color: var(--ink-3);
+  }
+}
+
+/* lists keep their markers (a base reset strips them) */
+.as-rich ul {
+  list-style: disc;
+}
+.as-rich ol {
+  list-style: decimal;
+}
+/* the meta row as a grid: the fold's toggle and the buttons on one line, the opened reasoning across the full width below */
+.as-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  row-gap: 6px;
+}
+.as-meta > .as-thoughts {
+  display: contents;
+}
+.as-meta .as-thought-toggle {
+  grid-column: 1;
+  grid-row: 1;
+}
+.as-meta .as-thought-text {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.as-meta .as-meta-actions {
+  grid-column: 2;
+  grid-row: 1;
+}

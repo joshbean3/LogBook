@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { TRAINING_STATUS_INFO, fmtDate, screenLabel, statusOn, type TrainingStatus, type Attachment, type AssistantScreen, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal } from '@logbook/shared';
+import { TRAINING_STATUS_INFO, fmtDate, screenLabel, statusOn, type TrainingStatus, type Attachment, type AssistantScreen, mondayOf, monthOf, periodOf, shiftDays, zAssistantOp, type AssistantChange, type AssistantOp, type AssistantProposal, visibleReply, type AssistantLive, type AssistantPhase } from '@logbook/shared';
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DB } from '../db/index.js';
@@ -16,7 +16,9 @@ const MAX_ROUNDS = 6;
 export const MAX_CHANGES = 200;
 
 /** The one call the assistant makes: a streamed message, read whole. */
-export type AssistantClient = { beta: { messages: { stream: (params: Parameters<Anthropic['beta']['messages']['stream']>[0]) => { finalMessage: () => Promise<Anthropic.Beta.BetaMessage> } } } };
+/** The slice of the client the assistant uses. A stream may be iterated for its events (the real one is); a test's fake may only answer finalMessage. */
+export type AssistantStream = { finalMessage: () => Promise<Anthropic.Beta.BetaMessage>; [Symbol.asyncIterator]?: () => AsyncIterator<Anthropic.Beta.BetaRawMessageStreamEvent> };
+export type AssistantClient = { beta: { messages: { stream: (params: Parameters<Anthropic['beta']['messages']['stream']>[0], options?: { signal?: AbortSignal }) => AssistantStream } } };
 let client: Anthropic | null = null;
 let injected: AssistantClient | null = null;
 /** Tests hand in a fake client; null puts the real one back. */
@@ -240,6 +242,14 @@ export interface AskResult {
   text: string;
   proposal: AssistantProposal | null;
   replies?: string[];
+  thoughts?: string;
+  thoughtSeconds?: number;
+}
+
+/** How an ask is watched while it runs: the signal that stops it, and where its progress goes (assistantJobs.ts). */
+export interface AskOptions {
+  signal?: AbortSignal;
+  progress?: (live: AssistantLive) => void;
 }
 
 const REPLIES = /<replies>([\s\S]*?)(?:<\/replies>|$)/i;
@@ -300,28 +310,81 @@ export const messagesFor = (turns: AskTurn[], context: string): Anthropic.Beta.B
   });
 };
 
-export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string, today: string, screen?: AssistantScreen): Promise<AskResult> => {
+export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string, today: string, screen?: AssistantScreen, opts: AskOptions = {}): Promise<AskResult> => {
   if (!env.claudeConfigured) throw new ApiError(503, 'The assistant needs ANTHROPIC_API_KEY on the server.', 'claude_not_configured');
   const history = turns.slice(-20);
   const last = history[history.length - 1]!;
   if (last.role !== 'user') throw new ApiError(400, 'The last turn must be yours.');
   const messages = messagesFor(history, contextFor(db, userId, today, date, screen));
 
+  // live progress for the phone: what it is doing, the words so far (earlier rounds' and this one's), the reasoning summary
+  const t0 = Date.now();
+  let phase: AssistantPhase = 'thinking';
+  let earlier = '';
+  let thoughts = '';
+  let sentAt = 0;
+  let trailing: ReturnType<typeof setTimeout> | null = null;
+  let latest = '';
+  const seconds = () => Math.max(0, Math.round((Date.now() - t0) / 1000));
+  const send = () => {
+    trailing = null;
+    sentAt = Date.now();
+    opts.progress?.({ phase, text: visibleReply([earlier, latest].filter(Boolean).join('\n\n')), thoughts: thoughts.trim().slice(-1500), seconds: seconds() });
+  };
+  // at most every 100 ms, and always the last words before a pause (a trailing send), so nothing waits on the next chunk
+  const report = (current: string, force = false) => {
+    if (!opts.progress) return;
+    latest = current;
+    const wait = 100 - (Date.now() - sentAt);
+    if (force || wait <= 0) {
+      if (trailing) clearTimeout(trailing);
+      send();
+    } else if (!trailing) trailing = setTimeout(send, wait);
+  };
+  const finish = (r: AskResult): AskResult => {
+    if (trailing) clearTimeout(trailing);
+    trailing = null;
+    return { ...r, ...(thoughts.trim() ? { thoughts: thoughts.trim().slice(-4000) } : {}), thoughtSeconds: seconds() };
+  };
+  report('', true);
+
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    const res = await anthropic()
-      .beta.messages.stream({
+    const stream = anthropic().beta.messages.stream(
+      {
         model: ASSISTANT_MODEL,
         max_tokens: 32000,
         system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
         tools: TOOLS,
         tool_choice: { type: 'auto' },
+        // a readable summary of the reasoning, shown folded under the answer ("Thought for 6s")
+        thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: 'medium' },
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
         messages,
-      })
-      .finalMessage();
-    if (res.stop_reason === 'refusal') return { text: 'I can’t help with that one.', proposal: null };
+      },
+      { signal: opts.signal },
+    );
+    let current = '';
+    for await (const ev of (stream[Symbol.asyncIterator] ? (stream as AsyncIterable<Anthropic.Beta.BetaRawMessageStreamEvent>) : [])) {
+      if (ev.type === 'content_block_start') {
+        const b = ev.content_block;
+        if (b.type === 'thinking') phase = 'thinking';
+        else if (b.type === 'text') phase = 'writing';
+        else if (b.type === 'tool_use') phase = b.name === 'propose_changes' ? 'proposing' : 'reading';
+        report(current, true);
+      } else if (ev.type === 'content_block_delta') {
+        if (ev.delta.type === 'text_delta') {
+          current += ev.delta.text;
+          report(current);
+        } else if (ev.delta.type === 'thinking_delta') {
+          thoughts += ev.delta.thinking;
+          report(current);
+        }
+      }
+    }
+    const res = await stream.finalMessage();
+    if (res.stop_reason === 'refusal') return finish({ text: 'I can’t help with that one.', proposal: null });
     // the whole turn goes back as it came (tool calls and thinking blocks included)
     messages.push({ role: 'assistant', content: res.content });
     const calls = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
@@ -331,8 +394,10 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
         .map((b) => b.text)
         .join('\n'),
     );
-    if (res.stop_reason === 'max_tokens') return { text: 'That came out too long to write in one go. Ask for it a few weeks at a time.', proposal: null };
-    if (!calls.length) return { text: said || 'Done.', proposal: null, replies };
+    if (res.stop_reason === 'max_tokens') return finish({ text: 'That came out too long to write in one go. Ask for it a few weeks at a time.', proposal: null });
+    if (!calls.length) return finish({ text: said || 'Done.', proposal: null, replies });
+    // what was said before a tool call stays on screen while the next round runs
+    if (said) earlier = [earlier, said].filter(Boolean).join('\n\n');
 
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
@@ -352,7 +417,7 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
           const changes: AssistantChange[] = p.data.changes.map((op) => ({ op, label: labelOp(db, userId, op, today), ...(op.why ? { reason: op.why } : {}) }));
           const id = uid('aa');
           db.insert(assistantActions).values({ id, userId, ask: (last.text || (last.attachments?.length ? `[${last.attachments.map((f) => f.name).join(', ')}]` : '')).slice(0, 2000), summary: p.data.summary, ops: JSON.stringify(p.data.changes), labels: JSON.stringify(changes.map((c) => c.label)), undo: null, status: 'proposed', createdAt: nowISO(), appliedAt: null }).run();
-          return { text: said, proposal: { id, summary: p.data.summary, changes, status: 'proposed' }, replies };
+          return finish({ text: [earlier === said ? '' : earlier, said].filter(Boolean).join('\n\n') || said, proposal: { id, summary: p.data.summary, changes, status: 'proposed' }, replies });
         } catch (e) {
           results.push({ type: 'tool_result', tool_use_id: call.id, is_error: true, content: e instanceof Error ? e.message : 'A change did not check out.' });
         }
@@ -362,7 +427,7 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
     }
     messages.push({ role: 'user', content: results });
   }
-  return { text: 'That took too many steps. Try asking for one change at a time.', proposal: null };
+  return finish({ text: 'That took too many steps. Try asking for one change at a time.', proposal: null });
 };
 
 // ---------- applying and undoing ----------

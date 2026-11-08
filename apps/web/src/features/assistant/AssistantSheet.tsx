@@ -1,6 +1,7 @@
-import { fmtDate, screenLabel, type AssistantChange, type AssistantProposal, type AssistantScreen, type ISODate } from '@logbook/shared';
+import { fmtDate, PHASE_WORDS, screenLabel, type AssistantChange, type AssistantLive, type AssistantProposal, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
 import {
   Activity,
+  ArrowDown,
   ArrowUp,
   Bike,
   BookOpen,
@@ -9,8 +10,10 @@ import {
   CalendarX,
   Check,
   CheckSquare,
+  ChevronDown,
   ChevronUp,
   CircleAlert,
+  Copy,
   CornerDownRight,
   Dumbbell,
   FileText,
@@ -21,6 +24,7 @@ import {
   RotateCcw,
   RotateCw,
   Sparkles,
+  Square,
   SquarePen,
   Sun,
   Target,
@@ -28,7 +32,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { askAssistant, useAssistantActions } from '@/api/queries';
+import { askAssistant, stopAssistant, useAssistantActions } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
@@ -37,8 +41,9 @@ import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
 import { AttachError, prepareFile, type PreparedFile } from './attach';
-import { retryAsk, sendTurn } from './conversation';
-import { assistantStore, useAssistantBusy, useAssistantTurns } from './store';
+import { regenerate, retryAsk, sendTurn, stopAsk } from './conversation';
+import { Rich } from './Rich';
+import { assistantStore, useAssistantBusy, useAssistantLive, useAssistantTurns } from './store';
 import './assistant.css';
 
 /** What a change is about, for its icon: a workout added, a change to the plan's days, a to-do, a goal. Deletes are flagged. */
@@ -107,7 +112,7 @@ const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: boolean }
           const { Icon, risky } = kindOf(c);
           const off = skipped.has(i);
           return (
-            <li key={i} className={`as-change${off ? ' is-off' : ''}${risky ? ' is-risky' : ''}`}>
+            <li key={i} className={`as-change${off ? ' is-off' : ''}${risky ? ' is-risky' : ''}`} style={{ '--i': Math.min(i, 12) } as React.CSSProperties}>
               <span className="icon-tile as-change-ic" aria-hidden="true">
                 <Icon size={16} strokeWidth={2.2} />
               </span>
@@ -200,25 +205,111 @@ const startersFor = (date: ISODate, today: ISODate) => {
   ];
 };
 
-/** The working state: three dots, and after 12 s a line that says it is still going and that closing is fine. */
-const Working = ({ since }: { since: number }) => {
-  const [slow, setSlow] = useState(() => Date.now() - since >= 12_000);
+/** Seconds since `since`, ticking once a second while shown. */
+const useSeconds = (since: number) => {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const left = 12_000 - (Date.now() - since);
-    if (left <= 0) return setSlow(true);
-    const t = setTimeout(() => setSlow(true), left);
-    return () => clearTimeout(t);
-  }, [since]);
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return Math.max(0, Math.floor((now - since) / 1000));
+};
+
+/**
+ * The words as they arrive, revealed smoothly: the server's text comes in chunks a third of a second apart; this lets
+ * the shown text catch up a few characters a frame, so it flows instead of jumping.
+ */
+const useSmoothText = (target: string) => {
+  const [n, setN] = useState(target.length);
+  const want = useRef(target);
+  want.current = target;
+  useEffect(() => {
+    let raf = 0;
+    const step = () => {
+      setN((cur) => {
+        const goal = want.current.length;
+        if (cur > goal) return goal;
+        if (cur === goal) return cur;
+        return Math.min(goal, cur + Math.max(1, Math.ceil((goal - cur) / 9)));
+      });
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return target.slice(0, Math.min(n, target.length));
+};
+
+/** The reasoning summary, folded: "Thought for 6s ›" opens it. */
+const Thoughts = ({ text, seconds, live }: { text: string; seconds: number; live?: boolean }) => {
+  const [open, setOpen] = useState(false);
+  if (!text && !live) return seconds >= 1 ? <span className="as-thought-for">Thought for {seconds}s</span> : null;
   return (
-    <div className="as-turn is-assistant">
-      <div className="as-answer as-working">
-        <p className="as-typing" aria-label="Working on it">
-          <i />
-          <i />
-          <i />
-        </p>
-        {slow ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+    <div className={`as-thoughts${open ? ' is-open' : ''}`}>
+      <button type="button" className="as-thought-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        {live ? 'Show thinking' : `Thought for ${Math.max(1, seconds)}s`}
+        <ChevronDown size={14} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+      {open ? <p className="as-thought-text">{text || '…'}</p> : null}
+    </div>
+  );
+};
+
+/**
+ * The answer while it is written (docs/inspiration.md §4): what it is doing now with the seconds running ("Reading your
+ * plan · 4s", a shimmer over the words), its reasoning to open, and its words so far flowing in behind a caret. Before the
+ * first look comes back it says Thinking. After 20 s a line says closing is fine.
+ */
+const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null }) => {
+  const secs = useSeconds(since);
+  const text = useSmoothText(live?.text ?? '');
+  const phase = live?.phase ?? 'thinking';
+  const writing = phase === 'writing' && text.length > 0;
+  return (
+    <div className="as-turn is-assistant is-live">
+      <div className="as-answer as-live" aria-busy="true">
+        {!writing ? (
+          <p className="as-phase" aria-live="polite">
+            <span className="as-orb" aria-hidden="true" />
+            <span className="as-shimmer">{PHASE_WORDS[phase]}</span>
+            <span className="as-phase-secs">{secs}s</span>
+          </p>
+        ) : null}
+        {live?.thoughts ? <Thoughts text={live.thoughts} seconds={secs} live /> : null}
+        {text ? <Rich text={text} after={writing ? <span className="as-caret" aria-hidden="true" /> : null} /> : null}
+        {secs >= 20 && !text ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
       </div>
+    </div>
+  );
+};
+
+/** Under a finished answer: how long it thought, Copy, and Regenerate on the newest one. */
+const AnswerMeta = ({ t, newest, onRegenerate }: { t: AssistantTurn; newest: boolean; onRegenerate: () => void }) => {
+  const [copied, setCopied] = useState(false);
+  const toast = useToast();
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(t.text);
+      haptics.select();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      toast('Couldn’t copy that.');
+    }
+  };
+  return (
+    <div className="as-meta">
+      {t.stopped ? <span className="as-stopped">Stopped</span> : <Thoughts text={t.thoughts ?? ''} seconds={t.thoughtSeconds ?? 0} />}
+      <span className="as-meta-actions">
+        <button type="button" className="as-meta-btn" aria-label={copied ? 'Copied' : 'Copy'} onClick={() => void copy()}>
+          {copied ? <Check size={15} strokeWidth={2.6} aria-hidden="true" /> : <Copy size={15} strokeWidth={2.2} aria-hidden="true" />}
+        </button>
+        {newest ? (
+          <button type="button" className="as-meta-btn" aria-label="Ask again" onClick={onRegenerate}>
+            <RotateCw size={15} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        ) : null}
+      </span>
     </div>
   );
 };
@@ -246,7 +337,10 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
   const today = useToday();
   const turns = useAssistantTurns();
   const busySince = useAssistantBusy();
+  const live = useAssistantLive();
   const busy = busySince !== null;
+  // turns added while the sheet is open come in with a rise; the ones already there just show
+  const mountedAt = useRef(turns.length);
   const [screen, setScreen] = useState(openedFrom);
   // with the screen removed, the question is about no page in particular: today
   const askDate = openedFrom && !screen ? today : date;
@@ -275,6 +369,25 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
       if (body) body.scrollTop = body.scrollHeight;
     }
   }, [turns.length, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // follow the words as they come while the thread is at its bottom; scrolled up to read, it stays put and offers a jump
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    const body = end.current?.closest<HTMLElement>('.sheet-body');
+    if (!body) return;
+    const on = () => setAway(body.scrollHeight - body.scrollTop - body.clientHeight > 140);
+    body.addEventListener('scroll', on, { passive: true });
+    return () => body.removeEventListener('scroll', on);
+  }, []);
+  useLayoutEffect(() => {
+    if (away) return;
+    const body = end.current?.closest<HTMLElement>('.sheet-body');
+    if (body) body.scrollTop = body.scrollHeight;
+  }, [live?.text, live?.phase, live?.thoughts]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toBottom = () => {
+    const body = end.current?.closest<HTMLElement>('.sheet-body');
+    body?.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+  };
 
   // the newest proposal still waiting for a decision, and whether it has scrolled away
   const waiting = [...turns].reverse().find((t) => t.proposal?.status === 'proposed')?.proposal ?? null;
@@ -369,7 +482,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
           </div>
         ) : (
           turns.map((t, i) => (
-            <div key={i} ref={i === turns.length - 1 ? lastTurn : undefined} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}`}>
+            <div key={i} ref={i === turns.length - 1 ? lastTurn : undefined} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}${i >= mountedAt.current ? ' is-new' : ''}`}>
               {t.files?.length ? <TurnFiles files={t.files} /> : null}
               {t.error ? (
                 <div className="as-error" role="alert">
@@ -382,17 +495,29 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
                   ) : null}
                 </div>
               ) : t.text ? (
-                <p className={t.role === 'user' ? 'as-bubble' : 'as-answer'}>{t.text}</p>
+                t.role === 'user' ? (
+                  <p className="as-bubble">{t.text}</p>
+                ) : (
+                  <div className="as-answer">
+                    <Rich text={t.text} />
+                  </div>
+                )
               ) : null}
               {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
+              {t.role === 'assistant' && !t.error ? <AnswerMeta t={t} newest={i === turns.length - 1 && !busy} onRegenerate={() => void regenerate(askAssistant, askDate, screen)} /> : null}
             </div>
           ))
         )}
         {replies ? <ReplyRows items={replies} label="Suggested replies" onPick={send} /> : null}
-        {busySince !== null ? <Working since={busySince} /> : null}
+        {busySince !== null ? <LiveAnswer since={busySince} live={live} /> : null}
         <div ref={end} />
       </div>
       <div className="as-compose">
+        {away && (busy || turns.length > 0) && !(waiting && outOfView) ? (
+          <button type="button" className="icon-btn as-jump" aria-label="Jump to the newest" onClick={toBottom}>
+            <ArrowDown size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : null}
         {waiting && outOfView ? (
           <button type="button" className="as-review" onClick={() => waitingEl?.scrollIntoView({ block: 'start', behavior: 'smooth' })}>
             <span className="as-review-n" aria-hidden="true">
@@ -450,9 +575,15 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               }
             }}
           />
-          <button type="button" className="as-send" aria-label="Send" disabled={(!draft.trim() && !pending.length) || busy || preparing} onClick={() => send(draft)}>
-            <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
-          </button>
+          {busy ? (
+            <button type="button" className="as-send is-stop" aria-label="Stop" onClick={() => void stopAsk(stopAssistant)}>
+              <Square size={13} strokeWidth={0} fill="currentColor" aria-hidden="true" />
+            </button>
+          ) : (
+            <button type="button" className={`as-send${draft.trim() || pending.length ? ' is-ready' : ''}`} aria-label="Send" disabled={(!draft.trim() && !pending.length) || preparing} onClick={() => send(draft)}>
+              <ArrowUp size={18} strokeWidth={2.6} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     </div>

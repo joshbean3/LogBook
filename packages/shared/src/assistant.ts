@@ -96,6 +96,11 @@ export interface AssistantTurn {
   replies?: string[];
   /** An ask that did not go through: shown with Retry, never sent back to the assistant. */
   error?: boolean;
+  /** A short summary of how the assistant reasoned, and for how many seconds (shown folded, "Thought for 6s"). */
+  thoughts?: string;
+  thoughtSeconds?: number;
+  /** The owner stopped this answer partway: its words so far are kept, never sent back as if finished. */
+  stopped?: boolean;
 }
 
 // ---------- attachments: photos and PDFs sent to the assistant ----------
@@ -127,8 +132,37 @@ export const zAttachment = z
   });
 export type Attachment = z.infer<typeof zAttachment>;
 
+/**
+ * An answer while it is being written (GET /assistant/jobs/:id, status running): what it is doing now, the words so far
+ * (the suggested-replies line held back until it is whole), and a running summary of its reasoning.
+ */
+export type AssistantPhase = 'thinking' | 'reading' | 'writing' | 'proposing';
+export interface AssistantLive {
+  phase: AssistantPhase;
+  text: string;
+  thoughts: string;
+  /** Seconds since the ask started, as the server counts them. */
+  seconds: number;
+}
+export const PHASE_WORDS: Record<AssistantPhase, string> = { thinking: 'Thinking', reading: 'Reading your plan', writing: 'Writing', proposing: 'Drafting the changes' };
+
+/**
+ * The words of a reply as they stream: everything before the suggested-replies line, and nothing of a tag still being
+ * written ("…next week.<rep" shows "…next week."), so the reader never sees markup flash.
+ */
+export const visibleReply = (raw: string): string => {
+  const at = raw.search(/<replies/i);
+  if (at >= 0) return raw.slice(0, at).trimEnd();
+  const lt = raw.lastIndexOf('<');
+  if (lt >= 0 && '<replies>'.startsWith(raw.slice(lt).toLowerCase())) return raw.slice(0, lt).trimEnd();
+  return raw;
+};
+
 export interface AssistantReply {
   text: string;
+  /** A short summary of the reasoning, and how long the answer took (seconds). */
+  thoughts?: string;
+  thoughtSeconds?: number;
   proposal: AssistantProposal | null;
   /** Up to three follow-ups in the owner's voice; none without a key or when Claude wrote none that read right. */
   replies?: string[];

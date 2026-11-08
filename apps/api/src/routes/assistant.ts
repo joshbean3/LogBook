@@ -5,7 +5,7 @@ import type { DB } from '../db/index.js';
 import { env } from '../env.js';
 import { ApiError, parseBody } from '../lib/util.js';
 import { applyAction, ask, dismissAction, recentActions, undoAction } from '../services/assistant.js';
-import { jobState, startJob } from '../services/assistantJobs.js';
+import { cancelJob, jobState, startJob, type JobContext } from '../services/assistantJobs.js';
 
 /**
  * The assistant on Today: ask (Claude answers, or proposes checked changes that are saved, not applied), then apply,
@@ -24,7 +24,7 @@ export const assistantRoutes = (db: DB) => {
     if (!env.claudeConfigured) return c.json({ text: 'The assistant needs a Claude key on the server (ANTHROPIC_API_KEY).', proposal: null, available: false });
     const userId = uidOf(c);
     const today = c.get('today');
-    const run = async () => ({ ...(await ask(db, userId, body.turns, body.date, today, body.screen)), available: true as const });
+    const run = async (ctx?: JobContext) => ({ ...(await ask(db, userId, body.turns, body.date, today, body.screen, ctx ?? {})), available: true as const });
     if (c.req.query('async') === '1') return c.json({ jobId: startJob(userId, run) }, 202);
     return c.json(await run());
   });
@@ -33,6 +33,8 @@ export const assistantRoutes = (db: DB) => {
     if (!state) return c.json({ error: 'That answer is no longer here (the server may have restarted). Send it again.', code: 'job_gone' }, 404);
     return c.json(state);
   });
+  /** Stop an answer partway (the Stop button): its request to Claude is aborted; the job then reads as stopped. */
+  r.delete('/assistant/jobs/:id', (c) => c.json({ stopped: cancelJob(uidOf(c), c.req.param('id')) }));
   /** Apply. An optional body `{ skip: [indexes] }` leaves out the changes the owner removed; no body applies them all. */
   r.post('/assistant/:id/apply', async (c) => {
     const raw = await c.req.text();

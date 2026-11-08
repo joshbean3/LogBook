@@ -1172,12 +1172,20 @@ export const useTodoGroupMutations = () => {
  * Ask the assistant. The ask runs on the server in the background and the app reads its answer with short requests
  * (features/assistant/poll.ts), so a long one (a plan read from photos) never hangs on one request.
  */
-export const askAssistant = (date: string, turns: Array<{ role: 'user' | 'assistant'; text: string; attachments?: Attachment[] }>, screen?: import('@logbook/shared').AssistantScreen) =>
+export const askAssistant = (
+  date: string,
+  turns: Array<{ role: 'user' | 'assistant'; text: string; attachments?: Attachment[] }>,
+  screen?: import('@logbook/shared').AssistantScreen,
+  watch: { onJob?: (id: string) => void; onProgress?: (live: import('@logbook/shared').AssistantLive) => void } = {},
+) =>
   askAndWait<AssistantReply>(
     () => api<{ jobId: string } | AssistantReply>('/assistant?async=1', { method: 'POST', json: { date, turns, ...(screen ? { screen } : {}) } }),
     (id) => api<JobAnswer<AssistantReply>>(`/assistant/jobs/${encodeURIComponent(id)}`),
-    { isTransient: (e) => e instanceof NetworkError },
+    { isTransient: (e) => e instanceof NetworkError, ...watch },
   );
+
+/** Stop an answer partway (the Stop button). */
+export const stopAssistant = (jobId: string) => api<{ stopped: boolean }>(`/assistant/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
 
 export const useAssistantActions = () => {
   const qc = useQueryClient();

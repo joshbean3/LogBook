@@ -1,5 +1,7 @@
+import type { AssistantLive } from '@logbook/shared';
+
 /** What the server answers for an ask in the background (GET /assistant/jobs/:id). */
-export type JobAnswer<T> = { status: 'running' } | { status: 'done'; reply: T } | { status: 'error'; error: { message: string; status: number; code: string | null } };
+export type JobAnswer<T> = { status: 'running'; live?: AssistantLive } | { status: 'done'; reply: T } | { status: 'error'; error: { message: string; status: number; code: string | null } };
 
 export class AskError extends Error {
   constructor(
@@ -18,12 +20,21 @@ export interface WaitOptions {
   now?: () => number;
   /** True for an error that means "the phone could not reach the server" this time (worth another try). */
   isTransient?: (e: unknown) => boolean;
+  /** The job's id as soon as the server gives it (so the ask can be stopped). */
+  onJob?: (id: string) => void;
+  /** Each new look at the answer while it is written: what it is doing, its words so far, its reasoning. */
+  onProgress?: (live: AssistantLive) => void;
 }
 
+/** How long to wait before the next look: quick while words arrive, easing off while nothing changes. */
+export const nextDelay = (prev: number, changed: boolean) => (changed ? 350 : Math.min(1500, Math.round(prev * 1.35)));
+
 /**
- * Start an ask, then read its answer with short requests until it is ready: 1.2 s apart at first, easing to 3 s. A check
- * that cannot reach the server is tried again (a tunnel, a locked screen) until the time runs out; any other failure ends
- * it. A server with nothing to wait on (no Claude key) answers in the first response.
+ * Start an ask, then read its answer with short requests until it is ready. While the answer is being written the server
+ * holds its words so far; each look passes them on (`onProgress`), about three a second while they change, easing to
+ * one and a half seconds apart while nothing does. A look that cannot reach the server is tried again (a tunnel, a locked
+ * screen) until the time runs out; any other failure ends it. A server with nothing to wait on (no Claude key) answers in
+ * the first response.
  */
 export const askAndWait = async <T>(start: () => Promise<{ jobId: string } | T>, check: (jobId: string) => Promise<JobAnswer<T>>, opts: WaitOptions = {}): Promise<T> => {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -31,19 +42,28 @@ export const askAndWait = async <T>(start: () => Promise<{ jobId: string } | T>,
   const deadline = now() + (opts.maxMs ?? 8 * 60_000);
   const first = await start();
   if (!first || typeof first !== 'object' || !('jobId' in first)) return first as T;
-  let delay = 1200;
+  opts.onJob?.(first.jobId);
+  let delay = 400;
+  let seen = '';
   while (now() < deadline) {
     await sleep(delay);
-    delay = Math.min(3000, delay + 300);
     let a: JobAnswer<T>;
     try {
       a = await check(first.jobId);
     } catch (e) {
-      if (opts.isTransient?.(e)) continue;
+      if (opts.isTransient?.(e)) {
+        delay = 1500;
+        continue;
+      }
       throw e;
     }
     if (a.status === 'done') return a.reply;
     if (a.status === 'error') throw new AskError(a.error.message, a.error.status, a.error.code);
+    const key = a.live ? `${a.live.phase}|${a.live.text.length}|${a.live.thoughts.length}` : '';
+    const changed = key !== seen;
+    seen = key;
+    if (a.live && changed) opts.onProgress?.(a.live);
+    delay = nextDelay(delay, changed);
   }
   throw new AskError('This is taking longer than it should. Try again, or ask for less at once.', 504, 'too_slow');
 };

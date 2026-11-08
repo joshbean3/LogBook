@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../lib/util.js';
-import { JOB_TTL_MS, jobState, startJob } from './assistantJobs.js';
+import { cancelJob, JOB_TTL_MS, jobState, startJob } from './assistantJobs.js';
 import { MAX_CHANGES, zProposal } from './assistant.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -33,6 +33,32 @@ describe('an ask the phone does not wait on', () => {
     const id = startJob('u1', () => new Promise(() => undefined), t0);
     expect(jobState('u1', id, t0 + JOB_TTL_MS - 1)).toEqual({ status: 'running' });
     expect(jobState('u1', id, t0 + JOB_TTL_MS + 1)).toBeNull();
+  });
+});
+
+describe('an answer as it is written, and stopping it', () => {
+  it('shows the words so far while it runs', async () => {
+    let say!: (t: string) => void;
+    const id = startJob('u1', ({ progress }) => new Promise<string>(() => (say = (text) => progress({ phase: 'writing', text, thoughts: '', seconds: 2 }))));
+    say('Moved the tempo');
+    expect(jobState('u1', id)).toEqual({ status: 'running', live: { phase: 'writing', text: 'Moved the tempo', thoughts: '', seconds: 2 } });
+  });
+
+  it('stops: the request is aborted, the job says stopped, and a late answer does not replace that', async () => {
+    let signal!: AbortSignal;
+    let finish!: (v: string) => void;
+    const id = startJob('u1', (ctx) => {
+      signal = ctx.signal;
+      return new Promise<string>((r) => (finish = r));
+    });
+    expect(cancelJob('u2', id)).toBe(false);
+    expect(cancelJob('u1', id)).toBe(true);
+    expect(signal.aborted).toBe(true);
+    expect(jobState('u1', id)).toEqual({ status: 'error', error: { message: 'Stopped.', status: 499, code: 'stopped' } });
+    finish('too late');
+    await tick();
+    expect(jobState('u1', id)).toMatchObject({ status: 'error' });
+    expect(cancelJob('u1', id)).toBe(false);
   });
 });
 

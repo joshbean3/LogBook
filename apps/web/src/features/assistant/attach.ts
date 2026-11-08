@@ -89,6 +89,8 @@ export interface RequestTurn {
 
 const wordsOf = (t: AssistantTurn) => {
   const p = t.proposal;
+  // an answer the owner stopped goes back as what it was: cut short
+  if (t.stopped) return `${t.text}\n[He stopped this answer partway.]`;
   if (!p) return t.text;
   const left = p.skipped?.length ? ` He left out: ${p.skipped.map((i) => p.changes[i]?.label ?? `change ${i + 1}`).join('; ')}.` : '';
   return `${t.text}\n[Proposed: ${p.summary} Status: ${p.status}.${left}]`.trim();

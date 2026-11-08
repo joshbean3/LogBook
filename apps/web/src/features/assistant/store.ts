@@ -1,4 +1,4 @@
-import type { AssistantProposal, AssistantTurn, Attachment } from '@logbook/shared';
+import type { AssistantLive, AssistantProposal, AssistantTurn, Attachment } from '@logbook/shared';
 import { useSyncExternalStore } from 'react';
 
 /**
@@ -17,6 +17,9 @@ let turns: AssistantTurn[] = (() => {
 })();
 /** When the ask now out started (ms), or null. Memory only: a reload loses the job anyway. */
 let busySince: number | null = null;
+/** The answer being written (its words so far, what it is doing), and the job to stop it by. Memory only. */
+let live: AssistantLive | null = null;
+let jobId: string | null = null;
 /** Bumped by "New": an answer that comes back for a cleared conversation is dropped. */
 let generation = 0;
 const subs = new Set<() => void>();
@@ -56,12 +59,33 @@ export const assistantStore = {
   },
   setBusy: (since: number | null) => {
     busySince = since;
+    if (since === null) {
+      live = null;
+      jobId = null;
+    }
     subs.forEach((f) => f());
+  },
+  live: () => live,
+  setLive: (l: AssistantLive | null) => {
+    live = l;
+    subs.forEach((f) => f());
+  },
+  jobId: () => jobId,
+  setJob: (id: string | null) => {
+    jobId = id;
+  },
+  /** Takes off the last assistant turn (Regenerate asks again without it). */
+  dropLastAnswer: () => {
+    if (turns[turns.length - 1]?.role !== 'assistant') return;
+    turns = turns.slice(0, -1);
+    emit();
   },
   clear: () => {
     turns = [];
     generation++;
     busySince = null;
+    live = null;
+    jobId = null;
     emit();
   },
   subscribe: (f: () => void) => {
@@ -72,3 +96,5 @@ export const assistantStore = {
 
 export const useAssistantTurns = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.get, assistantStore.get);
 export const useAssistantBusy = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.busySince, assistantStore.busySince);
+
+export const useAssistantLive = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.live, assistantStore.live);

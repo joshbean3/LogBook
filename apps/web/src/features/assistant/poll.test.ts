@@ -13,12 +13,18 @@ describe('waiting on an ask', () => {
     expect(reply).toEqual({ text: 'no key', proposal: null });
   });
 
-  it('checks until the answer is ready, easing from 1.2 s to 3 s apart', async () => {
+  it('checks until the answer is ready: quick while words arrive, easing off while nothing changes', async () => {
     const c = clock();
-    const answers: JobAnswer<string>[] = [{ status: 'running' }, { status: 'running' }, { status: 'running' }, { status: 'done', reply: 'Here is the plan.' }];
-    const reply = await askAndWait<string>(async () => ({ jobId: 'aj1' }), async () => answers.shift()!, c);
-    expect(reply).toBe('Here is the plan.');
-    expect(c.elapsed()).toBe(1200 + 1500 + 1800 + 2100);
+    const live = (text: string) => ({ phase: 'writing' as const, text, thoughts: '', seconds: 1 });
+    const answers: JobAnswer<string>[] = [{ status: 'running' }, { status: 'running', live: live('Two') }, { status: 'running', live: live('Two runs') }, { status: 'running', live: live('Two runs') }, { status: 'done', reply: 'Two runs left.' }];
+    const seen: string[] = [];
+    let job = '';
+    const reply = await askAndWait<string>(async () => ({ jobId: 'aj1' }), async () => answers.shift()!, { ...c, onJob: (id) => (job = id), onProgress: (l) => seen.push(l.text) });
+    expect(reply).toBe('Two runs left.');
+    expect(job).toBe('aj1');
+    expect(seen).toEqual(['Two', 'Two runs']);
+    // 400 first; nothing new (540); words (350, 350); the same words again (473)
+    expect(c.elapsed()).toBe(400 + 540 + 350 + 350 + 473);
   });
 
   it('rides out checks that cannot reach the server, and stops on any other failure', async () => {
