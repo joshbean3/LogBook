@@ -1,5 +1,5 @@
 import { monthOf, type LiftSet } from '@logbook/shared';
-import { Check, Delete, Minus, Plus, X } from 'lucide-react';
+import { Check, ChevronRight, Delete, Dumbbell, Minus, Plus, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useAllLifts, useLiftMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -127,10 +127,14 @@ export const LiftLog = ({ date, onDone }: { date: string; onDone?: (logged: numb
   const group = (exercise: string, rows: LiftSet[], isActive: boolean) => (
     <section key={exercise.toLowerCase()} className={`lft ${isActive ? 'is-active' : ''}`} aria-label={exercise}>
       <PressButton press="surface" className="lft-head" onClick={() => pickExercise(exercise)} aria-label={`${exercise}: ${rows.length} ${rows.length === 1 ? 'set' : 'sets'}. Add a set`}>
-        <span className="lft-name">{exercise}</span>
-        <span className="lft-count tnum">
-          {rows.length} {rows.length === 1 ? 'set' : 'sets'}
+        <span className="icon-tile lft-ic" aria-hidden="true">
+          <Dumbbell size={17} />
         </span>
+        <span className="lft-head-main">
+          <span className="lft-name">{exercise}</span>
+          <span className="lft-count tnum">{rows.length ? `${rows.length} ${rows.length === 1 ? 'set' : 'sets'}` : 'The first set'}</span>
+        </span>
+        <Plus size={18} className="lft-head-add" aria-hidden="true" />
       </PressButton>
       <ol className="lft-sets">
         {rows.map((s, i) => (
@@ -232,17 +236,25 @@ export const LiftLog = ({ date, onDone }: { date: string; onDone?: (logged: numb
           </Button>
         </div>
       ) : (
-        <Button
-          variant="soft"
-          className="lft-open"
-          onClick={() => {
-            setOpen(true);
-            if (!name && groups.length) pickExercise(groups[groups.length - 1]!.exercise);
-          }}
-        >
-          <Plus size={16} aria-hidden="true" />
-          {groups.length ? 'Add a set' : 'Log sets'}
-        </Button>
+        <div className="group lft-open-group">
+          <PressButton
+            press="surface"
+            className="lft-open-row"
+            onClick={() => {
+              setOpen(true);
+              if (!name && groups.length) pickExercise(groups[groups.length - 1]!.exercise);
+            }}
+          >
+            <span className="icon-tile" aria-hidden="true">
+              <Plus size={18} />
+            </span>
+            <span className="lft-open-main">
+              <span className="lft-open-title">{groups.length ? 'Add a set' : 'Log sets'}</span>
+              <span className="lft-open-sub">{groups.length ? `${sets.length} ${sets.length === 1 ? 'set' : 'sets'} so far` : 'None yet. Last time’s numbers fill in.'}</span>
+            </span>
+            <ChevronRight size={18} className="lft-open-chev" aria-hidden="true" />
+          </PressButton>
+        </div>
       )}
     </div>
   );

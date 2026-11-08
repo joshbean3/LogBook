@@ -49,9 +49,22 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block, still }
   const t = log.today;
   const next = addMonths(first, 1);
   const ready = months.every((m) => log.loaded(`${m}-01`));
+  // the month's miles for its header: run so far, else what it plans (never a zero as the headline)
+  let ran = 0;
+  let planned = 0;
+  for (let d = first; d < next; d = shiftDays(d, 1)) {
+    if (d <= t) ran += dayMiles(log.snap, d).miles;
+    for (const s of log.snap.sessionsOn(d)) if (s.kind === 'run' && sessionStatus(log.snap, d, s) !== 'skipped') planned += Number(s.miles) || 0;
+  }
+  const meta = !ready ? '' : ran > 0 ? `${tenth(ran)} mi run` : planned > 0 ? `${tenth(planned)} mi planned` : 'Nothing planned';
   return (
     <div className="pl-mpage">
-      <div className="mg" role="group" aria-label={fmtDate('month', first)} aria-busy={!ready || undefined}>
+      <section className="pl-sec pl-month-sec" aria-label={fmtDate('month', first)}>
+        <div className="pl-head-row">
+          <h2 className="pl-head">{fmtDate('month', first).replace(/ \d{4}$/, '')}</h2>
+          <span className="pl-head-meta">{meta}</span>
+        </div>
+      <div className="mg card" role="group" aria-label={fmtDate('month', first)} aria-busy={!ready || undefined}>
         <div className="mg-head" aria-hidden="true">
           {DOW.map((d, i) => (
             <span key={i}>{d}</span>
@@ -101,6 +114,7 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block, still }
           );
         })}
       </div>
+      </section>
       <BlockCardView data={block.data} getLog={block.getLog} page={{ from: first, to: shiftDays(next, -1) }} />
     </div>
   );

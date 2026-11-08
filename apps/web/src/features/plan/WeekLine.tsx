@@ -1,9 +1,10 @@
 import { fmtDate, isSkipMark, label, mondayOf, num, sessionKey, shiftDays, tone, weekSummary, weekTotals, type Session } from '@logbook/shared';
+import { Footprints } from 'lucide-react';
 import type * as React from 'react';
-import { Pressable } from '@/ui/Pressable';
 import type { Log } from '../log/useLog';
 import { weekMiles } from '../sessions/miles';
-import { weekPlace, type BlockCardData } from './Blocks';
+import type { BlockCardData } from './Blocks';
+import { mileageHead } from './context';
 import { PHASE_WORDS, type TrainingPhase } from './phases';
 import './weekline.css';
 
@@ -94,7 +95,8 @@ export const barData = (log: Log, weeks: string[], phases: BlockCardData['phases
 /**
  * The weekly mileage bars (docs/inspiration.md §6 Plan, refs 386, 714): a bar per week, miles run filled (the page's week
  * in orange, the newest point), each week's planned miles as a dotted cap (together a stepped dotted target line), a small
- * lit dot over a week that ran its target, the page's week lit behind; under them the block's phases as a band.
+ * lit dot over a week that ran its target, the page's week lit behind; under them the block's phases as a band, then the
+ * first and last week's dates.
  */
 const MileBars = ({ data, mon, today }: { data: BarWeek[]; mon: string; today: string }) => {
   const max = Math.max(1, ...data.map((w) => Math.max(w.planned, w.ran)));
@@ -112,7 +114,7 @@ const MileBars = ({ data, mon, today }: { data: BarWeek[]; mon: string; today: s
   return (
     <div className="pl-mb" style={{ '--n': data.length } as React.CSSProperties} role="img" aria-label={said}>
       <div className="pl-mb-plot">
-        <span className="pl-mb-max tnum">{tenth(max)} mi</span>
+        <span className="pl-mb-max tnum">{tenth(max)}</span>
         {data.map((w) => (
           <span key={w.mon} className={`pl-mb-wk ${w.mon === mon ? 'is-now' : ''} ${w.mon > today ? 'is-ahead' : ''} ${w.hit ? 'is-hit' : ''}`} style={{ '--p': w.planned / max, '--d': Math.min(w.ran, max) / max } as React.CSSProperties}>
             {w.planned > 0 ? <i className="pl-mb-plan" /> : null}
@@ -133,12 +135,6 @@ const MileBars = ({ data, mon, today }: { data: BarWeek[]; mon: string; today: s
       ) : null}
       <div className="pl-mb-axis" aria-hidden="true">
         <span>{fmtDate('md', data[0]!.mon)}</span>
-        <span className="pl-mb-key">
-          <i className="k-ran" />
-          Run
-          <i className="k-plan" />
-          Planned
-        </span>
         <span>{fmtDate('md', data[data.length - 1]!.mon)}</span>
       </div>
     </div>
@@ -146,45 +142,46 @@ const MileBars = ({ data, mon, today }: { data: BarWeek[]; mon: string; today: s
 };
 
 /**
- * The week line (content under the bar's 24 gap): the week's phase and place in the block as a chip, and the `This week`
- * pill off this week (shown on the live page only; it fades in over 120 ms when its page commits, plan.css); the line
- * 22/28 600; the mileage bars and the phase band; the sentence 15/20.
+ * The week's mileage in one card (docs/shape-system.md §2, §3): the label, the big stamped number with its small grey unit
+ * (`10.5 of 26 mi`; a week ahead says what it plans), the runs as a status word at the right; the bars with their target and
+ * the phase band; the legend; then under a hairline the sentence, said forward (what is next, never a zero).
  */
-export const WeekLine = ({ log, mon, onThisWeek, block, weeks }: { log: Log; mon: string; onThisWeek: () => void; block: BlockCardData; weeks: string[] }) => {
+export const MileageCard = ({ log, mon, block, weeks }: { log: Log; mon: string; block: BlockCardData; weeks: string[] }) => {
   const w = weekWords(log, mon);
-  const off = mon !== mondayOf(log.today);
-  const place = weekPlace(block, mon);
+  const s = w.summary;
   const bars = barData(log, weeks, block.phases);
-  const ph = place?.phase ?? null;
+  const { value, unit, runsWord, hit } = mileageHead({ ran: w.ran, planned: s.plannedMiles, runsDone: s.runsDone, runsPlanned: s.runsPlanned, ahead: mon > log.today });
   return (
-    <div className="pl-wl">
-      {place || off ? (
-        <div className="pl-wl-chips">
-          {place ? (
-            <span className={`pl-phase ${ph ? `ph-${ph.phase}` : ''}`}>
-              {ph ? <i aria-hidden="true" /> : null}
-              <span>
-                {ph ? (
-                  <>
-                    <b>{PHASE_WORDS[ph.phase]}</b>
-                    {ph.down ? ' · Down week' : ''}
-                    {' · '}
-                  </>
-                ) : null}
-                {place.where}
-              </span>
-            </span>
-          ) : null}
-          {off ? (
-            <Pressable className="pl-now" onPress={onThisWeek} label="This week">
-              This week
-            </Pressable>
-          ) : null}
-        </div>
-      ) : null}
-      <h2 className="pl-wl-head">{w.head}</h2>
+    <div className="card pl-mcard">
+      <div className="pl-mc-head">
+        <span className="pl-mc-top">
+          <span className="tile-label">
+            <Footprints size={16} aria-hidden="true" />
+            Miles
+          </span>
+          {runsWord ? <span className={`tile-status ${hit ? 'is-hi' : 'is-none'}`}>{runsWord}</span> : null}
+        </span>
+        <span className="tile-value pl-mc-value">
+          {value}
+          <small>{unit}</small>
+        </span>
+      </div>
       <MileBars data={bars} mon={mon} today={log.today} />
-      <p className="pl-wl-sub">{w.sub}</p>
+      <div className="pl-mb-key" aria-hidden="true">
+        <span>
+          <i className="k-ran" />
+          Run
+        </span>
+        <span>
+          <i className="k-now" />
+          This week
+        </span>
+        <span>
+          <i className="k-plan" />
+          Target
+        </span>
+      </div>
+      <p className="pl-mc-foot">{w.sub}</p>
     </div>
   );
 };

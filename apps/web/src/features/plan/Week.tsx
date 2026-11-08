@@ -1,4 +1,4 @@
-import { assess, fmtDate, isFastRun, isHardRun, isRace, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
+import { assess, fmtDate, mondayOf, isFastRun, isHardRun, isRace, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
 import { isHeld } from './Held';
 import { ArrowRightLeft, Check, ChevronRight, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { effortOf } from '../sessions/effortModel';
@@ -20,7 +20,9 @@ import { crossfade, fadeOut } from '@/lib/motion';
 import { useFlip, waapiOf } from './flip';
 import { dayOrder, landingIndex, useMoveTo } from './moveRule';
 import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
-import { barWeeks, WeekLine } from './WeekLine';
+import { barWeeks, MileageCard } from './WeekLine';
+import { weekTitle } from './context';
+import { sessionIcon } from '../sessions/sessionIcon';
 
 /**
  * One week of Plan (docs/feel.md §7.2): the week line, the seven days as 60 px rows in one inset group, and the block card.
@@ -136,6 +138,16 @@ const targetLine = (s: Session, name: string, dist: string, a: ReturnType<typeof
   return bits.join(' · ');
 };
 
+/** The session's icon tile in its tone (a run off the plan: an easy run's). `.pl-tone` is what a delete fades. */
+const ToneTile = ({ s }: { s: Session | null }) => {
+  const Icon = sessionIcon(s);
+  return (
+    <span className="pl-tone pl-ic" aria-hidden="true">
+      <Icon size={17} strokeWidth={2.1} />
+    </span>
+  );
+};
+
 /** What a session row shows, with no hooks: the live row and a neighbour page not yet live draw the same pixels. */
 const rowFace = (log: Log, date: string, s: Session) => {
   const k = sessionKey(log.snap, date, s);
@@ -150,15 +162,15 @@ const rowFace = (log: Log, date: string, s: Session) => {
   const sub = held ? `On hold · ${TRAINING_STATUS_INFO[held].label}` : targetLine(s, name, dist, a);
   const body = (
     <>
-      <span className="pl-tone" aria-hidden="true" />
+      <ToneTile s={s} />
       <span className="pl-main">
-        <span className="stamp pl-name">{name}</span>
+        <span className="pl-name">{name}</span>
         {sub ? <span className="pl-sub">{sub}</span> : null}
       </span>
       <Status k={k} word={word} />
     </>
   );
-  return { k, word, name, dist, sub, cls: `pl-line pl-card t-${tone(s)} k-${k}${held ? ' is-held' : ''}`, body };
+  return { k, word, name, dist, sub, cls: `pl-line t-${tone(s)} k-${k}${held ? ' is-held' : ''}`, body };
 };
 const bonusFace = (log: Log, date: string, runs: Activity[]) => {
   const a = assess(log.zones, null, runs);
@@ -166,9 +178,9 @@ const bonusFace = (log: Log, date: string, runs: Activity[]) => {
   const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
   const body = (
     <>
-      <span className="pl-tone" aria-hidden="true" />
+      <ToneTile s={null} />
       <span className="pl-main">
-        <span className="stamp pl-name">{name}</span>
+        <span className="pl-name">{name}</span>
         <span className="pl-sub">
           {mi(a.miles)} mi{a.pace ? ` · ${a.pace} /mi` : ''} · Off the plan
         </span>
@@ -178,11 +190,20 @@ const bonusFace = (log: Log, date: string, runs: Activity[]) => {
   );
   return { name, word, miles: a.miles, body };
 };
+/**
+ * A quiet day's face: a planned rest is its moon tile and the word; from today on an open day is a dashed slot with a +
+ * (docs/shape-system.md §3: the empty slot, only for "add here"); a past open day keeps its row, blank.
+ */
 const emptyFace = (log: Log, date: string, rest: Session | null) => (
   <>
-    <span className="pl-tone" aria-hidden="true" />
+    {rest ? (
+      <ToneTile s={rest} />
+    ) : (
+      <span className={`pl-tone pl-ic is-empty ${date >= log.today ? 'is-add' : ''}`.trim()} aria-hidden="true">
+        {date >= log.today ? <Plus size={16} strokeWidth={2.4} /> : null}
+      </span>
+    )}
     <span className="pl-main">{rest ? <span className="pl-rest">Rest</span> : null}</span>
-    {date >= log.today ? <Plus size={18} className="pl-plus" aria-hidden="true" /> : null}
   </>
 );
 
@@ -287,7 +308,7 @@ const BonusRow = ({ date, runs }: { date: string; runs: Activity[] }) => {
   const { log, openUnplanned } = useRowKit();
   const { name, word, miles, body } = bonusFace(log, date, runs);
   return (
-    <Pressable as="div" press="surface" className="pl-line pl-card t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(miles)} miles, ${word}. Open`}>
+    <Pressable as="div" press="surface" className="pl-line t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(miles)} miles, ${word}. Open`}>
       {body}
     </Pressable>
   );
@@ -348,8 +369,8 @@ const dayOf = (log: Log, date: string, hidden?: ReadonlySet<string>) => {
 };
 const DateCol = ({ date }: { date: string }) => (
   <div className="pl-date" aria-hidden="true">
-    <span className="pl-dow">{fmtDate('dow', date)}</span>
     <span className="pl-num tnum">{parseISO(date).getDate()}</span>
+    <span className="pl-dow">{fmtDate('dow', date)}</span>
   </div>
 );
 const DayRow = ({ date }: { date: string }) => {
@@ -421,7 +442,7 @@ const StillDay = ({ log, date }: { log: Log; date: string }) => {
           const f = rowFace(log, date, s);
           return line(s.id, f.cls, f.body);
         })}
-        {bonus ? <div className="pressable pl-line pl-card t-easy k-bonus" data-press="surface">{bonusFace(log, date, runs).body}</div> : null}
+        {bonus ? <div className="pressable pl-line t-easy k-bonus" data-press="surface">{bonusFace(log, date, runs).body}</div> : null}
         {!ordered.length && !bonus ? <div className={`pressable pl-line is-rest ${rest ? '' : 'is-empty'}`.trim()} data-press="surface">{emptyFace(log, date, rest)}</div> : null}
       </div>
     </div>
@@ -448,7 +469,7 @@ const ConflictRow = ({ c, onKeep }: { c: Conflict; onKeep: () => void }) => {
     let raf = 0;
     const clip = () => {
       const r = el.getBoundingClientRect();
-      const below = el.nextElementSibling ?? group?.nextElementSibling;
+      const below = el.nextElementSibling ?? afterGroup(group ?? null)[0];
       const lim = Math.min(below?.getBoundingClientRect().top ?? Infinity, surf?.getBoundingClientRect().bottom ?? Infinity);
       const cut = Math.max(0, Math.min(r.height, r.bottom - lim));
       el.style.clipPath = cut > 0.5 ? `inset(0 0 ${cut.toFixed(1)}px 0)` : '';
@@ -473,6 +494,17 @@ const ConflictRow = ({ c, onKeep }: { c: Conflict; onKeep: () => void }) => {
   );
 };
 
+/**
+ * What sits under the week's group on its page, in order: anything after it in its section, then the sections after that
+ * (the block). They ride the group's FLIP, so the group's edge and the cards under it move together.
+ */
+const afterGroup = (g: HTMLElement | null): HTMLElement[] => {
+  const out: HTMLElement[] = [];
+  for (let n: Element | null = g; n && !n.classList.contains('pl-wpage'); n = n.parentElement)
+    for (let e = n.nextElementSibling; e; e = e.nextElementSibling) if (e instanceof HTMLElement) out.push(e);
+  return out;
+};
+
 /** The seven days of `mon` in one inset group (the drop target of every drag). */
 const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log; conflict: Conflict | null; setConflict: (c: Conflict | null) => void }) => {
   const group = useRef<HTMLDivElement>(null);
@@ -482,9 +514,7 @@ const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log;
   const flip = useFlip(
     group,
     () => {
-      const out: HTMLElement[] = [];
-      for (let e = group.current?.nextElementSibling as HTMLElement | null; e; e = e.nextElementSibling as HTMLElement | null) out.push(e);
-      return out;
+      return afterGroup(group.current);
     },
     () => surf.current,
   );
@@ -582,8 +612,22 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block, still }
   }, [mon]);
   return (
     <div className="pl-wpage">
-      {log.loaded(mon) ? <WeekLine log={log} mon={mon} onThisWeek={onThisWeek} block={block.data} weeks={weeks} /> : <div className="pl-wl" aria-hidden="true" />}
-      {still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
+      <section className="pl-sec pl-week-sec">
+        <div className="pl-head-row">
+          <h2 className="pl-head">{weekTitle(mon, log.today)}</h2>
+          <span className="pl-head-meta">
+            {fmtDate('md', mon)} – {monthOf(shiftDays(mon, 6)) === monthOf(mon) ? parseISO(shiftDays(mon, 6)).getDate() : fmtDate('md', shiftDays(mon, 6))}
+          </span>
+          {mon !== mondayOf(log.today) ? (
+            <Pressable className="pl-now" onPress={onThisWeek} label="Go to this week">
+              This week
+              <ChevronRight size={16} aria-hidden="true" />
+            </Pressable>
+          ) : null}
+        </div>
+        {log.loaded(mon) ? <MileageCard log={log} mon={mon} block={block.data} weeks={weeks} /> : <div className="card pl-mcard is-wait" aria-hidden="true" />}
+        {still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
+      </section>
       <BlockCardView data={block.data} getLog={block.getLog} page={page} inWeek />
     </div>
   );

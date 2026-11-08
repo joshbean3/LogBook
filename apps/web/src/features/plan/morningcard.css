@@ -295,3 +295,39 @@
     font-size: 0.9375rem;
   }
 }
+
+/* ---------- shape system v2 (docs/shape-system.md): one lifted card 22 round, 16 in; the stops named in small grey words
+   (the card keeps one caps eyebrow); the times stamped; the footer under a hairline ---------- */
+.mc-wrap {
+  padding: 0 16px;
+}
+.mc {
+  padding: 16px 16px 0;
+  border-radius: var(--r-card);
+}
+.mc-lab {
+  font: 500 var(--fs-orb) / 0.875rem var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.mc-time {
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+.mc-foot {
+  margin: 0 -16px;
+  padding: 11px 16px;
+  flex-wrap: nowrap;
+}
+.mc-quiet {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mc {
+  min-height: 0;
+}
+.mc {
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+}

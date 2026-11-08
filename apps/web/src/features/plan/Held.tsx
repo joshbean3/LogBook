@@ -1,5 +1,5 @@
 import { eachDay, fmtDate, heldOn, monthOf, shiftDays, TRAINING_STATUS_INFO, type ISODate, type Session, type TrainingStatus, type TrainingStatusKind } from '@logbook/shared';
-import { ChevronRight } from 'lucide-react';
+import { Bandage, ChevronRight, Footprints, Moon, Plane, Thermometer, TrendingDown, type LucideIcon } from 'lucide-react';
 import type * as React from 'react';
 import { useMemo } from 'react';
 import { useBootstrap, useSetStatus } from '@/api/queries';
@@ -10,6 +10,8 @@ import { Pressable } from '@/ui/Pressable';
 
 /** The words a held status uses in a sentence: "while you're sick". */
 const WHILE: Record<TrainingStatusKind, string> = { training: '', taper: '', travel: '', sick: 'while you’re sick', injured: 'while you’re injured', rest: 'while you rest' };
+
+const HELD_ICON: Record<TrainingStatusKind, LucideIcon> = { training: Footprints, taper: TrendingDown, rest: Moon, sick: Thermometer, injured: Bandage, travel: Plane };
 
 /** The last day a status holds sessions, for counting and asking: its end, or a fortnight out when it has none. */
 const lastHeldDay = (s: TrainingStatus, today: ISODate) => s.until ?? shiftDays(today, 13);
@@ -42,11 +44,20 @@ export const HeldBanner = (): React.JSX.Element | null => {
   const back = useSetStatus();
   if (!s || !kind) return null;
   const n = heldSessions(log, s, today).length;
-  const end = s.until ? (s.until === today ? 'today' : `through ${fmtDate(s.until <= shiftDays(today, 6) ? 'dowLong' : 'md', s.until)}`) : 'until you’re back';
+  const end = s.until ? (s.until === today ? 'Today only' : `Through ${fmtDate(s.until <= shiftDays(today, 6) ? 'dowLong' : 'md', s.until)}`) : 'Until you’re back';
+  const Icon = HELD_ICON[kind];
   return (
     <section className={`held held-${kind}`} aria-label="Sessions on hold">
       <span className="held-glow" aria-hidden="true" />
-      <span className="caps held-caps">{TRAINING_STATUS_INFO[kind].label} · {end}</span>
+      <span className="held-top">
+        <span className="held-ic" aria-hidden="true">
+          <Icon size={17} />
+        </span>
+        <span className="held-words">
+          <span className="held-title">{TRAINING_STATUS_INFO[kind].label}</span>
+          <span className="held-sub">{end}</span>
+        </span>
+      </span>
       <p className="held-line">{n ? `${n} ${n === 1 ? 'session waits' : 'sessions wait'} ${WHILE[kind]}.` : `Nothing planned is waiting ${WHILE[kind]}.`}</p>
       <div className="held-actions">
         {n ? (

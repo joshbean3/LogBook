@@ -766,151 +766,218 @@
   font-weight: 600;
 }
 
-/* a run's numbers: two columns, label over number, centred */
-.run-grid {
-  display: grid;
-  align-items: start;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  row-gap: 18px;
-  column-gap: 12px;
-  padding: 8px 0 4px;
+/* ---------- the session sheet on the shape system (docs/shape-system.md §5, §6): cards 12 apart on the sheet, a centred
+   hero, two-column tiles, the verbs as one inset group, the one navy pill pinned at the bottom ---------- */
+.ss {
+  gap: var(--gap);
 }
-.run-cell {
+/* the route in its own card */
+.ss-map-card.card {
+  padding: 0;
+  overflow: hidden;
+}
+.ss-map-card .ss-map {
+  margin: 0;
+  border: 0;
+}
+/* the hero: the session's icon in its tone, the status word, the one big number, the word under it */
+.ss-hero.card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: grid;
-  align-content: start;
   justify-items: center;
-  gap: 2px;
+  gap: 4px;
+  padding: 18px 16px 18px;
   text-align: center;
-  min-width: 0;
 }
-.run-k {
+/* Logbook's light, from under the number */
+.ss-hero.card::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: auto 0 0;
+  height: 70%;
+  background: var(--halo);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.ss-hero.k-done::before,
+.ss-hero.k-bonus::before {
+  background: var(--halo-amber);
+  opacity: 0.6;
+}
+.ss-hero-ic {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tone, var(--t-rest)) 13%, var(--surface));
+  color: var(--tone, var(--t-rest));
+}
+.ss-hero-st {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 6px;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
-  font-size: var(--fs-sub);
 }
-.run-v {
-  color: var(--ink);
-  font-size: 1.625rem;
-  line-height: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-.run-v small {
-  font-size: var(--fs-sub);
+.ss-st {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-weight: 600;
   color: var(--ink-2);
 }
-.run-n {
-  color: var(--ink-3);
-  font-size: var(--fs-foot);
-}
-
-.ss-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  min-height: 20px;
-}
-.ss-meta {
-  margin-top: -8px;
-}
-.ss .sh-stats {
-  margin-top: 0;
-}
-/* the two verbs that matter: Done (the one blue) and Floor, 48px, side by side */
-.ss-verbs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.ss-big {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 52px;
-  border-radius: var(--r-pill);
-  font: inherit;
-  font-size: 1.0625rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
-}
-/* the one press (§11.1): data-pressed on touch-down (PressButton), the colour transitions kept beside the scale's */
-.ss-big.pressable[data-press='scale'],
-.pl-chip.pressable[data-press='scale'] {
-  transition:
-    background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out),
-    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-.ss-big.done {
-  background: var(--accent);
-  border: 1px solid var(--accent-bright);
-  color: var(--accent-ink);
-}
-.ss-big.done.is-on {
-  background: var(--ok-soft);
-  border-color: transparent;
+.ss-st.is-lit {
   color: var(--accent-text);
 }
-.ss-big.floor {
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
+.ss-st.is-floor {
   color: var(--warn);
 }
-.ss-big.floor.is-on {
-  background: var(--warn-soft);
-  border-color: transparent;
+.ss-hero-num {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 6px;
+  color: var(--ink);
+}
+.ss-hero-num .stamp {
+  font-size: 3rem;
+  line-height: 3.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ss-hero-num small {
+  font: 500 var(--fs-row) / 1 var(--sans);
+  color: var(--ink-3);
+}
+.ss-hero-label {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.ss-hero-rest {
+  margin-top: 6px;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
+  color: var(--ink);
+}
+.ss-hero-moved {
+  margin-top: 4px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ss-tiles .tile-value {
+  font-size: 1.625rem;
+}
+/* words in a card: the workout as written, the other sets, what else was done */
+.ss-words.card {
+  display: grid;
+  gap: 4px;
+}
+.ss-words-k {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.ss-words p {
+  margin: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.ss-details {
+  white-space: pre-line;
+}
+.ss-foot-note {
+  margin: 0;
+  padding: 0 4px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+/* the verbs: one inset group of rows, an icon tile before each */
+.ss-acts.group {
+  border-radius: var(--r-tile);
+}
+.ss-act.pressable {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 16px;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ss-act[data-pressed] {
+  background: var(--surface-2);
+}
+.ss-act:disabled {
+  opacity: 1;
+}
+.ss-act:disabled .ss-act-title {
+  color: var(--ink-3);
+}
+.ss-act-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ss-act-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+}
+.ss-act-sub {
+  overflow: hidden;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ss-act-chev {
+  flex: none;
+  color: var(--ink-4);
+}
+.ss-act-check {
+  flex: none;
+  color: var(--accent-text);
+}
+.ss-act.is-on .icon-tile {
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 .ss-floor-glyph {
+  display: block;
   width: 16px;
   height: 16px;
   border-radius: 50%;
   box-shadow: inset 0 0 0 2px currentColor;
   background: linear-gradient(to top, currentColor 50%, transparent 50%);
 }
-.ss-auto {
-  margin: 0;
+/* the one pill, pinned at the bottom, 16 from the edges */
+.ss-foot.sheet-foot {
+  display: block;
+  margin-top: 4px;
 }
-/* Skip / Share, Move ›, Edit ›: ink pills under the verbs */
-.ss-second {
-  display: flex;
+.ss-foot .btn.block {
+  width: 100%;
   gap: 8px;
-  flex-wrap: wrap;
 }
-.ss-pill {
-  appearance: none;
-  flex: 1 1 0;
-  min-width: 88px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.9375rem;
-  font-weight: 600;
-}
-.ss-pill[aria-pressed='true'] {
-  background: var(--surface-2);
-}
-.ss-pill-chev {
-  color: var(--ink-3);
-  margin-right: -4px;
+.ss-foot .btn.soft {
+  height: 54px;
+  font-size: 1.0625rem;
 }
 .ss-floor-line {
   margin: 0;
 }
+
 .cm-floor {
   display: inline-block;
   width: 16px;
@@ -1010,4 +1077,155 @@
 
 .ed-group > .pl-chip {
   justify-self: start;
+}
+
+/* the one press (§11.1): data-pressed on touch-down (PressButton), the colour transitions kept beside the scale's */
+.pl-chip.pressable[data-press='scale'] {
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ---------- the session sheet's rows, lift log and evidence on the shape system ---------- */
+/* separators in the verbs' group start at the words (16 + the 32 tile + 12) */
+.ss-acts > .ss-act + .ss-act,
+.lft-open-group > * + * {
+  box-shadow:
+    inset 60px 1px 0 var(--surface),
+    inset 0 1px 0 var(--line);
+}
+/* the evidence (the run's line, splits, the read, a saved coach's note) in one card */
+.ss .actual {
+  display: grid;
+  gap: 12px;
+  padding: var(--pad-card);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.ss .actual > .fine {
+  margin: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ss .actual > :not(.fine) + .fine,
+.ss .actual > * + .assess,
+.ss .actual > * + .coach {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+/* the lift log: each exercise a card (an icon tile, its name and count, a + to add), the sets as tinted rows; the door to
+   log as one row */
+.lift-log {
+  gap: var(--gap);
+}
+.lft {
+  border-radius: var(--r-card);
+}
+.lft.is-active {
+  box-shadow:
+    var(--shadow-1),
+    0 0 0 2px var(--columbia);
+}
+.lft-head.pressable {
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 12px 16px 8px;
+}
+.lft-ic {
+  background: color-mix(in srgb, var(--t-lift) 13%, var(--surface));
+  color: var(--t-lift);
+}
+.lft-head-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.lft-count {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+}
+.lft-head-add {
+  flex: none;
+  color: var(--ink-3);
+}
+.lft-sets {
+  padding: 0 12px 12px;
+  gap: 6px;
+}
+.lft-set {
+  border-radius: var(--r-control);
+}
+.lft-pad {
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  padding: 14px;
+}
+.lft-stepbtn.pressable {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+.lft-key.pressable {
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+}
+.lft-key[data-pressed] {
+  background: var(--surface-3);
+}
+.lft-open-group.group {
+  border-radius: var(--r-tile);
+}
+.lft-open-row.pressable {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 16px;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lft-open-row[data-pressed] {
+  background: var(--surface-2);
+}
+.lft-open-row .icon-tile {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.lft-open-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.lft-open-title {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.lft-open-sub {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.lft-open-chev {
+  flex: none;
+  color: var(--ink-4);
+}
+.lft-close.btn {
+  justify-self: center;
+}
+
+/* the hairline between rows, drawn as a background line from the words (a pressable keeps its own box-shadow) */
+.ss-acts > .ss-act + .ss-act,
+.lft-open-group > * + * {
+  box-shadow: none;
+  background-image: linear-gradient(var(--line), var(--line));
+  background-size: calc(100% - 60px) 1px;
+  background-position: right top;
+  background-repeat: no-repeat;
 }

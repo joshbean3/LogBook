@@ -8,7 +8,7 @@ import { useRef, useState } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { api, ApiError } from '@/api/client';
 import { keys, usePlanDelete } from '@/api/queries';
-import { Button, Chip, Field, Group, Note, SectionHead, Segmented, Stat, StatStrip } from '@/ui/primitives';
+import { Button, Chip, Field, Group, Note, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
@@ -65,7 +65,10 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
   const nWeeks = Math.ceil((daysBetween(draft.start, draft.end) + 1) / 7);
   return (
     <>
-      <SectionHead title="Preview" meta="Nothing is saved until you apply it." />
+      <div className="pl-head-row">
+        <h3 className="pl-head">Preview</h3>
+        <span className="pl-head-meta">Nothing is saved yet</span>
+      </div>
       <div className="pv-hero">
         <input className="pv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Plan name" />
         <span className="t-cap muted">
@@ -88,8 +91,11 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
           </ul>
         </div>
       ) : null}
-      <SectionHead title="Week by week" meta={`${weeks.length} ${weeks.length === 1 ? 'week' : 'weeks'}`} />
-      <Group>
+      <div className="pl-head-row pv-head">
+        <h3 className="pl-head">Week by week</h3>
+        <span className="pl-head-meta">{`${weeks.length} ${weeks.length === 1 ? 'week' : 'weeks'}`}</span>
+      </div>
+      <Group className="pv-weeks">
         {weeks.map((mon) => {
           let wk = 0;
           const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
@@ -120,24 +126,26 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
           );
         })}
       </Group>
-      <div className="pv-actions">
-        <Button variant="primary" disabled={apply.isPending} onClick={() => apply.mutate('replace')}>
-          {existing ? 'Replace' : 'Add'}
-        </Button>
-        {existing && mode !== 'revise' ? (
-          <Button disabled={apply.isPending} onClick={() => apply.mutate('add')}>
-            Add
-          </Button>
-        ) : null}
-        <Button variant="ghost" onClick={onDiscard}>
-          Discard
-        </Button>
-      </div>
       {existing ? (
         <p className="fine pv-fine">
           {existing} planned {existing === 1 ? 'session' : 'sessions'} already sit in these dates. Replace clears them{mode !== 'revise' ? '; Add keeps them' : ''}.
         </p>
       ) : null}
+      <div className="pv-actions">
+        {existing && mode !== 'revise' ? (
+          <Button variant="soft" disabled={apply.isPending} onClick={() => apply.mutate('add')}>
+            Add, keep them
+          </Button>
+        ) : null}
+        <Button variant="quiet" onClick={onDiscard}>
+          Discard
+        </Button>
+      </div>
+      <div className="sheet-foot pv-foot">
+        <Button variant="primary" block disabled={apply.isPending} onClick={() => apply.mutate('replace')}>
+          {existing ? `Replace ${existing} ${existing === 1 ? 'session' : 'sessions'}` : 'Add to my plan'}
+        </Button>
+      </div>
     </>
   );
 };

@@ -2,7 +2,7 @@ import { assess, clock, clockOfDay, counts, e1rm, isAutoStatus, floorFor, fmtDat
 import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
-import { Button, Chip } from '@/ui/primitives';
+import { Button } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useCoachShown } from '../day/coachShown';
 import { useLog, type Log } from '../log/useLog';
@@ -15,7 +15,8 @@ import { EffortRow } from './Effort';
 import { effortOf } from './effortModel';
 import { dayMiles, sessionMiles } from './miles';
 import { voiceHead, voiceLine } from './voice';
-import { mainRun, RecordCard, recordLap, RouteMap, RunGrid, useRunRecords, whenLine } from './RunDetail';
+import { mainRun, RecordCard, recordLap, RouteMap, runNumbers, useRunRecords, whenLine } from './RunDetail';
+import { sessionIcon } from './sessionIcon';
 import './sessions.css';
 
 /** One line that says what the session is: "Easy · 6 mi · 1.5 mi wu". The floor is explained in the sheet, never in the row. */
@@ -29,7 +30,6 @@ export const sessionMeta = (s: Session, _st?: string): string => {
   return bits.join(' · ');
 };
 
-const short = (m: number) => clockOfDay(m).replace(' AM', '').replace(' PM', '');
 /** "14:38" → "2:38 PM": one time format across the app (audit §3.2). */
 export const startClock = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
@@ -39,24 +39,8 @@ export const startClock = (hhmm: string) => {
 /** The chip class for a status key: the colours `.chip` already has. A missed day is the plain chip, never red (§7.2). */
 export const chipKind = (k: StatusKey): string => ({ done: 'done', bonus: 'done', floor: 'floor', missed: '', today: 'open', planned: 'upcoming', skipped: '', rest: '' })[k];
 
-/** caps label, the number, its unit, and an optional small line under it ("of 6") */
+/** A number for the sheet: its label, the value, its unit, and an optional word under it ("of 6"). */
 type SheetStat = [string, string, string?, string?];
-
-const Stats = ({ stats }: { stats: SheetStat[] }) =>
-  stats.length ? (
-    <div className="sh-stats" role="list" aria-label="Summary">
-      {stats.map(([k, v, u, n]) => (
-        <span key={k} className="sh-stat" role="listitem">
-          <span className="caps">{k}</span>
-          <span className="stamp sh-num">
-            {v}
-            {u ? <small>{u}</small> : null}
-          </span>
-          {n ? <span className="sh-note">{n}</span> : null}
-        </span>
-      ))}
-    </div>
-  ) : null;
 
 /** The day's verdict in the brand voice: "Floor held." / "Easy 6, done." / "6.0 mi, off the plan." */
 const runVerdict = (sess: Session | null, runs: Activity[], miles: number, status: string): string => {
@@ -68,28 +52,21 @@ const runVerdict = (sess: Session | null, runs: Activity[], miles: number, statu
 /** The run miles the plan asked for on this day, 0 when it named none. */
 export const plannedMiles = (s: Session | null | undefined): number => (s?.kind === 'run' ? Number(s.miles) || 0 : 0);
 
-/** A finished run's numbers: DISTANCE (what happened, "of 6" under it) / PACE / TIME / AVG HR. */
-const runStats = (sess: Session | null, runs: Activity[], log: Log): SheetStat[] => {
-  const a = assess(log.zones, sess, runs);
-  const planned = plannedMiles(sess);
-  const dist: SheetStat[] = a.miles >= 0.05 ? [['Distance', mi(a.miles), 'mi', planned ? `of ${num(planned)}` : undefined]] : [];
-  return [
-    ...dist,
-    ['Pace', a.pace ?? '—', a.pace ? '/mi' : undefined],
-    ['Time', clock(a.movingSec)],
-    ['Avg HR', a.avgHr != null ? String(a.avgHr) : '—', a.avgHr != null ? 'bpm' : undefined],
-  ];
+/** A clock time as a number and its small unit: `6:45` `AM`. */
+const timeNum = (m: number): [string, string] => {
+  const [v, u] = clockOfDay(m).split(' ');
+  return [v ?? '', u ?? ''];
 };
 
-/** A planned session's numbers: PLAN / FLOOR / OUT / BACK when known (SETS for a lift). */
+/**
+ * A planned session's numbers: what it asks (Plan, the hero), then out the door and back when it is the day's main
+ * session, and a lift's sets ("–" until one is logged). The floor is the Floor row's own line, not a tile (nothing twice).
+ */
 const planStats = (date: string, s: Session, log: Log, sets: number): SheetStat[] => {
-  const floor = floorFor(s);
-  const mm = /(\d+)\s*min/.exec(floor);
   const stats: SheetStat[] = [];
   if (s.kind === 'rest') return stats;
   if (s.kind === 'run' && s.miles) stats.push(['Plan', num(s.miles), 'mi']);
   else if (s.minutes) stats.push(['Plan', String(s.minutes), 'min']);
-  if (floor) stats.push(mm ? ['Floor', mm[1]!, 'min'] : ['Floor', floor.split(/[,\s]/)[0]!]);
   // the door time is the morning timeline's own (Today's hero and Morning read the same `doorOf`), never worked out here
   if (date >= log.today && log.boot) {
     const sessions = log.snap.sessionsOn(date);
@@ -97,13 +74,13 @@ const planStats = (date: string, s: Session, log: Log, sets: number): SheetStat[
     if (main?.id === s.id) {
       const T = morningOf(sessions, log.snap.morningOverride(date), log.boot.morningSettings ?? MORNING_DEFAULTS);
       const door = doorOf(T);
-      // "Out at": four caps labels share one baseline at 320 ("Out the door" wrapped to two lines); the sentence elsewhere keeps "Out the door"
-      if (door != null) stats.push(['Out at', short(door)], ['Back', short(T.back)]);
+      if (door != null) stats.push(['Out the door', ...timeNum(door)], ['Back', ...timeNum(T.back)]);
     }
   }
-  if (sets) stats.push(['Sets', String(sets)]);
+  if (sets && s.kind !== 'lift') stats.push(['Sets', String(sets), sets === 1 ? 'set' : 'sets']);
   return stats;
 };
+
 
 const weekdayLong = (d: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(`${d}T12:00:00`));
 
@@ -313,12 +290,87 @@ const SessionMore = ({ date, id }: { date: string; id: string }) => {
     </button>
   );
 };
+/** A number for the sheet: its label, the value, its small grey unit, and an optional word under it ("of 5 planned"). */
+interface Num {
+  k: string;
+  v: string;
+  u?: string;
+  n?: string;
+}
+const toNum = ([k, v, u, n]: SheetStat): Num => ({ k, v, u, n });
 
 /**
- * The session, in full. Its name is the sheet's title (it flew in from the row or the hero), the route sits at the top when
- * there is one, then the two verbs that matter: Done (the one blue) and Floor, 48px. Skip, Move and Edit sit under them;
- * Move and Edit push inside the sheet. Delete and "Not feeling 100%" live in the header's ⋯ (`SessionMore`). The evidence (splits, the
- * read, started · HR · cadence · elevation) follows.
+ * The sheet's hero (docs/shape-system.md §6, a detail page's recipe: a hero, then two-column stat tiles): one card, centred,
+ * the status as a small word with its icon (`✓ Done · Monday at 7:02 AM`), the one big stamped number with its unit, and
+ * the word under it. A rest day has no number: its sentence instead.
+ */
+const SheetHero = ({ s, k, word, when, moved, hero, rest }: { s: Session | null; k: StatusKey; word: string; when: string | null; moved: string | null; hero: Num | null; rest?: boolean }) => {
+  const Icon = sessionIcon(s);
+  const lit = k === 'done' || k === 'bonus';
+  return (
+    <div className={`card ss-hero k-${k}`}>
+      <span className="ss-hero-ic" aria-hidden="true">
+        <Icon size={20} strokeWidth={2.1} />
+      </span>
+      <span className="ss-hero-st">
+        <span className={`ss-st ${lit ? 'is-lit' : k === 'floor' ? 'is-floor' : ''}`}>
+          {lit ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}
+          {word}
+        </span>
+        {when ? <span className="ss-when">· {when}</span> : null}
+      </span>
+      {hero ? (
+        <span className="ss-hero-num">
+          <span className="stamp tnum">{hero.v}</span>
+          {hero.u ? <small>{hero.u}</small> : null}
+        </span>
+      ) : null}
+      {hero ? <span className="ss-hero-label">{hero.n ?? hero.k}</span> : rest ? <span className="ss-hero-rest display">Rest. It counts.</span> : null}
+      {moved ? <span className="ss-hero-moved">{moved}</span> : null}
+    </div>
+  );
+};
+
+/** The rest of the numbers as tiles, two to a row (label, number, unit; a word under it when it has one). */
+const StatTiles = ({ nums }: { nums: Num[] }) =>
+  nums.length ? (
+    <div className="tiles ss-tiles" role="list" aria-label="The numbers">
+      {nums.map((x) => (
+        <div key={x.k} className="tile" role="listitem">
+          <span className="tile-label">{x.k}</span>
+          <span className="tile-value">
+            {x.v}
+            {x.u ? <small>{x.u}</small> : null}
+          </span>
+          {x.n ? <span className="tile-status is-none">{x.n}</span> : null}
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+/** One action row in the sheet's inset group: an icon tile, the verb, an optional line under it, and what is at its right. */
+const ActRow = ({ icon, title, sub, right, on, onPress, className = '', disabled, label }: { icon: React.ReactNode; title: string; sub?: string; right?: React.ReactNode; on?: boolean; onPress: () => void; className?: string; disabled?: boolean; label?: string }) => (
+  <PressButton press="surface" className={`ss-act ${on ? 'is-on' : ''} ${className}`.trim()} aria-pressed={on} disabled={disabled} aria-label={label} onClick={onPress}>
+    <span className="icon-tile" aria-hidden="true">
+      {icon}
+    </span>
+    <span className="ss-act-main">
+      <span className="ss-act-title">{title}</span>
+      {sub ? <span className="ss-act-sub">{sub}</span> : null}
+    </span>
+    {right ?? (on ? <Check size={18} strokeWidth={2.6} className="ss-act-check" aria-hidden="true" /> : null)}
+  </PressButton>
+);
+const chev = <ChevronRight size={18} className="ss-act-chev" aria-hidden="true" />;
+
+/**
+ * The session, in full (docs/shape-system.md §5, a sheet: a centred title, content in cards on the sheet, one navy pill
+ * pinned at the bottom). Its name is the sheet's title (it flew in from the row or the hero), the route sits at the top
+ * when there is one; the hero card (the status, the one big number), the other numbers as two-column tiles, the effort
+ * row, the lift log's sets in their card, the workout's words, then the other verbs as one inset group (Floor, Skip, Move,
+ * Edit; Share and "Not feeling 100%" after a matched run); the evidence (splits, the read) follows. The one navy pill is
+ * the verb that matters now: Mark done (then the effort check-in opens in place), or Share once a run is in. Delete lives
+ * in the header's ⋯ (`SessionMore`), with Move and Edit after a matched run.
  */
 const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the sheet body is captured once at open; subscribing here keeps marks, sets and deletes live while it is up
@@ -327,7 +379,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const act = useSessionActions(log);
   // the effort check-in opens in place when this sheet's own Done marks it (Effort.tsx)
   const [askEffort, setAskEffort] = useState(false);
-  // "Not feeling 100%" with nothing hard in the days ahead answers on its own pill, not in a toast (§8)
+  // "Not feeling 100%" with nothing hard in the days ahead answers on its own row, not in a toast (§8)
   const [nothingToEase, setNothingToEase] = useState(false);
   const s = log.snap.sessionsOn(date).find((x) => x.id === id);
   const gone = !s && log.loaded(date);
@@ -342,7 +394,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const runs = s?.kind === 'run' ? log.snap.runsOn(date) : [];
   // a run with an activity, or one marked Done by hand (its planned miles, contract 5), can be shared
   const share = useMemo(() => (s && s.kind === 'run' && (runs.length || sessionMiles(log.snap, date, s).miles > 0) ? shareDataFor(date, s, runs, log) : null), [date, s, runs, log]);
-  // the sheet opens on the stamps and the verbs; the evidence (splits, the read, the coach) renders right after, in the
+  // the sheet opens on the numbers and the verbs; the evidence (splits, the read, the coach) renders right after, in the
   // background (WP1's request: the body's first render decided the open's first frame at 4×)
   const evidence = useDeferredValue(true, false);
   const records = useRunRecords(runs);
@@ -357,106 +409,93 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const sets = log.snap.liftsOn(date);
   const others = log.snap.activitiesOn(date).filter((a) => a.kind !== 'run');
   const canLog = s.kind === 'lift' || (s.kind === 'cross' && /hyrox/i.test(s.type ?? ''));
-  const stats = runs.length ? runStats(s, runs, log) : planStats(date, s, log, s.kind === 'lift' ? sets.length : 0);
   const polyRun = runs.find((r) => r.polyline) ?? null;
   const poly = polyRun?.polyline;
-  const meta = sessionMeta(s);
   const floorText = floorFor(s);
+  // the numbers: a run that came in leads with its distance; a plan with what it asks (its miles or minutes)
+  const nums = runs.length ? runNumbers(s, runs, log, plannedMiles(s)) : planStats(date, s, log, s.kind === 'lift' ? sets.length : 0).map(toNum);
+  const lead = runs.length ? nums[0]! : nums.find((x) => x.k === 'Plan') ?? null;
+  const doneWord = counts(st) ? (st === 'floor' ? 'floor held' : 'done') : 'planned';
+  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : s.type && s.kind !== 'run' ? `${s.type}, ${doneWord}` : doneWord[0]!.toUpperCase() + doneWord.slice(1)) } : null;
+  const tiles = nums.filter((x) => x !== lead);
+  const typeWord = s.type && !label(s).toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
+  const skipped = s.mark === 'skip' || s.mark === 'sick';
+  const markDone = () => {
+    act.done(s);
+    setAskEffort(s.kind !== 'rest');
+  };
+  // the one navy pill: the verb that matters now
+  const pill = c.mark && st !== 'done' ? { label: 'Mark done', fn: markDone, primary: true } : c.mark && st === 'done' ? { label: 'Undo done', fn: () => (act.clear(s), setAskEffort(false)), primary: false } : share && share.miles > 0 ? { label: 'Share', fn: () => act.share(share, true), primary: true } : null;
   return (
     <div className={`ss t-${tone(s)}`}>
-      {poly ? <RouteMap polyline={poly} drawKey={s.id} run={polyRun} records={records} /> : null}
-      <div className="ss-status">
-        <Chip kind={chipKind(key)}>{word}</Chip>
-        {when ? <span className="t-sub ink3">{when}</span> : null}
-        {s.movedFrom ? <span className="t-sub ink3">Moved from {fmtDate('md', s.movedFrom)}</span> : null}
-      </div>
-      {meta ? <p className="t-sub ink2 ss-meta">{meta}</p> : null}
-      {records.length ? <RecordCard records={records} date={date} onTap={showSplits} /> : null}
-      {runs.length ? <RunGrid sess={s} runs={runs} log={log} planned={plannedMiles(s)} /> : <Stats stats={stats} />}
-      {c.mark ? (
-        <div className="ss-verbs" role="group" aria-label="Mark it">
-          <PressButton className={`ss-big done ${st === 'done' ? 'is-on' : ''}`} aria-pressed={st === 'done'} onClick={() => (st === 'done' ? (act.clear(s), setAskEffort(false)) : (act.done(s), setAskEffort(s.kind !== 'rest')))}>
-            <Check size={20} strokeWidth={2.6} aria-hidden="true" />
-            Done
-          </PressButton>
-          <PressButton className={`ss-big floor ${st === 'floor' ? 'is-on' : ''}`} aria-pressed={st === 'floor'} onClick={() => (st === 'floor' ? act.clear(s) : act.floor(s))}>
-            <span className="ss-floor-glyph" aria-hidden="true" />
-            Floor
-          </PressButton>
+      {poly ? (
+        <div className="card ss-map-card">
+          <RouteMap polyline={poly} drawKey={s.id} run={polyRun} records={records} />
         </div>
-      ) : c.auto ? (
-        <p className="t-sub ink2 ss-auto">{st === 'floor' ? 'Floor held, from the run that came in.' : s.kind === 'lift' ? 'Done: the sets are logged.' : 'Done: matched to your run.'}</p>
-      ) : s.kind !== 'rest' && date > log.today ? (
-        <p className="t-sub ink2 ss-auto">Planned for {date === shiftDays(log.today, 1) ? 'tomorrow' : fmtDate('dowLong', date)}. Done and Floor open on the day.</p>
       ) : null}
+      <SheetHero s={s} k={key} word={word} when={when} moved={s.movedFrom ? `Moved from ${fmtDate('md', s.movedFrom)}` : null} hero={hero} rest={s.kind === 'rest'} />
+      {records.length ? <RecordCard records={records} date={date} onTap={showSplits} /> : null}
+      <StatTiles nums={tiles} />
       {s.kind !== 'rest' && (counts(st) || askEffort) ? <EffortRow session={s} ask={askEffort} onAsked={() => setAskEffort(false)} /> : null}
-      {matched ? (
-        // §6.3: after a matched run the second row is Share · Not feeling 100% (Move and Edit are under the ⋯)
-        <div className="ss-second">
-          {share && share.miles > 0 ? (
-            <PressButton press="surface" className="ss-pill" onClick={() => act.share(share, true)}>
-              <Share2 size={18} aria-hidden="true" />
-              Share
-            </PressButton>
-          ) : null}
-          {/* today's run only: a past day's "not feeling" would rewrite days that are already a record (code review 1 #3) */}
-          {date === log.today ? (
-            <PressButton press="surface" className="ss-pill" disabled={nothingToEase} onClick={() => setNothingToEase(act.notFeeling(date, s) === 0)}>
-              <HeartPulse size={18} aria-hidden="true" />
-              {nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'}
-            </PressButton>
-          ) : null}
+      {/* the sets themselves, by exercise, in their card, and the pad to log the next one (LiftLog) */}
+      {canLog ? <LiftLog date={date} onDone={(n) => n > 0 && effortOf(s.effort) == null && setAskEffort(true)} /> : null}
+      {s.kind === 'lift' && sets.length && !canLog ? (
+        <div className="card ss-words">
+          <span className="ss-words-k">
+            {sets.length} {sets.length === 1 ? 'set' : 'sets'}
+          </span>
+          <p>{sets.map((x) => `${x.exercise} ${x.weight}×${x.reps}`).join(', ')}</p>
         </div>
+      ) : null}
+      {s.kind !== 'run' && others.length ? (
+        <div className="card ss-words">
+          <span className="ss-words-k">Also today</span>
+          {others.map((a) => (
+            <p key={a.id}>
+              {a.name} · {Math.round(a.movingSec / 60)} min
+            </p>
+          ))}
+        </div>
+      ) : null}
+      {s.details || typeWord ? (
+        <div className="card ss-words">
+          <span className="ss-words-k">{typeWord || 'The workout'}</span>
+          {s.details ? <p className="ss-details">{s.details}</p> : null}
+        </div>
+      ) : null}
+      {c.auto ? <p className="ss-foot-note">{st === 'floor' ? 'Floor held, from the run that came in.' : s.kind === 'lift' ? 'Done: the sets are logged.' : 'Done: matched to your run.'}</p> : null}
+      {!c.mark && !c.auto && s.kind !== 'rest' && date > log.today ? <p className="ss-foot-note">Planned for {date === shiftDays(log.today, 1) ? 'tomorrow' : fmtDate('dowLong', date)}. Mark it done on the day.</p> : null}
+      {matched ? (
+        // §6.3: after a matched run the group is Not feeling 100% (Share is the pill; Move and Edit are under the ⋯)
+        date === log.today ? (
+          <div className="group ss-acts">
+            <ActRow icon={<HeartPulse size={18} />} title={nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'} sub={nothingToEase ? 'The next days are easy already' : 'Ease the next three days'} disabled={nothingToEase} onPress={() => setNothingToEase(act.notFeeling(date, s) === 0)} right={nothingToEase ? undefined : chev} />
+          </div>
+        ) : null
       ) : (
-        <div className="ss-second">
-          {share && share.miles > 0 ? (
-            <PressButton press="surface" className="ss-pill" onClick={() => act.share(share, true)}>
-              <Share2 size={18} aria-hidden="true" />
-              Share
-            </PressButton>
-          ) : c.skip || s.mark === 'skip' || s.mark === 'sick' ? (
-            <PressButton press="surface" className="ss-pill" aria-pressed={s.mark === 'skip' || s.mark === 'sick'} onClick={() => act.skip(s)}>
-              <SkipForward size={18} aria-hidden="true" />
-              {s.mark === 'skip' || s.mark === 'sick' ? 'Put back' : 'Skip'}
-            </PressButton>
-          ) : null}
-          <PressButton press="surface" className="ss-pill" onClick={() => act.move(date, s, true)}>
-            <ArrowRightLeft size={18} aria-hidden="true" />
-            Move
-            <ChevronRight size={16} className="ss-pill-chev" aria-hidden="true" />
-          </PressButton>
-          <PressButton press="surface" className="ss-pill" onClick={() => act.edit(date, s, true)}>
-            <Pencil size={18} aria-hidden="true" />
-            Edit
-            <ChevronRight size={16} className="ss-pill-chev" aria-hidden="true" />
-          </PressButton>
+        <div className="group ss-acts">
+          {c.mark ? <ActRow icon={<span className="ss-floor-glyph" />} title="Floor" sub={floorText ? `The minimum: ${floorText}` : 'The minimum still counts'} on={st === 'floor'} onPress={() => (st === 'floor' ? act.clear(s) : act.floor(s))} /> : null}
+          {share && share.miles > 0 && pill?.label !== 'Share' ? <ActRow icon={<Share2 size={18} />} title="Share" onPress={() => act.share(share, true)} right={chev} /> : null}
+          {c.skip || skipped ? <ActRow icon={<SkipForward size={18} />} title={skipped ? 'Put it back' : 'Skip'} sub={skipped ? 'Back on the plan' : 'The week still counts'} on={skipped} onPress={() => act.skip(s)} right={<span />} /> : null}
+          <ActRow icon={<ArrowRightLeft size={18} />} title="Move" onPress={() => act.move(date, s, true)} right={chev} />
+          <ActRow icon={<Pencil size={18} />} title="Edit" onPress={() => act.edit(date, s, true)} right={chev} />
         </div>
       )}
       {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} prLap={recordLap(runs, records)} /> : null}
-      {s.kind === 'lift' && sets.length && !canLog ? (
-        <p className="t-sub ink2">
-          {sets.length} {sets.length === 1 ? 'set' : 'sets'}: {sets.map((x) => `${x.exercise} ${x.weight}×${x.reps}`).join(', ')}
-        </p>
-      ) : null}
-      {s.kind !== 'run'
-        ? others.map((a) => (
-            <p key={a.id} className="t-sub ink2">
-              {a.name} · {Math.round(a.movingSec / 60)} min
-            </p>
-          ))
-        : null}
-      {/* the sets themselves, by exercise, and the pad to log the next one (LiftLog) */}
-      {canLog ? <LiftLog date={date} onDone={(n) => n > 0 && effortOf(s.effort) == null && setAskEffort(true)} /> : null}
-      {s.kind !== 'rest' && floorText && !runs.length ? (
-        <p className="fine ss-floor-line">
-          The floor: {floorText}. On a bad day it still counts.
-        </p>
+      {s.kind !== 'rest' && floorText && !runs.length && !c.mark ? <p className="ss-foot-note">The floor: {floorText}. On a bad day it still counts.</p> : null}
+      {pill ? (
+        <div className="sheet-foot ss-foot">
+          <Button variant={pill.primary ? 'primary' : 'soft'} block onClick={pill.fn}>
+            {pill.label === 'Mark done' ? <Check size={20} strokeWidth={2.6} aria-hidden="true" /> : pill.label === 'Share' ? <Share2 size={19} aria-hidden="true" /> : null}
+            {pill.label}
+          </Button>
+        </div>
       ) : null}
     </div>
   );
 };
 
-/** A run with no session behind it: the route, its numbers and evidence, and Share. `fromHero` is accepted and makes no difference. */
+/** A run with no session behind it: the route, its hero and tiles, the evidence, and Share as the one pill. `fromHero` is accepted and makes no difference. */
 export const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activity[]; log: Log; fromHero?: boolean }) => {
   const share = useMemo(() => shareDataFor(date, null, runs, log), [date, runs, log]);
   const act = useSessionActions(log);
@@ -464,24 +503,24 @@ export const UnplannedSheet = ({ date, runs, log }: { date: string; runs: Activi
   const key = sessionKey(log.snap, date, null);
   const records = useRunRecords(runs);
   const when = whenLine(date, log.today, mainRun(runs)?.time ?? null, startClock);
+  const nums = runNumbers(null, runs, log, 0);
   return (
     <div className="ss t-easy">
-      {polyRun?.polyline ? <RouteMap polyline={polyRun.polyline} drawKey={`u-${date}`} run={polyRun} records={records} /> : null}
-      <div className="ss-status">
-        <Chip kind={chipKind(key)}>{sessionWord(log.snap, date, null)}</Chip>
-        <span className="t-sub ink3">{when ? `${when} · off the plan` : 'Off the plan'}</span>
-      </div>
+      {polyRun?.polyline ? (
+        <div className="card ss-map-card">
+          <RouteMap polyline={polyRun.polyline} drawKey={`u-${date}`} run={polyRun} records={records} />
+        </div>
+      ) : null}
+      <SheetHero s={null} k={key} word={sessionWord(log.snap, date, null)} when={when ? `${when}, off the plan` : 'Off the plan'} moved={null} hero={nums[0] ?? null} />
       {records.length ? <RecordCard records={records} date={date} onTap={() => document.getElementById('splits-run')?.scrollIntoView({ behavior: 'smooth', block: 'center' })} /> : null}
-      <RunGrid sess={null} runs={runs} log={log} planned={0} />
+      <StatTiles nums={nums.slice(1)} />
       <SessionActual date={date} sess={null} runs={runs} log={log} prLap={recordLap(runs, records)} />
       {share.miles > 0 ? (
-        <div className="sheet-foot">
-          <span />
-          <div className="foot-right">
-            <Button variant="primary" onClick={() => act.share(share, true)}>
-              Share
-            </Button>
-          </div>
+        <div className="sheet-foot ss-foot">
+          <Button variant="primary" block onClick={() => act.share(share, true)}>
+            <Share2 size={19} aria-hidden="true" />
+            Share
+          </Button>
         </div>
       ) : null}
     </div>

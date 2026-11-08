@@ -1,11 +1,12 @@
 import { counts, daysBetween, fmtDate, mondayOf, monthsBetween, num, sessionStatus, shiftDays, weekTotals, type PlanBlock } from '@logbook/shared';
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { ArrowRight, CalendarRange, ChevronRight, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { usePlanDelete } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button, EmptyState } from '@/ui/primitives';
+import { useContextMenu } from '@/ui/ContextMenu';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -14,6 +15,7 @@ import { builderSpec } from './Builder';
 import type { BuilderPrefill } from './builderModel';
 import { PlanBuilder } from './PlanBuilder';
 import { weekMiles } from '../sessions/miles';
+import { shortName } from './context';
 import { phasesOf, type PhaseWeek } from './phases';
 import './plan.css';
 
@@ -125,7 +127,7 @@ export const blockCardOf = (log: Log): BlockCardData => {
  * place in it (`WEEK 3 OF 11`; a month, its weeks); before it, when it starts; after it, when it ended (review-feel-1 #10).
  * With no page, today's place.
  */
-const whereFor = (d: BlockCardData, page?: { from: string; to: string }) => {
+export const whereFor = (d: BlockCardData, page?: { from: string; to: string }) => {
   const { b, st, weeks, wk } = d;
   if (!b) return '';
   const lead = `Lead-in · Week 1 starts ${fmtDate('md', firstMonOf(b))}`;
@@ -152,8 +154,10 @@ export const weekPlace = (d: BlockCardData, mon: string): { phase: PhaseWeek | n
 };
 
 /**
- * `inWeek`: under a week page, whose line already says the week's place and draws the weeks' miles, the card names the
- * block and its dates only (nothing twice); under a month it keeps its caption and the arc.
+ * The block section under a week or a month (docs/shape-system.md: a sans section header, then one lifted card). The card
+ * opens the plan (the arrow at its top right): the caption for the page it sits under, the name, its dates, and the arc of
+ * its weeks (not under a week inside the block: that page's mileage card draws the weeks already, nothing twice); then one
+ * row, `New block ›`, the builder's door. With no plan: the ghost of an arc and the one verb, New block.
  */
 export const BlockCardView = ({ data, getLog, page, inWeek }: { data: BlockCardData; getLog: () => Log; page?: { from: string; to: string }; inWeek?: boolean }) => {
   const sheet = useSheet();
@@ -163,25 +167,43 @@ export const BlockCardView = ({ data, getLog, page, inWeek }: { data: BlockCardD
   if (!data.boot) return null;
   if (!b)
     return (
-      <div className="pl-block-empty sec-primary">
-        <EmptyState ghost={<Arc weeks={GHOST_ARC} today="g0" tall />} verb={{ label: 'New block', onPress: openNew, primary: true }}>
-          A block lays out the weeks to a goal: building, a down week every fourth, a taper to race day.
-        </EmptyState>
-      </div>
+      <section className="pl-sec pl-block-sec" aria-label="Block">
+        <h2 className="pl-head">Block</h2>
+        <div className="card pl-block-empty">
+          <EmptyState ghost={<Arc weeks={GHOST_ARC} today="g0" tall />} verb={{ label: 'New block', onPress: openNew, primary: true }}>
+            A block lays out the weeks to a goal: building, a down week every fourth, a taper to race day.
+          </EmptyState>
+        </div>
+      </section>
     );
   const inside = inWeek && page && page.to >= b.start && page.from <= b.end;
-  const where = inside ? `${fmtDate('md', b.start)} – ${fmtDate('md', b.end)} · ${data.weeks} ${data.weeks === 1 ? 'week' : 'weeks'}` : whereFor(data, page);
+  const where = whereFor(data, page);
+  // a name that says its length already (`Half marathon · 12 weeks`) is not followed by it again
+  const dates = `${fmtDate('md', b.start)} – ${fmtDate('md', b.end)}${/\bweeks?\b/i.test(b.name) ? '' : ` · ${data.weeks} ${data.weeks === 1 ? 'week' : 'weeks'}`}`;
   return (
-    <section className={`pl-block sec-primary ${inside ? 'is-compact' : ''}`} aria-label={`Your block: ${b.name}. ${where}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}${peak ? `, peaks at ${tenth(peak)} miles` : ''}`}>
-      <div className="pl-block-main">
-        <span className="caps pl-block-cap">{where}</span>
-        <span className="pl-block-name">{b.name}</span>
-        {inside ? null : <Arc weeks={arc} today={t} />}
+    <section className="pl-sec pl-block-sec" aria-label="Block">
+      <h2 className="pl-head">Block</h2>
+      <div className={`card pl-block ${inside ? 'is-compact' : ''}`}>
+        <Pressable
+          className="pl-block-main"
+          press="surface"
+          onPress={() => openPlanDetail(sheet, b, getLog())}
+          label={`Your block: ${b.name}. ${where}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}${peak ? `, peaks at ${tenth(peak)} miles` : ''}. Open`}
+        >
+          <span className="caps pl-block-cap">{where}</span>
+          <span className="pl-block-name">{b.name}</span>
+          <span className="pl-block-dates">{dates}</span>
+          {inside ? null : <Arc weeks={arc} today={t} />}
+          <ArrowRight size={18} className="pl-block-go" aria-hidden="true" />
+        </Pressable>
+        <Pressable className="pl-block-new" press="surface" onPress={openNew} label="New block">
+          <span className="icon-tile" aria-hidden="true">
+            <Plus size={18} />
+          </span>
+          <span className="pl-block-new-t">New block</span>
+          <ChevronRight size={18} aria-hidden="true" />
+        </Pressable>
       </div>
-      <Pressable className="pl-block-new" press="surface" onPress={openNew} label="New block">
-        <span>New block</span>
-        <ChevronRight size={18} aria-hidden="true" />
-      </Pressable>
     </section>
   );
 };
@@ -223,8 +245,9 @@ export const openTemplate = (sheet: SheetApi, log: Log, push = false, prefill?: 
 export const planName = (b: PlanBlock, all: PlanBlock[], t: string) => (all.some((x) => x.id !== b.id && x.name === b.name && x.start > b.end) ? `${b.name} · ${b.end < t ? 'ended' : 'ends'} ${fmtDate('md', b.end)}` : b.name);
 
 /**
- * Your plans, newest first, as one inset group of 60 px rows (name 17/22, dates 13/18, its state); a row opens the plan.
- * With the AI on, "Write my next block" sits under the list. New block is in the Plans page's bar.
+ * Your plans, newest first, as one inset group (docs/shape-system.md §3): an icon tile, the name 17/22 over its dates and
+ * length, its state, a chevron; a row opens the plan. With the AI on, "Write my next block" is a second group under the
+ * list. New block is the round + in the Plans page's bar.
  */
 export const PlansPanel = ({ log }: { log: Log }) => {
   const sheet = useSheet();
@@ -233,71 +256,72 @@ export const PlansPanel = ({ log }: { log: Log }) => {
   return (
     <div className="pl-plans">
       {blocks.length ? (
-        <div className="pl-group pl-plan-list">
+        <div className="group pl-plan-list">
           {blocks.map((b) => {
             const st = stateOf(b, t);
             const name = planName(b, blocks, t);
             const n = planWeeks(b);
             return (
-              <Pressable
-                key={b.id}
-                press="surface"
-                className="pl-plan-row"
-                label={`${name}. ${st}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}, ${n} ${n === 1 ? 'week' : 'weeks'}`}
-                onPress={() => sheet.open({ eyebrow: `${st} · ${fmtDate('md', b.start)} – ${fmtDate('md', b.end)}`, title: name, body: <PlanDetail b={b} log={log} /> })}
-              >
+              <Pressable key={b.id} press="surface" className="pl-plan-row" label={`${name}. ${st}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}, ${n} ${n === 1 ? 'week' : 'weeks'}`} onPress={() => openPlanDetail(sheet, b, log)}>
+                <span className={`icon-tile pl-plan-ic ${st === 'Active' ? 'is-on' : ''}`} aria-hidden="true">
+                  <CalendarRange size={18} />
+                </span>
                 <span className="pl-plan-main">
                   <span className="pl-plan-name">{name}</span>
-                  <span className="pl-sub">
-                    {fmtDate('md', b.start)} – {fmtDate('md', b.end)} · {n} {n === 1 ? 'week' : 'weeks'}
+                  <span className="pl-plan-sub">
+                    {fmtDate('md', b.start)} – {fmtDate('md', b.end)}
+                    {/\bweeks?\b/i.test(name) ? '' : ` · ${n} ${n === 1 ? 'week' : 'weeks'}`}
                   </span>
                 </span>
                 <span className={`pl-plan-st ${st === 'Active' ? 'on' : ''}`}>{st}</span>
-                <ChevronRight size={18} className="ink3" aria-hidden="true" />
+                <ChevronRight size={18} className="pl-plan-chev" aria-hidden="true" />
               </Pressable>
             );
           })}
         </div>
       ) : (
-        <p className="t-sub ink2 pl-plans-empty">No plans yet. A block takes a minute: pick a goal, your run days and your weekly miles.</p>
+        <div className="card pl-plans-empty">
+          <span className="pl-plans-empty-t">No plans yet</span>
+          <span className="pl-plans-empty-s">A block takes a minute: pick a goal, your run days and your weekly miles. Tap + to start one.</span>
+        </div>
       )}
       {log.features.claude ? (
-        <Pressable className="pl-ai-row" press="surface" onPress={() => sheet.open({ title: 'Write my next block', detent: 'large', body: <PlanBuilder log={log} /> })}>
-          <Sparkles size={18} aria-hidden="true" />
-          <span>
-            <b>Write my next block</b>
-            <span className="pl-sub">From a file, pasted text, or a sentence, with your recent weeks</span>
-          </span>
-          <ChevronRight size={18} aria-hidden="true" />
-        </Pressable>
+        <div className="group">
+          <Pressable className="pl-plan-row pl-ai-row" press="surface" onPress={() => sheet.open({ title: 'Write my next block', detent: 'large', body: <PlanBuilder log={log} /> })}>
+            <span className="icon-tile pl-ai-ic" aria-hidden="true">
+              <Sparkles size={18} />
+            </span>
+            <span className="pl-plan-main">
+              <span className="pl-plan-name">Write my next block</span>
+              <span className="pl-plan-sub">From a file, pasted text, or a sentence, with your recent weeks</span>
+            </span>
+            <ChevronRight size={18} className="pl-plan-chev" aria-hidden="true" />
+          </Pressable>
+        </div>
       ) : null}
     </div>
   );
 };
 
-/** One plan: its arc, what it is, the way to its week, and Delete (with Undo, like everything else). */
-const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
+/** Opens one plan's sheet (from the plans list, the block card and Plan's block chip). */
+export const openPlanDetail = (sheet: SheetApi, b: PlanBlock, log: Log) => {
+  const all = log.boot?.blocks ?? [];
+  const st = stateOf(b, log.today);
+  // the eyebrow is its state alone (the arc's axis has the dates), the title the name without the length the tiles show
+  sheet.open({ eyebrow: st, title: shortName(planName(b, all, log.today)), action: <PlanDelete b={b} />, body: <PlanDetail b={b} /> });
+};
+
+/**
+ * The plan sheet's delete (docs/shape-system.md §5: a red icon in a tinted circle at the top right): a tap asks first, in
+ * a menu under the button that says what goes, then the plan goes with Undo in the toast. The server deletes at once (a
+ * reload inside the Undo window shows it gone); Undo restores it once the delete has landed.
+ */
+const PlanDelete = ({ b }: { b: PlanBlock }) => {
   const sheet = useSheet();
-  const nav = useNav();
   const toast = useToast();
+  const menu = useContextMenu();
+  const btn = useRef<HTMLButtonElement>(null);
   const { remove, restore } = usePlanDelete();
-  const t = log.today;
-  const arc = arcOf(log, b);
-  let done = 0;
-  let due = 0;
-  for (let d = b.start; d <= b.end && d < t; d = shiftDays(d, 1))
-    for (const s of log.snap.sessionsOn(d)) {
-      if (s.kind === 'rest') continue;
-      const st = sessionStatus(log.snap, d, s);
-      if (st === 'skipped') continue;
-      due++;
-      if (counts(st)) done++;
-    }
-  const go = () => {
-    sheet.close();
-    nav.go(`/plan/week/${mondayOf(b.start <= t && t <= b.end ? t : b.start)}`);
-  };
-  // the server deletes at once (a reload inside the Undo window shows it gone); Undo restores it once the delete has landed
   const del = () => {
     sheet.close();
     haptics.delete();
@@ -320,21 +344,88 @@ const PlanDetail = ({ b, log }: { b: PlanBlock; log: Log }) => {
     });
   };
   return (
+    <button
+      ref={btn}
+      type="button"
+      className="icon-btn pl-del"
+      aria-label={`Delete ${b.name}`}
+      title="Delete"
+      aria-haspopup="menu"
+      onClick={() => {
+        const el = btn.current;
+        if (el) menu.open({ items: [{ label: 'Delete plan and its sessions ahead', icon: <Trash2 size={18} />, destructive: true, onSelect: del }], anchor: el.getBoundingClientRect(), label: 'Delete plan', returnFocus: el, haptic: false });
+      }}
+    >
+      <Trash2 size={18} aria-hidden="true" />
+    </button>
+  );
+};
+
+/**
+ * One plan (an entry sheet's shape): its arc in a card with what it holds as tiles (weeks, sessions, kept so far), what
+ * it is in words, and one navy pill to its week.
+ */
+const PlanDetail = ({ b }: { b: PlanBlock }) => {
+  const sheet = useSheet();
+  const nav = useNav();
+  // every month of the plan, so the arc draws all of its weeks (the list's log holds only the months around today)
+  const log = useLog(useMemo(() => monthsBetween(b.start, b.end).slice(0, 8), [b.start, b.end]));
+  const t = log.today;
+  const arc = arcOf(log, b);
+  let done = 0;
+  let due = 0;
+  for (let d = b.start; d <= b.end && d < t; d = shiftDays(d, 1))
+    for (const s of log.snap.sessionsOn(d)) {
+      if (s.kind === 'rest') continue;
+      const st = sessionStatus(log.snap, d, s);
+      if (st === 'skipped') continue;
+      due++;
+      if (counts(st)) done++;
+    }
+  const peak = Math.max(0, ...arc.map((w) => w.planned));
+  const n = planWeeks(b);
+  const go = () => {
+    sheet.close();
+    nav.go(`/plan/week/${mondayOf(b.start <= t && t <= b.end ? t : b.start)}`);
+  };
+  return (
     <div className="pl-detail">
-      <Arc weeks={arc} today={t} tall />
-      <p className="t-sub ink2">
-        {planWeeks(b)} {planWeeks(b) === 1 ? 'week' : 'weeks'} · {b.sessionCount ?? 0} sessions{due ? ` · ${done} of ${due} kept\u00a0so\u00a0far` : ''}
-      </p>
-      {b.summary ? <p className="t-body">{b.summary}</p> : null}
-      <div className="sheet-foot">
-        <Button variant="quiet" className="danger-text" onClick={del}>
-          Delete plan
-        </Button>
-        <div className="foot-right">
-          <Button variant="soft" onClick={go}>
-            {b.start <= t && t <= b.end ? 'This week' : 'Its first week'}
-          </Button>
+      <div className="card pl-detail-arc">
+        <span className="pl-detail-label">Weekly miles</span>
+        <span className="tile-value">
+          {peak ? tenth(peak) : '–'}
+          <small>mi at the peak</small>
+        </span>
+        <Arc weeks={arc} today={t} tall />
+        <span className="pl-detail-axis" aria-hidden="true">
+          <span>{fmtDate('md', b.start)}</span>
+          <span>{fmtDate('md', b.end)}</span>
+        </span>
+      </div>
+      <div className="tiles">
+        <div className="tile">
+          <span className="tile-label">Length</span>
+          <span className="tile-value">
+            {n}
+            <small>{n === 1 ? 'week' : 'weeks'}</small>
+          </span>
         </div>
+        <div className="tile">
+          <span className="tile-label">Kept so far</span>
+          <span className="tile-value">
+            {due ? done : '–'}
+            <small>{due ? `of ${due}` : 'not started'}</small>
+          </span>
+        </div>
+      </div>
+      <div className="card pl-detail-words">
+        <span className="pl-detail-label">{b.sessionCount ?? 0} sessions</span>
+        {b.summary ? <p className="pl-detail-sum">{b.summary}</p> : <p className="pl-detail-sum">Runs and lifts laid out by week, to {fmtDate('md', b.end)}.</p>}
+      </div>
+      <div className="sheet-foot">
+        <Button variant="primary" block onClick={go}>
+          {b.start <= t && t <= b.end ? 'Open this week' : 'Open its first week'}
+        </Button>
       </div>
     </div>
   );
