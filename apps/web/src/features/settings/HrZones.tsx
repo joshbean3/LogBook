@@ -1,6 +1,8 @@
 import type { HrZone } from '@logbook/shared';
 import type * as React from 'react';
+import { Gauge } from 'lucide-react';
 import { Row } from '@/ui';
+import { Tile } from './parts';
 
 /** "Easy under 145 bpm · Threshold 146–172 · Speed from 173", or null when the zones that line needs are missing. */
 export const zoneLine = (z: HrZone[] | null | undefined): string | null => {
@@ -22,7 +24,8 @@ export const HrZonesRow = ({ zones, connected }: { zones: HrZone[] | null; conne
   if (!connected && !line) return null;
   return (
     <Row
-      className="s-wrap s-zones"
+      className="s-wrap s-zones has-tile"
+      left={<Tile icon={Gauge} />}
       title="Heart-rate zones"
       sub={
         line ? (

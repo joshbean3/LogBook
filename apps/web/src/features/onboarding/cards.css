@@ -1,0 +1,317 @@
+/* ---------- Logbook's cards, small and still (welcome pager, feature intros) ---------- */
+.lc {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  max-width: 340px;
+  margin-inline: auto;
+  padding: 18px 18px 20px;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-1), 0 18px 40px rgba(15, 42, 68, 0.08);
+  color: var(--ink);
+  text-align: left;
+  pointer-events: none;
+  user-select: none;
+}
+.lc .caps {
+  font-size: var(--fs-caps);
+  line-height: var(--lh-caps);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.lc .stamp {
+  font-family: var(--stamp);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.lc .display {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+}
+.lc-halo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--halo);
+  opacity: 0.8;
+}
+.lc-halo.amber {
+  background: var(--halo-amber);
+}
+
+/* the morning */
+.lc-big {
+  font-size: 2.25rem;
+  line-height: 2.375rem;
+  margin-top: 2px;
+}
+.lc-line {
+  font-size: 1.5rem;
+  line-height: 1.75rem;
+  color: var(--ink);
+}
+.lc-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 14px;
+}
+.lc-track::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 5px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--surface-3);
+}
+.lc-stop {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+.lc-stop:nth-child(2),
+.lc-stop:nth-child(3) {
+  justify-items: center;
+}
+.lc-stop:last-child {
+  justify-items: end;
+}
+.lc-stop i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--ink-3);
+  margin-bottom: 6px;
+}
+.lc-stop.now i {
+  background: var(--accent);
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 4px var(--accent-tint);
+}
+.lc-stop-v {
+  font-size: 1rem;
+  line-height: 1.25rem;
+}
+
+/* habits as lights */
+.lc-orbs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+.lc-orb {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.lc-orb-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-3);
+  border: 1.5px solid var(--line-strong);
+}
+.lc-orb.on .lc-orb-ring {
+  background: var(--accent);
+  border-color: var(--accent-bright);
+  color: var(--accent-ink);
+  box-shadow:
+    0 0 0 4px rgba(242, 96, 12, 0.18),
+    0 0 24px rgba(242, 96, 12, 0.6);
+}
+.lc-orb-i {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-2);
+}
+.lc-orb-name {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--ink-3);
+}
+.lc-orb.on .lc-orb-name {
+  color: var(--ink);
+}
+.lc-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.lc-day {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.lc-day i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-4);
+}
+.lc-day.kept i {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+.lc-day.today i {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+/* the plan week */
+.lc-week {
+  gap: 4px;
+}
+.lc-week-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.lc-week-total {
+  font-size: 0.8125rem;
+  color: var(--ink-3);
+}
+.lc-week-total .stamp {
+  font-size: 1.25rem;
+  color: var(--ink);
+}
+.lc-rows {
+  display: grid;
+}
+.lc-row {
+  display: grid;
+  grid-template-columns: 36px 24px 3px minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  border-top: 1px solid var(--line);
+}
+.lc-week.compact .lc-row {
+  height: 30px;
+}
+.lc-row:first-child {
+  border-top: 0;
+}
+.lc-row-n {
+  font-family: var(--stamp);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--ink-2);
+  text-align: right;
+}
+.lc-row-tone {
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+}
+.lc-row.t-easy .lc-row-tone,
+.lc-row.t-easy .lc-row-bar i {
+  background: var(--t-easy);
+}
+.lc-row.t-long .lc-row-tone,
+.lc-row.t-long .lc-row-bar i {
+  background: var(--t-long);
+}
+.lc-row.t-hard .lc-row-tone,
+.lc-row.t-hard .lc-row-bar i {
+  background: var(--t-hard);
+}
+.lc-row.t-lift .lc-row-tone {
+  background: var(--t-lift);
+}
+.lc-row-name .stamp {
+  font-size: 1rem;
+}
+.lc-rest {
+  font-size: 0.9375rem;
+  color: var(--ink-4);
+}
+.lc-row-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.lc-row-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+}
+
+/* learned and journal */
+.lc-quote {
+  font-size: 1.625rem;
+  line-height: 1.875rem;
+  margin-top: 4px;
+  text-wrap: balance;
+}
+.lc-month {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.lc-month-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+.lc-month-meta {
+  font-size: 0.8125rem;
+  color: var(--ink-3);
+}
+.lc-month-meta .stamp {
+  color: var(--ink);
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 359px) {
+  .lc {
+    padding: 14px 14px 16px;
+  }
+  .lc-big {
+    font-size: 1.875rem;
+    line-height: 2rem;
+  }
+  .lc-line {
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+  }
+  .lc-quote {
+    font-size: 1.375rem;
+    line-height: 1.625rem;
+  }
+  .lc-orb-ring {
+    width: 44px;
+    height: 44px;
+  }
+  .lc-row {
+    grid-template-columns: 32px 20px 3px minmax(0, 1fr) 56px;
+    height: 28px;
+  }
+  .lc-stop-v {
+    font-size: 0.875rem;
+  }
+}

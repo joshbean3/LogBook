@@ -1,6 +1,7 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import type * as React from 'react';
+import { Activity, CalendarDays, ClipboardList, Database, Gauge, HeartPulse, House, Mail, Route, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { keys, useBootstrap } from '@/api/queries';
@@ -8,10 +9,14 @@ import { DAY_NAME, DAY_SHORT, goalLine, hm, isTemplateBlock, paceText, sortDays 
 import { useOpenRoutineEditor } from '@/features/morning/RoutineEditor';
 import { haptics } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
-import { PushedBar, useToast } from '@/ui';
+import { PushedBar } from '@/ui';
 import { zoneLine } from './HrZones';
+import { ago } from './format';
 import { GoRow, SGroup } from './parts';
+import { stravaGuide, useConnectionSheet } from './DataSources';
 import { HapticsRow } from './SectionPages';
+import { useConsent } from '@/features/auth/consent';
+import { useAppVersion } from './version';
 import { useTrainingProfile } from './useProfile';
 import './settings.css';
 
@@ -19,8 +24,8 @@ import './settings.css';
 let stravaReturnRead = false;
 const useStravaReturn = () => {
   const qc = useQueryClient();
-  const toast = useToast();
   const nav = useNav();
+  const openGuide = useConnectionSheet();
   useEffect(() => {
     if (stravaReturnRead) return;
     stravaReturnRead = true;
@@ -32,10 +37,11 @@ const useStravaReturn = () => {
       void qc.invalidateQueries({ queryKey: keys.bootstrap });
       setTimeout(() => void qc.invalidateQueries({ queryKey: ['month'] }), 6000);
     } else if (s === 'error') {
+      // what to check, then Connect again (the connection page's failure sheet), never a toast that vanishes
       haptics.error();
-      toast('Didn’t connect to Strava. Try again.');
+      openGuide(stravaGuide(false), 'failed');
     }
-  }, [qc, toast, nav]);
+  }, [qc, nav]); // eslint-disable-line react-hooks/exhaustive-deps
 };
 
 /**
@@ -68,6 +74,8 @@ export default function SettingsView(): React.JSX.Element {
   const dash = '–';
   const days = loaded ? (profile.runDays.length > 5 ? `${profile.runDays.length} a week` : sortDays(profile.runDays).map((d) => DAY_SHORT[d]).join(' ')) : dash;
   const zones = zoneLine(data?.zones);
+  const consent = useConsent();
+  const version = useAppVersion();
 
   return (
     <div ref={pageRef} className="page s-set s-root">
@@ -76,25 +84,42 @@ export default function SettingsView(): React.JSX.Element {
       <SGroup title="You">
         {/* the email is the Account row's title; with no name, this row asks for one instead of showing the email twice
             (review 3 feel R3-7) */}
-        <GoRow title={user?.name || 'Add your name'} sub={loaded ? (named ? `${block!.name}, through ${fmtDate('md', block!.end)}` : goalLine(profile)) : ' '} onPress={go('you')} label={`You: ${user?.name || 'add your name'}`} />
+        <GoRow icon={User} title={user?.name || 'Add your name'} sub={loaded ? (named ? `${block!.name}, through ${fmtDate('md', block!.end)}` : goalLine(profile)) : ' '} onPress={go('you')} label={`You: ${user?.name || 'add your name'}`} />
       </SGroup>
 
       <SGroup title="Training">
         {source === 'none' && loaded ? (
-          <GoRow title="Build a plan" sub="Pick your days and miles. Logbook writes the weeks." onPress={go('training')} />
+          <GoRow icon={CalendarDays} title="Build a plan" sub="Pick your days and miles. Logbook writes the weeks." onPress={go('training')} />
         ) : (
           <>
-            <GoRow title={source === 'block' ? 'This week' : 'Starting miles'} value={loaded ? `${profile.weeklyMiles} mi` : dash} onPress={go('training')} />
-            <GoRow title="Run days" value={days} onPress={go('training')} />
-            <GoRow title="Long run" value={loaded ? DAY_NAME[profile.longRunDay] : dash} onPress={go('training')} />
+            <GoRow icon={Gauge} title={source === 'block' ? 'This week' : 'Starting miles'} value={loaded ? `${profile.weeklyMiles} mi` : dash} onPress={go('training')} />
+            {/* at 320 the day names give way to a count, rather than an ellipsis that hides the last days */}
+            <GoRow
+              icon={CalendarDays}
+              title="Run days"
+              value={
+                loaded && profile.runDays.length > 3 && profile.runDays.length <= 5 ? (
+                  <>
+                    <span className="s-wide">{days}</span>
+                    <span className="s-narrow">{profile.runDays.length} a week</span>
+                  </>
+                ) : (
+                  days
+                )
+              }
+              label={loaded ? `Run days: ${days}` : undefined}
+              onPress={go('training')}
+            />
+            <GoRow icon={Route} title="Long run" value={loaded ? DAY_NAME[profile.longRunDay] : dash} onPress={go('training')} />
           </>
         )}
-        <GoRow title="Easy pace" value={ms ? `${paceText(ms.run.pace)} /mi` : dash} onPress={go('training')} />
-        <GoRow title="Plans" value={block?.name ?? (loaded ? 'None' : dash)} onPress={go('plans')} className="s-plans-row" label={`Plans${block ? `: ${block.name}` : ''}`} />
+        <GoRow icon={Timer} title="Easy pace" value={ms ? `${paceText(ms.run.pace)} /mi` : dash} onPress={go('training')} />
+        <GoRow icon={ClipboardList} title="Plans" value={block?.name ?? (loaded ? 'None' : dash)} onPress={go('plans')} className="s-plans-row" label={`Plans${block ? `: ${block.name}` : ''}`} />
       </SGroup>
 
       <SGroup title="Habits">
         <GoRow
+          icon={Sparkles}
           title={habits.length ? habits.slice(0, 3).map((h) => h.name).join(', ') + (habits.length > 3 ? ` and ${habits.length - 3} more` : '') : 'Add your first habit'}
           sub={habits.length ? 'Rename, reorder, archive' : 'Small lights you tap on Today'}
           value={habits.length || undefined}
@@ -103,40 +128,53 @@ export default function SettingsView(): React.JSX.Element {
       </SGroup>
 
       <SGroup title="Morning routine">
-        <GoRow title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Morning routine timings" />
+        <GoRow icon={Sunrise} title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Morning routine timings" />
       </SGroup>
 
-      {data?.features.strava ? (
-        <SGroup title="Connections">
-          <GoRow
-            title="Strava"
-            sub={strava?.connected && strava.error ? 'Stopped syncing. Reconnect to pick up new runs.' : strava?.connected ? (strava.athleteName ? `Connected as ${strava.athleteName}` : 'Connected') : 'See your runs land on Today.'}
-            value={strava?.connected && strava.error ? 'Reconnect' : strava?.connected ? undefined : 'Connect'}
-            tone={strava?.connected && strava.error ? 'bad' : undefined}
-            onPress={go('connections')}
-          />
-          {zones ? <GoRow title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
-        </SGroup>
-      ) : null}
+      <SGroup title="Data sources">
+        <GoRow
+          icon={Activity}
+          title="Strava"
+          sub={
+            !data?.features.strava
+              ? 'Not available on this Logbook yet.'
+              : strava?.connected && strava.error
+                ? 'Stopped syncing. Reconnect to pick up new runs.'
+                : strava?.connected
+                  ? [strava.athleteName ? `Connected as ${strava.athleteName}` : 'Connected', ago(strava.lastSyncAt) ? `synced ${ago(strava.lastSyncAt)}` : null].filter(Boolean).join(', ')
+                  : 'See your runs land on Today.'
+          }
+          value={data?.features.strava ? (strava?.connected && strava.error ? 'Fix' : strava?.connected ? undefined : 'Connect') : undefined}
+          tone={strava?.connected && strava.error ? 'bad' : undefined}
+          onPress={go('connections')}
+        />
+        <GoRow icon={HeartPulse} title="Apple Health" sub="Not yet available." onPress={go('connections')} />
+        {zones ? <GoRow icon={Gauge} title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
+      </SGroup>
+
+      <SGroup title="Privacy">
+        <GoRow icon={ShieldCheck} title="Assistant access" sub="What the assistant may read, and what it never sees." value={consent.data ? (consent.data.training ? 'On' : 'Off') : undefined} onPress={go('privacy')} />
+      </SGroup>
 
       <SGroup title="App">
         {/* one tap, not a page with one switch on it (review feel F13); the App page keeps it with the Home screen rows */}
-        <HapticsRow />
-        {isNative ? null : <GoRow title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
+        <HapticsRow icon={Vibrate} />
+        {isNative ? null : <GoRow icon={House} title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
       </SGroup>
 
       <SGroup title="Data">
-        <GoRow title="Import and export" sub="Your log, as one JSON file." onPress={go('data')} />
+        <GoRow icon={Database} title="Import and export" sub="Your log, as one JSON file." onPress={go('data')} />
       </SGroup>
 
       <SGroup title="Account">
         {/* not "Account" twice (the group's title and the row's, review feel F13); the email is the title, so it has the
             row's width and is whole at 320 (review 2 feel N9) */}
-        <GoRow title={user?.email ?? ' '} sub="Signed in" onPress={go('account')} className="s-acct-row" label={`Account: signed in as ${user?.email ?? ''}`} />
+        <GoRow icon={Mail} title={user?.email ?? ' '} sub="Signed in" onPress={go('account')} className="s-acct-row" label={`Account: signed in as ${user?.email ?? ''}`} />
       </SGroup>
 
       <p className="s-colophon">
         <span className="caps">Logbook</span>
+        <span className="s-version">{version}</span>
       </p>
     </div>
   );

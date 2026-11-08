@@ -1,12 +1,23 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import type { ReactNode } from 'react';
 import { springs } from '@/lib/motion';
 import { Group, Row, Section } from '@/ui';
+import './switch.css';
 
 /** The chevron of a row that pushes (or opens) something. */
 export const Chev = (): React.JSX.Element => <ChevronRight size={18} className="s-chev" aria-hidden="true" />;
+
+/**
+ * A row's soft icon tile (inspiration §3 "Settings rows": pastel tiles, grey subtitles): a Columbia wash square with the
+ * icon in the second ink. Colour stays out of it; a tile says what the row is, never how it is doing.
+ */
+export const Tile = ({ icon: Icon, tone }: { icon: LucideIcon; tone?: 'muted' }): React.JSX.Element => (
+  <span className={`s-tile ${tone ? `is-${tone}` : ''}`} aria-hidden="true">
+    <Icon size={18} strokeWidth={2} />
+  </span>
+);
 
 /**
  * One inset group under its sentence-case title (§8: the root's `You · Training · Habits · Morning routine · Connections ·
@@ -22,9 +33,10 @@ export const SGroup = ({ title, children, className = '' }: { title: string; chi
  * A row that goes somewhere (a push, a sheet, the Strava hand-off): the value on the right, then the chevron. The whole row is
  * the target; its press is the row surface (`--surface-2`, the one press of §11.1, set by the press delegate on `.lrow.tappable`).
  */
-export const GoRow = ({ title, sub, value, onPress, label, tone, className = '' }: { title: ReactNode; sub?: ReactNode; value?: ReactNode; onPress: () => void; label?: string; tone?: 'bad'; className?: string }): React.JSX.Element => (
+export const GoRow = ({ title, sub, value, onPress, label, tone, icon, className = '' }: { title: ReactNode; sub?: ReactNode; value?: ReactNode; onPress: () => void; label?: string; tone?: 'bad'; icon?: LucideIcon; className?: string }): React.JSX.Element => (
   <Row
-    className={`s-go ${tone ? `tone-${tone}` : ''} ${className}`}
+    className={`s-go ${tone ? `tone-${tone}` : ''} ${icon ? 'has-tile' : ''} ${className}`}
+    left={icon ? <Tile icon={icon} /> : undefined}
     title={title}
     sub={sub}
     onClick={onPress}

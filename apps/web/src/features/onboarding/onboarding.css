@@ -191,6 +191,13 @@
   padding-bottom: 4px;
   background: linear-gradient(to bottom, transparent, var(--bg) 24px);
 }
+.ob-later {
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
 .ob-cta.btn {
   height: 56px;
   font-size: 1.0625rem;

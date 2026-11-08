@@ -1,0 +1,93 @@
+/* ---------- Data sources and the connection sheet ---------- */
+.ds-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
+  color: var(--t-easy);
+}
+.ds-foot {
+  padding-inline: 16px;
+}
+.ds-soon .lrow-title {
+  color: var(--ink-2);
+}
+
+/* the connection sheet: numbered steps, a quiet way to the checklist, one navy pill */
+.cx {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+.cx-lede {
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--ink-2);
+}
+.cx-steps,
+.cx-check {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.cx-steps li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--ink);
+}
+.cx-n {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--columbia-wash);
+  color: var(--ink);
+  font-family: var(--stamp);
+  font-weight: 800;
+  font-size: 0.875rem;
+  margin-top: -3px;
+}
+.cx-check li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: var(--r-group);
+  background: var(--surface-2);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+}
+.cx-check li svg {
+  margin-top: 2px;
+  color: var(--ink-2);
+}
+.cx-help {
+  appearance: none;
+  border: 0;
+  background: none;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sub);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.cx-cta.btn {
+  height: 52px;
+  margin-top: 4px;
+}

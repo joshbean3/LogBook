@@ -374,3 +374,22 @@ export const zGoalPatch = z.object({
 export const zGoalRefine = z.object({ level: zGoalLevel, period: z.string().min(4).max(10), text: z.string().trim().min(1).max(400) });
 /** What Claude returns for a goal review. */
 export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean(), steps: z.array(z.string()) });
+
+/**
+ * What the assistant may read (user_settings `consent`), chosen on the privacy page before the account and changed in
+ * Settings › Privacy. `training`: the plan, sessions, goals, to-dos and status. `health`: Apple Health data, null until
+ * that exists and has been asked. `at`: when it was last chosen.
+ */
+export const zConsentInput = z.object({ training: z.boolean(), health: z.boolean().nullable().optional() });
+export type ConsentInput = z.infer<typeof zConsentInput>;
+export interface Consent {
+  training: boolean;
+  health: boolean | null;
+  at: string | null;
+}
+/** An account that never chose (the owner's, from before the privacy page) reads as the default: training on, health not asked. */
+export const DEFAULT_CONSENT: Consent = { training: true, health: null, at: null };
+/** The one-time feature intros (user_settings `intros`): which have been shown. Only accounts that went through first run are enrolled. */
+export const INTRO_KEYS = ['plan', 'learned', 'journal'] as const;
+export type IntroKey = (typeof INTRO_KEYS)[number];
+export const zIntroSeen = z.object({ key: z.enum(INTRO_KEYS) });
