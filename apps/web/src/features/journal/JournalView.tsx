@@ -7,7 +7,7 @@ import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar, Segmented } from '@/ui';
 import { addToDraft } from './JournalDaySection';
 import { asPrompt } from './JournalHome';
-import { JournalGarden } from './Garden';
+import { JournalCalendarPane } from './JournalPane';
 import { Library } from './Library';
 import { RecallCard } from './RecallCard';
 import './journal.css';
@@ -15,7 +15,7 @@ import './seg.css';
 
 type Seg = 'journal' | 'library';
 // a switch re-renders the view, never the panes (their props are stable): at 4× the two trees cost ~200 ms to render
-const JournalPane = memo(JournalGarden);
+const JournalPane = memo(JournalCalendarPane);
 const LibraryPane = memo(Library);
 const segOf = (p: Readonly<Record<string, string>>): Seg => (p.segment === 'library' ? 'library' : 'journal');
 const pathOf = (s: Seg) => (s === 'journal' ? '/journal' : '/journal/library');
@@ -46,7 +46,7 @@ export default function JournalView() {
   const paneOf = (s: Seg) => (s === 'journal' ? journalPane : libraryPane).current;
   const fades = useRef<Animation[]>([]);
   const [focusKey, setFocusKey] = useState(0);
-  // Remember when's words open their day's page in the garden
+  // Remember when's words open their day under the calendar
   const [openDay, setOpenDay] = useState<{ date: string; n: number } | null>(null);
   const openRecalled = useCallback((date: string) => setOpenDay((r) => ({ date, n: (r?.n ?? 0) + 1 })), []);
 

@@ -1,0 +1,489 @@
+/* The Journal's calendar and the day card under it (Calendar.tsx, JournalPane.tsx): white cards on --shadow-1, serif
+   titles, the brand orb as the mark of a written day, orange kept for today's ring and nothing else. */
+
+.jpane {
+  display: grid;
+  gap: var(--gap, 16px);
+}
+
+/* ---------- the calendar card ---------- */
+.jcal {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 12px 14px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+}
+.jcal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 4px;
+}
+.jcal-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 1.375rem / 1.75rem var(--serif);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+.jcal-meta {
+  flex: none;
+  margin-left: auto;
+  font: 400 0.8125rem / 1.125rem var(--sans);
+  color: var(--ink-3);
+}
+.jcal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+.seg.k-seg.jcal-seg {
+  flex: none;
+  width: 136px;
+  height: 32px;
+}
+.jcal-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.jcal-arrow,
+.jcal-today-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--ink-2);
+  -webkit-tap-highlight-color: transparent;
+}
+.jcal-arrow {
+  width: 36px;
+}
+.jcal-arrow::after,
+.jcal-today-btn::after {
+  content: '';
+  position: absolute;
+  inset: -4px -2px;
+}
+.jcal-arrow:active,
+.jcal-today-btn:active {
+  background: var(--well);
+}
+.jcal-arrow:disabled {
+  color: var(--ink-4);
+  opacity: 0.4;
+}
+.jcal-today-btn {
+  margin-right: 4px;
+  padding: 0 12px;
+  background: var(--well);
+  font: 600 0.8125rem / 1 var(--sans);
+  color: var(--ink);
+}
+
+/* the days */
+.jcal-dow {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-bottom: -6px;
+  font: 600 0.6875rem / 1rem var(--sans);
+  letter-spacing: 0.04em;
+  color: var(--ink-4);
+  text-align: center;
+}
+.jcal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px 2px;
+}
+.jcal-cell {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 160ms;
+}
+.jcal-cell.is-blank {
+  pointer-events: none;
+}
+.jcal-grid.is-month .jcal-cell {
+  height: 46px;
+  gap: 2px;
+}
+.jcal-grid.is-week .jcal-cell {
+  height: 88px;
+  gap: 4px;
+  border-radius: 16px;
+}
+.jcal-wd {
+  font: 600 0.6875rem / 1rem var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.jcal-num {
+  font: 500 0.9375rem / 1.25rem var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.jcal-grid.is-week .jcal-num {
+  font: 600 1.0625rem / 1.375rem var(--sans);
+}
+.jcal-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 16px;
+}
+.jcal-grid.is-week .jcal-mark {
+  height: 24px;
+}
+.jcal-cell.has .jcal-num {
+  font-weight: 600;
+}
+.jcal-cell.is-future {
+  color: var(--ink-4);
+  opacity: 0.55;
+}
+.jcal-cell:not(:disabled):active {
+  background: var(--well);
+}
+/* the open day: pressed into the card */
+.jcal-cell.is-open {
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+}
+/* today: the one orange ring */
+.jcal-cell.is-today::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  pointer-events: none;
+}
+.jcal-cell.is-today .jcal-num,
+.jcal-cell.is-today .jcal-wd {
+  color: var(--accent-text);
+}
+.jcal-cell.is-today .jcal-num {
+  font-weight: 700;
+}
+
+/* today's orb, until today has a memory: a slow, soft pulse around the breathing orb */
+.jcal-pulse {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+.jcal-pulse::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(242, 96, 12, 0.28), rgba(242, 96, 12, 0));
+  animation: jcal-pulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes jcal-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jcal-pulse::before {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* "Write today's": the card's one verb while today is empty */
+.jcal-write {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  margin: 2px 0 0;
+  padding: 8px 14px 8px 12px;
+  border-radius: 16px;
+  background: var(--pearl);
+  box-shadow: var(--bevel-hi), 0 0 0 1px rgba(15, 42, 68, 0.06), 0 6px 14px -8px rgba(15, 42, 68, 0.2);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.jcal-write-t {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.jcal-write-t b {
+  font: 600 0.9375rem / 1.25rem var(--sans);
+}
+.jcal-write-t span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 0.8125rem / 1.125rem var(--sans);
+  color: var(--ink-3);
+}
+.jcal-write-i {
+  flex: none;
+  color: var(--accent);
+}
+
+/* the key: what each orb means */
+.jcal-key {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 2px 4px 0;
+  font: 400 0.75rem / 1rem var(--sans);
+  color: var(--ink-3);
+}
+.jcal-key-k {
+  font-weight: 600;
+  color: var(--ink-4);
+}
+.jcal-key ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jcal-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ---------- the day card ---------- */
+.jday-slot {
+  scroll-margin-top: 112px;
+  scroll-margin-bottom: calc(var(--chrome-h, 64px) + var(--safe-b, 0px) + 16px);
+}
+.jday-slot:empty {
+  display: none;
+}
+.jday {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  touch-action: pan-y;
+}
+.jday-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-right: -8px;
+}
+.jday-orb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.jday-titles {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.jday-title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 1.375rem / 1.75rem var(--serif);
+  color: var(--ink);
+}
+.jday-sub {
+  font: 400 0.8125rem / 1.125rem var(--sans);
+  color: var(--ink-3);
+}
+.jday-close {
+  flex: none;
+}
+
+.jday-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jday-list > li + li {
+  border-top: 1px solid var(--line);
+}
+.jday-memory {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.jday-memory:active {
+  opacity: 0.6;
+}
+.jday-memory-t {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 400 1rem / 1.5rem var(--sans);
+}
+.jday-memory-m {
+  font: 500 0.75rem / 1rem var(--sans);
+  color: var(--ink-4);
+}
+.jday-list > li > .jday-write {
+  padding: 10px 0;
+}
+.jday-empty {
+  margin: 0;
+  font: 400 0.9375rem / 1.375rem var(--sans);
+  color: var(--ink-3);
+}
+
+/* the writer: the field pressed into the card, Save as the navy pill */
+.jday-write {
+  display: grid;
+  gap: 10px;
+}
+.jday-field {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  outline: none;
+  resize: none;
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+  color: var(--ink);
+  caret-color: var(--accent);
+  font: 400 1rem / 1.5rem var(--sans);
+}
+.jday-field:focus-visible {
+  box-shadow:
+    var(--well-shadow),
+    0 0 0 2px rgba(47, 93, 133, 0.35);
+}
+.jday-field::placeholder {
+  color: var(--ink-4);
+}
+.jday-write .qline.quote-line {
+  margin: 0;
+}
+.jday-write-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.jday-btn {
+  min-width: 84px;
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--navy-pill);
+  box-shadow: var(--navy-glow);
+  color: #fff;
+  font: 600 0.9375rem / 1 var(--sans);
+}
+.jday-btn.is-quiet {
+  background: none;
+  box-shadow: none;
+  color: var(--ink-3);
+}
+
+.jday-add {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin: -12px 0 -8px -4px;
+  padding: 0 8px 0 4px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 600 0.9375rem / 1 var(--sans);
+}
+.jday-add.is-first {
+  justify-self: stretch;
+  justify-content: center;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--navy-pill);
+  box-shadow: var(--navy-glow);
+  color: #fff;
+}
+
+/* a year ago: a row at the card's foot, under a hairline */
+.jday-ago {
+  display: grid;
+  gap: 4px;
+  margin: 4px -16px -16px;
+  padding: 12px 16px 14px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 20px 20px;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.jday-ago-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: 600 0.75rem / 1rem var(--sans);
+  color: var(--ink-3);
+}
+.jday-ago-t {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font: 400 0.9375rem / 1.375rem var(--serif);
+}
