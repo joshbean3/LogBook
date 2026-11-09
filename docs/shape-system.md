@@ -39,13 +39,13 @@ No visible borders on cards, ever. A border is only for an input that has focus,
 | Role | Style |
 |---|---|
 | Page title | Instrument Serif italic 34/40, ink. Logbook's signature; stays. |
-| Section header | Sans 600 20/25, ink, sentence case ("Habits", "Plan your day", "This week"). Optional meta in 15/20 grey at the baseline; an action ("History ›") at the right in `--accent-text` 15/20 600. |
+| Section header | Instrument Serif 28/32, ink, sentence case ("Habits", "Plan your day", "This week"); 22/28 on list pages (Settings). Optional meta in sans 15/20 grey at the baseline, next to the title; an action ("History ›") at the right in `--accent-text` 15/20 600, 44 tall. Built once: `SectionHeader` and `PageSection` in `ui/layout.tsx` (see `docs/layout-review.md`). |
 | Card title | Sans 600 17/22, ink. |
 | Card label | Sans 500 15/20, `--ink-3`, often with a 16px icon before it ("♡ Resting HR"). |
 | Big number | Inter Tight 700 28/32 (tiles) or 34/38 (hero), ink; the unit after it in sans 15 `--ink-3`. |
 | Status word | Sans 600 15/20 with a 14px icon: navy "Normal", orange "Behind", grey "No data". |
 | Body | Sans 400 15/20 or 17/22, `--ink-2`. |
-| Footnote | Sans 400 13/18, `--ink-3` ("Updated 7:54 AM"). |
+| Footnote | Sans 400 13/18, `--ink-3` ("Updated 7:54 AM"). Under its card: 8 below, 16 in, where the card's words start (`Footnote`). |
 | Eyebrow | Caps 600 11/13 tracking .06em, `--ink-3`, inside cards only, at most one per card. |
 | Hero sentence | Instrument Serif italic 22/28. |
 

@@ -5,6 +5,7 @@ import { useMemo, useRef } from 'react';
 import { useRouteParams } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import { PushedBar } from '@/ui/NavBar';
+import { PageSection } from '@/ui/layout';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { Line, monthName, plural, useLoadMore, useOpenLearning } from './LearnedParts';
 import { monthGrid } from './month';
@@ -65,11 +66,7 @@ export default function LearnedMonth(): React.JSX.Element {
               <span className={`tile-status ${days ? '' : 'is-none'}`}>{days ? 'filled in' : 'The days wait here'}</span>
             </div>
           </div>
-          <section className="k-sec" aria-label={`${monthName(month)} by day`}>
-            <div className="k-head">
-              <h2 className="k-head-title">By day</h2>
-              <span className="k-head-meta">Newest first</span>
-            </div>
+          <PageSection title="By day" meta="Newest first">
             <ol className="k-rows ln-grid">
               {grid.map((d) => (
                 <li key={d.date} className={`k-row ln-gday ${d.items.length ? 'has' : 'is-empty'} ${d.date === today ? 'is-today' : ''}`}>
@@ -89,7 +86,7 @@ export default function LearnedMonth(): React.JSX.Element {
                 </li>
               ))}
             </ol>
-          </section>
+          </PageSection>
         </>
       ) : (
         <section className="k-card ln-none">

@@ -6,33 +6,6 @@
   overflow-anchor: none;
 }
 
-/* ---------- sections: 28 above, a plain sans header 12 above its first card ---------- */
-.pg-sec {
-  margin-top: var(--section);
-}
-.pg-head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin: 0 0 var(--sec-gap);
-  min-width: 0;
-}
-.pg-head-title {
-  margin: 0 auto 0 0;
-  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.pg-head-meta {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
 /* ---------- the context row: Strava and the block ---------- */
 .pg-ctx-row {
   margin-bottom: 16px;

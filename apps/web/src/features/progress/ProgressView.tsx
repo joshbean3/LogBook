@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNav } from '@/app/NavController';
 import { useAllLifts } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
-import { dayCaption, EmptyState, NavBar, Pressable, Segmented, Ticker, useSheet } from '@/ui';
+import { dayCaption, EmptyState, NavBar, PageSection, Pressable, Segmented, Ticker, useSheet } from '@/ui';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer } from '../onboarding/StravaPrimer';
 import { Spark } from './charts';
@@ -93,17 +93,11 @@ const buildModel = (log: Log, sets: LiftSet[], t: string, range: Range, from: st
 };
 type Model = ReturnType<typeof buildModel>;
 
-/** A section of the page: a plain sans header (an optional grey meta or an action at its right), then its cards. */
+/** A section of the page: the kit's PageSection (serif header, a grey meta at its baseline), then its cards. */
 const Sec = ({ id, title, meta, children }: { id: string; title: string; meta?: ReactNode; children: ReactNode }) => (
-  <section className="pg-sec" aria-labelledby={id}>
-    <div className="pg-head">
-      <h2 className="pg-head-title" id={id}>
-        {title}
-      </h2>
-      {meta != null ? <span className="pg-head-meta">{meta}</span> : null}
-    </div>
+  <PageSection className="pg-sec" id={id} title={title} meta={meta}>
     {children}
-  </section>
+  </PageSection>
 );
 
 /**

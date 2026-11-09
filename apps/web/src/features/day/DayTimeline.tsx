@@ -4,6 +4,7 @@ import { Activity, BookOpen, Check, Dumbbell, Footprints, Lightbulb } from 'luci
 import type * as React from 'react';
 import { useEffect, useMemo } from 'react';
 import { api } from '@/api/client';
+import { SectionHeader } from '@/ui/layout';
 import type { Log } from '../log/useLog';
 
 const ICON: Record<TimelineKind, typeof Check> = { habit: Check, run: Footprints, lift: Dumbbell, activity: Activity, learned: Lightbulb, journal: BookOpen };
@@ -42,12 +43,7 @@ export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.J
   if (date > log.today || !rows.length) return null;
   return (
     <section className="tl" aria-label={isToday ? 'Today so far' : 'That day'}>
-      <div className="day-sec-head">
-        <h2 className="sec-title">{isToday ? 'Today so far' : 'That day'}</h2>
-        <span className="sec-meta tnum">
-          {rows.length} {rows.length === 1 ? 'thing' : 'things'}
-        </span>
-      </div>
+      <SectionHeader title={isToday ? 'Today so far' : 'That day'} meta={`${rows.length} ${rows.length === 1 ? 'thing' : 'things'}`} />
       <ol className="tl-list">
         {rows.map((r) => {
           const Icon = ICON[r.kind];

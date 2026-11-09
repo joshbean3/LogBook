@@ -5,62 +5,9 @@
  */
 
 /* ---------- a section: 28 above, the header 12 above its first card ---------- */
+/* a section is ui/layout.tsx's PageSection (styles/layout.css): .k-sec is its feature hook */
 .k-sec {
-  margin-top: var(--section);
   min-width: 0;
-}
-.k-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-height: 25px;
-  margin: 0 0 var(--sec-gap);
-  min-width: 0;
-}
-.k-head-title {
-  margin: 0;
-  min-width: 0;
-  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  text-transform: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.k-head-meta {
-  flex: none;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.k-head-act {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 44px;
-  margin: -10px 0 -10px auto;
-  padding: 0 0 0 12px;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-.k-head-slot {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  margin: -10px 0 -10px auto;
-}
-.k-head-act.is-icon {
-  width: 44px;
-  padding: 0;
-  justify-content: center;
-  color: var(--ink-2);
 }
 
 /* ---------- a stack of cards, 12 apart ---------- */
@@ -143,11 +90,12 @@
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
+/* under a card: 8 below it, 16 in, where the card's words start (the layout kit's Footnote) */
 .k-sec > .k-foot,
 .k-stack + .k-foot,
 .group + .k-foot,
 .k-card + .k-foot {
-  margin: 10px 4px 0;
+  margin: 8px var(--pad-card) 0;
 }
 
 /* ---------- rows inside a card (an inset group): 56 tall, 64 with a sub; separators start at the words ---------- */

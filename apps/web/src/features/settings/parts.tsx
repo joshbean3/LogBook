@@ -1,9 +1,9 @@
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
-import { useId, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { springs } from '@/lib/motion';
-import { Row } from '@/ui';
+import { Footnote, PageSection, Row } from '@/ui';
 import './switch.css';
 
 /** The chevron of a row that pushes (or opens) something. */
@@ -20,22 +20,15 @@ export const Tile = ({ icon: Icon, tone }: { icon: LucideIcon; tone?: 'muted' })
 );
 
 /**
- * A settings section (shape system §6, reference 658-672): a small sans header in sentence case, then its content in one
+ * A settings section (shape system §6, reference 658-672): the kit's small serif header (22/28), then its content in one
  * white container, then an optional grey footnote under it (`foot`). Every section page is built from these.
  */
-const SSec = ({ title, meta, foot, className, children }: { title: string; meta?: ReactNode; foot?: ReactNode; className: string; children: ReactNode }): React.JSX.Element => {
-  const id = useId();
-  return (
-    <section className={`s-sec ${className}`} aria-labelledby={id}>
-      <h2 className="s-head" id={id}>
-        <span>{title}</span>
-        {meta != null ? <span className="s-head-meta">{meta}</span> : null}
-      </h2>
-      {children}
-      {foot ? <p className="s-foot">{foot}</p> : null}
-    </section>
-  );
-};
+const SSec = ({ title, meta, foot, className, children }: { title: string; meta?: ReactNode; foot?: ReactNode; className: string; children: ReactNode }): React.JSX.Element => (
+  <PageSection size="sm" title={title} meta={meta} className={`s-sec ${className}`.trim()}>
+    {children}
+    {foot ? <Footnote>{foot}</Footnote> : null}
+  </PageSection>
+);
 
 /** One inset group of rows under its title: 56 tall rows (64 with a second line), icon tiles, hairlines from the words. */
 export const SGroup = ({ title, meta, foot, children, className = '' }: { title: string; meta?: ReactNode; foot?: ReactNode; children: ReactNode; className?: string }): React.JSX.Element => (

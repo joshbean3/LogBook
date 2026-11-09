@@ -1,6 +1,7 @@
 import { addMonths, fmtDate, heroSession, mondayOf, monthOf, monthStart, num, parseISO, sessionKey, sessionStatus, shiftDays, tone, weekSummary } from '@logbook/shared';
 import { memo, useMemo } from 'react';
 import { Pressable } from '@/ui/Pressable';
+import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
 import { dayMiles, weekMiles } from '../sessions/miles';
 import { BlockCardView, type PlanBlockProps } from './Blocks';
@@ -60,10 +61,7 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block, still }
   return (
     <div className="pl-mpage">
       <section className="pl-sec pl-month-sec" aria-label={fmtDate('month', first)}>
-        <div className="pl-head-row">
-          <h2 className="pl-head">{fmtDate('month', first).replace(/ \d{4}$/, '')}</h2>
-          <span className="pl-head-meta">{meta}</span>
-        </div>
+        <SectionHeader title={fmtDate('month', first).replace(/ \d{4}$/, '')} meta={meta} />
       <div className="mg card" role="group" aria-label={fmtDate('month', first)} aria-busy={!ready || undefined}>
         <div className="mg-head" aria-hidden="true">
           {DOW.map((d, i) => (

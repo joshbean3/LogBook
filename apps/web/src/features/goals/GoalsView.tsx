@@ -1,5 +1,5 @@
 import { currentGoals, goalProgress, periodOf, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
-import { Bell, ChevronRight, History, Plus } from 'lucide-react';
+import { Bell, ChevronRight, Plus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
@@ -21,6 +21,7 @@ import { GoalRing, GoalSteps } from './Steps';
 import { Burst, celebrateOnce } from './game';
 import { Orbit, type OrbitGoal } from './Orbit';
 import { useCelebrate } from './Celebrate';
+import { Footnote } from '@/ui/layout';
 import { KSection } from './Kit';
 import './goals.css';
 
@@ -280,24 +281,13 @@ export default function GoalsView(): React.JSX.Element {
               <GoalRow level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} compact />
               <GoalRow level="week" period={next('week')} goal={goalOf(list, 'week', next('week'))} today={today} compact />
             </div>
+            <Footnote>{LEVEL.week.ask} Write it as you would say it; the review makes it specific, measurable and due on time.</Footnote>
           </KSection>
           <KSection title="History" action="See all" actionLabel="See all of the history" onAction={() => nav.push('/goals/history')} className="g-past">
             <div className="k-stack">
               <DayTrail goals={list} today={today} onOpen={() => nav.push('/goals/history')} />
-              <ul className="k-rows has-icons">
-                <li>
-                  <Pressable className="k-row two" press="surface" onPress={() => nav.push('/goals/history')} label="History. Open">
-                    <span className="icon-tile" aria-hidden="true">
-                      <History size={17} />
-                    </span>
-                    <span className="k-row-main">
-                      <span className="k-row-title">History</span>
-                      <span className="k-row-sub">Every goal, how it went, and what changed</span>
-                    </span>
-                    <ChevronRight size={18} aria-hidden="true" className="k-chev" />
-                  </Pressable>
-                </li>
-                {remindersSupported() ? (
+              {remindersSupported() ? (
+                <ul className="k-rows has-icons">
                   <li className="k-row two">
                     <span className="icon-tile" aria-hidden="true">
                       <Bell size={17} />
@@ -318,10 +308,9 @@ export default function GoalsView(): React.JSX.Element {
                       }}
                     />
                   </li>
-                ) : null}
-              </ul>
+                </ul>
+              ) : null}
             </div>
-            <p className="k-foot">{LEVEL.week.ask} Write it as you would say it; the review makes it specific, measurable and due on time.</p>
           </KSection>
         </>
       )}

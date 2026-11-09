@@ -176,21 +176,9 @@
 }
 
 /* the sections under the chart */
-.mp-sec {
-  margin-top: var(--section);
-}
 .mp-table {
   padding-top: 10px;
   padding-bottom: 6px;
-}
-.mp-foot {
-  margin-top: 8px;
-  padding-inline: 8px;
-  text-align: center;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-  text-wrap: pretty;
 }
 .mp-more {
   margin-top: var(--gap);

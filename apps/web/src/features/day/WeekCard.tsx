@@ -5,6 +5,7 @@ import { useIsActiveTab, useTabScroller } from '@/app/NavController';
 import { LANDING_VISIBLE } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { CalendarCheck, CircleCheck, Footprints } from 'lucide-react';
+import { SectionHeader } from '@/ui/layout';
 import { Pressable } from '@/ui/Pressable';
 import { WeekRing } from '@/ui/WeekRing';
 import type { Log } from '../log/useLog';
@@ -94,10 +95,7 @@ export const WeekCard = memo(function WeekCard({ date, log }: { date: ISODate; l
   const ref = useRef<HTMLElement | null>(null);
   return (
     <section className="week-card" data-week={wk.key} aria-label={weekTitle(mon, log.today)}>
-      <div className="day-sec-head">
-        <h2 className="sec-title">{weekTitle(mon, log.today)}</h2>
-        <span className="sec-meta tnum">Week {wk.week}</span>
-      </div>
+      <SectionHeader title={weekTitle(mon, log.today)} meta={`Week ${wk.week}`} />
       <Pressable as="div" ref={ref} className="tiles wc-tiles" label={`Week ${wk.week}: ${stats}. ${note} Open the week`} onPress={() => openWeek(mon)}>
         <span className="tile wc-tile">
           <span className="tile-label">

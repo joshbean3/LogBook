@@ -11,6 +11,7 @@ import { keys, usePlanDelete } from '@/api/queries';
 import { Button, Chip, Field, Group, Note, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
 import { builderSpec } from './Builder';
 import type { BuilderPrefill } from './builderModel';
@@ -65,10 +66,7 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
   const nWeeks = Math.ceil((daysBetween(draft.start, draft.end) + 1) / 7);
   return (
     <>
-      <div className="pl-head-row">
-        <h3 className="pl-head">Preview</h3>
-        <span className="pl-head-meta">Nothing is saved yet</span>
-      </div>
+      <SectionHeader size="sm" level={3} title="Preview" meta="Nothing is saved yet" />
       <div className="pv-hero">
         <input className="pv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Plan name" />
         <span className="t-cap muted">
@@ -91,10 +89,7 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
           </ul>
         </div>
       ) : null}
-      <div className="pl-head-row pv-head">
-        <h3 className="pl-head">Week by week</h3>
-        <span className="pl-head-meta">{`${weeks.length} ${weeks.length === 1 ? 'week' : 'weeks'}`}</span>
-      </div>
+      <SectionHeader size="sm" level={3} className="pv-head" title="Week by week" meta={`${weeks.length} ${weeks.length === 1 ? 'week' : 'weeks'}`} />
       <Group className="pv-weeks">
         {weeks.map((mon) => {
           let wk = 0;

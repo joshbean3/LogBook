@@ -3,6 +3,7 @@ import { PenLine, Share } from 'lucide-react';
 import type * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { SectionHeader } from '@/ui/layout';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -81,17 +82,15 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
   };
   return (
     <section className="the-day" aria-label="The day">
-      <div className="day-sec-head">
-        <h2 className="sec-title">Journal</h2>
-        {entries.length ? (
-          <span className="sec-meta tnum">
-            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
-          </span>
-        ) : null}
-        <Pressable className="sec-action td-share" press="dim" onPress={share} label="Share the day">
-          <Share size={15} strokeWidth={2.25} aria-hidden="true" /> Share
-        </Pressable>
-      </div>
+      <SectionHeader
+        title="Journal"
+        meta={entries.length ? `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}` : null}
+        action={
+          <Pressable className="lb-act td-share" press="dim" onPress={share} label="Share the day">
+            <Share size={15} strokeWidth={2.25} aria-hidden="true" /> Share
+          </Pressable>
+        }
+      />
       <div className="td-card">
         {entries.map((e) => (
           <div key={e.id} className="td-entry">

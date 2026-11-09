@@ -200,7 +200,7 @@ export default function LearnedView(): React.JSX.Element {
   const hasPast = !!s && s.total > todays.length;
   return (
     <div className="page ln-page">
-      <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={24} />
+      <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={16} />
       <div className="k-stack">
         {list.isPending ? (
           <SkeletonGroup label="Loading" className="ln-hero ln-hero-skel">

@@ -390,13 +390,14 @@ label.lrow[data-pressed] {
   /* 36px to the eye, 44px to the thumb */
   position: relative;
 }
+/* measured from the padding box, inside the 1px border: 34 + 5 + 5 = 44 */
 .btn.sm::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  top: -4px;
-  bottom: -4px;
+  top: -5px;
+  bottom: -5px;
 }
 .btn.block {
   width: 100%;

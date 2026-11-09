@@ -8,6 +8,7 @@ import { haptics } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
 import { useHoldDrag, type DragPoint } from '@/lib/useDrag';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
+import { SectionHeader } from '@/ui/layout';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -323,14 +324,17 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
 
   return (
     <section className={`pd ${drag ? 'is-dragging' : ''}`} aria-label="Plan your day">
-      <div className="day-sec-head pd-head">
-        <h2 className="sec-title">{date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The day'}</h2>
-        {total ? (
-          <span className={`sec-meta tnum pd-count ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
-            {done === total ? `All ${total} done` : `${done} of ${total} done`}
-          </span>
-        ) : null}
-      </div>
+      <SectionHeader
+        className="pd-head"
+        title={date === today ? 'Plan your day' : date > today ? 'Plan the day' : 'The day'}
+        meta={
+          total ? (
+            <span className={`pd-count ${done === total ? 'is-all' : ''}`} aria-label={`${done} of ${total} done`}>
+              {done === total ? `All ${total} done` : `${done} of ${total} done`}
+            </span>
+          ) : null
+        }
+      />
       <div ref={boardRef} className="pd-board">
         {owed ? <OwedRow goal={owed} today={today} /> : null}
         <GoalCard date={date} today={today} goal={goal} week={week} editable={editable} target={drag?.over?.kind === 'goal'} dragging={drag?.card.kind === 'todo'} />

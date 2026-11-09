@@ -5,7 +5,7 @@ import { useRouteParams } from '@/app/NavController';
 import { useMorningMutations, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { useToday } from '@/lib/useToday';
-import { Pressable, PushedBar, Skeleton, SkeletonGroup, useToast } from '@/ui';
+import { Pressable, PushedBar, SectionHeader, Skeleton, SkeletonGroup, useToast } from '@/ui';
 import { useSheet } from '@/ui/Sheet';
 import { useNowMinutes } from '../day/useNow';
 import { useLog } from '../log/useLog';
@@ -279,12 +279,7 @@ export default function MorningView() {
       ) : (
         <>
           <NowCard T={T} date={date} now={now} rel={rel} />
-          <div className="m-head">
-            <h2 className="m-head-title">Schedule</h2>
-            <span className="m-head-meta tnum">
-              {shortClock(T.day.wake)} to {shortClock(T.leave)}
-            </span>
-          </div>
+          <SectionHeader className="m-head" title="Schedule" meta={`${shortClock(T.day.wake)} to ${shortClock(T.leave)}`} />
           <Schedule T={T} rows={rows} rel={rel} now={now} moved={moved} actions={actions} wake={{ onStep, onCommit, onDragging: setAlarmDragging, dragging: alarmDragging, held: !!drag?.live }} />
           {actions ? (
             <Pressable className="pill-row m-add" press="surface" onPress={actions.addStep} label="Add a step">

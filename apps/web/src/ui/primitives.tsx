@@ -34,7 +34,8 @@ export const Field = ({ label, hint, children, htmlFor }: { label: string; hint?
 /**
  * A section that names itself in sentence case (Inter 17/600, `.section-title`), with an optional quiet meta (a count) and
  * one action at the right. `level` sets the space above it: 48px for a primary section, 24px for a secondary one.
- * Use it instead of a caps eyebrow unless the section is a metric label.
+ * Use it instead of a caps eyebrow unless the section is a metric label. Superseded by the layout kit's PageSection
+ * (ui/layout.tsx), which every tab uses; kept for the UI gallery.
  */
 export const Section = ({ title, meta, action, level = 'primary', children, className = '' }: { title: ReactNode; meta?: ReactNode; action?: ReactNode; level?: 'primary' | 'secondary' | 'none'; children?: ReactNode; className?: string }) => {
   const id = useId();

@@ -127,6 +127,15 @@
   color: rgba(47, 93, 133, 0.32);
   -webkit-tap-highlight-color: transparent;
 }
+/* a 34 pt plant, a 44 pt target (the strip keeps 18 between them) */
+.gdn-strip-plant {
+  position: relative;
+}
+.gdn-strip-plant::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+}
 .gdn-strip-plant.has {
   color: rgba(47, 93, 133, 0.6);
 }

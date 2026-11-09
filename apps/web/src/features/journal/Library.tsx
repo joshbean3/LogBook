@@ -263,7 +263,7 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
       meta={mine.length || undefined}
       action={
         mine.length && !adding ? (
-          <button type="button" className="k-head-act" onClick={() => setAdding(true)}>
+          <button type="button" className="lb-act" onClick={() => setAdding(true)}>
             <Plus size={16} aria-hidden="true" /> Add
           </button>
         ) : undefined

@@ -3,7 +3,7 @@ import { ChevronRight, CircleArrowDown, CircleArrowUp, CircleCheck, Hourglass, I
 import { useMemo, useRef, useState } from 'react';
 import { useRouteParams } from '@/app/NavController';
 import { useAllLifts } from '@/api/queries';
-import { PushedBar, Pressable, useSheet } from '@/ui';
+import { Footnote, PageSection, PushedBar, Pressable, useSheet } from '@/ui';
 import { Gauge, maxOffset, RANGE_DAYS, RANGE_KEYS, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
 import { useLog } from '../log/useLog';
 import { trendTone } from './context';
@@ -194,27 +194,16 @@ export default function MetricPage(): React.JSX.Element {
         <RangeControl value={range} onChange={setRange} onPrev={() => setOffset((o) => o + 1)} onNext={() => setOffset((o) => Math.max(0, o - 1))} canPrev={canPrev} canNext={offset > 0} />
       </section>
 
-      <section className="mp-sec" aria-labelledby="mp-trend">
-        <div className="pg-head">
-          <h2 className="pg-head-title" id="mp-trend">
-            Trend
-          </h2>
-          <span className="pg-head-meta">Up to today</span>
-        </div>
+      <PageSection className="mp-sec" title="Trend" meta="Up to today">
         <div className="card mp-table">
           <TrendTable rows={m.trend} invert={v.invert} change={v.change} label={`${def.name} trend`} />
         </div>
-        <p className="mp-foot">{v.method}</p>
-      </section>
+        <Footnote>{v.method}</Footnote>
+      </PageSection>
 
       <More id={id} log={log} today={t} />
 
-      <section className="mp-sec" aria-labelledby="mp-about" ref={about}>
-        <div className="pg-head">
-          <h2 className="pg-head-title" id="mp-about">
-            About {name}
-          </h2>
-        </div>
+      <PageSection className="mp-sec" title={`About ${name}`} ref={about}>
         <div className="card mp-explain">
           <div className="mp-qa">
             <h3 className="mp-q">What it is</h3>
@@ -230,7 +219,7 @@ export default function MetricPage(): React.JSX.Element {
           </div>
           {def.health ? <p className="mp-a mp-note">This fills in once Apple Health syncs into your Logbook. Until then the page stays empty rather than guess.</p> : null}
         </div>
-      </section>
+      </PageSection>
     </div>
   );
 }

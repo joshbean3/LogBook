@@ -13,30 +13,6 @@
 .s-set > .pushed-bar + .card {
   margin-top: 12px;
 }
-.s-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 var(--sec-gap);
-  padding: 0 2px;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
-  text-transform: none;
-  color: var(--ink);
-}
-.s-head-meta {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-.s-foot {
-  margin: 8px 0 0;
-  padding: 0 16px;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
 .s-card.card {
   gap: 12px;
 }

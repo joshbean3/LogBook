@@ -14,6 +14,7 @@ import { Button, EmptyState, Pressable, PushedBar, Row, type DragPoint } from '@
 import { useSheet, useSheetMotion } from '@/ui/Sheet';
 import { restoreFocus } from '@/ui/focus';
 import { useToast } from '@/ui/Toast';
+import { Footnote, SectionHeader } from '@/ui/layout';
 import { SCard, SGroup } from './parts';
 
 const ROW_H = 60;
@@ -407,11 +408,8 @@ export const HabitsPage = () => {
       <PushedBar title="Habits" />
       {live.length ? (
         <>
-          <section className="s-sec" aria-labelledby="s-hlist-h">
-            <h2 className="s-head" id="s-hlist-h">
-              <span>On Today</span>
-              <span className="s-head-meta">{live.length}</span>
-            </h2>
+          <section className="lb-sec s-sec" aria-labelledby="s-hlist-h">
+            <SectionHeader size="sm" id="s-hlist-h" title="On Today" meta={live.length} />
           <div className="s-hlist" ref={listRef} style={{ height: ids.length * ROW_H }}>
             {ids.map((id, i) => {
               const h = byId.get(id);
@@ -434,7 +432,7 @@ export const HabitsPage = () => {
               );
             })}
           </div>
-            <p className="s-foot">Tap one to rename it. Hold and drag to change the order on Today.</p>
+            <Footnote>Tap one to rename it. Hold and drag to change the order on Today.</Footnote>
           </section>
         </>
       ) : (
