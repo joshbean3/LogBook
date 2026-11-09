@@ -896,3 +896,6 @@
 .pd-flow .pd-zone > .pd-top-empty {
   padding-left: 70px;
 }
+.pd-rest-done {
+  color: var(--ink-4);
+}

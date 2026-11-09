@@ -544,8 +544,9 @@ const readRest = () => {
 /**
  * The day's to-dos as one list (one zone the drag measures). The first three open ones sit in a highlighted box, numbered:
  * the priorities. A box behind the rows (in the same grid) stays put while the rows flow through it, so a checked row
- * slides out and the next slides up into its place. The rest are folded behind one quiet row ("Then 4 more"), and faded
- * when shown; what got done sits greyed at the foot. While a row is in the air everything shows, so it can land anywhere.
+ * slides out and the next slides up into its place. Everything after them folds behind one quiet row ("+5 Then Renew
+ * passport, Pay rent · 2 done"): the rest of the list, faded when shown, and what got done today, greyed at the foot. One
+ * tap unfolds or folds it, remembered on this device. While a row is in the air everything shows, so it can land anywhere.
  */
 const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean }) => {
   const [showRest, setShowRest] = useState(readRest);
@@ -571,10 +572,12 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
     ));
   const topRows = rowsOf(top, 'top');
   const boxEnd = row;
-  const restToggleRow = rest.length ? row++ : 0;
+  // everything after the three folds behind one row: the rest of the list and what got done today
+  const folded = rest.length + done.length;
+  const restToggleRow = folded ? row++ : 0;
   const restRows = restOpen ? rowsOf(rest, 'rest') : [];
-  const restHideRow = rest.length && restOpen && !drag ? row++ : 0;
-  const doneRows = rowsOf(done, 'done');
+  const doneRows = restOpen ? rowsOf(done, 'done') : [];
+  const restHideRow = folded && restOpen && !drag ? row++ : 0;
   const words = (l: Card[]) => l.map((c) => (c.kind === 'todo' ? c.todo.text : c.step.text));
   return (
     <div data-pd-box="" className={`pd-focus ${over ? 'is-over' : ''}`}>
@@ -590,10 +593,13 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
             {done.length ? 'All done. Nothing left in front of you.' : editable ? 'Add what matters today. The first three become your priorities.' : 'Nothing was planned.'}
           </p>
         ) : null}
-        {rest.length && !restOpen ? (
-          <button type="button" className="pd-rest-toggle" style={{ gridRow: restToggleRow }} onClick={toggleRest} aria-expanded={false}>
-            <span className="pd-rest-n tnum">+{rest.length}</span>
-            <span className="pd-rest-words">Then {words(rest).slice(0, 2).join(', ')}{rest.length > 2 ? '…' : ''}</span>
+        {folded && !restOpen ? (
+          <button type="button" className="pd-rest-toggle" style={{ gridRow: restToggleRow }} onClick={toggleRest} aria-expanded={false} aria-label={`Show ${[rest.length ? `${rest.length} more` : '', done.length ? `${done.length} done` : ''].filter(Boolean).join(' and ')}`}>
+            <span className="pd-rest-n tnum">+{folded}</span>
+            <span className="pd-rest-words">
+              {rest.length ? `Then ${words(rest).slice(0, 2).join(', ')}${rest.length > 2 ? '…' : ''}` : null}
+              {done.length ? <span className="pd-rest-done">{rest.length ? ' · ' : ''}{done.length} done</span> : null}
+            </span>
             <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
           </button>
         ) : rest.length ? (
@@ -602,13 +608,13 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
           </span>
         ) : null}
         {restRows}
+        {doneRows}
         {restHideRow ? (
           <button type="button" className="pd-rest-toggle is-open" style={{ gridRow: restHideRow }} onClick={toggleRest} aria-expanded={true}>
-            <span className="pd-rest-words">Fold the rest away</span>
+            <span className="pd-rest-words">{done.length && !rest.length ? 'Fold away what’s done' : 'Fold the rest away'}</span>
             <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
           </button>
         ) : null}
-        {doneRows}
       </div>
       {editable ? <AddInline date={date} today={today} label="Add a to-do" placeholder="Add a to-do" hidden={!!drag} open={adding} setOpen={setAdding} /> : null}
     </div>

@@ -14,7 +14,6 @@ import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { PlanDay } from '../dayplan/PlanDay';
-import { planEndOf } from './dayWords';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
 import { Hero, SecondSession } from './Hero';
@@ -28,7 +27,6 @@ import { useFocus, useOpenWordSheet } from './WordSheet';
 
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
 // the plan-end card is rare (a few days a block) and pulls in the builder: loaded when it is first needed
-const PlanEnd = lazy(() => import('./PlanEnd'));
 
 /** The months a day page reads: a week either side (the rest face looks a week ahead, the first-run test a week back) and the shown week. */
 export const monthsFor = (date: ISODate) => [...new Set([shiftDays(date, -8), date, shiftDays(date, 8), mondayOf(date), shiftDays(mondayOf(date), 6)].map(monthOf))].sort();
@@ -207,7 +205,6 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const isToday = date === today;
   const loaded = log.loaded(date) && !!log.boot;
   const first = loaded && isFirstRun(log, date);
-  const end = loaded ? planEndOf(log, date) : null;
 
 
   return (
@@ -221,11 +218,6 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       <Sentence />
       {loaded && !first ? <PlanDay date={date} today={today} /> : null}
       {loaded ? <SecondSession date={date} log={log} /> : null}
-      {end ? (
-        <Suspense fallback={null}>
-          <PlanEnd log={log} date={date} />
-        </Suspense>
-      ) : null}
       {loaded && isToday && !first && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />
