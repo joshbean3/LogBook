@@ -54,7 +54,7 @@
 .g-row-none {
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .g-row-end {
   display: grid;
@@ -1151,7 +1151,7 @@
   border-color: var(--ink-2);
 }
 .gs-hint {
-  margin: 0 4px;
+  margin: -4px var(--pad-card) 0;
 }
 .gs-sharp-label {
   color: var(--accent-text);

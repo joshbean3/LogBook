@@ -119,3 +119,9 @@
   flex: none;
   margin-top: 3px;
 }
+
+/* ---------- a footnote in a sheet: 8 under the card before it (the body keeps 12 between children), 16 in ---------- */
+:root .sheet-body > * + .k-foot,
+:root .sheet-body > * + .lb-foot {
+  margin: -4px var(--pad-card) 0;
+}
