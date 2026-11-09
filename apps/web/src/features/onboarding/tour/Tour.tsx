@@ -25,7 +25,7 @@ export const TOUR: readonly Page[] = [
   { key: 'todos', icon: ListChecks, where: 'Today', title: 'Your three that matter.', lede: 'The first three to-dos are your priorities. Check one off and the next moves up; the rest wait folded below.', Demo: TodosDemo },
   { key: 'habits', icon: Sun, where: 'Today', title: 'Habits, as lights.', lede: 'Each habit is a light on Today. Light it when it’s done; the week fills in under it.', Demo: HabitsDemo },
   { key: 'goals', icon: Target, where: 'Goals and Today', title: 'One goal a day.', lede: 'Set the one thing that would make today count, then break it into steps. Week, month and year goals live in Goals.', Demo: GoalsDemo },
-  { key: 'journal', icon: BookOpen, where: 'Journal', title: 'A garden of days.', lede: 'Plant a memory for any day. In the evening, Today also asks how it went: two sentences, then sleep.', Demo: JournalDemo },
+  { key: 'journal', icon: BookOpen, where: 'Journal', title: 'A calendar of days.', lede: 'Tap today to write a line or two. Every day you write gets its own orb, and old ones come back as Remember when.', Demo: JournalDemo },
   { key: 'learned', icon: Lightbulb, where: 'Learned', title: 'One thing a day.', lede: 'What you learned, in a line. Kept by month, and some come back later when you need them.', Demo: LearnedDemo },
   { key: 'plan', icon: CalendarDays, where: 'Plan', title: 'A week you can move.', lede: 'Your runs, day by day. Life happens: hold a run and drag it to another day.', Demo: PlanDemo },
   { key: 'progress', icon: Activity, where: 'Progress', title: 'Weeks, as lines.', lede: 'Miles, pace, sleep and more, against your own normal. Slide along any chart to read a week.', Demo: ProgressDemo },

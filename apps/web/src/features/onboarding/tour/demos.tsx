@@ -1,4 +1,5 @@
-import { ArrowRight, Check, Plus, Sparkles, Sprout } from 'lucide-react';
+import { ArrowRight, Check, Plus, Sparkles } from 'lucide-react';
+import { Orb } from '@/ui/Orb';
 import { AnimatePresence, motion } from 'motion/react';
 import { springs } from '@/lib/motion';
 import { Finger, Stage, Steps, useLoop, useTyped } from './engine';
@@ -177,17 +178,17 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
     <>
       <Stage className="tj">
         <div className="tj-garden">
-          <span className="caps">Your garden</span>
+          <span className="caps">November</span>
           <div className="tj-grid">
             {GARDEN.map((g, i) => (
               <span key={i} className="tj-cell">
-                {g ? <Sprout size={14} strokeWidth={2} className={`tj-p p${i % 4}`} /> : null}
+                {g ? <Orb size={14} state="still" variant={(['sky', 'dusk', 'sun', 'tide'] as const)[i % 4]} /> : null}
               </span>
             ))}
             <span className="tj-cell is-today">
               {planted ? (
                 <motion.span initial={still ? false : { scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={springs.complete}>
-                  <Sprout size={16} strokeWidth={2.2} className="tj-p p2" />
+                  <Orb size={16} state="still" variant="sky" />
                 </motion.span>
               ) : null}
             </span>
@@ -209,13 +210,13 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
           ) : (
             <span className="tj-plant" data-spot="plant">
               <Plus size={16} strokeWidth={2.4} />
-              plant memory
+              Write today’s
             </span>
           )}
         </div>
         <Finger spot={at(b, 1, 3) ? 'plant' : at(b, 4, 6) ? 'done' : null} down={b === 2 || b === 5} />
       </Stage>
-      <Steps items={['Open a day and tap plant memory', 'Write a line about it', 'Done plants it; the garden grows a plant a day']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
+      <Steps items={['Tap today on the calendar', 'Write a line or two', 'Done, and the day gets its orb']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
     </>
   );
 };
