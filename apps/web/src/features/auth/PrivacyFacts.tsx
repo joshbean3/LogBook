@@ -13,7 +13,7 @@ export const consentSub = (on: boolean) => (on ? 'On. When you ask, it reads you
  * What goes to Claude (made by Anthropic) and what never does, in plain words. Shared by the privacy page and Settings so the
  * two can never say different things.
  */
-export const PrivacyFacts = ({ on }: { on: boolean }): React.JSX.Element => (
+export const PrivacyFacts = ({ on, health = null }: { on: boolean; health?: boolean | null }): React.JSX.Element => (
   <div className="pv-facts">
     <section className="card pv-list" aria-labelledby="pv-sent">
       <h2 id="pv-sent" className="pv-h">
@@ -32,6 +32,12 @@ export const PrivacyFacts = ({ on }: { on: boolean }): React.JSX.Element => (
           <Check size={16} strokeWidth={2.6} aria-hidden="true" />
           <span>One old journal entry or learning a day, to write Remember when.</span>
         </li>
+        {health ? (
+          <li>
+            <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+            <span>A short health summary (scores, last night’s sleep, vitals against your normal), only when you ask the coach.</span>
+          </li>
+        ) : null}
       </ul>
     </section>
     <section className="card pv-list never" aria-labelledby="pv-never">
@@ -49,7 +55,7 @@ export const PrivacyFacts = ({ on }: { on: boolean }): React.JSX.Element => (
         </li>
         <li>
           <X size={16} strokeWidth={2.6} aria-hidden="true" />
-          <span>Health data. When Apple Health comes, it asks you first.</span>
+          <span>{health ? 'Raw Apple Health samples, and workouts the Strava app writes to Apple Health.' : 'Health data. You’re asked first, in Settings › Privacy.'}</span>
         </li>
       </ul>
     </section>

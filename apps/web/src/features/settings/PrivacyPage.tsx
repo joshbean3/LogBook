@@ -3,8 +3,9 @@ import { useConsent, useSaveConsent } from '@/features/auth/consent';
 import { CONSENT_TITLE, consentSub, PRIVACY_PROMISE, PrivacyFacts } from '@/features/auth/PrivacyFacts';
 import { haptics } from '@/lib/haptics';
 import { ShieldCheck } from 'lucide-react';
-import { PushedBar, Row, useToast } from '@/ui';
-import { SGroup, Switch } from './parts';
+import { PushedBar, Row, useSheet, useToast } from '@/ui';
+import { HealthConsentPanel } from './AppleHealth';
+import { GoRow, SGroup, Switch } from './parts';
 
 /** "Chose Nov 8" under the switch: when the choice was made, so the page says it is a decision, not a default. */
 const choseOn = (at: string | null) => (at ? `You chose this on ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(at))}.` : 'The default. You haven’t changed it.');
@@ -18,6 +19,7 @@ export const PrivacyPage = (): React.JSX.Element => {
   const consent = useConsent();
   const save = useSaveConsent();
   const toast = useToast();
+  const sheet = useSheet();
   const c = consent.data;
   const on = c?.training ?? true;
   return (
@@ -53,9 +55,14 @@ export const PrivacyPage = (): React.JSX.Element => {
             />
           }
         />
-        <Row className="s-wrap" title="Health data" sub="Asked separately when Apple Health arrives. Nothing is read until then." right={<span className="s-value">Not yet</span>} />
+        <GoRow
+          title="Let the coach read your health"
+          sub={c?.health === true ? 'On. A short health summary goes with your question.' : c?.health === false ? 'Off. The coach answers without your health data.' : 'Not asked yet. Nothing from Apple Health reaches the coach.'}
+          value={c?.health === true ? 'On' : c?.health === false ? 'Off' : 'Not asked'}
+          onPress={() => sheet.open({ eyebrow: 'Privacy', title: 'Let the coach read your health?', body: <HealthConsentPanel /> })}
+        />
       </SGroup>
-      <PrivacyFacts on={on} />
+      <PrivacyFacts on={on} health={c?.health ?? null} />
     </div>
   );
 };

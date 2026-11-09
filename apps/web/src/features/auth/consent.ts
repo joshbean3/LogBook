@@ -44,7 +44,7 @@ export const useSaveConsent = () => {
     onMutate: async (c) => {
       await qc.cancelQueries({ queryKey: consentKey });
       const prev = qc.getQueryData<Consent>(consentKey);
-      qc.setQueryData<Consent>(consentKey, (cur) => ({ ...(cur ?? DEFAULT_CONSENT), training: c.training }));
+      qc.setQueryData<Consent>(consentKey, (cur) => ({ ...(cur ?? DEFAULT_CONSENT), training: c.training, ...(c.health === undefined ? {} : { health: c.health }) }));
       return { prev };
     },
     onError: (_e, _c, ctx) => {

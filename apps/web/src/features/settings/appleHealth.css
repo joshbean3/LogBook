@@ -1,0 +1,86 @@
+/* ---------- Apple Health in Settings: connect, the reading check, the coach's permission (docs/health/apple-health.md) ---------- */
+.card.ah-unlocks {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 16px 16px 16px 36px;
+  list-style: disc;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.card.ah-unlocks li::marker {
+  color: var(--accent);
+}
+.ah-note {
+  margin: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ah-choice {
+  display: grid;
+  gap: 8px;
+}
+/* the reading check */
+.ah-check .tiles {
+  margin: 0;
+}
+.card.ah-night {
+  display: grid;
+  gap: 4px;
+}
+.ah-night-big {
+  margin: 2px 0 0;
+  font: 700 2.125rem / 2.375rem var(--stamp);
+  color: var(--ink);
+}
+.ah-night-big small {
+  font: 500 var(--fs-row) / 1 var(--sans);
+  color: var(--ink-3);
+}
+.ah-night-sub,
+.ah-night-foot,
+.ah-empty {
+  margin: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ah-empty {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+}
+.ah-stages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.ah-stage {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+}
+.ah-stage-label {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ah-stage-value {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--stamp);
+  color: var(--ink);
+}
+.ah-tile {
+  min-width: 0;
+}
+.ah-tile-foot {
+  overflow: hidden;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 359px) {
+  .ah-stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

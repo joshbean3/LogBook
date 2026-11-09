@@ -104,10 +104,12 @@ GET /api/apple-health/…  → Today rings, Health Monitor, score pages, sleep, 
 
 ### 3.2 Decisions, with the reason for each
 
-1. A Swift engine inside the app, not an npm HealthKit plugin. The community plugins read samples but do not do
-   anchored sync, deletions, statistics merging, background delivery with a disk queue, or upload while the web view is
-   not running. Those are what keep Bevel's data correct and fresh. Capacitor supports a plugin class inside the app
-   target, registered from `LogbookViewController` (it already subclasses `CAPBridgeViewController`).
+1. Our own Swift engine, not a community HealthKit plugin. The community plugins read samples but do not do anchored
+   sync, deletions, statistics merging, background delivery with a disk queue, or upload while the web view is not
+   running. Those are what keep Bevel's data correct and fresh. It ships as a local Capacitor plugin package,
+   `packages/capacitor-health` (Swift Package Manager): `pnpm ios` adds it to the app's packages and registers
+   `LogbookHealthPlugin`, so new Swift files never touch the Xcode project file (which carries each Mac's own signing
+   settings). Built in phase 1.
 2. The engine lives with the AppDelegate. Apple wants observer queries set up in
    `application(_:didFinishLaunchingWithOptions:)`, and a background delivery can wake the app with no scene and no web
    view. So `HealthSync.shared` starts there; `LogbookHealthPlugin` is only its face to the web app.
@@ -449,10 +451,11 @@ Phase 0: Ready the app and server (S)
 5. Done when: the app installs with the capability, and `fly status` shows one machine running after an hour idle.
 
 Phase 1: The bridge, the proof, the consent (M)
-1. `HealthSync` (AppDelegate) and `LogbookHealthPlugin` (registered in `LogbookViewController`); `lib/health.ts` with
-   the web mock.
-2. Ask for every type in §3.3, routes included; a hidden debug page shows last night's sleep segments, the newest HRV and
-   resting HR, raw.
+1. `packages/capacitor-health` (Swift: `HealthReader`, `LogbookHealthPlugin`), registered by `pnpm ios`;
+   `lib/health.ts` with the development stand-in. (`HealthSync`, owned by the AppDelegate, arrives with the engine in
+   phase 2.)
+2. Ask for every type in §3.3, routes included; Settings › Data sources › Apple Health › Check the reading shows last
+   night (one source, stages), the newest HRV, resting HR, respiratory rate and today's steps, read live and saved nowhere.
 3. The coach consent sheet for health (names Anthropic, says which numbers go), stored in `consent.health`.
 4. Done when: Apple's sheet appears once; the debug page's values equal the Health app's for the same samples (same
    timestamps and values); the consent choice survives a reinstall.

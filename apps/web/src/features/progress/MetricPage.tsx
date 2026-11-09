@@ -228,7 +228,7 @@ export default function MetricPage(): React.JSX.Element {
             <h3 className="mp-q">How it’s worked out</h3>
             <p className="mp-a">{def.how}</p>
           </div>
-          {def.health ? <p className="mp-a mp-note">Apple Health reading is on its way. Until then this page stays empty rather than guess.</p> : null}
+          {def.health ? <p className="mp-a mp-note">This fills in once Apple Health syncs into your Logbook. Until then the page stays empty rather than guess.</p> : null}
         </div>
       </section>
     </div>

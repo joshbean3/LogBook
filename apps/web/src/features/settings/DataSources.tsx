@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, Check, CircleHelp, HeartPulse, RefreshCw } from 'lucide-react';
+import { Activity, Check, CircleHelp, RefreshCw } from 'lucide-react';
 import type * as React from 'react';
 import { api } from '@/api/client';
 import { keys, stravaSyncNow, useBootstrap, useStravaChecking } from '@/api/queries';
@@ -7,6 +7,7 @@ import { connectStrava } from '@/features/onboarding/StravaPrimer';
 import { haptics } from '@/lib/haptics';
 import { Button, Pressable, PushedBar, Row, useSheet, useToast } from '@/ui';
 import { ago } from './format';
+import { AppleHealthGroup } from './AppleHealth';
 import { HrZonesRow } from './HrZones';
 import { ActionPill, GoRow, SGroup, Tile } from './parts';
 import './dataSources.css';
@@ -124,8 +125,8 @@ const DisconnectSheet = (): React.JSX.Element => {
 
 /**
  * /settings/connections, "Data sources": where runs and health numbers come from. Strava (connected as whom, when it last
- * synced, Sync now, how it connects, the zones it brings, Disconnect behind a confirm) and Apple Health (not yet available,
- * and why). The route keeps its old name so links and Strava's return still land here.
+ * synced, Sync now, how it connects, the zones it brings, Disconnect behind a confirm) and Apple Health (connect, the
+ * reading check, the coach's permission). The route keeps its old name so links and Strava's return still land here.
  */
 export const DataSourcesPage = (): React.JSX.Element => {
   const boot = useBootstrap();
@@ -181,14 +182,7 @@ export const DataSourcesPage = (): React.JSX.Element => {
         <HrZonesRow zones={boot.data?.zones ?? null} connected={!!s?.connected} />
       </SGroup>
 
-      <SGroup title="Apple Health" foot="Sleep, heart-rate variability and resting heart rate will come from here.">
-        <Row
-          className="s-wrap has-tile ds-soon"
-          left={<Tile icon={HeartPulse} tone="muted" />}
-          title="Apple Health"
-          sub="Not yet available. It needs an Apple developer account, which Logbook doesn’t have yet."
-        />
-      </SGroup>
+      <AppleHealthGroup />
 
       {can && s?.connected ? (
         <div className="s-pills">

@@ -312,12 +312,12 @@ const Vitals = () => {
           </Pressable>
         ))}
         {/* where the readings will come from: Data sources says when */}
-        <Pressable className="pg-slot" press="scale" onPress={() => nav.go('/settings/connections')} label="Apple Health: not yet available. Open Data sources">
+        <Pressable className="pg-slot" press="scale" onPress={() => nav.go('/settings/connections')} label="Apple Health: connect it in Data sources">
           <span className="pg-slot-ic" aria-hidden="true">
             <HeartPulse size={18} />
           </span>
           <span className="pg-slot-title">Apple Health</span>
-          <span className="pg-slot-sub">Not yet available</span>
+          <span className="pg-slot-sub">Connect in Data sources</span>
         </Pressable>
       </div>
     </Sec>

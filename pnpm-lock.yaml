@@ -86,6 +86,9 @@ importers:
       '@capacitor/status-bar':
         specifier: ^8.0.4
         version: 8.0.4(@capacitor/core@8.5.3)
+      '@logbook/capacitor-health':
+        specifier: workspace:*
+        version: link:../../packages/capacitor-health
       '@logbook/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -153,6 +156,8 @@ importers:
       workbox-window:
         specifier: ^7.4.1
         version: 7.4.1
+
+  packages/capacitor-health: {}
 
   packages/shared:
     dependencies:
