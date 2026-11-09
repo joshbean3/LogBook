@@ -441,3 +441,7 @@ textarea.ln-field {
   color: var(--ink-4);
   font: 600 var(--fs-row) / var(--lh-row) var(--stamp);
 }
+/* the empty year: its one row says what lands here, in full (two lines at 320, never cut) */
+.ln-months .k-row-sub {
+  white-space: normal;
+}
