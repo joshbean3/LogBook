@@ -15,6 +15,14 @@ export const periodCaps = (level: GoalLevel, period: string, today: ISODate) => 
   return name === span || level === 'year' ? name : `${name} · ${span}`;
 };
 
+/** A goal card's period, plain: `Today · Mon, Nov 9`, `This week`, `November`, `2026` (the current period of each level). */
+export const cardCaps = (level: GoalLevel, period: string, today: ISODate) => {
+  if (level === 'day') return periodCaps(level, period, today);
+  if (level === 'week') return periodName(level, period, today);
+  if (level === 'month') return periodSpan(level, period).split(' ')[0] ?? period;
+  return period;
+};
+
 /** The deadline in words, for the editor's hint: `by Sunday`, `by Oct 31`, `by tonight`, `by Dec 31`. */
 export const deadlineWords = (level: GoalLevel, period: string, today: ISODate) => {
   const end = periodEnd(level, period);

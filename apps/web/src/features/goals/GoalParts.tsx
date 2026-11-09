@@ -1,56 +1,59 @@
 import { awaitingReview, type Aim, type GoalLevel } from '@logbook/shared';
-import { CircleAlert, Minus, Target, TrendingDown, TrendingUp } from 'lucide-react';
+import { CircleAlert, Target } from 'lucide-react';
 import { useRef } from 'react';
 import { useGoals } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
-import { LEVEL, periodCaps, scoreOf } from './model';
+import { LEVEL, LEVEL_HUE, periodCaps, scoreOf } from './model';
 import { ReviewButtons } from './GoalSheets';
 import { KPin } from './Kit';
 import './goals.css';
 
-/** `Last 4 weeks` from the model's `LAST 4 WEEKS`-style span names (they are sentence case already; this keeps it so). */
-const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+const LEVELS: readonly GoalLevel[] = ['day', 'week', 'month', 'year'];
+/** The span each level's number looks back over, in a word or two. */
+const SPAN_WORDS: Record<GoalLevel, string> = { day: '7 days', week: '4 weeks', month: '3 months', year: 'This year' };
 
 /**
- * The one honest number for a level (docs/inspiration.md §6 Goals), as a card: the span as its label, `3 of 4` stamped big
- * with its words small, a status word with its icon (navy on track, orange behind, grey with nothing answered), and the
- * span before as the footnote.
+ * The one honest number per level (docs/inspiration.md §6 Goals), all four in one card: each level's goals kept of those
+ * answered over its span, orange when it is behind the span before (or under half with nothing to compare), a dash with
+ * nothing answered yet.
  */
-export const ScoreCard = ({ goals, level, today }: { goals: readonly Aim[]; level: GoalLevel; today: string }) => {
-  const s = scoreOf(goals, level, today);
-  const label = s.closed ? `${s.caps}: ${s.kept} of ${s.closed} ${s.words}. ${s.tone === 'behind' ? 'Behind' : 'On track'}. ${s.vs}.` : `${s.caps}: no ${LEVEL[level].label.toLowerCase()} goals answered yet.`;
-  return (
-    <section className={`k-card g-score ${s.tone ? `is-${s.tone}` : 'is-none'}`} aria-label={label}>
-      <div className="k-label" aria-hidden="true">
-        <Target size={16} />
-        {sentence(s.caps)}
-        {s.owed ? <span className="k-label-end g-score-owed">{s.owed} to review</span> : null}
-      </div>
-      <p className="k-num g-score-num" aria-hidden="true">
-        {s.closed ? s.kept : '–'}
-        <small>{s.closed ? `of ${s.closed} ${s.words}` : `No ${LEVEL[level].label.toLowerCase()} goals answered yet`}</small>
-      </p>
-      <div className="g-score-foot" aria-hidden="true">
-        {s.tone === 'behind' ? (
-          <span className="k-status is-hi">
-            <TrendingDown size={15} /> Behind
-          </span>
-        ) : s.tone === 'on' ? (
-          <span className="k-status">
-            <TrendingUp size={15} /> On track
-          </span>
-        ) : (
-          <span className="k-status is-none">
-            <Minus size={15} /> No data yet
-          </span>
-        )}
-        {s.closed || s.prev ? <span className="k-foot">{s.vs}</span> : null}
-      </div>
-    </section>
-  );
-};
+export const ScoreStrip = ({ goals, today }: { goals: readonly Aim[]; today: string }) => (
+  <section className="k-card g-scores" aria-label="Goals kept">
+    <div className="k-label" aria-hidden="true">
+      <Target size={16} />
+      Goals kept
+    </div>
+    <ul className="g-scores-row">
+      {LEVELS.map((l) => {
+        const s = scoreOf(goals, l, today);
+        const label = s.closed ? `${LEVEL[l].label}, ${l === 'year' ? 'this year' : `last ${SPAN_WORDS[l]}`}: ${s.kept} of ${s.closed} kept${s.tone === 'behind' ? ', behind' : ''}` : `${LEVEL[l].label}: none answered yet`;
+        return (
+          <li key={l} className={`g-sc ${s.tone ? `is-${s.tone}` : 'is-none'}`} style={{ '--hue': LEVEL_HUE[l] } as React.CSSProperties} aria-label={label}>
+            <span className="g-sc-lv" aria-hidden="true">
+              <i />
+              {LEVEL[l].label}
+            </span>
+            <span className="g-sc-num tnum" aria-hidden="true">
+              {s.closed ? (
+                <>
+                  {s.kept}
+                  <small>/{s.closed}</small>
+                </>
+              ) : (
+                '–'
+              )}
+            </span>
+            <span className="g-sc-span" aria-hidden="true">
+              {SPAN_WORDS[l]}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  </section>
+);
 
 /** `Send the draft to Ana (Fri, Nov 6)`: a stale goal named with its period. */
 const named = (g: Aim, today: string) => `${g.text.replace(/[.\s]+$/, '')} (${periodCaps(g.level, g.period, today).split(' · ').pop()})`;
