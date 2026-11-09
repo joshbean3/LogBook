@@ -149,7 +149,7 @@ export default function SettingsView(): React.JSX.Element {
           tone={strava?.connected && strava.error ? 'bad' : undefined}
           onPress={go('connections')}
         />
-        <GoRow icon={HeartPulse} title="Apple Health" sub="Not yet available." onPress={go('connections')} />
+        <GoRow icon={HeartPulse} title="Apple Health" sub="Sleep, heart, HRV and workouts." onPress={go('connections')} />
         {zones ? <GoRow icon={Gauge} title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
       </SGroup>
 
