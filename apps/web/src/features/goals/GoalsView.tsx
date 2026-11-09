@@ -1,7 +1,7 @@
 import { currentGoals, periodOf, periodSpan, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
 import { Bell, CalendarRange, Check, ChevronRight, Minus, Plus, Sunrise, X } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { useGoals } from '@/api/queries';
 import { useReduced } from '@/lib/motion';
@@ -9,11 +9,11 @@ import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
 import { SkeletonRows } from '@/ui/Skeleton';
-import { Footnote, Stack } from '@/ui/layout';
+import { Stack } from '@/ui/layout';
 import { Switch } from '../settings/parts';
 import '../settings/settings.css';
 import { useNowMinutes } from '../day/useNow';
-import { cardCaps, clockOf, goalOf, LEVEL, LEVEL_HUE, periodCaps, setWords, STATUS_WORD } from './model';
+import { cardCaps, clockOf, goalOf, LEVEL, LEVEL_HUE, setWords, STATUS_WORD } from './model';
 import { disableReminders, enableReminders, remindersOn, remindersSupported } from './reminders';
 import { useOpenGoal } from './GoalSheets';
 import { ScoreStrip, StaleNudge } from './GoalParts';
@@ -85,36 +85,38 @@ const GoalCard = ({ level, period, goal, today, now }: { level: GoalLevel; perio
 };
 
 /**
- * Something ahead (tomorrow's goal, next week's), as a card: an icon tile, what it is and where it stands, and its action
- * at the right. Unset, a Set pill opens the two ways to set it; set, a chevron opens the goal.
+ * Something ahead (tomorrow's goal, next week's), as a small chip in the row over the list: an icon tile and its name, then
+ * the goal on one line with a chevron, or "Not set" with a Set pill that opens the two ways to set it.
  */
-const AheadCard = ({ level, period, goal, today, icon, title, when }: { level: GoalLevel; period: string; goal: Aim | null; today: string; icon: React.ReactNode; title: string; when: string }) => {
+const AheadChip = ({ level, period, goal, today, icon, title, when, describedBy }: { level: GoalLevel; period: string; goal: Aim | null; today: string; icon: React.ReactNode; title: string; when: string; describedBy: string }) => {
   const open = useOpenGoal();
-  const n = goal?.steps.length ?? 0;
-  const sub = goal ? `${title} · ${when}${n ? ` · ${n} step${n === 1 ? '' : 's'}` : ''}` : `${when} · Not set`;
   return (
     <Pressable
-      className={`ga-card ${goal ? 'is-set' : 'is-empty'}`}
+      className={`ga-chip ${goal ? 'is-set' : 'is-empty'}`}
       press="scale"
       style={hue(level)}
       onPress={() => open(level, period)}
-      label={goal ? `${periodCaps(level, period, today)}: ${goal.text}. Open` : `${title}, ${when}: ${setWords(level, period, today)}`}
+      label={goal ? `${title}, ${when}: ${goal.text}. Open` : `${title}, ${when}: not set. ${setWords(level, period, today)}`}
+      aria-describedby={describedBy}
     >
-      <span className="ga-ic" aria-hidden="true">
-        {icon}
+      <span className="ga-top" aria-hidden="true">
+        <span className="ga-ic">{icon}</span>
+        <span className="ga-title">{title}</span>
+        {goal ? <ChevronRight size={15} className="gl-chev ga-chev" /> : null}
       </span>
-      <span className="ga-main" aria-hidden="true">
-        <span className="ga-title">{goal ? goal.text : title}</span>
-        <span className="ga-sub">{sub}</span>
+      <span className="ga-line" aria-hidden="true">
+        {goal ? (
+          <span className="ga-goal">{goal.text}</span>
+        ) : (
+          <>
+            <span className="ga-none">Not set</span>
+            <span className="ga-pill">
+              <Plus size={13} strokeWidth={2.8} />
+              Set
+            </span>
+          </>
+        )}
       </span>
-      {goal ? (
-        <ChevronRight size={20} className="gl-chev" aria-hidden="true" />
-      ) : (
-        <span className="ga-pill" aria-hidden="true">
-          <Plus size={15} strokeWidth={2.6} />
-          Set
-        </span>
-      )}
     </Pressable>
   );
 };
@@ -148,8 +150,9 @@ const DayTrail = ({ goals, today, onOpen }: { goals: Aim[]; today: string; onOpe
 };
 
 /**
- * Goals (the second tab): the goals that stand now as a list of cards, nearest first (the day, the week, the month, the
- * year), each opening its goal or the way to set it. Then a review owed, what is ahead, the record, the reminders. Each
+ * Goals (the second tab): what is ahead (tomorrow, next week) as two small chips at the top, then the goals that stand now
+ * as a list of cards, nearest first (the day, the week, the month, the year), each opening its goal or the way to set it,
+ * with a review owed at its head. Then the record and the reminders. Each
  * goal goes through the review when it is set (Locke and Latham's rules), and everything that happens to it is kept.
  */
 export default function GoalsView(): React.JSX.Element {
@@ -163,6 +166,7 @@ export default function GoalsView(): React.JSX.Element {
   const [reminders, setReminders] = useState(remindersOn);
   const tomorrow = shiftDays(today, 1);
   const nextWeek = shiftPeriod('week', periodOf('week', today), 1);
+  const aheadHint = useId();
 
   // a goal turning done while the tab is open (open → done), never one that loads done: the moment, once
   const was = useRef<Record<string, string>>({});
@@ -189,20 +193,20 @@ export default function GoalsView(): React.JSX.Element {
         <SkeletonRows rows={4} label="Loading goals" />
       ) : (
         <>
-          <KSection title="Now" meta={`${LEVELS.filter((l) => cur[l]).length} of 4 set`} className="g-now" first>
+          <div className="ga-row" role="group" aria-label="Ahead">
+            <AheadChip level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} icon={<Sunrise size={15} />} title="Tomorrow" when={periodSpan('day', tomorrow)} describedBy={aheadHint} />
+            <AheadChip level="week" period={nextWeek} goal={goalOf(list, 'week', nextWeek)} today={today} icon={<CalendarRange size={15} />} title="Next week" when={periodSpan('week', nextWeek)} describedBy={aheadHint} />
+            <span id={aheadHint} className="sr-only">
+              Set them the night before. The review makes each one specific and due on time.
+            </span>
+          </div>
+          <KSection title="Now" meta={`${LEVELS.filter((l) => cur[l]).length} of 4 set`} className="g-now">
             <Stack className="gl-list">
               <StaleNudge goals={list} today={today} />
               {LEVELS.map((l) => (
                 <GoalCard key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} now={now} />
               ))}
             </Stack>
-          </KSection>
-          <KSection title="Ahead" className="g-ahead">
-            <Stack>
-              <AheadCard level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} icon={<Sunrise size={20} />} title="Tomorrow" when={periodSpan('day', tomorrow)} />
-              <AheadCard level="week" period={nextWeek} goal={goalOf(list, 'week', nextWeek)} today={today} icon={<CalendarRange size={20} />} title="Next week" when={periodSpan('week', nextWeek)} />
-            </Stack>
-            <Footnote>Set them the night before. The review makes each one specific and due on time.</Footnote>
           </KSection>
           <KSection title="History" action="See all" actionLabel="See all of the history" onAction={() => nav.push('/goals/history')} className="g-past">
             <Stack>
