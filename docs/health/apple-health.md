@@ -190,7 +190,7 @@ One run, whatever started it:
 6. Upload what step 3-5 queued, batches split to at most 1 MB.
 7. Tell the web view (if it is running) with a `healthSync` event: started, progress, done, error.
 
-First import: newest month first (90 days by default, up to 2 years in Settings), so Today fills in within seconds and
+First import: newest month first (1 year by default, up to 2 years in Settings), so Today fills in within seconds and
 history arrives behind it. It resumes from the cursor. The server does not score during the import; when the last
 month lands it scores every day in date order.
 
@@ -259,7 +259,7 @@ Sleep (per night):
 - The night: the longest session ending between 6 PM yesterday and 6 PM today, built from that source; segments less
   than 60 minutes apart join one session; others are naps. For a Watch night (the Watch writes no in-bed samples), time
   in bed is the span of the Watch's own samples, awake included.
-- Sleep need = goal (7h 30m until set) + recent strain (0-45 minutes, by how far yesterday sat above your normal strain)
+- Sleep need = goal (asked during connect) + recent strain (0-45 minutes, by how far yesterday sat above your normal strain)
   + debt repayment (a fifth of the 7-night debt, at most 60 minutes). Shown as a receipt (shot 358).
 - Sleep debt = the sum over the last 7 nights of need minus asleep, never below zero per night.
 - Sleep score (0-100%): 55% time asleep against need, 15% efficiency, 15% deep + REM share against your normal, 15%
@@ -330,8 +330,9 @@ The same run often arrives twice: Apple Watch records it, the Strava app uploads
 
 1. Connect (Settings › Connections › Apple Health, and a card on Today until connected): one sheet that says what it
    unlocks (the three rings, your normal, the coach reading your recovery), what it reads, that nothing is written, and
-   that it stays in your Logbook. "Connect Apple Health" (navy pill) opens Apple's permission sheet. Then the first
-   import starts and the sheet turns into progress ("Reading the last 90 days… October").
+   that it stays in your Logbook. "Connect Apple Health" (navy pill) opens Apple's permission sheet. Then it asks your
+   sleep goal (a time stepper, 7h 30m to start) while the first import runs, and turns into progress ("Reading the last
+   year… October").
 2. Today: a rings card (Strain, Recovery, Sleep) under the status chips; "–%" and grey rings until there is data; a line
    under it while calibrating. The assistant's daily read under the rings (consent permitting). A Health Monitor row of
    tiles further down.
@@ -347,7 +348,7 @@ The same run often arrives twice: Apple Watch records it, the Strava app uploads
    last sync, what was found, pending uploads, Sync now, and the fix list when something is wrong.
 8. New data found: a one-time sheet when a type shows data for the first time ("Blood oxygen is now in your Health
    Monitor").
-9. Settings › Health: history window (90 days to 2 years), sleep source, sleep goal (by hand, or from your best
+9. Settings › Health: history window (1 to 2 years), sleep source, sleep goal (by hand, or from your best
    recovery nights over 90 days, as Bevel 675-677), heart rate zones, units, start the baseline over (new Watch), dead-letter batches, Disconnect (stops syncing on the phone, deletes
    the server copy, then says how to remove access in the Health app).
 10. Auto habits: a habit can be tied to steps, sleep or a workout; it lights itself with the live value and an "auto"
@@ -515,14 +516,11 @@ Phase 9: The coach reads your health (S)
 
 ## 9. Decisions for you, and risks
 
-Decide before Phase 0:
-0. Keep one Fly machine running for background uploads (a few dollars a month on the smallest machine).
-
-Decide before Phase 2:
-1. History window to start with: 90 days (fast first import) or 1 year (trends from day one, a slower first import).
-2. Sleep goal: 7h 30m until set, or ask during connect.
-3. Health workouts recorded by the Strava app: keep them from Claude (the plan's default) or treat them like any other
-   Health workout.
+Decided (2026-11-09):
+1. One Fly machine stays running for background uploads (`min_machines_running = 1`).
+2. The first import reads 1 year of history (newest month first, so Today fills in within seconds).
+3. The sleep goal is asked during connect (7h 30m offered as the starting value).
+4. Health workouts recorded by the Strava app stay away from the coach.
 
 Risks:
 - Background delivery is best effort (iOS decides). Mitigation: opening the app always syncs; the summary notification

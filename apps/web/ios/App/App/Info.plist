@@ -6,6 +6,8 @@
 	<string>Take a photo of a plan, a schedule or a list to send to the assistant.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo of a plan, a schedule or a list to send to the assistant.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Logbook reads your sleep, heart rate, HRV, workouts and activity from Apple Health to show your recovery, strain and sleep against your own normal. It never writes to Apple Health.</string>
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>

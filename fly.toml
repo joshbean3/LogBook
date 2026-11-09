@@ -17,7 +17,9 @@ primary_region = "ewr"
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
+  # one machine always on: Apple Health background syncs get seconds from iOS, not enough for a cold start
+  # (docs/health/apple-health.md §3.2, decision 8)
+  min_machines_running = 1
 
   [[http_service.checks]]
     interval = "30s"
