@@ -1,10 +1,12 @@
 import { zHealthBatchEnvelope, zHealthConnect, zHealthReconcile } from '@logbook/shared';
+import { z } from 'zod';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { clientToday, LOCAL_DATE_HEADER } from '../lib/requests.js';
 import { ApiError, parseBody } from '../lib/util.js';
+import { writeSetting } from './core.js';
 import { connectHealth, deviceUser, disconnectHealth, healthStatus, reconcileHealth, storeBatch } from '../services/appleHealth.js';
 
 /**
@@ -16,6 +18,7 @@ import { connectHealth, deviceUser, disconnectHealth, healthStatus, reconcileHea
  */
 
 const MAX_BATCH_BYTES = 2 * 1024 * 1024;
+const zSleepGoal = z.object({ sleepGoalMin: z.number().int().min(240).max(720) });
 const bearer = (h: string | undefined) => (h?.startsWith('Bearer ') ? h.slice(7).trim() : null);
 
 /** The phone's routes: sync and reconcile, by device token. Mounted before the session-guarded routes. */
@@ -55,6 +58,13 @@ export const appleHealthRoutes = (db: DB) => {
   });
 
   r.get('/apple-health/status', (c) => c.json(healthStatus(db, c.get('user').id)));
+
+  /** The sleep goal, asked during connect and changed in Settings › Apple Health. */
+  r.put('/apple-health/sleep-goal', async (c) => {
+    const { sleepGoalMin } = await parseBody(c.req.raw, zSleepGoal);
+    writeSetting(db, c.get('user').id, 'sleepGoalMin', sleepGoalMin);
+    return c.json({ sleepGoalMin });
+  });
 
   r.delete('/apple-health', (c) => {
     disconnectHealth(db, c.get('user').id);

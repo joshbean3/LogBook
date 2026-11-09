@@ -20,6 +20,7 @@ import type { Bootstrap } from './api/types';
 import { ContextMenuProvider } from './ui/ContextMenu';
 import { SheetProvider } from './ui/Sheet';
 import { ToastProvider } from './ui/Toast';
+import { healthSyncNow } from './lib/healthSync';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/ui.css';
@@ -64,6 +65,8 @@ const FRESH_MS = 5 * 60_000;
 const DATED = new Set(['month', 'todos', 'daily', 'journal', 'reads', 'reads-pick', 'activities']);
 const syncIfConnected = () => {
   if (qc.getQueryData<Bootstrap>(['bootstrap'])?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
+  // Apple Health: the engine checks on the phone whether it is connected (docs/health/apple-health.md §3.4)
+  void healthSyncNow(qc, 'open').catch(() => undefined);
 };
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;

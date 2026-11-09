@@ -470,6 +470,13 @@ Phase 2: The pipeline (L)
    total; a sample deleted in the Health app is gone after the next sync; airplane mode for 3 syncs then online sends
    each batch once (server log: no duplicate batch ids); a forced 422 lands in dead-letter while the next batch stores.
 
+Built (2026-11-09): the server routes and tables with 15 route tests; the engine in
+`packages/capacitor-health` (`HealthStorage.swift`, `HealthSync.swift`); connect with the sleep goal and a live import
+screen; syncing when the app opens, comes back, or Today is pulled down; Settings › Data sources shows the sync state,
+what has arrived, the sleep goal, waiting or refused uploads, and Disconnect. Two changes from the plan above: workouts
+wait in `health_workouts` until phase 5 matches them with Strava (so nothing shows twice in the meantime), and the
+engine lives in the plugin package for now; the AppDelegate starts it in phase 7, with background delivery.
+
 Phase 3: Health Monitor (M)
 1. Night values, normal ranges and calibration in shared; `GET /day/:date`, `GET /metric/:id`.
 2. Vitals tiles live (Progress and Today); metric pages with the band, trends table, explainers.

@@ -17,6 +17,7 @@ import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { useNav } from './NavController';
 import { Shell } from './Shell';
+import { healthSyncNow } from '@/lib/healthSync';
 import '@/styles/foundation.css';
 
 // Today is in the entry bundle (imported above), not a chunk: the first screen never waits on a module request (WP5). The
@@ -184,6 +185,7 @@ const Authed = () => {
     void prefetchAll(qc);
     // a cold open with nothing cached: the Strava check follows the first bootstrap (stravaSyncNow keeps one per 30 s)
     if (qc.getQueryData<{ strava?: { connected?: boolean } }>(['bootstrap'])?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
+    void healthSyncNow(qc, 'open').catch(() => undefined);
     requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
   }, [hasBoot, qc]);
   if (signedOut) return <Navigate to={signedOutHome()} replace />;

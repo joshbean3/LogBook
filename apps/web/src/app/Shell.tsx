@@ -14,8 +14,10 @@ import { PushedLayer, StackCtx, type StackMotion } from '@/ui/PushedLayer';
 import { pointerClaimed } from '@/ui/useHold';
 import { usePress } from '@/ui/usePress';
 import { ErrorBoundary } from './ErrorBoundary';
+import { healthSyncNow, useHealthSync } from '@/lib/healthSync';
 import { PushedEntryScope, TabScope, useNavInternal, useNavState, type Controller } from './NavController';
 import './shell.css';
+import './healthPill.css';
 
 /**
  * The frame (docs/feel.md §9.1, contracts §A.3): six tabs, each its own mounted scroller (`visibility: hidden` + `inert`
@@ -79,6 +81,7 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
         <TabBar ctl={ctl} active={st.active} />
       </Dock>
       <NetPill />
+      <HealthPill />
     </div>
   );
 };
@@ -263,6 +266,8 @@ const refetchAll = (qc: QueryClient) =>
     qc.invalidateQueries({ queryKey: keys.todos }),
     qc.invalidateQueries({ queryKey: keys.lifts }),
     qc.invalidateQueries({ queryKey: keys.activities }),
+    // a pull also asks Apple Health for anything new (the engine joins a run already going)
+    healthSyncNow(qc, 'manual', true).catch(() => null),
   ]);
 const R = 10;
 const C = 2 * Math.PI * R;
@@ -367,6 +372,35 @@ const usePullToRefresh = (ref: RefObject<HTMLDivElement | null>, enabled: boolea
       ring?.remove();
     };
   }, [ref, enabled, qc]);
+};
+
+// ---------- the Apple Health pill: shown while the first import reads history, and for a moment when a sync brings data ----------
+const HealthPill = () => {
+  const s = useHealthSync();
+  const [flash, setFlash] = useState(false);
+  const lastAt = s.last?.at;
+  const brought = (s.last?.uploaded ?? 0) > 0;
+  useEffect(() => {
+    if (!lastAt || !brought) return;
+    setFlash(true);
+    const t = setTimeout(() => setFlash(false), 1800);
+    return () => clearTimeout(t);
+  }, [lastAt, brought]);
+  if (s.phase === 'importing')
+    return (
+      <div className="net-pill t-cap hl-pill" role="status">
+        <span className="dot hl-pill-spin" />
+        Reading Apple Health{s.detail ? ` · ${new Date(s.detail).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : '…'}
+      </div>
+    );
+  if (flash && s.phase === 'done')
+    return (
+      <div className="net-pill t-cap hl-pill is-done" role="status">
+        <span className="dot" />
+        Apple Health synced
+      </div>
+    );
+  return null;
 };
 
 // ---------- the network pill ----------

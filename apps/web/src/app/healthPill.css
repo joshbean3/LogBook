@@ -1,0 +1,34 @@
+/* the Apple Health pill (Shell.tsx HealthPill): glass, under the status bar, a turning dot while history is read */
+.net-pill.hl-pill {
+  background: var(--glass, var(--surface));
+  -webkit-backdrop-filter: var(--glass-blur, none);
+  backdrop-filter: var(--glass-blur, none);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  font-weight: 600;
+}
+.hl-pill .dot {
+  background: var(--accent);
+}
+.hl-pill.is-done .dot {
+  background: var(--ink-2);
+}
+.hl-pill-spin {
+  animation: hl-pulse 1.1s ease-in-out infinite;
+}
+@keyframes hl-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hl-pill-spin {
+    animation: none;
+  }
+}

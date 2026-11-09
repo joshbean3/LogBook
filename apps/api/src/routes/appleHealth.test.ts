@@ -48,6 +48,12 @@ describe('Apple Health: connecting and the device token', () => {
     expect((await call('POST', '/api/apple-health/sync', batch(), { cookie })).status).toBe(401);
   });
 
+  it('changes the sleep goal from Settings, within 4 to 12 hours', async () => {
+    expect((await call('PUT', '/api/apple-health/sleep-goal', { sleepGoalMin: 480 })).body).toEqual({ sleepGoalMin: 480 });
+    expect((await call('GET', '/api/apple-health/status')).body.sleepGoalMin).toBe(480);
+    expect((await call('PUT', '/api/apple-health/sleep-goal', { sleepGoalMin: 60 })).status).toBe(422);
+  });
+
   it('keeps Fly’s /api/health check where it was', async () => {
     expect((await call('GET', '/api/health', undefined, {})).body.ok).toBe(true);
   });

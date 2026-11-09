@@ -40,6 +40,30 @@ export interface ReadingCheck {
   stepsToday?: number;
   stepsError?: string;
 }
+/** One sync run's outcome (the engine, packages/capacitor-health HealthSync.swift). */
+export interface HealthSyncResult {
+  uploaded: number;
+  pending: number;
+  deadLetter: number;
+  importing: boolean;
+  /** locked, offline, unauthorized, not_connected, or a message. */
+  error?: string;
+}
+export interface HealthDeviceStatus {
+  connected: boolean;
+  pending: number;
+  deadLetter: number;
+  importing: boolean;
+  importingFrom?: string;
+  historyFrom?: string;
+  lastSyncAt?: string;
+  lastError?: string;
+}
+/** The engine's progress, while the web view is open: start, progress (a month being imported), done, error. */
+export interface HealthSyncEvent {
+  phase: 'start' | 'progress' | 'done' | 'error';
+  detail?: string;
+}
 export interface LogbookHealthPlugin {
   isAvailable(): Promise<{ available: boolean }>;
   /** Apple's permission sheet. Resolves whatever was chosen: Apple never says whether reading was allowed. */
@@ -47,13 +71,54 @@ export interface LogbookHealthPlugin {
   /** Whether Apple's sheet would still show (never asked, or types added since). */
   needsAuthorization(): Promise<{ needed: boolean }>;
   readingCheck(): Promise<ReadingCheck>;
+  /** Saves the device token from POST /api/apple-health/connect in the Keychain; the import starts on the next sync. */
+  connect(o: { token: string; apiOrigin: string; historyDays: number }): Promise<{ connected: boolean }>;
+  sync(o?: { reason: 'open' | 'manual' | 'import' }): Promise<HealthSyncResult>;
+  status(): Promise<HealthDeviceStatus>;
+  /** Stops syncing on this phone: queue, anchors and token gone. The server copy is deleted separately. */
+  disconnect(): Promise<{ connected: boolean }>;
+  addListener(event: 'healthSync', fn: (e: HealthSyncEvent) => void): Promise<{ remove: () => Promise<void> }>;
 }
 
 // ---------- the stand-in (development in the browser only) ----------
 const at = (hoursAgo: number) => new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
 const seg = (from: number, to: number, stage: SleepStage): SleepSegment => ({ start: at(from), end: at(to), stage, source: 'Josh’s Apple Watch', bundle: 'com.apple.health.watch', device: 'Watch7,1' });
 let mockAsked = false;
+let mockConnected = false;
+let mockImported = false;
+let mockLast: string | undefined;
+const mockListeners = new Set<(e: HealthSyncEvent) => void>();
+const mockEmit = (e: HealthSyncEvent) => mockListeners.forEach((f) => f(e));
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export const healthMock: LogbookHealthPlugin = {
+  connect: async () => {
+    mockConnected = true;
+    mockImported = false;
+    return { connected: true };
+  },
+  sync: async () => {
+    if (!mockConnected) return { uploaded: 0, pending: 0, deadLetter: 0, importing: false, error: 'not_connected' };
+    mockEmit({ phase: 'start' });
+    if (!mockImported) {
+      for (const m of ['Nov 1, 2026', 'Oct 1, 2026', 'Sep 1, 2026', 'Aug 1, 2026']) {
+        mockEmit({ phase: 'progress', detail: m });
+        await wait(700);
+      }
+      mockImported = true;
+    } else await wait(400);
+    mockLast = new Date().toISOString();
+    mockEmit({ phase: 'done' });
+    return { uploaded: 12, pending: 0, deadLetter: 0, importing: false };
+  },
+  status: async () => ({ connected: mockConnected, pending: 0, deadLetter: 0, importing: mockConnected && !mockImported, lastSyncAt: mockLast }),
+  disconnect: async () => {
+    mockConnected = false;
+    return { connected: false };
+  },
+  addListener: async (_e, fn) => {
+    mockListeners.add(fn);
+    return { remove: async () => void mockListeners.delete(fn) };
+  },
   isAvailable: async () => ({ available: true }),
   requestAuthorization: async () => {
     mockAsked = true;

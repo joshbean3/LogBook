@@ -297,3 +297,111 @@
     animation: none;
   }
 }
+
+/* ---------- connected: navy icon tiles, the running dot, Disconnect at the foot of the card ---------- */
+.ah-coach-ic.is-navy {
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.ah-device-status.is-running i {
+  animation: ah-pulse 1.1s ease-in-out infinite;
+}
+@keyframes ah-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+.ah-disconnect {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--bad);
+}
+.ah-disconnect::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: var(--line);
+}
+
+/* ---------- the sleep goal: a big time between round minus and plus (Bevel 675) ---------- */
+.card.ahg-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 18px;
+}
+.ahg-step {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pearl, var(--surface));
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+}
+.ahg-step:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.ahg-step:disabled {
+  color: var(--ink-4);
+  box-shadow: var(--well-shadow);
+}
+.ahg-time {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.ahg-time b {
+  font: 700 3.5rem / 1 var(--stamp);
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.ahg-time small {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+
+/* ---------- the import ---------- */
+.ahi-dial {
+  display: grid;
+  place-items: center;
+  padding: 18px 0 6px;
+}
+.card.ahi-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ahi-counts b {
+  display: block;
+  font: 700 1.5rem / 1.75rem var(--stamp);
+  color: var(--ink);
+}
+.ahd-lede {
+  margin-top: 4px;
+  text-align: left;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ah-device-status.is-running i {
+    animation: none;
+  }
+}
