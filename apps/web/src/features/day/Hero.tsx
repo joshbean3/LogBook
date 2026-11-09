@@ -28,12 +28,14 @@ import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
 /** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
 import { HeroGauge } from './HeroGauge';
+import { faceForWhen, sessionMinutes, useAfternoon, useTrainWhen } from './trainWhen';
+import { AfternoonSheet, WhenPill } from './WhenPill';
 
 export const morningLineId = (date: ISODate) => `morning-line-${date}`;
 export const morningPath = (date: ISODate) => `/today/${date}/morning`;
 
 /** Pointers that start on these are not the hero's: the ring and the line own their press; the deck's buttons theirs. */
-const HERO_IGNORE = '.hold-ring, [data-shared], .hero-share, .hero-verb, .hero-next, .hero-week';
+const HERO_IGNORE = '.hold-ring, [data-shared], .hero-share, .hero-verb, .hero-next, .hero-week, .hero-when, .mini-tl';
 
 /** The share card's data for a day whose miles are logged by hand: the session's miles, and the week counted the same way. */
 const shareFor = (date: ISODate, s: Session | null, runs: Activity[], log: Log) => {
@@ -129,6 +131,7 @@ interface DeckCtx {
   onMorning: () => void;
   onOpenNext: () => void;
   onAdjust: () => void;
+  onAfternoon: () => void;
   /** The landing's hold on the landed face's numbers, route and verdict (§6.1). */
   numbers: 'hold' | 'go' | 'still';
 }
@@ -139,7 +142,7 @@ const Deck = ({ c }: { c: DeckCtx }) => {
   if (face.stops)
     return (
       <div className="hero-deck">
-        <MiniTimeline stops={face.stops} now={c.isToday ? c.now : -1} onPress={c.onMorning} label={face.stopsLabel ?? 'This morning'} shared={morningLineId(c.date)} />
+        <MiniTimeline stops={face.stops} now={c.isToday ? c.now : -1} onPress={face.stopsKind === 'afternoon' ? c.onAfternoon : c.onMorning} label={face.stopsLabel ?? 'This morning'} shared={face.stopsKind === 'afternoon' ? undefined : morningLineId(c.date)} />
       </div>
     );
   if (face.out)
@@ -238,6 +241,8 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
           </motion.p>
         </HeroGauge>
       )}
+      {/* when the training happens, on a training day still to come (or today) */}
+      {!face.tall && face.lead && face.lead.session.kind !== 'rest' && c.date >= c.log.today ? <WhenPill date={c.date} /> : null}
       {face.tall && face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
       <Deck c={c} />
     </>
@@ -249,6 +254,7 @@ interface DeckActions {
   onMorning: () => void;
   onOpenNext: () => void;
   onAdjust: () => void;
+  onAfternoon: () => void;
 }
 /**
  * One face in its layer (`.hero-face`), memoised on what it draws: the hero's handlers come through a stable object, so a
@@ -335,7 +341,11 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
   };
   const minutes = useDeferredMinutes(clock, keyOf);
   const ph = useMemo(() => phaseOf(log, date, minutes), [log, date, minutes]);
-  const face = useMemo(() => faceOf(log, date, ph), [log, date, ph]);
+  // when the day's training happens (Morning / Afternoon / None, chosen on the card): the face follows it
+  const when = useTrainWhen(date);
+  const pm = useAfternoon();
+  const pace = log.boot?.morningSettings?.run.pace;
+  const face = useMemo(() => faceForWhen(faceOf(log, date, ph), when, pm, pace), [log, date, ph, when, pm, pace]);
   const evening = face.kind === 'evening';
   const openSession = useOpenSession(log);
   // the Close card is the one face that is not the 184 card: the two crossfade (150 ms) in the hero's slot
@@ -448,12 +458,14 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
     onMorning: () => nav.push(morningPath(date), { shared: morningLineId(date) }),
     onOpenNext: () => face.next && openSession(face.next.date, face.next.session),
     onAdjust: () => lead && sheet.open({ eyebrow: label(lead.session), title: 'Miles run', body: <DistanceSheet s={lead.session} /> }),
+    onAfternoon: () => sheet.open({ title: 'This afternoon', body: <AfternoonSheet minutes={sessionMinutes(lead?.session, log.boot?.morningSettings?.run.pace)} /> }),
   };
   const [acts] = useState<DeckActions>(() => ({
     onShare: () => latest.current.onShare(),
     onMorning: () => latest.current.onMorning(),
     onOpenNext: () => latest.current.onOpenNext(),
     onAdjust: () => latest.current.onAdjust(),
+    onAfternoon: () => latest.current.onAfternoon(),
   }));
   // while the landing waits and plays stages 1–2, the landed face is already mounted, hidden, under the face from before the
   // run (its layer over it): stage 3 then only swaps two opacities and the card's height, with no face to render (§6.1)

@@ -1782,3 +1782,129 @@
     font-size: 24px;
   }
 }
+
+/* ---------- when you train (WhenPill): Morning · Afternoon · No time under the dial ---------- */
+:root .hero.aura:not(.is-tall):has(.hero-when) {
+  height: 372px;
+}
+.hero-when {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  align-self: center;
+  margin-top: 6px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 42, 68, 0.06),
+    0 4px 12px -8px rgba(15, 42, 68, 0.3);
+}
+.hero-when-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 600 12px/1 var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  transition:
+    background 180ms var(--ease-out),
+    color 180ms var(--ease-out),
+    box-shadow 180ms var(--ease-out);
+}
+.hero-when-opt.on {
+  background: var(--navy-pill, var(--ink));
+  color: #fff;
+  box-shadow: 0 4px 10px -4px rgba(15, 42, 68, 0.5);
+}
+@media (max-width: 359px) {
+  .hero-when-opt {
+    padding: 0 8px;
+  }
+}
+
+/* the afternoon's sheet */
+.pm-sheet {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+.pm-line {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fff9f2 0%, #ffffff 100%);
+  box-shadow: var(--shadow-1);
+  text-align: center;
+}
+.pm-line span {
+  display: grid;
+  gap: 2px;
+}
+.pm-line small {
+  font: 600 11px/14px var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pm-line b {
+  font: 700 17px/22px var(--stamp);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.pm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.pm-default {
+  flex-wrap: wrap;
+}
+.pm-seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+}
+.pm-seg button {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 600 12px/1 var(--sans);
+  color: var(--ink-3);
+}
+.pm-seg button.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 2px 6px -2px rgba(15, 42, 68, 0.25);
+}
+/* no line under the choice: the card closes up */
+:root .hero.aura:not(.is-tall):has(.hero-when):not(:has(.mini-tl)) {
+  height: 318px;
+}
+.pm-row > span {
+  white-space: nowrap;
+}
+.pm-row > .stepper,
+.pm-row > div:not(.pm-seg) {
+  flex: 0 1 200px;
+  min-width: 0;
+}

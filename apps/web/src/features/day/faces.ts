@@ -44,6 +44,8 @@ export interface Face {
   /** The four-stop line (morning, a rest morning, another day's morning): its tap pushes This morning. */
   stops?: Stop[];
   stopsLabel?: string;
+  /** The line is the afternoon's (trainWhen.ts): its tap changes the afternoon, not This morning. */
+  stopsKind?: 'afternoon';
   out?: { door: number; back: number; progress: number; sub: string | null };
   /** The open face's status line when Strava is not being checked. */
   status?: string;
