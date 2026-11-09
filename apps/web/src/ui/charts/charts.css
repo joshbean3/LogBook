@@ -241,7 +241,7 @@
   min-height: 28px;
   border-top: 0;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .ck-trow-head + .ck-trow {
   border-top: 0;
@@ -267,7 +267,7 @@
 }
 .ck-trow-change.is-none {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .ck-trow-arrow {
   flex: none;

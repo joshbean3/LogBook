@@ -37,7 +37,6 @@
 
 /* ---------- section headers and sheet titles: the serif ---------- */
 :root .sec-head .t-label,
-:root .pg-head-title,
 :root .s-head > span:first-child {
   font-family: var(--serif);
   font-weight: 400;

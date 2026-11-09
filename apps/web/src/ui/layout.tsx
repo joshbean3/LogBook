@@ -60,6 +60,7 @@ export type PageSectionProps = Omit<SectionHeaderProps, 'title' | 'id' | 'classN
   headClassName?: string;
   className?: string;
   children?: ReactNode;
+  ref?: React.Ref<HTMLElement>;
 } & Omit<React.HTMLAttributes<HTMLElement>, 'title'>;
 
 /** A section of a page: the header, then its cards. Labelled by its own title for VoiceOver. */
