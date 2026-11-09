@@ -667,6 +667,10 @@
   color: var(--ink);
   font-weight: 600;
 }
+/* on this week's tinted row the planned miles step up to --ink-2 to keep 4.5:1 */
+.mg-week.is-now .mg-mi:not(.is-ran) {
+  color: var(--ink-2);
+}
 .mg-cell.has-tone::after {
   content: '';
   position: absolute;

@@ -106,3 +106,15 @@ status bar on any page.
 | Bottom clearance | The last content ends at least 24 pt above the ask bar | `.page` pad (exists) |
 | Targets | 44x44 pt; a smaller visual extends its hit area with `::after` | per control |
 | Contrast | `--ink-3` #57718A (4.75:1 on the page, 4.5:1 on wells); `--ink-4` #7C90A5 for glyphs and large numbers only (3:1); `--bad` #C8243F (5.2:1); words never in `--ink-4` | tokens |
+
+## 4. Found and left alone
+
+- The goal sheet for tomorrow asks "What is the one thing for today?" (`LEVEL.day.ask` is used for any day). Copy and
+  logic, not layout.
+- Metric range keys are 39 pt wide at 320; they touch each other across the whole track, so every point of the track is
+  a target. Run days in Settings are 40 pt wide at 320 for the same reason: seven columns cannot reach 44 in 288 pt.
+- Out-of-month dates on Plan's month grid stay `--ink-4`: they are inactive.
+- Today's top three is a tinted group inside a card. It is the one deliberate nested surface (it lifts the three to-dos
+  that matter), so it stays.
+- `JournalDaySection` and the primitive `Section` are unused by the tabs; `Section` stays for the UI gallery.
+- Apple Health's settings card (`AppleHealth.tsx`, not edited) takes the small header through `SCard`.
