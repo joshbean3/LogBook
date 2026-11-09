@@ -1,4 +1,4 @@
-import type { Habit, ISODate } from '@logbook/shared';
+import { mondayOf, shiftDays, type Habit, type ISODate } from '@logbook/shared';
 import { Archive, Info, PenLine, Plus } from 'lucide-react';
 import { animate, motion, motionValue, useMotionValue, type MotionValue } from 'motion/react';
 import type * as React from 'react';
@@ -123,10 +123,9 @@ export const HabitsMeta = ({ date, log }: { date: string; log: Log }): React.JSX
   const text = date > log.today ? (log.habits.length ? `${log.habits.length} ${log.habits.length === 1 ? 'habit' : 'habits'}` : null) : lit > 0 ? `${lit} of ${total}` : null;
   return text ? <>{text}</> : null;
 };
-/** The orb's cell (64 hit, 56 ring) plus the 4 px between cells: the 12 px between rings. */
-const PITCH = 68;
 
-type Drag = { id: string; from: number; to: number; pitch: number; scroll0: number; dx: number };
+/** A drag across the grid: the slots' positions when it began (in order), and where the dragged tile is headed. */
+type Drag = { id: string; from: number; to: number; slots: Array<{ x: number; y: number }> };
 
 interface OrbProps {
   h: Habit;
@@ -141,6 +140,10 @@ interface OrbProps {
   onDragEnd: (id: string, cancelled: boolean) => void;
   onStep: (id: string, dir: -1 | 1) => void;
   bind: (id: string, el: HTMLElement | null) => void;
+  /** This week, Mon–Sun: 'd' done, 'o' open (not done), '-' ahead of today or before the habit began. */
+  week: string;
+  /** Which of the seven is the day shown (its dot follows the tile's own lit state, ahead of the cache). */
+  dayIdx: number;
 }
 
 /**
@@ -150,7 +153,7 @@ interface OrbProps {
  * place with the menu `Note · Details · Archive`; a move after the hold closes the menu and the orb follows the finger along
  * the row (the row's other orbs make room on `settle`, `select` per slot crossed, `drop` on release).
  */
-const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, onDragStart, onDragMove, onDragEnd, onStep, bind }: OrbProps) {
+const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, onDragStart, onDragMove, onDragEnd, onStep, bind, week, dayIdx }: OrbProps) {
   const reduce = useReduced();
   const pop = useMotionValue(1);
   // the tap's answer lands on its own frame: the shown state runs ahead of the cache until the cache agrees
@@ -298,7 +301,15 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
         {!on ? <span className="orb-initial">{h.name.slice(0, 1)}</span> : null}
         {note ? <i className="orb-note" aria-hidden="true" /> : null}
       </motion.span>
-      <span className="orb-name">{h.name}</span>
+      <span className="orb-text">
+        <span className="orb-name">{h.name}</span>
+        <span className="orb-week" aria-hidden="true">
+          {Array.from(week, (c, i) => {
+            const v = i === dayIdx ? (on ? 'd' : 'o') : c;
+            return <i key={i} className={`${v === 'd' ? 'is-d' : v === 'o' ? 'is-o' : ''} ${i === dayIdx ? 'is-day' : ''}`} />;
+          })}
+        </span>
+      </span>
     </Pressable>
   );
 });
@@ -307,7 +318,9 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
 const GhostOrb = ({ h }: { h: Habit }) => (
   <span className="orb ghost" aria-hidden="true">
     <span className="orb-ring" />
-    <span className="orb-name">{h.name}</span>
+    <span className="orb-text">
+      <span className="orb-name">{h.name}</span>
+    </span>
   </span>
 );
 
@@ -400,26 +413,39 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
   orderRef.current = order;
 
   const els = useRef(new Map<string, HTMLElement>());
-  const shifts = useRef(new Map<string, { mv: MotionValue<number>; off: () => void }>());
+  const shifts = useRef(new Map<string, { x: MotionValue<number>; y: MotionValue<number>; off: () => void }>());
   const scroller = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const bind = useRef((id: string, el: HTMLElement | null) => {
     if (el) els.current.set(id, el);
     else els.current.delete(id);
   }).current;
-  /** The orb's own `translate` (it composes with the press's transform and the lift's `scale`). */
+  /** The tile's own `translate`, both axes (it composes with the press's transform and the lift's `scale`). */
   const shiftOf = (id: string) => {
     let s = shifts.current.get(id);
     if (!s) {
-      const mv = motionValue(0);
-      const off = mv.on('change', (v) => {
+      const x = motionValue(0);
+      const y = motionValue(0);
+      const paint = () => {
         const el = els.current.get(id);
-        if (el) el.style.translate = v ? `${v}px 0` : '';
-      });
-      s = { mv, off };
+        if (el) el.style.translate = x.get() || y.get() ? `${x.get()}px ${y.get()}px` : '';
+      };
+      const offs = [x.on('change', paint), y.on('change', paint)];
+      s = { x, y, off: () => offs.forEach((f) => f()) };
       shifts.current.set(id, s);
     }
-    return s.mv;
+    return s;
+  };
+  /** Glide a tile to (x, y) from its own slot; `jump` for the one under the finger. */
+  const shiftTo = (id: string, x: number, y: number, how: 'jump' | 'settle', onComplete?: () => void) => {
+    const s = shiftOf(id);
+    if (how === 'jump') {
+      s.x.jump(x);
+      s.y.jump(y);
+      return;
+    }
+    if (s.x.get() !== x || s.x.isAnimating()) animate(s.x, x, springs.settle);
+    animate(s.y, y, { ...springs.settle, onComplete });
   };
   useEffect(
     () => () => {
@@ -429,8 +455,10 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
   );
   const clearShifts = () => {
     for (const [id, s] of shifts.current) {
-      s.mv.stop();
-      s.mv.jump(0);
+      s.x.stop();
+      s.y.stop();
+      s.x.jump(0);
+      s.y.jump(0);
       const el = els.current.get(id);
       if (el) el.style.translate = '';
     }
@@ -449,30 +477,44 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
     const o = orderRef.current;
     const from = o.indexOf(id);
     if (from < 0) return;
-    const a = els.current.get(o[0]!)?.getBoundingClientRect();
-    const b = o[1] ? els.current.get(o[1])?.getBoundingClientRect() : undefined;
-    const pitch = a && b ? b.left - a.left : PITCH;
+    const slots = o.map((k) => {
+      const r = els.current.get(k)?.getBoundingClientRect();
+      return { x: r ? r.left + r.width / 2 : 0, y: r ? r.top + r.height / 2 : 0 };
+    });
     busy.current = true;
-    drag.current = { id, from, to: from, pitch: pitch || PITCH, scroll0: scroller.current?.scrollLeft ?? 0, dx: 0 };
+    drag.current = { id, from, to: from, slots };
     flushSync(() => setHeld(o));
+  };
+  /** Where each tile sits once `id` moves from `from` to `to`: the offset from its own slot to its new one. */
+  const layoutFor = (d: Drag, to: number) => {
+    const o = orderRef.current;
+    const next = moved(o, d.from, to);
+    return o.map((k, i) => {
+      const j = next.indexOf(k);
+      return { k, dx: d.slots[j]!.x - d.slots[i]!.x, dy: d.slots[j]!.y - d.slots[i]!.y };
+    });
   };
   const onDragMove = (id: string, p: DragPoint) => {
     const d = drag.current;
     if (!d || d.id !== id) return;
-    const o = orderRef.current;
-    d.dx = p.dx + ((scroller.current?.scrollLeft ?? 0) - d.scroll0);
-    shiftOf(id).jump(d.dx);
-    const to = Math.max(0, Math.min(o.length - 1, d.from + Math.round(d.dx / d.pitch)));
-    if (to === d.to) return;
-    // a reorder crossing a slot: one `select` per slot (throttled by haptics.select itself)
-    for (let i = 0; i < Math.abs(to - d.to); i++) haptics.select();
-    d.to = to;
-    o.forEach((other, i) => {
-      if (other === id) return;
-      const target = d.from < to && i > d.from && i <= to ? -d.pitch : to < d.from && i >= to && i < d.from ? d.pitch : 0;
-      const mv = shiftOf(other);
-      if (mv.get() !== target || mv.isAnimating()) animate(mv, target, springs.settle);
+    shiftTo(id, p.dx, p.dy, 'jump');
+    // the slot nearest the tile's centre, in two dimensions
+    const cx = d.slots[d.from]!.x + p.dx;
+    const cy = d.slots[d.from]!.y + p.dy;
+    let to = d.to;
+    let best = Infinity;
+    d.slots.forEach((s, i) => {
+      const dist = Math.hypot(s.x - cx, s.y - cy);
+      if (dist < best) {
+        best = dist;
+        to = i;
+      }
     });
+    if (to === d.to) return;
+    // a reorder crossing a slot: one `select` (throttled by haptics.select itself)
+    haptics.select();
+    d.to = to;
+    for (const t of layoutFor(d, to)) if (t.k !== id) shiftTo(t.k, t.dx, t.dy, 'settle');
   };
   const onDragEnd = (id: string, cancelled: boolean) => {
     const d = drag.current;
@@ -484,16 +526,14 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
     const changed = to !== d.from;
     if (!cancelled) haptics.drop();
     if (changed) commit(next);
-    if (cancelled) for (const other of o) if (other !== id) animate(shiftOf(other), 0, springs.settle);
-    // the orb settles into its slot on `settle`; on that spring's completion the new order commits and the shifts clear in
+    if (cancelled) for (const other of o) if (other !== id) shiftTo(other, 0, 0, 'settle');
+    // the tile settles into its slot on `settle`; on that spring's completion the new order commits and the shifts clear in
     // the same frame (FLIP: nothing on screen moves on the commit)
-    animate(shiftOf(id), (to - d.from) * d.pitch, {
-      ...springs.settle,
-      onComplete: () => {
-        flushSync(() => setHeld(changed ? next : null));
-        clearShifts();
-        busy.current = false;
-      },
+    const mine = layoutFor(d, to).find((t) => t.k === id)!;
+    shiftTo(id, mine.dx, mine.dy, 'settle', () => {
+      flushSync(() => setHeld(changed ? next : null));
+      clearShifts();
+      busy.current = false;
     });
   };
   const step = (id: string, dir: -1 | 1) => {
@@ -558,10 +598,15 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
   }, [editable, ghost]);
 
   const { lit } = useHabitsLit(date, log);
+  // this week, Mon–Sun, for each tile's seven dots
+  const mon = mondayOf(date);
+  const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
+  const dayIdx = days.indexOf(date);
+  const weekOf = (h: Habit) => days.map((d) => (d > log.today || d < h.createdOn ? '-' : log.snap.isHabitDone(d, h.id) ? 'd' : 'o')).join('');
   return (
     <div className={`orbs-wrap ${ghost ? 'is-ghost' : ''}`}>
-      <div ref={scroller} className="orbs-scroll" data-no-page="">
-        <div className="orbs" role="group" aria-label={ghost ? `Habits, ${list.length}` : `Habits, ${lit} of ${list.length} lit`}>
+      <div ref={scroller} className="orbs-grid-wrap">
+        <div className="orbs is-grid" role="group" aria-label={ghost ? `Habits, ${list.length}` : `Habits, ${lit} of ${list.length} lit`}>
           {order.map((id, i) => {
             const h = byId.get(id);
             if (!h) return null;
@@ -576,6 +621,8 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
                 note={log.snap.checkOf(date, h.id)?.note ?? ''}
                 {...stable}
                 bind={bind}
+                week={weekOf(h)}
+                dayIdx={dayIdx}
               />
             );
           })}
@@ -584,7 +631,9 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
               <span className="orb-ring">
                 <Plus size={22} strokeWidth={2.25} aria-hidden="true" />
               </span>
-              <span className="orb-name">{list.length ? 'Add' : 'Add a habit'}</span>
+              <span className="orb-text">
+                <span className="orb-name">{list.length ? 'Add' : 'Add a habit'}</span>
+              </span>
             </Pressable>
           ) : null}
         </div>
