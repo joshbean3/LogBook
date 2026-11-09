@@ -124,6 +124,13 @@
   stroke-linecap: round;
   opacity: 0.45;
 }
+/* an empty chart's note sits on a small surface, so the dashed guide lines never run through its words */
+.ck-empty > * {
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: 0 0 0 6px var(--surface);
+}
 .ck-empty {
   position: absolute;
   inset: 0 38px 22px 0;

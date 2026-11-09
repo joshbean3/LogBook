@@ -160,3 +160,14 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), var(--navy-glow);
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
+
+/* ---------- pinned bars stay solid; a soft fade under them lets what scrolls beneath slide away instead of being cut ---------- */
+:root .nb-bar.is-collapsed,
+:root .pushed-bar.is-collapsed {
+  box-shadow:
+    0 1px 0 var(--line),
+    0 14px 12px 0 rgba(243, 248, 251, 0.96);
+}
+:root .nb-strip {
+  box-shadow: 0 14px 12px 0 rgba(243, 248, 251, 0.96);
+}

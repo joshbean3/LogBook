@@ -9,6 +9,17 @@
   padding: 6px var(--gutter);
   background: var(--bg);
 }
+/* a short fade under the pinned switch, so cards slide away under it instead of being cut at its edge */
+.j-segrow::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 18px;
+  background: linear-gradient(var(--bg), rgba(243, 248, 251, 0));
+  pointer-events: none;
+}
 /* two mounted panes (M28): the shown one in flow; the leaving one absolute, held still by a transform while it fades; the
    other hidden. The stack clips vertically so a hidden pane never adds scroll room */
 /* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring

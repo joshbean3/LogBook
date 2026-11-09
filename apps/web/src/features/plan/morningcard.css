@@ -331,3 +331,14 @@
   min-height: 0;
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* the foot: the quiet line takes what is left and ends in an ellipsis; Schedule never collides with it (320 wide) */
+.mc-foot {
+  display: flex;
+}
+.mc-quiet {
+  flex: 1 1 0;
+}
+.mc-open {
+  flex: none;
+}
