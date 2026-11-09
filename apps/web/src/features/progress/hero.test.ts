@@ -2,7 +2,8 @@ import { shiftDays, type Activity, type LiftSet, type Session } from '@logbook/s
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
-import { completion, HERO_WEEKS, liftWeeks, runWeeks, weekRate } from './hero';
+import { monotonePath } from './curve';
+import { completion, HERO_WEEKS, liftLog, liftWeeks, runWeeks, weekRate } from './hero';
 
 const run = (date: string, miles: number): Activity => ({ id: `a-${date}`, date, time: null, name: 'Run', sportType: 'Run', kind: 'run', miles, movingSec: miles * 480, elevFt: 0, avgHr: 150, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null });
 const sess = (date: string, extra: Partial<Session> = {}): Session => ({ id: `s-${date}-${extra.kind ?? 'run'}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 5, minutes: null, blockId: null, movedFrom: null, mark: null, ...extra });
@@ -51,5 +52,48 @@ describe('the progress hero', () => {
     expect(completion([wk(0, 3), wk(4, 1, true)])).toBeNull();
     expect(weekRate(wk(8, 10))).toBe(1);
     expect(weekRate(wk(0, 4))).toBeNull();
+  });
+});
+
+describe('the strength list', () => {
+  const lift = (d: string, extra: Partial<Session> = {}) => sess(d, { kind: 'lift', type: null, miles: null, title: 'Strength A', ...extra });
+  const sq = (date: string, n: number, exercise = 'Squat'): LiftSet => ({ id: `l-${date}-${exercise}-${n}`, date, exercise, weight: 100, reps: 5 }) as LiftSet;
+
+  it('lists each workout newest first, planned ones of this week on top, each in one line', () => {
+    const snap = snapOf(
+      T,
+      [],
+      [lift('2026-11-13', { details: 'Deadlift, press\nkeep it easy' }), lift('2026-11-10'), lift('2026-11-03', { title: null }), lift('2026-11-05', { title: 'Strength B', minutes: 40 })],
+      [sq('2026-11-10', 1), sq('2026-11-10', 2), sq('2026-11-10', 3, 'Bench press'), sq('2026-11-08', 1, 'Goblet squat')],
+    );
+    const items = liftLog(snap, T, '2026-11-02');
+    expect(items.map((x) => [x.date, x.status, x.summary])).toEqual([
+      ['2026-11-13', 'planned', 'Strength A · Deadlift, press'],
+      ['2026-11-10', 'done', 'Strength A · 2 exercises · 3 sets · 1,500 lb'],
+      ['2026-11-08', 'done', 'Lifted · Goblet squat · 1 set · 500 lb'],
+      ['2026-11-05', 'missed', 'Strength B · 40 min'],
+      ['2026-11-03', 'missed', 'Lift'],
+    ]);
+    expect(items[2]!.session).toBeNull();
+    expect(items[2]!.sets).toHaveLength(1);
+  });
+});
+
+describe('the running curves', () => {
+  it('never swing under zero or over a peak they do not have', () => {
+    // y grows downward on screen: 100 is zero miles, 0 the top of the chart
+    const pts = [
+      [0, 100],
+      [10, 20],
+      [20, 100],
+      [30, 100],
+      [40, 0],
+    ] as const;
+    const nums = monotonePath(pts).replace(/[MC]/g, ' ').trim().split(/[ ,]+/).map(Number);
+    const ys = nums.filter((_, i) => i % 2 === 1);
+    expect(Math.max(...ys)).toBeLessThanOrEqual(100);
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
+    expect(monotonePath([])).toBe('');
+    expect(monotonePath([[5, 5]])).toBe('M5.0,5.0');
   });
 });

@@ -5,7 +5,8 @@ import { EmptyState, Segmented } from '@/ui';
 import type { Log } from '../log/useLog';
 import { plural, weekTitle } from './data';
 import { completion, HERO_MODES, HERO_WEEKS, lbShort, liftWeeks, miShort, runWeeks, weekRate, type HeroMode, type LiftWeek, type RunWeek } from './hero';
-import { PlanBars } from './PlanBars';
+import { LiftList } from './LiftList';
+import { PlanLine } from './PlanLine';
 import { useOpenWeek } from './sheets';
 import './hero.css';
 
@@ -57,10 +58,10 @@ const weekLine = (mode: HeroMode, p: RunWeek | LiftWeek) => {
 };
 
 /**
- * The hero: one card, one switch. Running draws weekly miles planned against run; Strength draws weekly lift sessions
- * planned against done, with the week's sets and volume in words. The headline is this week at rest and the week under the
- * finger while scrubbing; the number at the right is how much of the plan got done over the last four finished weeks (that
- * week's share while scrubbing). A tap on a week opens its sheet.
+ * The hero: one card, one switch. Running draws weekly miles as two curves, the plan and what was run; the headline is this
+ * week at rest and the week under the finger while scrubbing, and a tap on a week opens its sheet. Strength gives this week's
+ * sessions against the plan, then the workouts themselves as a column of cards that open their sheets. The number at the
+ * right is how much of the plan got done over the last four finished weeks (a scrubbed week's share while scrubbing).
  */
 export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnect: () => void }) => {
   const nav = useNav();
@@ -158,12 +159,18 @@ export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnec
           </div>
         ) : null}
       </div>
-      <PlanBars key={mode} mode={mode} weeks={weeks} count={mode === 'lift'} label={chartLabel} words={words} onScrub={setScrub} onOpen={openAt} />
-      <div className="ph-legend" aria-hidden="true">
-        <span className="ph-key is-done">Done</span>
-        <span className="ph-key is-plan">Planned</span>
-        <span className="ph-key is-now">This week</span>
-      </div>
+      {mode === 'run' ? (
+        <>
+          <PlanLine weeks={weeks} label={chartLabel} words={words} onScrub={setScrub} onOpen={openAt} />
+          <div className="ph-legend" aria-hidden="true">
+            <span className="ph-key is-actual">Actual</span>
+            <span className="ph-key is-plan">Plan</span>
+            <span className="ph-key is-now">This week</span>
+          </div>
+        </>
+      ) : (
+        <LiftList log={log} t={t} />
+      )}
     </section>
   );
 };
