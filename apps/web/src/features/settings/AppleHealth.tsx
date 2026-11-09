@@ -1,19 +1,20 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, HeartPulse, RefreshCw, Sparkles, Stethoscope, X } from 'lucide-react';
+import { Activity, Check, ChevronRight, Footprints, HeartPulse, Moon, RefreshCw, ShieldCheck, Sparkles, Wind, X } from 'lucide-react';
 import { useState } from 'react';
 import type * as React from 'react';
 import { useConsent, useSaveConsent } from '@/features/auth/consent';
+import { BevelDial, ConsentHero, GlassTile, HealthHero, Hypnogram, MonitorTile, SourceLine, StageTile, TimeChip } from '@/features/health/HealthParts';
 import { haptics } from '@/lib/haptics';
-import { Health, healthMode, hm, summarizeNight, type HealthReading, type ReadingCheck } from '@/lib/health';
-import { Button, Row, useSheet, useToast } from '@/ui';
-import { GoRow, SGroup, Tile } from './parts';
-import '@/features/auth/privacy.css';
+import { Health, healthMode, hm, summarizeNight, type ReadingCheck } from '@/lib/health';
+import { Button, Pressable, useSheet, useToast } from '@/ui';
+import { SCard } from './parts';
 import './appleHealth.css';
 
 /**
- * Apple Health in Settings › Data sources (docs/health/apple-health.md, phase 1): connect (Apple's permission sheet, once),
- * check the reading against the Health app, and the coach's permission to read a health summary. Syncing into the
- * Logbook is phase 2; until then nothing read here is saved anywhere.
+ * Apple Health in Settings › Data sources (docs/health/apple-health.md, phase 1), drawn the way Bevel draws its health
+ * screens: the source as a device card, connecting as an illustrated sheet, the reading check as last night on a
+ * night-navy card with its hypnogram and a Health Monitor of tiles, and the coach's permission with its own hero.
+ * Syncing into the Logbook is phase 2; until then nothing read here is saved anywhere.
  */
 
 const accessKey = ['health', 'access'] as const;
@@ -33,52 +34,55 @@ export const useHealthAccess = () =>
 
 const consentWord = (h: boolean | null | undefined) => (h === true ? 'On' : h === false ? 'Off' : 'Not asked');
 
-/** The Apple Health section of Data sources. */
+/** The Apple Health section of Data sources: a device card (as Bevel shows a connected source) and Coach access under it. */
 export const AppleHealthGroup = (): React.JSX.Element => {
   const sheet = useSheet();
   const access = useHealthAccess();
   const consent = useConsent();
-  const openConsent = () => sheet.open({ eyebrow: 'Privacy', title: 'Let the coach read your health?', body: <HealthConsentPanel /> });
-  if (healthMode === 'web')
-    return (
-      <SGroup title="Apple Health" foot="Apple Health lives on your iPhone, so it connects from the Logbook app there.">
-        <Row className="s-wrap has-tile ds-soon" left={<Tile icon={HeartPulse} tone="muted" />} title="Apple Health" sub="Open Logbook on your iPhone to connect." />
-      </SGroup>
-    );
-  if (access.data && !access.data.available)
-    return (
-      <SGroup title="Apple Health">
-        <Row className="s-wrap has-tile ds-soon" left={<Tile icon={HeartPulse} tone="muted" />} title="Apple Health" sub="Apple Health isn’t available on this device." />
-      </SGroup>
-    );
-  const asked = !!access.data && !access.data.needed;
+  const openConsent = () => sheet.open({ title: 'Coach access', body: <HealthConsentPanel /> });
+  const openConnect = () => sheet.open({ title: 'Apple Health', body: <ConnectPanel /> });
+  const openCheck = () => sheet.open({ title: 'Reading check', detent: 'large', body: <ReadingCheckPanel /> });
+  const web = healthMode === 'web';
+  const unavailable = !web && access.data && !access.data.available;
+  const asked = !web && !!access.data && !access.data.needed && !unavailable;
+  const status = web ? 'Connects from the Logbook app on your iPhone' : unavailable ? 'Not available on this device' : asked ? 'Access asked · reading only for now' : 'Sleep, heart, HRV and workouts';
   return (
-    <SGroup title="Apple Health" foot={asked ? 'Reading only for now. Syncing it into your Logbook comes next.' : 'Sleep, heart rate, HRV and workouts. Logbook only reads; it never writes to Apple Health.'}>
-      {asked ? (
-        <>
-          <Row
-            className="s-wrap has-tile"
-            left={<Tile icon={HeartPulse} />}
-            title="Apple Health"
-            sub="Access asked. Check that the reading matches the Health app."
-            right={
-              <span className="ds-ok">
-                <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-                Set up
-              </span>
-            }
-          />
-          <GoRow icon={Stethoscope} title="Check the reading" sub="Last night, HRV, resting heart rate, steps" onPress={() => sheet.open({ eyebrow: 'Apple Health', title: 'Reading check', body: <ReadingCheckPanel /> })} />
-        </>
-      ) : (
-        <GoRow icon={HeartPulse} title="Connect Apple Health" sub="Sleep, heart rate, HRV and workouts, read only." onPress={() => sheet.open({ eyebrow: 'Apple Health', title: 'Connect Apple Health', body: <ConnectPanel /> })} />
+    <SCard title="Apple Health" className="ah-sec" foot={asked ? 'Syncing into your Logbook comes next. Until then, the reading check reads live and saves nothing.' : 'Logbook only reads. It never writes to Apple Health, and never sells or shares what it reads.'}>
+      <div className="ah-device">
+        <span className="ah-app" aria-hidden="true">
+          <HeartPulse size={24} strokeWidth={2.2} />
+        </span>
+        <span className="ah-device-text">
+          <span className="ah-device-name">Apple Health</span>
+          <span className={`ah-device-status ${asked ? 'is-on' : ''}`}>
+            {asked ? <i aria-hidden="true" /> : null}
+            {status}
+          </span>
+        </span>
+        {web || unavailable ? null : (
+          <Button size="sm" className="ah-device-btn" onClick={asked ? openCheck : openConnect}>
+            {asked ? 'Check' : 'Connect'}
+          </Button>
+        )}
+      </div>
+      {web || unavailable ? null : (
+        <Pressable className="ah-coach" press="dim" onPress={openConsent} label={`Coach access: ${consentWord(consent.data?.health)}`}>
+          <span className="ah-coach-ic" aria-hidden="true">
+            <Sparkles size={16} strokeWidth={2.2} />
+          </span>
+          <span className="ah-coach-text">
+            <span className="ah-coach-title">Coach access</span>
+            <span className="ah-coach-sub">A short health summary, only when you ask</span>
+          </span>
+          <span className={`ah-coach-value is-${consent.data?.health === true ? 'on' : consent.data?.health === false ? 'off' : 'unset'}`}>{consentWord(consent.data?.health)}</span>
+          <ChevronRight size={18} className="ah-chev" aria-hidden="true" />
+        </Pressable>
       )}
-      <GoRow icon={Sparkles} title="Coach access" sub="A short health summary, only when you ask." value={consentWord(consent.data?.health)} onPress={openConsent} />
-    </SGroup>
+    </SCard>
   );
 };
 
-/** What connecting unlocks, that it only reads, then Apple's sheet; after it, the reading check. */
+/** Connecting: the illustrated hero, what it unlocks, Apple's sheet, then the reading check. */
 const ConnectPanel = (): React.JSX.Element => {
   const sheet = useSheet();
   const qc = useQueryClient();
@@ -99,128 +103,133 @@ const ConnectPanel = (): React.JSX.Element => {
       setBusy(false);
     }
   };
+  const unlocks: Array<[typeof Moon, 'navy' | 'orange' | 'columbia', string, string]> = [
+    [Moon, 'navy', 'Last night', 'Your sleep with its stages, and what you need tonight'],
+    [HeartPulse, 'orange', 'Your heart', 'HRV and resting heart rate, against your own normal'],
+    [Activity, 'columbia', 'Your training', 'Workouts with their heart rate, and the strain they add'],
+    [Footprints, 'navy', 'Your day', 'Steps and movement, hour by hour'],
+  ];
   return (
-    <div className="cx">
-      <p className="cx-lede">Logbook reads your sleep, heart rate, HRV and workouts to show your recovery, strain and sleep against your own normal.</p>
-      <ul className="card ah-unlocks">
-        <li>Last night’s sleep, with its stages</li>
-        <li>HRV and resting heart rate, against your normal</li>
-        <li>Workouts with their heart rate</li>
-        <li>Steps and activity through the day</li>
+    <div className="ahc">
+      <HealthHero />
+      <h3 className="ahc-title">Your night, your heart and your training, read together.</h3>
+      <p className="ahc-sub">Logbook reads Apple Health each morning to show your recovery, strain and sleep against your own normal.</p>
+      <ul className="card ahc-unlocks">
+        {unlocks.map(([Icon, tone, title, sub]) => (
+          <li key={title}>
+            <GlassTile icon={Icon} tone={tone} size={38} />
+            <span>
+              <b>{title}</b>
+              <span>{sub}</span>
+            </span>
+          </li>
+        ))}
       </ul>
-      <p className="ah-note">Read only: Logbook never writes to Apple Health. Apple asks you next which data to share, and you can change it any time in the Health app.</p>
-      <Button variant="primary" block onClick={() => void connect()} disabled={busy}>
-        {busy ? 'Opening Apple Health…' : 'Connect Apple Health'}
-      </Button>
+      <div className="ahc-actions">
+        <Button variant="primary" block onClick={() => void connect()} disabled={busy}>
+          {busy ? 'Opening Apple Health…' : 'Connect Apple Health'}
+        </Button>
+        <Button variant="quiet" block onClick={() => sheet.close()}>
+          Not now
+        </Button>
+      </div>
+      <p className="ahc-trust">
+        <ShieldCheck size={15} aria-hidden="true" />
+        <span>
+          <b>Read only.</b> Never written to, never sold. Apple asks next which data to share; change it any time in the Health app.
+        </span>
+      </p>
     </div>
   );
 };
 
-// ---------- the reading check: raw values to hold up against the Health app ----------
+// ---------- the reading check ----------
 const clock = (iso: string) => new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
 const when = (iso: string) => {
   const d = new Date(iso);
-  const today = new Date();
-  const yest = new Date(Date.now() - 86_400_000);
-  if (d.toDateString() === today.toDateString()) return clock(iso);
-  if (d.toDateString() === yest.toDateString()) return `Yesterday ${clock(iso)}`;
+  if (d.toDateString() === new Date().toDateString()) return clock(iso);
+  if (d.toDateString() === new Date(Date.now() - 86_400_000).toDateString()) return `Yesterday ${clock(iso)}`;
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(d);
 };
-const NO_DATA = 'No data from Apple Health. If you expected some, check Settings › Health › Data Access & Devices › Logbook.';
 const problem = (error: string | undefined) => (error === 'locked' ? 'Unlock your iPhone, then read again.' : error ? `Couldn’t read it: ${error}` : null);
+const NO_DATA = 'No data from Apple Health. If you expected some, check Settings › Health › Data Access & Devices › Logbook.';
 
-const VitalTile = ({ label, r, unit, digits = 0, error }: { label: string; r?: HealthReading; unit: string; digits?: number; error?: string }) => (
-  <div className="tile ah-tile">
-    <span className="tile-label">{label}</span>
-    {r ? (
-      <>
-        <span className="tile-value">
-          {r.value.toFixed(digits)} <small>{unit}</small>
-        </span>
-        <span className="ah-tile-foot">
-          {when(r.at)} · {r.source}
-        </span>
-      </>
-    ) : (
-      <>
-        <span className="tile-value is-none">–</span>
-        <span className="ah-tile-foot">{problem(error) ?? 'No data yet'}</span>
-      </>
-    )}
-  </div>
-);
-
+/** Last night on a night-navy card, as Bevel shows its primary sleep: the source, the hypnogram, the stage tiles. */
 const NightCard = ({ check }: { check: ReadingCheck }) => {
   const n = summarizeNight(check.sleep ?? []);
-  const err = problem(check.sleepError);
   if (!n)
     return (
-      <section className="card ah-night is-empty">
-        <span className="tile-label">Last night</span>
-        <p className="ah-empty">{err ?? NO_DATA}</p>
+      <section className="hd-night is-empty" aria-label="Last night">
+        <h3 className="hd-night-title">Last night</h3>
+        <p className="ahr-night-empty">{problem(check.sleepError) ?? NO_DATA}</p>
       </section>
     );
-  const parts: Array<[string, number]> = n.staged
+  const segs = (check.sleep ?? []).filter((s) => s.source === n.source);
+  const total = n.asleepSec + n.stages.awake;
+  const tiles: Array<[string, string, number]> = n.staged
     ? [
-        ['Core', n.stages.core],
-        ['Deep', n.stages.deep],
-        ['REM', n.stages.rem],
-        ['Awake', n.stages.awake],
+        ['awake', 'Awake', n.stages.awake],
+        ['rem', 'REM', n.stages.rem],
+        ['core', 'Core', n.stages.core],
+        ['deep', 'Deep', n.stages.deep],
       ]
     : [
-        ['Asleep', n.stages.asleep],
-        ['Awake', n.stages.awake],
+        ['asleep', 'Asleep', n.stages.asleep],
+        ['awake', 'Awake', n.stages.awake],
       ];
   return (
-    <section className="card ah-night" aria-label="Last night">
-      <span className="tile-label">Last night</span>
-      <p className="ah-night-big">
-        {hm(n.asleepSec)} <small>asleep</small>
-      </p>
-      <p className="ah-night-sub">
-        {clock(n.start)} to {clock(n.end)} · {n.source}
-      </p>
-      <div className="ah-stages">
-        {parts.map(([label, sec]) => (
-          <span key={label} className="ah-stage">
-            <span className="ah-stage-label">{label}</span>
-            <span className="ah-stage-value tnum">{hm(sec)}</span>
-          </span>
+    <section className="hd-night" aria-label="Last night">
+      <div className="hd-night-top">
+        <h3 className="hd-night-title">Last night</h3>
+        <span className="hd-night-total">
+          {hm(n.asleepSec)}
+          <small>asleep</small>
+        </span>
+      </div>
+      <SourceLine source={n.source} />
+      <Hypnogram segments={segs} start={n.start} end={n.end} />
+      <div className="hd-night-chips">
+        <TimeChip at={n.start} />
+        <TimeChip at={n.end} end />
+      </div>
+      <div className="hd-stages">
+        {tiles.map(([stage, label, sec]) => (
+          <StageTile key={stage} stage={stage} label={label} sec={sec} total={total} />
         ))}
       </div>
-      {n.staged ? null : <p className="ah-night-foot">This night has no stage detail (an older watch, or a phone).</p>}
+      {n.staged ? null : <p className="ahr-night-empty">This night has no stage detail (an older watch, or a phone).</p>}
     </section>
   );
 };
 
-/** The phase 1 proof. Nothing here is saved: it reads Apple Health on the phone and shows it. */
+/** The phase 1 proof: Apple Health read live on the phone, saved nowhere, to hold up against the Health app. */
 export const ReadingCheckPanel = (): React.JSX.Element => {
   const check = useQuery({ queryKey: ['health', 'check'], queryFn: () => Health!.readingCheck(), enabled: !!Health, staleTime: 0, gcTime: 0 });
   const c = check.data;
+  const foot = (r?: { at: string }, err?: string) => (r ? when(r.at) : (problem(err) ?? undefined));
   return (
-    <div className="cx ah-check">
-      {check.isPending ? <p className="ah-note">Reading Apple Health…</p> : null}
-      {check.isError ? <p className="ah-note">Couldn’t read Apple Health. Try again.</p> : null}
+    <div className="ahr">
+      {check.isPending ? (
+        <div className="ahr-wait">
+          <BevelDial value={null} tone="sleep" size={84} label="Reading" />
+          <p>Reading Apple Health…</p>
+        </div>
+      ) : null}
+      {check.isError ? <p className="ahr-note">Couldn’t read Apple Health. Try again.</p> : null}
       {c ? (
         <>
           <NightCard check={c} />
-          <div className="tiles">
-            <VitalTile label="HRV" r={c.hrv} unit="ms" error={c.hrvError} />
-            <VitalTile label="Resting HR" r={c.restingHr} unit="bpm" error={c.restingHrError} />
-            <VitalTile label="Respiratory rate" r={c.respiratoryRate} unit="/min" digits={1} error={c.respiratoryRateError} />
-            <div className="tile ah-tile">
-              <span className="tile-label">Steps today</span>
-              {c.stepsToday != null ? (
-                <span className="tile-value">{Math.round(c.stepsToday).toLocaleString('en-US')}</span>
-              ) : (
-                <>
-                  <span className="tile-value is-none">–</span>
-                  <span className="ah-tile-foot">{problem(c.stepsError) ?? 'No data yet'}</span>
-                </>
-              )}
-            </div>
+          <div className="ahr-head">
+            <h3>Health Monitor</h3>
+            <span>Learning your normal</span>
           </div>
-          <p className="ah-note">Compare these with the Health app: they should match. Nothing is saved to your Logbook yet.</p>
+          <div className="ahr-tiles">
+            <MonitorTile icon={HeartPulse} label="HRV" value={c.hrv ? c.hrv.value.toFixed(0) : null} unit="ms" status="learning" foot={foot(c.hrv, c.hrvError)} />
+            <MonitorTile icon={HeartPulse} label="Resting HR" value={c.restingHr ? c.restingHr.value.toFixed(0) : null} unit="bpm" status="learning" foot={foot(c.restingHr, c.restingHrError)} />
+            <MonitorTile icon={Wind} label="Breathing" value={c.respiratoryRate ? c.respiratoryRate.value.toFixed(1) : null} unit="rpm" status="learning" foot={foot(c.respiratoryRate, c.respiratoryRateError)} />
+            <MonitorTile icon={Footprints} label="Steps" value={c.stepsToday != null ? Math.round(c.stepsToday).toLocaleString('en-US') : null} status="learning" foot={c.stepsToday != null ? 'Today so far' : (problem(c.stepsError) ?? undefined)} />
+          </div>
+          <p className="ahr-note">Compare these with the Health app: they should match. Your normal ranges appear after 14 nights, once syncing starts.</p>
         </>
       ) : null}
       <Button block onClick={() => void check.refetch()} disabled={check.isFetching}>
@@ -231,9 +240,8 @@ export const ReadingCheckPanel = (): React.JSX.Element => {
 };
 
 /**
- * The coach's permission to read a health summary (App Review 5.1.2: say who the AI is and ask first). It names
- * Anthropic, says what goes and what never does, and is saved as `consent.health`. Nothing from Apple Health reaches
- * the coach until it is on (phase 9 builds what it reads).
+ * The coach's permission (App Review 5.1.2: say who the AI is and ask first). It names Anthropic, says what goes and what
+ * never does, and is saved as `consent.health`. Nothing from Apple Health reaches the coach until it is on.
  */
 export const HealthConsentPanel = (): React.JSX.Element => {
   const consent = useConsent();
@@ -255,44 +263,47 @@ export const HealthConsentPanel = (): React.JSX.Element => {
       },
     );
   return (
-    <div className="cx">
-      <p className="cx-lede">When you ask the coach something, Logbook can send Claude, made by Anthropic, a short summary of your health, so the answer fits how you slept and recovered.</p>
-      <section className="card pv-list" aria-labelledby="ah-goes">
-        <h2 id="ah-goes" className="pv-h">
-          What goes
-        </h2>
-        <ul>
-          <li>
-            <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-            <span>Your recovery, strain and sleep scores.</span>
-          </li>
-          <li>
-            <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-            <span>Last night’s sleep, and your HRV, resting heart rate and other vitals against your normal.</span>
-          </li>
-        </ul>
+    <div className="ahc">
+      <ConsentHero />
+      <h3 className="ahc-title">Let the coach read how you slept and recovered?</h3>
+      <p className="ahc-sub">When you ask the coach something, Logbook can send Claude, made by Anthropic, a short summary of your health, so the answer fits the body you woke up in.</p>
+      <section className="card ahc-list" aria-label="What goes">
+        <h4>What goes</h4>
+        <p>
+          <i className="is-yes" aria-hidden="true">
+            <Check size={12} strokeWidth={3} />
+          </i>
+          Your recovery, strain and sleep scores
+        </p>
+        <p>
+          <i className="is-yes" aria-hidden="true">
+            <Check size={12} strokeWidth={3} />
+          </i>
+          Last night’s sleep, and your vitals against your normal
+        </p>
       </section>
-      <section className="card pv-list never" aria-labelledby="ah-never">
-        <h2 id="ah-never" className="pv-h">
-          Never sent
-        </h2>
-        <ul>
-          <li>
-            <X size={16} strokeWidth={2.6} aria-hidden="true" />
-            <span>Raw samples or your Apple Health export.</span>
-          </li>
-          <li>
-            <X size={16} strokeWidth={2.6} aria-hidden="true" />
-            <span>Workouts the Strava app writes to Apple Health.</span>
-          </li>
-          <li>
-            <X size={16} strokeWidth={2.6} aria-hidden="true" />
-            <span>Anything, when you haven’t asked the coach.</span>
-          </li>
-        </ul>
+      <section className="card ahc-list" aria-label="Never sent">
+        <h4>Never sent</h4>
+        <p>
+          <i className="is-no" aria-hidden="true">
+            <X size={12} strokeWidth={3} />
+          </i>
+          Raw samples, or your Apple Health export
+        </p>
+        <p>
+          <i className="is-no" aria-hidden="true">
+            <X size={12} strokeWidth={3} />
+          </i>
+          Workouts the Strava app writes to Apple Health
+        </p>
+        <p>
+          <i className="is-no" aria-hidden="true">
+            <X size={12} strokeWidth={3} />
+          </i>
+          Anything, when you haven’t asked
+        </p>
       </section>
-      <p className="ah-note">You can change this any time in Settings › Privacy.</p>
-      <div className="ah-choice">
+      <div className="ahc-actions">
         <Button variant="primary" block onClick={() => choose(true)} disabled={save.isPending}>
           Allow
         </Button>
@@ -300,6 +311,10 @@ export const HealthConsentPanel = (): React.JSX.Element => {
           Don’t allow
         </Button>
       </div>
+      <p className="ahc-trust">
+        <ShieldCheck size={15} aria-hidden="true" />
+        <span>Change it any time in Settings › Privacy.</span>
+      </p>
     </div>
   );
 };

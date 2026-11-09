@@ -25,6 +25,8 @@ import './styles/base.css';
 import './styles/ui.css';
 // the shape system loads after the shared primitives so it wins their ties (App's eager imports come before these three)
 import './styles/shape.css';
+// craft (depth, glass, the serif headers) sits on top of the shape system: docs/shape-system.md §8
+import './styles/craft.css';
 
 const qc = new QueryClient({
   defaultOptions: {

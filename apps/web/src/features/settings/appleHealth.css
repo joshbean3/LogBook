@@ -1,86 +1,299 @@
-/* ---------- Apple Health in Settings: connect, the reading check, the coach's permission (docs/health/apple-health.md) ---------- */
-.card.ah-unlocks {
+/* ---------- Apple Health in Settings (AppleHealth.tsx): the device card, connecting, the reading check, coach access ---------- */
+
+/* the source as a device card (Bevel 461): the app tile, its name and state, a small pearl button */
+.ah-sec .card.s-card {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.ah-device {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+.ah-app {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  background: linear-gradient(160deg, #ffffff, #f2f7fb);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -2px 4px rgba(15, 42, 68, 0.05),
+    0 0 0 1px rgba(15, 42, 68, 0.06),
+    0 8px 16px -8px rgba(15, 42, 68, 0.3);
+  color: var(--accent);
+}
+.ah-device-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.ah-device-name {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.ah-device-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.ah-device-status i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+:root .ah-device-btn.btn {
+  flex: none;
+  height: 34px;
+  padding: 0 14px;
+}
+.ah-coach {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 14px 10px 16px;
+  text-align: left;
+}
+.ah-coach::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.ah-coach-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.ah-coach-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+}
+.ah-coach-title {
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.ah-coach-sub {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ah-coach-value {
+  flex: none;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.ah-coach-value.is-on {
+  color: var(--accent-text);
+}
+.ah-chev {
+  flex: none;
+  color: var(--ink-4);
+}
+
+/* ---------- connecting, and the coach's permission: a hero, a serif headline, cards, the pill ---------- */
+.ahc {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+.ahc-title {
+  margin: 4px 8px 0;
+  font: italic 400 1.875rem / 2.125rem var(--serif);
+  letter-spacing: -0.005em;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--ink);
+}
+.ahc-sub {
+  margin: -4px 12px 4px;
+  font: 400 var(--fs-sub) / 1.375rem var(--sans);
+  text-align: center;
+  text-wrap: pretty;
+  color: var(--ink-3);
+}
+.card.ahc-unlocks {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 4px 16px;
+  list-style: none;
+}
+.ahc-unlocks li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+}
+.ahc-unlocks li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 52px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.ahc-unlocks li > span:last-child {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.ahc-unlocks b {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.ahc-unlocks li > span:last-child > span {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ahc-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+:root .ahc-actions .btn.primary {
+  height: 54px;
+  font-size: 1.0625rem;
+}
+.ahc-trust {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 12px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  text-align: left;
+  color: var(--ink-3);
+}
+.ahc-trust svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--ink-2);
+}
+.ahc-trust b {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.card.ahc-list {
   display: grid;
   gap: 10px;
   margin: 0;
-  padding: 16px 16px 16px 36px;
-  list-style: disc;
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.ahc-list h4 {
+  margin: 0 0 2px;
+  font: 400 1.375rem / 1.625rem var(--serif);
   color: var(--ink);
 }
-.card.ah-unlocks li::marker {
-  color: var(--accent);
-}
-.ah-note {
+.ahc-list p {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin: 0;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
-}
-.ah-choice {
-  display: grid;
-  gap: 8px;
-}
-/* the reading check */
-.ah-check .tiles {
-  margin: 0;
-}
-.card.ah-night {
-  display: grid;
-  gap: 4px;
-}
-.ah-night-big {
-  margin: 2px 0 0;
-  font: 700 2.125rem / 2.375rem var(--stamp);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
-.ah-night-big small {
-  font: 500 var(--fs-row) / 1 var(--sans);
+.ahc-list i {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 0;
+  border-radius: 50%;
+}
+.ahc-list i.is-yes {
+  background: var(--ink-2);
+  color: #fff;
+}
+.ahc-list i.is-no {
+  background: var(--well);
+  box-shadow: var(--well-shadow);
   color: var(--ink-3);
 }
-.ah-night-sub,
-.ah-night-foot,
-.ah-empty {
+
+/* ---------- the reading check ---------- */
+.ahr {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+.ahr-wait {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 36px 0 20px;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.ahr-wait .hd-dial {
+  animation: ahr-breathe 1.8s ease-in-out infinite;
+}
+@keyframes ahr-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+.ahr-night-empty {
   margin: 0;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: rgba(255, 255, 255, 0.7);
 }
-.ah-empty {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-}
-.ah-stages {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.ahr-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 8px;
-  margin-top: 12px;
+  margin: 10px 2px -2px;
 }
-.ah-stage {
-  display: grid;
-  gap: 2px;
-  padding: 10px;
-  border-radius: var(--r-control);
-  background: var(--surface-2);
+.ahr-head h3 {
+  margin: 0;
+  font: 400 1.75rem / 2rem var(--serif);
+  color: var(--ink);
 }
-.ah-stage-label {
+.ahr-head span {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
-.ah-stage-value {
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--stamp);
-  color: var(--ink);
+.ahr-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
 }
-.ah-tile {
-  min-width: 0;
-}
-.ah-tile-foot {
-  overflow: hidden;
+.ahr-note {
+  margin: 0 4px;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-@media (max-width: 359px) {
-  .ah-stages {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (prefers-reduced-motion: reduce) {
+  .ahr-wait .hd-dial {
+    animation: none;
   }
 }

@@ -101,3 +101,23 @@ No visible borders on cards, ever. A border is only for an input that has focus,
 - Use borders to separate cards, or stack two cards with no gap.
 - Use more than one eyebrow per card, or caps for section headers.
 - Mix radii: 22 for cards, 18 for tiles and groups, 12 for controls, pill for buttons.
+
+## 8. Craft (depth, glass, the serif)
+
+The shape system says where things go; craft says how they feel in the hand. Bevel's lesson is in its name: things are
+bevelled. Built in `styles/craft.css` (global) and `features/health/` (the health pieces).
+
+- Light from above. Every raised thing has a bright top edge (`--bevel-hi`) and a shadow that falls in layers
+  (`--shadow-1`, `--shadow-float`). No flat white boxes.
+- The one verb is a navy pill with light on its upper lip and a glow beneath (`--navy-pill`, `--navy-glow`). Secondary
+  buttons are pearls (`--pearl`): white falling to the faintest Columbia, a hairline, a soft lift. Quiet buttons are words.
+- Round buttons, floating chips and toasts are frosted glass (`--glass`, `--glass-blur`).
+- Fields, segmented tracks and range capsules are pressed into the surface (`--well`, `--well-shadow`); a focused field
+  lifts to white with a Columbia ring.
+- Section headers and sheet titles are Instrument Serif (regular, 28 and 24); page titles and hero sentences stay serif
+  italic. Card titles, rows and numbers stay sans and stamped.
+- Health is drawn as instruments: the bevelled dial (raised rim, gradient arc with a soft glow, recessed face), the range
+  capsule (your normal as a band, today as a ringed mark, dotted while learning), status words with their icon, last
+  night on a night-navy card with the hypnogram and stage tiles, glass tiles, and illustrated heroes for first-time
+  sheets. Gradients stay in the palette: strain orange, recovery Columbia to blue, sleep pale Columbia to navy.
+- Motion is slow and small: heroes float a few pixels; arcs draw in once. Reduced motion turns both off.

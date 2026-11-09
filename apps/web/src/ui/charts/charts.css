@@ -349,29 +349,42 @@
 .ck-rpill {
   position: relative;
   display: block;
-  width: 14px;
+  width: 18px;
   height: 100%;
-  min-height: 56px;
+  min-height: 64px;
   border-radius: var(--r-pill);
-  background: var(--surface-2);
+  background: var(--well, var(--surface-2));
+  box-shadow: var(--well-shadow, none);
   flex: none;
+}
+/* no reading yet: a dotted line where your normal will be (as the health tiles draw it) */
+.ck-rpill.is-empty::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 50%;
+  border-left: 2px dotted var(--ink-4);
+  opacity: 0.6;
 }
 .ck-rpill-band {
   position: absolute;
-  left: 3px;
-  right: 3px;
+  left: 4px;
+  right: 4px;
   border-radius: var(--r-pill);
-  background: var(--columbia);
+  background: linear-gradient(180deg, #a9cfe6, #6fa6cf);
 }
 .ck-rpill-dot {
   position: absolute;
   left: 50%;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: 0 0 0 2px var(--ink-2);
+  box-shadow:
+    0 0 0 2.5px var(--ink-2),
+    0 2px 4px rgba(15, 42, 68, 0.25);
 }
 
 /* ---------- rings ---------- */

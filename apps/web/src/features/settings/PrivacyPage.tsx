@@ -59,7 +59,7 @@ export const PrivacyPage = (): React.JSX.Element => {
           title="Let the coach read your health"
           sub={c?.health === true ? 'On. A short health summary goes with your question.' : c?.health === false ? 'Off. The coach answers without your health data.' : 'Not asked yet. Nothing from Apple Health reaches the coach.'}
           value={c?.health === true ? 'On' : c?.health === false ? 'Off' : 'Not asked'}
-          onPress={() => sheet.open({ eyebrow: 'Privacy', title: 'Let the coach read your health?', body: <HealthConsentPanel /> })}
+          onPress={() => sheet.open({ title: 'Coach access', body: <HealthConsentPanel /> })}
         />
       </SGroup>
       <PrivacyFacts on={on} health={c?.health ?? null} />

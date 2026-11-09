@@ -1,0 +1,562 @@
+/* Health pieces (HealthParts.tsx): Bevel's depth, Logbook's colours and type. */
+
+/* ---------- the bevelled dial: a raised white rim, a gradient arc with a soft glow, a recessed face ---------- */
+.hd-dial {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--sz);
+  height: var(--sz);
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 28%, #ffffff 0%, #f3f8fb 58%, #e4eef5 100%);
+  box-shadow:
+    inset 0 2px 1px #fff,
+    inset 0 -4px 8px rgba(15, 42, 68, 0.06),
+    0 0 0 1px rgba(15, 42, 68, 0.04),
+    0 12px 26px -12px rgba(15, 42, 68, 0.32);
+}
+.hd-dial svg {
+  position: absolute;
+  inset: 4%;
+  width: 92%;
+  height: 92%;
+  overflow: visible;
+}
+.hd-track {
+  fill: none;
+  stroke: rgba(15, 42, 68, 0.07);
+  stroke-width: 9;
+}
+.hd-arc {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hd-dial.is-strain .hd-arc {
+  filter: drop-shadow(0 2px 4px rgba(242, 96, 12, 0.35));
+}
+.hd-dial.is-recovery .hd-arc {
+  filter: drop-shadow(0 2px 4px rgba(58, 127, 185, 0.35));
+}
+.hd-dial.is-sleep .hd-arc {
+  filter: drop-shadow(0 2px 4px rgba(27, 61, 99, 0.35));
+}
+.hd-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 62%;
+  height: 62%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #ffffff, #f6f9fc);
+  box-shadow:
+    inset 0 2px 5px rgba(15, 42, 68, 0.1),
+    0 1px 0 #fff;
+}
+.hd-num {
+  font: 700 calc(var(--sz) * 0.24) / 1 var(--stamp);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.hd-num small {
+  margin-left: 1px;
+  font: 600 calc(var(--sz) * 0.12) / 1 var(--stamp);
+  color: var(--ink-3);
+}
+.hd-dial.is-empty .hd-num {
+  color: var(--ink-4);
+}
+
+/* ---------- the range capsule: pressed into the tile; your normal as a band; today as a ringed mark ---------- */
+.hd-cap {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 18px;
+  align-self: stretch;
+  min-height: 64px;
+  border-radius: var(--r-pill);
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+}
+.hd-cap-band {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, #a9cfe6, #6fa6cf);
+}
+.hd-cap.is-worry .hd-cap-band {
+  background: linear-gradient(180deg, #ffc49c, #f2600c);
+}
+.hd-cap-dot {
+  position: absolute;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 2.5px var(--ink-2),
+    0 2px 4px rgba(15, 42, 68, 0.25);
+}
+.hd-cap.is-worry .hd-cap-dot {
+  box-shadow:
+    0 0 0 2.5px var(--accent),
+    0 2px 4px rgba(242, 96, 12, 0.3);
+}
+/* still learning your normal: a dotted line where the band will be */
+.hd-cap.is-learning::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 50%;
+  width: 0;
+  border-left: 2px dotted var(--ink-4);
+  opacity: 0.6;
+}
+
+/* ---------- the status word ---------- */
+.hd-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.hd-status i {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  color: #fff;
+}
+.hd-status.is-worry-up,
+.hd-status.is-worry-down {
+  color: var(--accent-text);
+}
+.hd-status.is-worry-up i,
+.hd-status.is-worry-down i {
+  background: var(--accent);
+}
+.hd-status.is-learning,
+.hd-status.is-none {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.hd-status.is-learning i,
+.hd-status.is-none i {
+  width: 13px;
+  height: 13px;
+  background: none;
+  border: 2px dotted var(--ink-4);
+}
+
+/* ---------- a Health Monitor tile ---------- */
+.hd-tile {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 12px 14px 14px;
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.hd-tile-main {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.hd-tile-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.hd-tile-label svg {
+  color: var(--ink-4);
+}
+.hd-tile-value {
+  font: 700 1.75rem / 2rem var(--stamp);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.hd-tile-value small {
+  font: 500 var(--fs-sub) / 1 var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+.hd-tile-value.is-none {
+  color: var(--ink-4);
+}
+.hd-tile .hd-status {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+}
+.hd-tile-foot {
+  overflow: hidden;
+  margin-top: 2px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-4);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- the night card: night navy, the hypnogram, the stage tiles ---------- */
+.hd-night {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 14px;
+  padding: 18px 16px 16px;
+  border-radius: var(--r-card);
+  background:
+    radial-gradient(120% 70% at 85% -10%, rgba(185, 217, 235, 0.22), transparent 60%),
+    radial-gradient(90% 60% at 0% 110%, rgba(79, 127, 214, 0.25), transparent 60%),
+    linear-gradient(180deg, #1a3555 0%, #0f2440 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 36px -16px rgba(15, 36, 64, 0.55);
+  color: #fff;
+}
+.hd-night > * {
+  position: relative;
+}
+.hd-night-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hd-night-title {
+  margin: 0;
+  font: italic 400 1.75rem / 2rem var(--serif);
+  color: #fff;
+}
+.hd-night-total {
+  font: 700 1.875rem / 1 var(--stamp);
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.hd-night-total small {
+  margin-left: 4px;
+  font: 500 var(--fs-sub) / 1 var(--sans);
+  color: rgba(255, 255, 255, 0.6);
+}
+.hd-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: rgba(255, 255, 255, 0.62);
+}
+.hd-hyp {
+  display: block;
+  width: 100%;
+  height: 120px;
+  padding: 4px 0;
+  border-radius: var(--r-control);
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.hd-hyp-grid {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  vector-effect: non-scaling-stroke;
+}
+.hd-hyp-riser {
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.hd-hyp-bar.is-awake {
+  filter: drop-shadow(0 0 3px rgba(255, 138, 61, 0.7));
+}
+.hd-night-chips {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -6px;
+}
+.hd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font: 600 var(--fs-foot) / 1 var(--sans);
+  color: rgba(255, 255, 255, 0.85);
+}
+.hd-stages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.hd-stage {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  padding: 11px 50px 11px 12px;
+  border-radius: var(--r-control);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.hd-stage-label {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: rgba(255, 255, 255, 0.6);
+}
+.hd-stage-time {
+  font: 700 1.25rem / 1.5rem var(--stamp);
+  color: #fff;
+}
+.hd-stage-pct {
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+}
+.hd-stage.is-awake .hd-stage-pct {
+  color: #ffa06b;
+}
+.hd-stage.is-rem .hd-stage-pct {
+  color: #d8ecf8;
+}
+.hd-stage.is-core .hd-stage-pct,
+.hd-stage.is-asleep .hd-stage-pct {
+  color: #a9cfee;
+}
+.hd-stage.is-deep .hd-stage-pct {
+  color: #8eaff0;
+}
+.hd-stage-ring {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin-top: -17px;
+}
+.hd-stage-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 4;
+}
+.hd-stage-arc {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+/* ---------- glass tiles ---------- */
+.hd-glass {
+  display: grid;
+  place-items: center;
+  width: var(--gs);
+  height: var(--gs);
+  border-radius: calc(var(--gs) * 0.3);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.62));
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -2px 4px rgba(15, 42, 68, 0.05),
+    0 0 0 1px rgba(15, 42, 68, 0.05),
+    0 14px 26px -12px rgba(15, 42, 68, 0.35);
+}
+.hd-glass.is-navy {
+  color: var(--ink);
+}
+.hd-glass.is-orange {
+  color: var(--accent);
+}
+.hd-glass.is-columbia {
+  color: #3a7fb9;
+}
+.hd-glass.is-mono {
+  font: italic 400 2.5rem / 1 var(--serif);
+  color: var(--ink);
+}
+
+/* ---------- the heroes ---------- */
+.hd-hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 236px;
+  margin: -4px calc(-1 * var(--gutter)) 0;
+  overflow: hidden;
+  background:
+    radial-gradient(70% 60% at 50% 45%, rgba(255, 255, 255, 0.9), transparent 70%),
+    radial-gradient(60% 50% at 85% 10%, rgba(242, 96, 12, 0.1), transparent 70%),
+    radial-gradient(80% 70% at 10% 90%, rgba(185, 217, 235, 0.6), transparent 70%),
+    linear-gradient(180deg, #eaf4fa, #f3f8fb);
+  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent);
+  mask-image: linear-gradient(180deg, #000 78%, transparent);
+}
+/* a faint grid behind the dial, as the references draw their instrument backdrops */
+.hd-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(15, 42, 68, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 42, 68, 0.045) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent);
+  mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent);
+}
+.hd-hero-dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 176px;
+  height: 176px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, #fff 0%, #f4f8fb 60%, #e3edf5 100%);
+  box-shadow:
+    inset 0 3px 2px #fff,
+    inset 0 -6px 12px rgba(15, 42, 68, 0.07),
+    0 0 0 1px rgba(15, 42, 68, 0.04),
+    0 26px 44px -18px rgba(15, 42, 68, 0.42);
+}
+.hd-hero-dial svg {
+  position: absolute;
+  inset: 3%;
+  width: 94%;
+  height: 94%;
+  overflow: visible;
+}
+.hd-tick {
+  stroke: rgba(15, 42, 68, 0.16);
+  stroke-width: 0.7;
+}
+.hd-tick.is-long {
+  stroke: rgba(15, 42, 68, 0.3);
+  stroke-width: 1;
+}
+.hd-hero-track {
+  fill: none;
+  stroke: rgba(15, 42, 68, 0.06);
+  stroke-width: 6;
+}
+.hd-hero-arc {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.hd-hero-end {
+  fill: #fff;
+  stroke-width: 2;
+}
+.hd-hero-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #fff, #f3f8fb);
+  box-shadow:
+    inset 0 2px 6px rgba(15, 42, 68, 0.12),
+    0 1px 0 #fff;
+  color: var(--accent);
+}
+.hd-float {
+  position: absolute;
+  animation: hd-float 6s ease-in-out infinite;
+}
+.hd-float.is-a {
+  top: 34px;
+  right: calc(50% - 150px);
+}
+.hd-float.is-b {
+  top: 58px;
+  left: calc(50% - 146px);
+  animation-delay: -2s;
+}
+.hd-float.is-c {
+  bottom: 50px;
+  left: calc(50% - 118px);
+  animation-delay: -4s;
+}
+@keyframes hd-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(3deg);
+  }
+}
+/* the consent hero: two tiles and the dashed arc between them */
+.hd-hero.is-consent {
+  height: 168px;
+}
+.hd-pair {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 78px;
+}
+.hd-pair-arc {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  width: 132px;
+  height: 44px;
+  margin-left: -66px;
+  overflow: visible;
+}
+.hd-pair-arc path {
+  fill: none;
+  stroke: var(--ink-4);
+  stroke-width: 1.6;
+  stroke-dasharray: 3 5;
+  stroke-linecap: round;
+}
+.hd-pair-shield {
+  position: absolute;
+  left: 50%;
+  top: -12px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  border-radius: 50%;
+  background: var(--navy-pill, var(--primary));
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 6px 12px -4px rgba(15, 42, 68, 0.5);
+}
+
+@media (max-width: 359px) {
+  .hd-tile {
+    gap: 8px;
+    padding-right: 10px;
+  }
+  .hd-cap {
+    width: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hd-float {
+    animation: none;
+  }
+  .hd-arc {
+    transition: none;
+  }
+}

@@ -19,6 +19,7 @@ import { useMetricModels } from './useMetrics';
 import { useNow } from './useNow';
 import { useOpenSession } from '../sessions/SessionCard';
 import { RangePill, TrendCard, TrendChart } from '@/ui/charts';
+import { StatusWord } from '../health/HealthParts';
 import { AdherenceSheet, ConsistencySheet, EasyPaceSheet, LiftsSheet, LongRunSheet, paceChange, useOpenWeek } from './sheets';
 import './progress.css';
 import './metric.css';
@@ -305,8 +306,8 @@ const Vitals = () => {
                 <MetricIcon id={x.id} size={16} />
                 <span>{x.label}</span>
               </span>
-              <span className="tile-value pg-vital-none">No data</span>
-              <span className="pg-vital-foot">Comes with Apple Health</span>
+              <span className="tile-value pg-vital-none">–</span>
+              <StatusWord status="none" word="Apple Health" />
             </span>
             <RangePill pos={null} />
           </Pressable>
