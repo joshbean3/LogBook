@@ -24,7 +24,6 @@ import { TheDayCard } from './TheDayCard';
 import { HeldNote } from '../plan/Held';
 import { DayTimeline } from './DayTimeline';
 import { StatusChip } from './StatusChip';
-import { WeekCard } from './WeekCard';
 import { useFocus, useOpenWordSheet } from './WordSheet';
 
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
@@ -172,7 +171,6 @@ const DayShell = ({ date }: { date: ISODate }) => (
   <div className="day-page is-shell" data-day={date}>
     <div className="hero aura hero-skel" data-face="loading" aria-hidden="true" />
     <section className="pd is-skel" aria-hidden="true" />
-    <div className="week-card is-skel" aria-hidden="true" />
   </div>
 );
 
@@ -215,14 +213,14 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   return (
     <div className="day-page" data-day={date}>
       {loaded ? <StatusChip date={date} today={today} /> : null}
-      {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
       {loaded && !first ? <HeldNote date={date} log={log} /> : null}
+      {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles) */}
       {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
+      {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
       <Sentence />
       {loaded && !first ? <PlanDay date={date} today={today} /> : null}
       {loaded ? <SecondSession date={date} log={log} /> : null}
-      {loaded ? <WeekCard date={date} log={log} /> : <div className="week-card is-skel" />}
       {end ? (
         <Suspense fallback={null}>
           <PlanEnd log={log} date={date} />

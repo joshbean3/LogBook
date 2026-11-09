@@ -1,7 +1,7 @@
 import { awaitingReview, GOAL_STEPS_MAX, goalProgress, periodOf, type Aim, type ISODate, type Todo } from '@logbook/shared';
-import { ArrowRight, ChevronDown, ChevronRight, Moon, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronRight, Moon, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { newTodoId, useGoals, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -337,8 +337,11 @@ export const PlanDay = memo(function PlanDay({ date, today }: { date: ISODate; t
       />
       <div ref={boardRef} className="pd-board">
         {owed ? <OwedRow goal={owed} today={today} /> : null}
-        <GoalCard date={date} today={today} goal={goal} week={week} editable={editable} target={drag?.over?.kind === 'goal'} dragging={drag?.card.kind === 'todo'} />
-        <Focus cards={shown.tray} drag={drag} api={api} date={date} today={today} editable={editable} />
+        {/* the goal and the top three as one card, joined by a rail: the goal on top, then 1, 2, 3 in order */}
+        <Flow>
+          <GoalCard date={date} today={today} goal={goal} week={week} editable={editable} target={drag?.over?.kind === 'goal'} dragging={drag?.card.kind === 'todo'} />
+          <Focus cards={shown.tray} drag={drag} api={api} date={date} today={today} editable={editable} />
+        </Flow>
         {date === today ? <AllTodos date={date} /> : null}
       </div>
       {drag
@@ -386,6 +389,54 @@ const OwedRow = ({ goal, today }: { goal: Aim; today: ISODate }) => {
  * are checked (the bar under the words counts them), and when the goal is done it swells to fill the card, the words turn
  * dark on gold, and the moment plays. While a to-do is dragged, the card opens to take it as a step.
  */
+/**
+ * The day's plan as one card: the goal, then the priorities, joined by a rail from the goal's node down to the last of the
+ * top three's numbers. The rail is measured after every render and whenever the card resizes (a row checked, the rest
+ * unfolded), so it always ends on the third number, or the last one there is.
+ */
+const Flow = ({ children }: { children: React.ReactNode }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const rail = useRef<HTMLSpanElement>(null);
+  const place = () => {
+    const box = ref.current;
+    const r = rail.current;
+    if (!box || !r) return;
+    const node = box.querySelector('.pd-node');
+    const ranks = box.querySelectorAll('.pd-card.is-top .pd-rank');
+    const last = ranks[ranks.length - 1];
+    if (!node || !last) {
+      r.style.opacity = '0';
+      return;
+    }
+    const b = box.getBoundingClientRect();
+    const a = node.getBoundingClientRect();
+    const z = last.getBoundingClientRect();
+    r.style.opacity = '1';
+    r.style.left = `${a.left - b.left + a.width / 2 - 1}px`;
+    r.style.top = `${a.top - b.top + a.height / 2}px`;
+    r.style.height = `${Math.max(0, z.top - a.top + (z.height - a.height) / 2)}px`;
+  };
+  useLayoutEffect(place);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    const ro = new ResizeObserver(() => place());
+    ro.observe(box);
+    // rows settle on a spring after a check: measure again once they have
+    const t = setInterval(place, 400);
+    return () => {
+      ro.disconnect();
+      clearInterval(t);
+    };
+  }, []);
+  return (
+    <div ref={ref} className="pd-flow">
+      <span ref={rail} className="pd-rail" aria-hidden="true" />
+      {children}
+    </div>
+  );
+};
+
 const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { date: ISODate; today: ISODate; goal: Aim | null; week: Aim | null; editable: boolean; target: boolean; dragging: boolean }) => {
   const open = useOpenGoal();
   const saveSteps = useSaveSteps();
@@ -406,6 +457,9 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
     return (
       <Pressable className="pd-goal is-empty" data-pd-goal="" press="surface" onPress={() => open('day', date)} label={date === today ? 'Set today’s goal' : 'Set this day’s goal'}>
         <span className="pd-goal-blob" aria-hidden="true" />
+        <span className="pd-node is-goal" aria-hidden="true">
+          <Target size={16} strokeWidth={2.4} />
+        </span>
         <span className="pd-goal-main">
           <span className="caps pd-goal-caps">{date === today ? 'Today' : periodCaps('day', date, today)}</span>
           <span className="pd-goal-set">What would make today count?</span>
@@ -425,6 +479,9 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
     <div className={`pd-goal is-${goal.status} ${target ? 'is-target' : ''} ${dragging && full ? 'is-droppable' : ''}`} data-pd-goal="">
       <motion.span className="pd-goal-blob" aria-hidden="true" initial={false} animate={{ scale: isDone ? 9 : 0.55 + 0.45 * p }} transition={reduce ? { duration: 0 } : isDone ? { type: 'spring', duration: 0.9, bounce: 0.05 } : { type: 'spring', duration: 0.6, bounce: 0.3 }} />
       <div className="pd-goal-in">
+        <span className="pd-node is-goal" aria-hidden="true">
+          <Target size={16} strokeWidth={2.4} />
+        </span>
         <Pressable className="pd-goal-main" press="dim" onPress={() => open('day', date)} label={`${goal.text}. Open`}>
           <span className="caps pd-goal-caps">{isDone ? 'Done today' : date === today ? 'Today’s goal' : periodCaps('day', date, today)}</span>
           <span className="pd-goal-text">{goal.text}</span>

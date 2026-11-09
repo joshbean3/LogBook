@@ -782,3 +782,117 @@
   display: block;
   flex: none;
 }
+
+/* ---------- the plan as one card (Flow): the goal on its node, then 1, 2, 3, joined by a rail ---------- */
+.pd-flow {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.pd-rail {
+  position: absolute;
+  z-index: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #f5b13d 0%, rgba(15, 42, 68, 0.35) 38%, rgba(15, 42, 68, 0.22) 100%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    top 300ms var(--ease-out),
+    height 300ms var(--ease-out),
+    opacity 200ms;
+}
+.pd-flow > .pd-goal,
+.pd-flow > .pd-focus {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.pd-flow > .pd-goal {
+  z-index: 1;
+  padding: 18px 16px 6px 22px;
+  gap: 10px;
+}
+.pd-flow > .pd-goal.is-empty {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 14px;
+  padding-bottom: 14px;
+}
+.pd-flow .pd-goal-in {
+  gap: 14px;
+}
+.pd-node {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #ffd36b, #f5a524 75%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 0 0 4px var(--surface),
+    0 6px 14px -4px rgba(245, 165, 36, 0.6);
+  color: #6b3d00;
+}
+.pd-goal.is-done .pd-node {
+  background: radial-gradient(circle at 38% 30%, #ffb27a, var(--accent) 75%);
+  color: #fff;
+}
+.pd-flow .pd-goal-text,
+.pd-flow .pd-goal-set {
+  max-width: 100%;
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+}
+.pd-flow .pd-goal-blob {
+  right: -70px;
+  top: -80px;
+  opacity: 0.75;
+}
+/* the steps, the step bar and the week's goal sit in the text column, under the goal's words */
+.pd-flow .pd-goal-list,
+.pd-flow .pd-goal-steps,
+.pd-flow .pd-goal-drop,
+.pd-flow .pd-week {
+  margin-left: 48px;
+}
+.pd-flow .pd-goal-cta {
+  height: 40px;
+  margin-top: 6px;
+}
+
+/* the priorities under the goal: no box of their own, the rail runs through their numbers */
+.pd-flow .pd-zone > .pd-top-box {
+  background: transparent;
+  box-shadow: none;
+}
+.pd-flow .pd-zone > .pd-top-head {
+  padding: 10px 24px 4px 70px;
+}
+.pd-flow .pd-top-title {
+  font: 600 11px/16px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pd-flow .pd-rank {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 4px var(--surface);
+}
+.pd-flow .pd-zone > .pd-top-empty {
+  padding-left: 70px;
+}

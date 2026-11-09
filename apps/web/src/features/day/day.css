@@ -1579,3 +1579,209 @@
 .day-page > .tl {
   margin-top: var(--section);
 }
+
+/* ---------- the hero as the page's centrepiece (HeroGauge): a warm wash, the day's words centred in the week's dial ---------- */
+:root .hero.aura:not(.is-tall) {
+  height: 330px;
+  background:
+    radial-gradient(90% 60% at 12% 0%, rgba(255, 190, 170, 0.55), rgba(255, 190, 170, 0) 70%),
+    radial-gradient(90% 60% at 92% 4%, rgba(255, 226, 140, 0.6), rgba(255, 226, 140, 0) 70%),
+    linear-gradient(180deg, #fff9f2 0%, #ffffff 62%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(15, 42, 68, 0.04),
+    0 2px 6px rgba(15, 42, 68, 0.05),
+    0 22px 44px -18px rgba(170, 110, 40, 0.28);
+}
+:root .hero.aura:not(.is-tall) .aura-glow {
+  display: none;
+}
+.hero.aura:not(.is-tall) .hero-face {
+  padding: 18px 18px 16px;
+  align-items: stretch;
+}
+.hero.aura:not(.is-tall) .hero-eyebrow-row {
+  justify-content: center;
+  height: 16px;
+}
+.hero.aura:not(.is-tall) .hero-eyebrow {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+  color: var(--ink-2);
+}
+.hero.aura:not(.is-tall) .hero-aside {
+  color: var(--ink-3);
+}
+.hero.aura:not(.is-tall) .hero-aside::before {
+  content: '·';
+  margin-right: 8px;
+}
+
+/* the dial */
+.hg {
+  position: relative;
+  flex: none;
+  height: 196px;
+  margin-top: 2px;
+}
+.hg-dial {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: min(100%, 294px);
+  height: 196px;
+  transform: translateX(-50%);
+  overflow: visible;
+}
+.hg-track {
+  fill: none;
+  stroke-width: 16;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 0 #fff);
+}
+.hg-tick {
+  stroke: rgba(15, 42, 68, 0.16);
+  stroke-width: 1;
+}
+.hg-tick.is-major {
+  stroke: rgba(15, 42, 68, 0.28);
+  stroke-width: 1.3;
+}
+.hg-fill {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+.hg-start {
+  fill: #fff;
+  stroke: #f6c879;
+  stroke-width: 2.5;
+}
+.hg-dot {
+  fill: #fff;
+  stroke: var(--accent);
+  stroke-width: 3.5;
+  filter: drop-shadow(0 2px 4px rgba(242, 101, 34, 0.45));
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hg-end {
+  font: 600 11px var(--sans);
+  fill: var(--ink-4);
+}
+.hg-in {
+  position: absolute;
+  inset: 26px 34px auto;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+.hg.is-empty {
+  height: auto;
+}
+.hg.is-empty .hg-in {
+  position: static;
+  padding: 28px 0 8px;
+}
+.hg .hero-stamp {
+  height: auto;
+  max-width: 100%;
+  margin: 0;
+  font: 800 44px/50px var(--stamp);
+  letter-spacing: -0.035em;
+  background: linear-gradient(180deg, #3b2b1d 0%, #0f2a44 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero.is-quiet .hg .hero-stamp {
+  background: none;
+  color: var(--ink-2);
+}
+.hg .hero-line {
+  height: auto;
+  max-width: 100%;
+  margin: 2px 0 0;
+  font: italic 400 20px/26px var(--display);
+  color: #c7781e;
+}
+.hero.is-quiet .hg .hero-line {
+  color: var(--ink-3);
+}
+.hero-week {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 12px;
+  padding: 6px 10px 6px 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(15, 42, 68, 0.06),
+    0 4px 12px -6px rgba(15, 42, 68, 0.25);
+  font: 500 13px/18px var(--sans);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.hero-week-runs {
+  color: var(--ink-4);
+}
+.hero-week-runs::before {
+  content: '·';
+  margin-right: 6px;
+}
+.hero-week svg {
+  flex: none;
+  color: var(--ink-4);
+}
+
+/* the deck becomes a soft card under the dial, like a status card */
+.hero.aura:not(.is-tall) .hero-deck {
+  height: auto;
+  min-height: 56px;
+  margin-top: auto;
+  padding: 0;
+}
+.hero.aura:not(.is-tall) .hero-deck:not(:empty)::before {
+  display: none;
+}
+.hero.aura:not(.is-tall) .hero-next {
+  min-height: 52px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 0 0 1px rgba(15, 42, 68, 0.05),
+    0 8px 20px -12px rgba(170, 110, 40, 0.4);
+}
+@media (max-width: 359px) {
+  .hg-in {
+    inset-inline: 22px;
+  }
+  .hg .hero-stamp {
+    font-size: 36px;
+    line-height: 42px;
+  }
+  .hero-week-runs {
+    display: none;
+  }
+}
+.hg .hero-stamp.is-mid {
+  font-size: 36px;
+  line-height: 50px;
+}
+.hg .hero-stamp.is-long {
+  font-size: 28px;
+  line-height: 50px;
+}
+@media (max-width: 359px) {
+  .hg .hero-stamp.is-mid {
+    font-size: 30px;
+  }
+  .hg .hero-stamp.is-long {
+    font-size: 24px;
+  }
+}

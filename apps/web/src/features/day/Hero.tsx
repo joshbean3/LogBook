@@ -27,11 +27,13 @@ import { markSuccess, StravaRetry, useStravaLanding } from './useStravaLanding';
 import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
 /** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
+import { HeroGauge } from './HeroGauge';
+
 export const morningLineId = (date: ISODate) => `morning-line-${date}`;
 export const morningPath = (date: ISODate) => `/today/${date}/morning`;
 
 /** Pointers that start on these are not the hero's: the ring and the line own their press; the deck's buttons theirs. */
-const HERO_IGNORE = '.hold-ring, [data-shared], .hero-share, .hero-verb, .hero-next';
+const HERO_IGNORE = '.hold-ring, [data-shared], .hero-share, .hero-verb, .hero-next, .hero-week';
 
 /** The share card's data for a day whose miles are logged by hand: the session's miles, and the week counted the same way. */
 const shareFor = (date: ISODate, s: Session | null, runs: Activity[], log: Log) => {
@@ -219,11 +221,23 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
         )}
         {face.aside ? <span className="caps hero-aside">{face.aside}</span> : null}
       </div>
-      <span className="hero-stamp">{face.stamp}</span>
-      {/* the verdict crossfades in once the landing's FLIP is at rest (§6.1 stage 4) */}
-      <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
-        {face.line}
-      </motion.p>
+      {face.tall ? (
+        <>
+          <span className="hero-stamp">{face.stamp}</span>
+          {/* the verdict crossfades in once the landing's FLIP is at rest (§6.1 stage 4) */}
+          <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
+            {face.line}
+          </motion.p>
+        </>
+      ) : (
+        // every other face: the day's words inside the week's dial (HeroGauge), the week's pill under them
+        <HeroGauge date={c.date} log={c.log}>
+          <span className={`hero-stamp ${face.stamp.length > 9 ? 'is-long' : face.stamp.length > 6 ? 'is-mid' : ''}`}>{face.stamp}</span>
+          <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
+            {face.line}
+          </motion.p>
+        </HeroGauge>
+      )}
       {face.tall && face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
       <Deck c={c} />
     </>
