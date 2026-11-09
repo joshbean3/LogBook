@@ -28,6 +28,7 @@ import { meRoutes } from './routes/me.js';
 import { planRoutes } from './routes/plans.js';
 import { readsRoutes } from './routes/reads.js';
 import { stravaRoutes, syncInBackground } from './routes/strava.js';
+import { appleHealthDeviceRoutes, appleHealthRoutes } from './routes/appleHealth.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,8 @@ export const buildApp = (db: DB) => {
   app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
   app.route('/api/auth', authRoutes(db));
   app.route('/api/strava', stravaRoutes(db));
+  // the phone's Apple Health sync engine, by device token (it may run with no web view and no session)
+  app.route('/api/apple-health', appleHealthDeviceRoutes(db));
   const authed = new Hono<AuthEnv>();
   authed.use(requireAuth(db));
   // contract 4: a write sent twice with the same Idempotency-Key (the outbox's replays) lands once
@@ -55,6 +58,7 @@ export const buildApp = (db: DB) => {
   authed.route('/', goalRoutes(db));
   authed.route('/', assistantRoutes(db));
   authed.route('/', dayPlanRoutes(db));
+  authed.route('/', appleHealthRoutes(db));
   app.route('/api', authed);
 
   app.onError((err, c) => {

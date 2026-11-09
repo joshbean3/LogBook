@@ -471,3 +471,122 @@ export const dayTags = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.date, t.tag] })],
 );
+
+// ---------- Apple Health (docs/health/apple-health.md §3.5). Migration 0017. ----------
+
+/** A phone allowed to upload, by the hash of its token (the token itself lives in that phone's Keychain). */
+export const healthDevices = sqliteTable(
+  'health_devices',
+  {
+    id: id(),
+    userId: userId(),
+    tokenHash: text('token_hash').notNull(),
+    name: text('name').notNull(),
+    createdAt: createdAt(),
+    lastSeenAt: text('last_seen_at'),
+    revokedAt: text('revoked_at'),
+  },
+  (t) => [uniqueIndex('health_devices_token').on(t.tokenHash)],
+);
+
+/** Vitals and readings, one row per Health sample. `deleted_at` is never cleared: Health never reuses a UUID. */
+export const healthSamples = sqliteTable(
+  'health_samples',
+  {
+    userId: userId(),
+    uuid: text('uuid').notNull(),
+    type: text('type').notNull(),
+    startAt: text('start_at').notNull(),
+    endAt: text('end_at').notNull(),
+    value: real('value').notNull(),
+    unit: text('unit').notNull(),
+    sourceBundle: text('source_bundle').notNull(),
+    sourceName: text('source_name').notNull(),
+    productType: text('product_type'),
+    userEntered: integer('user_entered', { mode: 'boolean' }).notNull().default(false),
+    tz: text('tz'),
+    deletedAt: text('deleted_at'),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.uuid] }), index('health_samples_type').on(t.userId, t.type, t.startAt)],
+);
+
+/** The day sums (steps, energy, exercise) and the heart rate buckets. A day's time zone is frozen the first time it lands. */
+export const healthDays = sqliteTable(
+  'health_days',
+  {
+    userId: userId(),
+    date: text('date').notNull(),
+    metric: text('metric').notNull(),
+    value: real('value'),
+    bucketsJson: text('buckets_json'),
+    dayStartAt: text('day_start_at').notNull(),
+    tz: text('tz').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.date, t.metric] })],
+);
+
+export const sleepSegments = sqliteTable(
+  'sleep_segments',
+  {
+    userId: userId(),
+    uuid: text('uuid').notNull(),
+    startAt: text('start_at').notNull(),
+    endAt: text('end_at').notNull(),
+    stage: text('stage').notNull(),
+    sourceBundle: text('source_bundle').notNull(),
+    sourceName: text('source_name').notNull(),
+    productType: text('product_type'),
+    tz: text('tz'),
+    deletedAt: text('deleted_at'),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.uuid] }), index('sleep_segments_start').on(t.userId, t.startAt)],
+);
+
+/** Workouts from Health, waiting to join the run list (phase 5 matches them with Strava). */
+export const healthWorkouts = sqliteTable(
+  'health_workouts',
+  {
+    userId: userId(),
+    uuid: text('uuid').notNull(),
+    activity: text('activity').notNull(),
+    startAt: text('start_at').notNull(),
+    endAt: text('end_at').notNull(),
+    durationSec: real('duration_sec').notNull(),
+    distanceM: real('distance_m'),
+    energyKcal: real('energy_kcal'),
+    avgHr: real('avg_hr'),
+    maxHr: real('max_hr'),
+    hrJson: text('hr_json'),
+    sourceBundle: text('source_bundle').notNull(),
+    sourceName: text('source_name').notNull(),
+    productType: text('product_type'),
+    tz: text('tz'),
+    deletedAt: text('deleted_at'),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.uuid] }), index('health_workouts_start').on(t.userId, t.startAt)],
+);
+
+/** Batches already stored, so a re-sent batch is answered without being written twice. */
+export const healthBatches = sqliteTable(
+  'health_batches',
+  {
+    userId: userId(),
+    batchId: text('batch_id').notNull(),
+    storedAt: text('stored_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.batchId] })],
+);
+
+/** The connection: when, how far back, the last sync and its error, which types have shown up. */
+export const healthSync = sqliteTable('health_sync', {
+  userId: text('user_id').primaryKey(),
+  connectedAt: text('connected_at').notNull(),
+  lastSyncAt: text('last_sync_at'),
+  lastError: text('last_error'),
+  historyFrom: text('history_from').notNull(),
+  typesSeenJson: text('types_seen_json').notNull().default('[]'),
+});
