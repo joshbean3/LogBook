@@ -1,174 +1,22 @@
 /*
- * The orb (Orb.tsx). Everything scales off --s, the orb's diameter. Layers, back to front:
- *   haze   a wide, faint bloom of ice blue and peach
- *   rim    the drifting edge: periwinkle, Columbia, ice, a breath of rose (a conic sweep, blurred)
- *   body   Columbia blue deepening to sky at one side
- *   core   the warm heart: gold into orange, set high and left
- *   glint  a soft white light on the upper lip
- * Each turns and morphs on its own period (11 to 23 s), so the whole never loops visibly.
+ * The orb's box (Orb.tsx): --s is the drop's diameter; the canvas is 1.5 times wider so the glow has room, centred on the
+ * box and spilling past it without taking layout space.
  */
 .lb-orb {
   --s: 48px;
-  --speed: 1;
   position: relative;
   display: inline-block;
   flex: none;
   width: var(--s);
   height: var(--s);
-  isolation: isolate;
   vertical-align: middle;
 }
-.lb-orb > i {
+.lb-orb-canvas {
   position: absolute;
-  display: block;
-  border-radius: 50%;
-  will-change: transform, border-radius;
-}
-
-.lb-orb-haze {
-  inset: -16%;
-  background:
-    radial-gradient(closest-side at 64% 56%, rgba(160, 150, 255, 0.28), rgba(160, 150, 255, 0) 100%),
-    radial-gradient(closest-side at 36% 42%, rgba(255, 200, 160, 0.32), rgba(255, 200, 160, 0) 100%);
-  filter: blur(calc(var(--s) * 0.08));
-  animation: lb-orb-breathe calc(7s / var(--speed)) ease-in-out infinite;
-}
-.lb-orb-rim {
-  inset: -2% -4% -2% 2%;
-  background: conic-gradient(from 200deg, #8f9dff 0deg, #7fa6ff 60deg, #9ff1ff 120deg, #d8f6ff 150deg, #f5b8d6 210deg, #b3a2ff 270deg, #8f9dff 360deg);
-  -webkit-mask: radial-gradient(closest-side at 42% 50%, transparent 66%, #000 86%);
-  mask: radial-gradient(closest-side at 42% 50%, transparent 66%, #000 86%);
-  filter: blur(calc(var(--s) * 0.045));
-  opacity: 0.95;
-  animation:
-    lb-orb-spin calc(23s / var(--speed)) linear infinite,
-    lb-orb-morph-a calc(13s / var(--speed)) ease-in-out infinite;
-}
-.lb-orb-body {
-  inset: 6% 8% 8% 6%;
-  background:
-    radial-gradient(circle at 72% 62%, rgba(150, 140, 255, 0.55) 0%, rgba(150, 140, 255, 0) 60%),
-    radial-gradient(circle at 40% 40%, #ffffff 0%, #e6f2fb 40%, #b9d9eb 78%, #a7c4f2 100%);
-  filter: blur(calc(var(--s) * 0.03));
-  opacity: 0.92;
-  animation:
-    lb-orb-spin calc(19s / var(--speed)) linear infinite reverse,
-    lb-orb-morph-b calc(11s / var(--speed)) ease-in-out infinite;
-}
-.lb-orb-core {
-  inset: 14% 20% 18% 12%;
-  background: radial-gradient(circle at 46% 48%, #fff1c4 0%, #ffd27a 18%, #ffad5c 38%, #ff7f45 58%, rgba(245, 120, 160, 0.75) 76%, rgba(190, 140, 255, 0) 100%);
-  filter: blur(calc(var(--s) * 0.05));
-  animation:
-    lb-orb-drift calc(17s / var(--speed)) ease-in-out infinite,
-    lb-orb-morph-c calc(9s / var(--speed)) ease-in-out infinite;
-}
-.lb-orb-glint {
-  inset: 10% 30% 62% 26%;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0));
-  filter: blur(calc(var(--s) * 0.03));
-  animation: lb-orb-glint calc(9s / var(--speed)) ease-in-out infinite;
-}
-
-/* moods */
-.lb-orb.is-think {
-  --speed: 2.6;
-}
-.lb-orb.is-think .lb-orb-core {
-  animation:
-    lb-orb-drift calc(17s / var(--speed)) ease-in-out infinite,
-    lb-orb-morph-c calc(9s / var(--speed)) ease-in-out infinite,
-    lb-orb-pulse 1.4s ease-in-out infinite;
-}
-.lb-orb.is-still > i {
-  animation: none;
-}
-
-@keyframes lb-orb-spin {
-  to {
-    rotate: 360deg;
-  }
-}
-@keyframes lb-orb-breathe {
-  0%,
-  100% {
-    transform: scale(0.96);
-    opacity: 0.85;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
-}
-@keyframes lb-orb-morph-a {
-  0%,
-  100% {
-    border-radius: 48% 52% 55% 45% / 46% 50% 50% 54%;
-  }
-  33% {
-    border-radius: 55% 45% 47% 53% / 52% 46% 54% 48%;
-  }
-  66% {
-    border-radius: 45% 55% 52% 48% / 50% 55% 45% 50%;
-  }
-}
-@keyframes lb-orb-morph-b {
-  0%,
-  100% {
-    border-radius: 52% 48% 46% 54% / 50% 54% 46% 50%;
-  }
-  50% {
-    border-radius: 45% 55% 54% 46% / 55% 45% 55% 45%;
-  }
-}
-@keyframes lb-orb-morph-c {
-  0%,
-  100% {
-    border-radius: 50% 50% 44% 56% / 52% 46% 54% 48%;
-  }
-  50% {
-    border-radius: 56% 44% 52% 48% / 46% 56% 44% 54%;
-  }
-}
-@keyframes lb-orb-drift {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  25% {
-    transform: translate(4%, 3%) scale(1.04);
-  }
-  50% {
-    transform: translate(6%, -2%) scale(0.98);
-  }
-  75% {
-    transform: translate(1%, 4%) scale(1.03);
-  }
-}
-@keyframes lb-orb-pulse {
-  0%,
-  100% {
-    opacity: 0.85;
-  }
-  50% {
-    opacity: 1;
-    scale: 1.08;
-  }
-}
-@keyframes lb-orb-glint {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: translate(0, 0);
-  }
-  50% {
-    opacity: 0.9;
-    transform: translate(8%, 4%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lb-orb > i {
-    animation: none !important;
-  }
+  left: 50%;
+  top: 50%;
+  width: calc(var(--s) * 1.5);
+  height: calc(var(--s) * 1.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
