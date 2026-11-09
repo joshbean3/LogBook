@@ -124,91 +124,103 @@
   }
 }
 
-/* ---------- the bars ---------- */
-.pb-chart {
+/* ---------- running: two curves, the plan and the actual ---------- */
+.pl-chart {
   position: relative;
-  margin-top: 12px;
+  margin-top: 14px;
 }
-.pb-plot {
+.pl-plot {
   position: relative;
   outline: none;
   border-radius: 12px;
 }
-.pb-plot:focus-visible {
+.pl-plot:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-bright);
 }
-.pb-chart svg {
+.pl-chart svg {
   display: block;
   overflow: visible;
   font-family: var(--sans);
 }
-.pb-grid {
+.pl-grid {
   stroke: var(--line-strong);
   stroke-width: 1;
   stroke-dasharray: 2 4;
   opacity: 0.7;
 }
-.pb-base {
+.pl-base {
   stroke: var(--line-strong);
   stroke-width: 1;
 }
-.pb-ax {
+.pl-ax {
   font: 500 11px/1 var(--sans);
   fill: var(--ink-4);
   font-variant-numeric: tabular-nums;
 }
-.pb-ax.is-now {
+.pl-ax.is-now {
   fill: var(--accent-text);
   font-weight: 600;
 }
-/* the plan: a light well with a hairline edge */
-.pb-plan {
-  fill: var(--well);
-  stroke: rgba(15, 42, 68, 0.16);
-  stroke-width: 1;
+/* the plan: soft and dashed; the actual: solid navy, round at its joins */
+.pl-plan {
+  fill: none;
+  stroke: rgba(15, 42, 68, 0.34);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
 }
-.pb-week.is-now .pb-plan {
-  fill: #fff4ec;
-  stroke: rgba(242, 101, 34, 0.42);
-  stroke-dasharray: 3 2.5;
+.pl-done {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 3px 4px rgba(18, 50, 79, 0.18));
 }
-.pb-week {
-  transition: opacity 160ms var(--ease-out);
+.pl-solo {
+  fill: #12324f;
 }
-.pb-gap {
+/* this week so far: a dotted reach from the last finished week */
+.pl-reach {
+  fill: none;
+  stroke: #12324f;
+  stroke-width: 2.25;
+  stroke-dasharray: 0.5 5;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+.pl-gap {
   stroke: var(--ink-4);
   stroke-width: 2;
   stroke-linecap: round;
   opacity: 0.5;
 }
-.pb-now-dot {
-  fill: var(--accent-bright);
+/* this week: an orange dot with a soft halo */
+.pl-now {
+  fill: var(--accent);
+  stroke: #fff;
+  stroke-width: 2;
 }
-.pb-col {
-  fill: rgba(15, 42, 68, 0.05);
+.pl-now-halo {
+  fill: var(--accent);
+  opacity: 0.16;
 }
-/* the bars rise once, when the chart first draws and when the switch changes; reduced motion draws them in place */
-.pb-bars .pb-week {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: pb-rise 420ms cubic-bezier(0.23, 1, 0.32, 1) both;
+/* the week under the finger */
+.pl-rule {
+  stroke: rgba(15, 42, 68, 0.28);
+  stroke-width: 1;
 }
-@keyframes pb-rise {
-  from {
-    transform: scaleY(0.04);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-  }
+.pl-dot-plan {
+  fill: #fff;
+  stroke: rgba(15, 42, 68, 0.45);
+  stroke-width: 2;
 }
-@media (prefers-reduced-motion: reduce) {
-  .pb-bars .pb-week {
-    animation: none;
-  }
-  .pb-week {
-    transition: none;
-  }
+.pl-dot-done {
+  fill: #12324f;
+  stroke: #fff;
+  stroke-width: 2;
+}
+.pl-dot-done.is-now {
+  fill: var(--accent);
 }
 
 /* ---------- the key under the chart ---------- */
@@ -216,8 +228,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 14px;
-  margin-top: 8px;
+  gap: 6px 16px;
+  margin-top: 6px;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot, 16px);
   color: var(--ink-3);
@@ -225,25 +237,176 @@
 .ph-key {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   white-space: nowrap;
 }
 .ph-key::before {
   content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
   flex: none;
 }
-.ph-key.is-done::before {
-  background: linear-gradient(180deg, #2a5a86, #12324f);
+.ph-key.is-actual::before {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: #12324f;
 }
 .ph-key.is-plan::before {
-  background: var(--well);
-  box-shadow: inset 0 0 0 1px rgba(15, 42, 68, 0.22);
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed rgba(15, 42, 68, 0.4);
 }
 .ph-key.is-now::before {
-  background: linear-gradient(180deg, #ff8a3d, #ef5f12);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.16);
+}
+
+/* ---------- strength: the workouts, a card each ---------- */
+.ll {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+.ll-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ll-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 12px 8px 8px;
+  container: llcard / inline-size;
+  border: 0;
+  border-radius: 16px;
+  background: var(--pearl);
+  box-shadow: var(--bevel-hi), 0 0 0 1px rgba(15, 42, 68, 0.06), 0 4px 12px -8px rgba(15, 42, 68, 0.22);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+}
+/* the day: a small tile pressed into the card */
+.ll-day {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  width: 48px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+}
+.ll-dow {
+  font: 600 11px/13px var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ll-dn {
+  font: 800 17px/20px var(--stamp);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ll-card.is-today .ll-day {
+  background: #fff1e7;
+  box-shadow: inset 0 0 0 1px rgba(242, 101, 34, 0.3);
+}
+.ll-card.is-today .ll-dow {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent-text);
+}
+.ll-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ll-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ll-title {
+  min-width: 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the status: a small pill after the name; navy when done, orange when missed, quiet otherwise */
+.ll-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  height: 20px;
+  padding: 0 7px 0 6px;
+  border-radius: 999px;
+  background: rgba(15, 42, 68, 0.06);
+  font: 600 12px/16px var(--sans);
+  color: var(--ink-3);
+}
+.ll-card.is-done .ll-status {
+  background: var(--columbia-wash);
+  color: #1f5f8b;
+}
+.ll-card.is-missed .ll-status {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.ll-sum {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ll-card.is-planned .ll-title,
+.ll-card.is-skipped .ll-title {
+  color: var(--ink-2);
+}
+/* a 320 px phone: the line of numbers takes a size down so it reads to its end */
+@container llcard (max-width: 15.5rem) {
+  .ll-title {
+    font-size: var(--fs-sub);
+  }
+  .ll-sum {
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+  }
+}
+.ll-none {
+  margin: 0;
+  padding: 12px 4px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+.ll-more {
+  justify-self: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-text);
+}
+.ll-more:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  border-radius: 10px;
 }
 
 /* ---------- empty: the switch stays, a ghost of the bars, one sentence, one verb ---------- */
