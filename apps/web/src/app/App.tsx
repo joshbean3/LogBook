@@ -3,7 +3,8 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
-import { apiOrigin, onDeepLink, hideSplash } from '@/lib/native';
+import { apiOrigin, isNative, onDeepLink, hideSplash } from '@/lib/native';
+import { installSetupDue, startReplay } from '@/features/onboarding/replay';
 import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
@@ -218,6 +219,11 @@ const Authed = () => {
   }
   // a new account goes through first run before anything else (the owner's onboardedAt is set, so it never does)
   if (boot.data?.user.onboardedAt === null && !loc.pathname.startsWith('/welcome')) return <Navigate to="/welcome" replace />;
+  // a fresh install of the iOS app runs setup once, even for an account that finished it (as a replay: nothing saved)
+  if (boot.data?.user && installSetupDue(isNative) && !loc.pathname.startsWith('/welcome')) {
+    startReplay(boot.data.user.id);
+    return <Navigate to="/welcome/goal" replace />;
+  }
   return (
     <Routes>
       {/* first run is full screen (react-router's; NavController sleeps there): no tab bar */}

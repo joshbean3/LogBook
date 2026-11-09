@@ -15,7 +15,7 @@ import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
 import { blockShape, buildSteps, DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
-import { endReplay, isReplaying } from './replay';
+import { endReplay, isReplaying, markInstallSetupShown } from './replay';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
 import { enrollIntros } from './FeatureIntro';
 import { handOff } from './handoff';
@@ -421,6 +421,7 @@ function Flow({ uid }: { uid: string }) {
     ss.del(draftKey(uid));
     ss.del(PAYOFF_KEY);
     endReplay();
+    markInstallSetupShown();
   }
   /**
    * A row of the payoff's face, once Today is up (review code F2, F7): each does what it says, the way Today's own first-run
