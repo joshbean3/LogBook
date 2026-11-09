@@ -102,3 +102,18 @@ export const bandTime = (b: DayBand, hour: number): 'ahead' | 'now' | 'past' => 
   const [from, to] = b === 'morning' ? [0, 12] : b === 'afternoon' ? [12, 17] : [17, 24];
   return hour < from ? 'ahead' : hour >= to ? 'past' : 'now';
 };
+
+/** How many open to-dos the highlighted box holds: the day's priorities. */
+export const TOP = 3;
+
+/** The day's to-dos as one list: the open ones in the order they matter, then what got done (steps live with the goal). */
+export const focusOf = (cards: Card[]): Card[] => {
+  const todos = cards.filter((c) => c.kind === 'todo');
+  return [...todos.filter((c) => !c.done), ...todos.filter((c) => c.done)];
+};
+
+/** The list in its three parts: the priorities (the first three open), the rest still open, and what got done. */
+export const splitFocus = (cards: Card[]) => {
+  const open = cards.filter((c) => !c.done);
+  return { top: open.slice(0, TOP), rest: open.slice(TOP), done: cards.filter((c) => c.done) };
+};
