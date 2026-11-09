@@ -16,6 +16,7 @@ import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip 
 import { blockShape, buildSteps, DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
 import { endReplay, isReplaying, markInstallSetupShown } from './replay';
+import { Tour } from './tour/Tour';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
 import { enrollIntros } from './FeatureIntro';
 import { handOff } from './handoff';
@@ -35,6 +36,8 @@ import './beats.css';
  *                     and when it is tight, a one-tap earlier alarm
  *   /welcome/habits   starter habits (chips that become orbs)
  *   /welcome/nudge    on the phone only: one nudge a morning, previewed as the notification itself, chosen before iOS asks
+ *   /welcome/tour     how Logbook works: a page per part (to-dos, habits, goals, journal, learned, plan, progress, the ask
+ *                     bar), each with a short looping demo of the real gestures (tour/)
  *   /welcome/ready    the plan being written, one real step a beat (BuildBeat), then the payoff: POST /me/onboarding, the first week, "Tomorrow: Easy 4. Out the door 6:50.", and
  *                     Today's first-run face where Today's hero will be; Open Today hands off to Today in place (§8)
  *
@@ -47,9 +50,9 @@ import './beats.css';
  * this, unless it is in the middle of its own payoff.
  */
 
-type Step = '' | 'goal' | 'days' | 'morning' | 'habits' | 'nudge' | 'ready';
+type Step = '' | 'goal' | 'days' | 'morning' | 'habits' | 'nudge' | 'tour' | 'ready';
 /** The nudge step only where a nudge can be sent (the iOS app); the web has the dot on Goals. */
-const QUESTIONS: Step[] = ['goal', 'days', 'morning', 'habits', ...(remindersSupported() ? (['nudge'] as Step[]) : [])];
+const QUESTIONS: Step[] = ['goal', 'days', 'morning', 'habits', ...(remindersSupported() ? (['nudge'] as Step[]) : []), 'tour'];
 const ORDER: Step[] = ['', ...QUESTIONS, 'ready'];
 
 interface Draft {
@@ -66,6 +69,8 @@ interface Draft {
   custom: string[];
   /** The morning step's chips (Shower, Breakfast, Pack bag, Coffee): what happens between the run and the door. */
   routine?: string[];
+  /** The tour's page, so a reload lands on the same one. */
+  tourPage?: number;
   /** The morning nudge: on unless turned off (the system still asks; this is only what Continue asks it for). */
   nudge?: boolean;
   /** The answers last sent, and what came back, so a reload on the payoff never sends them twice. */
@@ -400,7 +405,7 @@ function Flow({ uid }: { uid: string }) {
             if (on) void enableReminders().catch(() => undefined);
             next();
           }}
-          nextLabel="Build my week"
+          nextLabel="Next"
           later="Turn it off any time in Goals."
         >
           <NudgeChoice on={on} at={d.wake + 15} onChange={(v) => set({ nudge: v })} />
@@ -408,6 +413,9 @@ function Flow({ uid }: { uid: string }) {
       );
       break;
     }
+    case 'tour':
+      body = <Tour page={d.tourPage ?? 0} onPage={(n) => set({ tourPage: n })} onDone={next} />;
+      break;
     case 'ready':
       body = <Payoff draft={d} set={set} profile={profile} start={start} today={t} onOpen={openToday} />;
       break;

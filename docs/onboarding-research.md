@@ -24,10 +24,14 @@ November 2026. Sources are linked; vendor and company-blog numbers are marked as
 
 ## Flow
 
+Runs for every new account, and once on every fresh install of the iOS app (an account that already has a plan gets it as a preview that saves nothing). Settings → Replay setup runs it any time, also as a preview.
+
+
 1. Value pager, then privacy, then the account (unchanged).
 2. Goal: chips, then race day and the block's shape.
 3. Days and weekly miles, with the shape kept in view.
 4. Wake and leave times, with what happens before the door.
 5. Habits, as lights.
 6. Morning nudge (iOS only).
-7. Writing your plan, then the week and Today's first-run face, then the hand-off to Today.
+7. How Logbook works: a page per part (to-dos, habits, goals, journal, learned, plan, progress, the ask bar), each with a looping demo of the real gestures and labels, and numbered steps lit as the demo plays them. Under Reduce Motion each demo holds its finished frame. Swipe or Next; Skip jumps to the plan.
+8. Writing your plan, then the week and Today's first-run face, then the hand-off to Today.

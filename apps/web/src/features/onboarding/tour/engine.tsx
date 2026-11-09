@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * A tiny film engine for the tour's demos: a loop of beats (ms each), a finger that travels and presses, and text that
@@ -46,15 +46,43 @@ export const useTyped = (text: string, on: boolean, full: boolean, cps = 22): st
   return text.slice(0, n);
 };
 
-/** The finger: a soft disc that glides to (x, y) in the stage (percent) and presses (`down`). Hidden when `x` is null. */
-export const Finger = ({ at, down = false, hold = false }: { at: [number, number] | null; down?: boolean; hold?: boolean }) => (
-  <span
-    className={`tf ${at ? '' : 'is-off'} ${down ? 'is-down' : ''} ${hold ? 'is-hold' : ''}`}
-    style={at ? { left: `${at[0]}%`, top: `${at[1]}%` } : undefined}
-    aria-hidden="true"
-  >
-    <i />
-  </span>
+/**
+ * The finger: a soft disc that glides to the element marked `data-spot={spot}` inside its stage (measured on every change,
+ * so it finds rows that have moved) and presses (`down`) or holds (`hold`). `carry` rides under it: a run being dragged.
+ */
+export const Finger = ({ spot, down = false, hold = false, carry }: { spot: string | null; down?: boolean; hold?: boolean; carry?: React.ReactNode }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [at, setAt] = useState<[number, number] | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const stage = el?.closest('.tstage');
+    const t = spot && stage ? stage.querySelector(`[data-spot="${spot}"]`) : null;
+    // set only on a real change: this runs after every render, so an unconditional set would loop
+    if (!t || !stage) return setAt((cur) => (cur ? null : cur));
+    const s = stage.getBoundingClientRect();
+    const r = t.getBoundingClientRect();
+    const x = Math.round(r.left - s.left + r.width / 2);
+    const y = Math.round(r.top - s.top + r.height / 2);
+    setAt((cur) => (cur && cur[0] === x && cur[1] === y ? cur : [x, y]));
+  });
+  return (
+    <span ref={ref} className={`tf ${at ? '' : 'is-off'} ${down ? 'is-down' : ''} ${hold ? 'is-hold' : ''}`} style={at ? { left: at[0], top: at[1] } : undefined} aria-hidden="true">
+      {carry ? <span className="tf-carry">{carry}</span> : null}
+      <i />
+    </span>
+  );
+};
+
+/** The steps under a demo, lit in turn as the demo plays them (all lit when it holds still). */
+export const Steps = ({ items, on }: { items: readonly string[]; on: number }) => (
+  <ol className="tour-steps">
+    {items.map((t, i) => (
+      <li key={t} className={on < 0 || i === on ? 'is-on' : ''}>
+        <b>{i + 1}</b>
+        {t}
+      </li>
+    ))}
+  </ol>
 );
 
 /** A demo's stage: a miniature screen card the finger plays over. */
