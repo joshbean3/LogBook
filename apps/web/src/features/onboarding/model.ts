@@ -332,3 +332,60 @@ export const nextMondayAfter = (d: ISODate): ISODate => (weekdayOf(d) === 'mon' 
 
 /** Whether the block was written from answers (onboarding or a template), so its goal can be read from its name. */
 export const isTemplateBlock = (b: PlanBlock | null) => !!b && (b.source === 'onboarding' || b.source === 'template' || GOAL_FROM_NAME.some(([re]) => re.test(b.name)));
+
+// ---------- the block's shape: the live preview under the first questions ----------
+export interface BlockShape {
+  /** Weeks to race day as the race strip counts them; for a block with no race, its full weeks. */
+  weeks: number;
+  /** The biggest week's target, in miles. */
+  peak: number;
+  /** The first full week's target, where the build starts. */
+  from: number;
+  taperWeeks: number;
+  raceDate: ISODate | null;
+  /** One bar per week, lead-in included: its kind and its height as a share of the peak (0..1). */
+  bars: Array<{ week: number; kind: Template['weeks'][number]['kind']; h: number }>;
+}
+
+/**
+ * What the answers so far would build, read off the real template (the same `buildTemplate` the server runs), so the
+ * preview never promises a number the plan won't keep. The race week's bar stands at the race's own distance share.
+ */
+export const blockShape = (t: Template | null): BlockShape | null => {
+  if (!t || !t.weeks.length) return null;
+  const full = t.weeks.filter((w) => w.week > 0);
+  const vol = (w: Template['weeks'][number]) => (w.kind === 'race' ? w.miles : w.target);
+  const peak = Math.max(1, ...t.weeks.map(vol));
+  return {
+    // counted the way the race-day strip counts them ("12 wk"), so the two never disagree
+    weeks: t.raceDate ? weeksUntil(t.start, t.raceDate) : full.length,
+    peak: Math.round(Math.max(...t.weeks.filter((w) => w.kind !== 'race').map((w) => w.target), 0)),
+    from: Math.round((full[0] ?? t.weeks[0]!).target),
+    taperWeeks: t.weeks.filter((w) => w.kind === 'taper').length,
+    raceDate: t.raceDate,
+    bars: t.weeks.map((w) => ({ week: w.week, kind: w.kind, h: Math.max(0.08, vol(w) / peak) })),
+  };
+};
+
+/** The one line under the shape: "16 weeks. 18 to 34 mi a week, then a 2-week taper." */
+export const blockLine = (s: BlockShape) => {
+  const weeks = `${s.weeks} ${s.weeks === 1 ? 'week' : 'weeks'}`;
+  const range = s.peak > s.from ? `${s.from} to ${s.peak} mi a week` : `about ${s.peak} mi a week`;
+  const taper = s.taperWeeks ? `, then a ${s.taperWeeks}-week taper` : '';
+  return `${weeks}. ${range}${taper}.`;
+};
+
+/**
+ * The plan-build beat on the payoff: the real steps the answers asked for, in the order the plan takes them. Each is
+ * true of what is written (Buell & Norton 2011: visible work raises perceived value only when it's the actual work).
+ */
+export const buildSteps = (p: TrainingProfile, s: BlockShape | null, wake: number, leave: number, habits: number): string[] => {
+  const out: string[] = [];
+  out.push(p.goal === 'base' ? 'Setting a steady build' : `Counting back from ${p.raceDate ? fmtDate('short', p.raceDate) : 'race day'}`);
+  out.push(`Putting the long run on ${DAY_NAME[fixLongRun(p.runDays, p.longRunDay)]}`);
+  if (s) out.push(s.peak > s.from ? `Building from ${s.from} to ${s.peak} mi a week` : `Holding about ${s.peak} mi a week`);
+  if (s?.taperWeeks) out.push(`Easing off for ${s.taperWeeks} ${s.taperWeeks === 1 ? 'week' : 'weeks'} before the race`);
+  out.push(`Fitting runs between ${hm(wake)} and ${hm(leave)}`);
+  if (habits) out.push(`Adding ${habits} ${habits === 1 ? 'light' : 'lights'} to Today`);
+  return out;
+};

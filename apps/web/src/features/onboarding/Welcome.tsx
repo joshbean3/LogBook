@@ -1,7 +1,7 @@
 import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
 import { Check, ChevronLeft, Clock } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { FirstRunHero, type FirstRunAction } from '@/features/day/FirstRunHero';
@@ -13,12 +13,15 @@ import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
 import { crossfade, fadeIn, springs } from '@/lib/motion';
 import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { blockShape, buildSteps, DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
+import { enableReminders, remindersSupported } from '@/features/goals/reminders';
 import { enrollIntros } from './FeatureIntro';
 import { handOff } from './handoff';
 import { StravaPrimer } from './StravaPrimer';
 import { commitsBack, releaseVelocity } from './velocity';
 import './onboarding.css';
+import './beats.css';
 
 /**
  * First run, /welcome/* (experience §5.8, research §6): about sixty seconds, value before asks.
@@ -30,16 +33,22 @@ import './onboarding.css';
  *   /welcome/morning  when you wake and leave (two markers on a timeline), what you do before you leave (chips),
  *                     and when it is tight, a one-tap earlier alarm
  *   /welcome/habits   starter habits (chips that become orbs)
- *   /welcome/ready    the payoff: POST /me/onboarding, the first week, "Tomorrow: Easy 4. Out the door 6:50.", and
+ *   /welcome/nudge    on the phone only: one nudge a morning, previewed as the notification itself, chosen before iOS asks
+ *   /welcome/ready    the plan being written, one real step a beat (BuildBeat), then the payoff: POST /me/onboarding, the first week, "Tomorrow: Easy 4. Out the door 6:50.", and
  *                     Today's first-run face where Today's hero will be; Open Today hands off to Today in place (§8)
+ *
+ * Onboarding v2 (docs/onboarding-research.md): a segmented bar opens with the account already filled in; the goal and
+ * days questions carry a live preview of the block the answers build, read off the real template; the payoff opens on
+ * the plan being written, step by step, and lands on a success haptic.
  *
  * Every answer lives in sessionStorage per account, so a reload lands on the same step with the same answers. Back is the
  * chevron, the browser's back, or an edge swipe from the left. An account that has finished (onboardedAt set) never sees
  * this, unless it is in the middle of its own payoff.
  */
 
-type Step = '' | 'goal' | 'days' | 'morning' | 'habits' | 'ready';
-const QUESTIONS: Step[] = ['goal', 'days', 'morning', 'habits'];
+type Step = '' | 'goal' | 'days' | 'morning' | 'habits' | 'nudge' | 'ready';
+/** The nudge step only where a nudge can be sent (the iOS app); the web has the dot on Goals. */
+const QUESTIONS: Step[] = ['goal', 'days', 'morning', 'habits', ...(remindersSupported() ? (['nudge'] as Step[]) : [])];
 const ORDER: Step[] = ['', ...QUESTIONS, 'ready'];
 
 interface Draft {
@@ -56,6 +65,8 @@ interface Draft {
   custom: string[];
   /** The morning step's chips (Shower, Breakfast, Pack bag, Coffee): what happens between the run and the door. */
   routine?: string[];
+  /** The morning nudge: on unless turned off (the system still asks; this is only what Continue asks it for). */
+  nudge?: boolean;
   /** The answers last sent, and what came back, so a reload on the payoff never sends them twice. */
   sent?: string;
   firstDay?: string | null;
@@ -147,6 +158,7 @@ function Flow({ uid }: { uid: string }) {
   const t = useMemo(() => todayISO(), []);
   const start = startOf(t);
   const profile = profileOf(d, start);
+  const shape = useMemo(() => blockShape(safeTemplate(profile, start)), [profile.goal, profile.raceDate, profile.runDays.join(), profile.longRunDay, profile.weeklyMiles, start]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // direction of travel, for the slide: forward from the right, back from the left
   const prevIdx = useRef(ORDER.indexOf(step));
@@ -267,7 +279,11 @@ function Flow({ uid }: { uid: string }) {
         <Question title="What are you training for?" sub="Pick one. A race gets a taper; just running gets a steady build." onNext={next} nextDisabled={!d.goal}>
           <GoalChips
             value={d.goal}
-            onChange={(g) => set({ goal: g, raceDate: undefined, weeklyMiles: d.milesTouched ? d.weeklyMiles : DEFAULT_MILES[g] })}
+            onChange={(g) => {
+              set({ goal: g, raceDate: undefined, weeklyMiles: d.milesTouched ? d.weeklyMiles : DEFAULT_MILES[g] });
+              // the answer does something at once: the screen glides to the race day and the block it builds
+              setTimeout(() => screenRef.current?.querySelector('.ob-stage[data-step="goal"] .obx-block')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }), 90);
+            }}
           />
           <AnimatePresence initial={false}>
             {d.goal && d.goal !== 'base' ? (
@@ -276,9 +292,11 @@ function Flow({ uid }: { uid: string }) {
                   Race day <span className="ob-q-value">{profile.raceDate ? fmtDate('short', profile.raceDate) : 'Not set'}</span>
                 </p>
                 <RaceStrip start={start} value={profile.raceDate} onChange={(r) => set({ raceDate: r })} />
+                <BlockPreview shape={shape} bare />
               </motion.div>
             ) : null}
           </AnimatePresence>
+          {d.goal === 'base' ? <BlockPreview shape={shape} /> : null}
         </Question>
       );
       break;
@@ -292,9 +310,10 @@ function Flow({ uid }: { uid: string }) {
             <p className="ob-q-label ob-miles-label">About how much do you run now?</p>
             <MilesDial value={d.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => set({ weeklyMiles: v, milesTouched: true })} />
             <p className="ob-hint">
-              {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week. {d.goal && d.goal !== 'base' ? `Your ${goalLong(d.goal)} plan` : 'Your plan'} builds from {d.weeklyMiles} mi, about 10% a week.
+              {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week. {d.goal && d.goal !== 'base' ? `Your ${goalLong(d.goal)} plan` : 'Your plan'} builds from here, about 10% a week.
             </p>
           </div>
+          <BlockPreview shape={shape} compact />
         </Question>
       );
       break;
@@ -361,13 +380,32 @@ function Flow({ uid }: { uid: string }) {
     }
     case 'habits':
       body = (
-        <Question title="A few lights for every day." sub="Pick any, or none. They become the lights you tap on Today." onNext={next} nextLabel="Build my week" later="You can add or change habits any time.">
+        <Question title="A few lights for every day." sub="Pick any, or none. They become the lights you tap on Today." onNext={next} nextLabel={QUESTIONS.at(-1) === 'habits' ? 'Build my week' : 'Next'} later="You can add or change habits any time.">
           <div className="card ob-card">
             <HabitPicker selected={d.habits} custom={d.custom} onChange={(habits, custom) => set({ habits, custom })} />
           </div>
         </Question>
       );
       break;
+    case 'nudge': {
+      const on = d.nudge !== false;
+      body = (
+        <Question
+          title="One nudge, each morning."
+          sub="People who pick a time to be reminded stick with it longer. Logbook sends one, only on days with no goal yet."
+          onNext={() => {
+            // the system alert comes from Continue, after the choice was made here; a "No nudges" never sees it
+            if (on) void enableReminders().catch(() => undefined);
+            next();
+          }}
+          nextLabel="Build my week"
+          later="Turn it off any time in Goals."
+        >
+          <NudgeChoice on={on} at={d.wake + 15} onChange={(v) => set({ nudge: v })} />
+        </Question>
+      );
+      break;
+    }
     case 'ready':
       body = <Payoff draft={d} set={set} profile={profile} start={start} today={t} onOpen={openToday} />;
       break;
@@ -427,11 +465,7 @@ function Flow({ uid }: { uid: string }) {
               <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
             </button>
           </span>
-          <div className="ob-dots" role="progressbar" aria-label="Setup" aria-valuemin={1} aria-valuemax={QUESTIONS.length} aria-valuenow={qIndex + 1} aria-valuetext={`Step ${qIndex + 1} of ${QUESTIONS.length}`}>
-            {QUESTIONS.map((q, i) => (
-              <span key={q} className={`ob-dot ${i === qIndex ? 'on' : i < qIndex ? 'done' : ''}`} />
-            ))}
-          </div>
+          <SetupBar steps={QUESTIONS.length} index={qIndex} />
           <span className={`ob-slot end ${step !== 'goal' ? '' : 'is-gone'}`} inert={step === 'goal'}>
             <Pressable className="ob-skip" press="dim" onPress={step !== 'goal' ? next : () => undefined}>
               Skip
@@ -559,9 +593,31 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
     }
   }, [waiting, done]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // the plan being written: once per first run (a reload after it saved opens straight on the payoff)
+  const [phase, setPhase] = useState<'build' | 'reveal'>(saved ? 'reveal' : 'build');
+  const shape = useMemo(() => blockShape(safeTemplate(profile, start)), [profile, start]);
+  const steps = useMemo(() => buildSteps(profile, shape, draft.wake, draft.leave, draft.habits.length + draft.custom.length), [profile, shape, draft.wake, draft.leave, draft.habits.length, draft.custom.length]);
+  const reveal = useCallback(() => {
+    setPhase('reveal');
+    haptics.success();
+  }, []);
+
   const first = week.first;
   const m = week.morning;
   const fade = reduce ? { duration: 0.15 } : { ...springs.page };
+  if (phase === 'build')
+    return (
+      <div className="ob-step ob-payoff is-building">
+        <BuildBeat steps={steps} ready={done} failed={onboard.isError} onDone={reveal} />
+        {onboard.isError ? (
+          <div className="ob-pay-foot">
+            <Pressable className="btn primary block ob-cta" onPress={send}>
+              Try again
+            </Pressable>
+          </div>
+        ) : null}
+      </div>
+    );
   return (
     <div className="ob-step ob-payoff">
       <header className="ob-pay-head">

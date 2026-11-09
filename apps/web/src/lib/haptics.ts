@@ -154,7 +154,7 @@ export const haptics: Record<HapticEvent, () => void> = {
   drop: fire('drop', () => impact('Light', 8)),
   /** A swipe row arming, pull to refresh arming: once, never on disarming. */
   threshold: fire('threshold', () => impact('Light', 8)),
-  /** Exactly two a day: Close the day's Save and the run landing's settle frame. */
+  /** Exactly two a day: Close the day's Save and the run landing's settle frame. Plus once ever: first run's plan reveal. */
   success: fire('success', () => notify('Success', [10, 30, 14])),
   /** Week ring closes, plan block completes: Heavy, then Success 120ms later. At most once a week. */
   celebrate: fire('celebrate', () => {

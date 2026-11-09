@@ -1,0 +1,286 @@
+/* ---------- onboarding v2 beats (beats.tsx): the setup bar, the block preview, the plan being written, the nudge ---------- */
+
+/* the setup bar: the account segment is already filled; the live one fills as you arrive */
+.obx-bar {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  max-width: 200px;
+  margin-inline: auto;
+}
+.obx-seg {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+  overflow: hidden;
+}
+.obx-seg i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 420ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.obx-seg.done i {
+  transform: scaleX(1);
+  background: var(--ink-2);
+}
+.obx-seg.on i {
+  transform: scaleX(0.5);
+}
+
+/* the block preview: weeks as bars, coloured by what the week is for */
+.card.obx-block {
+  display: grid;
+  gap: 12px;
+  padding: 16px 16px 14px;
+}
+.obx-block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-3);
+}
+.obx-block-big {
+  font: 400 1.75rem / 2rem var(--serif);
+  color: var(--ink);
+}
+.obx-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 72px;
+}
+.card.obx-block.is-compact .obx-bars {
+  height: 44px;
+}
+.obx-b {
+  flex: 1 1 0;
+  min-width: 2px;
+  height: 100%;
+  border-radius: 3px 3px 1px 1px;
+  background: var(--ink-2);
+  transform-origin: bottom;
+  transition:
+    transform 460ms cubic-bezier(0.23, 1, 0.32, 1),
+    background 200ms;
+}
+.obx-b.k-lead-in {
+  background: var(--columbia, #b9d9eb);
+}
+.obx-b.k-down {
+  background: #7aa3c4;
+}
+.obx-b.k-taper {
+  background: #9cbad3;
+}
+.obx-b.k-race {
+  background: var(--accent);
+}
+.obx-block-line {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.card.obx-block.is-compact .obx-block-line {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+}
+
+/* the plan being written */
+.ob-payoff.is-building {
+  justify-content: center;
+}
+.obx-build {
+  display: grid;
+  align-content: center;
+  gap: 20px;
+  min-height: 60vh;
+  padding: calc(40px + var(--safe-t)) 4px 0;
+}
+.obx-build-title {
+  margin: 0;
+  font: italic 400 2.25rem / 2.5rem var(--serif);
+  text-wrap: balance;
+  color: var(--ink);
+}
+.obx-build-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.obx-build-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: 500 1.0625rem / 1.375rem var(--sans);
+  color: var(--ink-2);
+}
+.obx-tick {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--navy-pill, var(--ink));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 10px -4px rgba(15, 42, 68, 0.5);
+  color: #fff;
+}
+.obx-build-list .is-live {
+  color: var(--ink);
+}
+.obx-build-foot {
+  min-height: 1.25rem;
+  margin: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+
+/* one nudge a morning: a slice of the lock screen, then the choice */
+.obx-lock {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 18px 14px 16px;
+  border-radius: var(--r-card, 22px);
+  background: linear-gradient(170deg, #1b3e5f 0%, #2f5d85 55%, #b9d9eb 140%);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.obx-lock-time {
+  font: 600 3rem / 1 var(--sans);
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.92);
+  font-variant-numeric: tabular-nums;
+}
+.obx-note {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.4);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.obx-note b {
+  font-weight: 600;
+}
+.obx-note-app {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  font: 600 0.75rem / 1rem var(--sans);
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+.obx-note-app i {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--navy-pill, var(--ink));
+}
+.obx-note-app small {
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.card.obx-choice {
+  display: grid;
+  gap: 0;
+  padding: 4px 0;
+}
+.obx-opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--ink);
+}
+.obx-opt + .obx-opt::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.obx-opt-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon, 9px);
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.obx-opt-text {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.obx-opt-text b {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+}
+.obx-opt-text span {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.obx-radio {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: var(--well-shadow);
+  background: var(--well);
+  transition:
+    background 160ms,
+    box-shadow 160ms;
+}
+.obx-opt.on .obx-radio {
+  background: var(--ink) radial-gradient(circle, #fff 0 4px, transparent 4.5px);
+  box-shadow: 0 2px 6px -2px rgba(15, 42, 68, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .obx-seg i,
+  .obx-b {
+    transition-duration: 1ms;
+  }
+}
+.obx-block.is-bare {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.obx-block.is-bare .obx-bars {
+  height: 48px;
+}
+.obx-block.is-bare .obx-block-line {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+}

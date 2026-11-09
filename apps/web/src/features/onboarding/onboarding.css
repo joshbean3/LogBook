@@ -329,6 +329,11 @@
 .ob-race-block {
   overflow: hidden;
   margin-top: 2px;
+  /* the card is a grid (shape layer): without a 0 minimum its one track grows to the strip's full scroll width */
+  grid-template-columns: minmax(0, 1fr);
+}
+.ob-race-block > * {
+  min-width: 0;
 }
 .ob-race-block > .ob-q-label {
   margin-bottom: 12px;
