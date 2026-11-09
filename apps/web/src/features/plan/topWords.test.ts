@@ -1,46 +1,64 @@
-import type { PlanBlock } from '@logbook/shared';
+import type { PlanBlock, Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { planCardWords, weekCardWords, type TopBlock } from './topWords';
+import { goalOf, lengthWords, longWords, planFacts, sourceWords } from './planFacts';
+import { planCardWords, type TopBlock } from './topWords';
 
-const block: PlanBlock = { id: 'b1', name: 'Half marathon · 12 weeks', start: '2026-11-10', end: '2027-02-07', source: null, summary: null, createdAt: '2026-11-01T00:00:00Z' };
-const base: TopBlock = { t: '2026-11-09', b: block, st: 'Upcoming', weeks: 12, wk: 0, phases: {}, race: null };
-const nb = (s: string) => s.replace(/ /g, ' ');
+const block: PlanBlock = { id: 'b1', name: 'Half marathon · 12 weeks', start: '2026-11-10', end: '2027-02-07', source: 'onboarding', summary: null, createdAt: '2026-11-09T18:57:16.193Z' };
+const base: TopBlock = { t: '2026-11-09', b: block, st: 'Upcoming', weeks: 12, wk: 0, phases: {} };
+const nb = (s: string | null | undefined) => (s ?? '').replace(/ /g, ' ');
 
-describe('the week card', () => {
-  it('names the lead-in before week 1', () => {
-    const w = weekCardWords(base, '2026-11-09');
-    expect(w.title).toBe('Lead-in');
-    expect(nb(w.sub)).toBe('Week 1 starts Nov 16');
-    expect(w.inPlan).toBe(true);
+describe('the plan card', () => {
+  it('names the plan without its length and says when it starts', () => {
+    expect(planCardWords(base)).toEqual({ title: 'Half marathon', state: 'Starts Tuesday · 12 weeks', progress: 0 });
+    expect(nb(planCardWords({ ...base, t: '2026-10-01' })!.state)).toBe('Starts Nov 10 · 12 weeks');
   });
-  it('says the week number and its phase, a down week, race week', () => {
+  it('the lead-in, then the week, its phase, and how far through', () => {
+    expect(nb(planCardWords({ ...base, t: '2026-11-11', st: 'Active' })!.state)).toBe('Lead-in · Week 1 starts Monday');
     const phases = { '2026-11-30': { phase: 'build' as const, down: false }, '2026-12-07': { phase: 'build' as const, down: true }, '2027-02-01': { phase: 'race' as const, down: false } };
-    expect(weekCardWords({ ...base, phases }, '2026-11-30')).toEqual({ title: 'Week 3 of 12', sub: 'Build', inPlan: true });
-    expect(weekCardWords({ ...base, phases }, '2026-12-07').sub).toBe('Down week');
-    expect(weekCardWords({ ...base, phases }, '2027-02-01')).toEqual({ title: 'Week 12 of 12', sub: 'Race week', inPlan: true });
+    const w3 = planCardWords({ ...base, t: '2026-11-30', st: 'Active', wk: 3, phases })!;
+    expect(w3.state).toBe('Week 3 of 12 · Build');
+    expect(w3.progress).toBeCloseTo(15 / 84);
+    expect(planCardWords({ ...base, t: '2026-12-08', st: 'Active', wk: 4, phases })!.state).toBe('Week 4 of 12 · Down week');
+    expect(planCardWords({ ...base, t: '2027-02-07', st: 'Active', wk: 12, phases })).toMatchObject({ state: 'Week 12 of 12 · Race week', progress: 1 });
   });
-  it('outside the plan, the dates and when it starts or ended', () => {
-    const before = weekCardWords(base, '2026-11-02');
-    expect(before.title).toBe('Nov 2 – 8');
-    expect(nb(before.sub)).toBe('Plan starts Nov 10');
-    expect(nb(weekCardWords({ ...base, t: '2027-03-01' }, '2027-03-01').sub)).toBe('Plan ended Feb 7');
-    expect(weekCardWords({ ...base, b: null }, '2026-11-30')).toEqual({ title: 'Nov 30 – Dec 6', sub: 'No plan running', inPlan: false });
+  it('a finished plan, and none', () => {
+    expect(planCardWords({ ...base, t: '2027-03-01', st: 'Finished' })).toMatchObject({ progress: 1 });
+    expect(nb(planCardWords({ ...base, t: '2027-03-01', st: 'Finished' })!.state)).toBe('Ended Feb 7');
+    expect(planCardWords({ ...base, b: null })).toBeNull();
   });
 });
 
-describe('the plan card', () => {
-  it('the name without its length, the end or race day, when it starts', () => {
-    const p = planCardWords(base)!;
-    expect(p.title).toBe('Half marathon');
-    expect(nb(p.sub)).toBe('Ends Feb 7');
-    expect(p.foot).toBe('Starts Tuesday');
-    expect(nb(planCardWords({ ...base, race: '2027-02-07' })!.sub)).toBe('Race Feb 7');
+describe('where a plan came from', () => {
+  it('says what the block records, and nothing when it records nothing', () => {
+    expect(nb(sourceWords({ source: 'onboarding', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Built from your answers on Nov 9');
+    expect(nb(sourceWords({ source: 'template', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Made with the block builder on Nov 9');
+    expect(nb(sourceWords({ source: 'file', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Written by the assistant from a file you shared on Nov 9');
+    expect(nb(sourceWords({ source: 'chat', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Written by the assistant in a chat on Nov 9');
+    expect(sourceWords({ source: null, createdAt: '2026-11-09T12:00:00Z' })).toBeNull();
+    expect(sourceWords({ source: 'something else', createdAt: '2026-11-09T12:00:00Z' })).toBeNull();
   });
-  it('a build with no race; weeks to go; finished; none', () => {
-    expect(planCardWords({ ...base, b: { ...block, name: 'Base build' } })!.sub).toBe('Steady build');
-    expect(planCardWords({ ...base, t: '2026-12-01', st: 'Active', wk: 3 })!.foot).toBe('9 weeks to go');
-    expect(planCardWords({ ...base, t: '2027-02-05', st: 'Active', wk: 12 })!.foot).toBe('Last week');
-    expect(nb(planCardWords({ ...base, t: '2027-03-01', st: 'Finished' })!.foot)).toBe('Finished Feb 7');
-    expect(planCardWords({ ...base, b: null })).toBeNull();
+});
+
+describe('what a plan is and its goals', () => {
+  const profile = { goal: 'marathon' as const, raceDate: '2027-02-07', runDays: ['mon' as const], longRunDay: 'sat' as const, weeklyMiles: 25 };
+  it('reads the goal from the name, else from the answers that built it', () => {
+    expect(goalOf(block)).toBe('Half marathon');
+    expect(goalOf({ ...block, name: 'Spring 10K' })).toBe('10K');
+    expect(goalOf({ ...block, name: 'Base · 8 weeks' })).toBe('Base build');
+    expect(goalOf({ ...block, name: 'Banking Plan', source: 'file' }, profile)).toBeNull();
+    expect(goalOf({ ...block, name: 'Banking Plan', source: 'onboarding' }, profile)).toBe('Marathon');
+  });
+  it('counts the biggest week, runs a week, the long run and the race from the sessions', () => {
+    const s = (date: string, type: string, miles: number): [string, Session] => [date, { id: `${date}${type}`, date, position: 0, kind: 'run', type, title: null, details: type === 'Race' ? 'Goal 1:55' : null, miles, minutes: null, blockId: 'b1', movedFrom: null, mark: null } as unknown as Session];
+    const list = [s('2026-11-10', 'Easy', 3), s('2026-11-16', 'Easy', 4), s('2026-11-18', 'Tempo', 5), s('2026-11-21', 'Long', 8), s('2026-11-23', 'Easy', 4), s('2026-11-25', 'Easy', 4), s('2026-11-27', 'Easy', 4), s('2026-11-28', 'Long', 10), s('2027-02-07', 'Race', 13.1)];
+    const on = (d: string) => list.filter(([x]) => x === d).map(([, v]) => v);
+    const f = planFacts(block, 12, on);
+    expect(f.peak).toBe(22);
+    expect(f.runs).toBe('3 to 4');
+    expect(f.long).toEqual({ day: 'Saturday', short: 'Sat', miles: 10 });
+    expect(longWords(f.long!)).toBe('Saturdays, up to 10 mi');
+    expect(f.quality).toBe(1);
+    expect(f.race).toEqual({ date: '2027-02-07', name: 'Race 13.1', details: 'Goal 1:55' });
+    expect(lengthWords(f)).toBe('12 weeks after a lead-in');
   });
 });

@@ -15,14 +15,14 @@ import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
 import { MonthPage } from './Month';
-import { PlanCards, TodaySection } from './PlanTop';
+import { PlanCard, TodaySection } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
 
 /**
  * Plan (docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps `THIS WEEK · OCT 19–25` / `OCTOBER 2026` as stacked
  * labels bound to the shown pager's progress; title `Plan`, tap → this week / this month, hold → `Go to a week…`; the
- * `Week | Month` segmented in the 96 px slot); then two cards that say what the plan is and what week we are in (PlanTop),
+ * `Week | Month` segmented in the 96 px slot); then the plan card across the top (its name, where it stands, a tap for its summary: PlanTop),
  * the held banner, Today (the morning plan and today's session); then two mounted panes: the week pager (`DayPager
  * step='week'`, full-bleed, each page the week's header with previous and next, its one line and the seven days) and the
  * month pager (`step='month'`). No chart on the page. Switching is a 200 ms crossfade of the two panes (both in the DOM
@@ -367,20 +367,6 @@ export default function PlanView(): React.JSX.Element {
     },
     [weekH], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  /** The week card: this week's days, on screen (Week shown, the pager at this week, the days scrolled to under the bar). */
-  const onWeekCard = () => {
-    const s = live.current.st;
-    if (s.view !== 'week') show('week', { mon: live.current.thisMon });
-    else if ((weekH.target.get() ?? s.mon) !== live.current.thisMon) weekH.goTo(live.current.thisMon);
-    requestAnimationFrame(() => {
-      const sc = scroller.current;
-      const pane = weekPane.current;
-      if (!sc || !pane) return;
-      const bar = rootRef.current?.querySelector<HTMLElement>('.nb-bar')?.getBoundingClientRect().height ?? 0;
-      const top = pane.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - bar - 8;
-      sc.scrollTo({ top: Math.max(0, top), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    });
-  };
   const block = usePlanBlock();
   /**
    * A page that comes into a pager's neighbour slot is not built live inside the commit's flushSync (review-feel-1 #6;
@@ -584,8 +570,8 @@ export default function PlanView(): React.JSX.Element {
         titleRef={titleRef}
         gap={16}
       />
-      {/* what the plan is and what week we are in (today's week, whatever page is shown) */}
-      <PlanCards block={block} onWeek={onWeekCard} />
+      {/* the plan across the top: its name, where it stands, how far through; a tap opens its summary */}
+      <PlanCard block={block} />
       <HeldBanner />
       {/* the morning and today's session belong to the day, not to the week or month shown: above both panes, outside the pagers */}
       <TodaySection />

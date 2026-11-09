@@ -1,15 +1,16 @@
-import { counts, fmtDate, mondayOf, monthsBetween, num, sessionStatus, shiftDays, weekTotals, type PlanBlock } from '@logbook/shared';
-import { CalendarRange, ChevronRight, Sparkles, Trash2 } from 'lucide-react';
+import { counts, fmtDate, mondayOf, monthsBetween, num, sessionStatus, shiftDays, weekTotals, type Aim, type PlanBlock } from '@logbook/shared';
+import { CalendarRange, ChevronRight, ListChecks, Sparkles, Target, Trash2 } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { ApiError } from '@/api/client';
-import { usePlanDelete } from '@/api/queries';
+import { useGoals, usePlanDelete } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useContextMenu } from '@/ui/ContextMenu';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
 import { builderSpec } from './Builder';
 import type { BuilderPrefill } from './builderModel';
@@ -18,6 +19,7 @@ import { weekMiles } from '../sessions/miles';
 import { shortName } from './context';
 import { phasesOf, type PhaseWeek } from './phases';
 import { planWeeks, weekOf } from './topWords';
+import { lengthWords, miles1, planFacts, sourceWords } from './planFacts';
 import './plan.css';
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
@@ -93,8 +95,6 @@ export interface BlockCardData {
   peak: number;
   /** Each week's training phase by its Monday (empty with no block). */
   phases: Record<string, PhaseWeek>;
-  /** The block's race day, when it ends with a race. */
-  race: string | null;
 }
 export const blockCardOf = (log: Log): BlockCardData => {
   const t = log.today;
@@ -102,7 +102,7 @@ export const blockCardOf = (log: Log): BlockCardData => {
   const weeks = b ? planWeeks(b) : 0;
   const st = b ? stateOf(b, t) : 'Active';
   const arc = b ? arcOf(log, b) : [];
-  return { t, boot: !!log.boot, b, st, weeks, wk: b && st === 'Active' ? weekOf(b, t) : 0, arc, peak: Math.max(0, ...arc.map((w) => w.planned)), phases: b ? phasesFor(log, b, arc) : {}, race: b ? raceDayOf(log, b) : null };
+  return { t, boot: !!log.boot, b, st, weeks, wk: b && st === 'Active' ? weekOf(b, t) : 0, arc, peak: Math.max(0, ...arc.map((w) => w.planned)), phases: b ? phasesFor(log, b, arc) : {} };
 };
 
 export interface PlanBlockProps {
@@ -257,15 +257,37 @@ const PlanDelete = ({ b }: { b: PlanBlock }) => {
   );
 };
 
+/** The Goals tab's open goals that name this plan (its name, or its goal: `Run the half marathon under 2 hours`), at most three. */
+const goalsNaming = (aims: Aim[] | undefined, b: PlanBlock, goal: string | null) => {
+  const name = shortName(b.name).toLowerCase();
+  const terms = [name.length >= 4 ? name : null, goal && goal !== 'Base build' ? goal.toLowerCase() : null].filter((t): t is string => !!t);
+  if (!terms.length) return [];
+  return (aims ?? []).filter((a) => a.status === 'open' && terms.some((t) => a.text.toLowerCase().includes(t))).slice(0, 3);
+};
+const LEVEL_WORD: Record<Aim['level'], string> = { year: 'Year goal', month: 'Month goal', week: 'Week goal', day: 'Today' };
+
+/** A row of the summary: a grey label at the left, the value at the right (wrapping under it when long). */
+const SumRow = ({ k, v, sub }: { k: string; v: string; sub?: string | null }) => (
+  <div className="pl-sum-row">
+    <span className="pl-sum-k">{k}</span>
+    <span className="pl-sum-v">
+      {v}
+      {sub ? <small>{sub}</small> : null}
+    </span>
+  </div>
+);
+
 /**
- * One plan (an entry sheet's shape): its arc in a card with what it holds as tiles (weeks, sessions, kept so far), what
- * it is in words, and one navy pill to its week.
+ * One plan's sheet, its summary first: what it is in a sentence and where it came from (as the block records it); what it
+ * is (goal, dates, length, race day); its goals (the biggest week, runs a week, the long run, kept so far) and any open goal
+ * on the Goals tab that names it; then the weekly miles across its weeks, and one navy pill to its week.
  */
 const PlanDetail = ({ b }: { b: PlanBlock }) => {
   const sheet = useSheet();
   const nav = useNav();
   // every month of the plan, so the arc draws all of its weeks (the list's log holds only the months around today)
   const log = useLog(useMemo(() => monthsBetween(b.start, b.end).slice(0, 8), [b.start, b.end]));
+  const aims = useGoals().data;
   const t = log.today;
   const arc = arcOf(log, b);
   let done = 0;
@@ -280,31 +302,54 @@ const PlanDetail = ({ b }: { b: PlanBlock }) => {
     }
   const peak = Math.max(0, ...arc.map((w) => w.planned));
   const n = planWeeks(b);
+  const ready = monthsBetween(b.start, b.end).slice(0, 8).every((m) => log.loaded(`${m}-01`));
+  const f = planFacts(b, n, (d) => log.snap.sessionsOn(d), log.boot?.user.trainingProfile ?? null);
+  const from = sourceWords(b);
+  const named = goalsNaming(aims, b, f.goal);
   const go = () => {
     sheet.close();
     nav.go(`/plan/week/${mondayOf(b.start <= t && t <= b.end ? t : b.start)}`);
   };
+  const FromIcon = b.source === 'onboarding' || b.source === 'template' ? ListChecks : Sparkles;
   return (
-    <div className="pl-detail">
-      <div className="card pl-detail-arc">
-        <span className="pl-detail-label">Weekly miles</span>
-        <span className="tile-value">
-          {peak ? tenth(peak) : '–'}
-          <small>mi at the peak</small>
-        </span>
-        <Arc weeks={arc} today={t} tall />
-        <span className="pl-detail-axis" aria-hidden="true">
-          <span>{fmtDate('md', b.start)}</span>
-          <span>{fmtDate('md', b.end)}</span>
-        </span>
+    <div className="pl-detail pl-sum">
+      <div className="card pl-sum-lead">
+        <p className="pl-sum-text">{b.summary || `Runs and lifts laid out by week, to ${fmtDate('md', b.end)}.`}</p>
+        {from ? (
+          <p className="pl-sum-from">
+            <FromIcon size={15} aria-hidden="true" />
+            {from}
+          </p>
+        ) : null}
       </div>
-      <div className="tiles">
+
+      <SectionHeader size="sm" level={3} title="What it is" className="pl-sum-head" />
+      <div className="card pl-sum-rows">
+        {f.goal ? <SumRow k="Goal" v={f.goal} /> : null}
+        <SumRow k="Dates" v={`${fmtDate('md', b.start)} – ${fmtDate('md', b.end)}`} />
+        <SumRow k="Length" v={lengthWords(f)} />
+        {f.race ? <SumRow k="Race day" v={`${fmtDate('dow', f.race.date)}, ${fmtDate('md', f.race.date)}`} sub={[f.race.name, f.race.details].filter(Boolean).join(' · ') || null} /> : null}
+        <SumRow k="Sessions" v={String(b.sessionCount ?? 0)} />
+      </div>
+
+      <SectionHeader size="sm" level={3} title="Its goals" className="pl-sum-head" />
+      <div className="tiles pl-sum-tiles" aria-busy={!ready || undefined}>
         <div className="tile">
-          <span className="tile-label">Length</span>
+          <span className="tile-label">Biggest week</span>
           <span className="tile-value">
-            {n}
-            <small>{n === 1 ? 'week' : 'weeks'}</small>
+            {f.peak ? miles1(f.peak) : '–'}
+            <small>mi</small>
           </span>
+        </div>
+        <div className="tile">
+          <span className="tile-label">Runs a week</span>
+          <span className="tile-value">{f.runs ?? '–'}</span>
+          {f.quality ? <span className="pl-sum-tsub">{f.quality === 1 ? 'One of them hard' : `Up to ${f.quality} hard`}</span> : null}
+        </div>
+        <div className="tile">
+          <span className="tile-label">Long run</span>
+          <span className="tile-value">{f.long?.short ?? '–'}</span>
+          {f.long?.miles ? <span className="pl-sum-tsub">Up to {miles1(f.long.miles)} mi</span> : null}
         </div>
         <div className="tile">
           <span className="tile-label">Kept so far</span>
@@ -314,9 +359,31 @@ const PlanDetail = ({ b }: { b: PlanBlock }) => {
           </span>
         </div>
       </div>
-      <div className="card pl-detail-words">
-        <span className="pl-detail-label">{b.sessionCount ?? 0} sessions</span>
-        {b.summary ? <p className="pl-detail-sum">{b.summary}</p> : <p className="pl-detail-sum">Runs and lifts laid out by week, to {fmtDate('md', b.end)}.</p>}
+      {named.length ? (
+        <div className="card pl-sum-rows pl-sum-aims">
+          {named.map((a) => (
+            <div key={a.id} className="pl-sum-aim">
+              <Target size={17} aria-hidden="true" />
+              <span className="pl-sum-v">
+                {a.text}
+                <small>{LEVEL_WORD[a.level]}</small>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <SectionHeader size="sm" level={3} title="Weekly miles" className="pl-sum-head" />
+      <div className="card pl-detail-arc">
+        <span className="tile-value">
+          {peak ? tenth(peak) : '–'}
+          <small>mi at the peak</small>
+        </span>
+        <Arc weeks={arc} today={t} tall />
+        <span className="pl-detail-axis" aria-hidden="true">
+          <span>{fmtDate('md', b.start)}</span>
+          <span>{fmtDate('md', b.end)}</span>
+        </span>
       </div>
       <div className="sheet-foot">
         <Button variant="primary" block onClick={go}>
