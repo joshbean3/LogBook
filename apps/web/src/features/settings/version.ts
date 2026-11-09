@@ -24,3 +24,10 @@ export const useAppVersion = (): string => {
   }, []);
   return line;
 };
+
+/** "Built 922ade2 · Nov 9, 8:41 PM": the commit and time this bundle was built (vite.config.ts). */
+export const buildLine = (): string => {
+  const at = new Date(__BUILD_AT__);
+  const when = Number.isNaN(+at) ? '' : ` · ${at.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+  return `Built ${__BUILD_COMMIT__}${when}`;
+};

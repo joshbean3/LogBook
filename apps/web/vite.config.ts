@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +7,16 @@ import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+/** The commit and time this bundle was built from, shown under the version in Settings: on a phone, the only way to tell a stale build from a fresh one. */
+const commit = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', { cwd: here, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'dev';
+  }
+})();
+const builtAt = new Date().toISOString();
 
 /** The three latin files Today paints with: Inter (one variable file covers 400/500/600), Inter Tight 800, Instrument Serif italic. */
 const PRELOAD = ['Inter-latin.woff2', 'InterTight-latin.woff2', 'InstrumentSerif-italic-latin.woff2'];
@@ -34,6 +45,7 @@ const fonts = (): Plugin => ({
 });
 
 export default defineConfig({
+  define: { __BUILD_COMMIT__: JSON.stringify(commit), __BUILD_AT__: JSON.stringify(builtAt) },
   plugins: [
     react(),
     fonts(),

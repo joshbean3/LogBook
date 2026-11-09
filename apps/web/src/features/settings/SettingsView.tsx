@@ -18,7 +18,7 @@ import { ActionPill, GoRow, SGroup } from './parts';
 import { stravaGuide, useConnectionSheet } from './DataSources';
 import { HapticsRow, useSignOut } from './SectionPages';
 import { useConsent } from '@/features/auth/consent';
-import { useAppVersion } from './version';
+import { buildLine, useAppVersion } from './version';
 import { useTrainingProfile } from './useProfile';
 import './settings.css';
 
@@ -198,6 +198,7 @@ export default function SettingsView(): React.JSX.Element {
           <span className="display">Logbook</span>
         </span>
         <span className="s-version">{version}</span>
+        <span className="s-version s-build">{buildLine()}</span>
       </p>
     </div>
   );
