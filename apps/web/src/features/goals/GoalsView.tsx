@@ -1,4 +1,4 @@
-import { currentGoals, periodOf, periodSpan, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
+import { currentGoals, goalProgress, periodOf, periodSpan, shiftDays, shiftPeriod, type Aim, type GoalLevel } from '@logbook/shared';
 import { Bell, CalendarRange, Check, ChevronRight, Minus, Plus, Sunrise, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -17,31 +17,79 @@ import { cardCaps, clockOf, goalOf, LEVEL, LEVEL_HUE, setWords, STATUS_WORD } fr
 import { disableReminders, enableReminders, remindersOn, remindersSupported } from './reminders';
 import { useOpenGoal } from './GoalSheets';
 import { ScoreStrip, StaleNudge } from './GoalParts';
-import { celebrateOnce } from './game';
+import { Burst, celebrateOnce } from './game';
+import { TodayGoal } from './TodayGoal';
 import { useCelebrate } from './Celebrate';
 import { KSection } from './Kit';
 import './goals.css';
 
 /** Nearest first: the day, then the week, the month, the year. */
 const LEVELS: readonly GoalLevel[] = ['day', 'week', 'month', 'year'];
+/** Under today's goal, the rest, nearest first. */
+const BIGGER: readonly GoalLevel[] = ['week', 'month', 'year'];
 
 const hue = (level: GoalLevel) => ({ '--hue': LEVEL_HUE[level] }) as React.CSSProperties;
 
-/** Where an answered goal stands, as a small word with its mark: Done, Partly, Missed. */
-const Stamp = ({ status }: { status: Aim['status'] }) => (
-  <span className={`gl-stamp is-${status}`}>
-    {status === 'done' ? <Check size={14} strokeWidth={2.8} aria-hidden="true" /> : status === 'partly' ? <Minus size={14} strokeWidth={2.8} aria-hidden="true" /> : <X size={14} strokeWidth={2.6} aria-hidden="true" />}
-    {STATUS_WORD[status]}
-  </span>
-);
+const MR = 19;
+const MC = 2 * Math.PI * MR;
+// the rings fill from empty once a session, the first time the tab shows them
+let ringsDrawn = false;
 
 /**
- * One level's goal as a card in the list: the period at the top with its time left, the goal in the serif (or the way to
- * set it), its steps as a slim bar with k/n, and a chevron. A tap opens the goal, or the two ways to set one.
+ * A level's ring: its colour filling as far as the goal has come (its steps; all of it once done), k/n in the middle, a
+ * check once it is kept, a plus while it is unset. `hit` throws the burst.
  */
-const GoalCard = ({ level, period, goal, today, now }: { level: GoalLevel; period: string; goal: Aim | null; today: string; now: number }) => {
-  const open = useOpenGoal();
+const MiniRing = ({ goal, hit, first }: { goal: Aim | null; hit: number; first: boolean }) => {
   const reduce = useReduced();
+  const p = goal ? goalProgress(goal) : 0;
+  const n = goal?.steps.length ?? 0;
+  const k = goal?.steps.filter((s) => s.done).length ?? 0;
+  return (
+    <span className={`gl-ring ${goal ? `is-${goal.status}` : 'is-empty'}`} aria-hidden="true">
+      <svg viewBox="0 0 48 48" className="gl-ring-svg">
+        <circle cx={24} cy={24} r={MR} className="gl-ring-track" />
+        {goal ? (
+          <motion.circle
+            cx={24}
+            cy={24}
+            r={MR}
+            className="gl-ring-arc"
+            strokeDasharray={MC}
+            transform="rotate(-90 24 24)"
+            initial={first ? { strokeDashoffset: MC } : false}
+            animate={{ strokeDashoffset: MC * (1 - Math.max(p > 0 ? 0.02 : 0, p)) }}
+            transition={reduce ? { duration: 0 } : { type: 'spring', duration: first ? 1 : 0.6, bounce: 0.15, delay: first ? 0.25 : 0 }}
+          />
+        ) : null}
+      </svg>
+      <span className="gl-ring-mid">
+        {!goal ? (
+          <Plus size={18} strokeWidth={2.6} />
+        ) : goal.status === 'done' ? (
+          <Check size={20} strokeWidth={3} />
+        ) : goal.status === 'partly' ? (
+          <Minus size={18} strokeWidth={3} />
+        ) : goal.status === 'missed' ? (
+          <X size={18} strokeWidth={2.8} />
+        ) : n ? (
+          <span className="gl-ring-num tnum">
+            {k}/{n}
+          </span>
+        ) : (
+          <i className="gl-ring-dot" />
+        )}
+      </span>
+      <Burst go={hit} />
+    </span>
+  );
+};
+
+/**
+ * The week, the month or the year as a card under today's: its ring, the period with a chip for its time left, the goal in
+ * the serif (or the way to set it), and a chevron. A tap opens the goal, or the two ways to set one.
+ */
+const LevelCard = ({ level, period, goal, today, now, hit, first }: { level: GoalLevel; period: string; goal: Aim | null; today: string; now: number; hit: number; first: boolean }) => {
+  const open = useOpenGoal();
   const caps = cardCaps(level, period, today);
   const clock = clockOf(level, period, now);
   const n = goal?.steps.length ?? 0;
@@ -52,32 +100,13 @@ const GoalCard = ({ level, period, goal, today, now }: { level: GoalLevel; perio
     : `${LEVEL[level].label} goal, ${caps}: not set. ${setWords(level, period, today)}`;
   return (
     <Pressable className={`gl-card ${goal ? `is-${goal.status}` : 'is-empty'}`} press="scale" style={hue(level)} onPress={() => open(level, period)} label={label}>
+      <MiniRing goal={goal} hit={hit} first={first} />
       <span className="gl-main" aria-hidden="true">
         <span className="gl-head">
-          <span className="gl-tick" />
           <span className="caps gl-caps">{caps}</span>
-          <span className="gl-left">{answered ? <Stamp status={goal.status} /> : clock.words}</span>
+          <span className={`gl-chip ${answered ? `is-${goal.status}` : ''}`}>{answered ? STATUS_WORD[goal.status] : clock.words}</span>
         </span>
-        {goal ? (
-          <span className="gl-text">{goal.text}</span>
-        ) : (
-          <span className="gl-set">
-            <Plus size={18} strokeWidth={2.4} className="gl-set-plus" />
-            {setWords(level, period, today)}
-          </span>
-        )}
-        {goal && n ? (
-          <span className="gl-steps">
-            <span className="gl-bar">
-              <motion.i initial={false} animate={{ scaleX: k / n }} transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.5, bounce: 0.1 }} />
-            </span>
-            <span className="gl-count tnum">
-              {k}/{n}
-            </span>
-          </span>
-        ) : !goal ? (
-          <span className="gl-example">Like: {LEVEL[level].example}</span>
-        ) : null}
+        {goal ? <span className="gl-text">{goal.text}</span> : <span className="gl-set">{setWords(level, period, today)}</span>}
       </span>
       <ChevronRight size={20} className="gl-chev" aria-hidden="true" />
     </Pressable>
@@ -150,10 +179,10 @@ const DayTrail = ({ goals, today, onOpen }: { goals: Aim[]; today: string; onOpe
 };
 
 /**
- * Goals (the second tab): what is ahead (tomorrow, next week) as two small chips at the top, then the goals that stand now
- * as a list of cards, nearest first (the day, the week, the month, the year), each opening its goal or the way to set it,
- * with a review owed at its head. Then the record and the reminders. Each
- * goal goes through the review when it is set (Locke and Latham's rules), and everything that happens to it is kept.
+ * Goals (the second tab): what is ahead (tomorrow, next week) as two small chips at the top, then today's goal as the
+ * hero (its gauge, its steps to check, the next move), a review owed, then the week, the month and the year as smaller
+ * cards with their rings. Then the record and the reminders. Each goal goes through the review when it is set (Locke and
+ * Latham's rules), and everything that happens to it is kept.
  */
 export default function GoalsView(): React.JSX.Element {
   const today = useToday();
@@ -167,9 +196,15 @@ export default function GoalsView(): React.JSX.Element {
   const tomorrow = shiftDays(today, 1);
   const nextWeek = shiftPeriod('week', periodOf('week', today), 1);
   const aheadHint = useId();
+  const reduce = useReduced();
 
-  // a goal turning done while the tab is open (open → done), never one that loads done: the moment, once
+  // a goal turning done while the tab is open (open → done), never one that loads done: its burst and the moment, once
   const was = useRef<Record<string, string>>({});
+  const [hits, setHits] = useState<Partial<Record<GoalLevel, number>>>({});
+  const firstRings = useRef(!ringsDrawn && !reduce);
+  useEffect(() => {
+    if (goals.data) ringsDrawn = true;
+  }, [goals.data]);
   const celebrate = useCelebrate();
   const sig = LEVELS.map((l) => `${cur[l]?.id}:${cur[l]?.status}`).join('|');
   useEffect(() => {
@@ -180,6 +215,7 @@ export default function GoalsView(): React.JSX.Element {
       was.current[g.id] = g.status;
       if (before === 'open' && g.status === 'done') {
         celebrateOnce(`${g.id}:${g.updatedAt}`, l !== 'day');
+        setHits((h) => ({ ...h, [l]: Date.now() }));
         celebrate(g);
       }
     }
@@ -193,6 +229,7 @@ export default function GoalsView(): React.JSX.Element {
         <SkeletonRows rows={4} label="Loading goals" />
       ) : (
         <>
+          <Stack className="g-top">
           <div className="ga-row" role="group" aria-label="Ahead">
             <AheadChip level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} icon={<Sunrise size={15} />} title="Tomorrow" when={periodSpan('day', tomorrow)} describedBy={aheadHint} />
             <AheadChip level="week" period={nextWeek} goal={goalOf(list, 'week', nextWeek)} today={today} icon={<CalendarRange size={15} />} title="Next week" when={periodSpan('week', nextWeek)} describedBy={aheadHint} />
@@ -200,11 +237,13 @@ export default function GoalsView(): React.JSX.Element {
               Set them the night before. The review makes each one specific and due on time.
             </span>
           </div>
-          <KSection title="Now" meta={`${LEVELS.filter((l) => cur[l]).length} of 4 set`} className="g-now">
+          <TodayGoal goal={cur.day} today={today} now={now} hit={hits.day ?? 0} />
+          <StaleNudge goals={list} today={today} />
+          </Stack>
+          <KSection title="Further out" meta={`${BIGGER.filter((l) => cur[l]).length} of 3 set`} className="g-now">
             <Stack className="gl-list">
-              <StaleNudge goals={list} today={today} />
-              {LEVELS.map((l) => (
-                <GoalCard key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} now={now} />
+              {BIGGER.map((l) => (
+                <LevelCard key={l} level={l} period={periodOf(l, today)} goal={cur[l]} today={today} now={now} hit={hits[l] ?? 0} first={firstRings.current} />
               ))}
             </Stack>
           </KSection>

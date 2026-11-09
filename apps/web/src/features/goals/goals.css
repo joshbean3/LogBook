@@ -459,23 +459,307 @@
 }
 
 /* ======================================================================================================================
-   Shape system v2 (docs/shape-system.md): the tab as a stack of white lifted cards on one gutter. A review owed, then the
-   goals that stand now as a list of cards (day, week, month, year) under two small chips for what is ahead, then History. The sheets: content in cards, steps as rows, one navy pill pinned at the bottom.
+   Shape system v2 (docs/shape-system.md): the tab as a stack of white lifted cards on one gutter. Two small chips for
+   what is ahead, today's goal as the warm hero, a review owed, the week, the month and the year as cards with their rings,
+   then History. The sheets: content in cards, steps as rows, one navy pill pinned at the bottom.
    ====================================================================================================================== */
 
 /* ---------- the tab ---------- */
 .g-page > .nb-gap {
   height: var(--gap);
 }
-/* ---------- the goals now: one card per level, a list to scroll ---------- */
+/* ---------- today's goal, the hero: a warm card, the gauge, the words, the steps to check, the next move ---------- */
+.gh,
+.gh.pressable {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 18px 18px 16px;
+  border-radius: 24px;
+  border: 0;
+  background:
+    radial-gradient(90% 60% at 12% 0%, rgba(255, 190, 170, 0.55), rgba(255, 190, 170, 0) 70%),
+    radial-gradient(90% 60% at 92% 4%, rgba(255, 226, 140, 0.6), rgba(255, 226, 140, 0) 70%),
+    linear-gradient(180deg, #fff9f2 0%, #ffffff 62%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(15, 42, 68, 0.04),
+    0 2px 6px rgba(15, 42, 68, 0.05),
+    0 22px 44px -18px rgba(170, 110, 40, 0.28);
+  color: var(--ink);
+  text-align: left;
+  transition: transform 160ms var(--ease-out);
+}
+/* kept: the gold comes all the way in */
+.gh.is-done {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 210, 110, 0.75), rgba(255, 210, 110, 0) 72%),
+    linear-gradient(180deg, #fff3dc 0%, #fffaf0 70%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(200, 140, 30, 0.12),
+    0 22px 48px -16px rgba(230, 150, 30, 0.45);
+}
+.gh-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.gh-label {
+  font: 700 0.8125rem / 1rem var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #b4560f;
+}
+.gh-date {
+  flex: 1;
+  min-width: 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gh-date::before {
+  content: '·';
+  margin-right: 8px;
+}
+.gh-chip,
+.gl-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(15, 42, 68, 0.06),
+    0 4px 10px -6px rgba(15, 42, 68, 0.25);
+  font: 600 0.75rem / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* the gauge */
+.gh-gauge {
+  position: relative;
+  justify-self: center;
+  width: min(176px, 100%);
+  aspect-ratio: 150 / 132;
+  margin: -2px 0 -8px;
+}
+.gh-gauge-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.gh-track,
+.gh-arc {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+.gh-track {
+  stroke: rgba(180, 120, 40, 0.13);
+}
+.gh-arc {
+  filter: drop-shadow(0 2px 6px rgba(242, 96, 12, 0.35));
+}
+.gh-now {
+  fill: #fff;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+}
+.gh-mid {
+  position: absolute;
+  inset: 22% 18% auto;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+.gh-stamp {
+  font: 800 2.75rem / 3.125rem var(--stamp);
+  letter-spacing: -0.035em;
+  background: linear-gradient(180deg, #3b2b1d 0%, #0f2a44 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  white-space: nowrap;
+}
+.gh-stamp small {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+.gh-stamp.is-check {
+  display: grid;
+  place-items: center;
+  height: 50px;
+  background: none;
+  color: #b4560f;
+}
+.gh-sub {
+  font: italic 400 1.0625rem / 1.375rem var(--serif);
+  color: #c7781e;
+  white-space: nowrap;
+}
+.gh-gauge > .g-burst {
+  top: 48%;
+}
+
+.gh-text.pressable {
+  justify-self: center;
+  max-width: 100%;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font: italic 400 1.75rem / 2.125rem var(--serif);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.gh.is-missed .gh-text,
+.gh.is-partly .gh-text {
+  color: var(--ink-2);
+}
+
+/* the steps: a soft white card inside the warm one, a check per row */
+.gh-steps {
+  display: grid;
+  margin: 2px 0 0;
+  padding: 2px 12px 2px 4px;
+  list-style: none;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 0 0 1px rgba(15, 42, 68, 0.05),
+    0 8px 20px -12px rgba(170, 110, 40, 0.4);
+  --mk: var(--sun);
+}
+.gh-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.gh-step + .gh-step {
+  border-top: 1px solid rgba(15, 42, 68, 0.07);
+}
+.gh-step-text {
+  min-width: 0;
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+  transition: color 200ms var(--ease-out);
+}
+.gh-step.is-done .gh-step-text {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-4);
+}
+.gh-step-plus {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--ink-3);
+}
+.gh-step-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+  outline: none;
+}
+.gh-step-input::placeholder {
+  color: var(--ink-4);
+}
+
+/* the next move: Mark done (navy) once nothing is left, Add a step, Details */
+.gh-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.gh-btn.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--r-pill);
+}
+.gh-btn.btn.quiet {
+  padding: 0 10px;
+  color: var(--ink-2);
+}
+
+/* unset: the whole card asks */
+.gh.is-empty {
+  justify-items: stretch;
+  gap: 10px;
+}
+.gh-sun {
+  position: absolute;
+  z-index: -1;
+  right: -40px;
+  top: -48px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #ffd76a, #ffb21d 70%);
+  box-shadow: 0 0 60px rgba(255, 190, 40, 0.45);
+  opacity: 0.9;
+}
+.gh-ask {
+  max-width: 82%;
+  margin-top: 10px;
+  font: italic 400 1.75rem / 2.125rem var(--serif);
+  color: var(--ink);
+  text-wrap: balance;
+}
+.gh-cta {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 46px;
+  margin-top: 6px;
+  padding: 0 20px 0 16px;
+  border-radius: var(--r-pill);
+  background: var(--navy-pill);
+  color: #fff;
+  font: 650 var(--fs-sub) / 1 var(--sans);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), var(--navy-glow);
+}
+
+/* ---------- the week, the month, the year: a card each with its ring ---------- */
 .gl-card.pressable {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   width: 100%;
   min-width: 0;
-  padding: 16px 14px 16px 18px;
-  border-radius: var(--r-card);
+  min-height: 84px;
+  padding: 14px 12px 14px 14px;
+  border-radius: 20px;
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
@@ -483,38 +767,80 @@
   text-align: left;
   transition:
     transform 160ms var(--ease-out),
-    box-shadow 200ms var(--ease-out),
-    background 200ms var(--ease-out);
+    box-shadow 200ms var(--ease-out);
 }
-/* a goal kept: its level's colour washes in from the corner */
+/* a goal kept: its level's colour washes in from the ring */
 .gl-card.is-done {
   background:
-    radial-gradient(140% 120% at 0% 0%, color-mix(in srgb, var(--hue) 13%, transparent), transparent 62%),
+    radial-gradient(90% 120% at 0% 50%, color-mix(in srgb, var(--hue) 14%, transparent), transparent 62%),
     var(--surface);
+}
+.gl-ring {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 52px;
+}
+.gl-ring-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.gl-ring-track,
+.gl-ring-arc {
+  fill: none;
+  stroke-width: 5;
+}
+.gl-ring-track {
+  stroke: color-mix(in srgb, var(--hue) 16%, transparent);
+}
+.gl-ring.is-empty .gl-ring-track {
+  stroke: color-mix(in srgb, var(--hue) 45%, transparent);
+  stroke-width: 2;
+  stroke-dasharray: 3 4;
+}
+.gl-ring-arc {
+  stroke: var(--hue);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--hue) 55%, transparent));
+}
+.gl-ring-mid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--hue) 70%, var(--ink));
+}
+.gl-ring.is-done .gl-ring-mid {
+  color: color-mix(in srgb, var(--hue) 60%, var(--ink));
+}
+.gl-ring.is-partly .gl-ring-mid,
+.gl-ring.is-missed .gl-ring-mid {
+  color: var(--ink-3);
+}
+.gl-ring-num {
+  font: 700 0.8125rem / 1 var(--stamp);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.gl-ring-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--hue);
 }
 .gl-main {
   flex: 1;
   min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 .gl-head {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-}
-/* the level's colour, as a short bar before its period */
-.gl-tick {
-  flex: none;
-  width: 4px;
-  height: 14px;
-  border-radius: 2px;
-  background: var(--hue);
-}
-.gl-card.is-empty .gl-tick {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--hue);
 }
 .gl-caps {
   flex: 1;
@@ -524,31 +850,27 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.gl-left {
-  flex: none;
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
+.gl-chip {
+  height: 22px;
+  padding: 0 8px;
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+  font-weight: 600;
 }
-.gl-stamp {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 650;
-  color: var(--ink-2);
-}
-.gl-stamp.is-done {
-  color: var(--accent-text);
+.gl-chip.is-done {
+  background: color-mix(in srgb, var(--hue) 18%, var(--surface));
+  box-shadow: none;
+  color: color-mix(in srgb, var(--hue) 50%, var(--ink));
 }
 .gl-text {
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  font: italic 400 1.1875rem / 1.5rem var(--serif);
   letter-spacing: -0.005em;
   color: var(--ink);
   text-wrap: pretty;
   overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 .gl-card.is-missed .gl-text,
@@ -556,55 +878,27 @@
   color: var(--ink-2);
 }
 .gl-set {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  font: italic 400 1.1875rem / 1.5rem var(--serif);
   color: var(--ink-3);
-}
-.gl-set-plus {
-  flex: none;
-  color: var(--accent);
-}
-.gl-example {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.gl-steps {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.gl-bar {
-  position: relative;
-  flex: 1;
-  height: 5px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--well);
-  box-shadow: var(--well-shadow);
-}
-.gl-bar i {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--hue) 88%, var(--ink));
-}
-.gl-count {
-  flex: none;
-  min-width: 28px;
-  text-align: right;
-  font: 650 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
 }
 .gl-chev {
   flex: none;
   color: var(--ink-4);
+}
+/* the narrowest phones: a smaller ring so the period and its chip keep their words */
+@media (max-width: 359px) {
+  .gl-card.pressable {
+    gap: 10px;
+    padding-left: 12px;
+  }
+  .gl-ring {
+    width: 44px;
+    height: 44px;
+  }
+  .gh,
+  .gh.pressable {
+    padding-inline: 16px;
+  }
 }
 
 /* ---------- ahead: tomorrow's goal and next week's, two small chips in a row over the list ---------- */
@@ -1278,6 +1572,8 @@
 @media (prefers-reduced-motion: reduce) {
   .gl-card,
   .ga-chip,
+  .gh,
+  .gh-step-text,
   .g-answer,
   .g-choice {
     transition: none;
