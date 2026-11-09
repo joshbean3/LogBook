@@ -1,4 +1,4 @@
-import { ChevronLeft } from 'lucide-react';
+import { Activity, ChevronLeft, Dumbbell, Footprints, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { isValidElement, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -219,7 +219,12 @@ export interface DateStripProps {
   statusOf: (date: string) => StripStatus;
   onPick: (date: string) => void;
   labelOf?: (date: string) => string;
+  /** What each day trains (Today's strip): a glyph per kind in place of the dot. Empty for rest or nothing planned. */
+  kindsOf?: (date: string) => readonly StripKind[];
 }
+export type StripKind = 'run' | 'lift' | 'cross';
+const KIND_ICON: Record<StripKind, LucideIcon> = { run: Footprints, lift: Dumbbell, cross: Activity };
+const KIND_WORD: Record<StripKind, string> = { run: 'run', lift: 'strength', cross: 'workout' };
 const STATUS_WORD: Record<Exclude<StripStatus, null>, string> = { done: 'done', bonus: 'bonus run', floor: 'floor', planned: 'planned run', missed: 'missed', skipped: 'skipped', rest: 'rest' };
 
 /**
@@ -228,7 +233,7 @@ const STATUS_WORD: Record<Exclude<StripStatus, null>, string> = { done: 'done', 
  * A cell tap is `onPick` (no haptic); a drag that began in the strip ticks `select` each time the disc's centre crosses a
  * cell boundary (a drag that began anywhere else never ticks). A new week crossfades its cells in over 120 ms.
  */
-export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, labelOf }: DateStripProps): React.JSX.Element => {
+export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, labelOf, kindsOf }: DateStripProps): React.JSX.Element => {
   const mon = mondayOfIso(shown);
   const days = Array.from({ length: 7 }, (_, i) => iso(D(mon).getTime() + i * 86_400_000));
   const idx = days.indexOf(shown);
@@ -300,12 +305,23 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
       <div ref={discRef} className={`nb-disc ${shown === today ? 'is-today' : ''}`.trim()} aria-hidden="true" />
       {days.map((d) => {
         const s = statusOf(d);
-        const name = labelOf?.(d) ?? `${fmt(d, { weekday: 'long', month: 'long', day: 'numeric' })}${s ? `, ${STATUS_WORD[s]}` : ''}`;
+        const kinds = kindsOf?.(d) ?? [];
+        const what = kinds.length ? `, ${kinds.map((k) => KIND_WORD[k]).join(' and ')}${s && s !== 'planned' ? ` ${STATUS_WORD[s]}` : ''}` : s ? `, ${STATUS_WORD[s]}` : '';
+        const name = labelOf?.(d) ?? `${fmt(d, { weekday: 'long', month: 'long', day: 'numeric' })}${what}`;
         return (
           <Pressable key={d} className={`nb-cell ${d === shown ? 'is-shown' : ''} ${d === today ? 'is-today' : ''}`} label={name} aria-current={d === shown ? 'date' : undefined} data-date={d} onPress={() => d !== shown && onPick(d)}>
             <span className="nb-letter">{fmt(d, { weekday: 'narrow' })}</span>
             <span className="nb-num tnum">{DAYN(d)}</span>
-            <span className={`nb-dot ${s ? `is-${s}` : ''}`.trim()} />
+            {kinds.length ? (
+              <span className={`nb-kinds is-${s ?? 'planned'} ${kinds.length > 1 ? 'is-two' : ''}`} aria-hidden="true">
+                {kinds.map((k) => {
+                  const Icon = KIND_ICON[k];
+                  return <Icon key={k} size={13} strokeWidth={2.4} />;
+                })}
+              </span>
+            ) : (
+              <span className={`nb-dot ${s ? `is-${s}` : ''}`.trim()} />
+            )}
           </Pressable>
         );
       })}

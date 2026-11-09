@@ -15,6 +15,7 @@ import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
 import { useOpenCalendar } from './Calendar';
 import { DayPage } from './DayPage';
+import { stripKinds } from './stripKinds';
 import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
@@ -160,6 +161,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   useEffect(() => handle.attach([stripRef.current, titleRef.current]), [handle]);
 
   const statusOf = (d: string): StripStatus => (log.loaded(d) ? (STRIP[dayKey(log.snap, d)] ?? null) : null);
+  const kindsOf = (d: string) => (log.loaded(d) ? stripKinds(log.snap, d) : []);
   const onMorning = useCallback((d: ISODate) => nav.push(morningPath(d), { shared: morningLineId(d) }), [nav]);
   const render = useCallback((d: string, live: boolean) => <DayPage date={d} live={live} onMorning={onMorning} />, [onMorning]);
 
@@ -179,7 +181,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         titleRef={titleRef}
         gap={16}
       >
-        <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} onPick={(d) => handle.goTo(d)} />
+        <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} onPick={(d) => handle.goTo(d)} />
       </NavBar>
       <DayPager date={date} step="day" handle={handle} onCommit={commit} render={render} label="Day" prevLabel="Previous day" nextLabel="Next day" />
       {/* pull to refresh's keyboard and VoiceOver path (WP1's request): the same REFRESH a committed pull fires */}
