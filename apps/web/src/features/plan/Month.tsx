@@ -4,7 +4,6 @@ import { Pressable } from '@/ui/Pressable';
 import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
 import { dayMiles, weekMiles } from '../sessions/miles';
-import { BlockCardView, type PlanBlockProps } from './Blocks';
 
 /**
  * The month (docs/feel.md §7.3): 7 columns × up to 6 rows of 56 px cells (day 13/18, miles 11/13, a 3 px tone bar), a `Wk`
@@ -43,7 +42,7 @@ const Cell = ({ d, log, inMonth }: { d: string; log: Log; inMonth: boolean }) =>
 };
 
 /** One month page. `still`: a neighbour not yet live, the same pixels with no Pressables (PlanView; feel review 2 D). */
-export const MonthPage = memo(function MonthPage({ first, onWeek, block, still }: { first: string; onWeek: (mon: string) => void; block: PlanBlockProps; still?: boolean }) {
+export const MonthPage = memo(function MonthPage({ first, onWeek, still }: { first: string; onWeek: (mon: string) => void; still?: boolean }) {
   const weeks = monthWeeks(first);
   const months = useMemo(() => [...new Set([monthOf(weeks[0]!), monthOf(first), monthOf(shiftDays(weeks.at(-1)!, 6))])], [first]); // eslint-disable-line react-hooks/exhaustive-deps
   const log = useLog(months);
@@ -113,7 +112,6 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, block, still }
         })}
       </div>
       </section>
-      <BlockCardView data={block.data} getLog={block.getLog} page={{ from: first, to: shiftDays(next, -1) }} />
     </div>
   );
 });

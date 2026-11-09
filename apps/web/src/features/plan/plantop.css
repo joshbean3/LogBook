@@ -1,0 +1,374 @@
+/* ---------- Plan's top (PlanTop.tsx): what the plan is and what week we are in, then Today (the morning and today's session),
+   then the week day by day (Week.tsx's header, line and status pill) ---------- */
+
+/* ---------- the two cards: white, lifted, 20 round; an icon and a caps eyebrow, a serif name, a grey line, a foot ---------- */
+.pt-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 16px;
+}
+.pt-cards.is-wait {
+  min-height: 132px;
+}
+.pt-card.pressable {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 132px;
+  padding: 12px 14px 13px;
+  border: var(--card-border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+}
+.pt-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+.pt-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--well);
+  color: var(--ink-2);
+}
+.pt-ic.is-lit {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pt-eyebrow {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pt-chev {
+  flex: none;
+  margin-right: -4px;
+  color: var(--ink-4);
+}
+.pt-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font: 400 1.375rem / 1.625rem var(--serif);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.pt-sub {
+  margin-top: 2px;
+  overflow: hidden;
+  font: 500 0.875rem / 1.125rem var(--sans);
+  color: var(--ink-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pt-foot {
+  margin-top: auto;
+  padding-top: 8px;
+  overflow: hidden;
+  font: 400 0.8125rem / 1.125rem var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pt-foot b {
+  font: 700 0.9375rem / 1 var(--stamp);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.pt-foot.is-act {
+  font-weight: 600;
+  color: var(--accent-text);
+}
+.pt-plan.is-empty .pt-title {
+  color: var(--ink-2);
+}
+.pt-card:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+@media (max-width: 359px) {
+  .pt-cards {
+    gap: 8px;
+  }
+  .pt-card.pressable {
+    padding: 11px 12px 12px;
+  }
+  .pt-title {
+    font-size: 1.1875rem;
+    line-height: 1.4375rem;
+  }
+  .pt-sub {
+    font-size: 0.8125rem;
+  }
+}
+
+/* ---------- Today: the section header, the morning card (its own gutter), today's sessions as large cards ---------- */
+.pt-today {
+  margin-top: var(--section);
+  min-width: 0;
+}
+.pt-gut {
+  padding: 0 16px;
+}
+.pt-today .mc-wrap {
+  padding-bottom: 0;
+}
+.pt-runs {
+  display: grid;
+  gap: var(--gap);
+  margin-top: var(--gap);
+}
+.pt-run.pressable,
+.pt-run.is-wait {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  min-height: 84px;
+  padding: 14px 16px;
+  border: var(--card-border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+}
+/* the tone, as a soft wash from the left edge: today's session reads first on the page */
+.pt-run.pressable::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--tone, var(--t-rest)) 10%, transparent) 0%, transparent 55%);
+  pointer-events: none;
+}
+.pt-run > * {
+  position: relative;
+  z-index: 1;
+}
+.pt-run-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tone, var(--t-rest)) 15%, var(--surface));
+  color: var(--tone, var(--t-rest));
+}
+.pt-run-ic.is-add {
+  background: transparent;
+  border: 1.5px dashed var(--line-strong);
+  color: var(--ink-3);
+}
+.pt-run-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pt-run-kind {
+  margin-bottom: 2px;
+}
+.pt-run-name {
+  overflow: hidden;
+  font: 700 1.375rem / 1.75rem var(--stamp);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pt-run-sub {
+  overflow: hidden;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pt-run.is-rest .pt-run-name,
+.pt-run.is-open .pt-run-name {
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink-2);
+}
+.pt-run.is-rest,
+.pt-run.is-open {
+  min-height: 72px;
+}
+.pt-run.is-open::before {
+  display: none;
+}
+.pt-run.k-missed .pt-run-name {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--ink-3);
+  color: var(--ink-2);
+}
+.pt-run.k-skipped .pt-run-name {
+  color: var(--ink-3);
+}
+.pt-run:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+.pt-st {
+  flex: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--well);
+  font: 600 0.75rem / 1rem var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.pt-st.k-today {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.pt-st.is-done {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.pt-st.k-floor {
+  color: var(--warn);
+}
+@media (max-width: 359px) {
+  .pt-run.pressable {
+    gap: 12px;
+    padding: 12px 14px;
+  }
+  .pt-run-ic {
+    width: 42px;
+    height: 42px;
+  }
+  .pt-run-name {
+    font-size: 1.25rem;
+  }
+}
+
+/* ---------- the week, day by day: the header's previous and next, the week's one line, today's status pill ---------- */
+/* the name never clips; the dates beside it give way first (and go at 320 while the pill says Today) */
+.pl-wk-head .lb-title {
+  flex: none;
+  max-width: 62%;
+}
+@media (max-width: 359px) {
+  .pl-wk-head.is-away .lb-meta {
+    display: none;
+  }
+}
+/* the pager pill: ‹ Today › in one white lifted pill, 36 tall */
+.pl-wk-nav {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 2px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.pl-step.pressable,
+.pl-step-now.pressable {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+}
+.pl-step.pressable {
+  width: 36px;
+  border-radius: 50%;
+}
+.pl-step-now.pressable {
+  padding: 0 6px;
+  font: 600 0.875rem / 1 var(--sans);
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+/* the hit area reaches 44 tall without growing the row */
+.pl-step.pressable::after,
+.pl-step-now.pressable::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+.pl-step:focus-visible,
+.pl-step-now:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -2px;
+}
+.pl-wk-line {
+  margin: -4px 2px var(--gap);
+  overflow: hidden;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+.pl-wk-line b {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.pl-st.is-today {
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  font: 600 0.75rem / 1rem var(--sans);
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+/* at 320 the cards are 136 wide: no chevron (the whole card is the button), the line may take two rows, and today's pill
+   in a day row is a lit dot (the row keeps its words; the label still says Today) */
+@media (max-width: 359px) {
+  .pt-chev {
+    display: none;
+  }
+  .pt-sub {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+  .pl-st.is-today {
+    width: 8px;
+    height: 8px;
+    min-width: 0;
+    padding: 0;
+    margin-right: 4px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-tint);
+    font-size: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pt-card.pressable,
+  .pt-run.pressable,
+  .pl-step.pressable {
+    transition: none;
+  }
+}
