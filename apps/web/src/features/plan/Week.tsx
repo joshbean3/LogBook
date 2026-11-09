@@ -17,6 +17,7 @@ import type { ReshapeResult } from '../sessions/reshape';
 import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { BlockCardView, type PlanBlockProps } from './Blocks';
 import { crossfade, fadeOut } from '@/lib/motion';
+import { SectionHeader } from '@/ui/layout';
 import { useFlip, waapiOf } from './flip';
 import { dayOrder, landingIndex, useMoveTo } from './moveRule';
 import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
@@ -613,18 +614,18 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block, still }
   return (
     <div className="pl-wpage">
       <section className="pl-sec pl-week-sec">
-        <div className="pl-head-row">
-          <h2 className="pl-head">{weekTitle(mon, log.today)}</h2>
-          <span className="pl-head-meta">
-            {fmtDate('md', mon)} – {monthOf(shiftDays(mon, 6)) === monthOf(mon) ? parseISO(shiftDays(mon, 6)).getDate() : fmtDate('md', shiftDays(mon, 6))}
-          </span>
-          {mon !== mondayOf(log.today) ? (
-            <Pressable className="pl-now" onPress={onThisWeek} label="Go to this week">
-              This week
-              <ChevronRight size={16} aria-hidden="true" />
-            </Pressable>
-          ) : null}
-        </div>
+        <SectionHeader
+          title={weekTitle(mon, log.today)}
+          meta={`${fmtDate('md', mon)} – ${monthOf(shiftDays(mon, 6)) === monthOf(mon) ? parseISO(shiftDays(mon, 6)).getDate() : fmtDate('md', shiftDays(mon, 6))}`}
+          action={
+            mon !== mondayOf(log.today) ? (
+              <Pressable className="lb-act pl-now" onPress={onThisWeek} label="Go to this week">
+                This week
+                <ChevronRight size={15} aria-hidden="true" />
+              </Pressable>
+            ) : null
+          }
+        />
         {log.loaded(mon) ? <MileageCard log={log} mon={mon} block={block.data} weeks={weeks} /> : <div className="card pl-mcard is-wait" aria-hidden="true" />}
         {still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
       </section>

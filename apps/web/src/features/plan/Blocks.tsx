@@ -10,6 +10,7 @@ import { useContextMenu } from '@/ui/ContextMenu';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
 import { builderSpec } from './Builder';
 import type { BuilderPrefill } from './builderModel';
@@ -168,7 +169,7 @@ export const BlockCardView = ({ data, getLog, page, inWeek }: { data: BlockCardD
   if (!b)
     return (
       <section className="pl-sec pl-block-sec" aria-label="Block">
-        <h2 className="pl-head">Block</h2>
+        <SectionHeader title="Block" />
         <div className="card pl-block-empty">
           <EmptyState ghost={<Arc weeks={GHOST_ARC} today="g0" tall />} verb={{ label: 'New block', onPress: openNew, primary: true }}>
             A block lays out the weeks to a goal: building, a down week every fourth, a taper to race day.
@@ -182,7 +183,7 @@ export const BlockCardView = ({ data, getLog, page, inWeek }: { data: BlockCardD
   const dates = `${fmtDate('md', b.start)} – ${fmtDate('md', b.end)}${/\bweeks?\b/i.test(b.name) ? '' : ` · ${data.weeks} ${data.weeks === 1 ? 'week' : 'weeks'}`}`;
   return (
     <section className="pl-sec pl-block-sec" aria-label="Block">
-      <h2 className="pl-head">Block</h2>
+      <SectionHeader title="Block" />
       <div className={`card pl-block ${inside ? 'is-compact' : ''}`}>
         <Pressable
           className="pl-block-main"

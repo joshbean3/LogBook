@@ -9,26 +9,9 @@
   margin-top: 12px;
 }
 /* the section head over the schedule (shape system §2): sans 20/25, a grey meta at its baseline */
-.m-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  margin: var(--section) 0 var(--sec-gap);
-}
-.m-head-title {
-  margin: 0;
-  font: 600 1.25rem / 1.5625rem var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.m-head-meta {
-  min-width: 0;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* the schedule's header is the kit's SectionHeader: 28 under the Now card */
+.lb-head.m-head {
+  margin-top: var(--section);
 }
 
 /* ---------- the Now card: the four stops and one live line (96 tall, card 20/16, no halo) ---------- */
