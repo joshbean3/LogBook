@@ -36,17 +36,13 @@
 }
 
 /* ---------- section headers and sheet titles: the serif ---------- */
-:root .sec-head .t-label,
-:root .s-head > span:first-child {
+:root .sec-head .t-label {
   font-family: var(--serif);
   font-weight: 400;
   font-size: 1.75rem;
   line-height: 2rem;
   letter-spacing: -0.005em;
   color: var(--ink);
-}
-:root .s-head {
-  align-items: baseline;
 }
 :root .sheet .sheet-title {
   font: 400 1.5rem / 1.875rem var(--serif);

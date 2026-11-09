@@ -1150,7 +1150,7 @@
   outline: none;
   border-color: var(--ink-2);
 }
-.gs-hint {
+.k-foot.gs-hint {
   margin: -4px var(--pad-card) 0;
 }
 .gs-sharp-label {

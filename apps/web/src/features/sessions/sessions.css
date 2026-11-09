@@ -893,7 +893,7 @@
 }
 .ss-foot-note {
   margin: 0;
-  padding: 0 4px;
+  padding: 0 var(--pad-card);
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }

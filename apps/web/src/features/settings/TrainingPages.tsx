@@ -11,6 +11,7 @@ import { fadeIn, springs } from '@/lib/motion';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 import { PushedBar, Row } from '@/ui';
+import { SectionHeader } from '@/ui/layout';
 import { SCard, SGroup } from './parts';
 import { useTrainingProfile } from './useProfile';
 
@@ -242,10 +243,8 @@ export const YouPage = () => {
         <Row title="Email" right={<span className="s-value s-email">{boot.data?.user.email}</span>} />
         <Row title="Units" sub="Kilometres are on the way." right={<span className="s-value">Miles</span>} />
       </SGroup>
-      <section className="s-sec" aria-labelledby="s-goal-h">
-        <h2 className="s-head" id="s-goal-h">
-          <span>Training for</span>
-        </h2>
+      <section className="lb-sec s-sec" aria-labelledby="s-goal-h">
+        <SectionHeader size="sm" id="s-goal-h" title="Training for" />
         {!d.loaded ? (
           <Shape />
         ) : (

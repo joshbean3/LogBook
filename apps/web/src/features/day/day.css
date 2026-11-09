@@ -1421,8 +1421,9 @@
 }
 .st-foot {
   margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  padding: 0 var(--pad-card);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 .st-save.btn {
