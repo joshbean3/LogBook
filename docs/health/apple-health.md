@@ -1,6 +1,6 @@
 # Apple Health in Logbook: the plan
 
-Status: plan, not built. Owner: Josh. Written 2026-11-09.
+Status: plan, reviewed (25 findings from an independent review folded in), not built. Owner: Josh. Written 2026-11-09.
 
 Goal: read Apple Health the way Bevel does (sleep with stages, HRV, resting heart rate, respiratory rate, blood oxygen,
 wrist temperature, steps, energy, workouts with heart rate) and turn it into the same kind of daily read: Strain,
@@ -86,99 +86,118 @@ developer.apple.com/app-store/review/guidelines. Capacitor: capacitorjs.com/docs
 
 ```
 Apple Health (on the iPhone)
-  │  HKAnchoredObjectQuery per type (new + deleted since last anchor)
-  │  HKStatisticsCollectionQuery for sums and per-5-minute heart rate (de-duplicated by Health)
+  │  HKAnchoredObjectQuery per type: new + deleted since the read anchor
+  │  HKStatisticsCollectionQuery for daily sums (Health merges sources)
+  │  raw heart rate per changed day → a zone histogram per 5 minutes, built on the phone
   ▼
-LogbookHealth (Swift, inside the app target)
-  │  builds upload batches → writes them to a queue on disk → uploads with the session cookie
-  │  advances each anchor only after the server says it stored the batch
+HealthSync (Swift actor, owned by the AppDelegate; one run at a time)
+  │  each page of results + its new anchor → one batch file, written atomically (the queue is the safety net)
+  │  uploads with a background URLSession upload task and a per-device token from the Keychain
   ▼
-POST /api/health/sync  (idempotent: Health's UUIDs, or user+day+metric)
+POST /api/apple-health/sync   (idempotent: batch id, Health UUIDs, user+day+metric; bad rows dropped, not the batch)
+  │  rows written → 200 → dirty days scored after the answer, in date order
   ▼
-SQLite on the server: health_samples, health_days, sleep_segments, activities (+ source), health_scores
-  │  dirty days recomputed with the score functions in packages/shared/src/health/
+SQLite: health_samples, health_days, sleep_segments, sleep_nights, activities (+ source), health_scores
   ▼
-GET /api/health/…  → Today rings, Health Monitor, score pages, sleep, run detail, assistant context
+GET /api/apple-health/…  → Today rings, Health Monitor, score pages, sleep, run detail, the coach (with consent)
 ```
 
 ### 3.2 Decisions, with the reason for each
 
-1. A Swift plugin inside the app, not an npm HealthKit plugin. The community plugins read samples but do not do
-   anchored sync, deletions, statistics de-duplication, background delivery with a disk queue, or upload while the web
-   view is not running. Those five are what make Bevel's data correct and always fresh. Capacitor supports a plugin
-   class inside the app target, registered from `LogbookViewController` (it already subclasses `CAPBridgeViewController`).
-2. The iPhone sums; the server scores. Steps, energy and heart rate are summed on the phone with statistics queries,
-   because Health merges its sources before it adds up (iPhone and Watch both count steps; adding raw samples double
-   counts). Scores run on the server from what was uploaded, so the web app, the assistant and every device see one
-   answer.
-3. Score functions live in `packages/shared/src/health/`: pure TypeScript, no I/O, unit tested, versioned
-   (`SCORE_VERSION`). The server uses them; the phone can run the same code for an instant preview before the upload
-   lands.
-4. Native code uploads, not the web view. Background deliveries can wake the app without its web view, and Apple wants
-   the observers set up at launch, so the engine (`HealthSync.shared`) lives with the AppDelegate and starts in
-   `application(_:didFinishLaunchingWithOptions:)`; the plugin is only its face to the web app. The plugin posts
-   to `${apiOrigin}/api/health/sync` with `URLSession`; the session cookie is already in the shared cookie store because
-   `CapacitorCookies` is on. The web app tells the plugin the API origin at sign-in.
-5. At-least-once, idempotent. Every batch carries Health's UUIDs (or user + day + metric for sums). The server upserts.
-   The phone advances an anchor only after a 200. A lost response means one re-send, never a gap or a double.
-6. Heart rate goes up as 5-minute buckets, not raw samples. A year of Watch heart rate is hundreds of thousands of
-   samples. Five-minute average, minimum and maximum (288 buckets a day, a few KB) are enough for strain, stress and
-   the day chart. Workouts keep finer heart rate (5-second buckets) for zones and the activity chart.
-7. Workouts join the existing `activities` table with a `source` column, so the run list, Progress and Training stay
-   one list. A run that came from both Strava and Apple Health is matched and shown once (§3.8).
+1. A Swift engine inside the app, not an npm HealthKit plugin. The community plugins read samples but do not do
+   anchored sync, deletions, statistics merging, background delivery with a disk queue, or upload while the web view is
+   not running. Those are what keep Bevel's data correct and fresh. Capacitor supports a plugin class inside the app
+   target, registered from `LogbookViewController` (it already subclasses `CAPBridgeViewController`).
+2. The engine lives with the AppDelegate. Apple wants observer queries set up in
+   `application(_:didFinishLaunchingWithOptions:)`, and a background delivery can wake the app with no scene and no web
+   view. So `HealthSync.shared` starts there; `LogbookHealthPlugin` is only its face to the web app.
+3. One run at a time. `HealthSync` is a Swift actor. A trigger that arrives during a run (an observer, the app opening,
+   Sync now) joins that run; every waiting observer completion handler is called when it ends.
+4. The iPhone sums; the server scores. Daily sums come from statistics queries, because Health merges its sources before
+   it adds up (iPhone and Watch both count steps; adding raw samples double counts). Scores run on the server, so the
+   web app, the coach and every device see one answer.
+5. Score functions live in `packages/shared/src/health/`: pure TypeScript, no I/O, unit tested, versioned
+   (`SCORE_VERSION`). The phone can run the same code for an instant preview.
+6. Its own credential. The native uploader does not borrow the web view's cookie (it only sits in the shared cookie
+   store by accident of how CapacitorHttp works, and is written to disk lazily). Connecting mints a per-device sync
+   token, kept in the Keychain (readable after first unlock), sent as a bearer token to the sync routes only, revocable
+   from Settings. The API origin is built into the app and saved natively, so a background launch has it. Every native
+   request sends `X-Local-Date` and the phone's time zone.
+7. Two anchors' worth of safety, one anchor. The read anchor moves forward as soon as a page of results and that anchor
+   are written to disk together (temp file, then rename). The disk queue is what keeps the data; a 200 from the server
+   only deletes the file. Offline for a week means a week of small files, not one ever-growing re-read.
+8. The server answers fast. `POST` writes rows and answers 200; scoring runs after the answer. One Fly machine stays
+   running (`min_machines_running = 1`), because a background delivery has seconds, not a cold start.
+9. Heart rate as zone histograms. Outside workouts the Watch samples every few minutes, so a 5-minute average says
+   little about time in a zone. The phone reads the day's raw heart rate (a few hundred samples outside workouts),
+   gives each sample the time until the next one (at most 10 minutes), and uploads, per 5-minute bucket, seconds in each
+   5 bpm band plus count, min, max and average. The server can then apply any zones, now or later. Buckets inside a
+   workout are left out; workouts carry their own 5-second heart rate.
+10. Workouts join the existing `activities` table with a `source` column, so the run list, Progress and Training stay
+    one list. A run from both Strava and Apple Health is matched and shown once (§3.8).
+11. A payload version. If a later phase needs a new upload shape, bumping `payloadVersion` on the phone resets the
+    anchors and the import cursor and re-imports cleanly.
 
 ### 3.3 What we read
 
 | Data | HealthKit type | How it is read | Uploaded as | Used for |
 |---|---|---|---|---|
-| Sleep | `sleepAnalysis` (category) | anchored | every segment: start, end, stage, source | nights, sleep score, need, debt, hypnogram |
-| HRV | `heartRateVariabilitySDNN` | anchored | every sample (a few a day) | recovery, stress, Health Monitor |
-| Resting HR | `restingHeartRate` | anchored | every sample (one a day) | recovery, Health Monitor, zones |
+| Sleep | `sleepAnalysis` (category) | anchored | every segment: start, end, stage, source, device product type | nights, sleep score, need, debt, hypnogram |
+| HRV | `heartRateVariabilitySDNN` | anchored | every sample, with source and whether user-entered | recovery, stress, Health Monitor |
+| Resting HR | `restingHeartRate` | anchored | every sample (Apple replaces today's and yesterday's) | Health Monitor |
 | Respiratory rate | `respiratoryRate` | anchored | every sample (overnight) | recovery input, Health Monitor |
 | Blood oxygen | `oxygenSaturation` | anchored | every sample, as % | recovery input, Health Monitor |
-| Wrist temperature | `appleSleepingWristTemperature` | anchored | one per night | recovery input, Health Monitor |
-| VO2 max | `vo2Max` | anchored | every sample | fitness trend, zones |
+| Wrist temperature | `appleSleepingWristTemperature` | anchored | one per night (absolute °C) | recovery input, Health Monitor (as change from normal) |
+| VO2 max | `vo2Max` | anchored | every sample | fitness trend |
 | Walking HR average | `walkingHeartRateAverage` | anchored | daily | Health Monitor (later) |
 | Weight | `bodyMass` | anchored | every sample | weight trend (later) |
-| Heart rate | `heartRate` | statistics, 5-minute buckets, avg/min/max | per day: buckets | strain, stress, energy, day chart |
-| Steps | `stepCount` | statistics, daily sum + 5-minute buckets | per day: total + buckets | auto habit, stress (exclude movement), Progress |
-| Active energy | `activeEnergyBurned` | statistics, daily sum | per day | strain context, Progress |
-| Resting energy | `basalEnergyBurned` | statistics, daily sum | per day | total energy |
+| Heart rate | `heartRate` | anchored to find changed days, then raw samples per changed day | per day: 5-minute zone histograms, frozen time zone | strain, sleeping HR, stress, energy, day chart |
+| Steps | `stepCount` | anchored to find changed days, then statistics | per day: total + 5-minute sums | auto habit, stress (exclude movement), Progress |
+| Active / resting energy | `activeEnergyBurned`, `basalEnergyBurned` | statistics, daily sum | per day | Progress |
 | Exercise minutes | `appleExerciseTime` | statistics, daily sum | per day | Progress, auto habit |
-| Workouts | `HKWorkout` | anchored | summary + stats + 5-second HR + route (phase 6) | activities, activity strain, run detail |
+| Workouts | `HKWorkout` (+ `workoutRoute`) | anchored; heart rate re-read for workouts of the last 48 hours on every sync | summary, `statistics(for:)` energy and distance, 5-second HR, route (phase 5) | activities, strain, run detail |
 
-Read only. Logbook writes nothing to Apple Health in this plan (writing runs logged by hand is a later option).
+Read only. Logbook writes nothing to Apple Health in this plan. Permission is asked for every type above, routes
+included, in one sheet; on each launch `getRequestStatusForAuthorization` says whether a type added later needs asking.
 
 ### 3.4 The sync engine (Swift)
 
-State kept on the phone, in the app's Application Support folder (not UserDefaults: anchors are data):
+State on the phone, in Application Support, every file with `completeUntilFirstUserAuthentication` protection and
+excluded from backup (it is Health data; Apple forbids it in iCloud):
 
-- one `HKQueryAnchor` per anchored type, archived with `NSKeyedArchiver`;
-- a set of dirty days for the summed types;
-- a queue of upload batches as JSON files, oldest first;
-- the import cursor for the first import (which month it has reached).
+- the read anchor per anchored type (archived `HKQueryAnchor`), saved with an install ID: a restored backup or a new
+  phone has a different ID, so the anchors reset and the import runs again;
+- the batch queue: one JSON file per batch (id, payload version, rows), oldest first; a dead-letter folder;
+- the import cursor (which month the first import has reached) and the payload version.
 
-One sync run, whatever started it (opening the app, pull to refresh, Sync now, a background delivery):
+"Cannot read the file" (before first unlock after a reboot) is not "the file is missing": the run stops and waits.
 
-1. Stop if Health data is unavailable (device locked: §2). Try again when protected data becomes available.
-2. For each anchored type, run an anchored query from its saved anchor, capped at 2,000 results per call (loop until
-   done). Added samples go into a batch; deleted objects go in as deletions by UUID. Mark the days they touch dirty.
-3. For dirty days (and always today and yesterday), run statistics collection queries: daily sums for steps, energy,
-   exercise; 5-minute buckets for heart rate and steps. Each day is one upsert.
-4. Write the batch to the queue file, holding the new anchors alongside it (not saved yet).
-5. Once a day, reconcile: for the sample types, send the server the UUIDs Health still has for the last 14 days; the
-   server soft-deletes the rest (Health's deletion records can expire before we read them, §2 row 6).
-6. Upload queued batches in order. On 200: save that batch's anchors, delete the file. On 401: stop and wait for the next
-   sign-in. On a network error: leave the file; the next run sends it.
+One run, whatever started it:
+
+1. Upload the queue first (needs no Health access). On 200, delete the file. On 401, stop all uploads until the next
+   sign-in or reconnect. On any other 4xx, move the file to dead-letter (Settings › Health shows it). On a network error
+   or 5xx, keep it for the next run.
+2. If Health is locked (`errorDatabaseInaccessible`), stop and re-run when protected data becomes available.
+3. For each anchored type, query from the read anchor, 2,000 results a page. Each page and its new anchor become one
+   batch file (temp, then rename); then the anchor moves. Deleted objects go in as deletions by UUID. The days touched
+   (including heart rate and step days, which are only read this way to learn what changed) become dirty.
+4. For dirty days, plus today and yesterday: daily sums by statistics query; heart rate histograms from that day's raw
+   samples; workouts of the last 48 hours get their heart rate re-read (the Watch often syncs it after the workout).
+   Each day's summed rows carry its frozen time zone (§6).
+5. Once a day, reconcile the sample types for the last 14 days: queue the list of UUIDs Health still has, through the
+   same queue so order holds. If Health returns none while the server has rows (access revoked, history limited), skip
+   and flag it instead of deleting.
+6. Upload what step 3-5 queued, batches split to at most 1 MB.
 7. Tell the web view (if it is running) with a `healthSync` event: started, progress, done, error.
 
-The first import runs month by month, newest first (the last 90 days by default, up to 2 years from Settings), so Today
-fills in within seconds and history arrives behind it. It resumes from the cursor if the app closes.
+First import: newest month first (90 days by default, up to 2 years in Settings), so Today fills in within seconds and
+history arrives behind it. It resumes from the cursor. The server does not score during the import; when the last
+month lands it scores every day in date order.
 
-Background: an `HKObserverQuery` for sleep, HRV, resting HR and workouts, set up in
-`application(_:didFinishLaunchingWithOptions:)` on every launch, with background delivery turned on (hourly is the
-realistic pace on iOS). A delivery runs the same sync with a short budget (the newest data only, then return) and calls
-the observer's completion handler on every path, errors included: three misses and HealthKit stops sending updates.
+Background: an `HKObserverQuery` for sleep, HRV, heart rate and workouts, set up at launch with background delivery on
+(hourly is the realistic pace on iOS). A delivery runs the same engine inside `beginBackgroundTask`, uploads with a
+background `URLSession` upload-from-file task (it finishes even if the app is suspended), and a watchdog calls every
+observer completion handler well before the time runs out, on every path (three misses and HealthKit stops sending).
 Background is best effort; opening the app is the guarantee.
 
 ### 3.5 Server: tables and routes
@@ -187,75 +206,95 @@ Migration `0017_health.sql`:
 
 | Table | Key | Columns |
 |---|---|---|
-| `health_samples` | `user_id, uuid` | `type, start_at, end_at, value, unit, source_bundle, source_name, device, tz, meta_json, deleted_at, updated_at`; index `user_id, type, start_at` |
-| `health_days` | `user_id, date, metric` | `value, buckets_json` (5-minute array or null), `updated_at` |
-| `sleep_segments` | `user_id, uuid` | `start_at, end_at, stage` (in_bed, asleep, awake, core, deep, rem), `source_bundle, source_name, device, deleted_at` |
-| `sleep_nights` | `user_id, date` (the day you woke) | `start_at, end_at, in_bed_sec, asleep_sec, awake_sec, core_sec, deep_sec, rem_sec, efficiency, latency_sec, source_bundle, naps_json, computed_at` |
-| `activities` (existing) | `id` | add `source` (strava, health), `external_id` (Health UUID), `source_bundle`, `energy_kcal`, `hr_json` (5-second buckets), `match_id` (the other source's row for the same workout) |
-| `health_scores` | `user_id, date` | `strain, recovery, sleep_score, sleep_need_sec, sleep_debt_sec, stress_json, energy_json, inputs_json` (what each score used), `baselines_json, confidence, version, computed_at` |
-| `health_sync` | `user_id` | `connected_at, last_sync_at, last_error, types_seen_json, history_from, device` |
+| `health_devices` | `id` | `user_id, token_hash, name, created_at, last_seen_at, revoked_at` |
+| `health_samples` | `user_id, uuid` | `type, start_at, end_at, value, unit, source_bundle, source_name, product_type, user_entered, meta_json, deleted_at, updated_at`; index `user_id, type, start_at` |
+| `health_days` | `user_id, date, metric` | `value, buckets_json, day_start_at, tz` (frozen the first time the day is summed), `updated_at` |
+| `sleep_segments` | `user_id, uuid` | `start_at, end_at, stage` (in_bed, asleep, awake, core, deep, rem), `source_bundle, source_name, product_type, tz, deleted_at` |
+| `sleep_nights` | `user_id, date` (the day you woke) | `start_at, end_at, in_bed_sec, asleep_sec, awake_sec, core_sec, deep_sec, rem_sec, efficiency, sleeping_hr, hrv, rr, spo2, temp, source, naps_json, computed_at` |
+| `activities` (existing) | `id` | add `source` (strava, health), `external_id` (Health UUID), `source_bundle`, `energy_kcal`, `hr_json` (5-second), `match_id` |
+| `health_scores` | `user_id, date` | `strain, recovery, sleep_score, sleep_need_sec, sleep_debt_sec, stress_json, energy_json, inputs_json, baselines_json, confidence, version, computed_at` |
+| `health_sync` | `user_id` | `connected_at, last_sync_at, last_error, types_seen_json, history_from, importing` |
 
-Routes (all signed in, all scoped to the owner):
+Rules: upserts by UUID never clear `deleted_at` (Health never reuses a UUID, so a late re-send cannot bring a deleted
+sample back). Samples more than a day in the future, malformed rows and unknown types are dropped one by one and
+counted in the answer; the batch still succeeds. Sync is refused while the account is not connected (no `health_sync`
+row) or the device token is revoked.
 
-- `POST /api/health/sync`: body `{ device, batch: { samples[], deletions[], days[], sleep[], workouts[] } }`, at most 2 MB.
-  Validated with zod in `packages/shared`. Upserts in one transaction, marks dirty dates, recomputes scores for them
-  (and the next day, since sleep and baselines carry over), returns `{ stored, dirtyDates, scores }`.
-- `GET /api/health/status`: connected, last sync, types with data, calibration progress.
-- `GET /api/health/day/:date`: rings, vitals with normal ranges, last night, workouts, stress/energy series.
-- `GET /api/health/metric/:id?from&to`: series, normal band, trends table (3/7/14/30/90 days, 7-day rolling averages).
-- `POST /api/health/reconcile`: `{ type, from, to, uuids[] }`; soft-deletes rows in that window Health no longer has.
-- `DELETE /api/health`: disconnect, delete every health row for the account.
+Routes, under `/api/apple-health/*` (`/api/health` is already Fly's health check):
+
+- `POST /connect` (signed in with the web session): creates `health_sync`, mints a device token, returns it once.
+- `POST /sync` (device token): `{ batchId, payloadVersion, samples[], deletions[], days[], sleep[], workouts[] }`, at
+  most 2 MB (Hono `bodyLimit` on this route), `Idempotency-Key` = `batchId`. Answers `{ stored, dropped, dirtyFrom }`,
+  then scores from the earliest changed day forward to today (at most 60 days), in date order.
+- `POST /reconcile` (device token): `{ type, from, to, uuids[] }`.
+- `GET /status`, `GET /day/:date`, `GET /metric/:id?from&to` (signed in): status and calibration; the day's rings,
+  vitals with normal ranges, last night, workouts, stress and energy; a metric's series, normal band and trends table
+  (3/7/14/30/90 days on 7-day rolling averages).
+- `DELETE /` (signed in): revokes device tokens, deletes every health row. The phone stops observers and clears its
+  queue and token before it calls this, so nothing in flight brings data back.
 
 Export and account deletion include the new tables (`services/exporter.ts`, `DELETE /me`).
 
 ### 3.6 The scores (ours, documented, versioned)
 
 Every score returns `{ value, confidence: 'calibrating' | 'low' | 'ok', inputs }`, so a page can say what it used and
-what was missing.
+what was missing. User-entered samples (`HKWasUserEntered`) show in history but never shape a baseline.
 
-Your normal (every vital): the median of the last 60 days (at least 14 values) and a band of median ± 1 spread
-(1.4826 × median absolute deviation, floored per metric so a very steady person still has a band). Under 14 values:
-"Learning your normal, day 5 of 14", with the value shown and no status word.
+Your normal (every vital): built from one value per day (the night's value, below), today left out: the median of the
+last 60 days and a band of median ± 1.5 spreads (1.4826 × median absolute deviation, with a floor per metric).
+Calibrating until there are 14 days with a value: "Learning your normal, day 5 of 14", the value shown, no status word.
+A new Watch or a big change in the data can be marked in Settings to start the baseline over.
 
-Status words: inside the band "Normal"; above "Higher"; below "Lower". Orange only when the direction is the worrying
-one (resting HR higher, HRV lower, SpO2 lower, temperature higher); otherwise navy. Never red for a number.
+The night's values: sleeping heart rate (the lowest 30-minute average inside the sleep window, from the histograms),
+HRV (average of samples inside the sleep window), respiratory rate and SpO2 (averages inside the window), wrist
+temperature (the night's sample). Daytime Breathe readings do not count toward the night.
+
+Status words: inside the band "Normal"; outside it "Higher" or "Lower". Orange only when the direction is the worrying
+one (sleeping HR higher, HRV lower, SpO2 lower, temperature higher); navy otherwise. Never red for a number.
 
 Sleep (per night):
-- The night: the longest sleep session that ends between 6 PM yesterday and 6 PM today, built from one source. Segments
-  less than 60 minutes apart join one session. Other sessions that day are naps.
-- One source per night: Apple Watch first, then any other wearable writing to Health (Oura, Whoop, AutoSleep), then
-  iPhone. Changeable in Settings › Health › Sleep source.
-- Sleep need = goal (7h 30m until set) + recent strain (0 to 45 minutes, by how far yesterday's strain sat above your
-  normal) + debt repayment (a fifth of the last 7 nights' debt, at most 60 minutes). Shown as a receipt, like shot 358.
+- Sources are told apart by device (`sourceRevision.productType`: Watch or iPhone) and app, not by bundle ID (Apple's
+  own sources share `com.apple.health.*`). One source per night: Apple Watch first, then another wearable writing to
+  Health (Oura, Whoop, AutoSleep), then iPhone. Changeable in Settings › Health › Sleep source.
+- The night: the longest session ending between 6 PM yesterday and 6 PM today, built from that source; segments less
+  than 60 minutes apart join one session; others are naps. For a Watch night (the Watch writes no in-bed samples), time
+  in bed is the span of the Watch's own samples, awake included.
+- Sleep need = goal (7h 30m until set) + recent strain (0-45 minutes, by how far yesterday sat above your normal strain)
+  + debt repayment (a fifth of the 7-night debt, at most 60 minutes). Shown as a receipt (shot 358).
 - Sleep debt = the sum over the last 7 nights of need minus asleep, never below zero per night.
-- Sleep score (0-100%): 55% time asleep against need, 15% efficiency (asleep ÷ in bed), 15% deep + REM share against
-  your normal, 15% consistency (spread of bedtime and wake time over 7 nights). Without stages (old watch, iPhone only):
-  the stage part is left out and the rest re-weighted, confidence "low".
+- Sleep score (0-100%): 55% time asleep against need, 15% efficiency, 15% deep + REM share against your normal, 15%
+  consistency (spread of bedtime and wake time over 7 nights). No stages: that part drops and the rest re-weights,
+  confidence "low".
 
-Recovery (per morning, 0-100%):
-- Inputs: last night's HRV (samples inside the sleep window; else the morning's first), resting HR, respiratory rate,
-  wrist temperature, SpO2, and the sleep score.
-- Each vital becomes a z-score against your normal (HRV on a log scale, since it is skewed). Resting HR counts inverted.
-  Respiratory rate, temperature and SpO2 only take points away, and only past the edge of your band.
-- Recovery = logistic(0.45 z_hrv − 0.25 z_rhr + 0.20 z_sleep − penalties) mapped to 0-100%.
-- No HRV last night: built from resting HR and sleep, confidence "low", and the page says so.
+Recovery (per morning, 0-100%), one formula, stated once:
+- z-scores against your normal: `zH` for HRV (on a log scale), `zR` for sleeping heart rate (higher heart rate gives a
+  higher `zR`), `zS` for the sleep score (against your normal sleep score).
+- `S = 0.5·zH − 0.3·zR + 0.2·zS − P`, where `P` takes points off only when respiratory rate, temperature or SpO2 sit past
+  the edge of your band in the worrying direction (0.3 each).
+- `Recovery = 100 / (1 + e^−(1.1·S + 0.4))`: an ordinary morning reads about 60%, one spread better about 82%, one spread
+  worse about 33%, so the Low (<34%), Normal and High (>67%) bands each show up on real days. The constants live in
+  `SCORE_VERSION` and are checked on fixture weeks.
+- No HRV last night: built from sleeping heart rate and sleep, confidence "low", and the page says so.
 
 Strain (per day, 0-100%):
-- Heart rate zones from your max and resting heart rate (Karvonen): max from the highest workout HR in 90 days, else
-  208 − 0.7 × age; resting from your normal. Strava's zones are used if you set them there. Editable in Settings.
-- Load = minutes in zone 1-5 weighted 1-5 (Edwards TRIMP), from the 5-minute buckets all day, plus workouts at 5-second
-  detail.
-- Strain = 100 × (1 − e^(−load ÷ k)): it rises fast at first and slowly near the top, like Bevel's "rises
-  logarithmically". k is set so a 60-minute easy run lands near 45%.
-- Each workout's strain is its own load on the same curve; the Strain page lists what each one added.
-- Cardio load: 7-day vs 28-day weighted average of daily load (the acute to chronic ratio), with plain words: Detraining,
-  Maintaining, Building, Overreaching. Shown on the run detail as before/after (shot 329) and fed into Training.
-- While your training status is Sick or Injured, the strain ring goes grey and the daily read leans toward rest
-  (Bevel 311 does the same).
+- Zones (Karvonen) from your max and resting heart rate. Max: across workouts in the last 180 days, the highest value
+  held for at least 30 seconds, taking the 95th percentile of those peaks (one optical spike cannot move it), capped at
+  208 − 0.7 × age + 15; until there is a workout, the formula. Resting: your sleeping-HR normal. Editable in Settings.
+  Never Strava's zones (Strava data must stay out of anything the coach reads).
+- Load = seconds in zone 1-5 weighted 1-5 (Edwards TRIMP), from the histograms outside workouts plus each workout's
+  5-second heart rate.
+- Strain = 100 × (1 − e^(−load ÷ k)). It rises fast at first and slowly near the top. k is set so a 60-minute easy run
+  lands near 45%. Near the top the curve flattens on purpose (a long hard run and a marathon both read "very high");
+  the page also shows load in plain units so big days can still be told apart.
+- What each workout added is its step along the curve (the day's strain before and after it), so the parts add up to
+  the day.
+- Cardio load: the 7-day vs 28-day weighted average of daily load, in words: Detraining, Maintaining, Building,
+  Overreaching. On the run detail as before/after (shot 329); fed into Training.
+- Sick or Injured: the strain ring goes grey and the daily read leans toward rest (Bevel 311).
 
 Stress and Energy (phase 8): 5-minute windows outside workouts and with few steps. Stress rises with heart rate above
-your resting normal and falls with HRV above your normal, 0-100. Energy starts each day from recovery, drains with load
-and stress minutes, refills in calm windows and sleep. Both show "calibrating" for 14 days.
+your resting normal and falls with HRV above your normal, 0-100. Energy starts the day from recovery, drains with load
+and stress minutes, refills in calm windows and sleep. Both calibrate for 14 days.
 
 ### 3.7 The plugin's JavaScript face
 
@@ -263,11 +302,12 @@ and stress minutes, refills in calm windows and sleep. Both show "calibrating" f
 // apps/web/src/lib/health.ts (a web mock with the same face, for the browser and for screenshots)
 interface LogbookHealth {
   isAvailable(): Promise<{ available: boolean }>;
-  requestAuthorization(): Promise<{ asked: boolean }>; // shows Apple's sheet once; cannot report read denials
-  configure(o: { apiOrigin: string; historyDays: number }): Promise<void>;
-  sync(o?: { reason: 'open' | 'manual' | 'import' }): Promise<{ uploaded: number; pending: number; error?: string }>;
-  status(): Promise<{ lastSyncAt: string | null; pending: number; importedFrom: string | null; protectedDataAvailable: boolean }>;
-  disconnect(): Promise<void>; // stops observers, clears anchors and queue (the server delete is a separate call)
+  requestAuthorization(): Promise<{ asked: boolean }>; // Apple's sheet; cannot report read denials
+  needsAuthorization(): Promise<{ needed: boolean }>; // getRequestStatusForAuthorization, for types added later
+  connect(o: { token: string; historyDays: number }): Promise<void>; // token from POST /connect, into the Keychain
+  sync(o?: { reason: 'open' | 'manual' }): Promise<{ uploaded: number; pending: number; deadLetter: number; error?: string }>;
+  status(): Promise<{ lastSyncAt: string | null; pending: number; deadLetter: number; importedFrom: string | null; earliestAllowed: string | null; locked: boolean }>;
+  disconnect(): Promise<void>; // stops observers, clears anchors, queue and token; then the app calls DELETE /api/apple-health
   addListener(e: 'healthSync', fn: (s: { phase: 'start' | 'progress' | 'done' | 'error'; detail?: string }) => void): Promise<{ remove(): void }>;
 }
 ```
@@ -277,12 +317,12 @@ interface LogbookHealth {
 The same run often arrives twice: Apple Watch records it, the Strava app uploads it to Strava, and both reach Logbook.
 
 - Match: same kind, starts within 5 minutes, durations within 10%. The pair is linked (`match_id`), shown once with
-  both source chips.
-- What shows from where: name, route, laps and Strava's numbers from Strava; heart rate detail, energy and the HR
-  zones from Health.
-- Claude: Strava data never goes to the model (Strava's terms; already enforced in `ai.ts` and `claude.ts`). A workout
-  from Health may, with health consent. A Health workout whose source app is Strava (`com.strava…` writes to Health
-  too) is treated as Strava's and kept from Claude. That is stricter than the rules require, on purpose.
+  both source chips. If either side is later deleted, the link goes and the other shows alone.
+- What shows from where: name, route, laps and Strava's numbers from Strava; heart rate detail, energy and zones from
+  Health.
+- The coach: Strava data never goes to the model (Strava's terms; already enforced in `ai.ts` and `claude.ts`). A
+  workout from Health may, with health consent. A Health workout whose source app is Strava is treated as Strava's and
+  kept from the coach. That is stricter than the rules require, on purpose.
 
 ---
 
@@ -308,8 +348,8 @@ The same run often arrives twice: Apple Watch records it, the Strava app uploads
 8. New data found: a one-time sheet when a type shows data for the first time ("Blood oxygen is now in your Health
    Monitor").
 9. Settings › Health: history window (90 days to 2 years), sleep source, sleep goal (by hand, or from your best
-   recovery nights over 90 days, as Bevel 675-677), heart rate zones, units, Disconnect (deletes the server copy, then
-   says how to remove access in the Health app).
+   recovery nights over 90 days, as Bevel 675-677), heart rate zones, units, start the baseline over (new Watch), dead-letter batches, Disconnect (stops syncing on the phone, deletes
+   the server copy, then says how to remove access in the Health app).
 10. Auto habits: a habit can be tied to steps, sleep or a workout; it lights itself with the live value and an "auto"
     mark.
 11. Notifications (phase 7): morning summary once last night's sleep lands; "Run saved" when a workout arrives.
@@ -321,9 +361,12 @@ The same run often arrives twice: Apple Watch records it, the Strava app uploads
 - Apple's rules (§2.1) allow storing Health data on our own server for the app's own features. They forbid advertising
   and data brokering, storing Health data in iCloud, and sharing it with a third party without clear permission.
   Logbook does none of the first three.
-- Claude is a third party. Health data reaches Claude only when `consent.health` is true (the consent model already has
+- Claude is a third party. The consent sheet ships in Phase 1, before anything from Health could reach the coach.
+  Health data reaches Claude only when `consent.health` is true (the consent model already has
   the field, defaulting to "not asked"). The consent sheet names Anthropic, says which numbers go (scores, last night's
   sleep, vitals vs normal; never raw samples), and is reversible in Settings.
+- The phone's queue and anchors are excluded from backup (Health data may not go to iCloud) and protected until first
+  unlock. The device token lives in the Keychain and can be revoked.
 - No health values in logs or error reports. Payloads are size-capped and validated. Disconnect deletes every row.
   Export includes everything. The privacy page gains a Health section.
 
@@ -344,14 +387,28 @@ The same run often arrives twice: Apple Watch records it, the Strava app uploads
 | A background delivery handler is missed | Three misses end background updates, so every code path calls it, and a test runs each path. A launch re-registers. |
 | Device locked during a background delivery | Health data is unreadable while locked. The run stops cleanly, calls the completion handler, and re-runs when protected data becomes available or the app opens. |
 | App force-quit, Low Power Mode, no network | Background delivery may not come. The queue holds what was read. Opening the app always syncs. |
-| Travel and time zones | Instants stored in UTC with the sample's time zone. Days are cut in the phone's time zone at sync; when the zone changes, the last 3 days are re-summed. |
-| Daylight saving days | 23 or 25 hours: buckets are keyed by timestamp, not by minute-of-day index. |
+| Travel and time zones | Instants in UTC. Each day is cut in the time zone the phone had when that day was first summed, and that zone is frozen on the day (`health_days.tz`); a later trip never rewrites days spent elsewhere. Sleep and workouts use their own time-zone metadata when Health has it. |
+| Daylight saving days | 23 or 25 hours: each day stores its start instant next to its buckets, so a bucket's time is start + index × 5 minutes, true on any day. |
 | Night shift, naps, a long wake mid-night | The 6 PM to 6 PM window and the 60-minute join rule; daytime sessions are naps (counted toward debt, not the score). |
 | Old watch (no stages) | Asleep without stages: no hypnogram colors, stage part of the score dropped. |
 | Huge history | Month-by-month import, 2,000-result pages, resumable; heart rate only as 5-minute buckets. |
-| Retries and doubles | Upserts by UUID or user+day+metric; a re-sent batch changes nothing. |
-| Session expired in the background | 401 stops uploads; the queue waits for the next sign-in. |
-| Clock wrong or future data | The server refuses samples more than a day in the future. |
+| Retries and doubles | Upserts by UUID or user+day+metric, keyed by batch id; a re-sent batch changes nothing, and never undeletes. |
+| Token revoked or expired | 401 stops uploads; the queue waits (capped at 30 days or 200 MB, oldest dropped with a note in Settings). |
+| Clock wrong or future data | The server drops those rows and keeps the rest of the batch. |
+| A batch the server refuses (4xx) | Moved to dead-letter, so it never blocks the queue; Settings shows it with "Send logs". |
+| Offline for days | One small batch file per page; the read anchor keeps moving; all of it uploads when the network returns. |
+| Two syncs at once (an observer and the app opening) | The actor runs one; the other joins it. |
+| Phone rebooted, not yet unlocked | Files cannot be read yet: the run waits instead of treating anchors as missing. |
+| Reinstall, restore from backup, new phone | The install ID differs, anchors reset, the import runs again; upserts make it harmless. |
+| Workout heart rate arrives after the workout | Workouts from the last 48 hours have their heart rate re-read on every sync. |
+| A workout crosses midnight | It belongs to the day it started; its load is split into each day's strain by its timestamps. |
+| Samples typed in by hand | Shown, never used for a baseline. |
+| New Watch | Its data can shift your normal; "Start the baseline over" in Settings. |
+| Access revoked or history limited, then reconcile | Health returns nothing while the server has rows: reconcile skips and flags it instead of deleting. |
+| Disconnect while a batch is in flight | The phone stops and clears first; the server refuses sync once disconnected. |
+| Matched run deleted on one side | The link goes; the other side shows alone. |
+| Heart rate sampled every few minutes | Zone time comes from per-sample time (at most 10 minutes per sample), not 5-minute averages. |
+| A one-off optical spike (210 bpm) | Max heart rate needs 30 seconds sustained and takes a 95th percentile; capped by age. |
 | A metric appears months later | First data for a type triggers the "new data found" sheet once. |
 | Web or iPad | The web app reads from the server (no connect button outside the iPhone app). |
 | Sick or injured | Strain ring grey; recovery still shown; the read suggests rest. |
@@ -370,7 +427,11 @@ The same run often arrives twice: Apple Watch records it, the Strava app uploads
   the whole pipeline runs in the Simulator. The Simulator's Health app also takes hand-entered data.
 - Web: a mock plugin with the same face, so every screen is built and screenshotted in Chromium (as with the Claude
   stand-in), at 390 and 320 wide.
-- On your phone (the real test, per phase): the checklist in §8 under each "Done when".
+- Engine tests (Swift, XCTest, in the Simulator with fixtures): offline for 5 runs then online uploads each page once;
+  a 4xx goes to dead-letter and the next batch still sends; two triggers at once run once; an unreadable anchor file
+  does not reset; every path calls the observer completion handler.
+- On your phone (per phase): the checklist in §8 under each "Done when", each written as a fixture with an expected
+  output or a log line you can read in Settings › Health.
 
 ---
 
@@ -378,74 +439,84 @@ The same run often arrives twice: Apple Watch records it, the Strava app uploads
 
 Each phase ends with a commit, a deploy where the server changed, and a check on your iPhone.
 
-Phase 0: Ready the app (S)
+Phase 0: Ready the app and server (S)
 1. Confirm the team in Xcode is your paid membership (HealthKit works on any team; background delivery is only
    documented for paid ones, §2 row 1).
-2. Add the HealthKit capability in Xcode (App target › Signing & Capabilities), with Background Delivery ticked.
-3. Add `NSHealthShareUsageDescription` to Info.plist: why Logbook reads Health. (No write sentence: it writes nothing.)
-4. Done when: the app builds and installs with the capability on.
+2. Add the HealthKit capability (App target › Signing & Capabilities) with Background Delivery ticked.
+3. Add `NSHealthShareUsageDescription` to Info.plist (why Logbook reads Health; it writes nothing).
+4. Keep one Fly machine running (`min_machines_running = 1` in fly.toml): background uploads cannot wait for a cold start.
+5. Done when: the app installs with the capability, and `fly status` shows one machine running after an hour idle.
 
-Phase 1: The bridge and a proof (M)
-1. `LogbookHealthPlugin.swift` in the app target: isAvailable, requestAuthorization, a raw read of last night's sleep,
-   latest HRV and resting HR.
-2. Register it in `LogbookViewController.capacitorDidLoad()`; `lib/health.ts` with the web mock.
-3. A hidden debug page that shows the raw numbers.
-4. Done when: on your iPhone, Apple's sheet appears once, and the debug page shows last night's sleep and this
-   morning's HRV matching the Health app.
+Phase 1: The bridge, the proof, the consent (M)
+1. `HealthSync` (AppDelegate) and `LogbookHealthPlugin` (registered in `LogbookViewController`); `lib/health.ts` with
+   the web mock.
+2. Ask for every type in §3.3, routes included; a hidden debug page shows last night's sleep segments, the newest HRV and
+   resting HR, raw.
+3. The coach consent sheet for health (names Anthropic, says which numbers go), stored in `consent.health`.
+4. Done when: Apple's sheet appears once; the debug page's values equal the Health app's for the same samples (same
+   timestamps and values); the consent choice survives a reinstall.
 
 Phase 2: The pipeline (L)
-1. Shared zod schemas for the batch; migration 0017; `POST /health/sync`, `GET /health/status`, `DELETE /health`.
-2. The sync engine (anchors, dirty days, statistics buckets, queue, ack-before-advance), first import month by month.
-3. Foreground sync on open and pull to refresh; the sync pill; Settings › Health with status and Sync now.
-4. Done when: a fresh connect imports 90 days; deleting a sample in the Health app removes it after the next sync;
-   airplane mode then online uploads the queue once; the server row counts match the Health app's totals for 3 sample
-   days.
+1. Shared zod schemas for batches; migration 0017; `/connect`, `/sync`, `/reconcile`, `/status`, `DELETE`.
+2. The engine (§3.4): read anchors, atomic batch files, queue, dead-letter, actor, histograms, frozen time zones,
+   payload version, install ID, first import month by month.
+3. Foreground sync on open and pull to refresh; the sync pill; Settings › Health with status, pending, dead-letter,
+   Sync now.
+4. Done when (each a test or a log line): the server's step total for 3 chosen days equals the Health app's daily
+   total; a sample deleted in the Health app is gone after the next sync; airplane mode for 3 syncs then online sends
+   each batch once (server log: no duplicate batch ids); a forced 422 lands in dead-letter while the next batch stores.
 
 Phase 3: Health Monitor (M)
-1. Normal ranges and calibration in shared; `GET /health/day/:date` and `/health/metric/:id`.
+1. Night values, normal ranges and calibration in shared; `GET /day/:date`, `GET /metric/:id`.
 2. Vitals tiles live (Progress and Today); metric pages with the band, trends table, explainers.
-3. Done when: resting HR, HRV, respiratory rate, SpO2 and wrist temperature show with your normal and status, and the
-   30-day trend row matches a hand calculation.
+3. Done when: fixture weeks give the expected bands and status words (tests); on your phone, the 30-day row of the
+   trends table matches the same numbers worked out from the export.
 
 Phase 4: Sleep (M)
-1. Night builder and source choice in shared; `sleep_nights`.
-2. Sleep page (hypnogram, stages, need receipt, debt); sleep goal in Settings.
-3. Done when: last week's nights match the Health app's sleep view to the minute, a nap is shown as a nap, and a night
-   with both Watch and another app shows one source.
+1. Night builder, source choice by device, Watch time-in-bed rule; `sleep_nights`.
+2. Sleep page (hypnogram, stages, need receipt, debt); sleep goal and sleep source in Settings.
+3. Done when: fixture nights (normal, nap, split night, two sources, no stages, DST) give the expected sessions; on your
+   phone, last week's asleep totals are within 5 minutes of the Health app's.
 
-Phase 5: The three rings (L)
-1. Strain, Recovery, Sleep score in shared, with tests; `health_scores` recompute on dirty days.
+Phase 5: Workouts (M)
+1. Health workouts into `activities` with source, energy, 5-second heart rate, route; the 48-hour heart rate re-read;
+   Strava matching.
+2. Run detail with zones and heart rate chart; source chips on the run list; coach run notes for Health runs, only with
+   consent.
+3. Done when: a Watch run that also went to Strava shows once with both chips (test and your phone); its zone seconds
+   from the fixture match the expected split; a run note appears only with consent on.
+
+Phase 6: The three rings (L)
+1. Max heart rate rule, zones, load, Strain, Recovery, Sleep score in shared with fixture tests; scoring after import
+   and from the changed day forward.
 2. The rings card on Today, the three score pages, (i) explainers, calibration notices; training status respected.
-3. Done when: 14 days after connecting, all three rings show without "calibrating", a hard run moves strain the way you
-   would expect, and a short night lowers recovery.
-
-Phase 6: Workouts (M)
-1. Health workouts into `activities` with source, energy, 5-second heart rate; Strava matching.
-2. Run detail with zones, activity strain, cardio load; source chips on the run list; coach run notes come back for
-   Health runs (consent).
-3. Done when: a Watch run that also went to Strava shows once with both chips, and its zones bar matches the Workout
-   app's zones.
+3. Done when: fixture weeks produce the expected scores (an ordinary morning near 60%, a short night lower, a 60-minute
+   easy run near 45% strain); on your phone, the rings show without "calibrating" 14 days after connecting.
 
 Phase 7: Background, notifications, auto habits (M)
-1. Observer queries set up at launch with background delivery; the completion handler on every path; flush when
-   protected data becomes available; the daily reconcile.
+1. Observer queries at launch, background delivery, background upload task, watchdog, protected-data flush, daily
+   reconcile.
 2. Morning summary and run-saved notifications; auto habits for steps, sleep and workouts.
-3. Done when: you wake, do not open the app, and get the morning summary after the Watch syncs; a run logs itself.
+3. Done when: Settings › Health logs at least one background sync on a day you did not open the app; the summary
+   arrives on most mornings (best effort, §9); a habit tied to steps lights itself.
 
 Phase 8: Stress and Energy (M)
 1. 5-minute models in shared; the Stress and Energy cards and pages.
-2. Done when: a calm evening reads low stress and a stressful meeting with a high heart rate reads higher.
+2. Done when: fixture days give the expected curves (a still evening reads low; a stretch of high heart rate at rest
+   reads higher; a workout is left out).
 
 Phase 9: The coach reads your health (S)
-1. The consent sheet naming Anthropic; the context builder (scores, last night, vitals vs normal); Strava-origin
-   exclusion.
+1. The context builder (scores, last night, vitals vs normal; no raw samples); the Strava-origin exclusion.
 2. The daily read card under the rings.
-3. Done when: with consent on, the read cites last night's sleep and recovery; with it off, nothing from Health reaches
-   Claude (route test proves it).
+3. Done when: with consent on, the read cites last night's sleep and recovery; with it off, a route test proves nothing
+   from Health reaches Claude.
 
 ---
 
 ## 9. Decisions for you, and risks
+
+Decide before Phase 0:
+0. Keep one Fly machine running for background uploads (a few dollars a month on the smallest machine).
 
 Decide before Phase 2:
 1. History window to start with: 90 days (fast first import) or 1 year (trends from day one, a slower first import).
