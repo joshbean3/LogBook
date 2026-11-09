@@ -14,18 +14,19 @@ import { useOpenCalendar } from '../day/Calendar';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
-import { MorningCard } from './MorningCard';
-import { MonthPage, monthWeeks } from './Month';
-import { PlanContext } from './PlanContext';
+import { MonthPage } from './Month';
+import { PlanCards, TodaySection } from './PlanTop';
 import { WeekPage } from './Week';
 import './plan.css';
 
 /**
  * Plan (docs/feel.md §7, contracts §A.3 page-root): the NavBar (caps `THIS WEEK · OCT 19–25` / `OCTOBER 2026` as stacked
  * labels bound to the shown pager's progress; title `Plan`, tap → this week / this month, hold → `Go to a week…`; the
- * `Week | Month` segmented in the 96 px slot), then two mounted panes: the week pager (`DayPager step='week'`, full-bleed,
- * each page the week line, seven rows and the block card) and the month pager (`step='month'`). Switching is a 200 ms
- * crossfade of the two panes (both in the DOM during it); the segmented's thumb rides `settle`. No haptic on any of it.
+ * `Week | Month` segmented in the 96 px slot); then two cards that say what the plan is and what week we are in (PlanTop),
+ * the held banner, Today (the morning plan and today's session); then two mounted panes: the week pager (`DayPager
+ * step='week'`, full-bleed, each page the week's header with previous and next, its one line and the seven days) and the
+ * month pager (`step='month'`). No chart on the page. Switching is a 200 ms crossfade of the two panes (both in the DOM
+ * during it); the segmented's thumb rides `settle`. No haptic on any of it.
  *
  * `view` and the anchor (the Monday, the first of the month) are page state: read once from the route, mirrored into the
  * URL with `nav.replace` on every commit, changed from outside only through `useRootRequest` (a cut sets them before the
@@ -358,6 +359,28 @@ export default function PlanView(): React.JSX.Element {
     weekH.goTo(live.current.thisMon);
   }, [weekH]); // eslint-disable-line react-hooks/exhaustive-deps
   const onWeek = useCallback((m: string) => show('week', { mon: m }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  /** The week header's previous and next: one page on from where the pager is going (a running goTo's target), no haptic. */
+  const onStep = useCallback(
+    (dir: -1 | 1) => {
+      noteFocus();
+      weekH.goTo(shiftDays(weekH.target.get() ?? live.current.st.mon, 7 * dir));
+    },
+    [weekH], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  /** The week card: this week's days, on screen (Week shown, the pager at this week, the days scrolled to under the bar). */
+  const onWeekCard = () => {
+    const s = live.current.st;
+    if (s.view !== 'week') show('week', { mon: live.current.thisMon });
+    else if ((weekH.target.get() ?? s.mon) !== live.current.thisMon) weekH.goTo(live.current.thisMon);
+    requestAnimationFrame(() => {
+      const sc = scroller.current;
+      const pane = weekPane.current;
+      if (!sc || !pane) return;
+      const bar = rootRef.current?.querySelector<HTMLElement>('.nb-bar')?.getBoundingClientRect().height ?? 0;
+      const top = pane.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - bar - 8;
+      sc.scrollTo({ top: Math.max(0, top), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+  };
   const block = usePlanBlock();
   /**
    * A page that comes into a pager's neighbour slot is not built live inside the commit's flushSync (review-feel-1 #6;
@@ -517,24 +540,24 @@ export default function PlanView(): React.JSX.Element {
     (m: string, live: boolean) => {
       const f = faceOf(m, live, weekH);
       if (f === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(m, weekH))! }} />;
-      return f === 'none' ? <div className="pl-wpage" aria-hidden="true" /> : <WeekPage mon={m} onThisWeek={onThisWeek} block={block} still={f === 'still'} />;
+      return f === 'none' ? <div className="pl-wpage" aria-hidden="true" /> : <WeekPage mon={m} onThisWeek={onThisWeek} onStep={onStep} still={f === 'still'} />;
     },
-    [onThisWeek, block, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
+    [onThisWeek, onStep, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const renderMonth = useCallback(
     (f: string, live: boolean) => {
       const k = faceOf(f, live, monthH);
       if (k === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(f, monthH))! }} />;
-      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} block={block} still={k === 'still'} />;
+      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} still={k === 'still'} />;
     },
-    [onWeek, block, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
+    [onWeek, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const stashBox = (
     <div ref={stashRef} className="pl-stash" hidden aria-hidden="true" inert>
       {stash.map((k) => (
         <div key={k} data-stash={k}>
-          {k.startsWith('w:') ? <WeekPage mon={k.slice(2)} onThisWeek={onThisWeek} block={block} still /> : <MonthPage first={k.slice(2)} onWeek={onWeek} block={block} still />}
+          {k.startsWith('w:') ? <WeekPage mon={k.slice(2)} onThisWeek={onThisWeek} onStep={onStep} still /> : <MonthPage first={k.slice(2)} onWeek={onWeek} still />}
         </div>
       ))}
     </div>
@@ -561,11 +584,11 @@ export default function PlanView(): React.JSX.Element {
         titleRef={titleRef}
         gap={16}
       />
-      {/* the block, the week's place in it and its phase: for the page shown (it changes as a page commits) */}
-      <PlanContext block={block} mons={view === 'week' ? [mon] : monthWeeks(first)} page={view === 'week' ? { from: mon, to: shiftDays(mon, 6) } : { from: first, to: shiftDays(addMonths(first, 1), -1) }} />
-      {/* the morning belongs to the day, not to the week or month shown: above both panes, outside the pagers */}
-      <MorningCard />
+      {/* what the plan is and what week we are in (today's week, whatever page is shown) */}
+      <PlanCards block={block} onWeek={onWeekCard} />
       <HeldBanner />
+      {/* the morning and today's session belong to the day, not to the week or month shown: above both panes, outside the pagers */}
+      <TodaySection />
       <div className="pl-panes">
         <section ref={weekPane} className={`pl-pane pl-week-pane ${paneCls('week')}`} inert={hidden('week')} aria-hidden={hidden('week')} aria-label="Week">
           <Activity mode={mode('week')}>

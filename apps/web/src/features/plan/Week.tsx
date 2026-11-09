@@ -1,6 +1,6 @@
 import { assess, fmtDate, mondayOf, isFastRun, isHardRun, isRace, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
 import { isHeld } from './Held';
-import { ArrowRightLeft, Check, ChevronRight, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
+import { ArrowRightLeft, Check, ChevronLeft, ChevronRight, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { effortOf } from '../sessions/effortModel';
 import { createContext, Fragment, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
@@ -15,18 +15,18 @@ import { useLog, type Log } from '../log/useLog';
 import { sessionCan, useSessionActions } from '../sessions/actions';
 import type { ReshapeResult } from '../sessions/reshape';
 import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
-import { BlockCardView, type PlanBlockProps } from './Blocks';
 import { crossfade, fadeOut } from '@/lib/motion';
 import { SectionHeader } from '@/ui/layout';
 import { useFlip, waapiOf } from './flip';
 import { dayOrder, landingIndex, useMoveTo } from './moveRule';
 import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
-import { barWeeks, MileageCard } from './WeekLine';
+import { weekWords } from './WeekLine';
 import { weekTitle } from './context';
 import { sessionIcon } from '../sessions/sessionIcon';
 
 /**
- * One week of Plan (docs/feel.md §7.2): the week line, the seven days as 60 px rows in one inset group, and the block card.
+ * One week of Plan, day by day: the week's header (its name, its dates, previous and next), one line on what the week holds,
+ * and the seven days as rows in one inset group.
  * It is what the week pager renders for prev, cur and next, memoised by its Monday, with its own log, so a page commit
  * re-renders none of the three.
  *
@@ -76,8 +76,8 @@ export interface Conflict {
 }
 
 /**
- * The status at a card's right edge: done (and a run off the plan) a check in a lit disc; missed and skipped a word in
- * ink-3; floor in amber; still to do, the chevron that says the card opens.
+ * The status at a card's right edge: done (and a run off the plan) a check in a lit disc; today's session a small `Today`
+ * pill; missed and skipped a word in ink-3; floor in amber; still to do, the chevron that says the card opens.
  */
 const Status = ({ k, word }: { k: StatusKey; word: string }) => {
   if (k === 'done' || k === 'bonus')
@@ -86,6 +86,7 @@ const Status = ({ k, word }: { k: StatusKey; word: string }) => {
         <Check size={14} strokeWidth={3} aria-hidden="true" />
       </span>
     );
+  if (k === 'today') return <span className="pl-st is-today">{word}</span>;
   if (k === 'missed' || k === 'skipped' || k === 'floor') return <span className={`pl-st is-word k-${k}`}>{word}</span>;
   return <ChevronRight size={18} className="pl-st is-chev" aria-hidden="true" />;
 };
@@ -150,7 +151,7 @@ const ToneTile = ({ s }: { s: Session | null }) => {
 };
 
 /** What a session row shows, with no hooks: the live row and a neighbour page not yet live draw the same pixels. */
-const rowFace = (log: Log, date: string, s: Session) => {
+export const rowFace = (log: Log, date: string, s: Session) => {
   const k = sessionKey(log.snap, date, s);
   const word = sessionWord(log.snap, date, s);
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
@@ -590,16 +591,17 @@ const SkelGroup = ({ days }: { days: string[] }) => (
   </div>
 );
 
+/** A week's dates for its header: `Nov 9 – 15`, or `Nov 30 – Dec 6` across a month. */
+const weekRange = (mon: string) => `${fmtDate('md', mon)} – ${monthOf(shiftDays(mon, 6)) === monthOf(mon) ? parseISO(shiftDays(mon, 6)).getDate() : fmtDate('md', shiftDays(mon, 6))}`;
+
 /**
- * One week page: the week line, the group, the block card. Memoised by its Monday (the pager re-renders none on a commit).
- * `still`: a neighbour not yet live draws the same page without its row hooks (PlanView makes it live in a transition).
+ * One week page: the header (the week's name, `This week`, `Next week`, or its dates; the dates beside a named week; then the
+ * pager pill `‹ Today ›`: previous week, back to this week when off it, next week), the week's one line (`23 mi · 4 runs.
+ * First run today.`), then the seven days. Memoised by its Monday (the pager re-renders none on a commit). `still`: a
+ * neighbour not yet live draws the same page without its row hooks (PlanView makes it live in a transition).
  */
-export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block, still }: { mon: string; onThisWeek: () => void; block: PlanBlockProps; still?: boolean }) {
-  // the weeks the mileage bars show (the block's, or the weeks around this one), and the months they need
-  const b = block.data.b;
-  const weeks = useMemo(() => barWeeks(block.data, mon), [mon, b?.id, b?.start, b?.end, block.data.arc.length]); // eslint-disable-line react-hooks/exhaustive-deps
-  const months = useMemo(() => [...new Set([mon, shiftDays(mon, 6), ...weeks, ...weeks.map((w) => shiftDays(w, 6))].map(monthOf))].sort(), [mon, weeks]);
-  const page = useMemo(() => ({ from: mon, to: shiftDays(mon, 6) }), [mon]);
+export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still }: { mon: string; onThisWeek: () => void; onStep: (dir: -1 | 1) => void; still?: boolean }) {
+  const months = useMemo(() => [...new Set([monthOf(mon), monthOf(shiftDays(mon, 6))])], [mon]);
   const log = useLog(months);
   const [conflict, setConflict] = useState<Conflict | null>(null);
   // the question belongs to the week it was asked on: leaving the week answers it (the move stays)
@@ -611,25 +613,46 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, block, still }
     window.addEventListener(PAGE_COMMIT, on);
     return () => window.removeEventListener(PAGE_COMMIT, on);
   }, [mon]);
+  const ready = log.loaded(mon) && log.loaded(shiftDays(mon, 6));
+  const words = ready ? weekWords(log, mon) : null;
+  const named = weekTitle(mon, log.today);
+  // a week with a name (this, last, next) shows its dates beside it; any other week is named by its dates alone
+  const far = named.startsWith('Week of');
+  const away = mon !== mondayOf(log.today);
   return (
     <div className="pl-wpage">
-      <section className="pl-sec pl-week-sec">
+      <section className="pl-sec pl-week-sec" aria-label={`${named}, ${weekRange(mon)}`}>
         <SectionHeader
-          title={weekTitle(mon, log.today)}
-          meta={`${fmtDate('md', mon)} – ${monthOf(shiftDays(mon, 6)) === monthOf(mon) ? parseISO(shiftDays(mon, 6)).getDate() : fmtDate('md', shiftDays(mon, 6))}`}
+          className={`pl-wk-head ${away ? 'is-away' : ''}`.trim()}
+          title={far ? weekRange(mon) : named}
+          meta={far ? undefined : weekRange(mon)}
           action={
-            mon !== mondayOf(log.today) ? (
-              <Pressable className="lb-act pl-now" onPress={onThisWeek} label="Go to this week">
-                This week
-                <ChevronRight size={15} aria-hidden="true" />
+            <span className="pl-wk-nav">
+              <Pressable className="pl-step" press="scale" onPress={() => onStep(-1)} label="Previous week">
+                <ChevronLeft size={18} aria-hidden="true" />
               </Pressable>
-            ) : null
+              {away ? (
+                <Pressable className="pl-step-now" press="scale" onPress={onThisWeek} label="Go to this week">
+                  Today
+                </Pressable>
+              ) : null}
+              <Pressable className="pl-step" press="scale" onPress={() => onStep(1)} label="Next week">
+                <ChevronRight size={18} aria-hidden="true" />
+              </Pressable>
+            </span>
           }
         />
-        {log.loaded(mon) ? <MileageCard log={log} mon={mon} block={block.data} weeks={weeks} /> : <div className="card pl-mcard is-wait" aria-hidden="true" />}
+        {words ? (
+          <p className="pl-wk-line">
+            <b>{words.head}.</b> {words.sub}
+          </p>
+        ) : (
+          <p className="pl-wk-line" aria-hidden="true">
+            &nbsp;
+          </p>
+        )}
         {still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
       </section>
-      <BlockCardView data={block.data} getLog={block.getLog} page={page} inWeek />
     </div>
   );
 });
