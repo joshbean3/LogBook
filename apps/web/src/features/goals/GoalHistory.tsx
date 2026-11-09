@@ -5,6 +5,7 @@ import { useGoalEvents, useGoals } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
 import { PushedBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
+import { SectionHeader } from '@/ui/layout';
 import { Segmented } from '@/ui/primitives';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
@@ -127,10 +128,7 @@ const Log = ({ today }: { today: string }) => {
     <>
       {[...byDay.entries()].map(([d, list]) => (
         <section key={d} className="g-logday" aria-label={fmtDate('long', d)}>
-          <div className="k-head">
-            <h2 className="k-head-title">{d === today ? 'Today' : fmtDate('short', d)}</h2>
-            <span className="k-head-meta">{list.length === 1 ? '1 change' : `${list.length} changes`}</span>
-          </div>
+          <SectionHeader size="sm" title={d === today ? 'Today' : fmtDate('short', d)} meta={list.length === 1 ? '1 change' : `${list.length} changes`} />
           <ol className="group g-group g-feed k-lined">
             {list.map((e) => (
               <li key={e.id} className={`g-feed-row is-${e.kind}`}>

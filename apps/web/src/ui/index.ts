@@ -3,6 +3,7 @@
  * The navigation API lives in '@/app/NavController' (useNav, useTab, useRouteParams, useRootRequest, useHomeControl).
  */
 export * from './primitives';
+export { PageSection, SectionHeader, Stack, TileGrid, Footnote, type PageSectionProps, type SectionHeaderProps } from './layout';
 export { Pressable, type PressableProps, type PressStyle } from './Pressable';
 export { usePress } from './usePress';
 export { useHold, type HoldInfo, type DragPoint, type HoldState, type HoldOpts, type HoldHandlers } from './useHold';

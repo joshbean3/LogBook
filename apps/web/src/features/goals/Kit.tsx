@@ -1,38 +1,17 @@
 import type * as React from 'react';
 import { ChevronRight, Trash2 } from 'lucide-react';
-import { useId } from 'react';
+import { PageSection, type PageSectionProps } from '@/ui/layout';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import './kit.css';
 
 /*
- * The shape kit's pieces (kit.css): a section with its sans header, the sheet's pinned pill, and the sheet's delete (a red
+ * The shape kit's pieces (kit.css): a section (the shared PageSection), the sheet's pinned pill, and the sheet's delete (a red
  * trash in a tinted circle, then a confirm). Shared by Goals, Learned, Journal, Library and Reads so they read the same.
  */
 
-/** A section: the plain sans header (title, grey meta, an orange action at the right), then its cards. */
-export const KSection = ({ title, meta, action, onAction, actionLabel, className = '', children, id, ...rest }: { title: React.ReactNode; meta?: React.ReactNode; action?: React.ReactNode; onAction?: () => void; actionLabel?: string; className?: string; children?: React.ReactNode; id?: string } & Omit<React.HTMLAttributes<HTMLElement>, 'title'>) => {
-  const hid = useId();
-  return (
-    <section className={`k-sec ${className}`.trim()} aria-labelledby={hid} id={id} {...rest}>
-      <div className="k-head">
-        <h2 className="k-head-title" id={hid}>
-          {title}
-        </h2>
-        {meta != null && meta !== '' ? <span className="k-head-meta">{meta}</span> : null}
-        {onAction && typeof action === 'string' ? (
-          <button type="button" className="k-head-act" onClick={onAction} aria-label={actionLabel}>
-            {action}
-            <ChevronRight size={15} aria-hidden="true" />
-          </button>
-        ) : action ? (
-          <span className="k-head-slot">{action}</span>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
-};
+/** A section: the shared header (ui/layout.tsx: serif title, grey meta, an orange action at the right), then its cards. */
+export const KSection = ({ className = '', ...rest }: PageSectionProps) => <PageSection className={`k-sec ${className}`.trim()} {...rest} />;
 
 /** The sheet's foot: one full-width navy pill pinned at the bottom (and an optional quiet pill under it). */
 export const KPin = ({ children }: { children: React.ReactNode }) => <div className="sheet-foot k-pin">{children}</div>;
