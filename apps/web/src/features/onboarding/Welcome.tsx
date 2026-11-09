@@ -15,6 +15,7 @@ import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
 import { blockShape, buildSteps, DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
+import { endReplay, isReplaying } from './replay';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
 import { enrollIntros } from './FeatureIntro';
 import { handOff } from './handoff';
@@ -127,7 +128,8 @@ export default function Welcome() {
   if (!user) return null;
   // the owner, and anyone already through, goes straight to Today, unless this is the end of their own first run
   const ending = /^ready/.test(params['*'] ?? '') && !!ss.get(PAYOFF_KEY);
-  if (user.onboardedAt && !ending) return <Navigate to="/today" replace />;
+  // Settings → Replay setup: the same flow as a preview, saving nothing
+  if (user.onboardedAt && !ending && !isReplaying()) return <Navigate to="/today" replace />;
   return <Flow uid={user.id} />;
 }
 
@@ -418,6 +420,7 @@ function Flow({ uid }: { uid: string }) {
   function clearAll() {
     ss.del(draftKey(uid));
     ss.del(PAYOFF_KEY);
+    endReplay();
   }
   /**
    * A row of the payoff's face, once Today is up (review code F2, F7): each does what it says, the way Today's own first-run
@@ -561,7 +564,10 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
   };
   const key = JSON.stringify(answers);
   const saved = draft.sent === key;
+  // a replay from Settings saves nothing: the account already has its plan
+  const replay = useMemo(() => isReplaying(), []);
   const send = () => {
+    if (replay) return;
     ss.set(PAYOFF_KEY, '1');
     onboard.mutate(answers, {
       onSuccess: (r) => {
@@ -579,7 +585,7 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
     if (!saved && !onboard.isPending) send();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const done = saved || onboard.isSuccess;
+  const done = replay || saved || onboard.isSuccess;
   const open = (then?: FirstRunAction) => {
     if (!done) return setWaiting({ then });
     onOpen(then);
@@ -669,6 +675,11 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
         <p className="ob-pay-sum" aria-live="polite">
           {onboard.isError ? (
             <span className="ob-err">Couldn’t save your plan. Check your connection and try again.</span>
+          ) : replay ? (
+            <>
+              <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />
+              Preview only. Your plan and habits weren’t changed.
+            </>
           ) : done ? (
             <>
               <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />

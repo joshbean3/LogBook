@@ -1,7 +1,9 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import type * as React from 'react';
-import { Activity, CalendarDays, ClipboardList, Database, Gauge, HeartPulse, House, Mail, Route, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { Activity, CalendarDays, ClipboardList, Database, Gauge, HeartPulse, House, Mail, RotateCcw, Route, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { startReplay } from '@/features/onboarding/replay';
 import { useEffect, useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { keys, useBootstrap } from '@/api/queries';
@@ -57,6 +59,7 @@ export default function SettingsView(): React.JSX.Element {
   const { profile, block, loaded, stored: hasStored, source } = useTrainingProfile();
   useStravaReturn();
   const go = (section: string) => () => nav.push(`/settings/${section}`);
+  const routerNav = useNavigate();
   // the push's commit draws the whole page, bar and every group, so it is whole on the slide's first frame (review feel
   // F4, review 2 feel N1) and nothing arrives once it has landed (review 3 code N2 / feel R3-2: a group held for "below
   // the fold" was on screen at 390 × 844 and popped in on the landing frame). The groups past Morning routine are four
@@ -161,6 +164,16 @@ export default function SettingsView(): React.JSX.Element {
         {/* one tap, not a page with one switch on it (review feel F13); the App page keeps it with the Home screen rows */}
         <HapticsRow icon={Vibrate} />
         {isNative ? null : <GoRow icon={House} title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
+        <GoRow
+          icon={RotateCcw}
+          title="Replay setup"
+          sub="See first run again. Nothing changes."
+          onPress={() => {
+            if (!user) return;
+            startReplay(user.id);
+            routerNav('/welcome/goal');
+          }}
+        />
       </SGroup>
 
       <SGroup title="Data">
