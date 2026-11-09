@@ -644,6 +644,91 @@
 .pl-detail-arc .pl-arc {
   margin-top: 12px;
 }
+/* ---------- the plan sheet's summary: the sentence and where it came from, what it is (rows), its goals (tiles) ---------- */
+.pl-sum-lead.card {
+  display: grid;
+  gap: 10px;
+}
+.pl-sum-text {
+  margin: 0;
+  font: 400 1.0625rem / 1.5rem var(--sans);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.pl-sum-from {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.pl-sum-from svg {
+  flex: none;
+  color: var(--accent-text);
+}
+.pl-sum .lb-head.pl-sum-head {
+  margin: 10px 2px -2px;
+}
+.pl-sum-rows.card {
+  display: grid;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.pl-sum-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 11px 0;
+}
+.pl-sum-row + .pl-sum-row,
+.pl-sum-aim + .pl-sum-aim {
+  border-top: 1px solid var(--line);
+}
+.pl-sum-k {
+  flex: none;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.pl-sum-v {
+  display: grid;
+  min-width: 0;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+  text-align: right;
+  text-wrap: pretty;
+}
+.pl-sum-v small {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.pl-sum-tiles .tile-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pl-sum-tsub {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+/* the Goals tab's goals that name the plan: a target, the goal's words, its level */
+.pl-sum-aim {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 0;
+}
+.pl-sum-aim svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent-text);
+}
+.pl-sum-aim .pl-sum-v {
+  text-align: left;
+}
 .pl-detail-label {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);

@@ -1,5 +1,5 @@
-import { fmtDate, mondayOf, monthOf, num, shiftDays, tone, type Session } from '@logbook/shared';
-import { CalendarDays, CalendarRange, Check, ChevronRight, Flag, ListChecks, Moon, Plus } from 'lucide-react';
+import { fmtDate, monthOf, tone, type Session } from '@logbook/shared';
+import { CalendarDays, Check, ChevronRight, ListChecks, Moon, Plus } from 'lucide-react';
 import type * as React from 'react';
 import { useMemo } from 'react';
 import { useNav } from '@/app/NavController';
@@ -16,100 +16,68 @@ import { sessionIcon } from '../sessions/sessionIcon';
 import { openPlanDetail, openTemplate, type PlanBlockProps } from './Blocks';
 import { MorningCard } from './MorningCard';
 import { dayOrder } from './moveRule';
-import { planCardWords, weekCardWords } from './topWords';
+import { planCardWords } from './topWords';
 import { rowFace } from './Week';
-import { weekWords } from './WeekLine';
 import './plantop.css';
 
-const tenth = (v: number) => num(Math.round(v * 10) / 10);
 /**
- * The two cards at the top of Plan: what the plan is and what week we are in. The plan card (its name, the race day, where it
- * stands) opens the plan's sheet, or the builder when there is none; a hold offers New block and All plans. The week card
- * (this week's place in the plan, its phase, the miles run of planned) shows this week's days below and scrolls to them.
+ * The plan across the top of Plan, one full-width card: a caps eyebrow, the plan's name in the serif, one line on where it
+ * stands (`Week 3 of 12 · Build`, `Starts Tuesday · 12 weeks`), a slim bar of how far through the block today is, and the
+ * chevron. A tap opens the plan's sheet (its summary: what it is, where it came from, its goals); a hold offers Open the
+ * plan, New block and All plans. With no plan it opens the builder.
  */
-export const PlanCards = ({ block, onWeek }: { block: PlanBlockProps; onWeek: () => void }): React.JSX.Element => {
+export const PlanCard = ({ block }: { block: PlanBlockProps }): React.JSX.Element => {
   const sheet = useSheet();
   const nav = useNav();
-  const today = useToday();
-  const mon = mondayOf(today);
-  const months = useMemo(() => [...new Set([monthOf(mon), monthOf(shiftDays(mon, 6))])], [mon]);
-  const log = useLog(months);
   const d = block.data;
-  if (!d.boot) return <div className="pt-cards is-wait" aria-hidden="true" />;
+  if (!d.boot) return <div className="pt-plan-wrap is-wait" aria-hidden="true" />;
   const plan = planCardWords(d);
-  const wk = weekCardWords(d, mon);
-  const ready = log.loaded(mon) && log.loaded(shiftDays(mon, 6));
-  const w = ready ? weekWords(log, mon) : null;
-  const planned = w?.summary.plannedMiles ?? 0;
-  const ran = w?.ran ?? 0;
-  const miles = !w ? null : planned > 0 ? { v: tenth(ran), u: `of ${tenth(planned)} mi` } : ran > 0 ? { v: tenth(ran), u: 'mi run' } : null;
-  const milesSaid = miles ? `${miles.v} ${miles.u.replace('mi', 'miles')}` : 'No runs planned';
   const menu = (): ContextMenuItem[] => [
     ...(d.b ? [{ label: 'Open the plan', icon: <CalendarDays size={18} />, onSelect: () => openPlanDetail(sheet, d.b!, block.getLog()) }] : []),
     { label: 'New block', icon: <Plus size={18} />, onSelect: () => openTemplate(sheet, block.getLog()) },
     { label: 'All plans', icon: <ListChecks size={18} />, onSelect: () => nav.go('/settings/plans') },
   ];
+  if (!plan || !d.b)
+    return (
+      <div className="pt-plan-wrap">
+        <Pressable className="pt-plan is-empty" press="surface" onPress={() => openTemplate(sheet, block.getLog())} holdMenu={menu} menuLabel="Plan actions" label="No plan yet. Start a block">
+          <span className="pt-plan-ic" aria-hidden="true">
+            <Plus size={20} />
+          </span>
+          <span className="pt-plan-main">
+            <span className="caps pt-eyebrow">Your plan</span>
+            <span className="pt-plan-name">No plan yet</span>
+            <span className="pt-plan-state is-act">Start a block: weeks laid out to a goal</span>
+          </span>
+          <ChevronRight size={20} className="pt-chev" aria-hidden="true" />
+        </Pressable>
+      </div>
+    );
+  const pct = Math.round(plan.progress * 100);
   return (
-    <div className="pt-cards">
-      {plan && d.b ? (
-        <Pressable
-          className="pt-card pt-plan"
-          press="surface"
-          onPress={() => openPlanDetail(sheet, d.b!, block.getLog())}
-          holdMenu={menu}
-          menuLabel="Plan actions"
-          label={`Plan: ${plan.title}. ${plan.sub}. ${plan.foot}. Open the plan; hold for more`}
-        >
-          <span className="pt-top">
-            <span className="pt-ic" aria-hidden="true">
-              {d.race ? <Flag size={15} /> : <CalendarDays size={15} />}
-            </span>
-            <span className="caps pt-eyebrow">Plan</span>
-            <ChevronRight size={16} className="pt-chev" aria-hidden="true" />
+    <div className="pt-plan-wrap">
+      <Pressable
+        className="pt-plan"
+        press="surface"
+        onPress={() => openPlanDetail(sheet, d.b!, block.getLog())}
+        holdMenu={menu}
+        menuLabel="Plan actions"
+        label={`Your plan: ${plan.title}. ${plan.state}. ${pct}% through. Open the plan summary; hold for more`}
+      >
+        <span className="pt-plan-main">
+          <span className="caps pt-eyebrow">Your plan</span>
+          <span className="pt-plan-name">{plan.title}</span>
+          <span className="pt-plan-state">{plan.state}</span>
+          <span className="pt-bar" aria-hidden="true">
+            <i style={{ transform: `scaleX(${plan.progress})` }} />
           </span>
-          <span className="pt-title">{plan.title}</span>
-          <span className="pt-sub">{plan.sub}</span>
-          <span className="pt-foot">{plan.foot}</span>
-        </Pressable>
-      ) : (
-        <Pressable className="pt-card pt-plan is-empty" press="surface" onPress={() => openTemplate(sheet, block.getLog())} holdMenu={menu} menuLabel="Plan actions" label="No plan yet. Start a block">
-          <span className="pt-top">
-            <span className="pt-ic" aria-hidden="true">
-              <Plus size={15} />
-            </span>
-            <span className="caps pt-eyebrow">Plan</span>
-            <ChevronRight size={16} className="pt-chev" aria-hidden="true" />
-          </span>
-          <span className="pt-title">No plan yet</span>
-          <span className="pt-sub">Weeks laid out to a goal</span>
-          <span className="pt-foot is-act">Start a block</span>
-        </Pressable>
-      )}
-      <Pressable className={`pt-card pt-week ${wk.inPlan ? 'is-in' : ''}`.trim()} press="surface" onPress={onWeek} label={`This week: ${wk.title}. ${wk.sub}. ${milesSaid}. Show this week's days`}>
-        <span className="pt-top">
-          <span className="pt-ic is-lit" aria-hidden="true">
-            <CalendarRange size={15} />
-          </span>
-          <span className="caps pt-eyebrow">This week</span>
-          <ChevronRight size={16} className="pt-chev" aria-hidden="true" />
         </span>
-        <span className="pt-title">{wk.title}</span>
-        <span className="pt-sub">{wk.sub}</span>
-        <span className="pt-foot">
-          {miles ? (
-            <>
-              <b className="tnum">{miles.v}</b> {miles.u}
-            </>
-          ) : w ? (
-            'No runs planned'
-          ) : (
-            ' '
-          )}
-        </span>
+        <ChevronRight size={20} className="pt-chev" aria-hidden="true" />
       </Pressable>
     </div>
   );
 };
+
 
 const KIND_WORD: Record<Session['kind'], string> = { run: 'Run', lift: 'Strength', cross: 'Cross', rest: 'Rest' };
 

@@ -1,121 +1,118 @@
-/* ---------- Plan's top (PlanTop.tsx): what the plan is and what week we are in, then Today (the morning and today's session),
-   then the week day by day (Week.tsx's header, line and status pill) ---------- */
+/* ---------- Plan's top (PlanTop.tsx): the plan card across the top, Today (the morning and today's session), then the week
+   day by day (Week.tsx's header, line and status pill) ---------- */
 
-/* ---------- the two cards: white, lifted, 20 round; an icon and a caps eyebrow, a serif name, a grey line, a foot ---------- */
-.pt-cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+/* ---------- the plan card: white, lifted, 22 round, a warm wash at its right; the eyebrow, the serif name, where it stands,
+   the slim bar of the block, the chevron ---------- */
+.pt-plan-wrap {
   margin: 0 16px;
 }
-.pt-cards.is-wait {
-  min-height: 132px;
+.pt-plan-wrap.is-wait {
+  min-height: 118px;
 }
-.pt-card.pressable {
+.pt-plan.pressable {
   position: relative;
+  overflow: hidden;
+  isolation: isolate;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
   min-width: 0;
-  min-height: 132px;
-  padding: 12px 14px 13px;
+  padding: 14px 14px 16px 18px;
   border: var(--card-border);
-  border-radius: 20px;
+  border-radius: 22px;
   background: var(--surface);
   box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
   font: inherit;
 }
-.pt-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  margin-bottom: 10px;
+.pt-plan.pressable::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -40% -20% -40% 45%;
+  background: radial-gradient(closest-side, rgba(255, 196, 140, 0.28), rgba(255, 196, 140, 0) 70%);
+  pointer-events: none;
 }
-.pt-ic {
-  flex: none;
+.pt-plan-main {
   display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: var(--well);
-  color: var(--ink-2);
-}
-.pt-ic.is-lit {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-.pt-eyebrow {
   flex: 1 1 auto;
   min-width: 0;
+}
+.pt-eyebrow {
+  margin-bottom: 4px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.pt-plan-name {
+  overflow: hidden;
+  font: 400 1.75rem / 2.125rem var(--serif);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pt-plan-state {
+  margin-top: 2px;
+  overflow: hidden;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pt-plan-state.is-act {
+  color: var(--accent-text);
+  white-space: normal;
+}
+/* how far through the block: a 4 px rail in the well, the done part in the accent */
+.pt-bar {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+}
+.pt-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: 0 50%;
 }
 .pt-chev {
   flex: none;
-  margin-right: -4px;
+  margin-right: -2px;
   color: var(--ink-4);
 }
-.pt-title {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  font: 400 1.375rem / 1.625rem var(--serif);
-  letter-spacing: -0.005em;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-.pt-sub {
-  margin-top: 2px;
-  overflow: hidden;
-  font: 500 0.875rem / 1.125rem var(--sans);
-  color: var(--ink-2);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.pt-foot {
-  margin-top: auto;
-  padding-top: 8px;
-  overflow: hidden;
-  font: 400 0.8125rem / 1.125rem var(--sans);
+.pt-plan-ic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1.5px dashed var(--line-strong);
   color: var(--ink-3);
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
-.pt-foot b {
-  font: 700 0.9375rem / 1 var(--stamp);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-.pt-foot.is-act {
-  font-weight: 600;
-  color: var(--accent-text);
-}
-.pt-plan.is-empty .pt-title {
+.pt-plan.is-empty .pt-plan-name {
   color: var(--ink-2);
 }
-.pt-card:focus-visible {
+.pt-plan:focus-visible {
   outline: 2px solid var(--accent-text);
   outline-offset: 2px;
 }
 @media (max-width: 359px) {
-  .pt-cards {
-    gap: 8px;
+  .pt-plan.pressable {
+    padding: 13px 12px 14px 16px;
   }
-  .pt-card.pressable {
-    padding: 11px 12px 12px;
-  }
-  .pt-title {
-    font-size: 1.1875rem;
-    line-height: 1.4375rem;
-  }
-  .pt-sub {
-    font-size: 0.8125rem;
+  .pt-plan-name {
+    font-size: 1.5rem;
+    line-height: 1.875rem;
   }
 }
 
@@ -342,18 +339,8 @@
   color: var(--accent-text);
   white-space: nowrap;
 }
-/* at 320 the cards are 136 wide: no chevron (the whole card is the button), the line may take two rows, and today's pill
-   in a day row is a lit dot (the row keeps its words; the label still says Today) */
+/* at 320 today's pill in a day row is a lit dot (the row keeps its words; the label still says Today) */
 @media (max-width: 359px) {
-  .pt-chev {
-    display: none;
-  }
-  .pt-sub {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    white-space: normal;
-  }
   .pl-st.is-today {
     width: 8px;
     height: 8px;
@@ -366,7 +353,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pt-card.pressable,
+  .pt-plan.pressable,
   .pt-run.pressable,
   .pl-step.pressable {
     transition: none;
