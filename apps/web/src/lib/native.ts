@@ -32,6 +32,9 @@ let splashHidden = false;
  * DayPage; until it lands, App after the framed app's first paint); `bootNative` keeps the 1500 ms hard cap, and
  * `hideSplashBy(900)` is the cap while only the first-run face is up.
  */
+/** Fired once, when the first screen has painted and the splash may go. */
+export const SPLASH_DONE = 'logbook:splash-done';
+export const isSplashDone = () => splashHidden;
 export const hideSplash = () => {
   if (splashHidden) return;
   splashHidden = true;
@@ -40,6 +43,8 @@ export const hideSplash = () => {
     const w = window as Window & { __splashHides?: number; __splashAt?: number };
     w.__splashHides = (w.__splashHides ?? 0) + 1;
     w.__splashAt = performance.now();
+    // the brand splash (app/BrandSplash.tsx) dissolves on the same beat
+    window.dispatchEvent(new CustomEvent(SPLASH_DONE));
   } catch {
     /* no window */
   }

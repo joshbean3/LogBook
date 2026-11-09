@@ -1292,3 +1292,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* the brand orb (ui/Orb.tsx) takes the place of the old gradient dots */
+.lb-orb.as-hello-mark,
+.lb-orb.as-orb {
+  width: var(--s);
+  height: var(--s);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+.lb-orb.as-hello-mark {
+  margin-bottom: 14px;
+}

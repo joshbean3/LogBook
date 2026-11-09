@@ -1,3 +1,4 @@
+import { Orb } from './Orb';
 import { Check, Plus, X } from 'lucide-react';
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -428,9 +429,6 @@ export const Row = ({ left, title, sub, right, onClick, href, two, className = '
 };
 
 /** The Logbook mark: the ring is the day, the check is the record, the gap is what is still open. */
-export const LogoMark = ({ size = 24, color = 'currentColor' }: { size?: number; color?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M 19.8 7.5 A 9 9 0 1 1 12 3" />
-    <polyline points="7.5,12 10,14.5 15.5,9" />
-  </svg>
-);
+/** Logbook's mark: the orb (ui/Orb.tsx). `color` is kept for older callers and ignored; the mark has its own colours. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const LogoMark = ({ size = 24, color }: { size?: number; color?: string }) => <Orb size={size} />;

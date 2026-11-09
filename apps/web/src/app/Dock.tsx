@@ -1,5 +1,5 @@
 import type { ISODate } from '@logbook/shared';
-import { Sparkles } from 'lucide-react';
+import { Orb } from '@/ui/Orb';
 import type * as React from 'react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useOpenAssistant } from '@/features/assistant/AskBar';
@@ -54,14 +54,14 @@ export const Dock = ({ today: todayPath, children }: { today: string; children: 
   return (
     <div ref={ref} className="dock" data-compact={compact ? '' : undefined}>
       <Pressable className="dock-ask" press="surface" onPress={() => open(date)} label={`${words}. Ask Logbook`} tabIndex={compact ? -1 : 0} aria-hidden={compact || undefined}>
-        <Sparkles size={17} className="dock-ask-ic" aria-hidden="true" />
+        <Orb size={22} className="dock-ask-ic" />
         <span className="dock-ask-text">{words}</span>
         {going ? <span className="dock-dot" aria-hidden="true" /> : null}
       </Pressable>
       <div className="dock-row">
         {children}
         <Pressable className="dock-ask-mini" press="scale" onPress={() => open(date)} label={`${words}. Ask Logbook`} tabIndex={compact ? 0 : -1} aria-hidden={!compact || undefined}>
-          <Sparkles size={20} aria-hidden="true" />
+          <Orb size={26} />
           {going ? <span className="dock-dot" aria-hidden="true" /> : null}
         </Pressable>
       </div>

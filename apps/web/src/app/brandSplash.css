@@ -1,0 +1,23 @@
+/* the launch (BrandSplash.tsx): the canvas colour of the native splash, the orb at its centre, the wordmark under it */
+.brand-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 26px;
+  background: var(--bg, #f3f8fb);
+  pointer-events: none;
+}
+.brand-splash-orb {
+  display: grid;
+  place-items: center;
+  /* the native splash's still orb sits dead centre: so does this one, the wordmark hangs below without moving it */
+  margin-top: 58px;
+}
+.brand-splash-word {
+  font: italic 400 2.125rem / 2.5rem var(--serif);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}

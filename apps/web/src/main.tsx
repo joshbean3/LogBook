@@ -5,6 +5,7 @@ import { del, get, set } from 'idb-keyval';
 import { MotionConfig } from 'motion/react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrandSplash } from '@/app/BrandSplash';
 import { BrowserRouter } from 'react-router';
 import { startKeyboard } from '@/lib/keyboard';
 import { startPressDelegate } from '@/ui/usePress';
@@ -108,6 +109,7 @@ createRoot(document.getElementById('root')!).render(
                 <SheetProvider>
                   <App />
                 </SheetProvider>
+                <BrandSplash />
               </ContextMenuProvider>
             </ToastProvider>
           </NavController>

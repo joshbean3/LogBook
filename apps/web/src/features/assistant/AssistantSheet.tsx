@@ -1,4 +1,5 @@
 import { fmtDate, PHASE_WORDS, screenLabel, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
+import { Orb } from '@/ui/Orb';
 import {
   Activity,
   ArrowDown,
@@ -193,7 +194,7 @@ const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null
       ) : (
         <div className="as-working">
           <button type="button" className="as-phase" aria-expanded={open} onClick={() => setOpen((v) => !v)} disabled={!live?.thoughts && !live?.steps?.length}>
-            <span className="as-orb" aria-hidden="true" />
+            <Orb size={18} state="think" className="as-orb" />
             <span className="as-shimmer" aria-live="polite">
               {PHASE_WORDS[phase]}
             </span>
@@ -631,7 +632,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
       <div className="as-thread">
         {empty ? (
           <div className="as-hello">
-            <span className="as-hello-mark" aria-hidden="true" />
+            <Orb size={64} className="as-hello-mark" />
             <p className="as-hello-title">
               {greeting()}
               {name ? `, ${name}` : ''}.
@@ -718,7 +719,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               ))}
               {preparing ? (
                 <span className="as-file is-preparing" aria-label="Preparing">
-                  <span className="as-orb" aria-hidden="true" />
+                  <Orb size={18} state="think" className="as-orb" />
                 </span>
               ) : null}
             </div>
