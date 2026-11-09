@@ -4,6 +4,7 @@ import type * as React from 'react';
 import { lazy, memo, Suspense, useDeferredValue, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useHabitMutations } from '@/api/queries';
 import { hideSplash } from '@/lib/native';
+import { SectionHeader } from '@/ui/layout';
 import { EmptyState } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
@@ -132,14 +133,7 @@ const HabitsTop = memo(function HabitsTop({ date, log }: { date: ISODate; log: L
   const history = useOpenHabitsHistory();
   return (
     <section className="habits day-habits" aria-label="Habits" inert={date > log.today || undefined}>
-      <div className="day-sec-head">
-        <h2 className="sec-title">Habits</h2>
-        <HabitsMeta date={date} log={log} />
-        <button type="button" className="day-habits-history" onClick={history}>
-          History
-          <ChevronRight size={15} aria-hidden="true" />
-        </button>
-      </div>
+      <SectionHeader title="Habits" meta={<HabitsMeta date={date} log={log} />} action="History" onAction={history} actionLabel="Every habit's history" />
       <div className="day-habits-card">
         <OrbRowM date={date} log={log} />
       </div>

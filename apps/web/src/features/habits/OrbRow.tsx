@@ -121,7 +121,7 @@ export const useHabitShown = (date: string, id: string, fromMonth: boolean): boo
 export const HabitsMeta = ({ date, log }: { date: string; log: Log }): React.JSX.Element | null => {
   const { lit, total } = useHabitsLit(date, log);
   const text = date > log.today ? (log.habits.length ? `${log.habits.length} ${log.habits.length === 1 ? 'habit' : 'habits'}` : null) : lit > 0 ? `${lit} of ${total}` : null;
-  return text ? <span className="sec-meta tnum">{text}</span> : null;
+  return text ? <>{text}</> : null;
 };
 /** The orb's cell (64 hit, 56 ring) plus the 4 px between cells: the 12 px between rings. */
 const PITCH = 68;

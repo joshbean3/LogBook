@@ -10,6 +10,7 @@ import { WORD_MAX } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { crossfade } from '@/lib/motion';
+import { SectionHeader } from '@/ui/layout';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -689,9 +690,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
       {still ? null : (
         <div className="cd-after">
           <section className="cd-tomorrow" aria-label="Tomorrow">
-            <div className="day-sec-head">
-              <h2 className="sec-title">Tomorrow</h2>
-            </div>
+            <SectionHeader title="Tomorrow" />
             <div className="group cd-tgroup">
               <WordRow />
               <AlarmRow log={log} />
