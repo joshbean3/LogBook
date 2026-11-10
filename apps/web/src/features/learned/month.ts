@@ -15,3 +15,10 @@ export const monthGrid = (month: string, today: string, rows: readonly Learning[
   for (let d = end; d >= first; d = shiftDays(d, -1)) out.push({ date: d, items: (by.get(d) ?? []).sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0)) });
   return out;
 };
+
+/** The months before and after `month` that have something in them (from the archive's list), or null where there is none. */
+export const neighbours = (months: readonly { month: string }[], month: string) => {
+  const older = months.filter((m) => m.month < month).map((m) => m.month).sort().pop() ?? null;
+  const newer = months.filter((m) => m.month > month).map((m) => m.month).sort()[0] ?? null;
+  return { older, newer };
+};

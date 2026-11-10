@@ -23,3 +23,32 @@ describe('goal reminders', () => {
     expect(due[0]!.title).toBe('Set today’s goal');
   });
 });
+
+describe('turning reminders on', () => {
+  it('schedules at once when iOS allows it, and reports a denial', async () => {
+    vi.resetModules();
+    const schedule = vi.fn(async () => undefined);
+    const cancel = vi.fn(async () => undefined);
+    let answer = 'granted';
+    vi.doMock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => true } }));
+    vi.doMock('@capacitor/local-notifications', () => ({ LocalNotifications: { requestPermissions: async () => ({ display: answer }), checkPermissions: async () => ({ display: answer }), schedule, cancel } }));
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) });
+    const r = await import('./reminders');
+    const today = new Date().toISOString().slice(0, 10);
+    expect(await r.enableReminders({ goals: [], today, wake: 23 * 60 + 40 })).toBe(true);
+    expect(r.remindersOn()).toBe(true);
+    expect(schedule).toHaveBeenCalledTimes(1);
+    answer = 'denied';
+    expect(await r.enableReminders({ goals: [], today, wake: 7 * 60 })).toBe(false);
+    expect(r.remindersOn()).toBe(false);
+    expect(await r.reminderPermission()).toBe('denied');
+    expect(schedule).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('says when the reminder comes', async () => {
+    const { reminderTime } = await import('./reminders');
+    expect(reminderTime(7 * 60)).toMatch(/^About 7:15\s?(AM|am)$/i);
+  });
+});

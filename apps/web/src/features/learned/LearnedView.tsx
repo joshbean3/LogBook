@@ -1,12 +1,12 @@
 import type * as React from 'react';
 import type { Learning, LearningMonth, LearningStats } from '@logbook/shared';
 import { BookOpen, ChevronRight, Flame, Lightbulb, Minus, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNav } from '@/app/NavController';
-import { revealField } from '@/lib/keyboard';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useNav, useTabScroller } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
+import { Button } from '@/ui/primitives';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { KSection } from '../goals/Kit';
 import { byTime, Composer, Days, groupByMonth, Line, monthName, plural, statsWords, useLoadMore, useOpenLearning } from './LearnedParts';
@@ -28,18 +28,18 @@ const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[];
         <span className="caps ln-hero-caps">Today</span>
         <div className="ln-today-list">
           {items.map((l) => (
-            <Line key={l.id} item={l} onOpen={onOpen} className="is-today" />
+            <Line key={l.id} item={l} onOpen={onOpen} className="is-today" clamp />
           ))}
         </div>
-        <Composer key="quiet" today={today} quiet />
       </>
     ) : (
       <>
         <h2 className="ln-prompt">What did you learn today?</h2>
         <p className="ln-hint">Name one thing and why it matters. Like: “Strides after easy runs keep my legs quick.”</p>
-        <Composer key="hero" today={today} />
       </>
     )}
+    {/* one field for both states (the same place in the tree), so it and its words survive the swap above */}
+    <Composer today={today} quiet={items.length > 0} />
   </section>
 );
 
@@ -52,32 +52,32 @@ const StatsTiles = ({ s, today, keptToday }: { s: LearningStats | undefined; tod
   const total = s?.total ?? 0;
   const streak = s?.streak ?? 0;
   return (
-    <div className="tiles ln-tiles" aria-live="polite" aria-label={s ? (total ? statsWords(s) : 'Nothing learned yet') : 'Loading the counts'}>
+    <div className="tiles ln-tiles" role="group" aria-live="polite" aria-label={s ? (total ? statsWords(s) : 'Nothing learned yet') : 'Loading the counts'}>
       <div className="tile">
         <span className="tile-label">
           <Lightbulb size={15} aria-hidden="true" /> Learned
         </span>
-        <span className="tile-value tnum">
-          {s ? (total ? total : '–') : ' '}
+        <span className="tile-value">
+          {s ? (total ? total : '–') : '\u00a0'}
           {total ? <small>{total === 1 ? 'thing' : 'things'}</small> : null}
         </span>
-        <span className={`tile-status ${total ? '' : 'is-none'}`}>{!s ? ' ' : total ? `on ${plural(s.days, 'day')}` : 'No data yet'}</span>
+        <span className={`tile-status ${total ? '' : 'is-none'}`}>{!s ? '\u00a0' : total ? `on ${plural(s.days, 'day')}` : 'Nothing kept yet'}</span>
       </div>
       <div className="tile">
         <span className="tile-label">
           <Flame size={15} aria-hidden="true" /> In a row
         </span>
-        <span className="tile-value tnum">
-          {s ? (streak ? streak : '–') : ' '}
+        <span className="tile-value">
+          {s ? (streak ? streak : '–') : '\u00a0'}
           {streak ? <small>{streak === 1 ? 'day' : 'days'}</small> : null}
         </span>
         {!s ? (
-          <span className="tile-status is-none"> </span>
+          <span className="tile-status is-none">{'\u00a0'}</span>
         ) : keptToday ? (
-          <span className="tile-status is-hi">Today is in</span>
+          <span className="tile-status is-hi ln-nowrap">Done today</span>
         ) : (
-          <span className="tile-status is-none">
-            <Minus size={14} aria-hidden="true" /> Not today yet
+          <span className="tile-status is-none ln-nowrap">
+            <Minus size={14} aria-hidden="true" /> Not yet today
           </span>
         )}
       </div>
@@ -148,19 +148,33 @@ const useSettled = (v: string, ms = 250) => {
   return out;
 };
 
+/** A load that failed: says so, with Try again. Never an empty state. */
+const LoadError = ({ what, onRetry, busy }: { what: 'list' | 'search'; onRetry: () => void; busy?: boolean }) => (
+  <section className="k-card ln-error" role="alert">
+    <p className="k-row-title">{what === 'search' ? 'Couldn’t search what you learned.' : 'Couldn’t load what you learned.'}</p>
+    <p className="k-foot">Check the connection, then try again.</p>
+    <Button size="sm" className="ln-error-btn" onClick={onRetry} disabled={busy}>
+      Try again
+    </Button>
+  </section>
+);
+
+const Searching = () => (
+  <SkeletonGroup label="Searching" className="k-card ln-more">
+    <Skeleton w="40%" h={12} />
+    <Skeleton w="85%" h={20} />
+  </SkeletonGroup>
+);
+
 /** What the search found, across every month: a section per month, its days in one card. */
 const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Learning) => void }) => {
   const list = useLearnings({ q });
   const end = useRef<HTMLDivElement>(null);
   useLoadMore(end, list);
   const months = useMemo(() => groupByMonth(list.data?.pages.flatMap((p) => p.learnings) ?? []), [list.data]);
-  if (list.isPending)
-    return (
-      <SkeletonGroup label="Searching" className="k-card ln-more">
-        <Skeleton w="40%" h={12} />
-        <Skeleton w="85%" h={20} />
-      </SkeletonGroup>
-    );
+  // a failed search is not "no matches"
+  if (list.isError && !list.data) return <LoadError what="search" onRetry={() => void list.refetch()} busy={list.isFetching} />;
+  if (list.isPending) return <Searching />;
   if (!months.length)
     return (
       <section className="k-card ln-none">
@@ -171,7 +185,7 @@ const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Lea
   return (
     <div className="ln-past">
       {months.map((m) => (
-        <KSection key={m.month} title={`${monthName(m.month)} ${m.month.slice(0, 4)}`} meta={plural(m.days.reduce((n, d) => n + d.items.length, 0), 'match', 'matches')} className="ln-month">
+        <KSection key={m.month} title={`${monthName(m.month)} ${m.month.slice(0, 4)}`} className="ln-month">
           <div className="k-card ln-days">
             <Days days={m.days} today={today} onOpen={onOpen} />
           </div>
@@ -180,6 +194,72 @@ const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Lea
       <div ref={end} className="ln-end" aria-hidden="true" />
     </div>
   );
+};
+
+/**
+ * The search field's place and focus. With the keyboard up the room for results is between the field and the keyboard, so
+ * on focus the field goes to the top of the scroller, just under the nav bar (not to the keyboard's edge), and it is held
+ * there when the first letter takes the hero, the tiles and the archive cards away (and when clearing brings them back).
+ * The keyboard's Search key blurs the field, and so does the first drag or wheel of the page while it is focused. A tap on a
+ * result is left alone: the sheet it opens takes the focus.
+ */
+const useSearchField = (searching: boolean) => {
+  const scroller = useTabScroller();
+  const box = useRef<HTMLLabelElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pin = useCallback(
+    (smooth: boolean) => {
+      const sc = scroller.current;
+      const el = box.current;
+      if (!sc || !el) return;
+      const bar = sc.querySelector<HTMLElement>('.nb-bar');
+      const under = (bar ? bar.getBoundingClientRect().bottom : sc.getBoundingClientRect().top) + 8;
+      const by = el.getBoundingClientRect().top - under;
+      if (Math.abs(by) >= 1) sc.scrollBy({ top: by, behavior: smooth ? 'smooth' : 'auto' });
+    },
+    [scroller],
+  );
+  const was = useRef(searching);
+  useLayoutEffect(() => {
+    if (was.current === searching) return;
+    was.current = searching;
+    pin(false);
+  }, [searching, pin]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    const sc = scroller.current;
+    if (!focused || !sc) return;
+    const blur = (e: Event) => {
+      if (e.target instanceof Node && box.current?.contains(e.target)) return;
+      input.current?.blur();
+    };
+    sc.addEventListener('touchmove', blur, { passive: true });
+    sc.addEventListener('wheel', blur, { passive: true });
+    return () => {
+      sc.removeEventListener('touchmove', blur);
+      sc.removeEventListener('wheel', blur);
+    };
+  }, [focused, scroller]);
+  return {
+    box,
+    input,
+    onFocus: () => {
+      setFocused(true);
+      clearTimeout(timer.current);
+      // after the keyboard's 250 ms, when the page has its room under it
+      timer.current = setTimeout(() => pin(true), 250);
+    },
+    onBlur: () => {
+      setFocused(false);
+      clearTimeout(timer.current);
+    },
+    onSubmit: (e: React.FormEvent) => {
+      e.preventDefault();
+      input.current?.blur();
+    },
+  };
 };
 
 /**
@@ -194,40 +274,59 @@ export default function LearnedView(): React.JSX.Element {
   const open = useOpenLearning(today);
   const [q, setQ] = useState('');
   const needle = useSettled(q.trim());
+  // a query is active from its first letter: the page becomes the field and what it finds
+  const searching = q.trim().length > 0;
+  const search = useSearchField(searching);
 
   const todays = useMemo(() => (list.data?.pages.flatMap((p) => p.learnings) ?? []).filter((l) => l.date === today).sort(byTime), [list.data, today]);
   const s = stats.data;
   const hasPast = !!s && s.total > todays.length;
+  // a failed load is said once, with Try again; the field above it still works
+  const failed = (list.isError && !list.data) || (stats.isError && !s) || (months.isError && !months.data);
+  const retry = () => {
+    if (list.isError) void list.refetch();
+    if (stats.isError) void stats.refetch();
+    if (months.isError) void months.refetch();
+  };
   return (
-    <div className="page ln-page">
+    <div className={`page ln-page ${searching ? 'is-searching' : ''}`}>
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={16} />
-      <div className="k-stack">
-        {list.isPending ? (
-          <SkeletonGroup label="Loading" className="ln-hero ln-hero-skel">
-            <Skeleton w="70%" h={28} />
-            <Skeleton w="90%" h={18} />
-            <Skeleton w="60%" h={18} />
-          </SkeletonGroup>
-        ) : (
-          <TodayCard today={today} items={todays} onOpen={open} />
-        )}
-        <StatsTiles s={list.isPending ? undefined : s} today={today} keptToday={todays.length > 0} />
-      </div>
-      {hasPast ? <Echoes today={today} onOpen={open} /> : null}
-      {hasPast ? (
-        <label className="ln-search">
-          <Search size={17} aria-hidden="true" className="ln-search-icon" />
-          <input className="ln-search-in" type="search" enterKeyHint="search" placeholder="Search everything you learned" aria-label="Search everything you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={(e) => revealField(e.currentTarget)} />
-          {q ? (
-            <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
-              <X size={16} aria-hidden="true" />
-            </button>
-          ) : null}
-        </label>
+      {searching ? null : (
+        <div className="k-stack">
+          {list.isPending && !list.isError ? (
+            <SkeletonGroup label="Loading" className="ln-hero ln-hero-skel">
+              <Skeleton w="70%" h={28} />
+              <Skeleton w="90%" h={18} />
+              <Skeleton w="60%" h={18} />
+            </SkeletonGroup>
+          ) : (
+            <TodayCard today={today} items={todays} onOpen={open} />
+          )}
+          {stats.isError && !s ? null : <StatsTiles s={list.isPending ? undefined : s} today={today} keptToday={todays.length > 0} />}
+          {failed ? <LoadError what="list" onRetry={retry} busy={list.isFetching || stats.isFetching || months.isFetching} /> : null}
+        </div>
+      )}
+      {hasPast && !searching ? <Echoes today={today} onOpen={open} /> : null}
+      {hasPast || searching ? (
+        <form role="search" className="ln-search-form" onSubmit={search.onSubmit}>
+          <label className="ln-search" ref={search.box}>
+            <Search size={17} aria-hidden="true" className="ln-search-icon" />
+            <input ref={search.input} className="ln-search-in" type="search" enterKeyHint="search" maxLength={100} placeholder="Search" aria-label="Search everything you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={search.onFocus} onBlur={search.onBlur} />
+            {q ? (
+              <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
+                <X size={16} aria-hidden="true" />
+              </button>
+            ) : null}
+          </label>
+        </form>
       ) : null}
-      {needle ? (
-        <Found q={needle} today={today} onOpen={open} />
-      ) : months.isPending ? (
+      {searching ? (
+        needle ? (
+          <Found q={needle} today={today} onOpen={open} />
+        ) : (
+          <Searching />
+        )
+      ) : months.isError && !months.data ? null : months.isPending ? (
         <SkeletonGroup label="Loading the months" className="k-card ln-more">
           <Skeleton w="30%" h={20} />
           <Skeleton w="100%" h={44} />

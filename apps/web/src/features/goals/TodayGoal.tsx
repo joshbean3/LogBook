@@ -2,7 +2,6 @@ import { GOAL_STEPS_MAX, goalProgress, type Aim } from '@logbook/shared';
 import { Check, ChevronRight, Plus } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useId, useRef, useState } from 'react';
-import { useGoalMutations } from '@/api/queries';
 import { revealField } from '@/lib/keyboard';
 import { useReduced } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
@@ -11,7 +10,7 @@ import { TodoMark } from '../todos/TodoMark';
 import '../todos/todos.css';
 import { clockOf, periodCaps, STATUS_WORD } from './model';
 import { useOpenGoal } from './GoalSheets';
-import { newStepId, useSaveSteps } from './Steps';
+import { newStepId, rowToggle, stepsLocked, useMarkDone, useSaveSteps } from './Steps';
 import { Burst } from './game';
 import './goals.css';
 
@@ -74,8 +73,8 @@ const Gauge = ({ goal, now, hit }: { goal: Aim; now: number; hit: number }) => {
           </>
         ) : answered ? (
           <>
-            <span className="gh-stamp">{STATUS_WORD[goal.status]}</span>
-            <span className="gh-sub">{n ? `${k} of ${n} steps` : 'Answered'}</span>
+            <span className="gh-stamp is-word">{STATUS_WORD[goal.status]}</span>
+            {n ? <span className="gh-sub">{`${k} of ${n} steps`}</span> : null}
           </>
         ) : n ? (
           <>
@@ -105,7 +104,7 @@ const Gauge = ({ goal, now, hit }: { goal: Aim; now: number; hit: number }) => {
 export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: string; now: number; hit: number }) => {
   const open = useOpenGoal();
   const saveSteps = useSaveSteps();
-  const { review } = useGoalMutations();
+  const markDone = useMarkDone();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const caps = periodCaps('day', today, today).split(' · ').pop();
@@ -113,7 +112,7 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
 
   if (!goal)
     return (
-      <Pressable className="gh is-empty" press="scale" onPress={() => open('day', today)} label="Today: no goal yet. Set today’s goal">
+      <Pressable className="gh is-empty" press="scale" onPress={() => open('day', today)} label={`Today, ${caps}, ${clock.words}. What would make today count? Set today’s goal`}>
         <span className="gh-head" aria-hidden="true">
           <span className="gh-label">Today</span>
           <span className="gh-date">{caps}</span>
@@ -133,7 +132,7 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
   const n = goal.steps.length;
   const k = goal.steps.filter((s) => s.done).length;
   const isOpen = goal.status === 'open';
-  const editable = goal.status === 'open' || goal.status === 'done';
+  const editable = !stepsLocked(goal);
   const nothingLeft = isOpen && k === n;
   const add = () => {
     const t = draft.trim();
@@ -141,7 +140,9 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
     setAdding(false);
     if (t) saveSteps(goal, [...goal.steps, { id: newStepId(), text: t.slice(0, 120), done: false }]);
   };
-  const markDone = () => review.mutate({ id: goal.id, status: 'done', ...(goal.steps.some((s) => !s.done) ? { steps: goal.steps.map((s) => ({ ...s, done: true })) } : {}) });
+  const toggle = (id: string, next: boolean) => saveSteps(goal, goal.steps.map((x) => (x.id === id ? { ...x, done: next } : x)));
+  // long words step down a size; past four lines the rest is in Details
+  const long = goal.text.length > 80;
   return (
     <section className={`gh is-${goal.status}`} aria-label={`Today’s goal: ${goal.text}`}>
       <div className="gh-head">
@@ -150,14 +151,14 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
         <span className="gh-chip">{isOpen ? clock.words : STATUS_WORD[goal.status]}</span>
       </div>
       <Gauge goal={goal} now={now} hit={hit} />
-      <Pressable className="gh-text" press="dim" onPress={() => open('day', today)} label={`${goal.text}. ${n ? `${k} of ${n} steps done. ` : ''}Open`}>
-        {goal.text}
+      <Pressable className={`gh-text ${long ? 'is-long' : ''}`} press="dim" onPress={() => open('day', today)} label={`${goal.text}. ${n ? `${k} of ${n} steps done. ` : ''}Open`}>
+        <span className="gh-text-in">{goal.text}</span>
       </Pressable>
       {n || adding ? (
         <ul className="gh-steps" aria-label="Steps">
           {goal.steps.map((s) => (
-            <li key={s.id} className={`gh-step ${s.done ? 'is-done' : ''}`}>
-              <TodoMark round on={s.done} label={s.text} disabled={!editable} onToggle={(next) => saveSteps(goal, goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
+            <li key={s.id} className={`gh-step ${s.done ? 'is-done' : ''} ${editable ? '' : 'is-locked'}`} onClick={editable ? rowToggle(() => toggle(s.id, !s.done)) : undefined}>
+              <TodoMark round on={s.done} label={s.text} disabled={!editable} onToggle={(next) => toggle(s.id, next)} />
               <span className="gh-step-text">{s.text}</span>
             </li>
           ))}
@@ -193,7 +194,7 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
       ) : null}
       <div className="gh-actions">
         {nothingLeft ? (
-          <Button variant="primary" size="sm" className="gh-btn" onClick={markDone}>
+          <Button variant="primary" size="sm" className="gh-btn" onClick={() => markDone(goal)}>
             <Check size={17} strokeWidth={2.8} aria-hidden="true" />
             Mark done
           </Button>
@@ -204,7 +205,7 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
             {n ? 'Add a step' : 'Break it into steps'}
           </Button>
         ) : null}
-        {!nothingLeft ? (
+        {!nothingLeft || !n ? (
           <Button variant="quiet" size="sm" className="gh-btn gh-more" onClick={() => open('day', today)}>
             Details
             <ChevronRight size={16} aria-hidden="true" />

@@ -6,7 +6,8 @@ import { useToday } from '@/lib/useToday';
 import { onReminderTap, scheduleReminders } from './reminders';
 
 /**
- * The Goals tab's dot: today's goal or the week's unset, or a past goal waiting on its review. It is the reminder on the
+ * The Goals tab's dot: today's goal or the week's unset (once the account has set any goal), or a past goal waiting on its
+ * review. It is the reminder on the
  * web; on the phone it also keeps the morning notifications in step with the goals (rescheduled when they change).
  */
 export const GoalsBadge = () => {
@@ -23,5 +24,15 @@ export const GoalsBadge = () => {
   useEffect(() => onReminderTap((p) => nav.go(p)), [nav]);
   if (!goals.data) return null;
   const due = goalsDue(goals.data, today);
-  return due.day || due.week || due.review ? <span className="tab-dot" aria-label="Goals need you" /> : null;
+  // an unset day or week counts only once the account has set a goal (a new account is not nagged from the first launch);
+  // a review owed always counts
+  const show = due.review > 0 || (goals.data.length > 0 && (due.day || due.week));
+  if (!show) return null;
+  // the dot is drawn; the words join the tab's own name: "Goals, needs attention"
+  return (
+    <>
+      <span className="tab-dot" aria-hidden="true" />
+      <span className="sr-only">, needs attention</span>
+    </>
+  );
 };

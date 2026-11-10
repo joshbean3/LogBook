@@ -1,6 +1,6 @@
 import type { Learning, LearningEchoes, LearningMonth, LearningPage, LearningStats } from '@logbook/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import { api, ApiError } from '@/api/client';
 import { write } from '@/api/outbox';
 import { haptics } from '@/lib/haptics';
 import { useToast } from '@/ui/Toast';
@@ -23,6 +23,14 @@ export const learnedKeys = {
   echoes: ['learnings', 'echoes'] as const,
 };
 const PAGE = 60;
+/**
+ * Retry a failed read twice, but never an answer the server meant (a 4xx: a search over 100 characters, a bad month), and
+ * not again on a remount: a failed read waits for Try again instead of looping.
+ */
+const reads = {
+  retry: (n: number, e: unknown) => !(e instanceof ApiError && e.status >= 400 && e.status < 500) && n < 2,
+  retryOnMount: false,
+} as const;
 type Pages = InfiniteData<LearningPage, string | null>;
 type ListKey = ReturnType<typeof learnedKeys.list>;
 
@@ -40,14 +48,15 @@ export const useLearnings = (f: LearnedFilter = {}, enabled = true) =>
     getNextPageParam: (last) => last.next,
     staleTime: 30_000,
     enabled,
+    ...reads,
   });
 
-export const useLearningMonths = () => useQuery({ queryKey: learnedKeys.months, queryFn: async () => (await api<{ months: LearningMonth[] }>('/learnings/months')).months, staleTime: 30_000 });
+export const useLearningMonths = () => useQuery({ queryKey: learnedKeys.months, queryFn: async () => (await api<{ months: LearningMonth[] }>('/learnings/months')).months, staleTime: 30_000, ...reads });
 
-export const useLearningStats = () => useQuery({ queryKey: learnedKeys.stats, queryFn: () => api<LearningStats>('/learnings/stats'), staleTime: 30_000 });
+export const useLearningStats = () => useQuery({ queryKey: learnedKeys.stats, queryFn: () => api<LearningStats>('/learnings/stats'), staleTime: 30_000, ...reads });
 
 /** From your archive: a year ago, a month ago, one at random (the server keeps the random one for the day). */
-export const useLearningEchoes = (enabled = true) => useQuery({ queryKey: learnedKeys.echoes, queryFn: () => api<LearningEchoes>('/learnings/echoes'), staleTime: 5 * 60_000, enabled });
+export const useLearningEchoes = (enabled = true) => useQuery({ queryKey: learnedKeys.echoes, queryFn: () => api<LearningEchoes>('/learnings/echoes'), staleTime: 5 * 60_000, enabled, ...reads });
 
 /** Newest day first, newest first within a day: the server's order. */
 const order = (a: Learning, b: Learning) => (a.date === b.date ? (a.createdAt === b.createdAt ? (a.id < b.id ? 1 : -1) : a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1);

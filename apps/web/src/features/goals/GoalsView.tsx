@@ -3,19 +3,21 @@ import { Bell, CalendarRange, Check, ChevronRight, Minus, Plus, Sunrise, X } fro
 import { motion } from 'motion/react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
-import { useGoals } from '@/api/queries';
+import { useBootstrap, useGoals } from '@/api/queries';
 import { useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
+import { Button } from '@/ui/primitives';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { Stack } from '@/ui/layout';
 import { Switch } from '../settings/parts';
 import '../settings/settings.css';
 import { useNowMinutes } from '../day/useNow';
 import { cardCaps, clockOf, goalOf, LEVEL, LEVEL_HUE, setWords, STATUS_WORD } from './model';
-import { disableReminders, enableReminders, remindersOn, remindersSupported } from './reminders';
+import { disableReminders, enableReminders, openAppSettings, reminderPermission, remindersOn, remindersSupported, reminderTime } from './reminders';
 import { useOpenGoal } from './GoalSheets';
+import { useReviewAccess } from './refine';
 import { ScoreStrip, StaleNudge } from './GoalParts';
 import { Burst, celebrateOnce } from './game';
 import { TodayGoal } from './TodayGoal';
@@ -27,6 +29,9 @@ import './goals.css';
 const LEVELS: readonly GoalLevel[] = ['day', 'week', 'month', 'year'];
 /** Under today's goal, the rest, nearest first. */
 const BIGGER: readonly GoalLevel[] = ['week', 'month', 'year'];
+
+/** A goal's words inside a longer name, without its own full stop. */
+const bare = (t: string) => t.replace(/[.\s]+$/, '');
 
 const hue = (level: GoalLevel) => ({ '--hue': LEVEL_HUE[level] }) as React.CSSProperties;
 
@@ -95,9 +100,11 @@ const LevelCard = ({ level, period, goal, today, now, hit, first }: { level: Goa
   const n = goal?.steps.length ?? 0;
   const k = goal?.steps.filter((s) => s.done).length ?? 0;
   const answered = goal && goal.status !== 'open';
+  // the printed words first (caps, chip, goal), then what only a listener needs
+  const chip = answered ? STATUS_WORD[goal.status] : clock.words;
   const label = goal
-    ? `${LEVEL[level].label} goal, ${caps}: ${goal.text}. ${answered ? STATUS_WORD[goal.status] : n ? `${k} of ${n} steps, ${clock.words}` : clock.words}. Open`
-    : `${LEVEL[level].label} goal, ${caps}: not set. ${setWords(level, period, today)}`;
+    ? `${caps}, ${chip}, ${bare(goal.text)}. ${LEVEL[level].label} goal${!answered && n ? `, ${k} of ${n} steps` : ''}. Open`
+    : `${caps}, ${chip}, ${setWords(level, period, today)}. ${LEVEL[level].label} goal, not set`;
   return (
     <Pressable className={`gl-card ${goal ? `is-${goal.status}` : 'is-empty'}`} press="scale" style={hue(level)} onPress={() => open(level, period)} label={label}>
       <MiniRing goal={goal} hit={hit} first={first} />
@@ -125,7 +132,7 @@ const AheadChip = ({ level, period, goal, today, icon, title, when, describedBy 
       press="scale"
       style={hue(level)}
       onPress={() => open(level, period)}
-      label={goal ? `${title}, ${when}: ${goal.text}. Open` : `${title}, ${when}: not set. ${setWords(level, period, today)}`}
+      label={goal ? `${title}, ${bare(goal.text)}. ${when}. Open` : `${title}, Not set, Set. ${when}. ${setWords(level, period, today)}`}
       aria-describedby={describedBy}
     >
       <span className="ga-top" aria-hidden="true">
@@ -157,7 +164,7 @@ const DayTrail = ({ goals, today, onOpen }: { goals: Aim[]; today: string; onOpe
   const set = days.filter((d) => of(d)).length;
   const hit = days.filter((d) => of(d)?.status === 'done').length;
   return (
-    <Pressable className="g-trail" press="surface" onPress={onOpen} label={`Last 14 days: ${set} goals set, ${hit} done. Open the history`}>
+    <Pressable className="g-trail" press="surface" onPress={onOpen} label={`Day goals, last 14 days, ${set ? `${hit} of ${set} done` : 'No day goals yet'}. Open the history`}>
       <span className="k-label g-trail-head">
         Day goals, last 14 days
         <ChevronRight size={16} aria-hidden="true" className="k-label-end" />
@@ -174,7 +181,86 @@ const DayTrail = ({ goals, today, onOpen }: { goals: Aim[]; today: string; onOpe
           return <i key={d} className={`g-mark ${g ? `is-${g.status}` : 'is-none'} ${d === today ? 'is-today' : ''} ${joined ? 'is-joined' : ''}`} />;
         })}
       </span>
+      {/* the key to the marks, one line */}
+      <span className="g-trail-key" aria-hidden="true">
+        {(['done', 'partly', 'missed', 'open'] as const).map((st) => (
+          <span key={st} className="g-key">
+            <i className={`g-mark is-${st}`} />
+            {STATUS_WORD[st]}
+          </span>
+        ))}
+      </span>
     </Pressable>
+  );
+};
+
+/**
+ * The morning reminder, in its own short section: when it comes, and a switch. Turning it on asks iOS and schedules what is
+ * owed at once. When iOS has said no, only the Settings app can change that, so the page says so and opens it. What iOS
+ * allows is read again on open and whenever the app comes back, so the switch never shows on while notifications are off.
+ */
+const Reminders = ({ goals, today }: { goals: Aim[]; today: string }) => {
+  const boot = useBootstrap();
+  const wake = boot.data?.morningSettings?.wake ?? 7 * 60;
+  const [on, setOn] = useState(remindersOn);
+  // denied, and the owner wanted them (tried just now, or had them on before Settings turned them off)
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const check = () =>
+      void reminderPermission()
+        .then((p) => {
+          if (!live) return;
+          if (p !== 'granted') {
+            if (p === 'denied' && remindersOn()) setBlocked(true);
+            setOn(false);
+          } else setBlocked(false);
+        })
+        .catch(() => undefined);
+    check();
+    const back = () => document.visibilityState === 'visible' && check();
+    document.addEventListener('visibilitychange', back);
+    return () => {
+      live = false;
+      document.removeEventListener('visibilitychange', back);
+    };
+  }, []);
+  return (
+    <KSection title="Reminders" className="g-rem">
+      <ul className="k-rows has-icons">
+        <li className="k-row two">
+          <span className="icon-tile" aria-hidden="true">
+            <Bell size={17} />
+          </span>
+          <span className="k-row-main">
+            <span className="k-row-title">Goal reminders</span>
+            <span className="k-row-sub">{reminderTime(wake)}, only on days with no goal</span>
+          </span>
+          <Switch
+            on={on}
+            label="Goal reminders"
+            onChange={async (next) => {
+              if (!next) {
+                await disableReminders();
+                setBlocked(false);
+                return setOn(false);
+              }
+              const ok = await enableReminders({ goals, today, wake }).catch(() => false);
+              setOn(ok);
+              setBlocked(!ok && (await reminderPermission().catch(() => 'prompt')) === 'denied');
+            }}
+          />
+        </li>
+      </ul>
+      {blocked ? (
+        <div className="k-card g-rem-off" role="status">
+          <p className="k-foot">Notifications are off for Logbook. Turn them on in Settings.</p>
+          <Button size="sm" className="g-rem-btn" onClick={openAppSettings}>
+            Open Settings
+          </Button>
+        </div>
+      ) : null}
+    </KSection>
   );
 };
 
@@ -192,10 +278,11 @@ export default function GoalsView(): React.JSX.Element {
   const now = new Date(`${today}T00:00:00`).getTime() + minutes * 60e3;
   const list = goals.data ?? [];
   const cur = currentGoals(list, today);
-  const [reminders, setReminders] = useState(remindersOn);
   const tomorrow = shiftDays(today, 1);
   const nextWeek = shiftPeriod('week', periodOf('week', today), 1);
   const aheadHint = useId();
+  // the review is promised only where it runs (assistant access on)
+  const review = useReviewAccess();
   const reduce = useReduced();
 
   // a goal turning done while the tab is open (open → done), never one that loads done: its burst and the moment, once
@@ -225,7 +312,15 @@ export default function GoalsView(): React.JSX.Element {
   return (
     <div className="page g-page">
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'Goals' }} gap={16} />
-      {goals.isPending && !goals.data ? (
+      {goals.isError && !goals.data ? (
+        <section className="k-card g-error" role="alert">
+          <p className="k-row-title">Goals didn’t load.</p>
+          <p className="k-foot">Check the connection, then try again.</p>
+          <Button size="sm" className="g-error-btn" onClick={() => void goals.refetch()} disabled={goals.isFetching}>
+            Try again
+          </Button>
+        </section>
+      ) : goals.isPending && !goals.data ? (
         <SkeletonRows rows={4} label="Loading goals" />
       ) : (
         <>
@@ -234,7 +329,7 @@ export default function GoalsView(): React.JSX.Element {
             <AheadChip level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} icon={<Sunrise size={15} />} title="Tomorrow" when={periodSpan('day', tomorrow)} describedBy={aheadHint} />
             <AheadChip level="week" period={nextWeek} goal={goalOf(list, 'week', nextWeek)} today={today} icon={<CalendarRange size={15} />} title="Next week" when={periodSpan('week', nextWeek)} describedBy={aheadHint} />
             <span id={aheadHint} className="sr-only">
-              Set them the night before. The review makes each one specific and due on time.
+              {review === 'on' ? 'Set them the night before. The review makes each one specific and due on time.' : 'Set them the night before.'}
             </span>
           </div>
           <TodayGoal goal={cur.day} today={today} now={now} hit={hits.day ?? 0} />
@@ -251,32 +346,9 @@ export default function GoalsView(): React.JSX.Element {
             <Stack>
               <ScoreStrip goals={list} today={today} />
               <DayTrail goals={list} today={today} onOpen={() => nav.push('/goals/history')} />
-              {remindersSupported() ? (
-                <ul className="k-rows has-icons">
-                  <li className="k-row two">
-                    <span className="icon-tile" aria-hidden="true">
-                      <Bell size={17} />
-                    </span>
-                    <span className="k-row-main">
-                      <span className="k-row-title">Reminders</span>
-                      <span className="k-row-sub">Each morning with no goal set, and Mondays for the week</span>
-                    </span>
-                    <Switch
-                      on={reminders}
-                      label="Goal reminders"
-                      onChange={async (on) => {
-                        if (on) setReminders(await enableReminders());
-                        else {
-                          await disableReminders();
-                          setReminders(false);
-                        }
-                      }}
-                    />
-                  </li>
-                </ul>
-              ) : null}
             </Stack>
           </KSection>
+          {remindersSupported() ? <Reminders goals={list} today={today} /> : null}
         </>
       )}
     </div>

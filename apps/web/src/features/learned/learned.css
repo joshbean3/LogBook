@@ -69,7 +69,7 @@ textarea.ln-field {
 .ln-compose:not(.is-quiet) textarea.ln-field {
   min-height: 100px;
 }
-/* "Add another": a hairline above, one line, the words at --ink-4 until there are some */
+/* "Add another": a hairline above, one line; its placeholder is its only label, so it reads at --ink-3 */
 .ln-compose.is-quiet {
   margin: 8px 16px 0;
   border-top: 1px solid var(--line);
@@ -78,7 +78,7 @@ textarea.ln-field {
   padding: 12px 0 8px;
 }
 .ln-compose.is-quiet .ln-field::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .ln-compose.is-quiet .ln-compose-foot {
   padding-right: 0;
@@ -188,7 +188,15 @@ textarea.ln-field {
 .ln-hero-skel {
   gap: 12px;
   padding: 20px 16px 24px;
-  min-height: 200px;
+  /* the empty hero's own height, so nothing jumps when it lands */
+  min-height: 262px;
+  align-content: start;
+}
+/* skeleton blocks tinted on white cards (the shared default is white) */
+.ln-hero .skel,
+.k-card .skel,
+.ln-grid .skel {
+  --skel-bg: var(--surface-2);
 }
 
 /* ---------- the counts ---------- */
@@ -240,17 +248,17 @@ textarea.ln-field {
   font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
   overflow-wrap: break-word;
 }
-.ln-echo-dash {
-  color: var(--ink-4);
-  font: 700 var(--fs-stamp) / var(--lh-stamp) var(--stamp);
-}
-.ln-echo-empty {
-  margin-top: auto;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+.ln-echo-strip.is-one {
+  grid-auto-columns: 100%;
 }
 
 /* ---------- search: a white field on the page, 52 tall ---------- */
+/* while a query is active the page is the field and what it finds; it stays tall enough to hold the field under the nav
+   bar (the large title scrolled away) however few results there are */
+.ln-page.is-searching {
+  min-height: calc(100vh + 132px);
+  min-height: calc(100dvh + 132px);
+}
 .ln-search {
   position: relative;
   display: flex;
@@ -341,10 +349,15 @@ textarea.ln-field {
   min-width: 0;
 }
 .ln-mrow-name.k-row-title {
+  flex: none;
   font-weight: 600;
 }
+/* the label gives way first (the orange tile already marks the month); the name stays whole */
 .ln-mrow-now {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--accent-text);
   white-space: nowrap;
@@ -422,8 +435,8 @@ textarea.ln-field {
   color: var(--accent-text);
 }
 .ln-gday-dow {
-  font-size: 0.625rem;
-  line-height: 0.75rem;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
 }
 .ln-gday-items {
   display: grid;
@@ -436,6 +449,8 @@ textarea.ln-field {
 }
 .ln-line.is-grid + .ln-line.is-grid {
   border-top: 1px solid var(--line);
+  /* a straight hairline: the button's rounded corners would bend it at both ends */
+  border-radius: 0;
 }
 .ln-gday-dash {
   color: var(--ink-4);
@@ -444,4 +459,92 @@ textarea.ln-field {
 /* the empty year: its one row says what lands here, in full (two lines at 320, never cut) */
 .ln-months .k-row-sub {
   white-space: normal;
+}
+
+/* ---------- launch fixes ---------- */
+/* today's lines: six at most; the sheet has the rest */
+.ln-line-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  overflow: hidden;
+}
+/* the tile lines that must stay on one line at 320 */
+.tile-status.ln-nowrap {
+  white-space: nowrap;
+}
+/* the count from 900 characters, and the line when a paste was cut */
+.ln-limit {
+  margin: 0;
+  padding: 0 16px;
+  text-align: right;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ln-sheet .ln-limit {
+  margin-top: -6px;
+}
+.ln-limit.is-full {
+  color: var(--accent-text);
+}
+/* the edit sheet opens to read; a tap on the words starts editing */
+.ln-sheet-field.is-reading {
+  cursor: text;
+}
+/* a load that failed */
+.ln-error {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.ln-error-btn.btn {
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 18px;
+}
+/* a month's page: an empty day in the last week, a tap from filling it in */
+.ln-gday.is-fillable.k-row {
+  padding: 0;
+}
+.ln-gday-fill.pressable {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 16px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.ln-gday-fill .ln-gday-date {
+  padding-top: 0;
+}
+.ln-gday-fill .ln-gday-num {
+  color: var(--ink-4);
+}
+.ln-gday-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-text);
+}
+/* the month before and after, in the bar */
+.ln-mnav {
+  display: inline-flex;
+  gap: 8px;
+}
+.ln-mnav-btn.icon-btn:disabled {
+  opacity: 0.4;
+}
+
+@media (max-width: 359px) {
+  .ln-mrow-now {
+    display: none;
+  }
 }

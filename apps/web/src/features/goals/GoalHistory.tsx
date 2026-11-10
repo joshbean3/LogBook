@@ -1,4 +1,4 @@
-import { fmtDate, periodOf, periodPast, shiftPeriod, type Aim, type GoalEvent, type GoalEventKind, type GoalLevel } from '@logbook/shared';
+import { fmtDate, periodOf, periodPast, periodStart, shiftPeriod, type Aim, type GoalEvent, type GoalEventKind, type GoalLevel } from '@logbook/shared';
 import { Check, Percent, Target, X } from 'lucide-react';
 import { useState } from 'react';
 import { useGoalEvents, useGoals } from '@/api/queries';
@@ -9,7 +9,7 @@ import { SectionHeader } from '@/ui/layout';
 import { Segmented } from '@/ui/primitives';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
-import { StatusIcon, useOpenGoal } from './GoalSheets';
+import { StatusIcon, timeOf, useOpenGoal } from './GoalSheets';
 import './goals.css';
 import './kit.css';
 
@@ -57,7 +57,7 @@ const Tally = ({ level, rows }: { level: GoalLevel; rows: Array<{ goal: Aim | nu
           <Check size={15} aria-hidden="true" /> Done
         </span>
         <span className="tile-value tnum">{done}</span>
-        <span className={`tile-status ${done ? 'is-hi' : 'is-none'}`}>{done ? 'Kept' : 'None yet'}</span>
+        <span className={`tile-status ${done ? 'is-hi' : 'is-none'}`}>{done ? `goal${done === 1 ? '' : 's'} done` : 'None yet'}</span>
       </div>
       <div className="tile">
         <span className="tile-label">
@@ -70,10 +70,27 @@ const Tally = ({ level, rows }: { level: GoalLevel; rows: Array<{ goal: Aim | nu
   );
 };
 
+/**
+ * How many periods the list reaches back: to the period of the account's first goal (the record starts there, not before
+ * the account was used), the current one at least, `SPAN` at most.
+ */
+export const periodsBack = (level: GoalLevel, goals: readonly Pick<Aim, 'level' | 'period'>[], today: string) => {
+  const cur = periodOf(level, today);
+  const first = goals.reduce<string | null>((min, g) => {
+    const d = periodStart(g.level, g.period);
+    return !min || d < min ? d : min;
+  }, null);
+  if (!first) return 1;
+  const from = periodOf(level, first < today ? first : today);
+  let n = 1;
+  while (n < SPAN[level] && shiftPeriod(level, cur, -(n - 1)) > from) n++;
+  return n;
+};
+
 const Periods = ({ level, goals, today }: { level: GoalLevel; goals: Aim[]; today: string }) => {
   const open = useOpenGoal();
   const cur = periodOf(level, today);
-  const rows = Array.from({ length: SPAN[level] }, (_, i) => {
+  const rows = Array.from({ length: periodsBack(level, goals, today) }, (_, i) => {
     const period = shiftPeriod(level, cur, -i);
     return { period, goal: goalOf(goals, level, period), past: periodPast(level, period, today) };
   });
@@ -84,8 +101,25 @@ const Periods = ({ level, goals, today }: { level: GoalLevel; goals: Aim[]; toda
         {rows.map(({ period, goal, past }) => {
           const caps = periodCaps(level, period, today);
           const state = goal ? (goal.status === 'open' ? (past ? 'Not reviewed' : 'Open') : STATUS_WORD[goal.status]) : 'No goal set';
+          // a past period with no goal is the record of a gap: nothing to open, nothing to set after the fact
+          if (!goal && past)
+            return (
+              <div key={period} className="g-hrow is-none is-gap">
+                <span className="g-row-main">
+                  <span className="caps g-row-caps">{caps}</span>
+                  <span className="g-row-none">No goal set</span>
+                </span>
+                <span />
+              </div>
+            );
           return (
-            <Pressable key={period} className={`g-hrow ${goal ? `is-${goal.status}` : 'is-none'} ${goal && goal.status === 'open' && past ? 'is-owed' : ''}`} press="surface" onPress={() => open(level, period)} label={`${caps}: ${goal ? goal.text : 'no goal set'}. ${state}`}>
+            <Pressable
+              key={period}
+              className={`g-hrow ${goal ? `is-${goal.status}` : 'is-none'} ${goal && goal.status === 'open' && past ? 'is-owed' : ''}`}
+              press="surface"
+              onPress={() => open(level, period)}
+              label={goal ? `${caps}, ${goal.text.replace(/[.\s]+$/, '')}.${goal.reflection ? ` ${goal.reflection.replace(/[.\s]+$/, '')}.` : ''} ${state}` : `${caps}, No goal set. Set one`}
+            >
               <span className="g-row-main">
                 <span className="caps g-row-caps">{caps}</span>
                 {goal ? <span className="g-row-text">{goal.text}</span> : <span className="g-row-none">No goal set</span>}
@@ -136,7 +170,7 @@ const Log = ({ today }: { today: string }) => {
                   <span className="g-feed-what">
                     {LOG_WORD[e.kind]} · {LEVEL[e.level].label.toLowerCase()} goal
                   </span>
-                  <span className="g-feed-when tnum">{new Date(e.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                  <span className="g-feed-when tnum">{timeOf(e.at)}</span>
                 </span>
                 <span className="caps g-feed-period">{periodCaps(e.level, e.period, today)}</span>
                 {e.text ? <span className="g-feed-text">{e.text}</span> : null}

@@ -23,18 +23,44 @@ export const remindersOn = () => {
 
 const notifications = () => import('@capacitor/local-notifications').then((m) => m.LocalNotifications);
 
-/** Ask once; true when the phone allows it. */
-export const enableReminders = async (): Promise<boolean> => {
+/** What iOS allows: `granted`, `denied` (only the Settings app can change it now), or `prompt` (not asked yet). */
+export type ReminderPermission = 'granted' | 'denied' | 'prompt';
+const permOf = (display: string): ReminderPermission => (display === 'granted' ? 'granted' : display === 'denied' ? 'denied' : 'prompt');
+
+/** What iOS allows now, without asking. `prompt` on the web. */
+export const reminderPermission = async (): Promise<ReminderPermission> => {
+  if (!remindersSupported()) return 'prompt';
+  const ln = await notifications();
+  return permOf((await ln.checkPermissions()).display);
+};
+
+/**
+ * Turn reminders on: ask (iOS shows its prompt once; after a no it answers `denied` without asking), and once allowed
+ * schedule what is owed at once rather than waiting for the goals to change. True when allowed; on false,
+ * `reminderPermission()` says whether only the Settings app can turn them on now.
+ */
+export const enableReminders = async (owed?: { goals: readonly Aim[] | undefined; today: ISODate; wake: number }): Promise<boolean> => {
   if (!remindersSupported()) return false;
   const ln = await notifications();
-  const p = await ln.requestPermissions();
-  const ok = p.display === 'granted';
+  const p = permOf((await ln.requestPermissions()).display);
   try {
-    localStorage.setItem(KEY, ok ? '1' : '0');
+    localStorage.setItem(KEY, p === 'granted' ? '1' : '0');
   } catch {
     /* private mode: the toggle reads off next time */
   }
-  return ok;
+  if (p === 'granted' && owed) await scheduleReminders(owed.goals, owed.today, owed.wake);
+  return p === 'granted';
+};
+
+/** Open this app's page in the Settings app (where notifications are turned back on). The iOS shell hands the URL to the system. */
+export const openAppSettings = () => {
+  window.location.href = 'app-settings:';
+};
+
+/** `About 7:15 am`: when the morning reminder comes, from the wake time (minutes after midnight). */
+export const reminderTime = (wake: number) => {
+  const m = (((wake + AFTER_WAKE) % 1440) + 1440) % 1440;
+  return `About ${new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(2000, 0, 1, Math.floor(m / 60), m % 60))}`;
 };
 
 export const disableReminders = async () => {

@@ -1,6 +1,6 @@
 import { shiftDays, type Aim } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { leftWords, scoreOf, suggestRequest, timeUsed } from './model';
+import { askOf, dayEnd, scoreOf, suggestRequest, timeUsed } from './model';
 
 const goal = (level: Aim['level'], period: string, status: Aim['status'] = 'open', steps: Aim['steps'] = []): Aim => ({ id: `${level}-${period}`, level, period, text: 'x', original: null, why: null, status, reflection: null, steps, createdAt: '', updatedAt: '', closedAt: null });
 // a Sunday: this week began on Monday Nov 2
@@ -40,19 +40,7 @@ describe('the score', () => {
   });
 });
 
-describe('a tile in words', () => {
-  it('says what is left', () => {
-    const steps = [
-      { id: 'a', text: 'a', done: true },
-      { id: 'b', text: 'b', done: false },
-      { id: 'c', text: 'c', done: false },
-    ];
-    expect(leftWords(goal('week', '2026-11-02', 'open', steps), 'week', '2026-11-02', at('2026-11-05'))).toBe('2 steps left, 4 days to go');
-    expect(leftWords(goal('week', '2026-11-02'), 'week', '2026-11-02', at('2026-11-05'))).toBe('4 days to go');
-    expect(leftWords(goal('week', '2026-11-02', 'done'), 'week', '2026-11-02', at('2026-11-05'))).toBe('Done');
-    expect(leftWords(goal('day', '2026-11-01'), 'day', '2026-11-01', at(T))).toBe('Time is up');
-  });
-
+describe('the clock in words', () => {
   it('counts the time used', () => {
     expect(timeUsed('week', '2026-11-02', at('2026-11-05', 0)).words).toBe('3 of 7 days used');
     expect(timeUsed('day', T, at(T, 15)).words).toBe('15 of 24 hours used');
@@ -62,9 +50,34 @@ describe('a tile in words', () => {
 
 describe('the suggestion request', () => {
   it('names the period plainly', () => {
-    expect(suggestRequest('day', T, T)).toMatch(/^Suggest one day goal for today \(Sun, Nov 8\), based on my last 90 days/);
+    expect(suggestRequest('day', T, T)).toMatch(/^Suggest one day goal for today \(Sun, Nov 8\), based on my recent training and goals\./);
     expect(suggestRequest('week', '2026-11-09', T)).toContain('for next week (Nov 9–15)');
     expect(suggestRequest('month', '2026-11', T)).toContain('for November 2026');
     expect(suggestRequest('day', '2026-11-12', T)).toContain('for Thu, Nov 12');
+  });
+});
+
+describe('the question the sheet asks', () => {
+  it('names the period it is about', () => {
+    expect(askOf('day', T, T)).toBe('What is the one thing for today?');
+    expect(askOf('day', '2026-11-09', T)).toBe('What is the one thing for tomorrow?');
+    expect(askOf('day', '2026-11-12', T)).toBe('What is the one thing for Thu, Nov 12?');
+    expect(askOf('week', '2026-11-02', T)).toBe('What will you get done this week?');
+    expect(askOf('week', '2026-11-09', T)).toBe('What will you get done next week?');
+    expect(askOf('week', '2026-11-16', T)).toBe('What will you get done the week of Nov 16–22?');
+    expect(askOf('month', '2026-11', T)).toBe('What will you finish this month?');
+    expect(askOf('month', '2026-12', T)).toBe('What will you finish in December?');
+    expect(askOf('year', '2026', T)).toBe('What will this year be about?');
+    expect(askOf('year', '2027', T)).toBe('What will 2027 be about?');
+  });
+
+  it('ends a starter with the right day', () => {
+    expect(dayEnd(T, T)).toBe('today');
+    expect(dayEnd('2026-11-09', T)).toBe('tomorrow');
+    expect(dayEnd('2026-11-12', T)).toBe('on Thu');
+  });
+
+  it('never promises habits or 90 days', () => {
+    expect(suggestRequest('week', '2026-11-02', T)).not.toMatch(/habit|90 days/);
   });
 });

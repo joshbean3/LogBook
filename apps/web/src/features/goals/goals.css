@@ -80,7 +80,7 @@
 }
 .g-stamp.is-partly {
   background: var(--warn-soft);
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .g-stamp.is-missed {
   background: var(--surface-3);
@@ -175,7 +175,8 @@
 }
 .g-ring-track {
   fill: none;
-  stroke: var(--surface-3);
+  /* it stands alone (no number beside it), so it carries 3:1 against white */
+  stroke: rgba(15, 42, 68, 0.5);
   stroke-width: 2.5;
 }
 .g-ring-arc {
@@ -211,8 +212,8 @@
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 44px;
+  padding: 0 14px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-strong);
   background: var(--surface-2);
@@ -283,7 +284,7 @@
   grid-template-rows: 1fr auto;
   justify-items: center;
   padding: calc(var(--safe-t) + 40px) 28px calc(var(--safe-b) + 32px);
-  background: rgba(243, 248, 251, 0.97);
+  background: var(--bg);
   text-align: center;
 }
 .cel-stage {
@@ -375,6 +376,13 @@
   font-size: var(--fs-row);
 }
 .cel-goal {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   margin: 6px 0 18px;
   padding: 12px 16px;
   border-radius: 16px;
@@ -475,6 +483,7 @@
   isolation: isolate;
   overflow: hidden;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   width: 100%;
   min-width: 0;
@@ -580,7 +589,8 @@
 }
 .gh-mid {
   position: absolute;
-  inset: 22% 18% auto;
+  /* full width so a stamp wider than the arc's opening still sits on the gauge's centre */
+  inset: 22% 0 auto;
   display: grid;
   justify-items: center;
   text-align: center;
@@ -598,6 +608,12 @@
   font-size: 1.5rem;
   letter-spacing: -0.02em;
 }
+.gh-stamp.is-word {
+  /* Partly, Missed: a word, not a number, at a size that fits inside the arc */
+  font-size: 2rem;
+  line-height: 2.25rem;
+  margin-top: 6px;
+}
 .gh-stamp.is-check {
   display: grid;
   place-items: center;
@@ -607,7 +623,7 @@
 }
 .gh-sub {
   font: italic 400 1.0625rem / 1.375rem var(--serif);
-  color: #c7781e;
+  color: var(--warn-text, #8f5800);
   white-space: nowrap;
 }
 .gh-gauge > .g-burst {
@@ -627,6 +643,18 @@
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
+/* four lines at most (the rest is in Details); long words a size down */
+.gh-text-in {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
+.gh-text.is-long.pressable {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+}
 .gh.is-missed .gh-text,
 .gh.is-partly .gh-text {
   color: var(--ink-2);
@@ -635,6 +663,7 @@
 /* the steps: a soft white card inside the warm one, a check per row */
 .gh-steps {
   display: grid;
+  min-width: 0;
   margin: 2px 0 0;
   padding: 2px 12px 2px 4px;
   list-style: none;
@@ -652,6 +681,13 @@
   min-height: 48px;
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
+}
+.gh-step:not(.is-adding):not(.is-locked) {
+  cursor: pointer;
+}
+.gh-step.is-locked .tmark-hit,
+.g-step.is-locked .tmark-hit {
+  opacity: 0.5;
 }
 .gh-step + .gh-step {
   border-top: 1px solid rgba(15, 42, 68, 0.07);
@@ -677,6 +713,7 @@
 }
 .gh-step-input {
   flex: 1;
+  width: 0;
   min-width: 0;
   height: 40px;
   padding: 0;
@@ -904,7 +941,8 @@
 /* ---------- ahead: tomorrow's goal and next week's, two small chips in a row over the list ---------- */
 .ga-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* two across; at large text sizes (a chip narrower than 7.5rem) they stack so each title stays whole */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
   gap: 8px;
   min-width: 0;
 }
@@ -1044,6 +1082,13 @@
 .g-sc.is-behind .g-sc-num {
   color: var(--accent-text);
 }
+.g-sc-why {
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
+  color: var(--accent-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .g-sc-span {
   font: 400 var(--fs-caps) / var(--lh-caps) var(--sans);
   color: var(--ink-3);
@@ -1079,8 +1124,22 @@
   color: var(--ink-2);
 }
 .g-nudge-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.g-nudge-text {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.g-nudge-when {
+  flex: none;
+  color: var(--ink-3);
+  font-size: var(--fs-foot);
   white-space: nowrap;
 }
 .g-nudge-more {
@@ -1088,6 +1147,7 @@
 }
 .g-nudge-btn.btn {
   justify-self: start;
+  min-height: 44px;
   margin-top: 6px;
   padding: 0 16px;
 }
@@ -1110,6 +1170,10 @@
   align-items: center;
   column-gap: 6px;
   min-height: 44px;
+  padding-block: 8px;
+}
+.g-steps .g-step:not(.g-step-add):not(.is-locked) {
+  cursor: pointer;
 }
 .g-steps.compact .g-step + .g-step {
   box-shadow: inset 0 1px 0 var(--line);
@@ -1249,6 +1313,29 @@
   outline: 1.5px solid var(--ink-2);
   outline-offset: 2px;
 }
+/* the key under the marks: one line, a small mark before each word */
+.g-trail-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 4px;
+  font: 400 var(--fs-caps) / var(--lh-caps) var(--sans);
+  color: var(--ink-3);
+}
+.g-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.g-key .g-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.g-key .g-mark.is-done {
+  box-shadow: none;
+}
 
 /* ---------- the sheets ---------- */
 .gsheet {
@@ -1317,6 +1404,20 @@
 }
 .gs-from-why {
   color: var(--ink-4);
+}
+/* the mark on words the review rewrote */
+.gs-from-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: bottom;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.gs-from-ai > svg {
+  flex: none;
+  color: var(--accent);
 }
 /* the gauge tile: the half arc, a hairline, the goal's words */
 .g-gauge-card {
@@ -1406,7 +1507,7 @@
 }
 .g-answer.is-partly.on {
   background: var(--warn-soft);
-  color: #8a5300;
+  color: var(--warn-text, #8f5800);
 }
 .g-answer.is-missed.on {
   background: var(--surface-3);
@@ -1518,7 +1619,7 @@
   color: var(--accent-text);
 }
 .g-state.is-partly {
-  color: #8a5300;
+  color: var(--warn-text, #8f5800);
 }
 .g-hrow.is-owed .g-state {
   color: var(--ink-2);
@@ -1553,7 +1654,7 @@
   color: var(--accent-text);
 }
 .g-feed-row.is-partly .g-feed-what {
-  color: #8a5300;
+  color: var(--warn-text, #8f5800);
 }
 .g-feed-row.is-cleared .g-feed-what,
 .g-feed-row.is-missed .g-feed-what {
@@ -1577,5 +1678,71 @@
   .g-answer,
   .g-choice {
     transition: none;
+  }
+}
+
+/* ---------- launch fixes ---------- */
+/* the set-goal question, in the body under a short sheet title */
+.gs-ask {
+  margin: 0 var(--pad-card);
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  color: var(--ink);
+  text-wrap: balance;
+}
+/* the suggestion card with assistant access off: shown, not chosen */
+.g-choice.is-off {
+  cursor: default;
+}
+.g-choice.is-off .g-choice-title,
+.g-choice.is-off .g-choice-ic {
+  color: var(--ink-3);
+}
+.g-choice.is-off .g-choice-check {
+  visibility: hidden;
+}
+/* a goal still ahead: the line under its gauge says when it starts */
+.g-gauge-time.is-ahead {
+  color: var(--ink-3);
+}
+/* a past period with no goal: the same row, nothing to tap */
+.g-hrow.is-gap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 16px;
+}
+/* goals that did not load */
+.g-error {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.g-error-btn.btn,
+.g-rem-btn.btn {
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 18px;
+}
+/* notifications off in iOS */
+.g-rem-off {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  margin-top: var(--gap);
+}
+
+@media (max-width: 359px) {
+  /* 320: the Next week title stays whole, and the sun clears the headline */
+  .ga-top {
+    gap: 4px;
+  }
+  .ga-chev {
+    display: none;
+  }
+  .gh-sun {
+    right: -64px;
+    top: -70px;
   }
 }
