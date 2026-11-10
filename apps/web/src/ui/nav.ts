@@ -45,7 +45,7 @@ export const SETTINGS_SECTIONS = ['you', 'training', 'habits', 'plans', 'connect
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 const SECTION_TITLE: Record<SettingsSection, string> = { you: 'You', training: 'Training', habits: 'Habits', plans: 'Plans', connections: 'Data sources', app: 'App', data: 'Data', account: 'Account', privacy: 'Privacy' };
 
-const METRIC_TITLE: Record<string, string> = { mileage: 'Weekly mileage', pace: 'Run pace', consistency: 'Consistency', lifts: 'Lift volume', sleep: 'Sleep', hrv: 'HRV', rhr: 'Resting HR' };
+const METRIC_TITLE: Record<string, string> = { mileage: 'Weekly mileage', pace: 'Run pace', consistency: 'Consistency', lifts: 'Lift volume', sleep: 'Sleep', hrv: 'Heart rate variability', rhr: 'Resting heart rate' };
 
 /** The whole table of §1.2: roots, pushed pages, full screens and redirects, in match order. */
 export const ROUTES: readonly RouteDef[] = [

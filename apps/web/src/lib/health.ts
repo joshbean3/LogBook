@@ -82,7 +82,7 @@ export interface LogbookHealthPlugin {
 
 // ---------- the stand-in (development in the browser only) ----------
 const at = (hoursAgo: number) => new Date(Date.now() - hoursAgo * 3_600_000).toISOString();
-const seg = (from: number, to: number, stage: SleepStage): SleepSegment => ({ start: at(from), end: at(to), stage, source: 'Josh’s Apple Watch', bundle: 'com.apple.health.watch', device: 'Watch7,1' });
+const seg = (from: number, to: number, stage: SleepStage): SleepSegment => ({ start: at(from), end: at(to), stage, source: 'Apple Watch', bundle: 'com.apple.health.watch', device: 'Watch7,1' });
 let mockAsked = false;
 let mockConnected = false;
 let mockImported = false;
@@ -129,9 +129,9 @@ export const healthMock: LogbookHealthPlugin = {
     available: true,
     checkedAt: new Date().toISOString(),
     sleep: [seg(9, 8.6, 'core'), seg(8.6, 7.9, 'deep'), seg(7.9, 6.8, 'core'), seg(6.8, 6.7, 'awake'), seg(6.7, 5.5, 'rem'), seg(5.5, 3.6, 'core'), seg(3.6, 3, 'deep'), seg(3, 2.4, 'rem'), seg(2.4, 2.3, 'awake')],
-    hrv: { value: 61.4, at: at(2.5), source: 'Josh’s Apple Watch', device: 'Watch7,1' },
-    restingHr: { value: 52, at: at(1), source: 'Josh’s Apple Watch', device: 'Watch7,1' },
-    respiratoryRate: { value: 14.8, at: at(3), source: 'Josh’s Apple Watch', device: 'Watch7,1' },
+    hrv: { value: 61.4, at: at(2.5), source: 'Apple Watch', device: 'Watch7,1' },
+    restingHr: { value: 52, at: at(1), source: 'Apple Watch', device: 'Watch7,1' },
+    respiratoryRate: { value: 14.8, at: at(3), source: 'Apple Watch', device: 'Watch7,1' },
     stepsToday: 4212,
   }),
 };
