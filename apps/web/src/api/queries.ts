@@ -1,5 +1,5 @@
 import { askAndWait, type JobAnswer } from '@/features/assistant/poll';
-import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
+import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { STRAVA_BUILT } from '@/lib/features';
@@ -225,31 +225,6 @@ export const useTodos = () => useQuery({ queryKey: keys.todos, queryFn: () => ap
 export const useDaily = () => useQuery({ queryKey: keys.daily, queryFn: () => api<Daily>('/journal/daily'), staleTime: 5 * 60_000 });
 export const useAllLifts = () => useQuery({ queryKey: keys.lifts, queryFn: () => api<LiftSet[]>('/lifts'), staleTime: 60_000 });
 export const useActivities = () => useQuery({ queryKey: keys.activities, queryFn: () => api<Activity[]>(`/activities?from=${shiftDays(today(), -120)}&to=${shiftDays(today(), 7)}`), staleTime: 60_000 });
-
-// ---------- the coach's read (spec §6.1: the client's one call after the landing; the sync route never calls Claude) ----------
-export interface CoachReadAnswer {
-  date: string;
-  key: string;
-  text: string;
-  createdAt: string;
-}
-/**
- * The existing `POST /coach/read` (`{ date, sessionId }`). The answer joins the month's cached payload in place: the same
- * object, so no observer is told and no mounted page rebuilds its snapshot for one sentence (that write was a 160 ms task at
- * 1× and 800 ms at 4× just after the landing; day review 2 #7). Later renders and the next fetch from the server (which has
- * stored it) read it there; the caller also puts it in `features/day/coachShown.ts`, a small kept store the landed deck and
- * the session sheet read, so an open sheet and a cold open show it at once (code review 3 #1, day review 3 #1).
- */
-export const fetchCoachRead = async (qc: QueryClient, date: string, sessionId: string | null): Promise<CoachReadAnswer> => {
-  const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId }, timeoutMs: LONG_TIMEOUT_MS });
-  const b = qc.getQueryData<MonthBundle>(keys.month(monthOf(date)));
-  if (b) {
-    const i = b.coach.findIndex((c) => c.date === r.date && c.key === r.key);
-    if (i >= 0) b.coach.splice(i, 1, r);
-    else b.coach.push(r);
-  }
-  return r;
-};
 
 // ---------- sessions ----------
 export const useSessionMutations = () => {
@@ -613,7 +588,7 @@ export const useRebuildPlan = () => {
 export const useUndoRebuild = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (r: TemplateApplied) => api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], endedBlock: r.endedBlock } }),
+    mutationFn: (r: TemplateApplied & Pick<PlanTemplateResult, 'addedIds'>) => api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], endedBlock: r.endedBlock, ...(r.addedIds?.length ? { addedIds: r.addedIds } : {}) } }),
     onSuccess: (_x, r) => {
       qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, blocks: b.blocks.filter((x) => x.id !== r.block.id).map((x) => (r.endedBlock && 'prevEnd' in r.endedBlock && x.id === r.endedBlock.id ? { ...x, end: r.endedBlock.prevEnd } : x)) } : b));
       void qc.invalidateQueries({ queryKey: ['month'] });
@@ -633,6 +608,8 @@ export interface PlanTemplateResult {
   endedBlock?: { id: string; prevEnd: string } | { id: string; deleted: true };
   /** Every block the new one ended or removed (a replace can overlap more than one). */
   endedBlocks?: Array<{ id: string; prevEnd: string } | { id: string; deleted: true }>;
+  /** The sessions the write added to a plan it kept (a revise): Undo removes exactly these, and the plan stays. */
+  addedIds?: string[];
 }
 
 /** `POST /plans/template`: write a block built by `buildTemplate`, then refetch its months and the bootstrap (blocks). */
@@ -659,7 +636,7 @@ export const useTemplateUndo = () => {
     mutationFn: async (r: PlanTemplateResult) => {
       qc.setQueryData<Bootstrap>(keys.bootstrap, (bs) => (bs ? { ...bs, blocks: bs.blocks.filter((x) => x.id !== r.block.id) } : bs));
       for (const m of r.months) patchMonth(qc, m, (bd) => ({ ...bd, sessions: bd.sessions.filter((s) => s.blockId !== r.block.id) }));
-      await api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], ...(r.endedBlock ? { endedBlock: r.endedBlock } : {}), ...(r.endedBlocks?.length ? { endedBlocks: r.endedBlocks } : {}) } });
+      await api('/plans/template/undo', { method: 'POST', json: { blockId: r.block.id, replacedIds: r.replacedIds ?? [], ...(r.endedBlock ? { endedBlock: r.endedBlock } : {}), ...(r.endedBlocks?.length ? { endedBlocks: r.endedBlocks } : {}), ...(r.addedIds?.length ? { addedIds: r.addedIds } : {}) } });
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ['month'] });
@@ -1096,16 +1073,6 @@ const aimsOf = (gs: Aim[]): Aim[] => (gs.every((g) => Array.isArray(g.steps)) ? 
 export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: async () => aimsOf(await api<Aim[]>('/goals')), select: aimsOf, staleTime: 30_000, retryOnMount: false });
 export const useGoalEvents = (goal?: string, enabled = true) =>
   useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: () => api<{ events: GoalEvent[]; more: boolean }>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`), staleTime: 15_000, enabled });
-
-/** The review: the goal rewritten to the goal-setting rules. Online only; offline the words stand as typed. */
-export const refineGoal = async (level: GoalLevel, period: string, text: string): Promise<GoalRefinement> => {
-  try {
-    return await api<GoalRefinement>('/goals/refine', { method: 'POST', json: { level, period, text }, timeoutMs: LONG_TIMEOUT_MS });
-  } catch (e) {
-    if (e instanceof ApiError && e.status < 500 && e.status !== 503) throw e;
-    return { text, why: null, changed: false, steps: [], available: false };
-  }
-};
 
 export const useGoalMutations = () => {
   const qc = useQueryClient();
