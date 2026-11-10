@@ -11,6 +11,7 @@ import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { monthCaption, NavBar, weekCaption } from '@/ui/NavBar';
 import { Note, Segmented } from '@/ui/primitives';
 import { useOpenCalendar } from '../day/Calendar';
+import { STRAVA_BUILT } from '@/lib/features';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
@@ -623,7 +624,8 @@ export default function PlanView(): React.JSX.Element {
       ))}
     </div>
   );
-  const strava = useLog([]).strava;
+  // the sync note belongs to a build with Strava; without it the branch is dropped
+  const strava = STRAVA_BUILT ? useLog([]).strava : null; // eslint-disable-line react-hooks/rules-of-hooks
   const paneCls = (v: View) => (view === v ? 'is-on' : st.leaving === v ? 'is-leaving' : 'is-off');
   const hidden = (v: View) => view !== v || undefined;
   // the pane that is neither shown nor fading out defers its updates (a drop re-renders the shown pages only)

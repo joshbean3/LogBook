@@ -111,7 +111,7 @@ const Trends = ({ log, onConnect }: { log: Log; onConnect: (() => void) | null }
             <Button variant="primary" size="sm" onClick={() => nav.go('/plan')}>
               Open this week’s plan
             </Button>
-            {onConnect ? (
+            {STRAVA_BUILT && onConnect ? (
               <Button variant="soft" size="sm" onClick={onConnect}>
                 Connect Strava
               </Button>

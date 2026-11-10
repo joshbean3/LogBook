@@ -78,9 +78,11 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-2);
-  white-space: nowrap;
+  /* two lines before it is cut ("2 sets, 1,025 lb moved" beside the rate box at 320) */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .ph-side {
   display: grid;
@@ -402,6 +404,25 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-3);
+}
+/* a label over each stretch of rows: "This week", "Last week", then the month */
+.ll-sec {
+  display: grid;
+  gap: 8px;
+}
+.ll-sec + .ll-sec {
+  margin-top: 6px;
+}
+.ll-sec-h {
+  margin: 0;
+  padding: 0 4px;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.ll-acts {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
 }
 .ll-more {
   justify-self: center;

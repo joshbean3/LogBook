@@ -1,5 +1,5 @@
-import { assess, clock, fmtDate, mi, monthOf, zoneOf, type Activity, type LiftSet } from '@logbook/shared';
-import { CalendarDays, ChevronRight, Clock, Dumbbell, Footprints, Heart, Layers, MapPin, Mountain, Timer } from 'lucide-react';
+import { assess, clock, fmtDate, mi, monthOf, zoneOf, type Activity } from '@logbook/shared';
+import { CalendarDays, ChevronRight, Clock, Footprints, Heart, MapPin, Mountain, Timer } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Pressable } from '@/ui';
 import { Gauge, TrendChart } from '@/ui/charts';
@@ -12,8 +12,8 @@ import './progress.css';
 import './activity.css';
 import './metric.css';
 
-/** The source chip on a row and at the top of a sheet: where the entry came from. */
-export const SourceChip = ({ source }: { source: 'Strava' | 'Manual' }) => <span className={`pa-source ${source === 'Strava' ? 'is-strava' : ''}`}>{source}</span>;
+/** The source chip at the top of the sheet: where the activity came from. This file is loaded only in a build with Strava. */
+const SourceChip = () => <span className="pa-source is-strava">Strava</span>;
 
 const CELL_ICON: Record<string, ReactNode> = {
   Distance: <MapPin size={16} />,
@@ -26,10 +26,10 @@ const CELL_ICON: Record<string, ReactNode> = {
 };
 
 /** A tile of the 2×2: the label with its icon, the stamped number with its small unit. */
-const Cell = ({ k, v, u, icon }: { k: string; v: string; u?: string; icon?: ReactNode }) => (
+const Cell = ({ k, v, u }: { k: string; v: string; u?: string }) => (
   <span className="tile pa-cell" role="listitem">
     <span className="tile-label">
-      {icon ?? CELL_ICON[k]}
+      {CELL_ICON[k]}
       <span>{k}</span>
     </span>
     <span className={`tile-value ${v === '–' ? 'is-empty' : ''}`}>
@@ -79,7 +79,7 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
       <section className={`card pa-map ${a.polyline ? '' : 'pa-map-plain'}`} aria-label="Route and source">
         {a.polyline ? <RouteMap polyline={a.polyline} drawKey={`pa-${a.id}`} run={a} records={records} /> : null}
         <div className="pa-status">
-          <SourceChip source="Strava" />
+          <SourceChip />
           <span className="pa-when">
             {when ?? fmtDate('long', a.date)}
             {!run ? ` · ${a.sportType}` : ''}
@@ -197,42 +197,6 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
           </Pressable>
         </div>
       ) : null}
-    </div>
-  );
-};
-
-/** A day's lift sets logged by hand, by exercise: where they came from, two tiles, then the sets in one card. */
-export const LiftDaySheet = ({ sets }: { sets: LiftSet[] }) => {
-  const by = new Map<string, LiftSet[]>();
-  for (const s of sets) by.set(s.exercise.trim(), [...(by.get(s.exercise.trim()) ?? []), s]);
-  const volume = sets.reduce((t, s) => t + s.weight * s.reps, 0);
-  return (
-    <div className="pa-sheet">
-      <section className="card pa-map pa-map-plain" aria-label="Source">
-        <div className="pa-status">
-          <SourceChip source="Manual" />
-          <span className="pa-when">Logged by hand</span>
-        </div>
-      </section>
-      <div className="tiles pa-grid" role="list" aria-label="The numbers">
-        <Cell k="Sets" v={String(sets.length)} icon={<Layers size={16} />} />
-        <Cell k="Volume" v={Math.round(volume).toLocaleString('en-US')} u="lb" icon={<Dumbbell size={16} />} />
-      </div>
-      <section className="card pa-card" aria-label="Sets">
-        <h3 className="pa-h">Sets</h3>
-        <div className="pa-laps" role="table" aria-label="Sets">
-          {[...by.entries()].map(([name, xs]) => (
-            <div key={name} className="pa-lift" role="row">
-              <span className="pa-lift-name" role="rowheader">
-                {name}
-              </span>
-              <span className="pa-lift-sets" role="cell">
-                {xs.map((x) => `${x.weight}×${x.reps}`).join('  ')}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 };
