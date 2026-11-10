@@ -1,4 +1,5 @@
 import type * as React from 'react';
+import { useNowMark } from '@/ui/nowBudget';
 import { usePress } from '@/ui/usePress';
 import { shortClock } from './dayWords';
 import { useReleaseTap } from './release';
@@ -22,8 +23,11 @@ export const stopProgress = (stops: Stop[], now: number) => {
   return 1;
 };
 
-/** The line and its dots: the part behind `now` lit by a scaleX, the now dot placed by a translate (transform only, §10). */
-const Line = ({ p, n, dot = true }: { p: number; n: number; dot?: boolean }) => (
+/**
+ * The line and its dots: the part behind `now` lit by a scaleX, the now dot placed by a translate (transform only, §10). The
+ * now dot is the live node (guide 3.5 job 5): Sunrise while the screen has room for it, Night Ink when it yields (`ink`).
+ */
+const Line = ({ p, n, dot = true, ink = false }: { p: number; n: number; dot?: boolean; ink?: boolean }) => (
   <span className="mini-tl-line" aria-hidden="true">
     <span className="mini-tl-done" style={{ transform: `scaleX(${p})` }} />
     {Array.from({ length: n + 1 }, (_, i) => (
@@ -32,7 +36,7 @@ const Line = ({ p, n, dot = true }: { p: number; n: number; dot?: boolean }) => 
     {/* the track spans the line; translating it by p of its own width puts the dot at p (static per minute) */}
     {dot ? (
       <span className="mini-tl-nowtrack" style={{ transform: `translateX(${(p * 100).toFixed(3)}%)` }}>
-        <i className="mini-tl-now" />
+        <i className="mini-tl-now" data-now={ink ? 'ink' : undefined} />
       </span>
     ) : null}
   </span>
@@ -46,8 +50,28 @@ const Line = ({ p, n, dot = true }: { p: number; n: number; dot?: boolean }) => 
  * Today → This morning flyer travels between (`morning-line-<date>`); the hero ignores pointers that start on it, so its tap
  * never also opens the session, and a horizontal swipe on it still pages the day.
  */
-export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: Stop[]; now: number; onPress?: () => void; label: string; shared?: string }): React.JSX.Element => {
+export const MiniTimeline = ({
+  stops,
+  now,
+  onPress,
+  label,
+  shared,
+  tone,
+  yieldNow = false,
+}: {
+  stops: Stop[];
+  now: number;
+  onPress?: () => void;
+  label: string;
+  shared?: string;
+  /** The session's data tone (`easy`, `long`...): the line and the stops behind now take it (guide 6.13). */
+  tone?: string;
+  /** The gauge's pointer is on the same screen: the live node yields to Night Ink (guide 3.5) and does not count. */
+  yieldNow?: boolean;
+}): React.JSX.Element => {
   const press = usePress({ disabled: !onPress });
+  const paint = useNowMark('pointer', now >= 0 && !yieldNow);
+  const ink = yieldNow || paint === 'ink';
   // the push starts on the touch's release, not on the click a task later (§0.2 6:30 step 3)
   const rel = useReleaseTap(() => onPress?.());
   const p = stopProgress(stops, now);
@@ -55,7 +79,7 @@ export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: St
   const body = (
     <>
       {/* a morning that is not today's has no now: no dot (a negative `now`; today-top-23) */}
-      <Line p={p} n={n} dot={now >= 0} />
+      <Line p={p} n={n} dot={now >= 0} ink={ink} />
       <span className="mini-tl-times" data-n={stops.length} aria-hidden="true">
         {stops.map((s, i) => (
           <span key={s.key} className="mini-tl-time" data-edge={i === 0 ? 'start' : i === n ? 'end' : undefined} style={{ left: `${n ? (i / n) * 100 : 0}%` }}>
@@ -68,14 +92,14 @@ export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: St
   );
   if (!onPress)
     return (
-      <div className="mini-tl" role="img" aria-label={label} data-shared={shared}>
+      <div className={`mini-tl ${tone ? `t-${tone}` : ''}`} role="img" aria-label={label} data-shared={shared}>
         {body}
       </div>
     );
   return (
     <button
       type="button"
-      className="mini-tl pressable"
+      className={`mini-tl pressable ${tone ? `t-${tone}` : ''}`}
       data-press="dim"
       aria-label={label}
       data-shared={shared}
@@ -107,11 +131,12 @@ export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: St
 };
 
 /** Door → back as one thin line with the now dot: the out face's deck. */
-export const OutLine = ({ door, back, progress }: { door: number; back: number; progress: number }): React.JSX.Element => {
+export const OutLine = ({ door, back, progress, tone, yieldNow = false }: { door: number; back: number; progress: number; tone?: string; yieldNow?: boolean }): React.JSX.Element => {
   const p = Math.max(0, Math.min(1, progress));
+  const paint = useNowMark('pointer', !yieldNow);
   return (
-    <div className="out-line" role="img" aria-label={`Out at ${shortClock(door)}, back by ${shortClock(back)}. ${Math.round(p * 100)}% of the way`}>
-      <Line p={p} n={1} />
+    <div className={`out-line ${tone ? `t-${tone}` : ''}`} role="img" aria-label={`Out at ${shortClock(door)}, back by ${shortClock(back)}. ${Math.round(p * 100)}% of the way`}>
+      <Line p={p} n={1} ink={yieldNow || paint === 'ink'} />
       <span className="out-line-ends" aria-hidden="true">
         <span className="tnum">{shortClock(door)}</span>
         <span className="tnum">{shortClock(back)}</span>

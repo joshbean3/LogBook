@@ -1,8 +1,8 @@
-import { label, num, shiftDays, type Activity, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
+import { label, num, shiftDays, tone as toneOf, type Activity, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
 import { ChevronRight, Share } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useNav } from '@/app/NavController';
 import { useSessionMutations, useStravaChecking } from '@/api/queries';
@@ -31,7 +31,7 @@ import { StravaRetry, useStravaLanding, type Landing } from './useStravaLanding'
 import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
 /** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
-import { HeroGauge } from './HeroGauge';
+import { gaugeShown, HeroGauge, weekGauge } from './HeroGauge';
 import { sessionMinutes, useAfternoon, useTrainWhen, whenFace } from './trainWhen';
 import { AfternoonSheet, WhenPill } from './WhenPill';
 
@@ -154,16 +154,21 @@ interface DeckCtx {
 /** The deck (56): the only part that differs between faces. */
 const Deck = ({ c }: { c: DeckCtx }) => {
   const { face } = c;
+  // the line's live node yields while the gauge's pointer is on screen, and counts only on the page on screen (guide 3.5)
+  const live = useIsLive(c.date);
+  const pointer = !face.tall && gaugeShown(weekGauge(c.log, c.date));
+  const yieldNow = !live || pointer;
+  const tone = face.lead ? toneOf(face.lead.session) : undefined;
   if (face.stops)
     return (
       <div className="hero-deck">
-        <MiniTimeline stops={face.stops} now={c.isToday ? c.now : -1} onPress={face.stopsKind === 'afternoon' ? c.onAfternoon : c.onMorning} label={face.stopsLabel ?? 'This morning'} shared={face.stopsKind === 'afternoon' ? undefined : morningLineId(c.date)} />
+        <MiniTimeline stops={face.stops} now={c.isToday ? c.now : -1} tone={tone} yieldNow={yieldNow} onPress={face.stopsKind === 'afternoon' ? c.onAfternoon : c.onMorning} label={face.stopsLabel ?? 'This morning'} shared={face.stopsKind === 'afternoon' ? undefined : morningLineId(c.date)} />
       </div>
     );
   if (face.out)
     return (
       <div className="hero-deck hero-deck-out">
-        <OutLine door={face.out.door} back={face.out.back} progress={face.out.progress} />
+        <OutLine door={face.out.door} back={face.out.back} progress={face.out.progress} tone={tone} yieldNow={yieldNow} />
         {face.out.sub ? <span className="hero-sub">{face.out.sub}</span> : null}
       </div>
     );
@@ -224,6 +229,49 @@ const Deck = ({ c }: { c: DeckCtx }) => {
  * would touch the dial (today-top-11): both are in the DOM and CSS shows one, which is the one VoiceOver reads.
  */
 const DOOR = 'Out the door in ';
+
+/**
+ * The gauge's session name fits by measure, not by counting letters (plan 2.3, D6): Fraunces is wider in some letters
+ * than others and the bowl is narrower on a small phone. At 40/42 when it fits; else 30/34 (`.is-long`); else two balanced
+ * lines at that size (`.is-wrap`). The classes are set on the node, so the fit costs no render. It runs again when the
+ * name changes and when the window or the text size may have changed (the events the app's text size follows).
+ */
+const useStampFit = (text: string) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.classList.remove('is-long', 'is-wrap');
+      if (el.scrollWidth <= el.clientWidth) return;
+      el.classList.add('is-long');
+      if (el.scrollWidth > el.clientWidth) el.classList.add('is-wrap');
+    };
+    fit();
+    let raf = 0;
+    const later = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(fit);
+    };
+    window.addEventListener('resize', later);
+    window.addEventListener('focus', later);
+    document.addEventListener('visibilitychange', later);
+    // Fraunces may arrive after the first paint (web): measure again once it has
+    const fonts = document.fonts;
+    let gone = false;
+    void fonts?.ready.then(() => !gone && later());
+    fonts?.addEventListener?.('loadingdone', later);
+    return () => {
+      gone = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', later);
+      window.removeEventListener('focus', later);
+      document.removeEventListener('visibilitychange', later);
+      fonts?.removeEventListener?.('loadingdone', later);
+    };
+  }, [text]);
+  return ref;
+};
 const LineText = ({ line }: { line: string }) =>
   line.startsWith(DOOR) ? (
     <>
@@ -243,8 +291,13 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
    * opens the session while the ring, the When switch, the week pill and the line stay separate controls beside it. A face
    * with nothing to open (a rest day) has a plain title.
    */
-  const title = (cls: string) => {
-    const stamp = <span className={`hero-stamp ${cls}`.trim()}>{face.stamp}</span>;
+  const fitRef = useStampFit(face.tall ? '' : face.stamp);
+  const title = (fit: boolean) => {
+    const stamp = (
+      <span className="hero-stamp" ref={fit ? fitRef : undefined}>
+        {face.stamp}
+      </span>
+    );
     return face.pressable ? (
       <CardOpen label={`${faceName(face)}. Open`} onOpen={c.onOpen}>
         {stamp}
@@ -261,7 +314,7 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
       </div>
       {face.tall ? (
         <>
-          {title('')}
+          {title(false)}
           {/* the verdict crossfades in once the landing's FLIP is at rest (§6.1 stage 4) */}
           <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
             {face.line}
@@ -271,7 +324,7 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
         // every other face: the day's words inside the week's dial (HeroGauge), the week's pill under them
         <HeroGauge date={c.date} log={c.log}>
           {/* a long name steps down and takes two lines inside the dial, never one clipped line (today-top-11) */}
-          {title(face.stamp.length > 14 ? 'is-xlong' : face.stamp.length > 9 ? 'is-long' : face.stamp.length > 6 ? 'is-mid' : '')}
+          {title(true)}
           <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
             <LineText line={face.line} />
           </motion.p>

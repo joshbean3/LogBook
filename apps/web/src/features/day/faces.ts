@@ -64,7 +64,7 @@ export interface Face {
 export const whenFaceKinds: ReadonlySet<FaceKind> = new Set<FaceKind>(['morning', 'later', 'out', 'open', 'planned']);
 
 /** What a face is about, for the card's accessible name: 'Easy 5, Today' · 'Run' · 'Rest day'. */
-export const faceName = (face: Pick<Face, 'lead' | 'runs' | 'stamp' | 'line'>): string => (face.lead ? `${label(face.lead.session)}, ${face.lead.word}` : face.runs.length ? 'Run' : face.stamp === 'REST' ? 'Rest day' : face.stamp || face.line);
+export const faceName = (face: Pick<Face, 'lead' | 'runs' | 'stamp' | 'line'>): string => (face.lead ? `${label(face.lead.session)}, ${face.lead.word}` : face.runs.length ? 'Run' : face.stamp || face.line);
 
 /** The phase of a day, with the clock passed in (the page's clock, `?at=` in dev). */
 export const phaseOf = (log: Log, date: ISODate, minutes: number): DayPhase =>
@@ -173,6 +173,8 @@ export const nextUp = (log: Log, date: ISODate, now: number): NextUp | null => {
 };
 
 const up = (s: string) => s.toUpperCase();
+/** The rest face's words in the session name slot (guide 6.13): sentence case, like every stamp. */
+const REST = 'Rest day';
 const NOTHING = 'Nothing planned';
 /** The day sits inside a plan (a block from its start to its end), or has a session of its own. Else it is not a rest day. */
 export const inPlan = (log: Pick<Log, 'boot' | 'snap'>, date: ISODate): boolean =>
@@ -209,7 +211,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     const t = runTotals(myRuns);
     const paceSec = t.miles > 0.1 ? t.sec / t.miles : 0;
     const polyline = myRuns.find((r) => r.polyline)?.polyline ?? null;
-    const who = lead ? up(label(lead.session)) : up(`${timeOfDay(myRuns[0]!.time)} run`);
+    const who = lead ? label(lead.session) : `${timeOfDay(myRuns[0]!.time)} run`;
     const head = isToday ? (lead ? 'TODAY’S RUN' : 'BONUS') : eyebrowOther;
     return {
       ...base,
@@ -236,7 +238,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       key: `done-${s.id}`,
       kind: 'doneHand',
       eyebrow: isToday ? up(kindEyebrow(s)) : eyebrowOther,
-      stamp: up(label(s)),
+      stamp: label(s),
       line,
       quiet: false,
       // the week's miles are the gauge pill's, not the deck's too (today-top-18)
@@ -245,7 +247,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     };
   }
 
-  if (lead && lead.key === 'missed') return { ...base, key: `missed-${lead.session.id}`, kind: 'missed', eyebrow: eyebrowOther, stamp: up(label(lead.session)), line: 'Missed.' };
+  if (lead && lead.key === 'missed') return { ...base, key: `missed-${lead.session.id}`, kind: 'missed', eyebrow: eyebrowOther, stamp: label(lead.session), line: 'Missed.' };
 
   if (!isToday) {
     // another day, quieter: what was, or what is coming
@@ -255,10 +257,10 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       const s = lead.session;
       const skipped = lead.key === 'skipped' || s.mark === 'skip' || s.mark === 'sick';
       const line = skipped ? 'Skipped.' : ph.doorAt != null && !past ? `Out the door ${shortClock(ph.doorAt)}` : planWords(s);
-      return { ...base, key: `${skipped ? 'skipped' : 'planned'}-${s.id}`, kind: skipped ? 'skipped' : 'planned', eyebrow: eyebrowOther, stamp: up(label(s)), line, stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined };
+      return { ...base, key: `${skipped ? 'skipped' : 'planned'}-${s.id}`, kind: skipped ? 'skipped' : 'planned', eyebrow: eyebrowOther, stamp: label(s), line, stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined };
     }
     const none = !inPlan(log, date);
-    return { ...base, key: none ? 'none' : 'rest', kind: 'rest', eyebrow: eyebrowOther, stamp: none ? '' : 'REST', line: none ? NOTHING : '', stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined, pressable: false };
+    return { ...base, key: none ? 'none' : 'rest', kind: 'rest', eyebrow: eyebrowOther, stamp: none ? '' : REST, line: none ? NOTHING : '', stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined, pressable: false };
   }
 
   // ---------- today ----------
@@ -267,7 +269,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     const stops = runStops(ph);
     if (ph.phase === 'morning' && stops) {
       const n = ph.doorIn ?? Math.max(0, Math.ceil((ph.doorAt ?? now) - now));
-      return { ...base, quiet: false, key: `morning-${s.id}`, kind: 'morning', eyebrow: 'THIS MORNING', stamp: up(label(s)), line: `Out the door in ${durationWords(n)}`, stops, stopsLabel: stopsLabel(stops) };
+      return { ...base, quiet: false, key: `morning-${s.id}`, kind: 'morning', eyebrow: 'THIS MORNING', stamp: label(s), line: `Out the door in ${durationWords(n)}`, stops, stopsLabel: stopsLabel(stops) };
     }
     if (ph.phase === 'out' && ph.doorAt != null && ph.backBy != null) {
       const leave = ph.leaveAt;
@@ -277,7 +279,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
         key: `out-${s.id}`,
         kind: 'out',
         eyebrow: 'OUT',
-        stamp: up(label(s)),
+        stamp: label(s),
         line: `Back by ${shortClock(ph.backBy)}`,
         out: { door: ph.doorAt, back: ph.backBy, progress: ph.outProgress ?? 0, sub: leave != null && leave > now ? `Leave ${shortClock(leave)} · in ${durationWords(Math.ceil(leave - now))}` : null },
       };
@@ -289,7 +291,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       key: `open-${s.id}`,
       kind: 'open',
       eyebrow: up(kindEyebrow(s)),
-      stamp: up(label(s)),
+      stamp: label(s),
       line: planWords(s),
       status: leave != null && leave > now ? `Leave ${shortClock(leave)} · in ${durationWords(Math.ceil(leave - now))}` : 'Not logged yet',
       ring: 'open',
@@ -306,16 +308,16 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     // its own (`-am` in the key), so it waits for a touch or idle and crossfades (§5.3).
     const stops = rm?.stops ?? (ph.phase === 'morning' ? runStops(ph) : null);
     const eyebrow = stops ? 'THIS MORNING' : up(kindEyebrow(lead.session));
-    return { ...base, quiet: false, key: `skipped-${lead.session.id}${stops ? '-am' : ''}`, kind: 'skipped', eyebrow, stamp: up(label(lead.session)), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
+    return { ...base, quiet: false, key: `skipped-${lead.session.id}${stops ? '-am' : ''}`, kind: 'skipped', eyebrow, stamp: label(lead.session), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
   }
   if (rm) {
     const line = now < rm.wake ? `Wake time in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;
     const none = !inPlan(log, date);
-    return { ...base, quiet: false, key: 'rest-morning', kind: 'restMorning', eyebrow: 'TODAY', aside: next ? up(next.text.replace(/: /, ' · ')) : undefined, stamp: none ? '' : 'REST', line: none ? `${NOTHING}. ${line}` : line, stops: rm.stops, stopsLabel: stopsLabel(rm.stops), pressable: false };
+    return { ...base, quiet: false, key: 'rest-morning', kind: 'restMorning', eyebrow: 'TODAY', aside: next ? up(next.text.replace(/: /, ' · ')) : undefined, stamp: none ? '' : REST, line: none ? `${NOTHING}. ${line}` : line, stops: rm.stops, stopsLabel: stopsLabel(rm.stops), pressable: false };
   }
   // rest is said once, by the stamp; a day outside any plan says "Nothing planned" instead (today-top-12, today-top-18)
   const none = !inPlan(log, date);
-  return { ...base, quiet: false, key: none ? 'none' : 'rest', kind: 'rest', eyebrow: 'TODAY', stamp: none ? '' : 'REST', line: none ? NOTHING : '', next, pressable: false };
+  return { ...base, quiet: false, key: none ? 'none' : 'rest', kind: 'rest', eyebrow: 'TODAY', stamp: none ? '' : REST, line: none ? NOTHING : '', next, pressable: false };
 };
 
 /**
