@@ -191,9 +191,9 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         titleLabel={date === today ? 'Today' : `${dayTitle(date, today)}. Go to today`}
         titleRef={titleRef}
         gap={16}
-        // the caps date opens the calendar on a tap (today-top-24): props requested from ws-02's NavBar; passed through a
-        // spread so this compiles before and after NavBar takes them
-        {...({ onDatePress: openCalendar, dateLabel: 'Go to a day' } as object)}
+        // the caps date opens the calendar on a tap (today-top-24)
+        onDatePress={openCalendar}
+        dateLabel="Go to a day"
       >
         <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} labelOf={labelOf} onPick={(d) => handle.goTo(d)} />
       </NavBar>
