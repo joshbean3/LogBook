@@ -1,24 +1,27 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Check, ChevronRight, CloudUpload, Database, Footprints, HeartPulse, Minus, Moon, Plus, RefreshCw, ShieldCheck, Sparkles, Stethoscope, TriangleAlert, Wind, X } from 'lucide-react';
+import { Activity, ChevronRight, CloudUpload, Database, Heart, HeartPulse, Moon, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { HEALTH_HISTORY_DAYS, type HealthStatus } from '@logbook/shared';
 import { api } from '@/api/client';
 import { healthStatusKey, healthSyncNow, syncErrorWords, useHealthSync } from '@/lib/healthSync';
 import { apiOrigin } from '@/lib/native';
 import { useState } from 'react';
 import type * as React from 'react';
-import { useConsent, useSaveConsent } from '@/features/auth/consent';
-import { BevelDial, ConsentHero, GlassTile, HealthHero, Hypnogram, MonitorTile, SourceLine, StageTile, TimeChip } from '@/features/health/HealthParts';
+import { BevelDial, GlassTile, HealthHero, Hypnogram, MonitorTile, SourceLine, StageTile, TimeChip } from '@/features/health/HealthParts';
+import { DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { Health, healthMode, hm, summarizeNight, type ReadingCheck } from '@/lib/health';
+import { LEGAL, openExternal } from '@/lib/siteLinks';
 import { Button, Pressable, useSheet, useToast } from '@/ui';
+import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_REVOKE_PATH, HEALTH_TRUST, importWords, savedWords } from './healthCopy';
+import { rememberHealthDevice } from './healthDevice';
 import { SCard } from './parts';
 import './appleHealth.css';
 
 /**
- * Apple Health in Settings › Data sources (docs/health/apple-health.md, phase 1), drawn the way Bevel draws its health
- * screens: the source as a device card, connecting as an illustrated sheet, the reading check as last night on a
- * night-navy card with its hypnogram and a Health Monitor of tiles, and the coach's permission with its own hero.
- * Connected, the engine (packages/capacitor-health HealthSync.swift) keeps your Logbook in step with Apple Health.
+ * Apple Health in Settings, Data sources (docs/health/apple-health.md): the source as a device card, connecting as an
+ * illustrated sheet, and the reading check (last night and the two heart numbers, read live on the phone). 1.0 reads three
+ * things and no more: sleep, heart rate variability and resting heart rate. Every sentence here says only that
+ * (healthCopy.ts). Connected, the engine (packages/capacitor-health HealthSync.swift) keeps the account in step.
  */
 
 const accessKey = ['health', 'access'] as const;
@@ -36,8 +39,6 @@ export const useHealthAccess = () =>
     staleTime: 30_000,
   });
 
-const consentWord = (h: boolean | null | undefined) => (h === true ? 'On' : h === false ? 'Off' : 'Not asked');
-const goalWords = (min: number) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, '0')}m`;
 const agoWords = (iso: string | null | undefined) => {
   if (!iso) return null;
   const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
@@ -48,7 +49,7 @@ const monthOf = (detail?: string) => {
   return Number.isNaN(t) ? null : new Date(t);
 };
 
-/** The account's Apple Health connection on the server: what has arrived, the sleep goal, the devices. */
+/** The account's Apple Health connection on the server: what has arrived, and the devices. */
 export const useHealthServerStatus = () => useQuery({ queryKey: healthStatusKey, queryFn: () => api<HealthStatus>('/apple-health/status'), staleTime: 30_000 });
 /** This phone's engine: connected here, waiting uploads, still importing. */
 const deviceKey = ['health', 'device'] as const;
@@ -58,43 +59,40 @@ const useHealthDevice = () => useQuery({ queryKey: deviceKey, queryFn: () => (He
 const CardRow = ({ icon: Icon, title, sub, value, onPress, tone }: { icon: typeof Moon; title: string; sub?: string; value?: string; onPress?: () => void; tone?: 'orange' }) => {
   const inner = (
     <>
-      <span className={`ah-coach-ic ${tone === 'orange' ? '' : 'is-navy'}`} aria-hidden="true">
+      <span className={`ah-row-ic ${tone === 'orange' ? '' : 'is-navy'}`} aria-hidden="true">
         <Icon size={16} strokeWidth={2.2} />
       </span>
-      <span className="ah-coach-text">
-        <span className="ah-coach-title">{title}</span>
-        {sub ? <span className="ah-coach-sub">{sub}</span> : null}
+      <span className="ah-row-text">
+        <span className="ah-row-title">{title}</span>
+        {sub ? <span className="ah-row-sub">{sub}</span> : null}
       </span>
-      {value ? <span className="ah-coach-value">{value}</span> : null}
+      {value ? <span className="ah-row-value">{value}</span> : null}
       {onPress ? <ChevronRight size={18} className="ah-chev" aria-hidden="true" /> : null}
     </>
   );
   return onPress ? (
-    <Pressable className="ah-coach" press="dim" onPress={onPress} label={`${title}${value ? `: ${value}` : ''}`}>
+    <Pressable className="ah-row" press="dim" onPress={onPress} label={`${title}${value ? `: ${value}` : ''}`}>
       {inner}
     </Pressable>
   ) : (
-    <div className="ah-coach">{inner}</div>
+    <div className="ah-row">{inner}</div>
   );
 };
 
 /**
- * The Apple Health section of Data sources: the source as a device card (as Bevel shows a connected source). Before
- * connecting: Connect. Connected on this phone: when it last synced (or the month being imported), Sync, what has arrived,
- * the sleep goal, the reading check, Coach access, and Disconnect under the card.
+ * The Apple Health section of Data sources: the source as a device card. Before connecting: Connect. Connected on this
+ * phone: when it last synced (or the month being read), Sync, what has been saved to the account, the reading check, and
+ * Disconnect at the foot of the card.
  */
 export const AppleHealthGroup = (): React.JSX.Element => {
   const sheet = useSheet();
   const qc = useQueryClient();
   const access = useHealthAccess();
-  const consent = useConsent();
   const server = useHealthServerStatus();
   const device = useHealthDevice();
   const sync = useHealthSync();
-  const openConsent = () => sheet.open({ title: 'Coach access', body: <HealthConsentPanel /> });
   const openConnect = () => sheet.open({ title: 'Apple Health', body: <ConnectPanel /> });
   const openCheck = () => sheet.open({ title: 'Reading check', detent: 'large', body: <ReadingCheckPanel /> });
-  const openGoal = (min: number) => sheet.open({ title: 'Sleep goal', body: <SleepGoalPanel initial={min} onDone={() => sheet.close()} /> });
   const web = healthMode === 'web';
   const unavailable = !web && access.data && !access.data.available;
   const s = server.data;
@@ -107,22 +105,16 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   if (web && s?.connected) status = agoWords(s.lastSyncAt) ? `Connected on iPhone · synced ${agoWords(s.lastSyncAt)}` : 'Connected on iPhone · not synced yet';
   else if (web) status = 'Connects from the Logbook app on your iPhone';
   else if (unavailable) status = 'Not available on this device';
-  else if (connectedHere && sync.phase === 'importing') status = `Reading history${importMonth ? ` · ${importMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : '…'}`;
+  else if (connectedHere && sync.phase === 'importing') status = importWords(importMonth);
   else if (connectedHere && running) status = 'Syncing…';
   else if (connectedHere && sync.phase === 'error') status = syncErrorWords(sync.detail);
   else if (connectedHere) status = agoWords(s?.lastSyncAt ?? device.data?.lastSyncAt) ? `Synced ${agoWords(s?.lastSyncAt ?? device.data?.lastSyncAt)}` : 'Not synced yet';
-  else status = 'Sleep, heart, HRV and workouts';
+  else status = HEALTH_READS_LINE;
 
-  const total = s ? Object.values(s.counts.samples).reduce((a, b) => a + b, 0) : 0;
-  const imported = s?.span.from ? `Since ${new Date(`${s.span.from}T12:00:00`).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : 'Nothing yet';
-  const importedSub = s && (s.counts.days || total || s.counts.workouts) ? `${s.counts.days.toLocaleString('en-US')} days of activity · ${total.toLocaleString('en-US')} readings · ${s.counts.workouts} workouts` : 'It arrives a month at a time, newest first';
+  const saved = s ? savedWords(s) : null;
 
   return (
-    <SCard
-      title="Apple Health"
-      className="ah-sec"
-      foot={connectedHere ? 'Syncs when you open Logbook and when you pull down on Today. Logbook only reads; it never writes to Apple Health.' : 'Logbook only reads. It never writes to Apple Health, and never sells or shares what it reads.'}
-    >
+    <SCard title="Apple Health" className="ah-sec" foot={connectedHere ? `Syncs when you open Logbook and when you pull down on Today. ${HEALTH_TRUST}` : HEALTH_TRUST}>
       <div className="ah-device">
         <span className="ah-app" aria-hidden="true">
           <HeartPulse size={24} strokeWidth={2.2} />
@@ -144,12 +136,10 @@ export const AppleHealthGroup = (): React.JSX.Element => {
           </Button>
         )}
       </div>
-      {s?.connected ? <CardRow icon={Database} title="In your Logbook" sub={importedSub} value={imported} /> : null}
-      {s?.connected ? <CardRow icon={Moon} title="Sleep goal" sub="What your sleep score measures against" value={goalWords(s.sleepGoalMin ?? 450)} onPress={() => openGoal(s.sleepGoalMin ?? 450)} /> : null}
-      {connectedHere && (device.data?.pending ?? 0) > 0 && sync.phase !== 'running' ? <CardRow icon={CloudUpload} title={`${device.data!.pending} upload${device.data!.pending === 1 ? '' : 's'} waiting`} sub="Saved on this phone; they send when Logbook can reach the server." /> : null}
-      {connectedHere && (device.data?.deadLetter ?? 0) > 0 ? <CardRow icon={TriangleAlert} tone="orange" title={`${device.data!.deadLetter} upload${device.data!.deadLetter === 1 ? '' : 's'} refused`} sub="The server couldn’t take them. The rest keep syncing." /> : null}
-      {!web && !unavailable && (connectedHere || (access.data && !access.data.needed)) ? <CardRow icon={Stethoscope} title="Reading check" sub="Last night and your vitals, read live" onPress={openCheck} /> : null}
-      {web || unavailable ? null : <CardRow icon={Sparkles} tone="orange" title="Coach access" sub="A short health summary, only when you ask" value={consentWord(consent.data?.health)} onPress={openConsent} />}
+      {s?.connected && saved ? <CardRow icon={Database} title="Saved to your Logbook account" sub={saved.sub} value={saved.since ?? undefined} /> : null}
+      {connectedHere && (device.data?.pending ?? 0) > 0 && sync.phase !== 'running' ? <CardRow icon={CloudUpload} title={`${device.data!.pending} upload${device.data!.pending === 1 ? '' : 's'} waiting`} sub="Saved on this phone. They send when Logbook is back online." /> : null}
+      {connectedHere && (device.data?.deadLetter ?? 0) > 0 ? <CardRow icon={TriangleAlert} tone="orange" title={`${device.data!.deadLetter} upload${device.data!.deadLetter === 1 ? '' : 's'} not saved`} sub="Logbook couldn’t save them. The rest keep syncing." /> : null}
+      {!web && !unavailable && (connectedHere || (access.data && !access.data.needed)) ? <CardRow icon={Activity} title="Reading check" sub="Last night and your heart numbers, read live" onPress={openCheck} /> : null}
       {connectedHere ? (
         <Pressable className="ah-disconnect" press="dim" onPress={() => sheet.open({ title: 'Disconnect Apple Health?', body: <DisconnectPanel /> })} label="Disconnect Apple Health">
           Disconnect Apple Health
@@ -159,7 +149,10 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   );
 };
 
-/** Connecting: the illustrated hero, what it unlocks, Apple's sheet; then the sleep goal; then the import. */
+/**
+ * Connecting: the illustrated hero, the three things Logbook reads and where they are kept, then Apple's own sheet. With
+ * access asked, the phone is connected to the account and the first import starts.
+ */
 const ConnectPanel = (): React.JSX.Element => {
   const sheet = useSheet();
   const qc = useQueryClient();
@@ -170,31 +163,32 @@ const ConnectPanel = (): React.JSX.Element => {
     setBusy(true);
     try {
       await Health.requestAuthorization();
-      haptics.success();
       await qc.invalidateQueries({ queryKey: accessKey });
-      sheet.push({ title: 'Sleep goal', body: <SleepGoalPanel initial={450} connecting onDone={() => sheet.push({ title: 'Apple Health', body: <ImportPanel /> })} /> });
+      const r = await api<{ token: string; deviceId?: string }>('/apple-health/connect', { method: 'POST', json: { deviceName: 'iPhone', historyDays: HEALTH_HISTORY_DAYS } });
+      await Health.connect({ token: r.token, apiOrigin, historyDays: HEALTH_HISTORY_DAYS });
+      rememberHealthDevice(r.deviceId);
+      await Promise.all([qc.invalidateQueries({ queryKey: deviceKey }), qc.invalidateQueries({ queryKey: healthStatusKey })]);
+      void healthSyncNow(qc, 'import', true);
+      haptics.success();
+      sheet.push({ title: 'Apple Health', body: <ImportPanel /> });
     } catch (e) {
       haptics.error();
-      toast(e instanceof Error && e.message ? e.message : 'Couldn’t open Apple Health. Try again.');
+      toast(e instanceof Error && e.message ? e.message : 'Couldn’t connect Apple Health. Try again.');
     } finally {
       setBusy(false);
     }
   };
-  const unlocks: Array<[typeof Moon, 'navy' | 'orange' | 'columbia', string, string]> = [
-    [Moon, 'navy', 'Last night', 'Your sleep with its stages, and what you need tonight'],
-    [HeartPulse, 'orange', 'Your heart', 'HRV and resting heart rate, against your own normal'],
-    [Activity, 'columbia', 'Your training', 'Workouts with their heart rate, and the strain they add'],
-    [Footprints, 'navy', 'Your day', 'Steps and movement, hour by hour'],
-  ];
+  const icons = [Moon, HeartPulse, Heart] as const;
+  const tones = ['navy', 'orange', 'columbia'] as const;
   return (
     <div className="ahc">
       <HealthHero />
-      <h3 className="ahc-title">Your night, your heart and your training, read together.</h3>
-      <p className="ahc-sub">Logbook reads a year of Apple Health, then keeps up each time you open it, to show your recovery, strain and sleep against your own normal.</p>
+      <h3 className="ahc-title">Your sleep and your heart, beside your training.</h3>
+      <p className="ahc-sub">Logbook reads three things from Apple Health and shows them on Progress.</p>
       <ul className="card ahc-unlocks">
-        {unlocks.map(([Icon, tone, title, sub]) => (
+        {HEALTH_READS.map(([title, sub], i) => (
           <li key={title}>
-            <GlassTile icon={Icon} tone={tone} size={38} />
+            <GlassTile icon={icons[i]!} tone={tones[i]} size={38} />
             <span>
               <b>{title}</b>
               <span>{sub}</span>
@@ -202,9 +196,10 @@ const ConnectPanel = (): React.JSX.Element => {
           </li>
         ))}
       </ul>
+      <p className="ahc-note">Readings are saved to your Logbook account on Logbook’s server, so Progress can show them. Logbook reads as much history as you share, up to a year, then keeps up each time you open it.</p>
       <div className="ahc-actions">
         <Button variant="primary" block onClick={() => void connect()} disabled={busy}>
-          {busy ? 'Opening Apple Health…' : 'Connect Apple Health'}
+          {busy ? 'Connecting…' : 'Connect Apple Health'}
         </Button>
         <Button variant="quiet" block onClick={() => sheet.close()}>
           Not now
@@ -212,120 +207,45 @@ const ConnectPanel = (): React.JSX.Element => {
       </div>
       <p className="ahc-trust">
         <ShieldCheck size={15} aria-hidden="true" />
-        <span>
-          <b>Read only.</b> Never written to, never sold. Apple asks next which data to share; change it any time in the Health app.
-        </span>
+        <span>{HEALTH_TRUST} Apple asks next what to share. You can change it any time in the Apple Health app.</span>
       </p>
+      <p className="ahc-links">
+        <button type="button" className="ahc-link" onClick={() => void openExternal(LEGAL.privacy)}>
+          Privacy Policy
+        </button>
+        <button type="button" className="ahc-link" onClick={() => void openExternal(LEGAL.healthPrivacy)}>
+          Consumer health data privacy policy
+        </button>
+      </p>
+      <p className="ahc-fine">{DISCLAIMER}</p>
     </div>
   );
 };
 
-/**
- * The sleep goal (decided: asked during connect), as Bevel sets one by hand: a big time between round minus and plus, in
- * quarter hours from 4 to 12 hours. Connecting, Continue saves it with the connection and starts the import.
- */
-const SleepGoalPanel = ({ initial, connecting, onDone }: { initial: number; connecting?: boolean; onDone: () => void }): React.JSX.Element => {
-  const qc = useQueryClient();
-  const toast = useToast();
-  const [min, setMin] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const step = (d: number) => {
-    haptics.select();
-    setMin((m) => Math.max(240, Math.min(720, m + d)));
-  };
-  const go = async () => {
-    setBusy(true);
-    try {
-      if (connecting) {
-        const r = await api<{ token: string }>('/apple-health/connect', { method: 'POST', json: { deviceName: 'iPhone', historyDays: HEALTH_HISTORY_DAYS, sleepGoalMin: min } });
-        await Health!.connect({ token: r.token, apiOrigin, historyDays: HEALTH_HISTORY_DAYS });
-        await qc.invalidateQueries({ queryKey: deviceKey });
-        void healthSyncNow(qc, 'import', true);
-      } else {
-        await api('/apple-health/sleep-goal', { method: 'PUT', json: { sleepGoalMin: min } });
-      }
-      await qc.invalidateQueries({ queryKey: healthStatusKey });
-      haptics.success();
-      onDone();
-    } catch (e) {
-      haptics.error();
-      toast(e instanceof Error && e.message ? e.message : 'Couldn’t save that. Try again.');
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="ahc">
-      <h3 className="ahc-title">How much sleep do you want?</h3>
-      <p className="ahc-sub">Time asleep, not time in bed. Your sleep score and tonight’s sleep need start from it. Most adults do best on 7 to 9 hours.</p>
-      <div className="card ahg-card">
-        <button type="button" className="ahg-step" aria-label="Fifteen minutes less" onClick={() => step(-15)} disabled={min <= 240}>
-          <Minus size={20} strokeWidth={2.4} />
-        </button>
-        <span className="ahg-time" aria-live="polite">
-          <b className="tnum">
-            {Math.floor(min / 60)}:{String(min % 60).padStart(2, '0')}
-          </b>
-          <small>asleep</small>
-        </span>
-        <button type="button" className="ahg-step" aria-label="Fifteen minutes more" onClick={() => step(15)} disabled={min >= 720}>
-          <Plus size={20} strokeWidth={2.4} />
-        </button>
-      </div>
-      <div className="ahc-actions">
-        <Button variant="primary" block onClick={() => void go()} disabled={busy}>
-          {busy ? 'Saving…' : connecting ? 'Continue' : 'Save'}
-        </Button>
-      </div>
-      {connecting ? (
-        <p className="ahc-trust">
-          <Moon size={15} aria-hidden="true" />
-          <span>You can change it any time in Settings › Data sources.</span>
-        </p>
-      ) : null}
-    </div>
-  );
-};
-
-/** The first import: a year of Apple Health read a month at a time, newest first, with the month on screen. */
+/** The first import: Apple Health read a month at a time, newest first, with the month on screen. */
 const ImportPanel = (): React.JSX.Element => {
   const sheet = useSheet();
   const sync = useHealthSync();
-  const server = useHealthServerStatus();
   const month = monthOf(sync.detail);
   const done = sync.phase === 'done' || sync.phase === 'error';
   const now = new Date();
   const monthsBack = month ? (now.getFullYear() - month.getFullYear()) * 12 + now.getMonth() - month.getMonth() : 0;
   const pct = done ? 100 : Math.min(96, Math.round(((monthsBack + 0.5) / 12) * 100));
-  const s = server.data;
   return (
     <div className="ahc ahi">
       <div className="ahi-dial">
-        <BevelDial value={pct} tone="sleep" size={148} label="Import" />
+        <BevelDial value={pct} tone="night" size={148} label="Import" />
       </div>
-      <h3 className="ahc-title">{done ? (sync.phase === 'error' ? 'Paused for now.' : 'Your year is in.') : 'Reading your year…'}</h3>
+      <h3 className="ahc-title" aria-live="polite">
+        {done ? (sync.phase === 'error' ? 'Paused for now.' : 'Apple Health is connected.') : importWords(month)}
+      </h3>
       <p className="ahc-sub">
         {done
           ? sync.phase === 'error'
             ? `${syncErrorWords(sync.detail) ?? 'Something stopped the import.'} It picks up where it left off next time.`
-            : 'Logbook keeps up from here, each time you open it. Your normal ranges appear after 14 nights.'
-          : month
-            ? `Now reading ${month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}. Recent months come first, so Today fills in right away.`
-            : 'Starting with the newest month, so Today fills in right away.'}
+            : `${HEALTH_READS_LINE} are on Progress. Logbook keeps up each time you open it.`
+          : 'The newest months come first. You can leave this open or close it.'}
       </p>
-      {done && s && (s.counts.days || s.counts.workouts) ? (
-        <div className="card ahi-counts">
-          <span>
-            <b className="tnum">{s.counts.days.toLocaleString('en-US')}</b> days
-          </span>
-          <span>
-            <b className="tnum">{Object.values(s.counts.samples).reduce((a, b) => a + b, 0).toLocaleString('en-US')}</b> readings
-          </span>
-          <span>
-            <b className="tnum">{s.counts.workouts}</b> workouts
-          </span>
-        </div>
-      ) : null}
       <div className="ahc-actions">
         <Button variant={done ? 'primary' : 'default'} block onClick={() => sheet.close()}>
           {done ? 'Done' : 'Keep reading in the background'}
@@ -335,7 +255,7 @@ const ImportPanel = (): React.JSX.Element => {
   );
 };
 
-/** Disconnect: stop on this phone first (nothing in flight brings data back), then delete the server's copy. */
+/** Disconnect: stop on this phone first (nothing in flight brings readings back), then delete the server's copy. */
 const DisconnectPanel = (): React.JSX.Element => {
   const sheet = useSheet();
   const qc = useQueryClient();
@@ -346,10 +266,11 @@ const DisconnectPanel = (): React.JSX.Element => {
     try {
       await Health?.disconnect();
       await api('/apple-health', { method: 'DELETE' });
+      rememberHealthDevice(null);
       await Promise.all([qc.invalidateQueries({ queryKey: healthStatusKey }), qc.invalidateQueries({ queryKey: deviceKey })]);
       haptics.delete();
       sheet.close();
-      toast('Apple Health disconnected. To remove access too: Settings › Health › Data Access & Devices › Logbook.');
+      toast('Apple Health disconnected.');
     } catch {
       haptics.error();
       toast('Couldn’t disconnect. Try again.');
@@ -359,7 +280,8 @@ const DisconnectPanel = (): React.JSX.Element => {
   };
   return (
     <div className="ahc">
-      <p className="ahc-sub ahd-lede">Logbook stops reading Apple Health and deletes everything it read from your Logbook. Your Apple Health data itself is untouched.</p>
+      <p className="ahc-sub ahd-lede">Logbook stops reading Apple Health and deletes everything it read from your Logbook account. Nothing in Apple Health changes.</p>
+      <p className="ahc-fine ahd-path">Logbook’s access stays until you remove it. {HEALTH_REVOKE_PATH}</p>
       <div className="ahc-actions">
         <Button variant="danger" block onClick={() => void go()} disabled={busy}>
           {busy ? 'Disconnecting…' : 'Disconnect and delete'}
@@ -381,7 +303,7 @@ const when = (iso: string) => {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(d);
 };
 const problem = (error: string | undefined) => (error === 'locked' ? 'Unlock your iPhone, then read again.' : error ? `Couldn’t read it: ${error}` : null);
-const NO_DATA = 'No data from Apple Health. If you expected some, check Settings › Health › Data Access & Devices › Logbook.';
+const NO_DATA = `Nothing from Apple Health. If you expected some, check what Logbook may read. ${HEALTH_REVOKE_PATH}`;
 
 /** Last night on a night-navy card, as Bevel shows its primary sleep: the source, the hypnogram, the stage tiles. */
 const NightCard = ({ check }: { check: ReadingCheck }) => {
@@ -431,7 +353,7 @@ const NightCard = ({ check }: { check: ReadingCheck }) => {
   );
 };
 
-/** The phase 1 proof: Apple Health read live on the phone, saved nowhere, to hold up against the Health app. */
+/** Apple Health read live on the phone, saved nowhere by this sheet, to hold up against the Apple Health app. */
 export const ReadingCheckPanel = (): React.JSX.Element => {
   const check = useQuery({ queryKey: ['health', 'check'], queryFn: () => Health!.readingCheck(), enabled: !!Health, staleTime: 0, gcTime: 0 });
   const c = check.data;
@@ -440,7 +362,7 @@ export const ReadingCheckPanel = (): React.JSX.Element => {
     <div className="ahr">
       {check.isPending ? (
         <div className="ahr-wait">
-          <BevelDial value={null} tone="sleep" size={84} label="Reading" />
+          <BevelDial value={null} tone="night" size={84} label="Reading" />
           <p>Reading Apple Health…</p>
         </div>
       ) : null}
@@ -449,101 +371,18 @@ export const ReadingCheckPanel = (): React.JSX.Element => {
         <>
           <NightCard check={c} />
           <div className="ahr-head">
-            <h3>Health Monitor</h3>
-            <span>Learning your normal</span>
+            <h3>Your numbers</h3>
           </div>
           <div className="ahr-tiles">
-            <MonitorTile icon={HeartPulse} label="HRV" value={c.hrv ? c.hrv.value.toFixed(0) : null} unit="ms" status="learning" foot={foot(c.hrv, c.hrvError)} />
-            <MonitorTile icon={HeartPulse} label="Resting HR" value={c.restingHr ? c.restingHr.value.toFixed(0) : null} unit="bpm" status="learning" foot={foot(c.restingHr, c.restingHrError)} />
-            <MonitorTile icon={Wind} label="Breathing" value={c.respiratoryRate ? c.respiratoryRate.value.toFixed(1) : null} unit="rpm" status="learning" foot={foot(c.respiratoryRate, c.respiratoryRateError)} />
-            <MonitorTile icon={Footprints} label="Steps" value={c.stepsToday != null ? Math.round(c.stepsToday).toLocaleString('en-US') : null} status="learning" foot={c.stepsToday != null ? 'Today so far' : (problem(c.stepsError) ?? undefined)} />
+            <MonitorTile plain icon={HeartPulse} label="HRV" value={c.hrv ? c.hrv.value.toFixed(0) : null} unit="ms" foot={foot(c.hrv, c.hrvError)} />
+            <MonitorTile plain icon={Heart} label="Resting HR" value={c.restingHr ? c.restingHr.value.toFixed(0) : null} unit="bpm" foot={foot(c.restingHr, c.restingHrError)} />
           </div>
-          <p className="ahr-note">Compare these with the Health app: they should match. Your normal ranges appear after 14 nights, once syncing starts.</p>
+          <p className="ahr-note">Read just now from Apple Health on this iPhone. They should match the Apple Health app.</p>
         </>
       ) : null}
       <Button block onClick={() => void check.refetch()} disabled={check.isFetching}>
         <RefreshCw size={16} aria-hidden="true" /> {check.isFetching ? 'Reading…' : 'Read again'}
       </Button>
-    </div>
-  );
-};
-
-/**
- * The coach's permission (App Review 5.1.2: say who the AI is and ask first). It names Anthropic, says what goes and what
- * never does, and is saved as `consent.health`. Nothing from Apple Health reaches the coach until it is on.
- */
-export const HealthConsentPanel = (): React.JSX.Element => {
-  const consent = useConsent();
-  const save = useSaveConsent();
-  const sheet = useSheet();
-  const toast = useToast();
-  const choose = (health: boolean) =>
-    save.mutate(
-      { training: consent.data?.training ?? true, health },
-      {
-        onSuccess: () => {
-          haptics.select();
-          sheet.close();
-        },
-        onError: () => {
-          haptics.error();
-          toast('Couldn’t save that. Try again.');
-        },
-      },
-    );
-  return (
-    <div className="ahc">
-      <ConsentHero />
-      <h3 className="ahc-title">Let the coach read how you slept and recovered?</h3>
-      <p className="ahc-sub">When you ask the coach something, Logbook can send Claude, made by Anthropic, a short summary of your health, so the answer fits the body you woke up in.</p>
-      <section className="card ahc-list" aria-label="What goes">
-        <h4>What goes</h4>
-        <p>
-          <i className="is-yes" aria-hidden="true">
-            <Check size={12} strokeWidth={3} />
-          </i>
-          Your recovery, strain and sleep scores
-        </p>
-        <p>
-          <i className="is-yes" aria-hidden="true">
-            <Check size={12} strokeWidth={3} />
-          </i>
-          Last night’s sleep, and your vitals against your normal
-        </p>
-      </section>
-      <section className="card ahc-list" aria-label="Never sent">
-        <h4>Never sent</h4>
-        <p>
-          <i className="is-no" aria-hidden="true">
-            <X size={12} strokeWidth={3} />
-          </i>
-          Raw samples, or your Apple Health export
-        </p>
-        <p>
-          <i className="is-no" aria-hidden="true">
-            <X size={12} strokeWidth={3} />
-          </i>
-          Workouts the Strava app writes to Apple Health
-        </p>
-        <p>
-          <i className="is-no" aria-hidden="true">
-            <X size={12} strokeWidth={3} />
-          </i>
-          Anything, when you haven’t asked
-        </p>
-      </section>
-      <div className="ahc-actions">
-        <Button variant="primary" block onClick={() => choose(true)} disabled={save.isPending}>
-          Allow
-        </Button>
-        <Button variant="quiet" block onClick={() => choose(false)} disabled={save.isPending}>
-          Don’t allow
-        </Button>
-      </div>
-      <p className="ahc-trust">
-        <ShieldCheck size={15} aria-hidden="true" />
-        <span>Change it any time in Settings › Privacy.</span>
-      </p>
     </div>
   );
 };

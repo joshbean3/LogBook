@@ -1,4 +1,4 @@
-/* ---------- Apple Health in Settings (AppleHealth.tsx): the device card, connecting, the reading check, coach access ---------- */
+/* ---------- Apple Health in Settings (AppleHealth.tsx): the device card, connecting, the reading check ---------- */
 
 /* the source as a device card (Bevel 461): the app tile, its name and state, a small pearl button */
 .ah-sec .card.s-card {
@@ -59,7 +59,7 @@
   height: 34px;
   padding: 0 14px;
 }
-.ah-coach {
+.ah-row {
   position: relative;
   display: flex;
   align-items: center;
@@ -68,7 +68,7 @@
   padding: 10px 14px 10px 16px;
   text-align: left;
 }
-.ah-coach::before {
+.ah-row::before {
   content: '';
   position: absolute;
   top: 0;
@@ -77,7 +77,7 @@
   height: 1px;
   background: var(--line);
 }
-.ah-coach-ic {
+.ah-row-ic {
   flex: none;
   display: grid;
   place-items: center;
@@ -87,25 +87,25 @@
   background: var(--accent-soft);
   color: var(--accent-text);
 }
-.ah-coach-text {
+.ah-row-text {
   display: grid;
   min-width: 0;
   flex: 1;
 }
-.ah-coach-title {
+.ah-row-title {
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
-.ah-coach-sub {
+.ah-row-sub {
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
-.ah-coach-value {
+.ah-row-value {
   flex: none;
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
-.ah-coach-value.is-on {
+.ah-row-value.is-on {
   color: var(--accent-text);
 }
 .ah-chev {
@@ -113,7 +113,7 @@
   color: var(--ink-4);
 }
 
-/* ---------- connecting, and the coach's permission: a hero, a serif headline, cards, the pill ---------- */
+/* ---------- connecting: a hero, a serif headline, the list, the pill ---------- */
 .ahc {
   display: grid;
   gap: 14px;
@@ -198,40 +198,38 @@
   font-weight: 600;
   color: var(--ink-2);
 }
-.card.ahc-list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-}
-.ahc-list h4 {
-  margin: 0 0 2px;
-  font: 400 1.375rem / 1.625rem var(--serif);
-  color: var(--ink);
-}
-.ahc-list p {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 0;
+/* where the readings are kept: one plain paragraph between the list and the button */
+.ahc-note {
+  margin: 0 12px;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
+  text-align: center;
+  text-wrap: pretty;
+  color: var(--ink-2);
 }
-.ahc-list i {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  margin-top: 0;
-  border-radius: 50%;
+/* the two policies, as quiet links with a full-height target */
+.ahc-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 16px;
+  margin: -4px 12px 0;
 }
-.ahc-list i.is-yes {
-  background: var(--ink-2);
-  color: #fff;
+.ahc-link {
+  appearance: none;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-.ahc-list i.is-no {
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+.ahc-fine {
+  margin: 0 12px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  text-align: center;
+  text-wrap: pretty;
   color: var(--ink-3);
 }
 
@@ -299,7 +297,7 @@
 }
 
 /* ---------- connected: navy icon tiles, the running dot, Disconnect at the foot of the card ---------- */
-.ah-coach-ic.is-navy {
+.ah-row-ic.is-navy {
   background: var(--columbia-wash);
   color: var(--ink-2);
 }
@@ -335,66 +333,11 @@
   background: var(--line);
 }
 
-/* ---------- the sleep goal: a big time between round minus and plus (Bevel 675) ---------- */
-.card.ahg-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 22px 18px;
-}
-.ahg-step {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--pearl, var(--surface));
-  box-shadow: var(--shadow-float);
-  color: var(--ink);
-}
-.ahg-step:active:not(:disabled) {
-  transform: scale(0.94);
-}
-.ahg-step:disabled {
-  color: var(--ink-4);
-  box-shadow: var(--well-shadow);
-}
-.ahg-time {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-}
-.ahg-time b {
-  font: 700 3.5rem / 1 var(--stamp);
-  letter-spacing: -0.03em;
-  color: var(--ink);
-}
-.ahg-time small {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-}
-
 /* ---------- the import ---------- */
 .ahi-dial {
   display: grid;
   place-items: center;
   padding: 18px 0 6px;
-}
-.card.ahi-counts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  text-align: center;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
-}
-.ahi-counts b {
-  display: block;
-  font: 700 1.5rem / 1.75rem var(--stamp);
-  color: var(--ink);
 }
 .ahd-lede {
   margin-top: 4px;

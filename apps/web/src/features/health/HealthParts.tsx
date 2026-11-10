@@ -1,4 +1,4 @@
-import { Activity, ArrowDown, ArrowUp, Check, Footprints, HeartPulse, Moon, Sparkles, Sun, Watch, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowDown, ArrowUp, Check, Heart, HeartPulse, Moon, Sun, Watch, type LucideIcon } from 'lucide-react';
 import { useId } from 'react';
 import type * as React from 'react';
 import type { SleepSegment, SleepStage } from '@/lib/health';
@@ -8,15 +8,15 @@ import './health.css';
  * Logbook's health pieces, drawn the way Bevel draws its own (docs/health/apple-health.md §4) in Columbia, white and
  * orange: a bevelled dial (a raised white rim, a gradient arc, a recessed face), the slim range capsule pressed into a
  * tile, a status word with its icon, the hypnogram on a night-navy card, stage tiles with their share as a small ring,
- * frosted glass tiles, and the two illustrated heroes (connecting Apple Health, the coach's permission).
+ * frosted glass tiles, and the illustrated hero for connecting Apple Health.
  */
 
-// ---------- the bevelled dial (Strain, Recovery, Sleep) ----------
-export type DialTone = 'strain' | 'recovery' | 'sleep';
+// ---------- the bevelled dial, in one of three colours ----------
+export type DialTone = 'warm' | 'cool' | 'night';
 const DIAL_STOPS: Record<DialTone, [string, string]> = {
-  strain: ['#ffd2ad', '#f2600c'],
-  recovery: ['#cfe6f3', '#3a7fb9'],
-  sleep: ['#d7e7f4', '#1b3d63'],
+  warm: ['#ffd2ad', '#f2600c'],
+  cool: ['#cfe6f3', '#3a7fb9'],
+  night: ['#d7e7f4', '#1b3d63'],
 };
 export const BevelDial = ({ value, tone, label, size = 108 }: { value: number | null; tone: DialTone; label?: string; size?: number }) => {
   const gid = useId().replace(/:/g, '');
@@ -79,8 +79,9 @@ export const StatusWord = ({ status, word }: { status: Status; word?: string }) 
   );
 };
 
-// ---------- a Health Monitor tile (Bevel 301) ----------
-export const MonitorTile = ({ icon: Icon, label, value, unit, status, foot, pos, band, worry }: { icon: LucideIcon; label: string; value: string | null; unit?: string; status: Status; foot?: string; pos?: number | null; band?: [number, number] | null; worry?: boolean }) => (
+// ---------- a number tile (Bevel 301) ----------
+/** `plain`: the number and when it was read, with no word or capsule comparing it to a usual range. */
+export const MonitorTile = ({ icon: Icon, label, value, unit, status = 'none', foot, pos, band, worry, plain }: { icon: LucideIcon; label: string; value: string | null; unit?: string; status?: Status; foot?: string; pos?: number | null; band?: [number, number] | null; worry?: boolean; plain?: boolean }) => (
   <div className="hd-tile">
     <div className="hd-tile-main">
       <span className="hd-tile-label">
@@ -91,10 +92,10 @@ export const MonitorTile = ({ icon: Icon, label, value, unit, status, foot, pos,
         {value ?? '–'}
         {value != null && unit ? <small> {unit}</small> : null}
       </span>
-      <StatusWord status={value == null ? 'none' : status} />
+      {plain && value != null ? null : <StatusWord status={value == null ? 'none' : status} />}
       {foot ? <span className="hd-tile-foot">{foot}</span> : null}
     </div>
-    <RangeCapsule pos={value == null ? null : (pos ?? 0.5)} band={band} worry={worry} />
+    {plain ? null : <RangeCapsule pos={value == null ? null : (pos ?? 0.5)} band={band} worry={worry} />}
   </div>
 );
 
@@ -180,8 +181,8 @@ export const GlassTile = ({ icon: Icon, tone = 'navy', size = 52, className = ''
 
 // ---------- the heroes ----------
 /**
- * Connecting Apple Health: a bevelled dial with tick marks and three arcs (strain in orange, recovery in Columbia, sleep in
- * navy) with lit ends, glass tiles for the heart, the night and the steps floating around it, over a faint grid.
+ * Connecting Apple Health: a bevelled dial with tick marks and three arcs (orange, Columbia and
+ * navy) with lit ends, glass tiles for the night and the two heart numbers floating around it, over a faint grid.
  */
 export const HealthHero = () => {
   const gid = useId().replace(/:/g, '');
@@ -236,25 +237,7 @@ export const HealthHero = () => {
       </div>
       <GlassTile icon={Moon} tone="navy" size={46} className="hd-float is-a" />
       <GlassTile icon={Activity} tone="orange" size={42} className="hd-float is-b" />
-      <GlassTile icon={Footprints} tone="columbia" size={40} className="hd-float is-c" />
+      <GlassTile icon={Heart} tone="columbia" size={40} className="hd-float is-c" />
     </div>
   );
 };
-
-/** The coach's permission: Logbook and the coach as two glass tiles, a dashed arc between them, a shield on it. */
-export const ConsentHero = () => (
-  <div className="hd-hero is-consent" aria-hidden="true">
-    <span className="hd-pair">
-      <span className="hd-glass is-mono" style={{ '--gs': '64px' } as React.CSSProperties}>
-        L
-      </span>
-      <svg className="hd-pair-arc" viewBox="0 0 120 40">
-        <path d="M 6 32 Q 60 -6 114 32" />
-      </svg>
-      <span className="hd-pair-shield">
-        <Check size={12} strokeWidth={3} />
-      </span>
-      <GlassTile icon={Sparkles} tone="orange" size={64} />
-    </span>
-  </div>
-);
