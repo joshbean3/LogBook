@@ -2,7 +2,8 @@ import { mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
 import { ChevronRight } from 'lucide-react';
 import type * as React from 'react';
 import { lazy, memo, Suspense, useDeferredValue, useEffect, useLayoutEffect, useMemo } from 'react';
-import { useHabitMutations } from '@/api/queries';
+import { useGoals, useHabitMutations, useTodos } from '@/api/queries';
+import { STRAVA_BUILT } from '@/lib/features';
 import { hideSplash } from '@/lib/native';
 import { SectionHeader } from '@/ui/layout';
 import { EmptyState } from '@/ui/primitives';
@@ -14,6 +15,7 @@ import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { PlanDay } from '../dayplan/PlanDay';
+import { nothingSetUp, looksNew } from './firstRun';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
 import { Hero, SecondSession } from './Hero';
@@ -30,15 +32,6 @@ const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || im
 
 /** The months a day page reads: a week either side (the rest face looks a week ahead, the first-run test a week back) and the shown week. */
 export const monthsFor = (date: ISODate) => [...new Set([shiftDays(date, -8), date, shiftDays(date, 8), mondayOf(date), shiftDays(mondayOf(date), 6)].map(monthOf))].sort();
-
-/** The first day (§3.2 last row): nothing planned or run around today, and no plan or no habits yet, and nothing written. */
-const isFirstRun = (log: Log, date: ISODate) => {
-  if (date !== log.today) return false;
-  const around = Array.from({ length: 16 }, (_, i) => shiftDays(log.today, i - 7));
-  const hasPlan = around.some((d) => log.snap.sessionsOn(d).length > 0);
-  const hasRuns = around.some((d) => log.snap.activitiesOn(d).length > 0);
-  return !hasRuns && (!hasPlan || !log.habits.length) && !log.snap.journalOn(date).length;
-};
 
 const AddHabitsSheet = () => {
   const { add } = useHabitMutations();
@@ -57,13 +50,24 @@ const FirstRun = ({ log }: { log: Log }) => {
     if (k === 'habits') sheet.open({ title: 'Add habits', body: <AddHabitsSheet /> });
     // the builder is WP4's large sheet; its module loads on the tap (it never weighs on Today's first paint)
     else if (k === 'plan') void import('../plan/Blocks').then((m) => m.openTemplate(sheet, log));
-    else sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
+    else if (STRAVA_BUILT) sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
   };
   return (
     <div className="hero hero-first" data-face="first">
-      <FirstRunHero onAction={onAction} />
+      <FirstRunHero onAction={onAction} strava={log.features.strava} />
     </div>
   );
+};
+
+/**
+ * The hero's slot on a day that looks new (`looksNew`): the first-run face only when there is also no to-do and no goal,
+ * that is, when nothing at all is set up. Anyone with a habit, a plan, a to-do or a goal gets the day's own card.
+ */
+const FirstRunSlot = ({ date, log }: { date: ISODate; log: Log }) => {
+  const todos = useTodos();
+  const goals = useGoals();
+  if (todos.data === undefined || goals.data === undefined) return todos.isError || goals.isError ? <Hero date={date} log={log} /> : <HeroSkeleton />;
+  return nothingSetUp(todos.data, goals.data) ? <FirstRun log={log} /> : <Hero date={date} log={log} />;
 };
 
 /** While the months load: the hero's own box (the skeleton never sits anywhere else, §14 test 40). */
@@ -204,21 +208,23 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const today = log.today;
   const isToday = date === today;
   const loaded = log.loaded(date) && !!log.boot;
-  const first = loaded && isFirstRun(log, date);
+  // a day that looks new may show the first-run face in the hero's slot (FirstRunSlot decides); nothing else on the page
+  // depends on it: Plan your day, the habits and the evening's Close card are always there
+  const bare = loaded && looksNew(log, date);
 
 
   return (
     <div className="day-page" data-day={date}>
       {loaded ? <StatusChip date={date} today={today} /> : null}
-      {loaded && !first ? <HeldNote date={date} log={log} /> : null}
+      {loaded ? <HeldNote date={date} log={log} /> : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles) */}
-      {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
+      {!loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
       <Sentence />
-      {loaded && !first ? <PlanDay date={date} today={today} /> : null}
+      {loaded ? <PlanDay date={date} today={today} /> : null}
       {loaded ? <SecondSession date={date} log={log} /> : null}
-      {loaded && isToday && !first && primer.show ? (
+      {loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />
         </div>
