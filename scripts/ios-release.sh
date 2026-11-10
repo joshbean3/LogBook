@@ -38,7 +38,14 @@ other=$(git diff -U0 -- "$PBX" | grep '^[+-]' | grep -v '^+++\|^---' | grep -v '
 [ -z "$other" ] || fail "the Xcode project has changes beyond the version stamp (a signing team, perhaps). Commit them, move the tag, and run again:
 $other"
 commit=$(git rev-parse --short HEAD)
-build=${BUILD_NUMBER:-$(git rev-list --count HEAD)}
+# the build number rises with every release: the number of commits behind this one, unless you give one
+if [ -n "${BUILD_NUMBER:-}" ]; then
+  build=$BUILD_NUMBER
+else
+  [ "$(git rev-parse --is-shallow-repository)" = "false" ] || fail "this is a shallow clone, so the commit count is not the real one. Run: git fetch --unshallow (or set BUILD_NUMBER to a number above the last upload)."
+  build=$(git rev-list --count HEAD 2>/dev/null) || fail "couldn't count the commits. Set BUILD_NUMBER to a number above the last upload."
+fi
+[[ "$build" =~ ^[1-9][0-9]*$ ]] || fail "the build number must be a whole number above 0 (got $build)."
 echo "Version $version, build $build, commit $commit"
 
 say "2/9  Checking the settings"
