@@ -82,7 +82,7 @@ export const readAll = async (onProgress: (done: number, total: number) => void 
  */
 export const exportAll = async (onProgress: (done: number, total: number) => void) => {
   const r = await readAll(onProgress);
-  const name = `logbook-${today()}.json`;
+  const name = `orby-${today()}.json`;
   const outcome = await deliverExport(r.data, name);
   return { name, kind: r.kind, outcome };
 };
@@ -217,7 +217,7 @@ const DeleteStepTwo = () => {
             : e2 instanceof ApiError && e2.status === 429
               ? 'Too many tries. Wait a minute, then try again.'
               : e2 instanceof NetworkError
-                ? 'Couldn’t reach Logbook. Check your connection.'
+                ? 'Couldn’t reach Orby. Check your connection.'
                 : 'Couldn’t delete the account. Try again.',
         );
         ref.current?.select();

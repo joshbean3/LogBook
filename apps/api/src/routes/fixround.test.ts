@@ -197,7 +197,7 @@ describe('contract 3: GET /export → POST /import', () => {
     await fill(a.cookie, a.id);
     const out = await call('GET', '/api/export', undefined, a.cookie);
     expect(out.status).toBe(200);
-    expect(out.headers.get('content-disposition')).toMatch(/attachment; filename="logbook-export-/);
+    expect(out.headers.get('content-disposition')).toMatch(/attachment; filename="orby-export-/);
     const file = out.body as ExportV2;
     expect(file).toMatchObject({ version: 2, user: { email: 'a@example.com', name: 'Josh' } });
     for (const [k, v] of Object.entries(sizes(file))) if (typeof v === 'number') expect(v, k).toBeGreaterThan(0);
@@ -231,7 +231,7 @@ describe('contract 3: GET /export → POST /import', () => {
     for (const body of [v1, { version: 1 }, { hello: 'world' }, [1, 2], 'text']) {
       const r = await call('POST', '/api/import', body, cookie);
       expect(r.status, JSON.stringify(body)).toBe(422);
-      expect(r.body).toMatchObject({ error: 'That is not a Logbook export file.', code: 'not_export' });
+      expect(r.body).toMatchObject({ error: 'That is not an Orby export file.', code: 'not_export' });
     }
     expect((await call('GET', '/api/habits', undefined, cookie)).body).toEqual([]);
     const broken = await call('POST', '/api/import', { version: 2, sessions: [{ id: 'x', date: 'nope', kind: 'run' }] }, cookie);

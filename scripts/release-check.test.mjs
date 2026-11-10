@@ -88,7 +88,7 @@ test('iOS project: Info.plist, entitlements, privacy manifest, project file and 
 
 test('iOS project: the purpose strings are the agreed ones', () => {
   const info = parsePlist(read('apps/web/ios/App/App/Info.plist'));
-  assert.equal(info.NSHealthShareUsageDescription, 'Logbook reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Logbook account.');
+  assert.equal(info.NSHealthShareUsageDescription, 'Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Orby account.');
   assert.equal(info.NSPhotoLibraryAddUsageDescription, 'Save the cards you share to your photo library.');
   assert.match(info.NSCameraUsageDescription, /assistant or the plan builder/);
   assert.equal(info.CFBundleURLTypes, undefined);
@@ -143,10 +143,10 @@ const copyProject = () => {
   return { tmp, edit, src };
 };
 
-test('iOS project: light, named Logbook, arm64, iOS 17, AutoFill domain', () => {
+test('iOS project: light, named Orby, arm64, iOS 17, AutoFill domain', () => {
   const info = parsePlist(read('apps/web/ios/App/App/Info.plist'));
   assert.equal(info.UIUserInterfaceStyle, 'Light');
-  assert.equal(info.CFBundleName, 'Logbook');
+  assert.equal(info.CFBundleName, 'Orby');
   assert.deepEqual(info.UIRequiredDeviceCapabilities, ['arm64']);
   assert.equal(info.LogbookAPIHost, '$(LOGBOOK_API_HOST)');
   const ent = parsePlist(read('apps/web/ios/App/App/App.entitlements'));
@@ -160,12 +160,12 @@ test('iOS project: light, named Logbook, arm64, iOS 17, AutoFill domain', () => 
   const { tmp, edit } = copyProject();
   edit('apps/web/ios/App/App/Info.plist', '<string>Light</string>', '<string>Dark</string>');
   edit('apps/web/ios/App/App/Info.plist', '<string>arm64</string>', '<string>armv7</string>');
-  edit('apps/web/ios/App/App/Info.plist', '<string>Logbook</string>\n\t<key>CFBundlePackageType', '<string>$(PRODUCT_NAME)</string>\n\t<key>CFBundlePackageType');
+  edit('apps/web/ios/App/App/Info.plist', '<string>Orby</string>\n\t<key>CFBundlePackageType', '<string>$(PRODUCT_NAME)</string>\n\t<key>CFBundlePackageType');
   edit('apps/web/ios/App/App.xcodeproj/project.pbxproj', 'IPHONEOS_DEPLOYMENT_TARGET = 17.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;');
   edit('packages/capacitor-health/Package.swift', '.iOS(.v17)', '.iOS(.v15)');
   edit('apps/web/ios/App/App/App.entitlements', 'webcredentials:$(LOGBOOK_API_HOST)', 'webcredentials:example.com');
   const problems = checkIosProject(tmp).join('\n');
-  for (const re of [/UIUserInterfaceStyle must be Light/, /arm64 only/, /CFBundleName must be Logbook/, /\(Release\): IPHONEOS_DEPLOYMENT_TARGET must be 17\.0/, /every IPHONEOS_DEPLOYMENT_TARGET/, /capacitor-health\/Package\.swift/, /associated-domains/]) assert.match(problems, re);
+  for (const re of [/UIUserInterfaceStyle must be Light/, /arm64 only/, /CFBundleName must be Orby/, /\(Release\): IPHONEOS_DEPLOYMENT_TARGET must be 17\.0/, /every IPHONEOS_DEPLOYMENT_TARGET/, /capacitor-health\/Package\.swift/, /associated-domains/]) assert.match(problems, re);
 });
 
 test('Health plugin: Gregorian days, a disconnect that waits, a state that tolerates new keys', () => {

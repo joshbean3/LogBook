@@ -8,7 +8,7 @@ import { build, problems, readFields } from './legal-pages.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(root, 'apps/web/public/legal');
-const filled = { ...readFields(), approved: true, effectiveDate: 'December 1, 2026', publisher: 'Logbook Test LLC', postalAddress: '1 Test Street, Testville, CA 90000', supportEmail: 'help@logbook-app.test', governingState: 'California' };
+const filled = { ...readFields(), approved: true, effectiveDate: 'December 1, 2026', publisher: 'Orby Test LLC', postalAddress: '1 Test Street, Testville, CA 90000', supportEmail: 'help@logbook-app.test', governingState: 'California' };
 const text = (html) => html.replace(/<style>[\s\S]*?<\/style>/, '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
 
 test('the committed pages are what the script writes', () => {
@@ -44,7 +44,7 @@ test('a release is refused while the text is a draft, a fact is missing or the a
 
 test('privacy policy: names every processor, every AI flow, the three Health types and the retention days', () => {
   const t = text(build(filled).find((p) => p.file === 'privacy.html').html);
-  for (const who of ['Logbook Test LLC', 'Anthropic', filled.hostingProvider, filled.mailProvider, filled.backupProvider]) assert.ok(t.includes(who), who);
+  for (const who of ['Orby Test LLC', 'Anthropic', filled.hostingProvider, filled.mailProvider, filled.backupProvider]) assert.ok(t.includes(who), who);
   for (const flow of ['You ask the assistant', 'You draft or revise a plan', 'You review a goal', 'Remember when', 'Daily pick']) assert.ok(t.includes(flow), flow);
   for (const type of ['Sleep:', 'Heart rate variability.', 'Resting heart rate.']) assert.ok(t.includes(type), type);
   for (const flow of ['Your email address', 'journal entries and learnings', 'Links you save', 'Error reports', 'Reminders', 'Cards you share', 'Server logs', 'our server fetches that page']) assert.ok(t.includes(flow), flow);
@@ -72,7 +72,7 @@ test('health data policy: what, from where, why, who receives it, rights with an
 test('terms: 18 or older, not medical advice, the AI terms, ending and contact', () => {
   const t = text(build(filled).find((p) => p.file === 'terms.html').html);
   assert.match(t, /You must be 18 or older/);
-  assert.match(t, /Logbook is for fitness and wellness\. It is not medical advice\. Talk to a doctor before changing your training, and if something feels wrong\./);
+  assert.match(t, /Orby is for fitness and wellness\. It is not medical advice\. Talk to a doctor before changing your training, and if something feels wrong\./);
   assert.match(t, /The assistant is AI\. It runs on Claude, a model made by Anthropic\./);
   assert.match(t, /It can be wrong/);
   for (const h of ['Acceptable use', 'Ending', 'Limit of liability', 'Governing law', 'Contact']) assert.ok(t.includes(h), h);

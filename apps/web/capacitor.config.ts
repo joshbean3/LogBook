@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 /** The native shell around Logbook. The web build is bundled into the app; data syncs with your own server. */
 const config: CapacitorConfig = {
   appId: 'com.joshbean.logbook',
-  appName: 'Logbook',
+  appName: 'Orby',
   webDir: 'dist',
   backgroundColor: '#f3f8fb',
   ios: {

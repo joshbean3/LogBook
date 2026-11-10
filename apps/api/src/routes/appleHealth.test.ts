@@ -91,7 +91,7 @@ describe('Apple Health: storing batches', () => {
     const refused = async (rows: Record<string, unknown[]>, names: string) => {
       const r = await call('POST', '/api/apple-health/sync', batch({ samples: [sample('good-one')], ...rows }), device(token));
       expect(r.status).toBe(422);
-      expect(r.body).toEqual({ error: `Logbook only takes sleep, heart rate variability and resting heart rate from Apple Health. Not accepted: ${names}.`, code: 'health_type' });
+      expect(r.body).toEqual({ error: `Orby only takes sleep, heart rate variability and resting heart rate from Apple Health. Not accepted: ${names}.`, code: 'health_type' });
     };
     for (const type of ['respiratory_rate', 'spo2', 'wrist_temp', 'vo2max', 'walking_hr', 'body_mass', 'mood']) await refused({ samples: [sample('ok1'), { ...sample('x1'), type }] }, type);
     await refused({ days: [{ date: today(), metric: 'steps', value: 4212, buckets: [[100, 300]], dayStart: iso(12), tz: 'America/New_York' }] }, 'day sums');

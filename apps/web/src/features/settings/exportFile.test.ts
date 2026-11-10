@@ -10,17 +10,17 @@ import { deliverExport } from './exportFile';
 
 describe('export in the iPhone app', () => {
   beforeEach(() => {
-    fs.writeFile.mockReset().mockResolvedValue({ uri: 'file:///cache/logbook-2026-11-10.json' });
+    fs.writeFile.mockReset().mockResolvedValue({ uri: 'file:///cache/orby-2026-11-10.json' });
     fs.deleteFile.mockReset().mockResolvedValue(undefined);
     share.share.mockReset();
   });
   it('writes the JSON to the cache folder and opens the share sheet on that file', async () => {
     share.share.mockResolvedValue({ activityType: 'com.apple.DocumentManagerUICore.SaveToFiles' });
-    await expect(deliverExport({ app: 'Logbook', version: 2 }, 'logbook-2026-11-10.json')).resolves.toBe('shared');
-    expect(fs.writeFile).toHaveBeenCalledWith({ path: 'logbook-2026-11-10.json', data: JSON.stringify({ app: 'Logbook', version: 2 }, null, 2), directory: 'CACHE', encoding: 'utf8' });
-    expect(share.share).toHaveBeenCalledWith({ title: 'logbook-2026-11-10.json', files: ['file:///cache/logbook-2026-11-10.json'] });
+    await expect(deliverExport({ app: 'Logbook', version: 2 }, 'orby-2026-11-10.json')).resolves.toBe('shared');
+    expect(fs.writeFile).toHaveBeenCalledWith({ path: 'orby-2026-11-10.json', data: JSON.stringify({ app: 'Logbook', version: 2 }, null, 2), directory: 'CACHE', encoding: 'utf8' });
+    expect(share.share).toHaveBeenCalledWith({ title: 'orby-2026-11-10.json', files: ['file:///cache/orby-2026-11-10.json'] });
     // the whole log is not left in a temporary folder
-    expect(fs.deleteFile).toHaveBeenCalledWith({ path: 'logbook-2026-11-10.json', directory: 'CACHE' });
+    expect(fs.deleteFile).toHaveBeenCalledWith({ path: 'orby-2026-11-10.json', directory: 'CACHE' });
   });
   it('answers canceled, not shared, when the share sheet is closed', async () => {
     share.share.mockRejectedValue(new Error('Share canceled'));

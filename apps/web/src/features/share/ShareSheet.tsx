@@ -116,7 +116,7 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
     setBusy(mode);
     try {
       const blob = await renderCard(t, data, caption);
-      const r = await shareImage(blob, `logbook-${data.date}.png`, mode);
+      const r = await shareImage(blob, `orby-${data.date}.png`, mode);
       // the day's successes are two (M18): a share or a save is quiet, and Save says it on its own button (§8: no toast)
       if (r === 'saved') setSaved(true);
     } catch {

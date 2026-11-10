@@ -22,8 +22,8 @@ export const sendVerification = (db: DB, user: { id: string; email: string }) =>
 /** The small page the verification link opens (in Safari, outside the app). No script, no external assets. */
 const verifyPage = (ok: boolean) => {
   const title = ok ? 'Email confirmed' : 'That link no longer works';
-  const line = ok ? 'Thanks. You can close this page and go back to Logbook.' : 'It was used already or it has expired. Your account is fine. Sign in to Logbook as usual.';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${title} · Logbook</title><style>:root{color-scheme:light dark}body{margin:0;min-height:100vh;display:grid;place-items:center;font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f7fa;color:#1a1d21}main{max-width:26rem;padding:2rem 1.5rem;text-align:center}h1{font-size:1.5rem;margin:0 0 .5rem}p{margin:0;color:#4a5058}@media (prefers-color-scheme:dark){body{background:#101215;color:#f2f4f6}p{color:#b5bbc3}}</style></head><body><main><h1>${title}</h1><p>${line}</p></main></body></html>`;
+  const line = ok ? 'Thanks. You can close this page and go back to Orby.' : 'It was used already or it has expired. Your account is fine. Sign in to Orby as usual.';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${title} · Orby</title><style>:root{color-scheme:light}body{margin:0;min-height:100vh;display:grid;place-items:center;font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#EAF5FC;color:#0E2236}main{max-width:26rem;padding:2rem 1.5rem;text-align:center}h1{font-size:1.5rem;margin:0 0 .5rem}p{margin:0;color:#46596D}</style></head><body><main><h1>${title}</h1><p>${line}</p></main></body></html>`;
 };
 
 export const authRoutes = (db: DB) => {

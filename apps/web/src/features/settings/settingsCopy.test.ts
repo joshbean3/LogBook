@@ -20,15 +20,15 @@ describe('what Settings says about Apple Health', () => {
     expect(HEALTH_READS_LINE).toBe('Sleep, heart rate variability and resting heart rate');
   });
   it('promises read only and never sold, in the agreed sentence', () => {
-    expect(HEALTH_TRUST).toBe('Logbook only reads. It never writes to Apple Health and never sells what it reads.');
+    expect(HEALTH_TRUST).toBe('Orby only reads. It never writes to Apple Health and never sells what it reads.');
   });
   it('names the wait with its month', () => {
     expect(importWords(new Date(2026, 10, 1))).toBe('Reading Apple Health: November 2026');
     expect(importWords(null)).toBe('Reading Apple Health…');
   });
   it('words the import’s end by the span that arrived', () => {
-    expect(importDoneWords('Since Aug 2026')).toBe('Since Aug 2026: sleep, heart rate variability and resting heart rate are on Progress. Logbook keeps up each time you open it.');
-    expect(importDoneWords(null)).toBe('Sleep, heart rate variability and resting heart rate are on Progress. Logbook keeps up each time you open it.');
+    expect(importDoneWords('Since Aug 2026')).toBe('Since Aug 2026: sleep, heart rate variability and resting heart rate are on Progress. Orby keeps up each time you open it.');
+    expect(importDoneWords(null)).toBe('Sleep, heart rate variability and resting heart rate are on Progress. Orby keeps up each time you open it.');
   });
   it('says what was saved from the server’s counts and no more', () => {
     const counts = (hrv: number, rhr: number, sleep: number) => ({ counts: { samples: { hrv, resting_hr: rhr }, days: 0, sleep, workouts: 0 }, span: { from: null, to: null } });
@@ -56,7 +56,7 @@ describe('words that must not ship in Settings', () => {
     expect(hits(said, /\b(your|current|this|new) block\b|Lead-in|\bAlarm\b|Starred|Apple Health data/)).toEqual([]);
   });
   it('has no self-hosting or placeholder wording', () => {
-    expect(hits(settings, /this Logbook|this server|on the way|Kilomet/i)).toEqual([]);
+    expect(hits(settings, /this Orby|this server|on the way|Kilomet/i)).toEqual([]);
   });
   it('keeps Strava in its own module, so a build without it carries none of its words', () => {
     expect(hits(settings, /strava/i).filter((n) => !/StravaSource|HrZones|dataSources\.css/.test(n)).sort()).toEqual(['settings/DataSources.tsx', 'settings/SettingsView.tsx']);

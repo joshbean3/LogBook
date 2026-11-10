@@ -57,7 +57,7 @@ export const parseQuery = <T>(query: Record<string, string | undefined>, schema:
 /** A path value (`:month`, `:date`) checked against its schema: 422 with a plain line when it does not fit, never a 500. */
 export const parseParam = <T>(value: string | undefined, schema: ZodType<T>, what = 'value'): T => {
   const r = schema.safeParse(value);
-  if (!r.success) throw new ApiError(422, `That ${what} is not one Logbook can read.`, 'validation');
+  if (!r.success) throw new ApiError(422, `That ${what} is not one Orby can read.`, 'validation');
   return r.data;
 };
 

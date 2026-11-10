@@ -4,13 +4,13 @@
 
 /** What Export writes, and no more (the export holds the plan, habits, goals, journal and to-dos, among others). */
 export const EXPORT_SUB = 'Your plan, habits, goals, journal and to-dos, as one JSON file.';
-export const IMPORT_SUB = 'A Logbook export file (JSON).';
+export const IMPORT_SUB = 'An Orby export file (JSON).';
 
 /** The server takes a file up to 20 MB (ws-01, settings-15); a bigger one is refused here before it is sent. */
 export const IMPORT_MAX_BYTES = 20 * 1024 * 1024;
 
 export const IMPORT_TOO_BIG = 'That file is too big.';
-export const IMPORT_NOT_OURS = 'That file isn’t a Logbook export.';
+export const IMPORT_NOT_OURS = 'That file isn’t an Orby export.';
 export const IMPORT_FAILED = 'Import didn’t finish. Try again.';
 export const IMPORT_NOTHING_NEW = 'Nothing new: it was all here already.';
 

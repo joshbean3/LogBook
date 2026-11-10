@@ -48,28 +48,29 @@ export const sendMail = async (m: Mail): Promise<boolean> => {
 };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+/** The email body in Orby's colors (Night Ink on Paper, a Sky pill with Night Ink words, a Dusk footnote); system fonts, as email clients block web fonts. */
 const page = (title: string, lines: string[], link: { href: string; label: string }) =>
-  `<!doctype html><html lang="en"><body style="margin:0;padding:24px;font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1d21;background:#ffffff"><div style="max-width:480px;margin:0 auto"><h1 style="font-size:20px;margin:0 0 12px">${esc(title)}</h1>${lines.map((l) => `<p style="margin:0 0 12px">${esc(l)}</p>`).join('')}<p style="margin:20px 0"><a href="${esc(link.href)}" style="display:inline-block;padding:12px 20px;border-radius:12px;background:#1a1d21;color:#ffffff;text-decoration:none;font-weight:600">${esc(link.label)}</a></p><p style="margin:0 0 12px;color:#5b6168;font-size:14px">Or paste this link into your browser:<br>${esc(link.href)}</p></div></body></html>`;
+  `<!doctype html><html lang="en"><body style="margin:0;padding:24px;font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0E2236;background:#FFFDF8"><div style="max-width:480px;margin:0 auto"><h1 style="font-size:20px;margin:0 0 12px">${esc(title)}</h1>${lines.map((l) => `<p style="margin:0 0 12px">${esc(l)}</p>`).join('')}<p style="margin:20px 0"><a href="${esc(link.href)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#38B6F2;color:#0E2236;text-decoration:none;font-weight:600">${esc(link.label)}</a></p><p style="margin:0 0 12px;color:#46596D;font-size:14px">Or paste this link into your browser:<br>${esc(link.href)}</p></div></body></html>`;
 
 /** How long each emailed link works. */
 export const RESET_MINUTES = 30;
 export const VERIFY_DAYS = 7;
 
 export const resetMail = (to: string, link: string): Mail => {
-  const lines = [`Someone asked to reset the password for this Logbook account. If that was you, choose a new password with the link below. It works once, for ${RESET_MINUTES} minutes.`, 'If it was not you, ignore this email. Your password stays as it is.'];
-  return { to, subject: 'Reset your Logbook password', text: `${lines[0]}\n\n${link}\n\n${lines[1]}\n`, html: page('Reset your password', lines, { href: link, label: 'Choose a new password' }) };
+  const lines = [`Someone asked to reset the password for this Orby account. If that was you, choose a new password with the link below. It works once, for ${RESET_MINUTES} minutes.`, 'If it was not you, ignore this email. Your password stays as it is.'];
+  return { to, subject: 'Reset your Orby password', text: `${lines[0]}\n\n${link}\n\n${lines[1]}\n`, html: page('Reset your password', lines, { href: link, label: 'Choose a new password' }) };
 };
 
 export const verifyMail = (to: string, link: string): Mail => {
-  const lines = ['Welcome to Logbook. Confirm that this is your email address, so you can reset your password if you ever forget it.', `The link works once, for ${VERIFY_DAYS} days. If you did not make a Logbook account, ignore this email.`];
-  return { to, subject: 'Confirm your email for Logbook', text: `${lines[0]}\n\n${link}\n\n${lines[1]}\n`, html: page('Confirm your email', lines, { href: link, label: 'Confirm my email' }) };
+  const lines = ['Welcome to Orby. Confirm that this is your email address, so you can reset your password if you ever forget it.', `The link works once, for ${VERIFY_DAYS} days. If you did not make an Orby account, ignore this email.`];
+  return { to, subject: 'Confirm your email for Orby', text: `${lines[0]}\n\n${link}\n\n${lines[1]}\n`, html: page('Confirm your email', lines, { href: link, label: 'Confirm my email' }) };
 };
 
 export const passwordChangedMail = (to: string): Mail => {
-  const lines = ['The password for this Logbook account was just changed, and every other device was signed out.', 'If this was not you, open Logbook, tap "Forgot password?" on the sign-in screen and choose a new one.'];
+  const lines = ['The password for this Orby account was just changed, and every other device was signed out.', 'If this was not you, open Orby, tap "Forgot password?" on the sign-in screen and choose a new one.'];
   return {
     to,
-    subject: 'Your Logbook password was changed',
+    subject: 'Your Orby password was changed',
     text: `${lines.join('\n\n')}\n`,
     html: `<!doctype html><html lang="en"><body style="margin:0;padding:24px;font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1d21;background:#ffffff"><div style="max-width:480px;margin:0 auto"><h1 style="font-size:20px;margin:0 0 12px">Your password was changed</h1>${lines.map((l) => `<p style="margin:0 0 12px">${esc(l)}</p>`).join('')}</div></body></html>`,
   };

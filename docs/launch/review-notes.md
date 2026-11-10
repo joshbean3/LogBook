@@ -1,4 +1,4 @@
-# App Review notes for Logbook 1.0
+# App Review notes for Orby 1.0
 
 A draft of the Notes field in App Store Connect, App Review Information (owner task 32). The field holds 4,000 characters; the text between the lines below is under that. Replace the three values in angle brackets, then paste.
 
@@ -16,7 +16,7 @@ SIGN IN
 A demo account is in the sign-in fields above. It has a training plan, habits, goals, journal entries and sample sleep, heart rate variability and resting heart rate numbers on Progress. Those health numbers are sample data added by us so the screens can be reviewed on a phone with no Apple Watch.
 
 WHY AN ACCOUNT
-Logbook keeps a person's training plan, habits, goals and journal on our server so they are backed up and can be restored on a new phone. Nothing in the app works without that data, so the app asks for an account first. Sign-up needs only an email address and a password. The app is free, with no purchases, subscriptions or ads.
+Orby keeps a person's training plan, habits, goals and journal on our server so they are backed up and can be restored on a new phone. Nothing in the app works without that data, so the app asks for an account first. Sign-up needs only an email address and a password. The app is free, with no purchases, subscriptions or ads.
 
 AI ASSISTANT (Guideline 5.1.2)
 The assistant, the plan builder, the goal review, "Remember when" on Journal and the daily pick on Reads use Claude, an AI model made by Anthropic. Our server calls Anthropic's API; Anthropic acts as our processor and does not train on the data.
@@ -24,13 +24,13 @@ Nothing is sent until the person allows it. The permission step appears before s
 The assistant is labeled as AI wherever it appears. It proposes changes to the plan; nothing changes until the person taps Apply, and Apply can be undone.
 
 APPLE HEALTH (Guidelines 5.1.3, 2.5.1)
-Read only. Logbook asks for three types: Sleep, Heart Rate Variability and Resting Heart Rate, and shows each on the Progress tab. To connect: on Today tap the round button with the initial (Settings) > Data sources > Apple Health > Connect. Readings are saved to the person's Logbook account on our server so Progress can show them. They are never used for advertising, never sold, never stored in iCloud and never sent to the AI. Logbook does not write to Apple Health. To disconnect and delete the saved readings: the same screen > Disconnect Apple Health.
+Read only. Orby asks for three types: Sleep, Heart Rate Variability and Resting Heart Rate, and shows each on the Progress tab. To connect: on Today tap the round button with the initial (Settings) > Data sources > Apple Health > Connect. Readings are saved to the person's Orby account on our server so Progress can show them. They are never used for advertising, never sold, never stored in iCloud and never sent to the AI. Orby does not write to Apple Health. To disconnect and delete the saved readings: the same screen > Disconnect Apple Health.
 
 DELETE ACCOUNT (Guideline 5.1.1(v))
 Settings > Account (the row with the email address) > Delete account. It deletes the account and all of its data at once, in the app, with no email or call needed.
 
 NOT MEDICAL
-Logbook is a fitness and wellness app. It gives no diagnosis or treatment advice and says so in the app and in the terms.
+Orby is a fitness and wellness app. It gives no diagnosis or treatment advice and says so in the app and in the terms.
 
 EXTERNAL SERVICES AND FEATURES
 Every external service the app uses: our own server (hosted by <hosting company>), Anthropic's Claude API (called from our server, only with permission), Apple Health (on the device, read only) and email for password reset and address confirmation (sent from our server). There is no analytics, advertising or tracking SDK.

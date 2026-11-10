@@ -19,9 +19,9 @@ import { BACKUP_KEEP_DAYS, DELETE_COPIES, deleteLede, exportNote, passwordProble
 
 describe('what an export says it did', () => {
   it('says Shared only for a share that finished, and names a closed share sheet', () => {
-    expect(exportNote('shared', 'logbook-2026-11-10.json')).toBe('Shared logbook-2026-11-10.json.');
-    expect(exportNote('saved', 'logbook-2026-11-10.json')).toBe('Saved logbook-2026-11-10.json.');
-    expect(exportNote('canceled', 'logbook-2026-11-10.json')).toBe('Export canceled.');
+    expect(exportNote('shared', 'orby-2026-11-10.json')).toBe('Shared orby-2026-11-10.json.');
+    expect(exportNote('saved', 'orby-2026-11-10.json')).toBe('Saved orby-2026-11-10.json.');
+    expect(exportNote('canceled', 'orby-2026-11-10.json')).toBe('Export canceled.');
   });
 });
 
@@ -51,7 +51,7 @@ describe('change password', () => {
     expect(passwordRefusal(new ApiError('bad', 422)).field).toBe('next');
     // a password the server refuses for itself (ws-01 answers 422 weak_password with a plain sentence) says why
     expect(passwordRefusal(new ApiError('That password is too common. Pick another.', 422, 'weak_password'))).toEqual({ field: 'next', text: 'That password is too common. Pick another.' });
-    expect(passwordRefusal(new NetworkError()).text).toBe('Couldn’t reach Logbook. Check your connection.');
+    expect(passwordRefusal(new NetworkError()).text).toBe('Couldn’t reach Orby. Check your connection.');
     // a server without the route yet: no jargon, no dead end
     expect(passwordRefusal(new ApiError('Not found', 404)).text).toBe('Couldn’t change the password. Try again.');
   });

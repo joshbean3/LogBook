@@ -75,32 +75,32 @@ export const CSS = `
 :root { color-scheme: light; }
 html { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 @supports (font: -apple-system-body) { html { font: -apple-system-body; } }
-body { margin: 0; background: #f3f8fb; color: #0f2a44; line-height: 1.55; overflow-wrap: break-word; }
+body { margin: 0; background: #EAF5FC; color: #0E2236; line-height: 1.55; overflow-wrap: break-word; }
 main, header, footer { box-sizing: border-box; max-width: 42rem; margin: 0 auto; padding: 0 16px; }
 header { padding-top: 28px; padding-bottom: 16px; }
-.brand { margin: 0; font-size: 0.9375rem; font-weight: 600; color: #2f5d85; }
+.brand { margin: 0; font-size: 0.9375rem; font-weight: 600; color: #46596D; }
 h1 { margin: 6px 0 4px; font-size: 1.75rem; line-height: 1.2; }
-.dated { margin: 0 0 4px; font-size: 0.9375rem; color: #2f5d85; }
-.draft { margin: 16px 0 0; padding: 12px 16px; border-radius: 12px; background: #ffe6d6; color: #0f2a44; font-size: 0.9375rem; }
+.dated { margin: 0 0 4px; font-size: 0.9375rem; color: #46596D; }
+.draft { margin: 16px 0 0; padding: 12px 16px; border-radius: 14px; background: #FBF0D6; color: #0E2236; font-size: 0.9375rem; }
 h2 { margin: 28px 0 8px; font-size: 1.25rem; line-height: 1.3; }
 h3 { margin: 20px 0 6px; font-size: 1.0625rem; line-height: 1.3; }
 p, ul, ol, table { margin: 0 0 12px; }
 ul, ol { padding-left: 1.25rem; }
 li { margin-bottom: 6px; }
-a { color: #0f2a44; text-decoration: underline; text-underline-offset: 2px; }
-a:focus-visible { outline: 2px solid #0f2a44; outline-offset: 2px; border-radius: 4px; }
-mark { background: #ffe6d6; color: #0f2a44; padding: 0 3px; border-radius: 4px; }
-.card { background: #ffffff; border-radius: 22px; padding: 16px; margin: 0 0 12px; box-shadow: 0 1px 2px rgba(15,42,68,.04), 0 6px 20px rgba(15,42,68,.06); }
+a { color: #0A6CA6; text-decoration: underline; text-underline-offset: 2px; }
+a:focus-visible { outline: 1.5px solid #0A6CA6; outline-offset: 2px; border-radius: 4px; }
+mark { background: #FBF0D6; color: #0E2236; padding: 0 3px; border-radius: 4px; }
+.card { background: #FFFDF8; border-radius: 24px; padding: 16px; margin: 0 0 12px; box-shadow: 0 1px 1px rgba(14,34,54,.04), 0 10px 28px -14px rgba(14,34,54,.20); }
 .card > :first-child { margin-top: 0; }
 .card > :last-child { margin-bottom: 0; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
-th, td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-top: 1px solid rgba(15,42,68,.16); overflow-wrap: anywhere; }
+th, td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-top: 1px solid rgba(14,34,54,.10); overflow-wrap: anywhere; }
 th:last-child, td:last-child { padding-right: 0; }
-thead th { border-top: 0; font-size: 0.9375rem; color: #2f5d85; }
+thead th { border-top: 0; font-size: 0.9375rem; color: #46596D; }
 thead th:first-child { width: 38%; }
 footer { padding-top: 12px; padding-bottom: 40px; font-size: 0.9375rem; }
-footer ul { list-style: none; padding: 16px 0 0; margin: 0; border-top: 1px solid rgba(15,42,68,.16); }
+footer ul { list-style: none; padding: 16px 0 0; margin: 0; border-top: 1px solid rgba(14,34,54,.10); }
 footer li { margin: 0; }
 footer a { display: inline-block; padding: 10px 0; min-height: 24px; }
 `.trim();
@@ -120,21 +120,21 @@ const page = (p, f, v) => {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="referrer" content="no-referrer" />
-    <title>${esc(p.title)} · Logbook</title>
+    <title>${esc(p.title)} · Orby</title>
     <style>
 ${CSS.split('\n').map((l) => `      ${l}`).join('\n')}
     </style>
   </head>
   <body>
     <header>
-      <p class="brand">Logbook</p>
+      <p class="brand">Orby</p>
       <h1>${esc(p.title)}</h1>${dated}${draft}
     </header>
     <main>
 ${body.split('\n').map((l) => (l ? `      ${l}` : '')).join('\n')}
     </main>
     <footer>
-      <nav aria-label="More from Logbook">
+      <nav aria-label="More from Orby">
         <ul>
 ${links}
         </ul>

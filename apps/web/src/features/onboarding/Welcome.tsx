@@ -342,7 +342,7 @@ function Flow({ uid }: { uid: string }) {
     case 'name':
       body = (
         <Question
-          title="What should Logbook call you?"
+          title="What should Orby call you?"
           sub="Your first name is plenty. The assistant and your mornings use it."
           onNext={next}
           nextLabel={d.name?.trim() ? 'Next' : 'Skip for now'}
@@ -428,7 +428,7 @@ function Flow({ uid }: { uid: string }) {
       const fixAt = afternoon ? null : morningFix(d.wake, d.leave, st);
       const fix = fixAt ? { ...fixAt, text: fixAt.wake !== d.wake ? `Wake ${hm(fixAt.wake)}?` : `Leave ${hm(fixAt.leave)}?` } : null;
       body = (
-        <Question title="When does your day start?" sub="Drag the two markers. Logbook plans your morning around them." onNext={next}>
+        <Question title="When does your day start?" sub="Drag the two markers. Orby plans your morning around them." onNext={next}>
           {/* when they usually train: Today's training card starts from it (Morning, or Afternoon from the end of work) */}
           <div className="card ob-card ob-when">
             <p className="ob-q-label">You usually train</p>
@@ -786,7 +786,7 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
   // the server refused the answers themselves (not a lost connection, a signed-out session or a rate limit): sending them
   // again cannot work, so the way on is back to the questions
   const refused = onboard.error instanceof ApiError && onboard.error.status >= 400 && onboard.error.status < 500 && ![401, 408, 429].includes(onboard.error.status);
-  const reason = !onboard.isError ? null : refused ? 'Logbook couldn’t use one of your answers. Change them and try again.' : 'Check your connection and try again.';
+  const reason = !onboard.isError ? null : refused ? 'Orby couldn’t use one of your answers. Change them and try again.' : 'Check your connection and try again.';
   const retry = (
     <>
       {refused ? null : (

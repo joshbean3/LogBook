@@ -54,7 +54,7 @@ describe('POST /auth/forgot', () => {
     }
     await settle();
     expect(outbox.map((m) => m.to)).toEqual(['known@example.com', 'known@example.com']);
-    expect(outbox[0]!.subject).toBe('Reset your Logbook password');
+    expect(outbox[0]!.subject).toBe('Reset your Orby password');
     expect(linkIn(outbox[0]!)).toMatch(new RegExp(`^${env.APP_URL}/login\\?reset=[A-Za-z0-9_-]{40,}$`));
     expect(outbox[0]!.text).toContain('30 minutes');
     expect((await post('/api/auth/forgot', { email: 'not an email' })).status).toBe(422);

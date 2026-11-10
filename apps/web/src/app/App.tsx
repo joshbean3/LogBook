@@ -166,8 +166,8 @@ const useSession = () => useQuery({ queryKey: ['auth-session'], queryFn: () => a
 /** What the boot screen says when the first bootstrap fails and nothing is saved (perf-12): no address, no raw error. */
 export const bootFailure = (e: unknown): { title: string; body: string } =>
   e instanceof NetworkError || (e instanceof ApiError && e.status === 0)
-    ? { title: 'Can’t reach Logbook', body: 'Check your connection and try again.' }
-    : { title: 'Logbook is having trouble right now', body: 'Try again in a minute.' };
+    ? { title: 'Can’t reach Orby', body: 'Check your connection and try again.' }
+    : { title: 'Orby is having trouble right now', body: 'Try again in a minute.' };
 
 /**
  * The first bootstrap failed and nothing is saved here: the orb, one plain sentence and Try again, centered. It tries again

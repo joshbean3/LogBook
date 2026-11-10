@@ -16,7 +16,7 @@ describe('what a failed ask says', () => {
     [new AskError('That answer is no longer here (the server may have restarted). Send it again.', 404, 'job_gone'), /went wrong on our side/],
     [new ApiError('The assistant needs ANTHROPIC_API_KEY on the server.', 503, 'claude_not_configured'), /not available right now/],
     [new AskError('This is taking longer than it should.', 504, 'too_slow'), /taking longer than it should/],
-    [new NetworkError(), /Couldn’t reach Logbook/],
+    [new NetworkError(), /Couldn’t reach Orby/],
     [new Error('some developer text'), /went wrong on our side/],
     [null, /went wrong on our side/],
   ];

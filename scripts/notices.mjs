@@ -209,19 +209,19 @@ const section = (p) => {
 };
 
 const EXTRA_CSS = `
-.ver { font-weight: 400; color: #2f5d85; }
+.ver { font-weight: 400; color: #46596D; }
 .lic, .src { margin: 0 0 6px; font-size: 0.9375rem; }
 .src a { display: inline-block; padding: 11px 0; line-height: 22px; overflow-wrap: anywhere; }
 details { margin-top: 8px; }
 summary { cursor: pointer; padding: 11px 0; line-height: 22px; font-weight: 600; }
 h1 { -webkit-hyphens: auto; hyphens: auto; }
-summary:focus-visible { outline: 2px solid #0f2a44; outline-offset: 2px; border-radius: 4px; }
-pre { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.8125rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: #0f2a44; }
+summary:focus-visible { outline: 1.5px solid #0A6CA6; outline-offset: 2px; border-radius: 4px; }
+pre { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.8125rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: #0E2236; }
 `.trim();
 
 export const build = () => {
   const groups = [
-    { title: 'Fonts', intro: 'The typefaces Logbook uses.', items: fonts() },
+    { title: 'Fonts', intro: 'The typefaces Orby uses.', items: fonts() },
     { title: 'In the iPhone app', intro: 'Native code built into the iPhone app.', items: nativePackages() },
     { title: 'In the app', intro: 'Open source libraries the app is built with. Each is used under the license shown.', items: walkDependencies() },
   ];
@@ -236,22 +236,22 @@ export const build = () => {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="referrer" content="no-referrer" />
-    <title>Acknowledgments · Logbook</title>
+    <title>Acknowledgments · Orby</title>
     <style>
 ${`${CSS}\n${EXTRA_CSS}`.split('\n').map((l) => `      ${l}`).join('\n')}
     </style>
   </head>
   <body>
     <header>
-      <p class="brand">Logbook</p>
+      <p class="brand">Orby</p>
       <h1>Acknowl&shy;edgments</h1>
-      <p class="dated">Logbook is built with the work of the people below. Thank you.</p>
+      <p class="dated">Orby is built with the work of the people below. Thank you.</p>
     </header>
     <main>
 ${body}
     </main>
     <footer>
-      <nav aria-label="More from Logbook">
+      <nav aria-label="More from Orby">
         <ul>
           <li><a href="privacy.html">Privacy Policy</a></li>
           <li><a href="terms.html">Terms of Use</a></li>

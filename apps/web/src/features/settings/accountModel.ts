@@ -36,7 +36,7 @@ export const deleteLede = (c: AccountCounts | null | undefined): string => {
  * Step one's second paragraph: what happens to the copies. Neither sentence promises more than the processors do: the
  * backup window is the runbook's, and Anthropic's 30 days carries its own exceptions.
  */
-export const DELETE_COPIES = `It is deleted from Logbook right away. Backups clear within ${BACKUP_KEEP_DAYS} days. Anthropic deletes what was sent to Claude within 30 days, unless it was flagged for abuse or the law requires longer.`;
+export const DELETE_COPIES = `It is deleted from Orby right away. Backups clear within ${BACKUP_KEEP_DAYS} days. Anthropic deletes what was sent to Claude within 30 days, unless it was flagged for abuse or the law requires longer.`;
 
 // ---------- change password ----------
 export const PASSWORD_MIN = 8;
@@ -57,7 +57,7 @@ export const passwordProblem = (v: { current: string; next: string; confirm: str
 };
 /** Why the server refused (`POST /me/password`, Contract 3), in plain words, and the field to go back to. */
 export const passwordRefusal = (e: unknown): PasswordProblem => {
-  if (e instanceof NetworkError) return { field: 'current', text: 'Couldn’t reach Logbook. Check your connection.' };
+  if (e instanceof NetworkError) return { field: 'current', text: 'Couldn’t reach Orby. Check your connection.' };
   if (e instanceof ApiError) {
     if (e.status === 403 || e.code === 'wrong_password') return { field: 'current', text: 'That’s not your current password.' };
     if (e.status === 429) return { field: 'current', text: 'Too many tries. Wait a few minutes, then try again.' };

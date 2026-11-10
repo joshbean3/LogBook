@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { hasAccountHere } from '@/features/auth/flag';
 import { isSplashDone, SPLASH_DONE } from '@/lib/native';
+import { Wordmark } from '@/ui/Brand';
 import { Orb } from '@/ui/Orb';
 import { useSplashHeld } from './splashHold';
 import './brandSplash.css';
@@ -79,7 +80,7 @@ export const BrandSplash = () => {
             <Orb size={150} />
           </motion.div>
           <motion.span className="brand-splash-word" initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
-            Logbook
+            <Wordmark width={150} />
           </motion.span>
           {waiting && held ? (
             <motion.div className="brand-splash-wait" role="status" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>

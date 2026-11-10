@@ -161,7 +161,7 @@ export default function MetricPage(): React.JSX.Element {
 
       {def.health && !m.hasData && !link.connected && !link.syncing ? (
         <div className="card mp-connect">
-          <p className="mp-connect-p">Connect Apple Health to see your {name} here. Logbook reads sleep, HRV and resting heart rate.</p>
+          <p className="mp-connect-p">Connect Apple Health to see your {name} here. Orby reads sleep, HRV and resting heart rate.</p>
           <button type="button" className="btn primary pressable" onClick={() => nav.go('/settings/connections')}>
             Connect Apple Health
           </button>

@@ -1,5 +1,5 @@
 import { fmtDate, monthOf, periodOf, periodPast, periodSpan, periodStart, shiftDays, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
-import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Sparkles, Target, Trash2, X } from 'lucide-react';
+import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Target, Trash2, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
@@ -110,7 +110,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
       <div className="gsheet k-sheet">
         <section className="k-card gs-card gs-sharp">
           <span className="k-label gs-sharp-label">
-            <Sparkles size={16} aria-hidden="true" /> {step.changed ? 'Sharpened by AI' : 'Already sharp'}
+            {step.changed ? 'Sharpened by the assistant' : 'Already sharp'}
           </span>
           <p className="gs-sentence serif">{step.text}</p>
           {step.why ? <p className="gs-why">{step.why}</p> : null}
@@ -231,7 +231,7 @@ const useStarters = (level: GoalLevel, period: string) => {
   return out.slice(0, 4);
 };
 
-const EVENT_WORD: Record<GoalEventKind, string> = { set: 'Set', sharpened: 'Sharpened by AI', kept: 'Kept in your words', edited: 'Edited', done: 'Marked done', partly: 'Marked partly done', missed: 'Marked missed', reopened: 'Reopened', cleared: 'Cleared', step: 'Checked off', unstep: 'Unchecked' };
+const EVENT_WORD: Record<GoalEventKind, string> = { set: 'Set', sharpened: 'Sharpened by the assistant', kept: 'Kept in your words', edited: 'Edited', done: 'Marked done', partly: 'Marked partly done', missed: 'Marked missed', reopened: 'Reopened', cleared: 'Cleared', step: 'Checked off', unstep: 'Unchecked' };
 /** A clock time as the phone shows them (12 or 24 hour, from its region settings). */
 const CLOCK = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 export const timeOf = (iso: string) => CLOCK.format(new Date(iso));
@@ -303,7 +303,7 @@ export const GoalDetail = ({ id }: { id: string }) => {
         {g.original ? (
           <p className="k-foot gs-from">
             <span className="gs-from-ai">
-              <Sparkles size={13} aria-hidden="true" /> Sharpened by AI
+              Sharpened by the assistant
             </span>{' '}
             from your words: “{g.original}”{g.why ? <span className="gs-from-why"> {g.why}</span> : null}
           </p>

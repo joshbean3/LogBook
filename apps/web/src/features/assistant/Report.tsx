@@ -47,7 +47,7 @@ export const ReportPanel = ({ answer, onDone }: { answer?: string; onDone: () =>
         <span className="sr-only">A note (optional)</span>
         <textarea rows={3} maxLength={1000} placeholder="Add a note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
-      <p className="as-report-foot">{answer ? 'Report opens an email to Logbook with this answer in it. Nothing is sent until you send it.' : 'Report opens an email to Logbook. Nothing is sent until you send it.'}</p>
+      <p className="as-report-foot">{answer ? 'Report opens an email to Orby with this answer in it. Nothing is sent until you send it.' : 'Report opens an email to Orby. Nothing is sent until you send it.'}</p>
       <Button variant="primary" block disabled={!!answer && !reason && !note.trim()} onClick={send}>
         Report
       </Button>

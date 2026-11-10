@@ -26,7 +26,7 @@ export const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
   'changeme1', 'trustno1', 'sunshine', 'sunshine1', 'princess', 'princess1', 'football', 'football1', 'baseball', 'baseball1',
   'basketball', 'superman', 'superman1', 'batman123', 'starwars', 'starwars1', 'computer', 'computer1', 'internet', 'whatever',
   'whatever1', 'michael1', 'jennifer', 'jordan23', 'michelle', 'charlie1', 'liverpool', 'chocolate', 'butterfly', 'master123',
-  'dragon123', 'monkey123', 'shadow123', 'mustang1', 'samsung1', 'google123', 'logbook1', 'logbook123', 'running1', 'running123',
+  'dragon123', 'monkey123', 'shadow123', 'mustang1', 'samsung1', 'google123', 'logbook1', 'logbook123', 'orby1234', 'orby12345', 'running1', 'running123',
   'marathon', 'marathon1', 'test1234', 'testtest', 'secret123', 'hello123', 'freedom1', 'qazwsxedc', 'q1w2e3r4', 'zaq12wsx',
 ]);
 /**

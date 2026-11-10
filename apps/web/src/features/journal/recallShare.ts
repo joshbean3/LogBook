@@ -1,3 +1,5 @@
+import wordmarkInk from '@/ui/brand/wordmark-ink.svg?url';
+
 /**
  * "Remember when" as a card to keep or send: drawn on a canvas (the soft Columbia header, the words in the serif, the date)
  * and saved as a PNG, or copied as text. The canvas work is in the browser; the line breaking is pure and tested.
@@ -60,6 +62,14 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
   } catch {
     /* the fallbacks draw it */
   }
+  // the logo is the outlined wordmark, never canvas text (guide 2.2); a card without it still draws
+  const mark = await new Promise<HTMLImageElement | null>((ok) => {
+    const img = new Image();
+    img.onload = () => ok(img);
+    img.onerror = () => ok(null);
+    setTimeout(() => ok(img.complete && img.naturalWidth ? img : null), 1500);
+    img.src = wordmarkInk;
+  });
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
@@ -122,9 +132,7 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
     g.fillText(l, x + PAD - 40, ty);
     ty += lh;
   }
-  // the mark of where it was kept
-  g.fillStyle = '#5e7891';
-  g.font = 'italic 40px "Fraunces Card", Georgia, serif';
-  g.fillText('Logbook', x + PAD - 40, y + ch - 72);
+  // the mark of where it was kept: the wordmark, 120 px wide (4393 x 1988 units), sitting on the old baseline
+  if (mark) g.drawImage(mark, x + PAD - 40, y + ch - 72 - 54, 120, 54);
   return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('No image'))), 'image/png'));
 };

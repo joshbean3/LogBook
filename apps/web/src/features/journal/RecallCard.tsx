@@ -133,7 +133,7 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
       onSuccess: (s) => {
         if (s.item?.id === it.id && s.item.kind === it.kind) toast('Nothing else to remember yet');
       },
-      onError: () => toast('Couldn’t reach Logbook. Try again.'),
+      onError: () => toast('Couldn’t reach Orby. Try again.'),
     });
   };
   const hide = (it: RecallItem) => {

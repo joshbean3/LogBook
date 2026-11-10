@@ -84,9 +84,9 @@ export const AppPage = (): React.JSX.Element => {
       {!isNative ? (
         <SGroup title="Home screen">
           {isStandalone() ? (
-            <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Installed" sub="You’re running Logbook from the home screen." />
+            <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Installed" sub="You’re running Orby from the home screen." />
           ) : canInstall ? (
-            <GoRow icon={House} title="Install Logbook" sub="Full screen, and it opens offline." onPress={() => void install()} />
+            <GoRow icon={House} title="Install Orby" sub="Full screen, and it opens offline." onPress={() => void install()} />
           ) : isIosSafari() ? (
             <Row className="s-wrap has-tile" left={<Tile icon={House} />} title="Add to Home Screen" sub="In Safari: Share, then Add to Home Screen." />
           ) : (

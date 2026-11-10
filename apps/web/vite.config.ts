@@ -97,8 +97,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'prompt',
         includeAssets: ['icons/*.png', 'icons/*.svg'],
         manifest: {
-          name: 'Logbook',
-          short_name: 'Logbook',
+          name: 'Orby',
+          short_name: 'Orby',
           description: 'Training, habits and a journal. One quiet place for the day.',
           start_url: '/today',
           scope: '/',
