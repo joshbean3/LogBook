@@ -2,7 +2,7 @@ import type { ISODate } from '@logbook/shared';
 import { Orb } from '@/ui/Orb';
 import type * as React from 'react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useOpenAssistant } from '@/features/assistant/AskBar';
+import { useOpenAssistant } from '@/features/assistant/openAssistant';
 import { useScreenContext } from '@/features/assistant/screen';
 import { useAssistantTurns } from '@/features/assistant/store';
 import { useLiveToday } from '@/lib/useToday';

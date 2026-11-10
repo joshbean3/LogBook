@@ -3,7 +3,7 @@ import { Bandage, ChevronRight, Footprints, Moon, Plane, Thermometer, TrendingDo
 import type * as React from 'react';
 import { useMemo } from 'react';
 import { useBootstrap, useSetStatus } from '@/api/queries';
-import { useOpenAssistant } from '@/features/assistant/AskBar';
+import { useOpenAssistant } from '@/features/assistant/openAssistant';
 import { useLog, type Log } from '@/features/log/useLog';
 import { useToday } from '@/lib/useToday';
 import { Pressable } from '@/ui/Pressable';
