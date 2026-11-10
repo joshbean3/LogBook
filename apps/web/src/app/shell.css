@@ -174,10 +174,6 @@ html.kb-open .dock {
     opacity 180ms var(--ease-out),
     transform 260ms var(--ease-out);
 }
-.dock-ask-ic {
-  flex: none;
-  color: var(--accent);
-}
 /* the dock is fixed chrome, like the system tab bar: its text follows Larger Text only as far as its fixed height allows */
 .dock-ask-text {
   flex: 1;
@@ -224,7 +220,6 @@ html.kb-open .dock {
   /* at rest it is 0 wide: no border either, so the capsule ends where the ask bar does (shell-21) */
   border-width: 0;
   box-shadow: var(--shadow-1), 0 6px 24px rgba(15, 42, 68, 0.1);
-  color: var(--accent);
   opacity: 0;
   overflow: hidden;
   pointer-events: none;

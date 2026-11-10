@@ -1,9 +1,11 @@
 /*
- * The orb's box (Orb.tsx): --s is the drop's diameter; the canvas is 1.5 times wider so the glow has room, centred on the
- * box and spilling past it without taking layout space.
+ * The Orb (Orb.tsx): --s is the sphere's diameter and the only box it takes in layout. The art is centred on it and spills
+ * past it (the full tier's Apricot glow, the thinking arc) without taking layout space. --box is the art file's size as a
+ * multiple of the sphere (100/96 gloss, 150/96 full).
  */
 .lb-orb {
   --s: 48px;
+  --box: 1;
   position: relative;
   display: inline-block;
   flex: none;
@@ -11,12 +13,108 @@
   height: var(--s);
   vertical-align: middle;
 }
-.lb-orb-canvas {
+.lb-orb-art {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: calc(var(--s) * 1.5);
-  height: calc(var(--s) * 1.5);
-  transform: translate(-50%, -50%);
+  width: calc(var(--s) * var(--box));
+  height: calc(var(--s) * var(--box));
+  max-width: none;
+  margin: calc(var(--s) * var(--box) / -2) 0 0 calc(var(--s) * var(--box) / -2);
   pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* thinking: the warm art over the idle art; a gradient never transitions, so the overlay fades in (guide 9.1) */
+.lb-orb-warm {
+  animation: orb-warm-in var(--dur-color) var(--ease-out) both;
+}
+@keyframes orb-warm-in {
+  from {
+    opacity: 0;
+  }
+}
+/* the arc turns on its own layer; the sphere never rotates (its highlight is at the top, its warmth at the bottom) */
+.lb-orb-arc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--s) * var(--box));
+  height: calc(var(--s) * var(--box));
+  translate: -50% -50%;
+  overflow: visible;
+  pointer-events: none;
+}
+.lb-orb[data-run] .lb-orb-arc {
+  will-change: transform;
+  animation: orb-orbit var(--orb-orbit) linear infinite;
+}
+@keyframes orb-orbit {
+  to {
+    transform: rotate(1turn);
+  }
+}
+/* breath: the full Orb at rest, only while it is seen (data-run, orbPaint.ts) */
+.lb-orb.is-full.is-idle[data-run] > .lb-orb-art {
+  animation: orb-breath var(--orb-breath) ease-in-out infinite;
+}
+@keyframes orb-breath {
+  50% {
+    transform: scale(1.015);
+  }
+}
+
+/*
+ * Disc.tsx: a flat circle, never the Orb. Doubled up (.lb-disc.lb-disc) so an old class a caller still passes for the
+ * canvas-era dots (the assistant's .as-orb: a gradient, a ring and an endless breathe) cannot restyle it.
+ */
+.lb-disc.lb-disc {
+  --s: 16px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: var(--sky);
+  box-shadow: none;
+  animation: none;
+  vertical-align: middle;
+  color: var(--ink);
+}
+.lb-disc.lb-disc.is-haze {
+  background: var(--haze);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
+}
+.lb-disc.lb-disc.is-two {
+  background: var(--entry-2);
+}
+.lb-disc.lb-disc.is-deep {
+  background: var(--deep-sky);
+  color: var(--white);
+}
+.lb-disc-n {
+  font: 600 var(--fs-orb) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.lb-disc.lb-disc.is-pulse[data-run] {
+  animation: disc-pulse var(--orb-orbit) ease-in-out infinite;
+}
+@keyframes disc-pulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-orb-warm {
+    animation-duration: var(--dur-reduce);
+    animation-timing-function: linear;
+  }
+  .lb-orb[data-run] .lb-orb-arc,
+  .lb-orb.is-full.is-idle[data-run] > .lb-orb-art,
+  .lb-disc.lb-disc.is-pulse[data-run] {
+    animation: none;
+  }
 }

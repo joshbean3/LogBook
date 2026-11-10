@@ -263,38 +263,14 @@
   font-weight: 700;
 }
 
-/* today's orb, until today has a memory: a slow, soft pulse around the breathing orb */
+/* today's mark, until today has a memory */
 .jcal-pulse {
   position: relative;
   display: inline-grid;
   place-items: center;
 }
-.jcal-pulse::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(242, 96, 12, 0.28), rgba(242, 96, 12, 0));
-  animation: jcal-pulse 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes jcal-pulse {
-  0%,
-  100% {
-    transform: scale(0.85);
-    opacity: 0.35;
-  }
-  50% {
-    transform: scale(1.35);
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .jcal-pulse::before {
-    animation: none;
-    opacity: 0.6;
-  }
-}
+/* the endless orange pulse around today's mark is gone (plan 1.4, 4.3): it ran on every screen while Journal stayed mounted
+   in its hidden tab, so no screen was ever idle. The wrapper stays a plain box until stream 4 drops it from Calendar.tsx. */
 
 /* "Write today's": the card's one verb while today is empty */
 .jcal-write {
@@ -637,7 +613,8 @@
   .jcal-grid.is-week .jcal-mark {
     min-width: 14px;
   }
-  .jcal-grid.is-week .jcal-mark .lb-orb {
+  .jcal-grid.is-week .jcal-mark .lb-orb,
+  .jcal-grid.is-week .jcal-mark .lb-disc {
     --s: 14px !important;
   }
   .jcal-grid.is-week .jcal-fav {

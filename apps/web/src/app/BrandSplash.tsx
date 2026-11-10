@@ -77,7 +77,7 @@ export const BrandSplash = () => {
           aria-hidden={waiting ? undefined : 'true'}
         >
           <motion.div className="brand-splash-orb" exit={reduce ? undefined : { scale: 1.18 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}>
-            <Orb size={150} />
+            <Orb size={96} />
           </motion.div>
           <motion.span className="brand-splash-word" initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}>
             <Wordmark width={150} />

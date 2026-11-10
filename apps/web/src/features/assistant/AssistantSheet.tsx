@@ -206,7 +206,7 @@ const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null
       ) : (
         <div className="as-working">
           <button type="button" className="as-phase" aria-expanded={open} onClick={() => setOpen((v) => !v)} disabled={!live?.thoughts && !live?.steps?.length}>
-            <Orb size={18} state="think" className="as-orb" />
+            <Orb size={28} state="think" className="as-orb" />
             <span className="as-shimmer" aria-live="polite">
               {PHASE_WORDS[phase]}
             </span>
@@ -750,7 +750,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
       <div className="as-thread">
         {empty ? (
           <div className="as-hello">
-            <Orb size={64} className="as-hello-mark" />
+            <Orb size={56} className="as-hello-mark" />
             <p className="as-hello-title">
               {greeting()}
               {name ? `, ${name}` : ''}.
