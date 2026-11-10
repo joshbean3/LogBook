@@ -202,9 +202,8 @@ export default function MetricPage(): React.JSX.Element {
           bars={v.bars ? m.daily : undefined}
           dots={v.sparse ? m.daily : undefined}
           band={m.band}
-          // a share reads on a 0 to 100 axis: a one-point series draws nothing, and 92 plus the kit's 8% headroom rounds the
-          // top to 100 (the chart kit has no fixed-domain prop yet; asked of ws-02)
-          previous={v.percent ? [92] : undefined}
+          // a share reads on a 0 to 100 axis, even when its average is exactly 100
+          domain={v.percent ? [0, 100] : undefined}
           // a share's average of nothing is not a line worth drawing: no pill sitting on the baseline
           avg={m.hasData && !(v.percent && !m.avg) ? m.avg : null}
           labels={labels}

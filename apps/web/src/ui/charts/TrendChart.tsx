@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
-import { areaPath, labelIndices, niceDomain, niceTicks, scaleLinear, segments, smoothPath, type Series } from './scale';
+import { chartDomain } from './niceDomain';
+import { areaPath, labelIndices, niceTicks, scaleLinear, segments, smoothPath, type Series } from './scale';
 import { useChartWidth } from './useWidth';
 import './charts.css';
 
@@ -35,6 +36,8 @@ export interface TrendChartProps {
   zero?: boolean;
   /** Allowed tick intervals (pace: 15, 30, 60 s). */
   steps?: number[];
+  /** A fixed y axis, whatever the data (a share: 0 to 100). Without it the axis fits the data. */
+  domain?: [number, number];
   /** The line's colour: navy for data, orange for the one series that is the highlight (this month). */
   tone?: 'navy' | 'accent';
   /** A soft fill under the line. */
@@ -60,7 +63,7 @@ const BOTTOM = 22;
  * period in grey. Press and slide to read a point (the readout above rewrites), arrow keys do the same. With nothing to
  * draw it keeps its frame and says so in the middle.
  */
-export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, labels, format, invert, zero, steps, tone = 'navy', fill, height = 184, label, readout, empty, className = '' }: TrendChartProps) => {
+export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, labels, format, invert, zero, steps, domain, tone = 'navy', fill, height = 184, label, readout, empty, className = '' }: TrendChartProps) => {
   const id = useId().replace(/:/g, '');
   const [ref, width] = useChartWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
@@ -78,7 +81,7 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
   if (band) domainVals.push(band.lo, band.hi);
   if (avg != null) domainVals.push(avg);
   if (!hasData && zones?.length) domainVals.push(zones[0]!.lo, zones[zones.length - 1]!.hi ?? zones[zones.length - 1]!.lo);
-  const [lo, hi] = niceDomain(domainVals, { zero, steps, count: 3 });
+  const [lo, hi] = chartDomain(domainVals, { zero, steps, count: 3, domain });
   const y = scaleLinear(invert ? [hi, lo] : [lo, hi], [y0, TOP]);
   const step = n > 1 ? plotW / (n - 1) : 0;
   const x = (i: number) => LEFT + (n > 1 ? i * step : plotW / 2);
