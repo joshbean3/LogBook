@@ -1,6 +1,6 @@
 import { floorFor, floorMinutes, fmtDate, label, monthsBetween, num, shiftDays, tone, TYPES, type Session, type SessionKind } from '@logbook/shared';
 import { Repeat } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { useAllLifts, useSessionMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -115,25 +115,55 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
     setNewEx('');
   };
 
+  const payload = {
+    id: restore ? undefined : session?.id,
+    prevDate: session && !restore ? session.date : undefined,
+    date: d,
+    kind,
+    type: kind === 'rest' ? 'Rest' : type || null,
+    title: title.trim() || null,
+    details: kind === 'lift' ? exercises.join(', ') || null : kind === 'rest' ? null : details.trim() || null,
+    miles: kind === 'run' ? miles : null,
+    minutes: kind === 'rest' ? null : minutes,
+  };
+  const valid = !(kind === 'run' && miles == null && minutes == null);
+  // what the editor opened with: a change from it is unsaved work (today-body-34)
+  const [initial] = useState(() => JSON.stringify(payload));
+  const dirty = JSON.stringify(payload) !== initial;
+  /*
+   * Closing the editor with changes saves them (Close, a flick, Back, or the sheet replaced), and says so: nothing typed is
+   * lost without a word. A scrim tap does not close a changed editor (`sticky`). Save itself marks the work done first.
+   */
+  const pending = useRef<{ dirty: boolean; valid: boolean; payload: typeof payload; done: boolean }>({ dirty, valid, payload, done: false });
+  pending.current = { ...pending.current, dirty, valid, payload };
+  useEffect(() => {
+    sheet.update({
+      sticky: dirty,
+      onClose: () => {
+        const p = pending.current;
+        if (p.done || !p.dirty || !p.valid) return;
+        p.done = true;
+        upsert.mutateAsync(p.payload).then(
+          () => toast(isNew ? 'Session added' : 'Changes saved'),
+          () => (haptics.error(), toast('Changes not saved. Try again.')),
+        );
+      },
+    });
+    // the sheet API and the mutation are stable; the handler reads the latest edit through the ref
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty]);
+
   const save = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setBusy(true);
     try {
-      await upsert.mutateAsync({
-        id: restore ? undefined : session?.id,
-        prevDate: session && !restore ? session.date : undefined,
-        date: d,
-        kind,
-        type: kind === 'rest' ? 'Rest' : type || null,
-        title: title.trim() || null,
-        details: kind === 'lift' ? exercises.join(', ') || null : kind === 'rest' ? null : details.trim() || null,
-        miles: kind === 'run' ? miles : null,
-        minutes: kind === 'rest' ? null : minutes,
-      });
+      pending.current.done = true;
+      await upsert.mutateAsync(payload);
       // the sheet closing onto the changed row is the answer: no haptic, no toast without an Undo (§8, §11.4)
       if (depth > 1) sheet.pop();
       else sheet.close();
     } catch (err) {
+      pending.current.done = false;
       haptics.error();
       toast(err instanceof ApiError ? err.message : 'Not saved. Try again.');
     } finally {
@@ -226,13 +256,19 @@ export const SessionEditor = ({ date, session, restore }: { date: string; sessio
             Name and notes
           </label>
           <input id="ed-name" className="in" value={title} maxLength={60} placeholder={label({ kind, type, title: null, miles: kind === 'run' ? miles : null })} onChange={(e) => setTitle(e.target.value)} />
+          {/* near the 60 character limit the field says how much is left, so a long name is never cut without a sign (today-top-26) */}
+          {title.length >= 50 ? (
+            <span className={`ed-count ${title.length >= 60 ? 'is-full' : ''}`} aria-live="polite">
+              {60 - title.length} left
+            </span>
+          ) : null}
           {kind !== 'lift' ? <textarea className="in" rows={2} maxLength={600} value={details} onChange={(e) => setDetails(e.target.value)} placeholder={kind === 'run' ? 'Warm-up, reps, paces' : 'Anything worth knowing'} aria-label="Notes" /> : null}
         </div>
       ) : null}
       <div className="sheet-foot">
         <span />
         <div className="foot-right">
-          <Button variant="primary" type="submit" disabled={busy || (kind === 'run' && miles == null && minutes == null)}>
+          <Button variant="primary" type="submit" disabled={busy || !valid}>
             {isNew ? 'Add' : 'Save'}
           </Button>
         </div>

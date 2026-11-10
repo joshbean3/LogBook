@@ -1030,6 +1030,17 @@
   font-weight: 600;
   color: var(--ink-2);
 }
+/* the name's characters left, near its limit: under the field at its right */
+.ed-count {
+  justify-self: end;
+  margin-top: -4px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.ed-count.is-full {
+  color: var(--warn-text, #8f5800);
+}
 .ed-chips {
   display: flex;
   flex-wrap: wrap;
