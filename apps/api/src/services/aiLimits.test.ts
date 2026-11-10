@@ -5,6 +5,7 @@ import { env } from '../env.js';
 import { ApiError } from '../lib/util.js';
 import { fakeClaude, grantAll, makeApp, signUp, type Account, type App } from '../test/helpers.js';
 import { AI_LIMITS, AI_MAX_RUNNING, beginAi, logUser, resetAiLimits, setUsageSink } from './aiLimits.js';
+import { PLAN_FILE_LIMITS } from '../routes/ai.js';
 import { CLAUDE_TIMEOUT_MS, setClaudeClient } from './claude.js';
 
 const T = today();
@@ -151,6 +152,43 @@ describe('the limits on the routes', () => {
     for (let i = 0; i < 8; i++) expect((await me.call('POST', '/api/plans/draft', { mode: 'describe', start: T, instructions: 'x' })).status).toBe(422);
     expect((await draft()).status).toBe(200);
   });
+
+  it('/plans/draft runs one at a time per person, and holds a photo to 5 MB and a PDF to 20 MB (what Claude takes)', async () => {
+    let finish!: () => void;
+    const gate = new Promise<void>((r) => (finish = r));
+    setClaudeClient({
+      messages: {
+        stream: () => ({
+          finalMessage: async () => {
+            await gate;
+            return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ name: 'P', summary: '', start: T, end: T, notes: [], sessions: [{ date: T, kind: 'run', type: 'Easy', title: 'Easy 4', details: '', miles: 4, minutes: null }] }) }], usage: { input_tokens: 1, output_tokens: 1 } };
+          },
+        }),
+      },
+    });
+    const draft = () => me.call('POST', '/api/plans/draft', { mode: 'describe', start: T, instructions: 'A gentle 10K plan over eight weeks' });
+    const first = draft();
+    await new Promise((r) => setTimeout(r, 20));
+    const second = await draft();
+    expect(second.status).toBe(429);
+    expect(second.body).toEqual({ error: 'The last one is still running. Wait for it to finish.', code: 'rate_limited' });
+    finish();
+    expect((await first).status).toBe(200);
+    expect((await draft()).status).toBe(200);
+
+    const upload = async (bytes: number, type: string, name: string) => {
+      const form = new FormData();
+      form.set('mode', 'file');
+      form.set('start', T);
+      form.set('file', new Blob([new Uint8Array(bytes)], { type }), name);
+      const res = await app.request('/api/plans/draft', { method: 'POST', headers: { cookie: me.cookie }, body: form });
+      return { status: res.status, body: (await res.json()) as { error?: string; code?: string } };
+    };
+    expect(PLAN_FILE_LIMITS).toEqual({ imageBytes: 5 * 1024 * 1024, pdfBytes: 20 * 1024 * 1024 });
+    expect(await upload(PLAN_FILE_LIMITS.imageBytes + 1, 'image/jpeg', 'plan.jpg')).toEqual({ status: 422, body: { error: 'That photo is over 5 MB. Send a smaller one.', code: 'file_too_big' } });
+    expect(await upload(PLAN_FILE_LIMITS.pdfBytes + 1, 'application/pdf', 'plan.pdf')).toEqual({ status: 422, body: { error: 'That PDF is over 20 MB. Upload fewer pages.', code: 'file_too_big' } });
+    expect((await upload(1024, 'image/jpeg', 'plan.jpg')).status).toBe(200);
+  }, 30_000);
 
   it('/goals/refine and /assistant have their own per-user limits', async () => {
     const refine = () => me.call('POST', '/api/goals/refine', { level: 'week', period: mondayOf(T), text: 'run more' });
