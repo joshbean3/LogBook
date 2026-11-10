@@ -2,10 +2,10 @@
 
 /* the bar: a round back, the name centred with a grey date under it, a round info button */
 .mp-page .pb-eyebrow {
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -15,7 +15,7 @@
   height: calc(56px + var(--safe-t));
 }
 
-/* the hero: the one big number (or the gauge), centred over Logbook's halo */
+/* the hero: the one big number (or the gauge), centered; a pushed page is flat, so no halo behind it (plan 5.3) */
 .mp-hero {
   position: relative;
   isolation: isolate;
@@ -26,32 +26,29 @@
   text-align: center;
 }
 .mp-halo {
-  position: absolute;
-  inset: -12px -16px 0;
-  z-index: -1;
-  background: radial-gradient(55% 60% at 50% 45%, rgba(185, 217, 235, 0.75), rgba(185, 217, 235, 0) 70%);
-  pointer-events: none;
+  display: none;
 }
+/* the hero stat that changes (guide 4.2): Inter 650 at --fs-stat-live, even figures; the 60 px line box stays */
 .mp-big {
-  font: 700 3.5rem / 3.75rem var(--stamp);
-  letter-spacing: -0.03em;
+  font: 650 var(--fs-stat-live) / 3.75rem var(--sans);
+  letter-spacing: var(--tr-hero);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
   white-space: nowrap;
 }
 .mp-big.is-empty {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .mp-big small,
 .mp-unit {
   margin-left: 4px;
-  font: 500 1.0625rem / 1 var(--sans);
+  font: 500 var(--fs-sub) / 1 var(--sans);
   letter-spacing: 0;
   text-transform: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .mp-hero .ck-gauge-num {
-  font-size: 2.5rem;
+  font-size: var(--fs-stat-live);
   line-height: 2.75rem;
 }
 .mp-status {
@@ -64,7 +61,7 @@
 }
 .mp-status.is-up,
 .mp-status.is-down {
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 .mp-status.is-none {
   color: var(--ink-3);
@@ -158,12 +155,14 @@
   inset: -6px 0;
 }
 .mp-chip.on {
-  background: var(--primary);
-  color: var(--primary-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
 }
 .mp-chip:focus-visible {
-  outline: 2px solid var(--ink-2);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 .mp-readout {
   display: block;
@@ -215,14 +214,8 @@
   margin: 12px 0 0;
   padding: 10px 12px;
   border-radius: var(--r-control);
-  background: var(--columbia-wash);
+  background: var(--cloud);
   color: var(--ink-2);
-}
-@container page (max-width: 21rem) {
-  .mp-big {
-    font-size: 2.75rem;
-    line-height: 3rem;
-  }
 }
 
 /* an Apple Health page with nothing connected: one card with the way to connect */
@@ -234,7 +227,7 @@
 }
 .mp-connect-p {
   margin: 0;
-  font: 400 var(--fs-sub) / 1.375rem var(--sans);
+  font: 500 var(--fs-sub) / 1.375rem var(--sans);
   color: var(--ink-2);
 }
 .mp-connect .btn {

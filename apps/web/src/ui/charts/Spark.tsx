@@ -37,20 +37,15 @@ export const Spark = ({ values, w = 64, h = 24, invert, zero, glow = true, area,
   return (
     <svg className={`ck-spark ${className}`} width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
       <defs>
-        <radialGradient id={`g${id}`}>
-          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.5" />
-          <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
-        </radialGradient>
         <linearGradient id={`a${id}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="var(--columbia)" stopOpacity="0.7" />
-          <stop offset="1" stopColor="var(--columbia)" stopOpacity="0" />
+          <stop offset="0" className="ck-spark-top" />
+          <stop offset="1" className="ck-spark-end" />
         </linearGradient>
       </defs>
       {area ? segs.map((s, k) => (s.length > 1 ? <path key={`a${k}`} d={areaPath(s.map((p) => xy(p.i, p.v)), h)} fill={`url(#a${id})`} /> : null)) : null}
       {segs.map((s, k) => (
         <path key={k} d={smoothPath(s.map((p) => xy(p.i, p.v)))} className="ck-spark-line" />
       ))}
-      {glow ? <circle cx={lx} cy={ly} r={7} fill={`url(#g${id})`} /> : null}
       {glow ? <circle cx={lx} cy={ly} r={2.8} className="ck-spark-dot" /> : null}
     </svg>
   );

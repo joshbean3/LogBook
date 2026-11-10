@@ -1,33 +1,45 @@
-/* ---------- Progress hero: one white card, a Running / Strength switch, the week in words, planned against done ---------- */
+/* ---------- Progress hero: Progress's hero card (guide 6.4): Paper, r 24, the one sunrise glow under its bottom edge; a
+   Running / Strength switch, the week in words, planned against done ---------- */
 .card.ph {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  padding: 14px 16px 14px;
-  border-radius: 22px;
+  /* 16 all round (the mockup's; the hero's 20 would take 8 px from the chart): 2 px more than it was, top and bottom */
+  padding: var(--sp-4);
+  border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow-1);
   container: ph / inline-size;
 }
+.card.ph::after {
+  content: '';
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  bottom: -52%;
+  height: 78%;
+  z-index: -1;
+  background: var(--glow-hero);
+  opacity: 0.85;
+  pointer-events: none;
+}
 
-/* the switch: the app's segmented control, 36 px, a 44 px target per segment */
+/* the switch: the app's segmented control (guide 6.3: Cloud track, Sky pill thumb, Inter 15, Dusk 550 off and Night Ink
+   650 on), kept at its 36 px (the mockup's) with a 44 px target per segment */
 .seg.ph-seg {
   height: 36px;
   gap: 0;
-  border-radius: 11px;
 }
 .seg.ph-seg .seg-btn {
   flex: 1 1 0;
-  padding: 0 8px;
-  border-radius: 11px;
-  font: 600 0.875rem/1.125rem var(--sans);
+  padding: 0 var(--sp-2);
 }
 .seg.ph-seg .seg-btn::after {
   content: '';
   position: absolute;
   inset: -4px 0;
-}
-.seg.ph-seg .seg-thumb {
-  border-radius: 11px;
 }
 
 /* the headline: the week at the left, the share of the plan at the right */
@@ -43,36 +55,40 @@
   gap: 2px;
   min-width: 0;
 }
+/* the card's one caption (guide 4.3) */
 .ph-eyebrow {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.06em;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* the hero stat that changes (guide 4.2): Inter 650 at --fs-stat-live, even figures; its unit Inter 500 15 Dusk. The line
+   box stays 46 so the card keeps its height */
 .ph-big {
   display: flex;
   align-items: baseline;
   gap: 6px;
   min-width: 0;
-  font: 800 2.5rem / 2.875rem var(--stamp);
-  letter-spacing: -0.03em;
+  font: 650 var(--fs-stat-live) / 2.875rem var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
   white-space: nowrap;
 }
 .ph-big small {
-  font: 500 1rem / 1.25rem var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ph-big.is-word {
-  font: 600 1.25rem / 2.875rem var(--sans);
+  font: 600 var(--fs-row) / 2.875rem var(--sans);
   letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ph-sub {
   font-size: var(--fs-sub);
@@ -91,41 +107,33 @@
   flex: none;
   /* as wide as its widest caption ("Last 4 weeks"), so the box holds still while the week under the finger changes */
   min-width: 6.5rem;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-control);
+  /* a Paper tile with a Haze edge (the mockup's), not a pressed-in well */
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--haze);
   margin-bottom: 2px;
 }
+/* the share of the plan: a tile number (Inter 650 even figures on the tiles' 26/32 step, as .tile-value) */
 .ph-rate {
-  font: 800 1.375rem / 1.625rem var(--stamp);
-  letter-spacing: -0.02em;
+  font: 650 var(--fs-section) / var(--lh-section) var(--sans);
+  letter-spacing: 0;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 .ph-rate.is-none {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .ph-cap {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 @container ph (max-width: 19rem) {
-  .ph-big {
-    font-size: 2.125rem;
-  }
-  .ph-big small {
-    font-size: 0.9375rem;
-  }
   .ph-side {
     min-width: 6rem;
-    padding: 6px 10px;
-  }
-  .ph-rate {
-    font-size: 1.1875rem;
-    line-height: 1.5rem;
+    padding: var(--sp-1) var(--sp-2);
   }
 }
 
@@ -137,96 +145,109 @@
 .pl-plot {
   position: relative;
   outline: none;
-  border-radius: 12px;
+  border-radius: var(--r-icon);
 }
 .pl-plot:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent-bright);
+  box-shadow: 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
 }
 .pl-chart svg {
   display: block;
   overflow: visible;
   font-family: var(--sans);
 }
+/* the chart (guide 6.8): gridlines 1 px --grid, no borders; axes in caption style, Dusk, even figures */
 .pl-grid {
-  stroke: var(--line-strong);
+  stroke: var(--grid);
   stroke-width: 1;
   stroke-dasharray: 2 4;
-  opacity: 0.7;
 }
 .pl-base {
   stroke: var(--line-strong);
   stroke-width: 1;
 }
+/* the svg draws at 1:1 (its viewBox is its measured width), so the 11 px caption stays 11 px */
 .pl-ax {
-  /* 12 px at the default size, 5.1:1 on the card (the lighter grey at 11 px was 3.3:1) */
-  font: 500 clamp(12px, 0.75rem, 16px) / 1 var(--sans);
-  fill: var(--ink-3);
+  font: 600 var(--fs-caps) / 1 var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  fill: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
+/* NOW in Ember (orange words are Ember; Sunrise is never text) */
 .pl-ax.is-now {
-  fill: var(--accent-text);
-  font-weight: 600;
+  fill: var(--now-text);
 }
-/* the plan: soft and dashed; the actual: solid navy, round at its joins */
+/* the plan: a 1.5 px Dusk line dashed 4 / 4; the actual: 2.5 px Deep Sky, round at its joins */
 .pl-plan {
   fill: none;
-  stroke: rgba(15, 42, 68, 0.34);
-  stroke-width: 2;
-  stroke-dasharray: 5 5;
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
   stroke-linecap: round;
 }
 .pl-done {
   fill: none;
-  stroke-width: 3;
+  stroke: var(--deep-sky);
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 3px 4px rgba(18, 50, 79, 0.18));
+}
+/* the area under the actual line: Sky at 16 percent, fading out */
+.pl-fill-top {
+  stop-color: var(--sky);
+  stop-opacity: 0.16;
+}
+.pl-fill-end {
+  stop-color: var(--sky);
+  stop-opacity: 0;
 }
 .pl-solo {
-  fill: #12324f;
+  fill: var(--deep-sky);
 }
 /* this week so far: a dotted reach from the last finished week */
 .pl-reach {
   fill: none;
-  stroke: #12324f;
+  stroke: var(--deep-sky);
   stroke-width: 2.25;
   stroke-dasharray: 0.5 5;
   stroke-linecap: round;
   opacity: 0.7;
 }
 .pl-gap {
-  stroke: var(--ink-4);
+  stroke: var(--ink-faint);
   stroke-width: 2;
   stroke-linecap: round;
-  opacity: 0.5;
 }
-/* this week: an orange dot with a soft halo */
-.pl-now {
-  fill: var(--accent);
-  stroke: #fff;
+/* now on the chart (guide 3.5 job 6): an 8 px Sunrise dot with a 2 px Paper keyline, no halo; Night Ink when the screen's
+   Sunrise budget is spent */
+.pl-now,
+.pl-dot-done.is-now {
+  fill: var(--now);
+  stroke: var(--now-keyline);
   stroke-width: 2;
 }
-.pl-now-halo {
-  fill: var(--accent);
-  opacity: 0.16;
+.pl-now[data-now='ink'],
+.pl-dot-done.is-now[data-now='ink'] {
+  fill: var(--ink);
 }
-/* the week under the finger */
+.pl-now-halo {
+  display: none;
+}
+/* the week under the finger: a rule, the plan's point in Paper with a Dusk ring, the actual's in Deep Sky (a selected point,
+   not now) */
 .pl-rule {
-  stroke: rgba(15, 42, 68, 0.28);
+  stroke: rgba(14, 34, 54, 0.28);
   stroke-width: 1;
 }
 .pl-dot-plan {
-  fill: #fff;
-  stroke: rgba(15, 42, 68, 0.45);
+  fill: var(--surface);
+  stroke: var(--ink-2);
   stroke-width: 2;
 }
 .pl-dot-done {
-  fill: #12324f;
-  stroke: #fff;
+  fill: var(--deep-sky);
+  stroke: var(--now-keyline);
   stroke-width: 2;
-}
-.pl-dot-done.is-now {
-  fill: var(--accent);
 }
 
 /* ---------- the key under the chart ---------- */
@@ -238,12 +259,12 @@
   margin-top: 6px;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ph-key {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-2);
   white-space: nowrap;
 }
 .ph-key::before {
@@ -253,20 +274,24 @@
 .ph-key.is-actual::before {
   width: 16px;
   height: 3px;
-  border-radius: 2px;
-  background: #12324f;
+  border-radius: var(--r-pill);
+  background: var(--deep-sky);
 }
 .ph-key.is-plan::before {
   width: 16px;
-  height: 0;
-  border-top: 2px dashed rgba(15, 42, 68, 0.4);
+  height: 1.5px;
+  background: repeating-linear-gradient(90deg, var(--ink-2) 0 4px, transparent 4px 8px);
 }
+/* the now dot's swatch: Sunrise with its keyline (a stamp-priority mark, so badges yield on Progress) */
 .ph-key.is-now::before {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.16);
+  background: var(--now);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
+.ph-key.is-now[data-now='ink']::before {
+  background: var(--ink);
 }
 
 /* ---------- strength: the workouts, a card each ---------- */
@@ -282,7 +307,10 @@
   padding: 0;
   list-style: none;
 }
+/* a workout: a row of the card, not a card in it (no card holds cards, guide 5.3): no surface, a hairline between rows in
+   the gap above it (inset past the day tile), the same 60 px row and 8 px rhythm */
 .ll-card {
+  position: relative;
   display: grid;
   grid-template-columns: 3rem minmax(0, 1fr);
   align-items: center;
@@ -292,14 +320,26 @@
   padding: 8px 12px 8px 8px;
   container: llcard / inline-size;
   border: 0;
-  border-radius: 16px;
-  background: var(--pearl);
-  box-shadow: var(--bevel-hi), 0 0 0 1px rgba(15, 42, 68, 0.06), 0 4px 12px -8px rgba(15, 42, 68, 0.22);
+  border-radius: var(--r-control);
+  background: transparent;
   font: inherit;
   text-align: left;
   color: var(--ink);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
-/* the day: a small tile pressed into the card */
+.ll-card[data-pressed] {
+  background: var(--cloud);
+}
+.ll-list > li + li > .ll-card::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: calc(3rem + 20px);
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+/* the day: a Cloud tile, the weekday a caption over the numeral */
 .ll-day {
   display: grid;
   place-content: center;
@@ -307,31 +347,31 @@
   /* sized in rem: the weekday and the date grow with the text and stay inside the tile */
   width: 3rem;
   min-height: 2.75rem;
-  border-radius: 12px;
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  border-radius: var(--r-icon);
+  background: var(--cloud);
 }
 .ll-dow {
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.04em;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ll-dn {
-  font: 800 var(--fs-row) / 1.25rem var(--stamp);
-  letter-spacing: -0.02em;
+  font: 650 var(--fs-row) / 1.25rem var(--sans);
+  letter-spacing: 0;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
+/* today: the Today tag's look, Ember on Paper with the Ember keyline (Ember on Haze or Cloud tints is not used) */
 .ll-card.is-today .ll-day {
-  background: #fff1e7;
-  box-shadow: inset 0 0 0 1px rgba(242, 101, 34, 0.3);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px rgba(180, 67, 12, 0.4);
 }
 .ll-card.is-today .ll-dow {
-  font-size: var(--fs-orb);
+  font: 600 var(--fs-tag) / var(--lh-foot) var(--sans);
   letter-spacing: 0;
   text-transform: none;
-  color: var(--accent-text);
+  color: var(--now-text);
 }
 .ll-main {
   display: grid;
@@ -349,42 +389,43 @@
   min-width: 0;
   max-width: 100%;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the status: a small pill after the name; navy when done, orange when missed, quiet otherwise */
+/* the status: a small tag after the name (guide 6.3): planned Dusk on Cloud, done Deep Sky on Cloud with its check,
+   missed transparent with an edge and its cross (words and glyph carry it, never the color alone; never orange) */
 .ll-status {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   flex: none;
   min-height: 1.25rem;
-  padding: 0 7px 0 6px;
-  border-radius: 999px;
-  background: rgba(15, 42, 68, 0.06);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--cloud);
   font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ll-card.is-done .ll-status {
-  background: var(--columbia-wash);
-  color: #1f5f8b;
+  background: var(--cloud);
+  color: var(--deep-sky);
 }
 .ll-card.is-missed .ll-status {
-  background: var(--accent-soft);
-  /* 5.0:1 on the soft accent */
-  color: #b23a09;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink-2);
 }
 .ll-sum {
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ll-card.is-planned .ll-title,
+/* names in Night Ink whatever their state (plan 6.5); a skipped one steps back to Dusk */
 .ll-card.is-skipped .ll-title {
   color: var(--ink-2);
 }
@@ -394,8 +435,8 @@
     font-size: var(--fs-sub);
   }
   .ll-sum {
-    font-size: 0.8125rem;
-    line-height: 1.125rem;
+    font-size: var(--fs-foot);
+    line-height: var(--lh-foot);
   }
 }
 .ll-none {
@@ -403,7 +444,7 @@
   padding: 12px 4px;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* a label over each stretch of rows: "This week", "Last week", then the month */
 .ll-sec {
@@ -417,7 +458,7 @@
   margin: 0;
   padding: 0 4px;
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ll-acts {
   display: flex;
@@ -431,11 +472,12 @@
   border: 0;
   background: none;
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 .ll-more:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  border-radius: 10px;
+  outline: 1.5px solid var(--focus-edge);
+  box-shadow: var(--focus-ring);
+  border-radius: var(--r-icon);
 }
 
 /* ---------- empty: the switch stays, a ghost of the bars, one sentence, one verb ---------- */
@@ -443,47 +485,69 @@
   margin-top: 16px;
   padding-bottom: 4px;
 }
-.ph-empty .empty-line {
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
 
-/* ---------- the first week: its bar in place of a one-point chart, and the line that says the chart is coming ---------- */
+/* ---------- the first week: its bar in place of a one-point chart, and the line that says the chart is coming. The bar is
+   the guide's ruler (6.8): a 6 px Haze track, Deep Sky to this week's miles, the Sunrise NOW tick at that point ---------- */
 .ph-first {
   display: grid;
   gap: 6px;
   margin-top: 18px;
   padding-bottom: 4px;
 }
+/* the 10 px row the bar had stays (the 6 px track sits in its middle), so nothing under it moves */
 .ph-first-bar {
   position: relative;
   display: block;
   height: 10px;
-  overflow: hidden;
+}
+.ph-first-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 6px;
   border-radius: var(--r-pill);
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  background: var(--haze);
 }
 .ph-first-bar i {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--accent);
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--deep-sky);
   transform-origin: 0 50%;
+}
+/* NOW: a 2 x 14 Sunrise tick with a Paper keyline at this week's miles, centered on the 10 px row */
+.ph-first-now {
+  position: absolute;
+  top: -2px;
+  left: calc(var(--at) * (100% - 2px));
+  width: 2px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  background: var(--now);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
+.ph-first-now[data-now='ink'] {
+  background: var(--ink);
 }
 .ph-first-ends {
   display: flex;
   justify-content: space-between;
-  font: 500 var(--fs-orb) / var(--lh-orb) var(--sans);
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 .ph-first-line {
   margin: 6px 0 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* the empty card's ghost: two curves, the plan dashed and what was run solid */
 .ph-ghost {
@@ -491,17 +555,18 @@
 }
 .ph-ghost-plan {
   fill: none;
-  stroke: var(--ink-4);
-  stroke-width: 2;
-  stroke-dasharray: 2 6;
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
   stroke-linecap: round;
 }
 .ph-ghost-done {
   fill: none;
-  stroke: var(--ink-2);
-  stroke-width: 3;
+  stroke: var(--deep-sky);
+  stroke-width: 2.5;
   stroke-linecap: round;
 }
+/* the ghost's dot is decoration (a shape of the chart to come), so it is Sky, never a now-mark */
 .ph-ghost-dot {
   fill: var(--accent);
 }

@@ -108,7 +108,7 @@ const Trends = ({ log, onConnect }: { log: Log; onConnect: (() => void) | null }
         <div className="card pg-first">
           <p className="pg-first-t">Your first week shows here after your first run.</p>
           <div className="pg-first-acts">
-            <Button variant="primary" size="sm" onClick={() => nav.go('/plan')}>
+            <Button size="sm" onClick={() => nav.go('/plan')}>
               Open this week’s plan
             </Button>
             {STRAVA_BUILT && onConnect ? (

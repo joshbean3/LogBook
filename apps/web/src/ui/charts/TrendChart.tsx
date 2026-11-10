@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { chartDomain } from './niceDomain';
 import { areaPath, labelIndices, niceTicks, scaleLinear, segments, smoothPath, type Series } from './scale';
+import { useNowMark } from '../nowBudget';
 import { useChartWidth } from './useWidth';
 import './charts.css';
 
@@ -131,6 +132,8 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
   };
   const activeVal = active != null ? (line[active] ?? dots?.[active] ?? null) : null;
 
+  // the newest point is a Sunrise mark (guide 3.5 job 6) while it is drawn; the kit lives on pushed pages and sheets
+  const nowPaint = useNowMark('pointer', !!newest && active == null);
   return (
     <div className={`ck-chart ${className}`}>
       {readout ? (
@@ -154,20 +157,16 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
       >
         <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
           <defs>
-            <radialGradient id={`glow${id}`}>
-              <stop offset="0" stopColor="var(--accent)" stopOpacity="0.55" />
-              <stop offset="0.45" stopColor="var(--accent)" stopOpacity="0.18" />
-              <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
-            </radialGradient>
+            {/* the area under the actual line: Sky at 16 percent, fading out (guide 6.8) */}
             <linearGradient id={`fill${id}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor={tone === 'accent' ? 'var(--accent)' : 'var(--columbia)'} stopOpacity={tone === 'accent' ? 0.18 : 0.6} />
-              <stop offset="1" stopColor={tone === 'accent' ? 'var(--accent)' : 'var(--columbia)'} stopOpacity="0" />
+              <stop offset="0" className="ck-fill-top" />
+              <stop offset="1" className="ck-fill-end" />
             </linearGradient>
-            {/* the personal normal: a soft band, strongest in its middle, fading to its edges */}
+            {/* the personal normal: a soft Haze band, strongest in its middle, fading to its edges */}
             <linearGradient id={`band${id}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="var(--columbia)" stopOpacity="0.18" />
-              <stop offset="0.5" stopColor="var(--columbia)" stopOpacity="0.5" />
-              <stop offset="1" stopColor="var(--columbia)" stopOpacity="0.18" />
+              <stop offset="0" className="ck-band-edge" />
+              <stop offset="0.5" className="ck-band-mid" />
+              <stop offset="1" className="ck-band-edge" />
             </linearGradient>
           </defs>
           {/* zones: shaded bands, deeper as they climb */}
@@ -228,12 +227,11 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
           ) : null}
           {active != null ? <line x1={x(active)} x2={x(active)} y1={TOP - 4} y2={y0} className="ck-cursor" /> : null}
           {active != null && activeVal != null ? <circle cx={x(active)} cy={y(activeVal)} r={4.5} className="ck-active" /> : null}
-          {/* the newest point, lit: a soft glow, a white-ringed orange dot, a faint line down to its day */}
+          {/* the newest point is now: the 8 px Sunrise dot with its Paper keyline, a faint Dusk line down to its day */}
           {newest && active == null ? (
             <g>
               <line x1={x(newest.i)} x2={x(newest.i)} y1={y(newest.v) + 6} y2={y0} className="ck-drop" />
-              <circle cx={x(newest.i)} cy={y(newest.v)} r={16} fill={`url(#glow${id})`} />
-              <circle cx={x(newest.i)} cy={y(newest.v)} r={5} className="ck-newest" />
+              <circle cx={x(newest.i)} cy={y(newest.v)} r={4} className="ck-newest" data-now={nowPaint === 'ink' ? 'ink' : undefined} />
             </g>
           ) : null}
           <line x1={LEFT} x2={LEFT + plotW} y1={y0} y2={y0} className="ck-base" />

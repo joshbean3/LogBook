@@ -21,7 +21,7 @@ const md = (d: string) => fmtDate('md', d);
 export const Stamp = ({ label: l, value, unit, note }: { label: string; value: ReactNode; unit?: string; note?: ReactNode }) => (
   <div className="pg-stamp">
     <span className="caps">{l}</span>
-    <span className="stamp pg-stamp-num">
+    <span className="pg-stamp-num">
       {value}
       {unit ? <small>{unit}</small> : null}
     </span>
@@ -243,7 +243,7 @@ const EasyPaceBody = ({ ep, log, range }: { ep: EasyPace; log: Log; range: Range
               title={fmtDate('short', r.a.date)}
               sub={`${mi(r.a.miles)} mi${r.hr != null ? ` · ${r.hr} bpm` : ''}`}
               right={
-                <span className="stamp pg-row-num">
+                <span className="pg-row-num">
                   {paceText(r.pace)}
                   <small>/mi</small>
                 </span>
@@ -311,12 +311,12 @@ export const LiftSheet = ({ g }: { g: LiftGroup }) => {
             sub={g.reps ? 'Bodyweight' : `e1RM ${Math.round(d.e1rm)}`}
             right={
               g.reps ? (
-                <span className="stamp pg-row-num">
+                <span className="pg-row-num">
                   {d.reps}
                   <small>{plural(d.reps, 'rep')}</small>
                 </span>
               ) : (
-                <span className="stamp pg-row-num">{setWords(d)}</span>
+                <span className="pg-row-num">{setWords(d)}</span>
               )
             }
           />
@@ -380,7 +380,7 @@ export const LiftsSheet = ({ from, today, range }: { from: string; today: string
                 <>
                   <Spark values={g.days.map((d) => liftValue(g, d))} />
                   <span className="pg-num-col">
-                    <span className="stamp pg-row-num">{value}</span>
+                    <span className="pg-row-num">{value}</span>
                     <span className="caps">{g.change == null ? unit : signedPct(g.change)}</span>
                   </span>
                 </>

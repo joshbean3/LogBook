@@ -48,7 +48,7 @@
   min-width: 0;
 }
 .pg-vital-none {
-  color: var(--ink-4);
+  color: var(--ink-2);
   white-space: normal;
 }
 /* an "add here" slot: where the vitals will come from */
@@ -64,19 +64,19 @@
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--r-tile);
   background: transparent;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font: inherit;
   text-align: center;
 }
+/* the slot's icon disc: Haze with a Deep Sky glyph (guide 6.3, 6.4) */
 .pg-slot-ic {
   display: grid;
   place-items: center;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
   margin-bottom: 4px;
 }
 .pg-slot-title {
@@ -88,14 +88,23 @@
   line-height: var(--lh-foot);
 }
 
-/* ---------- stamped numbers ---------- */
+/* ---------- the numbers: Inter 650, even figures (they change; guide 4.4), their units Inter 500 Dusk ---------- */
+.pg-row-num,
+.pg-stamp-num {
+  font-family: var(--sans);
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
 .pg-row-num small,
 .pg-stamp-num small {
-  font: 500 0.8125rem / 1 var(--sans);
+  font: 500 var(--fs-foot) / 1 var(--sans);
   letter-spacing: 0;
   text-transform: none;
   margin-left: 3px;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 /* ---------- the drill-downs: one inset group on a metric page ---------- */
@@ -127,8 +136,9 @@
   }
 }
 .pg-drill:focus-visible {
-  outline: 2px solid var(--ink-2);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: -2px;
+  box-shadow: var(--focus-ring);
 }
 .pg-drill-main {
   flex: 1;
@@ -138,7 +148,7 @@
 }
 .pg-drill-title {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -146,33 +156,34 @@
 .pg-drill-sub {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
 .pg-chev {
-  color: var(--ink-4);
+  color: var(--ink-2);
   flex: none;
   margin-right: -4px;
 }
 /* at 320 the title and its number win; the sparkline lives in the sheet */
 
-/* the drill-downs' small sparkline (charts.tsx Spark): the kit's navy line, its newest point orange */
+/* the drill-downs' small sparkline (charts.tsx Spark): a Deep Sky line, its newest point a Deep Sky dot (sparks repeat per
+   row: Sunrise would blow the budget of 3) */
 .pg-spark {
   flex: none;
   overflow: visible;
 }
 .pg-spark-line {
   fill: none;
-  stroke: var(--ink-2);
+  stroke: var(--deep-sky);
   stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .pg-spark-dot {
-  fill: var(--accent);
+  fill: var(--deep-sky);
 }
 .pg-spark-none {
   display: inline-block;
@@ -192,25 +203,26 @@
   overflow: visible;
   font-family: var(--sans);
 }
+/* axes in caption style, Dusk, even figures; gridlines 1 px --grid; NOW in Ember (guide 6.8) */
 .pg-grid {
-  stroke: var(--line-strong);
+  stroke: var(--grid);
   stroke-width: 1;
   stroke-dasharray: 2 4;
-  opacity: 0.7;
 }
 .pg-ax {
-  font: 500 clamp(12px, 0.75rem, 16px) / 1 var(--sans);
-  fill: var(--ink-3);
+  font: 600 var(--fs-caps) / 1 var(--stamp);
+  letter-spacing: var(--tr-caps);
+  text-transform: uppercase;
+  fill: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 .pg-ax.now {
-  fill: var(--accent-text);
-  font-weight: 600;
+  fill: var(--now-text);
 }
 
 /* ---------- sheets ---------- */
 .pg-sheet {
-  --page-pad: 16px;
+  --page-pad: var(--gutter);
   display: grid;
   gap: 16px;
   min-width: 0;
@@ -237,33 +249,33 @@
   align-content: start;
 }
 .pg-stamp .caps {
-  font-size: 0.6875rem;
-  color: var(--ink-3);
+  font-size: var(--fs-caps);
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* a stat in a sheet: the tile number's step (Inter 650 26/32, as .tile-value); three across take the row headline's */
 .pg-stamp-num {
-  font-size: 1.75rem;
-  line-height: 2rem;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 .pg-stamps.three .pg-stamp-num {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
 }
 .pg-stamp-note {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .pg-note {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
   text-wrap: pretty;
 }
 .pg-list {
@@ -302,10 +314,10 @@ button.pg-srow[data-pressed] {
   gap: 1px;
 }
 .pg-srow-title {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -314,9 +326,9 @@ button.pg-srow[data-pressed] {
   font-weight: 500;
 }
 .pg-srow-sub {
-  font-size: 0.875rem;
-  line-height: 1.125rem;
-  color: var(--ink-3);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -328,7 +340,7 @@ button.pg-srow[data-pressed] {
   flex: none;
 }
 .ink3 {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .pg-num-col {
   display: grid;
@@ -336,8 +348,8 @@ button.pg-srow[data-pressed] {
   gap: 1px;
 }
 .pg-num-col .caps {
-  font-size: 0.6875rem;
-  color: var(--ink-3);
+  font-size: var(--fs-caps);
+  color: var(--ink-2);
 }
 .pg-week-top {
   display: flex;
@@ -351,8 +363,8 @@ button.pg-srow[data-pressed] {
   gap: 8px;
 }
 .pg-week-line {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 600;
 }
 /* the streak in weeks, in the brand's serif voice: "7 of the last 8 weeks." */
@@ -363,8 +375,8 @@ button.pg-srow[data-pressed] {
   color: var(--ink-2);
 }
 .pg-week-words .pg-stamp-num {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
 }
 
 /* the sheets' line chart */
@@ -381,23 +393,26 @@ button.pg-srow[data-pressed] {
   border-radius: var(--r-md);
 }
 .pg-line-plot:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent-bright);
+  box-shadow: 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
 }
+/* the actual line (guide 6.8): Deep Sky, round at its joins */
 .pg-line-path {
   fill: none;
-  stroke: rgba(15, 42, 68, 0.82);
-  stroke-width: 1.75;
+  stroke: var(--deep-sky);
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .pg-line-dot {
-  fill: var(--ink);
-  stroke: var(--bg);
+  fill: var(--deep-sky);
+  stroke: var(--surface);
   stroke-width: 1.5;
   transition: opacity var(--dur-out);
 }
+/* a selected point: Deep Sky with a 2 px Paper ring (a selection, not now) */
 .pg-line-dot.on {
-  fill: var(--accent-bright);
+  fill: var(--deep-sky);
+  stroke-width: 2;
 }
 .pg-line-dot.dim {
   opacity: 0.45;
@@ -410,7 +425,7 @@ button.pg-srow[data-pressed] {
 /* the week sheet's one way into Plan: the day list lives there */
 .pg-srow-icon {
   flex: none;
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 /* ---------- the drill-down sheets, in cards (docs/shape-system.md §5, sheets): stamps in a card, rows in an inset group ---------- */
 .pg-sheet > .pg-stamps,
@@ -461,7 +476,7 @@ button.pg-srow[data-pressed] {
 }
 /* the Health slot as the way in: Connect Apple Health reads as a button */
 .pg-slot.is-connect .pg-slot-title {
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 
 /* a line chart with no values: one quiet line where the plot would be */
@@ -470,8 +485,8 @@ button.pg-srow[data-pressed] {
   padding: 28px 12px;
   border-radius: var(--r-md);
   background: var(--surface-2);
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
   text-align: center;
 }
 
@@ -484,15 +499,15 @@ button.pg-srow[data-pressed] {
   margin-top: calc(var(--section) - var(--gap));
 }
 
-/* ---------- a new account: one card that says what will show here and where to start ---------- */
+/* ---------- a new account: an empty state (guide 6.11): the Fraunces italic sentence, one secondary button ---------- */
 .pg-first.card {
   display: grid;
   gap: 12px;
 }
 .pg-first-t {
   margin: 0;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--display);
+  letter-spacing: 0;
   color: var(--ink);
   text-wrap: balance;
 }
@@ -521,7 +536,7 @@ button.pg-srow[data-pressed] {
 .pg-go {
   flex: none;
   margin-left: auto;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .pg-vital .tile-label {
   width: 100%;
@@ -580,11 +595,10 @@ button.pg-srow[data-pressed] {
   min-width: 0;
 }
 
-/* ---------- the chart kit on these pages (ui/charts is not edited: the overrides live here) ---------- */
-/* axis words at 12 px in the grey that reads (5.1:1), not 11 px at 3.3:1 */
+/* ---------- the chart kit on these pages ---------- */
+/* axis words: the kit's caption style, Dusk (7.10 on Paper) */
 .pg-page .ck-ax {
-  font-size: clamp(12px, 0.75rem, 16px);
-  fill: var(--ink-3);
+  fill: var(--ink-2);
 }
 /* each span key at least 44 wide */
 .mp-card .ck-range-key {
@@ -592,5 +606,5 @@ button.pg-srow[data-pressed] {
 }
 /* the average pill's words at 11 px, never under (the kit draws them at 10.5) */
 .pg-page .ck-avg-word {
-  font-size: 0.6875rem;
+  font-size: var(--fs-caps);
 }

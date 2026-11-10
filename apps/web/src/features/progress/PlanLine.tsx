@@ -2,11 +2,14 @@ import { fmtDate } from '@logbook/shared';
 import { motion } from 'motion/react';
 import { useCallback, useId } from 'react';
 import { useReduced } from '@/lib/motion';
+import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import { niceTop, useWidth } from './charts';
 import { monotonePath } from './curve';
 import type { BarWeek } from './hero';
 import { useScrub } from './useScrub';
 
+/** A mask's opaque stroke: luminance for the mask, never a color on screen. */
+const MASK = '#fff'; // brand-ok: mask luminance, not a painted color
 const H = 176;
 const PAD_TOP = 16;
 const Y0 = H - 24;
@@ -31,8 +34,8 @@ const runsOf = (weeks: BarWeek[], from: number) => {
 };
 
 /**
- * Weekly miles as two curves: the plan a soft dashed line, what was run a solid navy line over a gentle fill, this week a
- * bright orange dot. Both lines draw in once (and again on a new mode); reduced motion draws them in place. Press and slide
+ * Weekly miles as two curves (guide 6.8): the plan a 1.5 px Dusk line dashed 4 / 4, what was run a 2.5 px Deep Sky line
+ * over Sky at 16 percent, this week the 8 px Sunrise now dot with its Paper keyline. Both lines draw in once (and again on a new mode); reduced motion draws them in place. Press and slide
  * to read a week: a rule and a dot on each line follow the finger, the headline rewrites (`onScrub`), a `select` tick per
  * week. A quick tap opens the week. Arrow keys and Enter on the focused chart; a hidden list of weeks for VoiceOver.
  */
@@ -110,6 +113,10 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
   const draw = reduce ? { initial: false as const } : { initial: { pathLength: 0 }, animate: { pathLength: 1 }, transition: { duration: 0.9, ease: [0.33, 1, 0.68, 1] as const } };
   const fade = (delay: number) => (reduce ? { initial: false as const } : { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.5, delay } });
   const cur = ci >= 0 ? weeks[ci]! : null;
+  // the now dot is one Sunrise mark (drawn as .pl-now at rest, as the read dot while the finger is on this week)
+  const shown = usePageShown();
+  const nowPaint = useNowMark('pointer', shown && !!cur && !cur.missing);
+  const inkNow = nowPaint === 'ink' ? 'ink' : undefined;
 
   return (
     <div className="pl-chart">
@@ -134,16 +141,12 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
           <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
             <defs>
               <linearGradient id={`${uid}-fill`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#2a5a86" stopOpacity="0.22" />
-                <stop offset="1" stopColor="#2a5a86" stopOpacity="0" />
-              </linearGradient>
-              <linearGradient id={`${uid}-line`} x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0" stopColor="#3b6d99" />
-                <stop offset="1" stopColor="#12324f" />
+                <stop offset="0" className="pl-fill-top" />
+                <stop offset="1" className="pl-fill-end" />
               </linearGradient>
               {/* the dashed plan draws in through a solid copy of itself */}
               <mask id={`${uid}-plan`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H}>
-                <motion.path d={planD} fill="none" stroke="#fff" strokeWidth={6} strokeLinecap="round" {...draw} />
+                <motion.path d={planD} fill="none" stroke={MASK} strokeWidth={6} strokeLinecap="round" {...draw} />
               </mask>
             </defs>
             {grid.map((v) => (
@@ -162,7 +165,7 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
               .map((r) => (
                 <circle key={`p${r[0]}`} cx={x(r[0]!)} cy={y(weeks[r[0]!]!.planned)} r={3.5} className="pl-dot-plan" />
               ))}
-            <motion.path d={doneD} className="pl-done" stroke={`url(#${uid}-line)`} {...draw} />
+            <motion.path d={doneD} className="pl-done" {...draw} />
             {reachD ? <motion.path d={reachD} className="pl-reach" {...fade(0.75)} /> : null}
             {/* single weeks between gaps have no line to draw: a dot holds their place */}
             {doneSegs
@@ -175,13 +178,12 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
               <g className="pl-read">
                 <line x1={x(a)} x2={x(a)} y1={PAD_TOP - 8} y2={Y0} className="pl-rule" />
                 {weeks[a]!.planned > 0 ? <circle cx={x(a)} cy={y(weeks[a]!.planned)} r={4} className="pl-dot-plan" /> : null}
-                <circle cx={x(a)} cy={y(weeks[a]!.done)} r={5} className={`pl-dot-done ${weeks[a]!.current ? 'is-now' : ''}`} />
+                {weeks[a]!.current ? <circle cx={x(a)} cy={y(weeks[a]!.done)} r={4} className="pl-dot-done is-now" data-now={inkNow} /> : <circle cx={x(a)} cy={y(weeks[a]!.done)} r={5} className="pl-dot-done" />}
               </g>
             ) : null}
             {cur && !cur.missing && a !== ci ? (
               <motion.g {...fade(0.8)}>
-                <circle cx={x(ci)} cy={y(cur.done)} r={9} className="pl-now-halo" />
-                <circle cx={x(ci)} cy={y(cur.done)} r={5} className="pl-now" />
+                <circle cx={x(ci)} cy={y(cur.done)} r={4} className="pl-now" data-now={inkNow} />
               </motion.g>
             ) : null}
             {xLabels.map((l) => (
