@@ -1,5 +1,5 @@
-/* "Remember when": the reminder at the top of the Journal tab, as an insight card. A soft Columbia header with the date
-   and Share, the reminder in the serif, three quiet verbs under it. */
+/* "Remember when": the reminder at the top of the Journal tab, as an insight card. A Haze wash header with the date and
+   Share (guide 5.3: Haze washes, no glow), the reminder as a Fraunces italic sentence, three quiet verbs under it. */
 
 .recall-wrap {
   margin-bottom: 20px;
@@ -11,7 +11,7 @@
   gap: 12px;
   padding: 0 16px 12px;
 }
-/* the insight card's soft header: Columbia, lit from below, holding the date and Share */
+/* the insight card's header: a Haze wash that settles into the card's Paper, holding the date and Share */
 .recall-head {
   position: relative;
   isolation: isolate;
@@ -22,14 +22,11 @@
   min-height: 56px;
   margin: 0 -16px;
   padding: 10px 8px 10px 16px;
-  background: linear-gradient(180deg, var(--columbia) 0%, var(--columbia-wash) 100%);
+  background: linear-gradient(180deg, var(--haze) 0%, var(--surface) 100%);
 }
+/* the old white light under the header is gone: the wash alone carries it */
 .recall-head-light {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(70% 120% at 50% 130%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%);
-  pointer-events: none;
+  display: none;
 }
 .recall-head .recall-eyebrow {
   color: var(--ink-2);
@@ -43,7 +40,7 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--surface);
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
 }
@@ -59,7 +56,7 @@
   justify-self: center;
   height: min(44vh, 380px);
   aspect-ratio: 4 / 5;
-  border-radius: 14px;
+  border-radius: var(--r-control);
   overflow: hidden;
   background: var(--surface-2);
 }
@@ -72,7 +69,7 @@
 .recall-share-wait {
   padding: 16px;
   font-size: var(--fs-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
   text-align: center;
 }
 .recall-share-actions {
@@ -119,7 +116,7 @@
   transition: opacity var(--dur-in) var(--ease-out);
 }
 
-/* Claude's line says so, with the entry itself one tap away (44 px tall, under the words) */
+/* the assistant's line says so, with the entry itself one tap away (44 px tall, under the words) */
 .recall-ai {
   display: flex;
   align-items: center;
@@ -127,7 +124,7 @@
   flex-wrap: wrap;
   gap: 0 12px;
   margin: -4px 0 -6px;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
 }
 .recall-ai-open {
@@ -139,7 +136,7 @@
   padding: 0 4px;
   border: 0;
   background: none;
-  color: var(--accent-text);
+  color: var(--deep-sky);
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   -webkit-tap-highlight-color: transparent;
 }
@@ -166,8 +163,7 @@
   -webkit-tap-highlight-color: transparent;
   transition:
     background-color var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out),
-    border-color var(--dur-color) var(--ease-out);
+    color var(--dur-color) var(--ease-out);
 }
 /* the hit area reaches 44 px without making the pill bigger */
 .recall-tool {
@@ -180,15 +176,15 @@
 }
 .recall-tool svg {
   flex: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
+/* Remind me more, on: a Sky tint with Night Ink words and a Deep Sky bell (Deep Sky words on the tint fail body, 1.6 B) */
 .recall-tool.is-on {
   background: var(--accent-tint);
-  border-color: rgba(47, 93, 133, 0.28);
-  color: var(--accent-text);
+  color: var(--ink);
 }
 .recall-tool.is-on svg {
-  color: var(--accent-text);
+  color: var(--deep-sky);
 }
 .recall-tool:disabled {
   opacity: 0.5;
@@ -293,7 +289,6 @@
   box-shadow: inset 1px 0 0 var(--line);
 }
 .recall-tool.is-on {
-  background: var(--accent-tint);
   border-color: transparent;
 }
 @media (max-width: 359px) {

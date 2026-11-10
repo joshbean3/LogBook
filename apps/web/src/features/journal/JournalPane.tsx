@@ -1,13 +1,14 @@
 import { fmtDate, monthOf, shiftDays, type JournalEntry } from '@logbook/shared';
-import { ChevronRight, Plus, Star, X } from 'lucide-react';
+import { ChevronRight, Plus, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
-import { fadeIn, useReduced } from '@/lib/motion';
+import { fadeIn, springs, useReduced } from '@/lib/motion';
 import { IconButton } from '@/ui';
 import { useToast } from '@/ui/Toast';
-import { Calendar, DayOrb } from './Calendar';
+import { FavoriteIcon } from '@/ui/icons';
+import { Calendar, DayDisc } from './Calendar';
 import { keepAboveKeyboard, revealBox } from '../day/reveal';
 import { watchJournalAdd } from '../day/journalGuard';
 import { anchorFor, dayTitle, dayTitleShort, monthGrid, orbVariant, pageHolds, readView, saveView, switchAnchor, weekDays, type CalView } from './calDays';
@@ -266,8 +267,8 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
       }}
     >
       <div className="jday-head">
-        <motion.span key={variant ?? 'none'} className="jday-orb" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', duration: 0.5, bounce: 0.4 }}>
-          {variant ? <DayOrb variant={variant} size={34} /> : <span className="jday-ring" aria-hidden="true" />}
+        <motion.span key={variant ?? 'none'} className="jday-orb" initial={reduce ? false : { scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={springs.complete}>
+          {variant ? <DayDisc variant={variant} size={34} n={entries.length} /> : <span className="jday-ring" aria-hidden="true" />}
         </motion.span>
         <div className="jday-titles">
           <h2 className="jday-title">
@@ -292,7 +293,7 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
                   {e.fav ? (
                     <>
                       <span aria-hidden="true">·</span>
-                      <Star size={12} fill="currentColor" strokeWidth={0} className="jday-fav" aria-hidden="true" />
+                      <FavoriteIcon size={13} fill="currentColor" strokeWidth={0} className="jday-fav" />
                       Favorite
                     </>
                   ) : null}

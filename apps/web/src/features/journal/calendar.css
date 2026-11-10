@@ -1,5 +1,6 @@
-/* The Journal's calendar and the day card under it (Calendar.tsx, JournalPane.tsx): white cards on --shadow-1, serif
-   titles, the brand orb as the mark of a written day, orange kept for today's ring and nothing else. */
+/* The Journal's calendar and the day card under it (Calendar.tsx, JournalPane.tsx): Paper cards on --shadow-1, Fraunces
+   titles, a flat disc carrying its count as the mark of a written day (guide 12.1). Today is a Night Ink ring, the open day
+   a Sky ring with Deep Sky words (plan D14); no orange here at all. */
 
 .jpane {
   display: grid;
@@ -19,7 +20,7 @@
   min-width: 0;
   container: jcal / inline-size;
   padding: 16px 12px 14px;
-  border-radius: 20px;
+  border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
@@ -82,7 +83,7 @@
   min-height: 36px;
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--r-icon);
   background: none;
   color: var(--ink-2);
   -webkit-tap-highlight-color: transparent;
@@ -109,8 +110,9 @@
   min-width: 44px;
   margin-right: 4px;
   padding: 4px 12px;
-  background: var(--well);
-  font: 600 0.8125rem / 1rem var(--sans);
+  border-radius: var(--r-pill);
+  background: var(--cloud);
+  font: 600 var(--fs-tag) / 1rem var(--sans);
   color: var(--ink);
 }
 @media (max-width: 359px) {
@@ -138,9 +140,9 @@
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   margin-bottom: -6px;
-  font: 600 0.6875rem / 1rem var(--sans);
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / 1rem var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
   text-align: center;
 }
 .jcal-grid {
@@ -161,7 +163,7 @@
   color: var(--ink);
   font-family: var(--sans);
   -webkit-tap-highlight-color: transparent;
-  transition: background-color 160ms;
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .jcal-cell.is-blank {
   pointer-events: none;
@@ -178,13 +180,14 @@
   min-height: 88px;
   padding-block: 4px;
   gap: 4px;
-  border-radius: 16px;
+  border-radius: var(--r-tile);
 }
+/* the weekday in caption style (guide 4.3) */
 .jcal-wd {
-  font: 600 0.6875rem / 1rem var(--sans);
-  letter-spacing: 0.04em;
+  font: 600 var(--fs-caps) / 1rem var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .jcal-num {
   font: 500 0.9375rem / 1.25rem var(--sans);
@@ -197,80 +200,75 @@
   position: relative;
   display: grid;
   place-items: center;
-  min-width: 16px;
-  height: 16px;
+  min-width: 18px;
+  height: 18px;
 }
 .jcal-grid.is-week .jcal-mark {
   min-width: 22px;
   height: 24px;
 }
-/* the count beside the orb and a star before it on a day with a favorite: the orb's color is never the only signal */
-.jcal-n {
-  position: absolute;
-  left: calc(100% + 1px);
-  top: 50%;
-  transform: translateY(-50%);
-  font: 600 var(--fs-caps) / 1 var(--sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-3);
+/* the count inside the disc, a heart on a Favorite's: the disc's tone is never the only signal (guide 3.3) */
+.jcal-disc .lb-disc-n {
+  font-size: var(--fs-caps);
 }
-.jcal-fav {
-  position: absolute;
-  right: calc(100% + 1px);
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--star);
+.jcal-disc.is-fav {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
 }
-/* today, until it has an entry: a plus in a ring, not an orb (an orb means written) */
+.jcal-disc.is-fav > * {
+  grid-area: 1 / 1;
+}
+.jcal-disc-heart {
+  position: relative; /* above the disc, which is positioned too */
+  color: var(--white);
+}
+/* today, until it has an entry: a plus in a ring, not a disc (a disc means written) */
 .jcal-plus {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
+  color: var(--deep-sky);
 }
 .jcal-cell.has .jcal-num {
   font-weight: 600;
 }
 .jcal-cell.is-future {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .jcal-cell.is-future .jcal-wd {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .jcal-cell:not(:disabled):active {
   background: var(--well);
 }
-/* the open day: pressed into the card */
-.jcal-cell.is-open {
-  background: var(--well);
-  box-shadow: var(--well-shadow);
-}
-/* today: the one orange ring */
-.jcal-cell.is-today::before {
+/* today: a 1.5 px Night Ink ring, as today is in every calendar (guide 6.13, plan D14) */
+.jcal-cell.is-today::before,
+.jcal-cell.is-open::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
   pointer-events: none;
 }
 .jcal-cell.is-today .jcal-num,
 .jcal-cell.is-today .jcal-wd {
-  color: var(--accent-text);
+  color: var(--ink);
 }
 .jcal-cell.is-today .jcal-num {
   font-weight: 700;
 }
-
-/* today's mark, until today has a memory */
-.jcal-pulse {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
+/* the open day (the one in the day card): a 2 px Sky ring and Deep Sky words; on today it wins over today's ring */
+.jcal-cell.is-open::before {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
-/* the endless orange pulse around today's mark is gone (plan 1.4, 4.3): it ran on every screen while Journal stayed mounted
-   in its hidden tab, so no screen was ever idle. The wrapper stays a plain box until stream 4 drops it from Calendar.tsx. */
+.jcal-cell.is-open .jcal-num,
+.jcal-cell.is-open .jcal-wd {
+  color: var(--deep-sky);
+}
 
 /* "Write today's": the card's one verb while today is empty */
 .jcal-write {
@@ -280,9 +278,10 @@
   min-height: 56px;
   margin: 2px 0 0;
   padding: 8px 14px 8px 12px;
-  border-radius: 16px;
-  background: var(--pearl);
-  box-shadow: var(--bevel-hi), 0 0 0 1px rgba(15, 42, 68, 0.06), 0 6px 14px -8px rgba(15, 42, 68, 0.2);
+  border-radius: var(--r-tile);
+  /* a row inside the card: an edge, never a second card's shadow (guide 5.3) */
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--ink);
   text-align: left;
   cursor: pointer;
@@ -293,18 +292,18 @@
   min-width: 0;
 }
 .jcal-write-t b {
-  font: 600 0.9375rem / 1.25rem var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .jcal-write-t span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: 400 0.8125rem / 1.125rem var(--sans);
-  color: var(--ink-3);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .jcal-write-i {
   flex: none;
-  color: var(--accent);
+  color: var(--deep-sky);
 }
 
 /* the key: what each orb means */
@@ -314,12 +313,12 @@
   flex-wrap: wrap;
   gap: 4px 12px;
   padding: 2px 4px 0;
-  font: 400 0.75rem / 1rem var(--sans);
-  color: var(--ink-3);
+  font: 400 var(--fs-orb) / var(--lh-orb) var(--sans);
+  color: var(--ink-2);
 }
 .jcal-key-k {
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .jcal-key ul {
   display: flex;
@@ -332,7 +331,7 @@
 .jcal-key li {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 /* ---------- the day card ---------- */
@@ -347,8 +346,9 @@
   display: grid;
   gap: 12px;
   min-width: 0;
+  container: jday / inline-size;
   padding: 14px 16px 16px;
-  border-radius: 20px;
+  border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
@@ -381,11 +381,12 @@
   letter-spacing: 0;
   color: var(--ink);
 }
-/* the short name ("Thu, Nov 5") on a narrow screen, so the day's number is never cut */
+/* the short name ("Thu, Nov 5") when the long one would not fit on one line in Fraunces ("Wednesday, September 30" needs
+   a 25.5rem card), so the day's number is never cut or sent to a line of its own */
 .jday-title-s {
   display: none;
 }
-@media (max-width: 359px) {
+@container jday (max-width: 25.5rem) {
   .jday-title-l {
     display: none;
   }
@@ -394,21 +395,24 @@
   }
 }
 .jday-sub {
-  font: 400 0.8125rem / 1.125rem var(--sans);
-  color: var(--ink-3);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
 }
 .jday-close {
   flex: none;
   width: 44px;
   height: 44px;
 }
-/* a day with nothing written: an outline where the orb would be (an orb means written) */
+/* a day with nothing written: an outline where the disc would be (a disc means written) */
 .jday-ring {
   display: block;
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
+}
+.jday-orb .jcal-disc .lb-disc-n {
+  font-size: var(--fs-sub);
 }
 
 .jday-list {
@@ -434,12 +438,13 @@
 .jday-memory:active {
   opacity: 0.6;
 }
-/* the person's own words, in the serif the Entries list and the entry sheet use */
+/* the person's own words in full: body text in the journal's pen ink, the face they were typed in (plan D16) */
 .jday-memory-t {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: 0;
+  color: var(--j-ink);
 }
 .jday-fav {
   flex: none;
@@ -449,19 +454,19 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font: 500 0.75rem / 1rem var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-orb) / var(--lh-orb) var(--sans);
+  color: var(--ink-2);
 }
 .jday-list > li > .jday-write {
   padding: 10px 0;
 }
 .jday-empty {
   margin: 0;
-  font: 400 0.9375rem / 1.375rem var(--sans);
-  color: var(--ink-3);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }
 
-/* the writer: the field pressed into the card, Save as the navy pill */
+/* the writer: a Paper field with its edge (guide 6.14), Save the sheet's one Sky primary */
 .jday-write {
   display: grid;
   gap: 10px;
@@ -471,25 +476,29 @@
 .jday-field {
   width: 100%;
   min-height: 120px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--r-control);
   outline: none;
   resize: none;
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--field-edge);
   color: var(--j-ink);
-  caret-color: var(--accent);
+  caret-color: var(--deep-sky);
   font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: 0;
 }
 .jday-field:focus-visible {
   box-shadow:
-    var(--well-shadow),
-    0 0 0 2px rgba(47, 93, 133, 0.35);
+    inset 0 0 0 1.5px var(--focus-edge),
+    var(--focus-ring);
+}
+/* focused for the person (the writer opening) rather than by them: the edge steps to Deep Sky, no ring, never no edge */
+.jday-field[data-quiet-focus]:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--focus-edge);
 }
 .jday-field::placeholder {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .jday-write .qline.quote-line {
   margin: 0;
@@ -503,28 +512,44 @@
 /* how much of an entry's 5,000 characters is used, from 4,500 on */
 .jday-count {
   margin-right: auto;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   font-variant-numeric: tabular-nums;
 }
+/* Save: the primary (guide 6.2), Haze with Dusk words until there is something to save; Cancel a quiet word */
 .jday-btn {
   min-width: 84px;
   min-height: 44px;
-  padding: 0 18px;
+  padding: 0 20px;
   border: 0;
-  border-radius: 999px;
-  background: var(--navy-pill);
-  box-shadow: var(--navy-glow);
-  color: #fff;
-  font: 600 0.9375rem / 1 var(--sans);
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  box-shadow: var(--primary-glow);
+  color: var(--primary-ink);
+  font: 650 var(--fs-row) / 1 var(--sans);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-color) var(--ease-out);
+}
+.jday-btn:not(:disabled):active {
+  transform: scale(0.97);
+  background: var(--accent-bright);
 }
 .jday-btn:disabled {
-  opacity: 0.4;
+  background: var(--haze);
+  box-shadow: none;
+  color: var(--ink-2);
 }
 .jday-btn.is-quiet {
+  padding: 0 12px;
   background: none;
   box-shadow: none;
-  color: var(--ink-3);
+  color: var(--deep-sky);
+  font-weight: 600;
+}
+.jday-btn.is-quiet:active {
+  background: none;
+  opacity: 0.6;
 }
 
 .jday-add {
@@ -537,18 +562,21 @@
   padding: 0 8px 0 4px;
   border: 0;
   background: none;
-  color: var(--ink-2);
-  font: 600 0.9375rem / 1 var(--sans);
+  color: var(--deep-sky);
+  font: 600 var(--fs-sub) / 1 var(--sans);
 }
+/* the first entry of the day is the card's one action: the primary */
 .jday-add.is-first {
   justify-self: stretch;
   justify-content: center;
+  min-height: 48px;
   margin: 0;
   padding: 0 16px;
-  border-radius: 999px;
-  background: var(--navy-pill);
-  box-shadow: var(--navy-glow);
-  color: #fff;
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  box-shadow: var(--primary-glow);
+  color: var(--primary-ink);
+  font: 650 var(--fs-row) / 1 var(--sans);
 }
 
 /* a year ago: a row at the card's foot, under a hairline */
@@ -559,7 +587,7 @@
   padding: 12px 16px 14px;
   border: 0;
   border-top: 1px solid var(--line);
-  border-radius: 0 0 20px 20px;
+  border-radius: 0 0 var(--r-card) var(--r-card);
   background: none;
   color: var(--ink);
   text-align: left;
@@ -568,8 +596,8 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font: 600 0.75rem / 1rem var(--sans);
-  color: var(--ink-3);
+  font: 600 var(--fs-orb) / var(--lh-orb) var(--sans);
+  color: var(--ink-2);
 }
 .jday-ago-t {
   overflow: hidden;
@@ -578,6 +606,7 @@
   -webkit-box-orient: vertical;
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
+  color: var(--j-ink);
 }
 
 /* a month that could not be read: the meta line asks again instead of saying nothing was written */
@@ -605,20 +634,4 @@
 .jcal-dow {
   font-size: min(0.6875rem, 5.4cqi);
 }
-.jcal-n {
-  font-size: min(var(--fs-caps), 4.2cqi);
-}
-/* a narrow week (320 wide): a smaller orb, so the count and the star beside it stay inside the day and clear of today's ring */
-@container jcal (max-width: 18.5rem) {
-  .jcal-grid.is-week .jcal-mark {
-    min-width: 14px;
-  }
-  .jcal-grid.is-week .jcal-mark .lb-orb,
-  .jcal-grid.is-week .jcal-mark .lb-disc {
-    --s: 14px !important;
-  }
-  .jcal-grid.is-week .jcal-fav {
-    width: 9px;
-    height: 9px;
-  }
-}
+/* the count sits inside the disc now (no count or star beside it), so a 320 wide week keeps the 22 px disc */
