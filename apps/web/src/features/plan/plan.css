@@ -808,25 +808,12 @@
 .pl-sum-aim .pl-sum-v {
   text-align: left;
 }
-.pl-detail-label {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-}
 .pl-detail-axis {
   display: flex;
   justify-content: space-between;
   margin-top: 6px;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
-}
-.pl-detail-words.card {
-  display: grid;
-  gap: 4px;
-}
-.pl-detail-sum {
-  margin: 0;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
 }
 /* the red trash in a tinted circle at the sheet's top right */
 .icon-btn.pl-del {

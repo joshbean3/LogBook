@@ -1,6 +1,6 @@
 import type { PlanBlock, Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { goalOf, lengthWords, longWords, planFacts, sourceWords } from './planFacts';
+import { goalOf, lengthWords, planFacts, sourceWords } from './planFacts';
 import { planCardWords, type TopBlock } from './topWords';
 
 const block: PlanBlock = { id: 'b1', name: 'Half marathon · 12 weeks', start: '2026-11-10', end: '2027-02-07', source: 'onboarding', summary: null, createdAt: '2026-11-09T18:57:16.193Z' };
@@ -56,7 +56,6 @@ describe('what a plan is and its goals', () => {
     expect(f.peak).toBe(22);
     expect(f.runs).toBe('3 to 4');
     expect(f.long).toEqual({ day: 'Saturday', short: 'Sat', miles: 10 });
-    expect(longWords(f.long!)).toBe('Saturdays, up to 10 mi');
     expect(f.quality).toBe(1);
     expect(f.race).toEqual({ date: '2027-02-07', name: 'Race 13.1', details: 'Goal 1:55' });
     expect(lengthWords(f)).toBe('12 weeks after a warm-up week');
