@@ -932,8 +932,9 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   z-index: 19;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: 74px;
-  height: 75px;
+  /* 6 px of air under a day's workout pill before the hairline (today-top-15) */
+  grid-template-rows: 81px;
+  height: 82px;
   background: var(--bg);
   touch-action: pan-y;
 }
@@ -955,7 +956,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   align-content: start;
   padding-top: 6px;
   gap: 2px;
-  height: 74px;
+  height: 81px;
   min-height: 44px;
   min-width: 0;
 }

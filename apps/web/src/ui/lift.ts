@@ -49,6 +49,24 @@ const inlineScale = (el: HTMLElement) => {
 };
 
 /**
+ * The hole's corners follow what the eye sees as the object (today-top-27): the element's own radius; for a wrapper with
+ * square corners whose one child fills it (a round button inside a box), that child's; for a bare text or row anchor with
+ * no corners at all, the control radius, so the undimmed cut-out is never a hard rectangle.
+ */
+const isZero = (v: string) => !v || /^0(px)?( 0(px)?)*$/.test(v.trim());
+export const radiusOf = (el: HTMLElement, own: string, r: DOMRect): string => {
+  if (!isZero(own)) return own;
+  const kids = Array.from(el.children).filter((c): c is HTMLElement => c instanceof HTMLElement && c.getBoundingClientRect().width > 0);
+  if (kids.length === 1) {
+    const k = kids[0]!;
+    const kr = k.getBoundingClientRect();
+    const kRad = getComputedStyle(k).borderRadius;
+    if (Math.abs(kr.width - r.width) <= 4 && Math.abs(kr.height - r.height) <= 4 && !isZero(kRad)) return kRad;
+  }
+  return 'var(--r-control, 12px)';
+};
+
+/**
  * Lift `el` in place (or take another reference to its lift). `reduce`: no scale (the hole still cuts it out).
  */
 export const lift = (el: HTMLElement, { reduce = false }: { reduce?: boolean } = {}): LiftHandle => {
@@ -60,8 +78,8 @@ export const lift = (el: HTMLElement, { reduce = false }: { reduce?: boolean } =
   // read before anything changes: the pre-grow may have it at 1.02 (rect and scale are taken around the centre); one style read
   const cs = getComputedStyle(el);
   const s0 = scaleOf(cs);
-  const radius = cs.borderRadius;
   const r = el.getBoundingClientRect();
+  const radius = radiusOf(el, cs.borderRadius, r);
   const cx = r.left + r.width / 2;
   const cy = r.top + r.height / 2;
   const w = r.width / s0;
