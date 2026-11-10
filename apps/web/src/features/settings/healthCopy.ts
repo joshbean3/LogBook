@@ -13,6 +13,8 @@ export const HEALTH_READS: ReadonlyArray<readonly [title: string, sub: string]> 
 ];
 /** The same three in one line, for a row's second line. */
 export const HEALTH_READS_LINE = 'Sleep, heart rate variability and resting heart rate';
+/** The short form, for the device card beside its button. */
+export const HEALTH_READS_SHORT = 'Sleep, HRV and resting heart rate';
 /** Read only, never sold: under the card and in the connect sheet. */
 export const HEALTH_TRUST = 'Logbook only reads. It never writes to Apple Health and never sells what it reads.';
 /** Where Apple keeps the switch that takes Logbook's access away. */

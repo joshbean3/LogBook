@@ -59,6 +59,20 @@
   height: 34px;
   padding: 0 14px;
 }
+/* a narrow card (a 320 pt phone, or a large text size): the name and status keep the first line and the button takes
+   the full width under them, 44 tall, instead of squeezing the words into a column */
+.ah-sec .card.s-card {
+  container: ah-card / inline-size;
+}
+@container ah-card (max-width: 20rem) {
+  .ah-device {
+    flex-wrap: wrap;
+  }
+  :root .ah-device-btn.btn {
+    flex: 1 0 100%;
+    height: 44px;
+  }
+}
 .ah-row {
   position: relative;
   display: flex;

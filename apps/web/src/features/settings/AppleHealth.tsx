@@ -12,7 +12,7 @@ import { haptics } from '@/lib/haptics';
 import { Health, healthMode, hm, summarizeNight, type ReadingCheck } from '@/lib/health';
 import { LEGAL, openExternal } from '@/lib/siteLinks';
 import { Button, Pressable, useSheet, useToast } from '@/ui';
-import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_REVOKE_PATH, HEALTH_TRUST, importWords, savedWords } from './healthCopy';
+import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_READS_SHORT, HEALTH_REVOKE_PATH, HEALTH_TRUST, importWords, savedWords } from './healthCopy';
 import { rememberHealthDevice } from './healthDevice';
 import { SCard } from './parts';
 import './appleHealth.css';
@@ -81,8 +81,8 @@ const CardRow = ({ icon: Icon, title, sub, value, onPress, tone }: { icon: typeo
 
 /**
  * The Apple Health section of Data sources: the source as a device card. Before connecting: Connect. Connected on this
- * phone: when it last synced (or the month being read), Sync, what has been saved to the account, the reading check, and
- * Disconnect at the foot of the card.
+ * phone: when it last synced (or the month being read), Sync, what has been saved to the account and the reading check.
+ * Disconnect sits at the foot of the card whenever the account holds a connection.
  */
 export const AppleHealthGroup = (): React.JSX.Element => {
   const sheet = useSheet();
@@ -109,7 +109,11 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   else if (connectedHere && running) status = 'Syncing…';
   else if (connectedHere && sync.phase === 'error') status = syncErrorWords(sync.detail);
   else if (connectedHere) status = agoWords(s?.lastSyncAt ?? device.data?.lastSyncAt) ? `Synced ${agoWords(s?.lastSyncAt ?? device.data?.lastSyncAt)}` : 'Not synced yet';
-  else status = HEALTH_READS_LINE;
+  // the account holds readings but this phone is not sending any (signed in again, or connected from another iPhone)
+  else if (connectedElsewhere) status = 'Not connected on this iPhone';
+  else status = HEALTH_READS_SHORT;
+  // the dot says readings are arriving: from this phone, or (seen from the web) from the iPhone
+  const live = connectedHere || (web && connectedElsewhere);
 
   const saved = s ? savedWords(s) : null;
 
@@ -121,8 +125,8 @@ export const AppleHealthGroup = (): React.JSX.Element => {
         </span>
         <span className="ah-device-text">
           <span className="ah-device-name">Apple Health</span>
-          <span className={`ah-device-status ${connectedHere || connectedElsewhere ? 'is-on' : ''} ${running ? 'is-running' : ''}`}>
-            {connectedHere || connectedElsewhere ? <i aria-hidden="true" /> : null}
+          <span className={`ah-device-status ${live ? 'is-on' : ''} ${running ? 'is-running' : ''}`}>
+            {live ? <i aria-hidden="true" /> : null}
             {status}
           </span>
         </span>
@@ -140,7 +144,9 @@ export const AppleHealthGroup = (): React.JSX.Element => {
       {connectedHere && (device.data?.pending ?? 0) > 0 && sync.phase !== 'running' ? <CardRow icon={CloudUpload} title={`${device.data!.pending} upload${device.data!.pending === 1 ? '' : 's'} waiting`} sub="Saved on this phone. They send when Logbook is back online." /> : null}
       {connectedHere && (device.data?.deadLetter ?? 0) > 0 ? <CardRow icon={TriangleAlert} tone="orange" title={`${device.data!.deadLetter} upload${device.data!.deadLetter === 1 ? '' : 's'} not saved`} sub="Logbook couldn’t save them. The rest keep syncing." /> : null}
       {!web && !unavailable && (connectedHere || (access.data && !access.data.needed)) ? <CardRow icon={Activity} title="Reading check" sub="Last night and your heart numbers, read live" onPress={openCheck} /> : null}
-      {connectedHere ? (
+      {/* offered whenever the account holds a connection, also when this phone (or the web) is not the one sending: the
+          readings on the server are the person's to delete from anywhere */}
+      {s?.connected ? (
         <Pressable className="ah-disconnect" press="dim" onPress={() => sheet.open({ title: 'Disconnect Apple Health?', body: <DisconnectPanel /> })} label="Disconnect Apple Health">
           Disconnect Apple Health
         </Pressable>
