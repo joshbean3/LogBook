@@ -1,4 +1,4 @@
-import { mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
+import { fmtDate, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
 import { ChevronRight } from 'lucide-react';
 import type * as React from 'react';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
@@ -11,6 +11,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
 import { useOpenHabitsHistory } from '../habits/HabitsHistory';
+import { Composer } from '../journal/JournalDaySection';
 import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
@@ -20,6 +21,7 @@ import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
 import { Hero } from './Hero';
 import { useIsLive } from './live';
+import { useNowMinutes } from './useNow';
 import { dismissNudge, useNudge } from './nudge';
 import { TheDayCard } from './TheDayCard';
 import { HeldNote } from '../plan/Held';
@@ -127,6 +129,30 @@ const NudgeSlot = ({ date, onMorning }: { date: ISODate; onMorning: (date: ISODa
   );
 };
 
+/**
+ * Just after midnight, yesterday is still the day you mean to close (today-top-31): until 3 AM, if yesterday has no entry,
+ * one line on Today opens yesterday's composer in a sheet. The date logic is untouched: Today is still the new day.
+ */
+const LATE_UNTIL = 3 * 60;
+const CloseYesterday = ({ log }: { log: Log }) => {
+  const now = useNowMinutes();
+  const sheet = useSheet();
+  const live = useIsLive(log.today);
+  const yesterday = shiftDays(log.today, -1);
+  if (!live || now >= LATE_UNTIL || log.snap.journalOn(yesterday).length) return null;
+  const open = () =>
+    sheet.open({
+      eyebrow: fmtDate('long', yesterday),
+      title: 'Close yesterday',
+      body: <Composer date={yesterday} today={log.today} rows={3} placeholder="How did yesterday go?" autoFocus label="Yesterday's entry" onSaved={() => sheet.close()} />,
+    });
+  return (
+    <Pressable className="nudge close-yesterday" press="dim" label="Close yesterday. Write yesterday's entry" onPress={open}>
+      Close yesterday <ChevronRight size={14} aria-hidden="true" />
+    </Pressable>
+  );
+};
+
 const OrbRowM = memo(OrbRow);
 
 /**
@@ -226,6 +252,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
     <div className="day-page" data-day={date}>
       {loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
       {loaded ? <HeldNote date={date} log={log} /> : null}
+      {loaded && isToday ? <CloseYesterday log={log} /> : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles) */}
       {!loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
