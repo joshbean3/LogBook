@@ -470,3 +470,46 @@ describe('assistant errors (assistant-11)', () => {
     for (const r of [long, bad, skip]) expect(r.body.error).not.toMatch(/expected|Too big|Invalid|turns|skip/);
   });
 });
+
+describe('journal search (journal-26)', () => {
+  it('matches % and _ as themselves, and a search of only spaces matches nothing', async () => {
+    const a = await signUp(app, 'a@example.com', PW);
+    for (const text of ['Ran at 90% effort today', 'snake_case notes', 'A plain day', 'Back\\slash day']) await a.call('POST', '/api/journal', { date: '2026-11-09', text });
+    const find = async (q: string) => ((await a.call('GET', `/api/journal?q=${encodeURIComponent(q)}`)).body as { entries: Array<{ text: string }>; total: number });
+    expect((await find('%')).entries.map((e) => e.text)).toEqual(['Ran at 90% effort today']);
+    expect((await find('_')).entries.map((e) => e.text)).toEqual(['snake_case notes']);
+    expect((await find('\\')).entries.map((e) => e.text)).toEqual(['Back\\slash day']);
+    expect((await find('PLAIN')).total).toBe(1);
+    expect(await find('   ')).toMatchObject({ entries: [], total: 0 });
+    expect((await find('')).total).toBe(4);
+    const quotes = (await a.call('GET', `/api/quotes?q=${encodeURIComponent('%')}`)).body as { quotes: Array<{ text: string }> };
+    for (const q of quotes.quotes) expect(q.text).toContain('%');
+  });
+});
+
+describe('the day timeline (today-body-23)', () => {
+  it('sends no time for a habit, mark or entry written on another day than the one it belongs to', async () => {
+    const { sameDayAt } = await import('./timeline.js');
+    // with the person's zone the day is exact
+    expect(sameDayAt('2026-11-10T11:21:00.000Z', '2026-11-09', 'America/New_York')).toBeNull();
+    expect(sameDayAt('2026-11-10T11:21:00.000Z', '2026-11-10', 'America/New_York')).toBe('2026-11-10T11:21:00.000Z');
+    // 1:30 AM UTC on the 10th is still the 9th in New York
+    expect(sameDayAt('2026-11-10T01:30:00.000Z', '2026-11-09', 'America/New_York')).toBe('2026-11-10T01:30:00.000Z');
+    // without it, only a day that is impossible everywhere loses its time
+    expect(sameDayAt('2026-11-12T11:21:00.000Z', '2026-11-09', null)).toBeNull();
+    expect(sameDayAt('2026-11-10T01:30:00.000Z', '2026-11-09', null)).toBe('2026-11-10T01:30:00.000Z');
+
+    const a = await signUp(app, 'a@example.com', PW);
+    const h = (await a.call('POST', '/api/habits', { name: 'Stretch' })).body.at(-1);
+    const yesterday = new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    await a.call('PUT', `/api/habits/${h.id}/days/${yesterday}`, { done: true });
+    await a.call('PUT', `/api/habits/${h.id}/days/${today}`, { done: true });
+    const old = (await a.call('GET', `/api/day/${yesterday}/timeline?tz=UTC`)).body.items;
+    expect(old).toEqual([expect.objectContaining({ kind: 'habit', at: null })]);
+    const now = (await a.call('GET', `/api/day/${today}/timeline?tz=UTC`)).body.items;
+    expect(now[0].at).toMatch(/^\d{4}-/);
+    // a zone that does not exist is ignored, not an error
+    expect((await a.call('GET', `/api/day/${today}/timeline?tz=Mars/Base`)).status).toBe(200);
+  });
+});
