@@ -1,0 +1,83 @@
+# Every push and pull request: types, unit tests, the release scripts' own tests, the web build and what it must not
+# carry, the static pages, the app's spelling, then the end-to-end flows and the accessibility scan in a real browser at
+# 390 and 320 wide (packages/e2e). Nothing here needs a secret.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Types, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Types
+        run: pnpm typecheck
+      - name: Unit tests and the release scripts' tests
+        run: pnpm test
+
+      - name: Web build (release settings, no Strava)
+        run: |
+          pnpm --filter @logbook/shared build
+          pnpm --filter @logbook/web build
+        env:
+          VITE_API_ORIGIN: https://api.logbook-ci.test
+          VITE_SUPPORT_EMAIL: help@logbook-ci.test
+      - name: The build holds no developer screen and no Strava
+        run: |
+          node scripts/release-check.mjs bundle apps/web/dist
+          if [ -f apps/web/scripts/check-bundle.mjs ]; then node apps/web/scripts/check-bundle.mjs apps/web/dist; fi
+
+      - name: The legal pages and the acknowledgements match their sources
+        run: |
+          node scripts/legal-pages.mjs --check
+          node scripts/notices.mjs --check
+      - name: The iOS project is as agreed
+        run: node scripts/release-check.mjs ios
+      - name: American spelling in the app's words (Colour, Favourite, Kilometre and the rest)
+        run: node scripts/spelling-check.mjs
+
+  e2e:
+    name: End-to-end flows and accessibility scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Browser
+        run: pnpm --filter @logbook/e2e exec playwright install --with-deps chromium
+      - name: Flows and scan at 390 and 320 wide
+        run: pnpm --filter @logbook/e2e e2e
+        env:
+          CI: '1'
+      - name: Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            packages/e2e/playwright-report
+            packages/e2e/test-results
+          retention-days: 7
