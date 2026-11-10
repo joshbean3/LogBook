@@ -24,6 +24,7 @@ import { ShareSheet } from '../share/ShareSheet';
 import { useHabitsLit } from '../habits/OrbRow';
 import { groupsOn } from '../todos/groups';
 import { shortClock } from './dayWords';
+import { CardGroup, CardOpen } from './CardGroup';
 import { floorShort } from './faces';
 import { HoldRing, MORPH_MS, settleAt, settleVelAt } from './HoldRing';
 import type { MarkNow } from './Hero';
@@ -124,11 +125,15 @@ const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: 
   const open = p.key === 'today';
   const done = p.key === 'done' || p.key === 'floor';
   const byRun = done && log.snap.runsOn(date).length > 0 && s.kind === 'run';
+  const words = runWords(log, date, p);
   return (
-    <Pressable as="div" className="cd-run" press="surface" ignore=".hold-ring" onPress={onOpen} label={`${label(s)}, ${runWords(log, date, p)}. Open`}>
+    // a group with its own "open" button on the title, so the hold ring beside it is a control of its own (a11y-07)
+    <CardGroup className="cd-run" press="surface" ignore=".hold-ring" label={`${label(s)}, ${words}`}>
       <span className="cd-run-text">
-        <span className="cd-run-stamp">{label(s)}</span>
-        <span className="cd-run-sub">{runWords(log, date, p)}</span>
+        <CardOpen label={`${label(s)}, ${words}. Open`} onOpen={onOpen}>
+          <span className="cd-run-stamp">{label(s)}</span>
+        </CardOpen>
+        <span className="cd-run-sub">{words}</span>
       </span>
       {!still && (open || (done && !byRun)) ? (
         <HoldRing
@@ -147,7 +152,7 @@ const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: 
           onTap={onOpen}
         />
       ) : null}
-    </Pressable>
+    </CardGroup>
   );
 };
 

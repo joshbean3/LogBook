@@ -24,7 +24,54 @@
   min-width: 0;
 }
 
-/* ---------- the hero (§3.2, M13): fixed 184 (304 landed with a route); faces crossfade inside the same box ---------- */
+/* ---------- a card that is a group (CardGroup.tsx, a11y-07): the title's button opens it, over the whole card ---------- */
+.card-open {
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* the hit layer: the whole card, under every other control in it */
+.card-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+/* in the hero the title sits inside positioned boxes (the dial), so the layer is drawn far past them and the card's own
+   `overflow: hidden` cuts it to the card */
+.hero .card-open::after {
+  inset: -1000px;
+}
+.card-open:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+/* the card's other controls: siblings of the title's button, above its hit layer */
+.card-group :is(.hold-ring, .ss-ring, .hero-week, .hero-when, .mini-tl, .hero-share, .hero-share-slot, .hero-verb, .hero-next) {
+  position: relative;
+  z-index: 2;
+}
+.card-group > .hero-ring {
+  z-index: 2;
+}
+
+/* ---------- the hero (§3.2, M13): as tall as its face (304 landed with a route); faces crossfade inside the same box ---------- */
 .hero.aura {
   box-sizing: border-box;
   height: 184px;
@@ -302,7 +349,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the ring sits at the deck's right, outside the crossfading face: the same node from the open face to the check */
+/* the ring sits at the deck's right, outside the crossfading face: the same node from the open face to the check. The deck
+   is the last row of every face that has a ring and is at least the ring's height, and its words stop 64 short of the
+   right edge (.hero-deck-ring), so the ring is always in the deck's row and never over the When switch above it */
 .hero-ring {
   position: absolute;
   right: 12px;
@@ -1580,7 +1629,9 @@
 
 /* ---------- the hero as the page's centrepiece (HeroGauge): a warm wash, the day's words centred in the week's dial ---------- */
 :root .hero.aura:not(.is-tall) {
-  height: 330px;
+  /* as tall as the face in it (today-top-01): the eyebrow, the dial, the When switch and the deck, each only when it is
+     there. A fixed height per face cut the deck off whenever the content and the selector disagreed */
+  height: auto;
   background:
     radial-gradient(90% 60% at 12% 0%, rgba(255, 190, 170, 0.55), rgba(255, 190, 170, 0) 70%),
     radial-gradient(90% 60% at 92% 4%, rgba(255, 226, 140, 0.6), rgba(255, 226, 140, 0) 70%),
@@ -1594,9 +1645,22 @@
 :root .hero.aura:not(.is-tall) .aura-glow {
   display: none;
 }
-.hero.aura:not(.is-tall) .hero-face {
+/* while the page loads (and a neighbour's shell): the card's usual box */
+:root .hero.aura.hero-skel {
+  height: 330px;
+}
+/* the face is in flow: it sets the card's height. A face that is leaving a crossfade is taken out of flow by the
+   crossfade itself (popLayout); the one hidden under the landing's first stages lies over the card, not in it */
+.hero.aura:not(.is-tall) > .hero-face {
+  position: relative;
+  inset: auto;
   padding: 18px 18px 16px;
   align-items: stretch;
+}
+.hero.aura:not(.is-tall) > .hero-face[inert] {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 .hero.aura:not(.is-tall) .hero-eyebrow-row {
   justify-content: center;
@@ -1736,12 +1800,20 @@
   color: var(--ink-4);
 }
 
-/* the deck becomes a soft card under the dial, like a status card */
+/* the deck becomes a soft card under the dial, like a status card: 26 under the dial, 12 under the When switch (the
+   spacing the fixed 330 and 372 cards had), at least 56 so the ring at the card's bottom right (56) always has its row, and
+   gone when it has nothing to say */
 .hero.aura:not(.is-tall) .hero-deck {
   height: auto;
   min-height: 56px;
-  margin-top: auto;
+  margin-top: 26px;
   padding: 0;
+}
+.hero.aura:not(.is-tall) .hero-when + .hero-deck {
+  margin-top: 12px;
+}
+.hero.aura:not(.is-tall) .hero-deck:empty {
+  display: none;
 }
 .hero.aura:not(.is-tall) .hero-deck:not(:empty)::before {
   display: none;
@@ -1785,9 +1857,6 @@
 }
 
 /* ---------- when you train (WhenPill): Morning · Afternoon · No time under the dial ---------- */
-:root .hero.aura:not(.is-tall):has(.hero-when) {
-  height: 372px;
-}
 .hero-when {
   position: relative;
   z-index: 2;
@@ -1896,10 +1965,6 @@
   background: var(--surface);
   color: var(--ink);
   box-shadow: 0 2px 6px -2px rgba(15, 42, 68, 0.25);
-}
-/* no line under the choice: the card closes up */
-:root .hero.aura:not(.is-tall):has(.hero-when):not(:has(.mini-tl)) {
-  height: 318px;
 }
 .pm-row > span {
   white-space: nowrap;

@@ -4,7 +4,7 @@ import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import type { Log } from '../log/useLog';
 import { afternoonStops, DEFAULT_AFTERNOON, faceForWhen, phaseForWhen, sessionMinutes, whenFace, type TrainWhen } from './trainWhen';
-import { phaseOf, type Face } from './faces';
+import { faceName, phaseOf, whenFaceKinds, type Face } from './faces';
 
 describe('when you train', () => {
   it('builds the afternoon from the end of work, the way home and the run’s length', () => {
@@ -117,6 +117,26 @@ describe('the phase follows when you train', () => {
       expect(skipped.kind).toBe('skipped');
       expect(skipped.stopsKind).toBeUndefined();
     }
+  });
+
+  it('the When switch shows only while the session is still to come (today-top-01)', () => {
+    const shown = (log: Log, m: number) => whenFaceKinds.has(whenFace(log, FRI, m, 'morning', DEFAULT_AFTERNOON).face.kind);
+    expect(shown(open, at(7))).toBe(true); // morning
+    expect(shown(open, at(7, 40))).toBe(true); // out
+    expect(shown(open, at(12))).toBe(true); // open
+    expect(shown(logOf([run({ mark: 'done' })]), at(12))).toBe(false);
+    expect(shown(logOf([run({ mark: 'floor' })]), at(12))).toBe(false);
+    expect(shown(logOf([run({ mark: 'skip' })]), at(12))).toBe(false);
+    // yesterday's run, never done: missed
+    const missed = logOf([run({ id: 's0', date: '2026-10-22' })]);
+    expect(whenFaceKinds.has(whenFace(missed, '2026-10-22', at(12), 'morning', DEFAULT_AFTERNOON).face.kind)).toBe(false);
+  });
+
+  it('the card is named for what it is about; "Open" belongs to the title button (a11y-07)', () => {
+    expect(faceName(whenFace(open, FRI, at(12), 'morning', DEFAULT_AFTERNOON).face)).toBe('Easy 4, Today');
+    const rest = whenFace(logOf([]), FRI, at(12), 'morning', DEFAULT_AFTERNOON).face;
+    expect(faceName(rest)).toBe('Rest day');
+    expect(rest.pressable).toBe(false);
   });
 
   it('another day keeps the shared phase; its plan line says when', () => {

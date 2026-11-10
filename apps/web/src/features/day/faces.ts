@@ -62,6 +62,12 @@ export interface Face {
   pressable: boolean;
 }
 
+/** The faces of a session still to come: the only ones that carry the Morning / Afternoon / No time switch. */
+export const whenFaceKinds: ReadonlySet<FaceKind> = new Set<FaceKind>(['morning', 'later', 'out', 'open', 'planned']);
+
+/** What a face is about, for the card's accessible name: 'Easy 5, Today' · 'Run' · 'Rest day'. */
+export const faceName = (face: Pick<Face, 'lead' | 'runs' | 'stamp'>): string => (face.lead ? `${label(face.lead.session)}, ${face.lead.word}` : face.runs.length ? 'Run' : face.stamp === 'REST' ? 'Rest day' : face.stamp);
+
 /** The phase of a day, with the clock passed in (the page's clock, `?at=` in dev). */
 export const phaseOf = (log: Log, date: ISODate, minutes: number): DayPhase =>
   dayPhase({ date: log.today, minutes }, { date, snapshot: log.snap, settings: log.boot?.morningSettings ?? null, override: log.snap.morningOverride(date) });

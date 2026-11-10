@@ -16,8 +16,9 @@ import { shareDataFor, useOpenSession, useOpenUnplanned } from '../sessions/Sess
 import { ShareSheet } from '../share/ShareSheet';
 import { isPagerMoving, useIsLive } from './live';
 import { afterPaint, swallowNextClick } from './release';
+import { CardGroup, CardOpen } from './CardGroup';
 import { CloseDay } from './CloseDay';
-import { heroLead, phaseOf, preLandingFace, secondOf, withMark, type Face } from './faces';
+import { faceName, heroLead, phaseOf, preLandingFace, secondOf, whenFaceKinds, withMark, type Face } from './faces';
 import { HoldRing, MORPH_MS } from './HoldRing';
 import { refusedMark } from './marks';
 import { sessionMiles, weekMiles } from './miles';
@@ -127,6 +128,8 @@ interface DeckCtx {
   face: Face;
   isToday: boolean;
   now: number;
+  /** The card's one "open" action, on the title's button (a click: the keyboard, VoiceOver, a mouse). */
+  onOpen: () => void;
   onShare: () => void;
   onMorning: () => void;
   onOpenNext: () => void;
@@ -208,6 +211,21 @@ const Deck = ({ c }: { c: DeckCtx }) => {
 /** The words of a face: eyebrow (and its aside), stamp, line, the route on the landed face, the deck. */
 const FaceView = ({ c }: { c: DeckCtx }) => {
   const { face } = c;
+  /*
+   * The title is the card's "open" control (a11y-07): a real button whose hit layer covers the card, so a tap anywhere still
+   * opens the session while the ring, the When switch, the week pill and the line stay separate controls beside it. A face
+   * with nothing to open (a rest day) has a plain title.
+   */
+  const title = (cls: string) => {
+    const stamp = <span className={`hero-stamp ${cls}`.trim()}>{face.stamp}</span>;
+    return face.pressable ? (
+      <CardOpen label={`${faceName(face)}. Open`} onOpen={c.onOpen}>
+        {stamp}
+      </CardOpen>
+    ) : (
+      stamp
+    );
+  };
   return (
     <>
       <div className="hero-eyebrow-row">
@@ -226,7 +244,7 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
       </div>
       {face.tall ? (
         <>
-          <span className="hero-stamp">{face.stamp}</span>
+          {title('')}
           {/* the verdict crossfades in once the landing's FLIP is at rest (§6.1 stage 4) */}
           <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
             {face.line}
@@ -235,14 +253,15 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
       ) : (
         // every other face: the day's words inside the week's dial (HeroGauge), the week's pill under them
         <HeroGauge date={c.date} log={c.log}>
-          <span className={`hero-stamp ${face.stamp.length > 9 ? 'is-long' : face.stamp.length > 6 ? 'is-mid' : ''}`}>{face.stamp}</span>
+          {title(face.stamp.length > 9 ? 'is-long' : face.stamp.length > 6 ? 'is-mid' : '')}
           <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
             {face.line}
           </motion.p>
         </HeroGauge>
       )}
-      {/* when the training happens, on a training day still to come (or today) */}
-      {!face.tall && face.lead && face.lead.session.kind !== 'rest' && c.date >= c.log.today ? <WhenPill date={c.date} /> : null}
+      {/* when the training happens: only while the session is still to come (today or later). Done, skipped, missed or
+          matched to a run, the choice is over and the switch goes (today-top-01) */}
+      {!face.tall && face.lead && face.lead.session.kind !== 'rest' && c.date >= c.log.today && whenFaceKinds.has(face.kind) ? <WhenPill date={c.date} /> : null}
       {face.tall && face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
       <Deck c={c} />
     </>
@@ -250,6 +269,7 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
 };
 
 interface DeckActions {
+  onOpen: () => void;
   onShare: () => void;
   onMorning: () => void;
   onOpenNext: () => void;
@@ -454,6 +474,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
   // the handlers, current on every render, through one stable object (the face layers are memoised)
   const latest = useRef<DeckActions>(null as unknown as DeckActions);
   latest.current = {
+    onOpen: onClickPress,
     onShare: share,
     onMorning: () => nav.push(morningPath(date), { shared: morningLineId(date) }),
     onOpenNext: () => face.next && openSession(face.next.date, face.next.session),
@@ -461,6 +482,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
     onAfternoon: () => sheet.open({ title: 'This afternoon', body: <AfternoonSheet minutes={sessionMinutes(lead?.session, log.boot?.morningSettings?.run.pace)} /> }),
   };
   const [acts] = useState<DeckActions>(() => ({
+    onOpen: () => latest.current.onOpen(),
     onShare: () => latest.current.onShare(),
     onMorning: () => latest.current.onMorning(),
     onOpenNext: () => latest.current.onOpenNext(),
@@ -473,21 +495,23 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
   const preShown = st === 'wait' || st === 'fill' || st === 'morph';
   const preLayer = preShown || st === 'grow';
   const main = preLayer ? dayFace : face;
-  const name = lead ? `${label(lead.session)}, ${lead.word}` : runs.length ? 'Run' : face.stamp === 'REST' ? 'Rest day' : face.stamp;
+  const name = faceName(face);
   // the ring: the face's own (open, or the check after a hand completion), or the one the landing carries through the FLIP
   const ringLead = lead ?? pre.lead;
   const ringOn = !!ringLead && (landing.ringShown || !!face.ring);
   const ringDone = landing.ring ? landing.stage !== 'wait' && landing.stage !== 'fill' ? true : pre.ring === 'done' : face.ring === 'done';
   return (
-    <Pressable
-      ref={hero}
-      as="div"
+    // a group, not a button (a11y-07): the title's button opens the session (its hit layer covers the card); the press, the
+    // hold and the release-open below stay on the card, so it feels as it did
+    <CardGroup
+      ref={(n) => {
+        hero.current = n;
+      }}
       className={`hero aura halo-${face.halo} ${boost || landing.boost ? 'halo-boost' : ''} ${face.tall ? 'is-tall' : ''} ${face.quiet ? 'is-quiet' : ''} ${face.pressable ? 'is-pressable' : ''}`}
       data-face={face.kind}
       data-landing={landing.stage === 'still' ? undefined : landing.stage}
       press={face.pressable ? 'scale' : 'none'}
       ignore={HERO_IGNORE}
-      onPress={face.pressable ? onClickPress : undefined}
       onHold={() => {
         if (tap.current) tap.current.held = true;
       }}
@@ -505,7 +529,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       }}
       holdMenu={lead || runs.length ? items : undefined}
       menuLabel={`${name} actions`}
-      label={face.pressable ? `${name}. Open` : name}
+      label={name}
     >
       <span className="aura-glow" aria-hidden="true" />
       {/* a new day (the midnight roll) is not a face change: the page crossfades in already on its face, never through a
@@ -531,7 +555,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
           </RingSlot>
         ) : null}
       </AnimatePresence>
-    </Pressable>
+    </CardGroup>
   );
 };
 
@@ -573,17 +597,11 @@ export const SecondSession = memo(function SecondSession({ date, log: real }: { 
     });
   if (p.key !== 'done' && p.key !== 'floor') items.push({ label: 'Move', onSelect: () => act.move(date, s) });
   return (
-    <Pressable
-      as="div"
-      className={`second-session card ${isToday ? '' : 'is-quiet'}`}
-      ignore=".hold-ring"
-      onPress={() => openSession(date, s)}
-      holdMenu={items.length ? items : undefined}
-      menuLabel={`${label(s)} actions`}
-      label={`${label(s)}, ${p.word}. Open`}
-    >
+    <CardGroup className={`second-session card ${isToday ? '' : 'is-quiet'}`} ignore=".hold-ring" holdMenu={items.length ? items : undefined} menuLabel={`${label(s)} actions`} label={`${label(s)}, ${p.word}`}>
       <span className="ss-text">
-        <span className="ss-stamp">{label(s)}</span>
+        <CardOpen label={`${label(s)}, ${p.word}. Open`} onOpen={() => openSession(date, s)}>
+          <span className="ss-stamp">{label(s)}</span>
+        </CardOpen>
         <span className="ss-sub-slot">
           <AnimatePresence initial={false} mode="popLayout">
             <motion.span key={sub} className="ss-sub" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
@@ -599,6 +617,6 @@ export const SecondSession = memo(function SecondSession({ date, log: real }: { 
           </motion.span>
         ) : null}
       </AnimatePresence>
-    </Pressable>
+    </CardGroup>
   );
 });
