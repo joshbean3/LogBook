@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
+import { revealField } from '@/lib/keyboard';
 import { Button, ChipButton, IconButton, Segmented } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -87,10 +88,10 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   };
   return (
     <>
-      <input className="tsheet-name" value={text} maxLength={200} aria-label="To-do" onChange={(ev) => setText(ev.target.value)} onKeyDown={onKey} />
+      <input className="tsheet-name" value={text} maxLength={200} aria-label="To-do" onChange={(ev) => setText(ev.target.value)} onFocus={(ev) => revealField(ev.currentTarget)} onKeyDown={onKey} />
       <label className="tsheet-field">
         <span className="tsheet-label">Note</span>
-        <textarea className="jtext serif tsheet-note" rows={3} maxLength={500} placeholder="Add a note" value={note} onChange={(ev) => setNote(ev.target.value)} onKeyDown={onKey} />
+        <textarea className="jtext serif tsheet-note" rows={3} maxLength={500} placeholder="Add a note" value={note} onChange={(ev) => setNote(ev.target.value)} onFocus={(ev) => revealField(ev.currentTarget)} onKeyDown={onKey} />
       </label>
       <div className="tsheet-field">
         <span className="tsheet-label">Priority</span>

@@ -5,6 +5,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'rea
 import { createPortal } from 'react-dom';
 import { newTodoId, useGoals, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
+import { revealField, useKeyboardOpen } from '@/lib/keyboard';
 import { springs, useReduced } from '@/lib/motion';
 import { useHoldDrag, type DragPoint } from '@/lib/useDrag';
 import { useContextMenu, type ContextMenuItem } from '@/ui/ContextMenu';
@@ -810,6 +811,16 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
   const { add } = useTodoMutations();
   const groups = useTodoGroups();
   const [draft, setDraft] = useState('');
+  // nothing moves for the keyboard by itself: the field's row is scrolled clear of it on focus, again when the keyboard
+  // has come up, and after each Return (the new to-do pushes the field down a row)
+  const field = useRef<HTMLDivElement>(null);
+  const reveal = () => {
+    if (field.current) revealField(field.current);
+  };
+  const kb = useKeyboardOpen();
+  useEffect(() => {
+    if (open && kb) reveal();
+  }, [open, kb]);
   const commit = (close: boolean) => {
     const parsed = parseQuickAdd(draft, today, groups.data);
     if (parsed.text) {
@@ -820,6 +831,7 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
     }
     setDraft('');
     if (close || !parsed.text) setOpen(false);
+    else reveal();
   };
   if (!open)
     return (
@@ -831,7 +843,7 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
       </Pressable>
     );
   return (
-    <div className="pd-add is-field">
+    <div ref={field} className="pd-add is-field">
       <span className="pd-add-ic" aria-hidden="true">
         <Plus size={16} strokeWidth={2.4} />
       </span>
@@ -843,6 +855,7 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
         enterKeyHint="done"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        onFocus={reveal}
         onBlur={() => commit(true)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
