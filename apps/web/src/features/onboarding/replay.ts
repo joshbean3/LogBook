@@ -17,6 +17,7 @@ export const isReplaying = () => {
 export const startReplay = (uid: string) => {
   try {
     sessionStorage.removeItem(draftKey(uid));
+    localStorage.removeItem(draftKey(uid));
     sessionStorage.setItem(REPLAY_KEY, '1');
   } catch {
     /* private mode: the replay still runs, from defaults */

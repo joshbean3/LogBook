@@ -35,7 +35,7 @@ export const SetupBar = ({ steps, index }: { steps: number; index: number }) => 
 };
 
 // ---------- the block's shape ----------
-const KIND_WORD: Record<BlockShape['bars'][number]['kind'], string> = { 'lead-in': 'Lead-in', build: 'Build', down: 'Easier week', taper: 'Taper', race: 'Race' };
+const KIND_WORD: Record<BlockShape['bars'][number]['kind'], string> = { 'lead-in': 'Warm-up week', build: 'Build', down: 'Easier week', taper: 'Taper', race: 'Race' };
 
 /** `compact`: bars and the line only. `bare`: the same, without a card of its own (inside the race-day card). */
 export const BlockPreview = ({ shape, compact = false, bare = false }: { shape: BlockShape | null; compact?: boolean; bare?: boolean }) => {
@@ -46,7 +46,7 @@ export const BlockPreview = ({ shape, compact = false, bare = false }: { shape: 
     <div className={`${bare ? '' : 'card '}obx-block ${compact || bare ? 'is-compact' : ''} ${bare ? 'is-bare' : ''}`} aria-live="polite">
       {compact || bare ? null : (
         <div className="obx-block-head">
-          <span className="caps">{shape.raceDate ? 'Race day' : 'Your block'}</span>
+          <span className="caps">{shape.raceDate ? 'Race day' : 'Your plan'}</span>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.b key={head} className="obx-block-big" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
               {head}
@@ -70,21 +70,23 @@ const STEP_MS = 520;
 /**
  * One line a beat, each checking in with a selection tick. Holds on the last line until `ready` (the plan is saved: the
  * wait is the real one), then hands over with `onDone`. A tap anywhere hurries it to the end; reduced motion shortens the
- * beat and fades instead of sliding.
+ * beat and fades instead of sliding. When the save fails (`failed`: the reason, in plain words) the ticking stops where it
+ * is and the title says so (the reason is the payoff's, right above its buttons); nothing more is marked done until a retry
+ * clears it. `title` words the beat for a setup with no plan.
  */
-export const BuildBeat = ({ steps, ready, failed, onDone }: { steps: string[]; ready: boolean; failed: boolean; onDone: () => void }) => {
+export const BuildBeat = ({ steps, ready, failed, onDone, title }: { steps: string[]; ready: boolean; failed: string | null; onDone: () => void; title?: { writing: string; done: string } }) => {
   const reduce = useReducedMotion();
   const [shown, setShown] = useState(0);
   const doneRef = useRef(false);
   const beat = reduce ? 240 : STEP_MS;
   useEffect(() => {
-    if (shown >= steps.length) return;
+    if (shown >= steps.length || failed) return;
     const id = setTimeout(() => {
       setShown((n) => n + 1);
       haptics.select();
     }, shown === 0 ? 260 : beat);
     return () => clearTimeout(id);
-  }, [shown, steps.length, beat]);
+  }, [shown, steps.length, beat, failed]);
   useEffect(() => {
     if (doneRef.current || shown < steps.length || !ready) return;
     const id = setTimeout(() => {
@@ -95,8 +97,10 @@ export const BuildBeat = ({ steps, ready, failed, onDone }: { steps: string[]; r
   }, [shown, steps.length, ready, onDone, reduce]);
   const all = shown >= steps.length;
   return (
-    <div className="obx-build" onPointerDown={() => setShown(steps.length)}>
-      <h1 className="obx-build-title display">{all && ready ? 'Your week is written.' : 'Writing your plan'}</h1>
+    <div className="obx-build" onPointerDown={() => (failed ? undefined : setShown(steps.length))}>
+      <h1 className="obx-build-title display" tabIndex={-1}>
+        {failed ? (title ? 'Couldn’t save your answers' : 'Couldn’t save your plan') : all && ready ? (title?.done ?? 'Your week is written.') : (title?.writing ?? 'Writing your plan')}
+      </h1>
       <ol className="obx-build-list" aria-live="polite">
         {steps.slice(0, shown).map((s, i) => (
           <motion.li key={s} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
@@ -108,7 +112,7 @@ export const BuildBeat = ({ steps, ready, failed, onDone }: { steps: string[]; r
         ))}
       </ol>
       <p className="obx-build-foot" aria-live="polite">
-        {failed ? 'Couldn’t save your plan yet. Retrying when you tap below.' : all && !ready ? 'Saving it to your plan…' : ' '}
+        {!failed && all && !ready ? 'Saving it to your plan…' : ' '}
       </p>
     </div>
   );

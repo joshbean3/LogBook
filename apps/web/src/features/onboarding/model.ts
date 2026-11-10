@@ -38,6 +38,10 @@ export const GOALS: ReadonlyArray<{ id: Goal; label: string; long: string }> = [
   { id: 'half', label: 'Half', long: 'Half marathon' },
   { id: 'marathon', label: 'Marathon', long: 'Marathon' },
 ];
+/** The most habits one account holds (the server's own limit on the setup answers). */
+export const HABIT_LIMIT = 12;
+/** The longest name a habit typed on the habits step takes: it has to fit a tile on Today. */
+export const HABIT_NAME_MAX = 40;
 export const goalLong = (g: Goal) => GOALS.find((x) => x.id === g)?.long ?? 'Just running';
 
 /** Where week one starts for most people who say this goal: a sensible volume they can hold. */
@@ -62,6 +66,19 @@ export const TRACK_TO = 660;
 export const MIN_GAP = 60;
 
 export const STARTER_HABITS = ['Sleep 7 h', 'Stretch', 'Read 15 min', 'Protein', 'No phone in bed'] as const;
+/**
+ * Add a habit by name on the habits step: a starter or one already typed is picked (not duplicated), a new name joins
+ * the list. At the limit nothing is added and `refused` says so, so a 13th can never reach the save.
+ */
+export const addHabit = (selected: string[], custom: string[], text: string): { selected: string[]; custom: string[]; refused: boolean } => {
+  const same = { selected, custom, refused: false };
+  const name = text.trim().replace(/\s+/g, ' ').slice(0, HABIT_NAME_MAX).trim();
+  if (!name) return same;
+  const dupe = [...STARTER_HABITS, ...custom].find((x) => x.toLowerCase() === name.toLowerCase());
+  if (dupe && selected.includes(dupe)) return same;
+  if (selected.length >= HABIT_LIMIT) return { ...same, refused: true };
+  return dupe ? { selected: [...selected, dupe], custom, refused: false } : { selected: [...selected, name], custom: [...custom, name], refused: false };
+};
 
 /** `6:50` for a morning time; `12:10 PM` once it could be read either way. */
 export const hm = (mins: number) => {
@@ -104,7 +121,55 @@ export const defaultRaceDay = (goal: Goal, start: ISODate): ISODate => {
 };
 export const weeksUntil = (from: ISODate, to: ISODate) => Math.round((+new Date(to) - +new Date(from)) / (7 * 864e5));
 
+/** Under this many weeks to race day a plan cannot build to the distance, so the questions say so (they never block). */
+const TIGHT_WEEKS: Record<Exclude<Goal, 'base'>, number> = { '5k': 6, '10k': 8, half: 10, marathon: 14 };
+const A_RACE: Record<Exclude<Goal, 'base'>, string> = { '5k': 'A 5K', '10k': 'A 10K', half: 'A half marathon', marathon: 'A marathon' };
+export interface RaceWarning {
+  /** "A marathon needs about 16 weeks. This race is 5 weeks away." */
+  text: string;
+  /** The race Sunday nearest the goal's usual length: the one-tap way out. */
+  later: ISODate;
+}
+/** The warning for a race day too close for its distance; null when the date is far enough, not set, or there is no race. */
+export const raceWarning = (p: Pick<TrainingProfile, 'goal' | 'raceDate'>, start: ISODate): RaceWarning | null => {
+  if (p.goal === 'base' || !p.raceDate) return null;
+  const weeks = weeksUntil(start, p.raceDate);
+  if (weeks >= TIGHT_WEEKS[p.goal]) return null;
+  return { text: `${A_RACE[p.goal]} needs about ${GOAL_SPECS[p.goal].defaultWeeks} weeks. This race is ${weeks} ${weeks === 1 ? 'week' : 'weeks'} away.`, later: defaultRaceDay(p.goal, start) };
+};
+
 // ---------- previews ----------
+/** "24 min", or past an hour and a half "5 h 24 min". */
+export const minsText = (m: number) => {
+  const v = Math.max(0, Math.round(m));
+  return v > 90 ? `${Math.floor(v / 60)} h${v % 60 ? ` ${v % 60} min` : ''}` : `${v} min`;
+};
+/** "4 mile easy run" from a run's type and miles. */
+const runWords = (run: { type: string; miles: number }) => `${Math.round(run.miles * 10) / 10} mile ${run.type.toLowerCase()} run`;
+/**
+ * The morning verdict under the track, in plain words: "Tight. A 4 mile easy run ends 61 min after you need to start
+ * getting ready." or "A 4 mile easy run has you back by 7:31, with 24 min to spare."
+ */
+export const verdictLine = (pv: Pick<MorningPreview, 'late' | 'back' | 'spare'>, run: { type: string; miles: number } = { type: 'Easy', miles: 4 }) => {
+  const r = runWords(run);
+  if (pv.late > 0) return `Tight. A ${r} ends ${minsText(pv.late)} after you need to start getting ready.`;
+  return `A ${r} has you back by ${hm(pv.back)}${pv.spare >= 5 ? `, with ${minsText(pv.spare)} to spare` : ''}.`;
+};
+/** After work: the run starts this long after work ends (the trip home and changing, Today's afternoon defaults). */
+export const AFTER_WORK_LEAD = 40;
+/** "Run after work, about 6:10 PM." */
+export const afternoonLine = (offWork: number) => `Run after work, about ${hm(offWork + AFTER_WORK_LEAD)}.`;
+/**
+ * The one-tap fix for a tight morning: the latest wake time, in 5-minute steps down to the track's start, at which the
+ * run fits; failing that, the earliest leave time that fits at the earliest wake. Searched on the real preview, so one tap
+ * always clears it. Null when it already fits.
+ */
+export const morningFix = (wake: number, leave: number, base?: MorningSettings | null, run?: { type: string; miles: number }): { wake: number; leave: number } | null => {
+  if (previewMorning(wake, leave, run, base).late <= 0) return null;
+  for (let w = Math.floor((wake - 5) / 5) * 5; w >= TRACK_FROM; w -= 5) if (previewMorning(w, leave, run, base).late <= 0) return { wake: w, leave };
+  for (let l = snap5(leave + 5); l <= 24 * 60 - 5; l += 5) if (previewMorning(wake, l, run, base).late <= 0) return { wake, leave: l };
+  return null;
+};
 export const safeTemplate = (p: TrainingProfile, startDate: ISODate): Template | null => {
   try {
     return buildTemplate({ goal: p.goal, startDate, runDays: p.runDays, longRunDay: fixLongRun(p.runDays, p.longRunDay), weeklyMiles: p.weeklyMiles, raceDate: p.goal === 'base' ? null : p.raceDate });
@@ -367,10 +432,10 @@ export const blockShape = (t: Template | null): BlockShape | null => {
   };
 };
 
-/** The one line under the shape: "16 weeks. 18 to 34 mi a week, then a 2-week taper." */
+/** The one line under the shape: "16 weeks. 18 to 34 mi a week, then a 2-week taper." or "16 weeks. About 80 mi a week." */
 export const blockLine = (s: BlockShape) => {
   const weeks = `${s.weeks} ${s.weeks === 1 ? 'week' : 'weeks'}`;
-  const range = s.peak > s.from ? `${s.from} to ${s.peak} mi a week` : `about ${s.peak} mi a week`;
+  const range = s.peak > s.from ? `${s.from} to ${s.peak} mi a week` : `About ${s.peak} mi a week`;
   const taper = s.taperWeeks ? `, then a ${s.taperWeeks}-week taper` : '';
   return `${weeks}. ${range}${taper}.`;
 };
@@ -379,13 +444,20 @@ export const blockLine = (s: BlockShape) => {
  * The plan-build beat on the payoff: the real steps the answers asked for, in the order the plan takes them. Each is
  * true of what is written (Buell & Norton 2011: visible work raises perceived value only when it's the actual work).
  */
-export const buildSteps = (p: TrainingProfile, s: BlockShape | null, wake: number, leave: number, habits: number): string[] => {
+export const buildSteps = (p: TrainingProfile | null, s: BlockShape | null, wake: number, leave: number, habits: number): string[] => {
   const out: string[] = [];
+  // no running plan: the morning and the habits are all that is set up
+  if (!p) {
+    out.push(`Planning mornings from ${hm(wake)} to ${hm(leave)}`);
+    if (habits) out.push(`Adding ${habits} ${habits === 1 ? 'habit' : 'habits'} to Today`);
+    out.push('Getting Today ready');
+    return out;
+  }
   out.push(p.goal === 'base' ? 'Setting a steady build' : `Counting back from ${p.raceDate ? fmtDate('short', p.raceDate) : 'race day'}`);
   out.push(`Putting the long run on ${DAY_NAME[fixLongRun(p.runDays, p.longRunDay)]}`);
   if (s) out.push(s.peak > s.from ? `Building from ${s.from} to ${s.peak} mi a week` : `Holding about ${s.peak} mi a week`);
   if (s?.taperWeeks) out.push(`Easing off for ${s.taperWeeks} ${s.taperWeeks === 1 ? 'week' : 'weeks'} before the race`);
   out.push(`Fitting runs between ${hm(wake)} and ${hm(leave)}`);
-  if (habits) out.push(`Adding ${habits} ${habits === 1 ? 'light' : 'lights'} to Today`);
+  if (habits) out.push(`Adding ${habits} ${habits === 1 ? 'habit' : 'habits'} to Today`);
   return out;
 };

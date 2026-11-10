@@ -33,7 +33,7 @@
   transform: scaleX(0.5);
 }
 
-/* the block preview: weeks as bars, coloured by what the week is for */
+/* the block preview: weeks as bars, colored by what the week is for */
 .card.obx-block {
   display: grid;
   gap: 12px;
@@ -142,6 +142,19 @@
   margin: 0;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
+}
+/* under the build: the reason and two buttons, their space held from the start (onboarding-08); shown only on a failure */
+.ob-build-foot.is-idle {
+  visibility: hidden;
+}
+.ob-build-reason {
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--bad);
+}
+.ob-ghost.btn {
+  pointer-events: none;
 }
 
 /* one nudge a morning: a slice of the lock screen, then the choice */

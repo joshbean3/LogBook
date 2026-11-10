@@ -6,18 +6,27 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
  * one on screen, and under Reduce Motion it holds still on its finished frame with the captions carrying the steps.
  */
 
-/** The beat index, looping over `beats`; `rest` (the finished frame) when paused or under Reduce Motion. */
+/** How many times a demo plays before it rests on its finished frame (a11y-16: nothing loops for ever). */
+export const LOOPS = 2;
+/**
+ * The beat index over `beats`, played `LOOPS` times and then resting on the last beat (the finished frame); `rest` when
+ * paused or under Reduce Motion.
+ */
 export const useLoop = (beats: readonly number[], running: boolean, rest: number): number => {
   const [i, setI] = useState(0);
   useEffect(() => {
     if (!running) return;
     setI(0);
     let k = 0;
+    let played = 0;
     let t: ReturnType<typeof setTimeout>;
     const tick = () => {
       t = setTimeout(() => {
         k = (k + 1) % beats.length;
+        if (k === 0) played += 1;
         setI(k);
+        // the last beat of the last loop is the finished frame: stay on it
+        if (played >= LOOPS - 1 && k === beats.length - 1) return;
         tick();
       }, beats[k]);
     };
@@ -66,7 +75,7 @@ export const Finger = ({ spot, down = false, hold = false, carry }: { spot: stri
     setAt((cur) => (cur && cur[0] === x && cur[1] === y ? cur : [x, y]));
   });
   return (
-    <span ref={ref} className={`tf ${at ? '' : 'is-off'} ${down ? 'is-down' : ''} ${hold ? 'is-hold' : ''}`} style={at ? { left: at[0], top: at[1] } : undefined} aria-hidden="true">
+    <span ref={ref} className={`tf ${at ? '' : 'tis-off'} ${down ? 'tis-down' : ''} ${hold ? 'tis-hold' : ''}`} style={at ? { left: at[0], top: at[1] } : undefined} aria-hidden="true">
       {carry ? <span className="tf-carry">{carry}</span> : null}
       <i />
     </span>
@@ -77,7 +86,7 @@ export const Finger = ({ spot, down = false, hold = false, carry }: { spot: stri
 export const Steps = ({ items, on }: { items: readonly string[]; on: number }) => (
   <ol className="tour-steps">
     {items.map((t, i) => (
-      <li key={t} className={on < 0 || i === on ? 'is-on' : ''}>
+      <li key={t} className={on < 0 || i === on ? 'tis-on' : ''}>
         <b>{i + 1}</b>
         {t}
       </li>

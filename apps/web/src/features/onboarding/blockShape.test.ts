@@ -33,7 +33,7 @@ describe('the block shape under the first questions', () => {
     const steps = buildSteps(half, s, 390, 510, 2);
     expect(steps[1]).toBe('Putting the long run on Sunday');
     expect(steps).toContain('Fitting runs between 6:30 and 8:30');
-    expect(steps.at(-1)).toBe('Adding 2 lights to Today');
-    expect(buildSteps({ ...half, goal: 'base', raceDate: null }, null, 390, 510, 0).some((x) => /taper|race|lights/i.test(x))).toBe(false);
+    expect(steps.at(-1)).toBe('Adding 2 habits to Today');
+    expect(buildSteps({ ...half, goal: 'base', raceDate: null }, null, 390, 510, 0).some((x) => /taper|race|habits/i.test(x))).toBe(false);
   });
 });

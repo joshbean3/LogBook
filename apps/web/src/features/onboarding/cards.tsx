@@ -5,20 +5,20 @@ import './cards.css';
 /**
  * Logbook's own cards, drawn small and still, for the welcome pager and the feature intros (inspiration §6 Onboarding:
  * "pages built from real Logbook cards", not illustrations). They use the app's real faces: caps labels, stamped numbers,
- * the serif for words, habits as lights, the session tones. Sample content, never the person's data; each card is one
+ * the serif for words, habits as tiles, the session tones. Sample content, never the person's data; each card is one
  * picture to a screen reader (`role="img"` with a plain label).
  */
 
-/** Tomorrow's morning, as Today's hero draws it: the session, the alarm, and the four stops to the door. */
+/** Tomorrow's morning, as Today's hero draws it: the session, the wake time, and the four stops to the door. */
 export const MorningCard = (): React.JSX.Element => (
-  <div className="lc lc-morning" role="img" aria-label="Tomorrow: an easy 4 miles. Alarm 6:30, run 6:45, back 7:31, out the door 8:30.">
+  <div className="lc lc-morning" role="img" aria-label="Tomorrow: an easy 4 mile run. Wake 6:30, run 6:45, back 7:31, out the door 8:30.">
     <span className="lc-halo" aria-hidden="true" />
     <span className="caps lc-eyebrow">Tomorrow · Out 8:30</span>
     <span className="stamp lc-big">EASY 4</span>
-    <span className="display lc-line">Alarm at 6:30</span>
+    <span className="display lc-line">Wake at 6:30</span>
     <span className="lc-track" aria-hidden="true">
       {[
-        ['Alarm', '6:30'],
+        ['Wake', '6:30'],
         ['Run', '6:45'],
         ['Back', '7:31'],
         ['Leave', '8:30'],
@@ -40,15 +40,15 @@ const HABITS: Array<[string, boolean]> = [
   ['Water', false],
 ];
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-/** The habits row: lights you tap, two lit, and the week's strip filling under them. */
+/** The habits, as Today draws them: a two-column grid of tiles, two done, and the week's strip filling under them. */
 export const HabitsCard = (): React.JSX.Element => (
-  <div className="lc lc-habits" role="img" aria-label="Habits as lights: Meditate and Read are done today. Four of seven days kept this week.">
+  <div className="lc lc-habits" role="img" aria-label="Habits as tiles on Today: Meditate and Read are done today. Four of seven days kept this week.">
     <span className="caps lc-eyebrow">Habits · 2 of 4 today</span>
-    <span className="lc-orbs" aria-hidden="true">
+    <span className="lc-tiles" aria-hidden="true">
       {HABITS.map(([name, on]) => (
-        <span key={name} className={`lc-orb ${on ? 'on' : ''}`}>
-          <span className="lc-orb-ring">{on ? <Check size={22} strokeWidth={2.6} /> : <span className="lc-orb-i">{name.slice(0, 1)}</span>}</span>
-          <span className="lc-orb-name">{name}</span>
+        <span key={name} className={`lc-tile ${on ? 'on' : ''}`}>
+          <span className="lc-tile-mark">{on ? <Check size={14} strokeWidth={3} /> : null}</span>
+          <span className="lc-tile-name">{name}</span>
         </span>
       ))}
     </span>
@@ -120,5 +120,19 @@ export const JournalCard = (): React.JSX.Element => (
     <span className="lc-halo amber" aria-hidden="true" />
     <span className="caps lc-eyebrow">Remember when · A year ago</span>
     <span className="display lc-quote">You ran your first 10 miles and wrote: “Legs fine, head tired.”</span>
+  </div>
+);
+
+/** The assistant: a question about the plan, its answer, and the change it offers (it changes nothing until asked). */
+export const AssistantCard = (): React.JSX.Element => (
+  <div className="lc lc-ask" role="img" aria-label="The assistant. You ask: can I move Thursday's tempo to Friday? It answers: yes, Friday is free, and offers to move it.">
+    <span className="lc-halo" aria-hidden="true" />
+    <span className="caps lc-eyebrow">AI assistant</span>
+    <span className="lc-ask-q">Can I move Thursday’s tempo to Friday?</span>
+    <span className="lc-ask-a">Yes. Friday is free and Saturday stays easy. Move it?</span>
+    <span className="lc-ask-act" aria-hidden="true">
+      <span className="lc-ask-btn">Move it</span>
+      <span className="lc-ask-btn quiet">Not now</span>
+    </span>
   </div>
 );

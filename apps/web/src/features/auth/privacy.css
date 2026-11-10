@@ -1,5 +1,5 @@
-/* What is sent to Claude and what never is: the privacy page and Settings › Privacy. Two white cards, each a sans title
-   over its rows; a check for what goes, a cross for what never does. */
+/* What is sent to Claude and what is not: the privacy page and Settings, Privacy. Two white cards, each a sans title
+   over its rows; a check for what goes, a cross for what does not. */
 .pv-facts {
   display: grid;
   gap: var(--gap);
@@ -48,12 +48,6 @@
   border-radius: 50%;
   background: var(--columbia-wash);
   color: var(--ink-2);
-}
-.pv-list li.pv-off {
-  color: var(--ink-3);
-}
-.pv-list li.pv-off svg {
-  color: var(--ink-4);
 }
 .pv-list.never li svg {
   background: var(--surface-2);
