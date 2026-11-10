@@ -30,8 +30,9 @@ const KConfirm = ({ what, words, verb, onConfirm }: { what?: React.ReactNode; wo
           block
           className="k-danger"
           onClick={() => {
-            sheet.close();
+            // the delete goes first, so the sheet's own close (which may save an edit in progress) knows the item is gone
             onConfirm();
+            sheet.close();
           }}
         >
           {verb}
