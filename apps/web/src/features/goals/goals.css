@@ -147,7 +147,8 @@
   line-height: var(--lh-sub);
 }
 
-/* the tab's dot: something to set or to review */
+/* the tab's dot: something to set or to review. A badge on the Sunrise budget (GoalsBadge, ui/nowBudget.ts): Sunrise with
+   its 2 px Paper keyline while it may be; yielded, the shell's Night Ink dot with the same keyline (app/shell.css) */
 .tab-item {
   position: relative;
 }
@@ -158,9 +159,12 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow: 0 0 0 2px var(--surface);
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--now-keyline);
   pointer-events: none;
+}
+.tab-item .tab-dot[data-now='now'] {
+  background: var(--now);
 }
 
 .g-ring-hit {
