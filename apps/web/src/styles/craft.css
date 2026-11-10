@@ -148,11 +148,10 @@
   box-shadow: var(--bevel-hi), 0 0 0 1px rgba(15, 42, 68, 0.05), 0 2px 6px -1px rgba(15, 42, 68, 0.16);
 }
 
-/* ---------- toasts: a glass pill ---------- */
+/* ---------- toasts: a white pill ---------- */
+/* opaque: nothing under a toast shows through its words (shell-24) */
 :root .toast-host .toast {
-  background: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: var(--surface);
 }
 
 /* Today's own primary pills take the navy pill too */

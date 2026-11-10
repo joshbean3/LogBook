@@ -439,9 +439,14 @@ textarea.in:focus {
 /* ---------- toasts: a small white pill floating at the top, under the status bar (Toast.tsx) ----------
  * Doubled up (.toast-host .toast) because ui.css and foundation.css, which hold the older bottom-placed navy pill, load
  * after this file. */
+/* under the 44 px bar row (safe top + 8 + 44), so it never covers a bar's title or its controls (shell-24); over a tall
+   sheet, under the sheet's grabber and header row */
 .toast-host {
-  top: calc(var(--safe-t) + 10px);
+  top: calc(var(--safe-t) + 56px);
   bottom: auto;
+}
+html:has(.sheet[data-tall]) .toast-host {
+  top: calc(var(--safe-t) + 92px);
 }
 .toast-host .toast {
   min-height: 40px;
