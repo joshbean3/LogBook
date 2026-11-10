@@ -58,10 +58,9 @@ describe('day timeline', () => {
 });
 
 describe('Strava data stays out of AI', () => {
-  it('the run note is refused with the reason, since every synced run comes from Strava', async () => {
+  it('the run note route is gone: no AI read of a synced run, since every synced run comes from Strava', async () => {
     const r = await call('POST', '/api/coach/read', { date: T, sessionId: null });
-    expect(r.status).toBe(422);
-    expect(r.body.code).toBe('strava_terms');
+    expect(r.status).toBe(404);
   });
 });
 

@@ -8,7 +8,7 @@ import { planBlocks, trainingSessions } from '../db/schema.js';
 import { toBlock, toSession } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { withAiLimit } from '../services/aiLimits.js';
-import { RUN_NOTE_OFF, claudeClient, draftPlan, type AthleteContext } from '../services/claude.js';
+import { claudeClient, draftPlan, type AthleteContext } from '../services/claude.js';
 import { sessionsBetween } from './core.js';
 import { assistantMayReadTraining, requireAiPermission } from '../services/consent.js';
 
@@ -175,11 +175,6 @@ export const aiRoutes = (db: DB) => {
     const block = db.select().from(planBlocks).where(eq(planBlocks.id, blockId)).get()!;
     const count = db.select({ id: trainingSessions.id }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, blockId), isNull(trainingSessions.deletedAt))).all().length;
     return c.json({ block: toBlock(block, count), months: monthsBetween(draft.start, draft.end), removed: replacedIds.length, replacedIds, endedBlocks, addedIds }, 201);
-  });
-
-  /** Off: see RUN_NOTE_OFF. Saved notes from before still show; no new ones are written. */
-  r.post('/coach/read', () => {
-    throw new ApiError(422, RUN_NOTE_OFF, 'strava_terms');
   });
 
   void toSession;
