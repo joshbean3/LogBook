@@ -403,7 +403,7 @@
   display: grid;
   /* two columns; one when the text is set so large that half the width no longer holds a name (7.75rem is under half of the
      narrowest phone at the default size, so the two columns hold there and up to about 125% on a 390 pt phone) */
-  grid-template-columns: repeat(auto-fit, minmax(max(calc(50% - 4px), 7.75rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(max(calc(50% - 4px), 7.75rem), 1fr));
   gap: 8px;
 }
 .orbs.is-grid .orb {
