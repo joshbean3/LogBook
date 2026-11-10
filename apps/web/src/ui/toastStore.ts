@@ -38,6 +38,8 @@ export const createToastStore = (timers: { set: (fn: () => void, ms: number) => 
   };
   return {
     get: () => current,
+    /** How many toasts have been shown so far (the id of the latest). */
+    shown: () => seq,
     subscribe(fn: () => void) {
       listeners.add(fn);
       return () => void listeners.delete(fn);
@@ -61,3 +63,10 @@ export const createToastStore = (timers: { set: (fn: () => void, ms: number) => 
   };
 };
 export type ToastStore = ReturnType<typeof createToastStore>;
+
+/**
+ * The app's one toast: ToastProvider draws it, and code outside React (the outbox, the data layer's error handler) raises it
+ * through `showToast`. Such a toast belongs to no tab, so a tab change leaves it up.
+ */
+export const toastStore = createToastStore();
+export const showToast = (text: string, action?: ToastAction): number => toastStore.show(text, action);

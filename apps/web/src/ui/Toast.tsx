@@ -6,7 +6,7 @@ import { useNavInternal, useTabOrNull } from '@/app/NavController';
 import { LOCK_PX, TOAST_DISMISS_V } from '@/lib/gesture';
 import { fadeIn, fadeOut, springs } from '@/lib/motion';
 import type { TabId } from './nav';
-import { createToastStore, type ToastAction } from './toastStore';
+import { toastStore, type ToastAction } from './toastStore';
 
 // contracts §C.7 names ui/Toast.tsx as ToastAction's module (consumer review 3 #7)
 export type { ToastAction } from './toastStore';
@@ -31,7 +31,7 @@ export const useToast = (): ToastFn => {
  * (inspiration §2.13), over a sheet too. Fades in 120 ms, out 100 ms; a swipe away (≥ 110 px/s) dismisses it. role="status".
  */
 export const ToastProvider = ({ children }: { children: ReactNode }): React.JSX.Element => {
-  const store = useMemo(() => createToastStore(), []);
+  const store = toastStore;
   const t = useSyncExternalStore(store.subscribe, store.get, store.get);
   useEffect(() => () => store.dismiss(), [store]);
   const scope = useRef(new Map<number, TabId | null>());

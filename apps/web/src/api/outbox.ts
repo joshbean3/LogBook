@@ -1,5 +1,6 @@
 import { get, set } from 'idb-keyval';
 import type { QueryClient } from '@tanstack/react-query';
+import { showToast } from '@/ui/toastStore';
 import { api, isOffline, NetworkError } from './client';
 
 /**
@@ -9,6 +10,10 @@ import { api, isOffline, NetworkError } from './client';
  * A write that creates a row the UI already shows under a provisional id (`tmpId`) is the one case with a
  * dependency: anything that names that id before the server has answered waits here too, and is rewritten
  * with the real id when it is sent. That holds whether the POST is queued (offline) or on the wire (online).
+ *
+ * Nothing leaves the queue unless the server took it or refused it for good (DROP below). A server that is restarting, a
+ * rate limit, a timeout or a session that ran out all keep the queue: it goes again with backoff, or when the same person
+ * signs back in. Every item carries the id of the account that wrote it and is only ever sent for that account.
  */
 export interface OutboxItem {
   /** Also the item's `Idempotency-Key` (contract 4): every send of this write, first try or replay, carries it, so the server applies it once. */
@@ -27,6 +32,8 @@ export interface OutboxItem {
    * again: no duplicate to-do after "offline, add, back online, reload".
    */
   sentAt?: string;
+  /** The account that made this write (the bootstrap's user id). It replays only while that account is signed in. */
+  userId?: string;
 }
 
 const KEY = 'logbook.outbox.v1';
@@ -38,6 +45,8 @@ let items: OutboxItem[] = [];
 let loaded = false;
 let replaying = false;
 let client: QueryClient | null = null;
+/** The account using the app (set by the shell from the bootstrap). Stamped on every write queued from here on. */
+let user: string | null = null;
 /**
  * Provisional id → real id, learnt as creates are answered. Memory only, but the moment one is learnt the whole
  * queue is rewritten and persisted with it, so a reload between a create and its dependents loses nothing.
@@ -74,6 +83,55 @@ const persist = async () => {
   for (const fn of listeners) fn(items.length);
 };
 
+// ---------- what a failed send means ----------
+/** The server read the write and refused it for good: sending it again cannot help. */
+const DROP = new Set([400, 404, 409, 410, 413, 422]);
+/** The server could not take it right now: the same write will pass later. */
+const isTransient = (status: number) => status === 408 || status === 425 || status === 429 || status >= 500;
+const statusOf = (e: unknown): number | null => (e && typeof e === 'object' && typeof (e as { status?: unknown }).status === 'number' ? (e as { status: number }).status : null);
+/**
+ * - `drop`: a definitive refusal (400, 404, 409, 410, 413, 422).
+ * - `signin`: the session ran out (401). The write waits for the same account to sign back in.
+ * - `retry`: no answer, a timeout, 408, 425, 429, any 5xx, or anything else unexpected. It is kept and sent again.
+ */
+export type SendVerdict = 'drop' | 'signin' | 'retry';
+export const verdictOf = (e: unknown): SendVerdict => {
+  if (e instanceof NetworkError) return 'retry';
+  const status = statusOf(e);
+  if (status === 401) return 'signin';
+  if (status !== null && DROP.has(status)) return 'drop';
+  return 'retry';
+};
+/** What the person is told when a queued change is refused for good. */
+export const DROPPED_TEXT = 'One change could not be saved';
+/** A write the server refused while online carries this mark, so the app's error handler can say so (main.tsx). */
+const REJECTED = Symbol.for('logbook.write-rejected');
+export const isWriteRejected = (e: unknown): boolean => !!e && typeof e === 'object' && (e as { [REJECTED]?: boolean })[REJECTED] === true;
+
+// ---------- the retry timer ----------
+/** After a send that may pass later: again in 2 s, 5 s, 15 s, then every 30 s, while the app is on screen. */
+export const RETRY_MS = [2000, 5000, 15_000, 30_000] as const;
+let retryStep = 0;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+const cancelRetry = () => {
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
+};
+const scheduleRetry = () => {
+  cancelRetry();
+  const ms = RETRY_MS[Math.min(retryStep, RETRY_MS.length - 1)]!;
+  retryStep++;
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined;
+    // off screen nothing is sent; coming back to the app replays at once (main.tsx)
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (client) void outbox.replay(client);
+  }, ms);
+};
+
+/** Who is signed in, by the cached bootstrap (a 401 removes it, so a session that ran out sends nothing). */
+const signedIn = (qc: QueryClient | null): string | null => qc?.getQueryData<{ user?: { id?: string } }>(['bootstrap'])?.user?.id ?? null;
+
 export const outbox = {
   async load() {
     if (loaded) return;
@@ -83,17 +141,31 @@ export const outbox = {
     } catch {
       items = [];
     }
+    if (user) outbox.setUser(user);
     for (const fn of listeners) fn(items.length);
   },
   size: () => items.length,
+  /** The queue as it stands (a copy). */
+  peek: (): OutboxItem[] => items.map((x) => ({ ...x })),
   subscribe(fn: (n: number) => void) {
     listeners.add(fn);
     fn(items.length);
     return () => listeners.delete(fn);
   },
+  /**
+   * The account now using the app. Writes queued from here on carry its id. Items queued by a build from before the stamp
+   * existed have none: they were written on this device by the account that was signed in, so they take this one.
+   */
+  setUser(id: string | null) {
+    user = id;
+    if (!id || !items.some((x) => !x.userId)) return;
+    items = items.map((x) => (x.userId ? x : { ...x, userId: id }));
+    void persist();
+  },
   /** Queue a write. Pass `id` when it was already tried on the wire under that key, so its replay is recognised. */
-  async enqueue(item: Omit<OutboxItem, 'id' | 'createdAt'> & { id?: string }) {
-    const it: OutboxItem = { ...item, id: item.id ?? newKey(), createdAt: new Date().toISOString() };
+  async enqueue(item: Omit<OutboxItem, 'id' | 'createdAt' | 'userId'> & { id?: string }) {
+    const owner = user ?? signedIn(client) ?? undefined;
+    const it: OutboxItem = { ...item, id: item.id ?? newKey(), createdAt: new Date().toISOString(), ...(owner ? { userId: owner } : {}) };
     // a create that fell off the wire goes in ahead of anything already waiting on its id
     const at = it.tmpId ? items.findIndex((x) => mentions(x.path, x.json, it.tmpId!)) : -1;
     if (at >= 0) items.splice(at, 0, it);
@@ -106,18 +178,35 @@ export const outbox = {
     inflight.delete(tmpId);
     if (client) void outbox.replay(client);
   },
-  /** Send everything queued, oldest first. Stops at the first network failure; drops items the server rejects. */
+  /** The data layer's client, so a retry or a resolved create can replay without being handed one. */
+  attach(qc: QueryClient) {
+    client = qc;
+  },
+  /**
+   * Send what the signed-in account queued, oldest first. An item leaves only when the server took it, or refused it for
+   * good (the person is told). Anything else stops the run with the queue intact: a 401 waits for sign-in; a network
+   * failure, a timeout, 408, 425, 429 or a 5xx goes again on the retry timer.
+   */
   async replay(qc: QueryClient) {
     client = qc;
     if (replaying || !items.length || isOffline()) return;
+    const me = signedIn(qc);
+    if (!me) return;
     replaying = true;
+    cancelRetry();
+    let stalled = false;
     const touched: Array<readonly unknown[]> = [];
+    const drop = (id: string) => {
+      items = items.filter((x) => x.id !== id);
+    };
     try {
-      while (items.length) {
+      for (;;) {
+        const at = items.findIndex((x) => x.userId === me);
+        if (at < 0) break;
         // in flight: persisted before it leaves, so a reload mid-request replays it under the same key (the server dedupes)
-        items[0] = { ...items[0]!, sentAt: new Date().toISOString() };
+        items[at] = { ...items[at]!, sentAt: new Date().toISOString() };
         await persist();
-        const it = rewrite(items[0]!);
+        const it = rewrite(items[at]!);
         try {
           const res = await api(it.path, { method: it.method, json: it.json, idempotencyKey: it.id });
           const real = it.tmpId ? realIdOf(res) : null;
@@ -127,17 +216,21 @@ export const outbox = {
             items = items.map(rewrite);
           }
           touched.push(...it.invalidate);
-          items.shift();
+          drop(it.id);
+          retryStep = 0;
           await persist();
         } catch (e) {
-          if (e instanceof NetworkError) {
+          const verdict = verdictOf(e);
+          if (verdict !== 'drop') {
             // it may or may not have reached the server; the next replay sends it with the same key either way
+            stalled = verdict === 'retry';
             break;
           }
-          // the server said no (validation, gone): nothing more we can do with it
-          items.shift();
+          // the server said no for good (validation, gone): it cannot be saved, and the person is told
+          drop(it.id);
           touched.push(...it.invalidate);
           await persist();
+          showToast(DROPPED_TEXT);
         }
       }
     } finally {
@@ -149,14 +242,27 @@ export const outbox = {
         seen.add(k);
         void qc.invalidateQueries({ queryKey: key });
       }
+      if (stalled && items.some((x) => x.userId === me)) scheduleRetry();
+      else if (!items.length) retryStep = 0;
     }
+  },
+  /** Empty the queue and forget the account (Contract 2: sign out, delete account, a different account signing in). */
+  async clear() {
+    items = [];
+    aliases.clear();
+    inflight.clear();
+    user = null;
+    cancelRetry();
+    retryStep = 0;
+    await persist();
   },
 };
 
 /**
- * Perform a write. Online: straight to the server. Offline (or the network drops mid-request):
- * queue it and resolve so the optimistic UI stands. A write that names a provisional id the server
- * has not answered for yet waits in the queue behind that create, online or not.
+ * Perform a write. Online: straight to the server. Offline, or when the server cannot take it right now (the network drops
+ * mid-request, a timeout, 408, 425, 429, a 5xx, a session that ran out): queue it and resolve null so the optimistic UI
+ * stands. A write that names a provisional id the server has not answered for yet waits in the queue behind that create,
+ * online or not. Only a refusal for good is thrown, marked so the app can say the change did not save.
  */
 export async function write<T>(rawPath: string, method: OutboxItem['method'], rawJson: unknown, invalidate: ReadonlyArray<readonly unknown[]>, opts: { tmpId?: string } = {}): Promise<T | null> {
   const { tmpId } = opts;
@@ -179,11 +285,15 @@ export async function write<T>(rawPath: string, method: OutboxItem['method'], ra
     return res;
   } catch (e) {
     if (tmpId) inflight.delete(tmpId);
-    if (e instanceof NetworkError) {
+    const status = statusOf(e);
+    if (e instanceof NetworkError || status === 401 || (status !== null && isTransient(status))) {
       // the request may have landed before the connection dropped: the queued copy keeps its key, so it cannot land twice
       await outbox.enqueue({ id: key, path, method, json, invalidate, tmpId, sentAt: new Date().toISOString() });
+      // a server that is busy or a weak connection: try again shortly (a 401 waits for sign-in instead)
+      if (status !== 401 && !replaying) scheduleRetry();
       return null;
     }
+    if (e && typeof e === 'object') (e as { [REJECTED]?: boolean })[REJECTED] = true;
     throw e;
   }
 }

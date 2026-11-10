@@ -2,7 +2,9 @@ import { askAndWait, type JobAnswer } from '@/features/assistant/poll';
 import { type Attachment, addMonths, mondayOf, monthOf, monthsBetween, shiftDays, today, type Activity, type Habit, type HabitCheck, type JournalEntry, type LiftSet, type Link, type LinkVerdict, type MorningDayOverride, type MorningSettings, type PickResult, type PlanBlock, type Quote, type Session, type SessionInput, type SessionMark, type Todo, type TodoBucket, type TodoColor, type TodoGroup, type TodoPriority, type Aim, type GoalEvent, type GoalLevel, type GoalRefinement, type GoalStatus, type GoalStep, type AssistantApplied, type AssistantProposal, type AssistantReply, type TemplateInput, type DayBands, type DayPlan, cleanBands, emptyBands, QUOTE_THEMES, type SavedTrainingProfile, type TrainingProfile, type TrainingStatus, type TrainingStatusKind, type ISODate } from '@logbook/shared';
 import { useIsMutating, useMutation, useQueries, useQuery, useQueryClient, type QueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { STRAVA_BUILT } from '@/lib/features';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
+import { BadShapeError, parseBootstrap } from './bootstrap';
 import { api, ApiError, NetworkError } from './client';
 import { write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
@@ -33,8 +35,11 @@ export const keys = {
  * `enabled: false` holds the request (a cold open with nothing cached and no account on this device waits for GET /auth/status).
  */
 export const fetchBootstrap = async (): Promise<Bootstrap> => {
-  const { serverTime: _serverTime, ...b } = await api<Bootstrap & { serverTime?: string }>('/bootstrap');
-  return b;
+  const raw = await api<unknown>('/bootstrap');
+  if (!raw || typeof raw !== 'object') throw new BadShapeError('not an object');
+  const { serverTime: _serverTime, ...b } = raw as Record<string, unknown>;
+  // checked before it reaches the cache: an answer in a bad shape is an error, and the last good copy stays (api/bootstrap.ts)
+  return parseBootstrap(b);
 };
 export const useBootstrap = (opts: { enabled?: boolean } = {}) => useQuery({ queryKey: keys.bootstrap, queryFn: fetchBootstrap, staleTime: 60_000, enabled: opts.enabled ?? true });
 
@@ -113,30 +118,33 @@ const keyAlias = new Map<string, string>();
 export const clientKey = (id: string) => keyAlias.get(id) ?? id;
 
 /**
- * Today's pull to refresh is "check Strava now": ask the server to pull new activities, and when anything changed, refetch
- * the months and activities so the hero can draw the run. The bootstrap (which carries `strava.lastSyncAt`) is patched from
- * the answer rather than refetched, so a check never sets off another one.
- */
-/**
- * Ask the server to sync Strava now and wait for the answer (the server joins a sync already running, so the answer is
- * always the real one): the months and activities are refetched only when something arrived. Called on a pull on Today
- * (useStravaCheck) and once on every return to the foreground with Strava connected (main.tsx), decisions.md 7.
+ * The run connection (Strava) is built only when STRAVA_BUILT is true (lib/features.ts). The flag is a constant, so in a
+ * build without it each export below is its short stand-in and the real code, with its request, is left out of the bundle.
+ * The exports keep their names and shapes either way, so a screen that still imports one compiles and does nothing.
+ *
+ * With it: Today's pull to refresh is "check for a run now": ask the server to pull new activities, and when anything
+ * changed, refetch the months and activities so the hero can draw the run. The bootstrap (which carries the last sync time)
+ * is patched from the answer rather than refetched, so a check never sets off another one. The server joins a sync already
+ * running, so the answer is always the real one. Called on a pull on Today (useStravaCheck) and once on every return to
+ * the foreground while connected (main.tsx), decisions.md 7.
  */
 export interface StravaSyncAnswer {
   changed?: number;
   joined?: boolean;
   status?: Bootstrap['strava'];
 }
-export const syncStrava = async (qc: QueryClient): Promise<StravaSyncAnswer> => {
-  const r = await api<StravaSyncAnswer>('/strava/sync', { method: 'POST' });
-  if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
-  if (r.changed) {
-    await qc.invalidateQueries({ queryKey: ['month'] });
-    void qc.invalidateQueries({ queryKey: keys.activities });
-  }
-  return r;
-};
-export const STRAVA_SYNC_KEY = ['strava-sync'] as const;
+export const syncStrava: (qc: QueryClient) => Promise<StravaSyncAnswer> = STRAVA_BUILT
+  ? async (qc) => {
+      const r = await api<StravaSyncAnswer>('/strava/sync', { method: 'POST' });
+      if (r.status) qc.setQueryData<Bootstrap>(keys.bootstrap, (b) => (b ? { ...b, strava: r.status! } : b));
+      if (r.changed) {
+        await qc.invalidateQueries({ queryKey: ['month'] });
+        void qc.invalidateQueries({ queryKey: keys.activities });
+      }
+      return r;
+    }
+  : async () => ({});
+export const STRAVA_SYNC_KEY = ['run-sync'] as const;
 let lastSync: { at: number; promise: Promise<StravaSyncAnswer>; quiet: boolean; settled: boolean } | null = null;
 /**
  * The same request through the mutation cache under STRAVA_SYNC_KEY, registered synchronously so useIsMutating sees it on
@@ -144,41 +152,43 @@ let lastSync: { at: number; promise: Promise<StravaSyncAnswer>; quiet: boolean; 
  * or last promise, unless `force` (the landing's one +8 s repeat, pull to refresh). `quiet` marks the mutation's meta so the
  * status line ignores it.
  */
-export const stravaSyncNow = (qc: QueryClient, opts: { force?: boolean; quiet?: boolean } = {}): Promise<StravaSyncAnswer> => {
-  const now = Date.now();
-  // inside the gap the last sync answers, unless it was quiet and this one is not (the status line must see this one)
-  if (!opts.force && lastSync && now - lastSync.at < STRAVA_GAP_MS) {
-    if (opts.quiet || !lastSync.quiet) return lastSync.promise;
-    // a quiet sync still in flight: this call rides its request and raises the status line until it settles, rather than
-    // sending a second, concurrent one (consumer review 2 #6)
-    if (!lastSync.settled) {
-      const ride = lastSync;
-      ride.quiet = false;
-      setChecking(1);
-      const done = () => setChecking(-1);
-      ride.promise.then(done, done);
-      return ride.promise;
+export const stravaSyncNow: (qc: QueryClient, opts?: { force?: boolean; quiet?: boolean }) => Promise<StravaSyncAnswer> = STRAVA_BUILT
+  ? (qc, opts = {}) => {
+      const now = Date.now();
+      // inside the gap the last sync answers, unless it was quiet and this one is not (the status line must see this one)
+      if (!opts.force && lastSync && now - lastSync.at < STRAVA_GAP_MS) {
+        if (opts.quiet || !lastSync.quiet) return lastSync.promise;
+        // a quiet sync still in flight: this call rides its request and raises the status line until it settles, rather than
+        // sending a second, concurrent one (consumer review 2 #6)
+        if (!lastSync.settled) {
+          const ride = lastSync;
+          ride.quiet = false;
+          setChecking(1);
+          const done = () => setChecking(-1);
+          ride.promise.then(done, done);
+          return ride.promise;
+        }
+      }
+      const m = qc.getMutationCache().build(qc, { mutationKey: STRAVA_SYNC_KEY, mutationFn: () => syncStrava(qc), meta: opts.quiet ? { quiet: true } : undefined });
+      const promise = m.execute(undefined);
+      const rec = { at: now, promise, quiet: !!opts.quiet, settled: false };
+      lastSync = rec;
+      promise.then(
+        () => void (rec.settled = true),
+        () => {
+          rec.settled = true;
+          // a sync that failed is not handed to the next caller: it tries again (consumer review 1 #10)
+          if (lastSync === rec) lastSync = null;
+        },
+      );
+      if (!opts.quiet) {
+        setChecking(1);
+        const done = () => setChecking(-1);
+        promise.then(done, done);
+      }
+      return promise;
     }
-  }
-  const m = qc.getMutationCache().build(qc, { mutationKey: STRAVA_SYNC_KEY, mutationFn: () => syncStrava(qc), meta: opts.quiet ? { quiet: true } : undefined });
-  const promise = m.execute(undefined);
-  const rec = { at: now, promise, quiet: !!opts.quiet, settled: false };
-  lastSync = rec;
-  promise.then(
-    () => void (rec.settled = true),
-    () => {
-      rec.settled = true;
-      // a sync that failed is not handed to the next caller: it tries again (consumer review 1 #10)
-      if (lastSync === rec) lastSync = null;
-    },
-  );
-  if (!opts.quiet) {
-    setChecking(1);
-    const done = () => setChecking(-1);
-    promise.then(done, done);
-  }
-  return promise;
-};
+  : () => Promise.resolve({});
 /*
  * The status line must show on the first frame after the call (spec 53): the mutation cache notifies React a task later
  * (notifyManager batches on setTimeout 0), so non-quiet syncs started here are also counted in a store React reads with
@@ -195,12 +205,14 @@ const subscribeChecking = (f: () => void) => {
   return () => void checkingSubs.delete(f);
 };
 const getChecking = () => checking > 0;
-/** The open face's status line: a non-quiet sync is in flight. */
-export const useStravaChecking = (): boolean => {
-  const started = useSyncExternalStore(subscribeChecking, getChecking, () => false);
-  const mutating = useIsMutating({ mutationKey: STRAVA_SYNC_KEY, predicate: (m) => !m.meta?.quiet }) > 0;
-  return started || mutating;
-};
+/** The open face's status line: a non-quiet sync is in flight. Always false in a build without the connection. */
+export const useStravaChecking: () => boolean = STRAVA_BUILT
+  ? () => {
+      const started = useSyncExternalStore(subscribeChecking, getChecking, () => false);
+      const mutating = useIsMutating({ mutationKey: STRAVA_SYNC_KEY, predicate: (m) => !m.meta?.quiet }) > 0;
+      return started || mutating;
+    }
+  : () => false;
 /** Pull to refresh's old path, kept: the same request and key. */
 export const useStravaCheck = (): UseMutationResult<StravaSyncAnswer, Error, void> => {
   const qc = useQueryClient();
@@ -1100,14 +1112,19 @@ export const useGoalMutations = () => {
     mutationFn: async (input: { level: GoalLevel; period: string; text: string; original?: string | null; why?: string | null; chose?: 'sharpened' | 'kept' | 'own'; steps?: GoalStep[] }) => {
       const { level, period, ...body } = input;
       const now = new Date().toISOString();
+      // a new goal is shown under a provisional id until the server names it
+      const tmpId = `tmp-goal-${level}-${period}`;
+      const isNew = !aimsOf(qc.getQueryData<Aim[]>(goalsKey) ?? []).some((x) => x.level === level && x.period === period);
       setGoals((g) => {
         const had = g.find((x) => x.level === level && x.period === period);
         const next: Aim = had
           ? { ...had, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, steps: body.steps ?? had.steps, updatedAt: now }
-          : { id: `tmp-goal-${level}-${period}`, level, period, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, status: 'open', reflection: null, steps: body.steps ?? [], createdAt: now, updatedAt: now, closedAt: null };
+          : { id: tmpId, level, period, text: body.text, original: body.original && body.original !== body.text ? body.original : null, why: body.why ?? null, status: 'open', reflection: null, steps: body.steps ?? [], createdAt: now, updatedAt: now, closedAt: null };
         return had ? g.map((x) => (x === had ? next : x)) : [next, ...g];
       });
-      const saved = await write<Aim>(`/goals/${level}/${period}`, 'PUT', body, [goalsKey]);
+      // the create carries its provisional id: a step added or Mark done before the answer waits behind it and is sent to
+      // the real id (the outbox renames it), online or off
+      const saved = await write<Aim>(`/goals/${level}/${period}`, 'PUT', body, [goalsKey], isNew ? { tmpId } : {});
       if (saved) setGoals((g) => g.map((x) => (x.level === level && x.period === period ? aimOf(saved) : x)));
       touched();
     },
