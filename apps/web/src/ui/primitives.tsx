@@ -18,8 +18,9 @@ export const IconButton = ({ label, className = '', size, children, ...rest }: R
   </button>
 );
 
+/** A chip that toggles: aria-pressed from `on`, unless it plays another role (a radio says aria-checked itself, a11y-15). */
 export const ChipButton = ({ quiet, on, className = '', ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { quiet?: boolean; on?: boolean }) => (
-  <button type="button" className={`chip-btn ${quiet ? 'quiet' : ''} ${on ? 'on' : ''} ${className}`} aria-pressed={on === undefined ? undefined : on} {...rest} />
+  <button type="button" className={`chip-btn ${quiet ? 'quiet' : ''} ${on ? 'on' : ''} ${className}`} aria-pressed={on === undefined || rest.role ? undefined : on} {...rest} />
 );
 
 export const Chip = ({ kind, children, className = '' }: { kind?: string; children: ReactNode; className?: string }) => (children ? <span className={`chip ${kind ?? ''} ${className}`}>{children}</span> : null);

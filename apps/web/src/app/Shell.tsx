@@ -227,8 +227,7 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={on}
+      aria-current={on ? 'page' : undefined}
       className="tab-item pressable"
       data-tab={t.id}
       data-press="scale"
@@ -265,7 +264,8 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
 });
 const TabBar = ({ ctl, active }: { ctl: Controller; active: TabId }) => (
   <nav className="tabbar" aria-label="Views">
-    <div className="tabs" role="tablist">
+    {/* a navigation landmark of buttons, the current one marked (a11y-15): no tablist, which promised arrow keys */}
+    <div className="tabs">
       {TABS.map((t) => (
         <TabItem key={t.id} t={t} on={active === t.id} ctl={ctl} />
       ))}

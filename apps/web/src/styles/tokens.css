@@ -115,9 +115,10 @@
   --fs-head: 1.25rem; --lh-head: 1.5625rem;
   --fs-row: 1.0625rem; --lh-row: 1.375rem;
   --fs-sub: 0.9375rem; --lh-sub: 1.25rem;
-  --fs-foot: 0.8125rem; --lh-foot: 1.125rem;
-  --fs-orb: 0.75rem; --lh-orb: 1rem;
-  --fs-caps: 0.6875rem; --lh-caps: 0.8125rem;
+  /* the three small sizes have floors: whatever the root does, a caption never reads under 11 px (a11y-18) */
+  --fs-foot: max(13px, 0.8125rem); --lh-foot: max(18px, 1.125rem);
+  --fs-orb: max(12px, 0.75rem); --lh-orb: max(16px, 1rem);
+  --fs-caps: max(11px, 0.6875rem); --lh-caps: max(13px, 0.8125rem);
   --r-lg: 22px;
   --r-md: 12px;
   --r-pill: 999px;
