@@ -563,3 +563,7 @@ button.pg-srow[data-pressed] {
 .mp-card .ck-range-key {
   min-width: 44px;
 }
+/* the average pill's words at 11 px, never under (the kit draws them at 10.5) */
+.pg-page .ck-avg-word {
+  font-size: 0.6875rem;
+}

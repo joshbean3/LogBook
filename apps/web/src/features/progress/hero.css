@@ -375,7 +375,7 @@
 .ll-card.is-missed .ll-status {
   background: var(--accent-soft);
   /* 5.0:1 on the soft accent */
-  color: var(--accent-text-strong, #b23a09);
+  color: #b23a09;
 }
 .ll-sum {
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
