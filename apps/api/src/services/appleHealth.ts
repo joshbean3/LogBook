@@ -16,7 +16,7 @@ import {
   type HealthSyncAnswer,
   type SleepStageName,
 } from '@logbook/shared';
-import { and, count, eq, gte, inArray, isNull, lte, max, min, ne, notInArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNull, lte, max, min, ne, notInArray, sql } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import type { z } from 'zod';
 import type { DB } from '../db/index.js';
@@ -230,7 +230,7 @@ export const healthStatus = (db: DB, userId: string): HealthStatus => {
     historyFrom: s.historyFrom,
     sleepGoalMin,
     counts: { samples, days: days?.n ?? 0, sleep, workouts },
-    span: { from: days?.from ?? null, to: days?.to ?? null },
+    span: healthSpan(db, userId, days?.from ?? null, days?.to ?? null),
     devices,
   };
 };
@@ -257,6 +257,34 @@ export const localDate = (ms: number, tz: string): string => (formatterFor(tz) ?
 /** Sleep that starts from 6 pm counts toward the night that ends the next morning. */
 const SLEEP_DAY_SHIFT_MS = 6 * 3600_000;
 const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * The first and last local days with a reading, counted the way `healthDaily` counts them: samples on the day they were
+ * taken, sleep on the night it ends. health_days stays empty with the three types this release reads (sleep, HRV,
+ * resting heart rate), so the span comes from the samples and sleep segments, with any health_days rows added in.
+ */
+const healthSpan = (db: DB, userId: string, daysFrom: string | null, daysTo: string | null): { from: string | null; to: string | null } => {
+  const sampleWhere = and(eq(healthSamples.userId, userId), isNull(healthSamples.deletedAt), inArray(healthSamples.type, [...HEALTH_SAMPLE_TYPES]));
+  const segmentWhere = and(eq(sleepSegments.userId, userId), isNull(sleepSegments.deletedAt), inArray(sleepSegments.stage, [...ASLEEP_STAGES]));
+  const sample = (order: typeof asc) => db.select({ startAt: healthSamples.startAt, tz: healthSamples.tz }).from(healthSamples).where(sampleWhere).orderBy(order(healthSamples.startAt)).limit(1).get();
+  const segment = (order: typeof asc) => db.select({ startAt: sleepSegments.startAt, tz: sleepSegments.tz }).from(sleepSegments).where(segmentWhere).orderBy(order(sleepSegments.startAt)).limit(1).get();
+  const readings = [
+    { r: sample(asc), shift: 0 },
+    { r: sample(desc), shift: 0 },
+    { r: segment(asc), shift: SLEEP_DAY_SHIFT_MS },
+    { r: segment(desc), shift: SLEEP_DAY_SHIFT_MS },
+  ].filter((x): x is { r: { startAt: string; tz: string | null }; shift: number } => !!x.r);
+  // a reading with no zone takes the zone of the latest one that has one, then UTC (as in healthDaily)
+  const fallback = [...readings].sort((a, b) => (a.r.startAt < b.r.startAt ? 1 : -1)).find((x) => isTimeZone(x.r.tz))?.r.tz ?? 'UTC';
+  const dates = readings.flatMap(({ r, shift }) => {
+    const ms = Date.parse(r.startAt);
+    return Number.isNaN(ms) ? [] : [localDate(ms + shift, isTimeZone(r.tz) ? r.tz : fallback)];
+  });
+  if (daysFrom) dates.push(daysFrom);
+  if (daysTo) dates.push(daysTo);
+  dates.sort();
+  return { from: dates[0] ?? null, to: dates.at(-1) ?? null };
+};
 
 /**
  * Contract 4. One row per day from `from` to `to`: minutes asleep, average heart rate variability (ms) and average

@@ -207,6 +207,31 @@ describe('Apple Health: the daily numbers (GET /apple-health/daily)', () => {
     });
   });
 
+  it('status spans the first to the last local day of the samples and sleep, with health_days empty', async () => {
+    expect((await call('GET', '/api/apple-health/status')).body.span).toEqual({ from: null, to: null });
+    await call(
+      'POST',
+      '/api/apple-health/sync',
+      batch({
+        // 9:30 pm in New York on Nov 1 is Nov 2 in UTC: the span starts on the local day
+        samples: [hrv('first', '2026-11-01', '21:30', 50), hrv('last', '2026-11-05', '20:00', 58)],
+        // sleep belongs to the night it ends: the first night (from Nov 1) is Nov 2, the last (from Nov 4) is Nov 5
+        sleep: [seg('n1', ['2026-11-01', '22:30'], ['2026-11-02', '06:00'], 'core'), seg('n2', ['2026-11-04', '23:00'], ['2026-11-05', '06:30'], 'core')],
+      }),
+      device(token),
+    );
+    expect(db.select().from(healthDays).all()).toHaveLength(0);
+    const s = (await call('GET', '/api/apple-health/status')).body;
+    expect(s.span).toEqual({ from: '2026-11-01', to: '2026-11-05' });
+    expect(s.counts).toMatchObject({ days: 0, sleep: 2 });
+  });
+
+  it('status spans sleep alone when there are no samples', async () => {
+    await call('POST', '/api/apple-health/sync', batch({ sleep: [seg('n1', ['2026-11-03', '23:00'], ['2026-11-04', '06:30'], 'deep'), seg('aw', ['2026-11-07', '23:00'], ['2026-11-08', '06:30'], 'awake')] }), device(token));
+    // the awake stretch is not sleep, so it does not stretch the span
+    expect((await call('GET', '/api/apple-health/status')).body.span).toEqual({ from: '2026-11-04', to: '2026-11-04' });
+  });
+
   it('places a reading with no time zone by the tz it is asked with, then by the person’s latest reading, then UTC', async () => {
     // 9:30 pm in New York is already the next day in UTC
     await call('POST', '/api/apple-health/sync', batch({ samples: [rhr('late', '2026-11-03', '21:30', 50, null)] }), device(token));
