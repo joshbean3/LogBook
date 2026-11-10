@@ -8,7 +8,7 @@ What to do for every build that goes to TestFlight or the App Store. The owner t
 2. **Legal pages.** `docs/launch/legal-fields.json` is complete and `approved` is `true`. Run `pnpm legal` after any change and commit the pages. Deploy the server so the pages are live, then open all four signed out on a phone:
    `/legal/privacy.html`, `/legal/health-privacy.html`, `/legal/terms.html`, `/legal/support.html`.
 3. **Privacy sentences.** Run `node scripts/privacy-claims.mjs --check`, then re-read `docs/launch/privacy-claims.md`: every sentence beside the code it describes. Do this whenever a privacy sentence, a Claude call, the Apple Health types or a retention number changed since the last release. A sentence that is not true gets fixed, not listed.
-4. **Tests.** `pnpm typecheck` and `pnpm test` pass on the release commit.
+4. **Tests.** `pnpm typecheck` and `pnpm test` pass on the release commit, and CI is green on it (`.github/workflows/ci.yml`: the build checks, the spelling check, the end-to-end flows and the accessibility scan at 390 and 320 wide). After any dependency change run `pnpm notices` and commit `apps/web/public/legal/acknowledgements.html`.
 5. **Settings.** Put the three values in `.env.release` in the repo root (git ignores it):
 
    ```
@@ -18,8 +18,9 @@ What to do for every build that goes to TestFlight or the App Store. The owner t
    ```
 
    `VITE_SUPPORT_EMAIL` must be the `supportEmail` in `legal-fields.json`. Do not set `VITE_FEATURE_STRAVA`.
-6. **Commit everything**, including the Xcode project if Xcode changed it (the signing team), and `apps/web/ios/App/CapApp-SPM/Package.swift` if `npx cap sync ios` rewrote it.
-7. **Tag** the commit: `git tag v1.0.0` (the version comes from the tag).
+6. **Once, before the first release:** on the Mac run `npx cap sync ios` in `apps/web` and check that `CapApp-SPM/Package.swift` now lists the local notifications and Apple Health plugins and says `.iOS(.v17)`; commit it with `App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`. On the App ID (developer.apple.com, Identifiers) turn on HealthKit and Associated Domains. Make the server answer `https://<api host>/.well-known/apple-app-site-association` with `{"webcredentials":{"apps":["<Team ID>.com.joshbean.logbook"]}}`.
+7. **Commit everything**, including the Xcode project if Xcode changed it (the signing team), and `apps/web/ios/App/CapApp-SPM/Package.swift` if `npx cap sync ios` rewrote it.
+8. **Tag** the commit: `git tag v1.0.0` (the version comes from the tag).
 
 ## The build
 
