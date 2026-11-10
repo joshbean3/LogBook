@@ -7,6 +7,7 @@ import { useNav } from '@/app/NavController';
 import { useDaily, useJournalList, useJournalMutations } from '@/api/queries';
 import { HOLD_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
+import { revealField } from '@/lib/keyboard';
 import { crossfade, springs, useReduced } from '@/lib/motion';
 import { EmptyState, IconButton, Pressable, Skeleton, SkeletonGroup, SwipeRow, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
@@ -487,7 +488,7 @@ export const Timeline = ({
       <div ref={head} className="jtl-anchor" aria-hidden="true" />
       {searching ? (
         <div className="jtl-search fade-in">
-          <input ref={search} className="in" type="search" placeholder="Search your entries" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} aria-label="Search entries" />
+          <input ref={search} className="in" type="search" placeholder="Search your entries" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} onFocus={(e) => revealField(e.currentTarget)} aria-label="Search entries" />
         </div>
       ) : null}
       {pending ? (

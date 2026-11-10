@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { seedOf, usePick, useJournalList, useJournalMutations, useQuotes, useQuoteThemes, useReads, useThemeQuotes, type QuoteTheme } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
+import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
 import { Button, ContextMenu, EmptyState, Group, IconButton, Pressable, Skeleton, SkeletonGroup, SkeletonRows, SwipeRow, useSheet, useToast } from '@/ui';
 import { FavStar } from './FavStar';
@@ -236,7 +237,19 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
   const add = () => {
     // a quote kept is not a day's close: no `success` (two a day, §11.4)
     flip.current = measureBelow(head.current);
-    addQuote.mutate({ text: nt.trim(), author: na.trim() }, { onError: () => toast('Couldn’t add that quote.') });
+    const kept = { text: nt, author: na };
+    addQuote.mutate(
+      { text: nt.trim(), author: na.trim() },
+      {
+        // refused: the words go back in the form
+        onError: () => {
+          setNt(kept.text);
+          setNa(kept.author);
+          setAdding(true);
+          toast('Couldn’t add that quote. Your words are back.');
+        },
+      },
+    );
     setNt('');
     setNa('');
     setAdding(false);
@@ -244,8 +257,8 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
   const form = (
     <div className="fade-in">
       <Group className="qadd">
-        <textarea ref={field} className="jtext serif" rows={2} maxLength={400} placeholder="A line worth keeping" aria-label="Quote" value={nt} onChange={(e) => setNt(e.target.value)} />
-        <input className="jtext qadd-by" maxLength={80} placeholder="Who said it (optional)" aria-label="Author" value={na} onChange={(e) => setNa(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && nt.trim().length >= 3 && add()} />
+        <textarea ref={field} className="jtext serif" rows={2} maxLength={400} placeholder="A line worth keeping" aria-label="Quote" value={nt} onChange={(e) => setNt(e.target.value)} onFocus={(e) => revealField(e.currentTarget)} />
+        <input className="jtext qadd-by" maxLength={80} placeholder="Who said it (optional)" aria-label="Author" value={na} onChange={(e) => setNa(e.target.value)} onFocus={(e) => revealField(e.currentTarget)} onKeyDown={(e) => e.key === 'Enter' && nt.trim().length >= 3 && add()} />
         <div className="composer-foot">
           <Button variant="quiet" onClick={() => setAdding(false)}>
             Cancel
