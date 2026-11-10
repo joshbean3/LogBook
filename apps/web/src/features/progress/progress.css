@@ -19,9 +19,15 @@
 .pg-vital {
   container: vital / inline-size;
 }
-/* a narrow tile gives the label's icon room back to its words ("Resting HR") */
+/* the name stays whole ("Resting HR"): a tile under 190 px gives the metric icon's room to it and keeps the arrow;
+   under 140 px (a 320 phone) the arrow gives way too, and the whole tile stays the button */
+@container vital (max-width: 190px) {
+  .pg-vital .tile-label svg:not(.pg-go) {
+    display: none;
+  }
+}
 @container vital (max-width: 140px) {
-  .pg-vital .tile-label svg {
+  .pg-vital .tile-label .pg-go {
     display: none;
   }
 }
