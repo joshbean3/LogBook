@@ -11,6 +11,7 @@ import { ChangePasswordPanel, DeleteStepOne, useExport } from './account';
 import { popFav } from '@/features/journal/feel';
 import { Download, House, KeyRound, Mail, Upload, Vibrate, type LucideIcon } from 'lucide-react';
 import { healthDeviceId } from './healthDevice';
+import { EXPORT_SUB, IMPORT_MAX_BYTES, IMPORT_NOT_OURS, IMPORT_SUB, IMPORT_TOO_BIG, importDone, importError, importKind } from './dataModel';
 import { ActionPill, GoRow, SGroup, Switch, Tile } from './parts';
 
 // ---------- install (the web app only) ----------
@@ -94,8 +95,6 @@ export const AppPage = (): React.JSX.Element => {
   );
 };
 
-const WORDS: Record<string, [string, string]> = { journal: ['journal entry', 'journal entries'], todos: ['to-do', 'to-dos'], links: ['saved link', 'saved links'], reads: ['saved link', 'saved links'], checks: ['habit check', 'habit checks'], quotes: ['quote', 'quotes'], quotePrefs: ['quote preference', 'quote preferences'], morningDays: ['morning', 'mornings'] };
-
 /** /settings/data: Import and Export. Each row answers in its own second line, a failure included. */
 export const DataPage = (): React.JSX.Element => {
   const qc = useQueryClient();
@@ -103,28 +102,29 @@ export const DataPage = (): React.JSX.Element => {
   const [importResult, setImportResult] = useState<{ text: string; bad: boolean } | null>(null);
   const importBundle = useMutation({
     mutationFn: async (file: File) => {
-      const text = await file.text();
+      // a file the server would refuse is refused here, before the whole of it is sent
+      if (file.size > IMPORT_MAX_BYTES) throw new ApiError(IMPORT_TOO_BIG, 413);
       let json: unknown;
       try {
-        json = JSON.parse(text);
+        json = JSON.parse(await file.text());
       } catch {
-        throw new ApiError('That file isn’t a Logbook export or an old log.', 422);
+        throw new ApiError(IMPORT_NOT_OURS, 422);
       }
+      // "Nothing new" is said only of a file that is a Logbook export; an empty object or another app's JSON is refused
+      if (!importKind(json)) throw new ApiError(IMPORT_NOT_OURS, 422);
       return api<{ ok?: boolean; imported?: Record<string, number> }>('/import', { method: 'POST', json });
     },
     onSuccess: (r) => {
-      const parts = Object.entries(r.imported ?? {})
-        .filter(([, n]) => n)
-        .map(([k, n]) => {
-          const w = WORDS[k];
-          return w ? `${n.toLocaleString()} ${n === 1 ? w[0] : w[1]}` : `${n.toLocaleString()} ${n === 1 ? k.replace(/s$/, '') : k}`;
-        });
-      setImportResult({ text: parts.length ? `Imported ${parts.join(', ')}.` : 'Nothing new: it was all here already.', bad: false });
+      setImportResult({ text: importDone(r.imported), bad: false });
       void qc.invalidateQueries();
     },
     onError: (e) => {
       haptics.error();
-      setImportResult({ text: e instanceof ApiError && e.status === 422 ? 'That file isn’t a log Logbook can read.' : 'Import didn’t finish. Try again.', bad: true });
+      setImportResult({ text: importError(e instanceof ApiError ? e.status : null), bad: true });
+    },
+    onSettled: () => {
+      // the same file can be picked again after a fix
+      if (fileRef.current) fileRef.current.value = '';
     },
   });
   const exp = useExport();
@@ -136,7 +136,7 @@ export const DataPage = (): React.JSX.Element => {
           className="s-wrap s-import-row has-tile"
           left={<Tile icon={Upload} />}
           title="Import"
-          sub={importBundle.isPending ? 'Reading the file…' : importResult ? <span className={importResult.bad ? 's-bad' : ''}>{importResult.text}</span> : 'A Logbook export or your old log, as JSON.'}
+          sub={importBundle.isPending ? 'Reading the file…' : importResult ? <span className={importResult.bad ? 's-bad' : ''}>{importResult.text}</span> : IMPORT_SUB}
           onClick={() => !importBundle.isPending && fileRef.current?.click()}
           label="Import a file"
         />
@@ -144,7 +144,7 @@ export const DataPage = (): React.JSX.Element => {
           className="s-wrap s-export-row has-tile"
           left={<Tile icon={Download} />}
           title="Export"
-          sub={exp.busy ?? (exp.result ? <span className={exp.result.bad ? 's-bad' : ''}>{exp.result.text}</span> : 'Everything you’ve logged, as one JSON file.')}
+          sub={exp.busy ?? (exp.result ? <span className={exp.result.bad ? 's-bad' : ''}>{exp.result.text}</span> : EXPORT_SUB)}
           onClick={() => void exp.run()}
           label="Export my data"
           aria-live="polite"
