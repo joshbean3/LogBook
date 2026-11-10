@@ -21,7 +21,7 @@ test('every page: lang, viewport, one h1, no outside asset, no script, no em das
     assert.match(p.html, /<meta name="viewport" content="width=device-width, initial-scale=1" \/>/, p.file);
     assert.equal((p.html.match(/<h1[ >]/g) ?? []).length, 1, p.file);
     assert.doesNotMatch(p.html, /<script|<link|<img|@import|url\(/, p.file);
-    assert.doesNotMatch(p.html, /—/, p.file);
+    assert.doesNotMatch(p.html, /\u2014/, p.file);
     assert.doesNotMatch(p.html, /\{\{/, p.file);
   }
 });
