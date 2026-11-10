@@ -14,7 +14,7 @@ import { MIN_AGE } from '@/lib/copy';
 import { LEGAL, openExternal, SUPPORT } from '@/lib/siteLinks';
 import { clearPendingConsent, consentForSignup, readPendingChoice } from './consent';
 import { hasAccountHere, markHasAccount } from './flag';
-import { emailProblem, fieldOf422, newPasswordProblem, PASSWORD_MAX, passwordRefusal } from './rules';
+import { afterSignIn, emailProblem, isPasswordRefusal, newPasswordProblem, PASSWORD_MAX, passwordRefusal } from './rules';
 import './auth.css';
 
 /**
@@ -168,6 +168,8 @@ export const Login = () => {
   const [fromStart] = useState(state?.from === 'start');
   // the session ended on the server (a 401 sent the visitor here): say so once (auth-10)
   const [signedOut] = useState(!!state?.signedOut);
+  // the in-app page a 401 sent the visitor away from: signing in goes back to it (Today otherwise)
+  const [to] = useState(() => afterSignIn(state?.from));
   // leaving the reset screens drops the token from the address: to sign in, or (an expired link) to ask for a new one
   const leaveReset = (toForgot: boolean) => {
     setForgot(toForgot);
@@ -177,11 +179,11 @@ export const Login = () => {
   return forgot ? (
     <Forgot email={email} onEmail={setEmail} onBack={() => setForgot(false)} />
   ) : (
-    <SignIn email={email} onEmail={setEmail} onForgot={() => setForgot(true)} back={fromStart ? () => (canGoBack() ? nav(-1) : nav('/start', { replace: true })) : undefined} notice={signedOut ? 'You were signed out. Sign in to open your log.' : null} />
+    <SignIn email={email} onEmail={setEmail} onForgot={() => setForgot(true)} to={to} back={fromStart ? () => (canGoBack() ? nav(-1) : nav('/start', { replace: true })) : undefined} notice={signedOut ? 'You were signed out. Sign in to open your log.' : null} />
   );
 };
 
-const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice }: { email: string; onEmail: (v: string) => void; onForgot: () => void; back?: () => void; notice?: string | null }) => {
+const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice, to = '/today' }: { email: string; onEmail: (v: string) => void; onForgot: () => void; back?: () => void; notice?: string | null; /** where a successful sign-in goes */ to?: string }) => {
   const status = useAuthStatus();
   const qc = useQueryClient();
   const nav = useNavigate();
@@ -211,7 +213,7 @@ const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice }: { email: s
       markHasAccount();
       // a different account may have signed in on this device: nothing of the last one stays in the cache
       qc.clear();
-      nav('/today', { replace: true });
+      nav(to, { replace: true });
     } catch (e2) {
       haptics.error();
       if (e2 instanceof ApiError && e2.status === 401) {
@@ -552,9 +554,12 @@ export const Signup = () => {
         setErr({ email: 'There’s already an account with that email.' });
       } else if (e2 instanceof ApiError && e2.status === 403) setErr({ form: 'New accounts are not open right now. Sign in instead.' });
       else if (e2 instanceof ApiError && e2.status === 422) {
-        // the server names the field it refused (auth-14, auth-19)
-        if (fieldOf422(e2.message) === 'password') setErr({ password: passwordRefusal(e2.message) });
-        else {
+        // the server names the field it refused (auth-14, auth-19): a weak password keeps the visitor on the password step
+        if (isPasswordRefusal(e2)) {
+          setStep('password');
+          setErr({ password: passwordRefusal(e2.message) });
+          refs.password.current?.focus();
+        } else {
           setStep('email');
           setErr({ email: 'That doesn’t look like an email address.' });
         }

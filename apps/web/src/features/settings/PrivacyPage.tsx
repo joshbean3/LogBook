@@ -59,7 +59,7 @@ export const PrivacyPage = (): React.JSX.Element => {
           <Row key={s.key} className="s-wrap s-wrap-title s-consent-row" title={s.title} sub={s.sub} right={<Switch on={switchOn(c, s.key)} label={s.title} disabled={!c} onChange={(next) => change(s.key, next)} />} />
         ))}
       </SGroup>
-      {c ? <PrivacyFacts on={switchOn(c, 'training')} consent={c} /> : null}
+      {c ? <PrivacyFacts consent={c} /> : null}
       <SGroup title="Policies and requests" foot={`Anthropic runs the assistant and sees only what you allow. Fly.io hosts Logbook. The Privacy Policy lists everyone who handles your data.`}>
         <GoRow icon={FileText} className="s-wrap-title" title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
         <GoRow icon={HeartPulse} className="s-wrap-title" title="Consumer health data privacy policy" onPress={() => void openExternal(LEGAL.healthPrivacy)} />

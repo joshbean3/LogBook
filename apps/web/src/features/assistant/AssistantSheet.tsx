@@ -758,7 +758,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
             {training ? (
               <>
                 <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
-                {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, goals and to-dos. It can’t read your journal.</p> : null}
+                {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, training status, goals and to-dos. It can’t read your journal.</p> : null}
                 <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
               </>
             ) : (

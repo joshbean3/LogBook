@@ -21,7 +21,11 @@ export const remindersOn = () => {
   }
 };
 
-const notifications = () => import('@capacitor/local-notifications').then((m) => m.LocalNotifications);
+/*
+ * The plugin is loaded inside each function and its methods are called there. A Capacitor plugin is a proxy that answers
+ * any property, `then` included, so it must never be the value a promise resolves with: awaiting it calls `then`, and iOS
+ * rejects with "LocalNotifications.then() is not implemented on ios" (settings-34).
+ */
 
 /** What iOS allows: `granted`, `denied` (only the Settings app can change it now), or `prompt` (not asked yet). */
 export type ReminderPermission = 'granted' | 'denied' | 'prompt';
@@ -30,7 +34,7 @@ const permOf = (display: string): ReminderPermission => (display === 'granted' ?
 /** What iOS allows now, without asking. `prompt` on the web. */
 export const reminderPermission = async (): Promise<ReminderPermission> => {
   if (!remindersSupported()) return 'prompt';
-  const ln = await notifications();
+  const { LocalNotifications: ln } = await import('@capacitor/local-notifications');
   return permOf((await ln.checkPermissions()).display);
 };
 
@@ -41,7 +45,7 @@ export const reminderPermission = async (): Promise<ReminderPermission> => {
  */
 export const enableReminders = async (owed?: { goals: readonly Aim[] | undefined; today: ISODate; wake: number }): Promise<boolean> => {
   if (!remindersSupported()) return false;
-  const ln = await notifications();
+  const { LocalNotifications: ln } = await import('@capacitor/local-notifications');
   const p = permOf((await ln.requestPermissions()).display);
   try {
     localStorage.setItem(KEY, p === 'granted' ? '1' : '0');
@@ -70,7 +74,7 @@ export const disableReminders = async () => {
     /* nothing to keep */
   }
   if (!remindersSupported()) return;
-  const ln = await notifications();
+  const { LocalNotifications: ln } = await import('@capacitor/local-notifications');
   await ln.cancel({ notifications: Array.from({ length: DAYS }, (_, i) => ({ id: FIRST_ID + i })) });
 };
 
@@ -99,7 +103,7 @@ export const plannedReminders = (goals: readonly Aim[] | undefined, today: ISODa
 /** Replace what is scheduled with what is owed. A no-op on the web or with reminders off. */
 export const scheduleReminders = async (goals: readonly Aim[] | undefined, today: ISODate, wake: number) => {
   if (!remindersSupported() || !remindersOn()) return;
-  const ln = await notifications();
+  const { LocalNotifications: ln } = await import('@capacitor/local-notifications');
   await ln.cancel({ notifications: Array.from({ length: DAYS }, (_, i) => ({ id: FIRST_ID + i })) });
   const due = plannedReminders(goals, today, new Date(), wake);
   if (due.length) await ln.schedule({ notifications: due.map((n) => ({ id: n.id, title: n.title, body: n.body, schedule: { at: n.at, allowWhileIdle: true }, extra: { route: '/goals' } })) });
@@ -110,7 +114,7 @@ export const onReminderTap = (go: (path: string) => void): (() => void) => {
   if (!remindersSupported()) return () => undefined;
   let off: (() => void) | null = null;
   let dead = false;
-  void notifications().then((ln) =>
+  void import('@capacitor/local-notifications').then(({ LocalNotifications: ln }) =>
     ln
       .addListener('localNotificationActionPerformed', (e) => go(typeof e.notification.extra?.route === 'string' ? e.notification.extra.route : '/goals'))
       .then((h) => {

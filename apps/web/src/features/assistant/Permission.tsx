@@ -87,7 +87,7 @@ export const AssistantPermission = ({ gate, retry, date, screen }: { gate: Exclu
         <ul className="card as-ask-list">
           <li>
             <b>Allow</b>
-            <span>The assistant can also read your plan, sessions, goals and to-dos, so its answers fit your training.</span>
+            <span>The assistant can also read your plan, sessions, training status, goals and to-dos, so its answers fit your training.</span>
           </li>
           <li>
             <b>Only what I type</b>

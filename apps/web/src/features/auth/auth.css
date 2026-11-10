@@ -124,10 +124,11 @@
 .auth-in-wrap {
   position: relative;
 }
+/* at rest a 1px edge that reads against the card (3:1); focus and error draw 2px, the padding giving back the extra pixel */
 .auth .in.auth-in {
   height: 52px;
-  padding: 0 14px;
-  border: 2px solid transparent;
+  padding: 0 15px;
+  border: 1px solid var(--field-edge);
   border-radius: var(--r-control);
   background: var(--surface-2);
   box-shadow: none;
@@ -135,6 +136,16 @@
   font-size: 1.0625rem;
 }
 .auth-in-wrap:has(.auth-eye) .in.auth-in {
+  padding-right: 53px;
+}
+.auth .in.auth-in:focus,
+.auth-field.bad .in.auth-in {
+  border-width: 2px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.auth-in-wrap:has(.auth-eye) .in.auth-in:focus,
+.auth-field.bad .auth-in-wrap:has(.auth-eye) .in.auth-in {
   padding-right: 52px;
 }
 .auth .in.auth-in:focus {

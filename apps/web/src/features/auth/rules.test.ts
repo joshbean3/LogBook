@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { zCredentials } from '@logbook/shared';
-import { emailProblem, fieldOf422, newPasswordProblem, passwordRefusal } from './rules';
+import { COMMON_PASSWORDS, passwordProblem, zCredentials } from '@logbook/shared';
+import { afterSignIn, emailProblem, fieldOf422, isPasswordRefusal, newPasswordProblem, passwordRefusal } from './rules';
 
 describe('emailProblem', () => {
   it('asks for an address when empty', () => {
@@ -30,6 +30,14 @@ describe('newPasswordProblem', () => {
     expect(newPasswordProblem('sam@example.com', 'Sam@example.com')).toMatch(/email/);
     expect(newPasswordProblem('samuel99', 'samuel99@example.com')).toMatch(/email/);
   });
+  it('refuses what the server refuses: its whole common list and one repeated character', () => {
+    expect(newPasswordProblem('marathon1')).toBe('That password is too common. Try another.');
+    expect(newPasswordProblem('aaaaaaaaaa')).toMatch(/too easy to guess/);
+    for (const p of COMMON_PASSWORDS) expect(newPasswordProblem(p)).not.toBeNull();
+    for (const p of ['marathon1', 'Running123', 'zzzzzzzz', 'correct horse 9', 'sam@example.com', 'samuel99']) {
+      expect(newPasswordProblem(p, 'samuel99@example.com') === null).toBe(passwordProblem(p, 'samuel99@example.com') === null);
+    }
+  });
   it('accepts a fair password', () => {
     expect(newPasswordProblem('correct horse 9', 'sam@example.com')).toBeNull();
   });
@@ -52,5 +60,27 @@ describe('passwordRefusal', () => {
     expect(passwordRefusal('password: must not equal the email')).toBe('Don’t use your email as your password.');
     expect(passwordRefusal('password: Too big: expected string to have <=200 characters')).toBe('That password won’t work. Use 8 to 200 characters.');
     expect(passwordRefusal('')).toBe('That password won’t work. Use 8 to 200 characters.');
+  });
+});
+
+describe('isPasswordRefusal', () => {
+  it('reads a weak_password 422 as about the password, whatever the message says', () => {
+    expect(isPasswordRefusal({ status: 422, code: 'weak_password', message: 'That password is too common. Pick another.' })).toBe(true);
+    expect(passwordRefusal('That password is too common. Pick another.')).toBe('That password is too common. Try another.');
+    expect(isPasswordRefusal({ status: 422, code: null, message: 'password: Too big' })).toBe(true);
+    expect(isPasswordRefusal({ status: 422, code: null, message: 'email: Invalid email address' })).toBe(false);
+    expect(isPasswordRefusal({ status: 409, code: 'weak_password', message: '' })).toBe(false);
+  });
+});
+
+describe('afterSignIn', () => {
+  it('goes back to the in-app page the visitor came from', () => {
+    expect(afterSignIn('/plan')).toBe('/plan');
+    expect(afterSignIn('/settings/privacy')).toBe('/settings/privacy');
+  });
+  it('goes to Today otherwise', () => {
+    for (const f of [undefined, null, 'start', '', '//evil.example.com', '/login', '/start', '/welcome/name', '/signup', 'https://example.com/x']) {
+      expect(afterSignIn(f)).toBe('/today');
+    }
   });
 });

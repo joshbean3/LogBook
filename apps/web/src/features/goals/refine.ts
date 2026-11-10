@@ -47,7 +47,7 @@ export type Review =
   | { kind: 'failed'; message: string };
 
 export const AS_TYPED_WORDS: Record<AsTyped, string> = {
-  consent: 'Saved as written. Turn on assistant access in Settings to have goals reviewed.',
+  consent: 'Saved as written. Turn on Training data in Settings, Privacy, to have goals reviewed.',
   unavailable: 'Saved as written. The review was not available.',
   offline: 'Saved as written. The review needs a connection.',
   declined: 'Saved as written. The review could not help with this one.',
