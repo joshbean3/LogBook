@@ -390,9 +390,14 @@ export const zGoalRefine = z.object({ level: zGoalLevel, period: z.string().min(
 export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean(), steps: z.array(z.string()) });
 
 /**
- * What the assistant may read (user_settings `consent`), chosen on the privacy page before the account and changed in
- * Settings › Privacy. `training`: the plan, sessions, goals, to-dos and status. `health`: Apple Health data, null until
- * that exists and has been asked. `at`: when it was last chosen.
+ * What may go to Claude, by flow (user_settings `consent`), asked before the first use of each flow and changed in
+ * Settings, Privacy. Everything is off until the person says yes.
+ * - `training`: the plan, sessions, goals, to-dos and status, for the assistant, the plan builder and the goal review.
+ * - `recall`: one past journal entry or learning plus the first name, for Remember when.
+ * - `reads`: saved links, notes and tags, for the daily pick.
+ * - `health`: stays null in 1.0. No health data goes to AI.
+ * - `at`: when a choice was last stored. Null means never asked: the server then makes no Claude call at all.
+ * - `version`: the wording the person agreed to.
  */
 export const CONSENT_VERSION = '2026-11';
 export const zConsentInput = z.object({
@@ -414,8 +419,18 @@ export interface Consent {
   at: string | null;
   version: string | null;
 }
-/** An account that never chose (the owner's, from before the privacy page) reads as the default: training on, health not asked. */
-export const DEFAULT_CONSENT: Consent = { training: true, health: null, recall: false, reads: false, at: null, version: null };
+/** An account that never chose: nothing granted, never asked. */
+export const DEFAULT_CONSENT: Consent = { training: false, health: null, recall: false, reads: false, at: null, version: null };
+/** What a consent log line records: `training`, `recall`, `reads` and `health` are the switches; `apple_health` is connecting or disconnecting Apple Health. */
+export const CONSENT_KINDS = ['training', 'recall', 'reads', 'health', 'apple_health'] as const;
+export type ConsentKind = (typeof CONSENT_KINDS)[number];
+/** One line of the append-only consent log (user_settings `consentLog`). */
+export interface ConsentEvent {
+  kind: ConsentKind;
+  value: boolean | null;
+  at: string;
+  version: string | null;
+}
 /** The one-time feature intros (user_settings `intros`): which have been shown. Only accounts that went through first run are enrolled. */
 export const INTRO_KEYS = ['plan', 'learned', 'journal'] as const;
 export type IntroKey = (typeof INTRO_KEYS)[number];

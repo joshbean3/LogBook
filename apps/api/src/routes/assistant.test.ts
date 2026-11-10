@@ -4,7 +4,9 @@ import { openDatabase, type DB } from '../db/index.js';
 import { activities, assistantActions } from '../db/schema.js';
 import { env } from '../env.js';
 import { buildApp } from '../index.js';
+import { resetAiLimits } from '../services/aiLimits.js';
 import { labelOp, setAssistantClient, splitReplies } from '../services/assistant.js';
+import { writeConsent } from '../services/consent.js';
 
 type App = ReturnType<typeof buildApp>;
 let app: App;
@@ -105,17 +107,17 @@ describe('asking without holding the line', () => {
     expect(r.body.code).toBe('job_gone');
   });
 
-  it('still answers at once, job or not, when the server has no Claude key', async () => {
-    const key = env.ANTHROPIC_API_KEY;
+  it('answers 503 with a plain message, job or not, when the server has no Claude key', async () => {
     const configured = env.claudeConfigured;
     env.claudeConfigured = false;
     try {
-      const r = await call('POST', '/api/assistant?async=1', { date: '2026-11-02', turns: [{ role: 'user', text: 'hi' }] });
-      expect(r.status).toBe(200);
-      expect(r.body.available).toBe(false);
+      for (const url of ['/api/assistant?async=1', '/api/assistant']) {
+        const r = await call('POST', url, { date: '2026-11-02', turns: [{ role: 'user', text: 'hi' }] });
+        expect(r.status).toBe(503);
+        expect(r.body).toEqual({ error: 'The assistant is not available right now. Try again later.', code: 'claude_not_configured' });
+      }
     } finally {
       env.claudeConfigured = configured;
-      env.ANTHROPIC_API_KEY = key;
     }
   });
 });
@@ -201,12 +203,19 @@ describe('asking, with a fake Claude', () => {
   };
   /** Everything Claude was sent in the first call, as one string. */
   const sent = (stream: ReturnType<typeof fakeClaude>) => JSON.stringify(stream.mock.calls[0]![0]);
+  let model = env.ANTHROPIC_MODEL;
   beforeEach(() => {
     configured = env.claudeConfigured;
+    model = env.ANTHROPIC_MODEL;
     env.claudeConfigured = true;
+    env.ANTHROPIC_MODEL = 'test-model';
+    resetAiLimits();
+    // the account has answered the permission step and said yes to training data
+    writeConsent(db, userId, { training: true });
   });
   afterEach(() => {
     env.claudeConfigured = configured;
+    env.ANTHROPIC_MODEL = model;
     setAssistantClient(null);
   });
 

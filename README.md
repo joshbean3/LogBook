@@ -122,7 +122,9 @@ curl -X POST https://www.strava.com/api/v3/push_subscriptions \
 
 ## Connect Claude
 
-Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPIC_MODEL` to change). This turns on the plan builder, the coach's read, the goal review and the assistant (which runs on `claude-sonnet-5-5`). `ATHLETE_CONTEXT` is a sentence or two about you that Claude reads before writing anything.
+Set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` (the id of the model to use, from the Anthropic Console). Both are needed: with either one missing the AI features stay off and the app says the assistant is not available. This turns on the assistant, the plan builder, the goal review, Remember when and the daily pick. Set `ANTHROPIC_ASSISTANT_MODEL` if the assistant chat should run on a different model from the rest.
+
+Nothing goes to Claude for an account until that person has said yes in the app (Settings, Privacy). Nothing in the environment describes a person: each prompt is built from the signed-in account's own data.
 
 ## Environment variables
 
@@ -133,9 +135,9 @@ Set `ANTHROPIC_API_KEY`. The server uses `claude-opus-5-5` by default (`ANTHROPI
 | `SESSION_SECRET` | Signs cookies and OAuth state. Required in production |
 | `DATABASE_PATH` | SQLite file. Mount a volume here (`/data/logbook.db` in Docker) |
 | `ALLOW_SETUP` | `1` lets the first visitor create the account; set `0` after |
-| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Claude |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Claude: the key and the model id. Both are required for the AI features |
+| `ANTHROPIC_ASSISTANT_MODEL` | Optional: a different model id for the assistant chat |
 | `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN` | Strava |
-| `ATHLETE_CONTEXT` | Who you are, for Claude |
 
 ## Development
 

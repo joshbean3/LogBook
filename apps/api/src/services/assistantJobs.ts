@@ -67,6 +67,12 @@ export const startJob = <T>(userId: string, work: (ctx: JobContext) => Promise<T
   return id;
 };
 
+/** The id of the job a user has running right now, or null. One answer runs per user at a time (routes/assistant.ts). */
+export const runningJobOf = (userId: string): string | null => {
+  for (const [id, j] of jobs) if (j.userId === userId && j.state.status === 'running') return id;
+  return null;
+};
+
 /** A user's job, or null when it is not theirs, never existed or has expired. */
 export const jobState = <T>(userId: string, id: string, now = Date.now()): JobState<T> | null => {
   purge(now);

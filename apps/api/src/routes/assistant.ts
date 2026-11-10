@@ -2,10 +2,12 @@ import { zAssistantApply, zAssistantAsk } from '@logbook/shared';
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
-import { env } from '../env.js';
 import { ApiError, parseBody } from '../lib/util.js';
+import { beginAi } from '../services/aiLimits.js';
 import { applyAction, ask, dismissAction, recentActions, undoAction } from '../services/assistant.js';
-import { cancelJob, jobState, startJob, type JobContext } from '../services/assistantJobs.js';
+import { cancelJob, jobState, runningJobOf, startJob, type JobContext } from '../services/assistantJobs.js';
+import { claudeClient } from '../services/claude.js';
+import { requireAiPermission } from '../services/consent.js';
 
 /**
  * The assistant on Today: ask (Claude answers, or proposes checked changes that are saved, not applied), then apply,
@@ -21,11 +23,29 @@ export const assistantRoutes = (db: DB) => {
    */
   r.post('/assistant', async (c) => {
     const body = await parseBody(c.req.raw, zAssistantAsk);
-    if (!env.claudeConfigured) return c.json({ text: 'The assistant needs a Claude key on the server (ANTHROPIC_API_KEY).', proposal: null, available: false });
+    // 503 `claude_not_configured` with a plain message when the server has no key
+    claudeClient();
     const userId = uidOf(c);
+    // 403 `consent_required` until the person has answered the permission step: nothing typed or attached is sent before
+    requireAiPermission(db, userId, 'assistant');
     const today = c.get('today');
-    const run = async (ctx?: JobContext) => ({ ...(await ask(db, userId, body.turns, body.date, today, body.screen, ctx ?? {})), available: true as const });
-    if (c.req.query('async') === '1') return c.json({ jobId: startJob(userId, run) }, 202);
+    const wantsJob = c.req.query('async') === '1';
+    // one answer at a time: a second ask while one runs gets that job's id back with the 429, so the app can pick it up
+    const runningId = wantsJob ? runningJobOf(userId) : null;
+    if (runningId) {
+      c.header('Retry-After', '5');
+      return c.json({ error: 'The assistant is still answering your last message.', code: 'rate_limited', jobId: runningId }, 429);
+    }
+    // the short window, the day's budget and the cap on answers running at once (429 `rate_limited` or 503 `claude_busy`)
+    const release = beginAi(userId, 'assistant');
+    const run = async (ctx?: JobContext) => {
+      try {
+        return { ...(await ask(db, userId, body.turns, body.date, today, body.screen, ctx ?? {})), available: true as const };
+      } finally {
+        release();
+      }
+    };
+    if (wantsJob) return c.json({ jobId: startJob(userId, run) }, 202);
     return c.json(await run());
   });
   r.get('/assistant/jobs/:id', (c) => {

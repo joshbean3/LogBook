@@ -1,27 +1,74 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { clock, fmtDate, isISODate, KINDS, mi, mondayOf, shiftDays, today, zClaudeGoalOutput, zClaudePlanOutput, type GoalLevel, type HrZone, type PlanDraft, type Session, type SessionKind } from '@logbook/shared';
+import { clock, fmtDate, isISODate, KINDS, mi, mondayOf, shiftDays, today, zClaudeGoalOutput, zClaudePlanOutput, type GoalLevel, type PlanDraft, type Session, type SessionKind } from '@logbook/shared';
 import { env } from '../env.js';
 import { ApiError } from '../lib/util.js';
+import { claudeBusy, logAiUsage } from './aiLimits.js';
+import { withSafety } from './aiSafety.js';
 
+// ---------- the one client ----------
+
+/** Every Claude call in the server goes through this client, so one fake in a test sees them all. */
+export type ClaudeClient = Pick<Anthropic, 'messages' | 'beta'>;
 let client: Anthropic | null = null;
-const anthropic = () => {
-  if (!env.claudeConfigured) throw new ApiError(503, 'Claude isn’t configured on this server. Add ANTHROPIC_API_KEY.', 'claude_not_configured');
-  return (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 10 * 60_000, maxRetries: 2 }));
+let injected: ClaudeClient | null = null;
+/** Tests hand in a fake client (it may implement only the calls the test makes); null puts the real one back. */
+export const setClaudeClient = (c: unknown) => {
+  injected = (c as ClaudeClient | null) ?? null;
+};
+export const claudeNotConfigured = () => new ApiError(503, 'The assistant is not available right now. Try again later.', 'claude_not_configured');
+export const CLAUDE_TIMEOUT_MS = 120_000;
+/**
+ * The client, or 503 `claude_not_configured` without a key and a model. Two minutes to first byte (long answers are
+ * streamed, so the clock is on the wait, not the writing) and one retry: a phone gives up before a longer wait ends.
+ */
+export const claudeClient = (): ClaudeClient => {
+  if (injected) return injected;
+  if (!env.claudeConfigured) throw claudeNotConfigured();
+  return (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: CLAUDE_TIMEOUT_MS, maxRetries: 1 }));
+};
+/** The same, or null where a missing key means "fall back quietly" (Remember when, the daily pick). */
+export const claudeClientOrNull = (): ClaudeClient | null => injected ?? (env.claudeConfigured ? claudeClient() : null);
+
+/**
+ * The model a call runs on, from the environment (ANTHROPIC_MODEL; the assistant may have its own in
+ * ANTHROPIC_ASSISTANT_MODEL). No model is named in the code: the owner sets it with the key.
+ */
+export const claudeModel = (which: 'main' | 'assistant' = 'main'): string => {
+  const m = (which === 'assistant' ? env.ANTHROPIC_ASSISTANT_MODEL : undefined) || env.ANTHROPIC_MODEL;
+  if (!m) throw claudeNotConfigured();
+  return m;
+};
+
+/**
+ * What a failed Claude call becomes for the app, one mapping for every caller: a rate limit, an overload or a Claude
+ * server error is 503 `claude_busy`; a timeout is 504 `claude_timeout`; a request Claude rejects while it carries a file
+ * is 422 `bad_file`. Anything else (an ApiError already, an abort, a bug) is thrown on as it is.
+ */
+export const mapClaudeError = (e: unknown, opts: { hasFile?: boolean } = {}): never => {
+  if (e instanceof ApiError) throw e;
+  if (e instanceof Anthropic.APIConnectionTimeoutError) throw new ApiError(504, 'The assistant took too long to answer. Try again.', 'claude_timeout');
+  if (e instanceof Anthropic.APIUserAbortError) throw e;
+  if (e instanceof Anthropic.RateLimitError || e instanceof Anthropic.InternalServerError || e instanceof Anthropic.APIConnectionError) throw claudeBusy();
+  if (e instanceof Anthropic.APIError && typeof e.status === 'number' && e.status >= 500) throw claudeBusy();
+  if (e instanceof Anthropic.BadRequestError && opts.hasFile) throw new ApiError(422, 'That file could not be read.', 'bad_file');
+  if (e instanceof Anthropic.APIError && e.status === 413) throw new ApiError(422, opts.hasFile ? 'That file is too big to read.' : 'That is too long to send in one go.', 'too_big');
+  throw e;
 };
 
 /**
  * What a plan draft knows about the athlete. Runs come from the sessions they marked done, never from Strava: Strava's API
- * policy (June 2026) bars its data from any AI use, prompts included.
+ * policy (June 2026) bars its data from any AI use, prompts included. `zones` is always null for the same reason (heart
+ * rate zones come from Strava); the field stays so a caller cannot start filling it without a test failing.
  */
 export interface AthleteContext {
   runs: Array<{ date: string; miles: number; minutes: number | null }>;
-  zones: HrZone[] | null;
+  zones: null;
 }
 
-/** Six weeks of running, typical paces and zones: what a coach would want to know before writing anything. */
-export const recentContext = (ctx: AthleteContext): string => {
-  const mon = mondayOf(today());
+/** Six weeks of running and typical paces: what a coach would want to know before writing anything. Nothing here comes from the environment or from Strava. */
+export const recentContext = (ctx: AthleteContext, t: string = today()): string => {
+  const mon = mondayOf(t);
   const weeks: string[] = [];
   for (let i = 6; i >= 1; i--) {
     const m = shiftDays(mon, -7 * i);
@@ -36,8 +83,6 @@ export const recentContext = (ctx: AthleteContext): string => {
   return [
     ctx.runs.length ? `Recent weekly running, from the sessions they marked done (Mon-start): ${weeks.join('; ')}.` : 'Recent running data is not available; do not assume the athlete is untrained.',
     paces.length ? `Typical recent run paces per mile: ${paces.join(', ')}.` : '',
-    ctx.zones ? `Heart-rate zones (bpm): ${ctx.zones.map((z) => `Z${z.zone} ${z.min}${z.max ? `-${z.max}` : '+'}`).join(', ')}.` : '',
-    env.ATHLETE_CONTEXT ? `Athlete: ${env.ATHLETE_CONTEXT}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -61,6 +106,8 @@ export interface DraftInput {
   existing?: Array<Pick<Session, 'date' | 'kind' | 'type' | 'title' | 'details' | 'miles' | 'minutes'>>;
   file?: { data: Buffer; mediaType: string } | null;
   ctx: AthleteContext;
+  /** The person's own date (`X-Local-Date`); the server's when left out. */
+  today?: string;
 }
 
 const cleanDraft = (out: unknown, start: string, end: string | undefined): PlanDraft => {
@@ -90,15 +137,16 @@ const cleanDraft = (out: unknown, start: string, end: string | undefined): PlanD
 };
 
 /** Turn a PDF, image, pasted text, a description or a revision request into dated sessions. */
-export const draftPlan = async (input: DraftInput): Promise<PlanDraft> => {
-  const c = anthropic();
-  const t = today();
+export const PLAN_SYSTEM = withSafety('You turn a training plan into calendar entries for a training app. You write running and strength plans the way a careful coach would, and you answer only in the requested shape.');
+
+export const draftPlan = async (userId: string, input: DraftInput): Promise<PlanDraft> => {
+  const c = claudeClient();
+  const t = input.today ?? today();
   const parts: string[] = [
-    'You are a running and strength coach turning a training plan into calendar entries for an app.',
     `Today is ${fmtDate('long', t)}, ${t.slice(0, 4)} (${t}).`,
     '',
     'ABOUT THE ATHLETE',
-    recentContext(input.ctx),
+    recentContext(input.ctx, t),
     '',
   ];
   const instr = (input.instructions ?? '').trim();
@@ -128,13 +176,21 @@ export const draftPlan = async (input: DraftInput): Promise<PlanDraft> => {
   }
   content.push({ type: 'text', text: parts.join('\n') });
 
-  const stream = c.messages.stream({
-    model: env.ANTHROPIC_MODEL,
-    max_tokens: 32000,
-    output_config: { effort: 'high', format: zodOutputFormat(zClaudePlanOutput) },
-    messages: [{ role: 'user', content }],
-  });
-  const msg = await stream.finalMessage();
+  let msg: Anthropic.Message;
+  try {
+    msg = await c.messages
+      .stream({
+        model: claudeModel(),
+        max_tokens: 32000,
+        system: PLAN_SYSTEM,
+        output_config: { effort: 'high', format: zodOutputFormat(zClaudePlanOutput) },
+        messages: [{ role: 'user', content }],
+      })
+      .finalMessage();
+  } catch (e) {
+    return mapClaudeError(e, { hasFile: !!input.file });
+  }
+  logAiUsage(userId, 'plan', msg.usage);
   if (msg.stop_reason === 'refusal') throw new ApiError(422, 'Claude declined this request. Rephrase it and try again.', 'refused');
   if (msg.stop_reason === 'max_tokens') throw new ApiError(422, 'That plan is too long to convert in one go. Upload fewer weeks at a time.', 'too_long');
   const text = msg.content.find((b) => b.type === 'text')?.text ?? '';
@@ -165,8 +221,10 @@ const GOAL_SCOPE: Record<GoalLevel, string> = {
  * specific, measurable, hard but attainable, bound to the period's deadline, and his; a learning goal when the task is new
  * or complex. Keeps his intent and his voice; leaves a goal that already meets the rules alone.
  */
-export const refineGoal = async (level: GoalLevel, period: string, end: string, text: string, t: string): Promise<{ text: string; why: string | null; changed: boolean; steps: string[] }> => {
-  const c = anthropic();
+export const GOAL_SYSTEM = withSafety('You review one personal goal at a time for the person who wrote it, and answer only in the requested shape.');
+
+export const refineGoal = async (userId: string, level: GoalLevel, period: string, end: string, text: string, t: string): Promise<{ text: string; why: string | null; changed: boolean; steps: string[] }> => {
+  const c = claudeClient();
   const prompt = [
     'You review personal goals using the findings of Locke and Latham\'s goal-setting research (35 years of studies; "New Directions in Goal-Setting Theory", 2006).',
     'The findings to apply:',
@@ -188,7 +246,13 @@ export const refineGoal = async (level: GoalLevel, period: string, end: string, 
       ? `- steps: 2 to 4 proximal subgoals that get the goal done ${level === 'day' ? 'today' : 'this week'}, in the order he would do them; each one concrete, verb first, under 8 words, no numbering. [] when the goal is one single action.`
       : '- steps: [] (a year or a month goal is reviewed on its own).',
   ].join('\n');
-  const msg = await c.messages.create({ model: env.ANTHROPIC_MODEL, max_tokens: 1200, output_config: { effort: 'low', format: zodOutputFormat(zClaudeGoalOutput) }, messages: [{ role: 'user', content: prompt }] });
+  let msg: Anthropic.Message;
+  try {
+    msg = await c.messages.create({ model: claudeModel(), max_tokens: 1200, system: GOAL_SYSTEM, output_config: { effort: 'low', format: zodOutputFormat(zClaudeGoalOutput) }, messages: [{ role: 'user', content: prompt }] });
+  } catch (e) {
+    return mapClaudeError(e);
+  }
+  logAiUsage(userId, 'goal', msg.usage);
   if (msg.stop_reason === 'refusal') throw new ApiError(422, 'Claude declined to review this goal.', 'refused');
   const raw = msg.content.find((b) => b.type === 'text')?.text ?? '';
   let out: { goal: string; why: string; changed: boolean; steps: string[] };

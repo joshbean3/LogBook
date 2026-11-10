@@ -75,13 +75,13 @@ describe('goals', () => {
   });
 
   it('a review without a Claude key hands the words back untouched', async () => {
-    const key = env.ANTHROPIC_API_KEY;
-    (env as { ANTHROPIC_API_KEY?: string }).ANTHROPIC_API_KEY = '';
+    const configured = env.claudeConfigured;
+    env.claudeConfigured = false;
     try {
       const r = await call('POST', '/api/goals/refine', { level: 'day', period: '2026-10-26', text: 'be productive' });
-      if (r.body.available === false) expect(r.body).toEqual({ text: 'be productive', why: null, changed: false, steps: [], available: false });
+      expect(r.body).toEqual({ text: 'be productive', why: null, changed: false, steps: [], available: false });
     } finally {
-      (env as { ANTHROPIC_API_KEY?: string }).ANTHROPIC_API_KEY = key;
+      env.claudeConfigured = configured;
     }
   });
 });

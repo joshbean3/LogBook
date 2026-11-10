@@ -76,6 +76,7 @@ describe('the privacy choice reaches the assistant', () => {
     const { mondayOf } = await import('@logbook/shared');
     const goal = await call('PUT', `/api/goals/week/${mondayOf(T)}`, { text: 'Run four times' });
     const me = (await call('GET', '/api/me')).body.id as string;
+    writeConsent(db, me, { training: true });
     const on = contextFor(db, me, T, T);
     expect(goal.status).toBeLessThan(300);
     expect(on).toContain('Run four times');

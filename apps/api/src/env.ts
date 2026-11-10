@@ -14,11 +14,13 @@ const schema = z.object({
     .transform((v) => /^(1|true|yes|on)$/i.test(v.trim())),
   WEB_DIST: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default('claude-opus-5-5'),
+  /** The model every Claude call runs on. No default: set it with the key, or the AI features stay off. */
+  ANTHROPIC_MODEL: z.string().optional(),
+  /** The model the assistant chat runs on, when it should differ. Falls back to ANTHROPIC_MODEL. */
+  ANTHROPIC_ASSISTANT_MODEL: z.string().optional(),
   STRAVA_CLIENT_ID: z.string().optional(),
   STRAVA_CLIENT_SECRET: z.string().optional(),
   STRAVA_WEBHOOK_VERIFY_TOKEN: z.string().default('logbook-verify'),
-  ATHLETE_CONTEXT: z.string().default(''),
   /** Dev only: '1' returns a fixed daily pick instead of searching the web. */
   READS_FAKE_PICK: z.string().optional(),
 });
@@ -36,7 +38,7 @@ export const env = {
   allowSignup: parsed.data.ALLOW_SIGNUP,
   secureCookies: parsed.data.APP_URL.startsWith('https://'),
   stravaConfigured: !!(parsed.data.STRAVA_CLIENT_ID && parsed.data.STRAVA_CLIENT_SECRET),
-  claudeConfigured: !!parsed.data.ANTHROPIC_API_KEY,
+  claudeConfigured: !!(parsed.data.ANTHROPIC_API_KEY && parsed.data.ANTHROPIC_MODEL),
   readsFakePick: parsed.data.READS_FAKE_PICK === '1' || parsed.data.READS_FAKE_PICK === 'true',
 };
 

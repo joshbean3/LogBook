@@ -4,29 +4,24 @@ import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm'
 import { z } from 'zod';
 import type { DB } from '../db/index.js';
 import { assistantActions, goalEvents, goals, planBlocks, todoGroups, todos, trainingSessions } from '../db/schema.js';
-import { env } from '../env.js';
 import { ApiError, nowISO, uid } from '../lib/util.js';
 import { readSetting } from '../routes/core.js';
-import { assistantMayReadTraining } from './consent.js';
+import { logAiUsage } from './aiLimits.js';
+import { withSafety } from './aiSafety.js';
+import { claudeClient, claudeModel, mapClaudeError, setClaudeClient } from './claude.js';
+import { assistantMayReadTraining, requireAiPermission } from './consent.js';
 
-/** The assistant runs on Sonnet (the owner's choice: quick, and capable enough to edit a plan). */
-export const ASSISTANT_MODEL = 'claude-sonnet-5-5';
 const MAX_ROUNDS = 6;
 /** A whole plan (eight weeks of runs, and the old plan's sessions removed) fits in one proposal. */
 export const MAX_CHANGES = 200;
 
-/** The one call the assistant makes: a streamed message, read whole. */
 /** The slice of the client the assistant uses. A stream may be iterated for its events (the real one is); a test's fake may only answer finalMessage. */
 export type AssistantStream = { finalMessage: () => Promise<Anthropic.Beta.BetaMessage>; [Symbol.asyncIterator]?: () => AsyncIterator<Anthropic.Beta.BetaRawMessageStreamEvent> };
 export type AssistantClient = { beta: { messages: { stream: (params: Parameters<Anthropic['beta']['messages']['stream']>[0], options?: { signal?: AbortSignal }) => AssistantStream } } };
-let client: Anthropic | null = null;
-let injected: AssistantClient | null = null;
-/** Tests hand in a fake client; null puts the real one back. */
-export const setAssistantClient = (c: AssistantClient | null) => {
-  injected = c;
-};
-// replies are streamed (a fifty-change proposal is a long tool call); ten minutes a call, one retry
-const anthropic = (): AssistantClient => injected ?? (client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 600_000, maxRetries: 1 }));
+/** Tests hand in a fake client; null puts the real one back. (The one client every Claude call shares: services/claude.ts.) */
+export const setAssistantClient = (c: AssistantClient | null) => setClaudeClient(c);
+// replies are streamed (a fifty-change proposal is a long tool call)
+const anthropic = (): AssistantClient => claudeClient() as unknown as AssistantClient;
 
 type SessionRow = typeof trainingSessions.$inferSelect;
 type TodoRow = typeof todos.$inferSelect;
@@ -124,7 +119,7 @@ export const contextFor = (db: DB, userId: string, today: string, date: string, 
   ].join('\n');
 };
 
-const SYSTEM = `You are the assistant inside Logbook, a personal app for one person's running and lifting plan, habits, to-dos and goals. The owner asks you to look things up or change things.
+const INSTRUCTIONS = `You are the assistant inside Logbook, a personal app for one person's running and lifting plan, habits, to-dos and goals. The owner asks you to look things up or change things.
 
 How you work:
 - Answer from the data you are given in the latest message's CONTEXT block. For sessions outside the dates shown, call get_sessions.
@@ -138,6 +133,11 @@ How you work:
 - CONTEXT may have a SCREEN line: the screen he opened you from. Use it to read what "this" or "this week" means; do not mention it otherwise.
 - End every reply with up to three short follow-ups he might send next, written as he would type them to you (first person, under 60 characters, no quotes inside), each a real next step from what you just said. Put them on the last line, exactly like this: <replies>["Move it to Saturday instead", "What does next week look like?"]</replies>. Leave the line out when nothing fits.
 - When the conversation holds only one message from him (it is new), also give it a title of two to five plain words, sentence case, no period, on its own line just before the replies line: <title>Moving the tempo run</title>.`;
+
+/** The assistant's system text: its instructions, then the safety rules every Claude call carries. */
+export const SYSTEM = withSafety(INSTRUCTIONS);
+/** What a tool answers once the person has turned off reading their training data (also when it is turned off mid-answer). */
+export const TRAINING_OFF_TOOL = 'The owner has turned off reading their training data (Settings, Privacy). You cannot look up or change their plan, sessions, goals or to-dos. Say so and answer in general terms.';
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -323,7 +323,12 @@ export const messagesFor = (turns: AskTurn[], context: string): Anthropic.Beta.B
 };
 
 export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string, today: string, screen?: AssistantScreen, opts: AskOptions = {}): Promise<AskResult> => {
-  if (!env.claudeConfigured) throw new ApiError(503, 'The assistant needs ANTHROPIC_API_KEY on the server.', 'claude_not_configured');
+  const api = anthropic();
+  // never asked means nothing is sent, typed text and files included (the route checks too; this is the gate for every caller)
+  requireAiPermission(db, userId, 'assistant');
+  // with the training switch off there are no tools at all: nothing to look up, nothing to propose
+  const mayRead = assistantMayReadTraining(db, userId);
+  const hasFile = turns.some((t) => t.attachments?.length);
   const history = turns.slice(-20);
   const last = history[history.length - 1]!;
   if (last.role !== 'user') throw new ApiError(400, 'The last turn must be yours.');
@@ -363,13 +368,12 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
   report('', true);
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    const stream = anthropic().beta.messages.stream(
+    const stream = api.beta.messages.stream(
       {
-        model: ASSISTANT_MODEL,
+        model: claudeModel('assistant'),
         max_tokens: 32000,
         system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
-        tools: TOOLS,
-        tool_choice: { type: 'auto' },
+        ...(mayRead ? { tools: TOOLS, tool_choice: { type: 'auto' as const } } : {}),
         // a readable summary of the reasoning, shown folded under the answer ("Thought for 6s")
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: 'medium' },
@@ -380,28 +384,35 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
       { signal: opts.signal },
     );
     let current = '';
-    for await (const ev of (stream[Symbol.asyncIterator] ? (stream as AsyncIterable<Anthropic.Beta.BetaRawMessageStreamEvent>) : [])) {
-      if (ev.type === 'content_block_start') {
-        const b = ev.content_block;
-        if (b.type === 'thinking') {
-          phase = 'thinking';
-          // a later round's reasoning starts on its own paragraph
-          if (thoughts.trim()) thoughts = `${thoughts.trimEnd()}\n\n`;
-        }
-        else if (b.type === 'text') phase = 'writing';
-        else if (b.type === 'tool_use') phase = b.name === 'propose_changes' ? 'proposing' : 'reading';
-        report(current, true);
-      } else if (ev.type === 'content_block_delta') {
-        if (ev.delta.type === 'text_delta') {
-          current += ev.delta.text;
-          report(current);
-        } else if (ev.delta.type === 'thinking_delta') {
-          thoughts += ev.delta.thinking;
-          report(current);
+    let res: Anthropic.Beta.BetaMessage;
+    try {
+      for await (const ev of (stream[Symbol.asyncIterator] ? (stream as AsyncIterable<Anthropic.Beta.BetaRawMessageStreamEvent>) : [])) {
+        if (ev.type === 'content_block_start') {
+          const b = ev.content_block;
+          if (b.type === 'thinking') {
+            phase = 'thinking';
+            // a later round's reasoning starts on its own paragraph
+            if (thoughts.trim()) thoughts = `${thoughts.trimEnd()}\n\n`;
+          }
+          else if (b.type === 'text') phase = 'writing';
+          else if (b.type === 'tool_use') phase = b.name === 'propose_changes' ? 'proposing' : 'reading';
+          report(current, true);
+        } else if (ev.type === 'content_block_delta') {
+          if (ev.delta.type === 'text_delta') {
+            current += ev.delta.text;
+            report(current);
+          } else if (ev.delta.type === 'thinking_delta') {
+            thoughts += ev.delta.thinking;
+            report(current);
+          }
         }
       }
+      res = await stream.finalMessage();
+    } catch (e) {
+      if (trailing) clearTimeout(trailing);
+      return mapClaudeError(e, { hasFile });
     }
-    const res = await stream.finalMessage();
+    logAiUsage(userId, 'assistant', res.usage);
     if (res.stop_reason === 'refusal') return finish({ text: 'I can’t help with that one.', proposal: null });
     // the whole turn goes back as it came (tool calls and thinking blocks included)
     messages.push({ role: 'assistant', content: res.content });
@@ -421,6 +432,12 @@ export const ask = async (db: DB, userId: string, turns: AskTurn[], date: string
 
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {
+      // checked again on every call: the switch may have been turned off since this answer began, and a model that
+      // names a tool it was never given gets the same answer
+      if (!mayRead || !assistantMayReadTraining(db, userId)) {
+        results.push({ type: 'tool_result', tool_use_id: call.id, is_error: true, content: TRAINING_OFF_TOOL });
+        continue;
+      }
       if (call.name === 'get_sessions') {
         const q = z.object({ from: z.string(), to: z.string() }).safeParse(call.input);
         const ok = q.success && /^\d{4}-\d{2}-\d{2}$/.test(q.data.from) && /^\d{4}-\d{2}-\d{2}$/.test(q.data.to) && q.data.from <= q.data.to && q.data.to <= shiftDays(q.data.from, 120);

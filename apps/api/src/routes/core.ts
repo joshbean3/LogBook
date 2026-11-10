@@ -39,6 +39,7 @@ import { stravaStatus } from '../services/strava.js';
 import { syncInBackground } from './strava.js';
 import { z } from 'zod';
 import { readTrainingProfile } from '../services/training.js';
+import { readConsent } from '../services/consent.js';
 import { deleteBlock, restoreBlock } from '../services/plans.js';
 
 /** `POST /sessions/:id/effort`: 1 to 10, whole numbers, or null to clear. */
@@ -117,6 +118,8 @@ export const coreRoutes = (db: DB) => {
       zones: zonesOf(db, userId),
       strava: st,
       features: { claude: env.claudeConfigured, strava: env.stravaConfigured },
+      // contract 1: what may go to Claude, the same record GET /me/consent answers
+      consent: readConsent(db, userId),
       serverTime: nowISO(),
     });
   });

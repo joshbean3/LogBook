@@ -63,7 +63,8 @@ export const buildApp = (db: DB) => {
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) {
-      const code = (err as { code?: string }).code;
+      const { code, headers } = err as { code?: string; headers?: Record<string, string> };
+      for (const [k, v] of Object.entries(headers ?? {})) c.header(k, v);
       return c.json({ error: err.message, code: code ?? null }, err.status);
     }
     console.error(err);

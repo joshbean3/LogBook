@@ -1,38 +1,94 @@
-import { DEFAULT_CONSENT, INTRO_KEYS, type Consent, type ConsentInput, type IntroKey } from '@logbook/shared';
+import { CONSENT_VERSION, DEFAULT_CONSENT, INTRO_KEYS, type Consent, type ConsentEvent, type ConsentInput, type ConsentKind, type IntroKey } from '@logbook/shared';
 import type { DB } from '../db/index.js';
-import { nowISO } from '../lib/util.js';
+import { ApiError, nowISO } from '../lib/util.js';
 import { readSetting, writeSetting } from '../routes/core.js';
 
 /**
- * What the assistant may read, as the person chose it (user_settings `consent`). An account that never chose reads as the
- * default (training data on, health not asked), which is what the privacy page offers.
+ * What may go to Claude, as the person chose it (user_settings `consent`). An account with no record has granted
+ * nothing and was never asked (`at: null`). A switch counts as on only when it was stored as `true`.
  */
 export const readConsent = (db: DB, userId: string): Consent => {
   const c = readSetting<Partial<Consent>>(db, userId, 'consent');
   if (!c) return { ...DEFAULT_CONSENT };
-  return { training: c.training !== false, health: typeof c.health === 'boolean' ? c.health : null, recall: c.recall === true, reads: c.reads === true, at: c.at ?? null, version: c.version ?? null };
+  return { training: c.training === true, health: typeof c.health === 'boolean' ? c.health : null, recall: c.recall === true, reads: c.reads === true, at: c.at ?? null, version: c.version ?? null };
 };
 
-/** Store a choice. Any field the input leaves out keeps its earlier value. */
+const LOG_KEY = 'consentLog';
+/** The log keeps its newest lines up to this many, so a script flipping a switch cannot grow the row without end. */
+const LOG_MAX = 2000;
+const SWITCHES = ['training', 'recall', 'reads', 'health'] as const;
+
+/** The consent log, oldest first. */
+export const readConsentLog = (db: DB, userId: string): ConsentEvent[] => {
+  const log = readSetting<ConsentEvent[]>(db, userId, LOG_KEY);
+  return Array.isArray(log) ? log : [];
+};
+
+/** Append lines to the consent log (user_settings `consentLog`). Nothing in it is ever edited. */
+export const logConsent = (db: DB, userId: string, events: Array<{ kind: ConsentKind; value: boolean | null; version?: string | null }>, at = nowISO()) => {
+  if (!events.length) return;
+  const log = readConsentLog(db, userId);
+  for (const e of events) log.push({ kind: e.kind, value: e.value, at, version: e.version ?? CONSENT_VERSION });
+  writeSetting(db, userId, LOG_KEY, log.slice(-LOG_MAX));
+};
+
+/**
+ * Store a choice. Any switch the input leaves out keeps its earlier value. `at` moves only when the input carries a
+ * switch (a body with none is not an answer). Every answer is appended to the consent log as `{ kind, value, at, version }`:
+ * each switch the first time the person answers, and after that each switch whose value changed.
+ */
 export const writeConsent = (db: DB, userId: string, input: ConsentInput): Consent => {
   const cur = readConsent(db, userId);
+  const given = SWITCHES.filter((k) => input[k] !== undefined);
+  if (!given.length) return cur;
+  const at = nowISO();
+  const version = input.version ?? CONSENT_VERSION;
   const next: Consent = {
     training: input.training ?? cur.training,
     health: input.health === undefined ? cur.health : input.health,
     recall: input.recall ?? cur.recall,
     reads: input.reads ?? cur.reads,
-    at: nowISO(),
-    version: input.version === undefined ? cur.version : input.version,
+    at,
+    version,
   };
-  writeSetting(db, userId, 'consent', next);
+  const changed = given.filter((k) => cur.at === null || cur[k] !== next[k]);
+  db.transaction(() => {
+    writeSetting(db, userId, 'consent', next);
+    logConsent(db, userId, changed.map((k) => ({ kind: k, value: next[k], version })), at);
+  });
   return next;
 };
 
+/** May the plan, sessions, goals, to-dos or status go to Claude for this account? */
+export const assistantMayReadTraining = (db: DB, userId: string): boolean => {
+  const c = readConsent(db, userId);
+  return c.at !== null && c.training;
+};
+/** May one past journal entry or learning, with the first name, go to Claude to write Remember when? */
+export const mayWriteRecall = (db: DB, userId: string): boolean => {
+  const c = readConsent(db, userId);
+  return c.at !== null && c.recall;
+};
+/** May the saved links, notes and tags go to Claude to choose the daily pick? */
+export const mayPickReads = (db: DB, userId: string): boolean => {
+  const c = readConsent(db, userId);
+  return c.at !== null && c.reads;
+};
+
+/** The Claude calls a person starts by hand. Remember when and the daily pick run on their own and fall back quietly instead. */
+export type AiFlow = 'assistant' | 'plan' | 'goal';
+export const CONSENT_REQUIRED = 'Choose what the assistant can use first. Open Settings, Privacy.';
+
 /**
- * May anything from the training log go to Claude for this account? The one check every Claude call that sends the
- * plan, sessions, goals or to-dos should make (see the report for where it still has to be wired).
+ * The one gate in front of every Claude call a person starts (the assistant, the plan builder in every mode, the goal
+ * review). An account that was never asked (`at: null`) sends nothing: not its data, not typed text, not a file. Throws
+ * 403 `consent_required`; answers the stored choice otherwise, so the caller can leave out what a switch covers.
  */
-export const assistantMayReadTraining = (db: DB, userId: string): boolean => readConsent(db, userId).training;
+export const requireAiPermission = (db: DB, userId: string, _flow: AiFlow): Consent => {
+  const c = readConsent(db, userId);
+  if (c.at === null) throw new ApiError(403, CONSENT_REQUIRED, 'consent_required');
+  return c;
+};
 
 /**
  * The one-time feature intros (user_settings `intros`). `seen` is null for an account that is not enrolled (one from before
