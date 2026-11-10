@@ -37,7 +37,10 @@ textarea,
 .esheet-text,
 .dsheet-text,
 .quote-text,
-.reads-body {
+.reads-body,
+.as-answer,
+.as-thought-text,
+.ln-text {
   -webkit-touch-callout: default;
   -webkit-user-select: text;
   user-select: text;
@@ -198,7 +201,7 @@ input[type='number'] {
   /* a size container, so stat strips and titles can respond to the room they have in rem: at a larger text size the same screen is narrower */
   container: page / inline-size;
   /* the scroller already ends at the tab bar's top (a grid row); only the keyboard's overhang is added (spec §3.1, rev 4.1) */
-  padding: calc(8px + var(--safe-t)) var(--gutter) calc(24px + max(var(--chrome-h) + var(--safe-b), var(--kb)));
+  padding: calc(8px + var(--safe-t)) var(--gutter) calc(24px + var(--pill-room, 0px) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
   max-width: var(--maxw);
   margin-inline: auto;
   width: 100%;
@@ -255,7 +258,15 @@ input[type='number'] {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* nothing repeats: an infinite pulse would otherwise run a 0.01 ms loop forever (a11y-16) */
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
 }
+
+/* the status pill above the dock is up (app/Shell.tsx): pages make room for it so it covers nothing at the end of a page */
+html[data-status-pill] {
+  --pill-room: 36px;
+}
+

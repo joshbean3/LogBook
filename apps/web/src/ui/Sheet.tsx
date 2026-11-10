@@ -3,6 +3,7 @@ import { animate, AnimatePresence, frame, motion, useMotionValue, useReducedMoti
 import type * as React from 'react';
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { TabScope, useNavInternal } from '@/app/NavController';
 import { ARRIVED_PX, LOCK_PX, lockAxis, PROJECT_S, SHEET_DISMISS_FRAC, SHEET_DISMISS_V, SHEET_SCROLL_LOCK_MS } from '@/lib/gesture';
 import { useKeyboardOpen } from '@/lib/keyboard';
@@ -63,6 +64,15 @@ export const useSheet = (): SheetApi => {
   return c;
 };
 export { useSheetMotion, type SheetMotion } from './sheetMotion';
+
+/**
+ * Which sheet body is the assistant's. The shell says (main.tsx), so this file knows no feature: when that body throws, its
+ * fallback offers "Start a new chat" instead of Reload.
+ */
+let isAssistantBody: (body: ReactNode) => boolean = () => false;
+export const markAssistantBody = (fn: (body: ReactNode) => boolean) => {
+  isAssistantBody = fn;
+};
 
 const DepthCtx = createContext(0);
 /** How deep the panel this component renders in sits (1 for the first). */
@@ -848,7 +858,12 @@ const Panel = ({ stack, gen, dir, tab, opener, register, requestClose, onGone, p
         <div className="sheet-stack">
           <AnimatePresence custom={dir} mode="popLayout" initial={false}>
             <motion.div key={panelKey} data-depth={depth} data-panel={panelKey} className="sheet-body" custom={dir} variants={v} initial="enter" animate="center" exit="exit" transition={t}>
-              <DepthCtx.Provider value={depth}>{top.body}</DepthCtx.Provider>
+              <DepthCtx.Provider value={depth}>
+                {/* a body that throws takes only itself down: the sheet's head and Close stay, and the fallback says what to do */}
+                <ErrorBoundary scope={isAssistantBody(top.body) ? 'assistant' : 'sheet'} onClose={() => requestClose({ kind: 'tween' })}>
+                  {top.body}
+                </ErrorBoundary>
+              </DepthCtx.Provider>
             </motion.div>
           </AnimatePresence>
         </div>

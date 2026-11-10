@@ -245,7 +245,7 @@ label.lrow[data-pressed] {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--tone, var(--ink-4));
+  background: var(--tone, var(--ink-faint));
   flex: none;
 }
 
@@ -504,7 +504,7 @@ label.lrow[data-pressed] {
   background: var(--ok-soft);
 }
 .chip.floor {
-  color: var(--warn);
+  color: var(--warn-text);
   background: var(--warn-soft);
 }
 .chip.open {
@@ -577,10 +577,12 @@ label.lrow[data-pressed] {
   border-color: transparent;
   color: var(--ink-3);
 }
-/* picked: lit gold, as a feeling is picked */
+/* picked: lit gold, as a feeling is picked. The words stay navy (gold words on the cream fill were 1.75:1) and go a
+   step heavier, so the picked chip is not told apart by colour alone. */
 .chip-btn.on {
   background: rgba(255, 200, 61, 0.16);
-  color: var(--sun);
+  color: var(--ink);
+  font-weight: 650;
   border-color: var(--sun);
 }
 .chip-btn:disabled {
@@ -591,7 +593,7 @@ label.lrow[data-pressed] {
 .in {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--field-edge);
   background: var(--surface);
   border-radius: var(--r-md);
   padding: 11px 12px;
@@ -688,6 +690,13 @@ textarea.in {
 .seg-btn[aria-checked='true'] {
   color: var(--ink);
 }
+/* a segment is a 44 px target (gap-qua-04) without changing how tall it is drawn: a page's smaller control (32 or 36 px)
+   keeps its look and its words stay centered, and the hit box grows to 44 around it; the bar's control has its own */
+.seg:not(.in-bar) .seg-btn::after {
+  content: '';
+  position: absolute;
+  inset: min(0px, calc(50% - 22px)) 0;
+}
 /* a very narrow page (320 at a larger text size): the segments may take two lines rather than run past the edge */
 @container page (max-width: 15rem) {
   .seg {
@@ -752,6 +761,13 @@ textarea.in {
 .step:disabled {
   opacity: 0.35;
 }
+/* a stepper's minus and plus show the press like every other control (the press delegate writes data-pressed) */
+.step {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.step[data-pressed]:not(:disabled) {
+  background: var(--surface-3);
+}
 
 /* ---------- the mark ---------- */
 .mark-hit {
@@ -770,7 +786,7 @@ textarea.in {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2px solid var(--line-strong);
+  border: 2px solid var(--field-edge);
   display: grid;
   place-items: center;
   color: transparent;
@@ -791,7 +807,7 @@ textarea.in {
 }
 .mark.m-floor {
   border-color: var(--warn);
-  color: var(--warn);
+  color: var(--warn-text);
   background: var(--warn-soft);
 }
 .mark.m-missed {
@@ -984,6 +1000,150 @@ textarea.in {
   min-width: 44px;
 }
 
+/* ---------- error boundary fallback (app/ErrorBoundary.tsx) ----------
+   One block for every scope: centred, 12 px gaps, a short title, one line, the way out. `app` is the whole screen (the tree
+   under it is gone, so it carries its own background and clears the notch and the home bar); `page` fills the page it
+   replaced; the sheet scopes sit in the sheet body. */
+.eb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px var(--gutter, 16px);
+  text-align: center;
+  color: var(--ink);
+}
+.eb[data-scope='app'] {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  padding: calc(env(safe-area-inset-top, 0px) + 32px) calc(env(safe-area-inset-right, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 32px) calc(env(safe-area-inset-left, 0px) + 24px);
+  background: var(--bg);
+  overflow-y: auto;
+}
+.eb[data-scope='page'] {
+  min-height: 60dvh;
+}
+/* a pushed page's fallback keeps its chevron where the page's bar had it */
+.eb[data-bar] {
+  position: relative;
+  padding-top: calc(var(--safe-t) + 64px);
+}
+.eb-bar {
+  position: absolute;
+  top: calc(var(--safe-t) + 4px);
+  left: 8px;
+}
+.eb[data-scope='sheet'],
+.eb[data-scope='assistant'] {
+  min-height: 240px;
+}
+.eb-title {
+  margin: 0;
+  font-size: var(--fs-head);
+  line-height: var(--lh-head);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.eb-body,
+.eb-note {
+  margin: 0;
+  max-width: 34ch;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+}
+.eb-note {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.eb-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.eb-actions .btn {
+  min-width: 168px;
+  min-height: 44px;
+}
+.eb-details {
+  max-width: 100%;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.eb-details summary {
+  display: inline-block;
+  min-height: 44px;
+  padding: 13px 12px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.eb-details summary::-webkit-details-marker {
+  display: none;
+}
+.eb-details p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- the boot screens (app/App.tsx) ----------
+   The first bootstrap failed with nothing saved: the orb, a title, one line and Try again, centred on the canvas like the
+   splash. While it is still on its way: the page frame with a skeleton, under the held splash. */
+.boot-error {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: calc(var(--safe-t) + 32px) var(--gutter) calc(var(--safe-b) + 32px);
+  text-align: center;
+  background: var(--bg);
+  color: var(--ink);
+}
+.boot-error-orb {
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.boot-error-title {
+  margin: 0;
+  font-size: var(--fs-head);
+  line-height: var(--lh-head);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.boot-error-body {
+  margin: 0;
+  max-width: 34ch;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+}
+.boot-error .btn {
+  min-width: 168px;
+  min-height: 44px;
+  margin-top: 4px;
+}
+.boot-error-details {
+  margin: 4px 0 0;
+  max-width: 100%;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.boot-wait {
+  padding-top: calc(var(--safe-t) + 16px);
+}
+
 /* ---------- notes, empty, misc ---------- */
 .note-line {
   font-size: 0.9375rem;
@@ -1073,7 +1233,7 @@ textarea.in {
   color: var(--accent-text);
 }
 .verdict.off {
-  color: var(--warn);
+  color: var(--warn-text);
 }
 .verdict.na {
   color: var(--ink-3);
@@ -1222,7 +1382,7 @@ textarea.in {
 .aura-stat .caps {
   color: rgba(15, 42, 68, 0.62);
   letter-spacing: 0.1em;
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
 }
 .aura-num {
   font-variant-numeric: tabular-nums;

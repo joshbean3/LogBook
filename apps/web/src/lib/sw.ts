@@ -11,7 +11,25 @@ let started = false;
 export const startServiceWorker = () => {
   if (started || isNative || !('serviceWorker' in navigator)) return;
   started = true;
-  const go = () => registerSW({ immediate: true });
+  /**
+   * A new build waits (registerType: 'prompt', vite.config.ts) and is applied only when nobody is looking (shell-25): the
+   * next time the page is hidden it takes over and the page reloads behind the app switcher, or on the next cold start,
+   * when the waiting worker activates by itself. Never mid-use.
+   */
+  let waiting: ((reload?: boolean) => Promise<void>) | null = null;
+  const applyIfHidden = () => {
+    if (document.hidden && waiting) void waiting(true);
+  };
+  document.addEventListener('visibilitychange', applyIfHidden);
+  const go = () => {
+    const update = registerSW({
+      immediate: true,
+      onNeedRefresh: () => {
+        waiting = update;
+        applyIfHidden();
+      },
+    });
+  };
   if ('requestIdleCallback' in window) (window as Window & { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback(go, { timeout: 4000 });
   else setTimeout(go, 1500);
 };

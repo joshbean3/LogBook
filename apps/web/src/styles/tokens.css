@@ -10,9 +10,14 @@
   --ink: #0f2a44;
   --ink-2: #2f5d85;
   --ink-3: #57718a;
-  --ink-4: #7c90a5;
+  /* --ink-4 is text (captions, hints, axis labels), so it carries the --ink-3 value: 4.5:1 or better on white, --bg and
+     --surface-2. Marks that are not text (a ring's track, a hairline dot, a disabled glyph) use --ink-faint. */
+  --ink-4: #57718a;
+  --ink-faint: #7c90a5;
   --line: rgba(15, 42, 68, 0.08);
   --line-strong: rgba(15, 42, 68, 0.16);
+  /* the edge of something you type in or tick (a text field, the empty to-do circle): 3:1 on white (WCAG 1.4.11) */
+  --field-edge: rgba(15, 42, 68, 0.5);
   --columbia: #b9d9eb;
   --columbia-wash: #e8f3f9;
 
@@ -32,8 +37,10 @@
 
   --ok: #2f5d85;
   --ok-soft: #e1edf6;
+  /* --warn is a fill and a mark (a dot, a border, a bar); words in amber use --warn-text (5.9:1 on white, 5.2:1 on --warn-soft) */
   --warn: #e08a00;
   --warn-soft: #fdf0d9;
+  --warn-text: #8f5800;
   --bad: #c8243f;
   --bad-soft: #fbe4e8;
   --star: #f2600c;
@@ -108,9 +115,10 @@
   --fs-head: 1.25rem; --lh-head: 1.5625rem;
   --fs-row: 1.0625rem; --lh-row: 1.375rem;
   --fs-sub: 0.9375rem; --lh-sub: 1.25rem;
-  --fs-foot: 0.8125rem; --lh-foot: 1.125rem;
-  --fs-orb: 0.75rem; --lh-orb: 1rem;
-  --fs-caps: 0.6875rem; --lh-caps: 0.8125rem;
+  /* the three small sizes have floors: whatever the root does, a caption never reads under 11 px (a11y-18) */
+  --fs-foot: max(13px, 0.8125rem); --lh-foot: max(18px, 1.125rem);
+  --fs-orb: max(12px, 0.75rem); --lh-orb: max(16px, 1rem);
+  --fs-caps: max(11px, 0.6875rem); --lh-caps: max(13px, 0.8125rem);
   --r-lg: 22px;
   --r-md: 12px;
   --r-pill: 999px;
@@ -149,6 +157,21 @@
   /* the gap between a date pager's pages while they slide */
   --dpager-gap: 16px;
   --hit: 44px;
+}
+
+/* iOS Increase Contrast (WebKit maps it to prefers-contrast: more): the grey words step up to --ink-2, hairlines and the
+   card edge darken a step, and the frosted surfaces go opaque. :root:root outranks the later :root blocks (craft.css). */
+@media (prefers-contrast: more) {
+  :root:root {
+    --ink-3: #2f5d85;
+    --ink-4: #2f5d85;
+    --ink-faint: #57718a;
+    --line: rgba(15, 42, 68, 0.3);
+    --line-strong: rgba(15, 42, 68, 0.55);
+    --card-border: 1px solid rgba(15, 42, 68, 0.16);
+    --field-edge: rgba(15, 42, 68, 0.7);
+    --glass: #ffffff;
+  }
 }
 
 .t-easy { --tone: var(--t-easy); }

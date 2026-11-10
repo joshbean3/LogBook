@@ -1,23 +1,40 @@
 import { today } from '@logbook/shared';
-import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, createElement, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
-/** Today's date as the clock has it, which rolls over while the app stays open (polled every 30 s and on visibility). */
-export const useLiveToday = () => {
-  const [t, setT] = useState(today);
-  useEffect(() => {
-    const check = () => {
-      const n = today();
-      setT((cur) => (cur === n ? cur : n));
-    };
-    const iv = setInterval(check, 30_000);
-    document.addEventListener('visibilitychange', check);
-    return () => {
-      clearInterval(iv);
-      document.removeEventListener('visibilitychange', check);
-    };
-  }, []);
-  return t;
+/**
+ * Today's date as the clock has it, which rolls over while the app stays open. One store for the whole app (perf-10): a
+ * single 30 s interval and a single visibilitychange listener, started with the first subscriber and stopped with the
+ * last, instead of one pair per component that asks.
+ */
+let current = today();
+const subscribers = new Set<() => void>();
+let timer: ReturnType<typeof setInterval> | undefined;
+const check = () => {
+  const n = today();
+  if (n === current) return;
+  current = n;
+  for (const f of subscribers) f();
 };
+export const subscribeToday = (f: () => void) => {
+  subscribers.add(f);
+  if (subscribers.size === 1) {
+    timer = setInterval(check, 30_000);
+    document.addEventListener('visibilitychange', check);
+  }
+  // a store that slept (no one listening) may be a day behind
+  check();
+  return () => {
+    subscribers.delete(f);
+    if (subscribers.size) return;
+    clearInterval(timer);
+    timer = undefined;
+    document.removeEventListener('visibilitychange', check);
+  };
+};
+const snapshot = () => current;
+export const useLiveToday = () => useSyncExternalStore(subscribeToday, snapshot, snapshot);
+/** Tests only: how many components listen, and whether the one timer runs. */
+export const liveTodayStats = () => ({ subscribers: subscribers.size, timer: timer !== undefined });
 
 /**
  * The day a subtree treats as today. The Today tab holds its day past midnight until the rollover is applied (docs/feel.md

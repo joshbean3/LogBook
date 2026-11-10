@@ -17,6 +17,12 @@ export interface PressableProps extends Omit<HTMLAttributes<HTMLElement>, 'onCli
   /** ≤ 4 items, destructive last; opened on hold through the one ContextMenu. */
   holdMenu?: ContextMenuItem[] | (() => ContextMenuItem[]);
   menuLabel?: string;
+  /**
+   * With a holdMenu: render the visually hidden "… actions" button after this element, so VoiceOver and keyboard users reach
+   * the same menu without a hold (a11y-08). Default true; false where another element already carries it (a second copy of
+   * the same control).
+   */
+  menuButton?: boolean;
   /** A move > 8 px after the hold: the menu closes and the object follows the finger (orbs, steps, Plan rows). */
   onDragStart?: (p: DragPoint, e: PointerEvent) => void;
   onDragMove?: (p: DragPoint, e: PointerEvent) => void;
@@ -52,6 +58,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
     onHold,
     holdMenu,
     menuLabel,
+    menuButton = true,
     onDragStart,
     onDragMove,
     onDragEnd,
@@ -106,6 +113,32 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
     onDragEnd,
     onHoldMoved: closeOwn,
   });
+  // the element itself, for the hidden menu button's anchor (the forwarded ref is the caller's)
+  const self = useRef<HTMLElement | null>(null);
+  const setRef = (el: HTMLElement | null) => {
+    self.current = el;
+    if (typeof ref === 'function') ref(el);
+    else if (ref) (ref as React.RefObject<HTMLElement | null>).current = el;
+  };
+  const items = () => (typeof holdMenu === 'function' ? holdMenu() : holdMenu) ?? [];
+  const hidden = rest['aria-hidden'] === true || rest['aria-hidden'] === 'true';
+  const srButton =
+    holdMenu && menuButton && !disabled && !hidden ? (
+      <button
+        type="button"
+        className="cm-sr"
+        aria-haspopup="menu"
+        onClick={(e) => {
+          const el = self.current;
+          const list = items();
+          if (!el || !list.length) return;
+          menu.open({ items: list, anchor: el, lift: el, label: menuLabel, returnFocus: e.currentTarget, haptic: false });
+          ownMenu.current = true;
+        }}
+      >
+        {menuLabel ?? (label ? `${label} actions` : 'Actions')}
+      </button>
+    ) : null;
   const ignored = (e: { target: EventTarget | null }) => !!ignore && e.target instanceof Element && !!e.target.closest(ignore);
   const fire = (e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
     if (disabled) return;
@@ -114,7 +147,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
   };
   const common = {
     ...rest,
-    ref: ref as React.Ref<never>,
+    ref: setRef as React.Ref<never>,
     className: `pressable ${className}`.trim(),
     'data-press': style === 'none' ? undefined : style,
     'aria-label': label,
@@ -153,7 +186,7 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
   };
   if (as === 'div' || as === 'li') {
     const Tag = as as 'div';
-    return (
+    const el = (
       <Tag
         role="button"
         tabIndex={disabled ? -1 : 0}
@@ -172,8 +205,16 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
         {children}
       </Tag>
     );
+    return srButton ? (
+      <>
+        {el}
+        {srButton}
+      </>
+    ) : (
+      el
+    );
   }
-  return (
+  const btn = (
     <button
       type="button"
       disabled={disabled}
@@ -185,5 +226,15 @@ export const Pressable = forwardRef<HTMLElement, PressableProps>(function Pressa
     >
       {children}
     </button>
+  );
+  // the hidden button follows as a sibling (absolutely positioned, so it takes no grid cell or line): no wrapper, so
+  // the page's own child selectors still match the pressable
+  return srButton ? (
+    <>
+      {btn}
+      {srButton}
+    </>
+  ) : (
+    btn
   );
 });

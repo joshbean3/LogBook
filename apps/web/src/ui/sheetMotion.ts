@@ -1,5 +1,6 @@
 import { motionValue, type MotionValue } from 'motion/react';
 import { useSyncExternalStore } from 'react';
+import { statusBarOverSheet } from '@/lib/native';
 
 /**
  * The sheet's motion, as a module store (docs/feel.md §9.4, contracts §C.1): one sheet is up at a time, and the toast host
@@ -37,6 +38,8 @@ const subs = new Set<() => void>();
 export const setSheetOpen = (open: boolean) => {
   if (current.open === open) return;
   current = { ...current, open };
+  // light status bar glyphs over the navy band while the sheet is up; dark again once it has gone (a drag dismiss too)
+  statusBarOverSheet(open);
   for (const f of subs) f();
 };
 /** SheetProvider only: the store's motion values, to animate. */

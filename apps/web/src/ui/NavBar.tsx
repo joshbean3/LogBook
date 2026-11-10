@@ -24,7 +24,7 @@ import { usePress } from './usePress';
  * stacks and never drops: the date part shortens instead (full → short → day, measured by a ResizeObserver).
  */
 
-import { D, DAYN, FORMS, fmt, iso, mondayOfIso, shorten, type Form } from './captions';
+import { D, DAYN, FORMS, fmt, iso, mondayOfIso, shorten, speakable, type Form } from './captions';
 export { capsWord, dayCaption, dayTitle, monthCaption, weekCaption } from './captions';
 
 // ---------- the root bar ----------
@@ -148,6 +148,11 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
     menuLabel: 'Title actions',
     press: 'dim' as const,
   };
+  // Voice Control (gap-qua-40): the caps line's name starts with what it prints ("Tue, Nov 10"), then says what a tap does
+  const printed = speakable([word, shorten(caps.cur, form)].filter(Boolean).join(' · '));
+  // a label that opens with the large title ("Thu 12. Go to today") keeps only its action: the title is the heading below
+  const action = titleLabel?.startsWith(title.cur) ? titleLabel.slice(title.cur.length).replace(/^[.,]?\s*/, '') : titleLabel;
+  const capLabel = !action ? printed : action.toLowerCase().startsWith(printed.toLowerCase()) ? action : `${printed}. ${action}`;
   const capInner = (
     <>
       {word ? (
@@ -168,7 +173,7 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
     <>
       <div ref={barRef} className={`nb-bar ${wideTrailing ? 'has-seg' : ''}`.trim()}>
         {pressable ? (
-          <Pressable ref={capRef} className="nb-cap" label={titleLabel} {...tp}>
+          <Pressable ref={capRef} className="nb-cap" label={capLabel} {...tp}>
             {capInner}
           </Pressable>
         ) : (
@@ -195,7 +200,7 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
       </div>
       {/* the page's level-1 heading (code review 1 #8); its tap and hold are the caps line's too, which is the button VoiceOver reads */}
       {pressable ? (
-        <Pressable as="div" ref={titleRefCb} className="nb-title" role="heading" aria-level={1} tabIndex={-1} {...tp}>
+        <Pressable as="div" ref={titleRefCb} className="nb-title" role="heading" aria-level={1} tabIndex={-1} menuButton={false} {...tp}>
           <Stacked l={title} stacked={stacked} />
         </Pressable>
       ) : (
@@ -306,7 +311,9 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
       {days.map((d) => {
         const s = statusOf(d);
         const kinds = kindsOf?.(d) ?? [];
-        const what = kinds.length ? `, ${kinds.map((k) => KIND_WORD[k]).join(' and ')}${s && s !== 'planned' ? ` ${STATUS_WORD[s]}` : ''}` : s ? `, ${STATUS_WORD[s]}` : '';
+        // 'bonus run', not 'run bonus run': with a kind word present the status adds only its own word (today-top-20)
+        const kindWords = kinds.map((k) => KIND_WORD[k]).join(' and ');
+        const what = kinds.length ? (s === 'bonus' ? `, bonus ${kindWords}` : `, ${kindWords}${s && s !== 'planned' ? ` ${STATUS_WORD[s]}` : ''}`) : s ? `, ${STATUS_WORD[s]}` : '';
         const name = labelOf?.(d) ?? `${fmt(d, { weekday: 'long', month: 'long', day: 'numeric' })}${what}`;
         return (
           <Pressable key={d} className={`nb-cell ${d === shown ? 'is-shown' : ''} ${d === today ? 'is-today' : ''}`} label={name} aria-current={d === shown ? 'date' : undefined} data-date={d} onPress={() => d !== shown && onPick(d)}>

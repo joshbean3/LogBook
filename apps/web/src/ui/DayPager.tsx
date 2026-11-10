@@ -524,7 +524,7 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
   // the date: our own commit jumps x in this same commit; anyone else's change shows the new date at rest
   useLayoutEffect(() => E.onDate(date), [E, date]);
 
-  // binding, W, --chrome-h, the engine on the handle
+  // binding, W, --dp-top, the engine on the handle
   useLayoutEffect(() => {
     const dp = dpRef.current!;
     const track = trackRef.current!;
@@ -556,7 +556,9 @@ export const DayPager = ({ date, step, onCommit, render, handle, min, max, ignor
     };
     const measure = () => {
       h._w.current = dp.clientWidth;
-      dp.style.setProperty('--chrome-h', `${Math.round(offsetIn())}px`);
+      // the pager's own distance from the top of its scroller, under its own name: `--chrome-h` stays the dock's height for
+      // the pages inside (their bottom padding), wherever on the page the pager sits
+      dp.style.setProperty('--dp-top', `${Math.round(offsetIn())}px`);
     };
     measure();
     const ro = new ResizeObserver(measure);

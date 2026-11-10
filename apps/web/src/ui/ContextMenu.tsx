@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/
 import type * as React from 'react';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal, flushSync } from 'react-dom';
+import { ErrorBoundary } from '@/app/ErrorBoundary';
 import { TabScope, useNavInternal } from '@/app/NavController';
 import { MAX_MENU_ITEMS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
@@ -9,6 +10,7 @@ import { crossfade, fadeOut, menuIn } from '@/lib/motion';
 import { restoreFocus } from './focus';
 import { drop, lift, type LiftHandle } from './lift';
 import type { TabId } from './nav';
+import { showToast } from './toastStore';
 import { useHold } from './useHold';
 
 export interface ContextMenuItem {
@@ -314,7 +316,18 @@ export const ContextMenuProvider = ({ children }: { children: ReactNode }) => {
         <AnimatePresence>
           {spec ? (
             <TabScope key={spec.key} tab={spec.tab}>
-              <Layer spec={spec} onClose={close} />
+              {/* a menu that throws closes itself and says so; the page under it is untouched */}
+              <ErrorBoundary
+                silent
+                onCatch={() =>
+                  queueMicrotask(() => {
+                    close();
+                    showToast('That menu didn’t open. Try again.');
+                  })
+                }
+              >
+                <Layer spec={spec} onClose={close} />
+              </ErrorBoundary>
             </TabScope>
           ) : null}
         </AnimatePresence>,

@@ -122,3 +122,16 @@ describe('the route table', () => {
     expect(new Set(ROUTES.map((r) => r.kind))).toEqual(new Set(['root', 'pushed', 'full', 'redirect']));
   });
 });
+
+describe('bad route parameters fall back to the tab (shell-23)', () => {
+  it('a metric that does not exist goes to Progress', () => {
+    expect(matchRoute('/progress/metric/bogus')).toMatchObject({ kind: 'redirect', redirect: '/progress' });
+    expect(matchRoute('/progress/metric/toString')).toMatchObject({ kind: 'redirect', redirect: '/progress' });
+    expect(matchRoute('/progress/metric/hrv').kind).toBe('pushed');
+  });
+  it('Reads opens only its two lists', () => {
+    expect(matchRoute('/journal/reads/read').kind).toBe('pushed');
+    expect(matchRoute('/journal/reads').kind).toBe('pushed');
+    expect(matchRoute('/journal/reads/nope')).toMatchObject({ kind: 'redirect', redirect: '/journal' });
+  });
+});

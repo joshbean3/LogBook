@@ -9,7 +9,8 @@
     "build:ios": "tsc -p tsconfig.json --noEmit && VITE_NATIVE=1 vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "node scripts/check-styles.mjs src/styles src/app src/ui && node scripts/check-contrast.mjs && vitest run --passWithNoTests",
+    "check:bundle": "node scripts/check-bundle.mjs dist"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",

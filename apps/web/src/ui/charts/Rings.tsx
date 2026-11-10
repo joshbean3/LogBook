@@ -11,10 +11,13 @@ export const Ring = ({ value, size = 64, stroke = 7, lit, children }: { value: n
   const v = clamp01(value);
   const c = size / 2;
   const r = c - stroke / 2 - 1;
+  const mid = children ?? (v == null ? '–' : null);
+  // with nothing printed in the middle the ring is the only cue: its track becomes a thin line dark enough to see (3:1)
+  const bare = mid == null;
   return (
-    <span className="ck-ring" style={{ width: size, height: size }}>
+    <span className={`ck-ring ${bare ? 'bare' : ''}`} style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle cx={c} cy={c} r={r} className="ck-ring-track" strokeWidth={stroke} />
+        <circle cx={c} cy={c} r={r} className="ck-ring-track" strokeWidth={bare ? Math.max(1.5, stroke * 0.3) : stroke} />
         {v != null && v > 0 ? (
           v >= 0.9999 ? (
             <circle cx={c} cy={c} r={r} className={`ck-ring-arc ${lit ? 'lit' : ''}`} strokeWidth={stroke} />
@@ -23,7 +26,7 @@ export const Ring = ({ value, size = 64, stroke = 7, lit, children }: { value: n
           )
         ) : null}
       </svg>
-      <span className="ck-ring-mid stamp">{children ?? (v == null ? '–' : null)}</span>
+      <span className="ck-ring-mid stamp">{mid}</span>
     </span>
   );
 };

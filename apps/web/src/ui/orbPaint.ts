@@ -89,16 +89,22 @@ export const paintOrb = (ctx: CanvasRenderingContext2D, { size, t: time, energy 
   const amp = 0.05 + 0.03 * (energy - 1);
   ctx.clearRect(0, 0, size, size);
 
-  // the glow outside: breathing, warm low and cool high, so it radiates rather than sits
+  // the glow outside: breathing, warm low and cool high, so it radiates rather than sits. Each glow's radius stops at the
+  // canvas edge nearest its centre, so it has faded to nothing before the canvas ends (no cut edge, shell-22)
   const breathe = 1 + 0.06 * Math.sin(t * 1.1);
+  const fit = (x: number, y: number, r: number) => Math.max(0, Math.min(r, x, y, size - x, size - y));
+  const g1x = c + R * 0.12 * Math.sin(t * 0.4);
+  const g1y = c + R * 0.1;
+  const g2x = c + R * 0.25 * Math.cos(t * 0.33);
+  const g2y = c - R * 0.15;
   ctx.save();
   ctx.globalCompositeOperation = 'source-over';
-  blob(ctx, c + R * 0.12 * Math.sin(t * 0.4), c + R * 0.1, R * 1.45 * breathe, [
+  blob(ctx, g1x, g1y, fit(g1x, g1y, R * 1.45 * breathe), [
     [0, rgba(P.glow[0], 0.3)],
     [0.55, rgba(P.glow[0], 0.1)],
     [1, rgba(P.glow[0], 0)],
   ]);
-  blob(ctx, c + R * 0.25 * Math.cos(t * 0.33), c - R * 0.15, R * 1.5 * breathe, [
+  blob(ctx, g2x, g2y, fit(g2x, g2y, R * 1.5 * breathe), [
     [0, rgba(P.glow[1], 0.28)],
     [0.6, rgba(P.glow[1], 0.08)],
     [1, rgba(P.glow[1], 0)],

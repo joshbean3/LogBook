@@ -1,9 +1,11 @@
 import { useIsRestoring, useQuery, useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
-import { api, ApiError, onUnauthorized } from '@/api/client';
+import { api, ApiError, NetworkError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
-import { apiOrigin, isNative, onDeepLink, hideSplash } from '@/lib/native';
+import { clearLocalAccount, isLeaving, isOtherAccount, rememberUser } from '@/lib/account';
+import { DEV_TOOLS, STRAVA_BUILT } from '@/lib/features';
+import { apiOrigin, onDeepLink, hideSplash } from '@/lib/native';
 import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
 import { prefetchAll, stravaSyncNow, useBootstrap } from '@/api/queries';
@@ -11,12 +13,16 @@ import { Login, Signup } from '@/features/auth/AuthScreens';
 import DayView from '@/features/day/DayView';
 import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
-import { FeatureIntros } from '@/features/onboarding/FeatureIntro';
 import { matchRoute, type PushedEntry } from '@/ui/nav';
+import { useContextMenu } from '@/ui/ContextMenu';
+import { Orb } from '@/ui/Orb';
+import { useSheet } from '@/ui/Sheet';
+import { SkeletonPage } from '@/ui/Skeleton';
 import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
 import { useNav } from './NavController';
 import { Shell } from './Shell';
+import { useHoldSplash } from './splashHold';
 import { healthSyncNow } from '@/lib/healthSync';
 import '@/styles/foundation.css';
 
@@ -36,7 +42,6 @@ const views = {
   settingsSection: () => import('@/features/settings/SettingsSection'),
   plans: () => import('@/features/plan/PlansPage'),
   welcome: () => import('@/features/onboarding/Welcome'),
-  gallery: () => import('./dev/UiGallery'),
   metric: () => import('@/features/progress/MetricPage'),
 };
 
@@ -79,7 +84,8 @@ const SettingsView = view(views.settings);
 const SettingsSection = view(views.settingsSection);
 const PlansPage = view(views.plans);
 const Welcome = view(views.welcome);
-const UiGallery = view(views.gallery);
+// the component gallery and the test stubs exist only where DEV_TOOLS is true: a release build has no chunk for them
+const UiGallery = DEV_TOOLS ? view(() => import('./dev/UiGallery')) : null;
 const MetricPage = view(views.metric);
 
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
@@ -96,30 +102,33 @@ const prefetchViews = () => {
 };
 
 /**
- * Test builds only (VITE_FAKE_CLOCK): `?stubs=1` on the first load swaps the six roots and /dev/ui for the stubs the WP1
- * acceptance scripts drive. Statically false in a normal build, so the stubs never ship.
+ * Test builds only (VITE_FAKE_CLOCK=1): `?stubs=1` on the first load swaps the six roots and /dev/ui for the stubs the WP1
+ * acceptance scripts drive. The build flag is a constant, so in any other build the stubs and their imports are dropped.
  */
-const STUBS = (() => {
-  if (!import.meta.env.VITE_FAKE_CLOCK) return false;
-  try {
-    if (new URLSearchParams(location.search).has('stubs')) sessionStorage.setItem('logbook.stubs', '1');
-    return sessionStorage.getItem('logbook.stubs') === '1';
-  } catch {
-    return false;
-  }
-})();
-const StubRoot = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot })));
-const StubPushed = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed })));
-const pages = STUBS
-  ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, learned: <StubRoot tab="learned" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
-  : {
-      today: <DayView />,
-      goals: <GoalsView />,
-      learned: <LearnedView />,
-      plan: <PlanView />,
-      progress: <ProgressView />,
-      journal: <JournalView />,
-    };
+const STUBS_BUILT = import.meta.env.VITE_FAKE_CLOCK === '1';
+const STUBS =
+  STUBS_BUILT &&
+  (() => {
+    try {
+      if (new URLSearchParams(location.search).has('stubs')) sessionStorage.setItem('logbook.stubs', '1');
+      return sessionStorage.getItem('logbook.stubs') === '1';
+    } catch {
+      return false;
+    }
+  })();
+const StubRoot = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot }))) : null;
+const StubPushed = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed }))) : null;
+const pages =
+  STUBS && StubRoot
+    ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, learned: <StubRoot tab="learned" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
+    : {
+        today: <DayView />,
+        goals: <GoalsView />,
+        learned: <LearnedView />,
+        plan: <PlanView />,
+        progress: <ProgressView />,
+        journal: <JournalView />,
+      };
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
 const pushedFor = (e: PushedEntry) => {
   const pattern = matchRoute(e.path).route?.pattern;
@@ -131,7 +140,7 @@ const pushedFor = (e: PushedEntry) => {
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;
   if (pattern === '/journal/reads/:tab?') return <ReadsView />;
-  if (pattern === '/dev/ui') return STUBS ? <StubPushed /> : <UiGallery />;
+  if (DEV_TOOLS && pattern === '/dev/ui') return STUBS && StubPushed ? <StubPushed /> : UiGallery ? <UiGallery /> : null;
   if (pattern === '/progress/metric/:id') return <MetricPage />;
   return null;
 };
@@ -145,13 +154,7 @@ const Framed = () => {
     const raf = requestAnimationFrame(hideSplash);
     return () => cancelAnimationFrame(raf);
   }, []);
-  return (
-    <>
-      <Shell pages={pages} pushed={pushedFor} />
-      {/* Plan, Learned and Journal introduce themselves once, to accounts that went through first run */}
-      <FeatureIntros />
-    </>
-  );
+  return <Shell pages={pages} pushed={pushedFor} />;
 };
 
 /**
@@ -159,6 +162,64 @@ const Framed = () => {
  * nothing cached, so a signed-out visitor goes to /start or /login without a 401 in the console.
  */
 const useSession = () => useQuery({ queryKey: ['auth-session'], queryFn: () => api<AuthStatus>('/auth/status'), staleTime: Infinity, gcTime: 0, retry: (n, e) => n < 2 && !(e instanceof ApiError) });
+
+/** What the boot screen says when the first bootstrap fails and nothing is saved (perf-12): no address, no raw error. */
+export const bootFailure = (e: unknown): { title: string; body: string } =>
+  e instanceof NetworkError || (e instanceof ApiError && e.status === 0)
+    ? { title: 'Can’t reach Logbook', body: 'Check your connection and try again.' }
+    : { title: 'Logbook is having trouble right now', body: 'Try again in a minute.' };
+
+/**
+ * The first bootstrap failed and nothing is saved here: the orb, one plain sentence and Try again, centered. It tries again
+ * by itself when the phone comes back online. A long press on the orb shows what failed (the phone has no console).
+ */
+const BootError = ({ error, retry }: { error: unknown; retry: () => void }) => {
+  const [details, setDetails] = useState(false);
+  const hold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, [retry]);
+  useLayoutEffect(() => {
+    const raf = requestAnimationFrame(hideSplash);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const { title, body } = bootFailure(error);
+  const err = error as { message?: string; status?: number; code?: string | null };
+  const startHold = () => {
+    hold.current = setTimeout(() => setDetails((d) => !d), 700);
+  };
+  const endHold = () => {
+    if (hold.current) clearTimeout(hold.current);
+  };
+  return (
+    <div className="boot-error" role="alert">
+      <span className="boot-error-orb" onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold} onContextMenu={(e) => e.preventDefault()}>
+        <Orb size={72} state="still" />
+      </span>
+      <p className="boot-error-title">{title}</p>
+      <p className="boot-error-body">{body}</p>
+      <button type="button" className="btn primary" onClick={retry}>
+        Try again
+      </button>
+      {details ? (
+        <p className="boot-error-details">
+          {[apiOrigin || window.location.origin, err.status ? `HTTP ${err.status}` : 'No answer', err.message, err.code, navigator.onLine === false ? 'offline' : 'online'].filter(Boolean).join(' · ')}
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
+/** Waiting on the server with nothing saved to draw: the page frame with a skeleton, under the held splash (gap-qua-18). */
+const BootWait = ({ retry }: { retry: () => void }) => {
+  useHoldSplash(true, retry);
+  return (
+    <div className="page boot-wait">
+      <SkeletonPage />
+    </div>
+  );
+};
 
 const Authed = () => {
   const qc = useQueryClient();
@@ -173,48 +234,57 @@ const Authed = () => {
   useEffect(() => {
     if (signedOut) qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth-session' });
   }, [signedOut, qc]);
+  /**
+   * Whose device copy is this (Contract 2)? The app last ran here for the account in `logbook.user`. When the bootstrap
+   * names someone else (a session ran out, then another person signed in), nothing kept here is theirs: it is wiped and the
+   * page starts over, still signed in. Otherwise the account is remembered, and what it wrote offline is sent: on the
+   * first bootstrap and again whenever the same person signs back in.
+   */
+  const uid = boot.data?.user.id ?? null;
+  const stranger = uid !== null && isOtherAccount(uid);
+  useEffect(() => {
+    if (!uid) return;
+    if (isOtherAccount(uid)) {
+      void clearLocalAccount(qc);
+      return;
+    }
+    rememberUser(uid);
+    void outbox.replay(qc);
+  }, [uid, qc]);
   // once per session, on the first bootstrap (keyed on whether there is one, never on its identity, critic C1)
   const started = useRef(false);
-  const hasBoot = !!boot.data;
+  const hasBoot = !!boot.data && !stranger;
   useEffect(() => {
     if (!hasBoot || started.current) return;
     started.current = true;
     markHasAccount();
-    void outbox.replay(qc);
     prefetchViews();
     void prefetchAll(qc);
-    // a cold open with nothing cached: the Strava check follows the first bootstrap (stravaSyncNow keeps one per 30 s)
-    if (qc.getQueryData<{ strava?: { connected?: boolean } }>(['bootstrap'])?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
+    // a cold open with nothing cached: the run check follows the first bootstrap (stravaSyncNow keeps one per 30 s); only
+    // in a build that has the connection (lib/features.ts)
+    if (STRAVA_BUILT && qc.getQueryData<{ strava?: { connected?: boolean } }>(['bootstrap'])?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
     void healthSyncNow(qc, 'open').catch(() => undefined);
     requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
   }, [hasBoot, qc]);
-  if (signedOut) return <Navigate to={signedOutHome()} replace />;
+  const retryBoot = useCallback(() => {
+    if (!known && !hadAccount) void session.refetch();
+    else void boot.refetch();
+  }, [known, hadAccount, session, boot]);
+  // the account is leaving this device (Sign out, Delete account), or what is here belongs to someone else: draw nothing
+  // of it while the wipe runs; the page reloads when it is done (lib/account.ts)
+  if (isLeaving() || stranger) return null;
+  // signed out: to the welcome page, which can bring the visitor back to the page they asked for
+  if (signedOut) return <Navigate to={signedOutHome()} replace state={{ from: loc.pathname }} />;
   // the persisted cache is being read (a few ms): hold the black canvas
   if (restoring) return null;
-  if (!boot.data && !hadAccount && !known) return <Navigate to="/start" replace />;
-  // nothing cached yet: the black canvas until the bootstrap answers (no skeleton page)
-  if (!boot.data && boot.isPending) return null;
+  // a device with no account flag: wait for the session answer (the splash covers it) before choosing a door (shell-23)
+  if (!boot.data && !hadAccount && !known) return session.isPending ? <BootWait retry={retryBoot} /> : <Navigate to="/start" replace state={{ from: loc.pathname }} />;
+  // nothing cached yet: the page frame under the held splash until the bootstrap answers (shell-14, gap-qua-18)
+  if (!boot.data && boot.isPending) return <BootWait retry={retryBoot} />;
   if (boot.error && !boot.data) {
     const status = (boot.error as { status?: number }).status;
-    if (status === 401) return <Navigate to={signedOutHome()} replace />;
-    // the screen says what failed (the phone has no console): the server it tried, the answer or the error, and a retry
-    const err = boot.error as { message?: string; name?: string; code?: string | null };
-    const detail = [status ? `HTTP ${status}` : err.name === 'NetworkError' ? 'No answer' : (err.name ?? 'Error'), err.message, err.code ? `(${err.code})` : null].filter(Boolean).join(' · ');
-    return (
-      <div className="page">
-        <p className="empty">Couldn’t connect. Check your connection.</p>
-        <p className="t-cap muted" style={{ margin: '8px 0 0', wordBreak: 'break-word' }}>
-          {apiOrigin || window.location.origin}
-          {' · '}
-          {detail}
-          {' · '}
-          {typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'online'}
-        </p>
-        <button type="button" className="btn primary" style={{ marginTop: 16 }} onClick={() => void boot.refetch()}>
-          Try again
-        </button>
-      </div>
-    );
+    if (status === 401) return <Navigate to={signedOutHome()} replace state={{ signedOut: true, from: loc.pathname }} />;
+    return <BootError error={boot.error} retry={retryBoot} />;
   }
   // a new account goes through first run before anything else (the owner's onboardedAt is set, so it never does)
   if (boot.data?.user.onboardedAt === null && !loc.pathname.startsWith('/welcome')) return <Navigate to="/welcome" replace />;
@@ -241,10 +311,21 @@ const Authed = () => {
  * form leaves (React.lazy suspends once even for a loaded module; `view()` renders the module's own component once
  * `preload` has it: WP6 request 15).
  */
+/** Sign in, unless this device is signed in already (shell-23): then Today. A password reset link still opens the form. */
+const LoginRoute = () => {
+  const session = useSession();
+  const loc = useLocation();
+  if (session.data?.signedIn && !new URLSearchParams(loc.search).has('reset')) return <Navigate to="/today" replace />;
+  return <Login />;
+};
+
 const SignupRoute = () => {
   useEffect(() => void Welcome.preload().catch(() => undefined), []);
   return <Signup />;
 };
+
+/** How long a sheet takes to leave (its tween and the history step after it). */
+const SHEET_GONE_MS = 450;
 
 /** onDeepLink → nav.go (a deep link on a running app is a jump). Lives under NavController. */
 const DeepLinks = () => {
@@ -259,16 +340,37 @@ const DeepLinks = () => {
 
 export const App = () => {
   const navigate = useNavigate();
+  const sheet = useSheet();
+  const menu = useContextMenu();
+  const ui = useRef({ sheet, menu });
+  ui.current = { sheet, menu };
   // the type scale follows the iOS text size
   useEffect(() => watchDynamicType(), []);
-  // a 401 anywhere sends you to sign in, without reloading the page
+  /**
+   * A 401 anywhere (the session ended mid-use) sends you to the signed-out home, without reloading the page (auth-10). An
+   * open menu or sheet closes first, and the move waits for the sheet to be gone, so its history entry is given back
+   * before the route changes and nothing is left floating over the welcome page. The state says why you are there.
+   */
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const fn = () => {
-      if (!/^\/(login|setup|signup|start)/.test(location.pathname)) navigate(signedOutHome(), { replace: true });
+      if (/^\/(login|setup|signup|start)/.test(location.pathname) || timer) return;
+      const from = location.pathname;
+      ui.current.menu.close();
+      const open = ui.current.sheet.isOpen();
+      if (open) ui.current.sheet.close();
+      timer = setTimeout(
+        () => {
+          timer = undefined;
+          if (!/^\/(login|setup|signup|start)/.test(location.pathname)) navigate(signedOutHome(), { replace: true, state: { signedOut: true, from } });
+        },
+        open ? SHEET_GONE_MS : 0,
+      );
     };
     onUnauthorized.add(fn);
     return () => {
       onUnauthorized.delete(fn);
+      clearTimeout(timer);
     };
   }, [navigate]);
   return (
@@ -276,7 +378,7 @@ export const App = () => {
       <DeepLinks />
       <Routes>
         <Route path="/start" element={<Start />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginRoute />} />
         <Route path="/signup" element={<SignupRoute />} />
         <Route path="/setup" element={<Navigate to="/signup" replace />} />
         <Route path="*" element={<Authed />} />

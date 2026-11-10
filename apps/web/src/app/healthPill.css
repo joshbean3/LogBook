@@ -1,4 +1,4 @@
-/* the Apple Health pill (Shell.tsx HealthPill): glass, under the status bar, a turning dot while history is read */
+/* the Apple Health pill (Shell.tsx StatusPill): glass, in the status slot above the dock, a pulsing dot while history is read */
 .net-pill.hl-pill {
   background: var(--glass, var(--surface));
   -webkit-backdrop-filter: var(--glass-blur, none);

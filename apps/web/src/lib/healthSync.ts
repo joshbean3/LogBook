@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
+import { api } from '@/api/client';
 import { Health, type HealthSyncEvent, type HealthSyncResult } from './health';
 
 /**
@@ -48,9 +49,20 @@ const listen = () => {
 let lastRun = 0;
 let inflight: Promise<HealthSyncResult | null> | null = null;
 
-/** Runs a sync if this phone is connected. Joins one already running; skips if one ran in the last 30 s (unless forced). */
+/** Is an account signed in here? The cached bootstrap says (a 401 and Sign out both remove it). */
+const signedIn = (qc: QueryClient) => !!qc.getQueryData<{ user?: { id?: string } }>(['bootstrap'])?.user?.id;
+
+/**
+ * Runs a sync if this phone is connected. Joins one already running; skips if one ran in the last 30 s (unless forced).
+ *
+ * Never while signed out: the phone's engine keeps its own token, so without this check it would go on reading Apple Health
+ * for an account that has left. And on an automatic run (the app opening or coming back), the account's own answer is
+ * asked first: when the server says this account is not connected while the phone still is (it was disconnected elsewhere,
+ * or the phone's token belongs to an account that was here before), the phone is disconnected and nothing is read.
+ */
 export const healthSyncNow = (qc: QueryClient, reason: 'open' | 'manual' | 'import' = 'open', force = false): Promise<HealthSyncResult | null> => {
   if (!Health) return Promise.resolve(null);
+  if (!signedIn(qc)) return Promise.resolve(null);
   if (inflight) return inflight;
   if (!force && Date.now() - lastRun < 30_000) return Promise.resolve(null);
   listen();
@@ -58,6 +70,17 @@ export const healthSyncNow = (qc: QueryClient, reason: 'open' | 'manual' | 'impo
   inflight = (async () => {
     const st = await h.status().catch(() => null);
     if (!st?.connected) return null;
+    if (reason === 'open') {
+      // no answer (offline, a server error) is not a no: the run goes on and the engine queues what it reads
+      const server = await api<{ connected?: boolean }>('/apple-health/status').catch(() => null);
+      if (server) qc.setQueryData(healthStatusKey, server);
+      if (server && server.connected === false) {
+        await h.disconnect().catch(() => undefined);
+        set({ phase: 'idle' });
+        return null;
+      }
+      if (!signedIn(qc)) return null;
+    }
     lastRun = Date.now();
     const r = await h.sync({ reason });
     set({ phase: r.error && r.error !== 'offline' ? 'error' : 'done', detail: r.error, last: { ...r, at: Date.now() } });

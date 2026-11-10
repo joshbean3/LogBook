@@ -5,17 +5,20 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { motionValue, motion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { Fragment, memo, Suspense, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { isOffline } from '@/api/client';
 import { outbox } from '@/api/outbox';
 import { keys } from '@/api/queries';
 import { PTR_ARM_PX, PTR_QUIET_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { REFRESH, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
+import { BackButton } from '@/ui/NavBar';
 import { PushedLayer, StackCtx, type StackMotion } from '@/ui/PushedLayer';
 import { pointerClaimed } from '@/ui/useHold';
+import { showToast } from '@/ui/toastStore';
 import { usePress } from '@/ui/usePress';
 import { ErrorBoundary } from './ErrorBoundary';
 import { healthSyncNow, useHealthSync } from '@/lib/healthSync';
-import { PushedEntryScope, TabScope, useNavInternal, useNavState, type Controller } from './NavController';
+import { PushedEntryScope, TabScope, useNav, useNavInternal, useNavState, type Controller } from './NavController';
 import './shell.css';
 import './healthPill.css';
 
@@ -80,8 +83,7 @@ export const Shell = ({ pages, pushed }: { pages: Record<TabId, ReactNode>; push
       <Dock today={st.tabs.today.path}>
         <TabBar ctl={ctl} active={st.active} />
       </Dock>
-      <NetPill />
-      <HealthPill />
+      <StatusPill />
     </div>
   );
 };
@@ -98,9 +100,9 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
   const root = useMemo(
     () =>
       mounted ? (
-        <ErrorBoundary>
+        <PageBoundary tab={tab}>
           <Suspense fallback={null}>{page}</Suspense>
-        </ErrorBoundary>
+        </PageBoundary>
       ) : null,
     [mounted, page],
   );
@@ -118,11 +120,11 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
                 {i === 1 ? <Scrim depth={2} value={sm.scrims[1]} /> : null}
                 <PushedLayer entry={e} depth={e.depth} parent={(i === 0 ? scroller : layer1) as RefObject<HTMLElement | null>}>
                   <PushedEntryScope entry={e}>
-                    <ErrorBoundary>
+                    <PageBoundary tab={tab} pushed>
                       <Suspense fallback={null}>
                         <LayerPage entry={e} pushed={pushed} />
                       </Suspense>
-                    </ErrorBoundary>
+                    </PageBoundary>
                   </PushedEntryScope>
                 </PushedLayer>
               </Fragment>
@@ -133,6 +135,20 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
     </TabScope>
   );
 });
+
+/**
+ * A page's boundary (shell-18): Reload, plus a quiet way out. A tab root offers Go to Today (Today itself has none); a
+ * pushed page keeps its chevron in a bar above the fallback and offers Back.
+ */
+const PageBoundary = ({ tab, pushed, children }: { tab: TabId; pushed?: boolean; children: ReactNode }) => {
+  const nav = useNav();
+  const secondary = pushed ? { label: 'Back', onPress: () => nav.pop() } : tab !== 'today' ? { label: 'Go to Today', onPress: () => nav.go('/today') } : undefined;
+  return (
+    <ErrorBoundary secondary={secondary} bar={pushed ? <BackButton /> : undefined}>
+      {children}
+    </ErrorBoundary>
+  );
+};
 
 /** A pushed layer's page, memoised on its entry: a tab change (or a push above it) does not re-render it. */
 const LayerPage = memo(function LayerPage({ entry, pushed }: { entry: PushedEntry; pushed: (entry: PushedEntry) => ReactNode }) {
@@ -211,8 +227,7 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={on}
+      aria-current={on ? 'page' : undefined}
       className="tab-item pressable"
       data-tab={t.id}
       data-press="scale"
@@ -249,7 +264,8 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
 });
 const TabBar = ({ ctl, active }: { ctl: Controller; active: TabId }) => (
   <nav className="tabbar" aria-label="Views">
-    <div className="tabs" role="tablist">
+    {/* a navigation landmark of buttons, the current one marked (a11y-15): no tablist, which promised arrow keys */}
+    <div className="tabs">
       {TABS.map((t) => (
         <TabItem key={t.id} t={t} on={active === t.id} ctl={ctl} />
       ))}
@@ -274,6 +290,8 @@ const C = 2 * Math.PI * R;
 const SLACK = 6;
 const GAIN = 0.8;
 const MAX_PULL = 100;
+/** However the fetches are doing, the busy ring goes after this long. */
+const PTR_GIVE_UP_MS = 10_000;
 
 /**
  * A `touchstart` on Today's scroller at scrollTop 0 attaches a non-passive `touchmove` synchronously, for that gesture only,
@@ -346,19 +364,36 @@ const usePullToRefresh = (ref: RefObject<HTMLDivElement | null>, enabled: boolea
       const onEnd = () => {
         detach();
         if (!armed) return hide();
+        // offline there is nothing to fetch: the ring goes, with a warning tap and a word (shell-08)
+        if (isOffline()) {
+          hide();
+          haptics.warning();
+          showToast('You’re offline');
+          return;
+        }
         busy = true;
         if (ring) {
           ring.style.transform = '';
           arc!.style.strokeDashoffset = '0';
         }
-        // a quick fetch shows no busy state at all
-        const quiet = setTimeout(() => ring?.classList.add('busy'), PTR_QUIET_MS);
+        // a quick fetch shows no busy state at all; a slow one turns a short arc
+        const quiet = setTimeout(() => {
+          ring?.classList.add('busy');
+          if (arc) arc.style.strokeDashoffset = String(C * 0.72);
+        }, PTR_QUIET_MS);
         window.dispatchEvent(new Event(REFRESH));
-        void refetchAll(qc).finally(() => {
+        // the ring always clears: when the fetches end, or after PTR_GIVE_UP_MS whatever they are doing
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
           clearTimeout(quiet);
+          clearTimeout(giveUp);
           busy = false;
           hide();
-        });
+        };
+        const giveUp = setTimeout(finish, PTR_GIVE_UP_MS);
+        void refetchAll(qc).finally(finish);
         if (ring) ring.style.opacity = '';
       };
       // synchronously, inside this touchstart: the first move already has a listener that may preventDefault
@@ -374,8 +409,42 @@ const usePullToRefresh = (ref: RefObject<HTMLDivElement | null>, enabled: boolea
   }, [ref, enabled, qc]);
 };
 
-// ---------- the Apple Health pill: shown while the first import reads history, and for a moment when a sync brings data ----------
-const HealthPill = () => {
+// ---------- the status pill: one slot above the dock, for the network or Apple Health (shell-07) ----------
+/**
+ * One line, never two, just above the dock: it covers no title or control (pages make room for it while it shows) and sits
+ * apart from the toasts at the top. The network state wins the slot; Apple Health's import or a sync that brought data
+ * shows only when the network has nothing to say.
+ */
+const StatusPill = () => {
+  const net = useNetState();
+  const health = useHealthPillState();
+  const text = net ?? health;
+  useEffect(() => {
+    const el = document.documentElement;
+    if (text) el.setAttribute('data-status-pill', '');
+    else el.removeAttribute('data-status-pill');
+    return () => el.removeAttribute('data-status-pill');
+  }, [text]);
+  if (net)
+    return (
+      <div className="net-pill t-cap" role="status">
+        <span className="dot" style={net.startsWith('Offline') ? { background: 'var(--warn)' } : undefined} />
+        {net}
+      </div>
+    );
+  if (health)
+    return (
+      <div className={`net-pill t-cap hl-pill ${health === HEALTH_DONE ? 'is-done' : ''}`.trim()} role="status">
+        <span className={`dot ${health === HEALTH_DONE ? '' : 'hl-pill-spin'}`.trim()} />
+        {health}
+      </div>
+    );
+  return null;
+};
+
+const HEALTH_DONE = 'Apple Health synced';
+/** Apple Health's words for the slot: while the first import reads history, and for a moment when a sync brings data. */
+const useHealthPillState = (): string | null => {
   const s = useHealthSync();
   const [flash, setFlash] = useState(false);
   const lastAt = s.last?.at;
@@ -386,30 +455,24 @@ const HealthPill = () => {
     const t = setTimeout(() => setFlash(false), 1800);
     return () => clearTimeout(t);
   }, [lastAt, brought]);
-  if (s.phase === 'importing')
-    return (
-      <div className="net-pill t-cap hl-pill" role="status">
-        <span className="dot hl-pill-spin" />
-        Reading Apple Health{s.detail ? ` · ${new Date(s.detail).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : '…'}
-      </div>
-    );
-  if (flash && s.phase === 'done')
-    return (
-      <div className="net-pill t-cap hl-pill is-done" role="status">
-        <span className="dot" />
-        Apple Health synced
-      </div>
-    );
+  if (s.phase === 'importing') return `Reading Apple Health${s.detail ? ` · ${new Date(s.detail).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : '…'}`;
+  if (flash && s.phase === 'done') return HEALTH_DONE;
   return null;
 };
 
-// ---------- the network pill ----------
-const NetPill = () => {
+/**
+ * The network's words for the slot (shell-07, shell-09): offline, "Offline. Changes are saved."; online with changes
+ * queued, "Syncing…" only while one is on the wire, otherwise "Waiting to sync 1 change" between the outbox's retries.
+ */
+const useNetState = (): string | null => {
   const [n, setN] = useState(0);
+  const [sending, setSending] = useState(false);
   useEffect(() => {
-    const off = outbox.subscribe(setN);
+    const a = outbox.subscribe(setN);
+    const b = outbox.subscribeSending(setSending);
     return () => {
-      off();
+      a();
+      b();
     };
   }, []);
   const [online, setOnline] = useState(navigator.onLine);
@@ -423,11 +486,7 @@ const NetPill = () => {
       window.removeEventListener('offline', off);
     };
   }, []);
-  if (online && !n) return null;
-  return (
-    <div className="net-pill t-cap" role="status">
-      <span className="dot" style={!online ? { background: 'var(--warn)' } : undefined} />
-      {!online ? 'Offline · changes saved here' : `Syncing ${n} change${n === 1 ? '' : 's'}…`}
-    </div>
-  );
+  if (!online) return 'Offline. Changes are saved.';
+  if (!n) return null;
+  return sending ? 'Syncing…' : `Waiting to sync ${n} change${n === 1 ? '' : 's'}`;
 };

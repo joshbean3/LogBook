@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { capsWord, dayCaption, dayTitle, fmt, monthCaption, shorten, weekCaption } from './captions';
+import { capsWord, clockText, dayCaption, dayTitle, deviceHourCycle, fmt, minutesText, monthCaption, shorten, speakable, weekCaption } from './captions';
 
 /** docs/feel.md §2.2–2.3 (contracts §B.2): the bar's words, from the date alone. Every date is relative to Fri 2026-10-23. */
 const T = '2026-10-23';
@@ -83,5 +83,37 @@ describe('the formatters (consumer review 2 #3)', () => {
     // weekday short, month short, month long + year, weekday narrow, the cell label: at most one each
     expect(built).toBeLessThanOrEqual(5);
     expect(fmt('2026-10-23', { weekday: 'short' })).toBe('Fri');
+  });
+});
+
+describe('clock times follow the phone (gap-qua-65)', () => {
+  const at = new Date(2026, 10, 10, 18, 30);
+  it('clockText on a 12 hour clock', () => {
+    expect(clockText(at, 'h12')).toBe('6:30 PM');
+    expect(clockText(new Date(2026, 10, 10, 0, 5), 'h12')).toBe('12:05 AM');
+    expect(clockText(at.getTime(), 'h12')).toBe('6:30 PM');
+    expect(clockText('not a date', 'h12')).toBe('');
+  });
+  it('clockText on a 24 hour clock', () => {
+    expect(clockText(at, 'h23')).toBe('18:30');
+    expect(clockText(new Date(2026, 10, 10, 0, 5), 'h23')).toBe('00:05');
+  });
+  it('minutesText both ways', () => {
+    expect(minutesText(390, 'h12')).toBe('6:30 AM');
+    expect(minutesText(720, 'h12')).toBe('12:00 PM');
+    expect(minutesText(0, 'h12')).toBe('12:00 AM');
+    expect(minutesText(1110, 'h23')).toBe('18:30');
+    expect(minutesText(390, 'h23')).toBe('06:30');
+  });
+  it('reads the device setting', () => {
+    expect(['h12', 'h23']).toContain(deviceHourCycle());
+  });
+});
+
+describe('speakable (gap-qua-40)', () => {
+  it('turns a caps line into words', () => {
+    expect(speakable('TUE, NOV 10')).toBe('Tue, Nov 10');
+    expect(speakable('STEADY · TUE, NOV 10')).toBe('Steady · Tue, Nov 10');
+    expect(speakable('NOV 9 – 15')).toBe('Nov 9 – 15');
   });
 });

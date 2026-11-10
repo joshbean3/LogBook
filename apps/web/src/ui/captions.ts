@@ -68,3 +68,41 @@ export const shorten = (s: string, form: Form): string => {
   return form === 'short' ? t : (t.split(' ').at(-1) ?? t);
 };
 
+
+/**
+ * Times of day follow the phone's 12 or 24 hour setting (gap-qua-65). The words stay American English; only the clock
+ * changes: "6:30 PM" or "18:30". Read once per launch: the setting rarely changes while the app is open.
+ */
+export type HourCycle = 'h12' | 'h23';
+let cycle: HourCycle | null = null;
+export const deviceHourCycle = (): HourCycle => {
+  if (cycle) return cycle;
+  try {
+    const hc = new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle;
+    cycle = hc === 'h23' || hc === 'h24' ? 'h23' : 'h12';
+  } catch {
+    cycle = 'h12';
+  }
+  return cycle;
+};
+const clockFormatters = new Map<HourCycle, Intl.DateTimeFormat>();
+/** A moment's time of day on this phone's clock, in its own time zone: "6:30 PM" or "18:30"; '' for a bad date. */
+export const clockText = (at: Date | number | string, hc: HourCycle = deviceHourCycle()): string => {
+  const d = at instanceof Date ? at : new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  let f = clockFormatters.get(hc);
+  if (!f) clockFormatters.set(hc, (f = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hourCycle: hc })));
+  // en-US puts a narrow no-break space before AM and PM; a plain space reads the same and copies cleanly
+  return f.format(d).replace(/ /g, ' ');
+};
+/** Minutes after midnight (a wake time, a leave time) on this phone's clock: 390 → "6:30 AM" or "06:30". */
+export const minutesText = (mins: number, hc: HourCycle = deviceHourCycle()): string => {
+  const m = ((Math.round(mins) % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const mm = String(m % 60).padStart(2, '0');
+  if (hc === 'h23') return `${String(h).padStart(2, '0')}:${mm}`;
+  return `${h % 12 || 12}:${mm} ${h < 12 ? 'AM' : 'PM'}`;
+};
+
+/** A caps line as words a voice reads and Voice Control matches: 'TUE, NOV 10' → 'Tue, Nov 10'. */
+export const speakable = (caps: string): string => caps.toLowerCase().replace(/(^|[\s,·(–-])([a-z])/g, (_m, sep: string, c: string) => sep + c.toUpperCase());

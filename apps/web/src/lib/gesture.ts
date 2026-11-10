@@ -66,7 +66,8 @@ export const PTR_QUIET_MS = 150;
 
 /** Toasts: plain and with Undo, and the swipe-dismiss speed. */
 export const TOAST_MS = 4000;
-export const TOAST_UNDO_MS = 6000;
+/** With an action (Undo): 10 s, long enough to read and reach it (a11y-11); the timer also pauses while it is touched or focused. */
+export const TOAST_UNDO_MS = 10_000;
 export const TOAST_DISMISS_V = 110;
 
 /** A done to-do folds after this long. */

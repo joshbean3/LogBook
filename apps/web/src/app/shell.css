@@ -56,6 +56,18 @@ body {
   background: var(--bg);
   --hdr: 0;
 }
+/*
+ * A focused control is scrolled clear of the chrome (a11y-19, WCAG 2.4.11): never under the floating dock, the status pill
+ * or the sticky bar (and Today's week strip under it).
+ */
+.tab-scroll,
+.pushed {
+  scroll-padding-top: calc(var(--safe-t) + 44px + 8px);
+  scroll-padding-bottom: calc(var(--chrome-h) + var(--safe-b) + var(--pill-room, 0px) + 16px);
+}
+.tab-scroll:has(.nb-strip) {
+  scroll-padding-top: calc(var(--safe-t) + 44px + 82px + 8px);
+}
 .tab-scrim {
   position: absolute;
   inset: 0;
@@ -123,6 +135,8 @@ body {
   bottom: 0;
   z-index: 30;
   display: grid;
+  /* one column the width of the screen, never of its content: at large text the capsule used to grow past the right edge */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--dock-gap);
   padding: 0 12px calc(var(--safe-b) + 8px);
   pointer-events: none;
@@ -164,11 +178,12 @@ html.kb-open .dock {
   flex: none;
   color: var(--accent);
 }
+/* the dock is fixed chrome, like the system tab bar: its text follows Larger Text only as far as its fixed height allows */
 .dock-ask-text {
   flex: 1;
   min-width: 0;
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
+  font-size: min(var(--fs-row), 20px);
+  line-height: min(var(--lh-row), 26px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -185,6 +200,8 @@ html.kb-open .dock {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  max-width: calc(100vw - 24px);
 }
 /* folded: the ask bar sinks out and a round button opens beside the capsule */
 .dock[data-compact] .dock-ask {
@@ -204,6 +221,8 @@ html.kb-open .dock {
   border-radius: 50%;
   background: var(--surface);
   border: var(--card-border);
+  /* at rest it is 0 wide: no border either, so the capsule ends where the ask bar does (shell-21) */
+  border-width: 0;
   box-shadow: var(--shadow-1), 0 6px 24px rgba(15, 42, 68, 0.1);
   color: var(--accent);
   opacity: 0;
@@ -216,6 +235,7 @@ html.kb-open .dock {
 }
 .dock[data-compact] .dock-ask-mini.pressable {
   width: var(--tabbar-h);
+  border-width: 1px;
   margin-left: 0;
   opacity: 1;
   pointer-events: auto;
@@ -246,6 +266,8 @@ html.kb-open .dock {
   height: 100%;
 }
 .tab-item {
+  position: relative;
+  min-width: 0;
   min-height: 44px;
   display: grid;
   justify-items: center;
@@ -261,24 +283,54 @@ html.kb-open .dock {
   width: 22px;
   height: 22px;
 }
-.tab-item[aria-selected='true'] {
+.tab-item[aria-current='page'] {
   color: var(--accent);
 }
 .tab-label {
-  font-size: 0.625rem;
-  line-height: 0.75rem;
+  /* 11 px at the default size (the floor for a caption), growing with Larger Text up to 12 px */
+  font-size: clamp(11px, 0.6875rem, 12px);
+  line-height: clamp(12px, 0.75rem, 14px);
   font-weight: 500;
   letter-spacing: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
   transition: opacity 180ms var(--ease-out);
 }
-.tab-item[aria-selected='true'] .tab-label {
+/* very large text (above 150%, app/dynamicType.ts): the words go and the icons stay; each tab keeps its name for VoiceOver */
+html[data-text-xl] .tab-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+html[data-text-xl] .tab-item svg {
+  width: 26px;
+  height: 26px;
+}
+.tab-item[aria-current='page'] .tab-label {
   font-weight: 650;
   color: var(--accent-text);
 }
-/* folded on a narrow phone: the capsule gives the button room by dropping the words */
 @media (max-width: 374px) {
+  /* folded on a narrow phone: the capsule gives the button room by dropping the words */
   .dock[data-compact] .tab-label {
     display: none;
+  }
+  /* a 320 px screen has 47 px a tab and 230 px for the ask line: both stay at their default size, so no word is cut */
+  .tab-label {
+    font-size: min(0.6875rem, 11px);
+    line-height: min(0.8125rem, 13px);
+    letter-spacing: -0.01em;
+  }
+  .dock-ask-text {
+    font-size: min(var(--fs-row), 17px);
+    line-height: min(var(--lh-row), 22px);
   }
 }
 
@@ -319,12 +371,33 @@ html.kb-open .dock {
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
+/* a slow refresh: the short arc turns (still under Reduce Motion) */
+.ptr.busy svg {
+  animation: ptr-spin 0.9s linear infinite;
+}
+@keyframes ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ptr.busy svg {
+    animation: none;
+  }
+}
 
+/* one line, just above the dock (Shell.tsx StatusPill): no title or control is under it, and the toasts sit at the top */
 .net-pill {
   position: fixed;
-  top: calc(8px + var(--safe-t));
-  left: 50%;
-  transform: translateX(-50%);
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(var(--chrome-h) + var(--safe-b) + 6px);
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100% - 2 * var(--gutter));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   z-index: 35;
   display: flex;
   align-items: center;
@@ -342,4 +415,7 @@ html.kb-open .dock {
   border-radius: 50%;
   background: var(--ok);
   flex: none;
+}
+html.kb-open .net-pill {
+  display: none;
 }
