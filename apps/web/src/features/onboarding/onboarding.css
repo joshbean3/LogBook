@@ -1036,3 +1036,32 @@
   color: var(--ink);
   background: var(--accent-soft, var(--surface));
 }
+
+/* the name step's one field, and "You usually train" on the morning step */
+.in.ob-name {
+  height: 56px;
+  font: 400 1.375rem / 1 var(--serif);
+}
+.ob-when {
+  display: grid;
+  gap: 12px;
+}
+.ob-when-seg {
+  display: flex;
+  gap: 8px;
+}
+.ob-when-seg .ob-chip {
+  flex: 1;
+  justify-content: center;
+}
+.ob-offwork {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.ob-offwork > :last-child {
+  flex: 0 1 200px;
+}

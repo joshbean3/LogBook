@@ -11,6 +11,7 @@ import { fadeIn, springs } from '@/lib/motion';
 import { LogoMark } from '@/ui/primitives';
 import { clearPendingConsent, readPendingConsent } from './consent';
 import { hasAccountHere, markHasAccount } from './flag';
+import { useSplashDoneOnPaint } from '@/lib/native';
 import './auth.css';
 
 export const useAuthStatus = () => useQuery({ queryKey: ['auth-status'], queryFn: () => api<AuthStatus>('/auth/status'), staleTime: 60_000 });
@@ -103,6 +104,7 @@ const nextOn = (next: React.RefObject<HTMLInputElement | null>) => (e: React.Key
 };
 
 export const Login = () => {
+  useSplashDoneOnPaint();
   const status = useAuthStatus();
   const qc = useQueryClient();
   const nav = useNavigate();
@@ -183,6 +185,7 @@ export const Login = () => {
  * the email in a hidden username field, so a password manager saves the pair.
  */
 export const Signup = () => {
+  useSplashDoneOnPaint();
   const status = useAuthStatus();
   const qc = useQueryClient();
   const nav = useNavigate();

@@ -2,23 +2,24 @@ import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, 
 import { Check, ChevronLeft, Clock } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams } from 'react-router';
 import { FirstRunHero, type FirstRunAction } from '@/features/day/FirstRunHero';
-import { useBootstrap, useHabitMutations, useMorningMutations, useOnboard } from '@/api/queries';
+import { useBootstrap, useHabitMutations, useMorningMutations, useOnboard, useSetName } from '@/api/queries';
 import { useNav } from '@/app/NavController';
 import type { OnboardingAnswers } from '@/api/types';
 import { haptics } from '@/lib/haptics';
+import { useSplashDoneOnPaint } from '@/lib/native';
 import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
 import { crossfade, fadeIn, springs } from '@/lib/motion';
 import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
 import { blockShape, buildSteps, DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
-import { endReplay, isReplaying, markInstallSetupShown } from './replay';
+import { endReplay, isReplaying } from './replay';
+import { DEFAULT_AFTERNOON, setAfternoon, setTrainWhenDefault } from '@/features/day/trainWhen';
+import { Stepper } from '@/ui/primitives';
 import { Tour } from './tour/Tour';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
-import { enrollIntros } from './FeatureIntro';
 import { handOff } from './handoff';
 import { StravaPrimer } from './StravaPrimer';
 import { commitsBack, releaseVelocity } from './velocity';
@@ -30,7 +31,8 @@ import './beats.css';
  *
  *   /start            the promise (features/auth/Start.tsx): it comes before the account now (critic B7), so
  *   /welcome          goes straight to the first question
- *   /welcome/goal     what are you training for (chips, a race-day wheel)          not skippable, no way back
+ *   /welcome/name     what to call you (one field, skippable): the profile's name, the coach's greeting
+ *   /welcome/goal     what are you training for (chips, a race-day wheel)          not skippable
  *   /welcome/days     which days (tap letters, hold for the long run) and weekly miles
  *   /welcome/morning  when you wake and leave (two markers on a timeline), what you do before you leave (chips),
  *                     and when it is tight, a one-tap earlier alarm
@@ -50,9 +52,9 @@ import './beats.css';
  * this, unless it is in the middle of its own payoff.
  */
 
-type Step = '' | 'goal' | 'days' | 'morning' | 'habits' | 'nudge' | 'tour' | 'ready';
+type Step = '' | 'name' | 'goal' | 'days' | 'morning' | 'habits' | 'nudge' | 'tour' | 'ready';
 /** The nudge step only where a nudge can be sent (the iOS app); the web has the dot on Goals. */
-const QUESTIONS: Step[] = ['goal', 'days', 'morning', 'habits', ...(remindersSupported() ? (['nudge'] as Step[]) : []), 'tour'];
+const QUESTIONS: Step[] = ['name', 'goal', 'days', 'morning', 'habits', ...(remindersSupported() ? (['nudge'] as Step[]) : []), 'tour'];
 const ORDER: Step[] = ['', ...QUESTIONS, 'ready'];
 
 interface Draft {
@@ -69,6 +71,11 @@ interface Draft {
   custom: string[];
   /** The morning step's chips (Shower, Breakfast, Pack bag, Coffee): what happens between the run and the door. */
   routine?: string[];
+  /** What to call them (the profile's name); prefilled from the account. */
+  name?: string;
+  /** When they usually train, and when work ends for an afternoon (Today's training card starts from these). */
+  trainWhen?: 'morning' | 'afternoon';
+  offWork?: number;
   /** The tour's page, so a reload lands on the same one. */
   tourPage?: number;
   /** The morning nudge: on unless turned off (the system still asks; this is only what Continue asks it for). */
@@ -152,6 +159,7 @@ const AddHabitsSheet = () => {
 };
 
 function Flow({ uid }: { uid: string }) {
+  useSplashDoneOnPaint();
   const nav = useNavigate();
   const framed = useNav();
   const toast = useToast();
@@ -178,7 +186,7 @@ function Flow({ uid }: { uid: string }) {
   const go = (s: Step, replace = false) => nav(s ? `/welcome/${s}` : '/welcome', { replace });
   const back = () => {
     const i = ORDER.indexOf(step);
-    if (i <= ORDER.indexOf('goal') || step === 'ready') return;
+    if (i <= ORDER.indexOf('name') || step === 'ready') return;
     go(ORDER[i - 1]!, true);
   };
 
@@ -198,7 +206,7 @@ function Flow({ uid }: { uid: string }) {
   const underBox = useRef({ top: 0, h: 0, vTop: 0 });
   // the route changed under a committed edge swipe: the new step shows at rest, without its entrance
   const swapping = useRef(false);
-  const canBack = idx > ORDER.indexOf('goal') && step !== 'ready';
+  const canBack = idx > ORDER.indexOf('name') && step !== 'ready';
   const edge = useRef<null | { id: number; x0: number; y0: number; lock: 'x' | null; samples: Array<[number, number]> }>(null);
   const onEdgeDown = (e: React.PointerEvent<HTMLElement>) => {
     edge.current = e.isPrimary && canBack && !swapping.current && e.clientX <= EDGE_PX && !document.querySelector('.sheet-wrap, .cm-layer') ? { id: e.pointerId, x0: e.clientX, y0: e.clientY, lock: null, samples: [[e.clientX, e.timeStamp]] } : null;
@@ -272,7 +280,7 @@ function Flow({ uid }: { uid: string }) {
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // guards: questions need the promise first only in spirit; later steps need a goal
-  if (!ORDER.includes(step) || step === '') return <Navigate to="/welcome/goal" replace />;
+  if (!ORDER.includes(step) || step === '') return <Navigate to="/welcome/name" replace />;
   if (idx > ORDER.indexOf('goal') && !d.goal) return <Navigate to="/welcome/goal" replace />;
 
   const qIndex = QUESTIONS.indexOf(step);
@@ -281,6 +289,23 @@ function Flow({ uid }: { uid: string }) {
   const bodyFor = (step: Step): React.ReactNode => {
   let body: React.ReactNode;
   switch (step) {
+    case 'name':
+      body = (
+        <Question title="What should Logbook call you?" sub="Your first name is plenty. The coach and your mornings use it." onNext={next} nextLabel={d.name?.trim() ? 'Next' : 'Skip for now'} later="You can change it in Settings.">
+          <input
+            className="in ob-name"
+            value={d.name ?? boot.data?.user.name ?? ''}
+            onChange={(e) => set({ name: e.target.value.slice(0, 40) })}
+            placeholder="First name"
+            autoComplete="given-name"
+            autoCapitalize="words"
+            enterKeyHint="next"
+            aria-label="First name"
+            onKeyDown={(e) => e.key === 'Enter' && next()}
+          />
+        </Question>
+      );
+      break;
     case 'goal':
       body = (
         <Question title="What are you training for?" sub="Pick one. A race gets a taper; just running gets a steady build." onNext={next} nextDisabled={!d.goal}>
@@ -332,7 +357,33 @@ function Flow({ uid }: { uid: string }) {
       const earlier = pv.late > 0 ? Math.floor((d.wake - pv.late) / 5) * 5 : null;
       const fix = earlier == null ? null : earlier >= TRACK_FROM ? { wake: earlier, leave: d.leave, text: `Wake ${hm(earlier)}?` } : { wake: d.wake, leave: snap5(d.leave + pv.late + 2), text: `Leave ${hm(snap5(d.leave + pv.late + 2))}?` };
       body = (
-        <Question title="When do you wake, and leave for work?" sub="Drag the two markers. Logbook plans the run in between." onNext={next}>
+        <Question title="When do you wake, and leave for work?" sub="Drag the two markers. Logbook plans your morning around them." onNext={next}>
+          {/* when they usually train: Today's training card starts from it (Morning, or Afternoon from the end of work) */}
+          <div className="card ob-card ob-when">
+            <p className="ob-q-label">You usually train</p>
+            <div className="ob-when-seg" role="radiogroup" aria-label="When you usually train">
+              {(['morning', 'afternoon'] as const).map((v) => (
+                <Pressable
+                  key={v}
+                  className={`ob-chip ${(d.trainWhen ?? 'morning') === v ? 'on' : ''}`}
+                  role="radio"
+                  aria-checked={(d.trainWhen ?? 'morning') === v}
+                  onPress={() => {
+                    if ((d.trainWhen ?? 'morning') !== v) haptics.select();
+                    set({ trainWhen: v });
+                  }}
+                >
+                  {v === 'morning' ? 'Before work' : 'After work'}
+                </Pressable>
+              ))}
+            </div>
+            {d.trainWhen === 'afternoon' ? (
+              <div className="ob-offwork">
+                <span>Work ends</span>
+                <Stepper value={d.offWork ?? DEFAULT_AFTERNOON.offWork} onChange={(v) => set({ offWork: v })} step={15} min={11 * 60} max={21 * 60} format={(v) => hm(v)} parse={() => null} label="Work ends" />
+              </div>
+            ) : null}
+          </div>
           <div className="card ob-card ob-track-card">
             <MorningTrack wake={d.wake} leave={d.leave} settings={st} onChange={(wake, leave) => set({ wake, leave })} />
           </div>
@@ -429,7 +480,6 @@ function Flow({ uid }: { uid: string }) {
     ss.del(draftKey(uid));
     ss.del(PAYOFF_KEY);
     endReplay();
-    markInstallSetupShown();
   }
   /**
    * A row of the payoff's face, once Today is up (review code F2, F7): each does what it says, the way Today's own first-run
@@ -552,12 +602,12 @@ function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Nex
 function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onOpen: (then?: FirstRunAction) => void }) {
   const reduce = useReducedMotion();
   const onboard = useOnboard();
-  const qc = useQueryClient();
   const [waiting, setWaiting] = useState<{ then?: FirstRunAction } | null>(null);
   const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [profile, start, today, draft.wake, draft.leave, draft.routine]);
 
   const routine = routineFrom(draft.routine ?? []);
   const morning = useMorningMutations();
+  const setName = useSetName();
   const answers: OnboardingAnswers = {
     routine,
     goal: profile.goal,
@@ -584,8 +634,11 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
         morning.settings.mutate({ after: { ...routine, names: routineNames(draft.routine ?? []), showerMode: 'fixed', showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } });
         // the answers are on the account now (POST /me/onboarding stores them as the training profile)
         set({ sent: key, firstDay: r.firstDay });
-        // this account went through first run: Plan, Learned and Journal introduce themselves the first time they open
-        void enrollIntros(qc);
+        // the rest of the profile: the name, and when they train (Today's training card starts from it)
+        const name = (draft.name ?? '').trim();
+        if (name) setName.mutate(name);
+        setTrainWhenDefault(draft.trainWhen ?? 'morning');
+        if (draft.trainWhen === 'afternoon') setAfternoon({ offWork: draft.offWork ?? DEFAULT_AFTERNOON.offWork });
       },
       onError: () => haptics.error(),
     });

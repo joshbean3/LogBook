@@ -21,7 +21,8 @@ export const markHasAccount = () => {
   }
 };
 /** Where a visitor without a session goes: sign in on a device that has had an account, the promise otherwise. */
-export const signedOutHome = () => (hasAccountHere() ? '/login' : '/start');
+/** Signed out, the app opens on the welcome page; its "I have an account" leads to sign in. */
+export const signedOutHome = () => '/start';
 
 /**
  * Signed out here (Sign out, Delete account): the quiet session query `Authed` reads (`['auth-session']`, App.tsx) says so,

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 /** True inside the iOS app; false in Safari and on the desktop. */
@@ -53,6 +54,12 @@ export const hideSplash = () => {
     .then(({ SplashScreen }) => SplashScreen.hide({ fadeOutDuration: 200 }))
     .catch(() => undefined);
 };
+/** A screen outside the framed app (welcome, sign in, first run) is up: let the splash go once it has painted. */
+export const useSplashDoneOnPaint = () =>
+  useEffect(() => {
+    const r = requestAnimationFrame(hideSplash);
+    return () => cancelAnimationFrame(r);
+  }, []);
 /** A cap: hide the splash after `ms` if nothing hid it first. */
 export const hideSplashBy = (ms: number) => void setTimeout(hideSplash, ms);
 

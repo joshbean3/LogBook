@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { HabitsCard, LearnedCard, MorningCard, WeekCard } from '@/features/onboarding/cards';
 import { haptics } from '@/lib/haptics';
+import { useSplashDoneOnPaint } from '@/lib/native';
 import { Switch } from '@/features/settings/parts';
 import { LogoMark } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
@@ -35,6 +36,7 @@ export const PAGES = [
  * own history entry, so Back returns to the pager.
  */
 export const Start = () => {
+  useSplashDoneOnPaint();
   const nav = useNavigate();
   const loc = useLocation();
   const status = useAuthStatus();
