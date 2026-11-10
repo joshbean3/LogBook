@@ -12,12 +12,13 @@ const BrandOrb = Orb as unknown as (p: OrbProps & { variant?: OrbVariant }) => R
 
 /**
  * A day's mark: the orb in the palette its entries pick (calDays.ts `orbVariant`), one still frame. `live`: the brand's own
- * orb, breathing, inside a soft pulse (none under Reduce Motion), for the card's one invitation to write.
+ * orb inside a soft pulse (none under Reduce Motion), for the card's one invitation to write. The orb itself holds still,
+ * so the Journal tab at rest draws no orb frames (perf-06); only the CSS pulse moves.
  */
 export const DayOrb = ({ variant, size, live = false }: { variant: OrbVariant | null; size: number; live?: boolean }) =>
   live ? (
     <span className="jcal-pulse" aria-hidden="true">
-      <BrandOrb size={size} variant={variant ?? 'brand'} state="idle" />
+      <BrandOrb size={size} variant={variant ?? 'brand'} state="still" />
     </span>
   ) : (
     <BrandOrb size={size} variant={variant ?? 'brand'} state="still" />
