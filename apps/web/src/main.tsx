@@ -22,7 +22,7 @@ import { App } from './app/App';
 import { CACHE_KEY, ErrorBoundary } from './app/ErrorBoundary';
 import { NavController } from './app/NavController';
 import { isBootstrap } from './api/bootstrap';
-import { onSignedOut, onUnauthorized } from './api/client';
+import { onSignedOut, onUnauthorized, shouldRetryRead } from './api/client';
 import { isWriteRejected, outbox } from './api/outbox';
 import { stravaSyncNow } from './api/queries';
 import type { Bootstrap } from './api/types';
@@ -64,7 +64,7 @@ const qc = new QueryClient({
   mutationCache,
   defaultOptions: {
     // refetchOnWindowFocus is off: coming back to the app is handled once, below, with one request
-    queries: { gcTime: 1000 * 60 * 60 * 24 * 14, staleTime: 30_000, retry: (n, e) => n < 2 && !(e instanceof Error && 'status' in e && (e as { status: number }).status === 401), refetchOnWindowFocus: false, networkMode: 'offlineFirst' },
+    queries: { gcTime: 1000 * 60 * 60 * 24 * 14, staleTime: 30_000, retry: shouldRetryRead, refetchOnWindowFocus: false, networkMode: 'offlineFirst' },
     mutations: { networkMode: 'offlineFirst' },
   },
 });

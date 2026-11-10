@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import { STRAVA_BUILT } from '@/lib/features';
 import { STRAVA_GAP_MS } from '@/lib/gesture';
 import { BadShapeError, parseBootstrap } from './bootstrap';
-import { api, ApiError, NetworkError } from './client';
+import { api, ApiError, LONG_TIMEOUT_MS, NetworkError } from './client';
 import { write } from './outbox';
 import type { Bootstrap, Daily, ExportBundle, MonthBundle, OnboardingAnswers, OnboardingResult, QuotePage, TemplateApplied } from './types';
 
@@ -241,7 +241,7 @@ export interface CoachReadAnswer {
  * the session sheet read, so an open sheet and a cold open show it at once (code review 3 #1, day review 3 #1).
  */
 export const fetchCoachRead = async (qc: QueryClient, date: string, sessionId: string | null): Promise<CoachReadAnswer> => {
-  const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId } });
+  const r = await api<CoachReadAnswer>('/coach/read', { method: 'POST', json: { date, sessionId }, timeoutMs: LONG_TIMEOUT_MS });
   const b = qc.getQueryData<MonthBundle>(keys.month(monthOf(date)));
   if (b) {
     const i = b.coach.findIndex((c) => c.date === r.date && c.key === r.key);
@@ -1001,7 +1001,7 @@ export const useReadsMutations = () => {
   /** A manual refresh: the server allows a few a day. */
   const another = useMutation({
     mutationFn: async (date: string) => {
-      const r = await api<PickResult>(`/reads/pick?date=${date}&force=1`);
+      const r = await api<PickResult>(`/reads/pick?date=${date}&force=1`, { timeoutMs: LONG_TIMEOUT_MS });
       qc.setQueryData<PickResult>(keys.pick(date), r);
       return r;
     },
@@ -1090,14 +1090,16 @@ const groupsKey = ['todo-groups'] as const;
 /** A goal as the app reads it. Goals cached on the phone, or served by a server, from before steps existed have none. */
 const aimOf = (g: Aim): Aim => (Array.isArray(g.steps) ? g : { ...g, steps: [] });
 const aimsOf = (gs: Aim[]): Aim[] => (gs.every((g) => Array.isArray(g.steps)) ? gs : gs.map(aimOf));
-export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: async () => aimsOf(await api<Aim[]>('/goals')), select: aimsOf, staleTime: 30_000 });
+// retryOnMount off: a goals query that failed with nothing cached is not restarted by every observer that mounts (the
+// Goals badge, Today's card, the tab), which looped about once a second (goals-03)
+export const useGoals = () => useQuery({ queryKey: goalsKey, queryFn: async () => aimsOf(await api<Aim[]>('/goals')), select: aimsOf, staleTime: 30_000, retryOnMount: false });
 export const useGoalEvents = (goal?: string, enabled = true) =>
   useQuery({ queryKey: ['goal-events', goal ?? 'all'], queryFn: () => api<{ events: GoalEvent[]; more: boolean }>(`/goals/events${goal ? `?goal=${encodeURIComponent(goal)}` : '?limit=300'}`), staleTime: 15_000, enabled });
 
 /** The review: the goal rewritten to the goal-setting rules. Online only; offline the words stand as typed. */
 export const refineGoal = async (level: GoalLevel, period: string, text: string): Promise<GoalRefinement> => {
   try {
-    return await api<GoalRefinement>('/goals/refine', { method: 'POST', json: { level, period, text } });
+    return await api<GoalRefinement>('/goals/refine', { method: 'POST', json: { level, period, text }, timeoutMs: LONG_TIMEOUT_MS });
   } catch (e) {
     if (e instanceof ApiError && e.status < 500 && e.status !== 503) throw e;
     return { text, why: null, changed: false, steps: [], available: false };
@@ -1196,7 +1198,7 @@ export const askAssistant = (
   watch: { onJob?: (id: string) => void; onProgress?: (live: import('@logbook/shared').AssistantLive) => void } = {},
 ) =>
   askAndWait<AssistantReply>(
-    () => api<{ jobId: string } | AssistantReply>('/assistant?async=1', { method: 'POST', json: { date, turns, ...(screen ? { screen } : {}) } }),
+    () => api<{ jobId: string } | AssistantReply>('/assistant?async=1', { method: 'POST', json: { date, turns, ...(screen ? { screen } : {}) }, timeoutMs: LONG_TIMEOUT_MS }),
     (id) => api<JobAnswer<AssistantReply>>(`/assistant/jobs/${encodeURIComponent(id)}`),
     { isTransient: (e) => e instanceof NetworkError, ...watch },
   );
@@ -1213,7 +1215,7 @@ export const useAssistantActions = () => {
   const apply = useMutation({
     /** `skip`: the changes (by index) the owner removed before Apply. */
     mutationFn: async ({ id, skip }: { id: string; skip?: number[] }) => {
-      const r = await api<AssistantApplied>(`/assistant/${id}/apply`, { method: 'POST', ...(skip?.length ? { json: { skip } } : {}) });
+      const r = await api<AssistantApplied>(`/assistant/${id}/apply`, { method: 'POST', ...(skip?.length ? { json: { skip } } : {}), timeoutMs: LONG_TIMEOUT_MS });
       refresh(r.months);
       return r.proposal;
     },
