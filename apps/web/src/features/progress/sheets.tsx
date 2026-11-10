@@ -304,6 +304,13 @@ export const EasyPaceSheet = ({ ep, log, range }: { ep: EasyPace; log: Log; rang
     if (best == null || p.y < pts[best]!.y) best = i;
   });
   const ch = paceChange(ep.now, ep.then);
+  // pace needs a run with a time: runs marked done by hand have none
+  if (!ep.runs.length)
+    return (
+      <div className="pg-sheet">
+        <EmptyState>No timed runs yet. Runs synced from a watch show their pace here.</EmptyState>
+      </div>
+    );
   return (
     <div className="pg-sheet">
       <LineChart
@@ -318,7 +325,7 @@ export const EasyPaceSheet = ({ ep, log, range }: { ep: EasyPace; log: Log; rang
           if (i == null)
             return (
               <div className="pg-stamps two">
-                <Stamp label="Easy pace now" value={ep.now != null ? paceText(ep.now) : '—'} unit="/mi" note={ch ? (ch === 'level' ? `Level with ${ep.thenMonth}` : `${ch} than ${ep.thenMonth}`) : `${ep.runs.length} easy ${plural(ep.runs.length, 'run')} ${rangePhrase(range)}`} />
+                <Stamp label="Easy pace now" value={ep.now != null ? paceText(ep.now) : '–'} unit="/mi" note={ch ? (ch === 'level' ? `Level with ${ep.thenMonth}` : `${ch} than ${ep.thenMonth}`) : `${ep.runs.length} easy ${plural(ep.runs.length, 'run')} ${rangePhrase(range)}`} />
                 {ep.nowHr != null ? <Stamp label="Heart rate" value={Math.round(ep.nowHr)} unit="bpm" note="Average on those runs" /> : null}
               </div>
             );
@@ -376,7 +383,7 @@ export const LiftSheet = ({ g }: { g: LiftGroup }) => {
           if (i == null)
             return (
               <div className="pg-stamps two">
-                <Stamp label="Best e1RM" value={top ? Math.round(top.e1rm) : '—'} note={top ? `${top.weight} × ${top.reps} · ${md(top.date)}` : undefined} />
+                <Stamp label="Best e1RM" value={top ? Math.round(top.e1rm) : '–'} note={top ? `${top.weight} × ${top.reps} · ${md(top.date)}` : undefined} />
                 {g.change != null ? <Stamp label="Change" value={signedPct(g.change)} note={`Since ${md(g.days[0]!.date)}`} /> : null}
               </div>
             );
@@ -390,7 +397,7 @@ export const LiftSheet = ({ g }: { g: LiftGroup }) => {
       />
       ) : (
         <div className="pg-stamps two">
-          <Stamp label="e1RM" value={top ? Math.round(top.e1rm) : '—'} note={top ? `${top.weight} × ${top.reps} · ${md(top.date)}` : undefined} />
+          <Stamp label="e1RM" value={top ? Math.round(top.e1rm) : '–'} note={top ? `${top.weight} × ${top.reps} · ${md(top.date)}` : undefined} />
         </div>
       )}
       <p className="pg-note">{g.days.length > 1 ? '' : 'The line draws from the second day you log it. '}e1RM estimates the most you could lift once, from your best set that day (weight × (1 + reps ÷ 30)).</p>
@@ -510,8 +517,8 @@ export const ConsistencySheet = ({ c, log, today, range, streak }: { c: Consiste
     <div className="pg-sheet">
       <div className="pg-stamps three">
         {c.weeks ? <Stamp label="Weeks kept" value={c.keptWeeks} unit={`of ${c.weeks}`} note={rangeLabel(range)} /> : <Stamp label="Week" value={1} unit="so far" note="Counts once it’s kept" />}
-        <Stamp label="Training" value={tp ?? '—'} unit={tp != null ? '%' : undefined} note={tr.of ? `of ${tr.of} ${plural(tr.of, 'day')}` : 'No days yet'} />
-        <Stamp label="Habits" value={hp ?? '—'} unit={hp != null ? '%' : undefined} note={c.habitOf ? `of ${c.habitOf} ${plural(c.habitOf, 'check')}` : 'No habits yet'} />
+        <Stamp label="Training" value={tp ?? '–'} unit={tp != null ? '%' : undefined} note={tr.of ? `of ${tr.of} ${plural(tr.of, 'day')}` : 'No days yet'} />
+        <Stamp label="Habits" value={hp ?? '–'} unit={hp != null ? '%' : undefined} note={c.habitOf ? `of ${c.habitOf} ${plural(c.habitOf, 'check')}` : 'No habits yet'} />
       </div>
       {streak.ofLast.total ? <p className="pg-note">{`${streak.ofLast.kept} of the last ${streak.ofLast.total} ${plural(streak.ofLast.total, 'week')} kept${streak.weeks >= 2 ? `, ${streak.weeks} in a row` : ''}.`}</p> : null}
       <div ref={ref} className="pg-grid-wrap" style={{ '--n': N } as CSSProperties}>
@@ -535,7 +542,7 @@ export const ConsistencySheet = ({ c, log, today, range, streak }: { c: Consiste
               <div key={r.id} className={`pg-grow ${r.train ? 'train' : ''}`}>
                 <div className="pg-grow-head">
                   <span className="pg-grow-name">{r.name}</span>
-                  <span className="pg-grow-rate">{rp == null ? '—' : `${rp}%`}</span>
+                  <span className="pg-grow-rate">{rp == null ? '–' : `${rp}%`}</span>
                 </div>
                 <div className="pg-cells" aria-hidden="true">
                   {days.map((d, i) => (

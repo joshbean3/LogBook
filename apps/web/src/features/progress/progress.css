@@ -636,7 +636,7 @@
   stroke-width: 1;
 }
 .pg-ax {
-  font: 500 11px/1 var(--sans);
+  font: 500 clamp(11px, 0.6875rem, 15px) / 1 var(--sans);
   fill: var(--ink-4);
   font-variant-numeric: tabular-nums;
 }
@@ -1184,4 +1184,15 @@ button.pg-srow[data-pressed] {
 /* the Health slot as the way in: Connect Apple Health reads as a button */
 .pg-slot.is-connect .pg-slot-title {
   color: var(--accent-text);
+}
+
+/* a line chart with no values: one quiet line where the plot would be */
+.pg-line-none {
+  margin: 0;
+  padding: 28px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  text-align: center;
 }

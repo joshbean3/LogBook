@@ -90,7 +90,7 @@ export const nowOnTrack = (stops: CardStop[], pos: number[], now: number): numbe
 };
 
 /**
- * The one big line: on today, where the morning is (`morningPhase`): `Alarm in 43 min`, `Out the door in 22 min`, `Back by
+ * The one big line: on today, where the morning is (`morningPhase`): `Wake time in 43 min`, `Out the door in 22 min`, `Back by
  * 7:40`, `Leave for work in 25 min`, `Left at 8:30`. Tomorrow's says when it starts: `Out the door at 6:45` on a run or gym
  * morning, `Leave for work at 8:30` on a rest morning.
  */
@@ -100,7 +100,7 @@ export const headline = (T: MorningTimeline, now: number, rel: 'today' | 'tomorr
     return door != null ? `Out the door at ${short(door)}` : `Leave for work at ${short(T.leave)}`;
   }
   const p = morningPhase(T, now);
-  if (p.k === 'alarm') return `Alarm in ${inWords(p.at, now)}`;
+  if (p.k === 'alarm') return `Wake time in ${inWords(p.at, now)}`;
   if (p.k === 'door') return `Out the door in ${inWords(p.at, now)}`;
   if (p.k === 'out') return `Back by ${short(p.at)}`;
   if (p.k === 'left') return `Left at ${short(p.at)}`;
@@ -115,8 +115,8 @@ export const workOf = (T: MorningTimeline): { name: string; tone: Tone } => {
   return { name, tone: b?.tone ?? (T.day.mode === 'gym' ? 'lift' : 'easy') };
 };
 
-/** `6 steps · 1 h 55 min from alarm to door`: the schedule's rows (the alarm, the workout, the routine; not Free or a note). */
+/** `6 steps · 1 h 55 min from waking to the door`: the schedule's rows (the wake time, the workout, the routine; not Free or a note). */
 export const quietLine = (T: MorningTimeline): string => {
   const steps = rowsOf(T, 'today').filter((r) => r.kind !== 'free' && r.kind !== 'late').length;
-  return `${steps} ${steps === 1 ? 'step' : 'steps'} · ${durationWords(T.leave - T.day.wake)} from alarm to door`;
+  return `${steps} ${steps === 1 ? 'step' : 'steps'} · ${durationWords(T.leave - T.day.wake)} from waking to the door`;
 };

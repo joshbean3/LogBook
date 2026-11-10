@@ -191,7 +191,7 @@ export const ActivitySheet = ({ a }: { a: Activity }) => {
             </span>
             <span className="pg-drill-main">
               <span className="pg-drill-title">Open the planned session</span>
-              <span className="pg-drill-sub">Mark it, move it, or get the coach’s read</span>
+              <span className="pg-drill-sub">Mark it or move it</span>
             </span>
             <ChevronRight size={16} className="pg-chev" aria-hidden="true" />
           </Pressable>

@@ -320,9 +320,7 @@
   flex-wrap: nowrap;
 }
 .mc-quiet {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  text-wrap: pretty;
 }
 .mc {
   min-height: 0;
@@ -332,7 +330,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* the foot: the quiet line takes what is left and ends in an ellipsis; Schedule never collides with it (320 wide) */
+/* the foot: the quiet line takes what is left and wraps to a second line when it must; Schedule never collides with it (320 wide) */
 .mc-foot {
   display: flex;
 }

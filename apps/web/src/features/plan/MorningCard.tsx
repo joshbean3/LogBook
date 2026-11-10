@@ -1,5 +1,5 @@
 import { clockOfDay, fmtDate, monthOf, shiftDays, type MorningTimeline } from '@logbook/shared';
-import { AlarmClock, ArrowUpRight, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpRight, ChevronRight, Clock, SlidersHorizontal } from 'lucide-react';
 import type * as React from 'react';
 import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
@@ -27,7 +27,7 @@ const pct = (p: number) => ({ '--p': p }) as React.CSSProperties;
  * today's morning until today's leave time has passed, then tomorrow's. One card you can open: the caps eyebrow, the one big
  * line that matters now, the morning as a track (Wake · Run out · Back · Leave, the run's stretch in its tone and named; Wake ·
  * Leave on a rest morning) with past stops filled and the now dot on it today, the step count and the routine's length, and
- * `See the schedule ›`. A tap pushes the schedule (`/plan/morning[/<date>]`); a hold offers Open · Change the alarm · Edit the
+ * `See the schedule ›`. A tap pushes the schedule (`/plan/morning[/<date>]`); a hold offers Open · Change the wake time · Edit the
  * routine (the schedule's own sheets).
  */
 export const MorningCard = memo(function MorningCard(): React.JSX.Element {
@@ -86,9 +86,9 @@ export const MorningCard = memo(function MorningCard(): React.JSX.Element {
     return [
       { label: 'Open', icon: <ArrowUpRight size={18} />, onSelect: () => nav.push(path(date, today)) },
       {
-        label: 'Change the alarm',
-        icon: <AlarmClock size={18} />,
-        onSelect: () => void loadSheets().then(({ WakeEditor }) => sheet.open({ eyebrow: `Morning · ${fmtDate('md', date)}`, title: 'Alarm', body: <WakeEditor settings={T.settings} day={T.day} date={date} dayName={dayName} /> })),
+        label: 'Change the wake time',
+        icon: <Clock size={18} />,
+        onSelect: () => void loadSheets().then(({ WakeEditor }) => sheet.open({ eyebrow: `Morning · ${fmtDate('md', date)}`, title: 'Wake time', body: <WakeEditor settings={T.settings} day={T.day} date={date} dayName={dayName} /> })),
       },
       {
         label: 'Edit the routine',

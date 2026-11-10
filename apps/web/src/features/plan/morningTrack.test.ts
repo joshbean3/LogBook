@@ -65,7 +65,7 @@ describe('the stops on the track', () => {
 
 describe('the words', () => {
   it("today's big line follows the morning's phase", () => {
-    expect(headline(RUN, 400, 'today')).toBe('Alarm in 40 min');
+    expect(headline(RUN, 400, 'today')).toBe('Wake time in 40 min');
     expect(headline(RUN, 445, 'today')).toBe('Out the door in 10 min');
     expect(headline(RUN, 480, 'today')).toBe('Back by 8:30');
     expect(headline(RUN, 530, 'today')).toBe('Leave for work in 40 min');
@@ -85,7 +85,7 @@ describe('the words', () => {
   it('the workout and the quiet line', () => {
     expect(workOf(RUN)).toEqual({ name: 'Easy 5', tone: 'easy' });
     expect(workOf(REST)).toEqual({ name: 'Rest morning', tone: 'rest' });
-    expect(quietLine(RUN)).toBe('6 steps · 2 h 10 min from alarm to door');
-    expect(quietLine(REST)).toBe('5 steps · 2 h 10 min from alarm to door');
+    expect(quietLine(RUN)).toBe('6 steps · 2 h 10 min from waking to the door');
+    expect(quietLine(REST)).toBe('5 steps · 2 h 10 min from waking to the door');
   });
 });
