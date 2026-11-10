@@ -1,7 +1,7 @@
 import { shiftDays, today, type HrZone, type Lap, type StravaStatus } from '@logbook/shared';
 import { and, eq, gte, isNull, notInArray } from 'drizzle-orm';
 import type { DB } from '../db/index.js';
-import { activities, hrZones, stravaAccounts } from '../db/schema.js';
+import { activities, coachReads, hrZones, stravaAccounts } from '../db/schema.js';
 import { env } from '../env.js';
 import { nowISO } from '../lib/util.js';
 
@@ -61,16 +61,48 @@ export const exchangeCode = async (db: DB, userId: string, code: string, scope: 
     .run();
 };
 
-export const disconnect = async (db: DB, userId: string) => {
-  const acct = db.select().from(stravaAccounts).where(eq(stravaAccounts.userId, userId)).get();
-  if (acct) {
-    try {
-      await fetch('https://www.strava.com/oauth/deauthorize', { method: 'POST', headers: { authorization: `Bearer ${acct.accessToken}` } });
-    } catch {
-      /* Strava may already have revoked it */
-    }
-    db.delete(stravaAccounts).where(eq(stravaAccounts.userId, userId)).run();
+/** Ask Strava to end the grant for one access token. True when Strava said yes (or the grant was already gone). */
+const deauthorize = async (token: string): Promise<boolean> => {
+  try {
+    const res = await fetch('https://www.strava.com/oauth/deauthorize', { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8_000) });
+    // 401: the token is no longer valid, which is what a grant that is already gone looks like
+    return res.ok || res.status === 401;
+  } catch {
+    return false;
   }
+};
+/** How long after a failed deauthorize the one retry runs. */
+export const DEAUTHORIZE_RETRY_MS = 60_000;
+
+/**
+ * Everything Logbook holds from Strava for one account, gone in one transaction: the synced activities (with their laps
+ * and maps), the heart rate zones, the run notes that were written from those activities, and the tokens. Strava's API
+ * Agreement asks for this whenever a person revokes access. Returns how many rows of each went.
+ */
+export const purgeStravaData = (db: DB, userId: string) =>
+  db.transaction((tx) => ({
+    activities: tx.delete(activities).where(eq(activities.userId, userId)).run().changes,
+    zones: tx.delete(hrZones).where(eq(hrZones.userId, userId)).run().changes,
+    notes: tx.delete(coachReads).where(eq(coachReads.userId, userId)).run().changes,
+    accounts: tx.delete(stravaAccounts).where(eq(stravaAccounts.userId, userId)).run().changes,
+  }));
+
+/**
+ * Disconnect: end the grant at Strava, then delete every Strava row for the account. The rows go whether or not Strava
+ * answers (the person asked, and their data must not wait on Strava's uptime); if the deauthorize call failed, it is
+ * tried once more a minute later with the token kept in memory for that. `deauthorized` says how the first try went.
+ */
+export const disconnect = async (db: DB, userId: string): Promise<{ connected: boolean; deauthorized: boolean; removed: ReturnType<typeof purgeStravaData> }> => {
+  const acct = db.select().from(stravaAccounts).where(eq(stravaAccounts.userId, userId)).get();
+  let deauthorized = false;
+  if (acct) {
+    // a stale access token cannot deauthorize: refresh it first when the server still has its Strava keys
+    let token = acct.accessToken;
+    if (acct.expiresAt * 1000 <= Date.now() + 60_000 && env.stravaConfigured) token = await accessToken(db, userId).catch(() => acct.accessToken);
+    deauthorized = await deauthorize(token);
+    if (!deauthorized) setTimeout(() => void deauthorize(token), DEAUTHORIZE_RETRY_MS).unref();
+  }
+  return { connected: !!acct, deauthorized, removed: purgeStravaData(db, userId) };
 };
 
 const accessToken = async (db: DB, userId: string): Promise<string> => {

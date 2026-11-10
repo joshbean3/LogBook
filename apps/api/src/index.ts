@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
@@ -10,7 +11,6 @@ import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import { purgeExpiredSessions, requireAuth, type AuthEnv } from './auth.js';
 import { openDatabase, type DB } from './db/index.js';
-import { stravaAccounts } from './db/schema.js';
 import { idempotency } from './lib/requests.js';
 import { seedQuotes } from './db/seed.js';
 import { env } from './env.js';
@@ -27,15 +27,43 @@ import { timelineRoutes } from './routes/timeline.js';
 import { meRoutes } from './routes/me.js';
 import { planRoutes } from './routes/plans.js';
 import { readsRoutes } from './routes/reads.js';
-import { stravaRoutes, syncInBackground } from './routes/strava.js';
+import { stravaRoutes } from './routes/strava.js';
 import { appleHealthDeviceRoutes, appleHealthRoutes } from './routes/appleHealth.js';
+import { purgeTokens } from './services/authTokens.js';
+import { purgeThrottle } from './services/throttle.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+const KB = 1024;
+const MB = 1024 * KB;
+/** The body limit for ordinary routes, and the routes that may send more (a file, an export, a batch of readings). */
+export const BODY_LIMIT = 256 * KB;
+export const BODY_LIMITS: Array<{ path: string; bytes: number }> = [
+  { path: '/api/assistant', bytes: 28 * MB },
+  { path: '/api/plans/draft', bytes: 26 * MB },
+  { path: '/api/import', bytes: 20 * MB },
+  { path: '/api/apple-health/reconcile', bytes: 3 * MB },
+  { path: '/api/apple-health/sync', bytes: 2 * MB },
+];
+const tooBig = (bytes: number) =>
+  bodyLimit({
+    maxSize: bytes,
+    onError: (c) => c.json({ error: bytes > BODY_LIMIT ? `That is too big to send. The limit here is ${Math.round(bytes / MB)} MB.` : 'That is too big to send.', code: 'too_big' }, 413),
+  });
+const limiters = new Map<number, ReturnType<typeof bodyLimit>>();
+const limitFor = (path: string) => {
+  const bytes = BODY_LIMITS.find((l) => l.path === path)?.bytes ?? BODY_LIMIT;
+  let m = limiters.get(bytes);
+  if (!m) limiters.set(bytes, (m = tooBig(bytes)));
+  return m;
+};
 
 export const buildApp = (db: DB) => {
   const app = new Hono<AuthEnv>();
   if (!env.isProd) app.use(logger());
   app.use(secureHeaders({ crossOriginEmbedderPolicy: false }));
+  // every request body is capped before anything reads or parses it: 256 KB, more only on the routes that carry files
+  app.use('/api/*', (c, next) => limitFor(c.req.path)(c, next));
 
   app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
   app.route('/api/auth', authRoutes(db));
@@ -119,18 +147,20 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const { db } = openDatabase();
   seedQuotes(db);
-  purgeExpiredSessions(db);
   const app = buildApp(db);
   serve({ fetch: app.fetch, port: env.PORT, hostname: '0.0.0.0' }, (info) => {
     console.log(`Logbook API listening on http://localhost:${info.port} (${env.NODE_ENV})`);
   });
-  // Strava keeps itself fresh: a sync on boot and then every 20 minutes, for every connected account
-  const syncAll = () => {
-    for (const a of db.select({ userId: stravaAccounts.userId }).from(stravaAccounts).all()) syncInBackground(db, a.userId);
+  // No Strava loop: a sync runs when Strava's webhook says there is something new, when the app is opened (at most
+  // every 15 minutes, routes/core.ts) and on a manual pull. Polling every account on a timer spent the app's shared
+  // rate limit on nothing.
+  if (env.isProd && !env.mailConfigured) console.warn('[mail] MAIL_API_KEY and MAIL_FROM are not set: password reset and verification mail will not be sent.');
+  if (env.isProd && !env.claudeConfigured) console.warn('[claude] ANTHROPIC_API_KEY and ANTHROPIC_MODEL are not both set: the AI features are off.');
+  const housekeeping = () => {
+    purgeExpiredSessions(db);
+    purgeTokens(db);
+    purgeThrottle(db);
   };
-  if (env.stravaConfigured) {
-    setTimeout(syncAll, 3000);
-    setInterval(syncAll, 20 * 60_000).unref();
-  }
-  setInterval(() => purgeExpiredSessions(db), 6 * 3600_000).unref();
+  housekeeping();
+  setInterval(housekeeping, 6 * 3600_000).unref();
 }

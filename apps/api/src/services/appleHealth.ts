@@ -1,22 +1,27 @@
 import {
+  ASLEEP_STAGES,
+  HEALTH_ACCEPTED,
+  HEALTH_DAILY_MAX_DAYS,
   HEALTH_SAMPLE_TYPES,
   HEALTH_UNITS,
+  daysBetween,
+  eachDay,
   zHealthConnect,
-  zHealthDay,
   zHealthDeletion,
   zHealthSample,
-  zHealthWorkout,
   zSleepSegmentIn,
   shiftDays,
+  type HealthDailyRow,
   type HealthStatus,
   type HealthSyncAnswer,
+  type SleepStageName,
 } from '@logbook/shared';
 import { and, count, eq, gte, inArray, isNull, lte, max, min, notInArray, sql } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import type { z } from 'zod';
 import type { DB } from '../db/index.js';
 import { healthBatches, healthDays, healthDevices, healthSamples, healthSync, healthWorkouts, sleepSegments } from '../db/schema.js';
-import { nowISO, uid } from '../lib/util.js';
+import { ApiError, nowISO, uid } from '../lib/util.js';
 import { readSetting, writeSetting } from '../routes/core.js';
 
 /**
@@ -85,62 +90,50 @@ export interface BatchEnvelope {
   workouts: unknown[];
 }
 
+/**
+ * What a batch carries that Logbook does not take: sample types other than the two it shows, any day sum, any workout.
+ * Empty when the batch is fine. A row with no readable type is not listed here: it is dropped and counted as before.
+ */
+export const unacceptedIn = (b: BatchEnvelope): string[] => {
+  const out = new Set<string>();
+  for (const row of b.samples) {
+    const type = (row as { type?: unknown } | null)?.type;
+    if (typeof type === 'string' && !(HEALTH_SAMPLE_TYPES as readonly string[]).includes(type)) out.add(type.slice(0, 40));
+  }
+  if (b.days.length) out.add('day sums');
+  if (b.workouts.length) out.add('workouts');
+  return [...out].sort();
+};
+
+/** 422 `health_type` when a batch carries anything but sleep, heart rate variability and resting heart rate. Nothing of such a batch is stored. */
+export const assertAccepted = (b: BatchEnvelope) => {
+  const extra = unacceptedIn(b);
+  if (extra.length) throw new ApiError(422, `Logbook only takes ${HEALTH_ACCEPTED} from Apple Health. Not accepted: ${extra.slice(0, 8).join(', ')}.`, 'health_type');
+};
+
 export const storeBatch = (db: DB, userId: string, b: BatchEnvelope): HealthSyncAnswer => {
+  assertAccepted(b);
   const empty = { samples: 0, deletions: 0, days: 0, sleep: 0, workouts: 0 };
   if (db.select().from(healthBatches).where(and(eq(healthBatches.userId, userId), eq(healthBatches.batchId, b.batchId))).get()) return { stored: empty, dropped: 0, duplicate: true };
 
   const samples = each(b.samples, zHealthSample, (s) => !tooFuture(s.start) && Date.parse(s.end) >= Date.parse(s.start));
   const deletions = each(b.deletions, zHealthDeletion);
-  const days = each(b.days, zHealthDay);
   const sleep = each(b.sleep, zSleepSegmentIn, (s) => !tooFuture(s.start) && Date.parse(s.end) > Date.parse(s.start));
-  const workouts = each(b.workouts, zHealthWorkout, (w) => !tooFuture(w.start) && Date.parse(w.end) >= Date.parse(w.start));
   const at = nowISO();
 
   db.transaction((tx) => {
     for (const s of samples.good) {
-      const row = { userId, uuid: s.uuid, type: s.type, startAt: s.start, endAt: s.end, value: s.value, unit: HEALTH_UNITS[s.type], sourceBundle: s.sourceBundle, sourceName: s.sourceName, productType: s.productType ?? null, userEntered: !!s.userEntered, tz: s.tz ?? null, deletedAt: null, updatedAt: at };
+      // the source's name is usually the person's device name ("Sam's Apple Watch"): never kept. The bundle and the
+      // hardware type are enough to tell a Watch from a phone.
+      const row = { userId, uuid: s.uuid, type: s.type, startAt: s.start, endAt: s.end, value: s.value, unit: HEALTH_UNITS[s.type], sourceBundle: s.sourceBundle, sourceName: '', productType: s.productType ?? null, userEntered: !!s.userEntered, tz: s.tz ?? null, deletedAt: null, updatedAt: at };
       // the update leaves deleted_at alone: a late re-send never brings a deleted sample back
       const { deletedAt: _keep, userId: _u, uuid: _id, ...set } = row;
       tx.insert(healthSamples).values(row).onConflictDoUpdate({ target: [healthSamples.userId, healthSamples.uuid], set }).run();
     }
     for (const s of sleep.good) {
-      const row = { userId, uuid: s.uuid, startAt: s.start, endAt: s.end, stage: s.stage, sourceBundle: s.sourceBundle, sourceName: s.sourceName, productType: s.productType ?? null, tz: s.tz ?? null, deletedAt: null, updatedAt: at };
+      const row = { userId, uuid: s.uuid, startAt: s.start, endAt: s.end, stage: s.stage, sourceBundle: s.sourceBundle, sourceName: '', productType: s.productType ?? null, tz: s.tz ?? null, deletedAt: null, updatedAt: at };
       const { deletedAt: _keep, userId: _u, uuid: _id, ...set } = row;
       tx.insert(sleepSegments).values(row).onConflictDoUpdate({ target: [sleepSegments.userId, sleepSegments.uuid], set }).run();
-    }
-    for (const w of workouts.good) {
-      const row = {
-        userId,
-        uuid: w.uuid,
-        activity: w.activity,
-        startAt: w.start,
-        endAt: w.end,
-        durationSec: w.durationSec,
-        distanceM: w.distanceM ?? null,
-        energyKcal: w.energyKcal ?? null,
-        avgHr: w.avgHr ?? null,
-        maxHr: w.maxHr ?? null,
-        hrJson: w.hr?.length ? JSON.stringify(w.hr) : null,
-        sourceBundle: w.sourceBundle,
-        sourceName: w.sourceName,
-        productType: w.productType ?? null,
-        tz: w.tz ?? null,
-        deletedAt: null,
-        updatedAt: at,
-      };
-      const { deletedAt: _keep, userId: _u, uuid: _id, ...set } = row;
-      // heart rate that arrived later (re-read for 48 hours) replaces a shorter one, never a longer one with nothing
-      tx.insert(healthWorkouts)
-        .values(row)
-        .onConflictDoUpdate({ target: [healthWorkouts.userId, healthWorkouts.uuid], set: { ...set, hrJson: set.hrJson ?? sql`${healthWorkouts.hrJson}` } })
-        .run();
-    }
-    for (const d of days.good) {
-      // the day's start and time zone are frozen the first time it lands: a later trip never re-cuts the day
-      tx.insert(healthDays)
-        .values({ userId, date: d.date, metric: d.metric, value: d.value, bucketsJson: d.buckets ? JSON.stringify(d.buckets) : null, dayStartAt: d.dayStart, tz: d.tz, updatedAt: at })
-        .onConflictDoUpdate({ target: [healthDays.userId, healthDays.date, healthDays.metric], set: { value: d.value, bucketsJson: d.buckets ? JSON.stringify(d.buckets) : null, updatedAt: at } })
-        .run();
     }
     const byKind = { sample: healthSamples, sleep: sleepSegments, workout: healthWorkouts } as const;
     for (const kind of ['sample', 'sleep', 'workout'] as const) {
@@ -157,14 +150,12 @@ export const storeBatch = (db: DB, userId: string, b: BatchEnvelope): HealthSync
     const seen = new Set<string>(JSON.parse(tx.select({ j: healthSync.typesSeenJson }).from(healthSync).where(eq(healthSync.userId, userId)).get()?.j ?? '[]') as string[]);
     for (const s of samples.good) seen.add(s.type);
     if (sleep.good.length) seen.add('sleep');
-    if (workouts.good.length) seen.add('workout');
-    for (const d of days.good) seen.add(d.metric);
     tx.update(healthSync).set({ lastSyncAt: at, lastError: null, typesSeenJson: JSON.stringify([...seen].sort()) }).where(eq(healthSync.userId, userId)).run();
   });
 
   return {
-    stored: { samples: samples.good.length, deletions: deletions.good.length, days: days.good.length, sleep: sleep.good.length, workouts: workouts.good.length },
-    dropped: samples.bad + deletions.bad + days.bad + sleep.bad + workouts.bad,
+    stored: { samples: samples.good.length, deletions: deletions.good.length, days: 0, sleep: sleep.good.length, workouts: 0 },
+    dropped: samples.bad + deletions.bad + sleep.bad,
   };
 };
 
@@ -175,7 +166,7 @@ export const storeBatch = (db: DB, userId: string, b: BatchEnvelope): HealthSync
  * was taken away or history was limited, not that everything was deleted: then nothing happens and the answer says so.
  */
 export const reconcileHealth = (db: DB, userId: string, r: { kind: string; from: string; to: string; uuids: string[] }) => {
-  const t = r.kind === 'sleep' ? sleepSegments : r.kind === 'workout' ? healthWorkouts : healthSamples;
+  const t = r.kind === 'sleep' ? sleepSegments : healthSamples;
   const scope = and(eq(t.userId, userId), gte(t.startAt, r.from), lte(t.startAt, r.to), isNull(t.deletedAt), ...(t === healthSamples ? [eq(healthSamples.type, r.kind)] : []));
   const have = db.select({ n: count() }).from(t).where(scope).get()?.n ?? 0;
   if (!r.uuids.length && have > 0) return { removed: 0, skipped: true as const };
@@ -231,3 +222,116 @@ export const healthStatus = (db: DB, userId: string): HealthStatus => {
     devices,
   };
 };
+
+// ---------- the daily numbers a screen shows ----------
+const dateFormatters = new Map<string, Intl.DateTimeFormat | null>();
+/** A formatter that names the local date in a time zone, or null when the zone is not one this machine knows. */
+const formatterFor = (tz: string): Intl.DateTimeFormat | null => {
+  if (!dateFormatters.has(tz)) {
+    let f: Intl.DateTimeFormat | null = null;
+    try {
+      f = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch {
+      f = null;
+    }
+    dateFormatters.set(tz, f);
+  }
+  return dateFormatters.get(tz) ?? null;
+};
+export const isTimeZone = (tz: string | null | undefined): tz is string => !!tz && tz.length <= 60 && !!formatterFor(tz);
+/** The calendar date of an instant in a time zone (`YYYY-MM-DD`). */
+export const localDate = (ms: number, tz: string): string => (formatterFor(tz) ?? formatterFor('UTC')!).format(new Date(ms));
+
+/** Sleep that starts from 6 pm counts toward the night that ends the next morning. */
+const SLEEP_DAY_SHIFT_MS = 6 * 3600_000;
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * Contract 4. One row per day from `from` to `to`: minutes asleep, average heart rate variability (ms) and average
+ * resting heart rate (bpm), each null when Apple Health had nothing. Read from the stored samples and sleep segments,
+ * with or without a connected device (the review account's sample days are plain rows).
+ *
+ * A reading belongs to the calendar day it was taken on, in the time zone it was taken in. Where a reading carries no
+ * zone, `tz` (the app's own zone, when it sends one) is used, then the zone of the person's latest reading, then UTC.
+ * Sleep is counted once however many sources recorded the night (see `asleepMin` below).
+ */
+export const healthDaily = (db: DB, userId: string, from: string, to: string, tz?: string | null): HealthDailyRow[] => {
+  if (from > to) throw new ApiError(422, 'from must be on or before to', 'validation');
+  if (daysBetween(from, to) + 1 > HEALTH_DAILY_MAX_DAYS) throw new ApiError(422, `Ask for at most ${HEALTH_DAILY_MAX_DAYS} days at a time.`, 'too_many_days');
+  // the stored timestamps are whatever the phone sent, so the window is cut wide here and exactly below
+  const lo = `${shiftDays(from, -2)}T00:00:00`;
+  const hi = `${shiftDays(to, 3)}T00:00:00`;
+  const samples = db
+    .select({ type: healthSamples.type, startAt: healthSamples.startAt, value: healthSamples.value, tz: healthSamples.tz })
+    .from(healthSamples)
+    .where(and(eq(healthSamples.userId, userId), isNull(healthSamples.deletedAt), inArray(healthSamples.type, [...HEALTH_SAMPLE_TYPES]), gte(healthSamples.startAt, lo), lte(healthSamples.startAt, hi)))
+    .all();
+  const segments = db
+    .select({ startAt: sleepSegments.startAt, endAt: sleepSegments.endAt, stage: sleepSegments.stage, tz: sleepSegments.tz, bundle: sleepSegments.sourceBundle, product: sleepSegments.productType })
+    .from(sleepSegments)
+    .where(and(eq(sleepSegments.userId, userId), isNull(sleepSegments.deletedAt), inArray(sleepSegments.stage, [...ASLEEP_STAGES]), gte(sleepSegments.startAt, lo), lte(sleepSegments.startAt, hi)))
+    .all();
+  const fallback = isTimeZone(tz) ? tz : ([...segments, ...samples].sort((a, b) => (a.startAt < b.startAt ? 1 : -1)).find((r) => isTimeZone(r.tz))?.tz ?? 'UTC');
+  const zoneOf = (r: { tz: string | null }) => (isTimeZone(r.tz) ? r.tz : fallback);
+
+  const sums = new Map<string, { hrv: number; hrvN: number; rhr: number; rhrN: number }>();
+  for (const s of samples) {
+    const ms = Date.parse(s.startAt);
+    if (Number.isNaN(ms)) continue;
+    const d = localDate(ms, zoneOf(s));
+    const cur = sums.get(d) ?? { hrv: 0, hrvN: 0, rhr: 0, rhrN: 0 };
+    if (s.type === 'hrv') {
+      cur.hrv += s.value;
+      cur.hrvN++;
+    } else {
+      cur.rhr += s.value;
+      cur.rhrN++;
+    }
+    sums.set(d, cur);
+  }
+  // each night by source: a Watch and an app (or the phone) often record the same night, and they do not agree
+  const nights = new Map<string, Map<string, { spans: Array<[number, number]>; staged: boolean }>>();
+  for (const g of segments) {
+    const a = Date.parse(g.startAt);
+    const b = Date.parse(g.endAt);
+    if (Number.isNaN(a) || Number.isNaN(b) || b <= a) continue;
+    const d = localDate(a + SLEEP_DAY_SHIFT_MS, zoneOf(g));
+    const sources = nights.get(d) ?? new Map<string, { spans: Array<[number, number]>; staged: boolean }>();
+    const key = `${g.bundle}|${g.product ?? ''}`;
+    const src = sources.get(key) ?? { spans: [], staged: false };
+    src.spans.push([a, b]);
+    if (g.stage !== 'asleep') src.staged = true;
+    sources.set(key, src);
+    nights.set(d, sources);
+  }
+  /** Minutes covered by the spans, overlaps counted once. */
+  const covered = (spans: Array<[number, number]>): number => {
+    spans.sort((x, y) => x[0] - y[0]);
+    let total = 0;
+    let [curA, curB] = spans[0]!;
+    for (const [a, b] of spans.slice(1)) {
+      if (a <= curB) curB = Math.max(curB, b);
+      else {
+        total += curB - curA;
+        [curA, curB] = [a, b];
+      }
+    }
+    return Math.round((total + curB - curA) / 60_000);
+  };
+  /**
+   * One source speaks for a night, so two recordings of it are never added together and one source's "asleep" never
+   * papers over another's "awake": the source that recorded sleep stages when one did, and of those the one with the
+   * most sleep.
+   */
+  const asleepMin = (sources: Map<string, { spans: Array<[number, number]>; staged: boolean }>): number => {
+    const all = [...sources.values()].map((s) => ({ staged: s.staged, min: covered(s.spans) }));
+    const pool = all.some((s) => s.staged) ? all.filter((s) => s.staged) : all;
+    return Math.max(...pool.map((s) => s.min));
+  };
+  return eachDay(from, to).map((date) => {
+    const v = sums.get(date);
+    const n = nights.get(date);
+    return { date, sleepMin: n?.size ? asleepMin(n) : null, hrvMs: v?.hrvN ? round1(v.hrv / v.hrvN) : null, restingHr: v?.rhrN ? Math.round(v.rhr / v.rhrN) : null };
+  });
+};
+export type { SleepStageName };

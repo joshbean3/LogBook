@@ -15,6 +15,14 @@ export const zCredentials = z.object({
   email: z.string().trim().toLowerCase().email().max(200),
   password: z.string().min(8).max(200),
 });
+/** POST /auth/forgot: always answered `{ ok: true }`, whether or not the address has an account. */
+export const zForgotPassword = z.object({ email: zCredentials.shape.email });
+/** POST /auth/reset: the token from the emailed link and the new password. */
+export const zResetPassword = z.object({ token: z.string().min(10).max(200), password: zCredentials.shape.password });
+/** POST /me/password: the current password and the new one. */
+export const zChangePassword = z.object({ current: z.string().min(1).max(200), next: zCredentials.shape.password });
+/** POST /auth/logout: optionally the Apple Health device (`deviceId` from connect) to revoke with the session. */
+export const zLogout = z.object({ healthTokenId: z.string().min(1).max(64).optional() });
 
 // ---------- sessions ----------
 export const zSessionInput = z.object({

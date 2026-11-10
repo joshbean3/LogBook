@@ -1,17 +1,20 @@
-import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
-import { COOKIE, verifyPassword, type AuthEnv } from '../auth.js';
+import { COOKIE, dropSessions, hashPassword, sessionOf, verifyPassword, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { habits, planBlocks, users } from '../db/schema.js';
 import { toHabit } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { deleteAccount } from '../services/account.js';
+import { disconnect } from '../services/strava.js';
 import { retireBlock, writeTemplate } from '../services/plans.js';
 import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
 import { enrollIntros, markIntroSeen, readConsent, readIntros, writeConsent } from '../services/consent.js';
-import { checkThrottle, clearThrottle, failThrottle, ipOf } from './auth.js';
+import { passwordChangedMail, sendMail } from '../services/mail.js';
+import { checkThrottle, clearEmail, clearThrottle, failThrottle, hitLimit, tooMany } from '../services/throttle.js';
+import { sendVerification } from './auth.js';
 import { deepMerge, readSetting, writeSetting } from './core.js';
 
 /** The block source that marks the plan onboarding wrote, so a second call replaces it instead of adding another. */
@@ -36,9 +39,9 @@ export const meRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
 
   const meOf = (id: string) => {
-    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt }).from(users).where(eq(users.id, id)).get();
+    const u = db.select({ id: users.id, email: users.email, name: users.name, onboardedAt: users.onboardedAt, emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, id)).get();
     if (!u) throw new ApiError(404, 'Account not found');
-    return { ...u, name: u.name ?? null, trainingProfile: readTrainingProfile(db, id), status: readSetting<TrainingStatus>(db, id, 'status') };
+    return { ...u, name: u.name ?? null, emailVerifiedAt: u.emailVerifiedAt ?? null, trainingProfile: readTrainingProfile(db, id), status: readSetting<TrainingStatus>(db, id, 'status') };
   };
 
   /** The account: id, email, `name` (null until given), `onboardedAt`, and the training answers (`trainingProfile`, null before any were given). */
@@ -129,20 +132,64 @@ export const meRoutes = (db: DB) => {
 
   /** Delete the account and everything it owns. Needs the password; signs out every device. */
   r.delete('/me', async (c) => {
-    const ip = ipOf(c.req.raw.headers);
-    checkThrottle(ip);
     const userId = c.get('user').id;
+    // its own bucket, by account: wrong passwords here never lock anyone's sign-in, and an address cannot dodge it
+    const bucket = `delete:${userId}`;
+    checkThrottle(bucket);
     const { password } = await parseBody(c.req.raw, zDeleteAccount);
     const row = db.select().from(users).where(eq(users.id, userId)).get();
     if (!row || !(await verifyPassword(password, row.passwordHash))) {
-      failThrottle(ip);
+      failThrottle(bucket);
       // 403, not 401: the session is fine, the password is wrong (a 401 would sign the app out)
       throw new ApiError(403, 'That password doesn’t match.', 'bad_password');
     }
-    clearThrottle(ip);
+    clearThrottle(bucket);
+    // Strava first, while the token still exists: end Logbook's grant there and delete what came from it. A Strava
+    // outage never blocks the deletion (the deauthorize is tried once more a minute later).
+    const strava = await disconnect(db, userId).catch(() => null);
+    // then every row the account owns: its sessions (every device is signed out) and its Apple Health device tokens
+    // (a phone still holding one gets 401 and stops syncing) among them
     const removed = deleteAccount(db, userId);
     deleteCookie(c, COOKIE, { path: '/' });
-    return c.json({ ok: true, removed });
+    return c.json({ ok: true, removed, strava: strava?.connected ? { deauthorized: strava.deauthorized } : null });
+  });
+
+  /**
+   * Change the password: `{ current, next }`. Needs the current password (403 `wrong_password` otherwise; the session is
+   * fine, so not a 401). Every other device is signed out; this one stays. A note goes to the account's address.
+   */
+  r.post('/me/password', async (c) => {
+    const userId = c.get('user').id;
+    const bucket = `password:${userId}`;
+    checkThrottle(bucket);
+    const { current, next } = await parseBody(c.req.raw, zChangePassword);
+    const row = db.select().from(users).where(eq(users.id, userId)).get();
+    if (!row || !(await verifyPassword(current, row.passwordHash))) {
+      failThrottle(bucket);
+      throw new ApiError(403, 'That is not your current password.', 'wrong_password');
+    }
+    clearThrottle(bucket);
+    const hash = await hashPassword(next);
+    const keep = sessionOf(db, c)?.id;
+    const signedOut = db.transaction(() => {
+      db.update(users).set({ passwordHash: hash }).where(eq(users.id, userId)).run();
+      return dropSessions(db, userId, keep);
+    });
+    clearEmail(db, row.email);
+    void sendMail(passwordChangedMail(row.email));
+    return c.json({ ok: true, signedOut });
+  });
+
+  /** Send the "confirm your email" link again (three an hour). Answers whether the address is already confirmed. */
+  r.post('/me/verify-email', (c) => {
+    const user = c.get('user');
+    const row = db.select({ at: users.emailVerifiedAt }).from(users).where(eq(users.id, user.id)).get();
+    if (row?.at) return c.json({ ok: true, verified: true });
+    const bucket = `verify:${user.id}`;
+    const wait = hitLimit(db, bucket, 3, 3600_000);
+    if (wait) throw tooMany(wait, 'That was sent a few times already. Check your inbox, or try again in an hour.');
+    void sendVerification(db, { id: user.id, email: user.email });
+    return c.json({ ok: true, verified: false });
   });
 
   /** What the assistant may read (`{ training, health, at }`), as chosen on the privacy page or in Settings › Privacy. */

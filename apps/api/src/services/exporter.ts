@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { isISODate, type ExportActivity, type ExportV2, type LegacyMorningDay } from '@logbook/shared';
+import { DAY_TAG_LABEL_MAX, DAY_TAG_MAX, isISODate, normalizeMorningSettings, type ConsentEvent, type ExportActivity, type ExportV2, type LegacyMorningDay } from '@logbook/shared';
 import { LEARNING_MAX, type Learning } from '@logbook/shared';
-import { and, eq, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
 import type { DB } from '../db/index.js';
@@ -25,17 +25,18 @@ import {
 import { goalEvents, goals, todoGroups } from '../db/schema.js';
 import { learnings } from '../db/schema.js';
 import { recallItems } from '../db/schema.js';
-import { dayTags } from '../db/schema.js';
+import { dayTags, healthDevices, healthSamples, healthSync, sleepSegments } from '../db/schema.js';
 import { toBlock, toEntry, toGoal, toGoalEvent, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
 import { nowISO } from '../lib/util.js';
 import { toLink } from '../routes/reads.js';
+import { readConsentLog } from './consent.js';
 
 /**
  * Contract 3: `GET /export` is the whole account as one JSON document (version 2), and `POST /import` takes it back,
  * into the same account or a fresh one, idempotently by id. Soft-deleted rows are not exported (they are gone to the
  * athlete); to-dos keep their `deletedOn` (it is part of the to-do).
  */
-export const exportAccount = (db: DB, userId: string): ExportV2 & { learnings: Learning[] } & { recall: RecallExport[] } & { dayTags: DayTagExport[] } => {
+export const exportAccount = (db: DB, userId: string): ExportV2 & { learnings: Learning[] } & { recall: RecallExport[] } & { dayTags: DayTagExport[] } & { consentLog: ConsentEvent[]; health: HealthExport } => {
   const u = db.select().from(users).where(eq(users.id, userId)).get()!;
   const settings: Record<string, unknown> = {};
   for (const s of db.select().from(userSettings).where(eq(userSettings.userId, userId)).all()) {
@@ -167,6 +168,51 @@ export const exportAccount = (db: DB, userId: string): ExportV2 & { learnings: L
       .where(eq(dayTags.userId, userId))
       .all()
       .map((t) => ({ date: t.date, tag: t.tag, value: t.value })),
+    // every answer to a permission step and every Apple Health connect or disconnect, oldest first (not read back on import)
+    consentLog: readConsentLog(db, userId),
+    // what Logbook holds from Apple Health (not read back on import: the phone has it and sends it again on connect)
+    health: exportHealth(db, userId),
+  };
+};
+
+/**
+ * The Apple Health part of an export: the connection, the phones connected (never their tokens), and every reading kept:
+ * heart rate variability and resting heart rate samples, and sleep segments with their stages. Deleted readings are left out.
+ */
+export interface HealthExport {
+  connectedAt: string | null;
+  historyFrom: string | null;
+  lastSyncAt: string | null;
+  devices: Array<{ name: string; connectedAt: string; lastSeenAt: string | null; revokedAt: string | null }>;
+  samples: Array<{ uuid: string; type: string; start: string; end: string; value: number; unit: string; userEntered: boolean; tz: string | null; source: string; productType: string | null }>;
+  sleep: Array<{ uuid: string; start: string; end: string; stage: string; tz: string | null; source: string; productType: string | null }>;
+}
+export const exportHealth = (db: DB, userId: string): HealthExport => {
+  const sync = db.select().from(healthSync).where(eq(healthSync.userId, userId)).get();
+  return {
+    connectedAt: sync?.connectedAt ?? null,
+    historyFrom: sync?.historyFrom ?? null,
+    lastSyncAt: sync?.lastSyncAt ?? null,
+    devices: db
+      .select()
+      .from(healthDevices)
+      .where(eq(healthDevices.userId, userId))
+      .all()
+      .map((d) => ({ name: d.name, connectedAt: d.createdAt, lastSeenAt: d.lastSeenAt, revokedAt: d.revokedAt })),
+    samples: db
+      .select()
+      .from(healthSamples)
+      .where(and(eq(healthSamples.userId, userId), isNull(healthSamples.deletedAt)))
+      .orderBy(asc(healthSamples.startAt))
+      .all()
+      .map((r) => ({ uuid: r.uuid, type: r.type, start: r.startAt, end: r.endAt, value: r.value, unit: r.unit, userEntered: r.userEntered, tz: r.tz, source: r.sourceBundle, productType: r.productType })),
+    sleep: db
+      .select()
+      .from(sleepSegments)
+      .where(and(eq(sleepSegments.userId, userId), isNull(sleepSegments.deletedAt)))
+      .orderBy(asc(sleepSegments.startAt))
+      .all()
+      .map((r) => ({ uuid: r.uuid, start: r.startAt, end: r.endAt, stage: r.stage, tz: r.tz, source: r.sourceBundle, productType: r.productType })),
   };
 };
 type RecallExport = { kind: string; id: string; boost: boolean; hidden: boolean; summary: string | null; summarizedAt: string | null; lastShown: string | null };
@@ -308,6 +354,20 @@ export const zExportV2 = z.object({
 });
 export type ImportV2 = z.infer<typeof zExportV2>;
 
+const zImportTags = z.array(z.object({ id: z.string().min(1).max(32).regex(/^[a-z0-9-]+$/), label: z.string().trim().min(1).max(DAY_TAG_LABEL_MAX) })).max(DAY_TAG_MAX);
+/**
+ * The `user_settings` documents an import may write, each with the check that makes it safe (undefined: leave it out).
+ * Everything else in a file's `settings` is ignored: `consent`, `consentLog`, `intros`, `status`, counters.
+ */
+export const IMPORTABLE_SETTINGS: Record<string, (v: unknown) => unknown> = {
+  morning: (v) => (v && typeof v === 'object' && !Array.isArray(v) ? normalizeMorningSettings(v as Record<string, unknown>) : undefined),
+  journalTags: (v) => {
+    const r = zImportTags.safeParse(v);
+    return r.success ? r.data : undefined;
+  },
+  sleepGoalMin: (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 240 && v <= 720 ? v : undefined),
+};
+
 /**
  * Write a version 2 export into `userId`'s account, in one transaction. Idempotent by id: a row whose id this account
  * already has is left alone. An id that belongs to another account (importing into a fresh account on the same server)
@@ -345,8 +405,11 @@ export const importV2 = (db: DB, userId: string, b: ImportV2): Record<string, nu
       t.update(users).set({ trainingProfile: JSON.stringify(b.trainingProfile) }).where(eq(users.id, userId)).run();
       bump('trainingProfile');
     }
-    for (const [key, value] of Object.entries(b.settings)) {
-      if (!/^[a-z][a-z0-9_.-]{0,40}$/i.test(key) || value === undefined) continue;
+    // only the settings on the allow-list come in, each checked: a file never carries consent, the consent log, the
+    // feature intros or a training status into an account (a yes to an AI switch is given in the app, never imported)
+    for (const [key, check] of Object.entries(IMPORTABLE_SETTINGS)) {
+      const value = check(b.settings[key]);
+      if (value === undefined) continue;
       const res = t.insert(userSettings).values({ userId, key, json: JSON.stringify(value), updatedAt: now }).onConflictDoNothing().run();
       if (res.changes) bump('settings');
     }

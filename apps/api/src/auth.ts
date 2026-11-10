@@ -1,6 +1,6 @@
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { eq, lt, sql } from 'drizzle-orm';
+import { and, eq, lt, ne, sql } from 'drizzle-orm';
 import type { Context, MiddlewareHandler } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { DB } from './db/index.js';
@@ -44,6 +44,32 @@ export const destroySession = (db: DB, c: Context) => {
 };
 
 export const purgeExpiredSessions = (db: DB) => db.delete(authSessions).where(lt(authSessions.expiresAt, nowISO())).run();
+
+/** The session this request carries, or null. */
+export const sessionOf = (db: DB, c: Context): { id: string; userId: string } | null => {
+  const id = getCookie(c, COOKIE);
+  if (!id) return null;
+  const row = db.select({ id: authSessions.id, userId: authSessions.userId, expiresAt: authSessions.expiresAt }).from(authSessions).where(eq(authSessions.id, id)).get();
+  return row && row.expiresAt >= nowISO() ? { id: row.id, userId: row.userId } : null;
+};
+
+/** Sign an account out everywhere, or everywhere but one session (`keep`). Returns how many sessions ended. */
+export const dropSessions = (db: DB, userId: string, keep?: string): number =>
+  db
+    .delete(authSessions)
+    .where(keep ? and(eq(authSessions.userId, userId), ne(authSessions.id, keep)) : eq(authSessions.userId, userId))
+    .run().changes;
+
+let dummy: Promise<string> | null = null;
+/**
+ * A sign-in for an address with no account does the same password work as one with a wrong password, against a hash
+ * of nothing, so the answer's timing does not say which addresses have accounts.
+ */
+export const verifyDummy = async (pw: string): Promise<false> => {
+  dummy ??= hashPassword(randomBytes(18).toString('base64'));
+  await verifyPassword(pw, await dummy);
+  return false;
+};
 
 export interface AuthedUser {
   id: string;

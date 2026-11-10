@@ -15,6 +15,8 @@ export const users = sqliteTable('users', {
   trainingProfile: text('training_profile'),
   /** The athlete's name ("Josh"): the avatar's initial and Settings → You. Null until given. Migration 0008. */
   name: text('name'),
+  /** When the address was confirmed by the emailed link (or by a password reset, which proves the same inbox). Migration 0018. */
+  emailVerifiedAt: text('email_verified_at'),
 });
 
 export const authSessions = sqliteTable('auth_sessions', {
@@ -23,6 +25,35 @@ export const authSessions = sqliteTable('auth_sessions', {
   expiresAt: text('expires_at').notNull(),
   createdAt: createdAt(),
   userAgent: text('user_agent'),
+});
+
+/**
+ * Single-use tokens sent by email: `reset` (30 minutes) and `verify` (7 days). Only the SHA-256 of a token is stored, so
+ * a copy of the database cannot be used to take over an account. Migration 0018.
+ */
+export const authTokens = sqliteTable(
+  'auth_tokens',
+  {
+    id: id(),
+    userId: userId(),
+    kind: text('kind').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    usedAt: text('used_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('auth_tokens_hash').on(t.tokenHash), index('auth_tokens_user').on(t.userId, t.kind)],
+);
+
+/**
+ * Counters for sign-in, sign-up and reset limits that must outlive a restart, keyed by a hashed email or an address
+ * (never the plain email). `count` since `window_start` (ms); `locked_until` (ms) while a delay is in force. Migration 0018.
+ */
+export const authThrottle = sqliteTable('auth_throttle', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull().default(0),
+  windowStart: integer('window_start').notNull(),
+  lockedUntil: integer('locked_until').notNull().default(0),
 });
 
 /** Small JSON documents keyed by name: morning settings, preferences. */
