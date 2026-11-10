@@ -1,4 +1,4 @@
-import type { RecallKind, RecallState } from '@logbook/shared';
+import { recallDay, type RecallItem, type RecallKind, type RecallState } from '@logbook/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { write } from '@/api/outbox';
@@ -46,3 +46,28 @@ export const useRecallActions = (date: string) => {
 
   return { another, prefs };
 };
+
+// ---------- the plain line, and whether a line is Claude's ----------
+const firstSentence = (text: string): string => {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const s = flat.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? flat;
+  if (s.length <= 140) return s;
+  const cut = s.slice(0, 139);
+  const sp = cut.lastIndexOf(' ');
+  return `${(sp > 80 ? cut.slice(0, sp) : cut).replace(/[\s,;:.-]+$/, '')}…`;
+};
+/** How the plain reminder opens, on the server (services/recall.ts `fallbackSummary`) and here: `On Oct 12 you wrote: “`. */
+const opening = (it: Pick<RecallItem, 'kind' | 'date'>, today: string) => `On ${recallDay(it.date, today)} you ${it.kind === 'learning' ? 'learned' : 'wrote'}: “`;
+
+/**
+ * The plain reminder, made on the device from the card's own excerpt: `On Oct 12 you wrote: “…”`, the entry's first
+ * sentence and nothing written by anyone else. What the card shows while the account has not said yes to Claude writing
+ * Remember when (Contract 1), whatever line an earlier answer carried.
+ */
+export const plainLine = (it: Pick<RecallItem, 'kind' | 'date' | 'excerpt'>, today: string): string => `${opening(it, today)}${firstSentence(it.excerpt)}”`;
+
+/**
+ * Whether the card's line was written by Claude. The server says so (`ai`) where it does; otherwise the plain line is
+ * known by its own opening, which no summary of Claude's starts with (it is told to write to the person, in a sentence).
+ */
+export const writtenByAi = (it: RecallItem & { ai?: boolean }, today: string): boolean => (typeof it.ai === 'boolean' ? it.ai : !it.summary.startsWith(opening(it, today)));

@@ -1,6 +1,6 @@
 import type { JournalEntry } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { cursorOf, HEAD_SIZE, journalOrder, mergeEntries, pagePath, pageUnder, totalOf, type PageParam } from './queries';
+import { aiFlags, cursorOf, HEAD_SIZE, journalOrder, mergeEntries, pagePath, pageUnder, totalOf, type PageParam } from './queries';
 
 const e = (id: string, date: string, createdAt = `${date}T21:00:00.000Z`): JournalEntry => ({ id, date, text: id, createdAt, editedAt: null, fav: false });
 
@@ -91,5 +91,25 @@ describe('journal feed helpers', () => {
     // a server that does not send the count: not known until the last page is in
     expect(totalOf(page(200, true), 200, true)).toBeNull();
     expect(totalOf(page(200, true), 430, false)).toBe(430);
+  });
+});
+
+/** copy-legal-06 (Contract 1): the two switches the Journal side reads. Off until the answer is a stored yes. */
+describe('consent for Remember when and the daily pick', () => {
+  const off = { training: false, recall: false, reads: false, health: null, at: null, version: null };
+  it('is off when nothing is known, when never asked, and when the answer was no', () => {
+    expect(aiFlags(undefined, undefined)).toEqual({ recall: false, reads: false });
+    expect(aiFlags(off, undefined)).toEqual({ recall: false, reads: false });
+    expect(aiFlags(undefined, off)).toEqual({ recall: false, reads: false });
+    // a cache from before the fields existed
+    expect(aiFlags(undefined, { training: true })).toEqual({ recall: false, reads: false });
+  });
+  it('reads each switch on its own, from the bootstrap until the record has answered', () => {
+    expect(aiFlags(undefined, { ...off, recall: true })).toEqual({ recall: true, reads: false });
+    expect(aiFlags(undefined, { ...off, reads: true })).toEqual({ recall: false, reads: true });
+  });
+  it('lets the record win over the bootstrap copy, so a switch turned off on the Privacy page takes effect at once', () => {
+    expect(aiFlags({ ...off }, { ...off, recall: true, reads: true })).toEqual({ recall: false, reads: false });
+    expect(aiFlags({ ...off, recall: true, reads: true }, off)).toEqual({ recall: true, reads: true });
   });
 });

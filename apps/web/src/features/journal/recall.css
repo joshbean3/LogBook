@@ -123,6 +123,31 @@
   transition: opacity var(--dur-in) var(--ease-out);
 }
 
+/* Claude's line says so, with the entry itself one tap away (44 px tall, under the words) */
+.recall-ai {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  margin: -4px 0 -6px;
+  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+}
+.recall-ai-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin-right: -4px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* the three verbs: quiet text pills; Remind me more lights when it is on */
 .recall-tools {
   display: flex;

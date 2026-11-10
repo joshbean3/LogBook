@@ -1,5 +1,5 @@
 import { recallDay, type RecallItem } from '@logbook/shared';
-import { Bell, Copy, Download, EyeOff, Share, Shuffle } from 'lucide-react';
+import { Bell, ChevronRight, Copy, Download, EyeOff, Share, Shuffle } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,7 +12,8 @@ import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { PressButton } from './PressButton';
-import { recallKey, useRecall, useRecallActions } from './recall';
+import { useAiConsent } from './queries';
+import { plainLine, recallKey, useRecall, useRecallActions, writtenByAi } from './recall';
 import { drawRecall, recallText, saveImage } from './recallShare';
 import './recall.css';
 
@@ -82,6 +83,10 @@ const ShareRecall = ({ summary, when }: { summary: string; when: string }) => {
  * I learned). Under it three quiet verbs: Remind me more (the server picks it four times as often), Another, Hide (with
  * Undo). Nothing eligible, or still loading: no card at all; it fades in once there is one, and a change of item
  * cross-fades in place.
+ *
+ * The reminder is Claude's line only when the account has said yes to that (the recall switch, Contract 1; the server
+ * holds the same switch). Then it is marked "Written by AI", with the entry itself one tap away. With the switch off the
+ * card shows the plain line made here from the entry's own words.
  */
 export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (date: string) => void }) => {
   const q = useRecall(today);
@@ -92,6 +97,10 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
   const qc = useQueryClient();
   const reduce = useReduced();
   const item = q.data?.item ?? null;
+  const { recall } = useAiConsent();
+  const byAi = !!item && recall && writtenByAi(item, today);
+  /** The words on the card: Claude's line only with the switch on, else the entry's own opening. */
+  const lineOf = (it: RecallItem) => (recall ? it.summary : plainLine(it, today));
 
   // the entry it shows was deleted (the journal's list is complete and no longer has it): ask for today's again
   const list = useJournalList('', false);
@@ -132,7 +141,7 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
   };
   const share = (it: RecallItem) => {
     haptics.select();
-    sheet.open({ eyebrow: 'Remember when', title: 'Share', body: <ShareRecall summary={it.summary} when={recallDay(it.date, today)} /> });
+    sheet.open({ eyebrow: 'Remember when', title: 'Share', body: <ShareRecall summary={lineOf(it)} when={recallDay(it.date, today)} /> });
   };
 
   const busy = another.isPending || (prefs.isPending && prefs.variables?.hidden !== undefined);
@@ -153,9 +162,18 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
             <div className="recall-stack">
               <AnimatePresence initial={false}>
                 <motion.div key={`${item.kind}:${item.id}`} className="recall-body" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={reduce ? fadeIn : crossfade}>
-                  <PressButton press="dim" className="recall-text" onClick={() => open(item)} aria-label={`${item.summary} ${item.kind === 'learning' ? 'Open What I learned' : 'Open that day'}`}>
-                    {item.summary}
+                  <PressButton press="dim" className="recall-text" onClick={() => open(item)} aria-label={`${lineOf(item)} ${item.kind === 'learning' ? 'Open What I learned' : 'Open that day'}`}>
+                    {lineOf(item)}
                   </PressButton>
+                  {byAi ? (
+                    <p className="recall-ai">
+                      <span className="recall-ai-mark">Written by AI</span>
+                      <PressButton press="dim" className="recall-ai-open" onClick={() => open(item)}>
+                        {item.kind === 'learning' ? 'See the learning' : 'Read the entry'}
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </PressButton>
+                    </p>
+                  ) : null}
                 </motion.div>
               </AnimatePresence>
             </div>

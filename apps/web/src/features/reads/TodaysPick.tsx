@@ -6,6 +6,7 @@ import { usePick, useReadsMutations } from '@/api/queries';
 import { fadeIn, fadeOut, springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, ContextMenu, Group, usePress, useToast } from '@/ui';
+import { useAiConsent } from '../journal/queries';
 import { openLink, useOpenLink } from './openLink';
 import './reads.css';
 
@@ -60,14 +61,22 @@ const Slim = ({ children, verb, busy }: { children: React.ReactNode; verb?: Reac
   </motion.section>
 );
 
+/** Who makes the pick and from what: said on the card itself and on the Reads screen. */
+export const PICKED_BY = 'Picked by Claude, by Anthropic, from the links you save.';
+
 /**
  * Today's pick: one article found on the web from what the athlete saves.
  * On Reads: the hero (an aura card, lit from below) only when a pick exists, else a slim card ("Save links and Logbook finds
  * you one a day"). With `compact`, one row for the Today page, and nothing at all when there is no pick.
+ *
+ * The pick is made by Claude from the saved links, notes and tags, so it exists only when the account has said yes to
+ * that (the reads switch, Contract 1; the server holds the same switch). With the switch off nothing is asked of the
+ * server and no card shows, on Today or on Reads.
  */
 export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean; heroOnly?: boolean; onLayout?: () => void }) => {
   const date = useToday();
-  const q = usePick(date);
+  const { reads } = useAiConsent();
+  const q = usePick(date, reads);
   const { feedback, another } = useReadsMutations();
   const toast = useToast();
   const open = useOpenLink();
@@ -102,6 +111,7 @@ export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean;
     feedback.mutate({ pick: p, verdict: v, date, onGone: () => toast('That pick is gone.') });
   };
 
+  if (!reads) return null;
   if (compact) {
     if (off || (!waiting && (!p || p.verdict === 'dismissed'))) return null;
     return (
@@ -131,7 +141,7 @@ export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean;
   if (!p || waiting) {
     if (waiting) return <HeroWait />;
     if (off) return <Slim>Daily picks are off. Your links still wait below.</Slim>;
-    if (data?.reason === 'empty') return <Slim>Save links and Logbook finds you one a day.</Slim>;
+    if (data?.reason === 'empty') return <Slim>Save links and Claude, by Anthropic, picks one new read a day.</Slim>;
     // the request failed (or never answered and was given up on): say so, and the verb is to ask again (review 2 feel N5)
     if (q.isError && !data)
       return (
@@ -187,6 +197,7 @@ export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean;
               <span className="rp-title display">{linkTitle(p.title, p.url)}</span>
             </a>
             {p.pickReason ? <p className="rp-why">{p.pickReason}</p> : null}
+            <p className="rp-by">{PICKED_BY}</p>
             <span className="caps rp-site-sm">{site}</span>
           </motion.div>
         </AnimatePresence>

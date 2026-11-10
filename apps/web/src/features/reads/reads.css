@@ -490,3 +490,16 @@ textarea.rsheet-note {
   background: transparent;
   box-shadow: none;
 }
+
+/* who makes the pick: one quiet line on the card, and the same with where to change it at the foot of the page */
+.rp-by {
+  color: var(--ink-2);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  text-wrap: pretty;
+}
+.r-foot {
+  margin: var(--gap) 4px 0;
+  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  text-wrap: pretty;
+}

@@ -1,4 +1,4 @@
-import { monthOf, type JournalEntry } from '@logbook/shared';
+import { monthOf, type Consent, type JournalEntry } from '@logbook/shared';
 import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api/client';
@@ -24,9 +24,9 @@ import { claimDrafts } from './drafts';
  * cache) and from the consent record itself, which a change on the Privacy page updates at once. Off until the answer is
  * a recorded yes; the server enforces the same switch on every Claude call.
  */
-export const useAiConsent = (): { recall: boolean; reads: boolean } => {
-  const live = useConsent().data;
-  const boot = useBootstrap().data?.consent;
+export const useAiConsent = (): { recall: boolean; reads: boolean } => aiFlags(useConsent().data, useBootstrap().data?.consent);
+/** The record itself wins over the bootstrap's copy (it is the one a change updates); anything but a stored yes is off. */
+export const aiFlags = (live: Partial<Consent> | null | undefined, boot: Partial<Consent> | null | undefined): { recall: boolean; reads: boolean } => {
   const c = live ?? boot ?? null;
   return { recall: c?.recall === true, reads: c?.reads === true };
 };
