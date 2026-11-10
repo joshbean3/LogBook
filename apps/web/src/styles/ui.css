@@ -690,9 +690,12 @@ textarea.in {
 .seg-btn[aria-checked='true'] {
   color: var(--ink);
 }
-/* a segment is a 44 px target (gap-qua-04); the bar's small control reaches 44 with its ::after instead */
-.seg:not(.in-bar) .seg-btn {
-  min-height: 44px;
+/* a segment is a 44 px target (gap-qua-04) without changing how tall it is drawn: a page's smaller control (32 or 36 px)
+   keeps its look and its words stay centered, and the hit box grows to 44 around it; the bar's control has its own */
+.seg:not(.in-bar) .seg-btn::after {
+  content: '';
+  position: absolute;
+  inset: min(0px, calc(50% - 22px)) 0;
 }
 /* a very narrow page (320 at a larger text size): the segments may take two lines rather than run past the edge */
 @container page (max-width: 15rem) {
