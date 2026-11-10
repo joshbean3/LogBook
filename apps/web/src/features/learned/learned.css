@@ -251,6 +251,12 @@ textarea.ln-field {
 }
 
 /* ---------- search: a white field on the page, 52 tall ---------- */
+/* while a query is active the page is the field and what it finds; it stays tall enough to hold the field under the nav
+   bar (the large title scrolled away) however few results there are */
+.ln-page.is-searching {
+  min-height: calc(100vh + 132px);
+  min-height: calc(100dvh + 132px);
+}
 .ln-search {
   position: relative;
   display: flex;

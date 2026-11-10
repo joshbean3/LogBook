@@ -1,9 +1,8 @@
 import type * as React from 'react';
 import type { Learning, LearningMonth, LearningStats } from '@logbook/shared';
 import { BookOpen, ChevronRight, Flame, Lightbulb, Minus, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNav } from '@/app/NavController';
-import { revealField } from '@/lib/keyboard';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useNav, useTabScroller } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import { dayCaption, NavBar } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
@@ -148,19 +147,20 @@ const useSettled = (v: string, ms = 250) => {
   return out;
 };
 
+const Searching = () => (
+  <SkeletonGroup label="Searching" className="k-card ln-more">
+    <Skeleton w="40%" h={12} />
+    <Skeleton w="85%" h={20} />
+  </SkeletonGroup>
+);
+
 /** What the search found, across every month: a section per month, its days in one card. */
 const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Learning) => void }) => {
   const list = useLearnings({ q });
   const end = useRef<HTMLDivElement>(null);
   useLoadMore(end, list);
   const months = useMemo(() => groupByMonth(list.data?.pages.flatMap((p) => p.learnings) ?? []), [list.data]);
-  if (list.isPending)
-    return (
-      <SkeletonGroup label="Searching" className="k-card ln-more">
-        <Skeleton w="40%" h={12} />
-        <Skeleton w="85%" h={20} />
-      </SkeletonGroup>
-    );
+  if (list.isPending) return <Searching />;
   if (!months.length)
     return (
       <section className="k-card ln-none">
@@ -183,6 +183,72 @@ const Found = ({ q, today, onOpen }: { q: string; today: string; onOpen: (l: Lea
 };
 
 /**
+ * The search field's place and focus. With the keyboard up the room for results is between the field and the keyboard, so
+ * on focus the field goes to the top of the scroller, just under the nav bar (not to the keyboard's edge), and it is held
+ * there when the first letter takes the hero, the tiles and the archive cards away (and when clearing brings them back).
+ * The keyboard's Search key blurs the field, and so does the first drag or wheel of the page while it is focused. A tap on a
+ * result is left alone: the sheet it opens takes the focus.
+ */
+const useSearchField = (searching: boolean) => {
+  const scroller = useTabScroller();
+  const box = useRef<HTMLLabelElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pin = useCallback(
+    (smooth: boolean) => {
+      const sc = scroller.current;
+      const el = box.current;
+      if (!sc || !el) return;
+      const bar = sc.querySelector<HTMLElement>('.nb-bar');
+      const under = (bar ? bar.getBoundingClientRect().bottom : sc.getBoundingClientRect().top) + 8;
+      const by = el.getBoundingClientRect().top - under;
+      if (Math.abs(by) >= 1) sc.scrollBy({ top: by, behavior: smooth ? 'smooth' : 'auto' });
+    },
+    [scroller],
+  );
+  const was = useRef(searching);
+  useLayoutEffect(() => {
+    if (was.current === searching) return;
+    was.current = searching;
+    pin(false);
+  }, [searching, pin]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    const sc = scroller.current;
+    if (!focused || !sc) return;
+    const blur = (e: Event) => {
+      if (e.target instanceof Node && box.current?.contains(e.target)) return;
+      input.current?.blur();
+    };
+    sc.addEventListener('touchmove', blur, { passive: true });
+    sc.addEventListener('wheel', blur, { passive: true });
+    return () => {
+      sc.removeEventListener('touchmove', blur);
+      sc.removeEventListener('wheel', blur);
+    };
+  }, [focused, scroller]);
+  return {
+    box,
+    input,
+    onFocus: () => {
+      setFocused(true);
+      clearTimeout(timer.current);
+      // after the keyboard's 250 ms, when the page has its room under it
+      timer.current = setTimeout(() => pin(true), 250);
+    },
+    onBlur: () => {
+      setFocused(false);
+      clearTimeout(timer.current);
+    },
+    onSubmit: (e: React.FormEvent) => {
+      e.preventDefault();
+      input.current?.blur();
+    },
+  };
+};
+
+/**
  * What I learned (the tab root): today's card, the counts as tiles, the archive's echoes, then the search over
  * everything and the archive itself: every month with something in it, by year, each one a tap from its days.
  */
@@ -194,39 +260,50 @@ export default function LearnedView(): React.JSX.Element {
   const open = useOpenLearning(today);
   const [q, setQ] = useState('');
   const needle = useSettled(q.trim());
+  // a query is active from its first letter: the page becomes the field and what it finds
+  const searching = q.trim().length > 0;
+  const search = useSearchField(searching);
 
   const todays = useMemo(() => (list.data?.pages.flatMap((p) => p.learnings) ?? []).filter((l) => l.date === today).sort(byTime), [list.data, today]);
   const s = stats.data;
   const hasPast = !!s && s.total > todays.length;
   return (
-    <div className="page ln-page">
+    <div className={`page ln-page ${searching ? 'is-searching' : ''}`}>
       <NavBar caps={{ cur: dayCaption(today, today) }} title={{ cur: 'What I learned' }} gap={16} />
-      <div className="k-stack">
-        {list.isPending ? (
-          <SkeletonGroup label="Loading" className="ln-hero ln-hero-skel">
-            <Skeleton w="70%" h={28} />
-            <Skeleton w="90%" h={18} />
-            <Skeleton w="60%" h={18} />
-          </SkeletonGroup>
-        ) : (
-          <TodayCard today={today} items={todays} onOpen={open} />
-        )}
-        <StatsTiles s={list.isPending ? undefined : s} today={today} keptToday={todays.length > 0} />
-      </div>
-      {hasPast ? <Echoes today={today} onOpen={open} /> : null}
-      {hasPast ? (
-        <label className="ln-search">
-          <Search size={17} aria-hidden="true" className="ln-search-icon" />
-          <input className="ln-search-in" type="search" enterKeyHint="search" placeholder="Search everything you learned" aria-label="Search everything you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={(e) => revealField(e.currentTarget)} />
-          {q ? (
-            <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
-              <X size={16} aria-hidden="true" />
-            </button>
-          ) : null}
-        </label>
+      {searching ? null : (
+        <div className="k-stack">
+          {list.isPending ? (
+            <SkeletonGroup label="Loading" className="ln-hero ln-hero-skel">
+              <Skeleton w="70%" h={28} />
+              <Skeleton w="90%" h={18} />
+              <Skeleton w="60%" h={18} />
+            </SkeletonGroup>
+          ) : (
+            <TodayCard today={today} items={todays} onOpen={open} />
+          )}
+          <StatsTiles s={list.isPending ? undefined : s} today={today} keptToday={todays.length > 0} />
+        </div>
+      )}
+      {hasPast && !searching ? <Echoes today={today} onOpen={open} /> : null}
+      {hasPast || searching ? (
+        <form role="search" className="ln-search-form" onSubmit={search.onSubmit}>
+          <label className="ln-search" ref={search.box}>
+            <Search size={17} aria-hidden="true" className="ln-search-icon" />
+            <input ref={search.input} className="ln-search-in" type="search" enterKeyHint="search" placeholder="Search everything you learned" aria-label="Search everything you learned" value={q} onChange={(e) => setQ(e.target.value)} onFocus={search.onFocus} onBlur={search.onBlur} />
+            {q ? (
+              <button type="button" className="ln-search-clear" aria-label="Clear search" onClick={() => setQ('')}>
+                <X size={16} aria-hidden="true" />
+              </button>
+            ) : null}
+          </label>
+        </form>
       ) : null}
-      {needle ? (
-        <Found q={needle} today={today} onOpen={open} />
+      {searching ? (
+        needle ? (
+          <Found q={needle} today={today} onOpen={open} />
+        ) : (
+          <Searching />
+        )
       ) : months.isPending ? (
         <SkeletonGroup label="Loading the months" className="k-card ln-more">
           <Skeleton w="30%" h={20} />
