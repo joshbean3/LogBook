@@ -356,12 +356,33 @@ html[data-text-xl] .tab-item svg {
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
+/* a slow refresh: the short arc turns (still under Reduce Motion) */
+.ptr.busy svg {
+  animation: ptr-spin 0.9s linear infinite;
+}
+@keyframes ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ptr.busy svg {
+    animation: none;
+  }
+}
 
+/* one line, just above the dock (Shell.tsx StatusPill): no title or control is under it, and the toasts sit at the top */
 .net-pill {
   position: fixed;
-  top: calc(8px + var(--safe-t));
-  left: 50%;
-  transform: translateX(-50%);
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(var(--chrome-h) + var(--safe-b) + 6px);
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100% - 2 * var(--gutter));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   z-index: 35;
   display: flex;
   align-items: center;
@@ -379,4 +400,7 @@ html[data-text-xl] .tab-item svg {
   border-radius: 50%;
   background: var(--ok);
   flex: none;
+}
+html.kb-open .net-pill {
+  display: none;
 }

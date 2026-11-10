@@ -198,7 +198,7 @@ input[type='number'] {
   /* a size container, so stat strips and titles can respond to the room they have in rem: at a larger text size the same screen is narrower */
   container: page / inline-size;
   /* the scroller already ends at the tab bar's top (a grid row); only the keyboard's overhang is added (spec §3.1, rev 4.1) */
-  padding: calc(8px + var(--safe-t)) var(--gutter) calc(24px + max(var(--chrome-h) + var(--safe-b), var(--kb)));
+  padding: calc(8px + var(--safe-t)) var(--gutter) calc(24px + var(--pill-room, 0px) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
   max-width: var(--maxw);
   margin-inline: auto;
   width: 100%;
@@ -259,3 +259,9 @@ input[type='number'] {
     scroll-behavior: auto !important;
   }
 }
+
+/* the status pill above the dock is up (app/Shell.tsx): pages make room for it so it covers nothing at the end of a page */
+html[data-status-pill] {
+  --pill-room: 36px;
+}
+

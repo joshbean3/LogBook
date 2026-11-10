@@ -41,6 +41,14 @@ const KEY = 'logbook.outbox.v1';
 export const newKey = (): string =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 const listeners = new Set<(n: number) => void>();
+/** A queued change is on the wire right now (the pill says "Syncing…" only then, shell-09). */
+let sending = false;
+const sendingListeners = new Set<(on: boolean) => void>();
+const setSending = (on: boolean) => {
+  if (sending === on) return;
+  sending = on;
+  for (const fn of sendingListeners) fn(on);
+};
 let items: OutboxItem[] = [];
 let loaded = false;
 let replaying = false;
@@ -152,6 +160,12 @@ export const outbox = {
     fn(items.length);
     return () => listeners.delete(fn);
   },
+  /** Whether a queued change is being sent right now; told at once and on every change. */
+  subscribeSending(fn: (on: boolean) => void) {
+    sendingListeners.add(fn);
+    fn(sending);
+    return () => sendingListeners.delete(fn);
+  },
   /**
    * The account now using the app. Writes queued from here on carry its id. Items queued by a build from before the stamp
    * existed have none: they were written on this device by the account that was signed in, so they take this one.
@@ -208,7 +222,8 @@ export const outbox = {
         await persist();
         const it = rewrite(items[at]!);
         try {
-          const res = await api(it.path, { method: it.method, json: it.json, idempotencyKey: it.id });
+          setSending(true);
+          const res = await api(it.path, { method: it.method, json: it.json, idempotencyKey: it.id }).finally(() => setSending(false));
           const real = it.tmpId ? realIdOf(res) : null;
           if (it.tmpId && real) {
             aliases.set(it.tmpId, real);
