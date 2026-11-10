@@ -1066,6 +1066,12 @@
   letter-spacing: -0.01em;
   color: var(--ink);
 }
+/* a long proposal: how many of each kind, before the first six */
+.as-prop-count {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
 .as-changes {
   list-style: none;
   display: grid;
@@ -1491,4 +1497,53 @@
   content: '';
   position: absolute;
   inset: -6px 0;
+}
+
+/* asks first, in place: editing a question or deleting a chat that changes were applied from */
+.as-confirm {
+  display: grid;
+  gap: 10px;
+  justify-self: end;
+  max-width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.as-confirm p {
+  margin: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.as-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.as-confirm-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-confirm-btn.is-go {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.as-history-confirm {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  margin: 0 12px 12px;
+  box-shadow: none;
+}
+.as-history-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

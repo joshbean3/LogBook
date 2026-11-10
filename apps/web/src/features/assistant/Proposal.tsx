@@ -31,9 +31,23 @@ const kindOf = (c: AssistantChange): { Icon: LucideIcon; risky?: boolean } => {
   }
 };
 
-/** A proposal of more than this many changes shows the first six and a "Show all" (a plan can be fifty). */
-const FOLD_OVER = 8;
+/** A proposal of more than six changes shows a count line, the first six and a "Show all" (a plan can be fifty). */
+const FOLD_OVER = 6;
 const changesWord = (n: number) => `${n} change${n === 1 ? '' : 's'}`;
+
+/** "12 changes: 6 added, 3 removed, 3 moved": every kind named, so nothing is hidden behind Show all before Apply. */
+export const countLine = (changes: AssistantChange[]): string => {
+  const n = { added: 0, removed: 0, moved: 0, changed: 0 };
+  for (const c of changes) {
+    const op = c.op.op;
+    if (op.startsWith('add_')) n.added++;
+    else if (op.startsWith('delete_')) n.removed++;
+    else if (op === 'move_session') n.moved++;
+    else n.changed++;
+  }
+  const parts = (Object.keys(n) as (keyof typeof n)[]).filter((k) => n[k] > 0).map((k) => `${n[k]} ${k}`);
+  return `${changesWord(changes.length)}: ${parts.join(', ')}`;
+};
 
 /**
  * A proposal (docs/inspiration.md §3, Proposal card): the summary, then each change on its own card with its icon, its
@@ -68,6 +82,7 @@ export const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: bo
       <header className="as-prop-head">
         <span className="caps">{open ? `${changesWord(p.changes.length)} to review` : 'Changes'}</span>
         <p className="as-proposal-sum">{p.summary}</p>
+        {p.changes.length > FOLD_OVER ? <p className="as-prop-count">{countLine(p.changes)}</p> : null}
       </header>
       <ul className="as-changes">
         {shown.map((c, i) => {

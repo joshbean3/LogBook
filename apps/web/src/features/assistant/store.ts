@@ -265,6 +265,13 @@ export const assistantStore = {
     save();
     notify();
   },
+  /** Puts back a chat just deleted (the Undo on History's toast), in its place by when it was last used. */
+  restore: (chat: AssistantChat) => {
+    if (chats.some((c) => c.id === chat.id)) return;
+    chats = [...chats, chat].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_CHATS);
+    save();
+    notify();
+  },
   /** Deletes a saved chat; deleting the open one starts a new one. */
   remove: (id: string) => {
     chats = chats.filter((c) => c.id !== id);

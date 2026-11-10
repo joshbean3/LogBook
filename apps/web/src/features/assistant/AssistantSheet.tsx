@@ -326,8 +326,10 @@ const AnswerActions = ({ t, index, newest, speaker, onRegenerate }: { t: Assista
 };
 
 /** The owner's words: a soft bubble at the right. A tap shows Copy and Edit under it (ChatGPT's message menu). */
-const UserTurn = ({ t, canEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; onEdit: () => void }) => {
+const UserTurn = ({ t, canEdit, confirmEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; confirmEdit: boolean; onEdit: () => void }) => {
   const [open, setOpen] = useState(false);
+  // editing takes the answers after it off: when one of them has changes applied, it asks first
+  const [asking, setAsking] = useState(false);
   const toast = useToast();
   return (
     <>
@@ -360,12 +362,33 @@ const UserTurn = ({ t, canEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; 
               aria-label="Edit"
               onClick={() => {
                 setOpen(false);
-                onEdit();
+                if (confirmEdit) setAsking(true);
+                else onEdit();
               }}
             >
               <Pencil size={16} strokeWidth={2.1} aria-hidden="true" />
             </button>
           ) : null}
+        </div>
+      ) : null}
+      {asking ? (
+        <div className="as-confirm" role="group" aria-label="Edit this message?">
+          <p>This removes the answers after it. Changes you applied stay.</p>
+          <div className="as-confirm-actions">
+            <button type="button" className="as-confirm-btn" onClick={() => setAsking(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="as-confirm-btn is-go"
+              onClick={() => {
+                setAsking(false);
+                onEdit();
+              }}
+            >
+              Edit
+            </button>
+          </div>
         </div>
       ) : null}
     </>
@@ -645,7 +668,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
   const renderTurn = (t: AssistantTurn, i: number) => (
     <div key={`${chatId}-${i}`} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}${i >= mountedAt.current ? ' is-new' : ''}${editing === i ? ' is-editing' : ''}`}>
       {t.role === 'user' ? (
-        <UserTurn t={t} canEdit={!busyAnywhere && !t.files?.length} onEdit={() => startEdit(i)} />
+        <UserTurn t={t} canEdit={!busyAnywhere && !t.files?.length} confirmEdit={turns.slice(i + 1).some((x) => x.proposal?.status === 'applied')} onEdit={() => startEdit(i)} />
       ) : t.error ? (
         <div className="as-error" role="alert">
           <CircleAlert size={16} className="as-error-ic" aria-hidden="true" />
@@ -665,7 +688,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
             </div>
           ) : null}
           {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
-          <AnswerActions t={t} index={i} newest={i === newestAnswer && !busyAnywhere} speaker={speaker} onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant)} />
+          <AnswerActions t={t} index={i} newest={i === newestAnswer && !busyAnywhere && t.proposal?.status !== 'applied'} speaker={speaker} onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant)} />
         </>
       )}
     </div>
