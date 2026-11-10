@@ -23,6 +23,7 @@ import { App } from './app/App';
 import { CACHE_KEY, ErrorBoundary } from './app/ErrorBoundary';
 import { NavController } from './app/NavController';
 import { isBootstrap } from './api/bootstrap';
+import { keepOnDevice } from './api/persist';
 import { api, onSignedOut, onUnauthorized, shouldRetryRead } from './api/client';
 import { isWriteRejected, outbox } from './api/outbox';
 import { stravaSyncNow } from './api/queries';
@@ -128,15 +129,10 @@ document.addEventListener('visibilitychange', () => {
 
 startKeyboard();
 startPressDelegate();
+// ask the browser to keep this app's storage (the saved copy, the outbox) through storage pressure (gap-ios-24)
+void navigator.storage?.persist?.().catch(() => false);
 // the service worker waits for the first screen (lib/sw.ts, called from App); a signed-out open gets it after a while
 setTimeout(startServiceWorker, 8000);
-
-/**
- * What is kept on the device for the next open: every query that holds data, whatever its last fetch did. A refetch that
- * failed (offline, a server error, an answer in a bad shape) leaves the last good copy in place, here as in memory, so the
- * next open still has something to draw. Never the two sign-in probes.
- */
-const keepOnDevice = (q: Query) => q.state.data !== undefined && !['auth-status', 'auth-session'].includes(String(q.queryKey[0]));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

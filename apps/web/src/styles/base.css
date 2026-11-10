@@ -37,7 +37,10 @@ textarea,
 .esheet-text,
 .dsheet-text,
 .quote-text,
-.reads-body {
+.reads-body,
+.as-answer,
+.as-thought-text,
+.ln-text {
   -webkit-touch-callout: default;
   -webkit-user-select: text;
   user-select: text;
@@ -255,6 +258,8 @@ input[type='number'] {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* nothing repeats: an infinite pulse would otherwise run a 0.01 ms loop forever (a11y-16) */
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }

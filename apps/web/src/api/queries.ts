@@ -735,8 +735,9 @@ import { notifyManager } from '@tanstack/react-query';
 const shownBy = new WeakMap<object, () => void>();
 export const whenShown = <T extends object>(vars: T, f: () => void): T => (shownBy.set(vars, f), vars);
 
+// a search (q not empty) is a moment's question: kept a minute in memory, never on the device (perf-21, main.tsx)
 export const useJournalList = (q: string, fav: boolean) =>
-  useQuery({ queryKey: keys.journal(q, fav), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>(`/journal?q=${encodeURIComponent(q)}&fav=${fav ? 1 : 0}&limit=200`), staleTime: 30_000 });
+  useQuery({ queryKey: keys.journal(q, fav), queryFn: () => api<{ entries: JournalEntry[]; more: boolean }>(`/journal?q=${encodeURIComponent(q)}&fav=${fav ? 1 : 0}&limit=200`), staleTime: 30_000, ...(q.trim() ? { gcTime: 60_000 } : {}) });
 export const useQuotes = (p: { theme?: string; q?: string; fav?: boolean; limit?: number; offset?: number }) => {
   const params: Record<string, string | number> = { theme: p.theme ?? 'All', q: p.q ?? '', fav: p.fav ? 1 : 0, limit: p.limit ?? 40, offset: p.offset ?? 0 };
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
