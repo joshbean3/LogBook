@@ -1,10 +1,11 @@
-import { assess, clock, clockOfDay, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
+import { assess, clock, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
 import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
 import { Button } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useCoachShown } from '../day/coachShown';
+import { clockParts, dayClock } from '../day/dayWords';
 import { readMinutes } from '../day/useNow';
 import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
@@ -34,7 +35,7 @@ export const sessionMeta = (s: Session, _st?: string): string => {
 /** "14:38" → "2:38 PM": one time format across the app (audit §3.2). */
 export const startClock = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
-  return h == null || m == null || Number.isNaN(h) || Number.isNaN(m) ? hhmm : clockOfDay(h * 60 + m);
+  return h == null || m == null || Number.isNaN(h) || Number.isNaN(m) ? hhmm : dayClock(h * 60 + m);
 };
 
 /** The chip class for a status key: the colours `.chip` already has. A missed day is the plain chip, never red (§7.2). */
@@ -55,8 +56,8 @@ export const plannedMiles = (s: Session | null | undefined): number => (s?.kind 
 
 /** A clock time as a number and its small unit: `6:45` `AM`. */
 const timeNum = (m: number): [string, string] => {
-  const [v, u] = clockOfDay(m).split(' ');
-  return [v ?? '', u ?? ''];
+  const { v, u } = clockParts(m);
+  return [v, u];
 };
 
 /**

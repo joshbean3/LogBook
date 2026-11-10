@@ -23,7 +23,7 @@ import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { useHabitsLit } from '../habits/OrbRow';
 import { groupsOn } from '../todos/groups';
-import { shortClock } from './dayWords';
+import { isoClock, shortClock } from './dayWords';
 import { CardGroup, CardOpen } from './CardGroup';
 import { floorShort } from './faces';
 import { HoldRing, MORPH_MS, settleAt, settleVelAt } from './HoldRing';
@@ -156,10 +156,8 @@ const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: 
   );
 };
 
-const timeOf = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-};
+/** A stored time as the phone writes times (12 or 24 hour; gap-qua-65). */
+const timeOf = isoClock;
 
 /**
  * What follows the composer's box when the box changes height (§5: "only the entries list grows, via FLIP on what follows";

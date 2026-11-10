@@ -1,4 +1,5 @@
-import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, clockOfDay, durationWords, morningDayFor, NEW_ACCOUNT_MORNING, normalizeAfterOrder, num, routineOf, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type RoutineStep, type Session } from '@logbook/shared';
+import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, durationWords, morningDayFor, NEW_ACCOUNT_MORNING, normalizeAfterOrder, num, routineOf, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type RoutineStep, type Session } from '@logbook/shared';
+import { clockParts } from '../day/dayWords';
 
 /**
  * This morning's pure model: the timeline for a day (the routine's block order is a setting `buildMorning` honours), the
@@ -8,8 +9,7 @@ import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, clockOfDay,
 // ---------- time words ----------
 /** "7:20 AM" split so the number can be big and the meridiem small. */
 export const timeParts = (m: number) => {
-  const [v = '', u = ''] = clockOfDay(m).split(' ');
-  return { v, u };
+  return clockParts(m);
 };
 /** "7:20" without the meridiem (a morning is all AM; the axis and the stamps say so once). */
 export const short = (m: number) => timeParts(m).v;

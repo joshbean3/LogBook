@@ -1,4 +1,5 @@
-import { clockOfDay, num, type MorningTimeline, type RoutineKey } from '@logbook/shared';
+import { num, type MorningTimeline, type RoutineKey } from '@logbook/shared';
+import { dayClock } from '../day/dayWords';
 import { Backpack, BookOpen, CircleAlert, CircleCheck, CircleDot, Coffee, Dog, Dumbbell, Flower2, Footprints, Moon, Pencil, PersonStanding, Sandwich, ShowerHead, Shirt, SkipForward, Sunrise, Trash2, Undo2, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
@@ -426,7 +427,7 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
   });
 
   // ---------- the rows ----------
-  const label = (r: SchedRow) => `${r.name}, ${clockOfDay(r.at)}${r.sub ? `, ${r.sub}` : ''}`;
+  const label = (r: SchedRow) => `${r.name}, ${dayClock(r.at)}${r.sub ? `, ${r.sub}` : ''}`;
   const rowFor = (r: SchedRow): ReactNode => {
     const st = timeState(isToday, now, r.start, r.end);
     const cls = `sch-row k-${r.kind} ${r.tone ? `t-${r.tone}` : ''} ${st.cls}`;
