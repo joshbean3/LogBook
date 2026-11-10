@@ -327,7 +327,8 @@ label.lrow[data-pressed] {
   background: var(--surface);
   color: var(--ink);
   border-radius: var(--r-pill);
-  height: 44px;
+  /* a floor, not a fixed height: at a large text size a long label wraps and the pill grows around it */
+  min-height: 44px;
   padding: 0 18px;
   font-weight: 600;
   font-size: 0.9375rem;
@@ -341,6 +342,15 @@ label.lrow[data-pressed] {
     transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
     background var(--dur-fast),
     opacity var(--dur-fast);
+}
+/* Larger Text (the root scaled by app/dynamicType.ts, or a large browser default): a label that no longer fits on one line
+   wraps inside the pill, which grows from its min-height. At 100% nothing here applies. */
+:root[style*='font-size'] .btn,
+:root[data-text-xl] .btn {
+  white-space: normal;
+  text-align: center;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 /* the one press (§11.1): data-pressed on pointerdown (ui/usePress.ts delegates it to plain buttons), 0.97 in 120 ms */
 .btn[data-pressed]:not(:disabled) {
@@ -384,7 +394,6 @@ label.lrow[data-pressed] {
   color: var(--ink-2);
 }
 .btn.sm {
-  height: 36px;
   padding: 0 14px;
   font-size: 0.9375rem;
   /* 36px to the eye, 44px to the thumb */
@@ -934,7 +943,7 @@ textarea.in {
 }
 /* the one blue on a sheet is where the thumb lands: 48px tall */
 .sheet-foot .btn.primary {
-  height: 48px;
+  min-height: 48px;
   padding: 0 22px;
   font-size: 1.0625rem;
 }
