@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TOAST_MS, TOAST_UNDO_MS as TOAST_ACTION_MS } from '@/lib/gesture';
+import { RESUME_MIN_MS } from './toastStore';
 import { createToastStore } from './toastStore';
 
 describe('toast (D-F1)', () => {
@@ -22,13 +23,16 @@ describe('toast (D-F1)', () => {
     expect(store.get()).toBeNull();
   });
 
-  it('an action can ask for a longer stay (the 8s Undo after replacing a plan)', () => {
+  it('an action can ask for a longer stay, never a shorter one', () => {
     const store = createToastStore();
-    store.show('Base is on your calendar. 51 sessions replaced.', { label: 'Undo', fn: () => {}, duration: 8000 });
+    store.show('Base is on your calendar. 51 sessions replaced.', { label: 'Undo', fn: () => {}, duration: 15_000 });
     vi.advanceTimersByTime(TOAST_ACTION_MS + 500);
     expect(store.get()?.action?.label).toBe('Undo');
-    vi.advanceTimersByTime(8000 - TOAST_ACTION_MS - 400);
+    vi.advanceTimersByTime(15_000 - TOAST_ACTION_MS - 400);
     expect(store.get()).toBeNull();
+    store.show('Moved.', { label: 'Undo', fn: () => {}, duration: 3000 });
+    vi.advanceTimersByTime(TOAST_ACTION_MS - 1);
+    expect(store.get()?.text).toBe('Moved.');
   });
 
   it('an action that shows nothing clears its toast', () => {
@@ -73,5 +77,34 @@ describe('toast (D-F1)', () => {
     off();
     store.show('Again');
     expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('an Undo toast stays 10 s, and its clock stops while it is touched or focused (a11y-11)', () => {
+    expect(TOAST_ACTION_MS).toBe(10_000);
+    const store = createToastStore({ set: (fn, ms) => setTimeout(fn, ms), clear: (t) => clearTimeout(t), now: () => Date.now() });
+    const id = store.show('Deleted', { label: 'Undo', fn: () => undefined });
+    vi.advanceTimersByTime(9000);
+    store.pause(id);
+    expect(store.paused(id)).toBe(true);
+    vi.advanceTimersByTime(60_000);
+    expect(store.get()?.id).toBe(id);
+    store.resume(id);
+    vi.advanceTimersByTime(RESUME_MIN_MS - 1);
+    expect(store.get()?.id).toBe(id);
+    vi.advanceTimersByTime(1);
+    expect(store.get()).toBeNull();
+  });
+
+  it('resumes with what was left when that is more than the minimum', () => {
+    const store = createToastStore({ set: (fn, ms) => setTimeout(fn, ms), clear: (t) => clearTimeout(t), now: () => Date.now() });
+    const id = store.show('Deleted', { label: 'Undo', fn: () => undefined });
+    vi.advanceTimersByTime(3000);
+    store.pause(id);
+    vi.advanceTimersByTime(5000);
+    store.resume(id);
+    vi.advanceTimersByTime(6999);
+    expect(store.get()?.id).toBe(id);
+    vi.advanceTimersByTime(1);
+    expect(store.get()).toBeNull();
   });
 });

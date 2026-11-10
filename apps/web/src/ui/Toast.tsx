@@ -25,7 +25,7 @@ export const useToast = (): ToastFn => {
 };
 
 /**
- * One line of feedback at a time, with an optional action (Undo) (docs/feel.md §8, contracts §C.7). 4 s plain, 6 s with
+ * One line of feedback at a time, with an optional action (Undo) (docs/feel.md §8, contracts §C.7). 4 s plain, 10 s with
  * an action (`TOAST_MS` / `TOAST_UNDO_MS`), the action's own `duration` when it asks. Scoped to the tab that raised it: a
  * tab change dismisses it with `fadeOut`. A small white pill floating at the top of the screen, under the status bar
  * (inspiration §2.13), over a sheet too. Fades in 120 ms, out 100 ms; a swipe away (≥ 110 px/s) dismisses it. role="status".
@@ -66,7 +66,21 @@ export const ToastProvider = ({ children }: { children: ReactNode }): React.JSX.
     gone.jump(1);
   }, [t?.id, dx, dy, gone]);
   const drag = useRef({ id: -1, x0: 0, y0: 0, locked: false });
+  // the clock stops while a finger is down on the toast or it (or its button) has focus, and runs again after (a11y-11)
+  const focused = useRef(false);
+  const pressed = useRef(false);
+  const hold = (on: boolean, why: 'press' | 'focus') => {
+    if (!t) return;
+    (why === 'press' ? pressed : focused).current = on;
+    if (pressed.current || focused.current) store.pause(t.id);
+    else store.resume(t.id);
+  };
+  useLayoutEffect(() => {
+    focused.current = false;
+    pressed.current = false;
+  }, [t?.id]);
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.isPrimary) hold(true, 'press');
     if (!e.isPrimary || (e.target as Element).closest('.toast-act')) return;
     drag.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, locked: false };
     try {
@@ -88,6 +102,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }): React.JSX.
     dy.set(away ? my : my * 0.2);
   };
   const onPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.isPrimary) hold(false, 'press');
     const d = drag.current;
     if (e.pointerId !== d.id || !t) return;
     d.id = -1;
@@ -124,6 +139,10 @@ export const ToastProvider = ({ children }: { children: ReactNode }): React.JSX.
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerEnd}
                   onPointerCancel={onPointerEnd}
+                  onFocus={() => hold(true, 'focus')}
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hold(false, 'focus');
+                  }}
                 >
                   <span className="toast-text">{t.text}</span>
                   {t.action ? (
