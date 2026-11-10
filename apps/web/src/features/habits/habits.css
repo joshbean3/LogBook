@@ -78,7 +78,8 @@
 .orb-initial {
   font-family: var(--display);
   font-style: italic;
-  font-size: 22px;
+  /* a glyph inside a fixed ring: it grows with the text size, but only as far as the ring holds */
+  font-size: clamp(22px, 1.375rem, 30px);
   line-height: 1;
   color: var(--ink-2);
 }
@@ -106,7 +107,7 @@
   background: var(--warn);
 }
 .orb-name {
-  font: 400 12px/16px var(--sans);
+  font: 400 var(--fs-orb) / var(--lh-orb) var(--sans);
   color: var(--ink-3);
   max-width: 100%;
   padding-inline: 2px;
@@ -400,7 +401,9 @@
 }
 .orbs.is-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* two columns; one when the text is set so large that half the width no longer holds a name (7.75rem is under half of the
+     narrowest phone at the default size, so the two columns hold there and up to about 125% on a 390 pt phone) */
+  grid-template-columns: repeat(auto-fit, minmax(max(calc(50% - 4px), 7.75rem), 1fr));
   gap: 8px;
 }
 .orbs.is-grid .orb {
@@ -440,7 +443,7 @@
   height: 18px;
 }
 .orbs.is-grid .orb-initial {
-  font-size: 19px;
+  font-size: clamp(19px, 1.1875rem, 26px);
 }
 .orbs.is-grid .orb.on .orb-ring {
   background: radial-gradient(circle at 38% 32%, #ff9a52, var(--accent) 70%);
@@ -458,7 +461,7 @@
 }
 .orbs.is-grid .orb-name {
   padding: 0;
-  font: 600 14px/17px var(--sans);
+  font: 600 0.875rem/1.0625rem var(--sans);
   letter-spacing: -0.01em;
   text-align: left;
   text-wrap: pretty;

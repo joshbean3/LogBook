@@ -64,7 +64,7 @@
   display: grid;
   gap: 2px;
   align-content: center;
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: -0.02em;
   -webkit-touch-callout: none;
 }
@@ -94,7 +94,7 @@
   min-height: 44px;
   padding: 0 16px;
   text-align: left;
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: -0.02em;
 }
 .tt-more {
@@ -114,7 +114,7 @@
   min-height: 44px;
   margin: 0;
   padding: 0 16px;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
 /* the add row become the field, in the same 44 box */
@@ -133,7 +133,8 @@
   outline: none;
   background: transparent;
   color: var(--ink);
-  font: 400 max(16px, 17px)/22px var(--sans);
+  /* never under 16px, whatever the text size: a smaller field makes iOS zoom the page on focus */
+  font: 400 clamp(16px, var(--fs-row), 4rem) / var(--lh-row) var(--sans);
   letter-spacing: -0.02em;
   padding: 0;
   user-select: text;
@@ -228,8 +229,8 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -240,8 +241,8 @@
   color: var(--ink-3);
 }
 .trow-note {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   font-weight: 400;
   letter-spacing: -0.01em;
   color: var(--ink-3);
@@ -294,8 +295,8 @@
   white-space: nowrap;
 }
 .carried {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: var(--lh-orb);
   font-weight: 600;
   color: var(--ink-3);
   background: var(--surface-2);
@@ -372,8 +373,8 @@
   border-radius: var(--r-tile);
   background: var(--surface);
   box-shadow: var(--shadow-1);
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -439,6 +440,8 @@
 /* ---------- the full list in its sheet: SwipeRow v2 rows ---------- */
 .tlist {
   display: grid;
+  /* one column the width of the sheet: a long list name or a large text size never makes a row wider than it */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
   min-width: 0;
   /* the rows are their card's white (the pane shows only under a moving row) */
@@ -531,8 +534,8 @@
   white-space: nowrap;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: var(--lh-orb);
   font-weight: 600;
   color: var(--tc, var(--ink-2));
   background: color-mix(in srgb, var(--tc, var(--ink)) 16%, transparent);
@@ -598,8 +601,8 @@
 }
 .tsheet-hint {
   margin: 0;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 .tlist-seg {
@@ -608,6 +611,7 @@
 }
 .tlist-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .tlist-list + .tlist-list {
@@ -627,17 +631,20 @@
   text-align: left;
 }
 .tlist-name {
-  font: 600 17px/22px var(--sans);
+  min-width: 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 .tlist-head.is-none .tlist-name {
   color: var(--ink-3);
 }
 .tlist-count {
-  font-size: 15px;
+  font-size: var(--fs-sub);
   color: var(--ink-3);
 }
 .tlist-chev {
+  flex: none;
   margin-left: auto;
   color: var(--ink-4);
 }
@@ -653,5 +660,5 @@
   border: 1.5px dashed var(--line-strong);
   background: none;
   color: var(--accent-text);
-  font: 500 17px/22px var(--sans);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
 }

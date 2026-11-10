@@ -362,7 +362,8 @@
   border-radius: 50%;
   background: var(--primary);
   color: var(--primary-ink);
-  font: 700 0.875rem / 1 var(--stamp);
+  /* a numeral in a fixed circle: it grows with the text size only as far as the circle holds */
+  font: 700 clamp(14px, 0.875rem, 18px) / 1 var(--stamp);
   transition:
     background 220ms,
     color 220ms;
@@ -441,7 +442,7 @@
   border-radius: var(--r-pill);
   background: var(--surface-2);
   color: var(--ink-2);
-  font: 700 0.8125rem / 1 var(--stamp);
+  font: 700 clamp(13px, 0.8125rem, 17px) / 1 var(--stamp);
 }
 .pd-rest-words {
   min-width: 0;
@@ -886,7 +887,7 @@
   padding: 10px 24px 4px 70px;
 }
 .pd-flow .pd-top-title {
-  font: 600 11px/16px var(--sans);
+  font: 600 var(--fs-caps) / 1rem var(--sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-3);
