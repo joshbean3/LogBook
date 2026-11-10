@@ -87,9 +87,10 @@
   appearance: none;
   border: 0;
   background: none;
-  width: 44px;
+  /* 28 wide on 28 px centres (no overlap with the next), 44 tall */
+  width: 28px;
   height: 44px;
-  margin-inline: -8px;
+  margin-inline: 0;
   display: grid;
   place-items: center;
   padding: 0;
@@ -120,13 +121,18 @@
 .share-caption {
   width: 100%;
 }
+/* a card that takes no caption keeps the caption's room, empty */
+.share-cap.is-held {
+  visibility: hidden;
+}
 /* the foot: Save (white) and Share (the one navy pill), both full height, Share taking the room */
 .sheet-foot.share-foot {
   flex-wrap: nowrap;
   gap: 12px;
 }
 .share-foot .btn {
-  height: 54px;
+  height: auto;
+  min-height: 54px;
   font-size: var(--fs-row);
 }
 .share-foot .share-save {

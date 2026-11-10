@@ -55,3 +55,32 @@ export const shareImage = async (blob: Blob, name: string, mode: ShareMode): Pro
   download(blob, name);
   return 'saved';
 };
+
+export type WordsResult = 'shared' | 'copied' | 'cancelled';
+/**
+ * Hand words to the system. In the app, the native share sheet; in a browser, the Web Share API where there is one, else
+ * the clipboard (the caller says "Copied"). Throws when none of them worked.
+ */
+export const shareWords = async (text: string): Promise<WordsResult> => {
+  if (isNative) {
+    const { Share } = await import('@capacitor/share');
+    try {
+      await Share.share({ text });
+      return 'shared';
+    } catch (e) {
+      if (isCancel(e)) return 'cancelled';
+      throw e;
+    }
+  }
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ text });
+      return 'shared';
+    } catch (e) {
+      if (isCancel(e)) return 'cancelled';
+      // a browser that has the API but will not share here: the clipboard instead
+    }
+  }
+  await navigator.clipboard.writeText(text);
+  return 'copied';
+};

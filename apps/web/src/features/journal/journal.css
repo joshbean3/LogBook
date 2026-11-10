@@ -58,32 +58,6 @@
   }
 }
 
-/* ---------- the composer: the page's hero, open, lit from below ---------- */
-.jcompose {
-  position: relative;
-  isolation: isolate;
-}
-/* the card's chrome is its own layer, so a growing field scales it (FLIP, §10.1) instead of animating a height */
-.jcompose-bg {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  pointer-events: none;
-}
-/* the stage light rises behind Save only, never behind the words */
-.jcompose-bg::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 0;
-  height: 84px;
-  background: var(--halo);
-  opacity: 0.45;
-}
 .composer {
   display: grid;
 }
@@ -106,14 +80,15 @@
 /* Save: a 32 px pill, the one blue, at 40 % until there is text (§8); a 44 px target */
 .save-pill.pressable {
   position: relative;
-  height: 32px;
-  min-height: 32px;
+  /* 32 px at the default text size, taller with Larger Text */
+  height: auto;
+  min-height: max(32px, 2rem);
   padding: 0 16px;
   border: 0;
   border-radius: var(--r-pill);
   background: var(--primary);
   color: var(--primary-ink);
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   opacity: 0.4;
   transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms var(--ease-out);
 }
@@ -129,10 +104,10 @@
 .composer-saved {
   align-items: center;
   gap: 6px;
-  height: 32px;
+  min-height: max(32px, 2rem);
   padding: 0 4px;
   margin-left: auto;
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .composer-saved svg {
@@ -184,19 +159,6 @@ textarea.jtext:focus {
 .jtext::placeholder {
   color: var(--ink-3);
 }
-/* the Journal page's composer: 17/22 serif, the placeholder at --ink-3 (§8), three lines open */
-.composer.big .jtext {
-  font-size: 17px;
-  line-height: 22px;
-  padding: 16px 16px 8px;
-}
-.composer.big textarea.jtext {
-  min-height: 90px;
-}
-.composer.big .jtext::placeholder {
-  color: var(--ink-3);
-}
-
 /* ---------- the quote of the day, a prompt line inside the composer ---------- */
 .qline-wrap {
   overflow: hidden;
@@ -287,188 +249,7 @@ textarea.jtext:focus {
   color: var(--ink-3);
 }
 
-/* ---------- the ribbon of the last 14 days ---------- */
-.ribbon-wrap {
-  margin-top: 24px;
-}
-/* the ribbon reaches the screen edges and scrolls sideways: each day's column (the whole column is its button) is at
-   least 44px wide, so 14 of them run past a phone's width; it snaps to days and opens on today, at the right edge */
-.ribbon {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(44px, 1fr);
-  margin-inline: calc(-1 * var(--gutter));
-  padding-inline: calc(var(--gutter) - 12px);
-  scroll-padding-inline: calc(var(--gutter) - 12px);
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-.ribbon::-webkit-scrollbar {
-  display: none;
-}
-/* earlier days wait off the left edge: the edge fades, so the ribbon reads as one that scrolls */
-.ribbon.has-more {
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px);
-  mask-image: linear-gradient(to right, transparent 0, #000 28px);
-}
-/* a scrub holds the ribbon still under the finger */
-.ribbon.scrubbing {
-  scroll-snap-type: none;
-}
-.rday {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  min-width: 44px;
-  height: 56px;
-  display: grid;
-  grid-template-rows: 36px 14px;
-  justify-items: center;
-  align-items: center;
-  color: var(--ink-4);
-  cursor: pointer;
-  scroll-snap-align: end;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-}
-.rdot {
-  display: block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1.5px solid var(--ink-4);
-  transition: border-color var(--dur-color) var(--ease-out);
-}
-.rday.has .rdot {
-  background: var(--ink);
-  border-color: var(--ink);
-}
-/* today wears a blue ring, written or not */
-.rday.today .rdot {
-  box-shadow:
-    0 0 0 3px var(--bg),
-    0 0 0 4.5px var(--accent-bright);
-}
-.rletter {
-  font-size: 0.625rem;
-  line-height: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-.rday.today .rletter {
-  color: var(--ink-2);
-}
-/* under the finger while scrubbing: the dot grows and the day's letter lights */
-.rday.on .rdot {
-  transform: scale(1.5);
-  border-color: var(--ink);
-}
-.rday.on .rletter {
-  color: var(--ink);
-}
-.rday:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: -2px;
-  border-radius: 8px;
-}
-.ribbon-cap {
-  display: flex;
-  gap: 8px;
-  min-height: 20px;
-  margin-top: 2px;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
-  color: var(--ink-3);
-  letter-spacing: -0.01em;
-}
-.ribbon-cap-date {
-  flex: none;
-  font-weight: 600;
-  color: var(--ink);
-}
-.ribbon-cap-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ---------- on this day / from your journal: one inset card ---------- */
-.jmem-card {
-  position: relative;
-  margin-top: 24px;
-  padding: 14px 16px 6px;
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  -webkit-touch-callout: none;
-}
-.jmem-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.jmem-top .caps:first-child {
-  color: var(--ink-2);
-}
-.jmem-ago {
-  white-space: nowrap;
-}
-.jmem-card.pressable {
-  display: block;
-  width: 100%;
-  text-align: left;
-  color: inherit;
-}
-.jmem-open {
-  margin: 0;
-  padding: 8px 0 10px;
-  display: grid;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.memory-text {
-  display: block;
-  font-family: var(--serif);
-  letter-spacing: 0;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
-  color: var(--ink);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-}
-.memory-text.clamp {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-  overflow: hidden;
-}
-.jmem-foot {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-}
-
-/* ---------- small marks: the run stamp, the favourite star ---------- */
+/* ---------- small marks: the run stamp, the favorite star ---------- */
 .jstamp {
   display: inline-flex;
   align-items: center;
@@ -478,7 +259,7 @@ textarea.jtext:focus {
   border-radius: 4px;
   font-family: var(--stamp);
   font-weight: 800;
-  font-size: 0.625rem;
+  font-size: var(--fs-caps);
   line-height: 1;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -589,11 +370,21 @@ textarea.jtext:focus {
 .jtl-skel {
   display: grid;
   gap: 20px;
-  padding-top: 8px;
+  padding: 16px;
 }
 .jtl-skel-row {
   display: flex;
   gap: 12px;
+}
+.jtl-skel-lines {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+}
+/* one clear control while searching: the header's X (the field's own cancel button is hidden) */
+.jtl-search input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
 }
 .jtl-more {
   margin-top: 8px;
@@ -623,22 +414,40 @@ textarea.jtext:focus {
   gap: 10px;
   flex-wrap: wrap;
 }
+/* three equal verbs in one row (the star's state is its fill, so the row never moves), Delete a quiet row under them */
 .esheet-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 8px;
-  padding-bottom: 8px;
 }
 .esheet-actions .btn.is-fav svg {
   color: var(--star);
 }
 .btn.danger-quiet {
   color: var(--bad);
-  margin-left: auto;
 }
 .esheet-actions .btn {
-  padding: 0 14px;
+  min-width: 0;
+  min-height: 44px;
+  height: auto;
+  padding: 4px 8px;
+  gap: 6px;
+  white-space: normal;
+}
+.esheet-actions .btn svg {
+  flex: none;
+}
+/* a narrow phone: the three verbs a size down, so each label keeps air inside its rounded end */
+@media (max-width: 359px) {
+  .esheet-actions .btn {
+    gap: 4px;
+    font-size: var(--fs-sub);
+  }
+}
+.btn.esheet-del {
+  min-height: 44px;
+  margin-bottom: 8px;
 }
 /* the editor: the sheet is the surface, so the text sits on a hairline with 8px of air */
 .jsheet-text {
@@ -650,83 +459,11 @@ textarea.jtext:focus {
 textarea.jsheet-text {
   overflow: auto;
 }
-/* a day with several entries */
-.dsheet {
-  display: grid;
-  gap: 12px;
-}
-.dsheet-list {
-  margin-top: -4px;
-}
-.dsheet-row {
-  appearance: none;
-  border: 0;
-  background: none;
-  display: grid;
-  gap: 4px;
-  width: 100%;
-  padding-block: 12px;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
-.dsheet-row[data-pressed] {
-  background: var(--surface-2);
-}
-.dsheet-text {
-  font-family: var(--serif);
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  letter-spacing: 0;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-.dsheet-add {
-  margin-bottom: 8px;
-}
-
-/* ---------- an entry as a row in a group (Today's journal section) ---------- */
-.jentry-body {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 10px 16px;
-  cursor: pointer;
-  margin: 0;
-  width: 100%;
-  min-width: 0;
-  min-height: 52px;
-  display: grid;
-  gap: 4px;
-  text-align: left;
-  color: var(--ink);
-}
-.jentry-body[data-pressed] {
-  background: var(--surface-2);
-}
-.jentry-meta {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-}
-.jentry-text {
-  font-family: var(--serif);
-  letter-spacing: 0;
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-}
-
 /* ---------- Library ---------- */
 .library {
   padding-top: 0;
 }
-/* favourites: a carousel of quote and entry cards */
+/* favorites: a carousel of quote and entry cards */
 .fav-carousel {
   --carousel-item: min(78%, 300px);
   padding-block: 4px;
@@ -842,6 +579,12 @@ textarea.jsheet-text {
   border-top: 1px solid var(--line);
   min-height: 44px;
 }
+/* the search sheet before two letters: what it needs */
+.qsearch-hint {
+  margin: 12px 4px 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
 .anchor {
   display: block;
   position: relative;
@@ -921,7 +664,7 @@ textarea.jsheet-text {
   display: grid;
   gap: 12px;
 }
-/* the quote sheet: the quote at 22/28, the work, Favourite as the verb */
+/* the quote sheet: the quote at 22/28, the work, Favorite as the verb */
 .qsheet {
   display: grid;
   gap: 10px;
@@ -953,46 +696,8 @@ textarea.jsheet-text {
 }
 
 /* rows that are buttons: no UA inline padding, the row sets its own */
-.qrow,
-.dsheet-row {
+.qrow {
   padding-inline: 0;
-}
-
-/* ---------- ghost previews: shapes only, never words, dates or sites (critic B1) ---------- */
-.jghost {
-  display: grid;
-}
-.jghost-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--line);
-}
-.jghost-lead {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--ink-4);
-}
-.jghost-lines {
-  display: grid;
-  gap: 10px;
-  flex: 1 1 auto;
-}
-.jghost-bar {
-  display: block;
-  height: 12px;
-  border-radius: 6px;
-  background: var(--ink-4);
-}
-.jghost-bar.short {
-  height: 10px;
-  opacity: 0.7;
-}
-.jghost-card {
-  cursor: default;
 }
 
 /* contracts §F: the exported QuoteLine, one serif line 44 tall (15/20 --ink-3, docs/feel.md §5 row 3) */
@@ -1006,12 +711,27 @@ textarea.jsheet-text {
   overflow: hidden;
 }
 .qline.quote-line .qline-text {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   -webkit-line-clamp: 1;
 }
 
-/* Library's empty favourites: one quiet 60 row (§8, visual S8) */
+/* in the Journal's writer the line says what it is and the quote may take two lines */
+.qline.quote-line.is-labelled {
+  height: auto;
+  padding: 6px 0;
+}
+.qline.quote-line.is-labelled .qline-hint {
+  margin: 0;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.qline.quote-line.is-labelled .qline-text {
+  -webkit-line-clamp: 2;
+}
+
+/* Library's empty favorites: one quiet 60 row (§8, visual S8) */
 .lib-fav-empty-row {
   min-height: 60px;
 }
@@ -1024,7 +744,7 @@ textarea.jsheet-text {
 /* ======================================================================================================================
    Journal on shape system v2 (docs/shape-system.md): the Journal · Library control under the title, Remember when as the
    insight card, the calendar and the day card in their own cards (calendar.css), the entries as rows of one card.
-   The Library: Reads as a row, favourites as a strip of cards, your quotes as rows
+   The Library: Reads as a row, favorites as a strip of cards, your quotes as rows
    of one card, the themes as tiles.
    ====================================================================================================================== */
 
@@ -1103,9 +823,6 @@ textarea.jsheet-text {
   border: var(--card-border);
 }
 .fav-card.is-entry .fav-text {
-  font-family: var(--mono);
-  font-size: 0.9375rem;
-  line-height: 1.45;
   color: var(--j-ink);
 }
 .lib-list.k-rows {
@@ -1129,8 +846,13 @@ textarea.jsheet-text {
   margin-bottom: var(--gap);
   border-radius: var(--r-card);
 }
+/* the hairline between the quote and its author, where the group's other separators start (an input cannot draw the
+   group's ::before separator, so it is painted on the field) */
+.qadd.group .qadd-by {
+  background: linear-gradient(var(--line), var(--line)) 16px 0 / calc(100% - 16px) 1px no-repeat;
+}
 
-/* the quote sheet: the quote in a card, Favourite pinned, Write under it */
+/* the quote sheet: the quote in a card, Favorite pinned, Write under it */
 .qsheet-card {
   display: grid;
   gap: 8px;

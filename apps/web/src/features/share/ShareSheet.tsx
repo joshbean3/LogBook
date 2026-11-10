@@ -1,6 +1,7 @@
 import { useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
+import { isNative } from '@/lib/native';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
 import { dayTypeOf, defaultCaption, DRAW_MS, drawCard, H, loadFonts, renderCard, TEMPLATE_NAME, templatesFor, W, type ShareData, type Template } from './cards';
@@ -47,8 +48,10 @@ const CardCanvas = ({ template, data, caption, active }: { template: Template; d
 
 /**
  * The share sheet: every template as a live 9:16 card in a carousel you swipe (it snaps card by card), the page dots under
- * it, the caption in its own card when the card takes one, and Share as the one navy pill pinned at the bottom (Save the white
- * pill beside it). Tapping a dot or a card that peeks in brings it to the middle.
+ * it, the caption in its own card (its room kept for every template, so the sheet never changes height), and Share as the
+ * one navy pill pinned at the bottom. In a browser Save, a white pill of the same height, downloads the image; in the app
+ * there is Share alone, since the system sheet it opens is where Save Image lives. Tapping a dot or a card that peeks in
+ * brings it to the middle.
  */
 export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Template }) => {
   const toast = useToast();
@@ -153,19 +156,22 @@ export const ShareSheet = ({ data, initial }: { data: ShareData; initial?: Templ
             ))}
           </span>
         </div>
-        {/* the caption sits right under the card it writes on, in a card of its own, never under the footer */}
-        {t === 'bubble' ? (
-          <label className="card share-cap">
+        {/* the caption sits right under the card it writes on, in a card of its own, never under the footer; its room is
+            kept on the cards that take none, so the sheet does not jump as they are swiped */}
+        {templates.includes('bubble') ? (
+          <label className={`card share-cap ${t === 'bubble' ? '' : 'is-held'}`} aria-hidden={t === 'bubble' ? undefined : true} inert={t !== 'bubble' || undefined}>
             <span className="share-cap-label">Caption</span>
             <input className="in share-caption" value={caption} maxLength={80} placeholder="Say something" onChange={(e) => setCaption(e.target.value)} />
           </label>
         ) : null}
       </div>
-      {/* one navy pill pinned at the bottom; Save is the white pill beside it */}
+      {/* one navy pill pinned at the bottom; in a browser Save is the white pill beside it */}
       <div className="sheet-foot share-foot">
-        <Button className="share-save" disabled={!!busy} onClick={() => run('save')}>
-          {busy === 'save' ? 'Saving' : saved ? 'Saved' : 'Save'}
-        </Button>
+        {isNative ? null : (
+          <Button className="share-save" disabled={!!busy} onClick={() => run('save')}>
+            {busy === 'save' ? 'Saving' : saved ? 'Saved' : 'Save'}
+          </Button>
+        )}
         <Button variant="primary" className="share-go" disabled={!!busy} onClick={() => run('share')}>
           {busy === 'share' ? 'Sharing' : 'Share'}
         </Button>

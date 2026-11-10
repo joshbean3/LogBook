@@ -10,7 +10,8 @@ import { useToday } from '@/lib/useToday';
 import { Button, EmptyState, IconButton, Mark, PushedBar, Segmented, SkeletonRows, SwipeRow, usePress, useSheet, useToast } from '@/ui';
 import { below, carry, measureBelow, popFav, rowsOnScreen, useBelowFold, useListFlip } from '../journal/feel';
 import { openLink, useOpenLink } from './openLink';
-import { TodaysPick } from './TodaysPick';
+import { PICKED_BY, TodaysPick } from './TodaysPick';
+import { useAiConsent } from '../journal/queries';
 import { KPin, KSection, KTrash } from '../goals/Kit';
 import './reads.css';
 import '../journal/seg.css';
@@ -271,6 +272,8 @@ export default function ReadsView() {
   };
   // nothing saved yet: one sentence and Paste a link; the field shows when the clipboard has no link (or from the +)
   const empty = !reads.isPending && !all.length;
+  // whether the account lets Claude pick a daily read from what is saved here (the reads switch, Contract 1)
+  const { reads: picks } = useAiConsent();
   const [adding, setAddingRaw] = useState(false);
   const top = useRef<HTMLDivElement>(null);
   const moved = useRef<(() => void) | null>(null);
@@ -382,7 +385,7 @@ export default function ReadsView() {
         </div>
       ) : empty ? (
         <div className="r-empty k-card">
-          <EmptyState verb={{ label: 'Paste a link', primary: true, onPress: () => void paste() }}>Save links and Logbook finds you one a day.</EmptyState>
+          <EmptyState verb={{ label: 'Paste a link', primary: true, onPress: () => void paste() }}>{picks ? 'Save links and Claude, by Anthropic, picks one new read a day.' : 'Save links to read later.'}</EmptyState>
         </div>
       ) : !tabs ? (
         <KSection title="Unread" meta={unread.length || undefined} className="r-lists">
@@ -420,6 +423,14 @@ export default function ReadsView() {
             )}
           </div>
         </div>
+      )}
+      {/* who picks, from what, and where to change it: said on this screen whether or not a pick is showing */}
+      {empty && picks ? null : (
+        <p className="r-foot">
+          {picks
+            ? `${PICKED_BY} Turn them off in Settings, Privacy.`
+            : 'Daily picks are off. Turn them on in Settings, Privacy, and Claude, by Anthropic, picks one new read a day from the links you save.'}
+        </p>
       )}
     </div>
   );

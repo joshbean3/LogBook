@@ -87,8 +87,10 @@ export const loadFonts = (): Promise<void> => {
 // ---------- formatting ----------
 const easeOut = (p: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 3);
 /** 8:06 → 8'06'' */
-export const paceStamp = (movingSec: number, miles: number): string => (miles > 0.1 && movingSec ? `${clock(movingSec / miles).replace(':', "'")}''` : "—'—''");
-const paceColon = (movingSec: number, miles: number): string => (miles > 0.1 && movingSec ? clock(movingSec / miles) : '—');
+/** The app's one mark for a value that is not there: the en dash. */
+const NONE = '\u2013';
+export const paceStamp = (movingSec: number, miles: number): string => (miles > 0.1 && movingSec ? `${clock(movingSec / miles).replace(':', "'")}''` : `${NONE}'${NONE}''`);
+const paceColon = (movingSec: number, miles: number): string => (miles > 0.1 && movingSec ? clock(movingSec / miles) : NONE);
 /** "6.04": two decimals for a card; the app's own `mi` for one. */
 const mi2 = (v: number) => (Math.round(v * 100) / 100).toFixed(2);
 const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];

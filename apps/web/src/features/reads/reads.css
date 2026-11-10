@@ -89,16 +89,16 @@
 }
 .rp-title {
   display: block;
-  font-size: 28px;
-  line-height: 32px;
+  font-size: var(--fs-stamp);
+  line-height: 2rem;
   color: var(--ink);
   margin-top: 10px;
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
 .rp-why {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
   letter-spacing: -0.01em;
   text-wrap: pretty;
@@ -142,8 +142,8 @@
     padding: 16px 14px 16px;
   }
   .rp-title {
-    font-size: 22px;
-    line-height: 28px;
+    font-size: var(--fs-sentence);
+    line-height: var(--lh-sentence);
   }
   .rp-site {
     display: none;
@@ -316,8 +316,8 @@
   color: var(--ink-2);
 }
 .rrow-title {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--ink);
@@ -338,8 +338,8 @@
 }
 /* the note under a link: the athlete's own words at 15, two lines at most */
 .rrow-note {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-3);
   letter-spacing: -0.01em;
   overflow: hidden;
@@ -363,8 +363,8 @@
   color: var(--bad);
 }
 .rsheet-title {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 600;
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
@@ -489,4 +489,17 @@ textarea.rsheet-note {
 .rrow-edit.icon-btn {
   background: transparent;
   box-shadow: none;
+}
+
+/* who makes the pick: one quiet line on the card, and the same with where to change it at the foot of the page */
+.rp-by {
+  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  text-wrap: pretty;
+}
+.r-foot {
+  margin: var(--gap) 4px 0;
+  color: var(--ink-3);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  text-wrap: pretty;
 }

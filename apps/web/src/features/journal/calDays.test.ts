@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { anchorFor, dayLabel, dayTitle, monthGrid, orbVariant, pageBy, pageHolds, pageTitle, switchAnchor, weekDays } from './calDays';
+import { anchorFor, dayLabel, dayTitle, dayTitleShort, monthGrid, orbVariant, pageBy, pageHolds, pageTitle, switchAnchor, weekDays } from './calDays';
 
 const TODAY = '2026-11-09'; // a Monday
 
 describe('the journal calendar', () => {
-  it('picks an orb palette from the count, a starred memory first', () => {
+  it('picks an orb palette from the count, a favorite entry first', () => {
     expect(orbVariant(undefined)).toBeNull();
     expect(orbVariant([])).toBeNull();
     expect(orbVariant([{ fav: false }])).toBe('sky');
@@ -43,10 +43,22 @@ describe('the journal calendar', () => {
   });
 
   it('names a day for VoiceOver and for the day card', () => {
-    expect(dayLabel(TODAY, 2)).toBe('Monday, November 9, 2 memories');
-    expect(dayLabel('2026-11-08', 1)).toBe('Sunday, November 8, 1 memory');
+    // the name starts with the words printed on the cell (Voice Control's "Tap Mon 9")
+    expect(dayLabel(TODAY, 2, { today: TODAY })).toBe('Mon 9, today, 2 entries');
+    expect(dayLabel('2026-11-08', 1, { fav: true })).toBe('Sun 8, 1 entry, a favorite');
+    expect(dayLabel('2026-11-04', 0, { view: 'month' })).toBe('4, Wednesday, no entries');
     expect(dayTitle(TODAY, TODAY)).toBe('Today');
     expect(dayTitle('2026-11-08', TODAY)).toBe('Yesterday');
     expect(dayTitle('2026-11-02', TODAY)).toBe('Monday, November 2');
+    expect(dayTitleShort('2026-11-05', TODAY)).toBe('Thu, Nov 5');
+  });
+
+  it('carries the year on a day or a week outside this one', () => {
+    expect(dayTitle('2025-11-10', TODAY)).toBe('Monday, November 10, 2025');
+    expect(dayTitleShort('2025-11-10', TODAY)).toBe('Mon, Nov 10, 2025');
+    expect(pageTitle('2025-11-13', 'week', TODAY)).toBe('Nov 7 to 13, 2025');
+    expect(pageTitle('2026-01-02', 'week', TODAY)).toBe('Dec 27, 2025 to Jan 2');
+    expect(pageTitle('2025-01-02', 'week', TODAY)).toBe('Dec 27, 2024 to Jan 2, 2025');
+    expect(pageTitle(TODAY, 'week', TODAY)).toBe('Nov 3 to 9');
   });
 });

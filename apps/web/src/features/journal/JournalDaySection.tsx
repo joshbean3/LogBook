@@ -1,72 +1,103 @@
 import { ago, fmtDate, monthOf, type JournalEntry } from '@logbook/shared';
-import { Check, Pencil, Share, Star, Trash2 } from 'lucide-react';
+import { Check, Pencil, Share, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { useJournalList, useJournalMutations, whenShown } from '@/api/queries';
+import { useJournalList, whenShown } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { crossfade } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
-import { Button, Group, Pressable, Section, SwipeRow, useSheet, useToast } from '@/ui';
-import type { Log } from '../log/useLog';
-import { getDraft, setDraft, subscribeDrafts } from './drafts';
+import { Button, Pressable, useSheet, useToast } from '@/ui';
+import { getDraft, getEdit, holdSent, restoreDraft, SAVE_FAILED, setDraft, setEdit, subscribeDrafts } from './drafts';
 import { FavStar } from './FavStar';
-import { PressButton } from './PressButton';
-import { below, carry, carryScaleY } from './feel';
-import { runStamp, useDayPrompt } from './prompt';
+import { useDraftOwner, useJournalWrites, useLiveEntry } from './queries';
+import { shareWords } from '../share/shareOut';
 import './journal.css';
 
+/** A time of day on the device's own clock (12 or 24 hour, as the phone is set). */
 export const timeOf = (at: string) => {
   const d = new Date(at);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 };
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** The device's own date of an instant, `YYYY-MM-DD`. */
+export const localDate = (at: string): string | null => {
+  const d = new Date(at);
+  return Number.isNaN(d.getTime()) ? null : `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+/**
+ * When an entry was written, as its rows say it: the time, or, for an entry written on another day than the one it is
+ * for (a missed evening caught up later), the day it was added: `added Nov 10`.
+ */
+export const entryWhen = (e: Pick<JournalEntry, 'date' | 'createdAt'>): string => {
+  const day = localDate(e.createdAt);
+  if (!day) return '';
+  return day === e.date ? timeOf(e.createdAt) : `added ${fmtDate('md', day)}`;
+};
+/** An entry's day as a sheet names it: `Fri, Nov 6`, with the year when it is not this one. */
+export const entryDay = (date: string, today: string) => `${fmtDate('short', date)}${date.slice(0, 4) === today.slice(0, 4) ? '' : `, ${date.slice(0, 4)}`}`;
 
-/** Share words: the system share sheet where there is one, else the clipboard. */
+/** Share words: the system share sheet (native in the app, the browser's elsewhere), else the clipboard, which says so. */
 export const shareText = async (text: string, toast: (t: string) => void) => {
   try {
-    if (navigator.share) {
-      await navigator.share({ text });
-      return;
-    }
-    // the clipboard is the answer itself (no plain toast, §8): only a failure speaks
-    await navigator.clipboard.writeText(text);
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return;
+    if ((await shareWords(text)) === 'copied') toast('Copied');
+  } catch {
     toast('Couldn’t share that.');
   }
 };
 
-/** The one place an entry is deleted, favourited or shared, so every surface (row, sheet, menu) behaves the same. */
+/** The one place an entry is deleted, made a favorite or shared, so every surface (row, sheet, menu) behaves the same. */
 export const useEntryActions = () => {
-  const { patch, remove, restore } = useJournalMutations();
+  const w = useJournalWrites();
   const toast = useToast();
   return {
-    del: (e: JournalEntry) => {
+    del: (e0: JournalEntry) => {
+      // Undo puts back the same entry (its time, its favorite), under the server's id if its save has landed
+      const e = w.current(e0);
       haptics.delete();
-      remove.mutate(e);
-      toast('Deleted', { label: 'Undo', fn: () => restore.mutate(e) });
+      void w.remove(e);
+      toast('Deleted', { label: 'Undo', fn: () => void w.restore(e) });
     },
-    /** The star that shows the change pops and fires `toggle` on its apex (`FavStar`); un-favouriting is silent. */
-    fav: (e: JournalEntry) => patch.mutate({ entry: e, fav: !e.fav }),
+    /** The star that shows the change pops and fires `toggle` on its apex (`FavStar`); taking a favorite back is silent. */
+    fav: (e: JournalEntry) => void w.patch({ entry: e, fav: !e.fav }),
     share: (e: JournalEntry) => void shareText(`${e.text}\n\n${fmtDate('long', e.date)}`, toast),
   };
 };
 
-/** The entry as the cache knows it now (a favourite, an edit made in the sheet), falling back to what opened the sheet. */
-const useLiveEntry = (id: string, fallback: JournalEntry) => {
-  const list = useJournalList('', false);
-  return list.data?.entries.find((x) => x.id === id) ?? fallback;
-};
-
-/** Edit, pushed inside the entry's sheet: the words, and Save as the sheet's one blue. */
+/**
+ * Edit, pushed inside the entry's sheet: the words, and Save as the sheet's one blue. The sheet stays until the edit is
+ * saved or queued offline; a refused edit keeps the words in the field (and for the next time Edit is opened, should the
+ * sheet have been closed meanwhile) and says so.
+ */
 export const EntryEditor = ({ e }: { e: JournalEntry }) => {
-  const { patch } = useJournalMutations();
+  const w = useJournalWrites();
   const sheet = useSheet();
-  const [text, setText] = useState(e.text);
+  const toast = useToast();
+  const [text, setText] = useState(() => getEdit(e.id) ?? e.text);
+  const [busy, setBusy] = useState(false);
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
   const v = text.trim();
   const save = () => {
+    if (busy || !v) return;
+    if (v === e.text) {
+      setEdit(e.id, null);
+      return sheet.pop();
+    }
+    setBusy(true);
     // an edit is not a day's close: no `success` (two a day, §11.4)
-    if (v && v !== e.text) patch.mutate({ entry: e, text: v });
-    sheet.pop();
+    void w.patch({ entry: e, text: v }).then((ok) => {
+      setEdit(e.id, ok ? null : v);
+      // still open: the words never left; closed meanwhile: they are back the next time Edit opens
+      if (!ok) toast(here.current ? 'Couldn’t save that. Your words are still here.' : SAVE_FAILED);
+      if (!here.current) return;
+      if (ok) sheet.pop();
+      else setBusy(false);
+    });
   };
   return (
     <>
@@ -87,7 +118,7 @@ export const EntryEditor = ({ e }: { e: JournalEntry }) => {
       />
       <div className="sheet-foot">
         <div className="foot-right">
-          <Button variant="primary" onClick={save} disabled={!v || v === e.text}>
+          <Button variant="primary" onClick={save} disabled={!v || v === e.text || busy} aria-busy={busy || undefined}>
             Save
           </Button>
         </div>
@@ -98,7 +129,7 @@ export const EntryEditor = ({ e }: { e: JournalEntry }) => {
 
 /**
  * Behind a tap on an entry: the words to read (not a keyboard), with what the day held. Edit pushes the editor in the same
- * sheet; Favourite and Share act in place; Delete closes it with an Undo.
+ * sheet; Favorite and Share act in place; Delete, a quiet row under them, closes it with an Undo.
  */
 export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: string | null }) => {
   const e = useLiveEntry(opened.id, opened);
@@ -109,7 +140,7 @@ export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: stri
       <p className="esheet-text">{e.text}</p>
       <p className="esheet-meta">
         <span className="caps">
-          {timeOf(e.createdAt)}
+          {entryWhen(e)}
           {e.editedAt ? ' · edited' : ''}
         </span>
         {stamp ? <span className="jstamp">{stamp}</span> : null}
@@ -118,58 +149,25 @@ export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: stri
         <Button onClick={() => sheet.push({ title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' })}>
           <Pencil size={16} aria-hidden="true" /> Edit
         </Button>
-        <Button aria-pressed={e.fav} className={e.fav ? 'is-fav' : ''} onClick={() => act.fav(e)}>
-          <FavStar on={e.fav} size={16} always className="" /> {e.fav ? 'Favourited' : 'Favourite'}
+        <Button aria-pressed={e.fav} className={`esheet-fav ${e.fav ? 'is-fav' : ''}`} onClick={() => act.fav(e)}>
+          <FavStar on={e.fav} size={16} always className="" /> Favorite
         </Button>
         <Button onClick={() => act.share(e)}>
           <Share size={16} aria-hidden="true" /> Share
         </Button>
-        <Button
-          variant="quiet"
-          className="danger-quiet"
-          onClick={() => {
-            sheet.close();
-            act.del(e);
-          }}
-        >
-          <Trash2 size={16} aria-hidden="true" /> Delete
-        </Button>
       </div>
+      <Button
+        variant="quiet"
+        block
+        className="danger-quiet esheet-del"
+        onClick={() => {
+          sheet.close();
+          act.del(e);
+        }}
+      >
+        <Trash2 size={16} aria-hidden="true" /> Delete
+      </Button>
     </div>
-  );
-};
-
-/** A day with several entries: each one as serif words; a tap pushes it. */
-const DayList = ({ date, stamp }: { date: string; stamp?: string | null }) => {
-  const list = useJournalList('', false);
-  const sheet = useSheet();
-  const entries = (list.data?.entries ?? []).filter((x) => x.date === date);
-  return (
-    <div className="dsheet">
-      {stamp ? <span className="jstamp">{stamp}</span> : null}
-      <div className="list-edge dsheet-list">
-        {entries.map((e) => (
-          <PressButton key={e.id} className="dsheet-row" onClick={() => sheet.push({ title: timeOf(e.createdAt), body: <EntrySheet e={e} stamp={stamp} /> })}>
-            <span className="caps">{timeOf(e.createdAt)}</span>
-            <span className="dsheet-text">{e.text}</span>
-          </PressButton>
-        ))}
-      </div>
-      <Group className="dsheet-add">
-        <Composer date={date} today={useToday()} rows={2} placeholder="Add to this day" />
-      </Group>
-    </div>
-  );
-};
-
-/** A day nothing was written on: the composer for it, so a missed evening can be caught up from the ribbon. */
-const DayComposer = ({ date }: { date: string }) => {
-  const sheet = useSheet();
-  const placeholder = useDayPrompt(date);
-  return (
-    <Group className="dsheet-add">
-      <Composer date={date} today={useToday()} rows={4} placeholder={placeholder} autoFocus onSaved={() => setTimeout(() => sheet.close(), 450)} />
-    </Group>
   );
 };
 
@@ -180,53 +178,9 @@ export const useOpenEntry = () => {
   return (e: JournalEntry, opts: { from?: Element | null; stamp?: string | null } = {}) =>
     sheet.open({
       eyebrow: ago(e.date, today),
-      title: fmtDate('short', e.date),
+      title: entryDay(e.date, today),
       body: <EntrySheet e={e} stamp={opts.stamp} />,
     });
-};
-
-/** Open a day from the ribbon: its one entry, its list of entries, or a composer for it. */
-export const useOpenDay = () => {
-  const sheet = useSheet();
-  const openEntry = useOpenEntry();
-  const today = useToday();
-  return (date: string, entries: JournalEntry[], opts: { from?: Element | null; stamp?: string | null } = {}) => {
-    if (entries.length === 1) return openEntry(entries[0]!, opts);
-    sheet.open({
-      eyebrow: ago(date, today),
-      title: fmtDate('short', date),
-      body: entries.length ? <DayList date={date} stamp={opts.stamp} /> : <DayComposer date={date} />,
-    });
-  };
-};
-
-/**
- * One entry as a row inside a group (Today's journal section): the time, the words in serif; tap to open, swipe left to
- * delete (with Undo), hold for Edit, Favourite, Share and Delete.
- */
-export const EntryItem = ({ e, stamp }: { e: JournalEntry; stamp?: string | null }) => {
-  const act = useEntryActions();
-  const open = useOpenEntry();
-  const sheet = useSheet();
-  return (
-    <SwipeRow
-      label={`Entry from ${timeOf(e.createdAt)}`}
-      left={{ label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.del(e) }}
-      menuItems={[
-        { label: 'Edit', icon: <Pencil size={18} />, onSelect: () => sheet.open({ eyebrow: fmtDate('short', e.date), title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' }) },
-        { label: e.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={18} />, onSelect: () => act.fav(e) },
-        { label: 'Share', icon: <Share size={18} />, onSelect: () => act.share(e) },
-      ]}
-    >
-      <PressButton className="jentry-body" onClick={(ev) => open(e, { from: ev.currentTarget.querySelector('.jentry-meta'), stamp })}>
-        <span className="caps jentry-meta">
-          <span>{timeOf(e.createdAt)}</span>
-          <FavStar on={e.fav} label="Favourite" />
-        </span>
-        <span className="jentry-text">{e.text}</span>
-      </PressButton>
-    </SwipeRow>
-  );
 };
 
 /**
@@ -245,8 +199,6 @@ export interface ComposerProps {
   today: string;
   /** Starting height in lines; the field grows with the words. */
   rows?: number;
-  /** `lg`: the Journal page's writing voice at 22/28. */
-  size?: 'lg';
   /** Built from the day, e.g. `useDayPrompt(date)`: "Speed 5 done, 5.02 mi. How did it feel?". */
   placeholder?: string;
   /** Between the words and Save: an optional prompt line (the day's `QuoteLine`). `insert` puts text at the top of the entry. */
@@ -262,12 +214,6 @@ export interface ComposerProps {
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   /** VoiceOver name. Default "Journal entry". */
   label?: string;
-  /**
-   * `flip`: the field's growth (a new line, or the words leaving on Save) is a FLIP on `settle` (§10.1): the card's chrome
-   * (`.jcompose-bg` in the nearest `.jcompose`) scales from its old height and everything below rides back from where it
-   * was. Default: the field just grows (a card that must not resize keeps its own rule).
-   */
-  grow?: 'flip';
 }
 
 /** Put words on top of a day's unsaved draft (a quote to write from); every composer on that day picks them up (drafts.ts). */
@@ -281,8 +227,9 @@ export const addToDraft = (date: string, s: string) => {
  * same box) and the entry settles into whatever list shows the day. The first entry of today is the day's close and fires
  * `success` (one of the two a day, §11.4); any later save is silent. No toast: the entry landing is the answer.
  */
-export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onSaved, haptic = true, autoFocus, inputRef, label = 'Journal entry', grow }: ComposerProps) => {
-  const { add } = useJournalMutations();
+export const Composer = ({ date, today, rows = 3, placeholder, prompt, onSaved, haptic = true, autoFocus, inputRef, label = 'Journal entry' }: ComposerProps) => {
+  const w = useJournalWrites();
+  useDraftOwner();
   const list = useJournalList('', false);
   const toast = useToast();
   const own = useRef<HTMLTextAreaElement>(null);
@@ -297,23 +244,13 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
       setText((cur) => (cur === v ? cur : v));
     });
   }, [date]);
-  // the field grows with the words, never scrolls inside itself; with grow="flip" the change is carried on `settle`
-  const lastH = useRef<number | null>(null);
+  // the field grows with the words, never scrolls inside itself
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const was = el.offsetHeight;
     el.style.height = 'auto';
-    const h = el.scrollHeight;
-    el.style.height = `${h}px`;
-    const d = h - (lastH.current ?? h);
-    lastH.current = h;
-    if (grow !== 'flip' || Math.abs(d) < 1 || !was) return;
-    const card = el.closest('.jcompose');
-    const bg = card?.querySelector<HTMLElement>('.jcompose-bg');
-    if (bg && card) carryScaleY(bg, (card.getBoundingClientRect().height - d) / card.getBoundingClientRect().height);
-    for (const n of below(el)) if (n !== bg) carry(n, -d);
-  }, [text, ref, grow]);
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text, ref]);
   useEffect(() => {
     if (!saved) return;
     const t = setTimeout(() => setSaved(false), 1400);
@@ -336,8 +273,21 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
       set('');
       setSaved(true);
     };
-    add.mutate(whenShown({ date, text: v }, clear), { onError: () => (clear(), set(v), toast('Couldn’t save that. Your words are back in the field.')) });
-    // the field's words are in the draft store and the outbox now; a list that is not mounted still clears the field
+    // the words stay on the device until the server or the outbox has them (drafts.ts)
+    const release = holdSent(date, v);
+    void w.add(whenShown({ date, text: v }, clear)).then((ok) => {
+      if (ok) return release();
+      // refused. The field must not empty over the words now; they go back on top of whatever has been typed since, once
+      // the mutation cache's own listeners have run (Today's cards watch the save with journalGuard and may have put them
+      // back already), and the toast says so
+      const wasCleared = cleared;
+      cleared = true;
+      setTimeout(() => {
+        if (restoreDraft(date, v) || !wasCleared) toast(SAVE_FAILED);
+        release();
+      }, 0);
+    });
+    // a list that is not mounted still clears the field
     setTimeout(clear, 250);
     onSaved?.({ first });
   };
@@ -354,8 +304,7 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
   };
   const fallback = date === today ? 'Two sentences on the day.' : `Add an entry for ${fmtDate('short', date)}`;
   return (
-    <div className={`composer ${size === 'lg' ? 'big' : ''}`}>
-      {grow === 'flip' ? <span className="jcompose-bg" aria-hidden="true" /> : null}
+    <div className="composer">
       <textarea
         ref={ref}
         className="jtext serif"
@@ -388,23 +337,6 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
         </AnimatePresence>
       </div>
     </div>
-  );
-};
-
-/** The journal section Today embeds: the day's entries and a composer whose placeholder comes from the day. */
-export const JournalDaySection = ({ date, log }: { date: string; log: Log }) => {
-  const list = log.snap.journalOn(date);
-  const placeholder = useDayPrompt(date);
-  const stamp = log.loaded(date) ? runStamp(log.snap, date) : null;
-  return (
-    <Section title="Journal" meta={list.length || undefined} level="secondary">
-      <Group>
-        {list.map((e) => (
-          <EntryItem key={e.id} e={e} stamp={stamp} />
-        ))}
-        <Composer date={date} today={log.today} rows={2} placeholder={placeholder} />
-      </Group>
-    </Section>
   );
 };
 

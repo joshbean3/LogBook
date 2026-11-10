@@ -195,13 +195,13 @@ export const useListFlip = (ref: RefObject<HTMLElement | null>, sig: string) => 
 };
 
 /**
- * A favourite's star pops on `springs.complete` to 1.12 and back on `settle`, and `toggle` fires on the pop's apex frame
+ * A favorite's star pops on `springs.complete` to 1.12 and back on `settle`, and `toggle` fires on the pop's apex frame
  * (§11.4, M34: `hapticAtPeak`). Pass the star's own scale; with no star on screen (a menu item) a free value runs the same
  * curve so the haptic lands when a star would have peaked. Reduced motion: no pop; the haptic still fires (its fallback).
  */
 let lastFav = 0;
 export const popFav = (scale: MotionValue<number> = motionValue(1)) => {
-  // one favourite, one haptic: the same entry may show its star twice at once (a row under its own sheet)
+  // one favorite, one haptic: the same entry may show its star twice at once (a row under its own sheet)
   const now = performance.now();
   const haptic = now - lastFav > 120;
   lastFav = now;
