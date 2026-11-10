@@ -691,3 +691,45 @@
   flex: none;
   max-width: 100%;
 }
+
+/* large text (settings-28, copy-legal-14): when a group is narrow in rem (a 320 pt phone at 135% text, any phone at 200%)
+   a row's value leaves the right edge and takes its own line under the title, whole, with the chevron at the line's end,
+   instead of ellipsizing to nothing ("25 mi", "Saturday"). At the default text size nothing changes. */
+.s-group.group {
+  container: s-group / inline-size;
+}
+@container s-group (max-width: 17rem) {
+  .s-group > .s-go:has(.s-value) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 2px;
+    padding-block: 11px;
+  }
+  .s-group > .s-go:has(.s-value):not(.has-tile) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .s-group > .s-go.has-tile:has(.s-value) > .s-tile {
+    grid-row: span 2;
+    align-self: center;
+  }
+  .s-group > .s-go:has(.s-value) > .lrow-main {
+    min-width: 0;
+  }
+  .s-group > .s-go:has(.s-value) .lrow-title {
+    white-space: normal;
+    overflow: visible;
+  }
+  .s-group > .s-go:has(.s-value) > .lrow-right {
+    grid-column: -2 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    max-width: none;
+  }
+  .s-group > .s-go:has(.s-value) .s-value {
+    white-space: normal;
+    overflow: visible;
+  }
+}
