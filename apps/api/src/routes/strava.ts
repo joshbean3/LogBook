@@ -4,7 +4,7 @@ import { requireAuth, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { env } from '../env.js';
 import { ApiError } from '../lib/util.js';
-import { authorizeUrl, disconnect, exchangeCode, StravaError, stravaStatus, syncActivities, syncZones, userForAthlete } from '../services/strava.js';
+import { authorizeUrl, disconnect, exchangeCode, purgeStravaData, StravaError, stravaStatus, syncActivities, syncZones, userForAthlete } from '../services/strava.js';
 
 const sign = (userId: string, ts: number, app: 0 | 1) => createHmac('sha256', env.SESSION_SECRET).update(`${userId}.${ts}.${app}`).digest('base64url');
 /** The OAuth state: who started it, when, and whether to land back in the iOS app or the web app. */
@@ -72,9 +72,13 @@ export const stravaRoutes = (db: DB) => {
     return c.redirect(landing(app, 'strava=connected'));
   });
 
+  /**
+   * Disconnect: Logbook ends its grant at Strava and deletes every activity, lap, zone and token it brought in, in one
+   * transaction. Answers the status (now not connected) with `deleted`: how many rows went.
+   */
   r.post('/disconnect', auth, async (c) => {
-    await disconnect(db, c.get('user').id);
-    return c.json(stravaStatus(db, c.get('user').id));
+    const out = await disconnect(db, c.get('user').id);
+    return c.json({ ...stravaStatus(db, c.get('user').id), deauthorized: out.deauthorized, deleted: out.removed });
   });
 
   r.get('/status', auth, (c) => c.json(stravaStatus(db, c.get('user').id)));
@@ -94,16 +98,29 @@ export const stravaRoutes = (db: DB) => {
   // ---------- webhook: Strava calls GET once to verify, then POSTs events ----------
   r.get('/webhook', (c) => {
     const q = c.req.query();
-    if (q['hub.mode'] === 'subscribe' && q['hub.verify_token'] === env.STRAVA_WEBHOOK_VERIFY_TOKEN) return c.json({ 'hub.challenge': q['hub.challenge'] });
+    // no token set means no subscription can be verified: there is no default to guess
+    if (env.STRAVA_WEBHOOK_VERIFY_TOKEN && q['hub.mode'] === 'subscribe' && q['hub.verify_token'] === env.STRAVA_WEBHOOK_VERIFY_TOKEN) return c.json({ 'hub.challenge': q['hub.challenge'] });
     throw new ApiError(403, 'Bad verify token');
   });
 
+  /**
+   * Events from Strava. Only events that carry this server's subscription id are acted on (STRAVA_WEBHOOK_SUBSCRIPTION_ID;
+   * in production an event is refused until it is set). An activity event starts a sync for its athlete. An athlete event
+   * with `authorized: "false"` means the person revoked Logbook in Strava: everything from Strava for that account is
+   * deleted, the same as Disconnect (no deauthorize call: Strava has already ended the grant).
+   */
   r.post('/webhook', async (c) => {
-    const body = (await c.req.json().catch(() => null)) as { object_type?: string; owner_id?: number } | null;
-    if (body?.object_type === 'activity' && body.owner_id != null) {
-      const userId = userForAthlete(db, String(body.owner_id));
-      if (userId) setTimeout(() => syncInBackground(db, userId), 1500);
+    const body = (await c.req.json().catch(() => null)) as { object_type?: string; owner_id?: number | string; subscription_id?: number | string; updates?: Record<string, unknown> } | null;
+    const expected = env.STRAVA_WEBHOOK_SUBSCRIPTION_ID;
+    if (expected ? String(body?.subscription_id ?? '') !== expected : env.isProd) throw new ApiError(403, 'Unknown subscription');
+    if (body?.owner_id == null) return c.json({ ok: true });
+    const userId = userForAthlete(db, String(body.owner_id));
+    if (!userId) return c.json({ ok: true });
+    if (body.object_type === 'athlete' && String(body.updates?.authorized) === 'false') {
+      purgeStravaData(db, userId);
+      return c.json({ ok: true });
     }
+    if (body.object_type === 'activity') setTimeout(() => syncInBackground(db, userId), 1500);
     return c.json({ ok: true });
   });
 

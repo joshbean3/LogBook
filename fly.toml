@@ -1,16 +1,39 @@
 # fly launch --no-deploy, then: fly volumes create logbook_data --size 1 ; fly secrets set ... ; fly deploy
+# Secrets (fly secrets set, never in this file): SESSION_SECRET, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, MAIL_API_KEY,
+# MAIL_FROM, BACKUP_S3_*. See README.md and apps/api/RUNBOOK.md.
 app = "josh-logbook"
 primary_region = "ewr"
+# A deploy or a restart: the server gets SIGINT, stops taking connections, finishes the requests in flight (up to 10 s),
+# closes the database and exits. Fly waits this long before it kills the machine.
+kill_signal = "SIGINT"
+kill_timeout = "15s"
 
 [build]
   dockerfile = "Dockerfile"
+
+  # Compiled into the public web app when the image is built (they are not secrets).
+  # OWNER: fill both in before the first public deploy. The post-deploy check fails while the support address is
+  # empty or an example.com placeholder.
+  [build.args]
+    # The address on the support page and in the app's "Contact support" links, e.g. support@your-domain.
+    VITE_SUPPORT_EMAIL = ""
+    # Where the legal and support pages live, when that is not this server (leave empty to use this server).
+    VITE_SITE_ORIGIN = ""
 
 [env]
   PORT = "8787"
   DATABASE_PATH = "/data/logbook.db"
   NODE_ENV = "production"
+  # OWNER: change this to the address you own before launch (decision D7). It is printed in emails and compiled into
+  # the iOS app, so it has to be the final one.
   APP_URL = "https://josh-logbook.fly.dev"
-  ALLOW_SETUP = "1"
+  # Anyone can create an account: this is a public app. After each deploy run
+  #   pnpm --filter @logbook/api check:deploy -- <APP_URL>
+  # which fails if sign-up is closed, mail is not configured, the AI features are off or the support address is missing.
+  ALLOW_SIGNUP = "1"
+  # OWNER: your Apple developer team id (10 characters, developer.apple.com > Membership). With it the server answers
+  # /.well-known/apple-app-site-association, so iOS can save and fill the Logbook password in the app. Not a secret.
+  # APPLE_TEAM_ID = "ABCDE12345"
 
 [http_service]
   internal_port = 8787

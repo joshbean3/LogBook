@@ -6,6 +6,8 @@ import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { goalEvents, goals } from '../db/schema.js';
 import { env } from '../env.js';
+import { withAiLimit } from '../services/aiLimits.js';
+import { requireAiPermission } from '../services/consent.js';
 import { parseSteps, toGoal, toGoalEvent } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { refineGoal } from '../services/claude.js';
@@ -48,12 +50,20 @@ export const goalRoutes = (db: DB) => {
     return c.json({ events: rows.slice(0, q.limit).map(toGoalEvent), more: rows.length > q.limit });
   });
 
-  /** The review: Claude rewrites the goal to the goal-setting rules for its level and deadline. Without a key, the words come back as they are. */
+  /**
+   * The review: Claude rewrites the goal to the goal-setting rules for its level and deadline. Answers
+   * `{ text, why, changed, steps, available }`. `available: false` (the words come back as they are, and nothing is sent)
+   * without a key, and when the person has the training switch off: a goal is training data. An account that was never
+   * asked gets 403 `consent_required`; a refusal is 422 `refused`; a limit is 429 `rate_limited`.
+   */
   r.post('/goals/refine', async (c) => {
+    const userId = uidOf(c);
     const body = await parseBody(c.req.raw, zGoalRefine);
     const period = validPeriod(body.level, body.period);
-    if (!env.claudeConfigured) return c.json({ text: body.text, why: null, changed: false, steps: [], available: false });
-    const out = await refineGoal(body.level, period, periodEnd(body.level, period), body.text, c.get('today'));
+    const asTyped = { text: body.text, why: null, changed: false, steps: [], available: false };
+    if (!env.claudeConfigured) return c.json(asTyped);
+    if (!requireAiPermission(db, userId, 'goal').training) return c.json(asTyped);
+    const out = await withAiLimit(userId, 'goal', () => refineGoal(userId, body.level, period, periodEnd(body.level, period), body.text, c.get('today')));
     return c.json({ ...out, available: true });
   });
 
@@ -84,7 +94,7 @@ export const goalRoutes = (db: DB) => {
         db.insert(goals).values({ id, userId, level, period, text: body.text, original, why: body.why ?? null, status: 'open', reflection: null, steps: JSON.stringify(body.steps ?? []), createdAt: now, updatedAt: now, closedAt: null, deletedAt: null }).run();
         log(userId, { id, level, period }, 'set', body.chose === 'kept' && body.original ? body.original : original ?? body.text, now);
       }
-      // what the review did, and what the owner chose: the sharpened words, or his own
+      // what the review did, and what the user chose: the sharpened words, or their own
       if (body.chose === 'sharpened' && original) log(userId, { id: id!, level, period }, 'sharpened', body.text, now);
       if (body.chose === 'kept') log(userId, { id: id!, level, period }, 'kept', body.text, now);
     });

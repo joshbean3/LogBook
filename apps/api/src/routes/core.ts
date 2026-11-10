@@ -27,18 +27,19 @@ import {
   type MorningDayOverride,
   type MorningSettings,
 } from '@logbook/shared';
-import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { activities, coachReads, habitChecks, habits, hrZones, journalEntries, liftSets, morningDays, planBlocks, stravaAccounts, todoGroups, todos, trainingSessions, userSettings } from '../db/schema.js';
 import { env } from '../env.js';
 import { toActivity, toBlock, toEntry, toHabit, toLift, toSession, toTodo, toTodoGroup } from '../lib/map.js';
-import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
+import { ApiError, nowISO, parseBody, parseParam, parseQuery, uid } from '../lib/util.js';
 import { stravaStatus } from '../services/strava.js';
 import { syncInBackground } from './strava.js';
 import { z } from 'zod';
 import { readTrainingProfile } from '../services/training.js';
+import { readConsent } from '../services/consent.js';
 import { deleteBlock, restoreBlock } from '../services/plans.js';
 
 /** `POST /sessions/:id/effort`: 1 to 10, whole numbers, or null to clear. */
@@ -117,6 +118,10 @@ export const coreRoutes = (db: DB) => {
       zones: zonesOf(db, userId),
       strava: st,
       features: { claude: env.claudeConfigured, strava: env.stravaConfigured },
+      // contract 1: what may go to Claude, the same record GET /me/consent answers
+      consent: readConsent(db, userId),
+      // when they usually train and when work ends, as onboarding saved it (null before)
+      trainWhen: readSetting(db, userId, 'trainWhen') ?? null,
       serverTime: nowISO(),
     });
   });
@@ -124,7 +129,7 @@ export const coreRoutes = (db: DB) => {
   // ---------- one month of everything dated ----------
   r.get('/months/:month', (c) => {
     const userId = uidOf(c);
-    const month = zMonth.parse(c.req.param('month'));
+    const month = parseParam(c.req.param('month'), zMonth, 'month');
     const from = monthStart(`${month}-01`);
     const to = shiftDays(addMonths(from, 1), -1);
     const checks: HabitCheck[] = db
@@ -185,6 +190,8 @@ export const coreRoutes = (db: DB) => {
     const now = nowISO();
     const id = body.id ?? uid('p');
     const existing = body.id ? db.select().from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.id, id))).get() : undefined;
+    // an id made on another device can, very rarely, already be someone else's: say so plainly (the app picks a new one) rather than fail on the key
+    if (body.id && !existing && db.select({ id: trainingSessions.id }).from(trainingSessions).where(eq(trainingSessions.id, id)).get()) throw new ApiError(409, 'That session could not be saved. Try again.', 'id_taken');
     const values = {
       kind: body.kind,
       type: body.type ?? null,
@@ -307,17 +314,22 @@ export const coreRoutes = (db: DB) => {
   r.put('/habits/:id/days/:date', async (c) => {
     const userId = uidOf(c);
     const habitId = c.req.param('id');
-    const date = zDate.parse(c.req.param('date'));
+    const date = parseParam(c.req.param('date'), zDate, 'date');
     const body = await parseBody(c.req.raw, zHabitCheck);
     const h = db.select().from(habits).where(and(eq(habits.userId, userId), eq(habits.id, habitId))).get();
     if (!h) throw new ApiError(404, 'Habit not found');
-    const cur = db.select().from(habitChecks).where(and(eq(habitChecks.habitId, habitId), eq(habitChecks.date, date))).get();
+    // every read and write of a check is by account as well as habit: a row under this habit that another account
+    // wrote (an old import could) is not this person's check, is never read as theirs, and is replaced
+    const cur = db.select().from(habitChecks).where(and(eq(habitChecks.userId, userId), eq(habitChecks.habitId, habitId), eq(habitChecks.date, date))).get();
     const done = body.done ?? cur?.done ?? false;
     const note = body.note === undefined ? cur?.note ?? null : body.note || null;
-    db.insert(habitChecks)
-      .values({ userId, habitId, date, done, note, updatedAt: nowISO() })
-      .onConflictDoUpdate({ target: [habitChecks.habitId, habitChecks.date], set: { done, note, updatedAt: nowISO() } })
-      .run();
+    db.transaction((tx) => {
+      tx.delete(habitChecks).where(and(eq(habitChecks.habitId, habitId), eq(habitChecks.date, date), ne(habitChecks.userId, userId))).run();
+      tx.insert(habitChecks)
+        .values({ userId, habitId, date, done, note, updatedAt: nowISO() })
+        .onConflictDoUpdate({ target: [habitChecks.habitId, habitChecks.date], set: { done, note, updatedAt: nowISO() }, setWhere: eq(habitChecks.userId, userId) })
+        .run();
+    });
     const out: HabitCheck = { habitId, date, done, note };
     return c.json(out);
   });
@@ -465,7 +477,7 @@ export const coreRoutes = (db: DB) => {
 
   r.put('/morning/days/:date', async (c) => {
     const userId = uidOf(c);
-    const date = zDate.parse(c.req.param('date'));
+    const date = parseParam(c.req.param('date'), zDate, 'date');
     // `{ wake }` only: legacy fields an old client sends are stripped by the schema (spec §4.3)
     const { wake } = await parseBody(c.req.raw, zMorningDay);
     // the legacy columns are NOT NULL and stay; a new row gets neutral fillers that nothing reads (the workout is the
@@ -481,7 +493,7 @@ export const coreRoutes = (db: DB) => {
 
   r.delete('/morning/days/:date', (c) => {
     const userId = uidOf(c);
-    const date = zDate.parse(c.req.param('date'));
+    const date = parseParam(c.req.param('date'), zDate, 'date');
     db.delete(morningDays).where(and(eq(morningDays.userId, userId), eq(morningDays.date, date))).run();
     return c.json({ ok: true });
   });

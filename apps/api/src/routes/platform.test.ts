@@ -27,7 +27,7 @@ const call = async (method: string, url: string, body?: unknown, cookie?: string
   return { status: res.status, body: text ? JSON.parse(text) : null, setCookie: res.headers.get('set-cookie') };
 };
 const cookieOf = (setCookie: string | null) => (setCookie ?? '').split(';')[0]!;
-const signUp = async (email: string, password = 'password123', route = '/api/auth/signup') => {
+const signUp = async (email: string, password = 'correct horse 42', route = '/api/auth/signup') => {
   const r = await call('POST', route, { email, password });
   return { ...r, cookie: cookieOf(r.setCookie) };
 };
@@ -46,7 +46,7 @@ beforeEach(() => {
 describe('sign-up', () => {
   it('the first account comes through setup; more need ALLOW_SIGNUP', async () => {
     expect((await call('GET', '/api/auth/status')).body).toEqual({ hasAccount: false, setupOpen: true, signupOpen: true, signedIn: false });
-    const owner = await signUp('owner@example.com', 'password123', '/api/auth/setup');
+    const owner = await signUp('owner@example.com', 'correct horse 42', '/api/auth/setup');
     expect(owner.status).toBe(201);
     expect(owner.body).toMatchObject({ email: 'owner@example.com', onboardedAt: null });
 
@@ -54,7 +54,7 @@ describe('sign-up', () => {
     // asked with the new session's cookie: signed in, and still a 200 (a signed-out open logs no 401)
     expect((await call('GET', '/api/auth/status', undefined, owner.cookie)).body).toMatchObject({ hasAccount: true, signedIn: true });
     expect((await signUp('second@example.com')).status).toBe(403);
-    expect((await signUp('second@example.com', 'password123', '/api/auth/setup')).status).toBe(403);
+    expect((await signUp('second@example.com', 'correct horse 42', '/api/auth/setup')).status).toBe(403);
 
     env.allowSignup = true;
     expect((await call('GET', '/api/auth/status')).body.signupOpen).toBe(true);
@@ -73,7 +73,7 @@ describe('sign-up', () => {
   });
 
   it('GET /me, /auth/me and /bootstrap carry onboardedAt', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     expect((await call('GET', '/api/me', undefined, cookie)).body).toMatchObject({ email: 'a@example.com', onboardedAt: null });
     expect((await call('GET', '/api/auth/me', undefined, cookie)).body).toMatchObject({ onboardedAt: null });
     expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.user).toMatchObject({ onboardedAt: null });
@@ -83,7 +83,7 @@ describe('sign-up', () => {
 
 describe('POST /me/onboarding', () => {
   it('writes the morning, the habits and a block from next Monday, and marks the account onboarded', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     const r = await call('POST', '/api/me/onboarding', ONBOARD, cookie);
     expect(r.status).toBe(200);
     expect(r.body.user.onboardedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -102,7 +102,7 @@ describe('POST /me/onboarding', () => {
   });
 
   it('is idempotent: a second call duplicates no habits, sessions or blocks, and keeps onboardedAt', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     const first = await call('POST', '/api/me/onboarding', ONBOARD, cookie);
     const count = () => sqlite.prepare('select count(*) n from training_sessions').get() as { n: number };
     const n1 = count().n;
@@ -115,7 +115,7 @@ describe('POST /me/onboarding', () => {
   });
 
   it('starts tomorrow when asked, and builds to a race', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     const r = await call('POST', '/api/me/onboarding', { ...ONBOARD, start: 'tomorrow', raceDate: '2027-01-17', habits: [] }, cookie);
     expect(r.status).toBe(200);
     expect(r.body.block).toMatchObject({ start: '2026-10-15', end: '2027-01-17', name: 'Half marathon · Jan 17' });
@@ -123,7 +123,7 @@ describe('POST /me/onboarding', () => {
   });
 
   it('refuses bad answers with 422 and writes nothing', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     expect((await call('POST', '/api/me/onboarding', { ...ONBOARD, leave: '6:00' }, cookie)).status).toBe(422);
     expect((await call('POST', '/api/me/onboarding', { ...ONBOARD, runDays: ['someday'] }, cookie)).status).toBe(422);
     const far = await call('POST', '/api/me/onboarding', { ...ONBOARD, raceDate: '2028-01-01' }, cookie);
@@ -132,6 +132,39 @@ describe('POST /me/onboarding', () => {
     expect((await call('GET', '/api/me', undefined, cookie)).body.onboardedAt).toBeNull();
     expect((sqlite.prepare('select count(*) n from habits').get() as { n: number }).n).toBe(0);
   });
+
+  it('saves the name, the routine, trainWhen and offWork in the same call and returns them (onboarding-03, Contract 5)', async () => {
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
+    const routine = { after: { shower: 12, ready: 8, names: { prep: 'Pack the bag' }, steps: [{ id: 's_coffee1', name: 'Coffee', mins: 5 }] } };
+    // a bad routine refuses the whole call, and nothing of it is written
+    expect((await call('POST', '/api/me/onboarding', { ...ONBOARD, name: 'Bo', routine: { after: { shower: 999 } } }, cookie)).status).toBe(422);
+    expect((await call('GET', '/api/me', undefined, cookie)).body).toMatchObject({ name: null, onboardedAt: null });
+    const r = await call('POST', '/api/me/onboarding', { ...ONBOARD, name: 'Sam', routine, trainWhen: 'afternoon', offWork: 1050 }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body.user.name).toBe('Sam');
+    expect(r.body.trainWhen).toEqual({ when: 'afternoon', offWork: 1050 });
+    expect(r.body.morningSettings.after).toMatchObject({ shower: 12, ready: 8, names: { prep: 'Pack the bag' }, steps: [{ id: 's_coffee1', name: 'Coffee', mins: 5 }], showerMode: 'fixed' });
+    expect(r.body.morningSettings.wake).toBe(390);
+    // the bootstrap carries the same, so a second device reads it
+    const boot = (await call('GET', '/api/bootstrap', undefined, cookie)).body;
+    expect(boot.user.name).toBe('Sam');
+    expect(boot.trainWhen).toEqual({ when: 'afternoon', offWork: 1050 });
+    expect(boot.morningSettings.after.shower).toBe(12);
+  });
+
+  it('a goal-less setup ("No running plan for now") finishes with no block and no training answers (onboarding-09)', async () => {
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
+    const r = await call('POST', '/api/me/onboarding', { goal: null, wake: 390, leave: 510, habits: ['Read 15 min'], name: 'Sam', trainWhen: 'none' }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ block: null, months: [], firstDay: null, trainWhen: { when: 'none', offWork: null } });
+    expect(r.body.user.onboardedAt).toMatch(/^\d{4}-/);
+    expect(r.body.user.trainingProfile).toBeNull();
+    expect(r.body.habits.map((h: { name: string }) => h.name)).toEqual(['Read 15 min']);
+    expect((sqlite.prepare('select count(*) n from plan_blocks').get() as { n: number }).n).toBe(0);
+    expect((sqlite.prepare('select count(*) n from training_sessions').get() as { n: number }).n).toBe(0);
+    // a running goal still needs its answers
+    expect((await call('POST', '/api/me/onboarding', { goal: 'half', wake: 390, leave: 510 }, cookie)).status).toBe(422);
+  });
 });
 
 describe('POST /plans/template', () => {
@@ -139,7 +172,7 @@ describe('POST /plans/template', () => {
   const input = { goal: '10k', weeks: 4, startDate: start, runDays: ['mon', 'wed', 'fri', 'sun'], longRunDay: 'sun', weeklyMiles: 20 };
 
   it('creates the block and its sessions and answers like /plans/apply', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     const r = await call('POST', '/api/plans/template', input, cookie);
     expect(r.status).toBe(201);
     expect(r.body.block).toMatchObject({ name: '10K · 4 weeks', start, end: shiftDays(start, 27), source: 'template', sessionCount: 16 });
@@ -154,7 +187,7 @@ describe('POST /plans/template', () => {
   });
 
   it('replace: true clears future planned sessions in the window, keeps done ones, the past and anything outside', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     const add = async (date: string, extra: Record<string, unknown> = {}) => (await call('POST', '/api/sessions', { date, kind: 'run', type: 'Easy', miles: 4, ...extra }, cookie)).body.id as string;
     const planned = await add(shiftDays(start, 2));
     const done = await add(shiftDays(start, 3));
@@ -175,7 +208,7 @@ describe('POST /plans/template', () => {
   });
 
   it('validates', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     expect((await call('POST', '/api/plans/template', { ...input, goal: 'ultra' }, cookie)).status).toBe(422);
     expect((await call('POST', '/api/plans/template', { ...input, weeklyMiles: 1 }, cookie)).status).toBe(422);
     expect((await call('POST', '/api/plans/template', { ...input, replace: 'yes' }, cookie)).status).toBe(422);
@@ -231,7 +264,7 @@ describe('DELETE /me', () => {
     expect(rowsFor(aId)).toEqual(before);
     expect((await call('DELETE', '/api/me', {}, a.cookie)).status).toBe(422);
 
-    const ok = await call('DELETE', '/api/me', { password: 'password123' }, a.cookie);
+    const ok = await call('DELETE', '/api/me', { password: 'correct horse 42' }, a.cookie);
     expect(ok.status).toBe(200);
     expect(ok.body.ok).toBe(true);
     expect(ok.setCookie).toMatch(/logbook_session=;/);
@@ -305,7 +338,7 @@ describe('migration 0007', () => {
 
 describe('the training profile', () => {
   it('onboarding stores the answers; GET /me and the bootstrap carry them', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     expect((await call('GET', '/api/me', undefined, cookie)).body.trainingProfile).toBeNull();
     expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.user.trainingProfile).toBeNull();
     await call('POST', '/api/me/onboarding', { ...ONBOARD, raceDate: '2027-01-17' }, cookie);
@@ -316,7 +349,7 @@ describe('the training profile', () => {
   });
 
   it('PATCH /me/training changes some answers and keeps the rest', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     await call('POST', '/api/me/onboarding', ONBOARD, cookie);
     const r = await call('PATCH', '/api/me/training', { weeklyMiles: 24, runDays: ['mon', 'wed', 'sat'], longRunDay: 'sat' }, cookie);
     expect(r.status).toBe(200);
@@ -328,7 +361,7 @@ describe('the training profile', () => {
   });
 
   it('validates, needs all five answers the first time, and needs a session', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     expect((await call('PATCH', '/api/me/training', { weeklyMiles: 20 }, cookie)).status).toBe(422);
     expect((await call('PATCH', '/api/me/training', {}, cookie)).status).toBe(422);
     expect((await call('PATCH', '/api/me/training', { goal: 'ultra' }, cookie)).status).toBe(422);
@@ -340,7 +373,7 @@ describe('the training profile', () => {
 
 describe('PATCH /morning/settings after.order', () => {
   it('stores the back-home order and the timeline follows it', async () => {
-    const { cookie } = await signUp('a@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
     expect((await call('GET', '/api/morning/settings', undefined, cookie)).body.after.order).toEqual(['shower', 'ready', 'smoothie', 'prep']);
     const r = await call('PATCH', '/api/morning/settings', { after: { order: ['prep', 'shower', 'ready', 'smoothie'] } }, cookie);
     expect(r.status).toBe(200);
@@ -356,7 +389,7 @@ describe('PATCH /morning/settings after.order', () => {
 
 describe('PATCH /morning/settings after.steps', () => {
   it('keeps steps of your own in the order; removing one drops its slot', async () => {
-    const { cookie } = await signUp('steps@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('steps@example.com', 'correct horse 42', '/api/auth/setup');
     const dog = { id: 's_dog001', name: 'Walk the dog', mins: 15 };
     const r = await call('PATCH', '/api/morning/settings', { after: { steps: [dog], order: ['shower', 's_dog001', 'ready', 'smoothie', 'prep'] } }, cookie);
     expect(r.status).toBe(200);
@@ -374,7 +407,7 @@ describe('PATCH /morning/settings after.steps', () => {
 
 describe('POST /plans/apply with replace', () => {
   it('soft-deletes only what was planned; marked sessions are history and stay', async () => {
-    const { cookie } = await signUp('apply@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('apply@example.com', 'correct horse 42', '/api/auth/setup');
     const day = shiftDays(today(), 2);
     const add = async (extra: Record<string, unknown> = {}) => (await call('POST', '/api/sessions', { date: day, kind: 'run', type: 'Easy', miles: 4, ...extra }, cookie)).body.id as string;
     const planned = await add();
@@ -394,7 +427,7 @@ describe('POST /plans/apply with replace', () => {
   });
 
   it('with only, the plan stops at its end: later planned sessions go, an older block ends the day before', async () => {
-    const { cookie } = await signUp('only@example.com', 'password123', '/api/auth/setup');
+    const { cookie } = await signUp('only@example.com', 'correct horse 42', '/api/auth/setup');
     const t = today();
     const old = { name: 'Old block', summary: '', notes: [], start: shiftDays(t, -10), end: shiftDays(t, 40), sessions: [shiftDays(t, -3), shiftDays(t, 5), shiftDays(t, 30)].map((date) => ({ date, kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null })) };
     const prior = (await call('POST', '/api/plans/apply', { draft: old, mode: 'add' }, cookie)).body.block.id as string;

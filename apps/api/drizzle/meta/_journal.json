@@ -127,6 +127,27 @@
       "when": 1794200000000,
       "tag": "0017_apple_health",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794300000000,
+      "tag": "0018_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1794400000000,
+      "tag": "0019_health_narrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794500000000,
+      "tag": "0020_retention_audit",
+      "breakpoints": true
     }
   ]
 }

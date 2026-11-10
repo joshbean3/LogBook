@@ -1,11 +1,12 @@
 import { shiftDays, today } from '@logbook/shared';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type DB } from '../db/index.js';
-import { recallItems } from '../db/schema.js';
+import { recallItems, userSettings } from '../db/schema.js';
 import { env } from '../env.js';
 import { buildApp } from '../index.js';
 import { chooseRecall, cleanSummary, eligibleFor, fallbackSummary, RECALL, recallWeight, resetRecallMemory, setRecallClient, type RecallCandidate } from './recall.js';
+import { writeConsent } from './consent.js';
 
 const T = '2026-11-04';
 const cand = (id: string, daysAgo: number, over: Partial<RecallCandidate> = {}): RecallCandidate => ({
@@ -100,6 +101,7 @@ describe('the words', () => {
 let app: ReturnType<typeof buildApp>;
 let db: DB;
 let cookie = '';
+let userId = '';
 const call = async (method: string, url: string, body?: unknown) => {
   const res = await app.request(url, { method, headers: { 'content-type': 'application/json', cookie }, body: body === undefined ? undefined : JSON.stringify(body) });
   const text = await res.text();
@@ -111,7 +113,13 @@ const fakeClaude = (reply: string | (() => never), stop = 'end_turn') => {
     return { stop_reason: stop, content: [{ type: 'text', text: reply as string }] };
   });
   setRecallClient({ messages: { create } } as never);
+  env.ANTHROPIC_MODEL = 'test-model';
   return create;
+};
+/** As if a new day had begun: today's one send to Claude is available again. */
+const newDay = () => {
+  resetRecallMemory();
+  db.delete(userSettings).where(eq(userSettings.key, 'recallSent')).run();
 };
 const seed = async (n: number, from = 8) => {
   const t = today();
@@ -124,8 +132,11 @@ beforeEach(async () => {
   db = openDatabase(':memory:').db;
   app = buildApp(db);
   env.allowSetup = true;
-  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
   cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
+  userId = ((await res.json()) as { id: string }).id;
+  // the account has said yes to Remember when (the switch off is tested on its own below)
+  writeConsent(db, userId, { recall: true });
 });
 afterEach(() => setRecallClient(null));
 
@@ -148,7 +159,7 @@ describe('GET /journal/recall', () => {
     expect(create).toHaveBeenCalledTimes(1);
     const params = create.mock.calls[0]![0] as { model: string; max_tokens: number; output_config: unknown; messages: Array<{ content: string }> };
     expect(params).toMatchObject({ model: env.ANTHROPIC_MODEL, max_tokens: 400, output_config: { effort: 'low' } });
-    expect(params.messages[0]!.content).toContain('by his first name, Josh,');
+    expect(params.messages[0]!.content).toContain('by their first name, Josh,');
     expect(params.messages[0]!.content).not.toContain('Smith');
   });
 
@@ -160,12 +171,12 @@ describe('GET /journal/recall', () => {
       throw new Error('overloaded');
     });
     expect((await call('GET', '/api/journal/recall')).body.item.summary).toBe(plain.summary);
-    resetRecallMemory();
+    newDay();
     fakeClaude('I cannot help with that.', 'refusal');
     expect((await call('GET', '/api/journal/recall')).body.item.summary).toBe(plain.summary);
     expect(db.select().from(recallItems).all().every((r) => r.summary === null)).toBe(true);
     // with a working key, it is written once and kept
-    resetRecallMemory();
+    newDay();
     fakeClaude('On that day you wrote about entry zero.');
     expect((await call('GET', '/api/journal/recall')).body.item.summary).toBe('On that day you wrote about entry zero.');
     expect(db.select().from(recallItems).all()[0]!.summary).toBe('On that day you wrote about entry zero.');

@@ -10,16 +10,20 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "check:deploy": "node scripts/post-deploy-check.mjs",
+    "ops": "tsx src/ops.ts",
+    "backup": "tsx src/ops.ts backup",
+    "seed:review": "tsx src/ops.ts seed-review"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
-    "@hono/node-server": "^1.19.0",
+    "@hono/node-server": "^2.1.6",
     "@logbook/shared": "workspace:*",
     "better-sqlite3": "^12.4.1",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.10.0",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

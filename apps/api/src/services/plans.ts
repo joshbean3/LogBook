@@ -142,11 +142,21 @@ const monthsOfRows = (rows: Array<{ date: string }>): string[] => [...new Set(ro
  * replaced sessions come back, and every block it ended gets its old end back (or is undeleted). Only this user's rows are
  * touched. Returns the months to refetch. Not wrapped in a transaction: call it inside one.
  */
-export const undoTemplate = (db: DB, userId: string, input: { blockId: string; replacedIds: string[]; endedBlocks: EndedBlockRef[] }) => {
+export const undoTemplate = (db: DB, userId: string, input: { blockId: string; replacedIds: string[]; endedBlocks: EndedBlockRef[]; addedIds?: string[] }) => {
   const nb = db.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), eq(planBlocks.id, input.blockId))).get();
-  const own = db.select({ date: trainingSessions.date }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, input.blockId))).all();
+  // a block the write only extended (a revise keeps the plan it revises) was there before: it stays, and only the
+  // sessions the write added go. Without the list of those, none of its sessions are touched.
+  const keptBlock = input.endedBlocks.some((e) => e.id === input.blockId);
+  const own: Array<{ date: string }> = [];
   let removed = 0;
-  if (nb) {
+  if (keptBlock) {
+    for (const part of chunks(input.addedIds ?? [])) {
+      const where = and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, input.blockId), inArray(trainingSessions.id, part));
+      own.push(...db.select({ date: trainingSessions.date }).from(trainingSessions).where(where).all());
+      removed += db.delete(trainingSessions).where(where).run().changes;
+    }
+  } else if (nb) {
+    own.push(...db.select({ date: trainingSessions.date }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, input.blockId))).all());
     removed = db.delete(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, input.blockId))).run().changes;
     db.delete(planBlocks).where(eq(planBlocks.id, nb.id)).run();
   }

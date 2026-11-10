@@ -14,7 +14,15 @@ COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile
 COPY packages ./packages
 COPY apps ./apps
-RUN pnpm --filter @logbook/web build && pnpm --filter @logbook/api build
+# Compiled into the web app (fly.toml [build.args], or docker build --build-arg). An empty value is treated as not
+# set, so the app falls back to its own defaults and the post-deploy check reports the missing support address.
+ARG VITE_SUPPORT_EMAIL=""
+ARG VITE_SITE_ORIGIN=""
+RUN set -e; \
+    [ -n "$VITE_SUPPORT_EMAIL" ] || unset VITE_SUPPORT_EMAIL; \
+    [ -n "$VITE_SITE_ORIGIN" ] || unset VITE_SITE_ORIGIN; \
+    pnpm --filter @logbook/web build; \
+    pnpm --filter @logbook/api build
 # production node_modules for the api only (better-sqlite3 stays external)
 RUN pnpm --filter @logbook/api deploy --prod --legacy /out && cp -r apps/api/dist /out/dist && cp -r apps/web/dist /out/dist/public
 
@@ -22,6 +30,9 @@ RUN pnpm --filter @logbook/api deploy --prod --legacy /out && cp -r apps/api/dis
 FROM base AS run
 WORKDIR /app
 ENV NODE_ENV=production PORT=8787 DATABASE_PATH=/data/logbook.db
+# the support address the web app was built with, so /api/health can say whether one was set (the post-deploy check reads it)
+ARG VITE_SUPPORT_EMAIL=""
+ENV SUPPORT_EMAIL=$VITE_SUPPORT_EMAIL
 COPY --from=build /out /app
 RUN mkdir -p /data && chown -R node:node /data /app
 USER node

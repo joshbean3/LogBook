@@ -1,5 +1,5 @@
 import { chooseItem, QUOTE_THEMES, shiftDays, today, zJournalInput, zJournalPatch, zPickKind, zQuoteInput, zRecallKind, zRecallPrefs, type JournalEntry, type Quote } from '@logbook/shared';
-import { and, asc, desc, eq, inArray, isNull, like, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql, type AnyColumn, type SQL } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { AuthEnv } from '../auth.js';
@@ -13,6 +13,11 @@ import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 
 export const journalRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
+  /**
+   * "Contains this text", with % and _ matched as themselves (finding journal-26): searching "%" finds entries with a
+   * percent sign, not every entry.
+   */
+  const contains = (col: SQL | AnyColumn, needle: string) => sql`lower(${col}) like ${`%${needle.toLowerCase().replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`} escape '\\'`;
   const uidOf = (c: { get: (k: 'user') => { id: string } }) => c.get('user').id;
 
   // ---------- entries ----------
@@ -20,12 +25,16 @@ export const journalRoutes = (db: DB) => {
     const userId = uidOf(c);
     const q = parseQuery(c.req.query(), z.object({ q: z.string().max(200).optional(), fav: z.string().optional(), limit: z.coerce.number().int().min(1).max(500).default(100), before: z.string().optional() }));
     const conds = [eq(journalEntries.userId, userId), isNull(journalEntries.deletedAt)];
-    if (q.q) conds.push(like(sql`lower(${journalEntries.text})`, `%${q.q.toLowerCase().replace(/[%_]/g, '')}%`));
+    // a search of only spaces matches nothing; no search at all (q absent or "") lists everything
+    if (q.q && !q.q.trim()) return c.json({ entries: [], more: false, total: 0 });
+    if (q.q) conds.push(contains(journalEntries.text, q.q.trim()));
     if (q.fav === '1') conds.push(eq(journalEntries.fav, true));
+    // every entry that matches the search and the favorite filter, whatever page this is (the header's "Entries 412")
+    const total = db.select({ n: sql<number>`count(*)` }).from(journalEntries).where(and(...conds)).get()?.n ?? 0;
     if (q.before) conds.push(lt(journalEntries.createdAt, q.before));
     const rows = db.select().from(journalEntries).where(and(...conds)).orderBy(desc(journalEntries.date), desc(journalEntries.createdAt)).limit(q.limit + 1).all();
     const more = rows.length > q.limit;
-    return c.json({ entries: rows.slice(0, q.limit).map(toEntry), more });
+    return c.json({ entries: rows.slice(0, q.limit).map(toEntry), more, total });
   });
 
   r.post('/journal', async (c) => {
@@ -99,8 +108,7 @@ export const journalRoutes = (db: DB) => {
     const conds = [];
     if (q.theme && q.theme !== 'All') conds.push(eq(quotes.theme, q.theme));
     if (needle) {
-      const n = `%${needle.replace(/[%_]/g, '')}%`;
-      conds.push(or(like(sql`lower(${quotes.text})`, n), like(sql`lower(${quotes.author})`, n), like(sql`lower(${quotes.work})`, n))!);
+      conds.push(or(contains(quotes.text, needle), contains(quotes.author, needle), contains(quotes.work, needle))!);
     }
     if (hidden.size) conds.push(sql`${quotes.id} not in (${sql.join([...hidden].map((h) => sql`${h}`), sql`, `)})`);
     const where = conds.length ? and(...conds) : undefined;

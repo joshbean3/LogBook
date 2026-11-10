@@ -15,8 +15,11 @@ export const users = sqliteTable('users', {
   trainingProfile: text('training_profile'),
   /** The athlete's name ("Josh"): the avatar's initial and Settings → You. Null until given. Migration 0008. */
   name: text('name'),
+  /** When the address was confirmed by the emailed link (or by a password reset, which proves the same inbox). Migration 0018. */
+  emailVerifiedAt: text('email_verified_at'),
 });
 
+/** A signed-in device. `id` is the SHA-256 of the cookie value (never the value itself); it ends 180 days after `created_at`. */
 export const authSessions = sqliteTable('auth_sessions', {
   id: id(),
   userId: userId(),
@@ -24,6 +27,52 @@ export const authSessions = sqliteTable('auth_sessions', {
   createdAt: createdAt(),
   userAgent: text('user_agent'),
 });
+
+/**
+ * Single-use tokens sent by email: `reset` (30 minutes) and `verify` (7 days). Only the SHA-256 of a token is stored, so
+ * a copy of the database cannot be used to take over an account. Migration 0018.
+ */
+export const authTokens = sqliteTable(
+  'auth_tokens',
+  {
+    id: id(),
+    userId: userId(),
+    kind: text('kind').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: text('expires_at').notNull(),
+    usedAt: text('used_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('auth_tokens_hash').on(t.tokenHash), index('auth_tokens_user').on(t.userId, t.kind)],
+);
+
+/**
+ * Counters for sign-in, sign-up and reset limits that must outlive a restart, keyed by a hashed email or an address
+ * (never the plain email). `count` since `window_start` (ms); `locked_until` (ms) while a delay is in force. Migration 0018.
+ */
+export const authThrottle = sqliteTable('auth_throttle', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull().default(0),
+  windowStart: integer('window_start').notNull(),
+  lockedUntil: integer('locked_until').notNull().default(0),
+});
+
+/**
+ * The security log: sign-in, sign-up, password, consent and deletion events. `user_hash` is a keyed hash of the account
+ * id (services/audit.ts), so a row says "the same account as that other row" without naming it, and it outlives the
+ * account it is about. `detail` is a few fixed words, never anything the person typed. Kept 12 months. Migration 0020.
+ */
+export const auditLog = sqliteTable(
+  'audit_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    at: text('at').notNull(),
+    event: text('event').notNull(),
+    userHash: text('user_hash'),
+    detail: text('detail'),
+  },
+  (t) => [index('audit_log_at').on(t.at), index('audit_log_user').on(t.userHash, t.at)],
+);
 
 /** Small JSON documents keyed by name: morning settings, preferences. */
 export const userSettings = sqliteTable(
@@ -485,6 +534,8 @@ export const healthDevices = sqliteTable(
     createdAt: createdAt(),
     lastSeenAt: text('last_seen_at'),
     revokedAt: text('revoked_at'),
+    /** Which phone this is, hashed: its vendor id when the app sends one, else the sign-in it connected from. Connecting again from the same phone revokes its earlier token. Migration 0020. */
+    deviceKey: text('device_key'),
   },
   (t) => [uniqueIndex('health_devices_token').on(t.tokenHash)],
 );

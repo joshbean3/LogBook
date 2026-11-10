@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { HTTPException } from 'hono/http-exception';
+import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from '@logbook/shared';
 import type { ZodType } from 'zod';
 
 const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -14,7 +15,8 @@ export const uid = (prefix = '', len = 12): string => {
 export const nowISO = (): string => new Date().toISOString();
 
 export class ApiError extends HTTPException {
-  constructor(status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 502 | 503, message: string, public code?: string) {
+  /** `headers` ride on the answer (a limit's `Retry-After`). */
+  constructor(status: 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 500 | 502 | 503 | 504, message: string, public code?: string, public headers?: Record<string, string>) {
     super(status, { message });
   }
 }
@@ -31,9 +33,31 @@ export const parseBody = async <T>(req: Request, schema: ZodType<T>): Promise<T>
   return r.data;
 };
 
+/**
+ * parseBody for a body that carries a new password in `field` (sign-up, reset, change password): a password the shared
+ * rules refuse for its length answers 422 `weak_password` with the rule's own sentence ("Use at least 8 characters."),
+ * the same line the form shows, never a schema's words. The other rules (common, the email) are checked by the route.
+ */
+export const parseWithPassword = async <T>(req: Request, schema: ZodType<T>, field: string): Promise<T> => {
+  const raw = (await req
+    .clone()
+    .json()
+    .catch(() => null)) as Record<string, unknown> | null;
+  const pw = raw && typeof raw === 'object' ? raw[field] : undefined;
+  if (typeof pw === 'string' && (pw.length < PASSWORD_MIN || pw.length > PASSWORD_MAX)) throw new ApiError(422, passwordProblem(pw) ?? 'Pick another password.', 'weak_password');
+  return parseBody(req, schema);
+};
+
 export const parseQuery = <T>(query: Record<string, string | undefined>, schema: ZodType<T>): T => {
   const r = schema.safeParse(query);
   if (!r.success) throw new ApiError(422, r.error.issues.map((i) => `${i.path.join('.') || 'query'}: ${i.message}`).join('; '), 'validation');
+  return r.data;
+};
+
+/** A path value (`:month`, `:date`) checked against its schema: 422 with a plain line when it does not fit, never a 500. */
+export const parseParam = <T>(value: string | undefined, schema: ZodType<T>, what = 'value'): T => {
+  const r = schema.safeParse(value);
+  if (!r.success) throw new ApiError(422, `That ${what} is not one Logbook can read.`, 'validation');
   return r.data;
 };
 

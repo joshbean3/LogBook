@@ -122,6 +122,41 @@ export const ATTACHMENT_LIMITS = { perTurn: 4, perRequest: 4, imageBytes: 5 * 10
 export const base64Bytes = (b64: string) => Math.floor((b64.length * 3) / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
 export const isImageType = (t: string): t is (typeof ATTACHMENT_IMAGE_TYPES)[number] => (ATTACHMENT_IMAGE_TYPES as readonly string[]).includes(t);
 
+/** What an upload whose bytes are not one of the four kinds hears (finding sec-28). */
+export const UPLOAD_KINDS_LINE = 'Upload a PDF, JPG, PNG or WebP.';
+/**
+ * The kind of file the bytes say it is, from its first bytes (never from the name or the type the client sent): PDF
+ * (%PDF-), JPEG (FF D8 FF), PNG (89 50 4E 47), WebP (RIFF....WEBP) or GIF (GIF8). Null for anything else.
+ */
+export const sniffMediaType = (b: ArrayLike<number>): AttachmentMediaType | 'image/gif' | null => {
+  const at = (i: number) => b[i] ?? -1;
+  const ascii = (from: number, text: string) => [...text].every((ch, i) => at(from + i) === ch.charCodeAt(0));
+  if (ascii(0, '%PDF-')) return 'application/pdf';
+  if (at(0) === 0xff && at(1) === 0xd8 && at(2) === 0xff) return 'image/jpeg';
+  if (at(0) === 0x89 && ascii(1, 'PNG')) return 'image/png';
+  if (ascii(0, 'RIFF') && ascii(8, 'WEBP')) return 'image/webp';
+  if (ascii(0, 'GIF8')) return 'image/gif';
+  return null;
+};
+/** The first bytes of a base64 string (enough to sniff), decoded without any platform helper. */
+export const base64Head = (b64: string, bytes = 16): number[] => {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const out: number[] = [];
+  let buf = 0;
+  let bits = 0;
+  for (const ch of b64.slice(0, Math.ceil((bytes * 4) / 3) + 4)) {
+    const v = A.indexOf(ch);
+    if (v < 0) break;
+    buf = (buf << 6) | v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push((buf >> bits) & 0xff);
+    }
+  }
+  return out.slice(0, bytes);
+};
+
 export const zAttachment = z
   .object({
     name: z.string().trim().min(1).max(200),
@@ -133,6 +168,8 @@ export const zAttachment = z
     const bytes = base64Bytes(a.data);
     const max = a.mediaType === 'application/pdf' ? ATTACHMENT_LIMITS.pdfBytes : ATTACHMENT_LIMITS.imageBytes;
     if (bytes > max) ctx.addIssue({ code: 'custom', path: ['data'], message: `${a.name} is over ${Math.round(max / 1024 / 1024)} MB` });
+    // the bytes must be the kind the attachment says it is
+    if (sniffMediaType(base64Head(a.data)) !== a.mediaType) ctx.addIssue({ code: 'custom', path: ['data'], message: UPLOAD_KINDS_LINE });
   });
 export type Attachment = z.infer<typeof zAttachment>;
 
@@ -204,6 +241,19 @@ export const screenLabel = (s: AssistantScreen): string => {
   return name;
 };
 
+/**
+ * What an ask may carry. A long chat is never refused for its length: only the newest `turns` are kept, and an assistant
+ * answer longer than the cap is cut (it is context, not something the person typed). What the person typed is held to
+ * `userText`.
+ */
+export const ASK_LIMITS = { turns: 40, userText: 8000, assistantText: 40000, turnsAccepted: 2000 } as const;
+const zAskTurn = z
+  .object({ role: z.enum(['user', 'assistant']), text: z.string(), attachments: z.array(zAttachment).max(ATTACHMENT_LIMITS.perTurn).optional() })
+  .superRefine((t, ctx) => {
+    if (t.role === 'user' && t.text.length > ASK_LIMITS.userText) ctx.addIssue({ code: 'custom', path: ['text'], message: `Keep a message under ${ASK_LIMITS.userText} characters` });
+  })
+  .transform((t) => (t.role === 'assistant' && t.text.length > ASK_LIMITS.assistantText ? { ...t, text: t.text.slice(0, ASK_LIMITS.assistantText) } : t));
+
 export const zAssistantAsk = z
   .object({
     /** The day the owner was looking at when they asked (the page's date). */
@@ -211,9 +261,8 @@ export const zAssistantAsk = z
     /** Where the conversation was opened from, unless the owner removed it. */
     screen: zAssistantScreen.optional(),
     turns: z
-      .array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(8000), attachments: z.array(zAttachment).max(ATTACHMENT_LIMITS.perTurn).optional() }))
-      .min(1)
-      .max(40),
+      // only the newest turns are read at all, so an old turn can never make a chat unusable
+      .preprocess((v) => (Array.isArray(v) ? v.slice(-ASK_LIMITS.turns) : v), z.array(zAskTurn).min(1).max(ASK_LIMITS.turns)),
   })
   .superRefine((a, ctx) => {
     const all = a.turns.flatMap((t) => t.attachments ?? []);

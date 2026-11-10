@@ -1,6 +1,11 @@
 services:
   logbook:
-    build: .
+    build:
+      context: .
+      args:
+        # compiled into the web app: the support address, and where the legal pages live when not on this server
+        VITE_SUPPORT_EMAIL: ${VITE_SUPPORT_EMAIL:-}
+        VITE_SITE_ORIGIN: ${VITE_SITE_ORIGIN:-}
     ports:
       - '8787:8787'
     env_file: .env

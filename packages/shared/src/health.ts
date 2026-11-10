@@ -15,22 +15,24 @@ export const HEALTH_MAX_HISTORY_DAYS = 730;
 /** A batch is at most this many rows of each kind; the phone splits by bytes well before. */
 export const HEALTH_BATCH_LIMIT = 5000;
 
-/** The vitals and readings uploaded sample by sample. Heart rate and steps go up as day sums instead (decision 9). */
-export const HEALTH_SAMPLE_TYPES = ['hrv', 'resting_hr', 'respiratory_rate', 'spo2', 'wrist_temp', 'vo2max', 'walking_hr', 'body_mass'] as const;
+/**
+ * What Logbook takes from Apple Health in 1.0: sleep, heart rate variability and resting heart rate. Nothing else is
+ * read on the phone, and the server refuses anything else (422), so the app never holds a reading no screen shows.
+ */
+export const HEALTH_SAMPLE_TYPES = ['hrv', 'resting_hr'] as const;
 export type HealthSampleType = (typeof HEALTH_SAMPLE_TYPES)[number];
 /** The unit each type is stored in. */
 export const HEALTH_UNITS: Record<HealthSampleType, string> = {
   hrv: 'ms',
   resting_hr: 'bpm',
-  respiratory_rate: 'rpm',
-  spo2: '%',
-  wrist_temp: 'degC',
-  vo2max: 'ml/kg/min',
-  walking_hr: 'bpm',
-  body_mass: 'kg',
 };
+/** The three things in words, for a refusal. */
+export const HEALTH_ACCEPTED = 'sleep, heart rate variability and resting heart rate';
 
-/** The day sums. `hr` holds 5-minute heart rate buckets (zone time histograms), `steps` also has 5-minute sums. */
+/**
+ * Day sums (steps, energy, heart rate buckets) as an earlier build uploaded them. No longer accepted: a batch that
+ * carries any is refused. The shape stays so old rows and old exports can still be read.
+ */
 export const HEALTH_DAY_METRICS = ['steps', 'active_kcal', 'basal_kcal', 'exercise_min', 'hr'] as const;
 export type HealthDayMetric = (typeof HEALTH_DAY_METRICS)[number];
 
@@ -115,6 +117,7 @@ export const zHealthWorkout = z.object({
 });
 export type HealthWorkout = z.infer<typeof zHealthWorkout>;
 
+/** `workout` is still taken so an older phone can report a deletion; there is nothing left for it to delete. */
 export const HEALTH_DELETION_KINDS = ['sample', 'sleep', 'workout'] as const;
 export const zHealthDeletion = z.object({ uuid: zUuid, kind: z.enum(HEALTH_DELETION_KINDS) });
 
@@ -132,7 +135,7 @@ export const zHealthBatchEnvelope = z.object({
   workouts: z.array(z.unknown()).max(1000).default([]),
 });
 
-export const HEALTH_RECONCILE_KINDS = [...HEALTH_SAMPLE_TYPES, 'sleep', 'workout'] as const;
+export const HEALTH_RECONCILE_KINDS = [...HEALTH_SAMPLE_TYPES, 'sleep'] as const;
 export const zHealthReconcile = z.object({
   kind: z.enum(HEALTH_RECONCILE_KINDS),
   from: zIso,
@@ -145,6 +148,11 @@ export const zHealthConnect = z.object({
   historyDays: z.number().int().min(30).max(HEALTH_MAX_HISTORY_DAYS).default(HEALTH_HISTORY_DAYS),
   /** Asked during connect (decided 2026-11-09). */
   sleepGoalMin: z.number().int().min(240).max(720).nullable().optional(),
+  /**
+   * Which phone this is: its vendor id (`identifierForVendor`), so connecting again from the same phone ends its earlier
+   * token. Stored hashed. Without it the server goes by the sign-in the connect came from.
+   */
+  deviceKey: z.string().trim().min(8).max(100).optional(),
 });
 
 export interface HealthStatus {
@@ -165,4 +173,23 @@ export interface HealthSyncAnswer {
   stored: { samples: number; deletions: number; days: number; sleep: number; workouts: number };
   dropped: number;
   duplicate?: true;
+}
+
+/** The sleep stages that count as time asleep (in bed and awake do not). */
+export const ASLEEP_STAGES: readonly SleepStageName[] = ['asleep', 'core', 'deep', 'rem'];
+/** `GET /apple-health/daily` answers at most this many days. */
+export const HEALTH_DAILY_MAX_DAYS = 400;
+/**
+ * One day of `GET /apple-health/daily`. `sleepMin`: minutes asleep in the night that ended on this date (sleep that
+ * starts from 6 pm the evening before counts toward it). `hrvMs` and `restingHr`: the day's average. Null when Apple
+ * Health had nothing for that day.
+ */
+export interface HealthDailyRow {
+  date: string;
+  sleepMin: number | null;
+  hrvMs: number | null;
+  restingHr: number | null;
+}
+export interface HealthDaily {
+  days: HealthDailyRow[];
 }

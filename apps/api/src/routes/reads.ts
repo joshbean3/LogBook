@@ -8,6 +8,11 @@ import type { DB } from '../db/index.js';
 import { links } from '../db/schema.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { cleanPick, normalizeUrl, pickerFor, readPage, sameResource, siteOf, type TasteInput } from '../services/reads.js';
+import { mayPickReads } from '../services/consent.js';
+import { hitLimit, tooMany } from '../services/throttle.js';
+
+/** New links saved (each one fetched once) per person. */
+export const READS_LIMIT = { max: 30, windowMs: 3600_000 } as const;
 
 /** Manual refreshes allowed on top of the day's one pick. */
 const REFRESHES_PER_DAY = 3;
@@ -74,6 +79,9 @@ export const readsRoutes = (db: DB) => {
       if (Object.keys(set).length) db.update(links).set(set).where(eq(links.id, twin.id)).run();
       return c.json(toLink(one(userId, twin.id)!), 200);
     }
+    // a new address is fetched for its title and picture: at most 30 an hour per person (sec-32)
+    const wait = hitLimit(db, `reads:${userId}`, READS_LIMIT.max, READS_LIMIT.windowMs);
+    if (wait) throw tooMany(wait, 'You have saved a lot of links in a short time. Try again later.');
     const page = await readPage(url);
     const id = uid('l');
     db.insert(links)
@@ -140,7 +148,8 @@ export const readsRoutes = (db: DB) => {
 
   const generate = async (userId: string, date: string): Promise<Link | null> => {
     const picker = pickerFor();
-    if (!picker) return null;
+    // checked here as well as in the route: no saved link is ever gathered for Claude without the person's yes
+    if (!picker || !mayPickReads(db, userId)) return null;
     const rows = db.select().from(links).where(eq(links.userId, userId)).all();
     const newest = (a: Link, b: Link) => (a.addedAt < b.addedAt ? 1 : -1);
     const input: TasteInput = {
@@ -150,7 +159,7 @@ export const readsRoutes = (db: DB) => {
       dismissed: rows.filter((x) => x.source === 'pick' && x.verdict === 'dismissed').map(toLink).sort(newest),
       known: [...new Set(rows.map((x) => x.url))],
     };
-    const out = cleanPick(await picker.generate(input), input.known);
+    const out = cleanPick(await picker.generate(input, userId), input.known);
     const page = picker.fake ? null : await readPage(out.url, { timeoutMs: 8_000 });
     const id = uid('l');
     db.insert(links)
@@ -186,6 +195,8 @@ export const readsRoutes = (db: DB) => {
     const key = `${userId}:${date}`;
     const todays = picksOn(userId, date);
     const current = todays.find((x) => !x.deletedAt) ? toLink(todays.find((x) => !x.deletedAt)!) : null;
+    // the person's switch (consent `reads`): off, or never asked, makes no pick, sends nothing and shows none
+    if (!mayPickReads(db, userId)) return c.json(result(null, 'off', 0));
     const left = leftAfter(usedToday(userId, date, todays.length));
     if (current && !force) return c.json(result(current, null, left));
     // the day's one pick plus three refreshes, counting the ones that were deleted and the searches that found nothing

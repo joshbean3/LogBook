@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { statusOn, untilFor } from './trainingStatus.js';
+import { TRAINING_STATUS_INFO, statusOn, untilFor } from './trainingStatus.js';
 
 describe('day status', () => {
   const s = { kind: 'sick' as const, from: '2026-11-08', until: '2026-11-10' };
@@ -30,5 +30,16 @@ describe('held days', () => {
     expect(heldOn(s('taper'), '2026-11-09')).toBeNull();
     expect(heldOn(s('travel'), '2026-11-09')).toBeNull();
     expect(heldOn(s('sick'), '2026-11-07')).toBeNull();
+  });
+});
+
+describe('the status lines', () => {
+  it('say what happens to the plan, with no illness, injury or recovery claims', () => {
+    for (const { line } of Object.values(TRAINING_STATUS_INFO)) {
+      expect(line).not.toMatch(/recover|heal|hurt|pain|protect|well\b|ill|injur|sick|cure|treat|symptom|doctor/i);
+      expect(line).not.toMatch(/—/);
+    }
+    expect(TRAINING_STATUS_INFO.sick.line).toBe('Time off. Sessions wait until you are back.');
+    expect(TRAINING_STATUS_INFO.injured.line).toBe('Time off. Sessions wait until you are back.');
   });
 });

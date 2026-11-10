@@ -11,10 +11,55 @@ export const zMark = z.enum(['done', 'floor', 'skip', 'sick']);
 export const zRange = z.object({ from: zDate, to: zDate }).refine((r) => r.from <= r.to, 'from must be on or before to');
 
 // ---------- auth ----------
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 200;
+/**
+ * The passwords people pick most, which the sign-up, reset and change-password forms refuse (the server refuses the same
+ * list). Lower case; the check ignores case.
+ */
+export const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
+  'password', 'password1', 'password12', 'password123', 'password1234', 'passw0rd', 'p@ssw0rd', 'p@ssword', 'pass1234', 'password!',
+  '12345678', '123456789', '1234567890', '0123456789', '87654321', '0987654321', '11111111', '00000000', '12341234', '11223344',
+  '123123123', '1q2w3e4r', '1q2w3e4r5t', '1qaz2wsx', 'qwertyui', 'qwertyuiop', 'qwerty123', 'qwerty12', 'qwerty1234', 'asdfghjk',
+  'asdfghjkl', 'asdf1234', 'zxcvbnm1', 'zxcvbnm123', 'abcd1234', 'abc12345', 'abcdefgh', 'abcdefg1', 'a1b2c3d4', 'aa123456',
+  'iloveyou', 'iloveyou1', 'iloveyou2', 'letmein1', 'letmein123', 'welcome1', 'welcome123', 'admin123', 'administrator', 'changeme',
+  'changeme1', 'trustno1', 'sunshine', 'sunshine1', 'princess', 'princess1', 'football', 'football1', 'baseball', 'baseball1',
+  'basketball', 'superman', 'superman1', 'batman123', 'starwars', 'starwars1', 'computer', 'computer1', 'internet', 'whatever',
+  'whatever1', 'michael1', 'jennifer', 'jordan23', 'michelle', 'charlie1', 'liverpool', 'chocolate', 'butterfly', 'master123',
+  'dragon123', 'monkey123', 'shadow123', 'mustang1', 'samsung1', 'google123', 'logbook1', 'logbook123', 'running1', 'running123',
+  'marathon', 'marathon1', 'test1234', 'testtest', 'secret123', 'hello123', 'freedom1', 'qazwsxedc', 'q1w2e3r4', 'zaq12wsx',
+]);
+/**
+ * Why a new password cannot be used, as a sentence to show, or null when it can: too short or too long, one of the most
+ * common passwords, one character repeated, or the same as the account's email. Sign-up, reset and change password all
+ * use it, on the device and on the server.
+ */
+export const passwordProblem = (password: string, email?: string | null): string | null => {
+  if (password.length < PASSWORD_MIN) return `Use at least ${PASSWORD_MIN} characters.`;
+  if (password.length > PASSWORD_MAX) return `Keep your password under ${PASSWORD_MAX} characters.`;
+  const p = password.trim().toLowerCase();
+  if (!p || new Set(p).size === 1) return 'That password is too easy to guess. Pick another.';
+  if (COMMON_PASSWORDS.has(p)) return 'That password is too common. Pick another.';
+  const e = email?.trim().toLowerCase();
+  if (e && (p === e || p === e.split('@')[0])) return 'Your password cannot be your email.';
+  return null;
+};
+
 export const zCredentials = z.object({
   email: z.string().trim().toLowerCase().email().max(200),
-  password: z.string().min(8).max(200),
+  password: z.string().min(PASSWORD_MIN).max(PASSWORD_MAX),
 });
+/** POST /auth/login: any password the account might have been given, so an older weak one still signs in. */
+export const zLogin = z.object({ email: zCredentials.shape.email, password: z.string().min(1).max(PASSWORD_MAX) });
+/** POST /auth/forgot: always answered `{ ok: true }`, whether or not the address has an account. */
+export const zForgotPassword = z.object({ email: zCredentials.shape.email });
+/** POST /auth/reset: the token from the emailed link and the new password. */
+/** A token of the wrong length is not refused here: the route answers it as a spent link (400 `reset_invalid`, contract 3). */
+export const zResetPassword = z.object({ token: z.string().max(2000), password: zCredentials.shape.password });
+/** POST /me/password: the current password and the new one. */
+export const zChangePassword = z.object({ current: z.string().min(1).max(200), next: zCredentials.shape.password });
+/** POST /auth/logout: optionally the Apple Health device (`deviceId` from connect) to revoke with the session. */
+export const zLogout = z.object({ healthTokenId: z.string().min(1).max(64).optional() });
 
 // ---------- sessions ----------
 export const zSessionInput = z.object({
@@ -304,11 +349,12 @@ export const zPace = z.union([z.number().int().min(240).max(1200), z.string().re
 });
 export const zOnboarding = z
   .object({
-    goal: zGoal,
+    /** null: "No running plan for now". Setup finishes with no block, and the run answers below may be left out. */
+    goal: zGoal.nullable(),
     raceDate: zDate.nullable().optional(),
-    runDays: z.array(zWeekday).min(1).max(7),
-    longRunDay: zWeekday,
-    weeklyMiles: z.number().min(3).max(150),
+    runDays: z.array(zWeekday).min(1).max(7).optional(),
+    longRunDay: zWeekday.optional(),
+    weeklyMiles: z.number().min(3).max(150).optional(),
     /** Alarm. */
     wake: zClockMinutes,
     /** When they leave for work: the end of the morning timeline. */
@@ -328,8 +374,15 @@ export const zOnboarding = z
     /** When work ends (minutes after midnight), for the afternoon plan. */
     offWork: zClockMinutes.optional(),
   })
-  .refine((o) => o.leave > o.wake, { message: 'leave must be after wake', path: ['leave'] });
+  .refine((o) => o.leave > o.wake, { message: 'leave must be after wake', path: ['leave'] })
+  .refine((o) => o.goal === null || (!!o.runDays && !!o.longRunDay && o.weeklyMiles !== undefined), { message: 'A running plan needs run days, a long-run day and weekly miles', path: ['runDays'] });
 export type OnboardingInput = z.infer<typeof zOnboarding>;
+/** When the person usually trains and when work ends, as onboarding saved it (user setting `trainWhen`, in the bootstrap). */
+export interface TrainWhenSetting {
+  when: 'morning' | 'afternoon' | 'none';
+  /** Minutes after midnight; null when not given. */
+  offWork: number | null;
+}
 
 /** The training answers kept on the account (goal, race day, run days, long-run day, weekly miles). No race day with `base`. */
 export const zTrainingProfile = z.object({
@@ -362,6 +415,8 @@ export const zTemplateUndo = z.object({
   endedBlock: zEndedBlock.nullable().optional(),
   /** Every block it ended (`endedBlock` is the first of these); either works. */
   endedBlocks: z.array(zEndedBlock).max(100).optional(),
+  /** The sessions the write added (`POST /plans/apply` answers them). With them only those go; needed when the write kept an existing block (a revise). */
+  addedIds: z.array(z.string().min(1).max(64)).max(5000).optional(),
 });
 export type TemplateUndoInput = z.infer<typeof zTemplateUndo>;
 
@@ -390,9 +445,14 @@ export const zGoalRefine = z.object({ level: zGoalLevel, period: z.string().min(
 export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), changed: z.boolean(), steps: z.array(z.string()) });
 
 /**
- * What the assistant may read (user_settings `consent`), chosen on the privacy page before the account and changed in
- * Settings › Privacy. `training`: the plan, sessions, goals, to-dos and status. `health`: Apple Health data, null until
- * that exists and has been asked. `at`: when it was last chosen.
+ * What may go to Claude, by flow (user_settings `consent`), asked before the first use of each flow and changed in
+ * Settings, Privacy. Everything is off until the person says yes.
+ * - `training`: the plan, sessions, goals, to-dos and status, for the assistant, the plan builder and the goal review.
+ * - `recall`: one past journal entry or learning plus the first name, for Remember when.
+ * - `reads`: saved links, notes and tags, for the daily pick.
+ * - `health`: stays null in 1.0. No health data goes to AI.
+ * - `at`: when a choice was last stored. Null means never asked: the server then makes no Claude call at all.
+ * - `version`: the wording the person agreed to.
  */
 export const CONSENT_VERSION = '2026-11';
 export const zConsentInput = z.object({
@@ -414,8 +474,18 @@ export interface Consent {
   at: string | null;
   version: string | null;
 }
-/** An account that never chose (the owner's, from before the privacy page) reads as the default: training on, health not asked. */
-export const DEFAULT_CONSENT: Consent = { training: true, health: null, recall: false, reads: false, at: null, version: null };
+/** An account that never chose: nothing granted, never asked. */
+export const DEFAULT_CONSENT: Consent = { training: false, health: null, recall: false, reads: false, at: null, version: null };
+/** What a consent log line records: `training`, `recall`, `reads` and `health` are the switches; `apple_health` is connecting or disconnecting Apple Health. */
+export const CONSENT_KINDS = ['training', 'recall', 'reads', 'health', 'apple_health'] as const;
+export type ConsentKind = (typeof CONSENT_KINDS)[number];
+/** One line of the append-only consent log (user_settings `consentLog`). */
+export interface ConsentEvent {
+  kind: ConsentKind;
+  value: boolean | null;
+  at: string;
+  version: string | null;
+}
 /** The one-time feature intros (user_settings `intros`): which have been shown. Only accounts that went through first run are enrolled. */
 export const INTRO_KEYS = ['plan', 'learned', 'journal'] as const;
 export type IntroKey = (typeof INTRO_KEYS)[number];

@@ -4,6 +4,7 @@ import type { DB } from '../db/index.js';
 import {
   activities,
   authSessions,
+  authTokens,
   coachReads,
   dailyPicks,
   habitChecks,
@@ -39,6 +40,7 @@ import { dayTags, healthBatches, healthDays, healthDevices, healthSamples, healt
  */
 export const USER_TABLES: Array<{ table: SQLiteTable; userId: SQLiteColumn }> = [
   { table: authSessions, userId: authSessions.userId },
+  { table: authTokens, userId: authTokens.userId },
   { table: userSettings, userId: userSettings.userId },
   { table: habits, userId: habits.userId },
   { table: habitChecks, userId: habitChecks.userId },

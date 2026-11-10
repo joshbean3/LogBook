@@ -1,7 +1,8 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  // index: the server. ops: operator commands (backup now, revoke sessions), see RUNBOOK.md
+  entry: ['src/index.ts', 'src/ops.ts'],
   format: ['esm'],
   target: 'node22',
   outDir: 'dist',

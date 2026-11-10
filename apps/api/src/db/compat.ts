@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
 
 /**
  * Production briefly ran a newer server (the v5 rebuild) before this version was put back. Its migrations are additive
@@ -9,8 +10,11 @@ import type Database from 'better-sqlite3';
  *
  * This puts both back in the shape this code knows, carrying every row across (the connection and its tokens, every
  * activity, a Strava activity under its Strava id as before). It runs on every boot after the migrations and does
- * nothing on a database that was never upgraded, or that it has already repaired. The newer tables it does not touch
- * (`provider_connections`, `assistant_threads`, `reminders`, …) are ignored by this code and kept, so nothing is lost.
+ * nothing on a database that was never upgraded, or that it has already repaired.
+ *
+ * The newer version's other tables (`provider_connections`, `assistant_threads`, `reminders`, …) are dropped by
+ * migration 0020. On a database that still has `provider_connections` this repair therefore also runs before the
+ * migrations (db/index.ts), so the Strava connection is carried back before its old home goes.
  */
 export const repairAfterNewerVersion = (sqlite: Database.Database): string[] => {
   const hasTable = (t: string) => !!sqlite.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`).get(t);
@@ -86,4 +90,43 @@ export const repairAfterNewerVersion = (sqlite: Database.Database): string[] => 
   })();
 
   return done;
+};
+
+/**
+ * Columns this code needs that a migration cannot add safely, because production may already have them from the newer
+ * version: SQLite has no "add column if missing", and a plain ADD on a database that has the column stops the boot.
+ * Each is added only when absent. Runs on every boot after the migrations.
+ */
+const ENSURED_COLUMNS: Array<{ table: string; column: string; type: string }> = [{ table: 'users', column: 'email_verified_at', type: 'text' }];
+export const ensureColumns = (sqlite: Database.Database): string[] => {
+  const done: string[] = [];
+  for (const { table, column, type } of ENSURED_COLUMNS) {
+    const cols = (sqlite.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name);
+    if (!cols.length || cols.includes(column)) continue;
+    sqlite.exec(`ALTER TABLE \`${table}\` ADD \`${column}\` ${type}`);
+    done.push(`${table}.${column} added`);
+  }
+  return done;
+};
+
+/**
+ * Sessions used to be stored under the cookie value itself. They are now stored under its SHA-256, so a copy of the
+ * table signs nobody in. This rewrites any row still under a plain value (a 32-character id; a hash is 64 hex
+ * characters), so nobody is signed out by the change. Runs on every boot; does nothing once done.
+ */
+export const hashLegacySessionIds = (sqlite: Database.Database): number => {
+  const rows = sqlite.prepare(`SELECT id FROM auth_sessions WHERE length(id) <> 64 OR id GLOB '*[^0-9a-f]*'`).all() as Array<{ id: string }>;
+  if (!rows.length) return 0;
+  const set = sqlite.prepare('UPDATE OR REPLACE auth_sessions SET id = ? WHERE id = ?');
+  sqlite.transaction(() => {
+    for (const r of rows) set.run(createHash('sha256').update(r.id).digest('hex'), r.id);
+  })();
+  return rows.length;
+};
+
+/** The tables of this database that the schema does not know (kept by nothing, read by nothing). For `ops tables`. */
+export const unknownTables = (sqlite: Database.Database, known: string[]): string[] => {
+  const all = (sqlite.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '\\_\\_%' ESCAPE '\\'`).all() as Array<{ name: string }>).map((r) => r.name);
+  const have = new Set(known);
+  return all.filter((t) => !have.has(t)).sort();
 };

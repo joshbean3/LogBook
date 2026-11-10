@@ -16,7 +16,7 @@ const call = async (method: string, url: string, body?: unknown) => {
 beforeEach(async () => {
   app = buildApp(openDatabase(':memory:').db);
   env.allowSetup = true;
-  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
   cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
 });
 
@@ -71,11 +71,12 @@ describe('the privacy choice reaches the assistant', () => {
     const { writeConsent } = await import('../services/consent.js');
     const db = openDatabase(':memory:').db;
     app = buildApp(db);
-    const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'pv@example.com', password: 'password123' }) });
+    const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'pv@example.com', password: 'correct horse 42' }) });
     cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
     const { mondayOf } = await import('@logbook/shared');
     const goal = await call('PUT', `/api/goals/week/${mondayOf(T)}`, { text: 'Run four times' });
     const me = (await call('GET', '/api/me')).body.id as string;
+    writeConsent(db, me, { training: true });
     const on = contextFor(db, me, T, T);
     expect(goal.status).toBeLessThan(300);
     expect(on).toContain('Run four times');

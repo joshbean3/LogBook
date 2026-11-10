@@ -33,7 +33,7 @@ export const planRoutes = (db: DB) => {
     const body = await parseBody(c.req.raw, zTemplateUndo);
     const ended: EndedBlockRef[] = [...(body.endedBlocks ?? [])];
     if (body.endedBlock && !ended.some((e) => e.id === body.endedBlock!.id)) ended.unshift(body.endedBlock);
-    const out = db.transaction(() => undoTemplate(db, userId, { blockId: body.blockId, replacedIds: body.replacedIds, endedBlocks: ended }));
+    const out = db.transaction(() => undoTemplate(db, userId, { blockId: body.blockId, replacedIds: body.replacedIds, endedBlocks: ended, addedIds: body.addedIds }));
     return c.json(out);
   });
 

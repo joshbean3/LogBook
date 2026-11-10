@@ -22,14 +22,27 @@ describe('the messages for an ask with files', () => {
     const last = m[2]!.content as unknown as Array<Record<string, unknown>>;
     expect(last.map((b) => b.type)).toEqual(['image', 'text', 'text']);
     expect(last[0]).toMatchObject({ source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' }, cache_control: { type: 'ephemeral' } });
-    expect(last[1]).toMatchObject({ text: 'CONTEXT\nTODAY: 2026-11-02' });
+    expect(last[1]).toMatchObject({ text: expect.stringMatching(/^<context>\nTODAY: 2026-11-02[\s\S]*\n<\/context>$/) });
     expect(last[2]).toMatchObject({ text: 'Monday. And this is my week' });
   });
 
   it('gives a file sent with no words a line to answer, and leaves plain turns as they were', () => {
     const m = messagesFor([{ role: 'user', text: '', attachments: [jpg] }], 'C');
-    expect((m[0]!.content as unknown as Array<{ type: string; text?: string }>).map((b) => b.text ?? b.type)).toEqual(['image', 'CONTEXT\nC', 'Take a look at this.']);
+    expect((m[0]!.content as unknown as Array<{ type: string; text?: string }>).map((b) => b.text ?? b.type)).toEqual(['image', '<context>\nC\n</context>', 'Take a look at this.']);
     const plain = messagesFor([{ role: 'user', text: 'What is left this week?' }], 'C');
     expect((plain[0]!.content as unknown as Array<{ type: string }>).map((b) => b.type)).toEqual(['text', 'text']);
+  });
+});
+
+describe('the messages for a long chat', () => {
+  it('keeps the newest 20 turns and always opens with one of the person’s own', () => {
+    const turns = Array.from({ length: 41 }, (_, i) => ({ role: i % 2 === 0 ? ('user' as const) : ('assistant' as const), text: `turn ${i}` }));
+    const m = messagesFor(turns, 'TODAY: 2026-11-02');
+    // the newest 20 would open with an answer (turn 21); it is dropped so the first message is the person's
+    expect(m[0]!.role).toBe('user');
+    expect(m).toHaveLength(19);
+    expect(JSON.stringify(m[0])).toContain('turn 22');
+    expect(m.at(-1)!.role).toBe('user');
+    expect(JSON.stringify(m.at(-1))).toContain('turn 40');
   });
 });
