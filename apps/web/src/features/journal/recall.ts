@@ -1,6 +1,6 @@
 import { recallDay, type RecallItem, type RecallKind, type RecallState } from '@logbook/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import { api, LONG_TIMEOUT_MS } from '@/api/client';
 import { write } from '@/api/outbox';
 
 /**
@@ -9,7 +9,9 @@ import { write } from '@/api/outbox';
  */
 export const recallKey = (date: string) => ['recall', date] as const;
 
-export const useRecall = (date: string) => useQuery({ queryKey: recallKey(date), queryFn: () => api<RecallState>('/journal/recall'), staleTime: 5 * 60_000 });
+/* Both calls can wait on the assistant writing the summary, so they get the long limit, not the default 20 s. */
+
+export const useRecall = (date: string) => useQuery({ queryKey: recallKey(date), queryFn: () => api<RecallState>('/journal/recall', { timeoutMs: LONG_TIMEOUT_MS }), staleTime: 5 * 60_000 });
 
 export const useRecallActions = (date: string) => {
   const qc = useQueryClient();
@@ -18,7 +20,7 @@ export const useRecallActions = (date: string) => {
 
   /** A different one for today (the same one when there is no other). */
   const another = useMutation({
-    mutationFn: () => api<RecallState>('/journal/recall/another', { method: 'POST' }),
+    mutationFn: () => api<RecallState>('/journal/recall/another', { method: 'POST', timeoutMs: LONG_TIMEOUT_MS }),
     onSuccess: set,
   });
 
