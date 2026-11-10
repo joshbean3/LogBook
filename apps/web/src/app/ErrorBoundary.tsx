@@ -56,6 +56,10 @@ interface Props {
   onCatch?: (error: Error) => void;
   /** Draw nothing in place of the broken part (the menu: it is closed by onCatch). */
   silent?: boolean;
+  /** Page scope: a quiet way out beside Reload ("Go to Today" on a tab, "Back" on a pushed page). */
+  secondary?: { label: string; onPress: () => void };
+  /** Page scope: a bar drawn above the fallback (a pushed page's chevron, so the page can be left as usual). */
+  bar?: ReactNode;
 }
 interface State {
   error: Error | null;
@@ -85,13 +89,14 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children;
     if (this.props.silent) return null;
     const scope = this.props.scope ?? 'page';
-    const { onClose } = this.props;
+    const { onClose, secondary, bar } = this.props;
     const newChat = () => {
       window.dispatchEvent(new CustomEvent(ASSISTANT_RESET));
       this.retry();
     };
     return (
-      <div className="eb" data-scope={scope} role="alert">
+      <div className="eb" data-scope={scope} data-bar={bar ? '' : undefined} role="alert">
+        {bar ? <div className="eb-bar">{bar}</div> : null}
         <p className="eb-title">{scope === 'assistant' ? 'This chat hit a snag' : 'This screen hit a snag'}</p>
         <p className="eb-body">{scope === 'assistant' ? 'Your data is safe. Start a new chat to keep going.' : 'Your data is safe. Reload to try again.'}</p>
         <div className="eb-actions">
@@ -104,6 +109,18 @@ export class ErrorBoundary extends Component<Props, State> {
               Reload
             </button>
           )}
+          {scope === 'page' && secondary ? (
+            <button
+              type="button"
+              className="btn quiet"
+              onClick={() => {
+                this.retry();
+                secondary.onPress();
+              }}
+            >
+              {secondary.label}
+            </button>
+          ) : null}
           {(scope === 'sheet' || scope === 'assistant') && onClose ? (
             <button type="button" className="btn quiet" onClick={onClose}>
               Close

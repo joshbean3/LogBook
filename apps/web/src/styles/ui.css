@@ -1011,6 +1011,16 @@ textarea.in {
 .eb[data-scope='page'] {
   min-height: 60dvh;
 }
+/* a pushed page's fallback keeps its chevron where the page's bar had it */
+.eb[data-bar] {
+  position: relative;
+  padding-top: calc(var(--safe-t) + 64px);
+}
+.eb-bar {
+  position: absolute;
+  top: calc(var(--safe-t) + 4px);
+  left: 8px;
+}
 .eb[data-scope='sheet'],
 .eb[data-scope='assistant'] {
   min-height: 240px;

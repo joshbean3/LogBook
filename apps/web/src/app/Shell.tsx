@@ -11,13 +11,14 @@ import { keys } from '@/api/queries';
 import { PTR_ARM_PX, PTR_QUIET_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { REFRESH, TABS, type PushedEntry, type TabDef, type TabId, type TabState } from '@/ui/nav';
+import { BackButton } from '@/ui/NavBar';
 import { PushedLayer, StackCtx, type StackMotion } from '@/ui/PushedLayer';
 import { pointerClaimed } from '@/ui/useHold';
 import { showToast } from '@/ui/toastStore';
 import { usePress } from '@/ui/usePress';
 import { ErrorBoundary } from './ErrorBoundary';
 import { healthSyncNow, useHealthSync } from '@/lib/healthSync';
-import { PushedEntryScope, TabScope, useNavInternal, useNavState, type Controller } from './NavController';
+import { PushedEntryScope, TabScope, useNav, useNavInternal, useNavState, type Controller } from './NavController';
 import './shell.css';
 import './healthPill.css';
 
@@ -99,9 +100,9 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
   const root = useMemo(
     () =>
       mounted ? (
-        <ErrorBoundary>
+        <PageBoundary tab={tab}>
           <Suspense fallback={null}>{page}</Suspense>
-        </ErrorBoundary>
+        </PageBoundary>
       ) : null,
     [mounted, page],
   );
@@ -119,11 +120,11 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
                 {i === 1 ? <Scrim depth={2} value={sm.scrims[1]} /> : null}
                 <PushedLayer entry={e} depth={e.depth} parent={(i === 0 ? scroller : layer1) as RefObject<HTMLElement | null>}>
                   <PushedEntryScope entry={e}>
-                    <ErrorBoundary>
+                    <PageBoundary tab={tab} pushed>
                       <Suspense fallback={null}>
                         <LayerPage entry={e} pushed={pushed} />
                       </Suspense>
-                    </ErrorBoundary>
+                    </PageBoundary>
                   </PushedEntryScope>
                 </PushedLayer>
               </Fragment>
@@ -134,6 +135,20 @@ const TabSection = memo(function TabSection({ ctl, tab, state, active, leaving, 
     </TabScope>
   );
 });
+
+/**
+ * A page's boundary (shell-18): Reload, plus a quiet way out. A tab root offers Go to Today (Today itself has none); a
+ * pushed page keeps its chevron in a bar above the fallback and offers Back.
+ */
+const PageBoundary = ({ tab, pushed, children }: { tab: TabId; pushed?: boolean; children: ReactNode }) => {
+  const nav = useNav();
+  const secondary = pushed ? { label: 'Back', onPress: () => nav.pop() } : tab !== 'today' ? { label: 'Go to Today', onPress: () => nav.go('/today') } : undefined;
+  return (
+    <ErrorBoundary secondary={secondary} bar={pushed ? <BackButton /> : undefined}>
+      {children}
+    </ErrorBoundary>
+  );
+};
 
 /** A pushed layer's page, memoised on its entry: a tab change (or a push above it) does not re-render it. */
 const LayerPage = memo(function LayerPage({ entry, pushed }: { entry: PushedEntry; pushed: (entry: PushedEntry) => ReactNode }) {
