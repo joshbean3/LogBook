@@ -2,17 +2,17 @@ import { fmtDate, monthsBetween, shiftDays } from '@logbook/shared';
 import { ChevronRight, CircleArrowDown, CircleArrowUp, CircleCheck, Hourglass, Info, Sigma, Trophy } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { useNav, useRouteParams } from '@/app/NavController';
-import { useAllLifts } from '@/api/queries';
 import { DISCLAIMER } from '@/lib/copy';
+import { STRAVA_BUILT } from '@/lib/features';
 import { Footnote, PageSection, PushedBar, Pressable, useSheet } from '@/ui';
-import { Gauge, maxOffset, RANGE_DAYS, RANGE_KEYS, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
+import { Gauge, maxOffset, RANGE_KEYS, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
 import { useLog } from '../log/useLog';
 import { trendTone } from './context';
-import { easyPace, liftGroups, rangeLabel } from './data';
+import { rangeLabel } from './data';
 import { agoWords } from './feed';
 import { healthWord, type HealthLink } from './healthDays';
 import { MetricIcon } from './icons';
-import { bandWords, buildMetric, HISTORY_DAYS, isMetricId, METRICS, valueDateWords, type MetricId, type MetricModel } from './metrics';
+import { bandWords, buildMetric, daysWords, HISTORY_DAYS, isMetricId, leadVariant, METRICS, valueDateWords, type MetricId, type MetricModel } from './metrics';
 import { EasyPaceSheet, LiftsSheet } from './sheets';
 import { useHealthLink } from './useHealthDays';
 import { useMetricSource } from './useMetrics';
@@ -39,6 +39,8 @@ const saveRange = (k: RangeKey) => {
 };
 
 const md = (d: string) => fmtDate('md', d);
+/** The chart card's title for a span that ends today: days for a month, months beyond it. */
+const SPAN_WORDS: Record<RangeKey, string> = { '1M': 'Last 30 days', '3M': 'Last 3 months', '6M': 'Last 6 months', '1Y': 'Last 12 months' };
 const unitText = (u: string) => (u === '%' ? '%' : u);
 const TONE_ICON = { ok: CircleCheck, up: CircleArrowUp, down: CircleArrowDown, none: Hourglass } as const;
 
@@ -69,7 +71,8 @@ export default function MetricPage(): React.JSX.Element {
   const def = METRICS[id];
   const [range, setRangeState] = useState<RangeKey>(readRange);
   const [offset, setOffset] = useState(0);
-  const [variantId, setVariant] = useState(def.variants[0]!.id);
+  // the chip the person picked; until they pick one the page opens on the variant that has something to show
+  const [picked, setVariant] = useState<string | null>(null);
   const about = useRef<HTMLElement>(null);
   const setRange = (k: RangeKey) => {
     setRangeState(k);
@@ -87,9 +90,12 @@ export default function MetricPage(): React.JSX.Element {
   const months = useMemo(() => monthsBetween(start, t), [start, t]);
   const log = useLog(months);
   const src = useMetricSource(log, start);
+  const variantId = useMemo(() => picked ?? leadVariant(def, src, rangeWindow(t, '1M')), [picked, def, src, t]);
   const m = useMemo(() => buildMetric(def, variantId, src, window), [def, variantId, src, window.from, window.to]); // eslint-disable-line react-hooks/exhaustive-deps
   const now = useNow(60_000);
-  const fresh = freshness(m, log.strava?.connected ? log.strava.lastSyncAt : null, now, t, link);
+  const fresh = freshness(m, STRAVA_BUILT && log.strava?.connected ? log.strava.lastSyncAt : null, now, t, link);
+  // pace needs a timed run, and only a connected source has those: with one on offer and none connected, the way to connect
+  const paceSource = STRAVA_BUILT && id === 'pace' && !m.hasData && log.features.strava && !log.strava?.connected;
   // an Apple Health metric with no readings says where the connection stands instead of the generic empty word
   const status = def.health ? healthWord(m, link) : m.status;
   const v = m.variant;
@@ -105,8 +111,8 @@ export default function MetricPage(): React.JSX.Element {
   const name = id === 'hrv' ? 'HRV' : id === 'rhr' ? 'resting HR' : def.name.toLowerCase();
   // a share (consistency) reads best on the gauge; everything else is one big number
   const gauge = v.unit === '%';
-  const spanWords = offset === 0 ? `Last ${RANGE_DAYS[range]} days` : windowLabel(window, t);
-  const third = v.agg === 'sum' ? (m.hasData ? `${v.format(m.total)} ${unitText(v.unit)} in all` : null) : m.hasData ? `${m.days} ${id === 'pace' ? 'run days' : 'days'}` : null;
+  const spanWords = offset === 0 ? SPAN_WORDS[range] : windowLabel(window, t);
+  const third = v.agg === 'sum' ? (m.hasData ? `${v.format(m.total)} ${unitText(v.unit)} in all` : null) : m.hasData ? daysWords(m.days, id === 'pace' ? 'run day' : 'day') : null;
 
   return (
     <div className="page pg-page mp-page">
@@ -162,6 +168,15 @@ export default function MetricPage(): React.JSX.Element {
         </div>
       ) : null}
 
+      {paceSource ? (
+        <div className="card mp-connect">
+          <p className="mp-connect-p">Pace comes from runs with a time. Connect a source and your timed runs show here.</p>
+          <button type="button" className="btn primary pressable" onClick={() => nav.go('/settings/connections')}>
+            Connect a source
+          </button>
+        </div>
+      ) : null}
+
       <div className="tiles mp-tiles" role="list" aria-label="Stats">
         <Tile icon={<Sigma size={16} />} label="Average" value={fmtVal(m.avg)} unit={m.avg != null ? unitText(v.unit) : undefined} note={fresh} />
         <Tile icon={<Trophy size={16} />} label={v.bestLabel ?? (v.invert ? 'Fastest' : 'High')} value={fmtVal(m.best?.v ?? null)} unit={m.best ? unitText(v.unit) : undefined} note={m.best ? `On ${md(m.best.d)}` : fresh} />
@@ -187,7 +202,11 @@ export default function MetricPage(): React.JSX.Element {
           bars={v.bars ? m.daily : undefined}
           dots={v.sparse ? m.daily : undefined}
           band={m.band}
-          avg={m.hasData ? m.avg : null}
+          // a share reads on a 0 to 100 axis: a one-point series draws nothing, and 92 plus the kit's 8% headroom rounds the
+          // top to 100 (the chart kit has no fixed-domain prop yet; asked of ws-02)
+          previous={v.percent ? [92] : undefined}
+          // a share's average of nothing is not a line worth drawing: no pill sitting on the baseline
+          avg={m.hasData && !(v.percent && !m.avg) ? m.avg : null}
           labels={labels}
           format={v.axis}
           invert={v.invert}
@@ -217,7 +236,7 @@ export default function MetricPage(): React.JSX.Element {
         <Footnote>{v.method}</Footnote>
       </PageSection>
 
-      {m.hasData ? <More id={id} log={log} today={t} /> : null}
+      {m.hasData ? <More id={id} today={t} /> : null}
 
       <PageSection className="mp-sec" title={`About ${name}`} ref={about}>
         <div className="card mp-explain">
@@ -254,25 +273,26 @@ const Tile = ({ icon, label, value, unit, note }: { icon: React.ReactNode; label
   </div>
 );
 
-/** The detail behind some metrics, in the sheets Progress already has: each run's easy pace, each lift's line. */
-const More = ({ id, log, today }: { id: MetricId; log: ReturnType<typeof useLog>; today: string }) => {
+/**
+ * The detail behind some metrics, in the sheets Progress already has: each run's easy pace, each lift's line. Each sheet
+ * reads its own history, so one opened before that history has landed fills in when it does.
+ */
+const More = ({ id, today }: { id: MetricId; today: string }) => {
   const sheet = useSheet();
-  const lifts = useAllLifts();
+  const from = shiftDays(today, -90);
   if (id === 'pace') {
-    const from = shiftDays(today, -90);
-    const open = () => sheet.open({ title: 'Easy pace', eyebrow: rangeLabel('3M'), body: <EasyPaceSheet ep={easyPace(log.snap, from, today, log.zones)} log={log} range="3M" />, wide: true });
+    const open = () => sheet.open({ title: 'Easy pace', eyebrow: rangeLabel('3M'), body: <EasyPaceSheet from={from} today={today} range="3M" />, wide: true });
     return <MoreRow id={id} title="Easy runs, one by one" sub="Last 3 months" onPress={open} />;
   }
   if (id === 'lifts') {
-    const from = shiftDays(today, -90);
-    const open = () => sheet.open({ title: 'Lifts', eyebrow: rangeLabel('3M'), body: <LiftsSheet groups={liftGroups(lifts.data ?? [], from, today)} range="3M" />, wide: true });
-    return <MoreRow id={id} title="Each lift’s estimated max" sub="Last 3 months" onPress={open} />;
+    const open = () => sheet.open({ title: 'Lifts', eyebrow: rangeLabel('3M'), body: <LiftsSheet from={from} today={today} range="3M" />, wide: true });
+    return <MoreRow id={id} title="Estimated max by lift" sub="Last 3 months" onPress={open} />;
   }
   return null;
 };
 const MoreRow = ({ id, title, sub, onPress }: { id: MetricId; title: string; sub: string; onPress: () => void }) => (
   <div className="group mp-more">
-    <Pressable className="pg-drill" press="surface" onPress={onPress} label={`${title}. Open`}>
+    <Pressable className="pg-drill" press="surface" onPress={onPress} label={`${title}. ${sub}. Open`}>
       <span className="icon-tile" aria-hidden="true">
         <MetricIcon id={id} size={17} />
       </span>

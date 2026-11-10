@@ -87,13 +87,15 @@
 .mp-tile .tile-value.is-empty {
   color: var(--ink-4);
 }
+/* the note wraps to a second line before it is cut ("Updated yesterday" in a 108 px tile) */
 .mp-tile-note {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* the chart card */

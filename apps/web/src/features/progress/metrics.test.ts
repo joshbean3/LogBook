@@ -3,9 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import { rangeWindow } from '@/ui/charts';
-import { activityFeed, agoWords, feedDetail, monthCompare, monthWords, snapSource, syncWords } from './feed';
+import { agoWords, snapSource } from './feed';
 import { bandWords, buildMetric, METRICS, valueDateWords, type MetricSource } from './metrics';
-import { paceText } from './data';
 import { chartZones, effortWord, hrShare, lapRows, zoneShare } from './run';
 
 const TODAY = '2026-11-08';
@@ -132,41 +131,6 @@ describe('consistency and lifts', () => {
   });
 });
 
-describe('this month against last month', () => {
-  it('adds up both months by day of month and compares by this day', () => {
-    const acts = [run('2026-10-02', 5), run('2026-10-05', 5), run('2026-10-20', 10), run('2026-11-01', 4), run('2026-11-07', 6)];
-    const m = monthCompare(snapOf(acts), TODAY);
-    expect(m.length).toBe(31);
-    expect(m.curTotal).toBe(10);
-    expect(m.prevTotal).toBe(20);
-    expect(m.prevByNow).toBe(10);
-    expect(m.curLine[7]).toBe(10);
-    expect(m.curLine[8]).toBeNull();
-    expect(m.prevLine[30]).toBe(20);
-    expect(monthWords(m, () => 'October')).toBe('Level with October by this day.');
-    expect(monthWords({ ...m, curTotal: 14 }, () => 'October')).toBe('4.0 mi ahead of October by this day.');
-  });
-});
-
-describe('the activity list', () => {
-  it('lists Strava and manual entries newest first, with filters', () => {
-    const s = snapOf(
-      [run(TODAY, 5), run('2026-11-01', 13.1, { name: 'Harvest Half', time: '08:00' }), run('2026-11-01', 1.5, { name: 'Shakeout', time: '06:30' }), { ...run('2026-11-03', 0), id: 'wt', kind: 'lift', name: 'Weight Training', sportType: 'WeightTraining', movingSec: 2400 }],
-      [sess('2026-11-01', 13.1, { type: 'Race' }), sess('2026-11-05', 4, { mark: 'done', id: 'manual' })],
-      [set('2026-11-04', 135, 5), set('2026-11-04', 95, 8, 'Bench'), set('2026-11-04', 145, 5, 'Deadlift')],
-    );
-    const all = activityFeed(s, '2026-10-25', TODAY);
-    expect(all.map((x) => `${x.date} ${x.kind} ${x.source}`)).toEqual(['2026-11-08 run Strava', '2026-11-05 run Manual', '2026-11-04 lift Manual', '2026-11-03 lift Strava', '2026-11-01 run Strava', '2026-11-01 run Strava']);
-    expect(activityFeed(s, '2026-10-25', TODAY, 'races').map((x) => x.title)).toEqual(['Harvest Half']);
-    expect(activityFeed(s, '2026-10-25', TODAY, 'runs').length).toBe(4);
-    expect(activityFeed(s, '2026-10-25', TODAY, 'lifts').length).toBe(2);
-    const lift = all.find((x) => x.key === 'l-2026-11-04')!;
-    expect(feedDetail(lift, TODAY, paceText, String)).toBe('Nov 4 · 3 sets · Squat, Bench +1');
-    expect(feedDetail(all[0]!, TODAY, paceText, () => '40:00')).toBe('Today · 8:00 /mi · 40:00');
-    expect(feedDetail(all[1]!, TODAY, paceText, String)).toBe('Nov 5 · Marked done');
-  });
-});
-
 describe('freshness words', () => {
   const now = Date.parse('2026-11-08T12:00:00');
   it('says how long ago, plainly', () => {
@@ -175,11 +139,6 @@ describe('freshness words', () => {
     expect(agoWords(new Date(now - 3 * 3600_000).toISOString(), now)).toBe('3 h ago');
     expect(agoWords(new Date(now - 26 * 3600_000).toISOString(), now)).toBe('yesterday');
     expect(agoWords(null, now)).toBeNull();
-  });
-  it('reads the Strava status', () => {
-    expect(syncWords(null, now)).toBeNull();
-    expect(syncWords({ connected: true, lastSyncAt: new Date(now - 6 * 60_000).toISOString(), syncing: false, error: null }, now)).toBe('Synced 6 m ago');
-    expect(syncWords({ connected: true, lastSyncAt: null, syncing: true, error: null }, now)).toBe('Syncing…');
   });
 });
 

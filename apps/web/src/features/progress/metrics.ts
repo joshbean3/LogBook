@@ -62,6 +62,10 @@ export interface Variant {
   lowBest?: boolean;
   /** The second stat tile's label; default "Fastest" for an inverted metric, else "High". */
   bestLabel?: string;
+  /** The unit on a trend tile, saying what the number covers ("mi, 7 days"); default: `unit`. */
+  tileUnit?: string;
+  /** A share: the page's chart keeps round percent steps and draws no average pill at zero. */
+  percent?: boolean;
   format(v: number): string;
   axis(v: number): string;
   steps?: number[];
@@ -79,6 +83,8 @@ export interface MetricDef {
   /** Read from Apple Health: with no readings the page says where the connection stands. */
   health?: boolean;
   variants: Variant[];
+  /** The name on its trend tile, when the tile leads with a variant other than the first ("Plan" for Consistency). */
+  tileName?: Partial<Record<string, string>>;
   /** Said where a number would be when there is no data yet. */
   emptyWord: string;
   /** Under the empty chart: two short lines. */
@@ -170,6 +176,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
         id: 'miles',
         chip: 'Miles',
         unit: 'mi',
+        tileUnit: 'mi, 7 days',
         lineName: 'Miles in the 7 days to each day',
         daily: (src, d) => (src.loaded(d) ? src.milesOn(d) : null),
         window: 7,
@@ -185,6 +192,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
         id: 'runs',
         chip: 'Runs',
         unit: 'runs',
+        tileUnit: 'runs, 7 days',
         lineName: 'Runs in the 7 days to each day',
         daily: (src, d) => (src.loaded(d) ? src.runCountOn(d) : null),
         window: 7,
@@ -201,8 +209,8 @@ export const METRICS: Record<MetricId, MetricDef> = {
   pace: {
     id: 'pace',
     name: 'Run pace',
-    emptyWord: 'No runs yet',
-    emptyLine: 'No runs with a time yet. Synced runs show their pace here.',
+    emptyWord: 'No timed runs yet',
+    emptyLine: 'No timed runs yet. Runs that come with a time show their pace here.',
     what: 'Your average pace per mile, across your runs over the last 4 weeks.',
     why: 'Pace at the same effort is how fitness shows up. Easy runs getting quicker at the same heart rate is the base doing its job.',
     how: 'Each run day counts its moving time divided by its miles. The line averages the run days in the 28 days to each day. Easy runs are the ones planned as Easy or Long, else the ones at an easy heart rate. Faster is higher on the chart.',
@@ -211,6 +219,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
         id: 'all',
         chip: 'All runs',
         unit: '/mi',
+        tileUnit: '/mi, 28 days',
         lineName: 'Average pace over 28 days',
         daily: (src, d) => paceOfDay(src, d),
         window: 28,
@@ -228,6 +237,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
         id: 'easy',
         chip: 'Easy runs',
         unit: '/mi',
+        tileUnit: '/mi, 28 days',
         lineName: 'Average easy pace over 28 days',
         daily: (src, d) => paceOfDay(src, d, (a) => src.isEasy(a)),
         window: 28,
@@ -246,16 +256,20 @@ export const METRICS: Record<MetricId, MetricDef> = {
   consistency: {
     id: 'consistency',
     name: 'Consistency',
+    tileName: { habits: 'Habits', plan: 'Plan kept' },
     emptyWord: 'Nothing to count yet',
     emptyLine: 'Nothing to count yet. Habits you tap and sessions you keep land here.',
     what: 'How much of what you set out to do got done: your habits, or the sessions in your plan.',
     why: 'Fitness comes from weeks stacked on weeks. A rough day matters less than coming back the next one.',
-    how: 'Habits: the share of your habits done each day, averaged over 7 days; today counts once a habit is done. Plan: each day with a session is kept (done, floor or bonus) or missed, averaged over the days with something planned in the last 14. Rest days are left out.',
+    how: 'Habits: the share of your habits done each day, averaged over 7 days; today counts once a habit is done. Plan: each day with a session is kept (done, done at the floor, or a run off the plan) or missed, averaged over the days with something planned in the last 14. Rest days are left out.',
     variants: [
       {
         id: 'habits',
         chip: 'Habits',
         unit: '%',
+        tileUnit: '%, 7 days',
+        percent: true,
+        steps: [50, 100],
         lineName: 'Habits done, 7-day average',
         daily: (src, d) => {
           if (!src.loaded(d)) return null;
@@ -275,6 +289,9 @@ export const METRICS: Record<MetricId, MetricDef> = {
         id: 'plan',
         chip: 'Plan',
         unit: '%',
+        tileUnit: '%, 14 days',
+        percent: true,
+        steps: [50, 100],
         lineName: 'Plan days kept, 14-day average',
         daily: (src, d) => {
           if (!src.loaded(d)) return null;
@@ -299,13 +316,14 @@ export const METRICS: Record<MetricId, MetricDef> = {
     emptyWord: 'No lifts yet',
     emptyLine: 'No lifts yet. Log a set from a lift session and it shows up here.',
     what: 'The total weight you moved in the last 7 days: weight times reps, over every set.',
-    why: 'Volume is the work that makes strength. Watching it keeps a heavy block of running from quietly crowding lifting out.',
+    why: 'Volume is the work that makes strength. Watching it keeps a heavy stretch of running from quietly crowding lifting out.',
     how: 'Each set counts its weight times its reps. Each day adds up its sets and the 6 days before. The bars are single days. Your usual range is the middle half of your last 90 days.',
     variants: [
       {
         id: 'volume',
         chip: 'Volume',
         unit: 'lb',
+        tileUnit: 'lb, 7 days',
         lineName: 'Pounds moved in the 7 days to each day',
         daily: (src, d) => volume(src.liftsOn(d)),
         window: 7,
@@ -321,6 +339,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
         id: 'sets',
         chip: 'Sets',
         unit: 'sets',
+        tileUnit: 'sets, 7 days',
         lineName: 'Sets in the 7 days to each day',
         daily: (src, d) => src.liftsOn(d).length,
         window: 7,
@@ -352,7 +371,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
     pick: (h) => h.hrvMs,
     emptyLine: 'No readings yet. HRV from Apple Health shows here.',
     what: 'Heart rate variability: the small changes in time between heartbeats, from Apple Health.',
-    why: 'Higher than your usual often goes with feeling fresh. A run of low days often goes with fatigue or a hard block.',
+    why: 'Higher than your usual often goes with feeling fresh. A run of low days often goes with fatigue or a hard stretch of training.',
     how: 'Each day’s value in milliseconds, averaged over 7 days, against the middle half of your last 90 days. Only your own normal matters, not anyone else’s.',
   }),
   rhr: health({
@@ -364,7 +383,7 @@ export const METRICS: Record<MetricId, MetricDef> = {
     bestLabel: 'Lowest',
     emptyLine: 'No readings yet. Resting heart rate from Apple Health shows here.',
     what: 'Your heart rate at rest, from Apple Health.',
-    why: 'A resting rate that creeps up over a few days often goes with fatigue or a hard block.',
+    why: 'A resting rate that creeps up over a few days often goes with fatigue or a hard stretch of training.',
     how: 'The daily resting heart rate, averaged over 7 days, against the middle half of your last 90 days.',
   }),
 };
@@ -489,6 +508,22 @@ export const buildMetric = (def: MetricDef, variantId: string | null, src: Metri
   };
 };
 
+/**
+ * The variant a tile leads with, and a page opens on: the first one with something above zero in it, so an account that
+ * follows a plan and ticks no habits reads its plan (never a flat 0%), and bodyweight lifting reads its sets. With nothing
+ * anywhere it is the first variant.
+ */
+export const leadVariant = (def: MetricDef, src: MetricSource, window: RangeWindow): string => {
+  let withData: string | null = null;
+  for (const v of def.variants) {
+    const m = buildMetric(def, v.id, src, window);
+    if (!m.hasData) continue;
+    if (m.daily.some((x) => x != null && x > 0) || m.line.some((x) => x != null && x > 0)) return v.id;
+    withData ??= v.id;
+  }
+  return withData ?? def.variants[0]!.id;
+};
+
 /** "Usual 18–26 mi": the band in the metric's own words, for the right of the status line. */
 export const bandWords = (m: MetricModel) => {
   if (!m.band) return null;
@@ -497,6 +532,9 @@ export const bandWords = (m: MetricModel) => {
   const unit = v.unit === '%' ? '%' : v.unit.startsWith('/') ? v.unit : ` ${v.unit}`;
   return `Usual ${v.format(a)}–${v.format(b)}${unit}`;
 };
+
+/** `1 day`, `14 days`. */
+export const daysWords = (n: number, noun = 'day') => `${n} ${n === 1 ? noun : `${noun}s`}`;
 
 /** "Nov 8" or "7 days to Nov 8": the date under the big number. */
 export const valueDateWords = (m: MetricModel, today: ISODate) => {

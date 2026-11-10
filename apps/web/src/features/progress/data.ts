@@ -2,13 +2,12 @@
  * Progress: every number on the page, from the log. Pure functions over the snapshot so the page, its sheets and its tests
  * agree. Nothing here renders.
  */
-import { counts, e1rm, fmtDate, isSkipMark, label, mi, mondayOf, monthOf, parseISO, sessionStatus, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet, type PlanBlock, type Session } from '@logbook/shared';
+import { e1rm, fmtDate, isSkipMark, mondayOf, monthOf, parseISO, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet } from '@logbook/shared';
 import type { AppSnapshot } from '@/api/snapshot';
 import { dayMiles } from '../sessions/miles';
 
 // ---------- range ----------
 export type Range = '3M' | '6M' | '1Y';
-export const RANGES: Range[] = ['3M', '6M', '1Y'];
 /** Weeks shown, the current one included. */
 export const RANGE_WEEKS: Record<Range, number> = { '3M': 13, '6M': 26, '1Y': 52 };
 export const RANGE_WORDS: Record<Range, string> = { '3M': '3 months', '6M': '6 months', '1Y': 'year' };
@@ -18,30 +17,11 @@ export const rangeLabel = (r: Range) => (r === '1Y' ? 'Last 12 months' : `Last $
 /** Planned weeks drawn as ghosts after this one: where the block is heading, never most of the chart. */
 export const FUTURE_WEEKS = 2;
 
-/** The first Monday in view for a range, and the last day (the Sunday after the future weeks). */
-export const rangeBounds = (today: ISODate, r: Range) => {
-  const mon = mondayOf(today);
-  return { from: shiftDays(mon, -7 * (RANGE_WEEKS[r] - 1)), to: shiftDays(mon, 7 * FUTURE_WEEKS + 6) };
-};
-
 // ---------- words ----------
 const SMALL = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
 /** "Three" for 3, "14" past twelve. Sentence-initial. */
 export const Words = (n: number) => SMALL[n] ?? String(n);
-export const words = (n: number) => (SMALL[n] ?? String(n)).toLowerCase();
 export const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
-
-/** ISO-8601 week id for the shared element: `2026-W42`. */
-export const isoWeek = (date: ISODate) => {
-  const d = parseISO(date);
-  const day = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - day + 3); // the Thursday of this week decides the year
-  const year = d.getFullYear();
-  const jan4 = new Date(year, 0, 4);
-  const week = 1 + Math.round(((d.getTime() - jan4.getTime()) / 864e5 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
-  return `${year}-W${String(week).padStart(2, '0')}`;
-};
-export const weekId = (monday: ISODate) => `week-${isoWeek(monday)}`;
 export const weekTitle = (monday: ISODate, today: ISODate) => (monday === mondayOf(today) ? 'This week' : monday === shiftDays(mondayOf(today), -7) ? 'Last week' : `Week of ${fmtDate('md', monday)}`);
 
 /** Pace in seconds per mile -> `8:14`. */
@@ -136,211 +116,6 @@ export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range, loaded?:
   return pts;
 };
 
-/** Weeks that count toward averages: finished, from the first week with a run. */
-export const finishedWeeks = (pts: WeekPoint[]) => {
-  const first = pts.findIndex((p) => p.ran > 0);
-  return first < 0 ? [] : pts.slice(first).filter((p) => !p.current && !p.future && !p.missing);
-};
-
-/** The numbers above the chart when nobody is touching it: the range, summed up. */
-export const rangeSummary = (pts: WeekPoint[]) => {
-  const done = finishedWeeks(pts);
-  const past = pts.filter((p) => !p.future && !p.missing);
-  const best = past.reduce<WeekPoint | null>((b, p) => (!b || p.ran > b.ran ? p : b), null);
-  return {
-    avg: done.length ? sum(done.map((p) => p.ran)) / done.length : null,
-    best: best && best.ran > 0 ? best : null,
-    total: sum(past.map((p) => p.ran)),
-    runs: sum(past.map((p) => p.runs)),
-  };
-};
-
-// ---------- the verdict ----------
-/** Miles run Monday through `upTo`'s weekday, in the week starting `mon`. */
-const ranThrough = (snap: AppSnapshot, mon: ISODate, dayIndex: number) => sum(days7(mon).slice(0, dayIndex + 1).map((d) => dayMiles(snap, d).miles));
-
-export interface Verdict {
-  /** Serif 28: two short sentences, the trend then this week. */
-  line: string;
-  /** The week in words and a number: "8.2 of 26 mi planned. Two runs in." */
-  sub: string;
-}
-
-/**
- * The page's one sentence. Never a zero as the headline: a quiet stretch is said in words ("Two quiet weeks."), and the
- * week so far is compared with the same weekday last week, not with a whole week's average.
- */
-export const verdict = (snap: AppSnapshot, today: ISODate, pts: WeekPoint[], streakWeeks: number): Verdict => {
-  const ci = pts.findIndex((p) => p.current);
-  const cur = pts[ci]!;
-  const done = finishedWeeks(pts);
-  const last = done[done.length - 1] ?? null;
-  const prior = done.slice(0, -1).slice(-4);
-  const priorAvg = prior.length ? sum(prior.map((p) => p.ran)) / prior.length : null;
-
-  // 1. the trend, over finished weeks
-  let trend = '';
-  let building = 0;
-  // building: each week bigger than a week that had running in it (climbing out of a blank week is a restart, not a build)
-  for (let i = done.length - 1; i > 0 && done[i - 1]!.ran > 0 && done[i]!.ran > done[i - 1]!.ran + 0.5; i--) building++;
-  // a quiet week ran under half of the average of the run weeks in the four before it
-  let quiet = 0;
-  for (let i = done.length - 1; i >= 0; i--) {
-    const win = done.slice(Math.max(0, i - 4), i).filter((p) => p.ran > 0);
-    const base = win.length ? sum(win.map((p) => p.ran)) / win.length : null;
-    if (base == null || base < 3 || done[i]!.ran >= base * 0.5) break;
-    quiet++;
-  }
-  if (!last) trend = 'A first week on the board.';
-  else if (building >= 2) trend = `${Words(building + 1)} weeks building.`;
-  else if (quiet >= 2) trend = `${Words(quiet)} quiet weeks.`;
-  else if (quiet === 1) trend = 'Last week was quiet.';
-  else if (priorAvg != null && last.ran >= priorAvg * 1.15 && done.slice(-6, -1).every((p) => p.ran < last.ran)) trend = `Last week was your biggest in ${words(Math.min(done.length, 6))} weeks.`;
-  else if (streakWeeks >= 3) trend = `${Words(streakWeeks)} weeks kept in a row.`;
-  else if (priorAvg != null && last.ran >= priorAvg * 1.15) trend = 'Last week was up on your average.';
-  else {
-    const avg = sum(done.slice(-4).map((p) => p.ran)) / Math.min(4, done.length);
-    trend = `Steady at about ${Math.round(avg)} mi a week.`;
-  }
-
-  // 2. this week, against the same weekday last week
-  const di = (parseISO(today).getDay() + 6) % 7;
-  const prevMon = shiftDays(cur.w, -7);
-  const sameDayLast = ranThrough(snap, prevMon, di);
-  // "ahead of last week" needs a last week: one with a plan or a run in it (a first week compares with nothing)
-  const prevPt = pts[ci - 1];
-  const lastHad = !!prevPt && (prevPt.ran > 0.05 || prevPt.planned > 0 || prevPt.plannedRuns > 0);
-  const next = nextRun(snap, today, cur.w);
-  // a run planned earlier this week (and not skipped) means today's isn't the first: say "Next", as Plan's header does
-  const earlier = days7(cur.w).some((d) => d < today && snap.sessionsOn(d).some((x) => x.kind === 'run' && !isSkipMark(x.mark)));
-  let now = '';
-  if (cur.planned > 0 && cur.ran >= cur.planned - 0.05) now = 'This one is done.';
-  else if (cur.ran <= 0.05) {
-    if (next?.date === today && di <= 1 && !earlier) now = 'This one starts today.';
-    else if (next?.date === today) now = 'This one is light so far.';
-    else if (di <= 1 && next && !earlier) now = `This one starts ${relDay(next.date, today)}.`;
-    else if (sameDayLast > 0 || next) now = 'This one is light so far.';
-    else now = 'This one is still open.';
-  } else if (!lastHad) now = '';
-  else if (sameDayLast <= 0.05 || cur.ran >= sameDayLast * 1.1) now = 'This one is ahead of last week.';
-  else if (cur.ran <= sameDayLast * 0.75) now = 'This one is light so far.';
-  else now = 'This one is level with last week.';
-
-  // 3. the sub: miles vs plan, as words and a number
-  let sub: string;
-  const runsIn = cur.runs ? `${Words(cur.runs)} ${plural(cur.runs, 'run')} in.` : '';
-  if (cur.planned > 0) {
-    if (cur.ran > 0.05) sub = `${mi(cur.ran)} of ${round1(cur.planned)} mi planned. ${runsIn}`;
-    else if (next?.date === today && !earlier) sub = `${round1(cur.planned)} mi planned. First run today: ${label(next.s)}.`;
-    else sub = `${round1(cur.planned)} mi planned.${next ? ` Next: ${label(next.s)}, ${relDay(next.date, today)}.` : ''}`;
-  } else if (cur.ran > 0.05) sub = `${mi(cur.ran)} mi so far. ${runsIn}`;
-  else sub = next ? `Next: ${label(next.s)}, ${relDay(next.date, today)}.` : 'No runs planned this week. Runs you log land here.';
-  return { line: `${trend} ${now}`.trim(), sub: sub.trim() };
-};
-
-const round1 = (v: number) => String(Math.round(v * 10) / 10);
-const relDay = (d: ISODate, today: ISODate) => (d === today ? 'today' : d === shiftDays(today, 1) ? 'tomorrow' : fmtDate('dowLong', d));
-
-/** The next planned, unskipped run from today to Sunday that has not happened yet. */
-export const nextRun = (snap: AppSnapshot, today: ISODate, mon: ISODate) => {
-  for (const d of days7(mon)) {
-    if (d < today) continue;
-    if (d === today && snap.runsOn(d).length) continue;
-    const s = snap.sessionsOn(d).find((x) => x.kind === 'run' && !isSkipMark(x.mark));
-    if (s) return { date: d, s };
-  }
-  return null;
-};
-
-// ---------- plan adherence ----------
-export interface AdherenceWeek {
-  w: ISODate;
-  kept: number;
-  planned: number;
-  /** Sessions still ahead this week (today on). */
-  ahead: number;
-}
-export interface Adherence {
-  block: PlanBlock | null;
-  weeks: AdherenceWeek[];
-  kept: number;
-  planned: number;
-}
-
-/** The block that holds today, else the latest one that started. */
-export const currentBlock = (blocks: PlanBlock[], today: ISODate) =>
-  blocks.find((b) => b.start <= today && b.end >= today) ?? [...blocks].filter((b) => b.start <= today).sort((a, b) => (a.start < b.start ? 1 : -1))[0] ?? null;
-
-/**
- * Sessions kept vs planned, week by week, for the current block inside the range (or every planned session in the range
- * when there is no block). Kept: done, floor, or skipped for illness. Rest days are not counted either way. Only days up
- * to yesterday are graded; today's and later sessions are "ahead", never missed.
- */
-export const adherence = (snap: AppSnapshot, today: ISODate, from: ISODate, blocks: PlanBlock[]): Adherence => {
-  const block = currentBlock(blocks, today);
-  const start = block ? (block.start > from ? block.start : from) : from;
-  const inBlock = (s: Session) => !block || s.blockId === block.id;
-  const weeks: AdherenceWeek[] = [];
-  for (let w = mondayOf(start); w <= mondayOf(today); w = shiftDays(w, 7)) {
-    let kept = 0;
-    let planned = 0;
-    let ahead = 0;
-    for (const d of days7(w)) {
-      if (d < start) continue;
-      for (const s of snap.sessionsOn(d)) {
-        if (s.kind === 'rest' || !inBlock(s)) continue;
-        if (d >= today) {
-          if (!isSkipMark(s.mark)) ahead++;
-          // something already kept today counts now
-          if (d === today && counts(sessionStatus(snap, d, s))) {
-            kept++;
-            planned++;
-            ahead--;
-          }
-          continue;
-        }
-        planned++;
-        if (counts(sessionStatus(snap, d, s)) || s.mark === 'sick') kept++;
-      }
-    }
-    if (planned || ahead) weeks.push({ w, kept, planned, ahead });
-  }
-  return { block, weeks, kept: sum(weeks.map((x) => x.kept)), planned: sum(weeks.map((x) => x.planned)) };
-};
-
-// ---------- long run ----------
-export interface LongRun {
-  points: Array<{ w: ISODate; miles: number; run: Activity | null }>;
-  recent: number;
-  recentRun: Activity | null;
-  early: number;
-  earlyMonth: string | null;
-  peak: Activity | null;
-  /** The longest week's long run in range, activity or logged, and its month ("Aug"). */
-  best: { miles: number; w: ISODate; month: string } | null;
-}
-export const longRuns = (pts: WeekPoint[]): LongRun => {
-  const past = pts.filter((p) => !p.future && !p.missing);
-  const first = past.findIndex((p) => p.ran > 0);
-  const live = first < 0 ? [] : past.slice(first);
-  const points = live.map((p) => ({ w: p.w, miles: p.long, run: p.longRun }));
-  const recentWin = points.slice(-4);
-  const recentBest = recentWin.reduce<(typeof points)[number] | null>((b, p) => (!b || p.miles > b.miles ? p : b), null);
-  const earlyWin = points.length > 6 ? points.slice(0, 4) : [];
-  const earlyBest = earlyWin.reduce<(typeof points)[number] | null>((b, p) => (!b || p.miles > b.miles ? p : b), null);
-  const peak = points.reduce<Activity | null>((b, p) => (p.run && (!b || p.run.miles > b.miles) ? p.run : b), null);
-  const top = points.reduce<(typeof points)[number] | null>((b, p) => (p.miles > 0 && (!b || p.miles > b.miles) ? p : b), null);
-  return {
-    best: top ? { miles: top.miles, w: top.w, month: new Intl.DateTimeFormat('en-US', { month: 'short' }).format(parseISO(top.run?.date ?? top.w)) } : null,
-    points,
-    recent: recentBest?.miles ?? 0,
-    recentRun: recentBest?.run ?? null,
-    early: earlyBest?.miles ?? 0,
-    earlyMonth: earlyBest?.run ? monthName(earlyBest.run.date) : null,
-    peak,
-  };
-};
-
 // ---------- easy pace ----------
 export interface EasyRun {
   a: Activity;
@@ -421,9 +196,15 @@ export interface LiftGroup {
   name: string;
   /** The best set of each day in the range, oldest first. */
   days: LiftDay[];
-  /** e1RM change across the range, as a ratio (null with one day). */
+  /** A bodyweight lift (no weight on any set): its line follows the best set's reps, not an estimated max. */
+  reps: boolean;
+  /** Change across the range, as a ratio of the first day's value; null with one day, or when there is nothing to compare from. */
   change: number | null;
 }
+/** What a day is worth on its lift's line: the estimated max, or the best set's reps for a bodyweight lift. */
+export const liftValue = (g: Pick<LiftGroup, 'reps'>, d: Pick<LiftDay, 'reps' | 'e1rm'>) => (g.reps ? d.reps : d.e1rm);
+/** A set in words: `185 × 5`, or `Bodyweight × 8` with no weight on it. */
+export const setWords = (d: { weight: number; reps: number }) => (d.weight > 0 ? `${d.weight} × ${d.reps}` : `Bodyweight × ${d.reps}`);
 export const liftGroups = (sets: LiftSet[], from: ISODate, today: ISODate): LiftGroup[] => {
   const by = new Map<string, { name: string; days: Map<ISODate, LiftDay> }>();
   for (const s of sets) {
@@ -433,14 +214,20 @@ export const liftGroups = (sets: LiftSet[], from: ISODate, today: ISODate): Lift
     const g = by.get(k)!;
     const e = e1rm(s.weight, s.reps);
     const cur = g.days.get(s.date);
-    if (!cur || e > cur.e1rm) g.days.set(s.date, { date: s.date, weight: s.weight, reps: s.reps, e1rm: e });
+    // the day's best set: the highest estimated max, then the most reps (the only measure at bodyweight)
+    if (!cur || e > cur.e1rm || (e === cur.e1rm && s.reps > cur.reps)) g.days.set(s.date, { date: s.date, weight: s.weight, reps: s.reps, e1rm: e });
   }
   return [...by.values()]
     .map((g) => {
-      const days = [...g.days.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
-      const first = days[0]!;
-      const last = days[days.length - 1]!;
-      return { name: g.name, days, change: days.length > 1 ? (last.e1rm - first.e1rm) / first.e1rm : null };
+      const all = [...g.days.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+      // a lift done both ways reads by its weighted days (a bodyweight day has no estimated max to put on that line)
+      const weighted = all.filter((d) => d.weight > 0);
+      const reps = weighted.length === 0;
+      const days = reps ? all : weighted;
+      const first = liftValue({ reps }, days[0]!);
+      const last = liftValue({ reps }, days[days.length - 1]!);
+      // nothing to compare from (a zero start) is no change at all, never a division by zero
+      return { name: g.name, days, reps, change: days.length > 1 && first > 0 ? (last - first) / first : null };
     })
     .sort((a, b) => (a.days[a.days.length - 1]!.date < b.days[b.days.length - 1]!.date ? 1 : -1));
 };
@@ -452,69 +239,3 @@ export interface HabitLike {
   name: string;
   createdOn: ISODate;
 }
-export interface ConsistencyRow {
-  id: string;
-  name: string;
-  train: boolean;
-  hit: number;
-  of: number;
-}
-export interface Consistency {
-  rows: ConsistencyRow[];
-  /** Per week in range: share of habit checks done (0..1), null before any habit existed. */
-  habitWeeks: Array<{ w: ISODate; v: number | null }>;
-  /** Weeks kept by the floor rule, in the range from the first week with anything in it. */
-  keptWeeks: number;
-  weeks: number;
-  habitHit: number;
-  habitOf: number;
-}
-
-export const consistency = (snap: AppSnapshot, today: ISODate, from: ISODate, habits: HabitLike[], weekKept: (w: ISODate) => boolean, dayStatus: (d: ISODate) => string): Consistency => {
-  const rows: ConsistencyRow[] = [{ id: '__t', name: 'Training', train: true, hit: 0, of: 0 }, ...habits.map((h) => ({ id: h.id, name: h.name, train: false, hit: 0, of: 0 }))];
-  const habitWeeks: Consistency['habitWeeks'] = [];
-  let keptWeeks = 0;
-  let weeks = 0;
-  let started = false;
-  for (let w = mondayOf(from); w <= mondayOf(today); w = shiftDays(w, 7)) {
-    let hHit = 0;
-    let hOf = 0;
-    let anything = false;
-    for (const d of days7(w)) {
-      if (d < from || d > today) continue;
-      const st = dayStatus(d);
-      if (st !== 'empty' && st !== 'upcoming') anything = true;
-      const tr = rows[0]!;
-      if (st === 'done' || st === 'floor' || st === 'missed' || st === 'bonus') {
-        tr.of++;
-        if (st !== 'missed') tr.hit++;
-      }
-      habits.forEach((h, i) => {
-        if (h.createdOn && d < h.createdOn) return;
-        const done = snap.isHabitDone(d, h.id);
-        // today counts only once it is done: an unfinished today never lowers a rate
-        if (d === today && !done) return;
-        const r = rows[i + 1]!;
-        r.of++;
-        hOf++;
-        if (done) {
-          r.hit++;
-          hHit++;
-          anything = true;
-        }
-      });
-    }
-    habitWeeks.push({ w, v: hOf ? hHit / hOf : null });
-    if (anything) started = true;
-    // this week is still being run: it counts once it is kept, never against you while it is open
-    const open = w === mondayOf(today);
-    if (started && (!open || weekKept(w))) {
-      weeks++;
-      if (weekKept(w)) keptWeeks++;
-    }
-  }
-  const habitRows = rows.slice(1);
-  return { rows, habitWeeks, keptWeeks, weeks, habitHit: sum(habitRows.map((r) => r.hit)), habitOf: sum(habitRows.map((r) => r.of)) };
-};
-
-export const pct = (hit: number, of: number) => (of ? Math.round((hit / of) * 100) : null);

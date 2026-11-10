@@ -61,8 +61,10 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
       const r = wrapRef.current?.getBoundingClientRect();
       if (!r) return null;
       const px = ((cx - r.left) / r.width) * W;
-      return Math.min(n - 1, Math.max(0, Math.round((px - LEFT) / step)));
+      // a week before the log began has nothing to read or open: the finger reads from the first week that does
+      return Math.min(n - 1, Math.max(first, Math.round((px - LEFT) / step)));
     },
+    min: first,
     onScrub,
     onTap: onOpen,
     peak,
@@ -191,13 +193,15 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
         )}
       </div>
       <ul className="sr-only" aria-label="Weeks">
-        {weeks.map((p, i) => (
-          <li key={p.w}>
-            <button type="button" onClick={() => onOpen(i)}>
-              {words(i)}. Open {fmtDate('md', p.w)}
-            </button>
-          </li>
-        ))}
+        {weeks.map((p, i) =>
+          i < first ? null : (
+            <li key={p.w}>
+              <button type="button" onClick={() => onOpen(i)}>
+                {words(i)}. Open {fmtDate('md', p.w)}
+              </button>
+            </li>
+          ),
+        )}
       </ul>
     </div>
   );

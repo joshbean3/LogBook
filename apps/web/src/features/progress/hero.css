@@ -87,6 +87,8 @@
   justify-items: end;
   gap: 2px;
   flex: none;
+  /* as wide as its widest caption ("Last 4 weeks"), so the box holds still while the week under the finger changes */
+  min-width: 6.5rem;
   padding: 8px 12px;
   border-radius: 14px;
   background: var(--well);
@@ -116,6 +118,7 @@
     font-size: 0.9375rem;
   }
   .ph-side {
+    min-width: 6rem;
     padding: 6px 10px;
   }
   .ph-rate {
@@ -153,8 +156,9 @@
   stroke-width: 1;
 }
 .pl-ax {
-  font: 500 clamp(11px, 0.6875rem, 15px) / 1 var(--sans);
-  fill: var(--ink-4);
+  /* 12 px at the default size, 5.1:1 on the card (the lighter grey at 11 px was 3.3:1) */
+  font: 500 clamp(12px, 0.75rem, 16px) / 1 var(--sans);
+  fill: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 .pl-ax.is-now {
@@ -368,7 +372,8 @@
 }
 .ll-card.is-missed .ll-status {
   background: var(--accent-soft);
-  color: var(--accent-text);
+  /* 5.0:1 on the soft accent */
+  color: var(--accent-text-strong, #b23a09);
 }
 .ll-sum {
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
@@ -421,4 +426,74 @@
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: -0.01em;
   color: var(--ink);
+}
+
+/* ---------- the first week: its bar in place of a one-point chart, and the line that says the chart is coming ---------- */
+.ph-first {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+  padding-bottom: 4px;
+}
+.ph-first-bar {
+  position: relative;
+  display: block;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--well);
+  box-shadow: var(--well-shadow);
+}
+.ph-first-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+.ph-first-ends {
+  display: flex;
+  justify-content: space-between;
+  font: 500 var(--fs-orb) / var(--lh-orb) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.ph-first-line {
+  margin: 6px 0 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
+}
+/* the empty card's ghost: two curves, the plan dashed and what was run solid */
+.ph-ghost {
+  display: block;
+}
+.ph-ghost-plan {
+  fill: none;
+  stroke: var(--ink-4);
+  stroke-width: 2;
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+}
+.ph-ghost-done {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.ph-ghost-dot {
+  fill: var(--accent);
+}
+/* some weeks did not load: one line under the key, and the way to ask again */
+.ph-retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
 }
