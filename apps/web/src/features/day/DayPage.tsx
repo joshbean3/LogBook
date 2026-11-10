@@ -18,7 +18,7 @@ import { PlanDay } from '../dayplan/PlanDay';
 import { nothingSetUp, looksNew } from './firstRun';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
-import { Hero, SecondSession } from './Hero';
+import { Hero } from './Hero';
 import { useIsLive } from './live';
 import { dismissNudge, useNudge } from './nudge';
 import { TheDayCard } from './TheDayCard';
@@ -232,7 +232,6 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
       <Sentence />
       {loaded ? <PlanDay date={date} today={today} /> : null}
-      {loaded ? <SecondSession date={date} log={log} /> : null}
       {STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />

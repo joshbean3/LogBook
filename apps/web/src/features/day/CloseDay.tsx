@@ -634,6 +634,9 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
   const openTodos = groups[0]?.items.length ?? 0;
   const entries = log.snap.journalOn(date);
   const lead = ph?.training[0] ?? (ph?.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null);
+  // every training session of the day has its row, the lead first (today-top-05, today-top-29): the compact cards under the
+  // hero go in the evening, so nothing is left unlisted
+  const rows = lead ? [lead, ...(ph?.sessions ?? []).filter((p) => p.session.kind !== 'rest' && p.session.id !== lead.session.id)] : [];
   const planned = (ph?.training ?? []).reduce((t, p) => t + (p.session.kind === 'run' ? Number(p.session.miles) || 0 : 0), 0);
   const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length, runShown: !!lead });
   const [closedNow, setClosedNow] = useState(false);
@@ -676,7 +679,9 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
         ) : line ? (
           <p className="cd-line">{line}</p>
         ) : null}
-        {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} markNow={markNow} /> : null}
+        {rows.map((p) => (
+          <RunRow key={p.session.id} date={date} log={log} p={p} onOpen={() => onOpenSession(p)} still={!!still} markNow={markNow} />
+        ))}
         {still ? null : (
           <ComposeBox
             date={date}

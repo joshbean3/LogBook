@@ -19,7 +19,7 @@ import { isPagerMoving, useIsLive } from './live';
 import { afterPaint, swallowNextClick } from './release';
 import { CardGroup, CardOpen } from './CardGroup';
 import { CloseDay } from './CloseDay';
-import { faceName, heroLead, phaseOf, preLandingFace, secondOf, whenFaceKinds, withMark, type Face } from './faces';
+import { faceName, heroLead, phaseOf, preLandingFace, whenFaceKinds, withMark, type Face } from './faces';
 import { HoldRing, MORPH_MS } from './HoldRing';
 import { refusedMark } from './marks';
 import { sessionMiles, weekMiles } from './miles';
@@ -365,13 +365,18 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
   const openSession = useOpenSession(log);
   // the Close card is the one face that is not the 184 card: the two crossfade (150 ms) in the hero's slot
   return (
+    <>
     <AnimatePresence initial={false} mode="popLayout">
       <motion.div key={evening ? 'close' : 'day'} className="hero-swap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
         {evening ? <EveningFace date={date} log={log} ph={ph} onOpen={(p) => openSession(date, p.session, { fromHero: true })} markNow={markNow} /> : <DayHero date={date} log={log} ph={ph} face={face} minutes={minutes} markNow={markNow} />}
       </motion.div>
     </AnimatePresence>
+    {/* the day's other sessions sit directly under the hero (today-top-05); the evening's Close card lists them all */}
+    {evening ? null : <OtherSessions date={date} log={real} />}
+    </>
   );
 });
+
 
 /** The 184 card (304 landed): every face but the evening's. The run landing (§6.1) plays on it. */
 const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISODate; log: Log; ph: ReturnType<typeof phaseOf>; face: Face; minutes: number; markNow: MarkNow }) => {
@@ -556,22 +561,43 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
   );
 };
 
+/** The day's other training sessions, after the hero's (heroLead): every one, in the day's order (today-top-29). */
+export const otherSessions = (ph: ReturnType<typeof phaseOf>): PhaseSession[] => {
+  const lead = heroLead(ph);
+  return lead ? ph.sessions.filter((p) => p.session.kind !== 'rest' && p.session.id !== lead.session.id) : [];
+};
+
 /**
- * The second session of a two-session day (§3.4, §3.1 row 3): a compact card, 60 tall: the stamp (17), the plan and its word
- * (15), the 40 px hold ring on the right while it is open today. Tap → its sheet; hold → `Done · Skip · Move`.
+ * Every other session of the day, each its own compact card directly under the hero, before Habits (today-top-05). The
+ * evening's Close card lists them all, so they are not drawn again under it.
  */
-export const SecondSession = memo(function SecondSession({ date, log: real }: { date: ISODate; log: Log }) {
+export const OtherSessions = memo(function OtherSessions({ date, log }: { date: ISODate; log: Log }) {
+  const ids = useMemo(() => otherSessions(phaseOf(log, date, 12 * 60)).map((p) => p.session.id), [log, date]);
+  return (
+    <>
+      {ids.map((id) => (
+        <SecondSession key={id} date={date} log={log} id={id} />
+      ))}
+    </>
+  );
+});
+
+/**
+ * Another session of the day (§3.4, §3.1 row 3): a compact card, 60 tall: the stamp (17), the plan and its word (15), the
+ * 40 px hold ring on the right while it is open today. Tap → its sheet; hold → `Done · Skip · Move`.
+ */
+const SecondSession = memo(function SecondSession({ date, log: real, id }: { date: ISODate; log: Log; id: string }) {
   // its Done, Skip, Not done and their Undo answer on the card first (a 150 ms crossfade of its line), the write after it,
   // as the hero's do (feel review 2 #5)
   const { log, markNow } = useMarkOverride(real, date);
   const ph = useMemo(() => phaseOf(log, date, 12 * 60), [log, date]);
-  // the hero's session (a skipped run keeps the hero: heroLead); this card is the other one
+  // the hero's session (a skipped run keeps the hero: heroLead); this card is one of the others
   const lead = heroLead(ph);
-  const p: PhaseSession | null = secondOf(ph, lead);
+  const p: PhaseSession | null = ph.sessions.find((x) => x.session.id === id) ?? null;
   const openSession = useOpenSession(log);
   const act = useSessionActions(log);
   const toast = useToast();
-  if (!p || !lead) return null;
+  if (!p || !lead || lead.session.id === id) return null;
   const s = p.session;
   const isToday = date === log.today;
   const open = p.key === 'today' && isToday;
