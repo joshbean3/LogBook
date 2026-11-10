@@ -29,11 +29,16 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 16px;
+  left: var(--sp-4);
   right: 0;
   height: 1px;
   background: var(--line);
   pointer-events: none;
+}
+/* a row that leads with an icon tile: the hairline starts where the words do, past the 32 px tile (guide 5.4, 6.4) */
+.group > :has(.icon-tile) + *::before,
+.group > * + :has(.icon-tile)::before {
+  left: calc(var(--sp-4) + 32px + var(--sp-3));
 }
 
 /* a 2-column grid of tiles (Health Monitor in the references): label, big number with unit, status word */
@@ -46,9 +51,10 @@
   position: relative;
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: var(--sp-1);
   min-width: 0;
-  padding: 14px;
+  /* guide 6.4: tiles pad 12 (the words gain 4 px; nothing grows) */
+  padding: var(--sp-3);
   border-radius: var(--r-tile);
   background: var(--surface);
   border: var(--card-border);
@@ -100,17 +106,22 @@
 /* a two-line context chip under a page title (status, phase, weather in the references) */
 .ctx-row {
   display: flex;
-  gap: 10px;
+  /* 8 between the two chips: at 390 the plan's name keeps its whole width at the larger title size */
+  gap: var(--sp-2);
   margin: 4px 0 18px;
   min-width: 0;
 }
+/* the context chip (guide 6.3): Paper, r 18, the card shadow, no blur; a 40 px Haze disc with an 18 px Deep Sky glyph;
+   the title Inter 17 600, the subtitle Inter 15 500 Dusk. It keeps the 56 px and the 34 px disc it has always had (plan
+   D8, and the mockup's): the two lines sit on 20 and 18 px lines. The guide's 40 px disc and 12 px gap would cut the plan
+   chip's name at 390 (foundation decision G4) */
 .ctx-chip {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
-  min-height: 52px;
-  padding: 8px 12px 8px 8px;
+  min-height: 56px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2);
   border-radius: var(--r-chip);
   background: var(--surface);
   border: var(--card-border);
@@ -128,31 +139,33 @@
   background: var(--haze);
   color: var(--deep-sky);
 }
+.ctx-ic svg {
+  width: 18px;
+  height: 18px;
+}
 .ctx-text {
   display: grid;
   min-width: 0;
 }
 .ctx-title {
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font: 600 var(--fs-row) / 1.25rem var(--sans);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ctx-sub {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ctx-chip > svg {
   flex: none;
-  margin-left: 2px;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
-/* a 32 px icon tile before a row's title */
+/* a 32 px icon tile before a row's title (guide 6.4): Haze, r 12, the glyph in Deep Sky (4.43 on Haze, a graphic) */
 .icon-tile {
   flex: none;
   display: grid;
@@ -160,8 +173,8 @@
   width: 32px;
   height: 32px;
   border-radius: var(--r-icon);
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 
 /* a full-width white action pill with centred words (Settings' secondary actions) */
@@ -191,7 +204,8 @@
   color: var(--ink);
 }
 
-/* ---------- buttons ---------- */
+/* ---------- buttons ----------
+ * 48 is the app's inline floor (the guide's 44 is a minimum; plan 5.4 keeps 48 where the app set it); 54 full width. */
 .btn {
   min-height: 48px;
   border-color: transparent;
@@ -204,10 +218,7 @@
 .btn.quiet {
   box-shadow: none;
 }
-.btn.soft {
-  background: var(--columbia-wash);
-  color: var(--ink);
-}
+
 /* the small button's floor has the base's weight (:where), so a feature's own min-height on it still wins */
 .btn:where(.sm) {
   min-height: 36px;
@@ -250,15 +261,7 @@
   box-shadow: var(--shadow-1);
 }
 
-/* ---------- the tab bar's trailing avatar: a floating white capsule ---------- */
-.nb-trail .avatar {
-  background: var(--surface);
-  box-shadow: var(--shadow-float);
-}
-.avatar-disc {
-  background: var(--columbia-wash);
-  color: var(--ink-2);
-}
+/* ---------- the bar's trailing avatar: the 40 px Paper disc carries its own float (foundation.css), in its 44 px hit box ---------- */
 
 /* ---------- the pushed bar: round back button, centred title; a background only once the page scrolls under it ---------- */
 .pushed-bar {
@@ -269,7 +272,7 @@
   background: var(--bg);
 }
 .pushed-bar .back-btn {
-  margin-left: 16px;
+  margin-left: var(--gutter);
 }
 .back-btn {
   margin-left: 0;
@@ -280,13 +283,13 @@
  * here would lose to its older serif and flex rules. Close (or Back inside a push) sits left, the panel's action right
  * (Sheet.tsx), both sides as wide as the wider, so the title stays on the centre line. */
 .sheet-wrap > .sheet {
-  border-radius: 24px 24px 0 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
   border-top: 0;
-  background: var(--bg);
+  background: var(--sheet-bg);
 }
 .sheet .sheet-grab {
   padding: 0 var(--gutter) 10px;
-  background: var(--bg);
+  background: var(--sheet-bg);
 }
 .sheet .sheet-grab-bar {
   height: 20px;
@@ -294,8 +297,8 @@
 .sheet .sheet-grip {
   width: 36px;
   height: 5px;
-  border-radius: 3px;
-  background: var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--grabber);
 }
 .sheet .sheet-head {
   --side: 40px;
@@ -392,9 +395,9 @@
 .sheet .sheet-header {
   padding: 0 var(--gutter) 12px;
 }
-/* the pinned foot: the verbs never scroll away; a fade, not a rule, above them */
+/* the pinned foot: the verbs never scroll away; a fade of the sheet's own ground, not a rule, above them */
 .sheet .sheet-foot {
-  background: linear-gradient(to bottom, rgba(243, 248, 251, 0), var(--bg) 14px);
+  background: linear-gradient(to bottom, var(--sheet-bg-0), var(--sheet-bg) 14px);
   padding-top: 18px;
 }
 .sheet .sheet-foot .btn {
@@ -452,9 +455,10 @@ textarea.in:focus {
   border-color: var(--ink-2);
 }
 
-/* ---------- toasts: a small white pill floating at the top, under the status bar (Toast.tsx) ----------
- * Doubled up (.toast-host .toast) because ui.css and foundation.css, which hold the older bottom-placed navy pill, load
- * after this file. */
+/* ---------- toasts: the Night Ink pill (guide 6.10), floating at the top under the status bar (Toast.tsx) ----------
+ * Placed at the top, not 12 px above the dock as the guide draws it: the status pill owns the slot above the dock and a
+ * toast there would cover it (shell-24, foundation decision G9). Doubled up (.toast-host .toast) because ui.css and
+ * foundation.css load after this file. */
 /* under the 44 px bar row (safe top + 8 + 44), so it never covers a bar's title or its controls (shell-24); over a tall
    sheet, under the sheet's grabber and header row */
 .toast-host {
@@ -465,26 +469,26 @@ html:has(.sheet[data-tall]) .toast-host {
   top: calc(var(--safe-t) + 92px);
 }
 .toast-host .toast {
-  min-height: 40px;
-  gap: 12px;
-  padding: 8px 18px;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-float);
-  color: var(--ink);
+  min-height: 48px;
+  gap: var(--sp-3);
+  padding: 14px var(--sp-5); /* brand-ok: geometry, 14 + 20 + 14 = the 48 px pill (guide 6.10) */
+  border-radius: var(--r-card);
+  background: var(--ink);
+  border: 0;
+  box-shadow: var(--shadow-2);
+  color: var(--white);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .toast-host .toast:has(.toast-act) {
-  padding-right: 10px;
+  padding-right: var(--sp-3);
 }
 .toast-host .toast-act {
-  /* 44 to the thumb (shell-20), pulled into the 40 px pill by its negative margins */
-  margin: -10px -4px -10px 0;
+  /* 44 to the thumb (shell-20), pulled into the 48 px pill by its negative margins */
+  margin: calc(-1 * var(--sp-3)) 0;
   min-height: 44px;
-  padding: 0 10px;
+  padding: 0 var(--sp-2);
   border-radius: var(--r-pill);
-  color: var(--accent-text);
+  color: var(--haze);
   font-weight: 600;
   text-decoration: none;
 }
@@ -496,17 +500,17 @@ html:has(.sheet[data-tall]) .toast-host {
 
 /* ---------- context menus: a white rounded card with a soft shadow (ContextMenu.tsx) ---------- */
 .cm-layer .cm-menu {
-  padding: 4px 0;
+  padding: var(--sp-1) 0;
   background: var(--surface);
   border: var(--card-border);
-  border-radius: var(--r-tile);
+  border-radius: var(--r-menu);
   box-shadow: var(--shadow-2);
 }
 .cm-layer .cm-item {
   position: relative;
-  min-height: 48px;
-  padding: 12px 16px;
-  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  min-height: 44px;
+  padding: 11px var(--sp-4); /* brand-ok: geometry, 11 + 22 + 11 = the 44 px item (guide 6.14) */
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
 }
 /* hairlines inset from the left edge, as an inset group's are */
 .cm-layer .cm-item + .cm-item {
@@ -516,19 +520,19 @@ html:has(.sheet[data-tall]) .toast-host {
   content: '';
   position: absolute;
   top: 0;
-  left: 16px;
+  left: var(--sp-4);
   right: 0;
   height: 1px;
   background: var(--line);
 }
 /* destructive actions come last, after a band of the page colour */
 .cm-layer .cm-item.sep {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
 }
 .cm-layer .cm-item.sep::before {
-  top: -8px;
+  top: calc(-1 * var(--sp-2));
   left: 0;
-  height: 8px;
+  height: var(--sp-2);
   background: var(--bg);
 }
 .cm-layer .cm-item[data-pressed]:not(:disabled),
@@ -536,7 +540,7 @@ html:has(.sheet[data-tall]) .toast-host {
   background: var(--surface-2);
 }
 .cm-layer .cm-icon {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .cm-layer .cm-item.destructive .cm-icon {
   color: var(--bad);
@@ -553,6 +557,12 @@ html:has(.sheet[data-tall]) .toast-host {
   letter-spacing: 0;
   text-transform: none;
   color: var(--ink-3);
+}
+
+/* ---------- context chips at very large text (above 150 percent): one chip a row, so each keeps its words (guide 11:
+ * a two-column row may become one column at 200 percent) ---------- */
+html[data-text-xl] .ctx-row {
+  flex-direction: column;
 }
 
 /* ---------- context chips on a narrow phone: the words get the room (icons go), each chip as wide as its words ---------- */
@@ -688,9 +698,6 @@ html:has(.sheet[data-tall]) .toast-host {
   font-weight: 650;
   color: var(--accent-ink);
 }
-:root .toast-host .toast {
-  background: var(--surface);
-}
 /* Today's own primary pill */
 :root .pd-goal-cta {
   background: var(--primary);
@@ -698,13 +705,18 @@ html:has(.sheet[data-tall]) .toast-host {
   box-shadow: var(--primary-glow);
   text-shadow: none;
 }
-/* pinned bars stay solid; a soft Cloud fade under them lets what scrolls beneath slide away instead of being cut */
-:root .nb-bar.is-collapsed,
+/* pinned bars stay solid and carry the wash they sit on (guide 5.3, foundation.css); a soft fade of their own color under
+   them lets what scrolls beneath slide away instead of being cut. No hairline: the wash is the edge */
+:root .nb-bar.is-collapsed {
+  box-shadow: 0 10px 12px 0 var(--wash-bar);
+}
+/* on Today the strip sits right under the bar and carries its own fade: the bar's would wash over today's dot */
+:root .nb-bar.is-collapsed:has(~ .nb-strip) {
+  box-shadow: none;
+}
 :root .pushed-bar.is-collapsed {
-  box-shadow:
-    0 1px 0 var(--line),
-    0 14px 12px 0 rgba(234, 245, 252, 0.9);
+  box-shadow: 0 10px 12px 0 var(--bg);
 }
 :root .nb-strip {
-  box-shadow: 0 14px 12px 0 rgba(234, 245, 252, 0.9);
+  box-shadow: 0 10px 12px 0 var(--wash-strip-end);
 }

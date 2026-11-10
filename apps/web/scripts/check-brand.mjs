@@ -231,7 +231,9 @@ for (const file of files) {
     for (const m of text.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
       const body = m[2], at0 = m.index + m[1].length + 1;
       if (/@font-face/.test(m[1])) continue;
-      const decl = (re, fn) => { for (const d of body.matchAll(re)) fn(d, lineOf(text, at0 + d.index)); };
+      // the line of the property itself, not of the `;` that ends the declaration before it (so a `brand-ok` on the
+      // property's own line is read)
+      const decl = (re, fn) => { for (const d of body.matchAll(re)) fn(d, lineOf(text, at0 + d.index + (d[0].length - d[0].replace(/^[;\s]+/, '').length))); };
       decl(/(?:^|;)\s*(border(?:-(?:top|bottom)-(?:left|right))?-radius)\s*:\s*([^;]+)/g, (d, ln) => {
         const v = d[2].trim();
         if (!v.split(/\s+/).every((x) => /^var\(--r-[\w-]+\)$|^50%$|^999px$|^0(px)?$|^inherit$/.test(x))) add(file, ln, 'radius', `${d[1]}: ${v}`, lines);

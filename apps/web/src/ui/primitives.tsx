@@ -90,6 +90,7 @@ export interface EmptyStateProps {
   /** v1: any node at the right (a button). Prefer `verb`. */
   action?: ReactNode;
   /** The one verb that fills the state: a button under the sentence. */
+  /** `primary` is kept for the call sites; the guide (6.11) draws an empty state's button as a secondary, so it is ignored. */
   verb?: { label: string; onPress: () => void; haptic?: HapticEvent; primary?: boolean };
   /**
    * The shape of the filled state, drawn at 30% and untouchable. Shapes only (critic B1): a `GhostBars`, `GhostLines` or
@@ -162,8 +163,10 @@ export const EmptyState = ({ children, text, action, verb, ghost: ghostIn, start
           </div>
         ) : null}
         {verb ? (
+          // an empty state's one button is a secondary (guide 6.11): the screen keeps its one Sky primary elsewhere, and a
+          // caller's `primary` no longer turns it Sky
           <Button
-            variant={verb.primary ? 'primary' : 'soft'}
+            variant="soft"
             onClick={() => {
               fireHaptic(verb.haptic);
               verb.onPress();

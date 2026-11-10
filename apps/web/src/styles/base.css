@@ -90,6 +90,23 @@ img,
 svg {
   display: block;
 }
+/*
+ * Icons (guide 7): one stroke for every Lucide glyph, 1.75 with round caps and joins (CSS beats the presentation attribute
+ * Lucide writes, so the 171 strokeWidth props stop mattering above 15 px). Small glyphs keep more weight, since 1.75 in a
+ * 24-unit grid drawn at 14 px or less is under 1.1 px on screen: 2.25 there. The week strip's kind glyphs keep their own
+ * 2.4 (foundation.css). The brand set (ui/icons.tsx) draws at 1.75 itself.
+ */
+svg.lucide {
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+svg.lucide:is([width='11'], [width='12'], [width='13'], [width='14']) {
+  stroke-width: 2.25;
+}
+.nb-kinds svg.lucide {
+  stroke-width: 2.4;
+}
 ul,
 ol {
   margin: 0;
@@ -136,11 +153,13 @@ ol {
   font-weight: 400;
   letter-spacing: -0.01em;
 }
+/* a caps label: the caption style (guide 4.3) on its 16 px line */
 .t-label {
-  font-size: 0.6875rem;
+  font-family: var(--stamp);
+  font-size: var(--fs-caps);
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
 }
 .t-cap {
@@ -179,13 +198,36 @@ input[type='number'] {
   font-variant-numeric: tabular-nums;
   text-transform: uppercase;
 }
-.caps {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
+/* the caption (guide 4.3): Inter Tight 600, the 11 px floor, caps, +0.14 em (the only caps tracking), Dusk or Night Ink */
+.caps,
+.t-caption {
+  font-family: var(--stamp);
+  font-size: var(--fs-caps);
+  line-height: var(--lh-caps);
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
+}
+/* the type roles a feature should reach for instead of writing a font by hand (guide 4.2) */
+/* a hero number that changes: Inter 650, even figures */
+.t-stat-live {
+  font: 650 var(--fs-stat-live) / 1 var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* the sentence voice: a prompt or a greeting, Fraunces italic 420, Night Ink */
+.t-sentence {
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--display);
+  letter-spacing: 0;
+  color: var(--ink);
+}
+/* a subline or a quote: Fraunces italic 420 at the 17 px floor, Dusk */
+.t-sentence-sm {
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--display);
+  letter-spacing: 0;
+  color: var(--ink-2);
 }
 .muted {
   color: var(--ink-3);

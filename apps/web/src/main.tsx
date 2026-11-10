@@ -40,6 +40,8 @@ import './styles/ui.css';
 import './styles/shape.css';
 // the layout kit's rhythm (sections, headers, footnotes): docs/layout-review.md §3
 import './styles/layout.css';
+// the switch (guide 6.14): its look is the foundation's, since it renders on Goals and on Settings (plan 5.4)
+import './styles/switch.css';
 
 // native first: its splash cap is armed before any other boot helper runs (gap-ios-23)
 void bootNative();
