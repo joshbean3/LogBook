@@ -33,7 +33,7 @@ export default function SettingsView(): React.JSX.Element {
   const boot = useBootstrap();
   const nav = useNav();
   const openRoutine = useOpenRoutineEditor();
-  const { profile, block, loaded, stored: hasStored, source } = useTrainingProfile();
+  const { profile, block, loaded, stored: hasStored, noPlan } = useTrainingProfile();
   const go = (section: string) => () => nav.push(`/settings/${section}`);
   const routerNav = useNavigate();
   // the push's commit draws the whole page, bar and every group, so it is whole on the slide's first frame (review feel
@@ -66,11 +66,11 @@ export default function SettingsView(): React.JSX.Element {
       </SGroup>
 
       <SGroup title="Training">
-        {source === 'none' && loaded ? (
+        {noPlan && loaded ? (
           <GoRow icon={CalendarDays} title="Build a plan" sub="Pick your days and miles. Logbook writes the weeks." onPress={go('training')} />
         ) : (
           <>
-            <GoRow icon={Gauge} title={source === 'block' ? 'This week' : 'Starting miles'} value={loaded ? `${profile.weeklyMiles} mi` : dash} onPress={go('training')} />
+            <GoRow icon={Gauge} title={hasStored ? 'Starting miles' : 'This week'} value={loaded ? `${profile.weeklyMiles} mi` : dash} onPress={go('training')} />
             {/* at 320 the day names give way to a count, rather than an ellipsis that hides the last days */}
             <GoRow
               icon={CalendarDays}

@@ -12,7 +12,7 @@ import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 import { PushedBar, Row } from '@/ui';
 import { SectionHeader } from '@/ui/layout';
-import { TriangleAlert } from 'lucide-react';
+import { PencilLine, TriangleAlert } from 'lucide-react';
 import { SCard, SGroup } from './parts';
 import { jumpWords, LAST_RUN_DAY, milesJump } from './trainingModel';
 import { useTrainingProfile } from './useProfile';
@@ -51,7 +51,7 @@ const useDraftProfile = () => {
  * runs and the past stay), and Undo changes. `nowMiles` is what the person runs a week now (null with no plan): a change
  * that raises it by more than 30% is warned about on the card before Rebuild.
  */
-const RebuildBar = ({ show, profile, before, nowMiles, onDone, onReset, save }: { show: boolean; profile: TrainingProfile; before: TrainingProfile; nowMiles: number | null; onDone: (p: TrainingProfile) => void; onReset: () => void; save: (p: TrainingProfile) => void }) => {
+const RebuildBar = ({ show, build = false, dirty = true, profile, before, nowMiles, onDone, onReset, save }: { show: boolean; /** No plan to rebuild: the card builds the first one. */ build?: boolean; /** Something was changed (Undo changes shows only then). */ dirty?: boolean; profile: TrainingProfile; before: TrainingProfile; nowMiles: number | null; onDone: (p: TrainingProfile) => void; onReset: () => void; save: (p: TrainingProfile) => void }) => {
   const reduce = useReducedMotion();
   const toast = useToast();
   const rebuild = useRebuildPlan();
@@ -88,7 +88,7 @@ const RebuildBar = ({ show, profile, before, nowMiles, onDone, onReset, save }: 
         onError: (e) => {
           haptics.error();
           // a refused template comes with its own sentence ("80 miles a week needs at least 7 run days."): shown as it is
-          setErr(e instanceof ApiError && e.code === 'bad_template' && e.message ? e.message : e instanceof ApiError && e.status === 422 ? 'That race day doesn’t fit a plan starting next week. Pick a later one.' : 'Couldn’t rebuild the plan. Check your connection and try again.');
+          setErr(e instanceof ApiError && e.code === 'bad_template' && e.message ? e.message : e instanceof ApiError && e.status === 422 ? 'That race day doesn’t fit a plan starting next week. Pick a later one.' : build ? 'Couldn’t build the plan. Check your connection and try again.' : 'Couldn’t rebuild the plan. Check your connection and try again.');
         },
       },
     );
@@ -183,7 +183,7 @@ const RebuildBar = ({ show, profile, before, nowMiles, onDone, onReset, save }: 
           ref={cardRef}
           className="s-rebuild halo halo-upcoming"
           role="region"
-          aria-label="Rebuild my plan"
+          aria-label={build ? 'Build my plan' : 'Rebuild my plan'}
           aria-hidden={show ? undefined : true}
           inert={!show}
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
@@ -193,20 +193,22 @@ const RebuildBar = ({ show, profile, before, nowMiles, onDone, onReset, save }: 
             if (!show) left();
           }}
         >
-          <p className="s-rebuild-title">Rebuild my plan from next week</p>
-          <p className="s-rebuild-sub">{err ?? (tpl ? `${tpl.name}. ${tpl.summary} Runs you’ve done stay.` : 'Starts Monday. Runs you’ve done stay.')}</p>
+          <p className="s-rebuild-title">{build ? 'Build my plan from next week' : 'Rebuild my plan from next week'}</p>
+          <p className="s-rebuild-sub">{err ?? (build ? (tpl ? `${tpl.name}. ${tpl.summary}` : 'Starts Monday.') : tpl ? `${tpl.name}. ${tpl.summary} Runs you’ve done stay.` : 'Starts Monday. Runs you’ve done stay.')}</p>
           {jump && !err ? (
             <p className="s-rebuild-warn" role="status">
               <TriangleAlert size={16} strokeWidth={2.2} aria-hidden="true" />
               <span>{jumpWords(jump)}</span>
             </p>
           ) : null}
-          <div className="s-rebuild-actions">
-            <button type="button" className="btn quiet" onClick={onReset} disabled={rebuild.isPending}>
-              Undo changes
-            </button>
+          <div className={`s-rebuild-actions ${dirty ? '' : 'is-one'}`}>
+            {dirty ? (
+              <button type="button" className="btn quiet" onClick={onReset} disabled={rebuild.isPending}>
+                Undo changes
+              </button>
+            ) : null}
             <button type="button" className="btn primary s-rebuild-go" onClick={go} disabled={rebuild.isPending}>
-              {rebuild.isPending ? 'Rebuilding…' : jump ? 'Rebuild anyway' : 'Rebuild'}
+              {build ? (rebuild.isPending ? 'Building…' : 'Build my plan') : rebuild.isPending ? 'Rebuilding…' : jump ? 'Rebuild anyway' : 'Rebuild'}
             </button>
           </div>
         </motion.div>
@@ -240,7 +242,11 @@ const NameRow = () => {
   useEffect(() => setV(saved), [saved]);
   const commit = () => {
     const next = v.trim().slice(0, 60);
-    if (next === saved) return;
+    // the field always shows what is kept: trimmed, and spaces only fall back to the saved name (or the placeholder). An
+    // emptied field clears the name.
+    const blank = !next && v !== '';
+    setV(blank ? saved : next);
+    if (blank || next === saved) return;
     setName.mutate(next, {
       onError: () => {
         haptics.error();
@@ -263,11 +269,14 @@ const NameRow = () => {
         placeholder="Add your name"
         value={v}
         onChange={(e) => setV(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
         }}
       />
+      {/* says the name is typed here, not a value to read like the email under it */}
+      <PencilLine size={16} strokeWidth={2} className="s-name-pen" aria-hidden="true" />
     </label>
   );
 };
@@ -292,7 +301,8 @@ export const YouPage = () => {
       <PushedBar title="You" />
       <SGroup title="Account">
         <NameRow />
-        <Row title="Email" right={<span className="s-value s-email">{boot.data?.user.email}</span>} />
+        {/* the address on its own line, whole: a long one wraps instead of losing its end */}
+        <Row title="Email" sub={boot.data?.user.email} className="s-wrap s-email-row" />
       </SGroup>
       <section className="lb-sec s-sec" aria-labelledby="s-goal-h">
         <SectionHeader size="sm" id="s-goal-h" title="Training for" />
@@ -320,7 +330,7 @@ export const YouPage = () => {
           </>
         )}
       </section>
-      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} nowMiles={d.source === 'none' ? null : d.profile.weeklyMiles} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
+      <RebuildBar show={d.dirty} build={d.noPlan} profile={d.p} before={d.profile} nowMiles={d.noPlan ? null : d.profile.weeklyMiles} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );
 };
@@ -336,12 +346,31 @@ export const TrainingPage = () => {
   useEffect(() => setPace(savedPace), [savedPace]);
   // pace is the Morning page's number, not the plan's: it saves on its own, a beat after the last step
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pending = useRef<number | null>(null);
+  const savePace = (v: number) => morning.settings.mutate({ run: { pace: v } }, { onError: () => toast('Couldn’t save the pace. Try again.') });
+  const saveRef = useRef(savePace);
+  saveRef.current = savePace;
   const changePace = (v: number) => {
     setPace(v);
+    pending.current = v;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => morning.settings.mutate({ run: { pace: v } }, { onError: () => toast('Couldn’t save the pace. Try again.') }), 600);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      pending.current = null;
+      savePace(v);
+    }, 600);
   };
-  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  // leaving the page within the beat still saves the last step: the wait is flushed, never dropped
+  useEffect(
+    () => () => {
+      if (!timer.current) return;
+      clearTimeout(timer.current);
+      timer.current = null;
+      if (pending.current != null) saveRef.current(pending.current);
+      pending.current = null;
+    },
+    [],
+  );
   // the day letters refuse to drop the last run day (a shake); here the reason is put in words under them
   const [lastDay, setLastDay] = useState(false);
   const runDayCount = d.p.runDays.length;
@@ -360,8 +389,10 @@ export const TrainingPage = () => {
           <SCard
             title="Weekly miles"
             foot={
-              d.source === 'block'
-                ? 'This week of your current block. Change it and Logbook rebuilds from next week, building about 10% a week.'
+              d.noPlan
+                ? 'Where a new plan starts. It builds about 10% a week, with a lighter week every fourth.'
+                : d.source === 'block'
+                ? 'This week of your current plan. Change it and Logbook rebuilds from next week, building about 10% a week.'
                 : d.source === 'none'
                   ? 'Where a new plan starts. It builds about 10% a week, with a lighter week every fourth.'
                   : 'Where your plan started. Change it and Logbook rebuilds from next week, building about 10% a week.'
@@ -389,7 +420,8 @@ export const TrainingPage = () => {
       <SCard title="Easy pace" foot="Morning times each run at this pace. It saves as you change it.">
         <Dial value={pace} onChange={changePace} min={240} max={1200} step={5} format={paceText} unit="per mile" valueText={(v) => `${Math.floor(v / 60)} minutes ${v % 60} seconds per mile`} label="Easy pace" scrubPx={8} />
       </SCard>
-      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} nowMiles={d.source === 'none' ? null : d.profile.weeklyMiles} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
+      {/* with no current or upcoming plan the card stays, to build one; with a plan it follows a change */}
+      <RebuildBar show={d.dirty || (d.loaded && d.noPlan)} build={d.noPlan} dirty={d.dirty} profile={d.p} before={d.profile} nowMiles={d.noPlan ? null : d.profile.weeklyMiles} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );
 };

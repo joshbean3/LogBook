@@ -553,6 +553,14 @@
   font-size: 1.0625rem;
   color: var(--ink-2);
 }
+.s-name-pen {
+  flex: none;
+  margin-left: 8px;
+  color: var(--ink-3);
+}
+.s-name-row:has(.s-name-in:focus) .s-name-pen {
+  color: var(--accent);
+}
 .s-name-in::placeholder {
   color: var(--ink-4);
 }
@@ -562,6 +570,20 @@
 }
 .s-name-row:has(.s-name-in:focus-visible) {
   box-shadow: inset 0 -2px 0 var(--accent-bright);
+}
+/* who is signed in (You, Account): a long address wraps anywhere rather than losing its end */
+.s-email-row .lrow-title,
+.s-email-row .lrow-sub {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.s-email-row .lrow-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.s-email-row {
+  padding-block: 11px;
 }
 .s-archived .lrow-title {
   color: var(--ink-3);

@@ -186,7 +186,7 @@ export const AccountPage = (): React.JSX.Element => {
       <PushedBar title="Account" />
       {/* who is signed in, then the two ways out as action pills (reference 660), the one that loses everything in red */}
       <SGroup title="Signed in as">
-        <Row title={boot.data?.user.email ?? ' '} className="s-email-row has-tile" left={<Tile icon={Mail} />} />
+        <Row title={boot.data?.user.email ?? ' '} className="s-email-row s-wrap-title has-tile" left={<Tile icon={Mail} />} />
         <GoRow icon={KeyRound} title="Change password" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Change password', body: <ChangePasswordPanel />, sticky: true })} />
       </SGroup>
       <div className="s-pills">

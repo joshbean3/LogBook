@@ -48,6 +48,8 @@ export const useTrainingProfile = () => {
     loaded: !!boot.data && (fresh || !block || ready),
     /** The answers came from the account, not read back from the plan. */
     stored: fresh,
+    /** No current or upcoming plan (answers may still be kept): Settings offers to build one. */
+    noPlan: !!boot.data && !block,
     save: (p: TrainingProfile, opts?: { onSuccess?: () => void }) =>
       saveTraining.mutate({ goal: p.goal, raceDate: p.goal === 'base' ? null : p.raceDate, runDays: p.runDays, longRunDay: p.longRunDay, weeklyMiles: p.weeklyMiles }, opts),
   };
