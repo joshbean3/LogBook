@@ -23,7 +23,7 @@ say "3/6  Building the shared package"
 pnpm --filter @logbook/shared build || fail "the shared build failed (see above)."
 
 say "4/6  Building the app for iPhone"
-pnpm --filter @logbook/web build:ios || fail "the app build failed. Paste the red lines above to Claude."
+VITE_FEATURE_STRAVA=1 pnpm --filter @logbook/web build:ios || fail "the app build failed. Paste the red lines above to Claude."
 grep -rqs "$want" apps/web/dist/assets || fail "the new build doesn't carry commit $want. Paste this message to Claude."
 echo "Build carries commit $want"
 
@@ -33,4 +33,4 @@ grep -rqs "$want" apps/web/ios/App/App/public/assets || fail "the iOS project di
 
 say "6/6  Opening Xcode"
 (cd apps/web && npx cap open ios)
-printf '\n\033[32mReady.\033[0m In Xcode: Shift+Cmd+K, then Run. In the app, Settings should end with "Built %s".\n' "$want"
+printf '\n\033[32mReady.\033[0m In Xcode: Shift+Cmd+K, then Run. In the app, Settings > About should read "Version ... (%s)".\n' "$want"
