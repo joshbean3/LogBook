@@ -65,3 +65,7 @@ export const passwordRefusal = (e: unknown): PasswordProblem => {
   }
   return { field: 'current', text: 'Couldn’t change the password. Try again.' };
 };
+
+/** The sign-out sheet's words: who is signed out, and what is still waiting on this phone (the outbox) when there is any. */
+export const signOutLede = (email: string | null | undefined) => `Sign out of ${email || 'this account'}? Everything you’ve logged stays in your account for when you sign in again.`;
+export const unsentWords = (n: number) => (n > 0 ? `${n === 1 ? '1 change on this phone hasn’t' : `${n} changes on this phone haven’t`} been sent yet. Signing out now loses ${n === 1 ? 'it' : 'them'}. Go online first to keep ${n === 1 ? 'it' : 'them'}.` : null);

@@ -15,7 +15,7 @@ vi.mock('@/api/client', () => {
 });
 
 import { ApiError, NetworkError } from '@/api/client';
-import { BACKUP_KEEP_DAYS, DELETE_COPIES, deleteLede, exportNote, passwordProblem, passwordRefusal } from './accountModel';
+import { BACKUP_KEEP_DAYS, DELETE_COPIES, deleteLede, exportNote, passwordProblem, passwordRefusal, signOutLede, unsentWords } from './accountModel';
 
 describe('what an export says it did', () => {
   it('says Shared only for a share that finished, and names a closed share sheet', () => {
@@ -52,5 +52,14 @@ describe('change password', () => {
     expect(passwordRefusal(new NetworkError()).text).toBe('Couldn’t reach Logbook. Check your connection.');
     // a server without the route yet: no jargon, no dead end
     expect(passwordRefusal(new ApiError('Not found', 404)).text).toBe('Couldn’t change the password. Try again.');
+  });
+});
+
+describe('sign out', () => {
+  it('names the email and mentions unsent changes only when there are some', () => {
+    expect(signOutLede('sam@example.com')).toMatch(/^Sign out of sam@example\.com\?/);
+    expect(unsentWords(0)).toBeNull();
+    expect(unsentWords(1)).toBe('1 change on this phone hasn’t been sent yet. Signing out now loses it. Go online first to keep it.');
+    expect(unsentWords(3)).toMatch(/^3 changes on this phone haven’t been sent yet/);
   });
 });

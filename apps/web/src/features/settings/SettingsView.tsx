@@ -17,7 +17,7 @@ import { LogoMark, PushedBar, Row } from '@/ui';
 import { ActionPill, GoRow, SGroup, Tile } from './parts';
 import { supportMail } from './PrivacyPage';
 import { consentWord } from './privacyModel';
-import { HapticsRow, useSignOut } from './SectionPages';
+import { HapticsRow, useConfirmSignOut } from './SectionPages';
 import { StravaReturn, StravaRootRows } from './StravaSource';
 import { useAppVersion } from './version';
 import { useTrainingProfile } from './useProfile';
@@ -53,7 +53,7 @@ export default function SettingsView(): React.JSX.Element {
   const days = loaded ? (profile.runDays.length > 5 ? `${profile.runDays.length} a week` : sortDays(profile.runDays).map((d) => DAY_SHORT[d]).join(' ')) : dash;
   const consent = useConsent();
   const version = useAppVersion();
-  const signOut = useSignOut();
+  const confirmSignOut = useConfirmSignOut();
 
   return (
     <div ref={pageRef} className="page s-set s-root">
@@ -160,8 +160,8 @@ export default function SettingsView(): React.JSX.Element {
       </SGroup>
 
       <div className="s-pills">
-        <ActionPill className="s-signout" disabled={signOut.isPending} onPress={() => signOut.mutate()}>
-          {signOut.isPending ? 'Signing out…' : 'Sign out'}
+        <ActionPill className="s-signout" onPress={confirmSignOut}>
+          Sign out
         </ActionPill>
       </div>
 

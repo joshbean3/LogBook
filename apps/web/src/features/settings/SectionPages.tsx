@@ -6,8 +6,11 @@ import { useBootstrap } from '@/api/queries';
 import { markSignedOut } from '@/features/auth/flag';
 import { haptics, useHapticsEnabled } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
+import { outbox } from '@/api/outbox';
+import { Button } from '@/ui/primitives';
 import { PushedBar, Row, useSheet, useToast } from '@/ui';
 import { ChangePasswordPanel, DeleteStepOne, useExport } from './account';
+import { signOutLede, unsentWords } from './accountModel';
 import { popFav } from '@/features/journal/feel';
 import { Download, House, KeyRound, Mail, Upload, Vibrate, type LucideIcon } from 'lucide-react';
 import { healthDeviceId } from './healthDevice';
@@ -176,11 +179,52 @@ export const useSignOut = () => {
   });
 };
 
+/**
+ * Sign out asks first (both pills, the root's and the Account page's): the sheet names the account and, when this phone
+ * still holds changes the server has not had, says they would be lost.
+ */
+const SignOutSheet = (): React.JSX.Element => {
+  const boot = useBootstrap();
+  const sheet = useSheet();
+  const signOut = useSignOut();
+  const [unsent, setUnsent] = useState(() => outbox.size());
+  useEffect(() => {
+    const off = outbox.subscribe(setUnsent);
+    return () => void off();
+  }, []);
+  const warn = unsentWords(unsent);
+  return (
+    <div className="s-del">
+      <div className="s-del-lede s-signout-lede">
+        <p>{signOutLede(boot.data?.user.email)}</p>
+        {warn ? (
+          <p className="s-signout-warn" role="status">
+            {warn}
+          </p>
+        ) : null}
+      </div>
+      <div className="s-del-actions">
+        <Button variant="primary" block onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+          {signOut.isPending ? 'Signing out…' : 'Sign out'}
+        </Button>
+        <Button variant="quiet" block onClick={() => sheet.close()}>
+          Stay signed in
+        </Button>
+      </div>
+    </div>
+  );
+};
+/** Opens the sign-out sheet. */
+export const useConfirmSignOut = () => {
+  const sheet = useSheet();
+  return () => sheet.open({ eyebrow: 'Account', title: 'Sign out?', body: <SignOutSheet /> });
+};
+
 /** /settings/account: who is signed in, Change password, then Sign out and Delete account (a two-step sheet) as action pills. */
 export const AccountPage = (): React.JSX.Element => {
   const boot = useBootstrap();
   const sheet = useSheet();
-  const logout = useSignOut();
+  const confirmSignOut = useConfirmSignOut();
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Account" />
@@ -190,8 +234,8 @@ export const AccountPage = (): React.JSX.Element => {
         <GoRow icon={KeyRound} title="Change password" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Change password', body: <ChangePasswordPanel />, sticky: true })} />
       </SGroup>
       <div className="s-pills">
-        <ActionPill className="s-signout" disabled={logout.isPending} onPress={() => logout.mutate()}>
-          {logout.isPending ? 'Signing out…' : 'Sign out'}
+        <ActionPill className="s-signout" onPress={confirmSignOut}>
+          Sign out
         </ActionPill>
         <ActionPill danger className="s-danger" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Delete account', body: <DeleteStepOne /> })}>
           Delete account

@@ -454,6 +454,18 @@
   color: var(--ink-2);
 }
 
+/* ---------- sign out: who, and what would be lost ---------- */
+.s-signout-lede p {
+  margin: 0;
+}
+.s-signout-lede .s-signout-warn {
+  margin-top: 8px;
+  color: var(--bad);
+}
+.s-signout-lede {
+  overflow-wrap: anywhere;
+}
+
 /* ---------- delete account ---------- */
 .s-del {
   display: grid;
