@@ -117,7 +117,7 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
               <span className="sub-wide">{sub}</span>
               {/* 320: `2 h 15 min after waking` does not fit beside the stamp, and a bare duration said nothing (feel review 2
                   R2-9): the alarm it counts from does */}
-              <span className="sub-narrow">Alarm {short(T.day.wake)}</span>
+              <span className="sub-narrow">Wake {short(T.day.wake)}</span>
             </>
           ) : (
             sub

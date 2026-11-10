@@ -123,7 +123,7 @@ const stopWord = (st: MorningSettings, k: MorningAfterKey) => {
   return /^\S{1,7}$/.test(name) ? name : STOP_WORD[k]!;
 };
 
-/** A rest morning's line: alarm, the routine's first and last block, leave. Null without a timeline. */
+/** A rest morning's line: wake, the routine's first and last block, leave. Null without a timeline. */
 export const restStops = (log: Log, date: ISODate): Stop[] | null => {
   const st = log.boot?.morningSettings;
   if (!st) return null;
@@ -132,7 +132,7 @@ export const restStops = (log: Log, date: ISODate): Stop[] | null => {
   const first = routine[0];
   const last = routine.length > 1 ? routine[routine.length - 1] : undefined;
   return [
-    { key: 'wake', label: 'Alarm', at: T.day.wake },
+    { key: 'wake', label: 'Wake', at: T.day.wake },
     ...(first ? [{ key: 'first', label: stopWord(st, first.key as MorningAfterKey), at: first.start }] : []),
     ...(last ? [{ key: 'last', label: stopWord(st, last.key as MorningAfterKey), at: last.start }] : []),
     { key: 'leave', label: 'Leave', at: T.leave },
@@ -303,7 +303,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     return { ...base, quiet: false, key: `skipped-${lead.session.id}${stops ? '-am' : ''}`, kind: 'skipped', eyebrow, stamp: up(label(lead.session)), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
   }
   if (rm) {
-    const line = now < rm.wake ? `Alarm in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;
+    const line = now < rm.wake ? `Wake time in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;
     return { ...base, quiet: false, key: 'rest-morning', kind: 'restMorning', eyebrow: 'REST DAY', aside: next ? up(next.text.replace(/: /, ' · ')) : undefined, stamp: 'REST', line, stops: rm.stops, stopsLabel: stopsLabel(rm.stops), pressable: false };
   }
   return { ...base, quiet: false, key: 'rest', kind: 'rest', eyebrow: 'REST DAY', stamp: 'REST', line: 'Rest day', next, pressable: false };
@@ -327,7 +327,7 @@ export const planWords = (s: Session): string => {
   return bits.join(' · ') || label(s);
 };
 
-/** A rest morning before work: the alarm-to-leave line. Null once you have left (or with no timeline). */
+/** A rest morning before work: the wake-to-leave line. Null once you have left (or with no timeline). */
 export const restMorning = (log: Log, date: ISODate, ph: DayPhase) => {
   if (date !== log.today) return null;
   const stops = restStops(log, date);

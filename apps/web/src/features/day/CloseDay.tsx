@@ -1,5 +1,5 @@
 import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
-import { AlarmClock, ChevronRight, PenLine, Share, Type } from 'lucide-react';
+import { ChevronRight, PenLine, Share, Sunrise, Type } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -36,12 +36,12 @@ import { keepAboveKeyboard, revealBox } from './reveal';
 import { saveFocus, useFocus } from './WordSheet';
 
 /*
- * The card's heavier parts load on their own (the Journal's quote line, the morning's alarm editor, Reads' pick), each in its
+ * The card's heavier parts load on their own (the Journal's quote line, the morning's wake time editor, Reads' pick), each in its
  * fixed slot, so they never weigh on Today's first paint; `preloadCloseDay` fetches them at the first idle moment.
  */
 const loadQuote = () => import('../journal/JournalHome');
 const loadWake = () => import('../morning/StepSheets');
-/** The alarm editor's module once it is in (preloaded at idle): a tap then opens its sheet in the release's own task. */
+/** The wake time editor's module once it is in (preloaded at idle): a tap then opens its sheet in the release's own task. */
 let wakeMod: Awaited<ReturnType<typeof loadWake>> | null = null;
 const loadWakeKept = () => loadWake().then((m) => (wakeMod = m));
 const loadPick = () => import('../reads/TodaysPick');
@@ -561,8 +561,8 @@ const WordRow = () => {
 
 const weekday = (s: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(Date.parse(`${s}T12:00:00Z`));
 
-/** `Alarm 7:15 · change ›` (§5 step 5): tomorrow's alarm, the WakeEditor for tomorrow with `Just tomorrow` chosen, a medium sheet. */
-const AlarmRow = ({ log }: { log: Log }) => {
+/** `Wake time 7:15 · change ›` (§5 step 5): tomorrow's wake time, the WakeEditor for tomorrow with `Just tomorrow` chosen, a medium sheet. */
+const WakeRow = ({ log }: { log: Log }) => {
   const sheet = useSheet();
   const st = log.boot?.morningSettings ?? null;
   const tomorrow = shiftDays(log.today, 1);
@@ -571,16 +571,16 @@ const AlarmRow = ({ log }: { log: Log }) => {
   // fetched at idle, preloadCloseDay); a tap before that waits for it, once
   const rel = useReleaseTap(() => {
     if (!st || !T) return;
-    const open = ({ WakeEditor }: NonNullable<typeof wakeMod>) => sheet.open({ eyebrow: 'Tomorrow', title: 'Alarm', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> });
+    const open = ({ WakeEditor }: NonNullable<typeof wakeMod>) => sheet.open({ eyebrow: 'Tomorrow', title: 'Wake time', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> });
     if (wakeMod) open(wakeMod);
     else void loadWakeKept().then(open);
   });
   if (!st || !T) return null;
   return (
     <Pressable
-      className="row cd-trow cd-alarm"
+      className="row cd-trow cd-wake"
       press="surface"
-      label={`Alarm ${shortClock(T.day.wake)} tomorrow. Change`}
+      label={`Wake time ${shortClock(T.day.wake)} tomorrow. Change`}
       onPointerDown={rel.onPointerDown}
       onPointerMove={rel.onPointerMove}
       onPointerUp={rel.onPointerUp}
@@ -588,9 +588,9 @@ const AlarmRow = ({ log }: { log: Log }) => {
       onPress={rel.onClick}
     >
       <span className="icon-tile" aria-hidden="true">
-        <AlarmClock size={16} />
+        <Sunrise size={16} />
       </span>
-      <span className="cd-trow-title tnum">Alarm {shortClock(T.day.wake)}</span>
+      <span className="cd-trow-title tnum">Wake time {shortClock(T.day.wake)}</span>
       <span className="cd-trow-right">change</span>
       <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
     </Pressable>
@@ -605,7 +605,7 @@ const AlarmRow = ({ log }: { log: Log }) => {
  * 2. the run row (60): the session, how it went, its 40 px ring while open; the words open the session sheet;
  * 3–4. the composer (the quote line as its prompt) → after Save, the entry in the same box, one `success` (on the entry's first frame),
  *    `.halo-boost`, and `Add to it`;
- * 5. Tomorrow, always: the word (inline) and tomorrow's alarm (WakeEditor);
+ * 5. Tomorrow, always: the word (inline) and tomorrow's wake time (WakeEditor);
  * 6. `Share the day`; 7. Today's read when there is a pick.
  * A neighbour's copy (`still`) shows the day only: no composer, no rows to act on.
  */
@@ -693,7 +693,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
             <SectionHeader title="Tomorrow" />
             <div className="group cd-tgroup">
               <WordRow />
-              <AlarmRow log={log} />
+              <WakeRow log={log} />
             </div>
           </section>
           {pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? (

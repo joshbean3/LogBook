@@ -206,16 +206,16 @@ export const timeState = (isToday: boolean, now: number, start: number, end: num
 };
 
 /**
- * The Now card's one line (spec §4.1). Today, by phase: `Alarm in 43 min` · `Out the door in 22 min` · `Back by 8:13` ·
- * `Shower now · Leave in 45 min` · `Left 9:30`. A past morning: `Woke 7:15 · Left 9:30`. A future one: `Alarm 7:15 · Leave 9:30`.
+ * The Now card's one line (spec §4.1). Today, by phase: `Wake time in 43 min` · `Out the door in 22 min` · `Back by 8:13` ·
+ * `Shower now · Leave in 45 min` · `Left 9:30`. A past morning: `Woke 7:15 · Left 9:30`. A future one: `Wake time 7:15 · Leave 9:30`.
  */
 export const nowLine = (T: MorningTimeline, now: number, rel: 'past' | 'today' | 'future'): string => {
   const wake = T.day.wake;
   if (rel === 'past') return `Woke ${short(wake)} · Left ${short(T.leave)}`;
-  if (rel === 'future') return `Alarm ${short(wake)} · Leave ${short(T.leave)}`;
+  if (rel === 'future') return `Wake time ${short(wake)} · Leave ${short(T.leave)}`;
   const p = morningPhase(T, now);
   const inW = (m: number) => inWords(m, now);
-  if (p.k === 'alarm') return `Alarm in ${inW(p.at)}`;
+  if (p.k === 'alarm') return `Wake time in ${inW(p.at)}`;
   if (p.k === 'door') return `Out the door in ${inW(p.at)}`;
   if (p.k === 'out') return `Back by ${short(p.at)}`;
   if (p.k === 'left') return `Left ${short(p.at)}`;
