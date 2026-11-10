@@ -111,12 +111,8 @@
   background: none;
   text-align: left;
   color: var(--ink);
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
-  letter-spacing: -0.01em;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   overflow-wrap: break-word;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

@@ -70,12 +70,12 @@ const WHITE = '#ffffff';
 const INK2 = 'rgba(255,255,255,0.72)';
 const INK3 = 'rgba(255,255,255,0.5)';
 const BLUE = '#2f3bff';
-const SERIF = '"Instrument Serif", "Iowan Old Style", Georgia, serif';
+const SERIF = '"Fraunces Card", "Iowan Old Style", Georgia, serif';
 const STAMP = '"Inter Tight", "Inter", -apple-system, sans-serif';
 const SANS = '"Inter", -apple-system, sans-serif';
 
 // ---------- fonts: the card waits for the bundled faces, never paints a fallback ----------
-const FACES = ['italic 400 80px "Instrument Serif"', 'italic 400 160px "Instrument Serif"', '900 200px "Inter Tight"', '800 100px "Inter Tight"', '700 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
+const FACES = ['italic 400 80px "Fraunces Card"', 'italic 400 160px "Fraunces Card"', '900 200px "Inter Tight"', '800 100px "Inter Tight"', '700 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
 let fontsReady: Promise<void> | null = null;
 export const loadFonts = (): Promise<void> => {
   if (!fontsReady) {

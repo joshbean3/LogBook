@@ -34,7 +34,7 @@
 .lc .display {
   font-family: var(--display);
   font-style: italic;
-  font-weight: 400;
+  font-weight: 420;
 }
 .lc-halo {
   position: absolute;
@@ -54,8 +54,8 @@
   margin-top: 2px;
 }
 .lc-line {
-  font-size: 1.5rem;
-  line-height: 1.75rem;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
   color: var(--ink);
 }
 .lc-track {
@@ -267,8 +267,8 @@
 
 /* learned and journal */
 .lc-quote {
-  font-size: 1.625rem;
-  line-height: 1.875rem;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
   margin-top: 4px;
   text-wrap: balance;
 }
@@ -333,10 +333,8 @@
 }
 .lc-ask-a {
   margin-top: 6px;
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.25rem;
-  line-height: 1.625rem;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .lc-ask-act {

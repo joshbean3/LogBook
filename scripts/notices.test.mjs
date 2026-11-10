@@ -13,7 +13,7 @@ test('fonts: the copyright is read from each font file, under the Open Font Lice
   assert.match(n[0], /Copyright 2016 The Inter Project Authors/);
   assert.equal(n[1], 'Inter');
   const list = fonts();
-  assert.deepEqual(list.map((f) => f.name).sort(), ['Instrument Serif (font)', 'Inter (font)', 'Inter Tight (font)']);
+  assert.deepEqual(list.map((f) => f.name).sort(), ['Fraunces (font)', 'Inter (font)', 'Inter Tight (font)']);
   for (const f of list) {
     assert.match(f.text, /^Copyright/);
     assert.match(f.text, /SIL OPEN FONT LICENSE/);

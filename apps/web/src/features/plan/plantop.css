@@ -52,8 +52,8 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font: 400 1.75rem / 2.125rem var(--serif);
-  letter-spacing: -0.01em;
+  font: 600 var(--fs-section) / var(--lh-section) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
 }

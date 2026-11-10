@@ -1324,10 +1324,8 @@
 }
 .held-line {
   margin: 0;
-  font-family: var(--display);
-  font-style: italic;
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .held-actions {

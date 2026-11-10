@@ -904,15 +904,17 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 .nb-title {
   position: relative;
   display: block;
-  /* the row is 44 (§2.1: 4 above a 34/40 line); the 4 is padding, not margin, so the title's target is 44 tall (§2.3) */
+  /* the row stays 44 (§2.1, §2.3): Fraunces 650 at 38 on a 40 px line with no top padding sets the baseline at 33 (the old
+     4 + 40 set it at 35), so the deepest descender of the six titles ("g", "y", 9.5 px) ends 1.5 px inside the box and
+     nothing below the title moves (foundation decision F2, revising plan D1's 46 px row) */
   box-sizing: border-box;
   margin: 0 16px;
-  padding-top: 4px;
+  padding-top: 0;
   height: 44px;
   min-height: 44px;
-  /* the large title sits in a 44 px row: it can grow a little, and its line stays 40 */
-  font: italic 400 clamp(34px, var(--fs-title), 38px) / 40px var(--display);
-  letter-spacing: -0.01em;
+  /* the large title is fixed chrome: it grows with the text size up to 38 px, never past what the row holds */
+  font: 650 clamp(34px, var(--fs-title), 38px) / 40px var(--display);
+  letter-spacing: var(--tr-title);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -938,7 +940,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   transform: translateY(-50%);
 }
 .nb-title > .nb-sl-abs {
-  top: 4px; /* under the title's 4 px top padding, on the cur label's line */
+  top: 0; /* on the cur label's line */
   left: 0;
 }
 .nb-inline > .nb-sl-abs {

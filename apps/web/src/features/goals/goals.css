@@ -100,7 +100,8 @@
 }
 .g-review-text {
   margin: 0;
-  font: 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .g-review-ask {
@@ -349,10 +350,9 @@
 }
 .cel-title {
   margin: 0;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: 2.75rem;
-  line-height: 3rem;
+  font: 650 var(--fs-stat-live) / 3rem var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .cel-title em {
@@ -625,7 +625,8 @@
   color: #b4560f;
 }
 .gh-sub {
-  font: italic 400 1.0625rem / 1.375rem var(--serif);
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
   color: var(--warn-text, #8f5800);
   white-space: nowrap;
 }
@@ -639,8 +640,8 @@
   padding: 0 4px;
   border: 0;
   background: none;
-  font: italic 400 1.75rem / 2.125rem var(--serif);
-  letter-spacing: -0.005em;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   text-align: center;
   text-wrap: balance;
@@ -770,7 +771,8 @@
 .gh-ask {
   max-width: 82%;
   margin-top: 10px;
-  font: italic 400 1.75rem / 2.125rem var(--serif);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   text-wrap: balance;
 }
@@ -903,8 +905,8 @@
   color: color-mix(in srgb, var(--hue) 50%, var(--ink));
 }
 .gl-text {
-  font: italic 400 1.1875rem / 1.5rem var(--serif);
-  letter-spacing: -0.005em;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   text-wrap: pretty;
   overflow-wrap: anywhere;
@@ -918,7 +920,8 @@
   color: var(--ink-2);
 }
 .gl-set {
-  font: italic 400 1.1875rem / 1.5rem var(--serif);
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
   color: var(--ink-3);
 }
 .gl-chev {
@@ -1275,7 +1278,8 @@
 }
 .gs-sentence {
   margin: 0;
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 /* the goal's words: a white card to write in */
@@ -1608,7 +1612,8 @@
 /* the set-goal question, in the body under a short sheet title */
 .gs-ask {
   margin: 0 var(--pad-card);
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   text-wrap: balance;
 }

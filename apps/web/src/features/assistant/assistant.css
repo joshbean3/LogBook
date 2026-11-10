@@ -104,8 +104,8 @@
 }
 .as-hello-title {
   margin: 0;
-  font: italic 400 2.125rem / 2.5rem var(--display);
-  letter-spacing: -0.01em;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .as-hello-sub {
@@ -1409,8 +1409,8 @@
 }
 .as-ask-title {
   margin: 0;
-  font: italic 400 var(--fs-title) / var(--lh-title) var(--display);
-  letter-spacing: -0.01em;
+  font: 650 clamp(30px, var(--fs-title), 44px) / clamp(34px, var(--lh-title), 48px) var(--display);
+  letter-spacing: var(--tr-title);
   color: var(--ink);
 }
 .as-ask-lead {

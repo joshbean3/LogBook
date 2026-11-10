@@ -13,11 +13,10 @@
 }
 .ph-title {
   font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 2.75rem;
+  font-weight: 650;
+  font-size: var(--fs-stat);
   line-height: 2.875rem;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tr-title);
 }
 .ph-sub {
   font-size: 0.9375rem;
@@ -918,12 +917,11 @@ textarea.in {
 }
 .sheet-title {
   font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 1.75rem;
-  line-height: 2rem;
+  font-weight: 600;
+  font-size: var(--fs-head);
+  line-height: var(--lh-head);
+  letter-spacing: 0;
   margin-right: auto;
-  letter-spacing: -0.01em;
 }
 .sheet-foot {
   display: flex;

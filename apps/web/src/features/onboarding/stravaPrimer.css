@@ -59,8 +59,11 @@
 }
 .sp-title {
   margin-top: 16px;
-  font-size: 1.75rem;
-  line-height: 2.125rem;
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  letter-spacing: 0;
 }
 .sp-screen .sp-title {
   margin-top: 32px;

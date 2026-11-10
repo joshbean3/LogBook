@@ -143,7 +143,7 @@
   overflow-wrap: anywhere;
 }
 .jtext.serif {
-  font-family: var(--serif);
+  font-family: var(--sans);
   letter-spacing: 0;
 }
 textarea.jtext {
@@ -193,10 +193,7 @@ textarea.jtext:focus {
   gap: 2px;
 }
 .qline-text {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
   color: var(--ink-3);
   display: -webkit-box;
@@ -231,10 +228,8 @@ textarea.jtext:focus {
   overflow: auto;
 }
 .qpreview-text {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
@@ -348,11 +343,9 @@ textarea.jtext:focus {
   min-width: 0;
 }
 .jtl-text {
-  font-family: var(--serif);
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
-  color: var(--ink);
+  color: var(--j-ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -400,13 +393,12 @@ textarea.jtext:focus {
   gap: 12px;
 }
 .esheet-text {
-  font-family: var(--serif);
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-wrap: pretty;
+  color: var(--j-ink);
 }
 .esheet-meta {
   display: flex;
@@ -489,11 +481,9 @@ textarea.jsheet-text {
   border-color: var(--line-strong);
 }
 .fav-text {
-  font-family: var(--serif);
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
-  color: var(--ink);
+  color: var(--j-ink);
   overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -531,10 +521,7 @@ textarea.jsheet-text {
   background: var(--surface-2);
 }
 .qrow-text {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
@@ -621,10 +608,8 @@ textarea.jsheet-text {
   gap: 8px;
 }
 .theme-name {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.5rem;
-  line-height: 1.75rem;
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   min-width: 0;
   /* a name breaks between words, never inside one ("Acceptan / ce" at 320, review feel F9): a long word hyphenates */
@@ -645,10 +630,8 @@ textarea.jsheet-text {
   color: var(--ink-3);
 }
 .theme-sample {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
   color: var(--ink-3);
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -672,6 +655,7 @@ textarea.jsheet-text {
 .quote-text {
   font-family: var(--display);
   font-style: italic;
+  font-weight: 420;
   color: var(--ink);
   text-wrap: pretty;
   white-space: pre-line;
@@ -683,9 +667,10 @@ textarea.jsheet-text {
 }
 .qsheet-work {
   font-style: italic;
+  font-weight: 420;
+  font-size: var(--fs-sentence-sm);
+  line-height: var(--lh-row);
   color: var(--ink-3);
-  font-size: 0.9375rem;
-  line-height: 1.25rem;
 }
 .qsheet .sheet-foot .btn svg {
   margin-right: 2px;

@@ -305,7 +305,8 @@ button.k-row:active {
   gap: 6px;
 }
 .k-confirm-what {
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
 }

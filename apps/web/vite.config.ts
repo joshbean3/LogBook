@@ -19,8 +19,8 @@ const commit = (() => {
   }
 })();
 
-/** The three latin files Today paints with: Inter (one variable file covers 400/500/600), Inter Tight 800, Instrument Serif italic. */
-const PRELOAD = ['Inter-latin.woff2', 'InterTight-latin.woff2', 'InstrumentSerif-italic-latin.woff2'];
+/** The latin files Today paints above the fold: Inter (one variable file covers every weight), Inter Tight (captions), Fraunces roman (the title). */
+const PRELOAD = ['Inter-latin.woff2', 'InterTight-latin.woff2', 'fraunces-latin-full-normal.woff2'];
 /**
  * Fonts in the shell, not behind a request: public/fonts/fonts.css is inlined into index.html and the above-the-fold files
  * are preloaded, so the first frame has its faces. The native build (VITE_NATIVE=1, `pnpm ios`) reads the files from disk,

@@ -149,16 +149,18 @@ ol {
   font-weight: 400;
   letter-spacing: 0;
 }
-.serif {
+/* the two serif utilities carry no weight of their own (:where), so a feature's own rule for the element always wins,
+   whichever sheet loads first: titles there set Fraunces 650 or 600 roman, sentences keep this italic 420 */
+:where(.serif) {
   font-family: var(--serif);
   letter-spacing: 0;
 }
-/* the editorial voice: italic serif for titles and the day's word */
-.display {
+/* the sentence voice: Fraunces italic 420 */
+:where(.display) {
   font-family: var(--display);
   font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-weight: 420;
+  letter-spacing: 0;
 }
 /*
  * Tabular figures only where numbers tick or line up (stamps, tickers, clocks, counts, steppers). Not on the body: Inter's

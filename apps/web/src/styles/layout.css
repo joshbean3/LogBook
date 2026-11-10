@@ -29,8 +29,8 @@
   flex: 0 1 auto;
   min-width: 0;
   margin: 0;
-  font: 400 1.75rem / 2rem var(--serif);
-  letter-spacing: -0.005em;
+  font: 600 clamp(22px, var(--fs-section), 34px) / clamp(28px, var(--lh-section), 40px) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   text-transform: none;
   overflow: hidden;
@@ -40,8 +40,8 @@
   min-height: 28px;
 }
 .lb-head.is-sm .lb-title {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font-size: var(--fs-head);
+  line-height: var(--lh-head);
 }
 .lb-meta {
   flex: 0 1 auto;
@@ -54,7 +54,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* the action: orange words and a chevron at the right, 44 tall to the thumb without growing the row */
+/* a narrow phone: Fraunces is wider than the old serif, so a title, its meta and a slot control (Plan's week arrows) no
+   longer share 288 px. The meta goes rather than wrapping the row to two lines; it repeats what the section shows (plan 2.3) */
+@media (max-width: 359px) {
+  .lb-head:has(> .lb-slot) > .lb-meta {
+    display: none;
+  }
+}
+/* the action: a quiet link and a chevron at the right, 44 tall to the thumb without growing the row */
 .lb-act {
   flex: none;
   align-self: center;

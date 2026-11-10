@@ -56,7 +56,7 @@ const PAD = 96;
 /** The card as a PNG: 1080 by 1350, the size a phone keeps and shares as a photo. */
 export const drawRecall = async (summary: string, when: string): Promise<Blob> => {
   try {
-    await Promise.all([document.fonts.load('italic 64px "Instrument Serif"'), document.fonts.load('600 30px Inter')]);
+    await Promise.all([document.fonts.load('italic 64px "Fraunces Card"'), document.fonts.load('600 30px Inter')]);
   } catch {
     /* the fallbacks draw it */
   }
@@ -105,14 +105,14 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
   const room = ch - hh - 220;
   const measure = (t: string) => g.measureText(t).width;
   for (; size >= 44; size -= 4) {
-    g.font = `italic ${size}px "Instrument Serif", Georgia, serif`;
+    g.font = `italic ${size}px "Fraunces Card", Georgia, serif`;
     lines = wrapLines(summary, maxW, measure);
     if (lines.length * size * 1.25 < room) break;
   }
   // still too long at the smallest size: as many lines as fit, the last one ending in an ellipsis
   if (size < 44) {
     size = 44;
-    g.font = `italic ${size}px "Instrument Serif", Georgia, serif`;
+    g.font = `italic ${size}px "Fraunces Card", Georgia, serif`;
     lines = clampLines(lines, Math.max(1, Math.floor(room / (size * 1.25))), maxW, measure);
   }
   g.fillStyle = '#0f2a44';
@@ -124,7 +124,7 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
   }
   // the mark of where it was kept
   g.fillStyle = '#5e7891';
-  g.font = 'italic 40px "Instrument Serif", Georgia, serif';
+  g.font = 'italic 40px "Fraunces Card", Georgia, serif';
   g.fillText('Logbook', x + PAD - 40, y + ch - 72);
   return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('No image'))), 'image/png'));
 };

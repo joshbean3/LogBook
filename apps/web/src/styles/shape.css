@@ -313,6 +313,9 @@
 .sheet .sheet-trail {
   display: flex;
   align-items: center;
+  /* the round buttons stay at the top beside a title that wraps; one line, they sit where they always did */
+  align-self: start;
+  min-height: 44px;
   gap: 8px;
   min-width: 0;
 }
@@ -364,9 +367,15 @@
   font-style: normal;
   letter-spacing: -0.01em;
   color: var(--ink);
-  white-space: nowrap;
+  /* the Fraunces title (brand surfaces, below) is wider than the old one: a long title takes two balanced lines before it
+     ends in an ellipsis, and the head grows with it (plan D3) */
+  white-space: normal;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .sheet .sheet-eyebrow {
   margin-bottom: 1px;

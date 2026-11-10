@@ -79,9 +79,8 @@
 }
 .pd-goal-text {
   max-width: 88%;
-  font-family: var(--serif);
-  font-size: 1.5rem;
-  line-height: 1.875rem;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   text-wrap: pretty;
   overflow-wrap: anywhere;
@@ -94,9 +93,8 @@
 }
 .pd-goal-set {
   max-width: 78%;
-  font-family: var(--serif);
-  font-size: 1.5rem;
-  line-height: 1.875rem;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 /* a past day with no goal: one quiet line, nothing to press */

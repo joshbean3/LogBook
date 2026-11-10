@@ -115,7 +115,7 @@ const MOTION_PROPS = new Set(['transform', 'opacity', 'color', 'background-color
 const BRITISH = /\b(colour|favourite|centre|behaviour|programme|organis(?:e|ed|ing)|analys(?:e|ed|ing))s?\b/i;
 
 /** Faces the brand allows, plus the system and generic fallbacks that may follow them in a stack. */
-const FACES = ['fraunces', 'fraunces fallback', 'inter', 'inter fallback', 'inter tight', 'inter tight fallback'];
+const FACES = ['fraunces', 'fraunces fallback', 'fraunces card', 'inter', 'inter fallback', 'inter tight', 'inter tight fallback'];
 const FALLBACKS = [
   'iowan old style', 'georgia', 'serif', 'sans-serif', 'monospace', 'system-ui', '-apple-system', 'blinkmacsystemfont',
   'segoe ui', 'roboto', 'helvetica', 'helvetica neue', 'arial', 'ui-monospace', 'sf mono', 'sfmono-regular', 'menlo',
@@ -125,7 +125,7 @@ const familyOk = (name) => {
   const n = name.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
   return !n || FACES.includes(n) || FALLBACKS.includes(n) || /^-apple-system-[\w-]+$/.test(n);
 };
-/** Families named in a canvas font string such as `italic 600 30px "Instrument Serif", Georgia, serif`. */
+/** Families named in a canvas font string such as `italic 600 30px "Fraunces Card", Georgia, serif`. */
 const canvasFamilies = (value) => {
   const afterSize = value.replace(/^.*?(?:\d*\.?\d+|\$\{[^}]*\})(?:px|pt|em|rem)(?:\s*\/\s*[\d.]+\w*)?\s+/, '');
   return afterSize.split(',').map((s) => s.trim()).filter((s) => s && !s.includes('${'));

@@ -81,8 +81,11 @@
 }
 .auth-title {
   margin: 0;
-  font-size: var(--fs-title);
-  line-height: var(--lh-title);
+  font-style: normal;
+  font-weight: 650;
+  font-size: clamp(30px, var(--fs-hero), 56px);
+  line-height: clamp(30px, var(--fs-hero), 56px);
+  letter-spacing: var(--tr-title);
   color: var(--ink);
   overflow-wrap: break-word;
 }

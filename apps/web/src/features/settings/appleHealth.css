@@ -129,8 +129,8 @@
 }
 .ahc-title {
   margin: 4px 8px 0;
-  font: italic 400 1.875rem / 2.125rem var(--serif);
-  letter-spacing: -0.005em;
+  font: 600 var(--fs-section) / var(--lh-section) var(--serif);
+  letter-spacing: 0;
   text-align: center;
   text-wrap: balance;
   color: var(--ink);
@@ -289,7 +289,8 @@
 }
 .ahr-head h3 {
   margin: 0;
-  font: 400 1.75rem / 2rem var(--serif);
+  font: 600 var(--fs-section) / var(--lh-section) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .ahr-head span {

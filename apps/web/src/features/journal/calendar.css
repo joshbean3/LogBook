@@ -37,8 +37,8 @@
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
-  font: 400 1.375rem / 1.75rem var(--serif);
-  letter-spacing: -0.005em;
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .jcal-meta {
@@ -401,7 +401,8 @@
 .jday-title {
   margin: 0;
   overflow-wrap: anywhere;
-  font: 400 1.375rem / 1.75rem var(--serif);
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 /* the short name ("Thu, Nov 5") on a narrow screen, so the day's number is never cut */
@@ -461,7 +462,7 @@
 .jday-memory-t {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font: 400 1.0625rem / 1.5rem var(--serif);
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
 }
 .jday-fav {
@@ -501,9 +502,9 @@
   resize: none;
   background: var(--well);
   box-shadow: var(--well-shadow);
-  color: var(--ink);
+  color: var(--j-ink);
   caret-color: var(--accent);
-  font: 400 1.0625rem / 1.5rem var(--serif);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   letter-spacing: 0;
 }
 .jday-field:focus-visible {
@@ -599,7 +600,8 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  font: 400 0.9375rem / 1.375rem var(--serif);
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
 }
 
 /* a month that could not be read: the meta line asks again instead of saying nothing was written */

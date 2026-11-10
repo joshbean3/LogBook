@@ -364,9 +364,8 @@
   background: var(--surface-2);
   display: grid;
   place-items: center;
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.0625rem;
+  font: 600 var(--fs-row) / 1 var(--sans);
+  letter-spacing: 0;
   color: var(--ink-2);
 }
 .s-horb.big {

@@ -171,8 +171,8 @@
 .hero-line {
   margin: 4px 0 0;
   height: 1.75rem;
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--display);
-  letter-spacing: -0.01em;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -626,7 +626,8 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  font: italic 400 var(--fs-row) / var(--lh-row) var(--display);
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
   color: var(--ink-3);
 }
 .sentence-by {
@@ -851,8 +852,9 @@
 }
 .td-text {
   margin: 0;
-  font: italic 400 1.0625rem / 1.375rem var(--display);
-  color: var(--ink);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  letter-spacing: 0;
+  color: var(--j-ink);
   white-space: pre-wrap;
   -webkit-user-select: text;
   user-select: text;
@@ -986,8 +988,8 @@
 }
 .cd-title {
   margin: 0;
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--display);
-  letter-spacing: -0.01em;
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 /* step 1: the stamps, 40 tall (11 caps over a 22 stamp) */
@@ -1117,7 +1119,9 @@
 .cd-composer textarea.jtext {
   min-height: 3.75rem;
   padding: 10px 12px 4px;
-  font: italic 400 var(--fs-row) / var(--lh-row) var(--display);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  letter-spacing: 0;
+  color: var(--j-ink);
 }
 .cd-composer .composer-foot {
   min-height: 44px;
@@ -1137,8 +1141,9 @@
 }
 .cd-entry-text {
   margin: 0;
-  font: italic 400 var(--fs-row) / var(--lh-row) var(--display);
-  color: var(--ink);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
+  letter-spacing: 0;
+  color: var(--j-ink);
   white-space: pre-wrap;
   user-select: text;
   -webkit-user-select: text;
@@ -1237,10 +1242,8 @@
   letter-spacing: 0.02em;
 }
 .focus-quote-in {
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.1875rem;
-  line-height: 1.35;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: 0;
   resize: none;
 }
 /* Save stands clear of the sheet's bottom edge and the home indicator (feel review 1 #14) */
@@ -1600,9 +1603,8 @@
 }
 .tl-learned .tl-title,
 .tl-journal .tl-title {
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: 1.0625rem;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
 }
 .tl-sub {
   font-size: var(--fs-foot);
@@ -1804,9 +1806,9 @@
   white-space: normal;
   overflow: visible;
   text-wrap: balance;
-  font: italic 400 1.25rem/1.625rem var(--display);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   /* 5.3:1 on the card's warm white (a11y-06) */
-  color: #9a5a0c;
+  color: var(--ink-2);
 }
 .hero.is-quiet .hg .hero-line {
   color: var(--ink-3);
