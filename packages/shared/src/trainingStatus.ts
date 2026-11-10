@@ -9,13 +9,16 @@ import { shiftDays, type ISODate } from './dates.js';
 export const TRAINING_STATUS_KINDS = ['training', 'taper', 'rest', 'sick', 'injured', 'travel'] as const;
 export type TrainingStatusKind = (typeof TRAINING_STATUS_KINDS)[number];
 
-/** The words for each, and what it means for the plan. */
+/**
+ * The words for each, and what it means for the plan. The lines say what happens to the sessions and nothing about the
+ * body: no advice on an illness or an injury, and no claim about either (Logbook is not medical advice).
+ */
 export const TRAINING_STATUS_INFO: Record<TrainingStatusKind, { label: string; line: string }> = {
   training: { label: 'Training', line: 'On the plan as written.' },
   taper: { label: 'Taper', line: 'Race coming: less volume, keep the sharpness.' },
   rest: { label: 'Rest', line: 'Planned time off. Sessions wait.' },
-  sick: { label: 'Sick', line: 'Recover first. Sessions wait until you are well.' },
-  injured: { label: 'Injured', line: 'Protect it. Only what does not hurt.' },
+  sick: { label: 'Sick', line: 'Time off. Sessions wait until you are back.' },
+  injured: { label: 'Injured', line: 'Time off. Sessions wait until you are back.' },
   travel: { label: 'Travel', line: 'Away from home. Short and flexible.' },
 };
 

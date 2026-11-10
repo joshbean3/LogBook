@@ -57,7 +57,31 @@ export const TEMPLATE_RULES = {
   qualityFromMiles: 12,
   /** No easy run shorter than this (3 mi is past the 20-minute floor at any pace). */
   easyMin: 3,
+  /** No easy run longer than this, and never as long as the week's long run (`easyCeil`). */
+  easyMax: 12,
 } as const;
+
+/** The longest an easy run may be in a week whose long run is `long` miles (0: a week with no long run). */
+export const easyCeil = (long: number): number => (long ? Math.min(TEMPLATE_RULES.easyMax, long - 0.5) : TEMPLATE_RULES.easyMax);
+
+/**
+ * The most a week of this goal can hold on `days` run days without an unsafe run: the long run at its ceiling, the
+ * quality session at its ceiling (race goals, from two run days), and every other day an easy run at its ceiling.
+ * A week asked to hold more is refused or trimmed, never packed into longer runs.
+ */
+export const weekCapacity = (goal: Goal, days: number): number => {
+  const spec = GOAL_SPECS[goal];
+  if (days <= 0) return 0;
+  const quality = spec.qualityCap > 0 && days >= 2 ? spec.qualityCap : 0;
+  const easies = Math.max(0, days - 1 - (quality ? 1 : 0));
+  return spec.longCap + quality + easies * easyCeil(spec.longCap);
+};
+
+/** The fewest run days that can hold `weeklyMiles` for this goal, or null when even seven cannot. */
+export const runDaysNeeded = (goal: Goal, weeklyMiles: number): number | null => {
+  for (let d = 1; d <= 7; d++) if (weekCapacity(goal, d) >= weeklyMiles) return d;
+  return null;
+};
 
 export type TemplateWeekKind = 'lead-in' | 'build' | 'down' | 'taper' | 'race';
 
@@ -224,6 +248,28 @@ const allocate = (p: WeekPlan, goal: Goal): TemplateSession[] => {
     const last = easies[easies.length - 1]!;
     last.mi = Math.max(R.easyMin, r05(last.mi + (vol - sum)));
   }
+  // no easy run is longer than its ceiling (12 mi, and always shorter than the long run): what is over goes to an easy
+  // day with room, then to the long run, then to the quality day, each up to its own ceiling; past that it is left out
+  // (the week comes in under its target rather than carry an unsafe run)
+  if (easies.length) {
+    let over = 0;
+    for (const e of easies) {
+      const c = easyCeil(long);
+      if (e.mi > c) {
+        over += e.mi - c;
+        e.mi = c;
+      }
+    }
+    while (over >= 0.5) {
+      const c = easyCeil(long);
+      const room = easies.find((e) => e.mi + 0.5 <= c);
+      if (room) room.mi += 0.5;
+      else if (long && long + 0.5 <= spec.longCap) long += 0.5;
+      else if (quality && quality + 0.5 <= spec.qualityCap) quality += 0.5;
+      else break;
+      over -= 0.5;
+    }
+  }
   // easy days are never all the same: their total is shared out in half miles so they differ by 0.5–1 mi, the longer
   // ones farthest from the long run and quality day (the day before the long run is the shortest). The total holds, no
   // easy run drops under the minimum or reaches the long run; when that can't be done they stay as they were.
@@ -238,7 +284,7 @@ const allocate = (p: WeekPlan, goal: Goal): TemplateSession[] => {
       units[0]! += 1;
       units[k - 1]! -= 1;
     }
-    const ok = units.every((u) => u / 2 >= R.easyMin && (!long || u / 2 < long));
+    const ok = units.every((u) => u / 2 >= R.easyMin && u / 2 <= easyCeil(long));
     if (ok) {
       const byRoom = [...easies].sort((x, y) => nearBusy(y.d) - nearBusy(x.d) || (x.d < y.d ? -1 : 1));
       byRoom.forEach((e, i) => (e.mi = units[i]! / 2));
@@ -266,7 +312,10 @@ const allocate = (p: WeekPlan, goal: Goal): TemplateSession[] => {
  * - One quality session a week for race goals, on the run day farthest from the long run, rotating by goal
  *   (5K intervals/hills/speed/tempo; 10K intervals/tempo/threshold/hills; half tempo/threshold/intervals;
  *   marathon marathon-pace/threshold/tempo). Down weeks swap it for a fartlek. Base blocks get strides instead.
- * - Easy runs fill the other run days (never under 3 mi; days the volume can't fill are dropped).
+ * - Easy runs fill the other run days (never under 3 mi; days the volume can't fill are dropped). No easy run is over
+ *   12 mi or as long as that week's long run.
+ * - Weekly miles that the run days cannot hold at those ceilings are refused with the number of days they need
+ *   ("80 miles a week needs at least 7 run days."), and the build never grows past what the days can hold.
  * - With `raceDate`: the block ends on race day, the last 1 (5K, 10K), 2 (half) or 3 (marathon) weeks taper,
  *   race week keeps short easy runs (strides on the quality day, a 3 mi shakeout the day before), no long run, and the
  *   race itself is a `Race` session.
@@ -295,7 +344,14 @@ export const buildTemplate = (input: TemplateInput): Template => {
 
   // ---------- weekly volumes ----------
   const startVol = r05(input.weeklyMiles);
-  const cap = Math.max(startVol, Math.min(spec.peakCap, Math.max(startVol * 1.6, startVol + 12)));
+  // the answers have to fit: a week this size on this many days would mean runs nobody should be handed
+  const hold = weekCapacity(input.goal, runIdx.length);
+  if (startVol > hold) {
+    const need = runDaysNeeded(input.goal, startVol);
+    throw new TemplateError(need ? `${num(startVol)} miles a week needs at least ${need} run days.` : `${num(startVol)} miles a week is more than this plan can hold. Try ${num(weekCapacity(input.goal, 7))} or less.`);
+  }
+  // the build stops at the goal's ceiling, at 1.6x / +12 mi of the start, and at what the run days can hold
+  const cap = Math.min(hold, Math.max(startVol, Math.min(spec.peakCap, Math.max(startVol * 1.6, startVol + 12))));
   const taperN = raceDate ? Math.min(spec.taperWeeks, Math.max(1, W - 1)) : 0;
   const plans: Array<{ week: number; kind: TemplateWeekKind; target: number }> = [];
   let build = startVol;
@@ -369,7 +425,7 @@ export const buildTemplate = (input: TemplateInput): Template => {
   const maxLong = Math.max(0, ...sessions.filter((s) => s.type === 'Long').map((s) => s.miles));
   const name = raceDate ? `${spec.name} · ${fmtDate('md', raceDate)}` : `${spec.name} · ${W} weeks`;
   const bits = [
-    `${num(startVol)} to ${num(peak)} mi a week`,
+    peak > startVol ? `${num(startVol)} to ${num(peak)} mi a week` : `${num(startVol)} mi a week`,
     'a down week every 4th',
     maxLong ? `long run up to ${num(maxLong)} mi` : null,
     spec.quality.length ? 'one quality session a week' : 'strides once a week',

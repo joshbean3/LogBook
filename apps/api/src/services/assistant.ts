@@ -307,7 +307,9 @@ export const attachmentBlock = (f: Attachment): Anthropic.Beta.BetaContentBlockP
  * assistant's later rounds in the same ask (a lookup, then a proposal) read the files from cache instead of paying again.
  */
 export const messagesFor = (turns: AskTurn[], context: string): Anthropic.Beta.BetaMessageParam[] => {
-  const history = turns.slice(-20);
+  // the newest 20 turns, starting at one of the person's own (a conversation sent to Claude has to open with theirs)
+  let history = turns.slice(-20);
+  while (history.length > 1 && history[0]!.role === 'assistant') history = history.slice(1);
   const lastAt = history.length - 1;
   const fileTurns = history.map((t, i) => (t.attachments?.length ? i : -1)).filter((i) => i >= 0);
   const cacheAt = fileTurns.length ? fileTurns[fileTurns.length - 1]! : -1;

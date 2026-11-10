@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ATTACHMENT_LIMITS, base64Bytes, zAssistantAsk } from './assistant';
+import { ASK_LIMITS, ATTACHMENT_LIMITS, base64Bytes, zAssistantAsk } from './assistant';
 
 const b64 = (bytes: number) => 'A'.repeat(Math.ceil(bytes / 3) * 4);
 const photo = (name = 'plan.jpg', bytes = 1000) => ({ name, mediaType: 'image/jpeg' as const, data: b64(bytes) });
@@ -27,5 +27,36 @@ describe('files sent to the assistant', () => {
     // four across two turns is fine; five across two turns is not
     expect(ask([{ role: 'user', text: 'a', attachments: [photo(), photo()] }, { role: 'assistant', text: 'ok' }, { role: 'user', text: 'b', attachments: [photo(), photo()] }]).success).toBe(true);
     expect(ask([{ role: 'user', text: 'a', attachments: [photo(), photo(), photo()] }, { role: 'assistant', text: 'ok' }, { role: 'user', text: 'b', attachments: [photo(), photo()] }]).success).toBe(false);
+  });
+});
+
+describe('a long chat', () => {
+  const chat = (n: number) => Array.from({ length: n }, (_, i) => ({ role: i % 2 === 0 ? ('user' as const) : ('assistant' as const), text: `turn ${i}` }));
+
+  it('60 turns are accepted and cut to the newest 40, not refused', () => {
+    const r = ask([...chat(60), { role: 'user', text: 'the newest' }]);
+    expect(r.success).toBe(true);
+    const turns = r.data!.turns;
+    expect(turns).toHaveLength(ASK_LIMITS.turns);
+    expect(turns.at(-1)).toMatchObject({ role: 'user', text: 'the newest' });
+    expect(turns[0]!.text).toBe('turn 21');
+  });
+
+  it('a 30,000 character answer is accepted whole, and a longer one is cut to the cap, not refused', () => {
+    const long = ask([{ role: 'user', text: 'a' }, { role: 'assistant', text: 'x'.repeat(30_000) }, { role: 'user', text: 'b' }]);
+    expect(long.success).toBe(true);
+    expect(long.data!.turns[1]!.text).toHaveLength(30_000);
+    const huge = ask([{ role: 'user', text: 'a' }, { role: 'assistant', text: 'y'.repeat(90_000) }, { role: 'user', text: 'b' }]);
+    expect(huge.success).toBe(true);
+    expect(huge.data!.turns[1]!.text).toHaveLength(ASK_LIMITS.assistantText);
+  });
+
+  it('an old turn outside the newest 40 can never break the chat, and what the person types is still held to 8,000', () => {
+    const bad = { role: 'user', text: 'z'.repeat(9_000) };
+    expect(ask([bad, ...chat(41), { role: 'user', text: 'ok' }]).success).toBe(true);
+    const r = ask([{ role: 'user', text: 'z'.repeat(9_000) }]);
+    expect(r.success).toBe(false);
+    expect(r.error!.issues[0]!.message).toBe('Keep a message under 8000 characters');
+    expect(ask([]).success).toBe(false);
   });
 });

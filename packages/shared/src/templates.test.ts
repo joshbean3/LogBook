@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { daysBetween } from './dates.js';
 import { zTemplateInput, type TemplateInput } from './schemas.js';
 import { label } from './sessions.js';
-import { buildTemplate, GOAL_SPECS, TemplateError, TEMPLATE_RULES, weekdayOf, type Template } from './templates.js';
+import { buildTemplate, easyCeil, GOAL_SPECS, runDaysNeeded, TemplateError, TEMPLATE_RULES, weekCapacity, weekdayOf, type Template } from './templates.js';
 
 const base: TemplateInput = { goal: 'half', startDate: '2026-10-19', runDays: ['tue', 'thu', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: 20, weeks: 12 };
 const full = (t: Template) => t.weeks.filter((w) => w.week > 0);
@@ -241,5 +241,107 @@ describe('buildTemplate', () => {
       expect(lead[0]!.miles).not.toBe(lead[1]!.miles);
       expect(lead[2]!.miles).toBeGreaterThan(Math.max(lead[0]!.miles, lead[1]!.miles));
     });
+  });
+});
+
+describe('answers the run days cannot hold', () => {
+  const refusal = (input: TemplateInput): string => {
+    try {
+      buildTemplate(input);
+    } catch (e) {
+      expect(e).toBeInstanceOf(TemplateError);
+      return (e as Error).message;
+    }
+    return '';
+  };
+
+  it('refuses 80 miles a week on four run days instead of writing two 29 mile easy runs', () => {
+    expect(refusal({ ...base, weeklyMiles: 80 })).toBe('80 miles a week needs at least 7 run days.');
+    expect(refusal({ ...base, goal: 'marathon', weeklyMiles: 80, runDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'], longRunDay: 'sat' })).toBe('80 miles a week needs at least 7 run days.');
+    // with the days it needs, the plan is written and every run is sane
+    const t = buildTemplate({ ...base, goal: 'marathon', weeklyMiles: 80, runDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] });
+    expect(Math.max(...t.sessions.filter((s) => s.type === 'Easy').map((s) => s.miles))).toBeLessThanOrEqual(TEMPLATE_RULES.easyMax);
+    // start equals peak: the summary says so plainly
+    expect(t.summary).toMatch(/^80 mi a week, /);
+  });
+
+  it('refuses one 80 mile run, and 20 miles a week on one run day', () => {
+    expect(refusal({ ...base, goal: 'base', weeklyMiles: 80, runDays: ['sun'], longRunDay: 'sun' })).toBe('80 miles a week needs at least 7 run days.');
+    expect(refusal({ ...base, weeklyMiles: 20, runDays: ['sun'], longRunDay: 'sun' })).toBe('20 miles a week needs at least 2 run days.');
+    expect(refusal({ ...base, goal: '5k', weeklyMiles: 80, runDays: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] })).toBe('80 miles a week is more than this plan can hold. Try 57.5 or less.');
+    // what one day can hold is still written
+    const one = buildTemplate({ ...base, weeklyMiles: 10, runDays: ['sun'], longRunDay: 'sun' });
+    expect(Math.max(...one.sessions.map((s) => s.miles))).toBeLessThanOrEqual(GOAL_SPECS.half.longCap);
+  });
+
+  it('knows what a week can hold and how many days a volume needs', () => {
+    expect(weekCapacity('half', 1)).toBe(14);
+    expect(weekCapacity('half', 4)).toBe(14 + 8 + 2 * 12);
+    expect(weekCapacity('base', 3)).toBe(12 + 2 * 11.5);
+    expect(runDaysNeeded('half', 20)).toBe(2);
+    expect(runDaysNeeded('marathon', 80)).toBe(7);
+    expect(runDaysNeeded('5k', 80)).toBeNull();
+    expect(easyCeil(8)).toBe(7.5);
+    expect(easyCeil(20)).toBe(12);
+    expect(easyCeil(0)).toBe(12);
+  });
+
+  it('gives a marathon 16 weeks by default', () => {
+    const t = buildTemplate({ goal: 'marathon', startDate: '2026-10-19', runDays: ['tue', 'thu', 'sat', 'sun'], longRunDay: 'sun', weeklyMiles: 25 });
+    expect(GOAL_SPECS.marathon.defaultWeeks).toBe(16);
+    expect(t.weeks).toHaveLength(16);
+    expect(t.name).toBe('Marathon · 16 weeks');
+    expect(Math.max(...t.sessions.filter((s) => s.type === 'Long').map((s) => s.miles))).toBeGreaterThanOrEqual(11);
+  });
+
+  it('never grows a block past what its run days can hold', () => {
+    const t = buildTemplate({ ...base, runDays: ['tue', 'thu', 'sun'], weeklyMiles: 30 });
+    expect(Math.max(...t.weeks.map((w) => w.target))).toBeLessThanOrEqual(weekCapacity('half', 3));
+    expect(t.summary).toMatch(/^30 to 34 mi a week/);
+  });
+
+  it('for every goal, day count and weekly volume: either a plain refusal, or no easy run over 12 mi or as long as the long run, and no run over the goal’s ceiling', () => {
+    const daySets = [['sun'], ['wed', 'sun'], ['tue', 'thu', 'sun'], ['tue', 'thu', 'sat', 'sun'], ['mon', 'tue', 'thu', 'sat', 'sun'], ['mon', 'tue', 'wed', 'thu', 'sat', 'sun'], ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']] as const;
+    let built = 0;
+    let refused = 0;
+    for (const goal of ['base', '5k', '10k', 'half', 'marathon'] as const) {
+      const spec = GOAL_SPECS[goal];
+      for (const days of daySets) {
+        for (const weeklyMiles of [3, 6, 10, 14, 20, 26, 33, 40, 47.5, 55, 62, 70, 80]) {
+          // a block that starts mid-week (a lead-in), and one that ends in a race
+          for (const extra of [{ startDate: '2026-10-21' }, goal === 'base' ? {} : { raceDate: '2027-01-17' }]) {
+            const input: TemplateInput = { goal, startDate: '2026-10-19', runDays: [...days], longRunDay: 'sun', weeklyMiles, ...extra };
+            let t: Template;
+            try {
+              t = buildTemplate(input);
+            } catch (e) {
+              expect(e).toBeInstanceOf(TemplateError);
+              expect((e as Error).message).toMatch(/^\d+(\.5)? miles a week (needs at least [2-7] run days\.|is more than this plan can hold\. Try \d+(\.5)? or less\.)$/);
+              expect(weeklyMiles).toBeGreaterThan(weekCapacity(goal, days.length));
+              refused++;
+              continue;
+            }
+            built++;
+            const where = `${goal} ${days.length}d ${weeklyMiles}mi`;
+            for (const w of t.weeks) {
+              const runs = t.sessions.filter((s) => s.week === w.week);
+              const long = runs.find((s) => s.type === 'Long')?.miles ?? 0;
+              for (const s of runs) {
+                if (s.type === 'Race') continue;
+                expect(s.miles, `${where} week ${w.week} ${s.type}`).toBeLessThanOrEqual(spec.longCap);
+                if (s.type === 'Easy' || s.type === 'Fartlek') {
+                  expect(s.miles, `${where} week ${w.week} easy`).toBeLessThanOrEqual(TEMPLATE_RULES.easyMax);
+                  if (long) expect(s.miles, `${where} week ${w.week} easy against long ${long}`).toBeLessThan(long);
+                }
+                if (s.type !== 'Easy' && s.type !== 'Fartlek' && s.type !== 'Long') expect(s.miles, `${where} week ${w.week} quality`).toBeLessThanOrEqual(spec.qualityCap);
+              }
+              expect(sum(runs.filter((s) => s.type !== 'Race')), `${where} week ${w.week} total`).toBeLessThanOrEqual(weekCapacity(goal, days.length));
+            }
+          }
+        }
+      }
+    }
+    expect(built).toBeGreaterThan(300);
+    expect(refused).toBeGreaterThan(100);
   });
 });

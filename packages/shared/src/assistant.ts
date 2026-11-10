@@ -204,6 +204,19 @@ export const screenLabel = (s: AssistantScreen): string => {
   return name;
 };
 
+/**
+ * What an ask may carry. A long chat is never refused for its length: only the newest `turns` are kept, and an assistant
+ * answer longer than the cap is cut (it is context, not something the person typed). What the person typed is held to
+ * `userText`.
+ */
+export const ASK_LIMITS = { turns: 40, userText: 8000, assistantText: 40000, turnsAccepted: 2000 } as const;
+const zAskTurn = z
+  .object({ role: z.enum(['user', 'assistant']), text: z.string(), attachments: z.array(zAttachment).max(ATTACHMENT_LIMITS.perTurn).optional() })
+  .superRefine((t, ctx) => {
+    if (t.role === 'user' && t.text.length > ASK_LIMITS.userText) ctx.addIssue({ code: 'custom', path: ['text'], message: `Keep a message under ${ASK_LIMITS.userText} characters` });
+  })
+  .transform((t) => (t.role === 'assistant' && t.text.length > ASK_LIMITS.assistantText ? { ...t, text: t.text.slice(0, ASK_LIMITS.assistantText) } : t));
+
 export const zAssistantAsk = z
   .object({
     /** The day the owner was looking at when they asked (the page's date). */
@@ -211,9 +224,8 @@ export const zAssistantAsk = z
     /** Where the conversation was opened from, unless the owner removed it. */
     screen: zAssistantScreen.optional(),
     turns: z
-      .array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(8000), attachments: z.array(zAttachment).max(ATTACHMENT_LIMITS.perTurn).optional() }))
-      .min(1)
-      .max(40),
+      // only the newest turns are read at all, so an old turn can never make a chat unusable
+      .preprocess((v) => (Array.isArray(v) ? v.slice(-ASK_LIMITS.turns) : v), z.array(zAskTurn).min(1).max(ASK_LIMITS.turns)),
   })
   .superRefine((a, ctx) => {
     const all = a.turns.flatMap((t) => t.attachments ?? []);

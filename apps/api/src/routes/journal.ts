@@ -22,10 +22,12 @@ export const journalRoutes = (db: DB) => {
     const conds = [eq(journalEntries.userId, userId), isNull(journalEntries.deletedAt)];
     if (q.q) conds.push(like(sql`lower(${journalEntries.text})`, `%${q.q.toLowerCase().replace(/[%_]/g, '')}%`));
     if (q.fav === '1') conds.push(eq(journalEntries.fav, true));
+    // every entry that matches the search and the favorite filter, whatever page this is (the header's "Entries 412")
+    const total = db.select({ n: sql<number>`count(*)` }).from(journalEntries).where(and(...conds)).get()?.n ?? 0;
     if (q.before) conds.push(lt(journalEntries.createdAt, q.before));
     const rows = db.select().from(journalEntries).where(and(...conds)).orderBy(desc(journalEntries.date), desc(journalEntries.createdAt)).limit(q.limit + 1).all();
     const more = rows.length > q.limit;
-    return c.json({ entries: rows.slice(0, q.limit).map(toEntry), more });
+    return c.json({ entries: rows.slice(0, q.limit).map(toEntry), more, total });
   });
 
   r.post('/journal', async (c) => {
