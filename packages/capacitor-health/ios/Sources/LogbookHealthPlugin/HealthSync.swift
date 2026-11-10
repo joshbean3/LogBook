@@ -50,14 +50,18 @@ actor HealthSync {
     }
 
     // ---------- connecting and disconnecting ----------
-    func connect(token: String, apiOrigin: String, historyDays: Int) throws {
-        HealthKeychain.save(token)
+    /// A run that is still going (the first read takes a while) belongs to the old connection: it is stopped and waited
+    /// for first, so it cannot write its anchors over the new state. A token the Keychain refuses is an error, so the
+    /// plugin never says "connected" while `status()` says not.
+    func connect(token: String, apiOrigin: String, historyDays: Int) async throws {
+        await stopRunning()
         files.wipe()
+        guard HealthKeychain.save(token) else { throw HealthStorageError.keychain }
         var s = HealthSyncState()
         s.connected = true
         s.apiOrigin = apiOrigin
         s.payloadVersion = Self.payloadVersion
-        let cal = Calendar.current
+        let cal = HealthCalendar.gregorian
         let today = cal.startOfDay(for: Date())
         s.historyFrom = cal.date(byAdding: .day, value: -historyDays, to: today)
         do {
@@ -75,49 +79,96 @@ actor HealthSync {
         if !files.hasState && HealthKeychain.read() != nil { HealthKeychain.delete() }
     }
 
-    func disconnect() {
-        running?.cancel()
+    /// "Disconnect and delete": a running sync is cancelled and waited for before anything is wiped, so it cannot queue a
+    /// page or write its state back after the person was told it was removed.
+    func disconnect() async {
+        await stopRunning()
         files.wipe()
         HealthKeychain.delete()
     }
 
+    /// Cancels the running sync, if any, and waits until it has returned. A sync that asks to start meanwhile joins the
+    /// cancelled one (see `sync`), so nothing new starts before the caller goes on.
+    private func stopRunning() async {
+        guard let task = running else { return }
+        task.cancel()
+        _ = await task.value
+        if running == task { running = nil }
+    }
+
     func status() -> [String: Any] {
-        let s = (try? files.loadState()) ?? HealthSyncState()
+        var s = HealthSyncState()
+        var problem: String?
+        do {
+            s = try files.loadState()
+        } catch HealthStorageError.corrupt {
+            // the file is kept; disconnecting (or connecting again) clears it
+            problem = "corrupt"
+        } catch {
+            problem = "locked"
+        }
+        let hasToken = HealthKeychain.read() != nil
         var d: [String: Any] = [
-            "connected": s.connected && HealthKeychain.read() != nil,
+            "connected": hasToken && (s.connected || problem == "corrupt"),
             "pending": files.pending().count,
             "deadLetter": files.deadCount(),
             // the first read (up to a year of the three types) has not finished yet
             "importing": s.connected && s.lastSyncAt == nil,
         ]
         if let at = s.lastSyncAt { d["lastSyncAt"] = Self.iso(at) }
-        if let e = s.lastError { d["lastError"] = e }
+        if let e = problem ?? s.lastError { d["lastError"] = e }
         if let h = s.historyFrom { d["historyFrom"] = Self.iso(h) }
         return d
     }
 
     // ---------- one run at a time ----------
-    func sync(reason: String) async -> HealthSyncResult {
+    /// `origin` is the server this build talks to (the web app passes the origin it was built with on every sync). The
+    /// copy saved at connect is only the fallback, so a build that moves to a new server never keeps posting to the old.
+    func sync(reason: String, origin: String? = nil) async -> HealthSyncResult {
         if let current = running { return await current.value }
-        let task = Task { await self.run(reason: reason) }
+        let task = Task { await self.run(reason: reason, buildOrigin: origin) }
         running = task
         let result = await task.value
-        running = nil
+        if running == task { running = nil }
         return result
     }
 
-    private func run(reason: String) async -> HealthSyncResult {
+    /// An https (or, in a development build, http) origin with a host and nothing after it.
+    static func validOrigin(_ s: String?) -> String? {
+        guard let s = s, let url = URL(string: s), let scheme = url.scheme, scheme == "https" || scheme == "http",
+              url.host != nil, url.path.isEmpty || url.path == "/", url.query == nil else { return nil }
+        return s.hasSuffix("/") ? String(s.dropLast()) : s
+    }
+
+    /// Once cancelled (disconnect, or a new connect), a run writes nothing more: no page, no upload, no state.
+    private func cancelled(_ r: HealthSyncResult) -> HealthSyncResult {
+        var result = r
+        result.error = "cancelled"
+        return result
+    }
+
+    private func run(reason: String, buildOrigin: String?) async -> HealthSyncResult {
         var result = HealthSyncResult()
         var state: HealthSyncState
         do {
             state = try files.loadState()
+        } catch HealthStorageError.corrupt {
+            // the file is kept as it is; nothing reads or writes past it until the person reconnects
+            result.error = "corrupt"
+            emit("error", result.error)
+            return result
         } catch {
             result.error = "locked"
             return result
         }
-        guard state.connected, let token = HealthKeychain.read(), let origin = state.apiOrigin else {
+        guard state.connected, let token = HealthKeychain.read(), let origin = Self.validOrigin(buildOrigin) ?? state.apiOrigin else {
             result.error = "not_connected"
             return result
+        }
+        if Task.isCancelled { return cancelled(result) }
+        if state.apiOrigin != origin {
+            state.apiOrigin = origin
+            try? files.saveState(state)
         }
         emit("start", reason)
 
@@ -135,6 +186,7 @@ actor HealthSync {
         let first = await upload(token: token, origin: origin)
         result.uploaded += first.sent
         if first.stop == .unauthorized { return signedOut(result) }
+        if Task.isCancelled { return cancelled(result) }
 
         // 2-3. read Health: the three anchored types, then the daily reconcile
         do {
@@ -143,15 +195,17 @@ actor HealthSync {
         } catch let e as HKError where e.code == .errorDatabaseInaccessible {
             result.error = "locked"
         } catch is CancellationError {
-            result.error = "cancelled"
+            return cancelled(result)
         } catch {
             result.error = error.localizedDescription
         }
+        if Task.isCancelled { return cancelled(result) }
 
         // 4. upload what this run queued
         let second = await upload(token: token, origin: origin)
         result.uploaded += second.sent
         if second.stop == .unauthorized { return signedOut(result) }
+        if Task.isCancelled { return cancelled(result) }
         if second.stop == .offline && result.error == nil { result.error = "offline" }
         return finish(&state, result)
     }
@@ -202,7 +256,7 @@ actor HealthSync {
     }
 
     private func readAnchored(_ state: inout HealthSyncState) async throws {
-        let since = state.historyFrom ?? Calendar.current.date(byAdding: .day, value: -365, to: Date())!
+        let since = state.historyFrom ?? HealthCalendar.gregorian.date(byAdding: .day, value: -365, to: Date())!
         let fromHistory = HKQuery.predicateForSamples(withStart: since, end: nil, options: .strictStartDate)
 
         for spec in Self.quantitySpecs {
@@ -246,8 +300,12 @@ actor HealthSync {
         while true {
             try Task.checkCancellation()
             let (samples, deleted, next) = try await anchored(type, predicate: predicate, anchor: anchor)
+            // a page read while the person disconnected is dropped, not queued after the wipe
+            try Task.checkCancellation()
             if !samples.isEmpty || !deleted.isEmpty {
-                try enqueueSplit(try await build(samples, deleted))
+                let body = try await build(samples, deleted)
+                try Task.checkCancellation()
+                try enqueueSplit(body)
             }
             if let next = next {
                 anchor = next
@@ -290,8 +348,10 @@ actor HealthSync {
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { kinds.append(("sleep", sleep)) }
         for (kind, type) in kinds {
             let uuids = try await samples(type, predicate).map { $0.uuid.uuidString }
+            try Task.checkCancellation()
             try files.enqueue(["kind": kind, "from": Self.iso(from), "to": Self.iso(to), "uuids": uuids], kind: "reconcile")
         }
+        try Task.checkCancellation()
         state.lastReconcile = Date()
         try files.saveState(state)
     }
@@ -333,6 +393,7 @@ actor HealthSync {
     private func upload(token: String, origin: String) async -> (sent: Int, stop: Stop?) {
         var sent = 0
         for file in files.pending() {
+            if Task.isCancelled { return (sent, nil) }
             guard let data = try? Data(contentsOf: file) else { return (sent, .offline) }
             let isReconcile = file.lastPathComponent.hasSuffix("-reconcile.json")
             guard let url = URL(string: origin + (isReconcile ? "/api/apple-health/reconcile" : "/api/apple-health/sync")) else { return (sent, .offline) }
@@ -342,7 +403,7 @@ actor HealthSync {
             req.timeoutInterval = 30
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            req.setValue(Self.dayKey(Date()), forHTTPHeaderField: "X-Local-Date")
+            req.setValue(HealthCalendar.dayKey(Date()), forHTTPHeaderField: "X-Local-Date")
             req.setValue(TimeZone.current.identifier, forHTTPHeaderField: "X-Time-Zone")
             do {
                 let (_, response) = try await URLSession.shared.data(for: req)
@@ -395,10 +456,4 @@ actor HealthSync {
     }()
 
     static func iso(_ d: Date) -> String { isoFormatter.string(from: d) }
-
-    /// yyyy-MM-dd in the phone's current time zone.
-    static func dayKey(_ d: Date) -> String {
-        let c = Calendar.current.dateComponents([.year, .month, .day], from: d)
-        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
-    }
 }

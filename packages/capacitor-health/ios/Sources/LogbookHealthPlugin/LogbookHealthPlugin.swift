@@ -73,10 +73,12 @@ public class LogbookHealthPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// `apiOrigin` is the server the web build was made for. The engine uses it over the copy saved at connect.
     @objc public func sync(_ call: CAPPluginCall) {
         let reason = call.getString("reason") ?? "open"
+        let origin = call.getString("apiOrigin")
         Task {
-            let result = await HealthSync.shared.sync(reason: reason)
+            let result = await HealthSync.shared.sync(reason: reason, origin: origin)
             call.resolve(result.dict)
         }
     }
