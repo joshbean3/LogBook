@@ -1,4 +1,4 @@
-import { eachDay, monthsBetween, shiftDays, zPlanApply, zPlanDraftRequest, zPlanMode, type EndedBlockRef, type Session } from '@logbook/shared';
+import { eachDay, monthsBetween, shiftDays, sniffMediaType, UPLOAD_KINDS_LINE, zPlanApply, zPlanDraftRequest, zPlanMode, type EndedBlockRef, type Session } from '@logbook/shared';
 import { and, eq, gt, gte, isNull, lte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -48,10 +48,14 @@ export const aiRoutes = (db: DB) => {
       for (const [k, v] of form.entries()) {
         if (typeof v === 'string') fields[k] = v;
         else if (k === 'file') {
-          const mediaType = v.type || 'application/pdf';
+          if (v.size > PLAN_FILE_LIMITS.pdfBytes) throw new ApiError(422, 'That PDF is over 20 MB. Upload fewer pages.', 'file_too_big');
+          const data = Buffer.from(await v.arrayBuffer());
+          // the kind comes from the bytes, never from the name or the type the phone sent (sec-28)
+          const mediaType = sniffMediaType(data);
+          if (!mediaType) throw new ApiError(422, UPLOAD_KINDS_LINE, 'bad_file');
           const isPdf = mediaType === 'application/pdf';
-          if (v.size > (isPdf ? PLAN_FILE_LIMITS.pdfBytes : PLAN_FILE_LIMITS.imageBytes)) throw new ApiError(422, isPdf ? 'That PDF is over 20 MB. Upload fewer pages.' : 'That photo is over 5 MB. Send a smaller one.', 'file_too_big');
-          file = { data: Buffer.from(await v.arrayBuffer()), mediaType };
+          if (data.length > (isPdf ? PLAN_FILE_LIMITS.pdfBytes : PLAN_FILE_LIMITS.imageBytes)) throw new ApiError(422, isPdf ? 'That PDF is over 20 MB. Upload fewer pages.' : 'That photo is over 5 MB. Send a smaller one.', 'file_too_big');
+          file = { data, mediaType };
         }
       }
     } else {

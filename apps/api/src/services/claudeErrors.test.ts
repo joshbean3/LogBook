@@ -55,7 +55,7 @@ describe('a failed Claude call', () => {
     const form = new FormData();
     form.set('mode', 'file');
     form.set('start', T);
-    form.set('file', new Blob(['not really a pdf'], { type: 'application/pdf' }), 'plan.pdf');
+    form.set('file', new Blob(['%PDF-1.4 damaged inside'], { type: 'application/pdf' }), 'plan.pdf');
     const draft = await app.request('/api/plans/draft', { method: 'POST', headers: { cookie: me.cookie }, body: form });
     expect(draft.status).toBe(422);
     expect(await draft.json()).toEqual({ error: 'I couldn’t read that file. Try a photo of the page, or a PDF without a password.', code: 'bad_file' });

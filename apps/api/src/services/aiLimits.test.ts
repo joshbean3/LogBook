@@ -180,7 +180,10 @@ describe('the limits on the routes', () => {
       const form = new FormData();
       form.set('mode', 'file');
       form.set('start', T);
-      form.set('file', new Blob([new Uint8Array(bytes)], { type }), name);
+      // real first bytes for the kind, then filler (the server reads the kind from the bytes)
+      const data = new Uint8Array(bytes);
+      data.set(type === 'application/pdf' ? [0x25, 0x50, 0x44, 0x46, 0x2d] : [0xff, 0xd8, 0xff, 0xe0]);
+      form.set('file', new Blob([data], { type }), name);
       const res = await app.request('/api/plans/draft', { method: 'POST', headers: { cookie: me.cookie }, body: form });
       return { status: res.status, body: (await res.json()) as { error?: string; code?: string } };
     };
@@ -188,6 +191,14 @@ describe('the limits on the routes', () => {
     expect(await upload(PLAN_FILE_LIMITS.imageBytes + 1, 'image/jpeg', 'plan.jpg')).toEqual({ status: 422, body: { error: 'That photo is over 5 MB. Send a smaller one.', code: 'file_too_big' } });
     expect(await upload(PLAN_FILE_LIMITS.pdfBytes + 1, 'application/pdf', 'plan.pdf')).toEqual({ status: 422, body: { error: 'That PDF is over 20 MB. Upload fewer pages.', code: 'file_too_big' } });
     expect((await upload(1024, 'image/jpeg', 'plan.jpg')).status).toBe(200);
+    // bytes that are not a PDF, JPG, PNG or WebP, whatever the name and type say (sec-28)
+    const fake = new FormData();
+    fake.set('mode', 'file');
+    fake.set('start', T);
+    fake.set('file', new Blob(['<html>not a plan</html>'], { type: 'application/pdf' }), 'plan.pdf');
+    const res = await app.request('/api/plans/draft', { method: 'POST', headers: { cookie: me.cookie }, body: fake });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({ error: 'Upload a PDF, JPG, PNG or WebP.', code: 'bad_file' });
   }, 30_000);
 
   it('/goals/refine and /assistant have their own per-user limits', async () => {

@@ -1,4 +1,4 @@
-import { zAssistantApply, zAssistantAsk } from '@logbook/shared';
+import { UPLOAD_KINDS_LINE, zAssistantApply, zAssistantAsk } from '@logbook/shared';
 import { Hono } from 'hono';
 import type { AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
@@ -29,6 +29,8 @@ const askBody = async (req: Request) => {
   }
   const r = zAssistantAsk.safeParse(raw);
   if (r.success) return r.data;
+  // a file whose bytes are not a PDF, JPG, PNG or WebP
+  if (r.error.issues.some((i) => i.message === UPLOAD_KINDS_LINE)) throw new ApiError(422, UPLOAD_KINDS_LINE, 'bad_file');
   // a list or a text that is too long, or too many files: a size problem the person can fix by sending less
   const tooLong = r.error.issues.some((i) => i.code === 'too_big' || (i.code === 'custom' && /at most|under \d/i.test(i.message)));
   throw tooLong ? new ApiError(413, ASK_ERRORS.too_long, 'too_long') : new ApiError(422, ASK_ERRORS.validation, 'validation');
