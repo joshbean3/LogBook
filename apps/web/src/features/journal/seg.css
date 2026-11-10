@@ -2,16 +2,22 @@
    44 px target (§8, §2.4's control at full width). One file, imported by each page that uses it (they load as separate chunks). */
 .seg.r-tabs,
 .seg.pg-range {
-  /* 32 px at the default text size; the control grows with Larger Text so the label is never cut */
-  height: max(32px, 1.625rem);
+  /* 32 px at the default text size; the control grows with Larger Text, and a label too long for its segment takes a
+     second line rather than being cut or running into its neighbour */
+  height: auto;
+  min-height: max(32px, 1.625rem);
   gap: 0;
   border-radius: 9px;
 }
 .seg.r-tabs .seg-btn,
 .seg.pg-range .seg-btn {
   flex: 1 1 0;
-  padding: 0 6px;
+  min-width: 0;
+  min-height: max(32px, 1.625rem);
+  padding: 2px 6px;
   border-radius: 9px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font: 600 var(--fs-foot) / 1rem var(--sans);
 }
 /* each segment is a 44 px target inside the 32 px control */

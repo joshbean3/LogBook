@@ -2,7 +2,8 @@ import { monthOf, type Consent, type JournalEntry } from '@logbook/shared';
 import { keepPreviousData, useInfiniteQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api/client';
-import { fetchMonth, useBootstrap, useJournalList, useJournalMutations, useMonth, useMonths } from '@/api/queries';
+import { fetchMonth, keys, useBootstrap, useJournalList, useJournalMutations, useMonth, useMonths } from '@/api/queries';
+import type { MonthBundle } from '@/api/types';
 import { useConsent } from '@/lib/consent';
 import { claimDrafts } from './drafts';
 
@@ -188,15 +189,49 @@ export const useJournalFeed = (fetchOlder = false): JournalFeed => {
   };
 };
 
-/** The entry as the caches know it now (a favorite, an edit), wherever it was loaded from; `fallback` until one has it. */
+/**
+ * `e` as `lists` hold it now: by its id, or, when `e` still has the provisional id of a save that has since landed, the
+ * saved entry with the same day and words (the server's id replaced the provisional one). Null when none holds it.
+ */
+export const followEntry = (lists: ReadonlyArray<readonly JournalEntry[]>, e: Pick<JournalEntry, 'id' | 'date' | 'text'>): JournalEntry | null => {
+  for (const l of lists) {
+    const hit = l.find((x) => x.id === e.id);
+    if (hit) return hit;
+  }
+  if (!e.id.startsWith('tmp-')) return null;
+  for (const l of lists) {
+    const hit = l.find((x) => !x.id.startsWith('tmp-') && x.date === e.date && x.text === e.text);
+    if (hit) return hit;
+  }
+  return null;
+};
+/** Every list the caches hold that may have `date`'s entries: the journal lists, the older pages and the day's month. */
+const cachedLists = (qc: QueryClient, date: string): JournalEntry[][] => [
+  ...qc.getQueriesData<JournalPage>({ queryKey: ['journal'] }).map(([, d]) => d?.entries ?? []),
+  ...qc.getQueriesData<InfiniteData<JournalPage>>({ queryKey: [OLDER] }).flatMap(([, d]) => (d?.pages ?? []).map((p) => p.entries)),
+  qc.getQueryData<MonthBundle>(keys.month(monthOf(date)))?.journal ?? [],
+];
+
+/** The entry as the caches know it now (a favorite, an edit, the server's id for a fresh save); `fallback` until one has it. */
 export const useLiveEntry = (id: string, fallback: JournalEntry): JournalEntry => {
   const feed = useJournalFeed();
   const month = useMonth(monthOf(fallback.date));
-  return feed.entries.find((x) => x.id === id) ?? month.data?.journal.find((x) => x.id === id) ?? fallback;
+  return followEntry([feed.entries, month.data?.journal ?? []], { ...fallback, id }) ?? fallback;
+};
+
+/** Entries by day, in the journal's order (newest first within a day, as the Entries list shows them). */
+export const byDay = (all: readonly JournalEntry[]): Map<string, JournalEntry[]> => {
+  const m = new Map<string, JournalEntry[]>();
+  for (const e of all) {
+    const day = m.get(e.date);
+    if (day) day.push(e);
+    else m.set(e.date, [e]);
+  }
+  return m;
 };
 
 /**
- * The days the calendar draws: the feed's entries and the journal of each month asked for, by date, oldest first within a
+ * The days the calendar draws: the feed's entries and the journal of each month asked for, by date, newest first within a
  * day. `loading`: one of those months has not answered yet and the feed has not reached it, so a day there is not known
  * to be empty.
  */
@@ -204,19 +239,18 @@ export const useJournalDays = (feed: JournalFeed, months: string[]) => {
   // months the feed already covers in full need no request
   const need = useMemo(() => months.filter((m) => feed.reach === null || `${m}-01` <= feed.reach), [months.join(','), feed.reach]); // eslint-disable-line react-hooks/exhaustive-deps
   const { bundles, loading, error } = useMonths(need);
-  const byDate = useMemo(() => {
-    const all = mergeEntries(feed.entries, ...Object.values(bundles).map((b) => b.journal));
-    const m = new Map<string, JournalEntry[]>();
-    // oldest first within a day
-    for (let i = all.length - 1; i >= 0; i--) {
-      const e = all[i]!;
-      const day = m.get(e.date);
-      if (day) day.push(e);
-      else m.set(e.date, [e]);
-    }
-    return m;
-  }, [feed.entries, bundles]);
-  return { byDate, loading: feed.pending || (need.length > 0 && loading), failed: feed.failed || (need.length > 0 && !!error && need.some((m) => !bundles[m])) };
+  const qc = useQueryClient();
+  const byDate = useMemo(() => byDay(mergeEntries(feed.entries, ...Object.values(bundles).map((b) => b.journal))), [feed.entries, bundles]);
+  const failedMonths = !!error && need.some((m) => !bundles[m]);
+  return {
+    byDate,
+    loading: feed.pending || (need.length > 0 && loading),
+    failed: feed.failed || (need.length > 0 && failedMonths),
+    retry: () => {
+      if (feed.failed) feed.retry();
+      for (const m of need) if (!bundles[m]) void qc.refetchQueries({ queryKey: keys.month(m) });
+    },
+  };
 };
 
 // ---------- writes ----------
@@ -242,17 +276,23 @@ export const useJournalWrites = () => {
       void qc.invalidateQueries({ queryKey: [OLDER] });
       return ok;
     });
+  // an entry opened while its save was on the way still carries the provisional id: act on the saved one
+  const now = (e: JournalEntry) => followEntry(cachedLists(qc, e.date), e) ?? e;
   return {
     /** Pass the same object to `whenShown` first to hear the commit that shows the entry. */
     add: (vars: { date: string; text: string }) => settled(m.add.mutateAsync(vars)),
     patch: (v: { entry: JournalEntry; text?: string; fav?: boolean }) => {
-      patchOlder(qc, (l) => l.map((x) => (x.id === v.entry.id ? { ...x, text: v.text ?? x.text, fav: v.fav ?? x.fav, editedAt: v.text ? new Date().toISOString() : x.editedAt } : x)));
-      return after(m.patch.mutateAsync(v));
+      const entry = now(v.entry);
+      patchOlder(qc, (l) => l.map((x) => (x.id === entry.id ? { ...x, text: v.text ?? x.text, fav: v.fav ?? x.fav, editedAt: v.text ? new Date().toISOString() : x.editedAt } : x)));
+      return after(m.patch.mutateAsync({ ...v, entry }));
     },
-    remove: (e: JournalEntry) => {
+    remove: (e0: JournalEntry) => {
+      const e = now(e0);
       patchOlder(qc, (l) => l.filter((x) => x.id !== e.id));
       return after(m.remove.mutateAsync(e));
     },
     restore: (e: JournalEntry) => after(m.restore.mutateAsync(e)),
+    /** The entry as the caches hold it now (see `followEntry`). */
+    current: now,
   };
 };

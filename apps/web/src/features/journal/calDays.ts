@@ -14,7 +14,7 @@ export type CalView = 'week' | 'month';
  *   sky    one memory (Columbia and ice)
  *   dusk   two (rose and periwinkle)
  *   tide   three or more (navy and blue)
- *   sun    a starred memory that day, whatever the count (gold and orange, the warm heart of the mark)
+ *   sun    a favorite entry that day, whatever the count (gold and orange, the warm heart of the mark)
  *   brand  today, the full mix (the calendar's live orb)
  */
 export type OrbVariant = 'brand' | 'sun' | 'sky' | 'dusk' | 'tide';
@@ -22,10 +22,10 @@ export const ORB_KEY: ReadonlyArray<{ v: OrbVariant; label: string }> = [
   { v: 'sky', label: '1' },
   { v: 'dusk', label: '2' },
   { v: 'tide', label: '3+' },
-  { v: 'sun', label: 'Starred' },
+  { v: 'sun', label: 'Favorite' },
 ];
 
-/** The palette for a day's memories; null for a day with none. */
+/** The palette for a day's entries; null for a day with none. */
 export const orbVariant = (entries: readonly Pick<JournalEntry, 'fav'>[] | undefined): OrbVariant | null => {
   const n = entries?.length ?? 0;
   if (!n) return null;
@@ -75,19 +75,39 @@ export const switchAnchor = (anchor: ISODate, from: CalView, to: CalView, today:
   return anchor;
 };
 
-/** The page's name: `November 2026`, or `Nov 3 to 9` (`Oct 30 to Nov 5` across months). */
-export const pageTitle = (anchor: ISODate, view: CalView): string => {
+const yearOf = (d: ISODate) => d.slice(0, 4);
+/** `, 2025` when `d` is not in today's year, else nothing: a day or a week outside this year carries its year. */
+export const yearTail = (d: ISODate, today: ISODate): string => (yearOf(d) === yearOf(today) ? '' : `, ${yearOf(d)}`);
+
+/**
+ * The page's name: `November 2026`, or `Nov 3 to 9` (`Oct 30 to Nov 5` across months). A week outside today's year carries
+ * the year (`Nov 7 to 13, 2025`; across a new year, `Dec 29, 2025 to Jan 4`).
+ */
+export const pageTitle = (anchor: ISODate, view: CalView, today: ISODate = anchor): string => {
   if (view === 'month') return fmtDate('month', anchor);
   const start = shiftDays(anchor, -6);
   const end = start.slice(0, 7) === anchor.slice(0, 7) ? String(parseISO(anchor).getDate()) : fmtDate('md', anchor);
-  return `${fmtDate('md', start)} to ${end}`;
+  if (yearOf(start) !== yearOf(anchor)) return `${fmtDate('md', start)}, ${yearOf(start)} to ${end}${yearTail(anchor, today)}`;
+  return `${fmtDate('md', start)} to ${end}${yearTail(anchor, today)}`;
 };
 
-/** A day cell's name for VoiceOver: `Monday, November 9, 2 memories`. */
-export const dayLabel = (d: ISODate, n: number): string => `${fmtDate('long', d)}, ${n === 0 ? 'no memories' : n === 1 ? '1 memory' : `${n} memories`}`;
+/** How many entries, in words: `no entries`, `1 entry`, `3 entries`. */
+export const entriesWord = (n: number): string => (n === 0 ? 'no entries' : n === 1 ? '1 entry' : `${n} entries`);
 
-/** The day card's title: Today, Yesterday, else `Monday, November 2`. */
-export const dayTitle = (d: ISODate, today: ISODate): string => (d === today ? 'Today' : d === shiftDays(today, -1) ? 'Yesterday' : fmtDate('long', d));
+/**
+ * A day cell's name for VoiceOver and Voice Control. It starts with the words printed on the cell (`Wed 4` in a week, `4`
+ * in a month, whose name is the group's), then what the cell shows: `Wed 4, today, 2 entries, a favorite`.
+ */
+export const dayLabel = (d: ISODate, n: number, o: { view?: CalView; today?: ISODate; fav?: boolean } = {}): string => {
+  const num = String(parseISO(d).getDate());
+  const printed = o.view === 'month' ? `${num}, ${fmtDate('dowLong', d)}` : `${fmtDate('dow', d)} ${num}`;
+  return `${printed}${o.today === d ? ', today' : ''}, ${entriesWord(n)}${o.fav ? ', a favorite' : ''}`;
+};
+
+/** The day card's title: Today, Yesterday, else `Monday, November 2` (`Monday, November 10, 2025` in another year). */
+export const dayTitle = (d: ISODate, today: ISODate): string => (d === today ? 'Today' : d === shiftDays(today, -1) ? 'Yesterday' : `${fmtDate('long', d)}${yearTail(d, today)}`);
+/** The same, short, for a narrow screen: `Thu, Nov 5` (`Thu, Nov 5, 2025`). */
+export const dayTitleShort = (d: ISODate, today: ISODate): string => (d === today ? 'Today' : d === shiftDays(today, -1) ? 'Yesterday' : `${fmtDate('short', d)}${yearTail(d, today)}`);
 
 // ---------- the view, remembered on this device ----------
 const VIEW_KEY = 'logbook.journal.calView';

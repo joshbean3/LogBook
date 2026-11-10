@@ -1,8 +1,8 @@
 import type * as React from 'react';
 import { fmtDate, parseISO, type JournalEntry } from '@logbook/shared';
-import { ChevronLeft, ChevronRight, PenLine } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PenLine, Plus, Star } from 'lucide-react';
 import { haptics } from '@/lib/haptics';
-import { Pressable, Segmented } from '@/ui';
+import { Pressable, Segmented, Skeleton } from '@/ui';
 import { Orb } from '@/ui/Orb';
 import { dayLabel, monthGrid, ORB_KEY, orbVariant, pageBy, pageHolds, pageTitle, weekDays, type CalView, type OrbVariant } from './calDays';
 
@@ -11,8 +11,8 @@ type OrbProps = React.ComponentProps<typeof Orb>;
 const BrandOrb = Orb as unknown as (p: OrbProps & { variant?: OrbVariant }) => React.JSX.Element;
 
 /**
- * A day's mark: the orb in the palette its memories pick (calendar.ts `orbVariant`), one still frame. `live` is today's:
- * the brand's own orb, breathing, inside a soft pulse (none under Reduce Motion).
+ * A day's mark: the orb in the palette its entries pick (calDays.ts `orbVariant`), one still frame. `live`: the brand's own
+ * orb, breathing, inside a soft pulse (none under Reduce Motion), for the card's one invitation to write.
  */
 export const DayOrb = ({ variant, size, live = false }: { variant: OrbVariant | null; size: number; live?: boolean }) =>
   live ? (
@@ -30,6 +30,10 @@ export interface CalendarProps {
   byDate: Map<string, JournalEntry[]>;
   /** The page's days are still being fetched: nothing is said about what was or was not written. */
   loading?: boolean;
+  /** The page's days could not be read (the pane says so under the calendar): nothing is said about them either. */
+  failed?: boolean;
+  /** Ask again for the days that could not be read (the meta line offers it). */
+  onRetry?: () => void;
   view: CalView;
   onView: (v: CalView) => void;
   /** Any day of the page shown (a week, or a month). */
@@ -38,17 +42,17 @@ export interface CalendarProps {
   /** The day open in the day card under the calendar. */
   open: string | null;
   onPick: (d: string) => void;
-  /** Whether today's memory is being written right now (the affordance steps aside). */
+  /** Whether today's entry is being written right now (the affordance steps aside). */
   writingToday: boolean;
 }
 
 /**
- * The Journal's calendar card: the page's name with how many days have memories, Week · Month and the paging arrows, then
- * the days. A day with memories wears a small still orb in its palette; a day without is a plain number; today is ringed
- * and, until it has a memory, holds the breathing orb and the card ends in "Write today's". Tap today to write, a past
- * day to read it; days to come are quiet.
+ * The Journal's calendar card: the page's name with how many days have entries, Week · Month and the paging arrows, then
+ * the days. A day with entries wears a small still orb in its palette with the count beside it (and a star on a day with
+ * a favorite), so nothing rests on colour alone; a day without is a plain number. Today is ringed and, until it has an
+ * entry, holds a plus and the card ends in "Write today's entry". Tap a day to open it; days to come are quiet.
  */
-export const Calendar = ({ today, byDate, loading = false, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {
+export const Calendar = ({ today, byDate, loading = false, failed = false, onRetry, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {
   const days = view === 'week' ? weekDays(anchor) : monthGrid(anchor);
   const written = days.filter((d) => d && byDate.has(d)).length;
   const onToday = pageHolds(anchor, view, today);
@@ -64,11 +68,27 @@ export const Calendar = ({ today, byDate, loading = false, view, onView, anchor,
     onAnchor(today);
   };
   const markSize = view === 'week' ? 22 : 16;
+  const unknown = loading || failed;
+  const title = pageTitle(anchor, view, today);
   return (
     <section className="jcal" aria-label="Calendar">
       <div className="jcal-head">
-        <h2 className="jcal-title">{pageTitle(anchor, view)}</h2>
-        <span className="jcal-meta">{written ? `${written} ${written === 1 ? 'day' : 'days'} written` : loading ? '' : 'Nothing written'}</span>
+        <h2 className="jcal-title">{title}</h2>
+        {written ? (
+          <span className="jcal-meta">{`${written} ${written === 1 ? 'day' : 'days'} written`}</span>
+        ) : loading ? (
+          <span className="jcal-meta" aria-hidden="true">
+            <Skeleton w={96} h={14} />
+          </span>
+        ) : failed ? (
+          onRetry ? (
+            <button type="button" className="jcal-retry" onClick={onRetry}>
+              Couldn’t load. Try again
+            </button>
+          ) : null
+        ) : (
+          <span className="jcal-meta">Nothing written</span>
+        )}
       </div>
       <div className="jcal-bar">
         <Segmented
@@ -105,7 +125,7 @@ export const Calendar = ({ today, byDate, loading = false, view, onView, anchor,
           ))}
         </div>
       ) : null}
-      <div className={`jcal-grid is-${view}`} role="group" aria-label={pageTitle(anchor, view)}>
+      <div className={`jcal-grid is-${view}`} role="group" aria-label={title}>
         {days.map((d, i) => {
           if (!d) return <span key={`x${i}`} className="jcal-cell is-blank" aria-hidden="true" />;
           const entries = byDate.get(d);
@@ -113,12 +133,13 @@ export const Calendar = ({ today, byDate, loading = false, view, onView, anchor,
           const isToday = d === today;
           const future = d > today;
           const variant = orbVariant(entries);
+          const fav = !!entries?.some((e) => e.fav);
           return (
             <button
               key={d}
               type="button"
               className={`jcal-cell ${isToday ? 'is-today' : ''} ${future ? 'is-future' : ''} ${n ? 'has' : ''} ${open === d ? 'is-open' : ''}`}
-              aria-label={`${isToday ? 'Today, ' : ''}${dayLabel(d, n)}${isToday && !n ? '. Write today’s' : ''}`}
+              aria-label={`${dayLabel(d, n, { view, today, fav })}${isToday && !n && !unknown ? '. Write today’s entry' : ''}`}
               aria-current={isToday ? 'date' : undefined}
               aria-pressed={open === d}
               disabled={future}
@@ -126,16 +147,28 @@ export const Calendar = ({ today, byDate, loading = false, view, onView, anchor,
             >
               {view === 'week' ? <span className="jcal-wd">{fmtDate('dow', d)}</span> : null}
               <span className="jcal-num">{parseISO(d).getDate()}</span>
-              <span className="jcal-mark">{variant ? <DayOrb variant={variant} size={markSize} /> : isToday ? <DayOrb variant={null} size={markSize} live /> : null}</span>
+              <span className="jcal-mark" aria-hidden="true">
+                {variant ? (
+                  <>
+                    {fav ? <Star className="jcal-fav" size={view === 'week' ? 11 : 9} fill="currentColor" strokeWidth={0} /> : null}
+                    <DayOrb variant={variant} size={markSize} />
+                    <span className="jcal-n">{n}</span>
+                  </>
+                ) : isToday && !unknown ? (
+                  <span className="jcal-plus" style={{ width: markSize, height: markSize }}>
+                    <Plus size={view === 'week' ? 14 : 11} strokeWidth={2.4} />
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}
       </div>
-      {todayEmpty && !writingToday && !loading ? (
-        <Pressable className="jcal-write" press="scale" onPress={() => onPick(today)} label="Write today’s memory">
+      {todayEmpty && !writingToday && !unknown ? (
+        <Pressable className="jcal-write" press="scale" onPress={() => onPick(today)} label="Write today’s entry">
           <DayOrb variant={null} size={26} live />
           <span className="jcal-write-t">
-            <b>Write today’s</b>
+            <b>Write today’s entry</b>
             <span>A line or two is plenty</span>
           </span>
           <PenLine size={18} aria-hidden="true" className="jcal-write-i" />
@@ -143,12 +176,12 @@ export const Calendar = ({ today, byDate, loading = false, view, onView, anchor,
       ) : null}
       <div className="jcal-key">
         <span className="jcal-key-k" id="jcal-key-k">
-          Memories
+          Entries
         </span>
         <ul aria-labelledby="jcal-key-k">
           {ORB_KEY.map(({ v, label }) => (
             <li key={v}>
-              <BrandOrb size={11} variant={v} state="still" />
+              <BrandOrb size={14} variant={v} state="still" />
               <span>{label}</span>
             </li>
           ))}

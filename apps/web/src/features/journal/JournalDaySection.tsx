@@ -10,39 +10,54 @@ import { Button, Pressable, useSheet, useToast } from '@/ui';
 import { getDraft, getEdit, holdSent, restoreDraft, SAVE_FAILED, setDraft, setEdit, subscribeDrafts } from './drafts';
 import { FavStar } from './FavStar';
 import { useDraftOwner, useJournalWrites, useLiveEntry } from './queries';
+import { shareWords } from '../share/shareOut';
 import './journal.css';
 
+/** A time of day on the device's own clock (12 or 24 hour, as the phone is set). */
 export const timeOf = (at: string) => {
   const d = new Date(at);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 };
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** The device's own date of an instant, `YYYY-MM-DD`. */
+export const localDate = (at: string): string | null => {
+  const d = new Date(at);
+  return Number.isNaN(d.getTime()) ? null : `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+/**
+ * When an entry was written, as its rows say it: the time, or, for an entry written on another day than the one it is
+ * for (a missed evening caught up later), the day it was added: `added Nov 10`.
+ */
+export const entryWhen = (e: Pick<JournalEntry, 'date' | 'createdAt'>): string => {
+  const day = localDate(e.createdAt);
+  if (!day) return '';
+  return day === e.date ? timeOf(e.createdAt) : `added ${fmtDate('md', day)}`;
+};
+/** An entry's day as a sheet names it: `Fri, Nov 6`, with the year when it is not this one. */
+export const entryDay = (date: string, today: string) => `${fmtDate('short', date)}${date.slice(0, 4) === today.slice(0, 4) ? '' : `, ${date.slice(0, 4)}`}`;
 
-/** Share words: the system share sheet where there is one, else the clipboard. */
+/** Share words: the system share sheet (native in the app, the browser's elsewhere), else the clipboard, which says so. */
 export const shareText = async (text: string, toast: (t: string) => void) => {
   try {
-    if (navigator.share) {
-      await navigator.share({ text });
-      return;
-    }
-    // the clipboard is the answer itself (no plain toast, §8): only a failure speaks
-    await navigator.clipboard.writeText(text);
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return;
+    if ((await shareWords(text)) === 'copied') toast('Copied');
+  } catch {
     toast('Couldn’t share that.');
   }
 };
 
-/** The one place an entry is deleted, favourited or shared, so every surface (row, sheet, menu) behaves the same. */
+/** The one place an entry is deleted, made a favorite or shared, so every surface (row, sheet, menu) behaves the same. */
 export const useEntryActions = () => {
   const w = useJournalWrites();
   const toast = useToast();
   return {
-    del: (e: JournalEntry) => {
+    del: (e0: JournalEntry) => {
+      // Undo puts back the same entry (its time, its favorite), under the server's id if its save has landed
+      const e = w.current(e0);
       haptics.delete();
       void w.remove(e);
       toast('Deleted', { label: 'Undo', fn: () => void w.restore(e) });
     },
-    /** The star that shows the change pops and fires `toggle` on its apex (`FavStar`); un-favouriting is silent. */
+    /** The star that shows the change pops and fires `toggle` on its apex (`FavStar`); taking a favorite back is silent. */
     fav: (e: JournalEntry) => void w.patch({ entry: e, fav: !e.fav }),
     share: (e: JournalEntry) => void shareText(`${e.text}\n\n${fmtDate('long', e.date)}`, toast),
   };
@@ -114,7 +129,7 @@ export const EntryEditor = ({ e }: { e: JournalEntry }) => {
 
 /**
  * Behind a tap on an entry: the words to read (not a keyboard), with what the day held. Edit pushes the editor in the same
- * sheet; Favourite and Share act in place; Delete closes it with an Undo.
+ * sheet; Favorite and Share act in place; Delete, a quiet row under them, closes it with an Undo.
  */
 export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: string | null }) => {
   const e = useLiveEntry(opened.id, opened);
@@ -125,7 +140,7 @@ export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: stri
       <p className="esheet-text">{e.text}</p>
       <p className="esheet-meta">
         <span className="caps">
-          {timeOf(e.createdAt)}
+          {entryWhen(e)}
           {e.editedAt ? ' · edited' : ''}
         </span>
         {stamp ? <span className="jstamp">{stamp}</span> : null}
@@ -134,23 +149,24 @@ export const EntrySheet = ({ e: opened, stamp }: { e: JournalEntry; stamp?: stri
         <Button onClick={() => sheet.push({ title: 'Edit', body: <EntryEditor e={e} />, detent: 'large' })}>
           <Pencil size={16} aria-hidden="true" /> Edit
         </Button>
-        <Button aria-pressed={e.fav} className={e.fav ? 'is-fav' : ''} onClick={() => act.fav(e)}>
-          <FavStar on={e.fav} size={16} always className="" /> {e.fav ? 'Favourited' : 'Favourite'}
+        <Button aria-pressed={e.fav} className={`esheet-fav ${e.fav ? 'is-fav' : ''}`} onClick={() => act.fav(e)}>
+          <FavStar on={e.fav} size={16} always className="" /> Favorite
         </Button>
         <Button onClick={() => act.share(e)}>
           <Share size={16} aria-hidden="true" /> Share
         </Button>
-        <Button
-          variant="quiet"
-          className="danger-quiet"
-          onClick={() => {
-            sheet.close();
-            act.del(e);
-          }}
-        >
-          <Trash2 size={16} aria-hidden="true" /> Delete
-        </Button>
       </div>
+      <Button
+        variant="quiet"
+        block
+        className="danger-quiet esheet-del"
+        onClick={() => {
+          sheet.close();
+          act.del(e);
+        }}
+      >
+        <Trash2 size={16} aria-hidden="true" /> Delete
+      </Button>
     </div>
   );
 };
@@ -162,7 +178,7 @@ export const useOpenEntry = () => {
   return (e: JournalEntry, opts: { from?: Element | null; stamp?: string | null } = {}) =>
     sheet.open({
       eyebrow: ago(e.date, today),
-      title: fmtDate('short', e.date),
+      title: entryDay(e.date, today),
       body: <EntrySheet e={e} stamp={opts.stamp} />,
     });
 };

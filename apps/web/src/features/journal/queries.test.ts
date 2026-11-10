@@ -1,6 +1,6 @@
 import type { JournalEntry } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { aiFlags, cursorOf, HEAD_SIZE, journalOrder, mergeEntries, pagePath, pageUnder, totalOf, type PageParam } from './queries';
+import { aiFlags, byDay, cursorOf, followEntry, HEAD_SIZE, journalOrder, mergeEntries, pagePath, pageUnder, totalOf, type PageParam } from './queries';
 
 const e = (id: string, date: string, createdAt = `${date}T21:00:00.000Z`): JournalEntry => ({ id, date, text: id, createdAt, editedAt: null, fav: false });
 
@@ -111,5 +111,25 @@ describe('consent for Remember when and the daily pick', () => {
   it('lets the record win over the bootstrap copy, so a switch turned off on the Privacy page takes effect at once', () => {
     expect(aiFlags({ ...off }, { ...off, recall: true, reads: true })).toEqual({ recall: false, reads: false });
     expect(aiFlags({ ...off, recall: true, reads: true }, off)).toEqual({ recall: true, reads: true });
+  });
+});
+
+describe('an entry followed across its save', () => {
+  const at = (id: string, date: string, text: string, createdAt = '2026-11-10T08:00:00.000Z'): JournalEntry => ({ id, date, text, createdAt, editedAt: null, fav: false });
+  it('finds it by id, then the saved entry that replaced a provisional one', () => {
+    const tmp = at('tmp-abc', '2026-11-10', 'Typo in thsi entry.');
+    const saved = at('j1', '2026-11-10', 'Typo in thsi entry.');
+    expect(followEntry([[tmp]], tmp)).toBe(tmp);
+    expect(followEntry([[at('j0', '2026-11-10', 'Other')], [saved]], tmp)).toBe(saved);
+    // a real id is never matched by its words
+    expect(followEntry([[saved]], at('j9', '2026-11-10', 'Typo in thsi entry.'))).toBeNull();
+    // nor a provisional one on another day
+    expect(followEntry([[at('j2', '2026-11-09', 'Typo in thsi entry.')]], tmp)).toBeNull();
+  });
+  it('lists a day newest first, as the Entries list does', () => {
+    const a = at('a', '2026-11-10', 'first', '2026-11-10T07:00:00.000Z');
+    const b = at('b', '2026-11-10', 'second', '2026-11-10T09:00:00.000Z');
+    const m = byDay(mergeEntries([a, b]));
+    expect(m.get('2026-11-10')!.map((e) => e.id)).toEqual(['b', 'a']);
   });
 });
