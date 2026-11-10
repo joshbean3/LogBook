@@ -11,3 +11,6 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# Debug builds only: Info.plist plus the logbook URL scheme, written by scripts/ios-dev-plist.mjs (pnpm ios)
+App/App/Info-Dev.plist
