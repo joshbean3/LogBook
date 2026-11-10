@@ -200,7 +200,7 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
       </div>
       {/* the page's level-1 heading (code review 1 #8); its tap and hold are the caps line's too, which is the button VoiceOver reads */}
       {pressable ? (
-        <Pressable as="div" ref={titleRefCb} className="nb-title" role="heading" aria-level={1} tabIndex={-1} {...tp}>
+        <Pressable as="div" ref={titleRefCb} className="nb-title" role="heading" aria-level={1} tabIndex={-1} menuButton={false} {...tp}>
           <Stacked l={title} stacked={stacked} />
         </Pressable>
       ) : (

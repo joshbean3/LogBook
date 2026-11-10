@@ -48,13 +48,13 @@
   grid-template-columns: minmax(0, 1fr);
   margin-inline: calc(-1 * var(--page-pad));
 }
-.list-edge > :not(.cm-target),
+.list-edge > :not(.cm-target, .cm-sr),
 .list-edge > .cm-target > :first-child {
   position: relative;
   min-height: 44px;
   padding-inline: var(--page-pad);
 }
-.list-edge > :not(.cm-target)::after,
+.list-edge > :not(.cm-target, .cm-sr)::after,
 .list-edge > .cm-target > :first-child::after {
   content: '';
   position: absolute;
