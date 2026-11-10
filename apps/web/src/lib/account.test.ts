@@ -192,6 +192,16 @@ describe('a different account signing in is noticed', () => {
     expect(m.isOtherAccount('user-b')).toBe(true);
   });
 
+  it("another person's unsent change on the device counts, even when the remembered id is gone", async () => {
+    const m = await load();
+    const qc = makeQc();
+    await leaveTraces(m, qc);
+    // "Reset what this phone saved" (or a private window) removed logbook.user; the queued change still names user-a
+    local.removeItem('logbook.user');
+    expect(m.isOtherAccount('user-a')).toBe(false);
+    expect(m.isOtherAccount('user-b')).toBe(true);
+  });
+
   it('a session that ran out keeps the queue for the same person; another person signing in wipes it', async () => {
     const m = await load();
     const qc = makeQc();

@@ -48,10 +48,15 @@ export const rememberUser = (id: string) => {
     /* private mode: a different account is then noticed by the server's answers only */
   }
 };
-/** True when the app last ran here for a different account than `id`: what is on the device is not theirs. */
+/**
+ * True when what is on this device belongs to a different account than `id`: the app last ran here for someone else, or
+ * the outbox holds a change someone else wrote (the remembered id can be gone, after "Reset what this phone saved" or in a
+ * private window, while their unsent change is still queued).
+ */
 export const isOtherAccount = (id: string): boolean => {
   const last = lastUserId();
-  return last !== null && last !== id;
+  if (last !== null && last !== id) return true;
+  return outbox.peek().some((x) => !!x.userId && x.userId !== id);
 };
 
 /** Remove every `logbook.` key from both storages, except the kept flag. */
