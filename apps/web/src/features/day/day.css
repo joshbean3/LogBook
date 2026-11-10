@@ -46,6 +46,11 @@
   user-select: none;
   -webkit-user-select: none;
 }
+/* the card is the hit layer's box: without it the layer of a compact card or a Close row grew to the whole page and took
+   every tap above and below it (the hero's switch, the habits, the journal box) */
+.card-group {
+  position: relative;
+}
 /* the hit layer: the whole card, under every other control in it */
 .card-open::after {
   content: '';
@@ -54,8 +59,9 @@
   z-index: 1;
 }
 /* in the hero the title sits inside positioned boxes (the dial), so the layer is drawn far past them and the card's own
-   `overflow: hidden` cuts it to the card */
-.hero .card-open::after {
+   `overflow: hidden` cuts it to the card. Only the training card itself: the Close card is a `.hero` too, and its run rows'
+   layers must stay inside their rows (they covered the journal box) */
+.hero.card-group .card-open::after {
   inset: -1000px;
 }
 .card-open:focus-visible {
