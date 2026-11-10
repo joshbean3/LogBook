@@ -90,6 +90,20 @@ export const useSplashDoneOnPaint = () =>
 /** A cap: hide the splash after `ms` if nothing hid it first. */
 export const hideSplashBy = (ms: number) => void setTimeout(hideSplash, ms);
 
+/**
+ * The status bar's glyphs follow what is behind them (shell-10): dark on the light canvas, light while a sheet is up, when
+ * the page recedes and the band behind the clock is navy. Capacitor's names are the background's: Style.Light is dark
+ * glyphs, Style.Dark light ones. The last call wins, so a quick open and close cannot leave the wrong one.
+ */
+let barSeq = 0;
+export const statusBarOverSheet = (sheetUp: boolean) => {
+  if (!isNative) return;
+  const seq = ++barSeq;
+  void import('@capacitor/status-bar')
+    .then(({ StatusBar, Style }) => (seq === barSeq ? StatusBar.setStyle({ style: sheetUp ? Style.Dark : Style.Light }) : undefined))
+    .catch(() => undefined);
+};
+
 /** One-time native setup: status bar over the canvas, no keyboard accessory, the splash's 1500 ms hard cap. */
 export const bootNative = async () => {
   if (!isNative) return;
