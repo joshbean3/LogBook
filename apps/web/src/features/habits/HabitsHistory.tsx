@@ -9,6 +9,7 @@ import { useSheet } from '@/ui/Sheet';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { useLog, type Log } from '../log/useLog';
 import { HabitSheet } from './HabitSheet';
+import { initialOf } from './initial';
 import { useHabitShown, useHabitsLit } from './OrbRow';
 import { habitWindow, longestStreak, streakLine, streakParts, WINDOW_DAYS, type HabitWindow } from './stats';
 import './habits.css';
@@ -32,10 +33,11 @@ const StreakRow = ({ h, log }: { h: Habit; log: Log }) => {
   const w = habitWindow((d) => (d === log.today ? todayOn : log.snap.isHabitDone(d, h.id)), log.today, h.createdOn);
   const line = streakLine(w);
   const parts = streakParts(w);
+  const mark = initialOf(h.name);
   return (
     <Pressable className="hv-row" press="surface" onPress={() => open(h)} label={`${h.name}. ${line}. Open`}>
-      <span className="hv-orb" aria-hidden="true">
-        {h.name.charAt(0).toUpperCase()}
+      <span className={`hv-orb is-${mark.kind}`} aria-hidden="true">
+        {mark.kind === 'letter' ? mark.text.toLocaleUpperCase() : mark.text}
       </span>
       <span className="hv-main">
         <span className="hv-name">{h.name}</span>
@@ -75,7 +77,7 @@ export const HabitsHistory = (): React.JSX.Element => {
           ))}
         </div>
       ) : (
-        <p className="hv-none">No habits yet. Add one with the + at the end of the row on Today.</p>
+        <p className="hv-none">No habits yet. Tap Add a habit on Today.</p>
       )}
       <div className="group hv-manage-list">
         <Row
@@ -113,7 +115,7 @@ const HistoryTiles = ({ log }: { log: Log }) => {
           {total ? lit : '–'}
           {total ? <small>of {total}</small> : null}
         </span>
-        <span className={`tile-status ${!total ? 'is-none' : ''}`}>{!total ? 'No habits yet' : lit >= total ? 'All lit' : `${total - lit} to go`}</span>
+        <span className={`tile-status ${!total ? 'is-none' : ''}`}>{!total ? 'No habits yet' : lit >= total ? 'All done' : `${total - lit} to go`}</span>
       </div>
       <div className="tile">
         <span className="tile-label">

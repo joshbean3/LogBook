@@ -1,6 +1,6 @@
 import { DAY_BANDS, emptyBands, stepRef, todoRef, type Aim, type DayBand, type DayBands, type GoalStep, type ISODate, type Todo } from '@logbook/shared';
 import { clientKey } from '@/api/queries';
-import { byPosition, byPriority, groupsOn, liveOn } from '../todos/groups';
+import { byPosition, groupsOn, liveOn } from '../todos/groups';
 
 /** One thing on the board: a to-do, or a step of the day's goal. `ref` is what the plan stores. */
 export type Card = { ref: string; kind: 'todo'; todo: Todo; done: boolean } | { ref: string; kind: 'step'; goal: Aim; step: GoalStep; done: boolean };
@@ -20,7 +20,7 @@ export const cardsFor = (todos: Todo[] | undefined, goal: Aim | null, date: ISOD
     const g = groupsOn(todos, date);
     list = [...g[0]!.items, ...g[3]!.items];
   } else if (date < today) list = liveOn(todos, date).filter((x) => x.doneOn === date || (x.due === date && (!x.doneOn || x.doneOn > date))).sort(byPosition);
-  else list = (todos ?? []).filter((x) => !x.deletedOn && !x.doneOn && x.due === date).sort(byPriority);
+  else list = (todos ?? []).filter((x) => !x.deletedOn && !x.doneOn && x.due === date).sort(byPosition);
   return [...steps, ...list.map((x): Card => ({ ref: todoRef(x.id), kind: 'todo', todo: x, done: x.doneOn === date || (date === today && !!x.doneOn) }))];
 };
 
@@ -116,4 +116,34 @@ export const focusOf = (cards: Card[]): Card[] => {
 export const splitFocus = (cards: Card[]) => {
   const open = cards.filter((c) => !c.done);
   return { top: open.slice(0, TOP), rest: open.slice(TOP), done: cards.filter((c) => c.done) };
+};
+
+/** One row of the focus list in its grid: which part it is in, its grid row, and its number (open rows only). */
+export interface FocusSlot {
+  card: Card;
+  kind: 'top' | 'rest' | 'done';
+  row: number;
+  rank?: number;
+  first: boolean;
+}
+
+/**
+ * The focus list as grid rows. Row 1 is the head. With priorities, they take the rows from 2; with none, the empty line
+ * takes row 2. Then one row for the fold (or its "After these" label when open), then the rest and what got done when
+ * they show, then the row that folds them away (never while a row is in the air). Every part has a row of its own, so
+ * nothing shares one. A row that is not shown is 0.
+ */
+export const focusGrid = (cards: Card[], open: boolean, dragging: boolean) => {
+  const { top, rest, done } = splitFocus(cards);
+  const emptyRow = top.length ? 0 : 2;
+  let row = top.length ? 2 : 3;
+  const place = (list: Card[], kind: FocusSlot['kind']): FocusSlot[] => list.map((card, i) => ({ card, kind, row: row++, rank: kind === 'done' ? undefined : kind === 'top' ? i + 1 : top.length + i + 1, first: i === 0 }));
+  const topSlots = place(top, 'top');
+  const boxEnd = row;
+  const folded = rest.length + done.length;
+  const foldRow = folded ? row++ : 0;
+  const restSlots = open ? place(rest, 'rest') : [];
+  const doneSlots = open ? place(done, 'done') : [];
+  const hideRow = folded && open && !dragging ? row++ : 0;
+  return { top: topSlots, rest: restSlots, done: doneSlots, emptyRow, boxEnd, foldRow, hideRow, counts: { top: top.length, rest: rest.length, done: done.length } };
 };

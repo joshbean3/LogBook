@@ -10,11 +10,11 @@ export const groupOf = (x: Pick<Todo, 'groupId'>, groups: readonly TodoGroup[] |
 /** The style that paints a row's edge bar and its list chip (`--tc`). */
 export const colorStyle = (c: TodoColor | null): React.CSSProperties | undefined => (c ? ({ '--tc': `var(--tag-${c})` } as React.CSSProperties) : undefined);
 
-/** Seven swatches and "none", 44 px targets, the chosen one ringed with a check. */
-export const ColorSwatches = ({ value, onChange, allowNone = true, label = 'Colour' }: { value: TodoColor | null; onChange: (c: TodoColor | null) => void; allowNone?: boolean; label?: string }) => (
+/** Seven swatches and "none" in a fixed grid of four across, 44 px targets, the chosen one ringed with a check. */
+export const ColorSwatches = ({ value, onChange, allowNone = true, label = 'Color' }: { value: TodoColor | null; onChange: (c: TodoColor | null) => void; allowNone?: boolean; label?: string }) => (
   <div className="swatches" role="radiogroup" aria-label={label}>
     {allowNone ? (
-      <button type="button" role="radio" aria-checked={value === null} aria-label="No colour" className={`swatch is-none ${value === null ? 'on' : ''}`} onClick={() => onChange(null)}>
+      <button type="button" role="radio" aria-checked={value === null} aria-label="No color" className={`swatch is-none ${value === null ? 'on' : ''}`} onClick={() => onChange(null)}>
         <span className="swatch-dot" />
       </button>
     ) : null}

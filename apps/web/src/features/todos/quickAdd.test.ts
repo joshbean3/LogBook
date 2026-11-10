@@ -17,4 +17,10 @@ describe('quick add marks', () => {
   it('keeps an unknown #tag in the name', () => {
     expect(parseQuickAdd('Buy #2 pencils', '2026-10-26', groups)).toMatchObject({ text: 'Buy #2 pencils', groupId: null });
   });
+  it('still reads the marks before a #tag that names no list', () => {
+    // 2026-10-26 is a Monday: "fri" is the 30th
+    expect(parseQuickAdd('Call the bank fri !! #Work', '2026-10-26', groups)).toEqual({ text: 'Call the bank #Work', priority: 2, bucket: 'later', due: '2026-10-30', groupId: null });
+    expect(parseQuickAdd('Issue #42 tomorrow', '2026-10-26', groups)).toMatchObject({ text: 'Issue #42', bucket: 'later', due: '2026-10-27' });
+    expect(parseQuickAdd('Plan #q4 #deepwork !', '2026-10-26', groups)).toMatchObject({ text: 'Plan #q4', priority: 1, groupId: 'g1' });
+  });
 });

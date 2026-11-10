@@ -1,10 +1,11 @@
-import { fmtDate, shiftDays, type ISODate, type Todo } from '@logbook/shared';
-import { Check, ChevronDown, ChevronRight, Clock, Plus, RotateCcw, Sun, Trash2 } from 'lucide-react';
+import { fmtDate, shiftDays, type ISODate, type Todo, type TodoGroup } from '@logbook/shared';
+import { ArrowRight, Check, ChevronDown, ChevronRight, Moon, Plus, RotateCcw, Sun, Trash2 } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { clientKey, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { FOLD_MS } from '@/lib/gesture';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
+import { useToday } from '@/lib/useToday';
 import { SkeletonRows } from '@/ui/Skeleton';
 import { Segmented } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
@@ -16,7 +17,7 @@ import { byPriority, groupsOn, inToday, liveOn, stepWithin, todayOpenOn, type To
 import { colorOf, colorStyle, groupOf, ListChip } from './colors';
 import { ListSheet } from './ListSheet';
 import { PRIORITY_SHORT, PriorityFlag } from './PriorityDots';
-import { parseQuickAdd } from './quickAdd';
+import { parseQuickAdd, type QuickAdd } from './quickAdd';
 import { TodoMark } from './TodoMark';
 import { TodoSheet } from './TodoSheet';
 import './todos.css';
@@ -27,10 +28,15 @@ export { inToday, liveOn, todayOpenOn };
 const dueLabelOf = (x: Todo, date: ISODate) => (x.bucket === 'later' && x.due ? (x.due === date ? null : x.due < date ? `Due ${fmtDate('md', x.due)}` : x.due === shiftDays(date, 1) ? 'Tomorrow' : fmtDate('md', x.due)) : null);
 
 // ---------- the quick-add field, shared by Today and the full list ----------
+/** What the field read from a line's marks, in words: `P2 · Nov 13 · Work`. Empty when it read none. */
+export const understoodOf = (parsed: QuickAdd, groups: readonly TodoGroup[] | undefined): string =>
+  [parsed.priority ? PRIORITY_SHORT[parsed.priority] : null, parsed.bucket === 'later' ? (parsed.due ? fmtDate('md', parsed.due) : 'Later') : parsed.bucket === 'someday' ? 'Someday' : null, parsed.groupId ? groups?.find((g) => g.id === parsed.groupId)?.name : null].filter(Boolean).join(' · ');
+
 /**
- * "Call the bank fri !!": the field reads its marks and says what it understood, in caps, as you type (inside the same 44
- * px row, so nothing below moves). Return adds the to-do and keeps the field for the next one; Return on an empty field, or
- * leaving it empty, closes it. On focus it is scrolled above the keyboard after the keyboard's 250 ms (`revealField`).
+ * "Call the bank fri !!": the field reads its marks and says what it understood, in caps, as you type (beside the words
+ * where there is room, on a line of its own under them in a narrow field; it never makes the field wider). Return adds the
+ * to-do and keeps the field for the next one; Return on an empty field, or leaving it empty, closes it. On focus it is
+ * scrolled above the keyboard after the keyboard's 250 ms (`revealField`).
  * `date` is the day it is written on (today); `due`, the day a to-do added on a future day's page is for.
  */
 export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do', autoFocus, onClose, onAdded }: { date: ISODate; due?: ISODate; groupId?: string | null; placeholder?: string; autoFocus?: boolean; onClose?: () => void; onAdded?: () => void }) => {
@@ -39,8 +45,7 @@ export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do',
   const [draft, setDraft] = useState('');
   const groups = useTodoGroups();
   const parsed = parseQuickAdd(draft, date, groups.data);
-  const listName = parsed.groupId ? groups.data?.find((g) => g.id === parsed.groupId)?.name : null;
-  const understood = [parsed.priority ? PRIORITY_SHORT[parsed.priority] : null, parsed.bucket === 'later' ? (parsed.due ? fmtDate('md', parsed.due) : 'Later') : parsed.bucket === 'someday' ? 'Someday' : null, listName].filter(Boolean).join(' · ');
+  const understood = understoodOf(parsed, groups.data);
   const addIt = () => {
     if (!parsed.text) return onClose?.();
     const forDay = due && parsed.bucket === 'today' ? { bucket: 'later' as const, due } : { bucket: parsed.bucket, due: parsed.due };
@@ -86,10 +91,17 @@ export const QuickAddField = ({ date, due, groupId, placeholder = 'Add a to-do',
 /** Later means a day: tomorrow, unless the item already had one ahead. */
 export const laterPatch = (x: Todo, date: ISODate) => ({ bucket: 'later' as const, due: x.due && x.due > date ? x.due : shiftDays(date, 1) });
 
-/** Every to-do action with its Undo, from any surface (the Today rows, the full list). Only Undo raises a toast. */
+/** The day a to-do leaves on: the page's day, or today from a page ahead of it (a to-do deleted there is gone everywhere now). */
+export const goneOn = (date: ISODate, today: ISODate): ISODate => (date > today ? today : date);
+
+/**
+ * Every to-do action with its Undo, from any surface (the Today rows, the full list). Only Undo raises a toast.
+ * `date` is the page's day: `later` moves a to-do to the day after it, which is "tomorrow" only on today's page.
+ */
 export const useTodoActions = (date: ISODate) => {
   const { patch } = useTodoMutations();
   const toast = useToast();
+  const today = useToday();
   return {
     done: (x: Todo, on: ISODate = date) => patch.mutate({ id: x.id, doneOn: on }),
     reopen: (x: Todo) => patch.mutate({ id: x.id, doneOn: null }),
@@ -97,7 +109,7 @@ export const useTodoActions = (date: ISODate) => {
       const was = { bucket: x.bucket, due: x.due };
       const next = laterPatch(x, date);
       patch.mutate({ id: x.id, ...next });
-      toast(next.due === shiftDays(date, 1) ? 'Moved to tomorrow' : `Moved to ${fmtDate('md', next.due)}`, { label: 'Undo', fn: () => patch.mutate({ id: x.id, ...was }) });
+      toast(next.due === shiftDays(today, 1) ? 'Moved to tomorrow' : `Moved to ${fmtDate('short', next.due)}`, { label: 'Undo', fn: () => patch.mutate({ id: x.id, ...was }) });
     },
     someday: (x: Todo) => {
       const was = { bucket: x.bucket, due: x.due };
@@ -108,7 +120,7 @@ export const useTodoActions = (date: ISODate) => {
     priority: (x: Todo, p: Todo['priority']) => patch.mutate({ id: x.id, priority: p }),
     remove: (x: Todo) => {
       haptics.delete();
-      patch.mutate({ id: x.id, deletedOn: date });
+      patch.mutate({ id: x.id, deletedOn: goneOn(date, today) });
       toast('Deleted', { label: 'Undo', fn: () => patch.mutate({ id: x.id, deletedOn: null }) });
     },
   };
@@ -138,11 +150,12 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
   const right = done
     ? { label: 'Reopen', icon: <RotateCcw size={20} />, tone: 'neutral' as const, onCommit: () => act.reopen(x) }
     : { label: 'Done', icon: <Check size={20} />, tone: 'ok' as const, onCommit: () => act.done(x) };
-  const left = done ? undefined : isToday ? { label: 'Later', icon: <Clock size={20} />, tone: 'warn' as const, onCommit: () => act.later(x) } : { label: 'Today', icon: <Sun size={20} />, tone: 'neutral' as const, onCommit: () => act.today(x) };
-  const extra = done ? [] : isToday ? [{ label: 'Someday', onSelect: () => act.someday(x) }] : [];
+  // a row of today's list moves to the day after (the same word as Today's menu and dock: Tomorrow)
+  const left = done ? undefined : isToday ? { label: 'Tomorrow', icon: <ArrowRight size={20} />, tone: 'warn' as const, onCommit: () => act.later(x) } : { label: 'Today', icon: <Sun size={20} />, tone: 'neutral' as const, onCommit: () => act.today(x) };
+  const extra = done ? [] : isToday ? [{ label: 'Someday', icon: <Moon size={18} />, onSelect: () => act.someday(x) }] : [];
   return (
-    <SwipeRow right={right} left={left} menuItems={[...extra, { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) }]} label={x.text} className="tl-swipe">
-      <div className={`tl-row ${on ? 'is-done' : ''} ${tint ? 'has-tc' : ''}`} style={colorStyle(tint)}>
+    <SwipeRow right={right} left={left} menuItems={[...extra, { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) }]} label={x.text} className="tdl-swipe">
+      <div className={`tdl-row ${on ? 'is-done' : ''} ${tint ? 'has-tc' : ''}`} style={colorStyle(tint)}>
         <TodoMark
           on={on}
           label={dueLabel ? `${x.text}, ${dueLabel}` : x.text}
@@ -163,7 +176,7 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
         />
         <button
           type="button"
-          className={`tl-name ${x.note ? 'has-note' : ''}`}
+          className={`tdl-name ${x.note ? 'has-note' : ''}`}
           onClick={onEdit}
           onKeyDown={(e) => {
             if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !done) {
@@ -184,12 +197,28 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
   );
 };
 
+/** How many rows a group draws at first (more than a full-height sheet shows), and adds each time its end comes near: a list of hundreds opens as fast as one of ten. */
+const ROWS_STEP = 20;
+
 /** One group of the sheet: its rows FLIP when a checked row folds out of it. */
 const SheetGroup = ({ g, date, done, onEdit, hideList }: { g: TodoGroupSpec; date: ISODate; done?: boolean; onEdit: (x: Todo) => void; hideList?: boolean }) => {
   const act = useTodoActions(date);
   const { reorder, patch } = useTodoMutations();
   const ref = useRef<HTMLDivElement>(null);
-  const sig = g.items.map((x) => clientKey(x.id)).join('|');
+  // a long group draws its first rows; the rest come as the sheet is scrolled toward them
+  const [limit, setLimit] = useState(ROWS_STEP);
+  const more = useRef<HTMLDivElement>(null);
+  const hasMore = g.items.length > limit;
+  useEffect(() => {
+    const el = more.current;
+    if (!hasMore || !el) return;
+    if (typeof IntersectionObserver === 'undefined') return setLimit(Infinity);
+    const io = new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && setLimit((n) => n + ROWS_STEP), { root: el.closest('.sheet-body'), rootMargin: '600px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, limit]);
+  const rows = hasMore ? g.items.slice(0, limit) : g.items;
+  const sig = rows.map((x) => clientKey(x.id)).join('|');
   // a checked row folding out of the group moves the rows below it by FLIP (a swipe's commit has SwipeRow's own)
   const flip = useFlip(ref, sig);
   const fold = (x: Todo) => {
@@ -204,11 +233,12 @@ const SheetGroup = ({ g, date, done, onEdit, hideList }: { g: TodoGroupSpec; dat
   };
   return (
     <div ref={ref} className="tgroup">
-      {g.items.map((x) => (
+      {rows.map((x) => (
         <div key={clientKey(x.id)} data-flip="">
           <SheetRow x={x} date={date} done={!!done} onEdit={() => onEdit(x)} onStep={(d) => step(x, d)} fold={fold} hideList={hideList} />
         </div>
       ))}
+      {hasMore ? <div ref={more} className="tgroup-more" aria-hidden="true" /> : null}
     </div>
   );
 };
@@ -225,7 +255,7 @@ const Fold = ({ label, count, meta, open, onToggle }: { label: string; count: nu
 );
 
 /**
- * The full to-do list, in a sheet (`+N more ›` on Today opens it): Today's rows (swipe right for Done, left for Later; hold
+ * The full to-do list, in a sheet (`+N more ›` on Today opens it): Today's rows (swipe right for Done, left for Tomorrow; hold
  * for the menu), the quick-add field, then the Later, Someday and Completed folds. The rows are SwipeRow v2: the sheet may
  * swipe, Today's page may not (M9). A row's words push its editor inside the same sheet (where its order is changed too).
  */

@@ -1,10 +1,13 @@
-import { mondayOf, shiftDays, type Habit, type ISODate } from '@logbook/shared';
+import { mondayOf, monthOf, shiftDays, type Habit, type ISODate } from '@logbook/shared';
 import { Archive, Info, PenLine, Plus } from 'lucide-react';
 import { animate, motion, motionValue, useMotionValue, type MotionValue } from 'motion/react';
 import type * as React from 'react';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { flushSync } from 'react-dom';
-import { useHabitMutations } from '@/api/queries';
+import { ApiError } from '@/api/client';
+import { keys, useHabitMutations } from '@/api/queries';
+import type { MonthBundle } from '@/api/types';
 import { HOLD_SLOP_PX } from '@/lib/gesture';
 import { haptics, hapticAtPeak } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
@@ -13,10 +16,13 @@ import { dayTitle } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
 import { ChipButton } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
+import { useToast } from '@/ui/Toast';
 import type { DragPoint } from '@/ui/useHold';
 import { isPagerMoving } from '../day/live';
 import type { Log } from '../log/useLog';
 import { HabitNoteSheet, useArchiveHabit, useOpenHabit } from './HabitSheet';
+import { initialOf, sameName } from './initial';
+import { createLedger } from './ledger';
 import './habits.css';
 
 export const HABIT_STARTERS = ['Sleep 7 h', 'Stretch', 'Read', 'Protein', 'No phone in bed'];
@@ -64,6 +70,8 @@ const busyHand = () => pointersDown > 0 || isPagerMoving();
  * just before it is not lost (feel review 3 #3).
  */
 const heldWrites = new Set<() => void>();
+/** The checks on their way to the server: what to put back when one is refused (see ledger.ts). */
+const ledger = createLedger();
 const sendHeld = () => {
   for (const f of [...heldWrites]) f();
 };
@@ -106,10 +114,18 @@ const subShown = (f: () => void) => {
   shownSubs.add(f);
   return () => void shownSubs.delete(f);
 };
+/**
+ * The habits a day shows. Today: the ones in use. A day ahead: the same, as ghosts (one added today is there too). A past
+ * day: the ones that existed then, whether or not they have been archived since, so the day reads as it was.
+ */
+export const habitsOn = (log: Log, date: string): Habit[] => {
+  if (date >= log.today) return log.habits.filter((h) => h.createdOn <= date || date > log.today);
+  return (log.boot?.habits ?? []).filter((h) => h.createdOn <= date && (!h.archivedOn || h.archivedOn > date)).sort((a, b) => a.position - b.position);
+};
 /** How many of the day's habits are lit as the orbs show them (the month's checks, with the taps not yet written). */
 export const useHabitsLit = (date: string, log: Log): { lit: number; total: number } => {
   const ahead = useSyncExternalStore(subShown, () => shown.get(date) ?? EMPTY, () => EMPTY);
-  const list = log.habits.filter((h) => h.createdOn <= date);
+  const list = date > log.today ? log.habits.filter((h) => h.createdOn <= date) : habitsOn(log, date);
   return { lit: list.filter((h) => ahead.get(h.id) ?? log.snap.isHabitDone(date, h.id)).length, total: list.length };
 };
 /** One habit's lit state on a day as the orbs show it (a tap not yet written counts), `fromMonth` otherwise. */
@@ -133,7 +149,8 @@ interface OrbProps {
   on: boolean;
   note: string;
   index: number;
-  onLight: (h: Habit, on: boolean) => void;
+  /** Sends the check. Answers false when the server refused it (the month has been put back by then). */
+  onLight: (h: Habit, on: boolean) => Promise<boolean>;
   menu: (h: Habit) => ContextMenuItem[];
   onDragStart: (id: string) => void;
   onDragMove: (id: string, p: DragPoint) => void;
@@ -156,13 +173,24 @@ interface OrbProps {
 const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, onDragStart, onDragMove, onDragEnd, onStep, bind, week, dayIdx }: OrbProps) {
   const reduce = useReduced();
   const pop = useMotionValue(1);
+  const mark = initialOf(h.name);
   // the tap's answer lands on its own frame: the shown state runs ahead of the cache until the cache agrees
   const [ahead, setAheadSelf] = useState<boolean | null>(null);
   const on = ahead ?? lit;
+  const aheadNow = useRef(ahead);
+  aheadNow.current = ahead;
   const setAhead = (v: boolean | null) => {
+    aheadNow.current = v;
     setAheadSelf(v);
     setShown(date, h.id, v);
   };
+  const day = useRef(date);
+  day.current = date;
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => void (alive.current = false);
+  }, []);
   useEffect(() => {
     if (ahead !== null && ahead === lit) setAhead(null);
   }, [lit, ahead]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -187,7 +215,13 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
     clearTimeout(w.t);
     w.idle?.();
     write.current = null;
-    onLight(h, w.on);
+    const sent = w.on;
+    const sentOn = date;
+    void onLight(h, sent).then((saved) => {
+      // refused: the tile goes back to what is saved (the month has it again by now), however fast the answer came.
+      // Not if it has been tapped again since: that tap has its own write.
+      if (!saved && alive.current && day.current === sentOn && !write.current && aheadNow.current === sent) setAhead(null);
+    });
   };
   const [sendMine] = useState(() => () => send.current());
   /**
@@ -298,7 +332,7 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
         <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <motion.path d="M20 6 9 17l-5-5" initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={reduce ? { duration: 0 } : on ? { pathLength: { duration: 0.16, ease: 'easeOut' }, opacity: { duration: 0.01 } } : { duration: 0.1 }} />
         </svg>
-        {!on ? <span className="orb-initial">{h.name.slice(0, 1)}</span> : null}
+        {!on ? <span className={`orb-initial is-${mark.kind}`}>{mark.text}</span> : null}
         {note ? <i className="orb-note" aria-hidden="true" /> : null}
       </motion.span>
       <span className="orb-text">
@@ -331,6 +365,9 @@ const AddHabitSheet = ({ existing }: { existing: string[] }) => {
   const [added, setAdded] = useState<string[]>([]);
   const have = new Set([...existing, ...added].map((s) => s.toLowerCase()));
   const starters = HABIT_STARTERS.filter((s) => !have.has(s.toLowerCase()));
+  // a name that is taken is said, under the field (never dropped in silence)
+  const twin = sameName(draft, [...existing, ...added]);
+  const twinId = useId();
   const addIt = (name: string) => {
     const v = name.trim();
     if (!v || have.has(v.toLowerCase())) return;
@@ -347,6 +384,8 @@ const AddHabitSheet = ({ existing }: { existing: string[] }) => {
           placeholder="Name a habit"
           maxLength={80}
           aria-label="New habit"
+          aria-invalid={twin ? true : undefined}
+          aria-describedby={twin ? twinId : undefined}
           enterKeyHint="done"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -357,12 +396,17 @@ const AddHabitSheet = ({ existing }: { existing: string[] }) => {
             }
           }}
         />
-        {draft.trim() ? (
+        {draft.trim() && !twin ? (
           <ChipButton on onClick={() => addIt(draft)}>
             Add
           </ChipButton>
         ) : null}
       </div>
+      {twin ? (
+        <p id={twinId} className="orb-add-twin" role="status">
+          You already have {twin}.
+        </p>
+      ) : null}
       {starters.length ? (
         <div className="orb-add-chips" role="group" aria-label="Starters">
           {starters.map((s) => (
@@ -393,11 +437,15 @@ const moved = (ids: string[], from: number, to: number) => {
  */
 export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log; editable?: boolean }) => {
   const { reorder, check } = useHabitMutations();
+  const qc = useQueryClient();
+  const toast = useToast();
   const sheet = useSheet();
   const openHabit = useOpenHabit();
   const archive = useArchiveHabit();
   const ghost = date > log.today;
-  const list = log.habits.filter((h) => h.createdOn <= date || ghost);
+  // the Add tile belongs to today alone (a habit added from another day starts today, so it could never show there)
+  const canAdd = editable && date === log.today;
+  const list = habitsOn(log, date);
   const ids = list.map((h) => h.id);
   const key = ids.join(',');
 
@@ -467,9 +515,11 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
   /** A new order for the habits shown on this day slots into the full order; nothing is written when nothing moved. */
   const commit = (visible: string[]) => {
     const all = log.habits.map((h) => h.id);
-    const shown = new Set(visible);
+    // a past day can show habits archived since: they have no place in the order that is kept
+    const kept = visible.filter((id) => all.includes(id));
+    const shown = new Set(kept);
     let k = 0;
-    const next = all.map((id) => (shown.has(id) ? visible[k++]! : id));
+    const next = all.map((id) => (shown.has(id) ? kept[k++]! : id));
     if (next.some((id, i) => id !== all[i])) reorder.mutate(next);
   };
 
@@ -545,11 +595,36 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
     requestAnimationFrame(() => els.current.get(id)?.focus());
   };
 
-  const onLight = (h: Habit, on: boolean) => check.mutate({ habitId: h.id, date, done: on });
+  /**
+   * The check goes out. A save the server refuses is taken back here, in the month itself (not left to the refetch, which
+   * may fail too), so the tile, the count and the week dots all go back to what is saved, with one line to say so.
+   */
+  const onLight = (h: Habit, on: boolean): Promise<boolean> => {
+    const month = keys.month(monthOf(date));
+    const key = `${h.id}:${date}`;
+    const mine = (c: { habitId: string; date: string }) => c.habitId === h.id && c.date === date;
+    ledger.begin(key, qc.getQueryData<MonthBundle>(month)?.checks.find(mine)?.done ?? false);
+    return check.mutateAsync({ habitId: h.id, date, done: on }).then(
+      () => {
+        ledger.settle(key, true, on);
+        return true;
+      },
+      (e: unknown) => {
+        const back = ledger.settle(key, false, on);
+        if (back !== null) qc.setQueryData<MonthBundle>(month, (b) => (b ? { ...b, checks: b.checks.map((c) => (mine(c) ? { ...c, done: back } : c)) } : b));
+        // a session that ended has its own way out (the sign-in screen); anything else is said once
+        if (!(e instanceof ApiError && e.status === 401)) {
+          haptics.error();
+          toast('Couldn’t save that. Try again.');
+        }
+        return false;
+      },
+    );
+  };
   const menu = (h: Habit): ContextMenuItem[] => [
     { label: 'Note', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: dayTitle(date, log.today), title: h.name, body: <HabitNoteSheet habit={h} date={date} /> }) },
     { label: 'Details', icon: <Info size={18} />, onSelect: () => openHabit(h) },
-    { label: 'Archive', icon: <Archive size={18} />, destructive: true, onSelect: () => archive(h) },
+    ...(h.archivedOn ? [] : [{ label: 'Archive', icon: <Archive size={18} />, destructive: true, onSelect: () => archive(h) }]),
   ];
 
   // the orbs are memoised: they get stable callbacks that read this render's handlers
@@ -603,10 +678,12 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
   const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
   const dayIdx = days.indexOf(date);
   const weekOf = (h: Habit) => days.map((d) => (d > log.today || d < h.createdOn ? '-' : log.snap.isHabitDone(d, h.id) ? 'd' : 'o')).join('');
+  // a day with no habits and nothing to add from it: one quiet line
+  if (!list.length && !canAdd) return <p className="orbs-none">{ghost ? 'No habits yet.' : 'No habits were set up yet.'}</p>;
   return (
     <div className={`orbs-wrap ${ghost ? 'is-ghost' : ''}`}>
       <div ref={scroller} className="orbs-grid-wrap">
-        <div className="orbs is-grid" role="group" aria-label={ghost ? `Habits, ${list.length}` : `Habits, ${lit} of ${list.length} lit`}>
+        <div className="orbs is-grid" role="group" aria-label={ghost ? `Habits, ${list.length}` : `Habits, ${lit} of ${list.length} done`}>
           {order.map((id, i) => {
             const h = byId.get(id);
             if (!h) return null;
@@ -626,7 +703,7 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
               />
             );
           })}
-          {editable && !ghost ? (
+          {canAdd ? (
             <Pressable className="orb orb-plus" label="Add a habit" onPress={() => sheet.open({ title: 'Add a habit', body: <AddHabitSheet existing={log.habits.map((h) => h.name)} /> })}>
               <span className="orb-ring">
                 <Plus size={22} strokeWidth={2.25} aria-hidden="true" />

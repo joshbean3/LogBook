@@ -5,11 +5,19 @@ import { Flag } from 'lucide-react';
 export const PRIORITY_WORD: Record<TodoPriority, string> = { 0: 'No priority', 1: 'Priority 3', 2: 'Priority 2', 3: 'Priority 1' };
 export const PRIORITY_SHORT: Record<TodoPriority, string> = { 0: 'None', 1: 'P3', 2: 'P2', 3: 'P1' };
 
-/** How much it matters, as a flag in its level's colour: P1 red, P2 orange, P3 blue; nothing for none. `decorative` when the word is beside it. */
+/**
+ * How much it matters, as a flag in its level's colour (P1 red, P2 orange, P3 blue) with its number beside it, so the level
+ * does not rest on the colour alone; nothing for none. `decorative` when the word is beside it (no number, no name).
+ */
 export const PriorityFlag = ({ level, className = '', decorative, size = 14 }: { level: TodoPriority; className?: string; decorative?: boolean; size?: number }) =>
   level ? (
     <span className={`prio prio-${level} ${className}`} role={decorative ? undefined : 'img'} aria-hidden={decorative ? true : undefined} aria-label={decorative ? undefined : PRIORITY_WORD[level]}>
       <Flag size={size} strokeWidth={2.4} fill="currentColor" fillOpacity={0.9} aria-hidden="true" />
+      {decorative ? null : (
+        <span className="prio-n" aria-hidden="true">
+          {4 - level}
+        </span>
+      )}
     </span>
   ) : null;
 
