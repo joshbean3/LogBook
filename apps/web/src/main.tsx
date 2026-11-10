@@ -17,12 +17,13 @@ import { haptics } from '@/lib/haptics';
 import { startKeyboard } from '@/lib/keyboard';
 import { startPressDelegate } from '@/ui/usePress';
 import { bootNative } from '@/lib/native';
+import { setErrorSender, startErrorReports } from '@/lib/errorReport';
 import { startServiceWorker } from '@/lib/sw';
 import { App } from './app/App';
 import { CACHE_KEY, ErrorBoundary } from './app/ErrorBoundary';
 import { NavController } from './app/NavController';
 import { isBootstrap } from './api/bootstrap';
-import { onSignedOut, onUnauthorized, shouldRetryRead } from './api/client';
+import { api, onSignedOut, onUnauthorized, shouldRetryRead } from './api/client';
 import { isWriteRejected, outbox } from './api/outbox';
 import { stravaSyncNow } from './api/queries';
 import type { Bootstrap } from './api/types';
@@ -43,6 +44,9 @@ import './styles/layout.css';
 
 // native first: its splash cap is armed before any other boot helper runs (gap-ios-23)
 void bootNative();
+// crash reports (Contract 7): a window error, an unhandled rejection and a caught render error each send one small report
+setErrorSender((body) => api('/client-errors', { method: 'POST', json: body, timeoutMs: 10_000 }));
+startErrorReports();
 
 /**
  * A write the server refused for good (api/outbox.ts marks it) is rolled back by its mutation, and used to vanish without a

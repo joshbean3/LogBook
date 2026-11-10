@@ -2,6 +2,7 @@ import { del } from 'idb-keyval';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { hideSplash } from '@/lib/native';
 import { sweepStorage } from '@/lib/account';
+import { reportError } from '@/lib/errorReport';
 
 const CHUNK_RE = /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk|ChunkLoadError|error loading dynamically imported module/i;
 
@@ -69,6 +70,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(error, info.componentStack);
+    // one report per failure (Contract 7); a sheet's or the menu's boundary reports the same way as the root's
+    reportError(error, info.componentStack ? `component stack:${info.componentStack}` : '');
     // the native splash must never sit over a fallback
     hideSplash();
     if (CHUNK_RE.test(error.message)) reloadOnce();
