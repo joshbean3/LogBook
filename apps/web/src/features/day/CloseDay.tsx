@@ -32,7 +32,7 @@ import { refusedMark } from './marks';
 import { watchJournalAdd } from './journalGuard';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
 import { afterPaint, useReleaseTap } from './release';
-import { markSuccess } from './useStravaLanding';
+import { markSuccess } from './success';
 import { keepAboveKeyboard, revealBox } from './reveal';
 import { saveFocus, useFocus } from './WordSheet';
 

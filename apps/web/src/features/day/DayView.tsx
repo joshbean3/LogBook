@@ -20,8 +20,12 @@ import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { useStravaPull } from './useStravaPull';
+import { STRAVA_BUILT } from '@/lib/features';
 import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
+
+/** Pull to refresh checks Strava only in a build that carries it (settings-18): chosen once, so the bundler drops the rest. */
+const usePull: (connected: boolean) => void = STRAVA_BUILT ? useStravaPull : () => undefined;
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 /** Test builds expose the pager and the page's date to the acceptance scripts (`window.__pager`, `window.__today`). */
@@ -99,7 +103,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   const focus = useFocus();
   const { settings } = useMorningMutations();
   const openWord = useOpenWordSheet();
-  useStravaPull(!!log.strava?.connected);
+  usePull(!!log.strava?.connected);
 
   // a cold open's Strava check is main.tsx's (from the persisted bootstrap) or App's (after the first bootstrap): one each
   if (hooks) {

@@ -27,6 +27,9 @@ import { DayTimeline } from './DayTimeline';
 import { StatusChip } from './StatusChip';
 import { useFocus, useOpenWordSheet } from './WordSheet';
 
+/** The Strava primer on Today exists only in a build that carries Strava (settings-18). */
+const usePrimer: typeof useStravaPrimer = STRAVA_BUILT ? useStravaPrimer : () => ({ show: false, later: () => undefined });
+
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
 // the plan-end card is rare (a few days a block) and pulls in the builder: loaded when it is first needed
 
@@ -205,7 +208,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const fresh = useLog(months);
   const later = useDeferredValue(fresh);
   const log = later.today === fresh.today ? later : fresh;
-  const primer = useStravaPrimer();
+  const primer = usePrimer();
   const today = log.today;
   const isToday = date === today;
   const loaded = log.loaded(date) && !!log.boot;
@@ -225,7 +228,7 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       <Sentence />
       {loaded ? <PlanDay date={date} today={today} /> : null}
       {loaded ? <SecondSession date={date} log={log} /> : null}
-      {loaded && isToday && !bare && primer.show ? (
+      {STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />
         </div>

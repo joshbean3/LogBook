@@ -7,6 +7,7 @@ import { flushSync } from 'react-dom';
 import { useNav } from '@/app/NavController';
 import { useSessionMutations, useStravaChecking } from '@/api/queries';
 import { CHECKING_MAX_MS, CHECKING_MIN_MS, HOLD_SLOP_PX } from '@/lib/gesture';
+import { STRAVA_BUILT } from '@/lib/features';
 import { haptics } from '@/lib/haptics';
 import { crossfade, fadeIn, fadeOut } from '@/lib/motion';
 import { Button, Pressable, Stepper, useSheet, useToast, type ContextMenuItem } from '@/ui';
@@ -24,7 +25,8 @@ import { refusedMark } from './marks';
 import { sessionMiles, weekMiles } from './miles';
 import { MiniTimeline, OutLine } from './MiniTimeline';
 import { LandedDeck, LandingRoute, RingSlot, SharePill } from './RunLanding';
-import { markSuccess, StravaRetry, useStravaLanding } from './useStravaLanding';
+import { markSuccess } from './success';
+import { StravaRetry, useStravaLanding, type Landing } from './useStravaLanding';
 import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
 /** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
@@ -53,8 +55,14 @@ const shareFor = (date: ISODate, s: Session | null, runs: Activity[], log: Log) 
  * for at least `CHECKING_MIN_MS` and at most `CHECKING_MAX_MS`; otherwise the face's own words. The two crossfade (120 ms in,
  * 100 ms out) in the same box.
  */
+/** A build without Strava never checks it: the hook is chosen once, so the bundler drops the Strava half (settings-18). */
+const useChecking: () => boolean = STRAVA_BUILT ? useStravaChecking : () => false;
+/** A build without Strava has no run landing: the day's own face, still. */
+const useStillLanding = ({ face }: { face: Face }): Landing => ({ stage: 'still', show: face, ring: null, ringShown: false, numbers: 'still', boost: false });
+const useLanding: typeof useStravaLanding = STRAVA_BUILT ? useStravaLanding : useStillLanding;
+
 const useCheckingLine = () => {
-  const checking = useStravaChecking();
+  const checking = useChecking();
   // shown on the render the check starts (no effect in between: the line's first frame is the next one)
   const since = useRef(0);
   if (checking && !since.current) since.current = performance.now();
@@ -94,7 +102,7 @@ const StatusLine = ({ text }: { text: string }) => {
       <AnimatePresence initial={false} mode="popLayout">
         {/* the fade starts one frame in (motion's first frame samples 0): the line is on the first frame after the check starts */}
         <motion.span key={checking ? 'checking' : text} className="hero-status-in" initial={{ opacity: FADE_FIRST_FRAME }} animate={{ opacity: 1, transition: fadeIn }} exit={{ opacity: 0, transition: fadeOut }}>
-          {checking ? 'Checking Strava…' : text}
+          {STRAVA_BUILT && checking ? 'Checking Strava…' : text}
         </motion.span>
       </AnimatePresence>
     </span>
@@ -391,7 +399,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
   const when = useTrainWhen(date);
   const pm = useAfternoon();
   const pre = useMemo(() => (isToday && dayFace.kind === 'landed' ? preLandingFace(log, date, minutes, (l) => whenFace(l, date, minutes, when, pm).face) : dayFace), [isToday, dayFace, log, date, minutes, when, pm]);
-  const landing = useStravaLanding({ date, log, face: dayFace, pre, hero });
+  const landing = useLanding({ date, log, face: dayFace, pre, hero });
   const face = landing.show;
   const lead = face.lead;
   const runs = log.snap.runsOn(date);
@@ -545,7 +553,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
         </motion.div>
       ) : null}
       {/* a foreground check that found nothing while the session is open past its back time: one quiet repeat at +8 s (§6.1) */}
-      {isToday && face.kind === 'open' ? <StravaRetry date={date} /> : null}
+      {STRAVA_BUILT && isToday && face.kind === 'open' ? <StravaRetry date={date} /> : null}
       {/* the ring fades with the faces (a Skip from the open face, its Undo): never dropped or mounted in one frame (feel
           review 2 #6) */}
       <AnimatePresence initial={false}>
