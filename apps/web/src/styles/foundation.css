@@ -1188,7 +1188,8 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 }
 .dp-page[data-role='cur'] {
   position: relative;
-  min-height: calc(var(--scroller-h) - var(--chrome-h));
+  /* fills the scroller below the pager's own top (DayPager writes --dp-top) */
+  min-height: calc(var(--scroller-h) - var(--dp-top, 0px));
 }
 .dp-page[data-role='prev'],
 .dp-page[data-role='next'] {
