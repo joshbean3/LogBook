@@ -1,35 +1,5 @@
-import type { AssistantScreen, ISODate } from '@logbook/shared';
-import { Sparkles } from 'lucide-react';
-import { memo } from 'react';
-import { Pressable } from '@/ui/Pressable';
-import { useSheet } from '@/ui/Sheet';
-import { AssistantSheet } from './AssistantSheet';
-import { useAssistantTurns } from './store';
-import './assistant.css';
-
 /**
- * Open the assistant over the page (large sheet), asking about `date`. `screen` is where it was opened from (Today and
- * its day, Plan and its week, a tab): the conversation shows it as a chip the owner can remove, and sends it with each ask.
+ * The old module path of useOpenAssistant, kept only until the dock (app/Dock.tsx), Goals (GoalSheetParts.tsx) and Plan
+ * (Held.tsx) import it from './openAssistant'. The AskBar component itself is gone. Delete this file once nothing imports it.
  */
-export const useOpenAssistant = () => {
-  const sheet = useSheet();
-  return (date: ISODate, initial?: string, screen?: AssistantScreen) =>
-    sheet.open({ title: 'Ask Logbook', detent: 'large', detents: ['large'], sticky: true, body: <AssistantSheet date={date} initial={initial} screen={screen} /> });
-};
-
-/**
- * The assistant's door, at the top of every day's page: one 48 px bar that reads like a field. A tap opens the
- * conversation with the keyboard up; while one is going, the bar says so.
- */
-export const AskBar = memo(function AskBar({ date }: { date: ISODate }) {
-  const open = useOpenAssistant();
-  const turns = useAssistantTurns();
-  const live = turns.length > 0;
-  return (
-    <Pressable className="ask-bar" press="surface" onPress={() => open(date)} label="Ask Logbook. Ask about your plan or ask for a change">
-      <Sparkles size={17} className="ask-bar-ic" aria-hidden="true" />
-      <span className="ask-bar-text">{live ? 'Continue with the assistant' : 'Ask or change anything'}</span>
-      {live ? <span className="ask-bar-dot" aria-hidden="true" /> : null}
-    </Pressable>
-  );
-});
+export { useOpenAssistant } from './openAssistant';

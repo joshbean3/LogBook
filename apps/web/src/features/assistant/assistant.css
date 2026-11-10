@@ -1,41 +1,5 @@
-/* The assistant: the bar at the top of a day, and the conversation in a large sheet, laid out as a native AI chat.
+/* The assistant: the conversation in a large sheet, laid out as a native AI chat.
    Navy for the one verb, Columbia for the owner's words, orange only for what needs a look (a change that deletes). */
-
-.ask-bar.pressable {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 48px;
-  margin-bottom: 12px;
-  padding: 0 16px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--ink-3);
-  text-align: left;
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-}
-.ask-bar[data-pressed] {
-  background: var(--surface-2);
-}
-.ask-bar-ic {
-  color: var(--accent-text);
-}
-.ask-bar-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ask-bar-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-}
-
-
 
 /* ---------- the chat, laid out the way ChatGPT and Claude are on a phone ----------
  * The answers sit straight on the page at full width (no card: the words are the content); the owner's words in a soft
