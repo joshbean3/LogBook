@@ -8,6 +8,24 @@ export const LEVEL: Record<GoalLevel, { label: string; ask: string; example: str
   day: { label: 'Day', ask: 'What is the one thing for today?', example: 'Send the model to Ana by 3 pm.', set: 'Set today’s goal' },
 };
 
+/**
+ * The question the set-goal sheet asks, for the period it is about: `What is the one thing for tomorrow?`, `What will you get
+ * done next week?`, `What is the one thing for Thu, Nov 12?`, `What will you finish in December?`.
+ */
+export const askOf = (level: GoalLevel, period: string, today: ISODate) => {
+  const name = periodName(level, period, today);
+  if (level === 'day') return `What is the one thing for ${name === 'Today' || name === 'Tomorrow' || name === 'Yesterday' ? name.toLowerCase() : name}?`;
+  if (level === 'week') return `What will you get done ${/^(This|Next|Last) week$/.test(name) ? name.toLowerCase() : `the week of ${name}`}?`;
+  if (level === 'month') return name === 'This month' ? LEVEL.month.ask : `What will you finish in ${periodSpan(level, period).split(' ')[0]}?`;
+  return name === 'This year' ? LEVEL.year.ask : `What will ${period} be about?`;
+};
+
+/** A day as a starter sentence ends: `today`, `tomorrow`, `on Thu`. */
+export const dayEnd = (period: string, today: ISODate) => {
+  const name = periodName('day', period, today);
+  return name === 'Today' || name === 'Tomorrow' ? name.toLowerCase() : `on ${fmtDate('dow', period)}`;
+};
+
 /** The caps line over a goal: `THIS WEEK · OCT 26–NOV 1`, `TODAY · MON, OCT 26`, `THIS YEAR`. */
 export const periodCaps = (level: GoalLevel, period: string, today: ISODate) => {
   const name = periodName(level, period, today);
@@ -128,17 +146,6 @@ export const scoreOf = (goals: readonly Aim[], level: GoalLevel, today: ISODate)
   };
 };
 
-/** What is left of a goal, in words, for its tile: `2 steps left, 3 days to go`, `3 days to go`, `Done`. */
-export const leftWords = (goal: Aim, level: GoalLevel, period: string, now: number) => {
-  if (goal.status !== 'open') return STATUS_WORD[goal.status];
-  const clock = clockOf(level, period, now).words;
-  const time = clock === 'Over' ? 'time is up' : clock === 'Not started' ? 'not started' : clock.replace(/ left$/, ' to go');
-  const left = goal.steps.filter((s) => !s.done).length;
-  if (!goal.steps.length) return time.charAt(0).toUpperCase() + time.slice(1);
-  if (!left) return 'Every step done. Mark it kept';
-  return `${left} step${left === 1 ? '' : 's'} left, ${time}`;
-};
-
 /** The period's time used, for the gauge: the share gone and its words, `4 of 7 days used`, `15 of 24 hours used`. */
 export const timeUsed = (level: GoalLevel, period: string, now: number) => {
   const { elapsed } = clockOf(level, period, now);
@@ -159,6 +166,9 @@ const periodPhrase = (level: GoalLevel, period: string, today: string) => {
   return rel ? `${name.toLowerCase()} (${span})` : level === 'week' ? `the week of ${span}` : span;
 };
 
-/** The request the assistant opens with, for the owner to send or change. */
+/**
+ * The request the assistant opens with, for the owner to send or change. It asks only for what the assistant is given:
+ * the recent training and goals (no habits, no long history).
+ */
 export const suggestRequest = (level: GoalLevel, period: string, today: string) =>
-  `Suggest one ${LEVEL[level].label.toLowerCase()} goal for ${periodPhrase(level, period, today)}, based on my last 90 days of training, habits and goals. Make it specific and measurable, with two or three steps.`;
+  `Suggest one ${LEVEL[level].label.toLowerCase()} goal for ${periodPhrase(level, period, today)}, based on my recent training and goals. Make it specific and measurable, with two or three steps.`;

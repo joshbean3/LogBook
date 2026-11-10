@@ -1,12 +1,14 @@
 import type { Aim, GoalLevel } from '@logbook/shared';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useReduced } from '@/lib/motion';
+import { restoreFocus } from '@/ui/focus';
+import { holdInert } from '@/ui/inert';
 import './goals.css';
 
 const EVENT = 'logbook:celebrate';
-const LINE: Record<GoalLevel, string> = { day: 'You did what you said you would today.', week: 'A whole week, kept.', month: 'A month of it, done.', year: 'The year’s goal. Done.' };
+const LINE: Record<GoalLevel, string> = { day: 'You did what you said you would today.', week: 'A whole week, done.', month: 'A month of it, done.', year: 'The year’s goal. Done.' };
 const SHAPE: Record<GoalLevel, string> = { day: 'sun', week: 'mint', month: 'coral', year: 'sky' };
 
 // one moment per finish, however many places show the goal
@@ -21,13 +23,19 @@ export const useCelebrate = () => (goal: Aim) => {
 };
 
 /**
- * The moment a goal is hit: the page goes dark, the level's shape (the day's sun, the week's mint, the month's coral, the
+ * The moment a goal is hit: an opaque page over the app (nothing shows through), focus on "Keep going" while it is up
+ * (the app behind is inert) and back where it was after. The page goes dark, the level's shape (the day's sun, the week's mint, the month's coral, the
  * year's sky) springs up out of nothing and settles, then the words in the serif and the one white pill to carry on. A tap
  * anywhere closes it; it closes by itself after four seconds (one short moment, never a show). Reduced motion: it simply appears.
  */
 export const CelebrateLayer = () => {
   const [goal, setGoal] = useState<Aim | null>(null);
   const reduce = useReduced();
+  const btn = useRef<HTMLButtonElement>(null);
+  // what had focus when the moment came, to hand it back
+  const back = useRef<Element | null>(null);
+  // a key or a tap inside means someone is reading it: it stays until they close it
+  const held = useRef(false);
   useEffect(() => {
     const on = (e: Event) => setGoal((e as CustomEvent<Aim>).detail);
     window.addEventListener(EVENT, on);
@@ -35,12 +43,23 @@ export const CelebrateLayer = () => {
   }, []);
   useEffect(() => {
     if (!goal) return;
-    const t = setTimeout(() => setGoal(null), 4000);
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && setGoal(null);
+    back.current = document.activeElement;
+    held.current = false;
+    const release = holdInert();
+    btn.current?.focus({ preventScroll: true });
+    const t = setTimeout(() => !held.current && setGoal(null), 4000);
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGoal(null);
+      else held.current = true;
+    };
     window.addEventListener('keydown', key);
     return () => {
       clearTimeout(t);
       window.removeEventListener('keydown', key);
+      release();
+      const o = back.current;
+      back.current = null;
+      if (o instanceof HTMLElement && o.isConnected) restoreFocus(o);
     };
   }, [goal]);
   return createPortal(
@@ -62,7 +81,7 @@ export const CelebrateLayer = () => {
             </h2>
             <p className="cel-line">{LINE[goal.level]}</p>
             <p className="cel-goal">{goal.text}</p>
-            <button type="button" className="btn primary cel-btn" onClick={() => setGoal(null)}>
+            <button ref={btn} type="button" className="btn primary cel-btn" onClick={() => setGoal(null)}>
               Keep going
             </button>
           </motion.div>

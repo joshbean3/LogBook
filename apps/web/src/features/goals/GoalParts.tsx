@@ -28,7 +28,9 @@ export const ScoreStrip = ({ goals, today }: { goals: readonly Aim[]; today: str
     <ul className="g-scores-row">
       {LEVELS.map((l) => {
         const s = scoreOf(goals, l, today);
-        const label = s.closed ? `${LEVEL[l].label}, ${l === 'year' ? 'this year' : `last ${SPAN_WORDS[l]}`}: ${s.kept} of ${s.closed} kept${s.tone === 'behind' ? ', behind' : ''}` : `${LEVEL[l].label}: none answered yet`;
+        // behind: the number is orange, and the line under it says against what
+        const why = s.tone === 'behind' ? (s.prev ? `was ${s.prev.kept} of ${s.prev.closed}` : 'under half') : null;
+        const label = s.closed ? `${LEVEL[l].label}, ${l === 'year' ? 'this year' : `last ${SPAN_WORDS[l]}`}: ${s.kept} of ${s.closed} done${why ? `, behind: ${why} before` : ''}` : `${LEVEL[l].label}: none answered yet`;
         return (
           <li key={l} className={`g-sc ${s.tone ? `is-${s.tone}` : 'is-none'}`} style={{ '--hue': LEVEL_HUE[l] } as React.CSSProperties} aria-label={label}>
             <span className="g-sc-lv" aria-hidden="true">
@@ -48,6 +50,11 @@ export const ScoreStrip = ({ goals, today }: { goals: readonly Aim[]; today: str
             <span className="g-sc-span" aria-hidden="true">
               {SPAN_WORDS[l]}
             </span>
+            {why ? (
+              <span className="g-sc-why" aria-hidden="true">
+                {why}
+              </span>
+            ) : null}
           </li>
         );
       })}
@@ -55,8 +62,8 @@ export const ScoreStrip = ({ goals, today }: { goals: readonly Aim[]; today: str
   </section>
 );
 
-/** `Send the draft to Ana (Fri, Nov 6)`: a stale goal named with its period. */
-const named = (g: Aim, today: string) => `${g.text.replace(/[.\s]+$/, '')} (${periodCaps(g.level, g.period, today).split(' · ').pop()})`;
+/** A stale goal's period, short: `Fri, Nov 6`, `Oct 26–Nov 1`, `October 2026`. */
+const whenOf = (g: Aim, today: string) => periodCaps(g.level, g.period, today).split(' · ').pop() ?? g.period;
 
 /**
  * The nudge for goals left open after their period ended, as a card: a label with its icon, the line, the goals named
@@ -79,7 +86,10 @@ export const StaleNudge = ({ goals, today }: { goals: readonly Aim[]; today: str
       </p>
       <ul className="g-nudge-list">
         {shown.map((g) => (
-          <li key={g.id}>{named(g, today)}</li>
+          <li key={g.id}>
+            <span className="g-nudge-text">{g.text.replace(/[.\s]+$/, '')}</span>
+            <span className="g-nudge-when">{whenOf(g, today)}</span>
+          </li>
         ))}
         {more ? <li className="g-nudge-more">and {more} more</li> : null}
       </ul>

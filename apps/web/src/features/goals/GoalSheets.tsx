@@ -1,5 +1,6 @@
-import { fmtDate, monthOf, periodOf, periodPast, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
+import { fmtDate, monthOf, periodOf, periodPast, periodSpan, periodStart, shiftDays, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
 import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Sparkles, Target, Trash2, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -8,7 +9,7 @@ import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useSheet, useSheetDepth, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
-import { deadlineWords, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
+import { askOf, dayEnd, deadlineWords, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
 import { AS_TYPED_WORDS, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
 import { HalfGauge, NewGoalChoice } from './GoalSheetParts';
@@ -141,8 +142,12 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
     );
   }
 
+  const ask = askOf(level, period, today);
   return (
     <div className="gsheet k-sheet">
+      <p className="gs-ask serif" aria-hidden="true">
+        {ask}
+      </p>
       <label className="gs-field">
         <span className="sr-only">{periodCaps(level, period, today)}</span>
         <textarea
@@ -151,7 +156,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
           rows={3}
           maxLength={400}
           placeholder={LEVEL[level].example}
-          aria-label={LEVEL[level].ask}
+          aria-label={ask}
           value={text}
           autoFocus
           readOnly={step.kind === 'reviewing'}
@@ -181,7 +186,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
       </p>
       <KPin>
         <Button variant="primary" block onClick={() => void review()} disabled={!words || step.kind === 'reviewing'} aria-busy={step.kind === 'reviewing'}>
-          {step.kind === 'reviewing' ? 'Reviewing…' : 'Set goal'}
+          {step.kind === 'reviewing' ? 'Reviewing…' : existing ? 'Save' : 'Set goal'}
         </Button>
       </KPin>
     </div>
@@ -205,25 +210,31 @@ const editorPanel = (p: { level: GoalLevel; period: string; initial?: string; cl
  * step). One tap fills the field; the review still runs on Set goal.
  */
 const useStarters = (level: GoalLevel, period: string) => {
+  const today = useToday();
   const month = useMonth(monthOf(level === 'day' || level === 'week' ? period : `${period.slice(0, 7)}-01`));
   const todos = useTodos();
   const goals = useGoals();
   if (level !== 'day') return [];
   const out: Array<{ label: string; text: string; icon: React.ReactNode }> = [];
   const sess = (month.data?.sessions ?? []).filter((x) => x.date === period && !(x as { deletedAt?: string | null }).deletedAt);
+  const when = dayEnd(period, today);
   for (const x of sess.slice(0, 2)) {
     const name = x.title || [x.type, x.miles ? `${x.miles}` : null].filter(Boolean).join(' ') || 'the session';
-    out.push({ label: name, text: x.kind === 'run' ? `Run ${name}${x.miles && !/mi\b/.test(name) ? ` (${x.miles} mi)` : ''} today.` : `Get ${name} done today.`, icon: x.kind === 'run' ? <Footprints size={14} aria-hidden="true" /> : <Dumbbell size={14} aria-hidden="true" /> });
+    // the miles once: not again when the name already carries the number
+    const miles = x.miles && !name.includes(String(x.miles)) && !/mi\b/.test(name) ? ` (${x.miles} mi)` : '';
+    out.push({ label: name, text: x.kind === 'run' ? `Run ${name}${miles} ${when}.` : `Get ${name} done ${when}.`, icon: x.kind === 'run' ? <Footprints size={14} aria-hidden="true" /> : <Dumbbell size={14} aria-hidden="true" /> });
   }
   const p1 = (todos.data ?? []).filter((t) => t.priority === 3 && !t.doneOn && !t.deletedOn).slice(0, 2);
   for (const t of p1) out.push({ label: t.text, text: `${t.text}.`.replace(/\.\.$/, '.'), icon: <Flag size={14} aria-hidden="true" className="gs-chip-p1" /> });
   const week = goalOf(goals.data, 'week', periodOf('week', period));
-  if (week) out.push({ label: 'Toward this week’s goal', text: `Today’s part of the week: ${week.text}`, icon: <Target size={14} aria-hidden="true" /> });
+  if (week) out.push({ label: 'Toward the week’s goal', text: `Part of the week: ${week.text}`, icon: <Target size={14} aria-hidden="true" /> });
   return out.slice(0, 4);
 };
 
 const EVENT_WORD: Record<GoalEventKind, string> = { set: 'Set', sharpened: 'Sharpened by AI', kept: 'Kept in your words', edited: 'Edited', done: 'Marked done', partly: 'Marked partly done', missed: 'Marked missed', reopened: 'Reopened', cleared: 'Cleared', step: 'Checked off', unstep: 'Unchecked' };
-const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+/** A clock time as the phone shows them (12 or 24 hour, from its region settings). */
+const CLOCK = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+export const timeOf = (iso: string) => CLOCK.format(new Date(iso));
 const dayOf = (iso: string) => {
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, '0');
@@ -254,6 +265,14 @@ export const ReviewButtons = ({ goal, onAnswer }: { goal: Aim; onAnswer?: (s: Go
   );
 };
 
+/** `Starts tomorrow`, `Starts Mon, Nov 16`, `Starts in December`: a goal whose period is still ahead. */
+const startsWords = (level: GoalLevel, period: string, today: string) => {
+  const from = periodStart(level, period);
+  if (level === 'month') return `Starts in ${periodSpan(level, period).split(' ')[0]}`;
+  if (level === 'year') return `Starts in ${period}`;
+  return from === shiftDays(today, 1) ? 'Starts tomorrow' : `Starts ${fmtDate('short', from)}`;
+};
+
 /** A goal opened: its words, where they came from, the review, a line on how it went, and its whole log. */
 export const GoalDetail = ({ id }: { id: string }) => {
   const today = useToday();
@@ -267,6 +286,8 @@ export const GoalDetail = ({ id }: { id: string }) => {
   useEffect(() => setNote(g?.reflection ?? ''), [g?.reflection]);
   if (!g) return <p className="gs-hint">This goal was cleared.</p>;
   const past = periodPast(g.level, g.period, today);
+  // tomorrow's goal, next week's: nothing to answer yet, and no clock running
+  const ahead = periodStart(g.level, g.period) > today;
   const now = new Date(`${today}T00:00:00`).getTime() + minutes * 60e3;
   const saveNote = () => {
     const v = note.trim();
@@ -276,7 +297,7 @@ export const GoalDetail = ({ id }: { id: string }) => {
   return (
     <div className="gsheet k-sheet">
       <section className="k-card gs-card g-gauge-card" aria-label="Where it stands">
-        <HalfGauge goal={g} now={now} />
+        <HalfGauge goal={g} now={now} starts={ahead ? startsWords(g.level, g.period, today) : undefined} />
         <hr className="k-rule" />
         <p className="gs-sentence serif">{g.text}</p>
         {g.original ? (
@@ -290,9 +311,13 @@ export const GoalDetail = ({ id }: { id: string }) => {
       </section>
       <h3 className="k-sheet-label">What counts toward it</h3>
       <GoalSteps goal={g} editable />
-      <h3 className="k-sheet-label">{past ? 'Did you hit it?' : 'How is it going?'}</h3>
-      <ReviewButtons goal={g} />
-      {g.status !== 'open' || g.reflection ? (
+      {ahead ? null : (
+        <>
+          <h3 className="k-sheet-label">{past ? 'Did you hit it?' : 'How is it going?'}</h3>
+          <ReviewButtons goal={g} />
+        </>
+      )}
+      {!ahead && (g.status !== 'open' || g.reflection) ? (
         <>
           <h3 className="k-sheet-label">How it went</h3>
           <label className="k-card gs-note-card">
@@ -330,9 +355,18 @@ export const GoalDetail = ({ id }: { id: string }) => {
 const ClearGoal = ({ id }: { id: string }) => {
   const sheet = useSheet();
   const goals = useGoals();
-  const { clear, set } = useGoalMutations();
+  const { clear, set, review } = useGoalMutations();
+  const qc = useQueryClient();
   const toast = useToast();
   const g = goals.data?.find((x) => x.id === id) ?? null;
+  /** Undo: the words and steps come back with the PUT (which revives the row as open), then its answer and its note. */
+  const restore = async (was: Aim) => {
+    await set.mutateAsync({ level: was.level, period: was.period, text: was.text, original: was.original, why: was.why, steps: was.steps });
+    if (was.status === 'open' && !was.reflection) return;
+    // the cache may hold a provisional id while offline: the answer goes on whatever row stands for the period
+    qc.setQueryData<Aim[]>(['goals'], (list) => list?.map((x) => (x.level === was.level && x.period === was.period ? { ...x, status: was.status, reflection: was.reflection, closedAt: was.closedAt } : x)));
+    review.mutate({ id: was.id, status: was.status, reflection: was.reflection });
+  };
   if (!g) return <p className="k-foot">This goal was cleared.</p>;
   return (
     <div className="gsheet k-sheet">
@@ -349,7 +383,7 @@ const ClearGoal = ({ id }: { id: string }) => {
             haptics.delete();
             clear.mutate(g.id);
             sheet.close();
-            toast('Goal cleared', { label: 'Undo', fn: () => set.mutate({ level: was.level, period: was.period, text: was.text, original: was.original, why: was.why, steps: was.steps }) });
+            toast('Goal cleared', { label: 'Undo', fn: () => void restore(was).catch(() => undefined) });
           }}
         >
           Clear goal
@@ -379,8 +413,12 @@ export const useOpenGoal = () => {
     const eyebrow = periodCaps(level, period, today);
     if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, action: <ClearButton id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
     else if (g) sheet.open({ eyebrow, title: 'Edit goal', ...editorPanel({ level, period, initial: g.text }), sticky: true });
-    // a new goal: set it myself (the editor, pushed) or ask for a suggestion from the last 90 days
-    else sheet.open({ eyebrow, title: LEVEL[level].ask, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title: LEVEL[level].ask, ...editorPanel({ level, period, closeOnSave: true }), sticky: true })} /> });
+    // a new goal: set it myself (the editor, pushed) or ask the assistant for one. The title stays short enough to fit at
+    // 320; the question itself is the serif line in the body
+    else {
+      const title = `${LEVEL[level].label} goal`;
+      sheet.open({ eyebrow, title, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title, ...editorPanel({ level, period, closeOnSave: true }), sticky: true })} /> });
+    }
   };
 };
 

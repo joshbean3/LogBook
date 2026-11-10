@@ -332,10 +332,19 @@ button.k-row:active {
 .k-pin .btn {
   border-color: transparent;
 }
-.btn.k-danger {
+:root .btn.k-danger,
+:root .k-pin .btn.k-danger {
+  /* above craft.css's :root .btn, which loads later and would draw it as a white pill */
   background: var(--bad);
+  background-image: none;
+  border-color: transparent;
   color: #fff;
+  text-shadow: none;
   box-shadow: none;
+}
+:root .btn.k-danger[data-pressed],
+:root .btn.k-danger:active {
+  background: color-mix(in srgb, var(--bad) 82%, #000);
 }
 
 @media (prefers-reduced-motion: reduce) {
