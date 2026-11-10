@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CFEBFA"/><stop offset=".42" stop-color="#E2F3FC"/><stop offset=".6" stop-color="#F6E7D3"/><stop offset=".72" stop-color="#FFC79C"/></linearGradient>
+    <radialGradient id="hg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFB680" stop-opacity="0.85"/><stop offset=".5" stop-color="#FFB680" stop-opacity="0.35"/><stop offset="1" stop-color="#FFB680" stop-opacity="0"/></radialGradient>
+    <filter id="gr" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .35 0 0 0 0 .27 0 0 0 0 .18 0 0 0 .55 0"/></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#sk)"/>
+  <ellipse cx="512" cy="700" rx="600" ry="300" fill="url(#hg)"/><circle cx="512" cy="420" r="310" fill="none" stroke="#FFFFFF" stroke-opacity="0.85" stroke-width="8"/><circle cx="512" cy="420" r="370" fill="none" stroke="#FFFFFF" stroke-opacity="0.6499999999999999" stroke-width="8"/><g transform="translate(251.6 159.6) scale(5.2083)">
+  <defs>
+    <radialGradient id="ailightb" cx="50%" cy="36%" r="64%" fx="50%" fy="26%"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".12" stop-color="#E4F6FE"/><stop offset=".34" stop-color="#97D8F9"/><stop offset=".6" stop-color="#38B6F2"/><stop offset=".84" stop-color="#1590D2"/><stop offset="1" stop-color="#0A68A0"/></radialGradient>
+    <radialGradient id="ailightw" cx="50%" cy="104%" r="58%">
+      <stop offset="0" stop-color="#D6F1FE" stop-opacity=".95"/><stop offset=".5" stop-color="#9ADBFA" stop-opacity=".45"/><stop offset="1" stop-color="#7FD0F7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ailighta" gradientUnits="userSpaceOnUse" cx="50" cy="99" r="32" gradientTransform="translate(50 99) scale(1.9 1) translate(-50 -99)">
+      <stop offset="0" stop-color="#FFE3CB" stop-opacity="0.780"/>
+      <stop offset=".34" stop-color="#FFC9A2" stop-opacity="0.610"/>
+      <stop offset=".68" stop-color="#DDF3FE" stop-opacity="0.430"/>
+      <stop offset="1" stop-color="#9EDCFA" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ailightk" gradientUnits="userSpaceOnUse" cx="50" cy="98" r="44"><stop offset="0" stop-color="#FFD9B8"/><stop offset=".5" stop-color="#FFB680" stop-opacity=".85"/><stop offset="1" stop-color="#FFB680" stop-opacity="0"/></radialGradient>
+    <linearGradient id="ailightr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0A5E92" stop-opacity="0.35"/><stop offset=".75" stop-color="#0A5E92" stop-opacity="0.3"/><stop offset="1" stop-color="#0A5E92" stop-opacity="0.25"/></linearGradient>
+    <radialGradient id="ailights" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#fff" stop-opacity="0.7"/><stop offset=".45" stop-color="#fff" stop-opacity="0.42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="ailightg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFB680" stop-opacity="0.5"/><stop offset="1" stop-color="#FFB680" stop-opacity="0"/></radialGradient>
+    <mask id="ailightm"><circle cx="50" cy="50" r="47.2" fill="#fff"/><circle cx="50" cy="44.5" r="48.825" fill="#000"/></mask>
+    <filter id="ailightf" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <filter id="ailightsf" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <clipPath id="ailightc"><circle cx="50" cy="50" r="48"/></clipPath>
+    <clipPath id="ailightci"><circle cx="50" cy="50" r="47.2"/></clipPath>
+  </defs>
+  
+  <circle cx="50" cy="50" r="48" fill="url(#ailightb)"/>
+  <g clip-path="url(#ailightc)">
+    <circle cx="50" cy="50" r="48" fill="url(#ailightw)"/>
+    <rect x="0" y="0" width="100" height="100" fill="url(#ailighta)"/>
+    <g clip-path="url(#ailightci)"><g filter="url(#ailightf)"><rect x="0" y="0" width="100" height="100" fill="url(#ailightk)" mask="url(#ailightm)" opacity="0.600"/></g></g>
+    <ellipse cx="50" cy="22" rx="27" ry="15" fill="url(#ailights)" filter="url(#ailightsf)"/>
+  </g>
+  <circle cx="50" cy="50" r="47.6" fill="none" stroke="url(#ailightr)" stroke-width="0.8"/>
+  </g><path d="M0 760 C 260 712, 560 712, 1024 772 L1024 1024 L0 1024Z" fill="#4FA9DB"/><path d="M0 862 C 300 806, 720 812, 1024 868 L1024 1024 L0 1024Z" fill="#0A6CA6"/>
+  <rect width="1024" height="1024" filter="url(#gr)" opacity="0.22" style="mix-blend-mode:multiply"/>
+</svg>

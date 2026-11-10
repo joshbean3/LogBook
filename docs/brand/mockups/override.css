@@ -1,0 +1,358 @@
+/*
+ * Orby, Sunrise: the mockup override.
+ *
+ * This sheet is layered over the live build with Playwright's page.addStyleTag to make the mockups in this folder. It
+ * shows builders how the new tokens map onto the classes the app already has. It is NOT app code:
+ *   - in the app, change apps/web/src/styles/tokens.css (see docs/brand/tokens.css) and the component sheets directly;
+ *   - one script tweak: the mockups title-case the session name ("STRENGTH A" to "Strength A"); in the app, drop up() in
+ *     features/day/faces.ts;
+ *   - the mockups also swap the product name in visible text from "Logbook" to "Orby" (a text-node replace in the
+ *     shoot script). In the app that is a copy change, plus CFBundleDisplayName "Orby" in ios/App/App/Info.plist and
+ *     the web manifest name; identifiers (repo, @logbook/* packages, com.joshbean.logbook, storage keys) stay;
+ *   - `!important` appears only because this sheet sits on top of the shipped CSS; never copy it into the app.
+ * Paths: /brand/fonts/* are docs/brand/fonts/*, /brand/logo-mark.svg is docs/brand/assets/logo-mark.svg. In the app the
+ * fonts go to apps/web/public/fonts and the Orb is painted by ui/orbPaint.ts with the recipe in brand-guide.md section 2.
+ */
+
+/* ---------- 1. Fonts ---------- */
+@font-face { font-family: 'Fraunces'; src: url(/brand/fonts/fraunces-latin-full-normal.woff2) format('woff2'); font-weight: 100 900; font-style: normal; font-display: block; }
+@font-face { font-family: 'Fraunces'; src: url(/brand/fonts/fraunces-latin-full-italic.woff2) format('woff2'); font-weight: 100 900; font-style: italic; font-display: block; }
+
+/* ---------- 2. Tokens: old names, new values (docs/brand/tokens.css has the full list with comments) ---------- */
+:root:root:root {
+  --bg: #EAF5FC;                 /* Cloud */
+  --surface: #FFFDF8;            /* Paper */
+  --surface-2: #EAF5FC;          /* Cloud */
+  --surface-3: #CBE8F8;          /* Haze */
+  --ink: #0E2236;                /* Night Ink */
+  --ink-2: #46596D;              /* Dusk */
+  --ink-3: #46596D;              /* Dusk */
+  --ink-4: #46596D;              /* Dusk */
+  --ink-faint: #7A8794;          /* Pencil: marks only */
+  --line: rgba(14, 34, 54, 0.10);
+  --line-strong: rgba(14, 34, 54, 0.18);
+  --field-edge: rgba(14, 34, 54, 0.5);
+  --columbia: #CBE8F8;           /* Haze */
+  --columbia-wash: #EAF5FC;      /* Cloud */
+  --accent: #38B6F2;             /* lit things are Sky now; the orange keeps only the now-marks (--sunrise) */
+  --accent-bright: #5CC4F5;
+  --accent-ink: #0E2236;
+  --accent-soft: #CBE8F8;
+  --accent-tint: rgba(56, 182, 242, 0.16);
+  --accent-text: #0A6CA6;        /* Deep Sky: links and blue words */
+  --primary: #38B6F2;
+  --primary-ink: #0E2236;
+  --sunrise: #F2600C;
+  --apricot: #FFB680;
+  --ember: #B4430C;
+  --halo: radial-gradient(60% 70% at 50% 110%, rgba(203, 232, 248, 0.95), rgba(203, 232, 248, 0) 70%);
+  --halo-amber: radial-gradient(60% 70% at 50% 110%, rgba(255, 182, 128, 0.42), rgba(255, 182, 128, 0) 70%);
+  --star: #0A6CA6;
+  --sun: #FFB680;
+  --g-sun: radial-gradient(120% 120% at 30% 25%, #FFE9D6, #FFC99F 55%, #FFB680);
+  /* data tones: session kinds. Marks and glyphs only, never a surface; each is 4.5:1 or better on Paper */
+  --t-easy: #117A74;             /* Lagoon 5.09 */
+  --t-long: #0A6CA6;             /* Deep Sky 5.57 */
+  --t-hard: #7E3F8F;             /* Plum 6.90 */
+  --t-fast: #B23A5B;             /* Rose 5.66 */
+  --t-lift: #4A4FB0;             /* Indigo 6.80 */
+  --t-cross: #7D6210;            /* Ochre 5.70 */
+  --t-rest: #7A8794;             /* Pencil 3.61, marks only */
+  --ok: #0A6CA6; --ok-soft: #EAF5FC;
+  --warn: #E0A21B; --warn-soft: #FBF0D6; --warn-text: #7A5A00;
+  --bad: #B42340; --bad-soft: #F9E3E7;
+  --mint: #117A74; --coral: #B23A5B; --sky: #38B6F2;
+  --g-mint: radial-gradient(120% 120% at 30% 25%, #BFEDE6, #5CC9B5 55%, #117A74);
+  --g-coral: radial-gradient(120% 120% at 30% 25%, #F8C6D0, #E07A92 55%, #B23A5B);
+  --g-sky: radial-gradient(120% 120% at 30% 25%, #E4F6FE, #97D8F9 55%, #38B6F2);
+  --shadow-1: 0 1px 1px rgba(14, 34, 54, 0.04), 0 10px 28px -14px rgba(14, 34, 54, 0.20);
+  --shadow-float: 0 1px 1px rgba(14, 34, 54, 0.05), 0 12px 28px -12px rgba(14, 34, 54, 0.28);
+  --shadow-2: 0 18px 40px -16px rgba(14, 34, 54, 0.30);
+  --shadow-sheet: 0 -8px 40px rgba(14, 34, 54, 0.14);
+  --card-border: 1px solid rgba(14, 34, 54, 0);
+  --glass: rgba(255, 253, 248, 0.88);
+  --bevel-hi: 0 0 0 0 transparent;
+  --pearl: #FFFDF8;
+  --navy-pill: #38B6F2;
+  --navy-glow: 0 8px 18px -10px rgba(10, 108, 166, 0.45);
+  --well: #EAF5FC;
+  --well-shadow: inset 0 0 0 1px rgba(14, 34, 54, 0.08);
+  --scrim: rgba(14, 34, 54, 0.32);
+  --scrim-solid: #0E2236;
+  --serif: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --r-card: 24px;
+  --r-lg: 24px;
+  --r-group: 18px;
+  --r-tile: 18px;
+  --r-chip: 18px;
+  --r-control: 14px;
+  --r-md: 14px;
+  --r-menu: 14px;
+  --r-icon: 12px;
+  --r-sm: 12px;
+  --fs-title: 2.375rem; --lh-title: 2.625rem;
+  --fs-head: 1.375rem; --lh-head: 1.75rem;
+  --section: 32px;
+  --dawn: linear-gradient(180deg, #CBE8F8 0, #EAF5FC 300px);
+  --serif-axes: 'SOFT' 100, 'WONK' 0;
+  --wash-bar: #D0EAF8; --wash-strip: #DAEEFA; --wash-strip-end: #E2F2FB;
+  --shadow-pill: 0 0 0 1px rgba(14, 34, 54, 0.08), 0 6px 16px -10px rgba(14, 34, 54, 0.30);
+}
+/* Fraunces axes everywhere (Inter ignores unknown axes) */
+html { font-variation-settings: 'SOFT' 100, 'WONK' 0; }
+html body { font-synthesis: none; }
+/* every Fraunces setting carries the soft axis */
+:is(.nb-title, .sentence-text, .lb-title, .hero-stamp, .sheet-title, .gh-ask, h1, h2, .orb-initial.is-letter, [class*='-serif'], .t-serif) {
+  font-variation-settings: 'SOFT' 100, 'WONK' 0;
+}
+
+/* ---------- 3. Ground: the dawn wash at the top of each tab root, flat Cloud below ---------- */
+html body, .shell, .tab-scroll { background-color: #EAF5FC !important; }
+.tab-scroll { background-image: var(--dawn) !important; background-repeat: no-repeat !important; }
+/* the sticky bar and strip carry the wash color they sit on, so content slides under them cleanly */
+.nb-bar { background: linear-gradient(180deg, #CBE8F8, var(--wash-bar)) !important; box-shadow: none !important; }
+.nb-strip { background: linear-gradient(180deg, var(--wash-strip), var(--wash-strip-end)) !important; box-shadow: 0 10px 12px 0 rgba(226, 242, 251, 0.9) !important; }
+.nb-strip::after { display: none; }
+.dock::before { background: linear-gradient(to bottom, rgba(234, 245, 252, 0) 0, rgba(234, 245, 252, 0.86) 30px, #EAF5FC 52px) !important; }
+
+/* ---------- 4. Type: the title, the sentence, captions ---------- */
+.nb-title {
+  font: 650 2.375rem / 2.625rem var(--display) !important;
+  letter-spacing: -0.015em !important;
+  height: 46px !important; min-height: 46px !important; padding-top: 2px !important;
+}
+.sentence-text { font: italic 420 1.0625rem / 1.375rem var(--display) !important; color: #46596D !important; letter-spacing: 0 !important; }
+.nb-date, .caps, .hero-eyebrow, .hero-aside, .nb-letter, .ga-title.caps, .gh-label {
+  font-family: 'Inter Tight', var(--sans) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase;
+}
+.nb-date { color: #46596D !important; }
+.lb-title, .sec-head .t-label { font: 600 1.625rem / 2rem var(--display) !important; letter-spacing: 0 !important; color: #0E2236 !important; }
+.lb-act, .lb-link { color: #0A6CA6 !important; font-weight: 600 !important; }
+.sheet .sheet-title { font: 600 1.625rem / 2rem var(--display) !important; letter-spacing: 0 !important; }
+
+/* ---------- 5. Cards and surfaces: Paper on Cloud, one soft shadow, no bevel ---------- */
+.card, .card-group, .ctx-chip, .gh, .ga-chip, .lb-card, .tile, .group {
+  border-color: transparent !important;
+}
+.ctx-chip { background: #FFFDF8 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: var(--shadow-1) !important; border-radius: 18px !important; }
+.ctx-ic { background: #CBE8F8 !important; color: #0A6CA6 !important; }
+.avatar-disc { background: #FFFDF8 !important; color: #0E2236 !important; box-shadow: var(--shadow-float) !important; font-weight: 650 !important; }
+.icon-btn:not(.bare) { background: #FFFDF8 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: var(--shadow-float) !important; color: #0E2236 !important; }
+
+/* ---------- 6. Week strip: the shown day is a 34 px Sky disc, today keeps a Sunrise dot above its letter ---------- */
+.nb-disc, .nb-disc.is-today {
+  top: 18px !important; width: 34px !important; height: 34px !important;
+  margin-left: calc(100% / 14 - 17px) !important;
+  background: #38B6F2 !important;
+}
+.nb-num { font-weight: 600 !important; font-size: 1.0625rem !important; color: #0E2236 !important; }
+.nb-cell.is-today:not(.is-shown) .nb-num { color: #0E2236 !important; }
+.nb-letter { color: #46596D !important; position: relative; }
+.nb-cell.is-today .nb-letter { color: #0E2236 !important; }
+.nb-cell.is-today .nb-letter::after {
+  content: ''; position: absolute; left: 50%; top: -7px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%;
+  background: #F2600C; box-shadow: 0 0 0 2px #FFFDF8;
+}
+.nb-kinds { margin-top: 6px !important; background: #FFFDF8 !important; box-shadow: inset 0 0 0 1px rgba(14, 34, 54, 0.10) !important; color: #46596D !important; }
+.nb-kinds.is-done, .nb-kinds.is-bonus { background: #38B6F2 !important; color: #0E2236 !important; box-shadow: none !important; }
+.nb-kinds.is-floor { background: #CBE8F8 !important; color: #0E2236 !important; }
+.nb-kinds.is-missed, .nb-kinds.is-skipped { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(14, 34, 54, 0.12) !important; color: #46596D !important; }
+.nb-cell.is-today .nb-kinds.is-planned { background: #FFFDF8 !important; box-shadow: inset 0 0 0 1.5px #0A6CA6 !important; color: #0A6CA6 !important; }
+.nb-dot.is-done, .nb-dot.is-bonus { background: #0A6CA6 !important; }
+.nb-dot.is-floor { background: #38B6F2 !important; }
+
+/* ---------- 7. The hero card: Paper, one Apricot glow below it, the session name in Fraunces ---------- */
+.hero.aura:not(.is-tall) {
+  background: #FFFDF8 !important;
+  box-shadow: 0 1px 1px rgba(14, 34, 54, 0.04), 0 10px 28px -14px rgba(14, 34, 54, 0.20) !important;
+  overflow: hidden;
+}
+.hero.aura:not(.is-tall)::after {
+  content: ''; position: absolute; left: -12%; right: -12%; bottom: -52%; height: 78%; z-index: 0; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 182, 128, 0.42), rgba(255, 182, 128, 0));
+}
+.hero.aura:not(.is-tall) > .hero-face { position: relative; z-index: 1; }
+.hero-stamp {
+  font: 650 2.5rem / 2.625rem var(--display) !important;
+  letter-spacing: -0.015em !important;
+  text-transform: none !important;
+  color: #0E2236 !important;
+}
+.hero-stamp.is-long { font-size: 1.875rem !important; line-height: 2.125rem !important; }
+.hero.is-quiet .hero-stamp { color: #0E2236 !important; }
+.hero-line { font: 500 0.9375rem / 1.25rem var(--sans) !important; color: #46596D !important; height: auto !important; margin-top: 6px !important; letter-spacing: 0 !important; }
+.hero.is-quiet .hero-line { color: #46596D !important; }
+/* the U gauge: Haze track, Deep Sky fill, Pencil ticks, a Sunrise pointer on a Paper keyline, the ends in caps */
+.hg-track { stroke: #CBE8F8 !important; filter: none !important; }
+.hg-fill { stroke: #0A6CA6 !important; }   /* Deep Sky on Haze 4.43: passes 3:1 as a graphic; Sky would be 1.80 */
+.hg-tick { stroke: rgba(14, 34, 54, 0.22) !important; }
+.hg-tick.is-major { stroke: rgba(14, 34, 54, 0.5) !important; }
+.hg-dot { fill: #F2600C !important; stroke: #FFFDF8 !important; stroke-width: 3.5px !important; filter: none !important; }
+.hg-start { fill: #0A6CA6 !important; }
+.hg-end { fill: #46596D !important; font-family: 'Inter Tight', var(--sans) !important; font-weight: 600 !important; letter-spacing: 0.14em !important; text-transform: uppercase; font-variant-numeric: tabular-nums; transform: none !important; }  /* end labels sit horizontal (6.5) */
+.hero-week {
+  background: #FFFDF8 !important; color: #0E2236 !important; font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-pill) !important; border: 0 !important;
+}
+.hero-week svg { color: #0A6CA6 !important; }
+.hero-week { transform: translateY(-4px); }   /* the readout sits inside the bowl, clear of the track (6.5) */
+.hero-when { background: #EAF5FC !important; box-shadow: none !important; border: 0 !important; }
+.hero-when-opt { color: #46596D !important; font-weight: 550 !important; }
+.hero-when-opt.on { background: #38B6F2 !important; color: #0E2236 !important; box-shadow: none !important; font-weight: 650 !important; }
+.hold-track { stroke: #CBE8F8 !important; }
+.hold-fill { stroke: #0A6CA6 !important; }   /* hold ring (6.13): Deep Sky fill on a Haze track, 4.43; never Sky (1.80) */
+.hold-face { background: #FFFDF8 !important; box-shadow: 0 0 0 1px rgba(14, 34, 54, 0.10) !important; }
+.hold-check, .hold-face svg { color: #0E2236 !important; }
+.hero-status { color: #46596D !important; }
+
+/* ---------- 8. Habits: Paper tiles on Cloud; a lit habit is a flat Sky coin with an Ink mark (the gloss is the assistant's) ---------- */
+.day-habits-card { background: transparent !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+.day-habits-card .orbs-wrap { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+.orbs.is-grid { gap: 12px !important; grid-template-columns: repeat(auto-fill, minmax(max(calc(50% - 6px), 7.75rem), 1fr)) !important; }
+.orbs.is-grid .orb { padding: 12px !important; }
+.orbs.is-grid .orb { background: #FFFDF8 !important; box-shadow: var(--shadow-1) !important; border-radius: 18px !important; border: 0 !important; }
+.orbs.is-grid .orb.on { background: #FFFDF8 !important; }
+.orb-ring { background: transparent !important; box-shadow: inset 0 0 0 1.5px rgba(14, 34, 54, 0.28) !important; border: 0 !important; }
+.orb.on .orb-ring { background: #38B6F2 !important; box-shadow: none !important; }
+.orb-initial.is-letter { font: 600 1.0625rem / 1.375rem var(--sans) !important; font-style: normal !important; color: #0E2236 !important; }  /* coin initial: Inter 600 at --fs-row (6.6) */
+.orb.on .orb-initial, .orb.on .orb-ring svg { color: #0E2236 !important; }
+.orb-name { color: #0E2236 !important; font-weight: 600 !important; }
+.orb-week i { background: rgba(14, 34, 54, 0.10) !important; box-shadow: none !important; }   /* ahead: --dot-ahead */
+.orb-week i.is-o { background: transparent !important; box-shadow: inset 0 0 0 1.25px #7A8794 !important; }   /* missed: 1.25 px Pencil ring (3.61) */
+.orb-week i.is-d { background: #0A6CA6 !important; box-shadow: none !important; }
+.orb-week i.is-day { box-shadow: inset 0 0 0 1.5px #0E2236 !important; }
+.orb-week i.is-d.is-day { background: #0A6CA6 !important; box-shadow: 0 0 0 1.5px #FFFDF8, 0 0 0 2.5px #0E2236 !important; }
+
+/* ---------- 9. The dock: a Paper ask bar with the Orb, a Paper capsule, the active tab on a 32 px Sky disc ---------- */
+.dock-ask.pressable, .tabbar, .dock-ask-mini.pressable { background: #FFFDF8 !important; box-shadow: var(--shadow-float) !important; border-color: transparent !important; }
+.dock-ask-text { color: #46596D !important; }
+.tab-item { color: #46596D !important; }
+.tab-item svg { width: 32px !important; height: 32px !important; padding: 5px; border-radius: 50%; stroke-width: 1.75 !important; margin-bottom: -3px; }
+.tab-item[aria-current='page'] svg { background: #38B6F2; color: #0E2236 !important; }
+.tab-item[aria-current='page'] .tab-label { color: #0E2236 !important; font-weight: 650 !important; }
+.tab-label { font-weight: 550 !important; }
+.dock-dot, .tab-dot { background: #F2600C !important; box-shadow: 0 0 0 2px #FFFDF8 !important; width: 8px !important; height: 8px !important; }
+
+/* ---------- 10. The Orb: one sphere everywhere, lit by a sunrise from below (the canvas is replaced by the brand art) ---------- */
+.lb-orb { background: url(/brand/logo-mark.svg) center / contain no-repeat !important; }
+.lb-orb > .lb-orb-canvas { visibility: hidden !important; }
+
+/* ---------- 11. Buttons, segmented controls, fields ---------- */
+:root .btn { background: #FFFDF8 !important; border: 1px solid rgba(14, 34, 54, 0.12) !important; box-shadow: none !important; color: #0E2236 !important; }
+:root .btn.primary, :root .pd-goal-cta, .btn.primary {
+  background: #38B6F2 !important; color: #0E2236 !important; text-shadow: none !important; border-color: transparent !important;
+  box-shadow: 0 8px 18px -10px rgba(10, 108, 166, 0.45) !important; font-weight: 650 !important;
+}
+:root .btn.primary:disabled { background: #CBE8F8 !important; color: #46596D !important; box-shadow: none !important; }
+:root .btn.quiet, :root .btn.ghost { background: transparent !important; border-color: transparent !important; color: #0A6CA6 !important; }
+:root .seg { background: #EAF5FC !important; box-shadow: none !important; border-radius: 999px !important; }
+:root .seg .seg-thumb, :root .seg-thumb { background: #38B6F2 !important; box-shadow: none !important; border-radius: 999px !important; }
+.seg-label { color: #46596D; }
+.seg-btn[aria-pressed='true'] .seg-label, .seg-btn[aria-selected='true'] .seg-label, .seg-btn[aria-checked='true'] .seg-label, .seg-btn.on .seg-label { color: #0E2236 !important; font-weight: 650 !important; }
+:root .in, :root input.in, :root textarea.in { background: #FFFDF8 !important; box-shadow: none !important; border-radius: 14px !important; }
+:root .in:focus, :root input.in:focus, :root textarea.in:focus { border-color: #0A6CA6 !important; box-shadow: 0 0 0 4px rgba(56, 182, 242, 0.28) !important; }
+
+/* ---------- 12. Sheets ---------- */
+.sheet { background: #FFFDF8 !important; }
+
+/* ---------- 13. Goals and Plan your day: Sky pills with Ink words (white on Sky is 2.30:1, banned) ---------- */
+.gh-cta, .ga-pill { background: #38B6F2 !important; color: #0E2236 !important; text-shadow: none !important; box-shadow: 0 8px 18px -10px rgba(10, 108, 166, 0.45) !important; }
+.ga-pill { box-shadow: none !important; }
+.gh, .gh.pressable { background: #FFFDF8 !important; box-shadow: 0 1px 1px rgba(14, 34, 54, 0.04), 0 10px 28px -14px rgba(14, 34, 54, 0.20) !important; }
+.gh-sun { background: radial-gradient(circle at 40% 40%, #FFE3CB, #FFB680 72%) !important; box-shadow: none !important; opacity: 1 !important; }   /* the card's glow is its only glow */
+.gh-ask { font-variation-settings: 'SOFT' 100, 'WONK' 0; font-weight: 420 !important; }
+
+/* ---------- 14. Progress: one static hero stat per card in Fraunces, tabular ---------- */
+.ph-big:not(.is-word) { font-family: var(--sans) !important; font-weight: 650 !important; font-variant-numeric: tabular-nums; letter-spacing: -0.02em !important; }  /* a hero stat that changes: Inter 650, tnum (Fraunces has no tabular figures) */
+
+/* ---------- 15. Welcome (Start): the lockup, the wash, the sunrise ---------- */
+.start { background: linear-gradient(180deg, #CBE8F8 0, #EAF5FC 340px, #EAF5FC 62%, #FFF1E4 100%) !important; }
+.auth-halo { background: radial-gradient(60% 46% at 50% 108%, rgba(255, 182, 128, 0.55), rgba(255, 182, 128, 0) 70%) !important; opacity: 1 !important; }
+.start-brand .caps { /* the outlined wordmark, never live text: 34 px tall box = 24 px cap height */
+  font-size: 0 !important; color: transparent !important; letter-spacing: 0 !important;
+  display: inline-block; width: 75px; height: 34px; background: url(/brand/wordmark-ink.svg) left center / contain no-repeat;
+}
+.start-help { color: #0A6CA6 !important; }
+.start-title { font: 700 3.5rem / 3.5rem var(--display) !important; font-style: normal !important; letter-spacing: -0.02em !important; font-variation-settings: 'SOFT' 100, 'WONK' 0; }
+.start-sub { color: #46596D !important; }
+.start-dot::before { background: rgba(14, 34, 54, 0.28) !important; }
+.start-dot.on::before { background: #0E2236 !important; }
+.start-signin { color: #0A6CA6 !important; font-weight: 600 !important; }
+.lc { background: #FFFDF8 !important; box-shadow: var(--shadow-1) !important; }
+.lc-halo { display: none !important; }
+.lc-big { font: 650 2.5rem / 2.625rem var(--display) !important; font-variation-settings: 'SOFT' 100, 'WONK' 0; letter-spacing: -0.015em !important; text-transform: none !important; }
+.lc-line { font: italic 420 1.375rem / 1.75rem var(--display) !important; font-variation-settings: 'SOFT' 100, 'WONK' 0; color: #0E2236 !important; }
+.lc-stop i { border-color: #46596D !important; background: #FFFDF8 !important; }
+.lc-stop.now i { background: #F2600C !important; border-color: #FFFDF8 !important; box-shadow: 0 0 0 1px rgba(242, 96, 12, 0.5) !important; }
+.lc-stop-v { font-family: var(--sans) !important; font-weight: 650 !important; font-variant-numeric: tabular-nums; }
+
+/* ---------- 16. Icon tiles: one treatment, Haze tile with a Deep Sky glyph (no per-feature hues; under 28 px the tile is a circle) ---------- */
+.ga-ic { background: #CBE8F8 !important; color: #0A6CA6 !important; box-shadow: none !important; border-radius: 999px !important; }
+
+/* ---------- 17. Session cards on Plan: a Haze icon tile, the tone only on the glyph; no tinted card wash ---------- */
+.pt-run.pressable::before { display: none !important; }
+.pt-run-ic:not(.is-add) { background: #CBE8F8 !important; border-radius: 12px !important; }
+/* the Today tag: Ember words on Paper with an Ember keyline (5.51), never Ember on a tint */
+.pt-st.k-today { background: #FFFDF8 !important; color: #B4430C !important; box-shadow: inset 0 0 0 1px rgba(180, 67, 12, 0.4) !important; }
+
+/* ---------- 18. Journal: the switch row carries the wash it sits on; entry marks are flat discs (gloss is the assistant's) ---------- */
+.j-segrow { background: linear-gradient(180deg, #D0EAF8, #DAEEFA) !important; }
+.j-segrow::after { background: linear-gradient(#DAEEFA, rgba(218, 238, 250, 0)) !important; }
+.jcal .lb-orb { background: #38B6F2 !important; border-radius: 50% !important; }
+.jcal .lb-orb > .lb-orb-canvas { visibility: hidden !important; }
+.jcal-key li:nth-child(1) .lb-orb { background: #CBE8F8 !important; box-shadow: inset 0 0 0 1px #0A6CA6 !important; }
+.jcal-key li:nth-child(2) .lb-orb { background: #7FCBF3 !important; }
+.jcal-key li:nth-child(4) .lb-orb { background: #0A6CA6 !important; }
+.jcal-write .lb-orb { background: #CBE8F8 !important; box-shadow: inset 0 0 0 1.5px #38B6F2 !important; }
+
+/* ---------- 19. Learned: Fraunces never in an input; the field is Inter 17, the prompt above it carries the serif ---------- */
+.ln-field { font: 400 1.0625rem / 1.5rem var(--sans) !important; color: #0E2236 !important; }
+.ln-field::placeholder { color: #46596D !important; opacity: 1; }
+
+/* ---------- 20. Habit week dots: the shown day is an Ink ring, not orange (orange is spent on the week strip's today dot) ---------- */
+.orb-week i.is-day { outline: 1.5px solid #0E2236 !important; outline-offset: 1.5px !important; box-shadow: none !important; }
+.orb-week i.is-d.is-day { box-shadow: none !important; }
+
+/* ---------- 21. The ask bar's Orb is 28 px, the smallest gloss size (24 px and under is the flat disc) ---------- */
+.dock-ask .lb-orb.dock-ask-ic { --s: 28px !important; }
+
+/* ---------- 22. Goals: one primary per screen. "Review it" is a secondary; "+ Set" is a quiet Deep Sky link ---------- */
+:root .g-nudge-btn.btn.primary { background: #FFFDF8 !important; color: #0E2236 !important; border: 1px solid rgba(14, 34, 54, 0.12) !important; box-shadow: none !important; font-weight: 600 !important; }
+.ga-pill { background: transparent !important; color: #0A6CA6 !important; box-shadow: none !important; font-weight: 600 !important; padding-inline: 4px !important; }
+
+/* ---------- 23. Tab roots: one horizon hairline and a small half-sun on the title line, in the dawn wash (signature) ---------- */
+.nb-bar + .nb-title, .nb-title { position: relative; }
+.page > .nb-title::after, .nb-title::after {
+  content: ''; position: absolute; right: 52px; bottom: 9px; width: 28px; height: 14px; border-radius: 14px 14px 0 0;
+  background: radial-gradient(circle at 50% 100%, #FFE3CB 0, #FFB680 72%); pointer-events: none;
+}
+.nb-title::before {
+  content: ''; position: absolute; left: 58%; right: 0; bottom: 9px; height: 1px; background: rgba(14, 34, 54, 0.22); pointer-events: none;
+}
+
+/* ---------- 24. Charts: the now dot is Sunrise with a Paper keyline; axes in caption style ---------- */
+.pl-now { fill: #F2600C !important; stroke: #FFFDF8 !important; stroke-width: 2px !important; r: 4px; }
+.pl-now-halo { display: none !important; }
+.pl-done { stroke: #0A6CA6 !important; stroke-width: 2.5px !important; }
+.pl-plan { stroke: #46596D !important; stroke-width: 1.5px !important; stroke-dasharray: 4 4 !important; }
+.pl-ax { font-family: 'Inter Tight', var(--sans) !important; font-weight: 600 !important; letter-spacing: 0.14em !important; text-transform: uppercase; fill: #46596D !important; font-variant-numeric: tabular-nums; }
+.pl-ax.is-now { fill: #B4430C !important; }
+.pl-grid { stroke: rgba(14, 34, 54, 0.08) !important; }
+.ph-key.is-now::before { background: #F2600C !important; box-shadow: 0 0 0 2px #FFFDF8 !important; }
+
+/* ---------- 25. Progress: the week horizon (8.5, proposed component; injected by the shoot script, not in the app yet) ---------- */
+.wh { margin: 14px 0 6px; }
+.wh-cap { font: 600 max(11px, 0.6875rem) / 0.875rem 'Inter Tight', var(--sans); letter-spacing: 0.14em; text-transform: uppercase; color: #46596D; }
+
+/* ---------- 26. The assistant's greeting: Fraunces italic 420 at --fs-sentence (6.12) ---------- */
+.as-hello-title { font: italic 420 1.375rem / 1.75rem var(--display) !important; color: #0E2236 !important; }
+
+/* ---------- 27. Journal entry discs carry their count as a numeral, never lightness alone (3.3) ---------- */
+.jcal-key li .lb-orb { display: inline-grid !important; place-items: center; font: 600 max(11px, 0.6875rem) / 1 var(--sans); color: #0E2236; font-variant-numeric: tabular-nums; }
+.jcal-key li:nth-child(1) .lb-orb::after { content: '1'; }
+.jcal-key li:nth-child(2) .lb-orb::after { content: '2'; }
+.jcal-key li:nth-child(3) .lb-orb::after { content: '3'; }
