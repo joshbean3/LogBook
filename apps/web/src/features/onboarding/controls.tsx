@@ -172,20 +172,21 @@ export const RaceStrip = ({ start, value, onChange }: { start: ISODate; value: I
               aria-selected={on}
               tabIndex={-1}
               className={`ob-race-day ${on ? 'on' : ''} ${d ? '' : 'none'}`}
-              aria-label={d ? `${fmtDate('long', d)}, ${weeksUntil(start, d)} weeks away` : 'No race date yet'}
               onClick={() => scrollToIdx(i, true)}
             >
+              {/* the name is the spoken words; the short visual ones are hidden from it (a11y-15) */}
+              <span className="sr-only">{d ? `${fmtDate('long', d)}, ${weeksUntil(start, d)} weeks away` : 'No race date yet'}</span>
               {d ? (
                 <>
-                  <span className="caps">{fmtDate('monthShort', d)}</span>
-                  <span className="stamp ob-race-num">{Number(d.slice(8))}</span>
-                  <span className="ob-race-wk">{weeksUntil(start, d)} wk</span>
+                  <span className="caps" aria-hidden="true">{fmtDate('monthShort', d)}</span>
+                  <span className="stamp ob-race-num" aria-hidden="true">{Number(d.slice(8))}</span>
+                  <span className="ob-race-wk" aria-hidden="true">{weeksUntil(start, d)} wk</span>
                 </>
               ) : (
                 <>
-                  <span className="caps">No</span>
-                  <span className="ob-race-none">date</span>
-                  <span className="ob-race-wk">yet</span>
+                  <span className="caps" aria-hidden="true">No</span>
+                  <span className="ob-race-none" aria-hidden="true">date</span>
+                  <span className="ob-race-wk" aria-hidden="true">yet</span>
                 </>
               )}
             </button>
@@ -239,12 +240,14 @@ export const DayLetters = ({ runDays, longRunDay, onChange, hint = true }: { run
               key={d}
               className={`ob-day ${on ? 'on' : ''} ${long ? 'long' : ''}`}
               aria-pressed={on}
-              label={`${DAY_NAME[d]}, ${long ? 'long run' : on ? 'run day' : 'rest day'}`}
               onPress={() => toggle(d)}
               ref={(el: HTMLElement | null) => void (el ? dayEls.current.set(d, el) : dayEls.current.delete(d))}
               onHold={() => makeLong(d, true)}
             >
-              <span className="ob-day-disc">{DAY_LETTER[d]}</span>
+              <span className="sr-only">{`${DAY_NAME[d]}, ${long ? 'long run' : on ? 'run day' : 'rest day'}`}</span>
+              <span className="ob-day-disc" aria-hidden="true">
+                {DAY_LETTER[d]}
+              </span>
               <span className="ob-day-cap" aria-hidden="true">
                 {long ? 'Long' : ''}
               </span>

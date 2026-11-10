@@ -103,7 +103,7 @@ export const HabitsDemo = ({ running, still }: DemoProps) => {
         </AnimatePresence>
         <Finger spot={at(b, 1, 3) ? 'orb1' : at(b, 4, 6) ? 'orb2' : at(b, 7, 10) ? 'orb0' : null} down={b === 2 || b === 5} hold={at(b, 8, 10)} />
       </Stage>
-      <Steps items={['Tap a light when it’s done today', 'Hold one for a note, details or archive']} on={still ? -1 : b < 7 ? 0 : 1} />
+      <Steps items={['Tap a habit when it’s done today', 'Hold one for a note, details or archive']} on={still ? -1 : b < 7 ? 0 : 1} />
     </>
   );
 };

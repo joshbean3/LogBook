@@ -35,7 +35,7 @@ export const SetupBar = ({ steps, index }: { steps: number; index: number }) => 
 };
 
 // ---------- the block's shape ----------
-const KIND_WORD: Record<BlockShape['bars'][number]['kind'], string> = { 'lead-in': 'Lead-in', build: 'Build', down: 'Easier week', taper: 'Taper', race: 'Race' };
+const KIND_WORD: Record<BlockShape['bars'][number]['kind'], string> = { 'lead-in': 'Warm-up week', build: 'Build', down: 'Easier week', taper: 'Taper', race: 'Race' };
 
 /** `compact`: bars and the line only. `bare`: the same, without a card of its own (inside the race-day card). */
 export const BlockPreview = ({ shape, compact = false, bare = false }: { shape: BlockShape | null; compact?: boolean; bare?: boolean }) => {
@@ -46,7 +46,7 @@ export const BlockPreview = ({ shape, compact = false, bare = false }: { shape: 
     <div className={`${bare ? '' : 'card '}obx-block ${compact || bare ? 'is-compact' : ''} ${bare ? 'is-bare' : ''}`} aria-live="polite">
       {compact || bare ? null : (
         <div className="obx-block-head">
-          <span className="caps">{shape.raceDate ? 'Race day' : 'Your block'}</span>
+          <span className="caps">{shape.raceDate ? 'Race day' : 'Your plan'}</span>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.b key={head} className="obx-block-big" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reduce ? { opacity: 0 } : { opacity: 0, y: -10 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
               {head}

@@ -271,10 +271,10 @@
 .tour-todo-rank {
   width: 10px;
   font: 700 0.75rem / 1 var(--stamp);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .tour-todo-box li.tis-done {
-  color: var(--ink-4);
+  color: var(--ink-3);
   text-decoration: line-through;
 }
 .tour-todo-box li.tis-done .tour-todo-mark,
@@ -285,7 +285,7 @@
 .tour-todo-fold {
   margin: 10px 4px 0;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .tour-todo-add {
   display: flex;
@@ -464,7 +464,7 @@
   color: var(--ink);
 }
 .tg-step.tis-done {
-  color: var(--ink-4);
+  color: var(--ink-3);
   text-decoration: line-through;
 }
 .tg-sheet {
@@ -573,7 +573,7 @@
 }
 .tour-learn-field em {
   font-style: normal;
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .tour-learn-saved {
   display: grid;
@@ -591,7 +591,7 @@
 .tour-learn-another {
   margin-top: 4px;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 /* Plan */
@@ -667,7 +667,7 @@
 .tour-rest {
   margin-top: 8px;
   font: 500 0.6875rem / 1 var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .tour-toast {
   position: absolute;
