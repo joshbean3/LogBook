@@ -1,6 +1,6 @@
-/* Health pieces (HealthParts.tsx): Bevel's depth, Logbook's colours and type. */
+/* Health pieces (HealthParts.tsx): Bevel's depth, Logbook's colors and type. */
 
-/* ---------- the bevelled dial: a raised white rim, a gradient arc with a soft glow, a recessed face ---------- */
+/* ---------- the beveled dial: a raised white rim, a gradient arc with a soft glow, a recessed face ---------- */
 .hd-dial {
   position: relative;
   display: inline-grid;

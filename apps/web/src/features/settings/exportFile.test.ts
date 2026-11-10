@@ -22,9 +22,9 @@ describe('export in the iPhone app', () => {
     // the whole log is not left in a temporary folder
     expect(fs.deleteFile).toHaveBeenCalledWith({ path: 'logbook-2026-11-10.json', directory: 'CACHE' });
   });
-  it('answers cancelled, not shared, when the share sheet is closed', async () => {
+  it('answers canceled, not shared, when the share sheet is closed', async () => {
     share.share.mockRejectedValue(new Error('Share canceled'));
-    await expect(deliverExport({}, 'x.json')).resolves.toBe('cancelled');
+    await expect(deliverExport({}, 'x.json')).resolves.toBe('canceled');
     expect(fs.deleteFile).toHaveBeenCalled();
   });
   it('fails when the file cannot be written or shared', async () => {

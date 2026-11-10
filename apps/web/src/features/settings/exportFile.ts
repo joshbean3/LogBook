@@ -20,7 +20,7 @@ const download = (text: string, name: string) => {
 /**
  * Hand the export file to the person. On the web it downloads. In the iPhone app a web view cannot download, so the JSON
  * is written to the app's cache folder and the system share sheet opens on it (Save to Files, AirDrop, Mail): the answer
- * is `shared` only when that sheet finishes, and `cancelled` when it is closed. The cache copy is removed afterwards
+ * is `shared` only when that sheet finishes, and `canceled` when it is closed. The cache copy is removed afterwards
  * either way, so the whole log is not left lying in a temporary folder.
  */
 export const deliverExport = async (data: unknown, name: string): Promise<ExportOutcome> => {
@@ -35,7 +35,7 @@ export const deliverExport = async (data: unknown, name: string): Promise<Export
     await Share.share({ title: name, files: [uri] });
     return 'shared';
   } catch (e) {
-    if (isCancel(e)) return 'cancelled';
+    if (isCancel(e)) return 'canceled';
     throw e;
   } finally {
     await Filesystem.deleteFile({ path: name, directory: Directory.Cache }).catch(() => undefined);

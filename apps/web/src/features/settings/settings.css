@@ -1,10 +1,10 @@
 /* ---------- Settings (§8, shape system §6, reference 658-672): a pushed page of inset groups under small sans headers,
-   then action pills, then the version, centred. Every row pushes its section, or opens a sheet. ---------- */
+   then action pills, then the version, centered. Every row pushes its section, or opens a sheet. ---------- */
 .s-set {
   --swipe-bg: var(--bg);
 }
 
-/* a section: header 28 above, 12 to its container; an optional grey footnote under it */
+/* a section: header 28 above, 12 to its container; an optional gray footnote under it */
 .s-sec {
   margin-top: var(--section);
   min-width: 0;
@@ -115,7 +115,7 @@
   left: 60px;
 }
 
-/* action pills: full-width white pills with centred words; the one that loses something in red on a pale red */
+/* action pills: full-width white pills with centered words; the one that loses something in red on a pale red */
 .s-pills {
   display: grid;
   gap: var(--gap);
@@ -140,7 +140,7 @@
   color: var(--ink-4);
 }
 
-/* the version, centred at the bottom under the wordmark */
+/* the version, centered at the bottom under the wordmark */
 .s-colophon {
   margin: 36px 0 8px;
   text-align: center;
@@ -591,7 +591,7 @@
 
 /* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
    must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
-   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
+   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behavior everywhere. Every node under
    this root is left out of anchor selection. */
 .s-set {
   overflow-anchor: none;
@@ -646,7 +646,7 @@
   color: var(--bad);
 }
 
-/* change password: three labelled fields, each with its eye */
+/* change password: three labeled fields, each with its eye */
 .s-pwform {
   gap: 14px;
 }

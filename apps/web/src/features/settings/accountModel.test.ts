@@ -21,7 +21,7 @@ describe('what an export says it did', () => {
   it('says Shared only for a share that finished, and names a closed share sheet', () => {
     expect(exportNote('shared', 'logbook-2026-11-10.json')).toBe('Shared logbook-2026-11-10.json.');
     expect(exportNote('saved', 'logbook-2026-11-10.json')).toBe('Saved logbook-2026-11-10.json.');
-    expect(exportNote('cancelled', 'logbook-2026-11-10.json')).toBe('Export canceled.');
+    expect(exportNote('canceled', 'logbook-2026-11-10.json')).toBe('Export canceled.');
   });
 });
 

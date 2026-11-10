@@ -30,7 +30,7 @@
   display: grid;
   gap: 14px;
 }
-/* the steps in one white card (shape system: content in cards on the sheet's page colour) */
+/* the steps in one white card (shape system: content in cards on the sheet's page color) */
 .cx-steps {
   padding: 18px 16px;
   border-radius: var(--r-card);

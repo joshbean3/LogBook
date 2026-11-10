@@ -11,8 +11,8 @@ import './switch.css';
 export const Chev = (): React.JSX.Element => <ChevronRight size={18} className="s-chev" aria-hidden="true" />;
 
 /**
- * A row's soft icon tile (inspiration §3 "Settings rows": pastel tiles, grey subtitles): a Columbia wash square with the
- * icon in the second ink. Colour stays out of it; a tile says what the row is, never how it is doing.
+ * A row's soft icon tile (inspiration §3 "Settings rows": pastel tiles, gray subtitles): a Columbia wash square with the
+ * icon in the second ink. Color stays out of it; a tile says what the row is, never how it is doing.
  */
 export const Tile = ({ icon: Icon, tone }: { icon: LucideIcon; tone?: 'muted' }): React.JSX.Element => (
   <span className={`icon-tile s-tile ${tone ? `is-${tone}` : ''}`} aria-hidden="true">
@@ -22,7 +22,7 @@ export const Tile = ({ icon: Icon, tone }: { icon: LucideIcon; tone?: 'muted' })
 
 /**
  * A settings section (shape system §6, reference 658-672): the kit's small serif header (22/28), then its content in one
- * white container, then an optional grey footnote under it (`foot`). Every section page is built from these.
+ * white container, then an optional gray footnote under it (`foot`). Every section page is built from these.
  */
 const SSec = ({ title, meta, foot, className, children }: { title: string; meta?: ReactNode; foot?: ReactNode; className: string; children: ReactNode }): React.JSX.Element => (
   <PageSection size="sm" title={title} meta={meta} className={`s-sec ${className}`.trim()}>
@@ -45,7 +45,7 @@ export const SCard = ({ title, meta, foot, children, className = '' }: { title: 
   </SSec>
 );
 
-/** A full-width white action pill with centred words (Sign out, Disconnect); `danger` for the one that loses something. */
+/** A full-width white action pill with centered words (Sign out, Disconnect); `danger` for the one that loses something. */
 export const ActionPill = ({ children, onPress, danger, disabled, className = '', label }: { children: ReactNode; onPress: () => void; danger?: boolean; disabled?: boolean; className?: string; label?: string }): React.JSX.Element => (
   <button type="button" className={`pill-row s-pill ${danger ? 'is-danger' : ''} ${className}`} onClick={onPress} disabled={disabled} aria-label={label}>
     {children}

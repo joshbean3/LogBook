@@ -7,7 +7,7 @@ import { ApiError, NetworkError } from '@/api/client';
 
 // ---------- export ----------
 /** What became of an export: a download (the web), the share sheet finished (the iPhone app), or the share sheet was closed. */
-export type ExportOutcome = 'saved' | 'shared' | 'cancelled';
+export type ExportOutcome = 'saved' | 'shared' | 'canceled';
 /** The row's line after an export. "Shared" only when the share sheet finished; a closed sheet is said as it is. */
 export const exportNote = (outcome: ExportOutcome, name: string): string => (outcome === 'shared' ? `Shared ${name}.` : outcome === 'saved' ? `Saved ${name}.` : 'Export canceled.');
 export const EXPORT_FAILED = 'Export didn’t finish. Check your connection.';

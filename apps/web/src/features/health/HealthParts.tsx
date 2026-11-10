@@ -6,12 +6,12 @@ import './health.css';
 
 /**
  * Logbook's health pieces, drawn the way Bevel draws its own (docs/health/apple-health.md §4) in Columbia, white and
- * orange: a bevelled dial (a raised white rim, a gradient arc, a recessed face), the slim range capsule pressed into a
+ * orange: a beveled dial (a raised white rim, a gradient arc, a recessed face), the slim range capsule pressed into a
  * tile, a status word with its icon, the hypnogram on a night-navy card, stage tiles with their share as a small ring,
  * frosted glass tiles, and the illustrated hero for connecting Apple Health.
  */
 
-// ---------- the bevelled dial, in one of three colours ----------
+// ---------- the beveled dial, in one of three colors ----------
 export type DialTone = 'warm' | 'cool' | 'night';
 const DIAL_STOPS: Record<DialTone, [string, string]> = {
   warm: ['#ffd2ad', '#f2600c'],
@@ -181,7 +181,7 @@ export const GlassTile = ({ icon: Icon, tone = 'navy', size = 52, className = ''
 
 // ---------- the heroes ----------
 /**
- * Connecting Apple Health: a bevelled dial with tick marks and three arcs (orange, Columbia and
+ * Connecting Apple Health: a beveled dial with tick marks and three arcs (orange, Columbia and
  * navy) with lit ends, glass tiles for the night and the two heart numbers floating around it, over a faint grid.
  */
 export const HealthHero = () => {

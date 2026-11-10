@@ -102,7 +102,7 @@ const HabitRow = ({ habit, index, count, lifted, y, onDragStart, onDragMove, onD
   y: MotionValue<number>;
   onDragStart: () => void;
   onDragMove: (p: DragPoint) => void;
-  onDragEnd: (cancelled: boolean) => void;
+  onDragEnd: (canceled: boolean) => void;
   onOpen: () => void;
   menuItems: ContextMenuItem[];
 }) => {
@@ -124,7 +124,7 @@ const HabitRow = ({ habit, index, count, lifted, y, onDragStart, onDragMove, onD
         menuLabel={`${habit.name} actions`}
         onDragStart={() => onDragStart()}
         onDragMove={(p) => onDragMove(p)}
-        onDragEnd={(_p, _e, cancelled) => onDragEnd(cancelled)}
+        onDragEnd={(_p, _e, canceled) => onDragEnd(canceled)}
         label={`${habit.name}, ${index + 1} of ${count}. Open. Hold to move`}
       >
         <span className="s-horb" aria-hidden="true">
@@ -291,18 +291,18 @@ export const HabitsPage = () => {
       else if (y.get() !== to) animate(y, to, springs.settle);
     });
   };
-  const endDrag = (cancelled: boolean) => {
+  const endDrag = (canceled: boolean) => {
     const g = drag.current;
     drag.current = null;
     if (!g) return;
     const next = [...g.base];
-    if (!cancelled) {
+    if (!canceled) {
       next.splice(g.start, 1);
       next.splice(g.over, 0, g.id);
     }
     setLiftId(null);
-    if (!cancelled) haptics.drop();
-    if (cancelled || next.join() === g.base.join()) {
+    if (!canceled) haptics.drop();
+    if (canceled || next.join() === g.base.join()) {
       // nothing moved: every row goes home from where it is, in the same order
       for (const k of g.base) {
         if (reduce) yOf(k).jump(0);
@@ -461,7 +461,7 @@ export const HabitsPage = () => {
                   onOpen={() => openSheet(h)}
                   onDragStart={() => startDrag(id)}
                   onDragMove={({ dy }) => moveDrag(dy)}
-                  onDragEnd={(cancelled) => endDrag(cancelled)}
+                  onDragEnd={(canceled) => endDrag(canceled)}
                 />
               );
             })}

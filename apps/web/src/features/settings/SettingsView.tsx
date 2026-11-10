@@ -149,7 +149,7 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow icon={Send} title="Email us" sub={SUPPORT_EMAIL} href={supportMail('Logbook help')} label={`Email us at ${SUPPORT_EMAIL}`} />
         <GoRow icon={ScrollText} title="Terms of Use" onPress={() => void openExternal(LEGAL.terms)} />
         <GoRow icon={FileText} title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
-        <GoRow icon={BookOpenText} title="Acknowledgements" onPress={() => void openExternal(LEGAL.acknowledgements)} />
+        <GoRow icon={BookOpenText} title="Acknowledgments" onPress={() => void openExternal(LEGAL.acknowledgements)} />
         <Row className="s-wrap has-tile s-version-row" left={<Tile icon={Info} />} title="Version" sub={version} />
       </SGroup>
 

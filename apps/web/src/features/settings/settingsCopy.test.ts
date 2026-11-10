@@ -42,6 +42,15 @@ describe('words that must not ship in Settings', () => {
   it('never calls the assistant a coach in a file of this feature', () => {
     expect(hits(settings, /coach/i)).toEqual([]);
   });
+  it('spells the American way', () => {
+    expect(hits([...settings, ...health], /(?<!\.)\b(colours?|favourites?|centred|centre|grey|kilometres?|cancelled|acknowledgements|behaviour|labelled)\b/i)).toEqual([]);
+  });
+  it('uses the glossary words (plan, not block; Wake time, not Alarm; Favorite, not Starred)', () => {
+    // UI strings only: quoted text and JSX text that a person reads
+    const shown = (f: { text: string }) => (f.text.match(/(['`"])(?:(?!\1).)*\1|>[^<>{}]+</g) ?? []).join('\n');
+    const said = [...settings, ...health].filter((f) => /\.tsx?$/.test(f.name)).map((f) => ({ name: f.name, text: shown(f) }));
+    expect(hits(said, /\b(your|current|this|new) block\b|Lead-in|\bAlarm\b|Starred|Apple Health data/)).toEqual([]);
+  });
   it('has no self-hosting or placeholder wording', () => {
     expect(hits(settings, /this Logbook|this server|on the way|Kilomet/i)).toEqual([]);
   });
