@@ -84,6 +84,12 @@
   line-height: 1.875rem;
   color: var(--ink);
   text-wrap: pretty;
+  overflow-wrap: anywhere;
+  /* four lines at most on Today (the goal's own sheet has it whole) */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
   transition: color 300ms;
 }
 .pd-goal-set {
@@ -92,6 +98,19 @@
   font-size: 1.5rem;
   line-height: 1.875rem;
   color: var(--ink);
+}
+/* a past day with no goal: one quiet line, nothing to press */
+.pd-goal-none {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.pd-goal.is-past .pd-goal-caps {
+  color: var(--ink-3);
+}
+.pd-goal.is-past .pd-node {
+  background: var(--surface-2);
+  box-shadow: 0 0 0 4px var(--surface);
+  color: var(--ink-3);
 }
 .pd-goal-cta {
   justify-self: start;
@@ -176,6 +195,10 @@
 .pd-goal.is-done .g-ring-check {
   stroke: var(--sun);
 }
+/* a step left open on a goal marked done: its ring in ink, which holds 3:1 on the gold (the grey does not) */
+.pd-goal.is-done .tmark.round:not(.on) {
+  border-color: var(--sun-ink);
+}
 /* a to-do in the air can land here as a step */
 .pd-goal.is-droppable {
   box-shadow:
@@ -188,20 +211,6 @@
     0 0 0 2px var(--sun),
     0 0 36px rgba(255, 200, 61, 0.45);
   transform: scale(1.015);
-}
-.pd-goal-drop {
-  position: absolute;
-  right: 12px;
-  bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: var(--r-pill);
-  background: var(--sun);
-  color: var(--sun-ink);
-  font-size: var(--fs-foot);
-  font-weight: 650;
 }
 .pd-week {
   display: flex;
@@ -255,7 +264,7 @@
 }
 .pd-owed > svg {
   flex: none;
-  color: var(--ink-4);
+  color: var(--ink-faint, var(--ink-4));
 }
 .pd-owed-dot {
   flex: none;
@@ -265,14 +274,30 @@
   background: var(--sun);
   box-shadow: 0 0 10px var(--sun);
 }
+.pd-owed {
+  padding-block: 10px;
+}
 .pd-owed-text {
   flex: 1;
   min-width: 0;
   display: grid;
+  gap: 1px;
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .pd-owed-text .caps {
   color: var(--ink-3);
+}
+/* the goal itself, on one line */
+.pd-owed-goal {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 400;
+  color: var(--ink);
+}
+.pd-owed-ask {
+  color: var(--ink-2);
 }
 
 /* ---------- the to-dos: one list, the first three open ones in a highlighted box (the day's priorities) ---------- */
@@ -334,6 +359,12 @@
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
+.pd-top-tip {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+}
 /* rows inside the box sit on its wash, inset to its edges */
 .pd-zone > .pd-card.is-top {
   z-index: 1;
@@ -380,15 +411,15 @@
 .pd-card.is-done .pd-rank,
 .pd-card.is-checking .pd-rank {
   background: var(--surface-3);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
-/* the rest: there, but quiet, so the eye stays on the box (a press brings one up to full) */
-.pd-card.is-rest {
-  opacity: 0.6;
+/* the rest: there, but quiet, so the eye stays on the box. Quiet by colour, never by fading the row: the words one step
+   down in --ink-2 (still 4.5:1 and more), the number an outline */
+.pd-card.is-rest .pd-card-text {
+  color: var(--ink-2);
 }
-.pd-card.is-rest:active,
-.pd-card.is-rest.is-armed {
-  opacity: 1;
+.pd-card.is-rest .pd-rank {
+  box-shadow: inset 0 0 0 1.5px var(--ink-faint, var(--ink-4));
 }
 /* done: small, grey, struck, out of the way at the foot */
 .pd-card.is-done.is-first:not(.is-top):not(.is-rest) {
@@ -396,9 +427,6 @@
 }
 .pd-card.is-done:not(.is-checking) .pd-card-in {
   min-height: 48px;
-}
-.pd-card.is-done:not(.is-checking) {
-  opacity: 0.7;
 }
 /* the beat between the check and the row leaving: it greys where it stands */
 .pd-card.is-checking .pd-card-text {
@@ -426,7 +454,7 @@
 .pd-rest-toggle svg {
   flex: none;
   margin-left: auto;
-  color: var(--ink-4);
+  color: var(--ink-faint, var(--ink-4));
   transition: transform 220ms var(--ease-out);
 }
 .pd-rest-toggle.is-open svg {
@@ -444,11 +472,22 @@
   color: var(--ink-2);
   font: 700 clamp(13px, 0.8125rem, 17px) / 1 var(--stamp);
 }
+/* the names shorten; the done count beside them never does */
 .pd-rest-words {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.pd-rest-done {
+  flex: none;
+  margin-left: -4px;
+  white-space: nowrap;
+  color: var(--ink-3);
+}
+.pd-rest-toggle.is-done-only .pd-rest-done {
+  margin-left: 0;
 }
 .pd-zone > .pd-rest-label {
   z-index: 1;
@@ -484,7 +523,7 @@
 .pd-goal-step.is-done .pd-goal-step-text {
   color: var(--ink-3);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
+  text-decoration-color: var(--ink-faint, var(--ink-4));
 }
 
 /* the rows: a zone the drag measures (its cards' offsets), hairlines from the words */
@@ -577,14 +616,28 @@
   font: inherit;
   text-align: left;
 }
+/* the words run on as one block, three lines at most on Today (the editor has them whole); the flag follows the last word */
 .pd-card-text {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   color: var(--ink);
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   overflow-wrap: anywhere;
   transition: color 200ms;
+}
+.pd-card-text .prio,
+.pd-card-meta .prio {
+  vertical-align: -1px;
+}
+/* the flag never starts a line by itself: it wraps with the last word */
+.pd-card-last {
+  white-space: nowrap;
+}
+/* words cut at the third line would take the flag with them: it moves to the line under them */
+.pd-card-meta .prio {
+  margin-right: 4px;
 }
 .pd-card-meta {
   overflow: hidden;
@@ -597,15 +650,11 @@
 .pd-card-meta.is-goal {
   color: color-mix(in srgb, var(--sun) 50%, var(--ink-2));
 }
-/* done: the words and the icon step back; the check stays lit */
-.pd-card.is-done .pd-ico,
-.pd-card.is-done .pd-card-name {
-  opacity: 0.55;
-}
+/* done: the words step back to grey and are struck (--ink-3, 4.5:1 and more, no fading); the check stays lit at full strength */
 .pd-card.is-done .pd-card-text {
   color: var(--ink-3);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
+  text-decoration-color: var(--ink-faint, var(--ink-4));
 }
 /* the hold is up: the row rises off the card to meet the finger */
 .pd-card.is-armed {
@@ -656,9 +705,38 @@
   top: calc(var(--safe-t) + 22px);
   z-index: 999;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   pointer-events: none;
+}
+/* the header's title is veiled while the docks are up, so their words are the only ones there */
+.pd-docks::before {
+  content: '';
+  /* placed from the docks' own box (they move on a transform as they come in, which would carry a fixed veil off) */
+  position: absolute;
+  z-index: -1;
+  top: calc(-1 * (var(--safe-t) + 22px));
+  left: -16px;
+  right: -16px;
+  /* the title's own band, no further: the week strip under it stays as it is */
+  height: calc(var(--safe-t) + 74px);
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg) 80%, transparent 100%);
+  pointer-events: none;
+}
+/* three docks (the goal can take a step): closer, so they hold one row on a 390 pt screen; at 320 the words alone */
+.pd-docks.is-three {
+  gap: 8px;
+}
+.pd-docks.is-three .pd-dock {
+  gap: 6px;
+  padding: 0 12px;
+  font-size: var(--fs-foot);
+}
+@media (max-width: 359px) {
+  .pd-docks.is-three .pd-dock svg {
+    display: none;
+  }
 }
 .pd-dock {
   display: inline-flex;
@@ -688,6 +766,10 @@
 }
 .pd-dock.is-bin.is-over {
   background: var(--bad);
+}
+.pd-dock.is-goal.is-over {
+  background: var(--sun);
+  color: var(--sun-ink);
 }
 
 /* ---------- the add row at a band's foot; the field takes its place ---------- */
@@ -734,6 +816,16 @@
   border-color: var(--ink-3);
   color: var(--ink-2);
 }
+/* the field and what it read from the marks: beside the words, or under them when the field is narrow (see .tt-field) */
+.pd-add-main {
+  container-type: inline-size;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+}
 .pd-add-input:focus-visible {
   outline: none;
   box-shadow: none;
@@ -761,7 +853,7 @@
   gap: 4px;
 }
 .pd-all-in svg {
-  color: var(--ink-4);
+  color: var(--ink-faint, var(--ink-4));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -900,6 +992,24 @@
 .pd-flow .pd-zone > .pd-top-empty {
   padding-left: 70px;
 }
-.pd-rest-done {
-  color: var(--ink-4);
+/* one column of numbers and one of checks down the card: every row takes the inset of the top three (their numbers sit
+   on the rail), the fold row's chevron sits under the checks and the add row's mark under the numbers */
+.pd-flow .pd-zone > .pd-card {
+  margin-inline: 8px;
 }
+.pd-flow .pd-zone > .pd-card::after {
+  left: 52px;
+  right: 16px;
+}
+.pd-flow .pd-zone > .pd-rest-toggle {
+  padding-right: 19px;
+}
+.pd-flow .pd-add {
+  gap: 10px;
+  padding-left: 22px;
+}
+.pd-flow .pd-add::after {
+  left: 60px;
+  right: 24px;
+}
+

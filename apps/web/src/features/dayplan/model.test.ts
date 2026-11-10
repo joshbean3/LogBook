@@ -71,3 +71,15 @@ describe('what was done does not carry over', () => {
     expect(refs).not.toContain('doneToday');
   });
 });
+
+describe('the day’s order', () => {
+  const todo = (id: string, position: number, priority: 0 | 1 | 2 | 3, extra: Partial<Todo> = {}): Todo => ({ id, text: id, note: null, priority, color: null, groupId: null, due: null, bucket: 'today', position, createdOn: '2026-11-01', doneOn: null, deletedOn: null, createdAt: `2026-11-01T00:00:0${position}Z`, ...extra });
+  it('is the order set by hand: a flag is a label on a row, never its place', () => {
+    const list = [todo('plain', 0, 0), todo('p1', 2, 3), todo('p3', 1, 1)];
+    expect(cardsFor(list, null, '2026-11-10', '2026-11-10').map((c) => c.ref)).toEqual(['todo:plain', 'todo:p3', 'todo:p1']);
+  });
+  it('holds on a day ahead too', () => {
+    const list = [todo('b', 1, 3, { bucket: 'later', due: '2026-11-12' }), todo('a', 0, 0, { bucket: 'later', due: '2026-11-12' })];
+    expect(cardsFor(list, null, '2026-11-12', '2026-11-10').map((c) => c.ref)).toEqual(['todo:a', 'todo:b']);
+  });
+});

@@ -1,6 +1,6 @@
 import { DAY_BANDS, emptyBands, stepRef, todoRef, type Aim, type DayBand, type DayBands, type GoalStep, type ISODate, type Todo } from '@logbook/shared';
 import { clientKey } from '@/api/queries';
-import { byPosition, byPriority, groupsOn, liveOn } from '../todos/groups';
+import { byPosition, groupsOn, liveOn } from '../todos/groups';
 
 /** One thing on the board: a to-do, or a step of the day's goal. `ref` is what the plan stores. */
 export type Card = { ref: string; kind: 'todo'; todo: Todo; done: boolean } | { ref: string; kind: 'step'; goal: Aim; step: GoalStep; done: boolean };
@@ -20,7 +20,7 @@ export const cardsFor = (todos: Todo[] | undefined, goal: Aim | null, date: ISOD
     const g = groupsOn(todos, date);
     list = [...g[0]!.items, ...g[3]!.items];
   } else if (date < today) list = liveOn(todos, date).filter((x) => x.doneOn === date || (x.due === date && (!x.doneOn || x.doneOn > date))).sort(byPosition);
-  else list = (todos ?? []).filter((x) => !x.deletedOn && !x.doneOn && x.due === date).sort(byPriority);
+  else list = (todos ?? []).filter((x) => !x.deletedOn && !x.doneOn && x.due === date).sort(byPosition);
   return [...steps, ...list.map((x): Card => ({ ref: todoRef(x.id), kind: 'todo', todo: x, done: x.doneOn === date || (date === today && !!x.doneOn) }))];
 };
 
