@@ -132,6 +132,39 @@ describe('POST /me/onboarding', () => {
     expect((await call('GET', '/api/me', undefined, cookie)).body.onboardedAt).toBeNull();
     expect((sqlite.prepare('select count(*) n from habits').get() as { n: number }).n).toBe(0);
   });
+
+  it('saves the name, the routine, trainWhen and offWork in the same call and returns them (onboarding-03, Contract 5)', async () => {
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
+    const routine = { after: { shower: 12, ready: 8, names: { prep: 'Pack the bag' }, steps: [{ id: 's_coffee1', name: 'Coffee', mins: 5 }] } };
+    // a bad routine refuses the whole call, and nothing of it is written
+    expect((await call('POST', '/api/me/onboarding', { ...ONBOARD, name: 'Bo', routine: { after: { shower: 999 } } }, cookie)).status).toBe(422);
+    expect((await call('GET', '/api/me', undefined, cookie)).body).toMatchObject({ name: null, onboardedAt: null });
+    const r = await call('POST', '/api/me/onboarding', { ...ONBOARD, name: 'Sam', routine, trainWhen: 'afternoon', offWork: 1050 }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body.user.name).toBe('Sam');
+    expect(r.body.trainWhen).toEqual({ when: 'afternoon', offWork: 1050 });
+    expect(r.body.morningSettings.after).toMatchObject({ shower: 12, ready: 8, names: { prep: 'Pack the bag' }, steps: [{ id: 's_coffee1', name: 'Coffee', mins: 5 }], showerMode: 'fixed' });
+    expect(r.body.morningSettings.wake).toBe(390);
+    // the bootstrap carries the same, so a second device reads it
+    const boot = (await call('GET', '/api/bootstrap', undefined, cookie)).body;
+    expect(boot.user.name).toBe('Sam');
+    expect(boot.trainWhen).toEqual({ when: 'afternoon', offWork: 1050 });
+    expect(boot.morningSettings.after.shower).toBe(12);
+  });
+
+  it('a goal-less setup ("No running plan for now") finishes with no block and no training answers (onboarding-09)', async () => {
+    const { cookie } = await signUp('a@example.com', 'correct horse 42', '/api/auth/setup');
+    const r = await call('POST', '/api/me/onboarding', { goal: null, wake: 390, leave: 510, habits: ['Read 15 min'], name: 'Sam', trainWhen: 'none' }, cookie);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ block: null, months: [], firstDay: null, trainWhen: { when: 'none', offWork: null } });
+    expect(r.body.user.onboardedAt).toMatch(/^\d{4}-/);
+    expect(r.body.user.trainingProfile).toBeNull();
+    expect(r.body.habits.map((h: { name: string }) => h.name)).toEqual(['Read 15 min']);
+    expect((sqlite.prepare('select count(*) n from plan_blocks').get() as { n: number }).n).toBe(0);
+    expect((sqlite.prepare('select count(*) n from training_sessions').get() as { n: number }).n).toBe(0);
+    // a running goal still needs its answers
+    expect((await call('POST', '/api/me/onboarding', { goal: 'half', wake: 390, leave: 510 }, cookie)).status).toBe(422);
+  });
 });
 
 describe('POST /plans/template', () => {

@@ -348,11 +348,12 @@ export const zPace = z.union([z.number().int().min(240).max(1200), z.string().re
 });
 export const zOnboarding = z
   .object({
-    goal: zGoal,
+    /** null: "No running plan for now". Setup finishes with no block, and the run answers below may be left out. */
+    goal: zGoal.nullable(),
     raceDate: zDate.nullable().optional(),
-    runDays: z.array(zWeekday).min(1).max(7),
-    longRunDay: zWeekday,
-    weeklyMiles: z.number().min(3).max(150),
+    runDays: z.array(zWeekday).min(1).max(7).optional(),
+    longRunDay: zWeekday.optional(),
+    weeklyMiles: z.number().min(3).max(150).optional(),
     /** Alarm. */
     wake: zClockMinutes,
     /** When they leave for work: the end of the morning timeline. */
@@ -372,8 +373,15 @@ export const zOnboarding = z
     /** When work ends (minutes after midnight), for the afternoon plan. */
     offWork: zClockMinutes.optional(),
   })
-  .refine((o) => o.leave > o.wake, { message: 'leave must be after wake', path: ['leave'] });
+  .refine((o) => o.leave > o.wake, { message: 'leave must be after wake', path: ['leave'] })
+  .refine((o) => o.goal === null || (!!o.runDays && !!o.longRunDay && o.weeklyMiles !== undefined), { message: 'A running plan needs run days, a long-run day and weekly miles', path: ['runDays'] });
 export type OnboardingInput = z.infer<typeof zOnboarding>;
+/** When the person usually trains and when work ends, as onboarding saved it (user setting `trainWhen`, in the bootstrap). */
+export interface TrainWhenSetting {
+  when: 'morning' | 'afternoon' | 'none';
+  /** Minutes after midnight; null when not given. */
+  offWork: number | null;
+}
 
 /** The training answers kept on the account (goal, race day, run days, long-run day, weekly miles). No race day with `base`. */
 export const zTrainingProfile = z.object({

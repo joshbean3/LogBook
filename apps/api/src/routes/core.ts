@@ -120,6 +120,8 @@ export const coreRoutes = (db: DB) => {
       features: { claude: env.claudeConfigured, strava: env.stravaConfigured },
       // contract 1: what may go to Claude, the same record GET /me/consent answers
       consent: readConsent(db, userId),
+      // when they usually train and when work ends, as onboarding saved it (null before)
+      trainWhen: readSetting(db, userId, 'trainWhen') ?? null,
       serverTime: nowISO(),
     });
   });
