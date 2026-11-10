@@ -1,6 +1,6 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import type * as React from 'react';
-import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, HeartPulse, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, HeartPulse, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Star, Sunrise, Timer, User, Vibrate } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
 import { useRef } from 'react';
@@ -19,6 +19,8 @@ import { supportMail } from './PrivacyPage';
 import { consentWord } from './privacyModel';
 import { HapticsRow, useConfirmSignOut } from './SectionPages';
 import { StravaReturn, StravaRootRows } from './StravaSource';
+import { ReminderRows } from './ReminderRow';
+import { RATE_URL } from './reminderModel';
 import { useAppVersion } from './version';
 import { useTrainingProfile } from './useProfile';
 import './settings.css';
@@ -54,6 +56,7 @@ export default function SettingsView(): React.JSX.Element {
   const consent = useConsent();
   const version = useAppVersion();
   const confirmSignOut = useConfirmSignOut();
+  const rate = RATE_URL;
 
   return (
     <div ref={pageRef} className="page s-set s-root">
@@ -126,11 +129,14 @@ export default function SettingsView(): React.JSX.Element {
       <SGroup title="App">
         {/* one tap, not a page with one switch on it (review feel F13); the App page keeps it with the Home screen rows */}
         <HapticsRow icon={Vibrate} />
+        <ReminderRows />
+        {/* only once the App Store id exists; in the iPhone app the link goes to the App Store, never the review prompt */}
+        {rate ? <GoRow icon={Star} title="Rate Logbook" sub="Write a review on the App Store." href={isNative ? rate : undefined} onPress={() => void openExternal(rate)} /> : null}
         {isNative ? null : <GoRow icon={House} title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
         <GoRow
           icon={RotateCcw}
           title="Replay setup"
-          sub="See first run again. Nothing changes."
+          sub="Walk through setup again. Nothing is changed."
           onPress={() => {
             if (!user) return;
             startReplay(user.id);
