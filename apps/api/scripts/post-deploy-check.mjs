@@ -5,8 +5,10 @@
  *   - it does not answer /api/health;
  *   - sign-up is closed (new people cannot create an account);
  *   - mail is not configured (password reset and email verification would send nothing);
- *   - the AI features are off (no key or no model).
- * Pass --allow-no-ai to skip the last one on a server that is meant to run without Claude.
+ *   - the AI features are off (no key or no model);
+ *   - the support address was not built in: the image was built without VITE_SUPPORT_EMAIL, or the web app or the
+ *     support page still shows an example.com placeholder.
+ * Pass --allow-no-ai to skip the AI one on a server that is meant to run without Claude.
  */
 import { pathToFileURL } from 'node:url';
 
@@ -35,6 +37,37 @@ export const runChecks = async ({ origin, fetchImpl = fetch, allowNoAi = false }
   const ready = health?.ready ?? {};
   if (ready.mail !== true) problems.push('Mail is not configured: password reset and email verification send nothing. Set MAIL_API_KEY and MAIL_FROM (fly secrets set).');
   if (ready.claude !== true && !allowNoAi) problems.push('The AI features are off. Set ANTHROPIC_API_KEY and ANTHROPIC_MODEL (fly secrets set), or pass --allow-no-ai.');
+  if (ready.support !== true) problems.push('No support address was built in. Set VITE_SUPPORT_EMAIL under [build.args] in fly.toml to a real address and deploy again.');
+  // what people are actually served: the web app's scripts and the support page must carry no placeholder address
+  const text = async (path) => {
+    const res = await fetchImpl(`${base}${path}`, { headers: { accept: '*/*' } });
+    return res.ok ? res.text() : null;
+  };
+  const PLACEHOLDER = /[\w.+-]+@example\.(?:com|org|net)/i;
+  try {
+    const shell = await text('/');
+    if (shell === null) problems.push('The web app is not being served at /.');
+    else {
+      const scripts = [...new Set([...shell.matchAll(/(?:src|href)="(\/assets\/[^"]+\.js)"/g)].map((m) => m[1]))];
+      if (!scripts.length) problems.push('The page at / names no scripts, so the web app could not be checked.');
+      for (const src of scripts) {
+        const js = await text(src);
+        const hit = js?.match(PLACEHOLDER);
+        if (hit) {
+          problems.push(`The web app still carries the placeholder address ${hit[0]}. Set VITE_SUPPORT_EMAIL under [build.args] in fly.toml and deploy again.`);
+          break;
+        }
+      }
+    }
+    const support = await text('/legal/support.html');
+    if (support === null) problems.push('The support page (/legal/support.html) is missing.');
+    else {
+      const hit = support.match(PLACEHOLDER);
+      if (hit) problems.push(`The support page still shows the placeholder address ${hit[0]}.`);
+    }
+  } catch (e) {
+    problems.push(`Could not read the web app: ${e instanceof Error ? e.message : e}`);
+  }
   return problems;
 };
 
@@ -52,5 +85,5 @@ if (isMain) {
     for (const p of problems) console.error(`  - ${p}`);
     process.exit(1);
   }
-  console.log(`Ready: ${origin} answers, sign-up is open, mail and the AI features are configured.`);
+  console.log(`Ready: ${origin} answers, sign-up is open, mail and the AI features are configured, and the support address is real.`);
 }
