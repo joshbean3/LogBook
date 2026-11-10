@@ -94,7 +94,8 @@ export default defineConfig(({ mode }) => {
       // the API's origin as lib/native.ts reads it: the iPhone app calls it (the web build calls its own origin)
       csp(env.VITE_API_ORIGIN || NATIVE_API_FALLBACK),
       VitePWA({
-        registerType: 'autoUpdate',
+        // a new build waits and is applied when the page is hidden or on the next cold start (src/lib/sw.ts, shell-25)
+        registerType: 'prompt',
         includeAssets: ['icons/*.png', 'icons/*.svg'],
         manifest: {
           name: 'Logbook',
