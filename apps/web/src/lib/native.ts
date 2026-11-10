@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { matchRoute, resolveRoute } from '@/ui/nav';
+import { DEFAULT_API_ORIGIN } from './apiOriginDefault';
 import { DEV_TOOLS, STRAVA_BUILT } from './features';
 
 /** True inside the iOS app; false in Safari and on the desktop. */
 export const isNative = Capacitor.isNativePlatform();
 
 /** Where the API lives. In the browser it is the same origin; the app talks to your server. */
-export const apiOrigin = isNative ? ((import.meta.env.VITE_API_ORIGIN as string | undefined) ?? 'https://josh-logbook.fly.dev') : '';
+export const apiOrigin = isNative ? ((import.meta.env.VITE_API_ORIGIN as string | undefined) || DEFAULT_API_ORIGIN) : '';
 
 /**
  * The in-app path a logbook:// link may open, or null. Any app or web page can open the scheme, so a link is honoured only

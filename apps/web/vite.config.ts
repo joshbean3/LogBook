@@ -5,6 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+// lib/native.ts falls back to this server when VITE_API_ORIGIN is unset; the policy has to allow the same one
+import { DEFAULT_API_ORIGIN } from './src/lib/apiOriginDefault';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -80,8 +82,6 @@ const csp = (apiOrigin: string): Plugin => ({
  * or not, so the bundler folds every `if (STRAVA_BUILT)` and drops the code behind a false flag from the build.
  */
 const FLAGS = ['VITE_FEATURE_STRAVA', 'VITE_FEATURE_HEALTH', 'VITE_FAKE_CLOCK'] as const;
-/** lib/native.ts falls back to this server when VITE_API_ORIGIN is unset; the policy has to allow the same one. */
-const NATIVE_API_FALLBACK = 'https://josh-logbook.fly.dev';
 
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, here, 'VITE_'), ...process.env };
@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
       react(),
       fonts(),
       // the API's origin as lib/native.ts reads it: the iPhone app calls it (the web build calls its own origin)
-      csp(env.VITE_API_ORIGIN || NATIVE_API_FALLBACK),
+      csp(env.VITE_API_ORIGIN || DEFAULT_API_ORIGIN),
       VitePWA({
         // a new build waits and is applied when the page is hidden or on the next cold start (src/lib/sw.ts, shell-25)
         registerType: 'prompt',
