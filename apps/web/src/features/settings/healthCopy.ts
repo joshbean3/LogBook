@@ -20,6 +20,12 @@ export const HEALTH_TRUST = 'Logbook only reads. It never writes to Apple Health
 /** Where Apple keeps the switch that takes Logbook's access away. */
 export const HEALTH_REVOKE_PATH = 'In the Apple Health app, tap your picture, then Apps, then Logbook.';
 
+/**
+ * The import's last line, worded by what arrived: the span the server holds when it knows it ("Since Aug 2026: sleep,
+ * heart rate variability and resting heart rate are on Progress."), else the plain line.
+ */
+export const importDoneWords = (since: string | null): string => (since ? `${since}: ${HEALTH_READS_LINE.toLowerCase()} are on Progress. Logbook keeps up each time you open it.` : `${HEALTH_READS_LINE} are on Progress. Logbook keeps up each time you open it.`);
+
 /** "Reading Apple Health: November 2026": the wait, named, with the month being read when the engine says which. */
 export const importWords = (month: Date | null): string => (month ? `Reading Apple Health: ${month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : 'Reading Apple Health…');
 

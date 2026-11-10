@@ -4,7 +4,7 @@ import { HEALTH_HISTORY_DAYS, type HealthStatus } from '@logbook/shared';
 import { api } from '@/api/client';
 import { healthStatusKey, healthSyncNow, syncErrorWords, useHealthSync } from '@/lib/healthSync';
 import { apiOrigin } from '@/lib/native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type * as React from 'react';
 import { BevelDial, GlassTile, HealthHero, Hypnogram, MonitorTile, SourceLine, StageTile, TimeChip } from '@/features/health/HealthParts';
 import { DISCLAIMER } from '@/lib/copy';
@@ -12,7 +12,7 @@ import { haptics } from '@/lib/haptics';
 import { Health, healthMode, hm, summarizeNight, type ReadingCheck } from '@/lib/health';
 import { LEGAL, openExternal } from '@/lib/siteLinks';
 import { Button, Pressable, useSheet, useToast } from '@/ui';
-import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_READS_SHORT, HEALTH_REVOKE_PATH, HEALTH_TRUST, importWords, savedWords } from './healthCopy';
+import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_READS_SHORT, HEALTH_REVOKE_PATH, HEALTH_TRUST, importDoneWords, importWords, savedWords } from './healthCopy';
 import { rememberHealthDevice } from './healthDevice';
 import { SCard } from './parts';
 import './appleHealth.css';
@@ -236,6 +236,13 @@ const ImportPanel = (): React.JSX.Element => {
   const sync = useHealthSync();
   const month = monthOf(sync.detail);
   const done = sync.phase === 'done' || sync.phase === 'error';
+  // the span the account now holds (asked again once the import is done), for the done line
+  const qc = useQueryClient();
+  const server = useHealthServerStatus();
+  useEffect(() => {
+    if (sync.phase === 'done') void qc.invalidateQueries({ queryKey: healthStatusKey });
+  }, [sync.phase, qc]);
+  const since = server.data ? savedWords(server.data).since : null;
   const now = new Date();
   const monthsBack = month ? (now.getFullYear() - month.getFullYear()) * 12 + now.getMonth() - month.getMonth() : 0;
   const pct = done ? 100 : Math.min(96, Math.round(((monthsBack + 0.5) / 12) * 100));
@@ -251,7 +258,7 @@ const ImportPanel = (): React.JSX.Element => {
         {done
           ? sync.phase === 'error'
             ? `${syncErrorWords(sync.detail) ?? 'Something stopped the import.'} It picks up where it left off next time.`
-            : `${HEALTH_READS_LINE} are on Progress. Logbook keeps up each time you open it.`
+            : importDoneWords(since)
           : 'The newest months come first. You can leave this open or close it.'}
       </p>
       <div className="ahc-actions">

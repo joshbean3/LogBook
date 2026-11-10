@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_TRUST, importWords, savedWords } from './healthCopy';
+import { HEALTH_READS, HEALTH_READS_LINE, HEALTH_TRUST, importDoneWords, importWords, savedWords } from './healthCopy';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const files = (dir: string) =>
@@ -25,6 +25,10 @@ describe('what Settings says about Apple Health', () => {
   it('names the wait with its month', () => {
     expect(importWords(new Date(2026, 10, 1))).toBe('Reading Apple Health: November 2026');
     expect(importWords(null)).toBe('Reading Apple Health…');
+  });
+  it('words the import’s end by the span that arrived', () => {
+    expect(importDoneWords('Since Aug 2026')).toBe('Since Aug 2026: sleep, heart rate variability and resting heart rate are on Progress. Logbook keeps up each time you open it.');
+    expect(importDoneWords(null)).toBe('Sleep, heart rate variability and resting heart rate are on Progress. Logbook keeps up each time you open it.');
   });
   it('says what was saved from the server’s counts and no more', () => {
     const counts = (hrv: number, rhr: number, sleep: number) => ({ counts: { samples: { hrv, resting_hr: rhr }, days: 0, sleep, workouts: 0 }, span: { from: null, to: null } });
