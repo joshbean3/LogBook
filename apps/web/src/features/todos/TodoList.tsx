@@ -141,8 +141,8 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
   const left = done ? undefined : isToday ? { label: 'Later', icon: <Clock size={20} />, tone: 'warn' as const, onCommit: () => act.later(x) } : { label: 'Today', icon: <Sun size={20} />, tone: 'neutral' as const, onCommit: () => act.today(x) };
   const extra = done ? [] : isToday ? [{ label: 'Someday', onSelect: () => act.someday(x) }] : [];
   return (
-    <SwipeRow right={right} left={left} menuItems={[...extra, { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) }]} label={x.text} className="tl-swipe">
-      <div className={`tl-row ${on ? 'is-done' : ''} ${tint ? 'has-tc' : ''}`} style={colorStyle(tint)}>
+    <SwipeRow right={right} left={left} menuItems={[...extra, { label: 'Delete', icon: <Trash2 size={18} />, destructive: true, onSelect: () => act.remove(x) }]} label={x.text} className="tdl-swipe">
+      <div className={`tdl-row ${on ? 'is-done' : ''} ${tint ? 'has-tc' : ''}`} style={colorStyle(tint)}>
         <TodoMark
           on={on}
           label={dueLabel ? `${x.text}, ${dueLabel}` : x.text}
@@ -163,7 +163,7 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
         />
         <button
           type="button"
-          className={`tl-name ${x.note ? 'has-note' : ''}`}
+          className={`tdl-name ${x.note ? 'has-note' : ''}`}
           onClick={onEdit}
           onKeyDown={(e) => {
             if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !done) {

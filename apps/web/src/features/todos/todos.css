@@ -76,7 +76,7 @@
 }
 /* checked: the row dims (the words to --ink-3, struck) while it waits to fold */
 .tt-row.is-done .tt-name,
-.tl-row.is-done .tl-name {
+.tdl-row.is-done .tdl-name {
   color: var(--ink-3);
   text-decoration: line-through;
   text-decoration-color: var(--ink-4);
@@ -203,7 +203,7 @@
 }
 
 /* the name, and the note under it at 15px, two lines at most */
-.tl-name {
+.tdl-name {
   appearance: none;
   border: 0;
   background: none;
@@ -214,12 +214,14 @@
   gap: 2px;
   width: 100%;
   min-height: 44px;
+  /* a title that wraps to two lines keeps air above and below it */
+  padding: 6px 0;
   align-content: center;
   overflow-wrap: anywhere;
   transition: color var(--dur);
   -webkit-touch-callout: none;
 }
-.tl-name.has-note {
+.tdl-name.has-note {
   padding: 10px 0;
 }
 .trow-title {
@@ -234,7 +236,7 @@
 .trow-title > span {
   min-width: 0;
 }
-.tl-row.is-done .tl-name {
+.tdl-row.is-done .tdl-name {
   color: var(--ink-3);
 }
 .trow-note {
@@ -464,14 +466,14 @@
   background: var(--line);
   pointer-events: none;
 }
-.tl-row {
+.tdl-row {
   display: flex;
   align-items: center;
   gap: 6px;
   min-height: 52px;
   padding: 0 16px 0 6px;
 }
-.tl-name {
+.tdl-name {
   flex: 1;
   min-width: 0;
 }
@@ -501,11 +503,11 @@
 /* ---------- highlight, lists, the By list view ---------- */
 /* a coloured bar at the row's edge: its own highlight, or its list's */
 .tt-row.has-tc,
-.tl-row.has-tc {
+.tdl-row.has-tc {
   position: relative;
 }
 .tt-row.has-tc::after,
-.tl-row.has-tc::after {
+.tdl-row.has-tc::after {
   content: '';
   position: absolute;
   left: 0;
@@ -517,11 +519,12 @@
   pointer-events: none;
 }
 .tt-row.has-tc.is-done::after,
-.tl-row.has-tc.is-done::after {
+.tdl-row.has-tc.is-done::after {
   opacity: 0.35;
 }
 .list-chip {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 40%;
   overflow: hidden;
   text-overflow: ellipsis;
