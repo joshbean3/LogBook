@@ -140,7 +140,15 @@
 .as-hello-foot {
   margin: 6px 0 0;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
+}
+/* the not-medical-advice line (lib/copy.ts DISCLAIMER): the last words of the greeting, quiet but readable */
+.as-hello-legal {
+  max-width: 21rem;
+  margin: 10px 0 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  text-wrap: pretty;
 }
 
 /* starter cards: a row above the composer that scrolls sideways, two lines each */
@@ -737,6 +745,22 @@
     transform: scale(1);
   }
 }
+/* the AI label (lib/copy.ts AI_LABEL): under the composer in every state of the sheet, keys up or down */
+.as-ai-label {
+  margin: -2px 0 0;
+  padding: 0 8px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  text-align: center;
+  text-wrap: balance;
+}
+/* the first file ever attached: one line in the box saying where it goes */
+.as-attach-note {
+  margin: 0;
+  padding: 6px 8px 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+}
 .as-editing {
   display: flex;
   align-items: center;
@@ -1304,4 +1328,99 @@
 }
 .lb-orb.as-hello-mark {
   margin-bottom: 14px;
+}
+
+/* ---------- the permission step: shown in place of the conversation until a choice about the assistant is stored ---------- */
+.as-ask {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 24px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.as-ask.is-checking {
+  grid-template-rows: 1fr;
+  place-items: center;
+  min-height: 240px;
+}
+.as-ask-top {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 0 0;
+  text-align: center;
+}
+.as-ask-mark {
+  margin-bottom: 6px;
+}
+.as-ask-title {
+  margin: 0;
+  font: italic 400 var(--fs-title) / var(--lh-title) var(--display);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.as-ask-lead {
+  max-width: 22rem;
+  margin: 0;
+  padding: 0 8px;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.as-ask-list {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 10px 0 0;
+  list-style: none;
+  text-align: left;
+}
+.as-ask-list li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.as-ask-list b {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.as-ask-list span {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.as-ask-actions {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.as-ask-error {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--bad);
+  text-align: center;
+}
+.as-ask-foot {
+  margin: 4px 0 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  text-align: center;
+}
+.as-ask-link {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* a 13 px word with a 44 px target */
+.as-ask-link::after {
+  content: '';
+  position: absolute;
+  inset: -13px -8px;
 }

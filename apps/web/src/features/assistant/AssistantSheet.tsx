@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { askAssistant, stopAssistant, useBootstrap } from '@/api/queries';
+import { AI_LABEL, DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { isNative } from '@/lib/native';
@@ -41,7 +42,9 @@ import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
 import { AttachError, prepareFile, type PreparedFile } from './attach';
 import { editTurn, regenerate, retryAsk, sendTurn, stopAsk } from './conversation';
+import { attachNoteSeen, markAttachNoteSeen } from './attachNote';
 import { HistoryPanel } from './History';
+import { AssistantPermission, useAssistantGate } from './Permission';
 import { ProposalCard } from './Proposal';
 import { Rich } from './Rich';
 import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantTurns } from './store';
@@ -415,7 +418,14 @@ const useHeader = (onHistory: () => void, pushed: React.RefObject<boolean>) => {
  * it; a composer box with the attach button, the screen it was opened from and Send (Stop while it works). Every chat is
  * kept in History. It answers, or proposes changes that run only when Apply is tapped (and Undo takes back).
  */
-export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
+export const AssistantSheet = (props: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
+  // the permission step comes first: the conversation (and its composer) is not there to send from until it is answered
+  const { gate, retry } = useAssistantGate();
+  if (gate !== 'open') return <AssistantPermission gate={gate} retry={retry} date={props.date} screen={props.screen} />;
+  return <Conversation {...props} />;
+};
+
+const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
   const today = useToday();
   const turns = useAssistantTurns();
   const busySince = useAssistantBusy();
@@ -440,6 +450,8 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
   const [editing, setEditing] = useState<number | null>(null);
   const [pending, setPending] = useState<PreparedFile[]>([]);
   const [preparing, setPreparing] = useState(false);
+  // the first file ever attached on this phone: one line says where it goes, until that message is sent
+  const [attachNote, setAttachNote] = useState(false);
   const toast = useToast();
   const root = useRef<HTMLDivElement>(null);
   const tail = useRef<HTMLDivElement>(null);
@@ -553,7 +565,13 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
           toast(e instanceof AttachError ? e.message : `Couldn’t add ${f.name || 'that file'}.`);
         }
       }
-      if (ready.length) setPending((p) => [...p, ...ready].slice(0, ATTACHMENT_LIMITS.perTurn));
+      if (ready.length) {
+        setPending((p) => [...p, ...ready].slice(0, ATTACHMENT_LIMITS.perTurn));
+        if (!attachNoteSeen()) {
+          markAttachNoteSeen();
+          setAttachNote(true);
+        }
+      }
     } finally {
       setPreparing(false);
       if (picker.current) picker.current.value = '';
@@ -566,6 +584,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
     if ((!t && !files.length) || busyAnywhere || preparing) return;
     setDraft('');
     setPending([]);
+    setAttachNote(false);
     // the field grew with the words; empty again, it goes back to one line
     if (field.current) field.current.style.height = '';
     if (editing !== null) {
@@ -639,6 +658,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             </p>
             <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
             <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
+            <p className="as-hello-legal">{DISCLAIMER}</p>
           </div>
         ) : (
           <>
@@ -724,6 +744,11 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               ) : null}
             </div>
           ) : null}
+          {attachNote && pending.length ? (
+            <p className="as-attach-note" role="status">
+              {pending.length === 1 ? 'This file goes' : 'These files go'} to Claude, by Anthropic, to answer you.
+            </p>
+          ) : null}
           <textarea
             ref={field}
             className="as-input"
@@ -771,6 +796,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             )}
           </div>
         </div>
+        <p className="as-ai-label">{AI_LABEL}</p>
       </div>
     </div>
   );
