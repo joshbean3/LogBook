@@ -66,7 +66,7 @@ export const Finger = ({ spot, down = false, hold = false, carry }: { spot: stri
     setAt((cur) => (cur && cur[0] === x && cur[1] === y ? cur : [x, y]));
   });
   return (
-    <span ref={ref} className={`tf ${at ? '' : 'is-off'} ${down ? 'is-down' : ''} ${hold ? 'is-hold' : ''}`} style={at ? { left: at[0], top: at[1] } : undefined} aria-hidden="true">
+    <span ref={ref} className={`tf ${at ? '' : 'tis-off'} ${down ? 'tis-down' : ''} ${hold ? 'tis-hold' : ''}`} style={at ? { left: at[0], top: at[1] } : undefined} aria-hidden="true">
       {carry ? <span className="tf-carry">{carry}</span> : null}
       <i />
     </span>
@@ -77,7 +77,7 @@ export const Finger = ({ spot, down = false, hold = false, carry }: { spot: stri
 export const Steps = ({ items, on }: { items: readonly string[]; on: number }) => (
   <ol className="tour-steps">
     {items.map((t, i) => (
-      <li key={t} className={on < 0 || i === on ? 'is-on' : ''}>
+      <li key={t} className={on < 0 || i === on ? 'tis-on' : ''}>
         <b>{i + 1}</b>
         {t}
       </li>

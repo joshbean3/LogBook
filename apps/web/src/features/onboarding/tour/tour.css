@@ -70,10 +70,10 @@
     background 220ms var(--ease-out),
     color 220ms var(--ease-out);
 }
-.tour-steps li.is-on {
+.tour-steps li.tis-on {
   color: var(--ink);
 }
-.tour-steps li.is-on b {
+.tour-steps li.tis-on b {
   background: var(--ink);
   box-shadow: none;
   color: #fff;
@@ -95,7 +95,7 @@
     width 220ms var(--ease-out),
     opacity 220ms;
 }
-.tour-dots span.on {
+.tour-dots span.tis-on {
   width: 18px;
   background: var(--ink);
   opacity: 1;
@@ -138,13 +138,13 @@
     0 8px 18px -6px rgba(15, 42, 68, 0.45);
   transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.tf.is-off {
+.tf.tis-off {
   opacity: 0;
 }
-.tf.is-down i {
+.tf.tis-down i {
   transform: scale(0.78);
 }
-.tf.is-down::after {
+.tf.tis-down::after {
   content: '';
   position: absolute;
   left: -24px;
@@ -155,7 +155,7 @@
   border: 2px solid rgba(47, 93, 133, 0.5);
   animation: tf-ring 520ms ease-out forwards;
 }
-.tf.is-hold i {
+.tf.tis-hold i {
   transform: scale(0.82);
   box-shadow:
     0 0 0 6px rgba(185, 217, 235, 0.65),
@@ -209,7 +209,7 @@
   line-height: 1rem;
   color: var(--ink-3);
 }
-.td-mark {
+.tour-todo-mark {
   flex: none;
   display: grid;
   place-items: center;
@@ -224,30 +224,30 @@
 }
 
 /* Today: to-dos */
-.td-box {
+.tour-todo-box {
   padding: 10px 12px 6px;
   border-radius: 18px;
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
-.td-head {
+.tour-todo-head {
   display: flex;
   justify-content: space-between;
   margin: 0 0 4px;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
-.td-head b {
+.tour-todo-head b {
   font: 400 1.125rem / 1.375rem var(--serif);
   color: var(--ink);
 }
-.td-box ul {
+.tour-todo-box ul {
   display: grid;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.td-box li {
+.tour-todo-box li {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -255,29 +255,29 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
-.td-box li + li {
+.tour-todo-box li + li {
   border-top: 1px solid var(--line);
 }
-.td-rank {
+.tour-todo-rank {
   width: 10px;
   font: 700 0.75rem / 1 var(--stamp);
   color: var(--ink-4);
 }
-.td-box li.is-done {
+.tour-todo-box li.tis-done {
   color: var(--ink-4);
   text-decoration: line-through;
 }
-.td-box li.is-done .td-mark,
-.tg-step.is-done .td-mark {
+.tour-todo-box li.tis-done .tour-todo-mark,
+.tg-step.tis-done .tour-todo-mark {
   background: var(--ink-2);
   box-shadow: none;
 }
-.td-fold {
+.tour-todo-fold {
   margin: 10px 4px 0;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-4);
 }
-.td-add {
+.tour-todo-add {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -289,7 +289,7 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
-.td-typed {
+.tour-todo-typed {
   color: var(--ink);
 }
 
@@ -345,12 +345,12 @@
     color 220ms,
     box-shadow 220ms;
 }
-.th-orb.is-lit {
+.th-orb.tis-lit {
   background: radial-gradient(circle at 40% 35%, #ff9a4d, var(--accent));
   box-shadow: 0 6px 16px -4px rgba(242, 101, 34, 0.55);
   color: #fff;
 }
-.th-orb.is-add {
+.th-orb.tis-add {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--ink-4);
   border: 0;
@@ -453,7 +453,7 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
 }
-.tg-step.is-done {
+.tg-step.tis-done {
   color: var(--ink-4);
   text-decoration: line-through;
 }
@@ -474,7 +474,7 @@
 }
 .tg-field,
 .tj-field,
-.tl-field {
+.tour-learn-field {
   min-height: 44px;
   padding: 10px 12px;
   border-radius: 14px;
@@ -484,7 +484,7 @@
   color: var(--ink);
 }
 .tg-set,
-.tl-save {
+.tour-learn-save {
   justify-self: end;
   padding: 8px 16px;
   border-radius: var(--r-pill);
@@ -516,7 +516,7 @@
   border-radius: 8px;
   background: var(--well);
 }
-.tj-cell.is-today {
+.tj-cell.tis-today {
   box-shadow: inset 0 0 0 1.5px var(--accent);
   background: var(--surface);
 }
@@ -564,20 +564,20 @@
 }
 
 /* Learned */
-.tl {
+.tour-learn {
   display: grid;
   align-content: start;
   gap: 12px;
 }
-.tl-q {
+.tour-learn-q {
   font: 400 1.375rem / 1.625rem var(--serif);
   color: var(--ink);
 }
-.tl-field em {
+.tour-learn-field em {
   font-style: normal;
   color: var(--ink-4);
 }
-.tl-saved {
+.tour-learn-saved {
   display: grid;
   gap: 6px;
   padding: 14px;
@@ -585,19 +585,19 @@
   background: var(--surface);
   box-shadow: var(--shadow-1);
 }
-.tl-saved p {
+.tour-learn-saved p {
   margin: 0;
   font: 400 1.25rem / 1.625rem var(--serif);
   color: var(--ink);
 }
-.tl-another {
+.tour-learn-another {
   margin-top: 4px;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-4);
 }
 
 /* Plan */
-.tp-line {
+.tour-line {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -605,16 +605,16 @@
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
-.tp-line b {
+.tour-line b {
   font: 400 1.25rem / 1.5rem var(--serif);
   color: var(--ink);
 }
-.tp-week {
+.tour-week {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
-.tp-day {
+.tour-day {
   display: grid;
   justify-items: center;
   align-content: start;
@@ -628,21 +628,21 @@
     background 160ms,
     box-shadow 160ms;
 }
-.tp-day.is-target {
+.tour-day.tis-target {
   background: var(--columbia-wash);
   box-shadow:
     inset 0 0 0 1.5px var(--ink-2),
     var(--shadow-1);
 }
-.tp-day small {
+.tour-day small {
   font: 600 0.625rem / 1 var(--sans);
   color: var(--ink-4);
 }
-.tp-date {
+.tour-date {
   font: 700 0.9375rem / 1 var(--stamp);
   color: var(--ink);
 }
-.tp-pill {
+.tour-pill {
   margin-top: 6px;
   padding: 5px 3px;
   border-radius: 8px;
@@ -651,27 +651,27 @@
   color: #fff;
   white-space: normal;
 }
-.tp-pill.c-easy {
+.tour-pill.c-easy {
   background: #3f9a63;
 }
-.tp-pill.c-hard {
+.tour-pill.c-hard {
   background: var(--accent);
 }
-.tp-pill.c-long {
+.tour-pill.c-long {
   background: #2f5d85;
 }
-.tp-pill.is-lifted {
+.tour-pill.tis-lifted {
   display: block;
   width: 44px;
   box-shadow: 0 12px 20px -6px rgba(15, 42, 68, 0.5);
   transform: scale(1.06);
 }
-.tp-rest {
+.tour-rest {
   margin-top: 8px;
   font: 500 0.625rem / 1 var(--sans);
   color: var(--ink-4);
 }
-.tp-toast {
+.tour-toast {
   position: absolute;
   left: 0;
   right: 0;
@@ -686,7 +686,7 @@
   color: #fff;
   white-space: nowrap;
 }
-.tp-toast b {
+.tour-toast b {
   margin-left: 10px;
   color: #b9d9eb;
 }

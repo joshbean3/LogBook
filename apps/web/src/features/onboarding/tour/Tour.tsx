@@ -1,6 +1,7 @@
 import { Activity, BookOpen, CalendarDays, Lightbulb, ListChecks, Sparkles, Sun, Target, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useRef } from 'react';
+import { HEALTH_BUILT } from '@/lib/features';
 import { haptics } from '@/lib/haptics';
 import { springs } from '@/lib/motion';
 import { Pressable } from '@/ui';
@@ -28,8 +29,8 @@ export const TOUR: readonly Page[] = [
   { key: 'journal', icon: BookOpen, where: 'Journal', title: 'A calendar of days.', lede: 'Tap today to write a line or two. Every day you write gets its own orb, and old ones come back as Remember when.', Demo: JournalDemo },
   { key: 'learned', icon: Lightbulb, where: 'Learned', title: 'One thing a day.', lede: 'What you learned, in a line. Kept by month, and some come back later when you need them.', Demo: LearnedDemo },
   { key: 'plan', icon: CalendarDays, where: 'Plan', title: 'A week you can move.', lede: 'Your runs, day by day. Life happens: hold a run and drag it to another day.', Demo: PlanDemo },
-  { key: 'progress', icon: Activity, where: 'Progress', title: 'Weeks, as lines.', lede: 'Miles, pace, sleep and more, against your own normal. Slide along any chart to read a week.', Demo: ProgressDemo },
-  { key: 'ask', icon: Sparkles, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The bar at the bottom answers questions and makes changes for you, and shows them to you first.', Demo: AskDemo },
+  { key: 'progress', icon: Activity, where: 'Progress', title: 'Weeks, as lines.', lede: HEALTH_BUILT ? 'Miles and pace, week by week. Connect Apple Health to add sleep, HRV and resting heart rate. Slide along any chart to read a week.' : 'Miles and pace, week by week. Slide along any chart to read a week.', Demo: ProgressDemo },
+  { key: 'ask', icon: Sparkles, where: 'Every tab', title: 'Ask, or change anything.', lede: 'The assistant is AI. It answers questions and makes changes for you, and shows them to you first. It can be wrong, so check anything important.', Demo: AskDemo },
 ];
 
 export const Tour = ({ page, onPage, onDone }: { page: number; onPage: (p: number) => void; onDone: () => void }) => {
@@ -87,7 +88,7 @@ export const Tour = ({ page, onPage, onDone }: { page: number; onPage: (p: numbe
       <div className="ob-foot tour-foot">
         <div className="tour-dots" role="tablist" aria-label="Tour">
           {TOUR.map((t, i) => (
-            <span key={t.key} className={i === p ? 'on' : ''} role="tab" aria-selected={i === p} aria-label={t.title} onClick={() => go(i)} />
+            <span key={t.key} className={i === p ? 'tis-on' : ''} role="tab" aria-selected={i === p} aria-label={t.title} onClick={() => go(i)} />
           ))}
         </div>
         <Pressable className="btn primary block ob-cta" onPress={() => (last ? onDone() : go(p + 1))}>

@@ -30,29 +30,29 @@ export const TodosDemo = ({ running, still }: DemoProps) => {
   return (
     <>
       <Stage className="td">
-        <div className="td-box">
-          <p className="td-head">
+        <div className="tour-todo-box">
+          <p className="tour-todo-head">
             <b>Your top three</b>
             <span>{gone ? '1 after these' : '2 after these'}</span>
           </p>
           <ul>
             <AnimatePresence initial={false}>
               {rows.map((r, i) => (
-                <motion.li key={r.id} layout={!still} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 24 }} transition={springs.settle} className={r.id === 'a' && checked ? 'is-done' : ''}>
-                  <span className="td-mark" data-spot={i === 0 ? 'mark0' : undefined}>
+                <motion.li key={r.id} layout={!still} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 24 }} transition={springs.settle} className={r.id === 'a' && checked ? 'tis-done' : ''}>
+                  <span className="tour-todo-mark" data-spot={i === 0 ? 'mark0' : undefined}>
                     {r.id === 'a' && checked ? <Check size={12} strokeWidth={3.2} /> : null}
                   </span>
-                  <span className="td-rank">{i + 1}</span>
+                  <span className="tour-todo-rank">{i + 1}</span>
                   {r.t}
                 </motion.li>
               ))}
             </AnimatePresence>
           </ul>
         </div>
-        <p className="td-fold">{gone ? '+1 Then Pay rent' : '+2 Then Groceries, Pay rent'}</p>
-        <p className="td-add" data-spot="add">
+        <p className="tour-todo-fold">{gone ? '+1 Then Pay rent' : '+2 Then Groceries, Pay rent'}</p>
+        <p className="tour-todo-add" data-spot="add">
           <Plus size={15} strokeWidth={2.4} />
-          {typing || still || b >= 8 ? <span className="td-typed">{typed}<i className="tcaret" /></span> : 'Add a to-do'}
+          {typing || still || b >= 8 ? <span className="tour-todo-typed">{typed}<i className="tcaret" /></span> : 'Add a to-do'}
         </p>
         <Finger spot={at(b, 1, 4) ? 'mark0' : at(b, 5, 8) ? 'add' : null} down={b === 2 || b === 6} />
       </Stage>
@@ -79,14 +79,14 @@ export const HabitsDemo = ({ running, still }: DemoProps) => {
         <div className="th-row">
           {HAB.map((h, i) => (
             <span key={h} className="th-orb-wrap">
-              <motion.span className={`th-orb ${lit[i] ? 'is-lit' : ''}`} data-spot={`orb${i}`} animate={lit[i] && !still ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.36 }}>
+              <motion.span className={`th-orb ${lit[i] ? 'tis-lit' : ''}`} data-spot={`orb${i}`} animate={lit[i] && !still ? { scale: [1, 1.12, 1] } : { scale: 1 }} transition={{ duration: 0.36 }}>
                 {lit[i] ? <Check size={18} strokeWidth={3} /> : <span>{h[0]}</span>}
               </motion.span>
               <small>{h}</small>
             </span>
           ))}
           <span className="th-orb-wrap">
-            <span className="th-orb is-add">
+            <span className="th-orb tis-add">
               <Plus size={18} strokeWidth={2.4} />
             </span>
             <small>Add</small>
@@ -119,7 +119,7 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
   return (
     <>
       <Stage className="tg">
-        <div className={`tg-card ${set ? 'is-set' : ''}`}>
+        <div className={`tg-card ${set ? 'tis-set' : ''}`}>
           <span className="tg-sun" style={{ transform: `scale(${stepDone ? 1.25 : set ? 0.9 : 0.7})` }} />
           <span className="caps">Today’s goal</span>
           {set ? (
@@ -129,8 +129,8 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
                 <i style={{ '--p': stepDone ? '50%' : '0%' } as React.CSSProperties} />
                 <em>{stepDone ? '1/2' : '0/2'}</em>
               </span>
-              <span className={`tg-step ${stepDone ? 'is-done' : ''}`}>
-                <span className="td-mark" data-spot="step">
+              <span className={`tg-step ${stepDone ? 'tis-done' : ''}`}>
+                <span className="tour-todo-mark" data-spot="step">
                   {stepDone ? <Check size={12} strokeWidth={3.2} /> : null}
                 </span>
                 Outline
@@ -185,7 +185,7 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
                 {g ? <Orb size={14} state="still" variant={(['sky', 'dusk', 'sun', 'tide'] as const)[i % 4]} /> : null}
               </span>
             ))}
-            <span className="tj-cell is-today">
+            <span className="tj-cell tis-today">
               {planted ? (
                 <motion.span initial={still ? false : { scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={springs.complete}>
                   <Orb size={16} state="still" variant="sky" />
@@ -230,17 +230,17 @@ export const LearnedDemo = ({ running, still }: DemoProps) => {
   const saved = still || b >= 6;
   return (
     <>
-      <Stage className="tl">
-        <b className="tl-q">What did you learn today?</b>
+      <Stage className="tour-learn">
+        <b className="tour-learn-q">What did you learn today?</b>
         {saved ? (
-          <motion.div className="tl-saved" initial={still ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
+          <motion.div className="tour-learn-saved" initial={still ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.settle}>
             <span className="caps">Today</span>
             <p>Strides before a race wake the legs up.</p>
-            <span className="tl-another">Add another</span>
+            <span className="tour-learn-another">Add another</span>
           </motion.div>
         ) : (
           <>
-            <span className="tl-field" data-spot="field">
+            <span className="tour-learn-field" data-spot="field">
               {typing || b >= 4 ? (
                 <>
                   {typed}
@@ -250,7 +250,7 @@ export const LearnedDemo = ({ running, still }: DemoProps) => {
                 <em>One thing, in a sentence or two</em>
               )}
             </span>
-            <span className="tl-save" data-spot="save">
+            <span className="tour-learn-save" data-spot="save">
               Save
             </span>
           </>
@@ -278,24 +278,24 @@ export const PlanDemo = ({ running, still }: DemoProps) => {
   return (
     <>
       <Stage className="tp">
-        <p className="tp-line">
+        <p className="tour-line">
           <b>This week</b>
           <span>21 mi · 4 runs</span>
         </p>
-        <div className="tp-week">
+        <div className="tour-week">
           {DAYS.map((d, i) => {
             const r = runs[i];
             const ghost = lifted && i === 3;
             return (
-              <span key={i} className={`tp-day ${lifted && i === 4 ? 'is-target' : ''}`} data-spot={`day${i}`}>
+              <span key={i} className={`tour-day ${lifted && i === 4 ? 'tis-target' : ''}`} data-spot={`day${i}`}>
                 <small>{d}</small>
-                <span className="tp-date">{9 + i}</span>
+                <span className="tour-date">{9 + i}</span>
                 {r && !ghost ? (
-                  <motion.span layout={!still} className={`tp-pill c-${r.c}`} transition={springs.settle}>
+                  <motion.span layout={!still} className={`tour-pill c-${r.c}`} transition={springs.settle}>
                     {r.t}
                   </motion.span>
                 ) : (
-                  <span className="tp-rest">{ghost ? '' : 'Rest'}</span>
+                  <span className="tour-rest">{ghost ? '' : 'Rest'}</span>
                 )}
               </span>
             );
@@ -303,12 +303,12 @@ export const PlanDemo = ({ running, still }: DemoProps) => {
         </div>
         <AnimatePresence>
           {at(b, 4, 6) || still ? (
-            <motion.p className="tp-toast" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={springs.settle}>
+            <motion.p className="tour-toast" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={springs.settle}>
               Moved to Fri <b>Undo</b>
             </motion.p>
           ) : null}
         </AnimatePresence>
-        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : null} hold={at(b, 2, 4)} carry={lifted ? <span className="tp-pill c-hard is-lifted">Tempo 5</span> : undefined} />
+        <Finger spot={at(b, 1, 3) ? 'day3' : b === 3 ? 'day4' : null} hold={at(b, 2, 4)} carry={lifted ? <span className="tour-pill c-hard tis-lifted">Tempo 5</span> : undefined} />
       </Stage>
       <Steps items={['Hold a run until it lifts', 'Drag it to another day and let go', 'Tap any day to open or change it']} on={still ? -1 : b < 2 ? 0 : b < 5 ? 1 : 2} />
     </>
