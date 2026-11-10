@@ -197,8 +197,8 @@ const SheetRow = ({ x, date, done, onEdit, onStep, fold, hideList }: { x: Todo; 
   );
 };
 
-/** How many rows a group draws at first, and adds each time its end comes near (a list of hundreds opens as fast as one of ten). */
-const ROWS_STEP = 40;
+/** How many rows a group draws at first (more than a full-height sheet shows), and adds each time its end comes near: a list of hundreds opens as fast as one of ten. */
+const ROWS_STEP = 20;
 
 /** One group of the sheet: its rows FLIP when a checked row folds out of it. */
 const SheetGroup = ({ g, date, done, onEdit, hideList }: { g: TodoGroupSpec; date: ISODate; done?: boolean; onEdit: (x: Todo) => void; hideList?: boolean }) => {
