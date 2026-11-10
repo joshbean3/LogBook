@@ -212,6 +212,7 @@ export const checkIosProject = (root = ROOT) => {
     if (JSON.stringify(info.UISupportedInterfaceOrientations) !== JSON.stringify(['UIInterfaceOrientationPortrait'])) out.push('Info.plist: UISupportedInterfaceOrientations must be portrait only');
     if (JSON.stringify(info.UIRequiredDeviceCapabilities) !== JSON.stringify(['arm64'])) out.push('Info.plist: UIRequiredDeviceCapabilities must be arm64 only (an update can relax this list, never tighten it)');
     if (info.CFBundleName !== 'Logbook') out.push(`Info.plist: CFBundleName must be Logbook (got ${info.CFBundleName})`);
+    if (info.LogbookAPIHost !== '$(LOGBOOK_API_HOST)') out.push('Info.plist: LogbookAPIHost must be $(LOGBOOK_API_HOST) (the Health engine reads the server from it)');
     if (info.UIUserInterfaceStyle !== 'Light') out.push('Info.plist: UIUserInterfaceStyle must be Light (the app has one light theme; docs/brand.md item 14)');
     if ((info.UIRequiredDeviceCapabilities ?? []).includes('healthkit')) out.push('Info.plist: remove healthkit from UIRequiredDeviceCapabilities (it would hide the app from devices without Health)');
   }

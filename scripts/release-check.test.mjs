@@ -148,6 +148,7 @@ test('iOS project: light, named Logbook, arm64, iOS 17, AutoFill domain', () => 
   assert.equal(info.UIUserInterfaceStyle, 'Light');
   assert.equal(info.CFBundleName, 'Logbook');
   assert.deepEqual(info.UIRequiredDeviceCapabilities, ['arm64']);
+  assert.equal(info.LogbookAPIHost, '$(LOGBOOK_API_HOST)');
   const ent = parsePlist(read('apps/web/ios/App/App/App.entitlements'));
   assert.deepEqual(ent['com.apple.developer.associated-domains'], ['webcredentials:$(LOGBOOK_API_HOST)']);
   const s = targetSettings(read('apps/web/ios/App/App.xcodeproj/project.pbxproj'));

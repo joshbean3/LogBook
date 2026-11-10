@@ -122,8 +122,9 @@ actor HealthSync {
     }
 
     // ---------- one run at a time ----------
-    /// `origin` is the server this build talks to (the web app passes the origin it was built with on every sync). The
-    /// copy saved at connect is only the fallback, so a build that moves to a new server never keeps posting to the old.
+    /// `origin` is the server this build talks to (the web app passes the origin it was built with). Without it the engine
+    /// takes the host the release build wrote into Info.plist. The copy saved at connect is only the last fallback, so a
+    /// build that moves to a new server never keeps posting to the old one.
     func sync(reason: String, origin: String? = nil) async -> HealthSyncResult {
         if let current = running { return await current.value }
         let task = Task { await self.run(reason: reason, buildOrigin: origin) }
@@ -138,6 +139,15 @@ actor HealthSync {
         guard let s = s, let url = URL(string: s), let scheme = url.scheme, scheme == "https" || scheme == "http",
               url.host != nil, url.path.isEmpty || url.path == "/", url.query == nil else { return nil }
         return s.hasSuffix("/") ? String(s.dropLast()) : s
+    }
+
+    /// The server this build was made for: `LogbookAPIHost` in Info.plist, which is `$(LOGBOOK_API_HOST)`, written from
+    /// VITE_API_ORIGIN by `pnpm ios:release`. A development build keeps the placeholder, and then this is nil.
+    static var bundleOrigin: String? {
+        guard let host = Bundle.main.object(forInfoDictionaryKey: "LogbookAPIHost") as? String else { return nil }
+        let h = host.trimmingCharacters(in: .whitespaces).lowercased()
+        if h.isEmpty || h.contains("$(") || h == "example.com" || h.hasSuffix(".example.com") { return nil }
+        return validOrigin("https://" + h)
     }
 
     /// Once cancelled (disconnect, or a new connect), a run writes nothing more: no page, no upload, no state.
@@ -161,7 +171,7 @@ actor HealthSync {
             result.error = "locked"
             return result
         }
-        guard state.connected, let token = HealthKeychain.read(), let origin = Self.validOrigin(buildOrigin) ?? state.apiOrigin else {
+        guard state.connected, let token = HealthKeychain.read(), let origin = Self.validOrigin(buildOrigin) ?? Self.bundleOrigin ?? state.apiOrigin else {
             result.error = "not_connected"
             return result
         }

@@ -65,6 +65,8 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
+	<key>LogbookAPIHost</key>
+	<string>$(LOGBOOK_API_HOST)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
