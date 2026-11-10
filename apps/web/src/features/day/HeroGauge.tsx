@@ -19,7 +19,7 @@ import { useIsLive } from './live';
  * pointer at the week's progress (the screen's now-mark, 3.5 job 2), the ends labelled 0 and the plan in caption style, and
  * the readout pill under the day's words, which reads the week and opens it.
  *
- * Geometry: a circle centred at (150, 62), r 118, drawn from 200° round the bottom to −20° (220° of arc, clockwise in SVG's
+ * Geometry: a circle centered at (150, 62), r 118, drawn from 200° round the bottom to −20° (220° of arc, clockwise in SVG's
  * y-down frame), so the ends sit a little above the centre and the day's words fit inside the bowl.
  */
 const CX = 150;
@@ -40,7 +40,7 @@ const arc = (t: number, r = R) => {
   const large = SWEEP * t > 180 ? 1 : 0;
   return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 0 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
 };
-/** The end labels' places, as a share of the dial's box: centred over each end of the arc (horizontal, never rotated). */
+/** The end labels' places, as a share of the dial's box: centered over each end of the arc (horizontal, never rotated). */
 const [END_LX] = pt(FROM);
 const [END_RX] = pt(FROM - SWEEP);
 
@@ -95,9 +95,9 @@ export const HeroGauge = ({ date, log, children }: { date: ISODate; log: Log; ch
               <motion.path d={arc(g.t)} className="hg-fill" initial={still ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={springs.number} />
             ) : null}
             {g.t > 0 ? <circle cx={sx} cy={sy} r={4.5} className="hg-start" /> : null}
-            {/* the pointer rides the arc by a rotation about the dial's centre: a transform, on the settle spring. The group
-                sits at the centre and holds an unpainted circle of the dial's size, so its box (which motion rotates about)
-                is centred on the dial's centre */}
+            {/* the pointer rides the arc by a rotation about the dial's center: a transform, on the settle spring. The group
+                sits at the center and holds an unpainted circle of the dial's size, so its box (which motion rotates about)
+                is centered on the dial's center */}
             <g transform={`translate(${CX} ${CY})`}>
               <motion.g className="hg-pointer" initial={still ? false : { rotate: 0 }} animate={{ rotate: -SWEEP * g.t }} transition={springs.settle}>
                 <circle r={R + 10} fill="none" />

@@ -444,7 +444,7 @@
   top: -1px;
   width: 10px;
   height: 10px;
-  margin-left: -5px;
+  margin-left: -5px; /* brand-ok: geometry, centers the 10 px stop on its point (guide 6.13) */
   border-radius: 50%;
   background: var(--surface);
   box-shadow: inset 0 0 0 1.5px var(--ink);
@@ -1701,8 +1701,8 @@
   margin-top: var(--section);
 }
 
-/* ---------- the hero as the page's centrepiece (HeroGauge, guide 6.4 and 6.5): Paper, the one sunrise glow under it, the
-   day's words centred in the week's dial ---------- */
+/* ---------- the hero as the page's centerpiece (HeroGauge, guide 6.4 and 6.5): Paper, the one sunrise glow under it, the
+   day's words centered in the week's dial ---------- */
 .hero.aura:not(.is-tall) {
   /* as tall as the face in it (today-top-01): the eyebrow, the dial, the When switch and the deck, each only when it is
      there. A fixed height per face cut the deck off whenever the content and the selector disagreed. The card's ground,
@@ -1722,7 +1722,7 @@
   flex-wrap: wrap;
   row-gap: 0;
 }
-/* centred over the dial, it may take a second line at large text rather than run off the card */
+/* centered over the dial, it may take a second line at large text rather than run off the card */
 .hero.aura:not(.is-tall) .hero-eyebrow {
   flex: 0 1 auto;
   white-space: normal;
@@ -1797,7 +1797,7 @@
 .hg-dot[data-now='ink'] {
   fill: var(--ink);
 }
-/* the ends: "0" and the plan, caption style, horizontal, centred over each end of the arc */
+/* the ends: "0" and the plan, caption style, horizontal, centered over each end of the arc */
 .hg-end {
   position: absolute;
   top: 6.5%;
@@ -1948,7 +1948,7 @@
 /* the rest face's next session: a row on Cloud inside the hero (a tile in a card, not a card in a card) */
 .hero.aura:not(.is-tall) .hero-next {
   min-height: 52px;
-  /* centred in the deck, not pulled 8 left as the plain row is (today-top-14) */
+  /* centered in the deck, not pulled 8 left as the plain row is (today-top-14) */
   margin: 0;
   padding: 0 var(--sp-4);
   border-radius: var(--r-tile);
