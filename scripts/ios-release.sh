@@ -21,6 +21,7 @@ say() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 fail() { printf '\n\033[31mStopped: %s\033[0m\n' "$1"; exit 1; }
 PBX=apps/web/ios/App/App.xcodeproj/project.pbxproj
 SPM=apps/web/ios/App/CapApp-SPM/Package.swift
+RESOLVED=apps/web/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 if [ -f .env.release ]; then set -a; . ./.env.release; set +a; fi
 # Strava is not in the release build, whatever the shell has set
@@ -78,6 +79,8 @@ node scripts/release-check.mjs bundle apps/web/ios/App/App/public || fail "the i
 node scripts/release-check.mjs capconfig || fail "capacitor.config.json has a development setting (see above)."
 node scripts/release-check.mjs spm || fail "the Swift package is missing a plugin (see above)."
 git diff --quiet -- "$SPM" || fail "cap sync changed $SPM. Commit the new file, move the tag, and run again."
+git ls-files --error-unmatch "$RESOLVED" >/dev/null 2>&1 || fail "$RESOLVED is not committed. Open the project in Xcode once, commit the file, move the tag, and run again."
+git diff --quiet -- "$RESOLVED" || fail "$RESOLVED changed. Commit it, move the tag, and run again."
 
 say "8/9  Stamping the version and the AutoFill host"
 node scripts/release-check.mjs stamp "$version" "$build" || fail "could not write the version into the Xcode project."

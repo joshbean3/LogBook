@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { devPlist } from './ios-dev-plist.mjs';
-import { checkBundle, checkCapConfig, checkEnv, checkIosProject, parsePlist, stampProject, targetSettings } from './release-check.mjs';
+import { RESOLVED, checkBundle, checkCapConfig, checkEnv, checkIosProject, checkSpm, parsePlist, stampProject, targetSettings } from './release-check.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -202,4 +202,39 @@ test('version stamp: writes the version and build into both configurations', () 
   const withHost = targetSettings(stampProject(pbx, '1.0.0', 412, 'https://api.logbook-app.test'));
   for (const name of ['Debug', 'Release']) assert.equal(withHost[name].LOGBOOK_API_HOST, 'api.logbook-app.test');
   assert.throws(() => stampProject(pbx, '1.0.0', 412, 'https://api.example.com'), /cannot go into the entitlements/);
+});
+
+test('swift package: every Capacitor plugin listed, iOS 17, Package.resolved committed', () => {
+  const tree = (files) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'logbook-spm-'));
+    for (const [name, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+      fs.writeFileSync(path.join(dir, name), text);
+    }
+    return dir;
+  };
+  const plugin = (name) => JSON.stringify({ name, capacitor: { ios: { src: 'ios' } } });
+  const base = {
+    'apps/web/package.json': JSON.stringify({ dependencies: { '@capacitor/haptics': '8.0.0', '@logbook/capacitor-health': 'workspace:*', react: '19.0.0' } }),
+    'apps/web/node_modules/@capacitor/haptics/package.json': plugin('@capacitor/haptics'),
+    'apps/web/node_modules/@logbook/capacitor-health/package.json': plugin('@logbook/capacitor-health'),
+    'apps/web/node_modules/react/package.json': JSON.stringify({ name: 'react' }),
+  };
+  const swift = (platform, folders) =>
+    `let package = Package(\n  platforms: [.iOS(.${platform})],\n  dependencies: [\n${folders.map((f) => `    .package(name: "x", path: "../../../../../${f}")`).join(',\n')}\n  ]\n)\n`;
+  const all = ['node_modules/@capacitor/haptics', 'packages/capacitor-health'];
+  const ok = tree({ ...base, 'apps/web/ios/App/CapApp-SPM/Package.swift': swift('v17', all), [`apps/web/ios/App/${RESOLVED}`]: '{}' });
+  assert.deepEqual(checkSpm(ok), []);
+  const stale = tree({ ...base, 'apps/web/ios/App/CapApp-SPM/Package.swift': swift('v15', all.slice(0, 1)) });
+  const problems = checkSpm(stale).join('\n');
+  assert.match(problems, /does not list @logbook\/capacitor-health/);
+  assert.match(problems, /not on iOS 17/);
+  assert.match(problems, /Package\.resolved is missing/);
+  assert.doesNotMatch(problems, /react/);
+});
+
+test('bundle: a fly.dev fallback address fails a release build, not the owner\'s own', () => {
+  const dir = bundle({ 'assets/index-a.js': 'const o="https://"??"https://my-app.fly.dev"' });
+  assert.match(checkBundle(dir).join('\n'), /fly\.dev address: 1 in assets\/index-a\.js/);
+  assert.deepEqual(checkBundle(dir, { strava: true }), []);
 });

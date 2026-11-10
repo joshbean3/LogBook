@@ -45,7 +45,7 @@ How to fill it in: copy the "Results" table at the bottom for each build, write 
 | T11.4 | Settings | Reminders and haptics on and off. | Owner |
 | T11.5 | Settings | Import and export: Export, and the file saves. | Owner |
 | T11.6 | Settings | Change password; change email. | Owner |
-| T11.7 | Settings | Open the privacy policy, health data policy, terms, support and acknowledgements pages. | Owner |
+| T11.7 | Settings | Open the privacy policy, health data policy, terms, support and acknowledgments pages. | Owner |
 | T11.8 | Settings | Sign out: the next account sees nothing of the last one. | Owner |
 | T12.1 | Account deletion | Delete account from Settings: the confirmation, the export offer, then the welcome screen. Signing in again fails. | Owner |
 | T12.2 | Outside the app | Act on a goal reminder notification: it opens the right screen. | Owner |

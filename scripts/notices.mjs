@@ -233,7 +233,7 @@ export const build = () => {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="referrer" content="no-referrer" />
-    <title>Acknowledgements · Logbook</title>
+    <title>Acknowledgments · Logbook</title>
     <style>
 ${`${CSS}\n${EXTRA_CSS}`.split('\n').map((l) => `      ${l}`).join('\n')}
     </style>
@@ -241,7 +241,7 @@ ${`${CSS}\n${EXTRA_CSS}`.split('\n').map((l) => `      ${l}`).join('\n')}
   <body>
     <header>
       <p class="brand">Logbook</p>
-      <h1>Acknowl&shy;edgements</h1>
+      <h1>Acknowl&shy;edgments</h1>
       <p class="dated">Logbook is built with the work of the people below. Thank you.</p>
     </header>
     <main>

@@ -5,7 +5,7 @@
 //   node scripts/release-check.mjs bundle <dir> [--strava] the built files: no developer screen, no Strava
 //   node scripts/release-check.mjs capconfig <file>       the synced capacitor.config.json: no dev server settings
 //   node scripts/release-check.mjs ios                    Info.plist, entitlements, privacy manifest, project file, Health types
-//   node scripts/release-check.mjs spm                    CapApp-SPM/Package.swift lists every Capacitor plugin
+//   node scripts/release-check.mjs spm                    CapApp-SPM/Package.swift lists every Capacitor plugin; Package.resolved is there
 //   node scripts/release-check.mjs stamp <version> <build> write the version and build number into the Xcode project
 //
 // Each check prints one line per problem and exits 1, or prints one line and exits 0.
@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IOS = 'apps/web/ios/App';
 const HEALTH_SRC = 'packages/capacitor-health/ios/Sources/LogbookHealthPlugin';
+/** Where Xcode writes the resolved Swift package versions, relative to apps/web/ios/App. */
+export const RESOLVED = 'App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved';
 /** The lowest iOS the app runs on (docs/launch/decisions.md D4). */
 export const MIN_IOS = '17.0';
 
@@ -66,6 +68,8 @@ export const checkEnv = (env, legalEmail) => {
 export const bundleRules = (withStrava) => [
   { name: 'developer screen', re: /UiGallery|PagerLab|StubRoots|dev\/ui/ },
   ...(withStrava ? [] : [{ name: 'Strava', re: /Strava|\/strava\b/ }]),
+  // the release talks to a domain the owner controls (D7); the old development host must not linger as a fallback
+  ...(withStrava ? [] : [{ name: 'fly.dev address', re: /[a-z0-9-]+\.fly\.dev/ }]),
 ];
 
 const TEXT_FILE = /\.(js|mjs|css|html|json|webmanifest|txt|xml|svg)$/;
@@ -301,6 +305,8 @@ export const checkSpm = (root = ROOT) => {
   }
   // cap sync copies the platform from the first IPHONEOS_DEPLOYMENT_TARGET in the Xcode project
   if (!swift.includes(`platforms: [.iOS(.v${major})]`)) out.push(`CapApp-SPM/Package.swift is not on iOS ${major}. Run npx cap sync ios in apps/web on a Mac and commit the file.`);
+  // the exact package versions Xcode resolved, so every archive links the same Capacitor
+  if (!fs.existsSync(path.join(root, IOS, RESOLVED))) out.push(`${RESOLVED} is missing. Open the project in Xcode on a Mac (it resolves the packages), then commit the file.`);
   return out;
 };
 

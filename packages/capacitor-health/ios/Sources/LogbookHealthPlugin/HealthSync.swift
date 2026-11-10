@@ -87,13 +87,15 @@ actor HealthSync {
         HealthKeychain.delete()
     }
 
-    /// Cancels the running sync, if any, and waits until it has returned. A sync that asks to start meanwhile joins the
-    /// cancelled one (see `sync`), so nothing new starts before the caller goes on.
+    /// Cancels the running sync, if any, and waits until it has returned. A sync that asks to start meanwhile usually
+    /// joins the cancelled one (see `sync`); if one still started while this waited, it is cancelled and waited for too,
+    /// so no run is left going when the caller wipes.
     private func stopRunning() async {
-        guard let task = running else { return }
-        task.cancel()
-        _ = await task.value
-        if running == task { running = nil }
+        while let task = running {
+            task.cancel()
+            _ = await task.value
+            if running == task { running = nil }
+        }
     }
 
     func status() -> [String: Any] {

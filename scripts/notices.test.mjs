@@ -1,4 +1,4 @@
-// The acknowledgements page: every shipped dependency, the native code and the fonts, read from disk.
+// The acknowledgments page: every shipped dependency, the native code and the fonts, read from disk.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

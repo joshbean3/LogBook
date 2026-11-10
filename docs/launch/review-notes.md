@@ -21,7 +21,7 @@ Logbook keeps a person's training plan, habits, goals and journal on our server 
 AI ASSISTANT (Guideline 5.1.2)
 The assistant, the plan builder, the goal review, "Remember when" on Journal and the daily pick on Reads use Claude, an AI model made by Anthropic. Our server calls Anthropic's API; Anthropic acts as our processor and does not train on the data.
 Nothing is sent until the person allows it. The permission step appears before sign-up ("Allow" or "Not now"), again the first time the assistant or the plan builder is opened if it was skipped, and at any time in Settings > Privacy > Assistant access, which has one switch for each kind of data. With "Not now", nothing is sent to Anthropic and the rest of the app works. The demo account has not answered yet, so you will see the step when you open the assistant.
-The assistant is labelled as AI wherever it appears. It proposes changes to the plan; nothing changes until the person taps Apply, and Apply can be undone.
+The assistant is labeled as AI wherever it appears. It proposes changes to the plan; nothing changes until the person taps Apply, and Apply can be undone.
 
 APPLE HEALTH (Guidelines 5.1.3, 2.5.1)
 Read only. Logbook asks for three types: Sleep, Heart Rate Variability and Resting Heart Rate, and shows each on the Progress tab. To connect: on Today tap the round button with the initial (Settings) > Data sources > Apple Health > Connect. Readings are saved to the person's Logbook account on our server so Progress can show them. They are never used for advertising, never sold, never stored in iCloud and never sent to the AI. Logbook does not write to Apple Health. To disconnect and delete the saved readings: the same screen > Disconnect Apple Health.

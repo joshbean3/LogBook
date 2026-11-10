@@ -53,6 +53,8 @@ The four pages in `apps/web/public/legal` are written from `docs/launch/legal-fi
 | `purgeDays` | 30 | Deleted items are removed for good within this many days. The server's purge must be live before the policy says so. |
 | `logDays` | 30 | How long server logs are kept by the host. |
 | `mailLogDays` | 30 | How long the mail provider keeps a record of sent mail on your plan. |
+| `proposalDays` | 90 | How long the server keeps the assistant's proposals and the requests behind them (`ASSISTANT_ACTIONS_KEEP_DAYS` in `apps/api/src/services/retention.ts`). |
+| `securityLogDays` | 365 | How long the server keeps the security log, which outlives a deleted account under a scrambled account number (`AUDIT_KEEP_DAYS` in `apps/api/src/services/audit.ts`). |
 | `dataCountry` | the United States | The Fly region the volume is in. |
 
 Also confirm these sentences, which are promises: "We usually answer within two business days" (support page); "Logbook is free" (terms, section 8); "at least 30 days' notice" before a shutdown (terms, section 9).

@@ -13,5 +13,7 @@
   "backupDays": 5,
   "purgeDays": 30,
   "logDays": 30,
-  "mailLogDays": 30
+  "mailLogDays": 30,
+  "proposalDays": 90,
+  "securityLogDays": 365
 }

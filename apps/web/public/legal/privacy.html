@@ -108,6 +108,7 @@
       <h3>Technical records</h3>
       <ul>
         <li>Server logs: the time, which part of the app was called, whether it worked and, at most, a scrambled account number. Logs do not hold what you wrote.</li>
+        <li>A security log: sign-ins, failed sign-ins, password and email changes, your permission answers and account deletion, each with the time and a scrambled account number. It holds nothing you wrote.</li>
         <li>Your IP address, used briefly to slow down repeated sign-in and sign-up attempts.</li>
         <li>Error reports: if the app fails, it sends the error, the screen it happened on, the app version and the type of device. An error report holds none of your content and is not linked to your account.</li>
       </ul>
@@ -186,12 +187,14 @@
           <tr><th scope="row">Your account and what you enter</th><td>Until you delete it or delete your account.</td></tr>
           <tr><th scope="row">Items you delete, such as a to-do or a journal entry</th><td>Removed for good within 30 days.</td></tr>
           <tr><th scope="row">Readings from Apple Health</th><td>Until you disconnect Apple Health or delete your account.</td></tr>
+          <tr><th scope="row">Changes the assistant proposed, with the request that led to them</th><td>90 days, or until you delete your account.</td></tr>
           <tr><th scope="row">Chats with the assistant</th><td>On your phone, until you delete the chat, sign out or delete your account.</td></tr>
           <tr><th scope="row">What was sent to Claude</th><td>Deleted by Anthropic within 30 days. Up to 2 years if flagged for breaking its usage rules.</td></tr>
           <tr><th scope="row">Server snapshots</th><td>5 days.</td></tr>
           <tr><th scope="row">Off-site backups</th><td>5 days.</td></tr>
           <tr><th scope="row">Server logs</th><td>Up to 30 days.</td></tr>
-          <tr><th scope="row">Sign-in sessions</th><td>60 days after you last used Logbook on that device, or until you sign out.</td></tr>
+          <tr><th scope="row">Security log</th><td>365 days, also after you delete your account. It holds a scrambled account number, not your email address or name.</td></tr>
+          <tr><th scope="row">Sign-in sessions</th><td>60 days after you last used Logbook on that device, and never more than 180 days after you signed in, or until you sign out.</td></tr>
           <tr><th scope="row">Reset and confirmation links</th><td>A reset link works for 30 minutes and a confirmation link for 7 days. Used and expired links are removed within a day.</td></tr>
           <tr><th scope="row">Mail we sent you</th><td>Resend keeps a record of it for up to 30 days.</td></tr>
         </tbody>

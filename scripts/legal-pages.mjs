@@ -45,7 +45,7 @@ export const problems = (f) => {
   for (const k of Object.keys(MISSING)) if (!String(f[k] ?? '').trim()) list.push(`legal-fields.json: "${k}" is empty`);
   if (/@example\.(com|org|net)$/i.test(String(f.supportEmail ?? '').trim())) list.push('legal-fields.json: "supportEmail" is an example.com address');
   for (const k of ['hostingProvider', 'mailProvider', 'backupProvider', 'dataCountry']) if (!String(f[k] ?? '').trim()) list.push(`legal-fields.json: "${k}" is empty`);
-  for (const k of ['snapshotDays', 'backupDays', 'purgeDays', 'logDays', 'mailLogDays']) if (!(Number.isInteger(f[k]) && f[k] > 0)) list.push(`legal-fields.json: "${k}" must be a whole number of days`);
+  for (const k of ['snapshotDays', 'backupDays', 'purgeDays', 'logDays', 'mailLogDays', 'proposalDays', 'securityLogDays']) if (!(Number.isInteger(f[k]) && f[k] > 0)) list.push(`legal-fields.json: "${k}" must be a whole number of days`);
   return list;
 };
 
@@ -59,7 +59,7 @@ const values = (f) => {
   v.supportEmail = String(f.supportEmail ?? '').trim() ? esc(email) : `<mark>${esc(email)}</mark>`;
   v.supportMailto = `<a href="mailto:${esc(email)}">${v.supportEmail}</a>`;
   for (const k of ['hostingProvider', 'mailProvider', 'backupProvider', 'dataCountry']) v[k] = esc(f[k]);
-  for (const k of ['snapshotDays', 'backupDays', 'purgeDays', 'logDays', 'mailLogDays']) v[k] = esc(f[k]);
+  for (const k of ['snapshotDays', 'backupDays', 'purgeDays', 'logDays', 'mailLogDays', 'proposalDays', 'securityLogDays']) v[k] = esc(f[k]);
   // a deleted row can sit in a volume snapshot or an off-site backup: the longer of the two is the promise
   v.backupClearDays = esc(Math.max(Number(f.snapshotDays), Number(f.backupDays)));
   return v;
