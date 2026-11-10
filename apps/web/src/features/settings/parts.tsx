@@ -5,7 +5,6 @@ import { type ReactNode } from 'react';
 import { springs } from '@/lib/motion';
 import { Footnote, PageSection, Row } from '@/ui';
 import { rowName } from './format';
-import './switch.css';
 
 /** The chevron of a row that pushes (or opens) something. */
 export const Chev = (): React.JSX.Element => <ChevronRight size={18} className="s-chev" aria-hidden="true" />;

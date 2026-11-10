@@ -27,7 +27,7 @@ describe('a conversation with the assistant', () => {
     await sendTurn(ask, '2026-11-08', undefined, 'hi', none);
     const failed = assistantStore.get()[1]!;
     expect(failed).toMatchObject({ role: 'assistant', error: true });
-    expect(failed.text).toMatch(/^That didn’t go through\. Couldn’t reach Logbook/);
+    expect(failed.text).toMatch(/^That didn’t go through\. Couldn’t reach Orby/);
     await retryAsk(ask, '2026-11-08', undefined);
     expect(ask.mock.calls[1]![1]).toEqual([{ role: 'user', text: 'hi' }]);
     expect(assistantStore.get().map((t) => t.text)).toEqual(['hi', 'Two runs left.']);

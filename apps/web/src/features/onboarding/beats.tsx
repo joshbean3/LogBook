@@ -137,7 +137,7 @@ export const NudgeChoice = ({ on, at, onChange }: { on: boolean; at: number; onC
         <motion.div className="obx-note" animate={on ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0.35, y: reduce ? 0 : 6, scale: reduce ? 1 : 0.97 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
           <span className="obx-note-app">
             <i />
-            LOGBOOK
+            ORBY
             <small>now</small>
           </span>
           <b>Set today’s goal</b>

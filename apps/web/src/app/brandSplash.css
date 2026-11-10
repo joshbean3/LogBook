@@ -7,7 +7,7 @@
   place-items: center;
   align-content: center;
   gap: 26px;
-  background: var(--bg, #f3f8fb);
+  background: var(--bg);
   /* opaque, it takes the taps (nothing under it is pressed by accident); its exit sets pointer-events: none */
   pointer-events: auto;
 }
@@ -17,10 +17,10 @@
   /* the native splash's still orb sits dead centre: so does this one, the wordmark hangs below without moving it */
   margin-top: 58px;
 }
+/* the outlined wordmark, 150 pt wide (guide 12.1): an image, never live text */
 .brand-splash-word {
-  font: italic 400 2.125rem / 2.5rem var(--serif);
-  letter-spacing: -0.01em;
-  color: var(--ink);
+  display: block;
+  line-height: 0;
 }
 /* still waiting on the server with nothing saved to draw: one line and Try again, under the wordmark (shell-14) */
 .brand-splash-wait {

@@ -88,5 +88,5 @@ node scripts/release-check.mjs stamp "$version" "$build" || fail "could not writ
 
 say "9/9  Opening Xcode"
 if [ "$(uname)" = "Darwin" ]; then (cd apps/web && npx cap open ios); else echo "Not a Mac: open apps/web/ios/App/App.xcodeproj in Xcode yourself."; fi
-printf '\n\033[32mReady: Logbook %s (%s), commit %s.\033[0m\n' "$version" "$build" "$commit"
+printf '\n\033[32mReady: Orby %s (%s), commit %s.\033[0m\n' "$version" "$build" "$commit"
 printf 'In Xcode: choose "Any iOS Device", then Product > Archive, then Distribute App.\nIn the app, Settings > About should read "Version %s (%s)".\nThen follow docs/launch/release-checklist.md.\n' "$version" "$commit"

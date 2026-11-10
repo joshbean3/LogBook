@@ -9,7 +9,7 @@ import type { AuthStatus } from '@/api/types';
 import { haptics } from '@/lib/haptics';
 import { isNative, useSplashDoneOnPaint } from '@/lib/native';
 import { fadeIn, springs } from '@/lib/motion';
-import { LogoMark } from '@/ui/primitives';
+import { Lockup } from '@/ui/Brand';
 import { MIN_AGE } from '@/lib/copy';
 import { LEGAL, openExternal, SUPPORT } from '@/lib/siteLinks';
 import { clearPendingConsent, consentForSignup, readPendingChoice } from './consent';
@@ -66,8 +66,7 @@ const Frame = ({ title, sub, children, foot, back, busy, notice }: { title?: str
             </button>
           ) : (
             <div className="auth-brand">
-              <LogoMark size={24} color="var(--ink)" />
-              <span className="caps">Logbook</span>
+              <Lockup />
             </div>
           )}
           {/* the way to the support page for someone who cannot get in */}
@@ -135,7 +134,7 @@ const AuthField = ({
 
 /** Any failure in plain words, never a status code. */
 const plain = (e: unknown, fallback: string) =>
-  e instanceof NetworkError ? 'Couldn’t reach Logbook. Check your connection and try again.' : e instanceof ApiError && e.status === 429 ? 'Too many tries. Wait a minute, then try again.' : e instanceof ApiError && e.status >= 500 ? 'Something went wrong on our side. Try again in a moment.' : fallback;
+  e instanceof NetworkError ? 'Couldn’t reach Orby. Check your connection and try again.' : e instanceof ApiError && e.status === 429 ? 'Too many tries. Wait a minute, then try again.' : e instanceof ApiError && e.status >= 500 ? 'Something went wrong on our side. Try again in a moment.' : fallback;
 
 /** Is there an entry of ours to go back to? (react-router keeps its index in history.state) */
 export const canGoBack = () => ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
@@ -233,7 +232,7 @@ const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice, to = '/today
     <Frame
       // "Welcome back" only on a device that has signed in before: a new person never reads it (critic B7)
       title={returning ? 'Welcome back.' : 'Sign in.'}
-      sub="Open your log."
+      sub="Welcome back."
       back={back}
       busy={busy}
       notice={notice}
@@ -241,7 +240,7 @@ const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice, to = '/today
         // shown while the answer is unknown too (a slow or failed status): only a server that said no hides it
         !status.data || canSignUp(status.data) ? (
           <p className="auth-switch">
-            New to Logbook?{' '}
+            New to Orby?{' '}
             <Link to="/signup" replace className="auth-link">
               Create an account
             </Link>
@@ -422,7 +421,7 @@ const Reset = ({ token, onLeave }: { token: string; onLeave: (toForgot: boolean)
   };
   if (state === 'done')
     return (
-      <Frame key="done" title="Password changed." sub="Open Logbook and sign in.">
+      <Frame key="done" title="Password changed." sub="Open Orby and sign in.">
         <div className="auth-form">
           <p className="auth-note">Every device was signed out. Use the new password from now on.</p>
           <button type="button" className="btn primary block auth-submit" onClick={() => onLeave(false)}>

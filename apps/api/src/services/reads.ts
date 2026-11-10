@@ -157,7 +157,7 @@ export interface FetchOptions {
 }
 
 /** Who is asking, plainly: the app's name, why, and where it lives (sec-32). */
-export const READS_USER_AGENT = `Logbook/1.0 (link preview for a saved read; +${env.APP_URL})`;
+export const READS_USER_AGENT = `Orby/1.0 (link preview for a saved read; +${env.APP_URL})`;
 const HEADERS = { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1', 'accept-language': 'en-US,en;q=0.8', 'user-agent': READS_USER_AGENT };
 
 /** One GET over node:http(s) with the pinned resolver; redirects are not followed here. */

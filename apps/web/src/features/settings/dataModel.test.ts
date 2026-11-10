@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EXPORT_SUB, IMPORT_MAX_BYTES, IMPORT_SUB, importDone, importError, importKind } from './dataModel';
 
 describe('Import', () => {
-  it('knows a Logbook export from any other JSON', () => {
+  it('knows an Orby export from any other JSON', () => {
     expect(importKind({ version: 2, user: {} })).toBe('v2');
     expect(importKind({ habits: { items: [] } })).toBe('legacy');
     expect(importKind({ version: 1, journal: {} })).toBe('legacy');
@@ -15,7 +15,7 @@ describe('Import', () => {
   });
   it('says a file is too big for a 413, not ours for a 422, and to try again otherwise', () => {
     expect(importError(413)).toBe('That file is too big.');
-    expect(importError(422)).toBe('That file isn’t a Logbook export.');
+    expect(importError(422)).toBe('That file isn’t an Orby export.');
     expect(importError(500)).toBe('Import didn’t finish. Try again.');
     expect(importError(null)).toBe('Import didn’t finish. Try again.');
     expect(IMPORT_MAX_BYTES).toBe(20 * 1024 * 1024);
@@ -31,7 +31,7 @@ describe('Import', () => {
 
 describe('Data page rows', () => {
   it('describe the file without claiming more than it holds', () => {
-    expect(IMPORT_SUB).toBe('A Logbook export file (JSON).');
+    expect(IMPORT_SUB).toBe('An Orby export file (JSON).');
     expect(EXPORT_SUB).not.toMatch(/everything/i);
   });
 });

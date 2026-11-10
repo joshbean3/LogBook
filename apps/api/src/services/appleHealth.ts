@@ -119,7 +119,7 @@ export const unacceptedIn = (b: BatchEnvelope): string[] => {
 /** 422 `health_type` when a batch carries anything but sleep, heart rate variability and resting heart rate. Nothing of such a batch is stored. */
 export const assertAccepted = (b: BatchEnvelope) => {
   const extra = unacceptedIn(b);
-  if (extra.length) throw new ApiError(422, `Logbook only takes ${HEALTH_ACCEPTED} from Apple Health. Not accepted: ${extra.slice(0, 8).join(', ')}.`, 'health_type');
+  if (extra.length) throw new ApiError(422, `Orby only takes ${HEALTH_ACCEPTED} from Apple Health. Not accepted: ${extra.slice(0, 8).join(', ')}.`, 'health_type');
 };
 
 export const storeBatch = (db: DB, userId: string, b: BatchEnvelope): HealthSyncAnswer => {

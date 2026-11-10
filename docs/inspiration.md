@@ -1,5 +1,7 @@
 # Inspiration log and redesign plan
 
+> Superseded for color, type, surfaces, the Orb, icons and motion by `docs/brand/brand-guide.md` (November 2026). Structure and behavior notes here still apply.
+
 A running file. Reference screenshots go in, and what they teach comes out as rules, a tab-by-tab map and a build plan. We build from this at the end.
 
 Ground rules

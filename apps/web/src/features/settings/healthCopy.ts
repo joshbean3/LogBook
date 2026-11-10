@@ -16,15 +16,15 @@ export const HEALTH_READS_LINE = 'Sleep, heart rate variability and resting hear
 /** The short form, for the device card beside its button. */
 export const HEALTH_READS_SHORT = 'Sleep, HRV and resting heart rate';
 /** Read only, never sold: under the card and in the connect sheet. */
-export const HEALTH_TRUST = 'Logbook only reads. It never writes to Apple Health and never sells what it reads.';
+export const HEALTH_TRUST = 'Orby only reads. It never writes to Apple Health and never sells what it reads.';
 /** Where Apple keeps the switch that takes Logbook's access away. */
-export const HEALTH_REVOKE_PATH = 'In the Apple Health app, tap your picture, then Apps, then Logbook.';
+export const HEALTH_REVOKE_PATH = 'In the Apple Health app, tap your picture, then Apps, then Orby.';
 
 /**
  * The import's last line, worded by what arrived: the span the server holds when it knows it ("Since Aug 2026: sleep,
  * heart rate variability and resting heart rate are on Progress."), else the plain line.
  */
-export const importDoneWords = (since: string | null): string => (since ? `${since}: ${HEALTH_READS_LINE.toLowerCase()} are on Progress. Logbook keeps up each time you open it.` : `${HEALTH_READS_LINE} are on Progress. Logbook keeps up each time you open it.`);
+export const importDoneWords = (since: string | null): string => (since ? `${since}: ${HEALTH_READS_LINE.toLowerCase()} are on Progress. Orby keeps up each time you open it.` : `${HEALTH_READS_LINE} are on Progress. Orby keeps up each time you open it.`);
 
 /** "Reading Apple Health: November 2026": the wait, named, with the month being read when the engine says which. */
 export const importWords = (month: Date | null): string => (month ? `Reading Apple Health: ${month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}` : 'Reading Apple Health…');

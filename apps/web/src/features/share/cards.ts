@@ -1,3 +1,4 @@
+import wordmarkPaper from '@/ui/brand/wordmark-paper.svg?url';
 import { clock, decodePolyline, fmtDate, mi, mondayOf, routePath, shiftDays, today, type ISODate } from '@logbook/shared';
 
 /** A 1080×1920 story card drawn on black: the Aura idea, in Logbook's hand. */
@@ -70,16 +71,33 @@ const WHITE = '#ffffff';
 const INK2 = 'rgba(255,255,255,0.72)';
 const INK3 = 'rgba(255,255,255,0.5)';
 const BLUE = '#2f3bff';
-const SERIF = '"Instrument Serif", "Iowan Old Style", Georgia, serif';
+const SERIF = '"Fraunces Card", "Iowan Old Style", Georgia, serif';
 const STAMP = '"Inter Tight", "Inter", -apple-system, sans-serif';
 const SANS = '"Inter", -apple-system, sans-serif';
 
 // ---------- fonts: the card waits for the bundled faces, never paints a fallback ----------
-const FACES = ['italic 400 80px "Instrument Serif"', 'italic 400 160px "Instrument Serif"', '900 200px "Inter Tight"', '800 100px "Inter Tight"', '700 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
+const FACES = ['italic 400 80px "Fraunces Card"', 'italic 400 160px "Fraunces Card"', '900 200px "Inter Tight"', '800 100px "Inter Tight"', '700 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
 let fontsReady: Promise<void> | null = null;
+/** The outlined wordmark (guide 2.2): the logo is never canvas text. Loaded with the fonts; a card without it still draws. */
+let mark: HTMLImageElement | null = null;
+const loadMark = (): Promise<void> =>
+  typeof Image === 'undefined'
+    ? Promise.resolve()
+    : new Promise((ok) => {
+        const img = new Image();
+        img.onload = () => {
+          mark = img;
+          ok();
+        };
+        img.onerror = () => ok();
+        // never hold a card on the mark: a page that cannot load it draws without it
+        setTimeout(ok, 1500);
+        img.src = wordmarkPaper;
+      });
 export const loadFonts = (): Promise<void> => {
   if (!fontsReady) {
-    fontsReady = typeof document !== 'undefined' && 'fonts' in document ? Promise.all(FACES.map((f) => document.fonts.load(f, 'LOGBOOK 0123456789.:’'))).then(() => undefined, () => undefined) : Promise.resolve();
+    const faces = typeof document !== 'undefined' && 'fonts' in document ? Promise.all(FACES.map((f) => document.fonts.load(f, 'Orby 0123456789.:’'))).then(() => undefined, () => undefined) : Promise.resolve();
+    fontsReady = Promise.all([faces, loadMark()]).then(() => undefined);
   }
   return fontsReady;
 };
@@ -178,27 +196,14 @@ const ground = (ctx: CanvasRenderingContext2D, halo = 1) => {
   ctx.fillRect(-cx / rx, -cy / ry, W / rx, H / ry);
   ctx.restore();
 };
-/** The ring open at the top-right with the check inside, and LOGBOOK in caps, bottom-right. */
+/** The outlined wordmark, Paper on the dark card, 120 px wide at the bottom right (plan 2.5; the full card rebuild follows). */
 const wordmark = (ctx: CanvasRenderingContext2D) => {
-  const y = 1700;
-  const size = 26;
-  const label = 'LOGBOOK';
-  const st: TextStyle = { font: `600 ${size}px ${SANS}`, color: INK2, tracking: size * 0.22 };
-  const tw = measure(ctx, label, st);
-  const ring = 34;
-  const x0 = W - M - tw - ring - 14;
-  ctx.save();
-  ctx.translate(x0, y - size * 0.72 - ring / 2 + size * 0.36);
-  ctx.scale(ring / 24, ring / 24);
-  ctx.strokeStyle = INK2;
-  ctx.lineWidth = 2.2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.stroke(new Path2D('M 19.8 7.5 A 9 9 0 1 1 12 3'));
-  ctx.stroke(new Path2D('M7.5 12 L10 14.5 L15.5 9'));
-  ctx.restore();
-  text(ctx, label, W - M, y, { ...st, align: 'right' });
+  if (!mark) return;
+  const w = 120;
+  const h = Math.round((w * 1988) / 4393);
+  ctx.drawImage(mark, W - M - w, 1700 - h + 8, w, h);
 };
+
 /** Date in caps at 32 and the name in the italic serif, up to two lines: the top-left of every single-run card. */
 const HEAD_DATE_Y = 300;
 const HEAD_NAME = 112;

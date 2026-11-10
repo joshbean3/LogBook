@@ -25,7 +25,7 @@ describe('sendMail', () => {
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
     env.MAIL_API_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}/emails`;
     env.MAIL_API_KEY = 'mail-key-123';
-    env.MAIL_FROM = 'Logbook <no-reply@logbook.test>';
+    env.MAIL_FROM = 'Orby <no-reply@logbook.test>';
     env.mailConfigured = true;
   });
   afterEach(async () => {
@@ -38,7 +38,7 @@ describe('sendMail', () => {
     const link = 'https://logbook.test/login?reset=abc123';
     expect(await sendMail(resetMail('sam@example.com', link))).toBe(true);
     expect(got).toHaveLength(1);
-    expect(got[0]).toMatchObject({ auth: 'Bearer mail-key-123', type: 'application/json', body: { from: 'Logbook <no-reply@logbook.test>', to: ['sam@example.com'], subject: 'Reset your Logbook password' } });
+    expect(got[0]).toMatchObject({ auth: 'Bearer mail-key-123', type: 'application/json', body: { from: 'Orby <no-reply@logbook.test>', to: ['sam@example.com'], subject: 'Reset your Orby password' } });
     expect(got[0]!.body.text).toContain(link);
     expect(got[0]!.body.html).toContain('href="https://logbook.test/login?reset=abc123"');
   });

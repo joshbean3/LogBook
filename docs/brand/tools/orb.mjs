@@ -2,7 +2,13 @@
 // v1.1: soft specular (blur 2.5, 70% peak), the warm light is a wide underglow (blur 2.5) rather than a crescent,
 // an edge that runs all the way round (35% top, 25% on the bottom quarter) so the silhouette holds on Paper and Cloud,
 // and a dark-ground glow (22% Apricot, screen blend).
-// opts: state 'idle'|'think', glow (bool), dark (bool: glow for Twilight or Night Ink grounds), warm (0..1.4), flat (bool), id
+// opts: state 'idle'|'think', glow (bool), dark (bool: glow for Twilight or Night Ink grounds), warm (0..1.4), flat (bool), id,
+// arc (bool, default true: the thinking state draws its ring and arc; false draws the warm sphere alone, for the app, where
+// the arc is a separate overlay that rotates while the sphere holds still).
+// The app's arc-free art (apps/web/src/ui/orb/) was written with:
+//   orbSVG(96, { state: 'think', glow: true, arc: false })  -> logo-mark-thinking-body.svg (48 px and up)
+//   orbSVG(96, { state: 'think', arc: false })              -> logo-mark-thinking-gloss.svg (28 to 47 px, 0..100 box)
+//   orbSVG(96, { glow: true, warm: 0 })                     -> logo-mark-dawn.svg (the splash rise: no underlight)
 let n = 0;
 export const ORB = {
   body: [['0', '#FFFFFF'], ['.12', '#E4F6FE'], ['.34', '#97D8F9'], ['.6', '#38B6F2'], ['.84', '#1590D2'], ['1', '#0A68A0']],
@@ -55,11 +61,11 @@ export function orbDefsAndBody(o = {}) {
     <ellipse cx="${S.cx}" cy="${S.cy}" rx="${S.rx}" ry="${S.ry}" fill="url(#${id}s)" filter="url(#${id}sf)"/>
   </g>
   <circle cx="50" cy="50" r="${E.r}" fill="none" stroke="url(#${id}r)" stroke-width="${E.w}"/>
-  ${think ? `<circle cx="50" cy="50" r="58" fill="none" stroke="#38B6F2" stroke-opacity=".3" stroke-width="1"/><circle cx="50" cy="50" r="58" fill="none" stroke="#FFFDF8" stroke-width="4" stroke-dasharray="51 400" stroke-linecap="round" transform="rotate(118 50 50)"/><circle cx="50" cy="50" r="58" fill="none" stroke="#FF9F5A" stroke-width="1.8" stroke-dasharray="50 400" stroke-linecap="round" transform="rotate(118.5 50 50)"/>` : ''}`;
+  ${think && o.arc !== false ? `<circle cx="50" cy="50" r="58" fill="none" stroke="#38B6F2" stroke-opacity=".3" stroke-width="1"/><circle cx="50" cy="50" r="58" fill="none" stroke="#FFFDF8" stroke-width="4" stroke-dasharray="51 400" stroke-linecap="round" transform="rotate(118 50 50)"/><circle cx="50" cy="50" r="58" fill="none" stroke="#FF9F5A" stroke-width="1.8" stroke-dasharray="50 400" stroke-linecap="round" transform="rotate(118.5 50 50)"/>` : ''}`;
 }
 // A standalone <svg>. size = sphere diameter in px; the box is padded by 25% each side when glow or think is on.
 export function orbSVG(size, o = {}) {
-  const padded = o.glow || o.state === 'think' || o.pad;
+  const padded = o.glow || (o.state === 'think' && o.arc !== false) || o.pad;
   if (!padded) return `<svg xmlns="http://www.w3.org/2000/svg" width="${size * 100 / 96}" height="${size * 100 / 96}" viewBox="0 0 100 100">${orbDefsAndBody(o)}</svg>`;
   const W = size * 150 / 96;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${W}" viewBox="-25 -25 150 150">${orbDefsAndBody(o)}</svg>`;

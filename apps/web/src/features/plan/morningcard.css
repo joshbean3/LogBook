@@ -52,8 +52,11 @@
 .mc-head {
   display: block;
   margin-top: 6px;
-  font-size: 1.75rem;
-  line-height: 2rem;
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: break-word;
 }

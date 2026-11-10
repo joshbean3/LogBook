@@ -1,0 +1,80 @@
+/*
+ * The switch (guide 6.14): a 51 x 31 pill. Off, a --line-strong track under a Paper thumb that floats; on, a Sky track and
+ * the same thumb carrying a Night Ink check, so the state is never the color alone. The component lives in
+ * features/settings/parts.tsx (Settings, the privacy page before the account, Goals); its look is here (plan 5.4).
+ * The control is a 51 x 44 button (QA D-X1): the 31 px track is drawn inside it, so the whole height is the target.
+ */
+.s-switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 44px;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.s-switch::before {
+  content: '';
+  position: absolute;
+  inset: 6.5px 0; /* brand-ok: geometry, the 31 px track centered in the 44 px button */
+  border-radius: var(--r-pill);
+  background: var(--line-strong);
+  transition: background-color var(--dur-color) var(--ease-out);
+}
+.s-switch.on::before {
+  background: var(--accent);
+}
+/* the thumb: 27 px of Paper, lifted, sliding on the settle spring (parts.tsx) */
+.s-knob {
+  position: absolute;
+  top: 8.5px; /* brand-ok: geometry, 2 px inside the 31 px track */
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+/* on: a Night Ink check inside the thumb (7.03 on Sky around it; on Paper it is the ink itself) */
+.s-knob::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 10px;
+  margin: -7px 0 0 -3px; /* brand-ok: geometry, the check's box centered in the thumb */
+  border: solid var(--ink);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0.6);
+  opacity: 0;
+  transition:
+    opacity var(--dur-color) var(--ease-out),
+    transform var(--dur-color) var(--ease-out);
+}
+.s-switch.on .s-knob::after {
+  opacity: 1;
+  transform: rotate(45deg);
+}
+/* focus (guide 6.14): the Deep Sky edge and the Sky ring, around the track */
+.s-switch:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.s-switch:focus-visible::before {
+  box-shadow:
+    0 0 0 1.5px var(--focus-edge),
+    var(--focus-ring);
+}
+.s-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-knob::after {
+    transition: opacity var(--dur-reduce) linear;
+  }
+}

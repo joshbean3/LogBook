@@ -4,7 +4,7 @@ This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
 https://openfontlicense.org
 
-Used in Logbook: Inter-latin.woff2 and Inter-latin-ext.woff2 (subsets of Inter, converted to WOFF2).
+Used in Orby: Inter-latin.woff2 and Inter-latin-ext.woff2 (subsets of Inter, converted to WOFF2).
 
 -----------------------------------------------------------
 

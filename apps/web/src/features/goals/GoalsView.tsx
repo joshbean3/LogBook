@@ -217,7 +217,7 @@ const Reminders = ({ goals, today }: { goals: Aim[]; today: string }) => {
       </ul>
       {blocked ? (
         <div className="k-card g-rem-off" role="status">
-          <p className="k-foot">Notifications are off for Logbook. Turn them on in Settings.</p>
+          <p className="k-foot">Notifications are off for Orby. Turn them on in Settings.</p>
           <Button size="sm" className="g-rem-btn" onClick={openAppSettings}>
             Open Settings
           </Button>

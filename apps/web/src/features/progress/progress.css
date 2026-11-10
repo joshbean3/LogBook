@@ -358,10 +358,8 @@ button.pg-srow[data-pressed] {
 /* the streak in weeks, in the brand's serif voice: "7 of the last 8 weeks." */
 .pg-week-streak {
   margin: -4px 0 0;
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.25rem;
-  line-height: 1.5rem;
+  font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
+  letter-spacing: 0;
   color: var(--ink-2);
 }
 .pg-week-words .pg-stamp-num {

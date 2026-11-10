@@ -195,8 +195,11 @@
 }
 .ob-title {
   margin-top: 8px;
-  font-size: var(--fs-title);
-  line-height: var(--lh-title);
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  letter-spacing: 0;
   text-wrap: balance;
   overflow-wrap: break-word;
 }
@@ -440,7 +443,8 @@
 .ob-race-none {
   font-family: var(--display);
   font-style: italic;
-  font-size: 1.375rem;
+  font-weight: 420;
+  font-size: var(--fs-sentence);
   line-height: 2rem;
 }
 .ob-race-wk {
@@ -720,8 +724,8 @@
   background-position: 50% 100%;
 }
 .ob-verdict-big {
-  font-size: 1.75rem;
-  line-height: 2.125rem;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
 }
 .ob-verdict-sub {
   margin-top: 4px;
@@ -771,10 +775,8 @@
   opacity: 0.6;
 }
 .ob-orb-initial {
-  font-family: var(--display);
-  font-style: italic;
-  font-size: 1.375rem;
-  line-height: 1;
+  font: 600 var(--fs-row) / 1 var(--sans);
+  letter-spacing: 0;
   color: var(--ink-2);
 }
 .ob-orb-name {
@@ -967,16 +969,19 @@
 }
 .ob-pay-title {
   margin-top: 6px;
-  font-size: 2.125rem;
-  line-height: 2.5rem;
+  font-style: normal;
+  font-weight: 650;
+  font-size: var(--fs-hero);
+  line-height: var(--fs-hero);
+  letter-spacing: var(--tr-title);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ob-pay-door {
   margin-top: 2px;
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
   color: var(--ink-2);
 }
 /* the first week: rows in one white card */
@@ -1213,7 +1218,7 @@
 /* the name step's one field, and "You usually train" on the morning step */
 .in.ob-name {
   height: 56px;
-  font: 400 1.375rem / 1 var(--serif);
+  font: 400 var(--fs-row) / 1 var(--sans);
 }
 .card.ob-card.ob-when {
   display: grid;

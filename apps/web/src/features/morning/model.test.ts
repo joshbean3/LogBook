@@ -59,7 +59,7 @@ describe('the wake time is a plan, not an alarm (today-top-04)', () => {
     expect(nowLine(T, T.day.wake - 40, 'today')).toBe('Wake time in 40 min');
     expect(nowLine(T, 0, 'future')).toMatch(/^Wake time \d+:\d\d · Leave /);
   });
-  it('the wake sheet says Logbook does not ring', () => {
-    expect(NO_RING).toBe('Logbook does not ring. Set this time in your Clock app.');
+  it('the wake sheet says Orby does not ring', () => {
+    expect(NO_RING).toBe('Orby does not ring. Set this time in your Clock app.');
   });
 });

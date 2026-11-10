@@ -37,7 +37,7 @@ export const writeGuard = (uploads: string[]): MiddlewareHandler => {
   const appOrigin = new URL(env.APP_URL).origin;
   return async (c, next) => {
     if (!WRITES.has(c.req.method)) return next();
-    if (!originAllowed(c.req.header('origin'), c.req.header('host'), { appOrigin, extra: env.allowedOrigins, isProd: env.isProd })) throw new ApiError(403, 'That request came from somewhere Logbook does not know.', 'bad_origin');
+    if (!originAllowed(c.req.header('origin'), c.req.header('host'), { appOrigin, extra: env.allowedOrigins, isProd: env.isProd })) throw new ApiError(403, 'That request came from somewhere Orby does not know.', 'bad_origin');
     // a body with no type at all is refused too; a write with no body (sign out, resend) needs no type. A client error
     // report may come as text (navigator.sendBeacon): it needs no session, so there is nothing to forge.
     if (ANY_TYPE.includes(c.req.path)) return next();

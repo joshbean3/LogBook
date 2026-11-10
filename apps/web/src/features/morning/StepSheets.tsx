@@ -230,7 +230,7 @@ export const StepEditor = ({ settings: st, day, stepKey, onRemove }: { settings:
 };
 
 /** The wake time is a plan, not an alarm: nothing in Logbook rings (the sheet says so, once). */
-export const NO_RING = 'Logbook does not ring. Set this time in your Clock app.';
+export const NO_RING = 'Orby does not ring. Set this time in your Clock app.';
 
 /**
  * The wake time (the drag's fallback, spec §4.2): when the morning starts, and nothing else (the wake-up routine's length is a routine

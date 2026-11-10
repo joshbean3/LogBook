@@ -21,8 +21,8 @@ test('finds a claim in a string, a template string and screen text', () => {
 });
 
 test('reads screen text across inline tags and computed values as one sentence', () => {
-  const src = 'export const A = ({ n }: { n: number }) => (<p>Logbook <strong>only reads</strong>. Backups clear within {n} days.</p>);';
-  assert.deepEqual(texts(src), ['Logbook only reads. Backups clear within ${} days.']);
+  const src = 'export const A = ({ n }: { n: number }) => (<p>Orby <strong>only reads</strong>. Backups clear within {n} days.</p>);';
+  assert.deepEqual(texts(src), ['Orby only reads. Backups clear within ${} days.']);
 });
 
 test('ignores comments, code, identifiers and plain interface copy', () => {

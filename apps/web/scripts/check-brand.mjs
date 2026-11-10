@@ -115,7 +115,7 @@ const MOTION_PROPS = new Set(['transform', 'opacity', 'color', 'background-color
 const BRITISH = /\b(colour|favourite|centre|behaviour|programme|organis(?:e|ed|ing)|analys(?:e|ed|ing))s?\b/i;
 
 /** Faces the brand allows, plus the system and generic fallbacks that may follow them in a stack. */
-const FACES = ['fraunces', 'fraunces fallback', 'inter', 'inter fallback', 'inter tight', 'inter tight fallback'];
+const FACES = ['fraunces', 'fraunces fallback', 'fraunces card', 'inter', 'inter fallback', 'inter tight', 'inter tight fallback'];
 const FALLBACKS = [
   'iowan old style', 'georgia', 'serif', 'sans-serif', 'monospace', 'system-ui', '-apple-system', 'blinkmacsystemfont',
   'segoe ui', 'roboto', 'helvetica', 'helvetica neue', 'arial', 'ui-monospace', 'sf mono', 'sfmono-regular', 'menlo',
@@ -125,7 +125,7 @@ const familyOk = (name) => {
   const n = name.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
   return !n || FACES.includes(n) || FALLBACKS.includes(n) || /^-apple-system-[\w-]+$/.test(n);
 };
-/** Families named in a canvas font string such as `italic 600 30px "Instrument Serif", Georgia, serif`. */
+/** Families named in a canvas font string such as `italic 600 30px "Fraunces Card", Georgia, serif`. */
 const canvasFamilies = (value) => {
   const afterSize = value.replace(/^.*?(?:\d*\.?\d+|\$\{[^}]*\})(?:px|pt|em|rem)(?:\s*\/\s*[\d.]+\w*)?\s+/, '');
   return afterSize.split(',').map((s) => s.trim()).filter((s) => s && !s.includes('${'));
@@ -231,7 +231,9 @@ for (const file of files) {
     for (const m of text.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
       const body = m[2], at0 = m.index + m[1].length + 1;
       if (/@font-face/.test(m[1])) continue;
-      const decl = (re, fn) => { for (const d of body.matchAll(re)) fn(d, lineOf(text, at0 + d.index)); };
+      // the line of the property itself, not of the `;` that ends the declaration before it (so a `brand-ok` on the
+      // property's own line is read)
+      const decl = (re, fn) => { for (const d of body.matchAll(re)) fn(d, lineOf(text, at0 + d.index + (d[0].length - d[0].replace(/^[;\s]+/, '').length))); };
       decl(/(?:^|;)\s*(border(?:-(?:top|bottom)-(?:left|right))?-radius)\s*:\s*([^;]+)/g, (d, ln) => {
         const v = d[2].trim();
         if (!v.split(/\s+/).every((x) => /^var\(--r-[\w-]+\)$|^50%$|^999px$|^0(px)?$|^inherit$/.test(x))) add(file, ln, 'radius', `${d[1]}: ${v}`, lines);

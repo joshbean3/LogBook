@@ -1324,10 +1324,8 @@
 }
 .held-line {
   margin: 0;
-  font-family: var(--display);
-  font-style: italic;
-  font-size: var(--fs-sentence);
-  line-height: var(--lh-sentence);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
 }
 .held-actions {
@@ -1598,7 +1596,7 @@
 }
 .pb-ask-title {
   margin: 0;
-  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
   text-wrap: balance;
 }

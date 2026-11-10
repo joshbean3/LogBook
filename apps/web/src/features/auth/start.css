@@ -79,8 +79,11 @@
   max-width: none;
 }
 .start-title {
-  font-size: 2.75rem;
-  line-height: 2.875rem;
+  font-style: normal;
+  font-weight: 650;
+  font-size: clamp(30px, var(--fs-title), 44px);
+  line-height: clamp(34px, var(--lh-title), 48px);
+  letter-spacing: var(--tr-title);
   color: var(--ink);
   text-wrap: balance;
   overflow-wrap: break-word;

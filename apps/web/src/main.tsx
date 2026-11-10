@@ -38,10 +38,10 @@ import './styles/base.css';
 import './styles/ui.css';
 // the shape system loads after the shared primitives so it wins their ties (App's eager imports come before these three)
 import './styles/shape.css';
-// craft (depth, glass, the serif headers) sits on top of the shape system: docs/shape-system.md §8
-import './styles/craft.css';
 // the layout kit's rhythm (sections, headers, footnotes): docs/layout-review.md §3
 import './styles/layout.css';
+// the switch (guide 6.14): its look is the foundation's, since it renders on Goals and on Settings (plan 5.4)
+import './styles/switch.css';
 
 // native first: its splash cap is armed before any other boot helper runs (gap-ios-23)
 void bootNative();

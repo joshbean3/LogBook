@@ -12,7 +12,7 @@ describe('the Morning goal reminder row', () => {
   });
 });
 
-describe('Rate Logbook', () => {
+describe('Rate Orby', () => {
   it('opens the write-review page for a real id and hides without one', async () => {
     const { rateUrl } = await import('./reminderModel');
     expect(rateUrl('6740012345')).toBe('https://apps.apple.com/app/id6740012345?action=write-review');

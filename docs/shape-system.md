@@ -1,5 +1,7 @@
 # Shape system v2
 
+> Superseded for color, type, surfaces, the Orb, icons and motion by `docs/brand/brand-guide.md` (November 2026). Structure and behavior notes here still apply.
+
 How Logbook is built on the screen: shapes, structure, placement, borders, margins and containers. Measured from the
 reference screens (docs/research/inspiration/, the Bevel shots) and kept to Logbook's own voice and identity
 (docs/inspiration.md §0). Colour is in `docs/inspiration.md` §1; this file is everything else.

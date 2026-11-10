@@ -1,4 +1,4 @@
-import { Lightbulb, Activity, BookOpen, CalendarDays, Sun, Target, type LucideIcon } from 'lucide-react';
+import { GoalsIcon, JournalIcon, LearnedIcon, PlanIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from './icons';
 import { DEV_TOOLS } from '@/lib/features';
 
 /**
@@ -13,16 +13,16 @@ export interface TabDef {
   /** The tab root: where a lit-tab tap at the top of the page comes home to. */
   root: string;
   label: string;
-  icon: LucideIcon;
+  icon: BrandIconComponent;
 }
-/** Six, in this order. Icons: Sun · Target · Lightbulb · CalendarDays · Activity · BookOpen (§1.1; Goals is the second tab, What I learned the third; habits live at the top of Today). */
+/** Six, in this order (§1.1; Goals is the second tab, What I learned the third; habits live at the top of Today). Icons from the brand set (guide 6.1, 7): sun, rings, bulb, calendar, the rising line, the open book. */
 export const TABS: readonly TabDef[] = [
-  { id: 'today', root: '/today', label: 'Today', icon: Sun },
-  { id: 'goals', root: '/goals', label: 'Goals', icon: Target },
-  { id: 'learned', root: '/learned', label: 'Learned', icon: Lightbulb },
-  { id: 'plan', root: '/plan', label: 'Plan', icon: CalendarDays },
-  { id: 'progress', root: '/progress', label: 'Progress', icon: Activity },
-  { id: 'journal', root: '/journal', label: 'Journal', icon: BookOpen },
+  { id: 'today', root: '/today', label: 'Today', icon: TodayIcon },
+  { id: 'goals', root: '/goals', label: 'Goals', icon: GoalsIcon },
+  { id: 'learned', root: '/learned', label: 'Learned', icon: LearnedIcon },
+  { id: 'plan', root: '/plan', label: 'Plan', icon: PlanIcon },
+  { id: 'progress', root: '/progress', label: 'Progress', icon: ProgressIcon },
+  { id: 'journal', root: '/journal', label: 'Journal', icon: JournalIcon },
 ];
 export const tabDef = (id: TabId): TabDef => TABS.find((t) => t.id === id)!;
 

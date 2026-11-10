@@ -166,7 +166,7 @@ export const parsePlist = (xml) => {
   return value();
 };
 
-const HEALTH_PURPOSE = 'Logbook reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Logbook account.';
+const HEALTH_PURPOSE = 'Orby reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Orby account.';
 const PHOTO_ADD_PURPOSE = 'Save the cards you share to your photo library.';
 const HEALTH_TYPES = ['heartRateVariabilitySDNN', 'restingHeartRate', 'sleepAnalysis'];
 const COLLECTED = {
@@ -209,15 +209,15 @@ export const checkIosProject = (root = ROOT) => {
     if (info.NSHealthShareUsageDescription !== HEALTH_PURPOSE) out.push('Info.plist: NSHealthShareUsageDescription is not the agreed sentence');
     if (!/assistant/.test(info.NSCameraUsageDescription ?? '') || !/plan builder/.test(info.NSCameraUsageDescription ?? '')) out.push('Info.plist: NSCameraUsageDescription must name the assistant and the plan builder');
     if (info.NSPhotoLibraryAddUsageDescription !== PHOTO_ADD_PURPOSE) out.push('Info.plist: NSPhotoLibraryAddUsageDescription is missing or changed');
-    if ('NSHealthUpdateUsageDescription' in info) out.push('Info.plist: NSHealthUpdateUsageDescription is present, but Logbook never writes to Apple Health');
+    if ('NSHealthUpdateUsageDescription' in info) out.push('Info.plist: NSHealthUpdateUsageDescription is present, but Orby never writes to Apple Health');
     for (const [k, v] of Object.entries(info)) if (/UsageDescription$/.test(k) && /recovery|strain|score/i.test(String(v))) out.push(`Info.plist: ${k} promises recovery, strain or a score`);
     if ('CFBundleURLTypes' in info) out.push('Info.plist: CFBundleURLTypes registers a URL scheme. No feature in the release build uses one (it was the Strava return).');
-    if ('UISupportedInterfaceOrientations~ipad' in info) out.push('Info.plist: the iPad orientation block is back. Logbook is iPhone only.');
+    if ('UISupportedInterfaceOrientations~ipad' in info) out.push('Info.plist: the iPad orientation block is back. Orby is iPhone only.');
     if (JSON.stringify(info.UISupportedInterfaceOrientations) !== JSON.stringify(['UIInterfaceOrientationPortrait'])) out.push('Info.plist: UISupportedInterfaceOrientations must be portrait only');
     if (JSON.stringify(info.UIRequiredDeviceCapabilities) !== JSON.stringify(['arm64'])) out.push('Info.plist: UIRequiredDeviceCapabilities must be arm64 only (an update can relax this list, never tighten it)');
-    if (info.CFBundleName !== 'Logbook') out.push(`Info.plist: CFBundleName must be Logbook (got ${info.CFBundleName})`);
+    if (info.CFBundleName !== 'Orby') out.push(`Info.plist: CFBundleName must be Orby (got ${info.CFBundleName})`);
     if (info.LogbookAPIHost !== '$(LOGBOOK_API_HOST)') out.push('Info.plist: LogbookAPIHost must be $(LOGBOOK_API_HOST) (the Health engine reads the server from it)');
-    if (info.UIUserInterfaceStyle !== 'Light') out.push('Info.plist: UIUserInterfaceStyle must be Light (the app has one light theme; docs/brand.md item 14)');
+    if (info.UIUserInterfaceStyle !== 'Light') out.push('Info.plist: UIUserInterfaceStyle must be Light (the app has one light theme; docs/brand/brand-guide.md 3.6)');
     if ((info.UIRequiredDeviceCapabilities ?? []).includes('healthkit')) out.push('Info.plist: remove healthkit from UIRequiredDeviceCapabilities (it would hide the app from devices without Health)');
   }
 
@@ -272,7 +272,7 @@ export const checkIosProject = (root = ROOT) => {
   types.sort();
   if (JSON.stringify(types) !== JSON.stringify(HEALTH_TYPES)) out.push(`Health plugin: reads ${types.join(', ') || 'nothing'}; it must read exactly ${HEALTH_TYPES.join(', ')}`);
   if (stray.length) out.push(`Health plugin: other HealthKit types are named in the code (${stray.join(', ')})`);
-  if (/requestAuthorization\(toShare:\s*(?!\s|nil)/.test(swift)) out.push('Health plugin: requestAuthorization asks to write. Logbook only reads.');
+  if (/requestAuthorization\(toShare:\s*(?!\s|nil)/.test(swift)) out.push('Health plugin: requestAuthorization asks to write. Orby only reads.');
   if (/"sourceName"/.test(swift)) out.push('Health plugin: an upload row carries sourceName (usually the person\'s device name)');
   // days are cut on the Gregorian calendar whatever the phone's calendar setting (finding ios-10)
   if (/Calendar\.current/.test(swift)) out.push('Health plugin: Calendar.current is used. Cut days and months with HealthCalendar.gregorian (Buddhist and Japanese calendars give other years).');

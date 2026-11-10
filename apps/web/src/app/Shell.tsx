@@ -222,8 +222,7 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
   const press = usePress();
   const fromPointer = useRef(false);
   const Icon = t.icon;
-  // selected: Sun (its disc filled, its rays kept: with no stroke it is a bare dot) and the book filled, the calendar filled, Activity and Repeat (open strokes: a fill would be a blot) at stroke 2.5 (§1.1); unselected: stroke 1.8, no fill
-  const iconProps = on ? (t.id === 'today' ? { fill: 'currentColor', strokeWidth: 2 } : t.id === 'progress' ? { strokeWidth: 2.5 } : { fill: 'currentColor', fillOpacity: 0.22, strokeWidth: 2 }) : { strokeWidth: 1.8 };
+  // one glyph in both states (guide 6.1): the shown tab is the Sky disc behind it, a Night Ink glyph and a heavier label
   return (
     <button
       type="button"
@@ -256,7 +255,9 @@ const TabItem = memo(function TabItem({ t, on, ctl }: { t: TabDef; on: boolean; 
         onPress();
       }}
     >
-      <Icon size={24} aria-hidden="true" {...iconProps} />
+      <span className="tab-ic">
+        <Icon size={22} />
+      </span>
       <span className="tab-label">{t.label}</span>
       {t.id === 'goals' ? <GoalsBadge /> : null}
     </button>
@@ -427,14 +428,14 @@ const StatusPill = () => {
   }, [text]);
   if (net)
     return (
-      <div className="net-pill t-cap" role="status">
+      <div className="net-pill" role="status">
         <span className="dot" style={net.startsWith('Offline') ? { background: 'var(--warn)' } : undefined} />
         {net}
       </div>
     );
   if (health)
     return (
-      <div className={`net-pill t-cap hl-pill ${health === HEALTH_DONE ? 'is-done' : ''}`.trim()} role="status">
+      <div className={`net-pill hl-pill ${health === HEALTH_DONE ? 'is-done' : ''}`.trim()} role="status">
         <span className={`dot ${health === HEALTH_DONE ? '' : 'hl-pill-spin'}`.trim()} />
         {health}
       </div>

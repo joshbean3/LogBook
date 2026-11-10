@@ -30,7 +30,7 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     expect(f.stops?.map((s) => s.label)).toEqual(['Wake', 'Door', 'Back', 'Leave']);
     expect(f.tall).toBe(false);
   });
-  it('a rest morning says Wake, never Alarm: nothing in Logbook rings (today-top-04)', () => {
+  it('a rest morning says Wake, never Alarm: nothing in Orby rings (today-top-04)', () => {
     const rest = logOf(bundle([run('2026-10-24')]));
     const f = faceOf(rest, FRI, phaseOf(rest, FRI, 5 * 60));
     expect(f.kind).toBe('restMorning');

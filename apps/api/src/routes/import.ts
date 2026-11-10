@@ -7,7 +7,7 @@ import { hitLimit, tooMany } from '../services/throttle.js';
 
 /** Imports per account: a few an hour is plenty for moving an account, and a file is up to 20 MB of work. */
 export const IMPORT_LIMIT = { max: 5, windowMs: 3600_000 } as const;
-export const NOT_EXPORT = 'That is not a Logbook export file.';
+export const NOT_EXPORT = 'That is not an Orby export file.';
 
 export const importRoutes = (db: DB) => {
   const r = new Hono<AuthEnv>();
@@ -15,7 +15,7 @@ export const importRoutes = (db: DB) => {
   /** Contract 3: the whole account as one JSON document (version 2). Settings → Export saves this as a file. */
   r.get('/export', (c) => {
     const userId = c.get('user').id;
-    c.header('content-disposition', `attachment; filename="logbook-export-${c.get('today')}.json"`);
+    c.header('content-disposition', `attachment; filename="orby-export-${c.get('today')}.json"`);
     return c.json(exportAccount(db, userId));
   });
 
@@ -34,7 +34,7 @@ export const importRoutes = (db: DB) => {
     if (wait) throw tooMany(wait, 'Too many imports. Try again in an hour.');
     const v2 = zExportV2.safeParse(raw);
     // the file is a Logbook export but something in it is off (edited by hand, or too many rows): one plain line
-    if (!v2.success) throw new ApiError(422, 'That export file could not be read. Export it again from Logbook and try once more.', 'bad_bundle');
+    if (!v2.success) throw new ApiError(422, 'That export file could not be read. Export it again from Orby and try once more.', 'bad_bundle');
     return c.json({ ok: true, version: 2, imported: await importV2Chunked(db, userId, v2.data) });
   });
 

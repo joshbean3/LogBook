@@ -60,7 +60,7 @@ export const PrivacyPage = (): React.JSX.Element => {
         ))}
       </SGroup>
       {c ? <PrivacyFacts consent={c} /> : null}
-      <SGroup title="Policies and requests" foot={`Anthropic runs the assistant and sees only what you allow. Fly.io hosts Logbook. The Privacy Policy lists everyone who handles your data.`}>
+      <SGroup title="Policies and requests" foot={`Anthropic runs the assistant and sees only what you allow. Fly.io hosts Orby. The Privacy Policy lists everyone who handles your data.`}>
         <GoRow icon={FileText} className="s-wrap-title" title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
         <GoRow icon={HeartPulse} className="s-wrap-title" title="Consumer health data privacy policy" onPress={() => void openExternal(LEGAL.healthPrivacy)} />
         <GoRow icon={Mail} className="s-wrap-title" title="Privacy requests" sub={`Ask for a copy of your data, a correction or deletion. We answer within ${REQUEST_DAYS} days.`} href={supportMail('Privacy request')} label="Privacy requests: email us" />

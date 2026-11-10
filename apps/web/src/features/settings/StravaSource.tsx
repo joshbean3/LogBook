@@ -93,7 +93,7 @@ export const useConnectionSheet = () => {
 export const stravaGuide = (connected: boolean): ConnectionGuide => ({
   name: 'Strava',
   title: connected ? 'How Strava connects' : 'Connect Strava',
-  steps: [connected ? 'Tap Reconnect. Strava opens.' : 'Tap Connect. Strava opens.', 'Sign in to Strava, then tap Authorize.', 'Leave “View data about your activities” on. Logbook reads your runs with it.', 'Come back here. New runs land on Today a minute after they sync.'],
+  steps: [connected ? 'Tap Reconnect. Strava opens.' : 'Tap Connect. Strava opens.', 'Sign in to Strava, then tap Authorize.', 'Leave “View data about your activities” on. Orby reads your runs with it.', 'Come back here. New runs land on Today a minute after they sync.'],
   checklist: ['You tapped Authorize, not Cancel.', '“View data about your activities” was left on.', 'You’re online, and Strava opened in the browser.', 'Still stuck: disconnect here, then connect again.'],
   action: { label: connected ? 'Reconnect Strava' : 'Connect Strava', onPress: () => void connectStrava() },
 });
@@ -116,7 +116,7 @@ const DisconnectSheet = (): React.JSX.Element => {
   });
   return (
     <div className="s-del">
-      <p className="s-del-lede">Logbook disconnects from Strava and deletes the runs, laps and heart-rate zones it read from there. Sessions you logged yourself stay.</p>
+      <p className="s-del-lede">Orby disconnects from Strava and deletes the runs, laps and heart-rate zones it read from there. Sessions you logged yourself stay.</p>
       <div className="s-del-actions">
         <Button variant="danger" block onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
           {disconnect.isPending ? 'Disconnecting…' : 'Disconnect Strava'}

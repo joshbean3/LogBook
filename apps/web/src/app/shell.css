@@ -53,7 +53,9 @@ body {
   overflow-x: clip;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  background: var(--bg);
+  /* the root page is opaque (its own dawn wash, foundation.css): this shows only in the rubber-band gaps, Haze above where
+     the dawn starts and Cloud below (plan 5.1) */
+  background: linear-gradient(var(--haze) 50%, var(--cloud) 50%);
   --hdr: 0;
 }
 /*
@@ -138,16 +140,17 @@ body {
   /* one column the width of the screen, never of its content: at large text the capsule used to grow past the right edge */
   grid-template-columns: minmax(0, 1fr);
   gap: var(--dock-gap);
-  padding: 0 12px calc(var(--safe-b) + 8px);
+  padding: 0 var(--dock-inset) calc(var(--safe-b) + var(--sp-2));
   pointer-events: none;
 }
-/* a soft floor of page colour under the dock, so words scrolling under it never fight the buttons */
+/* a soft floor of Cloud under the dock, so words scrolling under it never fight the buttons (guide 6.1: 52 px, transparent
+   to 86 percent at 30 px, solid at 52) */
 .dock::before {
   content: '';
   position: absolute;
-  inset: -44px 0 0;
-  /* reaches full page colour before the ask bar's top edge: words fade out above the bar instead of being sliced by it */
-  background: linear-gradient(to bottom, rgba(243, 248, 251, 0) 0, rgba(243, 248, 251, 0.82) 30px, var(--bg) 52px);
+  /* solid Cloud exactly at the ask bar's top edge: words fade out above the bar instead of being sliced by it */
+  inset: calc(-1 * var(--fade-h)) 0 0;
+  background: linear-gradient(to bottom, rgba(234, 245, 252, 0) 0, rgba(234, 245, 252, 0.86) 30px, var(--bg) var(--fade-h));
   pointer-events: none;
 }
 .dock > * {
@@ -160,23 +163,22 @@ html.kb-open .dock {
 .dock-ask.pressable {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* guide 6.1: the 28 px Orb 12 px from the left, then the words 12 px after it */
+  gap: var(--sp-3);
   height: var(--ask-h);
   min-height: var(--ask-h);
-  padding: 0 16px;
+  padding: 0 var(--sp-4) 0 var(--sp-3);
   border-radius: var(--r-pill);
   background: var(--surface);
+  /* transparent; the card edge under Increase Contrast (tokens.css) */
   border: var(--card-border);
-  box-shadow: var(--shadow-1), 0 6px 24px rgba(15, 42, 68, 0.08);
-  color: var(--ink-3);
+  box-shadow: var(--shadow-float);
+  color: var(--ink-2);
   text-align: left;
+  /* the fold (guide 6.1): opacity, 16 px down and 0.98 over 220 ms */
   transition:
-    opacity 180ms var(--ease-out),
-    transform 260ms var(--ease-out);
-}
-.dock-ask-ic {
-  flex: none;
-  color: var(--accent);
+    opacity var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out);
 }
 /* the dock is fixed chrome, like the system tab bar: its text follows Larger Text only as far as its fixed height allows */
 .dock-ask-text {
@@ -193,15 +195,26 @@ html.kb-open .dock {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-tint);
+  background: var(--now);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
+/* past the Sunrise budget the badge yields: the same dot in Night Ink with its keyline (ui/nowBudget.ts, guide 3.5) */
+.dock-dot[data-now='ink'] {
+  background: var(--ink);
+}
+/* the Goals tab's dot (GoalsBadge, features/goals) is not on the Sunrise budget yet, so it draws as a yielded badge: Night
+   Ink with its Paper keyline (guide 3.5), never --accent-bright, which is 2.26:1 on Paper and vanishes on the shown tab's
+   Sky disc. It turns Sunrise when it registers with useNowMark('badge') */
+.tab-item .tab-dot {
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--now-keyline);
 }
 .dock-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--dock-gap);
   min-width: 0;
-  max-width: calc(100vw - 24px);
+  max-width: calc(100vw - 2 * var(--dock-inset));
 }
 /* folded: the ask bar sinks out and a round button opens beside the capsule */
 .dock[data-compact] .dock-ask {
@@ -209,55 +222,52 @@ html.kb-open .dock {
   transform: translateY(16px) scale(0.98);
   pointer-events: none;
 }
+/* the folded ask bar: a 48 px round Paper button beside the capsule, holding the 28 px Orb (guide 6.1); 0 wide at rest */
 .dock-ask-mini.pressable {
   position: relative;
   flex: none;
   display: grid;
   place-items: center;
   width: 0;
-  height: var(--tabbar-h);
+  height: var(--ask-h);
   min-height: 0;
-  margin-left: -8px;
+  margin-left: calc(-1 * var(--dock-gap));
   border-radius: 50%;
   background: var(--surface);
   border: var(--card-border);
   /* at rest it is 0 wide: no border either, so the capsule ends where the ask bar does (shell-21) */
   border-width: 0;
-  box-shadow: var(--shadow-1), 0 6px 24px rgba(15, 42, 68, 0.1);
-  color: var(--accent);
+  box-shadow: var(--shadow-float);
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
-  transition:
-    width 260ms var(--ease-out),
-    margin 260ms var(--ease-out),
-    opacity 180ms var(--ease-out);
+  /* width is the one layout property here: the capsule gives the button its room as it opens (shell-21) */
+  transition: width 260ms var(--ease-out), margin 260ms var(--ease-out), opacity var(--dur) var(--ease-out); /* brand-ok: the fold opens a 48 px slot beside the capsule, a layout move the owner approved (shell-21) */
 }
 .dock[data-compact] .dock-ask-mini.pressable {
-  width: var(--tabbar-h);
+  width: var(--ask-h);
   border-width: 1px;
   margin-left: 0;
   opacity: 1;
   pointer-events: auto;
 }
+/* the badge at the Orb's top right, inside the 48 px circle */
 .dock-ask-mini .dock-dot {
   position: absolute;
-  top: 12px;
-  right: 13px;
-  width: 7px;
-  height: 7px;
+  top: var(--sp-2);
+  right: var(--sp-2);
 }
 
-/* the tab capsule: white, a pill, lifted by a soft shadow; no blur (WP5) */
+/* the tab capsule: Paper, a pill, floating chrome's one shadow; no visible border, no blur (guide 6.1, 5.3) */
 .tabbar {
   flex: 1;
   min-width: 0;
   height: var(--tabbar-h);
-  padding: 0 4px;
+  padding: 0 var(--sp-1);
   border-radius: var(--r-pill);
   background: var(--surface);
   border: var(--card-border);
-  box-shadow: var(--shadow-1), 0 8px 28px rgba(15, 42, 68, 0.1);
+  box-shadow: var(--shadow-float);
 }
 .tabbar .tabs {
   display: grid;
@@ -276,21 +286,35 @@ html.kb-open .dock {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--ink-3);
+  color: var(--ink-2);
   -webkit-tap-highlight-color: transparent;
+}
+/* the icon sits in a 32 px circle (guide 6.1): empty when the tab is not shown, Sky when it is, with the glyph in Night Ink
+   (7.03 on Sky); the disc and the label's weight carry the state, never the color alone */
+.tab-ic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .tab-item svg {
   width: 22px;
   height: 22px;
 }
 .tab-item[aria-current='page'] {
-  color: var(--accent);
+  color: var(--ink);
+}
+.tab-item[aria-current='page'] .tab-ic {
+  background: var(--accent);
 }
 .tab-label {
   /* 11 px at the default size (the floor for a caption), growing with Larger Text up to 12 px */
   font-size: clamp(11px, 0.6875rem, 12px);
   line-height: clamp(12px, 0.75rem, 14px);
-  font-weight: 500;
+  font-weight: 550;
   letter-spacing: 0;
   max-width: 100%;
   overflow: hidden;
@@ -313,9 +337,14 @@ html[data-text-xl] .tab-item svg {
   width: 26px;
   height: 26px;
 }
+/* 26 in a 32 px disc is cramped: the disc grows to 40 with the larger glyph (plan 5.2) */
+html[data-text-xl] .tab-ic {
+  width: 40px;
+  height: 40px;
+}
 .tab-item[aria-current='page'] .tab-label {
   font-weight: 650;
-  color: var(--accent-text);
+  color: var(--ink);
 }
 @media (max-width: 374px) {
   /* folded on a narrow phone: the capsule gives the button room by dropping the words */
@@ -367,7 +396,7 @@ html[data-text-xl] .tab-item svg {
   stroke: var(--line-strong);
 }
 .ptr circle.fill {
-  stroke: var(--accent-bright);
+  stroke: var(--deep-sky);
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
@@ -401,17 +430,29 @@ html[data-text-xl] .tab-item svg {
   z-index: 35;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: var(--sp-2);
+  /* the glass status pill (guide 6.14): 32 tall, Inter 15 500 Night Ink, a 6 px state dot; opaque Paper under Increase
+     Contrast (--glass steps to Paper in tokens.css). The one backdrop-filter left in the chrome */
+  min-height: 32px;
+  padding: var(--sp-1) var(--sp-3);
   border-radius: var(--r-pill);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-2);
-  color: var(--ink-2);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 0;
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+@media (prefers-contrast: more) {
+  .net-pill {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--ok);
   flex: none;

@@ -180,7 +180,7 @@ const FieldSheetBody = () => {
   const sheet = useSheet();
   return (
     <>
-      <input className="field gal-field" placeholder="The first field" aria-label="The first field" />
+      <input className="in gal-field" placeholder="The first field" aria-label="The first field" />
       <Button variant="soft" className="gal-sheet-toast" onClick={() => toast('Deleted', { label: 'Undo', fn: () => galLog('undo') })}>
         Toast over the sheet
       </Button>

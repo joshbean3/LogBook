@@ -37,7 +37,7 @@ export const appleHealthDeviceRoutes = (db: DB) => {
   const r = new Hono();
   const userOf = (h: string | undefined, kind: 'sync' | 'reconcile') => {
     const d = deviceOf(db, bearer(h));
-    if (!d) throw new ApiError(401, 'This device is no longer connected to Apple Health in Logbook. Connect again in Settings.', 'health_device');
+    if (!d) throw new ApiError(401, 'This device is no longer connected to Apple Health in Orby. Connect again in Settings.', 'health_device');
     const wait = windowHit(`health:${kind}:${d.deviceId}`, HEALTH_SYNC_LIMITS[kind], HEALTH_SYNC_LIMITS.windowMs);
     if (wait) throw tooMany(wait, 'Too many uploads at once. The phone will try again shortly.');
     return d.userId;

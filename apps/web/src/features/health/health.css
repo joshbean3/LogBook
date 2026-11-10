@@ -244,7 +244,8 @@
 }
 .hd-night-title {
   margin: 0;
-  font: italic 400 1.75rem / 2rem var(--serif);
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
   color: #fff;
 }
 .hd-night-total {

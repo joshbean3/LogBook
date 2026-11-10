@@ -107,7 +107,7 @@ describe('fetchPage against a local server', () => {
   it('says who is asking: a user agent that names the app and where it lives (sec-32)', async () => {
     const r = await readPage(`${base}/ua`, { allowPrivate: true });
     expect(r.meta.title).toBe(READS_USER_AGENT);
-    expect(READS_USER_AGENT).toMatch(/^Logbook\/1\.0 \(link preview for a saved read; \+https?:\/\/\S+\)$/);
+    expect(READS_USER_AGENT).toMatch(/^Orby\/1\.0 \(link preview for a saved read; \+https?:\/\/\S+\)$/);
   });
 
   it('reads a page and follows a redirect', async () => {

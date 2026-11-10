@@ -9,7 +9,7 @@ const partsOf = (e: unknown): { status: number; code: string | null } => {
   return { status: typeof r.status === 'number' ? r.status : 0, code: typeof r.code === 'string' ? r.code : null };
 };
 
-export const OFFLINE = 'Couldn’t reach Logbook. Check your connection, then try again.';
+export const OFFLINE = 'Couldn’t reach Orby. Check your connection, then try again.';
 export const UNAVAILABLE = 'The assistant is not available right now. Try again later.';
 const TOO_LONG = 'That message was too long to send. Start a new chat or send less.';
 const BUSY = 'You’ve asked a lot in a short time. Try again in a few minutes.';

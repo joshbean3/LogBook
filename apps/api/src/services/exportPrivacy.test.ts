@@ -21,7 +21,7 @@ beforeEach(async () => {
 });
 
 describe('GET /export', () => {
-  it('includes the consent log and what Logbook holds from Apple Health, without tokens or device names from the readings', async () => {
+  it('includes the consent log and what Orby holds from Apple Health, without tokens or device names from the readings', async () => {
     await me.call('PUT', '/api/me/consent', { training: true, recall: false });
     const connect = await me.call('POST', '/api/apple-health/connect', { deviceName: 'My iPhone', sleepGoalMin: 450 });
     const sync = await app.request('/api/apple-health/sync', {

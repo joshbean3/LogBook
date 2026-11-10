@@ -100,7 +100,7 @@ export const AppleHealthGroup = (): React.JSX.Element => {
 
   let status: React.ReactNode;
   if (web && s?.connected) status = agoWords(s.lastSyncAt) ? `Connected on iPhone · synced ${agoWords(s.lastSyncAt)}` : 'Connected on iPhone · not synced yet';
-  else if (web) status = 'Connects from the Logbook app on your iPhone';
+  else if (web) status = 'Connects from Orby on your iPhone';
   else if (unavailable) status = 'Not available on this device';
   else if (corrupt) status = RECONNECT_WORDS;
   else if (connectedHere && running) status = 'Syncing…';
@@ -115,7 +115,7 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   const saved = s ? savedWords(s) : null;
 
   return (
-    <SCard title="Apple Health" className="ah-sec" foot={connectedHere ? `Syncs when you open Logbook and when you pull down on Today. ${HEALTH_TRUST}` : HEALTH_TRUST}>
+    <SCard title="Apple Health" className="ah-sec" foot={connectedHere ? `Syncs when you open Orby and when you pull down on Today. ${HEALTH_TRUST}` : HEALTH_TRUST}>
       <div className="ah-device">
         {/* a plain heart glyph, not a look-alike of Apple's app icon (copy-legal-27); Apple's own icon can go here once supplied */}
         <span className="ah-app" aria-hidden="true">
@@ -138,10 +138,10 @@ export const AppleHealthGroup = (): React.JSX.Element => {
           </Button>
         )}
       </div>
-      {corrupt ? <CardRow icon={TriangleAlert} tone="orange" title="Disconnect, then connect again" sub="Disconnect Apple Health below, then tap Connect. Logbook reads your history again." /> : null}
-      {s?.connected && saved ? <CardRow icon={Database} title="Saved to your Logbook account" sub={saved.sub} value={saved.since ?? undefined} /> : null}
-      {connectedHere && (device.data?.pending ?? 0) > 0 && sync.phase !== 'running' ? <CardRow icon={CloudUpload} title={`${device.data!.pending} upload${device.data!.pending === 1 ? '' : 's'} waiting`} sub="Saved on this phone. They send when Logbook is back online." /> : null}
-      {connectedHere && (device.data?.deadLetter ?? 0) > 0 ? <CardRow icon={TriangleAlert} tone="orange" title={`${device.data!.deadLetter} upload${device.data!.deadLetter === 1 ? '' : 's'} not saved`} sub="Logbook couldn’t save them. The rest keep syncing." /> : null}
+      {corrupt ? <CardRow icon={TriangleAlert} tone="orange" title="Disconnect, then connect again" sub="Disconnect Apple Health below, then tap Connect. Orby reads your history again." /> : null}
+      {s?.connected && saved ? <CardRow icon={Database} title="Saved to your Orby account" sub={saved.sub} value={saved.since ?? undefined} /> : null}
+      {connectedHere && (device.data?.pending ?? 0) > 0 && sync.phase !== 'running' ? <CardRow icon={CloudUpload} title={`${device.data!.pending} upload${device.data!.pending === 1 ? '' : 's'} waiting`} sub="Saved on this phone. They send when Orby is back online." /> : null}
+      {connectedHere && (device.data?.deadLetter ?? 0) > 0 ? <CardRow icon={TriangleAlert} tone="orange" title={`${device.data!.deadLetter} upload${device.data!.deadLetter === 1 ? '' : 's'} not saved`} sub="Orby couldn’t save them. The rest keep syncing." /> : null}
       {!web && !unavailable && (connectedHere || (access.data && !access.data.needed)) ? <CardRow icon={Activity} title="Reading check" sub="Last night and your heart numbers, read live" onPress={openCheck} /> : null}
       {/* offered whenever the account holds a connection, also when this phone (or the web) is not the one sending: the
           readings on the server are the person's to delete from anywhere */}
@@ -189,7 +189,7 @@ const ConnectPanel = (): React.JSX.Element => {
     <div className="ahc">
       <HealthHero />
       <h3 className="ahc-title">Your sleep and your heart, beside your training.</h3>
-      <p className="ahc-sub">Logbook reads three things from Apple Health and shows them on Progress.</p>
+      <p className="ahc-sub">Orby reads three things from Apple Health and shows them on Progress.</p>
       <ul className="card ahc-unlocks">
         {HEALTH_READS.map(([title, sub], i) => (
           <li key={title}>
@@ -201,7 +201,7 @@ const ConnectPanel = (): React.JSX.Element => {
           </li>
         ))}
       </ul>
-      <p className="ahc-note">Readings are saved to your Logbook account on Logbook’s server, so Progress can show them. Logbook reads as much history as you share, up to a year, then keeps up each time you open it.</p>
+      <p className="ahc-note">Readings are saved to your Orby account on Orby’s server, so Progress can show them. Orby reads as much history as you share, up to a year, then keeps up each time you open it.</p>
       {/* pinned to the sheet's foot, so Connect is on screen at 667 pt tall without a scroll (ios-21) */}
       <div className="ahc-actions sheet-foot">
         <Button variant="primary" block onClick={() => void connect()} disabled={busy}>
@@ -289,8 +289,8 @@ const DisconnectPanel = (): React.JSX.Element => {
   };
   return (
     <div className="ahc">
-      <p className="ahc-sub ahd-lede">Logbook stops reading Apple Health and deletes everything it read from your Logbook account. Nothing in Apple Health changes.</p>
-      <p className="ahc-fine ahd-path">Logbook’s access stays until you remove it. {HEALTH_REVOKE_PATH}</p>
+      <p className="ahc-sub ahd-lede">Orby stops reading Apple Health and deletes everything it read from your Orby account. Nothing in Apple Health changes.</p>
+      <p className="ahc-fine ahd-path">Orby’s access stays until you remove it. {HEALTH_REVOKE_PATH}</p>
       <div className="ahc-actions">
         <Button variant="danger" block onClick={() => void go()} disabled={busy}>
           {busy ? 'Disconnecting…' : 'Disconnect and delete'}
@@ -312,7 +312,7 @@ const when = (iso: string) => {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(d);
 };
 const problem = (error: string | undefined) => (error === 'locked' ? 'Unlock your iPhone, then read again.' : error ? `Couldn’t read it: ${error}` : null);
-const NO_DATA = `Nothing from Apple Health. If you expected some, check what Logbook may read. ${HEALTH_REVOKE_PATH}`;
+const NO_DATA = `Nothing from Apple Health. If you expected some, check what Orby may read. ${HEALTH_REVOKE_PATH}`;
 
 /** Last night on a night-navy card, as Bevel shows its primary sleep: the source, the hypnogram, the stage tiles. */
 const NightCard = ({ check }: { check: ReadingCheck }) => {

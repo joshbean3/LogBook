@@ -6,7 +6,7 @@ import { AssistantCard, HabitsCard, LearnedCard, MorningCard, WeekCard } from '@
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
 import { LEGAL, SUPPORT } from '@/lib/siteLinks';
-import { LogoMark } from '@/ui/primitives';
+import { Lockup } from '@/ui/Brand';
 import { Pressable } from '@/ui/Pressable';
 import { canGoBack, SiteLink, useAuthStatus } from './AuthScreens';
 import { type PendingChoice, writePendingChoice } from './consent';
@@ -153,13 +153,12 @@ const Pager = () => {
     <main className="start">
       <span className="auth-halo rise" aria-hidden="true" />
       <header className="start-brand start-in">
-        <LogoMark size={24} color="var(--ink)" />
-        <span className="caps">Logbook</span>
+        <Lockup />
         <SiteLink href={SUPPORT} className="start-help">
           Help
         </SiteLink>
       </header>
-      <div ref={track} className="start-track" onScroll={onScroll} onScrollEnd={endSteer} aria-roledescription="carousel" aria-label="What Logbook does">
+      <div ref={track} className="start-track" onScroll={onScroll} onScrollEnd={endSteer} aria-roledescription="carousel" aria-label="What Orby does">
         {PAGES.map((p, i) => (
           <section key={p.key} className="start-page" aria-roledescription="slide" aria-label={`${i + 1} of ${PAGES.length}`} aria-hidden={i !== page} inert={i !== page}>
             <div className="start-fit">
@@ -223,14 +222,14 @@ const PrivacyStep = () => {
         <p className="start-sub pv-promise">{PRIVACY_PROMISE}</p>
         <div className="pv-choice">
           <h2 className="pv-choice-title">Allow the AI assistant?</h2>
-          <p className="pv-choice-sub">It runs on Claude, by Anthropic. To answer you, Logbook sends Claude what is listed here. Nothing is sent until you allow it.</p>
+          <p className="pv-choice-sub">It runs on Claude, by Anthropic. To answer you, Orby sends Claude what is listed here. Nothing is sent until you allow it.</p>
           {/* the policy, on screen before the answer is given */}
           <SiteLink href={LEGAL.privacy} className="pv-policy">
             Privacy Policy
           </SiteLink>
         </div>
         {/* under the ask, where it is read before the answer (auth-20) */}
-        <p className="pv-later">Not now keeps the assistant off, and Logbook asks again before it sends anything. You can change this any time in Settings › Privacy.</p>
+        <p className="pv-later">Not now keeps the assistant off, and Orby asks again before it sends anything. You can change this any time in Settings › Privacy.</p>
         <PrivacyFacts consent={null} />
       </div>
       <div className="start-foot pv-foot">

@@ -392,10 +392,10 @@ export const TrainingPage = () => {
               d.noPlan
                 ? 'Where a new plan starts. It builds about 10% a week, with a lighter week every fourth.'
                 : d.source === 'block'
-                ? 'This week of your current plan. Change it and Logbook rebuilds from next week, building about 10% a week.'
+                ? 'This week of your current plan. Change it and Orby rebuilds from next week, building about 10% a week.'
                 : d.source === 'none'
                   ? 'Where a new plan starts. It builds about 10% a week, with a lighter week every fourth.'
-                  : 'Where your plan started. Change it and Logbook rebuilds from next week, building about 10% a week.'
+                  : 'Where your plan started. Change it and Orby rebuilds from next week, building about 10% a week.'
             }
           >
             <MilesDial value={d.p.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => d.edit({ weeklyMiles: v })} />

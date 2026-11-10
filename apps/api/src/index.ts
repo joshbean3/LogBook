@@ -130,7 +130,7 @@ export const buildApp = (db: DB) => {
       return c.json({ error: err.message, code: code ?? null }, err.status);
     }
     // a value that failed a schema outside parseBody (a path or query value): the request was wrong, not the server
-    if (err instanceof ZodError) return c.json({ error: 'That request has a value Logbook cannot read.', code: 'validation' }, 422);
+    if (err instanceof ZodError) return c.json({ error: 'That request has a value Orby cannot read.', code: 'validation' }, 422);
     logError(`${c.req.method} ${c.req.routePath}`, err);
     console.error(err);
     return c.json({ error: 'Something went wrong on the server.', code: 'internal' }, 500);
@@ -186,7 +186,7 @@ if (isMain) {
   seedQuotes(db);
   const app = buildApp(db);
   const server = serve({ fetch: app.fetch, port: env.PORT, hostname: '0.0.0.0' }, (info) => {
-    console.log(`Logbook API listening on http://localhost:${info.port} (${env.NODE_ENV})`);
+    console.log(`Orby API listening on http://localhost:${info.port} (${env.NODE_ENV})`);
   });
   // No Strava loop: a sync runs when Strava's webhook says there is something new, when the app is opened (at most
   // every 15 minutes, routes/core.ts) and on a manual pull. Polling every account on a timer spent the app's shared

@@ -1,6 +1,6 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import type * as React from 'react';
-import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, Heart, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Star, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, Heart, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
 import { useRef } from 'react';
@@ -13,7 +13,8 @@ import { DISCLAIMER } from '@/lib/copy';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
 import { isNative } from '@/lib/native';
 import { LEGAL, openExternal, SUPPORT, SUPPORT_EMAIL } from '@/lib/siteLinks';
-import { LogoMark, PushedBar, Row } from '@/ui';
+import { PushedBar, Row } from '@/ui';
+import { Wordmark } from '@/ui/Brand';
 import { ActionPill, GoRow, SGroup, Tile } from './parts';
 import { supportMail } from './PrivacyPage';
 import { consentWord } from './privacyModel';
@@ -70,7 +71,7 @@ export default function SettingsView(): React.JSX.Element {
 
       <SGroup title="Training">
         {noPlan && loaded ? (
-          <GoRow icon={CalendarDays} title="Build a plan" sub="Pick your days and miles. Logbook writes the weeks." onPress={go('training')} />
+          <GoRow icon={CalendarDays} title="Build a plan" sub="Pick your days and miles. Orby writes the weeks." onPress={go('training')} />
         ) : (
           <>
             <GoRow icon={Gauge} title={hasStored ? 'Starting miles' : 'This week'} value={loaded ? `${profile.weeklyMiles} mi` : dash} onPress={go('training')} />
@@ -131,7 +132,7 @@ export default function SettingsView(): React.JSX.Element {
         <HapticsRow icon={Vibrate} />
         <ReminderRows />
         {/* only once the App Store id exists; in the iPhone app the link goes to the App Store, never the review prompt */}
-        {rate ? <GoRow icon={Star} title="Rate Logbook" sub="Write a review on the App Store." href={isNative ? rate : undefined} onPress={() => void openExternal(rate)} /> : null}
+        {rate ? <GoRow icon={Heart} title="Rate Orby" sub="Write a review on the App Store." href={isNative ? rate : undefined} onPress={() => void openExternal(rate)} /> : null}
         {isNative ? null : <GoRow icon={House} title="Home screen" sub="Full screen, and it opens offline." onPress={go('app')} />}
         <GoRow
           icon={RotateCcw}
@@ -152,7 +153,7 @@ export default function SettingsView(): React.JSX.Element {
       {/* how to reach the developer, the legal pages, and which build this is (the owner reads it to tell a stale build) */}
       <SGroup title="About" foot={DISCLAIMER}>
         <GoRow icon={LifeBuoy} title="Help and contact" sub="Answers, and how to reach us." onPress={() => void openExternal(SUPPORT)} />
-        <GoRow icon={Send} title="Email us" sub={SUPPORT_EMAIL} href={supportMail('Logbook help')} label={`Email us at ${SUPPORT_EMAIL}`} />
+        <GoRow icon={Send} title="Email us" sub={SUPPORT_EMAIL} href={supportMail('Orby help')} label={`Email us at ${SUPPORT_EMAIL}`} />
         <GoRow icon={ScrollText} title="Terms of Use" onPress={() => void openExternal(LEGAL.terms)} />
         <GoRow icon={FileText} title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
         <GoRow icon={BookOpenText} title="Acknowledgments" onPress={() => void openExternal(LEGAL.acknowledgements)} />
@@ -173,8 +174,7 @@ export default function SettingsView(): React.JSX.Element {
 
       <p className="s-colophon">
         <span className="s-wordmark">
-          <LogoMark size={22} color="var(--ink)" />
-          <span className="display">Logbook</span>
+          <Wordmark width={64} />
         </span>
       </p>
     </div>
