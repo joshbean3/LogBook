@@ -1469,3 +1469,26 @@
   position: absolute;
   inset: -13px -8px;
 }
+
+/* with training data off: the way to change it, under the line that says so */
+.as-hello-link {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+/* a removed chip stays as a way to put it back */
+.as-ctx-pill.is-off {
+  position: relative;
+  padding: 0 12px 0 8px;
+  border: 1px dashed var(--line-strong);
+  background: none;
+  color: var(--ink-3);
+}
+.as-ctx-pill.is-off::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}

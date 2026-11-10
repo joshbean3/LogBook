@@ -1,4 +1,4 @@
-import { fmtDate, PHASE_WORDS, screenLabel, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
+import { fmtDate, PHASE_WORDS, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
 import { Orb } from '@/ui/Orb';
 import {
   Activity,
@@ -33,6 +33,8 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { onUnauthorized } from '@/api/client';
 import { useBootstrap } from '@/api/queries';
+import { useNavInternal } from '@/app/NavController';
+import { useConsent } from '@/lib/consent';
 import { AI_LABEL, DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
@@ -73,15 +75,43 @@ const SCREEN_ICON: Record<AssistantScreen['tab'], LucideIcon> = { today: Sun, pl
 
 /** Ways to start an empty chat: two lines each (what, then the rest), as ChatGPT's starter cards read. */
 type Starter = { title: string; sub: string; send?: string; attach?: true };
-const startersFor = (date: ISODate, today: ISODate): Starter[] => {
+const READ_PLAN: Starter = { title: 'Read a plan', sub: 'from a photo or a PDF', attach: true };
+/**
+ * The starters for where the sheet was opened. With training data off the assistant can't see the plan, so the plan
+ * starters give way to general questions.
+ */
+export const startersFor = (tab: AssistantScreen['tab'] | undefined, date: ISODate, today: ISODate, training: boolean): Starter[] => {
+  if (!training)
+    return [
+      { title: 'Pace a long run', sub: 'how easy it should feel', send: 'How easy should a long run feel?' },
+      { title: 'Fit in strength', sub: 'around running', send: 'How do I fit strength work around running?' },
+      READ_PLAN,
+    ];
   const run = date === today ? 'today’s run' : `${fmtDate('short', date)}’s run`;
-  return [
-    { title: 'What’s left', sub: 'on the plan this week', send: 'What’s left on the plan this week?' },
-    { title: 'Push missed runs', sub: 'to next week', send: 'Push the runs I missed this week to next week' },
-    { title: `Move ${run}`, sub: 'to the next day', send: `Move ${run} to the next day` },
-    { title: 'Set this week’s goal', sub: 'from my plan', send: 'Set this week’s goal from my plan' },
-    { title: 'Read a plan', sub: 'from a photo or a PDF', attach: true },
-  ];
+  const left: Starter = { title: 'What’s left', sub: 'on the plan this week', send: 'What’s left on the plan this week?' };
+  const push: Starter = { title: 'Push missed runs', sub: 'to next week', send: 'Push the runs I missed this week to next week' };
+  const goal: Starter = { title: 'Set this week’s goal', sub: 'from my plan', send: 'Set this week’s goal from my plan' };
+  switch (tab) {
+    case 'today':
+      return [{ title: `Move ${run}`, sub: 'to the next day', send: `Move ${run} to the next day` }, left, push, READ_PLAN];
+    case 'goals':
+      return [goal, { title: 'How my goals', sub: 'are going', send: 'How are my goals going?' }, READ_PLAN];
+    case 'progress':
+      return [{ title: 'How this week', sub: 'went against the plan', send: 'How did this week go against the plan?' }, { title: 'Am I on track', sub: 'for my race', send: 'Am I on track for my race?' }, READ_PLAN];
+    default:
+      return [left, push, goal, READ_PLAN];
+  }
+};
+
+/**
+ * The chip shows only where it changes what the assistant reads: the day on Today, the week or month on Plan. In words:
+ * "Today", "Thu, Nov 12", "Week of Nov 9", "November".
+ */
+export const chipOf = (s: AssistantScreen | undefined, today: ISODate): string | null => {
+  if (s?.tab === 'today' && s.date) return s.date === today ? 'Today' : `${fmtDate('dow', s.date)}, ${fmtDate('md', s.date)}`;
+  if (s?.tab === 'plan' && s.week) return `Week of ${fmtDate('md', s.week)}`;
+  if (s?.tab === 'plan' && s.month) return fmtDate('month', `${s.month}-01`);
+  return null;
 };
 
 const greeting = (h = new Date().getHours()) => (h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
@@ -413,7 +443,8 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
   const busyAnywhere = busySince !== null;
   // the answer being written belongs to this chat (one can carry on in another while this one is open)
   const busy = busyAnywhere && busyChat === chatId;
-  const name = useBootstrap().data?.user.name?.trim().split(/\s+/)[0];
+  const boot = useBootstrap().data;
+  const name = boot?.user.name?.trim().split(/\s+/)[0];
   const sheet = useSheet();
   const speaker = useSpeaker();
   // turns added while the sheet is open come in with a rise; the ones already there just show
@@ -421,9 +452,20 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
   useEffect(() => {
     mountedAt.current = turns.length;
   }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [screen, setScreen] = useState(openedFrom);
-  // with the screen removed, the question is about no page in particular: today
-  const askDate = openedFrom && !screen ? today : date;
+  const [kept, setKept] = useState(true);
+  // with training data off nothing about the page goes; with the chip removed, the question is about no page: today
+  const consentQ = useConsent();
+  const consent = consentQ.data ?? boot?.consent;
+  const training = consent?.training === true;
+  const chip = training ? chipOf(openedFrom, today) : null;
+  const screen = training && (kept || !chip) ? openedFrom : undefined;
+  const askDate = chip && !kept ? today : date;
+  const nav = useNavInternal();
+  const toPrivacy = () => {
+    sheet.close();
+    if (nav.getState().active === 'today') nav.push('/settings/privacy');
+    else nav.go('/settings/privacy');
+  };
   const [draft, setDraft] = useState(initial ?? '');
   const [editing, setEditing] = useState<number | null>(null);
   const [pending, setPending] = useState<PreparedFile[]>([]);
@@ -633,7 +675,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
   const stoppedHere = useAssistantStopped() === chatId;
   // an answer being written in another chat: one line over the composer, and a way there
   const elsewhere = busyAnywhere && !busy && busyChat !== null;
-  const ScreenIcon = screen ? SCREEN_ICON[screen.tab] : null;
+  const ScreenIcon = openedFrom ? SCREEN_ICON[openedFrom.tab] : null;
   const canSend = (draft.trim() || pending.length) && !preparing && !busyAnywhere;
 
   return (
@@ -646,8 +688,20 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
               {greeting()}
               {name ? `, ${name}` : ''}.
             </p>
-            <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
-            <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
+            {training ? (
+              <>
+                <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
+                {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, goals and to-dos. It can’t read your journal.</p> : null}
+                <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
+              </>
+            ) : (
+              <>
+                <p className="as-hello-sub">The assistant can’t see your training data. It answers in general terms.</p>
+                <button type="button" className="as-hello-link" onClick={toPrivacy}>
+                  Change in Settings, Privacy
+                </button>
+              </>
+            )}
             <p className="as-hello-legal">{DISCLAIMER}</p>
           </div>
         ) : (
@@ -706,7 +760,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
         ) : null}
         {empty && !draft && !pending.length ? (
           <div className="as-starters" role="group" aria-label="Ways to start">
-            {startersFor(askDate, today).map((s) => (
+            {startersFor(openedFrom?.tab, askDate, today, training).map((s) => (
               <button key={s.title} type="button" className="as-starter" onClick={() => (s.attach ? picker.current?.click() : send(s.send!))}>
                 <span className="as-starter-title">{s.title}</span>
                 <span className="as-starter-sub">{s.sub}</span>
@@ -783,14 +837,21 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
               <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
             </button>
             <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
-            {screen && ScreenIcon ? (
-              <span className="as-ctx-pill">
-                <ScreenIcon size={14} strokeWidth={2.2} aria-hidden="true" />
-                <span className="as-ctx-pill-text">{screenLabel(screen)}</span>
-                <button type="button" className="as-ctx-pill-x" aria-label={`Don’t send ${screenLabel(screen)} with the question`} onClick={() => setScreen(undefined)}>
-                  <X size={12} strokeWidth={2.8} aria-hidden="true" />
+            {chip && ScreenIcon ? (
+              kept ? (
+                <span className="as-ctx-pill">
+                  <ScreenIcon size={14} strokeWidth={2.2} aria-hidden="true" />
+                  <span className="as-ctx-pill-text">{chip}</span>
+                  <button type="button" className="as-ctx-pill-x" aria-label={`Don’t send ${chip} with the question`} onClick={() => setKept(false)}>
+                    <X size={12} strokeWidth={2.8} aria-hidden="true" />
+                  </button>
+                </span>
+              ) : (
+                <button type="button" className="as-ctx-pill is-off" aria-label={`Send ${chip} with the question`} onClick={() => setKept(true)}>
+                  <Plus size={14} strokeWidth={2.4} aria-hidden="true" />
+                  <span className="as-ctx-pill-text">{chip}</span>
                 </button>
-              </span>
+              )
             ) : null}
             {busy ? (
               <button type="button" className="as-send is-stop" aria-label="Stop" onClick={() => void stopAsk(stopAssistant)}>
