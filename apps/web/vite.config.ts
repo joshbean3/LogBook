@@ -45,10 +45,43 @@ const fonts = (): Plugin => ({
 });
 
 /**
+ * The Content-Security-Policy, as a meta tag in the built index.html (sec-22). The server sends its own header for the web;
+ * this one also covers the iPhone app, which loads the page from disk. Scripts come only from the bundle; styles may be
+ * inline (the fonts block above, and React's style props); requests go to this origin and the API's. Not in the dev
+ * server, whose HMR client needs inline scripts and a websocket.
+ */
+const csp = (apiOrigin: string): Plugin => ({
+  name: 'logbook:csp',
+  apply: 'build',
+  transformIndexHtml: {
+    order: 'post',
+    handler(html) {
+      const connect = ["'self'", apiOrigin].filter(Boolean).join(' ');
+      const policy = [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https:",
+        "font-src 'self' data:",
+        `connect-src ${connect}`,
+        "worker-src 'self'",
+        "manifest-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ].join('; ');
+      return html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`);
+    },
+  },
+});
+
+/**
  * The build-time flags (src/lib/features.ts, documented in src/vite-env.d.ts). Each is pinned to a string literal here, set
  * or not, so the bundler folds every `if (STRAVA_BUILT)` and drops the code behind a false flag from the build.
  */
 const FLAGS = ['VITE_FEATURE_STRAVA', 'VITE_FEATURE_HEALTH', 'VITE_FAKE_CLOCK'] as const;
+/** lib/native.ts falls back to this server when VITE_API_ORIGIN is unset; the policy has to allow the same one. */
+const NATIVE_API_FALLBACK = 'https://josh-logbook.fly.dev';
 
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, here, 'VITE_'), ...process.env };
@@ -58,6 +91,8 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       fonts(),
+      // the API's origin as lib/native.ts reads it: the iPhone app calls it (the web build calls its own origin)
+      csp(env.VITE_API_ORIGIN || NATIVE_API_FALLBACK),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['icons/*.png', 'icons/*.svg'],
