@@ -1081,7 +1081,7 @@
 .cd-quote-slot {
   height: 2.75rem;
 }
-/* the nightly quote reads whole in its 44 slot: two lines of 15/20 (40) rather than one cut line (feel review 1 #11) */
+/* the nightly quote reads whole in its 44 slot: two lines of 17/22 (44) rather than one cut line (feel review 1 #11) */
 .cd .qline.quote-line .qline-text {
   -webkit-line-clamp: 2;
   overflow-wrap: normal;
@@ -1807,7 +1807,7 @@
   overflow: visible;
   text-wrap: balance;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  /* 5.3:1 on the card's warm white (a11y-06) */
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 .hero.is-quiet .hg .hero-line {

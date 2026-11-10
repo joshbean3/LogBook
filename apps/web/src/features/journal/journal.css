@@ -696,8 +696,9 @@ textarea.jsheet-text {
   overflow: hidden;
 }
 .qline.quote-line .qline-text {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
+  /* Fraunces italic never goes under 17 px (guide 4.5): two lines of 17/22 still fill the 44 slot exactly */
+  font-size: var(--fs-sentence-sm);
+  line-height: var(--lh-row);
   -webkit-line-clamp: 1;
 }
 
