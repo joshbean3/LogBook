@@ -363,6 +363,7 @@
 
 /* ---------- glass tiles ---------- */
 .hd-glass {
+  flex: none;
   display: grid;
   place-items: center;
   width: var(--gs);

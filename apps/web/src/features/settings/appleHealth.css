@@ -13,19 +13,13 @@
   gap: 14px;
   padding: 16px;
 }
+/* a plain heart glyph beside the name: no tile, nothing shaped like an app icon (copy-legal-27) */
 .ah-app {
   flex: none;
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 15px;
-  background: linear-gradient(160deg, #ffffff, #f2f7fb);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    inset 0 -2px 4px rgba(15, 42, 68, 0.05),
-    0 0 0 1px rgba(15, 42, 68, 0.06),
-    0 8px 16px -8px rgba(15, 42, 68, 0.3);
+  width: 28px;
+  height: 44px;
   color: var(--accent);
 }
 .ah-device-text {
@@ -56,8 +50,8 @@
 }
 :root .ah-device-btn.btn {
   flex: none;
-  height: 34px;
-  padding: 0 14px;
+  height: 44px;
+  padding: 0 16px;
 }
 /* a narrow card (a 320 pt phone, or a large text size): the name and status keep the first line and the button takes
    the full width under them, 44 tall, instead of squeezing the words into a column */
@@ -188,6 +182,14 @@
   display: grid;
   gap: 6px;
   margin-top: 4px;
+}
+/* pinned as the sheet's foot (.sheet-foot): two full-width buttons in a column, not the foot's usual row */
+.sheet .ahc-actions.sheet-foot {
+  display: grid;
+  justify-content: stretch;
+}
+.ahc-unlocks li > .hd-glass {
+  flex: 0 0 38px;
 }
 :root .ahc-actions .btn.primary {
   height: 54px;

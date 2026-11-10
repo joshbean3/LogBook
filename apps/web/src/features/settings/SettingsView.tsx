@@ -1,6 +1,6 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
 import type * as React from 'react';
-import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, HeartPulse, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Star, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, Heart, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Star, Sunrise, Timer, User, Vibrate } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
 import { useRef } from 'react';
@@ -118,7 +118,7 @@ export default function SettingsView(): React.JSX.Element {
       {HEALTH_BUILT || (STRAVA_BUILT && data?.features.strava) ? (
         <SGroup title="Data sources">
           {STRAVA_BUILT ? <StravaRootRows onPress={go('connections')} /> : null}
-          {HEALTH_BUILT ? <GoRow icon={HeartPulse} title="Apple Health" sub="Sleep, heart rate variability and resting heart rate." onPress={go('connections')} /> : null}
+          {HEALTH_BUILT ? <GoRow icon={Heart} title="Apple Health" sub="Sleep, heart rate variability and resting heart rate." onPress={go('connections')} /> : null}
         </SGroup>
       ) : null}
 

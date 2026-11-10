@@ -1,4 +1,4 @@
-import { Activity, ArrowDown, ArrowUp, Check, Heart, HeartPulse, Moon, Sun, Watch, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowDown, ArrowUp, Check, Heart, Moon, Sun, Watch, type LucideIcon } from 'lucide-react';
 import { useId } from 'react';
 import type * as React from 'react';
 import type { SleepSegment, SleepStage } from '@/lib/health';
@@ -181,8 +181,9 @@ export const GlassTile = ({ icon: Icon, tone = 'navy', size = 52, className = ''
 
 // ---------- the heroes ----------
 /**
- * Connecting Apple Health: a beveled dial with tick marks and three arcs (orange, Columbia and
- * navy) with lit ends, glass tiles for the night and the two heart numbers floating around it, over a faint grid.
+ * Connecting Apple Health: a beveled dial with tick marks and one orange arc with a lit end (one arc, never nested rings:
+ * those read as Apple's Activity rings, gap-rev-28), glass tiles for the night and the two heart numbers floating around
+ * it, over a faint grid.
  */
 export const HealthHero = () => {
   const gid = useId().replace(/:/g, '');
@@ -192,11 +193,7 @@ export const HealthHero = () => {
     const [x1, y1] = p(to);
     return { d: `M ${x0} ${y0} A ${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${x1} ${y1}`, end: [x1, y1] as const };
   };
-  const rings = [
-    { r: 50, from: 18, to: 128, stroke: `url(#${gid}-o)`, dot: '#f2600c' },
-    { r: 40, from: 200, to: 330, stroke: `url(#${gid}-c)`, dot: '#3a7fb9' },
-    { r: 30, from: 300, to: 470, stroke: `url(#${gid}-n)`, dot: '#1b3d63' },
-  ];
+  const rings = [{ r: 46, from: 210, to: 480, stroke: `url(#${gid}-o)`, dot: '#f2600c' }];
   return (
     <div className="hd-hero" aria-hidden="true">
       <div className="hd-hero-dial">
@@ -205,14 +202,6 @@ export const HealthHero = () => {
             <linearGradient id={`${gid}-o`} x1="0" x2="1">
               <stop offset="0" stopColor="#ffd2ad" />
               <stop offset="1" stopColor="#f2600c" />
-            </linearGradient>
-            <linearGradient id={`${gid}-c`} x1="0" x2="1">
-              <stop offset="0" stopColor="#3a7fb9" />
-              <stop offset="1" stopColor="#cfe6f3" />
-            </linearGradient>
-            <linearGradient id={`${gid}-n`} x1="0" x2="1">
-              <stop offset="0" stopColor="#d7e7f4" />
-              <stop offset="1" stopColor="#1b3d63" />
             </linearGradient>
           </defs>
           {Array.from({ length: 60 }, (_, i) => {
@@ -232,7 +221,7 @@ export const HealthHero = () => {
           })}
         </svg>
         <span className="hd-hero-face">
-          <HeartPulse size={26} strokeWidth={2} />
+          <Heart size={26} strokeWidth={2} />
         </span>
       </div>
       <GlassTile icon={Moon} tone="navy" size={46} className="hd-float is-a" />

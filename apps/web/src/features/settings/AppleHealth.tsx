@@ -120,8 +120,9 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   return (
     <SCard title="Apple Health" className="ah-sec" foot={connectedHere ? `Syncs when you open Logbook and when you pull down on Today. ${HEALTH_TRUST}` : HEALTH_TRUST}>
       <div className="ah-device">
+        {/* a plain heart glyph, not a look-alike of Apple's app icon (copy-legal-27); Apple's own icon can go here once supplied */}
         <span className="ah-app" aria-hidden="true">
-          <HeartPulse size={24} strokeWidth={2.2} />
+          <Heart size={24} strokeWidth={2.2} />
         </span>
         <span className="ah-device-text">
           <span className="ah-device-name">Apple Health</span>
@@ -203,7 +204,8 @@ const ConnectPanel = (): React.JSX.Element => {
         ))}
       </ul>
       <p className="ahc-note">Readings are saved to your Logbook account on Logbook’s server, so Progress can show them. Logbook reads as much history as you share, up to a year, then keeps up each time you open it.</p>
-      <div className="ahc-actions">
+      {/* pinned to the sheet's foot, so Connect is on screen at 667 pt tall without a scroll (ios-21) */}
+      <div className="ahc-actions sheet-foot">
         <Button variant="primary" block onClick={() => void connect()} disabled={busy}>
           {busy ? 'Connecting…' : 'Connect Apple Health'}
         </Button>
