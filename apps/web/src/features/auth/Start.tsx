@@ -141,12 +141,13 @@ const PrivacyStep = () => {
         <div className="pv-choice">
           <h2 className="pv-choice-title">Allow the AI assistant?</h2>
           <p className="pv-choice-sub">It runs on Claude, by Anthropic. To answer you, Logbook sends Claude what is listed here. Nothing is sent until you allow it.</p>
+          {/* the policy, on screen before the answer is given */}
+          <SiteLink href={LEGAL.privacy} className="pv-policy">
+            Privacy Policy
+          </SiteLink>
         </div>
         <PrivacyFacts consent={null} />
         <p className="pv-later">Not now keeps the assistant off, and Logbook asks again before it sends anything. You can change this any time in Settings, then Privacy.</p>
-        <SiteLink href={LEGAL.privacy} className="pv-policy">
-          Privacy Policy
-        </SiteLink>
       </div>
       <div className="start-foot pv-foot">
         <div className="pv-answers">

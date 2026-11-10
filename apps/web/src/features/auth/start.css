@@ -209,10 +209,11 @@
 }
 /* the policy, one tap away before any account: its own line, a 44px target */
 .pv-policy.site-link {
+  justify-self: start;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 16px;
+  margin-bottom: -10px;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }

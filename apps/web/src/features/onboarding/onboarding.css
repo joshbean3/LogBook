@@ -1126,8 +1126,18 @@
 /* a race day too close for its distance: one plain line and the way out, inside the card it is about */
 .ob-warn {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: start;
   margin-top: 12px;
+}
+/* the way out wraps inside its card at a large text size instead of running past the edge */
+.ob-warn .ob-fix.ob-chip {
+  max-width: 100%;
+  height: auto;
+  min-height: 40px;
+  padding-block: 8px;
+  white-space: normal;
+  text-align: left;
 }
 .card.ob-card > .ob-warn:only-child {
   margin-top: 0;
