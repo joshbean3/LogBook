@@ -5,7 +5,7 @@ import { useGoals } from '@/api/queries';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
-import { LEVEL, LEVEL_HUE, periodCaps, scoreOf } from './model';
+import { LEVEL, periodCaps, scoreOf } from './model';
 import { ReviewButtons } from './GoalSheets';
 import { KPin } from './Kit';
 import './goals.css';
@@ -16,23 +16,23 @@ const SPAN_WORDS: Record<GoalLevel, string> = { day: '7 days', week: '4 weeks', 
 
 /**
  * The one honest number per level (docs/inspiration.md §6 Goals), all four in one card: each level's goals kept of those
- * answered over its span, orange when it is behind the span before (or under half with nothing to compare), a dash with
+ * answered over its span, in warning words with a Marigold marker when it is behind the span before (or under half with nothing to compare), a dash with
  * nothing answered yet.
  */
 export const ScoreStrip = ({ goals, today }: { goals: readonly Aim[]; today: string }) => (
   <section className="k-card g-scores" aria-label="Goals kept">
     <div className="k-label" aria-hidden="true">
-      <Target size={16} />
+      <Target size={18} />
       Goals kept
     </div>
     <ul className="g-scores-row">
       {LEVELS.map((l) => {
         const s = scoreOf(goals, l, today);
-        // behind: the number is orange, and the line under it says against what
+        // behind: the number in warning words, and the line under it says against what
         const why = s.tone === 'behind' ? (s.prev ? `was ${s.prev.kept} of ${s.prev.closed}` : 'under half') : null;
         const label = s.closed ? `${LEVEL[l].label}, ${l === 'year' ? 'this year' : `last ${SPAN_WORDS[l]}`}: ${s.kept} of ${s.closed} done${why ? `, behind: ${why} before` : ''}` : `${LEVEL[l].label}: none answered yet`;
         return (
-          <li key={l} className={`g-sc ${s.tone ? `is-${s.tone}` : 'is-none'}`} style={{ '--hue': LEVEL_HUE[l] } as React.CSSProperties} aria-label={label}>
+          <li key={l} className={`g-sc ${s.tone ? `is-${s.tone}` : 'is-none'}`} aria-label={label}>
             <span className="g-sc-lv" aria-hidden="true">
               <i />
               {LEVEL[l].label}
@@ -78,7 +78,7 @@ export const StaleNudge = ({ goals, today }: { goals: readonly Aim[]; today: str
   return (
     <section className="k-card g-nudge" aria-label="Goals to review">
       <div className="k-label g-nudge-label">
-        <CircleAlert size={16} aria-hidden="true" />
+        <CircleAlert size={18} aria-hidden="true" />
         To review
       </div>
       <p className="g-nudge-title">
@@ -93,7 +93,7 @@ export const StaleNudge = ({ goals, today }: { goals: readonly Aim[]; today: str
         ))}
         {more ? <li className="g-nudge-more">and {more} more</li> : null}
       </ul>
-      <Button variant="primary" size="sm" className="g-nudge-btn" onClick={() => sheet.open({ eyebrow: 'Review', title: owed.length === 1 ? 'Did you hit it?' : 'How did they go?', body: <ReviewSheet total={owed.length} /> })}>
+      <Button size="sm" className="g-nudge-btn" onClick={() => sheet.open({ eyebrow: 'Review', title: owed.length === 1 ? 'Did you hit it?' : 'How did they go?', body: <ReviewSheet total={owed.length} /> })}>
         Review {owed.length === 1 ? 'it' : `all ${owed.length}`}
       </Button>
     </section>

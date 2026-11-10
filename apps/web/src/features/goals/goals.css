@@ -1,30 +1,5 @@
-
-.g-row.pressable {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 64px;
-  padding: 11px 14px 11px 16px;
-  text-align: left;
-  color: var(--ink);
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-}
-.g-group > .g-row:last-child,
-.g-group > .g-hrow:last-child,
-.goals-card > .g-row:last-child {
+.g-group > .g-hrow:last-child {
   border-bottom: 0;
-}
-.g-row.compact {
-  min-height: 56px;
-  padding-block: 9px;
-}
-.g-row[data-pressed],
-.g-owed[data-pressed] {
-  background: var(--surface-2);
 }
 .g-row-main {
   display: grid;
@@ -42,111 +17,11 @@
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.g-row.is-done .g-row-text {
-  color: var(--ink-2);
-}
-.g-row-set {
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
-  color: var(--accent-text);
-  font-weight: 500;
-}
 .g-row-none {
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-3);
 }
-.g-row-end {
-  display: grid;
-  place-items: center;
-  min-width: 24px;
-}
-.g-chev {
-  color: var(--ink-4);
-}
-.g-plus {
-  color: var(--accent-text);
-}
-.g-stamp {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-}
-.g-stamp.is-done {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.g-stamp.is-partly {
-  background: var(--warn-soft);
-  color: var(--warn-text, #8f5800);
-}
-.g-stamp.is-missed {
-  background: var(--surface-3);
-  color: var(--ink-3);
-}
-
-/* the review owed: a card above the four, its three answers along the bottom */
-.g-review {
-  margin: 8px 0 16px;
-  padding: 16px;
-  display: grid;
-  gap: 8px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-}
-.g-review-text {
-  margin: 0;
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  letter-spacing: 0;
-  color: var(--ink);
-}
-.g-review-ask {
-  margin: 0;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-3);
-}
-
-/* ---------- on Today: the day's goal and the week's, under the hero ---------- */
-.goals-card {
-  margin-top: 12px;
-}
-.goals-card.is-skel {
-  height: 112px;
-}
-.g-owed.pressable {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) 16px;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 52px;
-  padding: 8px 12px 8px 16px;
-  text-align: left;
-  color: var(--ink);
-  background: var(--accent-tint);
-  border: 0;
-  border-bottom: 1px solid var(--line);
-}
-.g-owed-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-}
-.g-owed-text {
-  display: grid;
-  gap: 2px;
-}
-.g-owed-ask {
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-}
-
 /* the tab's dot: something to set or to review. A badge on the Sunrise budget (GoalsBadge, ui/nowBudget.ts): Sunrise with
    its 2 px Paper keyline while it may be; yielded, the shell's Night Ink dot with the same keyline (app/shell.css) */
 .tab-item {
@@ -167,6 +42,8 @@
   background: var(--now);
 }
 
+/* the goal's ring on Today's Plan your day (GoalRing): the field edge as its track (it stands alone, so it carries 3:1),
+   a Deep Sky arc; done, the lit coin: a flat Sky disc with a Night Ink check */
 .g-ring-hit {
   display: grid;
   place-items: center;
@@ -175,18 +52,17 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent-bright);
+  color: var(--deep-sky);
   -webkit-tap-highlight-color: transparent;
 }
 .g-ring-track {
   fill: none;
-  /* it stands alone (no number beside it), so it carries 3:1 against white */
-  stroke: rgba(15, 42, 68, 0.5);
+  stroke: var(--field-edge);
   stroke-width: 2.5;
 }
 .g-ring-arc {
   fill: none;
-  stroke: var(--accent-bright);
+  stroke: var(--deep-sky);
   stroke-width: 2.5;
   stroke-linecap: round;
 }
@@ -205,23 +81,24 @@
   stroke-linejoin: round;
 }
 
-/* where a day's goal can start: one tap fills the field */
+/* where a day's goal can start: one tap fills the field. Off filter chips (guide 6.3): Paper pills with the light edge and
+   Dusk words */
 .gs-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sp-2);
   margin-top: -6px;
 }
 .gs-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   max-width: 100%;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
   border: 1px solid var(--line-strong);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--ink-2);
   font: 500 var(--fs-foot) / 1 var(--sans);
 }
@@ -240,12 +117,6 @@
   position: relative;
 }
 
-/* the ring's sparks when a goal is hit */
-.g-ring-wrap {
-  position: relative;
-  display: grid;
-  place-items: center;
-}
 .g-burst {
   position: absolute;
   left: 50%;
@@ -254,6 +125,7 @@
   height: 0;
   pointer-events: none;
 }
+/* sparks in the sky colors and Apricot light (decorative, guide 3.3), and one Deep Sky ring; no glow */
 .g-burst i {
   position: absolute;
   left: -2.5px;
@@ -261,13 +133,13 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--accent-bright);
+  background: var(--accent);
 }
 .g-burst i.warm {
-  background: var(--warn);
+  background: var(--apricot);
 }
 .g-burst i.white {
-  background: var(--columbia);
+  background: var(--haze);
 }
 .g-burst .g-wave {
   position: absolute;
@@ -276,11 +148,11 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 2px solid var(--accent-bright);
-  box-shadow: 0 0 18px var(--accent-bright);
+  border: 2px solid var(--deep-sky);
 }
 
-/* ---------- the moment a goal is done (after How We Feel): dark, a shape springs up, the words, one white pill ---------- */
+/* ---------- the moment a goal is done: an opaque Cloud page, the lit coin springs up inside its rings (the circle
+   vocabulary, guide 8.5), the words, the one Sky primary ---------- */
 .cel {
   position: fixed;
   inset: 0;
@@ -298,31 +170,25 @@
   place-items: center;
   width: 100%;
 }
+/* one shape for every level (no per-level hue): a flat Sky disc with a Night Ink check, in two Haze rings. Flat color, no
+   glow and no gloss (the gloss is the assistant's, guide 8.1) */
 .cel-shape {
-  display: block;
-  width: min(62vw, 250px);
+  display: grid;
+  place-items: center;
+  width: min(52vw, 210px);
   aspect-ratio: 1;
-}
-.cel-shape.is-sun {
   border-radius: 50%;
-  background: var(--g-sun);
-  box-shadow: 0 0 90px rgba(255, 190, 40, 0.45);
+  background: var(--accent);
+  box-shadow:
+    0 0 0 18px var(--surface-3),
+    0 0 0 19.5px var(--deep-sky),
+    0 0 0 42px var(--cloud),
+    0 0 0 43.5px var(--haze);
+  color: var(--ink);
 }
-.cel-shape.is-mint {
-  /* a heart-ish leaf: two round lobes */
-  border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%;
-  background: var(--g-mint);
-  box-shadow: 0 0 90px rgba(63, 224, 160, 0.4);
-}
-.cel-shape.is-coral {
-  border-radius: 30% 70% 62% 38% / 42% 36% 64% 58%;
-  background: var(--g-coral);
-  box-shadow: 0 0 90px rgba(255, 91, 91, 0.4);
-}
-.cel-shape.is-sky {
-  border-radius: 46% 54% 50% 50% / 64% 64% 36% 36%;
-  background: var(--g-sky);
-  box-shadow: 0 0 90px rgba(112, 136, 255, 0.45);
+.cel-check {
+  width: 38%;
+  height: 38%;
 }
 .cel-dot {
   position: absolute;
@@ -334,13 +200,13 @@
   border-radius: 50%;
 }
 .cel-dot.is-sun {
-  background: var(--sun);
+  background: var(--apricot);
 }
 .cel-dot.is-mint {
-  background: var(--mint);
+  background: var(--haze);
 }
 .cel-dot.is-coral {
-  background: var(--coral);
+  background: var(--deep-sky);
 }
 .cel-dot.is-sky {
   background: var(--sky);
@@ -348,36 +214,25 @@
 .cel-words {
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   width: 100%;
   max-width: 420px;
 }
+/* the moment's title: Fraunces 650 at the screen title size, "done" in Deep Sky (5.11 on Cloud) */
 .cel-title {
   margin: 0;
-  font: 650 var(--fs-stat-live) / 3rem var(--sans);
-  letter-spacing: var(--tr-hero);
-  font-variant-numeric: tabular-nums;
+  font: 650 var(--fs-title) / var(--lh-title) var(--display);
+  letter-spacing: var(--tr-title);
   color: var(--ink);
 }
 .cel-title em {
-  font-style: italic;
-}
-.cel-title em.is-sun {
-  color: var(--sun);
-}
-.cel-title em.is-mint {
-  color: var(--mint);
-}
-.cel-title em.is-coral {
-  color: var(--coral);
-}
-.cel-title em.is-sky {
-  color: var(--sky);
+  font-style: normal;
+  color: var(--accent-text);
 }
 .cel-line {
   margin: 0;
   color: var(--ink-2);
-  font-size: var(--fs-row);
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
 }
 .cel-goal {
   display: -webkit-box;
@@ -387,25 +242,29 @@
   overflow: hidden;
   max-width: 100%;
   overflow-wrap: anywhere;
-  margin: 6px 0 18px;
-  padding: 12px 16px;
-  border-radius: 16px;
-  background: var(--surface-2);
+  margin: var(--sp-1) 0 var(--sp-5);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--ink-2);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }
+/* the full-width primary (guide 6.2): 54 tall */
 .cel-btn {
   width: 100%;
-  height: 52px;
+  height: 54px;
   font-size: var(--fs-row);
 }
 .g-gauge-big small {
   text-transform: none;
   font-size: var(--fs-row);
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
+/* the goal's half arc, as Today's gauge: a Haze track and the Deep Sky fill (4.43 on Haze); behind the clock, a Marigold
+   arc with the words "behind the clock" beside the time (a warning is a mark plus words). The tick is the clock, Night Ink */
 .g-gauge-track,
 .g-gauge-arc {
   fill: none;
@@ -413,16 +272,13 @@
   stroke-linecap: round;
 }
 .g-gauge-track {
-  stroke: var(--columbia-wash);
+  stroke: var(--haze);
 }
 .g-gauge-arc {
-  stroke: var(--ink-2);
-}
-.g-gauge.is-done .g-gauge-arc {
-  stroke: var(--ink);
+  stroke: var(--deep-sky);
 }
 .g-gauge.is-behind .g-gauge-arc {
-  stroke: var(--accent);
+  stroke: var(--warn);
 }
 .g-gauge-tick {
   stroke: var(--ink);
@@ -446,7 +302,7 @@
   color: var(--ink);
 }
 .g-gauge.is-behind .g-gauge-big {
-  color: var(--accent-text);
+  color: var(--warn-text);
 }
 .g-gauge-sub {
   font-size: var(--fs-foot);
@@ -456,7 +312,7 @@
 .g-gauge-time {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   margin: 2px 0 0;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
@@ -465,25 +321,33 @@
 .g-gauge-time i {
   width: 3px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--ink);
 }
 .g-gauge-behind {
-  color: var(--accent-text);
+  color: var(--warn-text);
   font-weight: 600;
 }
 
 /* ======================================================================================================================
    Shape system v2 (docs/shape-system.md): the tab as a stack of white lifted cards on one gutter. Two small chips for
    what is ahead, today's goal as the warm hero, a review owed, the week, the month and the year as cards with their rings,
-   then History. The sheets: content in cards, steps as rows, one navy pill pinned at the bottom.
+   then History. The sheets: content in cards, steps as rows, one Sky primary pinned at the bottom.
    ====================================================================================================================== */
 
 /* ---------- the tab ---------- */
+/* the page fills the scroller, so a short page (loading, an error) keeps its Cloud ground under it instead of showing the
+   scroller's overscroll colors (a Haze band) below its end */
+.page.g-page {
+  min-height: 100%;
+}
 .g-page > .nb-gap {
   height: var(--gap);
 }
 /* ---------- today's goal, the hero: a warm card, the gauge, the words, the steps to check, the next move ---------- */
+/* the screen's hero card (guide 6.4): Paper, padding 20, one soft shadow. Its warm light is the Apricot sun while it asks
+   (.gh-sun); it carries no sunrise glow of its own, so the screen keeps one warm light (plan D29). Kept or not, the card
+   stays Paper: the gauge, the check and the words carry the state */
 .gh,
 .gh.pressable {
   position: relative;
@@ -491,34 +355,17 @@
   overflow: hidden;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--gap);
   width: 100%;
   min-width: 0;
-  padding: 18px 18px 16px;
-  border-radius: 24px;
-  border: 0;
-  background:
-    radial-gradient(90% 60% at 12% 0%, rgba(255, 190, 170, 0.55), rgba(255, 190, 170, 0) 70%),
-    radial-gradient(90% 60% at 92% 4%, rgba(255, 226, 140, 0.6), rgba(255, 226, 140, 0) 70%),
-    linear-gradient(180deg, #fff9f2 0%, #ffffff 62%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 0 1px rgba(15, 42, 68, 0.04),
-    0 2px 6px rgba(15, 42, 68, 0.05),
-    0 22px 44px -18px rgba(170, 110, 40, 0.28);
+  padding: var(--pad-hero);
+  border-radius: var(--r-card);
+  border: var(--card-border);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
-  transition: transform 160ms var(--ease-out);
-}
-/* kept: the gold comes all the way in */
-.gh.is-done {
-  background:
-    radial-gradient(120% 80% at 50% 0%, rgba(255, 210, 110, 0.75), rgba(255, 210, 110, 0) 72%),
-    linear-gradient(180deg, #fff3dc 0%, #fffaf0 70%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 0 1px rgba(200, 140, 30, 0.12),
-    0 22px 48px -16px rgba(230, 150, 30, 0.45);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .gh-head {
   display: flex;
@@ -526,11 +373,12 @@
   gap: 8px;
   min-width: 0;
 }
+/* "TODAY": the card's one caption, in Ember (orange words, on Paper only: guide 3.2) */
 .gh-label {
-  font: 700 0.8125rem / 1rem var(--sans);
-  letter-spacing: 0.1em;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: #b4560f;
+  color: var(--now-text);
 }
 .gh-date {
   flex: 1;
@@ -545,19 +393,18 @@
   content: '·';
   margin-right: 8px;
 }
+/* the time left ("7 h left") or the answer: a Paper pill with an edge, Dusk words, even figures (they tick) */
 .gh-chip,
 .gl-chip {
   flex: none;
   display: inline-flex;
   align-items: center;
   height: 24px;
-  padding: 0 10px;
+  padding: 0 var(--sp-3);
   border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 0 0 1px rgba(15, 42, 68, 0.06),
-    0 4px 10px -6px rgba(15, 42, 68, 0.25);
-  font: 600 0.75rem / 1 var(--sans);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  font: 600 var(--fs-tag) / 1 var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   white-space: nowrap;
@@ -577,20 +424,24 @@
   height: 100%;
   overflow: visible;
 }
+/* the gauge reads as Today's (guide 6.5): a Haze track, a narrower Deep Sky fill inside it (4.43 on Haze), no gradient,
+   no glow. The ring on the track is the clock (how much of the day has gone): a Paper dot ringed in Night Ink, not a
+   Sunrise mark (Goals spends no orange on it, plan 6.2) */
 .gh-track,
 .gh-arc {
   fill: none;
-  stroke-width: 12;
   stroke-linecap: round;
 }
 .gh-track {
-  stroke: rgba(180, 120, 40, 0.13);
+  stroke: var(--haze);
+  stroke-width: 12;
 }
 .gh-arc {
-  filter: drop-shadow(0 2px 6px rgba(242, 96, 12, 0.35));
+  stroke: var(--deep-sky);
+  stroke-width: 7;
 }
 .gh-now {
-  fill: #fff;
+  fill: var(--surface);
   stroke: var(--ink);
   stroke-width: 2.5;
 }
@@ -602,36 +453,39 @@
   justify-items: center;
   text-align: center;
 }
+/* the count in the middle changes as steps are checked: Inter 650 with even figures, Night Ink (guide 4.4) */
 .gh-stamp {
-  font: 800 2.75rem / 3.125rem var(--stamp);
-  letter-spacing: -0.035em;
-  background: linear-gradient(180deg, #3b2b1d 0%, #0f2a44 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font: 650 var(--fs-stat-live) / 3.125rem var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
   white-space: nowrap;
 }
 .gh-stamp small {
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
+  font: 650 var(--fs-section) / 1 var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-2);
 }
+/* Partly, Missed: the answer as a word, Fraunces 650 like a hero face's words (guide 6.13), at a size the arc holds */
 .gh-stamp.is-word {
-  /* Partly, Missed: a word, not a number, at a size that fits inside the arc */
-  font-size: 2rem;
-  line-height: 2.25rem;
-  margin-top: 6px;
+  font: 650 var(--fs-section) / var(--lh-section) var(--display);
+  letter-spacing: 0;
+  margin-top: var(--sp-1);
 }
+/* kept: the lit coin, a flat Sky disc with a Night Ink check (guide 6.6) */
 .gh-stamp.is-check {
   display: grid;
   place-items: center;
-  height: 50px;
-  background: none;
-  color: #b4560f;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--ink);
 }
 .gh-sub {
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
-  color: var(--warn-text, #8f5800);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .gh-gauge > .g-burst {
@@ -660,27 +514,24 @@
   overflow: hidden;
 }
 .gh-text.is-long.pressable {
-  font-size: 1.375rem;
-  line-height: 1.75rem;
+  font-size: var(--fs-sentence-sm);
+  line-height: var(--lh-row);
 }
 .gh.is-missed .gh-text,
 .gh.is-partly .gh-text {
   color: var(--ink-2);
 }
 
-/* the steps: a soft white card inside the warm one, a check per row */
+/* the steps: rows of the card itself, split by hairlines (no card inside the card, guide 5.4); a checked step's coin is
+   the lit Sky one (--mk, the to-do mark's fill) */
 .gh-steps {
   display: grid;
   min-width: 0;
-  margin: 2px 0 0;
-  padding: 2px 12px 2px 4px;
+  margin: 0;
+  padding: 0;
   list-style: none;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow:
-    0 0 0 1px rgba(15, 42, 68, 0.05),
-    0 8px 20px -12px rgba(170, 110, 40, 0.4);
-  --mk: var(--sun);
+  border-top: 1px solid var(--line);
+  --mk: var(--accent);
 }
 .gh-step {
   display: flex;
@@ -698,18 +549,18 @@
   opacity: 0.5;
 }
 .gh-step + .gh-step {
-  border-top: 1px solid rgba(15, 42, 68, 0.07);
+  border-top: 1px solid var(--line);
 }
 .gh-step-text {
   min-width: 0;
   padding: 10px 0;
   overflow-wrap: anywhere;
-  transition: color 200ms var(--ease-out);
+  transition: color var(--dur-color) var(--ease-out);
 }
 .gh-step.is-done .gh-step-text {
   color: var(--ink-3);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
+  text-decoration-color: var(--ink-3);
 }
 .gh-step-plus {
   flex: none;
@@ -732,10 +583,10 @@
   outline: none;
 }
 .gh-step-input::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
-/* the next move: Mark done (navy) once nothing is left, Add a step, Details */
+/* the next move: Mark done (the screen's one Sky primary) once nothing is left, Add a step (secondary), Details (quiet) */
 .gh-actions {
   display: flex;
   flex-wrap: wrap;
@@ -745,14 +596,16 @@
 .gh-btn.btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   min-height: 44px;
-  padding: 0 18px;
+  padding: 0 var(--sp-5);
   border-radius: var(--r-pill);
 }
+/* Details is a quiet link: Deep Sky words (5.57 on Paper). Spelled out here because the shared `:root .btn` sets Night Ink
+   after `.btn.quiet` and wins the tie (styles/shape.css) */
 .gh-btn.btn.quiet {
-  padding: 0 10px;
-  color: var(--ink-2);
+  padding: 0 var(--sp-3);
+  color: var(--accent-text);
 }
 
 /* unset: the whole card asks */
@@ -760,6 +613,7 @@
   justify-items: stretch;
   gap: 10px;
 }
+/* the sun rising behind the question: Apricot light, flat, no halo (guide 3.1, 5.3); the card's only warm light */
 .gh-sun {
   position: absolute;
   z-index: -1;
@@ -768,9 +622,7 @@
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 40%, #ffd76a, #ffb21d 70%);
-  box-shadow: 0 0 60px rgba(255, 190, 40, 0.45);
-  opacity: 0.9;
+  background: radial-gradient(circle at 40% 40%, var(--horizon-2), var(--apricot) 72%);
 }
 .gh-ask {
   max-width: 82%;
@@ -780,46 +632,39 @@
   color: var(--ink);
   text-wrap: balance;
 }
+/* the screen's one primary (guide 6.2): Sky, Night Ink 650 words (7.03), the primary glow; it presses with the card */
 .gh-cta {
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   height: 46px;
-  margin-top: 6px;
-  padding: 0 20px 0 16px;
+  margin-top: var(--sp-1);
+  padding: 0 var(--sp-6) 0 var(--sp-5);
   border-radius: var(--r-pill);
-  background: var(--navy-pill);
-  color: #fff;
-  font: 650 var(--fs-sub) / 1 var(--sans);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), var(--navy-glow);
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: 650 var(--fs-row) / 1 var(--sans);
+  box-shadow: var(--primary-glow);
 }
 
 /* ---------- the week, the month, the year: a card each with its ring ---------- */
+/* a card (guide 6.4): Paper, r 24, one soft shadow; the 84 px floor keeps its height with the guide's 16 px padding */
 .gl-card.pressable {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--sp-4);
   width: 100%;
   min-width: 0;
   min-height: 84px;
-  padding: 14px 12px 14px 14px;
-  border-radius: 20px;
+  padding: var(--sp-4) var(--sp-3) var(--sp-4) var(--sp-4);
+  border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
-  transition:
-    transform 160ms var(--ease-out),
-    box-shadow 200ms var(--ease-out);
-}
-/* a goal kept: its level's colour washes in from the ring */
-.gl-card.is-done {
-  background:
-    radial-gradient(90% 120% at 0% 50%, color-mix(in srgb, var(--hue) 14%, transparent), transparent 62%),
-    var(--surface);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .gl-ring {
   position: relative;
@@ -833,48 +678,46 @@
   height: 100%;
   overflow: visible;
 }
+/* one ring for every level (no per-level hue, guide 6.4): a Haze track, the Deep Sky arc (4.43 on Haze), no glow. Unset,
+   a dashed Deep Sky ring around a plus, the way a planned bar is drawn (guide 6.8) */
 .gl-ring-track,
 .gl-ring-arc {
   fill: none;
   stroke-width: 5;
 }
 .gl-ring-track {
-  stroke: color-mix(in srgb, var(--hue) 16%, transparent);
+  stroke: var(--haze);
 }
 .gl-ring.is-empty .gl-ring-track {
-  stroke: color-mix(in srgb, var(--hue) 45%, transparent);
-  stroke-width: 2;
-  stroke-dasharray: 3 4;
+  stroke: var(--deep-sky);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
 }
 .gl-ring-arc {
-  stroke: var(--hue);
+  stroke: var(--deep-sky);
   stroke-linecap: round;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--hue) 55%, transparent));
 }
 .gl-ring-mid {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  color: color-mix(in srgb, var(--hue) 70%, var(--ink));
-}
-.gl-ring.is-done .gl-ring-mid {
-  color: color-mix(in srgb, var(--hue) 60%, var(--ink));
+  color: var(--deep-sky);
 }
 .gl-ring.is-partly .gl-ring-mid,
 .gl-ring.is-missed .gl-ring-mid {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .gl-ring-num {
-  font: 700 0.8125rem / 1 var(--stamp);
-  letter-spacing: -0.01em;
+  font: 600 var(--fs-foot) / 1 var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .gl-ring-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--hue);
+  background: var(--deep-sky);
 }
 .gl-main {
   flex: 1;
@@ -898,15 +741,22 @@
 }
 .gl-chip {
   height: 22px;
-  padding: 0 8px;
-  background: var(--well);
-  box-shadow: var(--well-shadow);
-  font-weight: 600;
+  padding: 0 var(--sp-2);
 }
+/* the answer: Done on Haze in Night Ink (12.64), Partly in warning words on its soft ground, Missed in Dusk on Cloud */
 .gl-chip.is-done {
-  background: color-mix(in srgb, var(--hue) 18%, var(--surface));
+  background: var(--haze);
   box-shadow: none;
-  color: color-mix(in srgb, var(--hue) 50%, var(--ink));
+  color: var(--ink);
+}
+.gl-chip.is-partly {
+  background: var(--warn-soft);
+  box-shadow: none;
+  color: var(--warn-text);
+}
+.gl-chip.is-missed {
+  background: var(--cloud);
+  box-shadow: none;
 }
 .gl-text {
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
@@ -930,13 +780,13 @@
 }
 .gl-chev {
   flex: none;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 /* the narrowest phones: a smaller ring so the period and its chip keep their words */
 @media (max-width: 359px) {
   .gl-card.pressable {
-    gap: 10px;
-    padding-left: 12px;
+    gap: var(--sp-3);
+    padding-left: var(--sp-3);
   }
   .gl-ring {
     width: 44px;
@@ -944,7 +794,7 @@
   }
   .gh,
   .gh.pressable {
-    padding-inline: 16px;
+    padding-inline: var(--sp-4);
   }
 }
 
@@ -953,46 +803,46 @@
   display: grid;
   /* two across; at large text sizes (a chip narrower than 7.5rem) they stack so each title stays whole */
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
-  gap: 8px;
+  gap: var(--sp-2);
   min-width: 0;
 }
+/* a chip (guide 6.3): Paper, r 18, one soft shadow, the same icon disc as every chip and no per-feature hue */
 .ga-chip.pressable {
   display: grid;
   align-content: center;
-  gap: 3px;
+  gap: var(--sp-1);
   min-width: 0;
   min-height: 60px;
-  padding: 8px 8px 8px 9px;
-  border-radius: 18px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-chip);
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
-  transition: transform 160ms var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .ga-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   min-width: 0;
 }
+/* the icon disc: a Haze circle (under 28 px a tile is a circle, guide 5.2) with a Deep Sky glyph */
 .ga-ic {
   flex: none;
   display: grid;
   place-items: center;
   width: 22px;
   height: 22px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--hue) 16%, var(--surface));
-  color: color-mix(in srgb, var(--hue) 55%, var(--ink));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 22%, transparent);
+  border-radius: 50%;
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .ga-title {
   flex: 1;
   min-width: 0;
-  font: 600 var(--fs-sub) / 1.125rem var(--sans);
-  letter-spacing: -0.01em;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -1005,10 +855,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: var(--sp-2);
   min-width: 0;
   min-height: 22px;
-  padding-right: 2px;
 }
 .ga-goal,
 .ga-none {
@@ -1022,26 +871,22 @@
 .ga-none {
   color: var(--ink-3);
 }
-/* the action: a small navy pill, the one verb on the chip */
+/* the action: "+ Set" as a quiet Deep Sky link, not a pill (guide 6.3): the screen keeps its one Sky primary. The whole
+   chip is its target */
 .ga-pill {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  height: 22px;
-  padding: 0 9px 0 6px;
-  border-radius: var(--r-pill);
-  background: var(--navy-pill);
-  color: #fff;
-  font: 650 0.75rem / 1 var(--sans);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 4px 10px -5px rgba(15, 42, 68, 0.55);
+  gap: var(--sp-1);
+  min-height: 22px;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 
 /* ---------- the four numbers: goals kept per level ---------- */
 .g-scores {
   display: grid;
-  gap: 10px;
+  gap: var(--sp-3);
 }
 .g-scores-row {
   display: grid;
@@ -1069,32 +914,39 @@
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
 }
+/* each level's 3 px marker: Deep Sky, one color for all four (no per-level hue); behind the span before, Marigold, with
+   the number and the words under it in warning text (a warning is a mark plus words, guide 3.1) */
 .g-sc-lv i {
   flex: none;
   width: 3px;
   height: 11px;
-  border-radius: 2px;
-  background: var(--hue);
+  border-radius: var(--r-pill);
+  background: var(--deep-sky);
 }
+.g-sc.is-behind .g-sc-lv i {
+  background: var(--warn);
+}
+/* goals kept: a count that changes, Inter 650 with even figures on the tile step (26/32), never a stamp face */
 .g-sc-num {
-  font: 700 1.625rem / 2rem var(--stamp);
-  letter-spacing: -0.02em;
+  font: 650 var(--fs-section) / var(--lh-section) var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .g-sc-num small {
-  font: 600 var(--fs-sub) / 1 var(--sans);
+  font: 500 var(--fs-sub) / 1 var(--sans);
   letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .g-sc.is-none .g-sc-num {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .g-sc.is-behind .g-sc-num {
-  color: var(--accent-text);
+  color: var(--warn-text);
 }
 .g-sc-why {
   font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  color: var(--accent-text);
+  color: var(--warn-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1112,16 +964,13 @@
   display: grid;
   gap: 6px;
 }
-.g-nudge-label {
-  color: var(--accent-text);
-}
+/* "To review": the label in Dusk like every card label, its glyph Deep Sky (a glyph needs 3:1; Sky is 2.26) */
 .g-nudge-label > svg {
-  color: var(--accent);
+  color: var(--deep-sky);
 }
 .g-nudge-title {
   margin: 0;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
   color: var(--ink);
 }
 .g-nudge-list {
@@ -1155,19 +1004,22 @@
 .g-nudge-more {
   color: var(--ink-3);
 }
+/* "Review it" is a secondary (Paper, an edge): "Set today's goal" above is the screen's one primary (guide 6.2) */
 .g-nudge-btn.btn {
   justify-self: start;
   min-height: 44px;
-  margin-top: 6px;
-  padding: 0 16px;
+  margin-top: var(--sp-2);
+  padding: 0 var(--sp-5);
 }
 
 /* steps on a card: rows split by hairlines, the mark lined up under the words */
+/* a checked step's coin is the lit Sky one (--mk, the to-do mark's fill) */
 .g-steps {
   list-style: none;
   margin: 0;
   padding: 0;
   min-width: 0;
+  --mk: var(--accent);
 }
 .g-steps.compact {
   margin: 0 -6px;
@@ -1196,7 +1048,7 @@
 .g-step.is-done .g-step-text {
   color: var(--ink-3);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
+  text-decoration-color: var(--ink-3);
 }
 /* in a sheet: the steps as rows of an inset group, 56 tall */
 .g-steps.k-rows {
@@ -1213,9 +1065,9 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--columbia-wash);
+  background: var(--haze);
   font: 600 var(--fs-foot) / 1 var(--sans);
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .g-step-x {
   display: grid;
@@ -1225,7 +1077,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .g-step-add {
   grid-template-columns: minmax(0, 1fr);
@@ -1233,9 +1085,9 @@
 .g-step-addbtn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   min-height: 52px;
-  padding: 0 0 0 12px;
+  padding: 0 0 0 var(--sp-3);
   border: 0;
   background: none;
   color: var(--accent-text);
@@ -1254,17 +1106,7 @@
   outline: none;
 }
 .g-step-input::placeholder {
-  color: var(--ink-4);
-}
-
-/* the rows (Ahead, History): 64 with the caps over the words; separators start at the words */
-.g-row.pressable {
-  min-height: 64px;
-  padding: 10px 16px;
-  border-bottom: 0;
-}
-.g-row.compact {
-  min-height: 64px;
+  color: var(--ink-3);
 }
 
 /* ---------- the sheets ---------- */
@@ -1286,36 +1128,34 @@
   letter-spacing: 0;
   color: var(--ink);
 }
-/* the goal's words: a white card to write in */
+/* the goal's words: a field (guide 6.14), Paper with the field edge, Inter 17 (Fraunces never sets an input), a Dusk
+   placeholder; focused, the Deep Sky edge and the Sky ring */
 .gs-input {
   width: 100%;
   min-height: 128px;
-  padding: 14px 16px;
-  border-radius: var(--r-card);
-  border: 1.5px solid transparent;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-control);
+  border: 1px solid var(--field-edge);
   background: var(--surface);
-  box-shadow: var(--shadow-1);
   color: var(--ink);
-  font-size: max(16px, var(--fs-sentence));
-  line-height: var(--lh-sentence);
+  font: 400 max(16px, var(--fs-row)) / var(--lh-row) var(--sans);
   resize: none;
 }
 .gs-input::placeholder,
 .gs-note::placeholder {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .gs-input:focus {
   outline: none;
-  border-color: var(--ink-2);
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
 .k-foot.gs-hint {
   margin: -4px var(--pad-card) 0;
 }
+/* "Sharpened by the assistant": Deep Sky words (5.57 on Paper) */
 .gs-sharp-label {
   color: var(--accent-text);
-}
-.gs-sharp-label > svg {
-  color: var(--accent);
 }
 .gs-why {
   margin: 0;
@@ -1334,7 +1174,7 @@
   margin: -2px 0 0;
 }
 .gs-from-why {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 /* the mark on words the review rewrote */
 .gs-from-ai {
@@ -1345,10 +1185,6 @@
   font-weight: 600;
   color: var(--ink-2);
   white-space: nowrap;
-}
-.gs-from-ai > svg {
-  flex: none;
-  color: var(--accent);
 }
 /* the gauge tile: the half arc, a hairline, the goal's words */
 .g-gauge-card {
@@ -1368,10 +1204,17 @@
   height: auto;
   overflow: visible;
 }
-/* the note: a white card with the field filling it */
-.gs-note-card {
+/* the note: a field (guide 6.14), the field edge and no shadow; focused, the Deep Sky edge and the Sky ring */
+.gs-note-card.k-card {
   display: block;
-  padding: 4px;
+  padding: var(--sp-1);
+  border-radius: var(--r-control);
+  border: 1px solid var(--field-edge);
+  box-shadow: none;
+}
+.gs-note-card.k-card:focus-within {
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
 .gs-note {
   display: block;
@@ -1438,14 +1281,15 @@
 }
 .g-answer.is-partly.on {
   background: var(--warn-soft);
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
 }
 .g-answer.is-missed.on {
   background: var(--surface-3);
   color: var(--ink);
 }
 
-/* the two ways to set a goal: white choice cards, the chosen one outlined in navy with a check */
+/* the two ways to set a goal: Paper choice cards; the chosen one outlined in Deep Sky (3:1) with the lit check, a Sky disc
+   carrying a Night Ink check, so the choice is never color alone */
 .g-choices {
   display: grid;
   gap: var(--gap);
@@ -1454,10 +1298,10 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   width: 100%;
   min-height: 76px;
-  padding: 14px var(--pad-card);
+  padding: var(--sp-4) var(--pad-card);
   border: 1.5px solid transparent;
   border-radius: var(--r-tile);
   background: var(--surface);
@@ -1465,23 +1309,23 @@
   color: var(--ink);
   text-align: left;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color var(--dur-color) var(--ease-out);
 }
 .g-choice.is-on {
-  border-color: var(--ink);
+  border-color: var(--deep-sky);
 }
+/* the icon tile (guide 6.4): 32 px, Haze, a Deep Sky glyph */
 .g-choice-ic {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--r-icon);
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .g-choice-main {
   display: grid;
-  gap: 2px;
+  gap: var(--sp-1);
   min-width: 0;
 }
 .g-choice-title {
@@ -1491,18 +1335,19 @@
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
+/* the checkbox (guide 6.14): 22 px; off a field-edge ring, on a Sky disc with a Night Ink check */
 .g-choice-check {
   display: grid;
   place-items: center;
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
-  color: var(--primary-ink);
+  border: 1.5px solid var(--field-edge);
+  color: var(--ink);
 }
 .g-choice.is-on .g-choice-check {
-  border-color: var(--ink);
-  background: var(--ink);
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 /* ---------- the history ---------- */
@@ -1534,14 +1379,15 @@
 .g-hrow.is-done .g-row-text {
   color: var(--ink-2);
 }
+/* the line written after the review: Inter has no italic face (and none is faked), so it is set upright in Dusk */
 .g-hrow-note {
-  font: italic 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .g-state {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--sp-1);
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   white-space: nowrap;
   color: var(--ink-3);
@@ -1550,7 +1396,7 @@
   color: var(--accent-text);
 }
 .g-state.is-partly {
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
 }
 .g-hrow.is-owed .g-state {
   color: var(--ink-2);
@@ -1585,7 +1431,7 @@
   color: var(--accent-text);
 }
 .g-feed-row.is-partly .g-feed-what {
-  color: var(--warn-text, #8f5800);
+  color: var(--warn-text);
 }
 .g-feed-row.is-cleared .g-feed-what,
 .g-feed-row.is-missed .g-feed-what {
@@ -1627,7 +1473,7 @@
 }
 .g-choice.is-off .g-choice-title,
 .g-choice.is-off .g-choice-ic {
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .g-choice.is-off .g-choice-check {
   visibility: hidden;
@@ -1692,9 +1538,10 @@
   padding: 6px 4px;
   text-align: left;
 }
+/* the carry-over glyph in Dusk: Apricot is light, never a glyph (2.0 on Cloud, guide 3.1); the words carry the row */
 .carry-icon {
   flex: none;
-  color: var(--sun);
+  color: var(--ink-2);
 }
 .carry-words {
   flex: 1 1 auto;
@@ -1705,8 +1552,8 @@
 }
 .carry-lead {
   font-size: var(--fs-foot);
-  line-height: 1.125rem;
-  color: var(--ink-3);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
 }
 .carry-goal {
   display: block;

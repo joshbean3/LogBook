@@ -1,5 +1,5 @@
 import { goalProgress, type Aim, type GoalLevel } from '@logbook/shared';
-import { Check, PenLine, Sparkles } from 'lucide-react';
+import { Check, MessageCircle, PenLine } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useOpenAssistant } from '@/features/assistant/openAssistant';
@@ -21,7 +21,7 @@ const arcPath = `M ${GW / 2 - GR} ${GR + 14} A ${GR} ${GR} 0 0 1 ${GW / 2 + GR} 
 
 /**
  * The goal's half-arc gauge (its sheet): the arc fills with the steps done, a tick marks how much of the period is used.
- * An arc short of its tick is behind the clock and turns orange. A goal with no steps fills once it is done.
+ * An arc short of its tick is behind the clock and turns Marigold, with the words. A goal with no steps fills once it is done.
  */
 export const HalfGauge = ({ goal, now, starts }: { goal: Aim; now: number; starts?: string }) => {
   const reduce = useReduced();
@@ -47,7 +47,7 @@ export const HalfGauge = ({ goal, now, starts }: { goal: Aim; now: number; start
         {starts ? null : <line x1={cx - nx * 15} y1={cy - ny * 15} x2={cx + nx * 15} y2={cy + ny * 15} className="g-gauge-tick" />}
       </svg>
       <div className="g-gauge-mid">
-        <span className="stamp tnum g-gauge-big">
+        <span className="tnum g-gauge-big">
           {word ?? (
             <>
               {k}
@@ -87,13 +87,13 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
     ask(today, suggestRequest(level, period, today));
   };
   const cards: Array<{ id: Way; icon: React.ReactNode; title: string; sub: string; off?: boolean }> = [
-    { id: 'mine', icon: <PenLine size={20} aria-hidden="true" />, title: 'Set it myself', sub: access === 'on' ? 'Write it your way. Claude reviews the wording.' : 'Write it your way. It saves as written.' },
+    { id: 'mine', icon: <PenLine size={18} aria-hidden="true" />, title: 'Set it myself', sub: access === 'on' ? 'Write it your way. Claude reviews the wording.' : 'Write it your way. It saves as written.' },
     ...(access === 'none'
       ? []
       : [
           canSuggest
-            ? { id: 'suggest' as const, icon: <Sparkles size={20} aria-hidden="true" />, title: 'Suggest one for me', sub: 'The assistant looks at your recent training and goals, then proposes one.' }
-            : { id: 'suggest' as const, icon: <Sparkles size={20} aria-hidden="true" />, title: 'Suggest one for me', sub: 'Assistant access is off, so the assistant can’t see your training or goals. Turn it on in Settings.', off: true },
+            ? { id: 'suggest' as const, icon: <MessageCircle size={18} aria-hidden="true" />, title: 'Suggest one for me', sub: 'The assistant looks at your recent training and goals, then proposes one.' }
+            : { id: 'suggest' as const, icon: <MessageCircle size={18} aria-hidden="true" />, title: 'Suggest one for me', sub: 'Assistant access is off, so the assistant can’t see your training or goals. Turn it on in Settings.', off: true },
         ]),
   ];
   return (
@@ -120,7 +120,7 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
               <span className="g-choice-sub">{c.sub}</span>
             </span>
             <span className="g-choice-check" aria-hidden="true">
-              {way === c.id ? <Check size={14} strokeWidth={3} /> : null}
+              {way === c.id ? <Check size={14} /> : null}
             </span>
           </button>
         ))}

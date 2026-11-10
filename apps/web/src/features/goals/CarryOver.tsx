@@ -41,7 +41,7 @@ export const CarryOver = ({ today, className = '' }: { today: ISODate; className
   };
   return (
     <Pressable className={`carry ${className}`.trim()} press="dim" onPress={carry} label={`Carry over yesterday’s goal: ${from.text}`}>
-      <CornerDownRight size={16} strokeWidth={2.4} aria-hidden="true" className="carry-icon" />
+      <CornerDownRight size={18} aria-hidden="true" className="carry-icon" />
       <span className="carry-words" aria-hidden="true">
         <span className="carry-lead">Carry over yesterday’s</span>
         <span className="carry-goal">{from.text}</span>

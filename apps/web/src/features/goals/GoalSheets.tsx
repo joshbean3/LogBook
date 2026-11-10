@@ -124,7 +124,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
         </section>
         {!existing?.steps.length ? (
           <>
-            <h3 className="k-sheet-label">{steps.length ? 'Steps suggested by AI · drop any, add your own' : 'Steps · add your own'}</h3>
+            <h3 className="k-sheet-label">{steps.length ? 'Steps suggested by the assistant · drop any, add your own' : 'Steps · add your own'}</h3>
             <DraftSteps steps={steps} onChange={setSteps} />
           </>
         ) : null}
@@ -152,7 +152,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { leve
         <span className="sr-only">{periodCaps(level, period, today)}</span>
         <textarea
           ref={field}
-          className="gs-input serif"
+          className="gs-input"
           rows={3}
           maxLength={400}
           placeholder={LEVEL[level].example}
