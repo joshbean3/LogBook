@@ -31,15 +31,15 @@ const TodayCard = ({ today, items, onOpen }: { today: string; items: Learning[];
             <Line key={l.id} item={l} onOpen={onOpen} className="is-today" />
           ))}
         </div>
-        <Composer key="quiet" today={today} quiet />
       </>
     ) : (
       <>
         <h2 className="ln-prompt">What did you learn today?</h2>
         <p className="ln-hint">Name one thing and why it matters. Like: “Strides after easy runs keep my legs quick.”</p>
-        <Composer key="hero" today={today} />
       </>
     )}
+    {/* one field for both states (the same place in the tree), so it and its words survive the swap above */}
+    <Composer today={today} quiet={items.length > 0} />
   </section>
 );
 

@@ -1,6 +1,6 @@
 import type * as React from 'react';
 import { fmtDate, LEARNING_MAX, shiftDays, type Learning } from '@logbook/shared';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useTabScroller } from '@/app/NavController';
 import { revealField } from '@/lib/keyboard';
 import { Button } from '@/ui/primitives';
@@ -8,6 +8,7 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { KPin, KTrash } from '../goals/Kit';
+import { submitDraft, todayDraft } from './draft';
 import { useLearnedMutations } from './queries';
 
 /* The pieces the tab and a month's page share: the field, the edit sheet, a learning as words, days under month headings. */
@@ -24,41 +25,40 @@ export const statsWords = (s: { days: number; streak: number; total: number }) =
 };
 
 /** A field that grows with its words and never scrolls inside itself. */
-const useGrow = (ref: React.RefObject<HTMLTextAreaElement | null>, text: string) =>
+const useGrow = (ref: React.RefObject<HTMLTextAreaElement | null>, text: string, rows = 0) =>
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [ref, text]);
+  }, [ref, text, rows]);
 
 /**
  * The words and Save. `hero`: the day's first, at the size of the prompt above it. `quiet`: "Add another", one line until
  * there are words, Save only then. ⌘/Ctrl+Enter saves. The field is kept above the keyboard on focus (`revealField`).
+ * One field serves both: it stays mounted when the day's first learning lands, and its words live in `todayDraft`, so a
+ * save the server rejects puts them back in the field whichever state the card is in by then.
  */
 export const Composer = ({ today, quiet }: { today: string; quiet?: boolean }) => {
   const { add } = useLearnedMutations(today);
   const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = useState('');
-  useGrow(ref, text);
+  const text = useSyncExternalStore(todayDraft.subscribe, todayDraft.get, todayDraft.get);
+  const rows = quiet ? 1 : 3;
+  useGrow(ref, text, rows);
   const v = text.trim();
-  const save = () => {
-    if (!v) return;
-    setText('');
-    add.mutate({ date: today, text: v }, { onError: () => (setText(v), toast('Couldn’t save that. Your words are back in the field.')) });
-  };
+  const save = () => submitDraft(todayDraft, (words) => add.mutateAsync({ date: today, text: words }), () => toast('Couldn’t save that. Your words are back in the field.'));
   return (
     <div className={`ln-compose ${quiet ? 'is-quiet' : ''}`}>
       <textarea
         ref={ref}
         className="ln-field"
-        rows={quiet ? 1 : 3}
+        rows={rows}
         maxLength={LEARNING_MAX}
         placeholder={quiet ? 'Add another' : 'One thing, in a sentence or two'}
         aria-label={quiet ? 'Add another thing you learned today' : 'What you learned today'}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => todayDraft.set(e.target.value)}
         onFocus={(e) => revealField(e.currentTarget)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
