@@ -1,4 +1,4 @@
-/* ---------- the effort check-in (Effort.tsx): a dial from Columbia Blue to orange, the number glowing ---------- */
+/* ---------- the effort check-in (Effort.tsx): a dial on a sequential blue ramp, Haze to Twilight (never orange for a scale) ---------- */
 .eff {
   display: grid;
   justify-items: center;
@@ -16,7 +16,7 @@
   color: var(--ink-3);
 }
 .eff-dial {
-  --eff: var(--columbia);
+  --eff: var(--haze);
   position: relative;
   width: min(240px, 100%);
   aspect-ratio: 240 / 200;
@@ -29,18 +29,19 @@
   touch-action: none;
   cursor: pointer;
   overflow: visible;
-  border-radius: 24px;
+  border-radius: var(--r-card);
 }
 .eff-dial svg:focus {
   outline: none;
 }
 .eff-dial svg:focus-visible {
-  outline: 2px solid var(--ink-2);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 4px;
+  box-shadow: var(--focus-ring);
 }
 .eff-seg {
   fill: none;
-  stroke: var(--columbia-wash);
+  stroke: var(--cloud);
   stroke-width: 18;
   stroke-linecap: round;
   transition: stroke var(--dur-color) var(--ease-out);
@@ -49,7 +50,7 @@
   fill: var(--surface);
   stroke: var(--eff);
   stroke-width: 5;
-  filter: drop-shadow(0 0 8px var(--eff)) drop-shadow(0 2px 4px rgba(15, 42, 68, 0.18));
+  filter: drop-shadow(0 2px 4px rgba(14, 34, 54, 0.18));
   transition: stroke var(--dur-color) var(--ease-out);
 }
 .eff-mid {
@@ -59,25 +60,21 @@
   justify-items: center;
   pointer-events: none;
 }
-/* the number's light: the dial's colour rising from under it */
+/* no light under the number (no glows, guide 5.3): the dial's color is on its arc and the chip */
 .eff-glow {
-  position: absolute;
-  top: 6%;
-  width: 120px;
-  height: 90px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, var(--eff), transparent);
-  opacity: 0.45;
-  filter: blur(8px);
-  transition: background var(--dur-color) var(--ease-out);
+  display: none;
 }
+/* the number in the dial: the hero stat that changes (Inter 650 at --fs-stat-live, even figures), no glow; its line box
+   keeps the dial's height */
 .eff-num {
   position: relative;
-  /* a display numeral in a dial: it follows the text size to a limit */
-  font-size: clamp(64px, 4rem, 88px);
+  font-family: var(--sans);
+  font-weight: 650;
+  font-size: var(--fs-stat-live);
   line-height: clamp(68px, 4.25rem, 94px);
+  letter-spacing: var(--tr-hero);
+  text-transform: none;
   color: var(--ink);
-  text-shadow: 0 0 22px var(--eff);
 }
 .eff-word {
   position: relative;
@@ -129,7 +126,7 @@
   background: var(--surface-2);
 }
 .eff-chip {
-  --eff: var(--columbia-wash);
+  --eff: var(--cloud);
   flex: none;
   display: grid;
   place-items: center;
@@ -138,7 +135,9 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--eff) 28%, var(--surface));
   box-shadow: inset 0 0 0 2px var(--eff);
-  font-size: var(--fs-row);
+  font: 650 var(--fs-row) / 1 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--ink);
 }
 .eff-row:not(.has-value) .eff-chip {

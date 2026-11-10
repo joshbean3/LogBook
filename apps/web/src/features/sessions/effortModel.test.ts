@@ -13,8 +13,8 @@ describe('effort words', () => {
     for (const bad of [0, 11, 5.5, '6', null, undefined]) expect(effortOf(bad)).toBeNull();
   });
   it('runs from Columbia Blue at 1 to orange at 10', () => {
-    expect(effortColor(1)).toBe('#b9d9eb');
-    expect(effortColor(10)).toBe('#f2600c');
+    expect(effortColor(1)).toBe('#cbe8f8');
+    expect(effortColor(10)).toBe('#1b4870');
     expect(effortColor(5)).not.toBe(effortColor(6));
   });
 });

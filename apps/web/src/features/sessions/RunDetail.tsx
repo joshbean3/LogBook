@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useId, useMemo } from 'react';
 import { useRunHistory } from '@/api/queries';
 import { ease } from '@/lib/motion';
+import { useNowMark } from '@/ui/nowBudget';
 import { useFirstToday } from '@/ui/useFirstToday';
 import type { Log } from '../log/useLog';
 
@@ -28,31 +29,28 @@ export const recordLap = (runs: Activity[], records: RunRecord[]): Lap | null =>
   return r && run?.laps ? (run.laps[r.lap!] ?? null) : null;
 };
 
-/** The medal: a ribbon and a gold coin with PR on it. */
+/**
+ * The record's mark: the milestone stamp (guide 8.4), a round Sunrise stamp rotated -10 degrees with PR in Night Ink and
+ * a Paper keyline. It keeps the old medal's box, so the card around it does not move; one per screen, a stamp-priority
+ * Sunrise mark (Night Ink once the screen's budget is spent).
+ */
 export const Medal = ({ size = 40 }: { size?: number }) => {
-  const id = useId().replace(/:/g, '');
+  const now = useNowMark('stamp');
   return (
-    <svg className="medal" width={size} height={size * 1.15} viewBox="0 0 40 46" aria-hidden="true">
-      <defs>
-        <radialGradient id={`m${id}`} cx="35%" cy="30%" r="75%">
-          <stop offset="0" stopColor="#ffe9a3" />
-          <stop offset="0.55" stopColor="#ffc83d" />
-          <stop offset="1" stopColor="#e89a00" />
-        </radialGradient>
-      </defs>
-      <path d="M9 2h9l4 14h-9z" fill="#ff5b5b" />
-      <path d="M31 2h-9l-4 14h9z" fill="#ff8a5b" />
-      <circle cx="20" cy="28" r="15" fill={`url(#m${id})`} stroke="#b37400" strokeWidth="1.5" />
-      <text x="20" y="32.5" textAnchor="middle" className="medal-pr">
-        PR
-      </text>
+    <svg className="medal" width={size} height={size * 1.15} viewBox="0 0 40 46" aria-hidden="true" data-now={now === 'ink' ? 'ink' : undefined}>
+      <g transform="rotate(-10 20 25)">
+        <circle cx="20" cy="25" r="16" className="medal-disc" />
+        <text x="20" y="29.5" textAnchor="middle" className="medal-pr">
+          PR
+        </text>
+      </g>
     </svg>
   );
 };
 
 /**
- * The route at the top of the sheet: the line drawn in from the start (a mint dot) to the finish (a checkered flag), on a
- * dark map, with a gold medal pinned where a record was set (the fastest mile, at that mile). It draws itself the first
+ * The route at the top of the sheet: the Deep Sky line drawn in from the start (a Paper dot ringed in Night Ink) to the
+ * finish (a checkered flag), on Cloud, with a PR pin where a record was set (the fastest mile, at that mile). It draws itself the first
  * time it is seen today.
  */
 export const RouteMap = ({ polyline, drawKey, run, records = [] }: { polyline: string; drawKey: string; run?: Activity | null; records?: RunRecord[] }) => {
@@ -81,21 +79,16 @@ export const RouteMap = ({ polyline, drawKey, run, records = [] }: { polyline: s
     <div className="ss-map" aria-hidden="true">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet">
         <defs>
-          <linearGradient id={`r${id}`} x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0" stopColor="#ff8a5b" />
-            <stop offset="1" stopColor="#ff4d3d" />
-          </linearGradient>
           <pattern id={`c${id}`} width="6" height="6" patternUnits="userSpaceOnUse">
-            <rect width="6" height="6" fill="#fff" />
-            <rect width="3" height="3" fill="#000" />
-            <rect x="3" y="3" width="3" height="3" fill="#000" />
+            <rect width="6" height="6" className="ss-flag-a" />
+            <rect width="3" height="3" className="ss-flag-b" />
+            <rect x="3" y="3" width="3" height="3" className="ss-flag-b" />
           </pattern>
         </defs>
-        <path d={g.d} className="ss-map-glow" />
-        <motion.path d={g.d} className="ss-map-line" stroke={`url(#r${id})`} initial={draw ? { pathLength: 0 } : false} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease }} />
+        <motion.path d={g.d} className="ss-map-line" initial={draw ? { pathLength: 0 } : false} animate={{ pathLength: 1 }} transition={{ duration: 1.1, ease }} />
         <circle cx={sx} cy={sy} r={12} className="ss-map-start" />
         <motion.g initial={draw ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ delay: draw ? 1.05 : 0, duration: 0.2 }}>
-          <circle cx={fx} cy={fy} r={8} fill={`url(#c${id})`} stroke="#fff" strokeWidth={2} />
+          <circle cx={fx} cy={fy} r={8} fill={`url(#c${id})`} className="ss-flag" strokeWidth={2} />
         </motion.g>
         {pins.map(({ r, x, y }, i) => {
           const left = x > W * 0.58;

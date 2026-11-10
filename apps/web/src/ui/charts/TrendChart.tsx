@@ -88,7 +88,8 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
   const x = (i: number) => LEFT + (n > 1 ? i * step : plotW / 2);
   // two ticks that would print the same label (0.5 and 1 as "1") keep only the first
   const ticks = niceTicks(lo, hi, 3, steps).filter((v, k, all) => all.findIndex((u) => format(u) === format(v)) === k);
-  const xl = labelIndices(n, plotW, 60);
+  // caption-style dates ("OCT 20", +0.14 em) need about 80 px each, so the end label never runs into the one before it
+  const xl = labelIndices(n, plotW, 80);
   // the Avg pill fits its words: 'Avg' and the value
   const avgW = avg != null ? Math.round(30 + format(avg).length * 6.2) : 0;
 

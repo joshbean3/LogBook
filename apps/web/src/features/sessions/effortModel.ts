@@ -30,10 +30,10 @@ export const effortLine = (n: number): string => {
 };
 
 /**
- * The dial's ten colours, Columbia Blue at 1 to orange at 10, by way of periwinkle, lavender and a warm pink like a sky at
- * dusk: a straight blend of blue and orange goes grey in the middle.
+ * The dial's ten colors: one sequential blue ramp, Haze at 1 by way of Sky (4) and Deep Sky (7) to Twilight at 10. Orange
+ * is never a scale or a series (guide 3.5, 6.8); the number and its word carry the value, the color only rises with it.
  */
-const EFFORT_COLORS = ['#b9d9eb', '#bcd0ee', '#c6c8ee', '#d6c2e6', '#e9c0d4', '#f7bfb4', '#fbaa86', '#f88f5a', '#f57834', '#f2600c'] as const;
+const EFFORT_COLORS = ['#cbe8f8', '#9ad7f6', '#69c7f4', '#38b6f2', '#299dd9', '#1985bf', '#0a6ca6', '#106094', '#155482', '#1b4870'] as const; // brand-ok: a sequential Haze, Sky, Deep Sky, Twilight ramp (guide 6.8: never orange for a series)
 /** The dial's colour at `n` (rounded, held to 1–10). */
 export const effortColor = (n: number): string => EFFORT_COLORS[Math.min(EFFORT_MAX, Math.max(EFFORT_MIN, Math.round(n))) - EFFORT_MIN]!;
 

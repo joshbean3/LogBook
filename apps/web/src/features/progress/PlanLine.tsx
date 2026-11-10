@@ -106,7 +106,7 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
     // a month starts a label where the lines are drawn (the first drawn week names its month)
     if (i < first || (i > first && monthOfWeek(p.w) === monthOfWeek(weeks[i - 1]!.w))) return;
     const lx = x(i);
-    if (xLabels.some((l) => Math.abs(l.x - lx) < 36)) return;
+    if (xLabels.some((l) => Math.abs(l.x - lx) < 44)) return;
     xLabels.push({ x: lx, text: monthOfWeek(p.w), anchor: i === 0 ? 'start' : 'middle' });
   });
   // the line draws in, then the fill under it settles

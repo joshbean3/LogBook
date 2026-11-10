@@ -31,10 +31,9 @@
   color: inherit;
 }
 .dpk-dow {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--ink-3);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
 }
 .dpk-pill {
   display: grid;
@@ -43,11 +42,11 @@
   gap: 4px;
   width: 40px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: var(--r-control);
 }
 .dpk-num {
-  font-family: var(--stamp);
-  font-weight: 800;
+  font-family: var(--sans);
+  font-weight: 600;
   /* seven share the row: the number follows the text size as far as its 40 px pill holds two digits */
   font-size: clamp(17px, 1.0625rem, 22px);
   line-height: clamp(20px, 1.25rem, 26px);
@@ -56,21 +55,23 @@
 .dpk-bar {
   width: 14px;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--tone);
 }
 .dpk-bar.none {
   background: transparent;
 }
+/* today a 1.5 px Night Ink ring; the picked day a Sky pill with Night Ink words (guide 6.13: today and the shown day are
+   never the same signal) */
 .dpk-day.is-today .dpk-pill {
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
 }
 .dpk-day.is-origin .dpk-pill {
   opacity: 0.45;
 }
 .dpk-day.is-sel .dpk-pill {
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--accent);
+  color: var(--accent-ink);
   opacity: 1;
 }
 /* The picker is full-bleed (its cells are W/7, ≥ 44 at 320), so in a sheet its edge cells reach into the body's gutters,
