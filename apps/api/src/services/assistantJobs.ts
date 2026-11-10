@@ -1,6 +1,9 @@
 import type { AssistantLive } from '@logbook/shared';
 import { ApiError, uid } from '../lib/util.js';
 
+/** What an unexpected failure says: never the error itself. */
+export const ASSISTANT_INTERNAL = 'Something went wrong on our side. Try again.';
+
 /**
  * An ask the phone does not wait on. A long ask (reading photos of a plan and writing fifty changes) can run for minutes;
  * a phone holding one request open that long loses it to a timeout, a weak signal or a locked screen. So the ask runs
@@ -61,7 +64,7 @@ export const startJob = <T>(userId: string, work: (ctx: JobContext) => Promise<T
       const status = e instanceof ApiError ? e.status : 500;
       const code = e instanceof ApiError ? (e.code ?? null) : 'internal';
       if (!(e instanceof ApiError)) console.error('[assistant job]', e);
-      job.state = { status: 'error', error: { message: e instanceof ApiError ? e.message : 'The assistant hit a problem on the server. Try again.', status, code } };
+      job.state = { status: 'error', error: { message: e instanceof ApiError ? e.message : ASSISTANT_INTERNAL, status, code } };
     },
   );
   return id;

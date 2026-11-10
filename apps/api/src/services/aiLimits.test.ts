@@ -66,7 +66,7 @@ describe('beginAi', () => {
   it('caps the calls running at once across every user with 503 claude_busy', () => {
     const releases = Array.from({ length: AI_MAX_RUNNING }, (_, i) => beginAi(`u${i}`, 'assistant'));
     const e = caught(() => beginAi('late', 'assistant'));
-    expect(e).toMatchObject({ status: 503, code: 'claude_busy', message: 'The assistant is busy. Try again in a minute.' });
+    expect(e).toMatchObject({ status: 503, code: 'claude_busy', message: 'The assistant is busy right now. Try again in a minute.' });
     expect(e.headers?.['Retry-After']).toBe('60');
     releases[0]!();
     beginAi('late', 'assistant')();

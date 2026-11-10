@@ -159,7 +159,7 @@ describe('GET /journal/recall', () => {
     expect(create).toHaveBeenCalledTimes(1);
     const params = create.mock.calls[0]![0] as { model: string; max_tokens: number; output_config: unknown; messages: Array<{ content: string }> };
     expect(params).toMatchObject({ model: env.ANTHROPIC_MODEL, max_tokens: 400, output_config: { effort: 'low' } });
-    expect(params.messages[0]!.content).toContain('by his first name, Josh,');
+    expect(params.messages[0]!.content).toContain('by their first name, Josh,');
     expect(params.messages[0]!.content).not.toContain('Smith');
   });
 

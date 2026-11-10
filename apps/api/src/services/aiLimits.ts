@@ -31,7 +31,7 @@ const dayOf = (now: number) => new Date(now).toISOString().slice(0, 10);
 const fresh = (day: string): Usage => ({ day, count: { assistant: 0, plan: 0, goal: 0 }, recent: { assistant: [], plan: [], goal: [] }, running: new Set() });
 
 const limited = (message: string, retryAfterSec: number) => new ApiError(429, message, 'rate_limited', { 'Retry-After': String(Math.max(1, Math.ceil(retryAfterSec))) });
-export const claudeBusy = () => new ApiError(503, 'The assistant is busy. Try again in a minute.', 'claude_busy', { 'Retry-After': '60' });
+export const claudeBusy = () => new ApiError(503, 'The assistant is busy right now. Try again in a minute.', 'claude_busy', { 'Retry-After': '60' });
 
 /**
  * Take a place for one Claude call, or throw. Call the function it returns when the call ends, however it ends.

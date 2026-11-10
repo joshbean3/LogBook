@@ -134,16 +134,16 @@ export const RECALL_SYSTEM = withSafety('You write one short reminder of somethi
 
 const promptFor = (c: RecallCandidate, name: string | null, today: ISODate): string => {
   const day = recallDay(c.date, today);
-  const who = name ? `Address him by his first name, ${name}, at the start.` : 'Do not use a name.';
+  const who = name ? `Address the user by their first name, ${name}, at the start.` : 'Do not use a name.';
   return [
-    `You write a one-line reminder for the owner of a private ${c.kind === 'learning' ? 'learning log' : 'journal'}, shown at the top of his journal so he does not forget what he wrote.`,
-    `Today is ${today}. He ${c.kind === 'learning' ? 'noted that he learned this' : 'wrote this'} on ${day}:`,
+    `You write a one-line reminder for the user of a private ${c.kind === 'learning' ? 'learning log' : 'journal'}, shown at the top of their journal so they do not forget what they wrote.`,
+    `Today is ${today}. The user ${c.kind === 'learning' ? 'noted that they learned this' : 'wrote this'} on ${day}:`,
     '<<<',
     c.text.slice(0, 4000),
     '>>>',
     '',
     `Write one short reminder of it: 1 or 2 sentences, at most ${RECALL.maxWords} words, in the second person. ${who} Name the day as "${day}".`,
-    `Example: "Josh, on Oct 12 you wrote that you wanted to stop skipping the warm-up before tempo runs. Don't forget that."`,
+    `Example: "${name ? '[Name], on' : 'On'} Oct 12 you wrote that you wanted to stop skipping the warm-up before tempo runs. Don't forget that."`,
     'Say only what the entry says: no advice or ideas beyond it, no exclamation marks, no quotes longer than 8 words, no emoji, no markdown. Reply with the reminder alone.',
   ].join('\n');
 };

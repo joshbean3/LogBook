@@ -94,7 +94,7 @@ export const goalRoutes = (db: DB) => {
         db.insert(goals).values({ id, userId, level, period, text: body.text, original, why: body.why ?? null, status: 'open', reflection: null, steps: JSON.stringify(body.steps ?? []), createdAt: now, updatedAt: now, closedAt: null, deletedAt: null }).run();
         log(userId, { id, level, period }, 'set', body.chose === 'kept' && body.original ? body.original : original ?? body.text, now);
       }
-      // what the review did, and what the owner chose: the sharpened words, or his own
+      // what the review did, and what the user chose: the sharpened words, or their own
       if (body.chose === 'sharpened' && original) log(userId, { id: id!, level, period }, 'sharpened', body.text, now);
       if (body.chose === 'kept') log(userId, { id: id!, level, period }, 'kept', body.text, now);
     });

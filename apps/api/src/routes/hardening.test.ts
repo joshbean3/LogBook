@@ -449,3 +449,24 @@ describe('import (settings-15, sec-18)', () => {
     }
   });
 });
+
+describe('assistant errors (assistant-11)', () => {
+  it('answer stable codes and plain lines, never a schema’s own words', async () => {
+    const { ASK_LIMITS } = await import('@logbook/shared');
+    const a = await signUp(app, 'a@example.com', PW);
+    const long = await a.call('POST', '/api/assistant', { date: '2026-11-10', turns: [{ role: 'user', text: 'x'.repeat(ASK_LIMITS.userText + 1) }] });
+    expect(long.status).toBe(413);
+    expect(long.body).toEqual({ error: 'That message was too long to send. Start a new chat or send less.', code: 'too_long' });
+    const bad = await a.call('POST', '/api/assistant', { date: 'soon', turns: [] });
+    expect(bad.status).toBe(422);
+    expect(bad.body).toEqual({ error: 'That message could not be sent. Start a new chat and try again.', code: 'validation' });
+    const res = await app.request('/api/assistant', { method: 'POST', headers: { 'content-type': 'application/json', cookie: a.cookie }, body: '{nope' });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe('bad_json');
+    const gone = await a.call('POST', '/api/assistant/aa_missing/apply', { skip: [1] });
+    expect(gone.body).toEqual({ error: 'Those changes are no longer here. Ask again.', code: 'proposal_gone' });
+    const skip = await a.call('POST', '/api/assistant/aa_missing/apply', { skip: ['x'] });
+    expect(skip.body.code).toBe('validation');
+    for (const r of [long, bad, skip]) expect(r.body.error).not.toMatch(/expected|Too big|Invalid|turns|skip/);
+  });
+});

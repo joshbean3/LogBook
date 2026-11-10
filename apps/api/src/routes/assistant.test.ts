@@ -315,7 +315,7 @@ describe('asking, with a fake Claude', () => {
   it('tells Claude the screen it was opened from, and nothing when the owner removed it', async () => {
     const withScreen = fakeClaude([{ type: 'text', text: 'Ok.' }]);
     await call('POST', '/api/assistant', { date: today(), screen: { tab: 'plan', week: '2026-11-09' }, turns: [{ role: 'user', text: 'What is on this week?' }] });
-    expect(sent(withScreen)).toContain('SCREEN: He opened you from Plan, week of Nov 9 (2026-11-09 to 2026-11-15).');
+    expect(sent(withScreen)).toContain('SCREEN: The user opened you from Plan, week of Nov 9 (2026-11-09 to 2026-11-15).');
     const without = fakeClaude([{ type: 'text', text: 'Ok.' }]);
     await call('POST', '/api/assistant', { date: today(), turns: [{ role: 'user', text: 'What is on this week?' }] });
     expect(sent(without)).not.toContain('SCREEN:');

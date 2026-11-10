@@ -22,13 +22,13 @@ describe('the messages for an ask with files', () => {
     const last = m[2]!.content as unknown as Array<Record<string, unknown>>;
     expect(last.map((b) => b.type)).toEqual(['image', 'text', 'text']);
     expect(last[0]).toMatchObject({ source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' }, cache_control: { type: 'ephemeral' } });
-    expect(last[1]).toMatchObject({ text: 'CONTEXT\nTODAY: 2026-11-02' });
+    expect(last[1]).toMatchObject({ text: expect.stringMatching(/^<context>\nTODAY: 2026-11-02[\s\S]*\n<\/context>$/) });
     expect(last[2]).toMatchObject({ text: 'Monday. And this is my week' });
   });
 
   it('gives a file sent with no words a line to answer, and leaves plain turns as they were', () => {
     const m = messagesFor([{ role: 'user', text: '', attachments: [jpg] }], 'C');
-    expect((m[0]!.content as unknown as Array<{ type: string; text?: string }>).map((b) => b.text ?? b.type)).toEqual(['image', 'CONTEXT\nC', 'Take a look at this.']);
+    expect((m[0]!.content as unknown as Array<{ type: string; text?: string }>).map((b) => b.text ?? b.type)).toEqual(['image', '<context>\nC\n</context>', 'Take a look at this.']);
     const plain = messagesFor([{ role: 'user', text: 'What is left this week?' }], 'C');
     expect((plain[0]!.content as unknown as Array<{ type: string }>).map((b) => b.type)).toEqual(['text', 'text']);
   });

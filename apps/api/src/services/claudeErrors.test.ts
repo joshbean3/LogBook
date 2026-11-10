@@ -35,7 +35,7 @@ describe('a failed Claude call', () => {
       for (const call of callers()) {
         const r = await call();
         expect(r.status).toBe(503);
-        expect(r.body).toEqual({ error: 'The assistant is busy. Try again in a minute.', code: 'claude_busy' });
+        expect(r.body).toEqual({ error: 'The assistant is busy right now. Try again in a minute.', code: 'claude_busy' });
         expect(r.headers.get('retry-after')).toBe('60');
       }
     }
@@ -58,10 +58,10 @@ describe('a failed Claude call', () => {
     form.set('file', new Blob(['not really a pdf'], { type: 'application/pdf' }), 'plan.pdf');
     const draft = await app.request('/api/plans/draft', { method: 'POST', headers: { cookie: me.cookie }, body: form });
     expect(draft.status).toBe(422);
-    expect(await draft.json()).toEqual({ error: 'That file could not be read.', code: 'bad_file' });
+    expect(await draft.json()).toEqual({ error: 'I couldn’t read that file. Try a photo of the page, or a PDF without a password.', code: 'bad_file' });
     const ask = await me.call('POST', '/api/assistant', { date: T, turns: [{ role: 'user', text: 'Put this in', attachments: [{ name: 'plan.pdf', mediaType: 'application/pdf', data: 'JVBERi0=' }] }] });
     expect(ask.status).toBe(422);
-    expect(ask.body).toEqual({ error: 'That file could not be read.', code: 'bad_file' });
+    expect(ask.body).toEqual({ error: 'I couldn’t read that file. Try a photo of the page, or a PDF without a password.', code: 'bad_file' });
   });
 
   it('never leaks the SDK message, and a failed call gives its place back', async () => {

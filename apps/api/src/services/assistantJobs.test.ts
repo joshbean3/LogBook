@@ -25,7 +25,7 @@ describe('an ask the phone does not wait on', () => {
     });
     await tick();
     expect(jobState('u1', a)).toEqual({ status: 'error', error: { message: 'That proposal is closed.', status: 409, code: 'stale_proposal' } });
-    expect(jobState('u1', b)).toEqual({ status: 'error', error: { message: 'The assistant hit a problem on the server. Try again.', status: 500, code: 'internal' } });
+    expect(jobState('u1', b)).toEqual({ status: 'error', error: { message: 'Something went wrong on our side. Try again.', status: 500, code: 'internal' } });
   });
 
   it('forgets a job half an hour after it started', () => {
