@@ -117,11 +117,21 @@ export const RaceStrip = ({ start, value, onChange }: { start: ISODate; value: I
     const t = setTimeout(() => (ready.current = true), 120);
     return () => clearTimeout(t);
   }, [scrollToIdx]);
-  // a change from outside (a new goal brings its own default day): glide there without ticking
+  // a glide from outside is under way: the days it passes are not choices (a finger on the strip, or 900 ms, ends it)
+  const glide = useRef<{ to: number; t: number } | null>(null);
+  const endGlide = () => {
+    if (glide.current) clearTimeout(glide.current.t);
+    glide.current = null;
+  };
+  useEffect(() => endGlide, []);
+  // a change from outside (a new goal brings its own default day, or the race warning's one-tap later date): glide there
+  // without ticking, and without picking any day on the way (the one tap lands where it says)
   useEffect(() => {
     const i = idxOf(value);
     if (i !== cur.current) {
       cur.current = i;
+      endGlide();
+      glide.current = { to: i, t: window.setTimeout(endGlide, 900) };
       scrollToIdx(i, true);
     }
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -133,6 +143,10 @@ export const RaceStrip = ({ start, value, onChange }: { start: ISODate; value: I
       const el = ref.current;
       if (!el || !ready.current) return;
       const i = Math.min(items.length - 1, Math.max(0, Math.round(el.scrollLeft / (ITEM + GAP))));
+      if (glide.current) {
+        if (i === glide.current.to && Math.abs(el.scrollLeft - i * (ITEM + GAP)) < 2) endGlide();
+        return;
+      }
       if (i !== cur.current) {
         cur.current = i;
         haptics.select();
@@ -159,6 +173,7 @@ export const RaceStrip = ({ start, value, onChange }: { start: ISODate; value: I
         aria-label="Race day"
         aria-activedescendant={`${listId}-${idxOf(value)}`}
         onScroll={onScroll}
+        onPointerDown={endGlide}
         onKeyDown={onKey}
       >
         {items.map((d, i) => {
@@ -377,7 +392,7 @@ const pct = (m: number) => ((m - TRACK_FROM) / (TRACK_TO - TRACK_FROM)) * 100;
 /**
  * Two markers on a 4:00–11:00 line: drag Wake and Leave in 5-minute steps (a select tick per step), or tap the line to bring
  * the nearer one there. Between them the morning draws itself live from the same timeline Morning uses: the run in its
- * colour, then the shower and getting ready. Each marker is a slider for the keyboard (arrows 5 min, Page keys 30).
+ * color, then the shower and getting ready. Each marker is a slider for the keyboard (arrows 5 min, Page keys 30).
  */
 export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', miles: 4 }, settings }: { wake: number; leave: number; onChange: (wake: number, leave: number) => void; run?: { type: string; miles: number }; settings?: MorningSettings | null }) => {
   const track = useRef<HTMLDivElement>(null);
