@@ -109,7 +109,9 @@ export const nativePackages = () => {
     const known = SWIFT_PACKAGES[url];
     if (!known) throw new Error(`${url} is a Swift package a plugin uses, with no license on file. Add its license to scripts/notices and to SWIFT_PACKAGES in scripts/notices.mjs.`);
     if (known.fromNpm) {
-      const dir = fs.realpathSync(resolve(web, known.fromNpm));
+      const found = resolve(web, known.fromNpm);
+      if (!found) throw new Error(`${known.fromNpm} is not installed. Run pnpm install.`);
+      const dir = fs.realpathSync(found);
       const info = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
       out.push({ name: known.name, version: info.version, license: licenseName(info), text: licenseText(dir), homepage: url.replace(/\.git$/, '') });
     } else {
@@ -263,7 +265,13 @@ ${body}
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  const html = build();
+  let html;
+  try {
+    html = build();
+  } catch (e) {
+    console.error(`acknowledgements: ${e instanceof Error ? e.message : e}`);
+    process.exit(1);
+  }
   if (process.argv[2] === '--check') {
     if (!fs.existsSync(OUT) || fs.readFileSync(OUT, 'utf8') !== html) {
       console.error('acknowledgements: apps/web/public/legal/acknowledgements.html is out of date: run node scripts/notices.mjs and commit');
