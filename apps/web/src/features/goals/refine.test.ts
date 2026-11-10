@@ -29,7 +29,7 @@ describe('the goal review', () => {
     const r = await reviewGoal(input, 'off', { send, offline: online });
     expect(send).not.toHaveBeenCalled();
     expect(r).toEqual({ kind: 'asTyped', why: 'consent' });
-    expect(AS_TYPED_WORDS.consent).toBe('Saved as written. Turn on assistant access in Settings to have goals reviewed.');
+    expect(AS_TYPED_WORDS.consent).toBe('Saved as written. Turn on Training data in Settings, Privacy, to have goals reviewed.');
   });
   it('sends nothing while the choice is unknown or the server has no assistant', async () => {
     const send = vi.fn();
