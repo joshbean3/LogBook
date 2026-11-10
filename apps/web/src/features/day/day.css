@@ -703,6 +703,7 @@
   display: block;
   min-width: 0;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 .ss-ring {
@@ -1106,6 +1107,7 @@
 }
 .cd-run-sub {
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 /* the quote line's slot while its module loads (44, the line's own height) */
@@ -1739,19 +1741,23 @@
   min-height: 196px;
   margin-top: 2px;
 }
-.hg-dial,
-.hg-ends {
+.hg-dial {
   position: absolute;
   left: 50%;
   top: 0;
   width: min(100%, 294px);
   height: 196px;
   transform: translateX(-50%);
-}
-.hg-dial {
   overflow: visible;
 }
+/* the end labels' box is the drawing's own (3 : 2, centered in the dial's box as the SVG draws it on a narrow phone) */
 .hg-ends {
+  position: absolute;
+  left: 50%;
+  top: 98px;
+  width: min(100%, 294px);
+  aspect-ratio: 3 / 2;
+  transform: translate(-50%, -50%);
   pointer-events: none;
 }
 /* the track: Haze, 16, round caps; no gradient, no shadow */
@@ -1850,11 +1856,12 @@
   text-align: center;
 }
 .hg .hero-stamp.is-long {
-  font-size: clamp(26px, 1.875rem, 36px);
-  line-height: clamp(30px, 2.125rem, 40px);
+  /* the long size holds at 30 with larger text: a name that needed it has no room to grow in the bowl */
+  font-size: clamp(26px, 1.875rem, 30px);
+  line-height: clamp(30px, 2.125rem, 34px);
 }
 .hg .hero-stamp.is-wrap {
-  line-height: clamp(32px, 2rem, 40px);
+  line-height: clamp(32px, 2rem, 32px);
   white-space: normal;
   text-wrap: balance;
   display: -webkit-box;
@@ -1895,6 +1902,7 @@
   border-radius: var(--r-pill);
   background: var(--surface);
   box-shadow: var(--shadow-pill);
+  min-height: 0;
   /* it follows the text size to 130% and holds there, so it stays a pill inside the bowl at large text */
   font: 500 clamp(17px, var(--fs-row), 22px) / clamp(22px, var(--lh-row), 28px) var(--sans);
   font-variant-numeric: tabular-nums;
@@ -1913,11 +1921,11 @@
   flex: none;
   color: var(--deep-sky);
 }
-/* 36 drawn, 44 to touch */
+/* 30 drawn, 44 to touch */
 .hero-week::after {
   content: '';
   position: absolute;
-  inset: calc(-1 * var(--sp-1)) 0;
+  inset: -7px 0; /* brand-ok: geometry, 7 + 30 + 7 = the 44 px hit (guide 5.1) */
 }
 
 /* the deck under the dial: 24 under the dial, 12 under the When switch, at least 56 so the ring at the card's bottom
@@ -1958,12 +1966,16 @@
   }
   /* and the name takes the guide's long size (30/34) from the start: at 40 it pushed the readout onto the track */
   .hg .hero-stamp {
-    font-size: clamp(26px, 1.875rem, 36px);
-    line-height: clamp(30px, 2.125rem, 40px);
+    font-size: clamp(26px, 1.875rem, 30px);
+    line-height: clamp(30px, 2.125rem, 34px);
   }
   .hg-in:has(.is-wrap) {
-    padding-top: 0;
+    padding-top: var(--sp-2);
   }
+}
+/* at large text the words keep their room under the end labels, wrapped or not (the card grows instead) */
+:root[data-text-xl] .hg-in {
+  padding-top: var(--sp-5);
 }
 .hl-narrow {
   display: none;
