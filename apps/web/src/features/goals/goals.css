@@ -448,7 +448,7 @@
 }
 .gh-mid {
   position: absolute;
-  /* full width so a stamp wider than the arc's opening still sits on the gauge's centre */
+  /* full width so a stamp wider than the arc's opening still sits on the gauge's center */
   inset: 22% 0 auto;
   display: grid;
   justify-items: center;
@@ -463,7 +463,7 @@
   white-space: nowrap;
 }
 .gh-stamp small {
-  font: 650 var(--fs-section) / 1 var(--sans);
+  font: 650 var(--fs-row) / 1 var(--sans);
   letter-spacing: 0;
   color: var(--ink-2);
 }
@@ -927,10 +927,11 @@
 .g-sc.is-behind .g-sc-lv i {
   background: var(--warn);
 }
-/* goals kept: a count that changes, Inter 650 with even figures on the tile step (26/32), never a stamp face */
+/* goals kept: a count that changes, Inter 650 with even figures, never a stamp face. At the row size (17) in the old
+   32 px line: with the gauge's 44 the screen keeps to five Inter sizes (guide 4.5) */
 .g-sc-num {
-  font: 650 var(--fs-section) / var(--lh-section) var(--sans);
-  letter-spacing: var(--tr-hero);
+  font: 650 var(--fs-row) / var(--lh-section) var(--sans);
+  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }

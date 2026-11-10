@@ -5,8 +5,8 @@ import { useReduced } from '@/lib/motion';
 import './goals.css';
 
 /**
- * The burst when something is finished: a ring of light thrown out from the centre, sparks after it in the accent, amber and
- * white (500 ms; 700 ms and wider when `big`). Reduced motion: nothing moves; the finished state says it.
+ * The burst when something is finished: a Deep Sky ring thrown out from the center, sparks after it in Sky, Apricot and
+ * Haze (500 ms; 700 ms and wider when `big`). Reduced motion: nothing moves; the finished state says it.
  */
 export const Burst = ({ go, big }: { go: number; big?: boolean }) => {
   const reduce = useReduced();

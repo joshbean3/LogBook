@@ -96,7 +96,7 @@ export interface Score extends Tally {
   vs: string;
   /** Past goals in the span still waiting on an answer. */
   owed: number;
-  /** `behind` (orange): a lower share kept than the span before, or under half with nothing to compare. Null with nothing answered. */
+  /** `behind` (warning words with a Marigold marker): a lower share kept than the span before, or under half with nothing to compare. Null with nothing answered. */
   tone: 'on' | 'behind' | null;
 }
 
