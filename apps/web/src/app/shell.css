@@ -209,6 +209,8 @@ html.kb-open .dock {
   border-radius: 50%;
   background: var(--surface);
   border: var(--card-border);
+  /* at rest it is 0 wide: no border either, so the capsule ends where the ask bar does (shell-21) */
+  border-width: 0;
   box-shadow: var(--shadow-1), 0 6px 24px rgba(15, 42, 68, 0.1);
   color: var(--accent);
   opacity: 0;
@@ -221,6 +223,7 @@ html.kb-open .dock {
 }
 .dock[data-compact] .dock-ask-mini.pressable {
   width: var(--tabbar-h);
+  border-width: 1px;
   margin-left: 0;
   opacity: 1;
   pointer-events: auto;
