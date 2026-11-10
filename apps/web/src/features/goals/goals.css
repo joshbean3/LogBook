@@ -410,11 +410,12 @@
   white-space: nowrap;
 }
 
-/* the gauge */
+/* the gauge: 176 px at the default text size, growing with Larger Text (11 rem) so the count and its words stay inside the
+   arc instead of spilling over the goal's words below */
 .gh-gauge {
   position: relative;
   justify-self: center;
-  width: min(176px, 100%);
+  width: min(11rem, 100%);
   aspect-ratio: 150 / 132;
   margin: -2px 0 -8px;
 }
@@ -1577,4 +1578,52 @@
 .carry.gh-carry {
   margin-top: 4px;
   padding-inline: 8px;
+}
+
+/* ---------- Larger Text (above 150 percent, html[data-text-xl]): nothing clips, rows grow (guide 11) ---------- */
+/* the question takes the card's width (the sun sits behind it: Night Ink on Apricot is 9.42) */
+html[data-text-xl] .gh-ask {
+  max-width: none;
+}
+/* the card's head (TODAY, the date, the time chip) wraps rather than cutting the date to "·…" */
+html[data-text-xl] .gh-head {
+  flex-wrap: wrap;
+  row-gap: var(--sp-1);
+}
+html[data-text-xl] .gh-date {
+  flex: 1 1 auto;
+  white-space: normal;
+}
+/* the primary grows with its words (two lines at 320) instead of spilling out of its 46 px pill */
+html[data-text-xl] .gh-cta {
+  height: auto;
+  min-height: 46px;
+  padding-block: var(--sp-2);
+  line-height: var(--lh-row);
+}
+/* a level card's period and its chip take two lines rather than cutting the period to "NO…"; the goal's words get two
+   more lines before they ellipsize */
+html[data-text-xl] .gl-head {
+  flex-wrap: wrap;
+  row-gap: var(--sp-1);
+}
+html[data-text-xl] .gl-caps {
+  flex-basis: 100%;
+  white-space: normal;
+}
+html[data-text-xl] .gl-text {
+  -webkit-line-clamp: 4;
+}
+/* the four counts of History go two by two, so each level's words fit */
+html[data-text-xl] .g-scores-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  row-gap: var(--sp-3);
+}
+html[data-text-xl] .g-sc:nth-child(odd) {
+  padding-left: 0;
+  border-left: 0;
+}
+html[data-text-xl] .g-sc-span,
+html[data-text-xl] .g-sc-why {
+  white-space: normal;
 }

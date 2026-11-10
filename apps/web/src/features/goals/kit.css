@@ -181,7 +181,7 @@ button.k-row:active {
 .seg.k-seg .seg-btn {
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 var(--sp-2);
+  padding: 0 var(--sp-1);
   border-radius: var(--r-pill);
   font: 550 var(--fs-foot) / 1.0625rem var(--sans);
   color: var(--ink-2);

@@ -107,6 +107,11 @@ textarea.ln-field {
     background-color var(--dur-color) var(--ease-out),
     color var(--dur-color) var(--ease-out);
 }
+/* the disabled look is the Haze fill and Dusk words, full strength: not the shared half-opacity of a disabled pressable,
+   which would take Dusk on Haze under 4.5:1 */
+.ln-save.pressable:disabled {
+  opacity: 1;
+}
 .ln-save.is-ready {
   background: var(--primary);
   color: var(--primary-ink);
@@ -562,4 +567,24 @@ html[data-text-xl] .tile-status.ln-nowrap {
   .ln-mrow-now {
     display: none;
   }
+}
+
+/* ---------- Larger Text (above 150 percent, html[data-text-xl]): nothing clips, rows grow (guide 11) ---------- */
+/* the first field holds its placeholder's lines; at 100 percent the floor stays 100 px */
+.ln-compose:not(.is-quiet) textarea.ln-field {
+  min-height: max(100px, calc(3 * var(--lh-row) + var(--sp-4)));
+}
+/* Save grows with its words instead of cutting them */
+html[data-text-xl] .ln-save.pressable {
+  height: auto;
+  padding-block: var(--sp-1);
+}
+/* the two counts stack, each tile the full width, so their labels and status lines stay whole */
+html[data-text-xl] .ln-tiles {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* an echo's words never outgrow the section title over them (capped at 34 px, styles/layout.css) */
+.ln-echo-text {
+  font-size: clamp(17px, var(--fs-sentence), 32px);
+  line-height: clamp(22px, var(--lh-sentence), 40px);
 }
