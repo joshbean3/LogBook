@@ -24,7 +24,7 @@ import { TodoListSheet, useTodoActions } from '../todos/TodoList';
 import { TodoMark } from '../todos/TodoMark';
 import { TodoSheet } from '../todos/TodoSheet';
 import { groupsOn, settleInto } from '../todos/groups';
-import { BAND, cardsFor, focusOf, moveCard, placeOf, splitFocus, type Card, type Laid, type Place } from './model';
+import { BAND, cardsFor, focusGrid, focusOf, moveCard, placeOf, TOP, type Card, type FocusSlot, type Laid, type Place } from './model';
 import { emojiOf } from './emoji';
 import './dayplan.css';
 
@@ -551,7 +551,6 @@ const readRest = () => {
 const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; drag: Drag | null; api: Api; date: ISODate; today: ISODate; editable: boolean }) => {
   const [showRest, setShowRest] = useState(readRest);
   const [adding, setAdding] = useState(false);
-  const { top, rest, done } = splitFocus(cards);
   const restOpen = showRest || !!drag;
   const toggleRest = () => {
     const next = !showRest;
@@ -565,53 +564,45 @@ const Focus = ({ cards, drag, api, date, today, editable }: { cards: Card[]; dra
   };
   const over = drag?.over?.kind === 'place';
   // the grid: row 1 the box's head, then a row per card (rank 1.. in order); the box spans its head and the top rows
-  let row = 2;
-  const rowsOf = (list: Card[], kind: 'top' | 'rest' | 'done') =>
-    list.map((c, i) => (
-      <CardRow key={c.ref} card={c} drag={drag} api={api} date={date} today={today} editable={editable && !c.done} hue={BAND.tray.hue} fallback={BAND.tray.icon} row={row++} rank={kind === 'done' ? undefined : kind === 'top' ? i + 1 : top.length + i + 1} kind={kind} first={i === 0} />
-    ));
-  const topRows = rowsOf(top, 'top');
-  const boxEnd = row;
+  const grid = focusGrid(cards, restOpen, !!drag);
+  const { top, rest, done } = grid.counts;
   // everything after the three folds behind one row: the rest of the list and what got done today
-  const folded = rest.length + done.length;
-  const restToggleRow = folded ? row++ : 0;
-  const restRows = restOpen ? rowsOf(rest, 'rest') : [];
-  const doneRows = restOpen ? rowsOf(done, 'done') : [];
-  const restHideRow = folded && restOpen && !drag ? row++ : 0;
-  const words = (l: Card[]) => l.map((c) => (c.kind === 'todo' ? c.todo.text : c.step.text));
+  const folded = rest + done;
+  const restWords = cards.filter((c) => !c.done).slice(TOP).map((c) => (c.kind === 'todo' ? c.todo.text : c.step.text));
+  const rowOf = (s: FocusSlot) => <CardRow key={s.card.ref} card={s.card} drag={drag} api={api} date={date} today={today} editable={editable && !s.card.done} hue={BAND.tray.hue} fallback={BAND.tray.icon} row={s.row} rank={s.rank} kind={s.kind} first={s.first} />;
+  const fold = !folded ? null : !restOpen ? (
+    <button key="pd:fold" type="button" className={`pd-rest-toggle ${rest ? '' : 'is-done-only'}`} style={{ gridRow: grid.foldRow }} onClick={toggleRest} aria-expanded={false} aria-label={`Show ${[rest ? `${rest} more` : '', done ? `${done} done` : ''].filter(Boolean).join(' and ')}`}>
+      {rest ? <span className="pd-rest-n tnum">+{folded}</span> : null}
+      <span className="pd-rest-words">
+        {rest ? `Then ${restWords.slice(0, 2).join(', ')}${rest > 2 ? '…' : ''}` : null}
+        {done ? <span className="pd-rest-done">{rest ? ' · ' : ''}{done} done</span> : null}
+      </span>
+      <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
+    </button>
+  ) : rest ? (
+    <span key="pd:fold" className="pd-rest-label" style={{ gridRow: grid.foldRow }}>
+      After these
+    </span>
+  ) : null;
   return (
     <div data-pd-box="" className={`pd-focus ${over ? 'is-over' : ''}`}>
       <div className="pd-zone pd-focus-zone" data-pd-zone="tray">
-        <motion.span className="pd-top-box" layout style={{ gridRow: `1 / ${boxEnd}` }} transition={springs.settle} aria-hidden="true" />
+        <motion.span className="pd-top-box" layout style={{ gridRow: `1 / ${grid.boxEnd}` }} transition={springs.settle} aria-hidden="true" />
         <div className="pd-top-head" style={{ gridRow: 1 }}>
-          <span className="pd-top-title">{top.length ? (top.length === 1 ? 'Your priority' : `Your top ${top.length === 2 ? 'two' : 'three'}`) : 'Priorities'}</span>
-          {top.length ? <span className="pd-top-meta">{rest.length ? `${rest.length} after these` : 'All that’s left'}</span> : null}
+          <span className="pd-top-title">{top ? (top === 1 ? 'Your priority' : `Your top ${top === 2 ? 'two' : 'three'}`) : 'Priorities'}</span>
+          {top ? <span className="pd-top-meta">{rest ? `${rest} after these` : 'All that’s left'}</span> : null}
         </div>
-        {topRows}
-        {!top.length ? (
-          <p className="pd-top-empty" style={{ gridRow: 2 }}>
-            {done.length ? 'All done. Nothing left in front of you.' : editable ? 'Add what matters today. The first three become your priorities.' : 'Nothing was planned.'}
+        {grid.emptyRow ? (
+          <p className="pd-top-empty" style={{ gridRow: grid.emptyRow }}>
+            {done ? 'All done. Nothing left in front of you.' : editable ? 'Add what matters today. The first three become your priorities.' : 'Nothing was planned.'}
           </p>
         ) : null}
-        {folded && !restOpen ? (
-          <button type="button" className="pd-rest-toggle" style={{ gridRow: restToggleRow }} onClick={toggleRest} aria-expanded={false} aria-label={`Show ${[rest.length ? `${rest.length} more` : '', done.length ? `${done.length} done` : ''].filter(Boolean).join(' and ')}`}>
-            <span className="pd-rest-n tnum">+{folded}</span>
-            <span className="pd-rest-words">
-              {rest.length ? `Then ${words(rest).slice(0, 2).join(', ')}${rest.length > 2 ? '…' : ''}` : null}
-              {done.length ? <span className="pd-rest-done">{rest.length ? ' · ' : ''}{done.length} done</span> : null}
-            </span>
-            <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
-          </button>
-        ) : rest.length ? (
-          <span className="pd-rest-label" style={{ gridRow: restToggleRow }}>
-            After these
-          </span>
-        ) : null}
-        {restRows}
-        {doneRows}
-        {restHideRow ? (
-          <button type="button" className="pd-rest-toggle is-open" style={{ gridRow: restHideRow }} onClick={toggleRest} aria-expanded={true}>
-            <span className="pd-rest-words">{done.length && !rest.length ? 'Fold away what’s done' : 'Fold the rest away'}</span>
+        {/* every row comes from this one keyed list, in the order it reads: a row that crosses from one part to another
+            (a drag over "After these", a check) keeps its node, so the finger that holds it is never let go */}
+        {[...grid.top.map(rowOf), fold, ...grid.rest.map(rowOf), ...grid.done.map(rowOf)]}
+        {grid.hideRow ? (
+          <button type="button" className="pd-rest-toggle is-open" style={{ gridRow: grid.hideRow }} onClick={toggleRest} aria-expanded={true}>
+            <span className="pd-rest-words">{done && !rest ? 'Fold away what’s done' : 'Fold the rest away'}</span>
             <ChevronDown size={16} strokeWidth={2.2} aria-hidden="true" />
           </button>
         ) : null}
