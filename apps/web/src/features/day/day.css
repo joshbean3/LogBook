@@ -159,7 +159,7 @@
   display: block;
   margin-top: 4px;
   /* a display stamp: it follows the text size up to a limit (a11y-02), never past what one line of the card holds */
-  font: 800 clamp(28px, var(--fs-stamp), 40px) / clamp(34px, var(--lh-stamp), 48px) var(--stamp);
+  font: 800 clamp(28px, 1.75rem, 40px) / clamp(34px, 2.125rem, 48px) var(--stamp);
   letter-spacing: -0.02em;
   text-transform: uppercase;
   color: var(--ink);
@@ -712,9 +712,10 @@
   margin-bottom: 8px;
   align-items: baseline;
 }
+/* the Plan your day card's title: the card-title role (guide 4.2) */
 .todos .section-title {
-  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
-  letter-spacing: -0.01em;
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
 }
 /* a neighbour's first frame: the page's shape */
 .day-page.is-shell .todos .section-head {
@@ -1903,7 +1904,7 @@
   font-size: clamp(36px, 2.25rem, 48px);
 }
 .hg .hero-stamp.is-long {
-  font-size: clamp(28px, var(--fs-stamp), 37px);
+  font-size: clamp(28px, 1.75rem, 37px);
 }
 /*
  * The day's words stay inside the dial's chord at their row (today-top-11): about 200 px where the dial is full size, 172

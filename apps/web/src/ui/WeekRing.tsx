@@ -56,7 +56,7 @@ const sector = (cx: number, cy: number, r: number, w: number, a0: number, a1: nu
 };
 /** The solid arcs. Missed and rest have none (a missed day's stretch of track is --ink-faint, a quiet gap; never red). */
 const COLOR: Partial<Record<WeekDayStatus, string>> = {
-  done: 'var(--accent)',
+  done: 'var(--deep-sky)',
   floor: 'var(--warn)',
   skipped: 'var(--ink-3)',
   // still to come: a faint arc, clearly on the track but quieter than anything that happened

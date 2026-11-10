@@ -1598,7 +1598,7 @@
 }
 .pb-ask-title {
   margin: 0;
-  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
+  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
   text-wrap: balance;
 }

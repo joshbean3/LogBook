@@ -1,5 +1,7 @@
 # Logbook brand package, v2: Night
 
+> Superseded for color, type, surfaces, the Orb, icons and motion by `docs/brand/brand-guide.md` (November 2026). Structure and behavior notes here still apply.
+
 > **Superseded in part (Nov 2026):** the colour system below (true black, electric blue) is replaced by Columbia Blue, white, navy and orange; see `docs/inspiration.md` §0 and §1. Type, voice, the halo and the principles here still hold.
 
 The one source for why Logbook looks the way it does. `docs/design-spec.md` stays in force for the 4pt grid, gutters, tap targets, grouped lists and the anti-patterns; this document decides colour, type, voice, shape, mark and motion, and every value here lands in `apps/web/src/styles/tokens.css`. When a screen and this document disagree, this document wins. Section 11 is the review checklist.

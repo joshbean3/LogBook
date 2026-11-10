@@ -456,8 +456,10 @@
   justify-items: center;
 }
 .lft-stepval .stamp {
-  font-size: var(--fs-stamp);
-  line-height: var(--lh-stamp);
+  font: 650 var(--fs-section) / var(--lh-section) var(--sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tr-hero);
+  text-transform: none;
 }
 .lft-stepval small {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
@@ -564,8 +566,8 @@
 }
 /* the name: the display serif at 28/32 for a run ("Afternoon Run"), the stamp at 28 for a number label ("EASY 6") */
 .sh-title {
-  font-size: var(--fs-stamp);
-  line-height: 2rem;
+  font-size: var(--fs-head);
+  line-height: var(--lh-head);
   overflow-wrap: break-word;
   color: var(--ink);
 }
@@ -594,9 +596,10 @@
   align-self: end;
 }
 .sh-num {
+  font: 650 var(--fs-section) / var(--lh-section) var(--sans);
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-stamp);
-  line-height: 2rem;
+  letter-spacing: var(--tr-hero);
+  text-transform: none;
   white-space: nowrap;
   display: flex;
   align-items: baseline;

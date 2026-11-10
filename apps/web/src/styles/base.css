@@ -72,10 +72,11 @@ a {
   color: var(--accent-text);
   text-decoration: none;
 }
+/* focus (guide 6.14): a 1.5 px Deep Sky edge plus the soft Sky ring; never removed without this */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 2px;
-  border-radius: 6px;
+  box-shadow: var(--focus-ring);
 }
 h1,
 h2,
@@ -97,6 +98,12 @@ ol {
 }
 ::selection {
   background: var(--accent-soft);
+}
+/* Inter ships no italic and font-synthesis is off (tokens.css): emphasis in the assistant's replies is weight, upright (plan D24) */
+.as-rich em,
+.as-answer em {
+  font-style: normal;
+  font-weight: 600;
 }
 
 /* ---------- type scale (Apple pairs) ---------- */

@@ -125,8 +125,8 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
 .ctx-text {
   display: grid;
@@ -559,4 +559,143 @@ html:has(.sheet[data-tall]) .toast-host {
   .ctx-row.ctx-row .ctx-ic {
     display: none;
   }
+}
+
+/* ---------- brand surfaces (guide 5.3, 6.2, 6.3, 6.9, 6.14) ----------
+ * Re-homed from the retired craft layer: flat Paper, one shadow per role, no bevels, pearls, wells or frosted chips. These
+ * keep the `:root` weight craft had, so a lazily loaded feature sheet that loses to them today still loses (the cascade
+ * stays as the owner approved it). */
+:root .sec-head .t-label {
+  font: 600 clamp(22px, var(--fs-section), 34px) / clamp(28px, var(--lh-section), 40px) var(--serif);
+  letter-spacing: 0;
+  color: var(--ink);
+}
+/* a centred sheet title between two round buttons: the card-title size (plan D3) */
+:root .sheet .sheet-title {
+  font: 600 clamp(20px, var(--fs-head), 28px) / clamp(26px, var(--lh-head), 34px) var(--serif);
+  letter-spacing: 0;
+}
+/* buttons: the secondary is Paper with a hairline edge; the one primary is Sky with Night Ink words */
+:root .btn {
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+:root .btn[data-pressed]:not(:disabled),
+:root .btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+:root .btn.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
+  font-weight: 650;
+  text-shadow: none;
+  box-shadow: var(--primary-glow);
+}
+:root .btn.primary[data-pressed]:not(:disabled),
+:root .btn.primary:active:not(:disabled) {
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+}
+:root .btn.primary:disabled {
+  opacity: 1;
+  background: var(--haze);
+  border-color: var(--haze);
+  color: var(--ink-2);
+  box-shadow: none;
+}
+/* soft is the secondary look: Deep Sky words on a Sky tint fail body contrast on Cloud (plan D31) */
+:root .btn.soft {
+  background: var(--surface);
+  border-color: var(--edge);
+  color: var(--ink);
+}
+:root .btn.quiet,
+:root .btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+:root .btn.danger {
+  color: var(--bad);
+}
+/* round buttons: Paper, floating; no blur */
+:root .icon-btn:not(.bare),
+:root .sheet .sheet-head .icon-btn {
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+:root .ctx-chip {
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+/* fields: Paper with the field edge (3.20 on Paper is what shows a field), the focus pair on focus */
+:root .in,
+:root input.in,
+:root textarea.in,
+:root select.in,
+:root .sheet .in,
+:root .sheet input.in,
+:root .sheet textarea.in {
+  background: var(--surface);
+  border: 1px solid var(--field-edge);
+  box-shadow: none;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+:root .in:focus,
+:root input.in:focus,
+:root textarea.in:focus,
+:root .sheet .in:focus,
+:root .sheet input.in:focus,
+:root .sheet textarea.in:focus {
+  background: var(--surface);
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
+}
+/* segmented: a Cloud track, the chosen segment a Sky pill; the label's weight and Night Ink carry the state */
+:root .seg {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+:root .seg .seg-thumb,
+:root .seg-thumb {
+  background: var(--accent);
+  box-shadow: none;
+}
+:root .seg-btn {
+  font-weight: 550;
+  color: var(--ink-2);
+}
+:root .seg-btn[aria-checked='true'] {
+  font-weight: 650;
+  color: var(--accent-ink);
+}
+:root .toast-host .toast {
+  background: var(--surface);
+}
+/* Today's own primary pill */
+:root .pd-goal-cta {
+  background: var(--primary);
+  color: var(--primary-ink);
+  box-shadow: var(--primary-glow);
+  text-shadow: none;
+}
+/* pinned bars stay solid; a soft Cloud fade under them lets what scrolls beneath slide away instead of being cut */
+:root .nb-bar.is-collapsed,
+:root .pushed-bar.is-collapsed {
+  box-shadow:
+    0 1px 0 var(--line),
+    0 14px 12px 0 rgba(234, 245, 252, 0.9);
+}
+:root .nb-strip {
+  box-shadow: 0 14px 12px 0 rgba(234, 245, 252, 0.9);
 }

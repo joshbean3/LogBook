@@ -1,5 +1,7 @@
 # Logbook experience spec v4.2: feel
 
+> Superseded for color, type, surfaces, the Orb, icons and motion by `docs/brand/brand-guide.md` (November 2026). Structure and behavior notes here still apply.
+
 **This document supersedes `docs/experience.md` §2 (Navigation), §3 (Foundation: primitives, motion, haptics, type and rhythm) and §5 (Pages) wherever the two disagree.** `experience.md` §1 (principles), §4 (platform), §6 (copy) and §7 (definition of done) still stand except where a line below replaces one of theirs. `docs/foundation.md` describes the primitives as they were; the primitives below are the ones to build, and the build teams' typed contract is `scratchpad/feel/contracts.md`. Every build team works from this file. Where a number is given it is the number to type; nothing in here is left as an option.
 
 Built from the winning design draft (A, the UIKit map) with the ideas the three judges named from drafts B (flow-first) and C (subtraction first) grafted in, and every conflict between them resolved in §0.3. It designs inside `scratchpad/feel/decisions.md`; where this spec reads differently from a draft, the decisions file wins and §0.3 says why.

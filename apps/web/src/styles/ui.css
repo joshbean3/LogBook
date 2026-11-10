@@ -369,10 +369,11 @@ label.lrow[data-pressed] {
   border-color: var(--primary);
   color: var(--primary-ink);
 }
+/* soft is the secondary look (plan D31): Deep Sky words on the Sky tint fail body contrast on Cloud */
 .btn.soft {
-  background: var(--accent-tint);
-  border-color: transparent;
-  color: var(--accent-text);
+  background: var(--surface);
+  border-color: var(--edge);
+  color: var(--ink);
 }
 .btn.ghost {
   background: transparent;
@@ -615,8 +616,8 @@ label.lrow[data-pressed] {
 }
 .in:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-tint);
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
 .in::placeholder {
   color: var(--ink-3);
@@ -811,13 +812,14 @@ textarea.in {
 }
 .mark.m-done {
   background: var(--accent);
-  border-color: var(--accent-bright);
+  border-color: var(--accent);
   color: var(--accent-ink);
 }
+/* floor is done at its minimum: partly done, not a warning (plan D23) */
 .mark.m-floor {
-  border-color: var(--warn);
-  color: var(--warn-text);
-  background: var(--warn-soft);
+  border-color: var(--haze);
+  color: var(--ink);
+  background: var(--haze);
 }
 .mark.m-missed {
   border-color: var(--bad);
@@ -1050,8 +1052,8 @@ textarea.in {
 }
 .eb-title {
   margin: 0;
-  font-size: var(--fs-head);
-  line-height: var(--lh-head);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 650;
   letter-spacing: -0.01em;
 }
@@ -1124,8 +1126,8 @@ textarea.in {
 }
 .boot-error-title {
   margin: 0;
-  font-size: var(--fs-head);
-  line-height: var(--lh-head);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   font-weight: 650;
   letter-spacing: -0.01em;
 }

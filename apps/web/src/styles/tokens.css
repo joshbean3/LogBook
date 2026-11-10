@@ -1,140 +1,233 @@
-/* Logbook design tokens. White and Columbia Blue, navy words, one orange; the halo rises from under what matters. 4pt grid. */
+/*
+ * Orby design tokens: Sunrise optimism (docs/brand/brand-guide.md, the source of truth; values from docs/brand/tokens.css).
+ * A sky-blue morning: Cloud ground, Paper cards, Night Ink words, Sky fills, Deep Sky blue words, and one Sunrise orange
+ * that means "now". Names the app already used keep their names with new values; the palette, --now, the washes, the
+ * motion and Orb tokens are additions. Retired names (--columbia, --navy-pill, --pearl, --bevel-hi...) stay defined so a
+ * missed use fails legible; migrate them away (guide 12.2). 4 pt grid.
+ */
 :root {
   color-scheme: light;
-  /* Columbia, white and orange (docs/inspiration.md §1). The page is a whisper of Columbia Blue so white cards lift off it;
-     navy carries the words; orange is the one highlight. The halo stays: light from under what matters, now Columbia. */
-  --bg: #f3f8fb;
-  --surface: #ffffff;
-  --surface-2: #eaf3f9;
-  --surface-3: #dceaf3;
-  --ink: #0f2a44;
-  --ink-2: #2f5d85;
-  --ink-3: #57718a;
-  /* --ink-4 is text (captions, hints, axis labels), so it carries the --ink-3 value: 4.5:1 or better on white, --bg and
-     --surface-2. Marks that are not text (a ring's track, a hairline dot, a disabled glyph) use --ink-faint. */
-  --ink-4: #57718a;
-  --ink-faint: #7c90a5;
-  --line: rgba(15, 42, 68, 0.08);
-  --line-strong: rgba(15, 42, 68, 0.16);
-  /* the edge of something you type in or tick (a text field, the empty to-do circle): 3:1 on white (WCAG 1.4.11) */
-  --field-edge: rgba(15, 42, 68, 0.5);
-  --columbia: #b9d9eb;
-  --columbia-wash: #e8f3f9;
 
-  /* the orange: lit things (a done habit, a check, the live dot, today, the newest point). A fill and a glow; words in orange use --accent-text */
-  --accent: #f2600c;
-  --accent-bright: #ff7a2e;
-  --accent-ink: #0f2a44;
-  --accent-soft: #ffe6d6;
-  --accent-tint: rgba(242, 96, 12, 0.14);
-  --accent-text: #c2410c;
-  /* the primary verb: a navy pill, white words */
-  --primary: #0f2a44;
-  --primary-ink: #ffffff;
-  --halo: radial-gradient(60% 70% at 50% 110%, rgba(185, 217, 235, 0.95), rgba(185, 217, 235, 0) 70%);
-  /* a highlight's light: orange from the same place */
-  --halo-amber: radial-gradient(60% 70% at 50% 110%, rgba(242, 96, 12, 0.32), rgba(242, 96, 12, 0) 70%);
+  /* ---------- palette (guide 3.1) ---------- */
+  --sky: #38b6f2; /* the signature fill: the Orb, the shown day, the active tab disc, the primary. Never text on light grounds */
+  --deep-sky: #0a6ca6; /* blue words and links (5.57 on Paper), the gauge fill, done dots, thin lit marks */
+  --haze: #cbe8f8; /* tracks, icon tiles, the top of the dawn wash */
+  --cloud: #eaf5fc; /* the app ground, segmented tracks */
+  --paper: #fffdf8; /* cards, sheets, the ask bar, the tab capsule */
+  --linen: #f6f0e5; /* brand paper only (share cards, store art); never app chrome */
+  --night-ink: #0e2236; /* all primary text */
+  --dusk: #46596d; /* muted text; the lightest neutral text color */
+  --graphite: #33475b; /* Dusk under Increase Contrast */
+  --pencil: #7a8794; /* non-text marks only */
+  --twilight: #1b4870; /* dark brand ground */
+  --sunrise: #f2600c; /* the now-mark; a fill, never text on light */
+  --apricot: #ffb680; /* light, not ink: the underlight, the hero glow */
+  --ember: #b4430c; /* orange words, rare */
+  --white: #ffffff; /* text on dark grounds only */
 
-  --ok: #2f5d85;
-  --ok-soft: #e1edf6;
-  /* --warn is a fill and a mark (a dot, a border, a bar); words in amber use --warn-text (5.9:1 on white, 5.2:1 on --warn-soft) */
-  --warn: #e08a00;
-  --warn-soft: #fdf0d9;
-  --warn-text: #8f5800;
-  --bad: #c8243f;
-  --bad-soft: #fbe4e8;
-  --star: #f2600c;
+  /* brand art: posters, the icon, the splash hills. Not app chrome */
+  --poster-sky-1: #8dd0f5;
+  --poster-sky-2: #aeddf8;
+  --poster-sky-3: #cfebfa;
+  --horizon-1: #f4e6d2;
+  --horizon-2: #ffd2ae;
+  --hill-1: #8fcdee;
+  --hill-2: #4fa9db;
+  --hill-3: #0a6ca6;
+  --grain-opacity: 0.4;
 
-  /* session tones, deepened to read on white */
-  --t-easy: #1e9e5e;
-  --t-long: #2b6cd4;
-  --t-hard: #e8650f;
-  --t-fast: #d93275;
-  --t-lift: #7b4fd6;
-  --t-cross: #a57a35;
-  --t-rest: #8696a7;
-  /* the feel palette: sun, mint, coral, sky, each a flat colour and a lit gradient */
-  --sun: #f5b10a;
-  --mint: #1fbf86;
-  --coral: #ef4f4f;
-  --sky: #4f74e8;
-  --sun-ink: #0f2a44;
-  --g-sun: radial-gradient(120% 120% at 30% 25%, #ffe17a, #ffc23d 55%, #ff9f1c);
-  --g-mint: radial-gradient(120% 120% at 30% 25%, #9cf5c9, #3fe0a0 55%, #14b877);
-  --g-coral: radial-gradient(120% 120% at 30% 25%, #ffa38f, #ff5b5b 55%, #f2304f);
-  --g-sky: radial-gradient(120% 120% at 30% 25%, #c9dcf0, #8fb8dc 55%, #4f74e8);
+  /* ---------- grounds, ink and lines ---------- */
+  --bg: #eaf5fc; /* Cloud */
+  --surface: #fffdf8; /* Paper */
+  --surface-2: #eaf5fc; /* Cloud: insets and tracks */
+  --surface-3: #cbe8f8; /* Haze. Deep Sky words on it are large text only; body on Haze is Night Ink, Dusk or #085A8C */
+  --ink: #0e2236; /* Night Ink, 15.88 on Paper */
+  --ink-2: #46596d; /* Dusk: secondary text is grey now, not blue */
+  --ink-3: #46596d;
+  /* --ink-4 is text (captions, hints, axis labels). Marks that are not text use --ink-faint */
+  --ink-4: #46596d;
+  --ink-faint: #7a8794; /* Pencil: marks only, never text */
+  --line: rgba(14, 34, 54, 0.1);
+  --line-strong: rgba(14, 34, 54, 0.18); /* the off filter chip edge (decorative) */
+  --edge: rgba(14, 34, 54, 0.12); /* a secondary button, the composer, light swatches */
+  --tick: rgba(14, 34, 54, 0.22); /* minor gauge ticks, the title-line horizon (decorative) */
+  --tick-major: rgba(14, 34, 54, 0.5);
+  --grid: rgba(14, 34, 54, 0.08); /* chart gridlines */
+  --grabber: rgba(14, 34, 54, 0.18);
+  --coin-ring: rgba(14, 34, 54, 0.28); /* the off habit coin ring (decorative) */
+  --dot-ahead: rgba(14, 34, 54, 0.1);
+  /* the edge of something you type in or tick (a field, the empty check circle): 3.20 on Paper (WCAG 1.4.11) */
+  --field-edge: rgba(14, 34, 54, 0.5);
+  /* retired names: use --haze and --cloud */
+  --columbia: #cbe8f8;
+  --columbia-wash: #eaf5fc;
 
-  --tag-red: var(--bad);
-  --tag-orange: var(--t-hard);
-  --tag-yellow: var(--warn);
-  --tag-green: var(--t-easy);
-  --tag-blue: var(--t-long);
-  --tag-purple: var(--t-lift);
-  --tag-pink: var(--t-fast);
-  --prio-1: var(--bad);
-  --prio-2: var(--t-hard);
-  --prio-3: var(--t-long);
+  /* washes: the dawn wash on tab roots, the sticky bars that sit on it, the warm grounds */
+  --dawn: linear-gradient(180deg, #cbe8f8 0, #eaf5fc 300px);
+  --wash-bar: #d0eaf8;
+  --wash-strip: #daeefa;
+  --wash-strip-end: #e2f2fb;
+  --welcome-warm: #fff1e4;
+  --entry-2: #7fcbf3; /* journal: a day with two entries (with the numeral) */
+  --orb-arc: #ff9f5a; /* the thinking arc: Orb light, not a Sunrise mark */
 
-  /* on white, objects lift with a soft navy shadow and a hairline */
-  --shadow-1: 0 1px 2px rgba(15, 42, 68, 0.04), 0 6px 20px rgba(15, 42, 68, 0.06);
-  /* floating things: round buttons, context chips, the dock */
-  --shadow-float: 0 2px 6px rgba(15, 42, 68, 0.06), 0 10px 28px rgba(15, 42, 68, 0.1);
-  --shadow-2: 0 12px 40px rgba(15, 42, 68, 0.14);
-  --shadow-sheet: 0 -8px 40px rgba(15, 42, 68, 0.12);
-  /* barely there: the shadow defines a card (docs/shape-system.md §1) */
-  --card-border: 1px solid rgba(15, 42, 68, 0.04);
-  --glass: rgba(255, 255, 255, 0.82);
-  /* behind a sheet and a context menu: navy, lighter than the old black */
-  --scrim: rgba(15, 42, 68, 0.32);
-  --scrim-menu: rgba(15, 42, 68, 0.28);
-  /* a scrim's colour where its opacity is animated */
-  --scrim-solid: #0f2a44;
+  /* ---------- lit, now and the primary (guide 3.5, plan 1.3) ---------- */
+  /* --accent is "lit": Sky fills with Night Ink on them (a done coin, the shown day). A thin lit mark, a glyph or anything on
+     Haze uses --deep-sky (Sky fails 3:1 there). "Now" is never --accent: it is --now with its Paper keyline. */
+  --accent: #38b6f2;
+  --accent-bright: #5cc4f5; /* the pressed primary only (about 2:1 on Paper: never a ring, a glyph or a focus edge) */
+  --accent-ink: #0e2236; /* words and glyphs on Sky (7.03) */
+  --accent-soft: #cbe8f8; /* Haze */
+  --accent-tint: rgba(56, 182, 242, 0.16);
+  --accent-text: #0a6ca6; /* blue words and links (Deep Sky); orange words are --now-text */
+  --now: #f2600c; /* Sunrise: today's dot, the gauge pointer, a badge, the stamp, a live node, now on a chart. 3 per screen */
+  --now-keyline: #fffdf8; /* the Paper keyline around every Sunrise mark, 2 px or more */
+  --now-text: #b4430c; /* Ember */
+  --primary: #38b6f2; /* the one primary button: Sky */
+  --primary-ink: #0e2236; /* Night Ink on Sky; white on Sky is 2.30 */
+  --primary-glow: 0 8px 18px -10px rgba(10, 108, 166, 0.45);
+  --halo: radial-gradient(60% 70% at 50% 110%, rgba(203, 232, 248, 0.95), rgba(203, 232, 248, 0) 70%);
+  --halo-amber: radial-gradient(60% 70% at 50% 110%, rgba(255, 182, 128, 0.42), rgba(255, 182, 128, 0) 70%);
+  --glow-hero: radial-gradient(closest-side, rgba(255, 182, 128, 0.42), rgba(255, 182, 128, 0)); /* the one sunrise glow */
+  --focus-ring: 0 0 0 4px rgba(56, 182, 242, 0.28);
+  --focus-edge: #0a6ca6;
 
+  /* ---------- status ---------- */
+  --ok: #0a6ca6;
+  --ok-soft: #eaf5fc;
+  /* --warn (Marigold) is a mark only (2.21 on Paper): always with a glyph and words; words in it use --warn-text */
+  --warn: #e0a21b;
+  --warn-soft: #fbf0d6;
+  --warn-text: #7a5a00;
+  --bad: #b42340;
+  --bad-soft: #f9e3e7;
+  --star: #0a6ca6; /* a Favorite mark: Deep Sky, never orange */
+
+  /* ---------- data tones (session kinds): glyphs, lines and 3 px markers only ---------- */
+  --t-easy: #117a74; /* Lagoon */
+  --t-long: #0a6ca6; /* Deep Sky */
+  --t-hard: #7e3f8f; /* Plum: hard left orange so orange keeps one meaning */
+  --t-fast: #b23a5b; /* Rose */
+  --t-lift: #4a4fb0; /* Indigo */
+  --t-cross: #7d6210; /* Ochre */
+  --t-rest: #7a8794; /* Pencil: marks only; the rest glyph on Haze uses #5F6D7B */
+  /* to-do colors and flags, read as var(--tag-${c}) in features/todos/colors.tsx: marks only. "orange" renders Ochre */
+  --tag-red: #b42340;
+  --tag-orange: #7d6210;
+  --tag-yellow: #e0a21b;
+  --tag-green: #117a74;
+  --tag-blue: #0a6ca6;
+  --tag-purple: #4a4fb0;
+  --tag-pink: #b23a5b;
+  --prio-1: #b42340;
+  --prio-2: #7d6210;
+  --prio-3: #0a6ca6;
+
+  /* the feel palette: Apricot, Lagoon, Rose and Sky, each flat and as a lit gradient */
+  --sun: #ffb680;
+  --sun-ink: #0e2236;
+  --mint: #117a74;
+  --coral: #b23a5b;
+  --g-sun: radial-gradient(120% 120% at 30% 25%, #ffe9d6, #ffc99f 55%, #ffb680);
+  --g-mint: radial-gradient(120% 120% at 30% 25%, #bfede6, #5cc9b5 55%, #117a74);
+  --g-coral: radial-gradient(120% 120% at 30% 25%, #f8c6d0, #e07a92 55%, #b23a5b);
+  --g-sky: radial-gradient(120% 120% at 30% 25%, #e4f6fe, #97d8f9 55%, #38b6f2);
+
+  /* ---------- depth (guide 5.3): one shadow per role, no bevels, no wells ---------- */
+  --shadow-1: 0 1px 1px rgba(14, 34, 54, 0.04), 0 10px 28px -14px rgba(14, 34, 54, 0.2); /* every card and tile */
+  --shadow-float: 0 1px 1px rgba(14, 34, 54, 0.05), 0 12px 28px -12px rgba(14, 34, 54, 0.28); /* floating chrome */
+  --shadow-2: 0 18px 40px -16px rgba(14, 34, 54, 0.3); /* menus */
+  --shadow-sheet: 0 -8px 40px rgba(14, 34, 54, 0.14);
+  --shadow-pill: 0 0 0 1px rgba(14, 34, 54, 0.08), 0 6px 16px -10px rgba(14, 34, 54, 0.3); /* the gauge readout pill */
+  /* cards have no visible border; the transparent 1 px keeps box sizes as they were */
+  --card-border: 1px solid transparent;
+  --glass: rgba(255, 253, 248, 0.88); /* the floating status pill only; opaque under Increase Contrast */
+  --glass-blur: blur(18px) saturate(1.2);
+  --well: #eaf5fc;
+  --well-shadow: inset 0 0 0 1px rgba(14, 34, 54, 0.08);
+  /* retired (plan D21): a missed use fails legible, never into white on Sky. Streams move each rule to its real role */
+  --navy-pill: var(--ink);
+  --navy-glow: none;
+  --bevel-hi: none;
+  --pearl: var(--surface);
+  --scrim: rgba(14, 34, 54, 0.32);
+  --scrim-menu: rgba(14, 34, 54, 0.28);
+  --scrim-solid: #0e2236; /* a scrim's color where its opacity animates */
+
+  /* ---------- type (guide 4) ---------- */
+  --display: 'Fraunces', 'Fraunces Fallback', 'Iowan Old Style', Georgia, serif;
+  --serif: 'Fraunces', 'Fraunces Fallback', 'Iowan Old Style', Georgia, serif;
+  --serif-axes: 'SOFT' 100, 'WONK' 0; /* set once on html (below); never anywhere else */
   --sans: 'Inter', 'Inter Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* captions (600, caps, +0.14em) and gauge end labels only */
   --stamp: 'Inter Tight', 'Inter Tight Fallback', 'Inter', -apple-system, sans-serif;
-  /* the journal's typewriter (after One Year): the system's own mono */
   --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'Roboto Mono', Consolas, monospace;
-  /* the journal's ink: navy-blue, like a pen on paper */
-  --j-ink: #2f5d85;
-  --j-ink-soft: rgba(47, 93, 133, 0.4);
-  --serif: 'Instrument Serif', 'Instrument Serif Fallback', 'Iowan Old Style', Georgia, serif;
-  --display: 'Instrument Serif', 'Instrument Serif Fallback', 'Iowan Old Style', Georgia, serif;
-
-  /* the four radii (spec §0.1): card 20, inset group 12, control 9, pill */
-  --r-card: 22px;
-  --r-group: 18px;
-  --r-control: 12px;
-  /* shape system v2 (docs/shape-system.md): tiles and inset groups 18, context chips 16, icon tiles 10 */
-  --r-tile: 18px;
-  --r-chip: 16px;
-  --r-icon: 10px;
-  /* the nine type sizes (spec §3): size/line */
-  --fs-title: 2.125rem; --lh-title: 2.5rem;
-  --fs-stamp: 1.75rem; --lh-stamp: 2.125rem;
-  --fs-sentence: 1.375rem; --lh-sentence: 1.75rem;
-  --fs-head: 1.25rem; --lh-head: 1.5625rem;
-  --fs-row: 1.0625rem; --lh-row: 1.375rem;
-  --fs-sub: 0.9375rem; --lh-sub: 1.25rem;
-  /* the three small sizes have floors: whatever the root does, a caption never reads under 11 px (a11y-18) */
+  /* the journal's pen ink (Twilight, 9.36 on Paper) */
+  --j-ink: #1b4870;
+  --j-ink-soft: rgba(27, 72, 112, 0.4);
+  /* the scale: size / line. Rem, so iOS Larger Text scales it; the small roles have px floors (a11y-18) */
+  --fs-hero: 3.5rem; /* Fraunces 700, line 3.5rem */
+  --fs-title: 2.375rem; --lh-title: 2.625rem; /* screen title, Fraunces 650 */
+  --fs-stamp: 2.5rem; --lh-stamp: 2.625rem; /* the session name in the gauge, Fraunces 650 */
+  --fs-stat: 2.75rem; /* static hero stat, Fraunces 650, line 1 */
+  --fs-stat-live: 2.75rem; /* a hero stat that changes, Inter 650 tnum, line 1 */
+  --fs-section: 1.625rem; --lh-section: 2rem; /* section title, Fraunces 600 */
+  --fs-head: 1.375rem; --lh-head: 1.75rem; /* card and sheet title, Fraunces 600 */
+  --fs-sentence: 1.375rem; --lh-sentence: 1.75rem; /* prompt or greeting, Fraunces italic 420 */
+  --fs-sentence-sm: 1.0625rem; /* subline or quote, Fraunces italic 420, line --lh-row */
+  --fs-row: 1.0625rem; --lh-row: 1.375rem; /* headline below the serif floor, Inter 600 */
+  --fs-body: 1rem; --lh-body: 1.5rem; /* body, assistant replies */
+  --fs-sub: 0.9375rem; --lh-sub: 1.25rem; /* secondary, row subtitle, Inter 500 */
+  --fs-tile: 0.9375rem; --lh-tile: 1.125rem; /* habit tile name, Inter 600 */
   --fs-foot: max(13px, 0.8125rem); --lh-foot: max(18px, 1.125rem);
+  --fs-tag: max(13px, 0.8125rem);
   --fs-orb: max(12px, 0.75rem); --lh-orb: max(16px, 1rem);
-  --fs-caps: max(11px, 0.6875rem); --lh-caps: max(13px, 0.8125rem);
-  --r-lg: 22px;
-  --r-md: 12px;
-  --r-pill: 999px;
-  --r-sm: 8px;
-  /* a context-menu card */
+  --fs-caps: max(11px, 0.6875rem); --lh-caps: max(14px, 0.875rem);
+  --tr-caps: 0.14em; /* the only caps tracking */
+  --tr-title: -0.015em;
+  --tr-hero: -0.02em;
+
+  /* ---------- shape (guide 5.2): 24, 18, 14, 12, pill, circle ---------- */
+  --r-card: 24px;
+  --r-lg: 24px;
+  --r-group: 18px;
+  --r-tile: 18px;
+  --r-chip: 18px;
+  --r-control: 14px;
+  --r-md: 14px;
   --r-menu: 14px;
+  --r-icon: 12px;
+  --r-sm: 12px;
+  --r-pill: 999px;
 
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 160ms;
-  --dur-ring: 600ms;
-  --dur: 220ms;
-  /* experience §3.2: opacity 120ms in, 100ms out; colour and halo 200ms on --ease-out. Springs live in lib/motion.ts. */
-  --dur-in: 120ms;
-  --dur-out: 100ms;
-  --dur-color: 200ms;
-
+  /* ---------- space (guide 5.1) ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+  --gutter: 16px;
+  /* the page's side padding: the gutter on a phone, wider beside the rail (base.css); edge-to-edge lists bleed by it */
+  --page-pad: var(--gutter);
+  --section: 32px;
+  --sec-gap: 12px;
+  --gap: 12px;
+  --gap-tile: 12px;
+  --gap-dot: 3px; /* named exception: habit week dots */
+  --dot-offset: -7px; /* named exception: today's dot above its letter */
+  --fade-h: 52px; /* named exception: the Cloud fade under the dock */
+  --dock-inset: 12px;
+  --pad-card: 16px;
+  --pad-hero: 20px;
+  --maxw: 720px;
+  --sp-secondary: 24px;
+  --sp-group: 12px;
+  /* the gap between a date pager's pages while they slide */
+  --dpager-gap: 16px;
+  --hit: 44px;
   --tabbar-h: 56px;
   --ask-h: 48px;
   --dock-gap: 8px;
@@ -144,34 +237,80 @@
   --kb: 0px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
-  --gutter: 16px;
-  --section: 28px;
-  --gap: 12px;
-  --sec-gap: 12px;
-  --pad-card: 16px;
-  --maxw: 720px;
-  --sp-secondary: 24px;
-  --sp-group: 12px;
-  /* the page's side padding: the gutter on a phone, wider beside the rail (base.css); edge-to-edge lists bleed by it */
-  --page-pad: var(--gutter);
-  /* the gap between a date pager's pages while they slide */
-  --dpager-gap: 16px;
-  --hit: 44px;
+
+  /* ---------- motion (guide 9.1); springs live in lib/motion.ts ---------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 160ms;
+  --dur: 220ms;
+  --dur-in: 120ms;
+  --dur-out: 100ms;
+  --dur-color: 200ms;
+  --dur-ring: 600ms;
+  --dur-page: 350ms;
+  --dur-sheet: 500ms;
+  --dur-number: 480ms;
+  --dur-complete: 300ms;
+  --dur-needle: 480ms;
+  --dur-settle: 300ms;
+  --tick-stagger: 6ms;
+  --dur-sunrise: 900ms;
+  --dur-title-in: 200ms;
+  --dur-launch: 300ms;
+  --dur-dawn: 600ms;
+  --orb-breath: 4000ms;
+  --orb-orbit: 1200ms;
+  --dur-reduce: 150ms;
+
+  /* ---------- the Orb (guide 2.1): 48 and up full, 28 to 47 gloss, under 28 a flat Sky disc ---------- */
+  --orb-full-min: 48px;
+  --orb-gloss-min: 28px;
+  --orb-flat-max: 27px;
+  --orb-fold: 28px;
+  --orb-dock: 28px;
+  --orb-assistant: 56px;
+  --orb-splash: 96px;
 }
 
-/* iOS Increase Contrast (WebKit maps it to prefers-contrast: more): the grey words step up to --ink-2, hairlines and the
-   card edge darken a step, and the frosted surfaces go opaque. :root:root outranks the later :root blocks (craft.css). */
+/* iOS Increase Contrast (WebKit maps it to prefers-contrast: more): the semantic aliases and the palette names both step,
+   so a component gets the step whichever it uses; hairlines and edges darken; the frosted pill goes opaque. :root:root
+   outranks any later :root block. */
 @media (prefers-contrast: more) {
   :root:root {
-    --ink-3: #2f5d85;
-    --ink-4: #2f5d85;
-    --ink-faint: #57718a;
-    --line: rgba(15, 42, 68, 0.3);
-    --line-strong: rgba(15, 42, 68, 0.55);
-    --card-border: 1px solid rgba(15, 42, 68, 0.16);
-    --field-edge: rgba(15, 42, 68, 0.7);
-    --glass: #ffffff;
+    --ink-2: #33475b;
+    --ink-3: #33475b;
+    --ink-4: #33475b;
+    --dusk: #33475b;
+    --accent-text: #085a8c;
+    --ok: #085a8c;
+    --deep-sky: #085a8c;
+    --focus-edge: #085a8c;
+    --t-long: #085a8c;
+    --star: #085a8c;
+    --prio-3: #085a8c;
+    --tag-blue: #085a8c;
+    --ink-faint: #5f6d7b;
+    --pencil: #5f6d7b;
+    --t-rest: #5f6d7b;
+    --line: rgba(14, 34, 54, 0.3);
+    --line-strong: rgba(14, 34, 54, 0.55);
+    --edge: rgba(14, 34, 54, 0.3);
+    --tick: rgba(14, 34, 54, 0.45);
+    --coin-ring: rgba(14, 34, 54, 0.55);
+    --dot-ahead: rgba(14, 34, 54, 0.22);
+    --card-border: 1px solid rgba(14, 34, 54, 0.16);
+    --field-edge: rgba(14, 34, 54, 0.7);
+    --glass: #fffdf8;
   }
+}
+
+/* Fraunces axes for the whole document: the woff2 defaults to WONK 1 and SOFT 0. Inter and Inter Tight ignore axes they do
+   not have. Never set font-variation-settings anywhere else (check-brand.mjs flags it). Inter has no italic face, so
+   font-synthesis: none sets an Inter <em> upright (emphasis by weight, base.css). */
+html {
+  font-variation-settings: var(--serif-axes);
+  font-optical-sizing: auto;
+  font-synthesis: none;
 }
 
 .t-easy { --tone: var(--t-easy); }

@@ -622,7 +622,7 @@
 .avatar.on .avatar-disc {
   box-shadow:
     0 0 0 2px var(--bg),
-    0 0 0 3.5px var(--accent-bright);
+    0 0 0 4px var(--deep-sky);
 }
 
 /* ---------- the back chevron (ui/NavBar BackButton) ---------- */
@@ -999,7 +999,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   color: var(--ink);
 }
 .nb-cell.is-today:not(.is-shown) .nb-num {
-  color: var(--accent-text);
+  color: var(--ink);
 }
 .nb-cell.is-shown .nb-num {
   color: var(--ink);
@@ -1027,10 +1027,11 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 }
 .nb-dot.is-done,
 .nb-dot.is-bonus {
-  background: var(--accent);
+  background: var(--deep-sky);
 }
+/* floor: partly done, a hollow Deep Sky ring (plan D23) */
 .nb-dot.is-floor {
-  background: var(--warn);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
 }
 .nb-dot.is-planned {
   box-shadow: inset 0 0 0 1px var(--ink-3);
@@ -1063,13 +1064,13 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 .nb-kinds.is-done,
 .nb-kinds.is-bonus {
   background: var(--accent);
-  box-shadow: 0 3px 8px -3px rgba(242, 101, 34, 0.6);
-  color: #fff;
+  box-shadow: none;
+  color: var(--accent-ink);
 }
 .nb-kinds.is-floor {
-  background: var(--warn);
+  background: var(--haze);
   box-shadow: none;
-  color: #fff;
+  color: var(--ink);
 }
 .nb-kinds.is-missed,
 .nb-kinds.is-skipped {
@@ -1078,9 +1079,9 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   color: var(--ink-4);
 }
 .nb-cell.is-today .nb-kinds.is-planned {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-  background: var(--accent-tint, var(--well));
-  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1.5px var(--deep-sky);
+  background: var(--surface);
+  color: var(--deep-sky);
 }
 .nb-gap {
   height: 16px;
@@ -1118,8 +1119,9 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   margin: 6px 0;
   padding: 0 12px;
   border-radius: var(--r-pill);
-  background: var(--accent-tint);
-  color: var(--accent-text);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
   font: 600 clamp(13px, var(--fs-foot), 16px) / clamp(16px, 1rem, 20px) var(--sans);
   white-space: nowrap;
 }
@@ -1204,7 +1206,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   outline: none;
 }
 .dp:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: -2px;
 }
 .dp-track {

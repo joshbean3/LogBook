@@ -89,8 +89,8 @@
 }
 .rp-title {
   display: block;
-  font-size: var(--fs-stamp);
-  line-height: 2rem;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
   color: var(--ink);
   margin-top: 10px;
   text-wrap: pretty;

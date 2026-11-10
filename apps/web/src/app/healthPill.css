@@ -8,7 +8,7 @@
   font-weight: 600;
 }
 .hl-pill .dot {
-  background: var(--accent);
+  background: var(--ok);
 }
 .hl-pill.is-done .dot {
   background: var(--ink-2);

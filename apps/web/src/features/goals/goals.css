@@ -398,7 +398,8 @@
 }
 .g-gauge-big small {
   text-transform: none;
-  font-size: var(--fs-head);
+  font-size: var(--fs-row);
+  font-weight: 600;
   color: var(--ink-3);
 }
 .g-gauge-track,
@@ -434,8 +435,10 @@
   transform: translateY(-50%);
 }
 .g-gauge-big {
-  font-size: var(--fs-stamp);
-  line-height: var(--lh-stamp);
+  font: 650 var(--fs-section) / var(--lh-section) var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
   color: var(--ink);
 }
 .g-gauge.is-behind .g-gauge-big {
