@@ -272,8 +272,8 @@ html.kb-open .dock {
   color: var(--accent);
 }
 .tab-label {
-  /* grows with Larger Text up to 12 px, where six words still fit a 320 px screen */
-  font-size: clamp(10px, 0.625rem, 12px);
+  /* 11 px at the default size (the floor for a caption), growing with Larger Text up to 12 px */
+  font-size: clamp(11px, 0.6875rem, 12px);
   line-height: clamp(12px, 0.75rem, 14px);
   font-weight: 500;
   letter-spacing: 0;
@@ -307,10 +307,11 @@ html[data-text-xl] .tab-item svg {
   .dock[data-compact] .tab-label {
     display: none;
   }
-  /* a 320 px screen has 47 px a tab and 230 px for the ask line: both stay at the brand's size, so no word is cut */
+  /* a 320 px screen has 47 px a tab and 230 px for the ask line: both stay at their default size, so no word is cut */
   .tab-label {
-    font-size: min(0.625rem, 10px);
-    line-height: min(0.75rem, 12px);
+    font-size: min(0.6875rem, 11px);
+    line-height: min(0.8125rem, 13px);
+    letter-spacing: -0.01em;
   }
   .dock-ask-text {
     font-size: min(var(--fs-row), 17px);

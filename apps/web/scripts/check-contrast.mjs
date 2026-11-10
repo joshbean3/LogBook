@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const css = fs.readFileSync(path.join(here, '..', 'src', 'styles', 'tokens.css'), 'utf8');
 
-const TEXT = ['--ink', '--ink-2', '--ink-3', '--ink-4', '--accent-text', '--bad', '--j-ink'];
+const TEXT = ['--ink', '--ink-2', '--ink-3', '--ink-4', '--accent-text', '--warn-text', '--bad', '--j-ink'];
 const SURFACES = ['--surface', '--bg', '--surface-2'];
 const MIN = 4.5;
 

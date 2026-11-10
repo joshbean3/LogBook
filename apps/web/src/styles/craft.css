@@ -121,7 +121,8 @@
 :root .sheet input.in,
 :root .sheet textarea.in {
   background: var(--well);
-  border: 1px solid transparent;
+  /* the well alone is 1.1:1 on a white card: the edge is what shows there is a field (WCAG 1.4.11) */
+  border: 1px solid var(--field-edge);
   box-shadow: var(--well-shadow);
   transition:
     box-shadow 180ms var(--ease-out),

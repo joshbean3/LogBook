@@ -38,15 +38,17 @@
   stroke-width: 1;
 }
 .ck-ax {
-  font: 500 11px/1 var(--sans);
-  fill: var(--ink-4);
+  /* 0.75rem follows the text size; held at 14 px at most because the labels sit in the chart's fixed 38 px right gutter */
+  font: 500 clamp(11px, 0.75rem, 14px) / 1 var(--sans);
+  fill: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 .ck-zone {
   fill: var(--columbia);
 }
 .ck-zone-label {
-  font: 600 10px/1 var(--sans);
+  /* in the 26 px zone gutter: 10 px, 12 at most */
+  font: 600 clamp(10px, 0.625rem, 12px) / 1 var(--sans);
   fill: var(--ink-3);
 }
 .ck-bar {
@@ -94,7 +96,8 @@
   filter: drop-shadow(0 1px 2px rgba(15, 42, 68, 0.08));
 }
 .ck-avg-word {
-  font: 500 10.5px/1 var(--sans);
+  /* inside a pill sized for 10.5 px glyphs (TrendChart avgW): 12 px at most */
+  font: 500 clamp(10.5px, 0.65625rem, 12px) / 1 var(--sans);
   fill: var(--ink-3);
 }
 .ck-avg-num {
@@ -408,6 +411,10 @@
 .ck-ring-track {
   fill: none;
   stroke: var(--columbia-wash);
+}
+/* nothing printed in the middle: the ring is the only cue, so its track is a thin line at 3:1 (WCAG 1.4.11) */
+.ck-ring.bare .ck-ring-track {
+  stroke: var(--ink-faint);
 }
 .ck-ring-arc {
   fill: none;

@@ -504,7 +504,7 @@ label.lrow[data-pressed] {
   background: var(--ok-soft);
 }
 .chip.floor {
-  color: var(--warn);
+  color: var(--warn-text);
   background: var(--warn-soft);
 }
 .chip.open {
@@ -593,7 +593,7 @@ label.lrow[data-pressed] {
 .in {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--field-edge);
   background: var(--surface);
   border-radius: var(--r-md);
   padding: 11px 12px;
@@ -772,7 +772,7 @@ textarea.in {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2px solid var(--line-strong);
+  border: 2px solid var(--field-edge);
   display: grid;
   place-items: center;
   color: transparent;
@@ -793,7 +793,7 @@ textarea.in {
 }
 .mark.m-floor {
   border-color: var(--warn);
-  color: var(--warn);
+  color: var(--warn-text);
   background: var(--warn-soft);
 }
 .mark.m-missed {
@@ -1156,7 +1156,7 @@ textarea.in {
   color: var(--accent-text);
 }
 .verdict.off {
-  color: var(--warn);
+  color: var(--warn-text);
 }
 .verdict.na {
   color: var(--ink-3);
@@ -1305,7 +1305,7 @@ textarea.in {
 .aura-stat .caps {
   color: rgba(15, 42, 68, 0.62);
   letter-spacing: 0.1em;
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
 }
 .aura-num {
   font-variant-numeric: tabular-nums;

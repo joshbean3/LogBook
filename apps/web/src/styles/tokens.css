@@ -16,6 +16,8 @@
   --ink-faint: #7c90a5;
   --line: rgba(15, 42, 68, 0.08);
   --line-strong: rgba(15, 42, 68, 0.16);
+  /* the edge of something you type in or tick (a text field, the empty to-do circle): 3:1 on white (WCAG 1.4.11) */
+  --field-edge: rgba(15, 42, 68, 0.5);
   --columbia: #b9d9eb;
   --columbia-wash: #e8f3f9;
 
@@ -35,8 +37,10 @@
 
   --ok: #2f5d85;
   --ok-soft: #e1edf6;
+  /* --warn is a fill and a mark (a dot, a border, a bar); words in amber use --warn-text (5.9:1 on white, 5.2:1 on --warn-soft) */
   --warn: #e08a00;
   --warn-soft: #fdf0d9;
+  --warn-text: #8f5800;
   --bad: #c8243f;
   --bad-soft: #fbe4e8;
   --star: #f2600c;
@@ -152,6 +156,21 @@
   /* the gap between a date pager's pages while they slide */
   --dpager-gap: 16px;
   --hit: 44px;
+}
+
+/* iOS Increase Contrast (WebKit maps it to prefers-contrast: more): the grey words step up to --ink-2, hairlines and the
+   card edge darken a step, and the frosted surfaces go opaque. :root:root outranks the later :root blocks (craft.css). */
+@media (prefers-contrast: more) {
+  :root:root {
+    --ink-3: #2f5d85;
+    --ink-4: #2f5d85;
+    --ink-faint: #57718a;
+    --line: rgba(15, 42, 68, 0.3);
+    --line-strong: rgba(15, 42, 68, 0.55);
+    --card-border: 1px solid rgba(15, 42, 68, 0.16);
+    --field-edge: rgba(15, 42, 68, 0.7);
+    --glass: #ffffff;
+  }
 }
 
 .t-easy { --tone: var(--t-easy); }
