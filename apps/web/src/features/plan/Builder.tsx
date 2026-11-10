@@ -4,6 +4,7 @@ import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState
 import { useNav, useTab } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
+import { DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { crossfade, reducedFade, useReduced } from '@/lib/motion';
 import { Button, Note, Stepper } from '@/ui/primitives';
@@ -11,13 +12,13 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
-import { builderVerb, type BuilderPrefill } from './builderModel';
+import { builderNote, builderVerb, clampTyped, startWords, type BuilderPrefill } from './builderModel';
 import './plan.css';
 
 /*
  * The block builder (docs/feel.md §7.4): a large sheet whose fixed header is the ghost preview (160 tall: the block's
  * shape as a grid of weeks, live as the controls change; a goal change crossfades it, nothing else moves), the controls
- * under it, and one verb in the foot that says what it does: `Use this plan`, or `Replace 44 planned sessions from Oct 19`.
+ * under it, and one verb in the foot that says what it does: `Use this plan`, or `Replace 44 sessions` (the date in the note).
  * The header and the body are two siblings in the sheet, so the body publishes what it built through a small store made per
  * open (`ghostStore`) and the header subscribes to it.
  */
@@ -106,7 +107,7 @@ const GhostHeader = ({ store }: { store: GhostStore }) => {
   else if (g.error)
     face = (
       <>
-        <span className="caps bh-caps">No block yet</span>
+        <span className="caps bh-caps">No plan yet</span>
         <span className="bh-name">That doesn’t fit</span>
         <span className="bh-error">{g.error}</span>
       </>
@@ -132,7 +133,8 @@ const GOALS: Array<[Goal, string]> = [
 ];
 const LETTER: Record<Weekday, string> = { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' };
 const DAY_NAME: Record<Weekday, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
-const KIND_WORD: Record<string, string> = { 'lead-in': 'Lead-in', build: '', down: 'Down week', taper: 'Taper', race: 'Race week' };
+/** Each row is a week, so the word is the kind alone (the column is 68 wide at 11 px caps). */
+const KIND_WORD: Record<string, string> = { 'lead-in': 'Warm-up', build: '', down: 'Down', taper: 'Taper', race: 'Race' };
 
 /** What the last four weeks say: the days you run and your weekly miles. */
 const habitsOf = (log: Log) => {
@@ -196,13 +198,14 @@ const inputOf = (t: string, c: { goal: Goal; weeks: number; runDays: Weekday[]; 
   const startDate = c.preStart ?? (c.soon ? shiftDays(t, 1) : nextMon);
   const firstMon = parseISO(startDate).getDay() === 1 ? startDate : shiftDays(mondayOf(startDate), 7);
   const raceDate = c.goal !== 'base' && c.race ? shiftDays(firstMon, c.weeks * 7 - 1) : null;
-  return { goal: c.goal, weeks: c.weeks, startDate, runDays: c.runDays, longRunDay: c.longDay, weeklyMiles: c.miles, raceDate };
+  return { goal: c.goal, weeks: c.weeks, startDate, firstMon, runDays: c.runDays, longRunDay: c.longDay, weeklyMiles: c.miles, raceDate };
 };
 const build = (input: ReturnType<typeof inputOf>): { tpl: Template | null; error: string | null } => {
   try {
-    return { tpl: buildTemplate(input), error: null };
+    const { firstMon: _firstMon, ...rest } = input;
+    return { tpl: buildTemplate(rest), error: null };
   } catch (e) {
-    return { tpl: null, error: e instanceof TemplateError ? e.message : 'That block doesn’t work. Change the weeks or the days.' };
+    return { tpl: null, error: e instanceof TemplateError ? e.message : 'That plan doesn’t work. Change the weeks or the days.' };
   }
 };
 /** The controls' first values: the prefill, the training answers, the last four weeks (startOf); built once per open. */
@@ -235,12 +238,13 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
   const isRace = goal !== 'base';
   // the body outlives nothing: a write that lands after the sheet was dismissed still says what it did (code review 1 #2)
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // set again on every mount: StrictMode runs the cleanup once on the dev build, and the sheet then never closed
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   const pickGoal = (g: Goal) => {
     setGoal(g);
     setWeeks(GOAL_SPECS[g].defaultWeeks);
@@ -261,7 +265,7 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
     setRunDays((xs) => (xs.includes(d) ? xs : WEEKDAYS.filter((x) => xs.includes(x) || x === d)));
   };
   const input = inputOf(t, { goal, weeks, runDays, longDay, miles, soon, race, preStart });
-  const { startDate, raceDate } = input;
+  const { startDate, raceDate, firstMon } = input;
   // the first render reuses the seed the header was made with (the same input, built once)
   const first = useRef<Seed['built'] | null>(seed.built);
   const built = useMemo(() => {
@@ -289,7 +293,8 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
     const replacing = existing > 0;
     // the promise settles whether or not the sheet is still open (mutate's own callbacks need a mounted observer): a write
     // that lands after a dismiss still raises its Undo, and a failure still says so (code review 1 #2)
-    write.mutateAsync({ ...input, replace: replacing }).then(
+    const { firstMon: _firstMon, ...body } = input;
+    write.mutateAsync({ ...body, replace: replacing }).then(
       (r) => {
         // a destructive commit with Undo (spec §11.4), when it commits; a plain new block is silent
         if (replacing) haptics.delete();
@@ -304,11 +309,11 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
         announceApplied(toast, r, () =>
           undo.mutateAsync(r).then(
             () => undefined,
-            () => toast('Couldn’t undo. The new block is still there.'),
+            () => toast('Couldn’t undo. The new plan is still there.'),
           ),
         );
       },
-      (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the block. Try again.'),
+      (e) => toast(e instanceof ApiError ? e.message : 'Couldn’t save the plan. Try again.'),
     );
   };
   // a number field the owner types in sits above the foot and the keyboard (review-feel-1 #7; spec §0.2, risk 6)
@@ -393,18 +398,18 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       <div className="tiles tp-steps">
         <div className="tile tp-step">
           <span className="tile-label">{raceDate ? 'Weeks to race day' : 'Weeks'}</span>
-          <Stepper label="Weeks" value={weeks} onChange={setWeeks} step={1} min={2} max={30} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
+          <Stepper label="Weeks" value={weeks} onChange={setWeeks} step={1} min={2} max={30} format={(v) => `${v}`} parse={(s) => clampTyped(s, 2, 30)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
         </div>
         <div className="tile tp-step">
           <span className="tile-label">Miles a week now</span>
-          <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={3} max={150} format={(v) => `${v}`} parse={(s) => (Number(s) > 0 ? Math.round(Number(s)) : null)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
+          <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={3} max={150} format={(v) => `${v}`} parse={(s) => clampTyped(s, 3, 150)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
         </div>
       </div>
       <div className="group tp-opts">
         <Pressable role="switch" aria-checked={soon} className="tp-opt" press="surface" onPress={() => (setPreStart(null), setSoon((v) => !v))}>
           <span className="tp-opt-main">
             <span className="tp-opt-t">Start tomorrow</span>
-            <span className="tp-opt-s">{soon ? `Week 1 starts ${fmtDate('md', startDate)}` : 'Else it starts next Monday'}</span>
+            <span className="tp-opt-s">{startWords(soon, startDate, firstMon)}</span>
           </span>
           <span className={`pl-switch ${soon ? 'on' : ''}`} aria-hidden="true" />
         </Pressable>
@@ -412,7 +417,7 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
           <Pressable role="switch" aria-checked={race} className="tp-opt" press="surface" onPress={() => setRace((v) => !v)}>
             <span className="tp-opt-main">
               <span className="tp-opt-t">Race on the last Sunday</span>
-              <span className="tp-opt-s">{raceDate ? `Race day ${fmtDate('md', raceDate)}, with a taper before it` : 'No race day: the block just ends'}</span>
+              <span className="tp-opt-s">{raceDate ? `Race day ${fmtDate('md', raceDate)}, with a taper before it` : 'No race day: the plan just ends'}</span>
             </span>
             <span className={`pl-switch ${race ? 'on' : ''}`} aria-hidden="true" />
           </Pressable>
@@ -420,10 +425,11 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       </div>
       {built.error ? <Note kind="bad">{built.error}</Note> : null}
       {listTpl ? <WeekByWeek tpl={listTpl} /> : null}
+      <p className="fine tp-disclaimer">{DISCLAIMER}</p>
       <div className="sheet-foot tp-foot">
-        <p className="tp-note">{!tpl ? '' : existing ? 'Anything you’ve done stays, and Undo puts it all back.' : `Starts ${fmtDate('short', tpl.start)}. Nothing is saved until you use it.`}</p>
+        <p className="tp-note">{!tpl ? '' : builderNote(existing, from, tpl.start)}</p>
         <Button variant="primary" block className="tp-verb" disabled={!tpl || counting || write.isPending} onClick={use}>
-          {write.isPending ? 'Writing it' : counting ? 'Checking your calendar…' : builderVerb(existing, from)}
+          {write.isPending ? 'Writing it' : counting ? 'Checking your calendar…' : builderVerb(existing)}
         </Button>
       </div>
     </div>
@@ -431,7 +437,7 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
 };
 
 /** After the verb: the block is on the calendar, with Undo (it puts back what a replace took away). */
-const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResult, undo: () => void) => {
+export const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResult, undo: () => void) => {
   const n = r.replacedIds?.length ?? 0;
   toast(`${r.block.name} is on your calendar.${n ? ` ${n} ${n === 1 ? 'session' : 'sessions'} replaced.` : ''}`, { label: 'Undo', fn: undo, duration: BLOCK_UNDO_MS });
 };
@@ -465,7 +471,7 @@ const WeekByWeek = ({ tpl }: { tpl: Template }) => {
           );
         })}
       </div>
-      <p className="tp-sum">{tpl.summary} Each run’s type sets its floor.</p>
+      <p className="tp-sum">{tpl.summary}</p>
     </section>
   );
 };
@@ -477,7 +483,7 @@ export const builderSpec = (log: Log, prefill?: BuilderPrefill): SheetSpec => {
   const seed = seedOf(log, prefill);
   const store = ghostStore({ tpl: seed.built.tpl, error: seed.built.error, goal: seed.c.goal });
   return {
-    title: prefill ? 'Next block' : 'New block',
+    title: prefill ? 'Next plan' : 'New plan',
     detent: 'large',
     header: <GhostHeader store={store} />,
     body: <BuilderBody log={log} store={store} seed={seed} />,

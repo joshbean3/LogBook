@@ -21,5 +21,21 @@ export const fromEndingBlock = (block: PlanBlock, profile: TrainingProfile): Bui
   startDate: shiftDays(block.end, 1),
 });
 
-/** The builder's verb (spec §7.4): it says what a tap does. `existing` planned sessions would be replaced from `from`. */
-export const builderVerb = (existing: number, from: string) => (existing > 0 ? `Replace ${existing} planned ${existing === 1 ? 'session' : 'sessions'} from ${fmtDate('md', from)}` : 'Use this plan');
+/**
+ * The builder's verb (spec §7.4): it says what a tap does, on one line. `existing` planned sessions would be replaced; the
+ * date they go from is in the note above the button (`builderNote`).
+ */
+export const builderVerb = (existing: number) => (existing > 0 ? `Replace ${existing} ${existing === 1 ? 'session' : 'sessions'}` : 'Use this plan');
+/** The line above the verb: what a replace clears and from when, or when the plan starts. */
+export const builderNote = (existing: number, from: string, start: string) =>
+  existing > 0 ? `Clears planned sessions from ${fmtDate('md', from)}. What you’ve done stays, and Undo puts it all back.` : `Starts ${fmtDate('short', start)}. Nothing is saved until you use it.`;
+
+/**
+ * The Start tomorrow row's line. A start that is not a Monday says both days: the plan starts then with a warm-up week,
+ * and week 1 is the Monday after (`Starts Wednesday. Week 1 is Nov 16`).
+ */
+export const startWords = (soon: boolean, startDate: string, firstMon: string) =>
+  !soon ? 'Else it starts next Monday' : startDate === firstMon ? `Week 1 starts ${fmtDate('md', startDate)}` : `Starts ${fmtDate('dowLong', startDate)}. Week 1 is ${fmtDate('md', firstMon)}`;
+
+/** A typed number held to its range (a value outside it used to snap back to the old one with no word). */
+export const clampTyped = (s: string, min: number, max: number): number | null => (Number(s) > 0 ? Math.min(max, Math.max(min, Math.round(Number(s)))) : null);

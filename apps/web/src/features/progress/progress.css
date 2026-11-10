@@ -1,170 +1,10 @@
-/* ---------- Progress (docs/shape-system.md §6, a tab): context chips, a hero card, tiles, the weeks card, the activity card ---------- */
+/* ---------- Progress (docs/shape-system.md §6, a tab): the hero card (hero.css), the trend and health tiles, and the
+   sheets the metric pages open (the week, easy pace, lifts) ---------- */
 
 /* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
    must not move it too (review 3 feel R3-3). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. */
 .pg-page {
   overflow-anchor: none;
-}
-
-/* ---------- the context row: Strava and the block ---------- */
-.pg-ctx-row {
-  margin-bottom: 16px;
-}
-.pg-ctx-row > .ctx-chip {
-  flex: 1 1 0;
-}
-.pg-ctx-ic.is-ok {
-  background: var(--columbia);
-  color: var(--ink);
-}
-.pg-ctx-ic.is-warn {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-.pg-ctx-warn {
-  color: var(--accent-text);
-}
-/* a 320 px phone: smaller icons and padding so the words keep their room */
-@container page (max-width: 21rem) {
-  .pg-ctx-row {
-    gap: 8px;
-  }
-  .pg-ctx-row > .ctx-chip {
-    gap: 8px;
-    padding: 8px 8px 8px 6px;
-  }
-  .pg-ctx-row .ctx-ic {
-    width: 28px;
-    height: 28px;
-  }
-  .pg-ctx-row .ctx-chip > svg {
-    display: none;
-  }
-}
-.pg-spin {
-  animation: pg-spin 1.1s linear infinite;
-}
-@keyframes pg-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pg-spin {
-    animation: none;
-  }
-}
-
-/* ---------- a hero card, lit from below ---------- */
-.pg-hero {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  container: pghero / inline-size;
-}
-.pg-glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--halo);
-  opacity: 0.6;
-  pointer-events: none;
-}
-/* the one caps eyebrow a card may carry */
-.pg-eyebrow {
-  display: block;
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pg-readline {
-  display: block;
-  min-height: var(--lh-foot);
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ---------- this month against last: the big total at the left, last month's at the right, a sentence, the lines ---------- */
-.pg-month {
-  padding-bottom: 12px;
-}
-.pg-month-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.pg-month-cur,
-.pg-month-prev {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.pg-month-prev {
-  justify-items: end;
-  text-align: right;
-  padding-top: 8px;
-}
-.pg-month-big {
-  font: 700 2.125rem / 2.375rem var(--stamp);
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-  white-space: nowrap;
-}
-.pg-month-small {
-  font: 700 1.25rem / 1.5rem var(--stamp);
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-.pg-month-big small,
-.pg-month-small small {
-  margin-left: 3px;
-  font: 500 var(--fs-sub) / 1 var(--sans);
-  color: var(--ink-3);
-}
-.pg-month-big.is-dash,
-.pg-month-small.is-dash {
-  color: var(--ink-4);
-}
-.pg-mkey {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.pg-mkey::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ink-4);
-  flex: none;
-}
-.pg-mkey.is-now::before {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-tint);
-}
-/* the hero sentence: Logbook's serif */
-.pg-month-words {
-  margin: 12px 0 8px;
-  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--serif);
-  color: var(--ink);
-  text-wrap: pretty;
 }
 
 /* ---------- tiles: trends and vitals ---------- */
@@ -179,11 +19,27 @@
 .pg-vital {
   container: vital / inline-size;
 }
-/* a narrow tile gives the label's icon room back to its words ("Resting HR") */
-@container vital (max-width: 140px) {
+/* the name stays whole ("Resting HR"): a narrow tile (a 320 phone, or a larger text size, hence rem) gives the metric
+   icon's room to it. The arrow sits over the range pill, so every tile keeps it */
+@container vital (max-width: 8.5rem) {
   .pg-vital .tile-label svg {
     display: none;
   }
+}
+.pg-vital-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+}
+.pg-vital-side .pg-go {
+  margin-left: 0;
+}
+.pg-vital-side .ck-rpill {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 3rem;
 }
 .pg-vital-main {
   display: grid;
@@ -194,11 +50,6 @@
 .pg-vital-none {
   color: var(--ink-4);
   white-space: normal;
-}
-.pg-vital-foot {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
 }
 /* an "add here" slot: where the vitals will come from */
 .pg-slot {
@@ -237,59 +88,7 @@
   line-height: var(--lh-foot);
 }
 
-/* ---------- the weeks card ---------- */
-.pg-weeks {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-}
-.pg-verdict {
-  margin-top: 6px;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  text-wrap: pretty;
-}
-.pg-sub {
-  margin-top: 2px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-3);
-  text-wrap: pretty;
-}
-/* the headline numbers: three stamps that rewrite under the finger, split by hairlines */
-.pg-readout {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-.pg-slot-stat {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.pg-slot-stat + .pg-slot-stat {
-  padding-left: 12px;
-  box-shadow: inset 1px 0 0 var(--line);
-}
-.pg-slot-label {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.pg-slot-num {
-  font-size: 1.5rem;
-  line-height: 1.875rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: clip;
-  font-variant-numeric: tabular-nums;
-}
-.pg-slot-num small,
+/* ---------- stamped numbers ---------- */
 .pg-row-num small,
 .pg-stamp-num small {
   font: 500 0.8125rem / 1 var(--sans);
@@ -298,46 +97,8 @@
   margin-left: 3px;
   color: var(--ink-3);
 }
-/* an empty slot while scrubbing says a word ("No plan"), never a dash; it sits on the numerals' baseline */
-.pg-slot-word {
-  font: 600 1rem / 1 var(--sans);
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-3);
-}
-@container pghero (max-width: 18rem) {
-  .pg-readout {
-    gap: 8px;
-  }
-  .pg-slot-stat + .pg-slot-stat {
-    padding-left: 8px;
-  }
-  .pg-slot-num {
-    font-size: 1.25rem;
-    line-height: 1.625rem;
-  }
-}
-.seg.pg-range {
-  margin-top: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.pg-weeks-empty {
-  padding-bottom: 18px;
-}
-.pg-weeks-empty .empty-ghost {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-.pg-weeks-empty .empty-line {
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
 
-/* ---------- the drill-downs: one inset group under the weeks card ---------- */
-.pg-drills {
-  margin-top: var(--gap);
-}
+/* ---------- the drill-downs: one inset group on a metric page ---------- */
 .pg-drill {
   appearance: none;
   border: 0;
@@ -365,13 +126,11 @@
     background: var(--surface-2);
   }
 }
-.pg-drill:focus-visible,
-.pg-act:focus-visible {
+.pg-drill:focus-visible {
   outline: 2px solid var(--ink-2);
   outline-offset: -2px;
 }
-.pg-drill-main,
-.pg-act-main {
+.pg-drill-main {
   flex: 1;
   min-width: 0;
   display: grid;
@@ -393,40 +152,12 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
-.pg-drill-spark {
-  flex: none;
-  display: block;
-}
-.pg-drill-val,
-.pg-act-val {
-  flex: none;
-  font: 700 1.125rem / 1.5rem var(--stamp);
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--ink);
-  text-align: right;
-}
-.pg-drill-val small,
-.pg-act-val small {
-  margin-left: 2px;
-  font: 500 var(--fs-foot) / 1 var(--sans);
-  color: var(--ink-3);
-}
-.pg-act-val:empty {
-  display: none;
-}
 .pg-chev {
   color: var(--ink-4);
   flex: none;
   margin-right: -4px;
 }
 /* at 320 the title and its number win; the sparkline lives in the sheet */
-@container page (max-width: 21rem) {
-  .pg-drill-spark {
-    display: none;
-  }
-}
 
 /* the drill-downs' small sparkline (charts.tsx Spark): the kit's navy line, its newest point orange */
 .pg-spark {
@@ -447,170 +178,7 @@
   display: inline-block;
 }
 
-/* ---------- activities: filter chips, then the rows in one card ---------- */
-.pg-filters {
-  display: flex;
-  gap: 8px;
-  margin: 0 calc(-1 * var(--gutter)) var(--gap);
-  padding: 2px var(--gutter) 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.pg-filters::-webkit-scrollbar {
-  display: none;
-}
-.pg-filter {
-  appearance: none;
-  flex: none;
-  position: relative;
-  height: 36px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  color: var(--ink);
-  font: 600 var(--fs-sub) / 1 var(--sans);
-  transition:
-    background var(--dur-color) var(--ease-out),
-    color var(--dur-color) var(--ease-out);
-}
-.pg-filter::after {
-  content: '';
-  position: absolute;
-  inset: -4px 0;
-}
-.pg-filter.on {
-  background: var(--primary);
-  color: var(--primary-ink);
-  box-shadow: none;
-}
-.pg-filter:focus-visible {
-  outline: 2px solid var(--ink-2);
-  outline-offset: 2px;
-}
-.card.pg-acts {
-  padding: 4px 0;
-  overflow: hidden;
-}
-.pg-act {
-  appearance: none;
-  border: 0;
-  background: var(--surface);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 64px;
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: background var(--dur-fast);
-}
-/* separators start where the words start */
-.pg-act + .pg-act {
-  box-shadow: inset 60px 1px 0 var(--surface), inset 0 1px 0 var(--line);
-}
-.pg-act[data-pressed] {
-  background: var(--surface-2);
-}
-@media (hover: hover) {
-  .pg-act:hover {
-    background: var(--surface-2);
-  }
-}
-.pg-act-icon.k-lift {
-  background: color-mix(in srgb, var(--t-lift) 12%, white);
-  color: var(--t-lift);
-}
-.pg-act-icon.k-cross {
-  background: var(--surface-2);
-}
-.pg-act-icon.is-race {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-.pg-act-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
-}
-.pg-act-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pg-act-race {
-  flex: none;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 8px;
-  border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font: 600 var(--fs-caps) / 1 var(--sans);
-}
-.pg-act-sub {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-  color: var(--ink-3);
-}
-.pg-act-detail {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pg-acts-empty {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  font-size: var(--fs-sub);
-  line-height: var(--lh-sub);
-  color: var(--ink-3);
-}
-.pg-more {
-  appearance: none;
-  position: relative;
-  display: block;
-  width: 100%;
-  min-height: 48px;
-  border: 0;
-  background: var(--surface);
-  box-shadow: inset 0 1px 0 var(--line);
-  color: var(--accent-text);
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-}
-.pg-more:focus-visible {
-  outline: 2px solid var(--ink-2);
-  outline-offset: -2px;
-}
-
 /* ---------- the chart ---------- */
-.pg-chart {
-  position: relative;
-  margin-top: 6px;
-}
-.pg-plot {
-  position: relative;
-  outline: none;
-  border-radius: var(--r-md);
-}
-.pg-plot:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent-bright);
-}
 /* vertical swipes scroll the page until a scrub begins; pinch belongs to the chart */
 .pg-touch {
   touch-action: pan-y;
@@ -619,7 +187,6 @@
   -webkit-touch-callout: none;
   cursor: crosshair;
 }
-.pg-chart svg,
 .pg-line svg {
   display: block;
   overflow: visible;
@@ -631,86 +198,14 @@
   stroke-dasharray: 2 4;
   opacity: 0.7;
 }
-.pg-base {
-  stroke: var(--line);
-  stroke-width: 1;
-}
 .pg-ax {
-  font: 500 11px/1 var(--sans);
-  fill: var(--ink-4);
+  font: 500 clamp(12px, 0.75rem, 16px) / 1 var(--sans);
+  fill: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 .pg-ax.now {
   fill: var(--accent-text);
   font-weight: 600;
-}
-/* run bars white, this week the one blue, plan an outline (dashed ahead), the average a thin line */
-.pg-bar {
-  fill: var(--ink-2);
-}
-.pg-bar.cur {
-  fill: var(--accent);
-}
-.pg-plan {
-  fill: var(--columbia-wash);
-  stroke: var(--ink-4);
-  stroke-width: 1;
-}
-.pg-plan.ahead {
-  stroke-dasharray: 3 3;
-  stroke: rgba(15, 42, 68, 0.3);
-}
-.pg-avg {
-  fill: none;
-  stroke: rgba(15, 42, 68, 0.62);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.pg-now-dot {
-  fill: var(--accent-bright);
-}
-/* the column under the finger */
-.pg-col {
-  fill: rgba(15, 42, 68, 0.07);
-  stroke: var(--line-strong);
-  stroke-width: 1;
-}
-/* series named on the chart: caps, outlined in black so they read over a bar */
-.pg-lbl {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  fill: var(--ink-2);
-  paint-order: stroke;
-  stroke: var(--surface);
-  stroke-width: 3px;
-  stroke-linejoin: round;
-  transition: opacity var(--dur-out);
-}
-.pg-lbl-plan {
-  fill: var(--ink-3);
-}
-.pg-chart.is-ghost .pg-plot {
-  cursor: default;
-}
-/* a week (partly) logged by hand: the same solid bar, with a 1px inner hairline that says "logged, not tracked" */
-.pg-logged {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.75);
-  stroke-width: 1;
-}
-
-/* the empty state's ghost: shapes only, no numbers, no labels */
-.pg-ghost-read {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 8px 0 20px;
-}
-.pg-ghost-slot {
-  display: grid;
-  gap: 8px;
 }
 
 /* ---------- sheets ---------- */
@@ -742,7 +237,7 @@
   align-content: start;
 }
 .pg-stamp .caps {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
@@ -841,51 +336,8 @@ button.pg-srow[data-pressed] {
   gap: 1px;
 }
 .pg-num-col .caps {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   color: var(--ink-3);
-}
-/* a day in the week sheet: caps weekday over the date */
-.pg-day {
-  width: 36px;
-  flex: none;
-  display: grid;
-  justify-items: center;
-  gap: 0;
-  color: var(--ink-3);
-}
-.pg-day .caps {
-  font-size: 0.625rem;
-}
-.pg-day-n {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 1.0625rem;
-  line-height: 1.25rem;
-  color: var(--ink-2);
-  letter-spacing: -0.02em;
-}
-.pg-day.is-today .pg-day-n,
-.pg-day.is-today .caps {
-  color: var(--accent-text);
-}
-/* the one status word: the same vocabulary as Today and Plan, colour plus the word */
-.pg-st {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.pg-st.ok {
-  color: var(--ink-2);
-}
-.pg-st.warn {
-  color: var(--warn);
-}
-.pg-st.bad {
-  color: color-mix(in srgb, var(--bad) 85%, white);
-}
-.pg-st.today {
-  color: var(--ink);
 }
 .pg-week-top {
   display: flex;
@@ -915,21 +367,6 @@ button.pg-srow[data-pressed] {
 .pg-week-words .pg-stamp-num {
   font-size: 1.375rem;
   line-height: 1.75rem;
-}
-/* adherence: a thin meter of kept against planned */
-.pg-meter {
-  display: block;
-  width: 56px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--surface-3);
-  overflow: hidden;
-}
-.pg-meter i {
-  display: block;
-  height: 100%;
-  background: var(--ok);
-  border-radius: 2px;
 }
 
 /* the sheets' line chart */
@@ -972,171 +409,14 @@ button.pg-srow[data-pressed] {
   stroke-width: 1;
 }
 
-/* ---------- the consistency grid: a row per habit, its name above its days ---------- */
-.pg-grid-wrap {
-  position: relative;
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.pg-grid-axis {
-  position: relative;
-  height: 14px;
-}
-.pg-grid-axis span {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-size: 0.625rem;
-  color: var(--ink-3);
-}
-.pg-grid-axis span.on {
-  color: var(--ink);
-}
-.pg-grid {
-  position: relative;
-  display: grid;
-  gap: 10px;
-}
-.pg-grow {
-  display: grid;
-  gap: 4px;
-}
-.pg-grow.train {
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
-}
-.pg-grow-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.pg-grow-name {
-  font-size: 0.875rem;
-  line-height: 1.125rem;
-  color: var(--ink-2);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pg-grow.train .pg-grow-name {
-  color: var(--ink);
-  font-weight: 600;
-}
-.pg-grow-rate {
-  font-family: var(--stamp);
-  font-weight: 800;
-  font-size: 0.8125rem;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-.pg-cells {
-  display: grid;
-  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
-  gap: 3px;
-}
-.pg-cell {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  max-height: 14px;
-  border-radius: 3px;
-  background: var(--surface-3);
-  box-sizing: border-box;
-}
-.pg-cell.on {
-  background: var(--ok);
-}
-.pg-cell.half {
-  background: var(--warn);
-}
-.pg-cell.miss {
-  background: color-mix(in srgb, var(--bad) 60%, transparent);
-}
-.pg-cell.none {
-  background: none;
-  border: 1px dashed rgba(15, 42, 68, 0.16);
-}
-.pg-cell.open {
-  background: none;
-  border: 1px solid var(--line-strong);
-}
-.pg-cell.col {
-  outline: 1px solid rgba(15, 42, 68, 0.5);
-  outline-offset: 1px;
-}
-/* the touch surface over the rows: one column per day, at least 44px tall */
-.pg-hits {
-  position: absolute;
-  inset: -4px 0;
-  display: grid;
-  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
-  cursor: pointer;
-}
-.pg-hit {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  min-height: 44px;
-  border-radius: 3px;
-}
-.pg-hit.on {
-  background: rgba(15, 42, 68, 0.06);
-}
-.pg-key {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  font-size: 0.625rem;
-  color: var(--ink-3);
-}
-.pg-key span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.pg-key .pg-cell {
-  width: 10px;
-  height: 10px;
-}
-
 /* the week sheet's one way into Plan: the day list lives there */
 .pg-srow-icon {
   flex: none;
   color: var(--accent-text);
 }
-
-/* an empty slot while scrubbing says a word ("No plan"), never a dash; it sits on the numerals' baseline */
-.pg-slot-word {
-  font-family: var(--sans, inherit);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-3);
-}
-
-/* the chart: a new range crossfades in 150 ms; a scrub dims the other weeks by opacity (nothing animates a size, §10) */
-.pg-fade-in {
-  animation: pg-fade-in 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@keyframes pg-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-.pg-week {
-  transition: opacity 120ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
 /* ---------- the drill-down sheets, in cards (docs/shape-system.md §5, sheets): stamps in a card, rows in an inset group ---------- */
 .pg-sheet > .pg-stamps,
 .pg-sheet > .pg-line,
-.pg-sheet > .pg-grid-wrap,
 .pg-sheet > .pg-week-top {
   padding: var(--pad-card);
   border-radius: var(--r-card);
@@ -1175,4 +455,144 @@ button.pg-srow[data-pressed] {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   letter-spacing: 0;
   text-transform: none;
+}
+
+/* three trend tiles (no pace without a timed-run source): the last one takes the row */
+.pg-tiles > .ck-tcard:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+/* the Health slot as the way in: Connect Apple Health reads as a button */
+.pg-slot.is-connect .pg-slot-title {
+  color: var(--accent-text);
+}
+
+/* a line chart with no values: one quiet line where the plot would be */
+.pg-line-none {
+  margin: 0;
+  padding: 28px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  text-align: center;
+}
+
+/* ---------- the page while it loads: the hero card's shape, the section title, four tiles ---------- */
+.pg-skel {
+  display: grid;
+  gap: var(--gap);
+}
+.pg-skel .pg-skel-title {
+  margin-top: calc(var(--section) - var(--gap));
+}
+
+/* ---------- a new account: one card that says what will show here and where to start ---------- */
+.pg-first.card {
+  display: grid;
+  gap: 12px;
+}
+.pg-first-t {
+  margin: 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.pg-first-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pg-first + .pg-tiles {
+  margin-top: var(--gap);
+}
+
+/* ---------- even rows, and one cue that a tile opens a page ---------- */
+/* a trend tile's four lines (label, number, status, line) and a vital's three hold one height each, so a row never steps */
+.pg-tiles .ck-tcard {
+  min-height: 9.5rem;
+}
+.pg-tiles .pg-vital,
+.pg-tiles .pg-slot {
+  min-height: 7.25rem;
+}
+/* the arrow stays at 320 (the kit hides it under 132 px; the label gives way instead) */
+.pg-tiles .ck-tcard .tile-label .ck-tcard-go {
+  display: block;
+}
+.pg-go {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-4);
+}
+.pg-vital .tile-label {
+  width: 100%;
+}
+/* a name that cannot fit (large text at 320) takes a second line rather than an ellipsis */
+.pg-vital-name {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+/* the tile unit says the days it covers ("mi, 7 days"): it may drop under the number in a narrow tile, never be cut */
+.pg-tiles .ck-tcard {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pg-tiles .ck-tcard-num {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 3px;
+}
+.pg-tiles .ck-tcard-num small {
+  margin-left: 0;
+  white-space: nowrap;
+}
+/* the same on a vital tile: at a large text size "bpm" goes under the number instead of under the range pill */
+.pg-vital .tile-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 3px;
+  min-width: 0;
+}
+.pg-vital .tile-value small {
+  margin-left: 0;
+  white-space: nowrap;
+}
+/* "30-day": the section meta's tabular figures give the hyphen a figure's width */
+.pg-sec .lb-meta {
+  font-variant-numeric: normal;
+}
+/* the connect slot alone (nothing connected, nothing to read): one row across the page */
+.pg-slot.is-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  text-align: left;
+}
+.pg-slot.is-row .pg-slot-ic {
+  margin-bottom: 0;
+}
+.pg-slot-words {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- the chart kit on these pages (ui/charts is not edited: the overrides live here) ---------- */
+/* axis words at 12 px in the grey that reads (5.1:1), not 11 px at 3.3:1 */
+.pg-page .ck-ax {
+  font-size: clamp(12px, 0.75rem, 16px);
+  fill: var(--ink-3);
+}
+/* each span key at least 44 wide */
+.mp-card .ck-range-key {
+  min-width: 44px;
+}
+/* the average pill's words at 11 px, never under (the kit draws them at 10.5) */
+.pg-page .ck-avg-word {
+  font-size: 0.6875rem;
 }

@@ -21,6 +21,8 @@ export interface ScrubOptions {
   peak?: number | null;
   /** Where the keyboard starts (this week). */
   home?: number;
+  /** The first index that can be read (weeks before the log began are not): the keyboard stops there. */
+  min?: number;
   /** A pinch: -1 = fingers apart (zoom in), +1 = together (zoom out). Once per gesture. */
   onPinch?: (dir: -1 | 1) => void;
   /** The live pinch ratio while two fingers are down, null after. */
@@ -171,7 +173,8 @@ export const useScrub = (o: ScrubOptions) => {
     }
     const p = press.current;
     if (!p || p.id !== e.pointerId) return;
-    const quick = performance.now() - p.t0 < TAP_MS && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < SLOP && !p.changed;
+    // a touch that pressed long enough to start reading (the scrub went live) is a read, not a tap: letting go opens nothing
+    const quick = (e.pointerType === 'mouse' || !p.active) && performance.now() - p.t0 < TAP_MS && Math.hypot(e.clientX - p.x0, e.clientY - p.y0) < SLOP && !p.changed;
     endPress();
     if (!cancelled && quick && p.i0 != null && opts.current.onTap) {
       emit(e.pointerType === 'mouse' ? p.i0 : null);
@@ -187,12 +190,12 @@ export const useScrub = (o: ScrubOptions) => {
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    const { count, home = count - 1 } = opts.current;
+    const { count, home = count - 1, min = 0 } = opts.current;
     const cur = active ?? home;
     let next: number | null = null;
-    if (e.key === 'ArrowLeft') next = Math.max(0, (active == null ? home + 1 : cur) - 1);
+    if (e.key === 'ArrowLeft') next = Math.max(min, (active == null ? home + 1 : cur) - 1);
     else if (e.key === 'ArrowRight') next = Math.min(count - 1, (active == null ? home - 1 : cur) + 1);
-    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'Home') next = min;
     else if (e.key === 'End') next = count - 1;
     else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

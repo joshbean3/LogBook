@@ -11,6 +11,7 @@ import { DayPager, useDayPagerHandle } from '@/ui/DayPager';
 import { monthCaption, NavBar, weekCaption } from '@/ui/NavBar';
 import { Note, Segmented } from '@/ui/primitives';
 import { useOpenCalendar } from '../day/Calendar';
+import { STRAVA_BUILT } from '@/lib/features';
 import { useLog } from '../log/useLog';
 import { usePlanBlock } from './Blocks';
 import { HeldBanner } from './Held';
@@ -151,7 +152,10 @@ export default function PlanView(): React.JSX.Element {
       f = anchor?.first ?? (back ? s.first : monthOfWeek(weekH.target.get() ?? s.mon));
       setMonthOn(true);
     }
-    if (v !== s.view) preScroll.current = scroller.current?.scrollTop ?? null;
+    if (v !== s.view) {
+      preScroll.current = scroller.current?.scrollTop ?? null;
+      toTop.current = true;
+    }
     noteFocus();
     // the other unit's goTo target must not reach this view's labels
     setTgt(null);
@@ -160,6 +164,23 @@ export default function PlanView(): React.JSX.Element {
   };
   const weekPane = useRef<HTMLElement>(null);
   const monthPane = useRef<HTMLElement>(null);
+  /**
+   * A switch asked for while the panes sit low on the screen (at rest the week's header is under the plan card, the
+   * morning and today's session, so the switch would change one line above the dock): the shown pane's header then
+   * scrolls up to just under the bar, so the week or the month that was asked for is what the screen shows (plan-09).
+   */
+  const toTop = useRef(false);
+  useEffect(() => {
+    if (!toTop.current) return;
+    toTop.current = false;
+    const sc = scroller.current;
+    const pane = (view === 'week' ? weekPane : monthPane).current;
+    const bar = rootRef.current?.querySelector<HTMLElement>('.nb-bar');
+    if (!sc || !pane || !bar) return;
+    const delta = pane.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 8;
+    if (delta < sc.clientHeight * 0.3) return;
+    sc.scrollTo({ top: sc.scrollTop + delta, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
   const fades = useRef<Animation[]>([]);
   const fadeGen = useRef(0);
   const shownView = useRef(view);
@@ -367,6 +388,61 @@ export default function PlanView(): React.JSX.Element {
     },
     [weekH], // eslint-disable-line react-hooks/exhaustive-deps
   );
+  const onThisMonth = useCallback(() => {
+    noteFocus();
+    monthH.goTo(live.current.thisFirst);
+  }, [monthH]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onMonthStep = useCallback(
+    (dir: -1 | 1) => {
+      noteFocus();
+      monthH.goTo(addMonths(monthH.target.get() ?? live.current.st.first, dir));
+    },
+    [monthH], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  /**
+   * The header arrows while their pager slides (plan-12): a touch then lands on a page that is moving (or on the inert
+   * neighbour coming in), so the pager would catch the slide and the arrow would never hear the tap. A press on the spot
+   * where an arrow of the page the pager is going to will rest is taken here, before the pager's own listener: it steps
+   * one more page from where the slide is going, and the click that follows is swallowed (the arrow under it may be live
+   * by then). At rest nothing is taken: the arrow's own press runs.
+   */
+  useEffect(() => {
+    const offs: Array<() => void> = [];
+    const bind = (pane: HTMLElement | null, h: typeof weekH, step: (dir: -1 | 1) => void) => {
+      if (!pane) return;
+      let took = 0;
+      const down = (e: PointerEvent) => {
+        if (!e.isPrimary || !h.moving.get()) return;
+        const to = h.target.get();
+        const page = (to && pane.querySelector<HTMLElement>(`.dp-page[data-date="${to}"]`)) || pane.querySelector<HTMLElement>('.dp-page[data-role="cur"]');
+        const dp = pane.querySelector<HTMLElement>('.dp');
+        if (!page || !dp) return;
+        // where that page's arrows will be once it rests: their place in the page, from the pager's left edge
+        const dx = dp.getBoundingClientRect().left - page.getBoundingClientRect().left;
+        for (const b of page.querySelectorAll<HTMLElement>('.pl-step[data-step]')) {
+          const r = b.getBoundingClientRect();
+          if (e.clientX >= r.left + dx && e.clientX <= r.right + dx && e.clientY >= r.top - 4 && e.clientY <= r.bottom + 4) {
+            e.stopPropagation();
+            took = performance.now();
+            step(b.dataset.step === '-1' ? -1 : 1);
+            return;
+          }
+        }
+      };
+      const click = (e: MouseEvent) => {
+        if (!took || performance.now() - took > 700) return void (took = 0);
+        took = 0;
+        e.stopPropagation();
+        e.preventDefault();
+      };
+      pane.addEventListener('pointerdown', down, true);
+      pane.addEventListener('click', click, true);
+      offs.push(() => (pane.removeEventListener('pointerdown', down, true), pane.removeEventListener('click', click, true)));
+    };
+    bind(weekPane.current, weekH, onStep);
+    bind(monthPane.current, monthH, onMonthStep);
+    return () => offs.forEach((f) => f());
+  }, [monthOn, weekH, monthH, onStep, onMonthStep]);
   const block = usePlanBlock();
   /**
    * A page that comes into a pager's neighbour slot is not built live inside the commit's flushSync (review-feel-1 #6;
@@ -534,21 +610,22 @@ export default function PlanView(): React.JSX.Element {
     (f: string, live: boolean) => {
       const k = faceOf(f, live, monthH);
       if (k === 'snap') return <div className="pl-snap" aria-hidden="true" dangerouslySetInnerHTML={{ __html: snapped.current.get(keyOf(f, monthH))! }} />;
-      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} still={k === 'still'} />;
+      return k === 'none' ? <div className="pl-mpage" aria-hidden="true" /> : <MonthPage first={f} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} still={k === 'still'} />;
     },
-    [onWeek, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
+    [onWeek, onMonthStep, onThisMonth, warm, drawnVer], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const stashBox = (
     <div ref={stashRef} className="pl-stash" hidden aria-hidden="true" inert>
       {stash.map((k) => (
         <div key={k} data-stash={k}>
-          {k.startsWith('w:') ? <WeekPage mon={k.slice(2)} onThisWeek={onThisWeek} onStep={onStep} still /> : <MonthPage first={k.slice(2)} onWeek={onWeek} still />}
+          {k.startsWith('w:') ? <WeekPage mon={k.slice(2)} onThisWeek={onThisWeek} onStep={onStep} still /> : <MonthPage first={k.slice(2)} onWeek={onWeek} onStep={onMonthStep} onThisMonth={onThisMonth} still />}
         </div>
       ))}
     </div>
   );
-  const strava = useLog([]).strava;
+  // the sync note belongs to a build with Strava; without it the branch is dropped
+  const strava = STRAVA_BUILT ? useLog([]).strava : null; // eslint-disable-line react-hooks/rules-of-hooks
   const paneCls = (v: View) => (view === v ? 'is-on' : st.leaving === v ? 'is-leaving' : 'is-off');
   const hidden = (v: View) => view !== v || undefined;
   // the pane that is neither shown nor fading out defers its updates (a drop re-renders the shown pages only)

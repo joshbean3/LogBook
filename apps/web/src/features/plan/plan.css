@@ -280,7 +280,7 @@
   color: var(--ink-3);
 }
 .pl-st.is-word.k-floor {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
   font-weight: 600;
 }
 /* missed: the word in ink-3 and a 1 px strike on the name; never red */
@@ -301,9 +301,6 @@
   background: var(--surface-2);
   color: var(--ink-3);
 }
-.pl-line.is-rest {
-  min-height: 56px;
-}
 .pl-rest {
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink-3);
@@ -315,6 +312,9 @@
 }
 /* the inline question under a hard pair */
 .pl-conflict {
+  /* scrolled into view above the dock (Ask bar and tab bar) and under the bar. The dock's height is spelled out: inside
+     the pager `--chrome-h` is the pager's own offset */
+  scroll-margin: 64px 0 calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px + var(--safe-b, 0px) + 16px);
   position: relative;
   padding: 12px 16px 14px;
   background: var(--surface);
@@ -506,7 +506,7 @@
   color: var(--ink-4);
 }
 .mg-mi {
-  font: 500 var(--fs-orb) / 14px var(--sans);
+  font: 500 var(--fs-orb) / 0.875rem var(--sans);
   color: var(--ink-3);
 }
 .mg-mi.is-ran {
@@ -517,20 +517,50 @@
 .mg-week.is-now .mg-mi:not(.is-ran) {
   color: var(--ink-2);
 }
-.mg-cell.has-tone::after {
+/* a day's mark: its session type by shape as well as tone (the key under the grid names each): easy a bar, long a longer
+   bar, hard two dashes, fast three dots, strength a block, cross a round dot */
+.mg-cell.has-tone::after,
+.mg-mark {
+  --mw: 16px;
+  --mh: 3px;
   content: '';
-  position: absolute;
-  bottom: 6px;
-  left: 50%;
-  width: 16px;
-  height: 3px;
-  margin-left: -8px;
+  width: var(--mw);
+  height: var(--mh);
   border-radius: 2px;
   background: var(--tone, var(--t-rest));
 }
-.mg-cell.k-missed::after,
-.mg-cell.k-skipped::after {
-  background: var(--ink-4);
+.mg-cell.has-tone::after {
+  position: absolute;
+  bottom: calc(7.5px - var(--mh) / 2);
+  left: calc(50% - var(--mw) / 2);
+}
+.mg-cell.t-long::after,
+.t-long > .mg-mark {
+  --mw: 24px;
+}
+.mg-cell.t-hard::after,
+.t-hard > .mg-mark {
+  background: linear-gradient(90deg, var(--tone) 0 6px, transparent 6px 10px, var(--tone) 10px);
+}
+.mg-cell.t-fast::after,
+.t-fast > .mg-mark {
+  --mw: 15px;
+  background: repeating-linear-gradient(90deg, var(--tone) 0 3px, transparent 3px 6px);
+}
+.mg-cell.t-lift::after,
+.t-lift > .mg-mark {
+  --mw: 10px;
+  --mh: 6px;
+}
+.mg-cell.t-cross::after,
+.t-cross > .mg-mark {
+  --mw: 6px;
+  --mh: 6px;
+  border-radius: 50%;
+}
+.mg-cell.k-missed,
+.mg-cell.k-skipped {
+  --tone: var(--ink-4);
 }
 .mg-cell.k-planned::after,
 .mg-cell.k-today::after {
@@ -551,12 +581,61 @@
   color: var(--ink);
 }
 .mg-wk small {
-  font: 400 var(--fs-orb) / 14px var(--sans);
+  font: 400 var(--fs-orb) / 0.875rem var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
 }
 .mg-wk.is-plan b {
   color: var(--ink-3);
+}
+/* the key: one line under the grid (it wraps at 320), each mark as the cells draw it */
+.mg-key {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  margin-top: 4px;
+  padding: 10px 4px 4px;
+  border-top: 1px solid var(--line);
+}
+/* six marks do not fit one line under about 430: then two even rows of three, never one orphan */
+@media (max-width: 429px) {
+  .mg-key {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    justify-content: space-evenly;
+    gap: 6px 12px;
+  }
+}
+.mg-key-i {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 var(--fs-orb) / 1rem var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.mg-mark {
+  display: block;
+  flex: none;
+}
+/* a failed load in place of a skeleton: the words and Retry in one card */
+.pl-fail.card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+}
+.pl-fail-t {
+  min-width: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+/* the plan sheet's foot: the navy pill, then New plan and All plans side by side */
+.pl-sum .sheet-foot .pl-sum-act {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 /* ---------- the plans list (Settings › Plans): one inset group, an icon tile before each plan ---------- */
@@ -729,25 +808,12 @@
 .pl-sum-aim .pl-sum-v {
   text-align: left;
 }
-.pl-detail-label {
-  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
-}
 .pl-detail-axis {
   display: flex;
   justify-content: space-between;
   margin-top: 6px;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
-}
-.pl-detail-words.card {
-  display: grid;
-  gap: 4px;
-}
-.pl-detail-sum {
-  margin: 0;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-2);
 }
 /* the red trash in a tinted circle at the sheet's top right */
 .icon-btn.pl-del {
@@ -817,7 +883,7 @@
 }
 .tp-day small {
   font-family: var(--sans);
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -848,14 +914,15 @@
 }
 .bh {
   position: relative;
-  height: 148px;
+  /* three lines of words that grow with the text size (58 px at the default) over the grid's fixed 90 */
+  height: calc(3.625rem + 90px);
   min-width: 0;
 }
 .bh-face {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-rows: 16px 24px 18px minmax(0, 1fr);
+  grid-template-rows: 1rem 1.5rem 1.125rem minmax(0, 1fr);
   row-gap: 2px;
   min-width: 0;
 }
@@ -870,11 +937,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: 600 17px/24px var(--sans);
+  font: 600 var(--fs-row) / 1.5rem var(--sans);
   color: var(--ink);
 }
 .bh-dates {
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .bh-grid {
@@ -903,7 +970,7 @@
 }
 .bh-error {
   padding-top: 8px;
-  font: 400 15px/22px var(--sans);
+  font: 400 var(--fs-sub) / 1.375rem var(--sans);
   color: var(--ink-3);
 }
 /* the weeks, ghosted: real numbers, held back until the plan is used */
@@ -929,7 +996,7 @@
   font-weight: 800;
 }
 .tp-wk small {
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   color: var(--ink-3);
   margin-top: 2px;
 }
@@ -965,7 +1032,7 @@
   font-weight: 800;
 }
 .tp-tot small {
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -984,7 +1051,7 @@
 }
 .tp-note {
   margin: 0;
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .sheet-foot .btn.primary.tp-verb {
@@ -1070,8 +1137,8 @@
   border-bottom: 1px dashed var(--line-strong);
   background: transparent;
   padding: 0 0 4px;
-  font-size: 22px;
-  line-height: 28px;
+  font-size: var(--fs-sentence);
+  line-height: var(--lh-sentence);
   font-weight: 600;
   letter-spacing: 0;
   color: var(--ink);
@@ -1092,12 +1159,12 @@
   background: var(--warn-soft);
 }
 .pv-notes .t-label {
-  color: color-mix(in srgb, var(--warn) 70%, var(--ink));
+  color: var(--warn-text, #8f5800);
 }
 .pv-notes ul {
   padding-left: 18px;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   color: var(--ink-2);
   display: grid;
   gap: 2px;
@@ -1112,16 +1179,16 @@
   display: flex;
   gap: 8px;
   align-items: baseline;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: var(--lh-orb);
   color: var(--ink-3);
   letter-spacing: 0;
 }
 .pv-wk b {
   color: var(--ink);
   font-weight: 600;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
 }
 .pv-days {
   display: flex;
@@ -1138,8 +1205,8 @@
   opacity: 0.4;
 }
 .pv-dow {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: var(--lh-orb);
   color: var(--ink-3);
   white-space: nowrap;
 }
@@ -1276,7 +1343,8 @@
   padding-bottom: 4px;
 }
 .bh {
-  height: 172px;
+  /* 172 at the default text size: the three lines of words grow with the text, the grid under them keeps its height */
+  height: calc(3.625rem + 114px);
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
@@ -1447,10 +1515,14 @@
   background: transparent;
   color: var(--ink);
 }
+/* under 360 the two number tiles stack, so each field keeps room for its value (`12` read `1` in an 18 px field) */
 @media (max-width: 359px) {
+  .tp-steps.tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .tp-cell {
-    font-size: 0.625rem;
-    letter-spacing: -0.04em;
+    font-size: 0.6875rem;
+    letter-spacing: -0.06em;
   }
 }
 
@@ -1466,4 +1538,157 @@
 }
 .pv-foot.sheet-foot .btn.block {
   width: 100%;
+}
+
+/* the preview is one block in the sheet's body, so the body scrolls and the week list keeps its full height (the body's
+ * grid would otherwise shrink the list to fit) */
+.pv {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gap);
+  min-width: 0;
+}
+/* a sheet that is narrow in rem (a larger text size): the three stamps stack so each label and number has the row */
+@container sheet (max-width: 17rem) {
+  .pv-hero .strip {
+    grid-auto-flow: row;
+    row-gap: 8px;
+  }
+  .pv-hero .strip > * + * {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+.pv > .pv-head {
+  margin-top: calc(var(--section) - var(--gap));
+}
+.pv-weeks.group {
+  min-height: max-content;
+}
+.pv .pv-notes,
+.pv .pv-actions,
+.pv .pv-fine {
+  margin-top: 0;
+}
+.pv-ai {
+  color: var(--accent-text);
+}
+.pv-retry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pv-retry .note-line {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+/* the permission step before the first AI draft: one card of plain words, Not now beside Allow */
+.pb-ask {
+  display: grid;
+  gap: var(--gap);
+  min-width: 0;
+  min-height: 120px;
+}
+.pb-ask-card.card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+}
+.pb-ask-title {
+  margin: 0;
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
+  color: var(--ink);
+  text-wrap: balance;
+}
+.pb-ask-p {
+  margin: 0;
+  font: 400 var(--fs-sub) / 1.375rem var(--sans);
+  color: var(--ink-2);
+}
+.pb-ask-link {
+  justify-self: start;
+  min-height: 44px;
+  margin: -6px 0 -12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.sheet .sheet-foot.pb-ask-foot .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* the wait under the builder: what is happening, the time so far, and Stop at the right */
+.pb-wait {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pb-wait-t {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.pb-wait-clock {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+.pb-wait-s {
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.pb-attach {
+  margin: 8px 0 0;
+  text-align: center;
+}
+.pb-fine {
+  margin: 8px 0 0;
+}
+.pb-fine + .pb-fine {
+  margin-top: 6px;
+}
+.tp-disclaimer {
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* The onboarding tour draws a week with the same class names (.tp-week, .tp-day). Whichever sheet loads last, the
+   builder's own shapes hold: these are scoped to the builder and win on specificity (plan-04's other half is the tour's). */
+.tp .tp-weeks > .tp-week {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 68px;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+.tp .tp-days > .tp-day {
+  place-items: center;
+  align-content: center;
+  gap: 0;
+  height: 56px;
+  min-height: 0;
+  padding: 0;
+}
+.tp .tp-days > .tp-day small {
+  font: 700 0.6875rem / 0.75rem var(--sans);
+  letter-spacing: 0;
+  color: inherit;
+}
+/* under 360 the side columns give the seven cells room for `10.5` at 11 px */
+@media (max-width: 359px) {
+  .tp .tp-weeks > .tp-week {
+    grid-template-columns: 40px minmax(0, 1fr) 54px;
+    gap: 6px;
+  }
 }

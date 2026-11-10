@@ -86,10 +86,10 @@ export const HeldNote = ({ date, log }: { date: ISODate; log: Log }): React.JSX.
   if (!held.length) return null;
   const what = held.length === 1 ? (held[0]!.title || held[0]!.type || (held[0]!.kind === 'lift' ? 'lift' : 'run')) : `${held.length} sessions`;
   return (
-    <Pressable className={`held-note held-${kind}`} press="surface" onPress={() => open(date, askFor(s, kind, date))} label={`Today's ${what} is on hold ${WHILE[kind]}. Ask to move it`}>
+    <Pressable className={`held-note held-${kind}`} press="surface" onPress={() => open(date, askFor(s, kind, date))} label={`Today’s ${what} ${held.length === 1 ? 'is' : 'are'} on hold ${WHILE[kind]}. Move`}>
       <span className="held-dot" aria-hidden="true" />
       <span className="held-note-text">
-        Today’s {what} is on hold {WHILE[kind]}.
+        Today’s {what} {held.length === 1 ? 'is' : 'are'} on hold {WHILE[kind]}.
       </span>
       <span className="held-note-go">
         Move <ChevronRight size={14} aria-hidden="true" />

@@ -1,17 +1,20 @@
 import { fmtDate, monthsBetween, shiftDays } from '@logbook/shared';
 import { ChevronRight, CircleArrowDown, CircleArrowUp, CircleCheck, Hourglass, Info, Sigma, Trophy } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { useRouteParams } from '@/app/NavController';
-import { useAllLifts } from '@/api/queries';
+import { useNav, useRouteParams } from '@/app/NavController';
+import { DISCLAIMER } from '@/lib/copy';
+import { STRAVA_BUILT } from '@/lib/features';
 import { Footnote, PageSection, PushedBar, Pressable, useSheet } from '@/ui';
-import { Gauge, maxOffset, RANGE_DAYS, RANGE_KEYS, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
+import { Gauge, maxOffset, RANGE_KEYS, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
 import { useLog } from '../log/useLog';
 import { trendTone } from './context';
-import { easyPace, liftGroups, rangeLabel } from './data';
+import { rangeLabel } from './data';
 import { agoWords } from './feed';
+import { healthWord, type HealthLink } from './healthDays';
 import { MetricIcon } from './icons';
-import { bandWords, buildMetric, HISTORY_DAYS, isMetricId, METRICS, valueDateWords, type MetricId, type MetricModel } from './metrics';
+import { bandWords, buildMetric, daysWords, HISTORY_DAYS, isMetricId, leadVariant, METRICS, valueDateWords, type MetricId, type MetricModel } from './metrics';
 import { EasyPaceSheet, LiftsSheet } from './sheets';
+import { useHealthLink } from './useHealthDays';
 import { useMetricSource } from './useMetrics';
 import { useNow } from './useNow';
 import './progress.css';
@@ -36,13 +39,14 @@ const saveRange = (k: RangeKey) => {
 };
 
 const md = (d: string) => fmtDate('md', d);
+/** The chart card's title for a span that ends today: days for a month, months beyond it. */
+const SPAN_WORDS: Record<RangeKey, string> = { '1M': 'Last 30 days', '3M': 'Last 3 months', '6M': 'Last 6 months', '1Y': 'Last 12 months' };
 const unitText = (u: string) => (u === '%' ? '%' : u);
 const TONE_ICON = { ok: CircleCheck, up: CircleArrowUp, down: CircleArrowDown, none: Hourglass } as const;
 
-/** "Updated 6 m ago" under each tile: Strava's last sync for runs, else the last day with data. */
-const freshness = (m: MetricModel, stravaAt: string | null, now: number, today: string) => {
-  if (m.def.health) return 'Not connected yet';
-  if (!m.latest) return 'No data yet';
+/** "Updated 6 m ago" under each tile: the last sync for synced runs, else the last day with data. */
+const freshness = (m: MetricModel, stravaAt: string | null, now: number, today: string, link: HealthLink) => {
+  if (!m.latest) return m.def.health ? healthWord(m, link) : 'No data yet';
   if ((m.def.id === 'mileage' || m.def.id === 'pace') && stravaAt) {
     const a = agoWords(stravaAt, now);
     if (a) return `Updated ${a}`;
@@ -56,15 +60,19 @@ const freshness = (m: MetricModel, stravaAt: string | null, now: number, today: 
  * scrolls to the explainer; the hero (the big number, or a gauge for a share) with its status word and your usual range; two
  * stat tiles that say when they were updated; the chart card (its metric chips, the chart, the range control); the 3 to 90
  * day trend table in a card; and the explainer card: what it is, why it matters, how it is worked out. An Apple Health metric
- * keeps every piece of that with dashes in it and says it comes with Apple Health.
+ * with no readings keeps every piece of that with dashes in it, says where the connection stands (not connected, syncing,
+ * no readings yet) and, when nothing is connected, offers the way to connect.
  */
 export default function MetricPage(): React.JSX.Element {
   const params = useRouteParams();
+  const nav = useNav();
+  const link = useHealthLink();
   const id: MetricId = isMetricId(params.id) ? params.id : 'mileage';
   const def = METRICS[id];
   const [range, setRangeState] = useState<RangeKey>(readRange);
   const [offset, setOffset] = useState(0);
-  const [variantId, setVariant] = useState(def.variants[0]!.id);
+  // the chip the person picked; until they pick one the page opens on the variant that has something to show
+  const [picked, setVariant] = useState<string | null>(null);
   const about = useRef<HTMLElement>(null);
   const setRange = (k: RangeKey) => {
     setRangeState(k);
@@ -82,9 +90,14 @@ export default function MetricPage(): React.JSX.Element {
   const months = useMemo(() => monthsBetween(start, t), [start, t]);
   const log = useLog(months);
   const src = useMetricSource(log, start);
+  const variantId = useMemo(() => picked ?? leadVariant(def, src, rangeWindow(t, '1M')), [picked, def, src, t]);
   const m = useMemo(() => buildMetric(def, variantId, src, window), [def, variantId, src, window.from, window.to]); // eslint-disable-line react-hooks/exhaustive-deps
   const now = useNow(60_000);
-  const fresh = freshness(m, log.strava?.connected ? log.strava.lastSyncAt : null, now, t);
+  const fresh = freshness(m, STRAVA_BUILT && log.strava?.connected ? log.strava.lastSyncAt : null, now, t, link);
+  // pace needs a timed run, and only a connected source has those: with one on offer and none connected, the way to connect
+  const paceSource = STRAVA_BUILT && id === 'pace' && !m.hasData && log.features.strava && !log.strava?.connected;
+  // an Apple Health metric with no readings says where the connection stands instead of the generic empty word
+  const status = def.health ? healthWord(m, link) : m.status;
   const v = m.variant;
   const band = bandWords(m);
   const tone = trendTone(m);
@@ -94,12 +107,12 @@ export default function MetricPage(): React.JSX.Element {
   const labels = m.dates.map((d) => md(d));
   const fmtVal = (x: number | null) => (x == null ? '–' : v.format(x));
   const when = valueDateWords(m, t);
-  const dateLine = m.value != null ? when.charAt(0).toUpperCase() + when.slice(1) : def.health ? 'Not connected yet' : 'No data yet';
-  const name = def.name.toLowerCase().startsWith('hrv') ? 'HRV' : def.name.toLowerCase();
+  const dateLine = m.value != null ? when.charAt(0).toUpperCase() + when.slice(1) : def.health ? status : 'No data yet';
+  const name = id === 'hrv' ? 'HRV' : id === 'rhr' ? 'resting HR' : def.name.toLowerCase();
   // a share (consistency) reads best on the gauge; everything else is one big number
   const gauge = v.unit === '%';
-  const spanWords = offset === 0 ? `Last ${RANGE_DAYS[range]} days` : windowLabel(window, t);
-  const third = v.agg === 'sum' ? (m.hasData ? `${v.format(m.total)} ${unitText(v.unit)} in all` : null) : m.hasData ? `${m.days} ${id === 'pace' ? 'run days' : 'days'}` : null;
+  const spanWords = offset === 0 ? SPAN_WORDS[range] : windowLabel(window, t);
+  const third = v.agg === 'sum' ? (m.hasData ? `${v.format(m.total)} ${unitText(v.unit)} in all` : null) : m.hasData ? daysWords(m.days, id === 'pace' ? 'run day' : 'day') : null;
 
   return (
     <div className="page pg-page mp-page">
@@ -113,7 +126,7 @@ export default function MetricPage(): React.JSX.Element {
         }
       />
 
-      <section className="mp-hero" aria-label={`${def.name}: ${m.value != null ? `${v.format(m.value)} ${v.unit}` : 'no value yet'}. ${m.status}${band ? `. ${band}` : ''}`}>
+      <section className="mp-hero" aria-label={`${def.name}: ${m.value != null ? `${v.format(m.value)} ${v.unit}` : 'no value yet'}. ${status}${band ? `. ${band}` : ''}`}>
         <span className="mp-halo" aria-hidden="true" />
         {gauge ? (
           <Gauge
@@ -139,16 +152,34 @@ export default function MetricPage(): React.JSX.Element {
         )}
         <span className={`mp-status is-${tone}`} aria-hidden="true">
           <ToneIcon size={16} strokeWidth={2.2} aria-hidden="true" />
-          {m.status}
+          {status}
         </span>
         <span className="mp-usual" aria-hidden="true">
           {band ?? (m.hasData ? 'Your usual range shows after 2 weeks' : '')}
         </span>
       </section>
 
+      {def.health && !m.hasData && !link.connected && !link.syncing ? (
+        <div className="card mp-connect">
+          <p className="mp-connect-p">Connect Apple Health to see your {name} here. Logbook reads sleep, HRV and resting heart rate.</p>
+          <button type="button" className="btn primary pressable" onClick={() => nav.go('/settings/connections')}>
+            Connect Apple Health
+          </button>
+        </div>
+      ) : null}
+
+      {paceSource ? (
+        <div className="card mp-connect">
+          <p className="mp-connect-p">Pace comes from runs with a time. Connect a source and your timed runs show here.</p>
+          <button type="button" className="btn primary pressable" onClick={() => nav.go('/settings/connections')}>
+            Connect a source
+          </button>
+        </div>
+      ) : null}
+
       <div className="tiles mp-tiles" role="list" aria-label="Stats">
         <Tile icon={<Sigma size={16} />} label="Average" value={fmtVal(m.avg)} unit={m.avg != null ? unitText(v.unit) : undefined} note={fresh} />
-        <Tile icon={<Trophy size={16} />} label={v.invert ? 'Fastest' : 'High'} value={fmtVal(m.best?.v ?? null)} unit={m.best ? unitText(v.unit) : undefined} note={m.best ? `On ${md(m.best.d)}` : fresh} />
+        <Tile icon={<Trophy size={16} />} label={v.bestLabel ?? (v.invert ? 'Fastest' : 'High')} value={fmtVal(m.best?.v ?? null)} unit={m.best ? unitText(v.unit) : undefined} note={m.best ? `On ${md(m.best.d)}` : fresh} />
       </div>
 
       <section className="card mp-card" aria-label="Chart">
@@ -171,7 +202,11 @@ export default function MetricPage(): React.JSX.Element {
           bars={v.bars ? m.daily : undefined}
           dots={v.sparse ? m.daily : undefined}
           band={m.band}
-          avg={m.hasData ? m.avg : null}
+          // a share reads on a 0 to 100 axis: a one-point series draws nothing, and 92 plus the kit's 8% headroom rounds the
+          // top to 100 (the chart kit has no fixed-domain prop yet; asked of ws-02)
+          previous={v.percent ? [92] : undefined}
+          // a share's average of nothing is not a line worth drawing: no pill sitting on the baseline
+          avg={m.hasData && !(v.percent && !m.avg) ? m.avg : null}
           labels={labels}
           format={v.axis}
           invert={v.invert}
@@ -179,7 +214,7 @@ export default function MetricPage(): React.JSX.Element {
           steps={v.steps}
           fill={!v.sparse}
           height={210}
-          empty={<span>{def.health ? 'Comes with Apple Health' : def.emptyLine}</span>}
+          empty={<span>{def.emptyLine}</span>}
           readout={(i) =>
             i == null ? (
               <span className="mp-readout">{v.lineName}</span>
@@ -201,7 +236,7 @@ export default function MetricPage(): React.JSX.Element {
         <Footnote>{v.method}</Footnote>
       </PageSection>
 
-      <More id={id} log={log} today={t} />
+      {m.hasData ? <More id={id} today={t} /> : null}
 
       <PageSection className="mp-sec" title={`About ${name}`} ref={about}>
         <div className="card mp-explain">
@@ -217,7 +252,7 @@ export default function MetricPage(): React.JSX.Element {
             <h3 className="mp-q">How it’s worked out</h3>
             <p className="mp-a">{def.how}</p>
           </div>
-          {def.health ? <p className="mp-a mp-note">This fills in once Apple Health syncs into your Logbook. Until then the page stays empty rather than guess.</p> : null}
+          <p className="mp-a mp-note">{DISCLAIMER}</p>
         </div>
       </PageSection>
     </div>
@@ -238,25 +273,26 @@ const Tile = ({ icon, label, value, unit, note }: { icon: React.ReactNode; label
   </div>
 );
 
-/** The detail behind some metrics, in the sheets Progress already has: each run's easy pace, each lift's line. */
-const More = ({ id, log, today }: { id: MetricId; log: ReturnType<typeof useLog>; today: string }) => {
+/**
+ * The detail behind some metrics, in the sheets Progress already has: each run's easy pace, each lift's line. Each sheet
+ * reads its own history, so one opened before that history has landed fills in when it does.
+ */
+const More = ({ id, today }: { id: MetricId; today: string }) => {
   const sheet = useSheet();
-  const lifts = useAllLifts();
+  const from = shiftDays(today, -90);
   if (id === 'pace') {
-    const from = shiftDays(today, -90);
-    const open = () => sheet.open({ title: 'Easy pace', eyebrow: rangeLabel('3M'), body: <EasyPaceSheet ep={easyPace(log.snap, from, today, log.zones)} log={log} range="3M" />, wide: true });
+    const open = () => sheet.open({ title: 'Easy pace', eyebrow: rangeLabel('3M'), body: <EasyPaceSheet from={from} today={today} range="3M" />, wide: true });
     return <MoreRow id={id} title="Easy runs, one by one" sub="Last 3 months" onPress={open} />;
   }
   if (id === 'lifts') {
-    const from = shiftDays(today, -90);
-    const open = () => sheet.open({ title: 'Lifts', eyebrow: rangeLabel('3M'), body: <LiftsSheet groups={liftGroups(lifts.data ?? [], from, today)} range="3M" />, wide: true });
-    return <MoreRow id={id} title="Each lift’s estimated max" sub="Last 3 months" onPress={open} />;
+    const open = () => sheet.open({ title: 'Lifts', eyebrow: rangeLabel('3M'), body: <LiftsSheet from={from} today={today} range="3M" />, wide: true });
+    return <MoreRow id={id} title="Estimated max by lift" sub="Last 3 months" onPress={open} />;
   }
   return null;
 };
 const MoreRow = ({ id, title, sub, onPress }: { id: MetricId; title: string; sub: string; onPress: () => void }) => (
   <div className="group mp-more">
-    <Pressable className="pg-drill" press="surface" onPress={onPress} label={`${title}. Open`}>
+    <Pressable className="pg-drill" press="surface" onPress={onPress} label={`${title}. ${sub}. Open`}>
       <span className="icon-tile" aria-hidden="true">
         <MetricIcon id={id} size={17} />
       </span>

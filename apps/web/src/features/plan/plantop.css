@@ -46,21 +46,22 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* the name and where it stands are the card's point: they wrap (the name to two lines) before they are cut (a11y-03) */
 .pt-plan-name {
+  display: -webkit-box;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font: 400 1.75rem / 2.125rem var(--serif);
   letter-spacing: -0.01em;
   color: var(--ink);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .pt-plan-state {
   margin-top: 2px;
-  overflow: hidden;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  text-wrap: pretty;
 }
 .pt-plan-state.is-act {
   color: var(--accent-text);
@@ -184,16 +185,29 @@
   flex: 1 1 auto;
   min-width: 0;
 }
-.pt-run-kind {
+/* the caps row: the kind at the left, the status pill at the right, so the name and its line get the card's full width */
+.pt-run-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px 8px;
+  min-width: 0;
   margin-bottom: 2px;
 }
+.pt-run-kind {
+  white-space: nowrap;
+}
+/* the name in full, on up to two lines */
 .pt-run-name {
+  display: -webkit-box;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font: 700 1.375rem / 1.75rem var(--stamp);
   letter-spacing: -0.02em;
   color: var(--ink);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .pt-run-sub {
   overflow: hidden;
@@ -229,7 +243,6 @@
 }
 .pt-st {
   flex: none;
-  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -242,14 +255,15 @@
 }
 .pt-st.k-today {
   background: var(--accent-soft);
-  color: var(--accent-text);
+  /* 5.0:1 on the soft accent (the accent text is 4.3:1 there) */
+  color: #b23a09;
 }
 .pt-st.is-done {
   background: var(--accent);
   color: var(--accent-ink);
 }
 .pt-st.k-floor {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 @media (max-width: 359px) {
   .pt-run.pressable {
@@ -276,12 +290,12 @@
     display: none;
   }
 }
-/* the pager pill: ‹ Today › in one white lifted pill, 36 tall */
+/* the pager pill: ‹ Today › in one white lifted pill, 36 tall; each arrow 44 wide, 8 between the two when they are neighbours */
 .pl-wk-nav {
   display: inline-flex;
   align-items: center;
   height: 36px;
-  padding: 0 2px;
+  padding: 0;
   border-radius: var(--r-pill);
   background: var(--surface);
   box-shadow: var(--shadow-1);
@@ -299,8 +313,11 @@
   font: inherit;
 }
 .pl-step.pressable {
-  width: 36px;
-  border-radius: 50%;
+  width: 44px;
+  border-radius: var(--r-pill);
+}
+.pl-step + .pl-step {
+  margin-left: 8px;
 }
 .pl-step-now.pressable {
   padding: 0 6px;
@@ -321,7 +338,7 @@
   outline-offset: -2px;
 }
 .pl-wk-line {
-  margin: -4px 2px var(--gap);
+  margin: -4px 0 var(--gap);
   overflow: hidden;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
@@ -336,7 +353,7 @@
   border-radius: var(--r-pill);
   background: var(--accent-soft);
   font: 600 0.75rem / 1rem var(--sans);
-  color: var(--accent-text);
+  color: #b23a09;
   white-space: nowrap;
 }
 /* at 320 today's pill in a day row is a lit dot (the row keeps its words; the label still says Today) */

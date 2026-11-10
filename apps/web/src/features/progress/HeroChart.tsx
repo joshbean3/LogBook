@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
-import { EmptyState, Segmented } from '@/ui';
+import { STRAVA_BUILT } from '@/lib/features';
+import { Button, EmptyState, Segmented } from '@/ui';
 import type { Log } from '../log/useLog';
 import { plural, weekTitle } from './data';
 import { completion, HERO_MODES, HERO_WEEKS, lbShort, liftWeeks, miShort, runWeeks, weekRate, type HeroMode, type LiftWeek, type RunWeek } from './hero';
@@ -63,7 +64,36 @@ const weekLine = (mode: HeroMode, p: RunWeek | LiftWeek) => {
  * sessions against the plan, then the workouts themselves as a column of cards that open their sheets. The number at the
  * right is how much of the plan got done over the last four finished weeks (a scrubbed week's share while scrubbing).
  */
-export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnect: () => void }) => {
+/** The empty card's ghost: the shape of the chart to come, two curves (the plan dashed, what was run solid). Shapes only. */
+const CurveGhost = () => (
+  <svg viewBox="0 0 300 96" width="100%" height={96} aria-hidden="true" className="ph-ghost">
+    <path d="M6,70 C60,64 90,52 140,46 S230,30 294,18" className="ph-ghost-plan" />
+    <path d="M6,78 C60,74 96,64 140,58 S220,48 250,40" className="ph-ghost-done" />
+    <circle cx={250} cy={40} r={4} className="ph-ghost-dot" />
+  </svg>
+);
+
+/**
+ * A week on its own is not a chart: until two weeks have something in them, this week's bar (done of planned) stands in
+ * for the plot, with one line that says the chart is coming.
+ */
+const FirstWeek = ({ p }: { p: RunWeek }) => {
+  const share = p.planned > 0 ? Math.min(1, p.done / p.planned) : p.done > 0 ? 1 : 0;
+  return (
+    <div className="ph-first">
+      <span className="ph-first-bar" role="img" aria-label={p.planned > 0 ? `${miShort(p.done)} of ${miShort(p.planned)} miles this week` : `${miShort(p.done)} miles this week`}>
+        <i style={{ transform: `scaleX(${share})` }} />
+      </span>
+      <span className="ph-first-ends" aria-hidden="true">
+        <span>0</span>
+        <span>{p.planned > 0 ? `${miShort(p.planned)} mi` : ''}</span>
+      </span>
+      <p className="ph-first-line">Your weeks draw here as you go.</p>
+    </div>
+  );
+};
+
+export const HeroChart = ({ log, t, onConnect, failed, onRetry }: { log: Log; t: string; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
   const nav = useNav();
   const [mode, setMode] = useMode();
   const [scrub, setScrub] = useState<number | null>(null);
@@ -82,7 +112,7 @@ export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnec
   const seg = (
     <Segmented
       className="ph-seg"
-      label="Chart"
+      label="Running or strength"
       value={mode}
       onChange={change}
       options={[
@@ -95,16 +125,16 @@ export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnec
   const gaps = weeks.some((p) => p.missing);
   const any = weeks.some((p) => p.done > 0 || p.planned > 0);
   if (!any && !gaps) {
-    const strava = log.features.strava && !log.strava?.connected;
+    const strava = STRAVA_BUILT && !!onConnect;
     return (
       <section className="card ph" aria-label={mode === 'run' ? 'Running' : 'Strength'}>
         {seg}
         <EmptyState
           className="ph-empty"
-          ghost="bars"
-          verb={mode === 'run' && strava ? { label: 'Connect Strava', onPress: onConnect } : { label: 'Plan a week', onPress: () => nav.go('/plan'), primary: true }}
+          ghost={<CurveGhost />}
+          verb={mode === 'run' && strava ? { label: 'Connect Strava', onPress: onConnect! } : { label: 'Plan a week', onPress: () => nav.go('/plan'), primary: true }}
         >
-          {mode === 'run' ? 'Plan a week and run it. Planned and done miles show up here.' : 'No lifts yet. Plan a lift day or log a set, and it shows up here.'}
+          {mode === 'run' ? 'Plan a week and run it. Planned and done miles show up here.' : 'No lifts yet. Add a lift day to your plan and log its sets.'}
         </EmptyState>
       </section>
     );
@@ -114,7 +144,11 @@ export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnec
   const shownI = scrub ?? opened ?? ci;
   const sp = weeks[shownI] ?? weeks[weeks.length - 1]!;
   const line = weekLine(mode, sp);
-  const rate = completion(weeks);
+  // a rate over weeks that did not load would be a rate over the wrong weeks: none until they are in
+  const rate = gaps && failed ? null : completion(weeks);
+  // a chart needs two weeks with something in them; before that the week's own bar stands in (and no legend for lines not drawn)
+  const drawn = weeks.filter((p) => !p.missing && (p.planned > 0 || p.done > 0)).length;
+  const firstWeek = mode === 'run' && !gaps && drawn < 2;
   const live = scrub != null || opened != null;
   const wr = weekRate(sp);
   const side = live ? (wr != null ? { value: pctText(wr), cap: 'Of plan' } : { value: null, cap: 'No plan' }) : rate ? { value: pctText(rate.rate), cap: `Last ${rate.weeks === 1 ? 'week' : `${rate.weeks} weeks`}` } : null;
@@ -139,11 +173,15 @@ export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnec
   return (
     <section className="card ph" aria-label={mode === 'run' ? 'Running' : 'Strength'}>
       {seg}
-      <div className="ph-head" role="status" aria-label={readWords}>
+      <div className="ph-head">
+        {/* the words VoiceOver hears when the week under the finger changes: a live region speaks its text, not its label */}
+        <span className="sr-only" role="status">
+          {readWords}
+        </span>
         <div className="ph-main" aria-hidden="true">
           <span className="ph-eyebrow">{eyebrow}</span>
           {sp.missing ? (
-            <span className="ph-big is-word">Loading</span>
+            <span className="ph-big is-word">Reading your weeks</span>
           ) : (
             <span className="ph-big">
               <span className="tnum">{line.big}</span>
@@ -159,7 +197,9 @@ export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnec
           </div>
         ) : null}
       </div>
-      {mode === 'run' ? (
+      {mode === 'run' && firstWeek ? (
+        <FirstWeek p={sp as RunWeek} />
+      ) : mode === 'run' ? (
         <>
           <PlanLine weeks={weeks} label={chartLabel} words={words} onScrub={setScrub} onOpen={openAt} />
           <div className="ph-legend" aria-hidden="true">
@@ -167,6 +207,14 @@ export const HeroChart = ({ log, t, onConnect }: { log: Log; t: string; onConnec
             <span className="ph-key is-plan">Plan</span>
             <span className="ph-key is-now">This week</span>
           </div>
+          {gaps && failed && onRetry ? (
+            <div className="ph-retry" role="alert">
+              <span>Some weeks didn’t load.</span>
+              <Button variant="soft" size="sm" onClick={onRetry}>
+                Try again
+              </Button>
+            </div>
+          ) : null}
         </>
       ) : (
         <LiftList log={log} t={t} />

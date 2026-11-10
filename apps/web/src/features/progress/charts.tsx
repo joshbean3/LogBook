@@ -88,8 +88,9 @@ export const LineChart = ({ points, invert, format, readout, onTap, label, heigh
   const top = 12;
   const y0 = H - 20;
   const vals = points.map((p) => p.y).filter((v): v is number => v != null);
-  let lo = Math.min(...vals);
-  let hi = Math.max(...vals);
+  // no values: nothing is measured from an empty list (min and max of nothing are infinite); the plot says so below
+  let lo = vals.length ? Math.min(...vals) : 0;
+  let hi = vals.length ? Math.max(...vals) : 1;
   const pad = (hi - lo) * 0.15 || Math.max(1, Math.abs(hi) * 0.05);
   lo -= pad;
   hi += pad;
@@ -136,6 +137,12 @@ export const LineChart = ({ points, invert, format, readout, onTap, label, heigh
     if (xl.length && xAt(n - 1) - xAt(xl[xl.length - 1]!) < 64) xl.pop();
     xl.push(n - 1);
   }
+  if (!vals.length)
+    return (
+      <div className="pg-line">
+        <p className="pg-line-none">Nothing to draw yet.</p>
+      </div>
+    );
   return (
     <div className="pg-line">
       <div className="pg-line-readout" aria-live="polite">

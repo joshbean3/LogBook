@@ -1,5 +1,5 @@
 import { clockOfDay, fmtDate, monthOf, shiftDays, type MorningTimeline } from '@logbook/shared';
-import { AlarmClock, ArrowUpRight, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpRight, ChevronRight, Clock, SlidersHorizontal } from 'lucide-react';
 import type * as React from 'react';
 import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/app/NavController';
@@ -13,6 +13,7 @@ import { useReleaseTap } from '../day/release';
 import { useNowMinutes } from '../day/useNow';
 import { useLog } from '../log/useLog';
 import { morningOf, timeParts } from '../morning/model';
+import { useMonthsFailed } from './LoadFail';
 import { cardStops, gapsOf, headline, nowOnTrack, quietLine, trackOf, whichMorning, workOf } from './morningTrack';
 import './morningcard.css';
 
@@ -27,7 +28,7 @@ const pct = (p: number) => ({ '--p': p }) as React.CSSProperties;
  * today's morning until today's leave time has passed, then tomorrow's. One card you can open: the caps eyebrow, the one big
  * line that matters now, the morning as a track (Wake · Run out · Back · Leave, the run's stretch in its tone and named; Wake ·
  * Leave on a rest morning) with past stops filled and the now dot on it today, the step count and the routine's length, and
- * `See the schedule ›`. A tap pushes the schedule (`/plan/morning[/<date>]`); a hold offers Open · Change the alarm · Edit the
+ * `See the schedule ›`. A tap pushes the schedule (`/plan/morning[/<date>]`); a hold offers Open · Change the wake time · Edit the
  * routine (the schedule's own sheets).
  */
 export const MorningCard = memo(function MorningCard(): React.JSX.Element {
@@ -50,12 +51,13 @@ export const MorningCard = memo(function MorningCard(): React.JSX.Element {
   const to = path(which.date, today);
   const rel = useReleaseTap(() => nav.push(to));
   const tap = { onPointerDown: rel.onPointerDown, onPointerMove: rel.onPointerMove, onPointerUp: rel.onPointerUp, onPointerCancel: rel.onPointerCancel, onPress: rel.onClick };
+  const fail = useMonthsFailed(months);
 
   // a new account with no morning at all: one card that says so and opens the schedule
   if (st === null)
     return (
       <div className="mc-wrap">
-        <Pressable className="mc is-setup" press="surface" label="Set up your morning. Open the morning schedule" {...tap}>
+        <Pressable className="mc is-setup" press="surface" label="Your morning. Set up your morning. Wake, the run, the routine, out the door. Set up" {...tap}>
           <span className="caps mc-eyebrow">Your morning</span>
           <span className="mc-head display">Set up your morning</span>
           <span className="mc-quiet">Wake, the run, the routine, out the door.</span>
@@ -69,6 +71,8 @@ export const MorningCard = memo(function MorningCard(): React.JSX.Element {
       </div>
     );
 
+  // the month did not load: Today's card under this one says so with Retry; no blank card here
+  if (!T && st && fail.failed) return <></>;
   if (!T)
     return (
       <div className="mc-wrap">
@@ -86,9 +90,9 @@ export const MorningCard = memo(function MorningCard(): React.JSX.Element {
     return [
       { label: 'Open', icon: <ArrowUpRight size={18} />, onSelect: () => nav.push(path(date, today)) },
       {
-        label: 'Change the alarm',
-        icon: <AlarmClock size={18} />,
-        onSelect: () => void loadSheets().then(({ WakeEditor }) => sheet.open({ eyebrow: `Morning · ${fmtDate('md', date)}`, title: 'Alarm', body: <WakeEditor settings={T.settings} day={T.day} date={date} dayName={dayName} /> })),
+        label: 'Change the wake time',
+        icon: <Clock size={18} />,
+        onSelect: () => void loadSheets().then(({ WakeEditor }) => sheet.open({ eyebrow: `Morning · ${fmtDate('md', date)}`, title: 'Wake time', body: <WakeEditor settings={T.settings} day={T.day} date={date} dayName={dayName} /> })),
       },
       {
         label: 'Edit the routine',
@@ -121,13 +125,25 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
     return () => ro.disconnect();
   }, []);
   const stops = cardStops(T);
+  // the stops' minimum stretches are sized for the default text: at a larger text size the line counts as that much
+  // narrower (the CSS reads the same thing through its rem container queries)
+  const scale = Math.max(1, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16);
   const pos = trackOf(
     stops.map((s) => s.at),
-    gapsOf(stops, width),
+    gapsOf(stops, width / scale),
   );
   const isToday = rel === 'today';
   const nowP = isToday ? nowOnTrack(stops, pos, now) : null;
   const work = workOf(T);
+  // the pill never ends in an ellipsis: when the name does not fit its stretch it says the kind word (`Strength`)
+  const nameRef = useRef<HTMLSpanElement>(null);
+  const fitKey = `${work.name}|${width}|${scale}`;
+  const [tight, setTight] = useState<string | null>(null);
+  const short = tight === fitKey && work.kind !== work.name;
+  useLayoutEffect(() => {
+    const el = nameRef.current;
+    if (el && !short && el.scrollWidth > el.clientWidth + 0.5) setTight(fitKey);
+  });
   const head = headline(T, now, rel);
   const quiet = quietLine(T);
   const eyebrow = `${isToday ? 'This morning' : 'Tomorrow morning'} · ${dayCaption(date)}`;
@@ -140,7 +156,8 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
   const n = stops.length - 1;
   const edge = (i: number) => (i === 0 ? 'is-start' : i === n ? 'is-end' : '');
   const past = (at: number) => (isToday && now >= at ? 'is-past' : '');
-  const label = `${eyebrow.replace(' · ', ', ')}. ${head}. ${stops.map((s) => `${s.label} ${clockOfDay(s.at)}`).join(', ')}. ${work.name}. ${quiet}. Open the morning schedule`;
+  // the printed words first, in the order they are printed (Voice Control: "Tap This morning"), then the track in words
+  const label = `${eyebrow}. ${head}. ${quiet}. Schedule. ${stops.map((s) => `${s.label} ${clockOfDay(s.at)}`).join(', ')}. ${work.name}`;
   return (
     <div className="mc-wrap">
       <Pressable className={`mc t-${work.tone} is-${rel}`} press="surface" label={label} holdMenu={menu} menuLabel="Morning actions" {...tap}>
@@ -165,7 +182,9 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
             {nowP != null ? <i className="mc-at mc-now" style={pct(nowP)} /> : null}
             <span className={`mc-at mc-work ${seg ? '' : 'is-rest'}`} style={{ ...pct(mid), '--room': room } as React.CSSProperties}>
               <i className="tone-dot" />
-              <span className="mc-work-name">{work.name}</span>
+              <span ref={nameRef} className="mc-work-name">
+                {short ? work.kind : work.name}
+              </span>
             </span>
           </span>
           <span className="mc-row mc-times">

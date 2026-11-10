@@ -127,7 +127,7 @@
 }
 .mc-u {
   font-family: var(--sans);
-  font-size: 0.625rem;
+  font-size: 0.6875rem;
   line-height: 1;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -275,16 +275,18 @@
 /*
  * The line's width decides the words (morningCard.ts LINE_LONG / LINE_AMPM, plus the dots' 12 px): AM/PM only on a wide card
  * (a tablet, the rail), and on a narrow one (320, or 390 at a larger text size) Run out reads Out and the stamps step to 15.
+ * Narrower still (large text: 135% at 320, 200% anywhere) the stops leave the line for a 2 x 2 grid, each word over its time.
  */
 .mc-u {
   display: none;
 }
-@container mc (min-width: 400px) {
+/* in rem, so a larger text size counts as a narrower card: 390 wide at 135% reads as 320 does at the default size */
+@container mc (min-width: 25rem) {
   .mc-u {
     display: inline;
   }
 }
-@container mc (max-width: 299.98px) {
+@container mc (max-width: 18.74rem) {
   .mc-long {
     display: none;
   }
@@ -320,9 +322,7 @@
   flex-wrap: nowrap;
 }
 .mc-quiet {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  text-wrap: pretty;
 }
 .mc {
   min-height: 0;
@@ -332,7 +332,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* the foot: the quiet line takes what is left and ends in an ellipsis; Schedule never collides with it (320 wide) */
+/* the foot: the quiet line takes what is left and wraps to a second line when it must; Schedule never collides with it (320 wide) */
 .mc-foot {
   display: flex;
 }
@@ -341,4 +341,81 @@
 }
 .mc-open {
   flex: none;
+}
+
+/* ---------- large text (a11y-03): nothing on the card is cut or laid over something else ---------- */
+.mc-eyebrow {
+  white-space: normal;
+}
+/* the track as a 2 x 2 grid: each stop's word over its time, the workout's pill on its own row under them. The line, its
+   dots and the now dot go (the big line above says where the morning is) */
+@container mc (max-width: 15.5rem) {
+  .mc-track {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+  .mc-row {
+    display: contents;
+  }
+  .mc-track .mc-at {
+    position: static;
+    transform: none;
+    white-space: normal;
+  }
+  .mc-long {
+    display: inline;
+  }
+  .mc-short {
+    display: none;
+  }
+  .mc-lab:nth-child(1) {
+    grid-area: 1 / 1;
+  }
+  .mc-lab:nth-child(2) {
+    grid-area: 1 / 2;
+  }
+  .mc-lab:nth-child(3) {
+    grid-area: 3 / 1;
+  }
+  .mc-lab:nth-child(4) {
+    grid-area: 3 / 2;
+  }
+  .mc-time:nth-child(1) {
+    grid-area: 2 / 1;
+  }
+  .mc-time:nth-child(2) {
+    grid-area: 2 / 2;
+  }
+  .mc-time:nth-child(3) {
+    grid-area: 4 / 1;
+  }
+  .mc-time:nth-child(4) {
+    grid-area: 4 / 2;
+  }
+  .mc-lab:nth-child(n + 3) {
+    margin-top: 10px;
+  }
+  .mc-rail,
+  .mc-done,
+  .mc-seg,
+  .mc-dot,
+  .mc-now {
+    display: none;
+  }
+  .mc-track .mc-work {
+    grid-area: 5 / 1 / auto / -1;
+    justify-self: start;
+    max-width: 100%;
+    height: auto;
+    min-height: 1.25rem;
+    margin-top: 12px;
+    padding-block: 3px;
+  }
+  .mc-foot {
+    flex-wrap: wrap;
+  }
+  .mc-quiet {
+    flex: 1 1 100%;
+  }
 }
