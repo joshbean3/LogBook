@@ -60,6 +60,36 @@ type Op = { kind: 'push' | 'replace'; path: string; idx: number; overlay?: boole
 const ROOTS: Record<TabId, string> = { today: '/today', goals: '/goals', learned: '/learned', plan: '/plan', progress: '/progress', journal: '/journal' };
 const STACKS_KEY = 'logbook.stacks';
 const STALE_MS = 30 * 60_000;
+/**
+ * Where the person was, kept across launches (gap-qua-28): the active tab and the page on top of it, and when the app was
+ * last used. A cold start on the default entry within STALE_MS reopens it; later than that the app opens on Today.
+ */
+export const NAV_KEY = 'logbook.nav';
+interface NavRecord {
+  at: number;
+  path: string;
+}
+const navTopPath = (st: NavState) => st.tabs[st.active].stack.at(-1)?.path ?? st.tabs[st.active].path;
+const saveNav = (st: NavState, at = Date.now()) => {
+  try {
+    localStorage.setItem(NAV_KEY, JSON.stringify({ at, path: navTopPath(st) } satisfies NavRecord));
+  } catch {
+    /* private mode */
+  }
+};
+/** The saved place, when it is fresh and still a page of the framed app; otherwise null. */
+export const freshNav = (now = Date.now()): string | null => {
+  try {
+    const rec = JSON.parse(localStorage.getItem(NAV_KEY) ?? 'null') as NavRecord | null;
+    if (!rec || typeof rec.path !== 'string' || typeof rec.at !== 'number' || now - rec.at > STALE_MS) return null;
+    const m = resolveRoute(rec.path);
+    if (m.kind !== 'root' && m.kind !== 'pushed') return null;
+    // a dated Today goes back to today itself: a day is not a place to come back to
+    return m.kind === 'root' && m.tab === 'today' ? null : m.path;
+  } catch {
+    return null;
+  }
+};
 const TRAVERSE_CAP_MS = 300;
 
 const navOf = (): { idx?: number; overlay?: boolean } | undefined => (window.history.state as { nav?: { idx?: number; overlay?: boolean } } | null)?.nav;
@@ -132,6 +162,11 @@ export class Controller {
     } catch {
       /* private mode */
     }
+    if (!this.dormant) saveNav(next);
+  }
+  /** The app went to the background: that is the last use the 30 minutes count from. */
+  touchNav() {
+    if (!this.dormant) saveNav(this.state);
   }
   /**
    * A layer started leaving (a pop, a pop-all, a jump's pop-down): the state is the same, but `isLeaving` changed, so the
@@ -253,6 +288,13 @@ export class Controller {
       }
     let path = m.path;
     let match: RouteMatch = m;
+    // a cold launch (no record from this session) on the default entry reopens where the person was, if that was lately
+    const entry = window.location.pathname === '/' || window.location.pathname === '/today';
+    const saved = !rec && entry ? freshNav() : null;
+    if (saved) {
+      path = saved;
+      match = matchRoute(saved);
+    }
     // a cold start on /today/:date lands on /today only when this session's record exists and is older than 30 minutes
     if (m.kind === 'root' && m.tab === 'today' && m.params.date && rec && Date.now() - rec.at > STALE_MS) {
       path = '/today';
@@ -735,6 +777,17 @@ export const NavController = ({ children }: { children: ReactNode }): React.JSX.
     const f = () => ctl.onPopState();
     window.addEventListener('popstate', f);
     return () => window.removeEventListener('popstate', f);
+  }, [ctl]);
+  useEffect(() => {
+    const f = () => {
+      if (document.hidden) ctl.touchNav();
+    };
+    document.addEventListener('visibilitychange', f);
+    window.addEventListener('pagehide', f);
+    return () => {
+      document.removeEventListener('visibilitychange', f);
+      window.removeEventListener('pagehide', f);
+    };
   }, [ctl]);
   useEffect(() => {
     if (import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK) (window as unknown as { __nav?: Controller }).__nav = ctl;
