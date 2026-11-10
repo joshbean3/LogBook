@@ -83,6 +83,42 @@
   line-height: 1;
   color: var(--ink-2);
 }
+/* a digit stands upright in the sans (an italic 1 reads as a slash); an emoji is itself, upright and whole */
+.orb-initial.is-digit,
+.hv-orb.is-digit {
+  font-family: var(--stamp);
+  font-style: normal;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.orb-initial.is-emoji,
+.hv-orb.is-emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-style: normal;
+}
+.orbs.is-grid .orb-initial.is-digit {
+  font-size: clamp(16px, 1rem, 22px);
+}
+.orbs.is-grid .orb-initial.is-emoji {
+  font-size: clamp(18px, 1.125rem, 24px);
+}
+.hv-orb.is-digit,
+.hv-orb.is-emoji {
+  font-size: 0.875rem;
+}
+/* a day with no habits and nothing to add from it (a past day before the first habit) */
+.orbs-none {
+  margin: 0;
+  padding: 4px 2px;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+/* a name that is taken: one line under the field */
+.orb-add-twin {
+  margin: 8px 0 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--bad);
+}
 /* lit: the fill and the check on the tap's frame (no fade in: the colour is the answer), the glow blooms after */
 .orb.on .orb-ring {
   background: var(--accent);
@@ -142,7 +178,7 @@
 }
 .orb.ghost .orb-ring {
   background: none;
-  border-color: var(--ink-4);
+  border-color: var(--ink-faint, var(--ink-4));
 }
 /* the "+" orb's sheet */
 .orb-add-in {
@@ -227,6 +263,10 @@
 }
 .hs-cell.before {
   opacity: 0.35;
+}
+/* before the habit began: not a day to light (no number-coloured press, the cell is disabled) */
+.hs-cell:disabled {
+  cursor: default;
 }
 /* the notes: rows with hairlines between them */
 .hs-card.hs-notes {
@@ -461,6 +501,8 @@
 }
 .orbs.is-grid .orb-name {
   padding: 0;
+  /* a third line when the name needs it (the tile grows): a whole name says more than a cut one */
+  -webkit-line-clamp: 3;
   font: 600 0.875rem/1.0625rem var(--sans);
   letter-spacing: -0.01em;
   text-align: left;
@@ -483,7 +525,7 @@
 }
 .orb-week i.is-o {
   background: transparent;
-  box-shadow: inset 0 0 0 1.25px var(--ink-4);
+  box-shadow: inset 0 0 0 1.25px var(--ink-faint, var(--ink-4));
 }
 .orb-week i.is-d {
   background: var(--accent);
@@ -491,6 +533,25 @@
 .orb-week i.is-day {
   outline: 1.5px solid rgba(242, 96, 12, 0.35);
   outline-offset: 1.5px;
+}
+/* a 320 pt screen: a smaller ring and tighter tile leave the name room, and it may take a third line (the tile grows) */
+@media (max-width: 359px) {
+  .orbs.is-grid .orb {
+    gap: 8px;
+    padding: 8px 8px 8px 6px;
+  }
+  .orbs.is-grid .orb-ring {
+    width: 34px;
+    height: 34px;
+  }
+  .orbs.is-grid .orb-ring svg {
+    width: 16px;
+    height: 16px;
+  }
+  .orbs.is-grid .orb-name {
+    font-size: 0.8125rem;
+    line-height: 1rem;
+  }
 }
 .orbs.is-grid .orb-plus {
   background: transparent;
@@ -501,7 +562,7 @@
   background: transparent;
   box-shadow: none;
   border-style: dashed;
-  border-color: var(--ink-4);
+  border-color: var(--ink-faint, var(--ink-4));
   color: var(--ink-3);
 }
 .orbs.is-grid .orb-plus .orb-name {

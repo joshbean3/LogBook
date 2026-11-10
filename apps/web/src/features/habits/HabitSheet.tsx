@@ -1,15 +1,16 @@
 import { fmtDate, monthOf, parseISO, shiftDays, type Habit, type ISODate } from '@logbook/shared';
 import { CalendarCheck, Flame } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useHabitMutations } from '@/api/queries';
 import { animate, motionValue } from 'motion/react';
 import { hapticAtPeak, haptics } from '@/lib/haptics';
 import { Button, useSheet, useToast } from '@/ui';
 import { useLog } from '../log/useLog';
+import { sameName } from './initial';
 import { habitTiles, habitWindow, WINDOW_DAYS as DAYS } from './stats';
 import './habits.css';
 
-/** Archive a habit with an Undo, from anywhere (the orb's menu, the habit sheet). */
+/** Archive a habit with an Undo, from anywhere (the tile's menu, the habit sheet). */
 export const useArchiveHabit = () => {
   const { patch } = useHabitMutations();
   const toast = useToast();
@@ -20,15 +21,16 @@ export const useArchiveHabit = () => {
   };
 };
 
-/** Open the habit sheet with the orb's name travelling into its title. */
+/** Open the habit sheet with the habit's name as its title. */
 export const useOpenHabit = () => {
   const sheet = useSheet();
   return (h: Habit) => sheet.open({ eyebrow: 'Habit', title: h.name, body: <HabitSheet id={h.id} /> });
 };
 
 /**
- * A habit's detail: the last 30 days as a grid you can tap to fix a day, the streak, the notes it has gathered, a rename
- * field and Archive (with Undo). This is where habits are managed now; Today keeps only the orbs.
+ * A habit's detail: the last 30 days as a grid you can tap to fix a day (the days before the habit began are not days to
+ * light), the streak, the notes it has gathered, a rename field and Archive (with Undo). This is where habits are managed
+ * now; Today keeps only the tiles.
  */
 export const HabitSheet = ({ id }: { id: string }) => {
   const base = useLog([]);
@@ -40,7 +42,10 @@ export const HabitSheet = ({ id }: { id: string }) => {
   const sheet = useSheet();
   const h = (log.boot?.habits ?? []).find((x) => x.id === id) ?? null;
   const [name, setName] = useState(h?.name ?? '');
+  const twinId = useId();
   if (!h) return null;
+  // a name another habit in use already has: said under the field, and not saved
+  const twin = sameName(name, log.habits.filter((x) => x.id !== h.id).map((x) => x.name));
   const isDone = (d: ISODate) => log.snap.isHabitDone(d, h.id);
   // "N of 30" counts only the days the habit existed; the best run is the stamp when today's streak is short
   const { days, since, lit, streak, best } = habitWindow(isDone, t, h.createdOn, DAYS);
@@ -51,7 +56,7 @@ export const HabitSheet = ({ id }: { id: string }) => {
     .reverse();
   const rename = () => {
     const v = name.trim();
-    if (v && v !== h.name) {
+    if (v && v !== h.name && !twin) {
       patch.mutate({ id: h.id, name: v });
       sheet.update({ title: v });
     } else setName(h.name);
@@ -87,9 +92,12 @@ export const HabitSheet = ({ id }: { id: string }) => {
                 type="button"
                 className={`hs-cell ${on ? 'on' : ''} ${d === t ? 'is-today' : ''} ${before ? 'before' : ''}`}
                 aria-pressed={on}
-                aria-label={`${fmtDate('long', d)}, ${on ? 'done' : 'not done'}`}
+                // a day before the habit began cannot be lit (the count would leave it out while the streak took it in); one
+                // that was lit before this rule can still be put out
+                disabled={before && !on}
+                aria-label={`${fmtDate('long', d)}, ${before && !on ? 'before this habit began' : on ? 'done' : 'not done'}`}
                 onClick={() => {
-                  // lighting a day is an orb lighting: `orb` on the frame its fill completes (no pop on a cell); putting one out is silent
+                  // lighting a day is a habit tile lighting: `orb` on the frame its fill completes (no pop on a cell); putting one out is silent
                   if (!on) {
                     const fill = motionValue(0);
                     hapticAtPeak(fill, 'orb');
@@ -117,14 +125,19 @@ export const HabitSheet = ({ id }: { id: string }) => {
             </div>
           ))
         ) : (
-          <p className="hs-note-none">No notes yet. Hold the orb on Today and choose Note.</p>
+          <p className="hs-note-none">No notes yet. Hold a habit on Today and choose Note.</p>
         )}
       </section>
       <section className="card hs-card" aria-label="Name">
         <label className="hs-field">
           <span className="hs-card-title">Name</span>
-          <input className="in" value={name} maxLength={80} aria-label="Habit name" onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()} />
+          <input className="in" value={name} maxLength={80} aria-label="Habit name" aria-invalid={twin ? true : undefined} aria-describedby={twin ? twinId : undefined} onChange={(e) => setName(e.target.value)} onBlur={rename} onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()} />
         </label>
+        {twin ? (
+          <p id={twinId} className="orb-add-twin" role="status">
+            You already have {twin}.
+          </p>
+        ) : null}
       </section>
       <button
         type="button"
