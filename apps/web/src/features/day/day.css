@@ -1894,7 +1894,57 @@
 .hg .hero-stamp.is-long {
   font-size: clamp(28px, var(--fs-stamp), 37px);
 }
+/*
+ * The day's words stay inside the dial's chord at their row (today-top-11): about 200 px where the dial is full size, 172
+ * on a narrow phone. A long name takes two lines at a smaller size (never cut mid-word); past two it ellipsizes.
+ */
+.hg .hero-line {
+  max-width: min(100%, 200px);
+}
+/* the stamp's rows sit between the dial's two ends (its caps and the week's dot): narrower than the line's row */
+.hg .hero-stamp {
+  max-width: min(100%, 184px);
+  margin-inline: auto;
+  text-align: center;
+}
+.hg .hero-stamp.is-long,
+.hg .hero-stamp.is-xlong {
+  max-width: min(100%, 176px);
+  white-space: normal;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.hg .hero-stamp.is-long {
+  line-height: clamp(32px, 2rem, 42px);
+}
+.hg .hero-stamp.is-xlong {
+  font-size: clamp(22px, 1.375rem, 28px);
+  line-height: clamp(26px, 1.625rem, 34px);
+}
+.hl-narrow {
+  display: none;
+}
 @media (max-width: 359px) {
+  .hg .hero-line {
+    max-width: min(100%, 172px);
+  }
+  .hg .hero-stamp,
+  .hg .hero-stamp.is-long,
+  .hg .hero-stamp.is-xlong {
+    max-width: min(100%, 156px);
+  }
+  .hl-wide {
+    display: none;
+  }
+  .hl-narrow {
+    display: inline;
+  }
+  .hg .hero-stamp.is-xlong {
+    font-size: clamp(20px, 1.25rem, 26px);
+  }
   .hg .hero-stamp.is-mid {
     font-size: clamp(30px, 1.875rem, 40px);
   }

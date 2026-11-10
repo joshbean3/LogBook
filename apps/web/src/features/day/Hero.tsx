@@ -218,6 +218,22 @@ const Deck = ({ c }: { c: DeckCtx }) => {
   return <div className="hero-deck" />;
 };
 
+/**
+ * The face's line. "Out the door in 4 h 32 min" says "Out in 4 h 32 min" on a narrow phone (below 360), where the long form
+ * would touch the dial (today-top-11): both are in the DOM and CSS shows one, which is the one VoiceOver reads.
+ */
+const DOOR = 'Out the door in ';
+const LineText = ({ line }: { line: string }) =>
+  line.startsWith(DOOR) ? (
+    <>
+      <span className="hl-wide">Out the door</span>
+      <span className="hl-narrow">Out</span>
+      {` in ${line.slice(DOOR.length)}`}
+    </>
+  ) : (
+    <>{line}</>
+  );
+
 /** The words of a face: eyebrow (and its aside), stamp, line, the route on the landed face, the deck. */
 const FaceView = ({ c }: { c: DeckCtx }) => {
   const { face } = c;
@@ -253,9 +269,10 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
       ) : (
         // every other face: the day's words inside the week's dial (HeroGauge), the week's pill under them
         <HeroGauge date={c.date} log={c.log}>
-          {title(face.stamp.length > 9 ? 'is-long' : face.stamp.length > 6 ? 'is-mid' : '')}
+          {/* a long name steps down and takes two lines inside the dial, never one clipped line (today-top-11) */}
+          {title(face.stamp.length > 14 ? 'is-xlong' : face.stamp.length > 9 ? 'is-long' : face.stamp.length > 6 ? 'is-mid' : '')}
           <motion.p className="hero-line" initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
-            {face.line}
+            <LineText line={face.line} />
           </motion.p>
         </HeroGauge>
       )}
