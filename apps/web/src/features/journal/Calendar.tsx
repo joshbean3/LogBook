@@ -49,7 +49,7 @@ export interface CalendarProps {
 /**
  * The Journal's calendar card: the page's name with how many days have entries, Week · Month and the paging arrows, then
  * the days. A day with entries wears a small still orb in its palette with the count beside it (and a star on a day with
- * a favorite), so nothing rests on colour alone; a day without is a plain number. Today is ringed and, until it has an
+ * a favorite), so nothing rests on color alone; a day without is a plain number. Today is ringed and, until it has an
  * entry, holds a plus and the card ends in "Write today's entry". Tap a day to open it; days to come are quiet.
  */
 export const Calendar = ({ today, byDate, loading = false, failed = false, onRetry, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {

@@ -204,7 +204,7 @@
   min-width: 22px;
   height: 24px;
 }
-/* the count beside the orb and a star before it on a day with a favorite: the orb's colour is never the only signal */
+/* the count beside the orb and a star before it on a day with a favorite: the orb's color is never the only signal */
 .jcal-n {
   position: absolute;
   left: calc(100% + 1px);

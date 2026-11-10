@@ -249,7 +249,7 @@ textarea.jtext:focus {
   color: var(--ink-3);
 }
 
-/* ---------- small marks: the run stamp, the favourite star ---------- */
+/* ---------- small marks: the run stamp, the favorite star ---------- */
 .jstamp {
   display: inline-flex;
   align-items: center;
@@ -456,7 +456,7 @@ textarea.jsheet-text {
 .library {
   padding-top: 0;
 }
-/* favourites: a carousel of quote and entry cards */
+/* favorites: a carousel of quote and entry cards */
 .fav-carousel {
   --carousel-item: min(78%, 300px);
   padding-block: 4px;
@@ -572,6 +572,12 @@ textarea.jsheet-text {
   border-top: 1px solid var(--line);
   min-height: 44px;
 }
+/* the search sheet before two letters: what it needs */
+.qsearch-hint {
+  margin: 12px 4px 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
 .anchor {
   display: block;
   position: relative;
@@ -651,7 +657,7 @@ textarea.jsheet-text {
   display: grid;
   gap: 12px;
 }
-/* the quote sheet: the quote at 22/28, the work, Favourite as the verb */
+/* the quote sheet: the quote at 22/28, the work, Favorite as the verb */
 .qsheet {
   display: grid;
   gap: 10px;
@@ -731,7 +737,7 @@ textarea.jsheet-text {
 /* ======================================================================================================================
    Journal on shape system v2 (docs/shape-system.md): the Journal · Library control under the title, Remember when as the
    insight card, the calendar and the day card in their own cards (calendar.css), the entries as rows of one card.
-   The Library: Reads as a row, favourites as a strip of cards, your quotes as rows
+   The Library: Reads as a row, favorites as a strip of cards, your quotes as rows
    of one card, the themes as tiles.
    ====================================================================================================================== */
 
@@ -833,8 +839,13 @@ textarea.jsheet-text {
   margin-bottom: var(--gap);
   border-radius: var(--r-card);
 }
+/* the hairline between the quote and its author, where the group's other separators start (an input cannot draw the
+   group's ::before separator, so it is painted on the field) */
+.qadd.group .qadd-by {
+  background: linear-gradient(var(--line), var(--line)) 16px 0 / calc(100% - 16px) 1px no-repeat;
+}
 
-/* the quote sheet: the quote in a card, Favourite pinned, Write under it */
+/* the quote sheet: the quote in a card, Favorite pinned, Write under it */
 .qsheet-card {
   display: grid;
   gap: 8px;

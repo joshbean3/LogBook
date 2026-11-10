@@ -4,7 +4,7 @@ import { anchorFor, dayLabel, dayTitle, dayTitleShort, monthGrid, orbVariant, pa
 const TODAY = '2026-11-09'; // a Monday
 
 describe('the journal calendar', () => {
-  it('picks an orb palette from the count, a starred memory first', () => {
+  it('picks an orb palette from the count, a favorite entry first', () => {
     expect(orbVariant(undefined)).toBeNull();
     expect(orbVariant([])).toBeNull();
     expect(orbVariant([{ fav: false }])).toBe('sky');

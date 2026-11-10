@@ -24,7 +24,7 @@ const EASING = `cubic-bezier(${ease.join(', ')})`;
 
 /**
  * Journal (docs/feel.md §8, M28; build plan §7.2 item 1). The NavBar (caps the date, title `Journal`, nothing trailing), then
- * `Journal · Library` as a 32 px Segmented pinned under the bar. Both panes stay mounted; a switch is a 150 ms crossfade, and
+ * `Entries · Library` as a 32 px Segmented pinned under the bar. Both panes stay mounted; a switch is a 150 ms crossfade, and
  * each pane keeps its own scroll offset: the tab scroller's offset is saved per segment and the incoming one is restored on
  * the commit frame, while the outgoing pane is held still on screen by a transform until its fade ends. The segment is page
  * state, mirrored with `nav.replace` and changed from outside only through `useRootRequest` (a cut sets it at once).
@@ -122,9 +122,9 @@ export default function JournalView() {
         <div className="j-segrow">
           <Segmented
             className="k-seg j-seg"
-            label="Journal or library"
+            label="Entries or library"
             options={[
-              ['journal', 'Journal'],
+              ['journal', 'Entries'],
               ['library', 'Library'],
             ]}
             value={seg}
@@ -133,7 +133,7 @@ export default function JournalView() {
         </div>
       </NavBar>
       <div className="j-panes">
-        <section ref={journalPane} className={`j-pane ${cls('journal')}`} aria-hidden={off('journal')} aria-label="Journal">
+        <section ref={journalPane} className={`j-pane ${cls('journal')}`} aria-hidden={off('journal')} aria-label="Entries">
           <RecallCard today={today} onOpenDay={openRecalled} />
           <JournalPane today={today} focusKey={focusKey} openDay={openDay} />
         </section>

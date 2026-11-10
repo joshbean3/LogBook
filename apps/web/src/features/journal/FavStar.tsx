@@ -5,8 +5,8 @@ import { useLayoutEffect, useRef } from 'react';
 import { popFav } from './feel';
 
 /**
- * The favourite star. When `on` turns true after it mounted (a favourite made here: a swipe, a sheet's button, a menu), it
- * pops on `springs.complete` and `toggle` fires on the apex frame (`popFav`). Un-favouriting is silent and still (§11.4).
+ * The favorite star. When `on` turns true after it mounted (a favorite made here: a swipe, a sheet's button, a menu), it
+ * pops on `springs.complete` and `toggle` fires on the apex frame (`popFav`). Un-favoriting is silent and still (§11.4).
  * `always` keeps an outlined star in place while off (a button's icon); otherwise nothing renders while off.
  */
 export const FavStar = ({ on, size = 11, always, className = 'jfav', label }: { on: boolean; size?: number; always?: boolean; className?: string; label?: string }): React.JSX.Element | null => {

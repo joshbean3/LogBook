@@ -21,7 +21,7 @@ const Byline = ({ q }: { q: Quote }) =>
     </span>
   ) : null;
 
-/** Favourite (the star that shows it fires `toggle` on its pop's apex), Hide or Delete (with Undo): the one place quote actions live. */
+/** Favorite (the star that shows it fires `toggle` on its pop's apex), Hide or Delete (with Undo): the one place quote actions live. */
 export const useQuoteActions = () => {
   const { quotePrefs, removeQuote, addQuote, another } = useJournalMutations();
   const toast = useToast();
@@ -43,7 +43,7 @@ export const useQuoteActions = () => {
 };
 
 /**
- * Behind a tap on a quote: the whole of it in the serif, the work, Favourite as the sheet's verb, Write about it, and for one
+ * Behind a tap on a quote: the whole of it in the serif, the work, Favorite as the sheet's verb, Write about it, and for one
  * of your own, Delete (with Undo). The author is the title, so it is not said twice.
  */
 const QuoteSheet = ({ q: opened, onWrite }: { q: Quote; onWrite: (q: Quote) => void }) => {
@@ -68,7 +68,7 @@ const QuoteSheet = ({ q: opened, onWrite }: { q: Quote; onWrite: (q: Quote) => v
           }}
         >
           <FavStar on={fav} size={16} always className="" />
-          {fav ? 'Favourited' : 'Favourite'}
+          {fav ? 'Favorited' : 'Favorite'}
         </Button>
         <Button
           block
@@ -94,20 +94,20 @@ export const useOpenQuote = (onWrite: (q: Quote) => void, push = false) => {
   };
 };
 
-/** One quote as an edge-to-edge row. Tap: the sheet. Swipe right: Favourite. Swipe left: Hide (or Delete, your own). Hold: all of it. */
+/** One quote as an edge-to-edge row. Tap: the sheet. Swipe right: Favorite. Swipe left: Hide (or Delete, your own). Hold: all of it. */
 const QuoteRow = ({ q, open, onWrite }: { q: Quote; open: (q: Quote) => void; onWrite: (q: Quote) => void }) => {
   const act = useQuoteActions();
   return (
     <SwipeRow
       label={q.author ? `Quote by ${q.author}` : 'Quote'}
-      right={{ label: q.fav ? 'Unfavourite' : 'Favourite', icon: <Star size={20} />, tone: 'warn', onCommit: () => act.fav(q) }}
+      right={{ label: q.fav ? 'Unfavorite' : 'Favorite', icon: <Star size={20} />, tone: 'warn', onCommit: () => act.fav(q) }}
       left={q.mine ? { label: 'Delete', icon: <Trash2 size={20} />, tone: 'bad', onCommit: () => act.remove(q) } : { label: 'Hide', icon: <EyeOff size={20} />, tone: 'neutral', destructive: false, onCommit: () => act.hide(q) }}
       menuItems={[{ label: 'Write about it', icon: <PenLine size={18} />, onSelect: () => onWrite(q) }]}
     >
       <PressButton className="qrow" onClick={() => open(q)}>
         <span className="qrow-text">“{q.text}”</span>
         <span className="qrow-by">
-          <FavStar on={q.fav} label="Favourite" />
+          <FavStar on={q.fav} label="Favorite" />
           <Byline q={q} />
         </span>
       </PressButton>
@@ -140,8 +140,8 @@ const ReadsRow = () => {
   );
 };
 
-/** Favourite quotes and entries, side by side in a carousel: the fuel you kept. */
-const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: Quote) => void }) => {
+/** Favorite quotes and entries, side by side in a carousel: the fuel you kept. */
+const Favorites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: Quote) => void }) => {
   const quotes = useQuotes({ fav: true, limit: 60 });
   const entries = useJournalList('', true);
   const openEntry = useOpenEntry();
@@ -150,7 +150,7 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
   const items: Array<{ kind: 'q'; q: Quote } | { kind: 'e'; e: JournalEntry }> = [...(entries.data?.entries ?? []).map((e) => ({ kind: 'e' as const, e })), ...(quotes.data?.quotes ?? []).map((q) => ({ kind: 'q' as const, q }))];
   const loading = (quotes.isPending && !quotes.data) || (entries.isPending && !entries.data);
   return (
-    <KSection title="Favourites" meta={items.length || undefined} className="lib-favs">
+    <KSection title="Favorites" meta={items.length || undefined} className="lib-favs">
       {loading ? (
         <div className="carousel fav-carousel" aria-hidden="true">
           <Skeleton h={156} r="card" />
@@ -164,8 +164,8 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
               <Star size={17} />
             </span>
             <span className="k-row-main">
-              <span className="k-row-title">No favourites yet</span>
-              <span className="k-row-sub">Swipe a quote right to keep it.</span>
+              <span className="k-row-title">No favorites yet</span>
+              <span className="k-row-sub">Favorite a quote or an entry to keep it here.</span>
             </span>
           </li>
         </ul>
@@ -178,7 +178,7 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
                 label={`Quote by ${it.q.author || 'you'}`}
                 items={[
                   { label: 'Write about it', icon: <PenLine size={18} />, onSelect: () => onWrite(it.q) },
-                  { label: 'Unfavourite', icon: <Star size={18} />, onSelect: () => act.fav(it.q) },
+                  { label: 'Unfavorite', icon: <Star size={18} />, onSelect: () => act.fav(it.q) },
                 ]}
               >
                 <Pressable role="listitem" className="fav-card" onPress={() => open(it.q)} label={`${it.q.text}. ${it.q.author}`}>
@@ -191,7 +191,7 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
                 key={it.e.id}
                 label={`Entry from ${fmtDate('short', it.e.date)}`}
                 items={[
-                  { label: 'Unfavourite', icon: <Star size={18} />, onSelect: () => entryAct.fav(it.e) },
+                  { label: 'Unfavorite', icon: <Star size={18} />, onSelect: () => entryAct.fav(it.e) },
                   { label: 'Share', icon: <Share size={18} />, onSelect: () => entryAct.share(it.e) },
                 ]}
               >
@@ -209,6 +209,16 @@ const Favourites = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
     </KSection>
   );
 };
+
+/** Quote text as it is compared: no case, no outer quote marks, one space between words. */
+const plain = (s: string) =>
+  s
+    .trim()
+    .replace(/^[“"']+|[”"']+$/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+/** Whether two quotes are the same line by the same person (case, spacing and quote marks aside). */
+export const sameQuote = (a: Pick<Quote, 'text' | 'author'>, b: Pick<Quote, 'text' | 'author'>) => plain(a.text) === plain(b.text) && plain(a.author ?? '') === plain(b.author ?? '');
 
 /** Your own lines: add one inline, and they come back as a day's quote. */
 const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: Quote) => void }) => {
@@ -235,6 +245,11 @@ const YourQuotes = ({ open, onWrite }: { open: (q: Quote) => void; onWrite: (q: 
   }, [adding]);
   useListFlip(rows, mine.map((q) => q.id).join(','));
   const add = () => {
+    // the same line twice is refused here, with the words left in the form
+    if (mine.some((q) => sameQuote(q, { text: nt, author: na }))) {
+      toast('You already have that quote.');
+      return;
+    }
     // a quote kept is not a day's close: no `success` (two a day, §11.4)
     flip.current = measureBelow(head.current);
     const kept = { text: nt, author: na };
@@ -355,7 +370,9 @@ const QuoteSearch = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   return (
     <div className="qsearch">
       <input ref={field} autoFocus className="in" type="search" enterKeyHint="search" placeholder="Words, an author or a book" aria-label="Search quotes" value={q} onChange={(e) => (setQ(e.target.value), setLimit(PAGE))} />
-      {needle.length < 2 ? null : page.isPending && !page.data ? (
+      {needle.length < 2 ? (
+        <p className="qsearch-hint">Type two letters or more.</p>
+      ) : page.isPending && !page.data ? (
         <SkeletonRows rows={3} label="Searching" />
       ) : !list.length ? (
         <EmptyState verb={{ label: 'Clear', onPress: () => (setQ(''), field.current?.focus()) }}>Nothing says “{needle}”.</EmptyState>
@@ -427,13 +444,13 @@ const Themes = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   );
 };
 
-/** The Library segment: the way to Reads, then favourites, your own quotes, and the themes. */
+/** The Library segment: the way to Reads, then favorites, your own quotes, and the themes. */
 export const Library = ({ onWrite }: { onWrite: (q: Quote) => void }) => {
   const open = useOpenQuote(onWrite);
   return (
     <div className="library">
       <ReadsRow />
-      <Favourites open={open} onWrite={onWrite} />
+      <Favorites open={open} onWrite={onWrite} />
       <YourQuotes open={open} onWrite={onWrite} />
       <Themes onWrite={onWrite} />
     </div>
