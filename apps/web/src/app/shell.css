@@ -202,6 +202,13 @@ html.kb-open .dock {
 .dock-dot[data-now='ink'] {
   background: var(--ink);
 }
+/* the Goals tab's dot (GoalsBadge, features/goals) is not on the Sunrise budget yet, so it draws as a yielded badge: Night
+   Ink with its Paper keyline (guide 3.5), never --accent-bright, which is 2.26:1 on Paper and vanishes on the shown tab's
+   Sky disc. It turns Sunrise when it registers with useNowMark('badge') */
+.tab-item .tab-dot {
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
 .dock-row {
   display: flex;
   align-items: center;
