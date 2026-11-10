@@ -1,15 +1,19 @@
 /**
  * The metric pages' numbers (docs/inspiration.md §3 "Metric page", §6 "Progress"): one definition per metric, and one pure
  * function that turns a day-by-day source into everything the page draws (the line, the bars, the normal band, the
- * headline, the tiles, the trend table). Apple Health metrics are defined too, with no data behind them yet: their pages
- * keep the whole layout and say "Comes with Apple Health". Nothing here renders, and nothing here is sent anywhere.
+ * headline, the tiles, the trend table). The three Apple Health metrics (sleep, HRV, resting heart rate) read the daily
+ * values the server holds for the account. Nothing here renders, and nothing here is sent anywhere.
  */
 import { fmtDate, mi, shiftDays, type Activity, type ISODate, type LiftSet } from '@logbook/shared';
 import { mean, normalBand, rolling, rollingSparse, standing, trendRows, type NormalBand, type RangeWindow, type Standing, type TrendRow } from '@/ui/charts';
+import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
 import { paceText } from './data';
+import type { HealthDay } from './healthDays';
 
 export type MetricId = 'mileage' | 'pace' | 'consistency' | 'lifts' | 'sleep' | 'hrv' | 'rhr';
-export const METRIC_IDS: readonly MetricId[] = ['mileage', 'pace', 'consistency', 'lifts', 'sleep', 'hrv', 'rhr'];
+export const HEALTH_IDS: readonly MetricId[] = ['rhr', 'hrv', 'sleep'];
+/** The metrics that have a page. A build without Apple Health has no health pages at all. */
+export const METRIC_IDS: readonly MetricId[] = ['mileage', 'pace', 'consistency', 'lifts', ...(HEALTH_BUILT ? (['sleep', 'hrv', 'rhr'] as const) : [])];
 export const isMetricId = (v: string | undefined): v is MetricId => !!v && (METRIC_IDS as readonly string[]).includes(v);
 
 /** What a metric reads, day by day. The page builds it from the loaded months; the tests build it by hand. */
@@ -30,6 +34,8 @@ export interface MetricSource {
   /** 1 for a day of the plan kept, 0 for one missed, null for a day with nothing to keep (rest, nothing planned, still open). */
   trainingOn(d: ISODate): number | null;
   liftsOn(d: ISODate): LiftSet[];
+  /** The day's Apple Health readings (sleep, HRV, resting heart rate); null for a day with none. */
+  healthOn(d: ISODate): HealthDay | null;
 }
 
 export interface Variant {
@@ -52,6 +58,10 @@ export interface Variant {
   zero?: boolean;
   /** Smaller is higher (pace). */
   invert?: boolean;
+  /** The best point is the lowest one, drawn the usual way up (resting heart rate). Default: follows `invert`. */
+  lowBest?: boolean;
+  /** The second stat tile's label; default "Fastest" for an inverted metric, else "High". */
+  bestLabel?: string;
   format(v: number): string;
   axis(v: number): string;
   steps?: number[];
@@ -66,7 +76,7 @@ export interface Variant {
 export interface MetricDef {
   id: MetricId;
   name: string;
-  /** Apple Health: defined, not built. The page keeps its layout and says so. */
+  /** Read from Apple Health: with no readings the page says where the connection stands. */
   health?: boolean;
   variants: Variant[];
   /** Said where a number would be when there is no data yet. */
@@ -97,27 +107,46 @@ const paceOfDay = (src: MetricSource, d: ISODate, only?: (a: Activity) => boolea
   const miles = sumOf(runs.map((a) => a.miles));
   return miles > 0 ? sumOf(runs.map((a) => a.movingSec)) / miles : null;
 };
-const health = (id: MetricId, name: string, unit: string, what: string, why: string, how: string, invert = false): MetricDef => ({
-  id,
-  name,
+const tenths = (v: number) => v.toFixed(1);
+interface HealthSpec {
+  id: MetricId;
+  name: string;
+  unit: string;
+  /** The day's value in the metric's unit. */
+  pick(h: HealthDay): number | null;
+  format?(v: number): string;
+  emptyLine: string;
+  what: string;
+  why: string;
+  how: string;
+  lowBest?: boolean;
+  bestLabel?: string;
+}
+const health = (h: HealthSpec): MetricDef => ({
+  id: h.id,
+  name: h.name,
   health: true,
-  emptyWord: 'Comes with Apple Health',
-  emptyLine: 'Nothing to show yet. Once Apple Health is connected, your nights land here.',
-  what,
-  why,
-  how,
+  emptyWord: 'No readings yet',
+  emptyLine: h.emptyLine,
+  what: h.what,
+  why: h.why,
+  how: h.how,
   variants: [
     {
-      id,
-      chip: name,
-      unit,
-      lineName: `${name}, 7-day average`,
-      daily: () => null,
+      id: h.id,
+      chip: h.name,
+      unit: h.unit,
+      lineName: `${h.name}, 7-day average`,
+      daily: (src, d) => {
+        const day = src.healthOn(d);
+        return day ? h.pick(day) : null;
+      },
       window: 7,
       agg: 'mean',
-      invert,
-      format: whole,
-      axis: whole,
+      lowBest: h.lowBest,
+      bestLabel: h.bestLabel,
+      format: h.format ?? whole,
+      axis: h.format ?? whole,
       words: USUAL,
       method: 'Each row compares the average of the last N days with the N days before.',
     },
@@ -132,8 +161,10 @@ export const METRICS: Record<MetricId, MetricDef> = {
     emptyWord: 'No runs yet',
     emptyLine: 'No runs yet. Once you log one, it shows up here.',
     what: 'The miles you ran in the last 7 days, counted fresh each day.',
-    why: 'Steady weekly mileage builds the base a race stands on. Big jumps from one week to the next are where injuries tend to start.',
-    how: 'Each day adds up the runs from that day and the 6 before it: Strava activities, plus runs you marked Done by hand at their planned miles. The bars are single days. Your usual range is the middle half of your last 90 days.',
+    why: 'Steady weekly mileage builds the base a race stands on. Big jumps from one week to the next are hard to absorb.',
+    how: STRAVA_BUILT
+      ? 'Each day adds up the runs from that day and the 6 before it: Strava activities, plus runs you marked Done by hand at their planned miles. The bars are single days. Your usual range is the middle half of your last 90 days.'
+      : 'Each day adds up the runs you marked Done from that day and the 6 before it, at their planned miles. The bars are single days. Your usual range is the middle half of your last 90 days.',
     variants: [
       {
         id: 'miles',
@@ -303,31 +334,39 @@ export const METRICS: Record<MetricId, MetricDef> = {
       },
     ],
   },
-  sleep: health(
-    'sleep',
-    'Sleep',
-    'h',
-    'How long you slept each night, from Apple Health.',
-    'Sleep is when training turns into fitness. A short week of nights shows up in your runs before it shows up anywhere else.',
-    'Hours asleep each night, averaged over 7 nights, against the middle half of your last 90 nights.',
-  ),
-  hrv: health(
-    'hrv',
-    'HRV',
-    'ms',
-    'Heart rate variability: the small changes in time between heartbeats, measured overnight by Apple Health.',
-    'Higher than your usual tends to mean you have recovered; a run of low days can mean stress, illness or too much load.',
-    'The overnight average in milliseconds, averaged over 7 days, against the middle half of your last 90 days. Only your own normal matters, not anyone else’s.',
-  ),
-  rhr: health(
-    'rhr',
-    'Resting HR',
-    'bpm',
-    'Your heart rate at rest, from Apple Health.',
-    'A resting rate that creeps up over a few days can be the first sign of fatigue or a cold coming on.',
-    'The daily resting heart rate, averaged over 7 days, against the middle half of your last 90 days.',
-    true,
-  ),
+  sleep: health({
+    id: 'sleep',
+    name: 'Sleep',
+    unit: 'h',
+    pick: (h) => (h.sleepMin != null ? h.sleepMin / 60 : null),
+    format: tenths,
+    emptyLine: 'No nights yet. Sleep from Apple Health shows here.',
+    what: 'How long you slept each night, from Apple Health.',
+    why: 'Sleep is when training turns into fitness. A short week of nights often shows up in your runs first.',
+    how: 'Hours asleep each night, averaged over 7 nights, against the middle half of your last 90 nights.',
+  }),
+  hrv: health({
+    id: 'hrv',
+    name: 'HRV',
+    unit: 'ms',
+    pick: (h) => h.hrvMs,
+    emptyLine: 'No readings yet. HRV from Apple Health shows here.',
+    what: 'Heart rate variability: the small changes in time between heartbeats, from Apple Health.',
+    why: 'Higher than your usual often goes with feeling fresh. A run of low days often goes with fatigue or a hard block.',
+    how: 'Each day’s value in milliseconds, averaged over 7 days, against the middle half of your last 90 days. Only your own normal matters, not anyone else’s.',
+  }),
+  rhr: health({
+    id: 'rhr',
+    name: 'Resting HR',
+    unit: 'bpm',
+    pick: (h) => h.restingHr,
+    lowBest: true,
+    bestLabel: 'Lowest',
+    emptyLine: 'No readings yet. Resting heart rate from Apple Health shows here.',
+    what: 'Your heart rate at rest, from Apple Health.',
+    why: 'A resting rate that creeps up over a few days often goes with fatigue or a hard block.',
+    how: 'The daily resting heart rate, averaged over 7 days, against the middle half of your last 90 days.',
+  }),
 };
 
 /** Days of history the page needs before the window: the rolling window, the 90 days of the normal and the trend table's 90 + 90. */
@@ -411,7 +450,7 @@ export const buildMetric = (def: MetricDef, variantId: string | null, src: Metri
   let best: MetricModel['best'] = null;
   line.forEach((v, i) => {
     if (v == null) return;
-    if (!best || (variant.invert ? v < best.v : v > best.v)) best = { v, d: dates[i]! };
+    if (!best || ((variant.lowBest ?? variant.invert) ? v < best.v : v > best.v)) best = { v, d: dates[i]! };
   });
   const present = daily.filter((x): x is number => x != null);
   const ti = all.indexOf(src.today);

@@ -1,17 +1,20 @@
 import { fmtDate, monthsBetween, shiftDays } from '@logbook/shared';
 import { ChevronRight, CircleArrowDown, CircleArrowUp, CircleCheck, Hourglass, Info, Sigma, Trophy } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { useRouteParams } from '@/app/NavController';
+import { useNav, useRouteParams } from '@/app/NavController';
 import { useAllLifts } from '@/api/queries';
+import { DISCLAIMER } from '@/lib/copy';
 import { Footnote, PageSection, PushedBar, Pressable, useSheet } from '@/ui';
 import { Gauge, maxOffset, RANGE_DAYS, RANGE_KEYS, RangeControl, rangeWindow, TrendChart, TrendTable, windowLabel, type RangeKey } from '@/ui/charts';
 import { useLog } from '../log/useLog';
 import { trendTone } from './context';
 import { easyPace, liftGroups, rangeLabel } from './data';
 import { agoWords } from './feed';
+import { healthWord, type HealthLink } from './healthDays';
 import { MetricIcon } from './icons';
 import { bandWords, buildMetric, HISTORY_DAYS, isMetricId, METRICS, valueDateWords, type MetricId, type MetricModel } from './metrics';
 import { EasyPaceSheet, LiftsSheet } from './sheets';
+import { useHealthLink } from './useHealthDays';
 import { useMetricSource } from './useMetrics';
 import { useNow } from './useNow';
 import './progress.css';
@@ -39,10 +42,9 @@ const md = (d: string) => fmtDate('md', d);
 const unitText = (u: string) => (u === '%' ? '%' : u);
 const TONE_ICON = { ok: CircleCheck, up: CircleArrowUp, down: CircleArrowDown, none: Hourglass } as const;
 
-/** "Updated 6 m ago" under each tile: Strava's last sync for runs, else the last day with data. */
-const freshness = (m: MetricModel, stravaAt: string | null, now: number, today: string) => {
-  if (m.def.health) return 'Not connected yet';
-  if (!m.latest) return 'No data yet';
+/** "Updated 6 m ago" under each tile: the last sync for synced runs, else the last day with data. */
+const freshness = (m: MetricModel, stravaAt: string | null, now: number, today: string, link: HealthLink) => {
+  if (!m.latest) return m.def.health ? healthWord(m, link) : 'No data yet';
   if ((m.def.id === 'mileage' || m.def.id === 'pace') && stravaAt) {
     const a = agoWords(stravaAt, now);
     if (a) return `Updated ${a}`;
@@ -56,10 +58,13 @@ const freshness = (m: MetricModel, stravaAt: string | null, now: number, today: 
  * scrolls to the explainer; the hero (the big number, or a gauge for a share) with its status word and your usual range; two
  * stat tiles that say when they were updated; the chart card (its metric chips, the chart, the range control); the 3 to 90
  * day trend table in a card; and the explainer card: what it is, why it matters, how it is worked out. An Apple Health metric
- * keeps every piece of that with dashes in it and says it comes with Apple Health.
+ * with no readings keeps every piece of that with dashes in it, says where the connection stands (not connected, syncing,
+ * no readings yet) and, when nothing is connected, offers the way to connect.
  */
 export default function MetricPage(): React.JSX.Element {
   const params = useRouteParams();
+  const nav = useNav();
+  const link = useHealthLink();
   const id: MetricId = isMetricId(params.id) ? params.id : 'mileage';
   const def = METRICS[id];
   const [range, setRangeState] = useState<RangeKey>(readRange);
@@ -84,7 +89,9 @@ export default function MetricPage(): React.JSX.Element {
   const src = useMetricSource(log, start);
   const m = useMemo(() => buildMetric(def, variantId, src, window), [def, variantId, src, window.from, window.to]); // eslint-disable-line react-hooks/exhaustive-deps
   const now = useNow(60_000);
-  const fresh = freshness(m, log.strava?.connected ? log.strava.lastSyncAt : null, now, t);
+  const fresh = freshness(m, log.strava?.connected ? log.strava.lastSyncAt : null, now, t, link);
+  // an Apple Health metric with no readings says where the connection stands instead of the generic empty word
+  const status = def.health ? healthWord(m, link) : m.status;
   const v = m.variant;
   const band = bandWords(m);
   const tone = trendTone(m);
@@ -94,8 +101,8 @@ export default function MetricPage(): React.JSX.Element {
   const labels = m.dates.map((d) => md(d));
   const fmtVal = (x: number | null) => (x == null ? '–' : v.format(x));
   const when = valueDateWords(m, t);
-  const dateLine = m.value != null ? when.charAt(0).toUpperCase() + when.slice(1) : def.health ? 'Not connected yet' : 'No data yet';
-  const name = def.name.toLowerCase().startsWith('hrv') ? 'HRV' : def.name.toLowerCase();
+  const dateLine = m.value != null ? when.charAt(0).toUpperCase() + when.slice(1) : def.health ? status : 'No data yet';
+  const name = id === 'hrv' ? 'HRV' : id === 'rhr' ? 'resting HR' : def.name.toLowerCase();
   // a share (consistency) reads best on the gauge; everything else is one big number
   const gauge = v.unit === '%';
   const spanWords = offset === 0 ? `Last ${RANGE_DAYS[range]} days` : windowLabel(window, t);
@@ -113,7 +120,7 @@ export default function MetricPage(): React.JSX.Element {
         }
       />
 
-      <section className="mp-hero" aria-label={`${def.name}: ${m.value != null ? `${v.format(m.value)} ${v.unit}` : 'no value yet'}. ${m.status}${band ? `. ${band}` : ''}`}>
+      <section className="mp-hero" aria-label={`${def.name}: ${m.value != null ? `${v.format(m.value)} ${v.unit}` : 'no value yet'}. ${status}${band ? `. ${band}` : ''}`}>
         <span className="mp-halo" aria-hidden="true" />
         {gauge ? (
           <Gauge
@@ -139,16 +146,25 @@ export default function MetricPage(): React.JSX.Element {
         )}
         <span className={`mp-status is-${tone}`} aria-hidden="true">
           <ToneIcon size={16} strokeWidth={2.2} aria-hidden="true" />
-          {m.status}
+          {status}
         </span>
         <span className="mp-usual" aria-hidden="true">
           {band ?? (m.hasData ? 'Your usual range shows after 2 weeks' : '')}
         </span>
       </section>
 
+      {def.health && !m.hasData && !link.connected && !link.syncing ? (
+        <div className="card mp-connect">
+          <p className="mp-connect-p">Connect Apple Health to see your {name} here. Logbook reads sleep, HRV and resting heart rate.</p>
+          <button type="button" className="btn primary pressable" onClick={() => nav.go('/settings/connections')}>
+            Connect Apple Health
+          </button>
+        </div>
+      ) : null}
+
       <div className="tiles mp-tiles" role="list" aria-label="Stats">
         <Tile icon={<Sigma size={16} />} label="Average" value={fmtVal(m.avg)} unit={m.avg != null ? unitText(v.unit) : undefined} note={fresh} />
-        <Tile icon={<Trophy size={16} />} label={v.invert ? 'Fastest' : 'High'} value={fmtVal(m.best?.v ?? null)} unit={m.best ? unitText(v.unit) : undefined} note={m.best ? `On ${md(m.best.d)}` : fresh} />
+        <Tile icon={<Trophy size={16} />} label={v.bestLabel ?? (v.invert ? 'Fastest' : 'High')} value={fmtVal(m.best?.v ?? null)} unit={m.best ? unitText(v.unit) : undefined} note={m.best ? `On ${md(m.best.d)}` : fresh} />
       </div>
 
       <section className="card mp-card" aria-label="Chart">
@@ -179,7 +195,7 @@ export default function MetricPage(): React.JSX.Element {
           steps={v.steps}
           fill={!v.sparse}
           height={210}
-          empty={<span>{def.health ? 'Comes with Apple Health' : def.emptyLine}</span>}
+          empty={<span>{def.emptyLine}</span>}
           readout={(i) =>
             i == null ? (
               <span className="mp-readout">{v.lineName}</span>
@@ -201,7 +217,7 @@ export default function MetricPage(): React.JSX.Element {
         <Footnote>{v.method}</Footnote>
       </PageSection>
 
-      <More id={id} log={log} today={t} />
+      {m.hasData ? <More id={id} log={log} today={t} /> : null}
 
       <PageSection className="mp-sec" title={`About ${name}`} ref={about}>
         <div className="card mp-explain">
@@ -217,7 +233,7 @@ export default function MetricPage(): React.JSX.Element {
             <h3 className="mp-q">How it’s worked out</h3>
             <p className="mp-a">{def.how}</p>
           </div>
-          {def.health ? <p className="mp-a mp-note">This fills in once Apple Health syncs into your Logbook. Until then the page stays empty rather than guess.</p> : null}
+          <p className="mp-a mp-note">{DISCLAIMER}</p>
         </div>
       </PageSection>
     </div>

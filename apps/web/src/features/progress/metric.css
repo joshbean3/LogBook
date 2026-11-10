@@ -81,6 +81,9 @@
 .mp-tiles {
   margin-top: 16px;
 }
+.mp-connect + .mp-tiles {
+  margin-top: var(--gap);
+}
 .mp-tile .tile-value.is-empty {
   color: var(--ink-4);
 }
@@ -207,7 +210,7 @@
   text-wrap: pretty;
 }
 .mp-note {
-  margin: 0 0 12px;
+  margin: 12px 0 0;
   padding: 10px 12px;
   border-radius: var(--r-control);
   background: var(--columbia-wash);
@@ -218,4 +221,21 @@
     font-size: 2.75rem;
     line-height: 3rem;
   }
+}
+
+/* an Apple Health page with nothing connected: one card with the way to connect */
+.mp-connect.card {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+}
+.mp-connect-p {
+  margin: 0;
+  font: 400 var(--fs-sub) / 1.375rem var(--sans);
+  color: var(--ink-2);
+}
+.mp-connect .btn {
+  justify-self: start;
+  min-height: 44px;
 }

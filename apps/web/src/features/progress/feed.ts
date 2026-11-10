@@ -8,14 +8,16 @@ import type { AppSnapshot } from '@/api/snapshot';
 import { cumulative } from '@/ui/charts';
 import { dayMiles } from '../sessions/miles';
 import type { HabitLike } from './data';
+import type { HealthDay } from './healthDays';
 import type { MetricSource } from './metrics';
 
 // ---------- the metric source ----------
 /**
  * The metric pages' view of the log. `easy` holds the ids of runs that count as easy (from `easyPace`). Habits follow the
- * consistency rule: a habit counts from the day it was made, and today only once it is done.
+ * consistency rule: a habit counts from the day it was made, and today only once it is done. `health` holds the account's
+ * daily Apple Health readings by date, when there are any.
  */
-export const snapSource = (snap: AppSnapshot, habits: HabitLike[], easy: ReadonlySet<string>): MetricSource => ({
+export const snapSource = (snap: AppSnapshot, habits: HabitLike[], easy: ReadonlySet<string>, health?: ReadonlyMap<ISODate, HealthDay>): MetricSource => ({
   today: snap.today,
   loaded: (d) => snap.loaded(monthOf(d)),
   milesOn: (d) => dayMiles(snap, d).miles,
@@ -40,6 +42,7 @@ export const snapSource = (snap: AppSnapshot, habits: HabitLike[], easy: Readonl
     return st === 'done' || st === 'floor' || st === 'bonus' ? 1 : st === 'missed' ? 0 : null;
   },
   liftsOn: (d) => snap.liftsOn(d),
+  healthOn: (d) => health?.get(d) ?? null,
 });
 
 // ---------- this month against last month ----------

@@ -114,17 +114,18 @@ describe('consistency and lifts', () => {
     expect(s.value).toBe(3);
   });
 
-  it('defines Apple Health metrics with no data behind them', () => {
+  it('keeps the Apple Health metrics empty, with plain words, when the account has no readings', () => {
     for (const id of ['sleep', 'hrv', 'rhr'] as const) {
       const m = buildMetric(METRICS[id], null, src(snapOf([run(TODAY, 3)])), rangeWindow(TODAY, '1M'));
       expect(m.def.health).toBe(true);
       expect(m.hasData).toBe(false);
-      expect(m.status).toBe('Comes with Apple Health');
+      expect(m.value).toBeNull();
+      expect(m.status).toBe('No readings yet');
     }
   });
 
   it('works from a hand-built source', () => {
-    const fake: MetricSource = { today: TODAY, loaded: () => true, milesOn: () => 1, runCountOn: () => 1, runsOn: () => [], isEasy: () => false, habitShare: () => null, trainingOn: () => null, liftsOn: () => [] };
+    const fake: MetricSource = { today: TODAY, loaded: () => true, milesOn: () => 1, runCountOn: () => 1, runsOn: () => [], isEasy: () => false, habitShare: () => null, trainingOn: () => null, liftsOn: () => [], healthOn: () => null };
     const m = buildMetric(METRICS.mileage, null, fake, rangeWindow(TODAY, '1M'));
     expect(m.value).toBe(7);
     expect(m.standing).toBe('within');

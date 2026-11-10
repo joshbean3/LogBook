@@ -1176,3 +1176,12 @@ button.pg-srow[data-pressed] {
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* three trend tiles (no pace without a timed-run source): the last one takes the row */
+.pg-tiles > .ck-tcard:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+/* the Health slot as the way in: Connect Apple Health reads as a button */
+.pg-slot.is-connect .pg-slot-title {
+  color: var(--accent-text);
+}
