@@ -456,7 +456,7 @@ const useHeader = (onHistory: () => void, pushed: React.RefObject<boolean>) => {
 };
 
 /**
- * The assistant (Claude Sonnet), laid out the way ChatGPT and Claude are on a phone: a greeting and starter cards on a
+ * The assistant, laid out the way ChatGPT and Claude are on a phone: a greeting and starter cards on a
  * new chat; the owner's words in soft bubbles at the right; the answers straight on the page, full width, with how it got
  * there folded above and its actions below; the question just sent pinned at the top while the answer streams in under
  * it; a composer box with the attach button, the screen it was opened from and Send (Stop while it works). Every chat is
@@ -872,7 +872,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
             className="as-input"
             rows={1}
             maxLength={2000}
-            placeholder={pending.length ? 'Add a note (optional)' : turns.length ? 'Reply to Logbook' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
+            placeholder={pending.length ? 'Add a note (optional)' : turns.length ? 'Reply' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
             aria-label="Ask the assistant"
             enterKeyHint="send"
             value={draft}

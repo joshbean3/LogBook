@@ -38,7 +38,7 @@ export const AssistantPermission = ({ gate, retry, date, screen }: { gate: Exclu
   const [failed, setFailed] = useState(false);
   // the header is the sheet's own here: no chat title, no History or New
   useEffect(() => {
-    sheet.update({ title: 'Ask Logbook', action: undefined });
+    sheet.update({ title: 'Assistant', action: undefined });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const choose = async (training: boolean) => {
