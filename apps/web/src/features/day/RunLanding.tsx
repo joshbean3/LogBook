@@ -1,13 +1,12 @@
 import { clock, decodePolyline, routePath, type ISODate } from '@logbook/shared';
 import { Share } from 'lucide-react';
-import { AnimatePresence, motion, useIsPresent, useReducedMotion } from 'motion/react';
+import { motion, useIsPresent, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { useMemo } from 'react';
 import { crossfade, ease } from '@/lib/motion';
 import { Pressable, Ticker, useFirstToday } from '@/ui';
-import { coachSentence, milesText, type Face } from './faces';
+import { milesText, type Face } from './faces';
 import { settleAt, settleVelAt } from './HoldRing';
-import { useCoachShown } from './coachShown';
 import { useIsLive } from './live';
 
 /** Stage 1 of the landing (§6.1): the ring fills to full in 300 ms. */
@@ -157,18 +156,14 @@ export const SharePill = ({ onShare }: { onShare: () => void }) => (
 );
 
 /**
- * The landed deck (§3.2, §6.1 stage 4): DISTANCE · PACE · TIME, Share at the right, the coach's one sentence under them.
- * Inside the landing the numbers wait at the plan through the FLIP (`hold`: the planned miles, the plan's pace, a zero
- * clock; never a `0 mi` frame, M32) and tick to the run's on `springs.number` from its completion (`go`); Share fades in as
- * the check leaves. The coach's sentence fades in (200 ms) when its read arrives; nothing stands in its place before.
+ * The landed deck (§3.2, §6.1 stage 4): DISTANCE · PACE · TIME, Share at the right. Inside the landing the numbers wait
+ * at the plan through the FLIP (`hold`: the planned miles, the plan's pace, a zero clock; never a `0 mi` frame, M32) and
+ * tick to the run's on `springs.number` from its completion (`go`); Share fades in as the check leaves.
  */
-export const LandedDeck = ({ date, face, numbers, easyPace, onShare }: { date: ISODate; face: Face; numbers: 'hold' | 'go' | 'still'; easyPace: number | null; onShare: () => void }) => {
+export const LandedDeck = ({ face, numbers, easyPace, onShare }: { date: ISODate; face: Face; numbers: 'hold' | 'go' | 'still'; easyPace: number | null; onShare: () => void }) => {
   const L = face.landed!;
-  // the read as it answers (only this deck re-renders), else the month's
-  const fresh = useCoachShown(date, face.lead ? face.lead.session.id : 'run');
   const held = numbers === 'hold';
   const planned = face.lead?.session.kind === 'run' && face.lead.session.miles ? Number(face.lead.session.miles) : L.miles;
-  const coach = coachSentence(L.coach ?? fresh);
   return (
     <div className="hero-deck hero-deck-landed">
       <div className="hero-stats">
@@ -189,13 +184,6 @@ export const LandedDeck = ({ date, face, numbers, easyPace, onShare }: { date: I
           <SharePill onShare={onShare} />
         </motion.span>
       </div>
-      <AnimatePresence initial={false}>
-        {coach ? (
-          <motion.p key="coach" className="hero-coach" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, ease }}>
-            {coach}
-          </motion.p>
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 };

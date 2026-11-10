@@ -4,7 +4,6 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
 import { Button } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
-import { useCoachShown } from '../day/coachShown';
 import { clockParts, dayClock } from '../day/dayWords';
 import { readMinutes } from '../day/useNow';
 import { useLog, type Log } from '../log/useLog';
@@ -183,15 +182,11 @@ export const shareFor = (date: string, s: Session, log: Log): ShareData | null =
   return runs.length || sessionMiles(log.snap, date, s).miles > 0 ? shareDataFor(date, s, runs, log) : null;
 };
 
-/** What happened, graded against the plan: who ran it and when, splits, the read, the coach. */
+/** What happened, graded against the plan: who ran it and when, splits and the read. */
 export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; sess: Session | null; runs: Activity[]; log: Log; prLap?: Lap | null }) => {
   const a = assess(log.zones, sess, runs);
   const laps = runs.flatMap((r) => r.laps ?? []).filter((l) => l[0] > 160);
   const key = sess ? sess.id : 'run';
-  // the month's read, else the one the hero's ask brought back (it joins the month without a notify, so an open sheet hears
-  // of it here: code review 3 #1)
-  const fresh = useCoachShown(date, key);
-  const saved = log.snap.coachOn(date, key) ?? fresh;
   const fastest = laps.length ? Math.min(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const slowest = laps.length ? Math.max(...laps.map((l) => l[1] / (l[0] / METERS_PER_MILE))) : 0;
   const za = a.avgHr != null ? zoneOf(log.zones, a.avgHr) : null;
@@ -241,15 +236,6 @@ export const SessionActual = ({ date, sess, runs, log, prLap }: { date: string; 
               <li key={x}>{voiceLine(x)}</li>
             ))}
           </ul>
-        </div>
-      ) : null}
-      {/* a note saved before run notes were turned off (Strava's terms bar its data from AI) still shows; no new ones */}
-      {saved ? (
-        <div className="coach">
-          <span className="coach-head">
-            <Sparkles size={16} aria-hidden="true" /> Coach’s read
-          </span>
-          <p className="serif">{saved}</p>
         </div>
       ) : null}
     </div>
