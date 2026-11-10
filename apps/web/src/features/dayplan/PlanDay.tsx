@@ -897,15 +897,16 @@ const AddInline = ({ date, today, label, placeholder, hidden, open, setOpen, onA
   const toast = useToast();
   const hintId = useId();
   const [draft, setDraft] = useState('');
-  // nothing moves for the keyboard by itself: the field's row is scrolled clear of it on focus, again when the keyboard
-  // has come up, and after each Return (the new to-do pushes the field down a row)
+  // nothing moves for the keyboard by itself: the field's row is scrolled clear of it when it opens, again when the
+  // keyboard has come up, on a later focus, and after each Return (the new to-do pushes the field down a row). The
+  // opening is caught here, not by onFocus: React sends no onFocus for the focus that autoFocus gives on mount.
   const field = useRef<HTMLDivElement>(null);
   const reveal = () => {
     if (field.current) revealField(field.current);
   };
   const kb = useKeyboardOpen();
   useEffect(() => {
-    if (open && kb) reveal();
+    if (open) reveal();
   }, [open, kb]);
   const parsed = parseQuickAdd(draft, today, groups.data);
   const understood = understoodOf(parsed, groups.data);
