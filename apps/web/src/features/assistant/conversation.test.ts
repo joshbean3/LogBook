@@ -51,6 +51,20 @@ describe('a conversation with the assistant', () => {
     expect(assistantStore.get()).toHaveLength(2);
   });
 
+  it('a chat deleted while its answer is written stays deleted: the answer does not come back as a chat of its own', async () => {
+    let finish!: (r: AssistantReply) => void;
+    const first = sendTurn(vi.fn(() => new Promise<AssistantReply>((r) => (finish = r))), '2026-11-08', undefined, 'one', none);
+    const asked = assistantStore.currentId();
+    assistantStore.remove(asked);
+    const left = assistantStore.chats().map((c) => c.id);
+    finish(reply());
+    await first;
+    expect(assistantStore.chats().some((c) => c.id === asked)).toBe(false);
+    expect(assistantStore.chats().map((c) => c.id)).toEqual(left);
+    expect(assistantStore.get()).toEqual([]);
+    expect(assistantStore.busySince()).toBeNull();
+  });
+
   it('keeps every chat in History, titled by its first words until the assistant names it', async () => {
     await sendTurn(vi.fn(async () => reply()), '2026-11-08', undefined, 'Move my long run to Sunday because of the wedding', none);
     const id = assistantStore.currentId();

@@ -221,8 +221,14 @@ export const assistantStore = {
     if (files?.length) fileData.set(t, files);
     write(current, [...turns, t]);
   },
-  /** Adds a turn to a given chat: an answer goes to the chat that asked, wherever the owner is now. */
-  pushTo: (id: string, t: AssistantTurn) => write(id, [...turnsOf(id), t]),
+  /**
+   * Adds a turn to a given chat: an answer goes to the chat that asked, wherever the owner is now. A chat deleted while
+   * its answer was being written stays deleted: the answer is dropped, not saved as a chat of its own.
+   */
+  pushTo: (id: string, t: AssistantTurn) => {
+    if (id !== current && !chats.some((c) => c.id === id)) return;
+    write(id, [...turnsOf(id), t]);
+  },
   filesOf: (t: AssistantTurn) => fileData.get(t),
   /** The proposal as the server now has it (applied, undone). An answer that is not a whole proposal changes nothing. */
   setProposal: (next: AssistantProposal) => {
