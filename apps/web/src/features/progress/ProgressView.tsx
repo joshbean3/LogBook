@@ -192,7 +192,6 @@ const Health = ({ log }: { log: Log }) => {
                 <span className="tile-label">
                   <MetricIcon id={id} size={16} />
                   <span className="pg-vital-name">{name}</span>
-                  <ArrowRight size={16} className="pg-go" aria-hidden="true" />
                 </span>
                 {mm.value != null ? (
                   <span className="tile-value">
@@ -206,7 +205,11 @@ const Health = ({ log }: { log: Log }) => {
                 )}
                 <StatusWord status={vitalStatus(mm)} word={word} />
               </span>
-              <RangePill pos={pill?.pos ?? null} band={pill?.band} />
+              {/* the arrow sits over the pill, so it stays at 320 and the name keeps its room (and its icon where it fits) */}
+              <span className="pg-vital-side">
+                <ArrowRight size={16} className="pg-go" aria-hidden="true" />
+                <RangePill pos={pill?.pos ?? null} band={pill?.band} />
+              </span>
             </Pressable>
           );
         })}

@@ -19,17 +19,27 @@
 .pg-vital {
   container: vital / inline-size;
 }
-/* the name stays whole ("Resting HR"): a tile under 190 px gives the metric icon's room to it and keeps the arrow;
-   under 140 px (a 320 phone) the arrow gives way too, and the whole tile stays the button */
-@container vital (max-width: 190px) {
-  .pg-vital .tile-label svg:not(.pg-go) {
+/* the name stays whole ("Resting HR"): a narrow tile (a 320 phone, or a larger text size, hence rem) gives the metric
+   icon's room to it. The arrow sits over the range pill, so every tile keeps it */
+@container vital (max-width: 8.5rem) {
+  .pg-vital .tile-label svg {
     display: none;
   }
 }
-@container vital (max-width: 140px) {
-  .pg-vital .tile-label .pg-go {
-    display: none;
-  }
+.pg-vital-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+}
+.pg-vital-side .pg-go {
+  margin-left: 0;
+}
+.pg-vital-side .ck-rpill {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 3rem;
 }
 .pg-vital-main {
   display: grid;
@@ -518,10 +528,11 @@ button.pg-srow[data-pressed] {
 .pg-vital .tile-label {
   width: 100%;
 }
+/* a name that cannot fit (large text at 320) takes a second line rather than an ellipsis */
 .pg-vital-name {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 /* the tile unit says the days it covers ("mi, 7 days"): it may drop under the number in a narrow tile, never be cut */
 .pg-tiles .ck-tcard {
@@ -534,6 +545,18 @@ button.pg-srow[data-pressed] {
   column-gap: 3px;
 }
 .pg-tiles .ck-tcard-num small {
+  margin-left: 0;
+  white-space: nowrap;
+}
+/* the same on a vital tile: at a large text size "bpm" goes under the number instead of under the range pill */
+.pg-vital .tile-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 3px;
+  min-width: 0;
+}
+.pg-vital .tile-value small {
   margin-left: 0;
   white-space: nowrap;
 }
