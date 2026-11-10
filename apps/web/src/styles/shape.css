@@ -566,6 +566,11 @@ html:has(.sheet[data-tall]) .toast-host {
 html[data-text-xl] .ctx-row {
   flex-direction: column;
 }
+/* stacked, each chip is as tall as its two lines: a flex-basis of 0 (the row's own rule, day.css and the narrow-phone
+   rule below) would hold the last chip at its 56 px minimum while its words ran out over the chip above and the hero */
+html[data-text-xl] .ctx-row.ctx-row .ctx-chip {
+  flex: 0 0 auto;
+}
 
 /* ---------- context chips on a narrow phone: the words get the room (icons go), each chip as wide as its words ---------- */
 @media (max-width: 374px) {
