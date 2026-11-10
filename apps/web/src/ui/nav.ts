@@ -140,8 +140,11 @@ const VALID: Record<string, (v: string) => boolean> = {
   mon: isMonday,
   month: isFirstOfMonth,
   section: (v) => (SETTINGS_SECTIONS as readonly string[]).includes(v),
+  // a metric page exists only for the metrics Progress draws; Reads has its two lists (shell-23)
+  id: (v) => Object.hasOwn(METRIC_TITLE, v),
+  tab: (v) => v === 'read' || v === 'unread',
 };
-const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today' };
+const INVALID_TO: Record<string, string> = { '/learned': '/learned', '/today': '/today', '/settings': '/settings', '/plan': '/plan', '/morning': '/today', '/progress': '/progress', '/journal': '/journal', '/reads': '/journal' };
 
 // ---------- the matcher ----------
 const clean = (path: string) => {

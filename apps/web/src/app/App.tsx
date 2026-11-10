@@ -311,6 +311,14 @@ const Authed = () => {
  * form leaves (React.lazy suspends once even for a loaded module; `view()` renders the module's own component once
  * `preload` has it: WP6 request 15).
  */
+/** Sign in, unless this device is signed in already (shell-23): then Today. A password reset link still opens the form. */
+const LoginRoute = () => {
+  const session = useSession();
+  const loc = useLocation();
+  if (session.data?.signedIn && !new URLSearchParams(loc.search).has('reset')) return <Navigate to="/today" replace />;
+  return <Login />;
+};
+
 const SignupRoute = () => {
   useEffect(() => void Welcome.preload().catch(() => undefined), []);
   return <Signup />;
@@ -370,7 +378,7 @@ export const App = () => {
       <DeepLinks />
       <Routes>
         <Route path="/start" element={<Start />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginRoute />} />
         <Route path="/signup" element={<SignupRoute />} />
         <Route path="/setup" element={<Navigate to="/signup" replace />} />
         <Route path="*" element={<Authed />} />
