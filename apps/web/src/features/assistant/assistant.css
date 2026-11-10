@@ -1304,6 +1304,7 @@
   color: var(--ink-3);
 }
 .as-file-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1356,7 +1357,13 @@
   color: var(--ink-2);
   font-size: var(--fs-foot);
 }
+/* a long file name is cut; the icon keeps its size */
+.as-file.is-doc > svg,
+.as-turn-doc > svg {
+  flex: none;
+}
 .as-turn-doc span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

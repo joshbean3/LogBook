@@ -108,12 +108,65 @@ const subs = new Set<() => void>();
  */
 const fileData = new WeakMap<AssistantTurn, Attachment[]>();
 
+/** What chats may take on the phone, in characters of JSON (localStorage holds about 5 MB per app, shared with the rest). */
+export const STORE_CAP = 2_000_000;
+/** A chat without the heavy extras: reasoning text and photo previews. Its words, proposals and file names stay. */
+export const slimmed = (c: AssistantChat): AssistantChat => ({
+  ...c,
+  turns: c.turns.map((t) => {
+    const { thoughts: _thoughts, ...rest } = t;
+    return rest.files ? { ...rest, files: rest.files.map(({ thumb: _thumb, ...f }) => f) } : rest;
+  }),
+});
+/**
+ * Saves `list` within the cap: whole if it fits; else older chats lose their reasoning and photo previews; else the
+ * oldest chats go, one at a time; last, the open chat is slimmed too. Returns what was kept, and whether it saved.
+ */
+export type WriteResult = 'ok' | 'full' | 'closed';
+export const fitChats = (list: AssistantChat[], keep: string, write: (json: string) => WriteResult): { ok: boolean; list: AssistantChat[] } => {
+  let closed = false;
+  const tryWrite = (l: AssistantChat[]) => {
+    const json = JSON.stringify(l);
+    if (json.length > STORE_CAP) return false;
+    const r = write(json);
+    if (r === 'closed') closed = true;
+    return r === 'ok';
+  };
+  if (tryWrite(list)) return { ok: true, list };
+  // storage is closed (private mode): nothing to trim for, the chats stay in memory
+  if (closed) return { ok: true, list };
+  let l = list.map((c) => (c.id === keep ? c : slimmed(c)));
+  if (tryWrite(l)) return { ok: true, list: l };
+  const oldest = l.filter((c) => c.id !== keep).sort((a, b) => a.updatedAt - b.updatedAt);
+  for (const gone of oldest) {
+    l = l.filter((c) => c !== gone);
+    if (tryWrite(l)) return { ok: true, list: l };
+  }
+  l = l.map(slimmed);
+  return { ok: tryWrite(l), list: l };
+};
+/** Saving failed even after trimming: the sheet says so once (a toast). */
+let saveFailed = false;
+
 const save = () => {
+  const r = fitChats(chats, current, (json) => {
+    try {
+      localStorage.setItem(CHATS, json);
+      return 'ok';
+    } catch (e) {
+      const full = e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22);
+      return full ? 'full' : 'closed';
+    }
+  });
+  if (r.list !== chats) {
+    chats = r.list;
+    turns = chats.find((c) => c.id === current)?.turns ?? turns;
+  }
+  if (!r.ok && !saveFailed) saveFailed = true;
   try {
-    localStorage.setItem(CHATS, JSON.stringify(chats));
     sessionStorage.setItem(CURRENT, current);
   } catch {
-    /* private mode or full: kept in memory only */
+    /* private mode: kept in memory only */
   }
 };
 const notify = () => subs.forEach((f) => f());
@@ -218,6 +271,8 @@ export const assistantStore = {
     live = l;
     notify();
   },
+  /** True once a save failed after trimming (the sheet shows one toast). */
+  saveFailed: () => saveFailed,
   consentNeeded: () => consentNeeded,
   setConsentNeeded: (v: boolean) => {
     if (consentNeeded === v) return;
@@ -325,4 +380,5 @@ export const useAssistantChatId = () => useSyncExternalStore(assistantStore.subs
 export const useAssistantBusyChat = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.busyChat, assistantStore.busyChat);
 export const useAssistantStopped = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.stoppedChat, assistantStore.stoppedChat);
 export const useAssistantOffline = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.offline, assistantStore.offline);
+export const useAssistantSaveFailed = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.saveFailed, assistantStore.saveFailed);
 export const useAssistantConsentNeeded = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.consentNeeded, assistantStore.consentNeeded);

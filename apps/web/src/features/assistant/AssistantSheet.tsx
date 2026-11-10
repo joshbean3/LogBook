@@ -54,7 +54,7 @@ import { AssistantPermission, useAssistantGate } from './Permission';
 import { ProposalCard } from './Proposal';
 import { ReportPanel } from './Report';
 import { Rich } from './Rich';
-import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantStopped, useAssistantTurns } from './store';
+import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantSaveFailed, useAssistantStopped, useAssistantTurns } from './store';
 import './assistant.css';
 
 /** The files a turn carried, as the thread shows them: a photo's preview, a PDF's name. */
@@ -400,6 +400,9 @@ const UserTurn = ({ t, canEdit, confirmEdit, onEdit }: { t: AssistantTurn; canEd
   );
 };
 
+/** The "storage full" toast shows once per launch. */
+let warnedFull = false;
+
 /** Runs `onGone` when a pushed panel leaves (no timer watching for it). */
 const PanelLife = ({ onGone, children }: { onGone: () => void; children: React.ReactNode }) => {
   const gone = useRef(onGone);
@@ -528,6 +531,13 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
   const picker = useRef<HTMLInputElement>(null);
   const bodyOf = () => root.current?.closest<HTMLElement>('.sheet-body') ?? null;
 
+  // the phone's storage is full even after old chats were trimmed: said once
+  const saveFailed = useAssistantSaveFailed();
+  useEffect(() => {
+    if (!saveFailed || warnedFull) return;
+    warnedFull = true;
+    toast('This chat can’t be saved on this phone. Delete old chats in History.');
+  }, [saveFailed]); // eslint-disable-line react-hooks/exhaustive-deps
   // an answer a reload interrupted carries on (or says it is gone, with Retry)
   useEffect(() => void resumeAsk(waitForJob, stopAssistant), []);
   // signed out mid-chat: the app goes to sign in, so the sheet closes
@@ -883,6 +893,8 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
               fitField(e.currentTarget);
             }}
             onKeyDown={(e) => {
+              // Enter that confirms an IME's word (Japanese, Chinese, Korean) only picks the word: it never sends
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 send(draft);
