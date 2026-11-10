@@ -10,8 +10,8 @@ export interface Bootstrap {
   zones: HrZone[] | null;
   strava: StravaStatus;
   features: { claude: boolean; strava: boolean };
-  /** The privacy choice (absent in caches from before the server sent it). */
-  consent?: Consent;
+  /** The privacy choice. parseBootstrap fills the never-asked record when the server's answer has none or a bad one. */
+  consent: Consent;
   /** The server also sends `serverTime`; `fetchBootstrap` drops it so the cached object only changes when the data does. */
 }
 

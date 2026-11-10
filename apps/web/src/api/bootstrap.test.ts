@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_CONSENT } from '@logbook/shared';
 import { BadShapeError, consentOf, isBootstrap, parseBootstrap } from './bootstrap';
 
+const neverAsked = { training: false, health: null, recall: false, reads: false, at: null, version: null };
+const consent = { training: true, health: null, recall: false, reads: false, at: '2026-11-10T08:00:00.000Z', version: '2026-11' };
 const good = () => ({
   user: { id: 'u1', email: 'sam@example.com', onboardedAt: '2026-11-01T00:00:00.000Z', name: 'Sam' },
   habits: [{ id: 'h1', name: 'Stretch' }],
@@ -9,8 +12,8 @@ const good = () => ({
   zones: null,
   strava: { connected: false, athleteName: null, lastSyncAt: null, syncing: false, error: null, configured: false },
   features: { claude: true, strava: false },
+  consent,
 });
-const consent = { training: true, health: null, recall: false, reads: false, at: '2026-11-10T08:00:00.000Z', version: '2026-11' };
 
 describe('the bootstrap is checked before it is used or saved (shell-02, critic-01)', () => {
   it('a good answer passes through as the same object, unknown fields and all', () => {
@@ -34,23 +37,34 @@ describe('the bootstrap is checked before it is used or saved (shell-02, critic-
     expect(isBootstrap(raw)).toBe(false);
   });
 
-  it('carries the privacy choice, typed (Contract 1)', () => {
-    const b = parseBootstrap({ ...good(), consent });
+  it('carries the privacy choice, typed and required (Contract 1)', () => {
+    const b = parseBootstrap(good());
     expect(b.consent).toEqual(consent);
-    // typed: this line is a compile error if Bootstrap.consent loses a field
-    const training: boolean | undefined = b.consent?.training;
+    // typed: this line is a compile error if Bootstrap.consent loses a field or becomes optional again
+    const training: boolean = b.consent.training;
     expect(training).toBe(true);
   });
 
-  it('a bootstrap from a server that does not send the choice yet is still good', () => {
-    expect(parseBootstrap(good()).consent).toBeUndefined();
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['not a full record', { training: 'yes' }],
+    ['missing a field', { ...consent, recall: undefined }],
+    ['a string', 'granted'],
+  ])('a choice that is %s becomes the never-asked record, never a yes, and the open still succeeds', (_name, bad) => {
+    const raw: Record<string, unknown> = { ...good(), consent: bad };
+    if (bad === undefined) delete raw.consent;
+    const b = parseBootstrap(raw);
+    expect(b.consent).toEqual(neverAsked);
+    expect(b.consent).toEqual(DEFAULT_CONSENT);
+    expect(b.consent).not.toBe(DEFAULT_CONSENT);
+    expect(b.user.id).toBe('u1');
+    expect(b.habits).toHaveLength(1);
   });
 
-  it('a choice that is not a full record is dropped, never read as a yes', () => {
-    const b = parseBootstrap({ ...good(), consent: { training: 'yes' } });
-    expect(b.consent).toBeUndefined();
-    expect('consent' in b).toBe(false);
+  it('consentOf reads only a full record', () => {
     expect(consentOf({ ...consent, recall: undefined })).toBeUndefined();
+    expect(consentOf(undefined)).toBeUndefined();
     expect(consentOf(consent)).toEqual(consent);
   });
 });
