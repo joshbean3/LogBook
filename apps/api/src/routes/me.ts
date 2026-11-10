@@ -6,7 +6,7 @@ import { COOKIE, dropSessions, hashPassword, sessionOf, verifyPassword, type Aut
 import type { DB } from '../db/index.js';
 import { habits, planBlocks, users } from '../db/schema.js';
 import { toHabit } from '../lib/map.js';
-import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
+import { ApiError, nowISO, parseBody, parseWithPassword, uid } from '../lib/util.js';
 import { deleteAccount } from '../services/account.js';
 import { audit } from '../services/audit.js';
 import { disconnect } from '../services/strava.js';
@@ -185,7 +185,7 @@ export const meRoutes = (db: DB) => {
     const userId = c.get('user').id;
     const bucket = `password:${userId}`;
     checkThrottle(bucket);
-    const { current, next } = await parseBody(c.req.raw, zChangePassword);
+    const { current, next } = await parseWithPassword(c.req.raw, zChangePassword, 'next');
     const row = db.select().from(users).where(eq(users.id, userId)).get();
     if (!row || !(await verifyPassword(current, row.passwordHash))) {
       failThrottle(bucket);

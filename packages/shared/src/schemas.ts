@@ -54,7 +54,8 @@ export const zLogin = z.object({ email: zCredentials.shape.email, password: z.st
 /** POST /auth/forgot: always answered `{ ok: true }`, whether or not the address has an account. */
 export const zForgotPassword = z.object({ email: zCredentials.shape.email });
 /** POST /auth/reset: the token from the emailed link and the new password. */
-export const zResetPassword = z.object({ token: z.string().min(10).max(200), password: zCredentials.shape.password });
+/** A token of the wrong length is not refused here: the route answers it as a spent link (400 `reset_invalid`, contract 3). */
+export const zResetPassword = z.object({ token: z.string().max(2000), password: zCredentials.shape.password });
 /** POST /me/password: the current password and the new one. */
 export const zChangePassword = z.object({ current: z.string().min(1).max(200), next: zCredentials.shape.password });
 /** POST /auth/logout: optionally the Apple Health device (`deviceId` from connect) to revoke with the session. */

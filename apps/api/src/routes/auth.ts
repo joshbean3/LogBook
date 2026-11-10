@@ -5,7 +5,7 @@ import { createSession, destroySession, dropSessions, hashPassword, hasLiveSessi
 import type { DB } from '../db/index.js';
 import { healthDevices, users } from '../db/schema.js';
 import { env } from '../env.js';
-import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
+import { ApiError, nowISO, parseBody, parseWithPassword, uid } from '../lib/util.js';
 import { audit } from '../services/audit.js';
 import { consumeToken, issueToken, peekToken } from '../services/authTokens.js';
 import { writeConsent } from '../services/consent.js';
@@ -45,7 +45,7 @@ export const authRoutes = (db: DB) => {
   const create = async (c: Context<AuthEnv>) => {
     if (!canCreate(userCount(db))) throw new ApiError(403, 'Setup is closed. Sign in instead.', 'setup_closed');
     // `consent`: a choice made before the account existed (optional). With none, nothing is stored and nothing is granted.
-    const { email, password, consent } = await parseBody(c.req.raw, zCredentials.extend({ consent: zConsentInput.optional() }));
+    const { email, password, consent } = await parseWithPassword(c.req.raw, zCredentials.extend({ consent: zConsentInput.optional() }), 'password');
     // the same rules the form shows: not one of the most common passwords, not the email (shared `passwordProblem`)
     const weak = passwordProblem(password, email);
     if (weak) throw new ApiError(422, weak, 'weak_password');
@@ -139,7 +139,7 @@ export const authRoutes = (db: DB) => {
   r.post('/reset', async (c) => {
     const ip = ipKey('reset', clientIp(c));
     checkThrottle(ip);
-    const { token, password } = await parseBody(c.req.raw, zResetPassword);
+    const { token, password } = await parseWithPassword(c.req.raw, zResetPassword, 'password');
     // checked before the link is spent, so a refused password can be changed and sent again with the same link
     const early = passwordProblem(password);
     if (early) throw new ApiError(422, early, 'weak_password');

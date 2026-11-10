@@ -75,8 +75,21 @@ describe('passwords (auth-14, sec-25)', () => {
       expect(r.body.code).toBe(r.body.code === 'weak_password' ? 'weak_password' : 'validation');
       expect(r.body.error).toMatch(why);
     }
-    expect((await req('POST', '/api/auth/signup', { email: 'a@example.com', password: 'x'.repeat(201) })).status).toBe(422);
+    // a length problem says the form's own sentence, never a schema's words
+    const long = await req('POST', '/api/auth/signup', { email: 'a@example.com', password: 'x'.repeat(201) });
+    expect(long.status).toBe(422);
+    expect(long.body).toEqual({ error: 'Keep your password under 200 characters.', code: 'weak_password' });
+    expect((await req('POST', '/api/auth/signup', { email: 'a@example.com', password: 'short' })).body).toEqual({ error: 'Use at least 8 characters.', code: 'weak_password' });
     expect(db.select().from(users).all()).toHaveLength(0);
+  });
+
+  it('a reset link cut short reads as a spent link, and a short new password says why (contract 3)', async () => {
+    for (const token of ['abc', '', 'x'.repeat(300)]) {
+      const r = await req('POST', '/api/auth/reset', { token, password: 'a brand new one 9' });
+      expect(r.status, `token of ${token.length}`).toBe(400);
+      expect(r.body.code).toBe('reset_invalid');
+    }
+    expect((await req('POST', '/api/auth/reset', { token: 'abc', password: 'short' })).body).toEqual({ error: 'Use at least 8 characters.', code: 'weak_password' });
   });
 
   it('change password refuses the same list and the email; a weak reset keeps the link usable', async () => {
@@ -85,6 +98,7 @@ describe('passwords (auth-14, sec-25)', () => {
     expect(r.status).toBe(422);
     expect(r.body.code).toBe('weak_password');
     expect((await a.call('POST', '/api/me/password', { current: PW, next: 'sam@example.com' })).body.code).toBe('weak_password');
+    expect((await a.call('POST', '/api/me/password', { current: PW, next: 'short' })).body).toEqual({ error: 'Use at least 8 characters.', code: 'weak_password' });
   });
 
   it('stores every parameter in the hash at or above the floor, and upgrades an old hash on the next sign-in', async () => {

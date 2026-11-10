@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { HTTPException } from 'hono/http-exception';
+import { PASSWORD_MAX, PASSWORD_MIN, passwordProblem } from '@logbook/shared';
 import type { ZodType } from 'zod';
 
 const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -30,6 +31,21 @@ export const parseBody = async <T>(req: Request, schema: ZodType<T>): Promise<T>
   const r = schema.safeParse(raw);
   if (!r.success) throw new ApiError(422, r.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`).join('; '), 'validation');
   return r.data;
+};
+
+/**
+ * parseBody for a body that carries a new password in `field` (sign-up, reset, change password): a password the shared
+ * rules refuse for its length answers 422 `weak_password` with the rule's own sentence ("Use at least 8 characters."),
+ * the same line the form shows, never a schema's words. The other rules (common, the email) are checked by the route.
+ */
+export const parseWithPassword = async <T>(req: Request, schema: ZodType<T>, field: string): Promise<T> => {
+  const raw = (await req
+    .clone()
+    .json()
+    .catch(() => null)) as Record<string, unknown> | null;
+  const pw = raw && typeof raw === 'object' ? raw[field] : undefined;
+  if (typeof pw === 'string' && (pw.length < PASSWORD_MIN || pw.length > PASSWORD_MAX)) throw new ApiError(422, passwordProblem(pw) ?? 'Pick another password.', 'weak_password');
+  return parseBody(req, schema);
 };
 
 export const parseQuery = <T>(query: Record<string, string | undefined>, schema: ZodType<T>): T => {
