@@ -38,7 +38,7 @@ const AddHabitsSheet = () => {
   const sheet = useSheet();
   return (
     <EmptyState starters={HABIT_STARTERS} onStarter={(name) => add.mutateAsync(name)} verb={{ label: 'Done', onPress: () => sheet.close() }} startersLabel="Starter habits">
-      Tap the ones you want to do every day. They become lights at the top of Today.
+      Tap the ones you want to do every day. They show as tiles on Today.
     </EmptyState>
   );
 };
@@ -87,7 +87,7 @@ const Sentence = memo(function Sentence() {
   return (
     <Pressable className="sentence" press="dim" onPress={open} label={`${focus.quote}${focus.by ? `, ${focus.by}` : ''}. Edit`}>
       <span className="sentence-text">
-        “{focus.quote.trim()}”{focus.by.trim() ? <span className="sentence-by"> — {focus.by.trim()}</span> : null}
+        “{focus.quote.trim()}”{focus.by.trim() ? <span className="sentence-by">, {focus.by.trim()}</span> : null}
       </span>
     </Pressable>
   );
@@ -133,9 +133,10 @@ const OrbRowM = memo(OrbRow);
 const HabitsTop = memo(function HabitsTop({ date, log }: { date: ISODate; log: Log }) {
   const history = useOpenHabitsHistory();
   return (
-    <section className="habits day-habits" aria-label="Habits" inert={date > log.today || undefined}>
+    <section className="habits day-habits" aria-label="Habits">
       <SectionHeader title="Habits" meta={<HabitsMeta date={date} log={log} />} action="History" onAction={history} actionLabel="Every habit's history" />
-      <div className="day-habits-card">
+      {/* only the tiles are locked on a day still to come: History in the header still opens (today-body-18) */}
+      <div className="day-habits-card" inert={date > log.today || undefined}>
         <OrbRowM date={date} log={log} />
       </div>
     </section>

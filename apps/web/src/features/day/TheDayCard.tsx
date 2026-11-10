@@ -81,7 +81,7 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
     sheet.open({ title: 'Share the day', body: <ShareSheet data={cut ? { ...data, verdict: cut } : data} initial={miles > 0 ? (data.polyline ? 'route' : 'stamp') : 'bubble'} /> });
   };
   return (
-    <section className="the-day" aria-label="The day">
+    <section className="the-day" aria-label="Journal">
       <SectionHeader
         title="Journal"
         meta={entries.length ? `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}` : null}

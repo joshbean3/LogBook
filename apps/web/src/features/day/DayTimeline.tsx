@@ -42,8 +42,8 @@ export const DayTimeline = ({ date, log }: { date: ISODate; log: Log }): React.J
   );
   if (date > log.today || !rows.length) return null;
   return (
-    <section className="tl" aria-label={isToday ? 'Today so far' : 'That day'}>
-      <SectionHeader title={isToday ? 'Today so far' : 'That day'} meta={`${rows.length} ${rows.length === 1 ? 'thing' : 'things'}`} />
+    <section className="tl" aria-label={isToday ? 'Today so far' : 'What happened'}>
+      <SectionHeader title={isToday ? 'Today so far' : 'What happened'} meta={`${rows.length} ${rows.length === 1 ? 'thing' : 'things'}`} />
       <ol className="tl-list">
         {rows.map((r) => {
           const Icon = ICON[r.kind];
