@@ -30,6 +30,7 @@ import { readsRoutes } from './routes/reads.js';
 import { stravaRoutes } from './routes/strava.js';
 import { appleHealthDeviceRoutes, appleHealthRoutes } from './routes/appleHealth.js';
 import { purgeTokens } from './services/authTokens.js';
+import { backupConfigFrom, scheduleBackups } from './services/backup.js';
 import { purgeThrottle } from './services/throttle.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -65,7 +66,9 @@ export const buildApp = (db: DB) => {
   // every request body is capped before anything reads or parses it: 256 KB, more only on the routes that carry files
   app.use('/api/*', (c, next) => limitFor(c.req.path)(c, next));
 
-  app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString() }));
+  // Fly's health check, and what the post-deploy check reads: whether the pieces a public server needs are configured
+  // (yes or no only, nothing secret)
+  app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString(), ready: { mail: env.mailConfigured, claude: env.claudeConfigured } }));
   app.route('/api/auth', authRoutes(db));
   app.route('/api/strava', stravaRoutes(db));
   // the phone's Apple Health sync engine, by device token (it may run with no web view and no session)
@@ -145,7 +148,7 @@ export const buildApp = (db: DB) => {
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  const { db } = openDatabase();
+  const { db, sqlite } = openDatabase();
   seedQuotes(db);
   const app = buildApp(db);
   serve({ fetch: app.fetch, port: env.PORT, hostname: '0.0.0.0' }, (info) => {
@@ -156,6 +159,10 @@ if (isMain) {
   // rate limit on nothing.
   if (env.isProd && !env.mailConfigured) console.warn('[mail] MAIL_API_KEY and MAIL_FROM are not set: password reset and verification mail will not be sent.');
   if (env.isProd && !env.claudeConfigured) console.warn('[claude] ANTHROPIC_API_KEY and ANTHROPIC_MODEL are not both set: the AI features are off.');
+  // the nightly off-site backup, when the BACKUP_S3_* variables are set (services/backup.ts, RUNBOOK.md)
+  const backup = backupConfigFrom(process.env);
+  if (backup) scheduleBackups(sqlite, backup, { databasePath: env.DATABASE_PATH });
+  else if (env.isProd) console.warn('[backup] BACKUP_S3_* is not set: there is no off-site backup, only the volume snapshots.');
   const housekeeping = () => {
     purgeExpiredSessions(db);
     purgeTokens(db);

@@ -75,18 +75,23 @@ Skip Strava and Claude for now; the app works without them.
 
 The simplest path is Fly.io: one machine, one volume, no database server.
 
-7 steps, ~15 min. Need: `flyctl` installed and signed in.
+8 steps, ~20 min. Need: `flyctl` installed and signed in, an Anthropic API key, and an account with a mail provider (for password reset mail).
 
 1. **Open** a terminal in this folder.
 2. **Create** the app: `fly launch --no-deploy --copy-config --name <your-app-name>` (accept the defaults).
 3. **Create** the volume: `fly volumes create logbook_data --size 1 --region ewr`
-4. **Set** secrets (the session secret must be long and random):
+4. **Set** `APP_URL` in `fly.toml` to the address people will use.
+5. **Set** secrets (the session secret must be long and random):
    ```
-   fly secrets set SESSION_SECRET=$(openssl rand -hex 32) APP_URL=https://<your-app-name>.fly.dev
+   fly secrets set SESSION_SECRET=$(openssl rand -hex 32) \
+     ANTHROPIC_API_KEY=<key> ANTHROPIC_MODEL=<model id> \
+     MAIL_API_KEY=<key> MAIL_FROM="Logbook <no-reply@your-domain>"
    ```
-5. **Deploy**: `fly deploy`
-6. **Open** `https://<your-app-name>.fly.dev` and create your account.
-7. **Close** setup so nobody else can: `fly secrets set ALLOW_SETUP=0`
+6. **Deploy**: `fly deploy`
+7. **Check**: `pnpm --filter @logbook/api check:deploy -- https://<your-host>`. It fails with a plain reason when sign-up is closed, mail is not configured or the AI features are off.
+8. **Set up** the nightly off-site backup and do one test restore: `apps/api/RUNBOOK.md`.
+
+`fly.toml` sets `ALLOW_SIGNUP = "1"`: anyone can create an account. For a private server, set it to `"0"` and `ALLOW_SETUP = "1"` (only the first account can be created), and expect the check in step 7 to say sign-up is closed.
 
 Any host that runs a Docker image with a persistent volume works the same way (Railway, Render, a VPS with `docker compose up -d`).
 
@@ -109,16 +114,23 @@ Android: open the URL in Chrome, tap the ⋮ menu, then "Install app" or "Add to
 3. **Restart** the server.
 4. **Open** Settings in the app and tap Connect Strava.
 
-Activities from the last 120 days sync on connect, on boot, every 20 minutes, and whenever you tap Refresh. For runs, laps and heart rate come along, which is what grades the effort.
+Strava is not part of the 1.0 App Store release: leave the keys unset there. This section is for a personal server.
 
-Optional, for instant updates: subscribe to Strava's webhook once (one curl command, run from anywhere):
+Activities from the last 120 days sync on connect, when the app is opened (at most every 15 minutes), when Strava's webhook reports a new one, and whenever you tap Refresh. There is no background polling. For runs, laps and heart rate come along, which is what grades the effort. Nothing from Strava is ever sent to Claude.
 
-```
-curl -X POST https://www.strava.com/api/v3/push_subscriptions \
-  -F client_id=$STRAVA_CLIENT_ID -F client_secret=$STRAVA_CLIENT_SECRET \
-  -F callback_url=https://<your-app>/api/strava/webhook \
-  -F verify_token=$STRAVA_WEBHOOK_VERIFY_TOKEN
-```
+Disconnecting in Settings ends Logbook's access at Strava and deletes every activity, lap, zone and token it brought in. Deleting the account does the same. So does revoking Logbook from Strava's own settings, once the webhook below is set up.
+
+For instant updates, and so a revoke in Strava's settings deletes the data here, subscribe to Strava's webhook once:
+
+1. **Set** `STRAVA_WEBHOOK_VERIFY_TOKEN` to a long random string (`openssl rand -hex 24`). There is no default, and production refuses to start with the Strava keys set and no real token.
+2. **Subscribe** (one curl command, run from anywhere):
+   ```
+   curl -X POST https://www.strava.com/api/v3/push_subscriptions \
+     -F client_id=$STRAVA_CLIENT_ID -F client_secret=$STRAVA_CLIENT_SECRET \
+     -F callback_url=https://<your-app>/api/strava/webhook \
+     -F verify_token=$STRAVA_WEBHOOK_VERIFY_TOKEN
+   ```
+3. **Set** `STRAVA_WEBHOOK_SUBSCRIPTION_ID` to the `id` in the answer. Events that do not carry it are refused.
 
 ## Connect Claude
 
@@ -131,13 +143,22 @@ Nothing goes to Claude for an account until that person has said yes in the app 
 | Variable | What it does |
 |---|---|
 | `PORT` | Port the server listens on (8787) |
-| `APP_URL` | Public URL, used for Strava's redirect and secure cookies |
-| `SESSION_SECRET` | Signs cookies and OAuth state. Required in production |
+| `APP_URL` | Public URL. Printed in emailed links; decides secure cookies; Strava's redirect |
+| `SESSION_SECRET` | Signs OAuth state. Required in production |
 | `DATABASE_PATH` | SQLite file. Mount a volume here (`/data/logbook.db` in Docker) |
-| `ALLOW_SETUP` | `1` lets the first visitor create the account; set `0` after |
+| `ALLOW_SIGNUP` | `1` lets anyone create an account (a public server). Off unless set |
+| `ALLOW_SETUP` | `1` lets the first visitor create the one account (a private server) |
+| `SIGNUP_PER_HOUR` | New accounts allowed per address per hour. 5 in production, no limit in development |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Claude: the key and the model id. Both are required for the AI features |
 | `ANTHROPIC_ASSISTANT_MODEL` | Optional: a different model id for the assistant chat |
-| `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN` | Strava |
+| `MAIL_API_KEY`, `MAIL_FROM` | The mail provider's key and the From line, for password reset and email verification. Without them development logs the link and production sends nothing |
+| `MAIL_API_URL` | The provider's send endpoint (a JSON post of `from`, `to`, `subject`, `text`, `html` with a Bearer key). Defaults to Resend's |
+| `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` | The nightly off-site backup. Off unless all four are set. See `apps/api/RUNBOOK.md` |
+| `BACKUP_S3_REGION`, `BACKUP_S3_PREFIX`, `BACKUP_KEEP_DAYS` | Optional: region (`auto`), folder (`logbook`), days a copy is kept (5) |
+| `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | Strava. Leave unset for the 1.0 release |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN`, `STRAVA_WEBHOOK_SUBSCRIPTION_ID` | Needed with the Strava keys: a long random token (no default; production refuses to start without one) and the id Strava gave the webhook subscription (events without it are refused) |
+
+Operations (backup, restore, rotating secrets, signing everyone out): `apps/api/RUNBOOK.md`.
 
 ## Development
 

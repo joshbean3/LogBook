@@ -1,4 +1,6 @@
 # fly launch --no-deploy, then: fly volumes create logbook_data --size 1 ; fly secrets set ... ; fly deploy
+# Secrets (fly secrets set, never in this file): SESSION_SECRET, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, MAIL_API_KEY,
+# MAIL_FROM, BACKUP_S3_*. See README.md and apps/api/RUNBOOK.md.
 app = "josh-logbook"
 primary_region = "ewr"
 
@@ -9,8 +11,13 @@ primary_region = "ewr"
   PORT = "8787"
   DATABASE_PATH = "/data/logbook.db"
   NODE_ENV = "production"
+  # OWNER: change this to the address you own before launch (decision D7). It is printed in emails and compiled into
+  # the iOS app, so it has to be the final one.
   APP_URL = "https://josh-logbook.fly.dev"
-  ALLOW_SETUP = "1"
+  # Anyone can create an account: this is a public app. After each deploy run
+  #   pnpm --filter @logbook/api check:deploy -- <APP_URL>
+  # which fails if sign-up is closed, mail is not configured or the AI features are off.
+  ALLOW_SIGNUP = "1"
 
 [http_service]
   internal_port = 8787
