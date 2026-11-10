@@ -1,50 +1,27 @@
 import { buildMorning, fmtDate, morningDayFor } from '@logbook/shared';
-import { useQueryClient } from '@tanstack/react-query';
 import type * as React from 'react';
-import { Activity, CalendarDays, ClipboardList, Database, Gauge, HeartPulse, House, Mail, RotateCcw, Route, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
+import { BookOpenText, CalendarDays, ClipboardList, Database, FileText, Gauge, HeartPulse, House, Info, LifeBuoy, Mail, RotateCcw, Route, ScrollText, Send, ShieldCheck, Sparkles, Sunrise, Timer, User, Vibrate } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { startReplay } from '@/features/onboarding/replay';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useNav } from '@/app/NavController';
-import { keys, useBootstrap } from '@/api/queries';
+import { useBootstrap } from '@/api/queries';
 import { DAY_NAME, DAY_SHORT, goalLine, hm, isTemplateBlock, paceText, sortDays } from '@/features/onboarding/model';
 import { useOpenRoutineEditor } from '@/features/morning/RoutineEditor';
-import { haptics } from '@/lib/haptics';
+import { useConsent } from '@/lib/consent';
+import { DISCLAIMER } from '@/lib/copy';
+import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
 import { isNative } from '@/lib/native';
-import { LogoMark, PushedBar } from '@/ui';
-import { zoneLine } from './HrZones';
-import { ago } from './format';
-import { ActionPill, GoRow, SGroup } from './parts';
-import { stravaGuide, useConnectionSheet } from './DataSources';
+import { LEGAL, openExternal, SUPPORT, SUPPORT_EMAIL } from '@/lib/siteLinks';
+import { LogoMark, PushedBar, Row } from '@/ui';
+import { ActionPill, GoRow, SGroup, Tile } from './parts';
+import { supportMail } from './PrivacyPage';
+import { consentWord } from './privacyModel';
 import { HapticsRow, useSignOut } from './SectionPages';
-import { useConsent } from '@/features/auth/consent';
-import { buildLine, useAppVersion } from './version';
+import { StravaReturn, StravaRootRows } from './StravaSource';
+import { useAppVersion } from './version';
 import { useTrainingProfile } from './useProfile';
 import './settings.css';
-
-/** Strava's hand-off comes back to `/settings?strava=…` (the API's landing): read once per page load. */
-let stravaReturnRead = false;
-const useStravaReturn = () => {
-  const qc = useQueryClient();
-  const nav = useNav();
-  const openGuide = useConnectionSheet();
-  useEffect(() => {
-    if (stravaReturnRead) return;
-    stravaReturnRead = true;
-    const s = new URLSearchParams(window.location.search).get('strava');
-    // read once: the parameter leaves the address (the top entry, in place), so a reload does not answer twice (review code F10)
-    if (s) nav.replace('/settings');
-    if (s === 'connected') {
-      // the Connections row answers ("Connected"); the runs follow a sync later
-      void qc.invalidateQueries({ queryKey: keys.bootstrap });
-      setTimeout(() => void qc.invalidateQueries({ queryKey: ['month'] }), 6000);
-    } else if (s === 'error') {
-      // what to check, then Connect again (the connection page's failure sheet), never a toast that vanishes
-      haptics.error();
-      openGuide(stravaGuide(false), 'failed');
-    }
-  }, [qc, nav]); // eslint-disable-line react-hooks/exhaustive-deps
-};
 
 /**
  * Settings (§8): pushed from Today's avatar only, at depth 1. Eight inset groups; every row pushes its section at
@@ -57,7 +34,6 @@ export default function SettingsView(): React.JSX.Element {
   const nav = useNav();
   const openRoutine = useOpenRoutineEditor();
   const { profile, block, loaded, stored: hasStored, source } = useTrainingProfile();
-  useStravaReturn();
   const go = (section: string) => () => nav.push(`/settings/${section}`);
   const routerNav = useNavigate();
   // the push's commit draws the whole page, bar and every group, so it is whole on the slide's first frame (review feel
@@ -68,15 +44,13 @@ export default function SettingsView(): React.JSX.Element {
 
   const data = boot.data;
   const user = data?.user;
-  const strava = data?.strava;
   const habits = (data?.habits ?? []).filter((h) => !h.archivedOn).sort((a, b) => a.position - b.position);
   const ms = data?.morningSettings;
   const morning = ms ? buildMorning(morningDayFor([], null, ms), ms) : null;
-  // a block written elsewhere (by hand, by the coach) names itself; one from answers is described by them
+  // a block written elsewhere (by hand, by the assistant) names itself; one from answers is described by them
   const named = !!block && !isTemplateBlock(block) && !hasStored;
   const dash = '–';
   const days = loaded ? (profile.runDays.length > 5 ? `${profile.runDays.length} a week` : sortDays(profile.runDays).map((d) => DAY_SHORT[d]).join(' ')) : dash;
-  const zones = zoneLine(data?.zones);
   const consent = useConsent();
   const version = useAppVersion();
   const signOut = useSignOut();
@@ -135,29 +109,16 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow icon={Sunrise} title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Morning routine timings" />
       </SGroup>
 
-      <SGroup title="Data sources">
-        <GoRow
-          icon={Activity}
-          title="Strava"
-          sub={
-            !data?.features.strava
-              ? 'Not available on this Logbook yet.'
-              : strava?.connected && strava.error
-                ? 'Stopped syncing. Reconnect to pick up new runs.'
-                : strava?.connected
-                  ? [strava.athleteName ? `Connected as ${strava.athleteName}` : 'Connected', ago(strava.lastSyncAt) ? `synced ${ago(strava.lastSyncAt)}` : null].filter(Boolean).join(', ')
-                  : 'See your runs land on Today.'
-          }
-          value={data?.features.strava ? (strava?.connected && strava.error ? 'Fix' : strava?.connected ? undefined : 'Connect') : undefined}
-          tone={strava?.connected && strava.error ? 'bad' : undefined}
-          onPress={go('connections')}
-        />
-        <GoRow icon={HeartPulse} title="Apple Health" sub="Sleep, heart, HRV and workouts." onPress={go('connections')} />
-        {zones ? <GoRow icon={Gauge} title="Heart-rate zones" sub={zones} onPress={go('connections')} /> : null}
-      </SGroup>
+      {STRAVA_BUILT ? <StravaReturn /> : null}
+      {HEALTH_BUILT || (STRAVA_BUILT && data?.features.strava) ? (
+        <SGroup title="Data sources">
+          {STRAVA_BUILT ? <StravaRootRows onPress={go('connections')} /> : null}
+          {HEALTH_BUILT ? <GoRow icon={HeartPulse} title="Apple Health" sub="Sleep, heart rate variability and resting heart rate." onPress={go('connections')} /> : null}
+        </SGroup>
+      ) : null}
 
       <SGroup title="Privacy">
-        <GoRow icon={ShieldCheck} title="Assistant access" sub="What the assistant may read, and what it never sees." value={consent.data ? (consent.data.training ? 'On' : 'Off') : undefined} onPress={go('privacy')} />
+        <GoRow icon={ShieldCheck} title="Assistant access" sub="What the assistant may read." value={consentWord(consent.data)} onPress={go('privacy')} />
       </SGroup>
 
       <SGroup title="App">
@@ -180,6 +141,16 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow icon={Database} title="Import and export" sub="Your log, as one JSON file." onPress={go('data')} />
       </SGroup>
 
+      {/* how to reach the developer, the legal pages, and which build this is (the owner reads it to tell a stale build) */}
+      <SGroup title="About" foot={DISCLAIMER}>
+        <GoRow icon={LifeBuoy} title="Help and contact" sub="Answers, and how to reach us." onPress={() => void openExternal(SUPPORT)} />
+        <GoRow icon={Send} title="Email us" sub={SUPPORT_EMAIL} href={supportMail('Logbook help')} label={`Email us at ${SUPPORT_EMAIL}`} />
+        <GoRow icon={ScrollText} title="Terms of Use" onPress={() => void openExternal(LEGAL.terms)} />
+        <GoRow icon={FileText} title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
+        <GoRow icon={BookOpenText} title="Acknowledgements" onPress={() => void openExternal(LEGAL.acknowledgements)} />
+        <Row className="has-tile s-version-row" left={<Tile icon={Info} />} title="Version" right={<span className="s-value">{version}</span>} />
+      </SGroup>
+
       <SGroup title="Account">
         {/* not "Account" twice (the group's title and the row's, review feel F13); the email is the title, so it has the
             row's width and is whole at 320 (review 2 feel N9) */}
@@ -197,8 +168,6 @@ export default function SettingsView(): React.JSX.Element {
           <LogoMark size={22} color="var(--ink)" />
           <span className="display">Logbook</span>
         </span>
-        <span className="s-version">{version}</span>
-        <span className="s-version s-build">{buildLine()}</span>
       </p>
     </div>
   );

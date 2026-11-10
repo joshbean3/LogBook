@@ -8,3 +8,6 @@ export const ago = (iso: string | null | undefined, now = Date.now()): string | 
 
 /** "Version 1.0.0", or with the iOS build number when it differs: "Version 1.2 (34)". */
 export const versionLine = (v: string, build?: string | null) => `Version ${v}${build && build !== v ? ` (${build})` : ''}`;
+
+/** "1.0.0 (922ade2)": the version with the short commit it was built from; the version alone when there is no commit. */
+export const versionStamp = (v: string, commit?: string | null) => `${v}${commit && commit !== 'dev' ? ` (${commit})` : ''}`;

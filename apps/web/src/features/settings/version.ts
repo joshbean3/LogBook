@@ -1,21 +1,24 @@
 import { useEffect, useState } from 'react';
 import { isNative } from '@/lib/native';
 import pkg from '../../../package.json';
-import { versionLine } from './format';
+import { versionStamp } from './format';
 
 /** The web build's version (apps/web/package.json). */
 export const WEB_VERSION: string = pkg.version;
 
-/** "Version 1.0.0", or on the phone the app's own version and build ("Version 1.2 (34)"), read from iOS. */
+/**
+ * "1.0.0 (922ade2)": the version and the short commit this bundle was built from (vite.config.ts). On the phone the
+ * version is the app's own, read from iOS. The commit is how to tell a stale build from a fresh one.
+ */
 export const useAppVersion = (): string => {
-  const [line, setLine] = useState(() => versionLine(WEB_VERSION));
+  const [line, setLine] = useState(() => versionStamp(WEB_VERSION, __BUILD_COMMIT__));
   useEffect(() => {
     if (!isNative) return;
     let live = true;
     void import('@capacitor/app')
       .then(({ App }) => App.getInfo())
       .then((info) => {
-        if (live) setLine(versionLine(info.version, info.build));
+        if (live) setLine(versionStamp(info.version, __BUILD_COMMIT__));
       })
       .catch(() => undefined);
     return () => {
@@ -23,11 +26,4 @@ export const useAppVersion = (): string => {
     };
   }, []);
   return line;
-};
-
-/** "Built 922ade2 · Nov 9, 8:41 PM": the commit and time this bundle was built (vite.config.ts). */
-export const buildLine = (): string => {
-  const at = new Date(__BUILD_AT__);
-  const when = Number.isNaN(+at) ? '' : ` · ${at.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
-  return `Built ${__BUILD_COMMIT__}${when}`;
 };
