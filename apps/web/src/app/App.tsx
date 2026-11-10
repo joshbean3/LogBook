@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
+import { DEV_TOOLS } from '@/lib/features';
 import { apiOrigin, isNative, onDeepLink, hideSplash } from '@/lib/native';
 import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
@@ -36,7 +37,6 @@ const views = {
   settingsSection: () => import('@/features/settings/SettingsSection'),
   plans: () => import('@/features/plan/PlansPage'),
   welcome: () => import('@/features/onboarding/Welcome'),
-  gallery: () => import('./dev/UiGallery'),
   metric: () => import('@/features/progress/MetricPage'),
 };
 
@@ -79,7 +79,8 @@ const SettingsView = view(views.settings);
 const SettingsSection = view(views.settingsSection);
 const PlansPage = view(views.plans);
 const Welcome = view(views.welcome);
-const UiGallery = view(views.gallery);
+// the component gallery and the test stubs exist only where DEV_TOOLS is true: a release build has no chunk for them
+const UiGallery = DEV_TOOLS ? view(() => import('./dev/UiGallery')) : null;
 const MetricPage = view(views.metric);
 
 /** Once the first screen is up: the pushed pages first (a first push never waits), then every other view in idle. */
@@ -96,30 +97,33 @@ const prefetchViews = () => {
 };
 
 /**
- * Test builds only (VITE_FAKE_CLOCK): `?stubs=1` on the first load swaps the six roots and /dev/ui for the stubs the WP1
- * acceptance scripts drive. Statically false in a normal build, so the stubs never ship.
+ * Test builds only (VITE_FAKE_CLOCK=1): `?stubs=1` on the first load swaps the six roots and /dev/ui for the stubs the WP1
+ * acceptance scripts drive. The build flag is a constant, so in any other build the stubs and their imports are dropped.
  */
-const STUBS = (() => {
-  if (!import.meta.env.VITE_FAKE_CLOCK) return false;
-  try {
-    if (new URLSearchParams(location.search).has('stubs')) sessionStorage.setItem('logbook.stubs', '1');
-    return sessionStorage.getItem('logbook.stubs') === '1';
-  } catch {
-    return false;
-  }
-})();
-const StubRoot = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot })));
-const StubPushed = lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed })));
-const pages = STUBS
-  ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, learned: <StubRoot tab="learned" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
-  : {
-      today: <DayView />,
-      goals: <GoalsView />,
-      learned: <LearnedView />,
-      plan: <PlanView />,
-      progress: <ProgressView />,
-      journal: <JournalView />,
-    };
+const STUBS_BUILT = import.meta.env.VITE_FAKE_CLOCK === '1';
+const STUBS =
+  STUBS_BUILT &&
+  (() => {
+    try {
+      if (new URLSearchParams(location.search).has('stubs')) sessionStorage.setItem('logbook.stubs', '1');
+      return sessionStorage.getItem('logbook.stubs') === '1';
+    } catch {
+      return false;
+    }
+  })();
+const StubRoot = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubRoot }))) : null;
+const StubPushed = STUBS_BUILT ? lazy(() => import('./dev/StubRoots').then((m) => ({ default: m.StubPushed }))) : null;
+const pages =
+  STUBS && StubRoot
+    ? { today: <StubRoot tab="today" />, goals: <StubRoot tab="goals" />, learned: <StubRoot tab="learned" />, plan: <StubRoot tab="plan" />, progress: <StubRoot tab="progress" />, journal: <StubRoot tab="journal" /> }
+    : {
+        today: <DayView />,
+        goals: <GoalsView />,
+        learned: <LearnedView />,
+        plan: <PlanView />,
+        progress: <ProgressView />,
+        journal: <JournalView />,
+      };
 /** The pushed page for an entry: a switch on its route (contracts §A.3). */
 const pushedFor = (e: PushedEntry) => {
   const pattern = matchRoute(e.path).route?.pattern;
@@ -131,7 +135,7 @@ const pushedFor = (e: PushedEntry) => {
   if (pattern === '/settings/:section') return <SettingsSection />;
   if (pattern === '/settings') return <SettingsView />;
   if (pattern === '/journal/reads/:tab?') return <ReadsView />;
-  if (pattern === '/dev/ui') return STUBS ? <StubPushed /> : <UiGallery />;
+  if (DEV_TOOLS && pattern === '/dev/ui') return STUBS && StubPushed ? <StubPushed /> : UiGallery ? <UiGallery /> : null;
   if (pattern === '/progress/metric/:id') return <MetricPage />;
   return null;
 };

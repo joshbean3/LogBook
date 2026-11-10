@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { matchRoute, resolveRoute } from '@/ui/nav';
+import { DEV_TOOLS, STRAVA_BUILT } from './features';
 
 /** True inside the iOS app; false in Safari and on the desktop. */
 export const isNative = Capacitor.isNativePlatform();
@@ -7,20 +9,43 @@ export const isNative = Capacitor.isNativePlatform();
 /** Where the API lives. In the browser it is the same origin; the app talks to your server. */
 export const apiOrigin = isNative ? ((import.meta.env.VITE_API_ORIGIN as string | undefined) ?? 'https://josh-logbook.fly.dev') : '';
 
-/** Deep links (logbook://settings?strava=connected) become in-app navigations. */
+/**
+ * The in-app path a logbook:// link may open, or null. Any app or web page can open the scheme, so a link is honoured only
+ * when it names a real page of the signed-in app (a tab root or a pushed page in ui/nav.ts's table, after its redirects):
+ * never a sign-in screen, first run, or a path the table does not know. The query string is dropped, except the one the
+ * account connection returns with in builds that have it.
+ */
+export const deepLinkPath = (url: string): string | null => {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'logbook:') return null;
+  const raw = `/${u.host}${u.pathname}`.replace(/\/+$/, '') || '/today';
+  // the table's catch-all sends unknown paths to Today: a link has to name a page the table knows
+  const named = matchRoute(raw).route;
+  if (!named || named.pattern === '*') return null;
+  const m = resolveRoute(raw);
+  if (m.kind !== 'root' && m.kind !== 'pushed') return null;
+  if (STRAVA_BUILT && m.path === '/settings') {
+    const flag = u.searchParams.get('strava');
+    if (flag && /^(connected|denied|error)$/.test(flag)) return `${m.path}?strava=${flag}`;
+  }
+  return m.path;
+};
+
+/** Deep links (logbook://goals) become in-app navigations; anything off the allow-list is ignored. */
 export const onDeepLink = async (go: (path: string) => void) => {
   if (!isNative) return;
   try {
     const { App } = await import('@capacitor/app');
     await App.addListener('appUrlOpen', ({ url }) => {
-      try {
-        const u = new URL(url);
-        const path = `/${u.host}${u.pathname}`.replace(/\/+$/, '') || '/today';
-        void import('@capacitor/browser').then(({ Browser }) => Browser.close().catch(() => undefined));
-        go(`${path}${u.search}`);
-      } catch {
-        /* not ours */
-      }
+      const path = deepLinkPath(url);
+      if (!path) return;
+      void import('@capacitor/browser').then(({ Browser }) => Browser.close().catch(() => undefined));
+      go(path);
     });
   } catch {
     /* plugin missing */
@@ -40,10 +65,12 @@ export const hideSplash = () => {
   if (splashHidden) return;
   splashHidden = true;
   try {
-    // test hooks: how many times, and when (the splash is native; on the web this is all there is to see)
-    const w = window as Window & { __splashHides?: number; __splashAt?: number };
-    w.__splashHides = (w.__splashHides ?? 0) + 1;
-    w.__splashAt = performance.now();
+    if (DEV_TOOLS) {
+      // test hooks: how many times, and when (the splash is native; on the web this is all there is to see)
+      const w = window as Window & { __splashHides?: number; __splashAt?: number };
+      w.__splashHides = (w.__splashHides ?? 0) + 1;
+      w.__splashAt = performance.now();
+    }
     // the brand splash (app/BrandSplash.tsx) dissolves on the same beat
     window.dispatchEvent(new CustomEvent(SPLASH_DONE));
   } catch {

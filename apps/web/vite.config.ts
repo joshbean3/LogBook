@@ -3,7 +3,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -44,52 +44,62 @@ const fonts = (): Plugin => ({
   },
 });
 
-export default defineConfig({
-  define: { __BUILD_COMMIT__: JSON.stringify(commit), __BUILD_AT__: JSON.stringify(builtAt) },
-  plugins: [
-    react(),
-    fonts(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png', 'icons/*.svg'],
-      manifest: {
-        name: 'Logbook',
-        short_name: 'Logbook',
-        description: 'Training, habits and a journal. One quiet place for the day.',
-        start_url: '/today',
-        scope: '/',
-        display: 'standalone',
-        orientation: 'portrait',
-        background_color: '#f3f8fb',
-        theme_color: '#f3f8fb',
-        categories: ['health', 'fitness', 'lifestyle'],
-        icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
-      workbox: {
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        // the build's scripts, styles and icons; not the fonts (eight files, 400 KB), which are cached as they are used
-        globPatterns: ['**/*.{js,css,html,svg,png}'],
-        globIgnores: ['fonts/**'],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/fonts/'),
-            handler: 'CacheFirst',
-            options: { cacheName: 'fonts', expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
-          },
-        ],
-      },
-      devOptions: { enabled: false },
-    }),
-  ],
-  resolve: { alias: { '@': path.resolve(here, 'src') } },
-  server: {
-    port: 5173,
-    proxy: { '/api': { target: `http://localhost:${process.env.API_PORT ?? 8787}`, changeOrigin: false } },
-  },
-  build: { target: 'es2022', sourcemap: false, chunkSizeWarningLimit: 900 },
+/**
+ * The build-time flags (src/lib/features.ts, documented in src/vite-env.d.ts). Each is pinned to a string literal here, set
+ * or not, so the bundler folds every `if (STRAVA_BUILT)` and drops the code behind a false flag from the build.
+ */
+const FLAGS = ['VITE_FEATURE_STRAVA', 'VITE_FEATURE_HEALTH', 'VITE_FAKE_CLOCK'] as const;
+
+export default defineConfig(({ mode }) => {
+  const env = { ...loadEnv(mode, here, 'VITE_'), ...process.env };
+  const flags = Object.fromEntries(FLAGS.map((k) => [`import.meta.env.${k}`, JSON.stringify(env[k] ?? '')]));
+  return {
+    define: { __BUILD_COMMIT__: JSON.stringify(commit), __BUILD_AT__: JSON.stringify(builtAt), ...flags },
+    plugins: [
+      react(),
+      fonts(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['icons/*.png', 'icons/*.svg'],
+        manifest: {
+          name: 'Logbook',
+          short_name: 'Logbook',
+          description: 'Training, habits and a journal. One quiet place for the day.',
+          start_url: '/today',
+          scope: '/',
+          display: 'standalone',
+          orientation: 'portrait',
+          background_color: '#f3f8fb',
+          theme_color: '#f3f8fb',
+          categories: ['health', 'fitness', 'lifestyle'],
+          icons: [
+            { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icons/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ],
+        },
+        workbox: {
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api\//],
+          // the build's scripts, styles and icons; not the fonts (eight files, 400 KB), which are cached as they are used
+          globPatterns: ['**/*.{js,css,html,svg,png}'],
+          globIgnores: ['fonts/**'],
+          runtimeCaching: [
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith('/fonts/'),
+              handler: 'CacheFirst',
+              options: { cacheName: 'fonts', expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
+            },
+          ],
+        },
+        devOptions: { enabled: false },
+      }),
+    ],
+    resolve: { alias: { '@': path.resolve(here, 'src') } },
+    server: {
+      port: 5173,
+      proxy: { '/api': { target: `http://localhost:${process.env.API_PORT ?? 8787}`, changeOrigin: false } },
+    },
+    build: { target: 'es2022', sourcemap: false, chunkSizeWarningLimit: 900 },
+  };
 });

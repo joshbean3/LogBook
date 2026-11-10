@@ -1,4 +1,5 @@
 import { Lightbulb, Activity, BookOpen, CalendarDays, Sun, Target, type LucideIcon } from 'lucide-react';
+import { DEV_TOOLS } from '@/lib/features';
 
 /**
  * The navigation model (docs/feel.md §1, contracts §A.1): six tabs, the route table, and `matchRoute`, which turns a URL into
@@ -52,7 +53,8 @@ export const ROUTES: readonly RouteDef[] = [
   { pattern: '/today/:date/morning', owner: 'today', kind: 'pushed', depth: 1, title: 'This morning' },
   { pattern: '/settings', owner: 'today', kind: 'pushed', depth: 1, title: 'Settings' },
   { pattern: '/settings/:section', owner: 'today', kind: 'pushed', depth: 2, title: (p) => SECTION_TITLE[p.section as SettingsSection] ?? 'Settings' },
-  { pattern: '/dev/ui', owner: 'today', kind: 'pushed', depth: 1, title: 'UI' },
+  // the component gallery: the dev server and test builds only, so a release build has no such route (it falls to '*')
+  ...(DEV_TOOLS ? [{ pattern: '/dev/ui', owner: 'today', kind: 'pushed', depth: 1, title: 'UI' } as const] : []),
   { pattern: '/goals', owner: 'goals', kind: 'root' },
   { pattern: '/goals/history', owner: 'goals', kind: 'pushed', depth: 1, title: 'History' },
   { pattern: '/learned', owner: 'learned', kind: 'root' },
