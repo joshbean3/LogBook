@@ -1901,15 +1901,16 @@
 .hg .hero-line {
   max-width: min(100%, 200px);
 }
-/* the stamp's rows sit between the dial's two ends (its caps and the week's dot): narrower than the line's row */
+/* the stamp's rows sit between the dial's two ends (its caps and the week's dot): narrower than the line's row. With larger
+   text the row widens with the stamp (5.6em holds a nine-letter word), so a word is never cut: "STRENG…" said nothing */
 .hg .hero-stamp {
-  max-width: min(100%, 184px);
+  max-width: min(100%, max(184px, 5.6em));
   margin-inline: auto;
   text-align: center;
 }
 .hg .hero-stamp.is-long,
 .hg .hero-stamp.is-xlong {
-  max-width: min(100%, 176px);
+  max-width: min(100%, max(176px, 5.6em));
   white-space: normal;
   text-wrap: balance;
   display: -webkit-box;
@@ -1934,7 +1935,7 @@
   .hg .hero-stamp,
   .hg .hero-stamp.is-long,
   .hg .hero-stamp.is-xlong {
-    max-width: min(100%, 156px);
+    max-width: min(100%, max(156px, 5.6em));
   }
   .hl-wide {
     display: none;

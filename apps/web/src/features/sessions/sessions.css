@@ -1011,8 +1011,11 @@
   background: var(--tone);
 }
 .ed-preview .stamp {
+  min-width: 0;
   font-size: 1.375rem;
   line-height: 1.75rem;
+  /* a name typed as one long word wraps inside the sheet instead of pushing every field off the screen */
+  overflow-wrap: anywhere;
 }
 .ed-preview-day {
   margin-left: auto;

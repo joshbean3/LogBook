@@ -26,7 +26,7 @@ import { groupsOn } from '../todos/groups';
 import { isoClock, shortClock } from './dayWords';
 import { firstRingTap, RING_HINT } from './ringHint';
 import { CardGroup, CardOpen } from './CardGroup';
-import { floorShort } from './faces';
+import { floorShort, inPlan } from './faces';
 import { HoldRing, MORPH_MS, settleAt, settleVelAt } from './HoldRing';
 import type { MarkNow } from './Hero';
 import { refusedMark } from './marks';
@@ -637,7 +637,8 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
   // hero go in the evening, so nothing is left unlisted
   const rows = lead ? [lead, ...(ph?.sessions ?? []).filter((p) => p.session.kind !== 'rest' && p.session.id !== lead.session.id)] : [];
   const planned = (ph?.training ?? []).reduce((t, p) => t + (p.session.kind === 'run' ? Number(p.session.miles) || 0 : 0), 0);
-  const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length, runShown: !!lead });
+  // a day outside every plan is not a rest day: it says nothing about rest (today-top-12)
+  const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length && inPlan(log, date), runShown: !!lead });
   const [closedNow, setClosedNow] = useState(false);
   const title = entries.length || closedNow ? CLOSED_TITLE : EVENING_TITLE;
   const share = () => {
