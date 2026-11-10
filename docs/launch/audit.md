@@ -1322,7 +1322,7 @@ Area key: `plan`. 25 distinct findings kept here, 29 reported.
 
 - Severity: high. Kind: security. Effort: M.
 - Where: apps/api/src/routes/ai.ts:14, 30-76 (POST /plans/draft); apps/api/src/services/claude.ts:131-136; apps/api/src/index.ts:45-62 (no limiter in the authed stack)
-- Evidence: Any signed-in account can call /plans/draft without limit. Each call runs a Claude request (default model claude-opus-5-5, max_tokens 32000, effort 'high') with up to 150,000 characters of text or a 25 MB file. ...
+- Evidence: Any signed-in account can call /plans/draft without limit. Each call runs a request to the configured model (max_tokens 32000, effort 'high') with up to 150,000 characters of text or a 25 MB file. ...
 - Fix: Add `bodyLimit` on the route, a per-user limiter (for example 5 drafts per 10 minutes and a daily cap, answering 429 with a plain message), and one draft in flight per user. Lower the image cap to what the Anthropic API accepts and say so in the client before upload.
 - Also reported as: sec-06, assistant-05, goals-30.
 - Plan: ws-01-server.

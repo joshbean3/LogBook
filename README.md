@@ -18,7 +18,7 @@ Six tabs, one data model:
   fills as its cards are done. Each to-do carries a priority (P1 red, P2 orange, P3 blue), can be filed
   in a list (Work, Home) and highlighted in a colour; the To-dos sheet shows them by day or by list. Quick add reads marks
   at the end of a line: `Send the model fri !!! #work` is a P1 for Friday in Work.
-- **Ask** (the bar at the top of each day): the assistant, on Claude Sonnet. Ask about your plan ("what's left this week?")
+- **Ask** (the bar at the top of each day): the assistant. Ask about your plan ("what's left this week?")
   or ask for a change ("push the runs I missed this week to next week", "add a P1 to-do to call the bank Friday", "set this
   week's goal from my plan"). It reads your plan, to-dos and goals, and proposes the change as a list in words; nothing
   changes until you tap Apply, and Undo puts it all back. Every proposal and what came of it is kept.
