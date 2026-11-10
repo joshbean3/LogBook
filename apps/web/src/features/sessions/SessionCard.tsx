@@ -330,7 +330,7 @@ const SheetHero = ({ s, k, word, when, moved, hero, rest }: { s: Session | null;
           {hero.u ? <small>{hero.u}</small> : null}
         </span>
       ) : null}
-      {hero ? <span className="ss-hero-label">{hero.n ?? hero.k}</span> : rest ? <span className="ss-hero-rest display">Rest. It counts.</span> : null}
+      {hero ? (hero.n ?? hero.k) ? <span className="ss-hero-label">{hero.n ?? hero.k}</span> : null : rest ? <span className="ss-hero-rest display">Rest. It counts.</span> : null}
       {moved ? <span className="ss-hero-moved">{moved}</span> : null}
     </div>
   );
@@ -420,8 +420,9 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the numbers: a run that came in leads with its distance; a plan with what it asks (its miles or minutes)
   const nums = runs.length ? runNumbers(s, runs, log, plannedMiles(s)) : planStats(date, s, log, s.kind === 'lift' ? sets.length : 0).map(toNum);
   const lead = runs.length ? nums[0]! : nums.find((x) => x.k === 'Plan') ?? null;
-  // the status word above the number says done or not; under it, what the number is: the plan (today-top-18)
-  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : 'Planned') } : null;
+  // the status word above the number says done or not; under it, what the number is: the plan (today-top-18). When the
+  // status word is already "Planned", the number needs no second one
+  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : /^planned$/i.test(word.trim()) ? '' : 'Planned') } : null;
   const tiles = nums.filter((x) => x !== lead);
   const typeWord = s.type && !label(s).toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const skipped = s.mark === 'skip' || s.mark === 'sick';
