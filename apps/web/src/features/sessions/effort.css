@@ -73,22 +73,23 @@
 }
 .eff-num {
   position: relative;
-  font-size: 64px;
-  line-height: 68px;
+  /* a display numeral in a dial: it follows the text size to a limit */
+  font-size: clamp(64px, 4rem, 88px);
+  line-height: clamp(68px, 4.25rem, 94px);
   color: var(--ink);
   text-shadow: 0 0 22px var(--eff);
 }
 .eff-word {
   position: relative;
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .eff-line {
-  min-height: 40px;
+  min-height: 2.5rem;
   margin: 0;
   max-width: 300px;
   text-align: center;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .eff-acts {
@@ -133,11 +134,11 @@
   display: grid;
   place-items: center;
   width: 36px;
-  height: 36px;
+  height: 2.25rem;
   border-radius: 50%;
   background: color-mix(in srgb, var(--eff) 28%, var(--surface));
   box-shadow: inset 0 0 0 2px var(--eff);
-  font-size: 17px;
+  font-size: var(--fs-row);
   color: var(--ink);
 }
 .eff-row:not(.has-value) .eff-chip {
@@ -151,9 +152,9 @@
   min-width: 0;
 }
 .eff-row-title {
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .eff-row-sub {
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
