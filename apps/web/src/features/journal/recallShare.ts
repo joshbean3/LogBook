@@ -3,20 +3,47 @@
  * and saved as a PNG, or copied as text. The canvas work is in the browser; the line breaking is pure and tested.
  */
 
-/** Break words into lines no wider than `max` (a word longer than a line gets a line of its own). */
+/** A word wider than a line, cut by characters into pieces that each fit (the last piece is what is left). */
+const breakWord = (w: string, max: number, measure: (s: string) => number): string[] => {
+  const out: string[] = [];
+  let cur = '';
+  for (const ch of Array.from(w)) {
+    if (cur && measure(cur + ch) > max) {
+      out.push(cur);
+      cur = ch;
+    } else cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+};
+
+/** Break words into lines no wider than `max`; a word wider than a line is broken by characters (a pasted link, say). */
 export const wrapLines = (text: string, max: number, measure: (s: string) => number): string[] => {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let cur = '';
-  for (const w of words) {
-    const next = cur ? `${cur} ${w}` : w;
-    if (cur && measure(next) > max) {
-      lines.push(cur);
-      cur = w;
-    } else cur = next;
+  for (const w0 of words) {
+    const pieces = measure(w0) > max ? breakWord(w0, max, measure) : [w0];
+    for (const [i, w] of pieces.entries()) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (cur && (i > 0 || measure(next) > max)) {
+        lines.push(cur);
+        cur = w;
+      } else cur = next;
+    }
   }
   if (cur) lines.push(cur);
   return lines;
+};
+
+/** At most `n` lines; when some are left out the last one kept ends in an ellipsis that fits. */
+export const clampLines = (lines: string[], n: number, max: number, measure: (s: string) => number): string[] => {
+  if (lines.length <= n) return lines;
+  const kept = lines.slice(0, n);
+  let last = kept[n - 1]!;
+  while (last && measure(`${last}…`) > max) last = last.slice(0, -1);
+  kept[n - 1] = `${last.trimEnd()}…`;
+  return kept;
 };
 
 /** The words as they are copied: the reminder, then where it came from. */
@@ -75,10 +102,18 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
   let size = 92;
   let lines: string[] = [];
   const maxW = cw - 2 * (PAD - 40);
+  const room = ch - hh - 220;
+  const measure = (t: string) => g.measureText(t).width;
   for (; size >= 44; size -= 4) {
     g.font = `italic ${size}px "Instrument Serif", Georgia, serif`;
-    lines = wrapLines(summary, maxW, (s) => g.measureText(s).width);
-    if (lines.length * size * 1.25 < ch - hh - 220) break;
+    lines = wrapLines(summary, maxW, measure);
+    if (lines.length * size * 1.25 < room) break;
+  }
+  // still too long at the smallest size: as many lines as fit, the last one ending in an ellipsis
+  if (size < 44) {
+    size = 44;
+    g.font = `italic ${size}px "Instrument Serif", Georgia, serif`;
+    lines = clampLines(lines, Math.max(1, Math.floor(room / (size * 1.25))), maxW, measure);
   }
   g.fillStyle = '#0f2a44';
   const lh = size * 1.25;
@@ -92,26 +127,4 @@ export const drawRecall = async (summary: string, when: string): Promise<Blob> =
   g.font = 'italic 40px "Instrument Serif", Georgia, serif';
   g.fillText('Logbook', x + PAD - 40, y + ch - 72);
   return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('No image'))), 'image/png'));
-};
-
-/** Keep the image: the share sheet where it takes files (a phone saves it to Photos from there), else a download. */
-export const saveImage = async (blob: Blob, name: string): Promise<'shared' | 'downloaded' | 'cancelled'> => {
-  const file = new File([blob], name, { type: 'image/png' });
-  if (navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file] });
-      return 'shared';
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled';
-    }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-  return 'downloaded';
 };

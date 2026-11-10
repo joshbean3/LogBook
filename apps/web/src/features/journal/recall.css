@@ -241,19 +241,51 @@
   position: absolute;
   inset: -2px;
 }
+/* three verbs sized to their words, 12 px inside each, the extra room shared out */
 .recall-tools {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
   gap: 0;
   margin: 2px calc(-1 * var(--pad-card)) 0;
   border-top: 1px solid var(--line);
 }
 .recall-tool {
+  flex: 1 1 auto;
   justify-content: center;
   min-height: 48px;
-  padding: 0 4px;
+  padding: 0 12px;
   border-radius: 0;
   border: 0;
+  white-space: normal;
+  text-align: center;
+}
+.recall-spin {
+  animation: recall-spin 900ms linear infinite;
+}
+@keyframes recall-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recall-spin {
+    animation-duration: 2.4s;
+  }
+}
+/* the first answer's place, held by a card of the same build */
+.recall-skel {
+  display: grid;
+  gap: 12px;
+}
+.recall-skel .recall-head {
+  align-items: center;
+}
+.recall-skel-lines {
+  display: grid;
+  gap: 6px;
+  padding: 3px 0 8px;
+}
+.recall-skel .recall-tool {
+  display: block;
 }
 .recall-tool + .recall-tool {
   box-shadow: inset 1px 0 0 var(--line);
@@ -267,7 +299,8 @@
     margin: 2px calc(-1 * var(--pad-card)) 0;
   }
   .recall-tool {
-    padding: 0 2px;
+    flex-basis: 0;
+    padding: 0 8px;
     white-space: normal;
     text-align: center;
     line-height: 1rem;
