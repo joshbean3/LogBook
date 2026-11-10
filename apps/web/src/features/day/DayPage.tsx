@@ -1,7 +1,7 @@
 import { mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
 import { ChevronRight } from 'lucide-react';
 import type * as React from 'react';
-import { lazy, memo, Suspense, useDeferredValue, useEffect, useLayoutEffect, useMemo } from 'react';
+import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useGoals, useHabitMutations, useTodos } from '@/api/queries';
 import { STRAVA_BUILT } from '@/lib/features';
 import { hideSplash } from '@/lib/native';
@@ -215,11 +215,16 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   // a day that looks new may show the first-run face in the hero's slot (FirstRunSlot decides); nothing else on the page
   // depends on it: Plan your day, the habits and the evening's Close card are always there
   const bare = loaded && looksNew(log, date);
+  const sheet = useSheet();
+  // the builder is a large sheet; its module loads on the tap (never on Today's first paint)
+  const logRef = useRef(log);
+  logRef.current = log;
+  const openPlan = useCallback(() => void import('../plan/Blocks').then((m) => m.openTemplate(sheet, logRef.current)), [sheet]);
 
 
   return (
     <div className="day-page" data-day={date}>
-      {loaded ? <StatusChip date={date} today={today} /> : null}
+      {loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
       {loaded ? <HeldNote date={date} log={log} /> : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles) */}
       {!loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} />}

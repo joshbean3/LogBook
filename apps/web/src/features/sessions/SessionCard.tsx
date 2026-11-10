@@ -5,6 +5,7 @@ import { useContextMenu } from '@/ui/ContextMenu';
 import { Button } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useCoachShown } from '../day/coachShown';
+import { readMinutes } from '../day/useNow';
 import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
 import type { ShareData, ShareDayType } from '../share/cards';
@@ -74,7 +75,10 @@ const planStats = (date: string, s: Session, log: Log, sets: number): SheetStat[
     if (main?.id === s.id) {
       const T = morningOf(sessions, log.snap.morningOverride(date), log.boot.morningSettings ?? MORNING_DEFAULTS);
       const door = doorOf(T);
-      if (door != null) stats.push(['Out the door', ...timeNum(door)], ['Back', ...timeNum(T.back)]);
+      // a time already past is not news: the tile goes (today-top-18)
+      const now = date === log.today ? readMinutes() : -1;
+      if (door != null && door > now) stats.push(['Out the door', ...timeNum(door)]);
+      if (door != null && T.back > now) stats.push(['Back', ...timeNum(T.back)]);
     }
   }
   if (sets && s.kind !== 'lift') stats.push(['Sets', String(sets), sets === 1 ? 'set' : 'sets']);
@@ -415,8 +419,8 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the numbers: a run that came in leads with its distance; a plan with what it asks (its miles or minutes)
   const nums = runs.length ? runNumbers(s, runs, log, plannedMiles(s)) : planStats(date, s, log, s.kind === 'lift' ? sets.length : 0).map(toNum);
   const lead = runs.length ? nums[0]! : nums.find((x) => x.k === 'Plan') ?? null;
-  const doneWord = counts(st) ? (st === 'floor' ? 'floor held' : 'done') : 'planned';
-  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : s.type && s.kind !== 'run' ? `${s.type}, ${doneWord}` : doneWord[0]!.toUpperCase() + doneWord.slice(1)) } : null;
+  // the status word above the number says done or not; under it, what the number is: the plan (today-top-18)
+  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : 'Planned') } : null;
   const tiles = nums.filter((x) => x !== lead);
   const typeWord = s.type && !label(s).toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const skipped = s.mark === 'skip' || s.mark === 'sick';

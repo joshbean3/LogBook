@@ -43,7 +43,7 @@ describe('the phase follows when you train', () => {
   const run = (over: Partial<Session> = {}): Session => ({ id: 's1', date: FRI, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null, blockId: null, movedFrom: null, mark: null, ...over });
   const logOf = (sessions: Session[]): Log => {
     const b: MonthBundle = { month: '2026-10', sessions, checks: [], lifts: [], activities: [], morningDays: {}, journal: [], coach: [] };
-    return { today: FRI, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks: [] } as unknown as Log['boot'], habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap: buildSnapshot({ '2026-10': b }, FRI), ready: true, loading: false, loaded: () => true } as Log;
+    return { today: FRI, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks: [{ id: 'b1', name: 'Plan', start: '2026-10-01', end: '2026-12-31' }] } as unknown as Log['boot'], habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap: buildSnapshot({ '2026-10': b }, FRI), ready: true, loading: false, loaded: () => true } as Log;
   };
   const open = logOf([run()]);
   const at = (h: number, m = 0) => h * 60 + m;

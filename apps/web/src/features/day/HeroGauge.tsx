@@ -50,7 +50,9 @@ export const HeroGauge = ({ date, log, children }: { date: ISODate; log: Log; ch
   const [mx, my] = pt(FROM - SWEEP * g.t);
   const [lx, ly] = pt(FROM, R + 20);
   const [rx, ry] = pt(FROM - SWEEP, R + 20);
-  const week = g.planned > 0 ? `${milesText(g.done)} of ${milesText(g.planned)} mi this week` : `${milesText(g.done)} mi this week`;
+  // the week to one decimal, as everywhere else ("7.1 of 40.5", never "7.12"; today-top-18)
+  const tenth = (v: number) => milesText(Math.round(v * 10) / 10);
+  const week = g.planned > 0 ? `${tenth(g.done)} of ${tenth(g.planned)} mi this week` : `${tenth(g.done)} mi this week`;
   const runs = g.runsPlanned > 0 ? `${g.runsDone} of ${g.runsPlanned} runs` : null;
   return (
     <div className={`hg ${show ? '' : 'is-empty'}`}>
@@ -89,7 +91,7 @@ export const HeroGauge = ({ date, log, children }: { date: ISODate; log: Log; ch
             0
           </text>
           <text x={rx} y={ry} className="hg-end" textAnchor="middle" transform={`rotate(62 ${rx} ${ry})`}>
-            {g.planned > 0 ? `${milesText(g.planned)} mi` : ''}
+            {g.planned > 0 ? `${tenth(g.planned)} mi` : ''}
           </text>
         </svg>
       ) : null}

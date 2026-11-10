@@ -1794,6 +1794,11 @@
 .hero.is-quiet .hg .hero-line {
   color: var(--ink-3);
 }
+/* a rest day says rest once (the stamp, no line); a day outside any plan has only its line, "Nothing planned" */
+.hg .hero-stamp:empty,
+.hg .hero-line:empty {
+  display: none;
+}
 .hero-week {
   display: inline-flex;
   align-items: center;

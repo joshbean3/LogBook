@@ -173,7 +173,6 @@ const Deck = ({ c }: { c: DeckCtx }) => {
   if (face.doneHand)
     return (
       <div className="hero-deck hero-deck-ring hero-deck-done">
-        {face.doneHand.week ? <span className="hero-sub">{face.doneHand.week}</span> : null}
         {c.isToday ? (
           <span className="hero-done-tools">
             <SharePill onShare={c.onShare} />
@@ -237,17 +236,7 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
   return (
     <>
       <div className="hero-eyebrow-row">
-        {/* the landed pace comes in with the numbers and the verdict (§6.1 stage 4): one pace on the card at a time (feel review 1 #8) */}
-        {face.eyebrowPace ? (
-          <span className="caps hero-eyebrow">
-            {face.eyebrow.slice(0, -face.eyebrowPace.length)}
-            <motion.span initial={false} animate={{ opacity: c.numbers === 'hold' ? 0 : 1 }} transition={crossfade}>
-              {face.eyebrowPace}
-            </motion.span>
-          </span>
-        ) : (
-          <span className="caps hero-eyebrow">{face.eyebrow}</span>
-        )}
+        <span className="caps hero-eyebrow">{face.eyebrow}</span>
         {face.aside ? <span className="caps hero-aside">{face.aside}</span> : null}
       </div>
       {face.tall ? (
