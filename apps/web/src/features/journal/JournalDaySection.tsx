@@ -2,17 +2,18 @@ import { ago, fmtDate, monthOf, type JournalEntry } from '@logbook/shared';
 import { Check, Pencil, Share, Star, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { useJournalList, useJournalMutations, whenShown } from '@/api/queries';
+import { useJournalList, whenShown } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { crossfade } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button, Group, Pressable, Section, SwipeRow, useSheet, useToast } from '@/ui';
 import type { Log } from '../log/useLog';
-import { getDraft, setDraft, subscribeDrafts } from './drafts';
+import { getDraft, getEdit, holdSent, restoreDraft, SAVE_FAILED, setDraft, setEdit, subscribeDrafts } from './drafts';
 import { FavStar } from './FavStar';
 import { PressButton } from './PressButton';
 import { below, carry, carryScaleY } from './feel';
 import { runStamp, useDayPrompt } from './prompt';
+import { useDraftOwner, useJournalWrites, useLiveEntry } from './queries';
 import './journal.css';
 
 export const timeOf = (at: string) => {
@@ -37,36 +38,54 @@ export const shareText = async (text: string, toast: (t: string) => void) => {
 
 /** The one place an entry is deleted, favourited or shared, so every surface (row, sheet, menu) behaves the same. */
 export const useEntryActions = () => {
-  const { patch, remove, restore } = useJournalMutations();
+  const w = useJournalWrites();
   const toast = useToast();
   return {
     del: (e: JournalEntry) => {
       haptics.delete();
-      remove.mutate(e);
-      toast('Deleted', { label: 'Undo', fn: () => restore.mutate(e) });
+      void w.remove(e);
+      toast('Deleted', { label: 'Undo', fn: () => void w.restore(e) });
     },
     /** The star that shows the change pops and fires `toggle` on its apex (`FavStar`); un-favouriting is silent. */
-    fav: (e: JournalEntry) => patch.mutate({ entry: e, fav: !e.fav }),
+    fav: (e: JournalEntry) => void w.patch({ entry: e, fav: !e.fav }),
     share: (e: JournalEntry) => void shareText(`${e.text}\n\n${fmtDate('long', e.date)}`, toast),
   };
 };
 
-/** The entry as the cache knows it now (a favourite, an edit made in the sheet), falling back to what opened the sheet. */
-const useLiveEntry = (id: string, fallback: JournalEntry) => {
-  const list = useJournalList('', false);
-  return list.data?.entries.find((x) => x.id === id) ?? fallback;
-};
-
-/** Edit, pushed inside the entry's sheet: the words, and Save as the sheet's one blue. */
+/**
+ * Edit, pushed inside the entry's sheet: the words, and Save as the sheet's one blue. The sheet stays until the edit is
+ * saved or queued offline; a refused edit keeps the words in the field (and for the next time Edit is opened, should the
+ * sheet have been closed meanwhile) and says so.
+ */
 export const EntryEditor = ({ e }: { e: JournalEntry }) => {
-  const { patch } = useJournalMutations();
+  const w = useJournalWrites();
   const sheet = useSheet();
-  const [text, setText] = useState(e.text);
+  const toast = useToast();
+  const [text, setText] = useState(() => getEdit(e.id) ?? e.text);
+  const [busy, setBusy] = useState(false);
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
   const v = text.trim();
   const save = () => {
+    if (busy || !v) return;
+    if (v === e.text) {
+      setEdit(e.id, null);
+      return sheet.pop();
+    }
+    setBusy(true);
     // an edit is not a day's close: no `success` (two a day, §11.4)
-    if (v && v !== e.text) patch.mutate({ entry: e, text: v });
-    sheet.pop();
+    void w.patch({ entry: e, text: v }).then((ok) => {
+      setEdit(e.id, ok ? null : v);
+      if (!ok) toast(SAVE_FAILED);
+      if (!here.current) return;
+      if (ok) sheet.pop();
+      else setBusy(false);
+    });
   };
   return (
     <>
@@ -87,7 +106,7 @@ export const EntryEditor = ({ e }: { e: JournalEntry }) => {
       />
       <div className="sheet-foot">
         <div className="foot-right">
-          <Button variant="primary" onClick={save} disabled={!v || v === e.text}>
+          <Button variant="primary" onClick={save} disabled={!v || v === e.text || busy} aria-busy={busy || undefined}>
             Save
           </Button>
         </div>
@@ -282,7 +301,8 @@ export const addToDraft = (date: string, s: string) => {
  * `success` (one of the two a day, §11.4); any later save is silent. No toast: the entry landing is the answer.
  */
 export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onSaved, haptic = true, autoFocus, inputRef, label = 'Journal entry', grow }: ComposerProps) => {
-  const { add } = useJournalMutations();
+  const w = useJournalWrites();
+  useDraftOwner();
   const list = useJournalList('', false);
   const toast = useToast();
   const own = useRef<HTMLTextAreaElement>(null);
@@ -336,8 +356,21 @@ export const Composer = ({ date, today, rows = 3, size, placeholder, prompt, onS
       set('');
       setSaved(true);
     };
-    add.mutate(whenShown({ date, text: v }, clear), { onError: () => (clear(), set(v), toast('Couldn’t save that. Your words are back in the field.')) });
-    // the field's words are in the draft store and the outbox now; a list that is not mounted still clears the field
+    // the words stay on the device until the server or the outbox has them (drafts.ts)
+    const release = holdSent(date, v);
+    void w.add(whenShown({ date, text: v }, clear)).then((ok) => {
+      if (ok) return release();
+      // refused. The field must not empty over the words now; they go back on top of whatever has been typed since, once
+      // the mutation cache's own listeners have run (Today's cards watch the save with journalGuard and may have put them
+      // back already), and the toast says so
+      const wasCleared = cleared;
+      cleared = true;
+      setTimeout(() => {
+        if (restoreDraft(date, v) || !wasCleared) toast(SAVE_FAILED);
+        release();
+      }, 0);
+    });
+    // a list that is not mounted still clears the field
     setTimeout(clear, 250);
     onSaved?.({ first });
   };

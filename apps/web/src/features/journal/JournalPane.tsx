@@ -1,22 +1,31 @@
-import { fmtDate, shiftDays, type JournalEntry } from '@logbook/shared';
+import { fmtDate, monthOf, shiftDays, type JournalEntry } from '@logbook/shared';
 import { ChevronRight, Plus, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useJournalList, useJournalMutations } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { fadeIn, useReduced } from '@/lib/motion';
 import { IconButton } from '@/ui';
 import { useToast } from '@/ui/Toast';
 import { Calendar, DayOrb } from './Calendar';
-import { anchorFor, dayTitle, orbVariant, pageHolds, readView, saveView, switchAnchor, type CalView } from './calDays';
-import { getDraft, setDraft } from './drafts';
+import { keepAboveKeyboard, revealBox } from '../day/reveal';
+import { watchJournalAdd } from '../day/journalGuard';
+import { anchorFor, dayTitle, monthGrid, orbVariant, pageHolds, readView, saveView, switchAnchor, weekDays, type CalView } from './calDays';
+import { getDraft, getEdit, holdSent, SAVE_FAILED, setDraft, setEdit } from './drafts';
 import { timeOf } from './JournalDaySection';
 import { QuoteLine, Timeline } from './JournalHome';
 import { useDayPrompt } from './prompt';
+import { useDraftOwner, useJournalDays, useJournalFeed, useJournalWrites } from './queries';
 import '../goals/kit.css';
 import './calendar.css';
 
 type WriteReq = { date: string; n: number } | null;
+/** The server's limit for one entry (zJournalInput); the counter shows from here on. */
+const MAX_CHARS = 5000;
+const COUNT_FROM = 4500;
+/** How far back "years ago" looks under an open day. */
+const YEARS_BACK = 5;
+const yearsBack = (date: string, k: number) => `${Number(date.slice(0, 4)) - k}${date.slice(4)}`;
 
 /**
  * The Journal segment under Remember when: the calendar (Week or Month, remembered on this device), the day card that
@@ -24,17 +33,21 @@ type WriteReq = { date: string; n: number } | null;
  * sent from the Library) opens today's writer; `openDay` (Remember when's words) opens that day.
  */
 export const JournalCalendarPane = ({ today, focusKey = 0, openDay = null }: { today: string; focusKey?: number; openDay?: { date: string; n: number } | null }) => {
-  const list = useJournalList('', false);
-  const all = useMemo(() => list.data?.entries ?? [], [list.data]);
-  const byDate = useMemo(() => {
-    const m = new Map<string, JournalEntry[]>();
-    for (const e of all) m.set(e.date, [...(m.get(e.date) ?? []), e].sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)));
-    return m;
-  }, [all]);
+  useDraftOwner();
+  const feed = useJournalFeed(true);
+  const all = feed.entries;
   const reduce = useReduced();
   const [view, setView] = useState<CalView>(readView);
   const [anchor, setAnchor] = useState(today);
   const [open, setOpen] = useState<string | null>(null);
+  // the calendar's days come from the months on screen (and the open day's, and the same day in the years before it),
+  // so a month the list has not reached still shows what was written in it
+  const months = useMemo(() => {
+    const days = view === 'week' ? weekDays(anchor) : monthGrid(anchor).filter((d): d is string => !!d);
+    const back = open ? Array.from({ length: YEARS_BACK }, (_, i) => yearsBack(open, i + 1)) : [];
+    return [...new Set([...days, ...(open ? [open] : []), ...back].map(monthOf))].sort();
+  }, [view, anchor, open]);
+  const { byDate, loading } = useJournalDays(feed, months);
   const [writeReq, setWriteReq] = useState<WriteReq>(null);
   const [writingToday, setWritingToday] = useState(false);
   const [seq, setSeq] = useState(0);
@@ -73,7 +86,7 @@ export const JournalCalendarPane = ({ today, focusKey = 0, openDay = null }: { t
 
   return (
     <div className="jpane">
-      <Calendar today={today} byDate={byDate} view={view} onView={changeView} anchor={anchor} onAnchor={setAnchor} open={open} onPick={pick} writingToday={writingToday} />
+      <Calendar today={today} byDate={byDate} loading={loading} view={view} onView={changeView} anchor={anchor} onAnchor={setAnchor} open={open} onPick={pick} writingToday={writingToday} />
       <div ref={card} className="jday-slot">
         <AnimatePresence initial={false}>
           {open ? (
@@ -84,7 +97,7 @@ export const JournalCalendarPane = ({ today, focusKey = 0, openDay = null }: { t
         </AnimatePresence>
       </div>
       <div id="j-entries" className="j-entries">
-        <Timeline today={today} all={all} pending={!list.data} onWrite={() => show(today, true)} />
+        <Timeline today={today} all={all} pending={feed.pending} total={feed.total} more={feed.more} loadingOlder={feed.loadingOlder} onOlder={feed.loadOlder} onWrite={() => show(today, true)} />
       </div>
     </div>
   );
@@ -99,25 +112,46 @@ const countWords = (n: number) => (n === 0 ? 'No memories' : n === 1 ? '1 memory
  */
 const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: { date: string; today: string; byDate: Map<string, JournalEntry[]>; writeReq: WriteReq; onDay: (d: string) => void; onClose: () => void; onWriting: (on: boolean) => void }) => {
   const entries = byDate.get(date) ?? [];
-  const { add, patch, remove } = useJournalMutations();
+  const w = useJournalWrites();
+  const qc = useQueryClient();
   const toast = useToast();
   const reduce = useReduced();
   const prompt = useDayPrompt(date);
+  // 'new': a new memory; an entry: that one being edited (followed by its id, the object changes with every refetch)
   const [writing, setWriting] = useState<'new' | JournalEntry | null>(null);
   const [text, setText] = useState('');
   const field = useRef<HTMLTextAreaElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const isToday = date === today;
   const variant = orbVariant(entries);
+  const here = useRef(true);
+  const writingNow = useRef(writing);
+  writingNow.current = writing;
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
 
   const startNew = () => {
     setText(getDraft(date));
     setWriting('new');
   };
+  const startEdit = (e: JournalEntry) => {
+    setText(getEdit(e.id) ?? e.text);
+    setWriting(e);
+  };
   useEffect(() => {
     if (writeReq && writeReq.date === date) startNew();
   }, [writeReq]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (writing) requestAnimationFrame(() => field.current?.focus({ preventScroll: true }));
+    if (writing)
+      requestAnimationFrame(() => {
+        field.current?.focus({ preventScroll: true });
+        // the whole writer, Save included, clear of the keyboard (the WebView does not resize for it)
+        revealBox(box.current);
+      });
     onWriting(writing === 'new' && isToday);
   }, [writing]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onWriting(false), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -125,24 +159,41 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
   const save = () => {
     const t = text.trim();
     if (writing === 'new') {
-      setDraft(date, '');
       if (t) {
-        add.mutate({ date, text: t });
+        // the words stay on the device until the server or the outbox has them; a refused save puts them back in the
+        // day's draft (journalGuard, which hears the answer whether or not this card is still open) and says so
+        const release = holdSent(date, t);
+        setDraft(date, '');
+        void w.add({ date, text: t }).then((ok) => (ok ? release() : setTimeout(release, 0)));
+        watchJournalAdd(qc, date, {
+          toast: () => toast(SAVE_FAILED),
+          onRefused: () => {
+            if (here.current && !writingNow.current) startNew();
+          },
+        });
         haptics.orb();
-      }
+      } else setDraft(date, '');
     } else if (writing) {
       const e = writing;
       if (!t) {
-        remove.mutate(e);
-        toast('Memory removed', { label: 'Undo', fn: () => add.mutate({ date, text: e.text }) });
-      } else if (t !== e.text) patch.mutate({ entry: e, text: t });
+        void w.remove(e);
+        toast('Memory removed', { label: 'Undo', fn: () => void w.add({ date, text: e.text }) });
+      } else if (t !== e.text) {
+        void w.patch({ entry: e, text: t }).then((ok) => {
+          setEdit(e.id, ok ? null : t);
+          if (ok) return;
+          toast(SAVE_FAILED);
+          // the editor opens again on the words, unless something else is being written by now
+          if (here.current && !writingNow.current) startEdit(e);
+        });
+      } else setEdit(e.id, null);
     }
     setWriting(null);
   };
 
   const year = useMemo(() => {
-    for (let k = 1; k <= 5; k++) {
-      const d = `${Number(date.slice(0, 4)) - k}${date.slice(4)}`;
+    for (let k = 1; k <= YEARS_BACK; k++) {
+      const d = yearsBack(date, k);
       const e = byDate.get(d)?.[0];
       if (e) return { d, e, k };
     }
@@ -155,22 +206,38 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
   const sub = named ? `${fmtDate('long', date)}${entries.length ? ` · ${countWords(entries.length)}` : ''}` : countWords(entries.length);
 
   const writer = (
-    <div className="jday-write">
+    <div ref={box} className="jday-write">
       <textarea
         ref={field}
         className="jday-field"
         value={text}
+        maxLength={MAX_CHARS}
+        data-no-reveal=""
+        onFocus={() => revealBox(box.current)}
         aria-label={writing === 'new' ? `A memory for ${isToday ? 'today' : fmtDate('long', date)}` : 'Edit this memory'}
         placeholder={writing === 'new' && isToday ? prompt : 'Write a memory'}
         rows={4}
         onChange={(e) => {
           setText(e.target.value);
           if (writing === 'new') setDraft(date, e.target.value);
+          keepAboveKeyboard(box.current);
         }}
       />
       {writing === 'new' && isToday ? <QuoteLine date={date} onInsert={(q) => setText((t) => (t ? `${t}\n${q}` : q))} /> : null}
       <div className="jday-write-foot">
-        <button type="button" className="jday-btn is-quiet" onClick={() => setWriting(null)}>
+        {text.length >= COUNT_FROM ? (
+          <span className="jday-count" role="status">
+            {text.length.toLocaleString('en-US')} of {MAX_CHARS.toLocaleString('en-US')}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          className="jday-btn is-quiet"
+          onClick={() => {
+            if (writing && writing !== 'new') setEdit(writing.id, null);
+            setWriting(null);
+          }}
+        >
           Cancel
         </button>
         <button type="button" className="jday-btn" onClick={save}>
@@ -215,17 +282,14 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
         <ul className="jday-list">
           {entries.map((e) => (
             <li key={e.id}>
-              {writing === e ? (
+              {writing !== 'new' && writing?.id === e.id ? (
                 writer
               ) : (
                 <button
                   type="button"
                   className="jday-memory"
                   aria-label={`${e.text}. ${timeOf(e.createdAt)}. Edit`}
-                  onClick={() => {
-                    setText(e.text);
-                    setWriting(e);
-                  }}
+                  onClick={() => startEdit(e)}
                 >
                   <span className="jday-memory-t">{e.text}</span>
                   <span className="jday-memory-m">

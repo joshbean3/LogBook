@@ -28,6 +28,8 @@ const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 export interface CalendarProps {
   today: string;
   byDate: Map<string, JournalEntry[]>;
+  /** The page's days are still being fetched: nothing is said about what was or was not written. */
+  loading?: boolean;
   view: CalView;
   onView: (v: CalView) => void;
   /** Any day of the page shown (a week, or a month). */
@@ -46,7 +48,7 @@ export interface CalendarProps {
  * and, until it has a memory, holds the breathing orb and the card ends in "Write today's". Tap today to write, a past
  * day to read it; days to come are quiet.
  */
-export const Calendar = ({ today, byDate, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {
+export const Calendar = ({ today, byDate, loading = false, view, onView, anchor, onAnchor, open, onPick, writingToday }: CalendarProps) => {
   const days = view === 'week' ? weekDays(anchor) : monthGrid(anchor);
   const written = days.filter((d) => d && byDate.has(d)).length;
   const onToday = pageHolds(anchor, view, today);
@@ -66,7 +68,7 @@ export const Calendar = ({ today, byDate, view, onView, anchor, onAnchor, open, 
     <section className="jcal" aria-label="Calendar">
       <div className="jcal-head">
         <h2 className="jcal-title">{pageTitle(anchor, view)}</h2>
-        <span className="jcal-meta">{written ? `${written} ${written === 1 ? 'day' : 'days'} written` : 'Nothing written'}</span>
+        <span className="jcal-meta">{written ? `${written} ${written === 1 ? 'day' : 'days'} written` : loading ? '' : 'Nothing written'}</span>
       </div>
       <div className="jcal-bar">
         <Segmented
@@ -129,7 +131,7 @@ export const Calendar = ({ today, byDate, view, onView, anchor, onAnchor, open, 
           );
         })}
       </div>
-      {todayEmpty && !writingToday ? (
+      {todayEmpty && !writingToday && !loading ? (
         <Pressable className="jcal-write" press="scale" onPress={() => onPick(today)} label="Write today’s memory">
           <DayOrb variant={null} size={26} live />
           <span className="jcal-write-t">

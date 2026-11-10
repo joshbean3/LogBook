@@ -407,13 +407,42 @@ const PAGE = 30;
  * from the cache; the skeleton shows only with nothing cached and no network (newuser 3.5). A row that arrives fades in and
  * the rows it displaces ride a FLIP on `settle`; nothing animates height.
  */
-export const Timeline = ({ today, all, pending, onWrite }: { today: string; all: JournalEntry[]; pending: boolean; onWrite: () => void }) => {
+export const Timeline = ({
+  today,
+  all,
+  pending,
+  onWrite,
+  total = all.length,
+  more = false,
+  loadingOlder = false,
+  onOlder,
+}: {
+  today: string;
+  /** Every entry loaded so far. */
+  all: JournalEntry[];
+  pending: boolean;
+  onWrite: () => void;
+  /** How many entries there are in all; null while entries remain on the server and it has not said. */
+  total?: number | null;
+  /** Entries remain on the server under `all`; `onOlder` fetches the next page of them. */
+  more?: boolean;
+  loadingOlder?: boolean;
+  onOlder?: () => void;
+}) => {
   const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const found = useJournalList(q.trim(), false);
   const list = q.trim() ? (found.data?.entries ?? []) : all;
   const shown = list.slice(0, limit);
+  // under the rows on screen: what is loaded and not shown yet, then what the server still holds
+  const left = list.length - limit;
+  const canFetch = !q.trim() && more && !!onOlder;
+  const older = () => {
+    setLimit((l) => l + PAGE);
+    // the next page is asked for a tap before the loaded rows run out, so "Show older" rarely waits
+    if (canFetch && left <= PAGE) onOlder();
+  };
   const log = useLog(monthsOf(shown.map((e) => e.date)));
   const keyOf = useStableKeys(shown);
   const act = useEntryActions();
@@ -436,7 +465,7 @@ export const Timeline = ({ today, all, pending, onWrite }: { today: string; all:
   return (
     <KSection
       title="Entries"
-      meta={all.length || undefined}
+      meta={total === null ? `${all.length}+` : total || undefined}
       className="jtl-sec"
       action={
         all.length > 3 ? (
@@ -531,9 +560,9 @@ export const Timeline = ({ today, all, pending, onWrite }: { today: string; all:
           })}
         </div>
       )}
-      {list.length > limit ? (
-        <button type="button" className="pill-row jtl-more" onClick={() => setLimit((l) => l + PAGE)}>
-          Show {Math.min(PAGE, list.length - limit)} older
+      {left > 0 || canFetch ? (
+        <button type="button" className="pill-row jtl-more" onClick={older} disabled={left <= 0 && loadingOlder} aria-busy={(left <= 0 && loadingOlder) || undefined}>
+          {left > 0 ? `Show ${Math.min(PAGE, left)} older` : loadingOlder ? 'Loading older entries' : 'Show older'}
         </button>
       ) : null}
     </KSection>
