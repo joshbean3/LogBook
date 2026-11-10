@@ -754,6 +754,13 @@ textarea.in {
 .step:disabled {
   opacity: 0.35;
 }
+/* a stepper's minus and plus show the press like every other control (the press delegate writes data-pressed) */
+.step {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.step[data-pressed]:not(:disabled) {
+  background: var(--surface-3);
+}
 
 /* ---------- the mark ---------- */
 .mark-hit {
