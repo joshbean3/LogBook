@@ -1,10 +1,10 @@
 /* ---------- Settings (§8, shape system §6, reference 658-672): a pushed page of inset groups under small sans headers,
-   then action pills, then the version, centred. Every row pushes its section, or opens a sheet. ---------- */
+   then action pills, then the version, centered. Every row pushes its section, or opens a sheet. ---------- */
 .s-set {
   --swipe-bg: var(--bg);
 }
 
-/* a section: header 28 above, 12 to its container; an optional grey footnote under it */
+/* a section: header 28 above, 12 to its container; an optional gray footnote under it */
 .s-sec {
   margin-top: var(--section);
   min-width: 0;
@@ -67,16 +67,20 @@
 .s-wrap {
   padding-block: 11px;
 }
-/* a drill row's line under its title wraps to a second line rather than losing its end (at 320 "See your runs land …"
-   said nothing); the row grows from 64 by its own height, nothing animates */
+/* a drill row's line under its title wraps, to as many lines as it needs: at 320 and at large text sizes a clamp cut
+   the end off a sentence ("We answer within…"). The row grows by its own height, nothing animates */
 .s-go .lrow-sub {
   white-space: normal;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow: visible;
 }
 .s-go.two {
   padding-block: 11px;
+}
+/* and its title wraps too rather than ending in an ellipsis (a large text size, a long email) */
+.s-group .s-go.two .lrow-title {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
 }
 .s-bad {
   color: var(--bad);
@@ -111,7 +115,7 @@
   left: 60px;
 }
 
-/* action pills: full-width white pills with centred words; the one that loses something in red on a pale red */
+/* action pills: full-width white pills with centered words; the one that loses something in red on a pale red */
 .s-pills {
   display: grid;
   gap: var(--gap);
@@ -136,7 +140,7 @@
   color: var(--ink-4);
 }
 
-/* the version, centred at the bottom under the wordmark */
+/* the version, centered at the bottom under the wordmark */
 .s-colophon {
   margin: 36px 0 8px;
   text-align: center;
@@ -215,23 +219,29 @@
   color: var(--ink-3);
 }
 
-/* the rebuild offer (review 2 feel N3): the page's last block, sticky to the bottom of the pushed page's scroller (which ends
-   at the tab bar). While the page is longer than the screen it rides 12 px above the tab bar; scrolled to the end it sits
-   after Easy pace, so nothing is ever under it for good. Never position: fixed: inside the transformed layer that is
-   absolute, and it scrolled with the page over the steppers. */
+/* the rebuild offer (review 2 feel N3): the page's last block, sticky in the pushed page's scroller. The scroller runs
+   under the ask bar and the tab bar, so the card's resting line is 12 px above that chrome (and above the keyboard when
+   it is up), where its buttons can be tapped; scrolled to the end it sits after the page's last card. Never position:
+   fixed: inside the transformed layer that is absolute, and it scrolled with the page over the steppers. */
 .s-rebuild {
   position: sticky;
-  bottom: 12px;
+  bottom: calc(12px + max(var(--chrome-h) + var(--safe-b), var(--kb, 0px)));
   margin-top: 24px;
   z-index: 20;
   display: grid;
+  /* the column is the card's width, never its widest button's: at 320 "Rebuild anyway" pushed every line past the edge */
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   padding: 16px 16px 12px;
   border-radius: var(--r-card);
   border: var(--card-border);
   background: var(--surface);
   box-shadow: var(--shadow-float);
-  overflow: hidden;
+  /* on a short screen, or at a large text size, the card never takes the whole page: about 150 px of the page stays in
+     reach above it, its own words scroll inside it, and its two buttons stay at its foot */
+  max-height: max(176px, calc(var(--scroller-h, 100dvh) - var(--chrome-h) - var(--safe-b) - 232px));
+  overflow: hidden auto;
+  overscroll-behavior: contain;
 }
 .s-rebuild-title {
   font-size: 1.0625rem;
@@ -243,21 +253,54 @@
   line-height: 1.25rem;
   color: var(--ink-2);
 }
-.s-rebuild-actions {
-  margin-top: 8px;
+/* a jump of more than 30% in weekly miles: said on the card before Rebuild */
+.s-rebuild-warn {
   display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: var(--r-control);
+  background: var(--accent-soft);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink);
+}
+.s-rebuild-warn svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent-text);
+}
+.s-days-note {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
+  text-align: center;
+}
+.s-rebuild-actions {
+  position: sticky;
+  bottom: -12px;
+  margin: 8px -16px -12px;
+  padding: 8px 16px 12px;
+  background: var(--surface);
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }
 .s-rebuild-go {
   min-width: 112px;
 }
-@media (min-width: 900px) {
-  .s-rebuild {
-    bottom: 24px;
+/* a narrow card (320 wide, or a large text size): the two buttons cannot sit side by side, so they stack full width, the
+   primary one on top */
+.s-rebuild {
+  container: s-rebuild / inline-size;
+}
+@container s-rebuild (max-width: 19rem) {
+  .s-rebuild-actions {
+    flex-direction: column-reverse;
   }
 }
-
 /* ---------- habits ---------- */
 /* the habits on Today: rows in one white card; the lifted row floats over it */
 .s-hlist {
@@ -424,6 +467,18 @@
   color: var(--ink-2);
 }
 
+/* ---------- sign out: who, and what would be lost ---------- */
+.s-signout-lede p {
+  margin: 0;
+}
+.s-signout-lede .s-signout-warn {
+  margin-top: 8px;
+  color: var(--bad);
+}
+.s-signout-lede {
+  overflow-wrap: anywhere;
+}
+
 /* ---------- delete account ---------- */
 .s-del {
   display: grid;
@@ -490,7 +545,7 @@
   color: var(--bad);
 }
 
-/* heart-rate zones beside Strava: the zones in ink, the explanation quiet, Sync at the right */
+/* heart-rate zones under the run source: the zones in ink, the explanation quiet, Sync at the right */
 .s-zones {
   align-items: flex-start;
   padding-block: 12px;
@@ -508,7 +563,10 @@
   min-height: 44px;
   min-width: 44px;
 }
-/* Settings → You: the name, typed in place */
+/* Settings → You: the name, typed in place. The label keeps its word; the field gives way */
+.s-name-row .lrow-main {
+  flex: none;
+}
 .s-name-in {
   flex: 1 1 auto;
   min-width: 0;
@@ -523,6 +581,14 @@
   font-size: 1.0625rem;
   color: var(--ink-2);
 }
+.s-name-pen {
+  flex: none;
+  margin-left: 8px;
+  color: var(--ink-3);
+}
+.s-name-row:has(.s-name-in:focus) .s-name-pen {
+  color: var(--accent);
+}
 .s-name-in::placeholder {
   color: var(--ink-4);
 }
@@ -533,13 +599,27 @@
 .s-name-row:has(.s-name-in:focus-visible) {
   box-shadow: inset 0 -2px 0 var(--accent-bright);
 }
+/* who is signed in (You, Account): a long address wraps anywhere rather than losing its end */
+.s-email-row .lrow-title,
+.s-email-row .lrow-sub {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.s-email-row .lrow-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.s-email-row {
+  padding-block: 11px;
+}
 .s-archived .lrow-title {
   color: var(--ink-3);
 }
 
 /* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
    must not move it too (review 3 feel R3-3: on Chromium a Save with the composer above the anchor moved the page twice,
-   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. Every node under
+   66 px down and back). iOS Safari has no scroll anchoring, so this is the iPhone's behavior everywhere. Every node under
    this root is left out of anchor selection. */
 .s-set {
   overflow-anchor: none;
@@ -548,6 +628,13 @@
 .s-wrap-title .lrow-title {
   white-space: normal;
   overflow: visible;
+}
+/* a drill row with a long name (a policy's full title): the name wraps and the chevron keeps its place */
+.s-group .s-go.s-wrap-title:not(.two) .lrow-main {
+  flex: 1 1 0;
+}
+.s-go.s-wrap-title {
+  padding-block: 11px;
 }
 /* a one-line row keeps its whole title; the value on the right gives way and ellipsizes ("Run days" at 320 with a tile) */
 .s-group .s-go:not(.two) .lrow-main {
@@ -566,4 +653,118 @@
   .s-narrow {
     display: inline;
   }
+}
+
+/* the delete sheet: what happens to the copies, under the card, and the export's result between the buttons */
+.s-del-fine {
+  margin: 0 4px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.s-del-note {
+  margin: 0;
+  padding: 2px 8px 6px;
+  text-align: center;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+}
+.s-del-note.s-bad {
+  color: var(--bad);
+}
+
+/* change password: three labeled fields, each with its eye */
+.s-pwform {
+  gap: 14px;
+}
+.s-pw-field {
+  display: grid;
+  gap: 6px;
+}
+.s-pw-label {
+  padding-inline: 4px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.s-pw-field .s-pw {
+  display: block;
+}
+
+/* a group's header at a large text size: the title wraps and its status word keeps its place beside or under it, whole
+   ("The assistant", "1 of 3 on"), instead of both ending in an ellipsis */
+.s-sec > .lb-head {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.s-sec > .lb-head .lb-title {
+  white-space: normal;
+  overflow: visible;
+}
+.s-sec > .lb-head .lb-meta {
+  flex: none;
+  max-width: 100%;
+}
+
+/* large text (settings-28, copy-legal-14): when a group is narrow in rem (a 320 pt phone at 135% text, any phone at 200%)
+   a row's value leaves the right edge and takes its own line under the title, whole, with the chevron at the line's end,
+   instead of ellipsizing to nothing ("25 mi", "Saturday"). At the default text size nothing changes. */
+.s-group.group {
+  container: s-group / inline-size;
+}
+@container s-group (max-width: 17rem) {
+  .s-group > .s-go:has(.s-value) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 2px;
+    padding-block: 11px;
+  }
+  .s-group > .s-go:has(.s-value):not(.has-tile) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .s-group > .s-go.has-tile:has(.s-value) > .s-tile {
+    grid-row: span 2;
+    align-self: center;
+  }
+  .s-group > .s-go:has(.s-value) > .lrow-main {
+    min-width: 0;
+  }
+  .s-group > .s-go:has(.s-value) .lrow-title {
+    white-space: normal;
+    overflow: visible;
+  }
+  .s-group > .s-go:has(.s-value) > .lrow-right {
+    grid-column: -2 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    max-width: none;
+  }
+  .s-group > .s-go:has(.s-value) .s-value {
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* very large text (200% and up at 320): a one-line row with no value lets its title wrap, breaking a long word if it
+   must ("Acknowledgments", "Change password"), and keeps its chevron in the row; a second line breaks a long address
+   ("support@…"). At the default size every such title fits on one line, so nothing moves. */
+.s-group .s-go:not(.two):not(:has(.s-value)) .lrow-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.s-group .s-go:not(.two):not(:has(.s-value)) .lrow-title,
+.s-group .lrow.s-wrap .lrow-title {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.s-group .lrow-sub {
+  overflow-wrap: anywhere;
 }

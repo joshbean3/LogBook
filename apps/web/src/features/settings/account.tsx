@@ -1,29 +1,20 @@
 import { addMonths, monthsBetween, today } from '@logbook/shared';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, NetworkError } from '@/api/client';
 import { fetchExport, fetchMonth, useBootstrap, useDeleteAccount } from '@/api/queries';
 import type { Bootstrap, ExportBundle, MonthBundle } from '@/api/types';
 import { markSignedOut } from '@/features/auth/flag';
-import { takeLegacyProfile } from '@/features/onboarding/model';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
+import { useToast } from '@/ui/Toast';
+import { DELETE_COPIES, deleteLede, EXPORT_FAILED, exportNote, PASSWORD_MAX, passwordProblem, passwordRefusal, type AccountCounts, type PasswordField, type PasswordProblem } from './accountModel';
+import { deliverExport } from './exportFile';
 
 // ---------- export ----------
-const save = (data: unknown, name: string) => {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-};
 
 /**
  * Before `GET /export` exists on a server (contract 3 is newer than some deployments): the same data gathered from the
@@ -85,22 +76,46 @@ export const readAll = async (onProgress: (done: number, total: number) => void 
   }
 };
 
-/** Export: `GET /export`, saved as `logbook-YYYY-MM-DD.json`, the file Import reads back. */
+/**
+ * Export: `GET /export` as `logbook-YYYY-MM-DD.json`, the file Import reads back. A download on the web; in the iPhone
+ * app the share sheet (exportFile.ts). `outcome` says which, and whether the share sheet was closed without sharing.
+ */
 export const exportAll = async (onProgress: (done: number, total: number) => void) => {
   const r = await readAll(onProgress);
   const name = `logbook-${today()}.json`;
-  save(r.data, name);
-  return { name, kind: r.kind };
+  const outcome = await deliverExport(r.data, name);
+  return { name, kind: r.kind, outcome };
+};
+
+/**
+ * One export at a time, with its progress and its result as a line to show where it was started (the Data page's row, the
+ * delete sheet). Nothing claims a file exists unless the download started or the share sheet finished.
+ */
+export const useExport = () => {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [result, setResult] = useState<{ text: string; bad: boolean } | null>(null);
+  // a second tap before the first has drawn "Gathering" must not start a second export (and a second share sheet)
+  const running = useRef(false);
+  const run = async () => {
+    if (running.current) return;
+    running.current = true;
+    setBusy('Gathering your log…');
+    setResult(null);
+    try {
+      const r = await exportAll((d, t) => setBusy(t > 1 ? `Gathering ${d} of ${t} months…` : 'Gathering your log…'));
+      setResult({ text: exportNote(r.outcome, r.name), bad: false });
+    } catch {
+      haptics.error();
+      setResult({ text: EXPORT_FAILED, bad: true });
+    } finally {
+      running.current = false;
+      setBusy(null);
+    }
+  };
+  return { busy, result, run };
 };
 
 // ---------- delete account: a two-step sheet ----------
-export interface AccountCounts {
-  sessions: number;
-  habits: number;
-  entries: number;
-  todos: number;
-  links: number;
-}
 const len = (x: unknown) => (Array.isArray(x) ? x.length : 0);
 /** What the account holds, counted exactly from the export (QA D-S4), not from what this device happens to have cached. */
 export const countAll = (r: Awaited<ReturnType<typeof readAll>>): AccountCounts => {
@@ -125,14 +140,15 @@ export const countAll = (r: Awaited<ReturnType<typeof readAll>>): AccountCounts 
   };
 };
 const useAccountCounts = () => useQuery({ queryKey: ['account-counts'], queryFn: async () => countAll(await readAll()), staleTime: 0, gcTime: 0, retry: false });
-const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
-/** Step one: what goes, counted exactly, and a way out (export first). Continue pushes the password step. */
-export const DeleteStepOne = ({ onExport }: { onExport: () => void }) => {
+/**
+ * Step one: what goes, counted exactly, what happens to the copies, and a way out. "Export my data first" runs here, with
+ * its progress and its result on screen, so nobody continues to an irreversible step believing in a file that is not there.
+ */
+export const DeleteStepOne = () => {
   const sheet = useSheet();
   const counts = useAccountCounts();
-  const c = counts.data;
-  const parts = c ? [c.sessions ? plural(c.sessions, 'session') : null, c.habits ? plural(c.habits, 'habit') : null, c.entries ? plural(c.entries, 'journal entry', 'journal entries') : null, c.todos ? plural(c.todos, 'to-do') : null, c.links ? plural(c.links, 'saved link') : null].filter(Boolean) : [];
+  const exp = useExport();
   return (
     <div className="s-del">
       {counts.isPending ? (
@@ -142,17 +158,21 @@ export const DeleteStepOne = ({ onExport }: { onExport: () => void }) => {
           <Skeleton h={18} w="48%" r="line" />
         </SkeletonGroup>
       ) : (
-        <p className="s-del-lede">
-          This removes your account and everything in it{parts.length ? `: ${parts.join(', ')}, and every lift and run` : ''}. It can’t be undone, here or on any other device.
-        </p>
+        <p className="s-del-lede">{deleteLede(counts.data)}</p>
       )}
+      <p className="s-del-fine">{DELETE_COPIES}</p>
       <div className="s-del-actions">
-        <Button variant="danger" block className="s-del-continue" onClick={() => sheet.push({ title: 'Your password', eyebrow: 'Delete account', body: <DeleteStepTwo />, sticky: true })}>
+        <Button variant="danger" block className="s-del-continue" disabled={!!exp.busy} onClick={() => sheet.push({ title: 'Your password', eyebrow: 'Delete account', body: <DeleteStepTwo />, sticky: true })}>
           Continue
         </Button>
-        <Button variant="quiet" block onClick={onExport}>
-          Export my data first
+        <Button variant="quiet" block disabled={!!exp.busy} onClick={() => void exp.run()}>
+          {exp.busy ?? 'Export my data first'}
         </Button>
+        {exp.result ? (
+          <p className={`s-del-note ${exp.result.bad ? 's-bad' : ''}`} role="status">
+            {exp.result.text}
+          </p>
+        ) : null}
         <Button variant="quiet" block onClick={() => sheet.close()}>
           Keep my account
         </Button>
@@ -183,18 +203,10 @@ const DeleteStepTwo = () => {
       return;
     }
     setErr(null);
-    const uid = boot.data?.user.id;
     del.mutate(pw, {
       onSuccess: () => {
         sheet.close();
-        // an old device copy of the training answers goes too (the account's copy went with the account)
-        takeLegacyProfile(uid);
-        try {
-          for (const k of Object.keys(sessionStorage)) if (k.startsWith('logbook.onboarding')) sessionStorage.removeItem(k);
-        } catch {
-          /* nothing kept */
-        }
-        // Authed drops the cache and shows sign in: that screen is the answer (no toast)
+        // the shell wipes what this account kept on the device and shows the welcome page: that screen is the answer
         markSignedOut(qc);
       },
       onError: (e2) => {
@@ -253,3 +265,89 @@ const DeleteStepTwo = () => {
   );
 };
 
+// ---------- change password ----------
+/** One password field with its show and hide eye. */
+const PwField = ({ id, label, value, onChange, autoComplete, bad, describedBy, inputRef, hint }: { id: string; label: string; value: string; onChange: (v: string) => void; autoComplete: 'current-password' | 'new-password'; bad: boolean; describedBy?: string; inputRef?: React.Ref<HTMLInputElement>; hint: 'next' | 'done' }) => {
+  const [shown, setShown] = useState(false);
+  return (
+    <label className="s-pw-field" htmlFor={id}>
+      <span className="s-pw-label">{label}</span>
+      <span className={`s-pw ${bad ? 'bad' : ''}`}>
+        <input ref={inputRef} id={id} className="in s-pw-in" type={shown ? 'text' : 'password'} name={id} autoComplete={autoComplete} autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint={hint} maxLength={PASSWORD_MAX} aria-invalid={bad ? true : undefined} aria-describedby={bad ? describedBy : undefined} value={value} onChange={(e) => onChange(e.target.value)} />
+        <button type="button" className="s-pw-eye" aria-label={shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} aria-pressed={shown} onClick={() => setShown((v) => !v)}>
+          {shown ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+        </button>
+      </span>
+    </label>
+  );
+};
+
+/**
+ * Change password (Contract 3): the current password, the new one, and the new one again, then `POST /me/password
+ * { current, next }`. A wrong current password, a short new one and a mismatch each say so under the fields. On success
+ * the sheet closes and a toast confirms; the server signs the other devices out and keeps this one.
+ */
+export const ChangePasswordPanel = () => {
+  const sheet = useSheet();
+  const toast = useToast();
+  const boot = useBootstrap();
+  const [v, setV] = useState({ current: '', next: '', confirm: '' });
+  const [err, setErr] = useState<PasswordProblem | null>(null);
+  const refs = { current: useRef<HTMLInputElement>(null), next: useRef<HTMLInputElement>(null), confirm: useRef<HTMLInputElement>(null) };
+  useEffect(() => {
+    const t = setTimeout(() => refs.current.current?.focus(), 380);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const change = useMutation({ mutationFn: (b: { current: string; next: string }) => api<{ ok: boolean; signedOut?: number | boolean } | undefined>('/me/password', { method: 'POST', json: b }) });
+  const fail = (p: PasswordProblem) => {
+    haptics.error();
+    setErr(p);
+    refs[p.field].current?.focus();
+  };
+  const set = (k: PasswordField) => (value: string) => {
+    setV((cur) => ({ ...cur, [k]: value }));
+    if (err) setErr(null);
+  };
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (change.isPending) return;
+    const p = passwordProblem(v);
+    if (p) return fail(p);
+    setErr(null);
+    change.mutate(
+      { current: v.current, next: v.next },
+      {
+        onSuccess: (r) => {
+          haptics.success();
+          sheet.close();
+          toast(r?.signedOut ? 'Password changed. Your other devices are signed out.' : 'Password changed.');
+        },
+        onError: (e2) => fail(passwordRefusal(e2)),
+      },
+    );
+  };
+  return (
+    <form className="s-del s-pwform" onSubmit={submit} noValidate>
+      {/* the account name, for password managers */}
+      <input type="email" name="email" autoComplete="username" value={boot.data?.user.email ?? ''} readOnly hidden />
+      <PwField id="pw-current" label="Current password" value={v.current} onChange={set('current')} autoComplete="current-password" bad={err?.field === 'current'} describedBy="s-pwform-err" inputRef={refs.current} hint="next" />
+      <PwField id="pw-next" label="New password" value={v.next} onChange={set('next')} autoComplete="new-password" bad={err?.field === 'next'} describedBy="s-pwform-err" inputRef={refs.next} hint="next" />
+      <PwField id="pw-confirm" label="New password again" value={v.confirm} onChange={set('confirm')} autoComplete="new-password" bad={err?.field === 'confirm'} describedBy="s-pwform-err" inputRef={refs.confirm} hint="done" />
+      {err ? (
+        <p id="s-pwform-err" className="s-pw-err" role="alert">
+          {err.text}
+        </p>
+      ) : (
+        <p className="s-del-fine">At least 8 characters. Your other devices are signed out when it changes.</p>
+      )}
+      <div className="s-del-actions">
+        <Button variant="primary" block type="submit" disabled={change.isPending}>
+          {change.isPending ? 'Changing…' : 'Change password'}
+        </Button>
+        <Button variant="quiet" block onClick={() => sheet.close()}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+};

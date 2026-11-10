@@ -6,10 +6,15 @@ import { useBootstrap } from '@/api/queries';
 import { markSignedOut } from '@/features/auth/flag';
 import { haptics, useHapticsEnabled } from '@/lib/haptics';
 import { isNative } from '@/lib/native';
+import { outbox } from '@/api/outbox';
+import { Button } from '@/ui/primitives';
 import { PushedBar, Row, useSheet, useToast } from '@/ui';
-import { DeleteStepOne, exportAll } from './account';
+import { ChangePasswordPanel, DeleteStepOne, useExport } from './account';
+import { signOutLede, unsentWords } from './accountModel';
 import { popFav } from '@/features/journal/feel';
-import { Download, House, Mail, Upload, Vibrate, type LucideIcon } from 'lucide-react';
+import { Download, House, KeyRound, Mail, Upload, Vibrate, type LucideIcon } from 'lucide-react';
+import { healthDeviceId } from './healthDevice';
+import { EXPORT_SUB, IMPORT_MAX_BYTES, IMPORT_NOT_OURS, IMPORT_SUB, IMPORT_TOO_BIG, importDone, importError, importKind } from './dataModel';
 import { ActionPill, GoRow, SGroup, Switch, Tile } from './parts';
 
 // ---------- install (the web app only) ----------
@@ -93,55 +98,39 @@ export const AppPage = (): React.JSX.Element => {
   );
 };
 
-const WORDS: Record<string, [string, string]> = { journal: ['journal entry', 'journal entries'], todos: ['to-do', 'to-dos'], links: ['saved link', 'saved links'], reads: ['saved link', 'saved links'], checks: ['habit check', 'habit checks'], quotes: ['quote', 'quotes'], quotePrefs: ['quote preference', 'quote preferences'], morningDays: ['morning', 'mornings'] };
-
-/** /settings/data: Import and Export. Each row answers in its own second line; only a failure raises a toast. */
+/** /settings/data: Import and Export. Each row answers in its own second line, a failure included. */
 export const DataPage = (): React.JSX.Element => {
   const qc = useQueryClient();
-  const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<{ text: string; bad: boolean } | null>(null);
   const importBundle = useMutation({
     mutationFn: async (file: File) => {
-      const text = await file.text();
+      // a file the server would refuse is refused here, before the whole of it is sent
+      if (file.size > IMPORT_MAX_BYTES) throw new ApiError(IMPORT_TOO_BIG, 413);
       let json: unknown;
       try {
-        json = JSON.parse(text);
+        json = JSON.parse(await file.text());
       } catch {
-        throw new ApiError('That file isn’t a Logbook export or an old log.', 422);
+        throw new ApiError(IMPORT_NOT_OURS, 422);
       }
+      // "Nothing new" is said only of a file that is a Logbook export; an empty object or another app's JSON is refused
+      if (!importKind(json)) throw new ApiError(IMPORT_NOT_OURS, 422);
       return api<{ ok?: boolean; imported?: Record<string, number> }>('/import', { method: 'POST', json });
     },
     onSuccess: (r) => {
-      const parts = Object.entries(r.imported ?? {})
-        .filter(([, n]) => n)
-        .map(([k, n]) => {
-          const w = WORDS[k];
-          return w ? `${n.toLocaleString()} ${n === 1 ? w[0] : w[1]}` : `${n.toLocaleString()} ${n === 1 ? k.replace(/s$/, '') : k}`;
-        });
-      setImportResult({ text: parts.length ? `Imported ${parts.join(', ')}.` : 'Nothing new: it was all here already.', bad: false });
+      setImportResult({ text: importDone(r.imported), bad: false });
       void qc.invalidateQueries();
     },
     onError: (e) => {
       haptics.error();
-      setImportResult({ text: e instanceof ApiError && e.status === 422 ? 'That file isn’t a log Logbook can read.' : 'Import didn’t finish. Try again.', bad: true });
+      setImportResult({ text: importError(e instanceof ApiError ? e.status : null), bad: true });
+    },
+    onSettled: () => {
+      // the same file can be picked again after a fix
+      if (fileRef.current) fileRef.current.value = '';
     },
   });
-  const [exporting, setExporting] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
-  const runExport = async () => {
-    if (exporting) return;
-    setExporting('Gathering your log…');
-    try {
-      const r = await exportAll((d, t) => setExporting(t > 1 ? `Gathering ${d} of ${t} months…` : 'Gathering your log…'));
-      setSaved(`Saved ${r.name}.`);
-    } catch {
-      haptics.error();
-      toast('Export didn’t finish. Check your connection.');
-    } finally {
-      setExporting(null);
-    }
-  };
+  const exp = useExport();
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Data" />
@@ -150,23 +139,38 @@ export const DataPage = (): React.JSX.Element => {
           className="s-wrap s-import-row has-tile"
           left={<Tile icon={Upload} />}
           title="Import"
-          sub={importBundle.isPending ? 'Reading the file…' : importResult ? <span className={importResult.bad ? 's-bad' : ''}>{importResult.text}</span> : 'A Logbook export or your old log, as JSON.'}
+          sub={importBundle.isPending ? 'Reading the file…' : importResult ? <span className={importResult.bad ? 's-bad' : ''}>{importResult.text}</span> : IMPORT_SUB}
           onClick={() => !importBundle.isPending && fileRef.current?.click()}
           label="Import a file"
         />
-        <Row className="s-wrap s-export-row has-tile" left={<Tile icon={Download} />} title="Export" sub={exporting ?? saved ?? 'Everything you’ve logged, as one JSON file.'} onClick={() => void runExport()} label="Export my data" />
+        <Row
+          className="s-wrap s-export-row has-tile"
+          left={<Tile icon={Download} />}
+          title="Export"
+          sub={exp.busy ?? (exp.result ? <span className={exp.result.bad ? 's-bad' : ''}>{exp.result.text}</span> : EXPORT_SUB)}
+          onClick={() => void exp.run()}
+          label="Export my data"
+          aria-live="polite"
+        />
       </SGroup>
       <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => e.target.files?.[0] && importBundle.mutate(e.target.files[0])} />
     </div>
   );
 };
 
-/** Sign out: the Settings root's action pill and the Account page's. A failure says so in a toast. */
+/**
+ * Sign out: the Settings root's action pill and the Account page's. The call names this phone's Apple Health connection
+ * (Contract 3), so the server revokes its upload token with the session. The shell then wipes what the account kept on
+ * the device. A failure says so in a toast.
+ */
 export const useSignOut = () => {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: () => api('/auth/logout', { method: 'POST' }),
+    mutationFn: () => {
+      const healthTokenId = healthDeviceId();
+      return api('/auth/logout', healthTokenId ? { method: 'POST', json: { healthTokenId } } : { method: 'POST' });
+    },
     onSuccess: () => markSignedOut(qc),
     onError: () => {
       haptics.error();
@@ -175,46 +179,65 @@ export const useSignOut = () => {
   });
 };
 
-/** /settings/account: who is signed in, then Sign out and Delete account (a two-step sheet) as action pills. */
+/**
+ * Sign out asks first (both pills, the root's and the Account page's): the sheet names the account and, when this phone
+ * still holds changes the server has not had, says they would be lost.
+ */
+const SignOutSheet = (): React.JSX.Element => {
+  const boot = useBootstrap();
+  const sheet = useSheet();
+  const signOut = useSignOut();
+  const [unsent, setUnsent] = useState(() => outbox.size());
+  useEffect(() => {
+    const off = outbox.subscribe(setUnsent);
+    return () => void off();
+  }, []);
+  const warn = unsentWords(unsent);
+  return (
+    <div className="s-del">
+      <div className="s-del-lede s-signout-lede">
+        <p>{signOutLede(boot.data?.user.email)}</p>
+        {warn ? (
+          <p className="s-signout-warn" role="status">
+            {warn}
+          </p>
+        ) : null}
+      </div>
+      <div className="s-del-actions">
+        <Button variant="primary" block onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+          {signOut.isPending ? 'Signing out…' : 'Sign out'}
+        </Button>
+        <Button variant="quiet" block onClick={() => sheet.close()}>
+          Stay signed in
+        </Button>
+      </div>
+    </div>
+  );
+};
+/** Opens the sign-out sheet. */
+export const useConfirmSignOut = () => {
+  const sheet = useSheet();
+  return () => sheet.open({ eyebrow: 'Account', title: 'Sign out?', body: <SignOutSheet /> });
+};
+
+/** /settings/account: who is signed in, Change password, then Sign out and Delete account (a two-step sheet) as action pills. */
 export const AccountPage = (): React.JSX.Element => {
   const boot = useBootstrap();
   const sheet = useSheet();
-  const toast = useToast();
-  const logout = useSignOut();
-  const runExport = () =>
-    void exportAll(() => undefined).catch(() => {
-      haptics.error();
-      toast('Export didn’t finish. Check your connection.');
-    });
+  const confirmSignOut = useConfirmSignOut();
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Account" />
       {/* who is signed in, then the two ways out as action pills (reference 660), the one that loses everything in red */}
       <SGroup title="Signed in as">
-        <Row title={boot.data?.user.email ?? ' '} className="s-email-row has-tile" left={<Tile icon={Mail} />} />
+        <Row title={boot.data?.user.email ?? ' '} className="s-email-row s-wrap-title has-tile" left={<Tile icon={Mail} />} />
+        <GoRow icon={KeyRound} title="Change password" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Change password', body: <ChangePasswordPanel />, sticky: true })} />
       </SGroup>
       <div className="s-pills">
-        <ActionPill className="s-signout" disabled={logout.isPending} onPress={() => logout.mutate()}>
-          {logout.isPending ? 'Signing out…' : 'Sign out'}
+        <ActionPill className="s-signout" onPress={confirmSignOut}>
+          Sign out
         </ActionPill>
-        <ActionPill
-          danger
-          className="s-danger"
-          onPress={() =>
-            sheet.open({
-              eyebrow: 'Account',
-              title: 'Delete account',
-              body: (
-                <DeleteStepOne
-                  onExport={() => {
-                    sheet.close();
-                    runExport();
-                  }}
-                />
-              ),
-            })
-          }
-        >
+        <ActionPill danger className="s-danger" onPress={() => sheet.open({ eyebrow: 'Account', title: 'Delete account', body: <DeleteStepOne /> })}>
           Delete account
         </ActionPill>
       </div>

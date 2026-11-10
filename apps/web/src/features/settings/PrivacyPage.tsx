@@ -1,27 +1,46 @@
+import { CONSENT_VERSION } from '@logbook/shared';
+import { FileText, HeartPulse, Mail, ShieldCheck } from 'lucide-react';
 import type * as React from 'react';
-import { useConsent, useSaveConsent } from '@/features/auth/consent';
-import { CONSENT_TITLE, consentSub, PRIVACY_PROMISE, PrivacyFacts } from '@/features/auth/PrivacyFacts';
+import { PRIVACY_PROMISE, PrivacyFacts } from '@/features/auth/PrivacyFacts';
+import { useConsent, useSaveConsent } from '@/lib/consent';
 import { haptics } from '@/lib/haptics';
-import { ShieldCheck } from 'lucide-react';
-import { PushedBar, Row, useSheet, useToast } from '@/ui';
-import { HealthConsentPanel } from './AppleHealth';
+import { LEGAL, openExternal, SUPPORT_EMAIL } from '@/lib/siteLinks';
+import { PushedBar, Row, useToast } from '@/ui';
 import { GoRow, SGroup, Switch } from './parts';
+import { CONSENT_SWITCHES, consentFoot, consentWord, firstAnswer, mailto, switchOn, type ConsentSwitch } from './privacyModel';
 
-/** "Chose Nov 8" under the switch: when the choice was made, so the page says it is a decision, not a default. */
-const choseOn = (at: string | null) => (at ? `You chose this on ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(at))}.` : 'The default. You haven’t changed it.');
+/** How long a privacy request takes to answer, in days (the consumer health data laws allow 45). */
+export const REQUEST_DAYS = 45;
+
+/** A letter to the support address, as a link the system hands to Mail. */
+export const supportMail = (subject: string): string => mailto(SUPPORT_EMAIL, subject);
 
 /**
- * /settings/privacy: the promise, the one choice made on the privacy page before the account (the assistant may read the
- * training data), and the same list of what is sent to Claude and what never is. The switch saves at once and goes back,
- * with a toast, if the save fails.
+ * /settings/privacy: the promise (the same sentence as before sign-up), then the three choices of the consent record
+ * (training data, Remember when, the daily read), each with one line on what is sent. A switch saves at once and goes
+ * back, with a toast, if the save fails. An account that was never asked reads "Not asked" with every switch off. Under
+ * them: what is sent and what is not (the list sign-up shows), the two policies, and where to send a privacy request.
  */
 export const PrivacyPage = (): React.JSX.Element => {
   const consent = useConsent();
   const save = useSaveConsent();
   const toast = useToast();
-  const sheet = useSheet();
   const c = consent.data;
-  const on = c?.training ?? true;
+  const change = (key: ConsentSwitch, next: boolean) => {
+    if (!c) return;
+    // The first answer is the whole page as it was shown: every switch off but the one just turned on. An account that
+    // was never asked may hold an old default, and that must not ride along as if it had been chosen.
+    const answer = c.at === null ? { ...firstAnswer(), [key]: next } : { [key]: next };
+    save.mutate(
+      { ...answer, version: CONSENT_VERSION },
+      {
+        onError: () => {
+          haptics.error();
+          toast('Couldn’t save that. Try again.');
+        },
+      },
+    );
+  };
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Privacy" />
@@ -31,38 +50,21 @@ export const PrivacyPage = (): React.JSX.Element => {
         </span>
         <p className="s-hero-line display">{PRIVACY_PROMISE}</p>
       </section>
-      <SGroup title="The assistant">
-        <Row
-          className="s-wrap s-wrap-title"
-          title={CONSENT_TITLE}
-          sub={c ? `${consentSub(on)} ${choseOn(c.at)}` : consent.isError ? 'Couldn’t load your choice. Check your connection.' : '–'}
-          right={
-            <Switch
-              on={on}
-              label={CONSENT_TITLE}
-              onChange={(next) => {
-                if (!c) return;
-                save.mutate(
-                  { training: next },
-                  {
-                    onError: () => {
-                      haptics.error();
-                      toast('Couldn’t save that. Try again.');
-                    },
-                  },
-                );
-              }}
-            />
-          }
-        />
-        <GoRow
-          title="Let the coach read your health"
-          sub={c?.health === true ? 'On. A short health summary goes with your question.' : c?.health === false ? 'Off. The coach answers without your health data.' : 'Not asked yet. Nothing from Apple Health reaches the coach.'}
-          value={c?.health === true ? 'On' : c?.health === false ? 'Off' : 'Not asked'}
-          onPress={() => sheet.open({ title: 'Coach access', body: <HealthConsentPanel /> })}
-        />
+      <SGroup
+        title="The assistant"
+        meta={consentWord(c)}
+        foot={c ? consentFoot(c) : consent.isError ? 'Couldn’t load your choices. Check your connection.' : ' '}
+      >
+        {CONSENT_SWITCHES.map((s) => (
+          <Row key={s.key} className="s-wrap s-wrap-title s-consent-row" title={s.title} sub={s.sub} right={<Switch on={switchOn(c, s.key)} label={s.title} disabled={!c} onChange={(next) => change(s.key, next)} />} />
+        ))}
       </SGroup>
-      <PrivacyFacts on={on} health={c?.health ?? null} />
+      {c ? <PrivacyFacts on={switchOn(c, 'training')} consent={c} /> : null}
+      <SGroup title="Policies and requests" foot={`Anthropic runs the assistant and sees only what you allow. Fly.io hosts Logbook. The Privacy Policy lists everyone who handles your data.`}>
+        <GoRow icon={FileText} className="s-wrap-title" title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
+        <GoRow icon={HeartPulse} className="s-wrap-title" title="Consumer health data privacy policy" onPress={() => void openExternal(LEGAL.healthPrivacy)} />
+        <GoRow icon={Mail} className="s-wrap-title" title="Privacy requests" sub={`Ask for a copy of your data, a correction or deletion. We answer within ${REQUEST_DAYS} days.`} href={supportMail('Privacy request')} label="Privacy requests: email us" />
+      </SGroup>
     </div>
   );
 };

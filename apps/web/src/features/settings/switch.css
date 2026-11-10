@@ -18,7 +18,9 @@
   position: absolute;
   inset: 6.5px 0;
   border-radius: 16px;
-  background: var(--surface-3);
+  /* off: --ink-faint (#7c90a5), 3.3:1 on white, so an off switch is seen on a white card (WCAG 1.4.11; gap-qua-10).
+     The fallback holds until the token lands with ws-02's a11y-04 */
+  background: var(--ink-faint, #7c90a5);
   transition: background var(--dur-color) var(--ease-out);
 }
 .s-switch.on::before {
@@ -38,3 +40,7 @@
   outline-offset: 2px;
 }
 
+.s-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
