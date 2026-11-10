@@ -60,6 +60,7 @@
   color: var(--ink-2);
 }
 .auth .auth-back.icon-btn {
+  position: relative;
   align-self: flex-start;
   width: 40px;
   height: 40px;
@@ -67,6 +68,16 @@
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--ink);
+}
+/* the 40px circle answers a 44px press (auth-23) */
+.auth .auth-back.icon-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+}
+.auth .auth-back.icon-btn:disabled {
+  opacity: 0.5;
 }
 .auth-title {
   margin: 0;
@@ -209,14 +220,35 @@
   height: 54px;
   font-size: 1.0625rem;
 }
-.auth-submit.btn:disabled {
+/* quiet until the answer will do, but still pressable: a press says what is missing, at the field (auth-07) */
+.auth-submit.btn:disabled,
+.auth-submit.btn[aria-disabled='true'] {
   background: var(--surface-3);
   border-color: var(--surface-3);
-  color: var(--ink-4);
+  color: var(--ink-3);
   opacity: 1;
 }
-.auth-taken.btn {
+/* a taken address: Next waits (greyed) and "Sign in with that email" takes the pinned place */
+.auth-next-alt.btn {
+  margin-top: auto;
   height: 48px;
+}
+.auth-next-alt.btn:disabled {
+  opacity: 0.55;
+}
+.auth-next-alt + .auth-submit.btn {
+  margin-top: 0;
+  text-decoration: none;
+}
+/* why the person is on this screen (the session ended): one quiet line above the title */
+.auth-notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--r-control);
+  background: var(--surface);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
 }
 .auth-foot {
   margin-top: 4px;

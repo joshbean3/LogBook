@@ -20,9 +20,13 @@ export const markHasAccount = () => {
     /* private mode: the promise shows again on the next cold start, which is harmless */
   }
 };
-/** Where a visitor without a session goes: sign in on a device that has had an account, the promise otherwise. */
-/** Signed out, the app opens on the welcome page; its "I have an account" leads to sign in. */
-export const signedOutHome = () => '/start';
+/**
+ * Where a visitor without a session goes (auth-10): sign in on a device that has had an account here, the welcome pager
+ * otherwise. A 401 sends the visitor with `SIGNED_OUT_STATE` as the router state, and /login then says once why.
+ */
+export const signedOutHome = () => (hasAccountHere() ? '/login' : '/start');
+/** The router state for a session the server ended: `<Navigate to={signedOutHome()} replace state={SIGNED_OUT_STATE} />`. */
+export const SIGNED_OUT_STATE = { signedOut: true } as const;
 
 /**
  * Signed out here (Sign out, Delete account): the quiet session query `Authed` reads (`['auth-session']`, App.tsx) says so,
