@@ -76,6 +76,12 @@
 .s-go.two {
   padding-block: 11px;
 }
+/* and its title wraps too rather than ending in an ellipsis (a large text size, a long email) */
+.s-group .s-go.two .lrow-title {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
 .s-bad {
   color: var(--bad);
 }
@@ -635,4 +641,19 @@
 }
 .s-pw-field .s-pw {
   display: block;
+}
+
+/* a group's header at a large text size: the title wraps and its status word keeps its place beside or under it, whole
+   ("The assistant", "1 of 3 on"), instead of both ending in an ellipsis */
+.s-sec > .lb-head {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+.s-sec > .lb-head .lb-title {
+  white-space: normal;
+  overflow: visible;
+}
+.s-sec > .lb-head .lb-meta {
+  flex: none;
+  max-width: 100%;
 }

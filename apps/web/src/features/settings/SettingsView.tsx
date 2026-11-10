@@ -118,7 +118,7 @@ export default function SettingsView(): React.JSX.Element {
       ) : null}
 
       <SGroup title="Privacy">
-        <GoRow icon={ShieldCheck} title="Assistant access" sub="What the assistant may read." value={consentWord(consent.data)} onPress={go('privacy')} />
+        <GoRow icon={ShieldCheck} className="s-wrap-title" title="Assistant access" sub="What the assistant may read." value={consentWord(consent.data)} onPress={go('privacy')} />
       </SGroup>
 
       <SGroup title="App">
@@ -148,7 +148,7 @@ export default function SettingsView(): React.JSX.Element {
         <GoRow icon={ScrollText} title="Terms of Use" onPress={() => void openExternal(LEGAL.terms)} />
         <GoRow icon={FileText} title="Privacy Policy" onPress={() => void openExternal(LEGAL.privacy)} />
         <GoRow icon={BookOpenText} title="Acknowledgements" onPress={() => void openExternal(LEGAL.acknowledgements)} />
-        <Row className="has-tile s-version-row" left={<Tile icon={Info} />} title="Version" right={<span className="s-value">{version}</span>} />
+        <Row className="s-wrap has-tile s-version-row" left={<Tile icon={Info} />} title="Version" sub={version} />
       </SGroup>
 
       <SGroup title="Account">
