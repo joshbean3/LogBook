@@ -65,7 +65,7 @@ const StatusSheet = ({ current, today }: { current: TrainingStatus | null; today
           <span className="caps">For how long</span>
           <div className="st-chips" role="radiogroup" aria-label="For how long">
             {STATUS_LENGTHS.map((l) => (
-              <button key={l.id} type="button" role="radio" aria-checked={len === l.id} className={`st-chip ${len === l.id ? 'is-on' : ''}`} onClick={() => setLen(l.id)}>
+              <button key={l.id} type="button" role="radio" aria-checked={len === l.id} className={`st-len ${len === l.id ? 'is-on' : ''}`} onClick={() => setLen(l.id)}>
                 {l.label}
               </button>
             ))}

@@ -1369,8 +1369,12 @@
 .st-row .ctx-chip {
   flex: 1 1 0;
 }
+/* the status chip is as wide as its words; the plan's chip takes the rest, so its name shows whole (today-top-09) */
 .st-row .st-chip {
-  flex: 1.15 1 0;
+  flex: 0 1 auto;
+}
+.st-row .st-chip:only-child {
+  flex: 1 1 0;
 }
 .st-chip-sick .ctx-ic,
 .st-chip-injured .ctx-ic {
@@ -1458,8 +1462,9 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-.st-chip {
-  height: 2.25rem;
+.st-len {
+  position: relative;
+  min-height: 2.25rem;
   padding: 0 14px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-strong);
@@ -1467,7 +1472,13 @@
   color: var(--ink);
   font: 500 var(--fs-sub) / 1 var(--sans);
 }
-.st-chip.is-on {
+.st-len::after {
+  /* 36 to look at, 44 to touch: the rows sit 8 apart, so the hit areas meet and never overlap */
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+.st-len.is-on {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--primary-ink);
@@ -1846,6 +1857,8 @@
 }
 .hero.aura:not(.is-tall) .hero-next {
   min-height: 52px;
+  /* a card of its own here: centred in the deck, not pulled 8 left as the plain row is (today-top-14) */
+  margin: 0;
   padding: 0 14px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.82);
