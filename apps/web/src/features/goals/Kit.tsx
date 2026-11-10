@@ -6,14 +6,14 @@ import { useSheet } from '@/ui/Sheet';
 import './kit.css';
 
 /*
- * The shape kit's pieces (kit.css): a section (the shared PageSection), the sheet's pinned pill, and the sheet's delete (a red
- * trash in a tinted circle, then a confirm). Shared by Goals, Learned, Journal, Library and Reads so they read the same.
+ * The shape kit's pieces (kit.css): a section (the shared PageSection), the sheet's pinned pill, and the sheet's delete (a Signal
+ * trash in a Signal soft circle, then a confirm). Shared by Goals, Learned, Journal, Library and Reads so they read the same.
  */
 
-/** A section: the shared header (ui/layout.tsx: serif title, grey meta, an orange action at the right), then its cards. */
+/** A section: the shared header (ui/layout.tsx: Fraunces title, Dusk meta, a Deep Sky action at the right), then its cards. */
 export const KSection = ({ className = '', ...rest }: PageSectionProps) => <PageSection className={`k-sec ${className}`.trim()} {...rest} />;
 
-/** The sheet's foot: one full-width navy pill pinned at the bottom (and an optional quiet pill under it). */
+/** The sheet's foot: the one full-width Sky primary pinned at the bottom (and an optional secondary under it). */
 export const KPin = ({ children }: { children: React.ReactNode }) => <div className="sheet-foot k-pin">{children}</div>;
 
 /** The confirm a sheet's trash pushes: what goes, in words, then one red pill. */
