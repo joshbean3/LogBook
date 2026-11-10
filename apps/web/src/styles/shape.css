@@ -526,7 +526,8 @@ textarea.in:focus {
 }
 .pushed-bar .pb-eyebrow {
   order: 2;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  /* under a title in a 44 px bar: 13 px, 14 at most */
+  font: 400 clamp(13px, var(--fs-foot), 14px) / clamp(18px, var(--lh-foot), 19px) var(--sans);
   letter-spacing: 0;
   text-transform: none;
   color: var(--ink-3);

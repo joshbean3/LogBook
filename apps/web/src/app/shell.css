@@ -123,6 +123,8 @@ body {
   bottom: 0;
   z-index: 30;
   display: grid;
+  /* one column the width of the screen, never of its content: at large text the capsule used to grow past the right edge */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--dock-gap);
   padding: 0 12px calc(var(--safe-b) + 8px);
   pointer-events: none;
@@ -164,11 +166,12 @@ html.kb-open .dock {
   flex: none;
   color: var(--accent);
 }
+/* the dock is fixed chrome, like the system tab bar: its text follows Larger Text only as far as its fixed height allows */
 .dock-ask-text {
   flex: 1;
   min-width: 0;
-  font-size: var(--fs-row);
-  line-height: var(--lh-row);
+  font-size: min(var(--fs-row), 20px);
+  line-height: min(var(--lh-row), 26px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -185,6 +188,8 @@ html.kb-open .dock {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  max-width: calc(100vw - 24px);
 }
 /* folded: the ask bar sinks out and a round button opens beside the capsule */
 .dock[data-compact] .dock-ask {
@@ -246,6 +251,8 @@ html.kb-open .dock {
   height: 100%;
 }
 .tab-item {
+  position: relative;
+  min-width: 0;
   min-height: 44px;
   display: grid;
   justify-items: center;
@@ -265,20 +272,49 @@ html.kb-open .dock {
   color: var(--accent);
 }
 .tab-label {
-  font-size: 0.625rem;
-  line-height: 0.75rem;
+  /* grows with Larger Text up to 12 px, where six words still fit a 320 px screen */
+  font-size: clamp(10px, 0.625rem, 12px);
+  line-height: clamp(12px, 0.75rem, 14px);
   font-weight: 500;
   letter-spacing: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
   transition: opacity 180ms var(--ease-out);
+}
+/* very large text (above 150%, app/dynamicType.ts): the words go and the icons stay; each tab keeps its name for VoiceOver */
+html[data-text-xl] .tab-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+html[data-text-xl] .tab-item svg {
+  width: 26px;
+  height: 26px;
 }
 .tab-item[aria-selected='true'] .tab-label {
   font-weight: 650;
   color: var(--accent-text);
 }
-/* folded on a narrow phone: the capsule gives the button room by dropping the words */
 @media (max-width: 374px) {
+  /* folded on a narrow phone: the capsule gives the button room by dropping the words */
   .dock[data-compact] .tab-label {
     display: none;
+  }
+  /* a 320 px screen has 47 px a tab and 230 px for the ask line: both stay at the brand's size, so no word is cut */
+  .tab-label {
+    font-size: min(0.625rem, 10px);
+    line-height: min(0.75rem, 12px);
+  }
+  .dock-ask-text {
+    font-size: min(var(--fs-row), 17px);
+    line-height: min(var(--lh-row), 22px);
   }
 }
 

@@ -797,7 +797,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   box-sizing: border-box;
 }
 .nb-bar.has-seg {
-  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-columns: minmax(0, 1fr) var(--seg-bar-w);
 }
 .nb-bar.is-collapsed {
   box-shadow: 0 1px 0 var(--line);
@@ -809,7 +809,8 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   height: 44px;
   min-height: 44px;
   min-width: 0;
-  font: 600 11px/13px var(--sans);
+  /* the bar is fixed chrome (44 px): its type follows Larger Text as far as the row allows */
+  font: 600 clamp(11px, var(--fs-caps), 14px) / clamp(13px, var(--lh-caps), 17px) var(--sans);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -840,7 +841,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   overflow: hidden;
   white-space: nowrap;
   opacity: var(--hdr, 0);
-  font: 600 17px/22px var(--sans);
+  font: 600 clamp(17px, var(--fs-row), 22px) / clamp(22px, var(--lh-row), 28px) var(--sans);
   color: var(--ink);
 }
 /* the dim press, relative to the fade the scroll gives each (the plain rule would lose to their opacity) */
@@ -889,7 +890,8 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   padding-top: 4px;
   height: 44px;
   min-height: 44px;
-  font: italic 400 34px/40px var(--display);
+  /* the large title sits in a 44 px row: it can grow a little, and its line stays 40 */
+  font: italic 400 clamp(34px, var(--fs-title), 38px) / 40px var(--display);
   letter-spacing: -0.01em;
   color: var(--ink);
   white-space: nowrap;
@@ -958,7 +960,8 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   min-width: 0;
 }
 .nb-letter {
-  font: 600 11px/13px var(--sans);
+  /* the strip's rows are fixed (the disc is placed under a 13 px line), so the letter grows inside its line only */
+  font: 600 clamp(11px, var(--fs-caps), 13px) / 13px var(--sans);
   letter-spacing: 0.06em;
   color: var(--ink-3);
 }
@@ -970,7 +973,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   place-items: center;
   width: 28px;
   height: 28px;
-  font: 600 15px/20px var(--sans);
+  font: 600 clamp(15px, var(--fs-sub), 18px) / 20px var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
@@ -1013,7 +1016,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 }
 .nb-dot.is-missed,
 .nb-dot.is-skipped {
-  background: var(--ink-4);
+  background: var(--ink-faint);
 }
 /* what the day trains, in place of the dot: a run, a lift, something else. Pressed in while it's ahead, lit when it's done */
 .nb-kinds {
@@ -1096,7 +1099,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   border-radius: var(--r-pill);
   background: var(--accent-tint);
   color: var(--accent-text);
-  font: 600 13px/16px var(--sans);
+  font: 600 clamp(13px, var(--fs-foot), 16px) / clamp(16px, 1rem, 20px) var(--sans);
   white-space: nowrap;
 }
 .today-pill::after {
@@ -1130,17 +1133,22 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   justify-items: center;
   min-width: 0;
 }
+/* a pushed page's title grows with Larger Text up to what the 44 px bar holds: 24 px alone, 19 px over a subtitle */
 .pb-title {
   margin: 0;
   max-width: 100%;
-  font: 600 17px/22px var(--sans);
+  font: 600 clamp(17px, var(--fs-row), 24px) / clamp(22px, var(--lh-row), 30px) var(--sans);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.pb-text:has(.pb-eyebrow) .pb-title {
+  font-size: clamp(17px, var(--fs-row), 19px);
+  line-height: clamp(22px, var(--lh-row), 24px);
+}
 .pb-eyebrow {
-  font: 600 11px/13px var(--sans);
+  font: 600 clamp(11px, var(--fs-caps), 13px) / clamp(13px, var(--lh-caps), 15px) var(--sans);
   letter-spacing: 0.06em;
   color: var(--ink-3);
   text-transform: uppercase;
@@ -1231,17 +1239,22 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   opacity: 0.55;
   transition-duration: 120ms;
 }
+/* the control in the bar's trailing slot grows with Larger Text, to the size the 44 px bar and a 320 px screen hold */
+.nb-bar {
+  --seg-bar-w: clamp(96px, 6rem, 128px);
+  --seg-bar-h: clamp(32px, 2rem, 40px);
+}
 .seg.in-bar {
-  width: 96px;
-  height: 32px;
-  margin: 6px 0;
+  width: var(--seg-bar-w, 96px);
+  height: var(--seg-bar-h, 32px);
+  margin: calc((44px - var(--seg-bar-h, 32px)) / 2) 0;
   gap: 0;
   border-radius: 9px;
 }
 .seg.in-bar .seg-btn {
   padding: 0;
   border-radius: 9px;
-  font: 600 13px/16px var(--sans);
+  font: 600 clamp(13px, var(--fs-foot), 17px) / clamp(16px, 1rem, 22px) var(--sans);
 }
 .seg.in-bar .seg-btn::after {
   content: '';
@@ -1254,5 +1267,5 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 
 /* ---------- WeekRing: the shown day marked, a missed day a quiet gap ---------- */
 .wring-gap {
-  stroke: var(--ink-4);
+  stroke: var(--ink-faint);
 }
