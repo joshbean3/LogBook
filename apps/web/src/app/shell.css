@@ -56,6 +56,18 @@ body {
   background: var(--bg);
   --hdr: 0;
 }
+/*
+ * A focused control is scrolled clear of the chrome (a11y-19, WCAG 2.4.11): never under the floating dock, the status pill
+ * or the sticky bar (and Today's week strip under it).
+ */
+.tab-scroll,
+.pushed {
+  scroll-padding-top: calc(var(--safe-t) + 44px + 8px);
+  scroll-padding-bottom: calc(var(--chrome-h) + var(--safe-b) + var(--pill-room, 0px) + 16px);
+}
+.tab-scroll:has(.nb-strip) {
+  scroll-padding-top: calc(var(--safe-t) + 44px + 82px + 8px);
+}
 .tab-scrim {
   position: absolute;
   inset: 0;
