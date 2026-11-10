@@ -1,0 +1,17 @@
+{
+  "approved": false,
+  "effectiveDate": "",
+  "publisher": "",
+  "postalAddress": "",
+  "supportEmail": "",
+  "governingState": "",
+  "dataCountry": "the United States",
+  "hostingProvider": "Fly.io",
+  "mailProvider": "Resend",
+  "backupProvider": "Cloudflare R2",
+  "snapshotDays": 5,
+  "backupDays": 5,
+  "purgeDays": 30,
+  "logDays": 30,
+  "mailLogDays": 30
+}
