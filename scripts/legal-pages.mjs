@@ -71,7 +71,7 @@ const fill = (text, v, where) =>
     return v[k];
   });
 
-const CSS = `
+export const CSS = `
 :root { color-scheme: light; }
 html { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 @supports (font: -apple-system-body) { html { font: -apple-system-body; } }

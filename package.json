@@ -20,6 +20,7 @@
     "ios:fresh": "bash scripts/ios-fresh.sh",
     "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "ios:release": "bash scripts/ios-release.sh",
-    "legal": "node scripts/legal-pages.mjs"
+    "legal": "node scripts/legal-pages.mjs",
+    "notices": "node scripts/notices.mjs"
   }
 }

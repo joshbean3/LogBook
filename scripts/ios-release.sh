@@ -53,6 +53,7 @@ node scripts/release-check.mjs env || fail "fix the settings above (.env.release
 
 say "3/9  Checking the legal pages, the privacy sentences and the iOS project"
 node scripts/legal-pages.mjs --release || fail "the legal pages are not ready (docs/launch/legal-fields.json)."
+node scripts/notices.mjs --check || fail "the acknowledgements page does not match the installed packages. Run pnpm notices and commit."
 node scripts/privacy-claims.mjs --check || fail "a privacy sentence in the app is not in docs/launch/privacy-claims.md. Read it against the code, then list it."
 node scripts/release-check.mjs ios || fail "the iOS project is not as agreed (see above)."
 
