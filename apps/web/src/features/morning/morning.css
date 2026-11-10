@@ -285,11 +285,11 @@
 }
 .late-hit .sch-ico {
   background: var(--warn-soft);
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .late-text {
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
   white-space: normal;
 }
 .late-text.is-clear {
@@ -396,7 +396,7 @@
   color: var(--ink);
 }
 .leave-row .sch-sub.is-late {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
   /* `18 min later than your routine` whole (it is the row's news): it wraps rather than losing `routine` */
   white-space: normal;
 }
@@ -575,7 +575,7 @@
   color: var(--ink-3);
 }
 .se-note {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .se-leave {
   padding: 12px 14px;
@@ -590,7 +590,7 @@
   font-size: 1.0625rem;
 }
 .se-leave .later {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .se-leave .sooner {
   color: var(--accent-text);

@@ -1777,7 +1777,8 @@
   overflow: visible;
   text-wrap: balance;
   font: italic 400 1.25rem/1.625rem var(--display);
-  color: #c7781e;
+  /* 5.3:1 on the card's warm white (a11y-06) */
+  color: #9a5a0c;
 }
 .hero.is-quiet .hg .hero-line {
   color: var(--ink-3);
@@ -1814,7 +1815,7 @@
   }
 }
 .hero-week-runs {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .hero-week-runs::before {
   content: '·';

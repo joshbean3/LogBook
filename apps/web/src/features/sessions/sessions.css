@@ -222,7 +222,7 @@
 }
 .assess.v-off .assess-head,
 .assess.v-short .assess-head {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .assess ul {
   padding-left: 18px;
@@ -844,7 +844,7 @@
   color: var(--accent-text);
 }
 .ss-st.is-floor {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .ss-hero-num {
   display: inline-flex;
