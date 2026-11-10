@@ -10,7 +10,10 @@
   --ink: #0f2a44;
   --ink-2: #2f5d85;
   --ink-3: #57718a;
-  --ink-4: #7c90a5;
+  /* --ink-4 is text (captions, hints, axis labels), so it carries the --ink-3 value: 4.5:1 or better on white, --bg and
+     --surface-2. Marks that are not text (a ring's track, a hairline dot, a disabled glyph) use --ink-faint. */
+  --ink-4: #57718a;
+  --ink-faint: #7c90a5;
   --line: rgba(15, 42, 68, 0.08);
   --line-strong: rgba(15, 42, 68, 0.16);
   --columbia: #b9d9eb;

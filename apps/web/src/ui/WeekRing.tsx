@@ -54,14 +54,14 @@ const sector = (cx: number, cy: number, r: number, w: number, a0: number, a1: nu
   const [ix0, iy0] = polar(cx, cy, ri, a0);
   return `M ${f2(ox0)} ${f2(oy0)} A ${ro} ${ro} 0 0 1 ${f2(ox1)} ${f2(oy1)} L ${f2(ix1)} ${f2(iy1)} A ${ri} ${ri} 0 0 0 ${f2(ix0)} ${f2(iy0)} Z`;
 };
-/** The solid arcs. Missed and rest have none (a missed day's stretch of track is --ink-4, a quiet gap; never red). */
+/** The solid arcs. Missed and rest have none (a missed day's stretch of track is --ink-faint, a quiet gap; never red). */
 const COLOR: Partial<Record<WeekDayStatus, string>> = {
   done: 'var(--accent)',
   floor: 'var(--warn)',
   skipped: 'var(--ink-3)',
   // still to come: a faint arc, clearly on the track but quieter than anything that happened
-  open: 'var(--ink-4)',
-  future: 'var(--ink-4)',
+  open: 'var(--ink-faint)',
+  future: 'var(--ink-faint)',
 };
 const WORD: Partial<Record<WeekDayStatus, string>> = { done: 'done', floor: 'floor', missed: 'missed', skipped: 'skipped', rest: 'rest' };
 export const weekRingLabel = (days: WeekDayStatus[]) => {
@@ -77,7 +77,7 @@ export const weekRingKept = (days: WeekDayStatus[]) => days.filter((d) => d === 
 /**
  * The week as a calendar you read at a glance (critic B2). A continuous low-contrast track (`--surface-3`) and on it one
  * arc per day that has a session, Monday at the top, clockwise: done solid blue, floor solid amber, a skipped (or sick) day
- * grey, a day still to come a faint solid arc. A missed day draws no arc: its stretch of track turns `--ink-4`, a quiet gap
+ * grey, a day still to come a faint solid arc. A missed day draws no arc: its stretch of track turns `--ink-faint`, a quiet gap
  * (never red). A rest day has no arc, only the track. `marked` rings the shown day's segment 1.5 px `--ink`. No dashes,
  * nothing that spins, no haptic (the week closing is the Week card's `celebrate`). The days kept sit in the middle in the stamp face. The arcs fill on `springs.number` on the
  * first view of the day and are still on every other view; reduced motion shows them complete. Colour is never the only
@@ -105,7 +105,7 @@ export const WeekRing = ({ days, size = 40, today, marked, label, onceADay = 'we
         const a0 = i * SEG + gapDeg / 2;
         const a1 = (i + 1) * SEG - gapDeg / 2;
         const d = arc(c, c, r, a0, a1);
-        if (st === 'missed') return <path key={i} className="wring-gap" data-day={i} d={d} fill="none" stroke="var(--ink-4)" strokeWidth={stroke} />;
+        if (st === 'missed') return <path key={i} className="wring-gap" data-day={i} d={d} fill="none" stroke="var(--ink-faint)" strokeWidth={stroke} />;
         if (animateFill && (st === 'done' || st === 'floor'))
           return <motion.path key={i} className={`wring-day wring-${st}`} d={d} fill="none" stroke={COLOR[st]} strokeWidth={stroke} initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={RING_FILL} />;
         return <path key={i} className={`wring-day wring-${st}`} d={d} fill="none" stroke={COLOR[st]} strokeWidth={stroke} />;

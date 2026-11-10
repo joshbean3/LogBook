@@ -245,7 +245,7 @@ label.lrow[data-pressed] {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--tone, var(--ink-4));
+  background: var(--tone, var(--ink-faint));
   flex: none;
 }
 
@@ -577,10 +577,12 @@ label.lrow[data-pressed] {
   border-color: transparent;
   color: var(--ink-3);
 }
-/* picked: lit gold, as a feeling is picked */
+/* picked: lit gold, as a feeling is picked. The words stay navy (gold words on the cream fill were 1.75:1) and go a
+   step heavier, so the picked chip is not told apart by colour alone. */
 .chip-btn.on {
   background: rgba(255, 200, 61, 0.16);
-  color: var(--sun);
+  color: var(--ink);
+  font-weight: 650;
   border-color: var(--sun);
 }
 .chip-btn:disabled {

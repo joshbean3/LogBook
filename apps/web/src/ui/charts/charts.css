@@ -70,7 +70,7 @@
 }
 .ck-prev {
   fill: none;
-  stroke: var(--ink-4);
+  stroke: var(--ink-faint);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -163,7 +163,7 @@
   stroke-width: 1.25;
 }
 .ck-spark-none {
-  stroke: var(--ink-4);
+  stroke: var(--ink-faint);
   stroke-width: 1.5;
   stroke-dasharray: 2 4;
   stroke-linecap: round;
@@ -371,7 +371,7 @@
   top: 10px;
   bottom: 10px;
   left: 50%;
-  border-left: 2px dotted var(--ink-4);
+  border-left: 2px dotted var(--ink-faint);
   opacity: 0.6;
 }
 .ck-rpill-band {
