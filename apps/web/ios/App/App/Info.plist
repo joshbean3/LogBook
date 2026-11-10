@@ -3,11 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of a plan, a schedule or a list to send to the assistant.</string>
+	<string>Take a photo of a training plan, a schedule or a list to send to the assistant or the plan builder.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose a photo of a plan, a schedule or a list to send to the assistant.</string>
+	<string>Choose a photo of a training plan, a schedule or a list to send to the assistant or the plan builder.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save the cards you share to your photo library.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Logbook reads your sleep, heart rate, HRV, workouts and activity from Apple Health to show your recovery, strain and sleep against your own normal. It never writes to Apple Health.</string>
+	<string>Logbook reads your sleep, heart rate variability and resting heart rate from Apple Health to show them on Progress. Readings are saved to your Logbook account.</string>
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -76,13 +78,6 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>
