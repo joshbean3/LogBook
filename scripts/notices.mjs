@@ -211,6 +211,7 @@ const section = (p) => {
 const EXTRA_CSS = `
 .ver { font-weight: 400; color: #2f5d85; }
 .lic, .src { margin: 0 0 6px; font-size: 0.9375rem; }
+.src a { display: inline-block; padding: 11px 0; line-height: 22px; overflow-wrap: anywhere; }
 details { margin-top: 8px; }
 summary { cursor: pointer; padding: 11px 0; line-height: 22px; font-weight: 600; }
 h1 { -webkit-hyphens: auto; hyphens: auto; }
