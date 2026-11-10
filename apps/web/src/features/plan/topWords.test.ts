@@ -29,13 +29,15 @@ describe('the plan card', () => {
 });
 
 describe('where a plan came from', () => {
-  it('says what the block records, and nothing when it records nothing', () => {
-    expect(nb(sourceWords({ source: 'onboarding', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Built from your answers on Nov 9');
-    expect(nb(sourceWords({ source: 'template', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Made with the plan builder on Nov 9');
-    expect(nb(sourceWords({ source: 'file', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Written by the assistant from a file you shared on Nov 9');
-    expect(nb(sourceWords({ source: 'chat', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Written by the assistant in a chat on Nov 9');
-    expect(sourceWords({ source: null, createdAt: '2026-11-09T12:00:00Z' })).toBeNull();
-    expect(sourceWords({ source: 'something else', createdAt: '2026-11-09T12:00:00Z' })).toBeNull();
+  // noon on Nov 9 in the zone the test runs in: the words follow the phone's own day, so the instant is built locally
+  const at = new Date(2026, 10, 9, 12).toISOString();
+  it('says what the plan records, and nothing when it records nothing', () => {
+    expect(nb(sourceWords({ source: 'onboarding', createdAt: at }))).toBe('Built from your answers on Nov 9');
+    expect(nb(sourceWords({ source: 'template', createdAt: at }))).toBe('Made with the plan builder on Nov 9');
+    expect(nb(sourceWords({ source: 'file', createdAt: at }))).toBe('Written by the assistant from a file you shared on Nov 9');
+    expect(nb(sourceWords({ source: 'chat', createdAt: at }))).toBe('Written by the assistant in a chat on Nov 9');
+    expect(sourceWords({ source: null, createdAt: at })).toBeNull();
+    expect(sourceWords({ source: 'something else', createdAt: at })).toBeNull();
   });
 });
 

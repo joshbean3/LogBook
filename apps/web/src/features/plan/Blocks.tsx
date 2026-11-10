@@ -160,7 +160,7 @@ export const PlansPanel = ({ log, inSheet }: { log: Log; inSheet?: boolean }) =>
             const name = planName(b, blocks, t);
             const n = planWeeks(b);
             return (
-              <Pressable key={b.id} press="surface" className="pl-plan-row" label={`${name}. ${st}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}, ${n} ${n === 1 ? 'week' : 'weeks'}`} onPress={() => openPlanDetail(sheet, b, log, inSheet)}>
+              <Pressable key={b.id} press="surface" className="pl-plan-row" label={`${name}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}, ${n} ${n === 1 ? 'week' : 'weeks'}. ${st}`} onPress={() => openPlanDetail(sheet, b, log, inSheet)}>
                 <span className={`icon-tile pl-plan-ic ${st === 'Active' ? 'is-on' : ''}`} aria-hidden="true">
                   <CalendarRange size={18} />
                 </span>
