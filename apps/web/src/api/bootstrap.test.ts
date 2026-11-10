@@ -13,6 +13,7 @@ const good = () => ({
   strava: { connected: false, athleteName: null, lastSyncAt: null, syncing: false, error: null, configured: false },
   features: { claude: true, strava: false },
   consent,
+  trainWhen: null,
 });
 
 describe('the bootstrap is checked before it is used or saved (shell-02, critic-01)', () => {
@@ -60,6 +61,19 @@ describe('the bootstrap is checked before it is used or saved (shell-02, critic-
     expect(b.consent).not.toBe(DEFAULT_CONSENT);
     expect(b.user.id).toBe('u1');
     expect(b.habits).toHaveLength(1);
+  });
+
+  it('carries the training time answer, and reads a missing or unreadable one as no answer', () => {
+    const tw = { when: 'afternoon', offWork: 1050 };
+    const b = { ...good(), trainWhen: tw };
+    expect(parseBootstrap(b)).toBe(b);
+    expect(parseBootstrap(b).trainWhen).toEqual(tw);
+    const none = { ...good(), trainWhen: null };
+    expect(parseBootstrap(none)).toBe(none);
+    const { trainWhen: _gone, ...old } = good();
+    expect(parseBootstrap(old).trainWhen).toBeNull();
+    expect(parseBootstrap({ ...good(), trainWhen: { when: 'noon', offWork: 1050 } }).trainWhen).toBeNull();
+    expect(parseBootstrap({ ...good(), trainWhen: 'afternoon' }).trainWhen).toBeNull();
   });
 
   it('consentOf reads only a full record', () => {

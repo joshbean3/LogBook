@@ -16,6 +16,7 @@ const zConsent = z.object({
   at: z.string().nullable(),
   version: z.string().nullable(),
 });
+const zTrainWhen = z.object({ when: z.enum(['morning', 'afternoon', 'none']), offWork: z.number().nullable() });
 const zBootstrap = z.looseObject({
   user: z.looseObject({ id: z.string().min(1), email: z.string() }),
   habits: z.array(z.looseObject({ id: z.string() })),
@@ -45,7 +46,8 @@ export const isBootstrap = (raw: unknown): raw is Bootstrap => zBootstrap.safePa
 /**
  * The answer as a Bootstrap, or a BadShapeError. The object is returned as it came (no copy, so a refetch that brings
  * nothing new keeps its identity), except when `consent` is missing or not a full record: then it is filled with the
- * never-asked record (nothing granted), so the open still succeeds and the app never guesses a yes.
+ * never-asked record (nothing granted), so the open still succeeds and the app never guesses a yes. A `trainWhen` that is
+ * missing (a server or a saved copy from before it) or unreadable reads as null, no answer.
  */
 export const parseBootstrap = (raw: unknown): Bootstrap => {
   const r = zBootstrap.safeParse(raw);
@@ -54,6 +56,8 @@ export const parseBootstrap = (raw: unknown): Bootstrap => {
     throw new BadShapeError(first ? `${first.path.join('.') || 'bootstrap'}: ${first.message}` : 'bootstrap');
   }
   const b = raw as Bootstrap;
-  if (!consentOf(b.consent)) return { ...b, consent: { ...DEFAULT_CONSENT } };
-  return b;
+  const badConsent = !consentOf(b.consent);
+  const badTrainWhen = b.trainWhen !== null && !zTrainWhen.safeParse(b.trainWhen).success;
+  if (!badConsent && !badTrainWhen) return b;
+  return { ...b, ...(badConsent ? { consent: { ...DEFAULT_CONSENT } } : null), ...(badTrainWhen ? { trainWhen: null } : null) };
 };

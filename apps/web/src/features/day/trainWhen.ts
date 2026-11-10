@@ -95,6 +95,42 @@ export const setAfternoon = (patch: Partial<AfternoonSettings>) => {
   emit();
 };
 
+/** The account's answer from onboarding, as the bootstrap carries it (`Bootstrap.trainWhen`). */
+export interface AccountTrainWhen {
+  when: TrainWhen;
+  offWork: number | null;
+}
+const stored = (k: string): boolean => {
+  try {
+    return localStorage.getItem(k) !== null;
+  } catch {
+    return false;
+  }
+};
+/**
+ * A reinstall or a second phone keeps the onboarding answer: while this device has no choice of its own (no default, no
+ * afternoon), the account's is written as this device's. A choice already made on this device always wins.
+ */
+export const seedTrainWhen = (account: AccountTrainWhen | null | undefined) => {
+  if (!account) return;
+  let next = state;
+  if (!stored(DEFAULT_KEY) && (account.when === 'morning' || account.when === 'afternoon' || account.when === 'none')) {
+    next = { ...next, fallback: account.when };
+    try {
+      localStorage.setItem(DEFAULT_KEY, account.when);
+    } catch {
+      /* session only */
+    }
+  }
+  if (!stored(PM_KEY) && typeof account.offWork === 'number') {
+    next = { ...next, pm: { ...next.pm, offWork: account.offWork } };
+    write(PM_KEY, next.pm);
+  }
+  if (next.fallback === state.fallback && next.pm.offWork === state.pm.offWork) return;
+  state = next;
+  emit();
+};
+
 export const useTrainWhen = (date: ISODate): TrainWhen => useSyncExternalStore(subscribe, () => trainWhenOf(date), () => 'morning');
 export const useTrainWhenDefault = (): TrainWhen => useSyncExternalStore(subscribe, () => state.fallback, () => 'morning');
 export const useAfternoon = (): AfternoonSettings => useSyncExternalStore(subscribe, () => state.pm, () => DEFAULT_AFTERNOON);

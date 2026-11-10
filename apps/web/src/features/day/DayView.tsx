@@ -19,6 +19,7 @@ import { stripKinds, stripLabel } from './stripKinds';
 import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
+import { seedTrainWhen } from './trainWhen';
 import { useStravaPull } from './useStravaPull';
 import { STRAVA_BUILT } from '@/lib/features';
 import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
@@ -100,6 +101,9 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   // the strip's week: its own memoised log (the pages keep theirs)
   const stripMonths = useMemo(() => [...new Set([monthOf(mondayOf(date)), monthOf(shiftDays(mondayOf(date), 6))])], [date]);
   const log = useLog(stripMonths);
+  // a reinstall or a second phone starts from the account's onboarding answer; a choice made on this phone wins (before paint)
+  const accountWhen = log.boot?.trainWhen;
+  useLayoutEffect(() => seedTrainWhen(accountWhen), [accountWhen]);
   const focus = useFocus();
   const { settings } = useMorningMutations();
   const openWord = useOpenWordSheet();
