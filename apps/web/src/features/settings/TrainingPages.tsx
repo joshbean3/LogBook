@@ -12,7 +12,9 @@ import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useToast } from '@/ui/Toast';
 import { PushedBar, Row } from '@/ui';
 import { SectionHeader } from '@/ui/layout';
+import { TriangleAlert } from 'lucide-react';
 import { SCard, SGroup } from './parts';
+import { jumpWords, LAST_RUN_DAY, milesJump } from './trainingModel';
 import { useTrainingProfile } from './useProfile';
 
 /**
@@ -44,10 +46,12 @@ const useDraftProfile = () => {
 };
 
 /**
- * The offer that follows any change to the plan's answers: a card held above the tab bar (sticky, the page's last block) with what the new block will be,
- * Rebuild (POST /plans/template with replace, from next Monday; done runs and the past stay), and Undo changes.
+ * The offer that follows any change to the plan's answers: a card held above the ask bar and the tab bar (sticky, the
+ * page's last block) with what the new plan will be, Rebuild (POST /plans/template with replace, from next Monday; done
+ * runs and the past stay), and Undo changes. `nowMiles` is what the person runs a week now (null with no plan): a change
+ * that raises it by more than 30% is warned about on the card before Rebuild.
  */
-const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: boolean; profile: TrainingProfile; before: TrainingProfile; onDone: (p: TrainingProfile) => void; onReset: () => void; save: (p: TrainingProfile) => void }) => {
+const RebuildBar = ({ show, profile, before, nowMiles, onDone, onReset, save }: { show: boolean; profile: TrainingProfile; before: TrainingProfile; nowMiles: number | null; onDone: (p: TrainingProfile) => void; onReset: () => void; save: (p: TrainingProfile) => void }) => {
   const reduce = useReducedMotion();
   const toast = useToast();
   const rebuild = useRebuildPlan();
@@ -83,7 +87,8 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
         },
         onError: (e) => {
           haptics.error();
-          setErr(e instanceof ApiError && e.status === 422 ? 'That race day doesn’t fit a plan starting next week. Pick a later one.' : 'Couldn’t rebuild the plan. Check your connection and try again.');
+          // a refused template comes with its own sentence ("80 miles a week needs at least 7 run days."): shown as it is
+          setErr(e instanceof ApiError && e.code === 'bad_template' && e.message ? e.message : e instanceof ApiError && e.status === 422 ? 'That race day doesn’t fit a plan starting next week. Pick a later one.' : 'Couldn’t rebuild the plan. Check your connection and try again.');
         },
       },
     );
@@ -96,6 +101,37 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
   const [room, setRoom] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
   const roomRef = useRef<HTMLDivElement>(null);
+  const jump = milesJump(nowMiles, shownProfile.weeklyMiles);
+  // The card rests over the page's lower part. When it arrives over the control that was just changed (the race strip,
+  // the run days), the page scrolls that control up to sit above it, so the next tap is not made under the card.
+  const touched = useRef<Element | null>(null);
+  useEffect(() => {
+    const fn = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      if (t && !t.closest?.('.s-rebuild')) touched.current = t;
+    };
+    document.addEventListener('pointerdown', fn, true);
+    return () => document.removeEventListener('pointerdown', fn, true);
+  }, []);
+  useEffect(() => {
+    if (!show) return;
+    const id = requestAnimationFrame(() => {
+      const card = cardRef.current;
+      const sc = card?.closest<HTMLElement>('.pushed, .tab-scroll');
+      const el = touched.current;
+      if (!card || !sc || !el || !sc.contains(el) || card.contains(el)) return;
+      // the whole section the control sits in (the goals with the race strip under them), when that fits
+      const block = el.closest('.s-sec') ?? el;
+      // where the card comes to rest: its sticky line above the chrome (the entrance still has it lower on this frame)
+      const restTop = sc.getBoundingClientRect().bottom - (parseFloat(getComputedStyle(card).bottom) || 0) - card.offsetHeight;
+      const over = Math.ceil(block.getBoundingClientRect().bottom + 12 - restTop);
+      // never so far that the control just used leaves the top of the screen
+      const room = Math.floor(el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 72);
+      const by = Math.min(over, room);
+      if (by > 0) sc.scrollBy({ top: by, behavior: reduce ? 'auto' : 'smooth' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [show, reduce]);
   if (show && !mounted) {
     setMounted(true);
     setRoom(0);
@@ -159,12 +195,18 @@ const RebuildBar = ({ show, profile, before, onDone, onReset, save }: { show: bo
         >
           <p className="s-rebuild-title">Rebuild my plan from next week</p>
           <p className="s-rebuild-sub">{err ?? (tpl ? `${tpl.name}. ${tpl.summary} Runs you’ve done stay.` : 'Starts Monday. Runs you’ve done stay.')}</p>
+          {jump && !err ? (
+            <p className="s-rebuild-warn" role="status">
+              <TriangleAlert size={16} strokeWidth={2.2} aria-hidden="true" />
+              <span>{jumpWords(jump)}</span>
+            </p>
+          ) : null}
           <div className="s-rebuild-actions">
             <button type="button" className="btn quiet" onClick={onReset} disabled={rebuild.isPending}>
               Undo changes
             </button>
             <button type="button" className="btn primary s-rebuild-go" onClick={go} disabled={rebuild.isPending}>
-              {rebuild.isPending ? 'Rebuilding…' : 'Rebuild'}
+              {rebuild.isPending ? 'Rebuilding…' : jump ? 'Rebuild anyway' : 'Rebuild'}
             </button>
           </div>
         </motion.div>
@@ -230,18 +272,27 @@ const NameRow = () => {
   );
 };
 
-/** /settings/you: the account (name, email), what you are training for, units. */
+/** /settings/you: the account (name, email) and what you are training for. */
 export const YouPage = () => {
   const boot = useBootstrap();
   const d = useDraftProfile();
   const start = nextMondayAfter(today());
+  // The race strip reports the day under its scroll position. When the day changes from outside it (a new goal brings its
+  // default day, Undo changes puts the old one back), the strip glides there and reports every day it passes, which made
+  // a change of its own: a race day nobody picked, or the Rebuild card coming back after Undo. So a day that did not come
+  // from the strip remounts it at that day, with no glide and nothing reported.
+  const stripDay = useRef(d.p.raceDate);
+  const [stripKey, setStripKey] = useState(0);
+  if (d.p.raceDate !== stripDay.current) {
+    stripDay.current = d.p.raceDate;
+    setStripKey((k) => k + 1);
+  }
   return (
     <div className="page s-set s-sub">
       <PushedBar title="You" />
       <SGroup title="Account">
         <NameRow />
         <Row title="Email" right={<span className="s-value s-email">{boot.data?.user.email}</span>} />
-        <Row title="Units" sub="Kilometres are on the way." right={<span className="s-value">Miles</span>} />
       </SGroup>
       <section className="lb-sec s-sec" aria-labelledby="s-goal-h">
         <SectionHeader size="sm" id="s-goal-h" title="Training for" />
@@ -255,13 +306,21 @@ export const YouPage = () => {
                 <p className="s-label">
                   Race day <span className="s-label-value">{d.p.raceDate ? fmtDate('short', d.p.raceDate) : 'Not set'}</span>
                 </p>
-                <RaceStrip start={start} value={d.p.raceDate} onChange={(r) => d.edit({ raceDate: r })} />
+                <RaceStrip
+                  key={stripKey}
+                  start={start}
+                  value={d.p.raceDate}
+                  onChange={(r) => {
+                    stripDay.current = r;
+                    d.edit({ raceDate: r });
+                  }}
+                />
               </div>
             ) : null}
           </>
         )}
       </section>
-      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
+      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} nowMiles={d.source === 'none' ? null : d.profile.weeklyMiles} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );
 };
@@ -283,6 +342,12 @@ export const TrainingPage = () => {
     timer.current = setTimeout(() => morning.settings.mutate({ run: { pace: v } }, { onError: () => toast('Couldn’t save the pace. Try again.') }), 600);
   };
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  // the day letters refuse to drop the last run day (a shake); here the reason is put in words under them
+  const [lastDay, setLastDay] = useState(false);
+  const runDayCount = d.p.runDays.length;
+  useEffect(() => {
+    if (runDayCount > 1) setLastDay(false);
+  }, [runDayCount]);
   return (
     <div className="page s-set s-sub">
       <PushedBar title="Training" />
@@ -305,14 +370,26 @@ export const TrainingPage = () => {
             <MilesDial value={d.p.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => d.edit({ weeklyMiles: v })} />
           </SCard>
           <SCard title="Run days">
-            <DayLetters runDays={d.p.runDays} longRunDay={fixLongRun(d.p.runDays, d.p.longRunDay)} onChange={(runDays, longRunDay) => d.edit({ runDays, longRunDay })} />
+            <div
+              className="s-days"
+              onClickCapture={(e) => {
+                if (runDayCount === 1 && (e.target as Element).closest?.('[aria-pressed="true"]')) setLastDay(true);
+              }}
+            >
+              <DayLetters runDays={d.p.runDays} longRunDay={fixLongRun(d.p.runDays, d.p.longRunDay)} onChange={(runDays, longRunDay) => d.edit({ runDays, longRunDay })} />
+            </div>
+            {lastDay ? (
+              <p className="s-days-note" role="status">
+                {LAST_RUN_DAY}
+              </p>
+            ) : null}
           </SCard>
         </>
       )}
       <SCard title="Easy pace" foot="Morning times each run at this pace. It saves as you change it.">
         <Dial value={pace} onChange={changePace} min={240} max={1200} step={5} format={paceText} unit="per mile" valueText={(v) => `${Math.floor(v / 60)} minutes ${v % 60} seconds per mile`} label="Easy pace" scrubPx={8} />
       </SCard>
-      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
+      <RebuildBar show={d.dirty} profile={d.p} before={d.profile} nowMiles={d.source === 'none' ? null : d.profile.weeklyMiles} save={(p) => d.save(p)} onDone={(p) => (d.save(p), d.reset())} onReset={d.reset} />
     </div>
   );
 };
