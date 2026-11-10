@@ -103,3 +103,6 @@ export const minutesText = (mins: number, hc: HourCycle = deviceHourCycle()): st
   if (hc === 'h23') return `${String(h).padStart(2, '0')}:${mm}`;
   return `${h % 12 || 12}:${mm} ${h < 12 ? 'AM' : 'PM'}`;
 };
+
+/** A caps line as words a voice reads and Voice Control matches: 'TUE, NOV 10' → 'Tue, Nov 10'. */
+export const speakable = (caps: string): string => caps.toLowerCase().replace(/(^|[\s,·(–-])([a-z])/g, (_m, sep: string, c: string) => sep + c.toUpperCase());

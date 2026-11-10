@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { capsWord, clockText, dayCaption, dayTitle, deviceHourCycle, fmt, minutesText, monthCaption, shorten, weekCaption } from './captions';
+import { capsWord, clockText, dayCaption, dayTitle, deviceHourCycle, fmt, minutesText, monthCaption, shorten, speakable, weekCaption } from './captions';
 
 /** docs/feel.md §2.2–2.3 (contracts §B.2): the bar's words, from the date alone. Every date is relative to Fri 2026-10-23. */
 const T = '2026-10-23';
@@ -107,5 +107,13 @@ describe('clock times follow the phone (gap-qua-65)', () => {
   });
   it('reads the device setting', () => {
     expect(['h12', 'h23']).toContain(deviceHourCycle());
+  });
+});
+
+describe('speakable (gap-qua-40)', () => {
+  it('turns a caps line into words', () => {
+    expect(speakable('TUE, NOV 10')).toBe('Tue, Nov 10');
+    expect(speakable('STEADY · TUE, NOV 10')).toBe('Steady · Tue, Nov 10');
+    expect(speakable('NOV 9 – 15')).toBe('Nov 9 – 15');
   });
 });
