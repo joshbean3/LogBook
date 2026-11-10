@@ -1,6 +1,6 @@
 import type { DayTimeline as Timeline, ISODate, TimelineItem, TimelineKind } from '@logbook/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BookOpen, Check, Dumbbell, Footprints, Lightbulb } from 'lucide-react';
+import { Bike, BookOpen, Check, Dumbbell, Footprints, Lightbulb } from 'lucide-react';
 import type * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { api } from '@/api/client';
@@ -8,7 +8,7 @@ import { minutesText } from '@/ui/captions';
 import { SectionHeader } from '@/ui/layout';
 import type { Log } from '../log/useLog';
 
-const ICON: Record<TimelineKind, typeof Check> = { habit: Check, run: Footprints, lift: Dumbbell, activity: Activity, learned: Lightbulb, journal: BookOpen };
+const ICON: Record<TimelineKind, typeof Check> = { habit: Check, run: Footprints, lift: Dumbbell, activity: Bike, learned: Lightbulb, journal: BookOpen };
 
 /** Minutes after local midnight: from a recorded moment, or a local `HH:MM` start. */
 const minutesOf = (i: TimelineItem): number | null => {

@@ -1,6 +1,7 @@
-import { Activity, CalendarDays, ChevronRight, Sparkles } from 'lucide-react';
+import { CalendarDays, ChevronRight } from 'lucide-react';
 import type * as React from 'react';
 import { STRAVA_BUILT } from '@/lib/features';
+import { HabitIcon, RunIcon } from '@/ui/icons';
 import { Pressable } from '@/ui/Pressable';
 import './day.css';
 
@@ -8,11 +9,11 @@ export type FirstRunAction = 'habits' | 'plan' | 'strava';
 
 type Row = { key: FirstRunAction; title: string; icon: React.JSX.Element };
 const ROWS: Row[] = [
-  { key: 'habits', title: 'Add habits', icon: <Sparkles size={18} /> },
+  { key: 'habits', title: 'Add habits', icon: <HabitIcon size={18} /> },
   { key: 'plan', title: 'Plan a week', icon: <CalendarDays size={18} /> },
 ];
 // a build without Strava carries no Strava row (and none of its words)
-const STRAVA_ROWS: Row[] = STRAVA_BUILT ? [{ key: 'strava', title: 'Connect Strava', icon: <Activity size={18} /> }] : [];
+const STRAVA_ROWS: Row[] = STRAVA_BUILT ? [{ key: 'strava', title: 'Connect Strava', icon: <RunIcon size={18} /> }] : [];
 
 /**
  * The first-run face of Today's hero (docs/feel.md §3.2 last row, contracts §F): `SET UP YOUR DAY` and three starter rows in
