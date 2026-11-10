@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maxOffset, rangeWindow, windowLabel } from './range';
+import { dayRange, maxOffset, rangeWindow, windowLabel } from './range';
 import { arcPath, cumulative, downsample, gaugeAngle, labelIndices, mean, niceDomain, niceTicks, normalBand, percentile, rolling, rollingSparse, scaleLinear, segments, signedPercent, smoothPath, standing, trendRows } from './scale';
 
 describe('chart kit scales', () => {
@@ -167,8 +167,10 @@ describe('range windows', () => {
     expect(w.dates.length).toBe(30);
     const back = rangeWindow('2026-11-08', '1M', 1);
     expect(back.to).toBe('2026-10-09');
-    expect(windowLabel(w, '2026-11-08')).toBe('Oct 10 – Nov 8');
-    expect(windowLabel(rangeWindow('2026-01-10', '1M'), '2026-01-10')).toBe('Dec 12, 2025 – Jan 10, 2026');
+    expect(windowLabel(w, '2026-11-08')).toBe('Oct 10 to Nov 8');
+    expect(windowLabel(rangeWindow('2026-01-10', '1M'), '2026-01-10')).toBe('Dec 12, 2025 to Jan 10, 2026');
+    expect(dayRange('2026-11-09', '2026-11-15')).toBe('Nov 9 to 15');
+    expect(dayRange('2026-11-10', '2027-02-07')).toBe('Nov 10 to Feb 7');
   });
 
   it('stops going back where the data starts', () => {

@@ -12,6 +12,7 @@ import { sessionSheetTitle, UnplannedSheet, usePushSession } from '../sessions/S
 import { LineChart, Spark } from './charts';
 import { easyPace, liftGroups, liftValue, paceText, plural, setWords, signedPct, weekTitle, type EasyPace, type LiftGroup, type Range, rangePhrase } from './data';
 import { miShort } from './hero';
+import { dayRange } from '@/ui/charts/range';
 
 const up = (s: string) => s.toUpperCase();
 const md = (d: string) => fmtDate('md', d);
@@ -159,7 +160,7 @@ export const WeekSheet = ({ w, today, onGone }: { w: string; today: string; onGo
 export const useOpenWeek = (today: string) => {
   const sheet = useSheet();
   return (w: string, how: 'open' | 'push' = 'open', onGone?: () => void) =>
-    sheet[how]({ title: weekTitle(w, today), eyebrow: `${up(md(w))} – ${up(md(shiftDays(w, 6)))}`, body: <WeekSheet w={w} today={today} onGone={onGone} />, wide: true });
+    sheet[how]({ title: weekTitle(w, today), eyebrow: up(dayRange(w, shiftDays(w, 6))), body: <WeekSheet w={w} today={today} onGone={onGone} />, wide: true });
 };
 
 // ---------- easy pace ----------

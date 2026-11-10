@@ -1,5 +1,5 @@
 import { counts, fmtDate, mondayOf, monthsBetween, num, sessionStatus, shiftDays, weekTotals, type Aim, type PlanBlock } from '@logbook/shared';
-import { CalendarRange, ChevronRight, ListChecks, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
+import { CalendarRange, ChevronRight, ListChecks, MessageCircle, Plus, Target, Trash2 } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { ApiError } from '@/api/client';
@@ -22,6 +22,7 @@ import { planWeeks, weekOf } from './topWords';
 import { lengthWords, miles1, planFacts, sourceWords } from './planFacts';
 import { livePlans } from './planList';
 import './plan.css';
+import { dayRange } from '@/ui/charts/range';
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
 const stateOf = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b.end ? 'Finished' : 'Active');
@@ -167,7 +168,7 @@ export const PlansPanel = ({ log, inSheet }: { log: Log; inSheet?: boolean }) =>
                 <span className="pl-plan-main">
                   <span className="pl-plan-name">{name}</span>
                   <span className="pl-plan-sub">
-                    {fmtDate('md', b.start)} – {fmtDate('md', b.end)}
+                    {dayRange(b.start, b.end)}
                     {/\bweeks?\b/i.test(name) ? '' : ` · ${n} ${n === 1 ? 'week' : 'weeks'}`}
                   </span>
                 </span>
@@ -187,7 +188,7 @@ export const PlansPanel = ({ log, inSheet }: { log: Log; inSheet?: boolean }) =>
         <div className="group">
           <Pressable className="pl-plan-row pl-ai-row" press="surface" onPress={() => (inSheet ? sheet.push : sheet.open)({ title: 'Write my next plan', detent: 'large', body: <PlanBuilder log={log} /> })}>
             <span className="icon-tile pl-ai-ic" aria-hidden="true">
-              <Sparkles size={18} />
+              <MessageCircle size={18} />
             </span>
             <span className="pl-plan-main">
               <span className="pl-plan-name">Write my next plan</span>
@@ -332,7 +333,7 @@ const PlanDetail = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
     sheet.close();
     nav.go(`/plan/week/${mondayOf(b.start <= t && t <= b.end ? t : b.start)}`);
   };
-  const FromIcon = b.source === 'onboarding' || b.source === 'template' ? ListChecks : Sparkles;
+  const FromIcon = b.source === 'onboarding' || b.source === 'template' ? ListChecks : MessageCircle;
   return (
     <div className="pl-detail pl-sum">
       <div className="card pl-sum-lead">
@@ -348,7 +349,7 @@ const PlanDetail = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
       <SectionHeader size="sm" level={3} title="What it is" className="pl-sum-head" />
       <div className="card pl-sum-rows">
         {f.goal ? <SumRow k="Goal" v={f.goal} /> : null}
-        <SumRow k="Dates" v={`${fmtDate('md', b.start)} – ${fmtDate('md', b.end)}`} />
+        <SumRow k="Dates" v={dayRange(b.start, b.end)} />
         <SumRow k="Length" v={lengthWords(f)} />
         {f.race ? <SumRow k="Race day" v={`${fmtDate('dow', f.race.date)}, ${fmtDate('md', f.race.date)}`} sub={[f.race.name, f.race.details].filter(Boolean).join(' · ') || null} /> : null}
         <SumRow k="Sessions" v={String(b.sessionCount ?? 0)} />

@@ -1,8 +1,8 @@
 /* ---------- Plan's top (PlanTop.tsx): the plan card across the top, Today (the morning and today's session), then the week
    day by day (Week.tsx's header, line and status pill) ---------- */
 
-/* ---------- the plan card: white, lifted, 22 round, a warm wash at its right; the eyebrow, the serif name, where it stands,
-   the slim bar of the block, the chevron ---------- */
+/* ---------- the plan card: Plan's hero card (guide 6.4): Paper, r 24, the one sunrise glow under its bottom edge; the
+   caption, the plan's name as a card title, where it stands in Dusk, the slim Deep Sky bar on a Haze track, the chevron ---------- */
 .pt-plan-wrap {
   margin: 0 16px;
 }
@@ -18,9 +18,10 @@
   gap: 12px;
   width: 100%;
   min-width: 0;
-  padding: 14px 14px 16px 18px;
+  /* the hero's 20 at the reading edge, 16 elsewhere: the card keeps its height (it was 14 / 16 / 18) */
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--pad-hero);
   border: var(--card-border);
-  border-radius: 22px;
+  border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow-1);
   color: var(--ink);
@@ -32,8 +33,13 @@
   position: absolute;
   z-index: -1;
   inset: -40% -20% -40% 45%;
-  background: radial-gradient(closest-side, rgba(255, 196, 140, 0.28), rgba(255, 196, 140, 0) 70%);
+  background: var(--glow-hero);
+  opacity: 0.85;
   pointer-events: none;
+}
+/* the empty and ended cards open the builder: no warm light, they are not the screen's main thing yet */
+.pt-plan.is-empty::before {
+  content: none;
 }
 .pt-plan-main {
   display: grid;
@@ -64,10 +70,10 @@
   text-wrap: pretty;
 }
 .pt-plan-state.is-act {
-  color: var(--accent-text);
+  color: var(--deep-sky);
   white-space: normal;
 }
-/* how far through the block: a 4 px rail in the well, the done part in the accent */
+/* how far through the block: a 4 px Haze track, the done part in Deep Sky (3:1 on Haze; Sky would be 1.80) */
 .pt-bar {
   position: relative;
   display: block;
@@ -75,14 +81,13 @@
   margin-top: 12px;
   overflow: hidden;
   border-radius: var(--r-pill);
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  background: var(--haze);
 }
 .pt-bar i {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--accent);
+  background: var(--deep-sky);
   transform-origin: 0 50%;
 }
 .pt-chev {
@@ -96,7 +101,7 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: var(--r-icon);
   border: 1.5px dashed var(--line-strong);
   color: var(--ink-3);
 }
@@ -104,16 +109,17 @@
   color: var(--ink-2);
 }
 .pt-plan:focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
 @media (max-width: 359px) {
   .pt-plan.pressable {
-    padding: 13px 12px 14px 16px;
+    padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
   }
   .pt-plan-name {
-    font-size: 1.5rem;
-    line-height: 1.875rem;
+    font-size: var(--fs-head);
+    line-height: var(--lh-head);
   }
 }
 
@@ -144,23 +150,14 @@
   min-height: 84px;
   padding: 14px 16px;
   border: var(--card-border);
-  border-radius: 20px;
+  border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow-1);
   color: var(--ink);
   text-align: left;
   font: inherit;
 }
-/* the tone, as a soft wash from the left edge: today's session reads first on the page */
-.pt-run.pressable::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  background: linear-gradient(100deg, color-mix(in srgb, var(--tone, var(--t-rest)) 10%, transparent) 0%, transparent 55%);
-  pointer-events: none;
-}
+/* no tinted wash on a session card (guide 6.4): the tone lives on the glyph in the Haze tile */
 .pt-run > * {
   position: relative;
   z-index: 1;
@@ -171,9 +168,13 @@
   place-items: center;
   width: 48px;
   height: 48px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--tone, var(--t-rest)) 15%, var(--surface));
+  border-radius: var(--r-icon);
+  background: var(--haze);
   color: var(--tone, var(--t-rest));
+}
+/* the rest glyph on Haze needs 4.15 (Pencil is 2.87 there) */
+.pt-run.t-rest .pt-run-ic {
+  color: #5f6d7b; /* brand-ok: guide 3.3 names #5F6D7B for the rest glyph on Haze */
 }
 .pt-run-ic.is-add {
   background: transparent;
@@ -198,14 +199,15 @@
 .pt-run-kind {
   white-space: nowrap;
 }
-/* the name in full, on up to two lines */
+/* the name in full, on up to two lines: the card's title (Fraunces 600 at the card-title size, guide 4.2), as the session
+   sheet titles it; it was Inter Tight 700, a captions-only face, and Inter has no 22 px step */
 .pt-run-name {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font: 700 1.375rem / 1.75rem var(--stamp);
-  letter-spacing: -0.02em;
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
@@ -225,9 +227,6 @@
 .pt-run.is-open {
   min-height: 72px;
 }
-.pt-run.is-open::before {
-  display: none;
-}
 .pt-run.k-missed .pt-run-name {
   text-decoration-line: line-through;
   text-decoration-thickness: 1.5px;
@@ -238,32 +237,39 @@
   color: var(--ink-3);
 }
 .pt-run:focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
+/* the status tag (guide 6.3): a pill, Inter --fs-tag 600; Dusk on Cloud by default (missed, skipped, planned) */
 .pt-st {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
+  gap: var(--sp-1);
+  padding: 3px var(--sp-3);
   border-radius: var(--r-pill);
-  background: var(--well);
-  font: 600 0.75rem / 1rem var(--sans);
-  color: var(--ink-3);
+  background: var(--cloud);
+  font: 600 var(--fs-tag) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
   white-space: nowrap;
 }
+/* Today: Ember on Paper with the Ember keyline (5.51); never on a tint (Ember on Haze is 4.38) */
 .pt-st.k-today {
-  background: var(--accent-soft);
-  /* 5.0:1 on the soft accent (the accent text is 4.3:1 there) */
-  color: #b23a09;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px rgba(180, 67, 12, 0.4);
+  color: var(--now-text);
 }
+/* done: a Sky pill with a Night Ink check and words (7.03), the shape and the check carry it, not the color alone */
 .pt-st.is-done {
   background: var(--accent);
   color: var(--accent-ink);
 }
+/* floor is partly done, not a warning (plan 1.7, D23): the word in Dusk on Paper, no fill */
 .pt-st.k-floor {
-  color: var(--warn-text, #8f5800);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink-2);
 }
 @media (max-width: 359px) {
   .pt-run.pressable {
@@ -273,9 +279,6 @@
   .pt-run-ic {
     width: 42px;
     height: 42px;
-  }
-  .pt-run-name {
-    font-size: 1.25rem;
   }
 }
 
@@ -290,7 +293,7 @@
     display: none;
   }
 }
-/* the pager pill: ‹ Today › in one white lifted pill, 36 tall; each arrow 44 wide, 8 between the two when they are neighbours */
+/* the pager pill: ‹ Today › in one Paper lifted pill, 36 tall; each arrow 44 wide, 8 between the two when they are neighbours */
 .pl-wk-nav {
   display: inline-flex;
   align-items: center;
@@ -319,10 +322,11 @@
 .pl-step + .pl-step {
   margin-left: 8px;
 }
+/* back to this week: the Today pill's words (Inter 600 Night Ink on the Paper pill, guide 6.13), not a link color */
 .pl-step-now.pressable {
-  padding: 0 6px;
-  font: 600 0.875rem / 1 var(--sans);
-  color: var(--accent-text);
+  padding: 0 var(--sp-2);
+  font: 600 var(--fs-tag) / 1 var(--sans);
+  color: var(--ink);
   white-space: nowrap;
 }
 /* the hit area reaches 44 tall without growing the row */
@@ -334,8 +338,9 @@
 }
 .pl-step:focus-visible,
 .pl-step-now:focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: -2px;
+  box-shadow: var(--focus-ring);
 }
 .pl-wk-line {
   margin: -4px 0 var(--gap);
@@ -348,24 +353,27 @@
   font-weight: 600;
   color: var(--ink-2);
 }
+/* the Today tag in a day row: Ember on Paper with its keyline, as on the session card */
 .pl-st.is-today {
-  padding: 3px 9px;
+  padding: 3px var(--sp-3);
   border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  font: 600 0.75rem / 1rem var(--sans);
-  color: #b23a09;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px rgba(180, 67, 12, 0.4);
+  font: 600 var(--fs-tag) / var(--lh-foot) var(--sans);
+  color: var(--now-text);
   white-space: nowrap;
 }
-/* at 320 today's pill in a day row is a lit dot (the row keeps its words; the label still says Today) */
+/* at 320 the tag is an 8 px Night Ink dot (plan 1.3, D33: "Today" is not a now-mark, so it is not Sunrise); the row keeps
+   its words for VoiceOver, and its numeral carries the Night Ink today ring */
 @media (max-width: 359px) {
   .pl-st.is-today {
     width: 8px;
     height: 8px;
     min-width: 0;
     padding: 0;
-    margin-right: 4px;
-    background: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-tint);
+    margin-right: var(--sp-1);
+    background: var(--ink);
+    box-shadow: none;
     font-size: 0;
   }
 }

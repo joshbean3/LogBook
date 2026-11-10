@@ -7,12 +7,14 @@ import { useToday } from '@/lib/useToday';
 import { dayCaption } from '@/ui/captions';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { Pressable } from '@/ui/Pressable';
+import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import { useSheet } from '@/ui/Sheet';
 import { Skeleton, SkeletonGroup } from '@/ui/Skeleton';
 import { useReleaseTap } from '../day/release';
 import { useNowMinutes } from '../day/useNow';
 import { useLog } from '../log/useLog';
 import { morningOf, timeParts } from '../morning/model';
+import { numParts } from '../morning/numParts';
 import { useMonthsFailed } from './LoadFail';
 import { cardStops, gapsOf, headline, nowOnTrack, quietLine, trackOf, whichMorning, workOf } from './morningTrack';
 import './morningcard.css';
@@ -22,6 +24,7 @@ const loadSheets = () => Promise.all([import('../morning/StepSheets'), import('.
 
 const path = (date: string, today: string) => (date === today ? '/plan/morning' : `/plan/morning/${date}`);
 const pct = (p: number) => ({ '--p': p }) as React.CSSProperties;
+
 
 /**
  * The morning at the top of Plan (above the week line, outside the pager: it belongs to the day, not to the week shown):
@@ -59,7 +62,7 @@ export const MorningCard = memo(function MorningCard(): React.JSX.Element {
       <div className="mc-wrap">
         <Pressable className="mc is-setup" press="surface" label="Your morning. Set up your morning. Wake, the run, the routine, out the door. Set up" {...tap}>
           <span className="caps mc-eyebrow">Your morning</span>
-          <span className="mc-head display">Set up your morning</span>
+          <span className="mc-head">Set up your morning</span>
           <span className="mc-quiet">Wake, the run, the routine, out the door.</span>
           <span className="mc-foot">
             <span className="mc-open">
@@ -134,6 +137,9 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
   );
   const isToday = rel === 'today';
   const nowP = isToday ? nowOnTrack(stops, pos, now) : null;
+  // the live node is a Sunrise mark while it shows on the page on screen; past the screen's budget it paints Night Ink
+  const shown = usePageShown();
+  const nowPaint = useNowMark('pointer', nowP != null && shown);
   const work = workOf(T);
   // the pill never ends in an ellipsis: when the name does not fit its stretch it says the kind word (`Strength`)
   const nameRef = useRef<HTMLSpanElement>(null);
@@ -162,7 +168,7 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
     <div className="mc-wrap">
       <Pressable className={`mc t-${work.tone} is-${rel}`} press="surface" label={label} holdMenu={menu} menuLabel="Morning actions" {...tap}>
         <span className="caps mc-eyebrow">{eyebrow}</span>
-        <span className="mc-head display">{head}</span>
+        <span className="mc-head">{numParts(head)}</span>
         <span className="mc-track halo" aria-hidden="true">
           <span className="mc-row mc-labels">
             {stops.map((s, i) => (
@@ -179,7 +185,7 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
             {stops.map((s, i) => (
               <i key={s.key} className={`mc-at mc-dot k-${s.key} ${past(s.at)}`} style={pct(pos[i]!)} />
             ))}
-            {nowP != null ? <i className="mc-at mc-now" style={pct(nowP)} /> : null}
+            {nowP != null ? <i className="mc-at mc-now" data-now={nowPaint === 'ink' ? 'ink' : undefined} style={pct(nowP)} /> : null}
             <span className={`mc-at mc-work ${seg ? '' : 'is-rest'}`} style={{ ...pct(mid), '--room': room } as React.CSSProperties}>
               <i className="tone-dot" />
               <span ref={nameRef} className="mc-work-name">
@@ -191,7 +197,7 @@ const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: stri
             {stops.map((s, i) => {
               const t = timeParts(s.at);
               return (
-                <span key={s.key} className={`mc-at mc-time stamp ${edge(i)} ${past(s.at)}`} style={pct(pos[i]!)}>
+                <span key={s.key} className={`mc-at mc-time ${edge(i)} ${past(s.at)}`} style={pct(pos[i]!)}>
                   {t.v}
                   <small className="mc-u">{t.u}</small>
                 </span>
