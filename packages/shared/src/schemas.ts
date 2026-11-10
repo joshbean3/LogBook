@@ -414,6 +414,8 @@ export const zTemplateUndo = z.object({
   endedBlock: zEndedBlock.nullable().optional(),
   /** Every block it ended (`endedBlock` is the first of these); either works. */
   endedBlocks: z.array(zEndedBlock).max(100).optional(),
+  /** The sessions the write added (`POST /plans/apply` answers them). With them only those go; needed when the write kept an existing block (a revise). */
+  addedIds: z.array(z.string().min(1).max(64)).max(5000).optional(),
 });
 export type TemplateUndoInput = z.infer<typeof zTemplateUndo>;
 

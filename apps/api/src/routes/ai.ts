@@ -100,18 +100,21 @@ export const aiRoutes = (db: DB) => {
   };
 
   /**
-   * Write a draft into the calendar. `replace` clears the date range first; `add` keeps what is there. Answers
-   * `{ block, months, replacedIds, endedBlocks }` (201): the sessions it removed and the blocks it ended, exactly what
-   * `POST /plans/template/undo` takes with `blockId` to put everything back.
+   * Write a draft into the calendar. `add` keeps what is there. `replace` clears what was only planned in the date range
+   * and ends or deletes the blocks the draft covers (a block that started before it ends the day before; one that starts
+   * inside it goes), so there is never a second plan over the same days. A revise (`source: 'revise'`) keeps one block:
+   * the plan being revised keeps its id, name, summary and start, takes the new sessions and runs to the later end.
+   * Answers `{ block, months, removed, replacedIds, endedBlocks, addedIds }` (201): what `POST /plans/template/undo` takes
+   * (with `blockId`) to put everything back.
    */
   r.post('/plans/apply', async (c) => {
     const userId = uidOf(c);
     const { draft, mode, source, only } = await parseBody(c.req.raw, zPlanApply);
-    const blockId = uid('b');
     const now = nowISO();
     const replacedIds: string[] = [];
     const endedBlocks: EndedBlockRef[] = [];
-    db.transaction((tx) => {
+    const addedIds: string[] = [];
+    const blockId = db.transaction((tx) => {
       /** Soft-delete the planned (never marked) sessions that match, and remember them for Undo. */
       const clear = (...where: Parameters<typeof and>) => {
         const scope = and(eq(trainingSessions.userId, userId), isNull(trainingSessions.mark), isNull(trainingSessions.deletedAt), ...where);
@@ -120,10 +123,19 @@ export const aiRoutes = (db: DB) => {
         tx.update(trainingSessions).set({ deletedAt: now, updatedAt: now }).where(scope).run();
         replacedIds.push(...ids);
       };
-      // a plan that stops at its end: nothing planned after it, and no other block running over it
-      if (only) {
-        clear(gt(trainingSessions.date, draft.end));
-        for (const b of tx.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), isNull(planBlocks.deletedAt), gte(planBlocks.end, draft.start))).all()) {
+      const live = tx.select().from(planBlocks).where(and(eq(planBlocks.userId, userId), isNull(planBlocks.deletedAt))).orderBy(planBlocks.start).all();
+      // a revise keeps the plan it revises: the block running on the draft's first day, else the first one inside it
+      const kept = source === 'revise' && mode === 'replace' ? (live.find((b) => b.start <= draft.start && b.end >= draft.start) ?? null) : null;
+      // a plan that stops at its end (`only`): nothing planned after it either, and no block running over it
+      if (only) clear(gt(trainingSessions.date, draft.end));
+      // replace clears what was only planned; anything already marked (done, floor, skipped, sick) is history and stays
+      if (mode === 'replace') clear(gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end));
+      if (mode === 'replace' || only) {
+        for (const b of live) {
+          if (b.id === kept?.id) continue;
+          if (b.end < draft.start || (!only && b.start > draft.end)) continue;
+          // what is left of it from the draft's first day on goes, wherever it falls
+          clear(eq(trainingSessions.blockId, b.id), gte(trainingSessions.date, draft.start));
           if (b.start < draft.start) {
             tx.update(planBlocks).set({ end: shiftDays(draft.start, -1) }).where(eq(planBlocks.id, b.id)).run();
             endedBlocks.push({ id: b.id, prevEnd: b.end });
@@ -133,22 +145,32 @@ export const aiRoutes = (db: DB) => {
           }
         }
       }
-      // replace clears what was only planned; anything already marked (done, floor, skipped, sick) is history and stays
-      if (mode === 'replace') clear(gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end));
       const pos = new Map<string, number>();
-      if (mode === 'add' || mode === 'replace') {
-        for (const d of eachDay(draft.start, draft.end)) pos.set(d, 0);
-        for (const s of tx.select({ date: trainingSessions.date, position: trainingSessions.position }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end), isNull(trainingSessions.deletedAt))).all()) pos.set(s.date, Math.max(pos.get(s.date) ?? 0, s.position + 1));
+      for (const d of eachDay(draft.start, draft.end)) pos.set(d, 0);
+      for (const s of tx.select({ date: trainingSessions.date, position: trainingSessions.position }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), gte(trainingSessions.date, draft.start), lte(trainingSessions.date, draft.end), isNull(trainingSessions.deletedAt))).all()) pos.set(s.date, Math.max(pos.get(s.date) ?? 0, s.position + 1));
+      let id: string;
+      if (kept) {
+        id = kept.id;
+        const end = draft.end > kept.end ? draft.end : kept.end;
+        tx.update(planBlocks).set({ end }).where(eq(planBlocks.id, kept.id)).run();
+        // its old end, for Undo; a block listed here is never removed by an Undo, only its new sessions (`addedIds`)
+        endedBlocks.unshift({ id: kept.id, prevEnd: kept.end });
+      } else {
+        id = uid('b');
+        tx.insert(planBlocks).values({ id, userId, name: draft.name, start: draft.start, end: draft.end, source: source ? zPlanMode.or(z.literal('chat')).parse(source) : null, summary: draft.summary || null, createdAt: now }).run();
       }
       for (const s of draft.sessions) {
         const p = pos.get(s.date) ?? 0;
         pos.set(s.date, p + 1);
-        tx.insert(trainingSessions).values({ id: uid('p'), userId, date: s.date, position: p, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: s.miles, minutes: s.minutes, blockId, movedFrom: null, mark: null, createdAt: now, updatedAt: now }).run();
+        const sid = uid('p');
+        addedIds.push(sid);
+        tx.insert(trainingSessions).values({ id: sid, userId, date: s.date, position: p, kind: s.kind, type: s.type, title: s.title, details: s.details, miles: s.miles, minutes: s.minutes, blockId: id, movedFrom: null, mark: null, createdAt: now, updatedAt: now }).run();
       }
-      tx.insert(planBlocks).values({ id: blockId, userId, name: draft.name, start: draft.start, end: draft.end, source: source ? zPlanMode.or(z.literal('chat')).parse(source) : null, summary: draft.summary || null, createdAt: now }).run();
+      return id;
     });
     const block = db.select().from(planBlocks).where(eq(planBlocks.id, blockId)).get()!;
-    return c.json({ block: toBlock(block, draft.sessions.length), months: monthsBetween(draft.start, draft.end), removed: replacedIds.length, replacedIds, endedBlocks }, 201);
+    const count = db.select({ id: trainingSessions.id }).from(trainingSessions).where(and(eq(trainingSessions.userId, userId), eq(trainingSessions.blockId, blockId), isNull(trainingSessions.deletedAt))).all().length;
+    return c.json({ block: toBlock(block, count), months: monthsBetween(draft.start, draft.end), removed: replacedIds.length, replacedIds, endedBlocks, addedIds }, 201);
   });
 
   /** Off: see RUN_NOTE_OFF. Saved notes from before still show; no new ones are written. */
