@@ -2095,7 +2095,7 @@
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  font: 550 max(12px, 0.75rem) / 1 var(--sans);
+  font: 550 clamp(12px, 0.75rem, 15.6px) / 1 var(--sans);
   color: var(--ink-2);
 }
 .pm-seg button.on {
