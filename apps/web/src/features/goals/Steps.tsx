@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useGoalMutations } from '@/api/queries';
 import { revealField } from '@/lib/keyboard';
 import { springs, useReduced } from '@/lib/motion';
+import { useToast } from '@/ui/Toast';
 import { usePress } from '@/ui/usePress';
 import { TodoMark } from '../todos/TodoMark';
 import './goals.css';
@@ -18,23 +19,39 @@ const C = 2 * Math.PI * R;
 const POP_V = 5.5;
 
 /**
+ * Mark a goal done from a single tap (the ring, Mark done): its steps stay as they are (nothing is checked for the owner),
+ * and the toast's Undo puts back the status and the steps it had.
+ */
+export const useMarkDone = () => {
+  const { review } = useGoalMutations();
+  const toast = useToast();
+  return (goal: Aim) => {
+    const was = { status: goal.status, steps: goal.steps };
+    review.mutate({ id: goal.id, status: 'done' });
+    const undo = () => review.mutate({ id: goal.id, status: was.status, steps: was.steps });
+    toast('Goal marked done', { label: 'Undo', fn: undo });
+    return undo;
+  };
+};
+
+/**
  * The goal's ring: how far through its steps it is (an arc that fills as steps are checked), a check inside once it is
- * done. A tap marks the goal done (the ring fills, pops on `springs.complete`, `toggle` on the peak frame) or opens it
- * again. 28 px drawn, a 44 px target.
+ * done. A tap marks the goal done (the ring fills, pops on `springs.complete`, `toggle` on the peak frame; a toast offers
+ * Undo) or opens it again. 28 px drawn, a 44 px target.
  */
 export const GoalRing = ({ goal, label }: { goal: Aim; label: string }) => {
   const { review } = useGoalMutations();
+  const markDone = useMarkDone();
   const reduce = useReduced();
   const pop = useMotionValue(1);
   const press = usePress();
   const done = goal.status === 'done';
   const p = goalProgress(goal);
   const toggle = () => {
-    const next = done ? 'open' : 'done';
+    if (done) return review.mutate({ id: goal.id, status: 'open' });
     // the pop is the ring's; the haptic and the burst are the row's, once the goal turns done (wherever it was done from)
-    if (next === 'done' && !reduce) animate(pop, 1, { ...springs.complete, velocity: POP_V });
-    // done with steps left: they are all checked with it (the goal is the sum of its steps)
-    review.mutate({ id: goal.id, status: next, ...(next === 'done' && goal.steps.some((s) => !s.done) ? { steps: goal.steps.map((s) => ({ ...s, done: true })) } : {}) });
+    if (!reduce) animate(pop, 1, { ...springs.complete, velocity: POP_V });
+    markDone(goal);
   };
   return (
     <button type="button" className={`g-ring-hit ${done ? 'is-done' : ''}`} role="checkbox" aria-checked={done} aria-label={label} data-press="scale" {...press.handlers} onClick={toggle}>
@@ -47,41 +64,76 @@ export const GoalRing = ({ goal, label }: { goal: Aim; label: string }) => {
   );
 };
 
+/** Why the steps are being saved: a check or uncheck, a step added, a step removed. */
+export type StepChange = 'toggle' | 'add' | 'remove';
+
+/** What changed between two lists of steps: one step checked (true) or unchecked (false), an add, a remove, or neither. */
+export const stepChange = (before: readonly GoalStep[], after: readonly GoalStep[]): { why: StepChange | null; toggled?: boolean } => {
+  if (after.length > before.length) return { why: 'add' };
+  if (after.length < before.length) return { why: 'remove' };
+  const was = new Map(before.map((x) => [x.id, x.done]));
+  const flipped = after.filter((x) => was.has(x.id) && was.get(x.id) !== x.done);
+  return flipped.length === 1 ? { why: 'toggle', toggled: flipped[0]!.done } : { why: null };
+};
+
 /**
- * A goal's steps, checked off where they stand (Today's card, the Goals tab, the goal's card). Checking the last one
- * finishes the goal; unchecking one of a done goal opens it again. `editable` adds the remove marks and the add row.
+ * The status a steps save leads to, or undefined to leave it. Only a check or uncheck moves it: the last step checked on an
+ * open goal finishes it, a step unchecked on a done goal opens it again. Adding or removing a step never changes it, and
+ * neither does checking a step of a goal already done.
  */
-/** Save a goal's steps; the last one checked finishes the goal, one unchecked opens a done goal again. */
+export const statusAfterSteps = (goal: Pick<Aim, 'status' | 'steps'>, steps: readonly GoalStep[]): 'done' | 'open' | undefined => {
+  const { why, toggled } = stepChange(goal.steps, steps);
+  if (why !== 'toggle') return undefined;
+  if (toggled && goal.status === 'open' && steps.every((x) => x.done)) return 'done';
+  if (!toggled && goal.status === 'done') return 'open';
+  return undefined;
+};
+
+/** A partly or missed goal has its answer: its steps are kept as they were, not checked. */
+export const stepsLocked = (goal: Pick<Aim, 'status'>) => goal.status === 'partly' || goal.status === 'missed';
+
+/** Save a goal's steps; the status moves only on a check or an uncheck (see `statusAfterSteps`). */
 export const useSaveSteps = () => {
   const { review } = useGoalMutations();
   return (goal: Aim, steps: GoalStep[]) => {
-    const all = steps.length > 0 && steps.every((s) => s.done);
-    const status = all && goal.status === 'open' ? 'done' : !all && goal.status === 'done' ? 'open' : undefined;
+    const status = statusAfterSteps(goal, steps);
     review.mutate({ id: goal.id, steps, ...(status ? { status } : {}) });
   };
 };
+
+/** A tap anywhere on a step's row (not its mark, its remove or a field) toggles it, as the mark does. */
+export const rowToggle = (on: () => void) => (e: React.MouseEvent) => {
+  if (e.target instanceof Element && e.target.closest('button, input, textarea, a')) return;
+  on();
+};
 export const newStepId = newId;
 
+/**
+ * A goal's steps, checked off where they stand (the goal's sheet). Checking the last one finishes the goal; unchecking one
+ * of a done goal opens it again; a partly or missed goal's steps are locked (dimmed). `editable` adds the remove marks and
+ * the add row.
+ */
 export const GoalSteps = ({ goal, editable, compact }: { goal: Aim; editable?: boolean; compact?: boolean }) => {
   const saveSteps = useSaveSteps();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
-  const save = (steps: GoalStep[]) => saveSteps(goal, steps);
+  const locked = stepsLocked(goal);
+  const toggle = (id: string, next: boolean) => saveSteps(goal, goal.steps.map((x) => (x.id === id ? { ...x, done: next } : x)));
   const add = () => {
     const t = draft.trim();
     if (!t) return setAdding(false);
-    save([...goal.steps, { id: newId(), text: t.slice(0, 120), done: false }]);
+    saveSteps(goal, [...goal.steps, { id: newId(), text: t.slice(0, 120), done: false }]);
     setDraft('');
   };
   if (!goal.steps.length && !editable) return null;
   return (
     <ul className={`g-steps ${compact ? 'compact' : 'k-rows'} ${editable ? 'is-edit' : ''}`} aria-label="Steps">
       {goal.steps.map((s) => (
-        <li key={s.id} className={`g-step ${s.done ? 'is-done' : ''}`}>
-          <TodoMark on={s.done} label={s.text} onToggle={(next) => save(goal.steps.map((x) => (x.id === s.id ? { ...x, done: next } : x)))} />
+        <li key={s.id} className={`g-step ${s.done ? 'is-done' : ''} ${locked ? 'is-locked' : ''}`} onClick={locked ? undefined : rowToggle(() => toggle(s.id, !s.done))}>
+          <TodoMark round on={s.done} label={s.text} disabled={locked} onToggle={(next) => toggle(s.id, next)} />
           <span className="g-step-text">{s.text}</span>
           {editable ? (
-            <button type="button" className="g-step-x" aria-label={`Remove ${s.text}`} onClick={() => save(goal.steps.filter((x) => x.id !== s.id))}>
+            <button type="button" className="g-step-x" aria-label={`Remove ${s.text}`} onClick={() => saveSteps(goal, goal.steps.filter((x) => x.id !== s.id))}>
               <X size={15} aria-hidden="true" />
             </button>
           ) : null}
