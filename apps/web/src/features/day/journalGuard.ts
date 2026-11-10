@@ -2,10 +2,10 @@ import { monthOf } from '@logbook/shared';
 import type { Mutation, QueryClient } from '@tanstack/react-query';
 import { keys } from '@/api/queries';
 import type { MonthBundle } from '@/api/types';
-import { getDraft, setDraft } from '../journal/drafts';
+import { getDraft, SAVE_FAILED, setDraft } from '../journal/drafts';
 
-/** The Journal's own words for a refused entry (features/journal/JournalDaySection.tsx `Composer.save`). */
-export const REFUSED_TEXT = 'Couldn’t save that. Your words are back in the field.';
+/** The Journal's own words for a refused entry (features/journal/drafts.ts `SAVE_FAILED`). */
+export const REFUSED_TEXT = SAVE_FAILED;
 
 type AnyMutation = Mutation<unknown, unknown, unknown, unknown>;
 /** The journal's add (`useJournalMutations().add`) is the one mutation whose variables are exactly `{ date, text }`. */

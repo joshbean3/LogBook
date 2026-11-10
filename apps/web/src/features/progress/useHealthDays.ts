@@ -8,6 +8,16 @@ import { healthByDate, healthDaysKey, healthYears, type HealthDay, type HealthLi
 
 const NONE: ReadonlyMap<ISODate, HealthDay> = new Map();
 
+/** `&tz=<IANA zone>` (this phone's), so the server puts a night's sleep on the right local day; nothing when unknown. */
+const tzParam = (): string => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return tz ? `&tz=${encodeURIComponent(tz)}` : '';
+  } catch {
+    return '';
+  }
+};
+
 /**
  * The account's daily Apple Health readings over `from`..`to` (`GET /api/apple-health/daily`, Contract 4), by date. They
  * draw whenever the server has days, whether or not this phone is the one that sent them. A call that fails (offline, or a
@@ -22,7 +32,7 @@ export const useHealthDays = (from: ISODate, to: ISODate): { days: ReadonlyMap<I
   const results = useQueries({
     queries: years.map((y) => ({
       queryKey: healthDaysKey(y.year),
-      queryFn: async () => healthByDate([await api<{ days: HealthDay[] }>(`/apple-health/daily?from=${y.from}&to=${y.to}`)]),
+      queryFn: async () => healthByDate([await api<{ days: HealthDay[] }>(`/apple-health/daily?from=${y.from}&to=${y.to}${tzParam()}`)]),
       staleTime: (q: { state: { data?: unknown } }) => (q.state.data instanceof Map ? 60_000 : 0),
       retry: false,
     })),

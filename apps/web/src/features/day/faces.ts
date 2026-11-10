@@ -48,7 +48,7 @@ export interface Face {
   out?: { door: number; back: number; progress: number; sub: string | null };
   /** The open face's status line when Strava is not being checked. */
   status?: string;
-  landed?: { miles: number; paceSec: number; sec: number; polyline: string | null; coach: string | null; drawKey: string };
+  landed?: { miles: number; paceSec: number; sec: number; polyline: string | null; drawKey: string };
   doneHand?: { adjust: boolean };
   next?: NextUp | null;
   /** The hold ring at the deck's right: open (fill to complete) or done (the check, the same node). Today's lead only. */
@@ -220,7 +220,7 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       stamp: who,
       line: lead?.key === 'floor' ? 'Floor met.' : lead ? 'Done.' : 'Off the plan.',
       quiet: false,
-      landed: { miles: t.miles, paceSec, sec: t.sec, polyline, coach: log.snap.coachOn(date, lead ? lead.session.id : 'run'), drawKey: `route-${myRuns[0]!.id}` },
+      landed: { miles: t.miles, paceSec, sec: t.sec, polyline, drawKey: `route-${myRuns[0]!.id}` },
       tall: !!polyline,
       ring: null,
     };
@@ -361,10 +361,3 @@ export const preLandingFace = (log: Log, date: ISODate, minutes: number, face: (
   return face({ ...log, snap } as Log);
 };
 
-/** The coach's read as the hero says it (§3.2): its first sentence. */
-export const coachSentence = (text: string | null | undefined): string | null => {
-  const t = text?.replace(/\s+/g, ' ').trim();
-  if (!t) return null;
-  const m = /^.+?[.!?](?=\s|$)/.exec(t);
-  return m ? m[0] : t;
-};

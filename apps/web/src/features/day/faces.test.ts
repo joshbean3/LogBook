@@ -4,7 +4,7 @@ import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import type { Log } from '../log/useLog';
 import { dayStamps } from './CloseDay';
-import { coachSentence, faceOf, floorShort, heroLead, milesText, otherEyebrow, phaseOf, planWords, preLandingFace, secondOf } from './faces';
+import { faceOf, floorShort, heroLead, milesText, otherEyebrow, phaseOf, planWords, preLandingFace, secondOf } from './faces';
 import { isoWeek, weekNote } from './WeekCard';
 
 const FRI = '2026-10-23';
@@ -145,11 +145,6 @@ describe('the run landing and the Close card (docs/feel.md §5, §6)', () => {
     expect(pre.kind).toBe('open');
     expect(pre.ring).toBe('open');
     expect(pre.lead?.session.id).toBe(f.lead?.session.id);
-  });
-  it("the coach's read as the hero says it: its first sentence", () => {
-    expect(coachSentence('Even splits, well judged. Hold the last mile next time.')).toBe('Even splits, well judged.');
-    expect(coachSentence('  One line without a stop ')).toBe('One line without a stop');
-    expect(coachSentence(null)).toBeNull();
   });
   it('the Close card stamps: only what happened, at most three; the miles tick from the plan, never from 0', () => {
     const r = dayStamps({ miles: 4.2, planned: 4, lit: 3, habits: 5, doneTodos: 2, openTodos: 1, restDay: false, runShown: true });

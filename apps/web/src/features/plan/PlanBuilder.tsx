@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav, useTab } from '@/app/NavController';
-import { api, ApiError } from '@/api/client';
+import { api, ApiError, LONG_TIMEOUT_MS } from '@/api/client';
 import { keys, useMonths, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
 import { consentKey, useConsent, useSaveConsent } from '@/lib/consent';
 import { DISCLAIMER } from '@/lib/copy';
@@ -30,8 +30,8 @@ const nextMonday = (t: string) => shiftDays(mondayOf(t), 7);
 /** Miles to one decimal, whole miles without `.0` (`300`, `25`, `6.5`). */
 const mi = (v: number) => num(Math.round(v * 10) / 10);
 
-/** `POST /plans/apply`'s answer. `replacedIds` (and the plans it ended) are what Undo puts back. */
-type Applied = { block: PlanBlock; months: string[] } & Pick<PlanTemplateResult, 'replacedIds' | 'endedBlock' | 'endedBlocks'>;
+/** `POST /plans/apply`'s answer. `replacedIds` (and the plans it ended) are what Undo puts back; `addedIds` what it takes out of a revised plan. */
+type Applied = { block: PlanBlock; months: string[] } & Pick<PlanTemplateResult, 'replacedIds' | 'endedBlock' | 'endedBlocks' | 'addedIds'>;
 
 const Preview = ({ draft, mode, onDone, onDiscard }: { draft: PlanDraft; mode: Mode; onDone: () => void; onDiscard: () => void }) => {
   const qc = useQueryClient();
@@ -53,14 +53,14 @@ const Preview = ({ draft, mode, onDone, onDiscard }: { draft: PlanDraft; mode: M
   const byDate = new Map<string, PlanDraft['sessions']>();
   for (const s of draft.sessions) byDate.set(s.date, [...(byDate.get(s.date) ?? []), s]);
   const apply = useMutation({
-    mutationFn: (v: { mode: 'replace' | 'add'; ids: string[] }) => api<Applied>('/plans/apply', { method: 'POST', json: { draft: { ...draft, name: name.trim() || draft.name }, mode: v.mode, source: mode } }),
+    mutationFn: (v: { mode: 'replace' | 'add'; ids: string[] }) => api<Applied>('/plans/apply', { method: 'POST', json: { draft: { ...draft, name: name.trim() || draft.name }, mode: v.mode, source: mode }, timeoutMs: LONG_TIMEOUT_MS }),
     onSuccess: async (r, v) => {
       for (const m of monthsBetween(shiftDays(draft.start, -14), shiftDays(draft.end, 14))) void qc.invalidateQueries({ queryKey: keys.month(m) });
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
       // what the write took away, as the server lists it; from a server that does not list it yet, the sessions this
       // preview counted (the same rule). Undo deletes the new plan and puts every one of them back
       const replacedIds = v.mode === 'replace' ? (r.replacedIds ?? v.ids) : [];
-      const result: PlanTemplateResult = { block: r.block, months: r.months, removed: replacedIds.length, replacedIds, endedBlock: r.endedBlock, endedBlocks: r.endedBlocks };
+      const result: PlanTemplateResult = { block: r.block, months: r.months, removed: replacedIds.length, replacedIds, endedBlock: r.endedBlock, endedBlocks: r.endedBlocks, addedIds: r.addedIds };
       if (replacedIds.length) haptics.delete();
       announceApplied(toast, result, () =>
         undo.mutateAsync(result).then(
@@ -162,7 +162,8 @@ const Preview = ({ draft, mode, onDone, onDiscard }: { draft: PlanDraft; mode: M
           Discard
         </Button>
       </div>
-      <div className="sheet-foot pv-foot">
+      {/* not `pv-foot`: the welcome pager's class of that name (auth/start.css) takes every press away from its children */}
+      <div className="sheet-foot pv-save">
         <Button variant="primary" block disabled={!choice.primary || apply.isPending} onClick={() => choice.primary && send(choice.primary.mode)}>
           {apply.isPending ? 'Saving' : (choice.primary?.label ?? (failed ? 'Calendar not loaded' : 'Checking your calendar…'))}
         </Button>
@@ -189,7 +190,7 @@ const Permission = ({ onAllowed, onNotNow }: { onAllowed: () => void; onNotNow: 
       <div className="card pb-ask-card">
         <h3 className="pb-ask-title">Let the assistant write your plan?</h3>
         <p className="pb-ask-p">The assistant is Claude, by Anthropic. What you type or paste here, and any file or photo you attach, goes to Claude to write your plan.</p>
-        <p className="pb-ask-p">Allow also lets the assistant read your plan, sessions, goals and to-dos. You can change this in Settings, under Privacy.</p>
+        <p className="pb-ask-p">Allow also lets the assistant read your plan, sessions, training status, goals and to-dos. You can change this in Settings, under Privacy.</p>
         <button type="button" className="pb-ask-link" onClick={() => openExternal(LEGAL.privacy)}>
           Privacy policy
         </button>
