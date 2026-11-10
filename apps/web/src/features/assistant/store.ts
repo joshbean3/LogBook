@@ -1,5 +1,6 @@
 import type { AssistantLive, AssistantProposal, AssistantTurn, Attachment } from '@logbook/shared';
 import { useSyncExternalStore } from 'react';
+import { orphanDraft, readDraft, writeDraft } from './drafts';
 import { cleanChat, cleanProposal, cleanTurns } from './sanitize';
 
 /**
@@ -61,7 +62,7 @@ let chats: AssistantChat[] = load();
 let current: string = (() => {
   try {
     const id = sessionStorage.getItem(CURRENT);
-    if (id && chats.some((c) => c.id === id)) return id;
+    if (id && (chats.some((c) => c.id === id) || readDraft(id))) return id;
     // the one conversation kept before history existed comes across as a chat
     const old = cleanTurns(JSON.parse(sessionStorage.getItem(LEGACY) ?? 'null') as unknown);
     sessionStorage.removeItem(LEGACY);
@@ -74,8 +75,14 @@ let current: string = (() => {
   } catch {
     /* private mode */
   }
-  return newId();
+  // a new chat with unsent words in it, from before the app closed, opens again
+  return orphanDraft((id) => chats.some((c) => c.id === id)) ?? newId();
 })();
+try {
+  sessionStorage.setItem(CURRENT, current);
+} catch {
+  /* private mode */
+}
 let turns: AssistantTurn[] = chats.find((c) => c.id === current)?.turns ?? [];
 
 /** When the ask now out started (ms), or null; and the chat it belongs to. The job itself is kept for a reload (JOB). */
@@ -275,6 +282,7 @@ export const assistantStore = {
   /** Deletes a saved chat; deleting the open one starts a new one. */
   remove: (id: string) => {
     chats = chats.filter((c) => c.id !== id);
+    writeDraft(id, '');
     if (id === current) {
       current = newId();
       turns = [];

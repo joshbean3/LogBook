@@ -47,6 +47,7 @@ import { askAssistant, stopAssistant, waitForJob } from './api';
 import { AttachError, prepareFile, type PreparedFile } from './attach';
 import { editTurn, regenerate, resumeAsk, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
 import { attachNoteSeen, markAttachNoteSeen } from './attachNote';
+import { readDraft, writeDraft } from './drafts';
 import { HistoryPanel } from './History';
 import { plainOf } from './plain';
 import { AssistantPermission, useAssistantGate } from './Permission';
@@ -501,8 +502,20 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
     if (nav.getState().active === 'today') nav.push('/settings/privacy');
     else nav.go('/settings/privacy');
   };
-  const [draft, setDraft] = useState(initial ?? '');
+  const [draft, setDraftState] = useState(() => initial ?? readDraft(chatId));
   const [editing, setEditing] = useState<number | null>(null);
+  // what is typed is kept for this chat (not the words of a message being edited)
+  const setDraft = (text: string, keep = editing === null) => {
+    setDraftState(text);
+    if (keep) writeDraft(assistantStore.currentId(), text);
+  };
+  const firstChat = useRef(chatId);
+  useEffect(() => {
+    if (chatId === firstChat.current) return;
+    firstChat.current = chatId;
+    setEditing(null);
+    setDraftState(readDraft(chatId));
+  }, [chatId]);
   const [pending, setPending] = useState<PreparedFile[]>([]);
   const [preparing, setPreparing] = useState(false);
   // the first file ever attached on this phone: one line says where it goes, until that message is sent
@@ -632,7 +645,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
     const t = text.trim();
     const files = pending;
     if ((!t && !files.length) || busyAnywhere || preparing) return;
-    setDraft('');
+    setDraft('', true);
     setPending([]);
     setAttachNote(false);
     // the field grew with the words; empty again, it goes back to one line
@@ -646,7 +659,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
   };
   const startEdit = (i: number) => {
     setEditing(i);
-    setDraft(turns[i]!.text);
+    setDraft(turns[i]!.text, false);
     requestAnimationFrame(() => {
       const el = field.current;
       if (!el) return;
@@ -822,7 +835,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
               aria-label="Cancel editing"
               onClick={() => {
                 setEditing(null);
-                setDraft('');
+                setDraft(readDraft(chatId), false);
                 if (field.current) field.current.style.height = '';
               }}
             >
