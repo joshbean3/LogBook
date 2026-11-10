@@ -24,6 +24,7 @@ import { ShareSheet } from '../share/ShareSheet';
 import { useHabitsLit } from '../habits/OrbRow';
 import { groupsOn } from '../todos/groups';
 import { isoClock, shortClock } from './dayWords';
+import { firstRingTap, RING_HINT } from './ringHint';
 import { CardGroup, CardOpen } from './CardGroup';
 import { floorShort } from './faces';
 import { HoldRing, MORPH_MS, settleAt, settleVelAt } from './HoldRing';
@@ -149,7 +150,7 @@ const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: 
             w.catch(() => toast(refusedMark(s, 'done')));
             return w;
           }}
-          onTap={onOpen}
+          onTap={() => (firstRingTap() ? toast(RING_HINT) : onOpen())}
         />
       ) : null}
     </CardGroup>

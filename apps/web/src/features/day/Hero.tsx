@@ -22,6 +22,7 @@ import { CloseDay } from './CloseDay';
 import { faceName, heroLead, phaseOf, preLandingFace, whenFaceKinds, withMark, type Face } from './faces';
 import { HoldRing, MORPH_MS } from './HoldRing';
 import { refusedMark } from './marks';
+import { firstRingTap, RING_HINT } from './ringHint';
 import { sessionMiles, weekMiles } from './miles';
 import { MiniTimeline, OutLine } from './MiniTimeline';
 import { LandedDeck, LandingRoute, RingSlot, SharePill } from './RunLanding';
@@ -478,6 +479,8 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       const byHand = s.mark === 'done' || s.mark === 'floor';
       const future = date > log.today;
       // Not done answers on the card too (the check fades out with the face; day review 3 #5)
+      // a skipped session can be put back from the card, not only from the sheet (today-top-25)
+      if (s.mark === 'skip' || s.mark === 'sick') list.push({ label: 'Put it back', onSelect: () => void markNow(s, null).catch(() => undefined) });
       if (byHand) list.push({ label: 'Not done', onSelect: () => void markNow(s, null).catch(() => undefined) });
       else if (!future && lead.key !== 'done' && lead.key !== 'floor')
         list.push({
@@ -490,7 +493,9 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       if (lead.key === 'today' || lead.key === 'planned') list.push({ label: 'Skip', onSelect: () => skip(s) });
       if (lead.key !== 'done' && lead.key !== 'floor') list.push({ label: 'Move', onSelect: () => act.move(date, s) });
     }
-    if (runs.length || (lead && date <= log.today)) list.push({ label: 'Share', onSelect: share });
+    // Share only when there is something to share: a run, a session done or at its floor, or the day's words (today-top-17)
+    const something = runs.length > 0 || lead?.key === 'done' || lead?.key === 'floor' || log.snap.journalOn(date).length > 0;
+    if (something && date <= log.today) list.push({ label: 'Share', onSelect: share });
     return list.slice(0, 4);
   };
 
@@ -575,7 +580,7 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
       <AnimatePresence initial={false}>
         {ringOn && ringLead ? (
           <RingSlot key={ringLead.session.id} leaving={landing.stage === 'draw'}>
-            <HoldRing label={`Hold to mark ${label(ringLead.session)} done`} done={ringDone} drive={landing.ring ?? undefined} onComplete={() => complete(ringLead.session)} onTap={open} />
+            <HoldRing label={`Hold to mark ${label(ringLead.session)} done`} done={ringDone} drive={landing.ring ?? undefined} onComplete={() => complete(ringLead.session)} onTap={() => (firstRingTap() ? toast(RING_HINT) : open())} />
           </RingSlot>
         ) : null}
       </AnimatePresence>
@@ -628,6 +633,7 @@ const SecondSession = memo(function SecondSession({ date, log: real, id }: { dat
   const items: ContextMenuItem[] = [];
   const byHand = s.mark === 'done' || s.mark === 'floor';
   // a mark by hand can be taken back from the card, as on the hero (feel review 2 #7)
+  if (s.mark === 'skip' || s.mark === 'sick') items.push({ label: 'Put it back', onSelect: () => quiet(markNow(s, null)) });
   if (byHand) items.push({ label: 'Not done', onSelect: () => quiet(markNow(s, null)) });
   // the second session's completion is not the day's success (M18: two a day); its ring answers with a toggle (§11.4)
   else if (p.key !== 'done' && p.key !== 'floor' && date <= log.today) items.push({ label: 'Done', onSelect: () => (markSuccess(s.id), quiet(markNow(s, 'done'))) });
@@ -658,7 +664,7 @@ const SecondSession = memo(function SecondSession({ date, log: real, id }: { dat
       <AnimatePresence initial={false}>
         {open || (isToday && byHand) ? (
           <motion.span key="ring" className="ss-ring" initial={{ opacity: FACE_FIRST_FRAME }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
-            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS)))} onTap={() => openSession(date, s)} />
+            <HoldRing size={40} label={`Hold to mark ${label(s)} done`} done={byHand} haptic="toggle" onComplete={() => (markSuccess(s.id), markNow(s, 'done', Math.max(MORPH_MS, CROSSFADE_MS)))} onTap={() => (firstRingTap() ? toast(RING_HINT) : openSession(date, s))} />
           </motion.span>
         ) : null}
       </AnimatePresence>
