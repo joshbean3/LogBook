@@ -1,5 +1,5 @@
 /*
- * The Orb (Orb.tsx): --s is the sphere's diameter and the only box it takes in layout. The art is centred on it and spills
+ * The Orb (Orb.tsx): --s is the sphere's diameter and the only box it takes in layout. The art is centered on it and spills
  * past it (the full tier's Apricot glow, the thinking arc) without taking layout space. --box is the art file's size as a
  * multiple of the sphere (100/96 gloss, 150/96 full).
  */
