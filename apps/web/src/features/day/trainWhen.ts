@@ -106,13 +106,17 @@ export const sessionMinutes = (s: Pick<Session, 'miles' | 'minutes'> | null | un
   return 45;
 };
 
-/** Off work · Run · Back · Dinner, the afternoon's four stops, built the way the morning's are (door from the routine before it, back from the run's length). */
-export const afternoonStops = (pm: AfternoonSettings, runMin: number): Stop[] => {
+/** The session's own word for its start (today-top-06): a run is a Run, a lift a Lift, anything else a Start. */
+export type SessionKind = Session['kind'];
+export const startWord = (kind: SessionKind | null | undefined) => (kind === 'lift' ? 'Lift' : kind === 'run' || !kind ? 'Run' : 'Start');
+
+/** Off work · Run · Back · Dinner, the afternoon's four stops, built the way the morning's are (door from the routine before it, back from the session's length). The second stop is named for the session (`Lift` on a strength day). */
+export const afternoonStops = (pm: AfternoonSettings, runMin: number, kind?: SessionKind | null): Stop[] => {
   const run = pm.offWork + pm.commute + pm.change;
   const back = run + runMin;
   return [
     { key: 'off', label: 'Off work', at: pm.offWork },
-    { key: 'run', label: 'Run', at: run },
+    { key: 'run', label: startWord(kind), at: run },
     { key: 'back', label: 'Back', at: back },
     { key: 'dinner', label: 'Dinner', at: back + pm.after },
   ];
@@ -136,12 +140,15 @@ export const afternoonStops = (pm: AfternoonSettings, runMin: number): Stop[] =>
  */
 export const phaseForWhen = (ph: DayPhase, when: TrainWhen, pm: AfternoonSettings, pace: number | null | undefined): DayPhase => {
   if (when === 'morning' || ph.phase === 'past' || ph.phase === 'future') return ph;
+  // a cross day has no morning line to move (the shared phase plans run and gym mornings only): the switch is not offered
+  const lead = heroLead(ph) ?? ph.primary;
+  if (lead?.session.kind === 'cross') return ph;
   const open = ph.training.length > 0 && !(ph.primary && counts(ph.primary.status));
   if (!open) return ph;
   const { doorAt: _door, backBy: _back, doorIn: _in, outProgress: _out, ...base } = ph;
   const evening = ph.now >= EVENING_START;
   if (when === 'none') return { ...base, phase: evening ? 'evening' : 'day' };
-  const [, run, back, dinner] = afternoonStops(pm, sessionMinutes((heroLead(ph) ?? ph.primary)?.session, pace));
+  const [, run, back, dinner] = afternoonStops(pm, sessionMinutes(lead?.session, pace));
   // the morning's Leave is not this timeline's: the out face has no "Leave 8:30" under an evening run
   const pmBase = { ...base, wakeAt: undefined, leaveAt: undefined, doorAt: run!.at, backBy: back!.at };
   if (ph.now < run!.at) return { ...pmBase, phase: 'morning', doorIn: Math.ceil(run!.at - ph.now - 1e-9) };
@@ -156,7 +163,7 @@ export const phaseForWhen = (ph: DayPhase, when: TrainWhen, pm: AfternoonSetting
  * its morning, and a session that is done, skipped or missed keeps its own face.
  */
 export const faceForWhen = (face: Face, when: TrainWhen, pm: AfternoonSettings, pace: number | null | undefined): Face => {
-  if (when === 'morning' || !face.lead || face.lead.session.kind === 'rest' || face.tall) return face;
+  if (when === 'morning' || !face.lead || face.lead.session.kind === 'rest' || face.lead.session.kind === 'cross' || face.tall) return face;
   if (face.kind !== 'morning' && face.kind !== 'planned' && face.kind !== 'open') return face;
   const wasMorning = face.kind === 'morning';
   // the line that names the morning's door says when instead
@@ -167,7 +174,8 @@ export const faceForWhen = (face: Face, when: TrainWhen, pm: AfternoonSettings, 
   }
   // after the afternoon's session time the open face stands as it is: the ring, "Not logged yet"
   if (face.kind === 'open') return face;
-  const stops = afternoonStops(pm, sessionMinutes(face.lead.session, pace));
+  const kind = face.lead.session.kind;
+  const stops = afternoonStops(pm, sessionMinutes(face.lead.session, pace), kind);
   return {
     ...face,
     ...(wasMorning ? { kind: 'later' as const, key: `later-${face.lead.session.id}` } : null),
@@ -175,7 +183,7 @@ export const faceForWhen = (face: Face, when: TrainWhen, pm: AfternoonSettings, 
     stopsKind: 'afternoon',
     stopsLabel: `This afternoon: ${stops.map((s) => `${s.label.toLowerCase()} ${shortClock(s.at)}`).join(', ')}. Change the afternoon`,
     eyebrow: wasMorning ? 'TODAY' : face.eyebrow,
-    line: doorLine ? `Run at ${shortClock(stops[1]!.at)}` : face.line,
+    line: doorLine ? `${startWord(kind)} at ${shortClock(stops[1]!.at)}` : face.line,
   };
 };
 

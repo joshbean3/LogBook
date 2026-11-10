@@ -4,7 +4,8 @@ import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
 import type { Log } from '../log/useLog';
 import { afternoonStops, DEFAULT_AFTERNOON, faceForWhen, phaseForWhen, sessionMinutes, whenFace, type TrainWhen } from './trainWhen';
-import { faceName, phaseOf, whenFaceKinds, type Face } from './faces';
+import { faceName, phaseOf, planWords, whenFaceKinds, type Face } from './faces';
+import { parseOffWork } from './WhenPill';
 
 describe('when you train', () => {
   it('builds the afternoon from the end of work, the way home and the run’s length', () => {
@@ -146,5 +147,36 @@ describe('the phase follows when you train', () => {
     expect(f.face.kind).toBe('planned');
     expect(f.face.line).toBe('Run at 6:10');
     expect(whenFace(next, '2026-10-24', at(12), 'none', DEFAULT_AFTERNOON).face.line).toBe('Any time that day');
+  });
+});
+
+describe('words for the session’s kind (today-top-06)', () => {
+  const lift = { key: 'm', kind: 'morning', eyebrow: 'THIS MORNING', stamp: 'STRENGTH A', line: 'Out the door in 20 min', stops: [{ key: 'wake', label: 'Wake', at: 390 }], stopsLabel: 'x', lead: { session: { kind: 'lift', miles: null, minutes: 40 } } } as unknown as Face;
+  const cross = { ...lift, stamp: 'BIKE 40', lead: { session: { kind: 'cross', miles: null, minutes: 40 } } } as unknown as Face;
+  it('a strength day lifts at its time and its stop says Lift', () => {
+    const f = faceForWhen(lift, 'afternoon', DEFAULT_AFTERNOON, 540);
+    expect(f.line).toMatch(/^Lift at /);
+    expect(f.stops?.map((s) => s.label)).toEqual(['Off work', 'Lift', 'Back', 'Dinner']);
+    expect(JSON.stringify(f)).not.toMatch(/Run/);
+  });
+  it('a cross day has no morning line to move: the choice changes nothing', () => {
+    expect(faceForWhen(cross, 'afternoon', DEFAULT_AFTERNOON, 540)).toBe(cross);
+  });
+  it('a plan line with no miles or minutes is still a whole line', () => {
+    expect(planWords({ id: 'x', date: '2026-10-23', position: 0, kind: 'lift', type: 'Strength', title: 'Strength A', details: null, miles: null, minutes: null, blockId: null, movedFrom: null, mark: null } as Session)).toBe('Floor 20 min');
+  });
+});
+
+describe('a typed end of work (today-top-22)', () => {
+  it('reads h:mm, bare hours, digits and AM or PM; an hour before 11 is the afternoon', () => {
+    expect(parseOffWork('6:00')).toBe(18 * 60);
+    expect(parseOffWork('5.30')).toBe(17 * 60 + 30);
+    expect(parseOffWork('530')).toBe(17 * 60 + 30);
+    expect(parseOffWork('18:15')).toBe(18 * 60 + 15);
+    expect(parseOffWork('6 pm')).toBe(18 * 60);
+    expect(parseOffWork('11:30am')).toBe(11 * 60 + 30);
+    expect(parseOffWork('12')).toBe(12 * 60);
+    expect(parseOffWork('soon')).toBeNull();
+    expect(parseOffWork('25:00')).toBeNull();
   });
 });

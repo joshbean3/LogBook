@@ -1,4 +1,4 @@
-import { label, num, type Activity, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
+import { label, num, shiftDays, type Activity, type ISODate, type PhaseSession, type Session, type SessionMark } from '@logbook/shared';
 import { ChevronRight, Share } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
@@ -33,6 +33,9 @@ import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 import { HeroGauge } from './HeroGauge';
 import { sessionMinutes, useAfternoon, useTrainWhen, whenFace } from './trainWhen';
 import { AfternoonSheet, WhenPill } from './WhenPill';
+
+const afternoonTitle = (date: ISODate, today: ISODate) =>
+  date === today ? 'This afternoon' : date === shiftDays(today, 1) ? 'Tomorrow afternoon' : `${new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))} afternoon`;
 
 export const morningLineId = (date: ISODate) => `morning-line-${date}`;
 export const morningPath = (date: ISODate) => `/today/${date}/morning`;
@@ -258,7 +261,8 @@ const FaceView = ({ c }: { c: DeckCtx }) => {
       )}
       {/* when the training happens: only while the session is still to come (today or later). Done, skipped, missed or
           matched to a run, the choice is over and the switch goes (today-top-01) */}
-      {!face.tall && face.lead && face.lead.session.kind !== 'rest' && c.date >= c.log.today && whenFaceKinds.has(face.kind) ? <WhenPill date={c.date} /> : null}
+      {/* a cross day has no morning line for the switch to move (Morning and No time would look the same): no switch (today-top-06) */}
+      {!face.tall && face.lead && face.lead.session.kind !== 'rest' && face.lead.session.kind !== 'cross' && c.date >= c.log.today && whenFaceKinds.has(face.kind) ? <WhenPill date={c.date} /> : null}
       {face.tall && face.landed?.polyline ? <LandingRoute polyline={face.landed.polyline} drawKey={c.isToday ? face.landed.drawKey : null} date={c.date} numbers={c.numbers} /> : null}
       <Deck c={c} />
     </>
@@ -481,7 +485,8 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
     onMorning: () => nav.push(morningPath(date), { shared: morningLineId(date) }),
     onOpenNext: () => face.next && openSession(face.next.date, face.next.session),
     onAdjust: () => lead && sheet.open({ eyebrow: label(lead.session), title: 'Miles run', body: <DistanceSheet s={lead.session} /> }),
-    onAfternoon: () => sheet.open({ title: 'This afternoon', body: <AfternoonSheet minutes={sessionMinutes(lead?.session, log.boot?.morningSettings?.run.pace)} /> }),
+    // titled by its day (today-top-22): `This afternoon`, `Tomorrow afternoon`, `Thursday afternoon`
+    onAfternoon: () => sheet.open({ title: afternoonTitle(date, log.today), body: <AfternoonSheet minutes={sessionMinutes(lead?.session, log.boot?.morningSettings?.run.pace)} kind={lead?.session.kind} /> }),
   };
   const [acts] = useState<DeckActions>(() => ({
     onOpen: () => latest.current.onOpen(),

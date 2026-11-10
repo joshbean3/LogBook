@@ -327,13 +327,14 @@ export const floorShort = (s: Session): string => {
   return m ? `${m} min` : floorFor(s);
 };
 
-/** '4 mi · floor 20 min' / '45 min · floor 20 min'. */
+/** '4 mi · floor 20 min' / '45 min · floor 20 min' / 'Floor 20 min' (a lift with no minutes: a whole line, capitalised; today-top-06). */
 export const planWords = (s: Session): string => {
   const bits: string[] = [];
   if (s.kind === 'run' && s.miles) bits.push(`${num(s.miles)} mi`);
   else if (s.minutes) bits.push(`${s.minutes} min`);
   if (floorFor(s)) bits.push(`floor ${floorShort(s)}`);
-  return bits.join(' · ') || label(s);
+  const line = bits.join(' · ');
+  return line ? line[0]!.toUpperCase() + line.slice(1) : label(s);
 };
 
 /** A rest morning before work: the wake-to-leave line. Null once you have left (or with no timeline). */

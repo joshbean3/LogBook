@@ -2006,7 +2006,8 @@
   box-shadow: var(--well-shadow);
 }
 .pm-seg button {
-  height: 1.875rem;
+  /* 44 to touch (today-top-22) */
+  min-height: 2.75rem;
   padding: 0 10px;
   border: 0;
   border-radius: var(--r-pill);
@@ -2020,10 +2021,13 @@
   box-shadow: 0 2px 6px -2px rgba(15, 42, 68, 0.25);
 }
 .pm-row > span {
-  white-space: nowrap;
-}
-.pm-row > .stepper,
-.pm-row > div:not(.pm-seg) {
-  flex: 0 1 200px;
   min-width: 0;
+}
+/* every stepper the same width, so their values line up down the sheet (today-top-22); a long label wraps instead */
+.pm-row > .stepper {
+  flex: none;
+  width: min(11rem, 58%);
+}
+.pm-line small {
+  white-space: nowrap;
 }
