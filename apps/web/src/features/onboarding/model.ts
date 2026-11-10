@@ -38,6 +38,8 @@ export const GOALS: ReadonlyArray<{ id: Goal; label: string; long: string }> = [
   { id: 'half', label: 'Half', long: 'Half marathon' },
   { id: 'marathon', label: 'Marathon', long: 'Marathon' },
 ];
+/** The most habits one account holds (the server's own limit on the setup answers). */
+export const HABIT_LIMIT = 12;
 export const goalLong = (g: Goal) => GOALS.find((x) => x.id === g)?.long ?? 'Just running';
 
 /** Where week one starts for most people who say this goal: a sensible volume they can hold. */
@@ -62,6 +64,19 @@ export const TRACK_TO = 660;
 export const MIN_GAP = 60;
 
 export const STARTER_HABITS = ['Sleep 7 h', 'Stretch', 'Read 15 min', 'Protein', 'No phone in bed'] as const;
+/**
+ * Add a habit by name on the habits step: a starter or one already typed is picked (not duplicated), a new name joins
+ * the list. At the limit nothing is added and `refused` says so, so a 13th can never reach the save.
+ */
+export const addHabit = (selected: string[], custom: string[], text: string): { selected: string[]; custom: string[]; refused: boolean } => {
+  const same = { selected, custom, refused: false };
+  const name = text.trim().replace(/\s+/g, ' ').slice(0, 80);
+  if (!name) return same;
+  const dupe = [...STARTER_HABITS, ...custom].find((x) => x.toLowerCase() === name.toLowerCase());
+  if (dupe && selected.includes(dupe)) return same;
+  if (selected.length >= HABIT_LIMIT) return { ...same, refused: true };
+  return dupe ? { selected: [...selected, dupe], custom, refused: false } : { selected: [...selected, name], custom: [...custom, name], refused: false };
+};
 
 /** `6:50` for a morning time; `12:10 PM` once it could be read either way. */
 export const hm = (mins: number) => {
@@ -103,6 +118,23 @@ export const defaultRaceDay = (goal: Goal, start: ISODate): ISODate => {
   return list.reduce((best, d) => (Math.abs(+new Date(d) - +new Date(want)) < Math.abs(+new Date(best) - +new Date(want)) ? d : best), list[0]!);
 };
 export const weeksUntil = (from: ISODate, to: ISODate) => Math.round((+new Date(to) - +new Date(from)) / (7 * 864e5));
+
+/** Under this many weeks to race day a plan cannot build to the distance, so the questions say so (they never block). */
+const TIGHT_WEEKS: Record<Exclude<Goal, 'base'>, number> = { '5k': 6, '10k': 8, half: 10, marathon: 14 };
+const A_RACE: Record<Exclude<Goal, 'base'>, string> = { '5k': 'A 5K', '10k': 'A 10K', half: 'A half marathon', marathon: 'A marathon' };
+export interface RaceWarning {
+  /** "A marathon needs about 16 weeks. This race is 5 weeks away." */
+  text: string;
+  /** The race Sunday nearest the goal's usual length: the one-tap way out. */
+  later: ISODate;
+}
+/** The warning for a race day too close for its distance; null when the date is far enough, not set, or there is no race. */
+export const raceWarning = (p: Pick<TrainingProfile, 'goal' | 'raceDate'>, start: ISODate): RaceWarning | null => {
+  if (p.goal === 'base' || !p.raceDate) return null;
+  const weeks = weeksUntil(start, p.raceDate);
+  if (weeks >= TIGHT_WEEKS[p.goal]) return null;
+  return { text: `${A_RACE[p.goal]} needs about ${GOAL_SPECS[p.goal].defaultWeeks} weeks. This race is ${weeks} ${weeks === 1 ? 'week' : 'weeks'} away.`, later: defaultRaceDay(p.goal, start) };
+};
 
 // ---------- previews ----------
 export const safeTemplate = (p: TrainingProfile, startDate: ISODate): Template | null => {

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { haptics } from '@/lib/haptics';
 import { crossfade, springs } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
-import { DAY_LETTER, DAY_NAME, fixLongRun, GOALS, hm, hmFull, MIN_GAP, morningFrom, raceSundays, snap5, sortDays, STARTER_HABITS, TRACK_FROM, TRACK_TO, weeksUntil } from './model';
+import { addHabit, DAY_LETTER, DAY_NAME, fixLongRun, GOALS, HABIT_LIMIT, hm, hmFull, MIN_GAP, morningFrom, raceSundays, snap5, sortDays, STARTER_HABITS, TRACK_FROM, TRACK_TO, weeksUntil } from './model';
 
 /**
  * The first-run controls, answered by touching the thing: goal chips, a race-day wheel, weekday letters, a miles dial, a
@@ -495,20 +495,22 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
   const all = [...STARTER_HABITS, ...custom];
+  const full = selected.length >= HABIT_LIMIT;
   const toggle = (h: string) => {
+    const on = selected.includes(h);
+    if (!on && full) return;
     haptics.select();
-    onChange(selected.includes(h) ? selected.filter((x) => x !== h) : [...selected, h], custom);
+    onChange(on ? selected.filter((x) => x !== h) : [...selected, h], custom);
   };
   const add = () => {
-    const name = text.trim().replace(/\s+/g, ' ').slice(0, 80);
+    const next = addHabit(selected, custom, text);
     setText('');
-    if (!name) return setAdding(false);
-    const dupe = all.find((x) => x.toLowerCase() === name.toLowerCase());
+    // nothing typed, or the list is full: the field closes (at the limit the line under the chips says why)
+    if (next.selected === selected || next.selected.length >= HABIT_LIMIT) setAdding(false);
+    if (next.selected === selected) return;
     haptics.select();
-    if (dupe) onChange(selected.includes(dupe) ? selected : [...selected, dupe], custom);
-    else onChange([...selected, name], [...custom, name]);
+    onChange(next.selected, next.custom);
   };
-  const full = selected.length >= 12;
   return (
     <div className="ob-habits">
       <div className="ob-orbs" aria-hidden="true">
@@ -542,7 +544,7 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
             </Pressable>
           );
         })}
-        {adding ? (
+        {adding && !full ? (
           <form
             className="ob-chip-form"
             onSubmit={(e) => {
@@ -559,6 +561,11 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
           </Pressable>
         )}
       </div>
+      {full ? (
+        <p className="ob-hint ob-habits-limit" role="status">
+          {HABIT_LIMIT} habits is the limit for now.
+        </p>
+      ) : null}
     </div>
   );
 };

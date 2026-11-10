@@ -1,19 +1,19 @@
 import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, type ISODate, type Weekday } from '@logbook/shared';
-import { Check, ChevronLeft, Clock } from 'lucide-react';
+import { Activity, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Sparkles, Sun, TriangleAlert } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
-import { FirstRunHero, type FirstRunAction } from '@/features/day/FirstRunHero';
-import { useBootstrap, useHabitMutations, useMorningMutations, useOnboard, useSetName } from '@/api/queries';
-import { useNav } from '@/app/NavController';
+import { ApiError } from '@/api/client';
+import { useBootstrap, useMorningMutations, useOnboard, useSetName } from '@/api/queries';
 import type { OnboardingAnswers } from '@/api/types';
+import { STRAVA_BUILT } from '@/lib/features';
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
 import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
 import { crossfade, fadeIn, springs } from '@/lib/motion';
-import { EmptyState, Pressable, useSheet, useToast } from '@/ui';
+import { Pressable, useSheet } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { blockShape, buildSteps, DEFAULT_LEAVE, DEFAULT_MILES, STARTER_HABITS, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { blockShape, buildSteps, HABIT_LIMIT, raceWarning, DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
 import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
 import { endReplay, isReplaying } from './replay';
 import { DEFAULT_AFTERNOON, setAfternoon, setTrainWhenDefault } from '@/features/day/trainWhen';
@@ -21,7 +21,6 @@ import { Stepper } from '@/ui/primitives';
 import { Tour } from './tour/Tour';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
 import { handOff } from './handoff';
-import { StravaPrimer } from './StravaPrimer';
 import { commitsBack, releaseVelocity } from './velocity';
 import './onboarding.css';
 import './beats.css';
@@ -145,24 +144,9 @@ export default function Welcome() {
   return <Flow uid={user.id} />;
 }
 
-/** "Add habits" on the payoff's face, after the hand-off: the starters the questions did not pick, as one-tap adds (Today's own first-run sheet). */
-const AddHabitsSheet = () => {
-  const { add } = useHabitMutations();
-  const boot = useBootstrap();
-  const sheet = useSheet();
-  const have = new Set((boot.data?.habits ?? []).filter((h) => !h.archivedOn).map((h) => h.name.toLowerCase()));
-  return (
-    <EmptyState starters={STARTER_HABITS.filter((n) => !have.has(n.toLowerCase()))} onStarter={(name) => add.mutateAsync(name)} verb={{ label: 'Done', onPress: () => sheet.close() }} startersLabel="Starter habits">
-      Tap the ones you want to do every day. They become lights on Today.
-    </EmptyState>
-  );
-};
-
 function Flow({ uid }: { uid: string }) {
   useSplashDoneOnPaint();
   const nav = useNavigate();
-  const framed = useNav();
-  const toast = useToast();
   const boot = useBootstrap();
   const params = useParams();
   const reduce = useReducedMotion();
@@ -285,6 +269,25 @@ function Flow({ uid }: { uid: string }) {
 
   const qIndex = QUESTIONS.indexOf(step);
   const next = () => go(ORDER[idx + 1]!);
+  // a race day too close for its distance: said on the goal and days steps, with the usual date one tap away (never a block)
+  const tight = raceWarning(profile, start);
+  const tightNote = tight ? (
+    <div className="ob-warn" role="status">
+      <p className="ob-warn-text">
+        <TriangleAlert size={16} strokeWidth={2.2} aria-hidden="true" />
+        <span>{tight.text}</span>
+      </p>
+      <Pressable
+        className="ob-chip ob-fix"
+        onPress={() => {
+          haptics.select();
+          set({ raceDate: tight.later });
+        }}
+      >
+        Race on {fmtDate('short', tight.later)} instead
+      </Pressable>
+    </div>
+  ) : null;
 
   const bodyFor = (step: Step): React.ReactNode => {
   let body: React.ReactNode;
@@ -324,6 +327,7 @@ function Flow({ uid }: { uid: string }) {
                   Race day <span className="ob-q-value">{profile.raceDate ? fmtDate('short', profile.raceDate) : 'Not set'}</span>
                 </p>
                 <RaceStrip start={start} value={profile.raceDate} onChange={(r) => set({ raceDate: r })} />
+                {tightNote}
                 <BlockPreview shape={shape} bare />
               </motion.div>
             ) : null}
@@ -345,6 +349,7 @@ function Flow({ uid }: { uid: string }) {
               {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week. {d.goal && d.goal !== 'base' ? `Your ${goalLong(d.goal)} plan` : 'Your plan'} builds from here, about 10% a week.
             </p>
           </div>
+          {tightNote ? <div className="card ob-card">{tightNote}</div> : null}
           <BlockPreview shape={shape} compact />
         </Question>
       );
@@ -468,7 +473,7 @@ function Flow({ uid }: { uid: string }) {
       body = <Tour page={d.tourPage ?? 0} onPage={(n) => set({ tourPage: n })} onDone={next} />;
       break;
     case 'ready':
-      body = <Payoff draft={d} set={set} profile={profile} start={start} today={t} onOpen={openToday} />;
+      body = <Payoff draft={d} set={set} profile={profile} start={start} today={t} onOpen={openToday} onChange={() => go('goal', true)} />;
       break;
   }
   return body;
@@ -482,22 +487,15 @@ function Flow({ uid }: { uid: string }) {
     endReplay();
   }
   /**
-   * A row of the payoff's face, once Today is up (review code F2, F7): each does what it says, the way Today's own first-run
-   * face does. Add habits: the starters sheet. Plan a week: the week just written, in Plan (a jump). Connect Strava: the
-   * primer, only on a server that can connect it and an account that has not (else an error says why, in place of a page
-   * of raw JSON from /api/strava/connect).
+   * The payoff's one offer, once Today is up: the Strava primer. Only in a build that has the connection at all (a release
+   * build carries none of it: the primer's module is never loaded and never bundled).
    */
-  function afterHandOff(then: FirstRunAction) {
-    if (then === 'habits') sheet.open({ title: 'Add habits', body: <AddHabitsSheet /> });
-    else if (then === 'plan') framed.go(`/plan/week/${mondayOf(start)}`);
-    else {
-      const b = boot.data;
-      if (b?.features.strava && !b.strava.connected) sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
-      else if (!b?.features.strava) toast('Strava isn’t set up on this server yet.');
-    }
+  function afterHandOff() {
+    if (!STRAVA_BUILT) return;
+    void import('./StravaPrimer').then(({ StravaPrimer }) => sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> }));
   }
   /** The hand-off (§8): Today mounts under a still copy of this screen, the week falls away, Today's chrome fades in. */
-  function openToday(then?: FirstRunAction) {
+  function openToday(then?: PayoffAction) {
     const cut = () => {
       clearAll();
       nav('/today', { replace: true });
@@ -510,7 +508,7 @@ function Flow({ uid }: { uid: string }) {
       fades: '.ob-pay-head, .ob-halo',
       reduce: !!reduce,
       cut,
-      after: then ? () => afterHandOff(then) : undefined,
+      after: then ? afterHandOff : undefined,
     });
   }
 
@@ -595,14 +593,53 @@ function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Nex
 // ---------- the payoff ----------
 /**
  * The payoff (§8): the first week, written into the plan, under the headline; the hero is Today's first-run face
- * (`FirstRunHero`, WP2) at the resting y of Today's hero slot (157 + safe-t at 390 × 844, contracts §A.5). `Open Today` (or a
+ * (`Made`: what the answers set up) at the resting y of Today's hero slot (157 + safe-t at 390 × 844, contracts §A.5). `Open Today` (or a
  * row of the face) is the hand-off: the week rows fall away and Today's chrome fades in around a hero that stays put
  * (`handoff.ts`), with no route cut and no leave animation.
  */
-function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onOpen: (then?: FirstRunAction) => void }) {
+/** What a row of the payoff's card can ask for after the hand-off: the one offer, in a build that has it. */
+type PayoffAction = 'connect';
+
+/**
+ * The payoff's card, where Today's hero will be: a short summary of what the answers made (the plan, the morning, the
+ * habits). Nothing here asks for work that was done a minute ago. `offer` is one more row, when the build has one to make.
+ */
+function Made({ profile, weeks, wake, leave, habits, offer }: { profile: TrainingProfile; weeks: number | null; wake: number; leave: number; habits: number; offer?: React.ReactNode }) {
+  return (
+    <section className="aura halo-upcoming ob-made" aria-label="Set up for you">
+      <span className="aura-glow" aria-hidden="true" />
+      <span className="caps ob-made-eyebrow">Set up for you</span>
+      <ul className="ob-made-rows">
+        <li className="ob-made-row">
+          <span className="ob-made-ic" aria-hidden="true">
+            <CalendarDays size={18} />
+          </span>
+          <span className="ob-made-title">{profile.goal === 'base' ? 'Just running' : `${goalLong(profile.goal)} plan`}</span>
+          {weeks ? <span className="ob-made-value">{weeks} {weeks === 1 ? 'week' : 'weeks'}</span> : null}
+        </li>
+        <li className="ob-made-row">
+          <span className="ob-made-ic" aria-hidden="true">
+            <Sun size={18} />
+          </span>
+          <span className="ob-made-title">Wake {hm(wake)}, leave {hm(leave)}</span>
+        </li>
+        <li className="ob-made-row">
+          <span className="ob-made-ic" aria-hidden="true">
+            <Sparkles size={18} />
+          </span>
+          <span className="ob-made-title">{habits ? `${habits} ${habits === 1 ? 'habit' : 'habits'} on Today` : 'No habits yet. Add them on Today.'}</span>
+        </li>
+        {offer ? <li>{offer}</li> : null}
+      </ul>
+    </section>
+  );
+}
+
+function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onOpen: (then?: PayoffAction) => void; /** Back to the questions: the way out when the server refuses an answer. */ onChange: () => void }) {
+  const boot = useBootstrap();
   const reduce = useReducedMotion();
   const onboard = useOnboard();
-  const [waiting, setWaiting] = useState<{ then?: FirstRunAction } | null>(null);
+  const [waiting, setWaiting] = useState<{ then?: PayoffAction } | null>(null);
   const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [profile, start, today, draft.wake, draft.leave, draft.routine]);
 
   const routine = routineFrom(draft.routine ?? []);
@@ -617,7 +654,8 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
     weeklyMiles: profile.weeklyMiles,
     wake: draft.wake,
     leave: draft.leave,
-    habits: draft.habits,
+    // never more than the account can hold: a longer list would be refused whole
+    habits: draft.habits.slice(0, HABIT_LIMIT),
     start: 'tomorrow',
     today,
   };
@@ -648,7 +686,36 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const done = replay || saved || onboard.isSuccess;
-  const open = (then?: FirstRunAction) => {
+  // the server refused the answers themselves (not a lost connection, a signed-out session or a rate limit): sending them
+  // again cannot work, so the way on is back to the questions
+  const refused = onboard.error instanceof ApiError && onboard.error.status >= 400 && onboard.error.status < 500 && ![401, 408, 429].includes(onboard.error.status);
+  const reason = !onboard.isError ? null : refused ? 'Logbook couldn’t use one of your answers. Change them and try again.' : 'Check your connection and try again.';
+  const retry = (
+    <>
+      {refused ? null : (
+        <Pressable className="btn primary block ob-cta" onPress={send}>
+          Try again
+        </Pressable>
+      )}
+      <Pressable className={`btn ${refused ? 'primary' : 'soft'} block ob-cta`} onPress={onChange}>
+        Change my answers
+      </Pressable>
+    </>
+  );
+  // The one offer under the summary: only in a build that has the connection (the whole row is compiled out of a
+  // release build), on a server that can make it, for an account that has not.
+  const b = boot.data;
+  const offer =
+    STRAVA_BUILT && !replay && !!b?.features.strava && !b.strava.connected ? (
+      <Pressable className="ob-made-row" press="surface" onPress={() => open('connect')}>
+        <span className="ob-made-ic" aria-hidden="true">
+          <Activity size={18} />
+        </span>
+        <span className="ob-made-title">Connect Strava</span>
+        <ChevronRight size={16} className="ob-made-chev" aria-hidden="true" />
+      </Pressable>
+    ) : null;
+  const open = (then?: PayoffAction) => {
     if (!done) return setWaiting({ then });
     onOpen(then);
   };
@@ -676,14 +743,8 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
   if (phase === 'build')
     return (
       <div className="ob-step ob-payoff is-building">
-        <BuildBeat steps={steps} ready={done} failed={onboard.isError} onDone={reveal} />
-        {onboard.isError ? (
-          <div className="ob-pay-foot">
-            <Pressable className="btn primary block ob-cta" onPress={send}>
-              Try again
-            </Pressable>
-          </div>
-        ) : null}
+        <BuildBeat steps={steps} ready={done} failed={reason} onDone={reveal} />
+        {onboard.isError ? <div className="ob-pay-foot">{retry}</div> : null}
       </div>
     );
   return (
@@ -702,9 +763,9 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
         ) : null}
       </header>
 
-      {/* Today's first-run face, where Today's hero will be: it does not move on the way in */}
+      {/* what was made, where Today's hero will be */}
       <div className="ob-pay-hero">
-        <FirstRunHero onAction={(k) => open(k)} />
+        <Made profile={profile} weeks={shape?.weeks ?? null} wake={draft.wake} leave={draft.leave} habits={answers.habits.length} offer={offer} />
       </div>
 
       <motion.ol className="ob-week" aria-label="Your first week" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fade : { ...fade, delay: 0.24 }}>
@@ -736,7 +797,7 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
       <div className="ob-pay-foot">
         <p className="ob-pay-sum" aria-live="polite">
           {onboard.isError ? (
-            <span className="ob-err">Couldn’t save your plan. Check your connection and try again.</span>
+            <span className="ob-err">Couldn’t save your plan. {reason}</span>
           ) : replay ? (
             <>
               <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />
@@ -752,9 +813,7 @@ function Payoff({ draft, set, profile, start, today, onOpen }: { draft: Draft; s
           )}
         </p>
         {onboard.isError ? (
-          <Pressable className="btn primary block ob-cta" onPress={send}>
-            Try again
-          </Pressable>
+          retry
         ) : (
           <Pressable className="btn primary block ob-cta" onPress={() => open()} disabled={!!waiting}>
             {waiting ? 'One moment…' : 'Open Today'}

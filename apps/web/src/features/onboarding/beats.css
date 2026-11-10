@@ -143,6 +143,12 @@
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
+/* the save failed: the reason, in the error color, right above the buttons */
+.obx-build-foot.is-bad {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--bad);
+}
 
 /* one nudge a morning: a slice of the lock screen, then the choice */
 .obx-lock {

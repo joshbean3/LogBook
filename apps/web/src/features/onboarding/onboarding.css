@@ -167,8 +167,13 @@
   width: 100%;
   max-width: 520px;
   margin-inline: auto;
-  padding: 16px var(--gutter) calc(16px + var(--safe-b));
+  /* no bottom padding here: the foot carries the safe-area inset, so its resting and pinned places are the same */
+  padding: 16px var(--gutter) 0;
   min-width: 0;
+}
+/* a step with no pinned foot on screen (the plan being written) keeps the inset itself */
+.ob-step:not(:has(.ob-foot, .ob-pay-foot)) {
+  padding-bottom: calc(16px + var(--safe-b));
 }
 .ob-title {
   margin-top: 8px;
@@ -196,13 +201,25 @@
   gap: 0;
   min-width: 0;
 }
+/* The pinned foot: it rests above the home indicator (and above the keyboard, which overlays the web view and reports its
+   height as --kb), in the same place whether the step scrolls or not. Its fade never takes a tap: only the button and
+   the tour's dots do, so an answer chip that shows through the fade can still be pressed. */
 .ob-foot {
   margin-top: auto;
   padding-top: 24px;
   position: sticky;
   bottom: 0;
-  padding-bottom: 4px;
+  padding-bottom: calc(16px + max(var(--safe-b), var(--kb, 0px)));
+  /* edge to edge, so no card shadow shows beside it in the strip under the button */
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
   background: linear-gradient(to bottom, transparent, var(--bg) 24px);
+  pointer-events: none;
+}
+.ob-foot .btn,
+.ob-foot .tour-dots,
+.ob-pay-foot .btn {
+  pointer-events: auto;
 }
 .ob-later {
   margin-bottom: 12px;
@@ -686,6 +703,13 @@
 }
 
 /* ---------- habits: chips that become orbs ---------- */
+/* the picker never widens its card: a long name or a 12th chip wraps or clips inside it */
+.ob-habits {
+  min-width: 0;
+}
+.ob-hint.ob-habits-limit {
+  text-align: left;
+}
 .ob-orbs {
   display: flex;
   gap: 12px;
@@ -817,10 +841,76 @@
 }
 .ob-pay-hero {
   flex: none;
-  height: 184px;
+  min-height: 184px;
 }
-.ob-pay-hero .first-run-hero {
+/* what the answers made: Today's hero card in size and place (358 wide, 184 tall or more), a caps eyebrow over plain rows */
+.aura.ob-made {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 358px;
+  min-height: 184px;
   margin: 0 auto;
+  padding: 16px 16px 0;
+  display: grid;
+  grid-template-rows: auto auto;
+  row-gap: 4px;
+  align-content: start;
+  overflow: hidden;
+}
+.ob-made-eyebrow {
+  font: 600 0.6875rem / 0.8125rem var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.ob-made-rows {
+  list-style: none;
+  margin: 2px -16px 0;
+  padding: 0;
+  display: grid;
+}
+.ob-made-rows > li {
+  position: relative;
+}
+.ob-made-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 16px;
+  width: 100%;
+  text-align: left;
+}
+.ob-made-rows > li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.ob-made-ic {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-icon);
+  display: grid;
+  place-items: center;
+  background: var(--columbia-wash);
+  color: var(--ink-2);
+}
+.ob-made-title {
+  font: 500 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.ob-made-value {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.ob-made-chev {
+  color: var(--ink-3);
 }
 /* the hand-off layer: a still copy of the payoff over everything while Today mounts under it */
 .ob-handoff {
@@ -1008,7 +1098,10 @@
 .ob-payoff .ob-pay-foot {
   position: sticky;
   bottom: 0;
-  padding-bottom: 4px;
+  padding-bottom: calc(16px + var(--safe-b));
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
+  pointer-events: none;
   background: linear-gradient(to bottom, transparent, rgba(243, 248, 251, 0.96) 24px);
 }
 @media (max-width: 359px) {
@@ -1029,6 +1122,29 @@
 }
 .ob-routine {
   margin-top: 12px;
+}
+/* a race day too close for its distance: one plain line and the way out, inside the card it is about */
+.ob-warn {
+  display: grid;
+  justify-items: start;
+  margin-top: 12px;
+}
+.card.ob-card > .ob-warn:only-child {
+  margin-top: 0;
+}
+.ob-warn-text {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+}
+.ob-warn-text svg {
+  margin-top: 2px;
+  color: var(--accent-text);
 }
 .ob-fix.ob-chip {
   margin-top: 12px;
@@ -1064,4 +1180,8 @@
 }
 .ob-offwork > :last-child {
   flex: 0 1 200px;
+}
+/* with the keyboard up the foot keeps only its button: the field, the chips and the button all fit above the keys */
+html.kb-open .ob-later {
+  display: none;
 }

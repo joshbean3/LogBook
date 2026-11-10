@@ -70,21 +70,22 @@ const STEP_MS = 520;
 /**
  * One line a beat, each checking in with a selection tick. Holds on the last line until `ready` (the plan is saved: the
  * wait is the real one), then hands over with `onDone`. A tap anywhere hurries it to the end; reduced motion shortens the
- * beat and fades instead of sliding.
+ * beat and fades instead of sliding. When the save fails (`failed`: the reason, in plain words) the ticking stops where it
+ * is, the title says so and the reason shows above the buttons; nothing more is marked done until a retry clears it.
  */
-export const BuildBeat = ({ steps, ready, failed, onDone }: { steps: string[]; ready: boolean; failed: boolean; onDone: () => void }) => {
+export const BuildBeat = ({ steps, ready, failed, onDone }: { steps: string[]; ready: boolean; failed: string | null; onDone: () => void }) => {
   const reduce = useReducedMotion();
   const [shown, setShown] = useState(0);
   const doneRef = useRef(false);
   const beat = reduce ? 240 : STEP_MS;
   useEffect(() => {
-    if (shown >= steps.length) return;
+    if (shown >= steps.length || failed) return;
     const id = setTimeout(() => {
       setShown((n) => n + 1);
       haptics.select();
     }, shown === 0 ? 260 : beat);
     return () => clearTimeout(id);
-  }, [shown, steps.length, beat]);
+  }, [shown, steps.length, beat, failed]);
   useEffect(() => {
     if (doneRef.current || shown < steps.length || !ready) return;
     const id = setTimeout(() => {
@@ -95,8 +96,8 @@ export const BuildBeat = ({ steps, ready, failed, onDone }: { steps: string[]; r
   }, [shown, steps.length, ready, onDone, reduce]);
   const all = shown >= steps.length;
   return (
-    <div className="obx-build" onPointerDown={() => setShown(steps.length)}>
-      <h1 className="obx-build-title display">{all && ready ? 'Your week is written.' : 'Writing your plan'}</h1>
+    <div className="obx-build" onPointerDown={() => (failed ? undefined : setShown(steps.length))}>
+      <h1 className="obx-build-title display">{failed ? 'Couldn’t save your plan' : all && ready ? 'Your week is written.' : 'Writing your plan'}</h1>
       <ol className="obx-build-list" aria-live="polite">
         {steps.slice(0, shown).map((s, i) => (
           <motion.li key={s} initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? { duration: 0.15 } : springs.settle}>
@@ -107,8 +108,8 @@ export const BuildBeat = ({ steps, ready, failed, onDone }: { steps: string[]; r
           </motion.li>
         ))}
       </ol>
-      <p className="obx-build-foot" aria-live="polite">
-        {failed ? 'Couldn’t save your plan yet. Retrying when you tap below.' : all && !ready ? 'Saving it to your plan…' : ' '}
+      <p className={`obx-build-foot ${failed ? 'is-bad' : ''}`} role={failed ? 'alert' : undefined} aria-live="polite">
+        {failed ?? (all && !ready ? 'Saving it to your plan…' : ' ')}
       </p>
     </div>
   );
