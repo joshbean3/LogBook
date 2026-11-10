@@ -48,18 +48,34 @@
 
 /* ---------- top bar: back, progress dots, skip ---------- */
 .ob-top {
+  /* pinned while the step scrolls under it, on the page's own colour (onboarding-20) */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex: none;
   display: grid;
-  grid-template-columns: 64px 1fr 64px;
+  /* the end slot takes what "Skip tour" needs at any text size */
+  grid-template-columns: minmax(64px, max-content) 1fr minmax(64px, max-content);
+  column-gap: 8px;
   align-items: center;
   padding: calc(6px + var(--safe-t)) var(--gutter) 0;
   height: calc(54px + var(--safe-t));
+  background: var(--bg);
 }
 .ob .ob-back.icon-btn {
+  position: relative;
   width: 40px;
   height: 40px;
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--ink);
+}
+/* the 40px circle answers a 44px press (onboarding-19) */
+.ob .ob-back.icon-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
 }
 /* the chevron and Skip fade with the dots (220 ms, opacity) when a step has none; hidden only once the fade is done. The
    fade is on the slot (`.ob-slot`), never on the button, so the buttons keep their own press transitions (review 3 code N8:
@@ -113,6 +129,7 @@
   margin-right: -12px;
   padding: 0 12px;
   justify-self: end;
+  white-space: nowrap;
   font: inherit;
   font-size: 0.9375rem;
   font-weight: 600;
@@ -127,6 +144,7 @@
   flex-direction: column;
   min-width: 0;
   position: relative;
+  overflow-x: clip;
 }
 /* the edge swipe (review feel F3): the step being left is an opaque page with its own copy of the halo, over the step
    before it (at −30 %, under a scrim); nothing in either takes a touch while the finger has it */
@@ -289,7 +307,7 @@
 /* ---------- goal: choice cards (icon, name, one line); the chosen one outlined in navy, with a check ---------- */
 .ob-goals {
   display: grid;
-  gap: 10px;
+  gap: var(--gap);
 }
 .ob-goal {
   appearance: none;
@@ -345,7 +363,6 @@
 /* ---------- race day wheel ---------- */
 .ob-race-block {
   overflow: hidden;
-  margin-top: 2px;
   /* the card is a grid (shape layer): without a 0 minimum its one track grows to the strip's full scroll width */
   grid-template-columns: minmax(0, 1fr);
 }
@@ -389,9 +406,10 @@
 .ob-race-strip::-webkit-scrollbar {
   display: none;
 }
-.ob-race-strip:focus-visible + .ob-race-ring,
-.ob-race:focus-within .ob-race-ring {
-  border-color: var(--ink-3);
+/* the wheel has the keyboard: the centre ring shows it, plainly (a11y-15) */
+.ob-race:has(.ob-race-strip:focus-visible) .ob-race-ring {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-2);
 }
 .ob-race-day {
   appearance: none;
@@ -484,19 +502,27 @@
   color: var(--bg);
 }
 .ob-day.long .ob-day-disc {
+  /* a 3px ring in all, so it never reaches the next day (onboarding-20) */
   box-shadow:
-    0 0 0 3px var(--bg),
-    0 0 0 5px var(--accent-bright),
-    0 0 24px rgba(242, 96, 12, 0.7);
+    0 0 0 1.5px var(--bg),
+    0 0 0 3px var(--accent-bright),
+    0 0 16px rgba(242, 96, 12, 0.6);
 }
 .ob-day-cap {
-  height: 14px;
-  font-size: 0.625rem;
+  min-height: 0.875rem;
+  font-size: 0.6875rem;
   line-height: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent-text);
+}
+.ob-long-hint {
+  margin-top: 4px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  text-align: center;
 }
 .ob-long {
   margin-top: 12px;
@@ -610,7 +636,8 @@
 .ob-track {
   position: relative;
   height: 48px;
-  touch-action: none;
+  /* a vertical drag that starts on the line scrolls the page; only the markers keep the finger (onboarding-06) */
+  touch-action: pan-y;
   cursor: pointer;
 }
 .ob-track-line {
@@ -639,6 +666,7 @@
   background: var(--ink-4);
 }
 .ob-marker {
+  touch-action: none;
   position: absolute;
   top: 50%;
   width: 28px;
@@ -682,7 +710,7 @@
   font-size: 0.6875rem;
   line-height: 0.875rem;
   font-weight: 600;
-  color: var(--ink-4);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 .card.ob-verdict {
@@ -787,10 +815,17 @@
   gap: 6px;
   white-space: nowrap;
   max-width: 100%;
+  min-width: 0;
   transition:
     background 160ms var(--ease-out),
     color 160ms var(--ease-out),
     border-color 160ms var(--ease-out);
+}
+/* a long habit name shortens with an ellipsis inside its chip; the card never grows wider than the screen (onboarding-02) */
+.ob-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ob-chip.on {
   background: var(--ink);
@@ -841,14 +876,14 @@
 }
 .ob-pay-hero {
   flex: none;
-  min-height: 184px;
+  min-height: 11.5rem;
 }
 /* what the answers made: Today's hero card in size and place (358 wide, 184 tall or more), a caps eyebrow over plain rows */
 .aura.ob-made {
   box-sizing: border-box;
   width: 100%;
   max-width: 358px;
-  min-height: 184px;
+  min-height: 11.5rem;
   margin: 0 auto;
   padding: 16px 16px 0;
   display: grid;
@@ -954,7 +989,7 @@
 .ob-wrow {
   position: relative;
   display: grid;
-  grid-template-columns: 62px 3px minmax(0, 1fr) 28%;
+  grid-template-columns: max-content 3px minmax(0, 1fr) 28%;
   align-items: center;
   gap: 12px;
   min-height: 44px;
@@ -972,7 +1007,7 @@
 /* a tabular weekday column: three letters in their own track, the date right-aligned in the next (no "MON19") */
 .ob-wday {
   display: grid;
-  grid-template-columns: 34px 22px;
+  grid-template-columns: 2.25rem 1.5rem;
   align-items: baseline;
   gap: 6px;
 }
@@ -1071,9 +1106,6 @@
     min-height: 60px;
     padding-block: 10px;
   }
-  .ob-goals {
-    gap: 10px;
-  }
 
   .ob-week {
     margin-top: 20px;
@@ -1086,7 +1118,7 @@
 @container page (max-width: 21rem) {
   /* the week's mileage bars give the name column room for "EASY 4" and its LONG tag at 320 (it read "LO…") */
   .ob-wrow {
-    grid-template-columns: 62px 3px minmax(0, 1fr) 20%;
+    grid-template-columns: max-content 3px minmax(0, 1fr) 20%;
   }
   .ob-title,
   .ob-pay-title {
@@ -1168,8 +1200,9 @@
   height: 56px;
   font: 400 1.375rem / 1 var(--serif);
 }
-.ob-when {
+.card.ob-card.ob-when {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .ob-when-seg {
@@ -1177,8 +1210,14 @@
   gap: 8px;
 }
 .ob-when-seg .ob-chip {
-  flex: 1;
+  flex: 1 1 0;
   justify-content: center;
+  /* at a large text size the two choices wrap inside themselves rather than push the card wider */
+  height: auto;
+  min-height: 40px;
+  padding-block: 6px;
+  white-space: normal;
+  text-align: center;
 }
 .ob-offwork {
   display: flex;
@@ -1188,10 +1227,68 @@
   font: 500 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
+.ob-offwork {
+  min-width: 0;
+}
 .ob-offwork > :last-child {
-  flex: 0 1 200px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* the time is never cut: the value takes the room it needs, and no more (onboarding-11) */
+.ob-offwork .stepper .in {
+  flex: 0 0 auto;
+  width: 9ch;
+  min-width: 9ch;
+  white-space: nowrap;
+  text-align: center;
+}
+/* a narrow card (a small phone, or a large text size): the label sits over the stepper */
+@container page (max-width: 22.5rem) {
+  .ob-offwork {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .ob-offwork > :last-child {
+    align-self: stretch;
+  }
+  .ob-offwork .stepper .in {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    /* a display numeral: it grows with the text size only as far as the stepper can hold it */
+    font-size: min(1.375rem, 30px);
+  }
 }
 /* with the keyboard up the foot keeps only its button: the field, the chips and the button all fit above the keys */
 html.kb-open .ob-later {
   display: none;
+}
+/* the quiet way out of setup, under the name step's button (onboarding-09) */
+.ob-signout {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  margin: 4px auto 0;
+  pointer-events: auto;
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
+  color: var(--ink-3);
+  border-radius: var(--r-pill);
+}
+.ob-signout:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
+}
+/* focus moves to a step's heading when it changes (a11y-10); the heading is not a control */
+.ob-title:focus,
+.ob-pay-title:focus,
+.obx-build-title:focus {
+  outline: none;
 }

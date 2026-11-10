@@ -1,11 +1,11 @@
 import { buildMorning, fmtDate, morningDayFor, tone as toneOf, WEEKDAYS, type Goal, type ISODate, type MorningSettings, type Weekday } from '@logbook/shared';
-import { Check, Flag, Footprints, Medal, Minus, Plus, Timer, Trophy, Zap, type LucideIcon } from 'lucide-react';
+import { Check, CircleSlash, Flag, Footprints, Medal, Minus, Plus, Timer, Trophy, Zap, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { haptics } from '@/lib/haptics';
 import { crossfade, springs } from '@/lib/motion';
 import { Pressable } from '@/ui/Pressable';
-import { addHabit, DAY_LETTER, DAY_NAME, fixLongRun, GOALS, HABIT_LIMIT, hm, hmFull, MIN_GAP, morningFrom, raceSundays, snap5, sortDays, STARTER_HABITS, TRACK_FROM, TRACK_TO, weeksUntil } from './model';
+import { addHabit, DAY_LETTER, DAY_NAME, fixLongRun, GOALS, HABIT_LIMIT, HABIT_NAME_MAX, hm, hmFull, MIN_GAP, morningFrom, raceSundays, snap5, sortDays, STARTER_HABITS, TRACK_FROM, TRACK_TO, weeksUntil } from './model';
 
 /**
  * The first-run controls, answered by touching the thing: goal chips, a race-day wheel, weekday letters, a miles dial, a
@@ -28,27 +28,32 @@ const goalCard = (g: Goal) => GOAL_CARD[g] ?? { Icon: Flag, line: '' };
  * What you are training for, as choice cards (inspiration §3, reference 165 and 171): an icon, the name and one line;
  * the chosen one gets a navy outline and a check. A radio group: arrows move the choice.
  */
-export const GoalChips = ({ value, onChange, id = 'ob-goal' }: { value: Goal | null; onChange: (g: Goal) => void; id?: string }) => {
+/** The sixth choice on first run (onboarding-09): setup finishes with no running plan. */
+const NO_PLAN = { id: 'none' as const, label: 'No running plan for now', Icon: CircleSlash, line: 'Habits, goals and the journal. Add a plan any time.' };
+export const GoalChips = ({ value, onChange, id = 'ob-goal', noneOn, onNone }: { value: Goal | null; onChange: (g: Goal) => void; id?: string; /** Offer "No running plan for now" (first run only): chosen when `noneOn`. */ noneOn?: boolean; onNone?: () => void }) => {
   const reduce = useReducedMotion();
   const refs = useRef<Array<HTMLElement | null>>([]);
-  const pick = (g: Goal) => {
-    if (g === value) return;
+  const choices = [...GOALS.map((g) => ({ id: g.id as Goal | 'none', label: g.label, ...goalCard(g.id) })), ...(onNone ? [NO_PLAN] : [])];
+  const current: Goal | 'none' | null = noneOn ? 'none' : value;
+  const pick = (g: Goal | 'none') => {
+    if (g === current) return;
     haptics.select();
-    onChange(g);
+    if (g === 'none') onNone?.();
+    else onChange(g);
   };
   const onKey = (e: React.KeyboardEvent, i: number) => {
     const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!d) return;
     e.preventDefault();
-    const n = (i + d + GOALS.length) % GOALS.length;
-    pick(GOALS[n]!.id);
+    const n = (i + d + choices.length) % choices.length;
+    pick(choices[n]!.id);
     refs.current[n]?.focus();
   };
   return (
     <div className="ob-goals" role="radiogroup" aria-label="What are you training for?">
-      {GOALS.map((g, i) => {
-        const on = value === g.id;
-        const { Icon, line } = goalCard(g.id);
+      {choices.map((g, i) => {
+        const on = current === g.id;
+        const { Icon, line } = g;
         return (
           <Pressable
             key={g.id}
@@ -57,7 +62,7 @@ export const GoalChips = ({ value, onChange, id = 'ob-goal' }: { value: Goal | n
             }}
             role="radio"
             aria-checked={on}
-            tabIndex={on || (value == null && i === 0) ? 0 : -1}
+            tabIndex={on || (current == null && i === 0) ? 0 : -1}
             className={`ob-goal ${on ? 'on' : ''}`}
             onPress={() => pick(g.id)}
             onKeyDown={(e: React.KeyboardEvent) => onKey(e, i)}
@@ -196,7 +201,7 @@ export const RaceStrip = ({ start, value, onChange }: { start: ISODate; value: I
  * Seven letters. Tap a letter to make it a run day (or a rest day); hold one to make it the long run. "Long run on Sunday"
  * under them is the button that does the same without the hold (each tap moves it to the next run day).
  */
-export const DayLetters = ({ runDays, longRunDay, onChange }: { runDays: Weekday[]; longRunDay: Weekday; onChange: (runDays: Weekday[], longRunDay: Weekday) => void }) => {
+export const DayLetters = ({ runDays, longRunDay, onChange, hint = true }: { runDays: Weekday[]; longRunDay: Weekday; onChange: (runDays: Weekday[], longRunDay: Weekday) => void; /** The how-to line under the days (off where the screen's own subtitle says it). */ hint?: boolean }) => {
   const reduce = useReducedMotion();
   const dayEls = useRef(new Map<Weekday, HTMLElement>());
   const toggle = (d: Weekday) => {
@@ -252,8 +257,8 @@ export const DayLetters = ({ runDays, longRunDay, onChange }: { runDays: Weekday
         <Pressable className="ob-long-btn" onPress={cycle} label={`Long run on ${DAY_NAME[longRunDay]}. Move it to the next run day`}>
           {DAY_NAME[longRunDay]}
         </Pressable>
-        <span className="ob-long-hint">or hold a day</span>
       </p>
+      {hint ? <p className="ob-long-hint">Tap a day to run on it. Hold a run day to make it the long run.</p> : null}
     </div>
   );
 };
@@ -373,7 +378,9 @@ const pct = (m: number) => ((m - TRACK_FROM) / (TRACK_TO - TRACK_FROM)) * 100;
  */
 export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', miles: 4 }, settings }: { wake: number; leave: number; onChange: (wake: number, leave: number) => void; run?: { type: string; miles: number }; settings?: MorningSettings | null }) => {
   const track = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ id: number; which: 'wake' | 'leave' } | null>(null);
+  // a drag that starts on a marker moves it at once; a press on the line moves the nearer marker only when it lifts
+  // within 8 px of where it went down (a tap), so a vertical drag from the line scrolls the page instead (onboarding-06)
+  const drag = useRef<{ id: number; which: 'wake' | 'leave'; tap?: { x: number; y: number } } | null>(null);
   const [active, setActive] = useState<'wake' | 'leave' | null>(null);
   const vals = useRef({ wake, leave });
   vals.current = { wake, leave };
@@ -406,20 +413,29 @@ export const MorningTrack = ({ wake, leave, onChange, run = { type: 'Easy', mile
     if (!track.current || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const m = minutesAt(e.clientX);
     const target = (e.target as HTMLElement).closest('[data-marker]')?.getAttribute('data-marker') as 'wake' | 'leave' | null;
-    const which = target ?? (Math.abs(m - vals.current.wake) <= Math.abs(m - vals.current.leave) ? 'wake' : 'leave');
-    drag.current = { id: e.pointerId, which };
-    setActive(which);
-    e.currentTarget.setPointerCapture(e.pointerId);
-    if (!target) setVal(which, m);
+    if (target) {
+      drag.current = { id: e.pointerId, which: target };
+      setActive(target);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+    // on the line: nothing moves yet, and the page keeps the gesture (touch-action: pan-y on the track)
+    drag.current = { id: e.pointerId, which: Math.abs(m - vals.current.wake) <= Math.abs(m - vals.current.leave) ? 'wake' : 'leave', tap: { x: e.clientX, y: e.clientY } };
   };
   const onMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
+    if (d.tap) {
+      if (Math.hypot(e.clientX - d.tap.x, e.clientY - d.tap.y) > 8) drag.current = null;
+      return;
+    }
     setVal(d.which, minutesAt(e.clientX));
   };
-  const onUp = () => {
+  const onUp = (e: React.PointerEvent) => {
+    const d = drag.current;
     drag.current = null;
     setActive(null);
+    if (d?.tap && e.type === 'pointerup' && d.id === e.pointerId && Math.hypot(e.clientX - d.tap.x, e.clientY - d.tap.y) <= 8) setVal(d.which, minutesAt(e.clientX));
   };
   const onKey = (which: 'wake' | 'leave') => (e: React.KeyboardEvent) => {
     const step = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 5 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -5 : e.key === 'PageUp' ? 30 : e.key === 'PageDown' ? -30 : 0;
@@ -540,7 +556,7 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
           return (
             <Pressable key={h} className={`ob-chip ${on ? 'on' : ''}`} aria-pressed={on} disabled={!on && full} onPress={() => toggle(h)}>
               {on ? <Check size={16} strokeWidth={2.6} aria-hidden="true" /> : null}
-              {h}
+              <span className="ob-chip-label">{h}</span>
             </Pressable>
           );
         })}
@@ -552,7 +568,7 @@ export const HabitPicker = ({ selected, custom, onChange }: { selected: string[]
               add();
             }}
           >
-            <input className="ob-chip-in" autoFocus value={text} maxLength={80} placeholder="Your own" aria-label="Your own habit" enterKeyHint="done" onChange={(e) => setText(e.target.value)} onBlur={add} />
+            <input className="ob-chip-in" autoFocus value={text} maxLength={HABIT_NAME_MAX} placeholder="Your own" aria-label="Your own habit" enterKeyHint="done" onChange={(e) => setText(e.target.value)} onBlur={add} />
           </form>
         ) : (
           <Pressable className="ob-chip add" disabled={full} onPress={() => setAdding(true)}>

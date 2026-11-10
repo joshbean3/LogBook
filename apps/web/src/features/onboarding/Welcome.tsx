@@ -2,10 +2,11 @@ import { fmtDate, mondayOf, shiftDays, today as todayISO, weekdayOf, type Goal, 
 import { Activity, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, Sparkles, Sun, TriangleAlert } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams } from 'react-router';
-import { ApiError } from '@/api/client';
-import { useBootstrap, useMorningMutations, useOnboard, useSetName } from '@/api/queries';
-import type { OnboardingAnswers } from '@/api/types';
+import { api, ApiError } from '@/api/client';
+import { useBootstrap, useMorningMutations, useSetName } from '@/api/queries';
+import { markSignedOut } from '@/features/auth/flag';
 import { STRAVA_BUILT } from '@/lib/features';
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
@@ -13,13 +14,16 @@ import { EDGE_PX, FLICK_V, LOCK_PX, lockAxis } from '@/lib/gesture';
 import { crossfade, fadeIn, springs } from '@/lib/motion';
 import { Pressable, useSheet } from '@/ui';
 import { DayLetters, GoalChips, HabitPicker, MilesDial, MorningTrack, RaceStrip } from './controls';
-import { blockShape, buildSteps, HABIT_LIMIT, raceWarning, DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, snap5, TRACK_FROM, type TrainingProfile } from './model';
+import { AFTER_WORK_LEAD, afternoonLine, blockShape, buildSteps, HABIT_LIMIT, morningFix, raceWarning, DEFAULT_LEAVE, DEFAULT_MILES, DEFAULT_PROFILE, DEFAULT_WAKE, defaultRaceDay, firstWeek, fixLongRun, goalLong, hm, MILES_MAX, MILES_MIN, previewMorning, ROUTINE_CHIPS, routineFrom, routineNames, routineSettings, routineTotal, safeTemplate, verdictLine, type TrainingProfile } from './model';
 import { BlockPreview, BuildBeat, NudgeChoice, SetupBar } from './beats';
 import { endReplay, isReplaying } from './replay';
+import { useSaveOnboarding, type OnboardingPost } from './save';
+import { nudgeNext, questionsFor, type Step } from './steps';
 import { DEFAULT_AFTERNOON, setAfternoon, setTrainWhenDefault } from '@/features/day/trainWhen';
 import { Stepper } from '@/ui/primitives';
 import { Tour } from './tour/Tour';
 import { enableReminders, remindersSupported } from '@/features/goals/reminders';
+import { useToast } from '@/ui';
 import { handOff } from './handoff';
 import { commitsBack, releaseVelocity } from './velocity';
 import './onboarding.css';
@@ -46,18 +50,19 @@ import './beats.css';
  * days questions carry a live preview of the block the answers build, read off the real template; the payoff opens on
  * the plan being written, step by step, and lands on a success haptic.
  *
- * Every answer lives in sessionStorage per account, so a reload lands on the same step with the same answers. Back is the
+ * Every answer lives in localStorage per account with the step it was on (onboarding-04), so a reload, or the app quit
+ * mid-setup and opened again, lands on the same step with the same answers. Cleared on finish and at sign out. Back is the
  * chevron, the browser's back, or an edge swipe from the left. An account that has finished (onboardedAt set) never sees
  * this, unless it is in the middle of its own payoff.
  */
 
-type Step = '' | 'name' | 'goal' | 'days' | 'morning' | 'habits' | 'nudge' | 'tour' | 'ready';
-/** The nudge step only where a nudge can be sent (the iOS app); the web has the dot on Goals. */
-const QUESTIONS: Step[] = ['name', 'goal', 'days', 'morning', 'habits', ...(remindersSupported() ? (['nudge'] as Step[]) : []), 'tour'];
-const ORDER: Step[] = ['', ...QUESTIONS, 'ready'];
+const ALL_STEPS: Step[] = ['name', 'goal', 'days', 'morning', 'habits', 'nudge', 'tour', 'ready'];
 
 interface Draft {
-  goal: Goal | null;
+  /** null: not answered yet; 'none': no running plan for now (onboarding-09). */
+  goal: Goal | 'none' | null;
+  /** The step the person was on, so the app opened again lands there (onboarding-04). */
+  step?: Step;
   /** undefined: the goal's default day; null: no date yet. */
   raceDate?: ISODate | null;
   runDays: Weekday[];
@@ -88,39 +93,43 @@ const blank = (): Draft => ({ goal: null, runDays: DEFAULT_PROFILE.runDays, long
 const draftKey = (uid: string) => `logbook.onboarding.${uid}`;
 /** Set once the answers are sent: the payoff may finish on an account that is already onboarded. Cleared on the way out. */
 export const PAYOFF_KEY = 'logbook.onboarding.payoff';
-const ss = {
+const store = (s: () => Storage) => ({
   get: (k: string) => {
     try {
-      return sessionStorage.getItem(k);
+      return s().getItem(k);
     } catch {
       return null;
     }
   },
   set: (k: string, v: string) => {
     try {
-      sessionStorage.setItem(k, v);
+      s().setItem(k, v);
     } catch {
       /* private mode: the answers last as long as the page */
     }
   },
   del: (k: string) => {
     try {
-      sessionStorage.removeItem(k);
+      s().removeItem(k);
     } catch {
       /* nothing to clear */
     }
   },
-};
+});
+/** The answers: kept on the device across a quit (a `logbook.` key, so the shell's sign-out wipe clears it). */
+const ls = store(() => localStorage);
+/** The payoff flag: this tab only. */
+const ss = store(() => sessionStorage);
 const useDraft = (uid: string) => {
   const [d, setD] = useState<Draft>(() => {
     try {
-      const raw = ss.get(draftKey(uid));
+      const raw = ls.get(draftKey(uid));
       return raw ? { ...blank(), ...(JSON.parse(raw) as Draft) } : blank();
     } catch {
       return blank();
     }
   });
-  useEffect(() => ss.set(draftKey(uid), JSON.stringify(d)), [uid, d]);
+  useEffect(() => ls.set(draftKey(uid), JSON.stringify(d)), [uid, d]);
   return [d, (p: Partial<Draft>) => setD((cur) => ({ ...cur, ...p }))] as const;
 };
 
@@ -128,7 +137,8 @@ const useDraft = (uid: string) => {
 const startOf = (t: ISODate) => shiftDays(t, 1);
 
 const profileOf = (d: Draft, start: ISODate): TrainingProfile => {
-  const goal = d.goal ?? 'base';
+  // no running plan: the previews never show, and the save sends goal null
+  const goal = d.goal && d.goal !== 'none' ? d.goal : 'base';
   return { goal, raceDate: goal === 'base' ? null : d.raceDate === undefined ? defaultRaceDay(goal, start) : d.raceDate, runDays: d.runDays, longRunDay: fixLongRun(d.runDays, d.longRunDay), weeklyMiles: d.weeklyMiles };
 };
 
@@ -153,7 +163,15 @@ function Flow({ uid }: { uid: string }) {
   const step = ((params['*'] ?? '').split('/')[0] ?? '') as Step;
   const [d, set] = useDraft(uid);
   const sheet = useSheet();
+  const replaying = useMemo(() => isReplaying(), []);
+  const QUESTIONS = questionsFor({ native: remindersSupported(), replaying, noPlan: d.goal === 'none' });
+  const ORDER: Step[] = ['', ...QUESTIONS, 'ready'];
   const screenRef = useRef<HTMLElement>(null);
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [signingOut, setSigningOut] = useState(false);
+  // the nudge step is waiting for the phone's answer
+  const [asking, setAsking] = useState(false);
   const t = useMemo(() => todayISO(), []);
   const start = startOf(t);
   const profile = profileOf(d, start);
@@ -166,6 +184,17 @@ function Flow({ uid }: { uid: string }) {
   useEffect(() => {
     prevIdx.current = idx;
   }, [idx]);
+
+  // the step is kept with the answers, so the app opened again comes back to it (onboarding-04)
+  useEffect(() => {
+    if (step && ALL_STEPS.includes(step) && d.step !== step) set({ step });
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a step change moves focus to the new step's heading once it has slid in (a11y-10)
+  useEffect(() => {
+    if (!step) return;
+    const id = setTimeout(() => screenRef.current?.querySelector<HTMLElement>(`.ob-swipe > .ob-stage[data-step="${step}"] h1`)?.focus({ preventScroll: true }), reduce ? 60 : 320);
+    return () => clearTimeout(id);
+  }, [step, reduce]);
 
   const go = (s: Step, replace = false) => nav(s ? `/welcome/${s}` : '/welcome', { replace });
   const back = () => {
@@ -263,12 +292,30 @@ function Flow({ uid }: { uid: string }) {
     setUnder(null);
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // guards: questions need the promise first only in spirit; later steps need a goal
-  if (!ORDER.includes(step) || step === '') return <Navigate to="/welcome/name" replace />;
+  // guards: /welcome goes to the step the person was on (or the first); a step this path skips goes on to the next one;
+  // later steps need a goal
+  if (step === '') return <Navigate to={`/welcome/${d.step && ORDER.includes(d.step) ? d.step : 'name'}`} replace />;
+  if (!ORDER.includes(step)) {
+    const later = ALL_STEPS.slice(ALL_STEPS.indexOf(step) + 1).find((x) => ORDER.includes(x));
+    return <Navigate to={`/welcome/${later ?? 'name'}`} replace />;
+  }
   if (idx > ORDER.indexOf('goal') && !d.goal) return <Navigate to="/welcome/goal" replace />;
 
   const qIndex = QUESTIONS.indexOf(step);
   const next = () => go(ORDER[idx + 1]!);
+  /** Sign out from the name step: the shell does the rest once the session reads signed out (Contract 2). */
+  async function signOut() {
+    setSigningOut(true);
+    try {
+      await api('/auth/logout', { method: 'POST' });
+      clearAll();
+      markSignedOut(qc);
+    } catch {
+      haptics.error();
+      toast('Couldn’t sign out. Check your connection.');
+      setSigningOut(false);
+    }
+  }
   // a race day too close for its distance: said on the goal and days steps, with the usual date one tap away (never a block)
   const tight = raceWarning(profile, start);
   const tightNote = tight ? (
@@ -294,7 +341,21 @@ function Flow({ uid }: { uid: string }) {
   switch (step) {
     case 'name':
       body = (
-        <Question title="What should Logbook call you?" sub="Your first name is plenty. The coach and your mornings use it." onNext={next} nextLabel={d.name?.trim() ? 'Next' : 'Skip for now'} later="You can change it in Settings.">
+        <Question
+          title="What should Logbook call you?"
+          sub="Your first name is plenty. The assistant and your mornings use it."
+          onNext={next}
+          nextLabel={d.name?.trim() ? 'Next' : 'Skip for now'}
+          later="You can change it in Settings."
+          extra={
+            // the way out of setup for someone who signed up by mistake, or on someone else's phone (onboarding-09)
+            replaying ? null : (
+              <Pressable className="ob-signout" press="dim" disabled={signingOut} onPress={() => void signOut()}>
+                {signingOut ? 'Signing out…' : 'Sign out'}
+              </Pressable>
+            )
+          }
+        >
           <input
             className="in ob-name"
             value={d.name ?? boot.data?.user.name ?? ''}
@@ -313,7 +374,9 @@ function Flow({ uid }: { uid: string }) {
       body = (
         <Question title="What are you training for?" sub="Pick one. A race gets a taper; just running gets a steady build." onNext={next} nextDisabled={!d.goal}>
           <GoalChips
-            value={d.goal}
+            value={d.goal === 'none' ? null : d.goal}
+            noneOn={d.goal === 'none'}
+            onNone={() => set({ goal: 'none', raceDate: undefined })}
             onChange={(g) => {
               set({ goal: g, raceDate: undefined, weeklyMiles: d.milesTouched ? d.weeklyMiles : DEFAULT_MILES[g] });
               // the answer does something at once: the screen glides to the race day and the block it builds
@@ -321,7 +384,7 @@ function Flow({ uid }: { uid: string }) {
             }}
           />
           <AnimatePresence initial={false}>
-            {d.goal && d.goal !== 'base' ? (
+            {d.goal && d.goal !== 'base' && d.goal !== 'none' ? (
               <motion.div key="race" className="card ob-card ob-race-block" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={crossfade}>
                 <p className="ob-q-label">
                   Race day <span className="ob-q-value">{profile.raceDate ? fmtDate('short', profile.raceDate) : 'Not set'}</span>
@@ -338,15 +401,16 @@ function Flow({ uid }: { uid: string }) {
       break;
     case 'days':
       body = (
-        <Question title="Which days can you run?" sub="Tap a day to run it. Hold one to make it the long run." onNext={next}>
+        <Question title="Which days can you run?" sub="Tap a day to run on it. Hold a run day to make it the long run." onNext={next}>
           <div className="card ob-card">
-            <DayLetters runDays={d.runDays} longRunDay={fixLongRun(d.runDays, d.longRunDay)} onChange={(runDays, longRunDay) => set({ runDays, longRunDay })} />
+            <DayLetters hint={false} runDays={d.runDays} longRunDay={fixLongRun(d.runDays, d.longRunDay)} onChange={(runDays, longRunDay) => set({ runDays, longRunDay })} />
           </div>
           <div className="card ob-card ob-miles-card">
             <p className="ob-q-label ob-miles-label">About how much do you run now?</p>
             <MilesDial value={d.weeklyMiles} min={MILES_MIN} max={MILES_MAX} onChange={(v) => set({ weeklyMiles: v, milesTouched: true })} />
             <p className="ob-hint">
-              {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week. {d.goal && d.goal !== 'base' ? `Your ${goalLong(d.goal)} plan` : 'Your plan'} builds from here, about 10% a week.
+              {d.runDays.length} {d.runDays.length === 1 ? 'run' : 'runs'} a week.{' '}
+              {shape && shape.peak <= shape.from ? `Your plan holds about ${shape.peak} mi a week.` : `${d.goal && d.goal !== 'base' && d.goal !== 'none' ? `Your ${goalLong(d.goal).replace(/^Half/, 'half').replace(/^Marathon/, 'marathon')} plan` : 'Your plan'} builds from here, about 10% a week.`}
             </p>
           </div>
           {tightNote ? <div className="card ob-card">{tightNote}</div> : null}
@@ -358,11 +422,13 @@ function Flow({ uid }: { uid: string }) {
       const chips = d.routine ?? [];
       const st = routineSettings(chips);
       const pv = previewMorning(d.wake, d.leave, undefined, st);
-      // tight: the alarm that fits (5-minute steps), or, before 4:00, a later leave
-      const earlier = pv.late > 0 ? Math.floor((d.wake - pv.late) / 5) * 5 : null;
-      const fix = earlier == null ? null : earlier >= TRACK_FROM ? { wake: earlier, leave: d.leave, text: `Wake ${hm(earlier)}?` } : { wake: d.wake, leave: snap5(d.leave + pv.late + 2), text: `Leave ${hm(snap5(d.leave + pv.late + 2))}?` };
+      const afternoon = d.trainWhen === 'afternoon';
+      const offWork = d.offWork ?? DEFAULT_AFTERNOON.offWork;
+      // tight: the latest wake time that fits, found on the real preview so one tap clears it (onboarding-10)
+      const fixAt = afternoon ? null : morningFix(d.wake, d.leave, st);
+      const fix = fixAt ? { ...fixAt, text: fixAt.wake !== d.wake ? `Wake ${hm(fixAt.wake)}?` : `Leave ${hm(fixAt.leave)}?` } : null;
       body = (
-        <Question title="When do you wake, and leave for work?" sub="Drag the two markers. Logbook plans your morning around them." onNext={next}>
+        <Question title="When does your day start?" sub="Drag the two markers. Logbook plans your morning around them." onNext={next}>
           {/* when they usually train: Today's training card starts from it (Morning, or Afternoon from the end of work) */}
           <div className="card ob-card ob-when">
             <p className="ob-q-label">You usually train</p>
@@ -382,10 +448,11 @@ function Flow({ uid }: { uid: string }) {
                 </Pressable>
               ))}
             </div>
-            {d.trainWhen === 'afternoon' ? (
+            {afternoon ? (
               <div className="ob-offwork">
                 <span>Work ends</span>
-                <Stepper value={d.offWork ?? DEFAULT_AFTERNOON.offWork} onChange={(v) => set({ offWork: v })} step={15} min={11 * 60} max={21 * 60} format={(v) => hm(v)} parse={() => null} label="Work ends" />
+                {/* the 15-minute buttons set it; the value is read-only, so nothing typed is ever thrown away (onboarding-23) */}
+                <Stepper value={offWork} onChange={(v) => set({ offWork: v })} step={15} min={11 * 60} max={21 * 60} format={(v) => hm(v)} parse={() => null} label="Work ends" inputProps={{ readOnly: true, tabIndex: -1, inputMode: 'numeric', autoComplete: 'off', size: 7 }} />
               </div>
             ) : null}
           </div>
@@ -418,8 +485,18 @@ function Flow({ uid }: { uid: string }) {
           </div>
           </div>
           <div className="card ob-card ob-verdict" aria-live="polite">
-            <p className="ob-verdict-big display">Out the door {hm(pv.door)}.</p>
-            <p className="ob-verdict-sub">{pv.late > 0 ? `Tight: an easy 4 runs ${pv.late} min into getting ready.` : `An easy 4 has you back by ${hm(pv.back)}${pv.spare >= 5 ? `, with ${pv.spare} min to spare` : ''}.`}</p>
+            {afternoon ? (
+              // after work: the run is in the afternoon, so the verdict is about that, not a morning door time (onboarding-05)
+              <>
+                <p className="ob-verdict-big display">{afternoonLine(offWork)}</p>
+                <p className="ob-verdict-sub">Your mornings still follow these times: wake {hm(d.wake)}, out the door {hm(d.leave)}.</p>
+              </>
+            ) : (
+              <>
+                <p className="ob-verdict-big display">Out the door {hm(pv.door)}.</p>
+                <p className="ob-verdict-sub">{verdictLine(pv)}</p>
+              </>
+            )}
             <AnimatePresence initial={false}>
               {fix ? (
                 <motion.div key="fix" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={reduce ? fadeIn : springs.settle}>
@@ -443,7 +520,7 @@ function Flow({ uid }: { uid: string }) {
     }
     case 'habits':
       body = (
-        <Question title="A few lights for every day." sub="Pick any, or none. They become the lights you tap on Today." onNext={next} nextLabel={QUESTIONS.at(-1) === 'habits' ? 'Build my week' : 'Next'} later="You can add or change habits any time.">
+        <Question title="Pick a few daily habits." sub="Pick any, or none. Each one is a tile you tap on Today when it’s done." onNext={next} nextLabel="Next" later="You can add or change habits any time.">
           <div className="card ob-card">
             <HabitPicker selected={d.habits} custom={d.custom} onChange={(habits, custom) => set({ habits, custom })} />
           </div>
@@ -455,13 +532,20 @@ function Flow({ uid }: { uid: string }) {
       body = (
         <Question
           title="One nudge, each morning."
-          sub="People who pick a time to be reminded stick with it longer. Logbook sends one, only on days with no goal yet."
+          sub="One reminder each morning, only on days with no goal yet. You choose the time."
+          busy={asking}
           onNext={() => {
-            // the system alert comes from Continue, after the choice was made here; a "No nudges" never sees it
-            if (on) void enableReminders().catch(() => undefined);
-            next();
+            // the system alert comes up here, on this screen, and the flow waits for its answer; a decline is simply off
+            // (onboarding-14); "No nudges" and a replay never call into reminders (settings-39)
+            if (asking) return;
+            setAsking(true);
+            void nudgeNext({ on, replaying, enable: enableReminders }).then((granted) => {
+              setAsking(false);
+              if (on && !granted && !replaying) set({ nudge: false });
+              next();
+            });
           }}
-          nextLabel="Next"
+          nextLabel={asking ? 'One moment…' : on ? 'Turn on nudges' : 'Continue without'}
           later="Turn it off any time in Goals."
         >
           <NudgeChoice on={on} at={d.wake + 15} onChange={(v) => set({ nudge: v })} />
@@ -470,10 +554,10 @@ function Flow({ uid }: { uid: string }) {
       break;
     }
     case 'tour':
-      body = <Tour page={d.tourPage ?? 0} onPage={(n) => set({ tourPage: n })} onDone={next} />;
+      body = <Tour page={d.tourPage ?? 0} onPage={(n) => set({ tourPage: n })} onDone={next} doneLabel={d.goal === 'none' ? 'Finish setup' : 'Build my week'} />;
       break;
     case 'ready':
-      body = <Payoff draft={d} set={set} profile={profile} start={start} today={t} onOpen={openToday} onChange={() => go('goal', true)} />;
+      body = <Payoff draft={d} set={set} profile={d.goal === 'none' ? null : profile} start={start} today={t} onOpen={openToday} onChange={() => go('goal', true)} />;
       break;
   }
   return body;
@@ -482,6 +566,7 @@ function Flow({ uid }: { uid: string }) {
   const skip = swapping.current;
 
   function clearAll() {
+    ls.del(draftKey(uid));
     ss.del(draftKey(uid));
     ss.del(PAYOFF_KEY);
     endReplay();
@@ -526,9 +611,10 @@ function Flow({ uid }: { uid: string }) {
             </button>
           </span>
           <SetupBar steps={QUESTIONS.length} index={qIndex} />
-          <span className={`ob-slot end ${step !== 'goal' ? '' : 'is-gone'}`} inert={step === 'goal'}>
-            <Pressable className="ob-skip" press="dim" onPress={step !== 'goal' ? next : () => undefined}>
-              Skip
+          {/* Skip only where it differs from the step's own button: the tour, which it skips whole (onboarding-17) */}
+          <span className={`ob-slot end ${step === 'tour' ? '' : 'is-gone'}`} inert={step !== 'tour'}>
+            <Pressable className="ob-skip" press="dim" onPress={step === 'tour' ? next : () => undefined}>
+              Skip tour
             </Pressable>
           </span>
         </header>
@@ -574,17 +660,21 @@ const stageVariants = (reduce: boolean) => ({
  * One question to a screen (inspiration §2.9, §2.24): the question is the title, the button stays grey until the answer is
  * valid, and every answer here can be changed later in Settings, so the foot says so (`later`).
  */
-function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next', later = 'You can change this later in Settings.' }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string; later?: string | null }) {
+function Question({ title, sub, children, onNext, nextDisabled, nextLabel = 'Next', later = 'You can change this later in Settings.', busy, extra }: { title: string; sub: string; children: React.ReactNode; onNext: () => void; nextDisabled?: boolean; nextLabel?: string; later?: string | null; /** the button is waiting (the phone's alert is up) */ busy?: boolean; /** one quiet action under the button */ extra?: React.ReactNode }) {
   return (
     <div className="ob-step ob-question">
-      <h1 className="ob-title display">{title}</h1>
+      {/* focus lands here on a step change (a11y-10) */}
+      <h1 className="ob-title display" tabIndex={-1}>
+        {title}
+      </h1>
       <p className="ob-sub">{sub}</p>
       <div className="ob-body">{children}</div>
       <div className="ob-foot">
         {later ? <p className="ob-later">{later}</p> : null}
-        <Pressable className="btn primary block ob-cta" disabled={nextDisabled} onPress={onNext}>
+        <Pressable className="btn primary block ob-cta" disabled={nextDisabled || busy} onPress={onNext}>
           {nextLabel}
         </Pressable>
+        {extra}
       </div>
     </div>
   );
@@ -604,7 +694,7 @@ type PayoffAction = 'connect';
  * The payoff's card, where Today's hero will be: a short summary of what the answers made (the plan, the morning, the
  * habits). Nothing here asks for work that was done a minute ago. `offer` is one more row, when the build has one to make.
  */
-function Made({ profile, weeks, wake, leave, habits, offer }: { profile: TrainingProfile; weeks: number | null; wake: number; leave: number; habits: number; offer?: React.ReactNode }) {
+function Made({ profile, weeks, wake, leave, habits, afternoon, offer }: { profile: TrainingProfile | null; weeks: number | null; wake: number; leave: number; habits: number; /** when work ends, for someone who runs after it */ afternoon?: number | null; offer?: React.ReactNode }) {
   return (
     <section className="aura halo-upcoming ob-made" aria-label="Set up for you">
       <span className="aura-glow" aria-hidden="true" />
@@ -614,14 +704,14 @@ function Made({ profile, weeks, wake, leave, habits, offer }: { profile: Trainin
           <span className="ob-made-ic" aria-hidden="true">
             <CalendarDays size={18} />
           </span>
-          <span className="ob-made-title">{profile.goal === 'base' ? 'Just running' : `${goalLong(profile.goal)} plan`}</span>
-          {weeks ? <span className="ob-made-value">{weeks} {weeks === 1 ? 'week' : 'weeks'}</span> : null}
+          <span className="ob-made-title">{!profile ? 'No running plan for now' : profile.goal === 'base' ? 'Just running' : `${goalLong(profile.goal)} plan`}</span>
+          {profile && weeks ? <span className="ob-made-value">{weeks} {weeks === 1 ? 'week' : 'weeks'}</span> : null}
         </li>
         <li className="ob-made-row">
           <span className="ob-made-ic" aria-hidden="true">
             <Sun size={18} />
           </span>
-          <span className="ob-made-title">Wake {hm(wake)}, leave {hm(leave)}</span>
+          <span className="ob-made-title">{afternoon != null ? `Runs after work, about ${hm(afternoon + AFTER_WORK_LEAD)}` : `Wake ${hm(wake)}, leave ${hm(leave)}`}</span>
         </li>
         <li className="ob-made-row">
           <span className="ob-made-ic" aria-hidden="true">
@@ -635,29 +725,38 @@ function Made({ profile, weeks, wake, leave, habits, offer }: { profile: Trainin
   );
 }
 
-function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft: Draft; set: (p: Partial<Draft>) => void; profile: TrainingProfile; start: ISODate; today: ISODate; onOpen: (then?: PayoffAction) => void; /** Back to the questions: the way out when the server refuses an answer. */ onChange: () => void }) {
+function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft: Draft; set: (p: Partial<Draft>) => void; /** null: no running plan */ profile: TrainingProfile | null; start: ISODate; today: ISODate; onOpen: (then?: PayoffAction) => void; /** Back to the questions: the way out when the server refuses an answer. */ onChange: () => void }) {
   const boot = useBootstrap();
   const reduce = useReducedMotion();
-  const onboard = useOnboard();
+  const onboard = useSaveOnboarding();
   const [waiting, setWaiting] = useState<{ then?: PayoffAction } | null>(null);
-  const week = useMemo(() => firstWeek(profile, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [profile, start, today, draft.wake, draft.leave, draft.routine]);
+  const plan = profile ?? DEFAULT_PROFILE;
+  const week = useMemo(() => firstWeek(plan, start, today, draft.wake, draft.leave, routineSettings(draft.routine ?? [])), [plan, start, today, draft.wake, draft.leave, draft.routine]);
 
   const routine = routineFrom(draft.routine ?? []);
+  const afternoon = draft.trainWhen === 'afternoon' ? (draft.offWork ?? DEFAULT_AFTERNOON.offWork) : null;
+  // the older follow-up writes, kept only for a server that does not yet take these answers in the one call
   const morning = useMorningMutations();
   const setName = useSetName();
-  const answers: OnboardingAnswers = {
-    routine,
-    goal: profile.goal,
-    raceDate: profile.raceDate,
-    runDays: profile.runDays,
-    longRunDay: profile.longRunDay,
-    weeklyMiles: profile.weeklyMiles,
+  const name = (draft.name ?? '').trim();
+  const routinePatch = { after: { ...routine, names: routineNames(draft.routine ?? []), showerMode: 'fixed' as const, showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } };
+  // every answer in the one call (Contract 5, onboarding-03)
+  const answers: OnboardingPost = {
+    goal: profile ? profile.goal : null,
+    raceDate: profile ? profile.raceDate : null,
+    runDays: plan.runDays,
+    longRunDay: plan.longRunDay,
+    weeklyMiles: plan.weeklyMiles,
     wake: draft.wake,
     leave: draft.leave,
     // never more than the account can hold: a longer list would be refused whole
     habits: draft.habits.slice(0, HABIT_LIMIT),
     start: 'tomorrow',
     today,
+    ...(name ? { name } : {}),
+    routine: routinePatch,
+    trainWhen: draft.trainWhen ?? 'morning',
+    ...(afternoon != null ? { offWork: afternoon } : {}),
   };
   const key = JSON.stringify(answers);
   const saved = draft.sent === key;
@@ -668,15 +767,13 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
     ss.set(PAYOFF_KEY, '1');
     onboard.mutate(answers, {
       onSuccess: (r) => {
-        // the routine the chips made (the server takes wake and leave; the blocks between are the morning's own setting)
-        morning.settings.mutate({ after: { ...routine, names: routineNames(draft.routine ?? []), showerMode: 'fixed', showerAt: Math.max(draft.wake, draft.leave - routineTotal(routine)) } });
-        // the answers are on the account now (POST /me/onboarding stores them as the training profile)
         set({ sent: key, firstDay: r.firstDay });
-        // the rest of the profile: the name, and when they train (Today's training card starts from it)
-        const name = (draft.name ?? '').trim();
-        if (name) setName.mutate(name);
+        // a server from before Contract 5 answers without the name or the routine: only then the two older writes follow
+        if (name && r.user?.name !== name) setName.mutate(name);
+        if (r.morningSettings && r.morningSettings.after?.showerAt !== routinePatch.after.showerAt) morning.settings.mutate(routinePatch);
+        // Today's training card reads when they train on this device too (its own preference)
         setTrainWhenDefault(draft.trainWhen ?? 'morning');
-        if (draft.trainWhen === 'afternoon') setAfternoon({ offWork: draft.offWork ?? DEFAULT_AFTERNOON.offWork });
+        if (afternoon != null) setAfternoon({ offWork: afternoon });
       },
       onError: () => haptics.error(),
     });
@@ -706,7 +803,7 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
   // release build), on a server that can make it, for an account that has not.
   const b = boot.data;
   const offer =
-    STRAVA_BUILT && !replay && !!b?.features.strava && !b.strava.connected ? (
+    STRAVA_BUILT && !replay && !!profile && !!b?.features.strava && !b.strava.connected ? (
       <Pressable className="ob-made-row" press="surface" onPress={() => open('connect')}>
         <span className="ob-made-ic" aria-hidden="true">
           <Activity size={18} />
@@ -730,33 +827,52 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
 
   // the plan being written: once per first run (a reload after it saved opens straight on the payoff)
   const [phase, setPhase] = useState<'build' | 'reveal'>(saved ? 'reveal' : 'build');
-  const shape = useMemo(() => blockShape(safeTemplate(profile, start)), [profile, start]);
-  const steps = useMemo(() => buildSteps(profile, shape, draft.wake, draft.leave, draft.habits.length + draft.custom.length), [profile, shape, draft.wake, draft.leave, draft.habits.length, draft.custom.length]);
+  const shape = useMemo(() => (profile ? blockShape(safeTemplate(profile, start)) : null), [profile, start]);
+  // each selected habit once: the list already holds the ones typed (onboarding-22)
+  const habitCount = answers.habits.length;
+  const steps = useMemo(() => buildSteps(profile, shape, draft.wake, draft.leave, habitCount), [profile, shape, draft.wake, draft.leave, habitCount]);
   const reveal = useCallback(() => {
     setPhase('reveal');
     haptics.success();
   }, []);
 
-  const first = week.first;
+  const first = profile ? week.first : null;
   const m = week.morning;
   const fade = reduce ? { duration: 0.15 } : { ...springs.page };
   if (phase === 'build')
     return (
       <div className="ob-step ob-payoff is-building">
-        <BuildBeat steps={steps} ready={done} failed={reason} onDone={reveal} />
-        {onboard.isError ? <div className="ob-pay-foot">{retry}</div> : null}
+        <BuildBeat steps={steps} ready={done} failed={reason} onDone={reveal} title={profile ? undefined : { writing: 'Setting up Today', done: 'Today is ready.' }} />
+        {/* the reason sits right above the buttons; the space is held from the start, so nothing moves when it shows (onboarding-08) */}
+        <div className={`ob-pay-foot ob-build-foot ${onboard.isError ? '' : 'is-idle'}`} aria-hidden={onboard.isError ? undefined : true} inert={!onboard.isError}>
+          <p className="ob-build-reason" role={onboard.isError ? 'alert' : undefined}>
+            {reason ?? 'Check your connection and try again.'}
+          </p>
+          {onboard.isError ? (
+            retry
+          ) : (
+            <>
+              <span className="btn block ob-cta ob-ghost" />
+              <span className="btn block ob-cta ob-ghost" />
+            </>
+          )}
+        </div>
       </div>
     );
   return (
     <div className="ob-step ob-payoff">
       <header className="ob-pay-head">
         <motion.span className="caps ob-pay-eyebrow" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={fadeIn}>
-          {week.template ? week.template.name : 'Your first week'}
+          {!profile ? 'All set' : week.template ? week.template.name : 'Your first week'}
         </motion.span>
-        <motion.h1 className="ob-pay-title display" initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fade : { ...fade, delay: 0.08 }}>
-          {first ? `${week.firstWhen}: ${week.days.find((x) => x.session === first)?.label ?? 'Easy'}.` : 'Your week is ready.'}
+        <motion.h1 className="ob-pay-title display" tabIndex={-1} initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fade : { ...fade, delay: 0.08 }}>
+          {!profile ? 'Today is ready.' : first ? `${week.firstWhen}: ${week.days.find((x) => x.session === first)?.label ?? 'Easy'}.` : 'Your week is ready.'}
         </motion.h1>
-        {m ? (
+        {afternoon != null && profile ? (
+          <motion.p className="ob-pay-door display" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...fadeIn, delay: reduce ? 0 : 0.16 }}>
+            {afternoonLine(afternoon)}
+          </motion.p>
+        ) : m && profile ? (
           <motion.p className="ob-pay-door display" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...fadeIn, delay: reduce ? 0 : 0.16 }}>
             Out the door {hm(m.door)}.
           </motion.p>
@@ -765,34 +881,36 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
 
       {/* what was made, where Today's hero will be */}
       <div className="ob-pay-hero">
-        <Made profile={profile} weeks={shape?.weeks ?? null} wake={draft.wake} leave={draft.leave} habits={answers.habits.length} offer={offer} />
+        <Made profile={profile} weeks={shape?.weeks ?? null} wake={draft.wake} leave={draft.leave} habits={habitCount} afternoon={profile ? afternoon : null} offer={offer} />
       </div>
 
-      <motion.ol className="ob-week" aria-label="Your first week" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fade : { ...fade, delay: 0.24 }}>
-        {week.days.map((day) => {
-          const s = day.session;
-          const bar = s ? Math.max(0.12, Math.min(1, (s.miles ?? 0) / Math.max(1, ...week.days.map((x) => x.session?.miles ?? 0)))) : 0;
-          const long = !!s && (/long/i.test(s.type) || weekdayOf(day.date) === profile.longRunDay);
-          return (
-            <li key={day.date} className={`ob-wrow ${s ? `t-${day.tone}` : 'rest'} ${long ? 'is-long' : ''}`}>
-              <span className="ob-wday">
-                <span className="caps">{fmtDate('dow', day.date)}</span>
-                <span className="ob-wdate">{Number(day.date.slice(8))}</span>
-              </span>
-              <span className="ob-wtone" aria-hidden="true" />
-              <span className="ob-wname">
-                {s ? <span className="stamp">{day.label}</span> : <span className="ob-wrest">Rest</span>}
-                {long && !/^long/i.test(day.label) ? <span className="caps ob-wlong">Long</span> : null}
-              </span>
-              {s ? (
-                <span className="ob-wbar" aria-hidden="true">
-                  <motion.span className="ob-wbar-fill" initial={reduce ? false : { scaleX: 0 }} animate={{ scaleX: bar }} transition={reduce ? { duration: 0 } : { ...springs.number, delay: 0.4 }} />
+      {profile ? (
+        <motion.ol className="ob-week" aria-label="Your first week" initial={reduce ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={reduce ? fade : { ...fade, delay: 0.24 }}>
+          {week.days.map((day) => {
+            const s = day.session;
+            const bar = s ? Math.max(0.12, Math.min(1, (s.miles ?? 0) / Math.max(1, ...week.days.map((x) => x.session?.miles ?? 0)))) : 0;
+            const long = !!s && (/long/i.test(s.type) || weekdayOf(day.date) === profile.longRunDay);
+            return (
+              <li key={day.date} className={`ob-wrow ${s ? `t-${day.tone}` : 'rest'} ${long ? 'is-long' : ''}`}>
+                <span className="ob-wday">
+                  <span className="caps">{fmtDate('dow', day.date)}</span>
+                  <span className="ob-wdate">{Number(day.date.slice(8))}</span>
                 </span>
-              ) : null}
-            </li>
-          );
-        })}
-      </motion.ol>
+                <span className="ob-wtone" aria-hidden="true" />
+                <span className="ob-wname">
+                  {s ? <span className="stamp">{day.label}</span> : <span className="ob-wrest">Rest</span>}
+                  {long && !/^long/i.test(day.label) ? <span className="caps ob-wlong">Long</span> : null}
+                </span>
+                {s ? (
+                  <span className="ob-wbar" aria-hidden="true">
+                    <motion.span className="ob-wbar-fill" initial={reduce ? false : { scaleX: 0 }} animate={{ scaleX: bar }} transition={reduce ? { duration: 0 } : { ...springs.number, delay: 0.4 }} />
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </motion.ol>
+      ) : null}
 
       <div className="ob-pay-foot">
         <p className="ob-pay-sum" aria-live="polite">
@@ -803,6 +921,15 @@ function Payoff({ draft, set, profile, start, today, onOpen, onChange }: { draft
               <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />
               Preview only. Your plan and habits weren’t changed.
             </>
+          ) : !profile ? (
+            done ? (
+              <>
+                <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />
+                Saved. Add a running plan any time from Plan.
+              </>
+            ) : (
+              'Saving your answers…'
+            )
           ) : done ? (
             <>
               <Check size={16} strokeWidth={2.6} aria-hidden="true" className="ob-ok" />

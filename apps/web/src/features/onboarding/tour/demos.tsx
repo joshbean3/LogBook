@@ -167,26 +167,27 @@ export const GoalsDemo = ({ running, still }: DemoProps) => {
 };
 
 // ---------- Journal ----------
-const GARDEN = ['🌱', '🌿', '', '🌷', '🌿', '🌻', '', '🌱', '🌷', '🌿', '🌱', '', '🌻'];
+/** The days of the month written so far: each gets its orb. */
+const WRITTEN = [true, true, false, true, true, true, false, true, true, true, true, false, true];
 const JOUR_BEATS = [900, 650, 260, 1900, 600, 260, 1400, 900] as const;
 export const JournalDemo = ({ running, still }: DemoProps) => {
   const b = useLoop(JOUR_BEATS, running && !still, JOUR_BEATS.length - 1);
   const writing = at(b, 3, 6);
   const typed = useTyped('Long run by the river with Sam.', writing && !still, b >= 4);
-  const planted = still || b >= 6;
+  const written = still || b >= 6;
   return (
     <>
       <Stage className="tj">
-        <div className="tj-garden">
+        <div className="tj-cal">
           <span className="caps">November</span>
           <div className="tj-grid">
-            {GARDEN.map((g, i) => (
+            {WRITTEN.map((on, i) => (
               <span key={i} className="tj-cell">
-                {g ? <Orb size={14} state="still" variant={(['sky', 'dusk', 'sun', 'tide'] as const)[i % 4]} /> : null}
+                {on ? <Orb size={14} state="still" variant={(['sky', 'dusk', 'sun', 'tide'] as const)[i % 4]} /> : null}
               </span>
             ))}
             <span className="tj-cell tis-today">
-              {planted ? (
+              {written ? (
                 <motion.span initial={still ? false : { scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={springs.complete}>
                   <Orb size={16} state="still" variant="sky" />
                 </motion.span>
@@ -195,7 +196,7 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
           </div>
         </div>
         <div className="tj-day">
-          {planted ? (
+          {written ? (
             <p className="tj-memory">“Long run by the river with Sam.”</p>
           ) : writing ? (
             <>
@@ -208,13 +209,13 @@ export const JournalDemo = ({ running, still }: DemoProps) => {
               </span>
             </>
           ) : (
-            <span className="tj-plant" data-spot="plant">
+            <span className="tj-write" data-spot="write">
               <Plus size={16} strokeWidth={2.4} />
               Write today’s
             </span>
           )}
         </div>
-        <Finger spot={at(b, 1, 3) ? 'plant' : at(b, 4, 6) ? 'done' : null} down={b === 2 || b === 5} />
+        <Finger spot={at(b, 1, 3) ? 'write' : at(b, 4, 6) ? 'done' : null} down={b === 2 || b === 5} />
       </Stage>
       <Steps items={['Tap today on the calendar', 'Write a line or two', 'Done, and the day gets its orb']} on={still ? -1 : b < 3 ? 0 : b < 6 ? 1 : 2} />
     </>

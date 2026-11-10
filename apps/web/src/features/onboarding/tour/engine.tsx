@@ -6,18 +6,27 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
  * one on screen, and under Reduce Motion it holds still on its finished frame with the captions carrying the steps.
  */
 
-/** The beat index, looping over `beats`; `rest` (the finished frame) when paused or under Reduce Motion. */
+/** How many times a demo plays before it rests on its finished frame (a11y-16: nothing loops for ever). */
+export const LOOPS = 2;
+/**
+ * The beat index over `beats`, played `LOOPS` times and then resting on the last beat (the finished frame); `rest` when
+ * paused or under Reduce Motion.
+ */
 export const useLoop = (beats: readonly number[], running: boolean, rest: number): number => {
   const [i, setI] = useState(0);
   useEffect(() => {
     if (!running) return;
     setI(0);
     let k = 0;
+    let played = 0;
     let t: ReturnType<typeof setTimeout>;
     const tick = () => {
       t = setTimeout(() => {
         k = (k + 1) % beats.length;
+        if (k === 0) played += 1;
         setI(k);
+        // the last beat of the last loop is the finished frame: stay on it
+        if (played >= LOOPS - 1 && k === beats.length - 1) return;
         tick();
       }, beats[k]);
     };

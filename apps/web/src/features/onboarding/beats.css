@@ -143,11 +143,18 @@
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
-/* the save failed: the reason, in the error color, right above the buttons */
-.obx-build-foot.is-bad {
+/* under the build: the reason and two buttons, their space held from the start (onboarding-08); shown only on a failure */
+.ob-build-foot.is-idle {
+  visibility: hidden;
+}
+.ob-build-reason {
+  margin: 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--bad);
+}
+.ob-ghost.btn {
+  pointer-events: none;
 }
 
 /* one nudge a morning: a slice of the lock screen, then the choice */
