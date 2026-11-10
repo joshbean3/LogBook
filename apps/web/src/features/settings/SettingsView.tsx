@@ -62,7 +62,7 @@ export default function SettingsView(): React.JSX.Element {
       <SGroup title="You">
         {/* the email is the Account row's title; with no name, this row asks for one instead of showing the email twice
             (review 3 feel R3-7) */}
-        <GoRow icon={User} title={user?.name || 'Add your name'} sub={loaded ? (named ? `${block!.name}, through ${fmtDate('md', block!.end)}` : goalLine(profile)) : ' '} onPress={go('you')} label={`You: ${user?.name || 'add your name'}`} />
+        <GoRow icon={User} title={user?.name || 'Add your name'} sub={loaded ? (named ? `${block!.name}, through ${fmtDate('md', block!.end)}` : goalLine(profile)) : ' '} onPress={go('you')} label={`${user?.name || 'Add your name'}. Your profile`} />
       </SGroup>
 
       <SGroup title="Training">
@@ -106,7 +106,7 @@ export default function SettingsView(): React.JSX.Element {
       </SGroup>
 
       <SGroup title="Morning routine">
-        <GoRow icon={Sunrise} title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Morning routine timings" />
+        <GoRow icon={Sunrise} title="Timings" sub={ms && morning ? `Up at ${hm(ms.wake)}, out for work at ${hm(morning.leave)}.` : 'Wake, run, shower, out the door'} onPress={() => openRoutine()} className="s-routine-row" label="Timings. Morning routine" />
       </SGroup>
 
       {STRAVA_BUILT ? <StravaReturn /> : null}
@@ -154,7 +154,7 @@ export default function SettingsView(): React.JSX.Element {
       <SGroup title="Account">
         {/* not "Account" twice (the group's title and the row's, review feel F13); the email is the title, so it has the
             row's width and is whole at 320 (review 2 feel N9) */}
-        <GoRow icon={Mail} title={user?.email ?? ' '} sub="Signed in" onPress={go('account')} className="s-acct-row" label={`Account: signed in as ${user?.email ?? ''}`} />
+        <GoRow icon={Mail} title={user?.email ?? ' '} sub="Signed in" onPress={go('account')} className="s-acct-row" label={`${user?.email ?? 'Account'}. Account, signed in`} />
       </SGroup>
 
       <div className="s-pills">

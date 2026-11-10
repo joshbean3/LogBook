@@ -11,3 +11,13 @@ export const versionLine = (v: string, build?: string | null) => `Version ${v}${
 
 /** "1.0.0 (922ade2)": the version with the short commit it was built from; the version alone when there is no commit. */
 export const versionStamp = (v: string, commit?: string | null) => `${v}${commit && commit !== 'dev' ? ` (${commit})` : ''}`;
+
+/**
+ * A row's accessible name: it starts with the words printed on the row, so "Tap <name>" works in Voice Control (WCAG
+ * 2.5.3). A label that adds words keeps them after the printed title ("Sam. Your profile").
+ */
+export const rowName = (title: unknown, label?: string): string | undefined => {
+  if (!label) return undefined;
+  if (typeof title !== 'string' || !title.trim()) return label;
+  return label.toLowerCase().startsWith(title.trim().toLowerCase()) ? label : `${title.trim()}. ${label}`;
+};

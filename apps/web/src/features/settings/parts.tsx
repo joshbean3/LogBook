@@ -4,6 +4,7 @@ import type * as React from 'react';
 import { type ReactNode } from 'react';
 import { springs } from '@/lib/motion';
 import { Footnote, PageSection, Row } from '@/ui';
+import { rowName } from './format';
 import './switch.css';
 
 /** The chevron of a row that pushes (or opens) something. */
@@ -63,7 +64,7 @@ export const GoRow = ({ title, sub, value, onPress, href, label, tone, icon, cla
     sub={sub}
     onClick={href ? undefined : onPress}
     href={href}
-    label={label}
+    label={rowName(title, label)}
     right={
       <>
         {value != null ? <span className="s-value">{value}</span> : null}
