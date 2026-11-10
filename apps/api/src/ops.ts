@@ -4,6 +4,7 @@ import { unknownTables } from './db/compat.js';
 import { openDatabase } from './db/index.js';
 import * as schema from './db/schema.js';
 import { auditLog, authSessions, healthDevices, users } from './db/schema.js';
+import { seedReviewAccount } from './db/seed-review.js';
 import { userHash } from './services/audit.js';
 import { backupConfigFrom, listBackups, runBackup } from './services/backup.js';
 
@@ -16,6 +17,7 @@ import { backupConfigFrom, listBackups, runBackup } from './services/backup.js';
  *   node dist/ops.js revoke-health-tokens        make every phone reconnect Apple Health
  *   node dist/ops.js audit <email>               the last 200 security log rows for one account
  *   node dist/ops.js tables                      tables in the database that the schema does not know (should be none)
+ *   node dist/ops.js seed-review                 (re)build the App Review demo account from REVIEW_EMAIL and REVIEW_PASSWORD
  */
 const [cmd, arg] = process.argv.slice(2);
 const { db, sqlite } = openDatabase();
@@ -50,7 +52,13 @@ try {
     const known = (Object.values(schema) as unknown[]).filter((t): t is SQLiteTable => t instanceof SQLiteTable).map((t) => getTableName(t));
     const extra = unknownTables(sqlite, known);
     console.log(extra.length ? `Tables the schema does not know: ${extra.join(', ')}` : 'Every table is one the schema knows.');
-  } else fail('Usage: node dist/ops.js backup | backups | revoke-sessions [email] | revoke-health-tokens | audit <email> | tables');
+  } else if (cmd === 'seed-review') {
+    const email = process.env.REVIEW_EMAIL;
+    const password = process.env.REVIEW_PASSWORD;
+    if (!email || !password) fail('Set REVIEW_EMAIL and REVIEW_PASSWORD (the App Review demo account). Nothing was written.');
+    const r = await seedReviewAccount(db, { email: email!, password: password! }).catch((e: unknown) => fail(e instanceof Error ? e.message : String(e)));
+    console.log(`Review account ${r.email} is ready: ${r.sessions} sessions (${r.marked} marked), ${r.checks} habit checks, ${r.healthDays} days of sample health readings. Consent is not set, so the AI permission step shows.`);
+  } else fail('Usage: node dist/ops.js backup | backups | revoke-sessions [email] | revoke-health-tokens | audit <email> | tables | seed-review');
 } finally {
   sqlite.close();
 }

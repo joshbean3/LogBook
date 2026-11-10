@@ -146,6 +146,16 @@ The hash is keyed with `SESSION_SECRET`: after rotating it, older rows no longer
 
 Four times a day the server removes, for good: anything a person deleted more than 30 days ago, the assistant's proposals after 90 days, expired sessions (and every session 180 days after sign-in), spent reset and verification links, and security log rows after 12 months. Snapshots and backups keep a copy for 5 more days. `node dist/ops.js tables` lists any table the code does not know (there should be none).
 
+## The App Review demo account
+
+App Review signs in with a demo account. Build it (or rebuild it with fresh dates before each submission):
+
+```
+fly ssh console -a <app> -C "sh -c 'REVIEW_EMAIL=review@your-domain REVIEW_PASSWORD=... node dist/ops.js seed-review'"
+```
+
+It is onboarded, with six weeks of a half marathon plan (three behind, marked), four habits, goals, journal lines, to-dos and six weeks of sample sleep, heart rate variability and resting heart rate. Running it again removes the account and builds it afresh. Consent is not set, so the reviewer sees the AI permission step. The health readings are sample data (say so in the review notes); a phone that connects Apple Health never removes them. Put the same email and password in App Store Connect, App Review Information.
+
 ## Limits to know about
 
 - One machine. A deploy sends SIGINT; the server stops taking connections, finishes what is in flight (up to 10 s), closes the database and exits. For a few seconds requests fail and the app queues changes on the phone.

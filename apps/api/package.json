@@ -13,7 +13,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "check:deploy": "node scripts/post-deploy-check.mjs",
     "ops": "tsx src/ops.ts",
-    "backup": "tsx src/ops.ts backup"
+    "backup": "tsx src/ops.ts backup",
+    "seed:review": "tsx src/ops.ts seed-review"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

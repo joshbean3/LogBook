@@ -16,7 +16,7 @@ import {
   type HealthSyncAnswer,
   type SleepStageName,
 } from '@logbook/shared';
-import { and, count, eq, gte, inArray, isNull, lte, max, min, notInArray, sql } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, isNull, lte, max, min, ne, notInArray, sql } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import type { z } from 'zod';
 import type { DB } from '../db/index.js';
@@ -34,6 +34,9 @@ const SLEEP_GOAL_KEY = 'sleepGoalMin';
 const hash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 /** A day ahead is the most a phone's clock can be off; later than that is a wrong clock, not a reading. */
 const tooFuture = (iso: string) => Date.parse(iso) > Date.now() + 24 * 3600 * 1000;
+
+/** The source of sample readings (the App Review demo account, db/seed-review.ts): never the phone's, so a reconcile leaves them. */
+export const SAMPLE_HEALTH_BUNDLE = 'app.logbook.sample';
 
 // ---------- connecting ----------
 /**
@@ -175,7 +178,8 @@ export const storeBatch = (db: DB, userId: string, b: BatchEnvelope): HealthSync
  */
 export const reconcileHealth = (db: DB, userId: string, r: { kind: string; from: string; to: string; uuids: string[] }) => {
   const t = r.kind === 'sleep' ? sleepSegments : healthSamples;
-  const scope = and(eq(t.userId, userId), gte(t.startAt, r.from), lte(t.startAt, r.to), isNull(t.deletedAt), ...(t === healthSamples ? [eq(healthSamples.type, r.kind)] : []));
+  // sample readings (the App Review demo account, db/seed-review.ts) are not the phone's, so a phone never removes them
+  const scope = and(eq(t.userId, userId), gte(t.startAt, r.from), lte(t.startAt, r.to), isNull(t.deletedAt), ne(t.sourceBundle, SAMPLE_HEALTH_BUNDLE), ...(t === healthSamples ? [eq(healthSamples.type, r.kind)] : []));
   const have = db.select({ n: count() }).from(t).where(scope).get()?.n ?? 0;
   if (!r.uuids.length && have > 0) return { removed: 0, skipped: true as const };
   const keep = new Set(r.uuids);
