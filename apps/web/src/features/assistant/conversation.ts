@@ -3,6 +3,7 @@ import { NetworkError } from '@/api/client';
 import { haptics } from '@/lib/haptics';
 import { requestTurns, type RequestTurn } from './attach';
 import { AskError } from './poll';
+import { cleanTurn } from './sanitize';
 import { assistantStore } from './store';
 
 type Watch = { onJob?: (id: string) => void; onProgress?: (live: AssistantLive) => void };
@@ -15,16 +16,15 @@ export const failureText = (e: unknown) => {
   return `That didn’t go through. ${why}`;
 };
 
-/** The turn an answer becomes in the chat: its words, proposal, replies and how it reasoned. */
-export const turnOf = (r: AssistantReply): AssistantTurn => ({
-  role: 'assistant',
-  text: r.text,
-  proposal: r.proposal,
-  ...(r.replies?.length ? { replies: r.replies.slice(0, 3) } : {}),
-  ...(r.thoughts ? { thoughts: r.thoughts } : {}),
-  ...(typeof r.thoughtSeconds === 'number' ? { thoughtSeconds: r.thoughtSeconds } : {}),
-  ...(r.steps?.length ? { steps: r.steps } : {}),
-});
+/**
+ * The turn an answer becomes in the chat: its words, proposal, replies and how it reasoned, each kept only in the shape
+ * the thread can draw (sanitize.ts). An answer with nothing to show is null: the chat says it did not go through.
+ */
+export const turnOf = (r: AssistantReply): AssistantTurn | null =>
+  cleanTurn({ role: 'assistant', text: r?.text, proposal: r?.proposal ?? null, replies: r?.replies, thoughts: r?.thoughts, thoughtSeconds: r?.thoughtSeconds, steps: r?.steps });
+
+/** The server's "ask first" (Contract C1): no choice about the assistant is stored for this account yet. */
+const needsConsent = (e: unknown) => e instanceof Error && (e as { code?: unknown }).code === 'consent_required';
 
 /**
  * Sends the conversation as it stands and adds the answer to it. While the answer is written its words show as they come
@@ -41,13 +41,17 @@ export const runAsk = async (ask: Ask, date: ISODate, screen: AssistantScreen | 
       onJob: (id) => assistantStore.setJob(id),
       onProgress: (l) => assistantStore.setLive(l),
     });
-    turn = turnOf(r);
-    if (r.title) assistantStore.name(chat, r.title);
-    if (r.proposal) haptics.success();
+    turn = turnOf(r) ?? { role: 'assistant', text: failureText(null), error: true };
+    if (typeof r?.title === 'string') assistantStore.name(chat, r.title);
+    if (turn.proposal) haptics.success();
   } catch (e) {
     if (e instanceof AskError && e.code === 'stopped') {
       const words = assistantStore.live()?.text.trim();
       turn = words ? { role: 'assistant', text: words, stopped: true } : null;
+    } else if (needsConsent(e)) {
+      // nothing went to Claude: the sheet asks, and the question waits in the chat for the answer
+      turn = null;
+      assistantStore.setConsentNeeded(true);
     } else turn = { role: 'assistant', text: failureText(e), error: true };
   }
   assistantStore.setBusy(null);

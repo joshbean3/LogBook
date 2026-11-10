@@ -1,5 +1,6 @@
 import type { AssistantLive, AssistantProposal, AssistantTurn, Attachment } from '@logbook/shared';
 import { useSyncExternalStore } from 'react';
+import { cleanChat, cleanProposal, cleanTurns } from './sanitize';
 
 /**
  * Conversations with the assistant, the way ChatGPT and Claude keep them: every chat is saved on the phone (localStorage)
@@ -34,10 +35,22 @@ export const titleFrom = (text: string) => {
   return `${cut.slice(0, cut.lastIndexOf(' ') > 16 ? cut.lastIndexOf(' ') : 36)}…`;
 };
 
+/** Saved chats in the shape the sheet reads: a turn it cannot draw is dropped, and a chat left empty goes with it. */
+export const chatsFrom = (v: unknown): AssistantChat[] => {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  const out: AssistantChat[] = [];
+  for (const raw of v) {
+    const c = cleanChat(raw);
+    if (!c || seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push({ ...c, title: c.title || titleFrom(c.turns.find((t) => t.role === 'user')?.text ?? '') });
+  }
+  return out;
+};
 const load = (): AssistantChat[] => {
   try {
-    const v = JSON.parse(localStorage.getItem(CHATS) ?? '[]') as unknown;
-    return Array.isArray(v) ? (v as AssistantChat[]).filter((c) => c && typeof c.id === 'string' && Array.isArray(c.turns)) : [];
+    return chatsFrom(JSON.parse(localStorage.getItem(CHATS) ?? '[]') as unknown);
   } catch {
     return [];
   }
@@ -48,11 +61,11 @@ let current: string = (() => {
     const id = sessionStorage.getItem(CURRENT);
     if (id && chats.some((c) => c.id === id)) return id;
     // the one conversation kept before history existed comes across as a chat
-    const old = JSON.parse(sessionStorage.getItem(LEGACY) ?? 'null') as unknown;
+    const old = cleanTurns(JSON.parse(sessionStorage.getItem(LEGACY) ?? 'null') as unknown);
     sessionStorage.removeItem(LEGACY);
-    if (Array.isArray(old) && old.length) {
-      const first = (old as AssistantTurn[]).find((t) => t.role === 'user');
-      const c: AssistantChat = { id: newId(), title: titleFrom(first?.text ?? ''), updatedAt: Date.now(), turns: old as AssistantTurn[] };
+    if (old.length) {
+      const first = old.find((t) => t.role === 'user');
+      const c: AssistantChat = { id: newId(), title: titleFrom(first?.text ?? ''), updatedAt: Date.now(), turns: old };
       chats = [c, ...chats];
       return c.id;
     }
@@ -71,6 +84,10 @@ let live: AssistantLive | null = null;
 let jobId: string | null = null;
 /** Bumped whenever the open chat changes: live words from an ask in another chat are not shown here. */
 let generation = 0;
+/** The server answered an ask with "ask first" (403 consent_required): the sheet shows its permission step. Memory only. */
+let consentNeeded = false;
+/** The chat that was open the last time the sheet failed to draw (see reset). */
+let failed: string | null = null;
 const subs = new Set<() => void>();
 /**
  * The files sent with a user turn, kept in memory only (storage keeps the names and small previews): the assistant can
@@ -120,7 +137,11 @@ export const assistantStore = {
   /** Adds a turn to a given chat: an answer goes to the chat that asked, wherever the owner is now. */
   pushTo: (id: string, t: AssistantTurn) => write(id, [...turnsOf(id), t]),
   filesOf: (t: AssistantTurn) => fileData.get(t),
-  setProposal: (p: AssistantProposal) => write(current, turns.map((t) => (t.proposal?.id === p.id ? { ...t, proposal: p } : t))),
+  /** The proposal as the server now has it (applied, undone). An answer that is not a whole proposal changes nothing. */
+  setProposal: (next: AssistantProposal) => {
+    const p = cleanProposal(next);
+    if (p) write(current, turns.map((t) => (t.proposal?.id === p.id ? { ...t, proposal: p } : t)));
+  },
   /** The owner's thumbs on an answer (tapping the same one again takes it off). */
   rate: (index: number, rating: 'up' | 'down') =>
     write(
@@ -161,6 +182,12 @@ export const assistantStore = {
     live = l;
     notify();
   },
+  consentNeeded: () => consentNeeded,
+  setConsentNeeded: (v: boolean) => {
+    if (consentNeeded === v) return;
+    consentNeeded = v;
+    notify();
+  },
   jobId: () => jobId,
   setJob: (id: string | null) => {
     jobId = id;
@@ -199,11 +226,31 @@ export const assistantStore = {
     save();
     notify();
   },
+  /**
+   * The sheet could not draw (its error boundary says so with the window event `logbook:assistant-reset`): every saved
+   * chat is checked again and a new chat opens, so "Start a new chat" always works. The chat that was open stays in
+   * History; if it stops the sheet a second time it is taken off the phone.
+   */
+  reset: () => {
+    const was = current;
+    chats = chatsFrom(chats);
+    if (failed === was) chats = chats.filter((c) => c.id !== was);
+    failed = was;
+    current = newId();
+    turns = [];
+    generation++;
+    save();
+    notify();
+  },
   subscribe: (f: () => void) => {
     subs.add(f);
     return () => void subs.delete(f);
   },
 };
+
+/** Contract C2: the shell's error boundary around the assistant asks for a clean start with this window event. */
+export const ASSISTANT_RESET = 'logbook:assistant-reset';
+if (typeof window !== 'undefined') window.addEventListener(ASSISTANT_RESET, () => assistantStore.reset());
 
 export const useAssistantTurns = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.get, assistantStore.get);
 export const useAssistantBusy = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.busySince, assistantStore.busySince);
@@ -211,3 +258,4 @@ export const useAssistantLive = () => useSyncExternalStore(assistantStore.subscr
 export const useAssistantChats = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.chats, assistantStore.chats);
 export const useAssistantChatId = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.currentId, assistantStore.currentId);
 export const useAssistantBusyChat = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.busyChat, assistantStore.busyChat);
+export const useAssistantConsentNeeded = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.consentNeeded, assistantStore.consentNeeded);

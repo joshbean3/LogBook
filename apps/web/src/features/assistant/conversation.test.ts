@@ -1,6 +1,6 @@
 import type { AssistantReply } from '@logbook/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NetworkError } from '@/api/client';
+import { ApiError, NetworkError } from '@/api/client';
 import { editTurn, regenerate, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
 import { AskError } from './poll';
 import { assistantStore } from './store';
@@ -8,7 +8,10 @@ import { assistantStore } from './store';
 const reply = (r: Partial<AssistantReply> = {}): AssistantReply => ({ text: 'Two runs left.', proposal: null, available: true, ...r });
 const none = { shown: undefined, data: [] };
 
-beforeEach(() => assistantStore.clear());
+beforeEach(() => {
+  assistantStore.clear();
+  assistantStore.setConsentNeeded(false);
+});
 
 describe('a conversation with the assistant', () => {
   it('sends the turns and the screen, and keeps the suggested replies with the answer (three at most)', async () => {
@@ -116,5 +119,53 @@ describe('a conversation with the assistant', () => {
     await regenerate(ask, '2026-11-08', undefined);
     expect((ask.mock.calls[1] as unknown[])[1]).toEqual([{ role: 'user', text: 'What is left?' }]);
     expect(assistantStore.get().map((t) => t.text)).toEqual(['What is left?', 'Two runs left.']);
+  });
+
+  it('holds the question and asks for permission when the server says no choice is stored (403 consent_required)', async () => {
+    const ask = vi.fn<(...a: unknown[]) => Promise<AssistantReply>>().mockRejectedValueOnce(new ApiError('Choose first', 403, 'consent_required')).mockResolvedValueOnce(reply());
+    await sendTurn(ask, '2026-11-10', undefined, 'What is left?', none);
+    // no error card: the question waits, and the sheet shows its permission step
+    expect(assistantStore.get()).toEqual([{ role: 'user', text: 'What is left?' }]);
+    expect(assistantStore.consentNeeded()).toBe(true);
+    expect(assistantStore.busySince()).toBeNull();
+    // the same answer from a job that was already running
+    assistantStore.setConsentNeeded(false);
+    await runAsk(vi.fn(async () => Promise.reject(new AskError('Choose first', 403, 'consent_required'))), '2026-11-10', undefined);
+    expect(assistantStore.consentNeeded()).toBe(true);
+    // once the choice is stored the held question goes
+    assistantStore.setConsentNeeded(false);
+    await runAsk(ask, '2026-11-10', undefined);
+    expect(assistantStore.get().map((t) => t.text)).toEqual(['What is left?', 'Two runs left.']);
+  });
+
+  it('never saves an answer the thread cannot draw: a proposal with no changes goes, an empty answer is a failure', async () => {
+    const bad = { text: 'Here it is.', proposal: { id: 'a1', summary: 'Move it', status: 'proposed' }, available: true } as unknown as AssistantReply;
+    await sendTurn(vi.fn(async () => bad), '2026-11-10', undefined, 'Move the tempo', none);
+    expect(assistantStore.get()[1]).toEqual({ role: 'assistant', text: 'Here it is.' });
+    assistantStore.clear();
+    await sendTurn(vi.fn(async () => ({ available: true }) as unknown as AssistantReply), '2026-11-10', undefined, 'hi', none);
+    expect(assistantStore.get()[1]).toEqual({ role: 'assistant', text: 'That didn’t go through. Try again.', error: true });
+    assistantStore.clear();
+    await sendTurn(vi.fn(async () => null as unknown as AssistantReply), '2026-11-10', undefined, 'hi', none);
+    expect(assistantStore.get()[1]).toMatchObject({ role: 'assistant', error: true });
+  });
+});
+
+describe('a clean start after the sheet could not draw (logbook:assistant-reset)', () => {
+  it('opens a new chat and keeps the old one in History; a chat that fails twice is taken off', async () => {
+    await sendTurn(vi.fn(async () => reply()), '2026-11-10', undefined, 'What is left?', none);
+    const first = assistantStore.currentId();
+    assistantStore.reset();
+    expect(assistantStore.currentId()).not.toBe(first);
+    expect(assistantStore.get()).toEqual([]);
+    expect(assistantStore.chats().some((c) => c.id === first)).toBe(true);
+    // a new chat works straight away
+    await sendTurn(vi.fn(async () => reply({ text: 'Hello.' })), '2026-11-10', undefined, 'hi', none);
+    expect(assistantStore.get().map((t) => t.text)).toEqual(['hi', 'Hello.']);
+    // opened again from History, it stops the sheet again: gone
+    assistantStore.open(first);
+    assistantStore.reset();
+    expect(assistantStore.chats().some((c) => c.id === first)).toBe(false);
+    expect(assistantStore.get()).toEqual([]);
   });
 });
