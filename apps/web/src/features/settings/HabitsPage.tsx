@@ -15,6 +15,7 @@ import { useSheet, useSheetMotion } from '@/ui/Sheet';
 import { restoreFocus } from '@/ui/focus';
 import { useToast } from '@/ui/Toast';
 import { Footnote, SectionHeader } from '@/ui/layout';
+import { atCap, cleanName, HABIT_CAP, HABIT_CAP_NOTE, HABITS_EMPTY, renameProblem } from './habitModel';
 import { SCard, SGroup } from './parts';
 
 const ROW_H = 60;
@@ -23,14 +24,27 @@ const ROW_H = 60;
 const HabitSheet = ({ habit, onArchive }: { habit: Habit; onArchive: () => void }) => {
   const hm = useHabitMutations();
   const sheet = useSheet();
+  const habits = useBootstrap().data?.habits ?? [];
   const [name, setName] = useState(habit.name);
+  // the name it has now (a rename in this sheet included): Escape and a refused name go back to it
+  const [kept, setKept] = useState(habit.name);
+  const [note, setNote] = useState<string | null>(null);
   const save = () => {
-    const n = name.trim().replace(/\s+/g, ' ');
-    if (!n) return setName(habit.name);
-    if (n !== habit.name) {
-      hm.patch.mutate({ id: habit.id, name: n });
-      sheet.update({ title: n });
+    const n = cleanName(name);
+    if (!n) return setName(kept);
+    if (n === kept) return setName(n);
+    // two live habits never share a name (Add refuses it too): the note says why and the old name stays
+    const problem = renameProblem(n, habits, habit.id);
+    if (problem) {
+      haptics.error();
+      setNote(problem);
+      return setName(kept);
     }
+    setNote(null);
+    setKept(n);
+    setName(n);
+    hm.patch.mutate({ id: habit.id, name: n });
+    sheet.update({ title: n });
   };
   return (
     <div className="s-hsheet">
@@ -43,13 +57,19 @@ const HabitSheet = ({ habit, onArchive }: { habit: Habit; onArchive: () => void 
         value={name}
         maxLength={80}
         enterKeyHint="done"
-        onChange={(e) => setName(e.target.value)}
+        aria-describedby={note ? 's-hname-note' : undefined}
+        onChange={(e) => (setName(e.target.value), setNote(null))}
         onBlur={save}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-          if (e.key === 'Escape') setName(habit.name);
+          if (e.key === 'Escape') setName(kept);
         }}
       />
+      {note ? (
+        <p id="s-hname-note" className="s-note s-bad" role="status">
+          {note}
+        </p>
+      ) : null}
       <p className="s-note">On Today since {fmtDate('long', habit.createdOn)}. Its history stays if you archive it.</p>
       <Button
         variant="quiet"
@@ -138,6 +158,8 @@ export const HabitsPage = () => {
   const all = Object.keys(pend).length ? cached.map((h) => (h.id in pend ? { ...h, archivedOn: pend[h.id] ? (h.archivedOn ?? today()) : null } : h)) : cached;
   const live = all.filter((h) => !h.archivedOn).sort((a, b) => a.position - b.position);
   const archived = all.filter((h) => h.archivedOn);
+  const allRef = useRef(all);
+  allRef.current = all;
   const byId = new Map(all.map((h) => [h.id, h]));
 
   // The drag (review code F4, F5). While it is under way the DOM order never changes: the lifted row's offset is the
@@ -345,7 +367,17 @@ export const HabitsPage = () => {
   const archive = (h: Habit, haptic = true) => {
     setArchived(h, true);
     if (haptic) haptics.delete();
-    toast(`${h.name} archived`, { label: 'Undo', fn: () => setArchived(h, false) });
+    // the name it has now: a rename in its sheet just before Archive is the one the toast says
+    const name = qc.getQueryData<Bootstrap>(keys.bootstrap)?.habits.find((x) => x.id === h.id)?.name ?? h.name;
+    toast(`${name} archived`, { label: 'Undo', fn: () => restore(h) });
+  };
+  /** Bring one back from Archived, unless that would pass the cap. */
+  const restore = (h: Habit) => {
+    if (atCap(allRef.current)) {
+      haptics.error();
+      return toast(HABIT_CAP_NOTE);
+    }
+    setArchived(h, false);
   };
   // from the habit's sheet: once the sheet has closed (its spring never carries this page's commit)
   const sm = useSheetMotion();
@@ -392,11 +424,13 @@ export const HabitsPage = () => {
     { label: 'Archive', icon: <Archive size={18} />, destructive: true, onSelect: () => archive(h) },
   ];
 
+  const full = atCap(all);
   const add = (name: string) => {
-    const n = name.trim().replace(/\s+/g, ' ').slice(0, 80);
+    const n = cleanName(name);
     if (!n) return;
     const dupe = all.find((h) => h.name.toLowerCase() === n.toLowerCase());
     if (dupe && !dupe.archivedOn) return setNote(`${dupe.name} is already on Today.`);
+    if (full) return setNote(HABIT_CAP_NOTE);
     setNote(null);
     if (dupe) setArchived(dupe, false);
     else hm.add.mutate(n);
@@ -447,16 +481,14 @@ export const HabitsPage = () => {
                 ))}
               </div>
             }
-            starters={[...STARTER_HABITS]}
-            onStarter={(n) => hm.add.mutateAsync(n)}
           >
-            Habits are the small lights at the top of Today. Start with one.
+            {HABITS_EMPTY}
           </EmptyState>
         </div>
       )}
 
-      {live.length ? (
-        <SCard title="Add a habit" className="s-add-sec">
+      {/* the field is there with no habits too: the first one can be your own, not only a starter */}
+      <SCard title="Add a habit" className="s-add-sec" foot={full ? `${HABIT_CAP} habits is the most Today shows. ${HABIT_CAP_NOTE}` : undefined}>
           <form
             className="s-add"
             onSubmit={(e) => {
@@ -465,8 +497,8 @@ export const HabitsPage = () => {
               setText('');
             }}
           >
-            <input className="in s-add-in" value={text} maxLength={80} placeholder="Floss, Vitamins" aria-label="New habit" aria-describedby={note ? 's-add-note' : undefined} enterKeyHint="done" onChange={(e) => (setText(e.target.value), setNote(null))} />
-            <button type="submit" className="s-add-btn" aria-label="Add habit" disabled={!text.trim()}>
+            <input className="in s-add-in" value={text} maxLength={80} placeholder="Floss, Vitamins" aria-label="New habit" aria-describedby={note ? 's-add-note' : undefined} enterKeyHint="done" disabled={full} onChange={(e) => (setText(e.target.value), setNote(null))} />
+            <button type="submit" className="s-add-btn" aria-label="Add habit" disabled={full || !text.trim()}>
               <Plus size={20} aria-hidden="true" />
             </button>
           </form>
@@ -475,7 +507,7 @@ export const HabitsPage = () => {
               {note}
             </p>
           ) : null}
-          {starters.length ? (
+          {starters.length && !full ? (
             <div className="s-starters" role="group" aria-label="Starters">
               {starters.map((s) => (
                 <button key={s} type="button" className="s-starter" onClick={() => add(s)}>
@@ -486,7 +518,6 @@ export const HabitsPage = () => {
             </div>
           ) : null}
         </SCard>
-      ) : null}
 
       {archived.length ? (
         <SGroup title="Archived" meta={archived.length}>
@@ -497,7 +528,7 @@ export const HabitsPage = () => {
                 title={h.name}
                 sub={`Archived ${fmtDate('md', h.archivedOn!)}`}
                 right={
-                  <button type="button" className="btn soft sm s-restore" onClick={() => setArchived(h, false)}>
+                  <button type="button" className="btn soft sm s-restore" onClick={() => restore(h)}>
                     Restore
                   </button>
                 }

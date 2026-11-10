@@ -92,16 +92,18 @@ export default function SettingsView(): React.JSX.Element {
           </>
         )}
         <GoRow icon={Timer} title="Easy pace" value={ms ? `${paceText(ms.run.pace)} /mi` : dash} onPress={go('training')} />
-        <GoRow icon={ClipboardList} title="Plans" value={block?.name ?? (loaded ? 'None' : dash)} onPress={go('plans')} className="s-plans-row" label={`Plans${block ? `: ${block.name}` : ''}`} />
+        {/* the plan's name on its own line under the title: whole at 320, not an ellipsis */}
+        <GoRow icon={ClipboardList} title="Plans" sub={block ? block.name : undefined} value={block ? undefined : loaded ? 'None' : dash} onPress={go('plans')} className="s-plans-row" />
       </SGroup>
 
       <SGroup title="Habits">
+        {/* the count is the title and the names wrap under it, so no name is cut and "and 4 more" never hides */}
         <GoRow
           icon={Sparkles}
-          title={habits.length ? habits.slice(0, 3).map((h) => h.name).join(', ') + (habits.length > 3 ? ` and ${habits.length - 3} more` : '') : 'Add your first habit'}
-          sub={habits.length ? 'Rename, reorder, archive' : 'Small lights you tap on Today'}
-          value={habits.length || undefined}
+          title={habits.length ? `${habits.length} ${habits.length === 1 ? 'habit' : 'habits'}` : 'Add your first habit'}
+          sub={habits.length ? habits.slice(0, 5).map((h) => h.name).join(', ') + (habits.length > 5 ? ` and ${habits.length - 5} more` : '') : 'Tiles you tap on Today.'}
           onPress={go('habits')}
+          className="s-habits-row"
         />
       </SGroup>
 
