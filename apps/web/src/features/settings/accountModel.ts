@@ -61,6 +61,8 @@ export const passwordRefusal = (e: unknown): PasswordProblem => {
   if (e instanceof ApiError) {
     if (e.status === 403 || e.code === 'wrong_password') return { field: 'current', text: 'That’s not your current password.' };
     if (e.status === 429) return { field: 'current', text: 'Too many tries. Wait a few minutes, then try again.' };
+    // the server's own sentence for a password it will not take (too common, the email, too short): plain, one line
+    if (e.code === 'weak_password' && e.message && e.message.length <= 120) return { field: 'next', text: e.message };
     if (e.status === 400 || e.status === 422) return { field: 'next', text: `Use ${PASSWORD_MIN} to ${PASSWORD_MAX} characters for the new password.` };
   }
   return { field: 'current', text: 'Couldn’t change the password. Try again.' };

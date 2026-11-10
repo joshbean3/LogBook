@@ -94,8 +94,11 @@ export const exportAll = async (onProgress: (done: number, total: number) => voi
 export const useExport = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<{ text: string; bad: boolean } | null>(null);
+  // a second tap before the first has drawn "Gathering" must not start a second export (and a second share sheet)
+  const running = useRef(false);
   const run = async () => {
-    if (busy) return;
+    if (running.current) return;
+    running.current = true;
     setBusy('Gathering your log…');
     setResult(null);
     try {
@@ -105,6 +108,7 @@ export const useExport = () => {
       haptics.error();
       setResult({ text: EXPORT_FAILED, bad: true });
     } finally {
+      running.current = false;
       setBusy(null);
     }
   };

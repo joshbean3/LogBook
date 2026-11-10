@@ -229,6 +229,8 @@
   margin-top: 24px;
   z-index: 20;
   display: grid;
+  /* the column is the card's width, never its widest button's: at 320 "Rebuild anyway" pushed every line past the edge */
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   padding: 16px 16px 12px;
   border-radius: var(--r-card);
@@ -282,11 +284,22 @@
   padding: 8px 16px 12px;
   background: var(--surface);
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
 }
 .s-rebuild-go {
   min-width: 112px;
+}
+/* a narrow card (320 wide, or a large text size): the two buttons cannot sit side by side, so they stack full width, the
+   primary one on top */
+.s-rebuild {
+  container: s-rebuild / inline-size;
+}
+@container s-rebuild (max-width: 19rem) {
+  .s-rebuild-actions {
+    flex-direction: column-reverse;
+  }
 }
 /* ---------- habits ---------- */
 /* the habits on Today: rows in one white card; the lifted row floats over it */
@@ -550,7 +563,10 @@
   min-height: 44px;
   min-width: 44px;
 }
-/* Settings → You: the name, typed in place */
+/* Settings → You: the name, typed in place. The label keeps its word; the field gives way */
+.s-name-row .lrow-main {
+  flex: none;
+}
 .s-name-in {
   flex: 1 1 auto;
   min-width: 0;
@@ -732,4 +748,21 @@
     white-space: normal;
     overflow: visible;
   }
+}
+
+/* very large text (200% and up at 320): a one-line row with no value lets its title wrap, breaking a long word if it
+   must ("Acknowledgments", "Change password"), and keeps its chevron in the row; a second line breaks a long address
+   ("support@…"). At the default size every such title fits on one line, so nothing moves. */
+.s-group .s-go:not(.two):not(:has(.s-value)) .lrow-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.s-group .s-go:not(.two):not(:has(.s-value)) .lrow-title,
+.s-group .lrow.s-wrap .lrow-title {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.s-group .lrow-sub {
+  overflow-wrap: anywhere;
 }

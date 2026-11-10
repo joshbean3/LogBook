@@ -49,6 +49,8 @@ describe('change password', () => {
     expect(passwordRefusal(new ApiError('That is not your current password.', 403, 'wrong_password'))).toEqual({ field: 'current', text: 'That’s not your current password.' });
     expect(passwordRefusal(new ApiError('slow down', 429, 'rate_limited')).text).toBe('Too many tries. Wait a few minutes, then try again.');
     expect(passwordRefusal(new ApiError('bad', 422)).field).toBe('next');
+    // a password the server refuses for itself (ws-01 answers 422 weak_password with a plain sentence) says why
+    expect(passwordRefusal(new ApiError('That password is too common. Pick another.', 422, 'weak_password'))).toEqual({ field: 'next', text: 'That password is too common. Pick another.' });
     expect(passwordRefusal(new NetworkError()).text).toBe('Couldn’t reach Logbook. Check your connection.');
     // a server without the route yet: no jargon, no dead end
     expect(passwordRefusal(new ApiError('Not found', 404)).text).toBe('Couldn’t change the password. Try again.');
