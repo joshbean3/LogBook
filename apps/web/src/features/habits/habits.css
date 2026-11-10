@@ -53,33 +53,33 @@
   z-index: 2;
 }
 .orb[data-dragging] .orb-ring {
-  background: var(--surface-3);
-  border-color: var(--line-strong);
+  background: var(--surface);
 }
+/* the coin (guide 6.6): off, a 1.5 px decorative ring with the initial in Night Ink; lit, a flat Sky disc with a Night Ink
+   check (never a glossy Orb: the gloss is the assistant's) */
 .orb-ring {
   position: relative;
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
+  border: 0;
+  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
   display: grid;
   place-items: center;
   color: transparent;
-  background: var(--surface-3);
+  background: transparent;
   transition:
-    background 160ms var(--ease-out),
-    border-color 160ms var(--ease-out),
-    color 160ms var(--ease-out),
-    box-shadow 320ms var(--ease-out);
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .orb-ring svg {
   position: absolute;
 }
 .orb-initial {
   /* a glyph inside a fixed ring: Inter 600 at the row size (guide 6.6), growing with the text size only as far as the ring holds */
-  font: 600 clamp(15px, 1.0625rem, 22px) / 1 var(--sans);
+  font: 600 clamp(15px, var(--fs-row), 22px) / 1 var(--sans);
   letter-spacing: 0;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 /* a digit is Inter 600 like every coin initial, with even figures; an emoji is itself, upright and whole */
 .orb-initial.is-digit,
@@ -91,7 +91,7 @@
 }
 .orb-initial.is-emoji,
 .hv-orb.is-emoji {
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; /* brand-ok: the person's own emoji as the coin's initial, drawn by the system (plan D20) */
   font-style: normal;
 }
 .orbs.is-grid .orb-initial.is-digit {
@@ -109,7 +109,7 @@
   margin: 0;
   padding: 4px 2px;
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 /* a name that is taken: one line under the field */
 .orb-add-twin {
@@ -117,20 +117,14 @@
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--bad);
 }
-/* lit: the fill and the check on the tap's frame (no fade in: the colour is the answer), the glow blooms after */
+/* lit: the fill and the check on the tap's frame (no fade in: the color is the answer); the pop is the coin's scale */
 .orb.on .orb-ring {
   background: var(--accent);
-  border-color: var(--accent-bright);
+  box-shadow: none;
   color: var(--accent-ink);
-  transition:
-    background 0ms,
-    border-color 0ms,
-    color 0ms,
-    box-shadow 320ms var(--ease-out);
-  box-shadow:
-    0 0 0 4px rgba(242, 96, 12, 0.18),
-    0 0 28px rgba(242, 96, 12, 0.75);
+  transition: none;
 }
+/* the day has a note: an 8 px Deep Sky dot on a Paper keyline (not a warning) */
 .orb-note {
   position: absolute;
   right: 3px;
@@ -138,11 +132,12 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--warn);
+  background: var(--deep-sky);
+  box-shadow: 0 0 0 1.5px var(--surface);
 }
 .orb-name {
   font: 400 var(--fs-orb) / var(--lh-orb) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
   max-width: 100%;
   padding-inline: 2px;
   text-align: center;
@@ -153,21 +148,21 @@
   -webkit-line-clamp: 2;
   text-wrap: balance;
   overflow-wrap: break-word;
-  transition: color 160ms var(--ease-out);
+  transition: color var(--dur-color) var(--ease-out);
 }
 .orb.on .orb-name {
   color: var(--ink);
 }
 .orb-plus .orb-ring {
   background: none;
-  border-style: dashed;
-  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  color: var(--ink-2);
 }
 .orb:focus-visible {
   outline: none;
 }
 .orb:focus-visible .orb-ring {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 3px;
 }
 /* a future day (§3.3): ghost orbs, an outline in --ink-4 at 40 %, the names, nothing to press */
@@ -176,7 +171,7 @@
 }
 .orb.ghost .orb-ring {
   background: none;
-  border-color: var(--ink-faint, var(--ink-4));
+  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
 }
 /* the "+" orb's sheet */
 .orb-add-in {
@@ -219,13 +214,13 @@
 .hs-card-title {
   margin: 0;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .hs-card-foot {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 .hs-grid {
@@ -240,24 +235,22 @@
   min-height: 40px;
   border-radius: var(--r-control);
   background: var(--surface-2);
-  color: var(--ink-3);
-  font: 500 0.8125rem / 1 var(--stamp);
+  color: var(--ink-2);
+  font: 600 var(--fs-foot) / 1 var(--sans);
   font-variant-numeric: tabular-nums;
   display: grid;
   place-items: center;
   padding: 0;
   position: relative;
 }
+/* a day done: Sky with a Night Ink numeral; today: a Night Ink ring (guide 6.13, today is never the fill) */
 .hs-cell.on {
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 0 10px rgba(242, 96, 12, 0.45);
 }
 .hs-cell.is-today {
-  box-shadow: inset 0 0 0 1.5px var(--ink-2);
-}
-.hs-cell.on.is-today {
-  box-shadow: inset 0 0 0 1.5px #fff, 0 0 10px rgba(242, 96, 12, 0.45);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
 }
 .hs-cell.before {
   opacity: 0.35;
@@ -284,18 +277,18 @@
 .hs-note-date {
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .hs-note-text {
   font: italic 420 var(--fs-sentence-sm) / var(--lh-row) var(--serif);
   letter-spacing: 0;
-  color: var(--ink);
+  color: var(--j-ink);
 }
 .hs-note-none {
   margin: 4px 0 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .hs-field {
   display: grid;
@@ -337,7 +330,7 @@
   border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow-1);
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }
@@ -367,13 +360,13 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
-  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
+  background: transparent;
   display: grid;
   place-items: center;
   font: 600 var(--fs-body) / 1 var(--sans);
   letter-spacing: 0;
-  color: var(--ink-2);
+  color: var(--ink);
 }
 .hv-main {
   display: grid;
@@ -382,14 +375,14 @@
 }
 .hv-name {
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .hv-sub {
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -405,19 +398,20 @@
   grid-auto-rows: 7px;
   gap: 2px;
 }
+/* the 30 days as dots: done Deep Sky (a mark that carries state by fill alone needs 3:1), today a Night Ink ring */
 .hv-cell {
   display: block;
-  border-radius: 2px;
+  border-radius: 50%;
   background: var(--surface-3);
 }
 .hv-cell.on {
-  background: var(--accent);
+  background: var(--deep-sky);
 }
 .hv-cell.is-today {
-  box-shadow: inset 0 0 0 1px var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 .hv-cell.on.is-today {
-  box-shadow: inset 0 0 0 1px #fff;
+  box-shadow: inset 0 0 0 1px var(--surface);
 }
 .hv-cell.before {
   opacity: 0.35;
@@ -429,7 +423,8 @@
   gap: 12px;
 }
 
-/* ---------- the habits as a grid (Today): two columns of tiles, each a light, the full name and this week's seven days ---------- */
+/* ---------- the habits as a grid (Today, guide 6.6): two columns of Paper tiles straight on the ground, each a coin, the
+   full name and this week's seven days ---------- */
 .orbs-grid-wrap {
   min-width: 0;
 }
@@ -437,55 +432,31 @@
   display: grid;
   /* two columns; one when the text is set so large that half the width no longer holds a name (7.75rem is under half of the
      narrowest phone at the default size, so the two columns hold there and up to about 125% on a 390 pt phone) */
-  grid-template-columns: repeat(auto-fill, minmax(max(calc(50% - 4px), 7.75rem), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(max(calc(50% - var(--gap-tile) / 2), 7.75rem), 1fr));
+  gap: var(--gap-tile);
 }
+/* a tile: Paper, r 18, the card shadow. 9 px top and bottom (a named size, plan D26) keep each row 60 tall, as before */
 .orbs.is-grid .orb {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   width: auto;
   min-width: 0;
   min-height: 60px;
-  padding: 8px 10px 8px 8px;
-  border-radius: 18px;
-  background: var(--well, var(--surface-2));
-  box-shadow: var(--well-shadow, none);
+  padding: 9px var(--sp-3); /* brand-ok: geometry, plan D26: 9 + 42 + 9 keeps the 60 px row */
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
   text-align: left;
-  transition:
-    background 200ms var(--ease-out),
-    box-shadow 200ms var(--ease-out);
-}
-.orbs.is-grid .orb.on {
-  background: linear-gradient(135deg, #fff4ec 0%, #ffe9db 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(242, 96, 12, 0.18),
-    0 6px 16px -10px rgba(242, 96, 12, 0.6);
 }
 .orbs.is-grid .orb-ring {
   flex: none;
   width: 42px;
   height: 42px;
-  background: var(--surface);
-  border-color: var(--line);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 2px 6px -2px rgba(15, 42, 68, 0.18);
 }
 .orbs.is-grid .orb-ring svg {
   width: 18px;
   height: 18px;
-}
-.orbs.is-grid .orb-initial {
-  font-size: clamp(19px, 1.1875rem, 26px);
-}
-.orbs.is-grid .orb.on .orb-ring {
-  background: radial-gradient(circle at 38% 32%, #ff9a52, var(--accent) 70%);
-  border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 0 0 3px rgba(242, 96, 12, 0.14),
-    0 6px 14px -4px rgba(242, 96, 12, 0.6);
 }
 .orb-text {
   display: grid;
@@ -493,46 +464,43 @@
   min-width: 0;
   flex: 1;
 }
+/* the name exactly as the person typed it: Inter 600 at the tile size, Night Ink, up to three lines (the tile grows) */
 .orbs.is-grid .orb-name {
   padding: 0;
-  /* a third line when the name needs it (the tile grows): a whole name says more than a cut one */
   -webkit-line-clamp: 3;
-  font: 600 0.875rem/1.0625rem var(--sans);
-  letter-spacing: -0.01em;
+  font: 600 var(--fs-tile) / var(--lh-tile) var(--sans);
+  letter-spacing: 0;
   text-align: left;
   text-wrap: pretty;
   color: var(--ink);
 }
-.orbs.is-grid .orb.on .orb-name {
-  color: #8a3a0c;
-}
-/* this week, Mon–Sun: a filled dot for a day done, an empty one for a day missed, a faint one ahead */
+/* this week, Mon to Sun (guide 6.6): done Deep Sky, missed a 1.25 px Pencil ring, ahead faint, the shown day outlined */
 .orb-week {
   display: flex;
-  gap: 3px;
+  gap: var(--gap-dot);
 }
 .orb-week i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(15, 42, 68, 0.1);
+  background: var(--dot-ahead);
 }
 .orb-week i.is-o {
   background: transparent;
-  box-shadow: inset 0 0 0 1.25px var(--ink-faint, var(--ink-4));
+  box-shadow: inset 0 0 0 1.25px var(--pencil);
 }
 .orb-week i.is-d {
-  background: var(--accent);
+  background: var(--deep-sky);
 }
 .orb-week i.is-day {
-  outline: 1.5px solid rgba(242, 96, 12, 0.35);
+  outline: 1.5px solid var(--ink);
   outline-offset: 1.5px;
 }
-/* a 320 pt screen: a smaller ring and tighter tile leave the name room, and it may take a third line (the tile grows) */
+/* a 320 pt screen: a smaller coin and tighter tile leave the name room, and it may take a third line (the tile grows) */
 @media (max-width: 359px) {
   .orbs.is-grid .orb {
-    gap: 8px;
-    padding: 8px 8px 8px 6px;
+    gap: var(--sp-2);
+    padding: 9px var(--sp-2); /* brand-ok: geometry, plan D26 */
   }
   .orbs.is-grid .orb-ring {
     width: 34px;
@@ -542,37 +510,27 @@
     width: 16px;
     height: 16px;
   }
-  .orbs.is-grid .orb-name {
-    font-size: 0.8125rem;
-    line-height: 1rem;
-  }
 }
-.orbs.is-grid .orb-plus {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--line);
-  border: 0;
-}
+/* the add tile: a Paper tile, a 42 px circle on a 1.5 px line ring with a + glyph, "Add" in Inter 600 */
 .orbs.is-grid .orb-plus .orb-ring {
   background: transparent;
-  box-shadow: none;
-  border-style: dashed;
-  border-color: var(--ink-faint, var(--ink-4));
-  color: var(--ink-3);
-}
-.orbs.is-grid .orb-plus .orb-name {
-  color: var(--ink-3);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  color: var(--ink-2);
 }
 .orbs.is-grid .orb[data-dragging] {
   z-index: 3;
-  background: var(--surface);
   box-shadow: var(--shadow-float);
 }
 .orbs.is-grid .orb.ghost {
   opacity: 0.5;
 }
+.orbs.is-grid .orb.ghost .orb-ring {
+  box-shadow: inset 0 0 0 1.5px var(--coin-ring);
+}
 .orbs.is-grid .orb:focus-visible {
-  outline: 2px solid var(--accent-text);
+  outline: 1.5px solid var(--focus-edge);
   outline-offset: 2px;
+  box-shadow: var(--shadow-1), var(--focus-ring);
 }
 .orbs.is-grid .orb:focus-visible .orb-ring {
   outline: none;

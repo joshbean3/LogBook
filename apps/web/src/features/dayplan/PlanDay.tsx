@@ -1,5 +1,5 @@
-import { awaitingReview, fmtDate, GOAL_STEPS_MAX, goalProgress, periodName, periodOf, shiftDays, type Aim, type ISODate } from '@logbook/shared';
-import { ArrowRight, ChevronDown, ChevronRight, Moon, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
+import { awaitingReview, fmtDate, GOAL_STEPS_MAX, periodName, periodOf, shiftDays, type Aim, type ISODate } from '@logbook/shared';
+import { ArrowRight, ChevronDown, ChevronRight, ListTodo, Moon, Plus, RotateCcw, Target, Trash2 } from 'lucide-react';
 import { animate, AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react';
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -27,7 +27,6 @@ import { TodoMark } from '../todos/TodoMark';
 import { TodoSheet } from '../todos/TodoSheet';
 import { groupsOn } from '../todos/groups';
 import { BAND, cardsFor, focusGrid, focusOf, moveCard, placeOf, TOP, type Card, type FocusSlot, type Laid, type Place } from './model';
-import { emojiOf } from './emoji';
 import './dayplan.css';
 
 
@@ -483,7 +482,6 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
     return (
       <>
         <Pressable className="pd-goal is-empty" data-pd-goal="" press="surface" onPress={() => open('day', date)} label={date === today ? 'Set today’s goal' : `Set the goal for ${fmtDate('short', date)}`}>
-          <span className="pd-goal-blob" aria-hidden="true" />
           <span className="pd-node is-goal" aria-hidden="true">
             <Target size={16} strokeWidth={2.4} />
           </span>
@@ -498,7 +496,6 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
         {date === today ? <CarryOver today={today} className="pd-carry" /> : null}
       </>
     );
-  const p = goalProgress(goal);
   const n = goal.steps.length;
   const k = goal.steps.filter((s) => s.done).length;
   const isDone = goal.status === 'done';
@@ -522,7 +519,6 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
   };
   return (
     <div className={`pd-goal is-${goal.status} ${target ? 'is-target' : ''} ${dragging && full ? 'is-droppable' : ''}`} data-pd-goal="">
-      <motion.span className="pd-goal-blob" aria-hidden="true" initial={false} animate={{ scale: isDone ? 9 : 0.55 + 0.45 * p }} transition={reduce ? { duration: 0 } : isDone ? { type: 'spring', duration: 0.9, bounce: 0.05 } : { type: 'spring', duration: 0.6, bounce: 0.3 }} />
       <div className="pd-goal-in">
         <span className="pd-node is-goal" aria-hidden="true">
           <Target size={16} strokeWidth={2.4} />
@@ -675,7 +671,7 @@ const CardFace = ({ card, date, today, editable, onOpen, hue, fallback, rank, on
     return (
       <>
         <span className="pd-ico is-goal" aria-hidden="true">
-          🎯
+          <Target size={18} />
         </span>
         <button type="button" className="pd-card-name" onClick={onOpen}>
           <span className="pd-card-text">{step.text}</span>
@@ -701,8 +697,8 @@ const CardFace = ({ card, date, today, editable, onOpen, hue, fallback, rank, on
       ) : card.done && focus ? (
         <span className="pd-rank is-blank" aria-hidden="true" />
       ) : (
-        <span className="pd-ico" style={{ '--ic': hue } as React.CSSProperties} aria-hidden="true">
-          {emojiOf(x.text, fallback)}
+        <span className="pd-ico" aria-hidden="true">
+          <ListTodo size={18} />
         </span>
       )}
       <button type="button" className="pd-card-name" onClick={onOpen}>

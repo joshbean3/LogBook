@@ -1378,18 +1378,14 @@
 .day-habits {
   margin: var(--section) 0 0;
 }
-/* the orbs in one white card (shape system §3): the row scrolls inside it, to its edges */
+/* the tiles sit straight on the ground (guide 6.6, plan D9): the wrapper keeps its place in the page and loses its surface,
+   since a card holding cards is not allowed. The grid gains the card's 12 px each side */
 .day-habits-card {
-  overflow: hidden;
-  padding: 12px;
-  border-radius: var(--r-card);
-  background: var(--surface);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
+  padding: 0;
 }
 .day-habits.is-skel {
   height: 128px;
-  border-radius: var(--r-group);
+  border-radius: var(--r-tile);
   background: var(--surface);
   opacity: 0.5;
 }
