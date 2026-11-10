@@ -1327,7 +1327,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 .seg.in-bar .seg-btn::after {
   content: '';
   position: absolute;
-  inset: calc((var(--seg-bar-h, 36px) - 44px) / 2) 0;
+  inset: calc((var(--seg-bar-h, 36px) - 44px) / 2) 0; /* brand-ok: geometry, the 36 px control grows to a 44 px target */
 }
 .seg.in-bar .seg-thumb {
   border-radius: var(--r-pill);
