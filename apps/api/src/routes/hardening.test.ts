@@ -398,3 +398,54 @@ describe('the health check (perf-22)', () => {
     expect(((await res.json()) as { ok: boolean }).ok).toBe(false);
   });
 });
+
+describe('import (settings-15, sec-18)', () => {
+  it('is limited per account, caps row counts, and imports in chunks that give way to other requests', async () => {
+    const { IMPORT_LIMIT } = await import('./import.js');
+    const { IMPORT_CAPS, importV2Chunked, zExportV2 } = await import('../services/exporter.js');
+    const a = await signUp(app, 'a@example.com', PW);
+    const file = (await a.call('GET', '/api/export')).body;
+    for (let i = 0; i < IMPORT_LIMIT.max; i++) expect((await a.call('POST', '/api/import', file)).status).toBe(200);
+    const over = await a.call('POST', '/api/import', file);
+    expect(over.status).toBe(429);
+    expect(over.headers.get('retry-after')).toBeTruthy();
+    // too many rows of one kind: refused before anything is written
+    const many = Array.from({ length: IMPORT_CAPS.habits + 1 }, (_, i) => ({ id: `h${i}`, name: `H${i}`, createdOn: '2026-01-01' }));
+    expect(zExportV2.safeParse({ version: 2, habits: many }).success).toBe(false);
+    // 1,200 rows in chunks of 500: other work runs between the chunks, and every row lands once
+    const b = await signUp(app, 'b@example.com', PW);
+    const journal = Array.from({ length: 1200 }, (_, i) => ({ id: `j${i}`, date: '2026-10-01', text: `line ${i}`, createdAt: '2026-10-01T08:00:00Z' }));
+    let ticks = 0;
+    const timer = setInterval(() => ticks++, 0);
+    const counts = await importV2Chunked(db, b.id, zExportV2.parse({ version: 2, journal }), 500);
+    clearInterval(timer);
+    expect(counts.journal).toBe(1200);
+    expect(ticks).toBeGreaterThan(0);
+    expect(db.select().from(journalEntries).where(eq(journalEntries.userId, b.id)).all()).toHaveLength(1200);
+    expect((await importV2Chunked(db, b.id, zExportV2.parse({ version: 2, journal }), 500)).journal).toBeUndefined();
+  });
+
+  it('the export carries planned days and assistant proposals, and every user table is exported or left out on purpose', async () => {
+    const { USER_TABLES } = await import('../services/account.js');
+    const { EXPORT_COVERAGE } = await import('../services/exporter.js');
+    const a = await signUp(app, 'a@example.com', PW);
+    await a.call('PUT', '/api/day-plans/2026-11-10', { bands: { morning: ['todo:t1'], afternoon: [], evening: [] } });
+    db.insert(assistantActions).values({ id: 'aa1', userId: a.id, ask: 'move my run', summary: 'Moved', ops: '[{"secret":1}]', labels: '["Move Easy 4"]', createdAt: new Date().toISOString() }).run();
+    const file = (await a.call('GET', '/api/export')).body;
+    expect(file.dayPlans).toEqual([{ date: '2026-11-10', bands: { morning: ['todo:t1'], afternoon: [], evening: [] }, updatedAt: expect.any(String) }]);
+    expect(file.assistantActions).toEqual([{ id: 'aa1', ask: 'move my run', summary: 'Moved', labels: ['Move Easy 4'], status: 'proposed', createdAt: expect.any(String), appliedAt: null }]);
+    expect(file.health).toBeDefined();
+    expect(file.consentLog).toBeDefined();
+    // a fresh account gets the planned day back
+    const b = await signUp(app, 'b@example.com', PW);
+    expect((await b.call('POST', '/api/import', file)).body.imported.dayPlans).toBe(1);
+    expect((await b.call('GET', '/api/day-plans/2026-11-10')).body.bands.morning).toEqual(['todo:t1']);
+    // every table with a user_id is either in the export (under the named key) or left out for a stated reason
+    const names = USER_TABLES.map((t) => getTableName(t.table)).sort();
+    expect(Object.keys(EXPORT_COVERAGE).sort()).toEqual(names);
+    for (const [table, where] of Object.entries(EXPORT_COVERAGE)) {
+      if (where.exported) expect(file, `${table} is exported as ${where.exported}`).toHaveProperty(where.exported.split('.'));
+      else expect(where.leftOut?.length ?? 0, table).toBeGreaterThan(20);
+    }
+  });
+});

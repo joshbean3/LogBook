@@ -225,12 +225,19 @@ describe('contract 3: GET /export → POST /import', () => {
     expect((await call('POST', '/api/import', file, a.cookie)).body.imported).toEqual({});
   });
 
-  it('still takes the original artifact format, and refuses a broken v2 file', async () => {
+  it('takes only a version 2 export: the original artifact format and anything else answer 422 (sec-16, settings-26)', async () => {
     const { cookie } = await signUp('a@example.com');
     const v1 = { habits: { items: [{ id: 'h1', name: 'Stretch', created: '2026-09-01' }] }, todos: { items: { t1: { text: 'Call', created: '2026-09-02' } } } };
-    const r = await call('POST', '/api/import', v1, cookie);
-    expect(r.body).toMatchObject({ ok: true, version: 1, imported: { habits: 1, todos: 1 } });
-    expect((await call('POST', '/api/import', { version: 2, sessions: [{ id: 'x', date: 'nope', kind: 'run' }] }, cookie)).status).toBe(422);
+    for (const body of [v1, { version: 1 }, { hello: 'world' }, [1, 2], 'text']) {
+      const r = await call('POST', '/api/import', body, cookie);
+      expect(r.status, JSON.stringify(body)).toBe(422);
+      expect(r.body).toMatchObject({ error: 'That is not a Logbook export file.', code: 'not_export' });
+    }
+    expect((await call('GET', '/api/habits', undefined, cookie)).body).toEqual([]);
+    const broken = await call('POST', '/api/import', { version: 2, sessions: [{ id: 'x', date: 'nope', kind: 'run' }] }, cookie);
+    expect(broken.status).toBe(422);
+    expect(broken.body.code).toBe('bad_bundle');
+    expect(broken.body.error).not.toMatch(/sessions|nope|Invalid/);
   });
 });
 
