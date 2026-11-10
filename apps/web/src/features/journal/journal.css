@@ -106,14 +106,15 @@
 /* Save: a 32 px pill, the one blue, at 40 % until there is text (§8); a 44 px target */
 .save-pill.pressable {
   position: relative;
-  height: 32px;
-  min-height: 32px;
+  /* 32 px at the default text size, taller with Larger Text */
+  height: auto;
+  min-height: max(32px, 2rem);
   padding: 0 16px;
   border: 0;
   border-radius: var(--r-pill);
   background: var(--primary);
   color: var(--primary-ink);
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   opacity: 0.4;
   transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms var(--ease-out);
 }
@@ -129,10 +130,10 @@
 .composer-saved {
   align-items: center;
   gap: 6px;
-  height: 32px;
+  min-height: max(32px, 2rem);
   padding: 0 4px;
   margin-left: auto;
-  font: 600 15px/20px var(--sans);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 .composer-saved svg {
@@ -186,8 +187,8 @@ textarea.jtext:focus {
 }
 /* the Journal page's composer: 17/22 serif, the placeholder at --ink-3 (§8), three lines open */
 .composer.big .jtext {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   padding: 16px 16px 8px;
 }
 .composer.big textarea.jtext {
@@ -1006,8 +1007,8 @@ textarea.jsheet-text {
   overflow: hidden;
 }
 .qline.quote-line .qline-text {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
   -webkit-line-clamp: 1;
 }
 

@@ -61,8 +61,8 @@ const Slim = ({ children, verb, busy }: { children: React.ReactNode; verb?: Reac
   </motion.section>
 );
 
-/** Who makes the pick and from what: said on the card itself and on the Reads screen. */
-export const PICKED_BY = 'Picked by Claude, by Anthropic, from the links you save.';
+/** Who makes the pick and from what: said in full on the Reads screen; the card itself carries the short mark. */
+export const PICKED_BY = 'Daily picks are made by Claude, by Anthropic, from the links you save.';
 
 /**
  * Today's pick: one article found on the web from what the athlete saves.
@@ -197,7 +197,7 @@ export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean;
               <span className="rp-title display">{linkTitle(p.title, p.url)}</span>
             </a>
             {p.pickReason ? <p className="rp-why">{p.pickReason}</p> : null}
-            <p className="rp-by">{PICKED_BY}</p>
+            <p className="rp-by">Picked by AI</p>
             <span className="caps rp-site-sm">{site}</span>
           </motion.div>
         </AnimatePresence>

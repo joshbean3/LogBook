@@ -428,7 +428,7 @@ export default function ReadsView() {
       {empty && picks ? null : (
         <p className="r-foot">
           {picks
-            ? `${PICKED_BY} You can turn daily picks off in Settings, Privacy.`
+            ? `${PICKED_BY} Turn them off in Settings, Privacy.`
             : 'Daily picks are off. Turn them on in Settings, Privacy, and Claude, by Anthropic, picks one new read a day from the links you save.'}
         </p>
       )}
