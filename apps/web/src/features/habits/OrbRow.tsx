@@ -1,10 +1,13 @@
-import { mondayOf, shiftDays, type Habit, type ISODate } from '@logbook/shared';
+import { mondayOf, monthOf, shiftDays, type Habit, type ISODate } from '@logbook/shared';
 import { Archive, Info, PenLine, Plus } from 'lucide-react';
 import { animate, motion, motionValue, useMotionValue, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { flushSync } from 'react-dom';
-import { useHabitMutations } from '@/api/queries';
+import { ApiError } from '@/api/client';
+import { keys, useHabitMutations } from '@/api/queries';
+import type { MonthBundle } from '@/api/types';
 import { HOLD_SLOP_PX } from '@/lib/gesture';
 import { haptics, hapticAtPeak } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
@@ -13,10 +16,12 @@ import { dayTitle } from '@/ui/NavBar';
 import { Pressable } from '@/ui/Pressable';
 import { ChipButton } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
+import { useToast } from '@/ui/Toast';
 import type { DragPoint } from '@/ui/useHold';
 import { isPagerMoving } from '../day/live';
 import type { Log } from '../log/useLog';
 import { HabitNoteSheet, useArchiveHabit, useOpenHabit } from './HabitSheet';
+import { createLedger } from './ledger';
 import './habits.css';
 
 export const HABIT_STARTERS = ['Sleep 7 h', 'Stretch', 'Read', 'Protein', 'No phone in bed'];
@@ -64,6 +69,8 @@ const busyHand = () => pointersDown > 0 || isPagerMoving();
  * just before it is not lost (feel review 3 #3).
  */
 const heldWrites = new Set<() => void>();
+/** The checks on their way to the server: what to put back when one is refused (see ledger.ts). */
+const ledger = createLedger();
 const sendHeld = () => {
   for (const f of [...heldWrites]) f();
 };
@@ -133,7 +140,8 @@ interface OrbProps {
   on: boolean;
   note: string;
   index: number;
-  onLight: (h: Habit, on: boolean) => void;
+  /** Sends the check. Answers false when the server refused it (the month has been put back by then). */
+  onLight: (h: Habit, on: boolean) => Promise<boolean>;
   menu: (h: Habit) => ContextMenuItem[];
   onDragStart: (id: string) => void;
   onDragMove: (id: string, p: DragPoint) => void;
@@ -159,10 +167,20 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
   // the tap's answer lands on its own frame: the shown state runs ahead of the cache until the cache agrees
   const [ahead, setAheadSelf] = useState<boolean | null>(null);
   const on = ahead ?? lit;
+  const aheadNow = useRef(ahead);
+  aheadNow.current = ahead;
   const setAhead = (v: boolean | null) => {
+    aheadNow.current = v;
     setAheadSelf(v);
     setShown(date, h.id, v);
   };
+  const day = useRef(date);
+  day.current = date;
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => void (alive.current = false);
+  }, []);
   useEffect(() => {
     if (ahead !== null && ahead === lit) setAhead(null);
   }, [lit, ahead]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -187,7 +205,13 @@ const Orb = memo(function Orb({ h, date, on: lit, note, index, onLight, menu, on
     clearTimeout(w.t);
     w.idle?.();
     write.current = null;
-    onLight(h, w.on);
+    const sent = w.on;
+    const sentOn = date;
+    void onLight(h, sent).then((saved) => {
+      // refused: the tile goes back to what is saved (the month has it again by now), however fast the answer came.
+      // Not if it has been tapped again since: that tap has its own write.
+      if (!saved && alive.current && day.current === sentOn && !write.current && aheadNow.current === sent) setAhead(null);
+    });
   };
   const [sendMine] = useState(() => () => send.current());
   /**
@@ -393,6 +417,8 @@ const moved = (ids: string[], from: number, to: number) => {
  */
 export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log; editable?: boolean }) => {
   const { reorder, check } = useHabitMutations();
+  const qc = useQueryClient();
+  const toast = useToast();
   const sheet = useSheet();
   const openHabit = useOpenHabit();
   const archive = useArchiveHabit();
@@ -545,7 +571,32 @@ export const OrbRow = ({ date, log, editable = true }: { date: ISODate; log: Log
     requestAnimationFrame(() => els.current.get(id)?.focus());
   };
 
-  const onLight = (h: Habit, on: boolean) => check.mutate({ habitId: h.id, date, done: on });
+  /**
+   * The check goes out. A save the server refuses is taken back here, in the month itself (not left to the refetch, which
+   * may fail too), so the tile, the count and the week dots all go back to what is saved, with one line to say so.
+   */
+  const onLight = (h: Habit, on: boolean): Promise<boolean> => {
+    const month = keys.month(monthOf(date));
+    const key = `${h.id}:${date}`;
+    const mine = (c: { habitId: string; date: string }) => c.habitId === h.id && c.date === date;
+    ledger.begin(key, qc.getQueryData<MonthBundle>(month)?.checks.find(mine)?.done ?? false);
+    return check.mutateAsync({ habitId: h.id, date, done: on }).then(
+      () => {
+        ledger.settle(key, true, on);
+        return true;
+      },
+      (e: unknown) => {
+        const back = ledger.settle(key, false, on);
+        if (back !== null) qc.setQueryData<MonthBundle>(month, (b) => (b ? { ...b, checks: b.checks.map((c) => (mine(c) ? { ...c, done: back } : c)) } : b));
+        // a session that ended has its own way out (the sign-in screen); anything else is said once
+        if (!(e instanceof ApiError && e.status === 401)) {
+          haptics.error();
+          toast('Couldn’t save that. Try again.');
+        }
+        return false;
+      },
+    );
+  };
   const menu = (h: Habit): ContextMenuItem[] => [
     { label: 'Note', icon: <PenLine size={18} />, onSelect: () => sheet.open({ eyebrow: dayTitle(date, log.today), title: h.name, body: <HabitNoteSheet habit={h} date={date} /> }) },
     { label: 'Details', icon: <Info size={18} />, onSelect: () => openHabit(h) },
