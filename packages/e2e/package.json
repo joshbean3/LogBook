@@ -1,0 +1,19 @@
+{
+  "name": "@logbook/e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end flows and the accessibility scan, in a real browser at phone widths. See packages/e2e/README.md.",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:flows": "playwright test tests/flows.spec.ts",
+    "e2e:a11y": "playwright test tests/a11y.spec.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3"
+  }
+}

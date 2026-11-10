@@ -2,29 +2,54 @@ import Foundation
 import Security
 
 /// What the sync engine remembers between runs (docs/health/apple-health.md §3.4). Plain values only, so it is Codable.
+///
+/// Decoding is written out by hand: every key is read with `decodeIfPresent` and falls back to its default, so a file
+/// written by an older build (without a key added since) still loads instead of resetting the connection. Add a new
+/// field with a default, read it the same way, and raise `currentSchema` if its meaning needs a migration.
 struct HealthSyncState: Codable {
+    static let currentSchema = 1
+
+    /// The layout of this file. 0 means a file written before the field existed.
+    var schemaVersion = HealthSyncState.currentSchema
     var connected = false
     var apiOrigin: String?
     var payloadVersion = 0
-    /// The first day the import reads (a year back unless Settings says otherwise).
+    /// The first day the engine reads (a year back unless Settings says otherwise).
     var historyFrom: Date?
     /// One archived HKQueryAnchor per anchored type: the read anchor (it moves as soon as a page is safely on disk).
     var anchors: [String: Data] = [:]
-    /// The start of the next month to import, going backwards; nil once the import reached `historyFrom`.
-    var importCursor: Date?
-    /// Days whose sums must be worked out again (yyyy-MM-dd), saved together with the anchor that found them.
-    var dirtyDays: [String] = []
-    /// The time zone each day was first summed in: a later trip never re-cuts a day spent elsewhere.
-    var dayZones: [String: String] = [:]
     var lastReconcile: Date?
     var lastSyncAt: Date?
     var lastError: String?
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, connected, apiOrigin, payloadVersion, historyFrom, anchors, lastReconcile, lastSyncAt, lastError
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 0
+        connected = try c.decodeIfPresent(Bool.self, forKey: .connected) ?? false
+        apiOrigin = try c.decodeIfPresent(String.self, forKey: .apiOrigin)
+        payloadVersion = try c.decodeIfPresent(Int.self, forKey: .payloadVersion) ?? 0
+        historyFrom = try c.decodeIfPresent(Date.self, forKey: .historyFrom)
+        anchors = try c.decodeIfPresent([String: Data].self, forKey: .anchors) ?? [:]
+        lastReconcile = try c.decodeIfPresent(Date.self, forKey: .lastReconcile)
+        lastSyncAt = try c.decodeIfPresent(Date.self, forKey: .lastSyncAt)
+        lastError = try c.decodeIfPresent(String.self, forKey: .lastError)
+    }
 }
 
 /// Why a run could not read or write its own files.
 enum HealthStorageError: Error {
     /// The files exist but can't be read yet (the phone has not been unlocked since it restarted).
     case locked
+    /// The state file reads but is not a state (damaged, or from a newer build). It is kept, not replaced by a blank one.
+    case corrupt
+    /// The Keychain refused to save the device token.
+    case keychain
 }
 
 /// The engine's files, in Application Support/LogbookHealth: the state, the upload queue, and dead letters.
@@ -67,14 +92,23 @@ final class HealthStorage {
     }
 
     // ---------- state ----------
+    /// Whether this install has a state file, readable or not. A fresh install has none.
+    var hasState: Bool { fm.fileExists(atPath: stateURL.path) }
+
+    /// A missing file is a blank state; an unreadable one is `.locked`; one that reads but does not decode is `.corrupt`
+    /// and stays on disk (a blank state would read as "not connected" and start the year's import over).
     func loadState() throws -> HealthSyncState {
         guard fm.fileExists(atPath: stateURL.path) else { return HealthSyncState() }
         guard let data = try? Data(contentsOf: stateURL) else { throw HealthStorageError.locked }
-        return (try? JSONDecoder().decode(HealthSyncState.self, from: data)) ?? HealthSyncState()
+        guard let state = try? JSONDecoder().decode(HealthSyncState.self, from: data),
+              state.schemaVersion <= HealthSyncState.currentSchema else { throw HealthStorageError.corrupt }
+        return state
     }
 
     func saveState(_ state: HealthSyncState) throws {
-        try write(try JSONEncoder().encode(state), to: stateURL)
+        var s = state
+        s.schemaVersion = HealthSyncState.currentSchema
+        try write(try JSONEncoder().encode(s), to: stateURL)
     }
 
     // ---------- the queue ----------
@@ -108,17 +142,22 @@ final class HealthStorage {
         try? fm.moveItem(at: url, to: to)
     }
 
-    /// Disconnect: the queue, the dead letters and the state all go.
-    func wipe() {
+    /// Empties the upload queue and the dead letters. The state stays.
+    func clearQueue() {
         for dir in [queueDir, deadDir] {
             for f in (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] { try? fm.removeItem(at: f) }
         }
+    }
+
+    /// Disconnect: the queue, the dead letters and the state all go.
+    func wipe() {
+        clearQueue()
         try? fm.removeItem(at: stateURL)
     }
 }
 
-/// The device token, in the Keychain: readable after the first unlock (background deliveries come while the phone is
-/// locked), never copied to another phone.
+/// The device token, in the Keychain: readable after the first unlock, never copied to another phone. Keychain items
+/// outlive the app (they stay after an uninstall), so `HealthSync.dropLeftoverToken()` clears one the app no longer owns.
 enum HealthKeychain {
     private static let service = "app.logbook.health"
     private static let account = "device-token"

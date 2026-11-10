@@ -12,46 +12,24 @@ enum HealthReaderError: LocalizedError {
     }
 }
 
-/// Logbook's reader for Apple Health (docs/health/apple-health.md).
+/// Logbook's reader for Apple Health.
 ///
-/// Phase 1 is the proof: ask for every type the plan reads in one sheet, and read a few things back raw (last night's
-/// sleep segments, the newest HRV and resting heart rate, today's steps) so they can be checked against the Health app.
-/// The sync engine (anchored queries, the disk queue, uploads) is Phase 2 and builds on this class.
+/// Version 1.0 reads three things and shows each on Progress: sleep, heart rate variability and resting heart rate. This
+/// class asks for exactly those in one sheet, and can read the newest of each back raw so it can be checked against the
+/// Health app. The sync engine (`HealthSync`) reads the same three types and no others.
 final class HealthReader {
     static let shared = HealthReader()
     let store = HKHealthStore()
 
     static var available: Bool { HKHealthStore.isHealthDataAvailable() }
 
-    /// Every type the plan reads (§3.3), routes included, so Apple's sheet is shown once. Read only: Logbook writes nothing.
+    /// The three types Logbook reads, and nothing else. Read only: Logbook writes nothing. Add a type here only when a
+    /// screen shows it, and change NSHealthShareUsageDescription, the connect sheet and the privacy policy with it.
     static var readTypes: Set<HKObjectType> {
         var types = Set<HKObjectType>()
-        let quantities: [HKQuantityTypeIdentifier] = [
-            .heartRateVariabilitySDNN,
-            .restingHeartRate,
-            .respiratoryRate,
-            .oxygenSaturation,
-            .vo2Max,
-            .walkingHeartRateAverage,
-            .bodyMass,
-            .heartRate,
-            .stepCount,
-            .activeEnergyBurned,
-            .basalEnergyBurned,
-            .appleExerciseTime,
-            .distanceWalkingRunning,
-            .distanceCycling,
-            .distanceSwimming,
-        ]
-        for id in quantities {
-            if let t = HKObjectType.quantityType(forIdentifier: id) { types.insert(t) }
-        }
-        if #available(iOS 16.0, *) {
-            if let t = HKObjectType.quantityType(forIdentifier: .appleSleepingWristTemperature) { types.insert(t) }
-        }
         if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { types.insert(sleep) }
-        types.insert(HKObjectType.workoutType())
-        types.insert(HKSeriesType.workoutRoute())
+        if let hrv = HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN) { types.insert(hrv) }
+        if let resting = HKObjectType.quantityType(forIdentifier: .restingHeartRate) { types.insert(resting) }
         return types
     }
 
@@ -72,8 +50,9 @@ final class HealthReader {
         }
     }
 
-    /// The Phase 1 proof: raw values to compare with the Health app. Each part reports its own error (a locked phone
-    /// reads as "locked"), so one missing type never hides the others.
+    /// Raw values to compare with the Health app: last night's sleep, the newest heart rate variability and resting heart
+    /// rate. Each part reports its own error (a locked phone reads as "locked"), so one missing type never hides the
+    /// others. This stays on the phone: it goes to the web view, never to the server.
     func readingCheck(_ done: @escaping ([String: Any]) -> Void) {
         guard Self.available else { return done(["available": false]) }
         let group = DispatchGroup()
@@ -111,20 +90,6 @@ final class HealthReader {
 
         latest(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli), key: "hrv", group: group, put: put)
         latest(.restingHeartRate, unit: HKUnit.count().unitDivided(by: HKUnit.minute()), key: "restingHr", group: group, put: put)
-        latest(.respiratoryRate, unit: HKUnit.count().unitDivided(by: HKUnit.minute()), key: "respiratoryRate", group: group, put: put)
-
-        // today's steps, summed by Health itself (it merges iPhone and Watch, so nothing is counted twice)
-        if let steps = HKObjectType.quantityType(forIdentifier: .stepCount) {
-            group.enter()
-            let now = Date()
-            let predicate = HKQuery.predicateForSamples(withStart: Calendar.current.startOfDay(for: now), end: now, options: .strictStartDate)
-            let query = HKStatisticsQuery(quantityType: steps, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, error in
-                if let error = error { put("stepsError", Self.describe(error)) }
-                if let sum = stats?.sumQuantity() { put("stepsToday", sum.doubleValue(for: HKUnit.count())) }
-                group.leave()
-            }
-            store.execute(query)
-        }
 
         group.notify(queue: .main) {
             lock.lock()
@@ -154,7 +119,7 @@ final class HealthReader {
         store.execute(query)
     }
 
-    /// HKCategoryValueSleepAnalysis by raw value, so this compiles for iOS 15 (the stages arrived in iOS 16).
+    /// HKCategoryValueSleepAnalysis by raw value.
     static func stage(_ raw: Int) -> String {
         switch raw {
         case 0: return "in_bed"

@@ -5,7 +5,7 @@ import PackageDescription
 // Swift files here need no change to the Xcode project. docs/health/apple-health.md §3.2.
 let package = Package(
     name: "LogbookCapacitorHealth",
-    platforms: [.iOS(.v15)],
+    platforms: [.iOS(.v17)],
     products: [
         .library(
             name: "LogbookCapacitorHealth",

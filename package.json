@@ -11,12 +11,18 @@
     "dev": "pnpm -r --parallel --filter ./apps/* dev",
     "build": "pnpm --filter @logbook/shared build && pnpm --filter @logbook/web build && pnpm --filter @logbook/api build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm test:scripts",
     "start": "node apps/api/dist/index.js",
     "db:migrate": "pnpm --filter @logbook/api db:migrate",
     "db:generate": "pnpm --filter @logbook/api db:generate",
-    "ios": "pnpm --filter @logbook/shared build && VITE_FEATURE_STRAVA=1 pnpm --filter @logbook/web build:ios && cd apps/web && npx cap sync ios && npx cap open ios",
+    "ios": "pnpm --filter @logbook/shared build && VITE_FEATURE_STRAVA=1 pnpm --filter @logbook/web build:ios && (cd apps/web && npx cap sync ios) && node scripts/ios-dev-plist.mjs && (cd apps/web && npx cap open ios)",
     "plan:load": "node scripts/load-plan.mjs",
-    "ios:fresh": "bash scripts/ios-fresh.sh"
+    "ios:fresh": "bash scripts/ios-fresh.sh",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
+    "ios:release": "bash scripts/ios-release.sh",
+    "legal": "node scripts/legal-pages.mjs",
+    "notices": "node scripts/notices.mjs",
+    "e2e": "pnpm --filter @logbook/e2e e2e",
+    "spelling": "node scripts/spelling-check.mjs"
   }
 }
