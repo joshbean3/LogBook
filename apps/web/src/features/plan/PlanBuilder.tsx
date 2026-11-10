@@ -162,7 +162,8 @@ const Preview = ({ draft, mode, onDone, onDiscard }: { draft: PlanDraft; mode: M
           Discard
         </Button>
       </div>
-      <div className="sheet-foot pv-foot">
+      {/* not `pv-foot`: the welcome pager's class of that name (auth/start.css) takes every press away from its children */}
+      <div className="sheet-foot pv-save">
         <Button variant="primary" block disabled={!choice.primary || apply.isPending} onClick={() => choice.primary && send(choice.primary.mode)}>
           {apply.isPending ? 'Saving' : (choice.primary?.label ?? (failed ? 'Calendar not loaded' : 'Checking your calendar…'))}
         </Button>
