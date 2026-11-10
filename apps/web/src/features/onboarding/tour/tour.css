@@ -250,7 +250,7 @@
 }
 .tour-todo-head b {
   font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .tour-todo-box ul {
@@ -485,7 +485,7 @@
 }
 .tg-sheet-t {
   font: 650 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--ink);
 }
 .tg-field,

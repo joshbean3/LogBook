@@ -77,9 +77,11 @@
   flex: none;
   color: var(--ink-4);
 }
+/* a tile's number changes, so it is Inter 650 with even figures (guide 4.4, 6.13), never Inter Tight (captions only); the
+   26/32 step keeps the 32 px line every tile row was laid out on, like the session sheet's live numbers */
 .tile-value {
-  font: 700 1.75rem / 2rem var(--stamp);
-  letter-spacing: -0.01em;
+  font: 650 var(--fs-section) / var(--lh-section) var(--sans);
+  letter-spacing: var(--tr-hero);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -589,7 +591,7 @@ html[data-text-xl] .ctx-row {
   letter-spacing: 0;
   color: var(--ink);
 }
-/* a centred sheet title between two round buttons: the card-title size (plan D3) */
+/* a centered sheet title between two round buttons: the card-title size (plan D3) */
 :root .sheet .sheet-title {
   font: 600 clamp(20px, var(--fs-head), 28px) / clamp(26px, var(--lh-head), 34px) var(--serif);
   letter-spacing: 0;
@@ -601,7 +603,7 @@ html[data-text-xl] .ctx-row {
   box-shadow: none;
   color: var(--ink);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   transition:
     transform var(--dur-fast) var(--ease-out),
     background-color var(--dur-fast) var(--ease-out);
@@ -666,9 +668,8 @@ html[data-text-xl] .ctx-row {
   background: var(--surface);
   border: 1px solid var(--field-edge);
   box-shadow: none;
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out);
+  /* only color and background-color animate (guide 9.1): the edge steps to the focus edge at once */
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 :root .in:focus,
 :root input.in:focus,
