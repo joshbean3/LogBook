@@ -114,7 +114,7 @@ export interface DraftInput {
 
 const cleanDraft = (out: unknown, start: string, end: string | undefined): PlanDraft => {
   const parsed = zClaudePlanOutput.safeParse(out);
-  if (!parsed.success) throw new ApiError(502, 'Claude’s answer didn’t come back as a usable plan. Try again, or trim the source to the plan itself.', 'invalid_plan');
+  if (!parsed.success) throw new ApiError(502, 'The assistant’s answer didn’t come back as a usable plan. Try again, or trim the source to the plan itself.', 'invalid_plan');
   const sessions = parsed.data.sessions
     .filter((s) => isISODate(s.date))
     .map((s) => ({
@@ -127,7 +127,7 @@ const cleanDraft = (out: unknown, start: string, end: string | undefined): PlanD
       minutes: Number.isFinite(Number(s.minutes)) && Number(s.minutes) > 0 ? Math.round(Number(s.minutes)) : null,
     }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  if (!sessions.length) throw new ApiError(422, 'Claude found no sessions in that source.', 'empty_plan');
+  if (!sessions.length) throw new ApiError(422, 'The assistant found no sessions in that source.', 'empty_plan');
   return {
     name: parsed.data.name.slice(0, 80) || 'Training plan',
     summary: parsed.data.summary.slice(0, 300),
@@ -193,14 +193,14 @@ export const draftPlan = async (userId: string, input: DraftInput): Promise<Plan
     return mapClaudeError(e, { hasFile: !!input.file });
   }
   logAiUsage(userId, 'plan', msg.usage);
-  if (msg.stop_reason === 'refusal') throw new ApiError(422, 'Claude declined this request. Rephrase it and try again.', 'refused');
+  if (msg.stop_reason === 'refusal') throw new ApiError(422, 'The assistant declined this request. Rephrase it and try again.', 'refused');
   if (msg.stop_reason === 'max_tokens') throw new ApiError(422, 'That plan is too long to convert in one go. Upload fewer weeks at a time.', 'too_long');
   const text = msg.content.find((b) => b.type === 'text')?.text ?? '';
   let json: unknown;
   try {
     json = JSON.parse(text);
   } catch {
-    throw new ApiError(502, 'Claude’s answer didn’t come back as a usable plan. Try again.', 'invalid_plan');
+    throw new ApiError(502, 'The assistant’s answer didn’t come back as a usable plan. Try again.', 'invalid_plan');
   }
   return cleanDraft(json, input.start, input.end);
 };
@@ -256,7 +256,7 @@ export const refineGoal = async (userId: string, level: GoalLevel, period: strin
     return mapClaudeError(e);
   }
   logAiUsage(userId, 'goal', msg.usage);
-  if (msg.stop_reason === 'refusal') throw new ApiError(422, 'Claude declined to review this goal.', 'refused');
+  if (msg.stop_reason === 'refusal') throw new ApiError(422, 'The assistant declined to review this goal.', 'refused');
   const raw = msg.content.find((b) => b.type === 'text')?.text ?? '';
   let out: { goal: string; why: string; changed: boolean; steps: string[] };
   try {
