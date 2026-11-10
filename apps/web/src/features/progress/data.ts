@@ -18,9 +18,6 @@ export const rangeLabel = (r: Range) => (r === '1Y' ? 'Last 12 months' : `Last $
 export const FUTURE_WEEKS = 2;
 
 // ---------- words ----------
-const SMALL = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
-/** "Three" for 3, "14" past twelve. Sentence-initial. */
-export const Words = (n: number) => SMALL[n] ?? String(n);
 export const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 export const weekTitle = (monday: ISODate, today: ISODate) => (monday === mondayOf(today) ? 'This week' : monday === shiftDays(mondayOf(today), -7) ? 'Last week' : `Week of ${fmtDate('md', monday)}`);
 

@@ -13,7 +13,7 @@ import './activity.css';
 import './metric.css';
 
 /** The source chip at the top of the sheet: where the activity came from. This file is loaded only in a build with Strava. */
-const SourceChip = () => <span className="pa-source is-strava">Strava</span>;
+const SourceChip = () => <span className="pa-source is-synced">Strava</span>;
 
 const CELL_ICON: Record<string, ReactNode> = {
   Distance: <MapPin size={16} />,
