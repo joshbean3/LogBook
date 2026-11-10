@@ -4,5 +4,9 @@
 <dict>
 	<key>com.apple.developer.healthkit</key>
 	<true/>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:$(LOGBOOK_API_HOST)</string>
+	</array>
 </dict>
 </plist>

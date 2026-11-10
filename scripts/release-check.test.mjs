@@ -107,7 +107,7 @@ test('iOS project: iPhone only, with the entitlements file, in both configuratio
 
 test('iOS project: the check notices a fourth Health type and a source name', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'logbook-ios-'));
-  for (const p of ['apps/web/ios/App/App/Info.plist', 'apps/web/ios/App/App/App.entitlements', 'apps/web/ios/App/App/PrivacyInfo.xcprivacy', 'apps/web/ios/App/App.xcodeproj/project.pbxproj']) {
+  for (const p of ['apps/web/ios/App/App/Info.plist', 'apps/web/ios/App/App/App.entitlements', 'apps/web/ios/App/App/PrivacyInfo.xcprivacy', 'apps/web/ios/App/App.xcodeproj/project.pbxproj', 'packages/capacitor-health/Package.swift']) {
     fs.mkdirSync(path.dirname(path.join(tmp, p)), { recursive: true });
     fs.copyFileSync(path.join(root, p), path.join(tmp, p));
   }
@@ -123,6 +123,60 @@ test('iOS project: the check notices a fourth Health type and a source name', ()
   const plist = path.join(tmp, 'apps/web/ios/App/App/Info.plist');
   fs.writeFileSync(plist, devPlist(fs.readFileSync(plist, 'utf8')));
   assert.match(checkIosProject(tmp).join('\n'), /CFBundleURLTypes registers a URL scheme/);
+});
+
+const copyProject = () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'logbook-ios-'));
+  const src = 'packages/capacitor-health/ios/Sources/LogbookHealthPlugin';
+  const files = ['apps/web/ios/App/App/Info.plist', 'apps/web/ios/App/App/App.entitlements', 'apps/web/ios/App/App/PrivacyInfo.xcprivacy', 'apps/web/ios/App/App.xcodeproj/project.pbxproj', 'packages/capacitor-health/Package.swift'];
+  for (const f of fs.readdirSync(path.join(root, src))) files.push(`${src}/${f}`);
+  for (const p of files) {
+    fs.mkdirSync(path.dirname(path.join(tmp, p)), { recursive: true });
+    fs.copyFileSync(path.join(root, p), path.join(tmp, p));
+  }
+  const edit = (p, from, to) => {
+    const file = path.join(tmp, p);
+    const text = fs.readFileSync(file, 'utf8');
+    assert.ok(text.includes(from), `${p} holds ${from}`);
+    fs.writeFileSync(file, text.split(from).join(to));
+  };
+  return { tmp, edit, src };
+};
+
+test('iOS project: light, named Logbook, arm64, iOS 17, AutoFill domain', () => {
+  const info = parsePlist(read('apps/web/ios/App/App/Info.plist'));
+  assert.equal(info.UIUserInterfaceStyle, 'Light');
+  assert.equal(info.CFBundleName, 'Logbook');
+  assert.deepEqual(info.UIRequiredDeviceCapabilities, ['arm64']);
+  const ent = parsePlist(read('apps/web/ios/App/App/App.entitlements'));
+  assert.deepEqual(ent['com.apple.developer.associated-domains'], ['webcredentials:$(LOGBOOK_API_HOST)']);
+  const s = targetSettings(read('apps/web/ios/App/App.xcodeproj/project.pbxproj'));
+  for (const name of ['Debug', 'Release']) {
+    assert.equal(s[name].IPHONEOS_DEPLOYMENT_TARGET, '17.0');
+    assert.ok(s[name].LOGBOOK_API_HOST);
+  }
+
+  const { tmp, edit } = copyProject();
+  edit('apps/web/ios/App/App/Info.plist', '<string>Light</string>', '<string>Dark</string>');
+  edit('apps/web/ios/App/App/Info.plist', '<string>arm64</string>', '<string>armv7</string>');
+  edit('apps/web/ios/App/App/Info.plist', '<string>Logbook</string>\n\t<key>CFBundlePackageType', '<string>$(PRODUCT_NAME)</string>\n\t<key>CFBundlePackageType');
+  edit('apps/web/ios/App/App.xcodeproj/project.pbxproj', 'IPHONEOS_DEPLOYMENT_TARGET = 17.0;', 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;');
+  edit('packages/capacitor-health/Package.swift', '.iOS(.v17)', '.iOS(.v15)');
+  edit('apps/web/ios/App/App/App.entitlements', 'webcredentials:$(LOGBOOK_API_HOST)', 'webcredentials:example.com');
+  const problems = checkIosProject(tmp).join('\n');
+  for (const re of [/UIUserInterfaceStyle must be Light/, /arm64 only/, /CFBundleName must be Logbook/, /\(Release\): IPHONEOS_DEPLOYMENT_TARGET must be 17\.0/, /every IPHONEOS_DEPLOYMENT_TARGET/, /capacitor-health\/Package\.swift/, /associated-domains/]) assert.match(problems, re);
+});
+
+test('Health plugin: Gregorian days, a disconnect that waits, a state that tolerates new keys', () => {
+  const { tmp, edit, src } = copyProject();
+  assert.deepEqual(checkIosProject(tmp), []);
+  edit(`${src}/HealthSync.swift`, 'HealthCalendar.gregorian.date(byAdding', 'Calendar.current.date(byAdding');
+  edit(`${src}/HealthSync.swift`, 'func disconnect() async {\n        await stopRunning()\n', 'func disconnect() async {\n');
+  edit(`${src}/HealthStorage.swift`, 'try c.decodeIfPresent(Bool.self, forKey: .connected) ?? false', 'try c.decode(Bool.self, forKey: .connected)');
+  const problems = checkIosProject(tmp).join('\n');
+  assert.match(problems, /Calendar\.current is used/);
+  assert.match(problems, /disconnect\(\) must cancel and wait/);
+  assert.match(problems, /decodeIfPresent/);
 });
 
 test('Debug plist: Info.plist plus the logbook scheme, and nothing else', () => {
@@ -143,4 +197,8 @@ test('version stamp: writes the version and build into both configurations', () 
   }
   assert.throws(() => stampProject(pbx, '1.0', 3), /must look like 1\.0\.0/);
   assert.throws(() => stampProject(pbx, '1.0.0', 0), /whole number above 0/);
+  // with the server address, its host becomes the AutoFill domain in both configurations
+  const withHost = targetSettings(stampProject(pbx, '1.0.0', 412, 'https://api.logbook-app.test'));
+  for (const name of ['Debug', 'Release']) assert.equal(withHost[name].LOGBOOK_API_HOST, 'api.logbook-app.test');
+  assert.throws(() => stampProject(pbx, '1.0.0', 412, 'https://api.example.com'), /cannot go into the entitlements/);
 });

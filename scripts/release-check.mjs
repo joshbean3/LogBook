@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IOS = 'apps/web/ios/App';
 const HEALTH_SRC = 'packages/capacitor-health/ios/Sources/LogbookHealthPlugin';
+/** The lowest iOS the app runs on (docs/launch/decisions.md D4). */
+export const MIN_IOS = '17.0';
 
 // ---------- the build settings ----------
 const EXAMPLE_HOST = /(^|\.)example\.(com|org|net)$/i;
@@ -208,11 +210,15 @@ export const checkIosProject = (root = ROOT) => {
     if ('CFBundleURLTypes' in info) out.push('Info.plist: CFBundleURLTypes registers a URL scheme. No feature in the release build uses one (it was the Strava return).');
     if ('UISupportedInterfaceOrientations~ipad' in info) out.push('Info.plist: the iPad orientation block is back. Logbook is iPhone only.');
     if (JSON.stringify(info.UISupportedInterfaceOrientations) !== JSON.stringify(['UIInterfaceOrientationPortrait'])) out.push('Info.plist: UISupportedInterfaceOrientations must be portrait only');
+    if (JSON.stringify(info.UIRequiredDeviceCapabilities) !== JSON.stringify(['arm64'])) out.push('Info.plist: UIRequiredDeviceCapabilities must be arm64 only (an update can relax this list, never tighten it)');
+    if (info.CFBundleName !== 'Logbook') out.push(`Info.plist: CFBundleName must be Logbook (got ${info.CFBundleName})`);
+    if (info.UIUserInterfaceStyle !== 'Light') out.push('Info.plist: UIUserInterfaceStyle must be Light (the app has one light theme; docs/brand.md item 14)');
     if ((info.UIRequiredDeviceCapabilities ?? []).includes('healthkit')) out.push('Info.plist: remove healthkit from UIRequiredDeviceCapabilities (it would hide the app from devices without Health)');
   }
 
   const ent = plistOf(`${IOS}/App/App.entitlements`);
   if (ent && ent['com.apple.developer.healthkit'] !== true) out.push('App.entitlements: com.apple.developer.healthkit must be true');
+  if (ent && JSON.stringify(ent['com.apple.developer.associated-domains']) !== JSON.stringify(['webcredentials:$(LOGBOOK_API_HOST)'])) out.push('App.entitlements: com.apple.developer.associated-domains must be exactly webcredentials:$(LOGBOOK_API_HOST) (Password AutoFill for the server)');
 
   const privacy = plistOf(`${IOS}/App/PrivacyInfo.xcprivacy`);
   if (privacy) {
@@ -242,8 +248,13 @@ export const checkIosProject = (root = ROOT) => {
     }
     if (s.TARGETED_DEVICE_FAMILY !== '1') out.push(`project.pbxproj (${name}): TARGETED_DEVICE_FAMILY must be 1 (iPhone only), got ${s.TARGETED_DEVICE_FAMILY}`);
     if (s.CODE_SIGN_ENTITLEMENTS !== 'App/App.entitlements') out.push(`project.pbxproj (${name}): CODE_SIGN_ENTITLEMENTS must be App/App.entitlements`);
+    if (s.IPHONEOS_DEPLOYMENT_TARGET !== MIN_IOS) out.push(`project.pbxproj (${name}): IPHONEOS_DEPLOYMENT_TARGET must be ${MIN_IOS} (docs/launch/decisions.md D4), got ${s.IPHONEOS_DEPLOYMENT_TARGET}`);
+    if (!s.LOGBOOK_API_HOST) out.push(`project.pbxproj (${name}): LOGBOOK_API_HOST is missing (the Password AutoFill host; the release stamp fills it)`);
   }
   if (settings.Release && settings.Release.INFOPLIST_FILE !== 'App/Info.plist') out.push('project.pbxproj (Release): INFOPLIST_FILE must be App/Info.plist');
+  const targets = [...pbx.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = ([^;]*);/g)].map((m) => m[1]);
+  if (targets.length !== 4 || targets.some((t) => t !== MIN_IOS)) out.push(`project.pbxproj: every IPHONEOS_DEPLOYMENT_TARGET must be ${MIN_IOS} (found ${targets.join(', ')})`);
+  if (!new RegExp(`platforms: \\[\\.iOS\\(\\.v${MIN_IOS.split('.')[0]}\\)\\]`).test(read('packages/capacitor-health/Package.swift'))) out.push(`packages/capacitor-health/Package.swift: the platform must be .iOS(.v${MIN_IOS.split('.')[0]})`);
   const resources = /\/\* Begin PBXResourcesBuildPhase section \*\/([\s\S]*?)\/\* End PBXResourcesBuildPhase section \*\//.exec(pbx)?.[1] ?? '';
   if (!/PrivacyInfo\.xcprivacy in Resources/.test(resources)) out.push('project.pbxproj: PrivacyInfo.xcprivacy is not in the App target\'s resources');
 
@@ -258,6 +269,12 @@ export const checkIosProject = (root = ROOT) => {
   if (stray.length) out.push(`Health plugin: other HealthKit types are named in the code (${stray.join(', ')})`);
   if (/requestAuthorization\(toShare:\s*(?!\s|nil)/.test(swift)) out.push('Health plugin: requestAuthorization asks to write. Logbook only reads.');
   if (/"sourceName"/.test(swift)) out.push('Health plugin: an upload row carries sourceName (usually the person\'s device name)');
+  // days are cut on the Gregorian calendar whatever the phone's calendar setting (finding ios-10)
+  if (/Calendar\.current/.test(swift)) out.push('Health plugin: Calendar.current is used. Cut days and months with HealthCalendar.gregorian (Buddhist and Japanese calendars give other years).');
+  // a disconnect waits for a running sync before it wipes (finding ios-09)
+  if (!/func disconnect\(\) async \{\s*await stopRunning\(\)\s*files\.wipe\(\)/.test(swift)) out.push('Health plugin: disconnect() must cancel and wait for a running sync (await stopRunning()) before it wipes.');
+  // a state file from an older build still loads (finding ios-16)
+  if (/HealthSyncState\.self/.test(swift) && !/decodeIfPresent\(Bool\.self, forKey: \.connected\)/.test(swift)) out.push('Health plugin: HealthSyncState must decode each key with decodeIfPresent and a default.');
   return out;
 };
 
@@ -265,6 +282,7 @@ export const checkIosProject = (root = ROOT) => {
 /** Every Capacitor plugin the web app depends on must be in CapApp-SPM/Package.swift, which `npx cap sync ios` writes. */
 export const checkSpm = (root = ROOT) => {
   const out = [];
+  const major = MIN_IOS.split('.')[0];
   const web = path.join(root, 'apps/web');
   const deps = Object.keys(JSON.parse(fs.readFileSync(path.join(web, 'package.json'), 'utf8')).dependencies ?? {});
   const swift = fs.readFileSync(path.join(root, IOS, 'CapApp-SPM/Package.swift'), 'utf8');
@@ -280,12 +298,15 @@ export const checkSpm = (root = ROOT) => {
     const folder = dep.startsWith('@logbook/') ? `packages/${dep.split('/')[1]}` : `node_modules/${dep}`;
     if (!swift.includes(`${folder}"`)) out.push(`CapApp-SPM/Package.swift does not list ${dep}. Run npx cap sync ios in apps/web on a Mac and commit the file.`);
   }
+  // cap sync copies the platform from the first IPHONEOS_DEPLOYMENT_TARGET in the Xcode project
+  if (!swift.includes(`platforms: [.iOS(.v${major})]`)) out.push(`CapApp-SPM/Package.swift is not on iOS ${major}. Run npx cap sync ios in apps/web on a Mac and commit the file.`);
   return out;
 };
 
 // ---------- the version stamp ----------
 /** Writes the version and build number into every configuration that has them. Returns the new project text. */
-export const stampProject = (pbx, version, build) => {
+/** With `apiOrigin`, also writes its host into LOGBOOK_API_HOST, the Password AutoFill domain in App.entitlements. */
+export const stampProject = (pbx, version, build, apiOrigin) => {
   if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`the version must look like 1.0.0, got ${version}`);
   if (!/^[1-9]\d*$/.test(String(build))) throw new Error(`the build number must be a whole number above 0, got ${build}`);
   let n = 0;
@@ -293,7 +314,18 @@ export const stampProject = (pbx, version, build) => {
     .replace(/MARKETING_VERSION = [^;]*;/g, () => (n++, `MARKETING_VERSION = ${version};`))
     .replace(/CURRENT_PROJECT_VERSION = [^;]*;/g, () => (n++, `CURRENT_PROJECT_VERSION = ${build};`));
   if (n !== 4) throw new Error(`expected MARKETING_VERSION and CURRENT_PROJECT_VERSION in two configurations, found ${n} settings`);
-  return next;
+  if (apiOrigin === undefined) return next;
+  let host;
+  try {
+    host = new URL(apiOrigin).hostname;
+  } catch {
+    throw new Error(`VITE_API_ORIGIN is not an address: ${apiOrigin}`);
+  }
+  if (!/^[a-z0-9.-]+$/i.test(host) || EXAMPLE_HOST.test(host)) throw new Error(`the server host cannot go into the entitlements: ${host}`);
+  let h = 0;
+  const out = next.replace(/LOGBOOK_API_HOST = [^;]*;/g, () => (h++, `LOGBOOK_API_HOST = ${host};`));
+  if (h !== 2) throw new Error(`expected LOGBOOK_API_HOST in two configurations, found ${h}`);
+  return out;
 };
 
 // ---------- command line ----------
@@ -330,11 +362,11 @@ if (isMain) {
   } else if (cmd === 'stamp') {
     const file = path.join(ROOT, IOS, 'App.xcodeproj/project.pbxproj');
     try {
-      fs.writeFileSync(file, stampProject(fs.readFileSync(file, 'utf8'), args[0] ?? '', args[1] ?? ''));
+      fs.writeFileSync(file, stampProject(fs.readFileSync(file, 'utf8'), args[0] ?? '', args[1] ?? '', process.env.VITE_API_ORIGIN));
     } catch (e) {
       report('version', [e.message], '');
     }
-    console.log(`version: ${args[0]} (${args[1]}) written to the Xcode project`);
+    console.log(`version: ${args[0]} (${args[1]})${process.env.VITE_API_ORIGIN ? `, AutoFill host ${new URL(process.env.VITE_API_ORIGIN).hostname}` : ''} written to the Xcode project`);
   } else {
     console.error('usage: node scripts/release-check.mjs env | bundle <dir> [--strava] | capconfig [file] | ios | spm | stamp <version> <build>');
     process.exit(2);

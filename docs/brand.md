@@ -119,5 +119,5 @@ All of the above is `apps/web/src/styles/tokens.css`. There is one theme. The ap
 11. Empty states name the state and offer one verb.
 12. Buttons are one verb. No vendor, server or env-var copy anywhere.
 13. Every tab has one hero card with the halo and one thing to look at first.
-14. Dark system chrome: status bar light-on-black, keyboard dark, safe areas respected.
+14. Light system chrome: `UIUserInterfaceStyle` is Light in `Info.plist`, so the keyboard, Apple's sheets, the share sheet and the status bar are light over the light app, whatever the phone's appearance setting. Safe areas respected.
 15. It works at 320 and 390 with no horizontal overflow and no mid-word breaks.

@@ -34,7 +34,7 @@ version=${tag#v}
 dirty=$(git status --porcelain | grep -v " $PBX\$" || true)
 [ -z "$dirty" ] || fail "the working tree has changes. Commit or stash them, move the tag, and run again:
 $dirty"
-other=$(git diff -U0 -- "$PBX" | grep '^[+-]' | grep -v '^+++\|^---' | grep -v 'MARKETING_VERSION = \|CURRENT_PROJECT_VERSION = ' || true)
+other=$(git diff -U0 -- "$PBX" | grep '^[+-]' | grep -v '^+++\|^---' | grep -v 'MARKETING_VERSION = \|CURRENT_PROJECT_VERSION = \|LOGBOOK_API_HOST = ' || true)
 [ -z "$other" ] || fail "the Xcode project has changes beyond the version stamp (a signing team, perhaps). Commit them, move the tag, and run again:
 $other"
 commit=$(git rev-parse --short HEAD)
@@ -78,7 +78,7 @@ node scripts/release-check.mjs capconfig || fail "capacitor.config.json has a de
 node scripts/release-check.mjs spm || fail "the Swift package is missing a plugin (see above)."
 git diff --quiet -- "$SPM" || fail "cap sync changed $SPM. Commit the new file, move the tag, and run again."
 
-say "8/9  Stamping the version"
+say "8/9  Stamping the version and the AutoFill host"
 node scripts/release-check.mjs stamp "$version" "$build" || fail "could not write the version into the Xcode project."
 
 say "9/9  Opening Xcode"
