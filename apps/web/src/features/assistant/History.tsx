@@ -1,6 +1,7 @@
 import { Flag, MessageSquare, SquarePen, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { haptics } from '@/lib/haptics';
+import { useNowMark } from '@/ui/nowBudget';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ReportPanel } from './Report';
@@ -8,6 +9,15 @@ import { plainOf } from './plain';
 import { assistantStore, useAssistantBusyChat, useAssistantChatId, useAssistantChats, type AssistantChat } from './store';
 
 const DAY = 86_400_000;
+
+/**
+ * The chat being answered: a live node (guide 3.5 job 5), still, Sunrise with its Paper keyline. It registers with the
+ * Sunrise budget while the list shows it and turns Night Ink when three marks are already lit.
+ */
+const LiveDot = () => {
+  const paint = useNowMark('pointer');
+  return <span className="as-history-live" data-now={paint === 'ink' ? 'ink' : undefined} role="img" aria-label="Answering" />;
+};
 const startOfDay = (t: number) => {
   const d = new Date(t);
   d.setHours(0, 0, 0, 0);
@@ -95,7 +105,7 @@ export const HistoryPanel = ({ onDone }: { onDone: () => void }) => {
                     }}
                   >
                     <span className="as-history-title">
-                      {c.id === busy ? <span className="as-history-live" aria-label="Answering" /> : null}
+                      {c.id === busy ? <LiveDot /> : null}
                       <span className="as-history-name">{c.title}</span>
                     </span>
                     <span className="as-history-sub">

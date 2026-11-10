@@ -1,11 +1,8 @@
 import { fmtDate, PHASE_WORDS, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
 import { Orb } from '@/ui/Orb';
 import {
-  Activity,
   ArrowDown,
   ArrowUp,
-  BookOpen,
-  CalendarDays,
   Check,
   ChevronDown,
   ChevronRight,
@@ -14,21 +11,16 @@ import {
   Copy,
   FileText,
   History,
-  Lightbulb,
   Pencil,
   Plus,
   RotateCw,
   Share,
-  Square,
   SquarePen,
-  Sun,
-  Target,
   ThumbsDown,
   ThumbsUp,
   Volume2,
   VolumeX,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { onUnauthorized } from '@/api/client';
@@ -40,6 +32,7 @@ import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { isNative } from '@/lib/native';
 import { useToday } from '@/lib/useToday';
+import { GoalsIcon, JournalIcon, LearnedIcon, PlanIcon, ProgressIcon, TodayIcon, type BrandIconComponent } from '@/ui/icons';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
@@ -73,7 +66,8 @@ const TurnFiles = ({ files }: { files: AssistantFileShown[] }) => (
   </div>
 );
 
-const SCREEN_ICON: Record<AssistantScreen['tab'], LucideIcon> = { today: Sun, plan: CalendarDays, progress: Activity, goals: Target, learned: Lightbulb, journal: BookOpen };
+/** The screen it was opened from, in the set's own tab glyphs (guide 7; plan 5.4: never a pulse for Progress). */
+const SCREEN_ICON: Record<AssistantScreen['tab'], BrandIconComponent> = { today: TodayIcon, plan: PlanIcon, progress: ProgressIcon, goals: GoalsIcon, learned: LearnedIcon, journal: JournalIcon };
 
 /** Ways to start an empty chat: two lines each (what, then the rest), as ChatGPT's starter cards read. */
 type Starter = { title: string; sub: string; send?: string; attach?: true };
@@ -187,8 +181,8 @@ const Process = ({ thoughts, seconds, steps }: { thoughts?: string; seconds?: nu
 };
 
 /**
- * The answer while it is written: what it is doing now with the seconds running ("Reading your plan · 4s", light passing
- * over the words), the steps so far, the latest line of its reasoning; then its words fading in one by one behind a dot.
+ * The answer while it is written: what it is doing now with the seconds running ("Reading your plan · 4s", beside the
+ * thinking Orb), the steps so far, the latest line of its reasoning; then its words fading in one by one behind a dot.
  * Before anything comes back it says Thinking. After 20 s a line says closing is fine.
  */
 const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null }) => {
@@ -207,7 +201,7 @@ const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null
         <div className="as-working">
           <button type="button" className="as-phase" aria-expanded={open} onClick={() => setOpen((v) => !v)} disabled={!live?.thoughts && !live?.steps?.length}>
             <Orb size={28} state="think" className="as-orb" />
-            <span className="as-shimmer" aria-live="polite">
+            <span className="as-phase-words" role="status">
               {PHASE_WORDS[phase]}
             </span>
             <span className="as-phase-secs">{secs}s</span>
@@ -909,7 +903,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
             {chip && ScreenIcon ? (
               kept ? (
                 <span className="as-ctx-pill">
-                  <ScreenIcon size={14} strokeWidth={2.2} aria-hidden="true" />
+                  <ScreenIcon size={15} aria-hidden="true" />
                   <span className="as-ctx-pill-text">{chip}</span>
                   <button type="button" className="as-ctx-pill-x" aria-label={`Don’t send ${chip} with the question`} onClick={() => setKept(false)}>
                     <X size={12} strokeWidth={2.8} aria-hidden="true" />
@@ -924,7 +918,9 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
             ) : null}
             {busy ? (
               <button type="button" className="as-send is-stop" aria-label="Stop" onClick={() => void stopAsk(stopAssistant)}>
-                <Square size={12} strokeWidth={0} fill="currentColor" aria-hidden="true" />
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <rect width="12" height="12" rx="4" fill="currentColor" />
+                </svg>
               </button>
             ) : (
               <button type="button" className={`as-send${canSend ? ' is-ready' : ''}`} aria-label={editing !== null ? 'Send edit' : 'Send'} disabled={!canSend} onClick={() => send(draft)}>
