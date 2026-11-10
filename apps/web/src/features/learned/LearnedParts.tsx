@@ -228,19 +228,22 @@ export const useOpenLearning = (today: string) => {
   };
 };
 
-/** A day that was missed (on its month's page): the field to fill it in, and Save. */
-const AddSheet = ({ date, today }: { date: string; today: string }) => {
+/**
+ * A day that was missed (on its month's page): the field to fill it in, and Save. A save the server rejects keeps the
+ * words: the toast's Try again opens the sheet again with them in the field.
+ */
+const AddSheet = ({ date, today, initial = '' }: { date: string; today: string; initial?: string }) => {
   const sheet = useSheet();
   const { add } = useLearnedMutations(today);
   const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initial);
   const [cut, setCut] = useState(false);
   useGrow(ref, text);
   const v = text.trim();
   const save = () => {
     if (!v) return;
-    add.mutateAsync({ date, text: v }).catch(() => toast('Couldn’t save that. Try again in a moment.'));
+    add.mutateAsync({ date, text: v }).catch(() => toast('Couldn’t save that.', { label: 'Try again', fn: () => sheet.open(addSpec(date, today, v)) }));
     sheet.close();
   };
   return (
@@ -280,9 +283,10 @@ const AddSheet = ({ date, today }: { date: string; today: string }) => {
 /** How far back an empty day can still be filled in from its month's page. */
 export const FILL_DAYS = 7;
 /** Open the field for a day with nothing in it. */
+const addSpec = (date: string, today: string, initial?: string) => ({ ...sheetWords(date, today), sticky: true, body: <AddSheet date={date} today={today} initial={initial} /> });
 export const useAddLearning = (today: string) => {
   const sheet = useSheet();
-  return (date: string) => sheet.open({ ...sheetWords(date, today), sticky: true, body: <AddSheet date={date} today={today} /> });
+  return (date: string) => sheet.open(addSpec(date, today));
 };
 
 /** One learning as serif words; a tap opens it. `clamp`: at most six lines with a fade (the sheet has the rest). */

@@ -17,6 +17,7 @@ import { useNowMinutes } from '../day/useNow';
 import { cardCaps, clockOf, goalOf, LEVEL, LEVEL_HUE, setWords, STATUS_WORD } from './model';
 import { disableReminders, enableReminders, openAppSettings, reminderPermission, remindersOn, remindersSupported, reminderTime } from './reminders';
 import { useOpenGoal } from './GoalSheets';
+import { useReviewAccess } from './refine';
 import { ScoreStrip, StaleNudge } from './GoalParts';
 import { Burst, celebrateOnce } from './game';
 import { TodayGoal } from './TodayGoal';
@@ -280,6 +281,8 @@ export default function GoalsView(): React.JSX.Element {
   const tomorrow = shiftDays(today, 1);
   const nextWeek = shiftPeriod('week', periodOf('week', today), 1);
   const aheadHint = useId();
+  // the review is promised only where it runs (assistant access on)
+  const review = useReviewAccess();
   const reduce = useReduced();
 
   // a goal turning done while the tab is open (open → done), never one that loads done: its burst and the moment, once
@@ -326,7 +329,7 @@ export default function GoalsView(): React.JSX.Element {
             <AheadChip level="day" period={tomorrow} goal={goalOf(list, 'day', tomorrow)} today={today} icon={<Sunrise size={15} />} title="Tomorrow" when={periodSpan('day', tomorrow)} describedBy={aheadHint} />
             <AheadChip level="week" period={nextWeek} goal={goalOf(list, 'week', nextWeek)} today={today} icon={<CalendarRange size={15} />} title="Next week" when={periodSpan('week', nextWeek)} describedBy={aheadHint} />
             <span id={aheadHint} className="sr-only">
-              Set them the night before. The review makes each one specific and due on time.
+              {review === 'on' ? 'Set them the night before. The review makes each one specific and due on time.' : 'Set them the night before.'}
             </span>
           </div>
           <TodayGoal goal={cur.day} today={today} now={now} hit={hits.day ?? 0} />
