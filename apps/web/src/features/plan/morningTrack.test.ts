@@ -34,14 +34,14 @@ describe('the stops on the track', () => {
   });
   it('sit in proportion to time, but never closer than their gap (the run keeps room for its name)', () => {
     const stops = cardStops(RUN);
-    // a 390 phone's line (308 px): 74 px at the edges, 108 for the run
+    // a 390 phone's line (308 px): 74 px at the edges, 112 for the run (room for the kind word, STRENGTH, in the pill)
     const g = gapsOf(stops, 308);
-    expect(g.map((x) => Math.round(x * 308))).toEqual([74, 108, 74]);
-    expect(trackOf(stops.map((s) => s.at), g)).toEqual([0, 0.2403, 0.5909, 1]);
+    expect(g.map((x) => Math.round(x * 308))).toEqual([74, 112, 74]);
+    expect(trackOf(stops.map((s) => s.at), g)).toEqual([0, 0.2403, 0.6039, 1]);
     // a 320 phone's (238 px): the minimums leave little room, but every stretch keeps its own
     const n = trackOf(stops.map((s) => s.at), gapsOf(stops, 238));
     expect(n[1]! * 238).toBeGreaterThanOrEqual(62 - 0.01);
-    expect((n[2]! - n[1]!) * 238).toBeGreaterThanOrEqual(108 - 0.01);
+    expect((n[2]! - n[1]!) * 238).toBeGreaterThanOrEqual(112 - 0.01);
     expect((1 - n[2]!) * 238).toBeGreaterThanOrEqual(62 - 0.01);
     expect(trackOf([0, 50, 60, 100], [0.2, 0.2, 0.2])).toEqual([0, 0.5, 0.7, 1]);
     expect(trackOf([0, 1, 2, 100], [0.2, 0.2, 0.2])).toEqual([0, 0.2, 0.4, 1]);
@@ -83,8 +83,10 @@ describe('the words', () => {
     expect(nowLine(RUN, 575, 'today')).toBe('Left 9:30');
   });
   it('the workout and the quiet line', () => {
-    expect(workOf(RUN)).toEqual({ name: 'Easy 5', tone: 'easy' });
-    expect(workOf(REST)).toEqual({ name: 'Rest morning', tone: 'rest' });
+    expect(workOf(RUN)).toEqual({ name: 'Easy 5', kind: 'Easy', tone: 'easy' });
+    expect(workOf(REST)).toEqual({ name: 'Rest morning', kind: 'Rest', tone: 'rest' });
+    // a lift's pill falls back to the kind word, never an ellipsis (plan-15)
+    expect(workOf(morningOf([sess({ date: '2026-11-04', kind: 'lift', title: 'Strength A' })], null, MORNING_DEFAULTS))).toMatchObject({ name: 'Strength A', kind: 'Strength' });
     expect(quietLine(RUN)).toBe('6 steps · 2 h 10 min from waking to the door');
     expect(quietLine(REST)).toBe('5 steps · 2 h 10 min from waking to the door');
   });

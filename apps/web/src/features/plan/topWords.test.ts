@@ -12,8 +12,8 @@ describe('the plan card', () => {
     expect(planCardWords(base)).toEqual({ title: 'Half marathon', state: 'Starts Tuesday · 12 weeks', progress: 0 });
     expect(nb(planCardWords({ ...base, t: '2026-10-01' })!.state)).toBe('Starts Nov 10 · 12 weeks');
   });
-  it('the lead-in, then the week, its phase, and how far through', () => {
-    expect(nb(planCardWords({ ...base, t: '2026-11-11', st: 'Active' })!.state)).toBe('Lead-in · Week 1 starts Monday');
+  it('the warm-up week, then the week, its phase, and how far through', () => {
+    expect(nb(planCardWords({ ...base, t: '2026-11-11', st: 'Active' })!.state)).toBe('Warm-up week · Week 1 starts Monday');
     const phases = { '2026-11-30': { phase: 'build' as const, down: false }, '2026-12-07': { phase: 'build' as const, down: true }, '2027-02-01': { phase: 'race' as const, down: false } };
     const w3 = planCardWords({ ...base, t: '2026-11-30', st: 'Active', wk: 3, phases })!;
     expect(w3.state).toBe('Week 3 of 12 · Build');
@@ -23,7 +23,7 @@ describe('the plan card', () => {
   });
   it('a finished plan, and none', () => {
     expect(planCardWords({ ...base, t: '2027-03-01', st: 'Finished' })).toMatchObject({ progress: 1 });
-    expect(nb(planCardWords({ ...base, t: '2027-03-01', st: 'Finished' })!.state)).toBe('Ended Feb 7');
+    expect(nb(planCardWords({ ...base, t: '2027-03-01', st: 'Finished' })!.state)).toBe('Plan ended Feb 7. Build the next one');
     expect(planCardWords({ ...base, b: null })).toBeNull();
   });
 });
@@ -31,7 +31,7 @@ describe('the plan card', () => {
 describe('where a plan came from', () => {
   it('says what the block records, and nothing when it records nothing', () => {
     expect(nb(sourceWords({ source: 'onboarding', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Built from your answers on Nov 9');
-    expect(nb(sourceWords({ source: 'template', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Made with the block builder on Nov 9');
+    expect(nb(sourceWords({ source: 'template', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Made with the plan builder on Nov 9');
     expect(nb(sourceWords({ source: 'file', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Written by the assistant from a file you shared on Nov 9');
     expect(nb(sourceWords({ source: 'chat', createdAt: '2026-11-09T12:00:00Z' }))).toBe('Written by the assistant in a chat on Nov 9');
     expect(sourceWords({ source: null, createdAt: '2026-11-09T12:00:00Z' })).toBeNull();
@@ -59,6 +59,6 @@ describe('what a plan is and its goals', () => {
     expect(longWords(f.long!)).toBe('Saturdays, up to 10 mi');
     expect(f.quality).toBe(1);
     expect(f.race).toEqual({ date: '2027-02-07', name: 'Race 13.1', details: 'Goal 1:55' });
-    expect(lengthWords(f)).toBe('12 weeks after a lead-in');
+    expect(lengthWords(f)).toBe('12 weeks after a warm-up week');
   });
 });

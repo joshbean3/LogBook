@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { draftError, DRAFT_TIMEOUT_MS, settleOrStop } from './draftRequest';
+import { draftError, DRAFT_TIMEOUT_MS, formParts, settleOrStop } from './draftRequest';
 
 describe('waiting for a plan draft', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -57,5 +57,25 @@ describe('a draft that did not come back', () => {
   });
   it('prefers the server’s sentence', () => {
     expect(draftError(422, { error: 'Paste the plan text first.', code: 'no_text' }).message).toBe('Paste the plan text first.');
+  });
+});
+
+describe('a file on the phone goes through the native HTTP plugin as form parts', () => {
+  it('carries the same fields as the browser form, the file as base64 with its type and name', () => {
+    expect(formParts({ start: '2026-11-16', instructions: 'Long run on Sunday' }, { name: 'plan.pdf', type: 'application/pdf' }, 'QUJD')).toEqual([
+      { key: 'mode', value: 'file', type: 'string' },
+      { key: 'start', value: '2026-11-16', type: 'string' },
+      { key: 'instructions', value: 'Long run on Sunday', type: 'string' },
+      { key: 'file', value: 'QUJD', type: 'base64File', contentType: 'application/pdf', fileName: 'plan.pdf' },
+    ]);
+  });
+  it('leaves out empty notes, and a camera photo keeps its image type', () => {
+    const parts = formParts({ start: '2026-11-16', instructions: '' }, { name: 'image.jpg', type: 'image/jpeg' }, 'AAAA');
+    expect(parts.map((p) => p.key)).toEqual(['mode', 'start', 'file']);
+    expect(parts.at(-1)).toMatchObject({ contentType: 'image/jpeg', fileName: 'image.jpg' });
+  });
+  it('a name that would break the quoted header is cleaned, and a missing one gets a plain name', () => {
+    expect(formParts({ start: '2026-11-16', instructions: '' }, { name: 'my "big"\r\nplan/v2.pdf', type: '' }, 'AAAA').at(-1)).toMatchObject({ fileName: 'my _big___plan_v2.pdf', contentType: 'application/pdf' });
+    expect(formParts({ start: '2026-11-16', instructions: '' }, { name: '', type: 'image/png' }, 'AAAA').at(-1)).toMatchObject({ fileName: 'plan' });
   });
 });

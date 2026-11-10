@@ -18,6 +18,7 @@ import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { crossfade, fadeOut } from '@/lib/motion';
 import { SectionHeader } from '@/ui/layout';
 import { useFlip, waapiOf } from './flip';
+import { LoadFail, useMonthsFailed } from './LoadFail';
 import { dayOrder, landingIndex, useMoveTo } from './moveRule';
 import { isLanding, PLAN_DAY, useDayDrag } from './useDayDrag';
 import { weekWords } from './WeekLine';
@@ -178,19 +179,18 @@ const bonusFace = (log: Log, date: string, runs: Activity[]) => {
   const a = assess(log.zones, null, runs);
   const word = sessionWord(log.snap, date, null);
   const name = runs.length === 1 ? runs[0]!.name : `${runs.length} runs`;
+  const sub = `${mi(a.miles)} mi${a.pace ? ` · ${a.pace} /mi` : ''} · Off the plan`;
   const body = (
     <>
       <ToneTile s={null} />
       <span className="pl-main">
         <span className="pl-name">{name}</span>
-        <span className="pl-sub">
-          {mi(a.miles)} mi{a.pace ? ` · ${a.pace} /mi` : ''} · Off the plan
-        </span>
+        <span className="pl-sub">{sub}</span>
       </span>
       <Status k="bonus" word={word} />
     </>
   );
-  return { name, word, miles: a.miles, body };
+  return { name, word, sub, body };
 };
 /**
  * A quiet day's face: a planned rest is its moon tile and the word; from today on an open day is a dashed slot with a +
@@ -214,7 +214,7 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
   const row = useRef<HTMLElement>(null);
   const { log, open, move, askEffort, toast, mark, remove, restore, moveTo, flip, onReshaped } = useRowKit();
   const { hide, unhide } = useContext(DayKit);
-  const { k, word, name, dist, cls, body } = rowFace(log, date, s);
+  const { word, name, sub, cls, body } = rowFace(log, date, s);
   const drag = useDayDrag({
     date,
     session: s,
@@ -293,7 +293,8 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
         as="div"
         press="surface"
         className={cls}
-        label={`${fmtDate('dowLong', date)}: ${name}${dist ? `, ${dist}` : ''}, ${word}. Open; hold for actions or to move`}
+        // the printed words first (name, its line, the status), then the day the date column shows
+        label={`${name}${sub ? `. ${sub}` : ''}. ${word}. ${fmtDate('dowLong', date)}. Open; hold for actions or to move`}
         onPress={() => open(date, s)}
         holdMenu={menu}
         menuLabel={`${name} actions`}
@@ -308,9 +309,9 @@ const SessionRow = ({ date, s }: { date: string; s: Session }) => {
 /** A run that happened with nothing planned for it. Tap opens it. */
 const BonusRow = ({ date, runs }: { date: string; runs: Activity[] }) => {
   const { log, openUnplanned } = useRowKit();
-  const { name, word, miles, body } = bonusFace(log, date, runs);
+  const { name, word, sub, body } = bonusFace(log, date, runs);
   return (
-    <Pressable as="div" press="surface" className="pl-line t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${fmtDate('dowLong', date)}: ${name}, ${mi(miles)} miles, ${word}. Open`}>
+    <Pressable as="div" press="surface" className="pl-line t-easy k-bonus" onPress={() => openUnplanned(date, runs, log)} label={`${name}. ${sub}. ${word}. ${fmtDate('dowLong', date)}. Open`}>
       {body}
     </Pressable>
   );
@@ -350,7 +351,7 @@ const EmptyRow = ({ date, rest }: { date: string; rest: Session | null }) => {
       ]
     : undefined;
   return (
-    <Pressable ref={line} as="div" press="surface" className={`pl-line is-rest ${rest ? '' : 'is-empty'}`.trim()} label={`${fmtDate('dowLong', date)}: ${rest ? 'rest' : 'nothing planned'}. Add a session`} onPress={() => add(date)} holdMenu={items} menuLabel="Rest day actions">
+    <Pressable ref={line} as="div" press="surface" className={`pl-line is-rest ${rest ? '' : 'is-empty'}`.trim()} label={rest ? `Rest. ${fmtDate('dowLong', date)}. Add a session` : `${fmtDate('dowLong', date)}: nothing planned. Add a session`} onPress={() => add(date)} holdMenu={items} menuLabel="Rest day actions">
       {emptyFace(log, date, rest)}
     </Pressable>
   );
@@ -481,6 +482,15 @@ const ConflictRow = ({ c, onKeep }: { c: Conflict; onKeep: () => void }) => {
     raf = requestAnimationFrame(clip);
     return () => cancelAnimationFrame(raf);
   }, []);
+  // the question is never asked under the dock or off screen: it scrolls into view above it (its scroll margin is the
+  // dock's height), once the rows under it have made room
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const id = setTimeout(() => el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }), reduce ? 0 : 260);
+    return () => clearTimeout(id);
+  }, []);
   return (
     <div ref={ref} className="pl-conflict" role="alert">
       <p>Two hard days in a row. Keep it?</p>
@@ -591,6 +601,26 @@ const SkelGroup = ({ days }: { days: string[] }) => (
   </div>
 );
 
+/**
+ * The pager pill in a pane's header: previous, `Today` when the page shown is not the current one, next. The week's and
+ * the month's are the same control (`unit` names what a step moves).
+ */
+export const StepNav = ({ unit, away, onStep, onHome }: { unit: 'week' | 'month'; away: boolean; onStep: (dir: -1 | 1) => void; onHome: () => void }) => (
+  <span className="pl-wk-nav">
+    <Pressable className="pl-step" press="scale" data-step="-1" onPress={() => onStep(-1)} label={`Previous ${unit}`}>
+      <ChevronLeft size={18} aria-hidden="true" />
+    </Pressable>
+    {away ? (
+      <Pressable className="pl-step-now" press="scale" onPress={onHome} label={`Today. Go to this ${unit}`}>
+        Today
+      </Pressable>
+    ) : null}
+    <Pressable className="pl-step" press="scale" data-step="1" onPress={() => onStep(1)} label={`Next ${unit}`}>
+      <ChevronRight size={18} aria-hidden="true" />
+    </Pressable>
+  </span>
+);
+
 /** A week's dates for its header: `Nov 9 – 15`, or `Nov 30 – Dec 6` across a month. */
 const weekRange = (mon: string) => `${fmtDate('md', mon)} – ${monthOf(shiftDays(mon, 6)) === monthOf(mon) ? parseISO(shiftDays(mon, 6)).getDate() : fmtDate('md', shiftDays(mon, 6))}`;
 
@@ -614,6 +644,8 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
     return () => window.removeEventListener(PAGE_COMMIT, on);
   }, [mon]);
   const ready = log.loaded(mon) && log.loaded(shiftDays(mon, 6));
+  // a month that failed with nothing stored: say so with Retry, never a skeleton that stays (the still page stays a skeleton)
+  const fail = useMonthsFailed(months);
   const words = ready ? weekWords(log, mon) : null;
   const named = weekTitle(mon, log.today);
   // a week with a name (this, last, next) shows its dates beside it; any other week is named by its dates alone
@@ -626,21 +658,7 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
           className={`pl-wk-head ${away ? 'is-away' : ''}`.trim()}
           title={far ? weekRange(mon) : named}
           meta={far ? undefined : weekRange(mon)}
-          action={
-            <span className="pl-wk-nav">
-              <Pressable className="pl-step" press="scale" onPress={() => onStep(-1)} label="Previous week">
-                <ChevronLeft size={18} aria-hidden="true" />
-              </Pressable>
-              {away ? (
-                <Pressable className="pl-step-now" press="scale" onPress={onThisWeek} label="Go to this week">
-                  Today
-                </Pressable>
-              ) : null}
-              <Pressable className="pl-step" press="scale" onPress={() => onStep(1)} label="Next week">
-                <ChevronRight size={18} aria-hidden="true" />
-              </Pressable>
-            </span>
-          }
+          action={<StepNav unit="week" away={away} onStep={onStep} onHome={onThisWeek} />}
         />
         {words ? (
           <p className="pl-wk-line">
@@ -651,7 +669,7 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
             &nbsp;
           </p>
         )}
-        {still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
+        {!ready && fail.failed && !still ? <LoadFail what="Couldn’t load this week." onRetry={fail.retry} /> : still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
       </section>
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { builderVerb, fromEndingBlock } from './builderModel';
+import { builderNote, builderVerb, clampTyped, fromEndingBlock, startWords } from './builderModel';
 
 const block = { id: 'b1', name: '2026.10 Banking Plan', start: '2026-10-05', end: '2026-12-20', source: null, summary: null, createdAt: '2026-10-01T00:00:00Z' };
 
@@ -13,11 +13,36 @@ describe('fromEndingBlock', () => {
 });
 
 describe('builderVerb', () => {
-  it('says what it replaces, and from when', () => {
-    expect(builderVerb(44, '2026-10-19')).toBe('Replace 44 planned sessions from Oct 19');
-    expect(builderVerb(1, '2026-10-26')).toBe('Replace 1 planned session from Oct 26');
+  it('says what it replaces on one line; the note above says from when', () => {
+    expect(builderVerb(44)).toBe('Replace 44 sessions');
+    expect(builderVerb(1)).toBe('Replace 1 session');
+    expect(builderNote(44, '2026-10-19', '2026-10-19')).toBe('Clears planned sessions from Oct 19. What you’ve done stays, and Undo puts it all back.');
   });
   it('says Use this plan when nothing is replaced', () => {
-    expect(builderVerb(0, '2026-10-26')).toBe('Use this plan');
+    expect(builderVerb(0)).toBe('Use this plan');
+    expect(builderNote(0, '2026-10-26', '2026-10-26')).toMatch(/^Starts .*Oct 26\. Nothing is saved until you use it\.$/);
+  });
+});
+
+describe('startWords', () => {
+  it('a Monday start is week 1', () => {
+    expect(startWords(true, '2026-11-16', '2026-11-16').replace(/\u00a0/g, ' ')).toBe('Week 1 starts Nov 16');
+  });
+  it('a mid-week start says the day it starts and when week 1 is', () => {
+    expect(startWords(true, '2026-11-11', '2026-11-16').replace(/\u00a0/g, ' ')).toBe('Starts Wednesday. Week 1 is Nov 16');
+  });
+  it('off, it says the default', () => {
+    expect(startWords(false, '2026-11-16', '2026-11-16')).toBe('Else it starts next Monday');
+  });
+});
+
+describe('clampTyped', () => {
+  it('holds a typed number to its range instead of dropping it', () => {
+    expect(clampTyped('99', 2, 30)).toBe(30);
+    expect(clampTyped('1', 2, 30)).toBe(2);
+    expect(clampTyped('12', 2, 30)).toBe(12);
+    expect(clampTyped('999', 3, 150)).toBe(150);
+    expect(clampTyped('', 3, 150)).toBeNull();
+    expect(clampTyped('abc', 3, 150)).toBeNull();
   });
 });

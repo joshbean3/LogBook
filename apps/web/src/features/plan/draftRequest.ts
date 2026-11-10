@@ -6,8 +6,10 @@ import { apiOrigin, isNative } from '@/lib/native';
 /*
  * One request to `POST /api/plans/draft`. The server answers only when the plan is written, which takes 20 to 60 seconds
  * and can pass two minutes for a long plan, so this request waits longer than any other in the app:
- *  - in the iPhone app the JSON modes go through the native HTTP plugin with both of its timeouts at 150 s. iOS reads
- *    `connectTimeout` as the whole idle timeout, so the shared 20 s value would give up while the plan is being written;
+ *  - in the iPhone app every mode goes through the native HTTP plugin with both of its timeouts at 150 s. iOS reads
+ *    `connectTimeout` as the whole idle timeout, so the shared 20 s value would give up while the plan is being written.
+ *    A file goes the same way, as the form parts the plugin builds a multipart body from (`formParts`), so a PDF or a
+ *    camera photo has the same long wait and the same Stop as text;
  *  - Stop settles the wait at once, on the phone too (the native plugin has no cancel): whatever answer arrives after a
  *    Stop or a timeout is dropped and never shown.
  */
@@ -63,27 +65,60 @@ export const draftError = (status: number, body: { error?: string; code?: string
         : code === 'rate_limited' || status === 429
           ? 'You’ve reached the limit for now. Try again later.'
           : 'Something interrupted the request. Try again.';
+  // the one server sentence that names the provider where the glossary says "the assistant"
+  if (code === 'no_instructions') return new ApiError('Say what you want first.', status, code);
   return new ApiError(body.error ?? fallback, status, code);
+};
+
+/** One part of a multipart form as the native HTTP plugin reads it (`dataType: 'formData'`). */
+export type FormPart = { key: string; value: string; type: 'string' } | { key: string; value: string; type: 'base64File'; contentType: string; fileName: string };
+
+/**
+ * The file mode's form for the native plugin: the same fields the browser's FormData carries, the file as base64. The
+ * file name goes into a quoted header on the phone, so quotes, slashes and line breaks are taken out of it.
+ */
+export const formParts = (input: Pick<DraftInput, 'start' | 'instructions'>, file: { name: string; type: string }, base64: string): FormPart[] => [
+  { key: 'mode', value: 'file', type: 'string' },
+  { key: 'start', value: input.start, type: 'string' },
+  ...(input.instructions ? [{ key: 'instructions', value: input.instructions, type: 'string' as const }] : []),
+  { key: 'file', value: base64, type: 'base64File', contentType: file.type || 'application/pdf', fileName: file.name.replace(/["\\/\r\n]/g, '_').trim() || 'plan' },
+];
+
+const base64Of = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new ApiError('Couldn’t read that file. Choose it again.', 0, 'file_read'));
+    fr.onload = () => {
+      const s = String(fr.result ?? '');
+      resolve(s.slice(s.indexOf(',') + 1));
+    };
+    fr.readAsDataURL(file);
+  });
+
+const nativePost = async (url: string, headers: Record<string, string>, data: unknown, dataType?: 'formData'): Promise<Response> => {
+  const r = await CapacitorHttp.request({ url, method: 'POST', headers, data, ...(dataType ? { dataType } : {}), responseType: 'text', connectTimeout: DRAFT_TIMEOUT_MS, readTimeout: DRAFT_TIMEOUT_MS });
+  const text = typeof r.data === 'string' ? r.data : r.data == null ? '' : JSON.stringify(r.data);
+  return new Response(r.status === 204 ? null : text, { status: r.status });
 };
 
 const send = async (input: DraftInput, signal: AbortSignal): Promise<Response> => {
   const url = `${apiOrigin}/api/plans/draft`;
   if (input.mode === 'file') {
     if (!input.file) throw new ApiError('Choose a PDF or a photo of your plan first.', 422, 'no_file');
+    // the iPhone app: the native plugin writes the multipart body (and its boundary) from the parts
+    if (isNative) return nativePost(url, { 'Content-Type': 'multipart/form-data', [LOCAL_DATE_HEADER]: today() }, formParts(input, input.file, await base64Of(input.file)), 'formData');
     const fd = new FormData();
     fd.set('mode', 'file');
     fd.set('start', input.start);
     if (input.instructions) fd.set('instructions', input.instructions);
     fd.set('file', input.file);
-    return fetch(url, { method: 'POST', body: fd, headers: { [LOCAL_DATE_HEADER]: today() }, credentials: isNative ? 'include' : 'same-origin', signal });
+    return fetch(url, { method: 'POST', body: fd, headers: { [LOCAL_DATE_HEADER]: today() }, credentials: 'same-origin', signal });
   }
   const body = JSON.stringify({ mode: input.mode, text: input.mode === 'text' ? input.text : undefined, instructions: input.instructions || undefined, start: input.start, end: input.end || undefined });
   const headers = { 'content-type': 'application/json', [LOCAL_DATE_HEADER]: today() };
   if (!isNative) return fetch(url, { method: 'POST', headers, body, credentials: 'same-origin', signal });
   // the iPhone app: the native HTTP plugin (its cookie jar holds the sign-in), with the long timeout on both settings
-  const r = await CapacitorHttp.request({ url, method: 'POST', headers, data: body, responseType: 'text', connectTimeout: DRAFT_TIMEOUT_MS, readTimeout: DRAFT_TIMEOUT_MS });
-  const text = typeof r.data === 'string' ? r.data : r.data == null ? '' : JSON.stringify(r.data);
-  return new Response(r.status === 204 ? null : text, { status: r.status });
+  return nativePost(url, headers, body);
 };
 
 /** Ask for a draft. Rejects with an `ApiError`: code `cancelled` after a Stop, `timeout`, or the server's own code. */

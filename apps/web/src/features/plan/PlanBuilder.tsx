@@ -1,4 +1,4 @@
-import { CONSENT_VERSION, daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
+import { CONSENT_VERSION, daysBetween, fmtDate, label, mondayOf, monthsBetween, num, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -27,6 +27,8 @@ const MODES: Array<[Mode, string]> = [
   ['revise', 'Revise'],
 ];
 const nextMonday = (t: string) => shiftDays(mondayOf(t), 7);
+/** Miles to one decimal, whole miles without `.0` (`300`, `25`, `6.5`). */
+const mi = (v: number) => num(Math.round(v * 10) / 10);
 
 /** `POST /plans/apply`'s answer. `replacedIds` (and the plans it ended) are what Undo puts back. */
 type Applied = { block: PlanBlock; months: string[] } & Pick<PlanTemplateResult, 'replacedIds' | 'endedBlock' | 'endedBlocks'>;
@@ -345,7 +347,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
         ) : mode === 'text' ? (
           <div className="brow">
             <Field label="Plan">
-              <textarea className="in bare mono" rows={7} value={text} onChange={(e) => setText(e.target.value)} disabled={busy} placeholder="Paste the plan: a coach’s email, a table copied from a spreadsheet, a forum post…" />
+              <textarea className="in bare mono" rows={7} value={text} onChange={(e) => setText(e.target.value)} disabled={busy} placeholder="Paste the plan: an email, a table copied from a spreadsheet, a forum post…" />
             </Field>
           </div>
         ) : null}
@@ -360,10 +362,10 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
               onChange={(e) => setInstr(e.target.value)}
               placeholder={
                 mode === 'describe'
-                  ? 'e.g. 12-week half marathon build to a 1:30 at the Brooklyn Half, 4 runs a week, long run Saturday, 2 lifts, nothing over 45 min on weekdays'
+                  ? 'A 12 week half marathon plan. 4 runs a week, long run Saturday, 2 strength days, weekdays under 45 minutes.'
                   : mode === 'revise'
-                    ? 'e.g. Move every long run to Sunday. Cut next week by 20%, I have a live deal. Add a Tuesday upper-body lift.'
-                    : 'Optional: anything worth knowing, e.g. “skip the Week 6 race”, “my long run day is Sunday”'
+                    ? 'Move every long run to Sunday. Make next week lighter.'
+                    : 'Optional. Anything worth knowing.'
               }
             />
           </Field>
@@ -396,7 +398,8 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
           )}
         </div>
       </Group>
-      <p className="fine pb-fine">{consent?.training ? 'Reads your source and the runs you marked done, then returns dated sessions you can check before saving.' : 'Reads your source, then returns dated sessions you can check before saving.'}</p>
+      <p className="fine pb-fine">Your file or text goes to Claude, by Anthropic, to write the plan. Nothing is saved until you check it.</p>
+      {consent?.training ? <p className="fine pb-fine">Reads your source and the runs you marked done, then returns dated sessions you can check before saving.</p> : null}
       <p className="fine pb-fine">{DISCLAIMER}</p>
     </>
   );

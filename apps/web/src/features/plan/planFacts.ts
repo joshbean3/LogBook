@@ -49,7 +49,7 @@ export const sourceWords = (b: Pick<PlanBlock, 'source' | 'createdAt'>): string 
     case 'onboarding':
       return `Built from your answers${on}`;
     case 'template':
-      return `Made with the block builder${on}`;
+      return `Made with the plan builder${on}`;
     case 'file':
       return `Written by the assistant from a file you shared${on}`;
     case 'text':
@@ -137,7 +137,7 @@ export const planFacts = (b: PlanBlock, weeks: number, sessionsOn: (d: string) =
 };
 
 /** The plan's length in words: `12 weeks`, `12 weeks after a lead-in`. */
-export const lengthWords = (f: Pick<PlanFacts, 'weeks' | 'leadIn'>) => `${plural(f.weeks, 'week')}${f.leadIn ? ' after a lead-in' : ''}`;
+export const lengthWords = (f: Pick<PlanFacts, 'weeks' | 'leadIn'>) => `${plural(f.weeks, 'week')}${f.leadIn ? ' after a warm-up week' : ''}`;
 /** The long run in words: `Saturdays, up to 12 mi`. */
 export const longWords = (l: NonNullable<PlanFacts['long']>) => [l.day ? `${l.day}s` : null, l.miles ? `up to ${tenth(l.miles)} mi` : null].filter(Boolean).join(', ');
 /** The miles, to a tenth (`40`, `10.5`). */

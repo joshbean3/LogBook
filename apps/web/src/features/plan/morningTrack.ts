@@ -75,7 +75,7 @@ export const LINE_AMPM = 388;
 export const gapsOf = (stops: CardStop[], width: number): number[] => {
   if (stops.length <= 2) return stops.slice(1).map(() => 0);
   const edge = width >= LINE_AMPM ? 104 : width >= LINE_LONG ? 74 : 62;
-  return stops.slice(1).map((s, i) => (stops[i]!.key === 'door' && s.key === 'back' ? 108 : edge) / Math.max(1, width));
+  return stops.slice(1).map((s, i) => (stops[i]!.key === 'door' && s.key === 'back' ? 112 : edge) / Math.max(1, width));
 };
 
 /** Where `now` sits on the track: between the two stops it falls between, in proportion to the time; null outside the morning. */
@@ -107,12 +107,15 @@ export const headline = (T: MorningTimeline, now: number, rel: 'today' | 'tomorr
   return `Leave for work in ${inWords(T.leave, now)}`;
 };
 
-/** The workout on the track: its name (`Easy 5`, `Strength`) and tone; a rest morning's is `Rest morning`. */
-export const workOf = (T: MorningTimeline): { name: string; tone: Tone } => {
-  if (T.day.mode === 'rest') return { name: 'Rest morning', tone: 'rest' };
+/**
+ * The workout on the track: its name (`Easy 5`, `Strength A`), the one word for its kind (`Easy`, `Strength`: what the
+ * pill says when the name does not fit) and its tone; a rest morning's is `Rest morning`.
+ */
+export const workOf = (T: MorningTimeline): { name: string; kind: string; tone: Tone } => {
+  if (T.day.mode === 'rest') return { name: 'Rest morning', kind: 'Rest', tone: 'rest' };
   const b = T.blocks.find((x) => x.key === 'run' || x.key === 'gym');
   const name = T.day.plan.label.split(' · ')[0] || (T.day.mode === 'run' ? `${T.day.type} ${T.day.miles}` : T.day.type);
-  return { name, tone: b?.tone ?? (T.day.mode === 'gym' ? 'lift' : 'easy') };
+  return { name, kind: T.day.type || (T.day.mode === 'gym' ? 'Strength' : 'Run'), tone: b?.tone ?? (T.day.mode === 'gym' ? 'lift' : 'easy') };
 };
 
 /** `6 steps · 1 h 55 min from waking to the door`: the schedule's rows (the wake time, the workout, the routine; not Free or a note). */

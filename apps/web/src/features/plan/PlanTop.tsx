@@ -2,7 +2,6 @@ import { fmtDate, monthOf, tone, type Session } from '@logbook/shared';
 import { CalendarDays, Check, ChevronRight, ListChecks, Moon, Plus } from 'lucide-react';
 import type * as React from 'react';
 import { useMemo } from 'react';
-import { useNav } from '@/app/NavController';
 import { useToday } from '@/lib/useToday';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { SectionHeader } from '@/ui/layout';
@@ -13,8 +12,10 @@ import { useLog, type Log } from '../log/useLog';
 import { useSessionActions } from '../sessions/actions';
 import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { sessionIcon } from '../sessions/sessionIcon';
-import { openPlanDetail, openTemplate, type PlanBlockProps } from './Blocks';
+import { openPlanDetail, openPlans, openTemplate, type PlanBlockProps } from './Blocks';
+import { fromEndingBlock } from './builderModel';
 import { MorningCard } from './MorningCard';
+import { LoadFail, useMonthsFailed } from './LoadFail';
 import { dayOrder } from './moveRule';
 import { planCardWords } from './topWords';
 import { rowFace } from './Week';
@@ -23,54 +24,62 @@ import './plantop.css';
 /**
  * The plan across the top of Plan, one full-width card: a caps eyebrow, the plan's name in the serif, one line on where it
  * stands (`Week 3 of 12 · Build`, `Starts Tuesday · 12 weeks`), a slim bar of how far through the block today is, and the
- * chevron. A tap opens the plan's sheet (its summary: what it is, where it came from, its goals); a hold offers Open the
- * plan, New block and All plans. With no plan it opens the builder.
+ * chevron. A tap opens the plan's sheet (its summary: what it is, where it came from, its numbers, with New plan and All
+ * plans in its foot); a hold offers the same three. An ended plan's card says so and opens the builder for the next one.
+ * With no plan it opens the builder.
  */
 export const PlanCard = ({ block }: { block: PlanBlockProps }): React.JSX.Element => {
   const sheet = useSheet();
-  const nav = useNav();
   const d = block.data;
   if (!d.boot) return <div className="pt-plan-wrap is-wait" aria-hidden="true" />;
   const plan = planCardWords(d);
   const menu = (): ContextMenuItem[] => [
     ...(d.b ? [{ label: 'Open the plan', icon: <CalendarDays size={18} />, onSelect: () => openPlanDetail(sheet, d.b!, block.getLog()) }] : []),
-    { label: 'New block', icon: <Plus size={18} />, onSelect: () => openTemplate(sheet, block.getLog()) },
-    { label: 'All plans', icon: <ListChecks size={18} />, onSelect: () => nav.go('/settings/plans') },
+    { label: 'New plan', icon: <Plus size={18} />, onSelect: () => openTemplate(sheet, block.getLog()) },
+    { label: 'All plans', icon: <ListChecks size={18} />, onSelect: () => openPlans(sheet) },
   ];
   if (!plan || !d.b)
     return (
       <div className="pt-plan-wrap">
-        <Pressable className="pt-plan is-empty" press="surface" onPress={() => openTemplate(sheet, block.getLog())} holdMenu={menu} menuLabel="Plan actions" label="No plan yet. Start a block">
+        <Pressable className="pt-plan is-empty" press="surface" onPress={() => openTemplate(sheet, block.getLog())} holdMenu={menu} menuLabel="Plan actions" label="Your plan. No plan. Build one in a minute">
           <span className="pt-plan-ic" aria-hidden="true">
             <Plus size={20} />
           </span>
           <span className="pt-plan-main">
             <span className="caps pt-eyebrow">Your plan</span>
-            <span className="pt-plan-name">No plan yet</span>
-            <span className="pt-plan-state is-act">Start a block: weeks laid out to a goal</span>
+            <span className="pt-plan-name">No plan</span>
+            <span className="pt-plan-state is-act">Build one in a minute</span>
           </span>
           <ChevronRight size={20} className="pt-chev" aria-hidden="true" />
         </Pressable>
       </div>
     );
   const pct = Math.round(plan.progress * 100);
+  // an ended plan's card is the door to the next one: the builder, starting the day after, with the same answers
+  const next = () => {
+    const log = block.getLog();
+    const prof = log.boot?.user.trainingProfile ?? null;
+    openTemplate(sheet, log, false, prof ? fromEndingBlock(d.b!, prof) : undefined);
+  };
   return (
     <div className="pt-plan-wrap">
       <Pressable
-        className="pt-plan"
+        className={`pt-plan ${plan.ended ? 'is-ended' : ''}`.trim()}
         press="surface"
-        onPress={() => openPlanDetail(sheet, d.b!, block.getLog())}
+        onPress={plan.ended ? next : () => openPlanDetail(sheet, d.b!, block.getLog())}
         holdMenu={menu}
         menuLabel="Plan actions"
-        label={`Your plan: ${plan.title}. ${plan.state}. ${pct}% through. Open the plan summary; hold for more`}
+        label={plan.ended ? `Your plan. ${plan.title}. ${plan.state}` : `Your plan. ${plan.title}. ${plan.state}. ${pct}% through. Open the plan summary; hold for more`}
       >
         <span className="pt-plan-main">
           <span className="caps pt-eyebrow">Your plan</span>
           <span className="pt-plan-name">{plan.title}</span>
-          <span className="pt-plan-state">{plan.state}</span>
-          <span className="pt-bar" aria-hidden="true">
-            <i style={{ transform: `scaleX(${plan.progress})` }} />
-          </span>
+          <span className={`pt-plan-state ${plan.ended ? 'is-act' : ''}`.trim()}>{plan.state}</span>
+          {plan.ended ? null : (
+            <span className="pt-bar" aria-hidden="true">
+              <i style={{ transform: `scaleX(${plan.progress})` }} />
+            </span>
+          )}
         </span>
         <ChevronRight size={20} className="pt-chev" aria-hidden="true" />
       </Pressable>
@@ -98,16 +107,18 @@ const TodaySession = ({ log, s }: { log: Log; s: Session }) => {
   const f = rowFace(log, log.today, s);
   const Icon = sessionIcon(s);
   return (
-    <Pressable className={`pt-run t-${tone(s)} k-${f.k}`} press="surface" onPress={() => open(log.today, s)} label={`Today: ${f.name}${f.sub ? `, ${f.sub}` : ''}. ${f.word}. Open`}>
+    <Pressable className={`pt-run t-${tone(s)} k-${f.k}`} press="surface" onPress={() => open(log.today, s)} label={`${KIND_WORD[s.kind]}. ${f.word}. ${f.name}${f.sub ? `. ${f.sub}` : ''}. Open today’s session`}>
       <span className="pt-run-ic" aria-hidden="true">
         <Icon size={22} strokeWidth={2.1} />
       </span>
       <span className="pt-run-main">
-        <span className="caps pt-run-kind">{KIND_WORD[s.kind]}</span>
+        <span className="pt-run-top">
+          <span className="caps pt-run-kind">{KIND_WORD[s.kind]}</span>
+          <StatusPill k={f.k} word={f.word} />
+        </span>
         <span className="pt-run-name">{f.name}</span>
         {f.sub ? <span className="pt-run-sub">{f.sub}</span> : null}
       </span>
-      <StatusPill k={f.k} word={f.word} />
     </Pressable>
   );
 };
@@ -119,6 +130,8 @@ const TodaySessions = () => {
   const log = useLog(months);
   const act = useSessionActions(log);
   const openUnplanned = useOpenUnplanned();
+  const fail = useMonthsFailed(months);
+  if (!log.loaded(today) && fail.failed) return <LoadFail what="Couldn’t load today." onRetry={fail.retry} />;
   if (!log.loaded(today))
     return (
       <div className="pt-run is-wait" aria-busy="true" aria-label="Loading today's session">
@@ -137,7 +150,7 @@ const TodaySessions = () => {
         <TodaySession key={s.id} log={log} s={s} />
       ))}
       {bonus ? (
-        <Pressable className="pt-run t-easy k-bonus" press="surface" onPress={() => openUnplanned(today, runs, log)} label={`Today: ${runs.length === 1 ? runs[0]!.name : `${runs.length} runs`}, off the plan. Open`}>
+        <Pressable className="pt-run t-easy k-bonus" press="surface" onPress={() => openUnplanned(today, runs, log)} label={`Run. Done. ${runs.length === 1 ? runs[0]!.name : `${runs.length} runs`}. Off the plan. Open today’s run`}>
           <span className="pt-run-ic" aria-hidden="true">
             {(() => {
               const I = sessionIcon(null);
@@ -145,15 +158,17 @@ const TodaySessions = () => {
             })()}
           </span>
           <span className="pt-run-main">
-            <span className="caps pt-run-kind">Run</span>
+            <span className="pt-run-top">
+              <span className="caps pt-run-kind">Run</span>
+              <StatusPill k="done" word="Done" />
+            </span>
             <span className="pt-run-name">{runs.length === 1 ? runs[0]!.name : `${runs.length} runs`}</span>
             <span className="pt-run-sub">Off the plan</span>
           </span>
-          <StatusPill k="done" word="Done" />
         </Pressable>
       ) : null}
       {!sessions.length && !bonus ? (
-        <Pressable className={`pt-run ${rest ? 't-rest is-rest' : 'is-open'}`} press="surface" onPress={() => act.add(today)} label={rest ? 'Today: rest day. Add a session' : 'Today: nothing planned. Add a session'}>
+        <Pressable className={`pt-run ${rest ? 't-rest is-rest' : 'is-open'}`} press="surface" onPress={() => act.add(today)} label={rest ? 'Rest day. Tap to add a session' : 'Nothing planned. Tap to add a run or a lift'}>
           <span className={`pt-run-ic ${rest ? '' : 'is-add'}`.trim()} aria-hidden="true">
             {rest ? <Moon size={22} strokeWidth={2.1} /> : <Plus size={22} strokeWidth={2.2} />}
           </span>

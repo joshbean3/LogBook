@@ -20,7 +20,7 @@ export default function PlansPage(): React.JSX.Element {
       <PushedBar
         title="Plans"
         trailing={
-          <Pressable className="icon-btn pl-new-block" press="scale" onPress={() => openBuilder()} label="New block">
+          <Pressable className="icon-btn pl-new-block" press="scale" onPress={() => openBuilder()} label="New plan">
             <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
           </Pressable>
         }

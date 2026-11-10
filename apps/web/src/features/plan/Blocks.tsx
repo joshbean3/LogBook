@@ -1,5 +1,5 @@
 import { counts, fmtDate, mondayOf, monthsBetween, num, sessionStatus, shiftDays, weekTotals, type Aim, type PlanBlock } from '@logbook/shared';
-import { CalendarRange, ChevronRight, ListChecks, Sparkles, Target, Trash2 } from 'lucide-react';
+import { CalendarRange, ChevronRight, ListChecks, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useNav } from '@/app/NavController';
 import { ApiError } from '@/api/client';
@@ -13,13 +13,14 @@ import { useToast } from '@/ui/Toast';
 import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
 import { builderSpec } from './Builder';
-import type { BuilderPrefill } from './builderModel';
+import { fromEndingBlock, type BuilderPrefill } from './builderModel';
 import { PlanBuilder } from './PlanBuilder';
 import { weekMiles } from '../sessions/miles';
 import { shortName } from './context';
 import { phasesOf, type PhaseWeek } from './phases';
 import { planWeeks, weekOf } from './topWords';
 import { lengthWords, miles1, planFacts, sourceWords } from './planFacts';
+import { livePlans } from './planList';
 import './plan.css';
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
@@ -29,7 +30,8 @@ const stateOf = (b: PlanBlock, t: string) => (t < b.start ? 'Upcoming' : t > b.e
  * replaced is never it: Rebuild (or a new block over the old one) ends the old block the day before the new one starts, so
  * its leftover days ("Oct 15 – Oct 18") still cover today, but the plan is the new block now.
  */
-export const heroBlock = (blocks: PlanBlock[], t: string): PlanBlock | null => {
+export const heroBlock = (all: PlanBlock[], t: string): PlanBlock | null => {
+  const blocks = livePlans(all);
   const replaced = (b: PlanBlock) => blocks.some((n) => n.id !== b.id && n.createdAt > b.createdAt && n.start > b.end && n.end >= t);
   const live = blocks.filter((b) => b.end >= t && !replaced(b));
   return (
@@ -145,10 +147,10 @@ export const planName = (b: PlanBlock, all: PlanBlock[], t: string) => (all.some
  * length, its state, a chevron; a row opens the plan. With the AI on, "Write my next block" is a second group under the
  * list. New block is the round + in the Plans page's bar.
  */
-export const PlansPanel = ({ log }: { log: Log }) => {
+export const PlansPanel = ({ log, inSheet }: { log: Log; inSheet?: boolean }) => {
   const sheet = useSheet();
   const t = log.today;
-  const blocks = [...(log.boot?.blocks ?? [])].sort((a, b) => (a.start < b.start ? 1 : -1));
+  const blocks = livePlans(log.boot?.blocks ?? []).sort((a, b) => (a.start < b.start ? 1 : -1));
   return (
     <div className="pl-plans">
       {blocks.length ? (
@@ -158,7 +160,7 @@ export const PlansPanel = ({ log }: { log: Log }) => {
             const name = planName(b, blocks, t);
             const n = planWeeks(b);
             return (
-              <Pressable key={b.id} press="surface" className="pl-plan-row" label={`${name}. ${st}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}, ${n} ${n === 1 ? 'week' : 'weeks'}`} onPress={() => openPlanDetail(sheet, b, log)}>
+              <Pressable key={b.id} press="surface" className="pl-plan-row" label={`${name}. ${st}. ${fmtDate('md', b.start)} to ${fmtDate('md', b.end)}, ${n} ${n === 1 ? 'week' : 'weeks'}`} onPress={() => openPlanDetail(sheet, b, log, inSheet)}>
                 <span className={`icon-tile pl-plan-ic ${st === 'Active' ? 'is-on' : ''}`} aria-hidden="true">
                   <CalendarRange size={18} />
                 </span>
@@ -178,17 +180,17 @@ export const PlansPanel = ({ log }: { log: Log }) => {
       ) : (
         <div className="card pl-plans-empty">
           <span className="pl-plans-empty-t">No plans yet</span>
-          <span className="pl-plans-empty-s">A block takes a minute: pick a goal, your run days and your weekly miles. Tap + to start one.</span>
+          <span className="pl-plans-empty-s">A plan takes a minute: pick a goal, your run days and your weekly miles. Tap + to start one.</span>
         </div>
       )}
       {log.features.claude ? (
         <div className="group">
-          <Pressable className="pl-plan-row pl-ai-row" press="surface" onPress={() => sheet.open({ title: 'Write my next block', detent: 'large', body: <PlanBuilder log={log} /> })}>
+          <Pressable className="pl-plan-row pl-ai-row" press="surface" onPress={() => (inSheet ? sheet.push : sheet.open)({ title: 'Write my next plan', detent: 'large', body: <PlanBuilder log={log} /> })}>
             <span className="icon-tile pl-ai-ic" aria-hidden="true">
               <Sparkles size={18} />
             </span>
             <span className="pl-plan-main">
-              <span className="pl-plan-name">Write my next block</span>
+              <span className="pl-plan-name">Write my next plan</span>
               <span className="pl-plan-sub">From a file, pasted text, or a sentence, with your recent weeks</span>
             </span>
             <ChevronRight size={18} className="pl-plan-chev" aria-hidden="true" />
@@ -200,12 +202,32 @@ export const PlansPanel = ({ log }: { log: Log }) => {
 };
 
 /** Opens one plan's sheet (from the plans list, the block card and Plan's block chip). */
-export const openPlanDetail = (sheet: SheetApi, b: PlanBlock, log: Log) => {
+export const openPlanDetail = (sheet: SheetApi, b: PlanBlock, log: Log, fromList = false) => {
   const all = log.boot?.blocks ?? [];
   const st = stateOf(b, log.today);
   // the eyebrow is its state alone (the arc's axis has the dates), the title the name without the length the tiles show
-  sheet.open({ eyebrow: st, title: shortName(planName(b, all, log.today)), action: <PlanDelete b={b} />, body: <PlanDetail b={b} /> });
+  (fromList ? sheet.push : sheet.open)({ eyebrow: st, title: shortName(planName(b, all, log.today)), action: <PlanDelete b={b} />, body: <PlanDetail b={b} fromList={fromList} /> });
 };
+
+/** The plans list as a sheet's body: its own log, so a plan made or deleted while it is open shows at once. */
+const PlansSheet = () => {
+  const log = useLog([]);
+  return log.boot ? <PlansPanel log={log} inSheet /> : null;
+};
+const NewPlanButton = () => {
+  const sheet = useSheet();
+  const log = useLog([]);
+  return (
+    <button type="button" className="icon-btn pl-new-block" aria-label="New plan" title="New plan" onClick={() => openTemplate(sheet, log, true)}>
+      <Plus size={22} strokeWidth={2.2} aria-hidden="true" />
+    </button>
+  );
+};
+/**
+ * All plans, opened from Plan (or from a plan's summary) as a sheet over the tab it was asked on: closing it lands back
+ * where it was opened. A row pushes that plan's summary inside the same sheet. Settings keeps its own page.
+ */
+export const openPlans = (sheet: SheetApi, push = false) => (push ? sheet.push : sheet.open)({ title: 'Plans', detent: 'large', action: <NewPlanButton />, body: <PlansSheet /> });
 
 /**
  * The plan sheet's delete (docs/shape-system.md §5: a red icon in a tinted circle at the top right): a tap asks first, in
@@ -282,7 +304,7 @@ const SumRow = ({ k, v, sub }: { k: string; v: string; sub?: string | null }) =>
  * is (goal, dates, length, race day); its goals (the biggest week, runs a week, the long run, kept so far) and any open goal
  * on the Goals tab that names it; then the weekly miles across its weeks, and one navy pill to its week.
  */
-const PlanDetail = ({ b }: { b: PlanBlock }) => {
+const PlanDetail = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
   const sheet = useSheet();
   const nav = useNav();
   // every month of the plan, so the arc draws all of its weeks (the list's log holds only the months around today)
@@ -332,7 +354,7 @@ const PlanDetail = ({ b }: { b: PlanBlock }) => {
         <SumRow k="Sessions" v={String(b.sessionCount ?? 0)} />
       </div>
 
-      <SectionHeader size="sm" level={3} title="Its goals" className="pl-sum-head" />
+      <SectionHeader size="sm" level={3} title="By the numbers" className="pl-sum-head" />
       <div className="tiles pl-sum-tiles" aria-busy={!ready || undefined}>
         <div className="tile">
           <span className="tile-label">Biggest week</span>
@@ -388,6 +410,12 @@ const PlanDetail = ({ b }: { b: PlanBlock }) => {
       <div className="sheet-foot">
         <Button variant="primary" block onClick={go}>
           {b.start <= t && t <= b.end ? 'Open this week' : 'Open its first week'}
+        </Button>
+        <Button variant="soft" className="pl-sum-act" onClick={() => openTemplate(sheet, log, true, b.end < t && log.boot?.user.trainingProfile ? fromEndingBlock(b, log.boot.user.trainingProfile) : undefined)}>
+          New plan
+        </Button>
+        <Button variant="soft" className="pl-sum-act" onClick={() => (fromList ? sheet.pop() : openPlans(sheet, true))}>
+          All plans
         </Button>
       </div>
     </div>
