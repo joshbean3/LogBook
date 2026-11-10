@@ -284,6 +284,12 @@
   gap: 6px;
   padding: 3px 0 8px;
 }
+.recall-skel-ai {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  margin-top: -4px;
+}
 .recall-skel .recall-tool {
   display: block;
 }

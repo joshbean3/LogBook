@@ -488,6 +488,8 @@
 .jday-write {
   display: grid;
   gap: 10px;
+  /* brought into view clear of the floating tab bar and the fade above it */
+  scroll-margin-bottom: calc(var(--chrome-h, 64px) + var(--safe-b, 0px) + 16px);
 }
 .jday-field {
   width: 100%;
@@ -627,4 +629,17 @@
 }
 .jcal-n {
   font-size: min(var(--fs-caps), 4.2cqi);
+}
+/* a narrow week (320 wide): a smaller orb, so the count and the star beside it stay inside the day and clear of today's ring */
+@container jcal (max-width: 18.5rem) {
+  .jcal-grid.is-week .jcal-mark {
+    min-width: 14px;
+  }
+  .jcal-grid.is-week .jcal-mark .lb-orb {
+    --s: 14px !important;
+  }
+  .jcal-grid.is-week .jcal-fav {
+    width: 9px;
+    height: 9px;
+  }
 }

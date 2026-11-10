@@ -438,6 +438,13 @@ textarea.jtext:focus {
 .esheet-actions .btn svg {
   flex: none;
 }
+/* a narrow phone: the three verbs a size down, so each label keeps air inside its rounded end */
+@media (max-width: 359px) {
+  .esheet-actions .btn {
+    gap: 4px;
+    font-size: var(--fs-sub);
+  }
+}
 .btn.esheet-del {
   min-height: 44px;
   margin-bottom: 8px;

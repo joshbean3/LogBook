@@ -167,6 +167,12 @@ export const RecallCard = ({ today, onOpenDay }: { today: string; onOpenDay: (da
               <Skeleton w="92%" h={22} />
               <Skeleton w="64%" h={22} />
             </div>
+            {/* with the recall switch on the answer carries the "Written by AI" row: its room is held too */}
+            {recall ? (
+              <div className="recall-skel-ai">
+                <Skeleton w={90} h={14} />
+              </div>
+            ) : null}
             <div className="recall-tools" aria-hidden="true">
               <span className="recall-tool" />
               <span className="recall-tool" />

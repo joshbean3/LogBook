@@ -156,7 +156,9 @@ const DayCard = ({ date, today, byDate, writeReq, onDay, onClose, onWriting }: {
       requestAnimationFrame(() => {
         growField(field.current);
         field.current?.focus({ preventScroll: true });
-        // the whole writer, Save included, clear of the keyboard (the WebView does not resize for it)
+        // the whole writer, Save included, clear of the tab bar at once (its scroll-margin), then of the keyboard once it
+        // has risen (the WebView does not resize for it)
+        box.current?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
         revealBox(box.current);
       });
     onWriting(writing && isToday);
