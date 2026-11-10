@@ -904,7 +904,8 @@
 /* ---------- ahead: tomorrow's goal and next week's, two small chips in a row over the list ---------- */
 .ga-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* two across; at large text sizes (a chip narrower than 7.5rem) they stack so each title stays whole */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
   gap: 8px;
   min-width: 0;
 }
