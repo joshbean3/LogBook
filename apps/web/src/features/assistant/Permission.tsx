@@ -1,7 +1,8 @@
 import { CONSENT_VERSION, type AssistantScreen, type ISODate } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { askAssistant, useBootstrap } from '@/api/queries';
+import { useBootstrap } from '@/api/queries';
+import { askAssistant, stopAssistant } from './api';
 import { consentKey, useConsent, useSaveConsent } from '@/lib/consent';
 import { haptics } from '@/lib/haptics';
 import { LEGAL, openExternal } from '@/lib/siteLinks';
@@ -54,7 +55,7 @@ export const AssistantPermission = ({ gate, retry, date, screen }: { gate: Exclu
     const held = assistantStore.consentNeeded();
     assistantStore.setConsentNeeded(false);
     const turns = assistantStore.get();
-    if (held && turns[turns.length - 1]?.role === 'user') void runAsk(askAssistant, date, screen);
+    if (held && turns[turns.length - 1]?.role === 'user') void runAsk(askAssistant, date, screen, Date.now, stopAssistant);
   };
 
   if (gate === 'checking')

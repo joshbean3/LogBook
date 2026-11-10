@@ -21,6 +21,8 @@ export interface AssistantChat {
 
 const CHATS = 'logbook.assistant.chats';
 const CURRENT = 'logbook.assistant.current';
+/** The answer being written, so a reload can carry on reading it: { chatId, jobId, startedAt }. */
+const JOB = 'logbook.assistant.job';
 const LEGACY = 'logbook.assistant';
 const MAX_CHATS = 60;
 const MAX_TURNS = 60;
@@ -76,7 +78,7 @@ let current: string = (() => {
 })();
 let turns: AssistantTurn[] = chats.find((c) => c.id === current)?.turns ?? [];
 
-/** When the ask now out started (ms), or null; and the chat it belongs to. Memory only: a reload loses the job anyway. */
+/** When the ask now out started (ms), or null; and the chat it belongs to. The job itself is kept for a reload (JOB). */
 let busySince: number | null = null;
 let busyChat: string | null = null;
 /** The answer being written (its words so far, what it is doing), and the job to stop it by. Memory only. */
@@ -86,6 +88,10 @@ let jobId: string | null = null;
 let generation = 0;
 /** The server answered an ask with "ask first" (403 consent_required): the sheet shows its permission step. Memory only. */
 let consentNeeded = false;
+/** The chat whose answer was stopped before any words came (the thread says Stopped). Memory only. */
+let stoppedChat: string | null = null;
+/** Two looks in a row at the answer could not reach the server (the thread says it is waiting for a connection). */
+let offline = false;
 /** The chat that was open the last time the sheet failed to draw (see reset). */
 let failed: string | null = null;
 const subs = new Set<() => void>();
@@ -117,6 +123,27 @@ const write = (id: string, next: AssistantTurn[]) => {
   }
   save();
   notify();
+};
+export interface PendingJob {
+  chatId: string;
+  jobId: string;
+  startedAt: number;
+}
+const readJob = (): PendingJob | null => {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(JOB) ?? 'null') as Partial<PendingJob> | null;
+    return v && typeof v.chatId === 'string' && typeof v.jobId === 'string' && typeof v.startedAt === 'number' ? (v as PendingJob) : null;
+  } catch {
+    return null;
+  }
+};
+const writeJob = (j: PendingJob | null) => {
+  try {
+    if (j) sessionStorage.setItem(JOB, JSON.stringify(j));
+    else sessionStorage.removeItem(JOB);
+  } catch {
+    /* private mode: a reload loses the answer, and the thread offers Retry */
+  }
 };
 const turnsOf = (id: string) => (id === current ? turns : (chats.find((c) => c.id === id)?.turns ?? []));
 
@@ -171,10 +198,12 @@ export const assistantStore = {
   setBusy: (since: number | null, chat: string | null = since === null ? null : current) => {
     busySince = since;
     busyChat = chat;
+    offline = false;
     if (since === null) {
       live = null;
       jobId = null;
-    }
+      writeJob(null);
+    } else if (stoppedChat === chat) stoppedChat = null;
     notify();
   },
   live: () => live,
@@ -191,6 +220,27 @@ export const assistantStore = {
   jobId: () => jobId,
   setJob: (id: string | null) => {
     jobId = id;
+    writeJob(id && busyChat && busySince !== null ? { chatId: busyChat, jobId: id, startedAt: busySince } : null);
+  },
+  /** An answer a reload left half read: its chat must still end on the question it answers. */
+  pendingJob: (): PendingJob | null => {
+    const j = readJob();
+    if (!j) return null;
+    const t = turnsOf(j.chatId);
+    if (t[t.length - 1]?.role === 'user') return j;
+    writeJob(null);
+    return null;
+  },
+  stoppedChat: () => stoppedChat,
+  setStopped: (chat: string | null) => {
+    stoppedChat = chat;
+    notify();
+  },
+  offline: () => offline,
+  setOffline: (v: boolean) => {
+    if (offline === v) return;
+    offline = v;
+    notify();
   },
   /** Takes off the last assistant turn (Regenerate asks again without it). */
   dropLastAnswer: () => {
@@ -258,4 +308,6 @@ export const useAssistantLive = () => useSyncExternalStore(assistantStore.subscr
 export const useAssistantChats = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.chats, assistantStore.chats);
 export const useAssistantChatId = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.currentId, assistantStore.currentId);
 export const useAssistantBusyChat = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.busyChat, assistantStore.busyChat);
+export const useAssistantStopped = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.stoppedChat, assistantStore.stoppedChat);
+export const useAssistantOffline = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.offline, assistantStore.offline);
 export const useAssistantConsentNeeded = () => useSyncExternalStore(assistantStore.subscribe, assistantStore.consentNeeded, assistantStore.consentNeeded);

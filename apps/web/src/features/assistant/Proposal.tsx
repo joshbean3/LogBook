@@ -5,6 +5,7 @@ import { useAssistantActions } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
+import { proposalFailure } from './errors';
 import { assistantStore } from './store';
 
 /** What a change is about, for its icon: a workout added, a change to the plan's days, a to-do, a goal. Deletes are flagged. */
@@ -58,7 +59,7 @@ export const ProposalCard = ({ p, waiting }: { p: AssistantProposal; waiting: bo
       assistantStore.setProposal(next.skipped || next.status !== 'dismissed' ? next : { ...next, skipped: p.skipped });
       ok?.();
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'That didn’t go through. Try again.');
+      toast(proposalFailure(e));
     }
   };
   const applied = p.status === 'applied';

@@ -42,7 +42,7 @@ describe('what the assistant is sent', () => {
     ];
     const out = requestTurns(turns, () => undefined);
     expect(out.map((t) => t.role)).toEqual(['user', 'assistant']);
-    expect(out[1]!.text).toBe('Here.\n[Proposed: Delete 2 to-dos Status: applied. He left out: Delete to-do “y”.]');
+    expect(out[1]!.text).toBe('Here.\n[Proposed: Delete 2 to-dos Status: applied. They left out: Delete to-do “y”.]');
   });
 
   it('names the files of a turn whose data is gone (the app was reopened)', () => {
@@ -77,7 +77,7 @@ describe('what the assistant is sent', () => {
     expect(out[1]!.text.startsWith('word word ')).toBe(true);
     expect(out[1]!.text.endsWith('\n[Cut here for length.]\n[Proposed: Add 40 runs Status: applied.]')).toBe(true);
     expect(out[2]!.text.length).toBeLessThanOrEqual(TURN_CHARS);
-    expect(out[2]!.text.endsWith('[He stopped this answer partway.]')).toBe(true);
+    expect(out[2]!.text.endsWith('[They stopped this answer partway.]')).toBe(true);
     expect(zAssistantAsk.safeParse({ date: '2026-11-10', turns: out }).success).toBe(true);
   });
 

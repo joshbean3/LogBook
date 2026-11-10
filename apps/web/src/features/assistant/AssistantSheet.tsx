@@ -31,7 +31,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { askAssistant, stopAssistant, useBootstrap } from '@/api/queries';
+import { onUnauthorized } from '@/api/client';
+import { useBootstrap } from '@/api/queries';
 import { AI_LABEL, DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
@@ -40,15 +41,16 @@ import { useToday } from '@/lib/useToday';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
+import { askAssistant, stopAssistant, waitForJob } from './api';
 import { AttachError, prepareFile, type PreparedFile } from './attach';
-import { editTurn, regenerate, retryAsk, sendTurn, stopAsk } from './conversation';
+import { editTurn, regenerate, resumeAsk, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
 import { attachNoteSeen, markAttachNoteSeen } from './attachNote';
 import { HistoryPanel } from './History';
 import { plainOf } from './plain';
 import { AssistantPermission, useAssistantGate } from './Permission';
 import { ProposalCard } from './Proposal';
 import { Rich } from './Rich';
-import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantTurns } from './store';
+import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantStopped, useAssistantTurns } from './store';
 import './assistant.css';
 
 /** The files a turn carried, as the thread shows them: a photo's preview, a PDF's name. */
@@ -119,20 +121,6 @@ const useSmoothText = (target: string) => {
   return target.slice(0, Math.min(n, target.length));
 };
 
-/** A soft tick as the words land (ChatGPT's feel on iPhone): at most one every 110 ms, only while new words appear. */
-const useWordTicks = (text: string) => {
-  const words = text ? text.split(/\s+/).length : 0;
-  const last = useRef({ words, at: 0 });
-  useEffect(() => {
-    const now = performance.now();
-    if (words > last.current.words && now - last.current.at > 110) {
-      haptics.tick();
-      last.current.at = now;
-    }
-    last.current.words = words;
-  }, [words]);
-};
-
 /**
  * How it got to the answer (Claude's and ChatGPT's fold above a reply): "Thought for 7s ›" opens the steps it took
  * ("Read your plan, Nov 2 to Nov 8") and its reasoning. Nothing shows for an answer that took no time and no steps.
@@ -174,7 +162,7 @@ const Process = ({ thoughts, seconds, steps }: { thoughts?: string; seconds?: nu
 const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null }) => {
   const secs = useSeconds(since);
   const text = useSmoothText(live?.text ?? '');
-  useWordTicks(text);
+  const offline = useAssistantOffline();
   const [open, setOpen] = useState(false);
   const phase = live?.phase ?? 'thinking';
   const writing = text.length > 0;
@@ -200,7 +188,8 @@ const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null
             </p>
           ))}
           {open && live?.thoughts ? <p className="as-thought-text">{live.thoughts}</p> : lastThought ? <p className="as-thought-line">{lastThought}</p> : null}
-          {secs >= 20 ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+          {offline ? <p className="as-slow">Waiting for a connection.</p> : null}
+          {secs >= 20 && !offline ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
         </div>
       )}
       {writing ? (
@@ -449,6 +438,15 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
   const picker = useRef<HTMLInputElement>(null);
   const bodyOf = () => root.current?.closest<HTMLElement>('.sheet-body') ?? null;
 
+  // an answer a reload interrupted carries on (or says it is gone, with Retry)
+  useEffect(() => void resumeAsk(waitForJob, stopAssistant), []);
+  // signed out mid-chat: the app goes to sign in, so the sheet closes
+  useEffect(() => {
+    const fn = () => sheet.close();
+    onUnauthorized.add(fn);
+    return () => void onUnauthorized.delete(fn);
+  }, [sheet]);
+
   const pushed = useRef(false);
   useHeader(() => {
     pushed.current = true;
@@ -578,10 +576,10 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
     if (field.current) field.current.style.height = '';
     if (editing !== null) {
       setEditing(null);
-      void editTurn(askAssistant, askDate, screen, editing, t);
+      void editTurn(askAssistant, askDate, screen, editing, t, stopAssistant);
       return;
     }
-    void sendTurn(askAssistant, askDate, screen, t, { shown: files.length ? files.map((f) => f.shown) : undefined, data: files.map((f) => f.file) });
+    void sendTurn(askAssistant, askDate, screen, t, { shown: files.length ? files.map((f) => f.shown) : undefined, data: files.map((f) => f.file) }, stopAssistant);
   };
   const startEdit = (i: number) => {
     setEditing(i);
@@ -611,7 +609,7 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
           <CircleAlert size={16} className="as-error-ic" aria-hidden="true" />
           <p>{t.text}</p>
           {i === turns.length - 1 && !busyAnywhere ? (
-            <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen)}>
+            <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen, stopAssistant)}>
               <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
             </button>
           ) : null}
@@ -625,13 +623,16 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
             </div>
           ) : null}
           {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
-          <AnswerActions t={t} index={i} newest={i === newestAnswer && !busyAnywhere} speaker={speaker} onRegenerate={() => void regenerate(askAssistant, askDate, screen)} />
+          <AnswerActions t={t} index={i} newest={i === newestAnswer && !busyAnywhere} speaker={speaker} onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant)} />
         </>
       )}
     </div>
   );
 
   const empty = turns.length === 0 && !busy;
+  const stoppedHere = useAssistantStopped() === chatId;
+  // an answer being written in another chat: one line over the composer, and a way there
+  const elsewhere = busyAnywhere && !busy && busyChat !== null;
   const ScreenIcon = screen ? SCREEN_ICON[screen.tab] : null;
   const canSend = (draft.trim() || pending.length) && !preparing && !busyAnywhere;
 
@@ -664,6 +665,16 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
                 </div>
               ) : null}
               {busy && busySince !== null ? <LiveAnswer since={busySince} live={live} /> : null}
+              {last?.role === 'user' && !busy ? (
+                <div className="as-turn is-assistant as-noanswer">
+                  <p className="as-noanswer-text">{stoppedHere ? 'Stopped' : busyAnywhere ? 'Waiting for the other chat to finish.' : 'No answer.'}</p>
+                  {!busyAnywhere ? (
+                    <button type="button" className="as-retry" onClick={() => void runAsk(askAssistant, askDate, screen, Date.now, stopAssistant)}>
+                      <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </>
         )}
@@ -684,6 +695,13 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
               Review changes<span className="sr-only"> ({waitingCount})</span>
             </span>
             <ChevronUp size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : null}
+        {elsewhere ? (
+          <button type="button" className="as-elsewhere" onClick={() => assistantStore.open(busyChat!)}>
+            <Orb size={16} state="think" className="as-orb" />
+            <span>Answering in another chat</span>
+            <ChevronRight size={15} strokeWidth={2.4} aria-hidden="true" />
           </button>
         ) : null}
         {empty && !draft && !pending.length ? (

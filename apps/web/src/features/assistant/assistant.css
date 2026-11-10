@@ -1013,6 +1013,39 @@
   font: 600 var(--fs-sub) / 1 var(--sans);
 }
 
+/* a question with no answer under it (stopped before any words, or the app closed while it was written) */
+.as-noanswer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.as-noanswer-text {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.as-noanswer .as-retry {
+  margin-top: 0;
+}
+/* an answer being written in another chat: one line over the composer that goes there */
+.as-elsewhere {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-elsewhere svg {
+  color: var(--ink-3);
+}
 
 /* ---------- a proposal: one card; the summary, a row per change, the decision ---------- */
 .card.as-proposal {

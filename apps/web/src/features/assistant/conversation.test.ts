@@ -1,7 +1,7 @@
 import type { AssistantReply } from '@logbook/shared';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { ApiError, NetworkError } from '@/api/client';
-import { editTurn, regenerate, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
+import { editTurn, regenerate, resumeAsk, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
 import { AskError } from './poll';
 import { assistantStore } from './store';
 
@@ -17,7 +17,7 @@ describe('a conversation with the assistant', () => {
   it('sends the turns and the screen, and keeps the suggested replies with the answer (three at most)', async () => {
     const ask = vi.fn(async () => reply({ replies: ['Move Thursday', 'And next week?', 'Shorter long run', 'Extra'] }));
     await sendTurn(ask, '2026-11-08', { tab: 'plan', week: '2026-11-09' }, 'What is left?', none);
-    expect(ask).toHaveBeenCalledWith('2026-11-08', [{ role: 'user', text: 'What is left?' }], { tab: 'plan', week: '2026-11-09' }, { onJob: expect.any(Function), onProgress: expect.any(Function) });
+    expect(ask).toHaveBeenCalledWith('2026-11-08', [{ role: 'user', text: 'What is left?' }], { tab: 'plan', week: '2026-11-09' }, { onJob: expect.any(Function), onProgress: expect.any(Function), onConnection: expect.any(Function) });
     expect(assistantStore.get()[1]).toEqual({ role: 'assistant', text: 'Two runs left.', proposal: null, replies: ['Move Thursday', 'And next week?', 'Shorter long run'] });
     expect(assistantStore.busySince()).toBeNull();
   });
@@ -111,6 +111,63 @@ describe('a conversation with the assistant', () => {
     const early = vi.fn(async () => Promise.reject(new AskError('Stopped.', 499, 'stopped')));
     await sendTurn(early, '2026-11-08', undefined, 'Plan my month', none);
     expect(assistantStore.get()).toHaveLength(1);
+    // the thread says Stopped under the question, until it is asked again
+    expect(assistantStore.stoppedChat()).toBe(assistantStore.currentId());
+    await runAsk(vi.fn(async () => reply()), '2026-11-08', undefined);
+    expect(assistantStore.stoppedChat()).toBeNull();
+  });
+
+  it('an answer that took too long is stopped on the server too, and says so in plain words', async () => {
+    const stop = vi.fn(async () => ({ stopped: true }));
+    const slow = vi.fn(async (_d: unknown, _t: unknown, _s: unknown, watch?: { onJob?: (id: string) => void }) => {
+      watch?.onJob?.('aj9');
+      throw new AskError('This is taking longer than it should.', 504, 'too_slow');
+    });
+    await sendTurn(slow, '2026-11-08', undefined, 'Plan my year', none, stop);
+    expect(stop).toHaveBeenCalledWith('aj9');
+    expect(assistantStore.get()[1]).toMatchObject({ error: true, text: expect.stringMatching(/taking longer than it should/) });
+  });
+
+  it('a server with no assistant (available: false) gives a failure with Retry, never a saved answer', async () => {
+    await sendTurn(vi.fn(async () => ({ text: 'The assistant needs a Claude key on the server (ANTHROPIC_API_KEY).', proposal: null, available: false })), '2026-11-08', undefined, 'hi', none);
+    expect(assistantStore.get()[1]).toEqual({ role: 'assistant', text: 'That didn’t go through. The assistant is not available right now. Try again later.', error: true });
+  });
+
+  it('signed out mid-ask: no failure card, the question waits for Retry', async () => {
+    await sendTurn(vi.fn(async () => Promise.reject(new ApiError('Sign in to continue', 401, 'unauthenticated'))), '2026-11-08', undefined, 'hi', none);
+    expect(assistantStore.get()).toEqual([{ role: 'user', text: 'hi' }]);
+  });
+
+  it('after a reload, carries on reading the answer that was being written; one that is gone says so', async () => {
+    const box = new Map<string, string>();
+    vi.stubGlobal('sessionStorage', { getItem: (k: string) => box.get(k) ?? null, setItem: (k: string, v: string) => box.set(k, v), removeItem: (k: string) => box.delete(k) });
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+      assistantStore.setBusy(null);
+    });
+    let finish!: (r: AssistantReply) => void;
+    const ask = vi.fn((_d: unknown, _t: unknown, _s: unknown, watch?: { onJob?: (id: string) => void }) => {
+      watch?.onJob?.('aj5');
+      return new Promise<AssistantReply>((r) => (finish = r));
+    });
+    const chat = assistantStore.currentId();
+    void sendTurn(ask, '2026-11-08', undefined, 'Plan my week', none);
+    expect(assistantStore.pendingJob()).toMatchObject({ chatId: chat, jobId: 'aj5' });
+    // the page goes away mid-answer: memory is lost, the job is not
+    assistantStore.setBusy(null);
+    sessionStorage.setItem('logbook.assistant.job', JSON.stringify({ chatId: chat, jobId: 'aj5', startedAt: 1 }));
+    const wait = vi.fn(async () => reply({ text: 'Your week.' }));
+    await resumeAsk(wait);
+    expect(wait).toHaveBeenCalledWith('aj5', expect.anything());
+    expect(assistantStore.get().map((t) => t.text)).toEqual(['Plan my week', 'Your week.']);
+    expect(assistantStore.pendingJob()).toBeNull();
+    finish(reply());
+
+    assistantStore.clear();
+    assistantStore.push({ role: 'user', text: 'Again' });
+    sessionStorage.setItem('logbook.assistant.job', JSON.stringify({ chatId: assistantStore.currentId(), jobId: 'gone', startedAt: 1 }));
+    await resumeAsk(vi.fn(async () => Promise.reject(new AskError('That answer is no longer here (the server may have restarted).', 404, 'job_gone'))));
+    expect(assistantStore.get()[1]).toMatchObject({ error: true, text: 'That didn’t go through. Something went wrong on our side. Try again.' });
   });
 
   it('Ask again takes the last answer off and sends the same question', async () => {
@@ -144,7 +201,7 @@ describe('a conversation with the assistant', () => {
     expect(assistantStore.get()[1]).toEqual({ role: 'assistant', text: 'Here it is.' });
     assistantStore.clear();
     await sendTurn(vi.fn(async () => ({ available: true }) as unknown as AssistantReply), '2026-11-10', undefined, 'hi', none);
-    expect(assistantStore.get()[1]).toEqual({ role: 'assistant', text: 'That didn’t go through. Try again.', error: true });
+    expect(assistantStore.get()[1]).toEqual({ role: 'assistant', text: 'That didn’t go through. Something went wrong on our side. Try again.', error: true });
     assistantStore.clear();
     await sendTurn(vi.fn(async () => null as unknown as AssistantReply), '2026-11-10', undefined, 'hi', none);
     expect(assistantStore.get()[1]).toMatchObject({ role: 'assistant', error: true });
