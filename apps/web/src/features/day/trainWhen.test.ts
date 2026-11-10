@@ -1,6 +1,10 @@
+import { MORNING_DEFAULTS, type Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { afternoonStops, DEFAULT_AFTERNOON, faceForWhen, sessionMinutes } from './trainWhen';
-import type { Face } from './faces';
+import { buildSnapshot } from '@/api/snapshot';
+import type { MonthBundle } from '@/api/types';
+import type { Log } from '../log/useLog';
+import { afternoonStops, DEFAULT_AFTERNOON, faceForWhen, phaseForWhen, sessionMinutes, whenFace, type TrainWhen } from './trainWhen';
+import { phaseOf, type Face } from './faces';
 
 describe('when you train', () => {
   it('builds the afternoon from the end of work, the way home and the run’s length', () => {
@@ -27,5 +31,100 @@ describe('when you train', () => {
   it('never touches a rest day', () => {
     const rest = { ...face, lead: undefined } as unknown as Face;
     expect(faceForWhen(rest, 'afternoon', DEFAULT_AFTERNOON, 540)).toBe(rest);
+  });
+});
+
+/*
+ * today-top-02: the choice feeds the day's phase. MORNING_DEFAULTS puts the morning's door at 7:35 and its back at 8:21 for
+ * Easy 4; the default afternoon is off work 5:30, run 6:10, back 6:46 (4 mi at 9:00), dinner 7:16.
+ */
+describe('the phase follows when you train', () => {
+  const FRI = '2026-10-23';
+  const run = (over: Partial<Session> = {}): Session => ({ id: 's1', date: FRI, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null, blockId: null, movedFrom: null, mark: null, ...over });
+  const logOf = (sessions: Session[]): Log => {
+    const b: MonthBundle = { month: '2026-10', sessions, checks: [], lifts: [], activities: [], morningDays: {}, journal: [], coach: [] };
+    return { today: FRI, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks: [] } as unknown as Log['boot'], habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap: buildSnapshot({ '2026-10': b }, FRI), ready: true, loading: false, loaded: () => true } as Log;
+  };
+  const open = logOf([run()]);
+  const at = (h: number, m = 0) => h * 60 + m;
+  const kind = (log: Log, when: TrainWhen, minutes: number) => whenFace(log, FRI, minutes, when, DEFAULT_AFTERNOON).face.kind;
+
+  it('Morning: before the door, the open face at noon, the Close card at 18:05 (as before)', () => {
+    expect(kind(open, 'morning', at(7))).toBe('morning');
+    expect(kind(open, 'morning', at(7, 40))).toBe('out');
+    expect(kind(open, 'morning', at(12))).toBe('open');
+    expect(kind(open, 'morning', at(18, 5))).toBe('evening');
+    // the wrapper hands the shared phase back untouched
+    const ph = phaseOf(open, FRI, at(7));
+    expect(phaseForWhen(ph, 'morning', DEFAULT_AFTERNOON, 540)).toBe(ph);
+  });
+
+  it('Afternoon: never the morning OUT face; the afternoon line until the run', () => {
+    for (const m of [at(7), at(7, 10), at(7, 40), at(12), at(18, 5)]) {
+      const { face, ph } = whenFace(open, FRI, m, 'afternoon', DEFAULT_AFTERNOON);
+      expect(face.kind).toBe('later');
+      expect(face.eyebrow).not.toBe('OUT');
+      expect(face.line).toBe('Run at 6:10');
+      expect(face.stops?.map((s) => s.label)).toEqual(['Off work', 'Run', 'Back', 'Dinner']);
+      expect(face.ring).toBeNull();
+      // no morning door left to count down to
+      expect(ph.doorAt).toBe(18 * 60 + 10);
+    }
+  });
+
+  it('Afternoon: the evening card waits until the session is past or marked', () => {
+    // 18:05, five minutes before the run: still the session's card
+    expect(kind(open, 'afternoon', at(18, 5))).not.toBe('evening');
+    // out from Run to Back, on the afternoon's own times, with no "Leave" under it
+    const out = whenFace(open, FRI, at(18, 20), 'afternoon', DEFAULT_AFTERNOON).face;
+    expect(out.kind).toBe('out');
+    expect(out.line).toBe('Back by 6:46');
+    expect(out.out?.sub).toBeNull();
+    // back, not yet dinner: the open face and its ring, nothing over it
+    const back = whenFace(open, FRI, at(19), 'afternoon', DEFAULT_AFTERNOON).face;
+    expect(back.kind).toBe('open');
+    expect(back.ring).toBe('open');
+    expect(back.stops).toBeUndefined();
+    // past dinner: the day closes
+    expect(kind(open, 'afternoon', at(19, 20))).toBe('evening');
+    // marked done at 18:05: the day closes at once
+    expect(kind(logOf([run({ mark: 'done' })]), 'afternoon', at(18, 5))).toBe('evening');
+    expect(kind(logOf([run({ mark: 'skip' })]), 'afternoon', at(18, 5))).toBe('evening');
+  });
+
+  it('No set time: the open face all day, never OUT, the Close card from 18:00 with the session still in it', () => {
+    for (const m of [at(7), at(7, 40), at(12)]) {
+      const { face, ph } = whenFace(open, FRI, m, 'none', DEFAULT_AFTERNOON);
+      expect(face.kind).toBe('open');
+      expect(face.status).toBe('Any time today');
+      expect(face.ring).toBe('open');
+      expect(face.stops).toBeUndefined();
+      expect(ph.doorAt).toBeUndefined();
+      expect(ph.backBy).toBeUndefined();
+    }
+    const eve = whenFace(open, FRI, at(18, 5), 'none', DEFAULT_AFTERNOON);
+    expect(eve.face.kind).toBe('evening');
+    // the Close card's run row reads this list: the open session is still there to mark
+    expect(eve.ph.training.map((p) => p.key)).toEqual(['today']);
+  });
+
+  it('a settled session keeps its own face whatever the choice', () => {
+    for (const when of ['afternoon', 'none'] as const) {
+      const done = whenFace(logOf([run({ mark: 'done' })]), FRI, at(12), when, DEFAULT_AFTERNOON).face;
+      expect(done.kind).toBe('doneHand');
+      expect(done.stops).toBeUndefined();
+      const skipped = whenFace(logOf([run({ mark: 'skip' })]), FRI, at(12), when, DEFAULT_AFTERNOON).face;
+      expect(skipped.kind).toBe('skipped');
+      expect(skipped.stopsKind).toBeUndefined();
+    }
+  });
+
+  it('another day keeps the shared phase; its plan line says when', () => {
+    const next = logOf([run({ id: 's2', date: '2026-10-24' })]);
+    const f = whenFace(next, '2026-10-24', at(12), 'afternoon', DEFAULT_AFTERNOON);
+    expect(f.ph.phase).toBe('future');
+    expect(f.face.kind).toBe('planned');
+    expect(f.face.line).toBe('Run at 6:10');
+    expect(whenFace(next, '2026-10-24', at(12), 'none', DEFAULT_AFTERNOON).face.line).toBe('Any time that day');
   });
 });

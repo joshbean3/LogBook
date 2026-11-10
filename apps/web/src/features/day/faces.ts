@@ -11,7 +11,8 @@ import type { Stop } from './MiniTimeline';
  * hero only draws it and a test can read every face. Every face is 184 tall but the landed one with a route (304) and the
  * evening's Close card; only the deck's content differs between them.
  */
-export type FaceKind = 'morning' | 'out' | 'open' | 'landed' | 'doneHand' | 'skipped' | 'missed' | 'rest' | 'restMorning' | 'planned' | 'evening';
+/** `later`: today's session with the afternoon's line, before it starts (trainWhen.ts). */
+export type FaceKind = 'morning' | 'later' | 'out' | 'open' | 'landed' | 'doneHand' | 'skipped' | 'missed' | 'rest' | 'restMorning' | 'planned' | 'evening';
 export type Halo = 'done' | 'floor' | 'missed' | 'upcoming' | 'rest';
 
 export interface NextUp {
@@ -345,11 +346,10 @@ export const secondOf = (ph: DayPhase, lead: PhaseSession | null): PhaseSession 
  * The face the day showed before its run arrived (§6.1): the same day with that date's activities hidden. The run landing
  * shows it while it waits to be seen and through stages 1 and 2 (the open face's ring filling and becoming the check).
  */
-export const preLandingFace = (log: Log, date: ISODate, minutes: number): Face => {
+export const preLandingFace = (log: Log, date: ISODate, minutes: number, face: (l: Log) => Face = (l) => faceOf(l, date, phaseOf(l, date, minutes))): Face => {
   const s = log.snap;
   const snap = { ...s, activitiesOn: (d: string) => (d === date ? [] : s.activitiesOn(d)), runsOn: (d: string) => (d === date ? [] : s.runsOn(d)) };
-  const without = { ...log, snap } as Log;
-  return faceOf(without, date, phaseOf(without, date, minutes));
+  return face({ ...log, snap } as Log);
 };
 
 /** The coach's read as the hero says it (§3.2): its first sentence. */

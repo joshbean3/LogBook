@@ -17,7 +17,7 @@ import { ShareSheet } from '../share/ShareSheet';
 import { isPagerMoving, useIsLive } from './live';
 import { afterPaint, swallowNextClick } from './release';
 import { CloseDay } from './CloseDay';
-import { faceOf, heroLead, phaseOf, preLandingFace, secondOf, withMark, type Face } from './faces';
+import { heroLead, phaseOf, preLandingFace, secondOf, withMark, type Face } from './faces';
 import { HoldRing, MORPH_MS } from './HoldRing';
 import { refusedMark } from './marks';
 import { sessionMiles, weekMiles } from './miles';
@@ -28,7 +28,7 @@ import { useDeferredMinutes, useFaceMinutes } from './useDeferred';
 
 /** The shared element between the hero's four-stop line and This morning's Now card (contracts §F). */
 import { HeroGauge } from './HeroGauge';
-import { faceForWhen, sessionMinutes, useAfternoon, useTrainWhen } from './trainWhen';
+import { sessionMinutes, useAfternoon, useTrainWhen, whenFace } from './trainWhen';
 import { AfternoonSheet, WhenPill } from './WhenPill';
 
 export const morningLineId = (date: ISODate) => `morning-line-${date}`;
@@ -335,17 +335,15 @@ export const Hero = memo(function Hero({ date, log: real }: { date: ISODate; log
   const { log, markNow } = useMarkOverride(real, date);
   // the clock's face changes wait for an interaction or idle (§5.3, useDeferred); a minute that keeps the face ticks at once
   const clock = useFaceMinutes();
+  // when the day's training happens (Morning / Afternoon / No time, chosen on the card): the phase and the face follow it
+  const when = useTrainWhen(date);
+  const pm = useAfternoon();
   const keyOf = (m: number) => {
-    const f = faceOf(log, date, phaseOf(log, date, m));
+    const f = whenFace(log, date, m, when, pm).face;
     return `${f.kind}|${f.key}|${f.halo}|${f.tall}`;
   };
   const minutes = useDeferredMinutes(clock, keyOf);
-  const ph = useMemo(() => phaseOf(log, date, minutes), [log, date, minutes]);
-  // when the day's training happens (Morning / Afternoon / None, chosen on the card): the face follows it
-  const when = useTrainWhen(date);
-  const pm = useAfternoon();
-  const pace = log.boot?.morningSettings?.run.pace;
-  const face = useMemo(() => faceForWhen(faceOf(log, date, ph), when, pm, pace), [log, date, ph, when, pm, pace]);
+  const { ph, face } = useMemo(() => whenFace(log, date, minutes, when, pm), [log, date, minutes, when, pm]);
   const evening = face.kind === 'evening';
   const openSession = useOpenSession(log);
   // the Close card is the one face that is not the 184 card: the two crossfade (150 ms) in the hero's slot
@@ -370,7 +368,9 @@ const DayHero = ({ date, log, ph, face: dayFace, minutes, markNow }: { date: ISO
   const isToday = date === log.today;
   const hero = useRef<HTMLElement | null>(null);
   // the face from before today's run, for the landing to wait on and play stages 1–2 from (cheap: only when it may be needed)
-  const pre = useMemo(() => (isToday && dayFace.kind === 'landed' ? preLandingFace(log, date, minutes) : dayFace), [isToday, dayFace, log, date, minutes]);
+  const when = useTrainWhen(date);
+  const pm = useAfternoon();
+  const pre = useMemo(() => (isToday && dayFace.kind === 'landed' ? preLandingFace(log, date, minutes, (l) => whenFace(l, date, minutes, when, pm).face) : dayFace), [isToday, dayFace, log, date, minutes, when, pm]);
   const landing = useStravaLanding({ date, log, face: dayFace, pre, hero });
   const face = landing.show;
   const lead = face.lead;
