@@ -227,20 +227,21 @@ const sentToday = (db: DB, userId: string, today: ISODate): number => {
   return v && v.date === today && typeof v.n === 'number' ? v.n : 0;
 };
 
-const summaryFor = async (db: DB, userId: string, c: RecallCandidate, today: ISODate): Promise<string> => {
+const summaryFor = async (db: DB, userId: string, c: RecallCandidate, today: ISODate): Promise<{ summary: string; ai: boolean }> => {
+  const plain = () => ({ summary: fallbackSummary(c, today), ai: false });
   // the person's switch: off (or never asked) means the plain line, and no journal or learning text leaves the server
-  if (!mayWriteRecall(db, userId)) return fallbackSummary(c, today);
+  if (!mayWriteRecall(db, userId)) return plain();
   const fresh = c.summary && c.summarizedAt && (!c.editedAt || c.summarizedAt >= c.editedAt);
-  if (fresh) return c.summary!;
+  if (fresh) return { summary: c.summary!, ai: true };
   const k = `${userId}|${keyOf(c)}`;
   const failed = failedAt.get(k);
-  if (failed && Date.now() - failed < RETRY_MS) return fallbackSummary(c, today);
+  if (failed && Date.now() - failed < RETRY_MS) return plain();
   let job = inflight.get(k);
   if (!job) {
-    if (!claude()) return fallbackSummary(c, today);
+    if (!claude()) return plain();
     // one a day: Another and Hide show a stored summary or the plain line once today's one has gone
     const sent = sentToday(db, userId, today);
-    if (sent >= RECALL.sendsPerDay) return fallbackSummary(c, today);
+    if (sent >= RECALL.sendsPerDay) return plain();
     // counted before the call: a send that fails still sent the text
     writeSetting(db, userId, SENT_KEY, { date: today, n: sent + 1 });
     const name = db.select({ name: users.name }).from(users).where(eq(users.id, userId)).get()?.name?.trim().split(/\s+/)[0] || null;
@@ -250,11 +251,11 @@ const summaryFor = async (db: DB, userId: string, c: RecallCandidate, today: ISO
   const text = await job;
   if (!text) {
     if (claude()) failedAt.set(k, Date.now());
-    return fallbackSummary(c, today);
+    return plain();
   }
   failedAt.delete(k);
   upsertMeta(db, userId, c.kind, c.id, { summary: text, summarizedAt: nowISO() });
-  return text;
+  return { summary: text, ai: true };
 };
 
 /** Forget the failure memory (tests). */
@@ -263,7 +264,7 @@ export const resetRecallMemory = () => {
   failedAt.clear();
 };
 
-const toItem = (c: RecallCandidate, summary: string): RecallItem => ({ kind: c.kind, id: c.id, date: c.date, excerpt: c.text.slice(0, RECALL.excerpt), summary, boosted: c.boost });
+const toItem = (c: RecallCandidate, { summary, ai }: { summary: string; ai: boolean }): RecallItem => ({ kind: c.kind, id: c.id, date: c.date, excerpt: c.text.slice(0, RECALL.excerpt), summary, ai, boosted: c.boost });
 
 /**
  * Today's reminder. `another`: a different one than the one showing (the same one comes back when nothing else is

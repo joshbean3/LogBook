@@ -182,6 +182,24 @@ describe('GET /journal/recall', () => {
     expect(db.select().from(recallItems).all()[0]!.summary).toBe('On that day you wrote about entry zero.');
   });
 
+  it('says whether the line is the assistant’s (ai true) or the plain fallback (ai false)', async () => {
+    await seed(1);
+    // no key: the plain line
+    expect((await call('GET', '/api/journal/recall')).body.item).toMatchObject({ ai: false });
+    newDay();
+    fakeClaude('On that day you wrote about entry zero.');
+    expect((await call('GET', '/api/journal/recall')).body.item).toMatchObject({ summary: 'On that day you wrote about entry zero.', ai: true });
+    // the stored line, read back with no client at all, is still the assistant’s
+    setRecallClient(null);
+    newDay();
+    expect((await call('GET', '/api/journal/recall')).body.item).toMatchObject({ summary: 'On that day you wrote about entry zero.', ai: true });
+    // the switch off: the plain line again, never the stored one
+    writeConsent(db, userId, { recall: false });
+    const off = (await call('GET', '/api/journal/recall')).body.item;
+    expect(off.ai).toBe(false);
+    expect(off.summary).toBe(fallbackSummary({ kind: 'journal', date: off.date, text: 'Entry number 0. More words after.' }, today()));
+  });
+
   it('brings back another, boosts, hides with undo', async () => {
     await seed(3);
     const first = (await call('GET', '/api/journal/recall')).body.item;
