@@ -23,6 +23,8 @@ public class LogbookHealthPlugin: CAPPlugin, CAPBridgedPlugin {
     override public func load() {
         // the engine's progress reaches the web view as `healthSync` events while it is open
         Task {
+            // a token left in the Keychain by an earlier install belongs to nobody on this one
+            await HealthSync.shared.dropLeftoverToken()
             await HealthSync.shared.setListener { [weak self] event in
                 self?.notifyListeners("healthSync", data: event)
             }
@@ -55,7 +57,7 @@ public class LogbookHealthPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// The token from POST /api/apple-health/connect goes into the Keychain; the import starts on the next sync.
+    /// The token from POST /api/apple-health/connect goes into the Keychain; the first read starts on the next sync.
     @objc public func connect(_ call: CAPPluginCall) {
         guard let token = call.getString("token"), let origin = call.getString("apiOrigin") else {
             return call.reject("connect needs a token and the API origin")

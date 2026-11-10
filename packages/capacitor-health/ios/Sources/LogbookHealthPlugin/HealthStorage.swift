@@ -6,16 +6,10 @@ struct HealthSyncState: Codable {
     var connected = false
     var apiOrigin: String?
     var payloadVersion = 0
-    /// The first day the import reads (a year back unless Settings says otherwise).
+    /// The first day the engine reads (a year back unless Settings says otherwise).
     var historyFrom: Date?
     /// One archived HKQueryAnchor per anchored type: the read anchor (it moves as soon as a page is safely on disk).
     var anchors: [String: Data] = [:]
-    /// The start of the next month to import, going backwards; nil once the import reached `historyFrom`.
-    var importCursor: Date?
-    /// Days whose sums must be worked out again (yyyy-MM-dd), saved together with the anchor that found them.
-    var dirtyDays: [String] = []
-    /// The time zone each day was first summed in: a later trip never re-cuts a day spent elsewhere.
-    var dayZones: [String: String] = [:]
     var lastReconcile: Date?
     var lastSyncAt: Date?
     var lastError: String?
@@ -67,6 +61,9 @@ final class HealthStorage {
     }
 
     // ---------- state ----------
+    /// Whether this install has a state file, readable or not. A fresh install has none.
+    var hasState: Bool { fm.fileExists(atPath: stateURL.path) }
+
     func loadState() throws -> HealthSyncState {
         guard fm.fileExists(atPath: stateURL.path) else { return HealthSyncState() }
         guard let data = try? Data(contentsOf: stateURL) else { throw HealthStorageError.locked }
@@ -108,17 +105,22 @@ final class HealthStorage {
         try? fm.moveItem(at: url, to: to)
     }
 
-    /// Disconnect: the queue, the dead letters and the state all go.
-    func wipe() {
+    /// Empties the upload queue and the dead letters. The state stays.
+    func clearQueue() {
         for dir in [queueDir, deadDir] {
             for f in (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] { try? fm.removeItem(at: f) }
         }
+    }
+
+    /// Disconnect: the queue, the dead letters and the state all go.
+    func wipe() {
+        clearQueue()
         try? fm.removeItem(at: stateURL)
     }
 }
 
-/// The device token, in the Keychain: readable after the first unlock (background deliveries come while the phone is
-/// locked), never copied to another phone.
+/// The device token, in the Keychain: readable after the first unlock, never copied to another phone. Keychain items
+/// outlive the app (they stay after an uninstall), so `HealthSync.dropLeftoverToken()` clears one the app no longer owns.
 enum HealthKeychain {
     private static let service = "app.logbook.health"
     private static let account = "device-token"
