@@ -32,7 +32,9 @@ export const groupsOn = (todos: Todo[] | undefined, date: ISODate): TodoGroupSpe
   const all = liveOn(todos, date);
   const open = all.filter((x) => x.doneOn !== date);
   return [
-    { key: 'today', items: open.filter((x) => inToday(x, date)).sort(byPriority), sort: byPriority, tier: 'priority' },
+    // the day's list is in the order it was put in by hand (Today's top three are its first three); a flag is a label
+    // on a row, never its place, so moving a row leaves its priority alone
+    { key: 'today', items: open.filter((x) => inToday(x, date)).sort(byPosition), sort: byPosition, tier: 'none' },
     { key: 'later', items: open.filter((x) => x.bucket === 'later' && !inToday(x, date)).sort(byDue), sort: byDue, tier: 'due' },
     { key: 'someday', items: open.filter((x) => x.bucket === 'someday').sort(byPriority), sort: byPriority, tier: 'priority' },
     { key: 'done', items: all.filter((x) => x.doneOn === date).sort(byPosition), sort: byPosition, tier: 'none' },

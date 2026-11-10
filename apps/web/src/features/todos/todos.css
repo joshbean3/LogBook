@@ -79,7 +79,7 @@
 .tdl-row.is-done .tdl-name {
   color: var(--ink-3);
   text-decoration: line-through;
-  text-decoration-color: var(--ink-4);
+  text-decoration-color: var(--ink-faint, var(--ink-4));
 }
 .tt-aside {
   color: var(--ink-3);
@@ -117,11 +117,15 @@
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
-/* the add row become the field, in the same 44 box */
+/* the add row become the field, in the same 44 box. It is a size container: what the field understood sits beside the
+   words where there is room, and drops to a line of its own under them in a narrow field (never wider than the field) */
 .tt-field {
+  container-type: inline-size;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  column-gap: 8px;
+  min-width: 0;
   min-height: 44px;
   padding: 0 16px;
 }
@@ -150,9 +154,21 @@
   color: var(--ink-3);
 }
 .tt-hint {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
   color: var(--ink-3);
   white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@container (max-width: 17rem) {
+  .tt-hint {
+    flex: 0 0 100%;
+    max-width: 100%;
+    margin-top: -4px;
+    padding-bottom: 8px;
+  }
 }
 
 /* the mark: 22, radius 6, a 44 hit; filled and checked on the tap's frame */
@@ -254,16 +270,23 @@
   overflow-wrap: anywhere;
 }
 .is-done .trow-note {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
-/* priority: white dots, one for medium, two for high; never a colour */
-/* on the first line of the name: 22px line, 6px dot, 8px down */
+/* priority: a flag in its level's colour with its number beside it (1, 2 or 3), so it reads without the colour */
 .prio {
   display: inline-flex;
   align-items: center;
+  gap: 1px;
   flex: none;
   align-self: center;
+  white-space: nowrap;
+}
+/* the number: the flag's colour deepened with ink, so it holds 4.5:1 on white at this size */
+.prio-n {
+  font: 700 var(--fs-caps) / 1 var(--stamp);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, currentColor 55%, var(--ink));
 }
 /* stored 3 = P1, 2 = P2, 1 = P3 */
 .prio-3 {
@@ -276,7 +299,7 @@
   color: var(--prio-3);
 }
 .is-done .prio {
-  color: var(--ink-4);
+  color: var(--ink-faint, var(--ink-4));
 }
 .seg-prio {
   display: inline-flex;
@@ -387,6 +410,8 @@
 }
 .tsheet-field {
   display: grid;
+  /* one column the width of the card: a long chip shortens inside it, it never makes the card wider */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
   padding: var(--pad-card);
@@ -420,6 +445,12 @@
   flex: 1 1 0;
   justify-content: center;
 }
+/* Today, Later, Someday hold one row on a 320 pt screen */
+@media (max-width: 359px) {
+  .tsheet-when:not(.tsheet-lists) .chip-btn {
+    padding: 0 8px;
+  }
+}
 .tsheet-date {
   color-scheme: dark;
 }
@@ -435,6 +466,11 @@
 }
 .tsheet-move .t-sub {
   margin-left: 4px;
+}
+/* the arrows are full 44 targets (the shared icon button is 40) */
+.tsheet-move .icon-btn {
+  width: 44px;
+  height: 44px;
 }
 
 /* ---------- the full list in its sheet: SwipeRow v2 rows ---------- */
@@ -469,6 +505,13 @@
   background: var(--line);
   pointer-events: none;
 }
+/* where a long group's next rows are added from (see SheetGroup): it holds the height of a row, no hairline */
+.tgroup > .tgroup-more {
+  height: 52px;
+}
+.tgroup > .tgroup-more::before {
+  display: none;
+}
 .tdl-row {
   display: flex;
   align-items: center;
@@ -483,6 +526,7 @@
 /* the add field and each fold (Later, Someday, Completed) are white rows of their own */
 .tlist .tlist-add,
 .tlist .tfold {
+  min-width: 0;
   min-height: 52px;
   border-radius: var(--r-tile);
   background: var(--surface);
@@ -540,10 +584,11 @@
   color: var(--tc, var(--ink-2));
   background: color-mix(in srgb, var(--tc, var(--ink)) 16%, transparent);
 }
+/* a fixed grid, four across: the same two rows at every width */
 .swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(4, 44px);
+  gap: 4px 8px;
 }
 .swatch {
   display: grid;
@@ -566,7 +611,7 @@
 }
 .swatch.is-none .swatch-dot {
   background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--ink-4);
+  box-shadow: inset 0 0 0 1.5px var(--ink-faint, var(--ink-4));
   position: relative;
 }
 .swatch.is-none .swatch-dot::after {
@@ -574,7 +619,7 @@
   position: absolute;
   width: 22px;
   height: 1.5px;
-  background: var(--ink-4);
+  background: var(--ink-faint, var(--ink-4));
   transform: rotate(-45deg);
 }
 .swatch.on .swatch-dot {
@@ -586,10 +631,21 @@
 .tsheet-lists {
   flex-wrap: wrap;
 }
+/* the list chips keep their own width and wrap (never stretched across the card); a long name shortens inside its chip */
+.tsheet-lists .chip-btn {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
 .list-pick {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.list-pick-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .list-pick-dot,
 .tlist-dot {
@@ -604,6 +660,11 @@
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-3);
+}
+/* a name that is taken: one line under the field */
+.tsheet-hint.is-warn {
+  padding: 0 16px;
+  color: var(--bad);
 }
 .tlist-seg {
   width: auto;
@@ -646,7 +707,7 @@
 .tlist-chev {
   flex: none;
   margin-left: auto;
-  color: var(--ink-4);
+  color: var(--ink-faint, var(--ink-4));
 }
 .tlist-new.pressable {
   display: flex;

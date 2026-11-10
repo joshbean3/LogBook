@@ -20,7 +20,8 @@ const nextDow = (from: ISODate, dow: number): ISODate => {
 /**
  * Reads the small marks at the end of a quick-add line, so "Call the bank fri !!! #Work" lands as a P1 item for Friday in
  * Work. `!` P3, `!!` P2, `!!!` P1 (or `p1`, `p2`, `p3`); "tomorrow", "today", a weekday, "later", "someday" set when; `#Name`
- * files it in that list (spaces in a list's name are left out: `#DeepWork`). Anything else is the name.
+ * files it in that list (spaces in a list's name are left out: `#DeepWork`); a `#tag` that names no list stays in the name.
+ * Anything else is the name.
  */
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 export const parseQuickAdd = (raw: string, date: ISODate, groups: readonly TodoGroup[] = []): QuickAdd => {
@@ -29,12 +30,14 @@ export const parseQuickAdd = (raw: string, date: ISODate, groups: readonly TodoG
   let bucket: TodoBucket = 'today';
   let due: ISODate | null = null;
   let groupId: string | null = null;
-  for (let i = 0; i < 4; i++) {
+  // a `#tag` that names no list stays in the name (put back at the end), and the marks before it are still read
+  const kept: string[] = [];
+  for (let i = 0; i < 6; i++) {
     const tag = /^(.*\S)\s+#(\S+)$/.exec(text);
     if (tag) {
       const g = groups.find((x) => squash(x.name) === squash(tag[2]!));
-      if (!g) break;
-      groupId = g.id;
+      if (g) groupId = groupId ?? g.id;
+      else kept.unshift(`#${tag[2]!}`);
       text = tag[1]!.trim();
       continue;
     }
@@ -69,5 +72,5 @@ export const parseQuickAdd = (raw: string, date: ISODate, groups: readonly TodoG
     } else break;
     text = word[1]!.trim();
   }
-  return { text, priority, bucket, due, groupId };
+  return { text: [text, ...kept].join(' '), priority, bucket, due, groupId };
 };

@@ -1,10 +1,11 @@
 import { TODO_COLORS, type TodoColor, type TodoGroup } from '@logbook/shared';
-import { useState } from 'react';
-import { useTodoGroupMutations, useTodoMutations, useTodos } from '@/api/queries';
+import { useId, useState } from 'react';
+import { useTodoGroupMutations, useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { Button } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { sameName } from '../habits/initial';
 import { ColorSwatches } from './colors';
 
 /**
@@ -19,12 +20,16 @@ export const ListSheet = ({ group, onCreated }: { group?: TodoGroup; onCreated?:
   const depth = useSheetDepth();
   const toast = useToast();
   const [name, setName] = useState(group?.name ?? '');
+  const twinId = useId();
   const [color, setColor] = useState<TodoColor>(group?.color ?? TODO_COLORS[4]!);
   const done = () => (depth > 1 ? sheet.pop() : sheet.close());
+  // two lists with one name cannot be told apart (and a `#Name` mark would only ever reach the first)
+  const lists = useTodoGroups();
+  const twin = sameName(name, (lists.data ?? []).filter((g) => g.id !== group?.id).map((g) => g.name));
   const n = group ? (todos.data ?? []).filter((x) => x.groupId === group.id && !x.deletedOn && !x.doneOn).length : 0;
   const save = async () => {
     const v = name.trim();
-    if (!v) return;
+    if (!v || twin) return;
     if (group) {
       if (v !== group.name || color !== group.color) patch.mutate({ id: group.id, name: v, color });
       return done();
@@ -39,9 +44,14 @@ export const ListSheet = ({ group, onCreated }: { group?: TodoGroup; onCreated?:
   };
   return (
     <>
-      <input className="tsheet-name" value={name} maxLength={30} placeholder="Work, Home, Banking…" aria-label="List name" autoFocus={!group} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
+      <input className="tsheet-name" value={name} maxLength={30} placeholder="Work, Home, Banking…" aria-label="List name" aria-invalid={twin ? true : undefined} aria-describedby={twin ? twinId : undefined} autoFocus={!group} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
+      {twin ? (
+        <p id={twinId} className="tsheet-hint is-warn" role="status">
+          You already have {twin}.
+        </p>
+      ) : null}
       <div className="tsheet-field">
-        <span className="tsheet-label">Colour</span>
+        <span className="tsheet-label">Color</span>
         <ColorSwatches value={color} onChange={(c) => c && setColor(c)} allowNone={false} />
       </div>
       {group ? <p className="tsheet-hint">{n ? `${n} open to-do${n === 1 ? '' : 's'} in this list.` : 'No open to-dos in this list.'} Deleting it keeps them.</p> : null}
@@ -73,7 +83,7 @@ export const ListSheet = ({ group, onCreated }: { group?: TodoGroup; onCreated?:
           <Button variant="ghost" onClick={done}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={() => void save()} disabled={!name.trim() || add.isPending}>
+          <Button variant="primary" onClick={() => void save()} disabled={!name.trim() || !!twin || add.isPending}>
             {group ? 'Save' : 'Create list'}
           </Button>
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTodoGroups, useTodoMutations, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
+import { useToday } from '@/lib/useToday';
 import { Button, ChipButton, IconButton, Segmented } from '@/ui/primitives';
 import { useSheet, useSheetDepth } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
@@ -11,10 +12,13 @@ import { groupsOn, stepWithin } from './groups';
 import { ColorSwatches, colorStyle } from './colors';
 import { ListSheet } from './ListSheet';
 import { PRIORITY_SHORT, PriorityFlag } from './PriorityDots';
+import { goneOn } from './TodoList';
 
 /**
  * The editor behind a tap on a to-do: the name, a note, how much it matters (P1 to P3, each a coloured flag), the list it
- * belongs to, a highlight colour, when it is for, and its place in the list. Save is the sheet's one blue.
+ * belongs to, a highlight colour, when it is for, and its place in the list. Save is the sheet's one blue. Closing the
+ * sheet any other way (its Close, a flick down, Back, a panel pushed over it) saves what changed too, with an Undo; only
+ * Cancel leaves the to-do as it was.
  */
 export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   const { patch, reorder } = useTodoMutations();
@@ -26,36 +30,56 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
   const toast = useToast();
   // the row as it is now: a Move or a settle can change it while the sheet is open
   const cur = todos.data?.find((t) => t.id === x.id) ?? x;
-  const [text, setText] = useState(x.text);
-  const [note, setNote] = useState(x.note ?? '');
-  const [priority, setPriority] = useState<TodoPriority>(x.priority);
-  const [bucket, setBucket] = useState<TodoBucket>(x.bucket);
-  const [due, setDue] = useState<ISODate | null>(x.due);
-  const [groupId, setGroupId] = useState<string | null>(x.groupId);
-  const [color, setColor] = useState<TodoColor | null>(x.color);
+  // the fields start from the row as it is now (the editor is mounted again when a panel pushed over it is popped)
+  const [text, setText] = useState(cur.text);
+  const [note, setNote] = useState(cur.note ?? '');
+  const [priority, setPriority] = useState<TodoPriority>(cur.priority);
+  const [bucket, setBucket] = useState<TodoBucket>(cur.bucket);
+  const [due, setDue] = useState<ISODate | null>(cur.due);
+  const [groupId, setGroupId] = useState<string | null>(cur.groupId);
+  const [color, setColor] = useState<TodoColor | null>(cur.color);
   const groups = useTodoGroups();
+  const today = useToday();
   const dateIn = useRef<HTMLInputElement>(null);
   const tomorrow = shiftDays(date, 1);
   const nextText = text.trim();
   const nextNote = note.trim();
   const nextDue = bucket === 'later' ? due ?? tomorrow : null;
   const changed = !!nextText && (nextText !== cur.text || nextNote !== (cur.note ?? '') || priority !== cur.priority || bucket !== cur.bucket || nextDue !== cur.due || groupId !== cur.groupId || color !== cur.color);
+  /** What Save would write, and what puts it back. */
+  const diff = () => {
+    const p: Parameters<typeof patch.mutate>[0] = { id: x.id };
+    const was: Parameters<typeof patch.mutate>[0] = { id: x.id };
+    if (nextText !== cur.text) [p.text, was.text] = [nextText, cur.text];
+    if (nextNote !== (cur.note ?? '')) [p.note, was.note] = [nextNote || null, cur.note];
+    if (priority !== cur.priority) [p.priority, was.priority] = [priority, cur.priority];
+    if (groupId !== cur.groupId) [p.groupId, was.groupId] = [groupId, cur.groupId];
+    if (color !== cur.color) [p.color, was.color] = [color, cur.color];
+    if (bucket !== cur.bucket || nextDue !== cur.due) {
+      [p.bucket, was.bucket] = [bucket, cur.bucket];
+      [p.due, was.due] = [nextDue, cur.due];
+    }
+    return { p, was };
+  };
+  // Save, Cancel and Delete settle the editor themselves; any other way out (Close, a flick, Back, a panel pushed over
+  // it) saves what changed as the editor goes, and says so with an Undo
+  const settled = useRef(false);
+  const leave = useRef<() => void>(() => {});
+  leave.current = () => {
+    if (settled.current || !changed) return;
+    const { p, was } = diff();
+    patch.mutate(p);
+    toast('Changes saved', { label: 'Undo', fn: () => patch.mutate(was) });
+  };
+  useEffect(() => () => leave.current(), []);
   const save = () => {
     if (!changed) return;
-    const p: Parameters<typeof patch.mutate>[0] = { id: x.id };
-    if (nextText !== cur.text) p.text = nextText;
-    if (nextNote !== (cur.note ?? '')) p.note = nextNote || null;
-    if (priority !== cur.priority) p.priority = priority;
-    if (groupId !== cur.groupId) p.groupId = groupId;
-    if (color !== cur.color) p.color = color;
-    if (bucket !== cur.bucket) p.bucket = bucket;
-    if (nextDue !== cur.due) {
-      p.due = nextDue;
-      p.bucket = bucket;
-    }
-    patch.mutate(p);
+    settled.current = true;
+    patch.mutate(diff().p);
     done();
   };
+  // a list made from here ("New list") files the to-do when it is created; the chips follow the row
+  useEffect(() => setGroupId(cur.groupId), [cur.groupId]);
   const onKey = (ev: React.KeyboardEvent<HTMLElement>) => {
     if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey || ev.currentTarget.tagName === 'INPUT')) {
       ev.preventDefault();
@@ -115,16 +139,18 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
       <div className="tsheet-field">
         <span className="tsheet-label">List</span>
         <div className="tsheet-when tsheet-lists" role="radiogroup" aria-label="List">
-          <ChipButton on={groupId === null} onClick={() => setGroupId(null)} role="radio" aria-checked={groupId === null}>
+          {/* radios: the chosen one is said by aria-checked alone (a radio takes no aria-pressed) */}
+          <ChipButton on={groupId === null} onClick={() => setGroupId(null)} role="radio" aria-checked={groupId === null} aria-pressed={undefined}>
             None
           </ChipButton>
           {(groups.data ?? []).map((g) => (
-            <ChipButton key={g.id} on={groupId === g.id} onClick={() => setGroupId(g.id)} role="radio" aria-checked={groupId === g.id} className="list-pick" style={colorStyle(g.color)}>
+            <ChipButton key={g.id} on={groupId === g.id} onClick={() => setGroupId(g.id)} role="radio" aria-checked={groupId === g.id} aria-pressed={undefined} className="list-pick" style={colorStyle(g.color)}>
               <span className="list-pick-dot" aria-hidden="true" />
-              {g.name}
+              <span className="list-pick-name">{g.name}</span>
             </ChipButton>
           ))}
-          <ChipButton quiet onClick={() => sheet.push({ title: 'New list', body: <ListSheet onCreated={(g) => setGroupId(g.id)} /> })}>
+          {/* the editor leaves while the new list is named (what was typed here is saved as it goes); the list files the to-do */}
+          <ChipButton quiet onClick={() => sheet.push({ title: 'New list', body: <ListSheet onCreated={(g) => patch.mutate({ id: x.id, groupId: g.id })} /> })}>
             <Plus size={14} strokeWidth={2.4} aria-hidden="true" /> New list
           </ChipButton>
         </div>
@@ -169,7 +195,8 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
           variant="danger"
           onClick={() => {
             haptics.delete();
-            patch.mutate({ id: x.id, deletedOn: date });
+            settled.current = true;
+            patch.mutate({ id: x.id, deletedOn: goneOn(date, today) });
             done();
             toast('Deleted', { label: 'Undo', fn: () => patch.mutate({ id: x.id, deletedOn: null }) });
           }}
@@ -177,7 +204,13 @@ export const TodoSheet = ({ x, date }: { x: Todo; date: ISODate }) => {
           Delete
         </Button>
         <div className="foot-right">
-          <Button variant="ghost" onClick={done}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              settled.current = true;
+              done();
+            }}
+          >
             Cancel
           </Button>
           <Button variant="primary" onClick={save} disabled={!changed}>
