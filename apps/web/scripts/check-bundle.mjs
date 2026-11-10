@@ -18,7 +18,7 @@ const dist = path.resolve(args.find((a) => !a.startsWith('--')) ?? 'dist');
 
 const RULES = [
   { name: 'developer gallery', re: /UiGallery|PagerLab|StubRoots|StubPushed|dev\/ui|__splashHides/ },
-  ...(withStrava ? [] : [{ name: 'Strava', re: /Strava|\/strava\// }, { name: 'feature intro sheets', re: /FeatureIntro|intro-sheet/ }]),
+  ...(withStrava ? [] : [{ name: 'Strava', re: /Strava|\/strava\// }, { name: 'feature intro sheets', re: /\/me\/intros|fi-visual/ }]),
 ];
 
 const files = [];
@@ -41,12 +41,16 @@ for (const f of files) {
   const text = fs.readFileSync(f, 'utf8');
   for (const rule of RULES) {
     // the file's own name counts too: a chunk called UiGallery-abc.js is a hit
-    const inName = rule.re.exec(rel);
-    const inText = rule.re.exec(text);
-    if (!inName && !inText) continue;
-    bad++;
-    const at = inText ? text.slice(Math.max(0, inText.index - 40), inText.index + 60).replace(/\s+/g, ' ') : rel;
-    console.error(`check-bundle: ${rule.name} in ${rel}: ...${at}...`);
+    if (rule.re.test(rel)) {
+      bad++;
+      console.error(`check-bundle: ${rule.name}: a file named ${rel}`);
+    }
+    const all = [...text.matchAll(new RegExp(rule.re.source, 'g'))];
+    if (!all.length) continue;
+    bad += all.length;
+    console.error(`check-bundle: ${rule.name}: ${all.length} in ${rel}`);
+    for (const m of all.slice(0, 6)) console.error(`    ...${text.slice(Math.max(0, m.index - 50), m.index + 60).replace(/\s+/g, ' ')}...`);
+    if (all.length > 6) console.error(`    and ${all.length - 6} more`);
   }
 }
 if (bad) {

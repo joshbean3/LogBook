@@ -3,7 +3,8 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 're
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { api, ApiError, onUnauthorized } from '@/api/client';
 import type { AuthStatus } from '@/api/types';
-import { DEV_TOOLS } from '@/lib/features';
+import { clearLocalAccount, isLeaving, isOtherAccount, rememberUser } from '@/lib/account';
+import { DEV_TOOLS, STRAVA_BUILT } from '@/lib/features';
 import { apiOrigin, isNative, onDeepLink, hideSplash } from '@/lib/native';
 import { startServiceWorker } from '@/lib/sw';
 import { outbox } from '@/api/outbox';
@@ -12,7 +13,6 @@ import { Login, Signup } from '@/features/auth/AuthScreens';
 import DayView from '@/features/day/DayView';
 import { hasAccountHere, markHasAccount, signedOutHome } from '@/features/auth/flag';
 import { Start } from '@/features/auth/Start';
-import { FeatureIntros } from '@/features/onboarding/FeatureIntro';
 import { matchRoute, type PushedEntry } from '@/ui/nav';
 import { watchDynamicType } from './dynamicType';
 import { ErrorBoundary, lazyImport } from './ErrorBoundary';
@@ -149,13 +149,7 @@ const Framed = () => {
     const raf = requestAnimationFrame(hideSplash);
     return () => cancelAnimationFrame(raf);
   }, []);
-  return (
-    <>
-      <Shell pages={pages} pushed={pushedFor} />
-      {/* Plan, Learned and Journal introduce themselves once, to accounts that went through first run */}
-      <FeatureIntros />
-    </>
-  );
+  return <Shell pages={pages} pushed={pushedFor} />;
 };
 
 /**
@@ -177,21 +171,41 @@ const Authed = () => {
   useEffect(() => {
     if (signedOut) qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'auth-session' });
   }, [signedOut, qc]);
+  /**
+   * Whose device copy is this (Contract 2)? The app last ran here for the account in `logbook.user`. When the bootstrap
+   * names someone else (a session ran out, then another person signed in), nothing kept here is theirs: it is wiped and the
+   * page starts over, still signed in. Otherwise the account is remembered, and what it wrote offline is sent: on the
+   * first bootstrap and again whenever the same person signs back in.
+   */
+  const uid = boot.data?.user.id ?? null;
+  const stranger = uid !== null && isOtherAccount(uid);
+  useEffect(() => {
+    if (!uid) return;
+    if (isOtherAccount(uid)) {
+      void clearLocalAccount(qc);
+      return;
+    }
+    rememberUser(uid);
+    void outbox.replay(qc);
+  }, [uid, qc]);
   // once per session, on the first bootstrap (keyed on whether there is one, never on its identity, critic C1)
   const started = useRef(false);
-  const hasBoot = !!boot.data;
+  const hasBoot = !!boot.data && !stranger;
   useEffect(() => {
     if (!hasBoot || started.current) return;
     started.current = true;
     markHasAccount();
-    void outbox.replay(qc);
     prefetchViews();
     void prefetchAll(qc);
-    // a cold open with nothing cached: the Strava check follows the first bootstrap (stravaSyncNow keeps one per 30 s)
-    if (qc.getQueryData<{ strava?: { connected?: boolean } }>(['bootstrap'])?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
+    // a cold open with nothing cached: the run check follows the first bootstrap (stravaSyncNow keeps one per 30 s); only
+    // in a build that has the connection (lib/features.ts)
+    if (STRAVA_BUILT && qc.getQueryData<{ strava?: { connected?: boolean } }>(['bootstrap'])?.strava?.connected) void stravaSyncNow(qc).catch(() => undefined);
     void healthSyncNow(qc, 'open').catch(() => undefined);
     requestAnimationFrame(() => setTimeout(startServiceWorker, 0));
   }, [hasBoot, qc]);
+  // the account is leaving this device (Sign out, Delete account), or what is here belongs to someone else: draw nothing
+  // of it while the wipe runs; the page reloads when it is done (lib/account.ts)
+  if (isLeaving() || stranger) return null;
   if (signedOut) return <Navigate to={signedOutHome()} replace />;
   // the persisted cache is being read (a few ms): hold the black canvas
   if (restoring) return null;
