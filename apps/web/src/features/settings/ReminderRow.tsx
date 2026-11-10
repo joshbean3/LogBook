@@ -4,7 +4,8 @@ import { BellRing, Settings2 } from 'lucide-react';
 import { useBootstrap, useGoals } from '@/api/queries';
 import { disableReminders, enableReminders, remindersOn, remindersSupported, scheduleReminders } from '@/features/goals/reminders';
 import { useToday } from '@/lib/useToday';
-import { Row } from '@/ui';
+import { Row, useToast } from '@/ui';
+import { haptics } from '@/lib/haptics';
 import { GoRow, Switch, Tile } from './parts';
 import { APP_SETTINGS_URL, REMINDER_TITLE, reminderRow, type NotifyPermission } from './reminderModel';
 
@@ -29,6 +30,7 @@ export const ReminderRows = (): React.JSX.Element | null => {
   const goals = useGoals();
   const boot = useBootstrap();
   const today = useToday();
+  const toast = useToast();
   const wake = boot.data?.morningSettings?.wake ?? 7 * 60;
   useEffect(() => {
     if (!supported) return;
@@ -45,15 +47,22 @@ export const ReminderRows = (): React.JSX.Element | null => {
   if (!supported) return null;
   const row = reminderRow(perm, on);
   const change = async (next: boolean) => {
-    if (next) {
-      const ok = await enableReminders();
-      setOn(ok);
-      setPerm(await permission());
-      // the mornings owed from now on, without waiting for the next time Goals changes
-      if (ok && goals.data) void scheduleReminders(goals.data, today, wake).catch(() => undefined);
-    } else {
-      await disableReminders();
-      setOn(false);
+    try {
+      if (next) {
+        const ok = await enableReminders();
+        setOn(ok);
+        setPerm(await permission());
+        // the mornings owed from now on, without waiting for the next time Goals changes
+        if (ok && goals.data) void scheduleReminders(goals.data, today, wake).catch(() => undefined);
+      } else {
+        await disableReminders();
+        setOn(false);
+      }
+    } catch {
+      // the plugin refused (or is missing): the switch shows what is true, and says so
+      setOn(remindersOn());
+      haptics.error();
+      toast(next ? 'Couldn’t turn on the reminder. Try again.' : 'Couldn’t turn off the reminder. Try again.');
     }
   };
   return (

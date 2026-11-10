@@ -745,8 +745,10 @@
     max-width: none;
   }
   .s-group > .s-go:has(.s-value) .s-value {
+    min-width: 0;
     white-space: normal;
     overflow: visible;
+    overflow-wrap: anywhere;
   }
 }
 
