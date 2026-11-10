@@ -23,7 +23,7 @@ export const journalRoutes = (db: DB) => {
   // ---------- entries ----------
   r.get('/journal', (c) => {
     const userId = uidOf(c);
-    const q = parseQuery(c.req.query(), z.object({ q: z.string().max(200).optional(), fav: z.string().optional(), limit: z.coerce.number().int().min(1).max(500).default(100), before: z.string().optional() }));
+    const q = parseQuery(c.req.query(), z.object({ q: z.string().max(200).optional(), fav: z.string().optional(), limit: z.coerce.number().int().min(1).max(500).default(100), before: z.string().optional(), offset: z.coerce.number().int().min(0).optional() }));
     const conds = [eq(journalEntries.userId, userId), isNull(journalEntries.deletedAt)];
     // a search of only spaces matches nothing; no search at all (q absent or "") lists everything
     if (q.q && !q.q.trim()) return c.json({ entries: [], more: false, total: 0 });
@@ -31,8 +31,10 @@ export const journalRoutes = (db: DB) => {
     if (q.fav === '1') conds.push(eq(journalEntries.fav, true));
     // every entry that matches the search and the favorite filter, whatever page this is (the header's "Entries 412")
     const total = db.select({ n: sql<number>`count(*)` }).from(journalEntries).where(and(...conds)).get()?.n ?? 0;
-    if (q.before) conds.push(lt(journalEntries.createdAt, q.before));
-    const rows = db.select().from(journalEntries).where(and(...conds)).orderBy(desc(journalEntries.date), desc(journalEntries.createdAt)).limit(q.limit + 1).all();
+    // offset pages by position in list order, so an entry written later for an older day still turns up on its page;
+    // `before` (a createdAt cursor) is kept for older clients and ignored when offset is sent
+    if (q.before && q.offset === undefined) conds.push(lt(journalEntries.createdAt, q.before));
+    const rows = db.select().from(journalEntries).where(and(...conds)).orderBy(desc(journalEntries.date), desc(journalEntries.createdAt), asc(journalEntries.id)).limit(q.limit + 1).offset(q.offset ?? 0).all();
     const more = rows.length > q.limit;
     return c.json({ entries: rows.slice(0, q.limit).map(toEntry), more, total });
   });

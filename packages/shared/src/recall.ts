@@ -20,8 +20,13 @@ export interface RecallItem {
   date: ISODate;
   /** The first 200 characters of what was written. */
   excerpt: string;
-  /** The reminder: Claude's one or two sentences, or the plain fallback built from the text. */
+  /** The reminder: the assistant's one or two sentences, or the plain fallback built from the text. */
   summary: string;
+  /**
+   * True when `summary` is the assistant's line (the card says "Written by AI"), false for the plain fallback. The
+   * server always sends it; optional only so a client can still read an item from an older server.
+   */
+  ai?: boolean;
   boosted: boolean;
 }
 
