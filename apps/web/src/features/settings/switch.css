@@ -38,3 +38,7 @@
   outline-offset: 2px;
 }
 
+.s-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

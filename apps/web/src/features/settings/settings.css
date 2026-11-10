@@ -67,13 +67,11 @@
 .s-wrap {
   padding-block: 11px;
 }
-/* a drill row's line under its title wraps to a second line rather than losing its end (at 320 "See your runs land …"
-   said nothing); the row grows from 64 by its own height, nothing animates */
+/* a drill row's line under its title wraps, to as many lines as it needs: at 320 and at large text sizes a clamp cut
+   the end off a sentence ("We answer within…"). The row grows by its own height, nothing animates */
 .s-go .lrow-sub {
   white-space: normal;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow: visible;
 }
 .s-go.two {
   padding-block: 11px;
@@ -215,13 +213,13 @@
   color: var(--ink-3);
 }
 
-/* the rebuild offer (review 2 feel N3): the page's last block, sticky to the bottom of the pushed page's scroller (which ends
-   at the tab bar). While the page is longer than the screen it rides 12 px above the tab bar; scrolled to the end it sits
-   after Easy pace, so nothing is ever under it for good. Never position: fixed: inside the transformed layer that is
-   absolute, and it scrolled with the page over the steppers. */
+/* the rebuild offer (review 2 feel N3): the page's last block, sticky in the pushed page's scroller. The scroller runs
+   under the ask bar and the tab bar, so the card's resting line is 12 px above that chrome (and above the keyboard when
+   it is up), where its buttons can be tapped; scrolled to the end it sits after the page's last card. Never position:
+   fixed: inside the transformed layer that is absolute, and it scrolled with the page over the steppers. */
 .s-rebuild {
   position: sticky;
-  bottom: 12px;
+  bottom: calc(12px + max(var(--chrome-h) + var(--safe-b), var(--kb, 0px)));
   margin-top: 24px;
   z-index: 20;
   display: grid;
@@ -231,7 +229,11 @@
   border: var(--card-border);
   background: var(--surface);
   box-shadow: var(--shadow-float);
-  overflow: hidden;
+  /* on a short screen, or at a large text size, the card never takes the whole page: about 150 px of the page stays in
+     reach above it, its own words scroll inside it, and its two buttons stay at its foot */
+  max-height: max(176px, calc(var(--scroller-h, 100dvh) - var(--chrome-h) - var(--safe-b) - 232px));
+  overflow: hidden auto;
+  overscroll-behavior: contain;
 }
 .s-rebuild-title {
   font-size: 1.0625rem;
@@ -243,8 +245,36 @@
   line-height: 1.25rem;
   color: var(--ink-2);
 }
+/* a jump of more than 30% in weekly miles: said on the card before Rebuild */
+.s-rebuild-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: var(--r-control);
+  background: var(--accent-soft);
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink);
+}
+.s-rebuild-warn svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent-text);
+}
+.s-days-note {
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-2);
+  text-align: center;
+}
 .s-rebuild-actions {
-  margin-top: 8px;
+  position: sticky;
+  bottom: -12px;
+  margin: 8px -16px -12px;
+  padding: 8px 16px 12px;
+  background: var(--surface);
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -252,12 +282,6 @@
 .s-rebuild-go {
   min-width: 112px;
 }
-@media (min-width: 900px) {
-  .s-rebuild {
-    bottom: 24px;
-  }
-}
-
 /* ---------- habits ---------- */
 /* the habits on Today: rows in one white card; the lifted row floats over it */
 .s-hlist {
@@ -490,7 +514,7 @@
   color: var(--bad);
 }
 
-/* heart-rate zones beside Strava: the zones in ink, the explanation quiet, Sync at the right */
+/* heart-rate zones under the run source: the zones in ink, the explanation quiet, Sync at the right */
 .s-zones {
   align-items: flex-start;
   padding-block: 12px;
@@ -549,6 +573,13 @@
   white-space: normal;
   overflow: visible;
 }
+/* a drill row with a long name (a policy's full title): the name wraps and the chevron keeps its place */
+.s-group .s-go.s-wrap-title:not(.two) .lrow-main {
+  flex: 1 1 0;
+}
+.s-go.s-wrap-title {
+  padding-block: 11px;
+}
 /* a one-line row keeps its whole title; the value on the right gives way and ellipsizes ("Run days" at 320 with a tile) */
 .s-group .s-go:not(.two) .lrow-main {
   flex: 1 0 auto;
@@ -566,4 +597,42 @@
   .s-narrow {
     display: inline;
   }
+}
+
+/* the delete sheet: what happens to the copies, under the card, and the export's result between the buttons */
+.s-del-fine {
+  margin: 0 4px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+}
+.s-del-note {
+  margin: 0;
+  padding: 2px 8px 6px;
+  text-align: center;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-2);
+}
+.s-del-note.s-bad {
+  color: var(--bad);
+}
+
+/* change password: three labelled fields, each with its eye */
+.s-pwform {
+  gap: 14px;
+}
+.s-pw-field {
+  display: grid;
+  gap: 6px;
+}
+.s-pw-label {
+  padding-inline: 4px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.s-pw-field .s-pw {
+  display: block;
 }

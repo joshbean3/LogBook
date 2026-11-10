@@ -52,16 +52,17 @@ export const ActionPill = ({ children, onPress, danger, disabled, className = ''
 );
 
 /**
- * A row that goes somewhere (a push, a sheet, the Strava hand-off): the value on the right, then the chevron. The whole row is
+ * A row that goes somewhere (a push, a sheet, a hand-off to another app): the value on the right, then the chevron. The whole row is
  * the target; its press is the row surface (`--surface-2`, the one press of §11.1, set by the press delegate on `.lrow.tappable`).
  */
-export const GoRow = ({ title, sub, value, onPress, label, tone, icon, className = '' }: { title: ReactNode; sub?: ReactNode; value?: ReactNode; onPress: () => void; label?: string; tone?: 'bad'; icon?: LucideIcon; className?: string }): React.JSX.Element => (
+export const GoRow = ({ title, sub, value, onPress, href, label, tone, icon, className = '' }: { title: ReactNode; sub?: ReactNode; value?: ReactNode; onPress?: () => void; /** A link the system opens itself (a `mailto:`): the row is then an anchor. */ href?: string; label?: string; tone?: 'bad'; icon?: LucideIcon; className?: string }): React.JSX.Element => (
   <Row
     className={`s-go ${tone ? `tone-${tone}` : ''} ${icon ? 'has-tile' : ''} ${className}`}
     left={icon ? <Tile icon={icon} /> : undefined}
     title={title}
     sub={sub}
-    onClick={onPress}
+    onClick={href ? undefined : onPress}
+    href={href}
     label={label}
     right={
       <>
@@ -73,10 +74,10 @@ export const GoRow = ({ title, sub, value, onPress, label, tone, icon, className
 );
 
 /** An on/off switch: the knob springs across on `settle` (a transform), the track lights blue. 51 × 44, the whole height the target. */
-export const Switch = ({ on, onChange, label }: { on: boolean; onChange: (on: boolean) => void; label: string }): React.JSX.Element => {
+export const Switch = ({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }): React.JSX.Element => {
   const reduce = useReducedMotion();
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} className={`s-switch ${on ? 'on' : ''}`} onClick={() => onChange(!on)}>
+    <button type="button" role="switch" aria-checked={on} aria-label={label} className={`s-switch ${on ? 'on' : ''}`} disabled={disabled} onClick={() => onChange(!on)}>
       <motion.span className="s-knob" initial={false} animate={{ x: on ? 20 : 0 }} transition={reduce ? { duration: 0 } : springs.settle} />
     </button>
   );
