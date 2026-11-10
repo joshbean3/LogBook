@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 import { api } from '@/api/client';
 import { Health, type HealthSyncEvent, type HealthSyncResult } from './health';
+import { apiOrigin } from './native';
 
 /**
  * Apple Health syncing, from the web app's side (docs/health/apple-health.md §3.4). The engine itself runs natively; this
@@ -12,9 +13,12 @@ import { Health, type HealthSyncEvent, type HealthSyncResult } from './health';
 export const healthStatusKey = ['apple-health', 'status'] as const;
 
 export interface HealthSyncView {
-  /** Idle, or what a run is doing now. */
+  /**
+   * Idle, or what a run is doing now. `importing` is no longer sent (the engine reads the three types in one short run);
+   * it stays in the type until the screens that still test for it drop it.
+   */
   phase: 'idle' | 'running' | 'importing' | 'done' | 'error';
-  /** The month being imported ("Oct 1, 2026"), or the error. */
+  /** The engine's error code, after a run that failed. */
   detail?: string;
   /** The last finished run. */
   last?: HealthSyncResult & { at: number };
@@ -42,7 +46,6 @@ const listen = () => {
   listening = true;
   void Health.addListener('healthSync', (e: HealthSyncEvent) => {
     if (e.phase === 'start') set({ ...view, phase: 'running', detail: undefined });
-    else if (e.phase === 'progress') set({ ...view, phase: 'importing', detail: e.detail });
   });
 };
 
@@ -82,8 +85,10 @@ export const healthSyncNow = (qc: QueryClient, reason: 'open' | 'manual' | 'impo
       if (!signedIn(qc)) return null;
     }
     lastRun = Date.now();
-    const r = await h.sync({ reason });
-    set({ phase: r.error && r.error !== 'offline' ? 'error' : 'done', detail: r.error, last: { ...r, at: Date.now() } });
+    // the engine sends to this origin, over the copy saved at connect (ios-14)
+    const r = await h.sync({ reason, apiOrigin });
+    // a run stopped by a disconnect or a new connect (`cancelled`) has nothing to say; being offline is not an error
+    set({ phase: r.error && r.error !== 'offline' && r.error !== 'cancelled' ? 'error' : 'done', detail: r.error, last: { ...r, at: Date.now() } });
     void qc.invalidateQueries({ queryKey: healthStatusKey });
     return r;
   })().finally(() => {
@@ -92,16 +97,16 @@ export const healthSyncNow = (qc: QueryClient, reason: 'open' | 'manual' | 'impo
   return inflight;
 };
 
-/** Words for an engine error. */
-export const syncErrorWords = (e: string | undefined) =>
-  e === 'locked'
-    ? 'Unlock your iPhone to read Apple Health.'
-    : e === 'offline'
-      ? 'Waiting for a connection. What was read is saved on the phone.'
-      : e === 'unauthorized'
-        ? 'This phone is no longer connected. Connect again.'
-        : e === 'not_connected'
-          ? 'Not connected on this phone.'
-          : e
-            ? `Couldn’t sync: ${e}`
-            : null;
+/** Apple Health's state on this phone did not read back (`corrupt`): the fix is Disconnect, then Connect. */
+export const RECONNECT_WORDS = 'Apple Health needs to be connected again on this phone.';
+
+/** Words for an engine error, or null when there is nothing to say (none, or a run that was `cancelled`). */
+export const syncErrorWords = (e: string | undefined): string | null => {
+  if (!e || e === 'cancelled') return null;
+  if (e === 'corrupt') return RECONNECT_WORDS;
+  if (e === 'locked') return 'Unlock your iPhone to read Apple Health.';
+  if (e === 'offline') return 'Waiting for a connection. What was read is saved on the phone.';
+  if (e === 'unauthorized') return 'This phone is no longer connected. Connect again.';
+  if (e === 'not_connected') return 'Not connected on this phone.';
+  return `Couldn’t sync: ${e}`;
+};

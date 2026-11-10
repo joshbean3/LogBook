@@ -164,7 +164,7 @@ export const TimeChip = ({ at, end }: { at: string; end?: boolean }) => (
   </span>
 );
 
-/** "Tracked with Josh's Apple Watch". */
+/** "Tracked with Sam's Apple Watch". */
 export const SourceLine = ({ source }: { source: string }) => (
   <span className="hd-source">
     <Watch size={14} strokeWidth={2.2} aria-hidden="true" />

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Activity, ChevronRight, CloudUpload, Database, Heart, HeartPulse, Moon, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { HEALTH_HISTORY_DAYS, type HealthStatus } from '@logbook/shared';
 import { api } from '@/api/client';
-import { healthStatusKey, healthSyncNow, syncErrorWords, useHealthSync } from '@/lib/healthSync';
+import { healthStatusKey, healthSyncNow, RECONNECT_WORDS, syncErrorWords, useHealthSync } from '@/lib/healthSync';
 import { apiOrigin } from '@/lib/native';
 import { useEffect, useState } from 'react';
 import type * as React from 'react';
@@ -44,10 +44,6 @@ const agoWords = (iso: string | null | undefined) => {
   const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 24 * 60 ? `${Math.round(m / 60)} h ago` : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso));
 };
-const monthOf = (detail?: string) => {
-  const t = detail ? Date.parse(detail) : NaN;
-  return Number.isNaN(t) ? null : new Date(t);
-};
 
 /** The account's Apple Health connection on the server: what has arrived, and the devices. */
 export const useHealthServerStatus = () => useQuery({ queryKey: healthStatusKey, queryFn: () => api<HealthStatus>('/apple-health/status'), staleTime: 30_000 });
@@ -81,7 +77,8 @@ const CardRow = ({ icon: Icon, title, sub, value, onPress, tone }: { icon: typeo
 
 /**
  * The Apple Health section of Data sources: the source as a device card. Before connecting: Connect. Connected on this
- * phone: when it last synced (or the month being read), Sync, what has been saved to the account and the reading check.
+ * phone: when it last synced, Sync, what has been saved to the account and the reading check. When the phone's own record
+ * of the connection did not read back (`corrupt`), the card says to connect again: Disconnect, then Connect.
  * Disconnect sits at the foot of the card whenever the account holds a connection.
  */
 export const AppleHealthGroup = (): React.JSX.Element => {
@@ -98,22 +95,22 @@ export const AppleHealthGroup = (): React.JSX.Element => {
   const s = server.data;
   const connectedHere = !web && !!device.data?.connected && !!s?.connected;
   const connectedElsewhere = !!s?.connected && !connectedHere;
-  const running = sync.phase === 'running' || sync.phase === 'importing';
-  const importMonth = monthOf(sync.detail);
+  const running = sync.phase === 'running';
+  const corrupt = connectedHere && (device.data?.lastError === 'corrupt' || (sync.phase === 'error' && sync.detail === 'corrupt'));
 
   let status: React.ReactNode;
   if (web && s?.connected) status = agoWords(s.lastSyncAt) ? `Connected on iPhone · synced ${agoWords(s.lastSyncAt)}` : 'Connected on iPhone · not synced yet';
   else if (web) status = 'Connects from the Logbook app on your iPhone';
   else if (unavailable) status = 'Not available on this device';
-  else if (connectedHere && sync.phase === 'importing') status = importWords(importMonth);
+  else if (corrupt) status = RECONNECT_WORDS;
   else if (connectedHere && running) status = 'Syncing…';
-  else if (connectedHere && sync.phase === 'error') status = syncErrorWords(sync.detail);
+  else if (connectedHere && sync.phase === 'error') status = syncErrorWords(sync.detail) ?? 'Not synced yet';
   else if (connectedHere) status = agoWords(s?.lastSyncAt ?? device.data?.lastSyncAt) ? `Synced ${agoWords(s?.lastSyncAt ?? device.data?.lastSyncAt)}` : 'Not synced yet';
   // the account holds readings but this phone is not sending any (signed in again, or connected from another iPhone)
   else if (connectedElsewhere) status = 'Not connected on this iPhone';
   else status = HEALTH_READS_SHORT;
   // the dot says readings are arriving: from this phone, or (seen from the web) from the iPhone
-  const live = connectedHere || (web && connectedElsewhere);
+  const live = (connectedHere && !corrupt) || (web && connectedElsewhere);
 
   const saved = s ? savedWords(s) : null;
 
@@ -131,7 +128,7 @@ export const AppleHealthGroup = (): React.JSX.Element => {
             {status}
           </span>
         </span>
-        {web || unavailable ? null : connectedHere ? (
+        {web || unavailable || corrupt ? null : connectedHere ? (
           <Button size="sm" className="ah-device-btn" disabled={running} onClick={() => void healthSyncNow(qc, 'manual', true)}>
             {running ? 'Syncing' : 'Sync'}
           </Button>
@@ -141,6 +138,7 @@ export const AppleHealthGroup = (): React.JSX.Element => {
           </Button>
         )}
       </div>
+      {corrupt ? <CardRow icon={TriangleAlert} tone="orange" title="Disconnect, then connect again" sub="Disconnect Apple Health below, then tap Connect. Logbook reads your history again." /> : null}
       {s?.connected && saved ? <CardRow icon={Database} title="Saved to your Logbook account" sub={saved.sub} value={saved.since ?? undefined} /> : null}
       {connectedHere && (device.data?.pending ?? 0) > 0 && sync.phase !== 'running' ? <CardRow icon={CloudUpload} title={`${device.data!.pending} upload${device.data!.pending === 1 ? '' : 's'} waiting`} sub="Saved on this phone. They send when Logbook is back online." /> : null}
       {connectedHere && (device.data?.deadLetter ?? 0) > 0 ? <CardRow icon={TriangleAlert} tone="orange" title={`${device.data!.deadLetter} upload${device.data!.deadLetter === 1 ? '' : 's'} not saved`} sub="Logbook couldn’t save them. The rest keep syncing." /> : null}
@@ -230,11 +228,10 @@ const ConnectPanel = (): React.JSX.Element => {
   );
 };
 
-/** The first import: Apple Health read a month at a time, newest first, with the month on screen. */
+/** The first read: one short run of the three types, then the span the account now holds. */
 const ImportPanel = (): React.JSX.Element => {
   const sheet = useSheet();
   const sync = useHealthSync();
-  const month = monthOf(sync.detail);
   const done = sync.phase === 'done' || sync.phase === 'error';
   // the span the account now holds (asked again once the import is done), for the done line
   const qc = useQueryClient();
@@ -243,23 +240,20 @@ const ImportPanel = (): React.JSX.Element => {
     if (sync.phase === 'done') void qc.invalidateQueries({ queryKey: healthStatusKey });
   }, [sync.phase, qc]);
   const since = server.data ? savedWords(server.data).since : null;
-  const now = new Date();
-  const monthsBack = month ? (now.getFullYear() - month.getFullYear()) * 12 + now.getMonth() - month.getMonth() : 0;
-  const pct = done ? 100 : Math.min(96, Math.round(((monthsBack + 0.5) / 12) * 100));
   return (
     <div className="ahc ahi">
       <div className="ahi-dial">
-        <BevelDial value={pct} tone="night" size={148} label="Import" />
+        <BevelDial value={done ? 100 : null} tone="night" size={148} label="Import" />
       </div>
       <h3 className="ahc-title" aria-live="polite">
-        {done ? (sync.phase === 'error' ? 'Paused for now.' : 'Apple Health is connected.') : importWords(month)}
+        {done ? (sync.phase === 'error' ? 'Paused for now.' : 'Apple Health is connected.') : importWords(null)}
       </h3>
       <p className="ahc-sub">
         {done
           ? sync.phase === 'error'
             ? `${syncErrorWords(sync.detail) ?? 'Something stopped the import.'} It picks up where it left off next time.`
             : importDoneWords(since)
-          : 'The newest months come first. You can leave this open or close it.'}
+          : 'This takes a moment. You can leave this open or close it.'}
       </p>
       <div className="ahc-actions">
         <Button variant={done ? 'primary' : 'default'} block onClick={() => sheet.close()}>

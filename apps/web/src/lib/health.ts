@@ -14,7 +14,7 @@ export interface SleepSegment {
   start: string;
   end: string;
   stage: SleepStage;
-  /** The app or device that wrote it, as Health names it ("Josh's Apple Watch"). */
+  /** The app or device that wrote it, as Health names it ("Sam's Apple Watch"). */
   source: string;
   bundle: string;
   /** The hardware ("Watch7,1", "iPhone17,2"); empty when Health does not say. */
@@ -35,10 +35,6 @@ export interface ReadingCheck {
   hrvError?: string;
   restingHr?: HealthReading;
   restingHrError?: string;
-  respiratoryRate?: HealthReading;
-  respiratoryRateError?: string;
-  stepsToday?: number;
-  stepsError?: string;
 }
 /** One sync run's outcome (the engine, packages/capacitor-health HealthSync.swift). */
 export interface HealthSyncResult {
@@ -53,15 +49,15 @@ export interface HealthDeviceStatus {
   connected: boolean;
   pending: number;
   deadLetter: number;
+  /** True until the first read has finished. */
   importing: boolean;
-  importingFrom?: string;
   historyFrom?: string;
   lastSyncAt?: string;
   lastError?: string;
 }
-/** The engine's progress, while the web view is open: start, progress (a month being imported), done, error. */
+/** The engine's progress, while the web view is open: start, then done or error. */
 export interface HealthSyncEvent {
-  phase: 'start' | 'progress' | 'done' | 'error';
+  phase: 'start' | 'done' | 'error';
   detail?: string;
 }
 export interface LogbookHealthPlugin {
@@ -73,7 +69,8 @@ export interface LogbookHealthPlugin {
   readingCheck(): Promise<ReadingCheck>;
   /** Saves the device token from POST /api/apple-health/connect in the Keychain; the import starts on the next sync. */
   connect(o: { token: string; apiOrigin: string; historyDays: number }): Promise<{ connected: boolean }>;
-  sync(o?: { reason: 'open' | 'manual' | 'import' }): Promise<HealthSyncResult>;
+  /** `apiOrigin`: where to send readings, used over the copy saved at connect. */
+  sync(o?: { reason: 'open' | 'manual' | 'import'; apiOrigin?: string }): Promise<HealthSyncResult>;
   status(): Promise<HealthDeviceStatus>;
   /** Stops syncing on this phone: queue, anchors and token gone. The server copy is deleted separately. */
   disconnect(): Promise<{ connected: boolean }>;
@@ -99,13 +96,9 @@ export const healthMock: LogbookHealthPlugin = {
   sync: async () => {
     if (!mockConnected) return { uploaded: 0, pending: 0, deadLetter: 0, importing: false, error: 'not_connected' };
     mockEmit({ phase: 'start' });
-    if (!mockImported) {
-      for (const m of ['Nov 1, 2026', 'Oct 1, 2026', 'Sep 1, 2026', 'Aug 1, 2026']) {
-        mockEmit({ phase: 'progress', detail: m });
-        await wait(700);
-      }
-      mockImported = true;
-    } else await wait(400);
+    // the first read of the three types is one short run
+    await wait(mockImported ? 400 : 2000);
+    mockImported = true;
     mockLast = new Date().toISOString();
     mockEmit({ phase: 'done' });
     return { uploaded: 12, pending: 0, deadLetter: 0, importing: false };
@@ -131,8 +124,6 @@ export const healthMock: LogbookHealthPlugin = {
     sleep: [seg(9, 8.6, 'core'), seg(8.6, 7.9, 'deep'), seg(7.9, 6.8, 'core'), seg(6.8, 6.7, 'awake'), seg(6.7, 5.5, 'rem'), seg(5.5, 3.6, 'core'), seg(3.6, 3, 'deep'), seg(3, 2.4, 'rem'), seg(2.4, 2.3, 'awake')],
     hrv: { value: 61.4, at: at(2.5), source: 'Apple Watch', device: 'Watch7,1' },
     restingHr: { value: 52, at: at(1), source: 'Apple Watch', device: 'Watch7,1' },
-    respiratoryRate: { value: 14.8, at: at(3), source: 'Apple Watch', device: 'Watch7,1' },
-    stepsToday: 4212,
   }),
 };
 
