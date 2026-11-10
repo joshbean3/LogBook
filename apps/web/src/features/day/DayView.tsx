@@ -19,6 +19,7 @@ import { stripKinds, stripLabel } from './stripKinds';
 import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
+import { seedTrainWhen } from './trainWhen';
 import { useStravaPull } from './useStravaPull';
 import { STRAVA_BUILT } from '@/lib/features';
 import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
@@ -100,6 +101,9 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   // the strip's week: its own memoised log (the pages keep theirs)
   const stripMonths = useMemo(() => [...new Set([monthOf(mondayOf(date)), monthOf(shiftDays(mondayOf(date), 6))])], [date]);
   const log = useLog(stripMonths);
+  // a reinstall or a second phone starts from the account's onboarding answer; a choice made on this phone wins (before paint)
+  const accountWhen = log.boot?.trainWhen;
+  useLayoutEffect(() => seedTrainWhen(accountWhen), [accountWhen]);
   const focus = useFocus();
   const { settings } = useMorningMutations();
   const openWord = useOpenWordSheet();
@@ -187,9 +191,9 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         titleLabel={date === today ? 'Today' : `${dayTitle(date, today)}. Go to today`}
         titleRef={titleRef}
         gap={16}
-        // the caps date opens the calendar on a tap (today-top-24): props requested from ws-02's NavBar; passed through a
-        // spread so this compiles before and after NavBar takes them
-        {...({ onDatePress: openCalendar, dateLabel: 'Go to a day' } as object)}
+        // the caps date opens the calendar on a tap (today-top-24)
+        onDatePress={openCalendar}
+        dateLabel="Go to a day"
       >
         <Sentence />
         <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} labelOf={labelOf} onPick={(d) => handle.goTo(d)} />

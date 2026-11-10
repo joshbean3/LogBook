@@ -827,6 +827,26 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   min-width: 0;
   opacity: calc(1 - var(--hdr, 0));
 }
+/* Today: the date is a button that opens the calendar (today-top-24). It fills the rest of the 44 px caps row, so the hit
+ * area is the row's height; the type is the caps line's, with a 12 px glyph after the date that fades with it. */
+.nb-bar .nb-date-btn {
+  flex: 1 1 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 44px;
+  text-transform: inherit;
+  white-space: nowrap;
+}
+.nb-date-btn > .nb-date {
+  flex: 0 1 auto;
+}
+.nb-date-glyph {
+  flex: none;
+  opacity: calc(1 - var(--hdr, 0));
+}
 .nb-bar .nb-inline {
   position: absolute;
   left: 50%;

@@ -193,7 +193,7 @@
 
 /* ---------- buttons ---------- */
 .btn {
-  height: 48px;
+  min-height: 48px;
   border-color: transparent;
   box-shadow: var(--shadow-1);
   font-size: 1rem;
@@ -208,13 +208,20 @@
   background: var(--columbia-wash);
   color: var(--ink);
 }
+/* the small button's floor has the base's weight (:where), so a feature's own min-height on it still wins */
+.btn:where(.sm) {
+  min-height: 36px;
+}
 .btn.sm {
-  height: 36px;
   font-size: var(--fs-sub);
+}
+/* the one feature button under the 48 floor keeps its own 44 (settings/appleHealth.css sets its height) */
+:root .ah-device-btn.btn {
+  min-height: 0;
 }
 .btn.block.primary,
 .sheet-foot .btn.primary {
-  height: 54px;
+  min-height: 54px;
   font-size: 1.0625rem;
 }
 
@@ -382,11 +389,11 @@
   padding-top: 18px;
 }
 .sheet .sheet-foot .btn {
-  height: 48px;
+  min-height: 48px;
   border-color: transparent;
 }
 .sheet .sheet-foot .btn.primary {
-  height: 54px;
+  min-height: 54px;
   padding: 0 24px;
   font-size: 1.0625rem;
 }

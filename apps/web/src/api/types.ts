@@ -10,8 +10,10 @@ export interface Bootstrap {
   zones: HrZone[] | null;
   strava: StravaStatus;
   features: { claude: boolean; strava: boolean };
-  /** The privacy choice (absent in caches from before the server sent it). */
-  consent?: Consent;
+  /** The privacy choice. parseBootstrap fills the never-asked record when the server's answer has none or a bad one. */
+  consent: Consent;
+  /** The onboarding answer for when training happens, kept on the account (null before one; parseBootstrap fills null when absent). Seeds this device's choice on Today (features/day/trainWhen.ts). */
+  trainWhen: { when: 'morning' | 'afternoon' | 'none'; offWork: number | null } | null;
   /** The server also sends `serverTime`; `fetchBootstrap` drops it so the cached object only changes when the data does. */
 }
 

@@ -1,4 +1,4 @@
-import { Activity, ChevronLeft, Dumbbell, Footprints, type LucideIcon } from 'lucide-react';
+import { Activity, CalendarDays, ChevronLeft, Dumbbell, Footprints, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { isValidElement, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -48,6 +48,10 @@ export interface NavBarProps {
   onTitlePress?: () => void;
   titleMenu?: ContextMenuItem[] | (() => ContextMenuItem[]);
   titleLabel?: string;
+  /** Today: the caps date is its own button (a small calendar glyph after it) that opens the calendar; the hold menu stays on it. */
+  onDatePress?: () => void;
+  /** The date button's accessible name ("Go to a day"). */
+  dateLabel?: string;
   gap?: 16 | 24;
   /** The DateStrip (Today only); rendered sticky under the bar. */
   children?: ReactNode;
@@ -87,7 +91,7 @@ const setRef = <T,>(r: React.Ref<T> | undefined, v: T | null) => {
 };
 
 /** Returns a FRAGMENT: .nb-bar, .nb-title, {children}, .nb-gap, as direct children of the page element. Never a wrapper. */
-export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, onTitlePress, titleMenu, titleLabel, gap = 24, children, titleRef }: NavBarProps): React.JSX.Element => {
+export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, onTitlePress, titleMenu, titleLabel, onDatePress, dateLabel, gap = 24, children, titleRef }: NavBarProps): React.JSX.Element => {
   const reduce = !!useReducedMotion();
   const barRef = useRef<HTMLDivElement>(null);
   const capRef = useRef<HTMLElement>(null);
@@ -160,11 +164,22 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
           {word}&nbsp;·&nbsp;
         </span>
       ) : null}
-      <span className="nb-date">
-        <Stacked l={caps} form={form} stacked={stacked} />
-      </span>
+      {onDatePress ? (
+        <Pressable className="nb-date-btn" label={dateLabel} onPress={() => onDatePress()} holdMenu={titleMenu} menuLabel="Title actions" press="dim">
+          <span className="nb-date">
+            <Stacked l={caps} form={form} stacked={stacked} />
+          </span>
+          <CalendarDays className="nb-date-glyph" size={12} strokeWidth={2.25} aria-hidden="true" />
+        </Pressable>
+      ) : (
+        <span className="nb-date">
+          <Stacked l={caps} form={form} stacked={stacked} />
+        </span>
+      )}
     </>
   );
+  // with its own date button the caps line is a row, not a button (no button inside a button); the title keeps its tap and hold
+  const capButton = pressable && !onDatePress;
   const titleRefCb = (el: HTMLElement | null) => {
     titleEl.current = el;
     setRef(titleRef, el);
@@ -172,7 +187,7 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
   return (
     <>
       <div ref={barRef} className={`nb-bar ${wideTrailing ? 'has-seg' : ''}`.trim()}>
-        {pressable ? (
+        {capButton ? (
           <Pressable ref={capRef} className="nb-cap" label={capLabel} {...tp}>
             {capInner}
           </Pressable>

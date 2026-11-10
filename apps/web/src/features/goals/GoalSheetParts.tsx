@@ -2,7 +2,7 @@ import { goalProgress, type Aim, type GoalLevel } from '@logbook/shared';
 import { Check, PenLine, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { useOpenAssistant } from '@/features/assistant/AskBar';
+import { useOpenAssistant } from '@/features/assistant/openAssistant';
 import { haptics } from '@/lib/haptics';
 import { springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';

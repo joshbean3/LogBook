@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Consent } from '@logbook/shared';
+import { DEFAULT_CONSENT, type Consent } from '@logbook/shared';
 import type { Bootstrap } from './types';
 
 /**
@@ -16,6 +16,7 @@ const zConsent = z.object({
   at: z.string().nullable(),
   version: z.string().nullable(),
 });
+const zTrainWhen = z.object({ when: z.enum(['morning', 'afternoon', 'none']), offWork: z.number().nullable() });
 const zBootstrap = z.looseObject({
   user: z.looseObject({ id: z.string().min(1), email: z.string() }),
   habits: z.array(z.looseObject({ id: z.string() })),
@@ -34,7 +35,7 @@ export class BadShapeError extends Error {
   }
 }
 
-/** The account's privacy choice as the bootstrap carries it (Contract 1), or undefined when it is absent or not readable. */
+/** The account's privacy choice as the server sent it (Contract 1), or undefined when it is absent or not readable. */
 export const consentOf = (raw: unknown): Consent | undefined => {
   const r = zConsent.safeParse(raw);
   return r.success ? r.data : undefined;
@@ -44,8 +45,9 @@ export const isBootstrap = (raw: unknown): raw is Bootstrap => zBootstrap.safePa
 
 /**
  * The answer as a Bootstrap, or a BadShapeError. The object is returned as it came (no copy, so a refetch that brings
- * nothing new keeps its identity), except a `consent` that is not a full record: that is dropped, and the app treats the
- * choice as not known rather than guessing a yes.
+ * nothing new keeps its identity), except when `consent` is missing or not a full record: then it is filled with the
+ * never-asked record (nothing granted), so the open still succeeds and the app never guesses a yes. A `trainWhen` that is
+ * missing (a server or a saved copy from before it) or unreadable reads as null, no answer.
  */
 export const parseBootstrap = (raw: unknown): Bootstrap => {
   const r = zBootstrap.safeParse(raw);
@@ -54,9 +56,8 @@ export const parseBootstrap = (raw: unknown): Bootstrap => {
     throw new BadShapeError(first ? `${first.path.join('.') || 'bootstrap'}: ${first.message}` : 'bootstrap');
   }
   const b = raw as Bootstrap;
-  if (b.consent !== undefined && !consentOf(b.consent)) {
-    const { consent: _bad, ...rest } = b;
-    return rest;
-  }
-  return b;
+  const badConsent = !consentOf(b.consent);
+  const badTrainWhen = b.trainWhen !== null && !zTrainWhen.safeParse(b.trainWhen).success;
+  if (!badConsent && !badTrainWhen) return b;
+  return { ...b, ...(badConsent ? { consent: { ...DEFAULT_CONSENT } } : null), ...(badTrainWhen ? { trainWhen: null } : null) };
 };

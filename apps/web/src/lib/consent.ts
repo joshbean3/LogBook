@@ -51,12 +51,7 @@ export const saveConsentOptions = (qc: QueryClient) => ({
     if (!ctx) return;
     qc.setQueryData<Consent>(consentKey, ctx.prev);
     if (ctx.hadBoot)
-      qc.setQueryData<Bootstrap>(bootKey, (b) => {
-        if (!b) return b;
-        if (ctx.prevBoot) return { ...b, consent: ctx.prevBoot };
-        const { consent: _gone, ...rest } = b;
-        return rest;
-      });
+      qc.setQueryData<Bootstrap>(bootKey, (b) => (b && ctx.prevBoot ? { ...b, consent: ctx.prevBoot } : b));
     // the stored choice is the truth: ask again rather than trust a rollback
     void qc.invalidateQueries({ queryKey: consentKey });
   },
