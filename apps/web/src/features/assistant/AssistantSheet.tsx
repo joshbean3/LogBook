@@ -694,6 +694,19 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
     </div>
   );
 
+  // VoiceOver: a finished answer is read once, as words (never word by word while it streams); a proposal adds a line
+  const [said, setSaid] = useState('');
+  const heard = useRef(turns.length);
+  useEffect(() => {
+    const was = heard.current;
+    heard.current = turns.length;
+    if (turns.length <= was || turns.length <= mountedAt.current) return;
+    const t = turns[turns.length - 1]!;
+    if (t.role !== 'assistant' || t.error) return;
+    setSaid(`${plainOf(t.text)}${t.proposal?.status === 'proposed' ? ' Changes ready to review.' : ''}`.trim());
+  }, [turns]);
+  useEffect(() => setSaid(''), [chatId]);
+
   const empty = turns.length === 0 && !busy;
   const stoppedHere = useAssistantStopped() === chatId;
   // an answer being written in another chat: one line over the composer, and a way there
@@ -703,6 +716,9 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
 
   return (
     <div className={`as-sheet${empty ? ' is-empty' : ''}`} ref={root}>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {said}
+      </p>
       <div className="as-thread">
         {empty ? (
           <div className="as-hello">
