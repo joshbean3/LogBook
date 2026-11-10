@@ -140,7 +140,8 @@ export const TodaysPick = ({ compact, heroOnly, onLayout }: { compact?: boolean;
   if ((!p || waiting) && heroOnly) return null;
   if (!p || waiting) {
     if (waiting) return <HeroWait />;
-    if (off) return <Slim>Daily picks are off. Your links still wait below.</Slim>;
+    // the account's switch is on (checked above), so this is the server without its picker: an outage, not a choice
+    if (off) return <Slim>Daily picks are not available right now. Your links still wait below.</Slim>;
     if (data?.reason === 'empty') return <Slim>Save links and Claude, by Anthropic, picks one new read a day.</Slim>;
     // the request failed (or never answered and was given up on): say so, and the verb is to ask again (review 2 feel N5)
     if (q.isError && !data)

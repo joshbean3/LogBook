@@ -81,7 +81,8 @@ export const EntryEditor = ({ e }: { e: JournalEntry }) => {
     // an edit is not a day's close: no `success` (two a day, §11.4)
     void w.patch({ entry: e, text: v }).then((ok) => {
       setEdit(e.id, ok ? null : v);
-      if (!ok) toast(SAVE_FAILED);
+      // still open: the words never left; closed meanwhile: they are back the next time Edit opens
+      if (!ok) toast(here.current ? 'Couldn’t save that. Your words are still here.' : SAVE_FAILED);
       if (!here.current) return;
       if (ok) sheet.pop();
       else setBusy(false);
