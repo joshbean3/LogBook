@@ -312,8 +312,9 @@
 }
 /* the inline question under a hard pair */
 .pl-conflict {
-  /* scrolled into view above the dock (Ask bar and tab bar) and under the bar */
-  scroll-margin: 64px 0 calc(var(--chrome-h) + var(--safe-b, 0px) + 16px);
+  /* scrolled into view above the dock (Ask bar and tab bar) and under the bar. The dock's height is spelled out: inside
+     the pager `--chrome-h` is the pager's own offset */
+  scroll-margin: 64px 0 calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px + var(--safe-b, 0px) + 16px);
   position: relative;
   padding: 12px 16px 14px;
   background: var(--surface);
