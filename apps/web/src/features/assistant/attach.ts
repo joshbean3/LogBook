@@ -87,24 +87,39 @@ export interface RequestTurn {
   attachments?: Attachment[];
 }
 
-const wordsOf = (t: AssistantTurn) => {
+/** A turn's words, and the note that goes after them (how a proposal ended, an answer cut short). */
+const wordsOf = (t: AssistantTurn): [string, string] => {
   const p = t.proposal;
   // an answer the owner stopped goes back as what it was: cut short
-  if (t.stopped) return `${t.text}\n[He stopped this answer partway.]`;
-  if (!p) return t.text;
-  const left = p.skipped?.length ? ` He left out: ${p.skipped.map((i) => p.changes[i]?.label ?? `change ${i + 1}`).join('; ')}.` : '';
-  return `${t.text}\n[Proposed: ${p.summary} Status: ${p.status}.${left}]`.trim();
+  if (t.stopped) return [t.text, '\n[They stopped this answer partway.]'];
+  if (!p) return [t.text, ''];
+  const left = p.skipped?.length ? ` They left out: ${p.skipped.map((i) => p.changes[i]?.label ?? `change ${i + 1}`).join('; ')}.` : '';
+  return [t.text, `\n[Proposed: ${p.summary} Status: ${p.status}.${left}]`];
+};
+
+/** What the server reads of a conversation (packages/shared zAssistantAsk: 40 turns of 8,000 characters; it answers from the last 20). */
+export const SEND_TURNS = 20;
+export const TURN_CHARS = 8000;
+const CUT = '\n[Cut here for length.]';
+/** `text` then `note`, inside the server's cap: a long answer loses its end (said in words), never the note after it. */
+const fit = (text: string, note = '') => {
+  const whole = `${text}${note}`.trim();
+  if (whole.length <= TURN_CHARS) return whole;
+  return `${text.slice(0, Math.max(0, TURN_CHARS - CUT.length - note.length)).trimEnd()}${CUT}${note}`.slice(0, TURN_CHARS);
 };
 
 /**
- * The conversation as sent: newest files first, as many as fit the limits (4 files, 20 MB), so the assistant can still
- * look at a photo sent a few turns back. A turn whose files are not resent (too many, or the app was reopened and the
- * data is gone) names them, so the assistant knows something was shown there. An ask that did not go through is the
- * app's message, not the assistant's: it is never sent back.
+ * The conversation as sent: the last 20 turns (what the server reads), starting at one of the owner's, each inside the
+ * server's length cap, so a long chat or a long answer never stops the next ask. Newest files first, as many as fit the
+ * limits (4 files, 20 MB), so the assistant can still look at a photo sent a few turns back. A turn whose files are not
+ * resent (too many, or the app was reopened and the data is gone) names them, so the assistant knows something was shown
+ * there. An ask that did not go through is the app's message, not the assistant's: it is never sent back.
  */
 export const requestTurns = (all: readonly AssistantTurn[], dataOf: (t: AssistantTurn) => Attachment[] | undefined): RequestTurn[] => {
-  const turns = all.filter((t) => !t.error);
-  const out: RequestTurn[] = turns.map((t) => ({ role: t.role, text: wordsOf(t) }));
+  let turns = all.filter((t) => !t.error).slice(-SEND_TURNS);
+  const first = turns.findIndex((t) => t.role === 'user');
+  if (first > 0) turns = turns.slice(first);
+  const out: RequestTurn[] = turns.map((t) => ({ role: t.role, text: '' }));
   let count = 0;
   let bytes = 0;
   for (let i = turns.length - 1; i >= 0; i--) {
@@ -117,7 +132,9 @@ export const requestTurns = (all: readonly AssistantTurn[], dataOf: (t: Assistan
     out[i]!.attachments = data;
   }
   turns.forEach((t, i) => {
-    if (t.files?.length && !out[i]!.attachments) out[i]!.text = `${out[i]!.text}\n[Sent earlier: ${t.files.map((f) => f.name).join(', ')}]`.trim();
+    const [words, note] = wordsOf(t);
+    const sent = t.files?.length && !out[i]!.attachments ? `\n[Sent earlier: ${t.files.map((f) => f.name).join(', ')}]` : '';
+    out[i]!.text = fit(words, `${note}${sent}`);
   });
   return out;
 };

@@ -1,41 +1,5 @@
-/* The assistant: the bar at the top of a day, and the conversation in a large sheet, laid out as a native AI chat.
+/* The assistant: the conversation in a large sheet, laid out as a native AI chat.
    Navy for the one verb, Columbia for the owner's words, orange only for what needs a look (a change that deletes). */
-
-.ask-bar.pressable {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 48px;
-  margin-bottom: 12px;
-  padding: 0 16px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--ink-3);
-  text-align: left;
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
-}
-.ask-bar[data-pressed] {
-  background: var(--surface-2);
-}
-.ask-bar-ic {
-  color: var(--accent-text);
-}
-.ask-bar-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ask-bar-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-}
-
-
 
 /* ---------- the chat, laid out the way ChatGPT and Claude are on a phone ----------
  * The answers sit straight on the page at full width (no card: the words are the content); the owner's words in a soft
@@ -45,7 +9,12 @@
   align-content: stretch;
 }
 .sheet:has(.as-head-actions) .sheet-head {
-  --side: 84px;
+  /* the chat's title takes the room between Close and the History / New capsule (not an equal side each way) */
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+}
+.sheet:has(.as-head-actions) .sheet-titles,
+.sheet:has(.as-head-actions) .sheet-titles-in {
+  justify-items: stretch;
 }
 .as-title {
   display: block;
@@ -57,23 +26,30 @@
   display: inline-flex;
   align-items: center;
   height: 40px;
-  padding: 0 2px;
+  padding: 0;
   border-radius: var(--r-pill);
   background: var(--surface);
   box-shadow: var(--shadow-float);
 }
 .as-head-btn {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 40px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--r-pill);
   background: none;
   color: var(--ink);
 }
 .as-head-btn:active {
   background: var(--surface-2);
+}
+/* 44 x 44 to the touch: the capsule is 40 tall */
+.as-head-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
 }
 
 .as-sheet {
@@ -140,7 +116,15 @@
 .as-hello-foot {
   margin: 6px 0 0;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
+}
+/* the not-medical-advice line (lib/copy.ts DISCLAIMER): the last words of the greeting, quiet but readable */
+.as-hello-legal {
+  max-width: 21rem;
+  margin: 10px 0 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  text-wrap: pretty;
 }
 
 /* starter cards: a row above the composer that scrolls sideways, two lines each */
@@ -419,7 +403,7 @@
 }
 .as-phase-secs {
   font: 500 var(--fs-foot) / 1 var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
 .as-step {
@@ -446,7 +430,7 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   font: italic 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .as-thought-text {
   margin: 0;
@@ -498,7 +482,8 @@
   align-items: center;
   gap: 4px;
   width: fit-content;
-  min-height: 28px;
+  min-height: 44px;
+  margin: -8px 0;
   padding: 0;
   border: 0;
   background: none;
@@ -517,21 +502,23 @@
   animation: as-rise 200ms var(--ease-out) both;
 }
 .as-step.is-done {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 /* ---------- under an answer: Copy, Read aloud, thumbs, Share, Ask again ---------- */
 .as-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 2px;
-  margin: -4px 0 0 -8px;
+  gap: 0;
+  margin: -8px 0 0 -14px;
 }
+/* 44 x 44 each, side by side on a 44 px pitch: no target overlaps another */
 .as-act {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 50%;
   background: none;
@@ -552,7 +539,7 @@
 .as-stopped {
   margin-left: 6px;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 /* ---------- follow-ups: pills under the newest answer; a tap sends ---------- */
@@ -564,7 +551,7 @@
 }
 .as-followup {
   max-width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   padding: 9px 14px;
   border: 1px solid var(--line-strong);
   border-radius: 20px;
@@ -632,7 +619,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .as-input:focus {
   outline: none;
@@ -644,6 +631,7 @@
   min-width: 0;
 }
 .as-plus {
+  position: relative;
   flex: none;
   display: grid;
   place-items: center;
@@ -654,6 +642,13 @@
   background: var(--surface-2);
   color: var(--ink-2);
   transition: transform var(--dur-fast) var(--ease-out);
+}
+/* 44 x 44 to the touch around the 36 px circle (attach and Send) */
+.as-plus::after,
+.as-send::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
 }
 .as-plus:active:not(:disabled) {
   transform: scale(0.9);
@@ -700,6 +695,7 @@
   inset: -10px;
 }
 .as-send {
+  position: relative;
   flex: none;
   display: grid;
   place-items: center;
@@ -737,6 +733,22 @@
     transform: scale(1);
   }
 }
+/* the AI label (lib/copy.ts AI_LABEL): under the composer in every state of the sheet, keys up or down */
+.as-ai-label {
+  margin: -2px 0 0;
+  padding: 0 8px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  text-align: center;
+  text-wrap: balance;
+}
+/* the first file ever attached: one line in the box saying where it goes */
+.as-attach-note {
+  margin: 0;
+  padding: 6px 8px 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+}
 .as-editing {
   display: flex;
   align-items: center;
@@ -746,6 +758,7 @@
   color: var(--ink-3);
 }
 .as-editing-x {
+  position: relative;
   display: grid;
   place-items: center;
   width: 28px;
@@ -755,6 +768,11 @@
   border-radius: 50%;
   background: var(--surface-2);
   color: var(--ink-3);
+}
+.as-editing-x::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 .as-file.is-preparing .as-orb {
   margin: auto;
@@ -887,7 +905,7 @@
   margin: 12px 0 0;
   text-align: center;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 /* ---------- motion: a new turn rises in; a proposal's changes follow one after another ---------- */
@@ -979,9 +997,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 44px;
   margin-top: 8px;
-  padding: 0 16px;
+  padding: 0 18px;
   border-radius: var(--r-pill);
   border: 0;
   background: var(--primary);
@@ -989,6 +1007,39 @@
   font: 600 var(--fs-sub) / 1 var(--sans);
 }
 
+/* a question with no answer under it (stopped before any words, or the app closed while it was written) */
+.as-noanswer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.as-noanswer-text {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-3);
+}
+.as-noanswer .as-retry {
+  margin-top: 0;
+}
+/* an answer being written in another chat: one line over the composer that goes there */
+.as-elsewhere {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-elsewhere svg {
+  color: var(--ink-3);
+}
 
 /* ---------- a proposal: one card; the summary, a row per change, the decision ---------- */
 .card.as-proposal {
@@ -1008,6 +1059,12 @@
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: -0.01em;
   color: var(--ink);
+}
+/* a long proposal: how many of each kind, before the first six */
+.as-prop-count {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }
 .as-changes {
   list-style: none;
@@ -1093,16 +1150,28 @@
   background: var(--columbia-wash);
   color: var(--ink-2);
 }
+/* Not now, then Apply filling the rest of the row. At large text sizes, where the two no longer fit side by side, Apply
+   takes its own row and its words may wrap, so the one action that matters is never cut off. */
 .as-proposal-foot {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 16px 16px;
 }
 .as-proposal-foot .btn {
-  height: 48px;
+  flex: 0 1 auto;
+  height: auto;
+  min-height: 48px;
+  padding-block: 8px;
   border-color: transparent;
   box-shadow: none;
+  white-space: normal;
+  text-align: center;
+}
+.as-proposal-foot .btn.primary {
+  flex: 1 1 auto;
+  /* the pair still shares a row on the narrowest phone */
+  padding-inline: 8px;
 }
 .as-proposal-foot .btn.quiet {
   padding: 0 14px;
@@ -1143,7 +1212,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 14px;
   border-radius: var(--r-pill);
   border: 0;
@@ -1235,6 +1304,7 @@
   color: var(--ink-3);
 }
 .as-file-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1287,7 +1357,13 @@
   color: var(--ink-2);
   font-size: var(--fs-foot);
 }
+/* a long file name is cut; the icon keeps its size */
+.as-file.is-doc > svg,
+.as-turn-doc > svg {
+  flex: none;
+}
 .as-turn-doc span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1304,4 +1380,233 @@
 }
 .lb-orb.as-hello-mark {
   margin-bottom: 14px;
+}
+
+/* ---------- the permission step: shown in place of the conversation until a choice about the assistant is stored ---------- */
+.as-ask {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 24px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.as-ask.is-checking {
+  grid-template-rows: 1fr;
+  place-items: center;
+  min-height: 240px;
+}
+.as-ask-top {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 0 0;
+  text-align: center;
+}
+.as-ask-mark {
+  margin-bottom: 6px;
+}
+.as-ask-title {
+  margin: 0;
+  font: italic 400 var(--fs-title) / var(--lh-title) var(--display);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.as-ask-lead {
+  max-width: 22rem;
+  margin: 0;
+  padding: 0 8px;
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.as-ask-list {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 10px 0 0;
+  list-style: none;
+  text-align: left;
+}
+.as-ask-list li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.as-ask-list b {
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.as-ask-list span {
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+.as-ask-actions {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.as-ask-error {
+  margin: 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--bad);
+  text-align: center;
+}
+.as-ask-foot {
+  margin: 4px 0 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  text-align: center;
+}
+.as-ask-link {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* a 13 px word with a 44 px target */
+.as-ask-link::after {
+  content: '';
+  position: absolute;
+  inset: -13px -8px;
+}
+
+/* with training data off: the way to change it, under the line that says so */
+.as-hello-link {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+/* a removed chip stays as a way to put it back */
+.as-ctx-pill.is-off {
+  position: relative;
+  padding: 0 12px 0 8px;
+  border: 1px dashed var(--line-strong);
+  background: none;
+  color: var(--ink-3);
+}
+.as-ctx-pill.is-off::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+/* asks first, in place: editing a question or deleting a chat that changes were applied from */
+.as-confirm {
+  display: grid;
+  gap: 10px;
+  justify-self: end;
+  max-width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+}
+.as-confirm p {
+  margin: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink);
+}
+.as-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.as-confirm-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-confirm-btn.is-go {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.as-history-confirm {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  margin: 0 12px 12px;
+  box-shadow: none;
+}
+.as-history-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Report: after thumbs down, or from History ---------- */
+.as-report {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+.as-report-lead {
+  margin: 4px 0 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.as-report-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.as-report-reason {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-report-reason.is-on {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.as-report-note textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font: 400 max(16px, var(--fs-row)) / 1.4 var(--sans);
+  resize: none;
+}
+.as-report-note textarea::placeholder {
+  color: var(--ink-3);
+}
+.as-report-note textarea:focus {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 0;
+}
+.as-report-foot {
+  margin: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.as-history-report.pill-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-weight: 600;
 }

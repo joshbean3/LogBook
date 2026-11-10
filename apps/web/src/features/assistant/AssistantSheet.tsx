@@ -1,4 +1,4 @@
-import { fmtDate, PHASE_WORDS, screenLabel, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
+import { fmtDate, PHASE_WORDS, type AssistantLive, type AssistantScreen, type AssistantTurn, type ISODate } from '@logbook/shared';
 import { Orb } from '@/ui/Orb';
 import {
   Activity,
@@ -31,7 +31,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { askAssistant, stopAssistant, useBootstrap } from '@/api/queries';
+import { onUnauthorized } from '@/api/client';
+import { useBootstrap } from '@/api/queries';
+import { useNavInternal } from '@/app/NavController';
+import { useConsent } from '@/lib/consent';
+import { AI_LABEL, DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { isNative } from '@/lib/native';
@@ -39,12 +43,18 @@ import { useToday } from '@/lib/useToday';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { ATTACHMENT_LIMITS, type AssistantFileShown } from '@logbook/shared';
+import { askAssistant, stopAssistant, waitForJob } from './api';
 import { AttachError, prepareFile, type PreparedFile } from './attach';
-import { editTurn, regenerate, retryAsk, sendTurn, stopAsk } from './conversation';
+import { editTurn, regenerate, resumeAsk, retryAsk, runAsk, sendTurn, stopAsk } from './conversation';
+import { attachNoteSeen, markAttachNoteSeen } from './attachNote';
+import { readDraft, writeDraft } from './drafts';
 import { HistoryPanel } from './History';
+import { plainOf } from './plain';
+import { AssistantPermission, useAssistantGate } from './Permission';
 import { ProposalCard } from './Proposal';
+import { ReportPanel } from './Report';
 import { Rich } from './Rich';
-import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantTurns } from './store';
+import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantSaveFailed, useAssistantStopped, useAssistantTurns } from './store';
 import './assistant.css';
 
 /** The files a turn carried, as the thread shows them: a photo's preview, a PDF's name. */
@@ -67,30 +77,46 @@ const SCREEN_ICON: Record<AssistantScreen['tab'], LucideIcon> = { today: Sun, pl
 
 /** Ways to start an empty chat: two lines each (what, then the rest), as ChatGPT's starter cards read. */
 type Starter = { title: string; sub: string; send?: string; attach?: true };
-const startersFor = (date: ISODate, today: ISODate): Starter[] => {
+const READ_PLAN: Starter = { title: 'Read a plan', sub: 'from a photo or a PDF', attach: true };
+/**
+ * The starters for where the sheet was opened. With training data off the assistant can't see the plan, so the plan
+ * starters give way to general questions.
+ */
+export const startersFor = (tab: AssistantScreen['tab'] | undefined, date: ISODate, today: ISODate, training: boolean): Starter[] => {
+  if (!training)
+    return [
+      { title: 'Pace a long run', sub: 'how easy it should feel', send: 'How easy should a long run feel?' },
+      { title: 'Fit in strength', sub: 'around running', send: 'How do I fit strength work around running?' },
+      READ_PLAN,
+    ];
   const run = date === today ? 'today’s run' : `${fmtDate('short', date)}’s run`;
-  return [
-    { title: 'What’s left', sub: 'on the plan this week', send: 'What’s left on the plan this week?' },
-    { title: 'Push missed runs', sub: 'to next week', send: 'Push the runs I missed this week to next week' },
-    { title: `Move ${run}`, sub: 'to the next day', send: `Move ${run} to the next day` },
-    { title: 'Set this week’s goal', sub: 'from my plan', send: 'Set this week’s goal from my plan' },
-    { title: 'Read a plan', sub: 'from a photo or a PDF', attach: true },
-  ];
+  const left: Starter = { title: 'What’s left', sub: 'on the plan this week', send: 'What’s left on the plan this week?' };
+  const push: Starter = { title: 'Push missed runs', sub: 'to next week', send: 'Push the runs I missed this week to next week' };
+  const goal: Starter = { title: 'Set this week’s goal', sub: 'from my plan', send: 'Set this week’s goal from my plan' };
+  switch (tab) {
+    case 'today':
+      return [{ title: `Move ${run}`, sub: 'to the next day', send: `Move ${run} to the next day` }, left, push, READ_PLAN];
+    case 'goals':
+      return [goal, { title: 'How my goals', sub: 'are going', send: 'How are my goals going?' }, READ_PLAN];
+    case 'progress':
+      return [{ title: 'How this week', sub: 'went against the plan', send: 'How did this week go against the plan?' }, { title: 'Am I on track', sub: 'for my race', send: 'Am I on track for my race?' }, READ_PLAN];
+    default:
+      return [left, push, goal, READ_PLAN];
+  }
+};
+
+/**
+ * The chip shows only where it changes what the assistant reads: the day on Today, the week or month on Plan. In words:
+ * "Today", "Thu, Nov 12", "Week of Nov 9", "November".
+ */
+export const chipOf = (s: AssistantScreen | undefined, today: ISODate): string | null => {
+  if (s?.tab === 'today' && s.date) return s.date === today ? 'Today' : `${fmtDate('dow', s.date)}, ${fmtDate('md', s.date)}`;
+  if (s?.tab === 'plan' && s.week) return `Week of ${fmtDate('md', s.week)}`;
+  if (s?.tab === 'plan' && s.month) return fmtDate('month', `${s.month}-01`);
+  return null;
 };
 
 const greeting = (h = new Date().getHours()) => (h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
-
-/** An answer as plain words, for Copy, Share and Read aloud: no stars, ticks or table bars. */
-export const plainOf = (text: string) =>
-  text
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/(^|\s)[*_](\S[^*_\n]*?)[*_]/g, '$1$2')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^#{1,4}\s+/gm, '')
-    .replace(/^\s*\|?[\s:|-]+\|?\s*$/gm, '')
-    .replace(/^\s*\|(.*)\|\s*$/gm, (_, row: string) => row.split('|').map((c) => c.trim()).join('  '))
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 
 /** Seconds since `since`, ticking once a second while shown. */
 const useSeconds = (since: number) => {
@@ -125,20 +151,6 @@ const useSmoothText = (target: string) => {
     return () => cancelAnimationFrame(raf);
   }, []);
   return target.slice(0, Math.min(n, target.length));
-};
-
-/** A soft tick as the words land (ChatGPT's feel on iPhone): at most one every 110 ms, only while new words appear. */
-const useWordTicks = (text: string) => {
-  const words = text ? text.split(/\s+/).length : 0;
-  const last = useRef({ words, at: 0 });
-  useEffect(() => {
-    const now = performance.now();
-    if (words > last.current.words && now - last.current.at > 110) {
-      haptics.tick();
-      last.current.at = now;
-    }
-    last.current.words = words;
-  }, [words]);
 };
 
 /**
@@ -182,7 +194,7 @@ const Process = ({ thoughts, seconds, steps }: { thoughts?: string; seconds?: nu
 const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null }) => {
   const secs = useSeconds(since);
   const text = useSmoothText(live?.text ?? '');
-  useWordTicks(text);
+  const offline = useAssistantOffline();
   const [open, setOpen] = useState(false);
   const phase = live?.phase ?? 'thinking';
   const writing = text.length > 0;
@@ -208,7 +220,8 @@ const LiveAnswer = ({ since, live }: { since: number; live: AssistantLive | null
             </p>
           ))}
           {open && live?.thoughts ? <p className="as-thought-text">{live.thoughts}</p> : lastThought ? <p className="as-thought-line">{lastThought}</p> : null}
-          {secs >= 20 ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
+          {offline ? <p className="as-slow">Waiting for a connection.</p> : null}
+          {secs >= 20 && !offline ? <p className="as-slow">Still working. A plan from photos can take a minute or two. You can close this and come back.</p> : null}
         </div>
       )}
       {writing ? (
@@ -255,7 +268,7 @@ const shareText = async (text: string) => {
 };
 
 /** Under a finished answer, as ChatGPT lays them out: Copy, Read aloud, thumbs, Share, and Ask again on the newest. */
-const AnswerActions = ({ t, index, newest, speaker, onRegenerate }: { t: AssistantTurn; index: number; newest: boolean; speaker: ReturnType<typeof useSpeaker>; onRegenerate: () => void }) => {
+const AnswerActions = ({ t, index, newest, speaker, onRegenerate, onReport }: { t: AssistantTurn; index: number; newest: boolean; speaker: ReturnType<typeof useSpeaker>; onRegenerate: () => void; onReport: () => void }) => {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
   const copy = async () => {
@@ -278,7 +291,10 @@ const AnswerActions = ({ t, index, newest, speaker, onRegenerate }: { t: Assista
   const rate = (r: 'up' | 'down') => {
     haptics.select();
     assistantStore.rate(index, r);
-    if (t.rating !== r) toast(r === 'up' ? 'Thanks. Glad that helped.' : 'Thanks. Ask again or tell it what was off.');
+    if (t.rating === r) return;
+    // thumbs down opens a small report: what was wrong, a note, and an email to Logbook with the answer
+    if (r === 'down') onReport();
+    else toast('Thanks. Glad that helped.');
   };
   const speaking = speaker.speaking === index;
   return (
@@ -315,8 +331,10 @@ const AnswerActions = ({ t, index, newest, speaker, onRegenerate }: { t: Assista
 };
 
 /** The owner's words: a soft bubble at the right. A tap shows Copy and Edit under it (ChatGPT's message menu). */
-const UserTurn = ({ t, canEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; onEdit: () => void }) => {
+const UserTurn = ({ t, canEdit, confirmEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; confirmEdit: boolean; onEdit: () => void }) => {
   const [open, setOpen] = useState(false);
+  // editing takes the answers after it off: when one of them has changes applied, it asks first
+  const [asking, setAsking] = useState(false);
   const toast = useToast();
   return (
     <>
@@ -349,7 +367,8 @@ const UserTurn = ({ t, canEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; 
               aria-label="Edit"
               onClick={() => {
                 setOpen(false);
-                onEdit();
+                if (confirmEdit) setAsking(true);
+                else onEdit();
               }}
             >
               <Pencil size={16} strokeWidth={2.1} aria-hidden="true" />
@@ -357,8 +376,39 @@ const UserTurn = ({ t, canEdit, onEdit }: { t: AssistantTurn; canEdit: boolean; 
           ) : null}
         </div>
       ) : null}
+      {asking ? (
+        <div className="as-confirm" role="group" aria-label="Edit this message?">
+          <p>This removes the answers after it. Changes you applied stay.</p>
+          <div className="as-confirm-actions">
+            <button type="button" className="as-confirm-btn" onClick={() => setAsking(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="as-confirm-btn is-go"
+              onClick={() => {
+                setAsking(false);
+                onEdit();
+              }}
+            >
+              Edit
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
+};
+
+/** The "storage full" toast shows once per launch. */
+let warnedFull = false;
+
+/** Runs `onGone` when a pushed panel leaves (no timer watching for it). */
+const PanelLife = ({ onGone, children }: { onGone: () => void; children: React.ReactNode }) => {
+  const gone = useRef(onGone);
+  gone.current = onGone;
+  useEffect(() => () => gone.current(), []);
+  return <>{children}</>;
 };
 
 /** The waiting proposal, when it has scrolled out of view: a bar over the composer that brings it back. */
@@ -409,13 +459,20 @@ const useHeader = (onHistory: () => void, pushed: React.RefObject<boolean>) => {
 };
 
 /**
- * The assistant (Claude Sonnet), laid out the way ChatGPT and Claude are on a phone: a greeting and starter cards on a
+ * The assistant, laid out the way ChatGPT and Claude are on a phone: a greeting and starter cards on a
  * new chat; the owner's words in soft bubbles at the right; the answers straight on the page, full width, with how it got
  * there folded above and its actions below; the question just sent pinned at the top while the answer streams in under
  * it; a composer box with the attach button, the screen it was opened from and Send (Stop while it works). Every chat is
  * kept in History. It answers, or proposes changes that run only when Apply is tapped (and Undo takes back).
  */
-export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
+export const AssistantSheet = (props: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
+  // the permission step comes first: the conversation (and its composer) is not there to send from until it is answered
+  const { gate, retry } = useAssistantGate();
+  if (gate !== 'open') return <AssistantPermission gate={gate} retry={retry} date={props.date} screen={props.screen} />;
+  return <Conversation {...props} />;
+};
+
+const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; initial?: string; screen?: AssistantScreen }) => {
   const today = useToday();
   const turns = useAssistantTurns();
   const busySince = useAssistantBusy();
@@ -425,7 +482,8 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
   const busyAnywhere = busySince !== null;
   // the answer being written belongs to this chat (one can carry on in another while this one is open)
   const busy = busyAnywhere && busyChat === chatId;
-  const name = useBootstrap().data?.user.name?.trim().split(/\s+/)[0];
+  const boot = useBootstrap().data;
+  const name = boot?.user.name?.trim().split(/\s+/)[0];
   const sheet = useSheet();
   const speaker = useSpeaker();
   // turns added while the sheet is open come in with a rise; the ones already there just show
@@ -433,13 +491,38 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
   useEffect(() => {
     mountedAt.current = turns.length;
   }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [screen, setScreen] = useState(openedFrom);
-  // with the screen removed, the question is about no page in particular: today
-  const askDate = openedFrom && !screen ? today : date;
-  const [draft, setDraft] = useState(initial ?? '');
+  const [kept, setKept] = useState(true);
+  // with training data off nothing about the page goes; with the chip removed, the question is about no page: today
+  const consentQ = useConsent();
+  const consent = consentQ.data ?? boot?.consent;
+  const training = consent?.training === true;
+  const chip = training ? chipOf(openedFrom, today) : null;
+  const screen = training && (kept || !chip) ? openedFrom : undefined;
+  const askDate = chip && !kept ? today : date;
+  const nav = useNavInternal();
+  const toPrivacy = () => {
+    sheet.close();
+    if (nav.getState().active === 'today') nav.push('/settings/privacy');
+    else nav.go('/settings/privacy');
+  };
+  const [draft, setDraftState] = useState(() => initial ?? readDraft(chatId));
   const [editing, setEditing] = useState<number | null>(null);
+  // what is typed is kept for this chat (not the words of a message being edited)
+  const setDraft = (text: string, keep = editing === null) => {
+    setDraftState(text);
+    if (keep) writeDraft(assistantStore.currentId(), text);
+  };
+  const firstChat = useRef(chatId);
+  useEffect(() => {
+    if (chatId === firstChat.current) return;
+    firstChat.current = chatId;
+    setEditing(null);
+    setDraftState(readDraft(chatId));
+  }, [chatId]);
   const [pending, setPending] = useState<PreparedFile[]>([]);
   const [preparing, setPreparing] = useState(false);
+  // the first file ever attached on this phone: one line says where it goes, until that message is sent
+  const [attachNote, setAttachNote] = useState(false);
   const toast = useToast();
   const root = useRef<HTMLDivElement>(null);
   const tail = useRef<HTMLDivElement>(null);
@@ -448,28 +531,30 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
   const picker = useRef<HTMLInputElement>(null);
   const bodyOf = () => root.current?.closest<HTMLElement>('.sheet-body') ?? null;
 
-  const pushed = useRef(false);
-  useHeader(() => {
-    pushed.current = true;
-    sheet.push({
-      title: 'History',
-      body: (
-        <HistoryPanel
-          onDone={() => {
-            pushed.current = false;
-            sheet.pop();
-          }}
-        />
-      ),
-    });
-  }, pushed);
-  // coming back from History (or any pop), the header is this chat's again
+  // the phone's storage is full even after old chats were trimmed: said once
+  const saveFailed = useAssistantSaveFailed();
   useEffect(() => {
-    const t = setInterval(() => {
-      if (pushed.current && !document.querySelector('.as-history')) pushed.current = false;
-    }, 400);
-    return () => clearInterval(t);
-  }, []);
+    if (!saveFailed || warnedFull) return;
+    warnedFull = true;
+    toast('This chat can’t be saved on this phone. Delete old chats in History.');
+  }, [saveFailed]); // eslint-disable-line react-hooks/exhaustive-deps
+  // an answer a reload interrupted carries on (or says it is gone, with Retry)
+  useEffect(() => void resumeAsk(waitForJob, stopAssistant), []);
+  // signed out mid-chat: the app goes to sign in, so the sheet closes
+  useEffect(() => {
+    const fn = () => sheet.close();
+    onUnauthorized.add(fn);
+    return () => void onUnauthorized.delete(fn);
+  }, [sheet]);
+
+  // a panel pushed inside the sheet (History, Report) has its own header; the chat's comes back when it goes
+  const pushed = useRef(false);
+  const openPanel = (title: string, body: (done: () => void) => React.ReactNode) => {
+    pushed.current = true;
+    const done = () => sheet.pop();
+    sheet.push({ title, body: <PanelLife onGone={() => (pushed.current = false)}>{body(done)}</PanelLife> });
+  };
+  useHeader(() => openPanel('History', (done) => <HistoryPanel onDone={done} />), pushed);
 
   const fitField = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -553,7 +638,13 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
           toast(e instanceof AttachError ? e.message : `Couldn’t add ${f.name || 'that file'}.`);
         }
       }
-      if (ready.length) setPending((p) => [...p, ...ready].slice(0, ATTACHMENT_LIMITS.perTurn));
+      if (ready.length) {
+        setPending((p) => [...p, ...ready].slice(0, ATTACHMENT_LIMITS.perTurn));
+        if (!attachNoteSeen()) {
+          markAttachNoteSeen();
+          setAttachNote(true);
+        }
+      }
     } finally {
       setPreparing(false);
       if (picker.current) picker.current.value = '';
@@ -564,20 +655,21 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
     const t = text.trim();
     const files = pending;
     if ((!t && !files.length) || busyAnywhere || preparing) return;
-    setDraft('');
+    setDraft('', true);
     setPending([]);
+    setAttachNote(false);
     // the field grew with the words; empty again, it goes back to one line
     if (field.current) field.current.style.height = '';
     if (editing !== null) {
       setEditing(null);
-      void editTurn(askAssistant, askDate, screen, editing, t);
+      void editTurn(askAssistant, askDate, screen, editing, t, stopAssistant);
       return;
     }
-    void sendTurn(askAssistant, askDate, screen, t, { shown: files.length ? files.map((f) => f.shown) : undefined, data: files.map((f) => f.file) });
+    void sendTurn(askAssistant, askDate, screen, t, { shown: files.length ? files.map((f) => f.shown) : undefined, data: files.map((f) => f.file) }, stopAssistant);
   };
   const startEdit = (i: number) => {
     setEditing(i);
-    setDraft(turns[i]!.text);
+    setDraft(turns[i]!.text, false);
     requestAnimationFrame(() => {
       const el = field.current;
       if (!el) return;
@@ -597,13 +689,13 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
   const renderTurn = (t: AssistantTurn, i: number) => (
     <div key={`${chatId}-${i}`} className={`as-turn is-${t.role}${t.error ? ' is-error' : ''}${i >= mountedAt.current ? ' is-new' : ''}${editing === i ? ' is-editing' : ''}`}>
       {t.role === 'user' ? (
-        <UserTurn t={t} canEdit={!busyAnywhere && !t.files?.length} onEdit={() => startEdit(i)} />
+        <UserTurn t={t} canEdit={!busyAnywhere && !t.files?.length} confirmEdit={turns.slice(i + 1).some((x) => x.proposal?.status === 'applied')} onEdit={() => startEdit(i)} />
       ) : t.error ? (
         <div className="as-error" role="alert">
           <CircleAlert size={16} className="as-error-ic" aria-hidden="true" />
           <p>{t.text}</p>
           {i === turns.length - 1 && !busyAnywhere ? (
-            <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen)}>
+            <button type="button" className="as-retry" onClick={() => void retryAsk(askAssistant, askDate, screen, stopAssistant)}>
               <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
             </button>
           ) : null}
@@ -617,18 +709,44 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             </div>
           ) : null}
           {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
-          <AnswerActions t={t} index={i} newest={i === newestAnswer && !busyAnywhere} speaker={speaker} onRegenerate={() => void regenerate(askAssistant, askDate, screen)} />
+          <AnswerActions
+            t={t}
+            index={i}
+            newest={i === newestAnswer && !busyAnywhere && t.proposal?.status !== 'applied'}
+            speaker={speaker}
+            onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant)}
+            onReport={() => openPanel('Report this answer', (done) => <ReportPanel answer={t.text} onDone={done} />)}
+          />
         </>
       )}
     </div>
   );
 
+  // VoiceOver: a finished answer is read once, as words (never word by word while it streams); a proposal adds a line
+  const [said, setSaid] = useState('');
+  const heard = useRef(turns.length);
+  useEffect(() => {
+    const was = heard.current;
+    heard.current = turns.length;
+    if (turns.length <= was || turns.length <= mountedAt.current) return;
+    const t = turns[turns.length - 1]!;
+    if (t.role !== 'assistant' || t.error) return;
+    setSaid(`${plainOf(t.text)}${t.proposal?.status === 'proposed' ? ' Changes ready to review.' : ''}`.trim());
+  }, [turns]);
+  useEffect(() => setSaid(''), [chatId]);
+
   const empty = turns.length === 0 && !busy;
-  const ScreenIcon = screen ? SCREEN_ICON[screen.tab] : null;
+  const stoppedHere = useAssistantStopped() === chatId;
+  // an answer being written in another chat: one line over the composer, and a way there
+  const elsewhere = busyAnywhere && !busy && busyChat !== null;
+  const ScreenIcon = openedFrom ? SCREEN_ICON[openedFrom.tab] : null;
   const canSend = (draft.trim() || pending.length) && !preparing && !busyAnywhere;
 
   return (
     <div className={`as-sheet${empty ? ' is-empty' : ''}`} ref={root}>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {said}
+      </p>
       <div className="as-thread">
         {empty ? (
           <div className="as-hello">
@@ -637,8 +755,21 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               {greeting()}
               {name ? `, ${name}` : ''}.
             </p>
-            <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
-            <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
+            {training ? (
+              <>
+                <p className="as-hello-sub">Ask about your plan, or ask for a change.</p>
+                {!chip ? <p className="as-hello-foot">The assistant sees your plan, sessions, goals and to-dos. It can’t read your journal.</p> : null}
+                <p className="as-hello-foot">Nothing changes until you tap Apply.</p>
+              </>
+            ) : (
+              <>
+                <p className="as-hello-sub">The assistant can’t see your training data. It answers in general terms.</p>
+                <button type="button" className="as-hello-link" onClick={toPrivacy}>
+                  Change in Settings, Privacy
+                </button>
+              </>
+            )}
+            <p className="as-hello-legal">{DISCLAIMER}</p>
           </div>
         ) : (
           <>
@@ -655,6 +786,16 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
                 </div>
               ) : null}
               {busy && busySince !== null ? <LiveAnswer since={busySince} live={live} /> : null}
+              {last?.role === 'user' && !busy ? (
+                <div className="as-turn is-assistant as-noanswer">
+                  <p className="as-noanswer-text">{stoppedHere ? 'Stopped' : busyAnywhere ? 'Waiting for the other chat to finish.' : 'No answer.'}</p>
+                  {!busyAnywhere ? (
+                    <button type="button" className="as-retry" onClick={() => void runAsk(askAssistant, askDate, screen, Date.now, stopAssistant)}>
+                      <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" /> Retry
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </>
         )}
@@ -677,9 +818,16 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             <ChevronUp size={18} strokeWidth={2.4} aria-hidden="true" />
           </button>
         ) : null}
+        {elsewhere ? (
+          <button type="button" className="as-elsewhere" onClick={() => assistantStore.open(busyChat!)}>
+            <Orb size={16} state="think" className="as-orb" />
+            <span>Answering in another chat</span>
+            <ChevronRight size={15} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : null}
         {empty && !draft && !pending.length ? (
           <div className="as-starters" role="group" aria-label="Ways to start">
-            {startersFor(askDate, today).map((s) => (
+            {startersFor(openedFrom?.tab, askDate, today, training).map((s) => (
               <button key={s.title} type="button" className="as-starter" onClick={() => (s.attach ? picker.current?.click() : send(s.send!))}>
                 <span className="as-starter-title">{s.title}</span>
                 <span className="as-starter-sub">{s.sub}</span>
@@ -697,7 +845,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               aria-label="Cancel editing"
               onClick={() => {
                 setEditing(null);
-                setDraft('');
+                setDraft(readDraft(chatId), false);
                 if (field.current) field.current.style.height = '';
               }}
             >
@@ -724,12 +872,17 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               ) : null}
             </div>
           ) : null}
+          {attachNote && pending.length ? (
+            <p className="as-attach-note" role="status">
+              {pending.length === 1 ? 'This file goes' : 'These files go'} to Claude, by Anthropic, to answer you.
+            </p>
+          ) : null}
           <textarea
             ref={field}
             className="as-input"
             rows={1}
             maxLength={2000}
-            placeholder={pending.length ? 'Add a note (optional)' : turns.length ? 'Reply to Logbook' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
+            placeholder={pending.length ? 'Add a note (optional)' : turns.length ? 'Reply' : askDate !== today ? `Ask about ${fmtDate('short', askDate)}` : 'Ask anything'}
             aria-label="Ask the assistant"
             enterKeyHint="send"
             value={draft}
@@ -740,6 +893,8 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               fitField(e.currentTarget);
             }}
             onKeyDown={(e) => {
+              // Enter that confirms an IME's word (Japanese, Chinese, Korean) only picks the word: it never sends
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 send(draft);
@@ -751,14 +906,21 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
               <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
             </button>
             <input ref={picker} type="file" accept="image/*,application/pdf,.pdf" multiple hidden onChange={(e) => void addFiles(e.currentTarget.files)} />
-            {screen && ScreenIcon ? (
-              <span className="as-ctx-pill">
-                <ScreenIcon size={14} strokeWidth={2.2} aria-hidden="true" />
-                <span className="as-ctx-pill-text">{screenLabel(screen)}</span>
-                <button type="button" className="as-ctx-pill-x" aria-label={`Don’t send ${screenLabel(screen)} with the question`} onClick={() => setScreen(undefined)}>
-                  <X size={12} strokeWidth={2.8} aria-hidden="true" />
+            {chip && ScreenIcon ? (
+              kept ? (
+                <span className="as-ctx-pill">
+                  <ScreenIcon size={14} strokeWidth={2.2} aria-hidden="true" />
+                  <span className="as-ctx-pill-text">{chip}</span>
+                  <button type="button" className="as-ctx-pill-x" aria-label={`Don’t send ${chip} with the question`} onClick={() => setKept(false)}>
+                    <X size={12} strokeWidth={2.8} aria-hidden="true" />
+                  </button>
+                </span>
+              ) : (
+                <button type="button" className="as-ctx-pill is-off" aria-label={`Send ${chip} with the question`} onClick={() => setKept(true)}>
+                  <Plus size={14} strokeWidth={2.4} aria-hidden="true" />
+                  <span className="as-ctx-pill-text">{chip}</span>
                 </button>
-              </span>
+              )
             ) : null}
             {busy ? (
               <button type="button" className="as-send is-stop" aria-label="Stop" onClick={() => void stopAsk(stopAssistant)}>
@@ -771,6 +933,7 @@ export const AssistantSheet = ({ date, initial, screen: openedFrom }: { date: IS
             )}
           </div>
         </div>
+        <p className="as-ai-label">{AI_LABEL}</p>
       </div>
     </div>
   );

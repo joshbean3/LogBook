@@ -8,6 +8,17 @@ const clock = () => {
 };
 
 describe('waiting on an ask', () => {
+  it('takes no looks while the app is out of view, and that time does not count', async () => {
+    const c = clock();
+    let looks = 0;
+    const reply = await askAndWait<string>(
+      async () => ({ jobId: 'aj1' }),
+      async () => (++looks < 2 ? { status: 'running' } : { status: 'done', reply: 'ok' }),
+      { ...c, maxMs: 1000, whenVisible: async () => void (looks === 1 ? c.sleep(5000) : undefined) },
+    );
+    expect(reply).toBe('ok');
+  });
+
   it('answers at once when the server had nothing to wait on', async () => {
     const reply = await askAndWait(async () => ({ text: 'no key', proposal: null }), async () => ({ status: 'running' as const }));
     expect(reply).toEqual({ text: 'no key', proposal: null });
@@ -30,6 +41,7 @@ describe('waiting on an ask', () => {
   it('rides out checks that cannot reach the server, and stops on any other failure', async () => {
     const c = clock();
     const offline = new Error('offline');
+    const conn: boolean[] = [];
     let n = 0;
     const reply = await askAndWait<string>(
       async () => ({ jobId: 'aj1' }),
@@ -38,9 +50,11 @@ describe('waiting on an ask', () => {
         if (n < 3) throw offline;
         return { status: 'done', reply: 'ok' };
       },
-      { ...c, isTransient: (e) => e === offline },
+      { ...c, isTransient: (e) => e === offline, onConnection: (ok) => conn.push(ok) },
     );
     expect(reply).toBe('ok');
+    // two misses in a row: waiting for a connection; the next look that gets through: back
+    expect(conn).toEqual([false, true]);
     await expect(askAndWait<string>(async () => ({ jobId: 'aj1' }), async () => Promise.reject(new Error('404')), { ...c, isTransient: (e) => e === offline })).rejects.toThrow('404');
   });
 

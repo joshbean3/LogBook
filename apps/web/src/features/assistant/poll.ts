@@ -24,6 +24,10 @@ export interface WaitOptions {
   onJob?: (id: string) => void;
   /** Each new look at the answer while it is written: what it is doing, its words so far, its reasoning. */
   onProgress?: (live: AssistantLive) => void;
+  /** False after two looks in a row could not reach the server; true again on the next one that does. */
+  onConnection?: (ok: boolean) => void;
+  /** Resolves once the app is in view again: no looks while the phone is locked or the app is in the background. */
+  whenVisible?: () => Promise<void>;
 }
 
 /** How long to wait before the next look: quick while words arrive, easing off while nothing changes. */
@@ -39,24 +43,34 @@ export const nextDelay = (prev: number, changed: boolean) => (changed ? 350 : Ma
 export const askAndWait = async <T>(start: () => Promise<{ jobId: string } | T>, check: (jobId: string) => Promise<JobAnswer<T>>, opts: WaitOptions = {}): Promise<T> => {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const now = opts.now ?? Date.now;
-  const deadline = now() + (opts.maxMs ?? 8 * 60_000);
   const first = await start();
   if (!first || typeof first !== 'object' || !('jobId' in first)) return first as T;
   opts.onJob?.(first.jobId);
+  let deadline = now() + (opts.maxMs ?? 8 * 60_000);
   let delay = 400;
   let seen = '';
+  let misses = 0;
   while (now() < deadline) {
     await sleep(delay);
+    if (opts.whenVisible) {
+      // time out of view does not count against the answer
+      const away = now();
+      await opts.whenVisible();
+      deadline += now() - away;
+    }
     let a: JobAnswer<T>;
     try {
       a = await check(first.jobId);
     } catch (e) {
       if (opts.isTransient?.(e)) {
+        if (++misses === 2) opts.onConnection?.(false);
         delay = 1500;
         continue;
       }
       throw e;
     }
+    if (misses >= 2) opts.onConnection?.(true);
+    misses = 0;
     if (a.status === 'done') return a.reply;
     if (a.status === 'error') throw new AskError(a.error.message, a.error.status, a.error.code);
     const key = a.live ? `${a.live.phase}|${a.live.text.length}|${a.live.thoughts.length}` : '';
