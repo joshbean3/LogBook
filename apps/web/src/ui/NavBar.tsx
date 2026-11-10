@@ -1,4 +1,4 @@
-import { Activity, CalendarDays, ChevronLeft, Dumbbell, Footprints, type LucideIcon } from 'lucide-react';
+import { Bike, CalendarDays, ChevronLeft, Dumbbell, Footprints, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type MotionValue } from 'motion/react';
 import type * as React from 'react';
 import { isValidElement, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -8,6 +8,7 @@ import { fadeIn, fadeOut } from '@/lib/motion';
 import type { ContextMenuItem } from './ContextMenu';
 import type { DayPagerHandle } from './DayPager';
 import { tabDef } from './nav';
+import { useNowMark, usePageShown } from './nowBudget';
 import { Pressable } from './Pressable';
 import { usePop } from './PushedLayer';
 import { usePress } from './usePress';
@@ -77,6 +78,13 @@ const Stacked = ({ l, form = 'full', stacked }: { l: StackedLabel; form?: Form; 
     ) : null}
   </>
 );
+
+/**
+ * The title-line sunrise (guide 5.3, plan 5.1 and D2): a horizon hairline over the right 42 percent of the title row with
+ * a small Apricot half-sun on it. Light, not a Sunrise mark. It is a flex item after the title: when the title and the
+ * horizon do not both fit on the line, it wraps to a second line that the 44 px row clips, so it never touches a title.
+ */
+const Horizon = () => <span className="nb-horizon" aria-hidden="true" />;
 
 const keyOf = (n: ReactNode): string => {
   if (!isValidElement(n)) return n == null || n === false ? 'none' : 'node';
@@ -217,10 +225,12 @@ export const NavBar = ({ word, caps, title, progress, trailing, wideTrailing, on
       {pressable ? (
         <Pressable as="div" ref={titleRefCb} className="nb-title" role="heading" aria-level={1} tabIndex={-1} menuButton={false} {...tp}>
           <Stacked l={title} stacked={stacked} />
+          <Horizon />
         </Pressable>
       ) : (
         <h1 ref={titleRefCb} className="nb-title">
           <Stacked l={title} stacked={stacked} />
+          <Horizon />
         </h1>
       )}
       {children}
@@ -243,7 +253,8 @@ export interface DateStripProps {
   kindsOf?: (date: string) => readonly StripKind[];
 }
 export type StripKind = 'run' | 'lift' | 'cross';
-const KIND_ICON: Record<StripKind, LucideIcon> = { run: Footprints, lift: Dumbbell, cross: Activity };
+// cross-training is a bike (plan 5.4, Q7): a pulse glyph is banned for training and health (guide 7)
+const KIND_ICON: Record<StripKind, LucideIcon> = { run: Footprints, lift: Dumbbell, cross: Bike };
 const KIND_WORD: Record<StripKind, string> = { run: 'run', lift: 'strength', cross: 'workout' };
 const STATUS_WORD: Record<Exclude<StripStatus, null>, string> = { done: 'done', bonus: 'bonus run', floor: 'floor', planned: 'planned run', missed: 'missed', skipped: 'skipped', rest: 'rest' };
 
@@ -262,6 +273,9 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
   const fromStrip = useRef(false);
   const lastCell = useRef(idx);
   const seenMon = useRef(mon);
+  // today's dot is the first Sunrise element of the screen (guide 3.5, priority 1): it registers while its week is shown
+  const shownPage = usePageShown();
+  const todayNow = useNowMark('strip', shownPage && days.includes(today));
 
   useLayoutEffect(() => {
     const strip = rootRef.current!;
@@ -322,6 +336,7 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
       aria-label="Week"
       onPointerDown={onDown}
     >
+      {/* the shown day: one Sky disc that rides the pager (guide 6.7); today is its own signal, the dot over its letter */}
       <div ref={discRef} className={`nb-disc ${shown === today ? 'is-today' : ''}`.trim()} aria-hidden="true" />
       {days.map((d) => {
         const s = statusOf(d);
@@ -331,7 +346,15 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
         const what = kinds.length ? (s === 'bonus' ? `, bonus ${kindWords}` : `, ${kindWords}${s && s !== 'planned' ? ` ${STATUS_WORD[s]}` : ''}`) : s ? `, ${STATUS_WORD[s]}` : '';
         const name = labelOf?.(d) ?? `${fmt(d, { weekday: 'long', month: 'long', day: 'numeric' })}${what}`;
         return (
-          <Pressable key={d} className={`nb-cell ${d === shown ? 'is-shown' : ''} ${d === today ? 'is-today' : ''}`} label={name} aria-current={d === shown ? 'date' : undefined} data-date={d} onPress={() => d !== shown && onPick(d)}>
+          <Pressable
+            key={d}
+            className={`nb-cell ${d === shown ? 'is-shown' : ''} ${d === today ? 'is-today' : ''}`}
+            label={name}
+            aria-current={d === shown ? 'date' : undefined}
+            data-date={d}
+            data-now={d === today && todayNow === 'ink' ? 'ink' : undefined}
+            onPress={() => d !== shown && onPick(d)}
+          >
             <span className="nb-letter">{fmt(d, { weekday: 'narrow' })}</span>
             <span className="nb-num tnum">{DAYN(d)}</span>
             {kinds.length ? (
@@ -351,7 +374,7 @@ export const DateStrip = ({ shown, today, handle, stripRef, statusOf, onPick, la
   );
 };
 
-/** 32 tall, --accent-tint, 'Today', 44 hit via ::after. No haptic. */
+/** 32 tall, Paper with the floating shadow, 'Today', 44 hit via ::after (guide 6.13: the avatar becomes this pill). No haptic. */
 export const TodayPill = ({ onPress }: { onPress: () => void }): React.JSX.Element => (
   <Pressable className="today-pill" onPress={onPress} label="Today">
     Today
@@ -386,7 +409,7 @@ export const BackButton = ({ label }: { label?: string }): React.JSX.Element => 
   const name = label ?? (parent ? `Back to ${parent}` : 'Back');
   return (
     <button type="button" className="icon-btn back-btn pressable" data-press="scale" aria-label={name} title={name} {...press.handlers} onClick={pop}>
-      <ChevronLeft size={26} strokeWidth={2.2} aria-hidden="true" />
+      <ChevronLeft size={18} aria-hidden="true" />
     </button>
   );
 };

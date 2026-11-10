@@ -106,84 +106,27 @@
   min-width: 0;
 }
 
-/* ---------- the halo, driven by state: blue light, an amber layer for floor; 200ms crossfade between states ---------- */
+/* ---------- the halo (plan 5.3, D30) ----------
+ * The state-driven blue and amber glows are retired: a screen has one warm light, the sunrise glow under its hero card
+ * (`.aura::after` in ui.css), the same in every state; the state lives in the words and marks. The `halo-*` class names
+ * stay in the features as hooks. `.halo` keeps its stacking context so a feature that layers on it still works. */
 .halo {
   position: relative;
   isolation: isolate;
 }
-.halo::before,
-.halo::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  transition:
-    opacity var(--dur-color) var(--ease-out),
-    filter var(--dur-color) var(--ease-out);
-}
-.halo::before {
-  background: var(--halo);
-  opacity: var(--halo-blue, 0.85);
-  filter: var(--halo-filter, none);
-}
-.halo::after {
-  background: var(--halo-amber);
-  opacity: var(--halo-amber-o, 0);
-}
-/* done: full bloom. floor: an amber-tinted edge. missed or open past: dim and cool. upcoming: 60%. rest: soft. */
-.halo-done {
-  --halo-blue: 1;
-  --halo-amber-o: 0;
-  --halo-filter: none;
-}
-.halo-floor {
-  --halo-blue: 0.5;
-  --halo-amber-o: 0.6;
-  --halo-filter: none;
-}
-.halo-missed {
-  --halo-blue: 0.4;
-  --halo-amber-o: 0;
-  --halo-filter: saturate(0.5);
-}
-.halo-upcoming {
-  --halo-blue: 0.6;
-  --halo-amber-o: 0;
-  --halo-filter: none;
-}
-.halo-rest {
-  --halo-blue: 0.3;
-  --halo-amber-o: 0;
-  --halo-filter: blur(6px);
-}
-/* the aura card's own glow layer answers the same classes */
-.aura.aura[class*='halo-'] .aura-glow {
-  opacity: var(--halo-blue);
-  filter: var(--halo-filter, none);
-  transition:
-    opacity var(--dur-color) var(--ease-out),
-    filter var(--dur-color) var(--ease-out);
-}
-.aura.aura[class*='halo-']::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--halo-amber);
-  opacity: var(--halo-amber-o, 0);
-  pointer-events: none;
-  transition: opacity var(--dur-color) var(--ease-out);
-}
-/* the day's first completion: 20% brighter for 600ms */
-.halo-boost::before,
-.halo-boost .aura-glow {
-  animation: halo-boost 600ms var(--ease-out);
+/* the day's first completion: the glow layer brightens from its resting 0.85 to full and back, once, 600 ms (an opacity
+   pulse; no filter animates, guide 9.1) */
+.halo-boost::after {
+  animation: halo-boost var(--dur-ring) var(--ease-out);
 }
 @keyframes halo-boost {
   30% {
-    filter: brightness(1.2);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .halo-boost::after {
+    animation: none;
   }
 }
 
@@ -299,18 +242,19 @@
   z-index: 2;
   pointer-events: auto;
   display: grid;
-  background: var(--surface-2);
-  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border: 0;
   border-radius: var(--r-menu);
+  box-shadow: var(--shadow-2);
   overflow: hidden;
 }
 .cm-item {
   appearance: none;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
   min-height: 44px;
-  padding: 11px 16px;
+  padding: 11px var(--sp-4); /* brand-ok: geometry, 11 + 22 + 11 = the 44 px item (guide 6.14) */
   border: 0;
   background: none;
   color: var(--ink);
@@ -321,9 +265,9 @@
 .cm-item + .cm-item {
   border-top: 1px solid var(--line);
 }
-/* destructive actions come last, after a heavier rule */
+/* destructive actions come last, after a band of the page color (shape.css draws it) */
 .cm-item.sep {
-  border-top: 6px solid rgba(15, 42, 68, 0.06);
+  border-top: 0;
 }
 .cm-item.destructive {
   color: var(--bad);
@@ -347,6 +291,11 @@
   place-items: center;
   color: var(--ink-2);
   flex: none;
+}
+/* the item glyph is 18 px (guide 6.14) whatever size the caller drew it */
+.cm-icon svg {
+  width: 18px;
+  height: 18px;
 }
 .cm-item.destructive .cm-icon {
   color: var(--bad);
@@ -430,16 +379,23 @@
   --swipe-bg: var(--surface);
 }
 
-/* ---------- Skeleton: grey blocks, no shimmer ---------- */
+/* ---------- Skeleton (guide 6.14): Haze blocks at the component's radius, a 1.2 s opacity pulse from 1 to 0.6 while it
+ * waits; still under Reduce Motion. It runs only while something loads (a skeleton is gone once the content lands). ---------- */
 .skel {
   display: block;
-  background: var(--skel-bg, var(--surface));
+  background: var(--haze);
   flex: none;
+  animation: skel-pulse 1.2s var(--ease-out) infinite alternate; /* brand-ok: guide 6.14 names the 1.2 s pulse */
 }
-.card .skel,
-.aura .skel,
-.group .skel {
-  --skel-bg: var(--surface-2);
+@keyframes skel-pulse {
+  to {
+    opacity: 0.6;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+  }
 }
 .skel-group {
   display: grid;
@@ -450,7 +406,7 @@
 }
 .skel-row {
   display: grid;
-  gap: 8px;
+  gap: var(--sp-2);
   align-content: center;
   min-height: 60px;
 }
@@ -479,10 +435,10 @@
   gap: 12px;
   justify-items: start;
 }
+/* the one sentence in the brand voice: Fraunces italic 420 at the sentence size, Night Ink (guide 6.11) */
 .empty-line {
-  font-size: 1.0625rem;
-  line-height: 1.375rem;
-  color: var(--ink-2);
+  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--display);
+  color: var(--ink);
   text-wrap: pretty;
 }
 .empty-starters {
@@ -561,12 +517,12 @@
 .wring > .wring-in {
   grid-area: 1 / 1;
 }
-/* the days kept, in the middle, in the stamp face (Inter Tight 800, 13 in a hero) */
+/* the days kept, in the middle: a live number, Inter 650 with even figures (guide 4.4) */
 .wring-in {
-  font-family: var(--stamp);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  font-size: 0.8125rem;
+  font-family: var(--sans);
+  font-weight: 650;
+  letter-spacing: 0;
+  font-size: var(--fs-tag);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -597,15 +553,17 @@
 .avatar-disc {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: var(--surface-3);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 0.9375rem;
+  /* fixed chrome in the 44 px bar: the initial follows Larger Text only as far as the 40 px disc holds */
+  font-size: min(var(--fs-row), 20px);
   line-height: 1;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: 0;
   flex: none;
   transition: transform var(--dur-fast) var(--ease-out);
@@ -613,11 +571,12 @@
 .avatar-disc.sm {
   width: 24px;
   height: 24px;
-  font-size: 0.75rem;
+  box-shadow: none;
+  font-size: var(--fs-orb);
 }
 .avatar[data-pressed] .avatar-disc {
   transform: scale(0.97);
-  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .avatar.on .avatar-disc {
   box-shadow:
@@ -656,7 +615,7 @@
 .sheet-grab {
   flex: none;
   touch-action: none;
-  background: var(--bg);
+  background: var(--sheet-bg);
   padding: 0 16px 8px;
 }
 .sheet-grab-bar {
@@ -717,7 +676,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   /* over the outgoing title as it slides under it */
   position: relative;
   z-index: 1;
-  background: var(--bg);
+  background: var(--sheet-bg);
 }
 /* the header's one action (SheetSpec.action), just before Close */
 .sheet-action {
@@ -793,15 +752,14 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 80px;
   align-items: center;
-  background: var(--bg);
+  /* the bar carries the wash it sits on (guide 5.3): Haze at the top of the screen into the bar's wash color */
+  background: linear-gradient(180deg, var(--haze), var(--wash-bar));
   box-sizing: border-box;
 }
 .nb-bar.has-seg {
   grid-template-columns: minmax(0, 1fr) var(--seg-bar-w);
 }
-.nb-bar.is-collapsed {
-  box-shadow: 0 1px 0 var(--line);
-}
+
 .nb-bar .nb-cap {
   grid-column: 1;
   display: flex;
@@ -809,11 +767,12 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   height: 44px;
   min-height: 44px;
   min-width: 0;
-  /* the bar is fixed chrome (44 px): its type follows Larger Text as far as the row allows */
-  font: 600 clamp(11px, var(--fs-caps), 14px) / clamp(13px, var(--lh-caps), 17px) var(--sans);
-  letter-spacing: 0.06em;
+  /* the date line over a tab title is a caption (guide 4.3): Inter Tight 600, caps, +0.14 em, Dusk. The bar is fixed
+     chrome (44 px): its type follows Larger Text as far as the row allows */
+  font: 600 clamp(11px, var(--fs-caps), 14px) / clamp(13px, var(--lh-caps), 17px) var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-align: left;
@@ -903,7 +862,11 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 }
 .nb-title {
   position: relative;
-  display: block;
+  /* a flex row so the title-line sunrise (.nb-horizon) can wrap out of sight when the words need its room (plan D2) */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
   /* the row stays 44 (§2.1, §2.3): Fraunces 650 at 38 on a 40 px line with no top padding sets the baseline at 33 (the old
      4 + 40 set it at 35), so the deepest descender of the six titles ("g", "y", 9.5 px) ends 1.5 px inside the box and
      nothing below the title moves (foundation decision F2, revising plan D1's 46 px row) */
@@ -918,9 +881,48 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   opacity: calc(1 - var(--hdr, 0));
   touch-action: pan-y;
+}
+/* the shown title: as wide as its words, cut with an ellipsis only when the row cannot hold them. Its box is the row's 44
+   (40 + 4 of padding under the line) so its own clip never shaves a descender; 12 px of air before the horizon */
+.nb-title > .nb-sl[data-sl='cur'] {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  padding-bottom: var(--sp-1);
+  margin-right: var(--sp-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the title-line sunrise (guide 5.3): a 1 px horizon over the right 42 percent of the row, on the title's baseline (33 px
+   down, F2), and a 28 x 14 Apricot half-sun sitting on it 52 px from the right. It is light, not a Sunrise mark. When the
+   title leaves it no room it wraps onto a second line that the 44 px row clips: hidden, never over the words (D2) */
+.nb-horizon {
+  position: relative;
+  flex: 0 0 42%;
+  height: 44px;
+  margin-left: auto;
+  pointer-events: none;
+}
+.nb-horizon::before,
+.nb-horizon::after {
+  content: '';
+  position: absolute;
+  bottom: 11px; /* brand-ok: geometry, the horizon on the 38 px title's baseline at 33 of the 44 px row (plan D2, F2) */
+}
+.nb-horizon::before {
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--tick);
+}
+.nb-horizon::after {
+  right: 52px; /* brand-ok: geometry, guide 5.3 places the half-sun 52 px from the right */
+  width: 28px;
+  height: 14px;
+  border-radius: var(--r-pill) var(--r-pill) 0 0;
+  background: var(--horizon-sun);
 }
 /* the stacked labels: the cur one in flow, prev and next over it (opacities written from the pager's progress) */
 .nb-sl {
@@ -954,21 +956,11 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   z-index: 19;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  /* 6 px of air under a day's workout pill before the hairline (today-top-15) */
   grid-template-rows: 81px;
   height: 82px;
-  background: var(--bg);
+  /* the strip carries the wash it sits on (guide 5.3); no hairline under it, a soft fade instead (shape.css) */
+  background: linear-gradient(180deg, var(--wash-strip), var(--wash-strip-end));
   touch-action: pan-y;
-}
-.nb-strip::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-  background: var(--line);
-  pointer-events: none;
 }
 .nb-strip .nb-cell {
   position: relative;
@@ -976,27 +968,49 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   display: grid;
   justify-items: center;
   align-content: start;
-  padding-top: 6px;
-  gap: 2px;
+  /* the letter's line starts 8 down so today's dot (7 above it) clears the bar; the numeral's box still starts at 21 */
+  padding-top: var(--sp-2);
+  gap: 0;
   height: 81px;
   min-height: 44px;
   min-width: 0;
 }
 .nb-letter {
-  /* the strip's rows are fixed (the disc is placed under a 13 px line), so the letter grows inside its line only */
-  font: 600 clamp(11px, var(--fs-caps), 13px) / 13px var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  position: relative;
+  /* caption style (guide 6.7, 4.3), Dusk; the strip's rows are fixed, so the letter grows inside its 13 px line only */
+  font: 600 clamp(11px, var(--fs-caps), 13px) / 13px var(--stamp);
+  letter-spacing: var(--tr-caps);
+  /* the tracking trails the last letter: pull it back so the letter sits on the cell's center line */
+  margin-right: calc(-1 * var(--tr-caps));
+  color: var(--ink-2);
 }
 .nb-cell.is-today .nb-letter {
   color: var(--ink);
+}
+/* today's dot (guide 3.5 job 1, 6.7): 6 px of Sunrise 7 px above today's letter, on a 2 px Paper keyline, whichever day is
+   shown. The first Sunrise element of the screen: it yields only past the budget (ui/nowBudget.ts) */
+.nb-cell.is-today .nb-letter::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: var(--dot-offset);
+  width: 6px;
+  height: 6px;
+  margin-left: calc(-3px - var(--tr-caps) / 2); /* brand-ok: geometry, centered over the letter less its trailing tracking (D28) */
+  border-radius: 50%;
+  background: var(--now);
+  box-shadow: 0 0 0 2px var(--now-keyline);
+}
+.nb-cell.is-today[data-now='ink'] .nb-letter::after {
+  background: var(--ink);
 }
 .nb-num {
   display: grid;
   place-items: center;
   width: 28px;
   height: 28px;
-  font: 600 clamp(15px, var(--fs-sub), 18px) / 20px var(--sans);
+  /* Inter 600 at the row size, Night Ink, even figures (guide 6.7) */
+  font: 600 clamp(17px, var(--fs-row), 19px) / 20px var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
@@ -1006,25 +1020,25 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 .nb-cell.is-shown .nb-num {
   color: var(--ink);
 }
+/* the shown day: a 34 px Sky disc behind the numeral (Night Ink on Sky 7.03), the same for today or any other day: today
+   is the dot, never the disc (guide 6.7, plan D28). Centered on the numeral's box at 21 to 49 */
 .nb-disc {
   position: absolute;
-  top: 21px;
+  top: 18px; /* brand-ok: geometry, the 34 px disc centered on the numeral (plan D28) */
   left: 0;
-  margin-left: calc(100% / 14 - 14px);
-  width: 28px;
-  height: 28px;
+  margin-left: calc(100% / 14 - 17px); /* brand-ok: geometry, plan D28 */
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: var(--surface-3);
+  background: var(--accent);
   will-change: transform;
   pointer-events: none;
-}
-.nb-disc.is-today {
-  background: var(--accent);
 }
 .nb-dot {
   width: 4px;
   height: 4px;
-  margin-top: -2px;
+  /* clear of the 34 px disc, where the kind pill sits */
+  margin-top: var(--sp-2);
   border-radius: 50%;
 }
 .nb-dot.is-done,
@@ -1043,6 +1057,8 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   background: var(--ink-faint);
 }
 /* what the day trains, in place of the dot: a run, a lift, something else. Pressed in while it's ahead, lit when it's done */
+/* the kind pill (guide 6.7): 22 tall, Paper with a hairline edge and Dusk glyphs. 6 px under the numeral's box, so a Sky
+   done pill never touches the Sky disc (it ends at 52; the pill starts at 55 and ends at 77 of the 81 px row, D28) */
 .nb-kinds {
   display: inline-flex;
   align-items: center;
@@ -1050,14 +1066,14 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   gap: 1px;
   min-width: 24px;
   height: 22px;
-  margin-top: 2px;
+  margin-top: 6px; /* brand-ok: geometry, plan D28 */
   padding: 0 5px;
-  border-radius: 11px;
-  background: var(--well, var(--surface-2));
-  box-shadow: var(--well-shadow, none);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
   color: var(--ink-2);
   transition:
-    background var(--dur-color) var(--ease-out),
+    background-color var(--dur-color) var(--ease-out),
     color var(--dur-color) var(--ease-out);
 }
 .nb-kinds.is-two {
@@ -1077,7 +1093,7 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 .nb-kinds.is-missed,
 .nb-kinds.is-skipped {
   background: transparent;
-  box-shadow: inset 0 0 0 1px var(--line);
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--ink-4);
 }
 .nb-cell.is-today .nb-kinds.is-planned {
@@ -1102,6 +1118,31 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   margin: 0;
   padding: 0;
 }
+/*
+ * The dawn wash (guide 5.3, plan 5.1): each tab root, and Settings' root page (D12), starts in Haze and settles into Cloud
+ * 300 px down; it scrolls with the page. Painted once, on the element that holds the NavBar and the content, so on Today
+ * it starts at the top of the screen and the day pages slide over the one wash. The 300 px layer keeps the gradient's
+ * bitmap small; the second layer makes the page opaque. Pushed pages and sheets stay flat Cloud.
+ */
+.tab-scroll > :is(.page, .page-root),
+.pushed > .page.s-root {
+  background:
+    var(--dawn) 0 0 / 100% 300px no-repeat,
+    var(--bg);
+}
+/* wider than a phone the page is a centered column: the wash spans the scroller instead (it scrolls with the content) */
+@media (min-width: 721px) {
+  .tab-scroll,
+  .pushed:has(> .page.s-root) {
+    background:
+      var(--dawn) 0 0 / 100% 300px no-repeat local,
+      var(--bg);
+  }
+  .tab-scroll > :is(.page, .page-root),
+  .pushed > .page.s-root {
+    background: none;
+  }
+}
 /* a NavBar inside a padded .page (Journal, Progress): the bar and the strip break out of the gutter */
 .page > .nb-bar,
 .page > .nb-strip {
@@ -1113,24 +1154,25 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 .page:has(> .nb-bar:first-child) {
   padding-top: 0;
 }
-/* the Today pill: 32 tall, 44 hit (§2.4); crossfades with the avatar in the trailing slot */
+/* the Today pill (guide 6.13): the avatar becomes a 36 px Paper pill, Inter 600 Night Ink, floating; crossfades with the
+   avatar in the trailing slot, 44 hit */
 .today-pill.pressable {
   position: relative;
-  height: 32px;
-  min-height: 32px;
-  margin: 6px 0;
-  padding: 0 12px;
+  height: 36px;
+  min-height: 36px;
+  margin: 4px 0;
+  padding: 0 var(--sp-4);
   border-radius: var(--r-pill);
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--ink);
-  font: 600 clamp(13px, var(--fs-foot), 16px) / clamp(16px, 1rem, 20px) var(--sans);
+  font: 600 clamp(15px, var(--fs-sub), 17px) / clamp(20px, var(--lh-sub), 22px) var(--sans);
   white-space: nowrap;
 }
 .today-pill::after {
   content: '';
   position: absolute;
-  inset: -6px 0;
+  inset: calc(-1 * var(--sp-1)) 0;
 }
 
 /* ---------- the pushed bar (§2.6) ---------- */
@@ -1173,9 +1215,9 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
   line-height: clamp(22px, var(--lh-row), 24px);
 }
 .pb-eyebrow {
-  font: 600 clamp(11px, var(--fs-caps), 13px) / clamp(13px, var(--lh-caps), 15px) var(--sans);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
+  font: 600 clamp(11px, var(--fs-caps), 13px) / clamp(13px, var(--lh-caps), 15px) var(--stamp);
+  letter-spacing: var(--tr-caps);
+  color: var(--ink-2);
   text-transform: uppercase;
 }
 .pb-trail {
@@ -1187,9 +1229,6 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 /* focus lands on the title when a page is pushed (for VoiceOver and the keyboard), without a ring on a heading */
 .pb-title:focus {
   outline: none;
-}
-.pushed-bar.is-collapsed {
-  box-shadow: 0 1px 0 var(--line);
 }
 .page > .pushed-bar {
   margin-inline: calc(-1 * var(--gutter));
@@ -1267,27 +1306,31 @@ html.kb-open .sheet[data-tall][data-box='auto'] {
 /* the control in the bar's trailing slot grows with Larger Text, to the size the 44 px bar and a 320 px screen hold */
 .nb-bar {
   --seg-bar-w: clamp(96px, 6rem, 128px);
-  --seg-bar-h: clamp(32px, 2rem, 40px);
+  /* 36 tall in a header bar (guide 6.3), 44 to the thumb (.seg.in-bar .seg-btn::after) */
+  --seg-bar-h: clamp(36px, 2.25rem, 40px);
 }
 .seg.in-bar {
   width: var(--seg-bar-w, 96px);
   height: var(--seg-bar-h, 32px);
   margin: calc((44px - var(--seg-bar-h, 32px)) / 2) 0;
   gap: 0;
-  border-radius: 9px;
+  border-radius: var(--r-pill);
 }
 .seg.in-bar .seg-btn {
   padding: 0;
-  border-radius: 9px;
-  font: 600 clamp(13px, var(--fs-foot), 17px) / clamp(16px, 1rem, 22px) var(--sans);
+  border-radius: var(--r-pill);
+  font: 550 clamp(13px, var(--fs-foot), 17px) / clamp(16px, 1rem, 22px) var(--sans);
+}
+.seg.in-bar .seg-btn[aria-checked='true'] {
+  font-weight: 650;
 }
 .seg.in-bar .seg-btn::after {
   content: '';
   position: absolute;
-  inset: -6px 0;
+  inset: calc((var(--seg-bar-h, 36px) - 44px) / 2) 0;
 }
 .seg.in-bar .seg-thumb {
-  border-radius: 9px;
+  border-radius: var(--r-pill);
 }
 
 /* ---------- WeekRing: the shown day marked, a missed day a quiet gap ---------- */

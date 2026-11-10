@@ -7,6 +7,7 @@ import { useScreenContext } from '@/features/assistant/screen';
 import { useAssistantTurns } from '@/features/assistant/store';
 import { useLiveToday } from '@/lib/useToday';
 import { NAV_EVENT } from '@/ui/nav';
+import { useNowMark } from '@/ui/nowBudget';
 import { Pressable } from '@/ui/Pressable';
 
 const DAY = /^\/today\/(\d{4}-\d{2}-\d{2})/;
@@ -69,7 +70,7 @@ const useCompactOnScroll = () => {
 /**
  * The dock (docs/inspiration.md §2, rules 1 and 2): the assistant's door on every tab, floating over the page above the tab
  * capsule. It asks about the day Today is showing (or today, from any other tab). While a conversation is going it says so,
- * with the one orange dot. Scrolling down folds it into a round button so the page has the room; scrolling up brings it back.
+ * with the badge dot (a Sunrise mark, under the budget in ui/nowBudget.ts). Scrolling down folds it into a round button so the page has the room; scrolling up brings it back.
  */
 export const Dock = ({ today: todayPath, children }: { today: string; children: ReactNode }): React.JSX.Element => {
   const live = useLiveToday();
@@ -82,6 +83,9 @@ export const Dock = ({ today: todayPath, children }: { today: string; children: 
   const date = (DAY.exec(todayPath)?.[1] ?? live) as ISODate;
   const going = turns.length > 0;
   const words = going ? 'Continue with the assistant' : 'Ask or change anything';
+  // the badge is one Sunrise element (two nodes, one shown at a time): it yields to Night Ink past the budget (guide 3.5)
+  const now = useNowMark('badge', going);
+  const dotNow = now === 'ink' ? 'ink' : undefined;
   const ref = useRef<HTMLDivElement>(null);
   return (
     <div ref={ref} className="dock" data-compact={compact ? '' : undefined}>
@@ -89,13 +93,13 @@ export const Dock = ({ today: todayPath, children }: { today: string; children: 
         {/* the 28 px gloss Orb (guide 6.1): under 48 px the Orb holds still; one Orb shows, the folded one is at opacity 0 */}
         <Orb size={28} className="dock-ask-ic" state="still" />
         <span className="dock-ask-text">{words}</span>
-        {going ? <span className="dock-dot" aria-hidden="true" /> : null}
+        {going ? <span className="dock-dot" data-now={dotNow} aria-hidden="true" /> : null}
       </Pressable>
       <div className="dock-row">
         {children}
         <Pressable className="dock-ask-mini" press="scale" onPress={() => open(date)} label={`${words}. Opens the assistant`} tabIndex={compact ? 0 : -1} aria-hidden={!compact || undefined}>
           <Orb size={28} state="still" />
-          {going ? <span className="dock-dot" aria-hidden="true" /> : null}
+          {going ? <span className="dock-dot" data-now={dotNow} aria-hidden="true" /> : null}
         </Pressable>
       </div>
     </div>

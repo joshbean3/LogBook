@@ -89,6 +89,8 @@
   --halo: radial-gradient(60% 70% at 50% 110%, rgba(203, 232, 248, 0.95), rgba(203, 232, 248, 0) 70%);
   --halo-amber: radial-gradient(60% 70% at 50% 110%, rgba(255, 182, 128, 0.42), rgba(255, 182, 128, 0) 70%);
   --glow-hero: radial-gradient(closest-side, rgba(255, 182, 128, 0.42), rgba(255, 182, 128, 0)); /* the one sunrise glow */
+  /* the title-line sunrise's half-sun (guide 5.3): Apricot light on the horizon hairline, not a Sunrise mark */
+  --horizon-sun: radial-gradient(circle at 50% 100%, #ffe3cb 0, #ffb680 72%);
   --focus-ring: 0 0 0 4px rgba(56, 182, 242, 0.28);
   --focus-edge: #0a6ca6;
 
@@ -151,6 +153,12 @@
   --bevel-hi: none;
   --pearl: var(--surface);
   --scrim: rgba(14, 34, 54, 0.32);
+  /* a sheet's ground. The guide (6.9) draws sheets in Paper, but every sheet here holds Paper cards (the plan summary, the
+     session, goal and settings sheets), and on Paper they lose their edges; so sheets keep the Cloud ground the cards sit
+     on, as the app's pages do (foundation decision G8). A sheet whose body is plain text (the assistant) sets
+     --sheet-bg: var(--paper) on itself. The second value is the same ground at 0, for the fade above a pinned foot */
+  --sheet-bg: var(--cloud);
+  --sheet-bg-0: rgba(234, 245, 252, 0);
   --scrim-menu: rgba(14, 34, 54, 0.28);
   --scrim-solid: #0e2236; /* a scrim's color where its opacity animates */
 
