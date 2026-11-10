@@ -5,13 +5,13 @@ import { Navigate, useLocation, useNavigate } from 'react-router';
 import { HabitsCard, LearnedCard, MorningCard, WeekCard } from '@/features/onboarding/cards';
 import { haptics } from '@/lib/haptics';
 import { useSplashDoneOnPaint } from '@/lib/native';
-import { Switch } from '@/features/settings/parts';
+import { LEGAL, SUPPORT } from '@/lib/siteLinks';
 import { LogoMark } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
-import { canGoBack, useAuthStatus } from './AuthScreens';
-import { readPendingConsent, writePendingConsent } from './consent';
+import { canGoBack, SiteLink, useAuthStatus } from './AuthScreens';
+import { type PendingChoice, writePendingChoice } from './consent';
 import { markHasAccount } from './flag';
-import { CONSENT_TITLE, consentSub, PRIVACY_PROMISE, PrivacyFacts } from './PrivacyFacts';
+import { PRIVACY_PROMISE, PrivacyFacts } from './PrivacyFacts';
 import './auth.css';
 import './start.css';
 
@@ -28,9 +28,9 @@ export const PAGES = [
  *
  *   /start                     a four-page pager, each page a real Logbook card; one navy pill in a fixed place (Next,
  *                              then Get started) over the page dots, and a quiet "I have an account" under it
- *   /start (state: privacy)    the privacy page, before any account: the promise, the one choice (the assistant may read
- *                              the training data, on by default), what is sent to Claude and what never is
- *   /signup                    the account, carrying the choice (it waits on this device until then)
+ *   /start (state: privacy)    the privacy page, before any account: the promise, what Allow would send to Claude and
+ *                              what is not sent, and two buttons, Allow and Not now (nothing is preselected)
+ *   /signup                    the account, carrying the answer (it waits on this device until then)
  *
  * The pages swipe (a horizontal scroll-snap track, so the finger owns it) and the pill pages too. The privacy page is its
  * own history entry, so Back returns to the pager.
@@ -82,6 +82,9 @@ const Pager = () => {
       <header className="start-brand start-in">
         <LogoMark size={24} color="var(--ink)" />
         <span className="caps">Logbook</span>
+        <SiteLink href={SUPPORT} className="start-help">
+          Help
+        </SiteLink>
       </header>
       <div ref={track} className="start-track" onScroll={onScroll} aria-roledescription="carousel" aria-label="What Logbook does">
         {PAGES.map((p, i) => (
@@ -112,15 +115,16 @@ const Pager = () => {
 };
 
 /**
- * The privacy page, before any account (Apple 5.1.2(i): the person says yes before anything goes to the assistant). The
- * choice defaults to on for training data; health data does not exist yet and is asked for when it does. Continue keeps the
- * choice on this device and goes on to the account, which carries it.
+ * The privacy page, before any account (Apple 5.1.2(i): the person says yes before anything goes to the assistant).
+ * Nothing is preselected: the person taps Allow or Not now, and either goes on to the account. Allow travels with the new
+ * account as a recorded yes (with the wording version; the server stamps the time). Not now stores no record at all, so
+ * the assistant and the plan builder ask again before they send anything.
  */
 const PrivacyStep = () => {
   const nav = useNavigate();
-  const [on, setOn] = useState(() => readPendingConsent()?.training ?? true);
-  const go = () => {
-    writePendingConsent({ training: on });
+  const choose = (choice: PendingChoice) => {
+    haptics.select();
+    writePendingChoice(choice);
     nav('/signup', { state: { from: 'start' } });
   };
   return (
@@ -135,19 +139,24 @@ const PrivacyStep = () => {
         <h1 className="start-title display pv-title">Kept private.</h1>
         <p className="start-sub pv-promise">{PRIVACY_PROMISE}</p>
         <div className="pv-choice">
-          <div className="pv-choice-words">
-            <span className="pv-choice-title">{CONSENT_TITLE}</span>
-            <span className="pv-choice-sub">{consentSub(on)}</span>
-          </div>
-          <Switch on={on} onChange={setOn} label={CONSENT_TITLE} />
+          <h2 className="pv-choice-title">Allow the AI assistant?</h2>
+          <p className="pv-choice-sub">It runs on Claude, by Anthropic. To answer you, Logbook sends Claude what is listed here. Nothing is sent until you allow it.</p>
         </div>
-        <PrivacyFacts on={on} />
-        <p className="pv-later">You can change this later in Settings, Privacy.</p>
+        <PrivacyFacts consent={null} />
+        <p className="pv-later">Not now keeps the assistant off, and Logbook asks again before it sends anything. You can change this any time in Settings, then Privacy.</p>
+        <SiteLink href={LEGAL.privacy} className="pv-policy">
+          Privacy Policy
+        </SiteLink>
       </div>
       <div className="start-foot pv-foot">
-        <Pressable className="btn primary block start-cta" onPress={go}>
-          Continue
-        </Pressable>
+        <div className="pv-answers">
+          <Pressable className="btn soft start-cta" onPress={() => choose('later')}>
+            Not now
+          </Pressable>
+          <Pressable className="btn primary start-cta" onPress={() => choose('allow')}>
+            Allow
+          </Pressable>
+        </div>
       </div>
     </main>
   );

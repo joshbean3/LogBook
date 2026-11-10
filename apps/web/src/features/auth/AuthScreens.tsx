@@ -7,16 +7,34 @@ import { api, ApiError, NetworkError } from '@/api/client';
 import { fetchBootstrap, keys } from '@/api/queries';
 import type { AuthStatus } from '@/api/types';
 import { haptics } from '@/lib/haptics';
+import { isNative, useSplashDoneOnPaint } from '@/lib/native';
 import { fadeIn, springs } from '@/lib/motion';
 import { LogoMark } from '@/ui/primitives';
-import { clearPendingConsent, readPendingConsent } from './consent';
+import { MIN_AGE } from '@/lib/copy';
+import { LEGAL, openExternal, SUPPORT } from '@/lib/siteLinks';
+import { clearPendingConsent, consentForSignup, readPendingChoice } from './consent';
 import { hasAccountHere, markHasAccount } from './flag';
-import { useSplashDoneOnPaint } from '@/lib/native';
 import './auth.css';
 
 export const useAuthStatus = () => useQuery({ queryKey: ['auth-status'], queryFn: () => api<AuthStatus>('/auth/status'), staleTime: 60_000 });
 /** Can this visitor make an account? `signupOpen` from the API, or the older `setupOpen`. */
 const canSignUp = (s: AuthStatus | undefined) => !!s && (s.signupOpen ?? s.setupOpen);
+
+/** A quiet text link to a public page (the policy, the terms, the support page), opened in the in-app browser. */
+export const SiteLink = ({ href, children, className = '' }: { href: string; children: React.ReactNode; className?: string }) => (
+  <a
+    href={href}
+    className={`site-link ${className}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={(e) => {
+      e.preventDefault();
+      void openExternal(href);
+    }}
+  >
+    {children}
+  </a>
+);
 
 /**
  * The black screen with the halo rising from the bottom (once, as the screen arrives). With no title it is the quiet
@@ -41,8 +59,12 @@ const Frame = ({ title, sub, children, foot, back }: { title?: string; sub?: str
               <span className="caps">Logbook</span>
             </div>
           )}
+          {/* the way to the support page for someone who cannot get in */}
+          <SiteLink href={SUPPORT} className="auth-help">
+            Help
+          </SiteLink>
           <h1 className="auth-title display">{title}</h1>
-          <p className="auth-sub">{sub}</p>
+          {sub ? <p className="auth-sub">{sub}</p> : null}
           {children}
           {foot ? <div className="auth-foot">{foot}</div> : null}
         </motion.div>
@@ -103,14 +125,36 @@ const nextOn = (next: React.RefObject<HTMLInputElement | null>) => (e: React.Key
   next.current?.focus();
 };
 
+/**
+ * /login, three ways (one route, so the reset mail's link and the keychain both land on it):
+ *
+ *   /login                    sign in, with "Forgot password?" under the fields
+ *   Forgot password?          the email, then "If that address has an account, a reset link is on its way."
+ *   /login?reset=<token>      the link from that mail: choose a new password, then sign in with it
+ */
 export const Login = () => {
   useSplashDoneOnPaint();
+  const loc = useLocation();
+  const token = new URLSearchParams(loc.search).get('reset');
+  const nav = useNavigate();
+  // from sign-up's "Sign in with that email": the address comes along
+  const [email, setEmail] = useState((loc.state as { email?: string } | null)?.email ?? '');
+  const [forgot, setForgot] = useState(false);
+  // leaving the reset screens drops the token from the address: to sign in, or (an expired link) to ask for a new one
+  const leaveReset = (toForgot: boolean) => {
+    setForgot(toForgot);
+    nav('/login', { replace: true });
+  };
+  if (token) return <Reset token={token} onLeave={leaveReset} />;
+  return forgot ? <Forgot email={email} onEmail={setEmail} onBack={() => setForgot(false)} /> : <SignIn email={email} onEmail={setEmail} onForgot={() => setForgot(true)} />;
+};
+
+const SignIn = ({ email, onEmail: setEmail, onForgot }: { email: string; onEmail: (v: string) => void; onForgot: () => void }) => {
   const status = useAuthStatus();
   const qc = useQueryClient();
   const nav = useNavigate();
-  // from sign-up's "Sign in with that email": the address comes along
-  const handed = (useLocation().state as { email?: string } | null)?.email ?? '';
-  const [email, setEmail] = useState(handed);
+  // an address that came along (from sign-up, or back from the forgot step): the cursor starts in the password
+  const [handed] = useState(email);
   const [pw, setPw] = useState('');
   const [err, setErr] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
@@ -165,6 +209,9 @@ export const Login = () => {
         <AuthField inputRef={emailRef} label="Email" type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" autoFocus={!handed} value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={nextOn(pwRef)} error={err.email} />
         <AuthField inputRef={pwRef} label="Password" type="password" name="password" autoComplete="current-password" enterKeyHint="go" reveal autoFocus={!!handed} value={pw} onChange={(e) => setPw(e.target.value)} error={err.password} />
         </div>
+        <button type="button" className="auth-forgot" onClick={onForgot}>
+          Forgot password?
+        </button>
         {err.form ? (
           <p className="auth-err form" role="alert">
             {err.form}
@@ -179,9 +226,168 @@ export const Login = () => {
 };
 
 /**
+ * Forgot password: the email, then one answer whatever the address (the server never says whether an account exists).
+ * The mail's link opens /login?reset=<token>.
+ */
+const Forgot = ({ email, onEmail, onBack }: { email: string; onEmail: (v: string) => void; onBack: () => void }) => {
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<Errors>({});
+  const ref = useRef<HTMLInputElement>(null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const problem = emailProblem(email);
+    if (problem) {
+      setErr({ email: problem });
+      ref.current?.focus();
+      return;
+    }
+    if (busy) return;
+    setBusy(true);
+    setErr({});
+    try {
+      await api('/auth/forgot', { method: 'POST', json: { email: email.trim() } });
+      setSent(true);
+    } catch (e2) {
+      haptics.error();
+      setErr({ form: plain(e2, 'Couldn’t send the link. Try again.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (sent)
+    return (
+      <Frame key="sent" title="Check your email." sub="If that address has an account, a reset link is on its way." back={onBack}>
+        <div className="auth-form">
+          <p className="auth-note">Open the link to choose a new password. Nothing after a few minutes? Check your spam folder, and that {email.trim()} is the address you signed up with.</p>
+          <button type="button" className="btn primary block auth-submit" onClick={onBack}>
+            Back to sign in
+          </button>
+        </div>
+      </Frame>
+    );
+  return (
+    <Frame key="forgot" title="Forgot your password?" sub="Enter your email and we’ll send a link to choose a new one." back={onBack}>
+      <form className="auth-form" onSubmit={submit} noValidate>
+        <div className="card auth-fields">
+          <AuthField
+            inputRef={ref}
+            label="Email"
+            type="email"
+            name="email"
+            autoComplete="username"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="send"
+            autoFocus
+            value={email}
+            onChange={(e) => {
+              onEmail(e.target.value);
+              if (err.email) setErr({});
+            }}
+            error={err.email}
+          />
+        </div>
+        {err.form ? (
+          <p className="auth-err form" role="alert">
+            {err.form}
+          </p>
+        ) : null}
+        <button type="submit" className="btn primary block auth-submit" disabled={busy || !!emailProblem(email)}>
+          {busy ? 'Sending…' : 'Send reset link'}
+        </button>
+      </form>
+    </Frame>
+  );
+};
+
+/**
+ * The link from the reset mail (/login?reset=<token>): a new password. The link opens in the browser, so on the web the
+ * last screen sends the person back to the app. A used or expired link offers a new one.
+ */
+const Reset = ({ token, onLeave }: { token: string; onLeave: (toForgot: boolean) => void }) => {
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [state, setState] = useState<'form' | 'done' | 'invalid'>('form');
+  const pwOk = pw.length >= 8;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pwOk || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api('/auth/reset', { method: 'POST', json: { token, password: pw } });
+      setState('done');
+    } catch (e2) {
+      haptics.error();
+      if (e2 instanceof ApiError && (e2.code === 'reset_invalid' || e2.status === 400)) setState('invalid');
+      else if (e2 instanceof ApiError && e2.status === 422) setErr('Use 8 to 200 characters.');
+      else setErr(plain(e2, 'Couldn’t change the password. Try again.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (state === 'done')
+    return (
+      <Frame key="done" title="Password changed." sub="Open Logbook and sign in.">
+        <div className="auth-form">
+          <p className="auth-note">Every device was signed out. Use the new password from now on.</p>
+          <button type="button" className="btn primary block auth-submit" onClick={() => onLeave(false)}>
+            {isNative ? 'Sign in' : 'Sign in here'}
+          </button>
+        </div>
+      </Frame>
+    );
+  if (state === 'invalid')
+    return (
+      <Frame key="invalid" title="That link has expired." sub="A reset link works once, for a short time. Ask for a new one.">
+        <div className="auth-form">
+          <button type="button" className="btn primary block auth-submit" onClick={() => onLeave(true)}>
+            Send a new link
+          </button>
+        </div>
+      </Frame>
+    );
+  return (
+    <Frame key="reset" title="Choose a new password." sub="You sign in with it from now on.">
+      <form className="auth-form" onSubmit={submit} noValidate>
+        <div className="card auth-fields">
+          <AuthField
+            label="New password"
+            type="password"
+            name="new-password"
+            autoComplete="new-password"
+            enterKeyHint="go"
+            autoFocus
+            reveal
+            maxLength={200}
+            value={pw}
+            onChange={(e) => {
+              setPw(e.target.value);
+              if (err) setErr(null);
+            }}
+            hint={pwOk ? 'OK.' : pw ? `${8 - pw.length} more ${8 - pw.length === 1 ? 'character' : 'characters'}.` : 'At least 8 characters.'}
+          />
+        </div>
+        {err ? (
+          <p className="auth-err form" role="alert">
+            {err}
+          </p>
+        ) : null}
+        <button type="submit" className="btn primary block auth-submit" disabled={!pwOk || busy}>
+          {busy ? 'Changing…' : 'Change password'}
+        </button>
+      </form>
+    </Frame>
+  );
+};
+
+/**
  * Sign-up, one question per screen (inspiration §2.9, §6 Onboarding): the email, then a password, each with the question as
- * the title and its button grey until the answer is valid. The privacy page comes first: the choice it made waits on this
- * device and goes with the new account (a visitor who arrives here without it is sent to make it). The password step keeps
+ * the title and its button grey until the answer is valid. The privacy page comes first: the answer given there waits on this
+ * device and goes with the new account (a visitor who arrives here without one is sent to give it). The password step keeps
  * the email in a hidden username field, so a password manager saves the pair.
  */
 export const Signup = () => {
@@ -196,13 +402,14 @@ export const Signup = () => {
   const [taken, setTaken] = useState(false);
   const [busy, setBusy] = useState(false);
   const created = useRef(false);
-  const [consent] = useState(readPendingConsent);
+  // the answer from the privacy page: Allow goes with the new account, Not now sends nothing
+  const [choice] = useState(readPendingChoice);
   const refs = { email: useRef<HTMLInputElement>(null), password: useRef<HTMLInputElement>(null) };
   // after Create account the cache is cleared under the form (its status query goes pending): the form stays until it leaves
   if (status.isPending && !created.current) return <Frame />;
   if (status.data && !canSignUp(status.data) && !created.current) return <Navigate to="/login" replace />;
   // the privacy page comes before any account
-  if (!consent && !created.current) return <Navigate to="/start" replace state={{ step: 'privacy' }} />;
+  if (!choice && !created.current) return <Navigate to="/start" replace state={{ step: 'privacy' }} />;
   const emailOk = !emailProblem(email);
   const pwOk = pw.length >= 8;
   const toPassword = (e: React.FormEvent) => {
@@ -217,6 +424,7 @@ export const Signup = () => {
     if (!emailOk || !pwOk || busy) return;
     setBusy(true);
     try {
+      const consent = consentForSignup(choice);
       await api('/auth/signup', { method: 'POST', json: { email: email.trim(), password: pw, ...(consent ? { consent } : {}) } });
       created.current = true;
       clearPendingConsent();
@@ -252,7 +460,7 @@ export const Signup = () => {
   );
   if (step === 'email')
     return (
-      <Frame key="email" title="What’s your email?" sub="You sign in with it. It’s never shared." back={() => (canGoBack() ? nav(-1) : nav('/start', { replace: true, state: { step: 'privacy' } }))} foot={foot}>
+      <Frame key="email" title="What’s your email?" sub="You sign in with it. It is never sold." back={() => (canGoBack() ? nav(-1) : nav('/start', { replace: true, state: { step: 'privacy' } }))} foot={foot}>
         <form className="auth-form" onSubmit={toPassword} noValidate>
           <div className="card auth-fields">
           <AuthField
@@ -309,6 +517,9 @@ export const Signup = () => {
           hint={pwOk ? 'Good.' : pw ? `${8 - pw.length} more ${8 - pw.length === 1 ? 'character' : 'characters'}.` : 'At least 8 characters.'}
         />
         </div>
+        <p className="auth-terms">
+          By creating an account you agree to the <SiteLink href={LEGAL.terms}>Terms</SiteLink> and <SiteLink href={LEGAL.privacy}>Privacy Policy</SiteLink>. You must be {MIN_AGE} or older.
+        </p>
         {err.form ? (
           <p className="auth-err form" role="alert">
             {err.form}

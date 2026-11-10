@@ -9,7 +9,8 @@
   overscroll-behavior-y: contain;
   display: flex;
   flex-direction: column;
-  padding: calc(8px + var(--safe-t)) var(--gutter) calc(12px + var(--safe-b));
+  /* the keyboard overlays the web view (it never resizes it): the pinned button rides above it on --kb */
+  padding: calc(8px + var(--safe-t)) var(--gutter) calc(12px + max(var(--safe-b), var(--kb, 0px)));
   background: var(--bg);
   color: var(--ink);
   overflow-x: hidden;
@@ -38,6 +39,7 @@
   }
 }
 .auth-body {
+  position: relative;
   flex: 1;
   width: 100%;
   max-width: 440px;
@@ -163,6 +165,40 @@
   line-height: var(--lh-foot);
   color: var(--ink-3);
 }
+/* under the fields on sign in: the way to a new password, a 44px target at the right edge */
+.auth-forgot {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  align-self: flex-end;
+  min-height: 44px;
+  margin: -6px 0;
+  padding: 0 16px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
+  color: var(--ink-2);
+  border-radius: var(--r-control);
+}
+.auth-forgot:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: -2px;
+}
+/* the terms and age line above Create account, and the plain note on the reset screens */
+.auth-terms,
+.auth-note {
+  margin: 0;
+  padding: 0 16px;
+  font-size: var(--fs-foot);
+  line-height: var(--lh-foot);
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+.auth-note {
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+}
 /* the one navy pill, pinned to the bottom of the screen (it stays grey until the answer is valid) */
 .auth-submit.btn {
   position: sticky;
@@ -183,6 +219,10 @@
 .auth-foot {
   margin-top: 4px;
 }
+/* with the keyboard up the other door steps aside, so the field, its message and the button all fit above it */
+html.kb-open .auth-foot {
+  display: none;
+}
 .auth-switch {
   margin: 0;
   font-size: var(--fs-sub);
@@ -198,6 +238,38 @@
   padding: 0 4px;
   color: var(--accent-text);
   font-weight: 600;
+  text-decoration: none;
+}
+/* a quiet link to a public page (policy, terms, support): underlined words in a 44px target */
+.site-link {
+  color: var(--ink-2);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+.site-link:focus-visible {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.auth-help.site-link {
+  position: absolute;
+  top: 0;
+  right: -8px;
+}
+.start-help.site-link,
+.auth-help.site-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 8px;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink-3);
   text-decoration: none;
 }
 @media (max-width: 359px) {
