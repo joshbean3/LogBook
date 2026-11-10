@@ -45,9 +45,21 @@
   scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* centered while it fits; never pushed above the top when it does not (auth-12) */
+  justify-content: safe center;
   padding: 16px var(--gutter) 8px;
-  overflow: hidden;
+  /* the last resort on a short screen at a large text size: the page scrolls rather than clips */
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  container: startpage / size;
+}
+.start-page::-webkit-scrollbar {
+  display: none;
+}
+/* the card and the words, shrunk together before anything clips (Pager's fit(), auth-12) */
+.start-fit {
+  width: 100%;
 }
 .start-card,
 .start-words {
@@ -58,11 +70,24 @@
 .start-words {
   margin-top: 32px;
 }
+/* at a larger text size the card keeps its proportions: laid out at its own width in rem, then scaled to fit (fit()) */
+.start-card.as-picture {
+  max-width: none;
+}
+.start-card.as-picture .lc {
+  width: 21.25rem;
+  max-width: none;
+}
 .start-title {
   font-size: 2.75rem;
   line-height: 2.875rem;
   color: var(--ink);
   text-wrap: balance;
+  overflow-wrap: break-word;
+}
+/* focus moves to the heading on a step change (a11y-10); the heading itself is not a control */
+.start-title:focus {
+  outline: none;
 }
 .start-sub {
   margin-top: 8px;
@@ -70,6 +95,14 @@
   line-height: var(--lh-row);
   color: var(--ink-2);
   max-width: 34ch;
+  overflow-wrap: break-word;
+}
+/* a narrow page in rem (a small phone, or a large text size): the title drops a step */
+@container startpage (max-width: 22rem) {
+  .start-title {
+    font-size: 2.125rem;
+    line-height: 2.375rem;
+  }
 }
 .start-foot {
   flex: none;
@@ -81,20 +114,16 @@
 .start-dots {
   display: flex;
   justify-content: center;
-  gap: 2px;
+  align-items: center;
+  height: 24px;
   margin-bottom: 12px;
 }
-/* each dot is a 24px target around a 7px dot; the current one is a navy bar */
+/* where you are, not a control (swipe and Next do the paging): a 7px dot, the current one a navy bar */
 .start-dot {
-  appearance: none;
-  border: 0;
-  background: none;
-  width: 24px;
+  width: 20px;
   height: 24px;
-  padding: 0;
   display: grid;
   place-items: center;
-  cursor: pointer;
 }
 .start-dot::before {
   content: '';
@@ -109,11 +138,6 @@
 .start-dot.on::before {
   width: 20px;
   background: var(--ink);
-}
-.start-dot:focus-visible {
-  outline: 2px solid var(--ink-2);
-  outline-offset: -2px;
-  border-radius: 12px;
 }
 .start-cta.btn {
   height: 54px;
@@ -151,11 +175,19 @@
   padding: calc(8px + var(--safe-t)) var(--gutter) 0;
 }
 .start .pv-back.icon-btn {
+  position: relative;
   width: 40px;
   height: 40px;
   background: var(--surface);
   box-shadow: var(--shadow-float);
   color: var(--ink);
+}
+/* the 40px circle answers a 44px press (auth-23) */
+.start .pv-back.icon-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
 }
 .pv-body {
   flex: 1 0 auto;
@@ -198,10 +230,10 @@
   color: var(--ink-3);
 }
 .start-privacy .pv-facts {
-  margin-top: var(--gap);
+  margin-top: 12px;
 }
 .pv-later {
-  margin-top: 12px;
+  margin-top: 8px;
   padding: 0 16px;
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
@@ -220,8 +252,13 @@
 .pv-foot {
   position: sticky;
   bottom: 0;
-  background: linear-gradient(to bottom, rgba(243, 248, 251, 0), var(--bg) 24px);
-  padding-top: 24px;
+  /* a fade tall enough to read as "more below" (auth-20); it never takes a press */
+  background: linear-gradient(to bottom, rgba(243, 248, 251, 0), var(--bg) 40px);
+  padding-top: 40px;
+  pointer-events: none;
+}
+.pv-foot .pv-answers {
+  pointer-events: auto;
 }
 /* the two answers, side by side and the same size: neither is chosen for the person */
 .pv-answers {

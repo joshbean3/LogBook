@@ -106,48 +106,54 @@
 }
 
 /* habits as lights */
-.lc-orbs {
+/* the habits: a two-column grid of tiles, as on Today */
+.lc-tiles {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin-top: 10px;
 }
-.lc-orb {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
+.lc-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 12px;
+  border-radius: var(--r-tile);
+  background: var(--surface-2);
 }
-.lc-orb-ring {
-  width: 52px;
-  height: 52px;
+.lc-tile.on {
+  background: var(--accent-tint);
+}
+.lc-tile-mark {
+  flex: none;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--surface-3);
   border: 1.5px solid var(--line-strong);
 }
-.lc-orb.on .lc-orb-ring {
+.lc-tile.on .lc-tile-mark {
   background: var(--accent);
-  border-color: var(--accent-bright);
+  border-color: var(--accent);
   color: var(--accent-ink);
-  box-shadow:
-    0 0 0 4px rgba(242, 96, 12, 0.18),
-    0 0 24px rgba(242, 96, 12, 0.6);
 }
-.lc-orb-i {
-  font-family: var(--display);
-  font-style: italic;
-  /* the initial sits in a 52px ring: it follows the text size only as far as the ring can hold */
-  font-size: clamp(22px, 1.375rem, 28px);
-  line-height: 1;
+.lc-tile-name {
+  min-width: 0;
+  /* wraps to two lines at a large text size rather than cutting the word short */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
   color: var(--ink-2);
 }
-.lc-orb-name {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--ink-3);
-}
-.lc-orb.on .lc-orb-name {
+.lc-tile.on .lc-tile-name {
   color: var(--ink);
 }
 .lc-strip {
@@ -200,14 +206,14 @@
 }
 .lc-row {
   display: grid;
-  grid-template-columns: 36px 24px 3px minmax(0, 1fr) 72px;
+  grid-template-columns: 2.25rem 1.5rem 3px minmax(0, 1fr) 4.5rem;
   align-items: center;
   gap: 8px;
-  height: 34px;
+  height: 2.125rem;
   border-top: 1px solid var(--line);
 }
 .lc-week.compact .lc-row {
-  height: 30px;
+  height: 1.875rem;
 }
 .lc-row:first-child {
   border-top: 0;
@@ -221,7 +227,7 @@
 }
 .lc-row-tone {
   width: 3px;
-  height: 18px;
+  height: 1.125rem;
   border-radius: 2px;
 }
 .lc-row.t-easy .lc-row-tone,
@@ -304,15 +310,53 @@
     font-size: 1.375rem;
     line-height: 1.625rem;
   }
-  .lc-orb-ring {
-    width: 44px;
-    height: 44px;
-  }
   .lc-row {
-    grid-template-columns: 32px 20px 3px minmax(0, 1fr) 56px;
-    height: 28px;
+    grid-template-columns: 2rem 1.25rem 3px minmax(0, 1fr) 3.5rem;
+    height: 1.75rem;
   }
   .lc-stop-v {
     font-size: 0.875rem;
   }
+}
+
+/* the assistant */
+.lc-ask-q {
+  justify-self: end;
+  max-width: 85%;
+  margin-top: 6px;
+  padding: 10px 14px;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--surface-2);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  color: var(--ink);
+}
+.lc-ask-a {
+  margin-top: 6px;
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 1.25rem;
+  line-height: 1.625rem;
+  color: var(--ink);
+}
+.lc-ask-act {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.lc-ask-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: var(--fs-sub);
+  line-height: var(--lh-sub);
+  font-weight: 600;
+}
+.lc-ask-btn.quiet {
+  background: var(--surface-2);
+  color: var(--ink-2);
 }
