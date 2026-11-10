@@ -51,6 +51,7 @@ import { HistoryPanel } from './History';
 import { plainOf } from './plain';
 import { AssistantPermission, useAssistantGate } from './Permission';
 import { ProposalCard } from './Proposal';
+import { ReportPanel } from './Report';
 import { Rich } from './Rich';
 import { assistantStore, useAssistantBusy, useAssistantBusyChat, useAssistantChatId, useAssistantChats, useAssistantLive, useAssistantOffline, useAssistantStopped, useAssistantTurns } from './store';
 import './assistant.css';
@@ -266,7 +267,7 @@ const shareText = async (text: string) => {
 };
 
 /** Under a finished answer, as ChatGPT lays them out: Copy, Read aloud, thumbs, Share, and Ask again on the newest. */
-const AnswerActions = ({ t, index, newest, speaker, onRegenerate }: { t: AssistantTurn; index: number; newest: boolean; speaker: ReturnType<typeof useSpeaker>; onRegenerate: () => void }) => {
+const AnswerActions = ({ t, index, newest, speaker, onRegenerate, onReport }: { t: AssistantTurn; index: number; newest: boolean; speaker: ReturnType<typeof useSpeaker>; onRegenerate: () => void; onReport: () => void }) => {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
   const copy = async () => {
@@ -289,7 +290,10 @@ const AnswerActions = ({ t, index, newest, speaker, onRegenerate }: { t: Assista
   const rate = (r: 'up' | 'down') => {
     haptics.select();
     assistantStore.rate(index, r);
-    if (t.rating !== r) toast(r === 'up' ? 'Thanks. Glad that helped.' : 'Thanks. Ask again or tell it what was off.');
+    if (t.rating === r) return;
+    // thumbs down opens a small report: what was wrong, a note, and an email to Logbook with the answer
+    if (r === 'down') onReport();
+    else toast('Thanks. Glad that helped.');
   };
   const speaking = speaker.speaking === index;
   return (
@@ -393,6 +397,14 @@ const UserTurn = ({ t, canEdit, confirmEdit, onEdit }: { t: AssistantTurn; canEd
       ) : null}
     </>
   );
+};
+
+/** Runs `onGone` when a pushed panel leaves (no timer watching for it). */
+const PanelLife = ({ onGone, children }: { onGone: () => void; children: React.ReactNode }) => {
+  const gone = useRef(onGone);
+  gone.current = onGone;
+  useEffect(() => () => gone.current(), []);
+  return <>{children}</>;
 };
 
 /** The waiting proposal, when it has scrolled out of view: a bar over the composer that brings it back. */
@@ -512,28 +524,14 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
     return () => void onUnauthorized.delete(fn);
   }, [sheet]);
 
+  // a panel pushed inside the sheet (History, Report) has its own header; the chat's comes back when it goes
   const pushed = useRef(false);
-  useHeader(() => {
+  const openPanel = (title: string, body: (done: () => void) => React.ReactNode) => {
     pushed.current = true;
-    sheet.push({
-      title: 'History',
-      body: (
-        <HistoryPanel
-          onDone={() => {
-            pushed.current = false;
-            sheet.pop();
-          }}
-        />
-      ),
-    });
-  }, pushed);
-  // coming back from History (or any pop), the header is this chat's again
-  useEffect(() => {
-    const t = setInterval(() => {
-      if (pushed.current && !document.querySelector('.as-history')) pushed.current = false;
-    }, 400);
-    return () => clearInterval(t);
-  }, []);
+    const done = () => sheet.pop();
+    sheet.push({ title, body: <PanelLife onGone={() => (pushed.current = false)}>{body(done)}</PanelLife> });
+  };
+  useHeader(() => openPanel('History', (done) => <HistoryPanel onDone={done} />), pushed);
 
   const fitField = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -688,7 +686,14 @@ const Conversation = ({ date, initial, screen: openedFrom }: { date: ISODate; in
             </div>
           ) : null}
           {t.proposal ? <ProposalCard p={t.proposal} waiting={t.proposal.id === waiting?.id} /> : null}
-          <AnswerActions t={t} index={i} newest={i === newestAnswer && !busyAnywhere && t.proposal?.status !== 'applied'} speaker={speaker} onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant)} />
+          <AnswerActions
+            t={t}
+            index={i}
+            newest={i === newestAnswer && !busyAnywhere && t.proposal?.status !== 'applied'}
+            speaker={speaker}
+            onRegenerate={() => void regenerate(askAssistant, askDate, screen, stopAssistant)}
+            onReport={() => openPanel('Report this answer', (done) => <ReportPanel answer={t.text} onDone={done} />)}
+          />
         </>
       )}
     </div>

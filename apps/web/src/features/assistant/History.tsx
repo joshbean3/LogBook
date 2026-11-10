@@ -1,7 +1,9 @@
-import { MessageSquare, SquarePen, Trash2 } from 'lucide-react';
+import { Flag, MessageSquare, SquarePen, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { haptics } from '@/lib/haptics';
+import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { ReportPanel } from './Report';
 import { plainOf } from './plain';
 import { assistantStore, useAssistantBusyChat, useAssistantChatId, useAssistantChats, type AssistantChat } from './store';
 
@@ -42,6 +44,7 @@ export const HistoryPanel = ({ onDone }: { onDone: () => void }) => {
   const open = useAssistantChatId();
   const busy = useAssistantBusyChat();
   const toast = useToast();
+  const sheet = useSheet();
   const [asking, setAsking] = useState<string | null>(null);
   const del = (c: AssistantChat) => {
     haptics.delete();
@@ -127,6 +130,9 @@ export const HistoryPanel = ({ onDone }: { onDone: () => void }) => {
           </section>
         ))
       )}
+      <button type="button" className="pill-row as-history-report" onClick={() => sheet.push({ title: 'Report a problem', body: <ReportPanel onDone={() => sheet.pop()} /> })}>
+        <Flag size={17} strokeWidth={2.2} aria-hidden="true" /> Report a problem
+      </button>
       {groups.length ? <p className="as-history-foot">Chats are kept on this phone. What you send is processed by Claude.</p> : null}
     </div>
   );

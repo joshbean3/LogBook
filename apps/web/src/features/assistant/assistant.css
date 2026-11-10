@@ -1577,3 +1577,65 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------- Report: after thumbs down, or from History ---------- */
+.as-report {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 24px;
+}
+.as-report-lead {
+  margin: 4px 0 0;
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  color: var(--ink);
+}
+.as-report-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.as-report-reason {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-report-reason.is-on {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.as-report-note textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  font: 400 max(16px, var(--fs-row)) / 1.4 var(--sans);
+  resize: none;
+}
+.as-report-note textarea::placeholder {
+  color: var(--ink-3);
+}
+.as-report-note textarea:focus {
+  outline: 2px solid var(--ink-2);
+  outline-offset: 0;
+}
+.as-report-foot {
+  margin: 0;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+}
+.as-history-report.pill-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-weight: 600;
+}
