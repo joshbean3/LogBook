@@ -1,6 +1,6 @@
-/* Health pieces (HealthParts.tsx): Bevel's depth, Logbook's colors and type. */
+/* Health pieces (HealthParts.tsx): flat in Orby's colors and type (guide 5.3: no bevels, no glass, no glows). */
 
-/* ---------- the beveled dial: a raised white rim, a gradient arc with a soft glow, a recessed face ---------- */
+/* ---------- the dial: a Paper disc, a Haze track, the arc in Deep Sky (warm, cool) or Twilight (night), the number in Inter ---------- */
 .hd-dial {
   position: relative;
   display: inline-grid;
@@ -9,12 +9,8 @@
   height: var(--sz);
   flex: none;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 28%, #ffffff 0%, #f3f8fb 58%, #e4eef5 100%);
-  box-shadow:
-    inset 0 2px 1px #fff,
-    inset 0 -4px 8px rgba(15, 42, 68, 0.06),
-    0 0 0 1px rgba(15, 42, 68, 0.04),
-    0 12px 26px -12px rgba(15, 42, 68, 0.32);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
 .hd-dial svg {
   position: absolute;
@@ -25,23 +21,18 @@
 }
 .hd-track {
   fill: none;
-  stroke: rgba(15, 42, 68, 0.07);
+  stroke: var(--haze);
   stroke-width: 9;
 }
 .hd-arc {
   fill: none;
+  stroke: var(--deep-sky);
   stroke-width: 9;
   stroke-linecap: round;
-  transition: stroke-dashoffset 900ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.hd-dial.is-warm .hd-arc {
-  filter: drop-shadow(0 2px 4px rgba(242, 96, 12, 0.35));
-}
-.hd-dial.is-cool .hd-arc {
-  filter: drop-shadow(0 2px 4px rgba(58, 127, 185, 0.35));
+  transition: stroke-dashoffset var(--dur-number) var(--ease-out);
 }
 .hd-dial.is-night .hd-arc {
-  filter: drop-shadow(0 2px 4px rgba(27, 61, 99, 0.35));
+  stroke: var(--twilight);
 }
 .hd-face {
   position: relative;
@@ -50,26 +41,26 @@
   width: 62%;
   height: 62%;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 35%, #ffffff, #f6f9fc);
-  box-shadow:
-    inset 0 2px 5px rgba(15, 42, 68, 0.1),
-    0 1px 0 #fff;
+  background: var(--surface);
 }
 .hd-num {
-  font: 700 calc(var(--sz) * 0.24) / 1 var(--stamp);
-  letter-spacing: -0.02em;
+  font: 650 calc(var(--sz) * 0.24) / 1 var(--sans);
+  letter-spacing: var(--tr-hero);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .hd-num small {
   margin-left: 1px;
-  font: 600 calc(var(--sz) * 0.12) / 1 var(--stamp);
-  color: var(--ink-3);
+  font: 500 calc(var(--sz) * 0.12) / 1 var(--sans);
+  letter-spacing: 0;
+  color: var(--ink-2);
 }
 .hd-dial.is-empty .hd-num {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
-/* ---------- the range capsule: pressed into the tile; your normal as a band; today as a ringed mark ---------- */
+/* ---------- the range capsule: a Cloud capsule; your normal a Haze band; today a Paper dot ringed in Night Ink. A worry turns
+   the band and the ring Marigold (a mark, with the status word beside it, never orange) ---------- */
 .hd-cap {
   position: relative;
   display: block;
@@ -78,18 +69,17 @@
   align-self: stretch;
   min-height: 64px;
   border-radius: var(--r-pill);
-  background: var(--well);
-  box-shadow: var(--well-shadow);
+  background: var(--cloud);
 }
 .hd-cap-band {
   position: absolute;
   left: 4px;
   right: 4px;
   border-radius: var(--r-pill);
-  background: linear-gradient(180deg, #a9cfe6, #6fa6cf);
+  background: var(--haze);
 }
 .hd-cap.is-worry .hd-cap-band {
-  background: linear-gradient(180deg, #ffc49c, #f2600c);
+  background: var(--warn-soft);
 }
 .hd-cap-dot {
   position: absolute;
@@ -98,15 +88,11 @@
   height: 12px;
   margin: -6px 0 0 -6px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow:
-    0 0 0 2.5px var(--ink-2),
-    0 2px 4px rgba(15, 42, 68, 0.25);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--ink);
 }
 .hd-cap.is-worry .hd-cap-dot {
-  box-shadow:
-    0 0 0 2.5px var(--accent),
-    0 2px 4px rgba(242, 96, 12, 0.3);
+  box-shadow: 0 0 0 2px var(--warn);
 }
 /* still learning your normal: a dotted line where the band will be */
 .hd-cap.is-learning::before {
@@ -116,11 +102,12 @@
   bottom: 10px;
   left: 50%;
   width: 0;
-  border-left: 2px dotted var(--ink-4);
+  border-left: 2px dotted var(--ink-faint);
   opacity: 0.6;
 }
 
-/* ---------- the status word ---------- */
+/* ---------- the status word: its icon in a Dusk disc with a White glyph (7.22); a worry in --warn-soft with a warn-text glyph
+   and warn-text words (plan 1.4, D15) ---------- */
 .hd-status {
   display: inline-flex;
   align-items: center;
@@ -135,19 +122,20 @@
   height: 17px;
   border-radius: 50%;
   background: var(--ink-2);
-  color: #fff;
+  color: var(--white);
 }
 .hd-status.is-worry-up,
 .hd-status.is-worry-down {
-  color: var(--accent-text);
+  color: var(--warn-text);
 }
 .hd-status.is-worry-up i,
 .hd-status.is-worry-down i {
-  background: var(--accent);
+  background: var(--warn-soft);
+  color: var(--warn-text);
 }
 .hd-status.is-learning,
 .hd-status.is-none {
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-weight: 500;
 }
 .hd-status.is-learning i,
@@ -155,7 +143,7 @@
   width: 13px;
   height: 13px;
   background: none;
-  border: 2px dotted var(--ink-4);
+  border: 2px dotted var(--ink-faint);
 }
 
 /* ---------- a Health Monitor tile ---------- */
@@ -184,24 +172,26 @@
   align-items: center;
   gap: 6px;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .hd-tile-label svg {
-  color: var(--ink-4);
+  color: var(--deep-sky);
 }
+/* a tile number (Inter 650 even figures on the tiles' 26/32 step, as .tile-value) */
 .hd-tile-value {
-  font: 700 1.75rem / 2rem var(--stamp);
-  letter-spacing: -0.02em;
+  font: 650 var(--fs-section) / 2rem var(--sans);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
   white-space: nowrap;
 }
 .hd-tile-value small {
   font: 500 var(--fs-sub) / 1 var(--sans);
   letter-spacing: 0;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .hd-tile-value.is-none {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .hd-tile .hd-status {
   font-size: var(--fs-foot);
@@ -210,13 +200,14 @@
 .hd-tile-foot {
   overflow: hidden;
   margin-top: 2px;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-4);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* ---------- the night card: night navy, the hypnogram, the stage tiles ---------- */
+/* ---------- the night card: a Paper card (dark grounds are for brand art, guide 3.6), the hypnogram on Cloud, the stage tiles.
+   The stages' data colors: Awake Rose, REM Sky, Core Deep Sky, Deep Indigo (never orange for a series, guide 6.8) ---------- */
 .hd-night {
   position: relative;
   overflow: hidden;
@@ -224,14 +215,10 @@
   gap: 14px;
   padding: 18px 16px 16px;
   border-radius: var(--r-card);
-  background:
-    radial-gradient(120% 70% at 85% -10%, rgba(185, 217, 235, 0.22), transparent 60%),
-    radial-gradient(90% 60% at 0% 110%, rgba(79, 127, 214, 0.25), transparent 60%),
-    linear-gradient(180deg, #1a3555 0%, #0f2440 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 18px 36px -16px rgba(15, 36, 64, 0.55);
-  color: #fff;
+  background: var(--surface);
+  border: var(--card-border);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
 }
 .hd-night > * {
   position: relative;
@@ -246,24 +233,25 @@
   margin: 0;
   font: 600 var(--fs-head) / var(--lh-head) var(--serif);
   letter-spacing: 0;
-  color: #fff;
+  color: var(--ink);
 }
 .hd-night-total {
-  font: 700 1.875rem / 1 var(--stamp);
-  letter-spacing: -0.02em;
-  color: #fff;
+  font: 650 var(--fs-section) / 1 var(--sans);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
 }
 .hd-night-total small {
   margin-left: 4px;
   font: 500 var(--fs-sub) / 1 var(--sans);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ink-2);
 }
 .hd-source {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--ink-2);
 }
 .hd-hyp {
   display: block;
@@ -271,22 +259,31 @@
   height: 120px;
   padding: 4px 0;
   border-radius: var(--r-control);
-  background: rgba(255, 255, 255, 0.035);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: var(--cloud);
 }
 .hd-hyp-grid {
-  stroke: rgba(255, 255, 255, 0.08);
+  stroke: var(--grid);
   stroke-width: 1;
   stroke-dasharray: 2 4;
   vector-effect: non-scaling-stroke;
 }
 .hd-hyp-riser {
-  stroke: rgba(255, 255, 255, 0.28);
+  stroke: var(--line-strong);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 .hd-hyp-bar.is-awake {
-  filter: drop-shadow(0 0 3px rgba(255, 138, 61, 0.7));
+  fill: var(--t-fast);
+}
+.hd-hyp-bar.is-rem {
+  fill: var(--sky);
+}
+.hd-hyp-bar.is-core,
+.hd-hyp-bar.is-asleep {
+  fill: var(--deep-sky);
+}
+.hd-hyp-bar.is-deep {
+  fill: var(--t-lift);
 }
 .hd-night-chips {
   display: flex;
@@ -298,12 +295,12 @@
   align-items: center;
   gap: 5px;
   height: 24px;
-  padding: 0 9px;
+  padding: 0 var(--sp-2);
   border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: var(--cloud);
   font: 600 var(--fs-foot) / 1 var(--sans);
-  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
 }
 .hd-stages {
   display: grid;
@@ -316,32 +313,20 @@
   gap: 1px;
   padding: 11px 50px 11px 12px;
   border-radius: var(--r-control);
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: var(--cloud);
 }
 .hd-stage-label {
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ink-2);
 }
 .hd-stage-time {
-  font: 700 1.25rem / 1.5rem var(--stamp);
-  color: #fff;
+  font: 650 var(--fs-row) / 1.5rem var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
 }
 .hd-stage-pct {
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-}
-.hd-stage.is-awake .hd-stage-pct {
-  color: #ffa06b;
-}
-.hd-stage.is-rem .hd-stage-pct {
-  color: #d8ecf8;
-}
-.hd-stage.is-core .hd-stage-pct,
-.hd-stage.is-asleep .hd-stage-pct {
-  color: #a9cfee;
-}
-.hd-stage.is-deep .hd-stage-pct {
-  color: #8eaff0;
+  color: var(--ink-2);
 }
 .hd-stage-ring {
   position: absolute;
@@ -353,7 +338,7 @@
 }
 .hd-stage-track {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.12);
+  stroke: var(--surface);
   stroke-width: 4;
 }
 .hd-stage-arc {
@@ -361,34 +346,39 @@
   stroke-width: 4;
   stroke-linecap: round;
 }
+.hd-stage.is-awake .hd-stage-arc {
+  stroke: var(--t-fast);
+}
+.hd-stage.is-rem .hd-stage-arc {
+  stroke: var(--sky);
+}
+.hd-stage.is-core .hd-stage-arc,
+.hd-stage.is-asleep .hd-stage-arc {
+  stroke: var(--deep-sky);
+}
+.hd-stage.is-deep .hd-stage-arc {
+  stroke: var(--t-lift);
+}
 
-/* ---------- glass tiles ---------- */
+/* ---------- icon tiles (once frosted glass): Haze with the glyph in Deep Sky, or Night Ink for the night (guide 6.4) ---------- */
 .hd-glass {
   flex: none;
   display: grid;
   place-items: center;
   width: var(--gs);
   height: var(--gs);
-  border-radius: calc(var(--gs) * 0.3);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.62));
-  -webkit-backdrop-filter: blur(14px) saturate(1.6);
-  backdrop-filter: blur(14px) saturate(1.6);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    inset 0 -2px 4px rgba(15, 42, 68, 0.05),
-    0 0 0 1px rgba(15, 42, 68, 0.05),
-    0 14px 26px -12px rgba(15, 42, 68, 0.35);
+  border-radius: var(--r-control);
+  background: var(--haze);
 }
 .hd-glass.is-navy {
   color: var(--ink);
 }
-.hd-glass.is-orange {
-  color: var(--accent);
-}
+/* the class names keep their old tone words (identifiers, plan 9); the glyphs are Deep Sky */
+.hd-glass.is-orange,
 .hd-glass.is-columbia {
-  color: #3a7fb9;
+  color: var(--deep-sky);
 }
-/* ---------- the heroes ---------- */
+/* ---------- the hero: a Haze wash over Cloud and a faint grid, a Paper dial with ticks, one Deep Sky arc, Haze tiles set around it ---------- */
 .hd-hero {
   position: relative;
   display: grid;
@@ -396,23 +386,19 @@
   height: 236px;
   margin: -4px calc(-1 * var(--gutter)) 0;
   overflow: hidden;
-  background:
-    radial-gradient(70% 60% at 50% 45%, rgba(255, 255, 255, 0.9), transparent 70%),
-    radial-gradient(60% 50% at 85% 10%, rgba(242, 96, 12, 0.1), transparent 70%),
-    radial-gradient(80% 70% at 10% 90%, rgba(185, 217, 235, 0.6), transparent 70%),
-    linear-gradient(180deg, #eaf4fa, #f3f8fb);
-  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent);
-  mask-image: linear-gradient(180deg, #000 78%, transparent);
+  background: var(--halo), var(--cloud);
+  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent); /* brand-ok: a mask's alpha, not a color */
+  mask-image: linear-gradient(180deg, #000 78%, transparent); /* brand-ok: a mask's alpha, not a color */
 }
 /* a faint grid behind the dial, as the references draw their instrument backdrops */
 .hd-hero::before {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(15, 42, 68, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 42, 68, 0.045) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(14, 34, 54, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(14, 34, 54, 0.04) 1px, transparent 1px);
   background-size: 22px 22px;
-  -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent);
-  mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent);
+  -webkit-mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent); /* brand-ok: a mask's alpha, not a color */
+  mask-image: radial-gradient(60% 60% at 50% 50%, #000, transparent); /* brand-ok: a mask's alpha, not a color */
 }
 .hd-hero-dial {
   position: relative;
@@ -421,12 +407,8 @@
   width: 176px;
   height: 176px;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 30%, #fff 0%, #f4f8fb 60%, #e3edf5 100%);
-  box-shadow:
-    inset 0 3px 2px #fff,
-    inset 0 -6px 12px rgba(15, 42, 68, 0.07),
-    0 0 0 1px rgba(15, 42, 68, 0.04),
-    0 26px 44px -18px rgba(15, 42, 68, 0.42);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
 }
 .hd-hero-dial svg {
   position: absolute;
@@ -436,25 +418,27 @@
   overflow: visible;
 }
 .hd-tick {
-  stroke: rgba(15, 42, 68, 0.16);
+  stroke: var(--tick);
   stroke-width: 0.7;
 }
 .hd-tick.is-long {
-  stroke: rgba(15, 42, 68, 0.3);
+  stroke: var(--tick-major);
   stroke-width: 1;
 }
 .hd-hero-track {
   fill: none;
-  stroke: rgba(15, 42, 68, 0.06);
+  stroke: var(--haze);
   stroke-width: 6;
 }
 .hd-hero-arc {
   fill: none;
+  stroke: var(--deep-sky);
   stroke-width: 6;
   stroke-linecap: round;
 }
 .hd-hero-end {
-  fill: #fff;
+  fill: var(--surface);
+  stroke: var(--deep-sky);
   stroke-width: 2;
 }
 .hd-hero-face {
@@ -464,15 +448,12 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 35%, #fff, #f3f8fb);
-  box-shadow:
-    inset 0 2px 6px rgba(15, 42, 68, 0.12),
-    0 1px 0 #fff;
-  color: var(--accent);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
+/* the tiles around the dial hold still (plan 4.3: no infinite loop for decoration) */
 .hd-float {
   position: absolute;
-  animation: hd-float 6s ease-in-out infinite;
 }
 .hd-float.is-a {
   top: 34px;
@@ -481,21 +462,10 @@
 .hd-float.is-b {
   top: 58px;
   left: calc(50% - 146px);
-  animation-delay: -2s;
 }
 .hd-float.is-c {
   bottom: 50px;
   left: calc(50% - 118px);
-  animation-delay: -4s;
-}
-@keyframes hd-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-3deg);
-  }
-  50% {
-    transform: translateY(-7px) rotate(3deg);
-  }
 }
 @media (max-width: 359px) {
   .hd-tile {
@@ -507,9 +477,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hd-float {
-    animation: none;
-  }
   .hd-arc {
     transition: none;
   }

@@ -1,5 +1,5 @@
 import { assess, clock, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
-import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward } from 'lucide-react';
+import { ArrowRightLeft, Check, ChevronRight, Heart, MoreHorizontal, Pencil, Share2, SkipForward } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
 import { Button } from '@/ui/primitives';
@@ -461,7 +461,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         // §6.3: after a matched run the group is Not feeling 100% (Share is the pill; Move and Edit are under the ⋯)
         date === log.today ? (
           <div className="group ss-acts">
-            <ActRow icon={<HeartPulse size={18} />} title={nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'} sub={nothingToEase ? 'The next days are easy already' : 'Ease the next three days'} disabled={nothingToEase} onPress={() => setNothingToEase(act.notFeeling(date, s) === 0)} right={nothingToEase ? undefined : chev} />
+            <ActRow icon={<Heart size={18} />} title={nothingToEase ? 'Nothing hard ahead' : 'Not feeling 100%'} sub={nothingToEase ? 'The next days are easy already' : 'Ease the next three days'} disabled={nothingToEase} onPress={() => setNothingToEase(act.notFeeling(date, s) === 0)} right={nothingToEase ? undefined : chev} />
           </div>
         ) : null
       ) : (
