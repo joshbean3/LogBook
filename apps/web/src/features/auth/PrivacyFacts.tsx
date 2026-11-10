@@ -1,5 +1,6 @@
 import { Check, X } from 'lucide-react';
 import type * as React from 'react';
+import type { Consent } from '@logbook/shared';
 import './privacy.css';
 
 /** The promise, in one line: on the privacy page before the account, and at the top of Settings › Privacy. */
@@ -13,7 +14,7 @@ export const consentSub = (on: boolean) => (on ? 'On. When you ask, it reads you
  * What goes to Claude (made by Anthropic) and what never does, in plain words. Shared by the privacy page and Settings so the
  * two can never say different things.
  */
-export const PrivacyFacts = ({ on, health = null }: { on: boolean; health?: boolean | null }): React.JSX.Element => (
+export const PrivacyFacts = ({ on, health = null }: { on: boolean; health?: boolean | null; /** The full choice, for the per-flow list. */ consent?: Consent | null }): React.JSX.Element => (
   <div className="pv-facts">
     <section className="card pv-list" aria-labelledby="pv-sent">
       <h2 id="pv-sent" className="pv-h">

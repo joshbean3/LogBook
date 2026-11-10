@@ -39,7 +39,7 @@ describe('consent', () => {
   it('reads as the default (training on, health not asked) for an account that never chose', async () => {
     const su = await req('POST', '/api/auth/signup', { email: 'b@example.com', password: 'password123' });
     expect(su.status).toBe(201);
-    expect((await req('GET', '/api/me/consent', undefined, su.cookie)).body.consent).toEqual({ training: true, health: null, at: null });
+    expect((await req('GET', '/api/me/consent', undefined, su.cookie)).body.consent).toEqual({ training: true, health: null, recall: false, reads: false, at: null, version: null });
   });
 
   it('needs a session', async () => {

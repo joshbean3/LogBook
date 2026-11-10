@@ -1,4 +1,4 @@
-import type { TrainingStatus, CoachRead, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
+import type { TrainingStatus, CoachRead, Consent, Habit, HabitCheck, HrZone, JournalEntry, LiftSet, MorningDayOverride, MorningSettings, PlanBlock, Quote, SavedTrainingProfile, Session, StravaStatus, Activity } from '@logbook/shared';
 
 export interface Bootstrap {
   /** `onboardedAt` null = a new account that has not been through /welcome yet (absent in caches from before it existed). */
@@ -10,6 +10,8 @@ export interface Bootstrap {
   zones: HrZone[] | null;
   strava: StravaStatus;
   features: { claude: boolean; strava: boolean };
+  /** The privacy choice (absent in caches from before the server sent it). */
+  consent?: Consent;
   /** The server also sends `serverTime`; `fetchBootstrap` drops it so the cached object only changes when the data does. */
 }
 

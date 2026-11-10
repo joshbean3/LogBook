@@ -319,6 +319,14 @@ export const zOnboarding = z
     start: z.enum(['monday', 'tomorrow']).default('monday'),
     /** The client's local date, so "tomorrow" and "next Monday" are the athlete's, not the server's. Defaults to the server's date. */
     today: zDate.optional(),
+    /** The account's name, saved with the rest of first run. */
+    name: z.string().trim().min(1).max(80).optional(),
+    /** The morning routine, in the shape the morning settings use. */
+    routine: zMorningSettingsPatch.optional(),
+    /** When they usually train. */
+    trainWhen: z.enum(['morning', 'afternoon', 'none']).optional(),
+    /** When work ends (minutes after midnight), for the afternoon plan. */
+    offWork: zClockMinutes.optional(),
   })
   .refine((o) => o.leave > o.wake, { message: 'leave must be after wake', path: ['leave'] });
 export type OnboardingInput = z.infer<typeof zOnboarding>;
@@ -386,15 +394,28 @@ export const zClaudeGoalOutput = z.object({ goal: z.string(), why: z.string(), c
  * Settings › Privacy. `training`: the plan, sessions, goals, to-dos and status. `health`: Apple Health data, null until
  * that exists and has been asked. `at`: when it was last chosen.
  */
-export const zConsentInput = z.object({ training: z.boolean(), health: z.boolean().nullable().optional() });
+export const CONSENT_VERSION = '2026-11';
+export const zConsentInput = z.object({
+  training: z.boolean().optional(),
+  health: z.boolean().nullable().optional(),
+  /** One past journal entry or learning plus the first name, for Remember when. */
+  recall: z.boolean().optional(),
+  /** Saved links, notes and tags, for the daily pick. */
+  reads: z.boolean().optional(),
+  /** The wording the person agreed to. */
+  version: z.string().max(20).nullable().optional(),
+});
 export type ConsentInput = z.infer<typeof zConsentInput>;
 export interface Consent {
   training: boolean;
   health: boolean | null;
+  recall: boolean;
+  reads: boolean;
   at: string | null;
+  version: string | null;
 }
 /** An account that never chose (the owner's, from before the privacy page) reads as the default: training on, health not asked. */
-export const DEFAULT_CONSENT: Consent = { training: true, health: null, at: null };
+export const DEFAULT_CONSENT: Consent = { training: true, health: null, recall: false, reads: false, at: null, version: null };
 /** The one-time feature intros (user_settings `intros`): which have been shown. Only accounts that went through first run are enrolled. */
 export const INTRO_KEYS = ['plan', 'learned', 'journal'] as const;
 export type IntroKey = (typeof INTRO_KEYS)[number];

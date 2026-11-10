@@ -10,13 +10,20 @@ import { readSetting, writeSetting } from '../routes/core.js';
 export const readConsent = (db: DB, userId: string): Consent => {
   const c = readSetting<Partial<Consent>>(db, userId, 'consent');
   if (!c) return { ...DEFAULT_CONSENT };
-  return { training: c.training !== false, health: typeof c.health === 'boolean' ? c.health : null, at: c.at ?? null };
+  return { training: c.training !== false, health: typeof c.health === 'boolean' ? c.health : null, recall: c.recall === true, reads: c.reads === true, at: c.at ?? null, version: c.version ?? null };
 };
 
-/** Store a choice. `health` keeps its earlier value when the input leaves it out. */
+/** Store a choice. Any field the input leaves out keeps its earlier value. */
 export const writeConsent = (db: DB, userId: string, input: ConsentInput): Consent => {
   const cur = readConsent(db, userId);
-  const next: Consent = { training: input.training, health: input.health === undefined ? cur.health : input.health, at: nowISO() };
+  const next: Consent = {
+    training: input.training ?? cur.training,
+    health: input.health === undefined ? cur.health : input.health,
+    recall: input.recall ?? cur.recall,
+    reads: input.reads ?? cur.reads,
+    at: nowISO(),
+    version: input.version === undefined ? cur.version : input.version,
+  };
   writeSetting(db, userId, 'consent', next);
   return next;
 };
