@@ -8,6 +8,7 @@ import { springs, useReduced } from '@/lib/motion';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
 import { LEVEL, suggestRequest, timeUsed } from './model';
+import { useReviewAccess } from './refine';
 import { KPin } from './Kit';
 import './goals.css';
 
@@ -73,6 +74,7 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
   const today = useToday();
   const ask = useOpenAssistant();
   const [way, setWay] = useState<Way>('mine');
+  const access = useReviewAccess();
   const go = () => {
     haptics.select();
     if (way === 'mine') return onMine();
@@ -80,7 +82,7 @@ export const NewGoalChoice = ({ level, period, onMine }: { level: GoalLevel; per
     ask(today, suggestRequest(level, period, today));
   };
   const cards: Array<{ id: Way; icon: React.ReactNode; title: string; sub: string }> = [
-    { id: 'mine', icon: <PenLine size={20} aria-hidden="true" />, title: 'Set it myself', sub: 'Write it your way. The review sharpens it.' },
+    { id: 'mine', icon: <PenLine size={20} aria-hidden="true" />, title: 'Set it myself', sub: access === 'on' ? 'Write it your way. Claude reviews the wording.' : 'Write it your way. It saves as written.' },
     { id: 'suggest', icon: <Sparkles size={20} aria-hidden="true" />, title: 'Suggest from my last 90 days', sub: 'The assistant reads your training, habits and goals, then proposes one.' },
   ];
   return (

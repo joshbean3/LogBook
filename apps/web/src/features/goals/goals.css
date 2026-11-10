@@ -1318,6 +1318,20 @@
 .gs-from-why {
   color: var(--ink-4);
 }
+/* the mark on words the review rewrote */
+.gs-from-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: bottom;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.gs-from-ai > svg {
+  flex: none;
+  color: var(--accent);
+}
 /* the gauge tile: the half arc, a hairline, the goal's words */
 .g-gauge-card {
   gap: 10px;

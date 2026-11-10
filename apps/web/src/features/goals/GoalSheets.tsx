@@ -1,14 +1,15 @@
 import { fmtDate, monthOf, periodOf, periodPast, type Aim, type GoalEventKind, type GoalLevel, type GoalStatus } from '@logbook/shared';
 import { Check, CircleDashed, Dumbbell, Flag, Footprints, Minus, Sparkles, Target, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { refineGoal, useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
+import { useGoalEvents, useGoalMutations, useGoals, useMonth, useTodos } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
 import { revealField } from '@/lib/keyboard';
 import { useToday } from '@/lib/useToday';
 import { Button } from '@/ui/primitives';
-import { useSheet, useSheetDepth } from '@/ui/Sheet';
+import { useSheet, useSheetDepth, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { deadlineWords, goalOf, LEVEL, periodCaps, STATUS_WORD } from './model';
+import { AS_TYPED_WORDS, reviewGoal, SLOW_WORDS, useReviewAccess, type ReviewAccess } from './refine';
 import { DraftSteps, GoalSteps, stepsOf } from './Steps';
 import { HalfGauge, NewGoalChoice } from './GoalSheetParts';
 import { KPin } from './Kit';
@@ -17,17 +18,35 @@ import './goals.css';
 
 type Step = { kind: 'write' } | { kind: 'reviewing' } | { kind: 'compare'; text: string; why: string | null; mine: string; changed: boolean };
 
+/** How the sheet tells the editor its panel was left (Back, Close, a flick down, another sheet opened over it). */
+export interface EditorGate {
+  left: boolean;
+  onLeave?: () => void;
+}
+
+/** The line under the field: who reviews the words, or that nobody does. */
+const hintWords = (access: ReviewAccess, deadline: string) =>
+  access === 'on'
+    ? `Write it as you’d say it. Claude, by Anthropic, reviews the wording so it is specific, measurable and due ${deadline}, and breaks it into steps.`
+    : access === 'off'
+      ? 'Write it as you’d say it. Assistant access is off, so it saves as written.'
+      : 'Write it as you’d say it.';
+
 /**
  * Setting a goal: the owner writes it, the review (Claude, on Locke and Latham's rules) rewrites it to be specific,
- * measurable, hard but attainable and due at the period's end, and he picks the sharpened words or keeps his own. A goal
- * the review leaves alone, or one written offline, is saved as typed. Every step lands in the goal's log on the server.
+ * measurable, hard but attainable and due at the period's end, and he picks the sharpened words or keeps his own. The
+ * review runs only with assistant access on (features/goals/refine.ts); otherwise, and when the review leaves the goal
+ * alone, is offline, refuses or is not there, the goal is saved as typed and a toast says so. Leaving the editor while the
+ * review runs saves nothing, and a review with no answer in 15 s gives the field back. Every step lands in the goal's log
+ * on the server.
  */
-export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: GoalLevel; period: string; initial?: string; closeOnSave?: boolean }) => {
+export const GoalEditor = ({ level, period, initial, closeOnSave, gate }: { level: GoalLevel; period: string; initial?: string; closeOnSave?: boolean; gate?: EditorGate }) => {
   const today = useToday();
   const sheet = useSheet();
   const depth = useSheetDepth();
   const { set } = useGoalMutations();
   const toast = useToast();
+  const access = useReviewAccess();
   const [text, setText] = useState(initial ?? '');
   const [step, setStep] = useState<Step>({ kind: 'write' });
   const field = useRef<HTMLTextAreaElement>(null);
@@ -35,28 +54,54 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
   // pushed from the two ways to set a goal, a saved goal closes the sheet; Cancel still goes back to them
   const finish = () => (closeOnSave ? sheet.close() : done());
   const words = text.trim();
+  const latest = useRef(words);
+  latest.current = words;
+
+  // the review in flight, and whether this editor is still the one on screen
+  const run = useRef<AbortController | null>(null);
+  const gone = useRef(false);
+  const left = () => gone.current || !!gate?.left;
+  useEffect(() => {
+    gone.current = false;
+    const drop = () => run.current?.abort();
+    if (gate) gate.onLeave = drop;
+    return () => {
+      gone.current = true;
+      drop();
+    };
+  }, [gate]);
 
   const existing = goalOf(useGoals().data, level, period);
   const [steps, setSteps] = useState<string[]>([]);
   const chips = useStarters(level, period);
-  const save = (final: string, chose: 'sharpened' | 'kept' | 'own', original?: string, why?: string | null) => {
+  const save = (final: string, chose: 'sharpened' | 'kept' | 'own', original?: string, why?: string | null, note?: string) => {
+    run.current?.abort();
+    run.current = null;
     // new steps go in with the goal; an edit of the words keeps the steps it had unless the review offered new ones
     set.mutate({ level, period, text: final, original: original ?? null, why: why ?? null, chose, ...(steps.length || !existing ? { steps: stepsOf(steps) } : {}) });
     haptics.drop();
     finish();
+    if (note) toast(note);
   };
   const review = async () => {
     if (!words || step.kind === 'reviewing') return;
-    setStep({ kind: 'reviewing' });
-    try {
-      const r = await refineGoal(level, period, words);
-      setSteps(existing?.steps.length ? [] : r.steps);
-      if (!r.changed && !(r.steps.length && !existing?.steps.length)) return save(words, 'own');
-      setStep({ kind: 'compare', text: r.text, why: r.why, mine: words, changed: r.changed });
-    } catch (e) {
+    // with access off nothing is sent, so there is nothing to wait for
+    if (access === 'on') setStep({ kind: 'reviewing' });
+    const ctl = new AbortController();
+    run.current = ctl;
+    const r = await reviewGoal({ level, period, text: words }, access, { signal: ctl.signal });
+    // closed, popped or replaced while the review ran: its answer is dropped and nothing is saved
+    if (left() || run.current !== ctl) return;
+    run.current = null;
+    if (r.kind === 'asTyped') return save(words, 'own', undefined, undefined, AS_TYPED_WORDS[r.why]);
+    if (r.kind === 'slow' || r.kind === 'failed') {
       setStep({ kind: 'write' });
-      toast(e instanceof Error ? e.message : 'The review didn’t go through. Try again.');
+      if (r.kind === 'failed') return toast(r.message);
+      return toast(SLOW_WORDS, { label: 'Save', duration: 10_000, fn: () => (!left() && latest.current ? save(latest.current, 'own') : undefined) });
     }
+    setSteps(existing?.steps.length ? [] : r.steps);
+    if (!r.changed && !(r.steps.length && !existing?.steps.length)) return save(words, 'own');
+    setStep({ kind: 'compare', text: r.text, why: r.why, mine: words, changed: r.changed });
   };
 
   if (step.kind === 'compare') {
@@ -64,7 +109,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
       <div className="gsheet k-sheet">
         <section className="k-card gs-card gs-sharp">
           <span className="k-label gs-sharp-label">
-            <Sparkles size={16} aria-hidden="true" /> {step.changed ? 'Sharpened' : 'Already sharp'}
+            <Sparkles size={16} aria-hidden="true" /> {step.changed ? 'Sharpened by AI' : 'Already sharp'}
           </span>
           <p className="gs-sentence serif">{step.text}</p>
           {step.why ? <p className="gs-why">{step.why}</p> : null}
@@ -78,7 +123,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
         </section>
         {!existing?.steps.length ? (
           <>
-            <h3 className="k-sheet-label">Steps · drop any, add your own</h3>
+            <h3 className="k-sheet-label">{steps.length ? 'Steps suggested by AI · drop any, add your own' : 'Steps · add your own'}</h3>
             <DraftSteps steps={steps} onChange={setSteps} />
           </>
         ) : null}
@@ -109,6 +154,7 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
           aria-label={LEVEL[level].ask}
           value={text}
           autoFocus
+          readOnly={step.kind === 'reviewing'}
           enterKeyHint="done"
           onFocus={(e) => revealField(e.currentTarget)}
           onChange={(e) => setText(e.target.value)}
@@ -130,7 +176,9 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
           ))}
         </div>
       ) : null}
-      <p className="k-foot gs-hint">{step.kind === 'reviewing' ? 'Reviewing against the goal-setting rules…' : `Write it as you’d say it. The review makes it specific, measurable and due ${deadlineWords(level, period, today)}, and breaks it into steps.`}</p>
+      <p className="k-foot gs-hint" aria-live="polite">
+        {step.kind === 'reviewing' ? 'Claude is reviewing the wording…' : hintWords(access, deadlineWords(level, period, today))}
+      </p>
       <KPin>
         <Button variant="primary" block onClick={() => void review()} disabled={!words || step.kind === 'reviewing'} aria-busy={step.kind === 'reviewing'}>
           {step.kind === 'reviewing' ? 'Reviewing…' : 'Set goal'}
@@ -138,6 +186,18 @@ export const GoalEditor = ({ level, period, initial, closeOnSave }: { level: Goa
       </KPin>
     </div>
   );
+};
+
+/** The editor as a sheet panel that hears when it is left, so a review still running then saves nothing. */
+const editorPanel = (p: { level: GoalLevel; period: string; initial?: string; closeOnSave?: boolean }): Pick<SheetSpec, 'body' | 'onClose'> => {
+  const gate: EditorGate = { left: false };
+  return {
+    body: <GoalEditor {...p} gate={gate} />,
+    onClose: () => {
+      gate.left = true;
+      gate.onLeave?.();
+    },
+  };
 };
 
 /**
@@ -162,7 +222,7 @@ const useStarters = (level: GoalLevel, period: string) => {
   return out.slice(0, 4);
 };
 
-const EVENT_WORD: Record<GoalEventKind, string> = { set: 'Set', sharpened: 'Sharpened by the review', kept: 'Kept in your words', edited: 'Edited', done: 'Marked done', partly: 'Marked partly done', missed: 'Marked missed', reopened: 'Reopened', cleared: 'Cleared', step: 'Checked off', unstep: 'Unchecked' };
+const EVENT_WORD: Record<GoalEventKind, string> = { set: 'Set', sharpened: 'Sharpened by AI', kept: 'Kept in your words', edited: 'Edited', done: 'Marked done', partly: 'Marked partly done', missed: 'Marked missed', reopened: 'Reopened', cleared: 'Cleared', step: 'Checked off', unstep: 'Unchecked' };
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const dayOf = (iso: string) => {
   const d = new Date(iso);
@@ -221,7 +281,10 @@ export const GoalDetail = ({ id }: { id: string }) => {
         <p className="gs-sentence serif">{g.text}</p>
         {g.original ? (
           <p className="k-foot gs-from">
-            From your words: “{g.original}”{g.why ? <span className="gs-from-why"> {g.why}</span> : null}
+            <span className="gs-from-ai">
+              <Sparkles size={13} aria-hidden="true" /> Sharpened by AI
+            </span>{' '}
+            from your words: “{g.original}”{g.why ? <span className="gs-from-why"> {g.why}</span> : null}
           </p>
         ) : null}
       </section>
@@ -255,7 +318,7 @@ export const GoalDetail = ({ id }: { id: string }) => {
         </>
       ) : null}
       <KPin>
-        <Button variant="primary" block onClick={() => sheet.push({ eyebrow: periodCaps(g.level, g.period, today), title: 'Edit goal', body: <GoalEditor level={g.level} period={g.period} initial={g.text} /> })}>
+        <Button variant="primary" block onClick={() => sheet.push({ eyebrow: periodCaps(g.level, g.period, today), title: 'Edit goal', ...editorPanel({ level: g.level, period: g.period, initial: g.text }) })}>
           Edit goal
         </Button>
       </KPin>
@@ -315,9 +378,9 @@ export const useOpenGoal = () => {
     const g = goalOf(goals.data, level, period);
     const eyebrow = periodCaps(level, period, today);
     if (g && !opts.edit) sheet.open({ eyebrow, title: `${LEVEL[level].label} goal`, body: <GoalDetail id={g.id} />, action: <ClearButton id={g.id} />, detents: ['medium', 'large'], detent: 'medium' });
-    else if (g) sheet.open({ eyebrow, title: 'Edit goal', body: <GoalEditor level={level} period={period} initial={g.text} />, sticky: true });
+    else if (g) sheet.open({ eyebrow, title: 'Edit goal', ...editorPanel({ level, period, initial: g.text }), sticky: true });
     // a new goal: set it myself (the editor, pushed) or ask for a suggestion from the last 90 days
-    else sheet.open({ eyebrow, title: LEVEL[level].ask, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title: LEVEL[level].ask, body: <GoalEditor level={level} period={period} closeOnSave />, sticky: true })} /> });
+    else sheet.open({ eyebrow, title: LEVEL[level].ask, body: <NewGoalChoice level={level} period={period} onMine={() => sheet.push({ eyebrow, title: LEVEL[level].ask, ...editorPanel({ level, period, closeOnSave: true }), sticky: true })} /> });
   };
 };
 
