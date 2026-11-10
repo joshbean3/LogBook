@@ -4,6 +4,7 @@ import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState
 import { useNav, useTab } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
+import { DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
 import { crossfade, reducedFade, useReduced } from '@/lib/motion';
 import { Button, Note, Stepper } from '@/ui/primitives';
@@ -420,6 +421,7 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       </div>
       {built.error ? <Note kind="bad">{built.error}</Note> : null}
       {listTpl ? <WeekByWeek tpl={listTpl} /> : null}
+      <p className="fine tp-disclaimer">{DISCLAIMER}</p>
       <div className="sheet-foot tp-foot">
         <p className="tp-note">{!tpl ? '' : existing ? 'Anything you’ve done stays, and Undo puts it all back.' : `Starts ${fmtDate('short', tpl.start)}. Nothing is saved until you use it.`}</p>
         <Button variant="primary" block className="tp-verb" disabled={!tpl || counting || write.isPending} onClick={use}>
@@ -431,7 +433,7 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
 };
 
 /** After the verb: the block is on the calendar, with Undo (it puts back what a replace took away). */
-const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResult, undo: () => void) => {
+export const announceApplied = (toast: ReturnType<typeof useToast>, r: PlanTemplateResult, undo: () => void) => {
   const n = r.replacedIds?.length ?? 0;
   toast(`${r.block.name} is on your calendar.${n ? ` ${n} ${n === 1 ? 'session' : 'sessions'} replaced.` : ''}`, { label: 'Undo', fn: undo, duration: BLOCK_UNDO_MS });
 };

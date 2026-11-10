@@ -1,20 +1,23 @@
-import { nativeFetch } from '@/api/client';
-import { apiOrigin, isNative } from '@/lib/native';
-import { daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
+import { CONSENT_VERSION, daysBetween, fmtDate, label, mi, mondayOf, monthsBetween, parseISO, shiftDays, tone, type PlanBlock, type PlanDraft } from '@logbook/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { api, ApiError } from '@/api/client';
-import { keys, usePlanDelete } from '@/api/queries';
+import { keys, useMonths, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
+import { consentKey, useConsent, useSaveConsent } from '@/lib/consent';
+import { DISCLAIMER } from '@/lib/copy';
+import { haptics } from '@/lib/haptics';
+import { LEGAL, openExternal } from '@/lib/siteLinks';
 import { Button, Chip, Field, Group, Note, Segmented, Stat, StatStrip } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
 import { SectionHeader } from '@/ui/layout';
 import { useLog, type Log } from '../log/useLog';
-import { builderSpec } from './Builder';
+import { applyChoice, draftMonths, mayDraft, replacedBy } from './applyModel';
+import { announceApplied, builderSpec } from './Builder';
 import type { BuilderPrefill } from './builderModel';
+import { requestDraft } from './draftRequest';
 
 type Mode = 'file' | 'text' | 'describe' | 'revise';
 const MODES: Array<[Mode, string]> = [
@@ -25,36 +28,44 @@ const MODES: Array<[Mode, string]> = [
 ];
 const nextMonday = (t: string) => shiftDays(mondayOf(t), 7);
 
-const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mode: Mode; onDone: () => void; onDiscard: () => void; log: Log }) => {
+/** `POST /plans/apply`'s answer. `replacedIds` (and the plans it ended) are what Undo puts back. */
+type Applied = { block: PlanBlock; months: string[] } & Pick<PlanTemplateResult, 'replacedIds' | 'endedBlock' | 'endedBlocks'>;
+
+const Preview = ({ draft, mode, onDone, onDiscard }: { draft: PlanDraft; mode: Mode; onDone: () => void; onDiscard: () => void }) => {
   const qc = useQueryClient();
   const nav = useNav();
   const tab = useTab();
   const toast = useToast();
   const sheet = useSheet();
+  const undo = useTemplateUndo();
   const [name, setName] = useState(draft.name);
-  const existing = (() => {
-    let n = 0;
-    for (let d = draft.start; d <= draft.end; d = shiftDays(d, 1)) n += log.snap.sessionsOn(d).length;
-    return n;
-  })();
+  // every month the draft covers, loaded here: the sheet's own log holds the month on screen, and most drafts start in a
+  // later one. Until they are in, nobody knows what a Replace would take away, so no button is live
+  const months = useMemo(() => draftMonths(draft), [draft.start, draft.end]); // eslint-disable-line react-hooks/exhaustive-deps
+  const span = useLog(months);
+  const failed = useMonths(months).error;
+  const replaced = useMemo(() => replacedBy({ loaded: (m) => span.snap.loaded(m), sessionsOn: (d) => span.snap.sessionsOn(d) }, draft), [span.snap, draft.start, draft.end]); // eslint-disable-line react-hooks/exhaustive-deps
+  const choice = applyChoice(replaced, mode === 'revise');
+  const existing = replaced?.length ?? 0;
   const miles = draft.sessions.reduce((t, s) => t + (s.kind === 'run' ? s.miles ?? 0 : 0), 0);
   const byDate = new Map<string, PlanDraft['sessions']>();
   for (const s of draft.sessions) byDate.set(s.date, [...(byDate.get(s.date) ?? []), s]);
-  const { remove: removeBlock } = usePlanDelete();
   const apply = useMutation({
-    mutationFn: (applyMode: 'replace' | 'add') => api<{ block: PlanBlock; months: string[] }>('/plans/apply', { method: 'POST', json: { draft: { ...draft, name: name.trim() || draft.name }, mode: applyMode, source: mode } }),
-    onSuccess: async (r, applyMode) => {
+    mutationFn: (v: { mode: 'replace' | 'add'; ids: string[] }) => api<Applied>('/plans/apply', { method: 'POST', json: { draft: { ...draft, name: name.trim() || draft.name }, mode: v.mode, source: mode } }),
+    onSuccess: async (r, v) => {
       for (const m of monthsBetween(shiftDays(draft.start, -14), shiftDays(draft.end, 14))) void qc.invalidateQueries({ queryKey: keys.month(m) });
       await qc.invalidateQueries({ queryKey: keys.bootstrap });
-      // spec §8: a toast only with an Undo (or for an error). An Add is undone by deleting the new block; a Replace cannot
-      // be put back from here (the apply route returns no replaced ids: a request in docs/reviews/wp4.md), so it says
-      // nothing and stays silent (`delete` is a destructive commit WITH Undo, contracts §D.3; code review 2 #11): the new
-      // block on the calendar (and in Plans) is the answer
-      if (!(applyMode === 'replace' && existing))
-        toast(`${r.block.name} is on your calendar`, {
-          label: 'Undo',
-          fn: () => void removeBlock.mutateAsync(r.block).catch(() => toast('Couldn’t undo. The new plan is still there.')),
-        });
+      // what the write took away, as the server lists it; from a server that does not list it yet, the sessions this
+      // preview counted (the same rule). Undo deletes the new plan and puts every one of them back
+      const replacedIds = v.mode === 'replace' ? (r.replacedIds ?? v.ids) : [];
+      const result: PlanTemplateResult = { block: r.block, months: r.months, removed: replacedIds.length, replacedIds, endedBlock: r.endedBlock, endedBlocks: r.endedBlocks };
+      if (replacedIds.length) haptics.delete();
+      announceApplied(toast, result, () =>
+        undo.mutateAsync(result).then(
+          () => undefined,
+          () => toast('Couldn’t undo. The new plan is still there.'),
+        ),
+      );
       onDone();
       sheet.close();
       if (tab === 'plan') nav.go(`/plan/week/${mondayOf(r.block.start)}`);
@@ -64,10 +75,14 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
   const weeks: string[] = [];
   for (let mon = mondayOf(draft.start); mon <= draft.end; mon = shiftDays(mon, 7)) weeks.push(mon);
   const nWeeks = Math.ceil((daysBetween(draft.start, draft.end) + 1) / 7);
+  const send = (m: 'replace' | 'add') => replaced && !apply.isPending && apply.mutate({ mode: m, ids: replaced });
   return (
-    <>
+    // one block in the sheet's body (as `.tp` is for the builder): the body's grid would shrink the week list to fit and
+    // nothing could scroll (16 weeks in 170 px)
+    <div className="pv">
       <SectionHeader size="sm" level={3} title="Preview" meta="Nothing is saved yet" />
       <div className="pv-hero">
+        <span className="caps pv-ai">Written by AI</span>
         <input className="pv-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Plan name" />
         <span className="t-cap muted">
           {fmtDate('md', draft.start)} – {fmtDate('md', draft.end)}
@@ -121,14 +136,23 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
           );
         })}
       </Group>
+      <p className="fine pv-fine">{DISCLAIMER}</p>
       {existing ? (
         <p className="fine pv-fine">
-          {existing} planned {existing === 1 ? 'session' : 'sessions'} already sit in these dates. Replace clears them{mode !== 'revise' ? '; Add keeps them' : ''}.
+          {existing} planned {existing === 1 ? 'session' : 'sessions'} already {existing === 1 ? 'sits' : 'sit'} in these dates. Replace clears {existing === 1 ? 'it' : 'them'}, and Undo puts {existing === 1 ? 'it' : 'them'} back.{choice.keep ? ` Add keeps ${existing === 1 ? 'it' : 'them'}.` : ''}
         </p>
       ) : null}
+      {replaced == null && failed ? (
+        <div className="pv-retry">
+          <Note kind="bad">Couldn’t check your calendar.</Note>
+          <Button variant="soft" size="sm" onClick={() => months.forEach((m) => void qc.refetchQueries({ queryKey: keys.month(m) }))}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
       <div className="pv-actions">
-        {existing && mode !== 'revise' ? (
-          <Button variant="soft" disabled={apply.isPending} onClick={() => apply.mutate('add')}>
+        {choice.keep ? (
+          <Button variant="soft" disabled={apply.isPending} onClick={() => send('add')}>
             Add, keep them
           </Button>
         ) : null}
@@ -137,16 +161,113 @@ const Preview = ({ draft, mode, onDone, onDiscard, log }: { draft: PlanDraft; mo
         </Button>
       </div>
       <div className="sheet-foot pv-foot">
-        <Button variant="primary" block disabled={apply.isPending} onClick={() => apply.mutate('replace')}>
-          {existing ? `Replace ${existing} ${existing === 1 ? 'session' : 'sessions'}` : 'Add to my plan'}
+        <Button variant="primary" block disabled={!choice.primary || apply.isPending} onClick={() => choice.primary && send(choice.primary.mode)}>
+          {apply.isPending ? 'Saving' : (choice.primary?.label ?? (failed ? 'Calendar not loaded' : 'Checking your calendar…'))}
         </Button>
       </div>
-    </>
+    </div>
   );
+};
+
+// ---------- the permission step (Contract 1): nothing goes to Claude before a yes ----------
+
+/**
+ * Asked the first time an account that never answered (`consent.at` null) opens the AI builder, and again whenever the
+ * server says `consent_required`. Allow stores the choice on the account; Not now stores nothing and sends nothing.
+ */
+const Permission = ({ onAllowed, onNotNow }: { onAllowed: () => void; onNotNow: () => void }) => {
+  const save = useSaveConsent();
+  const [error, setError] = useState<string | null>(null);
+  const allow = () => {
+    setError(null);
+    save.mutateAsync({ training: true, version: CONSENT_VERSION }).then(onAllowed, () => setError('Couldn’t save your choice. Check your connection and try again.'));
+  };
+  return (
+    <div className="pb-ask">
+      <div className="card pb-ask-card">
+        <h3 className="pb-ask-title">Let the assistant write your plan?</h3>
+        <p className="pb-ask-p">The assistant is Claude, by Anthropic. What you type or paste here, and any file or photo you attach, goes to Claude to write your plan.</p>
+        <p className="pb-ask-p">Allow also lets the assistant read your plan, sessions, goals and to-dos. You can change this in Settings, under Privacy.</p>
+        <button type="button" className="pb-ask-link" onClick={() => openExternal(LEGAL.privacy)}>
+          Privacy policy
+        </button>
+      </div>
+      {error ? <Note kind="bad">{error}</Note> : null}
+      <div className="sheet-foot pb-ask-foot">
+        <Button variant="quiet" disabled={save.isPending} onClick={onNotNow}>
+          Not now
+        </Button>
+        <Button variant="primary" disabled={save.isPending} onClick={allow}>
+          Allow
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+/** After Not now: nothing was sent, and the plan can still be built by hand. */
+const Declined = ({ log, onBack }: { log: Log; onBack: () => void }) => {
+  const sheet = useSheet();
+  return (
+    <div className="pb-ask">
+      <div className="card pb-ask-card">
+        <h3 className="pb-ask-title">Nothing was sent</h3>
+        <p className="pb-ask-p">The assistant stays off until you allow it. You can still build a plan yourself: pick a goal, your run days and your weekly miles.</p>
+      </div>
+      <div className="sheet-foot pb-ask-foot">
+        <Button variant="quiet" onClick={onBack}>
+          Back
+        </Button>
+        <Button variant="primary" onClick={() => sheet.open(builderSpec(log))}>
+          Build it myself
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// ---------- the wait: what is happening, how long it has been, and Stop ----------
+const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+const Wait = () => {
+  const [sec, setSec] = useState(0);
+  useEffect(() => {
+    const t0 = Date.now();
+    const id = setInterval(() => setSec(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="pb-wait" role="status">
+      <span className="pb-wait-t">
+        Writing your plan
+        <span className="pb-wait-clock" aria-hidden="true">
+          {clock(sec)}
+        </span>
+      </span>
+      <span className="pb-wait-s">{sec < 75 ? 'Usually 20 to 60 seconds. Keep this open.' : 'A long plan can take two minutes. Keep this open.'}</span>
+    </span>
+  );
+};
+
+/** The one line the first time a file is attached; kept on this device once a file has been sent. */
+const ATTACH_KEY = 'logbook.plan.attachNote';
+const attachSeen = () => {
+  try {
+    return localStorage.getItem(ATTACH_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const markAttachSeen = () => {
+  try {
+    localStorage.setItem(ATTACH_KEY, '1');
+  } catch {
+    /* private mode: it shows again next time */
+  }
 };
 
 export const PlanBuilder = ({ log }: { log: Log }) => {
   const t = log.today;
+  const qc = useQueryClient();
   const [mode, setMode] = useState<Mode>('file');
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState('');
@@ -155,43 +276,32 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
   const [end, setEnd] = useState('');
   const [draft, setDraft] = useState<PlanDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // the account's answer to the permission step: the live record, else the one the app opened with
+  const consentQ = useConsent();
+  const consent = consentQ.data ?? log.boot?.consent ?? null;
+  /** The server refused a draft with `consent_required`: ask (again) whatever this device believed. */
+  const [refused, setRefused] = useState(false);
+  const [declined, setDeclined] = useState(false);
+  const [noteSeen] = useState(attachSeen);
   const ctl = useRef<AbortController | null>(null);
+  // leaving the sheet stops the wait: a draft nobody is waiting for is never shown
+  useEffect(() => () => ctl.current?.abort(), []);
   const defaultStart = mode === 'revise' ? mondayOf(t) : nextMonday(t);
   const build = useMutation({
-    mutationFn: async () => {
+    mutationFn: () => {
       setError(null);
-      const s = start || defaultStart;
       const ac = (ctl.current = new AbortController());
-      let res: Response;
-      try {
-        if (mode === 'file') {
-          if (!file) throw new ApiError('Choose a PDF or a photo of your plan first.', 422);
-          const fd = new FormData();
-          fd.set('mode', 'file');
-          fd.set('start', s);
-          if (instr.trim()) fd.set('instructions', instr.trim());
-          fd.set('file', file);
-          res = await fetch(`${apiOrigin}/api/plans/draft`, { method: 'POST', body: fd, credentials: isNative ? 'include' : 'same-origin', signal: ac.signal });
-        } else {
-          const body = JSON.stringify({ mode, text: mode === 'text' ? text : undefined, instructions: instr.trim() || undefined, start: s, end: end || undefined });
-          const headers = new Headers({ 'content-type': 'application/json' });
-          // the iPhone app goes through the native HTTP plugin (api/client.ts); the browser's fetch stays cancellable
-          res = isNative ? await nativeFetch(`${apiOrigin}/api/plans/draft`, 'POST', headers, body) : await fetch('/api/plans/draft', { method: 'POST', headers, body, credentials: 'same-origin', signal: ac.signal });
-        }
-      } catch (e) {
-        if (e instanceof ApiError) throw e;
-        if ((e as Error).name === 'AbortError') throw new ApiError('Stopped.', 499, 'cancelled');
-        throw new ApiError('Couldn’t connect. Check your connection.', 0);
-      }
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
-        throw new ApiError(body.error ?? 'Something interrupted the request. Try again.', res.status, body.code ?? null);
-      }
-      return (await res.json()) as PlanDraft;
+      if (mode === 'file' && file) markAttachSeen();
+      return requestDraft({ mode, file, text, instructions: instr.trim(), start: start || defaultStart, end }, ac.signal);
     },
     onSuccess: (d) => setDraft(d),
     onError: (e) => {
       if (e instanceof ApiError && e.code === 'cancelled') return;
+      if (e instanceof ApiError && e.code === 'consent_required') {
+        setRefused(true);
+        void qc.invalidateQueries({ queryKey: consentKey });
+        return;
+      }
       setError(e instanceof Error ? e.message : 'Something interrupted the request. Try again.');
     },
   });
@@ -200,7 +310,6 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
       <Preview
         draft={draft}
         mode={mode}
-        log={log}
         onDone={() => {
           setDraft(null);
           setText('');
@@ -213,6 +322,10 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
   const busy = build.isPending;
   // nothing to build with: the page starts at "Your plans"
   if (!log.features.claude) return null;
+  // the answer is not on this device yet (a first open, offline): nothing to tap until it is
+  if (!consent && consentQ.isPending) return <div className="pb-ask" aria-busy="true" />;
+  if (declined) return <Declined log={log} onBack={() => setDeclined(false)} />;
+  if (refused || !mayDraft(consent)) return <Permission onAllowed={() => setRefused(false)} onNotNow={() => setDeclined(true)} />;
   return (
     <>
       <Group className="builder">
@@ -227,6 +340,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
               <span className="t-sub">{file ? file.name : 'Choose a PDF or a photo of your plan'}</span>
               <span className="t-cap muted">{file ? `${Math.round(file.size / 1024)} KB · tap to change` : 'PDF, JPG or PNG'}</span>
             </label>
+            {file && !noteSeen ? <p className="fine pb-attach">This file goes to Claude, by Anthropic, to write your plan.</p> : null}
           </div>
         ) : mode === 'text' ? (
           <div className="brow">
@@ -270,15 +384,7 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
           </div>
         ) : null}
         <div className="brow foot">
-          <AnimatePresence>
-            {busy ? (
-              <motion.span className="row t-sub muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                Building the plan. 20–60 seconds…
-              </motion.span>
-            ) : (
-              <span />
-            )}
-          </AnimatePresence>
+          {busy ? <Wait /> : <span />}
           {busy ? (
             <Button variant="ghost" onClick={() => ctl.current?.abort()}>
               Stop
@@ -290,9 +396,8 @@ export const PlanBuilder = ({ log }: { log: Log }) => {
           )}
         </div>
       </Group>
-      <p className="fine" style={{ marginTop: 8 }}>
-        Reads your source, your recent weeks of running and your heart-rate zones, then returns dated sessions you can check before saving.
-      </p>
+      <p className="fine pb-fine">{consent?.training ? 'Reads your source and the runs you marked done, then returns dated sessions you can check before saving.' : 'Reads your source, then returns dated sessions you can check before saving.'}</p>
+      <p className="fine pb-fine">{DISCLAIMER}</p>
     </>
   );
 };
