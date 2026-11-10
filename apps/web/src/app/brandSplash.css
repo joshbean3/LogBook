@@ -8,7 +8,8 @@
   align-content: center;
   gap: 26px;
   background: var(--bg, #f3f8fb);
-  pointer-events: none;
+  /* opaque, it takes the taps (nothing under it is pressed by accident); its exit sets pointer-events: none */
+  pointer-events: auto;
 }
 .brand-splash-orb {
   display: grid;
@@ -20,4 +21,20 @@
   font: italic 400 2.125rem / 2.5rem var(--serif);
   letter-spacing: -0.01em;
   color: var(--ink);
+}
+/* still waiting on the server with nothing saved to draw: one line and Try again, under the wordmark (shell-14) */
+.brand-splash-wait {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(var(--safe-b) + 48px);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.brand-splash-wait p {
+  margin: 0;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
 }

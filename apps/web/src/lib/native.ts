@@ -93,6 +93,8 @@ export const hideSplashBy = (ms: number) => void setTimeout(hideSplash, ms);
 /** One-time native setup: status bar over the canvas, no keyboard accessory, the splash's 1500 ms hard cap. */
 export const bootNative = async () => {
   if (!isNative) return;
+  // the cap is armed before anything is awaited: a plugin that never answers cannot leave the splash over the app
+  hideSplashBy(1500);
   try {
     const [{ StatusBar, Style }, { Keyboard }] = await Promise.all([import('@capacitor/status-bar'), import('@capacitor/keyboard')]);
     await StatusBar.setStyle({ style: Style.Light });
@@ -100,7 +102,5 @@ export const bootNative = async () => {
     Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => undefined);
   } catch {
     /* plugin missing on this platform */
-  } finally {
-    hideSplashBy(1500);
   }
 };

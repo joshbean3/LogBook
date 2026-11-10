@@ -41,6 +41,9 @@ import './styles/craft.css';
 // the layout kit's rhythm (sections, headers, footnotes): docs/layout-review.md §3
 import './styles/layout.css';
 
+// native first: its splash cap is armed before any other boot helper runs (gap-ios-23)
+void bootNative();
+
 /**
  * A write the server refused for good (api/outbox.ts marks it) is rolled back by its mutation, and used to vanish without a
  * word. One toast says so, unless the mutation asks to speak for itself (`meta.handlesError`) or its own handler raised a
@@ -123,7 +126,6 @@ startKeyboard();
 startPressDelegate();
 // the service worker waits for the first screen (lib/sw.ts, called from App); a signed-out open gets it after a while
 setTimeout(startServiceWorker, 8000);
-void bootNative();
 
 /**
  * What is kept on the device for the next open: every query that holds data, whatever its last fetch did. A refetch that
