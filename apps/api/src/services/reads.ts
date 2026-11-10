@@ -156,7 +156,9 @@ export interface FetchOptions {
   allowPrivate?: Allow;
 }
 
-const HEADERS = { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1', 'accept-language': 'en-US,en;q=0.8', 'user-agent': 'Mozilla/5.0 (compatible; Logbook/1.0; +https://github.com/logbook)' };
+/** Who is asking, plainly: the app's name, why, and where it lives (sec-32). */
+export const READS_USER_AGENT = `Logbook/1.0 (link preview for a saved read; +${env.APP_URL})`;
+const HEADERS = { accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.1', 'accept-language': 'en-US,en;q=0.8', 'user-agent': READS_USER_AGENT };
 
 /** One GET over node:http(s) with the pinned resolver; redirects are not followed here. */
 const getOnce = (u: URL, signal: AbortSignal, allow: Allow) =>
@@ -303,14 +305,21 @@ export const extractMeta = (html: string, url: string): PageMeta => {
 };
 
 /** Fetch and read a page's head. A page that cannot be read still gets saved under its address; only a private address is refused. */
+/** Pages being read at once, across every user. Past it a link is saved with what its address says, unread. */
+export const READS_MAX_FETCHES = 4;
+let fetching = 0;
 export const readPage = async (url: string, o: FetchOptions = {}): Promise<{ meta: PageMeta; finalUrl: string; fetched: boolean }> => {
+  const unread = () => ({ meta: { title: linkTitleFromUrl(url).slice(0, 200), siteName: siteOf(url), description: null, imageUrl: null }, finalUrl: url, fetched: false });
+  if (fetching >= READS_MAX_FETCHES) return unread();
+  fetching++;
   try {
     const { html, finalUrl } = await fetchPage(url, o);
     return { meta: extractMeta(html, finalUrl), finalUrl, fetched: true };
   } catch (e) {
     if (e instanceof ApiError && e.code === 'private_host') throw e;
-    const site = siteOf(url);
-    return { meta: { title: linkTitleFromUrl(url).slice(0, 200), siteName: site, description: null, imageUrl: null }, finalUrl: url, fetched: false };
+    return unread();
+  } finally {
+    fetching--;
   }
 };
 

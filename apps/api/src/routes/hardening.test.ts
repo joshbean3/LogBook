@@ -513,3 +513,18 @@ describe('the day timeline (today-body-23)', () => {
     expect((await a.call('GET', `/api/day/${today}/timeline?tz=Mars/Base`)).status).toBe(200);
   });
 });
+
+describe('saving reads (sec-32)', () => {
+  it('fetches at most 30 new links an hour per person; a link already saved costs nothing', async () => {
+    const { READS_LIMIT } = await import('./reads.js');
+    const a = await signUp(app, 'a@example.com', PW);
+    // .invalid never resolves, so each save is quick and kept with what its address says
+    for (let i = 0; i < READS_LIMIT.max; i++) expect((await a.call('POST', '/api/reads', { url: `https://site-${i}.invalid/piece` })).status).toBe(201);
+    const over = await a.call('POST', '/api/reads', { url: 'https://one-more.invalid/piece' });
+    expect(over.status).toBe(429);
+    expect(over.body.code).toBe('rate_limited');
+    expect((await a.call('POST', '/api/reads', { url: 'https://site-3.invalid/piece' })).status).toBe(200);
+    const b = await signUp(app, 'b@example.com', PW);
+    expect((await b.call('POST', '/api/reads', { url: 'https://one-more.invalid/piece' })).status).toBe(201);
+  }, 30_000);
+});

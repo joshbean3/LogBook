@@ -1,7 +1,7 @@
 import http from 'node:http';
 import zlib from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { cleanPick, decodeEntities, extractMeta, fetchPage, isPrivateAddress, normalizeUrl, readPage, sameResource, tasteProfile } from './reads.js';
+import { cleanPick, decodeEntities, extractMeta, fetchPage, isPrivateAddress, normalizeUrl, READS_USER_AGENT, readPage, sameResource, tasteProfile } from './reads.js';
 
 describe('normalizeUrl', () => {
   it('adds https, drops fragments and tracking parameters', () => {
@@ -77,6 +77,7 @@ describe('fetchPage against a local server', () => {
   beforeAll(async () => {
     server = http.createServer((req, res) => {
       const u = new URL(req.url ?? '/', 'http://x');
+      if (u.pathname === '/ua') return res.writeHead(200, { 'content-type': 'text/html' }).end(`<title>${req.headers['user-agent']}</title>`);
       if (u.pathname === '/page') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(FIXTURE);
       if (u.pathname === '/redirect') return res.writeHead(302, { location: '/page' }).end();
       if (u.pathname === '/loop') return res.writeHead(302, { location: '/loop' }).end();
@@ -102,6 +103,12 @@ describe('fetchPage against a local server', () => {
     base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   });
   afterAll(() => new Promise<void>((r) => server.close(() => r())));
+
+  it('says who is asking: a user agent that names the app and where it lives (sec-32)', async () => {
+    const r = await readPage(`${base}/ua`, { allowPrivate: true });
+    expect(r.meta.title).toBe(READS_USER_AGENT);
+    expect(READS_USER_AGENT).toMatch(/^Logbook\/1\.0 \(link preview for a saved read; \+https?:\/\/\S+\)$/);
+  });
 
   it('reads a page and follows a redirect', async () => {
     const r = await fetchPage(`${base}/redirect`, { allowPrivate: true });

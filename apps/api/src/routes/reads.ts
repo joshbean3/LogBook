@@ -9,6 +9,10 @@ import { links } from '../db/schema.js';
 import { ApiError, nowISO, parseBody, parseQuery, uid } from '../lib/util.js';
 import { cleanPick, normalizeUrl, pickerFor, readPage, sameResource, siteOf, type TasteInput } from '../services/reads.js';
 import { mayPickReads } from '../services/consent.js';
+import { hitLimit, tooMany } from '../services/throttle.js';
+
+/** New links saved (each one fetched once) per person. */
+export const READS_LIMIT = { max: 30, windowMs: 3600_000 } as const;
 
 /** Manual refreshes allowed on top of the day's one pick. */
 const REFRESHES_PER_DAY = 3;
@@ -75,6 +79,9 @@ export const readsRoutes = (db: DB) => {
       if (Object.keys(set).length) db.update(links).set(set).where(eq(links.id, twin.id)).run();
       return c.json(toLink(one(userId, twin.id)!), 200);
     }
+    // a new address is fetched for its title and picture: at most 30 an hour per person (sec-32)
+    const wait = hitLimit(db, `reads:${userId}`, READS_LIMIT.max, READS_LIMIT.windowMs);
+    if (wait) throw tooMany(wait, 'You have saved a lot of links in a short time. Try again later.');
     const page = await readPage(url);
     const id = uid('l');
     db.insert(links)
