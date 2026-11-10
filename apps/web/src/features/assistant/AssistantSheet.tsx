@@ -44,6 +44,7 @@ import { AttachError, prepareFile, type PreparedFile } from './attach';
 import { editTurn, regenerate, retryAsk, sendTurn, stopAsk } from './conversation';
 import { attachNoteSeen, markAttachNoteSeen } from './attachNote';
 import { HistoryPanel } from './History';
+import { plainOf } from './plain';
 import { AssistantPermission, useAssistantGate } from './Permission';
 import { ProposalCard } from './Proposal';
 import { Rich } from './Rich';
@@ -82,18 +83,6 @@ const startersFor = (date: ISODate, today: ISODate): Starter[] => {
 };
 
 const greeting = (h = new Date().getHours()) => (h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
-
-/** An answer as plain words, for Copy, Share and Read aloud: no stars, ticks or table bars. */
-export const plainOf = (text: string) =>
-  text
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/(^|\s)[*_](\S[^*_\n]*?)[*_]/g, '$1$2')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^#{1,4}\s+/gm, '')
-    .replace(/^\s*\|?[\s:|-]+\|?\s*$/gm, '')
-    .replace(/^\s*\|(.*)\|\s*$/gm, (_, row: string) => row.split('|').map((c) => c.trim()).join('  '))
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 
 /** Seconds since `since`, ticking once a second while shown. */
 const useSeconds = (since: number) => {

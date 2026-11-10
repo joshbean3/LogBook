@@ -1,5 +1,6 @@
 import type * as React from 'react';
 import { Fragment, memo } from 'react';
+import { STAR_ITALIC, UNDERSCORE_ITALIC } from './plain';
 
 /**
  * An answer's words with the formatting chat answers use: paragraphs, **bold**, *italic*, `code`, bulleted and numbered
@@ -74,8 +75,8 @@ const words = (s: string, fade: boolean, key: string): React.ReactNode => {
   ));
 };
 
-/** **bold**, *italic* or _italic_, `code`; only closed pairs count. */
-const INLINE = /(\*\*[^*\n]+?\*\*|`[^`\n]+?`|\*[^*\s][^*\n]*?\*|_[^_\s][^_\n]*?_)/g;
+/** **bold**, *italic* or _italic_ (a word of its own, never inside snake_case), `code`; only closed pairs count. */
+const INLINE = new RegExp(`(\\*\\*[^*\\n]+?\\*\\*|\`[^\`\\n]+?\`|${STAR_ITALIC.source}|${UNDERSCORE_ITALIC.source})`, 'g');
 export const inline = (s: string, fade = false, key = ''): React.ReactNode[] =>
   s.split(INLINE).map((part, i) => {
     const k = `${key}-${i}`;
