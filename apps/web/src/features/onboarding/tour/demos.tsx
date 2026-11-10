@@ -6,7 +6,7 @@ import { Finger, Stage, Steps, useLoop, useTyped } from './engine';
 
 /**
  * One short film per part of Logbook, each a miniature of the real screen with the real labels (mapped from the code:
- * PlanDay, OrbRow, GoalSheets, Garden, LearnedParts, Week, ProgressView, Dock and the assistant sheet). Each loops while its
+ * PlanDay, OrbRow, GoalSheets, the journal calendar, LearnedParts, Week, ProgressView, Dock and the assistant sheet). Each loops while its
  * page is on screen; under Reduce Motion (`still`) it holds its finished frame and every step is lit.
  *
  * A demo is a list of beats (ms). `b` is the beat on screen; everything it shows is read off `b`, so a loop is a pure

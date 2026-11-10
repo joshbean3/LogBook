@@ -74,3 +74,14 @@ export const fieldOf422 = (message: string): 'email' | 'password' | null => {
   if (/(^|;\s*)email\b/.test(m)) return 'email';
   return null;
 };
+
+/**
+ * What to say when the server refuses a new password (a 422 about the password field): the same plain lines the device
+ * uses when the server says why (a common password, the email), and the length rule otherwise.
+ */
+export const passwordRefusal = (message: string): string => {
+  const m = message.toLowerCase();
+  if (/common|breach|guess/.test(m)) return 'That password is too common. Try another.';
+  if (/email/.test(m.replace(/^\s*password\s*:/, ''))) return 'Don’t use your email as your password.';
+  return `That password won’t work. Use ${PASSWORD_MIN} to ${PASSWORD_MAX} characters.`;
+};

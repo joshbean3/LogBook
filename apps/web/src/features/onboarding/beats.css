@@ -33,7 +33,7 @@
   transform: scaleX(0.5);
 }
 
-/* the block preview: weeks as bars, coloured by what the week is for */
+/* the block preview: weeks as bars, colored by what the week is for */
 .card.obx-block {
   display: grid;
   gap: 12px;

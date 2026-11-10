@@ -1,4 +1,4 @@
-/* ---------- First run (shape system v2, reference 165, 171, 710): full screen on the page colour, lit from the bottom;
+/* ---------- First run (shape system v2, reference 165, 171, 710): full screen on the page color, lit from the bottom;
    one question to a screen, its answer in white cards, the navy pill pinned at the bottom. No tab bar. ---------- */
 .ob {
   position: relative;
@@ -48,7 +48,7 @@
 
 /* ---------- top bar: back, progress dots, skip ---------- */
 .ob-top {
-  /* pinned while the step scrolls under it, on the page's own colour (onboarding-20) */
+  /* pinned while the step scrolls under it, on the page's own color (onboarding-20) */
   position: sticky;
   top: 0;
   z-index: 2;
@@ -822,6 +822,10 @@
     border-color 160ms var(--ease-out);
 }
 /* a long habit name shortens with an ellipsis inside its chip; the card never grows wider than the screen (onboarding-02) */
+/* the check keeps its size beside a long name: only the words give way */
+.ob-chip > svg {
+  flex: none;
+}
 .ob-chip-label {
   min-width: 0;
   overflow: hidden;
@@ -985,6 +989,7 @@
   background: var(--surface);
   border: var(--card-border);
   box-shadow: var(--shadow-1);
+  container: ob-week / inline-size;
 }
 .ob-wrow {
   position: relative;
@@ -1055,6 +1060,16 @@
 .ob-wrest {
   font-size: 0.9375rem;
   color: var(--ink-3);
+}
+/* at a large text size on a narrow phone the session's name needs the room more than the bar does: the bar (a picture
+   only) gives way, so "Long 8" stays whole (onboarding-12) */
+@container ob-week (max-width: 16rem) {
+  .ob-week .ob-wrow {
+    grid-template-columns: max-content 3px minmax(0, 1fr);
+  }
+  .ob-wbar {
+    display: none;
+  }
 }
 .ob-wbar {
   height: 6px;
@@ -1214,7 +1229,7 @@
   justify-content: center;
   /* at a large text size the two choices wrap inside themselves rather than push the card wider */
   height: auto;
-  min-height: 40px;
+  min-height: 44px;
   padding-block: 6px;
   white-space: normal;
   text-align: center;
@@ -1257,7 +1272,7 @@
     width: auto;
     min-width: 0;
     /* a display numeral: it grows with the text size only as far as the stepper can hold it */
-    font-size: min(1.375rem, 30px);
+    font-size: clamp(1rem, 1.375rem, 30px);
   }
 }
 /* with the keyboard up the foot keeps only its button: the field, the chips and the button all fit above the keys */

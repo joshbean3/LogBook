@@ -14,7 +14,7 @@ import { MIN_AGE } from '@/lib/copy';
 import { LEGAL, openExternal, SUPPORT } from '@/lib/siteLinks';
 import { clearPendingConsent, consentForSignup, readPendingChoice } from './consent';
 import { hasAccountHere, markHasAccount } from './flag';
-import { emailProblem, fieldOf422, newPasswordProblem, PASSWORD_MAX } from './rules';
+import { emailProblem, fieldOf422, newPasswordProblem, PASSWORD_MAX, passwordRefusal } from './rules';
 import './auth.css';
 
 /**
@@ -412,7 +412,7 @@ const Reset = ({ token, onLeave }: { token: string; onLeave: (toForgot: boolean)
     } catch (e2) {
       haptics.error();
       if (e2 instanceof ApiError && (e2.code === 'reset_invalid' || e2.status === 400)) setState('invalid');
-      else if (e2 instanceof ApiError && e2.status === 422) setErr('That password won’t work. Use 8 to 200 characters.');
+      else if (e2 instanceof ApiError && e2.status === 422) setErr(passwordRefusal(e2.message));
       else setErr(plain(e2, 'Couldn’t change the password. Try again.'));
     } finally {
       setBusy(false);
@@ -553,7 +553,7 @@ export const Signup = () => {
       } else if (e2 instanceof ApiError && e2.status === 403) setErr({ form: 'New accounts are not open right now. Sign in instead.' });
       else if (e2 instanceof ApiError && e2.status === 422) {
         // the server names the field it refused (auth-14, auth-19)
-        if (fieldOf422(e2.message) === 'password') setErr({ password: 'That password won’t work. Use 8 to 200 characters.' });
+        if (fieldOf422(e2.message) === 'password') setErr({ password: passwordRefusal(e2.message) });
         else {
           setStep('email');
           setErr({ email: 'That doesn’t look like an email address.' });

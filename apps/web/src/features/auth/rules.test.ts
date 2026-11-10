@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { zCredentials } from '@logbook/shared';
-import { emailProblem, fieldOf422, newPasswordProblem } from './rules';
+import { emailProblem, fieldOf422, newPasswordProblem, passwordRefusal } from './rules';
 
 describe('emailProblem', () => {
   it('asks for an address when empty', () => {
@@ -43,5 +43,14 @@ describe('fieldOf422', () => {
     expect(fieldOf422('password: Too big: expected string to have <=200 characters')).toBe('password');
     expect(fieldOf422('email: Invalid email address')).toBe('email');
     expect(fieldOf422('body: bad')).toBeNull();
+  });
+});
+
+describe('passwordRefusal', () => {
+  it('says why the server refused a new password, in the device words', () => {
+    expect(passwordRefusal('password: That password is too common')).toBe('That password is too common. Try another.');
+    expect(passwordRefusal('password: must not equal the email')).toBe('Don’t use your email as your password.');
+    expect(passwordRefusal('password: Too big: expected string to have <=200 characters')).toBe('That password won’t work. Use 8 to 200 characters.');
+    expect(passwordRefusal('')).toBe('That password won’t work. Use 8 to 200 characters.');
   });
 });

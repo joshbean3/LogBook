@@ -283,6 +283,15 @@ html.kb-open .auth-foot {
   text-underline-offset: 2px;
   -webkit-tap-highlight-color: transparent;
 }
+/* a link inside a sentence (the terms line) answers a 44 px press without moving the words around it */
+.auth-terms .site-link {
+  position: relative;
+}
+.auth-terms .site-link::after {
+  content: '';
+  position: absolute;
+  inset: -14px -4px;
+}
 .site-link:focus-visible {
   outline: 2px solid var(--ink-2);
   outline-offset: 2px;
