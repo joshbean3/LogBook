@@ -32,7 +32,7 @@ beforeEach(async () => {
   app = buildApp(db);
   env.allowSetup = true;
   env.allowSignup = true;
-  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
   cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
   userId = ((await res.json()) as { id: string }).id;
   const c = await call('POST', '/api/apple-health/connect', { deviceName: 'Josh’s iPhone', historyDays: 365, sleepGoalMin: 465 });
@@ -227,7 +227,7 @@ describe('Apple Health: the daily numbers (GET /apple-health/daily)', () => {
     expect((await call('GET', '/api/apple-health/daily?from=2026-11-03&to=2026-11-03', undefined, {})).status).toBe(401);
     // the device token is not a way to read
     expect((await call('GET', '/api/apple-health/daily?from=2026-11-03&to=2026-11-03', undefined, device(token))).status).toBe(401);
-    const res = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'other@example.com', password: 'password123' }) });
+    const res = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'other@example.com', password: 'correct horse 42' }) });
     const other = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
     expect((await daily('from=2026-11-03&to=2026-11-03', other)).body.days).toEqual([{ date: '2026-11-03', sleepMin: null, hrvMs: null, restingHr: null }]);
   });
@@ -256,7 +256,7 @@ describe('Apple Health: consent and sign out', () => {
   it('POST /auth/logout revokes the device token sent with it, and only a device of that account', async () => {
     const deviceId = (await call('GET', '/api/apple-health/status')).body.devices[0].id as string;
     // another account cannot revoke this phone by naming its id
-    const res = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'other@example.com', password: 'password123' }) });
+    const res = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'other@example.com', password: 'correct horse 42' }) });
     const other = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
     expect((await call('POST', '/api/auth/logout', { healthTokenId: deviceId }, { cookie: other })).body).toEqual({ ok: true, healthRevoked: false });
     expect((await call('POST', '/api/apple-health/sync', batch({ samples: [sample('a')] }), device(token))).status).toBe(200);
@@ -273,9 +273,9 @@ describe('Apple Health: consent and sign out', () => {
     expect(await res.json()).toEqual({ ok: true, healthRevoked: false });
     // the device keeps syncing for the account it belongs to until that account is gone
     expect((await call('POST', '/api/apple-health/sync', batch({ samples: [sample('a')] }), device(token))).status).toBe(200);
-    const login = await app.request('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+    const login = await app.request('/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
     const again = (login.headers.get('set-cookie') ?? '').split(';')[0]!;
-    expect((await call('DELETE', '/api/me', { password: 'password123' }, { cookie: again })).status).toBe(200);
+    expect((await call('DELETE', '/api/me', { password: 'correct horse 42' }, { cookie: again })).status).toBe(200);
     expect((await call('POST', '/api/apple-health/sync', batch({ samples: [sample('c')] }), device(token))).status).toBe(401);
   });
 });

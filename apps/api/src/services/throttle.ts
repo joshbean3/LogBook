@@ -44,7 +44,10 @@ export const failThrottle = (key: string, now = Date.now()) => {
 };
 export const clearThrottle = (key: string) => failures.delete(key);
 /** Forget every in-memory failure (tests). */
-export const resetThrottles = () => failures.clear();
+export const resetThrottles = () => {
+  failures.clear();
+  windows.clear();
+};
 
 // ---------- counters that survive a restart (auth_throttle) ----------
 
@@ -95,3 +98,22 @@ export const hitLimit = (db: DB, key: string, max: number, windowMs: number, now
 
 /** Drop counters nobody has touched for two days. */
 export const purgeThrottle = (db: DB, now = Date.now()) => db.delete(authThrottle).where(lt(authThrottle.windowStart, now - 2 * 864e5)).run().changes;
+
+// ---------- plain in-memory windows (client error reports, the phone's sync calls): a restart forgetting them is fine ----------
+const windows = new Map<string, { n: number; start: number }>();
+/**
+ * "At most `max` per window", in memory. Returns the seconds until the window ends when the limit is already reached
+ * (and counts nothing), else 0 after counting this one.
+ */
+export const windowHit = (key: string, max: number, windowMs: number, now = Date.now()): number => {
+  const w = windows.get(key);
+  if (!w || now - w.start >= windowMs) {
+    // keep the map small: drop windows that ended, once it has grown
+    if (windows.size > 5000) for (const [k, v] of windows) if (now - v.start >= 3600_000) windows.delete(k);
+    windows.set(key, { n: 1, start: now });
+    return 0;
+  }
+  if (w.n >= max) return Math.max(1, (w.start + windowMs - now) / 1000);
+  w.n++;
+  return 0;
+};

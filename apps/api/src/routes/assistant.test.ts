@@ -24,7 +24,7 @@ beforeEach(async () => {
   db = openDatabase(':memory:').db;
   app = buildApp(db);
   env.allowSetup = true;
-  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
   cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
   userId = (await call('GET', '/api/me')).body.id;
 });

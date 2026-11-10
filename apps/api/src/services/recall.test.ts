@@ -132,7 +132,7 @@ beforeEach(async () => {
   db = openDatabase(':memory:').db;
   app = buildApp(db);
   env.allowSetup = true;
-  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
   cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
   userId = ((await res.json()) as { id: string }).id;
   // the account has said yes to Remember when (the switch off is tested on its own below)

@@ -20,7 +20,7 @@ const call = async (method: string, url: string, body?: unknown, cookie?: string
   return { status: res.status, body: text ? JSON.parse(text) : null, headers: res.headers };
 };
 const signUp = async (email: string) => {
-  const res = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password: 'password123' }) });
+  const res = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password: 'correct horse 42' }) });
   const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
   const me = (await call('GET', '/api/me', undefined, cookie)).body as { id: string };
   return { cookie, id: me.id };
@@ -363,7 +363,7 @@ describe('contract 6: the account name', () => {
     expect((await call('GET', '/api/me', undefined, cookie)).body.name).toBe('Josh');
     expect((await call('GET', '/api/auth/me', undefined, cookie)).body.name).toBe('Josh');
     expect((await call('GET', '/api/bootstrap', undefined, cookie)).body.user.name).toBe('Josh');
-    expect((await call('POST', '/api/auth/login', { email: 'a@example.com', password: 'password123' })).body.name).toBe('Josh');
+    expect((await call('POST', '/api/auth/login', { email: 'a@example.com', password: 'correct horse 42' })).body.name).toBe('Josh');
     expect((await call('PATCH', '/api/me', { name: '' }, cookie)).body.name).toBeNull();
     expect((await call('PATCH', '/api/me', { name: 'x'.repeat(61) }, cookie)).status).toBe(422);
     expect((await call('PATCH', '/api/me', { name: 'x' })).status).toBe(401);

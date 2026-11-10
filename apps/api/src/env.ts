@@ -32,9 +32,23 @@ const schema = z.object({
   MAIL_API_URL: z.string().url().default('https://api.resend.com/emails'),
   /** New accounts allowed per address per hour. Defaults to 5 in production and no limit elsewhere (0 is no limit). */
   SIGNUP_PER_HOUR: z.coerce.number().int().min(0).optional(),
+  /** The Apple developer team id (10 characters). With it the server answers /.well-known/apple-app-site-association, which lets iOS save and fill the Logbook password in the app. */
+  APPLE_TEAM_ID: z
+    .string()
+    .regex(/^[A-Z0-9]{10}$/, 'Expected the 10 character team id')
+    .optional(),
+  /** The iOS app's bundle id, for the same file. */
+  APP_BUNDLE_ID: z.string().default('com.joshbean.logbook'),
+  /** Extra origins allowed to send writes, comma separated (the app's own origin and the iPhone app's are always allowed). */
+  ALLOWED_ORIGINS: z.string().optional(),
+  /** The support address the public web build was made with (the Dockerfile passes VITE_SUPPORT_EMAIL through). The post-deploy check fails without it. */
+  SUPPORT_EMAIL: z.string().optional(),
   /** Dev only: '1' returns a fixed daily pick instead of searching the web. */
   READS_FAKE_PICK: z.string().optional(),
 });
+
+/** A real support address: set, shaped like one, and not the example.com placeholder the repository ships. */
+export const supportOk = (v: string | undefined): boolean => !!v && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) && !/@example\.(com|org|net)$/i.test(v);
 
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
@@ -52,6 +66,12 @@ export const env = {
   claudeConfigured: !!(parsed.data.ANTHROPIC_API_KEY && parsed.data.ANTHROPIC_MODEL),
   mailConfigured: !!(parsed.data.MAIL_API_KEY && parsed.data.MAIL_FROM),
   signupPerHour: parsed.data.SIGNUP_PER_HOUR ?? (parsed.data.NODE_ENV === 'production' ? 5 : 0),
+  allowedOrigins: (parsed.data.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean),
+  /** A real support address was built into the web app: set, and not the placeholder the repository ships. */
+  supportConfigured: supportOk(parsed.data.SUPPORT_EMAIL),
   readsFakePick: parsed.data.READS_FAKE_PICK === '1' || parsed.data.READS_FAKE_PICK === 'true',
 };
 

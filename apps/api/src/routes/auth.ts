@@ -1,12 +1,13 @@
-import { zConsentInput, zCredentials, zForgotPassword, zLogout, zResetPassword } from '@logbook/shared';
+import { passwordProblem, zConsentInput, zCredentials, zForgotPassword, zLogin, zLogout, zResetPassword } from '@logbook/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
-import { createSession, destroySession, dropSessions, hashPassword, hasLiveSession, requireAuth, sessionOf, userCount, verifyDummy, verifyPassword, type AuthEnv } from '../auth.js';
+import { createSession, destroySession, dropSessions, hashPassword, hasLiveSession, needsRehash, requireAuth, sessionOf, userCount, verifyDummy, verifyPassword, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { healthDevices, users } from '../db/schema.js';
 import { env } from '../env.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
-import { consumeToken, issueToken } from '../services/authTokens.js';
+import { audit } from '../services/audit.js';
+import { consumeToken, issueToken, peekToken } from '../services/authTokens.js';
 import { writeConsent } from '../services/consent.js';
 import { resetMail, sendMail, verifyMail } from '../services/mail.js';
 import { checkEmailLock, checkThrottle, clearEmail, clearThrottle, clientIp, emailKey, failEmail, failThrottle, hitLimit, ipKey, tooMany } from '../services/throttle.js';
@@ -45,6 +46,9 @@ export const authRoutes = (db: DB) => {
     if (!canCreate(userCount(db))) throw new ApiError(403, 'Setup is closed. Sign in instead.', 'setup_closed');
     // `consent`: a choice made before the account existed (optional). With none, nothing is stored and nothing is granted.
     const { email, password, consent } = await parseBody(c.req.raw, zCredentials.extend({ consent: zConsentInput.optional() }));
+    // the same rules the form shows: not one of the most common passwords, not the email (shared `passwordProblem`)
+    const weak = passwordProblem(password, email);
+    if (weak) throw new ApiError(422, weak, 'weak_password');
     if (env.signupPerHour > 0) {
       const wait = hitLimit(db, ipKey('signup', clientIp(c)), env.signupPerHour, HOUR);
       if (wait) throw tooMany(wait, 'Too many new accounts from here. Try again in an hour.');
@@ -52,6 +56,7 @@ export const authRoutes = (db: DB) => {
     if (db.select({ id: users.id }).from(users).where(eq(users.email, email)).get()) throw new ApiError(409, 'There is already an account with that email. Sign in instead.', 'email_taken');
     const id = uid('u');
     db.insert(users).values({ id, email, passwordHash: await hashPassword(password), createdAt: nowISO(), onboardedAt: null }).run();
+    audit(db, 'signup', id);
     if (consent) writeConsent(db, id, consent);
     createSession(db, c, id);
     void sendVerification(db, { id, email });
@@ -67,17 +72,21 @@ export const authRoutes = (db: DB) => {
   r.post('/login', async (c) => {
     const ip = ipKey('login', clientIp(c));
     checkThrottle(ip);
-    const { email, password } = await parseBody(c.req.raw, zCredentials.extend({ password: zCredentials.shape.password.min(1) }));
+    const { email, password } = await parseBody(c.req.raw, zLogin);
     checkEmailLock(db, email);
     const row = db.select().from(users).where(eq(users.email, email)).get();
     const ok = row ? await verifyPassword(password, row.passwordHash) : await verifyDummy(password);
     if (!row || !ok) {
       failThrottle(ip);
       failEmail(db, email);
+      audit(db, 'login_failed', row?.id ?? null);
       throw new ApiError(401, 'That email and password don’t match.', 'bad_credentials');
     }
     clearThrottle(ip);
     clearEmail(db, email);
+    // a hash made under older, weaker settings is replaced now, while the password is in hand
+    if (needsRehash(row.passwordHash)) db.update(users).set({ passwordHash: await hashPassword(password) }).where(eq(users.id, row.id)).run();
+    audit(db, 'login', row.id);
     createSession(db, c, row.id);
     return c.json({ id: row.id, email: row.email, name: row.name ?? null, onboardedAt: row.onboardedAt });
   });
@@ -100,6 +109,7 @@ export const authRoutes = (db: DB) => {
     let healthRevoked = false;
     if (session && deviceId) healthRevoked = db.update(healthDevices).set({ revokedAt: nowISO() }).where(and(eq(healthDevices.id, deviceId), eq(healthDevices.userId, session.userId), isNull(healthDevices.revokedAt))).run().changes > 0;
     destroySession(db, c);
+    if (session) audit(db, 'logout', session.userId);
     return c.json({ ok: true, healthRevoked });
   });
 
@@ -113,7 +123,10 @@ export const authRoutes = (db: DB) => {
     const overEmail = overIp ? 1 : hitLimit(db, emailKey('forgot', email), FORGOT_LIMITS.perEmail, FORGOT_LIMITS.windowMs);
     if (!overIp && !overEmail) {
       const row = db.select({ id: users.id, email: users.email }).from(users).where(eq(users.email, email)).get();
-      if (row) void sendMail(resetMail(row.email, `${env.APP_URL}/login?reset=${issueToken(db, row.id, 'reset')}`));
+      if (row) {
+        audit(db, 'password_reset_asked', row.id);
+        void sendMail(resetMail(row.email, `${env.APP_URL}/login?reset=${issueToken(db, row.id, 'reset')}`));
+      }
     }
     return c.json({ ok: true });
   });
@@ -127,6 +140,13 @@ export const authRoutes = (db: DB) => {
     const ip = ipKey('reset', clientIp(c));
     checkThrottle(ip);
     const { token, password } = await parseBody(c.req.raw, zResetPassword);
+    // checked before the link is spent, so a refused password can be changed and sent again with the same link
+    const early = passwordProblem(password);
+    if (early) throw new ApiError(422, early, 'weak_password');
+    const owner = peekToken(db, token, 'reset');
+    const ownerEmail = owner ? db.select({ email: users.email }).from(users).where(eq(users.id, owner)).get()?.email : null;
+    const weak = ownerEmail ? passwordProblem(password, ownerEmail) : null;
+    if (weak) throw new ApiError(422, weak, 'weak_password');
     const userId = consumeToken(db, token, 'reset');
     const row = userId ? db.select({ id: users.id, email: users.email, emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, userId)).get() : null;
     if (!row) {
@@ -139,13 +159,17 @@ export const authRoutes = (db: DB) => {
       dropSessions(db, row.id);
     });
     clearEmail(db, row.email);
+    audit(db, 'password_reset', row.id);
     return c.json({ ok: true });
   });
 
   /** The link in the verification mail: marks the address confirmed and answers a small page. */
   r.get('/verify', (c) => {
     const userId = consumeToken(db, c.req.query('token') ?? '', 'verify');
-    if (userId) db.update(users).set({ emailVerifiedAt: nowISO() }).where(and(eq(users.id, userId), isNull(users.emailVerifiedAt))).run();
+    if (userId) {
+      db.update(users).set({ emailVerifiedAt: nowISO() }).where(and(eq(users.id, userId), isNull(users.emailVerifiedAt))).run();
+      audit(db, 'email_verified', userId);
+    }
     c.header('cache-control', 'no-store');
     c.header('referrer-policy', 'no-referrer');
     return c.html(verifyPage(!!userId), userId ? 200 : 410);

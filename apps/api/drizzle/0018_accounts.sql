@@ -1,6 +1,7 @@
 -- Accounts for a public launch: email verification, single-use emailed tokens (password reset, verify), and sign-in
 -- counters that survive a restart.
-ALTER TABLE `users` ADD `email_verified_at` text;--> statement-breakpoint
+-- `users.email_verified_at` is added by db/compat.ts (ensureColumns), not here: production already has that column from
+-- an earlier, since reverted, server version, and SQLite cannot add a column only when it is missing.
 CREATE TABLE IF NOT EXISTS `auth_tokens` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,

@@ -130,9 +130,25 @@ fly ssh console -a <app> -C "node dist/ops.js revoke-health-tokens"
 
 A person can also do the first of these themselves: changing the password in Settings signs out every other device, and a password reset signs out all of them.
 
+## Logs and the security log
+
+Every request writes one JSON line to the Fly log (`fly logs -a <app>`): method, route pattern, status, milliseconds and a keyed hash of the account (never a body, a query string, an address or an id from the path). Errors nobody caught are `"t":"error"` lines, and reports from the app are `"t":"client_error"` lines with no account at all.
+
+Sign-in, sign-up, password, consent and deletion events go to the `audit_log` table under the same keyed hash, kept 12 months. To read one account's rows:
+
+```
+fly ssh console -a <app> -C "node dist/ops.js audit person@example.com"
+```
+
+The hash is keyed with `SESSION_SECRET`: after rotating it, older rows no longer match the account.
+
+## What is removed on its own
+
+Four times a day the server removes, for good: anything a person deleted more than 30 days ago, the assistant's proposals after 90 days, expired sessions (and every session 180 days after sign-in), spent reset and verification links, and security log rows after 12 months. Snapshots and backups keep a copy for 5 more days. `node dist/ops.js tables` lists any table the code does not know (there should be none).
+
 ## Limits to know about
 
-- One machine. A deploy restarts it. For a few seconds requests fail and the app queues changes on the phone.
+- One machine. A deploy sends SIGINT; the server stops taking connections, finishes what is in flight (up to 10 s), closes the database and exits. For a few seconds requests fail and the app queues changes on the phone.
 - Kept in memory and cleared by a restart: assistant answers in progress, the per-user AI limits, the daily pick's refresh count, failed sign-ins per address. Kept in the database and not cleared: failed sign-ins per email, sign-up and reset counters, the one-a-day Remember when count.
 - The volume fills up like any disk. `fly volumes list -a <app>` shows the size. Extend it before it passes 70 percent: `fly volumes extend <volume id> -s <GB>`.
 - Password reset and verification mail need `MAIL_API_KEY` and `MAIL_FROM`. Without them the server sends nothing and the post-deploy check fails.

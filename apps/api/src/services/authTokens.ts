@@ -34,6 +34,13 @@ export const consumeToken = (db: DB, token: string, kind: TokenKind, now = Date.
   });
 };
 
+/** Whose token this is, without spending it (null when it could not be spent). */
+export const peekToken = (db: DB, token: string, kind: TokenKind, now = Date.now()): string | null => {
+  if (!token || token.length > 200) return null;
+  const row = db.select().from(authTokens).where(eq(authTokens.tokenHash, hashToken(token))).get();
+  return !row || row.kind !== kind || row.usedAt || row.expiresAt < new Date(now).toISOString() ? null : row.userId;
+};
+
 /** Drop tokens that can no longer be used (expired, or used more than a day ago). */
 export const purgeTokens = (db: DB) => {
   const now = nowISO();

@@ -3,20 +3,24 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
-import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
+import { sql } from 'drizzle-orm';
+import { ZodError } from 'zod';
 import { purgeExpiredSessions, requireAuth, type AuthEnv } from './auth.js';
 import { openDatabase, type DB } from './db/index.js';
+import { CSP, PERMISSIONS_POLICY, writeGuard } from './lib/guards.js';
+import { logError, logLine, requestLog } from './lib/log.js';
 import { idempotency } from './lib/requests.js';
 import { seedQuotes } from './db/seed.js';
 import { env } from './env.js';
 import { aiRoutes } from './routes/ai.js';
 import { importRoutes } from './routes/import.js';
 import { authRoutes } from './routes/auth.js';
+import { clientErrorRoutes } from './routes/clientErrors.js';
 import { coreRoutes } from './routes/core.js';
 import { goalRoutes } from './routes/goals.js';
 import { assistantRoutes } from './routes/assistant.js';
@@ -29,11 +33,15 @@ import { planRoutes } from './routes/plans.js';
 import { readsRoutes } from './routes/reads.js';
 import { stravaRoutes } from './routes/strava.js';
 import { appleHealthDeviceRoutes, appleHealthRoutes } from './routes/appleHealth.js';
+import { purgeAudit } from './services/audit.js';
 import { purgeTokens } from './services/authTokens.js';
 import { backupConfigFrom, scheduleBackups } from './services/backup.js';
+import { purgeDeleted } from './services/retention.js';
 import { purgeThrottle } from './services/throttle.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+/** How long a shutdown waits for requests in flight. Below fly.toml's kill_timeout (15 s). */
+export const SHUTDOWN_GRACE_MS = 10_000;
 
 const KB = 1024;
 const MB = 1024 * KB;
@@ -45,7 +53,11 @@ export const BODY_LIMITS: Array<{ path: string; bytes: number }> = [
   { path: '/api/import', bytes: 20 * MB },
   { path: '/api/apple-health/reconcile', bytes: 3 * MB },
   { path: '/api/apple-health/sync', bytes: 2 * MB },
+  // contract 7: a client error report is small by design
+  { path: '/api/client-errors', bytes: 8 * KB },
 ];
+/** The routes that take a form upload (a file); every other write must be JSON. */
+export const UPLOAD_ROUTES = ['/api/plans/draft'];
 const tooBig = (bytes: number) =>
   bodyLimit({
     maxSize: bytes,
@@ -61,14 +73,33 @@ const limitFor = (path: string) => {
 
 export const buildApp = (db: DB) => {
   const app = new Hono<AuthEnv>();
-  if (!env.isProd) app.use(logger());
-  app.use(secureHeaders({ crossOriginEmbedderPolicy: false }));
+  // one structured line a request: method, route pattern, status, time and a hashed account id; never a body (lib/log.ts)
+  app.use(requestLog());
+  app.use(secureHeaders({ crossOriginEmbedderPolicy: false, contentSecurityPolicy: CSP, permissionsPolicy: PERMISSIONS_POLICY }));
   // every request body is capped before anything reads or parses it: 256 KB, more only on the routes that carry files
   app.use('/api/*', (c, next) => limitFor(c.req.path)(c, next));
+  // a write must come from this app (no foreign Origin) and carry JSON, or a form on the upload routes (lib/guards.ts)
+  app.use('/api/*', writeGuard(UPLOAD_ROUTES));
 
   // Fly's health check, and what the post-deploy check reads: whether the pieces a public server needs are configured
-  // (yes or no only, nothing secret)
-  app.get('/api/health', (c) => c.json({ ok: true, time: new Date().toISOString(), ready: { mail: env.mailConfigured, claude: env.claudeConfigured } }));
+  // (yes or no only, nothing secret). It asks the database a question, so a locked or missing database reads as down.
+  app.get('/api/health', (c) => {
+    try {
+      db.get(sql`select 1`);
+    } catch (e) {
+      logError('health', e);
+      return c.json({ ok: false, time: new Date().toISOString() }, 503);
+    }
+    return c.json({ ok: true, time: new Date().toISOString(), ready: { mail: env.mailConfigured, claude: env.claudeConfigured, support: env.supportConfigured } });
+  });
+  // contract 7: client error reports. Mounted before anything that reads the session, and it never does (critic-04).
+  app.route('/api/client-errors', clientErrorRoutes());
+  // iOS Password AutoFill: which app may use passwords saved for this site. Served only when the team id is set.
+  app.get('/.well-known/apple-app-site-association', (c) => {
+    if (!env.APPLE_TEAM_ID) return c.json({ error: 'Not found', code: 'not_found' }, 404);
+    c.header('cache-control', 'public, max-age=3600');
+    return c.json({ webcredentials: { apps: [`${env.APPLE_TEAM_ID}.${env.APP_BUNDLE_ID}`] } });
+  });
   app.route('/api/auth', authRoutes(db));
   app.route('/api/strava', stravaRoutes(db));
   // the phone's Apple Health sync engine, by device token (it may run with no web view and no session)
@@ -98,6 +129,9 @@ export const buildApp = (db: DB) => {
       for (const [k, v] of Object.entries(headers ?? {})) c.header(k, v);
       return c.json({ error: err.message, code: code ?? null }, err.status);
     }
+    // a value that failed a schema outside parseBody (a path or query value): the request was wrong, not the server
+    if (err instanceof ZodError) return c.json({ error: 'That request has a value Logbook cannot read.', code: 'validation' }, 422);
+    logError(`${c.req.method} ${c.req.routePath}`, err);
     console.error(err);
     return c.json({ error: 'Something went wrong on the server.', code: 'internal' }, 500);
   });
@@ -151,7 +185,7 @@ if (isMain) {
   const { db, sqlite } = openDatabase();
   seedQuotes(db);
   const app = buildApp(db);
-  serve({ fetch: app.fetch, port: env.PORT, hostname: '0.0.0.0' }, (info) => {
+  const server = serve({ fetch: app.fetch, port: env.PORT, hostname: '0.0.0.0' }, (info) => {
     console.log(`Logbook API listening on http://localhost:${info.port} (${env.NODE_ENV})`);
   });
   // No Strava loop: a sync runs when Strava's webhook says there is something new, when the app is opened (at most
@@ -163,11 +197,56 @@ if (isMain) {
   const backup = backupConfigFrom(process.env);
   if (backup) scheduleBackups(sqlite, backup, { databasePath: env.DATABASE_PATH });
   else if (env.isProd) console.warn('[backup] BACKUP_S3_* is not set: there is no off-site backup, only the volume snapshots.');
+  // At boot and four times a day: expired sessions, spent tokens, old counters and old security log rows go, and so
+  // does anything deleted more than 30 days ago and any assistant proposal older than 90 days (services/retention.ts).
   const housekeeping = () => {
-    purgeExpiredSessions(db);
-    purgeTokens(db);
-    purgeThrottle(db);
+    try {
+      purgeExpiredSessions(db);
+      purgeTokens(db);
+      purgeThrottle(db);
+      purgeAudit(db);
+      const gone = purgeDeleted(db);
+      const total = Object.values(gone).reduce((a, n) => a + n, 0);
+      if (total) logLine({ t: 'retention', at: new Date().toISOString(), rows: total, tables: Object.entries(gone).filter(([, n]) => n).map(([t, n]) => `${t}:${n}`).join(',') });
+    } catch (e) {
+      logError('housekeeping', e);
+    }
   };
   housekeeping();
   setInterval(housekeeping, 6 * 3600_000).unref();
+
+  // A deploy or a restart: stop taking connections, let the requests in flight finish, then close the database.
+  // Fly sends SIGINT (fly.toml kill_signal) and waits kill_timeout (15 s) before it kills; this gives up after 10.
+  let closing = false;
+  const shutdown = (signal: string, code = 0) => {
+    if (closing) return;
+    closing = true;
+    logLine({ t: 'shutdown', at: new Date().toISOString(), signal });
+    const finish = () => {
+      try {
+        sqlite.close();
+      } catch {
+        /* already closed */
+      }
+      process.exit(code);
+    };
+    const giveUp = setTimeout(finish, SHUTDOWN_GRACE_MS);
+    giveUp.unref();
+    server.close(() => {
+      clearTimeout(giveUp);
+      finish();
+    });
+    // idle keep-alive connections would hold close() open until the timeout
+    (server as { closeIdleConnections?: () => void }).closeIdleConnections?.();
+  };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  // a promise nobody caught is logged and the server carries on; an exception nobody caught leaves the process in an
+  // unknown state, so it is logged and the server restarts cleanly
+  process.on('unhandledRejection', (reason) => logError('unhandledRejection', reason));
+  process.on('uncaughtException', (err) => {
+    logError('uncaughtException', err);
+    console.error(err);
+    shutdown('uncaughtException', 1);
+  });
 }

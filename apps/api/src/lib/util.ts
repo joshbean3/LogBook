@@ -15,7 +15,7 @@ export const nowISO = (): string => new Date().toISOString();
 
 export class ApiError extends HTTPException {
   /** `headers` ride on the answer (a limit's `Retry-After`). */
-  constructor(status: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 502 | 503 | 504, message: string, public code?: string, public headers?: Record<string, string>) {
+  constructor(status: 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 500 | 502 | 503 | 504, message: string, public code?: string, public headers?: Record<string, string>) {
     super(status, { message });
   }
 }
@@ -35,6 +35,13 @@ export const parseBody = async <T>(req: Request, schema: ZodType<T>): Promise<T>
 export const parseQuery = <T>(query: Record<string, string | undefined>, schema: ZodType<T>): T => {
   const r = schema.safeParse(query);
   if (!r.success) throw new ApiError(422, r.error.issues.map((i) => `${i.path.join('.') || 'query'}: ${i.message}`).join('; '), 'validation');
+  return r.data;
+};
+
+/** A path value (`:month`, `:date`) checked against its schema: 422 with a plain line when it does not fit, never a 500. */
+export const parseParam = <T>(value: string | undefined, schema: ZodType<T>, what = 'value'): T => {
+  const r = schema.safeParse(value);
+  if (!r.success) throw new ApiError(422, `That ${what} is not one Logbook can read.`, 'validation');
   return r.data;
 };
 

@@ -36,8 +36,14 @@ const hash = (token: string) => crypto.createHash('sha256').update(token).digest
 const tooFuture = (iso: string) => Date.parse(iso) > Date.now() + 24 * 3600 * 1000;
 
 // ---------- connecting ----------
-export const connectHealth = (db: DB, userId: string, input: z.infer<typeof zHealthConnect>, today: string) => {
+/**
+ * Connect a phone. A token is minted for its sync engine, and the earlier live token of the same phone is revoked, so
+ * tokens do not pile up on reconnect and one from before stops working. "The same phone" is the vendor id the app
+ * sends (`deviceKey`), else the sign-in the request came from (`sessionId`).
+ */
+export const connectHealth = (db: DB, userId: string, input: z.infer<typeof zHealthConnect>, today: string, sessionId?: string | null) => {
   const at = nowISO();
+  const deviceKey = input.deviceKey ? hash(`device:${input.deviceKey}`) : sessionId ? hash(`session:${sessionId}`) : null;
   const historyFrom = shiftDays(today, -input.historyDays);
   const had = db.select().from(healthSync).where(eq(healthSync.userId, userId)).get();
   if (had) db.update(healthSync).set({ historyFrom, lastError: null }).where(eq(healthSync.userId, userId)).run();
@@ -45,19 +51,21 @@ export const connectHealth = (db: DB, userId: string, input: z.infer<typeof zHea
   if (input.sleepGoalMin) writeSetting(db, userId, SLEEP_GOAL_KEY, input.sleepGoalMin);
   const token = crypto.randomBytes(32).toString('base64url');
   const id = uid('hd');
-  db.insert(healthDevices).values({ id, userId, tokenHash: hash(token), name: input.deviceName || 'iPhone', createdAt: at, lastSeenAt: null, revokedAt: null }).run();
-  return { token, deviceId: id, historyFrom };
+  const replaced = deviceKey ? db.update(healthDevices).set({ revokedAt: at }).where(and(eq(healthDevices.userId, userId), eq(healthDevices.deviceKey, deviceKey), isNull(healthDevices.revokedAt))).run().changes : 0;
+  db.insert(healthDevices).values({ id, userId, tokenHash: hash(token), name: input.deviceName || 'iPhone', createdAt: at, lastSeenAt: null, revokedAt: null, deviceKey }).run();
+  return { token, deviceId: id, historyFrom, replaced };
 };
 
-/** The account a device token belongs to, or null (unknown, revoked, or the account disconnected). Marks it seen. */
-export const deviceUser = (db: DB, token: string | null | undefined): string | null => {
+/** The device a token belongs to and its account, or null (unknown, revoked, or the account disconnected). Marks it seen. */
+export const deviceOf = (db: DB, token: string | null | undefined): { deviceId: string; userId: string } | null => {
   if (!token) return null;
   const d = db.select().from(healthDevices).where(eq(healthDevices.tokenHash, hash(token))).get();
   if (!d || d.revokedAt) return null;
   if (!db.select({ u: healthSync.userId }).from(healthSync).where(eq(healthSync.userId, d.userId)).get()) return null;
   db.update(healthDevices).set({ lastSeenAt: nowISO() }).where(eq(healthDevices.id, d.id)).run();
-  return d.userId;
+  return { deviceId: d.id, userId: d.userId };
 };
+export const deviceUser = (db: DB, token: string | null | undefined): string | null => deviceOf(db, token)?.userId ?? null;
 
 /** Disconnect: every device token revoked, every Health row gone, the connection removed. */
 export const disconnectHealth = (db: DB, userId: string) => {

@@ -31,11 +31,13 @@ describe('request body limits', () => {
   });
 
   it('the routes that carry files and batches have their own limits', () => {
-    expect(Object.fromEntries(BODY_LIMITS.map((l) => [l.path, l.bytes / MB]))).toEqual({ '/api/assistant': 28, '/api/plans/draft': 26, '/api/import': 20, '/api/apple-health/reconcile': 3, '/api/apple-health/sync': 2 });
+    expect(Object.fromEntries(BODY_LIMITS.filter((l) => l.bytes > BODY_LIMIT).map((l) => [l.path, l.bytes / MB]))).toEqual({ '/api/assistant': 28, '/api/plans/draft': 26, '/api/import': 20, '/api/apple-health/reconcile': 3, '/api/apple-health/sync': 2 });
+    // and one is smaller: a client error report is 8 KB at most (contract 7)
+    expect(BODY_LIMITS.filter((l) => l.bytes < BODY_LIMIT)).toEqual([{ path: '/api/client-errors', bytes: 8 * 1024 }]);
   });
 
   it('each of them takes a body over 256 KB and refuses one over its own limit', async () => {
-    for (const { path, bytes } of BODY_LIMITS) {
+    for (const { path, bytes } of BODY_LIMITS.filter((l) => l.bytes > BODY_LIMIT)) {
       const under = await send(path, 300 * 1024);
       expect(under.status, `${path} at 300 KB`).not.toBe(413);
       const over = await send(path, bytes + 4096);

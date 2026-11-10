@@ -148,6 +148,11 @@ export const zHealthConnect = z.object({
   historyDays: z.number().int().min(30).max(HEALTH_MAX_HISTORY_DAYS).default(HEALTH_HISTORY_DAYS),
   /** Asked during connect (decided 2026-11-09). */
   sleepGoalMin: z.number().int().min(240).max(720).nullable().optional(),
+  /**
+   * Which phone this is: its vendor id (`identifierForVendor`), so connecting again from the same phone ends its earlier
+   * token. Stored hashed. Without it the server goes by the sign-in the connect came from.
+   */
+  deviceKey: z.string().trim().min(8).max(100).optional(),
 });
 
 export interface HealthStatus {

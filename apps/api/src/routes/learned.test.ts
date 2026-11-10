@@ -17,7 +17,7 @@ const call = async (method: string, url: string, body?: unknown, day = T) => {
 beforeEach(async () => {
   app = buildApp(openDatabase(':memory:').db);
   env.allowSetup = true;
-  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+  const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
   cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
 });
 
@@ -99,7 +99,7 @@ describe('what I learned', () => {
     expect(res.status).toBeLessThan(500);
     const was = env.allowSignup;
     env.allowSignup = true;
-    const s = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'other@example.com', password: 'password123' }) });
+    const s = await app.request('/api/auth/signup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'other@example.com', password: 'correct horse 42' }) });
     env.allowSignup = was;
     cookie = (s.headers.get('set-cookie') ?? '').split(';')[0]!;
     expect((await call('GET', '/api/learnings')).body.learnings).toEqual([]);
@@ -144,7 +144,7 @@ describe('what I learned', () => {
     expect((await call('POST', '/api/import', ex.body)).body.imported.learnings ?? 0).toBe(0);
     // into a fresh account
     app = buildApp(openDatabase(':memory:').db);
-    const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'password123' }) });
+    const res = await app.request('/api/auth/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'josh@example.com', password: 'correct horse 42' }) });
     cookie = (res.headers.get('set-cookie') ?? '').split(';')[0]!;
     expect((await call('POST', '/api/import', ex.body)).body.imported.learnings).toBe(1);
     expect((await call('GET', '/api/learnings')).body.learnings.map((x: { text: string }) => x.text)).toEqual(['Exported']);

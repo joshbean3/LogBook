@@ -11,10 +11,46 @@ export const zMark = z.enum(['done', 'floor', 'skip', 'sick']);
 export const zRange = z.object({ from: zDate, to: zDate }).refine((r) => r.from <= r.to, 'from must be on or before to');
 
 // ---------- auth ----------
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 200;
+/**
+ * The passwords people pick most, which the sign-up, reset and change-password forms refuse (the server refuses the same
+ * list). Lower case; the check ignores case.
+ */
+export const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
+  'password', 'password1', 'password12', 'password123', 'password1234', 'passw0rd', 'p@ssw0rd', 'p@ssword', 'pass1234', 'password!',
+  '12345678', '123456789', '1234567890', '0123456789', '87654321', '0987654321', '11111111', '00000000', '12341234', '11223344',
+  '123123123', '1q2w3e4r', '1q2w3e4r5t', '1qaz2wsx', 'qwertyui', 'qwertyuiop', 'qwerty123', 'qwerty12', 'qwerty1234', 'asdfghjk',
+  'asdfghjkl', 'asdf1234', 'zxcvbnm1', 'zxcvbnm123', 'abcd1234', 'abc12345', 'abcdefgh', 'abcdefg1', 'a1b2c3d4', 'aa123456',
+  'iloveyou', 'iloveyou1', 'iloveyou2', 'letmein1', 'letmein123', 'welcome1', 'welcome123', 'admin123', 'administrator', 'changeme',
+  'changeme1', 'trustno1', 'sunshine', 'sunshine1', 'princess', 'princess1', 'football', 'football1', 'baseball', 'baseball1',
+  'basketball', 'superman', 'superman1', 'batman123', 'starwars', 'starwars1', 'computer', 'computer1', 'internet', 'whatever',
+  'whatever1', 'michael1', 'jennifer', 'jordan23', 'michelle', 'charlie1', 'liverpool', 'chocolate', 'butterfly', 'master123',
+  'dragon123', 'monkey123', 'shadow123', 'mustang1', 'samsung1', 'google123', 'logbook1', 'logbook123', 'running1', 'running123',
+  'marathon', 'marathon1', 'test1234', 'testtest', 'secret123', 'hello123', 'freedom1', 'qazwsxedc', 'q1w2e3r4', 'zaq12wsx',
+]);
+/**
+ * Why a new password cannot be used, as a sentence to show, or null when it can: too short or too long, one of the most
+ * common passwords, one character repeated, or the same as the account's email. Sign-up, reset and change password all
+ * use it, on the device and on the server.
+ */
+export const passwordProblem = (password: string, email?: string | null): string | null => {
+  if (password.length < PASSWORD_MIN) return `Use at least ${PASSWORD_MIN} characters.`;
+  if (password.length > PASSWORD_MAX) return `Keep your password under ${PASSWORD_MAX} characters.`;
+  const p = password.trim().toLowerCase();
+  if (!p || new Set(p).size === 1) return 'That password is too easy to guess. Pick another.';
+  if (COMMON_PASSWORDS.has(p)) return 'That password is too common. Pick another.';
+  const e = email?.trim().toLowerCase();
+  if (e && (p === e || p === e.split('@')[0])) return 'Your password cannot be your email.';
+  return null;
+};
+
 export const zCredentials = z.object({
   email: z.string().trim().toLowerCase().email().max(200),
-  password: z.string().min(8).max(200),
+  password: z.string().min(PASSWORD_MIN).max(PASSWORD_MAX),
 });
+/** POST /auth/login: any password the account might have been given, so an older weak one still signs in. */
+export const zLogin = z.object({ email: zCredentials.shape.email, password: z.string().min(1).max(PASSWORD_MAX) });
 /** POST /auth/forgot: always answered `{ ok: true }`, whether or not the address has an account. */
 export const zForgotPassword = z.object({ email: zCredentials.shape.email });
 /** POST /auth/reset: the token from the emailed link and the new password. */

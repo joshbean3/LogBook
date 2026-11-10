@@ -1,4 +1,4 @@
-import { buildTemplate, mondayOf, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
+import { buildTemplate, mondayOf, passwordProblem, NEW_ACCOUNT_MORNING, normalizeMorningSettings, zMePatch, shiftDays, TemplateError, today as serverToday, weekdayOf, zChangePassword, zDeleteAccount, zOnboarding, zTemplateInput, zTrainingPatch, zTrainingProfile, zTrainingStatusInput, zConsentInput, zIntroSeen, type TrainingStatus, type ISODate, type TemplateInput } from '@logbook/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
@@ -8,6 +8,7 @@ import { habits, planBlocks, users } from '../db/schema.js';
 import { toHabit } from '../lib/map.js';
 import { ApiError, nowISO, parseBody, uid } from '../lib/util.js';
 import { deleteAccount } from '../services/account.js';
+import { audit } from '../services/audit.js';
 import { disconnect } from '../services/strava.js';
 import { retireBlock, writeTemplate } from '../services/plans.js';
 import { readTrainingProfile, writeTrainingProfile } from '../services/training.js';
@@ -140,6 +141,7 @@ export const meRoutes = (db: DB) => {
     const row = db.select().from(users).where(eq(users.id, userId)).get();
     if (!row || !(await verifyPassword(password, row.passwordHash))) {
       failThrottle(bucket);
+      audit(db, 'password_wrong', userId, 'delete account');
       // 403, not 401: the session is fine, the password is wrong (a 401 would sign the app out)
       throw new ApiError(403, 'That password doesn’t match.', 'bad_password');
     }
@@ -150,6 +152,8 @@ export const meRoutes = (db: DB) => {
     // then every row the account owns: its sessions (every device is signed out) and its Apple Health device tokens
     // (a phone still holding one gets 401 and stops syncing) among them
     const removed = deleteAccount(db, userId);
+    // the log keeps that an account was deleted, under the same keyed hash its earlier rows carry; nothing names it
+    audit(db, 'account_deleted', userId);
     deleteCookie(c, COOKIE, { path: '/' });
     return c.json({ ok: true, removed, strava: strava?.connected ? { deauthorized: strava.deauthorized } : null });
   });
@@ -166,9 +170,12 @@ export const meRoutes = (db: DB) => {
     const row = db.select().from(users).where(eq(users.id, userId)).get();
     if (!row || !(await verifyPassword(current, row.passwordHash))) {
       failThrottle(bucket);
+      audit(db, 'password_wrong', userId, 'change password');
       throw new ApiError(403, 'That is not your current password.', 'wrong_password');
     }
     clearThrottle(bucket);
+    const weak = passwordProblem(next, row.email);
+    if (weak) throw new ApiError(422, weak, 'weak_password');
     const hash = await hashPassword(next);
     const keep = sessionOf(db, c)?.id;
     const signedOut = db.transaction(() => {
@@ -176,6 +183,7 @@ export const meRoutes = (db: DB) => {
       return dropSessions(db, userId, keep);
     });
     clearEmail(db, row.email);
+    audit(db, 'password_changed', userId);
     void sendMail(passwordChangedMail(row.email));
     return c.json({ ok: true, signedOut });
   });

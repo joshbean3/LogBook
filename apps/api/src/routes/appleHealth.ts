@@ -2,13 +2,14 @@ import { zDate, zHealthBatchEnvelope, zHealthConnect, zHealthReconcile, type Hea
 import { z } from 'zod';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import type { AuthEnv } from '../auth.js';
+import { sessionOf, type AuthEnv } from '../auth.js';
 import type { DB } from '../db/index.js';
 import { clientToday, LOCAL_DATE_HEADER } from '../lib/requests.js';
 import { ApiError, parseBody, parseQuery } from '../lib/util.js';
 import { logConsent } from '../services/consent.js';
 import { writeSetting } from './core.js';
-import { connectHealth, deviceUser, disconnectHealth, healthDaily, healthStatus, reconcileHealth, storeBatch } from '../services/appleHealth.js';
+import { connectHealth, deviceOf, disconnectHealth, healthDaily, healthStatus, reconcileHealth, storeBatch } from '../services/appleHealth.js';
+import { tooMany, windowHit } from '../services/throttle.js';
 
 /**
  * Apple Health routes under /api/apple-health (docs/health/apple-health.md §3.5). `/api/health` is Fly's health check,
@@ -21,6 +22,11 @@ import { connectHealth, deviceUser, disconnectHealth, healthDaily, healthStatus,
 const MAX_BATCH_BYTES = 2 * 1024 * 1024;
 const zSleepGoal = z.object({ sleepGoalMin: z.number().int().min(240).max(720) });
 const bearer = (h: string | undefined) => (h?.startsWith('Bearer ') ? h.slice(7).trim() : null);
+/**
+ * Per device token, a minute: far above what the sync engine sends (a first import of a year is a few dozen batches),
+ * low enough that a stolen or runaway token cannot flood the server. Past it: 429 `rate_limited` with Retry-After.
+ */
+export const HEALTH_SYNC_LIMITS = { sync: 120, reconcile: 30, windowMs: 60_000 } as const;
 
 /**
  * The phone's routes: sync and reconcile, by device token. Mounted before the session-guarded routes. Both take sleep,
@@ -29,24 +35,26 @@ const bearer = (h: string | undefined) => (h?.startsWith('Bearer ') ? h.slice(7)
  */
 export const appleHealthDeviceRoutes = (db: DB) => {
   const r = new Hono();
-  const userOf = (h: string | undefined) => {
-    const userId = deviceUser(db, bearer(h));
-    if (!userId) throw new ApiError(401, 'This device is no longer connected to Apple Health in Logbook. Connect again in Settings.', 'health_device');
-    return userId;
+  const userOf = (h: string | undefined, kind: 'sync' | 'reconcile') => {
+    const d = deviceOf(db, bearer(h));
+    if (!d) throw new ApiError(401, 'This device is no longer connected to Apple Health in Logbook. Connect again in Settings.', 'health_device');
+    const wait = windowHit(`health:${kind}:${d.deviceId}`, HEALTH_SYNC_LIMITS[kind], HEALTH_SYNC_LIMITS.windowMs);
+    if (wait) throw tooMany(wait, 'Too many uploads at once. The phone will try again shortly.');
+    return d.userId;
   };
 
   r.post(
     '/sync',
     bodyLimit({ maxSize: MAX_BATCH_BYTES, onError: (c) => c.json({ error: 'That upload is too big. Send it in smaller batches.', code: 'too_big' }, 413) }),
     async (c) => {
-      const userId = userOf(c.req.header('authorization'));
+      const userId = userOf(c.req.header('authorization'), 'sync');
       const b = await parseBody(c.req.raw, zHealthBatchEnvelope);
       return c.json(storeBatch(db, userId, b));
     },
   );
 
   r.post('/reconcile', async (c) => {
-    const userId = userOf(c.req.header('authorization'));
+    const userId = userOf(c.req.header('authorization'), 'reconcile');
     return c.json(reconcileHealth(db, userId, await parseBody(c.req.raw, zHealthReconcile)));
   });
 
@@ -61,7 +69,7 @@ export const appleHealthRoutes = (db: DB) => {
   r.post('/apple-health/connect', async (c) => {
     const input = await parseBody(c.req.raw, zHealthConnect);
     const userId = c.get('user').id;
-    const out = connectHealth(db, userId, input, clientToday(c.req.header(LOCAL_DATE_HEADER)));
+    const out = connectHealth(db, userId, input, clientToday(c.req.header(LOCAL_DATE_HEADER)), sessionOf(db, c)?.id);
     logConsent(db, userId, [{ kind: 'apple_health', value: true }]);
     return c.json(out, 201);
   });

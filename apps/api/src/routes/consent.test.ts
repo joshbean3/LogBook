@@ -25,7 +25,7 @@ beforeEach(() => {
 
 describe('consent', () => {
   it('stores the choice made before the account existed, and Settings reads and changes it', async () => {
-    const su = await req('POST', '/api/auth/signup', { email: 'a@example.com', password: 'password123', consent: { training: false } });
+    const su = await req('POST', '/api/auth/signup', { email: 'a@example.com', password: 'correct horse 42', consent: { training: false } });
     expect(su.status).toBe(201);
     const got = await req('GET', '/api/me/consent', undefined, su.cookie);
     expect(got.body.consent).toMatchObject({ training: false, recall: false, reads: false, health: null, version: CONSENT_VERSION });
@@ -40,7 +40,7 @@ describe('consent', () => {
 
   it('a new account has granted nothing and was never asked; sign-up with no choice stores nothing', async () => {
     expect(DEFAULT_CONSENT).toEqual({ training: false, recall: false, reads: false, health: null, at: null, version: null });
-    const su = await req('POST', '/api/auth/signup', { email: 'b@example.com', password: 'password123' });
+    const su = await req('POST', '/api/auth/signup', { email: 'b@example.com', password: 'correct horse 42' });
     expect(su.status).toBe(201);
     expect((await req('GET', '/api/me/consent', undefined, su.cookie)).body.consent).toEqual({ training: false, health: null, recall: false, reads: false, at: null, version: null });
     expect(db.select().from(userSettings).where(eq(userSettings.userId, su.body.id)).all().filter((r) => r.key === 'consent' || r.key === 'consentLog')).toEqual([]);
@@ -50,7 +50,7 @@ describe('consent', () => {
   });
 
   it('takes any subset of the switches, keeps the rest, and a body with no switch is not an answer', async () => {
-    const su = await req('POST', '/api/auth/signup', { email: 'c2@example.com', password: 'password123' });
+    const su = await req('POST', '/api/auth/signup', { email: 'c2@example.com', password: 'correct horse 42' });
     // version alone is not a choice: still never asked
     expect((await req('PUT', '/api/me/consent', { version: '2026-11' }, su.cookie)).body.consent.at).toBeNull();
     expect((await req('PUT', '/api/me/consent', {}, su.cookie)).body.consent.at).toBeNull();
@@ -64,7 +64,7 @@ describe('consent', () => {
   });
 
   it('the bootstrap carries the same record as GET /me/consent', async () => {
-    const su = await req('POST', '/api/auth/signup', { email: 'boot@example.com', password: 'password123' });
+    const su = await req('POST', '/api/auth/signup', { email: 'boot@example.com', password: 'correct horse 42' });
     const fresh = (await req('GET', '/api/bootstrap', undefined, su.cookie)).body.consent;
     expect(fresh).toEqual({ training: false, recall: false, reads: false, health: null, at: null, version: null });
     await req('PUT', '/api/me/consent', { training: true, reads: true }, su.cookie);
@@ -74,7 +74,7 @@ describe('consent', () => {
   });
 
   it('appends every answer to the consent log: kind, value, when and the wording version', async () => {
-    const su = await req('POST', '/api/auth/signup', { email: 'log@example.com', password: 'password123' });
+    const su = await req('POST', '/api/auth/signup', { email: 'log@example.com', password: 'correct horse 42' });
     const id = su.body.id as string;
     expect(readConsentLog(db, id)).toEqual([]);
     // the first answer records each switch it carried, the ones declined too
@@ -102,7 +102,7 @@ describe('consent', () => {
 
 describe('feature intros', () => {
   it('shows nothing to an account that is not enrolled, and each sheet once to one that is', async () => {
-    const su = await req('POST', '/api/auth/signup', { email: 'c@example.com', password: 'password123' });
+    const su = await req('POST', '/api/auth/signup', { email: 'c@example.com', password: 'correct horse 42' });
     const c = su.cookie;
     expect((await req('GET', '/api/me/intros', undefined, c)).body).toEqual({ seen: null });
     // marking a key on an account that is not enrolled enrolls nothing

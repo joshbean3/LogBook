@@ -2,6 +2,7 @@ import { CONSENT_VERSION, DEFAULT_CONSENT, INTRO_KEYS, type Consent, type Consen
 import type { DB } from '../db/index.js';
 import { ApiError, nowISO } from '../lib/util.js';
 import { readSetting, writeSetting } from '../routes/core.js';
+import { audit } from './audit.js';
 
 /**
  * What may go to Claude, as the person chose it (user_settings `consent`). An account with no record has granted
@@ -30,6 +31,8 @@ export const logConsent = (db: DB, userId: string, events: Array<{ kind: Consent
   const log = readConsentLog(db, userId);
   for (const e of events) log.push({ kind: e.kind, value: e.value, at, version: e.version ?? CONSENT_VERSION });
   writeSetting(db, userId, LOG_KEY, log.slice(-LOG_MAX));
+  // the security log keeps that a choice changed (which switch, which way), under the hashed account id
+  audit(db, 'consent', userId, events.map((e) => `${e.kind}:${e.value === true ? 'on' : e.value === false ? 'off' : 'unset'}`).join(','));
 };
 
 /**
