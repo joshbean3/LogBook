@@ -51,17 +51,27 @@ export const Dock = ({ today: todayPath, children }: { today: string; children: 
   const going = turns.length > 0;
   const words = going ? 'Continue with the assistant' : 'Ask or change anything';
   const ref = useRef<HTMLDivElement>(null);
+  // the orb rests as one painted frame and comes alive only for a moment when the bar is pressed (perf-06)
+  const [lively, setLively] = useState(false);
+  const calm = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const wake = () => {
+    setLively(true);
+    clearTimeout(calm.current);
+    calm.current = setTimeout(() => setLively(false), 1600);
+  };
+  useEffect(() => () => clearTimeout(calm.current), []);
+  const orbState = lively ? 'idle' : 'still';
   return (
     <div ref={ref} className="dock" data-compact={compact ? '' : undefined}>
-      <Pressable className="dock-ask" press="surface" onPress={() => open(date)} label={`${words}. Ask Logbook`} tabIndex={compact ? -1 : 0} aria-hidden={compact || undefined}>
-        <Orb size={22} className="dock-ask-ic" />
+      <Pressable className="dock-ask" press="surface" onPointerDown={wake} onPress={() => open(date)} label={`${words}. Opens the assistant`} tabIndex={compact ? -1 : 0} aria-hidden={compact || undefined}>
+        <Orb size={22} className="dock-ask-ic" state={orbState} />
         <span className="dock-ask-text">{words}</span>
         {going ? <span className="dock-dot" aria-hidden="true" /> : null}
       </Pressable>
       <div className="dock-row">
         {children}
-        <Pressable className="dock-ask-mini" press="scale" onPress={() => open(date)} label={`${words}. Ask Logbook`} tabIndex={compact ? 0 : -1} aria-hidden={!compact || undefined}>
-          <Orb size={26} />
+        <Pressable className="dock-ask-mini" press="scale" onPointerDown={wake} onPress={() => open(date)} label={`${words}. Opens the assistant`} tabIndex={compact ? 0 : -1} aria-hidden={!compact || undefined}>
+          <Orb size={26} state={orbState} />
           {going ? <span className="dock-dot" aria-hidden="true" /> : null}
         </Pressable>
       </div>
