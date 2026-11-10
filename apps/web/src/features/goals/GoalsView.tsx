@@ -157,43 +157,6 @@ const AheadChip = ({ level, period, goal, today, icon, title, when, describedBy 
   );
 };
 
-/** The last fourteen days as a chain of lights: lit for a day goal hit, dim for one missed, empty for none set. */
-const DayTrail = ({ goals, today, onOpen }: { goals: Aim[]; today: string; onOpen: () => void }) => {
-  const days = Array.from({ length: 14 }, (_, i) => shiftDays(today, i - 13));
-  const of = (d: string) => goalOf(goals, 'day', d);
-  const set = days.filter((d) => of(d)).length;
-  const hit = days.filter((d) => of(d)?.status === 'done').length;
-  return (
-    <Pressable className="g-trail" press="surface" onPress={onOpen} label={`Day goals, last 14 days, ${set ? `${hit} of ${set} done` : 'No day goals yet'}. Open the history`}>
-      <span className="k-label g-trail-head">
-        Day goals, last 14 days
-        <ChevronRight size={16} aria-hidden="true" className="k-label-end" />
-      </span>
-      <span className="k-num g-trail-num">
-        {set ? hit : '–'}
-        <small>{set ? `of ${set} done` : 'No day goals yet'}</small>
-      </span>
-      <span className="g-trail-marks" aria-hidden="true">
-        {days.map((d, i) => {
-          const g = of(d);
-          // a run of hit days joins up into one bar of light
-          const joined = g?.status === 'done' && of(days[i - 1] ?? '')?.status === 'done';
-          return <i key={d} className={`g-mark ${g ? `is-${g.status}` : 'is-none'} ${d === today ? 'is-today' : ''} ${joined ? 'is-joined' : ''}`} />;
-        })}
-      </span>
-      {/* the key to the marks, one line */}
-      <span className="g-trail-key" aria-hidden="true">
-        {(['done', 'partly', 'missed', 'open'] as const).map((st) => (
-          <span key={st} className="g-key">
-            <i className={`g-mark is-${st}`} />
-            {STATUS_WORD[st]}
-          </span>
-        ))}
-      </span>
-    </Pressable>
-  );
-};
-
 /**
  * The morning reminder, in its own short section: when it comes, and a switch. Turning it on asks iOS and schedules what is
  * owed at once. When iOS has said no, only the Settings app can change that, so the page says so and opens it. What iOS
@@ -345,7 +308,6 @@ export default function GoalsView(): React.JSX.Element {
           <KSection title="History" action="See all" actionLabel="See all of the history" onAction={() => nav.push('/goals/history')} className="g-past">
             <Stack>
               <ScoreStrip goals={list} today={today} />
-              <DayTrail goals={list} today={today} onOpen={() => nav.push('/goals/history')} />
             </Stack>
           </KSection>
           {remindersSupported() ? <Reminders goals={list} today={today} /> : null}

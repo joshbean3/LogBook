@@ -609,20 +609,25 @@
 }
 
 /* ---------- under the hero: the sentence, the nudge, This morning, the second session ---------- */
+/* the owner's quote, right under the large "Today" title and above the week strip (a NavBar child, so it carries the
+   title's 16 px inset itself); a long one wraps to two lines rather than cutting off */
 .sentence.pressable {
   display: block;
+  box-sizing: border-box;
   min-height: 44px;
-  padding: 8px 0 14px;
+  margin: 0 16px;
+  padding: 2px 0 10px;
   text-align: left;
-  width: 100%;
+  width: auto;
 }
 .sentence-text {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   font: italic 400 var(--fs-row) / var(--lh-row) var(--display);
   color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .sentence-by {
   font-style: normal;

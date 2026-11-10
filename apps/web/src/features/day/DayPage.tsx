@@ -84,8 +84,11 @@ const HeroSkeleton = () => (
   </div>
 );
 
-/** The sentence (§3.1 row 1b): one quiet serif line under the hero when `focus.quote` is set; a tap edits it. */
-const Sentence = memo(function Sentence() {
+/**
+ * The sentence: the owner's quote, one quiet serif line right under the large "Today" title (DayView puts it there) when
+ * `focus.quote` is set; a tap edits it.
+ */
+export const Sentence = memo(function Sentence() {
   const focus = useFocus();
   const open = useOpenWordSheet();
   if (!focus.quote.trim()) return null;
@@ -257,7 +260,6 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
       {!loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
-      <Sentence />
       {loaded ? <PlanDay date={date} today={today} /> : null}
       {STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">

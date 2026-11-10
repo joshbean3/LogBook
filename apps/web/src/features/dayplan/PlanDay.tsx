@@ -18,6 +18,7 @@ import { goalOf, periodCaps } from '../goals/model';
 import { GoalRing, newStepId, useSaveSteps } from '../goals/Steps';
 import { Burst, celebrateOnce } from '../goals/game';
 import { useCelebrate } from '../goals/Celebrate';
+import { CarryOver } from '../goals/CarryOver';
 import { colorOf, colorStyle, groupOf } from '../todos/colors';
 import { PriorityFlag } from '../todos/PriorityDots';
 import { parseQuickAdd } from '../todos/quickAdd';
@@ -480,19 +481,22 @@ const GoalCard = ({ date, today, goal, week, editable, target, dragging }: { dat
     );
   if (!goal)
     return (
-      <Pressable className="pd-goal is-empty" data-pd-goal="" press="surface" onPress={() => open('day', date)} label={date === today ? 'Set today’s goal' : `Set the goal for ${fmtDate('short', date)}`}>
-        <span className="pd-goal-blob" aria-hidden="true" />
-        <span className="pd-node is-goal" aria-hidden="true">
-          <Target size={16} strokeWidth={2.4} />
-        </span>
-        <span className="pd-goal-main">
-          <span className="caps pd-goal-caps">{date === today ? 'Today' : periodCaps('day', date, today)}</span>
-          <span className="pd-goal-set">{date === today ? 'What would make today count?' : 'What would make this day count?'}</span>
-          <span className="pd-goal-cta">
-            <Plus size={16} strokeWidth={2.6} aria-hidden="true" /> Set the goal
+      <>
+        <Pressable className="pd-goal is-empty" data-pd-goal="" press="surface" onPress={() => open('day', date)} label={date === today ? 'Set today’s goal' : `Set the goal for ${fmtDate('short', date)}`}>
+          <span className="pd-goal-blob" aria-hidden="true" />
+          <span className="pd-node is-goal" aria-hidden="true">
+            <Target size={16} strokeWidth={2.4} />
           </span>
-        </span>
-      </Pressable>
+          <span className="pd-goal-main">
+            <span className="caps pd-goal-caps">{date === today ? 'Today' : periodCaps('day', date, today)}</span>
+            <span className="pd-goal-set">{date === today ? 'What would make today count?' : 'What would make this day count?'}</span>
+            <span className="pd-goal-cta">
+              <Plus size={16} strokeWidth={2.6} aria-hidden="true" /> Set the goal
+            </span>
+          </span>
+        </Pressable>
+        {date === today ? <CarryOver today={today} className="pd-carry" /> : null}
+      </>
     );
   const p = goalProgress(goal);
   const n = goal.steps.length;

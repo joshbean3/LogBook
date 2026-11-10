@@ -14,7 +14,7 @@ import { REFRESH } from '@/ui/nav';
 import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
 import { useOpenCalendar } from './Calendar';
-import { DayPage } from './DayPage';
+import { DayPage, Sentence } from './DayPage';
 import { stripKinds, stripLabel } from './stripKinds';
 import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
@@ -191,6 +191,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         // spread so this compiles before and after NavBar takes them
         {...({ onDatePress: openCalendar, dateLabel: 'Go to a day' } as object)}
       >
+        <Sentence />
         <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} labelOf={labelOf} onPick={(d) => handle.goTo(d)} />
       </NavBar>
       <DayPager date={date} step="day" handle={handle} onCommit={commit} render={render} label="Day" prevLabel="Previous day" nextLabel="Next day" />

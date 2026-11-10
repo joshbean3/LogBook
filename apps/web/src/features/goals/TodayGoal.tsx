@@ -12,6 +12,7 @@ import { clockOf, periodCaps, STATUS_WORD } from './model';
 import { useOpenGoal } from './GoalSheets';
 import { newStepId, rowToggle, stepsLocked, useMarkDone, useSaveSteps } from './Steps';
 import { Burst } from './game';
+import { CarryOver } from './CarryOver';
 import './goals.css';
 
 /* the gauge: three quarters of a circle, open at the foot, filling clockwise from the lower left */
@@ -112,21 +113,24 @@ export const TodayGoal = ({ goal, today, now, hit }: { goal: Aim | null; today: 
 
   if (!goal)
     return (
-      <Pressable className="gh is-empty" press="scale" onPress={() => open('day', today)} label={`Today, ${caps}, ${clock.words}. What would make today count? Set today’s goal`}>
-        <span className="gh-head" aria-hidden="true">
-          <span className="gh-label">Today</span>
-          <span className="gh-date">{caps}</span>
-          <span className="gh-chip">{clock.words}</span>
-        </span>
-        <span className="gh-sun" aria-hidden="true" />
-        <span className="gh-ask" aria-hidden="true">
-          What would make today count?
-        </span>
-        <span className="gh-cta" aria-hidden="true">
-          <Plus size={18} strokeWidth={2.6} />
-          Set today’s goal
-        </span>
-      </Pressable>
+      <>
+        <Pressable className="gh is-empty" press="scale" onPress={() => open('day', today)} label={`Today, ${caps}, ${clock.words}. What would make today count? Set today’s goal`}>
+          <span className="gh-head" aria-hidden="true">
+            <span className="gh-label">Today</span>
+            <span className="gh-date">{caps}</span>
+            <span className="gh-chip">{clock.words}</span>
+          </span>
+          <span className="gh-sun" aria-hidden="true" />
+          <span className="gh-ask" aria-hidden="true">
+            What would make today count?
+          </span>
+          <span className="gh-cta" aria-hidden="true">
+            <Plus size={18} strokeWidth={2.6} />
+            Set today’s goal
+          </span>
+        </Pressable>
+        <CarryOver today={today} className="gh-carry" />
+      </>
     );
 
   const n = goal.steps.length;
