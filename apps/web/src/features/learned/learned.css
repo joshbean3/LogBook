@@ -1,8 +1,14 @@
 
-.ln-hero.has-items {
-  padding-bottom: 12px;
+/* the page fills the scroller, so a short page (loading, an error) keeps its Cloud ground under it instead of showing the
+   scroller's overscroll colors (a Haze band) below its end */
+.page.ln-page:not(.is-searching) {
+  min-height: 100%;
 }
-/* the stage light, from under the card's foot: behind Save, never behind the words (it fades out well below them) */
+.ln-hero.has-items {
+  padding-bottom: var(--sp-3);
+}
+/* a Haze wash from under the card's foot (--halo; not a sunrise glow: the screen has no hero card), behind Save, never
+   behind the words (it fades out well below them) */
 .ln-glow {
   position: absolute;
   inset: auto 0 0;
@@ -17,22 +23,23 @@
   height: 44px;
   opacity: 0.45;
 }
+/* the sentence voice (guide 4.2): Fraunces italic 420, Night Ink */
 .ln-prompt {
   margin: 0;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: break-word;
 }
 .ln-hero-caps {
-  padding: 0 16px 4px;
+  padding: 0 var(--sp-4) var(--sp-1);
 }
 .ln-today-list {
   display: grid;
 }
 
-/* ---------- the field ---------- */
+/* ---------- the field: Inter 17 Night Ink with a Dusk placeholder, never Fraunces (guide 4.5) ---------- */
 .ln-compose {
   display: grid;
   min-width: 0;
@@ -44,7 +51,7 @@
   border: 0;
   background: transparent;
   color: var(--ink);
-  padding: 8px 16px;
+  padding: var(--sp-2) var(--sp-4);
   font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: 0;
   resize: none;
@@ -63,13 +70,13 @@ textarea.ln-field {
 .ln-compose:not(.is-quiet) textarea.ln-field {
   min-height: 100px;
 }
-/* "Add another": a hairline above, one line; its placeholder is its only label, so it reads at --ink-3 */
+/* "Add another": a hairline above, one line; its placeholder is its only label, so it reads in Dusk */
 .ln-compose.is-quiet {
-  margin: 8px 16px 0;
+  margin: var(--sp-2) var(--sp-4) 0;
   border-top: 1px solid var(--line);
 }
 .ln-compose.is-quiet .ln-field {
-  padding: 12px 0 8px;
+  padding: var(--sp-3) 0 var(--sp-2);
 }
 .ln-compose.is-quiet .ln-field::placeholder {
   color: var(--ink-3);
@@ -82,24 +89,28 @@ textarea.ln-field {
   justify-content: flex-end;
   align-items: center;
   min-height: 56px;
-  padding: 4px 16px 8px;
+  padding: var(--sp-1) var(--sp-4) var(--sp-2);
 }
-/* Save: a 32 px pill, the one blue, at 40 % until there are words; a 44 px target */
+/* Save: the screen's one primary, a 32 px pill on a 44 px target. At rest, before there are words, the disabled primary:
+   Haze with Dusk words (5.65), no glow; with words, Sky with Night Ink words (7.03) and the primary glow (guide 6.2) */
 .ln-save.pressable {
   position: relative;
   height: 32px;
   min-height: 32px;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   border: 0;
   border-radius: var(--r-pill);
-  background: var(--primary);
-  color: var(--primary-ink);
-  font: 600 0.9375rem/1.25rem var(--sans);
-  opacity: 0.4;
-  transition: opacity var(--dur-color) var(--ease-out);
+  background: var(--surface-3);
+  color: var(--ink-2);
+  font: 650 var(--fs-sub) / var(--lh-sub) var(--sans);
+  transition:
+    background-color var(--dur-color) var(--ease-out),
+    color var(--dur-color) var(--ease-out);
 }
 .ln-save.is-ready {
-  opacity: 1;
+  background: var(--primary);
+  color: var(--primary-ink);
+  box-shadow: var(--primary-glow);
 }
 .ln-save::after {
   content: '';
@@ -113,7 +124,7 @@ textarea.ln-field {
   width: 100%;
   min-height: 44px;
   margin: 0;
-  padding: 6px 0;
+  padding: var(--sp-2) 0;
   border: 0;
   background: none;
   text-align: left;
@@ -127,22 +138,25 @@ textarea.ln-field {
 }
 .ln-line.is-today.pressable {
   width: auto;
-  margin: 0 16px;
-  padding: 8px 0;
+  margin: 0 var(--sp-4);
+  padding: var(--sp-2) 0;
   border-radius: 0;
 }
 .ln-line.is-today + .ln-line.is-today {
   border-top: 1px solid var(--line);
 }
-.ln-line + .ln-line {
-  margin-top: 2px;
-}
+/* the edit sheet's words: a field (guide 6.14), Paper with the field edge, Inter 17; focused, the Deep Sky edge and the Sky
+   ring */
 .ln-sheet .ln-sheet-field {
   min-height: 128px;
-  padding: 14px 16px;
-  border-radius: var(--r-card);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-control);
+  border: 1px solid var(--field-edge);
   background: var(--surface);
-  box-shadow: var(--shadow-1);
+}
+.ln-sheet .ln-sheet-field:focus {
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
 .ln-end {
   height: 1px;
@@ -150,17 +164,17 @@ textarea.ln-field {
 
 /* ---------- the hint over the first field (what a good entry looks like) ---------- */
 .ln-hint {
-  margin: 6px 0 0;
-  padding: 0 16px;
+  margin: var(--sp-1) 0 0;
+  padding: 0 var(--sp-4);
   font-size: var(--fs-foot);
   line-height: var(--lh-foot);
   color: var(--ink-3);
 }
 
 /* ======================================================================================================================
-   What I learned on shape system v2 (docs/shape-system.md): today's card lit from below, the counts as two tiles, the
-   archive's echoes as a strip of white cards, the search field, then each year as a section whose months are rows of one
-   inset group. A month's page: two tiles, then its days as rows of one card, a dash where there is nothing.
+   What I learned: today's card with a Haze wash at its foot, the counts as two tiles, the archive's echoes as a strip of
+   Paper cards, the search field, then each year as a section whose months are rows of one inset group. A month's page:
+   two tiles, then its days as rows of one card, a dash where there is nothing.
    ====================================================================================================================== */
 
 /* ---------- today's card (the hero) ---------- */
@@ -178,22 +192,16 @@ textarea.ln-field {
   min-width: 0;
 }
 .ln-hero-skel {
-  gap: 12px;
-  padding: 20px 16px 24px;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-4) var(--sp-6);
   /* the empty hero's own height, so nothing jumps when it lands */
   min-height: 262px;
   align-content: start;
 }
-/* skeleton blocks tinted on white cards (the shared default is white) */
-.ln-hero .skel,
-.k-card .skel,
-.ln-grid .skel {
-  --skel-bg: var(--surface-2);
-}
 
 /* ---------- the counts ---------- */
 .ln-tiles .tile-status svg {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 
 /* ---------- from your archive: three cards, swiped sideways; an empty one keeps its card with a dash ---------- */
@@ -217,7 +225,7 @@ textarea.ln-field {
 .ln-echo.pressable {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
   min-width: 0;
   min-height: 148px;
   padding: var(--pad-card);
@@ -245,7 +253,7 @@ textarea.ln-field {
   grid-auto-columns: 100%;
 }
 
-/* ---------- search: a white field on the page, 52 tall ---------- */
+/* ---------- search: a field on the page (guide 6.14), Paper with the field edge, 52 tall ---------- */
 /* while a query is active the page is the field and what it finds; it stays tall enough to hold the field under the nav
    bar (the large title scrolled away) however few results there are */
 .ln-page.is-searching {
@@ -260,11 +268,11 @@ textarea.ln-field {
   min-height: 52px;
   border-radius: var(--r-control);
   background: var(--surface);
-  border: 1.5px solid transparent;
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--field-edge);
 }
 .ln-search:focus-within {
-  border-color: var(--ink-2);
+  border-color: var(--focus-edge);
+  box-shadow: 0 0 0 0.5px var(--focus-edge), var(--focus-ring);
 }
 .ln-search-icon {
   position: absolute;
@@ -307,27 +315,30 @@ textarea.ln-field {
 }
 .ln-none {
   display: grid;
-  gap: 4px;
+  gap: var(--sp-1);
   margin-top: var(--section);
 }
 .ln-more {
   display: grid;
-  gap: 10px;
+  gap: var(--sp-3);
   margin-top: var(--section);
 }
 
 /* ---------- the archive: a year per section, its months as rows of one inset group ---------- */
+/* the month's tile: its short name in caption style, Dusk on Haze (5.65). This month: Paper with the Ember keyline and
+   Ember words, like the Today tag (Ember on Haze fails, guide 3.3) */
 .ln-mtile.icon-tile {
   width: 36px;
   height: 36px;
-  font: 700 var(--fs-caps) / 1 var(--sans);
-  letter-spacing: 0.06em;
+  font: 600 var(--fs-caps) / 1 var(--stamp);
+  letter-spacing: var(--tr-caps);
   text-transform: uppercase;
   color: var(--ink-2);
 }
 .ln-mtile.is-now {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px rgba(180, 67, 12, 0.4);
+  color: var(--now-text);
 }
 .ln-months {
   --k-sep: 64px;
@@ -338,21 +349,21 @@ textarea.ln-field {
 .ln-mrow-top {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--sp-2);
   min-width: 0;
 }
 .ln-mrow-name.k-row-title {
   flex: none;
   font-weight: 600;
 }
-/* the label gives way first (the orange tile already marks the month); the name stays whole */
+/* the label gives way first (the Ember tile already marks the month); the name stays whole. Ember words on Paper (5.51) */
 .ln-mrow-now {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--accent-text);
+  color: var(--now-text);
   white-space: nowrap;
 }
 .ln-mrow-latest {
@@ -376,7 +387,7 @@ textarea.ln-field {
 }
 .ln-day {
   display: grid;
-  padding: 12px 0 8px;
+  padding: var(--sp-3) 0 var(--sp-2);
   min-width: 0;
 }
 .ln-day + .ln-day {
@@ -393,7 +404,7 @@ textarea.ln-field {
   text-transform: none;
 }
 .ln-month-page .ln-tiles {
-  margin-top: 8px;
+  margin-top: var(--sp-2);
 }
 .ln-grid {
   --k-sep: 16px;
@@ -402,7 +413,7 @@ textarea.ln-field {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: var(--sp-2);
   min-height: 52px;
   padding: 6px 16px;
 }
@@ -417,19 +428,26 @@ textarea.ln-field {
 .ln-gday.is-empty .ln-gday-date {
   padding-top: 0;
 }
+/* the day's numeral: Inter 600 with even figures (it lines up down the month) */
 .ln-gday-num {
-  font: 700 var(--fs-row) / var(--lh-row) var(--stamp);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 .ln-gday.is-empty .ln-gday-num {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
+/* today in a list of days: a Night Ink ring around a Night Ink numeral (the shown day would be Sky, guide 6.13); the ring
+   centers on the numeral's column, so the numeral stays where the other days' numerals are */
 .ln-gday.is-today .ln-gday-num {
-  color: var(--accent-text);
-}
-.ln-gday-dow {
-  font-size: 0.6875rem;
-  line-height: 0.875rem;
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  margin: calc(-1 * var(--sp-1)) 0 0 calc(-1 * var(--sp-2));
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  color: var(--ink);
 }
 .ln-gday-items {
   display: grid;
@@ -446,8 +464,8 @@ textarea.ln-field {
   border-radius: 0;
 }
 .ln-gday-dash {
-  color: var(--ink-4);
-  font: 600 var(--fs-row) / var(--lh-row) var(--stamp);
+  color: var(--ink-2);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
 /* the empty year: its one row says what lands here, in full (two lines at 320, never cut) */
 .ln-months .k-row-sub {
@@ -463,14 +481,17 @@ textarea.ln-field {
   line-clamp: 6;
   overflow: hidden;
 }
-/* the tile lines that must stay on one line at 320 */
+/* the tile lines that stay on one line at 320; with Larger Text they wrap inside their tile instead of running past it */
 .tile-status.ln-nowrap {
   white-space: nowrap;
+}
+html[data-text-xl] .tile-status.ln-nowrap {
+  white-space: normal;
 }
 /* the count from 900 characters, and the line when a paste was cut */
 .ln-limit {
   margin: 0;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   text-align: right;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
@@ -478,8 +499,9 @@ textarea.ln-field {
 .ln-sheet .ln-limit {
   margin-top: -6px;
 }
+/* at the limit: warning words (6.28 on Paper) */
 .ln-limit.is-full {
-  color: var(--accent-text);
+  color: var(--warn-text);
 }
 /* the edit sheet opens to read; a tap on the words starts editing */
 .ln-sheet-field.is-reading {
@@ -489,12 +511,12 @@ textarea.ln-field {
 .ln-error {
   display: grid;
   justify-items: start;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 .ln-error-btn.btn {
   min-height: 44px;
-  margin-top: 8px;
-  padding: 0 18px;
+  margin-top: var(--sp-2);
+  padding: 0 var(--sp-5);
 }
 /* a month's page: an empty day in the last week, a tap from filling it in */
 .ln-gday.is-fillable.k-row {
@@ -518,19 +540,19 @@ textarea.ln-field {
   padding-top: 0;
 }
 .ln-gday-fill .ln-gday-num {
-  color: var(--ink-4);
+  color: var(--ink-2);
 }
 .ln-gday-add {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--accent-text);
 }
 /* the month before and after, in the bar */
 .ln-mnav {
   display: inline-flex;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 .ln-mnav-btn.icon-btn:disabled {
   opacity: 0.4;
