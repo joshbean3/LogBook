@@ -10,7 +10,7 @@ import { DEFAULT_API_ORIGIN } from './src/lib/apiOriginDefault';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-/** The commit and time this bundle was built from, shown under the version in Settings: on a phone, the only way to tell a stale build from a fresh one. */
+/** The commit this bundle was built from, shown after the version in Settings: on a phone, the only way to tell a stale build from a fresh one. */
 const commit = (() => {
   try {
     return execSync('git rev-parse --short HEAD', { cwd: here, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
@@ -18,7 +18,6 @@ const commit = (() => {
     return 'dev';
   }
 })();
-const builtAt = new Date().toISOString();
 
 /** The three latin files Today paints with: Inter (one variable file covers 400/500/600), Inter Tight 800, Instrument Serif italic. */
 const PRELOAD = ['Inter-latin.woff2', 'InterTight-latin.woff2', 'InstrumentSerif-italic-latin.woff2'];
@@ -87,7 +86,7 @@ export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, here, 'VITE_'), ...process.env };
   const flags = Object.fromEntries(FLAGS.map((k) => [`import.meta.env.${k}`, JSON.stringify(env[k] ?? '')]));
   return {
-    define: { __BUILD_COMMIT__: JSON.stringify(commit), __BUILD_AT__: JSON.stringify(builtAt), ...flags },
+    define: { __BUILD_COMMIT__: JSON.stringify(commit), ...flags },
     plugins: [
       react(),
       fonts(),
@@ -116,10 +115,11 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api\//],
+          // the legal pages are served as files (public/legal): never precached, never answered with the app shell
+          navigateFallbackDenylist: [/^\/api\//, /^\/legal\//],
           // the build's scripts, styles and icons; not the fonts (eight files, 400 KB), which are cached as they are used
           globPatterns: ['**/*.{js,css,html,svg,png}'],
-          globIgnores: ['fonts/**'],
+          globIgnores: ['fonts/**', 'legal/**'],
           runtimeCaching: [
             {
               urlPattern: ({ url }) => url.pathname.startsWith('/fonts/'),
