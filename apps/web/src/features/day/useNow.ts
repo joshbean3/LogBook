@@ -12,7 +12,8 @@ const fakeStart = (() => {
   return v >= 0 && v < 1440 ? { at: v, t0: Date.now() } : null;
 })();
 
-const readMinutes = () => {
+/** The clock of the day now, in minutes after local midnight (the fake clock in dev): for a one-off read, as a sheet opens. */
+export const readMinutes = () => {
   if (fakeStart) return fakeStart.at + (Date.now() - fakeStart.t0) / 60000;
   const d = new Date();
   return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;

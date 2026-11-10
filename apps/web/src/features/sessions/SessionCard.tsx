@@ -1,10 +1,12 @@
-import { assess, clock, clockOfDay, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
+import { assess, clock, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
 import { ArrowRightLeft, Check, ChevronRight, HeartPulse, MoreHorizontal, Pencil, Share2, SkipForward, Sparkles } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
 import { Button } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useCoachShown } from '../day/coachShown';
+import { clockParts, dayClock } from '../day/dayWords';
+import { readMinutes } from '../day/useNow';
 import { useLog, type Log } from '../log/useLog';
 import { doorOf, morningOf } from '../morning/model';
 import type { ShareData, ShareDayType } from '../share/cards';
@@ -33,7 +35,7 @@ export const sessionMeta = (s: Session, _st?: string): string => {
 /** "14:38" → "2:38 PM": one time format across the app (audit §3.2). */
 export const startClock = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
-  return h == null || m == null || Number.isNaN(h) || Number.isNaN(m) ? hhmm : clockOfDay(h * 60 + m);
+  return h == null || m == null || Number.isNaN(h) || Number.isNaN(m) ? hhmm : dayClock(h * 60 + m);
 };
 
 /** The chip class for a status key: the colours `.chip` already has. A missed day is the plain chip, never red (§7.2). */
@@ -54,8 +56,8 @@ export const plannedMiles = (s: Session | null | undefined): number => (s?.kind 
 
 /** A clock time as a number and its small unit: `6:45` `AM`. */
 const timeNum = (m: number): [string, string] => {
-  const [v, u] = clockOfDay(m).split(' ');
-  return [v ?? '', u ?? ''];
+  const { v, u } = clockParts(m);
+  return [v, u];
 };
 
 /**
@@ -74,7 +76,10 @@ const planStats = (date: string, s: Session, log: Log, sets: number): SheetStat[
     if (main?.id === s.id) {
       const T = morningOf(sessions, log.snap.morningOverride(date), log.boot.morningSettings ?? MORNING_DEFAULTS);
       const door = doorOf(T);
-      if (door != null) stats.push(['Out the door', ...timeNum(door)], ['Back', ...timeNum(T.back)]);
+      // a time already past is not news: the tile goes (today-top-18)
+      const now = date === log.today ? readMinutes() : -1;
+      if (door != null && door > now) stats.push(['Out the door', ...timeNum(door)]);
+      if (door != null && T.back > now) stats.push(['Back', ...timeNum(T.back)]);
     }
   }
   if (sets && s.kind !== 'lift') stats.push(['Sets', String(sets), sets === 1 ? 'set' : 'sets']);
@@ -325,7 +330,7 @@ const SheetHero = ({ s, k, word, when, moved, hero, rest }: { s: Session | null;
           {hero.u ? <small>{hero.u}</small> : null}
         </span>
       ) : null}
-      {hero ? <span className="ss-hero-label">{hero.n ?? hero.k}</span> : rest ? <span className="ss-hero-rest display">Rest. It counts.</span> : null}
+      {hero ? (hero.n ?? hero.k) ? <span className="ss-hero-label">{hero.n ?? hero.k}</span> : null : rest ? <span className="ss-hero-rest display">Rest. It counts.</span> : null}
       {moved ? <span className="ss-hero-moved">{moved}</span> : null}
     </div>
   );
@@ -415,8 +420,9 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the numbers: a run that came in leads with its distance; a plan with what it asks (its miles or minutes)
   const nums = runs.length ? runNumbers(s, runs, log, plannedMiles(s)) : planStats(date, s, log, s.kind === 'lift' ? sets.length : 0).map(toNum);
   const lead = runs.length ? nums[0]! : nums.find((x) => x.k === 'Plan') ?? null;
-  const doneWord = counts(st) ? (st === 'floor' ? 'floor held' : 'done') : 'planned';
-  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : s.type && s.kind !== 'run' ? `${s.type}, ${doneWord}` : doneWord[0]!.toUpperCase() + doneWord.slice(1)) } : null;
+  // the status word above the number says done or not; under it, what the number is: the plan (today-top-18). When the
+  // status word is already "Planned", the number needs no second one
+  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : /^planned$/i.test(word.trim()) ? '' : 'Planned') } : null;
   const tiles = nums.filter((x) => x !== lead);
   const typeWord = s.type && !label(s).toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const skipped = s.mark === 'skip' || s.mark === 'sick';

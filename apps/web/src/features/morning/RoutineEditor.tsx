@@ -42,13 +42,13 @@ const at = <G extends 'run' | 'gym' | 'after'>(g: G, k: keyof MorningSettings[G]
 const WAKEUP = [5, 10, 15, 20, 30, 45];
 
 const FIELDS: Record<string, Field> = {
-  wake: { id: 'wake', label: 'Usual alarm', sub: 'One morning different? Tap the alarm on the schedule', get: (s) => s.wake, put: (s, v) => ({ ...s, wake: v }), step: 5, min: 240, max: 720, fmt: short, parse: parseWake },
+  wake: { id: 'wake', label: 'Usual wake time', sub: 'One morning different? Tap the wake time on the schedule', get: (s) => s.wake, put: (s, v) => ({ ...s, wake: v }), step: 5, min: 240, max: 720, fmt: short, parse: parseWake },
   pace: { id: 'pace', label: 'Easy pace', sub: 'Turns miles into minutes', ...at('run', 'pace'), step: 5, min: 240, max: 1200, fmt: (v) => `${clock(v)}/mi`, parse: parsePace },
-  'run.wakeup': { id: 'run.wakeup', label: 'Wake-up routine', sub: 'Alarm to dressed', ...at('run', 'wakeup'), step: 1, min: 0, max: 180, cycle: WAKEUP, fmt: mins, parse: int },
+  'run.wakeup': { id: 'run.wakeup', label: 'Wake-up routine', sub: 'Waking to dressed', ...at('run', 'wakeup'), step: 1, min: 0, max: 180, cycle: WAKEUP, fmt: mins, parse: int },
   'run.buffer': { id: 'run.buffer', label: 'Door and cool-down', sub: 'Each side of the run', ...at('run', 'buffer'), step: 1, min: 0, max: 180, cycle: [0, 5, 10, 15], fmt: mins, parse: int },
   'gym.length': { id: 'gym.length', label: 'Usual workout', sub: 'One day different? Tap the workout on the schedule', ...at('gym', 'length'), step: 5, min: 5, max: 240, cycle: [20, 30, 40, 45, 60, 75, 90], fmt: mins, parse: int },
   'gym.walk': { id: 'gym.walk', label: 'Walk to the gym', sub: 'Each way', ...at('gym', 'walk'), step: 1, min: 0, max: 180, cycle: [0, 5, 10, 15, 20], fmt: mins, parse: int },
-  'gym.wakeup': { id: 'gym.wakeup', label: 'Wake-up routine', sub: 'Alarm to dressed', ...at('gym', 'wakeup'), step: 1, min: 0, max: 180, cycle: WAKEUP, fmt: mins, parse: int },
+  'gym.wakeup': { id: 'gym.wakeup', label: 'Wake-up routine', sub: 'Waking to dressed', ...at('gym', 'wakeup'), step: 1, min: 0, max: 180, cycle: WAKEUP, fmt: mins, parse: int },
 };
 /** A timeline block's key → the field its Edit opens on. */
 const FOCUS: Record<string, string> = { wake: 'run.wakeup', buffer: 'run.buffer', gym: 'gym.length', run: 'pace' };
@@ -144,7 +144,7 @@ export const RoutineEditor = ({ day, settings: initial, focus, dayWord = 'This m
   const leaveNow = leaveOf(s);
   const leaveSub =
     mine.leave !== leaveNow
-      ? `${dayWord}: ${short(mine.leave)}, ${day.own && usualLeave !== mine.leave ? `on its own alarm ${short(day.wake)}` : day.mode === 'rest' ? 'after waking' : `after the ${day.mode === 'gym' ? 'workout' : 'run'}`}`
+      ? `${dayWord}: ${short(mine.leave)}, ${day.own && usualLeave !== mine.leave ? `on its own wake time ${short(day.wake)}` : day.mode === 'rest' ? 'after waking' : `after the ${day.mode === 'gym' ? 'workout' : 'run'}`}`
       : s.after.showerMode !== 'fixed'
         ? 'Sets when the routine starts'
         : `The routine starts at ${short(s.after.showerAt)}`;
@@ -192,9 +192,9 @@ export const RoutineEditor = ({ day, settings: initial, focus, dayWord = 'This m
         </div>
         <MiniTimeline stops={stopsOf(T)} now={-1} label={`Preview: ${stopsOf(T).map((x) => `${x.label} ${short(x.at)}`).join(', ')}`} />
         <p className="rt-verdict">
-          {preview !== day.mode ? `${kindWord(preview)}: ` : day.own ? `${dayWord}, its own alarm ${short(day.wake)}: ` : ''}
+          {preview !== day.mode ? `${kindWord(preview)}: ` : day.own ? `${dayWord}, its own wake time ${short(day.wake)}: ` : ''}
           {/* leaving for work, not the run's door (the preview's DOOR is that one: feel review 3 R3-4) */}
-          {durationWords(T.leave - T.day.wake)} from alarm to leaving.{T.late ? ` ${T.late} min late for the routine.` : ''}
+          {durationWords(T.leave - T.day.wake)} from waking to leaving.{T.late ? ` ${T.late} min late for the routine.` : ''}
         </p>
       </div>
 
@@ -203,8 +203,8 @@ export const RoutineEditor = ({ day, settings: initial, focus, dayWord = 'This m
         <div className="rt-list">{row('leave')}</div>
       </section>
 
-      <section className="rt-sec" aria-label="Alarm">
-        <h3 className="section-title">Alarm</h3>
+      <section className="rt-sec" aria-label="Wake time">
+        <h3 className="section-title">Wake time</h3>
         <div className="rt-list">{row('wake')}</div>
       </section>
 

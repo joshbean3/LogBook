@@ -5,12 +5,13 @@ import { Pressable } from '@/ui/Pressable';
 import { Stepper } from '@/ui/primitives';
 import { useSheet } from '@/ui/Sheet';
 import { shortClock } from './dayWords';
-import { afternoonStops, setAfternoon, setTrainWhen, setTrainWhenDefault, useAfternoon, useTrainWhen, useTrainWhenDefault, type TrainWhen } from './trainWhen';
+import { afternoonStops, setAfternoon, type SessionKind, setTrainWhen, setTrainWhenDefault, useAfternoon, useTrainWhen, useTrainWhenDefault, type TrainWhen } from './trainWhen';
 
-const OPTS: Array<{ v: TrainWhen; label: string; Icon: typeof Sunrise }> = [
-  { v: 'morning', label: 'Morning', Icon: Sunrise },
-  { v: 'afternoon', label: 'Afternoon', Icon: CloudSun },
-  { v: 'none', label: 'No time', Icon: Minus },
+/** `said` is what VoiceOver reads after "Train," (today-top-20: "Train, no set time", not "Train no time"). */
+const OPTS: Array<{ v: TrainWhen; label: string; said: string; Icon: typeof Sunrise }> = [
+  { v: 'morning', label: 'Morning', said: 'morning', Icon: Sunrise },
+  { v: 'afternoon', label: 'Afternoon', said: 'afternoon', Icon: CloudSun },
+  { v: 'none', label: 'No time', said: 'no set time', Icon: Minus },
 ];
 
 /** Morning · Afternoon · No time: when this day's training happens. A selection tick on change; the card follows at once. */
@@ -18,14 +19,14 @@ export const WhenPill = ({ date }: { date: ISODate }) => {
   const when = useTrainWhen(date);
   return (
     <div className="hero-when" role="radiogroup" aria-label="When you train">
-      {OPTS.map(({ v, label, Icon }) => (
+      {OPTS.map(({ v, label, said, Icon }) => (
         <Pressable
           key={v}
           className={`hero-when-opt ${when === v ? 'on' : ''}`}
           press="dim"
           role="radio"
           aria-checked={when === v}
-          label={`Train ${label.toLowerCase()}`}
+          label={`Train, ${said}`}
           onPress={(e) => {
             e.stopPropagation();
             if (v === when) return;
@@ -43,33 +44,58 @@ export const WhenPill = ({ date }: { date: ISODate }) => {
 
 const clockText = (m: number) => shortClock(m);
 
-/** The afternoon's settings: when work ends and the way home, the default for new days, and the line they make. */
-export const AfternoonSheet = ({ minutes }: { minutes: number }) => {
+/**
+ * A typed time for the end of work (today-top-22): `6`, `6:00`, `6.00`, `600`, `18:00`, `6 pm`, `6:30pm`. Without AM or PM an
+ * hour before 11 is the afternoon's (work ends between 11:00 and 21:00). Null when it is not a time.
+ */
+export const parseOffWork = (t: string): number | null => {
+  const m = /^\s*(\d{1,2})(?:[:.]?(\d{2}))?\s*([ap])?\.?\s*m?\.?\s*$/i.exec(t);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = m[2] ? Number(m[2]) : 0;
+  if (h > 23 || min > 59) return null;
+  const ap = m[3]?.toLowerCase();
+  if (ap === 'p' && h < 12) h += 12;
+  else if (ap === 'a' && h === 12) h = 0;
+  else if (!ap && h < 11) h += 12;
+  return h * 60 + min;
+};
+const minutesOf = (t: string) => (Number.isFinite(parseInt(t, 10)) ? parseInt(t, 10) : /^\s*none\s*$/i.test(t) ? 0 : null);
+const NUMERIC = { inputMode: 'numeric', autoComplete: 'off', enterKeyHint: 'done' } as const;
+
+/** The afternoon's settings: when work ends, the way home, changing, after the session, the default for new days, and the line they make. */
+export const AfternoonSheet = ({ minutes, kind }: { minutes: number; kind?: SessionKind | null }) => {
   const pm = useAfternoon();
   const def = useTrainWhenDefault();
   const sheet = useSheet();
-  const stops = afternoonStops(pm, minutes);
+  const stops = afternoonStops(pm, minutes, kind);
   return (
     <div className="pm-sheet">
       <p className="pm-line">
         {stops.map((s) => (
           <span key={s.key}>
-            <small>{s.label}</small>
+            {/* the summary's labels stay on one line: `Off` here, `Off work` on the card's line */}
+            <small>{s.key === 'off' ? 'Off' : s.label}</small>
             <b>{clockText(s.at)}</b>
           </span>
         ))}
       </p>
       <label className="pm-row">
         <span>Off work</span>
-        <Stepper value={pm.offWork} onChange={(v) => setAfternoon({ offWork: v })} step={15} min={11 * 60} max={21 * 60} format={clockText} parse={() => null} label="Off work" />
+        <Stepper value={pm.offWork} onChange={(v) => setAfternoon({ offWork: v })} step={15} min={11 * 60} max={21 * 60} format={clockText} parse={parseOffWork} label="Off work" inputProps={NUMERIC} />
       </label>
       <label className="pm-row">
         <span>Way home</span>
-        <Stepper value={pm.commute} onChange={(v) => setAfternoon({ commute: v })} step={5} min={0} max={120} format={(v) => (v ? `${v} min` : 'None')} parse={(t) => (Number.isFinite(parseInt(t, 10)) ? parseInt(t, 10) : null)} label="Way home in minutes" />
+        <Stepper value={pm.commute} onChange={(v) => setAfternoon({ commute: v })} step={5} min={0} max={120} format={(v) => (v ? `${v} min` : 'None')} parse={minutesOf} label="Way home in minutes" inputProps={NUMERIC} />
+      </label>
+      {/* the minutes between getting home and the start, said and changeable (they were a hidden 10) */}
+      <label className="pm-row">
+        <span>Changing</span>
+        <Stepper value={pm.change} onChange={(v) => setAfternoon({ change: v })} step={5} min={0} max={30} format={(v) => (v ? `${v} min` : 'None')} parse={minutesOf} label="Minutes to change" inputProps={NUMERIC} />
       </label>
       <label className="pm-row">
-        <span>After the run</span>
-        <Stepper value={pm.after} onChange={(v) => setAfternoon({ after: v })} step={5} min={0} max={90} format={(v) => `${v} min`} parse={(t) => (Number.isFinite(parseInt(t, 10)) ? parseInt(t, 10) : null)} label="Minutes after the run" />
+        <span>After the session</span>
+        <Stepper value={pm.after} onChange={(v) => setAfternoon({ after: v })} step={5} min={0} max={90} format={(v) => `${v} min`} parse={minutesOf} label="Minutes after the session" inputProps={NUMERIC} />
       </label>
       <div className="pm-row pm-default">
         <span>New days start as</span>
@@ -80,6 +106,7 @@ export const AfternoonSheet = ({ minutes }: { minutes: number }) => {
               type="button"
               role="radio"
               aria-checked={def === v}
+              aria-label={v === 'none' ? 'No set time' : undefined}
               className={def === v ? 'on' : ''}
               onClick={() => {
                 if (def !== v) haptics.select();

@@ -1,4 +1,5 @@
-import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, clockOfDay, durationWords, morningDayFor, NEW_ACCOUNT_MORNING, normalizeAfterOrder, num, routineOf, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type RoutineStep, type Session } from '@logbook/shared';
+import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, durationWords, morningDayFor, NEW_ACCOUNT_MORNING, normalizeAfterOrder, num, routineOf, type MorningAfterKey, type MorningDayOverride, type MorningSettings, type MorningTimeline, type RoutineKey, type RoutineStep, type Session } from '@logbook/shared';
+import { clockParts } from '../day/dayWords';
 
 /**
  * This morning's pure model: the timeline for a day (the routine's block order is a setting `buildMorning` honours), the
@@ -8,8 +9,7 @@ import { AFTER_LABELS, AFTER_ORDER, afterLabel, buildMorning, clock, clockOfDay,
 // ---------- time words ----------
 /** "7:20 AM" split so the number can be big and the meridiem small. */
 export const timeParts = (m: number) => {
-  const [v = '', u = ''] = clockOfDay(m).split(' ');
-  return { v, u };
+  return clockParts(m);
 };
 /** "7:20" without the meridiem (a morning is all AM; the axis and the stamps say so once). */
 export const short = (m: number) => timeParts(m).v;
@@ -206,16 +206,16 @@ export const timeState = (isToday: boolean, now: number, start: number, end: num
 };
 
 /**
- * The Now card's one line (spec §4.1). Today, by phase: `Alarm in 43 min` · `Out the door in 22 min` · `Back by 8:13` ·
- * `Shower now · Leave in 45 min` · `Left 9:30`. A past morning: `Woke 7:15 · Left 9:30`. A future one: `Alarm 7:15 · Leave 9:30`.
+ * The Now card's one line (spec §4.1). Today, by phase: `Wake time in 43 min` · `Out the door in 22 min` · `Back by 8:13` ·
+ * `Shower now · Leave in 45 min` · `Left 9:30`. A past morning: `Woke 7:15 · Left 9:30`. A future one: `Wake time 7:15 · Leave 9:30`.
  */
 export const nowLine = (T: MorningTimeline, now: number, rel: 'past' | 'today' | 'future'): string => {
   const wake = T.day.wake;
   if (rel === 'past') return `Woke ${short(wake)} · Left ${short(T.leave)}`;
-  if (rel === 'future') return `Alarm ${short(wake)} · Leave ${short(T.leave)}`;
+  if (rel === 'future') return `Wake time ${short(wake)} · Leave ${short(T.leave)}`;
   const p = morningPhase(T, now);
   const inW = (m: number) => inWords(m, now);
-  if (p.k === 'alarm') return `Alarm in ${inW(p.at)}`;
+  if (p.k === 'alarm') return `Wake time in ${inW(p.at)}`;
   if (p.k === 'door') return `Out the door in ${inW(p.at)}`;
   if (p.k === 'out') return `Back by ${short(p.at)}`;
   if (p.k === 'left') return `Left ${short(p.at)}`;

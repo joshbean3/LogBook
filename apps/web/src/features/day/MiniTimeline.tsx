@@ -23,16 +23,18 @@ export const stopProgress = (stops: Stop[], now: number) => {
 };
 
 /** The line and its dots: the part behind `now` lit by a scaleX, the now dot placed by a translate (transform only, §10). */
-const Line = ({ p, n }: { p: number; n: number }) => (
+const Line = ({ p, n, dot = true }: { p: number; n: number; dot?: boolean }) => (
   <span className="mini-tl-line" aria-hidden="true">
     <span className="mini-tl-done" style={{ transform: `scaleX(${p})` }} />
     {Array.from({ length: n + 1 }, (_, i) => (
       <i key={i} className={`mini-tl-stop ${n && p > 0 && i / n <= p ? 'past' : ''}`} style={{ left: `${n ? (i / n) * 100 : 0}%` }} />
     ))}
     {/* the track spans the line; translating it by p of its own width puts the dot at p (static per minute) */}
-    <span className="mini-tl-nowtrack" style={{ transform: `translateX(${(p * 100).toFixed(3)}%)` }}>
-      <i className="mini-tl-now" />
-    </span>
+    {dot ? (
+      <span className="mini-tl-nowtrack" style={{ transform: `translateX(${(p * 100).toFixed(3)}%)` }}>
+        <i className="mini-tl-now" />
+      </span>
+    ) : null}
   </span>
 );
 
@@ -52,7 +54,8 @@ export const MiniTimeline = ({ stops, now, onPress, label, shared }: { stops: St
   const n = stops.length - 1;
   const body = (
     <>
-      <Line p={p} n={n} />
+      {/* a morning that is not today's has no now: no dot (a negative `now`; today-top-23) */}
+      <Line p={p} n={n} dot={now >= 0} />
       <span className="mini-tl-times" data-n={stops.length} aria-hidden="true">
         {stops.map((s, i) => (
           <span key={s.key} className="mini-tl-time" data-edge={i === 0 ? 'start' : i === n ? 'end' : undefined} style={{ left: `${n ? (i / n) * 100 : 0}%` }}>

@@ -1,8 +1,9 @@
-import { mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
+import { fmtDate, mondayOf, monthOf, shiftDays, type ISODate } from '@logbook/shared';
 import { ChevronRight } from 'lucide-react';
 import type * as React from 'react';
-import { lazy, memo, Suspense, useDeferredValue, useEffect, useLayoutEffect, useMemo } from 'react';
-import { useHabitMutations } from '@/api/queries';
+import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useGoals, useHabitMutations, useTodos } from '@/api/queries';
+import { STRAVA_BUILT } from '@/lib/features';
 import { hideSplash } from '@/lib/native';
 import { SectionHeader } from '@/ui/layout';
 import { EmptyState } from '@/ui/primitives';
@@ -10,14 +11,17 @@ import { Pressable } from '@/ui/Pressable';
 import { useSheet } from '@/ui/Sheet';
 import { NAV_EVENT, type NavEventDetail } from '@/ui/nav';
 import { useOpenHabitsHistory } from '../habits/HabitsHistory';
+import { Composer } from '../journal/JournalDaySection';
 import { HABIT_STARTERS, HabitsMeta, OrbRow } from '../habits/OrbRow';
 import { useLog, type Log } from '../log/useLog';
 import { StravaPrimer, useStravaPrimer } from '../onboarding';
 import { PlanDay } from '../dayplan/PlanDay';
+import { nothingSetUp, looksNew } from './firstRun';
 import { FirstRunHero, type FirstRunAction } from './FirstRunHero';
 import { preloadCloseDay } from './CloseDay';
-import { Hero, SecondSession } from './Hero';
+import { Hero } from './Hero';
 import { useIsLive } from './live';
+import { useNowMinutes } from './useNow';
 import { dismissNudge, useNudge } from './nudge';
 import { TheDayCard } from './TheDayCard';
 import { HeldNote } from '../plan/Held';
@@ -25,27 +29,21 @@ import { DayTimeline } from './DayTimeline';
 import { StatusChip } from './StatusChip';
 import { useFocus, useOpenWordSheet } from './WordSheet';
 
+/** The Strava primer on Today exists only in a build that carries Strava (settings-18). */
+const usePrimer: typeof useStravaPrimer = STRAVA_BUILT ? useStravaPrimer : () => ({ show: false, later: () => undefined });
+
 const TEST_HOOKS = typeof window !== 'undefined' && !!(import.meta.env.DEV || import.meta.env.VITE_FAKE_CLOCK);
 // the plan-end card is rare (a few days a block) and pulls in the builder: loaded when it is first needed
 
 /** The months a day page reads: a week either side (the rest face looks a week ahead, the first-run test a week back) and the shown week. */
 export const monthsFor = (date: ISODate) => [...new Set([shiftDays(date, -8), date, shiftDays(date, 8), mondayOf(date), shiftDays(mondayOf(date), 6)].map(monthOf))].sort();
 
-/** The first day (§3.2 last row): nothing planned or run around today, and no plan or no habits yet, and nothing written. */
-const isFirstRun = (log: Log, date: ISODate) => {
-  if (date !== log.today) return false;
-  const around = Array.from({ length: 16 }, (_, i) => shiftDays(log.today, i - 7));
-  const hasPlan = around.some((d) => log.snap.sessionsOn(d).length > 0);
-  const hasRuns = around.some((d) => log.snap.activitiesOn(d).length > 0);
-  return !hasRuns && (!hasPlan || !log.habits.length) && !log.snap.journalOn(date).length;
-};
-
 const AddHabitsSheet = () => {
   const { add } = useHabitMutations();
   const sheet = useSheet();
   return (
     <EmptyState starters={HABIT_STARTERS} onStarter={(name) => add.mutateAsync(name)} verb={{ label: 'Done', onPress: () => sheet.close() }} startersLabel="Starter habits">
-      Tap the ones you want to do every day. They become lights at the top of Today.
+      Tap the ones you want to do every day. They show as tiles on Today.
     </EmptyState>
   );
 };
@@ -57,13 +55,24 @@ const FirstRun = ({ log }: { log: Log }) => {
     if (k === 'habits') sheet.open({ title: 'Add habits', body: <AddHabitsSheet /> });
     // the builder is WP4's large sheet; its module loads on the tap (it never weighs on Today's first paint)
     else if (k === 'plan') void import('../plan/Blocks').then((m) => m.openTemplate(sheet, log));
-    else sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
+    else if (STRAVA_BUILT) sheet.open({ title: 'Connect Strava', body: <StravaPrimer onLater={() => sheet.close()} /> });
   };
   return (
     <div className="hero hero-first" data-face="first">
-      <FirstRunHero onAction={onAction} />
+      <FirstRunHero onAction={onAction} strava={log.features.strava} />
     </div>
   );
+};
+
+/**
+ * The hero's slot on a day that looks new (`looksNew`): the first-run face only when there is also no to-do and no goal,
+ * that is, when nothing at all is set up. Anyone with a habit, a plan, a to-do or a goal gets the day's own card.
+ */
+const FirstRunSlot = ({ date, log }: { date: ISODate; log: Log }) => {
+  const todos = useTodos();
+  const goals = useGoals();
+  if (todos.data === undefined || goals.data === undefined) return todos.isError || goals.isError ? <Hero date={date} log={log} /> : <HeroSkeleton />;
+  return nothingSetUp(todos.data, goals.data) ? <FirstRun log={log} /> : <Hero date={date} log={log} />;
 };
 
 /** While the months load: the hero's own box (the skeleton never sits anywhere else, §14 test 40). */
@@ -83,7 +92,7 @@ const Sentence = memo(function Sentence() {
   return (
     <Pressable className="sentence" press="dim" onPress={open} label={`${focus.quote}${focus.by ? `, ${focus.by}` : ''}. Edit`}>
       <span className="sentence-text">
-        “{focus.quote.trim()}”{focus.by.trim() ? <span className="sentence-by"> — {focus.by.trim()}</span> : null}
+        “{focus.quote.trim()}”{focus.by.trim() ? <span className="sentence-by">, {focus.by.trim()}</span> : null}
       </span>
     </Pressable>
   );
@@ -120,6 +129,30 @@ const NudgeSlot = ({ date, onMorning }: { date: ISODate; onMorning: (date: ISODa
   );
 };
 
+/**
+ * Just after midnight, yesterday is still the day you mean to close (today-top-31): until 3 AM, if yesterday has no entry,
+ * one line on Today opens yesterday's composer in a sheet. The date logic is untouched: Today is still the new day.
+ */
+const LATE_UNTIL = 3 * 60;
+const CloseYesterday = ({ log }: { log: Log }) => {
+  const now = useNowMinutes();
+  const sheet = useSheet();
+  const live = useIsLive(log.today);
+  const yesterday = shiftDays(log.today, -1);
+  if (!live || now >= LATE_UNTIL || log.snap.journalOn(yesterday).length) return null;
+  const open = () =>
+    sheet.open({
+      eyebrow: fmtDate('long', yesterday),
+      title: 'Close yesterday',
+      body: <Composer date={yesterday} today={log.today} rows={3} placeholder="How did yesterday go?" autoFocus label="Yesterday's entry" onSaved={() => sheet.close()} />,
+    });
+  return (
+    <Pressable className="nudge close-yesterday" press="dim" label="Close yesterday. Write yesterday's entry" onPress={open}>
+      Close yesterday <ChevronRight size={14} aria-hidden="true" />
+    </Pressable>
+  );
+};
+
 const OrbRowM = memo(OrbRow);
 
 /**
@@ -129,9 +162,10 @@ const OrbRowM = memo(OrbRow);
 const HabitsTop = memo(function HabitsTop({ date, log }: { date: ISODate; log: Log }) {
   const history = useOpenHabitsHistory();
   return (
-    <section className="habits day-habits" aria-label="Habits" inert={date > log.today || undefined}>
+    <section className="habits day-habits" aria-label="Habits">
       <SectionHeader title="Habits" meta={<HabitsMeta date={date} log={log} />} action="History" onAction={history} actionLabel="Every habit's history" />
-      <div className="day-habits-card">
+      {/* only the tiles are locked on a day still to come: History in the header still opens (today-body-18) */}
+      <div className="day-habits-card" inert={date > log.today || undefined}>
         <OrbRowM date={date} log={log} />
       </div>
     </section>
@@ -200,25 +234,32 @@ const DayContent = memo(function DayContent({ date, onMorning }: { date: ISODate
   const fresh = useLog(months);
   const later = useDeferredValue(fresh);
   const log = later.today === fresh.today ? later : fresh;
-  const primer = useStravaPrimer();
+  const primer = usePrimer();
   const today = log.today;
   const isToday = date === today;
   const loaded = log.loaded(date) && !!log.boot;
-  const first = loaded && isFirstRun(log, date);
+  // a day that looks new may show the first-run face in the hero's slot (FirstRunSlot decides); nothing else on the page
+  // depends on it: Plan your day, the habits and the evening's Close card are always there
+  const bare = loaded && looksNew(log, date);
+  const sheet = useSheet();
+  // the builder is a large sheet; its module loads on the tap (never on Today's first paint)
+  const logRef = useRef(log);
+  logRef.current = log;
+  const openPlan = useCallback(() => void import('../plan/Blocks').then((m) => m.openTemplate(sheet, logRef.current)), [sheet]);
 
 
   return (
     <div className="day-page" data-day={date}>
-      {loaded ? <StatusChip date={date} today={today} /> : null}
-      {loaded && !first ? <HeldNote date={date} log={log} /> : null}
+      {loaded ? <StatusChip date={date} today={today} onPlan={openPlan} /> : null}
+      {loaded ? <HeldNote date={date} log={log} /> : null}
+      {loaded && isToday ? <CloseYesterday log={log} /> : null}
       {/* the day's training is the page's centrepiece: first, above the habits (HeroGauge carries the week's miles) */}
-      {!loaded ? <HeroSkeleton /> : first ? <FirstRun log={log} /> : <Hero date={date} log={log} />}
+      {!loaded ? <HeroSkeleton /> : bare ? <FirstRunSlot date={date} log={log} /> : <Hero date={date} log={log} />}
       <LiveExtras date={date} loaded={loaded} />
       {loaded ? <HabitsTop date={date} log={log} /> : <section className="habits day-habits is-skel" aria-hidden="true" />}
       <Sentence />
-      {loaded && !first ? <PlanDay date={date} today={today} /> : null}
-      {loaded ? <SecondSession date={date} log={log} /> : null}
-      {loaded && isToday && !first && primer.show ? (
+      {loaded ? <PlanDay date={date} today={today} /> : null}
+      {STRAVA_BUILT && loaded && isToday && !bare && primer.show ? (
         <div className="strava-primer">
           <StravaPrimer onLater={primer.later} />
         </div>

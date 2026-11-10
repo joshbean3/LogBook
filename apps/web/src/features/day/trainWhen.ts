@@ -1,7 +1,8 @@
-import type { ISODate, Session } from '@logbook/shared';
+import { counts, EVENING_START, type DayPhase, type ISODate, type Session } from '@logbook/shared';
 import { useSyncExternalStore } from 'react';
+import type { Log } from '../log/useLog';
 import { shortClock } from './dayWords';
-import type { Face } from './faces';
+import { faceOf, heroLead, phaseOf, type Face } from './faces';
 import type { Stop } from './MiniTimeline';
 
 /**
@@ -105,35 +106,90 @@ export const sessionMinutes = (s: Pick<Session, 'miles' | 'minutes'> | null | un
   return 45;
 };
 
-/** Off work · Run · Back · Dinner, the afternoon's four stops, built the way the morning's are (door from the routine before it, back from the run's length). */
-export const afternoonStops = (pm: AfternoonSettings, runMin: number): Stop[] => {
+/** The session's own word for its start (today-top-06): a run is a Run, a lift a Lift, anything else a Start. */
+export type SessionKind = Session['kind'];
+export const startWord = (kind: SessionKind | null | undefined) => (kind === 'lift' ? 'Lift' : kind === 'run' || !kind ? 'Run' : 'Start');
+
+/** Off work · Run · Back · Dinner, the afternoon's four stops, built the way the morning's are (door from the routine before it, back from the session's length). The second stop is named for the session (`Lift` on a strength day). */
+export const afternoonStops = (pm: AfternoonSettings, runMin: number, kind?: SessionKind | null): Stop[] => {
   const run = pm.offWork + pm.commute + pm.change;
   const back = run + runMin;
   return [
     { key: 'off', label: 'Off work', at: pm.offWork },
-    { key: 'run', label: 'Run', at: run },
+    { key: 'run', label: startWord(kind), at: run },
     { key: 'back', label: 'Back', at: back },
     { key: 'dinner', label: 'Dinner', at: back + pm.after },
   ];
 };
 
 /**
- * The hero's face for the chosen time. Morning: as Logbook plans it. Afternoon: the afternoon's stops in place of the
- * morning's, and words to match. No set time: no line at all. Only a training day changes; a rest day keeps its morning.
+ * The day's phase for the chosen time (today-top-02). The shared phase (`dayPhase`) knows one timeline, the morning's: it
+ * says `morning` until the morning's door and `out` until its back time, whenever the session is really planned. This wraps
+ * it for a session still open today (another day, a rest day and a session already done keep the shared phase):
+ *
+ * - Morning: the shared phase, untouched.
+ * - Afternoon: the phases come from the afternoon's stops (Off work · Run · Back · Dinner). `morning` reads "before the
+ *   session" (until Run), `out` runs from Run to Back, then `day` (the open face, with its ring) and the evening's Close card
+ *   only once Dinner has passed (never before 18:00). So the card never says OUT at 7:10 and never closes the day five
+ *   minutes before the run.
+ * - No set time: no door and no back at all: `day` (the open face) until 18:00, then the Close card, which keeps the
+ *   session's row and ring at its top.
+ *
+ * The morning's door and back are dropped from the result, so nothing downstream can count down to a door nobody is going
+ * through. A mark (done, floor, skip) ends all of this at once: the shared phase answers for a settled day.
+ */
+export const phaseForWhen = (ph: DayPhase, when: TrainWhen, pm: AfternoonSettings, pace: number | null | undefined): DayPhase => {
+  if (when === 'morning' || ph.phase === 'past' || ph.phase === 'future') return ph;
+  // a cross day has no morning line to move (the shared phase plans run and gym mornings only): the switch is not offered
+  const lead = heroLead(ph) ?? ph.primary;
+  if (lead?.session.kind === 'cross') return ph;
+  const open = ph.training.length > 0 && !(ph.primary && counts(ph.primary.status));
+  if (!open) return ph;
+  const { doorAt: _door, backBy: _back, doorIn: _in, outProgress: _out, ...base } = ph;
+  const evening = ph.now >= EVENING_START;
+  if (when === 'none') return { ...base, phase: evening ? 'evening' : 'day' };
+  const [, run, back, dinner] = afternoonStops(pm, sessionMinutes(lead?.session, pace));
+  // the morning's Leave is not this timeline's: the out face has no "Leave 8:30" under an evening run
+  const pmBase = { ...base, wakeAt: undefined, leaveAt: undefined, doorAt: run!.at, backBy: back!.at };
+  if (ph.now < run!.at) return { ...pmBase, phase: 'morning', doorIn: Math.ceil(run!.at - ph.now - 1e-9) };
+  if (ph.now < back!.at) return { ...pmBase, phase: 'out', outProgress: back!.at > run!.at ? (ph.now - run!.at) / (back!.at - run!.at) : 1 };
+  return { ...base, phase: evening && ph.now >= dinner!.at ? 'evening' : 'day' };
+};
+
+/**
+ * The hero's face for the chosen time, from the face of the phase above. Morning: as Logbook plans it. Afternoon: before the
+ * session, the afternoon's stops in place of the morning's and words to match (`later`); out and after it, the faces as
+ * they are. No set time: no line at all, and the open face says so. Only a session still to come changes: a rest day keeps
+ * its morning, and a session that is done, skipped or missed keeps its own face.
  */
 export const faceForWhen = (face: Face, when: TrainWhen, pm: AfternoonSettings, pace: number | null | undefined): Face => {
-  if (when === 'morning' || !face.lead || face.lead.session.kind === 'rest' || face.tall) return face;
+  if (when === 'morning' || !face.lead || face.lead.session.kind === 'rest' || face.lead.session.kind === 'cross' || face.tall) return face;
+  if (face.kind !== 'morning' && face.kind !== 'planned' && face.kind !== 'open') return face;
   const wasMorning = face.kind === 'morning';
   // the line that names the morning's door says when instead
   const doorLine = wasMorning || /^Out the door/.test(face.line ?? '');
-  if (when === 'none') return { ...face, stops: undefined, stopsLabel: undefined, eyebrow: wasMorning ? 'TODAY' : face.eyebrow, line: doorLine ? (wasMorning ? 'Any time today' : 'Any time that day') : face.line };
-  const stops = afternoonStops(pm, sessionMinutes(face.lead.session, pace));
+  if (when === 'none') {
+    if (face.kind === 'open') return { ...face, status: 'Any time today' };
+    return { ...face, stops: undefined, stopsLabel: undefined, eyebrow: wasMorning ? 'TODAY' : face.eyebrow, line: doorLine ? (wasMorning ? 'Any time today' : 'Any time that day') : face.line };
+  }
+  // after the afternoon's session time the open face stands as it is: the ring, "Not logged yet"
+  if (face.kind === 'open') return face;
+  const kind = face.lead.session.kind;
+  const stops = afternoonStops(pm, sessionMinutes(face.lead.session, pace), kind);
   return {
     ...face,
+    ...(wasMorning ? { kind: 'later' as const, key: `later-${face.lead.session.id}` } : null),
     stops,
     stopsKind: 'afternoon',
     stopsLabel: `This afternoon: ${stops.map((s) => `${s.label.toLowerCase()} ${shortClock(s.at)}`).join(', ')}. Change the afternoon`,
     eyebrow: wasMorning ? 'TODAY' : face.eyebrow,
-    line: doorLine ? `Run at ${shortClock(stops[1]!.at)}` : face.line,
+    line: doorLine ? `${startWord(kind)} at ${shortClock(stops[1]!.at)}` : face.line,
   };
+};
+
+/** The phase and the face the hero draws for a day at a minute, with the chosen training time fed into both. */
+export const whenFace = (log: Log, date: ISODate, minutes: number, when: TrainWhen, pm: AfternoonSettings): { ph: DayPhase; face: Face } => {
+  const pace = log.boot?.morningSettings?.run.pace;
+  const ph = phaseForWhen(phaseOf(log, date, minutes), when, pm, pace);
+  return { ph, face: faceForWhen(faceOf(log, date, ph), when, pm, pace) };
 };

@@ -1,6 +1,6 @@
 import type { Activity, Session, Snapshot } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { stripKinds } from './stripKinds';
+import { stripKinds, stripLabel } from './stripKinds';
 
 const snap = (sessions: Partial<Session>[], acts: Partial<Activity>[] = [], lifts = 0): Snapshot => ({
   today: '2026-11-09',
@@ -24,5 +24,11 @@ describe('the strip’s glyphs', () => {
   });
   it('never shows more than two', () => {
     expect(stripKinds(snap([{ kind: 'cross' }, { kind: 'lift' }, { kind: 'run' }]), '2026-11-10')).toEqual(['run', 'lift']);
+  });
+  it('says every kind in the cell’s name, though it draws two (today-top-29)', () => {
+    const three = snap([{ kind: 'cross' }, { kind: 'lift' }, { kind: 'run' }]);
+    expect(stripLabel('2026-11-10', stripKinds(three, '2026-11-10', 3), 'planned')).toBe('Tuesday, November 10, run, strength and workout');
+    expect(stripLabel('2026-11-10', ['run'], 'done')).toBe('Tuesday, November 10, run done');
+    expect(stripLabel('2026-11-15', [], 'rest')).toBe('Sunday, November 15, rest');
   });
 });

@@ -229,8 +229,11 @@ export const StepEditor = ({ settings: st, day, stepKey, onRemove }: { settings:
   );
 };
 
+/** The wake time is a plan, not an alarm: nothing in Logbook rings (the sheet says so, once). */
+export const NO_RING = 'Logbook does not ring. Set this time in your Clock app.';
+
 /**
- * The alarm (the drag's fallback, spec §4.2): when it goes off, and nothing else (the wake-up routine's length is a routine
+ * The wake time (the drag's fallback, spec §4.2): when the morning starts, and nothing else (the wake-up routine's length is a routine
  * setting, in Timings: here it rewrote every morning behind a button that said `Just today`, feel review 1 FL3). The sheet
  * ends in its two choices, `Just today` and `Every morning` (no segmented switch to set first): each saves. `Just today`
  * writes this date's `{ wake }` (or, set back to the routine's alarm, gives the day back to the routine); `Every morning`
@@ -270,10 +273,11 @@ export const WakeEditor = ({ settings: st, day, date, dayName, preselect }: { se
   return (
     <div className="se">
       <div className="se-field">
-        <span className="caps">Alarm</span>
-        <Stepper value={wake} onChange={setWake} step={WAKE_STEP} min={WAKE_MIN} max={WAKE_MAX} format={short} parse={parseWake} label="Alarm" inputProps={{ inputMode: 'numeric', autoComplete: 'off' }} />
+        <span className="caps">Wake time</span>
+        <Stepper value={wake} onChange={setWake} step={WAKE_STEP} min={WAKE_MIN} max={WAKE_MAX} format={short} parse={parseWake} label="Wake time" inputProps={{ inputMode: 'numeric', autoComplete: 'off' }} />
       </div>
       <LeaveLine day={day} dayAfter={{ ...day, wake }} before={st} after={st} />
+      <p className="se-hint se-noring">{NO_RING}</p>
       <div className="sheet-foot se-choices">
         {choice('usual')}
         {choice('day')}

@@ -24,10 +24,64 @@
   min-width: 0;
 }
 
-/* ---------- the hero (§3.2, M13): fixed 184 (304 landed with a route); faces crossfade inside the same box ---------- */
+/* ---------- a card that is a group (CardGroup.tsx, a11y-07): the title's button opens it, over the whole card ---------- */
+.card-open {
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* the card is the hit layer's box: without it the layer of a compact card or a Close row grew to the whole page and took
+   every tap above and below it (the hero's switch, the habits, the journal box) */
+.card-group {
+  position: relative;
+}
+/* the hit layer: the whole card, under every other control in it */
+.card-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+/* in the hero the title sits inside positioned boxes (the dial), so the layer is drawn far past them and the card's own
+   `overflow: hidden` cuts it to the card. Only the training card itself: the Close card is a `.hero` too, and its run rows'
+   layers must stay inside their rows (they covered the journal box) */
+.hero.card-group .card-open::after {
+  inset: -1000px;
+}
+.card-open:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+/* the card's other controls: siblings of the title's button, above its hit layer */
+.card-group :is(.hold-ring, .ss-ring, .hero-week, .hero-when, .mini-tl, .hero-share, .hero-share-slot, .hero-verb, .hero-next) {
+  position: relative;
+  z-index: 2;
+}
+.card-group > .hero-ring {
+  z-index: 2;
+}
+
+/* ---------- the hero (§3.2, M13): as tall as its face (304 landed with a route); faces crossfade inside the same box ---------- */
 .hero.aura {
   box-sizing: border-box;
-  height: 184px;
+  /* as tall as the face in it (today-top-01), so the words can grow with the text size (a11y-02) */
+  height: auto;
   min-height: 0;
   padding: 0;
   display: block;
@@ -39,7 +93,7 @@
   touch-action: pan-y;
 }
 .hero.aura.is-tall {
-  height: 304px;
+  min-height: 304px;
 }
 .hero.aura.is-pressable {
   cursor: pointer;
@@ -61,25 +115,33 @@
 .hero.hero-first > .first-run-hero {
   max-width: none;
 }
+/* the face is in flow: it sets the card's height. A face that is leaving a crossfade is taken out of flow by the crossfade
+   itself (popLayout); the landing's two layers lie over the card while they are not the face that counts: the landed
+   face hidden under the stages before it (inert), the face from before the run once the card has grown (.is-tall) */
 .hero-face {
-  position: absolute;
-  inset: 0;
+  position: relative;
   padding: 16px;
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+.hero > .hero-face[inert],
+.hero.is-tall > .hero-face-pre {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 .hero-eyebrow-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 13px;
+  min-height: var(--lh-caps);
   min-width: 0;
 }
 .hero-eyebrow,
 .hero-aside {
-  font: 600 11px/13px var(--sans);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
   letter-spacing: 0.06em;
   color: var(--ink-3);
   white-space: nowrap;
@@ -96,8 +158,8 @@
 .hero-stamp {
   display: block;
   margin-top: 4px;
-  height: 34px;
-  font: 800 28px/34px var(--stamp);
+  /* a display stamp: it follows the text size up to a limit (a11y-02), never past what one line of the card holds */
+  font: 800 clamp(28px, var(--fs-stamp), 40px) / clamp(34px, var(--lh-stamp), 48px) var(--stamp);
   letter-spacing: -0.02em;
   text-transform: uppercase;
   color: var(--ink);
@@ -108,8 +170,8 @@
 }
 .hero-line {
   margin: 4px 0 0;
-  height: 28px;
-  font: italic 400 22px/28px var(--display);
+  height: 1.75rem;
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--display);
   letter-spacing: -0.01em;
   color: var(--ink);
   white-space: nowrap;
@@ -131,11 +193,11 @@
   margin: 6px -16px 0;
   filter: drop-shadow(0 0 10px rgba(15, 42, 68, 0.35));
 }
-/* the deck: 56, the only zone whose content differs between faces */
+/* the deck: 56 at least, the only zone whose content differs between faces */
 .hero-deck {
   position: relative;
   flex: none;
-  height: 56px;
+  min-height: 56px;
   margin-top: 12px;
   display: flex;
   flex-direction: column;
@@ -164,28 +226,24 @@
 }
 .hero-sub,
 .hero-status {
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .hero-deck-done .hero-sub {
   flex: none;
-  height: 20px;
-  font: 400 15px/20px var(--sans);
+  min-height: 1.25rem;
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
+/* one line at the default size; it takes a second one before it is cut (the leaving words of its crossfade are lifted
+   out of flow by the crossfade itself) */
 .hero-status {
   position: relative;
   display: block;
-  height: 18px;
+  min-height: var(--lh-foot);
 }
 .hero-status-in {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: block;
 }
 .hero-deck-out .hero-sub {
   margin-top: 6px;
@@ -198,7 +256,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 32px;
+  height: 2rem;
   margin-top: 4px;
   min-width: 0;
 }
@@ -207,13 +265,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  min-height: 32px;
+  height: 2rem;
+  min-height: 2rem;
   padding: 0 12px;
   border-radius: var(--r-pill);
   background: rgba(15, 42, 68, 0.08);
   color: var(--ink);
-  font: 600 13px/16px var(--sans);
+  font: 600 0.8125rem/1rem var(--sans);
   position: relative;
 }
 .hero-share.pressable::after {
@@ -225,11 +283,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  height: 32px;
-  min-height: 32px;
+  height: 2rem;
+  min-height: 2rem;
   padding: 0 8px;
   color: var(--ink-3);
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   min-width: 0;
 }
 .hero-verb.pressable::after {
@@ -255,12 +313,12 @@
   min-width: 0;
 }
 .hero-stat .caps {
-  font: 600 11px/13px var(--sans);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
   letter-spacing: 0.06em;
   color: rgba(15, 42, 68, 0.62);
 }
 .hero-stat-num {
-  font: 800 17px/22px var(--stamp);
+  font: 800 var(--fs-row) / var(--lh-row) var(--stamp);
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
@@ -270,7 +328,7 @@
 }
 .hero-coach {
   margin: 2px 0 0;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
@@ -280,14 +338,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 44px;
-  min-height: 44px;
+  height: auto;
+  min-height: 2.75rem;
   margin: 0 -8px;
-  padding: 0 8px;
+  padding: 4px 8px;
   border-radius: var(--r-control);
   background: none;
   color: var(--ink);
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-align: left;
   width: 100%;
 }
@@ -298,11 +356,12 @@
 .hero-next-text {
   flex: 1;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* one line at the default size; large text wraps it rather than cutting the session's name */
+  overflow-wrap: anywhere;
 }
-/* the ring sits at the deck's right, outside the crossfading face: the same node from the open face to the check */
+/* the ring sits at the deck's right, outside the crossfading face: the same node from the open face to the check. The deck
+   is the last row of every face that has a ring and is at least the ring's height, and its words stop 64 short of the
+   right edge (.hero-deck-ring), so the ring is always in the deck's row and never over the When switch above it */
 .hero-ring {
   position: absolute;
   right: 12px;
@@ -347,8 +406,15 @@
   display: block;
   position: relative;
   width: 100%;
-  height: 44px;
+  /* the line (13) over the labels and the times (11/13 + 13/18 at the default text size) */
+  height: calc(13px + var(--tl-caps-lh) + var(--tl-num-lh));
   min-height: 44px;
+  /* the words follow the text size up to what four stops on one line can hold: 3.9% and 4.6% of the card's width
+     (11 and 13 px on a 320 phone, 14 and 16.5 on a 390 one). Unitless line heights keep the two lines in step */
+  --tl-caps: clamp(11px, var(--fs-caps), max(11px, 3.9cqi));
+  --tl-num: clamp(13px, var(--fs-foot), max(13px, 4.6cqi));
+  --tl-caps-lh: calc(var(--tl-caps) * 1.182);
+  --tl-num-lh: calc(var(--tl-num) * 1.385);
   text-align: left;
   touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
@@ -414,7 +480,7 @@
   left: 4px;
   right: 4px;
   top: 13px;
-  height: 31px;
+  height: calc(var(--tl-caps-lh) + var(--tl-num-lh));
 }
 .mini-tl-time {
   position: absolute;
@@ -433,12 +499,12 @@
   justify-items: end;
 }
 .mini-tl-time .caps {
-  font: 600 11px/13px var(--sans);
+  font: 600 var(--tl-caps) / 1.182 var(--sans);
   letter-spacing: 0.06em;
   color: var(--ink-3);
 }
 .mini-tl-time .tnum {
-  font: 600 13px/18px var(--sans);
+  font: 600 var(--tl-num) / 1.385 var(--sans);
   color: var(--ink);
 }
 .hero.is-quiet .mini-tl-time .tnum {
@@ -446,7 +512,7 @@
 }
 .out-line {
   position: relative;
-  height: 28px;
+  height: calc(12px + 1rem);
 }
 .out-line .mini-tl-line {
   left: 0;
@@ -459,7 +525,7 @@
   top: 12px;
   display: flex;
   justify-content: space-between;
-  font: 600 13px/16px var(--sans);
+  font: 600 0.8125rem/1rem var(--sans);
   color: var(--ink-2);
 }
 
@@ -552,7 +618,7 @@
 }
 .sentence-text {
   display: block;
-  font: italic 400 17px/22px var(--display);
+  font: italic 400 var(--fs-row) / var(--lh-row) var(--display);
   color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
@@ -561,15 +627,15 @@
 .sentence-by {
   font-style: normal;
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: var(--fs-foot);
 }
 .nudge.pressable {
   display: flex;
   align-items: center;
   gap: 2px;
-  min-height: 44px;
-  height: 44px;
-  font: 400 13px/18px var(--sans);
+  min-height: 2.75rem;
+  height: 2.75rem;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
   text-align: left;
 }
@@ -584,9 +650,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 60px;
-  min-height: 60px;
-  padding: 0 10px 0 16px;
+  /* 60 at the default text size; it grows with its two lines */
+  height: auto;
+  min-height: 3.75rem;
+  padding: 4px 10px 4px 16px;
   border-radius: var(--r-card);
   background: var(--surface);
   border: var(--card-border);
@@ -600,7 +667,7 @@
   display: grid;
 }
 .ss-stamp {
-  font: 800 17px/22px var(--stamp);
+  font: 800 var(--fs-row) / var(--lh-row) var(--stamp);
   letter-spacing: -0.01em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -615,16 +682,13 @@
   position: relative;
   display: grid;
   min-width: 0;
-  height: 20px;
+  min-height: var(--lh-sub);
 }
 .ss-sub {
   display: block;
   min-width: 0;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .ss-ring {
   flex: none;
@@ -644,7 +708,7 @@
   align-items: baseline;
 }
 .todos .section-title {
-  font: 600 20px/25px var(--sans);
+  font: 600 var(--fs-head) / var(--lh-head) var(--sans);
   letter-spacing: -0.01em;
 }
 /* a neighbour's first frame: the page's shape */
@@ -716,23 +780,23 @@
 }
 .pe-title {
   margin: 0;
-  font: 600 17px/22px var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
 .pe-sub {
   margin: 0;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
 .pe-next.pressable {
   flex: none;
-  height: 32px;
-  min-height: 32px;
+  height: 2rem;
+  min-height: 2rem;
   padding: 0 14px;
   border-radius: var(--r-pill);
   background: var(--primary);
   color: var(--primary-ink);
-  font: 600 13px/16px var(--sans);
+  font: 600 0.8125rem/1rem var(--sans);
   position: relative;
 }
 .pe-next.pressable::after {
@@ -904,34 +968,33 @@
   border-radius: var(--r-card);
 }
 .cd-eyebrow {
-  height: 13px;
-  font: 600 11px/13px var(--sans);
+  height: 0.8125rem;
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
   letter-spacing: 0.06em;
   color: var(--ink-3);
 }
 .cd-title-slot {
   position: relative;
-  height: 28px;
+  min-height: var(--lh-sentence);
   margin-top: 4px;
 }
 .cd-title {
   margin: 0;
-  font: italic 400 22px/28px var(--display);
+  font: italic 400 var(--fs-sentence) / var(--lh-sentence) var(--display);
   letter-spacing: -0.01em;
   color: var(--ink);
-  white-space: nowrap;
 }
 /* step 1: the stamps, 40 tall (11 caps over a 22 stamp) */
 .cd-stamps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  height: 48px;
+  min-height: 48px;
   margin-top: 14px;
 }
 /* three numbers split by hairlines, the label over each */
 .cd-stamp {
   display: grid;
-  grid-template-rows: 18px 30px;
+  grid-template-rows: minmax(18px, auto) minmax(30px, auto);
   min-width: 0;
   padding: 0 12px;
 }
@@ -949,14 +1012,15 @@
   text-overflow: ellipsis;
 }
 .cd-num {
-  font: 700 26px/30px var(--stamp);
+  /* a display numeral: three share a row, so it follows the text size to a limit */
+  font: 700 clamp(26px, 1.625rem, 34px) / clamp(30px, 1.875rem, 40px) var(--stamp);
   letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cd-num small {
-  font: 500 13px/16px var(--sans);
+  font: 500 0.8125rem/1rem var(--sans);
   letter-spacing: 0;
   color: var(--ink-3);
 }
@@ -964,9 +1028,9 @@
 .cd-line {
   display: flex;
   align-items: center;
-  height: 48px;
+  min-height: 3rem;
   margin: 14px 0 0;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
 /* step 2: the run row, 60, the 40 px ring at the right while open */
@@ -974,12 +1038,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 64px;
+  height: auto;
+  min-height: 4rem;
   margin: 14px -16px 0;
-  padding: 0 12px 0 16px;
+  padding: 6px 12px 6px 16px;
   box-shadow: inset 0 1px 0 var(--line), inset 0 -1px 0 var(--line);
   text-align: left;
   touch-action: pan-y;
+}
+/* a day of two or more sessions: the rows stack with one hairline between them */
+.cd-run.pressable + .cd-run.pressable {
+  margin-top: 0;
+  box-shadow: inset 0 -1px 0 var(--line);
 }
 .cd-run-text {
   display: grid;
@@ -988,7 +1058,7 @@
   min-width: 0;
 }
 .cd-run-stamp {
-  font: 800 17px/22px var(--stamp);
+  font: 800 var(--fs-row) / var(--lh-row) var(--stamp);
   letter-spacing: -0.01em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -996,15 +1066,12 @@
   text-overflow: ellipsis;
 }
 .cd-run-sub {
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* the quote line's slot while its module loads (44, the line's own height) */
 .cd-quote-slot {
-  height: 44px;
+  height: 2.75rem;
 }
 /* the nightly quote reads whole in its 44 slot: two lines of 15/20 (40) rather than one cut line (feel review 1 #11) */
 .cd .qline.quote-line .qline-text {
@@ -1042,9 +1109,9 @@
   border-radius: var(--r-control);
 }
 .cd-composer textarea.jtext {
-  min-height: 60px;
+  min-height: 3.75rem;
   padding: 10px 12px 4px;
-  font: italic 400 17px/22px var(--display);
+  font: italic 400 var(--fs-row) / var(--lh-row) var(--display);
 }
 .cd-composer .composer-foot {
   min-height: 44px;
@@ -1064,7 +1131,7 @@
 }
 .cd-entry-text {
   margin: 0;
-  font: italic 400 17px/22px var(--display);
+  font: italic 400 var(--fs-row) / var(--lh-row) var(--display);
   color: var(--ink);
   white-space: pre-wrap;
   user-select: text;
@@ -1074,12 +1141,12 @@
 .cd-addto.pressable {
   margin-top: auto;
   padding-top: 8px;
-  min-height: 44px;
+  min-height: 2.75rem;
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--ink-3);
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   text-align: left;
 }
 /* after the card: Tomorrow (its own section: the word and the alarm in one group), the read, Share the day as a pill */
@@ -1099,12 +1166,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
-  height: 56px;
-  padding: 0 14px 0 16px;
+  min-height: 3.5rem;
+  height: auto;
+  padding: 4px 14px 4px 16px;
   width: 100%;
   text-align: left;
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
 }
 .cd-tgroup > .cd-trow + .cd-trow {
@@ -1113,13 +1180,12 @@
 .cd-trow-title {
   flex: 1;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* one line at the default size; it wraps before it is cut */
+  overflow-wrap: anywhere;
 }
 .cd-trow-right {
   flex: none;
-  font: 400 15px/20px var(--sans);
+  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-3);
 }
 .cd-trow-chev {
@@ -1131,13 +1197,13 @@
   flex: 0 1 7.75em;
   min-width: 6em;
   width: 7.75em;
-  height: 32px;
+  height: 2rem;
   border: 0;
   border-radius: 8px;
   padding: 0 6px;
   background: var(--surface-2);
   color: var(--ink);
-  font: 800 16px/20px var(--stamp);
+  font: 800 1rem/1.25rem var(--stamp);
   text-transform: uppercase;
   text-align: right;
   outline: none;
@@ -1187,23 +1253,24 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 358px;
-  height: 184px;
+  /* as tall as its rows: 184 with three, 136 with two (a build without Strava) */
+  height: auto;
   min-height: 0;
-  padding: 16px 16px 0;
+  padding: 16px 16px 5px;
   display: grid;
-  grid-template-rows: 13px auto;
+  grid-template-rows: auto auto;
   row-gap: 4px;
   align-content: start;
   overflow: hidden;
 }
 .frh-eyebrow {
-  font: 600 11px/13px var(--sans);
+  font: 600 var(--fs-caps) / var(--lh-caps) var(--sans);
   letter-spacing: 0.06em;
   color: var(--ink-3);
 }
 .frh-rows {
   display: grid;
-  grid-auto-rows: 48px;
+  grid-auto-rows: minmax(48px, auto);
   margin: 2px -16px 0;
 }
 .frh-row {
@@ -1313,8 +1380,12 @@
 .st-row .ctx-chip {
   flex: 1 1 0;
 }
+/* the status chip is as wide as its words; the plan's chip takes the rest, so its name shows whole (today-top-09) */
 .st-row .st-chip {
-  flex: 1.15 1 0;
+  flex: 0 1 auto;
+}
+.st-row .st-chip:only-child {
+  flex: 1 1 0;
 }
 .st-chip-sick .ctx-ic,
 .st-chip-injured .ctx-ic {
@@ -1402,8 +1473,9 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-.st-chip {
-  height: 36px;
+.st-len {
+  position: relative;
+  min-height: 2.25rem;
   padding: 0 14px;
   border-radius: var(--r-pill);
   border: 1px solid var(--line-strong);
@@ -1411,7 +1483,13 @@
   color: var(--ink);
   font: 500 var(--fs-sub) / 1 var(--sans);
 }
-.st-chip.is-on {
+.st-len::after {
+  /* 36 to look at, 44 to touch: the rows sit 8 apart, so the hit areas meet and never overlap */
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+.st-len.is-on {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--primary-ink);
@@ -1579,7 +1657,9 @@
 
 /* ---------- the hero as the page's centrepiece (HeroGauge): a warm wash, the day's words centred in the week's dial ---------- */
 :root .hero.aura:not(.is-tall) {
-  height: 330px;
+  /* as tall as the face in it (today-top-01): the eyebrow, the dial, the When switch and the deck, each only when it is
+     there. A fixed height per face cut the deck off whenever the content and the selector disagreed */
+  height: auto;
   background:
     radial-gradient(90% 60% at 12% 0%, rgba(255, 190, 170, 0.55), rgba(255, 190, 170, 0) 70%),
     radial-gradient(90% 60% at 92% 4%, rgba(255, 226, 140, 0.6), rgba(255, 226, 140, 0) 70%),
@@ -1593,17 +1673,29 @@
 :root .hero.aura:not(.is-tall) .aura-glow {
   display: none;
 }
-.hero.aura:not(.is-tall) .hero-face {
+/* while the page loads (and a neighbour's shell): the card's usual box */
+:root .hero.aura.hero-skel {
+  height: 330px;
+}
+.hero.aura:not(.is-tall) > .hero-face {
   padding: 18px 18px 16px;
   align-items: stretch;
 }
 .hero.aura:not(.is-tall) .hero-eyebrow-row {
   justify-content: center;
-  height: 16px;
+  flex-wrap: wrap;
+  row-gap: 0;
+  min-height: var(--lh-orb);
+}
+/* centred over the dial, it may take a second line at large text rather than run off the card */
+.hero.aura:not(.is-tall) .hero-eyebrow {
+  flex: 0 1 auto;
+  white-space: normal;
+  text-align: center;
 }
 .hero.aura:not(.is-tall) .hero-eyebrow {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: 1rem;
   letter-spacing: 0.08em;
   color: var(--ink-2);
 }
@@ -1615,11 +1707,12 @@
   margin-right: 8px;
 }
 
-/* the dial */
+/* the dial: 196 tall, and the words inside it in flow, so words that outgrow the bowl (large text) push the card taller
+   instead of running under the When switch */
 .hg {
   position: relative;
   flex: none;
-  height: 196px;
+  min-height: 196px;
   margin-top: 2px;
 }
 .hg-dial {
@@ -1664,28 +1757,29 @@
   transform-origin: center;
 }
 .hg-end {
-  font: 600 11px var(--sans);
+  font: 600 clamp(11px, var(--fs-caps), 14px) var(--sans);
   fill: var(--ink-4);
 }
 .hg-in {
-  position: absolute;
-  inset: 26px 34px auto;
+  position: relative;
+  margin: 0 34px;
+  padding-top: 26px;
   display: grid;
   justify-items: center;
   text-align: center;
 }
 .hg.is-empty {
-  height: auto;
+  min-height: 0;
 }
 .hg.is-empty .hg-in {
-  position: static;
+  margin: 0;
   padding: 28px 0 8px;
 }
 .hg .hero-stamp {
   height: auto;
   max-width: 100%;
   margin: 0;
-  font: 800 44px/50px var(--stamp);
+  font: 800 clamp(44px, 2.75rem, 60px) / clamp(50px, 3.125rem, 68px) var(--stamp);
   letter-spacing: -0.035em;
   background: linear-gradient(180deg, #3b2b1d 0%, #0f2a44 100%);
   -webkit-background-clip: text;
@@ -1700,11 +1794,21 @@
   height: auto;
   max-width: 100%;
   margin: 2px 0 0;
-  font: italic 400 20px/26px var(--display);
-  color: #c7781e;
+  /* a line too long for the bowl (large text) takes a second line; it is never cut */
+  white-space: normal;
+  overflow: visible;
+  text-wrap: balance;
+  font: italic 400 1.25rem/1.625rem var(--display);
+  /* 5.3:1 on the card's warm white (a11y-06) */
+  color: #9a5a0c;
 }
 .hero.is-quiet .hg .hero-line {
   color: var(--ink-3);
+}
+/* a rest day says rest once (the stamp, no line); a day outside any plan has only its line, "Nothing planned" */
+.hg .hero-stamp:empty,
+.hg .hero-line:empty {
+  display: none;
 }
 .hero-week {
   display: inline-flex;
@@ -1719,12 +1823,26 @@
   box-shadow:
     0 0 0 1px rgba(15, 42, 68, 0.06),
     0 4px 12px -6px rgba(15, 42, 68, 0.25);
-  font: 500 13px/18px var(--sans);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
   white-space: nowrap;
 }
+/* the card narrow for its text (a small phone, or large text): the runs go, as at 320, and past that the pill may take
+   two lines rather than run out of the dial */
+@container card (max-width: 17rem) {
+  .hero-week-runs {
+    display: none;
+  }
+}
+@container card (max-width: 13rem) {
+  .hero-week {
+    white-space: normal;
+    text-align: center;
+    border-radius: 18px;
+  }
+}
 .hero-week-runs {
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 .hero-week-runs::before {
   content: '·';
@@ -1735,18 +1853,28 @@
   color: var(--ink-4);
 }
 
-/* the deck becomes a soft card under the dial, like a status card */
+/* the deck becomes a soft card under the dial, like a status card: 26 under the dial, 12 under the When switch (the
+   spacing the fixed 330 and 372 cards had), at least 56 so the ring at the card's bottom right (56) always has its row, and
+   gone when it has nothing to say */
 .hero.aura:not(.is-tall) .hero-deck {
   height: auto;
   min-height: 56px;
-  margin-top: auto;
+  margin-top: 26px;
   padding: 0;
+}
+.hero.aura:not(.is-tall) .hero-when + .hero-deck {
+  margin-top: 12px;
+}
+.hero.aura:not(.is-tall) .hero-deck:empty {
+  display: none;
 }
 .hero.aura:not(.is-tall) .hero-deck:not(:empty)::before {
   display: none;
 }
 .hero.aura:not(.is-tall) .hero-next {
   min-height: 52px;
+  /* a card of its own here: centred in the deck, not pulled 8 left as the plain row is (today-top-14) */
+  margin: 0;
   padding: 0 14px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.82);
@@ -1756,37 +1884,83 @@
 }
 @media (max-width: 359px) {
   .hg-in {
-    inset-inline: 22px;
+    margin-inline: 22px;
   }
   .hg .hero-stamp {
-    font-size: 36px;
-    line-height: 42px;
+    font-size: clamp(36px, 2.25rem, 48px);
+    line-height: clamp(42px, 2.625rem, 56px);
   }
   .hero-week-runs {
     display: none;
   }
 }
 .hg .hero-stamp.is-mid {
-  font-size: 36px;
-  line-height: 50px;
+  font-size: clamp(36px, 2.25rem, 48px);
 }
 .hg .hero-stamp.is-long {
-  font-size: 28px;
-  line-height: 50px;
+  font-size: clamp(28px, var(--fs-stamp), 37px);
+}
+/*
+ * The day's words stay inside the dial's chord at their row (today-top-11): about 200 px where the dial is full size, 172
+ * on a narrow phone. A long name takes two lines at a smaller size (never cut mid-word); past two it ellipsizes.
+ */
+.hg .hero-line {
+  max-width: min(100%, 200px);
+}
+/* the stamp's rows sit between the dial's two ends (its caps and the week's dot): narrower than the line's row. With larger
+   text the row widens with the stamp (5.6em holds a nine-letter word), so a word is never cut: "STRENG…" said nothing */
+.hg .hero-stamp {
+  max-width: min(100%, max(184px, 5.6em));
+  margin-inline: auto;
+  text-align: center;
+}
+.hg .hero-stamp.is-long,
+.hg .hero-stamp.is-xlong {
+  max-width: min(100%, max(176px, 5.6em));
+  white-space: normal;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.hg .hero-stamp.is-long {
+  line-height: clamp(32px, 2rem, 42px);
+}
+.hg .hero-stamp.is-xlong {
+  font-size: clamp(22px, 1.375rem, 28px);
+  line-height: clamp(26px, 1.625rem, 34px);
+}
+.hl-narrow {
+  display: none;
 }
 @media (max-width: 359px) {
+  .hg .hero-line {
+    max-width: min(100%, 172px);
+  }
+  .hg .hero-stamp,
+  .hg .hero-stamp.is-long,
+  .hg .hero-stamp.is-xlong {
+    max-width: min(100%, max(156px, 5.6em));
+  }
+  .hl-wide {
+    display: none;
+  }
+  .hl-narrow {
+    display: inline;
+  }
+  .hg .hero-stamp.is-xlong {
+    font-size: clamp(20px, 1.25rem, 26px);
+  }
   .hg .hero-stamp.is-mid {
-    font-size: 30px;
+    font-size: clamp(30px, 1.875rem, 40px);
   }
   .hg .hero-stamp.is-long {
-    font-size: 24px;
+    font-size: clamp(24px, 1.5rem, 30px);
   }
 }
 
 /* ---------- when you train (WhenPill): Morning · Afternoon · No time under the dial ---------- */
-:root .hero.aura:not(.is-tall):has(.hero-when) {
-  height: 372px;
-}
 .hero-when {
   position: relative;
   z-index: 2;
@@ -1811,7 +1985,8 @@
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  font: 600 12px/1 var(--sans);
+  /* a segmented control is chrome: it follows the text size to 130% and holds there, so three options stay on one line */
+  font: 600 clamp(12px, 0.75rem, 15.6px) / 1 var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
   transition:
@@ -1827,6 +2002,11 @@
 @media (max-width: 359px) {
   .hero-when-opt {
     padding: 0 8px;
+  }
+}
+@container card (max-width: 17rem) {
+  .hero-when-opt > svg {
+    display: none;
   }
 }
 
@@ -1852,13 +2032,13 @@
   gap: 2px;
 }
 .pm-line small {
-  font: 600 11px/14px var(--sans);
+  font: 600 0.6875rem/0.875rem var(--sans);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
 .pm-line b {
-  font: 700 17px/22px var(--stamp);
+  font: 700 var(--fs-row) / var(--lh-row) var(--stamp);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -1883,12 +2063,13 @@
   box-shadow: var(--well-shadow);
 }
 .pm-seg button {
-  height: 30px;
+  /* 44 to touch (today-top-22) */
+  min-height: 2.75rem;
   padding: 0 10px;
   border: 0;
   border-radius: var(--r-pill);
   background: transparent;
-  font: 600 12px/1 var(--sans);
+  font: 600 0.75rem/1 var(--sans);
   color: var(--ink-3);
 }
 .pm-seg button.on {
@@ -1896,15 +2077,14 @@
   color: var(--ink);
   box-shadow: 0 2px 6px -2px rgba(15, 42, 68, 0.25);
 }
-/* no line under the choice: the card closes up */
-:root .hero.aura:not(.is-tall):has(.hero-when):not(:has(.mini-tl)) {
-  height: 318px;
-}
 .pm-row > span {
-  white-space: nowrap;
-}
-.pm-row > .stepper,
-.pm-row > div:not(.pm-seg) {
-  flex: 0 1 200px;
   min-width: 0;
+}
+/* every stepper the same width, so their values line up down the sheet (today-top-22); a long label wraps instead */
+.pm-row > .stepper {
+  flex: none;
+  width: min(11rem, 58%);
+}
+.pm-line small {
+  white-space: nowrap;
 }

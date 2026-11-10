@@ -1,4 +1,5 @@
-import { clockOfDay, durationWords, type MorningTimeline } from '@logbook/shared';
+import { durationWords, type MorningTimeline } from '@logbook/shared';
+import { dayClock } from '../day/dayWords';
 import { Briefcase } from 'lucide-react';
 import type * as React from 'react';
 import { forwardRef, useLayoutEffect, useRef, useState } from 'react';
@@ -117,7 +118,7 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
               <span className="sub-wide">{sub}</span>
               {/* 320: `2 h 15 min after waking` does not fit beside the stamp, and a bare duration said nothing (feel review 2
                   R2-9): the alarm it counts from does */}
-              <span className="sub-narrow">Alarm {short(T.day.wake)}</span>
+              <span className="sub-narrow">Wake {short(T.day.wake)}</span>
             </>
           ) : (
             sub
@@ -148,11 +149,11 @@ export const LeaveRow = forwardRef<HTMLLIElement, { T: MorningTimeline; rel: 'pa
       data-row="leave"
     >
       {onPress ? (
-        <Pressable as="div" className="sch-hit" press="surface" onPress={onPress} label={`Leave for work at ${clockOfDay(T.leave)}. ${sub}. Edit the routine`}>
+        <Pressable as="div" className="sch-hit" press="surface" onPress={onPress} label={`Leave for work at ${dayClock(T.leave)}. ${sub}. Edit the routine`}>
           {body}
         </Pressable>
       ) : (
-        <div className="sch-hit" aria-label={`Leave for work at ${clockOfDay(T.leave)}. ${sub}`}>
+        <div className="sch-hit" aria-label={`Leave for work at ${dayClock(T.leave)}. ${sub}`}>
           {body}
         </div>
       )}

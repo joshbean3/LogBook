@@ -8,8 +8,8 @@ export const morningLineId = (date: string) => `morning-line-${date}`;
 
 /**
  * The Now card (spec §4.1): the morning's four stops (the landing of the line that flies in from Today's hero) and one line
- * under it that says where the morning is: `Alarm in 43 min`, `Out the door in 22 min`, `Back by 8:13`, `Shower now · Leave
- * in 45 min`, `Left 9:30`. A past morning says `Woke 7:15 · Left 9:30`, a future one `Alarm 7:15 · Leave 9:30`. The clock is
+ * under it that says where the morning is: `Wake time in 43 min`, `Out the door in 22 min`, `Back by 8:13`, `Shower now · Leave
+ * in 45 min`, `Left 9:30`. A past morning says `Woke 7:15 · Left 9:30`, a future one `Wake time 7:15 · Leave 9:30`. The clock is
  * Today's (`useNowMinutes`), so the hero and this card never disagree. 96 tall, no halo.
  */
 export const NowCard = ({ T, date, now, rel }: { T: MorningTimeline; date: string; now: number; rel: 'past' | 'today' | 'future' }): React.JSX.Element => {

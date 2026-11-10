@@ -13,7 +13,6 @@
 }
 .dpk-nav {
   display: flex;
-  margin-right: -10px;
 }
 .dp.dpk-pager {
   margin-inline: -16px;
@@ -49,8 +48,9 @@
 .dpk-num {
   font-family: var(--stamp);
   font-weight: 800;
-  font-size: 1.0625rem;
-  line-height: 1.25rem;
+  /* seven share the row: the number follows the text size as far as its 40 px pill holds two digits */
+  font-size: clamp(17px, 1.0625rem, 22px);
+  line-height: clamp(20px, 1.25rem, 26px);
   font-variant-numeric: tabular-nums;
 }
 .dpk-bar {

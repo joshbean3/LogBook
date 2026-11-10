@@ -12,13 +12,12 @@ import type { Log } from '../log/useLog';
 import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { watchJournalAdd } from './journalGuard';
+import { isoClock } from './dayWords';
 import { dayMiles, weekMiles } from './miles';
 import { keepAboveKeyboard, revealBox } from './reveal';
 
-const timeOf = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-};
+/** A stored time as the phone writes times (12 or 24 hour; gap-qua-65). */
+const timeOf = isoClock;
 
 /**
  * The day (docs/feel.md §3.1 row 9, §3.3): on past days only, the card under the week: `THE DAY`, what was written that day
@@ -81,7 +80,7 @@ export const TheDayCard = memo(function TheDayCard({ date, log }: { date: ISODat
     sheet.open({ title: 'Share the day', body: <ShareSheet data={cut ? { ...data, verdict: cut } : data} initial={miles > 0 ? (data.polyline ? 'route' : 'stamp') : 'bubble'} /> });
   };
   return (
-    <section className="the-day" aria-label="The day">
+    <section className="the-day" aria-label="Journal">
       <SectionHeader
         title="Journal"
         meta={entries.length ? `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}` : null}

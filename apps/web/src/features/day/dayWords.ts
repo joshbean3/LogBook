@@ -2,11 +2,36 @@ import { clock, daysBetween, KIND_WORD, mi, num, weekStreak, type Activity, type
 import type { WeekDayStatus } from '@/ui';
 import type { Log } from '../log/useLog';
 
-/** "7:35" without the AM: the hero is a morning, the clock face is enough. */
-export const shortClock = (m: number) => {
+/**
+ * Clock times follow the phone's 12 or 24 hour setting (gap-qua-65): one formatter in the device's locale. A 12 hour phone
+ * reads `7:35 AM`, a 24 hour one `07:35` or `7:35` as its locale writes it.
+ */
+let hm: Intl.DateTimeFormat | null = null;
+const fmtHM = () => (hm ??= new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }));
+const at = (m: number) => {
   const v = ((Math.round(m) % 1440) + 1440) % 1440;
-  const h = Math.floor(v / 60);
-  return `${h % 12 || 12}:${String(v % 60).padStart(2, '0')}`;
+  return new Date(2020, 0, 1, Math.floor(v / 60), v % 60);
+};
+/** `7:35 AM` (12 hour) or `07:35` (24 hour): a time with its AM or PM when the phone uses them. */
+export const dayClock = (m: number) => fmtHM().format(at(m));
+/** The time split so its number can be big and its AM or PM small: `{ v: '7:20', u: 'AM' }`; `u` is '' on a 24 hour phone. */
+export const clockParts = (m: number) => {
+  const parts = fmtHM().formatToParts(at(m));
+  return {
+    v: parts
+      .filter((p) => p.type !== 'dayPeriod')
+      .map((p) => p.value)
+      .join('')
+      .trim(),
+    u: parts.find((p) => p.type === 'dayPeriod')?.value ?? '',
+  };
+};
+/** "7:35" without the AM: the hero is a morning, the clock face is enough (24 hour phones read the same as `dayClock`). */
+export const shortClock = (m: number) => clockParts(m).v;
+/** A stored time (`2026-11-10T19:42:00Z`) as the phone writes times; '' when it does not parse. */
+export const isoClock = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : fmtHM().format(d);
 };
 
 /** The runs of a day added up: miles, moving time, pace per mile ("8:14"). */

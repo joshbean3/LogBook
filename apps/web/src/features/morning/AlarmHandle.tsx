@@ -1,5 +1,5 @@
-import { clockOfDay } from '@logbook/shared';
 import { animate } from 'motion/react';
+import { dayClock } from '../day/dayWords';
 import type * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -198,11 +198,11 @@ export const AlarmHandle = ({ wake, disabled, onStep, onCommit, onTap, onDraggin
       type="button"
       role="slider"
       className={`alarm-handle ${moved ? 'is-moved' : ''}`}
-      aria-label="Alarm"
+      aria-label="Wake time"
       aria-valuemin={WAKE_MIN}
       aria-valuemax={WAKE_MAX}
       aria-valuenow={wake}
-      aria-valuetext={clockOfDay(wake)}
+      aria-valuetext={dayClock(wake)}
       aria-disabled={disabled || undefined}
       tabIndex={disabled ? -1 : 0}
       onKeyDown={onKeyDown}

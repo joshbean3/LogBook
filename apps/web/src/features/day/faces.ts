@@ -1,9 +1,9 @@
-import { dayPhase, durationWords, floorFor, floorMinutes, isSkipMark, label, mondayOf, num, shiftDays, weekSummary, type Activity, type DayPhase, type ISODate, type MorningAfterKey, type MorningSettings, type PhaseSession, type Session } from '@logbook/shared';
+import { dayPhase, durationWords, floorFor, floorMinutes, isSkipMark, label, num, shiftDays, type Activity, type DayPhase, type ISODate, type MorningAfterKey, type MorningSettings, type PhaseSession, type Session } from '@logbook/shared';
 import { dayCaption } from '@/ui/captions';
 import type { Log } from '../log/useLog';
 import { isAfterKey, morningOf, routineName } from '../morning/model';
 import { runTotals, shortClock } from './dayWords';
-import { sessionMiles, weekMiles } from './miles';
+import { sessionMiles } from './miles';
 import type { Stop } from './MiniTimeline';
 
 /**
@@ -11,7 +11,8 @@ import type { Stop } from './MiniTimeline';
  * hero only draws it and a test can read every face. Every face is 184 tall but the landed one with a route (304) and the
  * evening's Close card; only the deck's content differs between them.
  */
-export type FaceKind = 'morning' | 'out' | 'open' | 'landed' | 'doneHand' | 'skipped' | 'missed' | 'rest' | 'restMorning' | 'planned' | 'evening';
+/** `later`: today's session with the afternoon's line, before it starts (trainWhen.ts). */
+export type FaceKind = 'morning' | 'later' | 'out' | 'open' | 'landed' | 'doneHand' | 'skipped' | 'missed' | 'rest' | 'restMorning' | 'planned' | 'evening';
 export type Halo = 'done' | 'floor' | 'missed' | 'upcoming' | 'rest';
 
 export interface NextUp {
@@ -31,8 +32,6 @@ export interface Face {
   eyebrow: string;
   /** A caps note at the eyebrow's right ('TOMORROW · LONG 4'). */
   aside?: string;
-  /** The landed eyebrow's pace (' · 8:14 /MI'), the end of `eyebrow`: held back with the numbers through the landing. */
-  eyebrowPace?: string;
   stamp: string;
   line: string;
   /** Another day's record or plan: the stamp in --ink-2 and the line in --ink-3. */
@@ -50,7 +49,7 @@ export interface Face {
   /** The open face's status line when Strava is not being checked. */
   status?: string;
   landed?: { miles: number; paceSec: number; sec: number; polyline: string | null; coach: string | null; drawKey: string };
-  doneHand?: { week: string | null; adjust: boolean };
+  doneHand?: { adjust: boolean };
   next?: NextUp | null;
   /** The hold ring at the deck's right: open (fill to complete) or done (the check, the same node). Today's lead only. */
   ring: 'open' | 'done' | null;
@@ -60,6 +59,12 @@ export interface Face {
   /** A tap opens the session sheet (or the run's). */
   pressable: boolean;
 }
+
+/** The faces of a session still to come: the only ones that carry the Morning / Afternoon / No time switch. */
+export const whenFaceKinds: ReadonlySet<FaceKind> = new Set<FaceKind>(['morning', 'later', 'out', 'open', 'planned']);
+
+/** What a face is about, for the card's accessible name: 'Easy 5, Today' · 'Run' · 'Rest day'. */
+export const faceName = (face: Pick<Face, 'lead' | 'runs' | 'stamp' | 'line'>): string => (face.lead ? `${label(face.lead.session)}, ${face.lead.word}` : face.runs.length ? 'Run' : face.stamp === 'REST' ? 'Rest day' : face.stamp || face.line);
 
 /** The phase of a day, with the clock passed in (the page's clock, `?at=` in dev). */
 export const phaseOf = (log: Log, date: ISODate, minutes: number): DayPhase =>
@@ -123,7 +128,7 @@ const stopWord = (st: MorningSettings, k: MorningAfterKey) => {
   return /^\S{1,7}$/.test(name) ? name : STOP_WORD[k]!;
 };
 
-/** A rest morning's line: alarm, the routine's first and last block, leave. Null without a timeline. */
+/** A rest morning's line: wake, the routine's first and last block, leave. Null without a timeline. */
 export const restStops = (log: Log, date: ISODate): Stop[] | null => {
   const st = log.boot?.morningSettings;
   if (!st) return null;
@@ -132,7 +137,7 @@ export const restStops = (log: Log, date: ISODate): Stop[] | null => {
   const first = routine[0];
   const last = routine.length > 1 ? routine[routine.length - 1] : undefined;
   return [
-    { key: 'wake', label: 'Alarm', at: T.day.wake },
+    { key: 'wake', label: 'Wake', at: T.day.wake },
     ...(first ? [{ key: 'first', label: stopWord(st, first.key as MorningAfterKey), at: first.start }] : []),
     ...(last ? [{ key: 'last', label: stopWord(st, last.key as MorningAfterKey), at: last.start }] : []),
     { key: 'leave', label: 'Leave', at: T.leave },
@@ -168,6 +173,10 @@ export const nextUp = (log: Log, date: ISODate, now: number): NextUp | null => {
 };
 
 const up = (s: string) => s.toUpperCase();
+const NOTHING = 'Nothing planned';
+/** The day sits inside a plan (a block from its start to its end), or has a session of its own. Else it is not a rest day. */
+export const inPlan = (log: Pick<Log, 'boot' | 'snap'>, date: ISODate): boolean =>
+  (log.boot?.blocks ?? []).some((b) => b.start <= date && b.end >= date) || log.snap.sessionsOn(date).length > 0;
 const kindEyebrow = (s: Session | undefined) => (s?.kind === 'lift' ? 'Today’s lift' : s?.kind === 'run' || !s ? 'Today’s run' : 'Today’s session');
 /** Another day's eyebrow: 'YESTERDAY' / 'SUN, OCT 11' behind; 'TOMORROW' / 'IN 5 DAYS' / 'THU, OCT 29' ahead. */
 export const otherEyebrow = (date: ISODate, today: ISODate): string => {
@@ -177,7 +186,6 @@ export const otherEyebrow = (date: ISODate, today: ISODate): string => {
   if (n > 1 && n < 7) return `IN ${n} DAYS`;
   return dayCaption(date, today, 'full');
 };
-const paceText = (sec: number) => (sec > 0 ? `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}` : '');
 
 /**
  * The face for `date` at `now` (minutes after midnight). `ph` is `phaseOf(log, date, now)`.
@@ -201,17 +209,16 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     const t = runTotals(myRuns);
     const paceSec = t.miles > 0.1 ? t.sec / t.miles : 0;
     const polyline = myRuns.find((r) => r.polyline)?.polyline ?? null;
-    const pace = paceText(paceSec);
     const who = lead ? up(label(lead.session)) : up(`${timeOfDay(myRuns[0]!.time)} run`);
     const head = isToday ? (lead ? 'TODAY’S RUN' : 'BONUS') : eyebrowOther;
     return {
       ...base,
       key: `landed-${lead?.session.id ?? myRuns[0]!.id}`,
       kind: 'landed',
-      eyebrow: pace ? `${up(head)} · ${pace} /MI` : up(head),
-      eyebrowPace: pace ? ` · ${pace} /MI` : undefined,
+      // the miles and the pace are the deck's stats: said once there, not again in the eyebrow and the line (today-top-18)
+      eyebrow: up(head),
       stamp: who,
-      line: `${milesText(t.miles)} mi${pace ? ` at ${pace}` : ''}.${lead?.key === 'floor' ? ' Floor met.' : ''}`,
+      line: lead?.key === 'floor' ? 'Floor met.' : lead ? 'Done.' : 'Off the plan.',
       quiet: false,
       landed: { miles: t.miles, paceSec, sec: t.sec, polyline, coach: log.snap.coachOn(date, lead ? lead.session.id : 'run'), drawKey: `route-${myRuns[0]!.id}` },
       tall: !!polyline,
@@ -223,9 +230,6 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     // done (or the floor) by hand: the miles as planned, the week counted the same way
     const s = lead.session;
     const m = s.kind === 'run' ? sessionMiles(log.snap, date, s) : null;
-    const plan = weekSummary(log.snap, mondayOf(date)).plannedMiles;
-    const ran = weekMiles(log.snap, date).reduce((a, d) => a + d.miles, 0);
-    const week = s.kind === 'run' && plan > 0 ? `${milesText(Math.round(ran * 10) / 10)} of ${milesText(Math.round(plan * 10) / 10)} mi ${isToday ? 'this' : 'that'} week.` : null;
     const line = lead.key === 'floor' ? 'Floor met.' : m && m.miles > 0 ? `${milesText(m.miles)} mi. Done.` : 'Done.';
     return {
       ...base,
@@ -235,7 +239,8 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       stamp: up(label(s)),
       line,
       quiet: false,
-      doneHand: { week, adjust: isToday && s.kind === 'run' && m?.source === 'planned' },
+      // the week's miles are the gauge pill's, not the deck's too (today-top-18)
+      doneHand: { adjust: isToday && s.kind === 'run' && m?.source === 'planned' },
       ring: isToday ? 'done' : null,
     };
   }
@@ -252,7 +257,8 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
       const line = skipped ? 'Skipped.' : ph.doorAt != null && !past ? `Out the door ${shortClock(ph.doorAt)}` : planWords(s);
       return { ...base, key: `${skipped ? 'skipped' : 'planned'}-${s.id}`, kind: skipped ? 'skipped' : 'planned', eyebrow: eyebrowOther, stamp: up(label(s)), line, stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined };
     }
-    return { ...base, key: 'rest', kind: 'rest', eyebrow: eyebrowOther, stamp: 'REST', line: 'Rest day', stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined, pressable: false };
+    const none = !inPlan(log, date);
+    return { ...base, key: none ? 'none' : 'rest', kind: 'rest', eyebrow: eyebrowOther, stamp: none ? '' : 'REST', line: none ? NOTHING : '', stops: show ? stops! : undefined, stopsLabel: show ? stopsLabel(stops!) : undefined, pressable: false };
   }
 
   // ---------- today ----------
@@ -303,10 +309,13 @@ export const faceOf = (log: Log, date: ISODate, ph: DayPhase): Face => {
     return { ...base, quiet: false, key: `skipped-${lead.session.id}${stops ? '-am' : ''}`, kind: 'skipped', eyebrow, stamp: up(label(lead.session)), line: 'Skipped.', stops: stops ?? undefined, stopsLabel: stops ? stopsLabel(stops) : undefined, next: stops ? null : next };
   }
   if (rm) {
-    const line = now < rm.wake ? `Alarm in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;
-    return { ...base, quiet: false, key: 'rest-morning', kind: 'restMorning', eyebrow: 'REST DAY', aside: next ? up(next.text.replace(/: /, ' · ')) : undefined, stamp: 'REST', line, stops: rm.stops, stopsLabel: stopsLabel(rm.stops), pressable: false };
+    const line = now < rm.wake ? `Wake time in ${durationWords(Math.ceil(rm.wake - now))}` : `Leave in ${durationWords(Math.ceil(rm.leave - now))}`;
+    const none = !inPlan(log, date);
+    return { ...base, quiet: false, key: 'rest-morning', kind: 'restMorning', eyebrow: 'TODAY', aside: next ? up(next.text.replace(/: /, ' · ')) : undefined, stamp: none ? '' : 'REST', line: none ? `${NOTHING}. ${line}` : line, stops: rm.stops, stopsLabel: stopsLabel(rm.stops), pressable: false };
   }
-  return { ...base, quiet: false, key: 'rest', kind: 'rest', eyebrow: 'REST DAY', stamp: 'REST', line: 'Rest day', next, pressable: false };
+  // rest is said once, by the stamp; a day outside any plan says "Nothing planned" instead (today-top-12, today-top-18)
+  const none = !inPlan(log, date);
+  return { ...base, quiet: false, key: none ? 'none' : 'rest', kind: 'rest', eyebrow: 'TODAY', stamp: none ? '' : 'REST', line: none ? NOTHING : '', next, pressable: false };
 };
 
 /**
@@ -318,16 +327,17 @@ export const floorShort = (s: Session): string => {
   return m ? `${m} min` : floorFor(s);
 };
 
-/** '4 mi · floor 20 min' / '45 min · floor 20 min'. */
+/** '4 mi · floor 20 min' / '45 min · floor 20 min' / 'Floor 20 min' (a lift with no minutes: a whole line, capitalised; today-top-06). */
 export const planWords = (s: Session): string => {
   const bits: string[] = [];
   if (s.kind === 'run' && s.miles) bits.push(`${num(s.miles)} mi`);
   else if (s.minutes) bits.push(`${s.minutes} min`);
   if (floorFor(s)) bits.push(`floor ${floorShort(s)}`);
-  return bits.join(' · ') || label(s);
+  const line = bits.join(' · ');
+  return line ? line[0]!.toUpperCase() + line.slice(1) : label(s);
 };
 
-/** A rest morning before work: the alarm-to-leave line. Null once you have left (or with no timeline). */
+/** A rest morning before work: the wake-to-leave line. Null once you have left (or with no timeline). */
 export const restMorning = (log: Log, date: ISODate, ph: DayPhase) => {
   if (date !== log.today) return null;
   const stops = restStops(log, date);
@@ -345,11 +355,10 @@ export const secondOf = (ph: DayPhase, lead: PhaseSession | null): PhaseSession 
  * The face the day showed before its run arrived (§6.1): the same day with that date's activities hidden. The run landing
  * shows it while it waits to be seen and through stages 1 and 2 (the open face's ring filling and becoming the check).
  */
-export const preLandingFace = (log: Log, date: ISODate, minutes: number): Face => {
+export const preLandingFace = (log: Log, date: ISODate, minutes: number, face: (l: Log) => Face = (l) => faceOf(l, date, phaseOf(l, date, minutes))): Face => {
   const s = log.snap;
   const snap = { ...s, activitiesOn: (d: string) => (d === date ? [] : s.activitiesOn(d)), runsOn: (d: string) => (d === date ? [] : s.runsOn(d)) };
-  const without = { ...log, snap } as Log;
-  return faceOf(without, date, phaseOf(without, date, minutes));
+  return face({ ...log, snap } as Log);
 };
 
 /** The coach's read as the hero says it (§3.2): its first sentence. */

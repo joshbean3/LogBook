@@ -201,7 +201,7 @@ export default function MorningView() {
     const editWake = () => {
       const d = dragRef.current;
       const day = d && d.wake !== T0.day.wake ? { ...T0.day, wake: d.wake, own: d.wake !== usual } : T0.day;
-      sheet.open({ eyebrow, title: 'Alarm', body: <WakeEditor settings={T0.settings} day={day} date={date} dayName={dayName} /> });
+      sheet.open({ eyebrow, title: 'Wake time', body: <WakeEditor settings={T0.settings} day={day} date={date} dayName={dayName} /> });
     };
     /**
      * A step taken off the routine, from the hold menu (at once) or from its sheet (`landed`: once the sheet has closed). Its

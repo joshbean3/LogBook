@@ -10,9 +10,11 @@ import { isoWeek, weekNote } from './WeekCard';
 const FRI = '2026-10-23';
 const run = (date: string, over: Partial<Session> = {}): Session => ({ id: `s-${date}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null, blockId: null, movedFrom: null, mark: null, ...over });
 const bundle = (sessions: Session[], activities: Activity[] = []): MonthBundle => ({ month: '2026-10', sessions, checks: [], lifts: [], activities, morningDays: {}, journal: [], coach: [] });
-const logOf = (b: MonthBundle, today = FRI): Log => {
+/** A plan around October unless `blocks` says otherwise ([] is an account with no plan). */
+const PLAN = [{ id: 'b1', name: 'Half marathon · 12 weeks', start: '2026-10-01', end: '2026-12-31', source: null, summary: null, createdAt: '' }];
+const logOf = (b: MonthBundle, today = FRI, blocks: unknown[] = PLAN): Log => {
   const snap = buildSnapshot({ '2026-10': b }, today);
-  return { today, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks: [] } as unknown as Log['boot'], habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap, ready: true, loading: false, loaded: () => true } as Log;
+  return { today, boot: { morningSettings: MORNING_DEFAULTS, habits: [], blocks } as unknown as Log['boot'], habits: [], zones: null, features: { claude: false, strava: false }, strava: null, snap, ready: true, loading: false, loaded: () => true } as Log;
 };
 
 describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
@@ -27,6 +29,14 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     expect(f.line).toMatch(/^Out the door in /);
     expect(f.stops?.map((s) => s.label)).toEqual(['Wake', 'Door', 'Back', 'Leave']);
     expect(f.tall).toBe(false);
+  });
+  it('a rest morning says Wake, never Alarm: nothing in Logbook rings (today-top-04)', () => {
+    const rest = logOf(bundle([run('2026-10-24')]));
+    const f = faceOf(rest, FRI, phaseOf(rest, FRI, 5 * 60));
+    expect(f.kind).toBe('restMorning');
+    expect(f.line).toMatch(/^Wake time in /);
+    expect(f.stops?.[0]?.label).toBe('Wake');
+    expect(JSON.stringify(f)).not.toMatch(/alarm/i);
   });
   it('the open face after the door and back: the status line and the ring', () => {
     const ph = phaseOf(log, FRI, 12 * 60);
@@ -57,7 +67,9 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     const f = faceOf(l3, FRI, phaseOf(l3, FRI, 12 * 60));
     expect(f.kind).toBe('landed');
     expect(f.tall).toBe(true);
-    expect(f.line).toMatch(/^5\.02 mi at \d+:\d\d\.$/);
+    // the miles and the pace are the deck's stats; the eyebrow and the line do not say them again (today-top-18)
+    expect(f.line).toBe('Done.');
+    expect(f.eyebrow).toBe('TODAY’S RUN');
   });
   it('a run skipped before the door keeps THIS MORNING through Leave, never OUT; after Leave a new face key (day review 2 #2)', () => {
     const l = logOf(bundle([run(FRI, { mark: 'skip' }), run('2026-10-24', { type: 'Threshold', miles: 6 })]));
@@ -83,7 +95,22 @@ describe('the hero faces (docs/feel.md §3.2, §3.3)', () => {
     const f = faceOf(l4, FRI, phaseOf(l4, FRI, 12 * 60));
     expect(f.kind).toBe('rest');
     expect(f.stamp).toBe('REST');
+    // rest is said once: the stamp, not the eyebrow or a line too (today-top-18)
+    expect(f.eyebrow).toBe('TODAY');
+    expect(f.line).toBe('');
     expect(f.next?.text).toMatch(/^Tomorrow: Long 4/);
+  });
+  it('a day outside any plan says Nothing planned, never Rest day (today-top-12)', () => {
+    const none = logOf(bundle([]), FRI, []);
+    const f = faceOf(none, FRI, phaseOf(none, FRI, 12 * 60));
+    expect(f.stamp).toBe('');
+    expect(f.line).toBe('Nothing planned');
+    const other = faceOf(none, '2026-10-27', phaseOf(none, '2026-10-27', 12 * 60));
+    expect(other.line).toBe('Nothing planned');
+    expect([f, other].map((x) => `${x.eyebrow} ${x.stamp} ${x.line}`).join(' ')).not.toMatch(/rest/i);
+    // inside a plan, a day with no session is a rest day
+    const planned = logOf(bundle([]));
+    expect(faceOf(planned, '2026-10-27', phaseOf(planned, '2026-10-27', 12 * 60)).stamp).toBe('REST');
   });
 });
 

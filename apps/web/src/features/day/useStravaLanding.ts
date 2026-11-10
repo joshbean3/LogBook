@@ -1,4 +1,4 @@
-import { today as realToday, type ISODate } from '@logbook/shared';
+import type { ISODate } from '@logbook/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
@@ -13,6 +13,7 @@ import type { Face } from './faces';
 import { fillRingAt, frameAt, MORPH_MS, morphRingAt, ringDrive, type RingDrive } from './HoldRing';
 import { getLiveDate, subscribeLive, useIsLive } from './live';
 import { growHero, LANDING_FILL_MS } from './RunLanding';
+import { markSuccess, seenToday, successKey } from './success';
 
 /**
  * The run landing's stages (docs/feel.md §6.1):
@@ -58,18 +59,6 @@ const calmFrame = (max = 1200) =>
     requestAnimationFrame(tick);
   });
 
-// ---------- once a day: the same `logbook.seen.<key>.<date>` marks `useFirstToday` keeps ----------
-const seenKey = (key: string) => `logbook.seen.${key}.${realToday()}`;
-export const seenToday = (key: string) => {
-  try {
-    return localStorage.getItem(seenKey(key)) === '1';
-  } catch {
-    return true; // no storage: stay still rather than replay every time
-  }
-};
-/** The session's one `success` (M18): whichever of Strava or the hand completes it fires it; the other is silent. */
-export const successKey = (id: string) => `success-${id}`;
-export const markSuccess = (id: string) => markSeenToday(successKey(id));
 
 // ---------- the gate: seen, or it waits ----------
 const nothing = () => () => undefined;

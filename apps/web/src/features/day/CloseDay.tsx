@@ -1,5 +1,5 @@
 import { clock, floorFor, label, mi, num, shiftDays, type DayPhase, type ISODate, type PhaseSession } from '@logbook/shared';
-import { AlarmClock, ChevronRight, PenLine, Share, Type } from 'lucide-react';
+import { ChevronRight, PenLine, Share, Sunrise, Type } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type * as React from 'react';
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -23,25 +23,27 @@ import { shareDataFor } from '../sessions/SessionCard';
 import { ShareSheet } from '../share/ShareSheet';
 import { useHabitsLit } from '../habits/OrbRow';
 import { groupsOn } from '../todos/groups';
-import { shortClock } from './dayWords';
-import { floorShort } from './faces';
+import { isoClock, shortClock } from './dayWords';
+import { firstRingTap, RING_HINT } from './ringHint';
+import { CardGroup, CardOpen } from './CardGroup';
+import { floorShort, inPlan } from './faces';
 import { HoldRing, MORPH_MS, settleAt, settleVelAt } from './HoldRing';
 import type { MarkNow } from './Hero';
 import { refusedMark } from './marks';
 import { watchJournalAdd } from './journalGuard';
 import { dayMiles, sessionMiles, weekMiles } from './miles';
 import { afterPaint, useReleaseTap } from './release';
-import { markSuccess } from './useStravaLanding';
+import { markSuccess } from './success';
 import { keepAboveKeyboard, revealBox } from './reveal';
 import { saveFocus, useFocus } from './WordSheet';
 
 /*
- * The card's heavier parts load on their own (the Journal's quote line, the morning's alarm editor, Reads' pick), each in its
+ * The card's heavier parts load on their own (the Journal's quote line, the morning's wake time editor, Reads' pick), each in its
  * fixed slot, so they never weigh on Today's first paint; `preloadCloseDay` fetches them at the first idle moment.
  */
 const loadQuote = () => import('../journal/JournalHome');
 const loadWake = () => import('../morning/StepSheets');
-/** The alarm editor's module once it is in (preloaded at idle): a tap then opens its sheet in the release's own task. */
+/** The wake time editor's module once it is in (preloaded at idle): a tap then opens its sheet in the release's own task. */
 let wakeMod: Awaited<ReturnType<typeof loadWake>> | null = null;
 const loadWakeKept = () => loadWake().then((m) => (wakeMod = m));
 const loadPick = () => import('../reads/TodaysPick');
@@ -124,11 +126,15 @@ const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: 
   const open = p.key === 'today';
   const done = p.key === 'done' || p.key === 'floor';
   const byRun = done && log.snap.runsOn(date).length > 0 && s.kind === 'run';
+  const words = runWords(log, date, p);
   return (
-    <Pressable as="div" className="cd-run" press="surface" ignore=".hold-ring" onPress={onOpen} label={`${label(s)}, ${runWords(log, date, p)}. Open`}>
+    // a group with its own "open" button on the title, so the hold ring beside it is a control of its own (a11y-07)
+    <CardGroup className="cd-run" press="surface" ignore=".hold-ring" label={`${label(s)}, ${words}`}>
       <span className="cd-run-text">
-        <span className="cd-run-stamp">{label(s)}</span>
-        <span className="cd-run-sub">{runWords(log, date, p)}</span>
+        <CardOpen label={`${label(s)}, ${words}. Open`} onOpen={onOpen}>
+          <span className="cd-run-stamp">{label(s)}</span>
+        </CardOpen>
+        <span className="cd-run-sub">{words}</span>
       </span>
       {!still && (open || (done && !byRun)) ? (
         <HoldRing
@@ -144,17 +150,15 @@ const RunRow = ({ date, log, p, onOpen, still, markNow }: { date: ISODate; log: 
             w.catch(() => toast(refusedMark(s, 'done')));
             return w;
           }}
-          onTap={onOpen}
+          onTap={() => (firstRingTap() ? toast(RING_HINT) : onOpen())}
         />
       ) : null}
-    </Pressable>
+    </CardGroup>
   );
 };
 
-const timeOf = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-};
+/** A stored time as the phone writes times (12 or 24 hour; gap-qua-65). */
+const timeOf = isoClock;
 
 /**
  * What follows the composer's box when the box changes height (§5: "only the entries list grows, via FLIP on what follows";
@@ -561,8 +565,8 @@ const WordRow = () => {
 
 const weekday = (s: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(Date.parse(`${s}T12:00:00Z`));
 
-/** `Alarm 7:15 · change ›` (§5 step 5): tomorrow's alarm, the WakeEditor for tomorrow with `Just tomorrow` chosen, a medium sheet. */
-const AlarmRow = ({ log }: { log: Log }) => {
+/** `Wake time 7:15 · change ›` (§5 step 5): tomorrow's wake time, the WakeEditor for tomorrow with `Just tomorrow` chosen, a medium sheet. */
+const WakeRow = ({ log }: { log: Log }) => {
   const sheet = useSheet();
   const st = log.boot?.morningSettings ?? null;
   const tomorrow = shiftDays(log.today, 1);
@@ -571,16 +575,16 @@ const AlarmRow = ({ log }: { log: Log }) => {
   // fetched at idle, preloadCloseDay); a tap before that waits for it, once
   const rel = useReleaseTap(() => {
     if (!st || !T) return;
-    const open = ({ WakeEditor }: NonNullable<typeof wakeMod>) => sheet.open({ eyebrow: 'Tomorrow', title: 'Alarm', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> });
+    const open = ({ WakeEditor }: NonNullable<typeof wakeMod>) => sheet.open({ eyebrow: 'Tomorrow', title: 'Wake time', detent: 'medium', body: <WakeEditor settings={st} day={T.day} date={tomorrow} dayName={weekday(tomorrow)} preselect="today" /> });
     if (wakeMod) open(wakeMod);
     else void loadWakeKept().then(open);
   });
   if (!st || !T) return null;
   return (
     <Pressable
-      className="row cd-trow cd-alarm"
+      className="row cd-trow cd-wake"
       press="surface"
-      label={`Alarm ${shortClock(T.day.wake)} tomorrow. Change`}
+      label={`Wake time ${shortClock(T.day.wake)} tomorrow. Change`}
       onPointerDown={rel.onPointerDown}
       onPointerMove={rel.onPointerMove}
       onPointerUp={rel.onPointerUp}
@@ -588,9 +592,9 @@ const AlarmRow = ({ log }: { log: Log }) => {
       onPress={rel.onClick}
     >
       <span className="icon-tile" aria-hidden="true">
-        <AlarmClock size={16} />
+        <Sunrise size={16} />
       </span>
-      <span className="cd-trow-title tnum">Alarm {shortClock(T.day.wake)}</span>
+      <span className="cd-trow-title tnum">Wake time {shortClock(T.day.wake)}</span>
       <span className="cd-trow-right">change</span>
       <ChevronRight size={16} className="cd-trow-chev" aria-hidden="true" />
     </Pressable>
@@ -605,7 +609,7 @@ const AlarmRow = ({ log }: { log: Log }) => {
  * 2. the run row (60): the session, how it went, its 40 px ring while open; the words open the session sheet;
  * 3–4. the composer (the quote line as its prompt) → after Save, the entry in the same box, one `success` (on the entry's first frame),
  *    `.halo-boost`, and `Add to it`;
- * 5. Tomorrow, always: the word (inline) and tomorrow's alarm (WakeEditor);
+ * 5. Tomorrow, always: the word (inline) and tomorrow's wake time (WakeEditor);
  * 6. `Share the day`; 7. Today's read when there is a pick.
  * A neighbour's copy (`still`) shows the day only: no composer, no rows to act on.
  */
@@ -629,8 +633,12 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
   const openTodos = groups[0]?.items.length ?? 0;
   const entries = log.snap.journalOn(date);
   const lead = ph?.training[0] ?? (ph?.primary && ph.primary.session.kind !== 'rest' ? ph.primary : null);
+  // every training session of the day has its row, the lead first (today-top-05, today-top-29): the compact cards under the
+  // hero go in the evening, so nothing is left unlisted
+  const rows = lead ? [lead, ...(ph?.sessions ?? []).filter((p) => p.session.kind !== 'rest' && p.session.id !== lead.session.id)] : [];
   const planned = (ph?.training ?? []).reduce((t, p) => t + (p.session.kind === 'run' ? Number(p.session.miles) || 0 : 0), 0);
-  const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length, runShown: !!lead });
+  // a day outside every plan is not a rest day: it says nothing about rest (today-top-12)
+  const { stamps, line } = dayStamps({ miles, planned, lit, habits: habits.length, doneTodos, openTodos, restDay: !ph?.training.length && inPlan(log, date), runShown: !!lead });
   const [closedNow, setClosedNow] = useState(false);
   const title = entries.length || closedNow ? CLOSED_TITLE : EVENING_TITLE;
   const share = () => {
@@ -671,7 +679,9 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
         ) : line ? (
           <p className="cd-line">{line}</p>
         ) : null}
-        {lead ? <RunRow date={date} log={log} p={lead} onOpen={() => onOpenSession(lead)} still={!!still} markNow={markNow} /> : null}
+        {rows.map((p) => (
+          <RunRow key={p.session.id} date={date} log={log} p={p} onOpen={() => onOpenSession(p)} still={!!still} markNow={markNow} />
+        ))}
         {still ? null : (
           <ComposeBox
             date={date}
@@ -693,7 +703,7 @@ export const CloseDay = ({ date, log, ph, onOpenSession, still, markNow }: { dat
             <SectionHeader title="Tomorrow" />
             <div className="group cd-tgroup">
               <WordRow />
-              <AlarmRow log={log} />
+              <WakeRow log={log} />
             </div>
           </section>
           {pick.data?.pick && pick.data.pick.verdict !== 'dismissed' ? (

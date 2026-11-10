@@ -62,13 +62,13 @@
   flex: none;
 }
 .srow-stat b {
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-row);
+  line-height: 1.375rem;
   font-weight: 600;
 }
 .srow-stat small {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: 1rem;
   color: var(--ink-3);
   letter-spacing: 0;
 }
@@ -115,8 +115,8 @@
   background: var(--tone);
 }
 .srow-ghost-title {
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: 1.25rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -156,8 +156,8 @@
   grid-template-columns: 24px minmax(0, 1fr) 48px 32px;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: 1rem;
 }
 .split-n {
   color: var(--ink-3);
@@ -211,8 +211,8 @@
 .assess {
   display: grid;
   gap: 4px;
-  font-size: 15px;
-  line-height: 20px;
+  font-size: var(--fs-sub);
+  line-height: 1.25rem;
 }
 .assess-head {
   font-weight: 600;
@@ -222,7 +222,7 @@
 }
 .assess.v-off .assess-head,
 .assess.v-short .assess-head {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .assess ul {
   padding-left: 18px;
@@ -252,8 +252,8 @@
 }
 .coach p {
   font-family: var(--serif);
-  font-size: 22px;
-  line-height: 28px;
+  font-size: var(--fs-sentence);
+  line-height: 1.75rem;
   letter-spacing: 0;
   color: var(--ink);
 }
@@ -300,11 +300,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: 600 17px/22px var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
 }
 .lft-count {
   flex: none;
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .lft-sets {
@@ -329,14 +329,14 @@
 .lft-n {
   flex: none;
   width: 18px;
-  font: 600 13px/18px var(--sans);
+  font: 600 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
   text-align: center;
 }
 .lft-val {
   flex: 1 1 auto;
-  font-size: 17px;
-  line-height: 22px;
+  font-size: var(--fs-row);
+  line-height: 1.375rem;
 }
 .lft-check {
   flex: none;
@@ -370,17 +370,17 @@
   align-items: baseline;
   gap: 3px;
   min-width: 72px;
-  height: 40px;
+  height: 2.5rem;
   padding: 0 10px;
   border: 0;
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--ink);
-  font: 800 20px/40px var(--stamp);
+  font: 800 1.25rem/2.5rem var(--stamp);
   letter-spacing: -0.02em;
 }
 .lft-field small {
-  font: 500 12px/16px var(--sans);
+  font: 500 var(--fs-orb) / var(--lh-orb) var(--sans);
   letter-spacing: 0;
   color: var(--ink-3);
 }
@@ -397,11 +397,11 @@
 }
 .lft-x {
   color: var(--ink-3);
-  font: 400 17px/22px var(--sans);
+  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
 }
 .lft-hint {
   margin-left: auto;
-  font: 400 13px/18px var(--sans);
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
   white-space: nowrap;
 }
@@ -415,14 +415,14 @@
   gap: 8px;
 }
 .lft-chip.pressable {
-  min-height: 36px;
+  min-height: 2.25rem;
   padding: 0 14px;
   border: var(--card-border);
   box-shadow: var(--shadow-1);
   border-radius: var(--r-pill);
   background: var(--surface);
   color: var(--ink);
-  font: 500 15px/20px var(--sans);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
 }
 .lft-chip[data-pressed] {
   background: var(--surface-2);
@@ -460,7 +460,7 @@
   line-height: var(--lh-stamp);
 }
 .lft-stepval small {
-  font: 500 13px/18px var(--sans);
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
 }
 .lft-keys {
@@ -471,12 +471,12 @@
 .lft-key.pressable {
   display: grid;
   place-items: center;
-  height: 48px;
+  height: 3rem;
   border: 0;
   border-radius: var(--r-group);
   background: var(--surface);
   color: var(--ink);
-  font: 600 22px/28px var(--sans);
+  font: 600 var(--fs-sentence) / var(--lh-sentence) var(--sans);
 }
 .lft-key[data-pressed] {
   background: var(--columbia-wash);
@@ -564,8 +564,8 @@
 }
 /* the name: the display serif at 28/32 for a run ("Afternoon Run"), the stamp at 28 for a number label ("EASY 6") */
 .sh-title {
-  font-size: 28px;
-  line-height: 32px;
+  font-size: var(--fs-stamp);
+  line-height: 2rem;
   overflow-wrap: break-word;
   color: var(--ink);
 }
@@ -595,8 +595,8 @@
 }
 .sh-num {
   font-variant-numeric: tabular-nums;
-  font-size: 28px;
-  line-height: 32px;
+  font-size: var(--fs-stamp);
+  line-height: 2rem;
   white-space: nowrap;
   display: flex;
   align-items: baseline;
@@ -604,8 +604,8 @@
   min-width: 0;
 }
 .sh-num small {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: 1rem;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -613,8 +613,8 @@
 }
 /* the plan under the actual: "of 6" in 12px at 70%, so the strip reads what happened first */
 .sh-note {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-orb);
+  line-height: 1rem;
   color: rgba(15, 42, 68, 0.7);
   letter-spacing: 0;
   white-space: nowrap;
@@ -711,7 +711,7 @@
 }
 .ss-pin-pr {
   fill: var(--ink);
-  font: 800 8.5px/1 var(--sans);
+  font: 800 0.5312rem/1 var(--sans);
 }
 .ss-pin-tag {
   fill: rgba(255, 255, 255, 0.95);
@@ -720,7 +720,7 @@
 }
 .ss-pin-words {
   fill: var(--ink);
-  font: 650 10.5px/1 var(--sans);
+  font: 650 0.6562rem/1 var(--sans);
 }
 
 /* the record: a medal and what it beat (Strava's PR card) */
@@ -743,7 +743,7 @@
 }
 .medal-pr {
   fill: var(--ink);
-  font: 800 11px/1 var(--sans);
+  font: 800 0.6875rem/1 var(--sans);
 }
 .rec-words {
   display: grid;
@@ -770,6 +770,13 @@
    hero, two-column tiles, the verbs as one inset group, the one navy pill pinned at the bottom ---------- */
 .ss {
   gap: var(--gap);
+  container-type: inline-size;
+}
+/* the sheet narrow for its text (large text): the number tiles go one to a row, so `Out the door` and `6:45 AM` fit */
+@container (max-width: 17rem) {
+  .ss .ss-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 /* the route in its own card */
 .ss-map-card.card {
@@ -837,7 +844,7 @@
   color: var(--accent-text);
 }
 .ss-st.is-floor {
-  color: var(--warn);
+  color: var(--warn-text, #8f5800);
 }
 .ss-hero-num {
   display: inline-flex;
@@ -934,12 +941,10 @@
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: -0.01em;
 }
+/* one line at the default size; it wraps before it is cut */
 .ss-act-sub {
-  overflow: hidden;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-3);
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .ss-act-chev {
   flex: none;
@@ -1006,8 +1011,11 @@
   background: var(--tone);
 }
 .ed-preview .stamp {
+  min-width: 0;
   font-size: 1.375rem;
   line-height: 1.75rem;
+  /* a name typed as one long word wraps inside the sheet instead of pushing every field off the screen */
+  overflow-wrap: anywhere;
 }
 .ed-preview-day {
   margin-left: auto;
@@ -1024,6 +1032,17 @@
   line-height: 1.125rem;
   font-weight: 600;
   color: var(--ink-2);
+}
+/* the name's characters left, near its limit: under the field at its right */
+.ed-count {
+  justify-self: end;
+  margin-top: -4px;
+  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.ed-count.is-full {
+  color: var(--warn-text, #8f5800);
 }
 .ed-chips {
   display: flex;

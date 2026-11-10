@@ -1,5 +1,6 @@
-import { clockOfDay, num, type MorningTimeline, type RoutineKey } from '@logbook/shared';
-import { AlarmClock, Backpack, BookOpen, CircleAlert, CircleCheck, CircleDot, Coffee, Dog, Dumbbell, Flower2, Footprints, Moon, Pencil, PersonStanding, Sandwich, ShowerHead, Shirt, SkipForward, Trash2, Undo2, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import { num, type MorningTimeline, type RoutineKey } from '@logbook/shared';
+import { dayClock } from '../day/dayWords';
+import { Backpack, BookOpen, CircleAlert, CircleCheck, CircleDot, Coffee, Dog, Dumbbell, Flower2, Footprints, Moon, Pencil, PersonStanding, Sandwich, ShowerHead, Shirt, SkipForward, Sunrise, Trash2, Undo2, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -47,7 +48,7 @@ export interface ScheduleActions {
   late: LateFixes;
 }
 
-const ICON: Record<string, LucideIcon> = { wake: AlarmClock, run: Footprints, gym: Dumbbell, free: Moon, late: CircleAlert, shower: ShowerHead, ready: Shirt, smoothie: Coffee, prep: Backpack };
+const ICON: Record<string, LucideIcon> = { wake: Sunrise, run: Footprints, gym: Dumbbell, free: Moon, late: CircleAlert, shower: ShowerHead, ready: Shirt, smoothie: Coffee, prep: Backpack };
 /** A step of your own wears the icon its name suggests. */
 const GUESS: Array<[RegExp, LucideIcon]> = [
   [/dog|pet/i, Dog],
@@ -426,7 +427,7 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
   });
 
   // ---------- the rows ----------
-  const label = (r: SchedRow) => `${r.name}, ${clockOfDay(r.at)}${r.sub ? `, ${r.sub}` : ''}`;
+  const label = (r: SchedRow) => `${r.name}, ${dayClock(r.at)}${r.sub ? `, ${r.sub}` : ''}`;
   const rowFor = (r: SchedRow): ReactNode => {
     const st = timeState(isToday, now, r.start, r.end);
     const cls = `sch-row k-${r.kind} ${r.tone ? `t-${r.tone}` : ''} ${st.cls}`;
@@ -447,7 +448,7 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
       const items: ContextMenuItem[] = actions.backLabel ? [{ label: `Back to ${actions.backLabel}`, icon: <Undo2 size={18} />, onSelect: actions.backToPlan }] : [];
       inner = (
         <>
-          <Pressable as="div" className="sch-hit" press="surface" onPress={actions.editWake} holdMenu={items.length ? items : undefined} menuLabel="Wake up actions" label={`${label(r)}. Change the alarm`}>
+          <Pressable as="div" className="sch-hit" press="surface" onPress={actions.editWake} holdMenu={items.length ? items : undefined} menuLabel="Wake up actions" label={`${label(r)}. Change the wake time`}>
             <RowBody r={r} time={null} />
           </Pressable>
           <AlarmHandle wake={r.at} onStep={wake.onStep} onCommit={wake.onCommit} onDragging={wake.onDragging} onTap={actions.editWake} moved={isMoved} />
@@ -557,7 +558,7 @@ export const Schedule = ({ T, rows, rel, now, moved, actions, wake }: SchedulePr
 
   return (
     <>
-      <ol ref={list} className={`sch ${wake.dragging ? 'is-alarm-drag' : ''}`} aria-label="The morning, from the alarm to the door">
+      <ol ref={list} className={`sch ${wake.dragging ? 'is-alarm-drag' : ''}`} aria-label="The morning, from waking to the door">
         <AnimatePresence initial={false} mode="popLayout">
           {shown.map(rowFor)}
         </AnimatePresence>

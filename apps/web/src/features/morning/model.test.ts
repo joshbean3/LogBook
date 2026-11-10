@@ -1,6 +1,7 @@
 import { MORNING_DEFAULTS, normalizeMorningSettings, type Session } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { morningOf, rowsOf, workName } from './model';
+import { morningOf, nowLine, rowsOf, workName } from './model';
+import { NO_RING } from './StepSheets';
 
 const sess = (p: Partial<Session> & Pick<Session, 'date' | 'kind'>): Session => ({
   id: p.id ?? `s-${p.date}-${p.kind}`,
@@ -49,5 +50,16 @@ describe('row words', () => {
     const empty = normalizeMorningSettings({ ...st, after: { ...st.after, shower: 0, ready: 0, smoothie: 0, prep: 0 } });
     const free = rowsOf(morningOf(run, null, empty), 'today').find((r) => r.id === 'free');
     expect(free?.sub).toBe('10 min');
+  });
+});
+
+describe('the wake time is a plan, not an alarm (today-top-04)', () => {
+  it('the Now card says Wake time before waking, today and on a morning to come', () => {
+    const T = morningOf(run, null, st);
+    expect(nowLine(T, T.day.wake - 40, 'today')).toBe('Wake time in 40 min');
+    expect(nowLine(T, 0, 'future')).toMatch(/^Wake time \d+:\d\d · Leave /);
+  });
+  it('the wake sheet says Logbook does not ring', () => {
+    expect(NO_RING).toBe('Logbook does not ring. Set this time in your Clock app.');
   });
 });

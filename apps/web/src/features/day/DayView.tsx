@@ -15,13 +15,17 @@ import type { ContextMenuItem } from '@/ui/ContextMenu';
 import { useLog } from '../log/useLog';
 import { useOpenCalendar } from './Calendar';
 import { DayPage } from './DayPage';
-import { stripKinds } from './stripKinds';
+import { stripKinds, stripLabel } from './stripKinds';
 import { setLiveDate, setPagerMoving } from './live';
 import { morningLineId, morningPath } from './Hero';
 import { deferChange, recheckDeferred, setTodayActive } from './useDeferred';
 import { useStravaPull } from './useStravaPull';
+import { STRAVA_BUILT } from '@/lib/features';
 import { saveFocus, useFocus, useOpenWordSheet } from './WordSheet';
 import './day.css';
+
+/** Pull to refresh checks Strava only in a build that carries it (settings-18): chosen once, so the bundler drops the rest. */
+const usePull: (connected: boolean) => void = STRAVA_BUILT ? useStravaPull : () => undefined;
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 /** Test builds expose the pager and the page's date to the acceptance scripts (`window.__pager`, `window.__today`). */
@@ -40,7 +44,7 @@ const STRIP: Partial<Record<ReturnType<typeof dayKey>, StripStatus>> = { done: '
  *   slides). The lit tab re-tapped off today slides home (`useHomeControl`).
  * - Three ways to change the day (§0.1): swipe anywhere under the bar (the strip and the large title row are attached to the
  *   pager), tap a strip cell, come home (the title block, the Today pill, today's cell, the lit tab). The calendar is a jump
- *   behind the title's hold menu (`Change the word · Clear the word · Go to a day…`).
+ *   behind the title's hold menu (`Set a word for the day · Clear the word for the day · Go to a day…`).
  * - The bar's stacked labels follow the pager's `progress` with no render; during a 2–7 day `goTo` the label in the direction
  *   of travel shows the destination (`handle.target`: one render at the start of the slide).
  */
@@ -99,7 +103,7 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
   const focus = useFocus();
   const { settings } = useMorningMutations();
   const openWord = useOpenWordSheet();
-  useStravaPull(!!log.strava?.connected);
+  usePull(!!log.strava?.connected);
 
   // a cold open's Strava check is main.tsx's (from the persisted bootstrap) or App's (after the first bootstrap): one each
   if (hooks) {
@@ -144,9 +148,10 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
 
   const openCalendar = useOpenCalendar({ mode: 'day', value: date, onPick: (d) => handle.goTo(d) });
   const titleMenu = (): ContextMenuItem[] => [
-    { label: 'Change the word', onSelect: openWord },
+    // the items say what the word is for (today-top-24)
+    { label: focus.word.trim() ? 'Change the word for the day' : 'Set a word for the day', onSelect: openWord },
     // the settings patch takes the whole focus (word, sentence, by): only the word is cleared
-    { label: 'Clear the word', disabled: !focus.word.trim(), onSelect: () => saveFocus(settings, { word: '', quote: focus.quote, by: focus.by }) },
+    { label: 'Clear the word for the day', disabled: !focus.word.trim(), onSelect: () => saveFocus(settings, { word: '', quote: focus.quote, by: focus.by }) },
     { label: 'Go to a day…', onSelect: openCalendar },
   ];
 
@@ -162,6 +167,8 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
 
   const statusOf = (d: string): StripStatus => (log.loaded(d) ? (STRIP[dayKey(log.snap, d)] ?? null) : null);
   const kindsOf = (d: string) => (log.loaded(d) ? stripKinds(log.snap, d) : []);
+  // two glyphs at most, but the spoken name says every kind (today-top-29)
+  const labelOf = (d: string) => stripLabel(d, log.loaded(d) ? stripKinds(log.snap, d, 3) : [], statusOf(d));
   const onMorning = useCallback((d: ISODate) => nav.push(morningPath(d), { shared: morningLineId(d) }), [nav]);
   const render = useCallback((d: string, live: boolean) => <DayPage date={d} live={live} onMorning={onMorning} />, [onMorning]);
 
@@ -180,8 +187,11 @@ function TodayRoot({ roll, setHeld }: { roll: React.RefObject<(to: ISODate) => v
         titleLabel={date === today ? 'Today' : `${dayTitle(date, today)}. Go to today`}
         titleRef={titleRef}
         gap={16}
+        // the caps date opens the calendar on a tap (today-top-24): props requested from ws-02's NavBar; passed through a
+        // spread so this compiles before and after NavBar takes them
+        {...({ onDatePress: openCalendar, dateLabel: 'Go to a day' } as object)}
       >
-        <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} onPick={(d) => handle.goTo(d)} />
+        <DateStrip shown={date} today={today} handle={handle} stripRef={stripRef} statusOf={statusOf} kindsOf={kindsOf} labelOf={labelOf} onPick={(d) => handle.goTo(d)} />
       </NavBar>
       <DayPager date={date} step="day" handle={handle} onCommit={commit} render={render} label="Day" prevLabel="Previous day" nextLabel="Next day" />
       {/* pull to refresh's keyboard and VoiceOver path (WP1's request): the same REFRESH a committed pull fires */}
