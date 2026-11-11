@@ -53,13 +53,14 @@
 .mc-head {
   display: block;
   margin-top: 6px;
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--display);
+  /* capped under the "Today" section title (34 px) at a larger text size */
+  font: italic 420 min(var(--fs-sentence), 30px) / min(var(--lh-sentence), 38px) var(--display);
   letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: break-word;
 }
 .mc-head-n {
-  font: 650 var(--fs-row) / var(--lh-sentence) var(--sans);
+  font: 650 min(var(--fs-row), 30px) / min(var(--lh-sentence), 38px) var(--sans);
   font-style: normal;
   font-variant-numeric: tabular-nums;
 }

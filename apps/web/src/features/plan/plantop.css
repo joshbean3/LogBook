@@ -58,7 +58,8 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font: 600 var(--fs-section) / var(--lh-section) var(--serif);
+  /* held at the section titles' 34 px cap at a larger text size, so the card never outgrows the screen's title */
+  font: 600 min(var(--fs-section), 34px) / min(var(--lh-section), 40px) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
@@ -206,7 +207,8 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  /* capped under the "Today" section title (34 px) at a larger text size */
+  font: 600 min(var(--fs-head), 30px) / min(var(--lh-head), 36px) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;

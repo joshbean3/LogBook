@@ -600,6 +600,28 @@
 .mg-wk.is-plan b {
   color: var(--ink-2);
 }
+/* at a larger text size the week total keeps its number (the word under it goes: the header says Wk), and today's ring hugs
+   its numeral as a pill so it never runs into the next day */
+[data-text-xl] .mg-wk small {
+  display: none;
+}
+[data-text-xl] .mg-mi {
+  font-size: min(var(--fs-orb), 18px);
+}
+[data-text-xl] .mg-wk {
+  padding-right: var(--sp-1);
+}
+[data-text-xl] .mg-wk b {
+  font-size: min(var(--fs-row), 24px);
+}
+/* seven numerals share a 320 row: they stop growing at 22 px (the miles under them at 18) so neighbors never touch */
+[data-text-xl] .mg-cell .mg-num {
+  font-size: min(var(--fs-sub), 22px);
+  min-width: 0;
+  height: auto;
+  padding: 0 2px;
+  border-radius: var(--r-pill);
+}
 /* the key: one line under the grid (it wraps at 320), each mark as the cells draw it */
 .mg-key {
   display: flex;
