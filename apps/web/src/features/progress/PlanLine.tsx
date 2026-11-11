@@ -100,14 +100,29 @@ export const PlanLine = ({ weeks, label, words, onScrub, onOpen }: { weeks: BarW
   const hasPlan = weeks.some((p, i) => i >= first && p.planned > 0);
 
   const grid = [top / 2, top];
+  // the caption labels grow with the text size (rem), the plot does not: their spacing grows with them
+  const textScale = Math.max(1, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16);
   const xLabels: Array<{ x: number; text: string; now?: boolean; anchor: 'start' | 'middle' | 'end' }> = [];
   if (ci >= 0) xLabels.push({ x: x(ci), text: 'Now', now: true, anchor: ci === n - 1 ? 'end' : 'middle' });
+  // a caption label's extent: about 9 px a letter at the 11 px caption (its +0.14 em included), grown with the text size
+  const span = (l: { x: number; text: string; anchor: 'start' | 'middle' | 'end' }) => {
+    const w = l.text.length * 9 * textScale;
+    const a = l.anchor === 'start' ? l.x : l.anchor === 'end' ? l.x - w : l.x - w / 2;
+    return [a, a + w] as const;
+  };
+  const clash = (l: { x: number; text: string; anchor: 'start' | 'middle' | 'end' }) => {
+    const [a, b] = span(l);
+    return xLabels.some((o) => {
+      const [c, d] = span(o);
+      return a < d + 10 && c < b + 10;
+    });
+  };
   weeks.forEach((p, i) => {
     // a month starts a label where the lines are drawn (the first drawn week names its month)
     if (i < first || (i > first && monthOfWeek(p.w) === monthOfWeek(weeks[i - 1]!.w))) return;
-    const lx = x(i);
-    if (xLabels.some((l) => Math.abs(l.x - lx) < 44)) return;
-    xLabels.push({ x: lx, text: monthOfWeek(p.w), anchor: i === 0 ? 'start' : 'middle' });
+    const label = { x: x(i), text: monthOfWeek(p.w), anchor: i === 0 ? ('start' as const) : ('middle' as const) };
+    if (clash(label)) return;
+    xLabels.push(label);
   });
   // the line draws in, then the fill under it settles
   const draw = reduce ? { initial: false as const } : { initial: { pathLength: 0 }, animate: { pathLength: 1 }, transition: { duration: 0.9, ease: [0.33, 1, 0.68, 1] as const } };

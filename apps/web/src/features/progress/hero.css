@@ -43,8 +43,10 @@
 }
 
 /* the headline: the week at the left, the share of the plan at the right */
+/* the rate box sits beside the week while both fit, and goes under it at a larger text size (nothing runs into it) */
 .ph-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
@@ -52,6 +54,7 @@
 }
 .ph-main {
   display: grid;
+  flex: 1 1 8.5rem;
   gap: 2px;
   min-width: 0;
 }
@@ -66,13 +69,15 @@
   text-overflow: ellipsis;
 }
 /* the hero stat that changes (guide 4.2): Inter 650 at --fs-stat-live, even figures; its unit Inter 500 15 Dusk. The line
-   box stays 46 so the card keeps its height */
+   box stays 46 so the card keeps its height. At a larger text size the number stops at 56 px (it sits beside the rate box),
+   and a unit that cannot fit beside it ("of 30.5 mi" at 320) goes under it rather than lose its words */
 .ph-big {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  column-gap: 6px;
   min-width: 0;
-  font: 650 var(--fs-stat-live) / 2.875rem var(--sans);
+  font: 650 min(var(--fs-stat-live), 56px) / min(2.875rem, 60px) var(--sans);
   letter-spacing: var(--tr-hero);
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -83,8 +88,7 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ph-big.is-word {
   font: 600 var(--fs-row) / 2.875rem var(--sans);
