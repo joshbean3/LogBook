@@ -19,7 +19,8 @@
  *   hero        more than one .hero / [data-hero] card is a violation.
  *
  * It never passes what it cannot see: Reduce Motion, Increase Contrast, 200 percent text and haptics are listed as
- * UNVERIFIED for a person to check.
+ * UNVERIFIED for a person to check. It audits the screens, not the opening: its session starts with the sunrise splash
+ * already seen, and it waits for the splash to leave before it reads a page.
  *
  *   node docs/brand/tools/audit.mjs http://localhost:5220 [/today,/goals,...] [--state path/to/storageState.json]
  *
@@ -62,10 +63,20 @@ const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) +
 
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, ...(state ? { storageState: state } : {}) });
+// The app opens with a 2.8 s sunrise once per session (apps/web/src/app/BrandSplash.tsx) and a quiet 300 ms fade after.
+// The audit reads the screens under it, so its session starts with the opening already seen: the mark the app leaves.
+await ctx.addInitScript(() => {
+  try {
+    sessionStorage.setItem('logbook.splash.played', '1');
+  } catch {
+    /* no storage: the wait below still outlasts the opening */
+  }
+});
 const page = await ctx.newPage();
 let violations = 0;
 for (const r of routes) {
   await page.goto(base + r, { waitUntil: 'load' });
+  await page.waitForSelector('.brand-splash', { state: 'detached', timeout: 8000 }).catch(() => undefined);
   await page.waitForTimeout(2500);
   const res = await page.evaluate(() => {
     const hex = (c) => {
