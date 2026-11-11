@@ -59,7 +59,7 @@
   overflow-wrap: break-word;
 }
 .mc-head-n {
-  font: 500 var(--fs-sentence) / var(--lh-sentence) var(--sans);
+  font: 650 var(--fs-row) / var(--lh-sentence) var(--sans);
   font-style: normal;
   font-variant-numeric: tabular-nums;
 }
@@ -90,7 +90,7 @@
 .mc-times {
   height: 22px;
 }
-/* everything on the track is placed at its fraction --p of the line between the edge dots' centres */
+/* everything on the track is placed at its fraction --p of the line between the edge dots' centers */
 .mc-at {
   position: absolute;
   top: 0;
@@ -242,6 +242,7 @@
   flex: 1 1 auto;
   min-width: 0;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 /* the verb, a quiet Deep Sky link (guide 6.2) */

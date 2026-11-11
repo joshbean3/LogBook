@@ -34,12 +34,12 @@ export const effortLine = (n: number): string => {
  * is never a scale or a series (guide 3.5, 6.8); the number and its word carry the value, the color only rises with it.
  */
 const EFFORT_COLORS = ['#cbe8f8', '#9ad7f6', '#69c7f4', '#38b6f2', '#299dd9', '#1985bf', '#0a6ca6', '#106094', '#155482', '#1b4870'] as const; // brand-ok: a sequential Haze, Sky, Deep Sky, Twilight ramp (guide 6.8: never orange for a series)
-/** The dial's colour at `n` (rounded, held to 1–10). */
+/** The dial's color at `n` (rounded, held to 1–10). */
 export const effortColor = (n: number): string => EFFORT_COLORS[Math.min(EFFORT_MAX, Math.max(EFFORT_MIN, Math.round(n))) - EFFORT_MIN]!;
 
 /**
  * The dial's geometry: a 240° arc open at the bottom, 1 at its left end and 10 at its right. `valueAt` turns a point
- * (relative to the arc's centre, y down) into the nearest effort; null for a point in the gap under the dial.
+ * (relative to the arc's center, y down) into the nearest effort; null for a point in the gap under the dial.
  */
 export const ARC_START = 150; // degrees, clockwise from +x (y down): lower left
 export const ARC_SWEEP = 240;

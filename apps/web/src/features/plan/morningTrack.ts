@@ -60,7 +60,7 @@ export const trackOf = (ats: number[], gaps: number[]): number[] => {
 };
 
 /**
- * The narrowest line (px between the edge dots' centres) that still shows `RUN OUT` and the times with AM/PM: below the
+ * The narrowest line (px between the edge dots' centers) that still shows `RUN OUT` and the times with AM/PM: below the
  * first the labels shorten (`OUT`) and the stamps step to 15; from the second the meridiem shows. morningcard.css's
  * container queries are these plus the dots' 12 px.
  */

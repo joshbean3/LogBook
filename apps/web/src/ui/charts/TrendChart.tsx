@@ -39,7 +39,7 @@ export interface TrendChartProps {
   steps?: number[];
   /** A fixed y axis, whatever the data (a share: 0 to 100). Without it the axis fits the data. */
   domain?: [number, number];
-  /** The line's colour: navy for data, orange for the one series that is the highlight (this month). */
+  /** The line's color: navy for data, orange for the one series that is the highlight (this month). */
   tone?: 'navy' | 'accent';
   /** A soft fill under the line. */
   fill?: boolean;

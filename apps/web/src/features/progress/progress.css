@@ -2,7 +2,7 @@
    sheets the metric pages open (the week, easy pace, lifts) ---------- */
 
 /* WP6 moves what a size change displaces itself (carry, FLIP on settle, docs/feel.md §10.1): the browser's scroll anchoring
-   must not move it too (review 3 feel R3-3). iOS Safari has no scroll anchoring, so this is the iPhone's behaviour everywhere. */
+   must not move it too (review 3 feel R3-3). iOS Safari has no scroll anchoring, so this is the iPhone's behavior everywhere. */
 .pg-page {
   overflow-anchor: none;
 }

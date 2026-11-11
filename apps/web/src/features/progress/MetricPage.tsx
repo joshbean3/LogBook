@@ -56,7 +56,7 @@ const freshness = (m: MetricModel, stravaAt: string | null, now: number, today: 
 
 /**
  * A metric's page (docs/shape-system.md §6 "A metric or detail page", references 378, 381, 648, 670), pushed from Progress at
- * /progress/metric/:id. A round back button, the name centred with the value's date under it, a round info button that
+ * /progress/metric/:id. A round back button, the name centered with the value's date under it, a round info button that
  * scrolls to the explainer; the hero (the big number, or a gauge for a share) with its status word and your usual range; two
  * stat tiles that say when they were updated; the chart card (its metric chips, the chart, the range control); the 3 to 90
  * day trend table in a card; and the explainer card: what it is, why it matters, how it is worked out. An Apple Health metric

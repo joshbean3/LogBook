@@ -13,7 +13,7 @@ import { StepNav } from './Week';
  * row you tap to see that week (PlanView crossfades back to Week, 200 ms). The month pager (`step: 'month'`) renders a page
  * for prev, cur and next, memoised by the first of the month; it follows the finger 1:1. Nothing animates on its own.
  *
- * A day's mark says its session type by shape as well as colour (a bar, a longer bar, two dashes, three dots, a block, a
+ * A day's mark says its session type by shape as well as color (a bar, a longer bar, two dashes, three dots, a block, a
  * dot), the key under the grid names each, and a week's accessible name says each day in words.
  */
 

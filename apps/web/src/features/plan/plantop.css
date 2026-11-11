@@ -345,8 +345,9 @@
 .pl-wk-line {
   margin: -4px 0 var(--gap);
   overflow: hidden;
-  font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
   text-wrap: pretty;
 }
 .pl-wk-line b {

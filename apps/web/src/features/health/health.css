@@ -448,7 +448,8 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: var(--haze);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--haze);
   color: var(--deep-sky);
 }
 /* the tiles around the dial hold still (plan 4.3: no infinite loop for decoration) */

@@ -80,6 +80,7 @@
 }
 .ph-big small {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   color: var(--ink-2);
   overflow: hidden;
@@ -93,6 +94,7 @@
 .ph-sub {
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   /* two lines before it is cut ("2 sets, 1,025 lb moved" beside the rate box at 320) */
   display: -webkit-box;
@@ -582,4 +584,8 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-2);
+}
+/* the hidden list of weeks for VoiceOver: its numbers in even figures too */
+.pl-chart .sr-only {
+  font-variant-numeric: tabular-nums;
 }

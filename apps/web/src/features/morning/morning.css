@@ -1,6 +1,6 @@
 /* This morning (docs/feel.md §4): pushed over Today. The bar, the Now card where the hero's four-stop line lands, then the
    morning as one inset group of 60 px rows (time 48 · icon 32 · name and sub, nothing on the right) ending in the sticky
-   Leave row, and `+ Add a step`. Only transform and opacity animate (the stamps' colour flash is the one colour tween). */
+   Leave row, and `+ Add a step`. Only transform and opacity animate (the stamps' color flash is the one color tween). */
 
 .m-page {
   display: block;
@@ -47,7 +47,7 @@
 }
 /* its times change, so they are Inter with even figures, upright (guide 4.4: Fraunces has no tnum) */
 .now-line .mc-head-n {
-  font: 500 var(--fs-sentence) / var(--lh-sentence) var(--sans);
+  font: 650 var(--fs-row) / var(--lh-sentence) var(--sans);
   font-style: normal;
   font-variant-numeric: tabular-nums;
 }
@@ -304,7 +304,7 @@
 }
 /* back in time while the finger holds the row (feel review 2 R2-3): a neutral disc, the line in the middle of the height
    the row holds (its min-height, set from the row as the drag found it: feel review 3 R3-1) */
-/* a late note with no fix left to offer (back home, or the run done: code review 3 N7) is one 60 row, its line centred */
+/* a late note with no fix left to offer (back home, or the run done: code review 3 N7) is one 60 row, its line centered */
 .late-hit.is-clear,
 .late-hit.is-quiet {
   align-items: center;

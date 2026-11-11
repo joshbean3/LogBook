@@ -115,7 +115,7 @@ interface Tap {
 }
 
 const Card = ({ T, date, rel, now, tap, menu }: { T: MorningTimeline; date: string; rel: 'today' | 'tomorrow'; now: number; tap: Tap; menu: () => ContextMenuItem[] }) => {
-  // the line's width (between the edge dots' centres) sets how close two stops may sit; a first guess from the window
+  // the line's width (between the edge dots' centers) sets how close two stops may sit; a first guess from the window
   const lineRef = useRef<HTMLSpanElement>(null);
   const [width, setWidth] = useState(() => Math.max(200, Math.min(window.innerWidth, 720) - 32 - 38 - 12));
   useLayoutEffect(() => {

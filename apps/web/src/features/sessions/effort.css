@@ -106,7 +106,7 @@
   opacity: 1;
 }
 
-/* the session sheet's row: the number in a chip of its colour, the word, a chevron */
+/* the session sheet's row: the number in a chip of its color, the word, a chevron */
 .eff-row.pressable {
   display: flex;
   align-items: center;

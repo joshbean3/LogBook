@@ -103,7 +103,7 @@ describe('the range pill on a health tile', () => {
     expect(p.band![0]).toBeLessThan(p.pos);
     expect(p.band![1]).toBeGreaterThan(p.pos);
   });
-  it('centres a single flat reading instead of dividing by zero', () => {
+  it('centers a single flat reading instead of dividing by zero', () => {
     const p = pillOf({ value: 60, band: null, line: [60] })!;
     expect(p.pos).toBeCloseTo(0.5, 6);
     expect(p.band).toBeNull();
