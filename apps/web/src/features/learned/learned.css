@@ -481,7 +481,7 @@ textarea.ln-field {
 }
 
 /* ---------- a month's page: the bar holds the back button and the two month buttons (40 round, 12 apart, LM4), so both
-   side columns take the pair's width and the title (the month over its year) stays centred and whole at 320 ---------- */
+   side columns take the pair's width and the title (the month over its year) stays centered and whole at 320 ---------- */
 .ln-month-page > .pushed-bar {
   grid-template-columns: var(--pb-side) minmax(0, 1fr) var(--pb-side);
   --pb-side: calc(2 * 40px + var(--sp-3) + var(--gutter));
