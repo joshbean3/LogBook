@@ -89,8 +89,9 @@ const Hills = memo(function Hills({ dusk, rim }: { dusk: boolean; rim?: string }
  * The marks of one view (spec 6.5): a Paper keyline, a Deep Sky ring, and a Deep Sky disc that fades in when the session is
  * done. The one that fills on a change does the one overshoot (`is-pop`). A lit mark in the sun is not drawn.
  */
-const Marks = ({ scene, moves }: { scene: HeroScene; moves: boolean }) => {
-  const prev = useRef<boolean[] | null>(null);
+const Marks = ({ scene, moves, memo }: { scene: HeroScene; moves: boolean; memo: string }) => {
+  // what this page's marks were before the face changed (a completion swaps the face, and the drawing with it)
+  const prev = useRef<boolean[] | null>(shown.get(memo)?.lits ?? null);
   const popped = useRef(new Set<number>());
   const lits = scene.marks.map((m) => m.lit);
   if (prev.current && moves)
@@ -101,6 +102,9 @@ const Marks = ({ scene, moves }: { scene: HeroScene; moves: boolean }) => {
     if (!l) popped.current.delete(i);
   });
   prev.current = lits;
+  useEffect(() => {
+    shown.set(memo, { ...(shown.get(memo) ?? { f: scene.f }), lits });
+  });
   return (
     <>
       {scene.marks.map((m, i) => {
@@ -119,14 +123,26 @@ const Marks = ({ scene, moves }: { scene: HeroScene; moves: boolean }) => {
 };
 
 /**
+ * What each page's drawing last showed, by page and view: a mark, a Skip or an Undo changes the face, which mounts a new
+ * drawing, so the sun steps from where the old one stood and the mark it passes fills (spec 9.4) instead of the new face
+ * starting at rest.
+ */
+const shown = new Map<string, { f: number; lits: boolean[] }>();
+
+/**
  * The day drawing. `play`: the first view of the day on the live page (spec 9.1): the sun travels from rest to its place,
  * then the way and the rings come in. `moves`: the page is live and motion is allowed; otherwise every change jumps.
  * `quiet`: the sun yields to Apricot (another day's page, or the screen's now budget is spent).
  */
-const DayScene = ({ scene, play, moves, quiet }: { scene: HeroScene; play: boolean; moves: boolean; quiet: boolean }) => {
+const DayScene = ({ scene, play, moves, quiet, page }: { scene: HeroScene; play: boolean; moves: boolean; quiet: boolean; page: string }) => {
   const id = useId().replace(/:/g, '');
   const reduce = useReducedMotion();
-  const fv = useMotionValue(play ? 0 : scene.f);
+  const memo = `${page}|${scene.view}`;
+  const was = shown.get(memo)?.f;
+  const fv = useMotionValue(play ? 0 : moves && !reduce && was != null ? was : scene.f);
+  useEffect(() => {
+    shown.set(memo, { lits: shown.get(memo)?.lits ?? [], f: scene.f });
+  }, [memo, scene.f]);
   const lift = useMotionValue(play && scene.f === 0 ? RISE : 0);
   const x = useTransform(fv, sunDx);
   const y = useTransform([fv, lift], ([f, l]: number[]) => sunDy(f!) + l!);
@@ -192,7 +208,7 @@ const DayScene = ({ scene, play, moves, quiet }: { scene: HeroScene; play: boole
       {/* a switch: the old view's marks fade out together, the new ones fade in at their places once those are gone */}
       <AnimatePresence initial={false}>
         <motion.g key={scene.view} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: switchFade ?? { ...fadeIn, delay: 0.1 } }} exit={{ opacity: 0, transition: switchFade ?? fadeOut }}>
-          <Marks scene={scene} moves={moves && !reduce} />
+          <Marks scene={scene} moves={moves && !reduce} memo={memo} />
         </motion.g>
       </AnimatePresence>
     </svg>
@@ -367,6 +383,8 @@ export interface HeroHorizonProps {
   quiet: boolean;
   /** The page is the pager's live page. */
   live: boolean;
+  /** The page's date: what its drawing last showed is kept by it. */
+  page: string;
   onWeek: () => void;
   onPick: (v: HeroView) => void;
   /** The day's words: the name (or the dusk title) and the line under it. */
@@ -374,7 +392,7 @@ export interface HeroHorizonProps {
 }
 
 /** The scene zone: the sky, the words, the drawing, the band. */
-export const HeroHorizon = ({ scene, isToday, firstToday, quiet, live, onWeek, onPick, children }: HeroHorizonProps) => {
+export const HeroHorizon = ({ scene, isToday, firstToday, quiet, live, page, onWeek, onPick, children }: HeroHorizonProps) => {
   const reduce = useReducedMotion();
   const shown = usePageShown();
   const day = scene.mode === 'day';
@@ -403,7 +421,7 @@ export const HeroHorizon = ({ scene, isToday, firstToday, quiet, live, onWeek, o
       <div className="hz-words">{children}</div>
       {day ? (
         <>
-          <DayScene scene={scene} play={play} moves={moves} quiet={quiet || paint === 'ink'} />
+          <DayScene scene={scene} play={play} moves={moves} quiet={quiet || paint === 'ink'} page={page} />
           <DayBand scene={scene} onWeek={onWeek} onPick={onPick} />
         </>
       ) : (

@@ -380,7 +380,7 @@ const HorizonFace = ({ c, when, title }: { c: DeckCtx; when: boolean; title: Rea
   }
   return (
     <>
-      <HeroHorizon scene={scene} isToday={isToday} firstToday={firstToday} quiet={face.quiet} live={live} onWeek={() => openWeek(week.mon)} onPick={(v) => setHeroView(log.today, date, v)}>
+      <HeroHorizon scene={scene} isToday={isToday} firstToday={firstToday} quiet={face.quiet} live={live} page={date} onWeek={() => openWeek(week.mon)} onPick={(v) => setHeroView(log.today, date, v)}>
         {title}
         {line}
       </HeroHorizon>
