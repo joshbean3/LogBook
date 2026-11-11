@@ -54,8 +54,8 @@
 .mp-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
@@ -102,7 +102,7 @@
   margin-top: var(--gap);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
+  gap: var(--sp-3);
 }
 .mp-card-head {
   display: flex;
@@ -144,8 +144,8 @@
 
 /* the sections under the chart */
 .mp-table {
-  padding-top: 10px;
-  padding-bottom: 6px;
+  padding-top: var(--sp-2);
+  padding-bottom: var(--sp-1);
 }
 .mp-more {
   margin-top: var(--gap);

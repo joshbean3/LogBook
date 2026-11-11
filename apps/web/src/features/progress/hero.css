@@ -19,8 +19,7 @@
   padding: 0 var(--sp-2);
 }
 
-/* the headline: the number and its context at the leading edge, the share of the plan at the trailing edge. The share sits
-   beside the headline while both fit and goes under it at a larger text size (nothing runs into it) */
+/* the headline: the number and its context, then the takeaway under it */
 .ph-head {
   display: flex;
   flex-wrap: wrap;
@@ -31,7 +30,7 @@
 }
 .ph-main {
   display: grid;
-  flex: 1 1 8rem;
+  flex: 1 1 auto;
   gap: var(--sp-1);
   min-width: 0;
 }
@@ -60,37 +59,6 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
-/* the share of the plan: a stat at the tiles' step (--fs-value 26/32), its label under it; plain on the card, no box in a
-   card (layout standard 5.2) */
-.ph-side {
-  display: grid;
-  justify-items: end;
-  flex: none;
-  text-align: right;
-}
-.ph-rate {
-  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
-  letter-spacing: var(--tr-value);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-.ph-cap {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-/* very large text: the share takes its own line under the takeaway, its label after it */
-@container ph (max-width: 12rem) {
-  .ph-side {
-    grid-auto-flow: column;
-    align-items: baseline;
-    justify-items: start;
-    gap: var(--sp-2);
-    text-align: left;
-  }
-}
-
 /* the range control: 12 below the plot, 12 in from the card's edges (wider than the hero's 20 allows, guide 6.8) */
 .ph-range {
   margin: var(--sp-3) calc(var(--sp-3) - var(--pad-hero)) 0;

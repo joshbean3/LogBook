@@ -9,7 +9,7 @@ import { RangeControl } from '@/ui/charts';
 import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import type { Log } from '../log/useLog';
 import { plural } from './data';
-import { completion, HERO_MODES, lbShort, liftWeeks, miShort, runRange, weekRate, type HeroMode, type LiftWeek, type RunView } from './hero';
+import { completion, HERO_MODES, lbShort, liftWeeks, miShort, runRange, type HeroMode, type LiftWeek, type RunView } from './hero';
 import { LiftList } from './LiftList';
 import { PlanLine } from './PlanLine';
 import { bucketTitle, keptOver, PROGRESS_RANGES, RANGE_WORDS, rangeContext, type ProgressRange, type RunBucket } from './ranges';
@@ -101,7 +101,8 @@ const liftLine = (l: LiftWeek) => {
 /**
  * The hero (guide 6.4, layout standard 6.4): one card, read top down. Running / Strength first, in the quiet tone (the range
  * control below is the card's one Sky thumb); then the headline, the largest and darkest thing on the screen, with its
- * context on the same line and the share of the plan at the trailing edge; one takeaway line under it; then the chart and,
+ * context on the same line; one takeaway line under it, which carries the share of the plan for the range (one big number
+ * per card: the old "Last 4 weeks" box follows the range now and is said in words); then the chart and,
  * under the plot it changes, the range control. Running draws miles for the range (1W by day with this week's ruler over
  * it; 1M to 12M by week; All by week or, past about 18 months, by month). Strength gives this week against the plan, then the
  * workouts as date rows under a hairline. Scrubbing reads one point in the headline; a tap opens its week.
@@ -187,14 +188,9 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
               <span className="tnum">{line.big}</span>
               <small>{line.of} this week</small>
             </span>
-            <span className="ph-take">{line.take}</span>
+            {/* the share of the plan over the last finished weeks, said in the takeaway (the list below has each workout's sets) */}
+            <span className="ph-take">{rate ? `${pctText(rate.rate)} of plan over the last ${rate.weeks === 1 ? 'week' : `${rate.weeks} weeks`}` : line.take}</span>
           </div>
-          {rate ? (
-            <div className="ph-side" aria-hidden="true">
-              <span className="ph-rate">{pctText(rate.rate)}</span>
-              <span className="ph-cap">Last {rate.weeks === 1 ? 'week' : `${rate.weeks} weeks`}</span>
-            </div>
-          ) : null}
         </div>
         <hr className="rule" />
         <LiftList log={log} t={t} />
@@ -220,24 +216,19 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
   let big: string;
   let context: string;
   let take: string;
-  let side: { value: string | null; cap: string } | null;
   if (at) {
     big = miShort(at.done);
     context = at.planned > 0 ? `of ${miShort(at.planned)} mi` : 'mi';
     take = `${bucketTitle(span.unit, at, t)} · ${at.future ? 'Planned' : runsWords(at)}`;
-    const wr = weekRate(at);
-    side = at.future ? null : wr != null ? { value: pctText(wr), cap: 'Of plan' } : { value: null, cap: 'No plan' };
   } else if (is1W) {
     big = miShort(thisWeek.done);
     context = thisWeek.planned > 0 ? `of ${miShort(thisWeek.planned)} mi · ${runsWords(thisWeek)}` : `mi · ${runsWords(thisWeek)}`;
     take = firstWeek ? 'Your weeks draw here as you go.' : weekTakeaway(thisWeek);
-    const wr = weekRate(thisWeek);
-    side = !firstWeek && wr != null ? { value: pctText(wr), cap: 'Of plan' } : null;
   } else {
     big = miShort(total);
     context = `mi ${rangeContext(span, t)}`;
-    take = kept ? (kept.behind < 0.5 ? 'On plan' : `${miShort(kept.behind)} mi behind plan`) : runs ? `${runs} ${plural(runs, 'run')}, none planned` : 'No runs in this range';
-    side = kept ? { value: pctText(kept.rate), cap: 'Of plan' } : null;
+    // the share of the plan follows the range and lives in the takeaway: one big number per card (layout standard 8.10)
+    take = kept ? (kept.behind < 0.5 ? 'On plan' : `${pctText(kept.rate)} of plan, ${miShort(kept.behind)} mi behind`) : runs ? `${runs} ${plural(runs, 'run')}, none planned` : 'No runs in this range';
   }
 
   const words = (i: number) => {
@@ -249,7 +240,7 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
   };
   const unitWord = span.unit === 'day' ? 'Daily' : span.unit === 'week' ? 'Weekly' : 'Monthly';
   const chartLabel = `${unitWord} miles, planned and run, ${RANGE_WORDS[range].toLowerCase()}. ${ci >= 0 ? `${words(ci)}.` : ''}`;
-  const readWords = `${big} ${context}. ${take}.${side?.value ? ` ${side.value} ${side.cap.toLowerCase()}.` : ''}`;
+  const readWords = `${big} ${context}. ${take}.`;
 
   // a tap opens the week it falls in (a day opens its week); a month has no sheet of its own
   const openAt =
@@ -278,12 +269,6 @@ export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, on
           </span>
           <span className="ph-take">{take}</span>
         </div>
-        {side ? (
-          <div className="ph-side" aria-hidden="true">
-            {side.value ? <span className="ph-rate">{side.value}</span> : null}
-            <span className="ph-cap">{side.cap}</span>
-          </div>
-        ) : null}
       </div>
       {is1W ? <Ruler w={thisWeek} /> : null}
       {firstWeek ? null : (
