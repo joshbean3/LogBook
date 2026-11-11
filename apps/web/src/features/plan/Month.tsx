@@ -6,6 +6,7 @@ import { useLog, type Log } from '../log/useLog';
 import { dayMiles, weekMiles } from '../sessions/miles';
 import { LoadFail, useMonthsFailed } from './LoadFail';
 import { StepNav } from './Week';
+import { heroBlock } from './Blocks';
 
 /**
  * The month (docs/feel.md §7.3): 7 columns × up to 6 rows of 56 px cells (day 13/18, miles 11/13, a 3 px tone bar), a `Wk`
@@ -29,7 +30,9 @@ export const monthWeeks = (first: string) => {
 };
 
 /** One day: its number, its miles (run when it happened, planned in ink-3 when it is ahead), the tone bar of its lead session. */
-const Cell = ({ d, log, inMonth }: { d: string; log: Log; inMonth: boolean }) => {
+/** One day: its number, its miles (run when it happened, planned in ink-3 when it is ahead), the tone bar of its lead session.
+ *  A day outside the month or before the plan reads quieter (Dusk 400, layout plan PM1). */
+const Cell = ({ d, log, inMonth, pre }: { d: string; log: Log; inMonth: boolean; pre: boolean }) => {
   const t = log.today;
   const sessions = log.snap.sessionsOn(d).filter((s) => s.kind !== 'rest');
   const lead = heroSession(sessions);
@@ -39,7 +42,7 @@ const Cell = ({ d, log, inMonth }: { d: string; log: Log; inMonth: boolean }) =>
   const k = lead ? sessionKey(log.snap, d, lead) : ran ? 'bonus' : 'rest';
   const miles = ran > 0 ? tenth(ran) : planned > 0 ? tenth(planned) : '';
   return (
-    <span className={`mg-cell k-${k} ${inMonth ? '' : 'is-out'} ${d === t ? 'is-today' : ''} ${lead || ran > 0 ? `has-tone t-${lead ? tone(lead) : 'easy'}` : ''}`.trim()}>
+    <span className={`mg-cell k-${k} ${inMonth ? '' : 'is-out'} ${pre ? 'is-pre' : ''} ${d === t ? 'is-today' : ''} ${lead || ran > 0 ? `has-tone t-${lead ? tone(lead) : 'easy'}` : ''}`.trim()}>
       <span className="mg-num tnum">{parseISO(d).getDate()}</span>
       {miles ? <span className={`mg-mi tnum ${ran > 0 ? 'is-ran' : ''}`.trim()}>{miles}</span> : null}
     </span>
@@ -86,6 +89,8 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, onStep, onThis
   }
   const meta = !ready ? '' : ran > 0 ? `${tenth(ran)} mi run` : planned > 0 ? `${tenth(planned)} mi planned` : 'Nothing planned';
   const away = first !== monthStart(t);
+  // the plan shown on Plan: its first day splits the month's quiet days (before it) from its own
+  const planStart = heroBlock(log.boot?.blocks ?? [], t)?.start ?? null;
   return (
     <div className="pl-mpage">
       <section className="pl-sec pl-month-sec" aria-label={fmtDate('month', first)}>
@@ -108,20 +113,28 @@ export const MonthPage = memo(function MonthPage({ first, onWeek, onStep, onThis
               // never a zero as the week's number: a week with nothing run shows what it planned, muted
               // a past week with nothing run reads as such (`0 of 26`), never its plan as if it were run (review-feel-1 #12)
               const total = done > 0 ? tenth(done) : w.plannedMiles ? (past ? '0' : tenth(w.plannedMiles)) : '';
-              const of = w.plannedMiles ? (done > 0 || past ? `of ${tenth(w.plannedMiles)}` : 'planned') : '';
+              const of = w.plannedMiles && (done > 0 || past) ? `of ${tenth(w.plannedMiles)}` : '';
+              // a week with nothing in it is only its numerals: the row shrinks to their line (PM1)
+              const bare = !total && Array.from({ length: 7 }, (_, i) => shiftDays(mon, i)).every((d) => !log.snap.sessionsOn(d).some((x) => x.kind !== 'rest') && !(d <= t && dayMiles(log.snap, d).miles > 0));
               const cells = (
                 <>
                   {Array.from({ length: 7 }, (_, i) => {
                     const d = shiftDays(mon, i);
-                    return <Cell key={d} d={d} log={log} inMonth={d >= first && d < next} />;
+                    return <Cell key={d} d={d} log={log} inMonth={d >= first && d < next} pre={planStart != null && d < planStart} />;
                   })}
+                  {/* the week's total in Dusk, a step under the days (PM2): the days are the strongest marks */}
                   <span className={`mg-wk ${done > 0 ? '' : 'is-plan'}`.trim()}>
-                    <b className="tnum">{total}</b>
+                    {total ? (
+                      <b className="tnum">
+                        {total}
+                        <span className="mg-u"> mi</span>
+                      </b>
+                    ) : null}
                     {of ? <small>{of}</small> : null}
                   </span>
                 </>
               );
-              const cls = `mg-week ${now ? 'is-now' : ''}`.trim();
+              const cls = `mg-week ${now ? 'is-now' : ''} ${bare && ready ? 'is-bare' : ''}`.replace(/\s+/g, ' ').trim();
               if (still)
                 return (
                   <div key={mon} className={`pressable ${cls}`} data-press="surface" data-week={mon}>

@@ -14,19 +14,17 @@
   margin-top: var(--section);
 }
 
-/* ---------- the Now card: the four stops and one live line (96 tall, card 20/16, no halo) ---------- */
-/* 13 + the 44 px line (MiniTimeline, WP2's geometry) + 4 + the 22 px line + 13 = 96 */
+/* ---------- the Now line (layout plan M1): no card. The headline sits on the ground under the bar in the serif, the four
+   stops under it (the landing of the line that flies in from Today's hero); the schedule's rows carry the times ---------- */
 .now-card {
   display: grid;
   align-content: center;
-  gap: 10px;
-  min-height: 96px;
+  gap: var(--sp-2);
   box-sizing: border-box;
-  padding: var(--pad-card);
-  border-radius: var(--r-card);
-  border: var(--card-border);
-  box-shadow: var(--shadow-1);
-  background: var(--surface);
+  /* text at the page's gutter, as the Schedule header and the cards below (layout 8.7); the box reaches 8 past it on
+     each side so the clip below keeps the end stops' rings and the live node whole */
+  margin-inline: calc(-1 * var(--sp-2));
+  padding: 0 var(--sp-2);
   /* WP2's line places its now dot by translating a full-width, invisible track by p of its width: the card clips it as the
      hero's card does, so the track never sits past the screen's edge (integration: WP1 #19 at 320 after the line) */
   overflow: clip;
@@ -108,9 +106,10 @@
 }
 .sch-time {
   position: relative;
+  /* the time gutter in Dusk (M4): the names lead, the times are read down the edge */
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 /* the alarm drag's flash (§4.2): a moved stamp is lit (its Deep Sky copy over it) while the alarm moves; on release the
@@ -152,7 +151,8 @@
   min-width: 0;
 }
 .sch-name {
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  /* a step's name is the row's headline (M4: every row has a line under it, so the group's titles are 600) */
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -161,6 +161,7 @@
 /* one line at the default size; at large text it takes a second line rather than losing the time at its end */
 .sch-sub {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   overflow: hidden;
   display: -webkit-box;
@@ -296,6 +297,7 @@
 }
 .late-text {
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--warn-text);
   white-space: normal;
 }
@@ -314,12 +316,13 @@
   color: var(--ink-2);
 }
 .late-fixes {
-  grid-column: 1 / -1;
+  /* the fixes start at the row's text edge and wrap from it (M2): they belong to the note, not to the time column */
+  grid-column: 3 / -1;
   grid-row: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 8px;
-  margin-top: 12px;
+  gap: var(--sp-3) var(--sp-3);
+  margin-top: var(--sp-3);
 }
 /* every chip on this page and in its sheets is 44 to the thumb: ui.css gives the height (its ::after reaches above and
    below the 32 px pill); the width, the rows' spacing (14, so two rows' bands never overlap) and the stacking
@@ -328,6 +331,7 @@
 .se-chips .chip-btn,
 .rt-modes .chip-btn {
   min-width: 44px;
+  font-variant-numeric: tabular-nums;
   justify-content: center;
   z-index: 1;
 }
@@ -402,11 +406,6 @@
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-}
-.leave-row .sch-sub.is-late {
-  color: var(--warn-text);
-  /* `18 min later than your routine` whole (it is the row's news): it wraps rather than losing `routine` */
-  white-space: normal;
 }
 .leave-row.past .leave-stamp {
   color: var(--ink-2);

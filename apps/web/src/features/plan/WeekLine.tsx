@@ -1,4 +1,4 @@
-import { fmtDate, isSkipMark, label, num, sessionKey, shiftDays, tone, weekSummary, type Session } from '@logbook/shared';
+import { fmtDate, label, num, sessionKey, shiftDays, tone, weekSummary, type Session } from '@logbook/shared';
 import type { Log } from '../log/useLog';
 import { weekMiles } from '../sessions/miles';
 
@@ -43,10 +43,11 @@ export const weekWords = (log: Log, mon: string) => {
     sub = 'Tap a day to add a session.';
   } else if (w.doneMiles === 0 && !w.keptSessions) {
     // early in the week: say what's next, never "0 of 26"; "First run today" only when no run was planned before today
-    sub = next ? (next[0] === t && next[1].kind === 'run' && !training.some(([d, s]) => d < t && s.kind === 'run' && !isSkipMark(s.mark)) ? 'First run today.' : `Next: ${nameOf(next[1])}, ${when(next[0])}.`) : 'Nothing left this week.';
+    // what is next today is said once, by today's row in the week (layout plan P1), so the line stops at the totals
+    sub = next ? (next[0] === t ? '' : `Next: ${nameOf(next[1])}, ${when(next[0])}.`) : 'Nothing left this week.';
   } else {
     const done = w.plannedMiles > 0 ? `${tenth(w.doneMiles)} of ${tenth(w.plannedMiles)} mi` : w.doneMiles > 0 ? `${tenth(w.doneMiles)} mi run` : `${w.keptSessions} kept`;
-    sub = next ? `${done}. Next: ${nameOf(next[1])}, ${when(next[0])}.` : w.kept ? `${done}. Week kept.` : `${done}.`;
+    sub = next && next[0] !== t ? `${done}. Next: ${nameOf(next[1])}, ${when(next[0])}.` : w.kept ? `${done}. Week kept.` : `${done}.`;
   }
   const progress = w.plannedMiles > 0 ? Math.min(1, w.doneMiles / w.plannedMiles) : w.doneMiles > 0 ? 1 : 0;
   return { head, sub, progress, ran: w.doneMiles, summary: w };

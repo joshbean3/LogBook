@@ -1,7 +1,9 @@
-import { assess, clock, counts, e1rm, isAutoStatus, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
+import { assess, clock, counts, e1rm, isAutoStatus, isFastRun, isHardRun, isRace, floorFor, fmtDate, label, METERS_PER_MILE, mi, mondayOf, monthOf, MORNING_DEFAULTS, num, sessionKey, sessionStatus, sessionWord, shiftDays, STATUS_WORDS, tone, weekTotals, zoneOf, type Activity, type Lap, type Session, type StatusKey } from '@logbook/shared';
 import { ArrowRightLeft, Check, ChevronRight, Heart, MoreHorizontal, Pencil, Share2, SkipForward } from 'lucide-react';
+import { useNav } from '@/app/NavController';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useContextMenu } from '@/ui/ContextMenu';
+import { BrandIcon } from '@/ui/icons';
 import { Button } from '@/ui/primitives';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { clockParts, dayClock } from '../day/dayWords';
@@ -30,6 +32,9 @@ export const sessionMeta = (s: Session, _st?: string): string => {
   if (s.details) bits.push(s.details);
   return bits.join(' · ');
 };
+
+/** The effort a run is graded against, in words (assess.ts): Plan's row says it, or the sheet when the row says the morning. */
+export const runIntent = (type: string | null) => (isRace(type) ? 'Race day' : isHardRun(type) ? 'Z3–Z4, comfortably hard' : isFastRun(type) ? 'Fast reps, up to Z4' : 'Z2, conversational');
 
 /** "14:38" → "2:38 PM": one time format across the app (audit §3.2). */
 export const startClock = (hhmm: string) => {
@@ -367,6 +372,7 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   // the sheet body is captured once at open; subscribing here keeps marks, sets and deletes live while it is up
   const log = useLog([monthOf(date)]);
   const sheet = useSheet();
+  const nav = useNav();
   const act = useSessionActions(log);
   // the effort check-in opens in place when this sheet's own Done marks it (Effort.tsx)
   const [askEffort, setAskEffort] = useState(false);
@@ -408,10 +414,21 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
   const lead = runs.length ? nums[0]! : nums.find((x) => x.k === 'Plan') ?? null;
   // the status word above the number says done or not; under it, what the number is: the plan (today-top-18). When the
   // status word is already "Planned", the number needs no second one
-  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : /^planned$/i.test(word.trim()) ? '' : 'Planned') } : null;
+  // a session ahead says when under its number ("Tomorrow", "Friday"), so no line below repeats it (layout plan SS1, SS2)
+  const ahead = !runs.length && date > log.today ? (date === shiftDays(log.today, 1) ? 'Tomorrow' : fmtDate('dowLong', date)) : null;
+  const hero = lead ? { ...lead, n: lead.n ?? (runs.length ? lead.k : ahead ?? (/^planned$/i.test(word.trim()) ? '' : 'Planned')) } : null;
   const tiles = nums.filter((x) => x !== lead);
   const typeWord = s.type && !label(s).toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const skipped = s.mark === 'skip' || s.mark === 'sick';
+  // the morning this session sets (layout plan P1: Plan's "Schedule ›" lives here now): the day's main session, today on
+  const dayMain = log.snap.sessionsOn(date).find((x) => x.kind === 'run') ?? log.snap.sessionsOn(date).find((x) => x.kind !== 'rest');
+  const morning = date >= log.today && dayMain?.id === s.id && !!log.boot?.morningSettings;
+  const toMorning = () => {
+    const to = date === log.today ? '/plan/morning' : `/plan/morning/${date}`;
+    sheet.close();
+    if (nav.getState().active === 'plan') nav.push(to);
+    else nav.go(to);
+  };
   const markDone = () => {
     act.done(s);
     setAskEffort(s.kind !== 'rest');
@@ -449,14 +466,14 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
           ))}
         </div>
       ) : null}
-      {s.details || typeWord ? (
+      {s.details || typeWord || (s.kind === 'run' && !runs.length) ? (
         <div className="card ss-words">
           <span className="ss-words-k">{typeWord || 'The workout'}</span>
-          {s.details ? <p className="ss-details">{s.details}</p> : null}
+          {/* a run with no words of its own says the effort it is graded against (Plan's row may say the morning instead) */}
+          <p className="ss-details">{s.details || (s.kind === 'run' ? runIntent(s.type) : '')}</p>
         </div>
       ) : null}
       {c.auto ? <p className="ss-foot-note">{st === 'floor' ? 'Floor held, from the run that came in.' : s.kind === 'lift' ? 'Done: the sets are logged.' : 'Done: matched to your run.'}</p> : null}
-      {!c.mark && !c.auto && s.kind !== 'rest' && date > log.today ? <p className="ss-foot-note">Planned for {date === shiftDays(log.today, 1) ? 'tomorrow' : fmtDate('dowLong', date)}. Mark it done on the day.</p> : null}
       {matched ? (
         // §6.3: after a matched run the group is Not feeling 100% (Share is the pill; Move and Edit are under the ⋯)
         date === log.today ? (
@@ -466,15 +483,16 @@ const SessionSheet = ({ date, id }: { date: string; id: string }) => {
         ) : null
       ) : (
         <div className="group ss-acts">
-          {c.mark ? <ActRow icon={<span className="ss-floor-glyph" />} title="Floor" sub={floorText ? `The minimum: ${floorText}` : 'The minimum still counts'} on={st === 'floor'} onPress={() => (st === 'floor' ? act.clear(s) : act.floor(s))} /> : null}
+          {/* the floor is a row on every session (SS3): live once it can be marked, said ahead of the day */}
+          {c.mark || (s.kind !== 'rest' && floorText) ? <ActRow icon={<span className="ss-floor-glyph" />} title="Floor" sub={floorText ? `The minimum: ${floorText}` : 'The minimum still counts'} on={st === 'floor'} disabled={!c.mark} className={c.mark ? '' : 'is-ahead'} label={c.mark ? undefined : `Floor. The minimum: ${floorText}. You can mark it on the day`} onPress={() => (st === 'floor' ? act.clear(s) : act.floor(s))} /> : null}
           {share && share.miles > 0 && pill?.label !== 'Share' ? <ActRow icon={<Share2 size={18} />} title="Share" onPress={() => act.share(share, true)} right={chev} /> : null}
           {c.skip || skipped ? <ActRow icon={<SkipForward size={18} />} title={skipped ? 'Put it back' : 'Skip'} sub={skipped ? 'Back on the plan' : 'The week still counts'} on={skipped} onPress={() => act.skip(s)} right={<span />} /> : null}
           <ActRow icon={<ArrowRightLeft size={18} />} title="Move" onPress={() => act.move(date, s, true)} right={chev} />
           <ActRow icon={<Pencil size={18} />} title="Edit" onPress={() => act.edit(date, s, true)} right={chev} />
+          {morning ? <ActRow icon={<BrandIcon name="wake" size={18} />} title="Morning schedule" sub="From waking to the door" onPress={toMorning} right={chev} /> : null}
         </div>
       )}
       {runs.length && evidence ? <SessionActual date={date} sess={s} runs={runs} log={log} prLap={recordLap(runs, records)} /> : null}
-      {s.kind !== 'rest' && floorText && !runs.length && !c.mark ? <p className="ss-foot-note">The floor: {floorText}. On a bad day it still counts.</p> : null}
       {pill ? (
         <div className="sheet-foot ss-foot">
           <Button variant={pill.primary ? 'primary' : 'soft'} block onClick={pill.fn}>

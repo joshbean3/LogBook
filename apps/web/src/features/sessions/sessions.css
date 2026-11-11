@@ -963,6 +963,13 @@
 .ss-act:disabled .ss-act-title {
   color: var(--ink-3);
 }
+/* the floor ahead of its day: said in full (it is information, not a dead control); it can be marked on the day */
+.ss-act.is-ahead:disabled {
+  opacity: 1;
+}
+.ss-act.is-ahead:disabled .ss-act-title {
+  color: var(--ink);
+}
 .ss-act-main {
   display: grid;
   flex: 1 1 auto;

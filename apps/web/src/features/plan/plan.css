@@ -97,9 +97,9 @@
 .pl-day {
   position: relative;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  column-gap: 4px;
-  padding-left: 16px;
+  grid-template-columns: var(--gutter-date) minmax(0, 1fr);
+  column-gap: var(--sp-3);
+  padding-left: var(--sp-4);
   background: var(--surface);
   transition: background-color var(--dur-color) var(--ease-out);
 }
@@ -120,40 +120,14 @@
   height: 1px;
   background: var(--line);
 }
-.pl-date {
-  display: grid;
-  grid-template-rows: 30px 16px;
+/* the day's column is the shared date gutter (DateGutter: the numeral 17/600 over the weekday 13 Dusk, today ringed),
+   held at the top so a day of two sessions reads its date against the first */
+.pl-date.date-gutter {
   align-content: start;
-  justify-items: center;
-  gap: 0;
-  width: 36px;
-  padding-top: 9px;
+  padding-top: calc((var(--row-h-2) - var(--tile-ic) - var(--sp-1) - var(--lh-foot)) / 2);
 }
-.pl-num {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  font: 600 var(--fs-row) / 1 var(--sans);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-  color: var(--ink);
-}
-.pl-dow {
-  font: 500 var(--fs-orb) / 1rem var(--sans);
+.pl-date.is-past .date-gutter-num {
   color: var(--ink-2);
-}
-.pl-day.is-past .pl-num {
-  color: var(--ink-2);
-}
-.pl-day.is-today .pl-num {
-  box-shadow: inset 0 0 0 1.5px var(--ink);
-  color: var(--ink);
-}
-.pl-day.is-today .pl-dow {
-  color: var(--ink);
-  font-weight: 600;
 }
 .pl-lines {
   min-width: 0;
@@ -162,7 +136,7 @@
 .pl-slot + .pl-slot > .pl-line,
 .pl-slot + .pl-line {
   background-image: linear-gradient(var(--line), var(--line));
-  background-size: calc(100% - 44px) 1px;
+  background-size: calc(100% - var(--tile-ic) - var(--sp-3)) 1px;
   background-position: right top;
   background-repeat: no-repeat;
 }
@@ -174,8 +148,8 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 64px;
-  padding: 10px 16px 10px 0;
+  min-height: var(--row-h-2);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) 0;
   border: 0;
   background-color: transparent;
   color: var(--ink);
@@ -227,8 +201,8 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: var(--tile-ic);
+  height: var(--tile-ic);
   border-radius: var(--r-icon);
   background: var(--haze);
   color: var(--tone, var(--t-rest));
@@ -255,9 +229,28 @@
 .pl-sub {
   overflow: hidden;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink-2);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* today's morning on its run row: the long form, or the short one where the long would be cut */
+.pl-am.is-short {
+  display: none;
+}
+@media (max-width: 359px) {
+  .pl-am {
+    display: none;
+  }
+  .pl-am.is-short {
+    display: inline;
+  }
+}
+[data-text-xl] .pl-am {
+  display: none;
+}
+[data-text-xl] .pl-am.is-short {
+  display: inline;
 }
 .pl-st {
   flex: none;
@@ -456,7 +449,7 @@
 .mg-head,
 .mg-week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr)) 52px;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) 56px;
 }
 .mg-head {
   height: 32px;
@@ -482,6 +475,11 @@
 }
 .mg-week.is-now {
   background: var(--cloud);
+}
+/* a week with nothing in it: only its numerals' line */
+.mg-week.pressable.is-bare {
+  height: var(--hit);
+  min-height: var(--hit);
 }
 .mg-week[data-pressed][data-press='surface'] {
   background: var(--surface-2);
@@ -512,8 +510,10 @@
   color: var(--ink);
 }
 .mg-cell.is-out .mg-num,
-.mg-cell.is-out .mg-mi {
+.mg-cell.is-out .mg-mi,
+.mg-cell.is-pre .mg-num {
   color: var(--ink-2);
+  font-weight: 400;
 }
 .mg-mi {
   font: 500 var(--fs-orb) / 0.875rem var(--sans);
@@ -588,9 +588,13 @@
   min-width: 0;
 }
 .mg-wk b {
-  font: 650 var(--fs-row) / var(--lh-row) var(--sans);
+  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.mg-wk .mg-u {
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
 }
 .mg-wk small {
   font: 500 var(--fs-orb) / 0.875rem var(--sans);
@@ -666,12 +670,6 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-/* the plan sheet's foot: the one Sky primary, then New plan and All plans side by side as secondaries */
-.pl-sum .sheet-foot .pl-sum-act {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
 /* ---------- the plans list (Settings › Plans): one inset group, an icon tile before each plan ---------- */
 .pl-plans,
 .pl-detail {
@@ -750,98 +748,101 @@
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-/* a plan's sheet: the arc card, two tiles, the words, the one pill */
-.pl-detail-arc.card {
-  display: grid;
-  gap: 2px;
-}
-.pl-detail-arc .pl-arc {
-  margin-top: 12px;
-}
-/* ---------- the plan sheet's summary: the sentence and where it came from, what it is (rows), its goals (tiles) ---------- */
-.pl-sum-lead.card {
-  display: grid;
-  gap: 10px;
-}
-.pl-sum-text {
-  margin: 0;
-  font: 400 var(--fs-row) / 1.5rem var(--sans);
-  color: var(--ink);
-  text-wrap: pretty;
-}
-.pl-sum-from {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-.pl-sum-from svg {
-  flex: none;
-  color: var(--deep-sky);
-}
-.pl-sum .lb-head.pl-sum-head {
-  margin: 10px 2px -2px;
-}
-.pl-sum-rows.card {
-  display: grid;
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-.pl-sum-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 44px;
-  padding: 11px 0;
-}
-.pl-sum-row + .pl-sum-row,
-.pl-sum-aim + .pl-sum-aim {
-  border-top: 1px solid var(--line);
-}
-.pl-sum-k {
-  flex: none;
+/* ---------- a plan's summary (PlanSummary.tsx): what the assistant reads, the outline, then the assistant ----------
+ * The sheet's title is the plan's name (Fraunces --fs-head), so the first group has no title of its own: an Inter lead
+ * line 8 above it (layout plan 2.4, F11). "The outline" is a list-page group (24 above, 8 below). */
+.pl-ps-lead {
+  margin: var(--sp-2) 0 var(--sp-2);
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
-.pl-sum-v {
-  display: grid;
-  min-width: 0;
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+.pl-ps-facts .lrow-value {
   color: var(--ink);
-  text-align: right;
+}
+.pl-ps-nb {
+  white-space: nowrap;
+  /* the row's even figures widen Inter's hyphen ("warm - up"); words keep their own */
+  font-variant-numeric: normal;
+}
+.pl-ps-from {
+  margin: var(--sp-2) var(--sp-4) 0;
+  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
+  color: var(--ink-2);
+}
+.pl-ps-aims {
+  margin-top: var(--sp-3);
+}
+.pl-ps-chart.card {
+  display: grid;
+  margin-bottom: var(--sp-3);
+}
+.pl-ps-peak {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-3);
+}
+.pl-ps-peak-n {
+  font: 650 var(--fs-value) / var(--lh-value) var(--sans);
+  letter-spacing: var(--tr-value);
+  color: var(--ink);
+}
+.pl-ps-peak-u {
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+}
+/* this week's row: the Cloud wash today's day row has on Plan */
+.pl-ps-weeks .lrow.is-now {
+  background: var(--cloud);
+}
+.pl-ps-fold .lrow-title {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+/* the assistant's heading: the Orb, then a list-page title; one Dusk line under it */
+.pl-ps-ask {
+  margin-top: var(--sp-6);
+}
+.pl-ps-ask-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.pl-ps-orb-room {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+.pl-ps-ask-title {
+  margin: 0;
+  font: 600 var(--fs-head) / var(--lh-head) var(--serif);
+  color: var(--ink);
+}
+.pl-ps-ask-line {
+  margin: var(--sp-2) 0 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
   text-wrap: pretty;
 }
-.pl-sum-v small {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
+.pl-ps-link {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--accent-text);
 }
-.pl-sum-tiles .tile-value {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.pl-ps-link::after {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: max(100%, var(--hit));
+  height: var(--hit);
+  transform: translate(-50%, -50%);
 }
-.pl-sum-tsub {
-  font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-/* the Goals tab's goals that name the plan: a target, the goal's words, its level */
-.pl-sum-aim {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 0;
-}
-.pl-sum-aim svg {
-  flex: none;
-  margin-top: 1px;
-  color: var(--deep-sky);
-}
-.pl-sum-aim .pl-sum-v {
-  text-align: left;
+/* the conversation under the heading: the pane's thread starts 12 below it */
+.pl-ps-pane .as-thread {
+  padding-top: var(--sp-3);
 }
 .pl-detail-axis {
   display: flex;
@@ -850,11 +851,6 @@
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
-}
-/* the trash at the sheet's top right: the 40 px round Paper button (guide 6.2) with a Signal glyph, as destructive
-   items read */
-.icon-btn.pl-del {
-  color: var(--bad);
 }
 /* a destructive verb reads red, as every destructive item does, over the quiet variant's ink (feel review 3 #7) */
 .btn.danger-text,
@@ -1721,4 +1717,60 @@
     grid-template-columns: 40px minmax(0, 1fr) 54px;
     gap: 6px;
   }
+}
+
+/* ---------- larger text (Dynamic Type at 150 percent and up: `data-text-xl`) ----------
+ * The day column grows with its words instead of holding 40 (the weekday would run into the icon tile), today's ring hugs
+ * its numeral as a pill, and a session's name may take two lines before it is cut; its line under it may ellipsize (the
+ * row's label says it in full). In the plan summary a fact's value wraps under its label rather than widening the sheet. */
+[data-text-xl] .pl-day {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+[data-text-xl] .pl-date.date-gutter {
+  width: auto;
+  min-width: var(--gutter-date);
+}
+[data-text-xl] .pl-date .date-gutter-num {
+  min-width: 0;
+  height: auto;
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-pill);
+}
+[data-text-xl] .pl-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+/* on the narrowest phones at the largest sizes the tone tile gives its room to the name (the name says the kind) */
+@media (max-width: 359px) {
+  [data-text-xl] .pl-line .pl-ic:not(.is-add) {
+    display: none;
+  }
+}
+.pl-ps-facts .lrow-main {
+  flex: 0 0 auto;
+}
+.pl-ps-facts .lrow-right {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.pl-ps-facts .lrow-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: normal;
+  text-align: right;
+  text-wrap: pretty;
+}
+[data-text-xl] .pl-ps-facts .lrow {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+[data-text-xl] .pl-ps-facts .lrow-right {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+}
+[data-text-xl] .pl-ps-facts .lrow-value {
+  text-align: left;
 }

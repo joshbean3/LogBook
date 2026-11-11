@@ -1,4 +1,4 @@
-import { assess, fmtDate, mondayOf, isFastRun, isHardRun, isRace, label, mi, monthOf, num, parseISO, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
+import { assess, fmtDate, mondayOf, label, mi, monthOf, num, sessionKey, sessionWord, shiftDays, tone, type Activity, type Session, type StatusKey, heldOn, TRAINING_STATUS_INFO } from '@logbook/shared';
 import { isHeld } from './Held';
 import { ArrowRightLeft, Check, ChevronLeft, ChevronRight, Plus, SkipForward, Trash2, Undo2 } from 'lucide-react';
 import { effortOf } from '../sessions/effortModel';
@@ -14,9 +14,12 @@ import { useToast } from '@/ui/Toast';
 import { useLog, type Log } from '../log/useLog';
 import { sessionCan, useSessionActions } from '../sessions/actions';
 import type { ReshapeResult } from '../sessions/reshape';
-import { useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
+import { runIntent, useOpenSession, useOpenUnplanned } from '../sessions/SessionCard';
 import { crossfade, fadeOut } from '@/lib/motion';
 import { SectionHeader } from '@/ui/layout';
+import { DateGutter } from '@/ui/primitives';
+import { useTrainWhen, type TrainWhen } from '../day/trainWhen';
+import { morningOf, short as clockShort, stopsOf } from '../morning/model';
 import { useFlip, waapiOf } from './flip';
 import { LoadFail, useMonthsFailed } from './LoadFail';
 import { dayOrder, landingIndex, useMoveTo } from './moveRule';
@@ -78,8 +81,9 @@ export interface Conflict {
 }
 
 /**
- * The status at a card's right edge: done (and a run off the plan) a check in a lit disc; today's session a small `Today`
- * pill; missed and skipped a word in ink-3; floor in amber; still to do, the chevron that says the card opens.
+ * The status at a row's right edge: done (and a run off the plan) a check in a lit disc; missed and skipped a word in Dusk;
+ * floor a word a step heavier; still to do (today's included), the chevron that says the row opens. Today needs no tag:
+ * its row is tinted and its numeral ringed (layout plan P3), and the row's label says the word.
  */
 const Status = ({ k, word }: { k: StatusKey; word: string }) => {
   if (k === 'done' || k === 'bonus')
@@ -88,7 +92,6 @@ const Status = ({ k, word }: { k: StatusKey; word: string }) => {
         <Check size={14} strokeWidth={3} aria-hidden="true" />
       </span>
     );
-  if (k === 'today') return <span className="pl-st is-today">{word}</span>;
   if (k === 'missed' || k === 'skipped' || k === 'floor') return <span className={`pl-st is-word k-${k}`}>{word}</span>;
   return <ChevronRight size={18} className="pl-st is-chev" aria-hidden="true" />;
 };
@@ -130,7 +133,7 @@ const focusDay = (group: HTMLElement | null, date: string) => {
  * under the Z2 ceiling, tempo and threshold Z3–Z4, fast reps reaching Z4); a lift its minutes and kind. Then the effort
  * once it is checked in (`Effort 6`).
  */
-const intentOf = (type: string | null) => (isRace(type) ? 'Race day' : isHardRun(type) ? 'Z3–Z4, comfortably hard' : isFastRun(type) ? 'Fast reps, up to Z4' : 'Z2, conversational');
+const intentOf = runIntent;
 const targetLine = (s: Session, name: string, dist: string, a: ReturnType<typeof assess> | null) => {
   const typeWord = s.type && !name.toLowerCase().includes(s.type.toLowerCase()) ? s.type : '';
   const bits: string[] = [];
@@ -152,8 +155,33 @@ const ToneTile = ({ s }: { s: Session | null }) => {
   );
 };
 
+/**
+ * Today's morning on today's run row (layout plan P1: Plan has no Today section; the row says it once): while today's
+ * training time is Morning and the run is still to do, its line is "Out 6:45 · back 7:54" (the schedule's door and back);
+ * the zone text moves to the session sheet. With Afternoon or no time, or no morning set up, the row keeps its zone text.
+ */
+export interface MorningLine {
+  id: string;
+  /** "Out 6:45 · back 7:54"; under 360 pt wide the row shows `short`, "6:45 to 7:54", so the back time is never cut. */
+  text: string;
+  short: string;
+}
+export const morningLineOf = (log: Log, date: string, when: TrainWhen): MorningLine | null => {
+  if (date !== log.today || when !== 'morning' || !log.loaded(date)) return null;
+  const st = log.boot?.morningSettings;
+  if (!st) return null;
+  const all = log.snap.sessionsOn(date);
+  const run = dayOrder(all).find((s) => s.kind === 'run');
+  // a run on hold (sick, injured) says so on its row, not the morning
+  if (!run || sessionKey(log.snap, date, run) !== 'today' || (isHeld(run) && heldOn(log.boot?.user.status, date))) return null;
+  const stops = stopsOf(morningOf(all, log.snap.morningOverride(date), st));
+  const door = stops.find((x) => x.key === 'door');
+  const back = stops.find((x) => x.key === 'back');
+  return door && back ? { id: run.id, text: `Out ${clockShort(door.at)} · back ${clockShort(back.at)}`, short: `${clockShort(door.at)} to ${clockShort(back.at)}` } : null;
+};
+
 /** What a session row shows, with no hooks: the live row and a neighbour page not yet live draw the same pixels. */
-export const rowFace = (log: Log, date: string, s: Session) => {
+export const rowFace = (log: Log, date: string, s: Session, morning?: MorningLine | null) => {
   const k = sessionKey(log.snap, date, s);
   const word = sessionWord(log.snap, date, s);
   const runs = s.kind === 'run' ? log.snap.runsOn(date) : [];
@@ -163,13 +191,21 @@ export const rowFace = (log: Log, date: string, s: Session) => {
   // a planned distance the name already says (`Easy 4` · `4 mi`) is not said twice: the name gets the room (review-feel-1 #14)
   const dist = !a && s.kind === 'run' && s.miles && new RegExp(`\\b${num(s.miles)}\\b`).test(name) ? '' : dist0;
   const held = isHeld(s) && date >= log.today ? heldOn(log.boot?.user.status, date) : null;
-  const sub = held ? `On hold · ${TRAINING_STATUS_INFO[held].label}` : targetLine(s, name, dist, a);
+  const am = !held && morning?.id === s.id ? morning : null;
+  const sub = held ? `On hold · ${TRAINING_STATUS_INFO[held].label}` : am ? am.text : targetLine(s, name, dist, a);
   const body = (
     <>
       <ToneTile s={s} />
       <span className="pl-main">
         <span className="pl-name">{name}</span>
-        {sub ? <span className="pl-sub">{sub}</span> : null}
+        {am ? (
+          <span className="pl-sub">
+            <span className="pl-am">{am.text}</span>
+            <span className="pl-am is-short">{am.short}</span>
+          </span>
+        ) : sub ? (
+          <span className="pl-sub">{sub}</span>
+        ) : null}
       </span>
       <Status k={k} word={word} />
     </>
@@ -211,11 +247,11 @@ const emptyFace = (log: Log, date: string, rest: Session | null) => (
 );
 
 /** One session on a day: a 60 px row in the group. */
-const SessionRow = ({ date, s }: { date: string; s: Session }) => {
+const SessionRow = ({ date, s, morning }: { date: string; s: Session; morning?: MorningLine | null }) => {
   const row = useRef<HTMLElement>(null);
   const { log, open, move, askEffort, toast, mark, remove, restore, moveTo, flip, onReshaped } = useRowKit();
   const { hide, unhide } = useContext(DayKit);
-  const { word, name, sub, cls, body } = rowFace(log, date, s);
+  const { word, name, sub, cls, body } = rowFace(log, date, s, morning);
   const drag = useDayDrag({
     date,
     session: s,
@@ -371,13 +407,9 @@ const dayOf = (log: Log, date: string, hidden?: ReadonlySet<string>) => {
   const t = log.today;
   return { ordered, runs, bonus, rest, cls: `pl-day ${date === t ? 'is-today' : ''} ${date < t ? 'is-past' : ''}`.trim() };
 };
-const DateCol = ({ date }: { date: string }) => (
-  <div className="pl-date" aria-hidden="true">
-    <span className="pl-num tnum">{parseISO(date).getDate()}</span>
-    <span className="pl-dow">{fmtDate('dow', date)}</span>
-  </div>
-);
-const DayRow = ({ date }: { date: string }) => {
+/** The day's column: the shared date gutter (layout standard 6.2), today's numeral ringed. It carries no handlers. */
+const DateCol = ({ date, today }: { date: string; today: string }) => <DateGutter date={date} today={date === today} className={`pl-date ${date < today ? 'is-past' : ''}`.trim()} />;
+const DayRow = ({ date, morning }: { date: string; morning?: MorningLine | null }) => {
   const { log, flip } = useRowKit();
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
   const dayKit = useMemo<DayKitT>(
@@ -411,10 +443,10 @@ const DayRow = ({ date }: { date: string }) => {
   return (
     <DayKit.Provider value={dayKit}>
       <div className={cls} role="listitem" {...{ [PLAN_DAY]: date }}>
-        <DateCol date={date} />
+        <DateCol date={date} today={log.today} />
         <div className="pl-lines">
           {ordered.map((s) => (
-            <SessionRow key={s.id} date={date} s={s} />
+            <SessionRow key={s.id} date={date} s={s} morning={morning} />
           ))}
           {bonus ? <BonusRow date={date} runs={runs} /> : null}
           {!ordered.length && !bonus ? <EmptyRow date={date} rest={rest} /> : null}
@@ -429,7 +461,7 @@ const DayRow = ({ date }: { date: string }) => {
  * same rows, the same pixels, with no handlers and no hooks per row, so a quick swipe that reaches it before the
  * transition shows the week as it is, and the swap to the live page changes nothing on screen (feel review 2 D).
  */
-const StillDay = ({ log, date }: { log: Log; date: string }) => {
+const StillDay = ({ log, date, morning }: { log: Log; date: string; morning?: MorningLine | null }) => {
   const { ordered, runs, bonus, rest, cls } = dayOf(log, date);
   const line = (key: string, className: string, body: ReactNode) => (
     <div key={key} className="pl-slot">
@@ -440,10 +472,10 @@ const StillDay = ({ log, date }: { log: Log; date: string }) => {
   );
   return (
     <div className={cls}>
-      <DateCol date={date} />
+      <DateCol date={date} today={log.today} />
       <div className="pl-lines">
         {ordered.map((s) => {
-          const f = rowFace(log, date, s);
+          const f = rowFace(log, date, s, morning);
           return line(s.id, f.cls, f.body);
         })}
         {bonus ? <div className="pressable pl-line t-easy k-bonus" data-press="surface">{bonusFace(log, date, runs).body}</div> : null}
@@ -519,7 +551,7 @@ const afterGroup = (g: HTMLElement | null): HTMLElement[] => {
 };
 
 /** The seven days of `mon` in one inset group (the drop target of every drag). */
-const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log; conflict: Conflict | null; setConflict: (c: Conflict | null) => void }) => {
+const WeekGroup = ({ mon, log, conflict, setConflict, morning }: { mon: string; log: Log; conflict: Conflict | null; setConflict: (c: Conflict | null) => void; morning: MorningLine | null }) => {
   const group = useRef<HTMLDivElement>(null);
   const surf = useRef<HTMLDivElement>(null);
   // the block card (and anything else under the group) rides the same FLIP: the group's edge and the card move together;
@@ -561,7 +593,7 @@ const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log;
         <div ref={surf} className="pl-wsurf" aria-hidden="true" />
         {days.map((d) => (
           <Fragment key={d}>
-            <DayRow date={d} />
+            <DayRow date={d} morning={d === log.today ? morning : null} />
             {conflict && conflict.at === d ? (
               <ConflictRow
                 c={conflict}
@@ -579,14 +611,14 @@ const WeekGroup = ({ mon, log, conflict, setConflict }: { mon: string; log: Log;
 };
 
 /** A week not yet live (`still`): the same group, drawn from the same log, with no row hooks (feel review 2 D). */
-const StillGroup = ({ mon, log }: { mon: string; log: Log }) => {
+const StillGroup = ({ mon, log, morning }: { mon: string; log: Log; morning: MorningLine | null }) => {
   const days = Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
   if (!log.loaded(mon) || !log.loaded(shiftDays(mon, 6))) return <SkelGroup days={days} />;
   return (
     <div className="pl-group pl-wgroup" aria-hidden="true">
       <div className="pl-wsurf" />
       {days.map((d) => (
-        <StillDay key={d} log={log} date={d} />
+        <StillDay key={d} log={log} date={d} morning={d === log.today ? morning : null} />
       ))}
     </div>
   );
@@ -652,6 +684,9 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
   // a week with a name (this, last, next) shows its dates beside it; any other week is named by its dates alone
   const far = named.startsWith('Week of');
   const away = mon !== mondayOf(log.today);
+  // today's training time (Today's Morning / Afternoon / No time): it decides whether today's run row says the morning
+  const when = useTrainWhen(log.today);
+  const morning = ready && mon === mondayOf(log.today) ? morningLineOf(log, log.today, when) : null;
   return (
     <div className="pl-wpage">
       <section className="pl-sec pl-week-sec" aria-label={`${named}, ${weekRange(mon)}`}>
@@ -663,14 +698,17 @@ export const WeekPage = memo(function WeekPage({ mon, onThisWeek, onStep, still 
         />
         {words ? (
           <p className="pl-wk-line">
-            <b>{words.head}.</b> {words.sub}
+            {/* under 360 pt the header has no room for its dates (styles/layout.css): the line carries them there */}
+            {far ? null : <span className="pl-wk-range" aria-hidden="true">{`${weekRange(mon)} · `}</span>}
+            <b>{words.head}.</b>
+            {words.sub ? ` ${words.sub}` : null}
           </p>
         ) : (
           <p className="pl-wk-line" aria-hidden="true">
             &nbsp;
           </p>
         )}
-        {!ready && fail.failed && !still ? <LoadFail what="Couldn’t load this week." onRetry={fail.retry} /> : still ? <StillGroup mon={mon} log={log} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} />}
+        {!ready && fail.failed && !still ? <LoadFail what="Couldn’t load this week." onRetry={fail.retry} /> : still ? <StillGroup mon={mon} log={log} morning={morning} /> : <WeekGroup mon={mon} log={log} conflict={conflict} setConflict={setConflict} morning={morning} />}
       </section>
     </div>
   );
