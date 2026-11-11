@@ -193,10 +193,6 @@ export const EasyPaceSheet = ({ from, today, range }: { from: string; today: str
 const EasyPaceBody = ({ ep, log, range }: { ep: EasyPace; log: Log; range: Range }) => {
   const openRun = useOpenRun(log);
   const pts = ep.runs.map((r) => ({ key: r.a.id, label: md(r.a.date), y: r.pace }));
-  let best: number | null = null;
-  pts.forEach((p, i) => {
-    if (best == null || p.y < pts[best]!.y) best = i;
-  });
   const ch = paceChange(ep.now, ep.then);
   // pace needs a run with a time: runs marked done by hand have none
   if (!ep.runs.length)
@@ -212,7 +208,6 @@ const EasyPaceBody = ({ ep, log, range }: { ep: EasyPace; log: Log; range: Range
         points={pts}
         invert
         steps={[5, 10, 15, 20, 30, 60, 120, 300]}
-        best={best}
         format={paceText}
         onTap={(i) => ep.runs[i] && openRun(ep.runs[i]!.a)}
         readout={(i) => {
@@ -276,7 +271,6 @@ export const LiftSheet = ({ g }: { g: LiftGroup }) => {
         <LineChart
           label={g.reps ? `${g.name}, best set’s reps by day` : `${g.name}, estimated one-rep max by day`}
           points={pts}
-          best={best}
           format={(v) => String(Math.round(v))}
           readout={(i) => {
             if (i == null)

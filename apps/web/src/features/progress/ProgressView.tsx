@@ -1,6 +1,6 @@
 import { monthsBetween, shiftDays } from '@logbook/shared';
 import { ChevronRight, Heart } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNav } from '@/app/NavController';
 import { ProgressIcon } from '@/ui/icons';
 import { HEALTH_BUILT, STRAVA_BUILT } from '@/lib/features';
@@ -10,13 +10,14 @@ import { useLog, type Log } from '../log/useLog';
 import { useMonthsFailed } from '../plan/LoadFail';
 import { splitTileUnit, tileContext } from './context';
 import { healthWord } from './healthDays';
+import { runRange } from './hero';
 import { HeroChart } from './HeroChart';
 import { MetricIcon } from './icons';
 import { HEALTH_IDS, METRICS, type MetricId } from './metrics';
 import { useHealthLink } from './useHealthDays';
 import { useMetricModels } from './useMetrics';
 import { rangeSpan, spanMonths } from './ranges';
-import { useHistoryStart, useRange } from './useRange';
+import { useHistoryStart, useLiftStart, useRange } from './useRange';
 import './progress.css';
 import './metric.css';
 
@@ -28,8 +29,8 @@ const useAsOf = (real: string) => {
 };
 
 /**
- * Progress, in three parts and nothing else: the hero card (Running or Strength, planned against done, week by week),
- * Trends (30-day lines as tiles that open their metric pages; each number says the days it covers) and Health (resting HR,
+ * Progress, in three parts and nothing else: the hero card (Running or Strength: what was done, bucket by bucket, over the
+ * chosen range), Trends (30-day lines as tiles that open their metric pages; each number says the days it covers) and Health (resting HR,
  * HRV and sleep against your normal, from Apple Health; absent from a build without it). The page builds from the months
  * that are loaded: a month still on its way is a quiet gap in the chart. Before the first month lands it is a skeleton of
  * the hero card and four tiles; when nothing could be loaded it says so, with Try again.
@@ -38,12 +39,22 @@ export default function ProgressView() {
   const sheet = useSheet();
   const t = useAsOf(useToday());
   const [range, setRange] = useRange();
-  const start = useHistoryStart();
+  // when the server cannot say where history starts (an older deploy, a failed request), the months are read back instead,
+  // and only when the answer matters: for the All range, and when the last 13 weeks have no run in them (someone back
+  // after months away, whose runs are further back than the page has looked)
+  const [quiet, setQuiet] = useState(false);
+  const start = useHistoryStart(t, range === 'All' || quiet);
+  const liftStart = useLiftStart();
+  const startReady = start.ready && liftStart.ready;
+  // All reaches back to whichever began first, running or lifting, so both charts read the same months
+  const earliest = [start.first, liftStart.first].filter((d): d is string => !!d).sort()[0] ?? null;
   // the chart's range (All waits for where history starts), the last 13 weeks (this week's numbers, and whether there is a
   // week before it), and the trend tiles' 30 days against the 90 behind them
-  const span = useMemo(() => rangeSpan(range, t, start.first), [range, t, start.first]);
-  const months = useMemo(() => [...new Set([...monthsBetween(shiftDays(t, -150), span.to), ...(range === 'All' && !start.ready ? [] : spanMonths(span))])].sort(), [t, span, range, start.ready]);
+  const span = useMemo(() => rangeSpan(range, t, earliest), [range, t, earliest]);
+  const months = useMemo(() => [...new Set([...monthsBetween(shiftDays(t, -150), span.to), ...(range === 'All' && !startReady ? [] : spanMonths(span))])].sort(), [t, span, range, startReady]);
   const log = useLog(months);
+  const quietNow = useMemo(() => !runRange(log.snap, t, '3M', null, (m) => log.snap.loaded(m)).buckets.some((b) => b.missing || b.planned > 0 || b.done > 0), [log.snap, t]);
+  useEffect(() => setQuiet(quietNow), [quietNow]);
   const fail = useMonthsFailed(months);
   const anyLoaded = months.some((m) => log.snap.loaded(m));
 
@@ -86,7 +97,22 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
-      <HeroChart log={log} t={t} range={range} onRange={setRange} first={start.first} firstReady={start.ready} onConnect={connect} failed={fail.failed} onRetry={fail.retry} />
+      <HeroChart
+        log={log}
+        t={t}
+        range={range}
+        onRange={setRange}
+        first={start.first}
+        liftFirst={liftStart.first}
+        firstReady={startReady}
+        startFailed={start.failed}
+        onConnect={connect}
+        failed={fail.failed}
+        onRetry={() => {
+          fail.retry();
+          if (start.failed) start.retry();
+        }}
+      />
       <Trends log={log} onConnect={connect} />
       {HEALTH_BUILT ? <Health log={log} t={t} /> : null}
     </div>

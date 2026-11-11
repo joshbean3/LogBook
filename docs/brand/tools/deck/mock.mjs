@@ -67,28 +67,10 @@ async function seed(page) {
   });
 }
 const PROGRESS_GLYPH = ICONS.progress;
-// the week horizon (guide 8.5): a ruler (Haze track, Deep Sky fill, Sunrise NOW tick, Night Ink plan-by-today triangle)
-// over a horizon of half-suns, one per run day. Proposed component, drawn by this script.
+// The week horizon (a ruler over a row of half-suns) was a proposed component drawn by this script. The Progress chart's
+// domes on their horizon are that picture now (guide 6.8, 8.5), built in the app, so nothing is injected.
 function weekHorizon() {
-  const W = 326, x0 = 8, x1 = W - 8, sc = (x1 - x0) / 23, done = 4.2, byToday = 4, H = 104;
-  const days = [['M', 'done', 4.2], ['T', 'none'], ['W', 'plan', 6.5], ['T', 'none'], ['F', 'plan', 5.5], ['S', 'plan', 7], ['S', 'none']];
-  const col = (W - 16) / 7, hy = 80, r = (mi) => Math.min(20, 6 + 1.5 * mi);
-  const suns = days.map(([l, k, mi], i) => {
-    const cx = 8 + col * i + col / 2;
-    let g = '';
-    if (k === 'done') g = `<path d="M${cx - r(mi)} ${hy} A ${r(mi)} ${r(mi)} 0 0 1 ${cx + r(mi)} ${hy} Z" fill="#38B6F2"/><path d="M${cx - r(mi)} ${hy} A ${r(mi)} ${r(mi)} 0 0 1 ${cx + r(mi)} ${hy}" fill="none" stroke="#0A6CA6" stroke-width="1.5"/>`;
-    else if (k === 'plan') g = `<path d="M${cx - r(mi)} ${hy} A ${r(mi)} ${r(mi)} 0 0 1 ${cx + r(mi)} ${hy}" fill="none" stroke="#0A6CA6" stroke-width="1.5" stroke-dasharray="3 3"/>`;
-    else g = `<circle cx="${cx}" cy="${hy - 4}" r="2" fill="#7A8794"/>`;
-    return g + `<text x="${cx}" y="${hy + 17}" text-anchor="middle" class="wh-cap" fill="${i === 1 ? '#0E2236' : '#46596D'}">${l}</text>`;
-  }).join('');
-  const fx = x0 + done * sc, tx = x0 + byToday * sc;
-  return `<div class="wh" aria-label="This week: 4.2 of 23 miles, 1 of 4 runs"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-    <rect x="${x0}" y="22" width="${x1 - x0}" height="6" rx="3" fill="#CBE8F8"/><rect x="${x0}" y="22" width="${fx - x0}" height="6" rx="3" fill="#0A6CA6"/>
-    <path d="M${tx - 4} 38 L${tx + 4} 38 L${tx} 32 Z" fill="#0E2236"/>
-    <rect x="${fx - 1}" y="18" width="2" height="14" rx="1" fill="#F2600C" stroke="#FFFDF8" stroke-width="2" paint-order="stroke"/>
-    <text x="${fx}" y="12" text-anchor="middle" class="wh-cap" fill="#B4430C">Now</text>
-    <text x="${x1}" y="12" text-anchor="end" class="wh-cap" fill="#46596D" style="font-variant-numeric:tabular-nums">23 mi</text>
-    <line x1="0" x2="${W}" y1="${hy}" y2="${hy}" stroke="rgba(14,34,54,.22)" stroke-width="1"/>${suns}</svg></div>`;
+  return '';
 }
 const style = async (page) => {
   if (!before) {

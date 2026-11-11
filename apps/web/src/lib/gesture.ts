@@ -47,6 +47,17 @@ export const FILL_MS = 400;
 export const ALARM_PX_PER_STEP = 14;
 /** Selection ticks are throttled to one per 40 ms. */
 export const SELECT_THROTTLE_MS = 40;
+/**
+ * Reading a chart with a finger (the Progress scrub). A touch becomes a read of the chart once it has moved this far and
+ * mostly sideways, or has rested this long; it becomes a scroll of the page once it has moved this far mostly up or down.
+ * A tap is a touch that ended inside TAP_MS without leaving HOLD_SLOP_PX; a tap on a point that opens nothing shows that
+ * point for PEEK_MS.
+ */
+export const SCRUB_CLAIM_PX = 6;
+export const SCRUB_SCROLL_PX = 10;
+export const SCRUB_HOLD_MS = 180;
+export const SCRUB_TAP_MS = 450;
+export const SCRUB_PEEK_MS = 1600;
 /** Phase and day deferrals wait for this much stillness. */
 export const IDLE_MS = 60_000;
 

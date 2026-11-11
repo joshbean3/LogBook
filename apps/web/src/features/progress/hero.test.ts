@@ -2,8 +2,7 @@ import { shiftDays, type Activity, type LiftSet, type Session } from '@logbook/s
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
-import { monotonePath } from './curve';
-import { completion, liftLog, liftWeeks, runRange, weekRate } from './hero';
+import { liftLog, liftRange, runRange } from './hero';
 
 const run = (date: string, miles: number): Activity => ({ id: `a-${date}`, date, time: null, name: 'Run', sportType: 'Run', kind: 'run', miles, movingSec: miles * 480, elevFt: 0, avgHr: 150, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null });
 const sess = (date: string, extra: Partial<Session> = {}): Session => ({ id: `s-${date}-${extra.kind ?? 'run'}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles: 5, minutes: null, blockId: null, movedFrom: null, mark: null, ...extra });
@@ -24,22 +23,31 @@ const snapOf = (today: string, acts: Activity[], sessions: Session[], lifts: Lif
 const T = '2026-11-11';
 
 describe('the progress hero', () => {
-  it('draws 13 weeks ending this week in 3M, planned against run', () => {
+  it('draws 13 weeks ending this week in 3M: what was run, and what the plan still asks for', () => {
     const snap = snapOf(T, [run('2026-11-02', 6), run('2026-11-09', 3)], [sess('2026-11-02', { miles: 5 }), sess('2026-11-04', { miles: 5 }), sess('2026-11-09', { miles: 4 }), sess('2026-11-14', { miles: 8 })]);
     const v = runRange(snap, T, '3M', null);
     expect(v.buckets).toHaveLength(13);
-    expect(v.buckets.at(-1)).toMatchObject({ key: '2026-11-09', current: true, planned: 12, plannedPast: 4, done: 3, runs: 1, plannedRuns: 2 });
-    expect(v.buckets.at(-2)).toMatchObject({ key: '2026-11-02', planned: 10, done: 6 });
-    // 1W: the same week by day, Saturday's 8 miles still ahead (plan only)
+    expect(v.buckets.at(-1)).toMatchObject({ key: '2026-11-09', current: true, planned: 12, plannedPast: 4, done: 3, runs: 1, plannedRuns: 2, ahead: 8 });
+    // last week is history: its miles, and no plan left to draw (the 4 it missed are not a mark on the chart)
+    expect(v.buckets.at(-2)).toMatchObject({ key: '2026-11-02', planned: 10, done: 6, ahead: 0 });
+    // 1W: the same week by day, Saturday's 8 miles still ahead
     const w = runRange(snap, T, '1W', null);
-    expect(w.buckets.map((b) => [b.planned, b.done])).toEqual([[4, 3], [0, 0], [0, 0], [0, 0], [0, 0], [8, 0], [0, 0]]);
-    expect(w.weeks).toHaveLength(1);
-    expect(w.weeks[0]).toMatchObject({ planned: 12, done: 3 });
+    expect(w.buckets.map((b) => [b.done, b.ahead])).toEqual([[3, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 8], [0, 0]]);
+    // 12M: by month, this month so far and the rest of its plan
+    const y = runRange(snap, T, '12M', null);
+    expect(y.span.unit).toBe('month');
+    expect(y.buckets.at(-1)).toMatchObject({ key: '2026-11-01', done: 9, runs: 2, ahead: 8 });
   });
 
   it('counts a run marked done with no activity, and leaves skipped runs out of the plan', () => {
     const snap = snapOf(T, [], [sess('2026-11-03', { miles: 5, mark: 'done' }), sess('2026-11-05', { miles: 6, mark: 'skip' })]);
     expect(runRange(snap, T, '1M', null).buckets.at(-2)).toMatchObject({ planned: 5, done: 5, runs: 1, plannedRuns: 1 });
+  });
+
+  it('counts today’s planned run as ahead until it is run', () => {
+    const plan = [sess(T, { miles: 6 }), sess('2026-11-13', { miles: 4 })];
+    expect(runRange(snapOf(T, [], plan), T, '3M', null).buckets.at(-1)).toMatchObject({ done: 0, ahead: 10 });
+    expect(runRange(snapOf(T, [run(T, 6.2)], plan), T, '3M', null).buckets.at(-1)).toMatchObject({ done: 6.2, ahead: 4 });
   });
 
   it('counts lift sessions done, planned or not, with their sets and volume', () => {
@@ -51,17 +59,21 @@ describe('the progress hero', () => {
       [lift('2026-11-03'), lift('2026-11-05', { mark: 'skip' }), lift('2026-11-12')],
       [set('2026-11-03', 1), set('2026-11-03', 2), set('2026-11-10', 1)],
     );
-    const w = liftWeeks(snap, T);
-    expect(w[w.length - 2]).toMatchObject({ planned: 1, done: 1, sets: 2, volume: 1000 });
-    expect(w[w.length - 1]).toMatchObject({ current: true, planned: 1, done: 1, sets: 1 });
+    const w = liftRange(snap, T, '3M', null).buckets;
+    expect(w).toHaveLength(13);
+    expect(w[w.length - 2]).toMatchObject({ planned: 1, done: 1, sets: 2, volume: 1000, ahead: 0 });
+    expect(w[w.length - 1]).toMatchObject({ current: true, planned: 1, done: 1, sets: 1, ahead: 1 });
+    // by day this week: Tuesday's bonus lift done, Thursday's still ahead
+    expect(liftRange(snap, T, '1W', null).buckets.map((b) => [b.done, b.ahead])).toEqual([[0, 0], [1, 0], [0, 0], [0, 1], [0, 0], [0, 0], [0, 0]]);
+    // by month: November so far
+    expect(liftRange(snap, T, '12M', null).buckets.at(-1)).toMatchObject({ done: 2, sets: 3, ahead: 1 });
   });
 
-  it('rates the plan over finished weeks, a big week never paying for a missed one', () => {
-    const wk = (planned: number, done: number, current = false) => ({ w: '2026-01-05', planned, done, current, missing: false });
-    expect(completion([wk(10, 20), wk(10, 0), wk(0, 5), wk(10, 5, true)])).toEqual({ rate: 0.5, weeks: 2 });
-    expect(completion([wk(0, 3), wk(4, 1, true)])).toBeNull();
-    expect(weekRate(wk(8, 10))).toBe(1);
-    expect(weekRate(wk(0, 4))).toBeNull();
+  it('counts a lift marked done with no sets, and a synced lift with nothing on the plan', () => {
+    const lift = (d: string, extra: Partial<Session> = {}) => sess(d, { kind: 'lift', type: null, miles: null, ...extra });
+    const synced: Activity = { ...run('2026-11-06', 0), id: 'w-1', kind: 'lift', sportType: 'WeightTraining', name: 'Evening Weights' };
+    const w = liftRange(snapOf(T, [synced], [lift('2026-11-03', { mark: 'done' })]), T, '3M', null).buckets;
+    expect(w[w.length - 2]).toMatchObject({ done: 2, sets: 0, volume: 0 });
   });
 });
 
@@ -86,24 +98,5 @@ describe('the strength list', () => {
     ]);
     expect(items[2]!.session).toBeNull();
     expect(items[2]!.sets).toHaveLength(1);
-  });
-});
-
-describe('the running curves', () => {
-  it('never swing under zero or over a peak they do not have', () => {
-    // y grows downward on screen: 100 is zero miles, 0 the top of the chart
-    const pts = [
-      [0, 100],
-      [10, 20],
-      [20, 100],
-      [30, 100],
-      [40, 0],
-    ] as const;
-    const nums = monotonePath(pts).replace(/[MC]/g, ' ').trim().split(/[ ,]+/).map(Number);
-    const ys = nums.filter((_, i) => i % 2 === 1);
-    expect(Math.max(...ys)).toBeLessThanOrEqual(100);
-    expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
-    expect(monotonePath([])).toBe('');
-    expect(monotonePath([[5, 5]])).toBe('M5.0,5.0');
   });
 });

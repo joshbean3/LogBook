@@ -263,6 +263,7 @@
   --dur-in: 120ms;
   --dur-out: 100ms;
   --dur-color: 200ms;
+  --bar-stagger: 12ms;
   --dur-ring: 600ms;
   --dur-page: 350ms;
   --dur-sheet: 500ms;

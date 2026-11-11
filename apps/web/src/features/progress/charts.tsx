@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { springs, useReduced } from '@/lib/motion';
-import { useScrub } from './useScrub';
+import { useScrub } from '@/ui/charts';
 
 /** Width of an element, kept current. */
 export const useWidth = <T extends HTMLElement>() => {
@@ -18,11 +18,26 @@ export const useWidth = <T extends HTMLElement>() => {
   return [ref, w] as const;
 };
 
-/** A round-number ceiling for an axis: 10, 20, 30, 40, 60, 80, 100… */
-export const niceTop = (v: number, min = 10) => {
-  const m = Math.max(min, v);
-  const step = m > 80 ? 20 : m > 40 ? 10 : m > 20 ? 10 : 5;
-  return Math.ceil(m / step) * step;
+const readTextScale = () => (typeof document === 'undefined' ? 1 : Math.max(1, (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16));
+/**
+ * The text size the phone is set to, as a multiple of the brand's own (1 at the default, 2 at the largest the app follows):
+ * the root font size over 16 px. A chart's labels are set in rem and grow with it while its plot does not, so a chart
+ * reads this to give them room. It is read again when the root's size changes (app/dynamicType.ts sets it on the root's
+ * style when the app comes back from Settings), so a chart on screen redraws for the new size.
+ */
+export const useTextScale = () => {
+  const [scale, setScale] = useState(readTextScale);
+  useEffect(() => {
+    const read = () => setScale(readTextScale());
+    const mo = new MutationObserver(read);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style', 'data-text-xl'] });
+    window.addEventListener('resize', read);
+    return () => {
+      mo.disconnect();
+      window.removeEventListener('resize', read);
+    };
+  }, []);
+  return scale;
 };
 
 /**
@@ -74,11 +89,11 @@ export interface LinePoint {
 }
 
 /**
- * The sheets' chart: a line with a dot per point, scrubbable like the mileage chart (the readout above rewrites to the
- * point under the finger, a tick per point, a Light tap at the best), a quick tap calls `onTap`. `invert` puts smaller
- * values higher (pace). The readout is the caller's: `readout(i)` with i = null when nobody is touching it.
+ * The sheets' chart: a line with a dot per point, read by dragging across it like the hero chart (the readout above
+ * rewrites to the point under the finger, a tick per point), a quick tap calls `onTap`. `invert` puts smaller values
+ * higher (pace). The readout is the caller's: `readout(i)` with i = null when nobody is touching it.
  */
-export const LineChart = ({ points, invert, format, readout, onTap, label, height = 168, best, steps }: { points: LinePoint[]; invert?: boolean; format: (v: number) => string; readout: (i: number | null) => ReactNode; onTap?: (i: number) => void; label: string; height?: number; best?: number | null; steps?: number[] }) => {
+export const LineChart = ({ points, invert, format, readout, onTap, label, height = 168, steps }: { points: LinePoint[]; invert?: boolean; format: (v: number) => string; readout: (i: number | null) => ReactNode; onTap?: (i: number) => void; label: string; height?: number; steps?: number[] }) => {
   const [ref, width] = useWidth<HTMLDivElement>();
   const reduce = useReduced();
   const W = Math.max(200, width || 320);
@@ -112,7 +127,6 @@ export const LineChart = ({ points, invert, format, readout, onTap, label, heigh
     },
     onScrub: () => undefined,
     onTap,
-    peak: best ?? null,
     home: n - 1,
   });
   const a = scrub.active;

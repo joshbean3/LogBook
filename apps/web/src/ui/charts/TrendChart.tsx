@@ -1,7 +1,8 @@
-import { useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useId, type ReactNode } from 'react';
 import { chartDomain } from './niceDomain';
 import { areaPath, labelIndices, niceTicks, scaleLinear, segments, smoothPath, type Series } from './scale';
 import { useNowMark } from '../nowBudget';
+import { useScrub } from './useScrub';
 import { useChartWidth } from './useWidth';
 import './charts.css';
 
@@ -61,14 +62,13 @@ const BOTTOM = 22;
  * The chart kit's line chart (docs/inspiration.md §3). Y labels on the right only, over dashed hairlines; a soft personal-normal
  * band; a dotted average with an "Avg" pill that says its value; faint daily bars behind a smooth line; the newest point
  * glowing orange with a faint line down to its day; an optional earlier
- * period in grey. Press and slide to read a point (the readout above rewrites), arrow keys do the same. With nothing to
- * draw it keeps its frame and says so in the middle.
+ * period in grey. Drag across it to read a point (`useScrub`: the readout above rewrites, a tick per point, and a swipe up
+ * or down that starts on the plot still scrolls the page); a tap shows a point for a moment; arrow keys do the same. With
+ * nothing to draw it keeps its frame and says so in the middle.
  */
 export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, labels, format, invert, zero, steps, domain, tone = 'navy', fill, height = 184, label, readout, empty, className = '' }: TrendChartProps) => {
   const id = useId().replace(/:/g, '');
   const [ref, width] = useChartWidth<HTMLDivElement>();
-  const [active, setActive] = useState<number | null>(null);
-  const dragging = useRef(false);
   const W = Math.max(200, width || 320);
   const H = height;
   const y0 = H - BOTTOM;
@@ -101,36 +101,27 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
   const clampY = (v: number) => Math.min(y0, Math.max(TOP, y(v)));
 
   // ---------- reading a point ----------
-  const indexAt = (clientX: number) => {
-    const r = ref.current?.getBoundingClientRect();
-    if (!r || !r.width || n === 0) return null;
-    const px = ((clientX - r.left) / r.width) * W;
-    const i = Math.round((px - LEFT) / (step || 1));
-    return Math.max(0, Math.min(n - 1, i));
-  };
-  const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (!readout || !hasData) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    dragging.current = true;
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    setActive(indexAt(e.clientX));
-  };
-  const onMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (!readout || !hasData) return;
-    if (dragging.current || e.pointerType === 'mouse') setActive(indexAt(e.clientX));
-  };
-  const onUp = () => {
-    dragging.current = false;
-    setActive(null);
-  };
-  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!readout || !hasData) return;
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      const d = e.key === 'ArrowLeft' ? -1 : 1;
-      setActive((a) => Math.max(0, Math.min(n - 1, (a ?? (newest?.i ?? n - 1)) + d)));
-    } else if (e.key === 'Escape') setActive(null);
-  };
+  const scrub = useScrub({
+    count: n,
+    indexAt: (clientX) => {
+      const r = ref.current?.getBoundingClientRect();
+      if (!r || !r.width || n === 0) return null;
+      const px = ((clientX - r.left) / r.width) * W;
+      return Math.max(0, Math.min(n - 1, Math.round((px - LEFT) / (step || 1))));
+    },
+    onScrub: () => undefined,
+    home: newest?.i ?? n - 1,
+    disabled: !readout || !hasData,
+  });
+  const active = scrub.active;
+  const bindRef = scrub.bind.ref;
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      bindRef(node);
+    },
+    [ref, bindRef],
+  );
   const activeVal = active != null ? (line[active] ?? dots?.[active] ?? null) : null;
 
   // the newest point is a Sunrise mark (guide 3.5 job 6) while it is drawn; the kit lives on pushed pages and sheets
@@ -143,18 +134,18 @@ export const TrendChart = ({ line, bars, dots, previous, band, avg, zones, label
         </div>
       ) : null}
       <div
-        ref={ref}
+        ref={setRefs}
         className={`ck-plot ${readout && hasData ? 'is-live' : ''}`}
         role="img"
         aria-label={label}
         tabIndex={readout && hasData ? 0 : undefined}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-        onPointerLeave={(e) => e.pointerType === 'mouse' && onUp()}
-        onKeyDown={onKey}
-        onBlur={() => setActive(null)}
+        onPointerDown={scrub.bind.onPointerDown}
+        onPointerMove={scrub.bind.onPointerMove}
+        onPointerUp={scrub.bind.onPointerUp}
+        onPointerCancel={scrub.bind.onPointerCancel}
+        onPointerLeave={scrub.bind.onPointerLeave}
+        onKeyDown={scrub.bind.onKeyDown}
+        onBlur={scrub.bind.onBlur}
       >
         <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
           <defs>

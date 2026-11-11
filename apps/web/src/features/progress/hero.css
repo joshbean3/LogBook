@@ -1,6 +1,6 @@
 /* ---------- Progress hero (guide 6.4, layout standard 6.4): the hero card (.card.is-hero has-glow: padding 20, r 24, the
-   one sunrise glow). Read top down: Running / Strength, 16, the headline with its context, 4, one takeaway line, 12, (in 1W
-   the ruler, 12), the plot, 12, the range control. No gap in the card is larger than 16 without a hairline ---------- */
+   one sunrise glow). Read top down: Running / Strength, 16, the headline with its context, 4, one takeaway line, 8, the
+   plot, (8 and the first-use hint), 12, the range control. No gap in the card is larger than 16 without a hairline ---------- */
 .card.ph {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -22,18 +22,15 @@
   padding: 0 var(--sp-2);
 }
 
-/* the headline: the number and its context, then the takeaway under it */
+/* the headline: the number and its context, then the takeaway under it. It is top aligned: while a bucket is read the
+   block keeps its height (HeroChart's Head), and its first line must not move */
 .ph-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-1) var(--sp-3);
+  display: grid;
+  align-content: start;
   margin-top: var(--sp-4);
 }
 .ph-main {
   display: grid;
-  flex: 1 1 auto;
   gap: var(--sp-1);
   min-width: 0;
 }
@@ -62,10 +59,6 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
-/* the hairline before the strength rows: 16 above and below (the card has no gap to subtract here) */
-.card.ph > .rule {
-  margin-block: var(--sp-4);
-}
 /* the range control: 12 below the plot, 12 in from the card's edges (wider than the hero's 20 allows, guide 6.8) */
 .ph-range {
   margin: var(--sp-3) calc(var(--sp-3) - var(--pad-hero)) 0;
@@ -91,36 +84,43 @@
   }
 }
 
-/* ---------- running: two curves, the plan and the actual ---------- */
-.pl-chart {
+/* ---------- the chart: one bar per bucket, standing on a horizon (guide 6.8). The plot keeps a band of its own over the
+   tallest bar (a caption's height: "Plan" sits there, and the marker starts there), so it sits 8 under the takeaway ---------- */
+.rb-chart {
   position: relative;
-  margin-top: var(--sp-3);
+  margin-top: var(--sp-2);
 }
-.pl-plot {
+.rb-plot {
   position: relative;
   outline: none;
   border-radius: var(--r-icon);
 }
-.pl-plot:focus-visible {
+/* the focus ring stands 4 clear of the plot, so it never runs through the first axis label */
+.rb-plot:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--sp-1));
+  border-radius: var(--r-icon);
   box-shadow: 0 0 0 1.5px var(--focus-edge), var(--focus-ring);
+  pointer-events: none;
 }
-.pl-chart svg {
+.rb-chart svg {
   display: block;
   overflow: visible;
   font-family: var(--sans);
 }
-/* the chart (guide 6.8): gridlines 1 px --grid, no borders; axes in caption style, Dusk, even figures */
-.pl-grid {
+/* gridlines 1 px --grid, no borders; the baseline is the horizon the bars rise from (1 px --tick, guide 8.5) */
+.rb-grid {
   stroke: var(--grid);
   stroke-width: 1;
-  stroke-dasharray: 2 4;
 }
-.pl-base {
-  stroke: var(--line-strong);
+.rb-base {
+  stroke: var(--tick);
   stroke-width: 1;
 }
-/* the svg draws at 1:1 (its viewBox is its measured width), so the 11 px caption stays 11 px */
-.pl-ax {
+/* axes in caption style, Dusk, even figures. The svg draws at 1:1 (its viewBox is its measured width), so the 11 px
+   caption stays 11 px */
+.rb-ax {
   font: 600 var(--fs-caps) / 1 var(--stamp);
   letter-spacing: var(--tr-caps);
   text-transform: uppercase;
@@ -128,115 +128,149 @@
   font-variant-numeric: tabular-nums;
 }
 /* NOW in Ember (orange words are Ember; Sunrise is never text) */
-.pl-ax.is-now {
+.rb-ax.is-now {
   fill: var(--now-text);
 }
-/* 1W: today's weekday letter in Night Ink (the ruler above says NOW) */
-.pl-ax.is-today {
+/* 1W: today's weekday letter in Night Ink (the now dot sits over it) */
+.rb-ax.is-today {
   fill: var(--ink);
 }
-/* "Plan" and "You" where the lines start (guide 6.8: direct labels, no legend) */
-.pl-line-label {
+/* "Plan" over the first dashed outline (guide 6.8: direct labels, no legend); where it cannot sit right on the outline, a
+   1 px Dusk hairline joins the two */
+.rb-plan-label {
   pointer-events: none;
 }
-/* the plan: a 1.5 px Dusk line dashed 4 / 4; the actual: 2.5 px Deep Sky, round at its joins */
-.pl-plan {
-  fill: none;
+.rb-lead {
   stroke: var(--ink-2);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 4;
-  stroke-linecap: round;
+  stroke-width: 1;
 }
-.pl-done {
-  fill: none;
-  stroke: var(--deep-sky);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-/* by day, bars (guide 6.8): done a Sky fill with a 1.5 px Deep Sky top edge (so the bar passes 3:1); planned a 1.5 px Deep
-   Sky outline, dashed 3 / 3 for the days ahead; a rest day a 2 px Pencil dot on the baseline */
-.pl-bar-done {
+/* done: a Sky dome with a 1.5 px Deep Sky arc over its top, the edge that says the value (so the bar passes 3:1, with no
+   border round it); a bar too thin for Sky to carry is Deep Sky itself */
+.rb-done {
   fill: var(--sky);
 }
-.pl-bar-top {
-  stroke: var(--deep-sky);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-.pl-bar-plan {
-  fill: none;
-  stroke: var(--deep-sky);
-  stroke-width: 1.5;
-}
-.pl-bar-plan.is-ahead {
-  stroke-dasharray: 3 3;
-}
-.pl-rest {
-  fill: var(--pencil);
-}
-/* the area under the actual line: Sky at 16 percent, fading out */
-.pl-fill-top {
-  stop-color: var(--sky);
-  stop-opacity: 0.16;
-}
-.pl-fill-end {
-  stop-color: var(--sky);
-  stop-opacity: 0;
-}
-.pl-solo {
+.rb-done.is-thin {
   fill: var(--deep-sky);
 }
-/* this week so far: a dotted reach from the last finished week */
-.pl-reach {
+.rb-cap {
   fill: none;
   stroke: var(--deep-sky);
-  stroke-width: 2.25;
-  stroke-dasharray: 0.5 5;
+  stroke-width: 1.5;
   stroke-linecap: round;
-  opacity: 0.7;
 }
-.pl-gap {
+/* what the plan still asks for: the same dome as a 1.5 px Deep Sky outline, dashed 3 / 3. Only ever ahead of today */
+.rb-plan {
+  fill: none;
+  stroke: var(--deep-sky);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+/* nothing run: a 2 px Pencil dot holds the bucket's place; a day still ahead with nothing planned is the "ahead" tint
+   (decorative: the headline says "Nothing planned" when it is read) */
+.rb-rest {
+  fill: var(--pencil);
+}
+.rb-rest.is-ahead {
+  fill: var(--tick);
+}
+/* a bucket whose month has not loaded: a short dash on the horizon */
+.rb-gap {
   stroke: var(--ink-faint);
   stroke-width: 2;
   stroke-linecap: round;
 }
-/* now on the chart (guide 3.5 job 6): an 8 px Sunrise dot with a 2 px Paper keyline, no halo; Night Ink when the screen's
-   Sunrise budget is spent */
-.pl-now,
-.pl-dot-done.is-now {
+/* now on the chart (guide 3.5 job 6): an 8 px Sunrise dot with a 2 px Paper keyline on the bucket holding today; Night
+   Ink when the screen's Sunrise budget is spent */
+.rb-now {
   fill: var(--now);
   stroke: var(--now-keyline);
   stroke-width: 2;
 }
-.pl-now[data-now='ink'],
-.pl-dot-done.is-now[data-now='ink'] {
+.rb-now[data-now='ink'] {
   fill: var(--ink);
 }
-.pl-now-halo {
-  display: none;
+/* the bucket being read: its bar turns Deep Sky, a Night Ink marker comes down to it and ends in a Paper dot with a Night
+   Ink ring (a selection, not now). The other bars step back to 70 percent so the lit one is found at a glance, and no
+   further: their Deep Sky arcs still pass 3:1 on Paper (3.14), so the chart reads as a chart while one bar is read */
+.rb-bar {
+  transition: opacity var(--dur-out) var(--ease-out);
 }
-/* the week under the finger: a rule, the plan's point in Paper with a Dusk ring, the actual's in Deep Sky (a selected point,
-   not now) */
-.pl-rule {
-  stroke: rgba(14, 34, 54, 0.28);
-  stroke-width: 1;
+.rb-plot[data-reading] .rb-bar:not(.is-lit) {
+  opacity: 0.7;
 }
-.pl-dot-plan {
-  fill: var(--surface);
-  stroke: var(--ink-2);
-  stroke-width: 2;
+/* the bar under the finger lights on the frame the finger reaches it (and the tick fires): only the others ease */
+.rb-bar.is-lit {
+  transition: none;
 }
-.pl-dot-done {
+.rb-bar.is-lit .rb-done {
   fill: var(--deep-sky);
-  stroke: var(--now-keyline);
+}
+.rb-rule {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.rb-dot {
+  fill: var(--surface);
+  stroke: var(--ink);
   stroke-width: 2;
+}
+/* a new range or mode: each bar rises from the horizon (its own box's foot) over 480 ms, --bar-stagger after the bar
+   before it, the last no later than 240 ms after the first (so 26 bars, or 60, spread evenly inside it). `--i` is the bar's
+   place from the first one drawn and `--n` the last bar's (1 at least), set by RangeBars. What is drawn over the bars (the plan outline,
+   its label, the now dot) fades in half way through the last bar's rise, when it is all but up. Only transform and opacity
+   move (guide 9.1); nothing does under Reduce Motion */
+.rb-rise {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: rb-rise var(--dur-number) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * min(var(--bar-stagger), 240ms / var(--n, 1)));
+}
+.rb-fade {
+  animation: rb-fade var(--dur-in) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--n, 1) * var(--bar-stagger), 240ms) + var(--dur-number) / 2);
+}
+@keyframes rb-rise {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes rb-fade {
+  from {
+    opacity: 0;
+  }
+}
+/* how the chart is read, until it has been read once: one line 8 under the plot, in the card's support size (a card
+   holds three sizes at most: the stat, this one and the caption) */
+.rb-hint {
+  margin: var(--sp-2) 0 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  color: var(--ink-2);
+  transition: opacity var(--dur-out) var(--ease-out);
+}
+/* the chart has just been read: the words go, their room stays until the page is next shown (nothing moves under the finger) */
+.rb-hint.is-read {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rb-bar,
+  .rb-hint {
+    transition: none;
+  }
+  .rb-rise,
+  .rb-fade {
+    animation: none;
+  }
 }
 
-/* ---------- strength: the workouts as date rows, under the hairline (layout standard 6.2, 3.3.3) ----------
+/* ---------- strength: the workouts as date rows, in a card of their own 12 under the hero (layout standard 2.7, 6.2:
+   the hero holds the chart's three sizes, this card the rows' three) ----------
    A label per stretch ("This week": Inter 600 15 Night Ink, sentence case, 8 above its first row), then the rows: full
-   bleed so a press fills the card's width, their words on the card's 20 px edge, a hairline between rows from where the
+   bleed so a press fills the card's width, their words on the card's 16 px edge, a hairline between rows from where the
    words start. The status is the row's trailing value in 17 Dusk: words, never a color alone, and no pill */
+.card.ll-card {
+  margin-top: var(--gap);
+}
 .ll {
   display: grid;
   gap: var(--sp-4);
@@ -252,11 +286,11 @@
 }
 .ll-rows {
   display: grid;
-  margin-inline: calc(-1 * var(--pad-hero));
+  margin-inline: calc(-1 * var(--pad-card));
 }
 .ll-rows > .lrow {
   position: relative;
-  padding-inline: var(--pad-hero);
+  padding-inline: var(--pad-card);
   background: transparent;
 }
 .ll-rows > .lrow.tappable[data-pressed] {
@@ -266,7 +300,7 @@
   content: '';
   position: absolute;
   top: 0;
-  left: calc(var(--pad-hero) + var(--gutter-date) + var(--sp-3));
+  left: calc(var(--pad-card) + var(--gutter-date) + var(--sp-3));
   right: 0;
   height: 1px;
   background: var(--line);
@@ -305,98 +339,20 @@
   margin-top: var(--sp-4);
 }
 
-/* ---------- this week's ruler (guide 6.8), over the plot in 1W and in place of a chart in the first week: a 6 px Haze
-   track, Deep Sky to the miles run, a Sunrise NOW tick there with NOW in Ember caption over it, a Night Ink 8 px triangle
-   under the track at the plan by the end of today, "0" and the week's plan under the ends ---------- */
-.ph-ruler {
-  display: grid;
-  gap: var(--sp-1);
-  margin-top: var(--sp-3);
-}
-.ph-ruler-now {
-  justify-self: start;
-  margin-left: clamp(0px, calc(var(--at) * 100% - 14px), calc(100% - 28px));
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
-  color: var(--now-text);
-}
-.ph-ruler-now[data-now='ink'] {
-  color: var(--ink);
-}
-.ph-ruler-bar {
-  position: relative;
-  display: block;
-  height: 18px;
-}
-.ph-ruler-bar::before,
-.ph-ruler-bar i {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 6px;
-  border-radius: var(--r-pill);
-  background: var(--haze);
-}
-.ph-ruler-bar i {
-  background: var(--deep-sky);
-  transform-origin: 0 50%;
-}
-/* NOW: a 2 x 14 Sunrise tick with a Paper keyline, centered on the track */
-.ph-ruler-tick {
-  position: absolute;
-  top: -4px;
-  left: calc(var(--at) * (100% - 2px));
-  width: 2px;
-  height: 14px;
-  border-radius: var(--r-pill);
-  background: var(--now);
-  box-shadow: 0 0 0 2px var(--now-keyline);
-}
-.ph-ruler-tick[data-now='ink'] {
-  background: var(--ink);
-}
-/* the plan by today: a Night Ink triangle pointing up at the track */
-.ph-ruler-by {
-  position: absolute;
-  top: 9px;
-  left: calc(var(--at) * 100% - 4px);
-  width: 8px;
-  height: 7px;
-  background: var(--ink);
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-}
-.ph-ruler-ends {
-  display: flex;
-  justify-content: space-between;
-  font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
-  letter-spacing: var(--tr-caps);
-  text-transform: uppercase;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-/* the empty card's ghost: two curves, the plan dashed and what was run solid */
+/* the empty card's ghost: Haze domes rising on a horizon, the last one Sky (flat shapes, guide 6.11) */
 .ph-ghost {
   display: block;
 }
-.ph-ghost-plan {
-  fill: none;
-  stroke: var(--ink-2);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 4;
-  stroke-linecap: round;
+.ph-ghost-bar {
+  fill: var(--haze);
 }
-.ph-ghost-done {
-  fill: none;
-  stroke: var(--deep-sky);
-  stroke-width: 2.5;
-  stroke-linecap: round;
+.ph-ghost-bar.is-last {
+  fill: var(--sky);
 }
-/* the ghost's dot is decoration (a shape of the chart to come), so it is Sky, never a now-mark */
-.ph-ghost-dot {
-  fill: var(--accent);
+.ph-ghost-base {
+  fill: none;
+  stroke: var(--tick);
+  stroke-width: 1;
 }
 /* some weeks did not load: one line under the key, and the way to ask again */
 .ph-retry {
@@ -410,8 +366,4 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink-2);
-}
-/* the hidden list of weeks for VoiceOver: its numbers in even figures too */
-.pl-chart .sr-only {
-  font-variant-numeric: tabular-nums;
 }
