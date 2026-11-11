@@ -668,14 +668,23 @@
   flex: 1;
   min-width: 0;
   display: grid;
+  /* with the card's own 4, the words keep 8 above and below when they take more lines (the list row's floor, shape.css);
+     one line of each still makes the card 60 */
+  padding: var(--sp-1) 0;
 }
-/* the session's name in a row: Inter 600 at the row size, as the plan has it (Inter Tight is for captions only) */
+/* the session's name in a row: Inter 600 at the row size, as the plan has it (Inter Tight is for captions only). A long
+   name takes a second line before it is cut, as a tile's name does (guide 6.6): inside the card, clear of the ring, and
+   the card grows with it; the title's button says it in full. It is a block box because on the inline span nowrap and
+   the ellipsis never applied, and 60 characters ran under the ring and past the card's edge */
 .ss-stamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
   letter-spacing: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .second-session.is-quiet .ss-stamp {
   color: var(--ink-2);
