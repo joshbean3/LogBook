@@ -1,7 +1,7 @@
 /* The assistant: the conversation in a large sheet, laid out as a native AI chat (guide 6.12). Sky for the one verb, Haze
    for the owner's words, the Orb as its face, Signal only for a change that deletes. No orange but the history's live dot. */
 
-/* ---------- the chat, laid out the way ChatGPT and Claude are on a phone ----------
+/* ---------- the chat, laid out the way chat apps are on a phone ----------
  * The answers sit straight on the page at full width (no card: the words are the content); the owner's words in a soft
  * Haze bubble at the right; how it got there folded above an answer; its actions in a quiet row below; proposals keep their
  * Paper card (they are a thing to decide on). The composer is a Paper box with its edge, pinned to the bottom. */
@@ -9,8 +9,8 @@
   align-content: stretch;
 }
 .sheet:has(.as-head-actions) .sheet-head {
-  /* the chat's title takes the room between Close and the History / New capsule (not an equal side each way) */
-  grid-template-columns: 40px minmax(0, 1fr) auto;
+  /* two equal 88 pt sides (Close; the History / New capsule), so the chat's title sits on the sheet's center line */
+  grid-template-columns: 88px minmax(0, 1fr) 88px;
 }
 .sheet:has(.as-head-actions) .sheet-titles,
 .sheet:has(.as-head-actions) .sheet-titles-in {
@@ -21,6 +21,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
+}
+/* a title too long for the card-title size steps down to Inter 17/600 before it is cut (layout standard 2.10) */
+:root .sheet .as-title.is-small {
+  font: 600 var(--fs-row) / var(--lh-head) var(--sans);
 }
 .as-head-actions {
   display: inline-flex;
@@ -60,48 +65,47 @@
 .as-thread {
   display: grid;
   align-content: start;
-  gap: 22px;
-  padding: 4px 0 20px;
+  gap: var(--sp-6);
+  /* 12 here and the composer's 12 on top: the last words end 24 above it */
+  padding: var(--sp-1) 0 var(--sp-3);
   min-width: 0;
 }
 .as-tail {
   display: grid;
   align-content: start;
-  gap: 22px;
+  gap: var(--sp-6);
   min-width: 0;
 }
 
-/* ---------- a new chat: the 56 px Orb, the greeting in Fraunces italic, centered in the space ---------- */
+/* ---------- a new chat (layout standard 2.10): the 56 px Orb, 16 to the greeting in Fraunces italic, 8 to one Dusk line,
+   16 to the medical note; the block sits on the composer (24 above the starters), not in the middle of the space ---------- */
 .as-sheet.is-empty .as-thread {
-  align-content: center;
+  align-content: end;
 }
 .as-hello {
   display: grid;
   justify-items: center;
-  gap: 6px;
-  padding: 32px 8px 8px;
+  gap: 0;
+  padding: var(--sp-8) var(--sp-2) 0;
   text-align: center;
 }
 .as-hello-title {
-  margin: 0;
+  margin: var(--sp-4) 0 0;
   font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--serif);
   letter-spacing: 0;
   color: var(--ink);
 }
 .as-hello-sub {
-  margin: 0;
-  font: 400 var(--fs-row) / var(--lh-row) var(--sans);
+  max-width: 22rem;
+  margin: var(--sp-2) 0 0;
+  font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
+  text-wrap: pretty;
 }
-.as-hello-foot {
-  margin: 4px 0 0;
-  font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
-  color: var(--ink-2);
-}
-/* the not-medical-advice line (lib/copy.ts DISCLAIMER): the last words of the greeting, quiet but readable */
+/* the not-medical-advice line (lib/copy.ts DISCLAIMER), word for word: the last words of the greeting, quiet but readable */
 .as-hello-legal {
   max-width: 21rem;
-  margin: 8px 0 0;
+  margin: var(--sp-4) 0 0;
   font: 400 var(--fs-foot) / var(--lh-foot) var(--sans);
   color: var(--ink-2);
   text-wrap: pretty;
@@ -110,7 +114,7 @@
 /* starter cards: a row above the composer that scrolls sideways, two lines each */
 .as-starters {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-3);
   margin: 0 calc(-1 * var(--gutter));
   padding: 2px var(--gutter) 4px;
   overflow-x: auto;
@@ -188,14 +192,14 @@
   display: block;
   max-width: 82%;
   margin: 0;
-  padding: 10px 16px;
+  padding: var(--sp-2) var(--sp-4);
   border: 0;
   border-radius: var(--r-card);
   /* the owner's words: Night Ink on Haze (12.64), so the bubble shows on the Cloud sheet */
   background: var(--haze);
   color: var(--ink);
   text-align: left;
-  font: 400 var(--fs-row) / 1.4 var(--sans);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   transition:
@@ -220,12 +224,14 @@
   animation: as-rise 180ms var(--ease-out) both;
 }
 
-/* the answer: straight on the page, full width, easy to read */
+/* the answer: straight on the page, the full width less the gutter, reading text at 16/24 (layout standard 4.5), capped
+   near 70 characters a line on wide screens */
 .as-answer {
   margin: 0;
-  padding: 0 2px;
+  padding: 0;
+  max-inline-size: 36rem;
   color: var(--ink);
-  font: 400 var(--fs-row) / 1.5 var(--sans);
+  font: 400 var(--fs-body) / var(--lh-body) var(--sans);
   overflow-wrap: anywhere;
 }
 
@@ -502,8 +508,8 @@
 .as-followups {
   display: grid;
   justify-items: start;
-  gap: 8px;
-  margin-top: -6px;
+  gap: var(--sp-3);
+  margin-top: calc(-1 * var(--sp-3));
 }
 .as-followup {
   max-width: 100%;
@@ -538,9 +544,9 @@
   bottom: calc(-16px - var(--safe-b));
   z-index: 2;
   display: grid;
-  gap: 10px;
+  gap: var(--sp-3);
   margin: 0 calc(-1 * var(--gutter)) calc(-16px - var(--safe-b));
-  padding: 14px var(--gutter) calc(10px + var(--safe-b));
+  padding: var(--sp-3) var(--gutter) calc(var(--sp-3) + var(--safe-b));
   /* a fade, not a rule: the thread runs under it */
   background: linear-gradient(to bottom, var(--sheet-bg-0), var(--sheet-bg) 18px);
 }
@@ -610,7 +616,7 @@
 .as-plus:disabled {
   color: var(--ink-faint); /* a disabled glyph: decorative, the control says so to VoiceOver */
 }
-/* the screen it was opened from, sent with the question: a small removable pill beside +, as Claude shows context */
+/* the screen it was opened from, sent with the question: a small removable pill beside +, as chat apps show context */
 .as-ctx-pill {
   display: inline-flex;
   align-items: center;
@@ -1003,19 +1009,19 @@
 }
 .as-prop-head {
   display: grid;
-  gap: 4px;
-  padding: 16px 16px 6px;
+  gap: var(--sp-1);
+  padding: var(--pad-card) var(--pad-card) var(--sp-1);
 }
+/* the summary supports the rows, never outweighs them: Inter 15/500 Dusk, two lines at most (the rows say the rest) */
 .as-proposal-sum {
   margin: 0;
-  font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: 0;
-  color: var(--ink);
-}
-/* a long proposal: how many of each kind, before the first six */
-.as-prop-count {
-  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
+  letter-spacing: 0;
   color: var(--ink-2);
 }
 .as-changes {
@@ -1027,11 +1033,11 @@
 .as-change {
   position: relative;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
+  grid-template-columns: var(--tile-ic) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  min-height: 60px;
-  padding: 10px 6px 10px 16px;
+  gap: var(--sp-3);
+  min-height: var(--row-h);
+  padding: var(--sp-3) var(--sp-1) var(--sp-3) var(--pad-card);
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 .as-change + .as-change::before {
@@ -1102,35 +1108,38 @@
   background: var(--cloud);
   color: var(--ink-2);
 }
-/* Not now, then Apply filling the rest of the row. At large text sizes, where the two no longer fit side by side, Apply
-   takes its own row and its words may wrap, so the one action that matters is never cut off. */
+/* Apply (Sky, 44 inline, at the text's leading edge, 16 under the rows) and Not now, a quiet Deep Sky word 12 beside it
+   (layout standard 6.6). At large text sizes, where the two no longer fit side by side, Not now takes its own line and
+   Apply's words may wrap, so the one action that matters is never cut off. */
 .as-proposal-foot {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 16px 16px;
+  align-items: center;
+  gap: 0 var(--sp-3);
+  padding: var(--pad-card);
 }
 .as-proposal-foot .btn {
   flex: 0 1 auto;
   height: auto;
-  min-height: 48px;
-  padding-block: 8px;
-  border-color: transparent;
-  box-shadow: none;
+  min-height: var(--hit);
   white-space: normal;
   text-align: center;
 }
-.as-proposal-foot .btn.primary {
-  flex: 1 1 auto;
-  /* the pair still shares a row on the narrowest phone */
-  padding-inline: 8px;
+/* no glow inside a card (layout standard 5.2) */
+.as-proposal .as-proposal-foot .btn.primary {
+  box-shadow: none;
 }
-/* Not now: the secondary (Paper with its edge) beside the one Sky Apply; the card's class outranks :root .btn.quiet */
+/* the pair keeps one row on the narrowest phone */
+@media (max-width: 359px) {
+  .as-proposal .as-proposal-foot .btn:not(.quiet) {
+    padding-inline: var(--sp-4);
+  }
+}
 .as-proposal .as-proposal-foot .btn.quiet {
-  padding: 0 16px;
-  border-color: var(--edge);
-  background: var(--surface);
-  color: var(--ink);
+  padding-inline: 0;
+  border-color: transparent;
+  background: none;
+  color: var(--accent-text);
 }
 /* Haze with Dusk words until there is something to apply (guide 6.2) */
 .as-proposal-foot .btn.primary:disabled {
@@ -1175,16 +1184,33 @@
   color: var(--ink);
   font: 600 var(--fs-sub) / 1 var(--sans);
 }
-/* a proposal of many changes shows six, then this */
+/* past three changes, the rest fold into one row that names what it holds; it starts where the rows' words do */
 .as-more {
-  justify-self: start;
-  min-height: 44px;
-  margin: 0 0 0 60px;
-  padding: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--hit);
+  margin: 0;
+  padding: var(--sp-1) var(--pad-card) var(--sp-1) calc(var(--pad-card) + var(--tile-ic) + var(--sp-3));
   border: 0;
   background: none;
-  color: var(--deep-sky);
+  color: var(--accent-text);
+  text-align: left;
   font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
+}
+.as-more::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: calc(var(--pad-card) + var(--tile-ic) + var(--sp-3));
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.as-more-text {
+  min-width: 0;
 }
 
 /* a proposal waiting off screen: the bar that brings it back */
@@ -1388,10 +1414,15 @@
   font: 400 var(--fs-sub) / var(--lh-sub) var(--sans);
   color: var(--ink-2);
 }
+/* Allow (Sky, 54), Only what I type 12 under it (the secondary, 54), Not now a quiet word 8 under that (layout standard
+   2.10) */
 .as-ask-actions {
   display: grid;
-  gap: 10px;
+  gap: var(--sp-3);
   min-width: 0;
+}
+.as-ask-actions > .btn.quiet {
+  margin-top: calc(var(--sp-2) - var(--sp-3));
 }
 .as-ask-error {
   margin: 0;

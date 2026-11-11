@@ -23,7 +23,7 @@ const startOfDay = (t: number) => {
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 };
-/** Today, Yesterday, Previous 7 days, Previous 30 days, then by month ("October"), as ChatGPT groups them. */
+/** Today, Yesterday, Previous 7 days, Previous 30 days, then by month ("October"), as chat apps group them. */
 export const groupOf = (t: number, now = Date.now()) => {
   const today = startOfDay(now);
   if (t >= today) return 'Today';

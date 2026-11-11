@@ -1,5 +1,5 @@
 import type { AssistantChange, AssistantProposal } from '@logbook/shared';
-import { Bike, CalendarCheck, CalendarDays, CalendarX, Check, CheckSquare, Dumbbell, Footprints, Moon, RotateCcw, Target, X, type LucideIcon } from 'lucide-react';
+import { Bike, CalendarCheck, CalendarDays, CalendarX, Check, CheckSquare, ChevronDown, Dumbbell, Footprints, Moon, RotateCcw, Target, X, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useAssistantActions } from '@/api/queries';
 import { haptics } from '@/lib/haptics';
@@ -31,12 +31,15 @@ const kindOf = (c: AssistantChange): { Icon: LucideIcon; risky?: boolean } => {
   }
 };
 
-/** A proposal of more than six changes shows a count line, the first six and a "Show all" (a plan can be fifty). */
-const FOLD_OVER = 6;
+/**
+ * A proposal shows its first three changes; more fold into one row that names what it holds, so Apply stays in the first
+ * screen above the composer even on the smallest phone (layout standard 2.10; a plan change can be fifty).
+ */
+export const SHOWN = 3;
 const changesWord = (n: number) => `${n} change${n === 1 ? '' : 's'}`;
 
-/** "12 changes: 6 added, 3 removed, 3 moved": every kind named, so nothing is hidden behind Show all before Apply. */
-export const countLine = (changes: AssistantChange[]): string => {
+/** "6 added, 3 removed, 3 moved": every kind named, so nothing is hidden behind the fold before Apply. */
+export const kindsLine = (changes: AssistantChange[]): string => {
   const n = { added: 0, removed: 0, moved: 0, changed: 0 };
   for (const c of changes) {
     const op = c.op.op;
@@ -45,16 +48,26 @@ export const countLine = (changes: AssistantChange[]): string => {
     else if (op === 'move_session') n.moved++;
     else n.changed++;
   }
-  const parts = (Object.keys(n) as (keyof typeof n)[]).filter((k) => n[k] > 0).map((k) => `${n[k]} ${k}`);
-  return `${changesWord(changes.length)}: ${parts.join(', ')}`;
+  return (Object.keys(n) as (keyof typeof n)[])
+    .filter((k) => n[k] > 0)
+    .map((k) => `${n[k]} ${k}`)
+    .join(', ');
 };
+/** "12 changes: 6 added, 3 removed, 3 moved". */
+export const countLine = (changes: AssistantChange[]): string => `${changesWord(changes.length)}: ${kindsLine(changes)}`;
+/** The fold row's words for the changes under it: "Show 1 more · 1 removed". */
+export const foldLine = (hidden: AssistantChange[]): string => `Show ${hidden.length} more · ${kindsLine(hidden)}`;
 
 /**
- * A proposal (docs/inspiration.md §3, Proposal card): the summary, then each change on its own card with its icon, its
- * words and its reason, and a Remove for leaving that one out. Apply names how many will run; after it, Undo.
+ * A proposal (layout standard 2.10): the caption, a two-line summary in Dusk, then a row per change with its icon, its
+ * words and its reason, and a Remove for leaving that one out; past three, one fold row. Apply (Sky, 44, at the text's
+ * leading edge) names how many will run, with Not now as a quiet word beside it; after it, Undo. While the person types a
+ * reply instead, Apply steps down to the secondary look so Send is the one Sky button.
+ *
+ * `chat`: the chat the card is in (a pane's own; the open chat when absent). `onApplied`: called once Apply has run.
+ * `typing`: the composer holds words.
  */
-/** `chat`: the chat the card is in (a pane's own; the open chat when absent). `onApplied`: called once Apply has run. */
-export const ProposalCard = ({ p, waiting, chat, onApplied }: { p: AssistantProposal; waiting: boolean; chat?: string; onApplied?: () => void }) => {
+export const ProposalCard = ({ p, waiting, chat, onApplied, typing = false }: { p: AssistantProposal; waiting: boolean; chat?: string; onApplied?: () => void; typing?: boolean }) => {
   const { apply, undo, dismiss } = useAssistantActions();
   const [all, setAll] = useState(false);
   const toast = useToast();
@@ -62,7 +75,7 @@ export const ProposalCard = ({ p, waiting, chat, onApplied }: { p: AssistantProp
   const live = p.changes.length - skipped.size;
   const open = p.status === 'proposed';
   const busy = apply.isPending || undo.isPending || dismiss.isPending;
-  const shown = all || p.changes.length <= FOLD_OVER ? p.changes : p.changes.slice(0, 6);
+  const shown = all || p.changes.length <= SHOWN ? p.changes : p.changes.slice(0, SHOWN);
   const toggle = (i: number) => {
     const next = skipped.has(i) ? [...skipped].filter((x) => x !== i) : [...skipped, i];
     assistantStore.setProposal({ ...p, skipped: next.sort((a, b) => a - b) }, chat);
@@ -83,7 +96,6 @@ export const ProposalCard = ({ p, waiting, chat, onApplied }: { p: AssistantProp
       <header className="as-prop-head">
         <span className="caps">{open ? `${changesWord(p.changes.length)} to review` : 'Changes'}</span>
         <p className="as-proposal-sum">{p.summary}</p>
-        {p.changes.length > FOLD_OVER ? <p className="as-prop-count">{countLine(p.changes)}</p> : null}
       </header>
       <ul className="as-changes">
         {shown.map((c, i) => {
@@ -113,17 +125,18 @@ export const ProposalCard = ({ p, waiting, chat, onApplied }: { p: AssistantProp
         })}
       </ul>
       {shown.length < p.changes.length ? (
-        <button type="button" className="as-more" onClick={() => setAll(true)}>
-          Show all {p.changes.length} changes
+        <button type="button" className="as-more" aria-label={`Show all ${p.changes.length} changes. ${kindsLine(p.changes.slice(shown.length))} more.`} onClick={() => setAll(true)}>
+          <span className="as-more-text">{foldLine(p.changes.slice(shown.length))}</span>
+          <ChevronDown size={18} aria-hidden="true" />
         </button>
       ) : null}
       {open ? (
         <div className="as-proposal-foot">
+          <Button variant={typing ? 'default' : 'primary'} className="as-apply" disabled={busy || live === 0} aria-busy={apply.isPending} onClick={() => void run(() => apply.mutateAsync({ id: p.id, skip: p.skipped }), () => (haptics.drop(), onApplied?.()))}>
+            {apply.isPending ? 'Applying…' : live === 0 ? 'Apply' : `Apply ${changesWord(live)}`}
+          </Button>
           <Button variant="quiet" disabled={busy} onClick={() => void run(() => dismiss.mutateAsync(p.id))}>
             Not now
-          </Button>
-          <Button variant="primary" className="as-apply" disabled={busy || live === 0} aria-busy={apply.isPending} onClick={() => void run(() => apply.mutateAsync({ id: p.id, skip: p.skipped }), () => (haptics.drop(), onApplied?.()))}>
-            {apply.isPending ? 'Applying…' : live === 0 ? 'Apply' : `Apply ${changesWord(live)}`}
           </Button>
         </div>
       ) : (

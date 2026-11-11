@@ -8,7 +8,7 @@ import { STAR_ITALIC, UNDERSCORE_ITALIC } from './plain';
  * (never as HTML), so nothing in an answer can inject markup; anything else shows as written. Safe on half-written text:
  * an unclosed ** shows as plain words, an unclosed fence or table shows what has arrived.
  *
- * `fade`: while an answer is written, each new word fades in as it arrives (the ChatGPT and Claude feel). Words are spans
+ * `fade`: while an answer is written, each new word fades in as it arrives (the feel of phone chat apps). Words are spans
  * keyed by their place, so a word already shown is never redrawn and only the new ones animate.
  */
 type Block =

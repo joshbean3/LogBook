@@ -4,12 +4,12 @@ import { orphanDraft, readDraft, writeDraft } from './drafts';
 import { cleanChat, cleanProposal, cleanTurns } from './sanitize';
 
 /**
- * Conversations with the assistant, the way ChatGPT and Claude keep them: every chat is saved on the phone (localStorage)
+ * Conversations with the assistant, the way phone chat apps keep them: every chat is saved on the phone (localStorage)
  * with a title and when it was last used, and the History list opens any of them again. The open chat survives closing
  * the sheet and a reload (sessionStorage holds which one); a fresh launch starts a new one.
  *
  * One ask at a time, app-wide. An answer always lands in the chat that asked, even if the owner has moved to another chat
- * or started a new one meanwhile (it carries on in the background, as ChatGPT does).
+ * or started a new one meanwhile (it carries on in the background, as chat apps do).
  */
 export interface AssistantChat {
   id: string;

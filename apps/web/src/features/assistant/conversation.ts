@@ -136,7 +136,7 @@ export const sendTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | unde
   return runAsk(ask, date, screen, Date.now, stop, chatId);
 };
 
-/** Edit a question already sent: everything from it on comes off, and the new words go in its place (ChatGPT's Edit). */
+/** Edit a question already sent: everything from it on comes off, and the new words go in its place (the usual Edit in chat apps). */
 export const editTurn = (ask: Ask, date: ISODate, screen: AssistantScreen | undefined, index: number, text: string, stop?: Stop, chatId?: string) => {
   const chat = chatId ?? assistantStore.currentId();
   if (assistantStore.busySince() !== null || assistantStore.turnsFor(chat)[index]?.role !== 'user') return;
