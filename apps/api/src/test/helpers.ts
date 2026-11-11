@@ -1,3 +1,4 @@
+import { PLAN_SHAPE_BLANK } from '@logbook/shared';
 import { openDatabase, type DB } from '../db/index.js';
 import { env } from '../env.js';
 import { buildApp } from '../index.js';
@@ -62,6 +63,10 @@ export interface FakeClaudeOptions {
   goal?: unknown;
   recall?: string;
   pick?: unknown;
+  /** What the plan builder's assistant answers with: an object (sent as JSON) or a string sent as it is (not JSON). */
+  shape?: unknown;
+  /** The stop reason of the plan builder's assistant's answer (`refusal`, `max_tokens`); `end_turn` when left out. */
+  shapeStop?: string;
   /** Throw this from every call instead of answering. */
   fail?: unknown;
   /** Runs as each request arrives, before it is answered (to change something mid-answer). */
@@ -69,6 +74,8 @@ export interface FakeClaudeOptions {
 }
 
 const USAGE = { input_tokens: 120, output_tokens: 30, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+/** Every field of the plan builder's assistant's answer, empty: a test sets the few it is about. */
+export const SHAPE_BLANK: Record<string, unknown> = { ...PLAN_SHAPE_BLANK };
 
 /**
  * Put a recording fake in place of the Claude client. Every request any call site makes lands in `calls` with its full
@@ -90,6 +97,7 @@ export const fakeClaude = (o: FakeClaudeOptions = {}) => {
   const plan = o.plan ?? { name: 'Test plan', summary: 'A short plan.', start: '2026-12-07', end: '2026-12-07', notes: [], sessions: [{ date: '2026-12-07', kind: 'run', type: 'Easy', title: 'Easy 4', details: '', miles: 4, minutes: null }] };
   const goal = o.goal ?? { goal: 'Run four times this week, each at least 30 minutes.', why: 'Added a count.', changed: true, steps: ['Put the runs on the calendar'] };
   const pick = o.pick ?? { url: 'https://example.org/essays/the-long-run', title: 'The long run', why: 'Close to what you saved.', tags: ['running'] };
+  const shape = o.shape ?? { ...SHAPE_BLANK, runsPerWeek: 4, longRunDay: 'sun' };
   const client = {
     beta: {
       messages: {
@@ -120,6 +128,8 @@ export const fakeClaude = (o: FakeClaudeOptions = {}) => {
       create: async (params: Record<string, any>) => {
         record('messages.create', params);
         fail();
+        // the plan builder's assistant is the call whose answer has a runsPerWeek field
+        if (params.output_config?.format?.schema?.properties?.runsPerWeek) return { ...text(shape), stop_reason: o.shapeStop ?? 'end_turn' };
         return text(params.output_config?.format ? goal : (o.recall ?? 'You wrote about it. Do not forget that.'));
       },
     },

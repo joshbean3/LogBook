@@ -45,6 +45,11 @@ Each change below is written into `docs/brand/brand-guide.md` in the same words.
 | C17 | 11 Accessibility | VoiceOver: the Progress chart is one slider; its value is the focused bucket in words. |
 | C18 | 6.4, 12.1, 12.3 | The hero card on Progress is its chart card (Running or Strength). 12.1 and 12.3 step 8 name the bars in place of the ruler, the week horizon and the line chart. |
 | C19 | 6.3 Chips and segmented controls; 12.1 Plan | The quiet "+ Set" link gains its sibling "+ Add" (Plan's week: a run or a lift, section 2.6 and 6.12 below). The Plan row of 12.1 names the week's line with "+ Add" at its end, the Add sheet and the open day's quiet plus. |
+| C20 | 6.16 (new) | The plan builder's assistant, part by part: the container, the pill, the composer, the one Sky button, the veil, the line, the changed controls, the peak tile, the permission step and the copy rule. Its layout is in 2.12 and 6.11 below. |
+| C21 | 9.1 Durations | Two new rows: the changed-control ring (1.2 s, once, `opacity` only, each control 100 ms after the one above it) and the plan builder's veil (120 ms in, 100 ms out; the Orb's flight is a page move, 350 ms on `springs.page`). |
+| C22 | 9.2 Brand moments | Adds **The Orb lifts**: 150 ms after Send the Orb leaves its place beside the words and flies to the middle of the veil, growing from 28 to 56 px, 350 ms on `springs.page`, and turns to its thinking state. When the answer lands it flies back to the pill, and the pill's own Orb takes over. One Orb the whole time. |
+| C23 | 9.4 Reduce Motion | One named exception, the plan builder's veil: the Orb appears in place and holds its still frame, and its `opacity` goes from 1 to 0.6 and back every 1.2 s. The changed-control ring stays as a fade, on every changed control at once, and changed numbers jump. |
+| C24 | 2.1, 6.9, 12.1 | Pointers: the plan builder's pill is a 28 px gloss Orb, still; in the New plan sheet the assistant's composer changes the pinned primary button while it is in use; a New plan row in the screen table. |
 
 **Considered and not changed.** The screen title stays at 38/42 (`--fs-title`). Apple's Large Title is 34 and the hero's session name (40) is within 5 percent of the title, but the brand raised the title from 34 to 38 on purpose. The hero card already wins on Today by area (about 360 pt tall against a 42 pt title line), by the glow and by position once the rows above it are compacted (section 2.3). Body text stays 16/24: Apple's own advice is loose leading for long passages, and 16/24 measures 49 characters a line in a card at 390. The 16 px gutter stays at every width. It is inside Apple's 16 to 20 pt system margin, and one gutter keeps every edge aligned.
 
@@ -232,6 +237,24 @@ Build: answers run the full sheet width less the 16 px gutter, capped at `max-in
 | Order of emphasis | Intro steps: 1. the sample card, 2. the headline (`--fs-hero`, at most 3 lines at 390), 3. one line (`--fs-body` Dusk), 4. Next, 5. "I have an account" (quiet, 8 px below Next). Question steps: 1. the question (Fraunces `--fs-section`, left aligned), 2. the options as an inset group or chips, 3. Next. |
 
 Build: the progress dots sit 16 px above Next and are display only. Headline and sample are 24 px apart, and headline and its line 8 px apart. Every step's content clears Next by at least 24 px at 320 x 844.
+
+### 2.12 The New plan sheet (the plan builder)
+
+| | |
+|---|---|
+| Job | Set up a running plan in a minute, by tapping or by saying it. |
+| Focal point | The plan preview in the sheet's header: the plan's name, its dates and its weeks drawn as rows. It follows every change. |
+| Sky button | The sheet's verb, 54 tall, full width, pinned: "Use this plan", or "Replace 12 sessions" when it clears planned ones. While the assistant's composer holds words, Send is the Sky button and the verb turns secondary (the rule of 2.10). |
+| Order of emphasis | 1. The preview. 2. The assistant's pill, "Describe your plan". 3. Training for. 4. Run days. 5. Weeks and miles, and the peak once one is set. 6. Start and race day. 7. Week by week. 8. The foot: the start line, then the verb. While the assistant works: 1. the Orb, 2. the status line, 3. Stop. After an update: the line under the pill, then the controls it changed. |
+
+Build:
+
+- **The assistant sits second, under the preview and above the first control** (parts in brand 6.16, values in 6.11). Why: saying the plan is the fastest way to fill the sheet, so it comes before the controls, and the preview above it shows the result of either way.
+- **The composer opens in place.** No second sheet and no jump to the assistant sheet [HIG Sheets]. The answer is the builder's own controls changing, with one line that says what changed and an Undo.
+- **The veil covers the preview and the controls, never the title bar.** Close stays in reach, and closing cancels the request.
+- **While the composer has the keyboard the pinned foot steps out**, and on a screen under 700 pt tall the preview steps out too. Why: the composer, Send and the provider line stay above the keyboard at 320 x 568.
+- **The permission step shows in place of the controls** (the consent order in 2.10) when the account has not answered. "Not now" returns to the builder with nothing sent.
+- **At 320, and at Larger Text sizes**, "Undo" and "Try again" sit under their words and "Let the plan pick" sits under the peak tile's label.
 
 ---
 
@@ -484,6 +507,19 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Composer | Pinned at the bottom (brand 6.12), placeholder "Describe what to change", the provider disclosure under it exactly as written. |
 | Proposal | A card in the conversation listing the changes as rows, "Apply" (Sky, 44 inline, the sheet's one primary) and "Not now" (quiet). On apply: the outline rows and the Plan page update in place, and a toast offers Undo. |
 
+### 6.11 The plan builder's assistant
+
+Brand 6.16 has the parts. The layout:
+
+| Part | Value |
+|---|---|
+| Place | First in the sheet's body, under the preview header, 12 px (the card gap) above "Training for". Full width less the 16 px gutter. |
+| Pill | 48 tall. The Orb 28, 12 from the card's edge; the words 12 after the Orb, on one line at 320 ("Describe your plan" is three words for that reason) and two lines at Larger Text sizes. The whole row is the target. |
+| Composer | 8 px padding, so the field's text starts 16 px from the card's edge. Under the field one row: the Orb at the leading edge, Send at the trailing edge (40 px, 44 pt hit). The provider line 8 px under the card, centered. |
+| The line | Under a `--line` hairline inset 16 px on both sides, with 12 px above and below the words. The quiet verb sits at the trailing edge on the first line, 12 px after the words, with a 44 pt hit that does not grow the row. Under 22 rem of sheet width the verb sits under the words, at their leading edge. A failure adds an 18 px glyph at the leading edge, 12 px before the words. |
+| Veil | From the bottom of the title bar to the bottom of the sheet. The Orb, the status line and Stop are one centered group that sits above the middle (12 percent of the screen height is left under it): Orb to line 16 px, line to Stop 12 px. |
+| Peak tile | After the two number tiles, across both columns. Its label at the leading edge and "Let the plan pick" at the trailing edge on one row. At Larger Text sizes the link wraps under the label. |
+
 ### 6.12 The Add sheet (Plan)
 
 | Part | Value |
@@ -516,6 +552,7 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Progress | This week or the chosen range, trend and health tiles | A metric's page, a week's sheet, a lift's sheet |
 | Journal | Remember when, this week's calendar, recent entries | An entry in full, the month view, share |
 | Settings | Group rows with their current values | Each setting's page; delete account confirms in a sheet |
+| New plan sheet | The preview, the assistant's pill, the goal, run days, weeks and miles | The composer (it opens in place), start and race day, week by week (below the fold) |
 
 ---
 

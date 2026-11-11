@@ -1,18 +1,23 @@
-import { buildTemplate, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, parseISO, sessionStatus, shiftDays, TemplateError, tone, weekdayOf, weekSummary, WEEKDAYS, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
-import { AnimatePresence, motion } from 'motion/react';
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react';
+import { BUILDER_LIMITS, builderDates, builderInput, counts, fmtDate, GOAL_SPECS, mondayOf, monthsBetween, num, sessionStatus, shiftDays, tone, WEEKDAYS, type AnswersFromRuns, type BuilderAnswers, type Goal, type PlanBlock, type Template, type Weekday } from '@logbook/shared';
+import { animate, AnimatePresence, motion } from 'motion/react';
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent as ReactFocusEvent, type ReactNode } from 'react';
 import { useNav, useTab } from '@/app/NavController';
 import { ApiError } from '@/api/client';
 import { useTemplatePlan, useTemplateUndo, type PlanTemplateResult } from '@/api/queries';
 import { DISCLAIMER } from '@/lib/copy';
 import { haptics } from '@/lib/haptics';
-import { crossfade, reducedFade, useReduced } from '@/lib/motion';
+import { crossfade, forRange, reducedFade, springs, useReduced } from '@/lib/motion';
 import { Button, Note, Stepper } from '@/ui/primitives';
 import { Pressable } from '@/ui/Pressable';
 import { useSheet, type SheetSpec } from '@/ui/Sheet';
 import { useToast } from '@/ui/Toast';
+import { AssistantPermission } from '../assistant/Permission';
+import '../assistant/assistant.css';
 import { useLog, type Log } from '../log/useLog';
-import { builderNote, builderVerb, clampTyped, startWords, type BuilderPrefill } from './builderModel';
+import { AssistBar, AssistVeil, useBuilderAssist } from './BuilderAssist';
+import type { FlashKey } from './assistModel';
+import { builderNote, builderVerb, clampTyped, raceRowWords, startWords, type BuilderPrefill } from './builderModel';
+import { build, seedOf, type Seed } from './builderSeed';
 import './plan.css';
 import { dayRange } from '@/ui/charts/range';
 
@@ -22,6 +27,10 @@ import { dayRange } from '@/ui/charts/range';
  * under it, and one verb in the foot that says what it does: `Use this plan`, or `Replace 44 sessions` (the date in the note).
  * The header and the body are two siblings in the sheet, so the body publishes what it built through a small store made per
  * open (`ghostStore`) and the header subscribes to it.
+ *
+ * The answers are one object (`BuilderAnswers`, shared with the server's contract): the controls change it by hand, and
+ * the assistant at the top of the body (BuilderAssist.tsx) changes it from a sentence, with a line that says what changed
+ * and Undo. A plan the assistant shaped says so in its `source`.
  */
 
 const tenth = (v: number) => num(Math.round(v * 10) / 10);
@@ -31,6 +40,36 @@ const selectAll = (e: ReactFocusEvent<HTMLInputElement>) => {
   el.select();
   // WebKit can drop a selection made on focus as the touch ends: once more on the next frame
   requestAnimationFrame(() => document.activeElement === el && el.select());
+};
+
+/**
+ * A number that rolls to its new value when the assistant changed it (the numbers' spring, 480 ms): `n` is the update's
+ * count and `roll` whether this number was part of it. A change by hand just shows, and so does every change under
+ * Reduce Motion.
+ */
+const useRolled = (value: number, roll: boolean, n: number): number => {
+  const reduce = useReduced();
+  const [inFlight, setInFlight] = useState<number | null>(null);
+  const last = useRef({ value, n });
+  useLayoutEffect(() => {
+    const from = last.current.value;
+    const rolls = roll && n !== last.current.n && from !== value && !reduce;
+    last.current = { value, n };
+    if (!rolls) return;
+    // before the first paint with the new value: it starts from the old one
+    setInFlight(from);
+    const ctl = animate(from, value, { ...forRange(springs.number, value - from), onUpdate: (v) => setInFlight(Math.round(v)), onComplete: () => setInFlight(null) });
+    return () => {
+      ctl.stop();
+      setInFlight(null);
+    };
+  }, [value, n]); // eslint-disable-line react-hooks/exhaustive-deps
+  return inFlight ?? value;
+};
+/** A stepper whose number rolls when the assistant changed it. Its own component, so a roll redraws one field, not the builder. */
+const RollStepper = ({ roll, n, ...rest }: Omit<React.ComponentProps<typeof Stepper>, 'format' | 'step'> & { roll: boolean; n: number }) => {
+  const shown = useRolled(rest.value, roll, n);
+  return <Stepper {...rest} step={1} format={() => `${shown}`} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />;
 };
 
 // ---------- the store the body writes and the header reads ----------
@@ -137,46 +176,6 @@ const DAY_NAME: Record<Weekday, string> = { mon: 'Monday', tue: 'Tuesday', wed: 
 /** Each row is a week, so the word is the kind alone (the column is 68 wide at 11 px caps). */
 const KIND_WORD: Record<string, string> = { 'lead-in': 'Warm-up', build: '', down: 'Down', taper: 'Taper', race: 'Race' };
 
-/** What the last four weeks say: the days you run and your weekly miles. */
-const habitsOf = (log: Log) => {
-  const t = log.today;
-  const mon = mondayOf(t);
-  const seen = new Map<Weekday, number>();
-  let miles = 0;
-  for (let w = 1; w <= 4; w++) {
-    const m = shiftDays(mon, -7 * w);
-    miles += weekSummary(log.snap, m).doneMiles;
-    for (let i = 0; i < 7; i++) {
-      const d = shiftDays(m, i);
-      if (log.snap.runsOn(d).length) seen.set(weekdayOf(d), (seen.get(weekdayOf(d)) ?? 0) + 1);
-    }
-  }
-  const days = WEEKDAYS.filter((d) => (seen.get(d) ?? 0) >= 2);
-  const runDays = days.length >= 2 ? days : (['tue', 'thu', 'sat', 'sun'] as Weekday[]);
-  const avg = Math.round(miles / 4);
-  return { runDays, weeklyMiles: Math.min(150, Math.max(10, avg || 15)) };
-};
-
-/**
- * The starting point: the prefill (the next block, from the ending one), else the account's training answers (onboarding,
- * Settings › Training), else what the last four weeks say.
- */
-const startOf = (log: Log, prefill?: BuilderPrefill) => {
-  const h = habitsOf(log);
-  const prof = log.boot?.user.trainingProfile ?? null;
-  const pick = prefill?.runDays?.length ? WEEKDAYS.filter((_, i) => prefill.runDays!.includes(i)) : prof?.runDays?.length ? WEEKDAYS.filter((d) => prof.runDays.includes(d)) : null;
-  const runDays = pick?.length ? pick : h.runDays;
-  const long = prefill?.longRunDay !== undefined ? WEEKDAYS[prefill.longRunDay] : prof?.longRunDay;
-  const miles = prefill?.weeklyMiles ?? prof?.weeklyMiles;
-  const goal = prefill?.goal ?? prof?.goal;
-  return {
-    runDays,
-    longDay: long && runDays.includes(long) ? long : runDays.includes('sun') ? 'sun' : runDays[runDays.length - 1]!,
-    weeklyMiles: miles ? Math.min(150, Math.max(3, Math.round(miles))) : h.weeklyMiles,
-    goal: (goal && goal in GOAL_SPECS ? goal : 'base') as Goal,
-  };
-};
-
 /**
  * Sessions a replace from `from` would take away, by the server's rule (contract 1): every planned session not kept (Done
  * or Floor) from `from` to the new block's end, plus what is left of each block it overlaps, to that block's end.
@@ -192,33 +191,16 @@ const replaceable = (log: Log, from: string, to: string, overlap: PlanBlock[]) =
 
 /** How long the Undo after a new block stays up. */
 const BLOCK_UNDO_MS = 8000;
+const L = BUILDER_LIMITS;
+/** Under this height the preview header and a keyboard leave no room for the assistant's composer between them. */
+const SHORT_SCREEN_PX = 700;
 
-/** The builder's input from its controls (the same rule for the first render and every change). */
-const inputOf = (t: string, c: { goal: Goal; weeks: number; runDays: Weekday[]; longDay: Weekday; miles: number; soon: boolean; race: boolean; preStart: string | null }) => {
-  const nextMon = shiftDays(mondayOf(t), 7);
-  const startDate = c.preStart ?? (c.soon ? shiftDays(t, 1) : nextMon);
-  const firstMon = parseISO(startDate).getDay() === 1 ? startDate : shiftDays(mondayOf(startDate), 7);
-  const raceDate = c.goal !== 'base' && c.race ? shiftDays(firstMon, c.weeks * 7 - 1) : null;
-  return { goal: c.goal, weeks: c.weeks, startDate, firstMon, runDays: c.runDays, longRunDay: c.longDay, weeklyMiles: c.miles, raceDate };
-};
-const build = (input: ReturnType<typeof inputOf>): { tpl: Template | null; error: string | null } => {
-  try {
-    const { firstMon: _firstMon, ...rest } = input;
-    return { tpl: buildTemplate(rest), error: null };
-  } catch (e) {
-    return { tpl: null, error: e instanceof TemplateError ? e.message : 'That plan doesn’t work. Change the weeks or the days.' };
-  }
-};
-/** The controls' first values: the prefill, the training answers, the last four weeks (startOf); built once per open. */
-const seedOf = (log: Log, prefill?: BuilderPrefill) => {
-  const start0 = startOf(log, prefill);
-  const t = log.today;
-  const c = { goal: start0.goal, weeks: GOAL_SPECS[start0.goal].defaultWeeks, runDays: start0.runDays, longDay: start0.longDay, miles: start0.weeklyMiles, soon: false, race: true, preStart: prefill?.startDate && prefill.startDate > t ? prefill.startDate : null };
-  return { c, built: build(inputOf(t, c)) };
-};
-type Seed = ReturnType<typeof seedOf>;
+/** What the sheet tells the body when it closes (the body is not unmounted until the close has run). */
+interface BuilderLife {
+  onClose: () => void;
+}
 
-const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: Seed }) => {
+const BuilderBody = ({ log, store, seed, ghost, life }: { log: Log; store: GhostStore; seed: Seed; ghost: ReactNode; life: BuilderLife }) => {
   const sheet = useSheet();
   const nav = useNav();
   const tab = useTab();
@@ -226,17 +208,42 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
   const write = useTemplatePlan();
   const undo = useTemplateUndo();
   const t = log.today;
-  const s0 = seed.c;
-  const [goal, setGoal] = useState<Goal>(s0.goal);
-  const [weeks, setWeeks] = useState(s0.weeks);
-  const [runDays, setRunDays] = useState<Weekday[]>(s0.runDays);
-  const [longDay, setLongDay] = useState<Weekday>(s0.longDay);
-  const [miles, setMiles] = useState(s0.miles);
-  const [soon, setSoon] = useState(s0.soon);
-  const [race, setRace] = useState(s0.race);
-  // a prefilled start (the day after the ending block) holds until "Start tomorrow" is toggled; never today or earlier
-  const [preStart, setPreStart] = useState(s0.preStart);
+  const [a, setA] = useState<BuilderAnswers>(seed.a);
+  const aRef = useRef(a);
+  aRef.current = a;
+  /** Which answers were read from tracked runs and not set by the person since: those are never sent to the assistant. */
+  const fromRuns = useRef<AnswersFromRuns>(seed.fromRuns);
+  /** Assistant updates applied and not undone: above zero, the plan's source says the assistant shaped it. */
+  const assisted = useRef(0);
+  /** The controls the last assistant update (or its Undo) changed: each shows a short halo. `n` replays it. */
+  const [flash, setFlash] = useState<{ keys: FlashKey[]; n: number }>({ keys: [], n: 0 });
+  const { goal, weeks, runDays, longRunDay: longDay, weeklyMiles: miles, soon, race } = a;
   const isRace = goal !== 'base';
+  const assist = useBuilderAssist({
+    enabled: log.features.claude,
+    today: t,
+    answers: () => aRef.current,
+    fromRuns: () => fromRuns.current,
+    onChange: (next, keys, runs, by) => {
+      fromRuns.current = runs;
+      assisted.current = Math.max(0, assisted.current + by);
+      setA(next);
+      setFlash((f) => ({ keys, n: f.n + 1 }));
+    },
+  });
+  // closing the sheet stops a request in flight at once (the body itself is unmounted only when the close has run)
+  life.onClose = assist.stop;
+  /** A change made by hand. It retires the assistant's line: its Undo would take this change away with its own. */
+  const edit = (next: BuilderAnswers, own?: keyof AnswersFromRuns) => {
+    if (own) fromRuns.current = { ...fromRuns.current, [own]: false };
+    assist.retire();
+    setA(next);
+  };
+  const setWeeks = (v: number) => edit({ ...a, weeks: v });
+  // a peak never sits under the miles run now
+  const setMiles = (v: number) => edit({ ...a, weeklyMiles: v, peakMiles: a.peakMiles != null && a.peakMiles < v ? v : a.peakMiles }, 'weeklyMiles');
+  const setPeak = (v: number | null) => edit({ ...a, peakMiles: v == null ? null : Math.max(v, a.weeklyMiles) });
+  const halo = (k: FlashKey) => (flash.keys.includes(k) ? <span className="pa-halo" data-run={flash.n % 2 ? 'a' : 'b'} style={{ '--i': flash.keys.indexOf(k) } as CSSProperties} aria-hidden="true" /> : null);
   // the body outlives nothing: a write that lands after the sheet was dismissed still says what it did (code review 1 #2)
   const alive = useRef(true);
   useEffect(() => {
@@ -246,34 +253,26 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       alive.current = false;
     };
   }, []);
-  const pickGoal = (g: Goal) => {
-    setGoal(g);
-    setWeeks(GOAL_SPECS[g].defaultWeeks);
-  };
+  const pickGoal = (g: Goal) => edit({ ...a, goal: g, weeks: GOAL_SPECS[g].defaultWeeks });
   const toggleDay = (d: Weekday) => {
-    setRunDays((xs) => {
-      if (xs.includes(d)) {
-        if (xs.length === 1) return xs;
-        const next = xs.filter((x) => x !== d);
-        if (d === longDay) setLongDay(next[next.length - 1]!);
-        return next;
-      }
-      return WEEKDAYS.filter((x) => xs.includes(x) || x === d);
-    });
+    if (runDays.includes(d)) {
+      if (runDays.length === 1) return;
+      const next = runDays.filter((x) => x !== d);
+      edit({ ...a, runDays: next, longRunDay: d === longDay ? next[next.length - 1]! : longDay }, 'runDays');
+    } else edit({ ...a, runDays: WEEKDAYS.filter((x) => runDays.includes(x) || x === d) }, 'runDays');
   };
-  const pickLong = (d: Weekday) => {
-    setLongDay(d);
-    setRunDays((xs) => (xs.includes(d) ? xs : WEEKDAYS.filter((x) => xs.includes(x) || x === d)));
-  };
-  const input = inputOf(t, { goal, weeks, runDays, longDay, miles, soon, race, preStart });
-  const { startDate, raceDate, firstMon } = input;
+  // picking the long run among the run days leaves the days as they were (so days read from tracked runs still are);
+  // picking a day that was not a run day adds it by hand
+  const pickLong = (d: Weekday) => (runDays.includes(d) ? edit({ ...a, longRunDay: d }) : edit({ ...a, longRunDay: d, runDays: WEEKDAYS.filter((x) => runDays.includes(x) || x === d) }, 'runDays'));
+  const input = builderInput(a, t);
+  const { startDate, raceDate, firstMon } = builderDates(a, t);
   // the first render reuses the seed the header was made with (the same input, built once)
   const first = useRef<Seed['built'] | null>(seed.built);
   const built = useMemo(() => {
     const f = first.current;
     first.current = null;
     return f ?? build(input);
-  }, [goal, weeks, startDate, runDays.join(','), longDay, miles, raceDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [goal, weeks, startDate, runDays.join(','), longDay, miles, raceDate, a.peakMiles]); // eslint-disable-line react-hooks/exhaustive-deps
   const tpl = built.tpl;
   // the week-by-week list (84 cells) renders after the open: null on the first render, the template in a deferred one
   // (code review 1 #9: without an initial value it rendered in the open's commit)
@@ -294,8 +293,7 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
     const replacing = existing > 0;
     // the promise settles whether or not the sheet is still open (mutate's own callbacks need a mounted observer): a write
     // that lands after a dismiss still raises its Undo, and a failure still says so (code review 1 #2)
-    const { firstMon: _firstMon, ...body } = input;
-    write.mutateAsync({ ...body, replace: replacing }).then(
+    write.mutateAsync({ ...input, replace: replacing, ...(assisted.current > 0 ? { assisted: true } : {}) }).then(
       (r) => {
         // a destructive commit with Undo (spec §11.4), when it commits; a plain new block is silent
         if (replacing) haptics.delete();
@@ -330,7 +328,8 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       const vv = window.visualViewport;
       const kbLine = vv ? vv.offsetTop + vv.height : window.innerHeight;
       const foot = el.querySelector<HTMLElement>('.tp-foot');
-      const limit = Math.min(kbLine, foot ? foot.getBoundingClientRect().top : Infinity) - 12;
+      // a foot that is not drawn (the assistant's composer has the keyboard) is no limit
+      const limit = Math.min(kbLine, foot && foot.offsetParent ? foot.getBoundingClientRect().top : Infinity) - 12;
       const top = sc.getBoundingClientRect().top + 12;
       const r = cur.getBoundingClientRect();
       if (r.bottom > limit) sc.scrollTop += r.bottom - limit;
@@ -338,7 +337,8 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
     };
     const onIn = (e: FocusEvent) => {
       const f = e.target as HTMLElement;
-      if (!f.matches('input, textarea')) return;
+      // the assistant's composer places itself (lib/keyboard.ts revealField)
+      if (!f.matches('input, textarea') || f.closest('[data-pa]')) return;
       cur = f;
       requestAnimationFrame(fit);
     };
@@ -355,9 +355,27 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       window.visualViewport?.removeEventListener('resize', fit);
     };
   }, []);
+  // the permission step takes the sheet while it is asked: the preview steps out of the header, and comes back after.
+  // On a short screen (an iPhone SE, or Display Zoom) the preview also steps out while the composer has the keyboard:
+  // under a fixed 172 px header there would be no room left for the composer above the keys.
+  const asking = assist.asking;
+  const noGhost = asking || (assist.composing && typeof window !== 'undefined' && window.innerHeight < SHORT_SCREEN_PX);
+  const hadNoGhost = useRef(false);
+  useEffect(() => {
+    if (noGhost === hadNoGhost.current) return;
+    hadNoGhost.current = noGhost;
+    sheet.update({ header: noGhost ? undefined : ghost });
+  }, [noGhost]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (asking)
+    return (
+      <div ref={root} className="tp is-asking">
+        <AssistantPermission gate={assist.gate} retry={assist.retryConsent} date={t} inPane onNotNow={assist.notNow} />
+      </div>
+    );
   return (
-    <div ref={root} className="tp">
-      <section className="card tp-card" aria-labelledby="tp-goal">
+    <div ref={root} className={`tp${assist.composing ? ' is-composing' : ''}`}>
+      {assist.enabled ? <AssistBar assist={assist} /> : null}
+      <section className="card tp-card pa-flashable" aria-labelledby="tp-goal">
         <span className="tp-card-h" id="tp-goal">
           Training for
         </span>
@@ -368,8 +386,9 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
             </Pressable>
           ))}
         </div>
+        {halo('goal')}
       </section>
-      <section className="card tp-card" aria-labelledby="tp-days">
+      <section className="card tp-card pa-flashable" aria-labelledby="tp-days">
         <span className="tp-card-top">
           <span className="tp-card-h" id="tp-days">
             Run days
@@ -395,32 +414,50 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
             </Pressable>
           ))}
         </div>
+        {halo('days')}
       </section>
       <div className="tiles tp-steps">
-        <div className="tile tp-step">
+        <div className="tile tp-step pa-flashable">
           <span className="tile-label">{raceDate ? 'Weeks to race day' : 'Weeks'}</span>
-          <Stepper label="Weeks" value={weeks} onChange={setWeeks} step={1} min={2} max={30} format={(v) => `${v}`} parse={(s) => clampTyped(s, 2, 30)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
+          <RollStepper label="Weeks" value={weeks} onChange={setWeeks} min={L.weeksMin} max={L.weeksMax} parse={(s) => clampTyped(s, L.weeksMin, L.weeksMax)} roll={flash.keys.includes('weeks')} n={flash.n} />
+          {halo('weeks')}
         </div>
-        <div className="tile tp-step">
+        <div className="tile tp-step pa-flashable">
           <span className="tile-label">Miles a week now</span>
-          <Stepper label="Weekly miles" value={miles} onChange={setMiles} step={1} min={3} max={150} format={(v) => `${v}`} parse={(s) => clampTyped(s, 3, 150)} inputProps={{ inputMode: 'numeric', onFocus: selectAll }} />
+          <RollStepper label="Weekly miles" value={miles} onChange={setMiles} min={L.milesMin} max={L.milesMax} parse={(s) => clampTyped(s, L.milesMin, L.milesMax)} roll={flash.keys.includes('miles')} n={flash.n} />
+          {halo('miles')}
         </div>
+        {a.peakMiles != null ? (
+          // a peak the assistant was asked for: the build stops there. It can be changed here, or handed back to the plan
+          <div className="tile tp-step tp-peak pa-flashable">
+            <span className="tp-peak-top">
+              <span className="tile-label">Peak miles a week</span>
+              <button type="button" className="tp-peak-clear" onClick={() => setPeak(null)}>
+                Let the plan pick
+              </button>
+            </span>
+            <RollStepper label="Peak miles a week" value={a.peakMiles} onChange={setPeak} min={miles} max={L.milesMax} parse={(s) => clampTyped(s, miles, L.milesMax)} roll={flash.keys.includes('peak')} n={flash.n} />
+            {halo('peak')}
+          </div>
+        ) : null}
       </div>
       <div className="group tp-opts">
-        <Pressable role="switch" aria-checked={soon} className="tp-opt" press="surface" onPress={() => (setPreStart(null), setSoon((v) => !v))}>
+        <Pressable role="switch" aria-checked={soon} className="tp-opt pa-flashable" press="surface" onPress={() => edit({ ...a, startDate: null, soon: !soon })}>
           <span className="tp-opt-main">
             <span className="tp-opt-t">Start tomorrow</span>
-            <span className="tp-opt-s">{startWords(soon, startDate, firstMon)}</span>
+            <span className="tp-opt-s">{startWords(soon, startDate, firstMon, a.startDate != null)}</span>
           </span>
           <span className={`pl-switch ${soon ? 'on' : ''}`} aria-hidden="true" />
+          {halo('start')}
         </Pressable>
         {isRace ? (
-          <Pressable role="switch" aria-checked={race} className="tp-opt" press="surface" onPress={() => setRace((v) => !v)}>
+          <Pressable role="switch" aria-checked={race} className="tp-opt pa-flashable" press="surface" onPress={() => edit({ ...a, race: !race })}>
             <span className="tp-opt-main">
-              <span className="tp-opt-t">Race on the last Sunday</span>
+              <span className="tp-opt-t">{raceRowWords(a.raceDay)}</span>
               <span className="tp-opt-s">{raceDate ? `Race day ${fmtDate('md', raceDate)}, with a taper before it` : 'No race day: the plan just ends'}</span>
             </span>
             <span className={`pl-switch ${race ? 'on' : ''}`} aria-hidden="true" />
+            {halo('race')}
           </Pressable>
         ) : null}
       </div>
@@ -429,10 +466,12 @@ const BuilderBody = ({ log, store, seed }: { log: Log; store: GhostStore; seed: 
       <p className="fine tp-disclaimer">{DISCLAIMER}</p>
       <div className="sheet-foot tp-foot">
         <p className="tp-note">{!tpl ? '' : builderNote(existing, from, tpl.start)}</p>
-        <Button variant="primary" block className="tp-verb" disabled={!tpl || counting || write.isPending} onClick={use}>
+        {/* while the assistant's composer holds words, Send is the one Sky button (layout standard 2.10's rule) */}
+        <Button variant={assist.typing ? 'default' : 'primary'} block className="tp-verb" disabled={!tpl || counting || write.isPending} onClick={use}>
           {write.isPending ? 'Writing it' : counting ? 'Checking your calendar…' : builderVerb(existing)}
         </Button>
       </div>
+      <AssistVeil assist={assist} anchor={root} />
     </div>
   );
 };
@@ -482,11 +521,14 @@ export const builderSpec = (log: Log, prefill?: BuilderPrefill): SheetSpec => {
   // the header's first face is the block the controls start on: no empty face crossfading to it during the open
   // (code review 1 #9)
   const seed = seedOf(log, prefill);
-  const store = ghostStore({ tpl: seed.built.tpl, error: seed.built.error, goal: seed.c.goal });
+  const store = ghostStore({ tpl: seed.built.tpl, error: seed.built.error, goal: seed.a.goal });
+  const ghost = <GhostHeader store={store} />;
+  const life: BuilderLife = { onClose: () => undefined };
   return {
     title: prefill ? 'Next plan' : 'New plan',
     detent: 'large',
-    header: <GhostHeader store={store} />,
-    body: <BuilderBody log={log} store={store} seed={seed} />,
+    header: ghost,
+    body: <BuilderBody log={log} store={store} seed={seed} ghost={ghost} life={life} />,
+    onClose: () => life.onClose(),
   };
 };

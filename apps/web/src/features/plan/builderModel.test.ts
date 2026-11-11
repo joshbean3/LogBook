@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { builderNote, builderVerb, clampTyped, fromEndingBlock, startWords } from './builderModel';
+import { builderNote, builderVerb, clampTyped, fromEndingBlock, raceRowWords, startWords } from './builderModel';
 
 const block = { id: 'b1', name: '2026.10 Banking Plan', start: '2026-10-05', end: '2026-12-20', source: null, summary: null, createdAt: '2026-10-01T00:00:00Z' };
 
@@ -33,6 +33,17 @@ describe('startWords', () => {
   });
   it('off, it says the default', () => {
     expect(startWords(false, '2026-11-16', '2026-11-16')).toBe('Else it starts next Monday');
+  });
+  it('off with a set first day (after an ending plan, or one the assistant was given), it says that day', () => {
+    expect(startWords(false, '2026-12-21', '2026-12-21', true).replace(/\u00a0/g, ' ')).toBe('Else it starts Dec 21');
+    expect(startWords(true, '2026-11-12', '2026-11-16', true).replace(/\u00a0/g, ' ')).toBe('Starts Thursday. Week 1 is Nov 16');
+  });
+});
+
+describe('raceRowWords', () => {
+  it('names the weekday of race day: Sunday unless the assistant was given another day', () => {
+    expect(raceRowWords('sun')).toBe('Race on the last Sunday');
+    expect(raceRowWords('sat')).toBe('Race on the last Saturday');
   });
 });
 

@@ -967,6 +967,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  /* weeks, runs and the peak change as the controls do (guide 4.4) */
+  font-variant-numeric: tabular-nums;
 }
 .bh-name {
   min-width: 0;

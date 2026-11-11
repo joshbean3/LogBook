@@ -11,6 +11,7 @@ export * from './week.js';
 export * from './miles.js';
 export * from './phase.js';
 export * from './templates.js';
+export * from './planAssist.js';
 export * from './links.js';
 export * from './goals.js';
 export * from './assistant.js';

@@ -3,6 +3,7 @@ import {
   buildTemplate,
   fmtDate,
   GOAL_SPECS,
+  isTemplateSource,
   label,
   mondayOf,
   morningDayFor,
@@ -335,7 +336,7 @@ const GOAL_FROM_NAME: Array<[RegExp, Goal]> = [
 export const currentBlock = (blocks: PlanBlock[], today: ISODate): PlanBlock | null => {
   const live = blocks.filter((b) => b.end >= today);
   const pick = (l: PlanBlock[]) => [...l].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] ?? null;
-  return pick(live.filter((b) => b.source === 'onboarding' || b.source === 'template')) ?? pick(live);
+  return pick(live.filter((b) => b.source === 'onboarding' || isTemplateSource(b.source))) ?? pick(live);
 };
 /** Read the answers back out of the plan: goal and race from the block, days and volume from its first full week. */
 export const deriveProfile = (block: PlanBlock | null, sessions: Session[]): TrainingProfile => {
@@ -396,7 +397,7 @@ export const goalLine = (p: TrainingProfile) => (p.goal === 'base' ? 'Just runni
 export const nextMondayAfter = (d: ISODate): ISODate => (weekdayOf(d) === 'mon' ? shiftDays(d, 7) : shiftDays(mondayOf(d), 7));
 
 /** Whether the block was written from answers (onboarding or a template), so its goal can be read from its name. */
-export const isTemplateBlock = (b: PlanBlock | null) => !!b && (b.source === 'onboarding' || b.source === 'template' || GOAL_FROM_NAME.some(([re]) => re.test(b.name)));
+export const isTemplateBlock = (b: PlanBlock | null) => !!b && (b.source === 'onboarding' || isTemplateSource(b.source) || GOAL_FROM_NAME.some(([re]) => re.test(b.name)));
 
 // ---------- the block's shape: the live preview under the first questions ----------
 export interface BlockShape {

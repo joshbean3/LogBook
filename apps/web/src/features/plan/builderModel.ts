@@ -1,4 +1,4 @@
-import { fmtDate, shiftDays, weekdayIndex, type PlanBlock, type TrainingProfile } from '@logbook/shared';
+import { fmtDate, shiftDays, weekdayIndex, type PlanBlock, type TrainingProfile, type Weekday } from '@logbook/shared';
 
 /** What the builder starts from (contracts §F). Days are Monday-based indices (0 = Monday … 6 = Sunday, `weekdayIndex`). */
 export interface BuilderPrefill {
@@ -34,8 +34,19 @@ export const builderNote = (existing: number, from: string, start: string) =>
  * The Start tomorrow row's line. A start that is not a Monday says both days: the plan starts then with a warm-up week,
  * and week 1 is the Monday after (`Starts Wednesday. Week 1 is Nov 16`).
  */
-export const startWords = (soon: boolean, startDate: string, firstMon: string) =>
-  !soon ? 'Else it starts next Monday' : startDate === firstMon ? `Week 1 starts ${fmtDate('md', startDate)}` : `Starts ${fmtDate('dowLong', startDate)}. Week 1 is ${fmtDate('md', firstMon)}`;
+export const startWords = (soon: boolean, startDate: string, firstMon: string, set = false) =>
+  !soon
+    ? // a set first day (the day after an ending plan, or one the assistant was given) is when it starts with the switch off
+      set
+      ? `Else it starts ${fmtDate('md', startDate)}`
+      : 'Else it starts next Monday'
+    : startDate === firstMon
+      ? `Week 1 starts ${fmtDate('md', startDate)}`
+      : `Starts ${fmtDate('dowLong', startDate)}. Week 1 is ${fmtDate('md', firstMon)}`;
+
+const RACE_DAY: Record<Weekday, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+/** The race switch's title: race day is in the plan's last week, on a Sunday unless the assistant was given another day. */
+export const raceRowWords = (raceDay: Weekday) => `Race on the last ${RACE_DAY[raceDay]}`;
 
 /** A typed number held to its range (a value outside it used to snap back to the old one with no word). */
 export const clampTyped = (s: string, min: number, max: number): number | null => (Number(s) > 0 ? Math.min(max, Math.max(min, Math.round(Number(s)))) : null);

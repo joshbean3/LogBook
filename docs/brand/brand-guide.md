@@ -85,7 +85,7 @@ Sheet: `assets/orb-states.png` (idle, thinking and still; the sunrise state is `
 |---|---|---|
 | Idle | Breath: scale 1 to 1.015 and back, 4 s loop. 48 px and up only. | Assistant empty state. On the splash the sunrise state breathes the same way at rest. |
 | Thinking | The underlight warms (the values above), the glow widens, a 1.8-unit `--orb-arc` `#FF9F5A` arc (about 14% of the circle) orbits a faint Sky ring at 116% diameter, one turn per 1.2 s, on a 4-unit Paper keyline. The arc and ring are decorative (2.0:1 and 1.3:1 on Paper): the status line ("Reading your week") is the accessible signal, and it is required. The arc is Orb light, not a Sunrise mark: it does not count toward the orange budget. | While the assistant works. |
-| Still | One frame. | Every Orb under 48 px (the ask bar, the fold button), Reduce Motion, static art. |
+| Still | One frame. | Every Orb under 48 px (the ask bar, the plan builder's pill, the fold button), Reduce Motion, static art. |
 | Sunrise | The sun is up behind it: warm light fills its lower third and wraps its lower edge. The body, the cool white specular and the upper edge are the idle Orb's. Recipe below. | The splash only (9.2, 12.1), where the Orb is the sun. Never in the app, the icon or a lockup. |
 
 **The sunrise state** (the splash only; `tools/orb.mjs` exports the numbers as `ORB.sunrise`). It replaces the underlight and the inner glow with four layers, all clipped to the sphere, drawn in this order over the body and the sky bounce:
@@ -106,7 +106,7 @@ It is still light on a blue sphere: the upper two thirds stay Sky, the highlight
 | Diameter | Render |
 |---|---|
 | 48 px and up | Full Orb with the Apricot glow. May breathe. |
-| 28 to 47 px | Gloss, no glow, still. The thinking arc is fixed at 6 px out with a 1.5 px Paper keyline. The ask bar (28 px) and the Orb inside the 48 px fold button (28 px, `--orb-fold`) are this tier. |
+| 28 to 47 px | Gloss, no glow, still. The thinking arc is fixed at 6 px out with a 1.5 px Paper keyline. The ask bar (28 px), the plan builder's pill (28 px, 6.16) and the Orb inside the 48 px fold button (28 px, `--orb-fold`) are this tier. |
 | Under 28 px (27 and under) | Flat Sky `#38B6F2` disc. No gloss, no glow. |
 
 **On dark grounds** (Twilight, Night Ink) the sphere is unchanged and the glow drops to 22% with a screen blend (at 50% Apricot turns grey-brown on navy). **In one color** (print, embossing, a single-ink job) the mark is a flat disc in Sky, Night Ink or Paper.
@@ -567,7 +567,7 @@ Retires the hard-coded orange gradient and bevel in `features/day/HeroGauge.tsx`
 
 ### 6.9 Sheets
 
-Paper, top corners 24, grabber 36 x 5 pill `rgba(14,34,54,.18)` 8 px from the top. Title Fraunces 600 26/32 (or the card-title size in a compact sheet). Close and secondary actions are 40 px round Paper buttons in the top corners. Scrim `rgba(14,34,54,.32)`. A CSS open runs 500 ms on `--ease-sheet`; a drag release and detent snaps run on `springs.sheet` (0.50 s, bounce 0). One primary button pinned at the bottom, above the safe area.
+Paper, top corners 24, grabber 36 x 5 pill `rgba(14,34,54,.18)` 8 px from the top. Title Fraunces 600 26/32 (or the card-title size in a compact sheet). Close and secondary actions are 40 px round Paper buttons in the top corners. Scrim `rgba(14,34,54,.32)`. A CSS open runs 500 ms on `--ease-sheet`; a drag release and detent snaps run on `springs.sheet` (0.50 s, bounce 0). One primary button pinned at the bottom, above the safe area. In the New plan sheet the assistant's composer changes this while it is in use (6.16).
 
 ### 6.10 Toasts
 
@@ -633,6 +633,23 @@ Every part on Today has a spec. Values not listed come from the nearest componen
 ### 6.15 Third-party marks
 
 Strava, Apple Health and other partners' marks follow their owners' rules, not this guide: "Connect with Strava" is Strava's own orange button and "Powered by Strava" its own artwork, used exactly as supplied; Apple Health uses Apple's badge and naming. These are the only places another orange, another button style or another typeface may appear. Rules: use the partner's official asset unmodified, at its minimum size; keep it in its own row or sheet, never next to a Sunrise mark; it does not count toward the orange budget. In code, mark each line with `brand-ok: third-party <partner>` so `check-brand.mjs` and the brand agent skip it.
+
+### 6.16 The plan builder's assistant
+
+In the New plan sheet (Today's "Make a plan", and wherever the plan builder opens), under the plan preview and above the first control. It shows only when the assistant is set up. The person says what they want in their own words and the builder's own controls change in place. Layout values: `docs/brand/layout-and-hierarchy.md` 2.12 and 6.11.
+
+| Part | Spec |
+|---|---|
+| Container | One Paper card, r 24, `--shadow-1`. It holds the pill or the composer and, under a `--line` hairline, the line. Never a second card for the line. |
+| Pill | The dock's ask bar in place (6.1): 48 tall, the Orb at 28 px (gloss, still) 12 px from the left, then "Describe your plan" in Inter 17 Dusk. Pressed: Cloud. After a request that did not go through, the pill shows the person's own words on one line in Night Ink, and a tap opens them to change. |
+| Composer | The same card opened in place, with the composer's 1 px `--edge` (6.12): the field in Inter 17 Night Ink (never under 16 px), placeholder "4 runs a week, long run Sunday, race on March 14" in Dusk, 2 lines growing to 5; the 28 px Orb at the bottom left; Send at the bottom right exactly as 6.12 (a 40 px circle, Haze with a Dusk arrow when empty, Sky with a Night Ink arrow when ready). The provider line (6.12, Disclosure) sits 8 px under the card while the composer is open. An empty composer that loses the keyboard folds back into the pill. |
+| One Sky button | While the composer holds words, Send is the sheet's Sky button and the sheet's own verb ("Use this plan") turns secondary. While the composer has the keyboard, the sheet's pinned foot steps out so nothing covers the composer. |
+| Veil (the working state) | Over the builder, under the sheet's title bar: Cloud at 62 percent on a 6 px backdrop blur, so the form shows through, softened, and cannot be read or touched. In the middle: the Orb at 56 px in its thinking state (2.1); 16 px under it the status line "Shaping your plan" in Inter 15 500 Dusk with `role="status"`, on a pool of solid Cloud so the pairing is Dusk on Cloud (3.2); 12 px under that Stop, a secondary button 44 tall and at least 96 wide. The veil shows 150 ms after Send and then stays at least 600 ms, so a fast answer never flashes it. After 8 s the line reads "Still shaping your plan". Stop, or closing the sheet, cancels the request. Increase Contrast: no blur, Cloud at 94 percent. |
+| The line | One row under the hairline, 16 px in, 12 px above and below, Inter 15. What changed leads in 600 Night Ink and starts with "Set" ("Set 4 run days, long run Sunday, peak up to 35 mi."). What the builder has no setting for, or why a value was limited, follows in 500 Dusk, three sentences at most. "Undo" is a quiet link (6.2) at the trailing edge, and under the words on a sheet narrower than 22 rem. A change by hand retires the line. A request that did not go through shows an 18 px Signal alert glyph, one sentence in Night Ink, and "Try again" as the quiet link where trying again can work. The line fades in over 120 ms and has `role="status"` (`role="alert"` for a failure). |
+| Changed controls | Each control an update changed shows a 2 px Sky ring inside its edge (Deep Sky under Increase Contrast) for 1.2 s (9.1), top to bottom, 100 ms apart. It is decorative: the line says what changed. Changed numbers roll to their new value on `springs.number`. |
+| Peak tile | "Peak miles a week": a third number tile across both columns, shown only once a peak is set, with "Let the plan pick" as a quiet link at its trailing edge (under the label at Larger Text sizes). |
+| Permission | An account that has not answered the permission step sees it in place of the builder's controls (the consent order in layout standard 2.10) before anything is sent. |
+| Copy | The app writes what changed from the difference in the settings, never from the model's words. One sentence from the assistant may follow it, only as a safety reply or when the request is not about a running plan. Numbers and dates in the line are Inter with `tabular-nums`. |
 
 ---
 
@@ -710,6 +727,8 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
 | Chart bars rising (a new range or mode) | 480 ms each, 12 ms apart (`--bar-stagger`), 240 ms from the first to the last at most (more bars than 21 share the 240 ms evenly) | `--dur-number`, `--ease-out`; a `transform` on each bar's own box, from its foot. The plan outline, its label and the now dot fade in (`--dur-in`, 120 ms) half way through the last bar's rise, when it is all but up. |
 | Sunrise splash | 2.8 s, first frame to the app | `SPLASH_MS` in `apps/web/src/app/splashTimeline.ts`, the one constant its whole schedule is derived from; the climb runs 2.0 s on `cubic-bezier(0.32, 0.42, 0.22, 1)` (`RISE_EASE` there); its light (the sky's colors, the glows, the Orb's two overlays) comes up, and the splash dissolves, on `--ease-in-out` `cubic-bezier(0.45, 0, 0.55, 1)`; the veil, the rings and the words on `--ease-out` (9.2) |
 | Quiet opening, Reduce Motion's splash crossfade | 300 ms | `--dur-launch`, `--ease-out` (linear under Reduce Motion) |
+| Changed-control ring (6.16) | 1.2 s, once | `--ease-out`, `opacity` only: full by 12 percent of the time, held to 55 percent, gone at the end; each control starts 100 ms after the one above it |
+| The plan builder's veil (6.16) | 120 ms in, 100 ms out | The fade values; the Orb's flight is a page move, 350 ms on `springs.page` |
 
 **What may animate:** `transform` and `opacity`, plus these named cases only: `color` and `background-color` (the 200 ms color and halo change), `stroke-dashoffset` (the gauge fill and the hold ring). A gradient never transitions: the dawn wash and the Orb's warming underlight fade in as an overlay layer's `opacity`. A moment that plays by itself (the splash) is CSS keyframes with both ends named and one property each, eased with `cubic-bezier` (never `linear()` with points or `steps()`: WebKit keeps those on the main thread), so the compositor carries it while the app starts up.
 
@@ -727,6 +746,7 @@ Springs come from `apps/web/src/lib/motion.ts` (`springs.page`, `settle`, `sheet
   - Haptics: 9.5. Reduce Motion: 9.4.
 - **Dawn wash** (first open after 4 a.m. local): a wash layer over the Cloud ground fades its `opacity` from 0 to 1 over 600 ms. Once a day.
 - **The Orb:** idle breath 4 s loop; thinking orbit 1.2 s per turn; one shared 24 fps loop that stops when no Orb is visible or the app is in the background.
+- **The Orb lifts** (the plan builder, 6.16): 150 ms after Send the Orb leaves its place beside the words and flies to the middle of the veil, growing from 28 to 56 px, 350 ms on `springs.page`, and turns to its thinking state. When the answer lands it flies back to the pill, and the pill's own Orb takes over. One Orb the whole time.
 
 ### 9.3 What never moves
 
@@ -735,6 +755,8 @@ Text blocks, cards on scroll, the palette, backgrounds after load, gauge scales 
 ### 9.4 Reduce Motion
 
 Every move becomes a 150 ms linear fade (`--dur-reduce`); the one longer fade is the splash's 300 ms crossfade in, below. The Orb holds its still frame. Gauge pointers jump. The splash shows its final frame: it crossfades in from the launch Cloud over 300 ms with the one `dawn` haptic, rests half a second and fades out in 150 ms; nothing in it moves. No parallax, no breath, no orbit.
+
+One named exception, the plan builder's veil (6.16): the Orb appears in place and holds its still frame, and its `opacity` goes from 1 to 0.6 and back every 1.2 s (the loading pulse of 6.14), so a covered form still shows that work is going on. The changed-control ring stays as a fade, on every changed control at once, and changed numbers jump.
 
 ### 9.5 Haptics
 
@@ -813,6 +835,7 @@ From `lib/haptics.ts`: named events, at most one per action, fired on the visual
 | Progress | Sky segmented; the hero stat in Inter 650 tnum (it changes); the bars per 6.8 (what was done, the dashed plan ahead, the Sunrise now dot and the Ember NOW label); empty state per 6.11. | `mockups/progress.png` |
 | Journal | No Entries / Library switch (owner request); the Remember when card with its quote inside the Haze wash header; Sky segmented (Week / Month) in the calendar card; calendar with the shown day ringed in Sky; entry marks as flat discs carrying their count as a numeral (Haze ringed with "1", `--entry-2` `#7FCBF3` with "2", Sky with "3+", Deep Sky for a Favorite), so the count is never lightness alone; no glossy Orbs. | `mockups/journal.png` |
 | The assistant | Per 6.12. | `mockups/assistant.png` |
+| New plan (the plan builder sheet) | The assistant's pill, composer, veil, line, changed-control ring and peak tile per 6.16. The rest of the sheet is as it was. | No mockup yet |
 | Settings | Dawn wash on the pushed page header; Fraunces group titles at the card-title size (22/28); inset groups with Haze icon tiles; Deep Sky values where they are links. | `mockups/settings.png` |
 | Onboarding and welcome | The horizontal lockup at the top (outlined wordmark, the flat-Orb file at this size, never live caps); Fraunces 700 hero at `--fs-hero`; the sample card's line in Fraunces italic Night Ink and its session name at `--fs-stamp`; sample card in Paper; Sunrise live node; Sky "Next" with Ink words; Deep Sky "I have an account"; Apricot sunrise glow at the bottom. | `mockups/welcome.png` |
 | Splash | The sunrise (9.2). At rest: the poster's sky (poster sky blue from the top, Cloud behind the words, the warm horizon band and the Apricot horizon glow) over the poster's three hills; the outlined wordmark 150 pt wide and "One good day at a time." in Fraunces italic Dusk (6.52 on the splash sky) in the sky, their column starting 29.6 percent down (20 percent on a screen 640 pt tall or shorter); the Orb in its sunrise state (2.1) risen over the hills, staged per 8.3, `--orb-splash` across (96 pt on a short phone, 13 percent of the height between, 120 pt at most), with its five sun rings (8.3); a caption on the far hill in White (5.66 on Deep Sky) that follows the time of day: "GOOD MORNING" before 12:00, "GOOD AFTERNOON" from 12:00 to 17:00, "GOOD EVENING" after 17:00. Native launch image: plain Cloud `#EAF5FC`, which is the splash's first frame, so the hand-off cannot jump; `capacitor.config.ts` `backgroundColor`, `theme-color` in `index.html` and the manifest are `#EAF5FC`. | `mockups/splash.png`, `splash-evening.png` |
