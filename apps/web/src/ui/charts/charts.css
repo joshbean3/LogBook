@@ -202,7 +202,6 @@
   stroke-linecap: round;
 }
 
-/* ---------- range control: < 1M 3M 6M 1Y >, round steps either side of a pale track ---------- */
 /* ---------- the range control (guide 6.3, 6.8; layout standard 6.4): the app's segmented control, one segment per span,
    44 tall. Each segment is at least 44 wide (the shell centers a 44 px hit box on it): where the row is wider than its
    place it scrolls sideways (seven segments on a 320 pt phone) and the chosen one is scrolled into view ---------- */
@@ -218,6 +217,19 @@
 }
 .rc-scroll::-webkit-scrollbar {
   display: none;
+}
+/* more segments beyond an edge: that edge fades out over 32 (a mask: only its alpha counts, so the token's hue is unseen) */
+.rc-scroll[data-more='end'] {
+  -webkit-mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--sp-8)), transparent);
+  mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--sp-8)), transparent);
+}
+.rc-scroll[data-more='start'] {
+  -webkit-mask-image: linear-gradient(to left, var(--ink) calc(100% - var(--sp-8)), transparent);
+  mask-image: linear-gradient(to left, var(--ink) calc(100% - var(--sp-8)), transparent);
+}
+.rc-scroll[data-more='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, var(--ink) var(--sp-8), var(--ink) calc(100% - var(--sp-8)), transparent);
+  mask-image: linear-gradient(to right, transparent, var(--ink) var(--sp-8), var(--ink) calc(100% - var(--sp-8)), transparent);
 }
 .seg.rc-seg {
   width: 100%;
