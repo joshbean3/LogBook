@@ -71,21 +71,17 @@ body {
   scroll-padding-top: calc(var(--safe-t) + 44px + 82px + 8px);
 }
 /*
- * The end of a scroll (layout standard 3.2, F3): the last content ends clear of the dock as it shows at the end of a
- * scroll. Scrolling down folds the ask bar into a round button beside the capsule (Dock.tsx), so that is the capsule's top;
- * under 375 pt the ask bar never folds, so it is the ask bar's. Above the dock lies its 52 px Cloud fade (guide 6.1), which
- * would wash out anything inside it, so the gap is the larger of the standard's 24 (--scroll-end) and the fade: the last
- * line ends where the fade begins, fully legible, with the fade's soft 52 px between it and the chrome. The status pill
- * above the dock and the keyboard add their room. One rule for every scroller: `.page` (base.css) and the paged roots below
- * use it, and feature pages add no bottom padding of their own.
+ * The end of a scroll (layout standard 3.2, F3): the last content ends clear of the dock in every state it can be in
+ * there. The ask bar folds only on a scroll down of more than 48 px (Dock.tsx), opens again on any scroll up (the rubber
+ * band at the bottom included) and never folds under 375 pt or on a page too short to scroll, so the open dock is what
+ * the end of a page must clear. Above the dock lies its 52 px Cloud fade (guide 6.1), which washes out anything inside it,
+ * so the gap is the larger of the standard's 24 (--scroll-end) and the fade: the last line ends where the fade begins,
+ * fully legible. (Sized to the folded dock, the last row of Today and of Progress sat under the open ask bar in the 390
+ * shots.) The status pill above the dock and the keyboard add their room. One rule for every scroller: `.page`
+ * (base.css) and the paged roots below use it, and feature pages add no bottom padding of their own.
  */
 :root {
-  --scroll-pad-b: calc(max(var(--scroll-end), var(--fade-h)) + var(--pill-room, 0px) + max(var(--chrome-folded-h) + var(--safe-b), var(--kb)));
-}
-@media (max-width: 374px) {
-  :root {
-    --scroll-pad-b: calc(max(var(--scroll-end), var(--fade-h)) + var(--pill-room, 0px) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
-  }
+  --scroll-pad-b: calc(max(var(--scroll-end), var(--fade-h)) + var(--pill-room, 0px) + max(var(--chrome-h) + var(--safe-b), var(--kb)));
 }
 .tab-scroll :is(.day-page, .pl-wpage, .pl-mpage) {
   padding-bottom: var(--scroll-pad-b);

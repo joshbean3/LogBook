@@ -276,7 +276,6 @@
   --orb-assistant: 56px;                                    /* Assistant empty state. */
   --orb-splash: 96px;                                       /* Splash. */
   --chrome-h: calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px);
-  --chrome-folded-h: calc(var(--tabbar-h) + 8px);           /* The dock with the ask bar folded: what shows at the end of a scroll. */
 }
 
 /* iOS Increase Contrast (prefers-contrast: more): grey words step to Graphite, Deep Sky and Pencil one step darker,

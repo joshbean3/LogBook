@@ -251,7 +251,7 @@ input[type='number'] {
 .page {
   /* a size container, so stat strips and titles can respond to the room they have in rem: at a larger text size the same screen is narrower */
   container: page / inline-size;
-  /* the end of a scroll is the shell's one rule (app/shell.css --scroll-pad-b): 24 above the folded dock */
+  /* the end of a scroll is the shell's one rule (app/shell.css --scroll-pad-b): clear of the dock and its fade */
   padding: calc(8px + var(--safe-t)) var(--gutter) var(--scroll-pad-b);
   max-width: var(--maxw);
   margin-inline: auto;
