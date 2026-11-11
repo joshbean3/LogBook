@@ -133,10 +133,11 @@
   }
 }
 /* at 320 a week named by its dates ("Nov 23 to 29") and `‹ Today ›` share 288 px: the week's name takes the card-title
-   size there, as the plan's name above it does, on the same 32 px line */
+   size there, as the plan's name above it does, on the same 32 px line. At a larger text size it stops at 30, where
+   those dates still take two lines beside `‹ Today ›` (at 34 they took three) */
 @media (max-width: 359px) {
   .pl-week-head .lb-title {
-    font-size: clamp(22px, var(--fs-head), 34px);
+    font-size: clamp(22px, var(--fs-head), 30px);
   }
 }
 /* at a larger text size the name needs the row: the dates go to the line under it at every width */
@@ -238,13 +239,14 @@ html[data-text-xl] .pl-wk-range {
   display: inline;
 }
 /* Add: the quiet level (guide 6.2, 6.3's "+ Set"): Deep Sky words Inter 600 with an 18 px plus, no bezel, 44 tall to the
-   thumb, at the bar's trailing edge over the rows it adds to */
+   thumb, at the bar's trailing edge over the rows it adds to. Its box is the line's first row with the 12 over and under
+   it (44 at the default text size, taller at a larger one), so its words stay level with that row at every text size */
 .pl-add.pressable {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  min-height: var(--hit);
+  min-height: max(var(--hit), calc(var(--lh-sub) + 2 * var(--sp-3)));
   padding: 0 0 0 var(--sp-3);
   border: 0;
   background: none;
