@@ -36,6 +36,12 @@
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
 }
+/* counts and times in a row ("7 habits", "Up at 6:30") are live numbers: even figures (guide 4.4) */
+.s-group .lrow-title,
+.s-group .lrow-sub,
+.s-hname-text {
+  font-variant-numeric: tabular-nums;
+}
 .s-group .lrow-right {
   min-width: 0;
   max-width: 60%;

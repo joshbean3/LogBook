@@ -20,6 +20,7 @@
 }
 .lc .caps {
   color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 /* numbers in a card are Inter with even figures (guide 4.4) */
 .lc .lc-num,

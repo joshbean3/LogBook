@@ -259,10 +259,11 @@
 .pv-foot .pv-answers {
   pointer-events: auto;
 }
-/* the two answers, side by side and the same size: neither is chosen for the person */
+/* the two answers, side by side and the same size: neither is chosen for the person. When the pair cannot hold its words
+   on one line each (a small phone at a larger text size), they stack, still the same size */
 .pv-answers {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
   gap: var(--gap);
 }
 .pv-answers .btn {

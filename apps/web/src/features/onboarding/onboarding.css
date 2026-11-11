@@ -482,7 +482,8 @@
   background: var(--surface);
   display: grid;
   place-items: center;
-  font-size: var(--fs-row);
+  /* the letter grows with the text size only as far as its disc holds it (36 to 44 px discs) */
+  font-size: clamp(14px, var(--fs-row), 20px);
   font-weight: 600;
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -938,6 +939,29 @@
 }
 .ob-made-chev {
   color: var(--ink-2);
+}
+/* a narrow card in rem (a large text size): the value takes its own line under the title, so "Half marathon plan" stays
+   whole instead of breaking inside a word beside "12 weeks" */
+@container card (max-width: 16rem) {
+  .ob-made-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    grid-template-areas: 'ic title chev' 'ic value chev';
+    row-gap: 0;
+  }
+  .ob-made-row > .ob-made-ic {
+    grid-area: ic;
+  }
+  .ob-made-title {
+    grid-area: title;
+    overflow-wrap: break-word;
+  }
+  .ob-made-value {
+    grid-area: value;
+    white-space: normal;
+  }
+  .ob-made-chev {
+    grid-area: chev;
+  }
 }
 /* the hand-off layer: a still copy of the payoff over everything while Today mounts under it */
 .ob-handoff {
