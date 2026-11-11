@@ -57,7 +57,8 @@ export const sourceWords = (b: Pick<PlanBlock, 'source' | 'createdAt'>): string 
     case 'describe':
       return `Written by the assistant from what you described${on}`;
     case 'revise':
-      return `Revised by the assistant${on}`;
+      // the block keeps its first day (`createdAt`), not the day of the change, so no date is said
+      return 'Revised by the assistant';
     case 'chat':
       return `Written by the assistant in a chat${on}`;
     default:

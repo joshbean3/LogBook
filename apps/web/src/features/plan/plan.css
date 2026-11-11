@@ -759,6 +759,11 @@
 .pl-ps-facts .lrow-value {
   color: var(--ink);
 }
+.pl-ps-nb {
+  white-space: nowrap;
+  /* the row's even figures widen Inter's hyphen ("warm - up"); words keep their own */
+  font-variant-numeric: normal;
+}
 .pl-ps-from {
   margin: var(--sp-2) var(--sp-4) 0;
   font: 500 var(--fs-foot) / var(--lh-foot) var(--sans);
@@ -802,6 +807,11 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
+}
+.pl-ps-orb-room {
+  flex: none;
+  width: 28px;
+  height: 28px;
 }
 .pl-ps-ask-title {
   margin: 0;

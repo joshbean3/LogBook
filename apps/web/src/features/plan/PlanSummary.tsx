@@ -17,7 +17,7 @@ import { stopAssistant } from '../assistant/api';
 import { AssistantPane } from '../assistant/AssistantPane';
 import { stopAsk } from '../assistant/conversation';
 import { useAssistantGate } from '../assistant/Permission';
-import { assistantStore } from '../assistant/store';
+import { assistantStore, useAssistantBusy } from '../assistant/store';
 import { useLog } from '../log/useLog';
 import { Arc, arcOf, openPlans, openTemplate, phasesFor, planName, stateOf } from './Blocks';
 import { fromEndingBlock } from './builderModel';
@@ -54,16 +54,21 @@ const goalsNaming = (aims: Aim[] | undefined, b: PlanBlock, goal: string | null)
   return (aims ?? []).filter((a) => a.status === 'open' && terms.some((t) => a.text.toLowerCase().includes(t))).slice(0, 3);
 };
 
+/** A value whose hyphenated words never break at the hyphen ("warm-up" stays whole when the value wraps at 320). */
+const keepHyphens = (v: string) => v.split(/(\S+-\S+)/).map((p, i) => (i % 2 ? <span key={i} className="pl-ps-nb">{p}</span> : p));
+
 /** How many weeks the outline shows before its fold: this week and the next two. */
 const FOLD_AT = 3;
 
-const PlanSummary = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
+const PlanSummary = ({ b: opened, fromList }: { b: PlanBlock; fromList?: boolean }) => {
   const sheet = useSheet();
   const nav = useNav();
   const navInt = useNavInternal();
   // every month of the plan, so the chart and the weeks read all of it (and refresh when Apply changes it)
-  const months = useMemo(() => monthsBetween(b.start, b.end).slice(0, 8), [b.start, b.end]);
+  const months = useMemo(() => monthsBetween(opened.start, opened.end).slice(0, 8), [opened.start, opened.end]);
   const log = useLog(months);
+  // the block as the app holds it now (the sheet's body is drawn once, at open): an Apply from here marks it revised
+  const b = log.boot?.blocks.find((x) => x.id === opened.id) ?? opened;
   const aims = useGoals().data;
   const { gate } = useAssistantGate();
   const consent = useConsent().data ?? log.boot?.consent;
@@ -98,6 +103,11 @@ const PlanSummary = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
   const named = goalsNaming(aims, b, f.goal);
   const from = sourceWords(b);
   const prof = log.boot?.user.trainingProfile ?? null;
+  // while an answer is being written, the thread's thinking Orb is the assistant's one Orb (guide 2.1): the heading's steps
+  // aside, its room kept so the heading does not jump
+  const working = useAssistantBusy() !== null;
+  // the sheet's title is the plan's name: a goal it already says is not said again (layout plan 2.4, Removed)
+  const title = shortName(planName(b, log.boot?.blocks ?? [], t)).toLowerCase();
 
   // this week's sessions: done of due so far (it was "Kept so far" in the old tiles)
   let done = 0;
@@ -127,12 +137,12 @@ const PlanSummary = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
   const hidden = arc.length - shown.length;
 
   const rows: Array<[string, string] | null> = [
-    f.race ? ['Race day', `${fmtDate('dow', f.race.date)}, ${fmtDate('md', f.race.date)}`] : f.goal ? ['Goal', f.goal] : null,
+    f.race ? ['Race day', `${fmtDate('dow', f.race.date)}, ${fmtDate('md', f.race.date)}`] : f.goal && !title.includes(f.goal.toLowerCase()) ? ['Goal', f.goal] : null,
     ['Dates', dayRange(b.start, b.end)],
     ['Length', lengthWords(f)],
     f.runs ? ['Runs a week', f.quality ? `${f.runs}, ${f.quality === 1 ? 'one hard' : `up to ${f.quality} hard`}` : f.runs] : null,
     f.long?.short ? ['Long run', f.long.miles ? `${f.long.short}, up to ${miles1(f.long.miles)} mi` : f.long.short] : null,
-    f.peak ? ['Biggest week', `${miles1(f.peak)} mi`] : null,
+    // the biggest week is the outline's headline ("40 mi at the peak"), so it is not a row here too (layout 8.14)
     prof?.weeklyMiles ? ['Starting miles', `${miles1(prof.weeklyMiles)} mi a week`] : null,
   ];
   const facts = rows.filter((x): x is [string, string] => !!x);
@@ -142,7 +152,7 @@ const PlanSummary = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
       <p className="pl-ps-lead">What the assistant reads from this plan</p>
       <div className="group pl-ps-facts" aria-busy={!ready || undefined}>
         {facts.map(([k, v]) => (
-          <Row key={k} title={k} right={<span className="lrow-value">{v}</span>} />
+          <Row key={k} title={k} right={<span className="lrow-value">{keepHyphens(v)}</span>} />
         ))}
       </div>
       {from ? <p className="pl-ps-from">{from}</p> : null}
@@ -217,7 +227,7 @@ const PlanSummary = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
       {ai && gate === 'open' ? (
         <section className="pl-ps-ask" aria-labelledby="pl-ps-ask-t">
           <div className="pl-ps-ask-head">
-            <Orb size={28} />
+            {working ? <span className="pl-ps-orb-room" aria-hidden="true" /> : <Orb size={28} />}
             <h3 id="pl-ps-ask-t" className="pl-ps-ask-title">
               Change this plan
             </h3>
@@ -243,7 +253,7 @@ const PlanSummary = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
         {lead}
       </div>
     );
-  const pane = <AssistantPane chat={chatId} date={t} screen={{ tab: 'plan', plan: b.id }} placeholder="Describe what you want to change" lead={gate === 'open' ? lead : undefined} onApplied={onApplied} className="pl-ps-pane" />;
+  const pane = <AssistantPane chat={chatId} date={t} screen={{ tab: 'plan', plan: b.id }} placeholder="Describe what to change" lead={gate === 'open' ? lead : undefined} onApplied={onApplied} className="pl-ps-pane" />;
   // before the permission step is answered, it stands in for the conversation, under the summary
   return (
     <div className="pl-ps" ref={root}>
@@ -310,7 +320,7 @@ const PlanMore = ({ b, fromList }: { b: PlanBlock; fromList?: boolean }) => {
         });
       }}
     >
-      <Ellipsis size={20} aria-hidden="true" />
+      <Ellipsis size={18} aria-hidden="true" />
     </button>
   );
 };

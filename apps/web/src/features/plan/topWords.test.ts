@@ -36,6 +36,7 @@ describe('where a plan came from', () => {
     expect(nb(sourceWords({ source: 'template', createdAt: at }))).toBe('Made with the plan builder on Nov 9');
     expect(nb(sourceWords({ source: 'file', createdAt: at }))).toBe('Written by the assistant from a file you shared on Nov 9');
     expect(nb(sourceWords({ source: 'chat', createdAt: at }))).toBe('Written by the assistant in a chat on Nov 9');
+    expect(sourceWords({ source: 'revise', createdAt: at })).toBe('Revised by the assistant');
     expect(sourceWords({ source: null, createdAt: at })).toBeNull();
     expect(sourceWords({ source: 'something else', createdAt: at })).toBeNull();
   });
