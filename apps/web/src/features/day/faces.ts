@@ -2,6 +2,7 @@ import { dayPhase, durationWords, floorFor, floorMinutes, isSkipMark, label, num
 import type { Log } from '../log/useLog';
 import { isAfterKey, morningOf, routineName } from '../morning/model';
 import { runTotals, shortClock } from './dayWords';
+import { nextSession } from './heroWeek';
 import { sessionMiles } from './miles';
 import type { Stop } from './MiniTimeline';
 
@@ -155,19 +156,19 @@ export const runStops = (ph: DayPhase): Stop[] | null => {
 
 const stopsLabel = (stops: Stop[]) => `This morning: ${stops.map((s) => `${s.label.toLowerCase()} ${shortClock(s.at)}`).join(', ')}. Open This morning`;
 
-/** The next session that is not rest or skipped, within a week after `date`, with the words for the rest face's row. */
+/**
+ * The next session that is not rest or skipped, within a week after `date`, with the words for the rest face's row. Which
+ * session that is, is `nextSession` (heroWeek.ts), so the row and the hero's week never name different ones.
+ */
 export const nextUp = (log: Log, date: ISODate, now: number): NextUp | null => {
-  for (let i = 1; i <= 7; i++) {
-    const d = shiftDays(date, i);
-    const s = log.snap.sessionsOn(d).find((x) => x.kind !== 'rest' && x.mark !== 'skip' && x.mark !== 'sick');
-    if (!s) continue;
-    const door = phaseOf(log, d, now).doorAt;
-    const when = i === 1 ? 'Tomorrow' : new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`));
-    const head = `${when}: ${label(s)}`;
-    const tail = door != null ? ` · out ${shortClock(door)}` : '';
-    return { date: d, session: s, text: head + tail, head, tail };
-  }
-  return null;
+  const next = nextSession(log.snap, date);
+  if (!next) return null;
+  const { date: d, session: s } = next;
+  const door = phaseOf(log, d, now).doorAt;
+  const when = d === shiftDays(date, 1) ? 'Tomorrow' : new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`));
+  const head = `${when}: ${next.name}`;
+  const tail = door != null ? ` · out ${shortClock(door)}` : '';
+  return { date: d, session: s, text: head + tail, head, tail };
 };
 
 /** The rest face's words in the session name slot (guide 6.13): sentence case, like every stamp. */
