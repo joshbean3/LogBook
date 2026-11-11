@@ -523,6 +523,15 @@
   .ob-day:nth-child(7) {
     grid-area: 2 / 6 / 3 / 8;
   }
+  /* the two rows are one control: a day without LONG under it keeps no empty caption slot, so the tracks sit 12 apart
+     (layout standard 3.2, neighboring bezeled controls); the long run's row grows by its caption. (.ob-days raises these
+     over the base .ob-day rules further down) */
+  .ob-days .ob-day {
+    min-height: 44px;
+  }
+  .ob-days .ob-day-cap:empty {
+    display: none;
+  }
 }
 .ob-day {
   position: relative;
