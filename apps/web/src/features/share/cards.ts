@@ -1,7 +1,10 @@
-import wordmarkPaper from '@/ui/brand/wordmark-paper.svg?url';
 import { clock, decodePolyline, fmtDate, mi, mondayOf, routePath, shiftDays, today, type ISODate } from '@logbook/shared';
+import { ART, CAPTION, drawGrain, drawLockup, drawSunrise, loadMark, SANS, SERIF } from './brandArt';
 
-/** A 1080×1920 story card drawn on black: the Aura idea, in Logbook's hand. */
+/**
+ * A 1080×1920 story card on the brand's dark ground (plan 2.5): Twilight to Night Ink with paper grain and the one Apricot
+ * sunrise at the bottom edge; the name in Fraunces, numbers in Inter, captions in Inter Tight; the Orby lockup at the foot.
+ */
 export type Template = 'stamp' | 'route' | 'marker' | 'day' | 'bubble' | 'week';
 export const TEMPLATES: readonly Template[] = ['stamp', 'route', 'marker', 'day', 'bubble', 'week'];
 export const TEMPLATE_NAME: Record<Template, string> = { stamp: 'Stamp', route: 'Route', marker: 'Marker', day: 'Day', bubble: 'Bubble', week: 'Week' };
@@ -67,37 +70,17 @@ export interface DrawOpts {
 export const W = 1080;
 export const H = 1920;
 const M = 96;
-const WHITE = '#ffffff';
-const INK2 = 'rgba(255,255,255,0.72)';
-const INK3 = 'rgba(255,255,255,0.5)';
-const BLUE = '#2f3bff';
-const SERIF = '"Fraunces Card", "Iowan Old Style", Georgia, serif';
-const STAMP = '"Inter Tight", "Inter", -apple-system, sans-serif';
-const SANS = '"Inter", -apple-system, sans-serif';
+/** Words on the dark ground: Paper for the main line (9.36 on Twilight), Haze for the rest (7.45); Sky only for marks. */
+const INK = ART.paper;
+const INK2 = ART.haze;
 
 // ---------- fonts: the card waits for the bundled faces, never paints a fallback ----------
-const FACES = ['italic 400 80px "Fraunces Card"', 'italic 400 160px "Fraunces Card"', '900 200px "Inter Tight"', '800 100px "Inter Tight"', '700 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
+const FACES = ['600 80px "Fraunces Card"', 'italic 400 80px "Fraunces Card"', '600 40px "Inter Tight"', '650 100px "Inter"', '600 40px "Inter"', '500 40px "Inter"'];
 let fontsReady: Promise<void> | null = null;
-/** The outlined wordmark (guide 2.2): the logo is never canvas text. Loaded with the fonts; a card without it still draws. */
-let mark: HTMLImageElement | null = null;
-const loadMark = (): Promise<void> =>
-  typeof Image === 'undefined'
-    ? Promise.resolve()
-    : new Promise((ok) => {
-        const img = new Image();
-        img.onload = () => {
-          mark = img;
-          ok();
-        };
-        img.onerror = () => ok();
-        // never hold a card on the mark: a page that cannot load it draws without it
-        setTimeout(ok, 1500);
-        img.src = wordmarkPaper;
-      });
 export const loadFonts = (): Promise<void> => {
   if (!fontsReady) {
     const faces = typeof document !== 'undefined' && 'fonts' in document ? Promise.all(FACES.map((f) => document.fonts.load(f, 'Orby 0123456789.:’'))).then(() => undefined, () => undefined) : Promise.resolve();
-    fontsReady = Promise.all([faces, loadMark()]).then(() => undefined);
+    fontsReady = Promise.all([faces, loadMark('paper')]).then(() => undefined);
   }
   return fontsReady;
 };
@@ -151,13 +134,14 @@ const text = (ctx: CanvasRenderingContext2D, s: string, x: number, y: number, st
   });
   return total;
 };
-const caps = (ctx: CanvasRenderingContext2D, s: string, x: number, y: number, size = 28, color = INK3, align: TextStyle['align'] = 'left') => text(ctx, s.toUpperCase(), x, y, { font: `600 ${size}px ${SANS}`, color, align, tracking: size * 0.14 });
-/** A stamped numeral with its unit stepped down to 40%, both Inter Tight. Returns the width. */
-const stamp = (ctx: CanvasRenderingContext2D, n: string, unit: string | null, x: number, y: number, size: number, color = WHITE, weight = 900): number => {
-  const w = text(ctx, n, x, y, { font: `${weight} ${size}px ${STAMP}`, color, tracking: -size * 0.04 });
+/** A caption (guide 4.3): Inter Tight 600, caps, +0.14 em, Haze on the dark ground. */
+const caps = (ctx: CanvasRenderingContext2D, s: string, x: number, y: number, size = 28, color: string = INK2, align: TextStyle['align'] = 'left') => text(ctx, s.toUpperCase(), x, y, { font: `600 ${size}px ${CAPTION}`, color, align, tracking: size * 0.14 });
+/** A numeral in Inter 650 (guide 4.4: numbers are Inter) with its unit after it in Inter 500 at 40%, Haze. Returns the width. */
+const stamp = (ctx: CanvasRenderingContext2D, n: string, unit: string | null, x: number, y: number, size: number, color: string = INK): number => {
+  const w = text(ctx, n, x, y, { font: `650 ${size}px ${SANS}`, color, tracking: -size * 0.02 });
   if (!unit) return w;
   const us = Math.round(size * 0.4);
-  const uw = text(ctx, unit.toUpperCase(), x + w + size * 0.08, y, { font: `${weight} ${us}px ${STAMP}`, color: INK2, tracking: -us * 0.02 });
+  const uw = text(ctx, unit, x + w + size * 0.08, y, { font: `500 ${us}px ${SANS}`, color: INK2 });
   return w + size * 0.08 + uw;
 };
 const wrap = (ctx: CanvasRenderingContext2D, s: string, font: string, max: number): string[] => {
@@ -176,40 +160,32 @@ const wrap = (ctx: CanvasRenderingContext2D, s: string, font: string, max: numbe
   return lines;
 };
 
-// ---------- the common ground: black, the halo, the wordmark ----------
-const ground = (ctx: CanvasRenderingContext2D, halo = 1) => {
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, W, H);
-  if (halo <= 0) return;
-  // the stage light: an ellipse anchored under the bottom edge, as the --halo token draws it
-  const cx = W / 2;
-  const cy = H * 1.1;
-  const rx = W * 0.6;
-  const ry = H * 0.7;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(rx, ry);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-  g.addColorStop(0, `rgba(47,59,255,${0.9 * halo})`);
-  g.addColorStop(0.7, 'rgba(47,59,255,0)');
+// ---------- the common ground: Twilight to Night Ink, grain, the one sunrise; the lockup ----------
+const ground = (ctx: CanvasRenderingContext2D, glow = 1) => {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, ART.twilight);
+  g.addColorStop(1, ART.nightInk);
   ctx.fillStyle = g;
-  ctx.fillRect(-cx / rx, -cy / ry, W / rx, H / ry);
-  ctx.restore();
+  ctx.fillRect(0, 0, W, H);
+  drawGrain(ctx, W, H);
+  // on a dark ground the Apricot light screens in at about a third (guide 2.5 dark variant), or it turns grey-brown
+  drawSunrise(ctx, W, H, 0.8 * glow, true);
 };
-/** The outlined wordmark, Paper on the dark card, 120 px wide at the bottom right (plan 2.5; the full card rebuild follows). */
+/** The Orby lockup in Paper at the bottom right: the flat Orb and the outlined wordmark, the name 228 px wide. */
+const LOCKUP_W = 228;
 const wordmark = (ctx: CanvasRenderingContext2D) => {
-  if (!mark) return;
-  const w = 120;
-  const h = Math.round((w * 1988) / 4393);
-  ctx.drawImage(mark, W - M - w, 1700 - h + 8, w, h);
+  const u = LOCKUP_W / 4393;
+  drawLockup(ctx, 'paper', W - M - 1390 * u - LOCKUP_W, 1708, LOCKUP_W);
 };
 
-/** Date in caps at 32 and the name in the italic serif, up to two lines: the top-left of every single-run card. */
+/** Date as a caption at 32 and the name in Fraunces 600, up to two lines: the top-left of every single-run card. */
 const HEAD_DATE_Y = 300;
 const HEAD_NAME = 112;
 /** On Stamp and Route the name is the hero. */
 const HERO_NAME = 160;
-const serifAt = (size: number) => `italic 400 ${size}px ${SERIF}`;
+const serifAt = (size: number) => `600 ${size}px ${SERIF}`;
+/** The day's own words, quoted: the italic. */
+const italicAt = (size: number) => `italic 400 ${size}px ${SERIF}`;
 /** Draws the heading; returns the baseline of the name's last line so what follows can clear a two-line name. */
 const heading = (ctx: CanvasRenderingContext2D, d: ShareData, size = HEAD_NAME): number => {
   caps(ctx, fmtDate('long', d.date), M, HEAD_DATE_Y, 32);
@@ -233,7 +209,7 @@ const heading = (ctx: CanvasRenderingContext2D, d: ShareData, size = HEAD_NAME):
     lines[1] = `${l}…`;
   }
   const y0 = HEAD_DATE_Y + sz;
-  lines.forEach((l, i) => text(ctx, l, M, y0 + i * lineH, { font, color: WHITE }));
+  lines.forEach((l, i) => text(ctx, l, M, y0 + i * lineH, { font, color: INK }));
   return y0 + (lines.length - 1) * lineH;
 };
 
@@ -271,7 +247,7 @@ const drawStamp = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   wordmark(ctx);
 };
 
-// ---------- 2. ROUTE: the white line, the four stats in the corner ----------
+// ---------- 2. ROUTE: the Paper line, the four stats in the corner ----------
 const routePoints = (polyline: string, w: number, h: number): Array<[number, number]> => {
   const path = routePath(decodePolyline(polyline), w, h, 24);
   return [...path.matchAll(/[ML]([\d.]+) ([\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
@@ -283,12 +259,10 @@ const drawRouteLine = (ctx: CanvasRenderingContext2D, pts: Array<[number, number
   const frac = n - whole;
   ctx.save();
   ctx.translate(ox, oy);
-  ctx.strokeStyle = WHITE;
+  ctx.strokeStyle = INK;
   ctx.lineWidth = width;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.shadowColor = 'rgba(255,255,255,0.45)';
-  ctx.shadowBlur = 28;
   ctx.beginPath();
   const first = pts[0]!;
   ctx.moveTo(first[0], first[1]);
@@ -328,7 +302,7 @@ const drawRoute = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   wordmark(ctx);
 };
 
-// ---------- 3. MARKER: the sentence, highlighted in white; black type on white bars, the one card that inverts ----------
+// ---------- 3. MARKER: the sentence, highlighted: Night Ink type on Paper bars, the one card that inverts ----------
 const drawMarker = (ctx: CanvasRenderingContext2D, d: ShareData) => {
   ground(ctx, 0.7);
   const nameY = heading(ctx, d);
@@ -336,22 +310,22 @@ const drawMarker = (ctx: CanvasRenderingContext2D, d: ShareData) => {
   const parts = [`${mi2(d.miles)} miles`, ...(timed ? [`${paceColon(d.movingSec, d.miles)}/mi`, clock(d.movingSec)] : [])];
   const lines = parts.map((l, i) => (i < parts.length - 1 ? `${l},` : l));
   const size = 128;
-  const font = `700 ${size}px ${SANS}`;
+  const font = `650 ${size}px ${SANS}`;
   const barH = 168;
   const gap = 24;
   const total = lines.length * barH + (lines.length - 1) * gap;
   let y = Math.max(1000 - total / 2, nameY + 110);
   for (const line of lines) {
-    const w = measure(ctx, line, { font, color: '#000', tracking: -size * 0.02 });
-    ctx.fillStyle = WHITE;
+    const w = measure(ctx, line, { font, color: ART.nightInk, tracking: -size * 0.02 });
+    ctx.fillStyle = ART.paper;
     ctx.fillRect(M - 8, y, w + 72, barH);
-    text(ctx, line, M + 28, y + barH - 44, { font, color: '#000', tracking: -size * 0.02 });
+    text(ctx, line, M + 28, y + barH - 44, { font, color: ART.nightInk, tracking: -size * 0.02 });
     y += barH + gap;
   }
   wordmark(ctx);
 };
 
-// ---------- 4. BUBBLE: one blue line of chat, the numbers stamped small beneath ----------
+// ---------- 4. BUBBLE: one Sky line of chat with Night Ink words (never white on Sky), the numbers small beneath ----------
 const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -377,7 +351,7 @@ const drawBubble = (ctx: CanvasRenderingContext2D, d: ShareData, caption: string
   const bh = lines.length * lh + padY * 2;
   const bx = (W - bw) / 2;
   const by = Math.max(900 - bh / 2, nameY + 110);
-  ctx.fillStyle = BLUE;
+  ctx.fillStyle = ART.sky;
   roundRect(ctx, bx, by, bw, bh, 56);
   ctx.fill();
   // the tail, bottom-left, as a chat app draws it
@@ -387,17 +361,17 @@ const drawBubble = (ctx: CanvasRenderingContext2D, d: ShareData, caption: string
   ctx.quadraticCurveTo(bx + 40, by + bh + 14, bx + 70, by + bh - 20);
   ctx.closePath();
   ctx.fill();
-  lines.forEach((l, i) => text(ctx, l, W / 2, by + padY + size * 0.95 + i * lh, { font, color: WHITE, align: 'center', tracking: -size * 0.015 }));
+  lines.forEach((l, i) => text(ctx, l, W / 2, by + padY + size * 0.95 + i * lh, { font, color: ART.nightInk, align: 'center', tracking: -size * 0.015 }));
   // the numbers under the bubble: only the ones the day has (a rest day has none, a logged run only its miles)
   const sy = by + bh + 150;
   const cells: Array<[string, string]> = [];
-  if (d.miles > 0) cells.push([`${mi2(d.miles)} MI`, 'distance']);
+  if (d.miles > 0) cells.push([`${mi2(d.miles)} mi`, 'distance']);
   if (d.miles > 0.1 && d.movingSec > 0) cells.push([paceStamp(d.movingSec, d.miles), 'pace'], [clock(d.movingSec), 'time']);
-  if (!cells.length && d.lift?.sets) cells.push([`${d.lift.sets} SETS`, 'lifted']);
-  if (!cells.length && d.habits?.lit) cells.push([`${d.habits.lit} OF ${d.habits.of}`, 'habits lit']);
+  if (!cells.length && d.lift?.sets) cells.push([`${d.lift.sets} sets`, 'lifted']);
+  if (!cells.length && d.habits?.lit) cells.push([`${d.habits.lit} of ${d.habits.of}`, 'habits lit']);
   if (cells.length) {
-    text(ctx, cells.map((c) => c[0]).join('  ·  '), W / 2, sy, { font: `800 56px ${STAMP}`, color: WHITE, align: 'center', tracking: -56 * 0.03 });
-    caps(ctx, cells.map((c) => c[1]).join('  ·  '), W / 2, sy + 48, 24, INK3, 'center');
+    text(ctx, cells.map((c) => c[0]).join('  ·  '), W / 2, sy, { font: `650 56px ${SANS}`, color: INK, align: 'center', tracking: -56 * 0.02 });
+    caps(ctx, cells.map((c) => c[1]).join('  ·  '), W / 2, sy + 52, 24, INK2, 'center');
   }
   wordmark(ctx);
 };
@@ -407,7 +381,7 @@ const drawDay = (ctx: CanvasRenderingContext2D, d: ShareData) => {
   ground(ctx, 0.8);
   const nameY = heading(ctx, d, HERO_NAME);
   let y = nameY + 170;
-  // the stamped facts first, each a caps label over a numeral; only the ones the day has
+  // the facts first, each a caption over a numeral; only the ones the day has
   const facts: Array<[string, string, string | null, string | null]> = [];
   if (d.lift?.sets) facts.push(['Lifted', String(d.lift.sets), d.lift.sets === 1 ? 'set' : 'sets', d.lift.top]);
   if (d.habits && d.habits.lit > 0) facts.push(['Habits', d.habits.lit === d.habits.of ? 'All' : `${d.habits.lit}`, d.habits.lit === d.habits.of ? 'lit' : `of ${d.habits.of} lit`, null]);
@@ -421,27 +395,27 @@ const drawDay = (ctx: CanvasRenderingContext2D, d: ShareData) => {
     }
     y += 70;
   }
-  // then the day's line, in the serif: its own words, or the verdict ("Rest. It counts.")
+  // then the day's line in the Fraunces italic: its own words, or the verdict ("Rest. It counts.")
   const line = (d.journal?.trim() || d.verdict.trim() || '').slice(0, 160);
   if (line) {
     const size = facts.length ? 72 : 96;
-    const font = serifAt(size);
+    const font = italicAt(size);
     const maxLines = Math.max(1, Math.floor((1600 - y) / (size * 1.18)));
     const all = wrap(ctx, d.journal ? `“${line}”` : line, font, W - M * 2);
     const lines = all.slice(0, Math.min(maxLines, 6));
     if (all.length > lines.length) lines[lines.length - 1] = `${lines[lines.length - 1]!.replace(/[,.;:”]?$/, '')}…`;
-    lines.forEach((l, i) => text(ctx, l, M, y + size + i * size * 1.18, { font, color: facts.length ? INK2 : WHITE }));
+    lines.forEach((l, i) => text(ctx, l, M, y + size + i * size * 1.18, { font, color: facts.length ? INK2 : INK }));
   }
   wordmark(ctx);
 };
 
-// ---------- 5. WEEK: seven small stamps and the total ----------
-/** "This week" only for the week we are in; any other week is its dates, "Sep 7 – 13" or "Sep 28 – Oct 4". */
+// ---------- 5. WEEK: seven Sky bars and the total ----------
+/** "This week" only for the week we are in; any other week is its dates, "Sep 7 to 13" or "Sep 28 to Oct 4". */
 export const weekTitle = (monday: ISODate, now: ISODate = today()): string => {
   if (monday === mondayOf(now)) return 'This week';
   const sunday = shiftDays(monday, 6);
   const sameMonth = monday.slice(0, 7) === sunday.slice(0, 7);
-  return `${fmtDate('md', monday)} – ${sameMonth ? Number(sunday.slice(8, 10)) : fmtDate('md', sunday)}`;
+  return `${fmtDate('md', monday)} to ${sameMonth ? Number(sunday.slice(8, 10)) : fmtDate('md', sunday)}`;
 };
 const drawWeek = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   ground(ctx);
@@ -449,11 +423,11 @@ const drawWeek = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   const e = easeOut(p);
   const monday = wk?.monday ?? mondayOf(d.date);
   caps(ctx, 'Week', M, HEAD_DATE_Y, 32);
-  text(ctx, weekTitle(monday), M, HEAD_DATE_Y + HEAD_NAME * 1.1, { font: serifAt(HEAD_NAME), color: WHITE });
+  text(ctx, weekTitle(monday), M, HEAD_DATE_Y + HEAD_NAME * 1.1, { font: serifAt(HEAD_NAME), color: INK });
   const total = wk?.total ?? d.miles;
   caps(ctx, 'Miles', M, 600);
   const w = stamp(ctx, mi(total * e), 'mi', M, 832, 232);
-  if (wk?.planned) caps(ctx, `of ${mi(wk.planned)} planned`, M + w + 36, 832 - 12, 26, INK3);
+  if (wk?.planned) caps(ctx, `of ${mi(wk.planned)} planned`, M + w + 36, 832 - 12, 26, INK2);
   const days = wk?.days ?? [{ date: d.date, miles: d.miles }];
   const cols = 7;
   const colW = (W - M * 2) / cols;
@@ -463,13 +437,17 @@ const drawWeek = (ctx: CanvasRenderingContext2D, d: ShareData, p: number) => {
   days.forEach((day, i) => {
     const cx = M + colW * i + colW / 2;
     const h = (day.miles / max) * barMax * e;
-    ctx.fillStyle = day.miles ? WHITE : 'rgba(255,255,255,0.14)';
+    // a run day is a Sky bar (4.14 on Twilight, a graphic); a day without one a faint Haze stub
+    ctx.save();
+    ctx.fillStyle = day.miles ? ART.sky : ART.haze;
+    if (!day.miles) ctx.globalAlpha = 0.18;
     const bw = 56;
-    roundRect(ctx, cx - bw / 2, barBottom - Math.max(6, h), bw, Math.max(6, h), 6);
+    roundRect(ctx, cx - bw / 2, barBottom - Math.max(6, h), bw, Math.max(6, h), 12);
     ctx.fill();
+    ctx.restore();
     // a day with no miles keeps its stub of a bar and says nothing: never a dash or a zero
-    if (day.miles) text(ctx, mi(day.miles), cx, barBottom + 74, { font: `800 52px ${STAMP}`, color: WHITE, align: 'center', tracking: -52 * 0.03 });
-    caps(ctx, DOW[i] ?? '', cx, barBottom + 128, 26, INK3, 'center');
+    if (day.miles) text(ctx, mi(day.miles), cx, barBottom + 74, { font: `650 52px ${SANS}`, color: INK, align: 'center', tracking: -52 * 0.02 });
+    caps(ctx, DOW[i] ?? '', cx, barBottom + 128, 26, INK2, 'center');
   });
   wordmark(ctx);
 };

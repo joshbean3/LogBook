@@ -41,7 +41,7 @@
   display: block;
   transition:
     opacity var(--dur-color) var(--ease-out),
-    transform 260ms var(--ease-out);
+    transform var(--dur) var(--ease-out);
   opacity: 0.45;
   transform: scale(0.94);
 }
@@ -51,7 +51,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .share-slide {
-    transition: opacity 150ms linear;
+    transition: opacity var(--dur-reduce) linear;
     transform: none;
   }
 }
@@ -69,7 +69,7 @@
   width: 100%;
   height: 100%;
 }
-/* the template's name and the dots, centred under the card */
+/* the template's name and the dots, centered under the card */
 .share-pager {
   display: grid;
   justify-items: center;
@@ -95,19 +95,18 @@
   place-items: center;
   padding: 0;
 }
+/* page dots as on the welcome pager: Night Ink for the one in view, the coin ring's tone for the rest */
 .share-dot i {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--ink-4);
-  transition:
-    background var(--dur-color) var(--ease-out),
-    width var(--dur-color) var(--ease-out);
+  background: var(--coin-ring);
+  transition: background-color var(--dur-color) var(--ease-out);
 }
 .share-dot.on i {
+  width: 20px;
+  border-radius: var(--r-pill);
   background: var(--ink);
-  width: 18px;
-  border-radius: 4px;
 }
 /* the caption: a card with its label over the field */
 .share-cap {
@@ -116,7 +115,7 @@
 }
 .share-cap-label {
   font: 500 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .share-caption {
   width: 100%;
@@ -125,7 +124,7 @@
 .share-cap.is-held {
   visibility: hidden;
 }
-/* the foot: Save (white) and Share (the one navy pill), both full height, Share taking the room */
+/* the foot: Save (the secondary) and Share (the one Sky primary), both full height, Share taking the room */
 .sheet-foot.share-foot {
   flex-wrap: nowrap;
   gap: 12px;
