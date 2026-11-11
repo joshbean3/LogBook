@@ -10,8 +10,8 @@
  */
 
 const CONTAINERS = '.card, .group, .tile, .k-card, .k-rows, .aura';
-// the gauge's readout pill (brand 6.5) and a switch's knob (a control's own part, guide 6.3) are not cards
-const ALLOWED = '.hg-readout, .s-knob';
+// the gauge's readout pill (brand 6.5, `.hero-week` in the app) and a switch's knob (a control's own part) are not cards
+const ALLOWED = '.hg-readout, .hero-week, .s-knob';
 const seen = new Set<string>();
 
 const nameOf = (el: Element): string => {
@@ -25,7 +25,7 @@ const warnOnce = (key: string, message: string) => {
   console.warn(message);
 };
 
-/** A box-shadow that lifts (not `none`, not only inset rings). */
+/** A box-shadow that lifts: not `none`, and not only rings (inset, or a keyline with no offset and no blur). */
 export const liftsShadow = (shadow: string): boolean => {
   if (!shadow || shadow === 'none') return false;
   // split on commas outside parentheses
@@ -41,7 +41,13 @@ export const liftsShadow = (shadow: string): boolean => {
     } else cur += ch;
   }
   parts.push(cur);
-  return parts.some((p) => !/\binset\b/.test(p) && p.trim() !== '');
+  const lifts = (p: string) => {
+    if (!p.trim() || /\binset\b/.test(p)) return false;
+    // the lengths after the color: x, y, blur, spread. A keyline ring (0 0 0 2px, the now-mark's Paper edge) does not lift
+    const len = [...p.replace(/rgba?\([^)]*\)/g, '').matchAll(/(-?\d*\.?\d+)px/g)].map((m) => parseFloat(m[1]!));
+    return !(len.length >= 3 && len[0] === 0 && len[1] === 0 && len[2] === 0);
+  };
+  return parts.some(lifts);
 };
 
 const visible = (el: Element) => {

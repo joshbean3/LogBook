@@ -9,6 +9,9 @@ describe('liftsShadow', () => {
     expect(liftsShadow('none')).toBe(false);
     expect(liftsShadow('rgb(14, 34, 54) 0px 0px 0px 1.5px inset')).toBe(false);
   });
+  it('ignores a keyline ring with no offset and no blur', () => {
+    expect(liftsShadow('rgb(255, 253, 248) 0px 0px 0px 2px')).toBe(false);
+  });
   it('counts a lift beside a ring', () => {
     expect(liftsShadow('rgb(14, 34, 54) 0px 0px 0px 1.5px inset, rgba(0, 0, 0, 0.1) 0px 2px 4px 0px')).toBe(true);
   });
