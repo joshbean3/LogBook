@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, CircleAlert, Eye, EyeOff } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useId, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router';
@@ -125,6 +125,7 @@ const AuthField = ({
       </div>
       {msg ? (
         <p id={`${id}-msg`} className={error ? 'auth-err' : 'auth-hint'} role={error ? 'alert' : undefined}>
+          {error ? <CircleAlert size={16} aria-hidden="true" /> : null}
           {msg}
         </p>
       ) : null}
@@ -295,6 +296,7 @@ const SignIn = ({ email, onEmail: setEmail, onForgot, back, notice, to = '/today
         </button>
         {err.form ? (
           <p className="auth-err form" role="alert">
+            <CircleAlert size={16} aria-hidden="true" />
             {err.form}
           </p>
         ) : null}
@@ -374,6 +376,7 @@ const Forgot = ({ email, onEmail, onBack }: { email: string; onEmail: (v: string
         </div>
         {err.form ? (
           <p className="auth-err form" role="alert">
+            <CircleAlert size={16} aria-hidden="true" />
             {err.form}
           </p>
         ) : null}
@@ -467,6 +470,7 @@ const Reset = ({ token, onLeave }: { token: string; onLeave: (toForgot: boolean)
         </div>
         {err ? (
           <p className="auth-err form" role="alert">
+            <CircleAlert size={16} aria-hidden="true" />
             {err}
           </p>
         ) : null}
@@ -651,6 +655,7 @@ export const Signup = () => {
         </p>
         {err.form ? (
           <p className="auth-err form" role="alert">
+            <CircleAlert size={16} aria-hidden="true" />
             {err.form}
           </p>
         ) : null}

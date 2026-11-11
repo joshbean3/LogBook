@@ -1,5 +1,5 @@
-/* What is sent to Claude and what is not: the privacy page and Settings, Privacy. Two white cards, each a sans title
-   over its rows; a check for what goes, a cross for what does not. */
+/* What is sent to Claude and what is not: the privacy page and Settings, Privacy. Two Paper cards, each an Inter title
+   over its rows; a check in a Haze disc for what goes, a cross in a Cloud disc for what does not. */
 .pv-facts {
   display: grid;
   gap: var(--gap);
@@ -7,12 +7,11 @@
 }
 .card.pv-list {
   gap: 0;
-  padding: 16px 16px 6px;
+  padding: var(--sp-4) var(--sp-4) var(--sp-2);
 }
 .pv-h {
-  margin: 0 0 6px;
+  margin: 0 0 var(--sp-2);
   font: 600 var(--fs-row) / var(--lh-row) var(--sans);
-  letter-spacing: -0.01em;
   color: var(--ink);
 }
 .pv-list ul {
@@ -25,9 +24,9 @@
   position: relative;
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--sp-3);
   align-items: start;
-  padding: 10px 0;
+  padding: var(--sp-3) 0;
   font-size: var(--fs-sub);
   line-height: var(--lh-sub);
   color: var(--ink);
@@ -36,20 +35,20 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 34px;
-  right: -16px;
+  left: 36px; /* brand-ok: geometry, the hairline starts at the text after the 24 px glyph and its 12 px gap */
+  right: calc(-1 * var(--sp-4));
   height: 1px;
   background: var(--line);
 }
-.pv-list li svg {
+.pv-list li .pv-ic {
   box-sizing: content-box;
   padding: 4px;
   margin-top: -2px;
   border-radius: 50%;
-  background: var(--columbia-wash);
-  color: var(--ink-2);
+  background: var(--haze);
+  color: var(--deep-sky);
 }
-.pv-list.never li svg {
-  background: var(--surface-2);
-  color: var(--ink-3);
+.pv-list.never li .pv-ic {
+  background: var(--cloud);
+  color: var(--ink-2);
 }
