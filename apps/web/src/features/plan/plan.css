@@ -190,6 +190,14 @@
     scale 120ms cubic-bezier(0.22, 1, 0.36, 1),
     background-color 120ms cubic-bezier(0.22, 1, 0.36, 1) !important;
 }
+/* a session just added (the Add sheet): its row is lit in the Sky tint as it lands and lets go on the 200 ms color change
+   (the row's own background transition); brought into view, it clears the bar above and the dock below */
+.pl-slot.is-new > .pl-line {
+  background-color: var(--accent-tint);
+}
+.pl-slot {
+  scroll-margin: 64px 0 calc(var(--ask-h) + var(--dock-gap) + var(--tabbar-h) + 8px + var(--safe-b, 0px) + 16px);
+}
 /* the dropped session's new row waits for the pill to land in it */
 .pl-slot[data-landing] .pl-line > * {
   opacity: 0;
@@ -210,9 +218,10 @@
 .pl-ic.is-empty {
   background: transparent;
 }
+/* an open day from today on: a quiet plus where its tile would sit (a mark in Pencil, 3.6 on Paper and 3.4 on today's
+   Cloud; no dashed box: the standard keeps a dashed edge to one add slot a group, never one a row) */
 .pl-ic.is-add {
-  border: 1.5px dashed var(--line-strong);
-  color: var(--ink-3);
+  color: var(--ink-faint);
 }
 .pl-main {
   display: grid;

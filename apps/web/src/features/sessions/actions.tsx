@@ -112,8 +112,6 @@ export const useSessionActions = (log: Log) => {
     if (push) sheet.push(spec);
     else sheet.open(spec);
   };
-  const add = (date: string) => sheet.open({ title: 'Add a session', detent: 'large', body: <SessionEditor date={date} session={null} /> });
-
   /** The long-press menu for a session: every gesture's action, then the rest; Delete last and red. */
   const menuItems = (date: string, s: Session, extra: { share?: ShareData | null; push?: boolean } = {}): ContextMenuItem[] => {
     const c = sessionCan(log, date, s);
@@ -134,5 +132,5 @@ export const useSessionActions = (log: Log) => {
     return items;
   };
 
-  return { done, floor, clear, skip, sick, notFeeling, del, move, edit, share, add, menuItems, askEffort };
+  return { done, floor, clear, skip, sick, notFeeling, del, move, edit, share, menuItems, askEffort };
 };

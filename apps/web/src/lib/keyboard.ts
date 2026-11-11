@@ -96,6 +96,13 @@ const scrollerOf = (el: HTMLElement): HTMLElement | null => {
   return null;
 };
 
+/**
+ * The line a revealed field's bottom must stay above, 16 clear of whichever comes first: its scroller's own bottom, the
+ * keyboard's top, or the top of a foot pinned over the scroller's last lines (a sheet's `.sheet-foot`: without it a field
+ * just above the foot was "revealed" behind it).
+ */
+export const revealFloor = (scrollerBottom: number, viewport: number, kb: number, footTop: number | null): number => Math.min(scrollerBottom, viewport - kb, footTop ?? Infinity) - 16;
+
 const pending = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 /**
  * Scroll a focused field (or the box around it) clear of the keyboard, after the keyboard's 250 ms, inside its scroller: a
@@ -114,7 +121,9 @@ export const revealField = (el: HTMLElement, delay = 250) => {
       const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) || 0;
       const r = el.getBoundingClientRect();
       const s = scroller.getBoundingClientRect();
-      const bottom = Math.min(s.bottom, window.innerHeight - kb) - 16;
+      // a sheet's pinned foot (not the one the field itself is in) sits over the body's last lines
+      const foot = [...scroller.querySelectorAll<HTMLElement>('.sheet-foot')].find((f) => !f.contains(el) && getComputedStyle(f).position === 'sticky');
+      const bottom = revealFloor(s.bottom, window.innerHeight, kb, foot ? foot.getBoundingClientRect().top : null);
       if (r.bottom > bottom) scroller.scrollBy({ top: r.bottom - bottom, behavior: 'smooth' });
       else if (r.top < s.top + 16) scroller.scrollBy({ top: r.top - s.top - 16, behavior: 'smooth' });
     }, delay),

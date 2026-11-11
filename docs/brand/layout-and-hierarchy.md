@@ -44,6 +44,7 @@ Each change below is written into `docs/brand/brand-guide.md` in the same words.
 | C16 | 9.1 Durations and easings | New row: chart bars rising (480 ms each, `--bar-stagger` 12 ms apart, 240 ms from the first to the last at most). New token `--bar-stagger`. |
 | C17 | 11 Accessibility | VoiceOver: the Progress chart is one slider; its value is the focused bucket in words. |
 | C18 | 6.4, 12.1, 12.3 | The hero card on Progress is its chart card (Running or Strength). 12.1 and 12.3 step 8 name the bars in place of the ruler, the week horizon and the line chart. |
+| C19 | 6.3 Chips and segmented controls; 12.1 Plan | The quiet "+ Set" link gains its sibling "+ Add" (Plan's week: a run or a lift, section 2.6 and 6.12 below). The Plan row of 12.1 names the week's line with "+ Add" at its end, the Add sheet and the open day's quiet plus. |
 
 **Considered and not changed.** The screen title stays at 38/42 (`--fs-title`). Apple's Large Title is 34 and the hero's session name (40) is within 5 percent of the title, but the brand raised the title from 34 to 38 on purpose. The hero card already wins on Today by area (about 360 pt tall against a 42 pt title line), by the glow and by position once the rows above it are compacted (section 2.3). Body text stays 16/24: Apple's own advice is loose leading for long passages, and 16/24 measures 49 characters a line in a card at 390. The 16 px gutter stays at every width. It is inside Apple's 16 to 20 pt system margin, and one gutter keeps every edge aligned.
 
@@ -138,9 +139,9 @@ Build (includes the pending owner requests):
 |---|---|
 | Job | See the plan and this week day by day, and change it. |
 | Focal point | The YOUR PLAN card (hero). |
-| Sky button | None on the root. In the summary sheet: "Apply" on a proposal. |
-| Read in passing | The title block with Week / Month in the bar. |
-| Order of emphasis | 1. YOUR PLAN: the plan name, the phase line, the weeks-done row. 2. Today's row in the week (Cloud tint, Today tag). 3. The rest of the week's rows. 4. The week pager. |
+| Sky button | None on the root. In the summary sheet: "Apply" on a proposal. In the Add sheet: "Add". |
+| Read in passing | The title block with Week / Month in the bar; the week's header (its name, the pager) and its line with "+ Add" at the end. |
+| Order of emphasis | 1. YOUR PLAN: the plan name, the phase line, the weeks-done row. 2. Today's row in the week (Cloud tint, Today tag). 3. The rest of the week's rows. 4. The week pager and "+ Add". |
 
 Build (includes the pending owner request):
 
@@ -148,6 +149,10 @@ Build (includes the pending owner request):
 - **YOUR PLAN on the Runna model.** Caption "YOUR PLAN", plan name (`--fs-head`), one phase line (15 Dusk), then a weeks-done row: one 6 px mark per plan week, done Deep Sky, ahead `--dot-ahead`, the current week a 1.5 px Night Ink ring. At most two stats, and a chevron. Why: plan progress shown as the plan's shape [Peers: Runna]. The thin progress bar today says nothing a reader can count.
 - **Tapping YOUR PLAN opens the plan summary sheet with the assistant inside** (layout in 6.10). Owner request. The change lands through the existing proposal and apply flow, and the Plan page updates in place.
 - **Week rows use the date-gutter row** (6.2). The session's data tone is the only color in a row.
+- **The week's header is one row at every width.** The week's name, then the pager at the row's end, so the arrows stay where they are from week to week (at 390 "Next week" used to wrap them onto a second row). The dates beside the name give way first: under 360 always, and up to 419 while the header also shows "Today"; the line under the header says them then ("Nov 16 to 22 · 10 mi · 2 runs."). Under 360 the week's name takes `--fs-head` (22), as the plan's name above it does, and stops at 30 at a larger text size, where a week named by its dates takes two lines beside "‹ Today ›". At a larger text size the dates go to the line at every width, and the name wraps before the arrows move. The month's header keeps its arrows on the first row the same way: under 420, while it also shows "Today", its miles go under its name ("December", then "126 mi planned"). Why: a control that moves between pages cannot be tapped twice [HIG Layout, consistency].
+- **Adding a run or a lift: one quiet "+ Add" at the end of the week's line** (owner request). Deep Sky Inter 600 `--fs-sub` with an 18 px plus, no bezel, 44 tall, flush with the card's trailing edge (the quiet level, 6.6; the sibling of Goals' "+ Set"). The line and "+ Add" share one row that starts where the header ends. The week's arrows keep their 44 pt boxes above that edge (12 over the header's row, none under it; the chevrons stay level with the week's name), so the two targets never overlap: the line's first row sits 12 under the header (the section title to its content), level with "+ Add", and its last row 12 above the week's rows. At a larger text size "+ Add" grows with that row (its box is the row with the 12 over and under it), so the two stay level. It is on every week (past, this one, later ones, with a plan or without). Why here: the title row cannot hold a third control (name + "‹ Today ›" + Add is wider than a 320 to 402 pt screen), and a plus on every row made the week noisy. The line is where the week's totals are, and the totals are what Add changes.
+- **An open day takes a tap too**, and opens the same sheet on that day. From today on it shows a quiet plus where its icon tile would sit (18 px, Pencil, a mark); a past open day stays blank. No dashed box: a dashed edge on every open day made an open week a column of boxes, and C5 keeps it to one add slot a group. The open week's line reads "An open week." and stops (it used to add "Tap a day to add a session.").
+- **The Add sheet** (6.12): the day, Run or Lift, the essentials, Add. The row lands in the week at once with a toast and Undo, and the totals in the week's line and on Today's hero count it.
 
 ### 2.7 Progress
 
@@ -396,7 +401,7 @@ A card you can only name with "and" is two units or a list. A card without (a), 
 | Trailing | At most one element besides the chevron: a value (Inter 400 `--fs-row` Dusk, tnum, never truncated), a tag (brand 6.3) or a quiet link. Chevron 18 px Dusk, 8 after the value. |
 | Hairline | `--line`, from the text's leading edge to the card's trailing edge. |
 | Target | The whole row. |
-| Date-gutter row (Plan week, Journal entries) | A 40 px gutter: the day numeral Inter 600 `--fs-row` tnum Night Ink, the weekday Inter 500 `--fs-foot` Dusk 4 below. Today's numeral sits in a 32 px circle with a 1.5 px Night Ink ring. Content starts 12 after the gutter. Today's row may carry the Cloud tint across the card (as Plan does now). |
+| Date-gutter row (Plan week, Journal entries) | A 40 px gutter: the day numeral Inter 600 `--fs-row` tnum Night Ink, the weekday Inter 500 `--fs-foot` Dusk 4 below. Today's numeral sits in a 32 px circle with a 1.5 px Night Ink ring. Content starts 12 after the gutter. Today's row may carry the Cloud tint across the card (as Plan does now). In Plan's week a day with nothing on it keeps its row and takes a tap (it adds on that day): from today on it shows an 18 px Pencil plus in the icon tile's place, with no edge; a past day shows nothing. A row just added is lit in the Sky tint (`--accent-tint`) for about a second, then lets go on the 200 ms color change. |
 
 ### 6.3 Stat tiles
 
@@ -479,6 +484,18 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Composer | Pinned at the bottom (brand 6.12), placeholder "Describe what to change", the provider disclosure under it exactly as written. |
 | Proposal | A card in the conversation listing the changes as rows, "Apply" (Sky, 44 inline, the sheet's one primary) and "Not now" (quiet). On apply: the outline rows and the Plan page update in place, and a toast offers Undo. |
 
+### 6.12 The Add sheet (Plan)
+
+| Part | Value |
+|---|---|
+| Presentation | One sheet at its content's height (about 520 pt at 390 x 844), opened by "+ Add" in the week's line or by a tap on an open day. Eyebrow: the week ("This week", "Next week", "Week of Nov 23"). Title: "Add a session", Fraunces 600 `--fs-head`. |
+| The day | The open week's seven days as one full-bleed strip (cells of a seventh of the width, so 45 pt at 320), in the day picker's look: the letter in caption style, the numeral Inter 600 `--fs-row`, the picked day a Sky pill with Night Ink, today a 1.5 px Night Ink ring, a past day's numeral Dusk, and a 3 px bar in the data tone of what already sits on a day. Opens on the tapped day; from "+ Add" on today in this week, on the first open day of a later week, on the last open day of a past week. |
+| What it is | One Paper card (the sheet's ground is Cloud, where a Cloud track cannot be seen), padding 16, its two groups 16 apart. 1. Run or Lift: a two-segment control, Sky thumb, 44 tall. 2. That kind's own parts, 12 apart. A run: four chips in one row of equal parts (Easy, Long, Tempo, Speed, each with a 6 px marker in its data tone; two by two under 360), then a stepper (48 tall, the number alone) with the unit beside it as a quiet two-segment control ("mi", "min", 48 tall). A lift: a chip per lift the owner already has in their weeks (newest first, four at most), then the plain kinds (Strength, Upper, Lower, Full body, Mobility) to six in all, wrapping; then a field, "Or name it". Chips are filter chips (brand 6.3), 12 apart. |
+| The line | Above the button, Inter `--fs-sub`, one line: the session's name in Night Ink 600 (it gives way to an ellipsis first), then in Dusk the minutes of a run without miles, the day ("Today", "Fri, Nov 13") and, for a day already past, "Added as done". |
+| Buttons | "Add" (Sky, 54, full width, pinned; "Add as done" for a day already past), then "More options" (quiet, 8 below), which opens the full editor with what was picked (cross training, rest, notes, the other run types). |
+| Defaults | Miles: the last run of that kind in the owner's weeks, else their recent runs (the usual distance; the longest for the long run), else the training answers, else 4, 8, 5 and 5. Minutes: those miles at the easy pace, on the five. A day already past is added as done: planned in the past it would read Missed. |
+| Result | The sheet falls away first; the row is written as the sheet leaves the screen (the write renders every tab, and must not take the sheet's frames). The row lands lit, the rows under it slide on `settle`, the week scrolls only as far as it takes to show it, one `drop` haptic, and a toast says "Easy 4 added to Friday" with Undo. A refusal by the server takes the row back and says "Couldn't add Easy 4." with "Try again", which sends the same session again. |
+
 ---
 
 ## 7. Density and disclosure
@@ -495,7 +512,7 @@ Alternatives differ by style, never by size [HIG Buttons]. Labels start with a v
 | Today | Hero, habits, today's goal, carry-over, top three | Week detail (the readout), habit history, the rest of the to-dos, the status sheet, the session |
 | Goals | Today's goal, carry-over, tomorrow and next week, further out | Goal history ("See all"), the review sheet, each period's goal |
 | Learned | Streak, prompt, this year's months | A month's items, older years |
-| Plan | Your plan, this week's days | The plan summary with the assistant, a session, the month view, other weeks, the morning schedule |
+| Plan | Your plan, this week's days, "+ Add" | The plan summary with the assistant, a session, the Add sheet (and the full editor behind its "More options"), the month view, other weeks, the morning schedule |
 | Progress | This week or the chosen range, trend and health tiles | A metric's page, a week's sheet, a lift's sheet |
 | Journal | Remember when, this week's calendar, recent entries | An entry in full, the month view, share |
 | Settings | Group rows with their current values | Each setting's page; delete account confirms in a sheet |

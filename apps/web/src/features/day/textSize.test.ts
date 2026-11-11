@@ -21,7 +21,7 @@ const fixedPx = (value: string): string[] => {
 
 describe('type in Today, Morning and the session sheets follows the text size (a11y-02)', () => {
   it('finds the stylesheets', () => {
-    expect(files.map((f) => f.split('/').pop()).sort()).toEqual(['day.css', 'daypicker.css', 'effort.css', 'morning.css', 'sessions.css']);
+    expect(files.map((f) => f.split('/').pop()).sort()).toEqual(['addsession.css', 'day.css', 'daypicker.css', 'effort.css', 'morning.css', 'sessions.css']);
   });
   for (const file of files) {
     it(`${file.split('/').slice(-2).join('/')} has no px font size or line height`, () => {

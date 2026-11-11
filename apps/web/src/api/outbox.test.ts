@@ -366,3 +366,75 @@ describe('a goal set offline keeps what was done to it (goals-27)', () => {
     expect(sent.map((x) => x.path)).toEqual(['/goals/day/2026-11-10', '/goals/goal-77']);
   });
 });
+
+/**
+ * Plan's Add sheet (useSessionMutations().add): the session's id is made on the phone and the create is registered under
+ * it, so what names the session before the server has answered (a past day's done mark, Undo) goes out after the create,
+ * in order, online or offline. A create refused for good takes what waited on it out of the queue.
+ */
+describe('a session added in Plan keeps what was done to it before the server answered', () => {
+  const id = 'pA1b2C3d4E5f6';
+  const body = { id, date: '2026-11-09', kind: 'run', type: 'Easy', title: null, details: null, miles: 4, minutes: null };
+
+  it('online: the done mark and Undo wait behind the create and go out in order', async () => {
+    const { outbox, write } = await load();
+    let answer: (v: unknown) => void = () => undefined;
+    respond = (path) => (path === '/sessions' ? new Promise((r) => (answer = r)) : Promise.resolve({ ok: true }));
+    const created = write('/sessions', 'POST', body, [['month', '2026-11']], { tmpId: id });
+    const marked = write(`/sessions/${id}/mark`, 'POST', { mark: 'done' }, [['month', '2026-11']]);
+    const undone = write(`/sessions/${id}`, 'DELETE', undefined, [['month', '2026-11']]);
+    expect(await marked).toBeNull();
+    expect(await undone).toBeNull();
+    // only the create is on the wire; the two that name its id are held
+    expect(sent.map((x) => [x.method, x.path])).toEqual([['POST', '/sessions']]);
+    expect(outbox.size()).toBe(2);
+    answer({ ...body, position: 0 });
+    await created;
+    await vi.waitFor(() => expect(outbox.size()).toBe(0));
+    expect(sent.map((x) => [x.method, x.path])).toEqual([
+      ['POST', '/sessions'],
+      ['POST', `/sessions/${id}/mark`],
+      ['DELETE', `/sessions/${id}`],
+    ]);
+  });
+
+  it('offline: create, mark and Undo replay in the order they were made, under the id made on the phone', async () => {
+    const { outbox, write } = await load();
+    offline = true;
+    await write('/sessions', 'POST', body, [['month', '2026-11']], { tmpId: id });
+    await write(`/sessions/${id}/mark`, 'POST', { mark: 'done' }, [['month', '2026-11']]);
+    await write(`/sessions/${id}`, 'DELETE', undefined, [['month', '2026-11']]);
+    expect(outbox.size()).toBe(3);
+    offline = false;
+    respond = async (path) => (path === '/sessions' ? { ...body, position: 0 } : { ok: true });
+    await outbox.replay(qc);
+    expect(sent.map((x) => [x.method, x.path])).toEqual([
+      ['POST', '/sessions'],
+      ['POST', `/sessions/${id}/mark`],
+      ['DELETE', `/sessions/${id}`],
+    ]);
+    expect((sent[0]!.json as { id: string }).id).toBe(id);
+    expect(outbox.size()).toBe(0);
+  });
+
+  it('a create refused for good: forget() drops what waited on its id, and nothing is sent to it later', async () => {
+    const { outbox, write } = await load();
+    let refuse: (e: unknown) => void = () => undefined;
+    respond = (path) => (path === '/sessions' ? new Promise((_r, rej) => (refuse = rej)) : Promise.resolve({ ok: true }));
+    const created = write('/sessions', 'POST', body, [['month', '2026-11']], { tmpId: id });
+    await write(`/sessions/${id}/mark`, 'POST', { mark: 'done' }, [['month', '2026-11']]);
+    // another write, about something else, stays
+    offline = true;
+    await write('/todos', 'POST', { text: 'A', date: '2026-11-09' }, [['todos']], { tmpId: 'tmp-a' });
+    offline = false;
+    expect(outbox.size()).toBe(2);
+    refuse(http(404));
+    await expect(created).rejects.toMatchObject({ status: 404 });
+    await outbox.forget(id);
+    expect(onDisk().map((x) => x.path)).toEqual(['/todos']);
+    respond = async () => ({ id: 'real-a' });
+    await outbox.replay(qc);
+    expect(sent.map((x) => x.path)).toEqual(['/sessions', '/todos']);
+    expect(outbox.size()).toBe(0);
+  });
+});

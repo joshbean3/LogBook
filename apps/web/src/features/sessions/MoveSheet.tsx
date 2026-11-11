@@ -32,11 +32,12 @@ export const announceReshape = (toast: ReturnType<typeof useToast>, r: { conflic
 
 /**
  * After a pick the row the sheet would give focus back to has moved (it is a new row on its new day): focus goes to the
- * moved session's row in the shown page once the sheet has let go of focus, not to `<body>` (code review 2 #8). When its
+ * moved session's row in the shown page once the sheet has let go of focus, not to `<body>` (code review 2 #8). The Add
+ * sheet uses it too: an empty day's row is gone once the day holds the new session. When its
  * new day is not on the shown page (a move past Sunday, or off Today's day), focus goes to the shown pager, where the
  * arrow keys page to it (code review 3 #1).
  */
-const refocusMoved = (id: string, to: string) => {
+export const refocusMoved = (id: string, to: string) => {
   const t0 = performance.now();
   const cur = '.tab[data-active] .pl-pane.is-on .dp-page[data-role="cur"]';
   const tick = () => {
