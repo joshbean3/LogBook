@@ -248,6 +248,13 @@
 .pv-foot .pv-answers {
   pointer-events: auto;
 }
+/* at a very large text size the foot (the footnote and the stacked pair) would take half the screen: it joins the page
+   and comes at the end of the scroll instead */
+html[data-text-xl] .pv-foot {
+  position: static;
+  padding-top: var(--sp-4);
+  background: none;
+}
 /* the two answers, side by side and the same size: neither is chosen for the person. When the pair cannot hold its words
    on one line each (a small phone at a larger text size), they stack, still the same size */
 .pv-answers {

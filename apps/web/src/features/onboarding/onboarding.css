@@ -493,6 +493,8 @@
   min-width: 0;
   min-height: 64px;
   display: grid;
+  /* the column is the segment's, never its caption's: a wide LONG at a large text size hangs past it, centered */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 44px auto;
   justify-items: stretch;
   align-content: start;
@@ -525,7 +527,9 @@
   box-shadow: inset 0 0 0 2px var(--t-long);
 }
 .ob-day-cap {
+  justify-self: center;
   min-height: var(--lh-caps);
+  white-space: nowrap;
   text-align: center;
   font: 600 var(--fs-caps) / var(--lh-caps) var(--stamp);
   letter-spacing: var(--tr-caps);
@@ -612,12 +616,10 @@
   margin-top: var(--sp-2);
   padding-inline: 14px; /* brand-ok: geometry, half the 28 px marker so it never leaves the card */
 }
+/* the time labels' room grows with the text size (3rem: 48 at 100%), so at 200% LEAVE 8:30 clears the hours under it */
 .ob-track-labels {
   position: relative;
-  height: 48px;
-}
-.ob-track-labels.below {
-  height: 48px;
+  height: 3rem;
 }
 .ob-track-label {
   position: absolute;
@@ -728,6 +730,10 @@
 .ob-verdict b {
   font-weight: 600;
   color: var(--ink);
+}
+/* at a very large text size the line above Next keeps only the door time; the rest would take half the screen */
+html[data-text-xl] .ob-verdict-more {
+  display: none;
 }
 /* the one-tap fix under the markers, inside their card */
 .ob-fix-row .ob-fix.ob-chip {

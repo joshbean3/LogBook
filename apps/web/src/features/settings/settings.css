@@ -6,9 +6,13 @@
   --swipe-bg: var(--bg);
 }
 
-/* a section: the list-page rhythm comes from .lb-sec.is-list (24 above, 8 to its container); an optional Dusk footnote */
+/* a section: the list-page rhythm comes from .lb-sec.is-list (24 above, 8 to its container); an optional Dusk footnote,
+   its numbers in even figures like every number in a row (guide 4.4) */
 .s-sec {
   min-width: 0;
+}
+.s-sec > .lb-foot {
+  font-variant-numeric: tabular-nums;
 }
 /* the first group under the pushed bar starts 16 below it: the layout kit's one rule (styles/layout.css, layout standard 3.2) */
 .s-card.card {
@@ -138,6 +142,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   margin-top: var(--sp-4);
+}
+.s-acct-actions > .btn {
+  font-size: var(--fs-row);
 }
 .s-acct-actions > .s-delete {
   margin-top: var(--sp-8);

@@ -436,7 +436,7 @@ function Flow({ uid }: { uid: string }) {
           // what the answers make, said once, on the line above Next (plan O5): in place of "You can change this later"
           later={
             <span className="ob-verdict" aria-live="polite">
-              <b>{afternoon ? afternoonLine(offWork) : `Out the door ${hm(pv.door)}.`}</b> {afternoon ? `Mornings: wake ${hm(d.wake)}, leave ${hm(d.leave)}.` : verdictLine(pv)}
+              <b>{afternoon ? afternoonLine(offWork) : `Out the door ${hm(pv.door)}.`}</b> <span className="ob-verdict-more">{afternoon ? `Mornings: wake ${hm(d.wake)}, leave ${hm(d.leave)}.` : verdictLine(pv)}</span>
             </span>
           }
         >

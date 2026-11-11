@@ -55,7 +55,7 @@ export const PrivacyPage = (): React.JSX.Element => {
         foot={c ? consentFoot(c) : consent.isError ? 'Couldn’t load your choices. Check your connection.' : ' '}
       >
         {CONSENT_SWITCHES.map((s) => (
-          <Row key={s.key} className="s-consent-row" title={s.title} sub={s.sub} right={<Switch on={switchOn(c, s.key)} label={s.title} disabled={!c} onChange={(next) => change(s.key, next)} />} />
+          <Row key={s.key} className="s-wrap-title s-consent-row" title={s.title} sub={s.sub} right={<Switch on={switchOn(c, s.key)} label={s.title} disabled={!c} onChange={(next) => change(s.key, next)} />} />
         ))}
       </SGroup>
       {/* the whole of what goes and what does not, word for word the list sign-up shows, as one inset group (S5) */}

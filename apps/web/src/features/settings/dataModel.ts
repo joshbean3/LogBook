@@ -3,7 +3,7 @@
  */
 
 /** What Export writes, and no more (the export holds the plan, habits, goals, journal and to-dos, among others). */
-export const EXPORT_SUB = 'Your plan, habits, goals, journal and to-dos, as one JSON file.';
+export const EXPORT_SUB = 'Your whole log, as one JSON file.';
 export const IMPORT_SUB = 'An Orby export file (JSON).';
 
 /** The server takes a file up to 20 MB (ws-01, settings-15); a bigger one is refused here before it is sent. */
