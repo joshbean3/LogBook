@@ -57,5 +57,5 @@ export const useHealthDays = (from: ISODate, to: ISODate): { days: ReadonlyMap<I
 export const useHealthLink = (): HealthLink => {
   const status = useQuery({ queryKey: healthStatusKey, queryFn: () => api<HealthStatus>('/apple-health/status'), staleTime: 30_000, enabled: HEALTH_BUILT });
   const sync = useHealthSync();
-  return { connected: !!status.data?.connected, syncing: sync.phase === 'running' || sync.phase === 'importing' };
+  return { connected: !!status.data?.connected, syncing: sync.phase === 'running' || sync.phase === 'importing', lastSyncAt: status.data?.lastSyncAt ?? null };
 };

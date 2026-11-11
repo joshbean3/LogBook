@@ -507,6 +507,23 @@ export const coreRoutes = (db: DB) => {
     return c.json(activitiesBetween(db, userId, from, to));
   });
 
+  // ---------- where run history starts (Progress's All range): one date, nothing else ----------
+  r.get('/activities/start', (c) => {
+    const userId = uidOf(c);
+    const act = db
+      .select({ d: sql<string | null>`min(${activities.date})` })
+      .from(activities)
+      .where(and(eq(activities.userId, userId), isNull(activities.deletedAt), eq(activities.kind, 'run')))
+      .get()?.d;
+    const ses = db
+      .select({ d: sql<string | null>`min(${trainingSessions.date})` })
+      .from(trainingSessions)
+      .where(and(eq(trainingSessions.userId, userId), isNull(trainingSessions.deletedAt), eq(trainingSessions.kind, 'run')))
+      .get()?.d;
+    const first = [act, ses].filter((d): d is string => !!d).sort()[0] ?? null;
+    return c.json({ first });
+  });
+
   // keep the import used for status typing
   void stravaAccounts;
   void desc;

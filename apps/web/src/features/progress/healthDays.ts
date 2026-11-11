@@ -48,6 +48,8 @@ export interface HealthLink {
   connected: boolean;
   /** A sync is running on this phone right now. */
   syncing: boolean;
+  /** When the server last took readings from a phone (ISO), when it has. */
+  lastSyncAt?: string | null;
 }
 
 /**

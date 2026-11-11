@@ -2,7 +2,8 @@ import { shiftDays, type Activity, type LiftSet, type Session } from '@logbook/s
 import { describe, expect, it } from 'vitest';
 import { buildSnapshot } from '@/api/snapshot';
 import type { MonthBundle } from '@/api/types';
-import { liftGroups, setWords, weekSeries } from './data';
+import { liftGroups, setWords } from './data';
+import { runRange } from './hero';
 
 const run = (date: string, miles: number): Activity => ({ id: `a-${date}-${miles}`, date, time: null, name: 'Run', sportType: 'Run', kind: 'run', miles, movingSec: miles * 480, elevFt: 0, avgHr: 150, maxHr: null, cadence: null, laps: null, perfAt: null, polyline: null });
 const sess = (date: string, miles: number, extra: Partial<Session> = {}): Session => ({ id: `s-${date}`, date, position: 0, kind: 'run', type: 'Easy', title: null, details: null, miles, minutes: null, blockId: null, movedFrom: null, mark: null, ...extra });
@@ -30,14 +31,13 @@ describe('progress builds from the months that are loaded (§8, critic C11)', ()
     const snap = snapOf('2026-10-14', weeks(mons, [4, 4, 4, 4, 4, 4]));
     // September never answered: its weeks are a gap, August and October still draw
     const loaded = (m: string) => m !== '2026-09';
-    const pts = weekSeries(snap, '2026-10-14', '3M', loaded);
-    const gap = pts.filter((p) => p.missing).map((p) => p.w);
+    const pts = runRange(snap, '2026-10-14', '3M', null, loaded).buckets;
+    const gap = pts.filter((p) => p.missing).map((p) => p.key);
     expect(gap).toContain('2026-09-14');
-    expect(gap).toContain('2026-08-31'); // Aug 31 – Sep 6 touches September
-    expect(pts.find((p) => p.w === '2026-10-05')!.missing).toBe(false);
-    expect(pts.filter((p) => p.missing).every((p) => p.avg == null)).toBe(true);
+    expect(gap).toContain('2026-08-31'); // Aug 31 to Sep 6 touches September
+    expect(pts.find((p) => p.key === '2026-10-05')).toMatchObject({ missing: false, done: 12, runs: 3 });
     // without a loaded() the series is as before: nothing missing
-    expect(weekSeries(snap, '2026-10-14', '3M').some((p) => p.missing)).toBe(false);
+    expect(runRange(snap, '2026-10-14', '3M', null).buckets.some((p) => p.missing)).toBe(false);
   });
 });
 

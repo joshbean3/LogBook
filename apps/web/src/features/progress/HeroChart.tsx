@@ -1,15 +1,18 @@
 import type * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { mondayOf } from '@logbook/shared';
 import { useNav } from '@/app/NavController';
 import { haptics } from '@/lib/haptics';
 import { STRAVA_BUILT } from '@/lib/features';
-import { Button, EmptyState, Segmented } from '@/ui';
+import { Button, EmptyState, Segmented, Skeleton, SkeletonGroup } from '@/ui';
+import { RangeControl } from '@/ui/charts';
 import { useNowMark, usePageShown } from '@/ui/nowBudget';
 import type { Log } from '../log/useLog';
-import { plural, weekTitle } from './data';
-import { completion, HERO_MODES, HERO_WEEKS, lbShort, liftWeeks, miShort, runWeeks, weekRate, type HeroMode, type LiftWeek, type RunWeek } from './hero';
+import { plural } from './data';
+import { completion, HERO_MODES, lbShort, liftWeeks, miShort, runRange, type HeroMode, type LiftWeek, type RunView } from './hero';
 import { LiftList } from './LiftList';
 import { PlanLine } from './PlanLine';
+import { bucketTitle, keptOver, PROGRESS_RANGES, RANGE_WORDS, rangeContext, type ProgressRange, type RunBucket } from './ranges';
 import { useOpenWeek } from './sheets';
 import './hero.css';
 
@@ -37,35 +40,16 @@ const useMode = () => {
 };
 
 const pctText = (r: number) => `${Math.round(r * 100)}%`;
+const runsWords = (b: Pick<RunBucket, 'runs' | 'plannedRuns'>) => (b.plannedRuns > 0 ? `${b.runs} of ${b.plannedRuns} ${plural(b.plannedRuns, 'run')}` : `${b.runs} ${plural(b.runs, 'run')}`);
 
-/** What the headline says for one week, in the mode's words. */
-const weekLine = (mode: HeroMode, p: RunWeek | LiftWeek) => {
-  if (mode === 'run') {
-    const r = p as RunWeek;
-    const unit = 'mi';
-    return {
-      big: miShort(r.done),
-      of: r.planned > 0 ? `of ${miShort(r.planned)} ${unit}` : unit,
-      sub: r.plannedRuns > 0 ? `${r.runs} of ${r.plannedRuns} ${plural(r.plannedRuns, 'run')}` : r.runs ? `${r.runs} ${plural(r.runs, 'run')}, none planned` : 'No runs planned',
-      words: `${miShort(r.done)} ${r.planned > 0 ? `of ${miShort(r.planned)} planned ` : ''}miles, ${r.runs} ${plural(r.runs, 'run')}`,
-    };
-  }
-  const l = p as LiftWeek;
-  const unit = plural(l.planned || l.done, 'session');
-  return {
-    big: String(l.done),
-    of: l.planned > 0 ? `of ${l.planned} ${unit}` : unit,
-    sub: l.sets ? `${l.sets} ${plural(l.sets, 'set')}, ${lbShort(l.volume)} lb moved` : p.current ? 'No sets yet' : 'No sets logged',
-    words: `${l.done} ${l.planned > 0 ? `of ${l.planned} planned ` : ''}lift ${plural(l.planned || l.done, 'session')}, ${l.sets} ${plural(l.sets, 'set')}`,
-  };
+/** This week, in words under the 1W headline: done, on plan with miles to go, or behind the plan so far. */
+const weekTakeaway = (w: RunBucket) => {
+  if (w.planned <= 0) return 'No runs planned this week';
+  if (w.done + 0.05 >= w.planned) return 'This week’s plan is done';
+  const behind = w.plannedPast - w.done;
+  return behind > 0.05 ? `${miShort(behind)} mi behind plan this week` : `On plan, ${miShort(w.planned - w.done)} mi to go`;
 };
 
-/**
- * The hero: one card, one switch. Running draws weekly miles as two curves, the plan and what was run; the headline is this
- * week at rest and the week under the finger while scrubbing, and a tap on a week opens its sheet. Strength gives this week's
- * sessions against the plan, then the workouts themselves as a column of cards that open their sheets. The number at the
- * right is how much of the plan got done over the last four finished weeks (a scrubbed week's share while scrubbing).
- */
 /** The empty card's ghost: the shape of the chart to come, two curves (the plan dashed, what was run solid). Shapes only. */
 const CurveGhost = () => (
   <svg viewBox="0 0 300 96" width="100%" height={96} aria-hidden="true" className="ph-ghost">
@@ -76,64 +60,96 @@ const CurveGhost = () => (
 );
 
 /**
- * A week on its own is not a chart: until two weeks have something in them, this week's bar (done of planned) stands in
- * for the plot, with one line that says the chart is coming.
+ * This week as the guide's ruler (6.8): a 6 px Haze track, Deep Sky to the miles run, a Sunrise NOW tick there with "NOW" in
+ * Ember caption over it, a Night Ink triangle under the track at the plan by the end of today, "0" and the week's plan under
+ * the ends. It sits over the plot in 1W, and stands in for the chart before two weeks have anything in them.
  */
-const FirstWeek = ({ p }: { p: RunWeek }) => {
-  const share = p.planned > 0 ? Math.min(1, p.done / p.planned) : p.done > 0 ? 1 : 0;
-  // the ruler's NOW tick is a Sunrise mark (guide 3.5 job 6) while this week shows on the page on screen
-  const now = useNowMark('pointer', usePageShown() && p.current);
+const Ruler = ({ w }: { w: RunBucket }) => {
+  const share = w.planned > 0 ? Math.min(1, w.done / w.planned) : w.done > 0 ? 1 : 0;
+  const by = w.planned > 0 ? Math.min(1, w.plannedNow / w.planned) : null;
+  // the NOW tick is a Sunrise mark (guide 3.5 job 6) while this week shows on the page on screen
+  const now = useNowMark('pointer', usePageShown() && w.current);
   return (
-    <div className="ph-first">
-      <span className="ph-first-bar" role="img" aria-label={p.planned > 0 ? `${miShort(p.done)} of ${miShort(p.planned)} miles this week` : `${miShort(p.done)} miles this week`}>
+    <div className="ph-ruler" role="img" aria-label={w.planned > 0 ? `${miShort(w.done)} of ${miShort(w.planned)} miles this week. The plan by today: ${miShort(w.plannedNow)} miles.` : `${miShort(w.done)} miles this week`}>
+      <span className="ph-ruler-now" aria-hidden="true" data-now={now === 'ink' ? 'ink' : undefined} style={{ '--at': share } as React.CSSProperties}>
+        Now
+      </span>
+      <span className="ph-ruler-bar" aria-hidden="true">
         <i style={{ transform: `scaleX(${share})` }} />
-        {p.current ? <b className="ph-first-now" data-now={now === 'ink' ? 'ink' : undefined} style={{ '--at': share } as React.CSSProperties} /> : null}
+        <b className="ph-ruler-tick" data-now={now === 'ink' ? 'ink' : undefined} style={{ '--at': share } as React.CSSProperties} />
+        {by != null ? <em className="ph-ruler-by" style={{ '--at': by } as React.CSSProperties} /> : null}
       </span>
-      <span className="ph-first-ends" aria-hidden="true">
+      <span className="ph-ruler-ends" aria-hidden="true">
         <span>0</span>
-        <span>{p.planned > 0 ? `${miShort(p.planned)} mi` : ''}</span>
-      </span>
-      <p className="ph-first-line">Your weeks draw here as you go.</p>
-    </div>
-  );
-};
-
-/** The key under the chart; its "This week" swatch is the now dot's, a stamp-priority Sunrise mark. */
-const Legend = () => {
-  const now = useNowMark('stamp', usePageShown());
-  return (
-    <div className="ph-legend" aria-hidden="true">
-      <span className="ph-key is-actual">Actual</span>
-      <span className="ph-key is-plan">Plan</span>
-      <span className="ph-key is-now" data-now={now === 'ink' ? 'ink' : undefined}>
-        This week
+        <span>{w.planned > 0 ? `${miShort(w.planned)} mi` : ''}</span>
       </span>
     </div>
   );
 };
 
-export const HeroChart = ({ log, t, onConnect, failed, onRetry }: { log: Log; t: string; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
+/** What the Strength headline says for a week. */
+const liftLine = (l: LiftWeek) => {
+  const unit = plural(l.planned || l.done, 'session');
+  return {
+    big: String(l.done),
+    of: l.planned > 0 ? `of ${l.planned} ${unit}` : unit,
+    take: l.sets ? `${l.sets} ${plural(l.sets, 'set')}, ${lbShort(l.volume)} lb moved` : l.current ? 'No sets yet' : 'No sets logged',
+    words: `${l.done} ${l.planned > 0 ? `of ${l.planned} planned ` : ''}lift ${unit}, ${l.sets} ${plural(l.sets, 'set')}`,
+  };
+};
+
+/**
+ * The hero (guide 6.4, layout standard 6.4): one card, read top down. Running / Strength first, in the quiet tone (the range
+ * control below is the card's one Sky thumb); then the headline, the largest and darkest thing on the screen, with its
+ * context on the same line; one takeaway line under it, which carries the share of the plan for the range (one big number
+ * per card: the old "Last 4 weeks" box follows the range now and is said in words); then the chart and,
+ * under the plot it changes, the range control. Running draws miles for the range (1W by day with this week's ruler over
+ * it; 1M to 12M by week; All by week or, past about 18 months, by month). Strength gives this week against the plan, then the
+ * workouts as date rows under a hairline. Scrubbing reads one point in the headline; a tap opens its week.
+ */
+export const HeroChart = ({ log, t, range, onRange, first, firstReady = true, onConnect, failed, onRetry }: { log: Log; t: string; range: ProgressRange; onRange: (r: ProgressRange) => void; first: string | null; firstReady?: boolean; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
   const nav = useNav();
   const [mode, setMode] = useMode();
   const [scrub, setScrub] = useState<number | null>(null);
   const [opened, setOpened] = useState<number | null>(null);
   const openWeek = useOpenWeek(t);
-  const run = useMemo(() => runWeeks(log.snap, t, (m) => log.snap.loaded(m)), [log.snap, t]);
-  const lift = useMemo(() => liftWeeks(log.snap, t, (m) => log.snap.loaded(m)), [log.snap, t]);
-  const weeks: Array<RunWeek | LiftWeek> = mode === 'run' ? run : lift;
+  const loaded = (m: string) => log.snap.loaded(m);
+  const fresh = useMemo(() => runRange(log.snap, t, range, first, (m) => log.snap.loaded(m)), [log.snap, t, range, first]);
+  // a range whose months are still on their way keeps the last whole chart on screen (never a chart of gaps that fill in
+  // one by one); a month that could not be read shows as a gap with Try again
+  const lastWhole = useRef<RunView | null>(null);
+  const whole = !fresh.buckets.some((b) => b.missing) && (range !== 'All' || firstReady);
+  if (whole) lastWhole.current = fresh;
+  const view = whole || failed || !lastWhole.current ? fresh : lastWhole.current;
+  // the range's months are still on their way and no whole chart has been drawn yet (a long range remembered from the last
+  // visit, on a cold open): its total would count only the months in so far, so the headline and the plot wait as skeletons
+  const pending = !whole && !failed && !lastWhole.current;
+  const lift = useMemo(() => liftWeeks(log.snap, t, loaded), [log.snap, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the last 13 weeks, whatever the range: this week's numbers, and whether there is anything before it yet
+  const recent = useMemo(() => runRange(log.snap, t, '3M', first, loaded), [log.snap, t, first]); // eslint-disable-line react-hooks/exhaustive-deps
+  const thisWeek = recent.buckets[recent.buckets.length - 1]!;
+  const recentGaps = recent.buckets.some((b) => b.missing);
+  const before = recent.buckets.some((b) => !b.current && !b.future && (b.planned > 0 || b.done > 0)) || (!!first && first < recent.span.from);
 
-  const change = (m: HeroMode) => {
+  const changeMode = (m: HeroMode) => {
     // a segmented change ticks once
     haptics.select();
     setScrub(null);
     setMode(m);
   };
+  const changeRange = (r: ProgressRange) => {
+    setScrub(null);
+    setOpened(null);
+    onRange(r);
+  };
+  // two segmented controls share the card: the one that is not the range control is quiet (guide 6.3 amendment, F9)
   const seg = (
     <Segmented
       className="ph-seg"
+      tone="quiet"
       label="Running or strength"
       value={mode}
-      onChange={change}
+      onChange={changeMode}
       options={[
         ['run', 'Running'],
         ['lift', 'Strength'],
@@ -141,12 +157,13 @@ export const HeroChart = ({ log, t, onConnect, failed, onRetry }: { log: Log; t:
     />
   );
 
-  const gaps = weeks.some((p) => p.missing);
-  const any = weeks.some((p) => p.done > 0 || p.planned > 0);
-  if (!any && !gaps) {
+  // ---------- nothing planned and nothing run, ever (in the loaded months): the screen's empty state ----------
+  const runAny = before || thisWeek.planned > 0 || thisWeek.done > 0 || view.weeks.some((p) => p.done > 0 || p.planned > 0);
+  const liftAny = lift.some((p) => p.done > 0 || p.planned > 0 || p.missing);
+  if ((mode === 'run' && !runAny && !recentGaps) || (mode === 'lift' && !liftAny)) {
     const strava = STRAVA_BUILT && !!onConnect;
     return (
-      <section className="card ph" aria-label={mode === 'run' ? 'Running' : 'Strength'}>
+      <section className="card is-hero has-glow ph" aria-label={mode === 'run' ? 'Running' : 'Strength'}>
         {seg}
         <EmptyState
           className="ph-empty"
@@ -159,69 +176,123 @@ export const HeroChart = ({ log, t, onConnect, failed, onRetry }: { log: Log; t:
     );
   }
 
-  const ci = weeks.findIndex((p) => p.current);
-  const shownI = scrub ?? opened ?? ci;
-  const sp = weeks[shownI] ?? weeks[weeks.length - 1]!;
-  const line = weekLine(mode, sp);
-  // a rate over weeks that did not load would be a rate over the wrong weeks: none until they are in
-  const rate = gaps && failed ? null : completion(weeks);
-  // a chart needs two weeks with something in them; before that the week's own bar stands in (and no legend for lines not drawn)
-  const drawn = weeks.filter((p) => !p.missing && (p.planned > 0 || p.done > 0)).length;
-  const firstWeek = mode === 'run' && !gaps && drawn < 2;
-  const live = scrub != null || opened != null;
-  const wr = weekRate(sp);
-  const side = live ? (wr != null ? { value: pctText(wr), cap: 'Of plan' } : { value: null, cap: 'No plan' }) : rate ? { value: pctText(rate.rate), cap: `Last ${rate.weeks === 1 ? 'week' : `${rate.weeks} weeks`}` } : null;
-  const what = mode === 'run' ? 'planned miles' : 'planned lift sessions';
-  const eyebrow = `${weekTitle(sp.w, t)}${sp.current ? ' so far' : ''}`;
+  // ---------- strength: this week against the plan, then the workouts ----------
+  if (mode === 'lift') {
+    const cur = lift[lift.length - 1]!;
+    const line = liftLine(cur);
+    const rate = completion(lift);
+    return (
+      <section className="card is-hero has-glow ph" aria-label="Strength">
+        {seg}
+        <div className="ph-head">
+          <span className="sr-only">{`This week: ${line.words}.${rate ? ` Last ${rate.weeks} weeks: ${pctText(rate.rate)} of planned lift sessions done.` : ''}`}</span>
+          <div className="ph-main" aria-hidden="true">
+            <span className="ph-big">
+              <span className="tnum">{line.big}</span>
+              <small>{line.of} this week</small>
+            </span>
+            {/* the share of the plan over the last finished weeks, said in the takeaway (the list below has each workout's sets) */}
+            <span className="ph-take">{rate ? `${pctText(rate.rate)} of plan over the last ${rate.weeks === 1 ? 'week' : `${rate.weeks} weeks`}` : line.take}</span>
+          </div>
+        </div>
+        <hr className="rule" />
+        <LiftList log={log} t={t} />
+      </section>
+    );
+  }
+
+  // ---------- running ----------
+  if (pending && before) {
+    return (
+      <section className="card is-hero has-glow ph" aria-label="Running">
+        {seg}
+        <SkeletonGroup label={`Loading ${RANGE_WORDS[range].toLowerCase()}`} className="ph-wait">
+          <Skeleton w={176} h={46} r="control" />
+          <Skeleton w={208} h={16} />
+          <span className="skel ph-wait-plot" aria-hidden="true" />
+        </SkeletonGroup>
+        <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />
+      </section>
+    );
+  }
+  const { span, buckets, weeks } = view;
+  const gaps = buckets.some((p) => p.missing);
+  // a chart needs a week before this one with something in it; until then this week's ruler stands in, with one line that
+  // says the chart is coming (and no range control for a chart that is not drawn)
+  const firstWeek = !recentGaps && !before;
+  const is1W = range === '1W' || firstWeek;
+  const ci = buckets.findIndex((p) => p.current);
+  const live = !firstWeek && (scrub ?? opened) != null;
+  const at = live ? buckets[(scrub ?? opened)!]! : null;
+  const kept = gaps && failed ? null : keptOver(weeks);
+  const total = buckets.reduce((s, b) => s + (b.missing ? 0 : b.done), 0);
+  const runs = buckets.reduce((s, b) => s + (b.missing ? 0 : b.runs), 0);
+
+  // the headline: at rest the range (1W: this week against its plan), while reading a point that point
+  let big: string;
+  let context: string;
+  let take: string;
+  if (at) {
+    big = miShort(at.done);
+    context = at.planned > 0 ? `of ${miShort(at.planned)} mi` : 'mi';
+    take = `${bucketTitle(span.unit, at, t)} · ${at.future ? 'Planned' : runsWords(at)}`;
+  } else if (is1W) {
+    big = miShort(thisWeek.done);
+    context = thisWeek.planned > 0 ? `of ${miShort(thisWeek.planned)} mi · ${runsWords(thisWeek)}` : `mi · ${runsWords(thisWeek)}`;
+    take = firstWeek ? 'Your weeks draw here as you go.' : weekTakeaway(thisWeek);
+  } else {
+    big = miShort(total);
+    context = `mi ${rangeContext(span, t)}`;
+    // the share of the plan follows the range and lives in the takeaway: one big number per card (layout standard 8.10)
+    // with no finished week to grade yet, "none planned" only when nothing in the range is planned (a plan that starts this
+    // week, or days still ahead, is a plan)
+    const planned = buckets.some((b) => !b.missing && b.planned > 0);
+    take = kept ? (kept.behind < 0.5 ? 'On plan' : `${pctText(kept.rate)} of plan, ${miShort(kept.behind)} mi behind`) : runs ? `${runs} ${plural(runs, 'run')}${planned ? '' : ', none planned'}` : planned ? 'No runs yet in this range' : 'No runs in this range';
+  }
 
   const words = (i: number) => {
-    const p = weeks[i]!;
-    return `${weekTitle(p.w, t)}${p.current ? ' so far' : ''}: ${p.missing ? 'not loaded yet' : weekLine(mode, p).words}`;
+    const p = buckets[i]!;
+    const name = bucketTitle(span.unit, p, t);
+    if (p.missing) return `${name}: not loaded yet`;
+    if (p.future) return `${name}: ${miShort(p.planned)} miles planned`;
+    return `${name}: ${miShort(p.done)} ${p.planned > 0 ? `of ${miShort(p.planned)} planned ` : ''}miles, ${runsWords(p)}`;
   };
-  const chartLabel = `${mode === 'run' ? 'Weekly miles' : 'Weekly lift sessions'}, planned and done, last ${HERO_WEEKS} weeks. ${ci >= 0 ? `${words(ci)}.` : ''} ${rate ? `Last ${rate.weeks} weeks: ${pctText(rate.rate)} of ${what} done.` : ''}`;
-  const readWords = sp.missing ? `${eyebrow}: not loaded yet` : `${eyebrow}: ${line.words}${live ? (wr != null ? `, ${pctText(wr)} of plan` : ', nothing planned') : rate ? `. Last ${rate.weeks} weeks: ${pctText(rate.rate)} of ${what} done` : ''}`;
+  const unitWord = span.unit === 'day' ? 'Daily' : span.unit === 'week' ? 'Weekly' : 'Monthly';
+  const chartLabel = `${unitWord} miles, planned and run, ${RANGE_WORDS[range].toLowerCase()}. ${ci >= 0 ? `${words(ci)}.` : ''}`;
+  const readWords = `${big} ${context}. ${take}.`;
 
-  const openAt = (i: number) => {
-    const p = weeks[i];
-    if (!p) return;
-    // the headline names this week while its sheet is up
-    setOpened(i);
-    openWeek(p.w, 'open', () => setOpened(null));
-  };
+  // a tap opens the week it falls in (a day opens its week); a month has no sheet of its own
+  const openAt =
+    span.unit === 'month'
+      ? undefined
+      : (i: number) => {
+          const p = buckets[i];
+          if (!p) return;
+          // the headline names this point while its sheet is up
+          setOpened(i);
+          openWeek(mondayOf(p.key), 'open', () => setOpened(null));
+        };
 
   return (
-    <section className="card ph" aria-label={mode === 'run' ? 'Running' : 'Strength'}>
+    <section className="card is-hero has-glow ph" aria-label="Running">
       {seg}
       <div className="ph-head">
-        {/* the words VoiceOver hears when the week under the finger changes: a live region speaks its text, not its label */}
+        {/* the words VoiceOver hears when the point under the finger changes: a live region speaks its text, not its label */}
         <span className="sr-only" role="status">
           {readWords}
         </span>
         <div className="ph-main" aria-hidden="true">
-          <span className="ph-eyebrow">{eyebrow}</span>
-          {sp.missing ? (
-            <span className="ph-big is-word">Reading your weeks</span>
-          ) : (
-            <span className="ph-big">
-              <span className="tnum">{line.big}</span>
-              <small>{line.of}</small>
-            </span>
-          )}
-          <span className="ph-sub">{sp.missing ? 'This month is on its way' : line.sub}</span>
+          <span className="ph-big">
+            <span className="tnum">{big}</span>
+            <small>{context}</small>
+          </span>
+          <span className="ph-take">{take}</span>
         </div>
-        {side ? (
-          <div className="ph-side" aria-hidden="true">
-            <span className={`ph-rate ${side.value ? '' : 'is-none'}`}>{side.value ?? '–'}</span>
-            <span className="ph-cap">{side.cap}</span>
-          </div>
-        ) : null}
       </div>
-      {mode === 'run' && firstWeek ? (
-        <FirstWeek p={sp as RunWeek} />
-      ) : mode === 'run' ? (
+      {is1W ? <Ruler w={thisWeek} /> : null}
+      {firstWeek ? null : (
         <>
-          <PlanLine weeks={weeks} label={chartLabel} words={words} onScrub={setScrub} onOpen={openAt} />
-          <Legend />
+          <PlanLine key={`${range}-${span.from}`} span={span} buckets={buckets} label={chartLabel} words={words} onScrub={setScrub} onOpen={openAt} />
           {gaps && failed && onRetry ? (
             <div className="ph-retry" role="alert">
               <span>Some weeks didn’t load.</span>
@@ -230,9 +301,8 @@ export const HeroChart = ({ log, t, onConnect, failed, onRetry }: { log: Log; t:
               </Button>
             </div>
           ) : null}
+          <RangeControl className="ph-range" value={range} options={PROGRESS_RANGES} words={RANGE_WORDS} onChange={changeRange} label="Range" />
         </>
-      ) : (
-        <LiftList log={log} t={t} />
       )}
     </section>
   );

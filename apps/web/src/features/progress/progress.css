@@ -6,88 +6,6 @@
 .pg-page {
   overflow-anchor: none;
 }
-
-/* ---------- tiles: trends and vitals ---------- */
-.pg-vital {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: stretch;
-  font: inherit;
-  width: 100%;
-}
-.pg-vital {
-  container: vital / inline-size;
-}
-/* the name stays whole ("Resting HR"): a narrow tile (a 320 phone, or a larger text size, hence rem) gives the metric
-   icon's room to it. The arrow sits over the range pill, so every tile keeps it */
-@container vital (max-width: 8.5rem) {
-  .pg-vital .tile-label svg {
-    display: none;
-  }
-}
-.pg-vital-side {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-height: 0;
-}
-.pg-vital-side .pg-go {
-  margin-left: 0;
-}
-.pg-vital-side .ck-rpill {
-  flex: 1 1 auto;
-  height: auto;
-  min-height: 3rem;
-}
-.pg-vital-main {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  min-width: 0;
-}
-.pg-vital-none {
-  color: var(--ink-2);
-  white-space: normal;
-}
-/* an "add here" slot: where the vitals will come from */
-.pg-slot {
-  appearance: none;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 4px;
-  min-width: 0;
-  width: 100%;
-  padding: 14px;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: var(--r-tile);
-  background: transparent;
-  color: var(--ink-2);
-  font: inherit;
-  text-align: center;
-}
-/* the slot's icon disc: Haze with a Deep Sky glyph (guide 6.3, 6.4) */
-.pg-slot-ic {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--haze);
-  color: var(--deep-sky);
-  margin-bottom: 4px;
-}
-.pg-slot-title {
-  font: 600 var(--fs-sub) / var(--lh-sub) var(--sans);
-  color: var(--ink);
-}
-.pg-slot-sub {
-  font-size: var(--fs-foot);
-  line-height: var(--lh-foot);
-}
-
 /* ---------- the numbers: Inter 650, even figures (they change; guide 4.4), their units Inter 500 Dusk ---------- */
 .pg-row-num,
 .pg-stamp-num {
@@ -469,16 +387,6 @@ button.pg-srow[data-pressed] {
   letter-spacing: 0;
   text-transform: none;
 }
-
-/* three trend tiles (no pace without a timed-run source): the last one takes the row */
-.pg-tiles > .ck-tcard:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-}
-/* the Health slot as the way in: Connect Apple Health reads as a button */
-.pg-slot.is-connect .pg-slot-title {
-  color: var(--deep-sky);
-}
-
 /* a line chart with no values: one quiet line where the plot would be */
 .pg-line-none {
   margin: 0;
@@ -498,113 +406,22 @@ button.pg-srow[data-pressed] {
 .pg-skel .pg-skel-title {
   margin-top: calc(var(--section) - var(--gap));
 }
-
-/* ---------- a new account: an empty state (guide 6.11): the Fraunces italic sentence, one secondary button ---------- */
-.pg-first.card {
-  display: grid;
-  gap: 12px;
-}
-.pg-first-t {
-  margin: 0;
-  font: italic 420 var(--fs-sentence) / var(--lh-sentence) var(--display);
-  letter-spacing: 0;
-  color: var(--ink);
-  text-wrap: balance;
-}
-.pg-first-acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.pg-first + .pg-tiles {
-  margin-top: var(--gap);
-}
-
-/* ---------- even rows, and one cue that a tile opens a page ---------- */
-/* a trend tile's four lines (label, number, status, line) and a vital's three hold one height each, so a row never steps */
-.pg-tiles .ck-tcard {
-  min-height: 9.5rem;
-}
-.pg-tiles .pg-vital,
-.pg-tiles .pg-slot {
-  min-height: 7.25rem;
-}
-/* the arrow stays at 320 (the kit hides it under 132 px; the label gives way instead) */
-.pg-tiles .ck-tcard .tile-label .ck-tcard-go {
-  display: block;
-}
-.pg-go {
-  flex: none;
-  margin-left: auto;
-  color: var(--ink-2);
-}
-.pg-vital .tile-label {
-  width: 100%;
-}
-/* a name that cannot fit (large text at 320) takes a second line rather than an ellipsis */
-.pg-vital-name {
-  min-width: 0;
-  white-space: normal;
-  overflow-wrap: break-word;
-}
-/* the tile unit says the days it covers ("mi, 7 days"): it may drop under the number in a narrow tile, never be cut */
-.pg-tiles .ck-tcard {
-  grid-template-columns: minmax(0, 1fr);
-}
-.pg-tiles .ck-tcard-num {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 3px;
-}
-.pg-tiles .ck-tcard-num small {
-  margin-left: 0;
-  white-space: nowrap;
-}
-/* the same on a vital tile: at a large text size "bpm" goes under the number instead of under the range pill */
-.pg-vital .tile-value {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 3px;
-  min-width: 0;
-}
-.pg-vital .tile-value small {
-  margin-left: 0;
-  white-space: nowrap;
-}
-/* "30-day": the section meta's tabular figures give the hyphen a figure's width */
-.pg-sec .lb-meta {
-  font-variant-numeric: normal;
-}
-/* the connect slot alone (nothing connected, nothing to read): one row across the page */
-.pg-slot.is-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  text-align: left;
-}
-.pg-slot.is-row .pg-slot-ic {
-  margin-bottom: 0;
-}
-.pg-slot-words {
-  display: grid;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
 /* ---------- the chart kit on these pages ---------- */
 /* axis words: the kit's caption style, Dusk (7.10 on Paper) */
 .pg-page .ck-ax {
   fill: var(--ink-2);
 }
-/* each span key at least 44 wide */
-.mp-card .ck-range-key {
-  min-width: 44px;
-}
 /* the average pill's words at 11 px, never under (the kit draws them at 10.5) */
 .pg-page .ck-avg-word {
   font-size: var(--fs-caps);
+}
+
+/* ---------- Trends and Health: one stat tile (layout standard 6.3) ---------- */
+/* the section row with nothing yet, then the tiles that have something, 12 apart (the gap between cards) */
+.pg-empty + .pg-tiles {
+  margin-top: var(--gap);
+}
+/* where Health's readings come from: a footnote 8 under the grid, on the ground (not a fourth tile) */
+.pg-foot {
+  margin: var(--sp-2) var(--sp-1) 0;
 }

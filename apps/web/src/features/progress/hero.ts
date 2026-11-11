@@ -4,7 +4,8 @@
  */
 import { counts, isSkipMark, label, mondayOf, monthOf, sessionStatus, shiftDays, type Activity, type ISODate, type LiftSet, type Session } from '@logbook/shared';
 import type { AppSnapshot } from '@/api/snapshot';
-import { weekSeries } from './data';
+import { dayMiles } from '../sessions/miles';
+import { bucketRuns, bucketsBetween, rangeSpan, type DayRun, type ProgressRange, type RangeSpan, type RunBucket } from './ranges';
 
 export type HeroMode = 'run' | 'lift';
 export const HERO_MODES: HeroMode[] = ['run', 'lift'];
@@ -36,12 +37,45 @@ export interface LiftWeek extends BarWeek {
 const days7 = (w: ISODate) => Array.from({ length: 7 }, (_, i) => shiftDays(w, i));
 const isMissing = (w: ISODate, loaded?: (month: string) => boolean) => (loaded ? days7(w).some((d) => !loaded(monthOf(d))) : false);
 
-/** Weekly run miles, planned (skips left out) against run (activities and runs marked done), from the shared week series. */
-export const runWeeks = (snap: AppSnapshot, today: ISODate, loaded?: (month: string) => boolean): RunWeek[] =>
-  weekSeries(snap, today, '3M', loaded)
-    .filter((p) => !p.future)
-    .slice(-HERO_WEEKS)
-    .map((p) => ({ w: p.w, planned: p.planned, done: p.ran, runs: p.runs, plannedRuns: p.plannedRuns, current: p.current, missing: !!p.missing }));
+/** One day's running: run miles planned (skips left out) and runs on the plan; miles and runs done (activities and runs
+ * marked done, `dayMiles`), nothing done after today. */
+export const runDay = (snap: AppSnapshot, d: ISODate, today: ISODate): DayRun => {
+  let planned = 0;
+  let plannedRuns = 0;
+  for (const s of snap.sessionsOn(d))
+    if (s.kind === 'run' && !isSkipMark(s.mark)) {
+      planned += Number(s.miles) || 0;
+      plannedRuns++;
+    }
+  if (d > today) return { planned, plannedRuns, done: 0, runs: 0 };
+  const m = dayMiles(snap, d);
+  return { planned, plannedRuns, done: m.miles, runs: m.runs };
+};
+
+export interface RunView {
+  span: RangeSpan;
+  /** The chart's points, in the span's unit. */
+  buckets: RunBucket[];
+  /** The same days by week: what the plan kept is graded by the week whatever the chart's unit. */
+  weeks: RunBucket[];
+}
+/** Days already read, per snapshot (a new snapshot, new data, starts over): switching ranges reads no day twice. */
+const dayCache = new WeakMap<AppSnapshot, Map<string, DayRun>>();
+/** The running chart for a range: its buckets, and the same days by week. Each day is read once per snapshot. */
+export const runRange = (snap: AppSnapshot, today: ISODate, range: ProgressRange, first: ISODate | null, loaded?: (month: string) => boolean): RunView => {
+  const span = rangeSpan(range, today, first);
+  let memo = dayCache.get(snap);
+  if (!memo) dayCache.set(snap, (memo = new Map()));
+  const day = (d: ISODate) => {
+    const k = `${today}|${d}`;
+    let r = memo!.get(k);
+    if (!r) memo!.set(k, (r = runDay(snap, d, today)));
+    return r;
+  };
+  const buckets = bucketRuns(span.buckets, day, today, loaded);
+  const weeks = span.unit === 'week' ? buckets : bucketRuns(bucketsBetween('week', span.from, span.to, today), day, today, loaded);
+  return { span, buckets, weeks };
+};
 
 /**
  * Weekly lift sessions. Planned: lift sessions on the plan, skips left out. Done: planned lifts that count (sets logged, a
@@ -84,10 +118,10 @@ export const completion = (weeks: BarWeek[], n = RATE_WEEKS): { rate: number; we
 };
 
 /** One week's share of its plan, capped at 100%; null with nothing planned. */
-export const weekRate = (p: BarWeek) => (p.planned > 0 ? Math.min(1, p.done / p.planned) : null);
+export const weekRate = (p: Pick<BarWeek, 'planned' | 'done'>) => (p.planned > 0 ? Math.min(1, p.done / p.planned) : null);
 
-/** Miles for a headline: "18", "18.5". */
-export const miShort = (v: number) => String(Math.round(v * 10) / 10);
+/** Miles for a headline: "18", "18.5"; whole miles from 100 up, with a comma ("1,240"). */
+export const miShort = (v: number) => (Math.abs(v) >= 100 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v * 10) / 10));
 /** Pounds: "7,450", "12.3K". */
 export const lbShort = (v: number) => (v >= 10000 ? `${(v / 1000).toFixed(1)}K` : Math.round(v).toLocaleString('en-US'));
 

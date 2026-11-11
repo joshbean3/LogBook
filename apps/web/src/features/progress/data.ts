@@ -2,20 +2,15 @@
  * Progress: every number on the page, from the log. Pure functions over the snapshot so the page, its sheets and its tests
  * agree. Nothing here renders.
  */
-import { e1rm, fmtDate, isSkipMark, mondayOf, monthOf, parseISO, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet } from '@logbook/shared';
+import { e1rm, fmtDate, mondayOf, parseISO, shiftDays, zoneOf, type Activity, type HrZone, type ISODate, type LiftSet } from '@logbook/shared';
 import type { AppSnapshot } from '@/api/snapshot';
-import { dayMiles } from '../sessions/miles';
 
 // ---------- range ----------
 export type Range = '3M' | '6M' | '1Y';
-/** Weeks shown, the current one included. */
-export const RANGE_WEEKS: Record<Range, number> = { '3M': 13, '6M': 26, '1Y': 52 };
 export const RANGE_WORDS: Record<Range, string> = { '3M': '3 months', '6M': '6 months', '1Y': 'year' };
 /** "in 3 months" / "this year": for subs and sheet eyebrows. */
 export const rangePhrase = (r: Range) => (r === '1Y' ? 'in a year' : `in ${RANGE_WORDS[r]}`);
 export const rangeLabel = (r: Range) => (r === '1Y' ? 'Last 12 months' : `Last ${RANGE_WORDS[r]}`);
-/** Planned weeks drawn as ghosts after this one: where the block is heading, never most of the chart. */
-export const FUTURE_WEEKS = 2;
 
 // ---------- words ----------
 export const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
@@ -28,7 +23,6 @@ export const paceText = (sec: number) => {
 };
 export const paceOfRun = (a: Activity) => (a.miles > 0.2 && a.movingSec > 0 ? a.movingSec / a.miles : null);
 
-const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
 const median = (xs: number[]) => {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -36,82 +30,6 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 };
 const monthName = (d: ISODate) => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(parseISO(d));
-const days7 = (mon: ISODate) => Array.from({ length: 7 }, (_, i) => shiftDays(mon, i));
-
-// ---------- the weekly series ----------
-export interface WeekPoint {
-  /** Monday. */
-  w: ISODate;
-  ran: number;
-  runs: number;
-  /** Planned run miles, skips left out. */
-  planned: number;
-  /** Planned runs, skips left out. */
-  plannedRuns: number;
-  /** Of `ran`, the miles logged by hand: runs marked Done with no activity (contract 5), drawn with a hairline. */
-  logged: number;
-  /** The longest run that week (an activity, or a run logged by hand). */
-  long: number;
-  longRun: Activity | null;
-  current: boolean;
-  future: boolean;
-  /** A day of this week falls in a month that has not loaded (yet): drawn as a quiet gap, left out of every summary. */
-  missing?: boolean;
-  /** Trailing four-week average of finished weeks (null before the first run, on this week and the future). */
-  avg: number | null;
-}
-
-/**
- * The weeks in view. `loaded(month)` (the snapshot's own) marks weeks that touch a month not loaded yet as `missing`: the
- * page builds from the months that are there and a missing one is a quiet gap (§8, critic C11), never the page skeleton.
- */
-export const weekSeries = (snap: AppSnapshot, today: ISODate, r: Range, loaded?: (month: string) => boolean): WeekPoint[] => {
-  const mon = mondayOf(today);
-  const n = RANGE_WEEKS[r];
-  const pts: WeekPoint[] = Array.from({ length: n + FUTURE_WEEKS }, (_, i) => {
-    const w = shiftDays(mon, (i - n + 1) * 7);
-    let ran = 0;
-    let runs = 0;
-    let logged = 0;
-    let long = 0;
-    let planned = 0;
-    let plannedRuns = 0;
-    let longRun: Activity | null = null;
-    for (const d of days7(w)) {
-      for (const s of snap.sessionsOn(d))
-        if (s.kind === 'run' && !isSkipMark(s.mark)) {
-          planned += Number(s.miles) || 0;
-          plannedRuns++;
-        }
-      if (d > today) continue;
-      const acts = snap.runsOn(d);
-      for (const a of acts) {
-        ran += a.miles;
-        runs++;
-        if (!longRun || a.miles > longRun.miles) longRun = a;
-        long = Math.max(long, a.miles);
-      }
-      // a run marked Done (or Floor) that no activity covers counts its miles (contract 5)
-      const dm = dayMiles(snap, d);
-      if (dm.logged > 0) {
-        const n = dm.runs - acts.length;
-        ran += dm.logged;
-        runs += n;
-        logged += dm.logged;
-        long = Math.max(long, dm.logged / Math.max(1, n));
-      }
-    }
-    const missing = loaded ? days7(w).some((d) => !loaded(monthOf(d))) : false;
-    return { w, ran, runs, logged, planned, plannedRuns, long, longRun, current: w === mon, future: w > mon, missing, avg: null };
-  });
-  const first = pts.findIndex((p) => p.ran > 0);
-  pts.forEach((p, i) => {
-    if (p.current || p.future || p.missing || first < 0 || i < first) return;
-    const win = pts.slice(Math.max(first, i - 3), i + 1).filter((q) => !q.missing);
-    p.avg = sum(win.map((q) => q.ran)) / win.length;
-  });
-  return pts;
-};
 
 // ---------- easy pace ----------
 export interface EasyRun {
