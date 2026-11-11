@@ -49,6 +49,18 @@ const RISE = SUN_R + KEY;
 const FIRST_MS = 900;
 const SUN_TRAVEL_MS = 480;
 
+/** The opening splash covers the first second or two of a cold open: the once-a-day moments wait until it is gone. */
+const splashUp = () => typeof document !== 'undefined' && !!document.querySelector('.brand-splash');
+const useAfterSplash = (on: boolean) => {
+  const [gone, setGone] = useState(() => !on || !splashUp());
+  useEffect(() => {
+    if (gone) return;
+    const t = setInterval(() => !splashUp() && setGone(true), 100);
+    return () => clearInterval(t);
+  }, [gone]);
+  return gone;
+};
+
 /** The sun's offset from its resting place (38, 63) at fraction f, as the group's translate. */
 const sunDx = (f: number) => HZ.W * f;
 const sunDy = (f: number) => HZ.D * (1 - f) * (1 - f) - HZ.D;
@@ -135,6 +147,7 @@ const shown = new Map<string, { f: number; lits: boolean[] }>();
  * `quiet`: the sun yields to Apricot (another day's page, or the screen's now budget is spent).
  */
 const DayScene = ({ scene, play, moves, quiet, page }: { scene: HeroScene; play: boolean; moves: boolean; quiet: boolean; page: string }) => {
+  const ready = useAfterSplash(play);
   const id = useId().replace(/:/g, '');
   const reduce = useReducedMotion();
   const memo = `${page}|${scene.view}`;
@@ -154,14 +167,14 @@ const DayScene = ({ scene, play, moves, quiet, page }: { scene: HeroScene; play:
   useEffect(() => {
     if (stage === 'rest') return;
     if (reduce) return setStage('rest');
-    // today's page waits at its first frame until it is the live one
-    if (!moves) return;
+    // today's page waits at its first frame until it is the live one and the splash has gone
+    if (!moves || !ready) return;
     const t = setTimeout(() => setStage(stage === 'rise' ? 'home' : 'rest'), stage === 'rise' ? SUN_TRAVEL_MS : FIRST_MS - SUN_TRAVEL_MS);
     return () => clearTimeout(t);
-  }, [stage, moves, reduce]);
-  const first = stage !== 'rest';
+  }, [stage, moves, ready, reduce]);
+  const first = stage !== 'rest' && ready;
   // the sun travels on springs.number to the view's place; a page that is not live (or Reduce Motion) jumps
-  const waiting = stage === 'rise' && !moves && !reduce;
+  const waiting = stage === 'rise' && !(moves && ready) && !reduce;
   useEffect(() => {
     if (waiting) return;
     if (!moves || reduce) {
@@ -405,18 +418,23 @@ export const HeroHorizon = ({ scene, isToday, firstToday, quiet, live, page, onW
   // dusk: the sunset plays once a day; the light breathes only while the page is seen and still (orbPaint's data-run gate)
   const [duskFirst, setDuskFirst] = useState(play && !day);
   const [breathe, setBreathe] = useState(!(play && !day));
+  const ready = useAfterSplash(play && !day);
+  const sunsetOn = !day && duskFirst && ready && live;
   useEffect(() => {
-    if (day || !duskFirst) return;
-    const a = setTimeout(() => setDuskFirst(false), 1600);
-    const b = setTimeout(() => setBreathe(true), BREATH_AFTER_MS);
-    return () => {
-      clearTimeout(a);
-      clearTimeout(b);
-    };
-  }, [day, duskFirst]);
+    if (!sunsetOn) return;
+    const t = setTimeout(() => setDuskFirst(false), 1600);
+    return () => clearTimeout(t);
+  }, [sunsetOn]);
+  // the breath starts one beat after the sun is down (its own timer: the sunset's end must not cancel it)
+  const breathWait = !day && !breathe && ready && live;
+  useEffect(() => {
+    if (!breathWait) return;
+    const t = setTimeout(() => setBreathe(true), BREATH_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [breathWait]);
   useEffect(() => (!day && breathe && live && shown && ref.current ? registerRunner(ref.current) : undefined), [day, breathe, live, shown]);
   return (
-    <div ref={ref} className={`hz${day ? '' : ' is-dusk'}${quiet ? ' is-quiet' : ''}${duskFirst ? ' is-first' : ''}`}>
+    <div ref={ref} className={`hz${day ? '' : ' is-dusk'}${quiet ? ' is-quiet' : ''}${sunsetOn ? ' is-first' : ''}`}>
       <span className="hz-sky" aria-hidden="true" />
       <div className="hz-words">{children}</div>
       {day ? (
@@ -426,7 +444,7 @@ export const HeroHorizon = ({ scene, isToday, firstToday, quiet, live, page, onW
         </>
       ) : (
         <>
-          <DuskScene first={duskFirst} />
+          <DuskScene first={sunsetOn} />
           <DuskBand scene={scene} onWeek={onWeek} />
         </>
       )}
