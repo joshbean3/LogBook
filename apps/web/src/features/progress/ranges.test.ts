@@ -1,6 +1,6 @@
 import { shiftDays, type ISODate } from '@logbook/shared';
 import { describe, expect, it } from 'vitest';
-import { axisLabels, bucketDates, bucketLifts, bucketRuns, bucketTitle, gridFor, labelExtent, PROGRESS_RANGES, rangeContext, rangeSpan, spanMonths, usualOver, WEEKLY_MAX, type DayLift, type DayRun, type RangeSpan } from './ranges';
+import { axisLabels, bucketDates, bucketLifts, bucketRuns, bucketTitle, firstShown, gridFor, labelExtent, PROGRESS_RANGES, rangeContext, rangeSpan, spanMonths, usualOver, WEEKLY_MAX, type DayLift, type DayRun, type RangeSpan } from './ranges';
 
 // Wednesday Nov 11 2026: this week began Monday Nov 9
 const T = '2026-11-11';
@@ -205,11 +205,46 @@ describe('bucket sums', () => {
   });
 });
 
+describe('where the bars start', () => {
+  const at = (range: Parameters<typeof rangeSpan>[0], ran: Record<string, number>, start: string | null, plan: Record<string, number> = {}) => {
+    const span = rangeSpan(range, T, start);
+    return firstShown(span, bucketRuns(span.buckets, reader(plan, ran), T), start);
+  };
+
+  it('draws every day of this week, a rest day on Monday included', () => {
+    expect(at('1W', { '2026-11-10': 5 }, null)).toBe(0);
+    expect(at('1W', {}, null, { '2026-11-13': 5 })).toBe(0);
+  });
+
+  it('starts at the first bucket with anything in it when the app does not know where the log began', () => {
+    // 3M: 13 weeks from Aug 17; the first run is in the week of Sep 7 (the fourth bar)
+    expect(at('3M', { '2026-09-09': 4, '2026-10-01': 6 }, null)).toBe(3);
+    expect(at('3M', {}, null)).toBe(0);
+    // a plan still ahead counts as something
+    expect(at('3M', {}, null, { '2026-11-13': 5 })).toBe(12);
+  });
+
+  it('starts where the log began when the app knows: a week of rest after it is a week', () => {
+    // the log began Aug 20 (the first bar); nothing was run until Sep 9: those weeks are drawn as rest
+    expect(at('3M', { '2026-09-09': 4 }, '2026-08-20')).toBe(0);
+    // it began before the range: the range's first bucket
+    expect(at('3M', { '2026-09-09': 4 }, '2025-01-01')).toBe(0);
+    // it began inside the range: the weeks before it are not drawn
+    expect(at('3M', { '2026-10-01': 6 }, '2026-09-10')).toBe(3);
+    // never later than the first bucket with anything in it (a run older than the app thought)
+    expect(at('3M', { '2026-08-25': 3 }, '2026-10-01')).toBe(1);
+  });
+});
+
 describe('the grid', () => {
-  it('draws two or three round gridlines and uses the height it has', () => {
+  it('draws one to three round gridlines and uses the height it has', () => {
     const cases: Array<[number, number[], number]> = [
       [0, [5, 10], 10],
-      [1, [1, 2], 2],
+      // a tallest bar of 1 (a day with one lift session) ends the scale: it stands the whole height
+      [0.6, [1], 1],
+      [1, [1], 1],
+      [1.5, [1], 1.5],
+      [1.6, [1, 2], 2],
       [2, [1, 2], 2],
       [3, [1, 2, 3], 3],
       [4.1, [2, 4], 4.1],
@@ -230,19 +265,25 @@ describe('the grid', () => {
     for (const [max, lines, top] of cases) expect(gridFor(max), `max ${max}`).toEqual({ lines, top });
   });
 
-  it('holds for any maximum: 2 or 3 lines, evenly stepped from zero, the tallest bar inside the plot', () => {
+  it('holds for any maximum: 1 to 3 lines, evenly stepped from zero, the tallest bar in the top fifth of the plot', () => {
     for (let m = 0.1; m < 6000; m *= 1.07) {
       const { lines, top } = gridFor(m);
-      expect(lines.length === 2 || lines.length === 3, `max ${m}`).toBe(true);
+      expect(lines.length >= 1 && lines.length <= 3, `max ${m}`).toBe(true);
       expect(lines.every((v, i) => v === lines[0]! * (i + 1))).toBe(true);
       expect(top).toBeGreaterThanOrEqual(m);
       expect(top).toBeGreaterThanOrEqual(lines.at(-1)!);
-      // the bars use the plot: from 2 up the tallest stands at least 80 percent of the way up (under 2 the lines stay
-      // on whole numbers, 1 and 2, so a single short run is a short bar)
-      if (m >= 2) expect(m / top, `max ${m}`).toBeGreaterThanOrEqual(0.8);
+      // the bars use the plot: the tallest stands at least 80 percent of the way up (under 0.8 the one line stays on 1)
+      if (m >= 0.8) expect(m / top, `max ${m}`).toBeGreaterThanOrEqual(0.8);
     }
     expect(gridFor(Number.NaN)).toEqual(gridFor(0));
     expect(gridFor(-3)).toEqual(gridFor(0));
+  });
+
+  it('gives an empty chart a scale of its own: 5 and 10 miles, 1 and 2 for whole counts', () => {
+    expect(gridFor(0)).toEqual({ lines: [5, 10], top: 10 });
+    expect(gridFor(0, 2)).toEqual({ lines: [1, 2], top: 2 });
+    // with anything to draw the data sets the scale
+    expect(gridFor(3, 2)).toEqual(gridFor(3));
   });
 });
 
@@ -318,7 +359,9 @@ describe('range words', () => {
 
   it('says the days a bucket covers, for the readout', () => {
     const s = rangeSpan('3M', T);
-    expect(bucketDates('week', s.buckets.at(-1)!, T)).toBe('Nov 9 to 15');
+    // the bucket holding today is named, not dated
+    expect(bucketDates('week', s.buckets.at(-1)!, T)).toBe('This week');
+    expect(bucketDates('week', s.buckets.at(-2)!, T)).toBe('Nov 2 to 8');
     expect(bucketDates('week', s.buckets.find((b) => b.key === '2026-09-28')!, T)).toBe('Sep 28 to Oct 4');
     // a week clipped to January 1 says the days it counts
     expect(bucketDates('week', rangeSpan('YTD', '2026-03-10').buckets[0]!, '2026-03-10')).toBe('Jan 1 to 4');
@@ -326,6 +369,7 @@ describe('range words', () => {
     expect(bucketDates('day', rangeSpan('1W', T).buckets[4]!, T)).toBe('Fri, Nov 13');
     expect(bucketDates('month', rangeSpan('12M', T).buckets[0]!, T)).toBe('December 2025');
     expect(bucketDates('month', rangeSpan('12M', T).buckets.at(-2)!, T)).toBe('October');
+    expect(bucketDates('month', rangeSpan('12M', T).buckets.at(-1)!, T)).toBe('This month');
   });
 
   it('names a bucket while it is read', () => {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/native', () => ({ apiOrigin: '', isNative: false }));
 vi.mock('@capacitor/core', () => ({ CapacitorHttp: { request: vi.fn() } }));
 const { ApiError, NetworkError } = await import('@/api/client');
-const { routeMissing, walkBackStart } = await import('./historyStart');
+const { historyStartOf, routeMissing, walkBackStart } = await import('./historyStart');
 
 type Bundle = { activities: Array<{ kind: string; date: string }>; sessions: Array<{ kind: string; date: string }> };
 /** A server's month bundles from a list of dated runs and planned runs; counts what was asked for. */
@@ -75,5 +75,43 @@ describe('a route the server does not have', () => {
     expect(routeMissing(new NetworkError())).toBe(false);
     expect(routeMissing(null)).toBe(false);
     expect(routeMissing(undefined)).toBe(false);
+  });
+});
+
+describe('what is known about where history starts', () => {
+  const base = { said: undefined, unsaid: false, walked: undefined, walkFailed: false, walk: false };
+
+  it('takes the server at its word, a null included', () => {
+    expect(historyStartOf({ ...base, said: { first: '2025-09-08' } })).toEqual({ first: '2025-09-08', ready: true, failed: false });
+    expect(historyStartOf({ ...base, said: { first: null } })).toEqual({ first: null, ready: true, failed: false });
+    // a stored answer holds while a refresh of it fails
+    expect(historyStartOf({ ...base, said: { first: '2025-09-08' }, unsaid: false, walkFailed: true, walk: true }).first).toBe('2025-09-08');
+  });
+
+  it('waits while the server is being asked for the first time', () => {
+    expect(historyStartOf(base)).toEqual({ first: null, ready: false, failed: false });
+  });
+
+  it('uses the months read back when the server cannot say: a missing route, a server error or no network', () => {
+    // still reading them
+    expect(historyStartOf({ ...base, unsaid: true, walk: true })).toEqual({ first: null, ready: false, failed: false });
+    expect(historyStartOf({ ...base, unsaid: true, walk: true, walked: '2025-09-08' })).toEqual({ first: '2025-09-08', ready: true, failed: false });
+    // an account with no run at all
+    expect(historyStartOf({ ...base, unsaid: true, walk: true, walked: null })).toEqual({ first: null, ready: true, failed: false });
+  });
+
+  it('uses a walk stored on an earlier visit at once, without waiting for a server that may never answer', () => {
+    // offline, the request still out: the stored walk draws All
+    expect(historyStartOf({ ...base, walked: '2025-09-08' })).toEqual({ first: '2025-09-08', ready: true, failed: false });
+    // the walk is not running on this range: what it found before still counts
+    expect(historyStartOf({ ...base, unsaid: true, walk: false, walked: '2025-09-08' }).first).toBe('2025-09-08');
+  });
+
+  it('does not wait for a start no one needs', () => {
+    expect(historyStartOf({ ...base, unsaid: true, walk: false })).toEqual({ first: null, ready: true, failed: false });
+  });
+
+  it('says it failed only when neither way could answer, and never passes that off as no history', () => {
+    expect(historyStartOf({ ...base, unsaid: true, walk: true, walkFailed: true })).toEqual({ first: null, ready: true, failed: true });
   });
 });

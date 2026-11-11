@@ -251,6 +251,7 @@
   --dur-in: 120ms;                                          /* Fade in. was same */
   --dur-out: 100ms;                                         /* Fade out. was same */
   --dur-color: 200ms;                                       /* Color and halo changes. was same */
+  --bar-stagger: 12ms;                                      /* Chart bars rise this long after the one before, the last no later than 240ms after the first. A new range or mode. */
   --dur-page: 350ms;                                        /* Page push and pop. */
   --dur-sheet: 500ms;                                       /* Sheet open on --ease-sheet. */
   --dur-number: 480ms;                                      /* Numbers and gauge fill. */

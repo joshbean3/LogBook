@@ -59,10 +59,6 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
-/* the hairline before the strength rows: 16 above and below (the card has no gap to subtract here) */
-.card.ph > .rule {
-  margin-block: var(--sp-4);
-}
 /* the range control: 12 below the plot, 12 in from the card's edges (wider than the hero's 20 allows, guide 6.8) */
 .ph-range {
   margin: var(--sp-3) calc(var(--sp-3) - var(--pad-hero)) 0;
@@ -194,12 +190,13 @@
   fill: var(--ink);
 }
 /* the bucket being read: its bar turns Deep Sky, a Night Ink marker comes down to it and ends in a Paper dot with a Night
-   Ink ring (a selection, not now). The other bars step back so the lit one is found at a glance */
+   Ink ring (a selection, not now). The other bars step back to 70 percent so the lit one is found at a glance, and no
+   further: their Deep Sky arcs still pass 3:1 on Paper (3.14), so the chart reads as a chart while one bar is read */
 .rb-bar {
   transition: opacity var(--dur-out) var(--ease-out);
 }
 .rb-plot[data-reading] .rb-bar:not(.is-lit) {
-  opacity: 0.5;
+  opacity: 0.7;
 }
 /* the bar under the finger lights on the frame the finger reaches it (and the tick fires): only the others ease */
 .rb-bar.is-lit {
@@ -218,15 +215,20 @@
   stroke: var(--ink);
   stroke-width: 2;
 }
-/* a new range or mode: each bar rises from the horizon (its own box's foot) over 480 ms; what is drawn over the bars
-   fades in after them. Only transform and opacity move (guide 9.1); nothing does under Reduce Motion */
+/* a new range or mode: each bar rises from the horizon (its own box's foot) over 480 ms, --bar-stagger after the bar
+   before it, the last no later than 240 ms after the first (so 26 bars, or 60, spread evenly inside it). `--i` is the bar's
+   place from the first one drawn and `--n` the last bar's, set by RangeBars. What is drawn over the bars (the plan outline,
+   its label, the now dot) fades in half way through the last bar's rise, when it is all but up. Only transform and opacity
+   move (guide 9.1); nothing does under Reduce Motion */
 .rb-rise {
   transform-box: fill-box;
   transform-origin: 50% 100%;
   animation: rb-rise var(--dur-number) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * min(var(--bar-stagger), 240ms / max(var(--n, 1), 1)));
 }
 .rb-fade {
   animation: rb-fade var(--dur-in) var(--ease-out) backwards;
+  animation-delay: calc(min(var(--n, 0) * var(--bar-stagger), 240ms) + var(--dur-number) / 2);
 }
 @keyframes rb-rise {
   from {
@@ -261,10 +263,14 @@
   }
 }
 
-/* ---------- strength: the workouts as date rows, under the hairline (layout standard 6.2, 3.3.3) ----------
+/* ---------- strength: the workouts as date rows, in a card of their own 12 under the hero (layout standard 2.7, 6.2:
+   the hero holds the chart's three sizes, this card the rows' three) ----------
    A label per stretch ("This week": Inter 600 15 Night Ink, sentence case, 8 above its first row), then the rows: full
-   bleed so a press fills the card's width, their words on the card's 20 px edge, a hairline between rows from where the
+   bleed so a press fills the card's width, their words on the card's 16 px edge, a hairline between rows from where the
    words start. The status is the row's trailing value in 17 Dusk: words, never a color alone, and no pill */
+.card.ll-card {
+  margin-top: var(--gap);
+}
 .ll {
   display: grid;
   gap: var(--sp-4);
@@ -280,11 +286,11 @@
 }
 .ll-rows {
   display: grid;
-  margin-inline: calc(-1 * var(--pad-hero));
+  margin-inline: calc(-1 * var(--pad-card));
 }
 .ll-rows > .lrow {
   position: relative;
-  padding-inline: var(--pad-hero);
+  padding-inline: var(--pad-card);
   background: transparent;
 }
 .ll-rows > .lrow.tappable[data-pressed] {
@@ -294,7 +300,7 @@
   content: '';
   position: absolute;
   top: 0;
-  left: calc(var(--pad-hero) + var(--gutter-date) + var(--sp-3));
+  left: calc(var(--pad-card) + var(--gutter-date) + var(--sp-3));
   right: 0;
   height: 1px;
   background: var(--line);

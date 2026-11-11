@@ -1,9 +1,9 @@
 import { monthOf, type ISODate } from '@logbook/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { api } from '@/api/client';
 import { fetchMonth, keys, useAllLifts } from '@/api/queries';
-import { routeMissing, walkBackStart } from './historyStart';
+import { historyStartOf, routeMissing, walkBackStart } from './historyStart';
 import { DEFAULT_RANGE, PROGRESS_RANGES, type ProgressRange } from './ranges';
 
 // ---------- the hero chart's range: a per-viewer convenience, remembered on this device ----------
@@ -30,22 +30,42 @@ export const useRange = () => {
 };
 
 // ---------- where history starts (the All range's first day) ----------
+export interface HistoryStart {
+  /** The first day with a run, done or on the plan; null with none, or while it is not known. */
+  first: ISODate | null;
+  /** The answer is in (or cannot be had): the All range can be drawn, or said to have failed. */
+  ready: boolean;
+  /** Neither the server nor the months read back could say: the All range has no first day to start from. */
+  failed: boolean;
+  retry: () => void;
+}
 /**
- * Where run history starts: one date from the server, null with no runs planned or done. A server without the route (an
- * older deploy) answers 404; then, while `walk` is set (the All range is on show), the months are read back instead.
+ * Where run history starts: one date from the server, null with no runs planned or done. When the server does not say (an
+ * older deploy answers the route 404; a request can also fail, or the phone can be offline with nothing stored from
+ * before), the month bundles, which every server has and the phone keeps, are read back instead: while `walk` is set (the
+ * All range is on show, or the last 13 weeks are empty), and from what an earlier walk stored at any time. Only when both
+ * fail is the start unknown (`failed`), and the caller says so with a way to ask again: it never draws All from today.
  */
-export const useHistoryStart = (today: ISODate, walk = false) => {
+export const useHistoryStart = (today: ISODate, walk = false): HistoryStart => {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['progress', 'history-start'], queryFn: () => api<{ first: string | null }>('/activities/start'), staleTime: 5 * 60_000 });
-  const missing = routeMissing(q.error);
+  // the server has not said, and nothing it said before is stored on this phone
+  const unsaid = q.data === undefined && q.isError;
+  // a route that is not there will not be there on a second ask; any other failure is asked again with the walk
+  const gone = routeMissing(q.error);
   const w = useQuery({
     queryKey: ['progress', 'history-walk', monthOf(today)],
-    enabled: missing && walk,
+    enabled: unsaid && walk,
     staleTime: 60 * 60_000,
     queryFn: () => walkBackStart((m) => qc.fetchQuery({ queryKey: keys.month(m), queryFn: () => fetchMonth(m), staleTime: 30_000 }), today),
   });
-  if (missing && walk) return { first: w.data ?? null, ready: w.isSuccess || w.isError };
-  return { first: (missing ? w.data : q.data?.first) ?? null, ready: q.isSuccess || q.isError };
+  const refetchStart = q.refetch;
+  const refetchWalk = w.refetch;
+  const retry = useCallback(() => {
+    if (gone) void refetchWalk();
+    else void refetchStart().then((r) => (r.isError ? refetchWalk() : undefined));
+  }, [gone, refetchStart, refetchWalk]);
+  return { ...historyStartOf({ said: q.data, unsaid, walked: w.data, walkFailed: w.isError, walk }), retry };
 };
 
 /** Where lifting starts: the first day with a logged set. The sets are already on the phone (the Lifts sheet reads them). */

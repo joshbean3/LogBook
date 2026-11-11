@@ -229,22 +229,38 @@ export const usualOver = (buckets: Array<Pick<Bucket, 'current' | 'future'> & { 
   return { mean: done.reduce((s, b) => s + b.done, 0) / done.length, buckets: done.length };
 };
 
+/**
+ * The first bucket a chart draws and reads. This week by day (1W) is every day of it. Otherwise the bars start where the
+ * log does: at the bucket holding its first day when the app knows it (`start`), and never later than the first bucket
+ * with anything in it. So a week of rest after the log began is a week (a dot on the horizon, and it can be read), and the
+ * weeks before the log began are not drawn.
+ */
+export const firstShown = (span: Pick<RangeSpan, 'range' | 'unit'>, buckets: Array<Pick<Bucket, 'to'> & { done: number; ahead: number; missing: boolean }>, start: ISODate | null): number => {
+  if (span.range === '1W' && span.unit === 'day') return 0;
+  const data = buckets.findIndex((b) => !b.missing && (b.done > 0 || b.ahead > 0));
+  const known = start ? buckets.findIndex((b) => b.to >= start) : -1;
+  const at = [data, known].filter((i) => i >= 0);
+  return at.length ? Math.min(...at) : 0;
+};
+
 // ---------- the grid ----------
 /** The steps a gridline may sit on: round numbers a glance can add up (0, 5, 10 mi). */
 const GRID_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
 /**
- * The y scale for a chart of bars from zero: two or three labeled gridlines on round steps, and the top of the plot.
- * The step is the smallest that puts at most three lines under the tallest bar; a bar that stands more than half a step
- * over the last line gets one more line above it (while there are fewer than three), and there are always two. The top
- * is the tallest bar or the last line, whichever is higher, so the bars use the height they have.
+ * The y scale for a chart of bars from zero: one to three labeled gridlines on round steps, and the top of the plot.
+ * The step is the smallest that puts at most three lines under the tallest bar. A bar that stands more than half a step
+ * over the last line gets one more line above it (while there are fewer than three, and while the bar would still reach
+ * the top fifth of the plot). There is always one line: a tallest bar of 1 (a day with one lift session) ends the scale,
+ * so it stands the plot's whole height. The top is the tallest bar or the last line, whichever is higher, so the bars use
+ * the height they have. With nothing to draw the scale is `idle` and its half (10 and 5 miles; pass 2 for whole counts).
  */
-export const gridFor = (max: number): { lines: number[]; top: number } => {
+export const gridFor = (max: number, idle = 10): { lines: number[]; top: number } => {
   const m = Number.isFinite(max) && max > 0 ? max : 0;
-  if (m <= 0) return { lines: [5, 10], top: 10 };
+  if (m <= 0) return { lines: [idle / 2, idle], top: idle };
   const step = GRID_STEPS.find((s) => Math.floor(m / s + 1e-9) <= 3) ?? GRID_STEPS[GRID_STEPS.length - 1]!;
   let n = Math.floor(m / step + 1e-9);
-  if (n < 3 && m > (n + 0.5) * step) n += 1;
-  n = Math.max(2, n);
+  if (n < 3 && m > (n + 0.5) * step && m >= 0.8 * (n + 1) * step) n += 1;
+  n = Math.max(1, n);
   const lines = Array.from({ length: n }, (_, i) => (i + 1) * step);
   return { lines, top: Math.max(m, n * step) };
 };
@@ -366,8 +382,15 @@ export const rangeContext = (span: Pick<RangeSpan, 'range' | 'from'>, today: ISO
   }
 };
 
-/** The days a bucket covers, for the readout while it is read ("Today", "Tue, Nov 10", "Oct 5 to 11", "October", "October 2025"). */
-export const bucketDates = (unit: BucketUnit, b: Bucket, today: ISODate) => (unit === 'week' ? dayRange(b.from, b.to) : bucketTitle(unit, b, today));
+/**
+ * The days a bucket covers, for the readout while it is read ("Tue, Nov 10", "Oct 5 to 11", "October", "October 2025").
+ * The bucket holding today is named ("Today", "This week", "This month"): it is the one under "Now", and the short name
+ * leaves room on the line for what its plan still asks for.
+ */
+export const bucketDates = (unit: BucketUnit, b: Bucket, today: ISODate) => {
+  if (b.current && unit !== 'day') return unit === 'week' ? 'This week' : 'This month';
+  return unit === 'week' ? dayRange(b.from, b.to) : bucketTitle(unit, b, today);
+};
 
 /** What a range's buckets are called ("day", "week", "month"). */
 export const UNIT_WORD: Record<BucketUnit, string> = { day: 'day', week: 'week', month: 'month' };

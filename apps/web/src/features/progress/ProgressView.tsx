@@ -39,9 +39,9 @@ export default function ProgressView() {
   const sheet = useSheet();
   const t = useAsOf(useToday());
   const [range, setRange] = useRange();
-  // a server that cannot say where history starts is read back month by month only when the answer matters: for the All
-  // range, and when the last 13 weeks have no run in them (someone back after months away, whose runs are further back
-  // than the page has looked)
+  // when the server cannot say where history starts (an older deploy, a failed request), the months are read back instead,
+  // and only when the answer matters: for the All range, and when the last 13 weeks have no run in them (someone back
+  // after months away, whose runs are further back than the page has looked)
   const [quiet, setQuiet] = useState(false);
   const start = useHistoryStart(t, range === 'All' || quiet);
   const liftStart = useLiftStart();
@@ -97,7 +97,22 @@ export default function ProgressView() {
   return (
     <div className="page pg-page">
       {header}
-      <HeroChart log={log} t={t} range={range} onRange={setRange} first={start.first} liftFirst={liftStart.first} firstReady={startReady} onConnect={connect} failed={fail.failed} onRetry={fail.retry} />
+      <HeroChart
+        log={log}
+        t={t}
+        range={range}
+        onRange={setRange}
+        first={start.first}
+        liftFirst={liftStart.first}
+        firstReady={startReady}
+        startFailed={start.failed}
+        onConnect={connect}
+        failed={fail.failed}
+        onRetry={() => {
+          fail.retry();
+          if (start.failed) start.retry();
+        }}
+      />
       <Trends log={log} onConnect={connect} />
       {HEALTH_BUILT ? <Health log={log} t={t} /> : null}
     </div>

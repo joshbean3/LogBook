@@ -38,3 +38,23 @@ export const walkBackStart = async (month: (m: string) => Promise<Pick<MonthBund
   }
   return first;
 };
+
+/**
+ * What is known about where history starts, from the two ways of asking. `said` is the server's answer (undefined until it
+ * has one, on this visit or stored from an earlier one); `unsaid` is that it failed with nothing stored; `walked` is the
+ * months read back (undefined until they have been, on this visit or an earlier one); `walk` is whether they are being
+ * read now, and `walkFailed` that they could not be.
+ * - The server's answer wins.
+ * - Else what the months said, whenever they were read: an older server never answers, and a phone with no signal may not
+ *   hear from a newer one for a while, so a stored walk is not made to wait for either.
+ * - Else, while the server is still being asked: not ready.
+ * - No answer, and the months are not being read (this range does not need the start): unknown, and nothing waits for it.
+ * - No answer, and the months could not be read either: failed.
+ */
+export const historyStartOf = (o: { said: { first: string | null } | undefined; unsaid: boolean; walked: ISODate | null | undefined; walkFailed: boolean; walk: boolean }): { first: ISODate | null; ready: boolean; failed: boolean } => {
+  if (o.said !== undefined) return { first: o.said.first ?? null, ready: true, failed: false };
+  if (o.walked !== undefined) return { first: o.walked, ready: true, failed: false };
+  if (!o.unsaid) return { first: null, ready: false, failed: false };
+  if (!o.walk) return { first: null, ready: true, failed: false };
+  return { first: null, ready: o.walkFailed, failed: o.walkFailed };
+};

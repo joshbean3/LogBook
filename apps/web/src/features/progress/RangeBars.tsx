@@ -23,11 +23,6 @@ export interface BarMark {
 const EDGE = 1.5;
 const THIN = 6;
 
-/** The rise: each bar starts this long after the one before it, the last no later than the cap; the overlay follows. */
-const STAGGER_MS = 12;
-const STAGGER_CAP_MS = 240;
-const AFTER_MS = 200;
-
 /** A caption label's width: about 9 px a letter at the 11 px caption (its +0.14 em tracking included), grown with the text. */
 const captionWidth = (scale: number) => (s: string) => s.length * 9 * scale;
 
@@ -64,12 +59,43 @@ const cap = (cx: number, w: number, top: number, base: number) => {
  * the page. To VoiceOver and the keyboard the plot is one slider: its value is the focused bucket in words, and arrows (or
  * a swipe up or down, which VoiceOver itself announces for a slider) move it.
  *
- * The hero remounts the chart on a new range or mode: the bars rise from the baseline over 480 ms (`--dur-number`), a few
- * milliseconds apart, and the plan outline, its label and the now dot fade in once they have; the grid and the axes stand
- * still. The rise is a CSS animation on each bar's own box (`transform-box: fill-box`, origin at its foot), so a bar grows
- * up from the horizon and never from its middle. Under Reduce Motion nothing moves.
+ * The hero remounts the chart on a new range or mode: the bars rise from the baseline over 480 ms (`--dur-number`), each
+ * `--bar-stagger` after the one before it (the sheet reads each bar's place from `--i` and the last one's from `--n`), and
+ * the plan outline, its label and the now dot fade in once they have; the grid and the axes stand still. The rise is a CSS
+ * animation on each bar's own box (`transform-box: fill-box`, origin at its foot), so a bar grows up from the horizon and
+ * never from its middle. Under Reduce Motion nothing moves.
  */
-export const RangeBars = ({ span, marks, label, words, format = String, hint, hintRead, onScrub, onOpen, onRead }: { span: Pick<RangeSpan, 'range' | 'unit' | 'buckets'>; marks: BarMark[]; label: string; words: (i: number) => string; format?: (v: number) => string; /** The first-use line under the plot, while the chart has never been read. */ hint?: string | null; /** It has just been read: the line's words fade, its room stays. */ hintRead?: boolean; onScrub: (i: number | null) => void; onOpen?: (i: number) => void; onRead?: () => void }) => {
+export const RangeBars = ({
+  span,
+  marks,
+  label,
+  words,
+  format = String,
+  from,
+  idle,
+  hint,
+  hintRead,
+  onScrub,
+  onOpen,
+  onRead,
+}: {
+  span: Pick<RangeSpan, 'range' | 'unit' | 'buckets'>;
+  marks: BarMark[];
+  label: string;
+  words: (i: number) => string;
+  format?: (v: number) => string;
+  /** The first bucket drawn and read (`firstShown`). Without it: the first bucket with anything in it. */
+  from?: number;
+  /** The top of the scale while there is nothing to draw (10 for miles; 2 for whole counts). */
+  idle?: number;
+  /** The first-use line under the plot, while the chart has never been read. */
+  hint?: string | null;
+  /** It has just been read: the line's words fade, its room stays. */
+  hintRead?: boolean;
+  onScrub: (i: number | null) => void;
+  onOpen?: (i: number) => void;
+  onRead?: () => void;
+}) => {
   const [wrapRef, width] = useWidth<HTMLDivElement>();
   const W = Math.max(220, width || 340);
   // the plot spans the card's inner width: 160 tall on a 320 pt phone, 180 from 375 up (guide 6.8)
@@ -81,7 +107,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
   const capH = 11 * textScale;
   const TOP = Math.round(capH) + 10;
   const Y0 = H - Math.max(24, Math.round(capH) + 13);
-  const { lines, top } = gridFor(Math.max(0, ...marks.map((m) => (m.missing ? 0 : m.value + m.ahead))));
+  const { lines, top } = gridFor(Math.max(0, ...marks.map((m) => (m.missing ? 0 : m.value + m.ahead))), idle);
   const y = (v: number) => Y0 - (Math.min(v, top) / top) * (Y0 - TOP);
   // 9 px a figure (as `captionWidth` counts them); the grid stops 4 past the bars, so a label keeps 6 clear of its line
   const RIGHT = Math.max(30, Math.ceil(Math.max(...lines.map((v) => format(v).length)) * 9 * textScale + 10));
@@ -91,8 +117,9 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
   const thin = lay.barW < THIN;
   const x = (i: number) => barCenter(lay, i);
   const ci = marks.findIndex((m) => m.current);
-  // the bars start where the log does: nothing is drawn, read or opened before the first bucket with anything in it
-  const first = Math.max(0, marks.findIndex((m) => !m.missing && (m.value > 0 || m.ahead > 0)));
+  // the bars start where the log does: nothing is drawn, read or opened before it (the caller knows where that is; without
+  // it, the first bucket with anything in it)
+  const first = Math.max(0, Math.min(Math.max(0, n - 1), from ?? marks.findIndex((m) => !m.missing && (m.value > 0 || m.ahead > 0))));
   const home = ci >= 0 ? ci : n - 1;
 
   const scrub = useScrub({
@@ -139,11 +166,11 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
     const clear = others.every((m) => topOf(m.value + m.ahead) >= own - 2);
     return clear ? { x: (l + r) / 2, y: own - 6, lead: null } : { x: (l + r) / 2, y: capH, lead: { x: x(pi), y1: capH + 4, y2: own - 4 } };
   })();
-  // the bars rise a few milliseconds apart, 240 ms from the first to the last at most (guide 9.1); what is drawn over
-  // them (the plan outline, its label, the now dot) fades in as the last one arrives
-  const stagger = n - first > 1 ? Math.min(STAGGER_MS, STAGGER_CAP_MS / (n - first - 1)) : 0;
-  const riseAt = (i: number) => ({ animationDelay: `${Math.round((i - first) * stagger)}ms` });
-  const after = { animationDelay: `${Math.round(Math.max(0, n - 1 - first) * stagger) + AFTER_MS}ms` };
+  // the bars rise a few milliseconds apart (guide 9.1): the sheet works each bar's delay out from its place (`--i`) and the
+  // last bar's (`--n`, on the plot), and fades in what is drawn over them (the plan outline, its label, the now dot) after
+  const riseAt = (i: number) => ({ '--i': i - first }) as React.CSSProperties;
+  /** Where the dashed outline's sides begin: at the shoulder of what is done (where its dome starts), so no dash runs down the side of a done bar; on the baseline with nothing done. */
+  const planFoot = (v: number) => (v > 0 ? Math.min(Y0, topOf(v) + Math.min(lay.barW / 2, Y0 - topOf(v))) : Y0);
   const cur = ci >= 0 ? marks[ci]! : null;
   // the now dot is one Sunrise mark while this chart shows on the page on screen (guide 3.5 job 6)
   const shown = usePageShown();
@@ -182,7 +209,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
         {!width ? (
           <div style={{ height: H }} />
         ) : (
-          <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+          <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" style={{ '--n': Math.max(0, n - 1 - first) } as React.CSSProperties}>
             {lines.map((v) => (
               <g key={v}>
                 <line x1={0} x2={GRID_END} y1={y(v)} y2={y(v)} className="rb-grid" />
@@ -202,7 +229,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
               return (
                 <g key={m.key} className={a === i ? 'rb-bar is-lit' : 'rb-bar'}>
                   {/* the strokes are drawn inside the bar's width (half a stroke in), so an edge never widens its bar */}
-                  {m.ahead > 0 ? <path d={dome(cx, lay.barW - EDGE, topOf(whole) + EDGE / 2, Y0)} className="rb-plan rb-fade" style={after} /> : null}
+                  {m.ahead > 0 ? <path d={dome(cx, lay.barW - EDGE, topOf(whole) + EDGE / 2, planFoot(m.value))} className="rb-plan rb-fade" /> : null}
                   {m.value > 0 ? (
                     <g className="rb-rise" style={riseAt(i)}>
                       {/* under its cap the fill stops a hair short of the bar's edge, so no Sky fringe shows outside the cap */}
@@ -215,7 +242,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
             })}
             <line x1={0} x2={GRID_END} y1={Y0} y2={Y0} className="rb-base" />
             {planLabel && planShown ? (
-              <g className="rb-fade" style={after}>
+              <g className="rb-fade">
                 {planLabel.lead && planLabel.lead.y2 - planLabel.lead.y1 > 2 ? <line x1={planLabel.lead.x} x2={planLabel.lead.x} y1={planLabel.lead.y1} y2={planLabel.lead.y2} className="rb-lead" /> : null}
                 <text x={planLabel.x} y={planLabel.y} textAnchor="middle" className="rb-ax rb-plan-label">
                   Plan
@@ -228,7 +255,7 @@ export const RangeBars = ({ span, marks, label, words, format = String, hint, hi
                 {at.current ? null : <circle cx={x(a!)} cy={atY} r={5} className="rb-dot" />}
               </g>
             ) : null}
-            {cur && !cur.missing ? <circle cx={x(ci)} cy={cur.value > 0 ? topOf(cur.value) : Y0} r={4} className="rb-now rb-fade" style={after} data-now={nowPaint === 'ink' ? 'ink' : undefined} /> : null}
+            {cur && !cur.missing ? <circle cx={x(ci)} cy={cur.value > 0 ? topOf(cur.value) : Y0} r={4} className="rb-now rb-fade" data-now={nowPaint === 'ink' ? 'ink' : undefined} /> : null}
             {xLabels.map((l) => (
               <text key={l.text + l.i} x={labelX(x(l.i), l.text)} y={Y0 + 8 + capH * 0.82} textAnchor="middle" className={`rb-ax ${l.now ? (span.unit === 'day' && span.range === '1W' ? 'is-today' : 'is-now') : ''}`}>
                 {l.text}

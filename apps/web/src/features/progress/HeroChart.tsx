@@ -10,7 +10,7 @@ import type { Log } from '../log/useLog';
 import { HERO_MODES, liftRange, runRange, type HeroMode, type LiftView, type RunView } from './hero';
 import { LiftList } from './LiftList';
 import { RangeBars, type BarMark } from './RangeBars';
-import { PROGRESS_RANGES, RANGE_WORDS, UNIT_WORD, type ProgressRange } from './ranges';
+import { firstShown, PROGRESS_RANGES, RANGE_WORDS, UNIT_WORD, type ProgressRange } from './ranges';
 import { liftAt, liftRest, liftWords, readoutWords, runAt, runRest, runWords, type Readout } from './readout';
 import { useOpenWeek } from './sheets';
 import './hero.css';
@@ -128,10 +128,38 @@ const UNIT_TITLE = { day: 'Daily', week: 'Weekly', month: 'Monthly' } as const;
  * Both charts are the same bars (`RangeBars`), one per day, week or month of the range: miles run, or lift sessions done.
  * History shows only what was done. The plan shows only for what is still ahead: the days to come in 1W and the rest of the
  * bucket holding today, as a dashed outline. In 1W the headline reads this week against its plan, in words. The card has
- * the same parts in every range, so the range control never moves when the range changes. Dragging across the plot reads
- * one bucket in the headline; a tap on a running week opens it. Strength keeps its workouts as date rows under a hairline.
+ * the same parts in every range and in both modes, so the range control never moves when the range changes. Dragging
+ * across the plot reads one bucket in the headline; a tap on a running week opens it. Strength's workouts are date rows in
+ * a card of their own, 12 under the hero (a card holds one unit, and three text sizes at most).
+ *
+ * `startFailed`: where history starts could not be learned (neither from the server nor from the months on this phone).
+ * The All range then says so, with Try again and the other ranges still a tap away; it is never drawn from today.
  */
-export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, firstReady = true, onConnect, failed, onRetry }: { log: Log; t: string; range: ProgressRange; onRange: (r: ProgressRange) => void; first: string | null; liftFirst?: string | null; firstReady?: boolean; onConnect: (() => void) | null; failed?: boolean; onRetry?: () => void }) => {
+export const HeroChart = ({
+  log,
+  t,
+  range,
+  onRange,
+  first,
+  liftFirst = null,
+  firstReady = true,
+  startFailed = false,
+  onConnect,
+  failed,
+  onRetry,
+}: {
+  log: Log;
+  t: string;
+  range: ProgressRange;
+  onRange: (r: ProgressRange) => void;
+  first: string | null;
+  liftFirst?: string | null;
+  firstReady?: boolean;
+  startFailed?: boolean;
+  onConnect: (() => void) | null;
+  failed?: boolean;
+  onRetry?: () => void;
+}) => {
   const nav = useNav();
   const [mode, setMode] = useMode();
   const [scrub, setScrub] = useState<number | null>(null);
@@ -221,26 +249,44 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
     );
   }
 
+  // strength's workouts: a card of their own under the hero (layout standard 2.7), so the hero is the same card in both modes
   const list =
     mode === 'lift' ? (
-      <>
-        <hr className="rule" />
+      <section className="card ll-card" aria-label="Lift workouts">
         <LiftList log={log} t={t} />
-      </>
+      </section>
     ) : null;
+
+  // All has no first day to start from: say so, with the way to ask again. The other ranges do not need it
+  if (!firstWeek && range === 'All' && startFailed && onRetry) {
+    return (
+      <>
+        <section className="card is-hero has-glow ph" aria-label={title}>
+          {seg}
+          <EmptyState className="ph-empty" verb={{ label: 'Try again', onPress: onRetry }}>
+            Couldn’t load your whole history. Check your connection.
+          </EmptyState>
+          {rangeRow}
+        </section>
+        {list}
+      </>
+    );
+  }
 
   if (pending && before) {
     return (
-      <section className="card is-hero has-glow ph" aria-label={title}>
-        {seg}
-        <SkeletonGroup label={`Loading ${RANGE_WORDS[range].toLowerCase()}`} className="ph-wait">
-          <Skeleton w={176} h={46} r="control" />
-          <Skeleton w={208} h={16} />
-          <span className="skel ph-wait-plot" aria-hidden="true" />
-        </SkeletonGroup>
-        {rangeRow}
+      <>
+        <section className="card is-hero has-glow ph" aria-label={title}>
+          {seg}
+          <SkeletonGroup label={`Loading ${RANGE_WORDS[range].toLowerCase()}`} className="ph-wait">
+            <Skeleton w={176} h={46} r="control" />
+            <Skeleton w={208} h={16} />
+            <span className="skel ph-wait-plot" aria-hidden="true" />
+          </SkeletonGroup>
+          {rangeRow}
+        </section>
         {list}
-      </section>
+      </>
     );
   }
 
@@ -263,6 +309,8 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
   const marks: BarMark[] = view.buckets.map((b) => ({ key: b.key, value: b.done, ahead: b.ahead, current: b.current, future: b.future, missing: b.missing }));
   const words = (i: number) => (view.mode === 'run' ? runWords(unit, view.buckets[i]!, t) : liftWords(unit, view.buckets[i]!, t));
   const chartLabel = `${UNIT_TITLE[unit]} ${view.mode === 'run' ? 'miles' : 'lift sessions'}, ${RANGE_WORDS[span.range].toLowerCase()}.`;
+  // where the bars start: at the first day the app knows of (a run or a lift), so a quiet week since then is drawn and read
+  const logStart = [first, liftFirst].filter((d): d is string => !!d).sort()[0] ?? null;
 
   // a tap on a running day or week opens its week; a month has no sheet of its own, and the strength rows below open theirs
   const openAt =
@@ -277,31 +325,36 @@ export const HeroChart = ({ log, t, range, onRange, first, liftFirst = null, fir
         };
 
   return (
-    <section className="card is-hero has-glow ph" aria-label={title}>
-      {seg}
-      <Head r={readout} hold={reading} />
-      <RangeBars
-        key={`${view.mode}-${span.range}-${span.unit}-${span.from}`}
-        span={span}
-        marks={marks}
-        label={chartLabel}
-        words={words}
-        hint={hint.hint ? `Drag across to see each ${UNIT_WORD[unit]}` : null}
-        hintRead={hint.read}
-        onScrub={setScrub}
-        onOpen={openAt}
-        onRead={hint.done}
-      />
-      {gaps && failed && onRetry ? (
-        <div className="ph-retry" role="alert">
-          <span>{unit === 'month' ? 'Some months didn’t load.' : 'Some weeks didn’t load.'}</span>
-          <Button variant="soft" size="sm" onClick={onRetry}>
-            Try again
-          </Button>
-        </div>
-      ) : null}
-      {firstWeek ? null : rangeRow}
+    <>
+      <section className="card is-hero has-glow ph" aria-label={title}>
+        {seg}
+        <Head r={readout} hold={reading} />
+        <RangeBars
+          key={`${view.mode}-${span.range}-${span.unit}-${span.from}`}
+          span={span}
+          marks={marks}
+          label={chartLabel}
+          words={words}
+          from={firstShown(span, view.buckets, logStart)}
+          // nothing to draw yet: lift sessions count in ones, miles in fives
+          idle={view.mode === 'lift' ? 2 : undefined}
+          hint={hint.hint ? `Drag across to see each ${UNIT_WORD[unit]}` : null}
+          hintRead={hint.read}
+          onScrub={setScrub}
+          onOpen={openAt}
+          onRead={hint.done}
+        />
+        {gaps && failed && onRetry ? (
+          <div className="ph-retry" role="alert">
+            <span>{unit === 'month' ? 'Some months didn’t load.' : 'Some weeks didn’t load.'}</span>
+            <Button variant="soft" size="sm" onClick={onRetry}>
+              Try again
+            </Button>
+          </div>
+        ) : null}
+        {firstWeek ? null : rangeRow}
+      </section>
       {list}
-    </section>
+    </>
   );
 };

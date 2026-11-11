@@ -79,10 +79,15 @@ describe('the running headline at rest', () => {
     expect(weekTakeaway(wk({}), null)).toBe('4 mi behind plan this week');
     // Monday done, today's 5 not yet run: it is still to go, with Friday and Saturday
     expect(weekTakeaway(wk({ '2026-11-09': 4 }), null)).toBe('On plan, 19 mi to go');
-    // a long run early in the week does not shorten what the plan still asks for
-    expect(weekTakeaway(wk({ '2026-11-09': 12, '2026-11-11': 11 }), null)).toBe('On plan, 14 mi to go');
-    // runs before a plan that starts later in the week: all of the plan is still to go
-    expect(weekTakeaway(wk({ '2026-11-09': 4.1, '2026-11-11': 5.2 }, { '2026-11-13': 5, '2026-11-14': 7.5 }), null)).toBe('On plan, 12.5 mi to go');
+    // a watch reads a little over the plan: still on plan
+    expect(weekTakeaway(wk({ '2026-11-09': 4.4, '2026-11-11': 5.5 }), null)).toBe('On plan, 14 mi to go');
+    // a long run early in the week does not shorten what the plan still asks for: the miles over are said
+    expect(weekTakeaway(wk({ '2026-11-09': 12, '2026-11-11': 11 }), null)).toBe('14 mi ahead of plan, 14 mi to go');
+    // runs before a plan that starts later in the week: all of the plan is still to go, and the headline's "9.3 of 12.5 mi"
+    // is not left to be read as 3.2 to go
+    expect(weekTakeaway(wk({ '2026-11-09': 4.1, '2026-11-11': 5.2 }, { '2026-11-13': 5, '2026-11-14': 7.5 }), null)).toBe('9.3 mi ahead of plan, 12.5 mi to go');
+    // a run on a day with none planned, a mile or more: ahead of plan
+    expect(weekTakeaway(wk({ '2026-11-09': 4, '2026-11-10': 3, '2026-11-11': 5 }), null)).toBe('3 mi ahead of plan, 14 mi to go');
     // every planned day behind us and run
     expect(weekTakeaway(wk({ '2026-11-09': 4, '2026-11-10': 6 }, { '2026-11-09': 4, '2026-11-10': 6 }), null)).toBe('This week’s plan is done');
   });
@@ -98,10 +103,10 @@ describe('a running bucket while it is read', () => {
 
   it('says this week so far, and what the plan still asks for', () => {
     const { span, buckets } = run('3M', PLAN, RAN);
-    expect(runAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '9.3', context: 'mi so far', take: 'Nov 9 to 15 · 2 runs · 14 mi to go' });
+    expect(runAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '9.3', context: 'mi so far', take: 'This week · 2 runs · 14 mi to go' });
     expect(runWords(span.unit, buckets.at(-1)!, T)).toBe('This week: 9.3 miles, 2 runs, 14 miles still planned');
     const bare = run('3M', {}, RAN);
-    expect(runAt(bare.span.unit, bare.buckets.at(-1)!, T).take).toBe('Nov 9 to 15 · 2 runs');
+    expect(runAt(bare.span.unit, bare.buckets.at(-1)!, T).take).toBe('This week · 2 runs');
   });
 
   it('says a day: today, a day behind and a day ahead', () => {
@@ -117,7 +122,7 @@ describe('a running bucket while it is read', () => {
   it('says a month, with its year when it is not this one', () => {
     const { span, buckets } = run('12M', PLAN, { '2025-12-06': 41.5, ...RAN });
     expect(runAt(span.unit, buckets[0]!, T)).toEqual({ big: '41.5', context: 'mi', take: 'December 2025 · 1 run' });
-    expect(runAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '33.1', context: 'mi so far', take: 'November · 4 runs · 14 mi to go' });
+    expect(runAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '33.1', context: 'mi so far', take: 'This month · 4 runs · 14 mi to go' });
   });
 
   it('says a bucket that has not loaded', () => {
@@ -155,7 +160,7 @@ describe('strength', () => {
     expect(liftAt(span.unit, buckets.at(-4)!, T)).toEqual({ big: '2', context: 'sessions', take: 'Oct 19 to 25 · 18 sets · 17.9K lb' });
     expect(liftAt(span.unit, buckets.at(-3)!, T)).toEqual({ big: '1', context: 'session', take: 'Oct 26 to Nov 1 · No sets logged' });
     expect(liftAt(span.unit, buckets.at(-2)!, T)).toEqual({ big: '0', context: 'sessions', take: 'Nov 2 to 8 · No lifts' });
-    expect(liftAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '1', context: 'session so far', take: 'Nov 9 to 15 · 9 sets · 9,270 lb · 1 to go' });
+    expect(liftAt(span.unit, buckets.at(-1)!, T)).toEqual({ big: '1', context: 'session so far', take: 'This week · 9 sets · 9,270 lb · 1 to go' });
     expect(liftWords(span.unit, buckets.at(-1)!, T)).toBe('This week: 1 lift session, 9 sets, 1 still planned');
     const days = lift('1W', PLAN_L, DID);
     expect(liftAt(days.span.unit, days.buckets[3]!, T)).toEqual({ big: '1', context: 'session planned', take: 'Thu, Nov 12' });

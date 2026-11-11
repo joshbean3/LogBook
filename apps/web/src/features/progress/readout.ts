@@ -27,14 +27,18 @@ export const readoutWords = (r: Readout) => `${r.big} ${r.context}. ${r.take.rep
 // ---------- running ----------
 /**
  * This week in words, under the 1W headline: against its plan while it has one, else beside last week. "To go" is what
- * the plan still asks for (`ahead`), the same miles the dashed bars draw, so a run that was not on the plan never makes
- * the rest of the week look shorter than it is.
+ * the plan still asks for (`ahead`), the same miles the dashed bars draw. Miles the plan did not ask for (a run on a day
+ * with none planned) are said as "ahead of plan", so "to go" is never read as the headline's difference: "9.3 of 12.5 mi"
+ * over "9.3 mi ahead of plan, 12.5 mi to go". Under a mile ahead is on plan (a watch reads 4.1 for a 4 mile run).
  */
 export const weekTakeaway = (w: RunBucket, last: RunBucket | null) => {
   if (w.planned <= 0) return last && !last.missing && last.done > 0 ? `${miShort(last.done)} mi last week` : 'No runs planned this week';
   const behind = w.plannedPast - w.done;
   if (behind > 0.05) return `${miShort(behind)} mi behind plan this week`;
-  return w.ahead > 0.05 ? `On plan, ${miShort(w.ahead)} mi to go` : 'This week’s plan is done';
+  if (w.ahead <= 0.05) return 'This week’s plan is done';
+  // what was run over the part of the plan that is no longer ahead
+  const over = w.done - (w.planned - w.ahead);
+  return over >= 1 ? `${miShort(over)} mi ahead of plan, ${miShort(w.ahead)} mi to go` : `On plan, ${miShort(w.ahead)} mi to go`;
 };
 
 /** The running headline at rest. `week` is this week whatever the range; `byWeek` reads this week against its plan (1W). */

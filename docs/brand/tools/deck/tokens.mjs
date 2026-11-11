@@ -232,6 +232,7 @@ add('motion', [
   ['--dur-in', '120ms', 'Fade in.', 'same'],
   ['--dur-out', '100ms', 'Fade out.', 'same'],
   ['--dur-color', '200ms', 'Color and halo changes.', 'same'],
+  ['--bar-stagger', '12ms', 'Chart bars rise this long after the one before, the last no later than 240ms after the first. A new range or mode.', null],
   ['--dur-page', '350ms', 'Page push and pop.', null],
   ['--dur-sheet', '500ms', 'Sheet open on --ease-sheet.', null],
   ['--dur-number', '480ms', 'Numbers and gauge fill.', null],
@@ -292,7 +293,7 @@ const json = {
     largeTextOnly: [['deep-sky', 'haze', 4.43], ['sky', 'twilight', 4.14]],
     banned: [['sky', 'paper', 2.26], ['sky', 'cloud', 2.07], ['white', 'sky', 2.30], ['white', 'sunrise', 3.25], ['sunrise', 'paper', 3.20], ['sunrise', 'cloud', 2.94], ['dusk', 'sky', 3.14], ['dusk', 'sunrise', 2.22], ['night-ink', 'twilight', 1.70], ['sunrise', 'sky (touching)', 1.42]],
     nonText: [['sky', 'paper', 2.26, 'needs a shape change or an Ink label'], ['deep-sky', 'haze', 4.43, 'gauge fill on track'], ['sunrise', 'paper', 3.20, 'now-marks pass 3:1'], ['pencil', 'paper', 3.61, 'ticks'], ['field-edge', 'paper', 3.20, 'field edges'], ['rest glyph #5F6D7B', 'haze', 4.15, 'rest session glyph in a Haze tile'], ['pencil', 'haze', 2.87, 'never a meaningful mark on Haze']],
-    decorative: ['minor gauge ticks (--tick 1.57)', 'off coin ring (--coin-ring 1.80)', 'off filter chip edge (--line-strong 1.44)', 'the thinking arc (#FF9F5A 2.0) and its Sky ring (1.3)', 'the Marigold warning mark (2.21): always with a glyph and words'],
+    decorative: ['minor gauge ticks (--tick 1.57)', 'an empty day ahead on the Progress chart (a --tick dot 1.57; the headline says Nothing planned when it is read)', 'off coin ring (--coin-ring 1.80)', 'off filter chip edge (--line-strong 1.44)', 'the thinking arc (#FF9F5A 2.0) and its Sky ring (1.3)', 'the Marigold warning mark (2.21): always with a glyph and words'],
   },
 };
 for (const t of T) { (json.groups[t.group] ||= {})[t.name.slice(2)] = { value: t.value, role: t.role, ...(t.replaces ? { replaces: t.replaces } : {}) }; }
